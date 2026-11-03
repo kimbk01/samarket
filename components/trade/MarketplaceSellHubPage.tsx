@@ -1,5 +1,6 @@
 "use client";
 
+import { preloadTradeWriteSheet } from "@/lib/trade/preload-trade-write-sheet";
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -88,6 +89,10 @@ function MarketplaceSellHubContent() {
   useEffect(() => {
     void loadOverview();
   }, [loadOverview]);
+  /** D1: 판매 화면이 열리면 글쓰기 시트 코드를 미리 받아 둔다 */
+  useEffect(() => {
+    preloadTradeWriteSheet();
+  }, []);
 
   const go = (href: string) => {
     if (!guardBeforeNavigate(href)) return;
@@ -95,6 +100,7 @@ function MarketplaceSellHubContent() {
   };
 
   const openWrite = () => {
+    preloadTradeWriteSheet();
     writeCtx?.ensureLauncherCategoriesLoaded();
     if (!guardBeforeNavigate()) return;
     openTradeWriteSheet("");

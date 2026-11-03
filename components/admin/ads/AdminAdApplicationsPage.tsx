@@ -32,7 +32,7 @@ const DOMAIN_CHOICES: Array<{
     href: "/admin/ad-applications?domain=trade",
     titleKey: "admin_ad_applications_trade_title",
     descKey: "admin_ad_applications_trade_desc",
-    fallbackTitleKo: "거래 더 알리기 신청",
+    fallbackTitleKo: "거래 상위노출 신청",
     fallbackTitleEn: "Trade promote requests",
     fallbackDescKo: "point_promotion_orders 중 domain=trade 큐만 심사합니다.",
     fallbackDescEn: "Review only point_promotion_orders where domain=trade.",

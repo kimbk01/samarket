@@ -220,7 +220,7 @@ export const adminMessages = {
     admin_ad_applications_choose_title: "광고 신청 도메인 선택",
     admin_ad_applications_choose_desc:
       "거래, 커뮤니티, 피드 배너 중 하나를 선택하면 해당 writer 큐만 표시됩니다.",
-    admin_ad_applications_trade_title: "거래 더 알리기 신청",
+    admin_ad_applications_trade_title: "거래 상위노출 신청",
     admin_ad_applications_trade_desc:
       "point_promotion_orders 중 domain=trade 큐만 심사합니다.",
     admin_ad_applications_community_title: "커뮤니티 더 알리기 신청",
@@ -654,7 +654,7 @@ export const adminMessages = {
     admin_promotion_owner_request_boundary:
       "요청한 채널 ≠ 실제 노출 채널입니다. 승인하면 이벤트 초안만 만들어지며, 게시·배너 활성화·Push 발송은 하지 않습니다.",
     admin_promotion_owner_request_empty: "대기 중인 오너 요청이 없습니다.",
-    admin_menu_ads_applications: "거래 더 알리기 신청",
+    admin_menu_ads_applications: "거래 상위노출 신청",
     admin_menu_ads_applications_group: "광고 신청",
     admin_menu_ads_execution_group: "노출 관리",
     admin_menu_ads_products_group: "광고 상품 / 가격",
@@ -845,9 +845,9 @@ export const adminMessages = {
     admin_comm_promo_hint: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
     admin_comm_promo_reject_prompt: "거절 사유 (필수)",
     admin_comm_promo_title: "게시물 홍보 신청",
-    admin_trade_promo_title: "거래 더 알리기 신청",
+    admin_trade_promo_title: "거래 상위노출 신청",
     admin_trade_promo_hint:
-      "거래 매물 더 알리기 — 글 확인 후 HOLD 확정/해제. 승인 시 홈·해당 카테고리 목록에 노출됩니다.",
+      "거래 매물 상위노출 — 글 확인 후 HOLD 확정/해제. 승인 시 홈·해당 카테고리 목록에 노출됩니다.",
     admin_trade_promo_open_listing: "매물 상세 확인",
     admin_trade_promo_open_admin_listing: "관리 매물",
     admin_trade_promo_review_snapshot:

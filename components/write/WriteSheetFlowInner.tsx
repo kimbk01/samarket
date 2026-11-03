@@ -21,10 +21,13 @@ import { ImageUploader, type ImageUploadItem } from "@/components/write/shared/I
 import { SubmitButton } from "@/components/write/shared/SubmitButton";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
-import { formatPriceInput } from "@/lib/utils/format";
+import { formatPriceInput, getCurrencyUnitLabel } from "@/lib/utils/format";
+import { getAppSettings } from "@/lib/app-settings";
 import {
   TRADE_WRITE_FB_CONTROL,
+  TRADE_WRITE_FB_CONTROL_ROW,
   TRADE_WRITE_FB_FIELD_HEAD,
+  TRADE_WRITE_FB_FIELD_LABEL,
   TRADE_WRITE_FB_SECTION,
 } from "@/lib/ui/trade-write-fb-ui";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
@@ -501,8 +504,11 @@ export function WriteSheetFlowInner({
               variant="karrot"
             />
           </div>
+          {/* D2: 주제를 고른 뒤 거래 폼과 같은 모양(필수 표시·가격 단위) — 고르는 순간 화면이 바뀌지 않게 */}
           <section data-ui3-slot="title" className={TRADE_WRITE_FB_SECTION}>
-            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_title")}</h4>
+            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+              {t("trade_write_title")} <span className="text-sam-danger">*</span>
+            </h4>
             <input
               type="text"
               value={pendingTitle}
@@ -512,21 +518,29 @@ export function WriteSheetFlowInner({
             />
           </section>
           <section data-ui3-slot="price" className={TRADE_WRITE_FB_SECTION}>
-            <label className={TRADE_WRITE_FB_FIELD_HEAD} htmlFor="write-ungated-price">
-              {t("trade_write_price")}
+            <label className={TRADE_WRITE_FB_FIELD_LABEL} htmlFor="write-ungated-price">
+              {t("trade_write_price")} <span className="text-sam-danger">*</span>
             </label>
-            <input
-              id="write-ungated-price"
-              type="text"
-              inputMode="numeric"
-              value={pendingPrice}
-              onChange={(e) => setPendingPrice(formatPriceInput(e.target.value))}
-              className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
-            />
+            <div className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}>
+              <span className="shrink-0 sam-text-body font-medium text-sam-muted">
+                {getCurrencyUnitLabel(getAppSettings().defaultCurrency)}
+              </span>
+              <input
+                id="write-ungated-price"
+                type="text"
+                inputMode="numeric"
+                value={pendingPrice}
+                onChange={(e) => setPendingPrice(formatPriceInput(e.target.value))}
+                placeholder={t("trade_006")}
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
+              />
+            </div>
           </section>
           <div data-ui3-slot="item">{rootTopicSelect}</div>
           <section data-ui3-slot="description" className={TRADE_WRITE_FB_SECTION}>
-            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_write_content")}</h4>
+            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+              {t("trade_write_content")} <span className="text-sam-danger">*</span>
+            </h4>
             <textarea
               value={pendingDescription}
               onChange={(e) => setPendingDescription(e.target.value)}

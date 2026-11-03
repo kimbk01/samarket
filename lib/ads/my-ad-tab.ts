@@ -40,6 +40,21 @@ export function classifyMyAdTab(displayStatus: string | null | undefined): MyAdT
   return FEED_TAB[s] ?? "pending";
 }
 
+/** 상위노출 주문 — 진행 중(기간 안 active) · 대기(심사) · 종료(그 외) */
+export function classifyMyBoostOrderTab(
+  orderStatus: string | null | undefined,
+  endAt: string | null | undefined,
+  nowMs: number = Date.now()
+): MyAdTab {
+  const s = String(orderStatus ?? "").trim().toLowerCase();
+  if (s === "pending" || s === "pending_review") return "pending";
+  if (s === "active") {
+    const end = Date.parse(String(endAt ?? ""));
+    return Number.isFinite(end) && end < nowMs ? "ended" : "active";
+  }
+  return "ended";
+}
+
 export function classifyMyPostAdTab(applyStatus: string | null | undefined): MyAdTab {
   const s = String(applyStatus ?? "").trim() as AdApplyStatus;
   return POST_AD_TAB[s] ?? "pending";

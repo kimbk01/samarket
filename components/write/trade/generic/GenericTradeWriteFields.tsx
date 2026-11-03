@@ -41,6 +41,11 @@ type Props = {
   currencyUnit?: string;
   /** Skip additional field ids (e.g. price when rendered in shell) */
   skipFieldIds?: readonly string[];
+  /**
+   * 감싸는 칸(여백·구분선) 클래스 — 보일 칸이 있을 때만 그린다 (D3 · Owner 2026-11-03: 빈 칸 2줄 결함).
+   * 없으면 예전처럼 안쪽만 그림.
+   */
+  wrapperClassName?: string;
 };
 
 export function GenericTradeWriteFields({
@@ -51,6 +56,7 @@ export function GenericTradeWriteFields({
   disabled,
   currencyUnit = "",
   skipFieldIds = [],
+  wrapperClassName,
 }: Props) {
   const { language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
@@ -60,7 +66,7 @@ export function GenericTradeWriteFields({
 
   if (visible.length === 0) return null;
 
-  return (
+  const body = (
     <div className={`space-y-3 ${disabled ? "pointer-events-none opacity-60" : ""}`}>
       {visible.map((f) => {
         const def = f.definition;
@@ -204,6 +210,7 @@ export function GenericTradeWriteFields({
       })}
     </div>
   );
+  return wrapperClassName ? <section className={wrapperClassName}>{body}</section> : body;
 }
 
 /** Validate adapted required fields against value map */

@@ -9,9 +9,11 @@ import { Megaphone, Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { AdminPostAdRow, MePostAdsMeta } from "@/lib/ads/types";
+import type { PointPromotionOrder } from "@/lib/types/point";
 import { postAdStatusLabel, postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import {
   classifyMyAdTab,
+  classifyMyBoostOrderTab,
   classifyMyPostAdTab,
   consumeMyAdsReturnToPending,
   markMyAdsReturnToPending,
@@ -125,6 +127,11 @@ export default function MyAdsPageClient() {
   const [renewProductId, setRenewProductId] = useState("");
   const [renewBusy, setRenewBusy] = useState(false);
   const [kindSheetOpen, setKindSheetOpen] = useState(false);
+  /**
+   * 상위노출 주문(거래·커뮤니티) — Owner 2026-11-03 계획 D: 「내 광고」에 상위노출 내역이 없던 결함.
+   * 같은 3분류(진행 중·대기·종료)에 넣는다. 금액·기간은 주문에 저장된 산 당시 값.
+   */
+  const [boostOrders, setBoostOrders] = useState<PointPromotionOrder[]>([]);
   const [cancelTarget, setCancelTarget] = useState<{ kind: "banner" | "promo"; id: string } | null>(null);
   const cancelGuard = useMypageSubmitGuard();
   const [tab, setTab] = useMypageTabParam<MyAdTab>({ values: MY_AD_TAB_VALUES, defaultValue: "active" });
@@ -139,6 +146,12 @@ export default function MyAdsPageClient() {
     if (!opts?.silent) setLoading(true);
     setAuthHint(null);
     try {
+      void fetch("/api/me/points/promotion-orders", { credentials: "include", cache: "no-store" })
+        .then(async (res) => {
+          const body = (await res.json().catch(() => ({}))) as { orders?: PointPromotionOrder[] };
+          setBoostOrders(res.ok && Array.isArray(body.orders) ? body.orders : []);
+        })
+        .catch(() => setBoostOrders([]));
       const [postPack, feedPack] = await Promise.all([
         runSingleFlight("me:post-ads:get", async () => {
           const res = await fetch("/api/me/post-ads", {
@@ -339,7 +352,8 @@ export default function MyAdsPageClient() {
 
   type AdRow =
     | { kind: "banner"; id: string; createdAt: string; tab: MyAdTab; row: FeedRequestRow }
-    | { kind: "promo"; id: string; createdAt: string; tab: MyAdTab; row: AdminPostAdRow };
+    | { kind: "promo"; id: string; createdAt: string; tab: MyAdTab; row: AdminPostAdRow }
+    | { kind: "boost"; id: string; createdAt: string; tab: MyAdTab; row: PointPromotionOrder };
 
   /** 두 목록을 같은 3분류로 묶고 최신순 */
   const allRows = useMemo<AdRow[]>(() => {
@@ -358,9 +372,16 @@ export default function MyAdsPageClient() {
         tab: classifyMyPostAdTab(a.applyStatus),
         row: a,
       })),
+      ...boostOrders.map((o) => ({
+        kind: "boost" as const,
+        id: o.id,
+        createdAt: o.createdAt,
+        tab: classifyMyBoostOrderTab(o.orderStatus, o.endAt),
+        row: o,
+      })),
     ];
     return out.sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
-  }, [ads, feedRequests]);
+  }, [ads, feedRequests, boostOrders]);
 
   const tabCounts = useMemo(() => {
     const c: Record<MyAdTab, number> = { active: 0, pending: 0, ended: 0 };
@@ -455,6 +476,50 @@ export default function MyAdsPageClient() {
           ) : (
             <ul className="space-y-2">
               {visibleRows.map((item) => {
+                if (item.kind === "boost") {
+                  const o = item.row;
+                  const isCommunity = o.domain === "community" || o.targetType === "community_post";
+                  return (
+                    <li
+                      key={`boost-${o.id}`}
+                      data-testid="revenue-hub-boost-order"
+                      data-status={o.orderStatus}
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <AdKindBadge
+                            kind="promo"
+                            label={isCommunity ? t("mypage_oa_ads_kind_boost_community") : t("mypage_oa_ads_kind_boost_trade")}
+                          />
+                          <p className="mt-1 truncate sam-text-body font-medium text-sam-fg">{o.targetTitle}</p>
+                          <p className="mt-0.5 sam-text-helper text-sam-muted">
+                            {t("mypage_oa_ads_boost_days", { days: String(o.durationDays) })} ·{" "}
+                            <CurrencyAmount currency="point" amount={o.pointCost} compactPoint className="font-medium" />
+                          </p>
+                          <p className="sam-text-helper text-sam-muted">
+                            {fmtDate(o.startAt) ?? "—"} → {fmtDate(o.endAt) ?? "—"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 sam-text-helper text-sam-muted" data-testid="revenue-hub-boost-status">
+                          {item.tab === "active"
+                            ? t("mypage_oa_ads_boost_status_active")
+                            : item.tab === "pending"
+                              ? t("mypage_oa_ads_boost_status_pending")
+                              : t("mypage_oa_ads_boost_status_ended")}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                          href={isCommunity ? `/community/post/${encodeURIComponent(o.targetId)}` : `/post/${encodeURIComponent(o.targetId)}`}
+                          className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border px-3 sam-text-helper"
+                        >
+                          {t("mypage_oa_ads_view_post")}
+                        </Link>
+                      </div>
+                    </li>
+                  );
+                }
                 if (item.kind === "promo") {
                   const a = item.row;
                   const cancellable = ["draft", "pending_payment", "pending_review"].includes(a.applyStatus);

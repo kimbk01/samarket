@@ -68,12 +68,21 @@ function communityFinancialTitles(
   return null;
 }
 
+/**
+ * 예전 거래 상위노출 결제 내역 문구 `프로모션 구매 (trade_promote_7, 7일)`(내부 상품 ID) → 「거래 상위노출 7일」로 보여 준다.
+ * DB 행은 고치지 않는다 — 새 결제는 DB 함수가 처음부터 새 문구로 쓴다(마이그레이션 20271103190000). Owner 2026-11-03.
+ */
+export function displayPointLedgerDescription(description: string): string {
+  const m = /^프로모션 구매 \(trade_promote_\d+, (\d+)일\)$/.exec(description.trim());
+  return m ? `거래 상위노출 ${m[1]}일` : description;
+}
+
 function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
   const amount = Math.trunc(Number(row.amount ?? 0));
   const entryType = String(row.entry_type ?? "");
   const relatedType = String(row.related_type ?? "");
   const relatedId = String(row.related_id ?? "");
-  const description = String(row.description ?? "");
+  const description = displayPointLedgerDescription(String(row.description ?? ""));
   const category = normalizePointFinancialCategory(entryType, relatedType);
   const titles = communityFinancialTitles(relatedType, entryType, description) ?? pointFinancialCategoryTitle(category);
   const direction = normalizePointFinancialDirection(amount);

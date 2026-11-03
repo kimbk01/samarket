@@ -30,7 +30,7 @@ export const adminTradeConsoleMessages = {
     admin_trade_ops_reports: "상품 신고 검토",
     admin_trade_ops_flow: "거래 운영",
     admin_trade_ops_complete: "구매자 확인",
-    admin_trade_ops_promo: "더 알리기",
+    admin_trade_ops_promo: "상위노출",
     admin_trade_link_panel: "기존 화면 LINK",
     admin_trade_recent_listings: "최근 게시물",
   },

@@ -1,5 +1,6 @@
 "use client";
 
+import { TradeWriteSheetLoadingFrame } from "@/components/trade/TradeWriteSheetLoadingFrame";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
@@ -53,7 +54,8 @@ const PhilifeWriteBottomSheetLazy = dynamic(
 const TradeWriteBottomSheetLazy = dynamic(
   () =>
     import("@/components/trade/TradeWriteBottomSheet").then((mod) => mod.TradeWriteBottomSheet),
-  { ssr: false }
+  /** D1: 코드가 오는 동안 열림 상태면 시트 틀을 바로 보여 준다 */
+  { ssr: false, loading: () => <TradeWriteSheetLoadingFrame /> }
 );
 const TradeChatEntryCreatingOverlayLazy = dynamic(
   () =>

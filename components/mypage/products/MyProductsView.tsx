@@ -1,5 +1,6 @@
 "use client";
 
+import { preloadTradeWriteSheet } from "@/lib/trade/preload-trade-write-sheet";
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
 import type { MyProductStatusChange } from "@/components/mypage/products/MyProductActions";
 import { Plus } from "lucide-react";
@@ -246,6 +247,35 @@ export function MyProductsView({
     if (!guardBeforeNavigate()) return;
     openTradeWriteSheet("");
   }, [guardBeforeNavigate, openTradeWriteSheet, writeCtx]);
+  /**
+   * D5 (Owner 2026-11-03): 「전체」가 비었는데 숨긴 매물이 있으면 「등록한 매물이 없어요」가 거짓 —
+   * 비었을 때만 숨김 탭에 글이 있는지 1건 확인해 안내를 바꾼다.
+   */
+  const [hasHiddenListings, setHasHiddenListings] = useState(false);
+  const allTabEmpty =
+    Boolean(currentUserId) && filter === "all" && !promotedOnly && list.status !== "loading" && list.items.length === 0;
+  useEffect(() => {
+    if (!allTabEmpty) {
+      setHasHiddenListings(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchMypageListJson<{ posts?: Product[] }>(`/api/my/posts?limit=1&filter=hidden`)
+      .then((data) => {
+        if (!cancelled) setHasHiddenListings((data.posts ?? []).length > 0);
+      })
+      .catch(() => {
+        if (!cancelled) setHasHiddenListings(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [allTabEmpty]);
+
+  /** D1: 내 매물 화면이 열리면 글쓰기 시트 코드를 미리 받아 둔다 */
+  useEffect(() => {
+    preloadTradeWriteSheet();
+  }, []);
 
   /** 판매 등록 CTA 표기 SSOT — 「판매하기」 (TM-40) */
   const createLabel = t("trade_write_sell_cta");
@@ -259,6 +289,34 @@ export function MyProductsView({
       fallbackKo: "광고 중 필터 해제",
       fallbackEn: "Clear ad filter",
     });
+
+    if (filter === "all" && !promotedOnly && hasHiddenListings) {
+      return (
+        <SellerHubEmptyState
+          message={safeT("marketplace_seller_empty_listings_all_hidden_only", {
+            fallbackKo: "판매 중인 매물이 없어요",
+            fallbackEn: "No listings on sale",
+          })}
+          hint={safeT("marketplace_seller_empty_listings_all_hidden_hint", {
+            fallbackKo: "숨긴 매물이 있어요. 숨김에서 볼 수 있어요.",
+            fallbackEn: "You have hidden listings. See them under Hidden.",
+          })}
+          actions={
+            <>
+              <SellerHubEmptyActionButton onClick={() => onFilterChange("hidden")}>
+                {safeT("marketplace_seller_cta_view_hidden", {
+                  fallbackKo: "숨긴 매물 보기",
+                  fallbackEn: "View hidden listings",
+                })}
+              </SellerHubEmptyActionButton>
+              <SellerHubEmptyActionButton variant="secondary" onClick={openWrite}>
+                <span className="inline-flex items-center justify-center gap-2"><TradeSellCtaContent /></span>
+              </SellerHubEmptyActionButton>
+            </>
+          }
+        />
+      );
+    }
 
     if (filter === "all" && !promotedOnly) {
       return (

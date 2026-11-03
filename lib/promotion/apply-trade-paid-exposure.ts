@@ -102,7 +102,7 @@ export async function applyTradePaidExposurePending(
     p_target_title: (input.targetTitle?.trim() || owned.targetTitle).slice(0, 500),
     p_user_nickname: (input.userNickname ?? "").slice(0, 120),
     p_idempotency_key: key,
-    p_hold_label: `거래 더 알리기 신청 (${product.durationDays}일)`,
+    p_hold_label: `거래 상위노출 신청 (${product.durationDays}일)`,
   });
   if (error) return { ok: false, error: error.message || "rpc_failed" };
   const r = (data ?? {}) as Record<string, unknown>;

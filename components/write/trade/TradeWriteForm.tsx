@@ -455,6 +455,25 @@ function TradeMarketplaceWriteFormInner({
   const [jobsListingKind, setJobsListingKind] = useState<JobListingKind>("hire");
   const [extendedChromeErrors, setExtendedChromeErrors] = useState<Record<string, string>>({});
   /**
+   * D4 (Owner 2026-11-03): 저장 때 생긴 칸 오류를 그 칸을 고치면 바로 지운다 — 「내용을 입력해 주세요」가 입력 뒤에도 남던 결함.
+   * 값이 바뀔 때만 실행(저장 버튼은 값을 바꾸지 않으므로 방금 생긴 오류는 그대로).
+   */
+  const clearFieldError = useCallback((key: string) => {
+    const drop = (prev: Record<string, string>) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    };
+    setErrors(drop);
+    setExtendedChromeErrors(drop);
+  }, []);
+  useEffect(() => clearFieldError("title"), [title, clearFieldError]);
+  useEffect(() => clearFieldError("description"), [description, clearFieldError]);
+  useEffect(() => clearFieldError("price"), [price, clearFieldError]);
+  useEffect(() => clearFieldError("images"), [images.length, clearFieldError]);
+  useEffect(() => clearFieldError("location"), [tradeAddressSsot.tradeLguId, tradeAddressSsot.nationalStatus, clearFieldError]);
+  /**
    * 중고차는 환전 폼과 같이 DB `has_location=false` 여도 거래 희망 장소·지도 플로우를 일반 중고와 동일하게 둔다.
    * (카테고리별 플래그만으로 블록이 숨겨지면 초안·픽 복귀가 동작하지 않음)
    */
@@ -2403,13 +2422,12 @@ function TradeMarketplaceWriteFormInner({
         />
     ),
     topic: (
-      <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-        <WriteTradeTopicSection
-          category={category}
-          value={tradeTopicChildId}
-          onChange={setTradeTopicChildId}
-        />
-      </div>
+      <WriteTradeTopicSection
+        category={category}
+        value={tradeTopicChildId}
+        onChange={setTradeTopicChildId}
+        wrapperClassName={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+      />
     ),
     location: tradeLocationEl,
     title: isExchangeProfile ? null : (
@@ -2554,7 +2572,15 @@ function TradeMarketplaceWriteFormInner({
           onRequestClose={onCancel}
         />
       ) : null}
-      <form id={TRADE_WRITE_FORM_ID} onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_FB_STACK_CLASS}>
+      {/*
+        D2 (Owner 2026-11-03): 글쓰기 시트 안(주제 선택 칸을 넘겨받음)에서는 시트가 이미 좌우 여백을 준다 —
+        폼이 여백을 한 번 더 주면 주제를 고른 순간 화면이 좁아지며 밀린다. 시트 안에서는 여백 없이 같은 폭.
+      */}
+      <form
+        id={TRADE_WRITE_FORM_ID}
+        onSubmit={handleSubmit}
+        className={rootTopicSelect != null ? "min-w-0 w-full max-w-full space-y-0" : APP_TRADE_WRITE_FORM_FB_STACK_CLASS}
+      >
         {tradePolicy?.hint ? (
           <div className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-1.5 sam-text-body-secondary text-sam-warning">
             {tradePolicy.hint}
@@ -2811,14 +2837,14 @@ function TradeMarketplaceWriteFormInner({
         </div>
         <div data-ui3-slot="item">
         {rootTopicSelect}
-        <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-          <WriteTradeTopicSection
-            category={category}
-            value={tradeTopicChildId}
-            onChange={setTradeTopicChildId}
-            compact
-          />
-        </div>
+        {/* D3: 하위 주제가 있을 때만 칸을 그린다(빈 칸 결함) */}
+        <WriteTradeTopicSection
+          category={category}
+          value={tradeTopicChildId}
+          onChange={setTradeTopicChildId}
+          compact
+          wrapperClassName={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        />
         {skinKey === "used-car" && compositionWriteFieldIds.has("car_trade") ? (
           <>
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
@@ -2998,8 +3024,8 @@ function TradeMarketplaceWriteFormInner({
           </section>
         )}
         {isKarrotGeneral ? (
-          <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <GenericTradeWriteFields
+              wrapperClassName={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
               fields={generalAdaptedFields}
               values={generalFieldValues}
               onChange={(fieldId, value) => {
@@ -3013,7 +3039,6 @@ function TradeMarketplaceWriteFormInner({
               currencyUnit={currencyUnit}
               skipFieldIds={["title", "price", "description", "is_free_share", "is_price_offer"]}
             />
-          </section>
         ) : null}
         </div>
         <section data-ui3-slot="description" className={TRADE_WRITE_FB_SECTION}>

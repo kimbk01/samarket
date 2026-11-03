@@ -12,6 +12,8 @@ interface WriteTradeTopicSectionProps {
   onChange: (childCategoryId: string) => void;
   /** 세로 패딩·제목 여백 축소 */
   compact?: boolean;
+  /** 감싸는 칸 클래스 — 하위 주제가 있을 때만 그린다 (D3 · 빈 칸 결함) */
+  wrapperClassName?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ export function WriteTradeTopicSection({
   value,
   onChange,
   compact = false,
+  wrapperClassName,
 }: WriteTradeTopicSectionProps) {
   const { t } = useI18n();
   const [topics, setTopics] = useState<CategoryWithSettings[]>([]);
@@ -42,7 +45,7 @@ export function WriteTradeTopicSection({
 
   if (category.parent_id || topics.length === 0) return null;
 
-  return (
+  const body = (
     <section className={`border-b border-sam-border-soft bg-sam-surface px-4 ${compact ? "py-2" : "py-3"}`}>
       <p className={`sam-text-body font-medium text-sam-fg ${compact ? "mb-1 leading-tight sam-text-body-secondary" : "mb-2"}`}>
         {compact ? (
@@ -87,6 +90,7 @@ export function WriteTradeTopicSection({
       </div>
     </section>
   );
+  return wrapperClassName ? <div className={wrapperClassName}>{body}</div> : body;
 }
 
 /** 글 저장용 카테고리 id */

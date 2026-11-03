@@ -113,7 +113,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           <h2 className="sam-text-body font-semibold text-sam-fg">
             {isTrade
               ? safeT("admin_trade_promo_title", {
-                  fallbackKo: "거래 더 알리기 신청",
+                  fallbackKo: "거래 상위노출 신청",
                   fallbackEn: "Trade promote requests",
                 })
               : safeT("admin_comm_promo_title", {
@@ -125,7 +125,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
             {isTrade
               ? safeT("admin_trade_promo_hint", {
                   fallbackKo:
-                    "거래 매물 더 알리기 신청 — 글 확인 후 승인/반려합니다. 승인 뒤 운영은 노출 관리에서 확인합니다.",
+                    "거래 매물 상위노출 신청 — 글 확인 후 승인/반려합니다. 승인 뒤 운영은 노출 관리에서 확인합니다.",
                   fallbackEn:
                     "Trade listing boost application — approve or reject after review. Approved operations are managed in Ads operations.",
                 })
