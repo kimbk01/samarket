@@ -106,3 +106,14 @@ export function formatStoreSalesBucketLabel(bucket: string, grain: StoreSalesGra
   const names = lang === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return `${m[2]}-${m[3]} (${names[dow]})`;
 }
+
+/** 월 줄 → 그 달 1일 ~ 말일(오늘을 넘지 않음) 일별 기간 (PHT 날짜 문자열) */
+export function storeSalesMonthDayRange(bucket: string, now: Date = new Date()): { fromDay: string; toDay: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(bucket);
+  const today = new Date(now.getTime() + MANILA_OFFSET_MS).toISOString().slice(0, 10);
+  if (!m) return { fromDay: today, toDay: today };
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const last = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+  return { fromDay: `${m[1]}-${m[2]}-01`, toDay: last < today ? last : today };
+}

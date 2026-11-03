@@ -39,6 +39,9 @@ export type OwnerStoreOrderListRow = {
   delivery_address_detail?: string | null;
   created_at: string;
   updated_at?: string | null;
+  /** 첫 완료 시각 (DB 2026-11-03) — 완료 탭 날짜 묶음·날짜 필터 기준. 옛 응답에는 없음 */
+  completed_at?: string | null;
+  refunded_at?: string | null;
   auto_complete_at?: string | null;
   estimated_prep_minutes?: number | null;
   estimated_ready_at?: string | null;

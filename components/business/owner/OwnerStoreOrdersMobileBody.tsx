@@ -57,6 +57,85 @@ function formatOwnerOrdersDateHeader(ymd: string, language: string): string {
   return `${ymd} (${names[dow]})`;
 }
 
+
+/** 묶음 날짜 — 완료 탭은 완료 시각(있을 때), 그 밖은 들어온 시각 · PHT */
+function ownerOrderGroupDay(o: OwnerStoreOrderListRow, tab: StoreOrderTabId): string {
+  const iso = tab === "done" && o.completed_at ? o.completed_at : o.created_at;
+  return formatManilaDateTime(iso).slice(0, 10);
+}
+
+const MANILA_DAY_MS = 86_400_000;
+function manilaDayString(offsetDays: number): string {
+  return formatManilaDateTime(new Date(Date.now() - offsetDays * MANILA_DAY_MS).toISOString()).slice(0, 10);
+}
+
+/** 날짜 칩 — 최근(기본) · 오늘 · 어제 · 기간 지정(최대 92일) · 필리핀 날짜 */
+function OwnerOrdersDateChips({
+  dateFilter,
+  onChange,
+  language,
+}: {
+  dateFilter: { from: string; to: string; basis: "created" | "completed" } | null;
+  onChange: (next: { from: string; to: string } | null) => void;
+  language: string;
+}) {
+  const ko = language === "ko";
+  const today = manilaDayString(0);
+  const yesterday = manilaDayString(1);
+  const isToday = dateFilter?.from === today && dateFilter?.to === today;
+  const isYesterday = dateFilter?.from === yesterday && dateFilter?.to === yesterday;
+  const isCustom = dateFilter != null && !isToday && !isYesterday;
+  const [customOpen, setCustomOpen] = useState(isCustom);
+  const [draftFrom, setDraftFrom] = useState(dateFilter?.from ?? today);
+  const [draftTo, setDraftTo] = useState(dateFilter?.to ?? today);
+  const chip = (active: boolean) =>
+    `inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-semibold ${
+      active ? "border-signature bg-signature text-sam-on-primary" : "border-sam-border bg-sam-surface text-sam-fg active:bg-sam-surface-muted"
+    }`;
+  return (
+    <div className="mt-2 space-y-1.5" data-owner-orders-date-chips="1">
+      <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
+        <button type="button" className={chip(dateFilter == null && !customOpen)} onClick={() => { setCustomOpen(false); onChange(null); }}>
+          {ko ? "최근" : "Recent"}
+        </button>
+        <button type="button" className={chip(isToday && !customOpen)} onClick={() => { setCustomOpen(false); onChange({ from: today, to: today }); }}>
+          {ko ? "오늘" : "Today"}
+        </button>
+        <button type="button" className={chip(isYesterday && !customOpen)} onClick={() => { setCustomOpen(false); onChange({ from: yesterday, to: yesterday }); }}>
+          {ko ? "어제" : "Yesterday"}
+        </button>
+        <button type="button" className={chip(customOpen || isCustom)} onClick={() => setCustomOpen(true)}>
+          {ko ? "기간 지정" : "Custom"}
+        </button>
+      </div>
+      {customOpen ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input type="date" value={draftFrom} max={today} onChange={(e) => setDraftFrom(e.target.value)} aria-label={ko ? "시작일" : "From"} className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[12px]" />
+          <span className="text-[12px] text-sam-muted">~</span>
+          <input type="date" value={draftTo} max={today} onChange={(e) => setDraftTo(e.target.value)} aria-label={ko ? "종료일" : "To"} className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[12px]" />
+          <button
+            type="button"
+            className={chip(true)}
+            disabled={!draftFrom || !draftTo || draftFrom > draftTo}
+            onClick={() => onChange({ from: draftFrom, to: draftTo })}
+          >
+            {ko ? "적용" : "Apply"}
+          </button>
+        </div>
+      ) : null}
+      {dateFilter ? (
+        <p className="text-[11px] text-sam-muted" data-owner-orders-date-basis={dateFilter.basis}>
+          {dateFilter.from === dateFilter.to ? dateFilter.from : `${dateFilter.from} ~ ${dateFilter.to}`}
+          {" · "}
+          {dateFilter.basis === "completed"
+            ? ko ? "완료 시각 기준 (PHT)" : "By completion time (PHT)"
+            : ko ? "들어온 시각 기준 (PHT)" : "By order time (PHT)"}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function OwnerStoreOrdersMobileBody({
   storeId,
   storeName,
@@ -79,6 +158,8 @@ export function OwnerStoreOrdersMobileBody({
   deepLinkMissBanner = null,
   scrollToHighlightOrderId = "",
   listFooter = null,
+  dateFilter = null,
+  onDateFilterChange,
 }: {
   storeId: string;
   storeName: string;
@@ -103,6 +184,9 @@ export function OwnerStoreOrdersMobileBody({
   onOpenChat: (orderId: string) => void;
   onCloseChat: () => void;
   onCollapseTransient: () => void;
+  /** 날짜 필터 (Owner 2026-11-03) — null = 「최근」 */
+  dateFilter?: { from: string; to: string; basis: "created" | "completed" } | null;
+  onDateFilterChange?: (next: { from: string; to: string } | null) => void;
 }) {
   const { t, language } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -293,6 +377,10 @@ export function OwnerStoreOrdersMobileBody({
             })}
           </div>
 
+          {onDateFilterChange ? (
+            <OwnerOrdersDateChips dateFilter={dateFilter} onChange={onDateFilterChange} language={language} />
+          ) : null}
+
           <div className="mt-2 grid grid-cols-4 gap-1">
             <KpiCard
               label={t("store_owner_mobile_kpi_new")}
@@ -319,7 +407,7 @@ export function OwnerStoreOrdersMobileBody({
               compact
             />
             <KpiCard
-              label={t("store_owner_mobile_kpi_done_today")}
+              label={dateFilter ? t("store_owner_mobile_kpi_done_period") : t("store_owner_mobile_kpi_done_today")}
               value={summaryCounts.doneToday}
               tone="text-[var(--biz-text)]"
               href={onTabHref("done")}
@@ -453,13 +541,12 @@ export function OwnerStoreOrdersMobileBody({
                 {/* 끝난 주문 탭(완료·취소·환불)은 필리핀 날짜별 묶음 제목 (Owner 2026-11-03 §6-3) */}
                 {OWNER_ORDERS_DATE_GROUPED_TABS.has(effectiveTab) &&
                 (idx === 0 ||
-                  formatManilaDateTime(displayOrders[idx - 1]!.created_at).slice(0, 10) !==
-                    formatManilaDateTime(o.created_at).slice(0, 10)) ? (
+                  ownerOrderGroupDay(displayOrders[idx - 1]!, effectiveTab) !== ownerOrderGroupDay(o, effectiveTab)) ? (
                   <li
                     className="pt-1 text-[12px] font-semibold text-sam-muted"
-                    data-owner-orders-date-header={formatManilaDateTime(o.created_at).slice(0, 10)}
+                    data-owner-orders-date-header={ownerOrderGroupDay(o, effectiveTab)}
                   >
-                    {formatOwnerOrdersDateHeader(formatManilaDateTime(o.created_at).slice(0, 10), language)}
+                    {formatOwnerOrdersDateHeader(ownerOrderGroupDay(o, effectiveTab), language)}
                   </li>
                 ) : null}
                 <OwnerStoreOrderMockCard

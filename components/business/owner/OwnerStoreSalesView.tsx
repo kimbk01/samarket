@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
@@ -17,6 +19,7 @@ import {
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
   formatStoreSalesBucketLabel,
+  storeSalesMonthDayRange,
   STORE_SALES_DAY_MAX_DAYS,
   type StoreSalesBucket,
   type StoreSalesGrain,
@@ -220,7 +223,32 @@ export function OwnerStoreSalesView() {
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.bucket} className="border-t border-sam-border-soft" data-owner-sales-row={r.bucket}>
-                      <td className="whitespace-nowrap px-2 py-2">{formatStoreSalesBucketLabel(r.bucket, grain, lang)}</td>
+                      <td className="whitespace-nowrap px-2 py-2">
+                        {grain === "day" ? (
+                          /* 그날 완료 주문 목록 (완료 시각 기준 · 주문 목록 날짜 필터) */
+                          <Link
+                            href={buildStoreOrdersHref({ storeId, tab: "done", dateFrom: r.bucket, dateTo: r.bucket })}
+                            className="inline-flex min-h-9 items-center font-semibold text-sam-primary underline"
+                            data-owner-sales-row-orders={r.bucket}
+                          >
+                            {formatStoreSalesBucketLabel(r.bucket, grain, lang)}
+                          </Link>
+                        ) : (
+                          /* 그 달 일별로 */
+                          <button
+                            type="button"
+                            className="inline-flex min-h-9 items-center font-semibold text-sam-primary underline"
+                            onClick={() => {
+                              const range = storeSalesMonthDayRange(r.bucket);
+                              setGrain("day");
+                              setPeriod({ period: "custom", fromDay: range.fromDay, toDay: range.toDay });
+                            }}
+                            data-owner-sales-row-month={r.bucket}
+                          >
+                            {formatStoreSalesBucketLabel(r.bucket, grain, lang)}
+                          </button>
+                        )}
+                      </td>
                       <td className="px-2 py-2 text-right">{r.completedCount}</td>
                       <td className="px-2 py-2 text-right font-semibold">{formatMoneyPhp(r.netSalesPhp)}</td>
                       <td className="px-2 py-2 text-right">{formatMoneyPhp(r.avgOrderValuePhp)}</td>

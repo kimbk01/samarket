@@ -1,6 +1,14 @@
 /**
  * OOL1 owner store orders list snapshot — read path (counter row → unified RPC).
  */
+import type { OwnerOrdersDateRange } from "@/lib/delivery/owner/owner-orders-date-filter";
+export {
+  OWNER_ORDERS_DATE_FILTER_MAX_DAYS,
+  ownerOrderRowInDateRange,
+  parseOwnerOrdersDateFilterParams,
+  type OwnerOrdersDateBasis,
+  type OwnerOrdersDateRange,
+} from "@/lib/delivery/owner/owner-orders-date-filter";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import {
@@ -135,7 +143,8 @@ async function fetchSnapshotViaRpc(
   ownerUserId: string,
   status: string,
   limit: number,
-  cursor: string
+  cursor: string,
+  range?: OwnerOrdersDateRange | null
 ): Promise<{ payload: OwnerStoreOrdersListSnapshotPayloadJson | null; rpcMs: number }> {
   const rpc0 = devPerfNow();
   const { data, error } = await sbAny.rpc(OWNER_STORE_ORDERS_LIST_SNAPSHOT_RPC, {
@@ -144,6 +153,8 @@ async function fetchSnapshotViaRpc(
     p_status: status,
     p_limit: limit,
     p_cursor: cursor,
+    // 날짜 조건은 있을 때만 보낸다 — 기본 목록 호출은 이전과 같은 5개 매개변수 (Owner 2026-11-03 날짜 필터)
+    ...(range ? { p_from: range.fromIso, p_to: range.toIso, p_date_basis: range.basis } : {}),
   });
   const rpcMs = devPerfNow() - rpc0;
   if (error) {
@@ -379,7 +390,8 @@ export async function loadOwnerStoreOrdersHistoryPage(
   sbAny: SupabaseClient<any>,
   storeId: string,
   ownerUserId: string,
-  cursor: string
+  cursor: string,
+  range?: OwnerOrdersDateRange | null
 ): Promise<
   | { ok: true; orders: OwnerStoreOrderListRow[]; nextCursor: string | null }
   | { ok: false; error: string; status: number }
@@ -390,7 +402,8 @@ export async function loadOwnerStoreOrdersHistoryPage(
     ownerUserId.trim(),
     "",
     OWNER_STORE_ORDERS_LIST_DEFAULT_LIMIT,
-    cursor.trim()
+    cursor.trim(),
+    range ?? null
   );
   if (!payload) return { ok: false, error: "snapshot_unavailable", status: 503 };
   const gate = ownerStoreOrdersListSnapshotGateFromPayload(payload);

@@ -87,7 +87,8 @@ describe("LOC-008 owner buyer contact masking (D-15 = 30 days)", () => {
     );
     expect(detail.match(/maskBuyerContactForOwner\(/g)?.length).toBe(2);
     const list = readFileSync(join(process.cwd(), "app/api/me/stores/[storeId]/orders/route.ts"), "utf8");
-    expect(list.match(/maskBuyerContactForOwner\(o\)/g)?.length).toBe(2);
+    // 캐시 응답 · 기본 응답 · 날짜 필터 응답(Owner 2026-11-03) 3곳
+    expect(list.match(/maskBuyerContactForOwner\(o\)/g)?.length).toBe(3);
     const admin = readFileSync(join(process.cwd(), "lib/admin/store-orders/load-admin-store-order-detail.ts"), "utf8");
     expect(admin).not.toContain("maskBuyerContactForOwner");
   });
