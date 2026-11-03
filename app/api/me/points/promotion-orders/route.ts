@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import type { MemberPromotionDomain } from "@/lib/points/promotion-products";
 import {
-  getMemberPromotionProduct,
-  listActiveMemberPromotionProducts,
-  type MemberPromotionDomain,
-} from "@/lib/points/promotion-products";
+  getMemberPromotionProductLive,
+  loadMemberPromotionProducts,
+  memberPromotionPriceMatches,
+  type MemberPromotionProductLive,
+} from "@/lib/points/member-promotion-products-server";
 import {
   mapPointPromotionOrderRow,
 } from "@/lib/points/point-promotion-orders-db";
@@ -37,9 +39,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     | "";
   const catalogDomain: MemberPromotionDomain | undefined =
     domainParam === "trade" || domainParam === "community" ? domainParam : undefined;
-  const catalog = wantCatalog
-    ? listActiveMemberPromotionProducts(catalogDomain).map((p) => ({
+  const sb = tryCreateSupabaseServiceClient();
+  /** 가격·기간·사용 여부 = DB `member_promotion_products` (표가 없으면 코드 처음 값) */
+  const catalogProducts =
+    wantCatalog && sb
+      ? await loadMemberPromotionProducts(sb, { domain: catalogDomain }).catch(() => null)
+      : null;
+  if (wantCatalog && sb && !catalogProducts) {
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 500 });
+  }
+  const catalog = catalogProducts
+    ? catalogProducts.map((p) => ({
         id: p.id,
+        revision: p.revision,
         domain: p.domain,
         durationDays: p.durationDays,
         pointCost: p.pointCost,
@@ -54,7 +66,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }))
     : undefined;
 
-  const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: true, orders: [], catalog, activeForTarget: null });
   }
@@ -119,6 +130,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     durationDays?: number;
     userNickname?: string;
     idempotencyKey?: string;
+    /** 화면에 보였던 금액·기간 — 지금 값과 다르면 결제하지 않고 409 price_changed */
+    expectedPointCost?: number;
+    expectedDurationDays?: number;
   };
 
   const targetId = body.targetId?.trim() ?? "";
@@ -126,7 +140,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "targetId_required" }, { status: 400 });
   }
 
-  let product = body.productId ? getMemberPromotionProduct(body.productId) : null;
+  let product: MemberPromotionProductLive | null = null;
+  try {
+    product = body.productId ? await getMemberPromotionProductLive(sb, body.productId) : null;
+  } catch {
+    return NextResponse.json({ ok: false, error: "catalog_load_failed" }, { status: 500 });
+  }
   /** 거래 J PR-1 (2026-10-28): 상품 id 를 보냈는데 카탈로그에 없으면 결제하지 않는다(예전에는 7일 상품으로 바꿔 결제) */
   if (body.productId && !product) {
     return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
@@ -135,13 +154,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const days = Math.max(1, Math.min(90, Math.floor(Number(body.durationDays) || 7)));
     const mapped =
       days >= 14 ? "trade_promote_14" : "trade_promote_7";
-    product = getMemberPromotionProduct(mapped);
+    product = await getMemberPromotionProductLive(sb, mapped).catch(() => null);
   }
-  if (!product) {
-    product = getMemberPromotionProduct("trade_promote_7");
+  if (!product && !body.productId) {
+    product = await getMemberPromotionProductLive(sb, "trade_promote_7").catch(() => null);
   }
   if (!product || product.priceAsset !== "D_POINT") {
     return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
+  }
+  if (
+    !memberPromotionPriceMatches(product, {
+      pointCost: body.expectedPointCost,
+      durationDays: body.expectedDurationDays,
+    })
+  ) {
+    return priceChangedResponse(product);
   }
 
   const targetType: PointPromotionTargetType =
@@ -179,6 +206,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           userId: auth.userId,
           postId: targetId,
           productId: product.id,
+          product,
           targetTitle,
           userNickname,
           idempotencyKey,
@@ -187,6 +215,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           userId: auth.userId,
           postId: targetId,
           productId: product.id,
+          product,
           targetTitle,
           userNickname,
           idempotencyKey,
@@ -239,6 +268,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userId: auth.userId,
       postId: targetId,
       productId: product.id,
+      product,
       targetTitle,
       userNickname,
       idempotencyKey,
@@ -282,17 +312,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const { data: rpcRaw, error: rpcErr } = await sb.rpc("purchase_member_content_promotion", {
-    p_user_id: auth.userId,
-    p_target_id: targetId,
-    p_product_id: product.id,
-    p_point_cost: product.pointCost,
-    p_duration_days: product.durationDays,
-    p_placement: product.placementPolicy,
-    p_domain: product.domain,
-    p_idempotency_key: idempotencyKey,
-    p_user_nickname: userNickname,
-    p_target_title: targetTitle,
+  const { data: rpcRaw, error: rpcErr } = await purchaseTradePromotion(sb, {
+    product,
+    userId: auth.userId,
+    targetId,
+    idempotencyKey,
+    userNickname,
+    targetTitle,
   });
 
   if (rpcErr) {
@@ -318,11 +344,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     start_at?: string;
     end_at?: string;
     point_cost?: number;
+    duration_days?: number;
     product_id?: string;
   };
 
   if (!rpc.ok) {
     const err = rpc.error ?? "purchase_failed";
+    /** 결제 순간 어드민이 가격을 바꿨으면 결제·차감 없이 새 값 돌려줌 */
+    if (err === "price_changed") {
+      return priceChangedResponse({
+        id: product.id,
+        pointCost: Number(rpc.point_cost ?? product.pointCost),
+        durationDays: Number(rpc.duration_days ?? product.durationDays),
+      });
+    }
     const status =
       err === "insufficient_balance"
         ? 400
@@ -362,5 +397,66 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     productId: product.id,
     pointCost: product.pointCost,
     endAt: rpc.end_at ?? order?.endAt,
+  });
+}
+
+/** 409 — 화면 금액·기간이 지금 가격과 다름. 결제·차감 없음. 화면은 `product` 로 다시 그린다 */
+function priceChangedResponse(product: { id: string; pointCost: number; durationDays: number }) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "price_changed",
+      code: "price_changed",
+      product: { id: product.id, pointCost: product.pointCost, durationDays: product.durationDays },
+    },
+    { status: 409 }
+  );
+}
+
+/**
+ * 거래 상위노출 즉시 결제.
+ * DB 가격표가 있으면 `purchase_member_content_promotion_v2` — 가격을 함수 안에서 다시 읽어(잠금) 다르면 price_changed,
+ * 주문에 가격 버전(product_revision)을 남긴다. 표·함수가 아직 없으면(마이그레이션 적용 전) 기존 함수로 코드 처음 값 결제.
+ */
+async function purchaseTradePromotion(
+  sb: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
+  input: {
+    product: MemberPromotionProductLive;
+    userId: string;
+    targetId: string;
+    idempotencyKey: string;
+    userNickname: string;
+    targetTitle: string;
+  }
+) {
+  const { product } = input;
+  if (product.source === "db") {
+    const v2 = await sb.rpc("purchase_member_content_promotion_v2", {
+      p_user_id: input.userId,
+      p_target_id: input.targetId,
+      p_product_id: product.id,
+      p_expected_point_cost: product.pointCost,
+      p_expected_duration_days: product.durationDays,
+      p_idempotency_key: input.idempotencyKey,
+      p_user_nickname: input.userNickname,
+      p_target_title: input.targetTitle,
+    });
+    const missing =
+      v2.error &&
+      (v2.error.message?.includes("purchase_member_content_promotion_v2") ||
+        v2.error.message?.includes("Could not find the function"));
+    if (!missing) return v2;
+  }
+  return sb.rpc("purchase_member_content_promotion", {
+    p_user_id: input.userId,
+    p_target_id: input.targetId,
+    p_product_id: product.id,
+    p_point_cost: product.pointCost,
+    p_duration_days: product.durationDays,
+    p_placement: product.placementPolicy,
+    p_domain: product.domain,
+    p_idempotency_key: input.idempotencyKey,
+    p_user_nickname: input.userNickname,
+    p_target_title: input.targetTitle,
   });
 }

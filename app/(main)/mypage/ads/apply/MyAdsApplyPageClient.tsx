@@ -38,6 +38,8 @@ export function MyAdsApplyPageClient() {
   } = usePromotionOrderTargets();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [canSubmit, setCanSubmit] = useState(false);
+  /** 서버가 price_changed 를 돌려주면 폼이 새 가격을 다시 읽는다 */
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const guard = useMypageSubmitGuard();
   const busy = guard.pending;
 
@@ -68,7 +70,10 @@ export function MyAdsApplyPageClient() {
               ? t("points_ui_insufficient")
               : j.error === "already_active_promotion"
               ? t("points_ui_promotion_conflict")
+              : j.error === "price_changed"
+              ? t("promo_price_changed")
               : t("points_ui_request_failed");
+          if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);
           setSubmitError(msg);
           showMypageToast(msg, "error");
           return;
@@ -134,6 +139,7 @@ export function MyAdsApplyPageClient() {
           productOptions={productOptions}
           onSubmit={(v) => void handleSubmit(v)}
           submitting={busy}
+          catalogRefreshKey={catalogRefreshKey}
         />
       )}
     </MyScreen>

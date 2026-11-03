@@ -117,6 +117,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
   },
 ];
 
+/**
+ * 상위노출 가격 어드민 관리 (Owner 2026-11-03): 위 값은 **처음 값(seed)** 이다.
+ * 실제 가격·기간·사용 여부 원본 = DB `member_promotion_products` (`member-promotion-products-server.ts`).
+ * 아래 동기 함수는 DB 표가 아직 없을 때(마이그레이션 적용 전) 대체값·테스트용으로만 쓴다.
+ */
+export function listMemberPromotionProductSeeds(): readonly MemberPromotionProduct[] {
+  return PRODUCTS;
+}
+
 export function listActiveMemberPromotionProducts(
   domain?: MemberPromotionDomain
 ): MemberPromotionProduct[] {

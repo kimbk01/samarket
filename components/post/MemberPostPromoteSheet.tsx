@@ -141,6 +141,9 @@ export function MemberPostPromoteSheet({
           targetTitle: postTitle,
           productId: selected.id,
           idempotencyKey: idem,
+          /** 화면에 보였던 금액·기간 — 그 사이 어드민이 바꿨으면 결제 없이 409 price_changed */
+          expectedPointCost: selected.pointCost,
+          expectedDurationDays: selected.durationDays,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -159,6 +162,16 @@ export function MemberPostPromoteSheet({
               fallbackKo: "포인트가 부족합니다.",
               fallbackEn: "Not enough Point.",
             })
+          );
+        } else if (j.error === "price_changed") {
+          /** 새 가격을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
+          void load().then(() =>
+            setErr(
+              safeT("promo_price_changed", {
+                fallbackKo: "가격이 바뀌었어요. 새 가격을 확인해 주세요.",
+                fallbackEn: "The price has changed. Please check the new price.",
+              })
+            )
           );
         } else if (j.error === "already_active_promotion") {
           setErr(

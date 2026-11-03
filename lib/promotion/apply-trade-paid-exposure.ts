@@ -5,7 +5,7 @@
  * LIST projection reads order_status=active only.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getMemberPromotionProduct } from "@/lib/points/promotion-products";
+import { getMemberPromotionProduct, type MemberPromotionProduct } from "@/lib/points/promotion-products";
 import { assertPromotionTargetOwned } from "@/lib/points/point-promotion-orders-db";
 import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
 
@@ -39,12 +39,14 @@ export async function applyTradePaidExposurePending(
     userId: string;
     postId: string;
     productId: string;
+    /** 서버가 DB 가격표에서 읽은 상품 (없으면 코드 처음 값) */
+    product?: MemberPromotionProduct | null;
     targetTitle?: string;
     userNickname?: string;
     idempotencyKey: string;
   }
 ): Promise<ApplyTradePromotionResult> {
-  const product = getMemberPromotionProduct(input.productId);
+  const product = input.product ?? getMemberPromotionProduct(input.productId);
   if (!product || product.domain !== "trade" || !product.requiresAdminApproval) {
     return { ok: false, error: "invalid_product" };
   }

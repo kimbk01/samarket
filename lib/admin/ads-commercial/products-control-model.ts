@@ -6,7 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ADS_CANONICAL_PRODUCTS } from "@/lib/ads/ads-canonical-product-ssot";
 import { listFeedAdProducts, type FeedAdProduct } from "@/lib/ads/feed-ad-products";
-import { listActiveMemberPromotionProducts } from "@/lib/points/promotion-products";
+import { loadMemberPromotionProducts } from "@/lib/points/member-promotion-products-server";
 import { formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
 import {
   formatDeliveryAdPhpMinor,
@@ -190,13 +190,15 @@ function deliveryLines(
 export async function loadAdsCommercialControlModel(
   sb: SupabaseClient
 ): Promise<AdsCommercialControlModel> {
-  const [feedProducts, delivery] = await Promise.all([
+  const [feedProducts, delivery, boostProducts] = await Promise.all([
     listFeedAdProducts(sb, { activeOnly: false }),
     loadDeliveryAdCommercialCatalog(sb),
+    /** 상위노출 가격 = DB `member_promotion_products` (어드민 › 상위노출 가격) */
+    loadMemberPromotionProducts(sb),
   ]);
 
-  const communityBoost = listActiveMemberPromotionProducts("community");
-  const tradeBoost = listActiveMemberPromotionProducts("trade");
+  const communityBoost = boostProducts.filter((p) => p.domain === "community");
+  const tradeBoost = boostProducts.filter((p) => p.domain === "trade");
 
   const sponsoredKeys = ["STORES_HOME_FEED", "STORES_CATEGORY_FEED"] as const;
   const heroKeys = ["STORES_HOME_HERO"] as const;

@@ -76,6 +76,9 @@ function resolvePromotionSubmitError(
   if (payload.error === "already_active_promotion") {
     return t("points_ui_promotion_conflict");
   }
+  if (payload.error === "price_changed") {
+    return t("promo_price_changed");
+  }
   return t("points_ui_request_failed");
 }
 
@@ -100,6 +103,8 @@ function MyPointsPromotionsPageInner() {
     unauthorized,
   } = usePromotionOrderTargets();
   const [orders, setOrders] = useState<PointPromotionOrder[]>([]);
+  /** 서버가 price_changed 를 돌려주면 폼이 새 가격을 다시 읽는다 */
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   /** 목록 조회 실패 — 빈 목록으로 표시하지 않는다(오류+재시도, 폼은 계속 사용 가능) */
   const [ordersError, setOrdersError] = useState(false);
@@ -164,6 +169,7 @@ function MyPointsPromotionsPageInner() {
         };
         if (!res.ok || !j.ok) {
           const msg = resolvePromotionSubmitError(t, j);
+          if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);
           setSubmitErr(msg);
           showMypageToast(msg, "error");
           return;
@@ -213,6 +219,7 @@ function MyPointsPromotionsPageInner() {
               onSubmit={(v) => void handleSubmit(v)}
               submitLabel={busy ? t("common_loading") : undefined}
               submitting={busy}
+              catalogRefreshKey={catalogRefreshKey}
             />
           )}
         </div>

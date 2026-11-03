@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { formatMypageNumber } from "@/lib/mypage/format-mypage-date";
-import {
-  listActiveMemberPromotionProducts,
-  type MemberPromotionProductId,
-} from "@/lib/points/promotion-products";
+import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
 
 export interface PointPromotionOrderFormValues {
   targetType: "product";
@@ -15,7 +12,21 @@ export interface PointPromotionOrderFormValues {
   targetTitle: string;
   productId: MemberPromotionProductId;
   idempotencyKey?: string;
+  /** 화면에 보였던 금액·기간 — 서버 가격과 다르면 결제 없이 409 price_changed */
+  expectedPointCost: number;
+  expectedDurationDays: number;
 }
+
+/** 거래 상위노출 카탈로그 — 가격·기간·사용 여부는 서버(DB 가격표) 값 */
+type CatalogItem = {
+  id: MemberPromotionProductId;
+  pointCost: number;
+  durationDays: number;
+  fallbackTitleKo: string;
+  fallbackTitleEn: string;
+  fallbackDescKo: string;
+  fallbackDescEn: string;
+};
 
 interface PointPromotionOrderFormProps {
   /** null = 잔액 확인 불가 → 신청 비활성, "—" 표시 */
@@ -33,6 +44,8 @@ interface PointPromotionOrderFormProps {
   hideSubmitButton?: boolean;
   /** 제출 가능 여부 변화 — 바깥 고정 CTA 활성 상태 동기화 */
   onCanSubmitChange?: (canSubmit: boolean) => void;
+  /** 바뀌면 카탈로그를 다시 읽는다 (서버가 price_changed 를 돌려줬을 때) */
+  catalogRefreshKey?: number;
 }
 
 export function PointPromotionOrderForm({
@@ -46,13 +59,31 @@ export function PointPromotionOrderForm({
   formId,
   hideSubmitButton = false,
   onCanSubmitChange,
+  catalogRefreshKey = 0,
 }: PointPromotionOrderFormProps) {
   const { t, language, safeT } = useI18n();
-  const catalog = useMemo(() => listActiveMemberPromotionProducts(), []);
+  /** null = 불러오는 중 · [] = 신청할 수 있는 상품 없음(모두 꺼짐) */
+  const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
   const [targetId, setTargetId] = useState("");
-  const [productId, setProductId] = useState<MemberPromotionProductId>(
-    catalog[0]?.id ?? "trade_promote_7"
-  );
+  const [productId, setProductId] = useState<MemberPromotionProductId | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/me/points/promotion-orders?catalog=1&domain=trade", {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        const j = (await res.json().catch(() => ({}))) as { catalog?: CatalogItem[] };
+        if (!cancelled) setCatalog(res.ok && Array.isArray(j.catalog) ? j.catalog : []);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogRefreshKey]);
 
   useEffect(() => {
     const want = (initialTargetId ?? "").trim();
@@ -61,7 +92,7 @@ export function PointPromotionOrderForm({
     setTargetId((prev) => (prev === want ? prev : want));
   }, [initialTargetId, productOptions]);
 
-  const selected = catalog.find((p) => p.id === productId) ?? catalog[0];
+  const selected = catalog?.find((p) => p.id === productId) ?? catalog?.[0] ?? null;
   const cost = selected?.pointCost ?? 0;
   const insufficient = balance !== null && balance < cost;
   const submitText = submitLabel ?? t("promo_sheet_cta");
@@ -95,6 +126,8 @@ export function PointPromotionOrderForm({
       targetTitle,
       productId: selected.id,
       idempotencyKey: idem,
+      expectedPointCost: selected.pointCost,
+      expectedDurationDays: selected.durationDays,
     });
   };
 
@@ -127,7 +160,17 @@ export function PointPromotionOrderForm({
 
       <div className="space-y-2">
         <p className="sam-text-body font-medium text-sam-fg">{t("promo_sheet_title")}</p>
-        {catalog.map((item) => {
+        {catalog === null ? (
+          <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
+        ) : catalog.length === 0 ? (
+          <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
+            {safeT("promo_no_active_products", {
+              fallbackKo: "지금 신청할 수 있는 상위노출 상품이 없어요.",
+              fallbackEn: "No top exposure products are available right now.",
+            })}
+          </p>
+        ) : null}
+        {(catalog ?? []).map((item) => {
           const title = langEn ? item.fallbackTitleEn : item.fallbackTitleKo;
           const desc = langEn ? item.fallbackDescEn : item.fallbackDescKo;
           const on = item.id === selected?.id;

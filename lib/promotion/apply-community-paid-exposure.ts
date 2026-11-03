@@ -64,12 +64,14 @@ export async function applyCommunityPaidExposurePending(
     userId: string;
     postId: string;
     productId: string;
+    /** 서버가 DB 가격표에서 읽은 상품 (없으면 코드 처음 값) */
+    product?: MemberPromotionProduct | null;
     targetTitle?: string;
     userNickname?: string;
     idempotencyKey: string;
   }
 ): Promise<ApplyCommunityPromotionResult> {
-  const product = getMemberPromotionProduct(input.productId);
+  const product = input.product ?? getMemberPromotionProduct(input.productId);
   if (!product || product.domain !== "community" || !product.requiresAdminApproval) {
     return { ok: false, error: "invalid_product" };
   }
@@ -165,12 +167,14 @@ export async function applyCommunityPaidExposureImmediate(
     userId: string;
     postId: string;
     productId: string;
+    /** 서버가 DB 가격표에서 읽은 상품 (없으면 코드 처음 값) */
+    product?: MemberPromotionProduct | null;
     targetTitle?: string;
     userNickname?: string;
     idempotencyKey: string;
   }
 ): Promise<ApplyCommunityPromotionResult> {
-  const product = getMemberPromotionProduct(input.productId);
+  const product = input.product ?? getMemberPromotionProduct(input.productId);
   if (!product || product.domain !== "community" || product.requiresAdminApproval) {
     return { ok: false, error: "invalid_product" };
   }
