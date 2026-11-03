@@ -1,6 +1,8 @@
 "use client";
 
 import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
+import { planTradeGridFeedAds } from "@/lib/trade/marketplace/plan-trade-grid-feed-ads";
+import { useGridColumnCount } from "@/lib/trade/marketplace/use-grid-column-count";
 import {
   TradeListSectionDivider,
   shouldShowTradeListSectionDivider,
@@ -98,7 +100,6 @@ import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-ov
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import {
   feedAdSlotSeed,
-  planFeedAdSlots,
   shouldInjectFeedAdAtContentIndex,
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
@@ -859,17 +860,31 @@ export function HomeProductList({
     () => getOrCreateFeedAdSessionId("trade:home"),
     []
   );
+  /** F3: 광고 줄은 실제 그리는 순서(남은 샘플·구분 줄·글·끼운 샘플)의 칸 위치로 정한다 — 줄 중간 빈칸 없음 */
+  const tradeHomeGridColumnCount = useGridColumnCount(listMeasureRef, TRADE_FEED_MOBILE_COLUMN_COUNT);
+  const tradeHomeListEnded = !(listPagination.hasMore || serverHasMore);
   const tradeHomeAdPlan = useMemo(
     () =>
-      planFeedAdSlots(
-        visiblePosts.length,
+      planTradeGridFeedAds(
+        visiblePosts.map((post, index) => ({
+          cellsBefore: tradeHomeListEnded && post.id === showcasePlan.firstSoldId ? showcaseRest.shown.length : 0,
+          dividerBefore: shouldShowTradeListSectionDivider(visiblePosts[index - 1]?.list_section, post.list_section, index),
+          cellsAfter: showcasePlan.afterPostId.has(post.id) ? 1 : 0,
+        })),
         feedAdSlotSeed({
           surfaceKey: "trade:home",
           feedSessionId: tradeHomeAdSessionId,
         }),
-        { columnCount: TRADE_FEED_MOBILE_COLUMN_COUNT }
+        tradeHomeGridColumnCount
       ),
-    [visiblePosts.length, tradeHomeAdSessionId]
+    [
+      visiblePosts,
+      tradeHomeListEnded,
+      showcasePlan,
+      showcaseRest.shown.length,
+      tradeHomeAdSessionId,
+      tradeHomeGridColumnCount,
+    ]
   );
   /** Feed Banner pool — one fetch per surface (slot selection is local). Community FIX-8 parity. */
   const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);

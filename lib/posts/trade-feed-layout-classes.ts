@@ -50,7 +50,7 @@ export const TRADE_CARD_PROMOTED_OUTLINE_CLASS = "rounded-[5px] outline-3 outlin
 export const TRADE_CARD_LONG_PRESS_MS = 500;
 export const TRADE_CARD_LONG_PRESS_MOVE_PX = 10;
 
-/** 모바일 열 수 — 피드 광고 줄 경계 계산(`planFeedAdSlots` columnCount) */
+/** 모바일 열 수 — 열 수를 읽기 전(서버·첫 그림) 광고 줄 계산 기본값(`useGridColumnCount`) */
 export const TRADE_FEED_MOBILE_COLUMN_COUNT = 2;
 
 /** 모바일 2열 · 태블릿 3열 · 와이드 4열 — 기존 메인 컬럼 셸 안에서만 */

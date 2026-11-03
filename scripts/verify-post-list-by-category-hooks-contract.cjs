@@ -26,7 +26,7 @@ if (!source.includes(MARKER)) {
 if (!source.includes("getOrCreateFeedAdSessionId(tradeCategorySurfaceKey)")) {
   fail("trade category Feed Ad session hook missing");
 }
-if (!source.includes("planFeedAdSlots(")) {
+if (!source.includes("planTradeGridFeedAds(")) {
   fail("trade category Feed Ad plan hook missing");
 }
 if (!source.includes("mountSeedFeed")) {

@@ -302,10 +302,15 @@ export function MemberPostPromoteSheet({
                   fallbackKo: "심사 중",
                   fallbackEn: "Under review",
                 })
-              : safeT("promo_sheet_already_active", {
-                  fallbackKo: "홍보 중",
-                  fallbackEn: "Promotion active",
-                })}
+              : domain === "community"
+                ? safeT("promo_sheet_already_active", {
+                    fallbackKo: "홍보 중",
+                    fallbackEn: "Promotion active",
+                  })
+                : safeT("promo_sheet_already_active_trade", {
+                    fallbackKo: "광고 중",
+                    fallbackEn: "Ad active",
+                  })}
           </p>
           {activeEndAt ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
@@ -405,6 +410,12 @@ export function MemberPostPromoteSheet({
                   })}
                 </li>
                 <li className="pt-1">
+                  {safeT("promo_sheet_trade_ad_label_note", {
+                    fallbackKo: "노출 중인 글은 거래 목록에 ‘광고’로 표시돼요.",
+                    fallbackEn: "While live, your listing shows an “Ad” label in Trade lists.",
+                  })}
+                </li>
+                <li>
                   {safeT("promo_sheet_not_top_pin", {
                     fallbackKo: "커뮤니티 상단 고정·피드 광고와는 다른 기능입니다.",
                     fallbackEn: "Different from Community top-pin and Feed ads.",

@@ -178,6 +178,8 @@ export const pointsUiMessages = {
     trade_promo_badge: "광고",
     trade_promo_detail_cta: "거래 상위노출",
     promo_sheet_title_trade: "거래 상위노출",
+    promo_sheet_already_active_trade: "광고 중",
+    promo_sheet_trade_ad_label_note: "노출 중인 글은 거래 목록에 ‘광고’로 표시돼요.",
     promo_product_trade_7_title: "7일 거래 상위노출",
     promo_product_trade_7_desc:
       "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 표면당 최대 3개입니다.",
@@ -408,6 +410,8 @@ export const pointsUiMessages = {
     trade_promo_badge: "Ad",
     trade_promo_detail_cta: "Trade top exposure",
     promo_sheet_title_trade: "Trade top exposure",
+    promo_sheet_already_active_trade: "Ad active",
+    promo_sheet_trade_ad_label_note: "While live, your listing shows an “Ad” label in Trade lists.",
     promo_product_trade_7_title: "Trade top exposure · 7 days",
     promo_product_trade_7_desc:
       "After payment, shown among listings on Trade home and this post’s category feed. Up to 3 per surface.",

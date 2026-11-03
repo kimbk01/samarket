@@ -49,12 +49,12 @@ export function MyProductFilter({
 }: MyProductFilterProps) {
   const { safeT } = useI18n();
   const promotedLabel = safeT("marketplace_seller_promoted_only", {
-    fallbackKo: "포인트 홍보",
-    fallbackEn: "Point promoted",
+    fallbackKo: "광고 중",
+    fallbackEn: "Ad active",
   });
   const promotedAria = safeT("marketplace_seller_promoted_only_aria", {
-    fallbackKo: "포인트로 목록에 노출 중인 홍보 매물만 보기",
-    fallbackEn: "Show only listings promoted with Point",
+    fallbackKo: "목록에 ‘광고’로 노출 중인 매물만 보기",
+    fallbackEn: "Show only listings shown as Ad in lists",
   });
 
   /** 내정보 공통 탭(`MyTabs`) — 「포인트 홍보」는 거래 J H-2 결정대로 같은 줄 마지막 칸(가려지지 않게 스크롤 칸 안) */

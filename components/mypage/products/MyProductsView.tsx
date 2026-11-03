@@ -256,8 +256,8 @@ export function MyProductsView({
       fallbackEn: "View all listings",
     });
     const clearPromoLabel = safeT("marketplace_seller_cta_clear_promoted_only", {
-      fallbackKo: "포인트 홍보 해제",
-      fallbackEn: "Clear Point filter",
+      fallbackKo: "광고 중 필터 해제",
+      fallbackEn: "Clear ad filter",
     });
 
     if (filter === "all" && !promotedOnly) {
@@ -280,12 +280,12 @@ export function MyProductsView({
       return (
         <SellerHubEmptyState
           message={safeT("marketplace_seller_empty_listings_promoted", {
-            fallbackKo: "홍보 중인 매물이 없어요",
-            fallbackEn: "No promoted listings",
+            fallbackKo: "광고 중인 매물이 없어요",
+            fallbackEn: "No listings with an active ad",
           })}
           hint={safeT("marketplace_seller_empty_listings_promoted_hint", {
-            fallbackKo: "홍보 중만 보기가 켜져 있어요. 다른 매물을 보려면 필터를 해제해 주세요.",
-            fallbackEn: "Promoted-only filter is on. Turn it off to see other listings.",
+            fallbackKo: "광고 중 필터가 켜져 있어요. 다른 매물을 보려면 필터를 해제해 주세요.",
+            fallbackEn: "Ad active filter is on. Turn it off to see other listings.",
           })}
           actions={
             <>

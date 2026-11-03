@@ -1,6 +1,8 @@
 "use client";
 
 import { TRADE_FEED_MOBILE_COLUMN_COUNT } from "@/lib/posts/trade-feed-layout-classes";
+import { planTradeGridFeedAds } from "@/lib/trade/marketplace/plan-trade-grid-feed-ads";
+import { useGridColumnCount } from "@/lib/trade/marketplace/use-grid-column-count";
 import {
   TradeListSectionDivider,
   shouldShowTradeListSectionDivider,
@@ -73,7 +75,6 @@ import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import {
   feedAdSlotSeed,
-  planFeedAdSlots,
   shouldInjectFeedAdAtContentIndex,
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
@@ -827,18 +828,6 @@ export function PostListByCategory({
     () => getOrCreateFeedAdSessionId(tradeCategorySurfaceKey),
     [tradeCategorySurfaceKey]
   );
-  const tradeCategoryAdPlan = useMemo(
-    () =>
-      planFeedAdSlots(
-        posts.length,
-        feedAdSlotSeed({
-          surfaceKey: tradeCategorySurfaceKey,
-          feedSessionId: tradeCategoryAdSessionId,
-        }),
-        { columnCount: TRADE_FEED_MOBILE_COLUMN_COUNT }
-      ),
-    [posts.length, tradeCategorySurfaceKey, tradeCategoryAdSessionId]
-  );
   /** Feed Banner pool — one fetch per surface (slot selection is local). Community FIX-8 parity. */
   const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
   useEffect(() => {
@@ -881,6 +870,32 @@ export function PostListByCategory({
   const showcasePlan = useMemo(() => planTradeShowcaseInterleave(posts, showcaseItems), [posts, showcaseItems]);
   const [showcaseOpen, setShowcaseOpen] = useState<TradeShowcaseItem | null>(null);
   const showcaseRest = useTradeShowcasePaging(showcasePlan.rest);
+  /** F3: 광고 줄은 실제 그리는 순서(남은 샘플·구분 줄·글·끼운 샘플)의 칸 위치로 정한다 — 줄 중간 빈칸 없음 */
+  const tradeCategoryGridColumnCount = useGridColumnCount(listRootRef, TRADE_FEED_MOBILE_COLUMN_COUNT);
+  const tradeCategoryAdPlan = useMemo(
+    () =>
+      planTradeGridFeedAds(
+        posts.map((post, index) => ({
+          cellsBefore: !hasMore && post.id === showcasePlan.firstSoldId ? showcaseRest.shown.length : 0,
+          dividerBefore: shouldShowTradeListSectionDivider(posts[index - 1]?.list_section, post.list_section, index),
+          cellsAfter: showcasePlan.afterPostId.has(post.id) ? 1 : 0,
+        })),
+        feedAdSlotSeed({
+          surfaceKey: tradeCategorySurfaceKey,
+          feedSessionId: tradeCategoryAdSessionId,
+        }),
+        tradeCategoryGridColumnCount
+      ),
+    [
+      posts,
+      hasMore,
+      showcasePlan,
+      showcaseRest.shown.length,
+      tradeCategorySurfaceKey,
+      tradeCategoryAdSessionId,
+      tradeCategoryGridColumnCount,
+    ]
+  );
 
   // JSX 분기 return — hooks must stay above this marker (verify:post-list-by-category-hooks-contract)
 
