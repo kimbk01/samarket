@@ -61,7 +61,7 @@ describe("실기 A-7 — 관리자 포인트 원장 목록 칸별 합계 (DB 함
 
 describe("실기 A-9 — 주문 돈 흐름 머리글 시각", () => {
   it("UTC 원문(`{chain.date}`·`{ev.at}`)을 그대로 출력하지 않는다", () => {
-    for (const f of ["components/finance/OrderMoneyChainView.tsx", "components/admin/finance/AdminFinanceTransparentPanels.tsx"]) {
+    for (const f of ["components/finance/OrderMoneyChainView.tsx"]) {
       const src = read(f);
       expect(src, f).not.toMatch(/\{chain\.date\}/);
       expect(src, f).not.toMatch(/>\{ev\.at\}</);

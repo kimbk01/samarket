@@ -31,13 +31,10 @@ describe("ARO-OPS-UX-002-B4 common finance control plane", () => {
     expect(ui).not.toMatch(/총 자산|total assets|merge.*Point.*Coin.*Cash/i);
   });
 
-  it("finance hub mounts Control Plane before store tools; B3 statement stays separate", () => {
-    const panels = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    expect(panels).toContain("AdminFinanceControlPlane");
-    expect(panels).toContain("AdminStoreFinancialStatement");
-    expect(panels.indexOf("AdminFinanceControlPlane")).toBeLessThan(
-      panels.indexOf("AdminStoreFinancialStatement")
-    );
+  it("finance hub (/admin/finance = AdminFinanceHubView) mounts Control Plane", () => {
+    // 예전 허브 부품 AdminStoreFinancePanels 는 화면 연결 0 이라 삭제(재감사 P-8) — 지금 허브만 본다
+    expect(read("app/admin/finance/page.tsx")).toContain("AdminFinanceHubView");
+    expect(read("components/finance/AdminFinanceHubView.tsx")).toContain("<AdminFinanceControlPlane />");
   });
 
   it("Action Center + Delivery deep-link to finance control plane", () => {

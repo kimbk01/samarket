@@ -55,8 +55,8 @@ describe("CUT B Finance SSOT + operation UX", () => {
   });
 
   it("mounts Finance Control Plane on finance hub (B4; supersedes count-only ops queue)", () => {
-    const panels = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    expect(panels).toContain("AdminFinanceControlPlane");
+    // 지금 허브 = AdminFinanceHubView (예전 AdminStoreFinancePanels 는 연결 0 이라 삭제 · 재감사 P-8)
+    expect(read("components/finance/AdminFinanceHubView.tsx")).toContain("AdminFinanceControlPlane");
     expect(existsSync(join(process.cwd(), "components/admin/finance/AdminFinanceControlPlane.tsx"))).toBe(
       true
     );

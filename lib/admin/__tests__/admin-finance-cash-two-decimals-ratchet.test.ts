@@ -16,8 +16,6 @@ const CASH_SCREENS = [
   "components/finance/AdminFinanceStoreViews.tsx",
   "components/finance/AdminFinanceOutstandingView.tsx",
   "components/admin/finance/AdminFinanceControlPlane.tsx",
-  "components/admin/finance/AdminStoreFinancePanels.tsx",
-  "components/admin/finance/AdminFinanceTransparentPanels.tsx",
 ] as const;
 
 /** Cash 성격 값 이름 — 이 이름이 인자에 들어가면 PHP 포맷터 금지. */

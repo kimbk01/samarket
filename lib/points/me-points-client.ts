@@ -169,30 +169,3 @@ export async function fetchMePoints(opts: {
   }
   return result;
 }
-
-/** 충전 신청 「더 보기」 — 같은 기간의 다음 페이지만 */
-export async function fetchMePointChargeRequests(opts: {
-  period: MePointsPeriodQuery;
-  offset: number;
-  limit?: number;
-}): Promise<{
-  ok: boolean;
-  chargeRequests: PointChargeRequest[];
-  chargeRequestsPage: Omit<PointChargeRequestsPage, "items"> | null;
-}> {
-  const qs = new URLSearchParams({ section: "charges", chargeOffset: String(Math.max(0, opts.offset)) });
-  if (opts.limit) qs.set("chargeLimit", String(opts.limit));
-  appendPeriod(qs, opts.period);
-  try {
-    const res = await fetch(`/api/me/points?${qs.toString()}`, { credentials: "include", cache: "no-store" });
-    const j = (await res.json().catch(() => ({}))) as MePointsResponse;
-    if (!res.ok || !j.ok) return { ok: false, chargeRequests: [], chargeRequestsPage: null };
-    return {
-      ok: true,
-      chargeRequests: Array.isArray(j.chargeRequests) ? j.chargeRequests : [],
-      chargeRequestsPage: j.chargeRequestsPage ?? null,
-    };
-  } catch {
-    return { ok: false, chargeRequests: [], chargeRequestsPage: null };
-  }
-}

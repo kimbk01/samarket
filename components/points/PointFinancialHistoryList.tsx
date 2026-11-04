@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
 import { pointFinancialDayKey } from "@/lib/points/point-financial-history";
@@ -239,29 +239,5 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
         </DibayOverlayButton>
       </div>
     </DibayBottomSheet>
-  );
-}
-
-/** Convenience stateful wrapper for list + sheet */
-export function PointFinancialHistoryPanel({
-  items,
-  loading,
-  emptyLabel,
-}: {
-  items: PointFinancialHistoryItem[];
-  loading?: boolean;
-  emptyLabel?: string;
-}) {
-  const [selected, setSelected] = useState<PointFinancialHistoryItem | null>(null);
-  return (
-    <>
-      <PointFinancialHistoryList
-        items={items}
-        loading={loading}
-        emptyLabel={emptyLabel}
-        onSelect={setSelected}
-      />
-      <PointFinancialDetailSheet item={selected} onClose={() => setSelected(null)} />
-    </>
   );
 }

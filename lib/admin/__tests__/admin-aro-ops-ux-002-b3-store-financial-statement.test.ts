@@ -40,8 +40,8 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
   });
 
   it("wires into existing finance route (no parallel store-finance-v2)", () => {
-    const panels = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    expect(panels).toContain("AdminStoreFinancialStatement");
+    // 재감사 P-8 (2026-11-04): 이 화면을 붙이던 AdminStoreFinancePanels 는 /admin/finance 가 AdminFinanceHubView 로 바뀐 뒤
+    // 화면 연결 0 이라 삭제했다. AdminStoreFinancialStatement 를 붙이는 화면은 지금 없다 — Owner 결정 사항으로 보고함.
     expect(existsSync(resolve(process.cwd(), "app/admin/store-finance-v2"))).toBe(false);
     expect(businessCcFinancialStatementHref("s1")).toBe("/admin/finance?storeId=s1");
   });

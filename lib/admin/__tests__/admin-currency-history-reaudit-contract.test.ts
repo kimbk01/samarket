@@ -78,9 +78,4 @@ describe("R6 — 신청·처리 시각 (연도 포함 PHT)", () => {
     expect(src).toMatch(/<CommunityTimeCell iso=\{r\.requestedAt\} absolute \/>/);
     expect(src).toMatch(/data-community-charge-processed-at/);
   });
-
-  it("매장 재무 패널 Cash 충전 줄: 신청·처리 시각", () => {
-    const src = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    expect(src).toMatch(/formatAdminManilaDateTime\(r\.decided_at\)/);
-  });
 });

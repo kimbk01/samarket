@@ -87,11 +87,8 @@ describe("실기 발견 결함 6 — 관리자 수수료 카드: 받기 전·실
 });
 
 describe("실기 발견 결함 4 — 회원 포인트 화면 날짜 표기 하나로 (필리핀 시간 고정)", () => {
-  it("충전 목록 취소 시각·만료 예정 화면이 formatMypageDate 를 쓴다", () => {
+  it("충전 목록 취소 시각이 formatMypageDate 를 쓴다 (만료 예정 부품은 쓰는 곳이 없어 삭제 · P-8)", () => {
     const list = read("components/points/PointChargeRequestList.tsx");
     expect(list).not.toContain("formatPointChargePht");
-    const expire = read("components/points/PointExpireList.tsx");
-    expect(expire).not.toMatch(/toLocale(Date)?String\("ko-KR"\)/);
-    expect(expire).toContain("formatMypageDate(e.expiresAt");
   });
 });

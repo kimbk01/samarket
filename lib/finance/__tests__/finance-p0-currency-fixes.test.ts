@@ -62,7 +62,6 @@ describe("P0-1 — 조회 실패 ≠ 잔액 0", () => {
       expect(src).not.toMatch(/businessCash\?\.balanceMinor\) \|\| 0/);
     }
     expect(read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx")).not.toContain("amount={cashBalanceMinor ?? 0}");
-    expect(read("components/admin/finance/AdminStoreFinancePanels.tsx")).not.toContain("data?.cash?.balanceMinor ?? 0");
   });
 
   it("conversion policy is never invented (no rate 1 fallback)", () => {
@@ -277,10 +276,8 @@ describe("Owner 2026-11-03 — Coin 지급 명칭 = 「Coin 출금」 단일", (
 
 describe("P1 — 관리자 Coin·Cash 원장·증빙·환급 대기, 사장님 내역 사유", () => {
   it("admin ledger table shows id, PHT time, before, signed change, actor, source", () => {
-    const panel = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    for (const col of ['"거래 ID"', '"일시 (PHT)"', '"이전 잔액"', '"증감"', '"처리 주체"', '"원천 거래"']) expect(panel).toContain(col);
-    expect(panel).toContain('String(row.direction ?? "").toLowerCase() === "debit" ? -1 : 1');
-    expect(panel).not.toContain("{row.entryKind} · {new Date(row.createdAt).toLocaleString()}");
+    // 재감사 P-8 (2026-11-04): 이 표를 그리던 AdminStoreFinancePanels 는 화면 연결 0 이라 삭제. 지금 관리자 매장 상세
+    // (AdminFinanceStoreViews → FinanceTransactionList)에는 「이전 잔액」「처리 주체」 열이 없다 — Owner 결정 사항으로 보고함.
     expect(read("app/api/admin/store-finance/route.ts")).toContain("{ includeAudit: true }");
   });
 
@@ -292,7 +289,8 @@ describe("P1 — 관리자 Coin·Cash 원장·증빙·환급 대기, 사장님 �
 
   it("top-up evidence and pending refunds are visible to admin", () => {
     expect(read("app/api/admin/store-finance/route.ts")).toContain("payment_reference, proof_file_path, reject_reason");
-    expect(read("components/admin/finance/AdminStoreFinancePanels.tsx")).toContain('data-admin-cash-topup-evidence="1"');
+    // 증빙은 지금 Cash 충전 신청 화면이 보여 준다 (예전 패널은 연결 0 이라 삭제 · P-8)
+    expect(read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx")).toContain("data-admin-cash-charge-reference");
     expect(read("app/api/admin/points/refund-pending/route.ts")).toContain("POINT_REFUND_PENDING_ACTION");
     expect(read("components/admin/points/AdminPointLedgerPage.tsx")).toContain("<AdminPointRefundPendingPanel");
   });
