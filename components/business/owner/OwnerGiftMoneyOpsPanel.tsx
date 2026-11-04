@@ -5,6 +5,7 @@ import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { STORE_COIN_WITHDRAWAL_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard } from "@/components/currency";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -229,7 +230,8 @@ export function OwnerGiftMoneyOpsPanel(props: {
   const refreshSilently = useCallback(() => load(true), [load]);
   // 재감사 R1 — Coin 잔액: 앱 복귀·이 매장의 처리 결과 알림(Coin 출금 반려·지급 등) 때 다시 읽는다 (이전: 재조회 없음)
   useRefetchOnPageShowRestore(refreshSilently, { enableWindowFocusRefetch: true });
-  useRefetchOnNotificationArrival(refreshSilently, { storeId });
+  // 이 패널의 돈 값은 Coin 잔액뿐 → Coin 출금 결과만
+  useRefetchOnNotificationArrival(refreshSilently, { storeId, kinds: STORE_COIN_WITHDRAWAL_OUTCOME_KINDS });
 
   const summary = data?.summary ?? null;
   const giftRail = data?.giftRail ?? null;

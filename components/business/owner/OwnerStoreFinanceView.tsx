@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { STORE_MONEY_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard } from "@/components/currency";
 import { OwnerWalletHistory } from "@/components/business/owner/OwnerWalletHistory";
@@ -242,7 +243,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const refetchSilently = useCallback(() => load({ silent: true, refreshHistory: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
   // H-12·R1 — 이 매장의 관리자 처리 결과 알림(Cash 충전·Coin 출금)이 오면 갱신
-  useRefetchOnNotificationArrival(refetchSilently, { storeId });
+  useRefetchOnNotificationArrival(refetchSilently, { storeId, kinds: STORE_MONEY_OUTCOME_KINDS });
   // 탭(section) 이동 때마다 잔액만 재조회 — 새 탭의 기간 내역은 붙을 때 스스로 읽는다(두 번 읽기 방지 · R5-b)
   const firstSectionRef = useRef(true);
   useEffect(() => {

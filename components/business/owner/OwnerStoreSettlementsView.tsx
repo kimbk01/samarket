@@ -34,6 +34,7 @@ import {
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { STORE_CASH_CHARGE_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import {
   CashLedgerKindChips,
   CashLedgerView,
@@ -239,7 +240,8 @@ export function OwnerStoreSettlementsView() {
   // 앱 복귀·이 매장의 처리 결과 알림(Cash 충전·Coin 출금) → 조용히 다시 읽기 (재감사 R1 · 이전: 재조회 없음)
   const refetchSilently = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
-  useRefetchOnNotificationArrival(refetchSilently, { storeId });
+  // 수수료·캐시 내역·미납 = Cash 쪽만 (Coin 출금은 이 화면 값을 바꾸지 않는다)
+  useRefetchOnNotificationArrival(refetchSilently, { storeId, kinds: STORE_CASH_CHARGE_OUTCOME_KINDS });
 
   useEffect(() => {
     if (!openParam || openedFromLinkRef.current === openParam) return;

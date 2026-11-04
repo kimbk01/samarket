@@ -63,6 +63,8 @@ export const NOTIFICATION_ITEM_SOUND_SEEDS: readonly NotificationItemSoundSeed[]
   seed("item_owner_store_point", "매장 포인트", "Store points", "settlement", "owner", "delivery_order_created_owner"),
   seed("item_owner_ad_status", "광고 심사·상태", "Ad status", "delivery_owner", "owner", "admin_notice_received"),
   seed("item_owner_ad_cash", "광고 캐시 충전 결과", "Ad cash", "delivery_owner", "owner", "admin_notice_received"),
+  // 재감사 E-1 — 마이그레이션 20271104160000 (지금 소리 = 공지 소리 그대로).
+  seed("item_owner_coin_withdrawal", "Coin 출금 결과", "Coin withdrawal", "settlement", "owner", "admin_notice_received"),
   seed("item_owner_store_decision", "매장 심사·운영 조치", "Store decision", "delivery_owner", "owner", "admin_notice_received"),
   seed("item_owner_store_notice", "매장 운영 공지", "Store notice", "delivery_owner", "owner", "admin_notice_received"),
   seed("item_owner_inquiry_reply", "플랫폼 문의 답변", "Platform inquiry reply", "delivery_owner", "owner", "admin_notice_received"),

@@ -663,6 +663,23 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
     ],
   }),
   item({
+    // 재감사 E-1 (2026-11-04) — Coin 출금 반려·지급 완료 알림(`lib/currency/coin-withdrawal-notify.ts`).
+    // 이전: 항목이 없어 일반 공지 소리로 울리고 관리자 알림 항목 화면에 안 보였다. 지금 소리는 그대로(시드가 공지 소리를 복사).
+    key: "owner_coin_withdrawal",
+    labelKo: "Coin 출금 결과",
+    labelEn: "Coin withdrawal result",
+    audience: "owner",
+    match: {
+      eventTypes: ["admin_notice"],
+      kinds: ["store_coin_withdrawal_rejected", "store_coin_withdrawal_paid"],
+    },
+    soundEventKey: "item_owner_coin_withdrawal",
+    samples: [
+      { eventType: "admin_notice", kind: "store_coin_withdrawal_rejected" },
+      { eventType: "admin_notice", kind: "store_coin_withdrawal_paid" },
+    ],
+  }),
+  item({
     key: "owner_store_decision",
     labelKo: "매장 심사·운영 조치",
     labelEn: "Store review · admin action",

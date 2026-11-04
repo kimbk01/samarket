@@ -57,6 +57,7 @@ import { CommissionPeriodFilter, LedgerPager } from "@/components/stores/commiss
 import { PointChargePeriodSummaryLine, PointPeriodSummaryCard } from "@/components/points/PointPeriodSummary";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { MEMBER_MONEY_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import {
   countCancellableChargeRequests,
   normalizePointsLegacyViewQuery,
@@ -366,7 +367,7 @@ function MypagePointsPageInner() {
   const refetchOnRestore = useCallback(() => load({ silent: true }), [load]);
   useRefetchOnPageShowRestore(refetchOnRestore, { enableWindowFocusRefetch: true });
   // H-12 — 충전 승인·반려 알림이 오면 열린 화면도 갱신 (다시 들어가지 않아도)
-  useRefetchOnNotificationArrival(refetchOnRestore);
+  useRefetchOnNotificationArrival(refetchOnRestore, { kinds: MEMBER_MONEY_OUTCOME_KINDS });
 
   /** 기간을 바꾸면 이전 기간 숫자를 지우고 새 응답까지 로딩 (R5-c) — 진행 중 응답은 버린다 */
   const changePeriod = useCallback((next: MePointsPeriodQuery) => {

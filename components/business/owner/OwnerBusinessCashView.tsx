@@ -23,6 +23,7 @@ import { readBalanceOrNull } from "@/lib/currency/currency-display-contract";
 import { LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { STORE_MONEY_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
 import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodChoiceChips";
@@ -159,7 +160,8 @@ export function OwnerBusinessCashView({
   useRefetchOnPageShowRestore(refetchSilently, { enableWindowFocusRefetch: true });
   // H-12 — 관리자가 다른 기기에서 처리 → 처리 알림 도착 순간 목록·잔액 갱신 (다시 들어가지 않아도)
   // R1 — 매장 단위 알림이라 회원 종 숫자로는 못 받음(N-3 FAIL) → 이 매장의 처리 결과 신호로
-  useRefetchOnNotificationArrival(refetchSilently, { storeId });
+  // Cash·Coin 잔액·충전 목록을 함께 보인다 → 매장 처리 결과 전부
+  useRefetchOnNotificationArrival(refetchSilently, { storeId, kinds: STORE_MONEY_OUTCOME_KINDS });
 
   /** FIN-04 — DB request-writer codes (owner_create_business_cash_charge_request). */
   const topUpErrorMessage = (code: string | undefined): string => {

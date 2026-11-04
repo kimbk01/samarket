@@ -21,6 +21,12 @@ vi.mock("@/lib/admin/require-admin-permission", () => ({
 vi.mock("@/lib/stores/try-supabase-stores", () => ({
   tryGetSupabaseForStores: () => tryGetSupabaseForStores(),
 }));
+// 재감사 E-2 — Coin 출금 알림은 응답 뒤(`after`)에 보낸다. 테스트는 요청 범위 밖이라 바로 실행하는 가짜로 둔다.
+const afterTasks: Array<() => unknown> = [];
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: (task: () => unknown) => void afterTasks.push(task) };
+});
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => "admin-1" }));
 vi.mock("@/lib/audit/append-audit-log", () => ({ appendAuditLog: vi.fn(async () => undefined) }));
 vi.mock("@/lib/audit/request-meta", () => ({

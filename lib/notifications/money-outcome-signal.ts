@@ -29,6 +29,18 @@ export const STORE_MONEY_OUTCOME_KINDS: ReadonlySet<string> = new Set([
   "store_coin_withdrawal_paid",
 ]);
 
+/** 매장 — Cash 충전 결과만 (Cash 잔액·충전 목록·미납 자동 납부·전환 미납 차감에 영향) */
+export const STORE_CASH_CHARGE_OUTCOME_KINDS: ReadonlySet<string> = new Set([
+  "delivery_ad_business_cash_charge_completed",
+  "delivery_ad_business_cash_charge_rejected",
+]);
+
+/** 매장 — Coin 출금 결과만 (Coin 잔액·출금 목록에 영향) */
+export const STORE_COIN_WITHDRAWAL_OUTCOME_KINDS: ReadonlySet<string> = new Set([
+  "store_coin_withdrawal_rejected",
+  "store_coin_withdrawal_paid",
+]);
+
 export const MONEY_OUTCOME_EVENT = "samarket:money-outcome";
 
 export type MoneyOutcomeSignal = { kind: string; storeId: string | null };
@@ -65,9 +77,17 @@ export function emitMoneyOutcomeFromNotificationRow(row: Record<string, unknown>
 }
 
 /** 이 화면 범위의 신호인지 — 회원 화면 = 매장 없는 신호, 사장님 화면 = 그 매장 신호. */
-export function moneyOutcomeMatchesScope(signal: MoneyOutcomeSignal, scope: { storeId: string | null }): boolean {
+/**
+ * 이 화면이 받을 신호인지 — 범위(회원 / 그 매장) + 종류(재감사 E-3).
+ * `kinds` = 그 화면 값에 영향을 주는 종류만. 이전: 종류를 안 거름 → Coin 출금 신호 1건에 상관없는 화면까지 다시 읽음.
+ */
+export function moneyOutcomeMatchesScope(
+  signal: MoneyOutcomeSignal,
+  scope: { storeId: string | null; kinds?: ReadonlySet<string> | null }
+): boolean {
   const sid = scope.storeId?.trim() || null;
-  return sid ? signal.storeId === sid : signal.storeId == null;
+  const inScope = sid ? signal.storeId === sid : signal.storeId == null;
+  return inScope && (!scope.kinds || scope.kinds.has(signal.kind));
 }
 
 export function subscribeMoneyOutcome(listener: (signal: MoneyOutcomeSignal) => void): () => void {

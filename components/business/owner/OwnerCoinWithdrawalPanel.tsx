@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notification-arrival";
+import { STORE_COIN_WITHDRAWAL_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import { LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -145,7 +146,7 @@ export function OwnerCoinWithdrawalPanel({
     if (focusRow) focusRef.current?.scrollIntoView({ block: "center" });
   }, [focusRow]);
   // H-12·R1 — 이 매장의 출금 반려·지급 완료 알림이 오면 열린 화면도 갱신
-  useRefetchOnNotificationArrival(loadHistory, { storeId });
+  useRefetchOnNotificationArrival(loadHistory, { storeId, kinds: STORE_COIN_WITHDRAWAL_OUTCOME_KINDS });
   // 앱 복귀 시 관리자 처리(반려·지급) 결과 반영 — 상위 잔액 재조회와 같은 시점
   useRefetchOnPageShowRestore(loadHistory, { enableWindowFocusRefetch: true });
 

@@ -160,10 +160,13 @@ describe("notification item registry", () => {
   });
 
   it("새 소리 키 = 시드 표 = 마이그레이션 · 채널은 기존 채널", () => {
-    const sql = readFileSync(
-      join(process.cwd(), "supabase/migrations/20271102030000_notification_item_sound_events.sql"),
-      "utf8"
-    );
+    // 항목 소리 키 시드 마이그레이션 — 처음 묶음 + 이후 추가(재감사 E-1 Coin 출금 결과)
+    const sql = [
+      "supabase/migrations/20271102030000_notification_item_sound_events.sql",
+      "supabase/migrations/20271104160000_notification_item_owner_coin_withdrawal_sound.sql",
+    ]
+      .map((f) => readFileSync(join(process.cwd(), f), "utf8"))
+      .join("\n");
     const itemKeys = NOTIFICATION_ITEMS.map((i) => i.soundEventKey).filter((k): k is string => !!k?.startsWith("item_"));
     expect(new Set(NOTIFICATION_ITEM_SOUND_SEEDS.map((s) => s.eventKey))).toEqual(new Set(itemKeys));
     const existingChannels = new Set(

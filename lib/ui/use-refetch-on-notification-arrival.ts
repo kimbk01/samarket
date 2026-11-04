@@ -9,10 +9,13 @@
 import { useEffect, useRef } from "react";
 import { moneyOutcomeMatchesScope, subscribeMoneyOutcome } from "@/lib/notifications/money-outcome-signal";
 
-/** `storeId` 없음 = 회원(포인트) 화면, 있음 = 그 매장 사장님 화면 */
+/**
+ * `storeId` 없음 = 회원(포인트) 화면, 있음 = 그 매장 사장님 화면.
+ * `kinds` (필수 · 재감사 E-3) = 이 화면 값에 영향을 주는 처리 결과 종류만 (`money-outcome-signal` 의 종류 묶음).
+ */
 export function useRefetchOnNotificationArrival(
   refetch: () => void | Promise<void>,
-  scope: { storeId?: string | null } = {}
+  scope: { storeId?: string | null; kinds: ReadonlySet<string> }
 ): void {
   const refetchRef = useRef(refetch);
   useEffect(() => {
@@ -20,10 +23,14 @@ export function useRefetchOnNotificationArrival(
   }, [refetch]);
 
   const storeId = scope.storeId?.trim() || null;
+  const kindsRef = useRef(scope.kinds);
+  useEffect(() => {
+    kindsRef.current = scope.kinds;
+  }, [scope.kinds]);
   useEffect(
     () =>
       subscribeMoneyOutcome((signal) => {
-        if (moneyOutcomeMatchesScope(signal, { storeId })) void refetchRef.current();
+        if (moneyOutcomeMatchesScope(signal, { storeId, kinds: kindsRef.current })) void refetchRef.current();
       }),
     [storeId]
   );

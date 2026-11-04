@@ -106,7 +106,8 @@ describe("재감사 R1 — 처리 결과 알림 신호 (N-3 FAIL)", () => {
       "components/business/owner/OwnerGiftMoneyOpsPanel.tsx",
       "components/stores/owner/dashboard/OwnerFinanceHomeCards.tsx",
     ]) {
-      expect(read(f), f).toMatch(/useRefetchOnNotificationArrival\([^)]*\{ storeId \}\)/);
+      // E-3 — 매장 범위 + 그 화면에 영향 주는 종류 묶음
+      expect(read(f), f).toMatch(/useRefetchOnNotificationArrival\([^)]*\{ storeId, kinds: STORE_[A-Z_]+_KINDS \}\)/);
     }
   });
 });
