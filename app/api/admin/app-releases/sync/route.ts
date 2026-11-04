@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { syncAppReleases } from "@/lib/app-releases/app-release-sync";
@@ -8,13 +9,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** POST — 관리자 수동 출시 동기화 (D-N1). Play API 1회 + 자격 있는 출시만 자동 fan-out. */
-export async function POST() {
+export async function POST(req: Request) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   try {
     const result = await syncAppReleases(sb);
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "app_release",
+      targetId: "sync",
+      action: "app_release.sync",
+      after: { results: result.results },
+    });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[admin app-releases sync]", err);

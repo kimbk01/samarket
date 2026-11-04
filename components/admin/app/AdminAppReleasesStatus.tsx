@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 
 type Row = {
   id: string;
@@ -79,12 +82,16 @@ export function AdminAppReleasesStatus() {
   }
 
   async function runNotify(releaseId: string, label: string) {
-    const okConfirm = window.confirm(
-      ko
-        ? `${label}\n\nPlay production 전체 출시가 확인된 경우에만 진행하세요.\n단계적·심사중·비공개 테스트면 취소하세요.\n구버전 Android 회원에게 인앱+푸시 1회를 보냅니다.`
-        : `${label}\n\nConfirm only if production rollout is fully available.\nCancel for staged/review/closed testing.\nSends 1 inbox+push to outdated Android users.`
-    );
-    if (!okConfirm) return;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("appReleaseNotify"),
+      ko,
+      title: label,
+      description: ko
+        ? "Play production 전체 출시가 확인된 경우에만 진행하세요.\n단계적·심사중·비공개 테스트면 취소하세요.\n구버전 Android 회원에게 인앱+푸시 1회를 보냅니다."
+        : "Confirm only if production rollout is fully available.\nCancel for staged/review/closed testing.\nSends 1 inbox+push to outdated Android users.",
+      confirmLabel: ko ? "발송 확정" : "Confirm notify",
+    });
+    if (!confirmed.ok) return;
     setBusy("notify");
     setMessage(null);
     try {
@@ -122,14 +129,9 @@ export function AdminAppReleasesStatus() {
     <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm" data-admin-app-releases>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold text-sam-fg">{ko ? "앱 업데이트 출시 감지" : "App release detect"}</h2>
-        <button
-          type="button"
-          className="sam-btn sam-btn-secondary"
-          disabled={busy != null}
-          onClick={() => void runSync()}
-        >
+        <AdminActionButton variant="secondary" disabled={busy != null} onClick={() => void runSync()}>
           {busy === "sync" ? (ko ? "동기화 중…" : "Syncing…") : ko ? "지금 동기화" : "Sync now"}
-        </button>
+        </AdminActionButton>
       </div>
       <p className="sam-text-helper text-sam-muted">
         {ko
@@ -163,14 +165,14 @@ export function AdminAppReleasesStatus() {
                   {r.notified_at ? (ko ? "알림 완료" : "notified") : ko ? "미발송" : "pending"}
                 </span>
                 {canConfirm ? (
-                  <button
-                    type="button"
-                    className="sam-btn sam-btn-secondary"
+                  <AdminActionButton
+                    variant="ghost"
+                    size="sm"
                     disabled={busy != null}
                     onClick={() => void runNotify(r.id, label)}
                   >
                     {ko ? "발송 확정" : "Confirm notify"}
-                  </button>
+                  </AdminActionButton>
                 ) : null}
               </li>
             );

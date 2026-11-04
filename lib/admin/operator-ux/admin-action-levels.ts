@@ -22,6 +22,8 @@ export const ADMIN_ACTION_LEVELS = {
   resume: "L1",
   /** 배달 광고 「검수 시작」 — 상태만 바뀌고 되돌릴 수 있다 (AL-05). */
   reviewStart: "L1",
+  /** 앱 출시 「발송 확정」 — 구버전 회원 인앱+푸시 1회. 발송 API 가 사유를 받지 않아 확인 1회. */
+  appReleaseNotify: "L1",
   // L2 — 회원 영향·금전
   approve: "L2",
   reject: "L2",

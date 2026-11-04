@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { adminConfirmNotifyRelease } from "@/lib/app-releases/app-release-sync";
@@ -32,6 +33,13 @@ export async function POST(req: Request) {
 
   try {
     const result = await adminConfirmNotifyRelease(sb, releaseId);
+    await appendAdminRouteAudit(sb, req, {
+      actorId: admin.userId,
+      targetType: "app_release",
+      targetId: releaseId,
+      action: "app_release.notify_confirm",
+      after: { ...result },
+    });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const msg = String(err instanceof Error ? err.message : err);
