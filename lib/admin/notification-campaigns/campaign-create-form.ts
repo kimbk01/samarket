@@ -152,8 +152,8 @@ const ERROR_COPY: Record<string, { ko: string; en: string }> = {
     en: "The opt-in audience is retired. Consent is checked when sending push.",
   },
   push_preview_failed: {
-    ko: "푸시 받을 인원을 계산하지 못했습니다. 다시 시도해 주세요.",
-    en: "Could not count push recipients. Please try again.",
+    ko: "푸시 받을 인원을 계산하지 못했습니다. 새로고침해 주세요.",
+    en: "Could not count push recipients. Please refresh.",
   },
   invalid_fields: { ko: "입력값을 확인하세요.", en: "Check the fields." },
   occurrence_already_exists: { ko: "이미 발송했거나 발송 중인 알림입니다.", en: "Already sent or sending." },

@@ -1103,7 +1103,7 @@ export function AdminNotificationCampaignCreatePage({
                   className="ml-2"
                   onClick={() => setAudienceRetry((n) => n + 1)}
                 >
-                  {tx("다시 시도", "Retry")}
+                  {tx("새로고침", "Refresh")}
                 </AdminActionButton>
               ) : null}
             </span>
