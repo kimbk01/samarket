@@ -110,7 +110,7 @@ describe("/api/ads/active — 남은 기간·결제 시각·순위 없음 · 일
     expect(j.ads[1]!.feedPost).toBeNull(); // 보는 회원에게 안 보이는 글(차단 등) = 카드 값 없음 → 화면이 자리를 주지 않는다
   });
 
-  it("PB-21: 광고 21개 → 21개 모두 싣고, 위쪽 3개만 카드 값 · 21번째도 id 로 온다", async () => {
+  it("PB-21: 광고 21개 → 21개 모두 싣고, 위쪽 1개만 카드 값(Owner 2026-11-05) · 21번째도 id 로 온다", async () => {
     const items = Array.from({ length: 21 }, (_, i) => ({ postId: `p${i + 1}`, startAt: "2026-11-04T00:00:00Z" }));
     fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items });
     listFeed.mockImplementation(async (o: { postIds: string[] }) => ({
@@ -122,11 +122,12 @@ describe("/api/ads/active — 남은 기간·결제 시각·순위 없음 · 일
     const j = await callActive();
     expect(j.ads).toHaveLength(21);
     expect(j.ads.map((a) => a.postId)).toEqual(items.map((i) => i.postId));
-    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["p1", "p2", "p3"]);
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["p1"]);
+    expect(j.ads[1]).toEqual({ adId: "p2", postId: "p2", feedPost: null });
     expect(j.ads[20]).toEqual({ adId: "p21", postId: "p21", feedPost: null });
   });
 
-  it("PB-21: 위쪽 후보가 보는 회원에게 안 보이면 다음 글로 채운다 (3개까지)", async () => {
+  it("PB-21: 위쪽 후보가 보는 회원에게 안 보이면 다음 글로 채운다 (1개까지)", async () => {
     const items = Array.from({ length: 25 }, (_, i) => ({ postId: `p${i + 1}`, startAt: "x" }));
     fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items });
     // 앞 20개는 전부 안 보임 → 두 번째 묶음에서 채운다
@@ -137,7 +138,7 @@ describe("/api/ads/active — 남은 기간·결제 시각·순위 없음 · 일
       pagingOffsetAdvance: 0,
     }));
     const j = await callActive();
-    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["p21", "p22", "p23"]);
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["p21"]);
     expect(listFeed).toHaveBeenCalledTimes(2);
   });
 

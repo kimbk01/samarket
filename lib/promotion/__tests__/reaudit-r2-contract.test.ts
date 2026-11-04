@@ -1,6 +1,6 @@
 /**
  * 재감사 R2 (Owner 2026-11-03 「3명이 상위노출을 하면 최신순 · 기간 이전에 추가 결제하면 연장 · 기간 지나면 다시 올려야」)
- * D-1 연장은 자리 그대로 · D-2 4번째부터 일반 자리 「광고」 · D-3 예약중도 「광고」 · D-4 커뮤니티 같은 규칙.
+ * D-1 연장은 자리 그대로 · D-2 위쪽 개수(Owner 2026-11-05 1건) 밖은 일반 자리 「광고」 · D-3 예약중도 「광고」 · D-4 커뮤니티 같은 규칙.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -61,7 +61,7 @@ const postRow = (id: string) => ({
 });
 const organic = (id: string) => ({ id, title: id, status: "active" }) as PostWithMeta;
 
-describe("재감사 R2 — 거래 목록 최근 결제 순·4번째부터 광고 표시", () => {
+describe("재감사 R2 — 거래 목록 최근 결제 순·2번째 결제부터 일반 자리 광고 표시", () => {
   it("광고 권리는 start_at 내림차순으로 읽는다(끼우는 순서의 기준)", async () => {
     const { sb, calls } = fakeSb({ point_promotion_orders: [order("p1", 1)] });
     const out = await listActiveTradePromotionTargetIds(sb);
@@ -71,7 +71,7 @@ describe("재감사 R2 — 거래 목록 최근 결제 순·4번째부터 광고
     expect(orderOps).toEqual([["order", ["start_at", { ascending: false }]]]);
   });
 
-  it("1페이지: 최근 결제 3개를 첫 칸 뒤에 끼우고, 일반 자리에 나온 4번째에도 「광고」 표시(다음 페이지 기준에는 넣지 않음)", async () => {
+  it("1페이지 (Owner 2026-11-05 「1건」): 최근 결제 1개만 첫 칸 뒤에 끼우고, 2번째 결제부터는 일반 자리 그대로 「광고」 표시", async () => {
     // DB 가 start_at 내림차순으로 준다: p1(1분 전) · p2 · p3 · p4(가장 오래)
     const { sb } = fakeSb({
       point_promotion_orders: [order("p1", 1), order("p2", 2), order("p3", 3), order("p4", 4)],
@@ -79,13 +79,13 @@ describe("재감사 R2 — 거래 목록 최근 결제 순·4번째부터 광고
     });
     const res = await applyTradeHomePromotionProjection(sb, {
       pageIndex: 0,
-      posts: [organic("a"), organic("p4"), organic("b")],
+      posts: [organic("a"), organic("p4"), organic("b"), organic("p2")],
       tradeCategoryIds: null,
     });
-    expect(res.posts.map((p) => p.id)).toEqual(["a", "p1", "p2", "p3", "p4", "b"]);
-    expect(res.promotedIdsOnPage).toEqual(["p1", "p2", "p3"]);
+    expect(res.posts.map((p) => p.id)).toEqual(["a", "p1", "p4", "b", "p2"]);
+    expect(res.promotedIdsOnPage).toEqual(["p1"]);
     const badged = res.posts.filter((p) => postHasTradePromotionOverlay(p)).map((p) => p.id);
-    expect(badged).toEqual(["p1", "p2", "p3", "p4"]);
+    expect(badged).toEqual(["p1", "p4", "p2"]);
     expect(res.hasPromotionOverlay).toBe(true);
   });
 

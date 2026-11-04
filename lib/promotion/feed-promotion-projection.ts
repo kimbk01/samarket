@@ -6,7 +6,7 @@
  * - TRADE_HOME (전체) pool = domain=trade entitlements (category filter = HOME universe only).
  * - TRADE_CATEGORY pool = same entitlements whose post is in browse membership ids.
  * - Select ≤ MAX_PAGE0_PROMOTED_PINS **latest start_at first** (재감사 R2 · Owner 「최신순」); pin at top of page-1.
- * - 재감사 R2 D-2: 끼우지 못한 홍보 글(4번째부터·지역 구간 밖·뒤 페이지)도 일반 자리에서 「광고」 표시를 단다.
+ * - 재감사 R2 D-2: 끼우지 못한 홍보 글(2번째 결제부터·지역 구간 밖·뒤 페이지)도 일반 자리에서 「광고」 표시를 단다.
  * - 광고 감사 P-2 (Owner 승인 2026-11-03): 뽑히지 않은 홍보 글은 일반 글로 제자리에 남는다.
  *   1페이지: 끼운 id 만 일반 목록에서 뺀다. 이후 페이지: 일반 목록 그대로 — 1페이지에 끼운 글이
  *   뒤 페이지에 다시 오면 목록 화면이 붙일 때 id 로 거른다(`HomeProductList`·`PostListByCategory`).
@@ -49,7 +49,7 @@ export const MAX_PAGE0_PROMOTED_PINS = PROMOTED_TOP_PINS_MAX;
 
 /**
  * Request `page` is 1-based (`normalizePage`). LIST pin uses 0-based pageIndex.
- * page=1 → 0 (pin ≤3). page=2+ → ≥1 (no prepend).
+ * page=1 → 0 (pin ≤ MAX_PAGE0_PROMOTED_PINS). page=2+ → ≥1 (no prepend).
  */
 export function tradePromotionPageIndexFromRequestPage(page: number): number {
   const n = Number.isFinite(page) ? Math.floor(page) : 1;
@@ -173,7 +173,7 @@ export function projectTradeFeedWithPromotions(input: {
   maxPage0Pins?: number;
   /**
    * Organic page size SSOT (HOME_POSTS_PAGE_SIZE).
-   * page=1 final length ≤ this: (organic minus pinned ids, capped) + selected ≤3.
+   * page=1 final length ≤ this: (organic minus pinned ids, capped) + selected ≤ MAX_PAGE0_PROMOTED_PINS.
    */
   organicPageSize?: number;
   pinFilter?: TradePromotionPinFilter | null;

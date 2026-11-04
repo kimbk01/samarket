@@ -19,7 +19,7 @@ Currency authority: canonical Point ledger only. Retired Business Credit data is
 
 | Domain | product_id | days | point_cost | Approval | Feed |
 |--------|------------|-----:|----------:|----------|------|
-| trade | `trade_promote_7` | 7 | 500 | none (active) | TRADE_HOME + category · page0 ≤3 |
+| trade | `trade_promote_7` | 7 | 500 | none (active) | TRADE_HOME + category · page0 ≤1 |
 | trade | `trade_promote_14` | 14 | 900 | none | same |
 | community | `community_promote_3` | 3 | **10000** | **none (active)** — A2 immediate | Community feed TOP (pin) |
 | community | `community_promote_7` | 7 | **20000** | **none (active)** — A2 immediate | same |
@@ -27,7 +27,7 @@ Currency authority: canonical Point ledger only. Retired Business Credit data is
 Community prices = existing `ad_products` plife `top_fixed` seed (NOT Trade price copy).
 
 **CTA copy:** 「게시물 홍보」 / 「피드 상단 노출」 · badge **「광고」** (2026-11-03 정정: Owner 11-03 거래 v5 지시 · 공정위 안내서·Google "Ad" 표기 기준)
-**커뮤니티 상위노출 표시 (2026-11-04 Owner 「배경 + 글자」 · O-1 커뮤니티 부분 대체):** 목록 = 일반 글과 **같은 카드**(작성자·지역·조회수·댓글·사진·시간) + 상위노출 배경(`--sam-boost-card-bg`) + 작은 글자 **「포인트 노출」** · 상세 = 같은 말 「포인트 노출」 · **남은 기간은 회원 화면에 보이지 않는다**(작성자 본인만: 결제 창·마이 › 광고 · `/api/ads/active` 응답에 `endAt` 없음) · 위쪽 고정 3개(O-2) 유지. 거래 상위노출·피드 배너 「광고」 표기는 그대로.
+**커뮤니티 상위노출 표시 (2026-11-04 Owner 「배경 + 글자」 · O-1 커뮤니티 부분 대체):** 목록 = 일반 글과 **같은 카드**(작성자·지역·조회수·댓글·사진·시간) + 상위노출 배경(`--sam-boost-card-bg`) + 작은 글자 **「포인트 노출」** · 상세 = 같은 말 「포인트 노출」 · **남은 기간은 회원 화면에 보이지 않는다**(작성자 본인만: 결제 창·마이 › 광고 · `/api/ads/active` 응답에 `endAt` 없음) · 위쪽 고정 1개(O-2 · Owner 2026-11-05 「1건」으로 3→1). 거래 상위노출·피드 배너 「광고」 표기는 그대로.
 **DO NOT:** (2026-11-03 정정: 유료 노출·피드 광고 모두 「광고」로 표기한다 — 아래 옛 금지 문구 대체) ~~call Feed Ad 「광고」~~; guarantee #1 pin; dual-long-term writers (`post_ads` spend/refund vs promotion); reopen `post_ads` `top_fixed` NEW writes.
 
 **Community A2 (2026-08-09):** Write-form / promote purchase → `applyCommunityPaidExposureImmediate` → ledger spend + `order_status=active` → `/api/ads/active`. **No admin approve on new purchases.** Legacy `pending_review` + HOLD path remains only for in-flight rows / `requiresAdminApproval` products.

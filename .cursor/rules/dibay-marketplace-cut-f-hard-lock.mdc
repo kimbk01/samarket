@@ -18,7 +18,7 @@ globs:
 
 - **FINAL: CUT F LOCKED**
 - Alias: `https://samarket.vercel.app`
-- LIST / CATEGORY BROWSE PIN ≤3: **LOCKED**
+- LIST / CATEGORY BROWSE PIN ≤1 (`PROMOTED_TOP_PINS_MAX` · Owner 2026-11-05, 옛 ≤3): **LOCKED**
 - SEARCH: **badge-only, no pin** (CUT C order preserved)
 - DETAIL CTA: **Product A 더 알리기 / MemberPostPromoteSheet**
 - trade-ads/apply MEMBER PATH: **NOT product CTA**
@@ -30,7 +30,7 @@ globs:
 ## KEEP
 
 ```text
-LIST (no q) page=1 pin ≤3 + 홍보 badge
+LIST (no q) page=1 pin ≤1 + 홍보 badge (나머지 광고 중인 글은 제자리 + badge)
 LIST page=2+ prepend 0
 SEARCH q → overlayTradePromotionBadges only
 DETAIL → point_promotion_orders

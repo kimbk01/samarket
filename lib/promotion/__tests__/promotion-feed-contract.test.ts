@@ -92,20 +92,20 @@ describe("feed promotion projection pagination", () => {
   const mk = (id: string, status = "active"): PostWithMeta =>
     ({ id, status, title: id } as PostWithMeta);
 
-  it("재감사 R2: 최근 결제 순 3개를 첫 칸 뒤에 끼우고, 4번째는 일반 자리에 남는다", () => {
+  it("Owner 2026-11-05 「1건」: 최근 결제 1개만 첫 칸 뒤에 끼우고, 2번째 결제부터는 일반 자리에 남는다", () => {
     // promotedPosts 는 start_at 내림차순으로 들어온다(p1 이 가장 최근 결제)
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,
-      normalPosts: [mk("a"), mk("p4"), mk("b")],
+      normalPosts: [mk("a"), mk("p4"), mk("b"), mk("p2")],
       promotedPosts: [mk("p1"), mk("p2"), mk("p3"), mk("p4")],
       activePromotionIds: new Set(["p1", "p2", "p3", "p4"]),
-      maxPage0Pins: 3,
     });
-    expect(promotedIdsOnPage).toEqual(["p1", "p2", "p3"]);
-    expect(posts.map((p) => p.id)).toEqual(["a", "p1", "p2", "p3", "p4", "b"]);
+    expect(MAX_PAGE0_PROMOTED_PINS).toBe(1);
+    expect(promotedIdsOnPage).toEqual(["p1"]);
+    expect(posts.map((p) => p.id)).toEqual(["a", "p1", "p4", "b", "p2"]);
   });
 
-  it("재감사 R2: 같은 입력이면 시간이 바뀌어도 같은 순서(시간 단위 회전 없음)", () => {
+  it("재감사 R2: 같은 입력이면 시간이 바뀌어도 같은 글(시간 단위 회전 없음)", () => {
     const run = () =>
       projectTradeFeedWithPromotions({
         pageIndex: 0,
@@ -113,8 +113,29 @@ describe("feed promotion projection pagination", () => {
         promotedPosts: [mk("p2"), mk("p1")],
         activePromotionIds: new Set(["p1", "p2"]),
       }).promotedIdsOnPage;
-    expect(run()).toEqual(["p2", "p1"]);
+    expect(run()).toEqual(["p2"]);
     expect(run()).toEqual(run());
+  });
+
+  it("B-D2: 1페이지에 고정된 글이 다음 페이지 일반 목록에 와도, 화면이 붙일 때 id 로 걸러 한 번만 보인다", () => {
+    const page0 = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a"), mk("b")],
+      promotedPosts: [mk("p1")],
+      activePromotionIds: new Set(["p1"]),
+    });
+    const page1 = projectTradeFeedWithPromotions({
+      pageIndex: 1,
+      normalPosts: [mk("c"), mk("p1"), mk("d")],
+      promotedPosts: [mk("p1")],
+      activePromotionIds: new Set(["p1"]),
+    });
+    // HomeProductList·PostListByCategory 의 붙이기 규칙과 같다: 이미 본 id 는 붙이지 않는다
+    const seen = new Set(page0.posts.map((p) => p.id));
+    const appended = [...page0.posts, ...page1.posts.filter((p) => !seen.has(p.id))];
+    const ids = appended.map((p) => p.id);
+    expect(ids).toEqual(["a", "p1", "b", "c", "d"]);
+    expect(ids.filter((id) => id === "p1")).toHaveLength(1);
   });
 
   it("page0 interleaves a single promo after the first organic row", () => {
@@ -143,7 +164,7 @@ describe("feed promotion projection pagination", () => {
     expect(promotedIdsOnPage).toEqual([]);
   });
 
-  it("P-2: >3 active entitlements — page0 pins 3, unselected stay as organic rows on page0", () => {
+  it("P-2: >1 active entitlements — page0 pins 1, unselected stay as organic rows on page0", () => {
     const promoted = ["p1", "p2", "p3", "p4", "p5"].map((id) => mk(id));
     const active = new Set(promoted.map((p) => p.id));
     const page0 = projectTradeFeedWithPromotions({
@@ -153,7 +174,7 @@ describe("feed promotion projection pagination", () => {
       activePromotionIds: active,
     });
     const ids = page0.posts.map((p) => p.id);
-    expect(page0.promotedIdsOnPage).toHaveLength(3);
+    expect(page0.promotedIdsOnPage).toEqual(["p1"]);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of active) expect(ids).toContain(id);
   });
@@ -249,20 +270,20 @@ describe("feed promotion projection pagination", () => {
     expect(promotedIdsOnPage).toEqual(["inside"]);
   });
 
-  it("page=1 caps to organicPageSize = organic_capped + selected (not 20+3 dump)", () => {
+  it("page=1 caps to organicPageSize = organic_capped + selected (not 20+1 dump)", () => {
     const organic = Array.from({ length: 20 }, (_, i) => mk(`o${i}`));
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
       pageIndex: 0,
       normalPosts: organic,
       promotedPosts: [mk("p1"), mk("p2"), mk("p3")],
       activePromotionIds: new Set(["p1", "p2", "p3"]),
-      maxPage0Pins: 3,
       organicPageSize: 20,
     });
-    expect(promotedIdsOnPage).toHaveLength(3);
+    expect(promotedIdsOnPage).toEqual(["p1"]);
     expect(posts).toHaveLength(20);
     expect(new Set(posts.map((p) => p.id)).size).toBe(20);
-    expect(posts.filter((p) => promotedIdsOnPage.includes(p.id))).toHaveLength(3);
+    expect(posts.filter((p) => promotedIdsOnPage.includes(p.id))).toHaveLength(1);
+    expect(posts.map((p) => p.id)).not.toContain("p2");
   });
 
   it("does not duplicate a promo id that is also in the organic window", () => {
@@ -304,7 +325,7 @@ describe("CUT F LIST pin — 1-based page → 0-based pageIndex", () => {
     expect(tradePromotionPageIndexFromRequestPage(3)).toBe(2);
   });
 
-  it("LIST page=1 (q none) mixes at most 3, badges only those rows, duplicate id 0", () => {
+  it("LIST page=1 (q none) pins at most 1, badges only that row, duplicate id 0", () => {
     const pageIndex = tradePromotionPageIndexFromRequestPage(1);
     expect(pageIndex).toBe(0);
     const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
@@ -317,7 +338,8 @@ describe("CUT F LIST pin — 1-based page → 0-based pageIndex", () => {
     const ids = posts.map((p) => p.id);
     expect(ids[0]).not.toBe(promotedIdsOnPage[0]);
     expect(ids[0]).toBe("a");
-    expect(promotedIdsOnPage).toHaveLength(3);
+    expect(ids[1]).toBe("p1");
+    expect(promotedIdsOnPage).toEqual(["p1"]);
     expect(new Set(ids).size).toBe(ids.length);
     const annotated = annotatePromotedPosts(posts, new Set(promotedIdsOnPage));
     for (const p of annotated) {

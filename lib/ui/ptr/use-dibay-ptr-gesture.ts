@@ -41,9 +41,13 @@ export type UseDibayPtrGestureOptions = {
   rebindKey?: string;
 };
 
+/**
+ * 띠 광고 CTA 칩(`data-ptr-reveal-cta`)은 결과 표시(SUCCESS/ERROR) 중에도 눌린다 — 그 탭의 touchend 가
+ * 당김 취소(`pullPx:0`)로 처리되면 click 전에 띠가 IDLE 로 접혀 CTA 가 동작하지 않는다.
+ */
 function isPullRefreshExcludedTarget(target: EventTarget | null): boolean {
   if (!target || !(target instanceof Element)) return false;
-  return !!target.closest("input, textarea, select");
+  return !!target.closest("input, textarea, select, [data-ptr-reveal-cta]");
 }
 
 function queryExtraScrollContainers(selector: string | undefined): HTMLElement[] {
@@ -65,7 +69,7 @@ export function isDibayPtrScrollAtTop(extraScrollContainerSelector?: string): bo
  * CONTRACT — 메인 허브 PTR 제스처 단일 구현.
  * - scrollTop=0(스크롤 루트 + 지정 자식 컨테이너) 에서만 시작, 세로 판정 후에만 `preventDefault`.
  * - 리스너: 스크롤 루트(capture, touchmove passive:false) [+ sticky header].
- * - input/textarea/select 시작 제외, 임계 25% 초과 당김 직후 a/button/tab 클릭 1회 억제.
+ * - input/textarea/select·띠 광고 CTA 칩 시작 제외, 임계 25% 초과 당김 직후 a/button/tab 클릭 1회 억제.
  * DO NOT: 스크롤 본문 transform · window 전역 리스너.
  */
 export function useDibayPtrGesture(options: UseDibayPtrGestureOptions): void {

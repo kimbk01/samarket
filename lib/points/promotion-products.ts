@@ -54,9 +54,9 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     fallbackTitleKo: "7일 거래 상위노출",
     fallbackTitleEn: "Trade top exposure · 7 days",
     fallbackDescKo:
-      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
+      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 목록 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘광고’로 보입니다.",
     fallbackDescEn:
-      "After payment, shown among listings on Trade home and this post’s category feed. Not a guaranteed #1 — up to 3 per surface.",
+      "After payment, shown among listings on Trade home and this post’s category feed. One top spot per list (latest payment); others show an “Ad” label in their usual place.",
   },
   {
     id: "trade_promote_14",
@@ -73,9 +73,9 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     fallbackTitleKo: "14일 거래 상위노출",
     fallbackTitleEn: "Trade top exposure · 14 days",
     fallbackDescKo:
-      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
+      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 목록 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘광고’로 보입니다.",
     fallbackDescEn:
-      "After payment, shown among listings on Trade home and this post’s category feed. Not a guaranteed #1 — up to 3 per surface.",
+      "After payment, shown among listings on Trade home and this post’s category feed. One top spot per list (latest payment); others show an “Ad” label in their usual place.",
   },
   {
     id: "community_promote_3",

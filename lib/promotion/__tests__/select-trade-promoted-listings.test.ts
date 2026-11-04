@@ -10,6 +10,10 @@ describe("selectPromotedListingIds", () => {
     expect(selectPromotedListingIds(["c", "c", " b ", ""], 3)).toEqual(["c", "b"]);
     expect(selectPromotedListingIds(["c"], 0)).toEqual([]);
   });
+
+  it("Owner 2026-11-05 「1건」: 기본값은 가장 최근 결제 1개", () => {
+    expect(selectPromotedListingIds(["c", "b", "a"])).toEqual(["c"]);
+  });
 });
 
 describe("interleavePromotedIntoOrganic", () => {

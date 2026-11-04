@@ -152,7 +152,7 @@ export interface AdApplyResponse {
  * - `feedPost` = 일반 목록과 같은 카드 값(작성자·지역·조회수·댓글·사진·시간·주제) — 위쪽 고정도 일반 카드로 그린다.
  * 광고 ② PV-4·PB-21 (2026-11-04):
  * - 결제 시각(`startAt`)·순위(`priority`)·주문 id 를 싣지 않는다. `adId` 는 화면 key 용으로 **글 id** 와 같다.
- * - 광고 중인 글 **전체**를 싣는다(안전 상한 500). 위쪽 3개만 `feedPost` 가 있고, 나머지는 id 만(`feedPost: null`) —
+ * - 광고 중인 글 **전체**를 싣는다(안전 상한 500). 위쪽 `PROMOTED_TOP_PINS_MAX`(1)개만 `feedPost` 가 있고, 나머지는 id 만(`feedPost: null`) —
  *   일반 자리에 나온 같은 글에 「포인트 노출」 표시용.
  */
 export type ActiveAdFeedItem = {

@@ -21,7 +21,7 @@ const TOP_LOOKUP_MAX_ROUNDS = 5;
  * GET /api/ads/active?boardKey=plife&topic=[&locationKey=&city=&district=&name=]
  * Community TOP pin — canonical: point_promotion_orders (domain=community).
  * 응답: 남은 기간(endAt)·결제 시각(startAt)·순위(priority) 없음 · `adId` = 글 id (광고 ② PV-4 2026-11-04).
- * 광고 ② PB-21: 광고 중인 글 **전체**(안전 상한 500) — 위쪽 3개만 `feedPost`(일반 목록과 같은 카드 값), 나머지는 id 만.
+ * 광고 ② PB-21: 광고 중인 글 **전체**(안전 상한 500) — 위쪽 `PROMOTED_TOP_PINS_MAX`(1)개만 `feedPost`(일반 목록과 같은 카드 값), 나머지는 id 만.
  * 광고 ② D-11: `locationKey` 가 있으면(동네 탭) 그 동네 글만 위쪽 카드 값을 받는다. 다른 탭은 지역 조건 없음.
  * Legacy post_ads active rows merged for read compatibility (deduped by postId, 전체 주제일 때만).
  */

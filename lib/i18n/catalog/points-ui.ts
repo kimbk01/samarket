@@ -196,10 +196,10 @@ export const pointsUiMessages = {
     promo_sheet_trade_ad_label_note: "노출 중인 글은 거래 목록에 ‘광고’로 표시돼요.",
     promo_product_trade_7_title: "7일 거래 상위노출",
     promo_product_trade_7_desc:
-      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 표면당 최대 3개입니다.",
+      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 목록 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘광고’로 보입니다.",
     promo_product_trade_14_title: "14일 거래 상위노출",
     promo_product_trade_14_desc:
-      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 표면당 최대 3개입니다.",
+      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 매물처럼 섞여 보입니다. 목록 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘광고’로 보입니다.",
     point_fin_cat_charge: "포인트 충전",
     point_fin_cat_promotion: "상위노출",
     point_fin_cat_refund: "환불",
@@ -446,10 +446,10 @@ export const pointsUiMessages = {
     promo_sheet_trade_ad_label_note: "While live, your listing shows an “Ad” label in Trade lists.",
     promo_product_trade_7_title: "Trade top exposure · 7 days",
     promo_product_trade_7_desc:
-      "After payment, shown among listings on Trade home and this post’s category feed. Up to 3 per surface.",
+      "After payment, shown among listings on Trade home and this post’s category feed. One top spot per list (latest payment); others show an “Ad” label in their usual place.",
     promo_product_trade_14_title: "Trade top exposure · 14 days",
     promo_product_trade_14_desc:
-      "After payment, shown among listings on Trade home and this post’s category feed. Up to 3 per surface.",
+      "After payment, shown among listings on Trade home and this post’s category feed. One top spot per list (latest payment); others show an “Ad” label in their usual place.",
     point_fin_cat_charge: "Point top-up",
     point_fin_cat_promotion: "Top exposure",
     point_fin_cat_refund: "Refund",

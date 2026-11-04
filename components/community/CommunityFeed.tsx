@@ -1263,8 +1263,8 @@ export function CommunityFeed({
   }, [hasMore, loading, loadingMore, fetchPage]);
 
   /**
-   * 노출 순서 (§F-5-2): 공지·관리자 고정 > 유료 홍보(topAds 위쪽 3개) > 일반 — 계산은 `planCommunityFeedAdPlacement` 하나.
-   * 광고 ② PB-21: `topAds` = 광고 중인 글 전체(id) · 위쪽 3개만 카드 값. PB-22: 운영 고정 글도 광고 중이면 표시.
+   * 노출 순서 (§F-5-2): 공지·관리자 고정 > 유료 홍보(topAds 위쪽 1개) > 일반 — 계산은 `planCommunityFeedAdPlacement` 하나.
+   * 광고 ② PB-21: `topAds` = 광고 중인 글 전체(id) · 위쪽 1개만 카드 값. PB-22: 운영 고정 글도 광고 중이면 표시.
    */
   const { operatorTopPosts, topAdsBelowOperator, activeAdPostIds, postsForList } = useMemo(
     () => planCommunityFeedAdPlacement({ posts, topAds }),

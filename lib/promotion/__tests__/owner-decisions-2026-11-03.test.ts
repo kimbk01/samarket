@@ -1,6 +1,6 @@
 /**
  * Owner 결정 2026-11-03 「권장안대로」 — docs/audit/ads-owner-decisions-2026-11-03.md
- * 웹: O-1 커뮤니티 「광고」 표기 · O-2 커뮤니티 위쪽 3개 · O-3 상세 「광고」 · O-5 공통 화면 바로가기 카드 · O-6① 도메인 메뉴 신청 처리
+ * 웹: O-1 커뮤니티 「광고」 표기 · O-2 커뮤니티 위쪽 개수(2026-11-05 1개) · O-3 상세 「광고」 · O-5 공통 화면 바로가기 카드 · O-6① 도메인 메뉴 신청 처리
  * DB (「DB 3건 진행」): O-10 환급 원장 문구 · O-6② 공통 화면 도메인 거름 · O-4 피드 배너 노출·클릭 기록
  */
 import { readFileSync } from "node:fs";
@@ -23,12 +23,12 @@ describe("O-1 커뮤니티 상위노출 표기 = 「포인트 노출」 (Owner 2
   });
 });
 
-describe("O-2 커뮤니티 위쪽 3개 — 거래와 같은 값", () => {
+describe("O-2 커뮤니티 위쪽 개수 — 거래와 같은 값 (Owner 2026-11-05 「상위노출 1건」)", () => {
   it("한 값을 같이 쓴다", () => {
-    expect(PROMOTED_TOP_PINS_MAX).toBe(3);
+    expect(PROMOTED_TOP_PINS_MAX).toBe(1);
     expect(MAX_PAGE0_PROMOTED_PINS).toBe(PROMOTED_TOP_PINS_MAX);
   });
-  it("위쪽은 3개만, 나머지 광고 중인 글은 일반 자리에 「광고」", () => {
+  it("위쪽은 1개만, 나머지 광고 중인 글은 일반 자리에 「광고」", () => {
     // 광고 ② PB-21·PB-22 (2026-11-04): 자리 계산은 `planCommunityFeedAdPlacement` 하나 (동작 시험은 ads-impl-1104-community-card-feed)
     const feed = read("components/community/CommunityFeed.tsx");
     expect(feed).toContain("planCommunityFeedAdPlacement({ posts, topAds })");
@@ -38,6 +38,17 @@ describe("O-2 커뮤니티 위쪽 3개 — 거래와 같은 값", () => {
     expect(plan).toContain("!pinnedAdPostIds.has(String(p.id))");
     expect(read("components/community/feed-list-layouts.tsx")).toContain("{vm.isAd ? <CommunityAdBadge /> : null}");
     expect(read("components/community/CommunityCard.tsx")).toContain("prev.isAd === next.isAd");
+  });
+});
+
+describe("B-D2 (Owner 2026-11-05) — 고정 글이 뒤 페이지 일반 목록으로 다시 붙지 않는다", () => {
+  it("거래 홈·카테고리 목록은 붙일 때 이미 본 id 를 거른다", () => {
+    expect(read("components/home/HomeProductList.tsx")).toMatch(
+      /const seen = new Set\(prev\.map\(\(p\) => p\.id\)\);\s*const appended = res\.posts\.filter\(\(p\) => \{\s*const id = p\.id\?\.trim\(\);\s*return id && !seen\.has\(id\);/
+    );
+    expect(read("components/post/PostListByCategory.tsx")).toContain(
+      "return [...prev, ...next.posts.filter((p) => p.id && !seen.has(p.id))];"
+    );
   });
 });
 

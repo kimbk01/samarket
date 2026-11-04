@@ -188,6 +188,30 @@ describe("P-1·P-9 팝업 저장 = 바뀐 묶음만 · 재검토 판정 하나",
     expect(body).toEqual({ name: "새 이름" });
     expect(platformPopupPatchWouldRevertToReview(body, { status: "active", operatorPopup: true })).toBe(false);
   });
+  it("V-18: 노출 중 팝업의 소재(제목)·CTA(이동 위치·버튼 글자)를 바꾸면 재검토", () => {
+    const live = { status: "active", operatorPopup: true } as const;
+    for (const next of [
+      popupForm({ title: "새 제목" }),
+      popupForm({ ctaTarget: "/stores" }),
+      popupForm({ ctaLabel: "보러 가기" }),
+    ]) {
+      const body = buildPlatformPopupAdminPatch(popupForm(), next);
+      expect(Object.keys(body)).not.toContain("name");
+      expect(platformPopupPatchWouldRevertToReview(body, live)).toBe(true);
+    }
+  });
+  it("V-18: 노출 중 팝업의 소재(제목)·CTA(이동 위치·버튼 글자)를 바꾸면 재검토", () => {
+    const live = { status: "active", operatorPopup: true } as const;
+    for (const next of [
+      popupForm({ title: "새 제목" }),
+      popupForm({ ctaTarget: "/stores" }),
+      popupForm({ ctaLabel: "보러 가기" }),
+    ]) {
+      const body = buildPlatformPopupAdminPatch(popupForm(), next);
+      expect(Object.keys(body)).not.toContain("name");
+      expect(platformPopupPatchWouldRevertToReview(body, live)).toBe(true);
+    }
+  });
   it("아무것도 안 바꾸면 빈 본문", () => {
     expect(buildPlatformPopupAdminPatch(popupForm(), popupForm())).toEqual({});
   });

@@ -89,15 +89,15 @@ Target: Trade category SSOT / Community topic SSOT (no admin copy lists).
 
 ### 7b. Promotion feed projection LOCK
 
-- Policy: **capped page-0 priority pins** (`MAX_PAGE0_PROMOTED_PINS = 3`), not unlimited dump
+- Policy: **capped page-0 priority pins** (`MAX_PAGE0_PROMOTED_PINS = PROMOTED_TOP_PINS_MAX = 1` · Owner 2026-11-05 「상위노출 1건」, 옛 3), not unlimited dump
 - Surfaces sold: **TRADE_HOME** + **matching TRADE_CATEGORY** (post’s category tree filter)
-- 고르기 (재감사 R2 · Owner 2026-11-03 「3명이 상위노출을 하면 최신순으로 올라가는 부분」 — 옛 「시간 단위 회전」 대체): 후보를 **결제 시각(start_at) 최근 순**으로 앞에서 최대 3개(`listActiveTradePromotionTargetIds` 정렬 · `selectPromotedListingIds`). 연장은 start_at 을 바꾸지 않으므로 자리 그대로(D-1). 자리: **1페이지 위쪽** — 첫 칸은 일반 글, 2~4번째 칸(Owner 승인 판매자 안내 「거래 목록 위쪽」)
-- 4번째부터(D-2): 위쪽에 끼우지 않고 일반 자리에 **「광고」 표시**로 나온다(기간은 그대로 흐름). 뒤 페이지·지역 구간 밖으로 일반 자리에 나온 홍보 글도 같다. 예약중 글도 광고 중이면 「광고」 표시(D-3)
+- 고르기 (재감사 R2 · Owner 2026-11-03 「3명이 상위노출을 하면 최신순으로 올라가는 부분」 — 옛 「시간 단위 회전」 대체): 후보를 **결제 시각(start_at) 최근 순**으로 앞에서 최대 1개(Owner 2026-11-05 · `listActiveTradePromotionTargetIds` 정렬 · `selectPromotedListingIds`). 연장은 start_at 을 바꾸지 않으므로 자리 그대로(D-1). 자리: **1페이지 위쪽** — 첫 칸은 일반 글, 2번째 칸(Owner 승인 판매자 안내 「거래 목록 위쪽」)
+- 2번째 결제부터(D-2): 위쪽에 끼우지 않고 일반 자리에 **「광고」 표시**로 나온다(기간은 그대로 흐름). 뒤 페이지·지역 구간 밖으로 일반 자리에 나온 홍보 글도 같다. 예약중 글도 광고 중이면 「광고」 표시(D-3)
 - 커뮤니티(D-4): 같은 규칙 — 최근 결제 순(`community-paid-exposure-feed` start_at 내림차순) · 광고 중 재결제 = 연장
 - **Owner 결정 2026-11-03** (`docs/audit/ads-owner-decisions-2026-11-03.md`):
   - O-1 커뮤니티 상위노출 카드 표기 = **「포인트 노출」 + 상위노출 배경** (2026-11-04 정정 PB-C1 · Owner 11-04 「배경 + 글자」 · master 계약 §1 「커뮤니티 상위노출 표시(11-04)」가 정본 · 옛 「광고」·「상단 고정」 대체). 거래 카드는 「광고」 그대로
-  - O-2 커뮤니티도 위쪽 3개(`PROMOTED_TOP_PINS_MAX`, 거래와 같은 값) · 나머지 광고 중인 글은 일반 자리에 「포인트 노출」 (2026-11-04 정정 PB-C1)
-    - 2026-11-04 PB-21: 개수 상한 없음 — `/api/ads/active` 가 광고 중인 글 id **전체**(안전 상한 500, 넘으면 기록)를 싣고, 위쪽 3개만 카드 값(`feedPost`). 응답에 남은 기간(`endAt`)·결제 시각(`startAt`)·순위(`priority`)를 싣지 않고 `adId` = 글 id (PV-4)
+  - O-2 커뮤니티도 위쪽 개수 = 거래와 같은 값(`PROMOTED_TOP_PINS_MAX` — 2026-11-05 Owner 「1건」으로 3→1) · 나머지 광고 중인 글은 일반 자리에 「포인트 노출」 (2026-11-04 정정 PB-C1)
+    - 2026-11-04 PB-21: 개수 상한 없음 — `/api/ads/active` 가 광고 중인 글 id **전체**(안전 상한 500, 넘으면 기록)를 싣고, 위쪽 개수(1)만 카드 값(`feedPost`). 응답에 남은 기간(`endAt`)·결제 시각(`startAt`)·순위(`priority`)를 싣지 않고 `adId` = 글 id (PV-4)
     - 2026-11-04 PB-22: 운영 고정(공지·고정) 자리의 글도 광고 중이면 운영 고정 칩 + 「포인트 노출」 둘 다 (색이 아니라 글자로 구분)
     - 2026-11-04 DS-1: 상위노출 카드는 항상 글 상세(`philifeAppPaths.post`)로 이동 — 메신저 방·모임으로 보내지 않는다. 일반 카드는 그대로
   - O-3 광고 중인 글은 상세에도 표시 — 거래 「광고」 · 커뮤니티 「포인트 노출」 (2026-11-04 정정 PB-C1) (`isPromotionLiveForTarget` — 목록과 같은 노출 조건)

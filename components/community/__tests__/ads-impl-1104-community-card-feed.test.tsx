@@ -1,6 +1,6 @@
 /**
  * 광고 ② 커뮤니티 (2026-11-04) — 동작 시험.
- * PB-21: 광고 21개 → 위쪽 3개 + 나머지(21번째 포함)는 일반 자리에 「포인트 노출」
+ * PB-21: 광고 21개 → 위쪽 1개(Owner 2026-11-05) + 나머지(21번째 포함)는 일반 자리에 「포인트 노출」
  * PB-22: 운영 고정 글도 광고 중이면 운영 고정 칩 + 「포인트 노출」 둘 다
  * DS-1: 상위노출 카드는 항상 글 상세로(방·모임으로 보내지 않음) · 일반 카드는 그대로
  * D-29: 검색어(tag·q)가 있으면 피드 배너 없음
@@ -55,18 +55,26 @@ const post = (over: Partial<NeighborhoodFeedPostDTO>) => ({ ...base, ...over }) 
 const hrefOf = (html: string) => /href="([^"]+)"/.exec(html)?.[1] ?? "";
 
 describe("PB-21 · PB-22 자리 계산", () => {
-  it("광고 21개(위쪽 3개만 카드 값) → 위쪽 3개 · 21번째 글도 일반 자리에서 광고 표시", () => {
+  it("광고 21개(위쪽 1개만 카드 값 · Owner 2026-11-05) → 위쪽 1개 · 2번째·21번째 글도 일반 자리에서 광고 표시", () => {
     const topAds = Array.from({ length: 21 }, (_, i) => ({
       adId: `p${i + 1}`,
       postId: `p${i + 1}`,
-      feedPost: i < 3 ? post({ id: `p${i + 1}` }) : null,
+      feedPost: i < 1 ? post({ id: `p${i + 1}` }) : null,
     }));
-    const posts = [post({ id: "p1" }), post({ id: "p21" }), post({ id: "n1" })];
+    const posts = [post({ id: "p1" }), post({ id: "p2" }), post({ id: "p21" }), post({ id: "n1" })];
     const r = planCommunityFeedAdPlacement({ posts, topAds });
-    expect(r.topAdsBelowOperator.map((a) => a.postId)).toEqual(["p1", "p2", "p3"]);
-    expect(r.postsForList.map((p) => p.id)).toEqual(["p21", "n1"]); // 위쪽 글은 일반 목록에서 빠진다
+    expect(r.topAdsBelowOperator.map((a) => a.postId)).toEqual(["p1"]);
+    expect(r.postsForList.map((p) => p.id)).toEqual(["p2", "p21", "n1"]); // 위쪽 글은 일반 목록에서 빠진다
+    expect(r.activeAdPostIds.has("p2")).toBe(true);
     expect(r.activeAdPostIds.has("p21")).toBe(true);
     expect(r.activeAdPostIds.has("n1")).toBe(false);
+  });
+
+  it("카드 값이 여러 개 와도 위쪽은 1개만 (PROMOTED_TOP_PINS_MAX)", () => {
+    const topAds = ["a1", "a2"].map((id) => ({ adId: id, postId: id, feedPost: post({ id }) }));
+    const r = planCommunityFeedAdPlacement({ posts: [post({ id: "a2" }), post({ id: "n1" })], topAds });
+    expect(r.topAdsBelowOperator.map((a) => a.postId)).toEqual(["a1"]);
+    expect(r.postsForList.map((p) => p.id)).toEqual(["a2", "n1"]);
   });
 
   it("운영 고정 글이 광고 중이면 위쪽 광고 자리는 다른 글이 차지하고, 운영 고정 글도 광고로 판정된다", () => {

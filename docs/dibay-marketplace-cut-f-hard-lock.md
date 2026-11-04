@@ -51,7 +51,7 @@ This cut unified **Marketplace seller promotion** as Product A. It did **not** d
 
 ```text
 LIST / CATEGORY BROWSE (no q)
-  → Product A pin ≤3 on request page=1 (pageIndex 0)
+  → Product A pin ≤1 on request page=1 (pageIndex 0) — Owner 2026-11-05 (옛 ≤3 · 아래 RUNTIME 기록은 당시 값)
   → page=2+ prepend 0
   → 홍보 badge on promoted rows only
 

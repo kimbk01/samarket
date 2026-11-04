@@ -168,7 +168,7 @@ export const COMMUNITY_ACTIVE_PROMOTION_IDS_SAFETY_MAX = 500;
 /**
  * 광고 ② PB-21 (2026-11-04): 커뮤니티 광고 중인 글 **id 전체**를 가볍게(글 id · 결제 시각만) 읽는다.
  * 예전 `fetchActiveCommunityPaidExposureFeedPosts` 는 기본 20개로 잘라 21번째 광고 글부터 표시가 없었다.
- * 순서 = 최근 결제(start_at) 내림차순 — 화면은 위쪽 3개만 카드 값으로, 나머지는 일반 자리에 표시한다.
+ * 순서 = 최근 결제(start_at) 내림차순 — 화면은 위쪽 1개(`PROMOTED_TOP_PINS_MAX`)만 카드 값으로, 나머지는 일반 자리에 표시한다.
  * @param topicFilter — COMMUNITY_TOPIC slug; 빈 값 = 전체 주제
  */
 export async function fetchActiveCommunityPromotedPostIds(
