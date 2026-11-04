@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { enforceRateLimit } from "@/lib/http/api-route";
 
 const TOO_MANY = "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
@@ -197,4 +198,56 @@ export async function enforceAdminCampaignTestSendQuota(adminUserId: string) {
     message: "테스트 발송이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.",
     code: "test_send_rate_limited",
   });
+}
+
+/**
+ * D-21 ③ (Owner 「설계안대로」 2026-11-04) — 광고 기록 API 4개(팝업 이벤트·팝업 숨김·피드 배너 이벤트·배달 배너 노출) 요청 제한.
+ * 키 = 로그인 회원 id, 없으면 접속 IP 해시(원문 IP 를 키에 남기지 않음). 한도는 정상 사용의 몇 배(1분 120회).
+ * 넘으면 429 — 클라이언트는 기록 실패를 무시하므로 화면 동작에는 영향이 없다. Redis 가 없으면 공용 함수의 인메모리 동작.
+ */
+export type AdEventRecordRoute =
+  | "platform_popup_events"
+  | "platform_popup_suppress"
+  | "feed_ad_events"
+  | "delivery_ad_impression";
+
+export const AD_EVENT_RECORD_QUOTA = { limit: 120, windowMs: 60_000 } as const;
+
+/** 회원 id → `u:<id>` · 비로그인 → `iph:<sha256(ip) 앞 32자>` · IP 도 모르면 `iph:unknown` */
+export function adEventRecordActorKey(input: { userId?: string | null; ip?: string | null }): string {
+  const uid = String(input.userId ?? "").trim();
+  if (uid) return `u:${uid}`;
+  const ip = String(input.ip ?? "").trim();
+  if (!ip || ip === "unknown") return "iph:unknown";
+  return `iph:${createHash("sha256").update(ip, "utf8").digest("hex").slice(0, 32)}`;
+}
+
+export async function enforceAdEventRecordQuota(route: AdEventRecordRoute, actorKey: string) {
+  return enforceRateLimit({
+    key: `ad_event_record:${route}:${actorKey}`,
+    limit: AD_EVENT_RECORD_QUOTA.limit,
+    windowMs: AD_EVENT_RECORD_QUOTA.windowMs,
+    message: TOO_MANY,
+    code: "ad_event_rate_limited",
+  });
+}
+
+/**
+ * D-21 ④ — 팝업 이벤트 중복 거르기: 같은 보는 사람 · 소재 · 종류는 10분에 1번만 저장한다(피드와 같은 방식).
+ * @returns true = 저장해도 됨 · false = 이미 10분 안에 저장됨(저장 생략)
+ */
+export const PLATFORM_POPUP_EVENT_DEDUPE_WINDOW_MS = 600_000;
+
+export async function claimPlatformPopupEventDedupe(input: {
+  viewerKey: string;
+  campaignId: string;
+  creativeId: string | null;
+  eventType: string;
+}): Promise<boolean> {
+  const r = await enforceRateLimit({
+    key: `platform_popup_event_once:${input.viewerKey}:${input.campaignId}:${input.creativeId ?? "-"}:${input.eventType}`,
+    limit: 1,
+    windowMs: PLATFORM_POPUP_EVENT_DEDUPE_WINDOW_MS,
+  });
+  return r.ok;
 }

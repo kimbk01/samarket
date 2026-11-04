@@ -79,7 +79,14 @@ function postHandler(opts: {
         error: null,
       };
     }
-    if (c.table === "point_promotion_orders") return { data: opts.promotions ?? [], error: null };
+    if (c.table === "point_promotion_orders") {
+      // D-10: 글 숨김·삭제가 주문 종료 단일 경로(runCommunityPromotionOrderAction)를 거치며 주문 1건을 읽는다.
+      if (c.terminal === "maybeSingle") {
+        const first = (opts.promotions ?? [])[0];
+        return { data: first ? { ...first, domain: "community" } : null, error: null };
+      }
+      return { data: opts.promotions ?? [], error: null };
+    }
     return { data: null, error: null };
   };
 }

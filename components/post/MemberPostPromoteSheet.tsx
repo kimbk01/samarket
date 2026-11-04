@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
@@ -340,7 +341,7 @@ export function MemberPostPromoteSheet({
                   fallbackEn: "Ends",
                 })}
             {": "}
-            {new Date(successEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+            {formatPhtDisplayDateTime(successEndAt, langEn ? "en" : "ko")}
           </p>
           {balance != null ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
@@ -375,7 +376,7 @@ export function MemberPostPromoteSheet({
                 fallbackEn: "Ends",
               })}
               {": "}
-              {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+              {formatPhtDisplayDateTime(activeEndAt, langEn ? "en" : "ko")}
             </p>
           ) : null}
           <p className={`mt-2 ${OverlayUi.caption}`}>
@@ -412,7 +413,7 @@ export function MemberPostPromoteSheet({
                     fallbackEn: "Ends",
                   })}
                   {": "}
-                  {new Date(activeEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
+                  {formatPhtDisplayDateTime(activeEndAt, langEn ? "en" : "ko")}
                 </p>
               ) : null}
               <p className={`mt-2 ${OverlayUi.caption}`}>
@@ -432,7 +433,7 @@ export function MemberPostPromoteSheet({
                   ? item.fallbackTitleEn
                   : item.fallbackTitleKo;
               const desc = newEnd
-                ? t("promo_sheet_extend_new_end", { date: newEnd.toLocaleString(langEn ? "en-US" : "ko-KR") })
+                ? t("promo_sheet_extend_new_end", { date: formatPhtDisplayDateTime(newEnd, langEn ? "en" : "ko") })
                 : langEn
                   ? item.fallbackDescEn
                   : item.fallbackDescKo;

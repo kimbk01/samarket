@@ -5,7 +5,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   adminActionAllowed,
-  adminActionAuditLabel,
   adminActionRequiresReason,
   isAdminDeliveryAdAction,
   isAdminDeliveryAdProduct,
@@ -24,9 +23,9 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-placement";
 import {
   DELIVERY_AD_AUDIT_LOG_TABLE,
-  canPhysicallyDeleteDeliveryAdCampaign,
   type DeliveryAdHistoryFlags,
 } from "@/lib/stores/advertising/delivery-ad-audit";
+import { adminDeleteDeliveryAdDraftGuarded } from "@/lib/stores/advertising/admin-delivery-ad-delete";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import {
   validateOwnerBannerInventory,
@@ -43,7 +42,6 @@ import {
   isDeliveryBannerDestinationReady,
 } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
-import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const CUT_F_ADMIN_TRANSACTIONAL_MUTATION = {
   authority: "admin_delivery_ad_transition",
@@ -73,6 +71,9 @@ export type AdminDeliveryAdWriterError =
   | "stale_updated_at"
   | "delete_not_allowed"
   | "delete_blocked_funding_secured"
+  /** AL-01 — 초안이 아님 · 운영자 직접 등록이 아님 (삭제 규칙 §4-3). */
+  | "not_draft"
+  | "not_admin_direct"
   | "invalid_schedule"
   | "invalid_inventory"
   | "future_inventory"
@@ -350,6 +351,10 @@ export async function adminTransitionDeliveryAdCampaign(
   };
 }
 
+/**
+ * AL-01 — 예전 이름 유지(공통 광고 화면 route 호환). 판정·삭제는 `adminDeleteDeliveryAdDraftGuarded` 하나로 한다.
+ * 호출하는 쪽이 넘기던 `history` 는 쓰지 않는다 — 서버가 노출·결제·문의·감사 이력을 직접 센다.
+ */
 export async function adminDeleteSafeDraftDeliveryAdCampaign(
   sb: SupabaseClient,
   input: {
@@ -358,69 +363,24 @@ export async function adminDeleteSafeDraftDeliveryAdCampaign(
     campaignId: string;
     expectedLifecycle: DeliveryAdLifecycleStatus;
     expectedUpdatedAt: string;
-    history: DeliveryAdHistoryFlags;
+    /** @deprecated 무시됨 — 서버가 이력을 센다. */
+    history?: DeliveryAdHistoryFlags;
     /** 관리자 처리 사유 (R2) — 삭제 감사 행 reason 에 남긴다. */
     reason?: string | null;
   }
 ): Promise<AdminTransitionResult> {
-  if (!canPhysicallyDeleteDeliveryAdCampaign({
-    lifecycleStatus: input.expectedLifecycle,
-    history: input.history,
-  })) {
-    return { ok: false, error: "delete_not_allowed" };
-  }
-
-  const table = tableFor(input.productKind);
-  const { data: row, error: loadErr } = await sb
-    .from(table)
-    .select("id, lifecycle_status, updated_at")
-    .eq("id", input.campaignId)
-    .maybeSingle();
-  if (loadErr) return { ok: false, error: "db_error", detail: loadErr.message };
-  if (!row) return { ok: false, error: "campaign_not_found" };
-  if (String(row.lifecycle_status) !== input.expectedLifecycle) {
-    return { ok: false, error: "stale_lifecycle" };
-  }
-  if (String(row.updated_at) !== input.expectedUpdatedAt) {
-    return { ok: false, error: "stale_updated_at" };
-  }
-
-  // F-09 — SECURED canonical Cash funding must be refunded first; never orphan a debit.
-  if (
-    await hasCanonicalBcFundingSecured(sb, {
-      productKind: input.productKind,
-      applicationId: input.campaignId,
-    })
-  ) {
-    return { ok: false, error: "delete_blocked_funding_secured" };
-  }
-
-  if (input.productKind === "banner") {
-    await sb.from("delivery_banner_campaign_inventories").delete().eq("campaign_id", input.campaignId);
-  } else {
-    await sb
-      .from("delivery_store_sponsored_campaign_inventories")
-      .delete()
-      .eq("campaign_id", input.campaignId);
-  }
-
-  const { error: delErr } = await sb.from(table).delete().eq("id", input.campaignId);
-  if (delErr) return { ok: false, error: "db_error", detail: delErr.message };
-
-  await sb.from(DELIVERY_AD_AUDIT_LOG_TABLE).insert({
-    product_kind: input.productKind,
-    campaign_id: input.campaignId,
-    actor_type: "admin",
-    actor_user_id: input.adminUserId,
-    action: adminActionAuditLabel("delete_safe_draft"),
-    before_json: { lifecycle: input.expectedLifecycle },
-    after_json: { deleted: true },
-    reason: input.reason?.trim() || null,
+  const res = await adminDeleteDeliveryAdDraftGuarded(sb, {
+    adminUserId: input.adminUserId,
+    productKind: input.productKind,
+    campaignId: input.campaignId,
+    expectedLifecycle: input.expectedLifecycle,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+    reason: input.reason ?? null,
   });
-
+  if (!res.ok) return { ok: false, error: res.error as AdminDeliveryAdWriterError };
   return {
     ok: true,
-    campaignId: input.campaignId,
+    campaignId: res.campaignId,
     from: input.expectedLifecycle,
     to: input.expectedLifecycle,
     action: "delete_safe_draft",

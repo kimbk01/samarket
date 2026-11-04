@@ -98,7 +98,7 @@ import { Fragment } from "react";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import { EventPromotionHeroBanner } from "@/components/platform-events/EventPromotionHeroBanner";
 import { postHasTradePromotionOverlay } from "@/lib/promotion/trade-promotion-overlay";
-import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
+import { feedAdPoolRefreshDelayMs, type FeedAdPublicCampaign } from "@/lib/ads/feed-ad-public-projection";
 import {
   feedAdSlotSeed,
   shouldInjectFeedAdAtContentIndex,
@@ -890,9 +890,12 @@ export function HomeProductList({
     ]
   );
   /** Feed Banner pool — one fetch per surface (slot selection is local). Community FIX-8 parity. */
-  const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
+  const [feedAdPool, setFeedAdPool] = useState<FeedAdPublicCampaign[] | null>(null);
+  /** PV-3 — 서버가 정한 `validUntil` 에 다시 부른다(화면은 기간을 판정하지 않는다). */
+  const [feedAdPoolTick, setFeedAdPoolTick] = useState(0);
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const qs = new URLSearchParams({
       domain: "trade",
       placement: "TRADE_HOME",
@@ -903,18 +906,22 @@ export function HomeProductList({
       const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
         credentials: "include",
       });
-      return (await r.json()) as { campaigns?: FeedAdCampaignView[] };
+      return (await r.json()) as { campaigns?: FeedAdPublicCampaign[]; validUntil?: string | null };
     })
       .then((j) => {
-        if (!cancelled) setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+        if (cancelled) return;
+        setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+        const delay = feedAdPoolRefreshDelayMs(j.validUntil);
+        if (delay != null) refreshTimer = setTimeout(() => setFeedAdPoolTick((n) => n + 1), delay);
       })
       .catch(() => {
         if (!cancelled) setFeedAdPool([]);
       });
     return () => {
       cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, []);
+  }, [feedAdPoolTick]);
 
   /**
    * CUT H: silent fetch must not apply incoming order (auto unshift).
@@ -1268,7 +1275,8 @@ export function HomeProductList({
                 );
               })()}
             </li>
-            {shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
+            {/* D-29 (2026-11-04): 검색어가 있으면 피드 배너를 끼우지 않는다 */}
+            {!q?.trim() && shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
               <FeedAdBannerCarousel
                 domain="trade"
                 placement="TRADE_HOME"

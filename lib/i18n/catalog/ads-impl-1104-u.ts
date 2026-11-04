@@ -1,0 +1,37 @@
+/**
+ * 광고 ② 수정 설계 구현 (Owner 「설계안대로 구현」 2026-11-04) — 팝업·PTR·배달·마이·목적지 문구. 뒤에 spread 되므로 같은 키는 이 파일 값이 우선한다.
+ */
+export const adsImpl1104SurfaceMessages = {
+  ko: {
+    admin_banners_status_scheduled: "예정",
+    destination_open_failed_title: "열 수 없는 링크입니다",
+    admin_destination_hint_real_address: "실제 주소",
+    admin_destination_hint_real_address_note: "입력한 도메인에 한글·특수 문자가 있어 실제 주소로 바꿔 보여 줍니다. 닮은 주소가 아닌지 확인해 주세요.",
+    admin_destination_error_destination_empty: "링크를 입력해 주세요.",
+    admin_destination_error_invalid_internal_path: "앱 안 경로는 /로 시작해야 합니다.",
+    admin_destination_error_internal_path_forbidden: "관리자·사장님 화면으로는 연결할 수 없습니다.",
+    admin_destination_error_invalid_url: "주소 형식이 올바르지 않습니다.",
+    admin_destination_error_https_required: "외부 링크는 https:// 주소만 쓸 수 있습니다.",
+    admin_destination_error_event_id_required: "이벤트를 선택해 주세요.",
+    admin_destination_error_external_url_credentials: "주소에 계정 정보(아이디@)를 넣을 수 없습니다.",
+    admin_destination_error_external_url_private_host: "IP 주소·내부망 주소는 쓸 수 없습니다. 공개 도메인 주소를 넣어 주세요.",
+    admin_destination_error_external_url_too_long: "주소가 너무 깁니다(2,048자 이하).",
+    admin_destination_error_external_url_shortener: "단축 주소는 쓸 수 없습니다. 최종 주소를 넣어 주세요.",
+  },
+  en: {
+    admin_banners_status_scheduled: "Scheduled",
+    destination_open_failed_title: "This link can't be opened",
+    admin_destination_hint_real_address: "Actual address",
+    admin_destination_hint_real_address_note: "The domain had non-ASCII characters, so the actual (punycode) address is shown. Check it is not a look-alike.",
+    admin_destination_error_destination_empty: "Enter a link.",
+    admin_destination_error_invalid_internal_path: "In-app paths must start with /.",
+    admin_destination_error_internal_path_forbidden: "Admin and owner screens cannot be linked.",
+    admin_destination_error_invalid_url: "The address format is invalid.",
+    admin_destination_error_https_required: "External links must use https://.",
+    admin_destination_error_event_id_required: "Select an event.",
+    admin_destination_error_external_url_credentials: "The address cannot contain account info (user@).",
+    admin_destination_error_external_url_private_host: "IP or private-network addresses are not allowed. Use a public domain.",
+    admin_destination_error_external_url_too_long: "The address is too long (2,048 characters max).",
+    admin_destination_error_external_url_shortener: "Short links are not allowed. Enter the final address.",
+  },
+} as const;

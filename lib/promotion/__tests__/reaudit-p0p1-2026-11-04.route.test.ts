@@ -187,13 +187,14 @@ describe("F-01 — 피드 배너 노출·클릭: 보는 사람은 서버가 정�
 });
 
 describe("N-02 · N-03 — 거래 상위노출 재개·일시정지는 어느 화면에서든 사유 필수 (운영 DB 가 사유 2자 요구)", () => {
-  it("재개 = exposeStart(L2) · 정지 = sanction(L2)", () => {
-    expect(adsWorkspaceActionKind("resume", "boost_trade")).toBe("exposeStart");
-    expect(adsWorkspaceActionKind("pause", "boost_trade")).toBe("sanction");
+  it("재개 = adResume(L2) · 정지 = pause(L2) — 설계 §6 (2026-11-04) 모든 광고 계열 같은 단계", () => {
+    expect(adsWorkspaceActionKind("resume", "boost_trade")).toBe("adResume");
+    // 설계 §6: 정지는 모든 광고 계열 같은 단계(pause L2 · 사유 필수)
+    expect(adsWorkspaceActionKind("pause", "boost_trade")).toBe("pause");
     expect(adsWorkspaceActionNeedsReason("resume", "boost_trade")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("pause", "boost_trade")).toBe(true);
-    // 다른 계열은 그대로
-    expect(adsWorkspaceActionNeedsReason("resume", "feed_banner")).toBe(false);
+    // 설계 §6 · FB-A05 (2026-11-04): 피드 배너 재개도 사유 필수
+    expect(adsWorkspaceActionNeedsReason("resume", "feed_banner")).toBe(true);
   });
 });
 

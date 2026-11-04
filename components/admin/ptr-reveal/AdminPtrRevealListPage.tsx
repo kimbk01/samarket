@@ -99,7 +99,7 @@ export function AdminPtrRevealListPage() {
     // refreshKey = apiQueryString + 새로고침 횟수
   }, [apiQueryString, refreshKey]);
 
-  /** 재감사 S-2 (H-4): PTR 띠 만들기·복사 = ads 키 (서버 `platform-popup-campaigns` 와 같음) */
+  /** 재감사 S-2 (H-4): PTR 띠 만들기·복사 = ads 키 (서버 `platform-popup-campaigns` 와 같음) · AL-14: 권한 없으면 버튼도 막음 */
   const writeGuard = useAdminWriteGuard("/admin/ptr-reveal-ads");
   const create = async () => {
     if (!writeGuard.guard()) return;
@@ -166,7 +166,7 @@ export function AdminPtrRevealListPage() {
             )}
           </p>
         </div>
-        <AdminActionButton variant="secondary" disabled={busy} onClick={() => void create()} data-admin-ptr-create="">
+        <AdminActionButton variant="secondary" disabled={busy || !writeGuard.allowed} onClick={() => void create()} data-admin-ptr-create="">
           {L("새 광고 만들기", "New ad")}
         </AdminActionButton>
       </div>
@@ -271,7 +271,7 @@ export function AdminPtrRevealListPage() {
                   </td>
                   <td className={`${TD} text-right`}>
                     <div className="flex flex-wrap justify-end gap-1.5">
-                      <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => void copy(item)}>
+                      <AdminActionButton variant="ghost" size="sm" disabled={busy || !writeGuard.allowed} onClick={() => void copy(item)}>
                         {L("복사", "Copy")}
                       </AdminActionButton>
                       <AdminActionLink href={`/admin/ptr-reveal-ads/${item.id}`} variant="ghost" size="sm">

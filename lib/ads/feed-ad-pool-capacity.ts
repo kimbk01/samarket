@@ -65,3 +65,53 @@ export function feedAdPoolTargetKey(
 export function isFeedAdPoolCapacityDbError(err: { message?: string | null } | null | undefined): boolean {
   return String(err?.message ?? "").includes("feed_ad_pool_capacity_full");
 }
+
+/** FB-A11 · D-7: 풀 키 1개 = 「위치 + 업종/주제」 (DB 트리거·등록 화면·위치 지도·회원 신청이 같은 키) */
+export function feedAdPoolKey(
+  placement: string | null | undefined,
+  target: { targetCategoryId?: string | null; targetTopicSlug?: string | null }
+): string {
+  const p = String(placement ?? "").toUpperCase();
+  return `${p}|${feedAdPoolTargetKey(p, target)}`;
+}
+
+export type FeedAdPoolOccupancyRow = {
+  id?: string | null;
+  placement: string | null | undefined;
+  status: string | null | undefined;
+  endAt?: string | null;
+  targetCategoryId?: string | null;
+  targetTopicSlug?: string | null;
+};
+
+/**
+ * FB-A11 · D-7: 풀별 점유 수 — **세 곳(위치 지도 · 어드민 등록 화면 · 서버 신청/승인 검사)이 이 함수 하나로 센다.**
+ * 점유 규칙 = `feedAdPoolOccupiesCampaign` (DB 트리거 `feed_ad_campaigns_pool_capacity_guard` 와 같음).
+ */
+export function countFeedAdPoolOccupancy(
+  rows: readonly FeedAdPoolOccupancyRow[],
+  nowMs: number = Date.now(),
+  excludeCampaignId?: string | null
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    if (excludeCampaignId && String(r.id ?? "") === excludeCampaignId) continue;
+    if (!feedAdPoolOccupiesCampaign({ status: r.status, endAt: r.endAt ?? null }, nowMs)) continue;
+    const key = feedAdPoolKey(r.placement, r);
+    out.set(key, (out.get(key) ?? 0) + 1);
+  }
+  return out;
+}
+
+/** 한 풀의 사용·수용·남은 자리 */
+export function feedAdPoolRemaining(
+  rows: readonly FeedAdPoolOccupancyRow[],
+  placement: string,
+  target: { targetCategoryId?: string | null; targetTopicSlug?: string | null },
+  nowMs: number = Date.now(),
+  excludeCampaignId?: string | null
+): { used: number; capacity: number; remaining: number } {
+  const capacity = feedAdPoolCapacity(placement);
+  const used = countFeedAdPoolOccupancy(rows, nowMs, excludeCampaignId).get(feedAdPoolKey(placement, target)) ?? 0;
+  return { used, capacity, remaining: Math.max(0, capacity - used) };
+}

@@ -39,7 +39,14 @@ export type FeedAdRequestLimitRow = {
   status: string;
   startAt?: string | null;
   endAt?: string | null;
+  /** D-8 (2026-11-04): 캠페인 상태 — 관리자가 종료(`ended`)했으면 신청 행이 active 로 남아 있어도 진행 중이 아니다 */
+  campaignStatus?: string | null;
 };
+
+function isTerminalCampaignStatus(st: string | null | undefined): st is string {
+  const v = String(st ?? "").toLowerCase();
+  return v === "ended" || v === "expired";
+}
 
 /**
  * Pick the member's current open banner, if any.
@@ -57,6 +64,8 @@ export function findCurrentFeedAdBanner(
       requestStatus: row.status,
       startAt: row.startAt,
       endAt: row.endAt,
+      // 종료만 반영한다 — 정지(paused)는 여전히 진행 중 1개로 센다(FB-M01 유지)
+      campaignStatus: isTerminalCampaignStatus(row.campaignStatus) ? row.campaignStatus : null,
       nowMs: now,
     });
     if (!isFeedAdDisplayStatusBlockingNewCreate(presentation.displayStatus)) continue;

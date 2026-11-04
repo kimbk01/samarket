@@ -501,6 +501,13 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
       ? Math.max(0, Math.ceil(current.data.remainingSeconds / 86_400))
       : null;
 
+  /**
+   * 광고 ② AD-123 (2026-11-04): 종료 = forceCancel(L3) — 사유 + **대상 재입력**.
+   * 커뮤니티 상위노출 종료 화면과 같은 규칙(글 제목, 40자 넘으면 「상위노출 종료」).
+   */
+  const retypeTitle = titleOf(row).trim();
+  const retype = retypeTitle && retypeTitle.length <= 40 ? retypeTitle : "상위노출 종료";
+
   return (
     <CommunityActionSheet
       title="상위노출 종료"
@@ -512,6 +519,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
       ]}
       notice="종료하면 다시 노출할 수 없습니다. 회원에게 종료 사유와 환급 포인트가 알림으로 전달됩니다."
       reason={{ minLength: 2, placeholder: "종료 사유 (회원에게 전달됩니다)" }}
+      retypeValue={retype}
       ready={ready}
       destructive
       confirmLabel="종료"
@@ -570,3 +578,6 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
     </CommunityActionSheet>
   );
 }
+
+/** 시험용 — 종료 시트(AD-123 대상 재입력) 단독 렌더 */
+export { EndSheet as TradePromotionEndSheet };

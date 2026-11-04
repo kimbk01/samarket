@@ -7,6 +7,8 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { recordDeliveryAdImpressionFromToken } from "@/lib/stores/advertising/delivery-ad-event-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { getClientIp } from "@/lib/http/api-route";
+import { adEventRecordActorKey, enforceAdEventRecordQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +18,14 @@ export async function POST(req: NextRequest) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+
+  // D-21 ③: 요청 제한(회원 id · 없으면 IP 해시). 넘으면 429 — 앱 쪽 `useDeliveryAdEvents` 는 실패를 무시한다(화면 영향 없음).
+  const viewerUserId = await getOptionalAuthenticatedUserId();
+  const quota = await enforceAdEventRecordQuota(
+    "delivery_ad_impression",
+    adEventRecordActorKey({ userId: viewerUserId, ip: getClientIp(req) })
+  );
+  if (!quota.ok) return quota.response;
 
   let body: Record<string, unknown>;
   try {
@@ -59,8 +69,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
-  // Optional auth does not change impression privacy fields.
-  void (await getOptionalAuthenticatedUserId());
-
+  // Optional auth does not change impression privacy fields (회원 id 는 요청 제한 키에만 쓴다).
   return NextResponse.json({ ok: true, eventId, deduped: result.deduped, id: result.id });
 }

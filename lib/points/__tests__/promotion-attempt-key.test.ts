@@ -82,8 +82,9 @@ describe("결제 화면 4곳이 같은 규칙을 쓴다", () => {
 describe("H-1 — 전체 광고에서 거래 상위노출 종료도 귀책을 보낸다", () => {
   const ws = read("components/admin/ads/AdminAdvertisingWorkspace.tsx");
   it("종료 요청에 귀책 · 귀책·환급 미리보기 폼을 거래에도 쓴다", () => {
-    expect(ws).toContain('action === "end" && (fam === "boost_community" || fam === "boost_trade") ? fault ?? undefined : undefined');
-    expect(ws).toContain('boostEndFamily === "boost_community" || boostEndFamily === "boost_trade" ? pendingMutation : null');
+    // 설계 §6 (2026-11-04): 피드 배너·배달 진행 중 종료도 같은 귀책·미리보기 폼
+    expect(ws).toMatch(/action === "end" && \(fam === "boost_community" \|\| fam === "boost_trade" \|\| fam === "feed_banner"[^)]*\)\s*\? fault \?\? undefined/);
+    expect(ws).toContain('boostEndFamily === "boost_trade" ||');
     expect(ws).toContain("family: boostEndFamily,");
     expect(ws).toContain("j.refund_points");
   });

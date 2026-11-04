@@ -190,8 +190,10 @@ export function AdminBannerForm({
           value={values.targetUrl}
           onChange={(e) => setValues((v) => ({ ...v, targetUrl: e.target.value }))}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="https://..."
+          placeholder="/events/… 또는 /mypage/…"
         />
+        {/* DS-7: 마이 배너 링크 = 앱 안 경로·이벤트만 · 필수 */}
+        <p className="mt-1 sam-text-helper text-sam-muted">앱 안 경로(/…) 또는 이벤트(/events/…)만 넣을 수 있습니다. 외부 링크는 쓸 수 없습니다.</p>
         <AdminDestinationResolvedHint href={values.targetUrl} />
       </div>
       <div>

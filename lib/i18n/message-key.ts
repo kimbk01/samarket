@@ -115,6 +115,11 @@ import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { adminIaR1Messages } from "./catalog/admin-ia-r1";
 import { adminDashboardChatTabMessages } from "./catalog/admin-dashboard-chat-tab";
 import { popupSsotWordingMessages } from "./catalog/popup-ssot-wording";
+import { adsImpl1104PromotionMessages } from "./catalog/ads-impl-1104-p";
+import { adsImpl1104FeedMessages } from "./catalog/ads-impl-1104-f";
+import { adsImpl1104SurfaceMessages } from "./catalog/ads-impl-1104-u";
+import { adsImpl1104AdminMessages } from "./catalog/ads-impl-1104-a";
+import { adsImpl1104IntroMessages } from "./catalog/ads-impl-1104-i";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -143,6 +148,11 @@ export type MessageKey =
   | KeyOf<typeof adminIaR1Messages.ko>
   | KeyOf<typeof adminDashboardChatTabMessages.ko>
   | KeyOf<typeof popupSsotWordingMessages.ko>
+  | KeyOf<typeof adsImpl1104PromotionMessages.ko>
+  | KeyOf<typeof adsImpl1104FeedMessages.ko>
+  | KeyOf<typeof adsImpl1104SurfaceMessages.ko>
+  | KeyOf<typeof adsImpl1104AdminMessages.ko>
+  | KeyOf<typeof adsImpl1104IntroMessages.ko>
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
@@ -350,6 +360,11 @@ type EnMessageKey =
   | KeyOf<typeof adminIaR1Messages.en>
   | KeyOf<typeof adminDashboardChatTabMessages.en>
   | KeyOf<typeof popupSsotWordingMessages.en>
+  | KeyOf<typeof adsImpl1104PromotionMessages.en>
+  | KeyOf<typeof adsImpl1104FeedMessages.en>
+  | KeyOf<typeof adsImpl1104SurfaceMessages.en>
+  | KeyOf<typeof adsImpl1104AdminMessages.en>
+  | KeyOf<typeof adsImpl1104IntroMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

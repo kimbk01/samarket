@@ -35,6 +35,7 @@ import {
   familyFromControlDomain,
   filterWorkspaceActionsByMode,
   listWorkspaceDrawerActions,
+  isWorkspacePopupDeleteSafeDraft,
   parseWorkspaceEntityId,
   type WorkspaceDrawerAction,
 } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
@@ -66,7 +67,9 @@ import {
   findBoostActionItemByOrderId,
   resolveAdsBoostOrderFocusState,
 } from "@/lib/admin/ads-exposure/boost-order-deep-link";
-import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
+import { adminIsoToManilaInput, adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
+import { isDeliveryAdLiveEndLifecycle } from "@/lib/stores/advertising/admin-delivery-ad-end";
+import { formatAdminDeliveryAdPriceOrUnset } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { AdminAdsOtherSurfacesCards } from "@/components/admin/ads/AdminAdsOtherSurfacesCards";
 
 /**
@@ -329,7 +332,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   /** 커뮤니티 홍보 종료 — 귀책(필수)·환급 미리보기 (설계 v2 §F-1-2) */
-  const [endFault, setEndFault] = useState<"operator" | "member" | null>(null);
+  const [endFault, setEndFault] = useState<"operator" | "member" | "none" | null>(null);
+  /** 종료 환급 미리보기 — 상위노출·피드 = 포인트(refundPoints) · 배달 = 비즈니스 캐시 minor(refundAmount) */
   const [endPreview, setEndPreview] = useState<
     { fault: string; refundPoints: number } | { fault: string; error: string } | null
   >(null);
@@ -534,7 +538,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       action: WorkspaceDrawerAction,
       rowItem: AdsActionItem,
       reasonFromConfirm?: string,
-      fault?: "operator" | "member" | null
+      fault?: "operator" | "member" | "none" | null,
+      internalReasonFromConfirm?: string | null
     ) => {
       const fam = resolveFamily(rowItem);
       if (!fam) {
@@ -571,6 +576,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             expectedLifecycle: rowItem.expectedLifecycle ?? undefined,
             reason: reason || undefined,
             publicMessage: reason || undefined,
+            // D-6: 확인창의 내부 메모(운영자만) — 공개 사유와 따로 보낸다
+            internalReason: internalReasonFromConfirm?.trim() || undefined,
             internalMemo: action === "add_internal_memo" ? internalMemo : undefined,
             requestedDays: action === "extend_compensation" ? extendDays : undefined,
             extensionKind:
@@ -580,8 +587,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             endAt: action === "change_period" ? adminManilaInputToIso(periodEnd) ?? undefined : undefined,
             // 커뮤니티 홍보 종료: 귀책에 따라 서버가 환급(운영 사유) 또는 환급 없음(회원 사유)을 정한다.
             // 재감사 S-0 (H-1): 거래 상위노출 종료도 귀책이 필요하다(DB `admin_trade_promotion_end` 가 귀책 없으면 fault_required)
+            // 설계 §6: 피드 배너(D-5)·배달 진행 중(D-13) 종료도 귀책 필수
             fault:
-              action === "end" && (fam === "boost_community" || fam === "boost_trade") ? fault ?? undefined : undefined,
+              action === "end" && (fam === "boost_community" || fam === "boost_trade" || fam === "feed_banner" || fam === "delivery_banner" || fam === "delivery_sponsored")
+                ? fault ?? undefined
+                : undefined,
           }),
         });
         const j = (await res.json().catch(() => ({}))) as {
@@ -591,6 +601,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           refundPoints?: number | null;
           /** 거래 상위노출 종료 응답(DB 함수 원문 키) */
           refund_points?: number | null;
+          /** 배달 진행 중 종료 환급 (비즈니스 캐시 minor · D-13) */
+          refundAmount?: number | null;
+          /** AL-07: 팝업 기간 변경 뒤 재검토로 돌아갔는지 */
+          revertedToReview?: boolean;
         };
         if (!res.ok || !j.ok) {
           setActionMsg(
@@ -616,16 +630,34 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         }
         const refundWarning = j.result?.refundWarning ?? null;
         const endRefund = typeof j.refundPoints === "number" ? j.refundPoints : j.refund_points;
+        const deliveryEnd = action === "end" && (fam === "delivery_banner" || fam === "delivery_sponsored");
         const communityRefund =
-          action === "end" && (fam === "boost_community" || fam === "boost_trade") && typeof endRefund === "number"
+          action === "end" && deliveryEnd && typeof j.refundAmount === "number"
             ? ko
-              ? endRefund > 0
-                ? ` 환급 ${formatAdminNumber(endRefund)} P`
+              ? j.refundAmount > 0
+                ? ` 환급 ${formatAdminDeliveryAdPriceOrUnset(j.refundAmount, "ko")}`
                 : " 환급 없음"
-              : ` Refund ${formatAdminNumber(endRefund)} P`
+              : ` Refund ${formatAdminDeliveryAdPriceOrUnset(j.refundAmount, "en")}`
+            : action === "end" &&
+                (fam === "boost_community" || fam === "boost_trade" || fam === "feed_banner") &&
+                typeof endRefund === "number"
+              ? ko
+                ? endRefund > 0
+                  ? ` 환급 ${formatAdminNumber(endRefund)} P`
+                  : " 환급 없음"
+                : ` Refund ${formatAdminNumber(endRefund)} P`
+              : "";
+        // AL-07: 기간 변경으로 재검토 대기가 되면 결과 문구에 「다시 승인 필요」를 보인다
+        const periodReview =
+          action === "change_period" && j.revertedToReview
+            ? ko
+              ? " 노출이 멈추고 검토 대기로 돌아갔습니다 — 다시 승인이 필요합니다."
+              : " Moved back to review — approval is required again."
             : "";
         setActionMsg(
-          communityRefund
+          periodReview
+            ? `${feedbackForAction(action, ko)}${periodReview}`
+            : communityRefund
             ? `${feedbackForAction(action, ko)}${communityRefund}`
             : refundWarning
             ? `${feedbackForAction(action, ko)} ${adminOperatorErrorMessage(refundWarning, ko)} ${t(
@@ -650,8 +682,18 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
   /** 상위노출(커뮤니티·거래) 종료 = 귀책 선택·환급 미리보기 폼 (재감사 S-0 H-1: 거래도 같은 폼) */
   const boostEndFamily = pendingMutation?.action === "end" ? resolveFamily(pendingMutation.item) : null;
+  /** 설계 §6 종료 L3 = 귀책 + 환급 미리보기 폼 — 상위노출·피드 배너(D-5)·배달 진행 중(D-13) 같은 폼 */
   const communityEndPending =
-    boostEndFamily === "boost_community" || boostEndFamily === "boost_trade" ? pendingMutation : null;
+    boostEndFamily === "boost_community" ||
+    boostEndFamily === "boost_trade" ||
+    boostEndFamily === "feed_banner" ||
+    ((boostEndFamily === "delivery_banner" || boostEndFamily === "delivery_sponsored") &&
+      isDeliveryAdLiveEndLifecycle(pendingMutation?.item.expectedLifecycle ?? null))
+      ? pendingMutation
+      : null;
+  const endIsDelivery = boostEndFamily === "delivery_banner" || boostEndFamily === "delivery_sponsored";
+  /** 귀책 「해당 없음」은 피드·배달만 (상위노출 DB 함수는 운영/회원 두 가지) */
+  const endAllowsNoFault = boostEndFamily === "feed_banner" || endIsDelivery;
   const communityEndEntityId = communityEndPending ? parseWorkspaceEntityId(communityEndPending.item.id) : null;
   /** 종료 = forceCancel(L3) — 폼 대화상자에서도 대상 재입력을 받는다. */
   const communityEndRetype = communityEndPending
@@ -683,6 +725,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             preview: true,
             reason: "환급 미리보기",
             publicMessage: "환급 미리보기",
+            expectedUpdatedAt: communityEndPending?.item.expectedUpdatedAt ?? undefined,
+            expectedLifecycle: communityEndPending?.item.expectedLifecycle ?? undefined,
           }),
         });
         const j = (await res.json().catch(() => ({}))) as {
@@ -692,6 +736,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           refundPoints?: number;
           /** 거래 미리보기 응답(DB 함수 원문 키) */
           refund_points?: number;
+          /** 배달 미리보기 (비즈니스 캐시 minor) */
+          refundAmount?: number;
         };
         if (!alive) return;
         if (!res.ok || !j.ok) {
@@ -700,7 +746,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         }
         setEndPreview({
           fault: endFault,
-          refundPoints: Number(j.preview?.refundPoints ?? j.refundPoints ?? j.refund_points ?? 0),
+          refundPoints: Number(j.preview?.refundPoints ?? j.refundPoints ?? j.refund_points ?? j.refundAmount ?? 0),
         });
       } catch {
         if (alive) setEndPreview({ fault: endFault, error: "network_error" });
@@ -709,6 +755,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 대상 행이 바뀔 때만 다시 계산 (판 정보는 같은 행)
   }, [communityEndEntityId, endFault, boostEndFamily]);
 
   useEffect(() => {
@@ -739,6 +786,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     };
   }, [selected, memoReload]);
 
+  // AL-08: 상세(드로어)를 열면 기간 입력칸 초기값 = 현재 기간 (PHT)
+  useEffect(() => {
+    setPeriodStart(adminIsoToManilaInput(selected?.periodStartAt ?? null));
+    setPeriodEnd(adminIsoToManilaInput(selected?.periodEndAt ?? null));
+  }, [selected?.id, selected?.periodStartAt, selected?.periodEndAt]);
+
   const requestDrawerAction = useCallback(
     (action: WorkspaceDrawerAction, rowItem: AdsActionItem) => {
       // Ordinary internal note save — not a consequential Ads state mutation.
@@ -746,13 +799,26 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         void executeDrawerAction(action, rowItem);
         return;
       }
+      // AL-08: 목록 행의 「기간 변경」은 입력칸이 있는 상세(드로어)를 연다 — 입력칸 초기값 = 현재 기간.
+      if (action === "change_period" && selected?.id !== rowItem.id) {
+        setSelected(rowItem);
+        setActionMsg(ko ? "상세에서 시작·종료 일시를 고친 뒤 「기간 변경」을 누르세요." : "Edit the period in the detail panel, then press Change period.");
+        return;
+      }
       const fam = resolveFamily(rowItem);
       const copy = adsWorkspaceMutationConfirmCopy(action, ko, {
         boostSanction: mode === "boosts" && action === "pause",
         family: fam,
       });
-      // 상위노출(커뮤니티·거래) 종료는 귀책 선택·환급 미리보기가 있는 입력 폼 대화상자 — 아래 폼에서 처리한다.
-      if (action === "end" && (fam === "boost_community" || fam === "boost_trade")) {
+      // 종료(L3)는 귀책 선택·환급 미리보기가 있는 입력 폼 대화상자 — 상위노출·피드 배너·배달 진행 중 (설계 §6).
+      if (
+        action === "end" &&
+        (fam === "boost_community" ||
+          fam === "boost_trade" ||
+          fam === "feed_banner" ||
+          ((fam === "delivery_banner" || fam === "delivery_sponsored") &&
+            isDeliveryAdLiveEndLifecycle(rowItem.expectedLifecycle ?? null)))
+      ) {
         setPendingMutation({ action, item: rowItem, copy });
         return;
       }
@@ -769,12 +835,13 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           destructive: copy.tone === "danger",
           reasonPlaceholder: copy.reasonLabel,
           retypeValue,
+          splitReason: copy.splitReason,
         });
         if (!confirmed.ok) return;
-        await executeDrawerAction(action, rowItem, confirmed.reason ?? undefined);
+        await executeDrawerAction(action, rowItem, confirmed.reason ?? undefined, null, confirmed.internalMemo ?? null);
       })();
     },
-    [ko, mode, executeDrawerAction]
+    [ko, mode, executeDrawerAction, selected]
   );
 
   const selectedFamily = selected ? resolveFamily(selected) : null;
@@ -784,6 +851,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           listWorkspaceDrawerActions({
             family: selectedFamily,
             statusRaw: selected.status,
+            popupDeleteSafe:
+              selectedFamily === "platform_popup_campaign" ? isWorkspacePopupDeleteSafeDraft(selected) : undefined,
+            pausedBy: selected.pausedBy ?? null,
           }),
           mode
         )
@@ -840,7 +910,13 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               <span data-admin-boost-order-focus-title>{boostFocusMatch.applicantLabel}</span>
               {" · "}
               <span data-admin-boost-order-focus-domain>
-                {boostFocusMatch.domain === "community_promote" ? "community" : "trade"}
+                {boostFocusMatch.domain === "community_promote"
+                  ? ko
+                    ? "커뮤니티"
+                    : "community"
+                  : ko
+                    ? "거래"
+                    : "trade"}
               </span>
             </>
           ) : boostFocusState === "invalid" ? (
@@ -859,9 +935,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           {/* 표준 헤더 — 제목 = 메뉴 라벨 키 (§2.8) */}
           <AdminPageHeader titleKey={modeTitleKey(mode)} description={modeDescription(mode, ko)} />
           <p className="text-[12px] text-sam-muted" data-admin-ads-promotion-deeplink-note="1">
-            {ko
-              ? "이벤트·팝업·배너 등 플랫폼 노출은 「플랫폼 운영」에서 관리합니다."
-              : "Event, popup, and banner exposure live under Promotion / Events."}{" "}
+            {/* D-19 (Owner 권장안 승인 2026-11-04): 목록에 없는 인트로·PTR·마이 배너·이벤트는 아래 카드에서 바로 이동 */}
+            {mode === "all"
+              ? ko
+                ? "인트로·당겨서 새로고침 광고·마이 배너·이벤트는 아래 카드에서 바로 이동해 관리합니다."
+                : "Manage intro, pull-to-refresh ads, My page banners and events from the cards below."
+              : ko
+                ? "인트로·당겨서 새로고침 광고·마이 배너·이벤트는 「전체 광고」 화면 카드에서 바로 이동합니다."
+                : "Intro, pull-to-refresh ads, My page banners and events are linked from the All ads cards."}{" "}
             <AdminActionLink
               href={PROMOTION_WORKSPACE_HREF}
               variant="quiet"
@@ -1178,6 +1259,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           listWorkspaceDrawerActions({
                             family: fam,
                             statusRaw: item.status,
+                            popupDeleteSafe:
+                              fam === "platform_popup_campaign" ? isWorkspacePopupDeleteSafeDraft(item) : undefined,
+                            pausedBy: item.pausedBy ?? null,
                           }),
                           mode
                         )
@@ -1247,8 +1331,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                           <td className="px-2 py-2">
                             {r.sourceKind === "admin_direct"
                               ? ko
-                                ? "Admin 직접 등록"
-                                : "Admin direct"
+                                ? "운영자 등록"
+                                : "Operator registered"
                               : r.applicantLabel}
                           </td>
                           <td className="px-2 py-2">{r.memberOrStore}</td>
@@ -1832,7 +1916,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 onClick={() => {
                   if (!pendingMutation || busyAction != null) return;
                   if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
-                    setActionMsg(ko ? "귀책을 선택하고 환급 예정 포인트를 확인해 주세요." : "Choose fault and check the refund preview.");
+                    setActionMsg(ko ? "귀책을 선택하고 환급 예정 금액을 확인해 주세요." : "Choose fault and check the refund preview.");
                     return;
                   }
                   const { action, item, copy } = pendingMutation;
@@ -1850,9 +1934,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       destructive: copy.tone === "danger",
                       reasonPlaceholder: copy.reasonLabel,
                       retypeValue: retypeValue || undefined,
+                      splitReason: copy.splitReason,
                     });
                     if (!confirmed.ok) return;
-                    await executeDrawerAction(action, item, confirmed.reason ?? undefined, fault);
+                    await executeDrawerAction(action, item, confirmed.reason ?? undefined, fault, confirmed.internalMemo ?? null);
                   })();
                 }}
               >
@@ -1873,7 +1958,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   onChange={() => setEndFault("operator")}
                   className="mt-0.5"
                 />
-                <span>{ko ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급" : "Operator — prorated refund"}</span>
+                <span>
+                  {endIsDelivery
+                    ? ko
+                      ? "운영 사유 — 남은 기간만큼 비즈니스 캐시 비례 환급"
+                      : "Operator — prorated business cash refund"
+                    : ko
+                      ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급"
+                      : "Operator — prorated refund"}
+                </span>
               </label>
               <label className="flex items-start gap-2">
                 <input
@@ -1884,14 +1977,32 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   onChange={() => setEndFault("member")}
                   className="mt-0.5"
                 />
-                <span>{ko ? "회원 사유 — 환급 없음" : "Member — no refund"}</span>
+                <span>
+                  {endIsDelivery ? (ko ? "사장님 사유 — 환급 없음" : "Owner — no refund") : ko ? "회원 사유 — 환급 없음" : "Member — no refund"}
+                </span>
               </label>
+              {endAllowsNoFault ? (
+                <label className="flex items-start gap-2">
+                  <input
+                    type="radio"
+                    name="boost-community-end-fault"
+                    checked={endFault === "none"}
+                    disabled={busyAction != null}
+                    onChange={() => setEndFault("none")}
+                    className="mt-0.5"
+                  />
+                  <span>{ko ? "해당 없음 — 환급 없음" : "None — no refund"}</span>
+                </label>
+              ) : null}
               {endFault && !endPreview ? (
-                <p className="opacity-70">{ko ? "환급 예정 포인트를 계산하는 중…" : "Calculating refund…"}</p>
+                <p className="opacity-70">{ko ? "환급 예정 금액을 계산하는 중…" : "Calculating refund…"}</p>
               ) : null}
               {endPreview && !("error" in endPreview) && endPreview.fault === endFault ? (
                 <p className="font-semibold">
-                  {ko ? "환급 예정" : "Refund"} {formatAdminNumber(endPreview.refundPoints)} P
+                  {ko ? "환급 예정" : "Refund"}{" "}
+                  {endIsDelivery
+                    ? formatAdminDeliveryAdPriceOrUnset(endPreview.refundPoints, ko ? "ko" : "en")
+                    : `${formatAdminNumber(endPreview.refundPoints)} P`}
                 </p>
               ) : null}
               {endPreview && "error" in endPreview ? (

@@ -6,7 +6,7 @@ vi.mock("@/lib/audit/append-audit-log", () => ({
 
 import { adminDeletePlatformPopupDraftCampaign } from "@/lib/platform-popup/admin-campaign-delete-draft";
 
-function mockSb(row: Record<string, unknown> | null) {
+function mockSb(row: Record<string, unknown> | null, eventCount = 0) {
   const maybeSingle = vi.fn().mockResolvedValue({ data: row, error: null });
   const eqSelect = vi.fn().mockReturnValue({ maybeSingle });
   const select = vi.fn().mockReturnValue({ eq: eqSelect });
@@ -16,6 +16,9 @@ function mockSb(row: Record<string, unknown> | null) {
     from: vi.fn((table: string) => {
       if (table === "platform_popup_campaigns") {
         return { select, delete: del };
+      }
+      if (table === "platform_popup_campaign_events") {
+        return { select: () => ({ eq: async () => ({ count: eventCount, error: null }) }) };
       }
       return {};
     }),
@@ -76,5 +79,28 @@ describe("adminDeletePlatformPopupDraftCampaign", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe("not_draft");
     expect(sb._del).not.toHaveBeenCalled();
+  });
+
+  it("§4-3: 노출 기록이 있으면 초안이어도 삭제하지 않는다 (연쇄 삭제 금지)", async () => {
+    const sb = mockSb(
+      { id: "c1", status: "draft", approval_status: "not_submitted", owner_store_id: null, owner_request_id: null },
+      2
+    );
+    const result = await adminDeletePlatformPopupDraftCampaign(sb as never, { campaignId: "c1", adminUserId: "admin-1" });
+    expect(result).toEqual({ ok: false, error: "has_exposure_history", httpStatus: 409 });
+    expect(sb._del).not.toHaveBeenCalled();
+  });
+
+  it("DB 원문 오류는 응답에 싣지 않는다", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { message: "relation secret_table violates fk" } });
+    const sb = {
+      from: () => ({ select: () => ({ eq: () => ({ maybeSingle }) }) }),
+    };
+    const result = await adminDeletePlatformPopupDraftCampaign(sb as never, { campaignId: "c1", adminUserId: "a" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("load_failed");
+      expect(JSON.stringify(result)).not.toContain("secret_table");
+    }
   });
 });

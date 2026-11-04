@@ -11,6 +11,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 /**
  * 어드민 › 상위노출 가격 (Owner 2026-11-03 「1번부터 시작」).
@@ -59,6 +60,20 @@ export function AdminMemberPromotionProductsPage() {
   const [loadErr, setLoadErr] = useState<{ code: string; httpStatus: number } | null>(null);
   const [msg, setMsg] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  /**
+   * 광고 ② PB-54·AD-126 (2026-11-04): 저장 권한 — 서버와 같은 기준(거래 상품 = 거래 Admin, 커뮤니티 상품 = 거래 Admin + 커뮤니티 홍보).
+   * 권한이 없으면 버튼을 끄고, 눌러도 사유 창을 열기 **전에** 막고 안내한다(AD-204 공통 규칙).
+   */
+  const tradeWrite = useAdminWriteGuard("/admin/trade-ad-policies");
+  const communityWrite = useAdminWriteGuard("/admin/community/promotions");
+  const writeStateOf = (domain: Product["domain"]) => {
+    const allowed = tradeWrite.allowed && (domain !== "community" || communityWrite.allowed);
+    const loading = tradeWrite.loading || (domain === "community" && communityWrite.loading);
+    const reason = !tradeWrite.allowed ? tradeWrite.reason : domain === "community" && !communityWrite.allowed ? communityWrite.reason : null;
+    return { allowed, loading, reason };
+  };
+  const guardWrite = (domain: Product["domain"]) =>
+    tradeWrite.guard() && (domain !== "community" || communityWrite.guard());
 
   const apply = useCallback((s: Snapshot) => {
     setSnap(s);
@@ -87,6 +102,7 @@ export function AdminMemberPromotionProductsPage() {
   const titleOf = (p: Pick<Product, "fallbackTitleKo" | "fallbackTitleEn">) => (ko ? p.fallbackTitleKo : p.fallbackTitleEn);
 
   const save = async (p: Product) => {
+    if (!guardWrite(p.domain)) return;
     const d = drafts[p.id];
     if (!d) return;
     const pointCost = Math.floor(Number(d.pointCost));
@@ -188,7 +204,8 @@ export function AdminMemberPromotionProductsPage() {
               <tbody>
                 {snap.products.map((p) => {
                   const d = drafts[p.id] ?? draftOf(p);
-                  const locked = !snap.migrated || busyId === p.id;
+                  const write = writeStateOf(p.domain);
+                  const locked = !snap.migrated || busyId === p.id || !write.allowed;
                   return (
                     <tr key={p.id} className="border-t border-sam-border-soft">
                       <td className="px-3 py-2 font-medium text-sam-fg">{titleOf(p)}</td>
@@ -235,6 +252,13 @@ export function AdminMemberPromotionProductsPage() {
                         <AdminActionButton variant="primary" size="sm" disabled={locked} onClick={() => void save(p)}>
                           {t("admin_boost_prices_save")}
                         </AdminActionButton>
+                        {!write.allowed && !write.loading ? (
+                          <p className="mt-1 sam-text-helper text-sam-muted" data-admin-write-denied="">
+                            {t("ads1104p_admin_boost_prices_write_denied", {
+                              reason: write.reason ?? t("ads1104p_admin_write_denied_default"),
+                            })}
+                          </p>
+                        ) : null}
                       </td>
                     </tr>
                   );

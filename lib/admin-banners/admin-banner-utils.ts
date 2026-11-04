@@ -21,13 +21,23 @@ export const BANNER_STATUS_OPTIONS: { value: BannerStatus | ""; label: string }[
  * 「만료」로 보여 준다 (고객 조회 `myPageBannerLiveWindowFilters` 와 같은 규칙: 종료 시각과 같은 순간부터 제외).
  * 저장값은 바꾸지 않는다(표시만).
  */
+/** 화면 표시 상태 — 저장 상태 + MB-A01 「예정」(활성인데 시작 전) */
+export type AdminBannerDisplayStatus = BannerStatus | "scheduled";
+
+/**
+ * MB-A01 (Owner 「설계안대로」 2026-11-04): 「활성」인데 시작 시각 전이면 고객에게 아직 안 나오므로 「예정」으로 보인다
+ * (고객 조회 `myPageBannerLiveWindowFilters` 와 같은 규칙: 시작 시각과 같은 순간부터 노출).
+ */
 export function adminBannerDisplayStatus(
-  banner: Pick<AdminBanner, "status" | "endAt">,
+  banner: Pick<AdminBanner, "status" | "endAt"> & Partial<Pick<AdminBanner, "startAt">>,
   nowMs: number = Date.now()
-): BannerStatus {
+): AdminBannerDisplayStatus {
   if (banner.status !== "active") return banner.status;
   const end = banner.endAt ? Date.parse(banner.endAt) : NaN;
-  return Number.isFinite(end) && end <= nowMs ? "expired" : "active";
+  if (Number.isFinite(end) && end <= nowMs) return "expired";
+  const start = banner.startAt ? Date.parse(banner.startAt) : NaN;
+  if (Number.isFinite(start) && start > nowMs) return "scheduled";
+  return "active";
 }
 
 export interface AdminBannerFilters {

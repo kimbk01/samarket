@@ -6,7 +6,9 @@
  * - 숨김·삭제·본문 수정은 사유 필수 (복구는 L1 — 사유 선택).
  * - 상태 변경 → moderated_by/at/reason, 본문 수정 → last_edited_* (리비전은 DB 트리거).
  * - 외부 수집 글(origin_kind=imported)만 content_blocks 수정 가능 (C-08).
- * - 노출 중·중지 홍보가 걸린 글을 숨김·삭제하면 귀책(promotionFault) 필수 → admin_promotion_end.
+ * - 노출 중·중지 홍보가 걸린 글을 숨김·삭제하면 귀책(promotionFault) 필수 (광고 설계 D-10):
+ *   글을 바꾸기 **전에** 주문 종료 단일 경로(`runCommunityPromotionOrderAction` → admin_promotion_end ·
+ *   주문 감사 · 구매자 알림)로 먼저 끝낸다. 하나라도 종료에 실패하면 글은 숨기거나 지우지 않는다.
  * 서버 전용.
  */
 import "server-only";
@@ -14,14 +16,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
 import {
-  callAdminPromotionEnd,
   listRunningCommunityPromotionsForPost,
   parseCommunityPromotionFault,
 } from "@/lib/admin/community-admin/community-promotion-admin";
+import { runCommunityPromotionOrderAction } from "@/lib/admin/community-admin/community-promotion-order-action";
 import { sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
 import {
   notifyCommunityContentModerated,
-  notifyCommunityPromotionEnded,
   type CommunityContentModerationKind,
 } from "@/lib/notifications/notify-community-moderation";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
@@ -257,6 +258,39 @@ export async function applyCommunityPostAdminPatch(
     };
   }
 
+  // ── 홍보 먼저 종료 (D-10) — 주문 감사·구매자 알림까지 주문 조치와 같은 경로. 실패하면 글 변경 없음.
+  const promotionEnd: Array<Record<string, unknown>> = [];
+  if (removing && fault) {
+    for (const p of promotions) {
+      const res = await runCommunityPromotionOrderAction(sb, req, {
+        orderId: p.id,
+        actorId: input.actorId,
+        action: "end",
+        reason,
+        fault,
+        reasonCode: nextStatus === "deleted" ? "post_deleted" : "post_hidden",
+      });
+      if (!res.ok) {
+        return {
+          status: res.httpStatus >= 500 ? 500 : 409,
+          body: {
+            ok: false,
+            error: "promotion_end_failed",
+            orderId: p.id,
+            endError: res.error,
+            ...(promotionEnd.length ? { promotionEnd } : {}),
+          },
+        };
+      }
+      promotionEnd.push({
+        orderId: p.id,
+        ok: true,
+        refundPoints: Number(res.body.refundPoints ?? 0) || 0,
+        refundLedgerId: res.body.refundLedgerId ?? null,
+      });
+    }
+  }
+
   const { data: updated, error } = await sb
     .from("community_posts")
     .update(patch)
@@ -277,35 +311,6 @@ export async function applyCommunityPostAdminPatch(
 
   if (removing) {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId });
-  }
-
-  // ── 홍보 자동 종료 + 구매자 알림
-  const promotionEnd: Array<Record<string, unknown>> = [];
-  if (removing && fault) {
-    for (const p of promotions) {
-      const res = await callAdminPromotionEnd(sb, {
-        orderId: p.id,
-        actorId: input.actorId,
-        reasonCode: nextStatus === "deleted" ? "post_deleted" : "post_hidden",
-        fault,
-        reason: reason ?? "",
-      });
-      if (!res.ok) {
-        promotionEnd.push({ orderId: p.id, ok: false, error: res.error });
-        continue;
-      }
-      promotionEnd.push({ orderId: p.id, ok: true, refundPoints: res.refundPoints, refundLedgerId: res.refundLedgerId });
-      try {
-        await notifyCommunityPromotionEnded(sb, {
-          userId: p.userId,
-          orderId: p.id,
-          refundPoints: res.refundPoints,
-          reason,
-        });
-      } catch (e) {
-        console.error("[community-post-admin-patch] promotion notify", e);
-      }
-    }
   }
 
   const action = statusChange

@@ -15,7 +15,10 @@ vi.mock("@/lib/admin/require-admin-permission", () => ({
 }));
 vi.mock("@/lib/stores/advertising/admin-delivery-ad-writer", () => ({
   adminTransitionDeliveryAdCampaign: (...a: unknown[]) => adminTransitionDeliveryAdCampaign(...a),
-  adminDeleteSafeDraftDeliveryAdCampaign: (...a: unknown[]) => adminDeleteSafeDraftDeliveryAdCampaign(...a),
+}));
+// AL-01: 공통 화면 초안 삭제 = 배달 도메인과 같은 삭제 함수 (이력은 서버가 센다)
+vi.mock("@/lib/stores/advertising/admin-delivery-ad-delete", () => ({
+  adminDeleteDeliveryAdDraftGuarded: (...a: unknown[]) => adminDeleteSafeDraftDeliveryAdCampaign(...a),
 }));
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
   tryCreateSupabaseServiceClient: () => ({
@@ -168,7 +171,7 @@ describe("advertising-workspace action — R2 처리 사유", () => {
   });
 
   it("delete_safe_draft passes the reason to the delete writer", async () => {
-    adminDeleteSafeDraftDeliveryAdCampaign.mockResolvedValue({ ok: true });
+    adminDeleteSafeDraftDeliveryAdCampaign.mockResolvedValue({ ok: true, campaignId: "camp-1" });
     const res = await call({
       family: "delivery_banner",
       entityId: "camp-1",

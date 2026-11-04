@@ -29,10 +29,13 @@ describe("O-2 커뮤니티 위쪽 3개 — 거래와 같은 값", () => {
     expect(MAX_PAGE0_PROMOTED_PINS).toBe(PROMOTED_TOP_PINS_MAX);
   });
   it("위쪽은 3개만, 나머지 광고 중인 글은 일반 자리에 「광고」", () => {
+    // 광고 ② PB-21·PB-22 (2026-11-04): 자리 계산은 `planCommunityFeedAdPlacement` 하나 (동작 시험은 ads-impl-1104-community-card-feed)
     const feed = read("components/community/CommunityFeed.tsx");
-    expect(feed).toContain(".slice(0, PROMOTED_TOP_PINS_MAX)");
+    expect(feed).toContain("planCommunityFeedAdPlacement({ posts, topAds })");
     expect(feed).toContain("isAd={activeAdPostIds.has(String(p.id))}");
-    expect(feed).toContain("!pinnedAdPostIds.has(String(p.id))");
+    const plan = read("lib/promotion/community-feed-ad-placement.ts");
+    expect(plan).toContain(".slice(0, topMax)");
+    expect(plan).toContain("!pinnedAdPostIds.has(String(p.id))");
     expect(read("components/community/feed-list-layouts.tsx")).toContain("{vm.isAd ? <CommunityAdBadge /> : null}");
     expect(read("components/community/CommunityCard.tsx")).toContain("prev.isAd === next.isAd");
   });

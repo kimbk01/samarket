@@ -13,8 +13,13 @@ import { loadCustomerCouponWalletCards } from "@/lib/stores/load-customer-coupon
 import { customerWalletPresentationTab } from "@/lib/stores/customer-coupon-wallet-view";
 import { loadGiftWalletOverviewSummary } from "@/lib/gift-certificate/load-gift-wallet";
 import { readMemberTrustSnapshotPercent } from "@/lib/trust/member-trust-read";
-import { MY_PAGE_BANNERS_SELECT, myPageBannerLiveWindowFilters } from "@/lib/my/mypage-tables-select";
+import {
+  MY_PAGE_BANNERS_SELECT,
+  MY_PAGE_BANNER_CUSTOMER_ORDER,
+  myPageBannerLiveQuerySpec,
+} from "@/lib/my/mypage-tables-select";
 import type { MyPageBannerRow } from "@/lib/my/types";
+import { filterMyPageBannersWithLiveDestination } from "@/lib/my/my-page-banner-destination";
 import { MYPAGE_HOME_BANNER_FETCH_LIMIT } from "@/lib/mypage/mypage-home-banner-pick";
 import type {
   MypageSummaryField,
@@ -84,17 +89,21 @@ export async function loadMypageSummaryTrustServer(sb: Sb, userId: string): Prom
  * `MYPAGE_HOME_BANNER_FETCH_LIMIT` 건까지 받고, 앱이 닫지 않은 첫 배너를 그린다(`pickMypageHomeBanner`).
  */
 export async function loadMypageHomeBannersServer(sb: Sb): Promise<MyPageBannerRow[]> {
-  const bannerWindow = myPageBannerLiveWindowFilters(new Date().toISOString());
-  const { data, error } = await sb
+  // MB-A03 · MB-C04: 고객 노출 조건·정렬은 공용 정의 1곳(`mypage-tables-select`) — 정렬 = 어드민과 같은 priority → sort_order → 최신
+  const live = myPageBannerLiveQuerySpec(new Date().toISOString());
+  let q = sb
     .from("my_page_banners")
     .select(MY_PAGE_BANNERS_SELECT)
-    .eq("is_active", true)
-    .or(bannerWindow.startOr)
-    .or(bannerWindow.endOr)
-    .order("sort_order", { ascending: true })
-    .limit(MYPAGE_HOME_BANNER_FETCH_LIMIT);
+    .eq(live.activeColumn, live.activeValue)
+    .or(live.startOr)
+    .or(live.endOr);
+  for (const o of MY_PAGE_BANNER_CUSTOMER_ORDER) {
+    q = q.order(o.column, { ascending: o.ascending });
+  }
+  const { data, error } = await q.limit(MYPAGE_HOME_BANNER_FETCH_LIMIT);
   if (error) unavailable("banner_unavailable");
-  return Array.isArray(data) ? (data as MyPageBannerRow[]) : [];
+  // DS-7: 링크 없음·끝난 이벤트로 가는 배너는 보내지 않는다(누르면 반응 없는 배너 금지)
+  return filterMyPageBannersWithLiveDestination(sb, Array.isArray(data) ? (data as MyPageBannerRow[]) : []);
 }
 
 export const DEFAULT_MYPAGE_SUMMARY_DEPS: MypageSummaryDeps = {

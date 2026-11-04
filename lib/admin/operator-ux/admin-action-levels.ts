@@ -18,7 +18,10 @@ export const ADMIN_ACTION_LEVELS = {
   hold: "L1",
   exposeStop: "L1",
   disable: "L1",
+  /** 광고가 아닌 화면의 다시 켜기(상품 판매·자동 조치 등) — 광고 재개는 `adResume`(L2). */
   resume: "L1",
+  /** 배달 광고 「검수 시작」 — 상태만 바뀌고 되돌릴 수 있다 (AL-05). */
+  reviewStart: "L1",
   // L2 — 회원 영향·금전
   approve: "L2",
   reject: "L2",
@@ -30,11 +33,20 @@ export const ADMIN_ACTION_LEVELS = {
   pointPolicySave: "L2",
   /** 서비스 운영 설정 켜기·끄기 (런타임 설정 · 휴대폰 인증 서비스 등) — 회원 전체에 영향 */
   runtimeSettingChange: "L2",
+  /**
+   * 광고 운영 조치 (설계 §6 · FB-A05 · AD-103 · AL-04~06 · 2026-11-04) — 상위노출·피드·팝업·배달 모두 이 한 표.
+   * 정지 = L2(사유) · 재개 = L2(사유) · 연장(유료·보상) = L2(사유) · 종료 = L3(사유 + 귀책 + 대상 재입력 + 환급 미리보기).
+   */
+  pause: "L2",
+  adResume: "L2",
+  extend: "L2",
   // L3 — 되돌릴 수 없음·대량
   delete: "L3",
   purge: "L3",
   refund: "L3",
   forceCancel: "L3",
+  /** 광고 종료 (설계 §6) — 사유 + 귀책 + 대상 재입력 + 환급 미리보기. */
+  end: "L3",
   expireRun: "L3",
   bulk: "L3",
   emergencyBlock: "L3",

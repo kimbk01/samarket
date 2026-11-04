@@ -125,7 +125,8 @@ export async function renewFeedAdCampaign(
 
   const campStatus = String(row.status ?? "");
   // Owner 결정 1: 관리자 정지·종료는 회원 연장으로 우회할 수 없다 (기간이 끝난 active 만 연장)
-  const adminBlock = feedAdRenewalBlockedByAdmin(campStatus);
+  // FB-M11: 정지는 paused_by='admin' 일 때만 관리자 정지 (추정 없음)
+  const adminBlock = feedAdRenewalBlockedByAdmin(campStatus, row.paused_by != null ? String(row.paused_by) : null);
   if (adminBlock) {
     return { ok: false, error: adminBlock, httpStatus: 409 };
   }

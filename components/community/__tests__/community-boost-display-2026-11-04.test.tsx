@@ -14,7 +14,11 @@ const listFeed = vi.fn();
 
 vi.mock("@/lib/chat/supabase-server", () => ({ getSupabaseServer: () => ({}) }));
 vi.mock("@/lib/promotion/community-paid-exposure-feed", () => ({
-  fetchActiveCommunityPaidExposureFeedPosts: (...a: unknown[]) => fetchCanonical(...a),
+  fetchActiveCommunityPromotedPostIds: (...a: unknown[]) => fetchCanonical(...a),
+}));
+const ensureLocation = vi.fn();
+vi.mock("@/lib/neighborhood/ensure-location", () => ({
+  ensureLocationId: (...a: unknown[]) => ensureLocation(...a),
 }));
 vi.mock("@/lib/ads/post-ads-supabase", () => ({
   fetchActiveTopFixedAdFeedPostsFromDb: (...a: unknown[]) => fetchLegacy(...a),
@@ -72,27 +76,93 @@ beforeEach(() => {
   fetchLegacy.mockResolvedValue({ ok: true, ads: [] });
 });
 
-describe("/api/ads/active — 남은 기간 없음 · 일반 카드 값", () => {
-  it("endAt 을 싣지 않고, 같은 조회 함수로 받은 카드 값을 붙인다 (보는 회원 기준)", async () => {
+const FORBIDDEN_KEYS = ["endAt", "startAt", "priority", "postTitle", "advertiserName", "boardKey", "adType"];
+
+async function callActive(qs = "boardKey=plife") {
+  const { NextRequest } = await import("next/server");
+  const res = await GET(new NextRequest(`https://x.test/api/ads/active?${qs}`));
+  return (await res.json()) as { ads: Array<Record<string, unknown>> };
+}
+
+describe("/api/ads/active — 남은 기간·결제 시각·순위 없음 · 일반 카드 값 (PV-4)", () => {
+  it("endAt·startAt·priority 를 싣지 않고, adId = 글 id · 같은 조회 함수로 받은 카드 값을 붙인다 (보는 회원 기준)", async () => {
     fetchCanonical.mockResolvedValue({
       ok: true,
-      ads: [
-        { adId: "o1", postId: "post-1", postTitle: "t", postSummary: "", postImages: [], locationLabel: "", boardKey: "plife", adType: "top_fixed", priority: 0, startAt: "2026-11-04T01:00:00Z", endAt: "2026-11-07T01:00:00Z", advertiserName: "작성자A" },
-        { adId: "o2", postId: "post-blocked", postTitle: "t2", postSummary: "", postImages: [], locationLabel: "", boardKey: "plife", adType: "top_fixed", priority: 0, startAt: "2026-11-04T00:00:00Z", endAt: "2026-11-07T00:00:00Z", advertiserName: "B" },
+      truncated: false,
+      items: [
+        { postId: "post-1", startAt: "2026-11-04T01:00:00Z" },
+        { postId: "post-blocked", startAt: "2026-11-04T00:00:00Z" },
       ],
     });
     listFeed.mockResolvedValue({ posts: [feedPost], hasMore: false, dbScannedCount: 1, pagingOffsetAdvance: 1 });
-    const { NextRequest } = await import("next/server");
-    const res = await GET(new NextRequest("https://x.test/api/ads/active?boardKey=plife"));
-    const j = (await res.json()) as { ads: Array<Record<string, unknown>> };
+    const j = await callActive();
     expect(listFeed).toHaveBeenCalledWith(
       expect.objectContaining({ allLocations: true, postIds: ["post-1", "post-blocked"], viewerUserId: "viewer-1" })
     );
     expect(j.ads).toHaveLength(2);
-    for (const ad of j.ads) expect(ad).not.toHaveProperty("endAt");
-    expect(JSON.stringify(j)).not.toContain("2026-11-07");
+    for (const ad of j.ads) {
+      for (const k of FORBIDDEN_KEYS) expect(ad).not.toHaveProperty(k);
+      expect(ad.adId).toBe(ad.postId);
+    }
+    expect(Object.keys(j.ads[0]!).sort()).toEqual(["adId", "feedPost", "postId"]);
+    expect(JSON.stringify(j)).not.toContain("2026-11-04T01:00:00Z");
     expect(j.ads[0]!.feedPost).toMatchObject({ id: "post-1", view_count: 37 });
     expect(j.ads[1]!.feedPost).toBeNull(); // 보는 회원에게 안 보이는 글(차단 등) = 카드 값 없음 → 화면이 자리를 주지 않는다
+  });
+
+  it("PB-21: 광고 21개 → 21개 모두 싣고, 위쪽 3개만 카드 값 · 21번째도 id 로 온다", async () => {
+    const items = Array.from({ length: 21 }, (_, i) => ({ postId: `p${i + 1}`, startAt: "2026-11-04T00:00:00Z" }));
+    fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items });
+    listFeed.mockImplementation(async (o: { postIds: string[] }) => ({
+      posts: o.postIds.map((id) => ({ ...feedPost, id })),
+      hasMore: false,
+      dbScannedCount: 0,
+      pagingOffsetAdvance: 0,
+    }));
+    const j = await callActive();
+    expect(j.ads).toHaveLength(21);
+    expect(j.ads.map((a) => a.postId)).toEqual(items.map((i) => i.postId));
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["p1", "p2", "p3"]);
+    expect(j.ads[20]).toEqual({ adId: "p21", postId: "p21", feedPost: null });
+  });
+
+  it("PB-21: 위쪽 후보가 보는 회원에게 안 보이면 다음 글로 채운다 (3개까지)", async () => {
+    const items = Array.from({ length: 25 }, (_, i) => ({ postId: `p${i + 1}`, startAt: "x" }));
+    fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items });
+    // 앞 20개는 전부 안 보임 → 두 번째 묶음에서 채운다
+    listFeed.mockImplementation(async (o: { postIds: string[] }) => ({
+      posts: o.postIds.filter((id) => Number(id.slice(1)) > 20).map((id) => ({ ...feedPost, id })),
+      hasMore: false,
+      dbScannedCount: 0,
+      pagingOffsetAdvance: 0,
+    }));
+    const j = await callActive();
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["p21", "p22", "p23"]);
+    expect(listFeed).toHaveBeenCalledTimes(2);
+  });
+
+  it("D-11: 동네 탭(locationKey) = 그 동네(locations.id) 글만 위쪽 카드 값 · 다른 탭은 지역 조건 없음", async () => {
+    fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items: [{ postId: "post-1", startAt: "x" }] });
+    listFeed.mockResolvedValue({ posts: [feedPost], hasMore: false, dbScannedCount: 1, pagingOffsetAdvance: 1 });
+    ensureLocation.mockResolvedValue("loc-pasig-1");
+    await callActive("boardKey=plife&locationKey=ph-pasig&city=Pasig&district=&name=Kapitolyo");
+    expect(ensureLocation).toHaveBeenCalledTimes(1);
+    expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ locationId: "loc-pasig-1", postIds: ["post-1"] }));
+    expect(listFeed.mock.calls[0]![0]).not.toHaveProperty("allLocations");
+
+    listFeed.mockClear();
+    ensureLocation.mockClear();
+    await callActive("boardKey=plife&topic=free");
+    expect(ensureLocation).not.toHaveBeenCalled();
+    expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ allLocations: true }));
+  });
+
+  it("D-11: 동네를 못 찾으면 위쪽 카드 값 없음(다른 동네 글을 위에 올리지 않는다)", async () => {
+    fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items: [{ postId: "post-1", startAt: "x" }] });
+    ensureLocation.mockResolvedValue(null);
+    const j = await callActive("boardKey=plife&locationKey=unknown");
+    expect(listFeed).not.toHaveBeenCalled();
+    expect(j.ads).toEqual([{ adId: "post-1", postId: "post-1", feedPost: null }]);
   });
 });
 

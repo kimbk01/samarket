@@ -248,6 +248,8 @@ export type PromoteOrderRow = {
   start_at?: unknown;
   end_at?: unknown;
   duration_days?: unknown;
+  /** AL-17: 'admin' | 'listing_*' (글 상태 연동 정지) — 없을 수 있다 */
+  paused_by?: unknown;
 };
 
 export function promoteOrderOpsStatus(r: PromoteOrderRow): AdsOpsStatus {
@@ -317,6 +319,7 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     financeHref: "/admin/finance#point",
     memberHref: userId ? memberHref(userId) : null,
     sourceKind: "member",
+    pausedBy: r.paused_by != null && String(r.paused_by).trim() ? String(r.paused_by).trim() : null,
   };
 }
 
@@ -414,10 +417,19 @@ export function feedCampaignOpsStatus(c: Pick<FeedAdCampaignView, "status" | "st
   });
 }
 
+/**
+ * AL-12: 운영자 등록(ADMIN_DIRECT · 이벤트 배포 포함) 피드 배너는 결제가 없다 — 「결제 없음」 · 포인트 원장 링크 없음.
+ * 회원 신청에서 만들어진 캠페인(MEMBER_REQUESTED)만 포인트 결제.
+ */
+function feedCampaignIsMemberPaid(c: Pick<FeedAdCampaignView, "source">): boolean {
+  return c.source === "MEMBER_REQUESTED";
+}
+
 export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActionItem {
   const ops = feedCampaignOpsStatus(c);
   const id = String(c.id ?? "");
   const at = String(c.startAt || c.endAt || new Date().toISOString());
+  const memberPaid = feedCampaignIsMemberPaid(c);
 
   return {
     id: `feed_campaign:${id}`,
@@ -430,11 +442,11 @@ export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActio
     creativeHint: c.slides?.[0]?.imageUrl ?? null,
     placementHint: String(c.placement ?? "거래/커뮤니티 피드"),
     amountLabel: null,
-    currency: "POINT",
+    currency: memberPaid ? "POINT" : "N_A",
     status: opsLabel(ops),
     opsStatus: ops,
     whyActionable: ops === "pending" || ops === "draft" ? "피드 배너 캠페인 확인이 필요합니다." : null,
-    paymentLabel: adsPaymentLabel(null, "POINT", true),
+    paymentLabel: memberPaid ? adsPaymentLabel(null, "POINT", true) : adsPaymentLabel("ADMIN_DIRECT", "N_A", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
     performanceLabel:
@@ -449,7 +461,7 @@ export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActio
     // 재감사 S-1 (H-5): `/admin/feed-ads` 는 노출 관리 목록으로 돌아오기만 했다 — 그 캠페인 수정 화면
     href: `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
     statementHref: null,
-    financeHref: "/admin/finance#point",
+    financeHref: memberPaid ? "/admin/finance#point" : null,
     memberHref: null,
   };
 }
@@ -471,7 +483,7 @@ export function projectFeedCampaignToExecutionRow(
     eligibility: exposureFromOps(ops),
     period: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
-    currency: "POINT",
+    currency: feedCampaignIsMemberPaid(c) ? "POINT" : "N_A",
     // 재감사 S-1 (H-5): `/admin/feed-ads` 는 노출 관리 목록으로 돌아오기만 했다 — 그 캠페인 수정 화면
     href: `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
     statementHref: null,
@@ -695,6 +707,8 @@ export function projectPopupCampaignToActionItem(
             : null,
     paymentLabel,
     periodLabel,
+    periodStartAt: c.startAt ?? null,
+    periodEndAt: c.endAt ?? null,
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
     exposureLabel: popupRuntimeDisplayLabel(runtime.status, true),
     eligibility: popupRuntimeDisplayLabel(runtime.status, true),

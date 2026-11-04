@@ -14,6 +14,7 @@ import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
 import { resolveCompositionFilterQueryFromRequest } from "@/lib/trade/category-form/load-composition-for-filter";
+import { parseTradeLocationScopeFromSearchParams } from "@/lib/trade/location/trade-location-scope";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -144,12 +145,30 @@ export async function loadMarketBootstrapPayload(
       parentId,
       args.filterSearchParams ?? new URLSearchParams()
     );
+    /**
+     * 광고 ② PB-10 (2026-11-04): 시드도 `GET /api/trade/feed` 와 같은 지역 조건(`location`·`lgu`·`radius`)으로
+     * 글을 읽고 상위노출을 끼운다. feedKey 도 클라이언트와 같은 지역 구간을 넣어 다른 지역 시드가 섞이지 않게 한다.
+     */
+    const locationScope = parseTradeLocationScopeFromSearchParams(
+      args.filterSearchParams ?? new URLSearchParams()
+    );
+    const lguCityId =
+      locationScope.mode === "city"
+        ? locationScope.lguId
+        : locationScope.mode === "invalid"
+          ? locationScope.raw || "invalid"
+          : undefined;
+    const radiusKm = locationScope.mode === "city" ? locationScope.radiusKm : undefined;
     const feedKey = computeTradeFeedKeyForMarketParent(
       parentId,
       topicParam,
       feedSort,
       undefined,
-      { compositionFilters: compositionQuery.selection }
+      {
+        compositionFilters: compositionQuery.selection,
+        ...(locationScope.mode === "city" ? { lguCityId } : {}),
+        ...(locationScope.mode === "all" ? { locationAll: true } : {}),
+      }
     );
 
     const feedOptsBase = {
@@ -161,6 +180,8 @@ export async function loadMarketBootstrapPayload(
       jobRegionSlug: undefined as undefined,
       jobIndustrySlug: undefined as undefined,
       compositionFilters: compositionQuery.clauses,
+      lguCityId,
+      radiusKm,
     };
 
     const useHomeQuery = !isJobMarket && !topicParam.trim();

@@ -15,13 +15,24 @@ import {
   adminManilaInputToIso,
 } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import type { FeedAdCampaignView, FeedAdDestinationType } from "@/lib/ads/feed-ad-placement";
+import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
+import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { FeedAdStoreDestinationPicker } from "@/components/admin/feed-ads/FeedAdStoreDestinationPicker";
+
+const DEST_TYPE_LABEL_KO: Record<FeedAdDestinationType, string> = {
+  internal_page: "앱 화면",
+  trade_listing: "거래 글",
+  community_post: "커뮤니티 글",
+  store: "매장",
+  external_url: "외부 주소",
+};
 
 type SlideDraft = { sortOrder: number; imageUrl: string; altText: string; headline: string };
 
 const INPUT = "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg disabled:bg-sam-app disabled:text-sam-muted";
 const LABEL = "mb-1 block sam-text-body font-medium text-sam-fg";
-const DEST_TYPES: Array<FeedAdDestinationType | "none"> = [
-  "none",
+/** DS-3 · C-1: 「없음」 선택지 없음 — 목적지 필수 */
+const DEST_TYPES: FeedAdDestinationType[] = [
   "internal_page",
   "trade_listing",
   "community_post",
@@ -50,7 +61,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
   const [priority, setPriority] = useState(100);
   const [startLocal, setStartLocal] = useState("");
   const [endLocal, setEndLocal] = useState("");
-  const [destinationType, setDestinationType] = useState<FeedAdDestinationType | "none">("none");
+  const [destinationType, setDestinationType] = useState<FeedAdDestinationType>("internal_page");
   const [destinationId, setDestinationId] = useState("");
   const [destinationUrl, setDestinationUrl] = useState("");
   const [slides, setSlides] = useState<SlideDraft[]>([]);
@@ -74,8 +85,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
       setPriority(c.priority);
       setStartLocal(adminIsoToManilaInput(c.startAt));
       setEndLocal(adminIsoToManilaInput(c.endAt));
-      const hasDest = Boolean(c.destinationId || c.destinationUrl);
-      setDestinationType(hasDest ? c.destinationType : "none");
+      setDestinationType(c.destinationType);
       setDestinationId(c.destinationId);
       setDestinationUrl(c.destinationUrl);
       setSlides(
@@ -151,9 +161,10 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !j.ok) {
-        setSaveError(j.error ?? "save_failed");
+        // FB-A10 · DS-2 · DS-3: 한국어 안내 (영어 코드값을 화면에 보이지 않음)
+        setSaveError(ko ? (j.message ?? feedAdErrorMessageKo(j.error)) : (j.error ?? "save_failed"));
         return;
       }
       router.push("/admin/advertising/banners");
@@ -181,9 +192,24 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
       />
       {saveError ? (
         <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body text-sam-danger" role="alert">
-          {ko ? "저장하지 못했습니다" : "Could not save"} ({saveError})
+          {ko ? `저장하지 못했습니다. ${saveError}` : `Could not save (${saveError})`}
         </p>
       ) : null}
+      {/* D-25 (2026-11-04): 노출 숫자 = 소재별 노출 합 (이미지를 바꿔 새 소재가 생겨도 합계는 이어진다 · FB-A15) */}
+      <AdminCard title={ko ? "성과" : "Performance"}>
+        <p className="sam-text-body text-sam-fg" data-feed-ad-performance="">
+          {ko ? "노출" : "Impressions"}{" "}
+          <span className="font-semibold tabular-nums">{formatAdminNumber(campaign.impressionCount ?? 0)}</span>
+          {" · "}
+          {ko ? "클릭" : "Clicks"}{" "}
+          <span className="font-semibold tabular-nums">{formatAdminNumber(campaign.clickCount ?? 0)}</span>
+        </p>
+        <p className="mt-1 sam-text-helper text-sam-muted" data-feed-ad-impression-note="">
+          {ko
+            ? "소재별 노출 합 — 이 배너의 모든 소재(이미지를 바꾸기 전 옛 소재 포함) 노출을 더한 값입니다."
+            : "Sum across creatives — includes earlier creatives replaced by a new image."}
+        </p>
+      </AdminCard>
       <AdminCard title={ko ? "기본 정보" : "Basics"}>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -222,18 +248,26 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
               className={INPUT}
               value={destinationType}
               disabled={campaignLocked}
-              onChange={(e) => setDestinationType(e.target.value as FeedAdDestinationType | "none")}
+              onChange={(e) => setDestinationType(e.target.value as FeedAdDestinationType)}
             >
               {DEST_TYPES.map((d) => (
                 <option key={d} value={d}>
-                  {d === "none" ? (ko ? "없음" : "None") : d}
+                  {ko ? DEST_TYPE_LABEL_KO[d] : d}
                 </option>
               ))}
             </select>
+            <p className="mt-1 sam-text-helper text-sam-muted">
+              {ko ? "목적지는 꼭 넣어야 합니다." : "A destination is required."}
+            </p>
           </div>
           <div>
-            <label className={LABEL}>{ko ? "목적지 ID" : "Destination ID"}</label>
-            <input className={INPUT} value={destinationId} disabled={campaignLocked} onChange={(e) => setDestinationId(e.target.value)} />
+            <label className={LABEL}>{destinationType === "store" ? (ko ? "매장" : "Store") : ko ? "목적지 ID" : "Destination ID"}</label>
+            {destinationType === "store" ? (
+              /* DS-2: 매장은 선택기로 고르고 slug 로 저장 */
+              <FeedAdStoreDestinationPicker value={destinationId} onChange={setDestinationId} disabled={campaignLocked} />
+            ) : (
+              <input className={INPUT} value={destinationId} disabled={campaignLocked} onChange={(e) => setDestinationId(e.target.value)} />
+            )}
           </div>
           <div className="sm:col-span-2">
             <label className={LABEL}>{ko ? "목적지 URL" : "Destination URL"}</label>

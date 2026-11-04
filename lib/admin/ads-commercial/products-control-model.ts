@@ -114,7 +114,7 @@ function sellLabel(state: AdsCommercialSellState): { ko: string; en: string } {
     case "paused":
       return { ko: "판매 중지", en: "Paused" };
     case "admin_only":
-      return { ko: "Admin 전용", en: "Admin only" };
+      return { ko: "운영자 전용", en: "Admin only" };
     case "not_released":
       return { ko: "미출시", en: "Not released" };
   }
@@ -232,7 +232,7 @@ export async function loadAdsCommercialControlModel(
       nameEn: ADS_CANONICAL_PRODUCTS.community_boost.publicNameEn,
       applicantKo: "회원",
       applicantEn: "Member",
-      paymentKo: "Point",
+      paymentKo: "포인트",
       paymentEn: "Point",
       approvalKo: "필요 없음",
       approvalEn: "Not required",
@@ -269,7 +269,7 @@ export async function loadAdsCommercialControlModel(
       adminDirectPath: null,
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["결제 즉시 노출 · Admin 승인은 사후 제재만"],
+      notesKo: ["결제 즉시 노출 · 운영자 승인 없이 사후 제재만"],
       notesEn: ["Immediate paid exposure · Admin sanction only after purchase"],
     },
     {
@@ -280,7 +280,7 @@ export async function loadAdsCommercialControlModel(
       nameEn: ADS_CANONICAL_PRODUCTS.trade_boost.publicNameEn,
       applicantKo: "회원",
       applicantEn: "Member",
-      paymentKo: "Point",
+      paymentKo: "포인트",
       paymentEn: "Point",
       approvalKo: "필요 없음",
       approvalEn: "Not required",
@@ -317,7 +317,7 @@ export async function loadAdsCommercialControlModel(
       adminDirectPath: null,
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["결제 즉시 노출 · Admin 승인은 사후 제재만"],
+      notesKo: ["결제 즉시 노출 · 운영자 승인 없이 사후 제재만"],
       notesEn: ["Immediate paid exposure · Admin sanction only after purchase"],
     },
     {
@@ -326,7 +326,7 @@ export async function loadAdsCommercialControlModel(
       domainEn: "Delivery",
       nameKo: ADS_CANONICAL_PRODUCTS.delivery_store_sponsored.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.delivery_store_sponsored.publicNameEn,
-      applicantKo: "매장 오너",
+      applicantKo: "사장님",
       applicantEn: "Store owner",
       paymentKo: "Business Cash",
       paymentEn: "Business Cash",
@@ -365,9 +365,9 @@ export async function loadAdsCommercialControlModel(
       domainEn: "Community",
       nameKo: ADS_CANONICAL_PRODUCTS.community_banner.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.community_banner.publicNameEn,
-      applicantKo: "회원 또는 Admin",
+      applicantKo: "회원 또는 운영자",
       applicantEn: "Member or Admin",
-      paymentKo: "회원 Point / Admin 결제 없음",
+      paymentKo: "회원 포인트 / 운영자 등록 결제 없음",
       paymentEn: "Member Point / Admin no payment",
       approvalKo: "회원 신청만 필요",
       approvalEn: "Member path only",
@@ -399,7 +399,7 @@ export async function loadAdsCommercialControlModel(
       editSellableHref: ADS_PRODUCTS_FEED_PRODUCTS_HREF,
       registerHref: "/admin/advertising/direct/community",
       memberPath: {
-        paymentKo: "Point",
+        paymentKo: "포인트",
         paymentEn: "Point",
         approvalKo: "승인 필요",
         approvalEn: "Approval required",
@@ -412,7 +412,7 @@ export async function loadAdsCommercialControlModel(
       },
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["Admin 직접 등록은 회원 SKU 0원 표기가 아닙니다"],
+      notesKo: ["운영자 등록은 회원 상품 0원 표기가 아닙니다"],
       notesEn: ["Admin Direct is not a zero-price Member SKU"],
     },
     {
@@ -421,9 +421,9 @@ export async function loadAdsCommercialControlModel(
       domainEn: "Trade",
       nameKo: ADS_CANONICAL_PRODUCTS.trade_banner.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.trade_banner.publicNameEn,
-      applicantKo: "회원 또는 Admin",
+      applicantKo: "회원 또는 운영자",
       applicantEn: "Member or Admin",
-      paymentKo: "회원 Point / Admin 결제 없음",
+      paymentKo: "회원 포인트 / 운영자 등록 결제 없음",
       paymentEn: "Member Point / Admin no payment",
       approvalKo: "회원 신청만 필요",
       approvalEn: "Member path only",
@@ -455,7 +455,7 @@ export async function loadAdsCommercialControlModel(
       editSellableHref: ADS_PRODUCTS_FEED_PRODUCTS_HREF,
       registerHref: "/admin/advertising/direct/trade",
       memberPath: {
-        paymentKo: "Point",
+        paymentKo: "포인트",
         paymentEn: "Point",
         approvalKo: "승인 필요",
         approvalEn: "Approval required",
@@ -468,7 +468,7 @@ export async function loadAdsCommercialControlModel(
       },
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["Admin 직접 등록은 회원 SKU 0원 표기가 아닙니다"],
+      notesKo: ["운영자 등록은 회원 상품 0원 표기가 아닙니다"],
       notesEn: ["Admin Direct is not a zero-price Member SKU"],
     },
     {
@@ -477,11 +477,11 @@ export async function loadAdsCommercialControlModel(
       domainEn: "Delivery",
       nameKo: ADS_CANONICAL_PRODUCTS.delivery_home_banner.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.delivery_home_banner.publicNameEn,
-      applicantKo: "매장 오너 또는 Admin",
+      applicantKo: "사장님 또는 운영자",
       applicantEn: "Store owner or Admin",
-      paymentKo: "오너 Business Cash / Admin 결제 없음",
+      paymentKo: "사장님 Business Cash / 운영자 등록 결제 없음",
       paymentEn: "Owner Business Cash / Admin no payment",
-      approvalKo: "오너 신청만 필요",
+      approvalKo: "사장님 신청만 필요",
       approvalEn: "Owner path only",
       adminDirectKo: "지원",
       adminDirectEn: "Supported",
@@ -524,17 +524,17 @@ export async function loadAdsCommercialControlModel(
     },
     {
       productKey: "popup",
-      domainKo: "Popup",
+      domainKo: "팝업",
       domainEn: "Popup",
       nameKo: ADS_CANONICAL_PRODUCTS.popup.publicNameKo,
       nameEn: ADS_CANONICAL_PRODUCTS.popup.publicNameEn,
-      applicantKo: "Admin",
+      applicantKo: "운영자",
       applicantEn: "Admin",
       paymentKo: "없음",
       paymentEn: "None",
       approvalKo: "없음",
       approvalEn: "None",
-      adminDirectKo: "지원 (Admin Direct ONLY)",
+      adminDirectKo: "지원 (운영자 등록만)",
       adminDirectEn: "Supported (Admin Direct ONLY)",
       sellState: "admin_only",
       ...(() => {
@@ -563,25 +563,25 @@ export async function loadAdsCommercialControlModel(
         approvalEn: "No approval",
       },
       popupOwnerSalesKo: OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED
-        ? "오너 신규 판매 활성 (정책 확인 필요)"
-        : "신규 회원/오너 신청 지원하지 않음 · Legacy Owner Popup 신규 판매 중지 · 기존 이력 보존",
+        ? "사장님 신규 판매 활성 (정책 확인 필요)"
+        : "신규 회원·사장님 신청 지원하지 않음 · 사장님 팝업(이전 방식) 신규 판매 중지 · 기존 이력 보존",
       popupOwnerSalesEn: OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED
         ? "Owner new sales enabled (policy check required)"
         : "Member/Owner new applications not supported · Legacy Owner Popup new sales stopped · history preserved",
-      notesKo: ["가격 입력/가격 writer 없음"],
+      notesKo: ["가격 입력·가격 저장 화면 없음"],
       notesEn: ["No price input / no price writer"],
     },
   ];
 
   return {
     summary: {
-      memberPaymentKo: "Point",
+      memberPaymentKo: "포인트",
       memberPaymentEn: "Point",
       ownerPaymentKo: "Business Cash",
       ownerPaymentEn: "Business Cash",
       adminDirectKo: "결제 없음",
       adminDirectEn: "No payment",
-      popupKo: "Admin 전용",
+      popupKo: "운영자 전용",
       popupEn: "Admin only",
     },
     products,
@@ -590,7 +590,7 @@ export async function loadAdsCommercialControlModel(
         key: "STORES_SEARCH_TOP",
         labelKo: "검색 결과 상단 배너",
         labelEn: "Search results top banner",
-        stateKo: "판매 중지 (런치 NOT_SELLABLE)",
+        stateKo: "판매 중지 (출시 때 판매 안 함)",
         stateEn: "Not sellable at launch",
       },
       {

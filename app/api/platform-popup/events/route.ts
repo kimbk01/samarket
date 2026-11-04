@@ -3,6 +3,12 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenti
 import { canEmitPlatformPopupEventFromSource } from "@/lib/platform-popup/events";
 import type { PlatformPopupEventType } from "@/lib/platform-popup/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { getClientIp } from "@/lib/http/api-route";
+import {
+  adEventRecordActorKey,
+  claimPlatformPopupEventDedupe,
+  enforceAdEventRecordQuota,
+} from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,9 +69,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "missing_actor" }, { status: 400 });
   }
 
+  // D-21 ③: 요청 제한(회원 id · 없으면 IP 해시). 넘으면 429 — 앱은 기록 실패를 무시한다(화면 영향 없음).
+  const quota = await enforceAdEventRecordQuota(
+    "platform_popup_events",
+    adEventRecordActorKey({ userId, ip: getClientIp(req) })
+  );
+  if (!quota.ok) return quota.response;
+
+  // D-21 ④: 같은 보는 사람 · 소재 · 종류는 10분에 1번만 저장 — 넘치면 저장 생략하고 성공으로 답한다.
+  const creativeId = body.creativeId?.trim() || null;
+  const fresh = await claimPlatformPopupEventDedupe({
+    viewerKey: userId ? `u:${userId}` : `d:${deviceKey}`,
+    campaignId,
+    creativeId,
+    eventType,
+  });
+  if (!fresh) {
+    return NextResponse.json({ ok: true, eventType, deduped: true });
+  }
+
   const { error } = await sb.from("platform_popup_campaign_events").insert({
     campaign_id: campaignId,
-    creative_id: body.creativeId?.trim() || null,
+    creative_id: creativeId,
     event_type: eventType,
     surface: body.surface?.trim() || null,
     user_id: userId,
@@ -77,7 +102,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    // AL-19 와 같은 원칙: DB 원문 오류는 응답에 싣지 않는다(서버 로그만)
+    console.error("[platform-popup/events] insert_failed", error.message);
+    return NextResponse.json({ ok: false, error: "record_failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, eventType });

@@ -161,3 +161,76 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
 
   return { ok: true, ads };
 }
+
+/** 광고 ② PB-21 (2026-11-04): 광고 중인 글 id 전체를 읽는 안전 상한(넘으면 기록만 하고 자른다) */
+export const COMMUNITY_ACTIVE_PROMOTION_IDS_SAFETY_MAX = 500;
+
+/**
+ * 광고 ② PB-21 (2026-11-04): 커뮤니티 광고 중인 글 **id 전체**를 가볍게(글 id · 결제 시각만) 읽는다.
+ * 예전 `fetchActiveCommunityPaidExposureFeedPosts` 는 기본 20개로 잘라 21번째 광고 글부터 표시가 없었다.
+ * 순서 = 최근 결제(start_at) 내림차순 — 화면은 위쪽 3개만 카드 값으로, 나머지는 일반 자리에 표시한다.
+ * @param topicFilter — COMMUNITY_TOPIC slug; 빈 값 = 전체 주제
+ */
+export async function fetchActiveCommunityPromotedPostIds(
+  sb: SupabaseClient,
+  opts?: { topicFilter?: string; safetyMax?: number }
+): Promise<
+  | { ok: true; items: { postId: string; startAt: string }[]; truncated: boolean }
+  | { ok: false; reason: string; message?: string }
+> {
+  const nowIso = new Date().toISOString();
+  const safetyMax = Math.max(1, opts?.safetyMax ?? COMMUNITY_ACTIVE_PROMOTION_IDS_SAFETY_MAX);
+  const topicFilter = (opts?.topicFilter ?? "").trim();
+
+  const { data: orders, error } = await sb
+    .from("point_promotion_orders")
+    .select("target_id, start_at")
+    .eq("domain", "community")
+    .eq("order_status", "active")
+    .lte("start_at", nowIso)
+    .gte("end_at", nowIso)
+    .order("start_at", { ascending: false })
+    .limit(safetyMax + 1);
+  if (error) return { ok: false, reason: "error", message: error.message };
+
+  let rows = ((orders ?? []) as { target_id?: string | null; start_at?: string | null }[])
+    .map((r) => ({ postId: String(r.target_id ?? "").trim(), startAt: String(r.start_at ?? "") }))
+    .filter((r) => r.postId);
+  const truncated = rows.length > safetyMax;
+  if (truncated) {
+    console.warn("[community-promotion] active order ids exceed safety max", { safetyMax });
+    rows = rows.slice(0, safetyMax);
+  }
+  if (rows.length === 0) return { ok: true, items: [], truncated };
+
+  /** 같은 글의 주문이 둘이면 최근 결제 1건만 */
+  const seen = new Set<string>();
+  rows = rows.filter((r) => (seen.has(r.postId) ? false : (seen.add(r.postId), true)));
+
+  /** 주소 길이 한도 — id 100개씩 나눠 읽는다 */
+  const postRows: Record<string, unknown>[] = [];
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100).map((r) => r.postId);
+    const { data: posts, error: postErr } = await sb
+      .from("community_posts")
+      .select("id, category, topic_slug, is_hidden, status")
+      .in("id", chunk);
+    if (postErr) return { ok: false, reason: "error", message: postErr.message };
+    postRows.push(...((posts ?? []) as Record<string, unknown>[]));
+  }
+
+  const visible = new Map<string, string>();
+  for (const p of postRows) {
+    const id = String(p.id ?? "");
+    if (!id || p.is_hidden === true) continue;
+    const st = String(p.status ?? "").toLowerCase();
+    if (st && st !== "active" && st !== "published") continue;
+    visible.set(id, String(p.topic_slug ?? "").trim() || String(p.category ?? "").trim());
+  }
+  const items = rows.filter((r) => {
+    const topic = visible.get(r.postId);
+    if (topic === undefined) return false;
+    return !topicFilter || topicMatches(topic, topicFilter);
+  });
+  return { ok: true, items, truncated };
+}

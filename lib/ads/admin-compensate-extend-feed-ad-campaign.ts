@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { feedAdPoolCapacityErrorResult } from "@/lib/ads/feed-ad-error-copy";
 
 export type AdminExtendFeedAdResult =
   | {
@@ -13,7 +14,7 @@ export type AdminExtendFeedAdResult =
       daysAdded: number;
       extensionKind: "ADMIN_FREE_COMPENSATION";
     }
-  | { ok: false; error: string; httpStatus: number };
+  | { ok: false; error: string; httpStatus: number; message?: string };
 
 export async function adminCompensateExtendFeedAdCampaign(
   sb: SupabaseClient,
@@ -72,10 +73,13 @@ export async function adminCompensateExtendFeedAdCampaign(
     .update({
       end_at: newEndAt,
       updated_at: now,
-      admin_memo: `extend_compensation:${reason}`.slice(0, 500),
+      // FB-A06: 사유는 캠페인 칸에 덮어쓰지 않는다 — 조치마다 감사 1행(ads-admin-action-audit)에 남긴다.
     })
     .eq("id", campaignId)
     .in("status", ["active", "scheduled", "paused"]);
+  // FB-A10: 연장으로 다시 점유하게 되면(기간 지난 배너 등) DB 트리거가 자리 없음으로 막는다 → 409 + 한국어
+  const capacity = feedAdPoolCapacityErrorResult(updErr);
+  if (capacity) return { ok: false, ...capacity };
   if (updErr) return { ok: false, error: updErr.message, httpStatus: 500 };
 
   const linkedRequest =
@@ -89,7 +93,6 @@ export async function adminCompensateExtendFeedAdCampaign(
       .update({
         end_at: newEndAt,
         updated_at: now,
-        review_reason: `admin_extend_compensation:${reason}`.slice(0, 500),
       })
       .eq("id", linkedRequest);
   }

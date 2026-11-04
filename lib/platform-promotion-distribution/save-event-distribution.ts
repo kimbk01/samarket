@@ -38,6 +38,7 @@ import {
   replacePlatformPopupReadyCreative,
   updatePlatformPopupAdminCampaign,
 } from "@/lib/platform-popup/admin-campaign-writer";
+import { transitionPlatformPopupCampaign } from "@/lib/platform-popup/admin-transitions";
 
 export type SaveEventDistributionInput = {
   eventId: string;
@@ -72,15 +73,58 @@ export type SaveEventDistributionResult = {
   error?: string;
 };
 
+/**
+ * AL-11 (2026-11-04): 팝업 정지는 팝업 전이 규칙(`transitionPlatformPopupCampaign` · 감사 기록 포함)으로만 한다.
+ * 이미 노출되지 않는 상태(초안·정지·종료 등)면 그대로 둔다 — 상태를 직접 덮어쓰지 않는다.
+ */
 async function pausePopupCampaign(
   sb: SupabaseClient,
-  campaignId: string
+  campaignId: string,
+  adminUserId: string
 ): Promise<{ error: string | null }> {
-  const { error } = await sb
+  const { data: row, error: readErr } = await sb
     .from("platform_popup_campaigns")
-    .update({ status: "paused", updated_at: new Date().toISOString() })
-    .eq("id", campaignId);
-  return { error: error?.message ?? null };
+    .select("status")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (readErr) return { error: readErr.message };
+  const status = String((row as { status?: string } | null)?.status ?? "");
+  if (!row || (status !== "active" && status !== "scheduled")) return { error: null };
+  const r = await transitionPlatformPopupCampaign(sb, {
+    campaignId,
+    actorUserId: adminUserId,
+    actorRole: "admin",
+    nextStatus: "paused",
+    reason: "event_distribution_pause",
+  });
+  return { error: r.ok ? null : r.error };
+}
+
+type FeedCampaignLockState = { exists: boolean; status: string; pausedBy: string | null };
+
+async function readFeedCampaignLockState(sb: SupabaseClient, campaignId: string): Promise<FeedCampaignLockState | { error: string }> {
+  const { data, error } = await sb
+    .from("feed_ad_campaigns")
+    .select("id, status, paused_by")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (error) return { error: error.message };
+  const row = data as { status?: string | null; paused_by?: string | null } | null;
+  return {
+    exists: Boolean(row),
+    status: String(row?.status ?? "").toLowerCase(),
+    pausedBy: row?.paused_by != null ? String(row.paused_by).toLowerCase() : null,
+  };
+}
+
+/**
+ * AL-11: 관리자가 정지(`paused_by='admin'`)하거나 종료한 캠페인은 이벤트 저장이 상태를 바꾸지 않는다.
+ * 이벤트 저장이 스스로 끈 종료(`retireFeedAdCampaign` · `paused_by='system'`)만 이벤트가 다시 켤 수 있다.
+ */
+export function feedAdCampaignLockedByAdmin(state: { status: string; pausedBy: string | null }): "admin_paused" | "admin_ended" | null {
+  if (state.status === "paused" && state.pausedBy === "admin") return "admin_paused";
+  if (state.status === "ended" && state.pausedBy !== "system") return "admin_ended";
+  return null;
 }
 
 /**
@@ -92,12 +136,78 @@ async function pausePopupCampaign(
 async function retireFeedAdCampaign(
   sb: SupabaseClient,
   campaignId: string
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; locked?: boolean }> {
+  const state = await readFeedCampaignLockState(sb, campaignId);
+  if ("error" in state) return { error: state.error };
+  if (!state.exists) return { error: null };
+  // AL-11: 관리자가 정지·종료한 캠페인은 건드리지 않는다
+  if (feedAdCampaignLockedByAdmin(state)) return { error: null, locked: true };
+  if (state.status === "ended") return { error: null };
+  // 이벤트가 끈 종료 = paused_by 'system' 표시 (다시 켤 때 관리자 종료와 구분)
   const { error } = await sb
     .from("feed_ad_campaigns")
-    .update({ status: "ended", updated_at: new Date().toISOString() })
-    .eq("id", campaignId);
+    .update({ status: "ended", paused_by: "system", updated_at: new Date().toISOString() })
+    .eq("id", campaignId)
+    .in("status", ["active", "scheduled", "paused", "draft"]);
   return { error: error?.message ?? null };
+}
+
+/**
+ * FB-A15 (2026-11-04): 이벤트 배너를 고치면 피드 소재(이미지·제목)도 같이 고친다.
+ * - 이미지가 같으면 제목만 그 행에서 고친다.
+ * - 이미지가 바뀌면 **새 소재 행**을 만들고 옛 행은 비활성(노출 기록 보존 · D-25 「소재별 노출 합」).
+ *   소재 칸(sort_order 1~3 · 고유)이 다 찼으면 지금 쓰는 행을 제자리에서 고친다(남은 위험으로 보고).
+ */
+async function syncEventFeedCreative(
+  sb: SupabaseClient,
+  campaignId: string,
+  plan: { imageUrl: string; headline: string }
+): Promise<{ error: string | null }> {
+  if (!plan.imageUrl) return { error: null };
+  const { data, error } = await sb
+    .from("feed_ad_creatives")
+    .select("id, sort_order, image_url, headline, is_active")
+    .eq("campaign_id", campaignId);
+  if (error) return { error: error.message };
+  const rows = (data ?? []) as { id: string; sort_order: number; image_url: string; headline: string; is_active: boolean }[];
+  const active = rows.filter((r) => r.is_active).sort((a, b) => a.sort_order - b.sort_order)[0] ?? null;
+  const now = new Date().toISOString();
+  if (active && active.image_url === plan.imageUrl) {
+    if (active.headline === plan.headline) return { error: null };
+    const { error: uErr } = await sb
+      .from("feed_ad_creatives")
+      .update({ headline: plan.headline, updated_at: now })
+      .eq("id", active.id);
+    return { error: uErr?.message ?? null };
+  }
+  const used = new Set(rows.map((r) => Number(r.sort_order)));
+  const free = [1, 2, 3].find((n) => !used.has(n));
+  if (free == null) {
+    const target = active ?? rows[0];
+    if (!target) return { error: null };
+    const { error: uErr } = await sb
+      .from("feed_ad_creatives")
+      .update({ image_url: plan.imageUrl, headline: plan.headline, is_active: true, updated_at: now })
+      .eq("id", target.id);
+    return { error: uErr?.message ?? null };
+  }
+  const { error: iErr } = await sb.from("feed_ad_creatives").insert({
+    campaign_id: campaignId,
+    sort_order: free,
+    image_url: plan.imageUrl,
+    headline: plan.headline,
+    is_active: true,
+  });
+  if (iErr) return { error: iErr.message };
+  const oldIds = rows.filter((r) => r.is_active).map((r) => r.id);
+  if (oldIds.length) {
+    const { error: dErr } = await sb
+      .from("feed_ad_creatives")
+      .update({ is_active: false, updated_at: now })
+      .in("id", oldIds);
+    if (dErr) return { error: dErr.message };
+  }
+  return { error: null };
 }
 
 async function materializePopup(
@@ -117,7 +227,7 @@ async function materializePopup(
 
   if (!input.toggles.popup) {
     if (!existingRef) return { ok: true, channelRefId: null, action: "noop" };
-    const paused = await pausePopupCampaign(sb, existingRef);
+    const paused = await pausePopupCampaign(sb, existingRef, input.adminUserId);
     if (paused.error) return { ok: false, error: paused.error, channelRefId: existingRef };
     return { ok: true, channelRefId: existingRef, action: "paused" };
   }
@@ -168,7 +278,7 @@ async function materializePopup(
 
   // Publication guard: never leave interruptive popup active for non-public Events.
   if (!eventPubliclyActive) {
-    const paused = await pausePopupCampaign(sb, ref);
+    const paused = await pausePopupCampaign(sb, ref, input.adminUserId);
     if (paused.error) return { ok: false, error: paused.error, channelRefId: ref };
   }
 
@@ -205,7 +315,7 @@ async function materializeBanner(
     if (!existingRef) return { ok: true, channelRefId: null, action: "noop" };
     const paused = await retireFeedAdCampaign(sb, existingRef);
     if (paused.error) return { ok: false, error: paused.error, channelRefId: existingRef };
-    return { ok: true, channelRefId: existingRef, action: "ended" };
+    return { ok: true, channelRefId: existingRef, action: paused.locked ? "noop" : "ended" };
   }
 
   const desiredStatus =
@@ -246,6 +356,12 @@ async function materializeBanner(
     return { ok: true, channelRefId: ref, action: "created" };
   }
 
+  const state = await readFeedCampaignLockState(sb, existingRef);
+  if ("error" in state) return { ok: false, error: state.error, channelRefId: existingRef };
+  const lock = feedAdCampaignLockedByAdmin(state);
+  // AL-11: 관리자 종료 = 게시 이력 보존 — 이벤트 저장이 내용·상태를 바꾸지 않는다
+  if (lock === "admin_ended") return { ok: true, channelRefId: existingRef, action: "noop" };
+
   const { error } = await sb
     .from("feed_ad_campaigns")
     .update({
@@ -256,12 +372,16 @@ async function materializeBanner(
       destination_url: plan.destinationUrl,
       start_at: plan.startAt,
       end_at: plan.endAt,
-      status: desiredStatus,
+      // AL-11: 관리자 정지면 상태는 그대로 (내용만 이벤트를 따른다)
+      ...(lock === "admin_paused" ? {} : { status: desiredStatus, paused_by: null }),
       updated_at: new Date().toISOString(),
     })
     .eq("id", existingRef);
   if (isFeedAdPoolCapacityDbError(error)) return { ok: false, error: "capacity_full", channelRefId: existingRef };
   if (error) return { ok: false, error: error.message, channelRefId: existingRef };
+  // FB-A15: 소재(이미지·제목)도 이벤트를 따른다
+  const creative = await syncEventFeedCreative(sb, existingRef, { imageUrl: plan.imageUrl, headline: plan.headline });
+  if (creative.error) return { ok: false, error: creative.error, channelRefId: existingRef };
   return { ok: true, channelRefId: existingRef, action: "updated" };
 }
 

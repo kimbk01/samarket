@@ -17,7 +17,10 @@ import {
   captureHeldPointsForFeedAdRequest,
   compensateFeedAdPointHold,
   releaseHeldPointsForFeedAdRequest,
+  uncaptureFeedAdPointHold,
 } from "@/lib/ads/feed-ad-request-point-flow";
+import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
+import { FEED_AD_APPROVE_LOST_CAPACITY_MESSAGE_KO } from "@/lib/ads/feed-ad-error-copy";
 import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
 import { memberFeedAdCampaignName } from "@/lib/ads/feed-ad-advertiser-name";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
@@ -25,7 +28,15 @@ import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
 
 export type ApproveFeedAdRequestResult =
   | { ok: true; status: "active"; campaignId: string }
-  | { ok: false; error: string; httpStatus?: number };
+  | {
+      ok: false;
+      error: string;
+      httpStatus?: number;
+      /** FB-P09: 화면 안내(한국어) — 동시 승인에서 자리가 차서 진 경우 */
+      message?: string;
+      /** FB-P09: 보류 포인트가 그대로 남았는지 (진 쪽 = true) */
+      holdKept?: boolean;
+    };
 
 type RequestRow = {
   id: string;
@@ -122,6 +133,17 @@ export async function approveFeedAdRequest(
     }
   }
 
+  // DS-3 · C-1: 목적지 없음(또는 깨진 목적지) 신청은 승인하지 않는다 — 누르면 반응 없는 배너 금지
+  if (
+    !feedAdDestinationRef({
+      destinationType: row.destination_type,
+      destinationId: row.destination_id,
+      destinationUrl: row.destination_url,
+    })
+  ) {
+    return { ok: false, error: "destination_required", httpStatus: 400 };
+  }
+
   const now = new Date();
   const durationDays = Math.max(1, Number(row.duration_days ?? 7));
   const end = new Date(now.getTime() + durationDays * 86_400_000);
@@ -133,7 +155,16 @@ export async function approveFeedAdRequest(
     targetCategoryId: row.target_category_id,
     targetTopicSlug: row.target_topic_slug ? normalizeFeedAdTopicSlug(String(row.target_topic_slug)) : null,
   });
-  if (!capacity.ok) return { ok: false, error: capacity.error, httpStatus: capacity.httpStatus };
+  if (!capacity.ok) {
+    return {
+      ok: false,
+      error: capacity.error,
+      httpStatus: capacity.httpStatus,
+      ...(capacity.error === "capacity_full"
+        ? { message: FEED_AD_APPROVE_LOST_CAPACITY_MESSAGE_KO, holdKept: true }
+        : {}),
+    };
+  }
 
   // Claim (F6): only one admin may proceed; status remains pending until activation.
   const { data: claimed, error: claimErr } = await sb
@@ -242,13 +273,31 @@ export async function approveFeedAdRequest(
       .select("id")
       .maybeSingle();
 
+    if (isFeedAdPoolCapacityDbError(actErr)) {
+      // FB-P09: 같은 순간 다른 승인이 마지막 자리를 가져가 DB 트리거가 막았다 → 진 쪽은 포인트를 돌려주지 않고
+      // 보류로 되돌린 뒤 「검토 중」으로 남긴다(다시 승인 가능 · 반려하면 그때 환급). 원장 이동 0.
+      const uncaptured = await uncaptureFeedAdPointHold(sb, { requestId });
+      await deleteCampaignCascade(sb, campaignId);
+      if (!uncaptured.ok) {
+        // 보류로 되돌리지 못하면 「확정 + 광고 없음」이 남지 않게 기존 보상(환급)으로 닫는다
+        await compensateFeedAdPointHold(sb, { requestId });
+        await unclaimReview(sb, requestId, input.adminUserId);
+        return { ok: false, error: "capacity_full", httpStatus: 409, holdKept: false };
+      }
+      await unclaimReview(sb, requestId, input.adminUserId);
+      return {
+        ok: false,
+        error: "capacity_full",
+        httpStatus: 409,
+        message: FEED_AD_APPROVE_LOST_CAPACITY_MESSAGE_KO,
+        holdKept: true,
+      };
+    }
     if (actErr || !activated?.id) {
       // F4: CAPTURED but not ACTIVE — compensate credit + remove draft ad.
       await compensateFeedAdPointHold(sb, { requestId });
       await deleteCampaignCascade(sb, campaignId);
       await unclaimReview(sb, requestId, input.adminUserId);
-      // 광고 S-3: 같은 순간 다른 승인이 마지막 자리를 가져가면 DB 트리거가 막는다 → 「자리 없음」 (포인트는 위에서 돌려줌)
-      if (isFeedAdPoolCapacityDbError(actErr)) return { ok: false, error: "capacity_full", httpStatus: 409 };
       return {
         ok: false,
         error: actErr?.message ?? "campaign_activate_failed",

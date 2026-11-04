@@ -101,5 +101,6 @@ export function buildPlatformPopupPresentationWinner(
       campaignRow.suppressionDurationSeconds > 0
         ? campaignRow.suppressionDurationSeconds
         : null,
+    revision: candidate.campaignRevision ?? null,
   };
 }

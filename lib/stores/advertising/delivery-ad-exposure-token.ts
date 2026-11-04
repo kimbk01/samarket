@@ -129,7 +129,12 @@ export type ExposureTokenIssueInput = {
   productKind: DeliveryAdEventProductKind;
   creativeId?: string | null;
   inventoryId?: string | null;
-  storeId: string;
+  /**
+   * D-28 (Owner 「설계안대로」 2026-11-04): 매장 없는 운영자 자체 배너도 노출을 기록한다 → null 허용.
+   * 노출 표(`delivery_ad_impression_events.store_id`)는 NULL 허용 · 집계는 캠페인 단위라 매장 화면에 섞이지 않는다.
+   * 클릭 표는 `store_id NOT NULL` 이라 매장 없는 토큰의 클릭은 기록되지 않는다(`recordDeliveryAdClickFromToken` 이 거부).
+   */
+  storeId: string | null;
   surface: string;
   placementIndex?: number;
   destinationType: DeliveryAdEventDestinationType;

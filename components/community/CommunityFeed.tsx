@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { PROMOTED_TOP_PINS_MAX } from "@/lib/promotion/promoted-top-pins";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Fragment } from "react";
@@ -62,8 +61,12 @@ import {
 } from "@/lib/ads/feed-ad-slot-policy";
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-feed-surface";
-import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
+import { feedAdPoolRefreshDelayMs, type FeedAdPublicCampaign } from "@/lib/ads/feed-ad-public-projection";
 import type { ActiveAdFeedItem } from "@/lib/ads/types";
+import {
+  communityFeedBannerAllowedForSearch,
+  planCommunityFeedAdPlacement,
+} from "@/lib/promotion/community-feed-ad-placement";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import {
   clearAllPhilifeFeedPersistentCaches,
@@ -115,7 +118,7 @@ import {
   philifeFeedSessionKeyForLocation,
 } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
-import { normalizeCommunityHashtagQuery } from "@/lib/community-feed/hashtag-discovery";
+import { normalizeCommunityHashtagQuery, sanitizeCommunityKeywordQuery } from "@/lib/community-feed/hashtag-discovery";
 import { isSamarketPhilifeFeedPerfDiagEnabled } from "@/lib/debug/samarket-client-console-flags";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
@@ -356,6 +359,11 @@ export function CommunityFeed({
   );
   const [neighborOnly, setNeighborOnly] = useState(false);
   const tagFilter = normalizeCommunityHashtagQuery(searchParams.get("tag"));
+  /** 광고 ② D-29 (2026-11-04): 검색어(해시태그 `tag` · 키워드 `q`)가 있으면 피드 배너를 끼우지 않는다 */
+  const feedSearchActive = !communityFeedBannerAllowedForSearch({
+    tag: tagFilter,
+    q: sanitizeCommunityKeywordQuery(searchParams.get("q")),
+  });
   const clearTagFilter = useCallback(() => {
     const p = new URLSearchParams(searchParams.toString());
     p.delete("tag");
@@ -378,7 +386,9 @@ export function CommunityFeed({
   const firstCardPaintQueryKeyRef = useRef("");
   const [err, setErr] = useState("");
   const [topAds, setTopAds] = useState<ActiveAdFeedItem[]>([]);
-  const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
+  const [feedAdPool, setFeedAdPool] = useState<FeedAdPublicCampaign[] | null>(null);
+  /** PV-3 — 서버가 정한 `validUntil` 에 다시 부른다(화면은 기간을 판정하지 않는다). */
+  const [feedAdPoolTick, setFeedAdPoolTick] = useState(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const nextOffsetRef = useRef(bootNextOffset);
   /** latest continue — keyset token from last successful page */
@@ -1136,13 +1146,33 @@ export function CommunityFeed({
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
   }, [fetchPage]);
 
+  /**
+   * 광고 ② D-11 (2026-11-04): 동네 탭(지역 필요 nav)은 그 동네 글만 위쪽 상위노출 — 목록과 같은 지역 값을 넘긴다.
+   * 다른 탭(전체·주제·인기)은 지역 조건 없음.
+   */
+  const adsLocalQuery = useMemo(() => {
+    if (!plan.requiresRegion || !locationKey || !locationMeta) return "";
+    const p = new URLSearchParams();
+    p.set("locationKey", locationKey);
+    p.set("city", locationMeta.city ?? "");
+    p.set("district", locationMeta.district ?? "");
+    p.set("name", locationMeta.name ?? "");
+    return p.toString();
+  }, [plan.requiresRegion, locationKey, locationMeta]);
+
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
     let cancelled = false;
+    if (plan.requiresRegion && !adsLocalQuery) {
+      setTopAds([]);
+      return;
+    }
     const load = () => {
-      runSingleFlight(`community-inline-ad-card:active-plife:${category || "all"}`, () =>
+      runSingleFlight(`community-inline-ad-card:active-plife:${category || "all"}:${adsLocalQuery || "global"}`, () =>
         fetch(
-          `/api/ads/active?boardKey=plife${category ? `&topic=${encodeURIComponent(category)}` : ""}`,
+          `/api/ads/active?boardKey=plife${category ? `&topic=${encodeURIComponent(category)}` : ""}${
+            adsLocalQuery ? `&${adsLocalQuery}` : ""
+          }`,
           { credentials: "include" }
         )
       )
@@ -1175,7 +1205,7 @@ export function CommunityFeed({
       cancelled = true;
       cancelScheduled?.();
     };
-  }, [category]);
+  }, [category, plan.requiresRegion, adsLocalQuery]);
 
   /** Feed Banner pool — one fetch per surface (slot selection is local). */
   useEffect(() => {
@@ -1184,6 +1214,7 @@ export function CommunityFeed({
       return;
     }
     let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const qs = new URLSearchParams({
       domain: "community",
       placement: feedAdSurface.placement,
@@ -1195,18 +1226,22 @@ export function CommunityFeed({
       const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
         credentials: "include",
       });
-      return (await r.json()) as { campaigns?: FeedAdCampaignView[] };
+      return (await r.json()) as { campaigns?: FeedAdPublicCampaign[]; validUntil?: string | null };
     })
       .then((j) => {
-        if (!cancelled) setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+        if (cancelled) return;
+        setFeedAdPool(Array.isArray(j.campaigns) ? j.campaigns : []);
+        const delay = feedAdPoolRefreshDelayMs(j.validUntil);
+        if (delay != null) refreshTimer = setTimeout(() => setFeedAdPoolTick((n) => n + 1), delay);
       })
       .catch(() => {
         if (!cancelled) setFeedAdPool([]);
       });
     return () => {
       cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
     };
-  }, [feedAdSurface.placement, feedAdSurface.topicSlug]);
+  }, [feedAdSurface.placement, feedAdSurface.topicSlug, feedAdPoolTick]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -1227,33 +1262,14 @@ export function CommunityFeed({
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, fetchPage]);
 
-  /** 노출 순서 (§F-5-2): 공지·관리자 고정 > 유료 홍보(topAds) > 일반 */
-  const operatorTopPosts = useMemo(() => posts.filter((p) => p.is_notice || p.is_pinned), [posts]);
   /**
-   * Owner 결정 O-2 (D-4 「거래와 같은 규칙」): 위쪽에는 최근 결제 순 3개만 (`topAds` 는 서버가 start_at 내림차순).
-   * 나머지 광고 중인 글은 일반 목록 제자리에 「광고」 표시로 나온다 (예전에는 최대 20개를 모두 위에 고정하고 일반 목록에서 뺐다).
+   * 노출 순서 (§F-5-2): 공지·관리자 고정 > 유료 홍보(topAds 위쪽 3개) > 일반 — 계산은 `planCommunityFeedAdPlacement` 하나.
+   * 광고 ② PB-21: `topAds` = 광고 중인 글 전체(id) · 위쪽 3개만 카드 값. PB-22: 운영 고정 글도 광고 중이면 표시.
    */
-  const topAdsBelowOperator = useMemo(() => {
-    const ids = new Set(operatorTopPosts.map((p) => String(p.id)));
-    // 보는 회원에게 보일 수 있는 글(카드 값이 온 글)만 위쪽 자리를 차지한다 — 차단·숨김 글이 자리를 비우지 않게
-    return topAds
-      .filter((ad) => ad.feedPost != null && !ids.has(String(ad.postId ?? "").trim()))
-      .slice(0, PROMOTED_TOP_PINS_MAX);
-  }, [topAds, operatorTopPosts]);
-  const pinnedAdPostIds = useMemo(
-    () => new Set(topAdsBelowOperator.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)),
-    [topAdsBelowOperator]
+  const { operatorTopPosts, topAdsBelowOperator, activeAdPostIds, postsForList } = useMemo(
+    () => planCommunityFeedAdPlacement({ posts, topAds }),
+    [posts, topAds]
   );
-  /** 광고 중인 글 전체 (위쪽 고정 밖 글에 「광고」 표시용) */
-  const activeAdPostIds = useMemo(
-    () => new Set(topAds.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)),
-    [topAds]
-  );
-  const postsForList = useMemo(() => {
-    const normal = operatorTopPosts.length > 0 ? posts.filter((p) => !p.is_notice && !p.is_pinned) : posts;
-    if (pinnedAdPostIds.size === 0) return normal;
-    return normal.filter((p) => !pinnedAdPostIds.has(String(p.id)));
-  }, [posts, pinnedAdPostIds, operatorTopPosts.length]);
   const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}\u001f${tagFilter || ""}`;
   const searchKeyForNav = searchParams.toString();
   const philifeComposeHref = buildPhilifeComposeHref(category);
@@ -2003,7 +2019,12 @@ export function CommunityFeed({
           <ul className={COMMUNITY_FEED_LIST_WRAP_CLASS} data-community-operator-top="1">
             {operatorTopPosts.map((p, index) => (
               <li key={p.id} className="list-none">
-                <CommunityCard post={p} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} />
+                {/* 광고 ② PB-22: 운영 고정 글도 광고 중이면 운영 고정 칩 + 「포인트 노출」 둘 다 */}
+                <CommunityCard
+                  post={p}
+                  priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
+                  isAd={activeAdPostIds.has(String(p.id))}
+                />
               </li>
             ))}
           </ul>
@@ -2093,6 +2114,7 @@ export function CommunityFeed({
                     />
                   </li>
                   {feedAdSurface.placement &&
+                  !feedSearchActive &&
                   shouldInjectFeedAdAtContentIndex(index, feedAdPlan) ? (
                     <FeedAdBannerCarousel
                       domain="community"

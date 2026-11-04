@@ -22,11 +22,12 @@ describe("F-1 피드 광고주 이름 — 내부 코드가 고객에게 보이�
     expect(read("lib/ads/approve-feed-ad-request.ts")).not.toContain("Member · ");
     expect(read("lib/platform-promotion-distribution/adapters.ts")).not.toContain("Event banner · ");
   });
-  it("피드 배너 머리·대체 문구는 표시용 이름을 쓴다", () => {
+  it("피드 배너 머리·대체 문구는 표시용 이름을 쓴다 (PV-3 정정: 서버 공개 투영의 advertiserName 만)", () => {
     const c = read("components/ads/FeedAdBannerCarousel.tsx");
-    expect(c).toContain("const advertiserName = feedAdAdvertiserDisplayName(currentCampaign.name);");
+    expect(c).toContain("const advertiserName = (currentCampaign.advertiserName ?? \"\").trim();");
     expect(c).toContain("{advertiserName || adLabel}");
-    expect(c).not.toContain("currentCampaign.name.trim()");
+    expect(c).not.toContain("currentCampaign.name");
+    expect(read("lib/ads/feed-ad-public-projection.ts")).toContain("advertiserName: feedAdCampaignAdvertiserName(");
   });
 });
 
@@ -42,7 +43,9 @@ describe("F-2 · F-3 피드 배너 우선순위 안내 · 서버 수용량", () 
     );
     const approve = read("lib/ads/approve-feed-ad-request.ts");
     expect(approve.indexOf("assertFeedAdPoolCapacityAvailable(sb")).toBeLessThan(approve.indexOf("// Claim (F6)"));
-    expect(read("lib/ads/feed-ad-pool-capacity-server.ts")).toContain("feedAdPoolOccupiesCampaign(");
+    // FB-A11 정정: 서버 검사도 세 곳 공용 함수(countFeedAdPoolOccupancy → feedAdPoolOccupiesCampaign)로 센다
+    expect(read("lib/ads/feed-ad-pool-capacity-server.ts")).toContain("feedAdPoolRemaining(");
+    expect(read("lib/ads/feed-ad-pool-capacity.ts")).toContain("feedAdPoolOccupiesCampaign({ status: r.status");
     expect(read("lib/admin/operator-ux/operator-labels.ts")).toContain("capacity_full:");
   });
 });

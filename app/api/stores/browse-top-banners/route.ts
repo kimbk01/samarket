@@ -43,25 +43,24 @@ type BrowseTopBannersCachedBody =
 
 /**
  * v4 재감사 PERF-14 — 캐시된 슬라이드에 노출 토큰을 매 요청 새로 발급 (로더와 같은 입력:
- * campaign=slide.id · placementIndex=sortOrder · surface=inventoryKey · 목적지=매장 상세). 매장 없는 배너는 null.
+ * campaign=slide.id · placementIndex=sortOrder · surface=inventoryKey · 목적지=매장 상세). 매장 없는 배너도 발급(D-28).
  */
 function withFreshExposureTokens(slides: readonly BrowseTopBannerSlide[]): BrowseTopBannerSlide[] {
   return slides.map((slide) => {
     const storeId = slide.storeId ? String(slide.storeId) : null;
-    const token = storeId
-      ? issueEligibleDeliveryAdExposure({
-          campaignId: slide.id,
-          productKind: "banner",
-          creativeId: slide.creativeId,
-          inventoryId: null,
-          storeId,
-          surface: slide.inventoryKey,
-          placementIndex: Number(slide.sortOrder) || 0,
-          destinationType: "store_detail",
-          destinationId: storeId,
-          preview: false,
-        }).token
-      : null;
+    // D-28: 매장 없는 운영자 자체 배너도 노출 토큰을 발급한다(store_id NULL · 클릭은 기록 안 됨)
+    const token = issueEligibleDeliveryAdExposure({
+      campaignId: slide.id,
+      productKind: "banner",
+      creativeId: slide.creativeId,
+      inventoryId: null,
+      storeId,
+      surface: slide.inventoryKey,
+      placementIndex: Number(slide.sortOrder) || 0,
+      destinationType: "store_detail",
+      destinationId: storeId ?? "",
+      preview: false,
+    }).token;
     return { ...slide, exposureToken: token };
   });
 }

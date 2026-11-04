@@ -9,9 +9,9 @@ const persistAdvertisingAdminMemo = vi.fn();
 const from = vi.fn();
 const rpc = vi.fn();
 const appendAdminRouteAudit = vi.fn();
-const pauseFeedAdCampaign = vi.fn();
-const resumeFeedAdCampaign = vi.fn();
-const endFeedAdCampaign = vi.fn();
+const adminPauseFeedAd = vi.fn();
+const adminResumeFeedAd = vi.fn();
+const adminEndFeedAd = vi.fn();
 
 vi.mock("@/lib/admin/require-admin-api", () => ({
   requireAdminApiUser: (...a: unknown[]) => requireAdminApiUser(...a),
@@ -34,12 +34,11 @@ vi.mock("@/lib/ads/advertising-admin-memo", () => ({
 vi.mock("@/lib/admin/audit/append-admin-route-audit", () => ({
   appendAdminRouteAudit: (...a: unknown[]) => appendAdminRouteAudit(...a),
 }));
-vi.mock("@/lib/ads/pause-resume-feed-ad-campaign", () => ({
-  pauseFeedAdCampaign: (...a: unknown[]) => pauseFeedAdCampaign(...a),
-  resumeFeedAdCampaign: (...a: unknown[]) => resumeFeedAdCampaign(...a),
-}));
-vi.mock("@/lib/ads/end-feed-ad-campaign", () => ({
-  endFeedAdCampaign: (...a: unknown[]) => endFeedAdCampaign(...a),
+// D-5: 허브 피드 정지·재개·종료 = 담당 F 의 DB 함수 래퍼 (도메인 화면과 같은 runFeedAdAdminAction)
+vi.mock("@/lib/ads/admin-feed-ad-lifecycle", () => ({
+  adminPauseFeedAd: (...a: unknown[]) => adminPauseFeedAd(...a),
+  adminResumeFeedAd: (...a: unknown[]) => adminResumeFeedAd(...a),
+  adminEndFeedAd: (...a: unknown[]) => adminEndFeedAd(...a),
 }));
 vi.mock("@/lib/supabase/try-supabase-server", () => ({
   tryCreateSupabaseServiceClient: () => ({ from, rpc }),
@@ -63,7 +62,11 @@ beforeEach(() => {
   requireAdminPermission.mockResolvedValue({ ok: true, actor: { userId: "admin-1" }, sb: {} });
   requireCommunityAdmin.mockResolvedValue({ ok: true, userId: "admin-1", sb: {} });
   persistAdvertisingAdminMemo.mockResolvedValue({ ok: true });
-  const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: { id: "req-1" }, error: null }) };
+  const q = {
+    select: () => q,
+    eq: () => q,
+    maybeSingle: async () => ({ data: { id: "req-1", campaign_id: "camp-1", status: "active" }, error: null }),
+  };
   from.mockReturnValue(q);
 });
 
@@ -121,14 +124,14 @@ describe("H-3 — 허브 커뮤니티 상위노출 조치 = 도메인과 같은 
   });
 });
 
-describe("재감사 N-04 — 허브 피드 배너 정지·재개·종료도 도메인 화면과 같은 감사 기록", () => {
+describe("재감사 N-04 · FB-A06 — 허브 피드 배너 정지·재개·종료도 도메인 화면과 같은 감사 기록", () => {
   it.each([
-    ["pause", pauseFeedAdCampaign, "feed_ad_request.pause"],
-    ["resume", resumeFeedAdCampaign, "feed_ad_request.resume"],
-    ["end", endFeedAdCampaign, "feed_ad_request.end"],
+    ["pause", adminPauseFeedAd, "feed_ad_request.pause"],
+    ["resume", adminResumeFeedAd, "feed_ad_request.resume"],
+    ["end", adminEndFeedAd, "feed_ad_request.end"],
   ] as const)("%s → 감사 %s", async (action, writer, auditAction) => {
-    writer.mockResolvedValue({ ok: true, status: action === "end" ? "ended" : action === "pause" ? "paused" : "active", campaignId: "camp-1", requestId: "req-1" });
-    const res = await call({ family: "feed_banner", entityId: "req-1", action, reason: "운영 확인" });
+    writer.mockResolvedValue({ ok: true, status: action === "end" ? "ended" : action === "pause" ? "paused" : "active" });
+    const res = await call({ family: "feed_banner", entityId: "req-1", action, reason: "운영 확인", fault: "none" });
     expect(res.status).toBe(200);
     expect(appendAdminRouteAudit).toHaveBeenCalledTimes(1);
     expect(appendAdminRouteAudit.mock.calls[0]![2]).toMatchObject({
@@ -136,11 +139,11 @@ describe("재감사 N-04 — 허브 피드 배너 정지·재개·종료도 도�
       targetType: "feed_ad_request",
       targetId: "req-1",
       action: auditAction,
-      after: expect.objectContaining({ campaign_id: "camp-1", reason: "운영 확인" }),
+      after: expect.objectContaining({ campaign_id: "camp-1", reason_public: "운영 확인", screen: "hub" }),
     });
   });
   it("writer 가 실패하면 감사를 남기지 않는다", async () => {
-    pauseFeedAdCampaign.mockResolvedValue({ ok: false, error: "not_found", httpStatus: 404 });
+    adminPauseFeedAd.mockResolvedValue({ ok: false, error: "not_found" });
     const res = await call({ family: "feed_banner", entityId: "req-1", action: "pause", reason: "운영 확인" });
     expect(res.status).toBe(404);
     expect(appendAdminRouteAudit).not.toHaveBeenCalled();

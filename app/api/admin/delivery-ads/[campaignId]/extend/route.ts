@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import {
   adminExtendDeliveryAdCampaign,
@@ -115,6 +116,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!extensionKind) {
     return NextResponse.json({ ok: false, error: "invalid_extension_kind" }, { status: 400 });
   }
+  // AL-06 — 유료·보상 연장 = L2: 사유 필수 (확인창과 같은 최소 길이) → 연장 감사 reason.
+  const extendReason = parseAdminReason(body.reason);
+  if (!extendReason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
   const result = await adminExtendDeliveryAdCampaign(sb, {
     adminUserId: admin.userId,
     productKind: body.productKind,
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     expectedUpdatedAt: String(body.expectedUpdatedAt ?? ""),
     requestedDays: Number(body.requestedDays ?? 0),
     extensionKind,
-    reason: String(body.reason ?? ""),
+    reason: extendReason,
     idempotencyKey: body.idempotencyKey != null ? String(body.idempotencyKey) : null,
   });
   if (!result.ok) {

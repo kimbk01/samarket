@@ -111,6 +111,13 @@ describe("V3-02 admin feed-ad reject — single RPC transaction", () => {
   });
 
   it("approve success appends feed_ad_request.approve audit", async () => {
+    // 공통 화면과 같은 runFeedAdAdminAction — 신청 행·캠페인 행을 읽어 before/after 를 남긴다
+    const q = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => ({ data: { id: "req-1", status: "pending_review", campaign_id: null }, error: null }),
+    };
+    from.mockReturnValue(q);
     approveFeedAdRequest.mockResolvedValue({ ok: true, status: "approved", campaignId: "c-1" });
     const res = await call({ action: "approve", reason: "소재 확인 완료" });
     expect(res.status).toBe(200);
@@ -120,7 +127,8 @@ describe("V3-02 admin feed-ad reject — single RPC transaction", () => {
       expect.objectContaining({
         action: "feed_ad_request.approve",
         targetId: "req-1",
-        after: expect.objectContaining({ reason: "소재 확인 완료" }),
+        before: expect.objectContaining({ status: "pending_review" }),
+        after: expect.objectContaining({ reason: "소재 확인 완료", reason_public: "소재 확인 완료", screen: "domain" }),
       })
     );
   });

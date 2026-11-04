@@ -26,6 +26,7 @@ const POST_ERROR_KO: Record<string, string> = {
   expected_updated_at_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 처리하세요.",
   expected_status_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 처리하세요.",
   promotion_fault_required: "노출 중인 홍보가 연결된 글입니다. 상세 화면에서 귀책을 선택해 처리하세요.",
+  promotion_end_failed: "상위노출을 종료하지 못해 글을 바꾸지 않았습니다. 잠시 후 새로고침해 다시 처리하세요.",
   content_blocks_imported_only: "블록 편집은 외부 수집 글에서만 할 수 있습니다.",
   invalid_content_blocks: "본문 블록 형식이 올바르지 않습니다. 비어 있는 블록이 없는지 확인하세요.",
   title_required: "제목을 입력해 주세요.",

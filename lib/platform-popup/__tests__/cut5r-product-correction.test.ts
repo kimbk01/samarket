@@ -119,7 +119,6 @@ describe("CUT 5-R admin surface multi-select mapping", () => {
       { surface: "COMMUNITY", path: "/community" },
       { surface: "TRADE", path: "/market" },
       { surface: "TRADE", path: "/post/abc" },
-      { surface: "TRADE", path: "/write" },
       { surface: "DELIVERY", path: "/stores" },
       { surface: "DELIVERY", path: "/delivery" },
       { surface: "DELIVERY_OWNER", path: "/stores/owner" },

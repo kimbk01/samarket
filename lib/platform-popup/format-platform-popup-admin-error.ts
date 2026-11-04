@@ -39,6 +39,24 @@ export function formatPlatformPopupAdminError(
       ? "This popup was changed by someone else. Refresh and try again."
       : "다른 작업으로 상태가 이미 바뀌었습니다. 새로고침 후 다시 시도해 주세요.";
   }
+  if (lower === "cta_target_required" || lower.endsWith(":cta_target_required")) {
+    return lang === "en"
+      ? "Enter where the button goes after a tap (in-app path)."
+      : "버튼을 누르면 이동할 앱 안 경로를 입력해 주세요.";
+  }
+  if (lower === "has_exposure_history") {
+    return lang === "en"
+      ? "This ad cannot be deleted — it already has exposure records. End it instead."
+      : "삭제할 수 없습니다 — 노출 기록이 있어 종료만 됩니다.";
+  }
+  if (lower === "partial_delete_failed") {
+    return lang === "en" ? "Only some items were deleted. Check the list." : "일부만 삭제했습니다. 목록을 확인해 주세요.";
+  }
+  if (lower === "delete_check_failed") {
+    return lang === "en"
+      ? "Could not check exposure records, so nothing was deleted. Try again."
+      : "노출 기록을 확인하지 못해 삭제하지 않았습니다. 다시 시도해 주세요.";
+  }
   if (lower === "not_draft") {
     return lang === "en"
       ? "Only draft popups can be deleted. Pause or end a live campaign instead."

@@ -60,8 +60,11 @@ export function AdminConfirmHost() {
       reasonPlaceholder={request?.reasonPlaceholder}
       confirmMatchText={request?.confirmMatchText}
       confirmMatchLabel={request?.confirmMatchLabel}
+      splitReason={request?.splitReason ?? false}
       onCancel={() => settle({ ok: false, reason: "" })}
-      onConfirm={(reason) => settle({ ok: true, reason })}
+      onConfirm={(reason, internalMemo) =>
+        settle(request?.splitReason ? { ok: true, reason, internalMemo: internalMemo ?? "" } : { ok: true, reason })
+      }
     />
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -293,13 +294,8 @@ export function TradeAdQuickSheet({
       ? t("trade_ad_option_boost", { days: String(r.durationDays) })
       : t("trade_ad_option_banner", { days: String(r.durationDays) });
   };
-  const fmtDateTime = (iso: string) =>
-    new Date(iso).toLocaleString(language === "en" ? "en-US" : "ko-KR", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  /** 광고 ② PB-26·D-12: PHT 고정 「11월 6일 18:00」 (기기 시간대·12시간제 아님) */
+  const fmtDateTime = (iso: string) => formatPhtDisplayDateTime(iso, language);
   const rowWhere = (r: Row) => {
     if (r.kind === "boost" && r.extendEndAt) return t("trade_ad_where_boost_extend", { date: fmtDateTime(r.extendEndAt) });
     /** 재감사 S-2 (시안 ②③): 광고 중 = 끝나는 시각 · 일시정지 = 남은 기간(멈춘 시각 기준, 재개하면 이어짐) */
@@ -383,7 +379,7 @@ export function TradeAdQuickSheet({
           {startedReplay ? t("promo_purchase_already_done") : startedExtended ? t("trade_ad_extended") : t("trade_ad_started")}
           {startedEndAt ? (
             <span className="mt-1 block text-[13px] font-normal text-sam-muted">
-              {t("trade_ad_ends", { date: new Date(startedEndAt).toLocaleDateString(language === "en" ? "en-US" : "ko-KR") })}
+              {t("trade_ad_ends", { date: fmtDateTime(startedEndAt) })}
             </span>
           ) : null}
         </div>

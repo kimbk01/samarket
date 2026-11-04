@@ -24,6 +24,9 @@ export function AdminActionConfirmDialog({
   reasonMinLength,
   confirmMatchText,
   confirmMatchLabel,
+  splitReason = false,
+  internalMemoLabel,
+  publicReasonMaxLength = 120,
   pending = false,
   onCancel,
   onConfirm,
@@ -46,19 +49,28 @@ export function AdminActionConfirmDialog({
    */
   confirmMatchText?: string;
   confirmMatchLabel?: string;
+  /**
+   * D-6 (2026-11-04): 사유를 「공개 사유(회원·사장님에게 보임)」+「내부 메모(운영자만)」 두 칸으로.
+   * 켜면 첫 칸(reason)이 공개 사유이고 `publicReasonMaxLength`(기본 120자)로 막는다. 내부 메모는 선택.
+   */
+  splitReason?: boolean;
+  internalMemoLabel?: string;
+  publicReasonMaxLength?: number;
   pending?: boolean;
   onCancel: () => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string, internalMemo?: string) => void;
   /** Optional extra body (e.g. fact lines) rendered above the reason field. */
   children?: ReactNode;
 }) {
   const [reason, setReason] = useState("");
   const [typed, setTyped] = useState("");
+  const [internalMemo, setInternalMemo] = useState("");
 
   useEffect(() => {
     if (!open) {
       setReason("");
       setTyped("");
+      setInternalMemo("");
     }
   }, [open]);
 
@@ -85,12 +97,33 @@ export function AdminActionConfirmDialog({
           {reasonLabel || "사유"}
           <textarea
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
+            onChange={(e) =>
+              setReason(splitReason ? e.target.value.slice(0, publicReasonMaxLength) : e.target.value)
+            }
+            rows={splitReason ? 2 : 3}
+            maxLength={splitReason ? publicReasonMaxLength : undefined}
             disabled={pending}
             className="mt-1 w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-3 py-2 text-sm text-[color:var(--overlay-fg)]"
             placeholder={reasonPlaceholder}
             data-admin-action-confirm-reason="1"
+          />
+          {splitReason ? (
+            <span className="mt-0.5 block text-right" data-admin-action-confirm-reason-count="1">
+              {reason.length}/{publicReasonMaxLength}
+            </span>
+          ) : null}
+        </label>
+      ) : null}
+      {reasonRequired && splitReason ? (
+        <label className={`mt-3 block ${OverlayUi.caption}`}>
+          {internalMemoLabel || "내부 메모 (운영자만 · 선택)"}
+          <textarea
+            value={internalMemo}
+            onChange={(e) => setInternalMemo(e.target.value)}
+            rows={2}
+            disabled={pending}
+            className="mt-1 w-full rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] px-3 py-2 text-sm text-[color:var(--overlay-fg)]"
+            data-admin-action-confirm-internal-memo="1"
           />
         </label>
       ) : null}
@@ -119,7 +152,8 @@ export function AdminActionConfirmDialog({
           loading={pending}
           onClick={() => {
             if (!canConfirm || pending) return;
-            onConfirm(reason.trim());
+            if (splitReason) onConfirm(reason.trim(), internalMemo.trim());
+            else onConfirm(reason.trim());
           }}
           data-admin-action-confirm-submit="1"
         >

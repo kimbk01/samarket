@@ -1,6 +1,7 @@
 "use client";
 
 import { describeDestinationForAdmin } from "@/lib/destination/optional-destination-href";
+import { externalUrlHadNonAsciiHost, type DestinationError } from "@/lib/destination/destination-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 
@@ -9,6 +10,19 @@ const KIND_LABEL: Record<string, { key: MessageKey; ko: string; en: string }> = 
   event: { key: "admin_destination_hint_kind_event", ko: "이벤트", en: "Event" },
   external_url: { key: "admin_destination_hint_kind_external_url", ko: "외부 링크 · 인앱 브라우저", en: "External · in-app browser" },
   none: { key: "admin_destination_hint_kind_none", ko: "링크 없음", en: "No link" },
+};
+
+const ERROR_KEY: Record<DestinationError, MessageKey> = {
+  destination_empty: "admin_destination_error_destination_empty",
+  invalid_internal_path: "admin_destination_error_invalid_internal_path",
+  internal_path_forbidden: "admin_destination_error_internal_path_forbidden",
+  invalid_url: "admin_destination_error_invalid_url",
+  https_required: "admin_destination_error_https_required",
+  event_id_required: "admin_destination_error_event_id_required",
+  external_url_credentials: "admin_destination_error_external_url_credentials",
+  external_url_private_host: "admin_destination_error_external_url_private_host",
+  external_url_too_long: "admin_destination_error_external_url_too_long",
+  external_url_shortener: "admin_destination_error_external_url_shortener",
 };
 
 /**
@@ -32,17 +46,34 @@ export function AdminDestinationResolvedHint({
         <span className="font-medium text-sam-danger">
           {safeTranslate(lang, "admin_destination_hint_invalid", { fallbackKo: "유효하지 않은 링크", fallbackEn: "Invalid link" })}
         </span>{" "}
-        ({d.error})
+        {/* D-4: 코드값 대신 이유 문구 (단축 주소 → 「최종 주소를 넣어 주세요」) */}
+        <span data-admin-destination-error={d.error ?? ""}>
+          {d.error ? safeTranslate(lang, ERROR_KEY[d.error], { fallbackKo: "링크를 확인해 주세요.", fallbackEn: "Check the link." }) : null}
+        </span>
       </p>
     );
   }
   const label = KIND_LABEL[d.kind ?? "none"] ?? KIND_LABEL.none;
+  // D-4 ④: 한글·특수 문자 도메인은 저장되는 실제 주소(punycode)를 따로 강조한다(닮은 주소 속임 방지)
+  const nonAsciiHost = d.kind === "external_url" && externalUrlHadNonAsciiHost(href);
   return (
     <p className={className} data-admin-destination-kind={d.kind ?? "none"}>
       <span className="font-medium text-sam-fg">
         {safeTranslate(lang, label.key, { fallbackKo: label.ko, fallbackEn: label.en })}
       </span>
       {d.href ? <> · <span className="break-all">{d.href}</span></> : null}
+      {nonAsciiHost ? (
+        <span className="mt-1 block text-sam-warning" data-admin-destination-punycode="">
+          {safeTranslate(lang, "admin_destination_hint_real_address", { fallbackKo: "실제 주소", fallbackEn: "Actual address" })}:{" "}
+          <span className="break-all font-mono">{d.href}</span>
+          <span className="block">
+            {safeTranslate(lang, "admin_destination_hint_real_address_note", {
+              fallbackKo: "입력한 도메인에 한글·특수 문자가 있어 실제 주소로 바꿔 보여 줍니다.",
+              fallbackEn: "The domain had non-ASCII characters, so the actual address is shown.",
+            })}
+          </span>
+        </span>
+      ) : null}
     </p>
   );
 }

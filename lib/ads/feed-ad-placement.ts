@@ -93,6 +93,8 @@ export type FeedAdCampaignView = {
   source?: "ADMIN_DIRECT" | "MEMBER_REQUESTED";
   requestId?: string | null;
   slides: FeedAdCreativeSlide[];
+  /** FB-C17 ③ — 공개 피드 로더만 채운다: 회원 신청 광고의 보는 시점 신청 회원 닉네임 (어드민 응답에는 없음) */
+  memberNickname?: string | null;
   /** Owner 결정 O-4 — 어드민 응답에만 (`feed_ad_campaigns.impression_count`·`click_count`) */
   impressionCount?: number;
   clickCount?: number;
@@ -174,18 +176,18 @@ function pickIndex(eligibleLen: number, seed: string): number {
   return feedAdStableHash(seed) % eligibleLen;
 }
 
-function pickDistinctCampaign(
-  eligible: FeedAdCampaignView[],
+function pickDistinctCampaign<T extends { id: string }>(
+  eligible: readonly T[],
   seed: string,
   avoidIds: ReadonlySet<string>,
   previousId: string | null
-): FeedAdCampaignView | null {
+): T | null {
   if (eligible.length === 0) return null;
   const idx = pickIndex(eligible.length, seed);
   let picked = eligible[idx] ?? eligible[0] ?? null;
   if (!picked) return null;
 
-  const tryAdvance = (from: FeedAdCampaignView): FeedAdCampaignView => {
+  const tryAdvance = (from: T): T => {
     const cur = from;
     let i = eligible.findIndex((c) => c.id === cur.id);
     if (i < 0) i = idx;
@@ -234,8 +236,21 @@ export function selectCampaignsForPlacement(
   campaigns: FeedAdCampaignView[],
   input: SelectCampaignsInput
 ): FeedAdCampaignView[] {
-  const nowMs = input.nowMs ?? Date.now();
   const eligible = listEligibleCampaignsForPlacement(campaigns, input);
+  return rotateFeedAdCampaignsForSlot(eligible, input);
+}
+
+/**
+ * PV-3 (2026-11-04): 자리별 공정 회전만 (기간·상태·위치 판정 없음).
+ * 서버가 이미 「지금 노출 가능한 후보」만 보낸 풀(`/api/feed-ads/active?pool=1`)을 받은 화면은 이것만 쓴다
+ * — 클라이언트가 기간을 다시 판정하지 않는다(응답에 기간이 없다). 후보는 id 순으로 정렬해 같은 입력 = 같은 결과.
+ */
+export function rotateFeedAdCampaignsForSlot<T extends { id: string }>(
+  candidates: readonly T[],
+  input: Omit<SelectCampaignsInput, "nowMs"> & { nowMs?: number }
+): T[] {
+  const nowMs = input.nowMs ?? Date.now();
+  const eligible = [...candidates].sort((a, b) => a.id.localeCompare(b.id));
   if (eligible.length === 0) return [];
 
   const maxPerSlot = Math.max(
@@ -259,12 +274,12 @@ export function selectCampaignsForPlacement(
   ].join("|");
 
   let previousId: string | null = null;
-  let slotPicks: FeedAdCampaignView[] = [];
+  let slotPicks: T[] = [];
   for (let o = 0; o <= targetOrd; o += 1) {
     const avoid = new Set<string>();
-    const picked: FeedAdCampaignView[] = [];
+    const picked: T[] = [];
     for (let item = 0; item < maxPerSlot; item += 1) {
-      const cand = pickDistinctCampaign(
+      const cand: T | null = pickDistinctCampaign(
         eligible,
         `${surfacePart}|slot|${o}|item|${item}`,
         avoid,

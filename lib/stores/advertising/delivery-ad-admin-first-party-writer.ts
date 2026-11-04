@@ -3,6 +3,7 @@
  * Store Promotion first-party: NOT_IMPLEMENTED_MODEL_BLOCKED (do not call).
  */
 
+import { validateDeliveryFirstPartyBannerDestination } from "@/lib/destination/delivery-banner-destination";
 import {
   ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
   type AdminFirstPartyBannerInventoryKey,
@@ -184,12 +185,28 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
   const ctaType =
     input.ctaType && isDeliveryAdCtaTarget(input.ctaType) ? input.ctaType : null;
 
-  if (destStoreId && destSlug && ctaType) {
-    ctaHref = resolveOwnerBannerCtaHref({
-      ctaType,
-      storeSlug: destSlug,
-    });
+  /**
+   * DS-6 · C-2 (Owner 「설계안대로」 2026-11-04): 매장 id 로 실제 slug 를 읽어 대조한다(보낸 slug·cta_href 의 매장이 다르면 거부).
+   * 매장이 있으면 그 매장 3종, 없으면 이벤트·배달 안 화면. 외부 https 는 저장 거부.
+   */
+  let storeSlug: string | null = null;
+  if (destStoreId) {
+    const { data: storeRow, error: storeErr } = await sb
+      .from("stores")
+      .select("id, slug")
+      .eq("id", destStoreId)
+      .maybeSingle();
+    if (storeErr) return { ok: false, error: "db_error", detail: storeErr.message };
+    storeSlug = String((storeRow as { slug?: unknown } | null)?.slug ?? "").trim() || null;
+    if (!storeSlug) return { ok: false, error: "invalid_destination", detail: "store_not_found" };
+    if (destSlug && destSlug !== storeSlug) {
+      return { ok: false, error: "invalid_destination", detail: "store_destination_mismatch" };
+    }
+    if (ctaType) ctaHref = resolveOwnerBannerCtaHref({ ctaType, storeSlug });
   }
+  const dest = validateDeliveryFirstPartyBannerDestination({ ctaHref, storeSlug });
+  if (!dest.ok) return { ok: false, error: "invalid_destination", detail: dest.error };
+  ctaHref = dest.href;
   if (!isDeliveryBannerDestinationReady(ctaHref)) {
     return { ok: false, error: "invalid_destination", detail: "cta_href_required" };
   }

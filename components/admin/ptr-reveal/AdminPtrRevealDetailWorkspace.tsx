@@ -13,6 +13,10 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminPtrRevealPreview } from "@/components/admin/ptr-reveal/AdminPtrRevealPreview";
+import {
+  AdminPlatformPopupAuditHistory,
+  type AdminPlatformPopupAuditRow,
+} from "@/components/admin/platform-popup/AdminPlatformPopupAuditHistory";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
 import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
@@ -64,7 +68,8 @@ function formFromDetail(c: PlatformPopupAdminDetail): Form {
     title: c.title ?? "",
     ctaLabel: c.ctaLabel ?? "",
     ctaType: c.ctaType === "external_url" ? "external_url" : "internal_page",
-    ctaTarget: c.ctaType === "external_url" ? "/market" : c.ctaTarget || "/market",
+    // DS-5: 빈 경로를 /market 으로 채우지 않는다 — 저장 때 cta_target_required 로 막는다
+    ctaTarget: c.ctaType === "external_url" ? "" : c.ctaTarget || "",
     externalUrl: c.externalUrl ?? "",
     surfaces: c.surfaces.length ? [...c.surfaces] : ["GLOBAL"],
     startLocal: toLocalInput(c.startAt, c.timezone),
@@ -125,8 +130,16 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [audit, setAudit] = useState<AdminPlatformPopupAuditRow[]>([]);
 
   const load = useCallback(async () => {
+    // 감사 이력 = 팝업 상세와 같은 `/audit` API · 같은 블록(실패해도 상세는 그대로)
+    void fetch(`/api/admin/platform-popup-campaigns/${campaignId}/audit`, { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; items?: AdminPlatformPopupAuditRow[] }) => {
+        if (j.ok) setAudit(j.items ?? []);
+      })
+      .catch(() => {});
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, { credentials: "same-origin" });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; campaign?: PlatformPopupAdminDetail; error?: string };
     if (!res.ok || !json.ok || !json.campaign) {
@@ -154,6 +167,10 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const save = async () => {
     if (!writeGuard.guard()) return;
     if (!form || !saved || !detail) return;
+    if (form.ctaType === "internal_page" && !form.ctaTarget.trim()) {
+      setError(formatPlatformPopupAdminError("cta_target_required", lang));
+      return;
+    }
     const body = buildPtrRevealAdminPatch(saved, form, detail.timezone);
     if (Object.keys(body).length === 0) return;
     const live = detail.status === "active" || detail.status === "scheduled";
@@ -273,6 +290,45 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     router.push(`/admin/ptr-reveal-ads/${json.id}`);
   };
 
+  /**
+   * AL-03: 팝업 상세와 같은 초안 삭제(L3 · 광고 이름 재입력 · 사유) — 같은 서버 경로(`advertising-workspace/action` ·
+   * `delete_safe_draft`). 서버가 초안·관리자 직접 등록·노출 기록 0 을 다시 확인한다(보완 §4-3).
+   */
+  const deleteDraft = async () => {
+    if (!writeGuard.guard()) return;
+    const ko = lang !== "en";
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("delete"),
+      ko,
+      title: L("임시저장 광고 삭제", "Delete draft ad"),
+      description: L("임시저장 광고를 삭제할까요? 이 작업은 되돌릴 수 없습니다.", "Delete this draft ad? This cannot be undone."),
+      confirmLabel: adminCta("delete", ko),
+      destructive: true,
+      retypeValue: detail?.name?.trim() || campaignId,
+    });
+    if (!confirmed.ok) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/admin/advertising-workspace/action", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        family: "platform_popup_campaign",
+        entityId: campaignId,
+        action: "delete_safe_draft",
+        reason: confirmed.reason,
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    setBusy(false);
+    if (!res.ok || !json.ok) {
+      setError(formatPlatformPopupAdminError(json.error || "delete_failed", lang));
+      return;
+    }
+    router.push("/admin/ptr-reveal-ads");
+  };
+
   if (!detail || !form) {
     return (
       <div className="p-4 text-sm text-sam-muted">
@@ -293,6 +349,10 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   }
 
   const status = detail.status;
+  /** AL-14: 권한이 없으면 버튼을 먼저 막는다(사유를 쓴 뒤 403 이 나지 않게 · 서버와 같은 ads 키) */
+  const writeBlocked = busy || !writeGuard.allowed;
+  const isAdminDirect = !detail.ownerStoreId && !detail.ownerRequestId;
+  const canDeleteDraft = isAdminDirect && (status === "draft" || status === "pending_review");
   // 승인·노출 확인창에 실제 노출 대상을 명시 — 공개(all) 노출을 실수로 켜지 않도록
   const audienceKo =
     detail.audienceMode === "allowlist"
@@ -326,7 +386,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
             </AdminToneBadge>
           </div>
         </div>
-        <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void copy()} data-admin-ptr-copy="">
+        <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked} onClick={() => void copy()} data-admin-ptr-copy="">
           {L("복사", "Copy")}
         </AdminActionButton>
       </div>
@@ -353,6 +413,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
               <label className="grid gap-1">
                 {L("우선순위 (높을수록 먼저)", "Priority (higher first)")}
                 <input type="number" className="w-28 rounded border border-sam-border px-2 py-1.5" value={form.priority} onChange={(e) => patch({ priority: Number(e.target.value) || 0 })} />
+                <span className="text-xs text-sam-muted" data-admin-ptr-rank-hint="">
+                  {L(
+                    "노출 순서: 영역 지정 > 우선순위(높을수록 먼저) > 덜 본 것",
+                    "Order: placement targeting > priority (higher first) > least seen"
+                  )}
+                </span>
               </label>
             </div>
           </AdminCard>
@@ -499,34 +565,39 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
           <AdminCard title={L("승인·운영", "Approval & operation")}>
             <div className="flex flex-wrap gap-2 text-sm">
-              <AdminActionButton variant="secondary" size="sm" disabled={busy || status !== "draft"}
+              <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status !== "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "pending_review", nextApproval: "pending_review" }, "검토를 요청할까요?", "Submit for review?")}>
                 {L("검토 요청", "Submit for review")}
               </AdminActionButton>
-              <AdminActionButton variant="secondary" size="sm" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-schedule=""
+              <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status === "ended" || status === "active"} data-admin-ptr-approve-schedule=""
                 onClick={() => void transition({ action: "approve", schedule: true }, "승인하고 예약 노출로 둘까요? 시작 시각부터 앱에 표시됩니다." + audienceKo, "Approve and schedule? It shows in the app from the start time." + audienceEn)}>
                 {L("승인 후 예약", "Approve → schedule")}
               </AdminActionButton>
-              <AdminActionButton variant="secondary" size="sm" disabled={busy || status === "ended" || status === "active"} data-admin-ptr-approve-activate=""
+              <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status === "ended" || status === "active"} data-admin-ptr-approve-activate=""
                 onClick={() => void transition({ action: "approve", activate: true }, "승인하고 바로 노출할까요? 실제 앱의 새로고침 화면에 표시됩니다." + audienceKo, "Approve and go live now? It will show on real app refresh screens." + audienceEn)}>
                 {L("승인 후 노출 시작", "Approve → go live")}
               </AdminActionButton>
-              <AdminActionButton variant="secondary" size="sm" disabled={busy || status !== "pending_review"} data-admin-ptr-reject=""
+              <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status !== "pending_review"} data-admin-ptr-reject=""
                 onClick={() => void transition({ action: "transition", nextStatus: "rejected", nextApproval: "rejected" }, "반려할까요?", "Reject this ad?")}>
                 {L("반려", "Reject")}
               </AdminActionButton>
-              <AdminActionButton variant="secondary" size="sm" disabled={busy || (status !== "active" && status !== "scheduled")} data-admin-ptr-pause=""
+              <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || (status !== "active" && status !== "scheduled")} data-admin-ptr-pause=""
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" }, "노출을 중지할까요? 앱에서 곧바로 빠집니다.", "Stop exposure? It leaves the app shortly.")}>
                 {L("노출 중지", "Stop")}
               </AdminActionButton>
-              <AdminActionButton variant="secondary" size="sm" disabled={busy || status !== "paused"}
+              <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status !== "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "active" }, "다시 노출할까요?" + audienceKo, "Resume exposure?" + audienceEn)}>
                 {L("다시 노출", "Resume")}
               </AdminActionButton>
-              <AdminActionButton variant="danger" size="sm" disabled={busy || status === "ended" || status === "draft"}
+              <AdminActionButton variant="danger" size="sm" disabled={writeBlocked || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" }, "종료할까요? 종료한 광고는 다시 켤 수 없습니다.", "End this ad? Ended ads cannot be restarted.")}>
                 {L("종료", "End")}
               </AdminActionButton>
+              {canDeleteDraft ?
+                <AdminActionButton variant="danger" size="sm" disabled={writeBlocked} onClick={() => void deleteDraft()} data-admin-ptr-delete-draft="">
+                  {L("삭제", "Delete")}
+                </AdminActionButton>
+              : null}
             </div>
             <p className="mt-2 text-xs text-sam-muted">
               {L("반영까지 최대 5분(앱의 광고 캐시). 광고 조회가 실패해도 새로고침은 그대로 동작합니다.", "Changes reach apps within ~5 minutes (ad cache). Refresh keeps working even if the ad fails.")}
@@ -563,6 +634,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
               </table>
             : null}
           </AdminCard>
+
+          <AdminPlatformPopupAuditHistory items={audit} lang={lang} />
         </div>
       </div>
 
@@ -572,7 +645,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
           <AdminActionButton variant="secondary" disabled={busy || !dirty} onClick={() => void cancel()}>
             {L("취소", "Cancel")}
           </AdminActionButton>
-          <AdminActionButton variant="primary" disabled={busy || !dirty} onClick={() => void save()} data-admin-ptr-save="">
+          <AdminActionButton variant="primary" disabled={writeBlocked || !dirty} onClick={() => void save()} data-admin-ptr-save="">
             {busy ? L("처리 중…", "Working…") : L("저장", "Save")}
           </AdminActionButton>
         </div>

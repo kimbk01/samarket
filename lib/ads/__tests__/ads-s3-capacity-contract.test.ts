@@ -47,7 +47,9 @@ describe("모든 경로가 같은 검사", () => {
   });
   it("등록 화면도 같은 풀(위치 + 대상)로 센다", () => {
     const page = read("components/admin/ads/AdminFeedAdCreatePage.tsx");
-    expect(page).toContain("`${p}|${feedAdPoolTargetKey(p, c)}`");
+    // FB-A11 정정: 위치 지도·서버 검사와 같은 함수
+    expect(page).toContain("countFeedAdPoolOccupancy(");
+    expect(page).toContain("feedAdPoolKey(placement, {");
   });
 });
 

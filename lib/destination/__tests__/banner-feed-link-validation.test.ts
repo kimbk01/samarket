@@ -10,7 +10,6 @@ import {
 } from "@/lib/destination/optional-destination-href";
 import {
   parseStoreBannerAdCampaignCreateBody,
-  parseStoreBannerAdCampaignUpdateBody,
 } from "@/lib/stores/store-banner-ad-campaign-writer";
 
 describe("feed ad destination (EVT-05)", () => {
@@ -79,7 +78,7 @@ describe("banner links (EVT-07)", () => {
     expect(describeDestinationForAdmin("//x")).toMatchObject({ ok: false, error: "invalid_internal_path" });
   });
 
-  it("store banner writer rejects invalid cta_href on create and update", () => {
+  it("store banner writer (DS-6 · 매장 없는 자체 배너) rejects external / store pages; keeps event & delivery screens", () => {
     const base = {
       surface: "stores_home_hero",
       imageUrl: "https://img/x.png",
@@ -90,22 +89,27 @@ describe("banner links (EVT-07)", () => {
       ok: false,
       error: "invalid_cta_href",
     });
-    const ok = parseStoreBannerAdCampaignCreateBody({ ...base, ctaHref: "/events/e1" });
-    expect(ok.ok && ok.value.ctaHref).toBe("/events/e1");
-    const none = parseStoreBannerAdCampaignCreateBody({ ...base });
-    expect(none.ok && none.value.ctaHref).toBe("");
-    expect(parseStoreBannerAdCampaignUpdateBody({ id: "b1", cta_href: "javascript:alert(1)" })).toEqual({
+    expect(parseStoreBannerAdCampaignCreateBody({ ...base, ctaHref: "https://a.b/c" })).toEqual({
       ok: false,
       error: "invalid_cta_href",
     });
-    const upd = parseStoreBannerAdCampaignUpdateBody({ id: "b1", ctaHref: "https://a.b/c" });
-    expect(upd.ok && upd.value.ctaHref).toBe("https://a.b/c");
+    const ok = parseStoreBannerAdCampaignCreateBody({ ...base, ctaHref: "/events/e1" });
+    expect(ok.ok && ok.value.ctaHref).toBe("/events/e1");
+    const browse = parseStoreBannerAdCampaignCreateBody({ ...base, ctaHref: "/stores/browse/food" });
+    expect(browse.ok && browse.value.ctaHref).toBe("/stores/browse/food");
+    const none = parseStoreBannerAdCampaignCreateBody({ ...base });
+    expect(none.ok && none.value.ctaHref).toBe("");
+    expect(parseStoreBannerAdCampaignCreateBody({ ...base, ctaHref: "/stores/some-shop" })).toEqual({
+      ok: false,
+      error: "invalid_cta_href",
+    });
   });
 
   it("admin banners API validates link on create and update; renderers open via openDestination", () => {
     for (const f of ["app/api/admin/banners/route.ts", "app/api/admin/banners/[id]/route.ts"]) {
       const src = readFileSync(f, "utf8");
-      expect(src).toContain("normalizeOptionalDestinationHref(body.targetUrl)");
+      // DS-7 · C-1: 마이 배너 링크 = 앱 안 경로·이벤트만 · 필수
+      expect(src).toContain("validateMyPageBannerLinkForSave(body.targetUrl)");
       expect(src).toContain("invalid_target_url");
     }
     for (const f of [

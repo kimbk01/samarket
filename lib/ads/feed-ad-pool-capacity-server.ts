@@ -1,10 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  feedAdPoolCapacity,
-  feedAdPoolOccupiesCampaign,
-  feedAdPoolTargetKey,
-} from "@/lib/ads/feed-ad-pool-capacity";
+import { feedAdPoolRemaining, type FeedAdPoolOccupancyRow } from "@/lib/ads/feed-ad-pool-capacity";
 
 /**
  * 재감사 S-1 (F-3) · 광고 S-3: 피드 배너 풀 수용량을 **서버도** 지킨다 — 어드민 등록 화면·노출 위치 지도와 같은 규칙
@@ -17,33 +13,35 @@ export async function assertFeedAdPoolCapacityAvailable(
   placement: string,
   target: { targetCategoryId?: string | null; targetTopicSlug?: string | null; excludeCampaignId?: string | null } = {},
   nowMs: number = Date.now()
-): Promise<{ ok: true } | { ok: false; error: "capacity_full" | "capacity_check_failed"; httpStatus: number; used?: number; capacity?: number }> {
-  const capacity = feedAdPoolCapacity(placement);
-  const key = feedAdPoolTargetKey(placement, target);
+): Promise<{ ok: true; used: number; capacity: number; remaining: number } | { ok: false; error: "capacity_full" | "capacity_check_failed"; httpStatus: number; used?: number; capacity?: number }> {
+  const r = await loadFeedAdPoolRemaining(sb, placement, target, nowMs);
+  if (!r.ok) return { ok: false, error: "capacity_check_failed", httpStatus: 500 };
+  if (r.used >= r.capacity) return { ok: false, error: "capacity_full", httpStatus: 409, used: r.used, capacity: r.capacity };
+  return { ok: true, used: r.used, capacity: r.capacity, remaining: r.remaining };
+}
+
+/** FB-A11 · D-7: 한 풀의 남은 자리 (회원 신청 화면 안내 · 신청 API 재검사 · 승인 검사 공용) — 세는 규칙은 `countFeedAdPoolOccupancy` */
+export async function loadFeedAdPoolRemaining(
+  sb: SupabaseClient,
+  placement: string,
+  target: { targetCategoryId?: string | null; targetTopicSlug?: string | null; excludeCampaignId?: string | null } = {},
+  nowMs: number = Date.now()
+): Promise<{ ok: true; used: number; capacity: number; remaining: number } | { ok: false }> {
   const { data, error } = await sb
     .from("feed_ad_campaigns")
-    .select("id, status, end_at, target_category_id, target_topic_slug")
+    .select("id, placement, status, end_at, target_category_id, target_topic_slug")
     .eq("placement", placement);
-  if (error) return { ok: false, error: "capacity_check_failed", httpStatus: 500 };
-  const used = (data ?? []).filter((r) => {
-    const row = r as {
-      id?: string;
-      status?: unknown;
-      end_at?: string | null;
-      target_category_id?: string | null;
-      target_topic_slug?: string | null;
+  if (error) return { ok: false };
+  const rows: FeedAdPoolOccupancyRow[] = (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      id: row.id != null ? String(row.id) : null,
+      placement: String(row.placement ?? placement),
+      status: String(row.status ?? ""),
+      endAt: (row.end_at as string | null | undefined) ?? null,
+      targetCategoryId: (row.target_category_id as string | null | undefined) ?? null,
+      targetTopicSlug: (row.target_topic_slug as string | null | undefined) ?? null,
     };
-    if (target.excludeCampaignId && String(row.id ?? "") === target.excludeCampaignId) return false;
-    if (
-      feedAdPoolTargetKey(placement, {
-        targetCategoryId: row.target_category_id,
-        targetTopicSlug: row.target_topic_slug,
-      }) !== key
-    ) {
-      return false;
-    }
-    return feedAdPoolOccupiesCampaign({ status: String(row.status ?? ""), endAt: row.end_at ?? null }, nowMs);
-  }).length;
-  if (used >= capacity) return { ok: false, error: "capacity_full", httpStatus: 409, used, capacity };
-  return { ok: true };
+  });
+  return { ok: true, ...feedAdPoolRemaining(rows, placement, target, nowMs, target.excludeCampaignId ?? null) };
 }

@@ -78,6 +78,8 @@ const DELIVERY_SCHEDULE_LIFECYCLES = [...new Set([...HERO_OCCUPYING_LIFECYCLES, 
 
 const BOOST_ORDER_SELECT =
   "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at, duration_days";
+/** AL-17: 글 상태로 멈춘 거래 주문(paused_by = listing_*)은 공통 화면도 재개를 숨긴다 — 칸이 없는 DB 면 옛 열로 다시 읽는다. */
+const BOOST_ORDER_SELECT_WITH_PAUSED_BY = `${BOOST_ORDER_SELECT}, paused_by`;
 
 const FEED_REQUEST_SELECT =
   "id, user_id, status, start_at, end_at, created_at, placement, domain, product_id, destination_type, destination_id, target_topic_slug";
@@ -174,7 +176,13 @@ async function hydrateWorkspaceRefs(
       ? listPlatformPopupAdminCampaignsByIds(sb, popupIds)
       : Promise.resolve({ ok: true as const, items: [] as PlatformPopupAdminListItem[] }),
     promoteIds.length
-      ? sb.from("point_promotion_orders").select(BOOST_ORDER_SELECT).in("id", promoteIds)
+      ? Promise.resolve(
+          sb.from("point_promotion_orders").select(BOOST_ORDER_SELECT_WITH_PAUSED_BY).in("id", promoteIds)
+        ).then(async (res) =>
+          res.error && /paused_by/i.test(res.error.message ?? "")
+            ? await sb.from("point_promotion_orders").select(BOOST_ORDER_SELECT).in("id", promoteIds)
+            : res
+        )
       : Promise.resolve({ data: [] as unknown[], error: null }),
     popupRequestIds.length
       ? sb.from("platform_popup_owner_requests").select(POPUP_REQUEST_SELECT).in("id", popupRequestIds)

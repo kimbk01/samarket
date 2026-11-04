@@ -216,3 +216,24 @@ export async function compensateFeedAdPointHold(
 
   return { ok: true };
 }
+
+/**
+ * FB-P09 (2026-11-04): 동시 승인에서 진 쪽 — 확정(captured)을 **보류(held)로 되돌린다**(포인트 이동 없음).
+ * CAPTURE 는 상태만 바꾸고 돈은 신청 때 이미 보류 차감됐으므로, 되돌려도 원장 차이 0.
+ * 신청은 검토 중으로 남아 다시 승인할 수 있다(`hold_missing` 없음). 반려하면 그때 `releaseHeldPointsForFeedAdRequest` 로 환급.
+ */
+export async function uncaptureFeedAdPointHold(
+  sb: SupabaseClient,
+  params: { requestId: string }
+): Promise<PointFlowResult> {
+  const { data, error } = await sb
+    .from("feed_ad_point_holds")
+    .update({ status: "held", updated_at: new Date().toISOString() })
+    .eq("request_id", params.requestId)
+    .eq("status", "captured")
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  if (rows.length === 0) return { ok: false, error: "hold_not_captured" };
+  return { ok: true };
+}

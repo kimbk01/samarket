@@ -44,7 +44,7 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Residual | Status |
 |---|---|
 | Legacy cleanup | Deferred |
-| Analytics / Notification | Owner 결정 O-4 (2026-11-03) **구현**: 노출(화면 50% 이상 1초)·클릭 → `POST /api/feed-ads/events` → DB 함수 `record_feed_ad_event` (표 `feed_ad_events`, 중복 방지 키 = 캠페인+소재+화면 세션+자리 번호+1시간, 서버가 만든다 · 새 행일 때만 `impression_count`·`click_count` +1 · 노출 중 캠페인·소속 소재만) · 어드민 피드 배너 목록·회원 신청 상세에 숫자 · 선택 방식(공정 회전) 그대로 · 알림은 Deferred |
+| Analytics / Notification | Owner 결정 O-4 (2026-11-03) **구현**: 노출(화면 50% 이상 1초)·클릭 → `POST /api/feed-ads/events` → DB 함수 `record_feed_ad_event` (표 `feed_ad_events`, 중복 방지 키 = 캠페인+소재+**보는 사람(회원 id · 비로그인은 IP 해시)+자리 0**+1시간, 서버가 만든다(2026-11-04 정정 FB-X03 · RA F-01 구현이 정본 — 앱이 보낸 세션·자리 값은 믿지 않는다) · 새 행일 때만 `impression_count`·`click_count` +1 · 노출 중 캠페인·소속 소재만) · 어드민 피드 배너 목록·회원 신청 상세에 숫자 · 선택 방식(공정 회전) 그대로 · 알림은 Deferred |
 | Native / Capacitor / Auth / Push | **ZERO CHANGE** |
 | Local nav banner | **No** — Local does not sell / does not inherit HOME banner |
 
@@ -58,13 +58,15 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | ALL candidate pool | HOME + all active TOPIC campaigns → `selectCampaignsForPlacement` |
 | TOPIC candidate pool | Matching TOPIC only |
 | Surface authority | `lib/community/resolve-community-feed-surface.ts` |
-| Cadence | Gaps **4–6** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. No `Math.random()`. |
+| Cadence | Gaps **4–6** content between ad slots — `lib/ads/feed-ad-slot-policy.ts`. No `Math.random()`. **거래 격자(2026-11-04 정정 · D-23 · FB-C07):** 광고는 2칸 전체 한 줄이라 「앞 광고 뒤 글 **4~6개 이후, 줄이 끝나는 첫 자리**」에 넣는다(`lib/trade/marketplace/plan-trade-grid-feed-ads.ts` · 글이 줄을 끝낸 자리만 — 끼운 샘플 카드(1칸)가 홀짝을 바꾸면 광고 사이 글이 gap 보다 많아질 수 있다. 시험 `plan-trade-grid-feed-ads-sample-table.test.ts`). 커뮤니티 1열 피드는 4~6 그대로. |
 | Session seed | `feedSessionId` via `lib/ads/feed-ad-session.ts` (sessionStorage per surfaceKey; not remount-minted) |
 | Selector | Stable hash + hour bucket + anti-repeat — `selectCampaignsForPlacement` (max 3 / slot). **day-bucket-only REOPENED.** Owner 결정 O-9 (2026-11-03): 공정 회전 **유지** — 어드민 「후보 우선순위」는 후보 50개 초과 때만 쓰인다. |
 | Multi-advertiser | Slot may show up to **3 distinct campaigns** L→R |
 | Member limit | One **current** campaign per member — `findCurrentFeedAdBanner` / `isFeedAdDisplayStatusBlockingNewCreate` |
 | Creatives | 1 request → 1 campaign → **1–3** creatives (per-campaign). Slot items ≠ creative slides. |
 | Empty pool | `null` / height 0 |
+| Destination | **목적지 필수**(2026-11-04 계약 변경 C-1 · DS-3): 「목적지 없음」은 저장·승인에서 거부하고, 노출 단계에서도 뺀다. 매장 목적지는 slug 로 저장한다(DS-2). 노출 때 대상(삭제·숨김 글 · 비공개 매장 · 끝난 이벤트)을 확인해 뺀다(DS-4). |
+| Advertiser name | 「광고」 옆 광고주 이름 = 표시 함수 `feedAdAdvertiserDisplayName` 하나(거래·커뮤니티 같음 · D-24). 이름이 비었거나 「Untitled」면 「광고」만. 회원 광고는 보는 시점의 닉네임(FB-C17). |
 | Geometry | **3:1** 가로 띠, 콘텐츠 열 폭(max 768px), cover (`lib/ads/feed-ad-geometry.ts`). 2026-11-03 정정: 거래 목록 v5(Owner 승인)에서 광고는 2칸 전체 한 줄이라 3:1 띠가 정본 — 옛 「Card-rhythm 72~88/100 고정」은 대체됨. |
 | Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend |
 | Sanitation | Production-reachable HTTPS creatives only |

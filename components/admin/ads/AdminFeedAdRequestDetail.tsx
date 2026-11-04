@@ -23,6 +23,7 @@ import { adsWorkspaceMutationConfirmCopy } from "@/lib/admin/ads-exposure/admin-
 import { adsShellKindLabel } from "@/lib/admin/ads-exposure/shell-row";
 import { AdminTechInfo, formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { AdminFeedAdAuditHistory, type AdminFeedAdAuditRow } from "@/components/admin/ads/AdminFeedAdAuditHistory";
 
 type DetailCreative = {
   id: string;
@@ -129,6 +130,14 @@ export function AdminFeedAdRequestDetail({
   /** 보상 연장 입력 폼 (일수) — 입력 후 실행 확인은 confirmAdminAction(payout L2). */
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendDays, setExtendDays] = useState("");
+  /** 종료 = L3 (설계 §6 · D-5): 귀책 선택 → 환급 미리보기(preview) → 사유 + 신청 번호 재입력 */
+  const [endOpen, setEndOpen] = useState(false);
+  const [endFault, setEndFault] = useState<"operator" | "member" | "none" | null>(null);
+  const [endPreview, setEndPreview] = useState<
+    { fault: string; refundPoints: number; paidPoints: number } | { fault: string; error: string } | null
+  >(null);
+  /** 감사 이력 블록 (보완 §7 — 팝업 상세 /audit 와 같은 모양) */
+  const [auditItems, setAuditItems] = useState<AdminFeedAdAuditRow[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,9 +160,20 @@ export function AdminFeedAdRequestDetail({
     }
   }, [requestId]);
 
+  const loadAudit = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/feed-ad-requests/${requestId}/audit`, { cache: "no-store" });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: AdminFeedAdAuditRow[] };
+      setAuditItems(res.ok && j.ok && Array.isArray(j.items) ? j.items : []);
+    } catch {
+      setAuditItems([]);
+    }
+  }, [requestId]);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadAudit();
+  }, [load, loadAudit]);
 
   const productStatus = useMemo(() => {
     if (!data) return "pending_review" as const;
@@ -170,7 +190,8 @@ export function AdminFeedAdRequestDetail({
   const runMutation = async (
     action: "approve" | "reject" | "end" | "pause" | "resume" | "extend_compensation",
     reason: string,
-    requestedDays?: number
+    requestedDays?: number,
+    extra?: { internalReason?: string | null; fault?: "operator" | "member" | "none" | null }
   ) => {
     if (!writeGuard.guard()) return;
     setBusy(true);
@@ -184,6 +205,9 @@ export function AdminFeedAdRequestDetail({
           reason: reason || undefined,
           campaignId: data?.campaign?.id ?? data?.request.campaignId ?? undefined,
           requestedDays,
+          // D-6: 공개 사유(reason · 회원에게 보임)와 내부 메모를 따로 보낸다
+          internalReason: extra?.internalReason || undefined,
+          fault: extra?.fault ?? undefined,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -191,6 +215,7 @@ export function AdminFeedAdRequestDetail({
         setErr(j.error ?? "action_failed");
         return false;
       }
+      void loadAudit();
       if (action === "approve" || action === "reject") {
         setSuccessKind(action);
       }
@@ -205,6 +230,8 @@ export function AdminFeedAdRequestDetail({
   /** 승인(L2)·반려(L2) — 확인 단계는 동작 표(copy.level), 사유는 API 로 보내 감사에 남긴다. */
   const requestReview = async (action: "approve" | "reject") => {
     if (pendingReview) return;
+    // AL-14: 권한이 없으면 사유 창 전에 막는다
+    if (!writeGuard.guard()) return;
     setPendingReview(action);
     try {
       const copy = adsWorkspaceMutationConfirmCopy(action, ko, { family: "feed_banner" });
@@ -224,58 +251,102 @@ export function AdminFeedAdRequestDetail({
     }
   };
 
+  /**
+   * 설계 §6 · FB-A05 · AD-103 (2026-11-04): 정지·재개 = L2(공개 사유 + 내부 메모) · 종료 = L3(귀책 + 환급 미리보기 + 사유 + 재입력) ·
+   * 보상 연장 = L2. 같은 동작 표(`adsWorkspaceMutationConfirmCopy`)를 공통 광고 화면과 같이 쓴다.
+   */
   const actOps = async (action: "end" | "pause" | "resume" | "extend_compensation") => {
-    let reason = "";
+    // AL-14: 권한이 없으면 사유 창 전에 막는다
+    if (!writeGuard.guard()) return;
     if (action === "end") {
-      // 종료 = forceCancel(L3) — 사유 + 신청 번호 재입력. 사유는 API 로 보내 감사에 남긴다.
-      const confirmed = await confirmAdminAction({
-        level: adminActionLevel("forceCancel"),
-        ko,
-        title: safeT("admin_feed_req_end_confirm", {
-          fallbackKo:
-            "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 Point는 자동 환불되지 않습니다.",
-          fallbackEn:
-            "End this ad? It leaves the feed immediately. Captured Points are not auto-refunded.",
-        }),
-        confirmLabel: ko ? "종료" : "End",
-        destructive: true,
-        retypeValue: formatAdminShortId(requestId),
-      });
-      if (!confirmed.ok) return;
-      reason = confirmed.reason ?? "";
-    }
-    if (action === "pause") {
-      // 일시중지 = exposeStop(L1)
-      const confirmed = await confirmAdminAction({
-        level: adminActionLevel("exposeStop"),
-        ko,
-        title: ko ? "광고 노출을 일시중지할까요? 피드에서 곧바로 빠집니다." : "Pause this ad? It leaves the feed shortly.",
-        confirmLabel: ko ? "일시중지" : "Pause",
-      });
-      if (!confirmed.ok) return;
-      reason = "admin_paused";
-    }
-    if (action === "resume") {
-      // 재개 = resume(L1)
-      const confirmed = await confirmAdminAction({
-        level: adminActionLevel("resume"),
-        ko,
-        title: safeT("admin_feed_req_resume_confirm", {
-          fallbackKo: "광고를 다시 노출할까요?",
-          fallbackEn: "Resume this ad in the feed?",
-        }),
-        confirmLabel: ko ? "재개" : "Resume",
-      });
-      if (!confirmed.ok) return;
-      reason = "admin_resumed";
+      setEndFault(null);
+      setEndPreview(null);
+      setEndOpen(true);
+      return;
     }
     if (action === "extend_compensation") {
-      // 보상 연장 = payout(L2) — 일수는 아래 입력 폼에서 받고, 실행 확인·사유는 submitExtendCompensation.
+      // 보상 연장 = extend(L2) — 일수는 아래 입력 폼에서 받고, 실행 확인·사유는 submitExtendCompensation.
       setExtendDays("");
       setExtendOpen(true);
       return;
     }
-    await runMutation(action, reason);
+    const copy = adsWorkspaceMutationConfirmCopy(action, ko, { family: "feed_banner" });
+    const confirmed = await confirmAdminAction({
+      level: copy.level,
+      ko,
+      title:
+        action === "pause"
+          ? ko
+            ? "광고 노출을 일시중지할까요? 피드에서 곧바로 빠집니다."
+            : "Pause this ad? It leaves the feed shortly."
+          : safeT("admin_feed_req_resume_confirm", {
+              fallbackKo: "광고를 다시 노출할까요?",
+              fallbackEn: "Resume this ad in the feed?",
+            }),
+      description: copy.body,
+      confirmLabel: copy.confirmLabel,
+      splitReason: copy.splitReason,
+    });
+    if (!confirmed.ok) return;
+    await runMutation(action, confirmed.reason ?? "", undefined, { internalReason: confirmed.internalMemo ?? null });
+  };
+
+  // 귀책을 고르면 서버 계산으로 환급 예정 포인트를 먼저 보여 준다 (preview: 기록·변경 없음).
+  useEffect(() => {
+    if (!endOpen || !endFault) return;
+    let alive = true;
+    setEndPreview(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/feed-ad-requests/${requestId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "end", preview: true, fault: endFault }),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          preview?: { refundPoints?: number; paidPoints?: number };
+        };
+        if (!alive) return;
+        if (!res.ok || !j.ok) {
+          setEndPreview({ fault: endFault, error: j.error || "action_failed" });
+          return;
+        }
+        setEndPreview({
+          fault: endFault,
+          refundPoints: Number(j.preview?.refundPoints ?? 0),
+          paidPoints: Number(j.preview?.paidPoints ?? 0),
+        });
+      } catch {
+        if (alive) setEndPreview({ fault: endFault, error: "network_error" });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [endOpen, endFault, requestId]);
+
+  const submitEnd = async () => {
+    if (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault) return;
+    const fault = endFault;
+    const copy = adsWorkspaceMutationConfirmCopy("end", ko, { family: "feed_banner" });
+    const confirmed = await confirmAdminAction({
+      level: copy.level,
+      ko,
+      title: copy.title,
+      description: copy.body,
+      confirmLabel: copy.confirmLabel,
+      destructive: true,
+      retypeValue: formatAdminShortId(requestId),
+      splitReason: copy.splitReason,
+    });
+    if (!confirmed.ok) return;
+    setEndOpen(false);
+    await runMutation("end", confirmed.reason ?? "", undefined, {
+      internalReason: confirmed.internalMemo ?? null,
+      fault,
+    });
   };
 
   const extendDaysValue = Number(extendDays.trim());
@@ -284,19 +355,19 @@ export function AdminFeedAdRequestDetail({
   const submitExtendCompensation = async () => {
     if (!extendDaysValid) return;
     const days = extendDaysValue;
+    if (!writeGuard.guard()) return;
     const confirmed = await confirmAdminAction({
-      level: adminActionLevel("payout"),
+      level: adminActionLevel("extend"),
       ko,
       title: ko ? `보상 연장 ${days}일을 적용할까요?` : `Apply a ${days}-day compensation extension?`,
       confirmLabel: ko ? "연장" : "Extend",
-      reasonPlaceholder: safeT("admin_feed_req_extend_reason_prompt", {
-        fallbackKo: "보상 연장 사유 (필수)",
-        fallbackEn: "Compensation reason (required)",
-      }),
+      splitReason: true,
     });
     if (!confirmed.ok) return;
     setExtendOpen(false);
-    await runMutation("extend_compensation", confirmed.reason ?? "", days);
+    await runMutation("extend_compensation", confirmed.reason ?? "", days, {
+      internalReason: confirmed.internalMemo ?? null,
+    });
   };
 
   const replaceImage = async (file: File, sortOrder: number) => {
@@ -404,6 +475,12 @@ export function AdminFeedAdRequestDetail({
     return statusLabel;
   })();
 
+  /** AL-14: 버튼 권한 = 서버 PATCH 와 같은 ads 키 — 권한이 없으면 사유 창 전에 버튼이 꺼진다 */
+  const writeDenied = !writeGuard.loading && !writeGuard.allowed;
+  const writeDeniedTitle = writeDenied ? writeGuard.reason ?? (ko ? "이 작업을 할 권한이 없습니다." : "No permission.") : undefined;
+  const endPreviewReady =
+    endFault != null && endPreview != null && !("error" in endPreview) && endPreview.fault === endFault;
+
   const footer = (
     <div className="flex flex-wrap gap-2" data-admin-feed-review-actions="1">
       {pending ? (
@@ -411,7 +488,8 @@ export function AdminFeedAdRequestDetail({
           <AdminActionButton
             variant="secondary"
             data-testid="admin-feed-req-detail-reject"
-            disabled={busy || pendingReview != null}
+            disabled={busy || pendingReview != null || writeDenied}
+            title={writeDeniedTitle}
             onClick={() => void requestReview("reject")}
           >
             {safeT("admin_feed_req_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
@@ -419,13 +497,13 @@ export function AdminFeedAdRequestDetail({
           <AdminActionButton
             variant="primary"
             data-testid="admin-feed-req-detail-approve"
-            disabled={busy || pendingReview != null || approveBlocked}
+            disabled={busy || pendingReview != null || approveBlocked || writeDenied}
             title={
               approveBlocked
                 ? ko
                   ? "광고 이미지를 확인할 수 없어 승인할 수 없습니다"
                   : "Cannot approve without a viewable creative"
-                : undefined
+                : writeDeniedTitle
             }
             onClick={() => void requestReview("approve")}
           >
@@ -437,7 +515,8 @@ export function AdminFeedAdRequestDetail({
         <AdminActionButton
           variant="secondary"
           data-testid="admin-feed-req-detail-pause"
-          disabled={busy || extendOpen}
+          disabled={busy || extendOpen || endOpen || writeDenied}
+          title={writeDeniedTitle}
           onClick={() => void actOps("pause")}
         >
           {safeT("admin_feed_req_pause", { fallbackKo: "일시중지", fallbackEn: "Pause" })}
@@ -447,7 +526,8 @@ export function AdminFeedAdRequestDetail({
         <AdminActionButton
           variant="secondary"
           data-testid="admin-feed-req-detail-resume"
-          disabled={busy || extendOpen}
+          disabled={busy || extendOpen || endOpen || writeDenied}
+          title={writeDeniedTitle}
           onClick={() => void actOps("resume")}
         >
           {safeT("admin_feed_req_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
@@ -457,7 +537,8 @@ export function AdminFeedAdRequestDetail({
         <AdminActionButton
           variant="secondary"
           data-testid="admin-feed-req-detail-extend-compensation"
-          disabled={busy || extendOpen}
+          disabled={busy || extendOpen || endOpen || writeDenied}
+          title={writeDeniedTitle}
           onClick={() => void actOps("extend_compensation")}
         >
           {safeT("admin_feed_req_extend_compensation", {
@@ -470,7 +551,8 @@ export function AdminFeedAdRequestDetail({
         <AdminActionButton
           variant="danger"
           data-testid="admin-feed-req-detail-end"
-          disabled={busy || extendOpen}
+          disabled={busy || extendOpen || endOpen || writeDenied}
+          title={writeDeniedTitle}
           onClick={() => void actOps("end")}
         >
           {safeT("admin_feed_req_end", { fallbackKo: "광고 종료", fallbackEn: "End ad" })}
@@ -507,6 +589,57 @@ export function AdminFeedAdRequestDetail({
           <AdminActionButton variant="quiet" disabled={busy} onClick={() => setExtendOpen(false)}>
             {ko ? "취소" : "Cancel"}
           </AdminActionButton>
+        </div>
+      ) : null}
+      {endOpen ? (
+        <div
+          className="w-full space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]"
+          data-admin-feed-end-form="1"
+        >
+          <p className="font-semibold">{ko ? "귀책 (필수)" : "Fault (required)"}</p>
+          {(
+            [
+              ["operator", ko ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급" : "Operator — prorated refund"],
+              ["member", ko ? "회원 사유 — 환급 없음" : "Member — no refund"],
+              ["none", ko ? "해당 없음 — 환급 없음" : "None — no refund"],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value} className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="feed-end-fault"
+                checked={endFault === value}
+                disabled={busy}
+                onChange={() => setEndFault(value)}
+                className="mt-0.5"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+          {endFault && !endPreview ? (
+            <p className="text-sam-muted">{ko ? "환급 예정 포인트를 계산하는 중…" : "Calculating refund…"}</p>
+          ) : null}
+          {endPreviewReady && endPreview && !("error" in endPreview) ? (
+            <p className="font-semibold" data-admin-feed-end-preview="1">
+              {ko ? "환급 예정" : "Refund"} {formatAdminNumber(endPreview.refundPoints)} P
+            </p>
+          ) : null}
+          {endPreview && "error" in endPreview ? (
+            <p className="text-sam-danger">{adminOperatorErrorMessage(endPreview.error, ko)}</p>
+          ) : null}
+          <div className="flex gap-2">
+            <AdminActionButton
+              variant="danger"
+              data-testid="admin-feed-req-detail-end-submit"
+              disabled={busy || !endPreviewReady}
+              onClick={() => void submitEnd()}
+            >
+              {ko ? "종료 진행" : "Continue"}
+            </AdminActionButton>
+            <AdminActionButton variant="quiet" disabled={busy} onClick={() => setEndOpen(false)}>
+              {ko ? "취소" : "Cancel"}
+            </AdminActionButton>
+          </div>
         </div>
       ) : null}
       <AdminActionButton variant="secondary" onClick={close}>
@@ -726,6 +859,8 @@ export function AdminFeedAdRequestDetail({
         />
       </section>
 
+      {/* 보완 §7: 피드 신청 상세 감사 이력 — 조치마다 1행(공개 사유·귀책·환급) */}
+      <AdminFeedAdAuditHistory items={auditItems} lang={en ? "en" : "ko"} />
     </AdminFormSheet>
   );
 }

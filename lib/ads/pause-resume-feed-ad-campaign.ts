@@ -2,6 +2,11 @@
  * Admin pause / resume Feed Banner campaign — canonical writer.
  * pause ⇒ status=paused (not feed-eligible). resume ⇒ status=active when still in window.
  * No Point refund / no period change.
+ *
+ * FB-M11 · D-5 (2026-11-04): 새 경로는 `lib/ads/admin-feed-ad-lifecycle.ts`(DB 함수 `admin_feed_ad_pause`·`_resume` —
+ * 정지 기간 보전 · paused_by · 공개 사유). 이 파일은 옛 호출처가 옮겨 갈 때까지 남는다.
+ * 빈 사유를 코드값(`admin_paused`/`admin_resumed`)으로 저장하던 것은 지웠다 — 사유가 없으면 메모를 덮어쓰지 않는다.
+ * 정지하면 `paused_by='admin'`·`paused_at` 을 남겨 회원 화면이 「운영자가 멈췄습니다」를 추정 없이 보인다.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -85,13 +90,15 @@ export async function pauseFeedAdCampaign(
   }
 
   const now = new Date().toISOString();
-  const reason = (input.reason ?? "").trim() || "admin_paused";
+  const reason = (input.reason ?? "").trim();
   const { data: updated, error } = await sb
     .from("feed_ad_campaigns")
     .update({
       status: "paused",
+      paused_by: "admin",
+      paused_at: now,
       updated_at: now,
-      admin_memo: reason.slice(0, 500),
+      ...(reason ? { admin_memo: reason.slice(0, 500) } : {}),
     })
     .eq("id", resolved.campaignId)
     .in("status", ["active", "scheduled"])
@@ -143,13 +150,15 @@ export async function resumeFeedAdCampaign(
   }
 
   const now = new Date().toISOString();
-  const reason = (input.reason ?? "").trim() || "admin_resumed";
+  const reason = (input.reason ?? "").trim();
   const { data: updated, error } = await sb
     .from("feed_ad_campaigns")
     .update({
       status: "active",
+      paused_by: null,
+      paused_at: null,
       updated_at: now,
-      admin_memo: reason.slice(0, 500),
+      ...(reason ? { admin_memo: reason.slice(0, 500) } : {}),
     })
     .eq("id", resolved.campaignId)
     .eq("status", "paused")

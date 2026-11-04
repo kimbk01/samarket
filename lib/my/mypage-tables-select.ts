@@ -19,3 +19,41 @@ export function myPageBannerLiveWindowFilters(nowIso: string): { startOr: string
     endOr: `end_at.is.null,end_at.gt.${nowIso}`,
   };
 }
+
+/**
+ * MB-A03 (Owner 「설계안대로」 2026-11-04): 「지금 고객에게 보이는 마이 배너」 조건 1개 — 고객 조회(`loadMypageHomeBannersServer`·
+ * `loadMypageCmsPack`)와 공통 광고 화면 숫자(`/api/admin/advertising/other-surfaces`)가 같이 쓴다.
+ * `is_active = true` + 시작 ≤ 지금 + 지금 < 종료(종료 순간 제외).
+ */
+export function myPageBannerLiveQuerySpec(nowIso: string): {
+  activeColumn: "is_active";
+  activeValue: true;
+  startOr: string;
+  endOr: string;
+} {
+  const w = myPageBannerLiveWindowFilters(nowIso);
+  return { activeColumn: "is_active", activeValue: true, startOr: w.startOr, endOr: w.endOr };
+}
+
+/**
+ * MB-C04: 고객 조회 정렬 = 어드민 목록(`listAdminBanners`)과 같은 순서 — priority → sort_order → created_at 최신순.
+ */
+export const MY_PAGE_BANNER_CUSTOMER_ORDER: ReadonlyArray<{ column: "priority" | "sort_order" | "created_at"; ascending: boolean }> = [
+  { column: "priority", ascending: true },
+  { column: "sort_order", ascending: true },
+  { column: "created_at", ascending: false },
+];
+
+/** 정렬 비교(시험·클라이언트 보조용) — `MY_PAGE_BANNER_CUSTOMER_ORDER` 와 같은 순서 */
+export function compareMyPageBannersForCustomer(
+  a: { priority?: number | null; sort_order?: number | null; created_at?: string | null },
+  b: { priority?: number | null; sort_order?: number | null; created_at?: string | null }
+): number {
+  const pa = Number(a.priority ?? 0);
+  const pb = Number(b.priority ?? 0);
+  if (pa !== pb) return pa - pb;
+  const sa = Number(a.sort_order ?? 0);
+  const sb = Number(b.sort_order ?? 0);
+  if (sa !== sb) return sa - sb;
+  return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+}

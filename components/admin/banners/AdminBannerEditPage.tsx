@@ -1,5 +1,6 @@
 "use client";
 
+import { myPageBannerLinkErrorMessage } from "@/lib/my/my-page-banner-destination";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -115,7 +116,11 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        await dibayAlert({ title: j.error ? adminOperatorErrorMessage(j.error, ko) : t("common_content_unavailable") });
+        await dibayAlert({
+          title: j.error
+            ? (myPageBannerLinkErrorMessage(j.error, ko) ?? adminOperatorErrorMessage(j.error, ko))
+            : t("common_content_unavailable"),
+        });
         return;
       }
       router.push("/admin/my/banners");

@@ -84,6 +84,14 @@ export type AdsActionItem = {
   missingFieldsLabel?: string | null;
   waitingReasonLabel?: string | null;
   winnerOccupantLabel?: string | null;
+  /**
+   * AL-17: 상위노출 주문 정지 주체 (`point_promotion_orders.paused_by`) — `listing_*` 면 글 상태로 멈춘 것이라
+   * 관리자 재개를 숨긴다(거래 도메인 화면과 같은 조건). 다른 계열 null.
+   */
+  pausedBy?: string | null;
+  /** AL-08: 기간 변경 입력칸 초기값 (원래 ISO) — 팝업 캠페인만 */
+  periodStartAt?: string | null;
+  periodEndAt?: string | null;
 };
 
 export type AdsExecutionRow = {

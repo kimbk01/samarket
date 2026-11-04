@@ -209,6 +209,50 @@ export function platformPopupCtaEventId(
   return ref?.kind === "event" ? ref.eventId : null;
 }
 
+const UUID_PATH_SEG_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** `/philife/<x>` 중 글이 아닌 화면 · `/stores/<x>` 중 매장이 아닌 화면 (`app/(main)/philife` · `app/(main)/stores` 폴더) */
+const PHILIFE_NON_POST_SEGMENTS = new Set(["meetings", "my", "post", "purchases", "reviews", "sales", "write"]);
+const STORES_NON_STORE_SEGMENTS = new Set(["browse", "cart", "gift-mall", "owner", "search"]);
+
+/**
+ * DS-5b (Owner 「설계안대로」 2026-11-04): 내부 경로 CTA 가 글·매장 상세면 그 대상도 노출 전에 확인한다.
+ * `/post/:id` → 거래 글 · `/philife/:id` · `/philife/post/:id` → 커뮤니티 글 · `/stores/:slug` → 매장.
+ * (`/events/:id` 는 `platformPopupCtaEventId` 가 이미 이벤트로 본다.)
+ */
+export function platformPopupInternalPathEntity(
+  normalized: Pick<PlatformPopupCtaNormalized, "ctaType" | "href">
+): { kind: "trade_listing" | "community_post" | "store"; target: string } | null {
+  if (normalized.ctaType !== "internal_page") return null;
+  const path = String(normalized.href ?? "").split(/[?#]/)[0]!.replace(/\/+$/, "");
+  const segs = path.split("/").filter(Boolean);
+  const decode = (v: string) => {
+    try {
+      return decodeURIComponent(v).trim();
+    } catch {
+      return "";
+    }
+  };
+  if (segs.length === 2 && segs[0] === "post") {
+    const id = decode(segs[1]!);
+    return id ? { kind: "trade_listing", target: id } : null;
+  }
+  if (segs[0] === "philife") {
+    if (segs.length === 3 && segs[1] === "post") {
+      const id = decode(segs[2]!);
+      return id ? { kind: "community_post", target: id } : null;
+    }
+    if (segs.length === 2 && !PHILIFE_NON_POST_SEGMENTS.has(segs[1]!) && UUID_PATH_SEG_RE.test(decode(segs[1]!))) {
+      return { kind: "community_post", target: decode(segs[1]!) };
+    }
+    return null;
+  }
+  if (segs.length === 2 && segs[0] === "stores" && !STORES_NON_STORE_SEGMENTS.has(segs[1]!)) {
+    const slug = decode(segs[1]!);
+    return slug ? { kind: "store", target: slug } : null;
+  }
+  return null;
+}
+
 /** Fail-closed entity gate — invalid/deleted/hidden/expired/unauthorized. */
 export function assertPlatformPopupCtaTargetAvailable(
   normalized: PlatformPopupCtaNormalized,
@@ -217,9 +261,13 @@ export function assertPlatformPopupCtaTargetAvailable(
   if (normalized.ctaType === "external_url") {
     return { ok: true, value: normalized };
   }
-  if (normalized.ctaType === "internal_page" && !platformPopupCtaEventId(normalized)) {
+  if (
+    normalized.ctaType === "internal_page" &&
+    !platformPopupCtaEventId(normalized) &&
+    !platformPopupInternalPathEntity(normalized)
+  ) {
     // Path-only; no entity lookup required beyond structural normalize.
-    // (An internal path to `/events/:id` is an event destination → entity gate below.)
+    // (An internal path to `/events/:id` · `/post/:id` · `/philife/:id` · `/stores/:slug` → entity gate below · DS-5b.)
     return { ok: true, value: normalized };
   }
   if (!lookup) return { ok: false, error: "target_unavailable" };

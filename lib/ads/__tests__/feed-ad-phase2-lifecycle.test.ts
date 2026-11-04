@@ -132,12 +132,15 @@ describe("PHASE 2 destination contract (M7–M10)", () => {
     ).toBe(false);
   });
 
-  it("M10 none equivalent", () => {
-    const r = normalizeFeedAdDestination({ destinationType: "none" });
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(isFeedAdDestinationNone(r.value)).toBe(true);
-    }
+  it("M10 → DS-3 · C-1 (2026-11-04): 목적지 「없음」은 거부한다", () => {
+    expect(normalizeFeedAdDestination({ destinationType: "none" })).toEqual({ ok: false, error: "destination_required" });
+    expect(normalizeFeedAdDestination({ destinationType: "internal_page", destinationUrl: "" })).toEqual({
+      ok: false,
+      error: "destination_required",
+    });
+    expect(normalizeFeedAdDestination({ destinationType: "" })).toEqual({ ok: false, error: "destination_required" });
+    // 예전 「없음」 행 판정 함수는 노출 단계 정리용으로 남는다
+    expect(isFeedAdDestinationNone({ destinationType: "internal_page", destinationId: "", destinationUrl: "" })).toBe(true);
   });
 });
 
@@ -199,18 +202,20 @@ describe("PHASE 2 authority markers (M5)", () => {
     expect(typeof src.approveFeedAdRequest).toBe("function");
   });
 
-  it("M5 admin PATCH approve uses PHASE1 writer; no inline capture", async () => {
+  it("M5 admin PATCH approve uses PHASE1 writer (공용 runFeedAdAdminAction 경유); no inline capture", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
-    const file = path.join(
-      process.cwd(),
-      "app/api/admin/feed-ad-requests/[id]/route.ts"
+    const route = fs.readFileSync(path.join(process.cwd(), "app/api/admin/feed-ad-requests/[id]/route.ts"), "utf8");
+    const shared = fs.readFileSync(
+      path.join(process.cwd(), "lib/admin/advertising-workspace/feed-ad-admin-actions.ts"),
+      "utf8"
     );
-    const text = fs.readFileSync(file, "utf8");
-    expect(text).toContain('import { approveFeedAdRequest }');
-    expect(text).toContain("approveFeedAdRequest(sb");
-    expect(text).not.toContain("captureHeldPointsForFeedAdRequest");
-    expect(text.match(/approveFeedAdRequest/g)?.length).toBeGreaterThanOrEqual(2);
+    // 설계 FB-A07 (2026-11-04): 공통·도메인 화면이 같은 함수 하나로 승인한다
+    expect(route).toContain("runFeedAdAdminAction(sb");
+    expect(shared).toContain('import { approveFeedAdRequest }');
+    expect(shared).toContain("approveFeedAdRequest(sb");
+    expect(route).not.toContain("captureHeldPointsForFeedAdRequest");
+    expect(shared).not.toContain("captureHeldPointsForFeedAdRequest");
   });
 
   it("M6 reject releases held points atomically via admin_reject_feed_ad_request (V3-02)", async () => {

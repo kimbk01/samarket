@@ -56,7 +56,7 @@ Community prices = existing `ad_products` plife `top_fixed` seed (NOT Trade pric
 | `feed_banner_community_7` | community | 7 | 20000 | plife top_fixed 7d |
 
 **Placement:** TRADE_HOME / TRADE_CATEGORY / COMMUNITY_HOME / COMMUNITY_TOPIC + SSOT selectors.
-**Creatives:** 1..3 required. **Destination:** canonical types only.
+**Creatives:** 1..3 required. **Destination:** canonical types only · **목적지 필수**(2026-11-04 C-1 — 「없음」 저장·승인 거부, 노출 제외).
 
 ## 3. Product C — Admin Direct
 
@@ -85,9 +85,11 @@ Dashboard: QuickLinks / revenue strip must show the three primary paths **withou
 
 ## 6. Feed geometry
 
-Prior 12:5 is **not** final LOCK. LOCK: outer width = host list item width; no hero; compact native ad; host-specific height tokens after DOM measure.
+~~Prior 12:5 is **not** final LOCK. LOCK: outer width = host list item width; no hero; compact native ad; host-specific height tokens after DOM measure.~~
 
-Slot: `FEED_AD_SLOT_AFTER_CONTENT_COUNT=4` — size ≠ slot; re-evaluate after geometry fix only.
+~~Slot: `FEED_AD_SLOT_AFTER_CONTENT_COUNT=4` — size ≠ slot; re-evaluate after geometry fix only.~~
+
+**2026-11-04 정정 (FB-X02):** 정본은 HL(`docs/dibay-feed-banner-product-hard-lock.md` §1 Geometry·Cadence) — **3:1** 가로 띠 · 콘텐츠 열 최대 768px · cover(`lib/ads/feed-ad-geometry.ts`). 간격은 4~6(`feed-ad-slot-policy.ts`), 거래 2칸 격자는 「4~6 이후 줄이 끝나는 첫 자리」(D-23).
 
 ## 7. Legacy disposition
 

@@ -2,7 +2,11 @@
  * Feed Banner destination contract (PHASE 2).
  * Uses existing FeedAdDestinationType only — no new enum/schema.
  *
- * NONE = internal_page + empty id/url → member render uses # + preventDefault.
+ * ~~NONE = internal_page + empty id/url → member render uses # + preventDefault.~~
+ * DS-3 · C-1 (2026-11-04): **목적지 필수** — 「없음」은 저장·승인에서 `destination_required` 로 거부한다.
+ *   이미 저장된 「없음」 행은 노출 단계(`feed-ad-exposure-filter.ts`)에서 빠진다.
+ * DS-2 (2026-11-04): 매장(`store`) 목적지는 **slug** 로 저장한다 — `/stores/:slug` 로만 열린다.
+ *   uuid 로 들어오면 `resolveFeedAdStoreDestination`(feed-ad-store-destination.ts)이 slug 로 바꾸고, 없는 매장은 거부한다.
  *
  * Scope B (EVT-05): URLs / paths go through the shared DestinationRef contract
  * (`parseDestinationHref`) — https only, same-origin internal paths, no admin/owner deep links.
@@ -62,16 +66,12 @@ export function normalizeFeedAdDestination(
   const id = String(input.destinationId ?? "").trim();
   const url = String(input.destinationUrl ?? "").trim();
 
-  // NONE — no navigation
+  // DS-3 · C-1: 목적지 없음 금지 (누르면 반응 없는 배너 금지)
   if (rawType === "none" || (rawType === "" && !id && !url)) {
-    return {
-      ok: true,
-      value: {
-        destinationType: "internal_page",
-        destinationId: "",
-        destinationUrl: "",
-      },
-    };
+    return { ok: false, error: "destination_required" };
+  }
+  if (rawType === "internal_page" && !id && !url) {
+    return { ok: false, error: "destination_required" };
   }
 
   if (rawType === "external_url" || /^[a-z][a-z0-9+.-]*:/i.test(url)) {

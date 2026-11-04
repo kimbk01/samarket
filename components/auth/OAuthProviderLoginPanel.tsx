@@ -12,6 +12,7 @@ import {
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import type { OAuthPanelPhase, OAuthPanelStatus } from "@/lib/auth/oauth/oauth-provider-panel.client";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 type Props = {
   provider: OAuthProvider;
@@ -57,6 +58,8 @@ export function OAuthProviderLoginPanel({
   const { t, safeT } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  /** PU-13: 로그인 계속 시트가 열려 있는 동안 팝업 광고가 위에 겹치지 않게 열린 창으로 센다 */
+  useRegisterOpenOverlay(phase !== "idle");
 
   useEffect(() => {
     setMounted(true);

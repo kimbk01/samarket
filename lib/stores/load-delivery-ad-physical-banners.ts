@@ -206,20 +206,19 @@ export async function loadVisiblePhysicalBannerSlides(
       if (!gate.ok) continue;
 
       const storeId = raw.store_id == null ? null : String(raw.store_id);
-      const { token } = storeId
-        ? issueEligibleDeliveryAdExposure({
-            campaignId: id,
-            productKind: "banner",
-            creativeId,
-            inventoryId: null,
-            storeId,
-            surface: input.inventoryKey,
-            placementIndex: Number(raw.sort_order) || 0,
-            destinationType: "store_detail",
-            destinationId: storeId,
-            preview: false,
-          })
-        : { token: null as string | null };
+      // D-28: 매장 없는 운영자 자체 배너도 노출 토큰을 발급해 노출을 기록한다(store_id NULL · 클릭은 기록 안 됨)
+      const { token } = issueEligibleDeliveryAdExposure({
+        campaignId: id,
+        productKind: "banner",
+        creativeId,
+        inventoryId: null,
+        storeId,
+        surface: input.inventoryKey,
+        placementIndex: Number(raw.sort_order) || 0,
+        destinationType: "store_detail",
+        destinationId: storeId ?? "",
+        preview: false,
+      });
 
       eligible.push({
         sortOrder: Number(raw.sort_order) || 0,

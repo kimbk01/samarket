@@ -284,9 +284,12 @@ describe("광고 이력 — 팝업 오너 신청 행 hydrate", () => {
     expect(row.legacy).toBe(true);
     expect(row.paymentState).toBe("refunded");
     expect(row.finalStatusKo).toBe("rejected");
-    // SQL 이력 요약·노출 위치와 같은 문구 (검색·상태 필터 대상)
-    expect(row.lifecycleSummaryKo).toBe("레거시 오너 신청 → 환불 → rejected");
-    expect(row.placementLabelKo).toBe("Popup (legacy owner)");
+    // AD-302 (2026-11-04): 한국어 화면 문구 = 「사장님 신청(이전 방식)」·상태 한국어 · 노출 위치 「사장님 팝업(이전 방식)」.
+    // SQL(admin_ads_history_page) 의 검색용 문구는 아직 옛 문구 — 마이그레이션 담당 반영 전까지 검색어 차이 있음(보고됨).
+    expect(row.lifecycleSummaryKo).toBe("사장님 신청(이전 방식) → 환불 → 반려");
+    expect(row.lifecycleSummaryEn).toBe("Legacy owner application → Refunded → rejected");
+    expect(row.placementLabelKo).toBe("사장님 팝업(이전 방식)");
+    expect(row.detailHref).toBe(`/admin/platform-popup/requests/${REQ_ID}`);
     const sql = read(MIGRATION);
     expect(sql).toContain("'레거시 오너 신청 → '");
     expect(sql).toContain("'Popup (legacy owner)'::text AS placement_override");

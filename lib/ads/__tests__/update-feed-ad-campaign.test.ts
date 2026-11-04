@@ -38,7 +38,8 @@ describe("피드 배너 수정 범위 (감사 AD-10 · Owner J-8)", () => {
     expect(plan.ok).toBe(true);
     if (plan.ok) {
       expect(plan.campaign).toMatchObject({
-        name: "Untitled",
+        // FB-C17 (2026-11-04): 이름을 비우면 「Untitled」 대신 빈 값 (고객 화면 = 「광고」만)
+        name: "",
         priority: 7,
         start_at: "2026-11-01T00:00:00Z",
         end_at: "2026-11-02T00:00:00Z",

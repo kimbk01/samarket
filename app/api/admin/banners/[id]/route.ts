@@ -11,7 +11,7 @@ import {
   updateAdminBanner,
 } from "@/lib/admin-banners/admin-banners-db";
 import type { AdminBanner } from "@/lib/types/admin-banner";
-import { normalizeOptionalDestinationHref } from "@/lib/destination/optional-destination-href";
+import { validateMyPageBannerLinkForSave } from "@/lib/my/my-page-banner-destination";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 
@@ -53,9 +53,10 @@ export async function PATCH(
 
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => ({}))) as Partial<AdminBanner>;
-  // EVT-07: link must be a valid DestinationRef (internal / event / https) — stored canonical.
-  if (body.targetUrl != null) {
-    const link = normalizeOptionalDestinationHref(body.targetUrl);
+  // DS-7 · C-1 (Owner 「설계안대로」 2026-11-04): 마이 배너 링크 = 앱 안 경로·이벤트만, **필수**(외부 https · 빈칸 거부).
+  // 수정은 링크를 보낼 때만 검사한다(운영에 이미 저장된 외부 링크 행은 다른 칸만 고치면 그대로 둔다).
+  if (body.targetUrl !== undefined) {
+    const link = validateMyPageBannerLinkForSave(body.targetUrl);
     if (!link.ok) {
       return NextResponse.json(
         { ok: false, error: `invalid_target_url:${link.error}` },

@@ -8,6 +8,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
 import type { FeedAdCampaignView, FeedAdDestinationType } from "@/lib/ads/feed-ad-placement";
 import { feedAdCampaignEndedByWindow } from "@/lib/ads/feed-ad-pool-capacity";
+import { normalizeFeedAdCampaignNameInput } from "@/lib/ads/feed-ad-advertiser-name";
+import { withFeedAdStoreSlug } from "@/lib/ads/feed-ad-store-destination";
+import { feedAdPoolCapacityErrorResult } from "@/lib/ads/feed-ad-error-copy";
 
 export type FeedAdCampaignPatchInput = {
   name?: string;
@@ -47,7 +50,7 @@ export function planFeedAdCampaignPatch(
   }
 
   const campaign: Record<string, unknown> = {};
-  if (input.name !== undefined) campaign.name = input.name.trim() || "Untitled";
+  if (input.name !== undefined) campaign.name = normalizeFeedAdCampaignNameInput(input.name);
   if (input.priority !== undefined) {
     if (!Number.isFinite(input.priority)) return { ok: false, error: "invalid_priority", status: 400 };
     campaign.priority = Math.trunc(input.priority);
@@ -93,14 +96,20 @@ export async function applyFeedAdCampaignPatch(
   campaignId: string,
   beforeStatus: string,
   plan: Extract<FeedAdCampaignPatchPlan, { ok: true }>
-): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+): Promise<{ ok: true } | { ok: false; error: string; status: number; message?: string }> {
   const nowIso = new Date().toISOString();
+  // DS-2: 매장 목적지는 slug 로 저장 (uuid → slug · 없는 매장 거부)
+  const storeDest = await withFeedAdStoreSlug(sb, plan.campaign);
+  if (!storeDest.ok) return { ok: false, error: storeDest.error, status: 400 };
   const { data: updated, error } = await sb
     .from("feed_ad_campaigns")
-    .update({ ...plan.campaign, updated_at: nowIso })
+    .update({ ...storeDest.row, updated_at: nowIso })
     .eq("id", campaignId)
     .eq("status", beforeStatus)
     .select("id");
+  // FB-A10: 기간을 바꿔 다시 점유하게 되면 DB 트리거가 자리 없음으로 막는다 → 409 + 한국어
+  const capacity = feedAdPoolCapacityErrorResult(error);
+  if (capacity) return { ok: false, error: capacity.error, status: capacity.httpStatus, message: capacity.message };
   if (error) return { ok: false, error: error.message, status: 500 };
   if ((updated ?? []).length === 0) return { ok: false, error: "status_changed", status: 409 };
 

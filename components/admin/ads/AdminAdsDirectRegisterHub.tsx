@@ -6,7 +6,9 @@
  * Boost / Delivery Sponsored are not offered.
  */
 
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
@@ -46,9 +48,40 @@ const PRODUCTS = [
   },
 ] as const;
 
+export type AdminAdsDirectRegisterDomain = (typeof PRODUCTS)[number]["id"];
+
+/**
+ * D-20: 도메인 메뉴 「광고 만들기」가 `?domain=` 을 붙여 연다 → 그 도메인 상품을 미리 고른 첫 상태.
+ * 모르는 값이면 고르지 않는다(전체 4종 그대로).
+ */
+export function resolveAdminAdsDirectRegisterDomain(raw: string | null | undefined): AdminAdsDirectRegisterDomain | null {
+  const v = String(raw ?? "").trim().toLowerCase();
+  return PRODUCTS.some((p) => p.id === v) ? (v as AdminAdsDirectRegisterDomain) : null;
+}
+
+/** 미리 고른 도메인 상품을 맨 앞에 — 나머지는 원래 순서 */
+export function orderAdminAdsDirectProducts(selected: AdminAdsDirectRegisterDomain | null) {
+  if (!selected) return [...PRODUCTS];
+  return [...PRODUCTS.filter((p) => p.id === selected), ...PRODUCTS.filter((p) => p.id !== selected)];
+}
+
 export function AdminAdsDirectRegisterHub() {
+  return (
+    <Suspense fallback={<AdminAdsDirectRegisterHubView selected={null} />}>
+      <AdminAdsDirectRegisterHubWithQuery />
+    </Suspense>
+  );
+}
+
+function AdminAdsDirectRegisterHubWithQuery() {
+  const sp = useSearchParams();
+  return <AdminAdsDirectRegisterHubView selected={resolveAdminAdsDirectRegisterDomain(sp?.get("domain"))} />;
+}
+
+export function AdminAdsDirectRegisterHubView({ selected }: { selected: AdminAdsDirectRegisterDomain | null }) {
   const { language } = useI18n();
   const ko = language !== "en";
+  const products = orderAdminAdsDirectProducts(selected);
 
   return (
     <div className="space-y-5" data-admin-ads-direct-flow="PRODUCT_SELECT_R2">
@@ -68,14 +101,22 @@ export function AdminAdsDirectRegisterHub() {
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2" data-admin-ads-direct-products="1">
-        {PRODUCTS.map((p) => (
+      <div
+        className="grid gap-3 sm:grid-cols-2"
+        data-admin-ads-direct-products="1"
+        data-admin-ads-direct-selected-domain={selected ?? ""}
+      >
+        {products.map((p) => (
           <AdminActionLink
             key={p.id}
             href={p.href}
             variant="secondary"
-            className="!block h-auto min-h-[96px] flex-col items-start justify-center gap-1 px-4 py-4 text-left !whitespace-normal"
+            aria-current={p.id === selected ? "true" : undefined}
+            className={`!block h-auto min-h-[96px] flex-col items-start justify-center gap-1 px-4 py-4 text-left !whitespace-normal${
+              p.id === selected ? " ring-2 ring-sam-primary" : ""
+            }`}
             data-admin-ads-direct-product={p.id}
+            data-admin-ads-direct-selected={p.id === selected ? "1" : "0"}
           >
             <span className="text-[16px] font-bold text-sam-fg">
               {ko ? p.titleKo : p.titleEn}

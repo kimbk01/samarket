@@ -31,9 +31,11 @@ import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { feedAdMemberViewHref } from "@/lib/ads/feed-ad-destination";
 import {
+  feedAdOperatorNoticeTitle,
   formatFeedAdRemaining,
   formatFeedAdWindowLabel,
   type FeedAdMemberDisplayStatus,
+  type FeedAdOperatorNotice,
 } from "@/lib/ads/feed-ad-member-presentation";
 import { feedAdOpsStatusLabel } from "@/lib/ads/feed-ad-ops-presentation";
 import { isFeedAdDisplayStatusBlockingNewCreate } from "@/lib/ads/feed-ad-member-limit";
@@ -41,6 +43,7 @@ import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { DibayActionSheet, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 
 type FeedRequestRow = {
   id: string;
@@ -48,6 +51,8 @@ type FeedRequestRow = {
   displayStatus?: FeedAdMemberDisplayStatus;
   /** Owner 결정 1: 관리자 정지·종료 — 연장 불가 */
   renewBlockedByAdmin?: "admin_paused" | "admin_ended" | null;
+  /** D-6 · FB-M11: 「운영자가 멈췄습니다/종료했습니다」 + 공개 사유 1줄 (서버가 paused_by 로 판정 · 내부 메모 없음) */
+  operatorNotice?: FeedAdOperatorNotice | null;
   eligible?: boolean;
   remainingMs?: number | null;
   domain: string;
@@ -129,6 +134,12 @@ export default function MyAdsPageClient() {
   const [renewCatalog, setRenewCatalog] = useState<FeedAdProduct[]>([]);
   const [renewProductId, setRenewProductId] = useState("");
   const [renewBusy, setRenewBusy] = useState(false);
+  /**
+   * FB-M13 (P0 · 2026-11-04): 연장 결제 요청 키 — 같은 결제 시도는 같은 키(L-6 Stripe 방식).
+   * 응답이 끊기거나 5xx 면 키를 남겨 다시 눌러도 서버가 처음 결과를 돌려준다(두 번 차감 없음).
+   * 2xx·4xx 로 결과가 확정되면 키를 버린다. 대상 = campaignId · 상품 = renewProductId.
+   */
+  const renewAttemptRef = useRef(createPromotionAttemptKeyStore());
   const [kindSheetOpen, setKindSheetOpen] = useState(false);
   /**
    * 상위노출 주문(거래·커뮤니티) — Owner 2026-11-03 계획 D: 「내 광고」에 상위노출 내역이 없던 결함.
@@ -304,33 +315,67 @@ export default function MyAdsPageClient() {
     const j = (await res.json().catch(() => ({}))) as { catalog?: FeedAdProduct[] };
     const items = (j.catalog ?? []).filter((p) => p.domain === row.domain);
     setRenewCatalog(items);
-    setRenewProductId(items[0]?.id ?? "");
+    /** FB-M13: 결과를 모르는 연장 시도가 있으면 그 상품을 다시 고른다(다른 상품으로 새 결제가 되지 않게) */
+    const pending = row.campaignId ? renewAttemptRef.current.pendingProductFor(row.campaignId) : null;
+    setRenewProductId(pending && items.some((p) => p.id === pending) ? pending : (items[0]?.id ?? ""));
   };
 
   const submitRenew = async () => {
     if (!renewTarget?.campaignId || !renewProductId || renewBusy) return;
     setRenewBusy(true);
     setActionErr("");
+    const attempts = renewAttemptRef.current;
+    const idem = attempts.keyFor(renewTarget.campaignId, renewProductId);
     try {
-      const idem =
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `renew-${Date.now()}`;
-      const res = await fetch(`/api/me/feed-ad-campaigns/${renewTarget.campaignId}/renew`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idem,
-        },
-        body: JSON.stringify({
-          productId: renewProductId,
-          idempotencyKey: idem,
-          creativeOrDestinationChanged: false,
-        }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`/api/me/feed-ad-campaigns/${renewTarget.campaignId}/renew`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idem,
+          },
+          body: JSON.stringify({
+            productId: renewProductId,
+            idempotencyKey: idem,
+            creativeOrDestinationChanged: false,
+          }),
+        });
+      } catch {
+        /** 응답 없음 — 서버가 처리했는지 모른다. 키를 남겨 두고 다시 누르면 같은 결제로 확인한다. */
+        attempts.settleIfFinal(null);
+        setActionErr(
+          safeT("feed_ad_renew_result_unknown", {
+            fallbackKo: "연장 결과를 확인하지 못했습니다. 다시 누르면 같은 결제로 확인합니다.",
+            fallbackEn: "We could not confirm the renewal. Tap again to check the same payment.",
+          })
+        );
+        return;
+      }
+      attempts.settleIfFinal(res.status);
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
+        if (j.error === "idempotency_consumed") {
+          setRenewTarget(null);
+          const msg = safeT("feed_ad_renew_already_processed", {
+            fallbackKo: "이미 처리된 연장입니다. 목록을 다시 불러왔습니다.",
+            fallbackEn: "This renewal was already processed. The list has been refreshed.",
+          });
+          setActionErr(msg);
+          showMypageToast(msg, "success");
+          await load({ silent: true });
+          return;
+        }
+        if (res.status >= 500) {
+          setActionErr(
+            safeT("feed_ad_renew_result_unknown", {
+              fallbackKo: "연장 결과를 확인하지 못했습니다. 다시 누르면 같은 결제로 확인합니다.",
+              fallbackEn: "We could not confirm the renewal. Tap again to check the same payment.",
+            })
+          );
+          return;
+        }
         if (j.error === "insufficient_balance") {
           setActionErr(t("points_ui_insufficient"));
         } else if (j.error === "admin_paused" || j.error === "admin_ended") {
@@ -680,6 +725,20 @@ export default function MyAdsPageClient() {
                             {remaining}
                           </p>
                         ) : null}
+                        {r.operatorNotice ? (
+                          <div
+                            className="mt-1 rounded-ui-rect bg-sam-warning-soft px-2 py-1.5"
+                            data-testid="revenue-hub-feed-ad-operator-notice"
+                            data-kind={r.operatorNotice.kind}
+                          >
+                            <p className="sam-text-helper font-semibold text-sam-fg">
+                              {feedAdOperatorNoticeTitle(r.operatorNotice.kind, en ? "en" : "ko")}
+                            </p>
+                            {r.operatorNotice.publicReason ? (
+                              <p className="sam-text-helper text-sam-muted">{r.operatorNotice.publicReason}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
                         {r.status === "rejected" && r.reviewReason ? (
                           <p className="mt-1 sam-text-helper text-sam-warning" data-testid="revenue-hub-feed-ad-reject-reason">
                             {r.reviewReason}
@@ -826,6 +885,11 @@ export default function MyAdsPageClient() {
               </button>
             ))}
           </div>
+          {actionErr ? (
+            <p className="mt-2 sam-text-helper text-sam-warning" role="alert" data-testid="feed-ad-renew-error">
+              {actionErr}
+            </p>
+          ) : null}
           <div className={`${OverlayUi.actionsRow} mt-3`}>
             <DibayOverlayButton
               roleTone="secondary"

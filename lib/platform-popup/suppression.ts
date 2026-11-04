@@ -3,6 +3,7 @@
  * TODAY = campaign timezone local calendar day end — NOT now+24h.
  */
 
+import { platformPopupRevisionMatches } from "@/lib/platform-popup/popup-campaign-revision";
 import {
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
   type PlatformPopupSuppressionMode,
@@ -148,7 +149,8 @@ export function isPlatformPopupSuppressionActive(
     const b = (evalInput.currentCampaignRevision ?? "").trim();
     if (!a) return true; // campaign-lifetime without revision → active until cleared
     if (!b) return true;
-    return a === b;
+    // D-2: 이미지·목적지가 같은 판이면 숨김 유지 (예전 행 = 소재 기준만 비교)
+    return platformPopupRevisionMatches(a, b);
   }
 
   if (mode === "DURATION") {

@@ -220,12 +220,21 @@ export function AdminPlatformPopupListPage() {
         ok?: boolean;
         error?: string;
         rejectedId?: string | null;
+        deletedIds?: string[];
+        failed?: Array<{ id: string; error: string }>;
       };
       if (!res.ok || !json.ok) {
+        // AL-20: 1건씩 지우다 중간에 실패하면 지운 수·실패 수를 그대로 알린다(일부 삭제를 숨기지 않음)
+        const deletedCount = json.deletedIds?.length ?? 0;
+        const failedCount = json.failed?.length ?? 0;
         setError(
-          lang === "en"
-            ? `Could not delete: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} None deleted.`
-            : `삭제하지 못했습니다: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} 선택된 항목은 삭제되지 않았습니다.`
+          deletedCount > 0
+            ? lang === "en"
+              ? `Deleted ${deletedCount}, failed ${failedCount}. Check the list.`
+              : `일부만 삭제했습니다: ${deletedCount}건 삭제, ${failedCount}건 실패. 목록을 확인해 주세요.`
+            : lang === "en"
+              ? `Could not delete: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} None deleted.`
+              : `삭제하지 못했습니다: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} 선택된 항목은 삭제되지 않았습니다.`
         );
         setSelectedIds(new Set());
         refresh();

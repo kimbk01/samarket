@@ -120,6 +120,8 @@ describe("ADS-08 — 광고 승인·반려(환불) 관리자 라우트는 busine
         productKind: "banner",
         expectedLifecycle: "PAUSED_ADMIN",
         expectedUpdatedAt: "2026-10-21T00:00:00Z",
+        // AL-05 — 재개 = L2 (사유 필수)
+        reason: "운영 재개",
       }),
       { params: Promise.resolve({ campaignId: "c1" }) }
     );

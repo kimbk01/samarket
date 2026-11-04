@@ -61,7 +61,8 @@ describe("CUT R7 ads history ledger", () => {
       userId: "user-12345678",
       pointCost: 300,
     });
-    expect(row.historicalAmountLabel).toBe("300 Point");
+    // AD-302: 한국어 화면 금액 단위 = 「포인트」
+    expect(row.historicalAmountLabel).toBe("300 포인트");
     expect(row.historicalAmountProven).toBe(true);
     expect(row.timeline.some((e) => e.kind === "approval" && e.evidence === "event")).toBe(false);
     expect(row.timeline.some((e) => e.labelKo === "승인" && e.evidence === "gap")).toBe(true);

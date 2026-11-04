@@ -6,7 +6,13 @@ import {
   feedAdCreativeUrlRejectReason,
   isProductionReachableFeedAdCreativeUrl,
 } from "@/lib/ads/feed-ad-creative-url";
-import { projectFeedAdMemberPresentation, feedAdRenewalBlockedByAdmin } from "@/lib/ads/feed-ad-member-presentation";
+import {
+  feedAdRenewalBlockedByAdmin,
+  projectFeedAdMemberPresentation,
+  projectFeedAdOperatorNotice,
+} from "@/lib/ads/feed-ad-member-presentation";
+import { loadFeedAdPoolRemaining } from "@/lib/ads/feed-ad-pool-capacity-server";
+import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
   isFeedAdCommunityTopicTargetAllowed,
@@ -32,6 +38,10 @@ function mapRequestRow(
     startAt?: string | null;
     endAt?: string | null;
     campaignStatus?: string | null;
+    /** FB-M11: 'admin'|'member'|'system' — 관리자 정지 판정은 이 값만 쓴다 */
+    campaignPausedBy?: string | null;
+    /** D-6: 회원에게 보일 공개 사유 1줄 (내부 메모는 받지 않는다) */
+    campaignPublicReason?: string | null;
     holdStatus?: string | null;
   }
 ) {
@@ -51,8 +61,14 @@ function mapRequestRow(
     id: String(row.id ?? ""),
     status: String(row.status ?? ""),
     displayStatus: presentation.displayStatus,
-    /** Owner 결정 1: 관리자 정지·종료면 연장 버튼을 두지 않는다 (서버 `renewFeedAdCampaign` 과 같은 판정) */
-    renewBlockedByAdmin: feedAdRenewalBlockedByAdmin(extras?.campaignStatus ?? null),
+    /** Owner 결정 1: 관리자 정지·종료면 연장 버튼을 두지 않는다 (서버 `renewFeedAdCampaign` 과 같은 판정 · FB-M11 paused_by) */
+    renewBlockedByAdmin: feedAdRenewalBlockedByAdmin(extras?.campaignStatus ?? null, extras?.campaignPausedBy ?? null),
+    /** D-6: 「운영자가 멈췄습니다/종료했습니다」 + 공개 사유 1줄 */
+    operatorNotice: projectFeedAdOperatorNotice({
+      campaignStatus: extras?.campaignStatus ?? null,
+      pausedBy: extras?.campaignPausedBy ?? null,
+      publicReason: extras?.campaignPublicReason ?? null,
+    }),
     eligible: presentation.eligible,
     remainingMs: presentation.remainingMs,
     domain: String(row.domain ?? ""),
@@ -65,7 +81,11 @@ function mapRequestRow(
     destinationType: String(row.destination_type ?? ""),
     destinationId: String(row.destination_id ?? ""),
     destinationUrl: String(row.destination_url ?? ""),
-    reviewReason: row.review_reason != null ? String(row.review_reason) : null,
+    /**
+     * D-6: 반려 사유만 회원에게 보인다. `review_reason` 은 보상 연장·종료 때 내부 메모(`admin_extend_compensation:…`)도
+     * 담기므로 반려가 아니면 내보내지 않는다(내부 메모 회원 응답 0).
+     */
+    reviewReason: String(row.status ?? "") === "rejected" && row.review_reason != null ? String(row.review_reason) : null,
     campaignId: row.campaign_id != null ? String(row.campaign_id) : null,
     createdAt: String(row.created_at ?? ""),
     creatives: extras?.creatives ?? [],
@@ -87,6 +107,26 @@ export async function GET(req: NextRequest) {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: true, requests: [], catalog: [] });
+  }
+
+  /**
+   * D-7 ①: 신청 화면 「남은 자리 N」 안내 — `?pool=<placement>&categoryId=&topicSlug=`.
+   * 세는 함수는 신청 POST 재검사·승인 검사·위치 지도와 같다(안내용 · 최종 판정은 승인 때 DB 트리거).
+   */
+  const poolPlacement = (req.nextUrl.searchParams.get("pool") || "").trim().toUpperCase();
+  if (poolPlacement) {
+    if (!["TRADE_HOME", "TRADE_CATEGORY", "COMMUNITY_HOME", "COMMUNITY_TOPIC"].includes(poolPlacement)) {
+      return NextResponse.json({ ok: false, error: "invalid_placement" }, { status: 400 });
+    }
+    const pool = await loadFeedAdPoolRemaining(sb, poolPlacement, {
+      targetCategoryId: (req.nextUrl.searchParams.get("categoryId") || "").trim() || null,
+      targetTopicSlug: normalizeFeedAdTopicSlug(req.nextUrl.searchParams.get("topicSlug") || "") || null,
+    });
+    if (!pool.ok) return NextResponse.json({ ok: false, error: "capacity_check_failed" }, { status: 503 });
+    return NextResponse.json(
+      { ok: true, pool: { placement: poolPlacement, used: pool.used, capacity: pool.capacity, remaining: pool.remaining } },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   }
 
   const catalog = await listActiveFeedAdProducts(sb, domain || undefined);
@@ -120,7 +160,10 @@ export async function GET(req: NextRequest) {
           .order("sort_order", { ascending: true })
       : Promise.resolve({ data: [] as unknown[] }),
     campaignIds.length
-      ? sb.from("feed_ad_campaigns").select("id, status, start_at, end_at").in("id", campaignIds)
+      ? sb
+          .from("feed_ad_campaigns")
+          .select("id, status, start_at, end_at, paused_by, public_reason")
+          .in("id", campaignIds)
       : Promise.resolve({ data: [] as unknown[] }),
     ids.length
       ? sb
@@ -147,7 +190,13 @@ export async function GET(req: NextRequest) {
 
   const campById = new Map<
     string,
-    { status: string | null; startAt: string | null; endAt: string | null }
+    {
+      status: string | null;
+      startAt: string | null;
+      endAt: string | null;
+      pausedBy: string | null;
+      publicReason: string | null;
+    }
   >();
   for (const c of campaigns ?? []) {
     const row = c as Record<string, unknown>;
@@ -155,6 +204,8 @@ export async function GET(req: NextRequest) {
       status: row.status != null ? String(row.status) : null,
       startAt: row.start_at != null ? String(row.start_at) : null,
       endAt: row.end_at != null ? String(row.end_at) : null,
+      pausedBy: row.paused_by != null ? String(row.paused_by) : null,
+      publicReason: row.public_reason != null ? String(row.public_reason) : null,
     });
   }
 
@@ -176,17 +227,24 @@ export async function GET(req: NextRequest) {
       startAt: camp?.startAt ?? null,
       endAt: camp?.endAt ?? null,
       campaignStatus: camp?.status ?? null,
+      campaignPausedBy: camp?.pausedBy ?? null,
+      campaignPublicReason: camp?.publicReason ?? null,
       holdStatus: holdByReq.get(id) ?? null,
     });
   });
 
   const currentBanner = findCurrentFeedAdBanner(
-    mapped.map((r) => ({
-      id: r.id,
-      status: r.status,
-      startAt: r.startAt,
-      endAt: r.endAt,
-    }))
+    mapped.map((r) => {
+      const camp = r.campaignId ? campById.get(r.campaignId) : undefined;
+      return {
+        id: r.id,
+        status: r.status,
+        startAt: r.startAt,
+        endAt: r.endAt,
+        // D-8: 관리자가 종료한 캠페인은 「진행 중 1개」로 세지 않는다
+        campaignStatus: camp?.status ?? null,
+      };
+    })
   );
 
   return NextResponse.json({
@@ -272,15 +330,16 @@ export async function POST(req: NextRequest) {
     const campaignIds = openList
       .map((r) => (r.campaign_id != null ? String(r.campaign_id) : ""))
       .filter(Boolean);
-    const campWindows = new Map<string, { startAt: string | null; endAt: string | null }>();
+    const campWindows = new Map<string, { status: string | null; startAt: string | null; endAt: string | null }>();
     if (campaignIds.length) {
       const { data: camps } = await sb
         .from("feed_ad_campaigns")
-        .select("id, start_at, end_at")
+        .select("id, status, start_at, end_at")
         .in("id", campaignIds);
       for (const c of camps ?? []) {
         const row = c as Record<string, unknown>;
         campWindows.set(String(row.id ?? ""), {
+          status: row.status != null ? String(row.status) : null,
           startAt: row.start_at != null ? String(row.start_at) : null,
           endAt: row.end_at != null ? String(row.end_at) : null,
         });
@@ -299,6 +358,8 @@ export async function POST(req: NextRequest) {
             (r.start_at != null ? String(r.start_at) : null),
           endAt:
             camp?.endAt ?? (r.end_at != null ? String(r.end_at) : null),
+          // D-8: 관리자 종료(캠페인 ended) 뒤에는 새 신청을 막지 않는다 · 진행 중 1개 규칙(FB-M01)은 그대로
+          campaignStatus: camp?.status ?? null,
         };
       })
     );
@@ -381,7 +442,34 @@ export async function POST(req: NextRequest) {
     destinationUrl: body.destinationUrl,
   });
   if (!dest.ok) {
-    return NextResponse.json({ ok: false, error: dest.error }, { status: 400 });
+    return NextResponse.json({ ok: false, error: dest.error, message: feedAdErrorMessageKo(dest.error) }, { status: 400 });
+  }
+
+  // D-7 ③: 보류(포인트) 전에 남은 자리를 서버가 다시 센다(위치+업종/주제 · 화면 안내와 같은 함수). 가득이면 409 · 보류 0.
+  // 마지막 판정은 승인 때 DB 트리거 — 신청 단계는 자리를 잡지 않는다.
+  {
+    const pool = await loadFeedAdPoolRemaining(sb, placement, {
+      targetCategoryId: placement === "TRADE_CATEGORY" ? String(body.targetCategoryId ?? "").trim() : null,
+      targetTopicSlug: placement === "COMMUNITY_TOPIC" ? topicSlugNorm : null,
+    });
+    if (!pool.ok) {
+      return NextResponse.json(
+        { ok: false, error: "capacity_check_failed", message: feedAdErrorMessageKo("capacity_check_failed") },
+        { status: 503 }
+      );
+    }
+    if (pool.remaining <= 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "capacity_full",
+          message: "지금 이 자리의 광고가 모두 찼습니다. 신청되지 않았고 포인트는 그대로입니다.",
+          used: pool.used,
+          capacity: pool.capacity,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   const requestId = randomUUID();

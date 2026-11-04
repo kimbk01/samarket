@@ -17,6 +17,9 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** PV-5: 보는 사람마다 다른 결과(숨김·회원) — 공유 캐시·브라우저 캐시 금지 */
+const NO_STORE = { "Cache-Control": "private, no-store" } as const;
+
 /**
  * GET /api/platform-popup/resolve
  * Returns 0|1 winner + presentation payload. Must not emit impression.
@@ -29,7 +32,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: true, winner: null, reason: "service_unavailable" });
+    return NextResponse.json({ ok: true, winner: null, reason: "service_unavailable" }, { headers: NO_STORE });
   }
 
   const url = new URL(req.url);
@@ -57,12 +60,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       surface,
       generation,
       impression: false,
-    });
+    }, { headers: NO_STORE });
   }
 
   const loadedCandidates = await loadPlatformPopupCandidates(sb, {
     userId,
     anonymousDeviceKey: userId ? null : anonymousDeviceKey,
+    sessionKey,
   });
   const candidates = exclude.size ? loadedCandidates.filter((c) => !exclude.has(c.id)) : loadedCandidates;
 
@@ -138,7 +142,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   if (picked.kind === "error") {
-    return NextResponse.json({ ok: false, error: picked.error, impression: false }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: picked.error, impression: false },
+      { status: 500, headers: NO_STORE }
+    );
   }
 
   if (picked.kind === "none") {
@@ -149,7 +156,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       surface,
       generation,
       impression: false,
-    });
+    }, { headers: NO_STORE });
   }
 
   const presentation = picked.value;
@@ -161,5 +168,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     surface,
     generation,
     impression: false,
-  });
+  }, { headers: NO_STORE });
 }

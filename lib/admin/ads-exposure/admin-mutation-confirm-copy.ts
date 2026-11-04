@@ -23,17 +23,21 @@ export type AdminMutationConfirmCopy = {
   reasonLabel: string;
   /** 확인 단계 (재설계 R2) — 동작 표 `adminActionLevel` 에서만 정한다. */
   level: AdminConfirmLevel;
+  /** D-6: 공개 사유(120자) + 내부 메모 두 칸으로 받는지. */
+  splitReason?: boolean;
 };
 
 /**
- * 광고 작업 화면 동작 → 동작 표 종류 (R2 · `admin-action-levels.ts`).
- * 승인 = approve(L2) · 반려 = reject(L2) · 수정 요청(보류, 업주에게 반려 사유 전달) = reject(L2) ·
- * 제재 일시중지 = sanction(L2) · 배달·커뮤니티 일시중지(writer 가 사유 필수) = sanction(L2) · 그 밖의 일시중지 = exposeStop(L1) ·
- * 재개 = resume(L1, 커뮤니티 상위노출은 exposeStart L2) · 종료 = forceCancel(L3) · 초안 삭제 = delete(L3) · 보상 연장 = payout(L2) · 기간 변경 = save(L1).
+ * 광고 작업 화면 동작 → 동작 표 종류 (설계 §6 · FB-A05 · AD-103 · AL-04~06 · 2026-11-04 · `admin-action-levels.ts` 한 표).
+ * 모든 광고 계열(상위노출·피드·팝업·배달)에서 같은 동작 = 같은 단계:
+ * 승인 = approve(L2) · 반려·수정 요청 = reject(L2) · 상위노출 제재 정지 = sanction(L2) · 정지 = pause(L2) ·
+ * 재개 = adResume(L2) · 종료 = end(L3: 사유 + 귀책 + 대상 재입력 + 환급 미리보기) · 초안 삭제 = delete(L3) ·
+ * 유료·보상 연장 = extend(L2) · 기간 변경 = save(L1).
+ * `family` 는 예전 계열별 분기 호환용 인자다 — 이제 단계는 계열과 상관없다.
  */
 export function adsWorkspaceActionKind(
   action: WorkspaceDrawerAction,
-  family: string | null,
+  _family: string | null,
   opts?: { boostSanction?: boolean }
 ): AdminActionKind {
   switch (action) {
@@ -43,33 +47,30 @@ export function adsWorkspaceActionKind(
     case "request_changes":
       return "reject";
     case "pause":
-      if (opts?.boostSanction) return "sanction";
-      // Delivery writer / community route require a reason on pause.
-      // 재감사 N-03: 거래 상위노출 일시정지도 운영 DB `admin_trade_promotion_pause` 가 사유 2자를 요구한다(전체 광고 화면 포함).
-      if (
-        family === "delivery_banner" ||
-        family === "delivery_sponsored" ||
-        family === "boost_community" ||
-        family === "boost_trade"
-      ) {
-        return "sanction";
-      }
-      return "exposeStop";
+      return opts?.boostSanction ? "sanction" : "pause";
     case "resume":
-      // H-3: 커뮤니티 상위노출 재개 = 노출 시작(L2, 사유 필수) — 커뮤니티 도메인 화면과 같은 기준.
-      // 재감사 N-02: 거래 상위노출 재개도 운영 DB `admin_trade_promotion_resume` 가 사유 2자를 요구한다.
-      if (family === "boost_community" || family === "boost_trade") return "exposeStart";
-      return "resume";
+      return "adResume";
     case "end":
     case "terminate":
-      return "forceCancel";
+      return "end";
     case "delete_safe_draft":
       return "delete";
     case "extend_compensation":
-      return "payout";
+      return "extend";
     default:
       return "save";
   }
+}
+
+/** D-6: 회원·사장님에게 보이는 결과가 생기는 조치 = 공개 사유 + 내부 메모 두 칸. */
+export function adsWorkspaceActionSplitsReason(action: WorkspaceDrawerAction): boolean {
+  return (
+    action === "pause" ||
+    action === "resume" ||
+    action === "end" ||
+    action === "terminate" ||
+    action === "extend_compensation"
+  );
 }
 
 export function adsWorkspaceActionNeedsReason(
@@ -90,6 +91,7 @@ export function adsWorkspaceMutationConfirmCopy(
   const kind = adsWorkspaceActionKind(action, opts?.family ?? null, { boostSanction });
   const level = adminActionLevel(kind);
   const reasonRequired = adminActionRequiresReason(kind);
+  const splitReason = adsWorkspaceActionSplitsReason(action);
   const reasonLabel =
     action === "request_changes"
       ? ko
@@ -115,6 +117,7 @@ export function adsWorkspaceMutationConfirmCopy(
       reasonRequired,
       reasonLabel,
       level,
+      splitReason,
     };
   }
 
@@ -131,6 +134,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "request_changes":
       return {
@@ -144,6 +148,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "reject":
       return {
@@ -157,6 +162,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "pause":
       return {
@@ -170,6 +176,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "resume":
       return {
@@ -183,20 +190,22 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "end":
     case "terminate":
       return {
         title: ko ? "광고를 종료하시겠습니까?" : "End this ad?",
         body: ko
-          ? "종료 후에는 기존 lifecycle 정책에 따라 재활성화가 제한될 수 있습니다."
-          : "After ending, reactivation may be restricted by lifecycle policy.",
+          ? "종료하면 다시 노출할 수 없습니다. 귀책에 따라 남은 기간 비례 환급이 정해집니다."
+          : "After ending, the ad cannot be shown again. Any pro-rated refund depends on who is at fault.",
         confirmLabel: ko ? "종료" : "End",
         cancelLabel,
         tone: "danger",
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "delete_safe_draft":
       return {
@@ -210,12 +219,13 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "extend_compensation":
       return {
         title: ko ? "기간을 연장하시겠습니까?" : "Extend the period?",
         body: ko
-          ? "보상 연장이 적용됩니다. 사유를 남겨 주세요."
+          ? "연장이 적용됩니다. 사유를 남겨 주세요."
           : "Compensation extension will apply. Please provide a reason.",
         confirmLabel: ko ? "연장" : "Extend",
         cancelLabel,
@@ -223,6 +233,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "change_period":
       return {
@@ -236,6 +247,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     case "add_internal_memo":
       // Ordinary note save — UI must call writer without confirmation dialog.
@@ -250,6 +262,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
     default:
       return {
@@ -261,6 +274,7 @@ export function adsWorkspaceMutationConfirmCopy(
         reasonRequired,
         reasonLabel,
         level,
+        splitReason,
       };
   }
 }

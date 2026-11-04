@@ -13,9 +13,13 @@ const INLINE_AD_CACHE_TTL_MS = 60_000;
 
 let inlineAdListCache: { ads: AdFeedPost[]; expiresAt: number } | null = null;
 
-/** 광고 중(유료 상위노출) 목록 — 현재 보고 있는 글은 제외하고 첫 건 (CM-P2-17) */
+/**
+ * 광고 중(유료 상위노출) 목록 — 현재 보고 있는 글은 제외하고 첫 건 (CM-P2-17).
+ * 광고 ② PV-4·PB-21 (2026-11-04): 응답은 글 id + 위쪽 카드 값(`feedPost`)만 — 카드 값이 있는 글만 고른다.
+ */
 async function loadCommunityInlineAd(currentPostId: string | null): Promise<AdFeedPost | null> {
-  const pick = (ads: AdFeedPost[]) => ads.find((a) => !currentPostId || a.postId !== currentPostId) ?? null;
+  const pick = (ads: AdFeedPost[]) =>
+    ads.find((a) => a.feedPost != null && (!currentPostId || a.postId !== currentPostId)) ?? null;
   const now = Date.now();
   if (inlineAdListCache && inlineAdListCache.expiresAt > now) {
     return pick(inlineAdListCache.ads);
@@ -59,10 +63,13 @@ export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?
   }, [currentPostId]);
 
   /** 광고가 확정되기 전에는 자리를 잡지 않는다 — 없으면 높이 0, 스켈레톤 후 축소(CLS) 없음 (CM-P2-17) */
-  if (!ad) return null;
+  if (!ad?.feedPost) return null;
 
+  const post = ad.feedPost;
   const href = ad.postId ? philifeAppPaths.post(ad.postId) : "#";
-  const thumb = ad.postImages?.[0] ?? null;
+  const thumb = (Array.isArray(post.images) ? post.images.find((u) => (u ?? "").trim()) : null) ?? null;
+  const title = post.title?.trim() || safeT("community_no_title", { fallbackKo: "제목 없음", fallbackEn: "Untitled" });
+  const summary = ((post.summary ?? "").trim() || String(post.content ?? "").replace(/\s+/g, " ").trim()).slice(0, 180);
 
   return (
     <section className="mt-4">
@@ -76,20 +83,20 @@ export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?
         >
           <div className="flex gap-3">
             <div className="min-w-0 flex-1">
-              <p className="m-0 line-clamp-2 text-[15px] font-semibold leading-[1.4] text-[var(--cm-text)]">{ad.postTitle}</p>
+              <p className="m-0 line-clamp-2 text-[15px] font-semibold leading-[1.4] text-[var(--cm-text)]">{title}</p>
               <p className="mt-1 text-[12px] font-normal leading-[1.4] text-[var(--cm-text-muted)]">
-                <span className="text-[var(--cm-text)]">{ad.advertiserName}</span>
+                <span className="text-[var(--cm-text)]">{post.author_name}</span>
                 <span className="mx-1">·</span>
                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
                   {safeT("community_top_fix_badge", {
-                    fallbackKo: "광고",
-                    fallbackEn: "Ad",
+                    fallbackKo: "포인트 노출",
+                    fallbackEn: "Promoted",
                   })}
                 </span>
               </p>
-              {ad.postSummary ? (
+              {summary ? (
                 <p className="mt-2 line-clamp-2 rounded-2xl bg-[var(--cm-page-bg)] px-2.5 py-2 text-[13px] font-normal leading-[1.45] text-[var(--cm-text-muted)]">
-                  {ad.postSummary}
+                  {summary}
                 </p>
               ) : null}
             </div>

@@ -101,16 +101,7 @@ export function DibayPtrRevealBand({
 
   return (
     <div data-ptr-reveal-band={variant} className="absolute inset-0 overflow-hidden">
-      {interactive && onCta ?
-        <button
-          type="button"
-          onClick={onCta}
-          aria-label={`${adLabel} · ${altText} · ${ctaLabel}`}
-          className="absolute inset-0 block h-full w-full cursor-pointer"
-        >
-          {image}
-        </button>
-      : image}
+      {image}
       {showGuides ?
         <div className="pointer-events-none absolute inset-0" data-ptr-reveal-guides="">
           {spec.safeZones.map((z, i) => (
@@ -144,7 +135,21 @@ export function DibayPtrRevealBand({
               <img src={logoUrl} alt="" draggable={false} className="h-5 w-5 rounded-full bg-white object-cover" />
             : null}
           </div>
-          {showCta ?
+          {showCta && onCta ?
+            // PT-07 · D-1 (Owner 확정 2026-11-04): 띠 전체가 아니라 CTA 칩만 버튼 — 당기는 손가락이 띠 어디에 있어도 오탭 없음.
+            // 칩 모양은 작게 두고 누르는 영역만 최소 44×44pt(Apple HIG · 세로 -my-3 로 배치 높이는 칩 그대로). 버튼은 터치 이동을 막지 않아 당겨서 새로고침 제스처를 방해하지 않는다.
+            <button
+              type="button"
+              onClick={onCta}
+              aria-label={`${adLabel} · ${altText} · ${ctaLabel}`}
+              data-ptr-reveal-cta=""
+              className="pointer-events-auto -my-3 flex min-h-11 min-w-11 max-w-full cursor-pointer items-center justify-center"
+            >
+              <span className="max-w-full truncate rounded-full bg-white/92 px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#1b1b1f] shadow-sm">
+                {ctaLabel}
+              </span>
+            </button>
+          : showCta ?
             <span className="max-w-full truncate rounded-full bg-white/92 px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#1b1b1f] shadow-sm">
               {ctaLabel}
             </span>

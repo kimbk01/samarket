@@ -13,7 +13,7 @@ import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import { normalizeFeedAdTopicSlug } from "@/lib/ads/feed-ad-placement";
-import { feedAdPoolCapacity, feedAdPoolOccupiesCampaign, feedAdPoolTargetKey } from "@/lib/ads/feed-ad-pool-capacity";
+import { countFeedAdPoolOccupancy, feedAdPoolCapacity, feedAdPoolKey } from "@/lib/ads/feed-ad-pool-capacity";
 import {
   FEED_AD_RECOMMENDED_UPLOAD,
   FEED_AD_UPLOAD_MAX_FILE_BYTES,
@@ -23,6 +23,7 @@ import {
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
+import { FeedAdStoreDestinationPicker } from "@/components/admin/feed-ads/FeedAdStoreDestinationPicker";
 import { destinationHref, eventDestinationPath } from "@/lib/destination/destination-contract";
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
@@ -152,16 +153,17 @@ export function AdminFeedAdCreatePage({
         }>;
       };
       if (!res.ok || !j.ok || !Array.isArray(j.campaigns)) return;
-      const next: Record<string, number> = {};
-      for (const c of j.campaigns) {
-        const p = String(c.placement || "") as FeedAdPlacement;
-        if (!p) continue;
-        // N-01: 종료 시각이 지난 active 는 점유로 세지 않는다 (위치 관리 화면과 같은 판정).
-        if (!feedAdPoolOccupiesCampaign({ status: c.status, endAt: c.endAt })) continue;
-        const key = `${p}|${feedAdPoolTargetKey(p, c)}`;
-        next[key] = (next[key] ?? 0) + 1;
-      }
-      setUsedByPool(next);
+      // FB-A11: 위치 지도·서버 검사와 같은 함수로 센다 (풀 = 위치 + 업종/주제 · 종료 시각 지난 active 는 세지 않음)
+      const counts = countFeedAdPoolOccupancy(
+        j.campaigns.filter((c) => Boolean(c.placement)).map((c) => ({
+          placement: c.placement,
+          status: c.status,
+          endAt: c.endAt,
+          targetCategoryId: c.targetCategoryId,
+          targetTopicSlug: c.targetTopicSlug,
+        }))
+      );
+      setUsedByPool(Object.fromEntries(counts));
     } catch {
       /* capacity is informational */
     }
@@ -182,10 +184,10 @@ export function AdminFeedAdCreatePage({
   const capacity = feedAdPoolCapacity(placement);
   const used =
     usedByPool[
-      `${placement}|${feedAdPoolTargetKey(placement, {
+      feedAdPoolKey(placement, {
         targetCategoryId: targetCategoryId.trim(),
         targetTopicSlug: normalizeFeedAdTopicSlug(targetTopicSlug),
-      })}`
+      })
     ] ?? 0;
   const remaining = Math.max(0, capacity - used);
   const createCopy = adsCreateConfirmCopy(ko);
@@ -335,12 +337,12 @@ export function AdminFeedAdCreatePage({
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        message?: string;
         campaignId?: string;
       };
       if (!res.ok || !j.ok) {
-        setErr(
-          adminOperatorErrorMessage(j.error, ko)
-        );
+        // FB-A10 · DS-2 · DS-3: 서버가 준 한국어 안내 우선 (영어 코드값을 보이지 않음)
+        setErr(ko && j.message ? j.message : adminOperatorErrorMessage(j.error, ko));
         return;
       }
       setSuccessMsg(ko ? "광고가 등록되었습니다." : "Ad registered.");
@@ -683,16 +685,23 @@ export function AdminFeedAdCreatePage({
           value={destinationType}
           onChange={(e) => setDestinationType(e.target.value)}
         >
-          <option value="internal_page">Internal page</option>
-          <option value="trade_listing">Trade listing</option>
-          <option value="community_post">Community post</option>
-          <option value="store">Store</option>
+          {/* DS-3 · C-1: 「없음」 선택지 없음 — 목적지 필수 */}
+          <option value="internal_page">{langEn ? "App screen" : "앱 화면"}</option>
+          <option value="trade_listing">{langEn ? "Trade listing" : "거래 글"}</option>
+          <option value="community_post">{langEn ? "Community post" : "커뮤니티 글"}</option>
+          <option value="store">{langEn ? "Store" : "매장"}</option>
           <option value="event">
-            {safeT("admin_feed_ad_destination_type_event", { fallbackKo: "Event", fallbackEn: "Event" })}
+            {safeT("admin_feed_ad_destination_type_event", { fallbackKo: "이벤트", fallbackEn: "Event" })}
           </option>
-          <option value="external_url">External URL</option>
+          <option value="external_url">{langEn ? "External URL" : "외부 주소"}</option>
         </select>
-        {destinationType === "external_url" || destinationType === "internal_page" ? (
+        <p className="sam-text-helper text-sam-muted">
+          {langEn ? "A destination is required." : "목적지는 꼭 넣어야 합니다. 목적지가 없는 배너는 만들 수 없습니다."}
+        </p>
+        {destinationType === "store" ? (
+          /* DS-2: 매장은 선택기로 고르고 slug 로 저장 */
+          <FeedAdStoreDestinationPicker value={destinationId} onChange={setDestinationId} />
+        ) : destinationType === "external_url" || destinationType === "internal_page" ? (
           <input
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
             placeholder={destinationType === "external_url" ? "https://..." : "/path"}

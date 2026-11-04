@@ -9,6 +9,7 @@ import {
   planFeedAdCampaignPatch,
   type FeedAdCampaignPatchInput,
 } from "@/lib/ads/update-feed-ad-campaign";
+import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,10 +47,21 @@ export async function PATCH(
   if (!before) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const plan = planFeedAdCampaignPatch(before, body);
-  if (!plan.ok) return NextResponse.json({ ok: false, error: plan.error }, { status: plan.status });
+  if (!plan.ok) {
+    return NextResponse.json(
+      { ok: false, error: plan.error, message: feedAdErrorMessageKo(plan.error) },
+      { status: plan.status }
+    );
+  }
 
   const applied = await applyFeedAdCampaignPatch(sb, campaignId, before.status, plan);
-  if (!applied.ok) return NextResponse.json({ ok: false, error: applied.error }, { status: applied.status });
+  if (!applied.ok) {
+    // FB-A10: 자리 없음(트리거) = 409 + 「자리가 없어 처리하지 못했습니다」
+    return NextResponse.json(
+      { ok: false, error: applied.error, message: applied.message ?? feedAdErrorMessageKo(applied.error) },
+      { status: applied.status }
+    );
+  }
 
   const [after] = await listFeedAdCampaignsByIdsForAdmin(sb, [campaignId]);
   await appendAdminRouteAudit(sb, req, {

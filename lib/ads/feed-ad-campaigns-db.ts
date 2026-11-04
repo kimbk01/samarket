@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isProductionReachableFeedAdCreativeUrl } from "@/lib/ads/feed-ad-creative-url";
+import { filterFeedAdCampaignsByDestination } from "@/lib/ads/feed-ad-exposure-filter";
 import type {
   FeedAdCampaignView,
   FeedAdCreativeSlide,
@@ -180,18 +181,54 @@ export async function listEligibleFeedAdCampaigns(
     byCampaign.set(cid, list);
   }
 
+  // FB-C17 ③: 회원 신청 광고의 광고주 이름 = 보는 시점의 신청 회원 닉네임 (신청 id → 회원 id → 닉네임, 묶음 조회 2번)
+  const nicknameByRequest = await loadMemberNicknamesByRequestId(
+    sb,
+    campaigns
+      .filter((c) => String((c as { source?: string }).source ?? "") === "MEMBER_REQUESTED")
+      .map((c) => String((c as { request_id?: string | null }).request_id ?? ""))
+      .filter(Boolean)
+  );
+
   // Defense-in-depth: drop Production-invalid creatives (localhost / QA sample / non-https).
-  return campaigns
+  const mapped = campaigns
     .map((c) => {
       const row = c as Record<string, unknown>;
       const id = String(row.id ?? "");
-      const mapped = mapCampaign(row, byCampaign.get(id) ?? []);
+      const view = mapCampaign(row, byCampaign.get(id) ?? []);
       return {
-        ...mapped,
-        slides: mapped.slides.filter((s) =>
+        ...view,
+        memberNickname: view.requestId ? (nicknameByRequest.get(view.requestId) ?? null) : null,
+        slides: view.slides.filter((s) =>
           isProductionReachableFeedAdCreativeUrl(s.imageUrl)
         ),
       };
     })
     .filter((c) => c.slides.length > 0);
+  // DS-3 · DS-4: 목적지 없음·삭제/숨김 글·비공개 매장·끝난 이벤트로 가는 소재는 노출하지 않는다
+  return filterFeedAdCampaignsByDestination(sb, mapped);
+}
+
+async function loadMemberNicknamesByRequestId(
+  sb: SupabaseClient,
+  requestIds: readonly string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = [...new Set(requestIds)];
+  if (ids.length === 0) return out;
+  const { data: reqs, error } = await sb.from("feed_ad_requests").select("id, user_id").in("id", ids);
+  if (error) return out;
+  const userByRequest = new Map<string, string>();
+  for (const r of (reqs ?? []) as { id?: string; user_id?: string }[]) {
+    if (r.id && r.user_id) userByRequest.set(String(r.id), String(r.user_id));
+  }
+  const userIds = [...new Set(userByRequest.values())];
+  if (userIds.length === 0) return out;
+  const { data: profiles } = await sb.from("profiles").select("id, nickname").in("id", userIds);
+  const nickByUser = new Map<string, string>();
+  for (const p of (profiles ?? []) as { id?: string; nickname?: string | null }[]) {
+    if (p.id) nickByUser.set(String(p.id), String(p.nickname ?? ""));
+  }
+  for (const [rid, uid] of userByRequest) out.set(rid, nickByUser.get(uid) ?? "");
+  return out;
 }

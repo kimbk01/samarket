@@ -26,8 +26,8 @@ describe("production link shapes stay compatible", () => {
       const ref = feedAdDestinationRef(r);
       expect(ref && destinationHref(ref), JSON.stringify(r)).toBe(r.href);
     }
-    // empty internal_page = "no link" (unchanged)
-    expect(normalizeFeedAdDestination({ destinationType: "internal_page", destinationUrl: "" }).ok).toBe(true);
+    // DS-3 · C-1 (2026-11-04): 목적지 「없음」 금지 — 빈 internal_page 는 저장 거부
+    expect(normalizeFeedAdDestination({ destinationType: "internal_page", destinationUrl: "" }).ok).toBe(false);
   });
 
   it("store banners (cta_href)", () => {

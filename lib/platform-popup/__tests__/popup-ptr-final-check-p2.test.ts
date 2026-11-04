@@ -142,13 +142,14 @@ describe("P2-2 CAMPAIGN 숨김 revision = 소재 id", () => {
     expect(selectPlatformPopupEligibleWinner({ pathname: "/market", now, candidates: [changed] }, "interruptive").winner?.id).toBe("c1");
   });
 
-  it("서버 후보 revision = 노출 소재 id, 팝업·PTR 은 CAMPAIGN 숨김에 본 소재 id 를 보낸다", () => {
-    // Owner 결정 2 (2026-11-04): 팝업 = 소재 id · PTR = 띠 3종 소재 id (ptrRevealCampaignRevision)
+  it("서버 후보 revision = 소재 기준값 + 목적지 해시(D-2), 팝업·PTR 은 CAMPAIGN 숨김에 그 판을 보낸다", () => {
+    // Owner 결정 2 (2026-11-04): 팝업 = 소재 id · PTR = 띠 3종 소재 id (ptrRevealCampaignRevision) · D-2: + CTA 목적지 해시
     expect(readRepo("lib/platform-popup/load-popup-candidates.ts")).toContain(
-      "campaignRevision: isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,"
+      "isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,"
     );
+    expect(readRepo("lib/platform-popup/load-popup-candidates.ts")).toContain("withPlatformPopupDestinationRevision(");
     expect(readRepo("components/platform-popup/GlobalPopupHost.tsx")).toContain(
-      'campaignRevision: mode === "CAMPAIGN" ? creativeId : undefined,'
+      'campaignRevision: mode === "CAMPAIGN" ? winner.revision ?? creativeId : undefined,'
     );
   });
 

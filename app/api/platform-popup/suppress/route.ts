@@ -6,6 +6,8 @@ import {
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { getClientIp } from "@/lib/http/api-route";
+import { adEventRecordActorKey, enforceAdEventRecordQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +56,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   /**
+   * PU-31 · D-21 ①: CLOSE(×) 는 효과가 없는 기록이라 DB 행을 쓰지 않는다(지금 앱은 보내지 않음 · 구 앱 호환으로 성공만 답함).
+   */
+  if (mode === "CLOSE") {
+    return NextResponse.json({ ok: true, mode, suppressUntil: null, skipped: true });
+  }
+
+  // D-21 ③: 요청 제한(회원 id · 없으면 IP 해시). 넘으면 429 — 앱은 이미 닫았고 실패를 무시한다.
+  const quota = await enforceAdEventRecordQuota(
+    "platform_popup_suppress",
+    adEventRecordActorKey({ userId, ip: getClientIp(req) })
+  );
+  if (!quota.ok) return quota.response;
+
+  /**
    * 광고 감사 G-9: 「오늘」 끝 = **캠페인 시간대** 기준(계약 §4). 캠페인 행의 timezone 이 정본이고,
    * 행을 못 읽을 때만 요청 값 → 기본(Asia/Manila).
    */
@@ -67,14 +83,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     body.timezone?.trim() ||
     PLATFORM_POPUP_DEFAULT_TIMEZONE;
   const now = new Date();
-  const suppressUntil =
-    mode === "CLOSE"
-      ? null
-      : computePlatformPopupSuppressUntil(mode, {
-          now,
-          timezone,
-          durationSeconds: body.durationSeconds,
-        });
+  // PU-31: CLOSE 는 위에서 행 없이 끝난다 — 여기는 효과 있는 숨김만
+  const suppressUntil = computePlatformPopupSuppressUntil(mode, {
+    now,
+    timezone,
+    durationSeconds: body.durationSeconds,
+  });
 
   const { error } = await sb.from("platform_popup_user_suppressions").insert({
     user_id: userId,
@@ -88,7 +102,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    console.error("[platform-popup/suppress] insert_failed", error.message);
+    return NextResponse.json({ ok: false, error: "suppress_write_failed" }, { status: 500 });
   }
 
   return NextResponse.json({

@@ -168,12 +168,7 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
               )}
             </dd>
           </div>
-          <div>
-            <dt className="text-sam-muted">{t("admin_banners_label_click_impression")}</dt>
-            <dd>
-              {banner.clickCount} / {banner.impressionCount}
-            </dd>
-          </div>
+          {/* D-14 (Owner 2026-11-04): 마이 배너는 노출·클릭을 쌓지 않아(항상 0) 칸을 보이지 않는다 */}
           {banner.adminMemo && (
             <div>
               <dt className="text-sam-muted">{t("admin_banners_label_admin_memo")}</dt>

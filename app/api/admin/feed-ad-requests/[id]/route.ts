@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
-import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
+import {
+  ADMIN_REASON_REQUIRED_CODE,
+  parseAdminInternalReason,
+  parseAdminPublicReason,
+  parseAdminReason,
+} from "@/lib/admin/operator-ux/admin-reason";
+import { runFeedAdAdminAction } from "@/lib/admin/advertising-workspace/feed-ad-admin-actions";
+import { adsClientSafeErrorCode } from "@/lib/admin/advertising-workspace/ads-admin-action-audit";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { approveFeedAdRequest } from "@/lib/ads/approve-feed-ad-request";
 import { adminRejectFeedAdRequest } from "@/lib/ads/admin-reject-feed-ad-request";
 import {
   feedAdCreativeUrlRejectReason,
@@ -11,12 +17,6 @@ import {
 } from "@/lib/ads/feed-ad-creative-url";
 import { listEligibleFeedAdCampaigns } from "@/lib/ads/feed-ad-campaigns-db";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
-import { endFeedAdCampaign } from "@/lib/ads/end-feed-ad-campaign";
-import {
-  pauseFeedAdCampaign,
-  resumeFeedAdCampaign,
-} from "@/lib/ads/pause-resume-feed-ad-campaign";
-import { adminCompensateExtendFeedAdCampaign } from "@/lib/ads/admin-compensate-extend-feed-ad-campaign";
 import { projectFeedAdOpsTimeline } from "@/lib/ads/feed-ad-ops-presentation";
 import {
   isFeedAdCampaignEligibleNow,
@@ -249,8 +249,8 @@ export async function GET(
  *   approve | reject | end | pause | resume — PHASE 1 / ops writers
  *   update — pending only: destination / durationDays (same request)
  *   replace_creative — same request creatives OR same campaign creatives
- *   end — no auto refund (ADMIN_END_REFUND_POLICY_REQUIRED)
- *   pause/resume — campaign status only; no Point change
+ *   approve | pause | resume | end | extend_compensation — `runFeedAdAdminAction` (공통 광고 화면과 같은 함수 · 2026-11-04)
+ *   end — 귀책(fault) 필수 · preview=true 로 환급 미리보기 (D-5 · DB `admin_feed_ad_end`)
  */
 export async function PATCH(
   req: NextRequest,
@@ -280,6 +280,12 @@ export async function PATCH(
     altText?: string;
     headline?: string;
     requestedDays?: number;
+    /** D-6: 내부 메모(운영자만) — `reason` 은 공개 사유(회원에게 보임 · 120자) */
+    internalReason?: string;
+    /** 종료 귀책 (D-5): operator = 남은 기간 비례 환급 · member/none = 0 */
+    fault?: string;
+    /** 종료 환급 미리보기 (기록·변경 없음) */
+    preview?: boolean;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -288,10 +294,16 @@ export async function PATCH(
   }
 
   const action = String(body.action ?? "").trim();
-  // R2 — 승인·반려·보상 연장(L2)·종료(L3)는 처리 사유 필수 (2자 이상). 각 감사 after.reason 에 남긴다.
+  // R2 · FB-A05 (2026-11-04) — 승인·반려·정지·재개·보상 연장(L2)·종료(L3)는 처리 사유 필수 (2자 이상). 종료 미리보기만 예외.
   const adminReason = parseAdminReason(body.reason);
+  const endPreview = action === "end" && body.preview === true;
   if (
-    (action === "approve" || action === "reject" || action === "end" || action === "extend_compensation") &&
+    (action === "approve" ||
+      action === "reject" ||
+      action === "pause" ||
+      action === "resume" ||
+      (action === "end" && !endPreview) ||
+      action === "extend_compensation") &&
     !adminReason
   ) {
     return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
@@ -319,160 +331,29 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "rejected" });
   }
 
-  if (action === "approve") {
-    const result = await approveFeedAdRequest(sb, {
-      requestId,
+  if (
+    action === "approve" ||
+    action === "pause" ||
+    action === "resume" ||
+    action === "end" ||
+    action === "extend_compensation"
+  ) {
+    // 설계 §6 · FB-A05/A06/A07 · D-5 · D-6: 공통 광고 화면과 같은 단일 구현 (같은 사유 규칙·감사 이름·before/after).
+    const fault =
+      body.fault === "operator" || body.fault === "member" || body.fault === "none" ? body.fault : null;
+    const out = await runFeedAdAdminAction(sb, req, {
+      entityId: requestId,
+      campaignIdHint: body.campaignId != null ? String(body.campaignId) : null,
+      action,
       adminUserId: admin.userId,
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: result.httpStatus ?? 500 }
-      );
-    }
-    await appendAdminRouteAudit(sb, req, {
-      actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: requestId,
-      action: "feed_ad_request.approve",
-      before: { status: "pending_review" },
-      after: { status: result.status, campaign_id: result.campaignId ?? null, reason: adminReason },
-    });
-    return NextResponse.json({
-      ok: true,
-      status: result.status,
-      campaignId: result.campaignId,
-    });
-  }
-
-  if (action === "end") {
-    // ADMIN_END_REFUND_POLICY_REQUIRED — no auto refund (CAPTURE already settled).
-    const result = await endFeedAdCampaign(sb, {
-      adminUserId: admin.userId,
-      requestId,
-      campaignId: body.campaignId != null ? String(body.campaignId) : null,
-      reason: body.reason != null ? String(body.reason) : "admin_ended",
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: result.httpStatus }
-      );
-    }
-    await appendAdminRouteAudit(sb, req, {
-      actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: result.requestId ?? requestId,
-      action: "feed_ad_request.end",
-      after: {
-        status: result.status,
-        campaign_id: result.campaignId ?? null,
-        reason: body.reason != null ? String(body.reason) : "admin_ended",
-      },
-    });
-    return NextResponse.json({
-      ok: true,
-      status: result.status,
-      campaignId: result.campaignId,
-      requestId: result.requestId,
-      refund: false,
-      refundPolicy: "ADMIN_END_REFUND_POLICY_REQUIRED",
-    });
-  }
-
-  if (action === "pause") {
-    const result = await pauseFeedAdCampaign(sb, {
-      adminUserId: admin.userId,
-      requestId,
-      campaignId: body.campaignId != null ? String(body.campaignId) : null,
-      reason: body.reason != null ? String(body.reason) : "admin_paused",
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: result.httpStatus }
-      );
-    }
-    await appendAdminRouteAudit(sb, req, {
-      actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: result.requestId ?? requestId,
-      action: "feed_ad_request.pause",
-      after: {
-        status: result.status,
-        campaign_id: result.campaignId ?? null,
-        reason: body.reason != null ? String(body.reason) : "admin_paused",
-      },
-    });
-    return NextResponse.json({
-      ok: true,
-      status: result.status,
-      campaignId: result.campaignId,
-      requestId: result.requestId,
-    });
-  }
-
-  if (action === "resume") {
-    const result = await resumeFeedAdCampaign(sb, {
-      adminUserId: admin.userId,
-      requestId,
-      campaignId: body.campaignId != null ? String(body.campaignId) : null,
-      reason: body.reason != null ? String(body.reason) : "admin_resumed",
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: result.httpStatus }
-      );
-    }
-    await appendAdminRouteAudit(sb, req, {
-      actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: result.requestId ?? requestId,
-      action: "feed_ad_request.resume",
-      after: {
-        status: result.status,
-        campaign_id: result.campaignId ?? null,
-        reason: body.reason != null ? String(body.reason) : "admin_resumed",
-      },
-    });
-    return NextResponse.json({
-      ok: true,
-      status: result.status,
-      campaignId: result.campaignId,
-      requestId: result.requestId,
-    });
-  }
-
-  if (action === "extend_compensation") {
-    const result = await adminCompensateExtendFeedAdCampaign(sb, {
-      adminUserId: admin.userId,
-      requestId,
-      campaignId: body.campaignId != null ? String(body.campaignId) : null,
+      publicReason: parseAdminPublicReason(body.reason),
+      internalReason: parseAdminInternalReason(body.internalReason),
+      fault,
+      preview: body.preview === true,
       requestedDays: Number(body.requestedDays ?? 0),
-      reason: body.reason != null ? String(body.reason) : "",
+      screen: "domain",
     });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: result.httpStatus }
-      );
-    }
-    await appendAdminRouteAudit(sb, req, {
-      actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: requestId,
-      action: "feed_ad_request.extend_compensation",
-      after: {
-        requested_days: Number(body.requestedDays ?? 0),
-        reason: body.reason != null ? String(body.reason) : "",
-        extension: result as unknown as Record<string, unknown>,
-      },
-    });
-    return NextResponse.json({
-      ok: true,
-      extension: result,
-    });
+    return NextResponse.json(out.body, { status: out.httpStatus });
   }
 
   if (action === "update") {
@@ -523,7 +404,7 @@ export async function PATCH(
       .eq("id", requestId)
       .eq("status", "pending_review");
     if (upd) {
-      return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: adsClientSafeErrorCode(upd.message) }, { status: 500 });
     }
     {
       const prev = reqRow as Record<string, unknown>;
@@ -597,7 +478,7 @@ export async function PATCH(
           .update(creativePatchRequest)
           .eq("id", String(existing.id));
         if (upd) {
-          return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+          return NextResponse.json({ ok: false, error: adsClientSafeErrorCode(upd.message) }, { status: 500 });
         }
       } else {
         const { error: ins } = await sb.from("feed_ad_request_creatives").insert({
@@ -606,7 +487,7 @@ export async function PATCH(
           ...creativePatchRequest,
         });
         if (ins) {
-          return NextResponse.json({ ok: false, error: ins.message }, { status: 500 });
+          return NextResponse.json({ ok: false, error: adsClientSafeErrorCode(ins.message) }, { status: 500 });
         }
       }
       await appendAdminRouteAudit(sb, req, {
@@ -637,7 +518,7 @@ export async function PATCH(
         .update(creativePatchCampaign)
         .eq("id", String(existing.id));
       if (upd) {
-        return NextResponse.json({ ok: false, error: upd.message }, { status: 500 });
+        return NextResponse.json({ ok: false, error: adsClientSafeErrorCode(upd.message) }, { status: 500 });
       }
     } else {
       const { error: ins } = await sb.from("feed_ad_creatives").insert({
@@ -648,7 +529,7 @@ export async function PATCH(
         headline: creativePatchRequest.headline,
       });
       if (ins) {
-        return NextResponse.json({ ok: false, error: ins.message }, { status: 500 });
+        return NextResponse.json({ ok: false, error: adsClientSafeErrorCode(ins.message) }, { status: 500 });
       }
     }
     await appendAdminRouteAudit(sb, req, {

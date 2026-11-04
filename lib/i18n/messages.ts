@@ -64,6 +64,11 @@ import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
 import { adminIaR1Messages } from "./catalog/admin-ia-r1";
 import { adminDashboardChatTabMessages } from "./catalog/admin-dashboard-chat-tab";
 import { popupSsotWordingMessages } from "./catalog/popup-ssot-wording";
+import { adsImpl1104PromotionMessages } from "./catalog/ads-impl-1104-p";
+import { adsImpl1104FeedMessages } from "./catalog/ads-impl-1104-f";
+import { adsImpl1104SurfaceMessages } from "./catalog/ads-impl-1104-u";
+import { adsImpl1104AdminMessages } from "./catalog/ads-impl-1104-a";
+import { adsImpl1104IntroMessages } from "./catalog/ads-impl-1104-i";
 import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
 import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
 import { adminChatR1CMessages } from "./catalog/admin-chat-r1-pages";
@@ -241,6 +246,11 @@ const KO_MESSAGES = {
   ...adminIaR1Messages.ko,
   ...adminDashboardChatTabMessages.ko,
   ...popupSsotWordingMessages.ko,
+  ...adsImpl1104PromotionMessages.ko,
+  ...adsImpl1104FeedMessages.ko,
+  ...adsImpl1104SurfaceMessages.ko,
+  ...adsImpl1104AdminMessages.ko,
+  ...adsImpl1104IntroMessages.ko,
 } as LocaleMessageBag;
 
 const EN_MESSAGES = {
@@ -357,6 +367,11 @@ const EN_MESSAGES = {
   ...adminIaR1Messages.en,
   ...adminDashboardChatTabMessages.en,
   ...popupSsotWordingMessages.en,
+  ...adsImpl1104PromotionMessages.en,
+  ...adsImpl1104FeedMessages.en,
+  ...adsImpl1104SurfaceMessages.en,
+  ...adsImpl1104AdminMessages.en,
+  ...adsImpl1104IntroMessages.en,
 } as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {

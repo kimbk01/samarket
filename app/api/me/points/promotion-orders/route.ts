@@ -282,6 +282,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           idempotencyKey,
         });
     if (!applied.ok) {
+      if (applied.error === "price_changed") {
+        return priceChangedResponse({
+          id: product.id,
+          pointCost: Number.isFinite(applied.pointCost) ? Number(applied.pointCost) : product.pointCost,
+          durationDays: Number.isFinite(applied.durationDays) ? Number(applied.durationDays) : product.durationDays,
+        });
+      }
       const status =
         applied.error === "insufficient_balance"
           ? 400

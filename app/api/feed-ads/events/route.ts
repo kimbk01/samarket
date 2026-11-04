@@ -3,6 +3,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { feedAdViewerKey } from "@/lib/ads/feed-ad-viewer-key";
+import { adEventRecordActorKey, enforceAdEventRecordQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,17 @@ function clientIp(req: NextRequest): string | null {
   if (real) return real;
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 }
+
+/**
+ * FB-E07: 기록할 수 있는 피드 배너 위치 — `FeedAdPlacement` 4종(거래 홈·거래 카테고리·커뮤니티 전체·커뮤니티 주제).
+ * 앱 호출처(`FeedAdBannerCarousel` 3곳)는 이 값만 보낸다.
+ */
+const FEED_AD_EVENT_PLACEMENTS: ReadonlySet<string> = new Set([
+  "TRADE_HOME",
+  "TRADE_CATEGORY",
+  "COMMUNITY_HOME",
+  "COMMUNITY_TOPIC",
+]);
 
 /**
  * POST /api/feed-ads/events — Owner 결정 O-4 피드 배너 노출·클릭 기록.
@@ -32,7 +44,12 @@ export async function POST(req: NextRequest) {
   if ((eventType !== "impression" && eventType !== "click") || !isUuidLikeString(campaignId)) {
     return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
   }
-  if (creativeId && !isUuidLikeString(creativeId)) {
+  // FB-E07: 소재 id 없는 요청 · 목록에 없는 위치 값은 400 (키 `'-'` 행 금지). 앱은 슬라이드 = 소재 id(uuid)를 항상 보낸다.
+  if (!isUuidLikeString(creativeId)) {
+    return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
+  }
+  const placement = String(body.placement ?? "").trim();
+  if (!FEED_AD_EVENT_PLACEMENTS.has(placement)) {
     return NextResponse.json({ ok: false, error: "invalid_input" }, { status: 400 });
   }
   const sb = tryCreateSupabaseServiceClient();
@@ -42,12 +59,16 @@ export async function POST(req: NextRequest) {
   const viewer = feedAdViewerKey({ userId, ip: clientIp(req) });
   if (!viewer) return NextResponse.json({ ok: false, error: "viewer_unknown" }, { status: 400 });
 
+  // D-21 ③: 요청 제한(회원 id · 없으면 IP 해시). 넘으면 429 — 앱은 보내고 기다리지 않는다(화면 영향 없음).
+  const quota = await enforceAdEventRecordQuota("feed_ad_events", adEventRecordActorKey({ userId, ip: clientIp(req) }));
+  if (!quota.ok) return quota.response;
+
   const record = (type: "impression" | "click") =>
     sb.rpc("record_feed_ad_event", {
       p_campaign_id: campaignId,
-      p_creative_id: creativeId || null,
+      p_creative_id: creativeId,
       p_event_type: type,
-      p_placement: String(body.placement ?? "").slice(0, 64) || null,
+      p_placement: placement,
       p_session_id: viewer,
       p_slot_ordinal: 0,
       p_user_id: userId,

@@ -1,4 +1,3 @@
-import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
@@ -12,18 +11,28 @@ import {
   TRADE_PROMOTION_ACTIONS,
   type TradePromotionAction,
 } from "@/lib/admin/trade-admin/trade-promotion-admin";
-import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
-  adminTransitionDeliveryAdCampaign,
-  adminDeleteSafeDraftDeliveryAdCampaign,
-} from "@/lib/stores/advertising/admin-delivery-ad-writer";
+  ADMIN_REASON_REQUIRED_CODE,
+  parseAdminInternalReason,
+  parseAdminPublicReason,
+  parseAdminReason,
+} from "@/lib/admin/operator-ux/admin-reason";
+import { adminTransitionDeliveryAdCampaign } from "@/lib/stores/advertising/admin-delivery-ad-writer";
+import { adminDeleteDeliveryAdDraftGuarded } from "@/lib/stores/advertising/admin-delivery-ad-delete";
+import {
+  adminEndDeliveryAdWithRefund,
+  isDeliveryAdEndFault,
+  isDeliveryAdLiveEndLifecycle,
+} from "@/lib/stores/advertising/admin-delivery-ad-end";
+import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
+import { runFeedAdAdminAction } from "@/lib/admin/advertising-workspace/feed-ad-admin-actions";
+import { adsClientSafeErrorCode } from "@/lib/admin/advertising-workspace/ads-admin-action-audit";
+import { ADS_WORKSPACE_REASON_REQUIRED_ACTIONS } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
 import {
   isAdminDeliveryAdAction,
   isAdminDeliveryAdProduct,
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
-import { DELIVERY_AD_AUDIT_LOG_TABLE } from "@/lib/stores/advertising/delivery-ad-audit";
 import { STORE_BANNER_AD_CAMPAIGN_TABLE } from "@/lib/stores/store-banner-ad-campaign-authority";
 import { STORE_PAID_AD_CAMPAIGN_TABLE } from "@/lib/stores/store-paid-ad-campaign-authority";
 import { adminActOnPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-approve";
@@ -58,13 +67,15 @@ export async function POST(req: NextRequest) {
     reason?: string;
     publicMessage?: string;
     internalMemo?: string;
+    /** D-6: 조치 확인창의 내부 메모(운영자만) — `reason` 은 공개 사유(회원·사장님에게 보임 · 120자) */
+    internalReason?: string;
     productKind?: string;
     expectedLifecycle?: string;
     expectedUpdatedAt?: string;
     popupTransition?: string;
     startAt?: string;
     endAt?: string;
-    /** 커뮤니티 홍보 종료 귀책 (설계 v2 §F-1) — 'operator' 환급 / 'member' 환급 없음 */
+    /** 종료 귀책 (설계 §6 · D-5 · D-13) — 상위노출·피드·배달 공통: 'operator' 비례 환급 / 'member'·'none' 환급 없음 */
     fault?: "operator" | "member" | "none";
     reasonCode?: string;
     preview?: boolean;
@@ -115,28 +126,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, memo: "internal" });
   }
 
-  // R2 — 승인·반려·보류(수정 요청)·보상 연장(L2)·종료·삭제(L3)는 처리 사유 필수 (미리보기 제외).
-  // 사유는 각 도메인 writer·감사 기록(reason)으로 그대로 전달된다.
-  const reasonRequiredActions: readonly string[] = [
-    "approve",
-    "reject",
-    "request_changes",
-    "extend_compensation",
-    "end",
-    "terminate",
-    "delete_safe_draft",
-  ];
-  // 일시중지는 배달 광고(writer 사유 필수)·상위노출 제재(커뮤니티·거래, L2 sanction)일 때만 사유 필수.
-  const pauseNeedsReason =
-    action === "pause" &&
-    (family === "delivery_banner" ||
-      family === "delivery_sponsored" ||
-      family === "boost_community" ||
-      family === "boost_trade");
+  // 설계 §6 · FB-A05 · AD-103 · AL-04~06 (2026-11-04) — 동작 단계 표(`admin-action-levels.ts`)와 같은 서버 규칙:
+  // 승인·반려·보류·정지·재개·연장(L2)·종료·삭제(L3)는 모든 광고 계열에서 처리 사유 필수 (종료 환급 미리보기만 예외).
+  // 사유는 각 도메인 writer·감사 기록으로 그대로 전달된다. 빈 사유를 코드값("admin_paused" 등)으로 바꿔 저장하지 않는다.
+  const reasonRequiredActions: readonly string[] = ADS_WORKSPACE_REASON_REQUIRED_ACTIONS;
   const adminReason = parseAdminReason(body.reason);
-  if (body.preview !== true && (reasonRequiredActions.includes(action) || pauseNeedsReason) && !adminReason) {
+  if (body.preview !== true && reasonRequiredActions.includes(action) && !adminReason) {
     return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
+  const internalReason = parseAdminInternalReason(body.internalReason);
+  /** D-6: 내부 메모를 받는 writer 가 없는 계열은 같은 조치의 내부 메모로 남긴다 (회원 응답에는 나가지 않음). */
+  const persistInternalReason = async () => {
+    if (!internalReason || body.preview === true) return;
+    await persistAdvertisingAdminMemo(sb, {
+      adminId: admin.userId,
+      adId: entityId,
+      targetType: advertisingWorkspaceMemoTargetType(family),
+      kind: "internal",
+      memo: `[${action}] ${internalReason}`,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+  };
 
   if (family === "boost_trade") {
     // 거래 홍보는 거래 Admin 과 같은 처리 (설계 v2 §G-0): 조치 1건 = DB 함수 1번 (상태·포인트·환급·감사 한 트랜잭션).
@@ -158,6 +169,7 @@ export async function POST(req: NextRequest) {
       userAgent: meta.userAgent,
     });
     if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus });
+    await persistInternalReason();
     return NextResponse.json({ ok: true, ...res.data, ...(res.notifyWarning ? { sideEffectWarning: true } : {}) });
   }
 
@@ -179,102 +191,12 @@ export async function POST(req: NextRequest) {
     if (!out.ok) {
       return NextResponse.json({ ok: false, error: out.error }, { status: out.httpStatus });
     }
+    await persistInternalReason();
     return NextResponse.json(out.body);
   }
 
   if (family === "feed_banner") {
-    if (action === "extend_compensation") {
-      if (!publicMsg) {
-        return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
-      }
-      const days = Number(body.requestedDays ?? 1);
-      const { adminCompensateExtendFeedAdCampaign } = await import(
-        "@/lib/ads/admin-compensate-extend-feed-ad-campaign"
-      );
-      const ext = await adminCompensateExtendFeedAdCampaign(sb, {
-        adminUserId: admin.userId,
-        requestId: entityId,
-        requestedDays: Number.isInteger(days) ? days : 0,
-        reason: publicMsg,
-      });
-      if (!ext.ok) {
-        return NextResponse.json({ ok: false, error: ext.error }, { status: ext.httpStatus });
-      }
-      void appendAuditLog(sb, {
-        actor_type: "admin",
-        actor_id: admin.userId,
-        target_type: "feed_ad_request",
-        target_id: entityId,
-        action: "feed_ad.extend_compensation",
-        before_json: { old_end: ext.previousEndAt },
-        after_json: {
-          new_end: ext.newEndAt,
-          extension_duration_days: ext.daysAdded,
-          charge_policy: "ADMIN_FREE_COMPENSATION",
-          reason: publicMsg,
-          admin_id: admin.userId,
-        },
-        ip: meta.ip,
-        user_agent: meta.userAgent,
-      });
-      return NextResponse.json({ ok: true, extension: ext });
-    }
-
-    const feedAction =
-      action === "approve"
-        ? "approve"
-        : action === "reject"
-          ? "reject"
-          : action === "pause"
-            ? "pause"
-            : action === "resume"
-              ? "resume"
-              : action === "end" || action === "terminate"
-                ? "end"
-                : null;
-    if (!feedAction) {
-      return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
-    }
-    /**
-     * 운영 화면의 feed_banner 행은 회원 신청(feed_ad_requests.id)과 관리자 직접 등록 캠페인(feed_ad_campaigns.id)이
-     * 섞여 있다. 신청 행이 없으면 캠페인 id 로 보고 같은 writer 를 캠페인 기준으로 호출한다 (CM-P1-04).
-     */
-    const { data: feedRequestRow } = await sb
-      .from("feed_ad_requests")
-      .select("id")
-      .eq("id", entityId)
-      .maybeSingle();
-    const feedTarget = feedRequestRow?.id ? { requestId: entityId } : { campaignId: entityId };
-    // Delegate to existing feed PATCH handler logic via relative import of writers is preferred;
-    // call the same route module path by reusing service writers when available.
-    const { pauseFeedAdCampaign, resumeFeedAdCampaign } = await import(
-      "@/lib/ads/pause-resume-feed-ad-campaign"
-    );
-    const { endFeedAdCampaign } = await import("@/lib/ads/end-feed-ad-campaign");
-    const { approveFeedAdRequest } = await import("@/lib/ads/approve-feed-ad-request");
-
-    if (feedAction === "approve") {
-      const res = await approveFeedAdRequest(sb, {
-        requestId: entityId,
-        adminUserId: admin.userId,
-      });
-      if (!res.ok) {
-        return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-      }
-      void appendAuditLog(sb, {
-        actor_type: "admin",
-        actor_id: admin.userId,
-        target_type: "feed_ad_request",
-        target_id: entityId,
-        action: "feed_ad.approve",
-        before_json: null,
-        after_json: { reason: adminReason },
-        ip: meta.ip,
-        user_agent: meta.userAgent,
-      });
-      return NextResponse.json(res);
-    }
-    if (feedAction === "reject") {
+    if (action === "reject") {
       if (!publicMsg) {
         return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
       }
@@ -298,63 +220,40 @@ export async function POST(req: NextRequest) {
         ip: meta.ip,
         userAgent: meta.userAgent,
       });
+      await persistInternalReason();
       return NextResponse.json({ ok: true, status: "rejected" });
     }
-    if (feedAction === "pause") {
-      const result = await pauseFeedAdCampaign(sb, {
-        ...feedTarget,
-        adminUserId: admin.userId,
-        reason: publicMsg || "admin_paused",
-      });
-      if (!result.ok) {
-        return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
-      }
-      // 재감사 N-04: 도메인 화면(`/api/admin/feed-ad-requests/[id]`)과 같은 감사 기록
-      await appendAdminRouteAudit(sb, req, {
-        actorId: admin.userId,
-        targetType: "feed_ad_request",
-        targetId: result.requestId ?? entityId,
-        action: "feed_ad_request.pause",
-        after: { status: result.status, campaign_id: result.campaignId ?? null, reason: publicMsg || "admin_paused" },
-      });
-      return NextResponse.json(result);
+    const feedAction =
+      action === "approve"
+        ? "approve"
+        : action === "pause"
+          ? "pause"
+          : action === "resume"
+            ? "resume"
+            : action === "end" || action === "terminate"
+              ? "end"
+              : action === "extend_compensation"
+                ? "extend_compensation"
+                : null;
+    if (!feedAction) {
+      return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
     }
-    if (feedAction === "resume") {
-      const result = await resumeFeedAdCampaign(sb, {
-        ...feedTarget,
-        adminUserId: admin.userId,
-        reason: publicMsg || "admin_resumed",
-      });
-      if (!result.ok) {
-        return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus });
-      }
-      // 재감사 N-04: 도메인 화면(`/api/admin/feed-ad-requests/[id]`)과 같은 감사 기록
-      await appendAdminRouteAudit(sb, req, {
-        actorId: admin.userId,
-        targetType: "feed_ad_request",
-        targetId: result.requestId ?? entityId,
-        action: "feed_ad_request.resume",
-        after: { status: result.status, campaign_id: result.campaignId ?? null, reason: publicMsg || "admin_resumed" },
-      });
-      return NextResponse.json(result);
-    }
-    const endRes = await endFeedAdCampaign(sb, {
-      ...feedTarget,
+    /**
+     * 설계 §6 · FB-A05/A06/A07 · AL-09 · AL-10 · D-5 · D-6: 도메인 화면과 같은 단일 구현.
+     * 회원 신청 id · 운영자 등록 캠페인 id 둘 다 받는다(신청이 없으면 캠페인으로 보고 감사 대상 = feed_ad_campaign).
+     */
+    const out = await runFeedAdAdminAction(sb, req, {
+      entityId,
+      action: feedAction,
       adminUserId: admin.userId,
-      reason: publicMsg || "admin_ended",
+      publicReason: parseAdminPublicReason(body.reason),
+      internalReason,
+      fault: body.fault === "operator" || body.fault === "member" || body.fault === "none" ? body.fault : null,
+      preview: body.preview === true,
+      requestedDays: Number(body.requestedDays ?? 1),
+      screen: "hub",
     });
-    if (!endRes.ok) {
-      return NextResponse.json({ ok: false, error: endRes.error }, { status: endRes.httpStatus });
-    }
-    // 재감사 N-04: 도메인 화면과 같은 감사 기록
-    await appendAdminRouteAudit(sb, req, {
-      actorId: admin.userId,
-      targetType: "feed_ad_request",
-      targetId: endRes.requestId ?? entityId,
-      action: "feed_ad_request.end",
-      after: { status: endRes.status, campaign_id: endRes.campaignId ?? null, reason: publicMsg || "admin_ended" },
-    });
-    return NextResponse.json(endRes);
+    return NextResponse.json(out.body, { status: out.httpStatus });
   }
 
   if (family === "delivery_banner" || family === "delivery_sponsored") {
@@ -403,10 +302,19 @@ export async function POST(req: NextRequest) {
       });
       if (!ext.ok) {
         return NextResponse.json(
-          { ok: false, error: ext.error, detail: ext.detail },
+          {
+            ok: false,
+            error: adsClientSafeErrorCode(ext.error, "save_failed", "[ads-workspace delivery extend]"),
+            // AL-19: 원문 오류는 서버 로그로만 — 고정 코드의 업무 안내(4xx)만 화면에 보낸다.
+            detail:
+              adsClientSafeErrorCode(ext.error, "", "[ads-workspace delivery extend]") === ext.error
+                ? clientSafeErrorDetail(ext.error, ext.detail, ext.httpStatus, "[ads-workspace delivery extend]") ?? null
+                : null,
+          },
           { status: ext.httpStatus }
         );
       }
+      await persistInternalReason();
       return NextResponse.json({
         ok: true,
         extension: {
@@ -445,34 +353,66 @@ export async function POST(req: NextRequest) {
     }
 
     if (deliveryAction === "delete_safe_draft") {
-      const { count } = await sb
-        .from(DELIVERY_AD_AUDIT_LOG_TABLE)
-        .select("id", { count: "exact", head: true })
-        .eq("product_kind", productKind)
-        .eq("campaign_id", entityId);
-      const result = await adminDeleteSafeDraftDeliveryAdCampaign(sb, {
+      // AL-01 · §4-3: 배달 도메인 상세와 같은 삭제 함수 — 노출·결제·문의·막는 감사 이력은 서버가 센다.
+      const del = await adminDeleteDeliveryAdDraftGuarded(sb, {
         adminUserId: admin.userId,
         productKind,
         campaignId: entityId,
         expectedLifecycle,
         expectedUpdatedAt,
-        history: {
-          hasImpression: false,
-          hasClick: false,
-          hasAttribution: false,
-          hasBilling: false,
-          hasFinancialHistory: false,
-          hasAuditHistory: (count ?? 0) > 0,
-        },
         reason: adminReason,
       });
-      if (!result.ok) {
+      if (!del.ok) {
         return NextResponse.json(
-          { ok: false, error: result.error },
-          { status: result.error === "delete_blocked_funding_secured" ? 409 : 400 }
+          { ok: false, error: adsClientSafeErrorCode(del.error, "save_failed", "[ads-workspace delivery delete]") },
+          { status: del.httpStatus }
         );
       }
-      return NextResponse.json({ ok: true, result });
+      return NextResponse.json({ ok: true, result: { campaignId: del.campaignId, action: "delete_safe_draft" } });
+    }
+
+    if (deliveryAction === "end" && isDeliveryAdLiveEndLifecycle(expectedLifecycle)) {
+      // AL-04 · D-13: 진행 중 종료 = 귀책 + 남은 기간 비례 환급 (도메인 상세와 같은 함수 · 미리보기 먼저).
+      if (!isDeliveryAdEndFault(body.fault)) {
+        return NextResponse.json({ ok: false, error: "fault_required" }, { status: 400 });
+      }
+      const { data: cur } = await sb
+        .from(table)
+        .select("id, lifecycle_status, updated_at")
+        .eq("id", entityId)
+        .maybeSingle();
+      const curRow = (cur ?? {}) as { lifecycle_status?: string; updated_at?: string };
+      if (String(curRow.lifecycle_status ?? "") !== expectedLifecycle) {
+        return NextResponse.json({ ok: false, error: "stale_lifecycle" }, { status: 409 });
+      }
+      if (String(curRow.updated_at ?? "") !== expectedUpdatedAt) {
+        return NextResponse.json({ ok: false, error: "stale_updated_at" }, { status: 409 });
+      }
+      const ended = await adminEndDeliveryAdWithRefund(sb, {
+        campaignId: entityId,
+        adminUserId: admin.userId,
+        fault: body.fault,
+        reason: adminReason ?? "",
+        preview: body.preview === true,
+      });
+      if (!ended.ok) {
+        return NextResponse.json(
+          { ok: false, error: adsClientSafeErrorCode(ended.error, "save_failed", "[ads-workspace delivery end]") },
+          { status: ended.httpStatus }
+        );
+      }
+      if (!ended.preview) await persistInternalReason();
+      return NextResponse.json({
+        ok: true,
+        preview: ended.preview ? { refundAmount: ended.refundAmount, paidAmount: ended.paidAmount } : null,
+        refundAmount: ended.refundAmount,
+        paidAmount: ended.paidAmount,
+        remainingSeconds: ended.remainingSeconds,
+        result: { campaignId: entityId, action: "end" },
+      });
+    }
+    if (body.preview === true) {
+      return NextResponse.json({ ok: false, error: "preview_not_supported" }, { status: 400 });
     }
 
     const result = await adminTransitionDeliveryAdCampaign(sb, {
@@ -486,11 +426,22 @@ export async function POST(req: NextRequest) {
       ownerVisibleNotes: publicMsg || null,
     });
     if (!result.ok) {
+      // AL-19: 배달 writer 원문(`detail` · DB error.message)을 그대로 내보내지 않는다.
+      const safeCode = adsClientSafeErrorCode(result.error, "save_failed", "[ads-workspace delivery]");
       return NextResponse.json(
-        { ok: false, error: result.error, detail: result.detail },
+        {
+          ok: false,
+          error: safeCode,
+          // 원래 코드가 고정 코드일 때만 업무 안내(detail)를 싣는다 — 원문 오류면 detail 도 버린다
+          detail:
+            safeCode === result.error
+              ? clientSafeErrorDetail(result.error, result.detail, 400, "[ads-workspace delivery]") ?? null
+              : null,
+        },
         { status: 400 }
       );
     }
+    await persistInternalReason();
     if (publicMsg && (action === "reject" || action === "request_changes")) {
       await persistAdvertisingAdminMemo(sb, {
         adminId: admin.userId,
@@ -551,19 +502,28 @@ export async function POST(req: NextRequest) {
       const { updatePlatformPopupAdminCampaign } = await import(
         "@/lib/platform-popup/admin-campaign-writer"
       );
+      // AL-07 · E-2 (Owner 권장안 승인): 운영자 팝업(사장님 신청 연결 없음)은 기간만 바꿀 때 재검토로 되돌리지 않는다 →
+      // 「바뀐 소재」 목록에 기간을 넣지 않는다. 사장님 신청 연결 팝업은 지금 규칙(기간 = 재검토) 그대로.
+      const { data: popupRow } = await sb
+        .from("platform_popup_campaigns")
+        .select("id, owner_request_id")
+        .eq("id", entityId)
+        .maybeSingle();
+      const operatorPopup = !(popupRow as { owner_request_id?: string | null } | null)?.owner_request_id;
       const res = await updatePlatformPopupAdminCampaign(sb, {
         campaignId: entityId,
         adminUserId: admin.userId,
         patch: { startAt, endAt },
-        materialTouched: ["schedule"],
+        materialTouched: operatorPopup ? [] : ["schedule"],
       });
       if (!res.ok) {
         return NextResponse.json(
-          { ok: false, error: res.error },
+          { ok: false, error: adsClientSafeErrorCode(res.error, "save_failed", "[ads-workspace popup period]") },
           { status: res.httpStatus ?? 400 }
         );
       }
-      return NextResponse.json({ ok: true, id: entityId });
+      // 재검토로 돌아갔으면 화면 결과 문구에 「다시 승인 필요」를 보인다.
+      return NextResponse.json({ ok: true, id: entityId, revertedToReview: res.revertedToReview === true });
     }
 
     const nextStatus = (body.popupTransition ??
@@ -585,8 +545,12 @@ export async function POST(req: NextRequest) {
       reason: adminReason ?? (publicMsg || null),
     });
     if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus ?? 400 });
+      return NextResponse.json(
+        { ok: false, error: adsClientSafeErrorCode(res.error, "save_failed", "[ads-workspace popup]") },
+        { status: res.httpStatus ?? 400 }
+      );
     }
+    await persistInternalReason();
     return NextResponse.json(res);
   }
 

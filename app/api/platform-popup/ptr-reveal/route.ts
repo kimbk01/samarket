@@ -60,7 +60,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const actor = { userId, anonymousDeviceKey: userId ? null : anonymousDeviceKey };
 
   const [loadedCandidates, coordinatedEventIds] = await Promise.all([
-    loadPlatformPopupCandidates(sb, { ...actor, presentationScope: "ptr_reveal" }),
+    loadPlatformPopupCandidates(sb, { ...actor, sessionKey, presentationScope: "ptr_reveal" }),
     loadSessionCoordinatedEventIds(sb, { sessionKey, ...actor }),
   ]);
   const candidates = exclude.size ? loadedCandidates.filter((c) => !exclude.has(c.id)) : loadedCandidates;

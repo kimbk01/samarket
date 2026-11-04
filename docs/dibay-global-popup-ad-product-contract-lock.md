@@ -487,6 +487,10 @@ Required outcome:
 
 This does not authorize any numeric device token.
 
+**Orientation (D-3 · Owner 2026-11-04):** 가로 화면 처리는 기기 SSOT 를 따른다 —
+`docs/dibay-device-fd3-orientation-enforcement-hard-lock.md` 의 `GlobalPopupHost` landscape deny 행(**FD9**).
+휴대폰은 세로 고정이라 해당 없고, 태블릿(TABLET_ANDROID)이 가로일 때 팝업을 보류했다가 세로로 돌아오면 다시 판단한다. 이 문서는 그 규칙을 따로 정하지 않는다.
+
 ## 13. Current Architecture Facts Preserved
 
 The previous architecture audit remains accepted.

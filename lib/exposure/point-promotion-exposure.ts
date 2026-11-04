@@ -16,16 +16,3 @@ export function resolvePointPromotionStatus(
   if (scheduled) return "scheduled";
   return "expired";
 }
-
-export function filterActiveProductPromotionOrders(
-  orders: PointPromotionOrder[],
-  nowIso = new Date().toISOString()
-): PointPromotionOrder[] {
-  return orders.filter(
-    (o) =>
-      o.targetType === "product" &&
-      o.orderStatus === "active" &&
-      o.startAt <= nowIso &&
-      o.endAt >= nowIso
-  );
-}

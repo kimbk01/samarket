@@ -29,10 +29,25 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminStatusLabelText } from "@/lib/admin/status-labels/admin-status-label-registry";
 import "@/lib/admin/status-labels/ads-status-labels";
 import { adsOpsStatusLabel, mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
+import { canAccessAdminRoute, type AdminRouteAccessActor } from "@/lib/admin/access/admin-route-access";
 
 /** 원래 상태 코드(영문 소문자·밑줄)면 운영 상태 이름, 이미 사람이 읽는 문구면 그대로 */
 function historyStatusDisplay(raw: string, ko: boolean): string {
-  return /^[a-z_]+$/.test(raw.trim()) ? adsOpsStatusLabel(mapRawToAdsOpsStatus(raw), ko) : raw;
+  return /^[A-Za-z_]+$/.test(raw.trim()) ? adsOpsStatusLabel(mapRawToAdsOpsStatus(raw), ko) : raw;
+}
+
+/**
+ * AD-129 · AD-308: 상세 주소를 열 권한이 없으면 링크를 숨긴다 (접근표 = 서버 가드와 같은 키).
+ * 권한 정보를 아직 모르면(셸 스냅샷 없음) 기존처럼 보이고 서버 가드가 막는다.
+ */
+export function historyDetailHrefForActor(
+  href: string | null,
+  actor: AdminRouteAccessActor | null
+): string | null {
+  if (!href) return null;
+  if (!actor) return href;
+  return canAccessAdminRoute(href, actor) ? href : null;
 }
 
 
@@ -42,11 +57,13 @@ function LedgerRow({
   ko,
   open,
   onToggle,
+  actor,
 }: {
   row: AdsHistoryLedgerRow;
   ko: boolean;
   open: boolean;
   onToggle: () => void;
+  actor: AdminRouteAccessActor | null;
 }) {
   return (
     <>
@@ -65,7 +82,7 @@ function LedgerRow({
           {ko ? row.productLabelKo : row.productLabelEn}
           {row.legacy ? (
             <span className="ml-2 rounded-full bg-sam-app px-2 py-0.5 text-[12px] font-bold text-sam-muted">
-              {ko ? "레거시" : "Legacy"}
+              {ko ? "이전 방식" : "Legacy"}
             </span>
           ) : null}
         </td>
@@ -102,7 +119,7 @@ function LedgerRow({
       {open ? (
         <tr className="border-b border-sam-border/70 bg-sam-app/40">
           <td colSpan={6} className="px-2 py-3">
-            <RowDetail row={row} ko={ko} />
+            <RowDetail row={row} ko={ko} actor={actor} />
           </td>
         </tr>
       ) : null}
@@ -110,7 +127,16 @@ function LedgerRow({
   );
 }
 
-function RowDetail({ row, ko }: { row: AdsHistoryLedgerRow; ko: boolean }) {
+export function RowDetail({
+  row,
+  ko,
+  actor,
+}: {
+  row: AdsHistoryLedgerRow;
+  ko: boolean;
+  actor: AdminRouteAccessActor | null;
+}) {
+  const detailHref = historyDetailHrefForActor(row.detailHref, actor);
   return (
     <div className="space-y-3" data-ads-history-detail="1">
       <dl className="grid gap-2 text-[12px] sm:grid-cols-2">
@@ -169,7 +195,7 @@ function RowDetail({ row, ko }: { row: AdsHistoryLedgerRow; ko: boolean }) {
                 {ev.actorProven ? ev.actorLabel ?? "—" : "—"}
                 {!ev.actorProven ? (
                   <span className="ml-1 text-[12px]">
-                    ({ko ? "추정 금지 / NOT_PROVEN" : "no inference / NOT_PROVEN"})
+                    ({ko ? "기록 없음 · 추정하지 않음" : "no inference / NOT_PROVEN"})
                   </span>
                 ) : null}
               </p>
@@ -210,15 +236,15 @@ function RowDetail({ row, ko }: { row: AdsHistoryLedgerRow; ko: boolean }) {
             {ko ? "노출 관리 상세" : "Operations details"}
           </AdminActionLink>
         ) : null}
-        {row.detailHref && row.detailHref !== row.operationsHref ? (
-          <AdminActionLink href={row.detailHref} variant="ghost" size="sm">
+        {detailHref && detailHref !== row.operationsHref ? (
+          <AdminActionLink href={detailHref} variant="ghost" size="sm" data-ads-history-detail-link="1">
             {adminCta("detail", ko)}
           </AdminActionLink>
         ) : null}
       </div>
       <p className="text-[12px] text-sam-muted" data-ads-history-mutation="0">
         {ko
-          ? "이력 화면에서는 수정·결제·승인 mutation이 없습니다."
+          ? "이력 화면에서는 바뀐 내용이 없습니다."
           : "History has no edit/payment/approval mutations."}
       </p>
     </div>
@@ -245,6 +271,7 @@ export function AdminAdsHistoryLedgerView() {
 function AdminAdsHistoryLedgerViewInner() {
   const { language } = useI18n();
   const ko = language !== "en";
+  const { actor: accessActor } = useAdminAccessActor();
   /** R7 서버 페이지 — 원천 합치기·필터·정렬·페이지·전체 건수(total)는 서버(DB). */
   const [ledger, setLedger] = useState<(AdsHistoryLedgerModel & { total?: number }) | null>(null);
   const [err, setErr] = useState("");
@@ -322,7 +349,7 @@ function AdminAdsHistoryLedgerViewInner() {
         titleKey="admin_menu_ads_authority_history"
         description={
           ko
-            ? "저장된 신청·결제·승인·운영·환불 증거만 시간순으로 표시합니다. 없는 이벤트는 없음/NOT_PROVEN입니다."
+            ? "저장된 신청·결제·승인·운영·환불 기록만 시간순으로 표시합니다. 기록이 없는 일은 「기록 없음」으로 둡니다."
             : "Only stored application/payment/approval/ops/refund evidence in time order. Missing events stay NOT_PROVEN."
         }
       />
@@ -353,10 +380,10 @@ function AdminAdsHistoryLedgerViewInner() {
           {(
             [
               ["all", ko ? "전체" : "All"],
-              ["community", "Community"],
+              ["community", ko ? "커뮤니티" : "Community"],
               ["trade", ko ? "거래" : "Trade"],
               ["delivery", ko ? "배달" : "Delivery"],
-              ["popup", "Popup"],
+              ["popup", ko ? "팝업" : "Popup"],
             ] as const
           ).map(([id, label]) => (
             <AdminChipButton
@@ -434,6 +461,7 @@ function AdminAdsHistoryLedgerViewInner() {
                   ko={ko}
                   open={openId === row.id}
                   onToggle={() => setOpenId((prev) => (prev === row.id ? null : row.id))}
+                  actor={accessActor}
                 />
               ))}
             </tbody>

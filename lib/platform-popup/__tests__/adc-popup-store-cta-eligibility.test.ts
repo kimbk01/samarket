@@ -31,6 +31,8 @@ function fakeClient(tables: Record<string, Row[]>) {
           return builder;
         },
         order: () => builder,
+        // D-21 ②: 숨김 조회 「효과 있는 행」 필터 — 이 시험은 숨김 행이 없어 통과만 시킨다
+        or: () => builder,
         limit: () => builder,
         maybeSingle: () =>
           Promise.resolve({ data: (tables[table] ?? []).find((r) => filters.every((f) => f(r))) ?? null, error: null }),

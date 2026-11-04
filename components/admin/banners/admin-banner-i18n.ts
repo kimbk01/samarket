@@ -1,4 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
+import type { AdminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 import type {
   AdminBanner,
   BannerChangeLog,
@@ -12,6 +13,12 @@ export const ADMIN_BANNER_STATUS_KEYS: Record<BannerStatus, MessageKey> = {
   paused: "admin_banners_status_paused",
   expired: "admin_banners_status_expired",
   hidden: "admin_banners_status_hidden",
+};
+
+/** MB-A01: 화면 표시 상태(저장 상태 + 「예정」) 문구 키 */
+export const ADMIN_BANNER_DISPLAY_STATUS_KEYS: Record<AdminBannerDisplayStatus, MessageKey> = {
+  ...ADMIN_BANNER_STATUS_KEYS,
+  scheduled: "admin_banners_status_scheduled",
 };
 
 export const ADMIN_BANNER_PLACEMENT_KEYS: Record<BannerPlacement, MessageKey> = {

@@ -12,11 +12,15 @@ describe("admin mutation confirm copy (CUT R1)", () => {
     expect(adsWorkspaceActionNeedsReason("request_changes", "delivery_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("terminate", "delivery_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("pause", "delivery_banner")).toBe(true);
-    expect(adsWorkspaceActionNeedsReason("pause", "community_promote")).toBe(false);
+    // 설계 §6 · FB-A05 (2026-11-04): 정지는 모든 광고 계열에서 L2(사유 필수)
+    expect(adsWorkspaceActionNeedsReason("pause", "community_promote")).toBe(true);
+    expect(adsWorkspaceActionNeedsReason("pause", "feed_banner")).toBe(true);
     // R2 — 승인(L2)·삭제·종료(L3)도 사유 필수 (동작 표 admin-action-levels).
     expect(adsWorkspaceActionNeedsReason("approve", "feed_banner")).toBe(true);
     expect(adsWorkspaceActionNeedsReason("delete_safe_draft", "delivery_banner")).toBe(true);
-    expect(adsWorkspaceActionNeedsReason("resume", "feed_banner")).toBe(false);
+    // 설계 §6 · AD-103: 재개도 모든 계열 L2(사유 필수)
+    expect(adsWorkspaceActionNeedsReason("resume", "feed_banner")).toBe(true);
+    expect(adsWorkspaceActionNeedsReason("resume", "platform_popup_campaign")).toBe(true);
     // H-3: 커뮤니티 상위노출 재개는 도메인 화면(exposeStart L2)과 같이 사유 필수
     expect(adsWorkspaceActionNeedsReason("resume", "boost_community")).toBe(true);
     expect(adsWorkspaceMutationConfirmCopy("resume", true, { family: "boost_community" }).level).toBe("L2");
@@ -28,7 +32,10 @@ describe("admin mutation confirm copy (CUT R1)", () => {
     expect(adsWorkspaceMutationConfirmCopy("reject", true).level).toBe("L2");
     expect(adsWorkspaceMutationConfirmCopy("delete_safe_draft", true).level).toBe("L3");
     expect(adsWorkspaceMutationConfirmCopy("end", true).level).toBe("L3");
-    expect(adsWorkspaceMutationConfirmCopy("resume", true).level).toBe("L1");
+    expect(adsWorkspaceMutationConfirmCopy("resume", true).level).toBe("L2");
+    expect(adsWorkspaceMutationConfirmCopy("pause", true).level).toBe("L2");
+    expect(adsWorkspaceMutationConfirmCopy("extend_compensation", true).level).toBe("L2");
+    expect(adsWorkspaceMutationConfirmCopy("change_period", true).level).toBe("L1");
     expect(adsWorkspaceMutationConfirmCopy("pause", true, { boostSanction: true }).level).toBe("L2");
   });
 

@@ -3,7 +3,7 @@
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -75,6 +75,12 @@ import {
   adminManilaInputToIso,
 } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
+import {
+  DELIVERY_AD_END_FAULTS,
+  deliveryAdEndFaultLabel,
+  isDeliveryAdLiveEndLifecycle,
+  type DeliveryAdEndFault,
+} from "@/lib/stores/advertising/admin-delivery-ad-end";
 
 const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
   "approve",
@@ -97,11 +103,11 @@ function deliveryReviewConfirmKind(action: AdminDeliveryAdAction): AdminActionKi
 }
 
 /**
- * 운영 조치 → 확인 단계 동작 표 (R2). 예전 「두 번 눌러 확인」·행 안 사유 입력을 confirmAdminAction 하나로 바꾼다.
- * - 일시 중지: 서버 계약이 사유 필수(`adminActionRequiresReason` → reason_required) → 사유를 받는 sanction(L2)
- * - 종료: exposeStop(L1) · 보관: disable(L1)
- * - 강제 종료: forceCancel(L3, 사유 필수 계약 유지 + 광고 이름 재입력) · 초안 삭제: delete(L3, 사유 → 삭제 감사 reason)
- * 사유는 기존 API 본문 `reason`(+ ownerVisibleNotes) 으로 보낸다 — 서버 계약 변경 없음.
+ * 운영 조치 → 확인 단계 동작 표 (R2 · 설계 §6 공통 규칙 · AL-04/05/06). 단계는 `adminActionLevel` 한 표에서 정한다.
+ * - 정지 pause(L2 사유) · 재개 resume(L2 사유) · 검수 시작 reviewStart(L1)
+ * - 종료 end(L3 = 사유 + 귀책 + 대상 재입력 + 환급 미리보기 — 진행 중이면 아래 「종료」 패널에서 귀책·미리보기 후 확인창)
+ * - 강제 종료 forceCancel(L3) · 보관 disable(L1) · 초안 삭제 delete(L3, 사유 → 삭제 감사 reason)
+ * 사유는 API 본문 `reason`(+ ownerVisibleNotes) 으로 보내고 서버가 같은 규칙으로 검사한다.
  */
 const DELIVERY_AD_OPS_CONFIRM: Partial<
   Record<
@@ -109,20 +115,36 @@ const DELIVERY_AD_OPS_CONFIRM: Partial<
     { kind: AdminActionKind; titleKo: string; titleEn: string; descKo: string; descEn: string; destructive: boolean }
   >
 > = {
+  start_review: {
+    kind: "reviewStart",
+    titleKo: "이 광고 검수를 시작할까요?",
+    titleEn: "Start reviewing this ad?",
+    descKo: "검수 중 상태로 바뀌고 사장님 화면에도 「검수 중」으로 보입니다.",
+    descEn: "The ad moves to under review.",
+    destructive: false,
+  },
   pause: {
-    kind: "sanction",
+    kind: "pause",
     titleKo: "이 광고를 일시 중지할까요?",
     titleEn: "Pause this ad?",
     descKo: "고객 화면 노출이 멈춥니다. 「재개」로 다시 노출할 수 있습니다.",
     descEn: "The ad stops showing to customers. You can resume it later.",
     destructive: true,
   },
+  resume: {
+    kind: "adResume",
+    titleKo: "이 광고를 다시 노출할까요?",
+    titleEn: "Resume this ad?",
+    descKo: "고객 화면에 다시 노출됩니다.",
+    descEn: "The ad shows to customers again.",
+    destructive: false,
+  },
   end: {
-    kind: "exposeStop",
+    kind: "end",
     titleKo: "이 광고를 종료할까요?",
     titleEn: "End this ad?",
-    descKo: "광고 노출을 마칩니다.",
-    descEn: "The ad stops showing.",
+    descKo: "광고 노출을 마칩니다. 되돌릴 수 없습니다.",
+    descEn: "The ad stops showing. This cannot be undone.",
     destructive: true,
   },
   terminate: {
@@ -145,11 +167,22 @@ const DELIVERY_AD_OPS_CONFIRM: Partial<
     kind: "delete",
     titleKo: "이 초안을 삭제할까요?",
     titleEn: "Delete this draft?",
-    descKo: "되돌릴 수 없습니다. 작성 중인 광고 초안이 삭제됩니다.",
-    descEn: "This cannot be undone. The draft ad is deleted.",
+    descKo: "되돌릴 수 없습니다. 작성 중인 광고 초안과 소재가 삭제됩니다. 작업 기록 1건은 남습니다.",
+    descEn: "This cannot be undone. The draft ad and its creative are deleted. One activity record remains.",
     destructive: true,
   },
 };
+
+/** 보완 설계 §4-3 — 삭제·종료·보관은 「삭제 자리」 한 곳에서만 보인다 (일반 조치 목록에서 뺀다). */
+const DELETE_SLOT_ACTIONS = new Set<AdminDeliveryAdAction>(["delete_safe_draft", "end", "archive"]);
+
+/** 삭제 실패 코드 중 「삭제 불가 → 종료·보관」 안내로 바꾸는 것. */
+const DELETE_BLOCKED_CODES = new Set([
+  "delete_not_allowed",
+  "delete_blocked_funding_secured",
+  "not_draft",
+  "not_admin_direct",
+]);
 
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
@@ -233,7 +266,17 @@ export function AdminDeliveryAdDetailWorkspace({
   const [decisionActionsExpanded, setDecisionActionsExpanded] = useState(false);
   const [extendDays, setExtendDays] = useState(7);
   const [extendKind, setExtendKind] = useState<"PAID" | "ADMIN_FREE_COMPENSATION">("PAID");
-  const [extendReason, setExtendReason] = useState("");
+  /** AL-04 — 진행 중 종료 패널: 귀책 → 환급 미리보기 → L3 확인창. */
+  const [endPanelOpen, setEndPanelOpen] = useState(false);
+  const [endFault, setEndFault] = useState<DeliveryAdEndFault | null>(null);
+  const [endPreview, setEndPreview] = useState<{
+    refundAmount: number;
+    paidAmount: number;
+    remainingSeconds: number;
+  } | null>(null);
+  const [endPreviewBusy, setEndPreviewBusy] = useState(false);
+  /** AL-02 — 삭제가 서버에서 막힌 이유 코드 (삭제 자리에 안내 + 종료·보관). */
+  const [deleteBlockedCode, setDeleteBlockedCode] = useState<string | null>(null);
   const [extendQuote, setExtendQuote] = useState<{
     amountMinor: number;
     currency: string;
@@ -437,8 +480,20 @@ export function AdminDeliveryAdDetailWorkspace({
     return "border-sam-border bg-sam-surface text-sam-fg";
   }
 
-  async function runAction(action: AdminDeliveryAdAction, opts?: { reason?: string; confirmed?: boolean }) {
+  async function runAction(
+    action: AdminDeliveryAdAction,
+    opts?: { reason?: string; confirmed?: boolean; fault?: DeliveryAdEndFault }
+  ) {
     if (!campaign || busy) return;
+
+    // AL-04 — 진행 중 종료는 귀책·환급 미리보기 패널을 먼저 연다 (확인창은 패널의 「종료 진행」에서).
+    if (action === "end" && !opts?.confirmed && isDeliveryAdLiveEndLifecycle(campaign.lifecycleStatus)) {
+      setError(null);
+      setEndPanelOpen(true);
+      setEndFault(null);
+      setEndPreview(null);
+      return;
+    }
 
     if (REVIEW_CONFIRM_ACTIONS.has(action) && !opts?.confirmed) {
       setError(null);
@@ -504,6 +559,7 @@ export function AdminDeliveryAdDetailWorkspace({
             expectedUpdatedAt: campaign.updatedAt,
             reason: reasonValue || null,
             ownerVisibleNotes: reasonValue || null,
+            ...(opts?.fault ? { fault: opts.fault, preview: false } : {}),
           }),
         }
       );
@@ -513,6 +569,9 @@ export function AdminDeliveryAdDetailWorkspace({
         result?: { refundWarning?: string; refundQueued?: boolean };
       };
       if (!res.ok || !json.ok) {
+        if (action === "delete_safe_draft" && json.error && DELETE_BLOCKED_CODES.has(json.error)) {
+          setDeleteBlockedCode(json.error);
+        }
         setError(
           json.error === "funding_required"
             ? t("admin_delivery_ad_funding_required")
@@ -530,6 +589,11 @@ export function AdminDeliveryAdDetailWorkspace({
         router.push(DELIVERY_AD_ADMIN_ROUTES.hub);
         return;
       }
+      if (action === "end") {
+        setEndPanelOpen(false);
+        setEndFault(null);
+        setEndPreview(null);
+      }
       await load();
       if (refundWarning) {
         // DEF-5: 반려 후 캐시 환불 실패 — 숨기지 않고 표시, 처리 대기 등록 여부도 함께 안내.
@@ -544,6 +608,77 @@ export function AdminDeliveryAdDetailWorkspace({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** AL-04 — 귀책을 고르면 서버 미리보기(preview=true)로 환급 예정 비즈니스 캐시를 받는다 (돈 계산은 DB 함수만). */
+  async function previewEnd(fault: DeliveryAdEndFault) {
+    if (!campaign) return;
+    setEndFault(fault);
+    setEndPreview(null);
+    setEndPreviewBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/delivery-ads/${encodeURIComponent(campaignId)}/actions`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productKind: campaign.productKind,
+            action: "end",
+            expectedLifecycle: campaign.lifecycleStatus,
+            expectedUpdatedAt: campaign.updatedAt,
+            fault,
+            preview: true,
+          }),
+        }
+      );
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        result?: { refundAmount?: number; paidAmount?: number; remainingSeconds?: number };
+      };
+      if (!res.ok || !json.ok || !json.result) {
+        setError(adminOperatorErrorMessage(json.error || "action_failed", lang !== "en"));
+        return;
+      }
+      setEndPreview({
+        refundAmount: Number(json.result.refundAmount ?? 0),
+        paidAmount: Number(json.result.paidAmount ?? 0),
+        remainingSeconds: Number(json.result.remainingSeconds ?? 0),
+      });
+    } catch {
+      setError(adminOperatorErrorMessage("network_error", lang !== "en"));
+    } finally {
+      setEndPreviewBusy(false);
+    }
+  }
+
+  /** AL-04 — 종료 L3: 사유 + 대상 재입력 확인창 → 귀책과 함께 종료 실행. */
+  async function confirmEnd() {
+    if (!campaign || !endFault || !endPreview) return;
+    const ko = lang !== "en";
+    const target = campaign.title?.trim() || campaign.id;
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("end"),
+      ko,
+      title: ko ? "이 광고를 종료할까요?" : "End this ad?",
+      description: [
+        target,
+        ko ? "광고 노출을 마칩니다. 되돌릴 수 없습니다." : "The ad stops showing. This cannot be undone.",
+        `${ko ? "귀책" : "Responsibility"}: ${deliveryAdEndFaultLabel(endFault, ko)}`,
+        `${ko ? "환급 예정 비즈니스 캐시" : "Business Cash refund"}: ${formatAdminDeliveryAdPriceOrUnset(endPreview.refundAmount, lang)}`,
+      ].join("\n"),
+      confirmLabel: safeT("admin_delivery_ads_action_end" as MessageKey, {
+        fallbackKo: "종료",
+        fallbackEn: "End",
+      }),
+      destructive: true,
+      retypeValue: target,
+    });
+    if (!confirmed.ok) return;
+    await runAction("end", { reason: confirmed.reason ?? "", confirmed: true, fault: endFault });
   }
 
   async function saveSchedule() {
@@ -636,10 +771,6 @@ export function AdminDeliveryAdDetailWorkspace({
 
   async function submitExtend() {
     if (!campaign || extendBusy) return;
-    if (!extendReason.trim()) {
-      setError(lang === "en" ? "Extension reason is required." : "연장 사유를 입력하세요.");
-      return;
-    }
     const quote = extendQuote;
     if (!quote || quote.daysAdded !== extendDays) {
       setExtendQuote(null);
@@ -657,9 +788,9 @@ export function AdminDeliveryAdDetailWorkspace({
           ? "0 (보상)"
           : "0 (compensation)"
         : `${(quote.amountMinor / 100).toFixed(2)} ${quote.currency}`;
-    // 사유는 입력칸(필수)으로 받아 API 로 보내므로 확인은 1회(저장 단계)
+    // AL-06 — 유료·보상 연장 = L2: 확인창에서 사유(필수)를 받아 API 로 보낸다.
     const confirmed = await confirmAdminAction({
-      level: adminActionLevel("save"),
+      level: adminActionLevel("extend"),
       ko,
       title: ko ? "광고 기간을 연장할까요?" : "Extend the ad period?",
       description: ko
@@ -682,16 +813,15 @@ export function AdminDeliveryAdDetailWorkspace({
             expectedUpdatedAt: campaign.updatedAt,
             requestedDays: extendDays,
             extensionKind: extendKind,
-            reason: extendReason.trim(),
+            reason: (confirmed.reason ?? "").trim(),
           }),
         }
       );
       const json = (await res.json()) as { ok?: boolean; error?: string; detail?: string };
       if (!res.ok || !json.ok) {
-        setError(json.error || json.detail || "extend_failed");
+        setError(adminOperatorErrorMessage(json.error || "extend_failed", lang !== "en"));
         return;
       }
-      setExtendReason("");
       setExtendQuote(null);
       await load();
     } catch {
@@ -850,6 +980,166 @@ export function AdminDeliveryAdDetailWorkspace({
       ctaHref: campaign.ctaHref,
     });
   }, [campaign, creative]);
+
+  // AL-02 · §4-3 — 삭제 자리: 삭제 가능(운영자 등록 초안)이면 삭제 버튼, 아니면 이유 + 종료·보관 버튼.
+  const closeActions = allowedActions.filter((a) => a === "end" || a === "archive");
+  const koUi = lang !== "en";
+  let deleteSlot: ReactNode = null;
+  if (campaign) {
+    const isDraft = campaign.lifecycleStatus === "DRAFT";
+    const adminDirect = campaign.campaignSource === "DIBAY_FIRST_PARTY";
+    const canDelete =
+      allowedActions.includes("delete_safe_draft") && adminDirect && !deleteBlockedCode;
+    const blockedCode =
+      deleteBlockedCode ??
+      (!adminDirect ? (isDraft ? "not_admin_direct" : "delete_not_allowed") : isDraft ? null : "not_draft");
+    const showSlot = canDelete || isDraft || closeActions.length > 0 || deleteBlockedCode != null;
+    const notice = (() => {
+      if (!blockedCode) return null;
+      if (blockedCode === "not_admin_direct") {
+        return koUi
+          ? "삭제할 수 없습니다 — 운영자 등록 광고만 삭제할 수 있습니다 (사장님 초안은 사장님이 삭제합니다)"
+          : "Cannot delete — only operator-registered ads can be deleted (owners delete their own drafts).";
+      }
+      if (blockedCode === "delete_blocked_funding_secured") {
+        return koUi
+          ? "삭제할 수 없습니다 — 결제된 캐시가 있어 종료(또는 보관)만 됩니다"
+          : "Cannot delete — paid Cash is held, so it can only be ended (or archived).";
+      }
+      if (blockedCode === "not_draft") {
+        return koUi
+          ? "삭제할 수 없습니다 — 초안이 아니어서 종료(또는 보관)만 됩니다"
+          : "Cannot delete — not a draft, so it can only be ended (or archived).";
+      }
+      return koUi
+        ? "삭제할 수 없습니다 — 노출·결제 이력이 있어 종료(또는 보관)만 됩니다"
+        : "Cannot delete — it has exposure or payment history, so it can only be ended (or archived).";
+    })();
+    deleteSlot = showSlot ? (
+      <div
+        className="mt-3 flex flex-col gap-2 border-t border-sam-border pt-3"
+        data-admin-delivery-ads-delete-slot={canDelete ? "delete" : "blocked"}
+      >
+        {canDelete ? (
+          <div className="flex flex-wrap gap-2">
+            <AdminActionButton
+              variant="danger"
+              size="sm"
+              disabled={busy || writeBlocked}
+              title={writeBlockedTitle}
+              data-admin-delivery-ads-action="delete_safe_draft"
+              onClick={() => void runAction("delete_safe_draft")}
+            >
+              {safeT("admin_delivery_ads_action_delete_safe_draft" as MessageKey, {
+                fallbackKo: "초안 삭제",
+                fallbackEn: "Delete draft",
+              })}
+            </AdminActionButton>
+          </div>
+        ) : (
+          <>
+            {notice ? (
+              <p className="text-[12px] text-sam-muted" data-admin-delivery-ads-delete-blocked="1">
+                {notice}
+              </p>
+            ) : null}
+            {closeActions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {closeActions.map((action) => (
+                  <AdminActionButton
+                    variant={action === "end" ? "danger" : "secondary"}
+                    size="sm"
+                    key={action}
+                    disabled={busy || writeBlocked}
+                    title={writeBlockedTitle}
+                    data-admin-delivery-ads-action={action}
+                    onClick={() => void runAction(action)}
+                  >
+                    {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
+                      fallbackKo: action === "end" ? "종료" : "보관",
+                      fallbackEn: action === "end" ? "End" : "Archive",
+                    })}
+                  </AdminActionButton>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    ) : null;
+  }
+
+  // AL-04 · D-13 — 진행 중 종료 패널: 귀책 라디오 → 서버 미리보기 → 「종료 진행」(L3 확인창).
+  const endPanel =
+    campaign && endPanelOpen ? (
+      <div
+        className="mt-3 space-y-2 rounded-ui-rect border border-sam-danger/40 bg-sam-app p-3"
+        data-admin-delivery-ads-end-panel="1"
+      >
+        <p className="text-[13px] font-semibold text-sam-fg">
+          {koUi ? "종료 귀책을 고르세요" : "Who is responsible for ending?"}
+        </p>
+        <div className="flex flex-col gap-1 text-[12px]" role="radiogroup">
+          {DELIVERY_AD_END_FAULTS.map((f) => (
+            <label key={f} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="deliveryAdEndFault"
+                value={f}
+                checked={endFault === f}
+                disabled={endPreviewBusy || busy}
+                data-admin-delivery-ads-end-fault={f}
+                onChange={() => void previewEnd(f)}
+              />
+              {deliveryAdEndFaultLabel(f, koUi)}
+            </label>
+          ))}
+        </div>
+        {endPreviewBusy ? (
+          <p className="text-[12px] text-sam-muted">{koUi ? "환급 금액을 계산하는 중…" : "Calculating refund…"}</p>
+        ) : endPreview ? (
+          <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-delivery-ads-end-preview="1">
+            <li>
+              {koUi ? "환급 예정 비즈니스 캐시" : "Business Cash refund"}:{" "}
+              {formatAdminDeliveryAdPriceOrUnset(endPreview.refundAmount, lang)}
+            </li>
+            <li>
+              {koUi ? "결제 금액" : "Paid"}: {formatAdminDeliveryAdPriceOrUnset(endPreview.paidAmount, lang)}
+            </li>
+            <li>
+              {koUi ? "남은 기간" : "Remaining"}:{" "}
+              {koUi
+                ? `${Math.floor(endPreview.remainingSeconds / 86400)}일 ${Math.floor((endPreview.remainingSeconds % 86400) / 3600)}시간`
+                : `${Math.floor(endPreview.remainingSeconds / 86400)}d ${Math.floor((endPreview.remainingSeconds % 86400) / 3600)}h`}
+            </li>
+          </ul>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <AdminActionButton
+            variant="danger"
+            size="sm"
+            disabled={busy || writeBlocked || endPreviewBusy || !endFault || !endPreview}
+            title={writeBlockedTitle}
+            data-admin-delivery-ads-end-confirm="1"
+            onClick={() => void confirmEnd()}
+          >
+            {koUi ? "종료 진행" : "Continue to end"}
+          </AdminActionButton>
+          <AdminActionButton
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setEndPanelOpen(false);
+              setEndFault(null);
+              setEndPreview(null);
+            }}
+          >
+            {koUi ? "취소" : "Cancel"}
+          </AdminActionButton>
+        </div>
+      </div>
+    ) : null;
 
   useEffect(() => {
     if (!focusCreative || loading || !campaign) return;
@@ -1354,8 +1644,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   {(requiredDecision.decisionRequired
                     ? requiredDecision.primaryReviewActions
                     : allowedActions
-                  ).map((action) => (
-                    <AdminActionButton variant={action === "terminate" || action === "delete_safe_draft" ? "danger" : "secondary"} size="sm"
+                  ).filter((a) => !DELETE_SLOT_ACTIONS.has(a)).map((action) => (
+                    <AdminActionButton variant={action === "terminate" ? "danger" : "secondary"} size="sm"
                       key={action}
                       title={writeBlockedTitle}
                       disabled={
@@ -1375,9 +1665,10 @@ export function AdminDeliveryAdDetailWorkspace({
                     </AdminActionButton>
                   ))}
                 </div>
-                {requiredDecision.decisionRequired && secondaryActions.length > 0 ? (
+                {requiredDecision.decisionRequired &&
+                secondaryActions.some((a) => !DELETE_SLOT_ACTIONS.has(a)) ? (
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-sam-border pt-3">
-                    {secondaryActions.map((action) => (
+                    {secondaryActions.filter((a) => !DELETE_SLOT_ACTIONS.has(a)).map((action) => (
                       <AdminActionButton variant="secondary" size="sm"
                         key={action}
                         disabled={busy || writeBlocked}
@@ -1393,6 +1684,8 @@ export function AdminDeliveryAdDetailWorkspace({
                     ))}
                   </div>
                 ) : null}
+                {deleteSlot}
+                {endPanel}
               </AdminCard>
               ) : null}
             </div>
@@ -1638,15 +1931,6 @@ export function AdminDeliveryAdDetailWorkspace({
                         // v4 UI-08: 입력이 바뀌면 이전 견적은 무효 — 다시 미리보기 후 실행
                         setExtendQuote(null);
                       }}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-[12px]">
-                    {lang === "en" ? "Reason (required)" : "사유 (필수)"}
-                    <input
-                      type="text"
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5"
-                      value={extendReason}
-                      onChange={(e) => setExtendReason(e.target.value)}
                     />
                   </label>
                   {extendQuote ? (

@@ -78,6 +78,10 @@
       "schedule": "*/10 * * * *"
     },
     {
+      "path": "/api/cron/community-promotion-orders-expire",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/store-orders-auto-complete",
       "schedule": "*/5 * * * *"
     },

@@ -161,7 +161,8 @@ describe("③-b 마이 CMS 배너 — 닫으면 다음 배너", () => {
     title: id,
     description: null,
     image_url: null,
-    link_url: null,
+    // DS-7 (2026-11-04): 링크 없는 마이 배너는 고객 응답에서 빠진다 → 시험 배너도 앱 안 경로를 가진다
+    link_url: "/mypage",
     is_active: true,
     dismissible,
     sort_order: 0,

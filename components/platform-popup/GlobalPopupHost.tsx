@@ -44,8 +44,9 @@ import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-even
 import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 import { fetchPlatformPopupResolveDeduped } from "@/lib/platform-popup/fetch-platform-popup-resolve-client";
 import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
-import { openDestination } from "@/lib/destination/open-destination";
+import { notifyDestinationOpenFailed, openDestination } from "@/lib/destination/open-destination";
 import { parseDestinationHref } from "@/lib/destination/destination-contract";
+import { waitPlatformPopupImageReady } from "@/lib/platform-popup/popup-image-ready";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
@@ -399,11 +400,29 @@ export function GlobalPopupHost() {
   ]);
 
   // Promote READY → VISIBLE only when still eligible (presentation shell boundary)
+  // D-27: 소재 이미지 디코드가 끝난 뒤에만 틀을 보인다. 실패 = 깨진 소재(이번 실행 제외), 3초 넘김 = 이번 앱 실행 건너뜀.
   useEffect(() => {
     if (hostState !== "READY" || !winner) return;
     if (!eligible) return;
-    setExposureId(`${winner.campaignId}:${winner.creativeId}:${generationRef.current}`);
-    setHostState((s) => reducePlatformPopupHostState(s, { type: "SHOW" }));
+    let cancelled = false;
+    const campaignId = winner.campaignId;
+    void waitPlatformPopupImageReady(winner.creative.imageUrl).then((result) => {
+      if (cancelled) return;
+      if (result === "ready") {
+        setExposureId(`${winner.campaignId}:${winner.creativeId}:${generationRef.current}`);
+        setHostState((s) => reducePlatformPopupHostState(s, { type: "SHOW" }));
+        return;
+      }
+      if (result === "failed") brokenCreativeCampaignIdsRef.current.add(campaignId);
+      else addPlatformPopupSessionBlockedCampaign(campaignId);
+      setWinner(null);
+      setExposureId(null);
+      generationRef.current += 1;
+      setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [hostState, winner, eligible]);
 
   const invalidateVisible = useCallback(() => {
@@ -414,8 +433,13 @@ export function GlobalPopupHost() {
     setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
   }, []);
 
+  /**
+   * 노출을 끝낸다. `persist` 일 때만 서버에 기록한다:
+   * - PU-31 · D-21 ①: CLOSE(× · close_only) 는 효과가 없는 닫기라 **요청 0** (DB 행 없음 · 세션 숨김만)
+   * - PU-30: CTA 로 끝난 노출은 click → landing 만 남기고 dismiss·suppress 는 남기지 않는다(`persist: false`)
+   */
   const suppress = useCallback(
-    async (mode: PlatformPopupSuppressionMode) => {
+    async (mode: PlatformPopupSuppressionMode, opts: { persist: boolean } = { persist: true }) => {
       if (!winner) return;
       const campaignId = winner.campaignId;
       const creativeId = winner.creativeId;
@@ -432,12 +456,14 @@ export function GlobalPopupHost() {
       generationRef.current += 1;
       abortRef.current?.abort();
 
+      if (!opts.persist || mode === "CLOSE") return;
+
       if (currentExposure) {
         void recordPlatformPopupEvent({
           campaignId,
           creativeId,
           surface: winner.surface,
-          eventType: mode === "CLOSE" ? "dismiss" : "suppress",
+          eventType: "suppress",
           source: "dismiss_handler",
           exposureId: currentExposure,
           deviceKey,
@@ -445,6 +471,7 @@ export function GlobalPopupHost() {
         });
       }
 
+      // 기록 실패(429 요청 제한 포함)는 화면 동작에 영향 없음 — 이미 닫혔고 세션 숨김은 메모리에 있다
       const res = await fetch("/api/platform-popup/suppress", {
         method: "POST",
         credentials: "same-origin",
@@ -455,12 +482,12 @@ export function GlobalPopupHost() {
           sessionKey: appSessionId,
           deviceKey,
           durationSeconds: mode === "DURATION" ? winner.suppressionDurationSeconds : undefined,
-          // CAMPAIGN 숨김 = 본 소재 기준 — 소재를 바꾸면 다시 노출 (서버 후보 revision = 소재 id)
-          campaignRevision: mode === "CAMPAIGN" ? creativeId : undefined,
+          // D-2: CAMPAIGN 숨김 = 본 판(소재 + 목적지) 기준 — 이미지·목적지를 바꾸면 다시 노출 (서버 후보 revision)
+          campaignRevision: mode === "CAMPAIGN" ? winner.revision ?? creativeId : undefined,
         }),
-      });
-      if (!res.ok) {
-        console.error("[GlobalPopupHost] suppress_write_failed", await res.text());
+      }).catch(() => null);
+      if (res && !res.ok) {
+        console.error("[GlobalPopupHost] suppress_write_failed", res.status);
       }
     },
     [winner, appSessionId, deviceKey, exposureId]
@@ -493,7 +520,11 @@ export function GlobalPopupHost() {
     if (!winner || !exposureId) return;
     if (ctaHandledExposureRef.current === exposureId) return;
     const href = winner.cta.href.trim();
-    if (!validateWinnerHref(href)) return;
+    if (!validateWinnerHref(href)) {
+      // DS-9: 무반응 금지 — 팝업은 그대로 두고 안내
+      notifyDestinationOpenFailed();
+      return;
+    }
     ctaHandledExposureRef.current = exposureId;
 
     // 광고 감사(범위 밖 발견 · 4단계): landing 기록은 click 기록이 끝난 뒤 — 같은 노출에서 순서가 뒤바뀌지 않게(PTR R-2 와 같음)
@@ -507,17 +538,20 @@ export function GlobalPopupHost() {
       deviceKey,
     }).catch(() => {});
 
-    // CTA lifecycle: navigate then frequency-dismiss (re-entry prevention).
-    // Analytics: click ≠ dismiss; suppress write still follows frequency SSOT.
+    // CTA lifecycle: navigate then end exposure locally (re-entry prevention = session block).
+    // Analytics: click → landing only (no dismiss·suppress rows · PU-30).
     // Cross-channel: same-Event content visit (session) — covers multi-campaign + close_only.
+    // PU-30: CTA 로 끝나면 dismiss·suppress 를 기록하지 않는다 — 노출만 끝내고 이번 실행 숨김(메모리)만 둔다.
+    // 「오늘 하루」·「다시 보지 않기」는 사용자가 고른 경우에만 서버 숨김이 생긴다.
     const dismissAfterCta = () => {
-      void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode));
+      void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode), { persist: false });
     };
 
     const parsed = parseDestinationHref(href);
     if (!parsed.ok) {
-      // 재감사: 이동 못 하면 잠그지 않는다 — 팝업이 남은 채 CTA 가 다시 눌리지 않던 문제
+      // 재감사: 이동 못 하면 잠그지 않는다 — 팝업이 남은 채 CTA 가 다시 눌리지 않던 문제 · DS-9 안내
       ctaHandledExposureRef.current = null;
+      notifyDestinationOpenFailed();
       return;
     }
     if (parsed.ref.kind !== "external_url") {

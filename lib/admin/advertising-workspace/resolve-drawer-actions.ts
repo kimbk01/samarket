@@ -47,6 +47,44 @@ const ACTION_TO_VERB: Record<
   extend_compensation: "EXTEND_COMPENSATION",
 };
 
+/**
+ * 설계 §6 · FB-A05 · AD-103 (2026-11-04) — 공통 조치 API 가 사유를 요구하는 동작 (동작 단계 표 L2·L3 와 같다).
+ * 승인·반려·보류·정지·재개·연장 = L2 · 종료·강제 종료·초안 삭제 = L3. 화면·서버가 같은 목록을 쓴다.
+ */
+export const ADS_WORKSPACE_REASON_REQUIRED_ACTIONS: readonly WorkspaceDrawerAction[] = [
+  "approve",
+  "reject",
+  "request_changes",
+  "pause",
+  "resume",
+  "extend_compensation",
+  "end",
+  "terminate",
+  "delete_safe_draft",
+];
+
+/**
+ * AL-16: 팝업 캠페인 초안 삭제 가능 = 서버 `isPlatformPopupDeleteSafeDraftRow` 와 같은 조건 —
+ * 운영자 등록(사장님 매장·신청 연결 없음) + 상태 draft·pending_review. (노출 기록 0 은 서버가 삭제 직전에 센다)
+ * 목록 행에는 원 상태 대신 완성도·노출 분류가 실려 오므로 그것으로 같은 판정을 한다.
+ */
+export function isWorkspacePopupDeleteSafeDraft(item: {
+  sourceKind?: string | null;
+  completenessClass?: string | null;
+  runtimeDisplayStatus?: string | null;
+}): boolean {
+  if (item.sourceKind !== "admin_direct") return false;
+  const c = String(item.completenessClass ?? "");
+  if (c === "orphan_partial" || c === "incomplete" || c === "draft_ready" || c === "pending_review") return true;
+  const r = String(item.runtimeDisplayStatus ?? "");
+  return r === "draft" || r === "pending" || r === "incomplete";
+}
+
+/** AL-17: 글 상태로 멈춘 상위노출(paused_by = listing_*)은 관리자 재개 불가 — 거래 도메인 화면과 같은 조건. */
+export function isListingPausedBoost(pausedBy: string | null | undefined): boolean {
+  return String(pausedBy ?? "").startsWith("listing_");
+}
+
 function familyForMatrix(f: WorkspaceEntityFamily): AdminAuthorityFamily {
   if (f === "boost_community") return "boost_community";
   if (f === "boost_trade") return "boost_trade";
@@ -91,6 +129,26 @@ export function inferWorkspaceLifecycleBucket(statusRaw: string):
 }
 
 export function listWorkspaceDrawerActions(input: {
+  family: WorkspaceEntityFamily;
+  statusRaw: string;
+  /** AL-16: 팝업 캠페인 초안 삭제 가능 여부(`isWorkspacePopupDeleteSafeDraft`) — 주면 이 값으로만 삭제 버튼을 정한다 */
+  popupDeleteSafe?: boolean;
+  /** AL-17: 상위노출 정지 주체 — `listing_*` 면 재개를 숨긴다 */
+  pausedBy?: string | null;
+}): WorkspaceDrawerAction[] {
+  const actions = listWorkspaceDrawerActionsRaw(input);
+  let out = actions;
+  if (input.family === "platform_popup_campaign" && typeof input.popupDeleteSafe === "boolean") {
+    out = out.filter((a) => a !== "delete_safe_draft");
+    if (input.popupDeleteSafe) out = ["delete_safe_draft", ...out];
+  }
+  if ((input.family === "boost_trade" || input.family === "boost_community") && isListingPausedBoost(input.pausedBy)) {
+    out = out.filter((a) => a !== "resume");
+  }
+  return out;
+}
+
+function listWorkspaceDrawerActionsRaw(input: {
   family: WorkspaceEntityFamily;
   statusRaw: string;
 }): WorkspaceDrawerAction[] {

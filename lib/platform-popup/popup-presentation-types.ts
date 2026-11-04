@@ -54,4 +54,6 @@ export type PlatformPopupPresentationWinner = {
   suppressionOptions: readonly PlatformPopupPresentationSuppressionOption[];
   timezone: string;
   suppressionDurationSeconds: number | null;
+  /** D-2: 「다시 보지 않기」 기준 판(소재 + 목적지 해시) — 숨김 기록 때 앱이 그대로 보낸다 */
+  revision?: string | null;
 };

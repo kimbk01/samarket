@@ -34,7 +34,7 @@ export type ApplyCommunityPromotionResult =
       /** 재감사 R-03: 같은 요청 키 재전송 — DB 가 처음 결과를 그대로 돌려줌(추가 차감 없음) */
       idempotent?: boolean;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; pointCost?: number; durationDays?: number };
 
 async function resolveOwnedCommunityPost(
   sb: SupabaseClient,
@@ -233,6 +233,16 @@ export async function applyCommunityPaidExposureImmediate(
 
   if (!rpc.ok) {
     const err = rpc.error ?? "purchase_failed";
+    // PB-40: DB 함수가 가격을 다시 읽어 다르면 새 가격을 함께 돌려준다 → 라우트가 409 price_changed(새 가격)로 안내
+    if (err === "price_changed") {
+      const fresh = rpc as { point_cost?: number; duration_days?: number };
+      return {
+        ok: false,
+        error: err,
+        pointCost: Number(fresh.point_cost ?? NaN),
+        durationDays: Number(fresh.duration_days ?? NaN),
+      };
+    }
     return { ok: false, error: err };
   }
 

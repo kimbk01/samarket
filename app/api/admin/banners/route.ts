@@ -9,7 +9,7 @@ import {
   listAdminBanners,
 } from "@/lib/admin-banners/admin-banners-db";
 import type { AdminBanner } from "@/lib/types/admin-banner";
-import { normalizeOptionalDestinationHref } from "@/lib/destination/optional-destination-href";
+import { validateMyPageBannerLinkForSave } from "@/lib/my/my-page-banner-destination";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
@@ -37,9 +37,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!sb) return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
 
   const body = (await req.json().catch(() => ({}))) as Partial<AdminBanner>;
-  // EVT-07: link must be a valid DestinationRef (internal / event / https) — stored canonical.
-  if (body.targetUrl != null) {
-    const link = normalizeOptionalDestinationHref(body.targetUrl);
+  // DS-7 · C-1 (Owner 「설계안대로」 2026-11-04): 마이 배너 링크 = 앱 안 경로·이벤트만, **필수**(외부 https · 빈칸 거부).
+  // 만들기는 항상 검사한다.
+  {
+    const link = validateMyPageBannerLinkForSave(body.targetUrl);
     if (!link.ok) {
       return NextResponse.json(
         { ok: false, error: `invalid_target_url:${link.error}` },

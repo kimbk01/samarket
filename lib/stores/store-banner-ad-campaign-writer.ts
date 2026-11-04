@@ -3,7 +3,7 @@
  * NOT feed_ad_campaigns / store_banners / my_page_banners / STORE_PAID_AD.
  */
 
-import { normalizeOptionalDestinationHref } from "@/lib/destination/optional-destination-href";
+import { validateDeliveryFirstPartyBannerDestination } from "@/lib/destination/delivery-banner-destination";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   STORE_BANNER_AD_CAMPAIGN_TABLE,
@@ -102,17 +102,6 @@ export type StoreBannerAdCreateInput = {
   isActive: boolean;
 };
 
-export type StoreBannerAdUpdateInput = {
-  id: string;
-  title?: string | null;
-  subtitle?: string | null;
-  imageUrl?: string;
-  ctaHref?: string;
-  sortOrder?: number;
-  startAt?: string;
-  endAt?: string;
-  isActive?: boolean;
-};
 
 export function parseStoreBannerAdCampaignCreateBody(
   rawBody: unknown
@@ -134,8 +123,13 @@ export function parseStoreBannerAdCampaignCreateBody(
   if (!endAt) return { ok: false, error: "invalid_end_at" };
   if (Date.parse(endAt) <= Date.parse(startAt)) return { ok: false, error: "invalid_window" };
 
-  // EVT-07: banner link must be a valid DestinationRef (internal / event / https); empty = none.
-  const cta = normalizeOptionalDestinationHref(body.ctaHref ?? body.cta_href);
+  // DS-6 · C-2 (2026-11-04): 이 표의 배너는 매장 칸이 없다 → 매장 없는 자체 배너 규칙(이벤트·배달 안 화면).
+  // 외부 https 는 저장 거부 — 예전에는 저장은 되고 노출 단계(`isDeliveryBannerDestinationReady`)에서 0 이었다.
+  // 빈칸(링크 없음)은 예전대로 받는다(이 쓰기 경로는 라우트가 410 으로 막혀 있고 기존 계약 시험이 빈칸 저장을 본다).
+  const rawCta = String(body.ctaHref ?? body.cta_href ?? "").trim();
+  const cta = rawCta
+    ? validateDeliveryFirstPartyBannerDestination({ ctaHref: rawCta, storeSlug: null })
+    : ({ ok: true, href: "" } as const);
   if (!cta.ok) return { ok: false, error: "invalid_cta_href" };
 
   const titleRaw = body.title;
@@ -157,59 +151,6 @@ export function parseStoreBannerAdCampaignCreateBody(
       isActive: body.isActive === false || body.is_active === false ? false : true,
     },
   };
-}
-
-export function parseStoreBannerAdCampaignUpdateBody(
-  rawBody: unknown
-):
-  | { ok: true; value: StoreBannerAdUpdateInput }
-  | { ok: false; error: StoreBannerAdWriterError; forbidden?: string[] } {
-  if (!rawBody || typeof rawBody !== "object") return { ok: false, error: "db_error" };
-  const body = rawBody as Record<string, unknown>;
-  if ("store_id" in body || "storeId" in body || "surface" in body) {
-    return { ok: false, error: "forbidden_fields", forbidden: ["surface", "store_id"] };
-  }
-  const id = String(body.id ?? "").trim();
-  if (!id) return { ok: false, error: "missing_id" };
-
-  const value: StoreBannerAdUpdateInput = { id };
-  if ("title" in body) {
-    value.title =
-      body.title == null || String(body.title).trim() === "" ? null : String(body.title).trim();
-  }
-  if ("subtitle" in body) {
-    value.subtitle =
-      body.subtitle == null || String(body.subtitle).trim() === ""
-        ? null
-        : String(body.subtitle).trim();
-  }
-  if ("imageUrl" in body || "image_url" in body) {
-    const imageUrl = String(body.imageUrl ?? body.image_url ?? "").trim();
-    if (!imageUrl) return { ok: false, error: "empty_image_url" };
-    value.imageUrl = imageUrl;
-  }
-  if ("ctaHref" in body || "cta_href" in body) {
-    const cta = normalizeOptionalDestinationHref(body.ctaHref ?? body.cta_href);
-    if (!cta.ok) return { ok: false, error: "invalid_cta_href" };
-    value.ctaHref = cta.href;
-  }
-  if ("sortOrder" in body || "sort_order" in body) {
-    value.sortOrder = Number(body.sortOrder ?? body.sort_order ?? 0) || 0;
-  }
-  if ("startAt" in body || "start_at" in body) {
-    const startAt = parseInstant(body.startAt ?? body.start_at);
-    if (!startAt) return { ok: false, error: "invalid_start_at" };
-    value.startAt = startAt;
-  }
-  if ("endAt" in body || "end_at" in body) {
-    const endAt = parseInstant(body.endAt ?? body.end_at);
-    if (!endAt) return { ok: false, error: "invalid_end_at" };
-    value.endAt = endAt;
-  }
-  if ("isActive" in body || "is_active" in body) {
-    value.isActive = body.isActive === true || body.is_active === true;
-  }
-  return { ok: true, value };
 }
 
 export async function createStoreBannerAdCampaignAdmin(
@@ -250,71 +191,7 @@ export async function createStoreBannerAdCampaignAdmin(
   return { ok: true, row: mapped };
 }
 
-export async function updateStoreBannerAdCampaignAdmin(
-  sb: SupabaseClient,
-  rawBody: unknown,
-  adminUserId: string
-): Promise<StoreBannerAdWriterResult<StoreBannerAdCampaignDbRow>> {
-  const parsed = parseStoreBannerAdCampaignUpdateBody(rawBody);
-  if (!parsed.ok) {
-    return { ok: false, error: parsed.error, forbidden: parsed.forbidden };
-  }
-
-  const existing = await loadRow(sb, parsed.value.id);
-  if (!existing.ok) return existing;
-
-  const startAt = parsed.value.startAt ?? existing.row.start_at;
-  const endAt = parsed.value.endAt ?? existing.row.end_at;
-  if (Date.parse(endAt) <= Date.parse(startAt)) return { ok: false, error: "invalid_window" };
-
-  const patch: Record<string, unknown> = {
-    start_at: startAt,
-    end_at: endAt,
-    updated_by_user_id: adminUserId,
-    updated_at: new Date().toISOString(),
-  };
-  if (parsed.value.title !== undefined) patch.title = parsed.value.title;
-  if (parsed.value.subtitle !== undefined) patch.subtitle = parsed.value.subtitle;
-  if (parsed.value.imageUrl !== undefined) patch.image_url = parsed.value.imageUrl;
-  if (parsed.value.ctaHref !== undefined) patch.cta_href = parsed.value.ctaHref;
-  if (parsed.value.sortOrder !== undefined) patch.sort_order = parsed.value.sortOrder;
-  if (parsed.value.isActive !== undefined) patch.is_active = parsed.value.isActive;
-
-  const { data, error } = await sb
-    .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
-    .update(patch)
-    .eq("id", parsed.value.id)
-    .select(SELECT_COLS)
-    .single();
-  if (error || !data) {
-    console.error("[updateStoreBannerAdCampaignAdmin]", error?.message);
-    return { ok: false, error: "db_error" };
-  }
-  const mapped = mapRow(data as Record<string, unknown>);
-  if (!mapped) return { ok: false, error: "db_error" };
-  return { ok: true, row: mapped };
-}
-
-async function loadRow(
-  sb: SupabaseClient,
-  id: string
-): Promise<
-  | { ok: true; row: StoreBannerAdCampaignDbRow }
-  | { ok: false; error: StoreBannerAdWriterError }
-> {
-  const campaignId = String(id ?? "").trim();
-  if (!campaignId) return { ok: false, error: "missing_id" };
-  const { data, error } = await sb
-    .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
-    .select(SELECT_COLS)
-    .eq("id", campaignId)
-    .maybeSingle();
-  if (error) {
-    console.error("[loadStoreBannerAdRow]", error.message);
-    return { ok: false, error: "db_error" };
-  }
-  if (!data) return { ok: false, error: "campaign_not_found" };
-  const mapped = mapRow(data as Record<string, unknown>);
-  if (!mapped) return { ok: false, error: "db_error" };
-  return { ok: true, row: mapped };
-}
+/*
+ * DS-6 (2026-11-04): `updateStoreBannerAdCampaignAdmin` · `parseStoreBannerAdCampaignUpdateBody` 는 호출처 0 이라 지웠다
+ * (grep: 라우트·화면 호출 0 · 시험만 사용). 행을 읽던 내부 함수 `loadRow` 도 같이 지웠다.
+ */

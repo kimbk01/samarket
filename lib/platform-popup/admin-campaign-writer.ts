@@ -15,7 +15,6 @@ import {
 } from "@/lib/platform-popup/admin-campaign-authority";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import {
-  PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
 } from "@/lib/platform-popup/types";
 import type {
@@ -108,8 +107,9 @@ export async function createPlatformPopupAdminCampaign(
       approval_status: "not_submitted",
       priority: Number.isFinite(input.priority) ? Number(input.priority) : 0,
       timezone: (input.timezone ?? PLATFORM_POPUP_DEFAULT_TIMEZONE).trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE,
+      // DS-5 (Owner 「설계안대로」 2026-11-04): 이동 경로 기본값(/market) 없음 — 초안은 빈칸, 검토 요청·저장 때 입력을 요구한다
       cta_type: "internal_page",
-      cta_target: PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
+      cta_target: "",
       external_url: null,
       presentation_type: presentationType,
       // PTR 띠 광고는 생성 시 허용 목록(빈 목록 = 누구에게도 미노출, fail-closed) — 공개는 관리자가 명시적으로 전환
@@ -162,7 +162,7 @@ export async function updatePlatformPopupAdminCampaign(
   const { data: current, error: fetchErr } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, presentation_type"
+      "id, name, status, approval_status, priority, start_at, end_at, timezone, suppression_mode, suppression_duration_seconds, cta_type, cta_target, external_url, presentation_type, owner_request_id"
     )
     .eq("id", campaignId)
     .maybeSingle();
@@ -268,10 +268,11 @@ export async function updatePlatformPopupAdminCampaign(
     }
     const ctaTargetRaw =
       input.patch.ctaTarget != null ? String(input.patch.ctaTarget).trim() : String(current.cta_target ?? "");
-    const ctaTarget =
-      ctaType === "internal_page" && !ctaTargetRaw
-        ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH
-        : ctaTargetRaw;
+    // DS-5: 앱 안 경로 CTA 가 빈칸이면 /market 으로 바꾸지 않고 막는다(기존 진행 중 행의 저장값은 건드리지 않음)
+    if (ctaType === "internal_page" && !ctaTargetRaw) {
+      return { ok: false, error: "cta_target_required", httpStatus: 400 };
+    }
+    const ctaTarget = ctaTargetRaw;
     const externalUrl =
       "externalUrl" in input.patch
         ? input.patch.externalUrl?.trim() || null
@@ -321,7 +322,10 @@ export async function updatePlatformPopupAdminCampaign(
 
   const material = new Set(input.materialTouched ?? []);
   if (surfacesChanged) material.add("surfaces");
-  if ("start_at" in patch || "end_at" in patch || "timezone" in patch) material.add("schedule");
+  // E-2 (Owner 2026-11-04): 운영자 팝업(사장님 신청 없음)은 기간만 바꿀 때 재검토로 되돌리지 않는다 — 관리자가 곧 승인자.
+  const operatorPopup = !(current as { owner_request_id?: string | null }).owner_request_id;
+  if (operatorPopup) material.delete("schedule");
+  else if ("start_at" in patch || "end_at" in patch || "timezone" in patch) material.add("schedule");
   if ("suppression_mode" in patch || "suppression_duration_seconds" in patch) {
     material.add("suppression");
   }

@@ -125,7 +125,12 @@ export const CommunityCard = memo(function CommunityCard({
 }) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = { ...buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language), isAd };
+  const base = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language);
+  /**
+   * 광고 ② DS-1 (2026-11-04): 상위노출 카드는 **항상 글 상세**로 보낸다(메신저 방·모임으로 보내지 않음).
+   * 일반 카드는 지금대로(방·모임 연결 글은 그쪽으로).
+   */
+  const vm = isAd ? { ...base, href: philifeAppPaths.post(post.id), isAd } : { ...base, isAd };
   const hasThumb = Boolean(vm.thumbnailUrl);
   /** `text_primary` 는 일반 주제용 「썸네일 숨김」— 모임은 `meetings.cover`·`images` 로 썸네일이 있으면 우선 표시 */
   const useTextOnlySkin = skin === "text_primary" && !(post.is_meetup && hasThumb);

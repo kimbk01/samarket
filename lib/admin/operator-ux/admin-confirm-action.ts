@@ -9,7 +9,7 @@
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { openAdminConfirmHost } from "@/lib/admin/operator-ux/admin-confirm-host";
 
-import { ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
+import { ADMIN_PUBLIC_REASON_MAX_LENGTH, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 
 export { ADMIN_REASON_MIN_LENGTH };
 
@@ -25,7 +25,10 @@ export async function confirmAdminAction(input: {
   /** L3: 운영자가 다시 입력해야 하는 값 (주문번호·매장명 등) */
   retypeValue?: string;
   reasonPlaceholder?: string;
-}): Promise<{ ok: false } | { ok: true; reason: string | null }> {
+  /** D-6: 공개 사유(120자) + 내부 메모 두 칸 (L2·L3 만). 결과에 `internalMemo` 가 붙는다. */
+  splitReason?: boolean;
+}): Promise<{ ok: false } | { ok: true; reason: string | null; internalMemo?: string | null }> {
+  const split = Boolean(input.splitReason) && input.level !== "L1";
   const cancelLabel = input.ko ? "취소" : "Cancel";
   const hosted = openAdminConfirmHost({
     title: input.title,
@@ -33,6 +36,10 @@ export async function confirmAdminAction(input: {
       input.description,
       input.level === "L1"
         ? null
+        : split
+          ? input.ko
+            ? `공개 사유는 회원·사장님에게 보입니다 (${ADMIN_REASON_MIN_LENGTH}~${ADMIN_PUBLIC_REASON_MAX_LENGTH}자). 내부 메모는 운영자만 봅니다. 둘 다 작업 기록에 남습니다.`
+            : `The public reason is shown to the member/owner (${ADMIN_REASON_MIN_LENGTH}-${ADMIN_PUBLIC_REASON_MAX_LENGTH} chars). The internal memo is for operators only. Both are recorded.`
         : input.ko
           ? `처리 사유를 입력하세요 (${ADMIN_REASON_MIN_LENGTH}자 이상). 작업 기록에 남습니다.`
           : `Enter a reason (${ADMIN_REASON_MIN_LENGTH}+ characters). It is recorded in the activity log.`,
@@ -44,7 +51,13 @@ export async function confirmAdminAction(input: {
     tone: input.destructive ? "danger" : "primary",
     reasonRequired: input.level !== "L1",
     reasonMinLength: ADMIN_REASON_MIN_LENGTH,
-    reasonLabel: input.ko ? "처리 사유" : "Reason",
+    reasonLabel: split
+      ? input.ko
+        ? `공개 사유 (회원·사장님에게 보임 · ${ADMIN_PUBLIC_REASON_MAX_LENGTH}자)`
+        : `Public reason (shown to member/owner · ${ADMIN_PUBLIC_REASON_MAX_LENGTH} chars)`
+      : input.ko
+        ? "처리 사유"
+        : "Reason",
     reasonPlaceholder: input.reasonPlaceholder ?? (input.ko ? "처리 사유" : "Reason"),
     confirmMatchText: input.level === "L3" && input.retypeValue ? input.retypeValue : undefined,
     confirmMatchLabel:
@@ -53,10 +66,19 @@ export async function confirmAdminAction(input: {
           ? `계속하려면 「${input.retypeValue}」을(를) 그대로 입력하세요`
           : `Type "${input.retypeValue}" to continue`
         : undefined,
+    ...(split ? { splitReason: true } : {}),
   });
   if (hosted) {
     const r = await hosted;
     if (!r.ok) return { ok: false };
+    if (split) {
+      const memo = (r.internalMemo ?? "").trim();
+      return {
+        ok: true,
+        reason: r.reason.trim().slice(0, ADMIN_PUBLIC_REASON_MAX_LENGTH),
+        internalMemo: memo || null,
+      };
+    }
     return { ok: true, reason: input.level === "L1" ? null : r.reason.trim() };
   }
 
@@ -112,5 +134,7 @@ export async function confirmAdminAction(input: {
     });
     if (typed === null || typed.trim() !== input.retypeValue.trim()) return { ok: false };
   }
+  // 셸 밖 대체 경로는 공개 사유 한 칸만 묻는다 (내부 메모 없음).
+  if (split) return { ok: true, reason: reason.slice(0, ADMIN_PUBLIC_REASON_MAX_LENGTH), internalMemo: null };
   return { ok: true, reason };
 }

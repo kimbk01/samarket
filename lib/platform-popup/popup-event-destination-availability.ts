@@ -11,6 +11,7 @@ import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibilit
 import {
   normalizePlatformPopupCta,
   platformPopupCtaEventId,
+  platformPopupInternalPathEntity,
   type PlatformPopupCtaInput,
   type PlatformPopupCtaTargetLookup,
 } from "@/lib/platform-popup/cta";
@@ -39,6 +40,9 @@ export function popupCtaInputEntityKey(input: PlatformPopupCtaInput): string | n
   if (ctaType === "trade_listing" || ctaType === "community_post" || ctaType === "store") {
     return popupEntityCtaKey(ctaType, ctaTarget);
   }
+  // DS-5b: 내부 경로가 글·매장 상세면 같은 대상 확인
+  const pathEntity = platformPopupInternalPathEntity(normalized.value);
+  if (pathEntity) return popupEntityCtaKey(pathEntity.kind, pathEntity.target);
   return null;
 }
 

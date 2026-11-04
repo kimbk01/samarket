@@ -16,6 +16,40 @@ import type {
 } from "@/lib/admin/ads-history/types";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
+import { adsOpsStatusLabel, mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+
+/**
+ * AD-129 · AD-308: 이력 「상세」= 그 항목 하나를 여는 주소.
+ * 피드 회원 신청 → 신청 상세 · 피드 운영자 등록 캠페인 → 캠페인 수정 화면(`[campaignId]` 단독 페이지 없음) ·
+ * 운영자 팝업 → 팝업 캠페인 상세 · 사장님 팝업(이전 방식) 신청 → 팝업 신청 상세.
+ */
+export const ADS_HISTORY_DETAIL_HREF = {
+  feedRequest: (id: string) => `/admin/feed-ad-requests/${encodeURIComponent(id)}`,
+  feedCampaign: (id: string) => `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
+  popupCampaign: (id: string) => `/admin/platform-popup/${encodeURIComponent(id)}`,
+  popupOwnerRequest: (id: string) => `/admin/platform-popup/requests/${encodeURIComponent(id)}`,
+} as const;
+
+/** 행위자 표기 (한국어 화면) — 영어 역할 코드를 보이지 않는다 */
+function actorKo(role: "admin" | "owner" | "member", id: string | null): string {
+  const name = role === "admin" ? "운영자" : role === "owner" ? "사장님" : "회원";
+  return id ? `${name} ${id.slice(0, 8)}` : name;
+}
+
+/** 배달 감사 행 `actor_type` → 한국어 행위자 이름 */
+function deliveryActorTypeKo(actorType: string): string {
+  const t = actorType.trim().toLowerCase();
+  if (t === "admin" || t === "operator" || t === "staff") return "운영자";
+  if (t === "owner" || t === "store_owner" || t === "store") return "사장님";
+  if (t === "system" || t === "cron") return "시스템";
+  if (t === "member" || t === "user") return "회원";
+  return "기타";
+}
+
+/** 원래 상태 코드 → 한국어 운영 상태 이름 */
+function statusKo(raw: string): string {
+  return /^[A-Za-z_]+$/.test(raw.trim()) ? adsOpsStatusLabel(mapRawToAdsOpsStatus(raw), true) : raw;
+}
 
 function sortTimeline(events: AdsHistoryTimelineEvent[]): AdsHistoryTimelineEvent[] {
   return [...events].sort((a, b) => {
@@ -31,11 +65,11 @@ function sourceLabels(kind: AdsHistorySourceKind): { ko: string; en: string } {
     case "member":
       return { ko: "회원 신청", en: "Member application" };
     case "owner":
-      return { ko: "매장 오너 신청", en: "Store owner application" };
+      return { ko: "사장님 신청", en: "Store owner application" };
     case "admin_direct":
-      return { ko: "Admin 직접 등록", en: "Admin direct" };
+      return { ko: "운영자 등록", en: "Admin direct" };
     case "legacy_owner":
-      return { ko: "레거시 오너 신청", en: "Legacy owner application" };
+      return { ko: "사장님 신청(이전 방식)", en: "Legacy owner application" };
     default:
       return { ko: "출처 미확인", en: "Source unknown" };
   }
@@ -86,7 +120,7 @@ export function projectBoostHistoryRow(input: {
     labelKo: "신청",
     labelEn: "Application",
     at: input.createdAt,
-    actorLabel: input.userId ? `회원 ${input.userId.slice(0, 8)}` : null,
+    actorLabel: input.userId ? actorKo("member", input.userId) : null,
     actorProven: Boolean(input.userId),
     amountLabel: null,
     reason: null,
@@ -106,7 +140,7 @@ export function projectBoostHistoryRow(input: {
       amountLabel: amount.label,
       reason: null,
       evidence: "event",
-      evidenceNoteKo: "point_promotion_orders.point_cost (역사 청구액)",
+      evidenceNoteKo: "주문에 저장된 당시 청구 포인트",
       evidenceNoteEn: "point_promotion_orders.point_cost (historical charged)",
     });
   } else {
@@ -150,7 +184,7 @@ export function projectBoostHistoryRow(input: {
       amountLabel: null,
       reason: null,
       evidence: "state_only",
-      evidenceNoteKo: "운영 변경 시각·관리자 미저장 — 현재 order_status만 확인",
+      evidenceNoteKo: "운영 변경 시각·관리자 미저장 — 현재 주문 상태만 확인",
       evidenceNoteEn: "No pause timestamp/actor — order_status only",
     });
   }
@@ -287,15 +321,13 @@ export function projectFeedBannerHistoryRow(input: {
 
   timeline.push({
     kind: "application",
-    labelKo: adminDirect ? "Admin 직접 등록" : "신청",
+    labelKo: adminDirect ? "운영자 등록" : "신청",
     labelEn: adminDirect ? "Admin direct register" : "Application",
     at: input.createdAt,
     actorLabel: adminDirect
-      ? input.createdBy
-        ? `Admin ${input.createdBy.slice(0, 8)}`
-        : "Admin"
+      ? actorKo("admin", input.createdBy)
       : input.userId
-        ? `회원 ${input.userId.slice(0, 8)}`
+        ? actorKo("member", input.userId)
         : null,
     actorProven: adminDirect ? Boolean(input.createdBy) : Boolean(input.userId),
     amountLabel: null,
@@ -329,7 +361,7 @@ export function projectFeedBannerHistoryRow(input: {
       amountLabel: null,
       reason: null,
       evidence: "gap",
-      evidenceNoteKo: "Admin Direct — 승인 절차 없음",
+      evidenceNoteKo: "운영자 등록 — 승인 절차 없음",
       evidenceNoteEn: "Admin Direct — no approval workflow",
     });
   } else {
@@ -344,7 +376,7 @@ export function projectFeedBannerHistoryRow(input: {
       reason: null,
       evidence: amount.proven ? "event" : "not_proven",
       evidenceNoteKo: amount.proven
-        ? "feed_ad_requests.point_cost"
+        ? "신청에 저장된 포인트 금액"
         : "금액 정보 없음",
       evidenceNoteEn: amount.proven
         ? "feed_ad_requests.point_cost"
@@ -357,7 +389,7 @@ export function projectFeedBannerHistoryRow(input: {
         labelKo: rejected ? "반려" : "승인",
         labelEn: rejected ? "Rejected" : "Approved",
         at: input.reviewedAt,
-        actorLabel: input.reviewedBy ? `Admin ${input.reviewedBy.slice(0, 8)}` : null,
+        actorLabel: input.reviewedBy ? actorKo("admin", input.reviewedBy) : null,
         actorProven: Boolean(input.reviewedBy),
         amountLabel: null,
         reason: input.reviewReason,
@@ -428,8 +460,8 @@ export function projectFeedBannerHistoryRow(input: {
     evidenceNoteEn: "No impression events — request/campaign schedule only",
   });
 
-  const lifeParts: string[] = [adminDirect ? "Admin 등록" : "신청"];
-  if (!adminDirect) lifeParts.push(amount.proven ? "Point" : "결제미확인");
+  const lifeParts: string[] = [adminDirect ? "운영자 등록" : "신청"];
+  if (!adminDirect) lifeParts.push(amount.proven ? "포인트" : "결제미확인");
   if (!adminDirect && (input.reviewedAt || status === "rejected" || status === "active")) {
     lifeParts.push(status === "rejected" ? "반려" : "승인");
   }
@@ -458,7 +490,7 @@ export function projectFeedBannerHistoryRow(input: {
     sourceLabelKo: source.ko,
     sourceLabelEn: source.en,
     applicantLabel: adminDirect
-      ? input.createdBy?.slice(0, 8) ?? "Admin"
+      ? input.createdBy?.slice(0, 8) ?? "운영자"
       : input.userId?.slice(0, 8) ?? null,
     paymentCurrency: adminDirect ? "NONE" : "POINT",
     historicalAmountLabel: adminDirect ? null : amount.label,
@@ -476,9 +508,10 @@ export function projectFeedBannerHistoryRow(input: {
     placementEvidence: placement ? "event" : "not_proven",
     legacy: false,
     sellable: !adminDirect,
-    detailHref: adminDirect
-      ? "/admin/advertising/operations"
-      : "/admin/advertising/applications",
+    detailHref:
+      input.kind === "request"
+        ? ADS_HISTORY_DETAIL_HREF.feedRequest(input.id)
+        : ADS_HISTORY_DETAIL_HREF.feedCampaign(input.id),
     operationsHref: "/admin/advertising/operations",
     applicationsHref: adminDirect ? null : "/admin/advertising/applications",
     timeline: sortTimeline(timeline),
@@ -535,19 +568,19 @@ export function projectDeliveryHistoryRow(input: {
 
   timeline.push({
     kind: "application",
-    labelKo: adminDirect ? "Admin 직접 등록" : "오너 신청",
+    labelKo: adminDirect ? "운영자 등록" : "사장님 신청",
     labelEn: adminDirect ? "Admin direct" : "Owner application",
     at: input.submittedAt || input.createdAt,
     actorLabel: adminDirect
-      ? "Admin"
+      ? actorKo("admin", null)
       : input.ownerUserId
-        ? `오너 ${input.ownerUserId.slice(0, 8)}`
+        ? actorKo("owner", input.ownerUserId)
         : null,
     actorProven: adminDirect ? false : Boolean(input.ownerUserId),
     amountLabel: null,
     reason: null,
     evidence: "event",
-    evidenceNoteKo: adminDirect ? "신청자 Admin identity NOT_PROVEN on list row" : null,
+    evidenceNoteKo: adminDirect ? "등록한 운영자 정보가 목록 행에 없음" : null,
     evidenceNoteEn: adminDirect ? "Admin actor id NOT_PROVEN on list row" : null,
   });
 
@@ -564,7 +597,7 @@ export function projectDeliveryHistoryRow(input: {
     evidenceNoteKo: adminDirect
       ? "결제 없음"
       : amount.proven
-        ? "commercial snapshot final_payable_minor"
+        ? "신청 당시 저장된 결제 금액"
         : "금액 정보 없음",
     evidenceNoteEn: adminDirect
       ? "No payment"
@@ -577,7 +610,7 @@ export function projectDeliveryHistoryRow(input: {
     for (const a of input.audits) {
       const action = a.action.toLowerCase();
       let kind: AdsHistoryTimelineEvent["kind"] = "operating";
-      let labelKo = a.action;
+      let labelKo = "운영 변경";
       let labelEn = a.action;
       if (/approv|accept/.test(action)) {
         kind = "approval";
@@ -612,13 +645,15 @@ export function projectDeliveryHistoryRow(input: {
         labelEn,
         at: a.createdAt,
         actorLabel: a.actorUserId
-          ? `${a.actorType} ${a.actorUserId.slice(0, 8)}`
-          : a.actorType || null,
+          ? `${deliveryActorTypeKo(a.actorType)} ${a.actorUserId.slice(0, 8)}`
+          : a.actorType
+            ? deliveryActorTypeKo(a.actorType)
+            : null,
         actorProven: Boolean(a.actorUserId),
         amountLabel: null,
         reason: a.reason,
         evidence: "event",
-        evidenceNoteKo: "delivery_ad_audit_logs",
+        evidenceNoteKo: "배달 광고 감사 기록",
         evidenceNoteEn: "delivery_ad_audit_logs",
       });
     }
@@ -633,7 +668,7 @@ export function projectDeliveryHistoryRow(input: {
       amountLabel: null,
       reason: null,
       evidence: "not_proven",
-      evidenceNoteKo: "audit log 없음 — lifecycle/review 상태만 표시",
+      evidenceNoteKo: "감사 기록 없음 — 진행·심사 상태만 표시",
       evidenceNoteEn: "No audit rows — lifecycle/review state only",
     });
   }
@@ -649,7 +684,7 @@ export function projectDeliveryHistoryRow(input: {
       amountLabel: input.refundAmountLabel,
       reason: null,
       evidence: "event",
-      evidenceNoteKo: "BC refund evidence",
+      evidenceNoteKo: "환불 기록 있음",
       evidenceNoteEn: "BC refund evidence",
     });
   } else {
@@ -679,7 +714,7 @@ export function projectDeliveryHistoryRow(input: {
       amountLabel: null,
       reason: null,
       evidence: "event",
-      evidenceNoteKo: "delivery_ad_impression_events count",
+      evidenceNoteKo: "배달 광고 노출 기록 건수",
       evidenceNoteEn: "delivery_ad_impression_events count",
     });
   } else {
@@ -698,12 +733,17 @@ export function projectDeliveryHistoryRow(input: {
     });
   }
 
-  const lifeParts = [adminDirect ? "Admin 등록" : "오너 신청"];
-  if (!adminDirect) lifeParts.push(amount.proven ? "Business Cash" : "결제미확인");
+  const lifeParts = [adminDirect ? "운영자 등록" : "사장님 신청"];
+  if (!adminDirect) lifeParts.push(amount.proven ? "결제" : "결제미확인");
   if (input.audits.some((a) => /approv/i.test(a.action))) lifeParts.push("승인");
   if (input.audits.some((a) => /reject/i.test(a.action))) lifeParts.push("반려");
   if (/END|TERMINAT|ARCHIV/i.test(input.lifecycleStatus)) lifeParts.push("종료");
   const life = lifecycleFromParts(lifeParts);
+  const lifeEnParts = [adminDirect ? "Admin direct" : "Owner application"];
+  if (!adminDirect) lifeEnParts.push(amount.proven ? "Business Cash" : "Payment unknown");
+  if (input.audits.some((a) => /approv/i.test(a.action))) lifeEnParts.push("Approved");
+  if (input.audits.some((a) => /reject/i.test(a.action))) lifeEnParts.push("Rejected");
+  if (/END|TERMINAT|ARCHIV/i.test(input.lifecycleStatus)) lifeEnParts.push("Ended");
   const payState: AdsHistoryPaymentState = adminDirect
     ? "none"
     : input.refundProven
@@ -714,7 +754,11 @@ export function projectDeliveryHistoryRow(input: {
   const payLabels = paymentStateLabels(payState);
 
   const placementBits = [...input.inventoryKeys];
-  if (input.sortOrder != null) placementBits.push(`Slide ${input.sortOrder + 1}`);
+  const placementBitsEn = [...input.inventoryKeys];
+  if (input.sortOrder != null) {
+    placementBits.push(`${input.sortOrder + 1}번째 슬라이드`);
+    placementBitsEn.push(`Slide ${input.sortOrder + 1}`);
+  }
 
   return {
     id: `delivery:${productKey}:${input.id}`,
@@ -727,7 +771,7 @@ export function projectDeliveryHistoryRow(input: {
     sourceLabelKo: source.ko,
     sourceLabelEn: source.en,
     applicantLabel: adminDirect
-      ? "Admin"
+      ? "운영자"
       : input.ownerUserId?.slice(0, 8) ?? null,
     paymentCurrency: adminDirect ? "NONE" : "BUSINESS_CASH",
     historicalAmountLabel: amount.label,
@@ -736,12 +780,12 @@ export function projectDeliveryHistoryRow(input: {
     paymentStateLabelKo: payLabels.ko,
     paymentStateLabelEn: payLabels.en,
     lifecycleSummaryKo: life.ko,
-    lifecycleSummaryEn: life.en,
+    lifecycleSummaryEn: lifeEnParts.join(" → "),
     finalStatusKo: input.lifecycleStatus,
     finalStatusEn: input.lifecycleStatus,
     lastEventAt: input.audits[0]?.createdAt || input.endAt || input.createdAt,
     placementLabelKo: placementBits.join(" · ") || null,
-    placementLabelEn: placementBits.join(" · ") || null,
+    placementLabelEn: placementBitsEn.join(" · ") || null,
     placementEvidence: placementBits.length ? "event" : "not_proven",
     legacy: false,
     sellable: !adminDirect,
@@ -751,7 +795,7 @@ export function projectDeliveryHistoryRow(input: {
     applicationsHref: adminDirect ? null : "/admin/advertising/applications",
     timeline: sortTimeline(timeline),
     gapsKo: [
-      ...(input.audits.length ? [] : ["운영/승인 audit 없음"]),
+      ...(input.audits.length ? [] : ["운영·승인 감사 기록 없음"]),
       ...(input.refundProven ? [] : ["환불 이력 없음"]),
       ...(input.impressionCount && input.impressionCount > 0
         ? []
@@ -788,10 +832,10 @@ export function projectPopupAdminHistoryRow(input: {
 
   timeline.push({
     kind: "application",
-    labelKo: legacy ? "레거시 오너 연동 등록" : "Admin 직접 등록",
+    labelKo: legacy ? "사장님 신청(이전 방식) 연결 등록" : "운영자 등록",
     labelEn: legacy ? "Legacy owner-linked register" : "Admin direct register",
     at: input.createdAt,
-    actorLabel: input.createdBy ? `Admin ${input.createdBy.slice(0, 8)}` : "Admin",
+    actorLabel: actorKo("admin", input.createdBy),
     actorProven: Boolean(input.createdBy),
     amountLabel: null,
     reason: null,
@@ -810,7 +854,7 @@ export function projectPopupAdminHistoryRow(input: {
     amountLabel: null,
     reason: null,
     evidence: "gap",
-    evidenceNoteKo: "결제 없음 (canonical Popup Admin Direct)",
+    evidenceNoteKo: "결제 없음 (운영자 등록 팝업)",
     evidenceNoteEn: "No payment (canonical Popup Admin Direct)",
   });
 
@@ -819,14 +863,14 @@ export function projectPopupAdminHistoryRow(input: {
     labelKo: "승인",
     labelEn: "Approval",
     at: input.approvedAt,
-    actorLabel: input.approvedBy ? `Admin ${input.approvedBy.slice(0, 8)}` : null,
+    actorLabel: input.approvedBy ? actorKo("admin", input.approvedBy) : null,
     actorProven: Boolean(input.approvedBy),
     amountLabel: null,
     reason: null,
     evidence: input.approvedAt ? "event" : "gap",
     evidenceNoteKo: input.approvedAt
-      ? "stored approved_at (not a member approval queue)"
-      : "신규 판매 승인 워크플로 없음",
+      ? "저장된 승인 시각 (회원 신청 심사 아님)"
+      : "신규 판매 승인 절차 없음",
     evidenceNoteEn: input.approvedAt
       ? "stored approved_at (not a member approval queue)"
       : "No new-sale approval workflow",
@@ -864,10 +908,11 @@ export function projectPopupAdminHistoryRow(input: {
 
   const payLabels = paymentStateLabels("none");
   const life = lifecycleFromParts([
-    legacy ? "레거시" : "Admin 등록",
+    legacy ? "사장님 신청(이전 방식)" : "운영자 등록",
     "결제 없음",
-    String(input.status),
+    statusKo(String(input.status)),
   ]);
+  const lifeEn = [legacy ? "Legacy owner" : "Admin direct", "No payment", String(input.status)].join(" → ");
 
   return {
     id: `popup:campaign:${input.id}`,
@@ -879,7 +924,7 @@ export function projectPopupAdminHistoryRow(input: {
     sourceKind,
     sourceLabelKo: source.ko,
     sourceLabelEn: source.en,
-    applicantLabel: input.createdBy?.slice(0, 8) ?? "Admin",
+    applicantLabel: input.createdBy?.slice(0, 8) ?? "운영자",
     paymentCurrency: "NONE",
     historicalAmountLabel: null,
     historicalAmountProven: true,
@@ -887,7 +932,7 @@ export function projectPopupAdminHistoryRow(input: {
     paymentStateLabelKo: payLabels.ko,
     paymentStateLabelEn: payLabels.en,
     lifecycleSummaryKo: life.ko,
-    lifecycleSummaryEn: life.en,
+    lifecycleSummaryEn: lifeEn,
     finalStatusKo: input.status,
     finalStatusEn: input.status,
     lastEventAt: input.endAt || input.approvedAt || input.createdAt,
@@ -896,7 +941,7 @@ export function projectPopupAdminHistoryRow(input: {
     placementEvidence: "schedule_only",
     legacy,
     sellable: false,
-    detailHref: "/admin/advertising/operations",
+    detailHref: ADS_HISTORY_DETAIL_HREF.popupCampaign(input.id),
     operationsHref: "/admin/advertising/operations",
     applicationsHref: null,
     timeline: sortTimeline(timeline),
@@ -931,10 +976,10 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
   const timeline: AdsHistoryTimelineEvent[] = [
     {
       kind: "application",
-      labelKo: "레거시 오너 신청",
+      labelKo: "사장님 신청(이전 방식)",
       labelEn: "Legacy owner application",
       at: input.createdAt,
-      actorLabel: input.ownerUserId ? `오너 ${input.ownerUserId.slice(0, 8)}` : null,
+      actorLabel: input.ownerUserId ? actorKo("owner", input.ownerUserId) : null,
       actorProven: Boolean(input.ownerUserId),
       amountLabel: null,
       reason: null,
@@ -953,7 +998,7 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
       reason: null,
       evidence: amount.proven ? "event" : "not_proven",
       evidenceNoteKo: amount.proven
-        ? "platform_popup_owner_requests.price_minor"
+        ? "신청에 저장된 금액"
         : "금액 정보 없음",
       evidenceNoteEn: amount.proven
         ? "platform_popup_owner_requests.price_minor"
@@ -971,7 +1016,7 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
       evidence: payStatus === "refunded" ? "event" : "gap",
       evidenceNoteKo:
         payStatus === "refunded"
-          ? "payment_status=refunded"
+          ? "결제 상태: 환불됨"
           : "환불 이력 없음(반려만으로 환불 추정 금지)",
       evidenceNoteEn:
         payStatus === "refunded"
@@ -980,7 +1025,8 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
     },
   ];
   const payLabels = paymentStateLabels(payState);
-  const life = lifecycleFromParts(["레거시 오너 신청", payLabels.ko, input.requestStatus]);
+  const life = lifecycleFromParts(["사장님 신청(이전 방식)", payLabels.ko, statusKo(input.requestStatus)]);
+  const lifeEn = ["Legacy owner application", payLabels.en, input.requestStatus].join(" → ");
 
   return {
     id: `popup:owner_request:${input.id}`,
@@ -1000,20 +1046,20 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
     paymentStateLabelKo: payLabels.ko,
     paymentStateLabelEn: payLabels.en,
     lifecycleSummaryKo: life.ko,
-    lifecycleSummaryEn: life.en,
+    lifecycleSummaryEn: lifeEn,
     finalStatusKo: input.requestStatus,
     finalStatusEn: input.requestStatus,
     lastEventAt: input.createdAt,
-    placementLabelKo: "Popup (legacy owner)",
+    placementLabelKo: "사장님 팝업(이전 방식)",
     placementLabelEn: "Popup (legacy owner)",
     placementEvidence: "schedule_only",
     legacy: true,
     sellable: false,
-    detailHref: null,
+    detailHref: ADS_HISTORY_DETAIL_HREF.popupOwnerRequest(input.id),
     operationsHref: "/admin/advertising/operations",
     applicationsHref: null,
     timeline: sortTimeline(timeline),
-    gapsKo: ["신규 판매 비활성", "승인/운영 상세는 별도 audit 확인"],
+    gapsKo: ["신규 판매 비활성", "승인·운영 상세는 감사 기록에서 따로 확인"],
     gapsEn: ["New sales disabled", "Ops/approval details need separate audit"],
   };
 }

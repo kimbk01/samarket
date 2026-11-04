@@ -255,13 +255,43 @@ export function computeFeedAdRenewalEndAt(input: {
 
 /**
  * Owner 결정 1 (2026-11-04): 관리자가 정지·종료한 회원 피드 광고는 회원이 결제·연장으로 다시 켤 수 없다.
- * 회원에게는 피드 광고 일시정지 기능이 없으므로 캠페인 `paused` = 관리자 정지, `ended` = 관리자 종료
- * (`end-feed-ad-campaign` · 승인 실패 보상). 기간이 끝나 저절로 끝난 광고는 상태가 `active` 그대로라 연장할 수 있다.
+ * FB-M11 (2026-11-04): 「paused = 관리자」 추정을 지웠다 — 정지는 `paused_by='admin'` 일 때만 관리자 정지다
+ * (`member`·`system`·없음은 관리자 정지가 아님 · 연장 서버는 어차피 `active` 만 연장).
+ * 종료(`ended`)는 회원이 끄는 기능이 없고 기간 만료는 `active` 그대로라, 상태 `ended` = 운영 종료로 본다.
  * 관리자 조치 사유·이력(신청 `review_reason`·감사 기록)은 건드리지 않는다.
  */
-export function feedAdRenewalBlockedByAdmin(campaignStatus: string | null | undefined): "admin_paused" | "admin_ended" | null {
+export function feedAdRenewalBlockedByAdmin(
+  campaignStatus: string | null | undefined,
+  pausedBy?: string | null
+): "admin_paused" | "admin_ended" | null {
   const st = String(campaignStatus ?? "").toLowerCase();
-  if (st === "paused") return "admin_paused";
+  if (st === "paused" && String(pausedBy ?? "").toLowerCase() === "admin") return "admin_paused";
   if (st === "ended") return "admin_ended";
   return null;
+}
+
+export type FeedAdOperatorNotice = {
+  kind: "admin_paused" | "admin_ended";
+  /** 공개 사유 1줄(회원에게 보임 · 120자) — 내부 메모는 절대 넣지 않는다 */
+  publicReason: string | null;
+};
+
+/**
+ * D-6 (2026-11-04): 마이 › 광고 카드의 「운영자가 멈췄습니다 / 종료했습니다」 + 공개 사유 1줄.
+ * 입력은 캠페인의 상태·`paused_by`·`public_reason` 만 받는다(내부 메모 칸은 받지 않음 → 응답에 나갈 수 없다).
+ */
+export function projectFeedAdOperatorNotice(input: {
+  campaignStatus: string | null | undefined;
+  pausedBy?: string | null;
+  publicReason?: string | null;
+}): FeedAdOperatorNotice | null {
+  const kind = feedAdRenewalBlockedByAdmin(input.campaignStatus, input.pausedBy);
+  if (!kind) return null;
+  const reason = String(input.publicReason ?? "").trim().slice(0, 120);
+  return { kind, publicReason: reason || null };
+}
+
+export function feedAdOperatorNoticeTitle(kind: FeedAdOperatorNotice["kind"], lang: AppLanguageCode): string {
+  if (lang === "en") return kind === "admin_paused" ? "Paused by the operator" : "Ended by the operator";
+  return kind === "admin_paused" ? "운영자가 멈췄습니다" : "운영자가 종료했습니다";
 }

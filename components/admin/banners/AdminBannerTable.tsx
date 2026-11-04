@@ -35,9 +35,6 @@ export function AdminBannerTable({ banners }: AdminBannerTableProps) {
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               {t("admin_banners_label_period")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {t("admin_banners_th_click_impression")}
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -68,9 +65,7 @@ export function AdminBannerTable({ banners }: AdminBannerTableProps) {
                 <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {period}
                 </td>
-                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {b.clickCount} / {b.impressionCount}
-                </td>
+                {/* D-14 (Owner 2026-11-04): 마이 배너는 노출·클릭을 쌓지 않아(항상 0) 칸을 보이지 않는다 */}
               </tr>
             );
           })}

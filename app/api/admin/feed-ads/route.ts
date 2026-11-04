@@ -12,6 +12,9 @@ import {
 } from "@/lib/ads/feed-ad-placement";
 import { assertFeedAdPoolCapacityAvailable } from "@/lib/ads/feed-ad-pool-capacity-server";
 import { isFeedAdPoolCapacityDbError } from "@/lib/ads/feed-ad-pool-capacity";
+import { normalizeFeedAdCampaignNameInput } from "@/lib/ads/feed-ad-advertiser-name";
+import { withFeedAdStoreSlug } from "@/lib/ads/feed-ad-store-destination";
+import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,7 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // EVT-05: destination validated by the shared DestinationRef contract (https only, event ok).
-  // Empty internal_page keeps the existing NONE contract (stored as empty id/url).
+  // DS-3 · C-1 (2026-11-04): 비어 있으면 「없음」으로 보고 `destination_required` 로 거부한다.
   const destEmpty =
     !String(body.destinationId ?? "").trim() &&
     !String(body.destinationUrl ?? "").trim() &&
@@ -88,7 +91,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     destinationUrl: body.destinationUrl,
   });
   if (!dest.ok) {
-    return NextResponse.json({ ok: false, error: dest.error }, { status: 400 });
+    return NextResponse.json({ ok: false, error: dest.error, message: feedAdErrorMessageKo(dest.error) }, { status: 400 });
+  }
+  // DS-2: 매장 목적지는 slug 로 저장 (uuid → slug · 없는 매장 거부)
+  const storeDest = await withFeedAdStoreSlug(sb, {
+    destination_type: dest.value.destinationType,
+    destination_id: dest.value.destinationId,
+  });
+  if (!storeDest.ok) {
+    return NextResponse.json(
+      { ok: false, error: storeDest.error, message: feedAdErrorMessageKo(storeDest.error) },
+      { status: 400 }
+    );
   }
 
   const topicSlugNorm =
@@ -108,7 +122,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { data: camp, error } = await sb
     .from("feed_ad_campaigns")
     .insert({
-      name: (body.name ?? "").trim() || "Untitled",
+      name: normalizeFeedAdCampaignNameInput(body.name),
       domain,
       placement,
       target_category_id: body.targetCategoryId?.trim() || null,
@@ -118,7 +132,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       start_at: body.startAt || null,
       end_at: body.endAt || null,
       destination_type: dest.value.destinationType,
-      destination_id: dest.value.destinationId,
+      destination_id: String(storeDest.row.destination_id ?? ""),
       destination_url: dest.value.destinationUrl,
       source: "ADMIN_DIRECT",
       created_by: admin.userId,
@@ -127,7 +141,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .single();
 
   if (isFeedAdPoolCapacityDbError(error)) {
-    return NextResponse.json({ ok: false, error: "capacity_full" }, { status: 409 });
+    return NextResponse.json(
+      { ok: false, error: "capacity_full", message: feedAdErrorMessageKo("capacity_full") },
+      { status: 409 }
+    );
   }
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

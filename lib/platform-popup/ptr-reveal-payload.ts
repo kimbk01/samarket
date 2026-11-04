@@ -88,6 +88,7 @@ export function buildPtrRevealAdPayload(
       tablet: toBand(bands.tablet, "tablet", fallbackAlt),
       logo: toBand(bands.logo, "logo", fallbackAlt),
     },
-    revision: ptrRevealCampaignRevision(bands) ?? phone.creativeId,
+    // D-2: 서버 후보 revision(띠 3종 + 목적지 해시)을 그대로 — 숨김 기록 때 앱이 이 값을 보낸다
+    revision: candidate.campaignRevision ?? ptrRevealCampaignRevision(bands) ?? phone.creativeId,
   };
 }

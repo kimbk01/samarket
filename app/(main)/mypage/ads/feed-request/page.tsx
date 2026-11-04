@@ -37,7 +37,8 @@ import { formatMypageDate, formatMypageMoney, formatMypagePoint } from "@/lib/my
 
 type Cat = { id: string; name: string; nameEn: string | null };
 type Topic = { id: string; slug: string; name: string; nameEn: string | null };
-type DestMode = "none" | "own_content" | "external_url";
+/** DS-3 · C-1 (2026-11-04): 「연결 없음」 없음 — 목적지 필수 */
+type DestMode = "own_content" | "external_url";
 type OwnKind = "community_post" | "trade_listing";
 
 type CreativeState = {
@@ -100,7 +101,9 @@ export default function MemberFeedAdRequestPage() {
     requestId: string;
     displayStatus: FeedAdMemberDisplayStatus | string;
   } | null>(null);
-  const [destMode, setDestMode] = useState<DestMode>("none");
+  const [destMode, setDestMode] = useState<DestMode>("own_content");
+  /** D-7 ①②: 남은 자리 안내(위치+업종/주제 · 서버 신청 재검사와 같은 함수) — null = 아직 모름 */
+  const [poolRemaining, setPoolRemaining] = useState<{ remaining: number; capacity: number } | null>(null);
   const [destUrl, setDestUrl] = useState("");
   const [ownKind, setOwnKind] = useState<OwnKind>("community_post");
   const [ownId, setOwnId] = useState("");
@@ -253,6 +256,38 @@ export default function MemberFeedAdRequestPage() {
   const allUnaffordable =
     balance != null && catalog.length > 0 && affordableCatalog.length === 0;
 
+  /** D-7 ①: 위치·업종/주제가 바뀌면 남은 자리를 다시 묻는다 (`GET /api/me/feed-ad-requests?pool=`) */
+  useEffect(() => {
+    if (placement === "TRADE_CATEGORY" && !categoryId.trim()) {
+      setPoolRemaining(null);
+      return;
+    }
+    if (placement === "COMMUNITY_TOPIC" && !topicSlug.trim()) {
+      setPoolRemaining(null);
+      return;
+    }
+    let cancelled = false;
+    const qs = new URLSearchParams({ pool: placement });
+    if (placement === "TRADE_CATEGORY") qs.set("categoryId", categoryId.trim());
+    if (placement === "COMMUNITY_TOPIC") qs.set("topicSlug", topicSlug.trim());
+    fetch(`/api/me/feed-ad-requests?${qs.toString()}`, { credentials: "include", cache: "no-store" })
+      .then(async (res) => {
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; pool?: { remaining?: number; capacity?: number } };
+        if (cancelled) return;
+        if (res.ok && j.ok && j.pool && typeof j.pool.remaining === "number") {
+          setPoolRemaining({ remaining: j.pool.remaining, capacity: Number(j.pool.capacity ?? 3) });
+        } else {
+          setPoolRemaining(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPoolRemaining(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [placement, categoryId, topicSlug]);
+
   const selectedTopic = topics.find((tp) => tp.slug === topicSlug) ?? null;
   const selectedCat = cats.find((c) => c.id === categoryId) ?? null;
 
@@ -291,7 +326,6 @@ export default function MemberFeedAdRequestPage() {
   }, [placement, selectedTopic, selectedCat, en]);
 
   const destSummary = useMemo(() => {
-    if (destMode === "none") return en ? "No link" : "연결 없음";
     if (destMode === "external_url") return destUrl.trim() || (en ? "External URL" : "외부 링크");
     if (!ownId) return en ? "Own content (select)" : "내 게시글/상품 (선택)";
     const kindLabel =
@@ -442,7 +476,7 @@ export default function MemberFeedAdRequestPage() {
           ? crypto.randomUUID()
           : `feed-ad-${Date.now()}`;
 
-      let destinationType: string = "none";
+      let destinationType: string = "";
       let destinationId = "";
       let destinationUrl = "";
       if (destMode === "external_url") {
@@ -478,10 +512,20 @@ export default function MemberFeedAdRequestPage() {
           idempotencyKey: idem,
         }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !j.ok) {
         const code = j.error ?? "failed";
-        if (code === "insufficient_balance") {
+        if (code === "capacity_full" || code === "destination_required" || code === "capacity_check_failed") {
+          // D-7 ③ · DS-3: 서버 한국어 안내 (자리 없음 = 신청 안 됨 · 포인트 그대로)
+          setErr(
+            en
+              ? code === "destination_required"
+                ? "Choose where the banner should link."
+                : "This ad spot is full. Not submitted; your points are unchanged."
+              : (j.message ?? t("points_ui_request_failed"))
+          );
+          if (code === "capacity_full") setPoolRemaining((p) => (p ? { ...p, remaining: 0 } : { remaining: 0, capacity: 3 }));
+        } else if (code === "insufficient_balance") {
           setErr(t("points_ui_insufficient"));
         } else if (code === "invalid_url_scheme" || code === "invalid_url") {
           setErr(
@@ -532,7 +576,9 @@ export default function MemberFeedAdRequestPage() {
     (placement !== "TRADE_CATEGORY" || Boolean(categoryId.trim())) &&
     (placement !== "COMMUNITY_TOPIC" || Boolean(topicSlug.trim())) &&
     (destMode !== "own_content" || Boolean(ownId.trim())) &&
-    (destMode !== "external_url" || /^https?:\/\//i.test(destUrl.trim()));
+    (destMode !== "external_url" || /^https?:\/\//i.test(destUrl.trim())) &&
+    // D-7 ②: 가득 차면 신청 버튼을 막는다 (서버도 보류 전에 다시 센다)
+    !(poolRemaining != null && poolRemaining.remaining <= 0);
 
   if (currentBanner) {
     const statusLabel =
@@ -717,6 +763,27 @@ export default function MemberFeedAdRequestPage() {
           <p className="sam-text-helper text-sam-muted" data-testid="feed-ad-slot-explain">
             {placementExplain}
           </p>
+          {/* D-7 ①: 남은 자리 N (안내용 · 최종 판정은 승인 때) */}
+          {poolRemaining ? (
+            <p
+              data-testid="feed-ad-pool-remaining"
+              data-remaining={String(poolRemaining.remaining)}
+              className={`sam-text-helper font-medium ${poolRemaining.remaining > 0 ? "text-sam-fg" : "text-sam-danger"}`}
+            >
+              {poolRemaining.remaining > 0
+                ? en
+                  ? `${poolRemaining.remaining} of ${poolRemaining.capacity} spots left`
+                  : `남은 자리 ${poolRemaining.remaining}개 (전체 ${poolRemaining.capacity}개)`
+                : en
+                  ? "This spot is full. You can apply when a spot opens."
+                  : "이 자리는 지금 가득 찼습니다. 자리가 나면 신청할 수 있습니다."}
+            </p>
+          ) : null}
+          <p className="sam-text-helper text-sam-muted" data-testid="feed-ad-pool-refund-note">
+            {en
+              ? "If the spot fills up by approval time, your request stays in review with points on hold. If it is declined, your points are returned."
+              : "승인 때 자리가 차면 신청은 검토 중으로 남고 포인트는 보류됩니다. 반려되면 포인트를 돌려드립니다."}
+          </p>
         </section>
 
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -861,7 +928,6 @@ export default function MemberFeedAdRequestPage() {
           <div className="flex flex-col gap-2">
             {(
               [
-                ["none", en ? "No link" : "연결 없음"],
                 ["own_content", en ? "My post / listing" : "내 게시글/상품"],
                 ["external_url", en ? "External link" : "외부 링크"],
               ] as const

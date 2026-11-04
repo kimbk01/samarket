@@ -4,8 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
-import { ADMIN_BANNER_STATUS_KEYS } from "@/components/admin/banners/admin-banner-i18n";
-import type { BannerStatus } from "@/lib/types/admin-banner";
+import { ADMIN_BANNER_DISPLAY_STATUS_KEYS } from "@/components/admin/banners/admin-banner-i18n";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminBannerStatusBadge } from "@/components/admin/banners/AdminBannerStatusBadge";
@@ -14,7 +13,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { isAdminBannerHardDeletable } from "@/lib/admin-banners/admin-banner-remove-policy";
-import { adminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
+import { adminBannerDisplayStatus, type AdminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 import type { AdminBanner } from "@/lib/types/admin-banner";
 
 /** V3-11 — 브라우저 직접 조회 대신 기존 관리자 API(`GET /api/admin/banners`, my_page_banners) 사용. */
@@ -69,7 +68,7 @@ export function AdminMyBannersPage() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const ko = language !== "en";
   /** 상태 필터 — API(GET /api/admin/banners)는 조건 없이 전체를 주므로 화면에서 거른다. */
-  const [statusFilter, setStatusFilter] = useState<"" | BannerStatus>("");
+  const [statusFilter, setStatusFilter] = useState<"" | AdminBannerDisplayStatus>("");
   const visibleItems = useMemo(
     // 광고 최종 점검 B-7: 기간이 지난 「활성」은 「만료」로 거른다 (표시 상태와 같은 판정)
     () => (statusFilter ? items.filter((b) => adminBannerDisplayStatus(b) === statusFilter) : items),
@@ -140,10 +139,10 @@ export function AdminMyBannersPage() {
           className="mb-3"
           status={{
             value: statusFilter,
-            onChange: (v) => setStatusFilter(v as "" | BannerStatus),
-            options: (Object.keys(ADMIN_BANNER_STATUS_KEYS) as BannerStatus[]).map((v) => ({
+            onChange: (v) => setStatusFilter(v as "" | AdminBannerDisplayStatus),
+            options: (Object.keys(ADMIN_BANNER_DISPLAY_STATUS_KEYS) as AdminBannerDisplayStatus[]).map((v) => ({
               value: v,
-              label: t(ADMIN_BANNER_STATUS_KEYS[v]),
+              label: t(ADMIN_BANNER_DISPLAY_STATUS_KEYS[v]),
             })),
           }}
         />

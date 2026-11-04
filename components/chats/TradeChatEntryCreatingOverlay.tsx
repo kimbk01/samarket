@@ -10,6 +10,7 @@ import {
   type TradeChatEntryCreatingOverlayDetail,
   type TradeChatEntryCreatingOverlayPhase,
 } from "@/lib/chats/trade-chat-entry-overlay-events";
+import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 
 const ROOM_PATH_CM = /^\/community-messenger\/rooms\/[^/]+/;
 const ROOM_PATH_LEGACY = /^\/chats\/[^/]+/;
@@ -19,6 +20,8 @@ export function TradeChatEntryCreatingOverlay() {
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<TradeChatEntryCreatingOverlayPhase>("resolving");
+  /** PU-13: 전체 화면 「채팅방 여는 중」 동안 팝업 광고가 위에 겹치지 않게 열린 창으로 센다 */
+  useRegisterOpenOverlay(visible);
 
   useEffect(() => {
     const onEvt = (e: Event) => {

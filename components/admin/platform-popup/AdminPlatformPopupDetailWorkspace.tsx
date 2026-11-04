@@ -7,10 +7,13 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
+import {
+  AdminPlatformPopupAuditHistory,
+  type AdminPlatformPopupAuditRow,
+} from "@/components/admin/platform-popup/AdminPlatformPopupAuditHistory";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
-import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
@@ -22,7 +25,6 @@ import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platf
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
 import {
   PLATFORM_POPUP_CTA_TYPES,
-  PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
   type PlatformPopupCampaignStatus,
 } from "@/lib/platform-popup/types";
@@ -85,13 +87,7 @@ function fromLocalInput(v: string, timezone: string): string | null {
   return zonedLocalInputToIso(v, timezone);
 }
 
-type AuditRow = {
-  id: string;
-  action: string;
-  actor_type: string;
-  created_at: string;
-  after_json?: unknown;
-};
+type AuditRow = AdminPlatformPopupAuditRow;
 
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
@@ -107,6 +103,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   /** G-18: 팝업 캠페인 쓰기(저장·소재·승인·상태·삭제) = ads 키 (접근표 action — API 403 과 같은 판정) */
   const adminAction = useAdminRouteAction("/admin/platform-popup");
   const writeBlocked = busy || !adminAction.allowed;
+  // AL-15: 승인·운영 버튼은 PTR 상세와 같은 상태 조건을 함께 본다(검토 요청 = 초안 · 승인 = 종료·노출 중 아님 · 중지 = 노출·예약 중)
   const [dirty, setDirty] = useState(false);
   const [needsCrop, setNeedsCrop] = useState(false);
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
@@ -128,7 +125,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [frequencyMode, setFrequencyMode] = useState("once_per_session");
   const [creativeMode, setCreativeMode] = useState<"card" | "artwork">("card");
   const [ctaType, setCtaType] = useState("internal_page");
-  const [ctaTarget, setCtaTarget] = useState<string>(PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH);
+  // DS-5: 이동 경로 기본값 없음 — 빈칸이면 저장 때 막는다
+  const [ctaTarget, setCtaTarget] = useState<string>("");
   const [externalUrl, setExternalUrl] = useState("");
   const [ctaLabel, setCtaLabel] = useState("");
   const [promoTitle, setPromoTitle] = useState("");
@@ -167,12 +165,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setFrequencyMode(c.frequencyMode || "once_per_session");
     setCreativeMode(c.creative?.creativeMode === "artwork" ? "artwork" : "card");
     setCtaType(c.ctaType);
-    // Legacy drafts may have internal_page + empty target (DB default ''). Heal for edit UX.
-    const loadedTarget = String(c.ctaTarget ?? "").trim();
-    setCtaTarget(
-      loadedTarget ||
-        (c.ctaType === "internal_page" ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH : "")
-    );
+    // DS-5: 빈 경로를 /market 으로 채우지 않는다 — 운영자가 직접 넣는다
+    setCtaTarget(String(c.ctaTarget ?? "").trim());
     setExternalUrl(c.externalUrl || "");
     setCtaLabel(c.ctaLabel || "");
     setPromoTitle(c.title || "");
@@ -332,13 +326,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setError(null);
     setSaveNotice(null);
     const lang = language === "en" ? "en" : "ko";
-    const nextTarget =
-      ctaType === "internal_page" && !String(ctaTarget).trim()
-        ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH
-        : ctaTarget;
-    if (ctaType === "internal_page" && nextTarget !== ctaTarget) {
-      setCtaTarget(nextTarget);
+    // DS-5: 앱 안 경로 CTA 빈칸 = 저장 거부(cta_target_required) · 기본값으로 바꾸지 않는다
+    if (ctaType === "internal_page" && !String(ctaTarget).trim()) {
+      setBusy(false);
+      setError(formatPlatformPopupAdminError("cta_target_required", lang));
+      return;
     }
+    const nextTarget = ctaTarget;
     const ctaCheck = validatePlatformPopupCta({
       ctaType,
       ctaTarget: nextTarget,
@@ -1289,9 +1283,6 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   markDirty();
                   const next = e.target.value;
                   setCtaType(next);
-                  if (next === "internal_page" && !String(ctaTarget).trim()) {
-                    setCtaTarget(PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH);
-                  }
                 }}
               >
                 {PLATFORM_POPUP_CTA_TYPES.map((t) => (
@@ -1469,7 +1460,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 <AdminActionButton
                   variant="secondary"
                   size="sm"
-                  disabled={writeBlocked}
+                  disabled={writeBlocked || status !== "draft"}
                   onClick={() =>
                     void transition({
                       action: "transition",
@@ -1487,7 +1478,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={writeBlocked}
+                disabled={writeBlocked || status === "ended" || status === "active"}
                 onClick={() => void transition({ action: "approve", schedule: true })}
                 data-admin-popup-schedule="1"
               >
@@ -1504,7 +1495,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={writeBlocked}
+                disabled={writeBlocked || status === "ended" || status === "active"}
                 onClick={() => void transition({ action: "approve", activate: true })}
                 data-admin-popup-go-live="1"
               >
@@ -1521,7 +1512,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <AdminActionButton
                 variant="secondary"
                 size="sm"
-                disabled={writeBlocked || status === "paused" || status === "ended" || status === "draft"}
+                disabled={writeBlocked || (status !== "active" && status !== "scheduled")}
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" })}
                 data-admin-popup-pause="1"
               >
@@ -1634,20 +1625,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             ) : null}
           </AdminCard>
 
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">Audit history</h2>
-            <ul className="max-h-48 space-y-1 overflow-auto text-xs">
-              {audit.length === 0 ? (
-                <li className="text-sam-muted">—</li>
-              ) : (
-                audit.map((row) => (
-                  <li key={row.id}>
-                    {formatAdminManilaDateTime(row.created_at)} · {row.action} · {row.actor_type}
-                  </li>
-                ))
-              )}
-            </ul>
-          </AdminCard>
+          <AdminPlatformPopupAuditHistory items={audit} lang={language === "en" ? "en" : "ko"} />
         </div>
 
         <div className="lg:sticky lg:top-4 lg:self-start" data-admin-popup-preview-sticky="1">

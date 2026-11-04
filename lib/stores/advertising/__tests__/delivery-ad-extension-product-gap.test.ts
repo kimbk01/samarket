@@ -90,7 +90,13 @@ describe("delivery ad extension money semantics", () => {
       "utf8"
     );
     expect(route).toContain("extend_compensation");
-    expect(route).toContain("adminCompensateExtendFeedAdCampaign");
+    // 2026-11-04: 도메인·공통 화면이 같은 단일 구현(runFeedAdAdminAction)을 부른다 — 연장 writer 는 그 모듈에 있다
+    expect(route).toContain("runFeedAdAdminAction");
+    const shared = readFileSync(
+      join(process.cwd(), "lib/admin/advertising-workspace/feed-ad-admin-actions.ts"),
+      "utf8"
+    );
+    expect(shared).toContain("adminCompensateExtendFeedAdCampaign");
     const renew = readFileSync(join(process.cwd(), "lib/ads/renew-feed-ad-campaign.ts"), "utf8");
     expect(renew).toContain("spendUserPoints");
     expect(renew).toContain("Period extended + Point NOT spent = forbidden");

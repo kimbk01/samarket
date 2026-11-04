@@ -526,8 +526,9 @@ describe("재감사 2026-11-04 — 회원 연장 (Owner 결정 1 · F-04)", () =
     vi.mocked(spendUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
     vi.mocked(creditUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
   });
-  const base = (status: string, end_at = "2026-08-12T00:00:00.000Z") => ({
-    campaigns: [{ id: "camp-1", source: "MEMBER_REQUESTED", request_id: "req-1", domain: "trade", status, end_at }],
+  // FB-M11 (2026-11-04): 관리자 정지는 paused_by='admin' 으로만 판정 (「paused = 관리자」 추정 제거)
+  const base = (status: string, end_at = "2026-08-12T00:00:00.000Z", paused_by: string | null = status === "paused" ? "admin" : null) => ({
+    campaigns: [{ id: "camp-1", source: "MEMBER_REQUESTED", request_id: "req-1", domain: "trade", status, end_at, paused_by }],
     requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
     ledger: [] as Row[],
   });
@@ -547,6 +548,19 @@ describe("재감사 2026-11-04 — 회원 연장 (Owner 결정 1 · F-04)", () =
     expect(res).toMatchObject({ ok: false, error, httpStatus: 409 });
     expect(spendUserPoints).not.toHaveBeenCalled();
     expect(state.campaigns[0]?.status).toBe(status);
+  });
+
+  it("FB-M11: paused_by 가 admin 이 아닌 정지는 「관리자 정지」로 보지 않는다 (연장은 active 만 · not_renewable)", async () => {
+    const state = base("paused", "2026-08-12T00:00:00.000Z", "system");
+    const res = await renewFeedAdCampaign(makeRenewDb(state), {
+      userId: "u1",
+      campaignId: "camp-1",
+      productId: "feed_banner_trade_7",
+      idempotencyKey: "idem-sys-paused",
+      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
+    });
+    expect(res).toMatchObject({ ok: false, error: "not_renewable", httpStatus: 409 });
+    expect(spendUserPoints).not.toHaveBeenCalled();
   });
 
   it("기간이 끝나 저절로 끝난 광고(active · 종료일 지남)는 연장된다", async () => {

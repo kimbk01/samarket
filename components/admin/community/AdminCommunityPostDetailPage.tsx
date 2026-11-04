@@ -226,10 +226,18 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         method: "PATCH",
         body: { expectedUpdatedAt: post?.updated_at ?? "", ...body },
       });
-      if (!r.ok && r.code === "promotion_fault_required") setFaultNeeded(true);
+      if (!r.ok && r.code === "promotion_fault_required") {
+        // D-10: 서버가 상위노출 중이라고 알려 오면 이 시트 안에서 귀책을 묻는다 (아래 선택지가 나타남).
+        setFaultNeeded(true);
+        return { ok: false, status: 400, code: "상위노출 중인 글입니다. 아래에서 귀책을 선택한 뒤 다시 눌러 주세요." };
+      }
+      if (!r.ok && r.code === "promotion_end_failed") {
+        // 상위노출 종료에 실패하면 서버가 글을 바꾸지 않는다 — 최신 상태(남은 주문)를 다시 읽는다.
+        void load({ keepDraft: true });
+      }
       return toCommunitySheetResult(r);
     },
-    [id, post?.updated_at]
+    [id, post?.updated_at, load]
   );
 
   if (loading) {
@@ -424,8 +432,10 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
 
   const faultPicker = showFault ? (
     <fieldset className="space-y-1 rounded-ui-rect border border-sam-border p-2 text-[13px]">
-      <legend className="px-1 font-semibold text-sam-fg">홍보 귀책 (필수)</legend>
-      <p className="text-[12px] text-sam-muted">이 글에 노출 중인 홍보가 있습니다. 숨기거나 삭제하면 홍보도 종료됩니다.</p>
+      <legend className="px-1 font-semibold text-sam-fg">상위노출 중입니다 · 귀책 선택 (필수)</legend>
+      <p className="text-[12px] text-sam-muted">
+        이 글에 진행 중인 상위노출이 있습니다. 숨기거나 삭제하기 전에 상위노출을 먼저 종료합니다. 종료에 실패하면 글은 바뀌지 않습니다.
+      </p>
       <label className="flex items-center gap-2">
         <input type="radio" name="promotion-fault" checked={fault === "operator"} onChange={() => setFault("operator")} />
         운영 사유 (남은 기간 환급)

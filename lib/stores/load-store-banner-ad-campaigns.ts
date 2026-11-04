@@ -194,20 +194,19 @@ export async function loadVisibleStoresHomeHeroBanners(
       if (!gate.ok) continue;
 
       const storeId = raw.store_id == null ? null : String(raw.store_id);
-      const { token } = storeId
-        ? issueEligibleDeliveryAdExposure({
-            campaignId: id,
-            productKind: "banner",
-            creativeId,
-            inventoryId: null,
-            storeId,
-            surface: "STORES_HOME_HERO",
-            placementIndex: Number(raw.sort_order) || 0,
-            destinationType: "store_detail",
-            destinationId: storeId,
-            preview: false,
-          })
-        : { token: null as string | null };
+      // D-28: 매장 없는 운영자 자체 배너도 노출 토큰을 발급해 노출을 기록한다(store_id NULL · 클릭은 기록 안 됨)
+      const { token } = issueEligibleDeliveryAdExposure({
+        campaignId: id,
+        productKind: "banner",
+        creativeId,
+        inventoryId: null,
+        storeId,
+        surface: "STORES_HOME_HERO",
+        placementIndex: Number(raw.sort_order) || 0,
+        destinationType: "store_detail",
+        destinationId: storeId ?? "",
+        preview: false,
+      });
 
       eligible.push({
         sortOrder: Number(raw.sort_order) || 0,
@@ -264,7 +263,8 @@ async function loadVisibleStoresHomeHeroBannersLegacy(
     return [];
   }
   const invView = inventoryViewFromKey("STORES_HOME_HERO");
-  const out: HomeHeroBannerResolvedSlide[] = [];
+  // PV-5: 고객 응답에 시작 시각을 싣지 않는다 — 정렬에만 쓰고 슬라이드에서는 뺀다(새 경로와 같음)
+  const out: Array<{ slide: HomeHeroBannerResolvedSlide; startAt: string }> = [];
   for (const row of data ?? []) {
     const raw = row as Record<string, unknown>;
     if (!isStoreBannerAdSurface(raw.surface)) continue;
@@ -275,28 +275,30 @@ async function loadVisibleStoresHomeHeroBannersLegacy(
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
     if (!(startMs <= nowMs && endMs > nowMs)) continue;
     out.push({
-      id: String(raw.id),
-      imageUrl,
-      title: raw.title == null ? null : String(raw.title),
-      subtitle: raw.subtitle == null ? null : String(raw.subtitle),
-      ctaHref: String(raw.cta_href ?? ""),
-      sortOrder: Number(raw.sort_order) || 0,
       startAt: String(raw.start_at ?? ""),
-      inventoryKey: "STORES_HOME_HERO",
-      aspectRatioWidth: invView.aspectRatioWidth,
-      aspectRatioHeight: invView.aspectRatioHeight,
-      cropPolicy: invView.cropPolicy,
-      objectPosition: invView.objectPosition,
-      creativeId: null,
+      slide: {
+        id: String(raw.id),
+        imageUrl,
+        title: raw.title == null ? null : String(raw.title),
+        subtitle: raw.subtitle == null ? null : String(raw.subtitle),
+        ctaHref: String(raw.cta_href ?? ""),
+        sortOrder: Number(raw.sort_order) || 0,
+        inventoryKey: "STORES_HOME_HERO",
+        aspectRatioWidth: invView.aspectRatioWidth,
+        aspectRatioHeight: invView.aspectRatioHeight,
+        cropPolicy: invView.cropPolicy,
+        objectPosition: invView.objectPosition,
+        creativeId: null,
+      },
     });
   }
   out.sort((a, b) =>
     compareStoreBannerAdCampaigns(
-      { id: a.id, sortOrder: a.sortOrder, startAt: a.startAt ?? "" },
-      { id: b.id, sortOrder: b.sortOrder, startAt: b.startAt ?? "" }
+      { id: a.slide.id, sortOrder: a.slide.sortOrder, startAt: a.startAt },
+      { id: b.slide.id, sortOrder: b.slide.sortOrder, startAt: b.startAt }
     )
   );
-  return out;
+  return out.map((e) => e.slide);
 }
 
 /** Kept for Admin/compat callers that need raw table rows. */

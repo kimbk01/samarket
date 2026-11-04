@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { PTR_REVEAL_PRESENTATION } from "@/lib/platform-popup/ptr-reveal-contract";
+import { myPageBannerLiveQuerySpec } from "@/lib/my/mypage-tables-select";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export async function GET(): Promise<NextResponse> {
   const inPeriod = (startCol: string, endCol: string) =>
     `and(or(${startCol}.is.null,${startCol}.lte.${nowIso}),or(${endCol}.is.null,${endCol}.gte.${nowIso}))`;
 
+  const myBannerLive = myPageBannerLiveQuerySpec(nowIso);
+
   const [intro, ptr, mypage, events] = await Promise.all([
     sb.from("launch_intro_live").select("state, publication_id").limit(1).maybeSingle(),
     sb
@@ -28,11 +31,13 @@ export async function GET(): Promise<NextResponse> {
       .eq("presentation_type", PTR_REVEAL_PRESENTATION)
       .eq("status", "active")
       .or(inPeriod("start_at", "end_at")),
+    // MB-A03: 고객 조회와 같은 조건 함수 1개(`myPageBannerLiveQuerySpec` · is_active · 종료 순간 제외)
     sb
       .from("my_page_banners")
       .select("id", { count: "exact", head: true })
-      .eq("status", "active")
-      .or(inPeriod("start_at", "end_at")),
+      .eq(myBannerLive.activeColumn, myBannerLive.activeValue)
+      .or(myBannerLive.startOr)
+      .or(myBannerLive.endOr),
     sb
       .from("platform_events")
       .select("id", { count: "exact", head: true })

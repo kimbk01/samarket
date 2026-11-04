@@ -37,11 +37,16 @@ describe("마이페이지 배너 삭제·기간 (감사 AD-01 · AD-05 · Owner 
       startOr: "start_at.is.null,start_at.lte.2026-10-30T00:00:00.000Z",
       endOr: "end_at.is.null,end_at.gt.2026-10-30T00:00:00.000Z",
     });
-    for (const f of ["lib/my/load-mypage-cms-pack.ts", "lib/mypage/mypage-summary.server.ts"]) {
+    // MB-A03 (2026-11-04): 고객 조회 2곳 + 공통 광고 화면 숫자 = 같은 조건 함수 1개(`myPageBannerLiveQuerySpec`)
+    for (const f of [
+      "lib/my/load-mypage-cms-pack.ts",
+      "lib/mypage/mypage-summary.server.ts",
+      "app/api/admin/advertising/other-surfaces/route.ts",
+    ]) {
       const src = read(f);
-      expect(src, f).toContain("myPageBannerLiveWindowFilters(");
-      expect(src, f).toContain(".or(bannerWindow.startOr)");
-      expect(src, f).toContain(".or(bannerWindow.endOr)");
+      expect(src, f).toContain("myPageBannerLiveQuerySpec(");
+      expect(src, f).toMatch(/\.or\((live|myBannerLive)\.startOr\)/);
+      expect(src, f).toMatch(/\.or\((live|myBannerLive)\.endOr\)/);
     }
   });
 

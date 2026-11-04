@@ -39,6 +39,17 @@ const OWNER_CRITICAL_PREFIXES = [
   "/mypage/business/settlements",
 ] as const;
 
+/**
+ * D-26 (Owner 「설계안대로」 2026-11-04): 거래 글쓰기(`/write` · `/write/{카테고리}`) 중에는 팝업 광고를 띄우지 않는다 —
+ * 입력 중 화면을 가리지 않는다. 판정은 주문 중요 화면과 같은 제외 묶음(ORDER_CRITICAL).
+ */
+const WRITE_CRITICAL_PREFIXES = ["/write"] as const;
+
+/** True when pathname is the trade write form (popup excluded · D-26). */
+export function isPlatformPopupWriteCriticalPath(pathname: string | null | undefined): boolean {
+  return matchesPrefix(normalizePath(pathname), WRITE_CRITICAL_PREFIXES);
+}
+
 function matchesPrefix(path: string, prefixes: readonly string[]): boolean {
   for (const prefix of prefixes) {
     if (path === prefix || path.startsWith(`${prefix}/`)) return true;
@@ -77,6 +88,7 @@ export function resolvePlatformPopupPathCriticalSurface(
 ): "PAYMENT" | "ORDER_CRITICAL" | null {
   const p = normalizePath(pathname);
   if (isPlatformPopupAdminCriticalPath(p)) return "PAYMENT";
+  if (isPlatformPopupWriteCriticalPath(p)) return "ORDER_CRITICAL";
   if (p.startsWith("/stores/owner/order-chat/") || /\/owner\/orders\//.test(p)) {
     return "ORDER_CRITICAL";
   }

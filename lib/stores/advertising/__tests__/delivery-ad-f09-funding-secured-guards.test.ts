@@ -83,7 +83,8 @@ function makeSb(tables: Record<string, Row[]>, rpcImpl?: (fn: string, args: unkn
         then(res: (v: unknown) => void) {
           if (mode === "delete") {
             deletes.push({ table, filters: { ...filters } });
-            return res({ error: null });
+            // AL-01 — 관리자 삭제는 delete().select("id") 로 지운 행 수를 확인한다.
+            return res({ data: [{ id: filters.id ?? null }], error: null });
           }
           if (mode === "insert") return res({ error: null });
           const rows = (tables[table] ?? []).filter(
@@ -179,16 +180,19 @@ describe("admin safe-draft delete", () => {
     },
   };
 
+  // AL-01 — 관리자 삭제는 운영자 직접 등록(DIBAY_FIRST_PARTY) 초안만 (보완 설계 §4-3).
+  const adminDirectCampaign = { ...baseCampaign, owner_user_id: null, campaign_source: "DIBAY_FIRST_PARTY" };
+
   it("blocked when funding SECURED", async () => {
     hasCanonicalBcFundingSecured.mockResolvedValue(true);
-    const sb = makeSb({ store_paid_ad_campaigns: [{ ...baseCampaign }] });
+    const sb = makeSb({ store_paid_ad_campaigns: [{ ...adminDirectCampaign }] });
     const res = await adminDeleteSafeDraftDeliveryAdCampaign(sb as never, input);
     expect(res).toEqual({ ok: false, error: "delete_blocked_funding_secured" });
     expect(sb.deletes).toEqual([]);
   });
 
   it("allowed without SECURED funding", async () => {
-    const sb = makeSb({ store_paid_ad_campaigns: [{ ...baseCampaign }] });
+    const sb = makeSb({ store_paid_ad_campaigns: [{ ...adminDirectCampaign }] });
     const res = await adminDeleteSafeDraftDeliveryAdCampaign(sb as never, input);
     expect(res.ok).toBe(true);
     expect(sb.deletes.some((d) => d.table === "store_paid_ad_campaigns")).toBe(true);

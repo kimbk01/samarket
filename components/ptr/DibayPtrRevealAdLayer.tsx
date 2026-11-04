@@ -21,7 +21,7 @@ import {
 } from "@/lib/platform-popup/ptr-reveal-contract";
 import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
-import { openDestination } from "@/lib/destination/open-destination";
+import { notifyDestinationOpenFailed, openDestination } from "@/lib/destination/open-destination";
 import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import type { DibayPtrSnapshot } from "@/lib/ui/ptr/create-dibay-ptr-store";
 import { DIBAY_PTR_THRESHOLD_PX } from "@/lib/ui/ptr/dibay-ptr-ssot";
@@ -177,7 +177,10 @@ export function useDibayPtrRevealAd(
     /** 광고 감사 R-1: 이동은 노출당 1회 — 연타해도 click·landing 을 다시 기록하지 않는다 (계약 §4.6) */
     if (ex.finished) return;
     const href = ex.ad.href.trim();
-    if (!isHrefSafe(href)) return;
+    if (!isHrefSafe(href)) {
+      notifyDestinationOpenFailed();
+      return;
+    }
     const base = {
       campaignId: ex.ad.campaignId,
       creativeId: band.creativeId,
@@ -202,9 +205,12 @@ export function useDibayPtrRevealAd(
           recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "BANNER" });
         }
         opened = openDestination(parsed.ref, router);
+      } else {
+        notifyDestinationOpenFailed();
       }
     } catch {
       opened = false;
+      notifyDestinationOpenFailed();
     }
     void clickRecorded.then(() =>
       recordPlatformPopupEvent({

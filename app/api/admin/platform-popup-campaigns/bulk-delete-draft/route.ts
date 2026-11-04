@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST — bulk delete Admin Direct draft|pending_review popups only.
- * Validate-all-first: if any ID is protected/unknown → delete none.
+ * Validate-all-first: if any ID is protected/unknown/has exposure history → delete none.
+ * Then delete one by one; a mid-way failure returns `deletedIds` + `failed` (AL-20 — not atomic, never hidden).
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // G-18: 홍보 콘텐츠 쓰기 = ads 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
@@ -38,7 +39,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: result.error, rejectedId: result.rejectedId ?? null },
+      {
+        ok: false,
+        error: result.error,
+        rejectedId: result.rejectedId ?? null,
+        deletedIds: result.deletedIds ?? [],
+        failed: result.failed ?? [],
+      },
       { status: result.httpStatus ?? 400 }
     );
   }

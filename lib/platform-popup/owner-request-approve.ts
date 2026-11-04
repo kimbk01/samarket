@@ -9,6 +9,7 @@ import {
   adminApprovePlatformPopupCampaign,
   transitionPlatformPopupCampaign,
 } from "@/lib/platform-popup/admin-transitions";
+import type { PlatformPopupAdminCampaignSnapshot } from "@/lib/platform-popup/admin-campaign-authority";
 import {
   loadSnapshotForApproval,
   replacePlatformPopupReadyCreative,
@@ -120,6 +121,44 @@ async function createCampaignFromOwnerRequest(
   return { ok: true, campaignId };
 }
 
+/** PU-39: 생성 전 검증용 스냅샷 — `createCampaignFromOwnerRequest` 가 넣을 값과 같은 규칙으로 만든다 */
+function ownerRequestApprovalSnapshot(
+  req: PlatformPopupOwnerRequestRow,
+  status: "active" | "scheduled" | "approved"
+): PlatformPopupAdminCampaignSnapshot {
+  const hasAsset = Boolean(req.creativeAssetPath || req.creativeAssetUrl);
+  return {
+    name: `Owner popup · ${req.storeId.slice(0, 8)}`,
+    status,
+    approvalStatus: "approved",
+    priority: 0,
+    startAt: req.requestedStartAt,
+    endAt: req.requestedEndAt,
+    timezone: req.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE,
+    suppressionMode: req.suppressionMode as PlatformPopupAdminCampaignSnapshot["suppressionMode"],
+    suppressionDurationSeconds: req.suppressionDurationSeconds,
+    ctaType: req.ctaType as PlatformPopupAdminCampaignSnapshot["ctaType"],
+    ctaTarget: String(req.ctaTarget ?? ""),
+    externalUrl: req.externalUrl,
+    surfaces: (req.requestedSurfaces.length > 0
+      ? req.requestedSurfaces
+      : ["GLOBAL"]) as PlatformPopupAdminCampaignSnapshot["surfaces"],
+    presentationType: null,
+    // 사장님 소재는 카드(36:25)로 복사된다(`replacePlatformPopupReadyCreative` 기본값)
+    creative: hasAsset
+      ? {
+          id: "owner-request-creative",
+          status: "ready",
+          aspectW: 36,
+          aspectH: 25,
+          creativeMode: "card",
+          assetPath: req.creativeAssetPath || `owner-requests/${req.id}/creative`,
+          assetUrl: req.creativeAssetUrl || "",
+        }
+      : null,
+  };
+}
+
 /**
  * Admin approve: convert request → campaign idempotently (one request max one campaign).
  * Double approve returns same campaignId. Optionally schedule/activate after approval.
@@ -175,6 +214,22 @@ export async function adminApprovePlatformPopupOwnerRequest(
 
   if (request.paymentStatus !== "funded") {
     return { ok: false, error: "payment_not_funded", httpStatus: 400 };
+  }
+
+  /**
+   * PU-39 (Owner 「설계안대로」 2026-11-04 · 판매 꺼짐이라 코드 순서만): 승인 검증을 **캠페인 생성 앞**에서 한다 —
+   * 예전에는 캠페인·노출 위치·소재를 먼저 만든 뒤 검증이 실패하면 고아 캠페인이 남았다. 생성 뒤 스냅샷 검증은 방어로 남긴다.
+   * 생성·상태 변경을 한 트랜잭션(DB 함수)으로 묶는 것은 판매를 켤 때 따로(설계안 PU-39).
+   */
+  const preGate = validatePlatformPopupCampaignForApproval(
+    ownerRequestApprovalSnapshot(request, input.activate ? "active" : input.schedule ? "scheduled" : "approved")
+  );
+  if (!preGate.ok) {
+    return {
+      ok: false,
+      error: `approval_validation_failed:${preGate.errors.join(",")}`,
+      httpStatus: 400,
+    };
   }
 
   const created = await createCampaignFromOwnerRequest(sb, {

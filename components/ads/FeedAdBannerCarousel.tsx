@@ -11,12 +11,9 @@ import {
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import type {
-  FeedAdCampaignView,
-  FeedAdCreativeSlide,
-  FeedAdPlacement,
-} from "@/lib/ads/feed-ad-placement";
-import { selectCampaignsForPlacement } from "@/lib/ads/feed-ad-placement";
+import type { FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
+import { rotateFeedAdCampaignsForSlot } from "@/lib/ads/feed-ad-placement";
+import type { FeedAdPublicCampaign, FeedAdPublicSlide } from "@/lib/ads/feed-ad-public-projection";
 import {
   FEED_AD_SLIDE_INTERVAL_MS,
   FEED_AD_SLIDE_TRANSITION_MS,
@@ -34,7 +31,6 @@ import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-life
 import { DestinationLink } from "@/components/destination/DestinationLink";
 import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
 import type { DestinationRef } from "@/lib/destination/destination-contract";
-import { feedAdAdvertiserDisplayName } from "@/lib/ads/feed-ad-advertiser-name";
 import {
   FEED_AD_IMPRESSION_DWELL_MS,
   FEED_AD_IMPRESSION_MIN_RATIO,
@@ -42,8 +38,18 @@ import {
   sendFeedAdEvent,
 } from "@/lib/ads/feed-ad-event-client";
 
+/**
+ * PV-3: 화면이 받는 캠페인 = 서버 공개 투영(`FeedAdPublicCampaign`). 기간·상태·원래 이름은 오지 않는다.
+ * (호출처가 아직 `FeedAdCampaignView` 타입으로 들고 있어도 같은 칸만 읽는다 — 광고주 이름은 서버가 정한 `advertiserName` 만.)
+ */
+type FeedAdCreativeSlide = FeedAdPublicSlide;
+export type FeedAdCarouselCampaign = Pick<
+  FeedAdPublicCampaign,
+  "id" | "placement" | "destinationType" | "destinationId" | "destinationUrl" | "slides"
+> & { advertiserName?: string };
+
 /** EVT-05: stored destination → DestinationRef (null = NONE / invalid → no navigation). */
-function resolveDestination(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide): DestinationRef | null {
+function resolveDestination(c: FeedAdCarouselCampaign, slide?: FeedAdCreativeSlide): DestinationRef | null {
   return feedAdDestinationRef({
     destinationType: slide?.destinationType ?? c.destinationType,
     destinationId: slide?.destinationId || c.destinationId,
@@ -52,7 +58,7 @@ function resolveDestination(c: FeedAdCampaignView, slide?: FeedAdCreativeSlide):
 }
 
 /** One slot item = one campaign's primary reachable creative. */
-function primarySlide(c: FeedAdCampaignView): FeedAdCreativeSlide | null {
+function primarySlide(c: FeedAdCarouselCampaign): FeedAdCreativeSlide | null {
   return c.slides.find((s) => s.imageUrl.trim()) ?? null;
 }
 
@@ -83,16 +89,19 @@ export function FeedAdBannerCarousel({
   slotOrdinal?: number;
   feedSessionId?: string;
   surfaceKey?: string;
-  campaignPool?: FeedAdCampaignView[] | null;
+  campaignPool?: readonly FeedAdCarouselCampaign[] | null;
 }) {
   const { t, safeT } = useI18n();
-  const [fetchedCampaigns, setFetchedCampaigns] = useState<FeedAdCampaignView[]>([]);
+  const [fetchedCampaigns, setFetchedCampaigns] = useState<FeedAdCarouselCampaign[]>([]);
+  /** PV-3: 서버가 정한 다음 재조회 시각 — 지나면 다시 부른다(화면이 기간을 판정하지 않음) */
+  const [refetchTick, setRefetchTick] = useState(0);
   const density: FeedAdHostDensity = domain === "community" ? "community" : "trade";
   const usePool = Array.isArray(campaignPool);
 
   const selectedFromPool = useMemo(() => {
     if (!usePool) return null;
-    return selectCampaignsForPlacement(campaignPool ?? [], {
+    // PV-3: 풀은 서버가 이미 「지금 노출 가능 · 이 위치」만 보냈다 → 자리별 공정 회전만 한다(기간 재검사 없음)
+    return rotateFeedAdCampaignsForSlot(campaignPool ?? [], {
       domain,
       placement: placement as FeedAdPlacement,
       categoryId,
@@ -123,14 +132,16 @@ export function FeedAdBannerCarousel({
     if (topicSlug) qs.set("topicSlug", topicSlug);
     if (feedSessionId) qs.set("feedSessionId", feedSessionId);
     if (surfaceKey) qs.set("surfaceKey", surfaceKey);
-    const key = `feed-ad-active:${qs.toString()}`;
+    const key = `feed-ad-active:${qs.toString()}:${refetchTick}`;
+    let timer: number | null = null;
     void runSingleFlight(key, async () => {
       const r = await fetch(`/api/feed-ads/active?${qs.toString()}`, {
         credentials: "include",
       });
       return (await r.json()) as {
-        campaign?: FeedAdCampaignView | null;
-        campaigns?: FeedAdCampaignView[];
+        campaign?: FeedAdPublicCampaign | null;
+        campaigns?: FeedAdPublicCampaign[];
+        validUntil?: string | null;
       };
     })
       .then((j) => {
@@ -142,14 +153,20 @@ export function FeedAdBannerCarousel({
               ? [j.campaign]
               : [];
         setFetchedCampaigns(list);
+        const until = j.validUntil ? Date.parse(j.validUntil) : NaN;
+        if (Number.isFinite(until)) {
+          const wait = Math.max(1000, Math.min(until - Date.now() + 500, 2_147_000_000));
+          timer = window.setTimeout(() => setRefetchTick((n) => n + 1), wait);
+        }
       })
       .catch(() => {
         if (!cancelled) setFetchedCampaigns([]);
       });
     return () => {
       cancelled = true;
+      if (timer != null) window.clearTimeout(timer);
     };
-  }, [usePool, domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey]);
+  }, [usePool, domain, placement, categoryId, topicSlug, slotOrdinal, feedSessionId, surfaceKey, refetchTick]);
 
   const campaigns = usePool ? (selectedFromPool ?? []) : fetchedCampaigns;
   if (campaigns.length === 0) return null;
@@ -171,18 +188,18 @@ export function FeedAdBannerCarousel({
           destinationType: s.destinationType ?? c.destinationType,
           destinationId: s.destinationId || c.destinationId,
           destinationUrl: s.destinationUrl || c.destinationUrl,
-          headline: s.headline || feedAdAdvertiserDisplayName(c.name),
+          headline: s.headline || (c.advertiserName ?? ""),
         });
       }
       return out;
     }
-    return (campaigns[0]?.slides.filter((s) => s.imageUrl.trim()) ?? []).slice();
+    return (campaigns[0]?.slides.filter((s: { imageUrl: string }) => s.imageUrl.trim()) ?? []).slice();
   })();
 
   if (slides.length === 0) return null;
 
   const leadCampaign = campaigns[0]!;
-  const campaignBySlide: FeedAdCampaignView[] = multiCampaign
+  const campaignBySlide: FeedAdCarouselCampaign[] = multiCampaign
     ? campaigns.filter((c) => primarySlide(c) != null).slice(0, slides.length)
     : slides.map(() => leadCampaign);
 
@@ -212,8 +229,8 @@ function FeedAdBannerCarouselView({
   adLabel,
   altFallback,
 }: {
-  campaign: FeedAdCampaignView;
-  campaigns: FeedAdCampaignView[];
+  campaign: FeedAdCarouselCampaign;
+  campaigns: FeedAdCarouselCampaign[];
   slides: FeedAdCreativeSlide[];
   density: FeedAdHostDensity;
   placement: string;
@@ -239,8 +256,8 @@ function FeedAdBannerCarouselView({
     : Math.min(trackIndex, slides.length - 1);
   const current = slides[logicalIndex]!;
   const currentCampaign = campaigns[logicalIndex] ?? campaign;
-  /** 재감사 S-1 (F-1): 내부 코드 이름(회원 신청·이벤트 접두어)은 고객에게 보이지 않게 */
-  const advertiserName = feedAdAdvertiserDisplayName(currentCampaign.name);
+  /** PV-3 · FB-C17: 광고주 이름은 서버가 정한 표시 이름만 (빈 값 = 「광고」만) */
+  const advertiserName = (currentCampaign.advertiserName ?? "").trim();
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -376,8 +393,16 @@ function FeedAdBannerCarouselView({
               </span>
             </span>
           ) : (
-            <span className="rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
-              {adLabel}
+            /** D-24 (2026-11-04): 커뮤니티도 거래와 같게 광고주 이름 + 「광고」 (이름이 없으면 「광고」만) */
+            <span className="flex min-w-0 flex-1 items-center gap-1.5" data-feed-ad-advertiser="">
+              {advertiserName ? (
+                <span className="truncate sam-text-helper font-semibold text-sam-fg" data-feed-ad-advertiser-name="">
+                  {advertiserName}
+                </span>
+              ) : null}
+              <span className="shrink-0 rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
+                {adLabel}
+              </span>
             </span>
           )}
           {multi ? (
@@ -462,7 +487,7 @@ function FeedAdBannerCarouselView({
                       fill
                       roundedClassName="rounded-ui-rect"
                       className="!h-full !w-full bg-sam-app"
-                      alt={s.altText || feedAdAdvertiserDisplayName(camp.name) || altFallback}
+                      alt={s.altText || (camp.advertiserName ?? "").trim() || altFallback}
                     />
                   </DestinationLink>
                 );

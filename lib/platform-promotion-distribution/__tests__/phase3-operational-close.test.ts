@@ -75,6 +75,11 @@ function makeMemorySb() {
       }
       return api;
     };
+    // AL-11 (2026-11-04): 상태 조건 업데이트(`.eq(id).in(status, …)`) — 흉내 DB 는 eq 에서 이미 반영하므로 거르기만 더한다
+    api.in = (col: string, vals: unknown[]) => {
+      filters.push((r) => vals.includes(r[col]));
+      return api;
+    };
     api.order = () => api;
     api.maybeSingle = async () => {
       const out = runSelect();

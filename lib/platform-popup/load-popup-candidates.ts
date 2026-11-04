@@ -3,6 +3,7 @@
  */
 
 import { ptrRevealCampaignRevision } from "@/lib/platform-popup/ptr-reveal-payload";
+import { withPlatformPopupDestinationRevision } from "@/lib/platform-popup/popup-campaign-revision";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   PlatformPopupCandidate,
@@ -95,6 +96,8 @@ export async function loadPlatformPopupCandidates(
   input: {
     userId?: string | null;
     anonymousDeviceKey?: string | null;
+    /** D-21 ②: 「이번 실행만」 숨김 행은 이 앱 실행 키와 같은 것만 읽는다 */
+    sessionKey?: string | null;
     /** 생략 = 기존 팝업 경로(쿼리 불변). `ptr_reveal` = PTR 띠 캠페인만 + 변형별 소재 */
     presentationScope?: PlatformPopupPresentationScope;
   }
@@ -269,7 +272,11 @@ export async function loadPlatformPopupCandidates(
        * (계약 §4 「Hides for the applicable campaign revision」). 숨김 기록 시 앱이 본 소재 id 를 보낸다.
        */
       // Owner 결정 2: PTR 은 띠 3종(휴대폰·태블릿·로고) 소재 버전을 이은 값 — 태블릿 띠·로고만 바꿔도 새 버전
-      campaignRevision: isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,
+      // D-2: 소재 기준값 + CTA 목적지 해시 — 제목·본문 수정은 바뀌지 않는다
+      campaignRevision: withPlatformPopupDestinationRevision(
+        isPtr ? ptrRevealCampaignRevision(ptrBandsByCampaign.get(c.id)) ?? cr?.id ?? null : cr?.id ?? null,
+        ctaInputOf(c)
+      ),
       lastImpressionAt: lastImpressions.get(c.id) ?? null,
       ...(isPtr
         ? {
@@ -303,10 +310,33 @@ async function loadPopupStoreSlugsById(
   return out;
 }
 
+/** 숨김 조회 filter 에 넣을 수 있는 앱 실행 키 — 형식 밖이면 「이번 실행만」 행은 읽지 않는다(PostgREST 필터 주입 방지) */
+const POPUP_SESSION_KEY_FILTER_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * D-21 ② (Owner 「설계안대로」 2026-11-04): 숨김 조회 = **효과 있는 행 + 기간 안**만.
+ * - 다시 보지 않기(CAMPAIGN): 기간 없음 → 항상 읽는다(revision 비교는 `isPlatformPopupSuppressionActive`)
+ * - 오늘 하루(TODAY)·기간(DURATION): `suppress_until` 이 지금보다 뒤인 것만
+ * - 이번 실행만(SESSION): 지금 앱 실행 키와 같은 것만
+ * - CLOSE(×) 는 효과가 없는 기록이라 읽지 않는다(PU-31 이후 새로 쓰지도 않음)
+ */
+export function buildPlatformPopupEffectiveSuppressionFilter(input: {
+  now: Date;
+  sessionKey?: string | null;
+}): string {
+  const nowIso = input.now.toISOString();
+  const parts = ["mode.eq.CAMPAIGN", `and(mode.in.(TODAY,DURATION),suppress_until.gt.${nowIso})`];
+  const sessionKey = String(input.sessionKey ?? "").trim();
+  if (sessionKey && POPUP_SESSION_KEY_FILTER_RE.test(sessionKey)) {
+    parts.push(`and(mode.eq.SESSION,session_key.eq.${sessionKey})`);
+  }
+  return parts.join(",");
+}
+
 async function loadSuppressions(
   sb: SupabaseClient,
   campaignIds: string[],
-  input: { userId?: string | null; anonymousDeviceKey?: string | null }
+  input: { userId?: string | null; anonymousDeviceKey?: string | null; sessionKey?: string | null }
 ): Promise<SuppressionRow[]> {
   if (!campaignIds.length) return [];
   let q = sb
@@ -314,7 +344,8 @@ async function loadSuppressions(
     .select(
       "campaign_id, mode, session_key, suppress_until, campaign_revision, timezone, created_at"
     )
-    .in("campaign_id", campaignIds);
+    .in("campaign_id", campaignIds)
+    .or(buildPlatformPopupEffectiveSuppressionFilter({ now: new Date(), sessionKey: input.sessionKey }));
 
   if (input.userId) {
     q = q.eq("user_id", input.userId);

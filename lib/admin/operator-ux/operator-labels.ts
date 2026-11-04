@@ -450,6 +450,38 @@ export function adminOperatorErrorMessage(
     },
     invalid_lat: { ko: "위도 값이 올바르지 않습니다 (-90 ~ 90).", en: "Invalid latitude (-90 to 90)." },
     invalid_lng: { ko: "경도 값이 올바르지 않습니다 (-180 ~ 180).", en: "Invalid longitude (-180 to 180)." },
+    // 광고 초안 삭제 규칙 (AL-02 · 보완 설계 §4-3)
+    // DS-6 (2026-11-04): 배달 자체 배너 목적지 — 매장이 있으면 그 매장 화면 3종, 없으면 이벤트·배달 안 화면만
+    invalid_destination: {
+      ko: "이동할 곳을 확인해 주세요. 매장을 고르면 그 매장 화면만, 매장이 없으면 이벤트·배달 화면만 넣을 수 있습니다",
+      en: "Check the destination. With a store, use that store's pages only; without a store, use an event or delivery page.",
+    },
+    delete_not_allowed: {
+      ko: "노출·결제·문의 이력이 있어 삭제할 수 없습니다",
+      en: "This ad has exposure, payment or inquiry history and cannot be deleted.",
+    },
+    delete_blocked_funding_secured: {
+      ko: "결제된 캐시가 있어 삭제할 수 없습니다",
+      en: "Paid Cash is held for this ad, so it cannot be deleted.",
+    },
+    not_draft: { ko: "초안 상태에서만 삭제할 수 있습니다", en: "Only drafts can be deleted." },
+    not_admin_direct: {
+      ko: "운영자 등록 광고만 삭제할 수 있습니다",
+      en: "Only operator-registered ads can be deleted.",
+    },
+    // 배달 광고 종료 (AL-04 · D-13)
+    fault_required: {
+      ko: "종료 귀책(운영 사유·사장님 사유·해당 없음)을 골라 주세요.",
+      en: "Choose who is responsible for ending (operator, owner, or none).",
+    },
+    already_ended: {
+      ko: "이미 종료된 광고입니다. 새로고침 후 확인하세요.",
+      en: "This ad has already ended. Refresh and check.",
+    },
+    campaign_not_found: {
+      ko: "광고를 찾을 수 없습니다. 새로고침 후 확인하세요.",
+      en: "Ad not found. Refresh and check again.",
+    },
   };
   if (known[key]) return ko ? known[key].ko : known[key].en;
   if (OPERATOR_LABELS[key]) return adminOperatorLabel(key, ko);

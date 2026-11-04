@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { DestinationLink } from "@/components/destination/DestinationLink";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MyPageBannerRow } from "@/lib/my/types";
+import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import {
   MYPAGE_BANNER_DESKTOP_MIN_WIDTH_PX,
   resolveMypageBannerImageSources,
@@ -18,6 +19,8 @@ export interface MyTopBannerProps {
 export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
   const { t } = useI18n();
   if (!banner) return null;
+  // DS-7 · C-1: 눌러도 반응 없는 배너 금지 — 열 수 있는 링크가 없으면 그리지 않는다(서버도 같은 배너를 빼고 보낸다)
+  if (!parseDestinationHref(banner.link_url ?? "").ok) return null;
   const images = resolveMypageBannerImageSources(banner);
   const imageCommon = { alt: "", fill: true, sizes: "48px" } as const;
   const desktopSrcSet = images ? getImageProps({ ...imageCommon, src: images.desktopSrc }).props.srcSet : undefined;
@@ -64,7 +67,7 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
 
   // EVT-07: stored link validated on save; opened via openDestination (external → in-app browser).
   return (
-    <DestinationLink destination={banner.link_url} className="block" fallback={content}>
+    <DestinationLink destination={banner.link_url} className="block" fallback={null}>
       {content}
     </DestinationLink>
   );

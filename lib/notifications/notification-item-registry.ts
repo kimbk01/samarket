@@ -239,7 +239,7 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
   }),
   item({
     key: "trade_promotion",
-    labelKo: "거래글 홍보 심사",
+    labelKo: "거래글 상위노출 심사",
     labelEn: "Trade promotion review",
     audience: "member",
     match: { eventTypes: ["trade_status"], kinds: ["trade_promotion_decision"] },
@@ -331,7 +331,7 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
   }),
   item({
     key: "community_promotion",
-    labelKo: "커뮤니티 홍보 종료",
+    labelKo: "커뮤니티 상위노출 종료",
     labelEn: "Community promotion ended",
     audience: "member",
     match: { eventTypes: ["community_activity"], kinds: ["community_promotion_ended"] },

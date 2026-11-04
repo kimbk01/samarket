@@ -82,6 +82,9 @@ Table: `delivery_ad_creatives`
 
 - Banner: `asset_path` (canonical upload storage) — not free remote URL authority  
 - CTA allowlist only: `store_detail` · `store_menu` · `store_promotion`  
+  - C-2 (Owner 「설계안대로」 2026-11-04 · DS-6): **매장이 연결된 배너**(사장님 배너 · 매장 있는 운영자 자체 배너)는 위 3종만이며, 연결 매장 id 의 실제 slug 와 `cta_href` 의 매장이 같아야 한다.
+  - **매장 없는 운영자 자체 배너**(D-28)는 이벤트(`/events/:id`) 또는 배달 안 화면(`/stores` · `/stores/browse…` · `/stores/search…` · `/stores/gift-mall…` · `/delivery…`)만.
+  - 외부 주소(`https://…`)는 어느 경우든 저장 때 거부한다. 단일 정의: `lib/destination/delivery-banner-destination.ts`.
 - Existing `store_banner_ad_campaigns.image_url` backfilled → creative + `creative_id` link (image_url retained for runtime compat)
 
 ---

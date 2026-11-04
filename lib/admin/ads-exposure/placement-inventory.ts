@@ -5,8 +5,11 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  countFeedAdPoolOccupancy,
   feedAdPoolCapacity,
+  feedAdPoolKey,
   feedAdPoolOccupiesCampaign,
+  feedAdPoolTargetKey,
 } from "@/lib/ads/feed-ad-pool-capacity";
 import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
 import type { FeedAdCampaignView, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
@@ -81,8 +84,24 @@ export type FeedPoolCampaignCard = {
   eventId: string | null;
 };
 
+/** FB-A11: 업종(거래 카테고리)·주제(커뮤니티) 별 자리 — 풀 키 = 위치 + 대상 (DB 트리거·등록 화면과 같은 함수) */
+export type FeedPoolTargetInventory = {
+  /** 업종 id · 주제 slug (홈은 "") */
+  targetKey: string;
+  used: number;
+  capacity: number;
+  remaining: number;
+  status: "available" | "full";
+  campaignIds: string[];
+};
+
 export type FeedPoolInventory = {
   placementKey: FeedAdPlacement;
+  /**
+   * FB-A11: 대상별 줄. 홈 = 1줄(targetKey ""). 업종/주제 위치 = 광고가 있는 대상마다 1줄.
+   * 위치 합계(used·capacity·remaining)는 이 줄들의 합이다(대상 줄이 없으면 빈 대상 1개 = 0/3).
+   */
+  targetPools: FeedPoolTargetInventory[];
   domain: "community" | "trade";
   humanTitleKo: string;
   humanTitleEn: string;
@@ -213,12 +232,34 @@ export function projectFeedPoolInventories(
     byPlacement.get(p)!.push(c);
   }
 
+  // FB-A11: 세는 규칙 = countFeedAdPoolOccupancy (등록 화면·서버 신청/승인 검사와 같은 함수)
+  const occupancy = countFeedAdPoolOccupancy(campaigns, nowMs);
+
   return FEED_POOL_PLACEMENTS.map((placementKey) => {
     const meta = feedTitles(placementKey);
-    const capacity = feedAdPoolCapacity(placementKey);
+    const perTargetCapacity = feedAdPoolCapacity(placementKey);
     const rows = byPlacement.get(placementKey) ?? [];
-    const used = rows.length;
-    const remaining = Math.max(0, capacity - used);
+    const targetKeys = [...new Set(rows.map((c) => feedAdPoolTargetKey(placementKey, c)))].sort();
+    if (targetKeys.length === 0) targetKeys.push("");
+    const targetPools: FeedPoolTargetInventory[] = targetKeys.map((targetKey) => {
+      const poolKey = feedAdPoolKey(placementKey, {
+        targetCategoryId: placementKey === "TRADE_CATEGORY" ? targetKey : null,
+        targetTopicSlug: placementKey === "COMMUNITY_TOPIC" ? targetKey : null,
+      });
+      const tUsed = occupancy.get(poolKey) ?? 0;
+      const tRemaining = Math.max(0, perTargetCapacity - tUsed);
+      return {
+        targetKey,
+        used: tUsed,
+        capacity: perTargetCapacity,
+        remaining: tRemaining,
+        status: tRemaining > 0 ? ("available" as const) : ("full" as const),
+        campaignIds: rows.filter((c) => feedAdPoolTargetKey(placementKey, c) === targetKey).map((c) => c.id),
+      };
+    });
+    const used = targetPools.reduce((n, t) => n + t.used, 0);
+    const capacity = targetPools.reduce((n, t) => n + t.capacity, 0);
+    const remaining = targetPools.reduce((n, t) => n + t.remaining, 0);
     const createHref =
       meta.domain === "community"
         ? "/admin/advertising/direct/community"
@@ -226,6 +267,7 @@ export function projectFeedPoolInventories(
 
     return {
       placementKey,
+      targetPools,
       domain: meta.domain,
       humanTitleKo: meta.ko,
       humanTitleEn: meta.en,

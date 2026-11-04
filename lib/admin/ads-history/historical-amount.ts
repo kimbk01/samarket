@@ -14,7 +14,7 @@ export function formatHistoricalPointAmount(pointCost: unknown): {
   if (!Number.isFinite(n) || n < 0) {
     return { label: null, proven: false };
   }
-  return { label: `${Math.floor(n)} Point`, proven: true };
+  return { label: `${Math.floor(n)} 포인트`, proven: true };
 }
 
 export function formatHistoricalBusinessCashMinor(amountMinor: unknown, currency?: string | null): {
