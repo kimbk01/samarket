@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { memberOpsListRange, parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
-import { parseOutstandingSums } from "@/lib/finance/admin-finance-period-sums";
+import { outstandingSumsFromRpc } from "@/lib/finance/admin-finance-period-sums";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     rows,
     total: count ?? rows.length,
-    sums: sumsRes.error ? null : parseOutstandingSums(sumsRes.data),
+    sums: sumsRes.error ? null : outstandingSumsFromRpc(sumsRes.data),
     limit: page.limit,
     offset: page.offset,
   });

@@ -15,7 +15,7 @@ import {
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
-import { parseUnifiedTxSums, type UnifiedTxKindSum } from "@/lib/finance/admin-finance-period-sums";
+import { unifiedTxSumsFromRpc, type UnifiedTxKindSum } from "@/lib/finance/admin-finance-period-sums";
 
 export const ADMIN_FINANCE_UNIFIED_TX_PAGE_RPC = "admin_finance_unified_tx_page" as const;
 /** 한 페이지 최대 건수 (전체 결과는 total + offset 으로 끝까지 넘긴다). */
@@ -238,7 +238,7 @@ export async function loadUnifiedFinanceTransactionPage(
     total: Math.max(0, Math.trunc(Number(o.total) || 0)),
     limit,
     offset,
-    sumsByKind: parseUnifiedTxSums(o.sums_by_kind),
+    sumsByKind: unifiedTxSumsFromRpc(o.sums_by_kind),
   };
 }
 

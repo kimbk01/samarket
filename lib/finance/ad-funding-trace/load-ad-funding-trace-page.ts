@@ -13,7 +13,7 @@ import type { AdFundingTrace } from "@/lib/finance/ad-funding-trace/types";
 import type { AdsFundingRail } from "@/lib/finance/product-decision-lock";
 import { DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
-import { parseAdFundingSums, type AdFundingSourceSum } from "@/lib/finance/admin-finance-period-sums";
+import { adFundingSumsFromRpc, type AdFundingSourceSum } from "@/lib/finance/admin-finance-period-sums";
 
 export const ADMIN_FINANCE_AD_FUNDING_PAGE_RPC = "admin_finance_ad_funding_page" as const;
 export const AD_FUNDING_PAGE_MAX_LIMIT = 100;
@@ -252,6 +252,6 @@ export async function loadAdFundingTracePage(
     total: Math.max(0, Math.trunc(Number(o.total) || 0)),
     limit,
     offset,
-    sumsBySource: parseAdFundingSums(o.sums_by_source),
+    sumsBySource: adFundingSumsFromRpc(o.sums_by_source),
   };
 }

@@ -15,7 +15,7 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
 import {
   adminFinanceRangeText,
-  parseUnifiedTxSums,
+  readUnifiedTxSums,
   unifiedTxSumCells,
   type UnifiedTxKindSum,
 } from "@/lib/finance/admin-finance-period-sums";
@@ -100,7 +100,7 @@ export function AdminFinanceTransactionsView() {
       const list = json.transactions ?? [];
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
-      setSums(parseUnifiedTxSums(json.sumsByKind));
+      setSums(readUnifiedTxSums(json.sumsByKind));
     } catch {
       if (seq !== seqRef.current) return;
       setError("network_error");

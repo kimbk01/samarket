@@ -10,9 +10,9 @@ import {
   adminFinanceRangeText,
   conversionSumCells,
   outstandingSumCells,
-  parseAdFundingSums,
-  parseOutstandingSums,
-  parseUnifiedTxSums,
+  adFundingSumsFromRpc,
+  outstandingSumsFromRpc,
+  unifiedTxSumsFromRpc,
   unifiedTxSumCells,
 } from "@/lib/finance/admin-finance-period-sums";
 
@@ -27,11 +27,11 @@ const RPC_SUMS = [
 
 describe("통합 거래 · Coin 전환 합계", () => {
   it("구 DB 함수(키 없음) → null — 합계 줄 숨김", () => {
-    expect(parseUnifiedTxSums(undefined)).toBeNull();
+    expect(unifiedTxSumsFromRpc(undefined)).toBeNull();
   });
 
   it("종류별 칸: Cash 는 방향으로 부호, Coin 은 부호 그대로, 같은 종류 입·출은 한 칸(순값)", () => {
-    const cells = unifiedTxSumCells(parseUnifiedTxSums(RPC_SUMS)!, true);
+    const cells = unifiedTxSumCells(unifiedTxSumsFromRpc(RPC_SUMS)!, true);
     const byKey = Object.fromEntries(cells.map((c) => [c.key, c]));
     expect(byKey["CASH:AD_SPEND"].amount).toBe("−₱22,114.00");
     expect(byKey["CASH:AD_SPEND"].count).toBe(20);
@@ -44,14 +44,14 @@ describe("통합 거래 · Coin 전환 합계", () => {
   });
 
   it("출금 지급 줄은 금액 대신 건수 + 「신청 때 차감」 설명 (원장 금액 0)", () => {
-    const c = unifiedTxSumCells(parseUnifiedTxSums(RPC_SUMS)!, true).find((x) => x.key === "COIN:WITHDRAWAL_COMPLETE")!;
+    const c = unifiedTxSumCells(unifiedTxSumsFromRpc(RPC_SUMS)!, true).find((x) => x.key === "COIN:WITHDRAWAL_COMPLETE")!;
     expect(c.amount).toBeNull();
     expect(c.count).toBe(4);
     expect(c.note).toContain("신청 때 차감");
   });
 
   it("Coin 전환 화면: 전환한 Coin · 받은 Cash (전환 Cash 입금 줄만)", () => {
-    const cells = conversionSumCells(parseUnifiedTxSums(RPC_SUMS)!, true);
+    const cells = conversionSumCells(unifiedTxSumsFromRpc(RPC_SUMS)!, true);
     expect(cells.map((c) => [c.key, c.count])).toEqual([
       ["coin_out", 6],
       ["cash_in", 6],
@@ -64,7 +64,7 @@ describe("통합 거래 · Coin 전환 합계", () => {
 describe("광고 지출 · 미납 합계", () => {
   it("출처·상태별 칸 — Cash(₱, centavo) · Point · 팝업은 건수만", () => {
     const cells = adFundingSumCells(
-      parseAdFundingSums([
+      adFundingSumsFromRpc([
         { source: "platform_popup_campaigns", status: "ended", count: 23, amount: 0 },
         { source: "delivery_ad_canonical_bc_fundings", status: "SECURED", count: 16, amount: 1679000 },
         { source: "feed_ad_requests", status: "ended", count: 41, amount: 367000 },
@@ -83,13 +83,13 @@ describe("광고 지출 · 미납 합계", () => {
   });
 
   it("미납 합계 칸 이름 = 표 열 이름(관리자 회계 용어 유지)", () => {
-    const s = parseOutstandingSums({ count: 3, due_minor: 5000, paid_minor: 1500, outstanding_minor: 3500 })!;
+    const s = outstandingSumsFromRpc({ count: 3, due_minor: 5000, paid_minor: 1500, outstanding_minor: 3500 })!;
     expect(outstandingSumCells(s, true).map((c) => [c.label, c.amount])).toEqual([
       ["Fee Due", "₱50.00"],
       ["Cash Paid", "₱15.00"],
       ["Remaining", "₱35.00"],
     ]);
-    expect(parseOutstandingSums(null)).toBeNull();
+    expect(outstandingSumsFromRpc(null)).toBeNull();
   });
 
   it("기간 글자", () => {

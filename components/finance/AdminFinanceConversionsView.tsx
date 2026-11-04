@@ -13,7 +13,7 @@ import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodS
 import {
   adminFinanceRangeText,
   conversionSumCells,
-  parseUnifiedTxSums,
+  readUnifiedTxSums,
   type UnifiedTxKindSum,
 } from "@/lib/finance/admin-finance-period-sums";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -112,7 +112,7 @@ export function AdminFinanceConversionsView() {
       const list = json.transactions ?? [];
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
-      setSums(parseUnifiedTxSums(json.sumsByKind));
+      setSums(readUnifiedTxSums(json.sumsByKind));
     } catch {
       if (seq !== seqRef.current) return;
       setError("network_error");

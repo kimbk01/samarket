@@ -39,8 +39,11 @@ export type UnifiedTxKindSum = {
   coinOut: number;
 };
 
-/** RPC `sums_by_kind` → 배열. 없으면(구 DB 함수) null — 화면은 합계 줄을 숨긴다. */
-export function parseUnifiedTxSums(raw: unknown): UnifiedTxKindSum[] | null {
+/**
+ * [서버 전용 입력] RPC `sums_by_kind`(DB 이름) → 화면용 배열. 없으면(구 DB 함수) null.
+ * 화면은 이 함수를 쓰지 않는다 — API 응답은 이미 화면용 이름이므로 `readUnifiedTxSums` 로 읽는다(실기 A-1 FAIL 2026-11-04).
+ */
+export function unifiedTxSumsFromRpc(raw: unknown): UnifiedTxKindSum[] | null {
   if (!Array.isArray(raw)) return null;
   const out: UnifiedTxKindSum[] = [];
   for (const r of raw as Array<Record<string, unknown>>) {
@@ -53,6 +56,25 @@ export function parseUnifiedTxSums(raw: unknown): UnifiedTxKindSum[] | null {
       count: Math.trunc(toNum(r.count)),
       amount: toNum(r.amount),
       coinOut: toNum(r.coin_out),
+    });
+  }
+  return out;
+}
+
+/** [화면] API 응답 `sumsByKind`(화면용 이름 · 서버가 `unifiedTxSumsFromRpc` 로 만든 값) 확인해 읽기. 모양이 다르면 null(합계 줄 숨김). */
+export function readUnifiedTxSums(raw: unknown): UnifiedTxKindSum[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: UnifiedTxKindSum[] = [];
+  for (const r of raw as Array<Record<string, unknown>>) {
+    const wallet = String(r.wallet ?? "").toUpperCase();
+    if ((wallet !== "CASH" && wallet !== "COIN" && wallet !== "POINT") || typeof r.entryKind !== "string") return null;
+    out.push({
+      wallet,
+      entryKind: r.entryKind,
+      direction: r.direction === "credit" ? "credit" : "debit",
+      count: Math.trunc(toNum(r.count)),
+      amount: toNum(r.amount),
+      coinOut: toNum(r.coinOut),
     });
   }
   return out;
@@ -130,7 +152,8 @@ export function conversionSumCells(sums: readonly UnifiedTxKindSum[], ko: boolea
 
 export type AdFundingSourceSum = { source: string; status: string; count: number; amount: number };
 
-export function parseAdFundingSums(raw: unknown): AdFundingSourceSum[] | null {
+/** [서버 전용 입력] RPC `sums_by_source` → 화면용 배열. 화면은 `readAdFundingSums`. */
+export function adFundingSumsFromRpc(raw: unknown): AdFundingSourceSum[] | null {
   if (!Array.isArray(raw)) return null;
   return (raw as Array<Record<string, unknown>>).map((r) => ({
     source: String(r.source ?? ""),
@@ -138,6 +161,17 @@ export function parseAdFundingSums(raw: unknown): AdFundingSourceSum[] | null {
     count: Math.trunc(toNum(r.count)),
     amount: toNum(r.amount),
   }));
+}
+
+/** [화면] API 응답 `sumsBySource` 읽기 (서버가 만든 화면용 값). 모양이 다르면 null. */
+export function readAdFundingSums(raw: unknown): AdFundingSourceSum[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: AdFundingSourceSum[] = [];
+  for (const r of raw as Array<Record<string, unknown>>) {
+    if (typeof r.source !== "string" || typeof r.status !== "string") return null;
+    out.push({ source: r.source, status: r.status, count: Math.trunc(toNum(r.count)), amount: toNum(r.amount) });
+  }
+  return out;
 }
 
 /** 출처 → 결제 수단·금액 단위 (load-ad-funding-trace-page 의 행 변환과 같은 대응) */
@@ -181,7 +215,8 @@ export type OutstandingSums = {
   outstandingMinor: number;
 };
 
-export function parseOutstandingSums(raw: unknown): OutstandingSums | null {
+/** [서버 전용 입력] RPC `admin_finance_outstanding_sums`(DB 이름) → 화면용. 화면은 `readOutstandingSums`(실기 A-5 FAIL 2026-11-04). */
+export function outstandingSumsFromRpc(raw: unknown): OutstandingSums | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   if (o.count == null) return null;
@@ -190,6 +225,19 @@ export function parseOutstandingSums(raw: unknown): OutstandingSums | null {
     dueMinor: toNum(o.due_minor),
     paidMinor: toNum(o.paid_minor),
     outstandingMinor: toNum(o.outstanding_minor),
+  };
+}
+
+/** [화면] API 응답 `sums`(화면용 이름) 읽기. 모양이 다르면 null. */
+export function readOutstandingSums(raw: unknown): OutstandingSums | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (o.count == null || o.dueMinor == null || o.paidMinor == null || o.outstandingMinor == null) return null;
+  return {
+    count: Math.trunc(toNum(o.count)),
+    dueMinor: toNum(o.dueMinor),
+    paidMinor: toNum(o.paidMinor),
+    outstandingMinor: toNum(o.outstandingMinor),
   };
 }
 

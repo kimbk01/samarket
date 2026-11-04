@@ -13,7 +13,7 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
-import { outstandingSumCells, parseOutstandingSums } from "@/lib/finance/admin-finance-period-sums";
+import { outstandingSumCells, readOutstandingSums } from "@/lib/finance/admin-finance-period-sums";
 
 const FIELD =
   "h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]";
@@ -58,7 +58,7 @@ export function AdminFinanceOutstandingView() {
   const list = useMemberOpsPagedFetch<ObligationRow>(`/api/admin/finance/outstanding?${apiQs}`, "rows", lq.refreshKey);
   const rows = list.rows;
   /** C-1 — 같은 조건 전체 합계(쪽과 무관). 조회 중·실패 때는 숨긴다(이전 매장 값이 보이지 않게). */
-  const sums = !list.loading && !list.error ? parseOutstandingSums(list.json?.sums) : null;
+  const sums = !list.loading && !list.error ? readOutstandingSums(list.json?.sums) : null;
 
   return (
     <div className="space-y-4" data-admin-finance-outstanding="1">

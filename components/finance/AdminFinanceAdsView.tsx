@@ -31,7 +31,7 @@ import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodS
 import {
   adFundingSumCells,
   adminFinanceRangeText,
-  parseAdFundingSums,
+  readAdFundingSums,
   type AdFundingSourceSum,
 } from "@/lib/finance/admin-finance-period-sums";
 
@@ -105,7 +105,7 @@ export function AdminFinanceAdsView() {
       const list = json.traces ?? [];
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
-      setSums(parseAdFundingSums(json.sumsBySource));
+      setSums(readAdFundingSums(json.sumsBySource));
     } catch {
       if (seq !== seqRef.current) return;
       setError("network_error");
