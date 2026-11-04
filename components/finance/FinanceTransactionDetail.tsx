@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { financeTxBalanceBefore } from "@/lib/finance/finance-tx-balance-before";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
 import {
@@ -92,6 +94,33 @@ export function FinanceTransactionDetail({
               : tx.balanceAfter != null
                 ? formatFinanceAmount({ wallet: tx.wallet, amount: tx.balanceAfter })
                 : "—"}
+          </dd>
+        </div>
+        <div>
+          {/* Owner 권장안 (2026-11-04) — 예전 매장 패널(연결 0 · 삭제)에 있던 「이전 잔액」「처리 주체」를 거래 상세로 */}
+          <dt className="text-sam-muted">{ko ? "이전 잔액" : "Balance before"}</dt>
+          <dd className="tabular-nums" data-finance-tx-balance-before="1">
+            {(() => {
+              const before = financeTxBalanceBefore(tx);
+              if (before == null) return "—";
+              return tx.wallet === "CASH"
+                ? formatFinanceAmount({ wallet: "CASH", amount: before, isMinor: true })
+                : formatFinanceAmount({ wallet: tx.wallet, amount: before });
+            })()}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sam-muted">{ko ? "처리 주체" : "Actor"}</dt>
+          <dd data-finance-tx-actor="1">
+            {tx.ownerId ? (
+              <AdminTechId id={tx.ownerId} />
+            ) : tx.wallet === "POINT" ? (
+              "—"
+            ) : ko ? (
+              "시스템 (자동 처리)"
+            ) : (
+              "System (automatic)"
+            )}
           </dd>
         </div>
         {tx.status ? (

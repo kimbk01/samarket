@@ -136,8 +136,9 @@ describe("FIN-07 statements = commission SSOT", () => {
   it("financial statement / control plane / overview no longer use store_settlements as numbers", () => {
     const read = (rel: string) => readFileSync(resolve(process.cwd(), rel), "utf8");
     const fin = read("lib/admin/store-financial-statement/load-store-financial-statement.ts");
+    // 재감사 P-8: 재무제표 로더 본문(연결 0)은 삭제 — 남은 것은 기간 해석뿐(store_settlements 를 읽지 않음)
     expect(fin).not.toContain("settlementSummary");
-    expect(fin).toContain('.eq("order_status", "refunded")');
+    expect(fin).not.toContain("store_settlements");
     const cp = read("lib/admin/finance-control-plane/load-finance-control-plane.ts");
     expect(cp).not.toContain('.from("store_settlements")');
     expect(cp).toContain('type: "ORDER_REFUND"');

@@ -9,39 +9,15 @@ function read(rel: string) {
 }
 
 describe("ARO-OPS-UX-002-B3 store financial statement", () => {
-  it("read-model + API + UI exist without new finance DB/mutation owners", () => {
-    expect(existsSync(resolve(process.cwd(), "lib/admin/store-financial-statement/load-store-financial-statement.ts"))).toBe(
-      true
-    );
-    expect(existsSync(resolve(process.cwd(), "app/api/admin/store-financial-statement/route.ts"))).toBe(true);
-    expect(existsSync(resolve(process.cwd(), "components/admin/finance/AdminStoreFinancialStatement.tsx"))).toBe(
-      true
-    );
-
-    const loader = read("lib/admin/store-financial-statement/load-store-financial-statement.ts");
-    expect(loader).toContain("store_settlements");
-    expect(loader).toContain("store_economic_point_ledger");
-    expect(loader).toContain("business_cash_ledger");
-    expect(loader).toContain("store_sale_fee_obligations");
-    expect(loader).not.toMatch(/\.(insert|update|delete|upsert)\(/);
-    expect(loader).not.toMatch(/create table|CREATE TABLE/i);
-
-    const api = read("app/api/admin/store-financial-statement/route.ts");
-    expect(api).toContain("loadStoreFinancialStatement");
-    expect(api).toContain('requireAdminPermission("business")');
-    expect(api).not.toMatch(/method === ["']POST["']/i);
-
-    const ui = read("components/admin/finance/AdminStoreFinancialStatement.tsx");
-    expect(ui).toContain('data-aro-ops-ux-002-b3="1"');
-    expect(ui).toContain("UNAVAILABLE");
-    expect(ui).toContain("feeRatePercent");
-    expect(ui).toContain("obligations");
-    expect(ui).not.toMatch(/order total.*\*.*fee|sales\s*\*\s*0\.|guessed/i);
+  it("재감사 P-8 — 연결 0 이던 재무제표 화면·API·로더는 삭제, 같은 내용은 매장 재무 상세가 보여 준다", () => {
+    expect(existsSync(resolve(process.cwd(), "components/admin/finance/AdminStoreFinancialStatement.tsx"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "app/api/admin/store-financial-statement/route.ts"))).toBe(false);
+    const detail = read("components/finance/AdminFinanceStoreViews.tsx");
+    expect(detail).toContain("/api/admin/finance/store-statement");
+    expect(detail).toContain("/api/admin/finance/daily-statement");
   });
 
   it("wires into existing finance route (no parallel store-finance-v2)", () => {
-    // 재감사 P-8 (2026-11-04): 이 화면을 붙이던 AdminStoreFinancePanels 는 /admin/finance 가 AdminFinanceHubView 로 바뀐 뒤
-    // 화면 연결 0 이라 삭제했다. AdminStoreFinancialStatement 를 붙이는 화면은 지금 없다 — Owner 결정 사항으로 보고함.
     expect(existsSync(resolve(process.cwd(), "app/admin/store-finance-v2"))).toBe(false);
     expect(businessCcFinancialStatementHref("s1")).toBe("/admin/finance?storeId=s1");
   });
@@ -74,21 +50,5 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
 
     const d30 = resolveStoreFinancialPeriod({ period: "30d" });
     expect(d30.key).toBe("30d");
-  });
-
-  it("fee rows = commission actually charged (frozen snapshot via SQL ledger) — not live policy multiply", () => {
-    const loader = read("lib/admin/store-financial-statement/load-store-financial-statement.ts");
-    expect(loader).toContain("loadStoreCommissionLedgerPage(");
-    expect(loader).toContain("r.feeChargedMinor");
-    expect(loader).toContain("r.feePercent");
-    expect(loader).not.toMatch(/defaultFeeRate|DEFAULT_FEE|fee_rate\s*\*\s*sale/i);
-  });
-
-  it("payable = platform payable SSOT; legacy store_settlements pending is never shown as payout", () => {
-    const loader = read("lib/admin/store-financial-statement/load-store-financial-statement.ts");
-    expect(loader).toContain("loadStorePlatformPayable(");
-    expect(loader).toContain('source: "store_platform_payable_page.payable"');
-    expect(loader).not.toContain("summary.pending_net");
-    expect(loader).toContain("resolveStoreCommissionPeriod(");
   });
 });

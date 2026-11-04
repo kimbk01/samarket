@@ -35,11 +35,6 @@ const ADMIN_RAW_ID_SLICE_ALLOWLIST: Readonly<Record<string, { count: number; rea
     reason: "API 로 저장하는 policy_name 값 (데이터 계약 — 표시 변경 금지 범위)",
   },
   // ── 동시 작업 파일 (F6-B 범위 밖 — 해당 작업 병합 후 AdminTechId 로 교체)
-  "components/admin/finance/AdminStoreFinancialStatement.tsx": {
-    count: 7,
-    reason: "날짜 시간대 ratchet allowlist 파일 — 동시 수정 중이라 보류",
-    concurrent: true,
-  },
   "components/admin/stores/AdminStoreFeePoliciesPage.tsx": {
     count: 2,
     reason: "날짜 시간대 ratchet allowlist 파일 — 동시 수정 중이라 보류",
