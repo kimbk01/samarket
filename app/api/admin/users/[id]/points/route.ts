@@ -18,6 +18,7 @@ import {
   readUserPointBalance,
   reconcileUserPointBalance,
 } from "@/lib/points/user-point-ledger";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +80,8 @@ export async function GET(
   const dateFrom = req.nextUrl.searchParams.get("dateFrom");
   const dateTo = req.nextUrl.searchParams.get("dateTo");
   /* 기간(PHT) — 회원 `/api/me/points` 와 같은 함수·같은 주소 값 (period·from·to). 없으면 합계만 이번 달 */
+  const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+  if (badPeriod) return badPeriod;
   const period = resolvePointHistoryPeriod(req.nextUrl.searchParams);
   const chargeOffset = Number(req.nextUrl.searchParams.get("chargeOffset") ?? 0);
   const chargeLimitRaw = req.nextUrl.searchParams.get("chargeLimit");

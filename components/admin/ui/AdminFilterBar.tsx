@@ -32,6 +32,7 @@ export function AdminFilterBar({
   showSearch = true,
   searchPlaceholder,
   pending = false,
+  requireCompletePeriod = false,
   children,
   className = "",
 }: {
@@ -54,13 +55,20 @@ export function AdminFilterBar({
   searchPlaceholder?: string;
   /** 조회 중 — 버튼 비활성 */
   pending?: boolean;
+  /**
+   * 돈 화면(재감사 D-12·D-16): 시작일·종료일 중 하나만 있거나 시작 > 종료면 조회하지 않고 안내.
+   * 서버도 같은 입력을 400 `invalid_period` 로 거절한다(`storeCommissionPeriodInputError`). 다른 화면은 지금 동작 그대로.
+   */
+  requireCompletePeriod?: boolean;
   /** 도메인 특수 필터 (상태와 검색어 사이) */
   children?: ReactNode;
   className?: string;
 }) {
+  const periodIncomplete =
+    requireCompletePeriod && showPeriod && (Boolean(draft.from) !== Boolean(draft.to) || (Boolean(draft.from) && draft.from > draft.to));
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!pending) onSubmit();
+    if (!pending && !periodIncomplete) onSubmit();
   };
   const statusOptions = status
     ? status.options.some((o) => o.value === "")
@@ -104,6 +112,13 @@ export function AdminFilterBar({
           </label>
         </div>
       ) : null}
+      {periodIncomplete ? (
+        <p role="status" className="basis-full text-[12px] text-sam-danger" data-admin-filter-period-incomplete="1">
+          {ko
+            ? "기간은 시작일과 종료일을 모두 고르고, 시작일이 종료일보다 늦지 않아야 합니다. 전체 기간은 두 날짜를 모두 비우세요."
+            : "Pick both start and end dates (start not after end), or leave both empty for all time."}
+        </p>
+      ) : null}
       {status ? (
         <label className={LABEL} data-admin-filter-status="1">
           {status.label ?? (ko ? "상태" : "Status")}
@@ -136,7 +151,13 @@ export function AdminFilterBar({
         </label>
       ) : null}
       <div className="flex items-center gap-1">
-        <AdminActionButton type="submit" variant="primary" className="h-10" disabled={pending} data-admin-filter-submit="1">
+        <AdminActionButton
+          type="submit"
+          variant="primary"
+          className="h-10"
+          disabled={pending || periodIncomplete}
+          data-admin-filter-submit="1"
+        >
           {ko ? "조회" : "Search"}
         </AdminActionButton>
         <AdminActionButton type="button" variant="ghost" className="h-10" disabled={pending} onClick={onReset} data-admin-filter-reset="1">

@@ -28,6 +28,7 @@ import {
   parseAdminRequestPeriod,
   POINT_CHARGE_SUMMARY_BUCKETS,
 } from "@/lib/admin/finance/admin-request-period-summary";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 /** 포인트 충전 신청 텍스트 검색 DB 페이지 (마이그레이션 20270601165000) */
 const POINT_CHARGE_SEARCH_RPC = "admin_point_charge_requests_search_page";
@@ -55,6 +56,8 @@ export async function handleAdminPointChargesListGet(
   const statuses = parsePointChargeStatusFilter(sp.get("status"));
   const search = sanitizeAdminListSearch(sp.get("q"));
   const withCounts = sp.get("counts") === "1";
+  const badPeriod = invalidPeriodResponse(sp);
+  if (badPeriod) return badPeriod;
   const period = parseAdminRequestPeriod(sp);
   const hasPeriod = Boolean(period.fromIso || period.toIso);
   const summaryPromise =

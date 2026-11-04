@@ -271,7 +271,9 @@ function MypagePointsPageInner() {
       const reqId = ++requestIdRef.current;
       const isStale = () => requestIdRef.current !== reqId;
       const valid = checkPointsPeriod(periodQ) === "ok";
-      if (!valid && balanceLoadedRef.current) {
+      /** 「대기」 거르기는 기간과 무관 (서버도 기간 무시) — 기간이 덜 골라졌어도 대기 목록은 조회한다 (D-14 ①) */
+      const pendingOnly = pageQuery.chargeStatus === "pending";
+      if (!valid && balanceLoadedRef.current && !pendingOnly) {
         // 두 날짜가 다 정해지기 전·시작 > 종료 — 조회하지 않는다 (R4)
         setLoading(false);
         setLoaded(true);
@@ -288,7 +290,12 @@ function MypagePointsPageInner() {
           period: valid ? periodQ : undefined,
           page: valid
             ? { ...pageQuery, withSummary }
-            : { histOffset: 0, chargeOffset: 0, chargeStatus: null, withSummary: false },
+            : {
+                histOffset: 0,
+                chargeOffset: pendingOnly ? pageQuery.chargeOffset : 0,
+                chargeStatus: pendingOnly ? "pending" : null,
+                withSummary: false,
+              },
         });
         if (isStale()) return;
         if (!resOk || !json?.ok) {
@@ -307,6 +314,11 @@ function MypagePointsPageInner() {
           setBalance(Number.isFinite(b) ? Math.trunc(b) : null);
           setExpiring(json.expiring ?? null);
           setPendingChargeCount(typeof json.pendingChargeCount === "number" ? json.pendingChargeCount : null);
+          if (pendingOnly) {
+            // 대기 목록만 (내역·합계는 기간이 정해질 때까지 비워 둔다)
+            setRequests(Array.isArray(json.chargeRequests) ? json.chargeRequests : []);
+            setChargeTotal(typeof json.chargeRequestsPage?.total === "number" ? json.chargeRequestsPage.total : null);
+          }
           return;
         }
         applyResponse(json, withSummary);
@@ -578,7 +590,7 @@ function MypagePointsPageInner() {
                       {pick("기간과 관계없이 취소할 수 있는 대기 신청입니다.", "Pending requests you can cancel, regardless of period.")}
                     </p>
                   ) : periodBlocked ? null : chargeSummary ? (
-                    <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} />
+                    <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} audience="member" />
                   ) : null}
                   {chargeStatus !== "pending" && periodBlocked ? null : loading && requests.length === 0 ? (
                     <PointsHistorySkeleton />

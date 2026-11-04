@@ -3260,7 +3260,7 @@ export const storeCommerceUiMessages = {
     store_owner_point_err_account_inquiry_not_answered: "This is a historical admin notice.",
     store_owner_point_err_charge_already_pending: "A historical processing record exists.",
     store_owner_point_err_account_inquiry_already_open: "A historical notice record exists.",
-    store_owner_point_err_platform_unavailable: "The historical store operations ledger is read-only.",
+    store_owner_point_err_platform_unavailable: "Past store activity is read-only.",
     store_owner_point_err_point_amount_required: "Review the historical recorded value.",
     store_owner_point_err_depositor_name_required: "Review the historical recorded name.",
     store_owner_point_err_subject_required: "Review the record subject and message.",

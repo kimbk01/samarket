@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRedemptionRecognizedFromLedger } from "@/lib/gift-certificate/gift-revenue-recognition";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
@@ -69,10 +70,10 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
   const searchParams = new URL(req.url).searchParams;
+  // 잘못된 기간(날짜 하나만·뒤바뀜·형식 오류) → 400 (D-12 · 이전 검사는 이번 달 대체 뒤라 실행되지 않았다)
+  const badPeriod = invalidPeriodResponse(searchParams);
+  if (badPeriod) return badPeriod;
   const periodParams = parseOwnerMoneyPeriodParams(searchParams);
-  if (periodParams.period === "custom" && (!periodParams.fromDay || !periodParams.toDay)) {
-    return NextResponse.json({ ok: false, error: "period_required" }, { status: 400 });
-  }
   const range = resolveStoreCommissionPeriod(periodParams.period, periodParams.fromDay, periodParams.toDay);
   const pageParams = parseOwnerGiftRedemptionPageParams(searchParams);
 

@@ -45,6 +45,13 @@ function Cell({
   );
 }
 
+/** 보류 칸 이름 — 순변화(보류 − 해제) 양수 = 「보류 중」, 음수 = 「보류 해제」 (D-14 ③ · 관리자 `formatAdminPointBucketLine` 과 같은 규칙) */
+export function pointHoldCellLabel(hold: number, lang: Lang): string {
+  return hold < 0
+    ? pick(lang, "보류 해제", "Hold released")
+    : pick(lang, "보류 중 (보류−해제)", "On hold (held−released)");
+}
+
 export function PointPeriodSummaryCard({
   summary,
   error,
@@ -73,9 +80,15 @@ export function PointPeriodSummaryCard({
         {summary.refund > 0 ? (
           <Cell label={pick(lang, "환불·환원", "Refunds")} amount={summary.refund} sign={1} testId="pps-refund" />
         ) : null}
-        {/* 보류 중 = 기간 안 보류 − 보류 해제 (승인 확정분은 「사용」) — 0 이면 숨김 (재감사 R3-g) */}
+        {/* 보류 중 = 기간 안 보류 − 보류 해제 (승인 확정분은 「사용」) — 0 이면 숨김 (재감사 R3-g).
+            D-14 ③ — 순변화가 음수(이전 기간 보류가 이 기간에 해제)면 「보류 중」이 아니라 「보류 해제」. 부호 = 잔액 증감 그대로. */}
         {(summary.hold ?? 0) !== 0 ? (
-          <Cell label={pick(lang, "보류 중 (보류−해제)", "On hold (held−released)")} amount={summary.hold} sign={-1} testId="pps-hold" />
+          <Cell
+            label={pointHoldCellLabel(summary.hold, lang)}
+            amount={summary.hold}
+            sign={-1}
+            testId="pps-hold"
+          />
         ) : null}
       </div>
       {summary.capped ? (
@@ -107,15 +120,25 @@ function chargeAmountText(v: { count: number; paymentAmount: number; pointAmount
 export function PointChargePeriodSummaryLine({
   summary,
   lang,
+  audience = "admin",
 }: {
   summary: PointChargeRequestPeriodSummary;
   lang: Lang;
+  /**
+   * 회원 화면은 이 칸(입금 대기·확인 중·보류 합)을 「처리 대기(보류 포함)」로 — 「대기 n」(취소 가능 대기 건 · D19)과
+   * 같은 이름의 다른 숫자가 되지 않게 (D-14 ②). 관리자 회원 상세는 이름 그대로.
+   */
+  audience?: "member" | "admin";
 }) {
+  const pendingLabel =
+    audience === "member"
+      ? pick(lang, "처리 대기(보류 포함)", "Awaiting processing (incl. on hold)")
+      : pick(lang, "대기", "Pending");
   const rows: Array<[string, { count: number; paymentAmount: number; pointAmount: number }]> = [
     [pick(lang, "신청", "Requested"), summary.requested],
     [pick(lang, "승인", "Approved"), summary.approved],
     [pick(lang, "반려", "Rejected"), summary.rejected],
-    [pick(lang, "대기", "Pending"), summary.pending],
+    [pendingLabel, summary.pending],
   ];
   if (summary.cancelled.count > 0) rows.push([pick(lang, "취소", "Cancelled"), summary.cancelled]);
   return (

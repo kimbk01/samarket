@@ -380,6 +380,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
 
       <AdminFilterBar
         ko={ko}
+        requireCompletePeriod
         draft={lq.draft}
         onDraftChange={lq.setDraft}
         onSubmit={() => {

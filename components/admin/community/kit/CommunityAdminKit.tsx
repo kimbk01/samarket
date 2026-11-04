@@ -215,6 +215,7 @@ export function CommunityFilterBar<E extends string = string>({
   showPeriod = true,
   showSearch = true,
   pending = false,
+  requireCompletePeriod = false,
   children,
 }: {
   lq: CommunityListQuery<E>;
@@ -223,6 +224,8 @@ export function CommunityFilterBar<E extends string = string>({
   showPeriod?: boolean;
   showSearch?: boolean;
   pending?: boolean;
+  /** 돈 화면 — 시작·종료일 둘 다(또는 둘 다 비움) · 시작 ≤ 종료 (`AdminFilterBar` 같은 이름 · D-12) */
+  requireCompletePeriod?: boolean;
   /** 도메인 특수 필터 — `CommunityFilterField` + `CommunitySelect` (즉시 적용은 `lq.setExtra`) */
   children?: ReactNode;
 }) {
@@ -238,6 +241,7 @@ export function CommunityFilterBar<E extends string = string>({
       showSearch={showSearch}
       searchPlaceholder={searchPlaceholder}
       pending={pending}
+      requireCompletePeriod={requireCompletePeriod}
     >
       {showPeriod && lq.legacyPeriod && !lq.query.from && !lq.query.to ? (
         <CommunityFilterField label="기간 (필리핀 시간)">

@@ -18,6 +18,7 @@ import {
   parseAdminRequestPeriod,
 } from "@/lib/admin/finance/admin-request-period-summary";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,6 +84,8 @@ export async function GET(req: NextRequest) {
   const page = parseMemberOpsListPageIfRequested(sp);
   if (page) {
     const [from, to] = memberOpsListRange(page);
+    const badPeriod = invalidPeriodResponse(sp);
+    if (badPeriod) return badPeriod;
     const period = parseAdminRequestPeriod(sp);
     let q = gate.sb
       .from(COIN_WITHDRAWAL_REQUESTS_TABLE)

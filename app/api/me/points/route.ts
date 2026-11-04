@@ -20,6 +20,7 @@ import {
   loadPointFinancialSummary,
   serializePointFinancialPage,
 } from "@/lib/points/project-point-financial-history";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const filter = parseFilter(searchParams.get("filter"));
   const limit = Number(searchParams.get("limit") ?? 30);
   const cursor = searchParams.get("cursor");
+  const badPeriod = invalidPeriodResponse(searchParams);
+  if (badPeriod) return badPeriod;
   const period = resolvePointHistoryPeriod(searchParams);
   const chargeOffset = Number(searchParams.get("chargeOffset") ?? 0);
   const chargeLimitRaw = searchParams.get("chargeLimit");

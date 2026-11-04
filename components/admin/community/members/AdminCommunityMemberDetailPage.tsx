@@ -562,7 +562,7 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
           })}
         </CommunityTable>
         <div className="border-t border-sam-border-soft px-3 py-2 text-[13px]">
-          <Link href={`/admin/community/points?userId=${encodeURIComponent(userId)}`} className="text-[var(--admin-console-accent)] underline">
+          <Link href={`/admin/community/points?userId=${encodeURIComponent(userId)}&period=all`} className="text-[var(--admin-console-accent)] underline">
             포인트 내역 전체 보기
           </Link>
         </div>

@@ -14,6 +14,7 @@ import {
   loadWalletHistoryPage,
   type WalletKind,
 } from "@/lib/finance/wallet-period-history";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
   const sp = req.nextUrl.searchParams;
   const wallet: WalletKind = sp.get("wallet") === "cash" ? "cash" : "coin";
   // 사장님 화면 — 기간 없음·「전체」 → 이번 달 (누적 금지 · Owner 2026-11-03 §6-2)
+  const badPeriod = invalidPeriodResponse(sp);
+  if (badPeriod) return badPeriod;
   const parsed = parseOwnerMoneyPeriodParams(sp);
   const range = resolveStoreCommissionPeriod(parsed.period, parsed.fromDay, parsed.toDay);
   const category = sp.get("category");

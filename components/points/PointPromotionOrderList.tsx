@@ -6,18 +6,10 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { CurrencyAmount } from "@/components/currency";
 import { formatMypageDate, formatMypageNumber, formatMypagePoint } from "@/lib/mypage/format-mypage-date";
 import type { PromotionOrderPeriodSummary } from "@/lib/points/promotion-order-history";
+import { pointPromotionOrderStatusText } from "@/lib/points/point-label-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { PointPromotionOrder, PointPromotionOrderStatus, PointPromotionPlacement } from "@/lib/types/point";
+import type { PointPromotionOrder, PointPromotionPlacement } from "@/lib/types/point";
 
-const STATUS_KEYS: Record<PointPromotionOrderStatus, MessageKey> = {
-  pending: "point_status_pending",
-  pending_review: "point_status_pending_review",
-  active: "point_status_active",
-  expired: "point_status_expired",
-  ended: "point_status_ended",
-  rejected: "revenue_hub_status_rejected",
-  cancelled: "point_status_cancelled",
-};
 
 const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
   home_top: "point_placement_home_top",
@@ -71,7 +63,7 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
           <span
             className={`mt-2 inline-block rounded-full px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[o.orderStatus]}`}
           >
-            {t(STATUS_KEYS[o.orderStatus])}
+            {pointPromotionOrderStatusText(t, o.orderStatus)}
           </span>
           {/* 신청 시각까지 PHT (C-5) */}
           <p className="mt-1 sam-text-helper text-sam-meta tabular-nums" data-testid="promotion-order-created-at">
@@ -86,13 +78,6 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
 type Lang = "ko" | "en";
 const pick = (lang: Lang, ko: string, en: string) => (lang === "en" ? en : ko);
 
-/** 상태 이름 — 목록 배지와 같은 문구, 목록 표에 없는 상태(일시정지 등)는 여기서 */
-function statusLabel(status: string, t: (key: MessageKey) => string, lang: Lang): string {
-  const key = STATUS_KEYS[status as PointPromotionOrderStatus];
-  if (key) return t(key);
-  if (status === "paused") return pick(lang, "일시정지", "Paused");
-  return status;
-}
 
 /**
  * 기간 합계 (C-5) — 신청 n건 · 포인트 합계 · 상태별. 숫자는 서버가 기간 **전체**로 계산한 값(현재 쪽 합계 아님).
@@ -134,7 +119,7 @@ export function PromotionOrderPeriodSummaryCard({
         <dl className="mt-2 grid grid-cols-1 gap-1 sam-text-helper" data-testid="pos-by-status">
           {summary.byStatus.map((s) => (
             <div key={s.status} className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{statusLabel(s.status, t, lang)}</dt>
+              <dt className="text-sam-muted">{pointPromotionOrderStatusText(t, s.status)}</dt>
               <dd className="text-right tabular-nums text-sam-fg">
                 {countText(s.count)} · {formatMypagePoint(s.pointCost, { lang: language })}
               </dd>

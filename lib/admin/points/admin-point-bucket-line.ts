@@ -24,6 +24,8 @@ export function formatAdminPointBucketLine(b: AdminPointBucketSums, fmt: (n: num
   add("환불·환원", b.refund, "+");
   add("사용", b.use, "−");
   add("회수·차감", b.reclaim, "−");
-  if (b.hold) parts.push(`보류 중 ${b.hold > 0 ? "−" : "+"}${fmt(Math.abs(b.hold))} P`);
+  // 순변화 양수 = 보류 중(잔액 −), 음수 = 이전 보류가 이 범위에서 해제(잔액 +) — 회원 기간 합계 칸과 같은 규칙 (D-14 ③)
+  if (b.hold > 0) parts.push(`보류 중 −${fmt(b.hold)} P`);
+  else if (b.hold < 0) parts.push(`보류 해제 +${fmt(Math.abs(b.hold))} P`);
   return parts.length ? parts.join(" · ") : "변동 없음";
 }

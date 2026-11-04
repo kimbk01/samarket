@@ -73,10 +73,19 @@ export const chipClass = (active: boolean) =>
 /** Small secondary button inside table rows (상세 / 원장 보기). */
 export const ROW_ACTION_BTN = `inline-flex min-h-9 items-center whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted ${COMMISSION_PRESS}`;
 
-export function CommissionStateChip({ state, lang }: { state: StoreCommissionRowState; lang: CommissionLang }) {
+export function CommissionStateChip({
+  state,
+  lang,
+  label,
+}: {
+  state: StoreCommissionRowState;
+  lang: CommissionLang;
+  /** 이름 바꿈 (사장님 「수수료 환급」 → 실제 처리 · F-3). 없으면 공용 이름. */
+  label?: string | null;
+}) {
   return (
     <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 sam-text-xxs font-semibold ${STORE_COMMISSION_ROW_STATE_CHIP[state]}`}>
-      {STORE_COMMISSION_ROW_STATE_LABEL[state][lang]}
+      {label || STORE_COMMISSION_ROW_STATE_LABEL[state][lang]}
     </span>
   );
 }

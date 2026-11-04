@@ -31,7 +31,8 @@ export function AdminPointChargeListPage() {
   const action = useAdminRouteAction("/admin/point-charges");
   const [requests, setRequests] = useState<PointChargeRequest[]>([]);
   const [total, setTotal] = useState(0);
-  const [statusCounts, setStatusCounts] = useState<Partial<Record<PointChargeRequestStatus, number>>>({});
+  /** null = 받지 못함(실패) — 0 으로 보이지 않게 카드 값을 「—」로 비운다 (D-11 ①). */
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<PointChargeRequestStatus, number>> | null>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -77,6 +78,10 @@ export function AdminPointChargeListPage() {
           // R8-g — 실패하면 이전 조건의 기간 합계를 남기지 않는다.
           setPeriodSummary(null);
           setPeriodNotAppliedToSearch(false);
+          // D-11 ① — 실패하면 이전 조건의 상태 카드 숫자도 남기지 않는다.
+          setStatusCounts(null);
+          setStatusCountsPeriod(null);
+          setWaitingConfirmAllTime(null);
           return;
         }
         const rows = json.requests ?? [];
@@ -96,6 +101,9 @@ export function AdminPointChargeListPage() {
           setTotal(0);
           setPeriodSummary(null);
           setPeriodNotAppliedToSearch(false);
+          setStatusCounts(null);
+          setStatusCountsPeriod(null);
+          setWaitingConfirmAllTime(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -106,9 +114,9 @@ export function AdminPointChargeListPage() {
     };
   }, [apiQuery, lq.refreshKey, reloadNonce]);
 
-  const countOf = (s: PointChargeRequestStatus) => statusCounts[s] ?? 0;
+  const countOf = (s: PointChargeRequestStatus) => statusCounts?.[s] ?? 0;
   const counts = {
-    total: Object.values(statusCounts).reduce((n, v) => n + (v ?? 0), 0),
+    total: Object.values(statusCounts ?? {}).reduce((n, v) => n + (v ?? 0), 0),
     waiting: countOf("waiting_confirm"),
     pending: countOf("pending"),
     approved: countOf("approved"),
@@ -147,7 +155,9 @@ export function AdminPointChargeListPage() {
             key={label}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-center shadow-sm"
           >
-            <p className={`sam-text-hero font-bold tabular-nums ${color}`}>{formatAdminNumber(value)}</p>
+            <p className={`sam-text-hero font-bold tabular-nums ${color}`}>
+              {statusCounts ? formatAdminNumber(value) : "—"}
+            </p>
             <p className="sam-text-xxs text-sam-muted">{label}</p>
           </div>
         ))}
@@ -165,6 +175,7 @@ export function AdminPointChargeListPage() {
 
       <AdminFilterBar
         ko={ko}
+        requireCompletePeriod
         draft={lq.draft}
         onDraftChange={lq.setDraft}
         onSubmit={lq.submit}

@@ -183,6 +183,23 @@ export function tradeListApiParams<E extends string>(
 }
 
 /**
+ * 실제 적용 기간 글자 — `tradeListApiParams` 결과에서 (빈 목록 문구 등 · D-15).
+ * all = 「전체 기간」, 프리셋 = 이름, custom = 「YYYY-MM-DD ~ YYYY-MM-DD」(PHT 날짜).
+ */
+export function tradeListPeriodText(params: URLSearchParams): string {
+  const period = params.get("period") ?? "all";
+  if (period === "today") return "오늘";
+  if (period === "7d") return "최근 7일";
+  if (period === "30d") return "최근 30일";
+  if (period === "custom") {
+    const from = params.get("from") ?? "";
+    const to = params.get("to") ?? from;
+    return from === to ? from : `${from} ~ ${to}`;
+  }
+  return "전체 기간";
+}
+
+/**
  * 기본 기간 안내 (필터 바 안) — 날짜를 고르지 않았을 때 「최근 30일 (기본)」 [전체 기간] / 「전체 기간」 [최근 30일로].
  * 날짜나 옛 프리셋이 걸려 있으면 표시하지 않는다 (필터 바가 직접 보여 준다).
  */

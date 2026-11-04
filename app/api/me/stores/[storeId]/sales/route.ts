@@ -15,6 +15,7 @@ import {
 } from "@/lib/stores/sales/store-sales-period";
 import { loadStoreSalesPeriodSummary } from "@/lib/stores/sales/load-store-sales-period.server";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
     ({ fromIso, toIso } = resolveStoreSalesMonthRange());
     period = "last_12_months";
   } else {
+    const badPeriod = invalidPeriodResponse(sp);
+    if (badPeriod) return badPeriod;
     const parsed = parseOwnerMoneyPeriodParams(sp);
     const range = resolveStoreSalesDayRange(parsed.period, parsed.fromDay, parsed.toDay);
     if (!range.ok) return NextResponse.json({ ok: false, error: range.error }, { status: 400 });

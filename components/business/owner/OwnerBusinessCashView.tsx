@@ -4,6 +4,7 @@
 
 import { useOwnerToast } from "@/components/business/owner/OwnerToastHost";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -86,6 +87,11 @@ export function OwnerBusinessCashView({
   const [busy, setBusy] = useState(false);
   /** 충전 신청 목록 조회 실패 — 「신청 없음」으로 숨기지 않음 (재감사 R8-d) */
   const [topUpListError, setTopUpListError] = useState(false);
+  /** 내역 줄 「자세히」로 들어온 충전 신청 (`?focus=` · Coin 출금 focus 와 같은 방식 · D-6) */
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("focus")?.trim() || "";
+  const [focusTopUp, setFocusTopUp] = useState<TopUpRow | null>(null);
+  const focusRef = useRef<HTMLDivElement | null>(null);
 
   /** 늦게 온 이전 응답이 새 쪽·새 결과를 덮지 않게 (재감사 R5-a) */
   const loadSeq = useRef(0);
@@ -95,7 +101,9 @@ export function OwnerBusinessCashView({
     if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash?topup_offset=${topUpOffset}`, {
+      const qs = new URLSearchParams({ topup_offset: String(topUpOffset) });
+      if (focusId) qs.set("focus", focusId);
+      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash?${qs.toString()}`, {
         credentials: "include",
       });
       const json = (await res.json()) as {
@@ -109,6 +117,7 @@ export function OwnerBusinessCashView({
         topUpRequests?: TopUpRow[];
         topUpRequestsTotal?: number;
         topUpRequestsError?: boolean;
+        topUpFocus?: TopUpRow | null;
         topUpPolicy?: TopUpPolicy | null;
       };
       if (seq !== loadSeq.current) return;
@@ -123,6 +132,7 @@ export function OwnerBusinessCashView({
       setTopUps(json.topUpRequests ?? []);
       setTopUpTotal(Math.max(0, Math.trunc(Number(json.topUpRequestsTotal) || 0)));
       setTopUpListError(Boolean(json.topUpRequestsError));
+      setFocusTopUp(json.topUpFocus ?? null);
       if (json.topUpPolicy && Array.isArray(json.topUpPolicy.paymentMethods)) {
         const policy = json.topUpPolicy;
         setTopUpPolicy(policy);
@@ -135,7 +145,7 @@ export function OwnerBusinessCashView({
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }
-  }, [storeId, t, topUpOffset]);
+  }, [focusId, storeId, t, topUpOffset]);
 
   // 첫 진입만 로딩 표시 — 충전 신청 페이지 이동은 조용히 (화면 유지)
   const firstLoadRef = useRef(true);
@@ -234,6 +244,56 @@ export function OwnerBusinessCashView({
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (focusTopUp) focusRef.current?.scrollIntoView({ block: "center" });
+  }, [focusTopUp]);
+
+  const renderTopUpRow = (r: TopUpRow, focused: boolean) => (
+    <li
+      key={r.id}
+      className={
+        focused
+          ? "flex justify-between gap-2 rounded-ui-rect border border-sam-primary bg-sam-primary-soft px-3 py-2"
+          : "flex justify-between gap-2 border-b border-sam-border-soft pb-2 last:border-b-0"
+      }
+    >
+      <span className="min-w-0">
+        {formatDeliveryAdPhpMinor(r.amountMinor)}
+        {/* 날짜 (PHT) — 신청·처리 (Owner 2026-11-03 「날짜 부분이 명확히」) */}
+        <span className="block sam-text-xxs tabular-nums text-sam-muted">
+          {language === "en" ? "Requested" : "신청"} {formatManilaDateTime(r.createdAt)}
+          {r.decidedAt ? ` · ${language === "en" ? "Processed" : "처리"} ${formatManilaDateTime(r.decidedAt)}` : ""} PHT
+        </span>
+        {r.paymentReference ? (
+          <span className="ml-2 break-all text-xs text-sam-muted">
+            {r.paymentMethod ? `${ownerCashTopUpMethodLabel(r.paymentMethod, language === "ko")} · ` : ""}
+            {r.paymentReference}
+          </span>
+        ) : null}
+      </span>
+      <span className="shrink-0 text-sam-muted">
+        {r.status.toLowerCase() === "approved"
+          ? safeT("owner_finance_cash_topup_status_approved", {
+              fallbackKo: "충전 완료",
+              fallbackEn: "Completed",
+            })
+          : r.status.toLowerCase() === "rejected"
+            ? safeT("owner_finance_cash_topup_status_rejected", {
+                fallbackKo: "반려",
+                fallbackEn: "Rejected",
+              })
+            : safeT("owner_finance_cash_topup_status_pending", {
+                fallbackKo: "처리 중",
+                fallbackEn: "Processing",
+              })}
+        {/* P1 — 반려 사유를 사장님에게 그대로 표시 */}
+        {r.status.toLowerCase() === "rejected" && r.rejectReason ? (
+          <span className="block text-xs text-sam-danger">{r.rejectReason}</span>
+        ) : null}
+      </span>
+    </li>
+  );
 
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
@@ -380,53 +440,22 @@ export function OwnerBusinessCashView({
           {language === "en" ? "Could not load top-up requests." : "충전 신청 목록을 불러오지 못했습니다."}
         </p>
       ) : null}
-      {topUpTotal > 0 || topUps.length > 0 ? (
+      {topUpTotal > 0 || topUps.length > 0 || focusTopUp ? (
         <OwnerStoreAdminDashSection
           title={safeT("owner_bc_topup_history_title", {
             fallbackKo: "충전 신청",
             fallbackEn: "Top-up requests",
           })}
         >
-          <ul className="space-y-2 text-sm">
-            {topUps.map((r) => (
-              <li key={r.id} className="flex justify-between gap-2 border-b border-sam-border-soft pb-2 last:border-b-0">
-                <span className="min-w-0">
-                  {formatDeliveryAdPhpMinor(r.amountMinor)}
-                  {/* 날짜 (PHT) — 신청·처리 (Owner 2026-11-03 「날짜 부분이 명확히」) */}
-                  <span className="block sam-text-xxs tabular-nums text-sam-muted">
-                    {language === "en" ? "Requested" : "신청"} {formatManilaDateTime(r.createdAt)}
-                    {r.decidedAt ? ` · ${language === "en" ? "Processed" : "처리"} ${formatManilaDateTime(r.decidedAt)}` : ""} PHT
-                  </span>
-                  {r.paymentReference ? (
-                    <span className="ml-2 break-all text-xs text-sam-muted">
-                      {r.paymentMethod ? `${ownerCashTopUpMethodLabel(r.paymentMethod, language === "ko")} · ` : ""}
-                      {r.paymentReference}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="shrink-0 text-sam-muted">
-                  {r.status.toLowerCase() === "approved"
-                    ? safeT("owner_finance_cash_topup_status_approved", {
-                        fallbackKo: "충전 완료",
-                        fallbackEn: "Completed",
-                      })
-                    : r.status.toLowerCase() === "rejected"
-                      ? safeT("owner_finance_cash_topup_status_rejected", {
-                          fallbackKo: "반려",
-                          fallbackEn: "Rejected",
-                        })
-                      : safeT("owner_finance_cash_topup_status_pending", {
-                          fallbackKo: "처리 중",
-                          fallbackEn: "Processing",
-                        })}
-                  {/* P1 — 반려 사유를 사장님에게 그대로 표시 */}
-                  {r.status.toLowerCase() === "rejected" && r.rejectReason ? (
-                    <span className="block text-xs text-sam-danger">{r.rejectReason}</span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {focusTopUp ? (
+            <div ref={focusRef} className="mb-3 space-y-1" data-owner-cash-topup-focus={focusTopUp.id}>
+              <p className="text-xs font-semibold text-sam-primary">
+                {language === "en" ? "Selected top-up request" : "선택한 충전 신청"}
+              </p>
+              <ul className="text-sm">{renderTopUpRow(focusTopUp, true)}</ul>
+            </div>
+          ) : null}
+          <ul className="space-y-2 text-sm">{topUps.map((r) => renderTopUpRow(r, false))}</ul>
           <LedgerPager
             offset={topUpOffset}
             pageSize={20}

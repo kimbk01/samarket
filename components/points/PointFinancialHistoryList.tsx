@@ -10,6 +10,8 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatMypageDate, mypageDateGroupKey } from "@/lib/mypage/format-mypage-date";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { pointChargeStatusLabel, pointPromotionOrderStatusText } from "@/lib/points/point-label-i18n";
+import type { PointChargeRequestStatus } from "@/lib/types/point";
 
 /** 줄 제목 — 번역 키 우선, 없으면 서버 기본 문구 (재감사 R8-b · 「상위노출」 번역 키를 화면이 쓰도록) */
 function pointItemTitle(
@@ -210,7 +212,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
               <dt className={OverlayUi.bodySecondary}>
                 {safeT("point_fin_detail_status", { fallbackKo: "상태", fallbackEn: "Status" })}
               </dt>
-              <dd className="min-w-0 break-words text-right">{item.promotion.orderStatus}</dd>
+              <dd className="min-w-0 break-words text-right">{pointPromotionOrderStatusText(t, item.promotion.orderStatus)}</dd>
             </div>
           </>
         ) : null}
@@ -219,7 +221,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
             <dt className={OverlayUi.bodySecondary}>
               {safeT("point_fin_detail_deposit", { fallbackKo: "입금", fallbackEn: "Deposit" })}
             </dt>
-            <dd className="min-w-0 break-words text-right">{item.deposit.planName || item.deposit.requestStatus}</dd>
+            <dd className="min-w-0 break-words text-right">{item.deposit.planName || pointChargeStatusLabel(item.deposit.requestStatus as PointChargeRequestStatus)}</dd>
           </div>
         ) : null}
         {item.adjustment?.reason ? (

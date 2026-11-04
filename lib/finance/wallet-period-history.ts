@@ -34,7 +34,12 @@ export const CASH_CATEGORY_KINDS = {
   topup: ["TOP_UP"],
   fromConversion: ["CONVERT_FROM_STORE_POINTS"],
   saleFee: ["SALE_FEE", "SALE_FEE_SETTLEMENT", "SALE_FEE_REVERSAL"],
+  /** 「광고 지출」 탭 전용 — 광고·Partner 지출·환불 전부 */
   ads: ["AD_SPEND", "AD_REFUND", "PARTNER_SPEND", "PARTNER_REFUND"],
+  /** Cash 탭 칸별 거르기 — 세 칸이 같이 눌리지 않게 따로 (D-7) */
+  adSpend: ["AD_SPEND"],
+  partnerSpend: ["PARTNER_SPEND"],
+  adRefund: ["AD_REFUND", "PARTNER_REFUND"],
   adjusted: ["ADMIN_ADJUST"],
 } as const;
 export type CashCategory = keyof typeof CASH_CATEGORY_KINDS;
@@ -329,7 +334,46 @@ export type WalletHistoryRow = {
   createdAt: string;
   /** Coin 출금 지급 완료 줄 — 원장 금액은 0(이미 신청 때 빠짐), 지급액은 meta.amount (재감사 R3-e) */
   referenceAmount?: number | null;
+  /** Cash 수수료 줄(SALE_FEE·SALE_FEE_SETTLEMENT·SALE_FEE_REVERSAL) — 원장 meta.order_id 의 주문번호 (D-6). 없으면 생략. */
+  orderNo?: string | null;
 };
+
+/** 주문번호를 붙이는 Cash 수수료 줄 종류 (정산 화면 `order_no=` 링크 · D-6) */
+export const CASH_SALE_FEE_ENTRY_KINDS: readonly string[] = CASH_CATEGORY_KINDS.saleFee;
+
+/** 원장 meta 에서 주문 id (문자) — 없으면 null */
+export function ledgerMetaOrderId(meta: unknown): string | null {
+  if (!meta || typeof meta !== "object") return null;
+  const v = (meta as Record<string, unknown>).order_id;
+  const id = typeof v === "string" ? v.trim() : "";
+  return id || null;
+}
+
+/**
+ * 이 쪽의 Cash 수수료 줄에 주문번호를 붙인다 — 이 쪽 줄의 주문 id 만 한 번에 조회 (D-6).
+ * 조회 실패·없는 주문은 주문번호 없이 둔다(줄은 그대로 · 링크만 정산 첫 화면).
+ */
+async function attachCashFeeOrderNos(
+  sb: SupabaseClient,
+  storeId: string,
+  rows: WalletHistoryRow[],
+  orderIdByRowId: ReadonlyMap<string, string>
+): Promise<WalletHistoryRow[]> {
+  const ids = [...new Set(orderIdByRowId.values())];
+  if (ids.length === 0) return rows;
+  const { data, error } = await sb.from("store_orders").select("id, order_no").eq("store_id", storeId).in("id", ids);
+  if (error) return rows;
+  const noById = new Map<string, string>();
+  for (const o of (data ?? []) as Array<{ id?: string; order_no?: string | null }>) {
+    const no = String(o.order_no ?? "").trim();
+    if (o.id && no) noById.set(String(o.id), no);
+  }
+  return rows.map((r) => {
+    const oid = orderIdByRowId.get(r.id);
+    const no = oid ? noById.get(oid) : undefined;
+    return no ? { ...r, orderNo: no } : r;
+  });
+}
 
 /** 페이지 경계에 같은 시각 묶음이 걸릴 때를 위해 앞뒤로 더 읽고 사슬 정렬 후 자른다 (재감사 R2). */
 const PAGE_CHAIN_MARGIN = 8;
@@ -342,7 +386,7 @@ export async function loadWalletHistoryPage(
   const table = isCoin ? STORE_ECONOMIC_POINT_LEDGER_TABLE : BUSINESS_CASH_LEDGER_TABLE;
   const cols = isCoin
     ? "id, entry_kind, amount, balance_after, related_type, related_id, created_at, meta"
-    : "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at";
+    : "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at, meta";
   const from = Math.max(0, input.offset - PAGE_CHAIN_MARGIN);
   const to = input.offset + input.limit - 1 + PAGE_CHAIN_MARGIN;
   let q = sb.from(table).select(cols, { count: "exact" }).eq("store_id", input.storeId);
@@ -377,6 +421,14 @@ export async function loadWalletHistoryPage(
     // 연결 번호 통일 (관리자·사장님 같은 번호 · 54701b8e9)
     rows = rows.map((r) => canonicalCoinConversionLink(r));
     await linkCoinWithdrawalRequestRows(sb, rows);
+  } else {
+    const orderIdByRowId = new Map<string, string>();
+    for (const r of pageRaw) {
+      if (!CASH_SALE_FEE_ENTRY_KINDS.includes(String(r.entry_kind ?? ""))) continue;
+      const oid = ledgerMetaOrderId(r.meta);
+      if (oid) orderIdByRowId.set(String(r.id ?? ""), oid);
+    }
+    rows = await attachCashFeeOrderNos(sb, input.storeId, rows, orderIdByRowId);
   }
   return { rows, total: count ?? rows.length };
 }

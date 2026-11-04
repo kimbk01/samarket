@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { CurrencyVisualVariant } from "@/lib/currency/currency-ssot-hard-lock";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
@@ -71,9 +72,10 @@ export function CurrencyHistoryRow({
           className="text-base"
         />
         {detailHref ? (
-          <a href={detailHref} className="mt-1 block sam-text-xxs text-sam-primary underline-offset-2 hover:underline">
+          // 앱 안 이동 — 전체 다시 로드 없이 (D-13)
+          <Link href={detailHref} className="mt-1 block sam-text-xxs text-sam-primary underline-offset-2 hover:underline">
             {language === "en" ? "Details" : "자세히"}
-          </a>
+          </Link>
         ) : null}
       </div>
     </li>

@@ -45,7 +45,10 @@ export async function GET(
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const topUpOffset = Math.max(0, Math.trunc(Number(req.nextUrl.searchParams.get("topup_offset") ?? "0")) || 0);
-  const [bc, sp, quote, bcLedger, spLedger, charges, chargePolicy] = await Promise.all([
+  // 내역 줄 「자세히」 → 그 충전 신청 1건 (`focus=` · Coin 출금 focus 와 같은 방식 · D-6). 이 매장 것만.
+  const focusId = String(req.nextUrl.searchParams.get("focus") ?? "").trim();
+  const chargeCols = "id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, reject_reason";
+  const [bc, sp, quote, bcLedger, spLedger, charges, chargePolicy, focus] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
     buildOwnerConversionDisclosure(sb, { ownerUserId: userId, storeId: sid, requestedPoints: 0 }),
@@ -53,7 +56,7 @@ export async function GET(
     listEconomicPointLedgerForStore(sb, sid),
     sb
       .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-      .select("id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, reject_reason", {
+      .select(chargeCols, {
         count: "exact",
       })
       .eq("store_id", sid)
@@ -62,6 +65,9 @@ export async function GET(
       // 충전 신청 목록 페이지 (20건씩 · 「최근 20건만」 폐지 — Owner 2026-11-03)
       .range(topUpOffset, topUpOffset + TOP_UP_PAGE_SIZE - 1),
     loadBusinessCashChargePolicy(sb),
+    /^[0-9a-f-]{36}$/i.test(focusId)
+      ? sb.from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE).select(chargeCols).eq("store_id", sid).eq("id", focusId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   return NextResponse.json({
@@ -99,20 +105,26 @@ export async function GET(
     topUpRequestsError: Boolean(charges.error),
     topUpRequestsOffset: topUpOffset,
     topUpRequestsPageSize: TOP_UP_PAGE_SIZE,
-    topUpRequests: (charges.data ?? []).map((r) => ({
-      id: String((r as { id: string }).id),
-      amountMinor: Math.trunc(Number((r as { amount_minor?: number }).amount_minor) || 0),
-      status: String((r as { status?: string }).status ?? ""),
-      createdAt: String((r as { created_at?: string }).created_at ?? ""),
-      decidedAt:
-        (r as { decided_at?: string | null }).decided_at == null
-          ? null
-          : String((r as { decided_at: string }).decided_at),
-      paymentMethod: (r as { payment_method?: string | null }).payment_method ?? null,
-      paymentReference: (r as { payment_reference?: string | null }).payment_reference ?? null,
-      rejectReason: (r as { reject_reason?: string | null }).reject_reason ?? null,
-    })),
+    topUpRequests: (charges.data ?? []).map(mapTopUpRow),
+    topUpFocus: focus.error || !focus.data ? null : mapTopUpRow(focus.data),
   });
+}
+
+/** 충전 신청 한 줄 — 목록·focus 같은 모양 */
+function mapTopUpRow(r: unknown) {
+  return {
+    id: String((r as { id: string }).id),
+    amountMinor: Math.trunc(Number((r as { amount_minor?: number }).amount_minor) || 0),
+    status: String((r as { status?: string }).status ?? ""),
+    createdAt: String((r as { created_at?: string }).created_at ?? ""),
+    decidedAt:
+      (r as { decided_at?: string | null }).decided_at == null
+        ? null
+        : String((r as { decided_at: string }).decided_at),
+    paymentMethod: (r as { payment_method?: string | null }).payment_method ?? null,
+    paymentReference: (r as { payment_reference?: string | null }).payment_reference ?? null,
+    rejectReason: (r as { reject_reason?: string | null }).reject_reason ?? null,
+  };
 }
 
 type PostBody = {

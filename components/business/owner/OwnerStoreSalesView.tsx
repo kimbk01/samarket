@@ -13,6 +13,7 @@ import {
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import {
+  customPeriodInputState,
   OWNER_MONEY_DEFAULT_PERIOD,
   OWNER_MONEY_PERIODS,
   type StoreCommissionPeriod,
@@ -66,9 +67,18 @@ export function OwnerStoreSalesView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** 일별 「직접」 입력 상태 — 덜 고르거나 뒤바뀌면 조회하지 않고 안내 (D-12 · 이전: 이전 기간 값이 그대로 보였다) */
+  const customState =
+    grain === "day" && period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
+
   const load = useCallback(async () => {
     if (!storeId) return;
-    if (grain === "day" && period.period === "custom" && (!period.fromDay || !period.toDay)) return;
+    if (customState !== "ok") {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -104,7 +114,7 @@ export function OwnerStoreSalesView() {
     } finally {
       setLoading(false);
     }
-  }, [grain, lang, period, storeId, t]);
+  }, [customState, grain, lang, period, storeId, t]);
 
   useEffect(() => {
     void load();
@@ -160,6 +170,18 @@ export function OwnerStoreSalesView() {
               {pickCommissionCopy(lang, "최근 12개월 · 필리핀 시간 기준", "Last 12 months · Philippine time")}
             </p>
           )}
+
+          {customState !== "ok" ? (
+            <p className="sam-text-body text-sam-muted" role="status" data-owner-sales-custom={customState}>
+              {customState === "inverted"
+                ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
+                : pickCommissionCopy(
+                    lang,
+                    "시작일과 종료일을 모두 고르면 매출을 보여 드립니다.",
+                    "Pick both start and end dates to see sales."
+                  )}
+            </p>
+          ) : null}
 
           {data?.period ? (
             <p className="sam-text-xxs text-sam-muted" data-owner-sales-range="1">

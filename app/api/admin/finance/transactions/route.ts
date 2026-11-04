@@ -6,6 +6,7 @@ import {
 } from "@/lib/finance/unified-transaction/load-unified-transactions";
 import type { FinanceWallet } from "@/lib/finance/presentation";
 import { resolveFinanceListWindow } from "@/lib/finance/resolve-finance-list-window";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ export async function GET(req: NextRequest) {
     const dirRaw = url.searchParams.get("direction")?.trim().toLowerCase() ?? "";
     const direction = dirRaw === "credit" || dirRaw === "debit" ? dirRaw : null;
 
+    const badPeriod = invalidPeriodResponse(url.searchParams);
+    if (badPeriod) return badPeriod;
     const window = resolveFinanceListWindow({
       date: url.searchParams.get("date"),
       from: url.searchParams.get("from"),

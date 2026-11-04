@@ -138,6 +138,7 @@ export function AdminFinanceConversionsView() {
       </p>
       <AdminFilterBar
         ko={ko}
+        requireCompletePeriod
         draft={lq.draft}
         onDraftChange={lq.setDraft}
         onSubmit={() =>
@@ -181,7 +182,7 @@ export function AdminFinanceConversionsView() {
         <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
-              <th className="px-3 py-2">{ko ? "일시" : "When"}</th>
+              <th className="px-3 py-2">{ko ? "일시 (PHT)" : "When (PHT)"}</th>
               <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
               <th className="px-3 py-2">{ko ? "Coin Out" : "Coin out"}</th>
               <th className="px-3 py-2">{ko ? "적용 Rate" : "Applied rate"}</th>

@@ -120,7 +120,7 @@ export async function GET(
   // 내역 줄 「자세히」 → 그 출금 신청 1건 (재감사 R6-i). 이 매장 것만.
   const focusId = String(req.nextUrl.searchParams.get("focus") ?? "").trim();
   const cols =
-    "id, amount, status, destination_type, created_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference";
+    "id, amount, status, destination_type, created_at, approved_at, paid_at, rejected_at, rejection_reason, payout_method, payout_reference";
   const [list, focus] = await Promise.all([
     sb
       .from(COIN_WITHDRAWAL_REQUESTS_TABLE)

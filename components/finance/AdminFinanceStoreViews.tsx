@@ -56,6 +56,20 @@ type StoreListRow = {
 /** 매장별 재무 집계 기간 — API(`resolveStoreFinancialPeriod`)가 받는 값만. */
 const FINANCE_STORES_PERIODS = ["today", "7d", "30d"] as const;
 
+/** 기간 이름 — 선택 상자와 같은 말 (D-10 · 내부 키 `30d` 를 화면에 내보내지 않는다). */
+const FINANCE_STORES_PERIOD_LABEL: Record<(typeof FINANCE_STORES_PERIODS)[number], { ko: string; en: string }> = {
+  today: { ko: "오늘", en: "Today" },
+  "7d": { ko: "최근 7일", en: "Last 7 days" },
+  "30d": { ko: "최근 30일", en: "Last 30 days" },
+};
+
+export function financeStoresPeriodLabel(periodKey: string, ko: boolean): string {
+  const hit = (FINANCE_STORES_PERIOD_LABEL as Record<string, { ko: string; en: string } | undefined>)[periodKey];
+  // 모르는 키는 다른 기간 이름으로 바꿔 보이지 않는다 (받은 값 그대로).
+  if (!hit) return periodKey;
+  return ko ? hit.ko : hit.en;
+}
+
 /**
  * Operational store index — period aggregates from StoreStatement (canonical).
  * R7 — 활동 매장 전체를 서버 페이지로 (주소 `page`·`size` → API `limit`/`offset`, 「전체 N곳」 = 서버 total).
@@ -75,8 +89,11 @@ export function AdminFinanceStoresIndexView() {
   const [periodKey, setPeriodKey] = useState("30d");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 요청 번호 — 기간·쪽을 빨리 바꿀 때 늦게 온 이전 응답이 목록을 덮지 않게 (D-10). */
+  const loadSeqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -96,6 +113,7 @@ export function AdminFinanceStoresIndexView() {
         total?: number;
         error?: string;
       };
+      if (seq !== loadSeqRef.current) return;
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setRows([]);
@@ -107,11 +125,12 @@ export function AdminFinanceStoresIndexView() {
       setRows(list);
       setTotal(typeof json.total === "number" ? json.total : list.length);
     } catch {
+      if (seq !== loadSeqRef.current) return;
       setError("network_error");
       setRows([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   }, [periodParam, lq.query.page, lq.query.size]);
 
@@ -125,8 +144,8 @@ export function AdminFinanceStoresIndexView() {
       <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "매장별 재무" : "Store finance"}</h2>
       <p className="sam-text-helper text-sam-muted">
         {ko
-          ? `최근 재무 활동 매장 · 기간 ${periodKey} 집계는 Store Statement와 동일 canonical 소스입니다.`
-          : `Stores with recent finance activity. Period ${periodKey} aggregates use the same StoreStatement source.`}
+          ? `최근 재무 활동 매장 · 기간 ${financeStoresPeriodLabel(periodKey, true)} 집계는 Store Statement와 동일 canonical 소스입니다.`
+          : `Stores with recent finance activity. Period ${financeStoresPeriodLabel(periodKey, false)} aggregates use the same StoreStatement source.`}
       </p>
 
       <AdminFilterBar

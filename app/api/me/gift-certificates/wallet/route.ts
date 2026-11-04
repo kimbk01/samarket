@@ -9,6 +9,7 @@ import {
   parseGiftHistoryPageParams,
 } from "@/lib/gift-certificate/gift-wallet-history";
 import { resolvePointHistoryPeriod } from "@/lib/points/point-period-history";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,8 @@ export async function GET(req: Request) {
     const kind = parseGiftHistoryKind(sp.get("kind"));
     if (!kind) return NextResponse.json({ ok: false, error: "invalid_kind" }, { status: 400 });
     const { offset, limit } = parseGiftHistoryPageParams(sp);
+    const badPeriod = invalidPeriodResponse(sp);
+    if (badPeriod) return badPeriod;
     // 기간을 보내지 않으면 전체 (상품권 기본 기간 = 전체)
     const period = sp.get("period")
       ? resolvePointHistoryPeriod(sp)

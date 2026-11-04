@@ -26,6 +26,8 @@ type WithdrawalRow = {
   status: string;
   destination_type: string;
   created_at: string;
+  /** 승인 시각 — 「승인됨 (지급 대기)」 뒤에 표시 (D-9). 취소 시각은 DB 열이 없어 표시하지 않는다. */
+  approved_at?: string | null;
   paid_at?: string | null;
   rejected_at?: string | null;
   rejection_reason?: string | null;
@@ -175,6 +177,7 @@ export function OwnerCoinWithdrawalPanel({
             return ownerUiCopy(language, "승인됨 (지급 대기)", "Approved (awaiting payout)");
           return safeT("owner_finance_withdraw_status_requested", { fallbackKo: "처리 중", fallbackEn: "Processing" });
         })()}
+        {row.status.toUpperCase() === "APPROVED" && phtShort(row.approved_at) ? ` · ${phtShort(row.approved_at)}` : ""}
         {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
         {row.status.toUpperCase() === "PAID" && row.payout_reference
           ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`

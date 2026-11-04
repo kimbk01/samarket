@@ -6,11 +6,16 @@
  * @see docs/audit/currency-history-screens-design-2026-11-03.md §2·§3
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CurrencyHistoryRow } from "@/components/currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommissionPeriodFilter, LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import type { CashPeriodSummary, CoinPeriodSummary, WalletHistoryRow, WalletKind } from "@/lib/finance/wallet-period-history";
+import {
+  parseOwnerWalletHistoryUrlState,
+  writeOwnerWalletHistoryUrlState,
+} from "@/lib/finance/owner-wallet-history-url-state";
 import {
   customPeriodInputState,
   OWNER_MONEY_PERIODS,
@@ -89,9 +94,10 @@ export function cashTiles(s: CashPeriodSummary, ko: boolean, adsOnly: boolean): 
   const fmt = (minor: number) => formatFinanceAmount({ wallet: "CASH", amount: minor, isMinor: true });
   const p = (effect: number) => signedBalanceEffect(effect, fmt);
   const ads: Tile[] = [
-    { key: "ad", label: ko ? "광고 지출" : "Ad spend", value: p(-s.adSpendMinor), category: "ads" },
-    { key: "partner", label: ko ? "Partner 지출" : "Partner spend", value: p(-s.partnerSpendMinor), category: "ads" },
-    { key: "refund", label: ko ? "광고·Partner 환불" : "Refunds", value: p(s.refundMinor), category: "ads" },
+    // 칸마다 거르기를 따로 — 하나를 누르면 그 칸만 눌림 (D-7). 「광고 지출」 탭(adsOnly)은 칸 비활성·거르기 ads 고정.
+    { key: "ad", label: ko ? "광고 지출" : "Ad spend", value: p(-s.adSpendMinor), category: "adSpend" },
+    { key: "partner", label: ko ? "Partner 지출" : "Partner spend", value: p(-s.partnerSpendMinor), category: "partnerSpend" },
+    { key: "refund", label: ko ? "광고·Partner 환불" : "Refunds", value: p(s.refundMinor), category: "adRefund" },
   ];
   if (adsOnly) return ads;
   const tiles: Tile[] = [
@@ -142,19 +148,31 @@ export function OwnerWalletHistory({
   const { language } = useI18n();
   const ko = language !== "en";
   const lang = ko ? "ko" : "en";
-  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>({
-    period: "this_month",
-    fromDay: "",
-    toDay: "",
-  });
-  const [category, setCategory] = useState<string | null>(adsOnly ? "ads" : null);
-  const [offset, setOffset] = useState(0);
+  /** 주소에 남긴 기간·칸·쪽 — 「자세히」 갔다 돌아오면 그대로 (D-13 · 회원 포인트 화면과 같은 방식) */
+  const searchParams = useSearchParams();
+  const [urlInit] = useState(() => parseOwnerWalletHistoryUrlState(searchParams, { wallet, adsOnly }));
+  const [period, setPeriod] = useState<{ period: StoreCommissionPeriod; fromDay: string; toDay: string }>(urlInit.period);
+  const [category, setCategory] = useState<string | null>(urlInit.category);
+  const [offset, setOffset] = useState(urlInit.page * PAGE_SIZE);
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   /** 늦게 온 이전 응답이 새 기간·쪽 결과를 덮지 않게 (재감사 R5-a) */
   const requestSeq = useRef(0);
   const customState = period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
+
+  /** 기간·칸·쪽 → 주소 (replaceState · 기록 쌓지 않음 · D-13) */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const next = writeOwnerWalletHistoryUrlState(
+      window.location.search,
+      { period, category, page: Math.floor(offset / PAGE_SIZE) },
+      { wallet, adsOnly }
+    );
+    const cur = window.location.search.replace(/^\?/, "");
+    if (next === cur) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${next ? `?${next}` : ""}${window.location.hash}`);
+  }, [adsOnly, category, offset, period, wallet]);
 
   const load = useCallback(
     async (silent?: boolean) => {
@@ -166,7 +184,13 @@ export function OwnerWalletHistory({
         setLoading(false);
         return;
       }
-      if (!silent) setLoading(true);
+      // 기간·칸·쪽이 바뀐 조회는 앞 조회의 합계·목록을 지우고 「불러오는 중」 — 새 칩 아래 이전 값이 보이지 않게 (D-5).
+      // 조용한 재조회(부모 reloadKey: 앱 복귀·처리 결과 알림)만 이전 값을 유지한다.
+      if (!silent) {
+        setData(null);
+        setError(false);
+        setLoading(true);
+      }
       try {
         const qs = new URLSearchParams({ wallet, period: period.period, offset: String(offset), limit: String(PAGE_SIZE) });
         if (period.period === "custom") {

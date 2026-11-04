@@ -10,6 +10,7 @@ import {
 import { parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
 import { manilaDateRangeToUtc } from "@/lib/admin/metrics/manila-period";
 import { adminPointBucketsFromSumsByKind } from "@/lib/admin/points/admin-point-ledger-bucket-sums";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,6 +52,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const page = parseMemberOpsListPage(sp);
     const filter = parseFilter(sp.get("status") ?? sp.get("filter"));
     const userId = (sp.get("q") ?? sp.get("userId") ?? "").trim();
+    const badPeriod = invalidPeriodResponse(sp);
+    if (badPeriod) return badPeriod;
     const period = manilaDateRangeToUtc(sp.get("from"), sp.get("to"));
     // 회원 UUID 형식이 아니면 목록도 0건(eq 불일치) — 합계도 같은 결과가 되게 맞지 않는 id 로 부른다.
     const sumsUserId = userId ? (UUID_RE.test(userId) ? userId : "00000000-0000-0000-0000-000000000000") : null;

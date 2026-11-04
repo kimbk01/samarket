@@ -30,6 +30,7 @@ import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import {
   TradeDefaultPeriodField,
+  tradeListPeriodText,
   TradeMemberCell,
   formatTradePoints,
   tradeErrorText,
@@ -176,7 +177,7 @@ export function TradePointsPage() {
       }
       footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage="최근 30일 포인트 내역이 없습니다.">
+      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage={`${tradeListPeriodText(params)} 포인트 내역이 없습니다.`}>
         <CommunityTable head={["시각", "회원", "유형", "포인트", "잔액", "내용", "처리자"]}>
           {rows.map((r) => {
             const amt = r.amount ?? 0;

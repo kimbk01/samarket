@@ -20,6 +20,7 @@ import {
   parseAdminRequestPeriod,
 } from "@/lib/admin/finance/admin-request-period-summary";
 import { shouldNotifyOwnerOnCashChargeDecision } from "@/lib/admin/finance/cash-charge-decision-notify";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,6 +98,8 @@ export async function GET(req: NextRequest) {
   if (status && status !== "all") q = q.eq("status", status);
   if (storeId) q = q.eq("store_id", storeId);
   if (requestId) q = q.eq("id", requestId);
+  const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+  if (badPeriod) return badPeriod;
   const period = parseAdminRequestPeriod(req.nextUrl.searchParams);
   if (period.fromIso) q = q.gte("created_at", period.fromIso);
   if (period.toIso) q = q.lt("created_at", period.toIso);

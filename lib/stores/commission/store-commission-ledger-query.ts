@@ -83,6 +83,25 @@ export function orderedCustomDays(fromDay: string | null, toDay: string | null):
   return fromDay && toDay && fromDay > toDay ? { fromDay: toDay, toDay: fromDay } : { fromDay, toDay };
 }
 
+/**
+ * 주소 기간 입력 검사 (재감사 D-12·D-16 · Owner 권장안 「잘못된 기간 → 서버 400 + 화면 안내」 2026-11-04).
+ * 잘못된 입력을 바로잡아(맞바꿈·이번 달로 대체) 다른 기간을 보여 주지 않는다 — 돈 화면 API 는 이 값이 null 이 아니면 400.
+ * - 날짜 형식이 틀림(없는 날 포함) · 「직접」(또는 기간 없이 날짜만)인데 날짜가 하나만 · 시작 > 종료 → `invalid_period`.
+ * - 정해진 기간(이번 달 등)·「전체」는 날짜를 보지 않는다(지금 동작 그대로).
+ */
+export function storeCommissionPeriodInputError(sp: Pick<URLSearchParams, "get">): "invalid_period" | null {
+  const periodRaw = String(sp.get("period") ?? "").trim();
+  const preset = periodRaw !== "custom" && (STORE_COMMISSION_PARSE_PERIODS as readonly string[]).includes(periodRaw);
+  if (preset) return null;
+  const rawFrom = String(sp.get("from") ?? "").trim();
+  const rawTo = String(sp.get("to") ?? "").trim();
+  if ((rawFrom && !day(rawFrom)) || (rawTo && !day(rawTo))) return "invalid_period";
+  const custom = periodRaw === "custom" || Boolean(rawFrom || rawTo);
+  if (!custom) return null;
+  if (!rawFrom || !rawTo) return "invalid_period";
+  return rawFrom > rawTo ? "invalid_period" : null;
+}
+
 /** 화면용 — 직접 기간 입력 상태: 둘 다 있어야 조회, 시작 > 종료면 안내 (재감사 R4). */
 export function customPeriodInputState(fromDay: string, toDay: string): "incomplete" | "inverted" | "ok" {
   if (!day(fromDay) || !day(toDay)) return "incomplete";

@@ -63,7 +63,7 @@ export function FinanceTransactionDetail({
 
       <dl className="grid grid-cols-2 gap-3 sam-text-body-secondary sm:grid-cols-3">
         <div>
-          <dt className="text-sam-muted">{ko ? "일시" : "When"}</dt>
+          <dt className="text-sam-muted">{ko ? "일시 (PHT)" : "When (PHT)"}</dt>
           <dd>{formatAdminManilaDateTime(tx.occurredAt)}</dd>
         </div>
         <div>

@@ -6,6 +6,7 @@ import {
   parseStoreCommissionLedgerQuery,
   STORE_COMMISSION_TIMEZONE,
 } from "@/lib/stores/commission/store-commission-ledger-query";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
+  const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+  if (badPeriod) return badPeriod;
   const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
     const page = await loadStorePlatformPayable(gate.sb, {

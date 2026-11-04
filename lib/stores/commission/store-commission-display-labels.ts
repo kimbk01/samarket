@@ -50,3 +50,21 @@ export function commissionPolicyScopeLabel(scope: string | null | undefined, lan
   const hit = POLICY_SCOPE_LABEL[s];
   return hit ? (lang === "en" ? hit.en : hit.ko) : s;
 }
+
+/**
+ * 사장님 화면 「수수료 환급」 상태 칩 이름 — 실제 처리대로 (F-3 · Owner 확정 「일반 권장안」 2026-11-04).
+ * 환급 승인 금액은 캐시 환급(`cashRefundMinor`)과 미납 취소(`outstandingCancelMinor`)로 나뉜다(1단계 10937bf1a 의 두 칸과 같은 값).
+ * 관리자 화면은 쓰지 않는다(이름 「수수료 환급」 유지). 두 값이 모두 0 이면 null → 호출처가 기존 이름을 쓴다.
+ */
+export function commissionOwnerRefundedLabel(
+  decision: { cashRefundMinor?: number | null; outstandingCancelMinor?: number | null } | null | undefined,
+  lang: AppLanguageCode
+): string | null {
+  const cash = Number(decision?.cashRefundMinor ?? 0) > 0;
+  const cancel = Number(decision?.outstandingCancelMinor ?? 0) > 0;
+  const en = lang === "en";
+  if (cash && cancel) return en ? "Cash refunded · Unpaid cancelled" : "캐시 환급·미납 취소";
+  if (cash) return en ? "Cash refunded" : "캐시 환급";
+  if (cancel) return en ? "Unpaid cancelled" : "미납 취소";
+  return null;
+}

@@ -9,6 +9,7 @@ import {
   STORE_COMMISSION_TIMEZONE,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+  if (badPeriod) return badPeriod;
   const q = parseOwnerStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
     const page = await loadStorePlatformPayable(sb, {

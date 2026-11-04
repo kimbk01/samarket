@@ -13,6 +13,7 @@ import {
   STORE_COMMISSION_TIMEZONE,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import { loadStoreCashOrderGateSetting } from "@/lib/stores/commission/store-commission-writer";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
   if (!gate.ok) return gate.response;
   const { sb } = gate;
 
+  const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+  if (badPeriod) return badPeriod;
   const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
     const overviewIds = q.storeId ? [q.storeId] : await loadAdminStoreCashOverviewIds(sb);

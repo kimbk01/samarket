@@ -3,6 +3,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { loadStoreCashLedgerPage } from "@/lib/stores/commission/load-store-commission-ledger";
 import { parseStoreCommissionLedgerQuery } from "@/lib/stores/commission/store-commission-ledger-query";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
+  const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+  if (badPeriod) return badPeriod;
   const q = parseStoreCommissionLedgerQuery(req.nextUrl.searchParams);
   try {
     const page = await loadStoreCashLedgerPage(gate.sb, {

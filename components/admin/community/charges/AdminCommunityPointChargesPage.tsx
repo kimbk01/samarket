@@ -156,7 +156,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
       }
       filterBar={
         <div className="space-y-2">
-          <CommunityFilterBar lq={lq} searchPlaceholder="닉네임 · 입금자명 · 신청 번호" pending={state.status === "loading"} />
+          <CommunityFilterBar lq={lq} searchPlaceholder="닉네임 · 입금자명 · 신청 번호" pending={state.status === "loading"} requireCompletePeriod />
           <AdminRequestPeriodSummaryLine
             ko
             summary={periodSummary}

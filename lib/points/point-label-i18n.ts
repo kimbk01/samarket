@@ -45,15 +45,27 @@ const LEDGER_KEYS: Record<PointLedgerEntryType, MessageKey> = {
   promotion_extend: "point_ledger_promotion_extend",
 };
 
-const PROMO_ORDER_KEYS: Record<PointPromotionOrderStatus, MessageKey> = {
+/**
+ * 상위노출 신청 상태 이름 표 — 회원 상위노출 목록·기간 합계·포인트 내역 상세 시트가 함께 쓴다 (D-2).
+ * `paused`(관리자·글 숨김으로 일시정지 · DB `paused_by`)는 타입에 없지만 실제 상태라 표에 둔다 —
+ * 이전에 목록 합계만 따로 「일시정지」를 붙였고 상세 시트는 영문 코드를 그대로 보였다.
+ */
+export const POINT_PROMOTION_ORDER_STATUS_KEYS: Record<PointPromotionOrderStatus | "paused", MessageKey> = {
   pending: "point_status_pending",
   pending_review: "point_status_pending_review",
   active: "point_status_active",
+  paused: "mypage_oa_ads_boost_status_paused",
   expired: "point_status_expired",
   ended: "point_status_ended",
   rejected: "revenue_hub_status_rejected",
   cancelled: "point_status_cancelled",
 };
+
+/** 화면 언어의 `t` 로 상위노출 상태 이름. 표에 없는 값은 숨기지 않고 받은 값 그대로. */
+export function pointPromotionOrderStatusText(t: (key: MessageKey) => string, status: string): string {
+  const key = (POINT_PROMOTION_ORDER_STATUS_KEYS as Record<string, MessageKey | undefined>)[status];
+  return key ? t(key) : status;
+}
 
 const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
   home_top: "point_placement_home_top",
@@ -65,7 +77,9 @@ const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
 };
 
 export function pointChargeStatusLabel(status: PointChargeRequestStatus): string {
-  return pointT(CHARGE_STATUS_KEYS[status]);
+  const key = (CHARGE_STATUS_KEYS as Record<string, MessageKey | undefined>)[status];
+  // 표에 없는 값(빈 값 포함)은 번역 키 없이 받은 값 그대로 (키 문자열이 화면에 나오지 않게)
+  return key ? pointT(key) : String(status ?? "");
 }
 
 export function pointPaymentMethodLabel(method: PointPaymentMethod): string {
@@ -78,7 +92,7 @@ export function pointLedgerEntryLabel(type: PointLedgerEntryType): string {
 }
 
 export function pointPromotionOrderStatusLabel(status: PointPromotionOrderStatus): string {
-  return pointT(PROMO_ORDER_KEYS[status]);
+  return pointT(POINT_PROMOTION_ORDER_STATUS_KEYS[status]);
 }
 
 export function pointPromotionPlacementLabel(placement: PointPromotionPlacement): string {

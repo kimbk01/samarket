@@ -27,6 +27,7 @@ import {
   loadPromotionOrdersPage,
   parsePromotionOrderPageParams,
 } from "@/lib/points/promotion-order-history";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +83,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const pageParams = parsePromotionOrderPageParams(req.nextUrl.searchParams);
   if (pageParams) {
+    const badPeriod = invalidPeriodResponse(req.nextUrl.searchParams);
+    if (badPeriod) return badPeriod;
     const period = resolvePointHistoryPeriod(req.nextUrl.searchParams);
     const pageRes = await loadPromotionOrdersPage(sb, {
       userId: auth.userId,

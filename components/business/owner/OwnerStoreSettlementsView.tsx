@@ -183,37 +183,51 @@ export function OwnerStoreSettlementsView() {
       if (res.status === 401) {
         setError(t("mypage_comp_login_required"));
         setData(null);
+        setCash(null);
+        setPayable(null);
         return;
       }
       if (res.status === 403) {
         setError(t("store_owner_no_permission"));
         setData(null);
+        setCash(null);
+        setPayable(null);
         return;
       }
       const json = (await res.json()) as LedgerResponse;
       if (seq !== loadSeq.current) return;
+      // 서버 오류 코드(json.error)는 화면에 쓰지 않는다 — 문구 하나로 (D-4)
       if (!res.ok || !json.ok) {
-        setError(json.error ?? t("store_owner_err_load_list"));
+        setError(t("store_owner_err_load_list"));
         setData(null);
+        if (cashRes) setCash(null);
+        if (payableRes) setPayable(null);
         return;
       }
       setData(json);
       if (cashRes) {
         const cj = (await cashRes.json()) as CashResponse;
         if (seq !== loadSeq.current) return;
-        if (!cashRes.ok || !cj.ok) setError(cj.error ?? t("store_owner_err_load_list"));
-        else setCash(cj);
+        // 실패하면 이 탭 표를 비운다 — 이전 기간·쪽 표가 남지 않게 (D-4)
+        if (!cashRes.ok || !cj.ok) {
+          setError(t("store_owner_err_load_list"));
+          setCash(null);
+        } else setCash(cj);
       }
       if (payableRes) {
         const pj = (await payableRes.json()) as PayableResponse;
         if (seq !== loadSeq.current) return;
-        if (!payableRes.ok || !pj.ok) setError(pj.error ?? t("store_owner_err_load_list"));
-        else setPayable(pj);
+        if (!payableRes.ok || !pj.ok) {
+          setError(t("store_owner_err_load_list"));
+          setPayable(null);
+        } else setPayable(pj);
       }
     } catch {
       if (seq !== loadSeq.current) return;
       setError(t("store_owner_err_network"));
       setData(null);
+      setCash(null);
+      setPayable(null);
     } finally {
       if (seq === loadSeq.current) setLoading(false);
     }

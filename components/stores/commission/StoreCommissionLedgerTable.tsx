@@ -9,6 +9,7 @@
 import {
   commissionOrderStatusLabel,
   commissionOrderStatusLine,
+  commissionOwnerRefundedLabel,
   commissionPolicyScopeLabel,
 } from "@/lib/stores/commission/store-commission-display-labels";
 import Link from "next/link";
@@ -77,6 +78,12 @@ export function CommissionToneBadge({ tone, lang }: { tone: CommissionRowTone; l
       {COMMISSION_TONE_LABEL[tone][lang]}
     </span>
   );
+}
+
+/** 사장님 화면만 「수수료 환급」 칩을 실제 처리(캐시 환급 / 미납 취소)로 — 관리자는 null(공용 이름 유지). F-3 */
+function ownerStateLabel(r: StoreCommissionLedgerRow, audience: CommissionAudience, lang: CommissionLang): string | null {
+  if (audience !== "owner" || r.state !== "refunded") return null;
+  return commissionOwnerRefundedLabel(r.decision, lang);
 }
 
 /** Refund given back on this order (Cash refund + unpaid cancelled). */
@@ -216,7 +223,7 @@ export function CommissionLedgerTable({
                 <td className={`${cell} px-3 py-2`}>
                   <div className="flex flex-wrap gap-1">
                     <CommissionToneBadge tone={tone} lang={lang} />
-                    {tone !== "review" ? <CommissionStateChip state={r.state} lang={lang} /> : null}
+                    {tone !== "review" ? <CommissionStateChip state={r.state} lang={lang} label={ownerStateLabel(r, audience, lang)} /> : null}
                   </div>
                 </td>
                 <td className={`${cell} ${num}`}>{formatMoneyPhp(r.commissionBasePhp)}</td>
@@ -352,7 +359,7 @@ export function CommissionOrderDetailPanel({
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               <CommissionToneBadge tone={tone} lang={lang} />
-              <CommissionStateChip state={row.state} lang={lang} />
+              <CommissionStateChip state={row.state} lang={lang} label={ownerStateLabel(row, audience, lang)} />
             </div>
             {orderHref ? (
               <Link href={orderHref} className="mt-1.5 inline-block sam-text-helper font-medium text-signature underline-offset-2 hover:underline">
@@ -415,7 +422,9 @@ export function CommissionOrderDetailPanel({
                 audience === "owner"
                   ? "내역은 수정할 수 없습니다. 정정은 처리 기록으로만 남습니다."
                   : "원장은 수정할 수 없습니다. 정정은 결정 기록으로만 남습니다.",
-                "Ledgers are append-only; corrections are recorded decisions."
+                audience === "owner"
+                  ? "History can't be edited; corrections are kept as records."
+                  : "Ledgers are append-only; corrections are recorded decisions."
               )}
             </p>
           </section>

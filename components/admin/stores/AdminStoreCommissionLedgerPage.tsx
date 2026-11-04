@@ -54,6 +54,7 @@ import type {
 import {
   buildStoreCommissionLedgerSearch,
   formatManilaDateTime,
+  customPeriodInputState,
   parseStoreCommissionPeriodParams,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
@@ -86,6 +87,7 @@ import {
   HorizontalScrollRegion,
 } from "@/components/stores/commission/StoreCommissionLedgerTable";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { commissionOrderStatusLine } from "@/lib/stores/commission/store-commission-display-labels";
 
 /** 기본 페이지 크기 (예전 고정값 100 유지) — 주소 `size` 로 20/50/100 선택, `page` 는 1부터. */
 const DEFAULT_PAGE_SIZE: AdminListPageSize = 100;
@@ -233,6 +235,7 @@ export function AdminStoreCommissionLedgerPage() {
     const [p, f, t] = periodKey.split("|");
     return { period: p as StoreCommissionPeriod, fromDay: f, toDay: t };
   }, [periodKey]);
+  const customPeriodState = period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
   // 「수수료 원장」 탭을 명시하면 `state=review_required` 도 원장 필터로 쓴다 (탭 없이 오면 환불 검토 탭으로 연다).
   const ledgerState: StoreCommissionLedgerFilterState = tab === "ledger" || urlState !== "review_required" ? urlState : "all";
   const reviewParam = searchParams.get("review")?.trim() ?? "";
@@ -303,8 +306,13 @@ export function AdminStoreCommissionLedgerPage() {
 
   const effectiveState = tabLedgerState(tab, ledgerState, reviewFilter);
 
+  /** 카드 요청 번호 — 매장을 바꾼 뒤 늦게 온 이전 매장 응답이 카드를 덮지 않게 (D-11 ②). */
+  const headlineSeqRef = useRef(0);
   const loadHeadline = useCallback(async () => {
+    const seq = ++headlineSeqRef.current;
     const scope = storeId ? `store_id=${encodeURIComponent(storeId)}&` : "";
+    // 조회 시작 = 「불러오는 중」 (이전 매장 숫자를 새 매장 카드로 보이지 않게)
+    setHeadlineStatus({ ledger: "loading", integrity: "loading" });
     try {
       const [ledgerRes, integrityRes, exRes] = await Promise.all([
         fetch(`/api/admin/store-commission-ledger?${scope}limit=1`, { credentials: "include" }),
@@ -316,6 +324,7 @@ export function AdminStoreCommissionLedgerPage() {
       const lj = (await ledgerRes.json()) as LedgerResponse;
       const ij = (await integrityRes.json()) as IntegrityResponse;
       const ej = (await exRes.json()) as PayableResponse;
+      if (seq !== headlineSeqRef.current) return;
       setHeadline({
         summary: lj.ok ? lj.summary ?? null : null,
         positions: lj.ok ? lj.positions ?? [] : [],
@@ -327,12 +336,20 @@ export function AdminStoreCommissionLedgerPage() {
         integrity: ij.ok && ej.ok ? "ok" : "error",
       });
     } catch {
+      if (seq !== headlineSeqRef.current) return;
       // 실패를 숨기지 않는다 — 이전 값이 있어도 카드에 「불러오지 못했습니다」
       setHeadlineStatus({ ledger: "error", integrity: "error" });
     }
   }, [storeId]);
 
   const load = useCallback(async () => {
+    // 「직접」 기간이 덜 골라졌거나 뒤바뀌면 조회하지 않고 안내 (D-12 · 서버도 400 invalid_period)
+    if (customPeriodState !== "ok") {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -394,7 +411,7 @@ export function AdminStoreCommissionLedgerPage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveState, group, kinds, offset, orderNo, pageSize, payableAll, period, setError, storeId, tab]);
+  }, [customPeriodState, effectiveState, group, kinds, offset, orderNo, pageSize, payableAll, period, setError, storeId, tab]);
 
   useEffect(() => {
     void load();
@@ -748,6 +765,13 @@ export function AdminStoreCommissionLedgerPage() {
         }
       />
 
+      {customPeriodState !== "ok" ? (
+        <p className="sam-text-helper text-sam-danger" role="status" data-admin-commission-custom={customPeriodState}>
+          {customPeriodState === "inverted"
+            ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
+            : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
+        </p>
+      ) : null}
       {error ? <AdminErrorState ko={lang === "ko"} code={error.code} httpStatus={error.status} onRetry={() => void load()} /> : null}
 
       {tab === "ledger" || tab === "review" ? (
@@ -1087,7 +1111,7 @@ export function AdminStoreCommissionLedgerPage() {
         onClose={() => (busy ? undefined : setModal(null))}
         dismissible={!busy}
         title={pickCommissionCopy(lang, "취소·환불 주문 수수료 결정", "Commission on cancelled/refunded order")}
-        description={modal ? `#${modal.row.orderNo} · ${modal.row.storeName} · ${modal.row.orderStatus}` : undefined}
+        description={modal ? `#${modal.row.orderNo} · ${modal.row.storeName} · ${commissionOrderStatusLine(modal.row, lang)}` : undefined}
         actions={
           modal
             ? [

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadAdFundingTracePage } from "@/lib/finance/ad-funding-trace/load-ad-funding-trace-page";
 import { resolveFinanceListWindow } from "@/lib/finance/resolve-finance-list-window";
+import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   try {
+    const badPeriod = invalidPeriodResponse(url.searchParams);
+    if (badPeriod) return badPeriod;
     const window = resolveFinanceListWindow({
       date: url.searchParams.get("date"),
       from: url.searchParams.get("from"),

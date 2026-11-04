@@ -70,10 +70,11 @@ describe("R7 — 관리자 재무 Cash 2자리 ratchet", () => {
     expect(src).toMatch(/formatAdminManilaDateTime\(ev\.at\)/);
   });
 
-  it("미납 목록: 중복 열(Outstanding Created/Collected) 없음", () => {
+  it("미납 목록: 회계 열 유지 — Outstanding Created/Collected 복원 (F-2 · Owner 관리자 회계 용어 변경 금지)", () => {
     const src = readFileSync(path.join(ROOT, "components/finance/AdminFinanceOutstandingView.tsx"), "utf8");
-    expect(src).not.toMatch(/Outstanding Created/);
-    expect(src).not.toMatch(/Outstanding Collected/);
+    expect(src).toMatch(/"Outstanding Created"/);
+    expect(src).toMatch(/"Outstanding Collected" : "Collected"/);
+    expect(src).toMatch(/min-w-\[56rem\]/);
     // 남은 열의 회계 용어는 유지
     expect(src).toMatch(/Fee Due/);
     expect(src).toMatch(/Cash Paid/);

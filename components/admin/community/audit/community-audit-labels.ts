@@ -134,7 +134,7 @@ export function communityAuditTargetHref(type: string | null | undefined, id: st
     case "point_promotion_order":
       return "/admin/community/promotions?tab=all";
     case "user_points":
-      return raw ? `/admin/community/points?userId=${enc}` : "/admin/community/points";
+      return raw ? `/admin/community/points?userId=${enc}&period=all` : "/admin/community/points";
     case "point_charge_request":
       return "/admin/community/point-charges?status=all";
     default:

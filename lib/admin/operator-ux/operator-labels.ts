@@ -295,6 +295,10 @@ export function adminOperatorErrorMessage(
       ko: "노출 메뉴가 없어 노출할 수 없습니다. 「노출 메뉴」에서 메뉴를 고르고 저장한 뒤 다시 노출을 켜 주세요 (업종이 없는 매장은 기본 메뉴도 없음).",
       en: "No delivery menu. Choose and save a menu in “Delivery menus”, then turn visibility on.",
     },
+    invalid_period: {
+      ko: "기간이 올바르지 않습니다. 시작일과 종료일을 모두 고르고, 시작일이 종료일보다 늦지 않게 해 주세요.",
+      en: "Invalid period. Pick both start and end dates, with the start not after the end.",
+    },
     featured_period_invalid: {
       ko: "추천 기간 날짜 형식이 올바르지 않습니다.",
       en: "The featured period date is invalid.",

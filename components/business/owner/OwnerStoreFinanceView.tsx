@@ -11,6 +11,7 @@ import { CurrencyBalanceCard } from "@/components/currency";
 import { OwnerWalletHistory } from "@/components/business/owner/OwnerWalletHistory";
 import { LedgerPager } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import type { WalletHistoryRow } from "@/lib/finance/wallet-period-history";
+import { cashHistoryDetailHref } from "@/lib/finance/owner-cash-history-detail-href";
 import { OwnerBusinessCashView } from "@/components/business/owner/OwnerBusinessCashView";
 import { OwnerCoinWithdrawalPanel } from "@/components/business/owner/OwnerCoinWithdrawalPanel";
 import { OwnerFinanceNav } from "@/components/finance/OwnerFinanceNav";
@@ -50,6 +51,8 @@ type FinancePayload = {
   saleFeeObligations?: {
     outstandingMinor?: number;
     openCount?: number;
+    /** false = 미납 합계 SQL 실패 → outstandingMinor 는 이 쪽 줄만의 합 (전체가 아님 · D-8) */
+    totalsComplete?: boolean;
     listTotal?: number | null;
     listError?: boolean;
     rows?: Array<{
@@ -163,6 +166,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const [obligationOffset, setObligationOffset] = useState(0);
   const [obligationTotal, setObligationTotal] = useState<number | null>(null);
   const [obligationListError, setObligationListError] = useState(false);
+  /** 미납 합계가 전체 기준인지 — false 면 숫자 대신 「합계를 불러오지 못했습니다」 (D-8) */
+  const [saleFeeTotalsComplete, setSaleFeeTotalsComplete] = useState(true);
   /** 늦게 온 이전 응답이 새 응답을 덮지 않게 (재감사 R5-a) */
   const loadSeq = useRef(0);
   /** This month (Asia/Manila) — same SQL readers as the settlement screen (commission SSOT). */
@@ -202,6 +207,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setCoinBalance(readBalanceOrNull(json.assets?.storePoints?.balance));
       setCashBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
       setSaleFeeOutstandingMinor(Math.trunc(Number(json.saleFeeObligations?.outstandingMinor) || 0));
+      setSaleFeeTotalsComplete(json.saleFeeObligations?.totalsComplete !== false);
       setObligationRows(json.saleFeeObligations?.rows ?? []);
       setObligationTotal(json.saleFeeObligations?.listTotal ?? null);
       setObligationListError(Boolean(json.saleFeeObligations?.listError));
@@ -290,12 +296,9 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       : row.entryKind === "CONVERT_TO_BUSINESS_CASH"
         ? convertHref
         : undefined;
+  // 충전 줄 → 그 충전 신청(`focus=`) · 수수료 줄 → 정산 화면의 그 주문(`order_no=`) (D-6)
   const cashDetailHref = (row: WalletHistoryRow): string | undefined =>
-    row.entryKind === "TOP_UP" || row.entryKind === "CONVERT_FROM_STORE_POINTS"
-      ? convertHref
-      : row.entryKind.startsWith("SALE_FEE")
-        ? settlementsHref
-        : undefined;
+    cashHistoryDetailHref(row, { convertHref, settlementsHref });
 
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
@@ -355,14 +358,20 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
       {section === "outstanding" ? (
         <section className="space-y-3" data-owner-finance-section="outstanding">
-          <p className="text-sm font-semibold">
-            {formatFinanceAmount({
-              wallet: "CASH",
-              amount: saleFeeOutstandingMinor,
-              isMinor: true,
-            })}{" "}
-            {t("owner_copy_finance_outstanding_suffix")}
-          </p>
+          {saleFeeTotalsComplete ? (
+            <p className="text-sm font-semibold">
+              {formatFinanceAmount({
+                wallet: "CASH",
+                amount: saleFeeOutstandingMinor,
+                isMinor: true,
+              })}{" "}
+              {t("owner_copy_finance_outstanding_suffix")}
+            </p>
+          ) : (
+            <p className="text-sm font-semibold text-sam-danger" role="alert" data-owner-outstanding-total="unavailable">
+              {ko ? "합계를 불러오지 못했습니다" : "Couldn't load the total"}
+            </p>
+          )}
           {obligationListError ? (
             <p className="text-sm text-sam-danger" role="alert">
               {ko ? "미납 목록을 불러오지 못했습니다." : "Could not load the outstanding list."}
