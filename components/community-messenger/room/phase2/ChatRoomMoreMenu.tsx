@@ -2,10 +2,12 @@
 
 import {
   Archive,
+  Ban,
   Bell,
   BellOff,
   CheckCircle2,
   File as FileIcon,
+  Flag,
   Image as ImageIcon,
   LogOut,
   Phone,
@@ -114,6 +116,11 @@ export type ChatRoomMoreMenuProps = {
   onToggleMute: () => void;
   onToggleArchive: () => void;
   onLeaveRoom: () => void;
+  /** 방 신고 — 기존 메신저 신고 원장(`community_messenger_reports`) */
+  onReportRoom?: () => void;
+  /** 상대 차단 — 차단 SSOT. 배달 주문 방은 호출부가 넘기지 않는다 */
+  onBlockPeer?: () => void;
+  disableBlockPeer?: boolean;
 };
 
 function mannerTemperatureLabel(score0to100: number): string {
@@ -209,6 +216,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     onToggleMute,
     onToggleArchive,
     onLeaveRoom,
+    onReportRoom,
+    onBlockPeer,
+    disableBlockPeer = false,
   } = props;
 
   const presenceLine =
@@ -437,6 +447,23 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           <Archive className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
           <span className="min-w-0 flex-1 font-medium">{isArchived ? t("cm_ui_unarchive") : t("cm_ui_archive_chat_room")}</span>
         </button>
+        {onReportRoom ? (
+          <button type="button" onClick={onReportRoom} className={menuRowClass(true)}>
+            <Flag className="h-[18px] w-[18px] shrink-0 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
+            <span className="min-w-0 flex-1 font-medium">{t("nav_messenger_report")}</span>
+          </button>
+        ) : null}
+        {onBlockPeer ? (
+          <button
+            type="button"
+            onClick={onBlockPeer}
+            disabled={disableBlockPeer}
+            className={menuRowClass(!disableBlockPeer, true)}
+          >
+            <Ban className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
+            <span className="min-w-0 flex-1 font-medium">{t("common_block")}</span>
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onLeaveRoom}

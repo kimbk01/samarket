@@ -9,9 +9,9 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import {
   countUserCommunityPostsToday,
-  findBannedWord,
   getCommunityFeedOps,
 } from "@/lib/community-feed/community-ops-settings";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import { resolveTopicMeta } from "@/lib/community-feed/queries";
 import {
@@ -114,10 +114,14 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const banned = findBannedWord(`${title}\n${content}`, ops.banned_words);
-  if (banned) {
-    return jsonError("금칙어가 포함되어 있습니다.", 400);
-  }
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "community_post",
+    texts: [title, content],
+    operatorWords: ops.banned_words,
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) return jsonError(filtered.error, filtered.status, { code: filtered.code });
 
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort) {

@@ -27,6 +27,7 @@ import { parseStoreMenusPayload } from "@/lib/stores/store-detail-split-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { StoreReviewThumbIcon } from "@/components/stores/review/StoreReviewThumbIcon";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { StoreReviewReportButton } from "@/components/stores/StoreReviewReportButton";
 
 function ReviewOrderDetailShimmer() {
   const Bar = ({ className }: { className: string }) => (
@@ -62,6 +63,7 @@ type Review = {
   order_type?: "delivery" | "pickup" | null;
   owner_reply_content?: string | null;
   owner_reply_created_at?: string | null;
+  viewer_is_author?: boolean;
 };
 
 export function StoreReviewsSection({
@@ -530,7 +532,7 @@ export function StoreReviewsSection({
                   <p className="text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
                     {formatAppDate(r.created_at, language)}
                   </p>
-                  {/* RV-01 — 리뷰 신고 백엔드(신고 대상 review·관리자 큐) 미구현: 저장되지 않는 신고를 「접수됨」으로 알리지 않는다 */}
+                  {r.viewer_is_author ? null : <StoreReviewReportButton storeSlug={storeSlug} reviewId={r.id} />}
                 </div>
               </div>
               {r.image_urls && r.image_urls.length > 0 ? (
@@ -700,7 +702,7 @@ export function StoreReviewsSection({
                 <p className={`text-sam-meta ${Sam.text.xxs}`}>
                   {formatAppDate(r.created_at, language)}
                 </p>
-                {/* RV-01 — 리뷰 신고 백엔드(신고 대상 review·관리자 큐) 미구현: 저장되지 않는 신고를 「접수됨」으로 알리지 않는다 */}
+                {r.viewer_is_author ? null : <StoreReviewReportButton storeSlug={storeSlug} reviewId={r.id} />}
               </div>
             </div>
 

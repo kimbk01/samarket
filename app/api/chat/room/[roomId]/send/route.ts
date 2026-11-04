@@ -19,6 +19,8 @@ import {
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { parseRoomId } from "@/lib/validate-params";
 import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
+import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 
 export const runtime = "nodejs";
@@ -118,6 +120,23 @@ export async function POST(
       { ok: false, error: "이 채팅은 제한 모드라 메시지를 보낼 수 없습니다." },
       { status: 409 }
     );
+  }
+
+  const peerUserId = String((room.seller_id === userId ? room.buyer_id : room.seller_id) ?? "").trim();
+  if (peerUserId && (await isBlockedEitherWay(userId, peerUserId))) {
+    return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
+  }
+
+  if (messageType !== "system" && text) {
+    const filtered = await guardBannedWords({
+      userId,
+      surface: "trade_chat",
+      texts: [text],
+      acceptLanguage: req.headers.get("accept-language"),
+    });
+    if (!filtered.ok) {
+      return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+    }
   }
 
   const content =

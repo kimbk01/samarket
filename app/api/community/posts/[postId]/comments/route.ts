@@ -7,10 +7,10 @@ import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-com
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
-  findBannedWord,
   getCommunityFeedOps,
   getLatestCommentTimeForUser,
 } from "@/lib/community-feed/community-ops-settings";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { listCommunityPostComments, resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import {
   addNeighborhoodDevSampleComment,
@@ -165,9 +165,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       { status: 400 }
     );
   }
-  if (findBannedWord(content, ops.banned_words)) {
-    return jsonError("금칙어가 포함되어 있습니다.", 400);
-  }
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "community_comment",
+    texts: [content],
+    operatorWords: ops.banned_words,
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) return jsonError(filtered.error, filtered.status, { code: filtered.code });
 
   try {
     const id = await resolveCanonicalCommunityPostId(raw);

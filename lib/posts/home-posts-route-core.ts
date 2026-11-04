@@ -11,6 +11,7 @@ import { NextRequest } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
+import { fetchBlockedAuthorIdsForViewerSb } from "@/lib/social/user-block-ssot";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   resolvePostsReadClients,
@@ -100,6 +101,22 @@ export function clearHomePostsFavoriteCacheKeysForViewerPrefix(userId: string): 
 /** Data Reset derived execute — drop process-local home feed memory. */
 export function clearHomePostsServerMemoryCache(): void {
   homePostsServerCache.clear();
+}
+
+/**
+ * 사용자별 차단(양방향) 작성자 글 제외 — 공용 서버 캐시(`homePostsServerCache`) 뒤에서 적용해 캐시 키를 바꾸지 않는다.
+ * 로그인 응답은 `Cache-Control: private` 라 사용자별 결과가 공유되지 않는다.
+ */
+async function excludeBlockedAuthorsForViewer(
+  sb: SupabaseClient<any>,
+  viewerUserId: string | null | undefined,
+  posts: PostWithMeta[]
+): Promise<PostWithMeta[]> {
+  const viewer = String(viewerUserId ?? "").trim();
+  if (!viewer || posts.length === 0) return posts;
+  const blocked = await fetchBlockedAuthorIdsForViewerSb(sb, viewer);
+  if (blocked.size === 0) return posts;
+  return posts.filter((p) => !blocked.has(String(p.author_id ?? p.user_id ?? "").trim()));
 }
 
 function normalizeSort(raw: string | null): HomePostsQuerySort {
@@ -335,6 +352,7 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
   const favoriteMap: Record<string, boolean> = {};
   const preViewer = options?.precomputedViewerUserId;
   const userId = preViewer !== undefined ? preViewer : await getOptionalAuthenticatedUserId();
+  posts = await excludeBlockedAuthorsForViewer((serviceSb ?? readSb) as SupabaseClient<any>, userId, posts);
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
@@ -914,6 +932,7 @@ export async function resolveHomePostsGetData(
   }
   const favoriteMap: Record<string, boolean> = {};
   const userId = viewerUserIdForList;
+  posts = await excludeBlockedAuthorsForViewer((serviceSb ?? readSb) as SupabaseClient<any>, userId, posts);
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);

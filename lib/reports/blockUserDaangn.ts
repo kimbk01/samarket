@@ -1,6 +1,7 @@
 "use client";
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 
 export type BlockUserResult = { ok: true } | { ok: false; error: string };
 
@@ -16,6 +17,16 @@ export async function blockUserDaangn(
   if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
   if (user.id === targetUserId) return { ok: false, error: "자기 자신은 차단할 수 없습니다." };
 
+  const result = await blockUserDaangnRequest(targetUserId, options);
+  /** 차단한 판매자 글이 목록 캐시에 남지 않게 — 서버 목록은 차단 작성자를 제외해 내려준다. */
+  if (result.ok) invalidateHomePostsCache();
+  return result;
+}
+
+async function blockUserDaangnRequest(
+  targetUserId: string,
+  options?: { reason?: string; roomId?: string }
+): Promise<BlockUserResult> {
   try {
     if (options?.roomId) {
       const roomRes = await fetch(`/api/chat/rooms/${encodeURIComponent(options.roomId)}/block`, {
@@ -25,10 +36,11 @@ export async function blockUserDaangn(
         body: JSON.stringify({ reason: options.reason ?? null }),
       });
       const roomJson = (await roomRes.json()) as { ok?: boolean; error?: string };
-      if (!roomRes.ok || !roomJson.ok) {
+      if (roomRes.ok && roomJson.ok) return { ok: true };
+      /** 레거시 `product_chats` 방은 `chat_rooms` 에 없어 404 — 같은 SSOT 차단으로 이어서 처리한다. */
+      if (roomRes.status !== 404) {
         return { ok: false, error: roomJson.error ?? "차단에 실패했습니다." };
       }
-      return { ok: true };
     }
 
     const checkRes = await fetch(

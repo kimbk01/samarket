@@ -37,6 +37,7 @@ import {
   setProfileResponseCache,
 } from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { isMemberNicknameTaken } from "@/lib/profile/member-nickname-policy";
 import {
@@ -1108,6 +1109,21 @@ export async function PATCH(req: NextRequest) {
         { ok: false, error: "프로필 사진은 앱에서 올린 본인 사진만 사용할 수 있습니다.", code: "avatar_url_not_allowed" },
         { status: 400 }
       );
+    }
+  }
+
+  const profileTexts = [parsed.patch.nickname, parsed.patch.bio].filter(
+    (v): v is string => typeof v === "string" && v.length > 0
+  );
+  if (profileTexts.length > 0) {
+    const filtered = await guardBannedWords({
+      userId: auth.userId,
+      surface: "profile",
+      texts: profileTexts,
+      acceptLanguage: req.headers.get("accept-language"),
+    });
+    if (!filtered.ok) {
+      return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
     }
   }
 

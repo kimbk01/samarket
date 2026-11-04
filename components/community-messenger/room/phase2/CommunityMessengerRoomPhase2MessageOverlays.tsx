@@ -5,12 +5,26 @@ import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomShe
 import { MessengerPhotoSelectSaveSheet } from "@/components/community-messenger/room/MessengerPhotoSelectSaveSheet";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { isCommunityMessengerStoreOrderDeliveryRoom } from "@/lib/community-messenger/room-context-meta";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const messageActionItem = vm.messageActionItem;
-
+  const actionMsg = messageActionItem?.item;
+  /** 통화 기록(`call_stub`) 신고·차단은 통화 HARD LOCK 영향 분석·승인 전 제외 */
+  const canReportPeerMessage = Boolean(
+    actionMsg &&
+      !actionMsg.isMine &&
+      !actionMsg.pending &&
+      actionMsg.messageType !== "system" &&
+      actionMsg.messageType !== "call_stub" &&
+      String(actionMsg.senderId ?? "").trim()
+  );
+  const canBlockPeerSender =
+    canReportPeerMessage &&
+    vm.snapshot?.room.roomType === "direct" &&
+    !isCommunityMessengerStoreOrderDeliveryRoom(vm.snapshot.room);
 
   return (
     <>
@@ -70,6 +84,28 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             vm.setMessageActionItem(null);
             void vm.pinGroupMessage(nextId);
           }}
+          onReportMessage={
+            canReportPeerMessage
+              ? () => {
+                  const target = messageActionItem.item;
+                  vm.setMessageActionItem(null);
+                  void vm.reportTarget({
+                    reportType: "message",
+                    messageId: target.id,
+                    reportedUserId: target.senderId ?? undefined,
+                  });
+                }
+              : undefined
+          }
+          onBlockSender={
+            canBlockPeerSender
+              ? () => {
+                  const senderId = String(messageActionItem.item.senderId ?? "").trim();
+                  vm.setMessageActionItem(null);
+                  void vm.blockPeerFromMessage(senderId);
+                }
+              : undefined
+          }
         />
       ) : null}
       {/* 「사진 선택해서 저장」 — 길게 누르기 메뉴가 닫힌 뒤에도 방 위에 유지 */}

@@ -15,6 +15,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { CommunityFeedOps } from "@/lib/community-feed/community-ops-settings";
+import { BASELINE_BANNED_TERMS } from "@/lib/community-feed/banned-word-match";
 
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
 type NumKey = Exclude<keyof CommunityFeedOps, "banned_words">;
@@ -210,6 +211,10 @@ export function AdminCommunityFeedSettingsPage() {
                 placeholder={tr("admin_feed_settings_banned_placeholder")}
               />
               <span className="sam-text-xxs text-sam-muted">한 줄에 한 단어 · 현재 {parseWords(bannedText).length}개</span>
+              <span className="sam-text-xxs text-sam-muted">
+                기본 금칙어 {BASELINE_BANNED_TERMS.length}개(욕설·혐오·성착취)는 이 목록과 관계없이 항상 적용됩니다. 이
+                목록은 커뮤니티·모임·거래 글·거래 채팅·배달 리뷰·프로필에 함께 적용되며, 저장 후 최대 1분 뒤 반영됩니다.
+              </span>
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {num("max_title_length", 1, 500, 1)}

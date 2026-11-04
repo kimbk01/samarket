@@ -16,6 +16,7 @@ export const REPORT_TARGET_TYPE_LABEL_KEYS: Record<string, MessageKey> = {
   chat: "admin_report_target_chat",
   user: "admin_report_target_user",
   community: "admin_report_target_community_feed",
+  feed_ad: "admin_report_target_feed_ad",
 };
 
 /** report_actions / 제재 버튼 / 처리 이력 액션 타입 */

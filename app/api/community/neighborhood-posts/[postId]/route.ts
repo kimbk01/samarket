@@ -3,10 +3,8 @@ import { assertCommunityWriteAllowed } from "@/lib/community/community-write-res
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
-import {
-  findBannedWord,
-  getCommunityFeedOps,
-} from "@/lib/community-feed/community-ops-settings";
+import { getCommunityFeedOps } from "@/lib/community-feed/community-ops-settings";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
@@ -147,8 +145,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       { status: 400 }
     );
   }
-  if (findBannedWord(`${title}\n${content}`, ops.banned_words)) {
-    return NextResponse.json({ ok: false, error: "금칙어가 포함되어 있습니다." }, { status: 400 });
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "community_post",
+    texts: [title, content],
+    operatorWords: ops.banned_words,
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   const imagesRes = resolveMemberPostImages({

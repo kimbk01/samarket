@@ -67,6 +67,8 @@ const ACTION_LABEL_KO: Record<string, string> = {
   suspend: "정지",
   ban: "차단",
   restore: "복구",
+  "content_filter.blocked": "금칙어로 등록 차단",
+  "content_filter.repeat_review": "금칙어 반복 위반 — 관리자 검토 필요",
   deletion_request_open: "삭제 요청(대기)",
   deletion_request_processing: "삭제 요청(처리중)",
   deletion_request_completed: "삭제 요청(완료)",

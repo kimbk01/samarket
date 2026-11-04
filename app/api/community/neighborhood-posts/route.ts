@@ -7,9 +7,9 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   countUserCommunityPostsToday,
-  findBannedWord,
   getCommunityFeedOps,
 } from "@/lib/community-feed/community-ops-settings";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { resolveNeighborhoodLocationId } from "@/lib/neighborhood/ensure-location";
 import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
@@ -202,8 +202,15 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (findBannedWord(`${title}\n${content}`, ops.banned_words)) {
-    return NextResponse.json({ ok: false, error: "금칙어가 포함되어 있습니다." }, { status: 400 });
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "community_post",
+    texts: [title, content],
+    operatorWords: ops.banned_words,
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   if (ops.max_posts_per_day > 0) {

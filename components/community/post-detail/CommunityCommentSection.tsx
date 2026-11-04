@@ -48,6 +48,7 @@ type Props = {
   onCommentEdit: (commentId: string, content: string) => Promise<string | null>;
   onCommentDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
   onCommentReport?: (commentId: string) => void | Promise<void>;
+  onCommentAuthorBlock?: (authorUserId: string, authorLabel: string) => void | Promise<void>;
   onSubmitReply: (parentId: string, content: string) => Promise<boolean>;
   commentBusy: boolean;
   composerError?: string;
@@ -77,6 +78,7 @@ export function CommunityCommentSection({
   onCommentEdit,
   onCommentDelete,
   onCommentReport,
+  onCommentAuthorBlock,
   onSubmitReply,
   commentBusy,
   composerError = "",
@@ -208,6 +210,7 @@ export function CommunityCommentSection({
                 onEdit={onCommentEdit}
                 onDelete={onCommentDelete}
                 onReportComment={onCommentReport}
+                onBlockCommentAuthor={onCommentAuthorBlock}
                 replyOpenCommentId={replyOpenCommentId}
                 onReplyOpenChange={setReplyOpenCommentId}
                 onSubmitReply={onSubmitReply}

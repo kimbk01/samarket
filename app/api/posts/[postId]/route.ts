@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isPromotionLiveForTarget } from "@/lib/promotion/promotion-live-target";
+import { isPostAuthorBlockedForViewer } from "@/lib/posts/load-post-detail-shared";
 
 export async function GET(
   req: NextRequest,
@@ -87,6 +88,9 @@ export async function GET(
       targetId: id,
     }),
   ]);
+  if (await isPostAuthorBlockedForViewer(data as Record<string, unknown>, viewerId)) {
+    return NextResponse.json({ error: "상품을 찾을 수 없습니다." }, { status: 404 });
+  }
   const payload = {
     ...maskTradeDetailBuyerFields(data as Record<string, unknown>, viewerId),
     promotion_live: promotionLive,

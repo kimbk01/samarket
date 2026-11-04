@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restriction";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
   allowAnyPostUpdate,
@@ -223,6 +224,19 @@ export async function PATCH(
         { status: 400 }
       );
     }
+  }
+
+  const filtered = await guardBannedWords({
+    userId,
+    surface: "trade_post",
+    texts: [
+      typeof body.title === "string" ? body.title : null,
+      typeof body.content === "string" ? body.content : null,
+    ],
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   const now = new Date().toISOString();

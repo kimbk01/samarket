@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireAuth, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
@@ -20,6 +20,7 @@ type PostBody = {
   store_slug?: string;
   target_type?: string;
   product_id?: string | null;
+  review_id?: string | null;
   reason_type?: string;
   message?: string;
 };
@@ -32,8 +33,6 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
   const reporterId = auth.userId;
   // v4 W1 API-13 — 신고 접수 공통 상한(사용자당 시간당).
   const reportQuota = await enforceUserReportQuota(reporterId, "store");
@@ -47,16 +46,20 @@ export async function POST(req: NextRequest) {
   }
 
   const slug = String(body.store_slug ?? "").trim();
-  const targetType = String(body.target_type ?? "").trim() as "store" | "product";
+  const targetType = String(body.target_type ?? "").trim() as "store" | "product" | "review";
   const productIdRaw = body.product_id != null ? String(body.product_id).trim() : "";
+  const reviewIdRaw = body.review_id != null ? String(body.review_id).trim() : "";
   const reasonType = String(body.reason_type ?? "").trim();
   const message = String(body.message ?? "").trim();
 
   if (!slug) {
     return NextResponse.json({ ok: false, error: "missing_store_slug" }, { status: 400 });
   }
-  if (targetType !== "store" && targetType !== "product") {
+  if (targetType !== "store" && targetType !== "product" && targetType !== "review") {
     return NextResponse.json({ ok: false, error: "invalid_target_type" }, { status: 400 });
+  }
+  if (targetType === "review" && !reviewIdRaw) {
+    return NextResponse.json({ ok: false, error: "missing_review_id" }, { status: 400 });
   }
   if (!REASONS.has(reasonType)) {
     return NextResponse.json({ ok: false, error: "invalid_reason_type" }, { status: 400 });
@@ -90,6 +93,22 @@ export async function POST(req: NextRequest) {
   let targetId: string;
   if (targetType === "store") {
     targetId = storeId;
+  } else if (targetType === "review") {
+    const { data: review, error: rErr } = await sb
+      .from("store_reviews")
+      .select("id, store_id, buyer_user_id")
+      .eq("id", reviewIdRaw)
+      .maybeSingle();
+    if (rErr || !review) {
+      return NextResponse.json({ ok: false, error: "review_not_found" }, { status: 404 });
+    }
+    if ((review.store_id as string) !== storeId) {
+      return NextResponse.json({ ok: false, error: "review_store_mismatch" }, { status: 400 });
+    }
+    if (String(review.buyer_user_id ?? "") === reporterId) {
+      return NextResponse.json({ ok: false, error: "cannot_report_own_review" }, { status: 400 });
+    }
+    targetId = reviewIdRaw;
   } else {
     const { data: prod, error: pErr } = await sb
       .from("store_products")

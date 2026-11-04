@@ -12,6 +12,7 @@ import {
 } from "@/lib/stores/get-approved-store-by-slug";
 import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
+import { fetchBlockedAuthorIdsForViewerSb } from "@/lib/social/user-block-ssot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,7 +88,12 @@ export async function GET(
     return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.reviews }, { status: 500 });
   }
 
-  const list = (reviews ?? []).filter((r) => r.visible_to_public !== false);
+  const viewer = String(viewerId ?? "").trim();
+  /** 거래·커뮤니티와 같은 차단 SSOT — 양방향 차단 회원의 리뷰는 보는 사람에게서 뺀다 */
+  const blockedAuthors = viewer ? await fetchBlockedAuthorIdsForViewerSb(sb, viewer) : new Set<string>();
+  const list = (reviews ?? []).filter(
+    (r) => r.visible_to_public !== false && !blockedAuthors.has(String(r.buyer_user_id ?? "").trim())
+  );
   const buyerIds = list.map((r) => String(r.buyer_user_id ?? "").trim()).filter(Boolean);
   const buyerMap = await mapBuyerUserIdsToPublicLabels(sb, buyerIds);
   const sum = list.reduce((a, r) => a + (Number(r.rating) || 0), 0);
@@ -114,6 +120,7 @@ export async function GET(
           typeof r.owner_reply_content === "string" ? r.owner_reply_content : null,
         owner_reply_created_at:
           typeof r.owner_reply_created_at === "string" ? r.owner_reply_created_at : null,
+        viewer_is_author: Boolean(viewer) && String(r.buyer_user_id ?? "").trim() === viewer,
       };
     }),
     avg_rating: avg,

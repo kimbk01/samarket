@@ -13,6 +13,7 @@ import {
 } from "@/lib/community/user-relation-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
+import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 
 export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
   const { t } = useI18n();
@@ -76,6 +77,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       if (res.ok && j.ok && typeof j.blocked === "boolean") {
         const nextBlocked = j.blocked;
         setBlocked((prev) => (prev === nextBlocked ? prev : nextBlocked));
+        invalidateHomePostsCache();
         router.refresh();
       }
     } finally {

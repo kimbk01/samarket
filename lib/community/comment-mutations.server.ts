@@ -5,10 +5,8 @@ import {
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
-import {
-  findBannedWord,
-  getCommunityFeedOps,
-} from "@/lib/community-feed/community-ops-settings";
+import { getCommunityFeedOps } from "@/lib/community-feed/community-ops-settings";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 
 type Sb = ReturnType<typeof getSupabaseServer>;
@@ -121,9 +119,13 @@ export async function updateCommentContentServer(
   if (t.length > ops.max_comment_length) {
     return { ok: false, error: `댓글은 ${ops.max_comment_length}자 이하로 입력하세요.` };
   }
-  if (findBannedWord(t, ops.banned_words)) {
-    return { ok: false, error: "금칙어가 포함되어 있습니다." };
-  }
+  const filtered = await guardBannedWords({
+    userId,
+    surface: "community_comment",
+    texts: [t],
+    operatorWords: ops.banned_words,
+  });
+  if (!filtered.ok) return { ok: false, error: filtered.error };
 
   const pid = (await resolveCanonicalCommunityPostId(postId))?.trim() ?? "";
   const cid = commentId?.trim() ?? "";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { blockUserSocial, unblockUserSocial } from "@/lib/community-messenger/social-relations";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
@@ -45,8 +45,6 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:relation-block:${getRateLimitKey(req, auth.userId)}`,

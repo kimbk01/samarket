@@ -119,6 +119,8 @@ export const communityUiMessages = {
     community_delete_failed: "삭제에 실패했습니다.",
     community_inquiry: "문의",
     community_report: "신고",
+    content_filter_blocked_message:
+      "운영정책에 맞지 않는 표현이 포함되어 있어 등록할 수 없어요. 표현을 고친 뒤 다시 시도해 주세요.",
     community_list: "목록",
     community_delete: "삭제",
     community_receive: "접수",
@@ -673,6 +675,8 @@ export const communityUiMessages = {
     community_delete_failed: "Could not delete.",
     community_inquiry: "Contact",
     community_report: "Report",
+    content_filter_blocked_message:
+      "This contains language that isn't allowed under our community policy. Please edit it and try again.",
     community_list: "List",
     community_delete: "Delete",
     community_receive: "Submit",

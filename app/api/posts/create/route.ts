@@ -16,6 +16,7 @@ import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import type { ProfileActionType } from "@/lib/profile/profile-requirements";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restriction";
 import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-row";
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
@@ -181,6 +182,16 @@ export async function POST(req: NextRequest) {
     if (!memberGate.ok) {
       return NextResponse.json({ ok: false, error: memberGate.error }, { status: memberGate.status });
     }
+  }
+
+  const filtered = await guardBannedWords({
+    userId,
+    surface: "trade_post",
+    texts: [parsed.title, parsed.content],
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   /** 이미지 = 자사 Storage 의 작성자 폴더만 (TM-22) */

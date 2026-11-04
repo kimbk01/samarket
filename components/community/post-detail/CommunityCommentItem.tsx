@@ -36,6 +36,8 @@ type Props = {
   onEdit: (commentId: string, content: string) => Promise<string | null>;
   onDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
   onReportComment?: (commentId: string) => void | Promise<void>;
+  /** 댓글 작성자 차단 — 차단 SSOT(`user_social_relations`) */
+  onBlockCommentAuthor?: (authorUserId: string, authorLabel: string) => void | Promise<void>;
   replyOpenCommentId: string | null;
   onReplyOpenChange: (id: string | null) => void;
   /** 성공 여부 — 실패 시 답글 입력 유지 */
@@ -63,6 +65,7 @@ export function CommunityCommentItem({
   onEdit,
   onDelete,
   onReportComment,
+  onBlockCommentAuthor,
   replyOpenCommentId,
   onReplyOpenChange,
   onSubmitReply,
@@ -95,6 +98,9 @@ export function CommunityCommentItem({
   const canReportComment = me.length > 0 && !isOwner && !isDeleted && Boolean(onReportComment);
   const isReplyOpen = replyOpenCommentId === node.id;
   const authorLabel = node.is_removed ? "" : communityAuthorDisplayName(node.author_name, node.author_name);
+  const authorUserId = String(node.user_id ?? "").trim();
+  const canBlockAuthor =
+    me.length > 0 && !isOwner && !node.is_removed && authorUserId.length > 0 && Boolean(onBlockCommentAuthor);
   const timeRel = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
     return formatTimeAgo(node.created_at, language);
@@ -240,6 +246,21 @@ export function CommunityCommentItem({
                           }}
                         >
                           {t("community_report")}
+                        </button>
+                      </li>
+                    ) : null}
+                    {canBlockAuthor ? (
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={itemClass}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            void onBlockCommentAuthor?.(authorUserId, authorLabel);
+                          }}
+                        >
+                          {t("community_block_neighbor")}
                         </button>
                       </li>
                     ) : null}
@@ -409,6 +430,7 @@ export function CommunityCommentItem({
                       onEdit={onEdit}
                       onDelete={onDelete}
                       onReportComment={onReportComment}
+                      onBlockCommentAuthor={onBlockCommentAuthor}
                       replyOpenCommentId={replyOpenCommentId}
                       onReplyOpenChange={onReplyOpenChange}
                       onSubmitReply={onSubmitReply}

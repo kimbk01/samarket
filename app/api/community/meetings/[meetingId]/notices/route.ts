@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { listMeetingNotices } from "@/lib/neighborhood/queries";
 
 export const runtime = "nodejs";
@@ -41,6 +42,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   if (!title && !content) {
     return NextResponse.json({ ok: false, error: "empty_notice" }, { status: 400 });
+  }
+
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "meeting_feed",
+    texts: [title, content],
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;

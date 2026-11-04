@@ -58,6 +58,8 @@ export type MessageLongPressPopoverProps = {
   pinLabel?: string;
   pinDisabled?: boolean;
   showPin?: boolean;
+  onReportMessage?: () => void;
+  onBlockSender?: () => void;
 };
 
 export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
@@ -403,6 +405,8 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
                 }
               : undefined
           }
+          reportMessage={props.onReportMessage ? { onClick: props.onReportMessage } : undefined}
+          blockSender={props.onBlockSender ? { onClick: props.onBlockSender } : undefined}
         />
       </div>
     </div>

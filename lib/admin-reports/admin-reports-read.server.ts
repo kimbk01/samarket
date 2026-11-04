@@ -43,6 +43,7 @@ function toTargetType(t: string): Report["targetType"] {
   const x = (t ?? "").toLowerCase();
   if (x === "user") return "user";
   if (x === "chat_room" || x === "chat_message") return "chat";
+  if (x === "feed_ad") return "feed_ad";
   /** DB의 post·comment는 관리자 UI에서 게시글(product) 버킷으로 묶어 제목 조회 */
   if (x === "product" || x === "post" || x === "comment") return "product";
   return "product";
@@ -138,7 +139,9 @@ export async function mapTradeReportRowsForAdmin(supabase: SupabaseClient, list:
         ? (productTitleById[productId] ?? r.target_id)
         : targetType === "chat"
           ? `채팅 ${r.target_id}`
-          : (nicknameById[r.target_id] ?? r.target_id);
+          : targetType === "feed_ad"
+            ? `광고 캠페인 ${r.target_id}`
+            : (nicknameById[r.target_id] ?? r.target_id);
     const targetUserIdForProduct = postAuthorById[productId] ?? "";
     const ttRaw = (r.target_type ?? "").toLowerCase();
     const targetIdOut =
@@ -222,6 +225,9 @@ export async function loadAdminReportById(supabase: SupabaseClient, reportId: st
     } else if (targetType === "chat") {
       targetTitle = `채팅 ${r.target_id}`;
       // Never treat room/message id as profiles.user_id (P1-2 P0 guard).
+      targetUserIdOut = "";
+    } else if (targetType === "feed_ad") {
+      targetTitle = `광고 캠페인 ${r.target_id}`;
       targetUserIdOut = "";
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "no_updates" }, { status: 400 });
+  }
+
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "meeting_feed",
+    texts: [patch.title as string | undefined, patch.body as string | undefined],
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   const { error } = await gate.sb

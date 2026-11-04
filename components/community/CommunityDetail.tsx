@@ -12,6 +12,8 @@ import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/li
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import { createCommunityFeedCommentReport } from "@/lib/reports/createCommunityFeedCommentReport";
+import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
+import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-relation-client";
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
 import { invalidateCommunityFeedCachesAfterPostModeration } from "@/lib/community/invalidate-community-author-posts-client";
@@ -386,6 +388,29 @@ export function CommunityDetail({
     [me?.id]
   );
 
+  const onCommentAuthorBlock = useCallback(
+    async (authorUserId: string, authorLabel: string) => {
+      if (!me?.id || isSameUserId(authorUserId, me.id)) return;
+      const ok = await dibayConfirm({
+        title: authorLabel ? t("popup_q_block_named", { name: authorLabel }) : t("popup_neighbor_block_title"),
+        cancelLabel: t("common_cancel"),
+        confirmLabel: t("common_block"),
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+      const res = await blockUserDaangn(authorUserId);
+      invalidateCommunityUserRelationSnapshot(authorUserId);
+      if (res.ok) {
+        setActionToast(t("community_block_success_toast"));
+        void retryComments();
+      } else {
+        setActionToast(res.error);
+      }
+      window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
+    },
+    [me?.id, retryComments, t]
+  );
+
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
     if (isCommunityImportedOrigin(post.origin_kind)) return;
@@ -670,6 +695,7 @@ export function CommunityDetail({
             onCommentEdit={onCommentEdit}
             onCommentDelete={onCommentDelete}
             onCommentReport={onCommentReport}
+            onCommentAuthorBlock={onCommentAuthorBlock}
             onSubmitReply={submitReply}
             commentBusy={commentActionBusy}
             composerError={commentSubmitErr}

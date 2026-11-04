@@ -11,6 +11,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KO, memberDetailAccountStateLabelKo } from "@/lib/admin-users/member-detail-presentation";
+import { AdminMemberProfileContentReset } from "@/components/admin/member-moderation/AdminMemberProfileContentReset";
 
 type DeletionRequestItem = {
   id: string;
@@ -162,6 +163,8 @@ export function AdminMemberOpsPanel({
           })}
         </p>
       </div>
+
+      <AdminMemberProfileContentReset userId={userId} onUpdated={onUpdated} />
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-ops-deletion-readonly="1">
         <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">

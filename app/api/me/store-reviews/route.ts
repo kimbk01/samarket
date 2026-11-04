@@ -8,6 +8,7 @@ import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-serv
 import { parseStoreReviewImageUrls } from "@/lib/stores/store-review-image-urls";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { enforceStoreReviewCreateQuota } from "@/lib/security/rate-limit-presets";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -98,6 +99,15 @@ export async function POST(req: NextRequest) {
   const imageUrls = parsedImages.urls;
   if (!content || content.length > 2000) {
     return NextResponse.json({ ok: false, error: "invalid_content" }, { status: 400 });
+  }
+  const filtered = await guardBannedWords({
+    userId: buyerId,
+    surface: "store_review",
+    texts: [content],
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   const sb = tryGetSupabaseForStores();

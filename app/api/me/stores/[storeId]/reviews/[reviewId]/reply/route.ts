@@ -10,6 +10,7 @@ import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,17 @@ export async function PATCH(
   }
 
   const gate = await getStoreIfOwnerForOperationalWrite(sb, userId, sid);
+  if (gate.ok && !isDelete) {
+    const filtered = await guardBannedWords({
+      userId,
+      surface: "store_review_reply",
+      texts: [reply],
+      acceptLanguage: req.headers.get("accept-language"),
+    });
+    if (!filtered.ok) {
+      return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+    }
+  }
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }

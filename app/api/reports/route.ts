@@ -9,19 +9,17 @@ export const dynamic = "force-dynamic";
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
-const TARGET_TYPES = ["user", "product", "chat_room", "chat_message", "post", "comment"] as const;
+const TARGET_TYPES = ["user", "product", "chat_room", "chat_message", "post", "comment", "feed_ad"] as const;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
 
   const reportRl = await enforceUserReportQuota(auth.userId, "unified");
   if (!reportRl.ok) return reportRl.response;
@@ -56,7 +54,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error:
-          "targetType(user|product|post|comment|chat_room|chat_message)이 필요합니다. (커뮤니티 글은 post)",
+          "targetType(user|product|post|comment|chat_room|chat_message|feed_ad)이 필요합니다. (커뮤니티 글은 post)",
       },
       { status: 400 }
     );
@@ -98,6 +96,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "해당 댓글을 찾을 수 없습니다." }, { status: 404 });
     }
     productId = c.post_id;
+  }
+
+  if (targetType === "feed_ad") {
+    const { data: ad, error: adErr } = await sbAny
+      .from("feed_ad_campaigns")
+      .select("id")
+      .eq("id", targetId)
+      .maybeSingle();
+    if (adErr) {
+      return NextResponse.json({ ok: false, error: adErr.message }, { status: 500 });
+    }
+    if (!ad) {
+      return NextResponse.json({ ok: false, error: "해당 광고를 찾을 수 없습니다." }, { status: 404 });
+    }
+    productId = null;
   }
 
   /**

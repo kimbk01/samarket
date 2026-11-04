@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PublicUserProfileView } from "@/components/users/PublicUserProfileView";
+import { PublicProfileSafetyActions } from "@/components/reports/PublicProfileSafetyActions";
 import { listCommunityPostsForUser } from "@/lib/community-feed/list-community-posts-for-user";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { mapProfileRowToPublicSeller, mapTestUserRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
@@ -99,9 +100,12 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   const communityPosts = await listCommunityPostsForUser(profile.id, 20);
 
   return (
-    <PublicUserProfileView
-      profile={{ ...profile, tradeLocationLine }}
-      communityPosts={communityPosts}
-    />
+    <>
+      <PublicProfileSafetyActions targetUserId={profile.id} targetLabel={profile.nickname ?? ""} />
+      <PublicUserProfileView
+        profile={{ ...profile, tradeLocationLine }}
+        communityPosts={communityPosts}
+      />
+    </>
   );
 }

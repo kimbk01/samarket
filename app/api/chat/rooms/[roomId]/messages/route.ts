@@ -24,6 +24,7 @@ import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { bumpTradeTargetForMessengerRoomRecipients } from "@/lib/notifications/notification-target-messenger-bridge";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -257,6 +258,18 @@ export async function POST(
   if (tradeRestriction) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
     return tradeRestrictedResponse(tradeRestriction);
+  }
+  if (text) {
+    const filtered = await guardBannedWords({
+      userId,
+      surface: "trade_chat",
+      texts: [text],
+      acceptLanguage: req.headers.get("accept-language"),
+    });
+    if (!filtered.ok) {
+      markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, filtered.status);
+      return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+    }
   }
   if (partFetchErr) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);

@@ -16,7 +16,10 @@ import {
   type MessengerPeerSocialCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import type { CommunityMessengerRoomContextMetaV1, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import {
+  isCommunityMessengerStoreOrderDeliveryRoom,
+  resolveCommunityMessengerDeliveryContextMeta,
+} from "@/lib/community-messenger/room-context-meta";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
@@ -585,6 +588,19 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       onToggleMute={() => void vm.toggleRoomMute()}
       onToggleArchive={() => void vm.toggleRoomArchive()}
       onLeaveRoom={() => void vm.requestLeaveRoom()}
+      onReportRoom={() => {
+        vm.dismissRoomSheet();
+        void vm.reportTarget({ reportType: "room" });
+      }}
+      onBlockPeer={
+        peerUserId && !isDeliveryRoom && !isCommunityMessengerStoreOrderDeliveryRoom(vm.snapshot.room)
+          ? () => {
+              vm.dismissRoomSheet();
+              void vm.blockPeerFromMessage(peerUserId);
+            }
+          : undefined
+      }
+      disableBlockPeer={vm.busy === "block-peer" || Boolean(peerProfile?.blocked)}
     />
     {dotMenuOutgoingConfirm ? (
       <MessengerOutgoingCallConfirmDialog

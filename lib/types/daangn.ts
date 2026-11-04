@@ -42,7 +42,7 @@ export interface ChatMessageRow {
 }
 
 /** 신고 대상 */
-export type ReportTargetType = "user" | "product" | "chat_room" | "chat_message";
+export type ReportTargetType = "user" | "product" | "chat_room" | "chat_message" | "feed_ad";
 
 /** 신고 상태 */
 export type ReportStatus = "pending" | "reviewing" | "resolved" | "rejected" | "sanctioned";

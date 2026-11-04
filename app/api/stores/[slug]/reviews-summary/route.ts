@@ -13,6 +13,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isStoreDetailViewerBlocked, storeDetailLoginRequiredResponse } from "@/lib/stores/store-detail-api-gate";
 import { STORE_PUBLIC_API_ERROR_CODES } from "@/lib/stores/store-public-api-error-codes";
 import { REVIEW_RATING_BUCKETS, summarizeReviewRatingCounts } from "@/lib/stores/store-review-rating-summary";
+import { fetchBlockedAuthorIdsForViewerSb } from "@/lib/social/user-block-ssot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,7 +134,9 @@ export async function GET(
       : summarizeReviewRatingCounts(countResults.map((r) => r.count ?? 0));
     const recentRows = recentSel.data as ReviewRow[] | null;
 
-    const list = recentRows ?? [];
+    const viewer = String(viewerId ?? "").trim();
+    const blockedAuthors = viewer ? await fetchBlockedAuthorIdsForViewerSb(sb, viewer) : new Set<string>();
+    const list = (recentRows ?? []).filter((r) => !blockedAuthors.has(String(r.buyer_user_id ?? "").trim()));
     const buyerIds = list.map((r) => String(r.buyer_user_id ?? "").trim()).filter(Boolean);
     const buyerMap = await mapBuyerUserIdsToPublicLabels(sb, buyerIds);
 

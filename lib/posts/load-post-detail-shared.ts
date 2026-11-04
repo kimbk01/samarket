@@ -14,6 +14,7 @@ import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
+import { fetchBlockedPairFromSb } from "@/lib/social/user-block-ssot";
 
 export async function loadPostDetailShared(
   clients: PostsReadClients,
@@ -39,6 +40,7 @@ export async function loadPostDetailShared(
 
   if (!row) return null;
   if (!(await canViewTradePostDetailRow(row, viewerUserId))) return null;
+  if (await isPostAuthorBlockedForViewer(row, viewerUserId)) return null;
 
   row = maskTradeDetailBuyerFields(row, viewerUserId);
   row = await withModerationStateForHiddenRow(row);
@@ -46,6 +48,21 @@ export async function loadPostDetailShared(
   const post = mapPostDetailRowToPostWithMeta(row);
   await enrichPostsAuthorNicknamesFromProfiles(clients.readSb, [post]);
   return post;
+}
+
+/** 목록과 같은 기준 — 양방향 차단 작성자의 글은 「없는 글」로 답한다(커뮤니티 상세 `blocked` 와 동일). */
+export async function isPostAuthorBlockedForViewer(
+  row: Record<string, unknown>,
+  viewerUserId: string | null
+): Promise<boolean> {
+  const viewer = viewerUserId?.trim() ?? "";
+  const authorId = String(row.user_id ?? row.author_id ?? "").trim();
+  if (!viewer || !authorId || viewer === authorId) return false;
+  try {
+    return (await fetchBlockedPairFromSb(resolveServiceSupabaseForApi(), viewer, authorId)).blockedEitherWay;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import type { MeetingFeedPostDTO } from "@/lib/neighborhood/types";
 
 export const runtime = "nodejs";
@@ -111,6 +112,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const access = await assertVerifiedMemberForAction(sb as never, auth.userId);
   if (!access.ok) {
     return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
+
+  const filtered = await guardBannedWords({
+    userId: auth.userId,
+    surface: "meeting_feed",
+    texts: [content],
+    acceptLanguage: req.headers.get("accept-language"),
+  });
+  if (!filtered.ok) {
+    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
   }
 
   const uid = auth.userId.trim();

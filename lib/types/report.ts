@@ -2,7 +2,7 @@
  * 11단계: 신고·차단·제재 타입 (관리자 확장 시 활용)
  */
 
-export type ReportTargetType = "product" | "chat" | "user" | "community";
+export type ReportTargetType = "product" | "chat" | "user" | "community" | "feed_ad";
 
 export type ReportStatus = "pending" | "reviewing" | "resolved" | "rejected" | "sanctioned" | "reviewed";
 

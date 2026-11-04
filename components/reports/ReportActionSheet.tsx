@@ -57,7 +57,7 @@ export function ReportActionSheet({
     }
 
     const daangnTargetType =
-      targetType === "chat" ? "chat_room" : (targetType as "user" | "product" | "chat_message");
+      targetType === "chat" ? "chat_room" : (targetType as "user" | "product" | "chat_message" | "feed_ad");
     const res = await submitReportDaangn({
       targetType: daangnTargetType,
       targetId,

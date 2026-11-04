@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { normalizeOperatorBannedWords } from "@/lib/community-feed/banned-word-match";
 
 /** `admin_settings.key` — 동네생활 피드 운영(금칙어·길이·도배) */
 export const COMMUNITY_FEED_OPS_KEY = "community_feed_ops";
@@ -25,10 +26,7 @@ const DEFAULT_OPS: CommunityFeedOps = {
 
 function normalizeWords(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((u): u is string => typeof u === "string")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+  return normalizeOperatorBannedWords(raw);
 }
 
 function clampInt(n: unknown, fallback: number, min: number, max: number): number {
@@ -48,6 +46,18 @@ export function mergeCommunityFeedOps(partial: Record<string, unknown> | null | 
   };
 }
 
+const BANNED_WORDS_CACHE_MS = 60_000;
+let bannedWordsCache: { at: number; words: string[] } | null = null;
+
+/** 채팅 송신처럼 잦은 경로용 — 운영 목록을 인스턴스당 60초 캐시(관리자 수정은 최대 60초 뒤 반영). */
+export async function getCommunityBannedWordsCached(): Promise<string[]> {
+  const now = Date.now();
+  if (bannedWordsCache && now - bannedWordsCache.at < BANNED_WORDS_CACHE_MS) return bannedWordsCache.words;
+  const words = (await getCommunityFeedOps()).banned_words;
+  bannedWordsCache = { at: now, words };
+  return words;
+}
+
 export async function getCommunityFeedOps(): Promise<CommunityFeedOps> {
   try {
     const sb = getSupabaseServer();
@@ -64,16 +74,6 @@ export async function getCommunityFeedOps(): Promise<CommunityFeedOps> {
   }
 }
 
-/** 금칙어 부분일치(소문자). 걸리면 해당 단어 반환 */
-export function findBannedWord(text: string, words: string[]): string | null {
-  if (!words.length) return null;
-  const lower = text.toLowerCase();
-  for (const w of words) {
-    if (!w) continue;
-    if (lower.includes(w)) return w;
-  }
-  return null;
-}
 
 export async function countUserCommunityPostsToday(userId: string): Promise<number> {
   try {

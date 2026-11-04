@@ -4,6 +4,7 @@ import type { ChatRoomSource } from "@/lib/types/chat";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { fetchBlockedAuthorIdsForViewerSb } from "@/lib/social/user-block-ssot";
 import {
   mapProfileRowToPublicSeller,
   mapTestUserRowToPublicSeller,
@@ -145,20 +146,35 @@ export async function getTradeDetailRelatedData(
   const sellerLimit = input.sellerLimit ?? ops.fallbackCount ?? SELLER_LIMIT_DEFAULT;
   const similarLimit = input.similarLimit ?? ops.similarCount ?? SIMILAR_LIMIT_DEFAULT;
   const adsLimit = input.adsLimit ?? ops.adsCount ?? ADS_LIMIT_DEFAULT;
-  return loadTradeDetailRelatedBundle(clients.readSb, {
-    itemId,
-    sellerId,
-    sellerNickname,
-    categoryId,
-    regionId,
-    sellerLimit,
-    similarLimit,
-    adsLimit,
-    regionEnabled: ops.regionEnabled,
-    regionRequired: ops.regionRequired,
-    regionGroups: ops.regionGroups,
-    completedVisibleDays: ops.completedVisibleDays,
-  });
+  const viewerId = input.viewerUserId?.trim() ?? "";
+  const [bundle, blocked] = await Promise.all([
+    loadTradeDetailRelatedBundle(clients.readSb, {
+      itemId,
+      sellerId,
+      sellerNickname,
+      categoryId,
+      regionId,
+      sellerLimit,
+      similarLimit,
+      adsLimit,
+      regionEnabled: ops.regionEnabled,
+      regionRequired: ops.regionRequired,
+      regionGroups: ops.regionGroups,
+      completedVisibleDays: ops.completedVisibleDays,
+    }),
+    viewerId
+      ? fetchBlockedAuthorIdsForViewerSb((clients.serviceSb ?? clients.readSb) as SupabaseClient<any>, viewerId)
+      : Promise.resolve(new Set<string>()),
+  ]);
+  if (blocked.size === 0) return bundle;
+  /** 목록·상세와 같은 기준 — 차단(양방향) 판매자 글은 비슷한 상품·광고에서도 뺀다 */
+  const keep = (p: PostWithMeta) =>
+    !blocked.has(postAuthorUserId(p as unknown as Record<string, unknown>) || String(p.user_id ?? "").trim());
+  return {
+    sellerItems: bundle.sellerItems.filter(keep),
+    similarItems: bundle.similarItems.filter(keep),
+    ads: bundle.ads.filter(keep),
+  };
 }
 
 export async function getItemDetailPageData(

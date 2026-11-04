@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import type { MeetingAlbumItemDTO } from "@/lib/neighborhood/types";
 import {
   removeCanonicalImageAsset,
@@ -101,6 +102,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const caption = String(form.get("caption") ?? "").trim().slice(0, 200) || null;
+  if (caption) {
+    const filtered = await guardBannedWords({
+      userId: auth.userId,
+      surface: "meeting_feed",
+      texts: [caption],
+      acceptLanguage: req.headers.get("accept-language"),
+    });
+    if (!filtered.ok) {
+      return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+    }
+  }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

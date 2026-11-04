@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { blockUserSocial } from "@/lib/community-messenger/social-relations";
 import { terminateDirectCallsOnBlockBestEffort } from "@/lib/community-messenger/block-call-termination";
@@ -23,8 +23,6 @@ export async function POST(
   const userId = auth.userId;
   const session = await validateActiveSession(userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(userId);
-  if (!phone.ok) return phone.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

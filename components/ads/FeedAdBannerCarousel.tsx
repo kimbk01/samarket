@@ -29,6 +29,7 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import { DestinationLink } from "@/components/destination/DestinationLink";
+import { FeedAdReportButton } from "@/components/ads/FeedAdReportButton";
 import { feedAdDestinationRef } from "@/lib/ads/feed-ad-destination";
 import type { DestinationRef } from "@/lib/destination/destination-contract";
 import {
@@ -421,6 +422,7 @@ function FeedAdBannerCarouselView({
               ))}
             </div>
           ) : null}
+          <FeedAdReportButton campaignId={currentCampaignId} />
         </div>
         <div className={feedAdBodyClass(density)}>
           <div

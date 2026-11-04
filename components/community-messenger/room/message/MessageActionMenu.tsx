@@ -59,6 +59,9 @@ export type MessageActionMenuProps = {
   pin?: { label: string; disabled: boolean; title?: string; onClick: () => void };
   /** 사진 저장(개별·모두) — 기기 로컬 동작이라 roomUnavailable 과 무관 */
   photoSaveRows?: Array<{ key: string; label: string; disabled?: boolean; onClick: () => void }>;
+  /** 상대 메시지 신고·보낸 사람 차단 — 방을 쓸 수 없어도 신고·차단은 가능해야 한다 */
+  reportMessage?: { onClick: () => void };
+  blockSender?: { onClick: () => void };
 };
 
 export function MessageActionMenu(props: MessageActionMenuProps) {
@@ -84,6 +87,8 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     deleteVoiceHard,
     pin,
     photoSaveRows,
+    reportMessage,
+    blockSender,
   } = props;
 
   const hasDeleteRows = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
@@ -156,6 +161,12 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
           </div>
         ) : null}
       </div>
+      {reportMessage || blockSender ? (
+        <div className="border-t border-[color:var(--overlay-border)]">
+          {reportMessage ? <MenuRow label={t("common_report")} onClick={reportMessage.onClick} /> : null}
+          {blockSender ? <MenuRow label={t("common_block")} onClick={blockSender.onClick} danger /> : null}
+        </div>
+      ) : null}
       {hasDeleteRows ? (
         <div className="border-t border-[color:var(--overlay-border)]">
           {deleteForMe ? (
