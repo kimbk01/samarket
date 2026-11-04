@@ -606,16 +606,15 @@ export const PostCard = memo(function PostCard({
         </div>
       </Link>
       {showOwnerAdEntry ? (
-        /** 시안 v3: 사진 오른쪽 아래 「광고하기」 — 링크 밖 형제(버튼 중첩 없음) · 사진과 같은 정사각 칸에 겹침 → 카드 3줄·크기 불변 */
+        /**
+         * 시안 v3: 사진 오른쪽 아래 「광고하기」 — 링크 밖 형제(버튼 중첩 없음) · 사진과 같은 정사각 칸에 겹침 → 카드 3줄·크기 불변.
+         * Owner 2026-11-05: 카드의 광고 상태 표시는 왼쪽 위 「광고」 하나뿐 — 광고 중이어도 이 버튼은 「광고하기」(연장·상태는 시트에서).
+         */
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[3] aspect-square">
           <button
             type="button"
-            data-trade-card-ad-entry={isPromotedContent ? "running" : "1"}
-            className={`pointer-events-auto absolute bottom-1.5 right-1.5 inline-flex h-[26px] items-center rounded-ui-rect px-2 text-[12px] font-bold leading-none ${
-              isPromotedContent
-                ? "bg-white text-sam-primary shadow-[inset_0_0_0_1px_var(--sam-primary)]"
-                : "bg-sam-primary text-sam-on-primary"
-            }`}
+            data-trade-card-ad-entry="1"
+            className="pointer-events-auto absolute bottom-1.5 right-1.5 inline-flex h-[26px] items-center rounded-ui-rect bg-sam-primary px-2 text-[12px] font-bold leading-none text-sam-on-primary"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.preventDefault();
@@ -623,7 +622,7 @@ export const PostCard = memo(function PostCard({
               setAdSheetOpen(true);
             }}
           >
-            {isPromotedContent ? t("trade_ad_running_chip") : t("trade_ad_cta")}
+            {t("trade_ad_cta")}
           </button>
         </div>
       ) : null}

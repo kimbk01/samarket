@@ -33,6 +33,23 @@ describe("LIST/SEARCH promotion badge single render", () => {
   });
 });
 
+describe("Owner 2026-11-05 카드 광고 상태 표시 1개 — 「광고」만, 「광고 중」 없음", () => {
+  it("거래 목록·검색 카드는 판매자 본인이어도 「광고 중」을 그리지 않고, 「광고하기」 버튼(시트 열기)은 남는다", () => {
+    for (const rel of ["components/post/PostCard.tsx", "components/product/ProductCard.tsx"]) {
+      const text = src(rel);
+      expect(text).not.toContain("trade_ad_running_chip");
+      expect(text).toContain('t("trade_ad_cta")');
+      expect(text).toContain("TradeAdQuickSheet");
+      expect(promoBadgeCalls(text)).toBe(1);
+    }
+    expect(src("components/post/PostCard.tsx")).not.toContain('data-trade-card-ad-entry={isPromotedContent');
+  });
+
+  it("「광고 중」은 판매자 광고 관리 화면(내 상품 관리)에만 남는다", () => {
+    expect(src("components/mypage/products/MyProductCard.tsx")).toContain("trade_ad_running_chip");
+  });
+});
+
 describe("CUT F seller promotion unification", () => {
   it("SEARCH path disables pin so CUT C rank is not prepended", () => {
     const route = src("lib/posts/home-posts-route-core.ts");
