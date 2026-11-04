@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasCanonicalDefaultMasterAddress } from "@/lib/addresses/user-address-service";
-import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { hasStoreTermsConsent, type RequiredStoreConsentVersions } from "@/lib/auth/store-member-policy";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/dibay-signup-status";
 import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
 
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
@@ -45,7 +46,7 @@ export type OnboardingStatus = {
    * Consent versions `consentComplete` was judged against (CMS published ko, STORE_* fallback).
    * Downstream re-derivations (destination, signup-status) must reuse this — never STORE_* alone.
    */
-  requiredConsent?: { termsVersion: string; privacyVersion: string } | null;
+  requiredConsent?: RequiredStoreConsentVersions | null;
 };
 
 type ProfileRowSubset = {
@@ -241,6 +242,6 @@ export async function getOnboardingStatus(
     onboardingStatus: signup.onboardingStatus,
     displayName: profile?.display_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
-    requiredConsent: { termsVersion: required.termsVersion, privacyVersion: required.privacyVersion },
+    requiredConsent: requiredConsentForClient(required),
   };
 }

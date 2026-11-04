@@ -1,6 +1,8 @@
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
+import { MYPAGE_HOME_ACCOUNT_LEAVE_HREF } from "@/lib/mypage/mypage-home-hub-links";
 import { isProfileSetupGateExcludedPath } from "@/lib/auth/profile-setup-flow";
-import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { hasStoreTermsConsent, type RequiredStoreConsentVersions } from "@/lib/auth/store-member-policy";
 import {
   sanitizeFreshLoginLandingPath,
   sanitizeNextPath,
@@ -94,7 +96,7 @@ export function deriveDibaySignupStatus(
   opts?: {
     hasSession?: boolean;
     privilegedAdmin?: boolean;
-    requiredConsent?: { termsVersion: string; privacyVersion: string } | null;
+    requiredConsent?: RequiredStoreConsentVersions | null;
   }
 ): DibaySignupStatus {
   const hasSession = opts?.hasSession !== false;
@@ -192,9 +194,21 @@ export function isDibaySignupComplete(status: DibaySignupStatus): boolean {
 export const DIBAY_SIGNUP_TERMS_PATH = "/auth/onboarding/terms";
 export const DIBAY_SIGNUP_DIBAY_ID_PATH = "/auth/onboarding/dibay-id";
 
+/**
+ * Reachable without legal consent (Owner 2026-11-05): customer center (inquiry / report) and
+ * account leave. Their APIs are consent-exempt in `member-consent-mutation-policy`.
+ */
+export const CONSENT_GATE_ESCAPE_PATH_PREFIXES = [CUSTOMER_CENTER_HREF, MYPAGE_HOME_ACCOUNT_LEAVE_HREF] as const;
+
+export function isConsentGateEscapePath(pathname: string): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim() || "";
+  return CONSENT_GATE_ESCAPE_PATH_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+}
+
 export function isDibaySignupGateExcludedPath(pathname: string): boolean {
   const p = (pathname ?? "").split("?")[0]?.trim() || "";
   if (isProfileSetupGateExcludedPath(p)) return true;
+  if (isConsentGateEscapePath(p)) return true;
   return (
     p === "/login" ||
     p.startsWith("/login/") ||

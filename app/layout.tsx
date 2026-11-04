@@ -28,6 +28,7 @@ import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { RequiredConsentVersionsBootstrap } from "@/components/legal/RequiredConsentVersionsBootstrap";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
+import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -93,7 +94,7 @@ export default async function RootLayout({
   });
   // B11: client consent gates judge against the same CMS versions the server enforces.
   const requiredConsent = await resolveRequiredConsentVersions()
-    .then((v) => ({ termsVersion: v.termsVersion, privacyVersion: v.privacyVersion }))
+    .then(requiredConsentForClient)
     .catch(() => null);
 
   return (

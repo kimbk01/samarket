@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
@@ -19,6 +20,9 @@ import type { RequiredConsentGap } from "@/lib/legal/has-required-member-consent
 import type { AppLegalKind } from "@/lib/legal/app-legal-documents";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import { MYPAGE_HOME_ACCOUNT_LEAVE_HREF } from "@/lib/mypage/mypage-home-hub-links";
+import { CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
 import {
   DIBAY_ONBOARDING_CHECKBOX_CLASS,
   DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS,
@@ -429,6 +433,27 @@ export function AuthConsentForm({
         >
           {submitting ? t("auth_consent_submitting") : t("auth_consent_submit")}
         </button>
+
+        <div className="mt-5 border-t border-sam-border pt-4" data-auth-consent-escape>
+          <p className="text-[12px] text-sam-muted">{t("auth_consent_escape_hint")}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link
+              href={CUSTOMER_CENTER_HREF}
+              className={`inline-flex min-h-[44px] items-center ${DIBAY_ONBOARDING_LINK_CLASS}`}
+            >
+              {t("auth_consent_escape_support")}
+            </Link>
+            <Link
+              href={MYPAGE_HOME_ACCOUNT_LEAVE_HREF}
+              className={`inline-flex min-h-[44px] items-center ${DIBAY_ONBOARDING_LINK_CLASS}`}
+            >
+              {t("auth_consent_escape_leave")}
+            </Link>
+            <span className="inline-flex min-h-[44px] items-center">
+              <LogoutActionTrigger variant="text_link" />
+            </span>
+          </div>
+        </div>
       </DibayOnboardingOverlayShell>
 
       <ConsentLegalDocSheet open={sheetKind != null} kind={sheetKind} onClose={() => setSheetKind(null)} />

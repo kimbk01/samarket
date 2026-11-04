@@ -1,13 +1,18 @@
 /**
  * Admin Legal CMS — write rules (DIBAY FIRST ENTRY + ADMIN LEGAL CMS).
  *
- * CONTRACT (lib/legal/resolve-required-consent-versions.ts, admin form hint):
- * - Publishing a NEW version string ⇒ members re-consent. Same-version body edit ⇒ no re-consent.
+ * CONTRACT (lib/legal/resolve-required-consent-versions.ts, docs/legal-consent-revision-policy.md):
+ * - A revision of terms/privacy is a NEW version. Publishing a new ko version requires the Admin to
+ *   choose its revision type: 'reconsent' (every member agrees again) or 'notice' (earlier consents
+ *   back to the latest 'reconsent' version stay valid).
  * Rules enforced here so the member-facing record stays truthful:
- * - Draft rows: free edit; save keeps draft; publish requires explicit confirmation.
- * - Published rows: kind / locale / version / effective_at are immutable (a new version is a new
- *   document — keeps what members agreed to). Title/body edit stays published under the same version
- *   only with explicit "no re-consent" confirmation (audit-logged with body hashes).
+ * - Draft rows never published: free edit; save keeps draft; publish requires explicit confirmation.
+ * - terms/privacy rows once published (published or unpublished later): kind / locale / version /
+ *   title / body / effective_at / revision type are fixed — what members agreed to never changes.
+ *   Only unpublish / republish. DB trigger `app_legal_documents_published_immutable` enforces the same.
+ * - marketing (optional consent): kind / locale / version / effective_at fixed once published;
+ *   title/body edit under the same version only with explicit "no re-consent" confirmation
+ *   (audit-logged with body hashes).
  * - Unpublish is its own action (never a side effect of "save draft") and requires confirmation.
  */
 import { createHash } from "node:crypto";
@@ -29,9 +34,39 @@ export type LegalDocPatchInput = {
   action?: string;
   /** UI confirmation for publish / unpublish. */
   confirm?: boolean;
-  /** Published same-version text edit acknowledged as "no re-consent". */
+  /** Published same-version text edit acknowledged as "no re-consent" (marketing only). */
   confirmNoReconsent?: boolean;
+  /** Revision type of a new terms/privacy ko version — required on its first publish. */
+  consentRequirement?: string;
 };
+
+export type LegalConsentRequirement = "reconsent" | "notice";
+
+export function isLegalConsentRequirement(v: unknown): v is LegalConsentRequirement {
+  return v === "reconsent" || v === "notice";
+}
+
+/** terms/privacy text is a consent record once published — never edited in place. */
+export function isRequiredConsentLegalKind(kind: string | null | undefined): boolean {
+  return kind === "terms" || kind === "privacy";
+}
+
+/** The consent gate follows ko versions only — ko terms/privacy publishes choose a revision type. */
+export function legalPublishNeedsConsentRequirement(kind: string | null | undefined, locale: string | null | undefined): boolean {
+  return isRequiredConsentLegalKind(kind) && locale === "ko";
+}
+
+/** Postgres / PostgREST error when `consent_requirement` is not applied yet (migration 20271106120000). */
+export function isMissingConsentRequirementColumnError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return /consent_requirement/i.test(error.message ?? "") && (error.code === "42703" || error.code === "PGRST204" || /column/i.test(error.message ?? ""));
+}
+
+/** DB trigger refusal for an in-place edit of a published terms/privacy document. */
+export function isPublishedLegalImmutableError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return /published_legal_document_immutable/i.test(error.message ?? "");
+}
 
 export type LegalDocWriteAction =
   | "save_draft"
@@ -97,6 +132,13 @@ export function evaluateLegalDocumentPatch(
     if (nextTitle === current.title && nextBody === current.body) {
       return deny(400, "no_change", "변경된 내용이 없습니다.");
     }
+    if (isRequiredConsentLegalKind(current.kind)) {
+      return deny(
+        409,
+        "published_text_immutable",
+        "게시된 이용약관·개인정보처리방침의 문구는 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.",
+      );
+    }
     if (input.confirmNoReconsent !== true) {
       return deny(
         400,
@@ -113,6 +155,29 @@ export function evaluateLegalDocumentPatch(
 
   // draft
   if (input.action === "unpublish") return deny(409, "not_published", "게시 중인 문서가 아닙니다.");
+
+  // Unpublished terms/privacy that members may have agreed to: republish only, nothing else changes.
+  if (current.published_at && isRequiredConsentLegalKind(current.kind)) {
+    const changed =
+      (input.kind != null && input.kind !== current.kind) ||
+      (input.locale != null && input.locale !== current.locale) ||
+      (input.version != null && String(input.version).trim() !== current.version) ||
+      (input.title != null && String(input.title).trim() !== current.title) ||
+      (input.body != null && String(input.body).trim() !== current.body) ||
+      (input.effective_at !== undefined && !sameInstant(input.effective_at?.trim() || null, current.effective_at)) ||
+      (input.consentRequirement != null && input.consentRequirement !== current.consent_requirement);
+    if (changed) {
+      return deny(
+        409,
+        "published_text_immutable",
+        "한 번 게시된 이용약관·개인정보처리방침은 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.",
+      );
+    }
+    if (input.status !== "published") return deny(400, "no_change", "변경된 내용이 없습니다.");
+    if (input.confirm !== true) return deny(400, "confirm_required", "게시 확인이 필요합니다.");
+    return { ok: true, action: "publish", patch: { ...patch, status: "published", published_at: nowIso } };
+  }
+
   if (input.kind != null) {
     if (!isAppLegalKind(input.kind)) return deny(400, "invalid_kind", "문서 종류가 올바르지 않습니다.");
     patch.kind = input.kind;
@@ -132,6 +197,18 @@ export function evaluateLegalDocumentPatch(
     const body = (patch.body as string | undefined) ?? current.body;
     const version = (patch.version as string | undefined) ?? current.version;
     if (!title || !body || !version) return deny(400, "invalid_input", "제목·본문·버전을 입력해 주세요.");
+    const kind = (patch.kind as string | undefined) ?? current.kind;
+    const locale = (patch.locale as string | undefined) ?? current.locale;
+    if (legalPublishNeedsConsentRequirement(kind, locale)) {
+      if (!isLegalConsentRequirement(input.consentRequirement)) {
+        return deny(
+          400,
+          "consent_requirement_required",
+          "개정 유형(재동의 필요 / 공지만)을 선택해 주세요.",
+        );
+      }
+      patch.consent_requirement = input.consentRequirement;
+    }
     patch.status = "published";
     patch.published_at = nowIso;
     if (!("effective_at" in patch) || !patch.effective_at) patch.effective_at = current.effective_at || nowIso;
@@ -144,7 +221,7 @@ export function evaluateLegalDocumentPatch(
 /** Audit snapshot — never the full legal text, only its hash and identity. */
 export function legalDocAuditSnapshot(row: Pick<
   AppLegalDocumentRow,
-  "kind" | "locale" | "version" | "status" | "title" | "body" | "effective_at" | "published_at"
+  "kind" | "locale" | "version" | "status" | "title" | "body" | "effective_at" | "published_at" | "consent_requirement"
 > | null): Record<string, unknown> | null {
   if (!row) return null;
   return {
@@ -152,6 +229,7 @@ export function legalDocAuditSnapshot(row: Pick<
     locale: row.locale,
     version: row.version,
     status: row.status,
+    consent_requirement: row.consent_requirement ?? null,
     title: row.title,
     effective_at: row.effective_at ?? null,
     published_at: row.published_at ?? null,

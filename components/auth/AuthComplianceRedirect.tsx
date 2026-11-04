@@ -12,6 +12,7 @@ import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { isStoresHomeLcpPath } from "@/lib/stores/stores-home-lcp-policy";
+import { isConsentGateEscapePath } from "@/lib/auth/dibay-signup-status";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** 부트·세션당 consent 서버 재확인 1회 — pathname 변경마다 GET 방지 */
@@ -28,7 +29,9 @@ function shouldSkip(pathname: string): boolean {
     pathname.startsWith("/auth/onboarding/") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
-    pathname.startsWith("/account/delete")
+    pathname.startsWith("/account/delete") ||
+    pathname.startsWith("/support") ||
+    isConsentGateEscapePath(pathname)
   );
 }
 

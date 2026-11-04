@@ -60,10 +60,27 @@ export function normalizeStoreAuthProvider(provider: string | null | undefined):
 export type RequiredStoreConsentVersions = {
   termsVersion: string;
   privacyVersion: string;
+  /**
+   * Versions whose consent is still valid: the current version and the newer-than-baseline
+   * 「notice」 revisions back to the latest 「reconsent」 version (`required_consent_versions`).
+   * Missing = only the current version is valid.
+   */
+  acceptedTermsVersions?: readonly string[] | null;
+  acceptedPrivacyVersions?: readonly string[] | null;
 };
 
+function isAcceptedConsentVersion(
+  memberVersion: string | null | undefined,
+  current: string,
+  accepted: readonly string[] | null | undefined,
+): boolean {
+  const v = typeof memberVersion === "string" ? memberVersion.trim() : "";
+  if (!v) return false;
+  return v === current || Boolean(accepted?.includes(v));
+}
+
 /**
- * Consent complete when accepted_at set and versions match required.
+ * Consent complete when accepted_at set and versions are the required one or still-accepted ones.
  * required defaults to STORE_* (CMS unavailable / sync callers).
  * Prefer resolveRequiredConsentVersions() on server and pass CMS versions.
  */
@@ -79,8 +96,8 @@ export function hasStoreTermsConsent(
   return (
     Boolean(profile?.terms_accepted_at) &&
     Boolean(profile?.privacy_accepted_at) &&
-    profile?.terms_version === termsVersion &&
-    profile?.privacy_version === privacyVersion
+    isAcceptedConsentVersion(profile?.terms_version, termsVersion, required?.acceptedTermsVersions) &&
+    isAcceptedConsentVersion(profile?.privacy_version, privacyVersion, required?.acceptedPrivacyVersions)
   );
 }
 

@@ -17,6 +17,11 @@ import {
   type AppLegalLocale,
   type AppLegalStatus,
 } from "@/lib/legal/app-legal-documents";
+import {
+  isRequiredConsentLegalKind,
+  legalPublishNeedsConsentRequirement,
+  type LegalConsentRequirement,
+} from "@/lib/legal/app-legal-document-edit-policy";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -68,8 +73,12 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
   const [effectiveAt, setEffectiveAt] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [allDocs, setAllDocs] = useState<AppLegalDocumentRow[]>([]);
+  const [consentRequirement, setConsentRequirement] = useState<LegalConsentRequirement | "">("");
 
   const isPublished = loaded?.status === "published";
+  /** terms/privacy once published = a consent record: text and identity are fixed (republish only). */
+  const textLocked = Boolean(loaded?.published_at) && isRequiredConsentLegalKind(loaded?.kind);
+  const needsRequirement = !loaded?.published_at && legalPublishNeedsConsentRequirement(kind, locale);
 
   const loadAll = useCallback(async () => {
     const res = await fetch("/api/admin/app-legal-documents", { credentials: "include", cache: "no-store" });
@@ -193,9 +202,10 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
   const publish = useCallback(async () => {
     const effIso = localInputToIso(effectiveAt);
     const future = effIso ? Date.parse(effIso) > Date.now() : false;
-    const reconsent =
-      kind === "terms" || kind === "privacy"
-        ? !currentPublished || currentPublished.version.trim() !== version.trim()
+    const reconsent = needsRequirement
+      ? consentRequirement === "reconsent"
+      : textLocked
+        ? loaded?.consent_requirement !== "notice"
         : false;
     const consentLine =
       kind === "marketing"
@@ -205,11 +215,11 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         : locale === "ko"
         ? reconsent
           ? ko
-            ? `버전이 현재 적용 버전(${currentPublished?.version ?? "없음"})과 달라, 시행 시점부터 모든 회원이 새 약관에 다시 동의해야 합니다.`
-            : `Version differs from the current one (${currentPublished?.version ?? "none"}): every member must re-consent once it takes effect.`
+            ? `재동의 필요 — 시행 시점부터 모든 회원이 새 약관(${version || "-"})에 다시 동의해야 서비스를 계속 이용할 수 있습니다. 현재 적용 버전: ${currentPublished?.version ?? "없음"}.`
+            : `Re-consent required — from the effective time every member must agree to ${version || "-"} to keep using the service. Current: ${currentPublished?.version ?? "none"}.`
           : ko
-            ? "현재 적용 버전과 같아 회원 재동의는 발생하지 않습니다."
-            : "Same as the current version: no member re-consent."
+            ? `공지만 — 기존 동의(${currentPublished?.version ?? "없음"} 등)는 계속 유효하고 회원에게 다시 묻지 않습니다. 새로 동의하는 회원에게 ${version || "-"}이 기록됩니다. 회원 공지는 별도로 해야 합니다.`
+            : `Notice only — existing consents (${currentPublished?.version ?? "none"} etc.) stay valid and members are not asked again. New consents record ${version || "-"}. Announce the change separately.`
         : ko
           ? "영문 문서는 표시용이며, 동의 기준 버전은 한국어(ko) 문서를 따릅니다."
           : "English text is display-only; the consent version follows the Korean (ko) document.";
@@ -232,9 +242,32 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       confirmLabel: ko ? "게시" : "Publish",
     });
     if (!confirmed.ok) return;
-    const json = await send({ ...draftPayload(), status: "published", confirm: true });
+    const json = await send(
+      textLocked
+        ? { status: "published", confirm: true }
+        : {
+            ...draftPayload(),
+            status: "published",
+            confirm: true,
+            ...(needsRequirement ? { consentRequirement } : {}),
+          },
+    );
     if (json) afterSaved(json, ko ? "게시했습니다." : "Published.");
-  }, [effectiveAt, kind, locale, version, currentPublished, ko, send, draftPayload, afterSaved]);
+  }, [
+    effectiveAt,
+    kind,
+    locale,
+    version,
+    currentPublished,
+    ko,
+    send,
+    draftPayload,
+    afterSaved,
+    needsRequirement,
+    consentRequirement,
+    textLocked,
+    loaded?.consent_requirement,
+  ]);
 
   const publishSameVersionEdit = useCallback(async () => {
     // 같은 버전 본문 수정 = save(L1)
@@ -301,7 +334,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
     );
   }
 
-  const identityLocked = isPublished;
+  const identityLocked = isPublished || textLocked;
   const statusLabel = loaded
     ? loaded.status === "published"
       ? currentPublished?.id === loaded.id
@@ -348,6 +381,18 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
             {ko ? "현재 적용 버전" : "Current version"} ({kind}/{locale}): {currentPublished.version}
           </span>
         ) : null}
+        {loaded?.consent_requirement && isRequiredConsentLegalKind(loaded.kind) ? (
+          <span className="ml-2 text-sam-meta" data-admin-legal-consent-requirement={loaded.consent_requirement}>
+            {ko ? "개정 유형" : "Revision type"}:{" "}
+            {loaded.consent_requirement === "notice"
+              ? ko
+                ? "공지만"
+                : "Notice only"
+              : ko
+                ? "재동의 필요"
+                : "Re-consent required"}
+          </span>
+        ) : null}
       </div>
 
       {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
@@ -356,8 +401,12 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       {identityLocked ? (
         <p className="text-xs text-sam-meta">
           {ko
-            ? "게시된 문서의 종류·언어·버전·시행일은 바꿀 수 없습니다. 내용이 바뀌는 개정은 「목록 → 추가」에서 새 버전 문서로 작성해 게시해 주세요."
-            : "Kind, locale, version and effective time of a published document are fixed. Publish a revision as a new document (List → Add)."}
+            ? textLocked
+              ? "한 번 게시된 이용약관·개인정보처리방침은 문구를 포함해 바꿀 수 없습니다(회원이 동의한 내용 보존). 개정은 「목록 → 추가」에서 새 버전 문서로 작성해 게시해 주세요."
+              : "게시된 문서의 종류·언어·버전·시행일은 바꿀 수 없습니다. 내용이 바뀌는 개정은 「목록 → 추가」에서 새 버전 문서로 작성해 게시해 주세요."
+            : textLocked
+              ? "Published Terms / Privacy text is fixed (it is what members agreed to). Publish a revision as a new document (List → Add)."
+              : "Kind, locale, version and effective time of a published document are fixed. Publish a revision as a new document (List → Add)."}
         </p>
       ) : null}
 
@@ -414,9 +463,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
         {kind === "marketing" ? null : <p className="text-xs text-sam-meta">
           {safeT("admin_app_legal_version_reconsent_hint", {
             fallbackKo:
-              "새 version 문자열로 게시하면 회원 필수 재동의 게이트가 해당 버전으로 바뀝니다. 같은 version으로 본문만 수정하면 재동의는 발생하지 않습니다.",
+              "개정은 새 version 문서로 게시합니다. 게시할 때 「재동의 필요」 또는 「공지만」을 고르며, 게시된 문서의 문구는 바꿀 수 없습니다.",
             fallbackEn:
-              "Publishing a new version string updates the required member re-consent gate. Editing the body under the same version does not force re-consent.",
+              "Publish a revision as a new version and choose \"Re-consent required\" or \"Notice only\". Published text cannot be edited.",
           })}
         </p>}
       </label>
@@ -442,8 +491,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           {safeT("admin_app_legal_doc_title", { fallbackKo: "제목", fallbackEn: "Title" })}
         </span>
         <input
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
           value={title}
+          disabled={textLocked}
           onChange={(e) => setTitle(e.target.value)}
         />
       </label>
@@ -456,11 +506,58 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           })}
         </span>
         <textarea
-          className="min-h-[280px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm"
+          className="min-h-[280px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm disabled:opacity-60"
           value={body}
+          disabled={textLocked}
           onChange={(e) => setBody(e.target.value)}
         />
       </label>
+
+      {needsRequirement && !isPublished ? (
+        <fieldset className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3" data-admin-legal-consent-requirement-choice>
+          <legend className="px-1 text-xs font-medium text-sam-muted">
+            {ko ? "개정 유형 (게시 전 필수 선택)" : "Revision type (required before publishing)"}
+          </legend>
+          {(
+            [
+              {
+                value: "reconsent" as const,
+                label: ko ? "재동의 필요" : "Re-consent required",
+                hint: ko
+                  ? "시행 시점부터 모든 회원이 새 버전에 다시 동의해야 서비스를 계속 이용할 수 있습니다. 동의 전에는 글쓰기 등 동의가 필요한 기능이 제한됩니다."
+                  : "From the effective time every member must agree again to keep using the service.",
+              },
+              {
+                value: "notice" as const,
+                label: ko ? "공지만" : "Notice only",
+                hint: ko
+                  ? "기존 동의가 계속 유효하고 회원에게 다시 묻지 않습니다. 새로 동의하는 회원에게만 이 버전이 기록됩니다."
+                  : "Existing consents stay valid; members are not asked again. New consents record this version.",
+              },
+            ]
+          ).map((opt) => (
+            <label key={opt.value} className="flex min-h-[44px] items-start gap-2">
+              <input
+                type="radio"
+                name="legal-consent-requirement"
+                value={opt.value}
+                checked={consentRequirement === opt.value}
+                onChange={() => setConsentRequirement(opt.value)}
+                className="mt-1"
+              />
+              <span className="text-sm text-sam-fg">
+                <span className="font-medium">{opt.label}</span>
+                <span className="mt-0.5 block text-xs text-sam-meta">{opt.hint}</span>
+              </span>
+            </label>
+          ))}
+          <p className="text-xs text-sam-meta">
+            {ko
+              ? "어떤 변경이 재동의 대상인지는 법적 판단이 필요합니다. 필수 동의 항목·개인정보 수집·이용 목적·제3자 제공이 바뀌면 「재동의 필요」를 기본으로 하세요."
+              : "Whether a change needs re-consent is a legal judgment. Default to re-consent when required items, data collection/purpose or third-party sharing change."}
+          </p>
+        </fieldset>
+      ) : null}
 
       <div>
         <AdminActionButton
@@ -489,13 +586,15 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       <div className="flex flex-wrap gap-2">
         {isPublished ? (
           <>
-            <AdminActionButton
-              disabled={saving || (title === loaded?.title && body === loaded?.body)}
-              onClick={() => void publishSameVersionEdit()}
-              variant="primary"
-            >
-              {ko ? "본문 수정 게시(재동의 없음)" : "Publish text edit (no re-consent)"}
-            </AdminActionButton>
+            {textLocked ? null : (
+              <AdminActionButton
+                disabled={saving || (title === loaded?.title && body === loaded?.body)}
+                onClick={() => void publishSameVersionEdit()}
+                variant="primary"
+              >
+                {ko ? "본문 수정 게시(재동의 없음)" : "Publish text edit (no re-consent)"}
+              </AdminActionButton>
+            )}
             <AdminActionButton
               disabled={saving}
               onClick={() => void unpublish()}
@@ -506,6 +605,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           </>
         ) : (
           <>
+            {textLocked ? null : (
             <AdminActionButton
               disabled={saving}
               onClick={() => void saveDraft()}
@@ -516,8 +616,15 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
                 fallbackEn: "Save draft",
               })}
             </AdminActionButton>
+            )}
             <AdminActionButton
-              disabled={saving || !title.trim() || !body.trim() || !version.trim()}
+              disabled={
+                saving ||
+                !title.trim() ||
+                !body.trim() ||
+                !version.trim() ||
+                (needsRequirement && !consentRequirement)
+              }
               onClick={() => void publish()}
               variant="primary"
             >

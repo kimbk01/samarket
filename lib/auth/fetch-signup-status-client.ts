@@ -1,14 +1,17 @@
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { DibaySignupStatus } from "@/lib/auth/dibay-signup-status";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
-import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
+import {
+  setClientRequiredConsentVersions,
+  type ClientRequiredConsentVersions,
+} from "@/lib/legal/client-required-consent";
 
 export type SignupStatusApiResponse = {
   ok?: boolean;
   signup?: DibaySignupStatus;
   route?: string;
   /** Server-required consent versions (CMS published ko) the `signup` verdict was judged against. */
-  requiredConsent?: { termsVersion: string; privacyVersion: string } | null;
+  requiredConsent?: ClientRequiredConsentVersions | null;
   error?: string;
 };
 

@@ -5,7 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { isLegalVersionConflictError, legalDocAuditSnapshot } from "@/lib/legal/app-legal-document-edit-policy";
+import {
+  isLegalConsentRequirement,
+  isLegalVersionConflictError,
+  isMissingConsentRequirementColumnError,
+  legalDocAuditSnapshot,
+  legalPublishNeedsConsentRequirement,
+} from "@/lib/legal/app-legal-document-edit-policy";
+import { withLegalConsentRequirement } from "@/lib/legal/legal-document-consent-requirement.server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   APP_LEGAL_DOCUMENT_SELECT,
@@ -41,9 +48,12 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const documents = (data ?? [])
-    .map((row) => normalizeAppLegalDocumentRow(row as Record<string, unknown>))
-    .filter(Boolean);
+  const documents = await withLegalConsentRequirement(
+    sb,
+    (data ?? [])
+      .map((row) => normalizeAppLegalDocumentRow(row as Record<string, unknown>))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row)),
+  );
 
   return NextResponse.json({ ok: true, documents });
 }
@@ -67,6 +77,7 @@ export async function POST(req: NextRequest) {
     status?: string;
     effective_at?: string | null;
     confirm?: boolean;
+    consentRequirement?: string;
   };
 
   if (!isAppLegalKind(body.kind) || !isAppLegalLocale(body.locale)) {
@@ -86,6 +97,13 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  const needsRequirement = status === "published" && legalPublishNeedsConsentRequirement(body.kind, body.locale);
+  if (needsRequirement && !isLegalConsentRequirement(body.consentRequirement)) {
+    return NextResponse.json(
+      { ok: false, error: "consent_requirement_required", message: "개정 유형(재동의 필요 / 공지만)을 선택해 주세요." },
+      { status: 400 },
+    );
+  }
   const now = new Date().toISOString();
   const effectiveAt = body.effective_at?.trim() || (status === "published" ? now : null);
 
@@ -102,6 +120,7 @@ export async function POST(req: NextRequest) {
       published_at: status === "published" ? now : null,
       created_at: now,
       updated_at: now,
+      ...(needsRequirement ? { consent_requirement: body.consentRequirement } : {}),
     })
     .select(APP_LEGAL_DOCUMENT_SELECT)
     .single();
@@ -119,6 +138,12 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
+    if (isMissingConsentRequirementColumnError(error)) {
+      return NextResponse.json(
+        { ok: false, error: "consent_requirement_unavailable", message: "개정 유형 저장 준비(DB 적용) 전이라 게시할 수 없습니다." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
@@ -127,7 +152,8 @@ export async function POST(req: NextRequest) {
   );
   clearRequiredConsentVersionsCache();
 
-  const created = normalizeAppLegalDocumentRow(data as Record<string, unknown>);
+  const normalized = normalizeAppLegalDocumentRow(data as Record<string, unknown>);
+  const [created] = normalized ? await withLegalConsentRequirement(sb, [normalized]) : [normalized];
   if (created) {
     await appendAuditLog(sb, {
       actor_type: "admin",

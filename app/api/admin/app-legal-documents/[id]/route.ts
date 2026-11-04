@@ -8,9 +8,12 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   evaluateLegalDocumentPatch,
   isLegalVersionConflictError,
+  isMissingConsentRequirementColumnError,
+  isPublishedLegalImmutableError,
   legalDocAuditSnapshot,
   type LegalDocPatchInput,
 } from "@/lib/legal/app-legal-document-edit-policy";
+import { withLegalConsentRequirement } from "@/lib/legal/legal-document-consent-requirement.server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   APP_LEGAL_DOCUMENT_SELECT,
@@ -55,10 +58,9 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({
-    ok: true,
-    document: normalizeAppLegalDocumentRow(data as Record<string, unknown>),
-  });
+  const row = normalizeAppLegalDocumentRow(data as Record<string, unknown>);
+  const [document] = row ? await withLegalConsentRequirement(sb, [row]) : [row];
+  return NextResponse.json({ ok: true, document });
 }
 
 export async function PATCH(
@@ -125,6 +127,18 @@ export async function PATCH(
         { status: 409 },
       );
     }
+    if (isPublishedLegalImmutableError(error)) {
+      return NextResponse.json(
+        { ok: false, error: "published_text_immutable", message: "한 번 게시된 이용약관·개인정보처리방침은 바꿀 수 없습니다." },
+        { status: 409 },
+      );
+    }
+    if (isMissingConsentRequirementColumnError(error)) {
+      return NextResponse.json(
+        { ok: false, error: "consent_requirement_unavailable", message: "개정 유형 저장 준비(DB 적용) 전이라 게시할 수 없습니다." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
   if (!data) {
@@ -135,7 +149,8 @@ export async function PATCH(
     );
   }
 
-  const updated = normalizeAppLegalDocumentRow(data as Record<string, unknown>);
+  const normalized = normalizeAppLegalDocumentRow(data as Record<string, unknown>);
+  const [updated] = normalized ? await withLegalConsentRequirement(sb, [normalized]) : [normalized];
   const { clearRequiredConsentVersionsCache } = await import(
     "@/lib/legal/resolve-required-consent-versions"
   );

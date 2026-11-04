@@ -2239,7 +2239,7 @@ export const adminMessages = {
     admin_app_legal_locale: "언어",
     admin_app_legal_version: "버전",
     admin_app_legal_version_reconsent_hint:
-      "새 version 문자열로 게시하면 회원 필수 재동의 게이트가 해당 버전으로 바뀝니다. 같은 version으로 본문만 수정하면 재동의는 발생하지 않습니다.",
+      "개정은 새 version 문서로 게시합니다. 게시할 때 「재동의 필요」 또는 「공지만」을 고르며, 게시된 문서의 문구는 바꿀 수 없습니다.",
     admin_app_legal_effective_at: "효력 시작",
     admin_app_legal_doc_title: "제목",
     admin_app_legal_body: "본문 (문단은 빈 줄로 구분)",
@@ -5262,7 +5262,7 @@ export const adminMessages = {
     admin_app_legal_locale: "Locale",
     admin_app_legal_version: "Version",
     admin_app_legal_version_reconsent_hint:
-      "Publishing a new version string updates the required member re-consent gate. Editing the body under the same version does not force re-consent.",
+      "Publish a revision as a new version and choose \"Re-consent required\" or \"Notice only\". Published text cannot be edited.",
     admin_app_legal_effective_at: "Effective at",
     admin_app_legal_doc_title: "Title",
     admin_app_legal_body: "Body (separate paragraphs with a blank line)",

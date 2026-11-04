@@ -1,8 +1,12 @@
 /**
  * Required legal consent versions — CMS published (ko) with STORE_* fallback.
  * CONTRACT: app_legal_documents TEXT is public SSOT; consent gate versions follow
- * published ko `version` strings. Same-version body edits do not change consent.
+ * published ko `version` strings. Published terms/privacy text is immutable — a revision is a new version.
  * DO NOT invent versions; DO NOT treat dibay-privacy-policy-content as consent SSOT.
+ *
+ * A new version published as 「notice」 keeps earlier consents back to the latest 「reconsent」
+ * version valid (`acceptedTermsVersions` / `acceptedPrivacyVersions`); a 「reconsent」 version
+ * accepts only itself.
  *
  * STORE_* fallback applies only when no published ko row exists. A failed CMS read is NOT
  * "no row": it keeps the last successfully read value, and strict callers fail closed.
@@ -15,7 +19,17 @@ export type RequiredConsentVersions = {
   termsVersion: string;
   privacyVersion: string;
   source: "cms" | "fallback";
+  /** Still-valid consent versions (current first). Absent = only the current version. */
+  acceptedTermsVersions?: readonly string[];
+  acceptedPrivacyVersions?: readonly string[];
 };
+
+function acceptedList(raw: unknown, current: string): readonly string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const list = raw.map((x) => (typeof x === "string" ? x.trim() : "")).filter(Boolean);
+  if (!list.includes(current)) return undefined;
+  return list;
+}
 
 const CACHE_TTL_MS = 30_000;
 let cache: { at: number; value: RequiredConsentVersions } | null = null;
@@ -69,8 +83,16 @@ async function readRequiredConsentVersionsViaRpc(): Promise<RequiredConsentVersi
   try {
     const { data, error } = await (sb as any).rpc("required_consent_versions", { p_locale: "ko" });
     if (error || !data || typeof data !== "object") return null;
-    const row = data as { terms?: unknown; privacy?: unknown };
-    return versionsFromCms(row.terms, row.privacy);
+    const row = data as { terms?: unknown; privacy?: unknown; terms_accepted?: unknown; privacy_accepted?: unknown };
+    const base = versionsFromCms(row.terms, row.privacy);
+    if (base.source !== "cms") return base;
+    const acceptedTermsVersions = acceptedList(row.terms_accepted, base.termsVersion);
+    const acceptedPrivacyVersions = acceptedList(row.privacy_accepted, base.privacyVersion);
+    return {
+      ...base,
+      ...(acceptedTermsVersions ? { acceptedTermsVersions } : {}),
+      ...(acceptedPrivacyVersions ? { acceptedPrivacyVersions } : {}),
+    };
   } catch {
     return null;
   }

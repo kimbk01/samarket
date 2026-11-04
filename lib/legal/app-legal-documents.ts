@@ -31,6 +31,8 @@ export type AppLegalDocumentRow = {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  /** terms/privacy revision type — present only where the Admin list merged it (migration 20271106120000). */
+  consent_requirement?: "reconsent" | "notice" | null;
 };
 
 export function isAppLegalKind(v: unknown): v is AppLegalKind {
@@ -82,6 +84,9 @@ export function normalizeAppLegalDocumentRow(row: Record<string, unknown>): AppL
     published_at: row.published_at != null ? String(row.published_at) : null,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
+    ...(row.consent_requirement === "reconsent" || row.consent_requirement === "notice"
+      ? { consent_requirement: row.consent_requirement }
+      : {}),
   };
 }
 

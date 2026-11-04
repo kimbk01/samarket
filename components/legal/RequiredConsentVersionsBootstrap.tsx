@@ -1,6 +1,9 @@
 "use client";
 
-import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-consent";
+import {
+  setClientRequiredConsentVersions,
+  type ClientRequiredConsentVersions,
+} from "@/lib/legal/client-required-consent";
 
 /**
  * Hands the server-required consent versions (CMS published ko) to client gates on every
@@ -9,7 +12,7 @@ import { setClientRequiredConsentVersions } from "@/lib/legal/client-required-co
 export function RequiredConsentVersionsBootstrap({
   versions,
 }: {
-  versions: { termsVersion: string; privacyVersion: string } | null;
+  versions: ClientRequiredConsentVersions | null;
 }): null {
   if (versions) setClientRequiredConsentVersions(versions);
   return null;

@@ -224,6 +224,9 @@ export const authUiMessages = {
       "선택 항목에 동의하지 않아도 가입과 서비스 이용이 가능합니다. 혜택·이벤트 알림은 내정보 › 알림 설정에서 언제든 변경할 수 있습니다.",
     auth_consent_safety_notice:
       "부적절한 콘텐츠, 사기, 혐오, 개인정보 노출, 불법 거래는 금지되며 신고와 차단 기능을 통해 관리됩니다.",
+    auth_consent_escape_hint: "동의하지 않아도 고객센터 문의·신고, 회원탈퇴, 로그아웃은 할 수 있습니다.",
+    auth_consent_escape_support: "고객센터",
+    auth_consent_escape_leave: "회원탈퇴",
     auth_consent_age_required: "만 14세 이상 확인과 생년월일을 입력해 주세요.",
     auth_consent_age_under_minimum: "만 14세 이상만 가입할 수 있습니다.",    auth_consent_age_title: "연령 확인",
     auth_consent_reconsent_title: "약관 재동의",
@@ -500,6 +503,9 @@ export const authUiMessages = {
       "You can sign up and use the service without optional consents. Benefits & events notifications can be changed anytime in My info › Notification settings.",
     auth_consent_safety_notice:
       "Harmful content, fraud, hate speech, privacy leaks, and illegal trade are prohibited and may be reported or blocked.",
+    auth_consent_escape_hint: "Without agreeing you can still contact support or report, delete your account, or log out.",
+    auth_consent_escape_support: "Customer center",
+    auth_consent_escape_leave: "Delete account",
     auth_consent_age_required: "Confirm you are 14+ and enter your date of birth.",
     auth_consent_age_under_minimum: "You must be at least 14 years old to join.",    auth_consent_age_title: "Age verification",
     auth_consent_reconsent_title: "Review updated terms",
