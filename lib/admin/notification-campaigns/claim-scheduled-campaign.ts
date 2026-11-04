@@ -463,21 +463,36 @@ export async function scheduleNextRecurringOccurrence(
   });
 
   // 확정 설계 B-13 — 반복 2회차부터도 대상 스냅샷을 넣는다(없으면 목록·상세가 「대상 0」으로 보였다).
-  const { previewCampaignAudience } = await import("@/lib/admin/notification-campaigns/campaign-audience-preview");
-  const { audiencePreviewToSnapshot } = await import("@/lib/admin/notification-campaigns/campaign-occurrence-service");
+  // 최종 감사 병목 정정: 미리보기 전체(회원별 기기 조회)를 다시 돌리지 않는다 — 대상 수는 count 1번,
+  // 푸시·기기 숫자는 직전 반복 회차 스냅샷을 그대로 쓴다(실제 결과는 발송 집계가 채운다).
+  const { countCampaignTargetMembers } = await import("@/lib/admin/notification-campaigns/campaign-target-scan");
   const recurringPayload =
     row.target_payload && typeof row.target_payload === "object"
       ? (row.target_payload as { selected_user_ids?: string[] })
       : null;
-  const audienceSnapshot = await previewCampaignAudience(svc, {
-    type: row.type as "notice" | "marketing" | "system",
-    target_type: String(row.target_type ?? "all"),
-    channel: row.channel as "push_only" | "in_app_only" | "push_and_in_app",
-    segment_region_code: (row.segment_region_code as string | null) ?? null,
-    target_user_ids: normalizeSelectedUserIds(recurringPayload?.selected_user_ids),
-  })
-    .then((p) => audiencePreviewToSnapshot(p, new Date().toISOString()))
-    .catch(() => undefined);
+  const targetCount = await countCampaignTargetMembers(
+    svc,
+    {
+      target_type: String(row.target_type ?? "all"),
+      segment_region_code: (row.segment_region_code as string | null) ?? null,
+    },
+    normalizeSelectedUserIds(recurringPayload?.selected_user_ids)
+  ).catch(() => null);
+  const prevSnap =
+    lastOcc?.audience_snapshot && typeof lastOcc.audience_snapshot === "object"
+      ? (lastOcc.audience_snapshot as Record<string, unknown>)
+      : {};
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const audienceSnapshot =
+    targetCount == null
+      ? undefined
+      : {
+          target_member_count: targetCount,
+          push_eligible_member_count: num(prevSnap.push_eligible_member_count),
+          push_device_count: num(prevSnap.push_device_count),
+          in_app_member_count: String(row.channel ?? "") === "push_only" ? 0 : targetCount,
+          resolved_at: new Date().toISOString(),
+        };
 
   const ensured = await ensureCampaignOccurrence(svc, {
     campaignId,

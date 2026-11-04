@@ -227,14 +227,20 @@ export function resolveFinalOccurrenceStatusByMembers(
 export async function loadRecurringOccurrenceProgress(
   svc: SupabaseClient,
   campaignId: string
-): Promise<{ nextIndex: number; last: { scheduled_for: string | null; completed_at: string | null } | null }> {
+): Promise<{
+  nextIndex: number;
+  last: { scheduled_for: string | null; completed_at: string | null; audience_snapshot?: unknown } | null;
+}> {
   const { data, count } = await svc
     .from("admin_notification_campaign_occurrences")
-    .select("scheduled_for, completed_at", { count: "exact" })
+    .select("scheduled_for, completed_at, audience_snapshot", { count: "exact" })
     .eq("campaign_id", campaignId)
     .eq("trigger_type", "recurring")
     .order("sequence_number", { ascending: false })
     .limit(1);
-  const last = ((data ?? [])[0] as { scheduled_for: string | null; completed_at: string | null } | undefined) ?? null;
+  const last =
+    ((data ?? [])[0] as
+      | { scheduled_for: string | null; completed_at: string | null; audience_snapshot?: unknown }
+      | undefined) ?? null;
   return { nextIndex: Math.max(0, count ?? 0) + 1, last };
 }

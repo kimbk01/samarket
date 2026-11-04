@@ -78,3 +78,11 @@ describe("M-2 옛 동의 열 읽지 않음", () => {
     expect(read("lib/me/user-settings-select.ts")).not.toMatch(/"[^"]*marketing_push_enabled/);
   });
 });
+
+describe("병목 정정 — 반복 다음 회차는 미리보기 전체를 돌리지 않음", () => {
+  it("claim 은 previewCampaignAudience 대신 count 1번(countCampaignTargetMembers)", () => {
+    const src = read("lib/admin/notification-campaigns/claim-scheduled-campaign.ts");
+    expect(src).not.toContain("previewCampaignAudience");
+    expect(src).toContain("countCampaignTargetMembers");
+  });
+});

@@ -91,3 +91,32 @@ export async function countCampaignProfileAudience(
 
   return { userIds: userIds.slice(0, maxScan), truncated };
 }
+
+/**
+ * 대상 회원 수만 센다(머리 count 1번) — 반복 발송 다음 회차 스냅샷용 (최종 감사 병목 정정).
+ * 미리보기(`previewCampaignAudience`)는 회원별 기기 조회를 순서대로 해서 회원이 많으면 예약 실행이 느려진다.
+ * 실패하면 null(스냅샷 생략 · 발송은 그대로).
+ */
+export async function countCampaignTargetMembers(
+  svc: SupabaseClient,
+  campaign: Pick<AdminNotificationCampaignRow, "target_type" | "segment_region_code">,
+  selectedUserIds: readonly string[],
+  opts?: { activeSince?: string | null }
+): Promise<number | null> {
+  const tt = campaign.target_type;
+  if (tt === "selected_users") return selectedUserIds.length;
+  if (tt === "segment") return 0;
+  if (tt === "marketing_opt_in") {
+    const { count, error } = await svc
+      .from("user_notification_settings")
+      .select("user_id", { count: "exact", head: true })
+      .eq("marketing_enabled", true);
+    return error ? null : count ?? 0;
+  }
+  if (tt !== "all" && tt !== "region" && tt !== "active_users") return null;
+  let q = svc.from("profiles").select("id", { count: "exact", head: true });
+  if (tt === "region" && campaign.segment_region_code?.trim()) q = q.eq("region_code", campaign.segment_region_code.trim());
+  else if (tt === "active_users") q = q.gte("updated_at", opts?.activeSince || campaignActiveUsersSince());
+  const { count, error } = await q;
+  return error ? null : count ?? 0;
+}

@@ -73,3 +73,21 @@
 | 테스트 | 신규 `admin-push-final-audit-2026-11-04.test.ts` 9건 · 회원 집계·스테이징 계약 테스트 갱신 |
 
 검증(로컬 · 최종 트리): `typecheck:build`·`typecheck:test` PASS · 관련 vitest 122 파일(관리자 표준 문구 검사 포함) PASS · 변경 파일 eslint 오류 0.
+
+## 6. 최종 실기·전체 결함 정리 (18:2x PHT · Production `0be6d48b6` ≥ `dfe2d0444`)
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| G2 「방해금지」 칸 | PASS | `final-audit/captures/G2-list-head.png`·`G2-recipients.png` |
+| G1 이미 읽은 알림의 푸시 탭 | NOT_PROVEN (한 기기로는 재현 불가 · 결함 아님) | `G1-shade1.xml` 에 `[G1]` 있음 → 앱 안 「모두 읽음」 뒤 `G1-shade2/3.xml` 에서 사라짐. 앱이 읽음 처리 때 OS 알림을 지운다(`domain-badge-authority-product-bridge.ts` `osNotificationRemove`). E-1 은 기기 2대(한쪽에서 읽고 다른 쪽 알림 탭) 경우만 해당 — 코드 PASS |
+
+### 남은 결함·위험 (전체)
+| 구분 | 내용 | 처리 |
+|---|---|---|
+| **병목(작업자가 만든 것)** | 반복 발송 다음 회차를 만들 때 대상 미리보기(`previewCampaignAudience`)를 매번 실행 — 대상 최대 5,000명 읽기 + 회원별 기기 조회 최대 800번을 **순서대로**(`claim-scheduled-campaign.ts`). 지금 회원 130명이라 문제 없음, 회원 수백 명 이상이면 예약 실행이 느려짐 | 보고 · 수정 여부 Owner 결정 |
+| 병목(기존) | 미리보기 회원별 기기 조회 순차(P-3) · 발송 회원별 순차(P-1) | 설계 §3 「800명 초과 시 재검토」 그대로 |
+| 오류(영향 없음) | 「기록 실패 N건」 증가가 원자적이지 않음(E-2) | 발송 잠금으로 동시 실행 없음 |
+| 누락(범위 밖) | 알림을 밀어 지운 것을 서버에 알리는 앱 경로 없음 | 보고만 |
+| Owner 결정 유지 | 이벤트 배포 「푸시만」 — 앱 켜진 iPhone 에서 이벤트 푸시가 안 보임 | 유지 |
+| 확인 불가 | iPhone 실제 푸시·앱 아이콘 숫자(시뮬레이터 한계) · 신규 가입 동의 저장 순서(B-14, 신규 계정 필요) | NOT_PROVEN |
+| 기존 실패(무관) | `mypage-r4-profile-account-settings.test.ts` 「S17 캐시 삭제」 1건 — 수정 전 main 에서도 실패 | 보고만 |
+| 시험 데이터 | `[F2] 알림함만 확인` 실제 발송 1건이 「보낸 알림」 목록에 남음 | Owner 판단 |
