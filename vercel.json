@@ -104,6 +104,10 @@
     {
       "path": "/api/cron/community-post-images-gc",
       "schedule": "50 19 * * *"
+    },
+    {
+      "path": "/api/cron/app-releases-sync",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

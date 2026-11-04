@@ -48,18 +48,29 @@ describe("destinations", () => {
   });
 });
 
-describe("v3 rules (서버 주기 확인 없음 · 안 된 기기만 · 최소 알림)", () => {
+describe("notify-then-fullscreen rules (Owner 2026-11-04 · 시안/Host 비변경)", () => {
   const rep = read("lib/app-releases/app-release-report.ts");
-  it("no cron; notice only to the reporting member; silent (no push · no sound); once per build", () => {
-    const vercel = JSON.parse(read("vercel.json")) as { crons: { path: string }[] };
-    expect(vercel.crons.some((c) => c.path.includes("app-releases"))).toBe(false);
+  const sync = read("lib/app-releases/app-release-sync.ts");
+  const sources = read("lib/app-releases/app-release-sources.ts");
+
+  it("6h cron + admin sync; auto-notify only play completed; dedupe by versionCode", () => {
+    const vercel = JSON.parse(read("vercel.json")) as { crons: { path: string; schedule: string }[] };
+    const cron = vercel.crons.find((c) => c.path === "/api/cron/app-releases-sync");
+    expect(cron?.schedule).toBe("0 */6 * * *");
+    expect(sync).toContain("createAndDispatchNotificationEvent");
+    expect(sync).toContain("buildAppReleaseNotifyDedupeKey");
+    expect(sync).toContain("isEligibleForAutoReleaseNotify");
+    expect(sync).toContain("APP_RELEASE_NOTIFY_MAX_PER_RUN");
+    expect(sources).toContain("tracks/production");
+    expect(sources).toContain('rollout_status: r.status ?? null');
+  });
+
+  it("device availability report stays silent inbox-only (no second push path)", () => {
     expect(rep).toContain("createNotificationEvent(sb, {");
     expect(rep).not.toContain("dispatchNotificationEvent");
     expect(rep).not.toContain("appendUserNotification");
     expect(rep).toContain('soundSuppressedReason: "user_settings"');
     expect(rep).toContain("dedupeKey: `app_release:${platform}:${availableCode}:${userId}`");
-    expect(rep).toContain('title: notifySafeT(lang, "notify_app_release_title")');
-    expect(rep).toContain("code > input.installed.code");
   });
 
   it("device reports only when installed version changed or Play says a new build exists (once per build)", () => {
@@ -70,10 +81,20 @@ describe("v3 rules (서버 주기 확인 없음 · 안 된 기기만 · 최소 �
     expect(read("components/layout/MainAppProviderTree.tsx")).toContain("<AppReleaseReporterLazy />");
   });
 
-  it("history page: one bottom button, disabled when up to date; admin has no input", () => {
+  it("history page CTA unchanged; admin has sync/confirm buttons but no free-text version input", () => {
     const page = read("components/app-updates/AppUpdateHistoryClient.tsx");
     expect(page.match(/data-testid="app-updates-cta"/g)?.length).toBe(1);
     expect(page).toContain("disabled={!h.hasUpdate || busy}");
-    expect(read("components/admin/app/AdminAppReleasesStatus.tsx")).not.toContain("<input");
+    const admin = read("components/admin/app/AdminAppReleasesStatus.tsx");
+    expect(admin).not.toContain("<input");
+    expect(admin).toContain("/api/admin/app-releases/sync");
+    expect(admin).toContain("/api/admin/app-releases/notify");
+  });
+
+  it("does not modify Facebook-style fullscreen screen or mockup", () => {
+    expect(read("components/platform/AndroidPlayUpdateScreen.tsx").length).toBeGreaterThan(100);
+    expect(read("docs/audit/android-update-fullscreen-progress-mockup-2026-11-03.html").slice(0, 20).toLowerCase()).toContain(
+      "<!doctype"
+    );
   });
 });

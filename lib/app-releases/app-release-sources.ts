@@ -1,8 +1,10 @@
 /**
- * 스토어 출시 정보 (앱 업데이트 v3) — 서버 전용.
- * 주기 확인 없음: 기기가 처음 보는 버전을 보고할 때만 1번 읽는다.
- * - Android: Google Play 프로덕션 트랙(`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 이 있을 때)
+ * 스토어 출시 정보 — 서버 전용.
+ * - Android: Google Play **프로덕션** 트랙만 (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`)
  * - iOS: App Store 공개 조회(iTunes Lookup · 키 없음)
+ * - 호출: 6h cron / 관리자 수동 동기화 / (보조) 기기 보고 시 1회
+ * - closed testing·내부 트랙은 이 API로 읽지 않음 → 자동 발송 금지, 관리자 수동 확정
+ * - 자동 알림은 `rollout_status === "completed"` 만 (inProgress=단계적 출시 제외)
  */
 import "server-only";
 import { createSign } from "node:crypto";
