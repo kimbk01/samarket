@@ -280,7 +280,13 @@ export function NotificationsSettingsContent() {
     async (key: DomainToggleKey, next: boolean): Promise<boolean> => {
       const prev = domain[key];
       setDomain((d) => ({ ...d, [key]: next }));
-      const ok = await patchMeNotificationDomain({ [key]: next });
+      // 방해 금지를 켤 때는 화면에 보이는 시각도 함께 저장한다 — 저장된 시각이 없으면 화면은 22:00~08:00 을 보여 주지만
+      // 서버는 방해 금지 시간이 없다고 판단해 알림이 그대로 갔다 (2026-11-04 실기 R2 FAIL).
+      const ok = await patchMeNotificationDomain(
+        key === "quiet_hours_enabled" && next
+          ? { [key]: next, quiet_hours_start: domain.quiet_hours_start, quiet_hours_end: domain.quiet_hours_end }
+          : { [key]: next },
+      );
       if (!ok) setDomain((d) => ({ ...d, [key]: prev }));
       return ok;
     },
@@ -291,7 +297,12 @@ export function NotificationsSettingsContent() {
     async (key: "quiet_hours_start" | "quiet_hours_end", value: string) => {
       const prev = domain[key];
       setDomain((d) => ({ ...d, [key]: value }));
-      const ok = await patchMeNotificationDomain({ [key]: value });
+      // 시작·끝을 함께 저장 — 한쪽만 저장돼 있으면 서버는 방해 금지 시간이 없다고 판단한다.
+      const ok = await patchMeNotificationDomain({
+        quiet_hours_start: domain.quiet_hours_start,
+        quiet_hours_end: domain.quiet_hours_end,
+        [key]: value,
+      });
       if (!ok) {
         setDomain((d) => ({ ...d, [key]: prev }));
         showMypageToast(t("mypage_settings_save_failed_reverted"), "error");
