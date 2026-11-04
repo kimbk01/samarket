@@ -23,6 +23,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { LAUNCH_INTRO_DEFAULT_TEXT_COLOR } from "@/lib/admin/platform/platform-launch-default-colors";
 import {
+  LAUNCH_INTRO_ADMIN_DEFAULT_FREQUENCY,
   LAUNCH_INTRO_CTA_LABEL_MAX,
   LAUNCH_INTRO_CTA_PATH_MAX,
   LAUNCH_INTRO_DURATION_MIN_MS,
@@ -71,6 +72,7 @@ import {
   validateLaunchIntroEligibility,
 } from "@/lib/launch-intro/schedule";
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { launchIntroInvalidPublicationReasonKey } from "@/lib/launch-intro/invalid-publication-reason";
 
 /** 광고 감사 I-5: API·검사 오류 코드 → 한국어 문구 (원문 코드는 모르는 코드일 때만 괄호로) */
 const LAUNCH_INTRO_ERROR_KEYS = {
@@ -84,6 +86,8 @@ const LAUNCH_INTRO_ERROR_KEYS = {
   reason_required: "admin_launch_intro_err_reason_required",
   cta_label_invalid: "admin_launch_intro_err_cta_label_invalid",
   cta_path_invalid: "admin_launch_intro_err_cta_path_invalid",
+  // 광고 ② DS-8: 회원 금지 경로(/admin·/stores/owner) CTA
+  cta_path_forbidden: "admin_launch_intro_err_cta_path_forbidden",
   cta_next_on_last_scene: "admin_launch_intro_err_cta_next_on_last_scene",
   duration_invalid: "admin_launch_intro_err_duration_invalid",
   network: "admin_launch_intro_err_network",
@@ -504,7 +508,7 @@ export function LaunchIntroAdminPage() {
   }>({
     startLocal: "",
     endLocal: "",
-    frequency: "once_per_day",
+    frequency: LAUNCH_INTRO_ADMIN_DEFAULT_FREQUENCY,
     target: "all",
   });
   /** Clock for schedule labels, refreshed with every server snapshot (no timers). */
@@ -1179,7 +1183,7 @@ export function LaunchIntroAdminPage() {
                             </span>
                           ) : null}
                         </span>
-                        <span className="text-sam-danger">{t("admin_launch_intro_history_invalid", { error: p.error })}</span>
+                        <span className="text-sam-danger">{t("admin_launch_intro_history_invalid", { error: t(launchIntroInvalidPublicationReasonKey(p.error)) })}</span>
                       </li>
                     );
                   })}

@@ -438,7 +438,8 @@ describe("Intro total time limit (Owner: max 5s)", () => {
     const long = { ...base, scenes: [{ ...base.scenes[0], text, durationMs: 10000 }] };
     expect(validateLaunchIntroDocument(long, "publication").ok).toBe(true);
     const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
-    expect(admin).toContain('frequency: "once_per_day"');
+    // 광고 ② D-18: 폼 기본 빈도 = 정본 상수(once_per_day) — 값은 launch-intro-ads-1104 시험이 확인
+    expect(admin).toContain("frequency: LAUNCH_INTRO_ADMIN_DEFAULT_FREQUENCY");
     expect(admin).toContain("data-launch-intro-total");
   });
 });
@@ -499,7 +500,8 @@ describe("launch intro static contract", () => {
     const root = src("components/launch-intro/LaunchIntroRoot.tsx");
     expect(root).toContain("<LaunchIntroPlayer");
     expect(root).toContain('running={phase === "showing" && released}');
-    expect(root).toContain('onRoute = useCallback((path: string) => exitRef.current("cta", path)');
+    // 광고 ② DS-8: CTA 경로가 공통 목적지 계약을 통과할 때만 cta, 아니면 skip (동작은 launch-intro-start-path-1104 시험)
+    expect(root).toMatch(/isLaunchIntroCtaRoutePath\(path\) \? exitRef\.current\("cta", path\) : exitRef\.current\("skip"\)/);
     const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
     expect(admin).toContain("<LaunchIntroPlayer");
     expect(admin).not.toMatch(/from "@\/lib\/device\//);

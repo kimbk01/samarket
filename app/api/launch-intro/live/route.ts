@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503, headers: NO_STORE });
   const built = await buildLaunchIntroLivePayload(sb);
+  // 500 = DB 조회 실패(일시 장애)만. Live 게시본 문서 손상은 200 `unpublished`(인트로 없음) — 광고 ② IN-P10.
   if (!built.ok) return NextResponse.json({ ok: false, error: built.error }, { status: 500, headers: NO_STORE });
   return NextResponse.json(built.payload, { headers: NO_STORE });
 }

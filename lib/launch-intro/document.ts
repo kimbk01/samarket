@@ -8,6 +8,7 @@
  * `upgradeLaunchIntroDocumentV1` — immutable v1 publications stay as stored; every reader
  * (Admin, server payload, device cache) normalizes through `validateLaunchIntroDocument`.
  */
+import { parseDestinationHref } from "@/lib/destination/destination-contract";
 
 export const LAUNCH_INTRO_SCHEMA_VERSION = 2 as const;
 export const LAUNCH_INTRO_SCHEMA_VERSION_V1 = 1 as const;
@@ -169,7 +170,14 @@ export type LaunchIntroEligibility = {
   endAt?: string | null;
 };
 
+/** Read fallback for stored publications without eligibility (v1 slice). Not the Admin form default. */
 export const LAUNCH_INTRO_SLICE_ELIGIBILITY: LaunchIntroEligibility = { frequency: "every_launch" };
+
+/**
+ * 광고 ② D-18 (Owner 2026-11-04): Admin 게시 폼의 기본 빈도 정본 = 하루 1번(`once_per_day`, 마닐라 날짜).
+ * 계약 문서: `docs/DIBAY_APP_LIFECYCLE_SSOT.md` §7.2.
+ */
+export const LAUNCH_INTRO_ADMIN_DEFAULT_FREQUENCY: LaunchIntroFrequency = "once_per_day";
 
 export type LaunchIntroLiveState = "active" | "paused" | "unpublished";
 
@@ -207,6 +215,22 @@ export function isLaunchIntroInternalPath(value: unknown): value is string {
   if (/[\\\s\u0000-\u001f]/.test(value)) return false;
   if (/^\/[a-z][a-z0-9+.-]*:/i.test(value)) return false;
   return true;
+}
+
+/**
+ * 광고 ② DS-8: CTA 이동 주소 = 인트로 내부 경로 규칙 + 공통 목적지 계약(`parseDestinationHref`, 회원 금지
+ * 경로 `/admin`·`/stores/owner` 포함)을 둘 다 통과하고, 목적지가 앱 안 경로(내부 경로·이벤트)일 때만.
+ */
+export function launchIntroCtaPathError(value: unknown): "cta_path_invalid" | "cta_path_forbidden" | null {
+  if (!isLaunchIntroInternalPath(value)) return "cta_path_invalid";
+  const d = parseDestinationHref(value);
+  if (!d.ok) return d.error === "internal_path_forbidden" ? "cta_path_forbidden" : "cta_path_invalid";
+  if (d.ref.kind === "external_url") return "cta_path_invalid";
+  return null;
+}
+
+export function isLaunchIntroCtaRoutePath(value: unknown): value is string {
+  return launchIntroCtaPathError(value) === null;
 }
 
 export function launchIntroAssetExtension(mime: LaunchIntroAssetMime): string {
@@ -497,7 +521,8 @@ export function validateLaunchIntroDocument(
       if (!empty) {
         if (!label || label.length > LAUNCH_INTRO_CTA_LABEL_MAX) return { ok: false, error: "cta_label_invalid" };
         if (type === "route") {
-          if (!isLaunchIntroInternalPath(path)) return { ok: false, error: "cta_path_invalid" };
+          const pathError = launchIntroCtaPathError(path);
+          if (pathError) return { ok: false, error: pathError };
           cta = { label, action: { type: "route", path } };
         } else if (type === "next") {
           if (index === o.scenes.length - 1) return { ok: false, error: "cta_next_on_last_scene" };

@@ -163,7 +163,10 @@ export async function listLaunchIntroPublications(
   return { ok: true, publications, invalidPublications, total: typeof count === "number" ? count : listed };
 }
 
-/** Admin: one publication by id, a broken document marked (not an error). Runtime readers keep loadLaunchIntroPublication. */
+/**
+ * One publication by id, a broken document marked (not an error). Admin and the runtime Live payload
+ * (IN-P10: broken Live → unpublished). Resume / reactivate keep loadLaunchIntroPublication (broken = refused).
+ */
 export async function loadLaunchIntroPublicationForAdmin(
   sb: Sb,
   id: string
@@ -185,10 +188,15 @@ export async function buildLaunchIntroLivePayload(sb: Sb): Promise<Result<{ payl
   const live = await loadLaunchIntroLive(sb);
   if (!live.ok) return live;
   let publication: LaunchIntroLivePayload["publication"] = null;
+  let state: LaunchIntroLiveState = live.live.state;
   if (live.live.publication_id) {
-    const pub = await loadLaunchIntroPublication(sb, live.live.publication_id);
+    // 광고 ② IN-P10: Live 게시본 문서가 손상됐으면 500 대신 「게시 안 됨」(인트로 없음) — 기기는 인트로를 끈다
+    // (실패 시 닫힘 쪽). 500 이면 기기가 이전 state(active 등)를 계속 써서 일시정지·중단이 전달되지 않는다.
+    const pub = await loadLaunchIntroPublicationForAdmin(sb, live.live.publication_id);
     if (!pub.ok) return pub;
-    if (pub.publication) {
+    if (pub.invalid) {
+      state = "unpublished";
+    } else if (pub.publication) {
       publication = {
         id: pub.publication.id,
         document: pub.publication.document,
@@ -199,7 +207,7 @@ export async function buildLaunchIntroLivePayload(sb: Sb): Promise<Result<{ payl
   }
   return {
     ok: true,
-    payload: { ok: true, revision: live.live.revision, state: live.live.state, publication },
+    payload: { ok: true, revision: live.live.revision, state, publication },
   };
 }
 

@@ -262,6 +262,16 @@ Admin Intro ON/OFF = 기존 Live `active|paused|unpublished` + cache — **CMS �
 
 금지: `no_index`를 Lifecycle/USER_COLD 오류로 취급 · startup discovery 강제 · 비동기 대기 Intro · FRESH 억지 매핑.
 
+### 7.2 Intro 게시 기본 빈도 · 준비 단계 종료 (광고 ② D-18 · D-16 · D-17 · Owner 2026-11-04)
+
+| 계약 | 내용 |
+|---|---|
+| 게시 폼 기본 빈도 (D-18) | **`once_per_day`(하루 1번, 마닐라 날짜)** 가 정본. 코드 정본 `LAUNCH_INTRO_ADMIN_DEFAULT_FREQUENCY` (`lib/launch-intro/document.ts`) — 어드민 게시 폼이 이 값으로 시작한다(Live 게시본이 있으면 그 값). `LAUNCH_INTRO_SLICE_ELIGIBILITY`(`every_launch`)는 빈도가 저장되지 않은 옛 게시본을 **읽을 때의 대체값**일 뿐 폼 기본값이 아니다 |
+| 준비 중 예상 밖 예외 (D-16 · IN-S11) | 준비(preparing) 전체를 try/catch 로 감싼다. 예외 → 커뮤니티로 넘김(`prepare_exception`) → 커뮤니티 첫 화면이 시작 화면을 닫는다. 같은 epoch 재표시 없음. **시간 제한·타이머 아님**(Owner 결정 4) |
+| 준비 중 백그라운드 (D-17 · IN-S10) | preparing 단계에서도 `visibilitychange=hidden` 을 감지 → 준비 중단(AbortController) → 커뮤니티로 넘김(`background_preparing`). 같은 epoch 재표시 없음(I-4 표와 같음) |
+| 시작 화면 닫는 곳 | 변경 없음 — `tryDismissNativeSplash`(`SplashScreen.hide` 1곳). 인트로가 넘기면 커뮤니티 `markInitialDestinationVisualReady` 가 닫는다 |
+| 손상 Live 게시본 (IN-P10) | `GET /api/launch-intro/live` 는 500 대신 200 `state=unpublished`·`publication=null` → 기기는 같은 revision 이어도 state 가 다르면 반영해 인트로를 끈다 |
+
 ---
 
 ## 8. Push / Deep Link / 통화 우선순위

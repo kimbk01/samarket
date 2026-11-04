@@ -18,7 +18,11 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LaunchIntroPlayer } from "@/components/launch-intro/LaunchIntroPlayer";
 import { invalidateLaunchIntroIndex, loadLaunchIntroAssetUrl } from "@/lib/launch-intro/cache";
-import { launchIntroDocumentImageRefs, launchIntroDocumentVideoRefs } from "@/lib/launch-intro/document";
+import {
+  isLaunchIntroCtaRoutePath,
+  launchIntroDocumentImageRefs,
+  launchIntroDocumentVideoRefs,
+} from "@/lib/launch-intro/document";
 import { startLaunchIntroDiscovery } from "@/lib/launch-intro/discovery";
 import { resolveDibayDeviceClass } from "@/lib/device/dibay-device-class";
 import { recordLaunchIntroShown } from "@/lib/launch-intro/frequency";
@@ -70,86 +74,117 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
 
   // PREPARING: launch intent + every scene image from the verified local cache, decoded before the
   // first frame (scene changes never wait on media). Local only, no network.
+  // 광고 ② IN-S11 · D-16: 준비 전체를 try/catch/finally 로 — 예상 밖 예외는 커뮤니티로 넘긴다
+  // (커뮤니티 첫 화면이 시작 화면을 닫는다). 시간 제한·타이머가 아니다(Owner 결정 4).
+  // 광고 ② IN-S10 · D-17: 준비 중 백그라운드가 되면 준비를 멈추고(AbortController) 커뮤니티로 넘긴다.
+  // 같은 epoch 에는 다시 보이지 않는다(I-4 표와 같음).
   useEffect(() => {
-    let cancelled = false;
+    const ac = new AbortController();
+    const { signal } = ac;
     let committed = false;
+    let settled = false;
     const created: string[] = [];
+    /** 준비 단계 종료(해제 전) — 커뮤니티로 넘기고 이 실행에서는 인트로를 다시 보이지 않는다 */
+    const handoff = (reason: string, markEpoch: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (markEpoch) markLaunchEpochShown(snapshot.epoch);
+      abortLaunchIntroToCommunity(reason);
+      setPhase("done");
+    };
+    const onHidden = () => {
+      if (document.visibilityState !== "hidden" || settled || signal.aborted) return;
+      console.info("[dibay-launch-intro] preparing_background");
+      ac.abort();
+      handoff("background_preparing", true);
+    };
+    document.addEventListener("visibilitychange", onHidden);
     void (async () => {
-      const intent = await hasLaunchIntent({ includeCallRoutes: true });
-      if (cancelled) return;
-      if (intent) {
-        abortLaunchIntroToCommunity(intent);
-        setPhase("done");
-        return;
-      }
-      // P7 device target: read the DeviceClass SSOT (read-only) only when the publication targets
-      // phones or tablets. Not a match (or UNKNOWN) → COMMUNITY before the OS release, like an intent.
-      const target = snapshot.publication.eligibility?.target;
-      if (target) {
-        const dc = await resolveDibayDeviceClass();
-        if (cancelled) return;
-        if (!launchIntroTargetMatches(target, dc.deviceClass)) {
-          abortLaunchIntroToCommunity(`target_${target}_device_${dc.deviceClass}`);
-          setPhase("done");
+      try {
+        const intent = await hasLaunchIntent({ includeCallRoutes: true });
+        if (signal.aborted) return;
+        if (intent) {
+          handoff(intent, false);
           return;
         }
-      }
-      const srcs: Record<string, string> = {};
-      for (const ref of launchIntroDocumentImageRefs(doc)) {
-        if (srcs[ref.sha256]) continue;
-        const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
-        const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
-        if (src) created.push(src);
-        if (!src) {
-          invalidateLaunchIntroIndex();
-          if (!cancelled) {
-            abortLaunchIntroToCommunity("asset_missing");
-            setPhase("done");
+        // P7 device target: read the DeviceClass SSOT (read-only) only when the publication targets
+        // phones or tablets. Not a match (or UNKNOWN) → COMMUNITY before the OS release, like an intent.
+        const target = snapshot.publication.eligibility?.target;
+        if (target) {
+          const dc = await resolveDibayDeviceClass();
+          if (signal.aborted) return;
+          if (!launchIntroTargetMatches(target, dc.deviceClass)) {
+            handoff(`target_${target}_device_${dc.deviceClass}`, false);
+            return;
           }
-          return;
         }
-        try {
-          const probe = new Image();
-          probe.src = src;
-          await probe.decode();
-        } catch {
-          invalidateLaunchIntroIndex();
-          if (!cancelled) {
-            abortLaunchIntroToCommunity("decode_failed");
-            setPhase("done");
+        const srcs: Record<string, string> = {};
+        for (const ref of launchIntroDocumentImageRefs(doc)) {
+          if (srcs[ref.sha256]) continue;
+          const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
+          const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
+          if (signal.aborted) {
+            // 정리(cleanup)가 이미 돌았으면 여기서 바로 해제한다.
+            if (src) URL.revokeObjectURL(src);
+            return;
           }
-          return;
+          if (src) created.push(src);
+          if (!src) {
+            invalidateLaunchIntroIndex();
+            handoff("asset_missing", false);
+            return;
+          }
+          try {
+            const probe = new Image();
+            probe.src = src;
+            await probe.decode();
+          } catch {
+            if (signal.aborted) return;
+            invalidateLaunchIntroIndex();
+            handoff("decode_failed", false);
+            return;
+          }
+          if (signal.aborted) return;
+          srcs[ref.sha256] = src;
         }
-        srcs[ref.sha256] = src;
-        if (cancelled) return;
+        // Videos: verified local object URLs only. Never decoded or awaited here — the poster above is
+        // the first meaningful frame; playback starts after the OS release and may fail without effect.
+        for (const ref of launchIntroDocumentVideoRefs(doc)) {
+          if (srcs[ref.sha256]) continue;
+          const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
+          const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
+          if (signal.aborted) {
+            // 정리(cleanup)가 이미 돌았으면 여기서 바로 해제한다.
+            if (src) URL.revokeObjectURL(src);
+            return;
+          }
+          if (src) created.push(src);
+          if (!src) {
+            // Incomplete cache = not a valid snapshot (promotion is all-or-nothing): same as a missing image.
+            invalidateLaunchIntroIndex();
+            handoff("asset_missing", false);
+            return;
+          }
+          srcs[ref.sha256] = src;
+        }
+        if (signal.aborted || settled) return;
+        committed = true;
+        settled = true;
+        setImageSrcs(srcs);
+        setPhase("showing");
+      } catch (e) {
+        if (signal.aborted) return;
+        console.warn(`[dibay-launch-intro] prepare_exception ${e instanceof Error ? e.name : typeof e}`);
+        handoff("prepare_exception", true);
+      } finally {
+        // 준비가 끝나면(성공·실패·예외) 준비 단계 백그라운드 감지를 뗀다 — SHOWING 이후는 아래 감지가 맡는다.
+        document.removeEventListener("visibilitychange", onHidden);
       }
-      // Videos: verified local object URLs only. Never decoded or awaited here — the poster above is
-      // the first meaningful frame; playback starts after the OS release and may fail without effect.
-      for (const ref of launchIntroDocumentVideoRefs(doc)) {
-        if (srcs[ref.sha256]) continue;
-        const asset = snapshot.publication.assets.find((a) => a.sha256 === ref.sha256);
-        const src = asset ? await loadLaunchIntroAssetUrl(asset) : null;
-        if (cancelled) {
-          if (src) URL.revokeObjectURL(src);
-          return;
-        }
-        if (!src) {
-          // Incomplete cache = not a valid snapshot (promotion is all-or-nothing): same as a missing image.
-          invalidateLaunchIntroIndex();
-          abortLaunchIntroToCommunity("asset_missing");
-          setPhase("done");
-          return;
-        }
-        created.push(src);
-        srcs[ref.sha256] = src;
-      }
-      if (cancelled) return;
-      committed = true;
-      setImageSrcs(srcs);
-      setPhase("showing");
     })();
     return () => {
-      cancelled = true;
+      // 언마운트·StrictMode 재실행: 준비만 멈춘다(넘김은 호스트 오류 경계·다음 실행이 맡는다).
+      ac.abort();
+      document.removeEventListener("visibilitychange", onHidden);
       // Object URLs handed to state are revoked by the imageSrcs cleanup; the rest here.
       if (!committed) for (const src of created) URL.revokeObjectURL(src);
     };
@@ -166,8 +201,9 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
 
   /**
    * Exit latch: the first exit event wins. complete / skip / CTA route hand off to the destination:
-   * the overlay stays until the destination shell has painted the target path
-   * (onDestinationShellFrame), so the exit never reveals an empty document. The scene timer stops
+   * the overlay stays until the destination shell has painted (CTA: the target path, or any path
+   * after navigation left the start path — DS-8) (onDestinationShellFrame), so the exit never
+   * reveals an empty document. The scene timer stops
    * because the Player only runs while SHOWING.
    */
   const exit = useCallback(
@@ -191,11 +227,14 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
         setPhase("done");
         return;
       }
-      // CTA: wait for the exact target route; complete / skip: the first destination frame
-      // (the app may apply its own initial surface after mount).
+      // complete / skip: the first destination frame (the app may apply its own initial surface after mount).
+      // CTA (광고 ② DS-8): 「이동 시작 + 다음 화면 그림」 — 목표 주소가 그려지거나, 이동이 시작돼 주소가
+      // 시작 주소를 떠난 뒤 그려진 첫 화면에서 닫는다. 목표가 다른 주소로 넘어가도(로그인·리다이렉트)
+      // exiting 오버레이가 남지 않는다.
       const targetPath = target ? target.split(/[?#]/)[0] || "/" : null;
+      const startPath = typeof window !== "undefined" ? window.location.pathname : null;
       handoffOff.current = onDestinationShellFrame((painted) => {
-        if (targetPath && painted !== targetPath) return;
+        if (targetPath && painted !== targetPath && painted === startPath) return;
         handoffOff.current?.();
         handoffOff.current = null;
         setPhase("done");
@@ -264,7 +303,11 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
     console.info("[dibay-launch-intro] complete_timer_fired");
     exitRef.current("complete");
   }, []);
-  const onRoute = useCallback((path: string) => exitRef.current("cta", path), []);
+  // DS-8: 이미 받아 둔 옛 게시본의 CTA 도 회원 금지 경로(/admin 등)·잘못된 주소로는 보내지 않는다 — 건너뛰기와 같다.
+  const onRoute = useCallback(
+    (path: string) => (isLaunchIntroCtaRoutePath(path) ? exitRef.current("cta", path) : exitRef.current("skip")),
+    []
+  );
   const onSkip = useCallback(() => exitRef.current("skip"), []);
   const resolveImage = useCallback((sha: string) => imageSrcs[sha] ?? null, [imageSrcs]);
 

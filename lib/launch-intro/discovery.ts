@@ -51,12 +51,15 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
         "x-dibay-platform": platformTag(),
       },
     });
+    // 5xx·네트워크 실패 = 일시 장애: 아무것도 바꾸지 않는다(이전 캐시 유지). 손상 게시본은 서버가 200
+    // `unpublished` 로 돌려준다(광고 ② IN-P10) — 아래에서 state-only 로 반영돼 인트로가 꺼진다.
     if (!res.ok) return;
     const live = (await res.json()) as unknown;
     if (!isPayload(live)) return;
 
     const current = readLaunchIntroIndex();
-    if (current && current.revision === live.revision) return;
+    // IN-P10: 게시본 손상은 revision 을 올리지 않는다(게시본 행만 손상) — 같은 revision 이어도 state 가 다르면 반영한다.
+    if (current && current.revision === live.revision && current.state === live.state) return;
 
     let next: LaunchIntroIndex;
     if (!live.publication) {
