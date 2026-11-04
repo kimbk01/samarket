@@ -362,10 +362,7 @@ export async function syncAppReleases(
 }
 
 /** 관리자: 특정 출시 행을 수동 확정 발송 (Play completed 미확인·closed testing 등). */
-export async function adminConfirmNotifyRelease(
-  sb: SupabaseClient,
-  releaseId: string
-): Promise<NotifyReleaseResult> {
+export async function loadAppReleaseById(sb: SupabaseClient, releaseId: string): Promise<AppReleaseRow> {
   const { data, error } = await sb
     .from("app_releases")
     .select(
@@ -375,5 +372,34 @@ export async function adminConfirmNotifyRelease(
     .maybeSingle();
   if (error) throw new Error(`app_release_load_failed:${error.message}`);
   if (!data) throw new Error("app_release_not_found");
-  return notifyReleaseFanOut(sb, data as AppReleaseRow, { forceAdminConfirm: true });
+  return data as AppReleaseRow;
+}
+
+export async function adminConfirmNotifyRelease(
+  sb: SupabaseClient,
+  release: AppReleaseRow
+): Promise<NotifyReleaseResult> {
+  return notifyReleaseFanOut(sb, release, { forceAdminConfirm: true });
+}
+
+export type AppReleaseNotifyPreview = {
+  eligible: boolean;
+  /** 구버전 대상 회원 수 — 발송과 같은 기기·버전 조건. 이미 받은 회원(중복 방지로 건너뜀)이 포함될 수 있다. */
+  targetCount: number;
+  maxPerRun: number;
+};
+
+/** 「발송 확정」 확인창용 — 읽기만 한다(알림·출시 행 변경 없음). */
+export async function previewAdminConfirmNotifyRelease(
+  sb: SupabaseClient,
+  release: AppReleaseRow
+): Promise<AppReleaseNotifyPreview> {
+  const eligible = isEligibleForAdminConfirmedNotify(release) && releaseNotifyIdentity(release) != null;
+  if (!eligible) return { eligible: false, targetCount: 0, maxPerRun: APP_RELEASE_NOTIFY_MAX_PER_RUN };
+  const devices = await loadTrustedActiveDeviceVersions(sb, release.platform);
+  let targetCount = 0;
+  for (const installed of devices.values()) {
+    if (shouldNotifyUserForRelease(release.platform, installed, release)) targetCount += 1;
+  }
+  return { eligible: true, targetCount, maxPerRun: APP_RELEASE_NOTIFY_MAX_PER_RUN };
 }

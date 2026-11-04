@@ -95,6 +95,14 @@ export function isTrustedActiveDeviceForNotify(opts: {
   return { ok: true, installed };
 }
 
+/** 관리자 L3 「발송 확정」 — 운영자가 그대로 다시 입력하는 대상 버전 (화면·서버 같은 값). 예: `1.2.6 (31)` */
+export function appReleaseConfirmText(row: { version_name: string; version_code: number | null }): string {
+  return `${row.version_name}${row.version_code != null ? ` (${row.version_code})` : ""}`;
+}
+
+/** 예전 관리자 화면(사유·재입력 없이 보내던 요청) — 화면을 새로고침해야 한다는 오류 코드 */
+export const APP_RELEASE_ADMIN_SCREEN_OUTDATED = "admin_screen_outdated_refresh_required";
+
 export function shouldNotifyUserForRelease(
   platform: AppReleasePlatform,
   installed: ParsedAppVersion | null,
