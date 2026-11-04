@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { countVisibleTradeFavoritesServer } from "@/lib/favorites/load-favorite-posts-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,12 +20,9 @@ export async function GET(_req: NextRequest) {
   let storeCount = 0;
 
   try {
-    const sb = getSupabaseServer();
-    const { count, error } = await sb
-      .from("favorites")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    if (!error && typeof count === "number") tradeCount = count;
+    /** 3차 실기 2-5 (H1): 찜 목록·칩 개수와 같은 정의 1곳 — 관리자 삭제 글 제외 */
+    const n = await countVisibleTradeFavoritesServer(getSupabaseServer(), userId);
+    if (typeof n === "number") tradeCount = n;
   } catch {
     /* ignore */
   }

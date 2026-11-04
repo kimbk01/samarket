@@ -15,6 +15,32 @@ import {
 export type FavoritePostListItem = PostWithMeta & { favorited_at: string };
 
 /**
+ * 「내 거래 찜」에서 빼는 글 — 관리자가 삭제한 글 (D-3 · 3차 실기 2-5 근본 수정 H1 2026-11-04).
+ * 찜 목록 본문·하위 칩 개수·찜 화면 맨 위 개수·내정보 대시보드 개수가 모두 이 규칙 1개를 쓴다.
+ * (글이 지워진 찜은 외래키 `ON DELETE CASCADE` 로 생기지 않는다)
+ */
+export const TRADE_FAVORITE_HIDDEN_MODERATION = "admin_deleted" as const;
+
+/**
+ * 「내 거래 찜 개수」 정의 1곳 — 찜 ⨝ 글(외래키 inner join) 에서 관리자 삭제 글을 뺀 수. 쿼리 1번.
+ * 실패면 null (호출부가 「—」 등으로 처리 · 0 으로 바꾸지 않는다).
+ */
+export async function countVisibleTradeFavoritesServer(
+  sb: SupabaseClient<any>,
+  userId: string
+): Promise<number | null> {
+  const uid = userId.trim();
+  if (!uid) return 0;
+  const { count, error } = await sb
+    .from("favorites")
+    .select("id, posts!inner(moderation_state)", { count: "exact", head: true })
+    .eq("user_id", uid)
+    .neq("posts.moderation_state", TRADE_FAVORITE_HIDDEN_MODERATION);
+  if (error || typeof count !== "number") return null;
+  return count;
+}
+
+/**
  * D-3 (2026-11-04): 관리자가 삭제한 글은 찜 목록·개수에서 뺀다(판매자 삭제·숨김·관리자 숨김은 「볼 수 없는 글」 카드로 남김).
  * 읽기 표(`posts_masked`)에 `moderation_state` 가 없어 원본 표에서 숨김 글 id 만 확인한다. 실패하면 빼지 않는다(목록을 막지 않음).
  */
@@ -25,7 +51,7 @@ async function loadAdminDeletedPostIds(sb: SupabaseClient<any>, rows: readonly {
     .from(POSTS_TABLE_WRITE)
     .select("id")
     .in("id", hiddenIds)
-    .eq("moderation_state", "admin_deleted");
+    .eq("moderation_state", TRADE_FAVORITE_HIDDEN_MODERATION);
   if (error) return new Set();
   return new Set(((data ?? []) as { id: string }[]).map((r) => String(r.id)));
 }

@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { countVisibleTradeFavoritesServer } from "@/lib/favorites/load-favorite-posts-server";
 import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
 
 async function countBuyerVisibleStoreOrders(buyerId: string): Promise<number | null> {
@@ -58,13 +59,8 @@ async function countCommunityPostsVisibleForUser(userId: string): Promise<number
 
 async function countTradeFavorites(userId: string): Promise<number | null> {
   try {
-    const sb = getSupabaseServer();
-    const { count, error } = await sb
-      .from("favorites")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-    if (error) return null;
-    return count ?? 0;
+    /** 3차 실기 2-5 (H1): 찜 목록·찜 화면 맨 위와 같은 정의 1곳 — 관리자 삭제 글 제외 */
+    return await countVisibleTradeFavoritesServer(getSupabaseServer(), userId);
   } catch {
     return null;
   }
