@@ -82,8 +82,10 @@ describe("C-6 화면·API 계약 (소스)", () => {
 
   it("API: 사장 권한 · 매장 범위 · 전체 합계 · total", () => {
     expect(route).toContain("getCachedStoreIfOwner(sb, userId, sid)");
-    expect(route).toContain('.eq("store_id", sid)');
-    expect(route).toContain("summarizeOwnerGiftRedemptionPeriod(statusRows)");
+    // P-9 — 합계·거르기·쪽 = DB 1회, 매장 범위는 권한 확인된 sid
+    expect(route).toContain('sb.rpc("owner_gift_redemption_page"');
+    expect(route).toContain("p_store_id: sid");
+    expect(route).toContain("ownerGiftRedemptionSummaryFromGroups(pageObj.groups)");
     expect(route).toContain("total: paged.total");
     expect(route).not.toContain("GIFT_REDEMPTIONS_PERIOD_CAP = 500");
   });

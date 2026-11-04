@@ -11,7 +11,6 @@ import type { PointChargeRequest } from "@/lib/types/point";
 import type {
   PointFinancialFilter,
   PointFinancialHistoryItem,
-  PointFinancialSummary,
 } from "@/lib/points/point-financial-history";
 import type { ExpiringPointEntry } from "@/lib/points/point-expire-utils";
 import type {
@@ -58,7 +57,6 @@ export type MePointsResponse = {
   ok?: boolean;
   error?: string;
   balance?: number;
-  summary?: PointFinancialSummary;
   history?: {
     items?: PointFinancialHistoryItem[];
     hasMore?: boolean;

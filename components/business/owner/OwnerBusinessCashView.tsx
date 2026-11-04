@@ -9,7 +9,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerCoinConvertSection } from "@/components/business/owner/OwnerCoinConvertSection";
-import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
+import { CurrencyBalanceCard } from "@/components/currency";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
@@ -46,17 +46,6 @@ type TopUpPolicy = {
   receivingAccountNote: string | null;
 };
 
-type LedgerRow = {
-  id: string;
-  entryKind: string;
-  direction?: string;
-  amountMinor?: number;
-  amount?: number;
-  balanceAfterMinor?: number;
-  balanceAfter?: number;
-  createdAt: string;
-};
-
 export function OwnerBusinessCashView({
   storeId,
   manageOnly = false,
@@ -74,7 +63,6 @@ export function OwnerBusinessCashView({
   const [error, setError] = useState<string | null>(null);
   const [spBalance, setSpBalance] = useState<number | null>(null);
   const [bcBalanceMinor, setBcBalanceMinor] = useState<number | null>(null);
-  const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [topUps, setTopUps] = useState<TopUpRow[]>([]);
   const [topUpOffset, setTopUpOffset] = useState(0);
   const [topUpTotal, setTopUpTotal] = useState(0);
@@ -114,7 +102,6 @@ export function OwnerBusinessCashView({
           storePoints?: { balance?: number | null };
           businessCash?: { balanceMinor?: number | null };
         };
-        businessCashLedger?: LedgerRow[];
         topUpRequests?: TopUpRow[];
         topUpRequestsTotal?: number;
         topUpRequestsError?: boolean;
@@ -129,7 +116,6 @@ export function OwnerBusinessCashView({
       // P0-1 — 조회 실패(null)는 0 이 아니라 「—」
       setSpBalance(readBalanceOrNull(json.assets?.storePoints?.balance));
       setBcBalanceMinor(readBalanceOrNull(json.assets?.businessCash?.balanceMinor));
-      setLedger(json.businessCashLedger ?? []);
       setTopUps(json.topUpRequests ?? []);
       setTopUpTotal(Math.max(0, Math.trunc(Number(json.topUpRequestsTotal) || 0)));
       setTopUpListError(Boolean(json.topUpRequestsError));
@@ -403,39 +389,6 @@ export function OwnerBusinessCashView({
           await onChanged?.();
         }}
       />
-
-      {!manageOnly ? (
-        <OwnerStoreAdminDashSection
-          title={safeT("owner_finance_cash_history_title", {
-            fallbackKo: "캐시 내역",
-            fallbackEn: "Cash history",
-          })}
-        >
-        <div id="ledger" data-owner-bc-ledger="1">
-        {ledger.length === 0 ? (
-          <p className="text-sm text-sam-muted">
-            {safeT("owner_bc_history_empty", {
-              fallbackKo: "내역이 없습니다",
-              fallbackEn: "No history yet",
-            })}
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {ledger.map((row) => (
-              <CurrencyHistoryRow
-                key={row.id}
-                currency="cash"
-                title={row.entryKind}
-                amount={Math.trunc(Number(row.amountMinor) || 0)}
-                isMinor
-                createdAt={row.createdAt}
-              />
-            ))}
-          </ul>
-        )}
-        </div>
-        </OwnerStoreAdminDashSection>
-      ) : null}
 
       {topUpListError ? (
         <p className="text-sm text-sam-danger" role="alert">

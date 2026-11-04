@@ -54,7 +54,8 @@ describe("재감사 R2 — 같은 시각 원장 줄 순서 (잔액 사슬)", () 
   it("시작·종료 잔액·페이지 모두 사슬 정렬을 쓴다", () => {
     const src = read("lib/finance/wallet-period-history.ts");
     expect(src).toContain("pickLedgerChainLatest");
-    expect(src).toContain("orderLedgerChainDesc(raw");
+    // 쪽 = 경계 묶음까지 채운 사슬 정렬 (P-7 · `sliceLedgerChainPage` 안에서 orderLedgerChainDesc)
+    expect(src).toContain("sliceLedgerChainPage(");
     expect(src).not.toMatch(/const last = all\.rows\[all\.rows\.length - 1\]/);
   });
 });

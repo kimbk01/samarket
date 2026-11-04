@@ -8,7 +8,7 @@ import { loadFavoritePostsServer } from "@/lib/favorites/load-favorite-posts-ser
 import { listPriceOffers } from "@/lib/offers/offers.service";
 import { listCommunityPostsForUserResult } from "@/lib/community-feed/list-community-posts-for-user";
 import { loadBuyerStoreOrderTabCounts } from "@/lib/delivery/customer/load-buyer-store-order-tab-counts";
-import { loadPointFinancialSummary } from "@/lib/points/project-point-financial-history";
+import { readUserPointBalanceResult } from "@/lib/points/user-point-ledger";
 import { loadCustomerCouponWalletCards } from "@/lib/stores/load-customer-coupon-wallet-cards";
 import { customerWalletPresentationTab } from "@/lib/stores/customer-coupon-wallet-view";
 import { loadGiftWalletOverviewSummary } from "@/lib/gift-certificate/load-gift-wallet";
@@ -44,7 +44,8 @@ export type MypageSummaryDeps = {
   listPriceOffers: typeof listPriceOffers;
   listCommunityPosts: typeof listCommunityPostsForUserResult;
   loadStoreOrderTabCounts: typeof loadBuyerStoreOrderTabCounts;
-  loadPointSummary: typeof loadPointFinancialSummary;
+  /** 포인트 잔액만 (재감사 P-4 · 이전: 누적 합계용 원장 5천 줄까지 읽던 `loadPointFinancialSummary`) */
+  loadPointBalance: typeof readUserPointBalanceResult;
   loadCouponCards: typeof loadCustomerCouponWalletCards;
   loadGiftSummary: typeof loadGiftWalletOverviewSummary;
   loadTrust: (sb: Sb, userId: string) => Promise<MypageSummaryTrust>;
@@ -102,7 +103,7 @@ export const DEFAULT_MYPAGE_SUMMARY_DEPS: MypageSummaryDeps = {
   listPriceOffers,
   listCommunityPosts: listCommunityPostsForUserResult,
   loadStoreOrderTabCounts: loadBuyerStoreOrderTabCounts,
-  loadPointSummary: loadPointFinancialSummary,
+  loadPointBalance: readUserPointBalanceResult,
   loadCouponCards: loadCustomerCouponWalletCards,
   loadGiftSummary: loadGiftWalletOverviewSummary,
   loadTrust: loadMypageSummaryTrustServer,
@@ -183,11 +184,11 @@ export async function loadMypageSummaryFieldsServer(
       if (!res.ok) unavailable(res.error);
       return res.counts.active;
     }, timeoutMs),
-    // 포인트 잔액 = `/api/me/points` summary.balance (이력은 읽지 않음)
+    // 포인트 잔액 = `/api/me/points` balance 와 같은 저장값 (이력·누적 합계는 읽지 않음 · P-4)
     settleField(async () => {
-      const res = await deps.loadPointSummary(sb, uid);
+      const res = await deps.loadPointBalance(sb, uid);
       if (!res.ok) unavailable(res.error);
-      return res.summary.balance;
+      return res.balance;
     }, timeoutMs),
     // 쿠폰 보유 = 쿠폰 화면 보유 탭(`customerWalletPresentationTab === "held"`)
     settleField(async () => {

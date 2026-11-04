@@ -198,77 +198,36 @@ export async function loadGiftHistoryPage(
   };
 }
 
+/** 기간 합계 = DB 집계 1회 (재감사 P-9 · `member_gift_wallet_period_sums` · 20271104180000) — 이전: 표마다 최대 5천 줄 읽어 합산. */
+export const MEMBER_GIFT_WALLET_PERIOD_SUMS_RPC = "member_gift_wallet_period_sums" as const;
+
+type RpcAmount = { count?: Num; amount?: Num };
+
 export async function loadGiftWalletPeriodSummary(
   sb: SupabaseClient,
   input: { userId: string } & Range
 ): Promise<{ ok: true; summary: GiftWalletPeriodSummary } | { ok: false; error: string }> {
   const uid = input.userId.trim();
   if (!uid) return { ok: false, error: "missing_user" };
-  const cap = GIFT_HISTORY_SUMMARY_CAP;
-  const inRange = <T extends { gte: (c: string, v: string) => T; lt: (c: string, v: string) => T }>(q: T, col: string): T => {
-    let out = q;
-    if (input.fromIso) out = out.gte(col, input.fromIso);
-    if (input.toIso) out = out.lt(col, input.toIso);
-    return out;
-  };
-  const [purRes, redRes, recvRes, sentRes] = await Promise.all([
-    inRange(
-      sb.from(GIFT_TABLES.instances).select("purchase_price", { count: "exact" }).eq("purchaser_user_id", uid),
-      "purchased_at"
-    ).limit(cap),
-    inRange(
-      sb
-        .from(GIFT_TABLES.redemptions)
-        .select("redeemed_amount, forfeited_amount", { count: "exact" })
-        .eq("buyer_user_id", uid)
-        .eq("reversed", false),
-      "created_at"
-    ).limit(cap),
-    inRange(
-      sb
-        .from(GIFT_TABLES.transfers)
-        .select("instance_id", { count: "exact" })
-        .eq("recipient_user_id", uid)
-        .eq("status", "ACCEPTED"),
-      "created_at"
-    ).limit(cap),
-    inRange(
-      sb
-        .from(GIFT_TABLES.transfers)
-        .select("instance_id", { count: "exact" })
-        .eq("sender_user_id", uid)
-        .eq("status", "ACCEPTED"),
-      "created_at"
-    ).limit(cap),
-  ]);
-  for (const r of [purRes, redRes, recvRes, sentRes]) {
-    if (r.error) return { ok: false, error: r.error.message };
-  }
-  const receivedTransfers = (recvRes.data ?? []) as Array<{ instance_id?: string | null }>;
-  const sentTransfers = (sentRes.data ?? []) as Array<{ instance_id?: string | null }>;
-  const instanceIds = [
-    ...new Set([...receivedTransfers, ...sentTransfers].map((r) => String(r.instance_id ?? "")).filter(Boolean)),
-  ];
-  const faceValueByInstanceId = new Map<string, number>();
-  for (let i = 0; i < instanceIds.length; i += 200) {
-    const chunk = instanceIds.slice(i, i + 200);
-    const fr = await sb.from(GIFT_TABLES.instances).select("id, face_value").in("id", chunk);
-    if (fr.error) return { ok: false, error: fr.error.message };
-    for (const row of (fr.data ?? []) as Array<{ id: string; face_value: Num }>) {
-      faceValueByInstanceId.set(String(row.id), int(row.face_value));
-    }
-  }
-  const capped = [purRes, redRes, recvRes, sentRes].some((r) => (r.count ?? 0) > (r.data ?? []).length);
+  const { data, error } = await sb.rpc(MEMBER_GIFT_WALLET_PERIOD_SUMS_RPC, {
+    p_user_id: uid,
+    p_from: input.fromIso,
+    p_to: input.toIso,
+  });
+  if (error || !data || typeof data !== "object") return { ok: false, error: error?.message ?? "gift_summary_failed" };
+  const o = data as { purchased?: RpcAmount; used?: RpcAmount & { forfeited?: Num }; received?: RpcAmount; sent?: RpcAmount };
+  const total = (v: RpcAmount | undefined): GiftAmountTotal => ({ count: int(v?.count), amount: int(v?.amount) });
   return {
     ok: true,
-    summary: summarizeGiftWalletPeriod({
-      purchases: (purRes.data ?? []) as Array<{ purchase_price?: Num }>,
-      redemptions: (redRes.data ?? []) as Array<{ redeemed_amount?: Num; forfeited_amount?: Num }>,
-      receivedTransfers,
-      sentTransfers,
-      faceValueByInstanceId,
-      capped,
-      cap,
-    }),
+    summary: {
+      purchased: total(o.purchased),
+      used: total(o.used),
+      forfeited: int(o.used?.forfeited),
+      received: total(o.received),
+      sent: total(o.sent),
+      // DB 가 기간 전체를 합산 — 「일부만 반영」 없음
+      capped: false,
+      cap: GIFT_HISTORY_SUMMARY_CAP,
+    },
   };
 }

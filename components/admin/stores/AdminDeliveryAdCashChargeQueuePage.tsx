@@ -121,10 +121,25 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   /** 화면에 보이는 목록이 어떤 조건의 결과인지 — 조건이 바뀌면 새 결과가 올 때까지 「불러오는 중」. */
   const conditionKey = [focusRequestId, storeFilter, statusFilter, page, size, periodFrom, periodTo].join("|");
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  /**
+   * P-5 — 기간 합계(`summary=1`)는 처음·기간(from/to) 변경·새로고침(다시 시도·처리 후 재조회) 때만 요청한다.
+   * 쪽·상태만 바뀌면 목록만 요청하고 이미 받은 합계를 그대로 둔다. 서버 합계가 매장 조건(`store_id`)으로도
+   * 좁혀지므로 매장 조건이 바뀌어도 다시 받는다 (값이 달라지므로).
+   */
+  const summaryLoadedKeyRef = useRef<string | null>(null);
+  /** 합계를 다시 받는 중 — 이전 기간 값을 새 기간 아래 보이지 않게 숨긴다. */
+  const [summaryPending, setSummaryPending] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { refreshSummary?: boolean }) => {
     const seq = ++loadSeqRef.current;
     const key = [focusRequestId, storeFilter, statusFilter, page, size, periodFrom, periodTo].join("|");
+    const summaryKey = [storeFilter, periodFrom, periodTo].join("|");
+    const withSummary = opts?.refreshSummary === true || summaryLoadedKeyRef.current !== summaryKey;
+    if (withSummary) {
+      // 받기 전에 비워 둔다 — 늦게 온 이전 요청이 끝나도 이 요청이 다시 채울 때까지 다시 받게
+      summaryLoadedKeyRef.current = null;
+      setSummaryPending(true);
+    }
     setError(null);
     setErrorStatus(undefined);
     try {
@@ -136,7 +151,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       if (storeFilter) qs.set("store_id", storeFilter);
       if (periodFrom) qs.set("from", periodFrom);
       if (periodTo) qs.set("to", periodTo);
-      qs.set("summary", "1");
+      if (withSummary) qs.set("summary", "1");
       // 딥링크 신고 1건은 상태·쪽과 무관하게 따로 읽어 맨 위에 둔다 (이미 처리된 건이어도 보이게)
       const focusQs = focusRequestId ? new URLSearchParams({ status: "all", request_id: focusRequestId }) : null;
       const [res, focusRes] = await Promise.all([
@@ -158,6 +173,8 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         setError(json.error || "load_failed");
         setErrorStatus(res.status);
         setPeriodSummary(null);
+        summaryLoadedKeyRef.current = null;
+        setSummaryPending(false);
         setLoaded(true);
         setLoadedKey(key);
         return;
@@ -171,12 +188,18 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       if (seq !== loadSeqRef.current) return;
       setRows(next);
       setTotal(typeof json.total === "number" ? json.total : next.length);
-      setPeriodSummary(json.periodSummary ?? null);
+      if (withSummary) {
+        setPeriodSummary(json.periodSummary ?? null);
+        summaryLoadedKeyRef.current = summaryKey;
+        setSummaryPending(false);
+      }
       setLoadedKey(key);
     } catch {
       if (seq !== loadSeqRef.current) return;
       setError("network_error");
       setPeriodSummary(null);
+      summaryLoadedKeyRef.current = null;
+      setSummaryPending(false);
       setLoadedKey(key);
     } finally {
       if (seq === loadSeqRef.current) setLoaded(true);
@@ -224,7 +247,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         // 다른 관리자가 먼저 처리했거나 사라진 신청 — 안내 후 최신 목록으로 다시 불러온다.
         if (json.error === "not_pending" || json.error === "not_found") {
           setActionError(t("admin_r4_cash_charge_not_pending"));
-          await load();
+          await load({ refreshSummary: true });
           return;
         }
         setActionError(
@@ -257,7 +280,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           })
         );
       }
-      await load();
+      await load({ refreshSummary: true });
     } catch {
       setActionError(adminOperatorErrorMessage("network_error", ko));
     } finally {
@@ -418,7 +441,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
 
       <AdminRequestPeriodSummaryLine
         ko={ko}
-        summary={listPending ? null : periodSummary}
+        summary={summaryPending ? null : periodSummary}
         formatAmount={(minor) => formatCashPhp2(minor / 100)}
       />
 
@@ -432,7 +455,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <AdminLoadingState ko={ko} />
         ) : error ? (
           <div data-admin-cash-charge-error="1">
-            <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load()} />
+            <AdminErrorState ko={ko} code={error} httpStatus={errorStatus} onRetry={() => void load({ refreshSummary: true })} />
           </div>
         ) : rows.length === 0 ? (
           lq.isFiltered || storeFilter ? (

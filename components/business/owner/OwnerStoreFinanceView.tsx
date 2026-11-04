@@ -245,12 +245,12 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   // H-12·R1 — 이 매장의 관리자 처리 결과 알림(Cash 충전·Coin 출금)이 오면 갱신
   useRefetchOnNotificationArrival(refetchSilently, { storeId, kinds: STORE_MONEY_OUTCOME_KINDS });
   // 탭(section) 이동 때마다 잔액만 재조회 — 새 탭의 기간 내역은 붙을 때 스스로 읽는다(두 번 읽기 방지 · R5-b)
-  const firstSectionRef = useRef(true);
+  // P-2 — `section` 값이 실제로 바뀐 경우만 실행(이전 값 비교). 미납 쪽 이동으로 `load` 만 바뀌면
+  // 위 첫 조회 효과가 이미 읽으므로 여기서 다시 읽지 않는다(이전: `/finance`·`/commission-ledger` 2번씩).
+  const prevSectionRef = useRef(section);
   useEffect(() => {
-    if (firstSectionRef.current) {
-      firstSectionRef.current = false;
-      return;
-    }
+    if (prevSectionRef.current === section) return;
+    prevSectionRef.current = section;
     void load({ silent: true });
   }, [section, load]);
 

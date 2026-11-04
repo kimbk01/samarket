@@ -11,8 +11,6 @@ import {
   buildOwnerConversionDisclosure,
   createBusinessCashTopUpRequest,
   convertStorePointsToBusinessCash,
-  listBusinessCashLedgerForStore,
-  listEconomicPointLedgerForStore,
   loadBusinessCashChargePolicy,
   loadStoreBusinessCashBalance,
   loadStoreEconomicPointsBalance,
@@ -48,12 +46,11 @@ export async function GET(
   // 내역 줄 「자세히」 → 그 충전 신청 1건 (`focus=` · Coin 출금 focus 와 같은 방식 · D-6). 이 매장 것만.
   const focusId = String(req.nextUrl.searchParams.get("focus") ?? "").trim();
   const chargeCols = "id, amount_minor, status, created_at, decided_at, payment_method, payment_reference, reject_reason";
-  const [bc, sp, quote, bcLedger, spLedger, charges, chargePolicy, focus] = await Promise.all([
+  // P-3 — 원장 2종(`businessCashLedger`·`storePointsLedger`)은 화면이 쓰지 않아 뺐다(내역 = `/finance/history`).
+  const [bc, sp, quote, charges, chargePolicy, focus] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
     buildOwnerConversionDisclosure(sb, { ownerUserId: userId, storeId: sid, requestedPoints: 0 }),
-    listBusinessCashLedgerForStore(sb, sid),
-    listEconomicPointLedgerForStore(sb, sid),
     sb
       .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
       .select(chargeCols, {
@@ -97,8 +94,6 @@ export async function GET(
           outstandingFeeMinor: quote.quote.outstandingFeeMinor,
         }
       : null,
-    businessCashLedger: bcLedger,
-    storePointsLedger: spLedger,
     topUpPolicy: chargePolicy,
     topUpRequestsTotal: charges.count ?? (charges.data ?? []).length,
     // 목록 조회 실패를 0건으로 숨기지 않는다 (재감사 R8-d)

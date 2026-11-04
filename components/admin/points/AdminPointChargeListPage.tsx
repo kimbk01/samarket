@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointChargeRequest, PointChargeRequestStatus } from "@/lib/types/point";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -46,18 +46,31 @@ export function AdminPointChargeListPage() {
   /** 기간을 골라도 「입금 확인 대기」 경고는 전체 기간 건수 (서버가 기간 있을 때만 따로 보냄). */
   const [waitingConfirmAllTime, setWaitingConfirmAllTime] = useState<number | null>(null);
 
+  /**
+   * P-5 — 기간 합계(`summary=1`)는 처음·기간(from/to) 변경·새로고침(다시 시도·처리 후 재조회) 때만 요청한다.
+   * 쪽·상태·검색만 바뀌면 목록만 요청하고 이미 받은 합계를 그대로 둔다 (합계는 상태·검색·쪽과 무관 — 서버 계산).
+   */
+  const refreshNonce = lq.refreshKey.slice(lq.refreshKey.lastIndexOf("#") + 1);
+  const summaryKey = [lq.query.from, lq.query.to, refreshNonce, reloadNonce].join("\u0000");
+  /** 합계를 받아 둔 조건 — 다르면 다음 요청에 `summary=1` 을 붙인다. 실패하면 비워 다시 받게 한다. */
+  const summaryLoadedKeyRef = useRef<string | null>(null);
+  /** 합계를 다시 받는 중 — 이전 기간 값을 새 기간 아래 보이지 않게 숨긴다. */
+  const [summaryPending, setSummaryPending] = useState(true);
+
   // Server-side status filter · search · pagination (no 300-row cap).
   const apiQuery = lq.apiQueryString;
   useEffect(() => {
     let cancelled = false;
+    const withSummary = summaryLoadedKeyRef.current !== summaryKey;
     (async () => {
       setLoading(true);
       setError(null);
+      if (withSummary) setSummaryPending(true);
       try {
         const params = new URLSearchParams(apiQuery);
         if (!params.get("status")) params.set("status", "all");
         params.set("counts", "1");
-        params.set("summary", "1");
+        if (withSummary) params.set("summary", "1");
         const res = await fetch(`/api/admin/point-charges?${params.toString()}`, { credentials: "include" });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -75,8 +88,10 @@ export function AdminPointChargeListPage() {
           setError({ code: json.error ?? "load_failed", httpStatus: res.status });
           setRequests([]);
           setTotal(0);
-          // R8-g — 실패하면 이전 조건의 기간 합계를 남기지 않는다.
+          // R8-g — 실패하면 이전 조건의 기간 합계를 남기지 않는다 (다음 조회에서 다시 받는다).
           setPeriodSummary(null);
+          summaryLoadedKeyRef.current = null;
+          setSummaryPending(false);
           setPeriodNotAppliedToSearch(false);
           // D-11 ① — 실패하면 이전 조건의 상태 카드 숫자도 남기지 않는다.
           setStatusCounts(null);
@@ -92,7 +107,11 @@ export function AdminPointChargeListPage() {
           setStatusCountsPeriod(json.statusCountsPeriod ?? { fromDay: null, toDay: null });
         }
         setWaitingConfirmAllTime(typeof json.waitingConfirmAllTime === "number" ? json.waitingConfirmAllTime : null);
-        setPeriodSummary(json.periodSummary ?? null);
+        if (withSummary) {
+          setPeriodSummary(json.periodSummary ?? null);
+          summaryLoadedKeyRef.current = summaryKey;
+          setSummaryPending(false);
+        }
         setPeriodNotAppliedToSearch(json.periodNotAppliedToSearch === true);
       } catch {
         if (!cancelled) {
@@ -100,6 +119,8 @@ export function AdminPointChargeListPage() {
           setRequests([]);
           setTotal(0);
           setPeriodSummary(null);
+          summaryLoadedKeyRef.current = null;
+          setSummaryPending(false);
           setPeriodNotAppliedToSearch(false);
           setStatusCounts(null);
           setStatusCountsPeriod(null);
@@ -112,7 +133,7 @@ export function AdminPointChargeListPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiQuery, lq.refreshKey, reloadNonce]);
+  }, [apiQuery, lq.refreshKey, reloadNonce, summaryKey]);
 
   const countOf = (s: PointChargeRequestStatus) => statusCounts?.[s] ?? 0;
   const counts = {
@@ -191,7 +212,7 @@ export function AdminPointChargeListPage() {
 
       <AdminRequestPeriodSummaryLine
         ko={ko}
-        summary={loading ? null : periodSummary}
+        summary={summaryPending ? null : periodSummary}
         formatAmount={(n) => `${formatAdminNumber(n)}P`}
         formatAmount2={(n) => formatAdminPhp(n)}
         note={

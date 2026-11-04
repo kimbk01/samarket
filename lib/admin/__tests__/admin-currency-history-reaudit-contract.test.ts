@@ -54,9 +54,9 @@ describe("R8-g — 목록 실패 시 기간 합계 지움", () => {
     expect(failBlock).toMatch(/setPeriodSummary\(null\)/);
   });
 
-  it("Coin 출금: 조회 중·실패 시 합계 숨김", () => {
+  it("Coin 출금: 합계를 다시 받는 중·실패 시 합계 숨김 (P-5 — 쪽 이동 중에는 받은 합계 유지)", () => {
     expect(read("components/admin/finance/AdminCoinWithdrawalsPanel.tsx")).toMatch(
-      /list\.loading \|\| list\.error \? null/
+      /list\.oncePending \|\| list\.error\s*\?\s*null/
     );
   });
 });

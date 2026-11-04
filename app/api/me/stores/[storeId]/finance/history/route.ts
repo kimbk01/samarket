@@ -54,11 +54,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
   const limit = (PAGE_SIZES as readonly number[]).includes(limitRaw) ? limitRaw : 20;
   const offset = Math.max(0, Math.trunc(Number(sp.get("offset") ?? "0")) || 0);
 
+  // `summary=0` = 목록만 (화면이 같은 기간 합계를 이미 가짐 · 쪽·칸 이동 — 재감사 P-1)
+  const withSummary = sp.get("summary") !== "0";
   const [summary, page] = await Promise.all([
-    wallet === "coin" ? loadCoinPeriodSummary(sb, sid, range) : loadCashPeriodSummary(sb, sid, range),
+    !withSummary
+      ? Promise.resolve(undefined)
+      : wallet === "coin"
+        ? loadCoinPeriodSummary(sb, sid, range)
+        : loadCashPeriodSummary(sb, sid, range),
     loadWalletHistoryPage(sb, { storeId: sid, wallet, range, kinds, offset, limit }),
   ]);
-  if (!summary || !page) {
+  if (summary === null || !page) {
     return NextResponse.json({ ok: false, error: "history_unavailable" }, { status: 503 });
   }
   return NextResponse.json({
@@ -66,7 +72,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
     wallet,
     period: { period: parsed.period, fromDay: parsed.fromDay, toDay: parsed.toDay, ...range },
     category: kinds ? category : null,
-    summary,
+    ...(summary ? { summary } : {}),
     rows: page.rows,
     total: page.total,
     offset,

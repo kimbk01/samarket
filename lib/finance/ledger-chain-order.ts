@@ -69,3 +69,61 @@ export function pickLedgerChainLatest<T>(
 ): T | null {
   return orderLedgerChainDesc(rows, view, olderBalance)[0] ?? null;
 }
+
+/**
+ * 쪽 자르기 (재감사 P-7) — 쪽 경계에 걸린 같은 시각 묶음이 읽은 창 밖으로 이어질 수 있으면 그 묶음 전체를 더 읽은 뒤
+ * 사슬 정렬하고 자른다. 이전: 앞뒤 고정 8줄만 더 읽어, 같은 시각 줄이 9줄 이상이면 경계 순서가 틀릴 수 있었다.
+ * - `windowRows` = 정렬(created_at DESC, id DESC)된 창 [windowStart, windowStart + windowRows.length)
+ * - `windowFull` = 창 끝까지 꽉 찼는지(뒤에 줄이 더 있을 수 있음)
+ * - `loadGroup(createdAt)` = 그 시각 줄 전부(같은 정렬) + 그보다 최신인 줄 수(= 묶음의 절대 시작 위치). 실패 null.
+ * 묶음이 창 안에서 끝나면 추가 조회 없음(평소 경우).
+ */
+export async function sliceLedgerChainPage<T>(input: {
+  windowRows: readonly T[];
+  windowStart: number;
+  windowFull: boolean;
+  offset: number;
+  limit: number;
+  view: (r: T) => LedgerChainView;
+  loadGroup: (createdAt: string) => Promise<{ rows: T[]; newerCount: number } | null>;
+}): Promise<T[] | null> {
+  const { view } = input;
+  let rows = [...input.windowRows];
+  let start = input.windowStart;
+  const pageFirst = input.offset - start;
+  if (pageFirst < 0 || pageFirst >= rows.length) return [];
+  const pageLast = Math.min(rows.length - 1, pageFirst + input.limit - 1);
+  const at = (i: number) => view(rows[i]!).createdAt;
+
+  // 뒤 경계 — 쪽 마지막 줄의 묶음이 창 끝까지 이어지고 창이 꽉 찼으면 뒤에 더 있을 수 있다
+  const tailAt = at(pageLast);
+  let tailFrom = pageLast;
+  while (tailFrom > 0 && at(tailFrom - 1) === tailAt) tailFrom -= 1;
+  let tailTo = pageLast;
+  while (tailTo < rows.length - 1 && at(tailTo + 1) === tailAt) tailTo += 1;
+  if (tailTo === rows.length - 1 && input.windowFull) {
+    const g = await input.loadGroup(tailAt);
+    if (!g) return null;
+    rows = [...rows.slice(0, tailFrom), ...g.rows];
+    // 묶음이 창 맨 앞부터였다면 그 묶음의 시작이 곧 창의 시작
+    if (tailFrom === 0) start = g.newerCount;
+  }
+
+  // 앞 경계 — 쪽 첫 줄의 묶음이 창 맨 앞까지 이어지고 창 앞에 줄이 있으면 앞에 더 있을 수 있다
+  const pf = input.offset - start;
+  const headAt = view(rows[pf]!).createdAt;
+  let headFrom = pf;
+  while (headFrom > 0 && view(rows[headFrom - 1]!).createdAt === headAt) headFrom -= 1;
+  if (headFrom === 0 && start > 0) {
+    let headTo = pf;
+    while (headTo < rows.length - 1 && view(rows[headTo + 1]!).createdAt === headAt) headTo += 1;
+    const g = await input.loadGroup(headAt);
+    if (!g) return null;
+    rows = [...g.rows, ...rows.slice(headTo + 1)];
+    start = g.newerCount;
+  }
+
+  const ordered = orderLedgerChainDesc(rows, view);
+  const from = input.offset - start;
+  return ordered.slice(from, from + input.limit);
+}

@@ -75,13 +75,15 @@ export function AdminCoinWithdrawalsPanel() {
   const apiQs = useMemo(() => {
     const qs = new URLSearchParams(lq.apiQueryString);
     if (!qs.get("status")) qs.set("status", "all");
-    // H-10 — 기간(from/to, 신청 시각) 전체 합계를 서버에서 함께 계산
-    qs.set("summary", "1");
     // Support deep-link may target a decided row — 서버가 `focus` 로 함께 돌려준다.
     if (focusRequestId) qs.set("focusId", focusRequestId);
     return qs.toString();
   }, [lq.apiQueryString, focusRequestId]);
-  const list = useMemberOpsPagedFetch<WithdrawalRow>(`/api/admin/coin-withdrawals?${apiQs}`, "requests", lq.refreshKey);
+  // H-10 — 기간(from/to, 신청 시각) 전체 합계를 서버에서 함께 계산.
+  // P-5 — `summary=1` 은 처음·기간 변경·새로고침(다시 시도·처리 후 재조회) 때만. 쪽·상태만 바뀌면 목록만 요청한다.
+  const list = useMemberOpsPagedFetch<WithdrawalRow>(`/api/admin/coin-withdrawals?${apiQs}`, "requests", lq.refreshKey, {
+    once: { key: `${lq.query.from}\u0000${lq.query.to}`, query: "summary=1" },
+  });
   const loading = list.loading;
   const rows = useMemo(() => {
     const focus = (list.json?.focus ?? null) as WithdrawalRow | null;
@@ -89,9 +91,11 @@ export function AdminCoinWithdrawalsPanel() {
     return [focus, ...list.rows.filter((r) => r.id !== focus.id)];
   }, [list.rows, list.json]);
   const load = list.reload;
-  /** R8-g — 조회 중·실패 시 이전 조건의 기간 합계를 남기지 않는다. */
+  /** R8-g — 합계를 다시 받는 중·실패 시 이전 조건의 기간 합계를 남기지 않는다. 쪽 이동 중에는 받은 합계를 그대로 둔다. */
   const periodSummary =
-    list.loading || list.error ? null : ((list.json?.periodSummary ?? null) as AdminRequestPeriodSummary | null);
+    list.oncePending || list.error
+      ? null
+      : ((list.onceJson?.periodSummary ?? null) as AdminRequestPeriodSummary | null);
 
   useEffect(() => {
     if (!focusRequestId || loading) return;

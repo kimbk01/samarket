@@ -17,9 +17,9 @@ import type { PointFinancialFilter } from "@/lib/points/point-financial-history"
 import {
   loadPointFinancialHistory,
   loadPointFinancialHistoryChainPage,
-  loadPointFinancialSummary,
   serializePointFinancialPage,
 } from "@/lib/points/project-point-financial-history";
+import { readUserPointBalanceResult } from "@/lib/points/user-point-ledger";
 import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
@@ -92,12 +92,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, chargeRequests: items, chargeRequestsPage });
   }
 
-  const summaryRes = await loadPointFinancialSummary(sb, userId);
-  if (!summaryRes.ok) {
+  // P-4 — 회원 화면은 잔액만 쓴다. 누적 합계(totalCredit·totalDebit·lastOccurredAt·ledgerSum — 원장 5천 줄 + 원장 합)는
+  // 쓰는 곳(관리자 `loadPointFinancialSummary`)에서만 계산한다.
+  const balanceRes = await readUserPointBalanceResult(sb, userId);
+  if (!balanceRes.ok) {
     // 잔액을 못 읽었으면 0 이 아니라 오류 — 화면은 "확인 불가"로 표시한다(D4).
     return NextResponse.json({ ok: false, error: "points_balance_unavailable" }, { status: 503 });
   }
-  const summary = summaryRes.summary;
+  const balance = balanceRes.balance;
   const listFromIso = period.explicit ? period.fromIso : null;
   const listToIso = period.explicit ? period.toIso : null;
   const historyRes = offsetMode
@@ -122,8 +124,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (historyRes.code === "table_missing") {
       return NextResponse.json({
         ok: true,
-        balance: summary.balance,
-        summary,
+        balance,
         history: { items: [], hasMore: false, nextCursor: null, total: 0 },
         ledger: [],
         chargeRequests: [],
@@ -190,8 +191,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }>;
     const nowIso = new Date().toISOString();
     expiring = {
-      ...computeExpiringPointsFromLedger(expRows, summary.balance, nowIso),
-      entries: allocateExpiringEntries(expRows, summary.balance, nowIso),
+      ...computeExpiringPointsFromLedger(expRows, balance, nowIso),
+      entries: allocateExpiringEntries(expRows, balance, nowIso),
     };
   } else {
     console.error("[GET me/points] expiring lookup failed", expRes.error.message);
@@ -201,8 +202,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({
     ok: true,
-    balance: summary.balance,
-    summary,
+    balance,
     history,
     /** @deprecated use history.items — kept for older clients during cutover */
     ledger: history.items.map((item) => ({

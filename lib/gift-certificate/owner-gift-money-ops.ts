@@ -215,6 +215,40 @@ export function summarizeOwnerGiftRedemptionPeriod(
   return { ...kpis, counts };
 }
 
+/**
+ * DB 상태 칸 묶음(`owner_gift_redemption_page.groups` · 재감사 P-9) → 기간 합계. 규칙은 `summarizeOwnerGiftRedemptionPeriod` 와 같다
+ * (줄마다 음수 0 처리는 SQL 이 함 · 묶음 = 같은 상태 줄들의 합).
+ */
+export function ownerGiftRedemptionSummaryFromGroups(raw: unknown): OwnerGiftRedemptionPeriodSummary {
+  const groups = (Array.isArray(raw) ? raw : []) as Array<{
+    reversed?: boolean;
+    recognized?: boolean;
+    count?: number | string;
+    redeemed?: number | string;
+    fee?: number | string;
+    net?: number | string;
+  }>;
+  const n = (v: unknown) => Math.max(0, Math.trunc(Number(v) || 0));
+  const kpis = aggregateOwnerRedemptionKpis(
+    groups.map((g) => ({
+      reversed: g.reversed === true,
+      recognized: g.recognized === true,
+      redeemedAmount: n(g.redeemed),
+      platformFeeAmount: n(g.fee),
+      merchantNetAmount: n(g.net),
+    }))
+  );
+  const counts: Record<OwnerGiftRedemptionFilter, number> = { all: 0, pending: 0, recognized: 0, refund: 0 };
+  for (const g of groups) {
+    const c = n(g.count);
+    counts.all += c;
+    if (g.reversed === true) counts.refund += c;
+    else if (g.recognized === true) counts.recognized += c;
+    else counts.pending += c;
+  }
+  return { ...kpis, counts };
+}
+
 /** 거르기 → 쪽 자르기. `total` = 거른 뒤 전체 건수. */
 export function pageOwnerGiftRedemptions<T extends Pick<OwnerGiftRedemptionRow, "reversed" | "recognized">>(
   rows: ReadonlyArray<T>,

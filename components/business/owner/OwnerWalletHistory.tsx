@@ -155,6 +155,12 @@ export function OwnerWalletHistory({
   const [category, setCategory] = useState<string | null>(urlInit.category);
   const [offset, setOffset] = useState(urlInit.page * PAGE_SIZE);
   const [data, setData] = useState<Payload | null>(null);
+  /**
+   * 기간 합계는 기간이 바뀔 때만 다시 받는다 (재감사 P-1 · 이전: 쪽·칸을 넘길 때마다 서버가 기간 전체를 다시 합산).
+   * 칸·쪽 이동은 목록만 받고 이 합계를 그대로 쓴다. 조용한 재조회(알림·앱 복귀)는 합계도 새로.
+   */
+  const [summary, setSummary] = useState<Payload["summary"] | null>(null);
+  const summaryKeyRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   /** 늦게 온 이전 응답이 새 기간·쪽 결과를 덮지 않게 (재감사 R5-a) */
@@ -177,17 +183,22 @@ export function OwnerWalletHistory({
   const load = useCallback(
     async (silent?: boolean) => {
       const seq = ++requestSeq.current;
+      const periodKey = `${period.period}|${period.fromDay}|${period.toDay}`;
       if (customState !== "ok") {
         // 날짜가 다 정해지기 전에는 조회하지 않고, 앞 기간 값도 보이지 않게 (R4-c)
         setData(null);
+        setSummary(null);
+        summaryKeyRef.current = null;
         setError(false);
         setLoading(false);
         return;
       }
       // 기간·칸·쪽이 바뀐 조회는 앞 조회의 합계·목록을 지우고 「불러오는 중」 — 새 칩 아래 이전 값이 보이지 않게 (D-5).
       // 조용한 재조회(부모 reloadKey: 앱 복귀·처리 결과 알림)만 이전 값을 유지한다.
+      const needSummary = Boolean(silent) || summaryKeyRef.current !== periodKey;
       if (!silent) {
         setData(null);
+        if (needSummary) setSummary(null);
         setError(false);
         setLoading(true);
       }
@@ -199,6 +210,7 @@ export function OwnerWalletHistory({
         }
         const cat = adsOnly ? "ads" : category;
         if (cat) qs.set("category", cat);
+        if (!needSummary) qs.set("summary", "0");
         const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/finance/history?${qs.toString()}`, {
           credentials: "include",
         });
@@ -206,15 +218,25 @@ export function OwnerWalletHistory({
         if (seq !== requestSeq.current) return;
         if (!res.ok || !json?.ok) {
           // 조용한 재조회 실패 → 보던 내역은 두고 오류 띠만 (R8 · P-7)
-          if (!silent) setData(null);
+          if (!silent) {
+            setData(null);
+            if (needSummary) setSummary(null);
+          }
           setError(true);
           return;
         }
         setError(false);
         setData(json);
+        if (json.summary) {
+          setSummary(json.summary);
+          summaryKeyRef.current = periodKey;
+        }
       } catch {
         if (seq !== requestSeq.current) return;
-        if (!silent) setData(null);
+        if (!silent) {
+          setData(null);
+          if (needSummary) setSummary(null);
+        }
         setError(true);
       } finally {
         if (seq === requestSeq.current) setLoading(false);
@@ -234,7 +256,7 @@ export function OwnerWalletHistory({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 부모 재조회 신호에만 반응
   }, [reloadKey]);
 
-  const s = data?.summary;
+  const s = summary;
   const tiles = !s ? [] : s.wallet === "coin" ? coinTiles(s, ko) : cashTiles(s, ko, adsOnly);
   const fmtBal = (n: number) =>
     wallet === "coin" ? formatFinanceAmount({ wallet: "COIN", amount: n }) : formatFinanceAmount({ wallet: "CASH", amount: n, isMinor: true });

@@ -90,6 +90,40 @@ export function summarizePromotionOrders(
   };
 }
 
+export const MEMBER_PROMOTION_ORDER_PERIOD_SUMS_RPC = "member_promotion_order_period_sums" as const;
+
+/**
+ * DB 상태별 묶음 → 기간 합계. 규칙은 `summarizePromotionOrders` 와 같다(상태 정리·음수 0 은 SQL 이 줄마다 함) —
+ * 묶음 하나를 「그 상태의 줄 n개」로 보고 같은 순서·같은 모양으로 만든다. 전량 합산이라 capped 없음.
+ */
+export function promotionOrderSummaryFromGroups(raw: unknown): PromotionOrderPeriodSummary {
+  const groups = (Array.isArray(raw) ? raw : []) as Array<{
+    status?: string;
+    count?: number | string;
+    point_cost?: number | string;
+    refund_points?: number | string;
+  }>;
+  const order = PROMOTION_ORDER_STATUS_ORDER as readonly string[];
+  const rank = (st: string) => {
+    const i = order.indexOf(st);
+    return i < 0 ? order.length : i;
+  };
+  let count = 0;
+  let pointCost = 0;
+  let refundPoints = 0;
+  const byStatus: PromotionOrderStatusTotal[] = [];
+  for (const g of groups) {
+    const n = Math.max(0, int(g.count));
+    const cost = Math.max(0, int(g.point_cost));
+    count += n;
+    pointCost += cost;
+    refundPoints += Math.max(0, int(g.refund_points));
+    if (n > 0) byStatus.push({ status: String(g.status ?? "unknown"), count: n, pointCost: cost });
+  }
+  byStatus.sort((a, b) => rank(a.status) - rank(b.status) || a.status.localeCompare(b.status));
+  return { count, pointCost, refundPoints, byStatus, rowCount: count, capped: false, cap: PROMOTION_ORDER_SUMMARY_CAP };
+}
+
 /**
  * 쪽 이동 요청인가 — `offset` 을 보내면 쪽 모드(목록 잘림 없음 · total 포함).
  * 보내지 않으면 null (예전 호출처: 광고 시트·내 상품 등 최근 50건 그대로).
@@ -139,16 +173,14 @@ export async function loadPromotionOrdersPage(
     .order("id", { ascending: false })
     .range(input.offset, input.offset + input.limit - 1);
 
-  let sumQ = sb
-    .from("point_promotion_orders")
-    .select("order_status, point_cost, refund_points", { count: "exact" })
-    .eq("user_id", input.userId);
-  if (input.fromIso) sumQ = sumQ.gte("created_at", input.fromIso);
-  if (input.toIso) sumQ = sumQ.lt("created_at", input.toIso);
+  // 기간 합계 = DB 집계 1회 (재감사 P-9 · `member_promotion_order_period_sums`) — 이전: 최대 5천 줄 읽어 합산
   const sumPromise = input.withSummary
-    ? sumQ.order("created_at", { ascending: false }).limit(PROMOTION_ORDER_SUMMARY_CAP)
+    ? sb.rpc(MEMBER_PROMOTION_ORDER_PERIOD_SUMS_RPC, {
+        p_user_id: input.userId,
+        p_from: input.fromIso,
+        p_to: input.toIso,
+      })
     : null;
-
   const [pageRes, sumRes] = await Promise.all([pagePromise, sumPromise]);
   if (pageRes.error) return { ok: false, error: pageRes.error.message };
   if (sumRes?.error) return { ok: false, error: sumRes.error.message };
@@ -160,11 +192,7 @@ export async function loadPromotionOrdersPage(
       total: pageRes.count ?? orders.length,
       offset: input.offset,
       limit: input.limit,
-      periodSummary: sumRes
-        ? summarizePromotionOrders((sumRes.data ?? []) as PromotionOrderSummaryRow[], {
-            rowCount: sumRes.count ?? undefined,
-          })
-        : null,
+      periodSummary: sumRes ? promotionOrderSummaryFromGroups(sumRes.data) : null,
     },
   };
 }

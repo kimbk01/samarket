@@ -29,7 +29,7 @@ const okDeps = (): MypageSummaryDeps => ({
     ok: true as const,
     counts: { all: 9, active: 3, completed: 5, cancelled: 1 } as never,
   })),
-  loadPointSummary: vi.fn(async () => ({ ok: true as const, summary: { balance: -120 } as never })),
+  loadPointBalance: vi.fn(async () => ({ ok: true as const, balance: -120 })),
   loadCouponCards: vi.fn(async () => ({
     ok: true as const,
     cards: [{ bucket: "available" }, { bucket: "expiring" }, { bucket: "redeemed" }, { bucket: "expired" }] as never,
@@ -83,7 +83,7 @@ describe("mypage-summary.server — every field = destination screen function", 
         throw new Error("network");
       }),
       listCommunityPosts: vi.fn(async () => ({ ok: false as const, error: "posts_query_failed" as const })),
-      loadPointSummary: vi.fn(async () => ({ ok: false as const, error: "points_balance_unavailable" })),
+      loadPointBalance: vi.fn(async () => ({ ok: false as const, error: "points_balance_unavailable" })),
       loadTrust: vi.fn(async () => {
         throw new Error("profile");
       }),

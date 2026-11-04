@@ -6,10 +6,8 @@ import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import {
   AST_004_STORE_POINTS_ECONOMIC,
   AST_005_BUSINESS_CASH,
-  BUSINESS_CASH_CHARGE_REQUESTS_TABLE,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
-  buildOwnerConversionDisclosure,
   loadStoreBusinessCashBalance,
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
@@ -42,16 +40,11 @@ export async function GET(
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const obligationOffset = Math.max(0, Math.trunc(Number(req.nextUrl.searchParams.get("obligation_offset") ?? "0")) || 0);
-  const [bc, sp, quote, charges, obligations, obligationAggregate] = await Promise.all([
+  // P-3 — 전환 미리보기(`conversion`)·충전 20건(`topUpRequests`)은 호출 3곳(재무 화면·상품권 패널·홈 카드)이
+  // 쓰지 않아 조회·응답에서 뺐다. 전환 화면은 `/business-cash` 를 읽는다.
+  const [bc, sp, obligations, obligationAggregate] = await Promise.all([
     loadStoreBusinessCashBalance(sb, sid),
     loadStoreEconomicPointsBalance(sb, sid),
-    buildOwnerConversionDisclosure(sb, { ownerUserId: userId, storeId: sid, requestedPoints: 0 }),
-    sb
-      .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
-      .select("id, amount_minor, status, created_at, decided_at")
-      .eq("store_id", sid)
-      .order("created_at", { ascending: false })
-      .limit(20),
     sb
       .from("store_sale_fee_obligations")
       .select(
@@ -91,22 +84,6 @@ export async function GET(
         currency: bc.currency,
       },
     },
-    // P0-5 — 정책·한도·전환 가능 최대는 서버 미리보기(DB-2)만. 실패면 null → 화면 「확인 불가」·전환 차단.
-    conversion: quote.ok
-      ? {
-          ratePesosPerPoint: quote.quote.ratePesosPerPoint,
-          version: quote.quote.version,
-          isDefaultRate: quote.quote.isDefaultRate,
-          effectiveFrom: quote.quote.effectiveFrom,
-          conversionEnabled: quote.quote.conversionEnabled,
-          minimumCoin: quote.quote.minimumCoin,
-          conversionUnit: quote.quote.conversionUnit,
-          limits: quote.quote.limits,
-          usage: quote.quote.usage,
-          maxConvertible: quote.quote.maxConvertible,
-          outstandingFeeMinor: quote.quote.outstandingFeeMinor,
-        }
-      : null,
     // Coin·Cash 내역·기간 합계 = `/finance/history` (기간·페이지 · 「최근 N건 기준」 폐지 · Owner 2026-11-03)
     saleFeeObligations: {
       outstandingMinor,
@@ -131,15 +108,5 @@ export async function GET(
         createdAt: String((r as { created_at?: string }).created_at ?? ""),
       })),
     },
-    topUpRequests: (charges.data ?? []).map((r) => ({
-      id: String((r as { id: string }).id),
-      amountMinor: Math.trunc(Number((r as { amount_minor?: number }).amount_minor) || 0),
-      status: String((r as { status?: string }).status ?? ""),
-      createdAt: String((r as { created_at?: string }).created_at ?? ""),
-      decidedAt:
-        (r as { decided_at?: string | null }).decided_at == null
-          ? null
-          : String((r as { decided_at: string }).decided_at),
-    })),
   });
 }

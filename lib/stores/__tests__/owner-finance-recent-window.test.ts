@@ -39,7 +39,9 @@ describe("loadOpenSaleFeeTotalsFromCashPosition (M-19 / FIN-11)", () => {
 describe("owner finance route wiring", () => {
   const src = readFileSync(resolve(process.cwd(), "app/api/me/stores/[storeId]/finance/route.ts"), "utf8");
   it("keeps the 20-row open list but takes totals from SQL store_cash_position (FIN-11)", () => {
-    expect(src).toContain(".limit(20)");
+    // 미납 목록 = 20줄 쪽(`OBLIGATION_PAGE_SIZE`) · 예전 `.limit(20)` 은 쓰지 않던 충전 20건 조회였다(P-3 에서 제거)
+    expect(src).toContain("const OBLIGATION_PAGE_SIZE = 20;");
+    expect(src).toContain(".range(obligationOffset, obligationOffset + OBLIGATION_PAGE_SIZE - 1)");
     expect(src).toContain("loadOpenSaleFeeTotalsFromCashPosition(sb, sid)");
     expect(src).not.toContain("aggregateOpenSaleFeeObligations");
     expect(src).toMatch(/openCount,/);
