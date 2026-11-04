@@ -66,7 +66,14 @@ export function MyConsentHistory() {
 
   const notRecorded = safeT("mypage_consent_not_recorded", { fallbackKo: "기록 없음", fallbackEn: "Not recorded" });
   const versionDate = (v: { version: string | null; at: string | null }) =>
-    v.at ? [v.version, formatMypageDate(v.at)].filter(Boolean).join(" · ") : notRecorded;
+    v.at ? (
+      <span className="flex flex-col items-end leading-tight">
+        {v.version ? <span className="text-[12px] text-sam-muted">{v.version}</span> : null}
+        <span className="text-[12px] text-sam-meta">{formatMypageDate(v.at)}</span>
+      </span>
+    ) : (
+      <span className="text-[12px] text-sam-muted">{notRecorded}</span>
+    );
 
   const ageValue = (age: ConsentSummary["age"]) => {
     if (!age) return notRecorded;
@@ -146,14 +153,14 @@ export function MyConsentHistory() {
                 first
                 href="/terms"
                 testId="my-consent-summary-terms"
-                title={t("auth_consent_terms_link")}
-                value={<span className="text-[12px] text-sam-muted">{versionDate(summary.terms)}</span>}
+                title={t("mypage_comp_menu_support_terms_title")}
+                value={versionDate(summary.terms)}
               />
               <MyRow
                 href="/privacy"
                 testId="my-consent-summary-privacy"
-                title={t("auth_consent_privacy_link")}
-                value={<span className="text-[12px] text-sam-muted">{versionDate(summary.privacy)}</span>}
+                title={t("mypage_comp_settings_privacy_link")}
+                value={versionDate(summary.privacy)}
               />
               <div
                 data-testid="my-consent-summary-age"
