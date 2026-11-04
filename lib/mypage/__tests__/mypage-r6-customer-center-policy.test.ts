@@ -443,13 +443,17 @@ describe("S64 이전 문의 보관함 — 유지(날짜·스켈레톤만) · HAR
   });
 });
 
-describe("S65 약관 및 정책 허브 — 3행(X13) · 법무 API 실패 시 행 유지", () => {
-  it("3행 순서·링크", async () => {
+describe("S65 약관 및 정책 허브 — 시안 확장(동의내역·마케팅) · 법무 API 실패 시 행 유지", () => {
+  it("허브 행 순서·링크", async () => {
     const { MY_POLICY_HUB_ROWS } = await import("@/components/mypage/settings/MyPolicyHub");
-    expect(MY_POLICY_HUB_ROWS.map((r) => [r.id, r.href, r.legalKind])).toEqual([
+    expect(MY_POLICY_HUB_ROWS.map((r) => [r.id, r.href ?? null, r.legalKind])).toEqual([
       ["terms", "/terms", "terms"],
       ["privacy", "/privacy", "privacy"],
       ["business", "/business-info", null],
+      ["community-notice", null, null],
+      ["consent-history", "/mypage/section/settings/consent-history", null],
+      ["marketing-consent", "/mypage/section/settings/notifications", null],
+      ["location-os", null, null],
     ]);
   });
   it("법무 API 실패·문서 없음 → 메타 null(버전 칸 비움), 성공 → 제목·버전·시행일", async () => {

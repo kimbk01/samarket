@@ -54,6 +54,17 @@ export async function enforcePhoneVerificationPatchQuota(userId: string) {
   });
 }
 
+/** 약관·연령 동의 제출 — 생년월일 정정 재입력은 허용, 반복 자동 제출만 막는다. */
+export async function enforceLegalConsentSubmitQuota(userId: string) {
+  return enforceRateLimit({
+    key: `legal_consent_submit:${userId}`,
+    limit: 20,
+    windowMs: 600_000,
+    message: TOO_MANY,
+    code: "legal_consent_rate_limited",
+  });
+}
+
 export async function enforcePhoneVerificationSendQuota(userId: string) {
   return enforceRateLimit({
     key: `phone_verification_send:${userId}`,

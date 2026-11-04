@@ -52,6 +52,7 @@ const REQUIRED: MemberConsentAuthorityResult = {
   kind: "CONSENT_REQUIRED",
   requiredTermsVersion: "v2",
   requiredPrivacyVersion: "v2",
+  gap: "terms_privacy",
 };
 
 function req(method: string, path: string) {

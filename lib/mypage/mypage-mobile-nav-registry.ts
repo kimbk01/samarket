@@ -134,6 +134,7 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       navItem("settings", "notices"),
       navItem("settings", "support"),
       navItem("settings", "terms"),
+      navItem("settings", "consent-history"),
       navItem("settings", "version"),
       navItem("settings", "leave"),
     ],

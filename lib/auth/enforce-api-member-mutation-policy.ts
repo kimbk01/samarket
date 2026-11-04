@@ -180,8 +180,17 @@ export async function enforceApiMemberMutationPolicy(
       MEMBER_CONSENT_STATE_UNAVAILABLE.messageKo
     );
   }
-  return jsonDenied(403, "signup_incomplete", "약관·개인정보 처리방침 동의 후 이용할 수 있습니다.");
+  return jsonDenied(
+    403,
+    "signup_incomplete",
+    consent.gap === "age"
+      ? MEMBER_AGE_VERIFICATION_REQUIRED_MESSAGE_KO
+      : "약관·개인정보 처리방침 동의 후 이용할 수 있습니다.",
+  );
 }
+
+/** B3 age-only gap — same `signup_incomplete` recovery (consent screen, age-only mode). */
+export const MEMBER_AGE_VERIFICATION_REQUIRED_MESSAGE_KO = "연령 확인(만 14세 이상) 후 이용할 수 있습니다.";
 
 /** Consent could not be established — fail closed (never treated as consented). */
 export const MEMBER_CONSENT_STATE_UNAVAILABLE = {

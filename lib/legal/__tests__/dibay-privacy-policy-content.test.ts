@@ -51,7 +51,8 @@ describe("DIBAY privacy policy content (Play)", () => {
     expect(client).toContain('kind="privacy"');
     expect(client).toContain("staticFallbackByLocale");
     expect(menu).toContain('link("/privacy"');
-    expect(consent).toContain('href="/privacy"');
+    // Owner-approved consent mockup (2026-11-05): privacy opens in the in-app sheet (same CMS doc as /privacy).
+    expect(consent).toContain('setSheetKind("privacy")');
     expect(content).toContain("FALLBACK");
     expect(content).toContain("NOT a consent writer");
   });

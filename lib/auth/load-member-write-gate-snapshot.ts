@@ -24,6 +24,10 @@ type SnapshotJson = {
   terms_version?: unknown;
   privacy_accepted_at?: unknown;
   privacy_version?: unknown;
+  date_of_birth?: unknown;
+  age_gate_status?: unknown;
+  age_attested_at?: unknown;
+  age_gate_legacy?: unknown;
   role?: unknown;
   admin_role?: unknown;
 };
@@ -56,19 +60,26 @@ export async function loadMemberWriteGateSnapshot(userId: string): Promise<Membe
 
   const profile = { status: str(json.status), deleted_at: str(json.deleted_at) };
   setMemberLifecycleAuthority(uid, profile);
+  const lifecycle: MemberLifecycleAuthorityResult = {
+    kind: "RESOLVED",
+    profile,
+    lifecycle: resolveMemberAccountLifecycle(profile),
+    source: "db",
+  };
+  // Snapshot without the pre-policy flag cannot decide the age gate — consent falls back to direct reads.
+  if (typeof json.age_gate_legacy !== "boolean") return { lifecycle, consent: null };
   return {
-    lifecycle: {
-      kind: "RESOLVED",
-      profile,
-      lifecycle: resolveMemberAccountLifecycle(profile),
-      source: "db",
-    },
+    lifecycle,
     consent: {
       row: {
         terms_accepted_at: str(json.terms_accepted_at),
         terms_version: str(json.terms_version),
         privacy_accepted_at: str(json.privacy_accepted_at),
         privacy_version: str(json.privacy_version),
+        date_of_birth: str(json.date_of_birth),
+        age_gate_status: str(json.age_gate_status),
+        age_attested_at: str(json.age_attested_at),
+        age_gate_legacy: json.age_gate_legacy,
         role: str(json.role),
       },
       adminRole: str(json.admin_role),

@@ -193,6 +193,7 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/menus/main-bottom-nav", requirement: ANY, action: perm("settings") },
   { path: "/admin/app/business", requirement: ANY, action: perm("settings") },
   { path: "/admin/settings", requirement: ANY },
+  { path: "/admin/app/legal/member-consents", requirement: perm("users") },
   { path: "/admin/app/legal", requirement: ANY, action: perm("settings") },
   { path: "/admin/commerce-settings", requirement: ANY, action: perm("business") },
 

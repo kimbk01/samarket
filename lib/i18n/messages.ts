@@ -10,6 +10,7 @@ import { adminTradeSoldWindowMessages } from "./catalog/admin-trade-sold-window"
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
+import { adminLegalConsentMessages } from "./catalog/admin-legal-consent";
 import { settingsUiMessages } from "./catalog/settings-ui";
 import { mypageRoutesMessages } from "./catalog/mypage-routes";
 import { mypageComponentsMessages } from "./catalog/mypage-components";
@@ -135,6 +136,7 @@ const KO_MESSAGES = {
   ...commonMessages.ko,
   ...myMessages.ko,
   ...mypageHubMessages.ko,
+  ...adminLegalConsentMessages.ko,
   ...settingsUiMessages.ko,
   ...mypageRoutesMessages.ko,
   ...mypageComponentsMessages.ko,
@@ -257,6 +259,7 @@ const EN_MESSAGES = {
   ...commonMessages.en,
   ...myMessages.en,
   ...mypageHubMessages.en,
+  ...adminLegalConsentMessages.en,
   ...settingsUiMessages.en,
   ...mypageRoutesMessages.en,
   ...mypageComponentsMessages.en,

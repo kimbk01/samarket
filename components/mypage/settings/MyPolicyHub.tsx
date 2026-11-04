@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyGroup } from "@/components/mypage/ds/MyGroup";
 import { MyRow } from "@/components/mypage/ds/MyRow";
@@ -10,23 +10,53 @@ import type { AppLegalKind, AppLegalLocale } from "@/lib/legal/app-legal-documen
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 
 /**
- * 약관 및 정책 허브 `/mypage/section/settings/terms` (최종 설계 S65 · X13/K9).
- * 1그룹 3행: 이용약관 → 개인정보처리방침 → 사업자 정보. 「기타 문서」 행 없음(DB kind 2종).
- * 행은 즉시 표시(제목 i18n 기본값), 약관·개인정보 행의 버전 칸만 Legal CMS(`GET /api/legal/{kind}`)로 채운다 —
- * 조회 실패면 버전 칸만 비우고 행 이동은 유지(목적지 화면이 자체 오류 처리). 홈 정책 그룹 3행은 그대로.
+ * 약관 및 개인정보 허브 — Owner mockup screen `myhub`.
  */
 export type MyPolicyHubRow = {
-  id: "terms" | "privacy" | "business";
-  href: "/terms" | "/privacy" | "/business-info";
+  id:
+    | "terms"
+    | "privacy"
+    | "business"
+    | "community-notice"
+    | "consent-history"
+    | "marketing-consent"
+    | "location-os";
+  href?: string;
   titleKey: MessageKey;
-  /** Legal CMS 문서 종류 — 사업자 정보는 값 조회 생략 */
   legalKind: AppLegalKind | null;
+  descKey?: MessageKey;
 };
 
 export const MY_POLICY_HUB_ROWS: readonly MyPolicyHubRow[] = [
   { id: "terms", href: "/terms", titleKey: "mypage_comp_menu_support_terms_title", legalKind: "terms" },
   { id: "privacy", href: "/privacy", titleKey: "mypage_comp_settings_privacy_link", legalKind: "privacy" },
   { id: "business", href: "/business-info", titleKey: "mypage_comp_menu_support_business_title", legalKind: null },
+  {
+    id: "community-notice",
+    titleKey: "mypage_policy_community_notice_title",
+    legalKind: null,
+    descKey: "mypage_policy_community_notice_desc",
+  },
+  {
+    id: "consent-history",
+    href: "/mypage/section/settings/consent-history",
+    titleKey: "mypage_consent_history_title",
+    legalKind: null,
+    descKey: "mypage_consent_history_desc",
+  },
+  {
+    id: "marketing-consent",
+    href: "/mypage/section/settings/notifications",
+    titleKey: "mypage_marketing_consent_title",
+    legalKind: null,
+    descKey: "mypage_marketing_consent_desc",
+  },
+  {
+    id: "location-os",
+    titleKey: "mypage_policy_location_os_title",
+    legalKind: null,
+    descKey: "mypage_policy_location_os_desc",
+  },
 ];
 
 export type PolicyDocMeta = { title: string | null; version: string | null; effectiveAt: string | null };
@@ -42,7 +72,6 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
-/** Legal CMS 응답 → 허브 행 메타. 실패·문서 없음 → null(버전 칸 비움) */
 export function parsePolicyDocMeta(json: LegalJson | null | undefined): PolicyDocMeta | null {
   if (!json?.ok || !json.document) return null;
   return {
@@ -66,11 +95,10 @@ function writeSession(key: string, meta: PolicyDocMeta): void {
   try {
     window.sessionStorage.setItem(SESSION_PREFIX + key, JSON.stringify(meta));
   } catch {
-    /* 저장 불가 — 다음 진입 때 다시 조회 */
+    /* ignore */
   }
 }
 
-/** 버전 조회 — `runSingleFlight` + 세션 캐시(성공만 저장) */
 export async function loadPolicyDocMeta(kind: AppLegalKind, locale: AppLegalLocale): Promise<PolicyDocMeta | null> {
   const key = `${kind}:${locale}`;
   const cached = typeof window !== "undefined" ? readSession(key) : undefined;
@@ -116,15 +144,33 @@ export function MyPolicyHub() {
           const loaded = kind ? kind in meta : true;
           const doc = kind ? meta[kind] ?? null : null;
           const effective = doc?.effectiveAt ? formatMypageDate(doc.effectiveAt) : "";
-          const value =
-            doc && (doc.version || effective) ? (
+          let value: ReactNode = undefined;
+          if (kind && (doc?.version || effective)) {
+            value = (
               <span className="flex flex-col items-end leading-tight">
-                {doc.version ? <span className="text-[12px] text-sam-muted">{doc.version}</span> : null}
+                {doc?.version ? <span className="text-[12px] text-sam-muted">{doc.version}</span> : null}
                 {effective ? (
                   <span className="text-[12px] text-sam-meta">{t("mypage_s65_effective_date", { date: effective })}</span>
                 ) : null}
               </span>
-            ) : undefined;
+            );
+          } else if (row.descKey) {
+            value = <span className="text-[12px] text-sam-muted">{t(row.descKey)}</span>;
+          }
+          if (!row.href) {
+            return (
+              <div
+                key={row.id}
+                data-testid={`my-policy-hub-row-${row.id}`}
+                className={`flex min-h-[52px] items-center justify-between gap-3 bg-sam-surface px-4 py-3 ${
+                  index === 0 ? "rounded-t-ui-rect" : ""
+                } ${index === MY_POLICY_HUB_ROWS.length - 1 ? "rounded-b-ui-rect" : "border-b border-sam-border"}`}
+              >
+                <div className="min-w-0 text-[15px] font-medium text-sam-fg">{doc?.title ?? t(row.titleKey)}</div>
+                {value ? <div className="shrink-0">{value}</div> : null}
+              </div>
+            );
+          }
           return (
             <MyRow
               key={row.id}
@@ -132,8 +178,8 @@ export function MyPolicyHub() {
               href={row.href}
               testId={`my-policy-hub-row-${row.id}`}
               title={doc?.title ?? t(row.titleKey)}
-              value={kind ? value : undefined}
-              valueState={kind ? (!loaded ? "loading" : value ? "ready" : "empty") : undefined}
+              value={value}
+              valueState={kind ? (!loaded ? "loading" : value ? "ready" : "empty") : value ? "ready" : undefined}
             />
           );
         })}

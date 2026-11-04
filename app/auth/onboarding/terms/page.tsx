@@ -3,6 +3,8 @@ import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { resolveDibaySignupRoute, deriveDibaySignupStatus } from "@/lib/auth/dibay-signup-status";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { loadMarketingConsentDoc, readMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
+import { hasAgeGateConsent } from "@/lib/legal/member-age-gate";
+import { readMemberAgeGateState } from "@/lib/legal/member-age-gate-legacy.server";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -38,9 +40,19 @@ export default async function AuthOnboardingTermsPage({
     const read = await readMemberMarketingConsent(readSb, user.id);
     askMarketing = !read.ok || read.consent?.source == null;
   }
+  let termsOk = false;
+  let ageOk = false;
+  let priorConsent = false;
   if (readSb) {
-    const profile = await fetchProfileRowSafe(readSb, user.id);
-    if (hasStoreTermsConsent(profile, required)) {
+    const [profile, ageState] = await Promise.all([
+      fetchProfileRowSafe(readSb, user.id),
+      readMemberAgeGateState(readSb, user.id),
+    ]);
+    termsOk = hasStoreTermsConsent(profile, required);
+    priorConsent = Boolean(profile?.terms_accepted_at);
+    // Unreadable age state: no age section here — the save API re-reads and fails closed.
+    ageOk = !ageState.ok || hasAgeGateConsent(ageState.fields);
+    if (termsOk && ageOk) {
       const signup = deriveDibaySignupStatus(profile ?? undefined, {
         hasSession: true,
         requiredConsent: required,
@@ -51,11 +63,14 @@ export default async function AuthOnboardingTermsPage({
       redirect(resolveDibaySignupRoute(signup, next));
     }
   }
+  const consentGap = !termsOk && !ageOk ? "terms_privacy_and_age" : !termsOk ? "terms_privacy" : "age";
   return (
     <div className="min-h-screen bg-sam-app">
       <AuthConsentForm
         requiredVersions={{ termsVersion: required.termsVersion, privacyVersion: required.privacyVersion }}
         marketing={askMarketing ? { version: marketingDoc.version, title: marketingDoc.title } : null}
+        consentGap={consentGap}
+        priorConsent={priorConsent}
       />
     </div>
   );

@@ -14,6 +14,7 @@ import { adminTradeSoldWindowMessages } from "./catalog/admin-trade-sold-window"
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
+import { adminLegalConsentMessages } from "./catalog/admin-legal-consent";
 import { settingsUiMessages } from "./catalog/settings-ui";
 import { mypageRoutesMessages } from "./catalog/mypage-routes";
 import { mypageComponentsMessages } from "./catalog/mypage-components";
@@ -156,6 +157,7 @@ export type MessageKey =
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
+  | KeyOf<typeof adminLegalConsentMessages.ko>
   | KeyOf<typeof settingsUiMessages.ko>
   | KeyOf<typeof mypageRoutesMessages.ko>
   | KeyOf<typeof mypageComponentsMessages.ko>
@@ -251,6 +253,7 @@ type EnMessageKey =
   | KeyOf<typeof commonMessages.en>
   | KeyOf<typeof myMessages.en>
   | KeyOf<typeof mypageHubMessages.en>
+  | KeyOf<typeof adminLegalConsentMessages.en>
   | KeyOf<typeof settingsUiMessages.en>
   | KeyOf<typeof mypageRoutesMessages.en>
   | KeyOf<typeof mypageComponentsMessages.en>

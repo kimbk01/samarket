@@ -127,6 +127,10 @@ export function deriveDibaySignupStatus(
     };
   }
 
+  /**
+   * Access gate = terms + privacy only. Age (만 14세) is a WRITE gate (B3 `hasRequiredMemberConsents`)
+   * — existing members without age attestation keep browsing/reading, calls and orders.
+   */
   const consentComplete = hasStoreTermsConsent(
     {
       terms_accepted_at: profile.terms_accepted_at ?? null,

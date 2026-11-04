@@ -8,13 +8,23 @@
 
 import { hasActiveAdminMembershipOrLegacyRole } from "@/lib/admin/admin-membership";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import {
+  hasRequiredMemberConsents,
+  resolveRequiredConsentGap,
+  type RequiredConsentGap,
+} from "@/lib/legal/has-required-member-consents";
+import { readMemberAgeGateLegacy } from "@/lib/legal/member-age-gate-legacy.server";
 import { resolveRequiredConsentVersionsStrict } from "@/lib/legal/resolve-required-consent-versions";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export type MemberConsentAuthorityResult =
   | { kind: "CONSENTED"; via: "consent" | "privileged_admin" }
-  | { kind: "CONSENT_REQUIRED"; requiredTermsVersion: string; requiredPrivacyVersion: string }
+  | {
+      kind: "CONSENT_REQUIRED";
+      requiredTermsVersion: string;
+      requiredPrivacyVersion: string;
+      gap: Exclude<RequiredConsentGap, null>;
+    }
   | { kind: "UNAVAILABLE"; reason: "no_client" | "query_error" | "versions_unavailable" | "profile_missing" };
 
 /**
@@ -32,6 +42,10 @@ type ConsentRow = {
   terms_version?: string | null;
   privacy_accepted_at?: string | null;
   privacy_version?: string | null;
+  date_of_birth?: string | null;
+  age_gate_status?: string | null;
+  age_attested_at?: string | null;
+  age_gate_legacy?: boolean | null;
   role?: string | null;
 };
 
@@ -51,13 +65,14 @@ export async function resolveMemberConsentAuthority(
   }
 
   if (preloaded) {
-    if (hasStoreTermsConsent(preloaded.row, required)) return { kind: "CONSENTED", via: "consent" };
+    if (hasRequiredMemberConsents(preloaded.row, required)) return { kind: "CONSENTED", via: "consent" };
     // 판정식 = hasActiveAdminMembershipOrLegacyRole (활성 membership role 이 admin·super_admin)
     if (isPrivilegedAdminRole(preloaded.adminRole)) return { kind: "CONSENTED", via: "privileged_admin" };
     return {
       kind: "CONSENT_REQUIRED",
       requiredTermsVersion: required.termsVersion,
       requiredPrivacyVersion: required.privacyVersion,
+      gap: resolveRequiredConsentGap(preloaded.row, required) ?? "terms_privacy_and_age",
     };
   }
 
@@ -65,17 +80,33 @@ export async function resolveMemberConsentAuthority(
   try {
     const res = await sb
       .from("profiles")
-      .select("terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, role")
+      .select(
+        "terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, date_of_birth, age_gate_status, age_attested_at, role",
+      )
       .eq("id", uid)
       .maybeSingle();
-    if (res.error) return { kind: "UNAVAILABLE", reason: "query_error" };
-    row = (res.data as ConsentRow | null) ?? null;
+    if (res.error) {
+      // Pre-migration: age columns missing — retry without age (fail-closed as incomplete).
+      const retry = await sb
+        .from("profiles")
+        .select("terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, role")
+        .eq("id", uid)
+        .maybeSingle();
+      if (retry.error) return { kind: "UNAVAILABLE", reason: "query_error" };
+      row = (retry.data as ConsentRow | null) ?? null;
+    } else {
+      row = (res.data as ConsentRow | null) ?? null;
+    }
   } catch {
     return { kind: "UNAVAILABLE", reason: "query_error" };
   }
   if (!row) return { kind: "UNAVAILABLE", reason: "profile_missing" };
 
-  if (hasStoreTermsConsent(row, required)) return { kind: "CONSENTED", via: "consent" };
+  const legacy = await readMemberAgeGateLegacy(sb, uid);
+  if (!legacy.ok) return { kind: "UNAVAILABLE", reason: "query_error" };
+  row = { ...row, age_gate_legacy: legacy.legacy };
+
+  if (hasRequiredMemberConsents(row, required)) return { kind: "CONSENTED", via: "consent" };
 
   // deriveDibaySignupStatus: privileged Admin is signup-complete (membership authority).
   try {
@@ -90,5 +121,6 @@ export async function resolveMemberConsentAuthority(
     kind: "CONSENT_REQUIRED",
     requiredTermsVersion: required.termsVersion,
     requiredPrivacyVersion: required.privacyVersion,
+    gap: resolveRequiredConsentGap(row, required) ?? "terms_privacy_and_age",
   };
 }

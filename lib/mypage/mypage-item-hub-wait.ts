@@ -18,6 +18,8 @@ const NO_HUB_WAIT_ITEMS: Readonly<Record<string, ReadonlySet<string>>> = {
     "cache",
     "version",
     "leave",
+    "terms",
+    "consent-history",
   ]),
   account: new Set(["favorite-users", "blocked-users", "hidden-users"]),
 };

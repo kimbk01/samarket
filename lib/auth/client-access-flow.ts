@@ -84,7 +84,11 @@ export { isPhoneVerificationRequiredError };
 export function isSignupIncompleteError(error: string | null | undefined): boolean {
   const msg = String(error ?? "").trim();
   if (!msg) return false;
-  return msg.toLowerCase().includes("signup_incomplete") || msg.includes("처리방침 동의 후 이용");
+  return (
+    msg.toLowerCase().includes("signup_incomplete") ||
+    msg.includes("처리방침 동의 후 이용") ||
+    msg.includes("연령 확인(만 14세 이상) 후 이용")
+  );
 }
 
 export function redirectForBlockedAction(

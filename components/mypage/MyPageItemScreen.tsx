@@ -16,6 +16,7 @@ import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
 import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
 import { MyPolicyHub } from "@/components/mypage/settings/MyPolicyHub";
+import { MyConsentHistory } from "@/components/mypage/settings/MyConsentHistory";
 import { AccountUserListSection } from "@/components/mypage/tabs/AccountTab";
 import { CommunityTab } from "@/components/mypage/tabs/CommunityTab";
 import { StoreTab } from "@/components/mypage/tabs/StoreTab";
@@ -59,6 +60,8 @@ export function MyPageItemStaticContent({ section, item }: { section: string; it
     /** 비로그인 공개 행 — 약관 허브는 회원 데이터 없이 열린다 (`isMypageGuestPublicItem`) */
     case "terms":
       return <MyPolicyHub />;
+    case "consent-history":
+      return <MyConsentHistory />;
     default:
       return null;
   }

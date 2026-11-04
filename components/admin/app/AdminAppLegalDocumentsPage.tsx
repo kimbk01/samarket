@@ -12,6 +12,7 @@ import {
   pickCurrentPublishedLegalDoc,
   type AppLegalDocumentRow,
 } from "@/lib/legal/app-legal-documents";
+import { AdminLegalVersionCompare } from "@/components/admin/app/AdminLegalVersionCompare";
 
 export function AdminAppLegalDocumentsPage() {
   const { t, safeT, language } = useI18n();
@@ -82,22 +83,42 @@ export function AdminAppLegalDocumentsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
           {t("admin_menu_legal")}
         </h1>
-        {action.allowed ? (
+        <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/admin/app/legal/create"
-            className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
+            href="/admin/app/legal/policy"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg"
           >
-            {t("admin_app_add")}
+            {safeT("admin_legal_consent_policy", {
+              fallbackKo: "동의 정책",
+              fallbackEn: "Consent policy",
+            })}
           </Link>
-        ) : (
-          <AdminActionButton variant="primary" disabled title={action.reason ?? undefined}>
-            {t("admin_app_add")}
-          </AdminActionButton>
-        )}
+          <Link
+            href="/admin/app/legal/member-consents"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg"
+          >
+            {safeT("admin_legal_member_consents", {
+              fallbackKo: "회원별 동의 조회",
+              fallbackEn: "Member consents",
+            })}
+          </Link>
+          {action.allowed ? (
+            <Link
+              href="/admin/app/legal/create"
+              className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
+            >
+              {t("admin_app_add")}
+            </Link>
+          ) : (
+            <AdminActionButton variant="primary" disabled title={action.reason ?? undefined}>
+              {t("admin_app_add")}
+            </AdminActionButton>
+          )}
+        </div>
       </div>
       {!action.allowed && action.reason ? (
         <p className="mb-4 sam-text-helper text-sam-muted" data-admin-action-denied="1">
@@ -124,35 +145,38 @@ export function AdminAppLegalDocumentsPage() {
           })}
         />
       ) : (
-        <ul className="space-y-2">
-          {items.map((d) => (
-            <li
-              key={d.id}
-              className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-3"
-            >
-              <div>
-                <span className="font-medium">{d.title}</span>
-                <span className="ml-2 sam-text-body-secondary text-sam-muted">
-                  {ko ? APP_LEGAL_KIND_LABEL[d.kind].ko : APP_LEGAL_KIND_LABEL[d.kind].en}/{d.locale} · {d.version} ·{" "}
-                  {d.status === "published"
-                    ? currentIds.has(d.id)
-                      ? ko
-                        ? "게시 · 현재 적용"
-                        : "published · in effect"
+        <>
+          <ul className="space-y-2">
+            {items.map((d) => (
+              <li
+                key={d.id}
+                className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-3"
+              >
+                <div>
+                  <span className="font-medium">{d.title}</span>
+                  <span className="ml-2 sam-text-body-secondary text-sam-muted">
+                    {ko ? APP_LEGAL_KIND_LABEL[d.kind].ko : APP_LEGAL_KIND_LABEL[d.kind].en}/{d.locale} · {d.version} ·{" "}
+                    {d.status === "published"
+                      ? currentIds.has(d.id)
+                        ? ko
+                          ? "게시 · 현재 적용"
+                          : "published · in effect"
+                        : ko
+                          ? "게시 · 미적용"
+                          : "published · not in effect"
                       : ko
-                        ? "게시 · 미적용"
-                        : "published · not in effect"
-                    : ko
-                      ? "임시저장"
-                      : "draft"}
-                </span>
-              </div>
-              <Link href={`/admin/app/legal/${d.id}/edit`} className="sam-text-body text-signature">
-                {t("common_edit")}
-              </Link>
-            </li>
-          ))}
-        </ul>
+                        ? "임시저장"
+                        : "draft"}
+                  </span>
+                </div>
+                <Link href={`/admin/app/legal/${d.id}/edit`} className="sam-text-body text-signature">
+                  {t("common_edit")}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <AdminLegalVersionCompare documents={items} />
+        </>
       )}
     </div>
   );

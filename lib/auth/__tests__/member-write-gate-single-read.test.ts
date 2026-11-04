@@ -41,6 +41,10 @@ const CONSENTED = {
   terms_version: V,
   privacy_accepted_at: "2026-10-01T00:00:00+00:00",
   privacy_version: V,
+  date_of_birth: "1990-01-01",
+  age_gate_status: "verified",
+  age_attested_at: "2026-11-05T00:00:00+00:00",
+  age_gate_legacy: false,
 };
 function snap(over: Record<string, unknown>) {
   return { data: { found: true, status: "verified_user", deleted_at: null, role: null, admin_role: null, ...CONSENTED, ...over }, error: null };
@@ -91,6 +95,40 @@ describe("2-A 회원 쓰기 검사 1회 조회", () => {
 
     db.result = snap({ terms_version: "old", admin_role: "super_admin" });
     expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
+  });
+
+  it("연령 정책 이전 회원(고정 집합): 연령 기록 없어도 신규 쓰기 통과", async () => {
+    db.result = snap({ date_of_birth: null, age_gate_status: null, age_attested_at: null, age_gate_legacy: true });
+    expect(await enforceApiMemberMutationPolicy(write())).toBeNull();
+    expect(db.from).toBe(0);
+  });
+
+  it("스냅샷에 기존 회원 표시가 없으면 개별 조회로 내려가고, 조회 불가면 fail-closed", async () => {
+    db.result = snap({ age_gate_legacy: undefined });
+    const res = await enforceApiMemberMutationPolicy(write());
+    expect(res?.status).toBe(503);
+  });
+
+  it("약관 동의·연령 미확인 신규 회원 → 신규 쓰기 403 (연령 안내) · 진행 중 통화 종료·주문 처리는 통과", async () => {
+    const ageUnverified = { date_of_birth: null, age_gate_status: null, age_attested_at: null };
+    db.result = snap(ageUnverified);
+    const denied = await enforceApiMemberMutationPolicy(write());
+    expect(denied?.status).toBe(403);
+    const body = await denied!.json();
+    expect(body.code).toBe("signup_incomplete");
+    expect(body.message).toContain("연령 확인(만 14세 이상) 후 이용");
+
+    for (const req of [
+      new NextRequest("http://localhost/api/community-messenger/calls/s1/end", { method: "POST" }),
+      new NextRequest("http://localhost/api/me/store-orders/o1", { method: "PATCH" }),
+      new NextRequest("http://localhost/api/me/legal-consent", { method: "PATCH" }),
+    ]) {
+      db.result = snap(ageUnverified);
+      expect(await enforceApiMemberMutationPolicy(req)).toBeNull();
+    }
+
+    db.result = snap({ ...ageUnverified, age_gate_status: "blocked_underage", date_of_birth: "2015-01-01" });
+    expect((await enforceApiMemberMutationPolicy(write()))?.status).toBe(403);
   });
 
   it("동의 예외 경로(프로필 수정)는 미동의여도 통과, 조회는 1회", async () => {
