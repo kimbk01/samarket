@@ -12,7 +12,27 @@ const fetchCanonical = vi.fn();
 const fetchLegacy = vi.fn();
 const listFeed = vi.fn();
 
-vi.mock("@/lib/chat/supabase-server", () => ({ getSupabaseServer: () => ({}) }));
+/** 운영 고정 판정용 `community_posts` 행 — null 이면 `from` 없는 대역(예전 시험과 같음) */
+let operatorRows: Record<string, unknown>[] | null = null;
+let operatorQueryError = false;
+vi.mock("@/lib/chat/supabase-server", () => ({
+  getSupabaseServer: () =>
+    operatorRows == null
+      ? {}
+      : {
+          from: () => ({
+            select: () => ({
+              in: async (_c: string, ids: string[]) =>
+                operatorQueryError
+                  ? { data: null, error: { message: "x" } }
+                  : { data: operatorRows!.filter((r) => ids.includes(String(r.id))), error: null },
+            }),
+          }),
+        },
+}));
+vi.mock("@/lib/neighborhood/philife-neighborhood-topics", () => ({
+  loadPhilifeDefaultSectionTopics: async () => [],
+}));
 vi.mock("@/lib/promotion/community-paid-exposure-feed", () => ({
   fetchActiveCommunityPromotedPostIds: (...a: unknown[]) => fetchCanonical(...a),
 }));
@@ -52,6 +72,7 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
 
 import { GET } from "@/app/api/ads/active/route";
 import { CommunityCard } from "@/components/community/CommunityCard";
+import { planCommunityFeedAdPlacement } from "@/lib/promotion/community-feed-ad-placement";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 
 const feedPost = {
@@ -74,6 +95,8 @@ const feedPost = {
 beforeEach(() => {
   vi.clearAllMocks();
   fetchLegacy.mockResolvedValue({ ok: true, ads: [] });
+  operatorRows = null;
+  operatorQueryError = false;
 });
 
 const FORBIDDEN_KEYS = ["endAt", "startAt", "priority", "postTitle", "advertiserName", "boardKey", "adType"];
@@ -164,6 +187,94 @@ describe("/api/ads/active — 남은 기간·결제 시각·순위 없음 · 일
     const j = await callActive("boardKey=plife&locationKey=unknown");
     expect(listFeed).not.toHaveBeenCalled();
     expect(j.ads).toEqual([{ adId: "post-1", postId: "post-1", feedPost: null }]);
+  });
+});
+
+describe("Owner 2026-11-05 빈자리 — 운영 고정 글이 광고 1순위면 다음 유효 광고가 위쪽 1건", () => {
+  const PAST = "2026-01-01T00:00:00Z";
+  const pinRow = (id: string, scope: "feed" | "topic", topicSlug = "free") => ({
+    id,
+    topic_slug: topicSlug,
+    pinned_at: PAST,
+    pinned_until: null,
+    pin_scope: scope,
+    is_notice: false,
+  });
+  const ads3 = () => {
+    fetchCanonical.mockResolvedValue({
+      ok: true,
+      truncated: false,
+      items: ["op", "a2", "a3"].map((postId) => ({ postId, startAt: "x" })),
+    });
+    listFeed.mockImplementation(async (o: { postIds: string[] }) => ({
+      posts: o.postIds.map((id) => ({ ...feedPost, id })),
+      hasMore: false,
+      dbScannedCount: 0,
+      pagingOffsetAdvance: 0,
+    }));
+  };
+  const post = (id: string, over: Record<string, unknown> = {}) =>
+    ({ ...feedPost, id, ...over }) as unknown as NeighborhoodFeedPostDTO;
+
+  it("전체 탭: 전체 고정 글(op) 다음 광고 a2 까지 카드 값 → 화면은 op 를 운영 고정 자리에, a2 를 위쪽 광고 1건으로", async () => {
+    ads3();
+    operatorRows = [pinRow("op", "feed")];
+    const j = await callActive();
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["op", "a2"]);
+
+    const topAds = j.ads as unknown as Array<{ postId: string; feedPost: NeighborhoodFeedPostDTO | null }>;
+    const posts = [post("op", { is_pinned: true }), post("n1"), post("a3"), post("n2")];
+    const r = planCommunityFeedAdPlacement({ posts, topAds });
+    expect(r.operatorTopPosts.map((p) => p.id)).toEqual(["op"]);
+    expect(r.topAdsBelowOperator.map((a) => a.postId)).toEqual(["a2"]);
+    expect(r.postsForList.map((p) => p.id)).toEqual(["n1", "a3", "n2"]); // 일반 글 누락·중복 없음
+    expect(r.activeAdPostIds.has("op")).toBe(true);
+    expect(r.activeAdPostIds.has("a3")).toBe(true);
+  });
+
+  it("주제 탭: 피드와 같은 판정 — 주제 고정(scope=topic·같은 주제)만 운영 고정, 전체 고정(scope=feed)은 아님", async () => {
+    ads3();
+    operatorRows = [pinRow("op", "topic", "free")];
+    let j = await callActive("boardKey=plife&topic=free");
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["op", "a2"]);
+
+    operatorRows = [pinRow("op", "feed")];
+    j = await callActive("boardKey=plife&topic=free");
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["op"]);
+
+    operatorRows = [pinRow("op", "topic", "other")];
+    j = await callActive("boardKey=plife&topic=free");
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["op"]);
+  });
+
+  it("다음 유효 광고가 없으면 억지로 채우지 않는다 (위쪽 광고 0건 · 운영 고정 자리는 그대로)", async () => {
+    fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items: [{ postId: "op", startAt: "x" }] });
+    listFeed.mockResolvedValue({ posts: [{ ...feedPost, id: "op" }], hasMore: false, dbScannedCount: 1, pagingOffsetAdvance: 1 });
+    operatorRows = [pinRow("op", "feed")];
+    const j = await callActive();
+    const topAds = j.ads as unknown as Array<{ postId: string; feedPost: NeighborhoodFeedPostDTO | null }>;
+    const r = planCommunityFeedAdPlacement({ posts: [post("op", { is_pinned: true }), post("n1")], topAds });
+    expect(r.operatorTopPosts.map((p) => p.id)).toEqual(["op"]);
+    expect(r.topAdsBelowOperator).toEqual([]);
+    expect(r.postsForList.map((p) => p.id)).toEqual(["n1"]);
+  });
+
+  it("운영 고정 칸이 없는 화면(이웃만·해시태그 — 피드가 상단을 안 올림)에서는 결제 순서대로 op 가 위쪽 1건", async () => {
+    ads3();
+    operatorRows = [pinRow("op", "feed")];
+    const j = await callActive();
+    const topAds = j.ads as unknown as Array<{ postId: string; feedPost: NeighborhoodFeedPostDTO | null }>;
+    const r = planCommunityFeedAdPlacement({ posts: [post("n1"), post("a2")], topAds });
+    expect(r.topAdsBelowOperator.map((a) => a.postId)).toEqual(["op"]);
+    expect(r.postsForList.map((p) => p.id)).toEqual(["n1", "a2"]);
+  });
+
+  it("운영 고정 판정 조회가 실패하면 예전 동작(앞 1건만 카드 값)", async () => {
+    ads3();
+    operatorRows = [pinRow("op", "feed")];
+    operatorQueryError = true;
+    const j = await callActive();
+    expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["op"]);
   });
 });
 
