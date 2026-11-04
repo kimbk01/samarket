@@ -165,28 +165,20 @@ describe("/api/ads/active — 남은 기간·결제 시각·순위 없음 · 일
     expect(listFeed).toHaveBeenCalledTimes(2);
   });
 
-  it("D-11: 동네 탭(locationKey) = 그 동네(locations.id) 글만 위쪽 카드 값 · 다른 탭은 지역 조건 없음", async () => {
+  it("Owner 2026-11-05 지역 제한 해제: 예전 화면이 동네(locationKey)를 보내도 모든 지역 기준 · 응답이 같다", async () => {
     fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items: [{ postId: "post-1", startAt: "x" }] });
     listFeed.mockResolvedValue({ posts: [feedPost], hasMore: false, dbScannedCount: 1, pagingOffsetAdvance: 1 });
-    ensureLocation.mockResolvedValue("loc-pasig-1");
-    await callActive("boardKey=plife&locationKey=ph-pasig&city=Pasig&district=&name=Kapitolyo");
-    expect(ensureLocation).toHaveBeenCalledTimes(1);
-    expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ locationId: "loc-pasig-1", postIds: ["post-1"] }));
-    expect(listFeed.mock.calls[0]![0]).not.toHaveProperty("allLocations");
-
-    listFeed.mockClear();
-    ensureLocation.mockClear();
-    await callActive("boardKey=plife&topic=free");
+    const pasig = await callActive("boardKey=plife&locationKey=ph-pasig&city=Pasig&district=&name=Kapitolyo");
+    const unknown = await callActive("boardKey=plife&locationKey=unknown");
+    const global = await callActive("boardKey=plife");
     expect(ensureLocation).not.toHaveBeenCalled();
-    expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ allLocations: true }));
-  });
-
-  it("D-11: 동네를 못 찾으면 위쪽 카드 값 없음(다른 동네 글을 위에 올리지 않는다)", async () => {
-    fetchCanonical.mockResolvedValue({ ok: true, truncated: false, items: [{ postId: "post-1", startAt: "x" }] });
-    ensureLocation.mockResolvedValue(null);
-    const j = await callActive("boardKey=plife&locationKey=unknown");
-    expect(listFeed).not.toHaveBeenCalled();
-    expect(j.ads).toEqual([{ adId: "post-1", postId: "post-1", feedPost: null }]);
+    for (const call of listFeed.mock.calls) {
+      expect(call[0]).toMatchObject({ allLocations: true, postIds: ["post-1"] });
+      expect(call[0]).not.toHaveProperty("locationId");
+    }
+    expect(pasig).toEqual(global);
+    expect(unknown).toEqual(global);
+    expect(global.ads[0]!.feedPost).toMatchObject({ id: "post-1" });
   });
 });
 
@@ -275,6 +267,37 @@ describe("Owner 2026-11-05 빈자리 — 운영 고정 글이 광고 1순위면 
     operatorQueryError = true;
     const j = await callActive();
     expect(j.ads.filter((a) => a.feedPost != null).map((a) => a.postId)).toEqual(["op"]);
+  });
+});
+
+describe("Owner 2026-11-05 같은 글 중복 금지 — 다음 페이지·광고 종료", () => {
+  const post = (id: string, over: Record<string, unknown> = {}) =>
+    ({ ...feedPost, id, ...over }) as unknown as NeighborhoodFeedPostDTO;
+  const ad = (id: string, withCard: boolean) => ({ postId: id, feedPost: withCard ? post(id) : null });
+
+  it("위쪽 광고 글이 다음 페이지 일반 목록에 와도 한 번만(위쪽 자리) · 나머지 광고 글은 일반 자리 한 번", () => {
+    const page1 = [post("n1"), post("n2")];
+    const page2 = [post("a1"), post("n3"), post("a2")];
+    const r = planCommunityFeedAdPlacement({ posts: [...page1, ...page2], topAds: [ad("a1", true), ad("a2", false)] });
+    const shown = [...r.operatorTopPosts.map((p) => p.id), ...r.topAdsBelowOperator.map((a) => a.postId), ...r.postsForList.map((p) => p.id)];
+    expect(shown).toEqual(["a1", "n1", "n2", "n3", "a2"]);
+    expect(new Set(shown).size).toBe(shown.length);
+    expect(r.activeAdPostIds.has("a2")).toBe(true);
+  });
+
+  it("광고가 끝나면 위쪽 자리가 비고 그 글은 일반 자리 한 번만", () => {
+    const r = planCommunityFeedAdPlacement({ posts: [post("n1"), post("a1"), post("n2")], topAds: [] });
+    expect(r.topAdsBelowOperator).toEqual([]);
+    expect(r.postsForList.map((p) => p.id)).toEqual(["n1", "a1", "n2"]);
+  });
+
+  it("화면은 광고 요청에 동네·지역 값을 싣지 않는다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("components/community/CommunityFeed.tsx", "utf8");
+    const fetchLine = src.split("\n").find((l) => l.includes("/api/ads/active?boardKey=plife")) ?? "";
+    expect(fetchLine).not.toBe("");
+    expect(fetchLine).not.toMatch(/locationKey|city|district/);
+    expect(src).not.toContain("adsLocalQuery");
   });
 });
 

@@ -880,16 +880,7 @@ export async function resolveHomePostsGetData(
           tradeState: listTradeState,
           priceMin,
           priceMax,
-          // P-3: 목록 함수와 같은 지역 구간 계산값(같은 입력 → 같은 캐시 값)
-          location: useTradeListFunction
-            ? buildTradeListLocationParams({
-                lguCityId,
-                radiusKm,
-                hood: listHood,
-                withDistance: sort === "distance",
-              })
-            : null,
-          // 재감사 R3 (P-3): 목록과 같은 품목 옵션 조건
+          // 재감사 R3 (P-3): 목록과 같은 품목 옵션 조건 — 지역·거리는 끼우기 조건이 아니다(Owner 2026-11-05)
           compositionFilters,
         },
       });

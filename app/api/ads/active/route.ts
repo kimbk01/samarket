@@ -6,8 +6,6 @@ import { PROMOTED_TOP_PINS_MAX } from "@/lib/promotion/promoted-top-pins";
 import type { ActiveAdFeedItem, ActiveAdsResponse } from "@/lib/ads/types";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
-import { ensureLocationId } from "@/lib/neighborhood/ensure-location";
-import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import {
   COMMUNITY_FEED_TOP_SELECT_TAIL,
@@ -47,19 +45,17 @@ async function loadCommunityOperatorTopIds(
 }
 
 /**
- * GET /api/ads/active?boardKey=plife&topic=[&locationKey=&city=&district=&name=]
+ * GET /api/ads/active?boardKey=plife&topic=
  * Community TOP pin — canonical: point_promotion_orders (domain=community).
  * 응답: 남은 기간(endAt)·결제 시각(startAt)·순위(priority) 없음 · `adId` = 글 id (광고 ② PV-4 2026-11-04).
  * 광고 ② PB-21: 광고 중인 글 **전체**(안전 상한 500) — 위쪽 `PROMOTED_TOP_PINS_MAX`(1)개(앞에 오는 운영 고정 글 포함)만 `feedPost`(일반 목록과 같은 카드 값), 나머지는 id 만.
- * 광고 ② D-11: `locationKey` 가 있으면(동네 탭) 그 동네 글만 위쪽 카드 값을 받는다. 다른 탭은 지역 조건 없음.
+ * Owner 2026-11-05: 위쪽 카드 값은 모든 탭에서 지역 조건 없음(예전 D-11 동네 한정 폐지).
  * Legacy post_ads active rows merged for read compatibility (deduped by postId, 전체 주제일 때만).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const sp = req.nextUrl.searchParams;
   const boardKey = sp.get("boardKey")?.trim() || "plife";
   const topic = sp.get("topic")?.trim() || sp.get("category")?.trim() || "";
-  const locationKey = sp.get("locationKey")?.trim() ?? "";
-
   try {
     const sb = getSupabaseServer();
     const canonical = await fetchActiveCommunityPromotedPostIds(sb, { topicFilter: topic });
@@ -77,26 +73,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Legacy rows lack topic — 전체 주제(COMMUNITY_HOME)에서만 합친다.
     if (legacy.ok && !topic) for (const ad of legacy.ads) push(String(ad.postId ?? ""));
 
-    /** D-11: 동네 탭 — 그 동네(locations.id) 글만 위쪽 */
-    let locationId: string | null = null;
-    if (locationKey) {
-      const coalesced = coalesceNeighborhoodLocationInput(locationKey, {
-        city: sp.get("city")?.trim() ?? "",
-        district: sp.get("district")?.trim() ?? "",
-        name: sp.get("name")?.trim() ?? "",
-      });
-      locationId = await ensureLocationId(sb, locationKey, coalesced).catch(() => null);
-    }
-    const scope = locationKey
-      ? locationId
-        ? ({ locationId } as const)
-        : null
-      : ({ allLocations: true } as const);
+    /**
+     * Owner 2026-11-05 「광고 지역 제한 전면 해제」: 위쪽 카드 값은 보는 회원의 동네·지역과 상관없이 고른다.
+     * 예전 화면이 `locationKey` 를 보내도 쓰지 않는다(D-11 폐지).
+     */
+    const scope = { allLocations: true } as const;
 
     // 일반 목록과 같은 카드 값 — 같은 조회 함수(`listNeighborhoodFeed`)·같은 변환·같은 차단/숨김 규칙
     const viewerUserId = await getOptionalAuthenticatedUserId().catch(() => null);
     const feedPostById = new Map<string, NeighborhoodFeedPostDTO>();
-    if (scope && postIds.length > 0) {
+    if (postIds.length > 0) {
       /**
        * Owner 2026-11-05 「빈자리는 다음 유효 광고로」: 운영 고정(공지·고정) 글은 화면이 운영 고정 자리에 두고 광고 자리에서 뺀다
        * (`planCommunityFeedAdPlacement`). 그래서 운영 고정이 아닌 광고가 위쪽 개수만큼 나올 때까지 카드 값을 싣는다 —

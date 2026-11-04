@@ -6,7 +6,8 @@
  * - TRADE_HOME (전체) pool = domain=trade entitlements (category filter = HOME universe only).
  * - TRADE_CATEGORY pool = same entitlements whose post is in browse membership ids.
  * - Select ≤ MAX_PAGE0_PROMOTED_PINS **latest start_at first** (재감사 R2 · Owner 「최신순」); pin at top of page-1.
- * - 재감사 R2 D-2: 끼우지 못한 홍보 글(2번째 결제부터·지역 구간 밖·뒤 페이지)도 일반 자리에서 「광고」 표시를 단다.
+ * - 재감사 R2 D-2: 끼우지 못한 홍보 글(2번째 결제부터·뒤 페이지)도 일반 자리에서 「광고」 표시를 단다.
+ * - Owner 2026-11-05: 끼우기에는 지역·거리 조건이 없다(예전 P-3 지역 구간 폐지). 일반 목록의 지역 정렬·필터는 그대로.
  * - 광고 감사 P-2 (Owner 승인 2026-11-03): 뽑히지 않은 홍보 글은 일반 글로 제자리에 남는다.
  *   1페이지: 끼운 id 만 일반 목록에서 뺀다. 이후 페이지: 일반 목록 그대로 — 1페이지에 끼운 글이
  *   뒤 페이지에 다시 오면 목록 화면이 붙일 때 id 로 거른다(`HomeProductList`·`PostListByCategory`).
@@ -23,10 +24,6 @@ import {
   type CompositionFilterClause,
 } from "@/lib/trade/category-form/composition-filter-query";
 import { HOME_POSTS_PAGE_SIZE, mapPostRowForHome } from "@/lib/posts/home-posts-query-server";
-import {
-  tradeListLocationTier,
-  type TradeListLocationParams,
-} from "@/lib/trade/marketplace/list-contract/trade-list-page.server";
 import {
   TRADE_PROMOTION_PROJECTION,
   isPostEligibleForPromotionBoost,
@@ -128,11 +125,6 @@ export type TradePromotionPinFilter = {
   priceMin?: number;
   priceMax?: number;
   /**
-   * 광고 감사 P-3: 목록과 같은 지역 구간 계산값. 있으면 상위노출 글은 **1페이지 일반 글 중 가장 가까운
-   * 구간 이내**일 때만 끼운다(당근 「구매할 만한 이웃에게만」과 같은 방향). 없으면 지역 조건 없음.
-   */
-  location?: TradeListLocationParams | null;
-  /**
    * 재감사 R3 (P-3): 목록의 품목 옵션 조건. 있으면 옵션이 맞는 상위노출 글만 끼운다(목록은 「맞음 → 안 맞음」 순서라,
    * 안 맞는 글을 맨 위에 끼우면 맞음 구간에 섞였다). 안 맞는 글은 일반 자리에 「광고」 표시로 남는다.
    */
@@ -200,21 +192,12 @@ export function projectTradeFeedWithPromotions(input: {
     : [];
 
   if (pageIndex <= 0) {
-    // P-3: 1페이지 일반 글 중 가장 가까운 지역 구간 — 그보다 먼 홍보 글은 끼우지 않는다(일반 글로 제자리)
-    const location = pinFilter?.location ?? null;
-    const nearestTier =
-      location && normalPosts.length > 0
-        ? Math.min(...normalPosts.map((p) => tradeListLocationTier(location, p)))
-        : null;
-    const pinnable =
-      location && nearestTier != null
-        ? eligiblePromoted.filter((p) => tradeListLocationTier(location, p) <= nearestTier)
-        : eligiblePromoted;
+    // Owner 2026-11-05 「광고 지역 제한 전면 해제」: 보는 회원의 지역·거리와 상관없이 같은 글을 끼운다
     const selectedIds = selectPromotedListingIds(
-      pinnable.map((p) => p.id),
+      eligiblePromoted.map((p) => p.id),
       maxPage0Pins
     );
-    const byId = new Map(pinnable.map((p) => [p.id, p]));
+    const byId = new Map(eligiblePromoted.map((p) => [p.id, p]));
     const selected = selectedIds
       .map((id) => byId.get(id))
       .filter((p): p is PostWithMeta => Boolean(p));
@@ -385,7 +368,7 @@ export async function applyTradeHomePromotionProjection(
       pinFilter: input.pinFilter,
     });
     /**
-     * 재감사 R2 D-2: 끼운 글 + 일반 자리에 나온 홍보 글(4번째부터·지역 구간 밖·뒤 페이지) 모두 「광고」 표시.
+     * 재감사 R2 D-2: 끼운 글 + 일반 자리에 나온 홍보 글(2번째 결제부터·뒤 페이지) 모두 「광고」 표시.
      * 다음 페이지 기준(`promotedIdsOnPage`)은 끼운 글만 — 일반 자리 글은 순위가 그대로라 기준에 넣지 않는다.
      */
     const badged = overlayTradePromotionBadges({

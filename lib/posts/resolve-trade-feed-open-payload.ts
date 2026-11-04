@@ -18,8 +18,6 @@ import {
   tradePromotionPageIndexFromRequestPage,
 } from "@/lib/promotion/feed-promotion-projection";
 import type { CompositionFilterClause } from "@/lib/trade/category-form/composition-filter-query";
-import { buildTradeListLocationParams } from "@/lib/trade/marketplace/list-contract/trade-list-page.server";
-import { loadViewerListHood } from "@/lib/trade/marketplace/list-contract/load-viewer-list-hood.server";
 import type { TradeSoftCategoryPriority } from "@/lib/posts/trade-soft-category-priority";
 
 export type TradeFeedOpenRequestOptions = {
@@ -115,17 +113,9 @@ export async function resolveTradeFeedOpenPayload(
   const promoSb = (serviceSb ?? readSb) as any;
   /**
    * 광고 감사 P-3: 목록 API(`home-posts`)와 같은 상위노출 조건 — 검색어가 있으면 배지만(CUT F),
-   * 판매완료 탭·가격 범위·가장 가까운 지역 구간을 끼우기 조건에 그대로 쓴다.
+   * 판매완료 탭·가격 범위·품목 옵션을 끼우기 조건에 쓴다. 지역·거리는 쓰지 않는다(Owner 2026-11-05).
    */
   const q = opts.q?.trim() ?? "";
-  /**
-   * 광고 ② PB-9 (2026-11-04): 목록 API(`home-posts-route-core`)와 같은 동네 조건 —
-   * 시(LGU)를 고르고 거리 「전체」일 때만 로그인 회원 대표 주소 동네를 첫 구간으로 쓴다.
-   */
-  const listHood =
-    opts.lguCityId && opts.radiusKm == null
-      ? await loadViewerListHood(promoSb, viewerUserId ?? null)
-      : null;
   const projected = await applyTradeHomePromotionProjection(promoSb, {
     pageIndex: tradePromotionPageIndexFromRequestPage(opts.page),
     posts: result.posts as PostWithMeta[],
@@ -135,14 +125,6 @@ export async function resolveTradeFeedOpenPayload(
       tradeState: opts.tradeState ?? "all",
       priceMin: opts.priceMin,
       priceMax: opts.priceMax,
-      location: opts.lguCityId
-        ? buildTradeListLocationParams({
-            lguCityId: opts.lguCityId,
-            radiusKm: opts.radiusKm ?? null,
-            hood: listHood,
-            withDistance: false,
-          })
-        : null,
       // 재감사 R3 (P-3): 목록과 같은 품목 옵션 조건
       compositionFilters: opts.compositionFilters ?? null,
     },

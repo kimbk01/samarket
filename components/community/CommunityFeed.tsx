@@ -1147,34 +1147,23 @@ export function CommunityFeed({
   }, [fetchPage]);
 
   /**
-   * 광고 ② D-11 (2026-11-04): 동네 탭(지역 필요 nav)은 그 동네 글만 위쪽 상위노출 — 목록과 같은 지역 값을 넘긴다.
-   * 다른 탭(전체·주제·인기)은 지역 조건 없음.
+   * Owner 2026-11-05 「광고 지역 제한 전면 해제」: 상위노출 선정은 모든 탭에서 지역 값을 보내지 않는다(예전 D-11 폐지).
    */
-  const adsLocalQuery = useMemo(() => {
-    if (!plan.requiresRegion || !locationKey || !locationMeta) return "";
-    const p = new URLSearchParams();
-    p.set("locationKey", locationKey);
-    p.set("city", locationMeta.city ?? "");
-    p.set("district", locationMeta.district ?? "");
-    p.set("name", locationMeta.name ?? "");
-    return p.toString();
-  }, [plan.requiresRegion, locationKey, locationMeta]);
+  const feedNeedsRegionButMissing = plan.requiresRegion && !locationKey;
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
     let cancelled = false;
-    if (plan.requiresRegion && !adsLocalQuery) {
+    // 동네 탭인데 지역이 없으면 피드 자체가 「지역 변경」 안내만 보인다 — 광고 자리도 없다
+    if (feedNeedsRegionButMissing) {
       setTopAds([]);
       return;
     }
     const load = () => {
-      runSingleFlight(`community-inline-ad-card:active-plife:${category || "all"}:${adsLocalQuery || "global"}`, () =>
-        fetch(
-          `/api/ads/active?boardKey=plife${category ? `&topic=${encodeURIComponent(category)}` : ""}${
-            adsLocalQuery ? `&${adsLocalQuery}` : ""
-          }`,
-          { credentials: "include" }
-        )
+      runSingleFlight(`community-inline-ad-card:active-plife:${category || "all"}`, () =>
+        fetch(`/api/ads/active?boardKey=plife${category ? `&topic=${encodeURIComponent(category)}` : ""}`, {
+          credentials: "include",
+        })
       )
         .then((r) => r.clone().json())
         .then((j: { ads?: ActiveAdFeedItem[] }) => {
@@ -1205,7 +1194,7 @@ export function CommunityFeed({
       cancelled = true;
       cancelScheduled?.();
     };
-  }, [category, plan.requiresRegion, adsLocalQuery]);
+  }, [category, feedNeedsRegionButMissing]);
 
   /** Feed Banner pool — one fetch per surface (slot selection is local). */
   useEffect(() => {

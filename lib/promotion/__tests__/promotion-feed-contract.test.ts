@@ -202,43 +202,51 @@ describe("feed promotion projection pagination", () => {
     expect(posts.map((p) => p.id)).toEqual(["s1", "promo"]);
   });
 
-  it("P-3: pins only promoted posts within the nearest location tier on page 1", () => {
-    const location = {
-      loc_lgu: { near: [0, 0] as [number, number], mid: [1, 0] as [number, number] },
-      loc_legacy: {},
-      loc_hood: null,
-      loc_default: 2,
-      loc_parts: ["loc:near", "loc:mid", ""],
+  it("Owner 2026-11-05 지역 제한 해제: 보는 회원 지역(Pasig·Manila·QC)이 달라도 같은 광고 1건이 두 번째 칸", () => {
+    const post = (id: string, lgu: string) => ({ ...mk(id), trade_lgu_id: lgu, region: lgu, city: lgu }) as PostWithMeta;
+    // 가장 최근 결제 광고 글은 Pasig 글 — 보는 회원 목록이 어느 지역이든 같은 글이 끼워진다
+    const promotedPosts = [post("p-pasig", "1381200000"), post("p-manila", "1380600000")];
+    const active = new Set(["p-pasig", "p-manila"]);
+    const viewers: Record<string, PostWithMeta[]> = {
+      pasig: [post("n1", "1381200000"), post("n2", "1381200000")],
+      manila: [post("m1", "1380600000"), post("m2", "1380600000")],
+      qc: [post("q1", "1381300000"), post("q2", "1381300000")],
     };
-    const post = (id: string, lgu: string) => ({ ...mk(id), trade_lgu_id: lgu }) as PostWithMeta;
-    const { promotedIdsOnPage, posts } = projectTradeFeedWithPromotions({
-      pageIndex: 0,
-      normalPosts: [post("a", "near"), post("b", "mid")],
-      promotedPosts: [post("p-near", "near"), post("p-far", "elsewhere")],
-      activePromotionIds: new Set(["p-near", "p-far"]),
-      pinFilter: { tradeState: "all", location },
-    });
-    expect(promotedIdsOnPage).toEqual(["p-near"]);
-    expect(posts.map((p) => p.id)).not.toContain("p-far");
+    for (const normalPosts of Object.values(viewers)) {
+      const { promotedIdsOnPage, posts } = projectTradeFeedWithPromotions({
+        pageIndex: 0,
+        normalPosts,
+        promotedPosts,
+        activePromotionIds: active,
+        pinFilter: { tradeState: "all" },
+      });
+      expect(promotedIdsOnPage).toEqual(["p-pasig"]);
+      expect(posts[0]!.id).toBe(normalPosts[0]!.id);
+      expect(posts[1]!.id).toBe("p-pasig");
+      const ids = posts.map((p) => p.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
   });
 
-  it("P-3: when page 1 has only farther tiers, pins up to that tier are allowed", () => {
-    const location = {
-      loc_lgu: { mid: [1, 0] as [number, number] },
-      loc_legacy: {},
-      loc_hood: null,
-      loc_default: 2,
-      loc_parts: ["loc:near", "loc:mid", ""],
-    };
-    const post = (id: string, lgu: string) => ({ ...mk(id), trade_lgu_id: lgu }) as PostWithMeta;
-    const { promotedIdsOnPage } = projectTradeFeedWithPromotions({
+  it("Owner 2026-11-05: 끼운 광고 글이 같은 1페이지 일반 목록에도 있으면 한 번만(일반 자리에서 빠진다)", () => {
+    const { posts } = projectTradeFeedWithPromotions({
       pageIndex: 0,
-      normalPosts: [post("a", "mid")],
-      promotedPosts: [post("p-mid", "mid"), post("p-far", "x")],
-      activePromotionIds: new Set(["p-mid", "p-far"]),
-      pinFilter: { tradeState: "all", location },
+      normalPosts: [mk("a"), mk("b"), mk("p1"), mk("c")],
+      promotedPosts: [mk("p1"), mk("p2")],
+      activePromotionIds: new Set(["p1", "p2"]),
     });
-    expect(promotedIdsOnPage).toEqual(["p-mid"]);
+    expect(posts.map((p) => p.id)).toEqual(["a", "p1", "b", "c"]);
+  });
+
+  it("Owner 2026-11-05: 광고가 끝나면 그 글은 일반 자리 한 번만(끼우지 않음)", () => {
+    const { posts, promotedIdsOnPage } = projectTradeFeedWithPromotions({
+      pageIndex: 0,
+      normalPosts: [mk("a"), mk("ended"), mk("b")],
+      promotedPosts: [mk("ended")],
+      activePromotionIds: new Set(),
+    });
+    expect(promotedIdsOnPage).toEqual([]);
+    expect(posts.map((p) => p.id)).toEqual(["a", "ended", "b"]);
   });
 
   it("재감사: pinned rows take the first organic row's list_section so the next divider is not skipped", () => {
