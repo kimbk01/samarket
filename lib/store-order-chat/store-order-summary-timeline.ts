@@ -1,12 +1,13 @@
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import {
   isStoreOrderTerminalStatus,
+  orderStatusName,
   processFlowStepStates,
-  processStatusLabel,
-  processStepLabel,
   processSteps,
-  type StoreOrderProcessStepKey,
+  type StoreOrderCancelKind,
 } from "@/lib/stores/store-order-process-model";
 
 export type StoreOrderSummaryTimelineStep = {
@@ -21,32 +22,30 @@ type StatusEventRow = {
   created_at?: string | null;
 };
 
-/** 주문 접수 시각 + 상태 이벤트로 채팅 카드용 타임라인 스텝 생성 */
+/**
+ * 채팅 요약 카드 4칸 (주문접수 · 조리중 · 배달중|픽업대기 · 배달완료|픽업완료) + 칸마다 실제 진입 시각.
+ * 시각 = 그 단계 이벤트 시각만 (주문 들어온 시각을 「주문접수」 자리에 넣지 않는다 — 3회차 D-6).
+ * 이름은 보는 사람 언어로 매번 다시 만든다 (서버에서 굳힌 글자 사용 금지 — 3회차 「Delivered」).
+ */
 export function buildStoreOrderSummaryTimelineSteps(input: {
   fulfillmentType: string;
   orderStatus: string;
   orderCreatedAt?: string | null;
+  acceptedAt?: string | null;
   statusEvents?: StatusEventRow[];
+  cancelKind?: StoreOrderCancelKind | null;
+  lang?: AppLanguageCode;
 }): StoreOrderSummaryTimelineStep[] {
-  const lang = getRuntimeAppLanguage();
+  const lang = input.lang ?? getRuntimeAppLanguage();
   const orderStatus = input.orderStatus.trim();
   const atByStatus = new Map<string, string>();
-
-  if (input.orderCreatedAt?.trim()) {
-    const createdAt = input.orderCreatedAt.trim();
-    atByStatus.set("pending", createdAt);
-    if (!atByStatus.has("accepted")) atByStatus.set("accepted", createdAt);
-  }
-
   for (const ev of input.statusEvents ?? []) {
     const to = typeof ev.to_status === "string" ? ev.to_status.trim() : "";
     const at = typeof ev.created_at === "string" ? ev.created_at.trim() : "";
-    if (to && at) atByStatus.set(to, at);
+    if (to && at && !atByStatus.has(to)) atByStatus.set(to, at);
   }
-
-  if (!atByStatus.has("preparing") && atByStatus.has("ready_for_pickup")) {
-    atByStatus.set("preparing", atByStatus.get("ready_for_pickup")!);
-  }
+  if (!atByStatus.has("accepted") && input.acceptedAt?.trim()) atByStatus.set("accepted", input.acceptedAt.trim());
+  // 예전 배달 흐름(준비 완료·도착) 시각은 같은 칸으로 모은다
   if (!atByStatus.has("delivering") && atByStatus.has("arrived")) {
     atByStatus.set("delivering", atByStatus.get("arrived")!);
   }
@@ -55,8 +54,8 @@ export function buildStoreOrderSummaryTimelineSteps(input: {
     return [
       {
         key: orderStatus,
-        label: processStatusLabel(orderStatus, input.fulfillmentType, "buyer", lang),
-        at: atByStatus.get(orderStatus) ?? input.orderCreatedAt?.trim() ?? null,
+        label: orderStatusName(orderStatus, input.fulfillmentType, lang, input.cancelKind),
+        at: atByStatus.get(orderStatus) ?? null,
         state: "current",
       },
     ];
@@ -64,33 +63,49 @@ export function buildStoreOrderSummaryTimelineSteps(input: {
 
   const keys = processSteps(input.fulfillmentType);
   const states = processFlowStepStates(input.fulfillmentType, orderStatus);
+  return keys.map((key, i) => ({
+    key,
+    label: orderStatusName(key, input.fulfillmentType, lang),
+    at: atByStatus.get(key) ?? null,
+    state: states[i] ?? "upcoming",
+  }));
+}
 
-  return keys.map((key, i) => {
-    const uiState = states[i] ?? "upcoming";
-    const state: StoreOrderSummaryTimelineStep["state"] = uiState;
-    return {
-      key,
-      label: processStepLabel(key as StoreOrderProcessStepKey, input.fulfillmentType, "buyer", lang),
-      at: atByStatus.get(key) ?? null,
-      state,
-    };
+/** 저장된 요약 timeline(예전 7칸 포함) → 4칸 다시 만들기 (이름·칸은 정본, 시각만 재사용) */
+export function rebuildStoreOrderSummaryTimelineFromStored(input: {
+  stored: StoreOrderSummaryTimelineStep[] | null | undefined;
+  fulfillmentType: string;
+  orderStatus: string;
+  acceptedAt?: string | null;
+  cancelKind?: StoreOrderCancelKind | null;
+  lang?: AppLanguageCode;
+}): StoreOrderSummaryTimelineStep[] {
+  const events = (input.stored ?? [])
+    .filter((st) => st.key !== "accepted" && typeof st.at === "string" && st.at.trim())
+    .map((st) => ({ to_status: st.key, created_at: st.at }));
+  return buildStoreOrderSummaryTimelineSteps({
+    fulfillmentType: input.fulfillmentType,
+    orderStatus: input.orderStatus,
+    acceptedAt: input.acceptedAt,
+    statusEvents: events,
+    cancelKind: input.cancelKind,
+    lang: input.lang,
   });
 }
 
+/** 칸 시각 — 필리핀 시간 `HH:mm` (기기 시간대 무관) */
 export function formatStoreOrderSummaryTimelineTime(iso: string | null): string | null {
   if (!iso?.trim()) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString("ko-KR", {
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  return formatManilaDateTime(iso).slice(11, 16);
 }
 
-export function orderStatusLabelForSummary(dbStatus: string, fulfillmentType: string = "local_delivery"): string {
+export function orderStatusLabelForSummary(
+  dbStatus: string,
+  fulfillmentType: string = "local_delivery",
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
   const s = dbStatus.trim();
-  return buyerOrderStatusLabel(s, getRuntimeAppLanguage(), fulfillmentType);
+  return buyerOrderStatusLabel(s, lang, fulfillmentType);
 }

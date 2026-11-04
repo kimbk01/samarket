@@ -624,7 +624,8 @@ function buyerCopyForOwnerStatus(
   language: AppLanguageCode,
   nextStatus: string,
   storeLabel: string,
-  orderNo: string
+  orderNo: string,
+  fulfillmentType: string = "local_delivery"
 ): { title: string; body: string } | null {
   const s = storeLabel || nt(language, "notify_commerce_store_fallback");
   const no = orderNo;
@@ -656,7 +657,13 @@ function buyerCopyForOwnerStatus(
       };
     case "completed":
       return {
-        title: nt(language, "notify_commerce_owner_status_completed_title"),
+        /** 4단계 정본 — 배달완료 / 픽업완료 */
+        title: nt(
+          language,
+          fulfillmentType === "pickup"
+            ? "notify_commerce_owner_status_completed_pickup_title"
+            : "notify_commerce_owner_status_completed_title"
+        ),
         body: nt(language, "notify_commerce_owner_status_completed_body", { store: s, orderNo: no }),
       };
     case "cancelled":
@@ -695,6 +702,20 @@ export async function notifyBuyerStoreOrderOwnerStatus(
 
   const language = await loadUserLanguage(sb, bid);
   const { name: storeName, imageUrl: storeImageUrl } = await loadStoreIdentity(sb, opts.storeId);
+  /** 픽업완료/배달완료 · 주문 거절 구분 (4단계 정본) */
+  const { data: orderKindRow } = await sb
+    .from("store_orders")
+    .select("fulfillment_type, cancel_kind")
+    .eq("id", oid)
+    .maybeSingle();
+  const fulfillmentType =
+    typeof (orderKindRow as { fulfillment_type?: unknown } | null)?.fulfillment_type === "string"
+      ? String((orderKindRow as { fulfillment_type: string }).fulfillment_type)
+      : "local_delivery";
+  const ownerRejected =
+    opts.nextStatus === "cancelled" &&
+    opts.actor === "OWNER" &&
+    (orderKindRow as { cancel_kind?: unknown } | null)?.cancel_kind === "rejected";
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const cancelReason =
@@ -711,6 +732,13 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       ? {
           title: nt(language, "notify_commerce_owner_status_cancelled_title"),
           body: nt(language, "notify_commerce_cancel_request_approved_body", { store: label, orderNo }),
+        }
+      : ownerRejected
+      ? {
+          title: nt(language, "notify_commerce_owner_status_rejected_title"),
+          body: cancelReason
+            ? nt(language, "notify_commerce_owner_status_rejected_body_reason", { reason: cancelReason })
+            : nt(language, "notify_commerce_owner_status_rejected_body", { store: label, orderNo }),
         }
       : cancelReason
       ? {
@@ -742,7 +770,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
               minutes: STORE_ORDER_ACCEPT_TIMEOUT_MINUTES,
             }),
           }
-        : buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
+        : buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo, fulfillmentType);
   if (!copy) return;
   const etaSuffix =
     opts.nextStatus === "accepted" &&
@@ -777,6 +805,8 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       store_id: opts.storeId.trim(),
       ...(storeImageUrl ? { store_image_url: storeImageUrl } : {}),
       order_status: opts.nextStatus,
+      fulfillment_type: fulfillmentType,
+      ...(ownerRejected ? { cancel_kind: "rejected" } : {}),
       ...(opts.estimatedPrepMinutes != null
         ? { estimated_prep_minutes: Math.floor(Number(opts.estimatedPrepMinutes)) }
         : {}),

@@ -328,7 +328,7 @@ export function OwnerStoreOrderDeliveryActionsAside({
               onClick={() => onTransitionClick("cancelled")}
               className={BTN_DANGER}
             >
-              {busy === "cancelled" ? t("common_processing") : t("store_owner_action_reject_order")}
+              {busy === "cancelled" ? t("common_processing") : t(order.order_status === "pending" ? "order_action_reject" : "order_action_cancel")}
             </button>
           ) : null}
           {primaryNext ? (
@@ -427,7 +427,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
     return null;
   }, [onUpdated, order.id, order.order_status, showTransitionButtons, storeId, t]);
 
-  const statusLabel = buyerOrderStatusLabel(order.order_status, language);
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type);
 
   return (
     <>
@@ -451,7 +451,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
                 onClick={() => onTransitionClick("cancelled")}
                 className={BTN_DANGER}
               >
-                {busy === "cancelled" ? t("common_processing") : t("store_owner_action_reject_order")}
+                {busy === "cancelled" ? t("common_processing") : t(order.order_status === "pending" ? "order_action_reject" : "order_action_cancel")}
               </button>
             ) : null}
             {primaryNext ? (
@@ -532,7 +532,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
     stepBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
-  const statusLabel = buyerOrderStatusLabel(order.order_status, language);
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type);
 
   const noticeEl: ReactNode = useMemo(() => {
     if (ownerStoreOrderDecisionActions(order.order_status).length > 0) {
@@ -574,7 +574,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
                 onClick={() => onTransitionClick("cancelled")}
                 className={`${TB_BTN_DANGER} sm:max-w-[50%]`}
               >
-                {busy === "cancelled" ? t("common_processing") : t("store_owner_action_reject_order")}
+                {busy === "cancelled" ? t("common_processing") : t(order.order_status === "pending" ? "order_action_reject" : "order_action_cancel")}
               </button>
             ) : null}
             {primaryNext ? (
@@ -679,7 +679,7 @@ export function OwnerStoreOrderPeekCancelBar({
           onClick={() => onTransitionClick("cancelled")}
           className={PEEK_CANCEL_BTN}
         >
-          {rejectBusy ? t("common_processing") : t("store_owner_cancel_order_btn")}
+          {rejectBusy ? t("common_processing") : t(order.order_status === "pending" ? "order_action_reject" : "order_action_cancel")}
         </button>
         {!canCancel ? (
           <p className="mt-1.5 sam-text-xxs leading-snug text-sam-muted">

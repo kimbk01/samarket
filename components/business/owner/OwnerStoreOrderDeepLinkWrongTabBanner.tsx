@@ -3,16 +3,8 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import type { OwnerMobileOrderTabId } from "@/lib/business/owner-mobile-orders-tab";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { OWNER_ORDER_TAB_LABEL_KEYS, type OwnerMobileOrderTabId } from "@/lib/business/owner-mobile-orders-tab";
 
-const TAB_LABEL_KEYS: Record<OwnerMobileOrderTabId, MessageKey> = {
-  new: "store_owner_mobile_tab_new_orders",
-  progress: "store_owner_mobile_tab_progress",
-  shipping: "store_owner_mobile_tab_shipping",
-  done: "store_owner_mobile_tab_done",
-  cancelled: "store_owner_mobile_tab_cancelled",
-};
 
 export function OwnerStoreOrderDeepLinkWrongTabBanner({
   storeId,
@@ -24,7 +16,7 @@ export function OwnerStoreOrderDeepLinkWrongTabBanner({
   wantTab: OwnerMobileOrderTabId;
 }) {
   const { t } = useI18n();
-  const tabLabel = t(TAB_LABEL_KEYS[wantTab]);
+  const tabLabel = t(OWNER_ORDER_TAB_LABEL_KEYS[wantTab]);
 
   return (
     <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4 text-[14px] leading-[1.35] text-sam-fg">

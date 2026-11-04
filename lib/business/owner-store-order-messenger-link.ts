@@ -19,7 +19,7 @@ export function buildOwnerStoreOrderMessengerContext(
     fulfillmentType: order.fulfillment_type,
     productTitle: headline,
     paymentAmount: order.payment_amount,
-    orderStatusLabel: buyerOrderStatusLabel(order.order_status, undefined, order.fulfillment_type),
+    orderStatusLabel: buyerOrderStatusLabel(order.order_status, undefined, order.fulfillment_type, (order as { cancel_kind?: unknown }).cancel_kind),
   });
 }
 

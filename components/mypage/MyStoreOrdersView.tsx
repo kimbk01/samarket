@@ -395,7 +395,7 @@ function MyStoreOrderCard({
                   className={`inline-flex max-w-[7rem] shrink-0 truncate rounded-full px-2 py-0.5 sam-text-xxs font-bold ${orderStatusBadgeToneClass(o.order_status)}`}
                   data-order-status={o.order_status}
                 >
-                  {buyerOrderStatusLabel(o.order_status, language, o.fulfillment_type)}
+                  {buyerOrderStatusLabel(o.order_status, language, o.fulfillment_type, (o as { cancel_kind?: unknown }).cancel_kind)}
                 </span>
                 <span
                   className={`shrink-0 whitespace-nowrap rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${

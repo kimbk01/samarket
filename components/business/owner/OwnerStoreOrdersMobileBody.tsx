@@ -17,6 +17,7 @@ import {
   effectiveOwnerMobileOrdersTab,
   orderMatchesOwnerMobileOrdersTab,
   OWNER_MOBILE_ORDER_TAB_IDS,
+  OWNER_ORDER_TAB_LABEL_KEYS,
 } from "@/lib/business/owner-mobile-orders-tab";
 import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
 import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
@@ -32,18 +33,10 @@ const STALE_SORT_RANK: Record<OwnerOrderStaleClass, number> = {
   stale_pending: 2,
   orphan_pending: 3,
 };
-const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = OWNER_MOBILE_ORDER_TAB_IDS.map(
-  (id) => {
-    const labelById: Record<(typeof OWNER_MOBILE_ORDER_TAB_IDS)[number], MessageKey> = {
-      new: "store_owner_mobile_tab_new_orders",
-      progress: "store_owner_mobile_tab_progress",
-      shipping: "store_owner_mobile_tab_shipping",
-      done: "store_owner_mobile_tab_done",
-      cancelled: "store_owner_mobile_tab_cancelled",
-    };
-    return { id, labelKey: labelById[id] };
-  }
-);
+const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = OWNER_MOBILE_ORDER_TAB_IDS.map((id) => ({
+  id,
+  labelKey: OWNER_ORDER_TAB_LABEL_KEYS[id],
+}));
 
 
 const OWNER_ORDERS_DATE_GROUPED_TABS: ReadonlySet<StoreOrderTabId> = new Set<StoreOrderTabId>(["done", "cancelled"]);
@@ -167,7 +160,7 @@ export function OwnerStoreOrdersMobileBody({
   tab: StoreOrderTabId;
   expandedOrderId: string;
   chatOrderId: string;
-  summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
+  summaryCounts: { pending: number; accepted: number; preparing: number; delivering: number; doneToday: number };
   deepLinkMissBanner?: ReactNode;
   /** 목록 하단 — 완료·취소 탭의 「이전 주문 더 보기」 (ORD-05) */
   listFooter?: ReactNode;
@@ -382,16 +375,17 @@ export function OwnerStoreOrdersMobileBody({
           ) : null}
 
           <div className="mt-2 grid grid-cols-4 gap-1">
+            {/* 숫자줄 = 홈 「주문 진행」과 같은 4칸 (정본 §3-5) · 접수 대기는 탭 숫자와 위 버튼이 맡는다 */}
             <KpiCard
-              label={t("store_owner_mobile_kpi_new")}
-              value={summaryCounts.pending}
-              tone="text-sam-danger"
-              href={onTabHref("new")}
-              onSelect={() => onSelectTab("new")}
+              label={t("order_stage_accepted")}
+              value={summaryCounts.accepted}
+              tone="text-sam-warning"
+              href={onTabHref("accepted")}
+              onSelect={() => onSelectTab("accepted")}
               compact
             />
             <KpiCard
-              label={t("store_owner_mobile_kpi_preparing")}
+              label={t("order_stage_preparing")}
               value={summaryCounts.preparing}
               tone="text-sam-warning"
               href={onTabHref("preparing")}
@@ -399,7 +393,7 @@ export function OwnerStoreOrdersMobileBody({
               compact
             />
             <KpiCard
-              label={t("store_owner_mobile_kpi_delivering")}
+              label={t("order_stage_tab_third")}
               value={summaryCounts.delivering}
               tone="text-[var(--biz-primary)]"
               href={onTabHref("shipping")}

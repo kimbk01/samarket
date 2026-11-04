@@ -68,8 +68,8 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_ops_block_cansell:
       "판매(주문) 권한이 아직 없습니다. 상품 준비는 가능하지만 주문 접수는 관리자 판매 승인 후입니다.",
     // OwnerStoreOrdersMobileBody
-    owner_copy_orders_fresh_new_title: "지금 처리할 신규 주문",
-    owner_copy_orders_long_waiting_title: "오래 대기 중인 주문 {count}건",
+    owner_copy_orders_fresh_new_title: "지금 처리할 접수 대기 주문",
+    owner_copy_orders_long_waiting_title: "오래 접수 대기 중인 주문 {count}건",
     // OwnerHomeStoreStatusCard
     owner_copy_home_store_status_aria: "매장 상태",
     // OwnerStoreSettingsContent
@@ -136,8 +136,8 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_ops_block_visibility: "Store is hidden. Turn on visibility in Store management.",
     owner_copy_ops_block_cansell:
       "Sales permission is not granted yet. You can prepare products; order intake waits for Admin sales approval.",
-    owner_copy_orders_fresh_new_title: "Fresh actionable new orders",
-    owner_copy_orders_long_waiting_title: "{count} orders waiting a long time",
+    owner_copy_orders_fresh_new_title: "Orders awaiting acceptance",
+    owner_copy_orders_long_waiting_title: "{count} orders awaiting acceptance for a long time",
     owner_copy_home_store_status_aria: "Store status",
     owner_copy_settings_visibility_open_title: "Visibility · Open",
     owner_copy_coin_withdrawal_confirm_note: "The Coin is held after the request; payout follows admin review.",

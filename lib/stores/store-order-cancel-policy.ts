@@ -81,8 +81,14 @@ export function resolveStoreOrderCancelPolicy(input: {
   return { kind: "hidden", reasonRequired: false, messageKey: "store_owner_cancel_policy_admin_review" };
 }
 
-export function ownerCancelActionButtonKey(policy: StoreOrderCancelPolicy): "store_owner_cancel_order_btn" | "store_owner_cancel_request_btn" | null {
-  if (policy.kind === "direct_cancel") return "store_owner_cancel_order_btn";
+/** 사장님 취소 버튼 이름 — 접수 전 = 「주문 거절」, 접수 뒤 = 「주문 취소」 (4단계 정본 §3-2) */
+export function ownerCancelActionButtonKey(
+  policy: StoreOrderCancelPolicy,
+  orderStatus?: string
+): "order_action_reject" | "order_action_cancel" | "store_owner_cancel_request_btn" | null {
+  if (policy.kind === "direct_cancel") {
+    return String(orderStatus ?? "").trim() === "pending" ? "order_action_reject" : "order_action_cancel";
+  }
   if (policy.kind === "request_cancel") return "store_owner_cancel_request_btn";
   return null;
 }

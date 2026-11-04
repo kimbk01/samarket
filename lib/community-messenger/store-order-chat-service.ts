@@ -26,11 +26,7 @@ import {
   plannedColumnsForStoreOrderRoom,
   roomDomainInsertColumns,
 } from "@/lib/chat-domain/domain-identity-legacy-map";
-import {
-  SYSTEM_LINE_DELIVERY_ARRIVED,
-  systemChatLineForOrderStatus,
-  type OrderChatFlow,
-} from "@/lib/shared-order-chat/chat-message-builder";
+import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import { storeOrderStatusToShared } from "@/lib/store-commerce/map-order-status";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -42,11 +38,13 @@ import {
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import type { StoreOrderStatusActor } from "@/lib/stores/order-status-transitions";
-import { storeOrderMessengerStatusLineContent } from "@/lib/store-order-chat/store-order-ops-i18n";
+import { storeOrderMessengerEventLine } from "@/lib/store-order-chat/store-order-ops-i18n";
 import {
   adminChatMessageKey,
-  chatMessageKey,
   chatMessageKeyWithPrep,
+  normalizeStoreOrderCancelKind,
+  storeOrderCancelKindFromEvent,
+  type StoreOrderCancelKind,
 } from "@/lib/stores/store-order-process-model";
 import { buildStoreOrderSummaryTimelineSteps } from "@/lib/store-order-chat/store-order-summary-timeline";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
@@ -178,7 +176,7 @@ async function loadStoreOrderSummaryFields(
   const { data, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, order_status, fulfillment_type, payment_amount, total_amount, discount_amount, created_at, accepted_at, estimated_prep_minutes, estimated_ready_at, delivery_address_summary, delivery_address_detail, buyer_phone, buyer_note, delivery_fee_amount, buyer_payment_method, buyer_payment_method_detail, stores(store_name)"
+      "id, order_no, order_status, cancel_kind, fulfillment_type, payment_amount, total_amount, discount_amount, created_at, accepted_at, estimated_prep_minutes, estimated_ready_at, delivery_address_summary, delivery_address_detail, buyer_phone, buyer_note, delivery_fee_amount, buyer_payment_method, buyer_payment_method_detail, stores(store_name)"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -190,7 +188,12 @@ async function loadStoreOrderSummaryFields(
   const order: ChatSummaryOrderFields = {
     store_name: trimText(store?.store_name) || "매장",
     order_no: trimText(row.order_no),
-    order_status: buyerOrderStatusLabel(status, undefined, fulfillmentType),
+    order_status: buyerOrderStatusLabel(
+      status,
+      DEFAULT_APP_LANGUAGE,
+      fulfillmentType,
+      (row as { cancel_kind?: unknown }).cancel_kind
+    ),
     fulfillment_type: fulfillmentType,
     delivery_address_summary:
       typeof row.delivery_address_summary === "string" ? row.delivery_address_summary : null,
@@ -318,7 +321,7 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
 
   const { data: orderRow } = await sb
     .from("store_orders")
-    .select("created_at, fulfillment_type, order_status")
+    .select("created_at, fulfillment_type, order_status, accepted_at, cancel_kind")
     .eq("id", orderId.trim())
     .maybeSingle();
   const fulfillmentType = trimText((orderRow as { fulfillment_type?: unknown } | null)?.fulfillment_type) || loaded.order.fulfillment_type || "pickup";
@@ -329,7 +332,11 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
     fulfillmentType,
     orderStatus,
     orderCreatedAt: orderCreatedAt || null,
+    acceptedAt: trimText((orderRow as { accepted_at?: unknown } | null)?.accepted_at) || null,
     statusEvents,
+    cancelKind: normalizeStoreOrderCancelKind((orderRow as { cancel_kind?: unknown } | null)?.cancel_kind),
+    /** 서버 저장본 = 기본 언어 (화면은 다시 그림) */
+    lang: DEFAULT_APP_LANGUAGE,
   });
 
   const createdAt = nowIso();
@@ -347,6 +354,7 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
       id: orderId.trim(),
       ...loaded.order,
       order_status: orderStatus,
+      cancel_kind: trimText((orderRow as { cancel_kind?: unknown } | null)?.cancel_kind) || null,
     },
     items: loaded.items,
   };
@@ -605,9 +613,33 @@ export async function ensureStoreOrderMessengerRoom(
   return ensured;
 }
 
-function storeOrderMessengerOwnerStatusLine(next: SharedOrderStatus, flow: OrderChatFlow): string | null {
-  if (next === "arrived") return SYSTEM_LINE_DELIVERY_ARRIVED;
-  return storeOrderMessengerStatusLineContent(next, flow);
+/** 사건 줄 1개 — 정본 문장(키·값 + 기본 언어 본문). 배달 「도착」(arrived)은 줄 없음 (설계안 v2 §3-3) */
+function storeOrderMessengerOwnerStatusLine(
+  next: SharedOrderStatus,
+  flow: OrderChatFlow,
+  opts?: { cancelKind?: StoreOrderCancelKind | null; reason?: string | null; autoCancelMinutes?: number | null }
+) {
+  if (next === "arrived") return null;
+  return storeOrderMessengerEventLine(next, flow, opts);
+}
+
+/** 마지막 취소 이벤트 → 취소 구분·사유 (거절·매장 취소·손님 취소·자동 취소·운영팀) */
+async function loadStoreOrderLatestCancelEvent(
+  sb: SupabaseClient<any>,
+  orderId: string
+): Promise<{ cancelKind: StoreOrderCancelKind | null; reason: string | null }> {
+  const { data } = await sb
+    .from("store_order_events")
+    .select("from_status, actor_role, message")
+    .eq("order_id", orderId)
+    .eq("to_status", "cancelled")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const row = (data ?? null) as { from_status?: string | null; actor_role?: string | null; message?: string | null } | null;
+  if (!row) return { cancelKind: null, reason: null };
+  const reason = typeof row.message === "string" && row.message.trim() ? row.message.trim() : null;
+  return { cancelKind: storeOrderCancelKindFromEvent(row.from_status, row.actor_role), reason };
 }
 
 function storeOrderSystemLineKind(status: SharedOrderStatus | null | undefined): "status" | "summary" | "warning" | "delivery" {
@@ -664,6 +696,9 @@ async function appendStoreOrderMessengerSystemMessage(
     messageKey?: MessageKey | null;
     messageVars?: Record<string, string | number>;
     prepMinutes?: number;
+    /** 취소 줄 — 화면 재번역용 (거절/매장/손님/자동/운영팀 · 사유) */
+    cancelKind?: StoreOrderCancelKind | null;
+    cancelReason?: string | null;
     /** Attribution only (metadata) — default: `store` when actorUserId is set, else `system`. */
     actorRole?: "store" | "system" | "admin";
   },
@@ -696,6 +731,8 @@ async function appendStoreOrderMessengerSystemMessage(
     orderStatus: relatedStatus,
     message_key: resolvedMessageKey,
     message_vars: input.messageVars ?? null,
+    cancel_kind: input.cancelKind ?? null,
+    cancel_reason: input.cancelReason ?? null,
     deliveryStatus:
       input.relatedOrderStatus === "delivering"
         ? "delivering"
@@ -748,17 +785,6 @@ export async function appendStoreOrderMessengerPaymentCompletedLine(
   });
 }
 
-export async function appendStoreOrderMessengerOrderCreatedLine(
-  sb: SupabaseClient<any>,
-  orderId: string
-): Promise<void> {
-  await appendStoreOrderMessengerSystemMessage(sb, {
-    orderId,
-    content: "신규 주문이 들어왔습니다.",
-    relatedOrderStatus: "pending",
-  });
-}
-
 export async function appendStoreOrderMessengerStatusTransition(
   sb: SupabaseClient<any>,
   orderId: string,
@@ -802,33 +828,46 @@ export async function appendStoreOrderMessengerStatusTransition(
       .eq("id", orderId.trim())
       .maybeSingle();
     const mins = Math.floor(Number((orderRow as { estimated_prep_minutes?: unknown } | null)?.estimated_prep_minutes ?? 0));
-    const line =
-      storeOrderMessengerStatusLineContent("accepted", ensured.orderFlow, {
-        prepMinutes: Number.isFinite(mins) && mins > 0 ? mins : undefined,
-      }) ?? "";
+    const prep = Number.isFinite(mins) && mins > 0 ? mins : undefined;
+    const line = storeOrderMessengerEventLine("accepted", ensured.orderFlow, { prepMinutes: prep });
+    if (!line) return;
     await appendStoreOrderMessengerSystemMessage(
       sb,
       {
         orderId,
         actorUserId: ensured.ownerUserId,
-        content: line,
+        content: line.content,
         relatedOrderStatus: "accepted",
-        prepMinutes: Number.isFinite(mins) && mins > 0 ? mins : undefined,
+        messageKey: line.message.key,
+        messageVars: line.message.params,
+        prepMinutes: prep,
       },
       ensured
     );
     return;
   }
 
-  const line = storeOrderMessengerOwnerStatusLine(next, ensured.orderFlow);
-  if (!line) return;
+  const cancelInfo =
+    next === "cancelled" ? await loadStoreOrderLatestCancelEvent(sb, orderId.trim()) : { cancelKind: null, reason: null };
+  const line = storeOrderMessengerOwnerStatusLine(next, ensured.orderFlow, {
+    cancelKind: cancelInfo.cancelKind,
+    reason: cancelInfo.reason,
+  });
+  if (!line) {
+    await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
+    return;
+  }
   await appendStoreOrderMessengerSystemMessage(
     sb,
     {
       orderId,
       actorUserId: ensured.ownerUserId,
-      content: line,
+      content: line.content,
       relatedOrderStatus: next,
+      messageKey: line.message.key,
+      messageVars: line.message.params,
+      cancelKind: cancelInfo.cancelKind,
+      cancelReason: cancelInfo.reason,
     },
     ensured
   );
@@ -865,8 +904,10 @@ export async function appendStoreOrderMessengerDeliveryStatusTransition(
     {
       orderId,
       actorUserId: ensured.ownerUserId,
-      content: line,
+      content: line.content,
       relatedOrderStatus: next,
+      messageKey: line.message.key,
+      messageVars: line.message.params,
     },
     ensured
   );

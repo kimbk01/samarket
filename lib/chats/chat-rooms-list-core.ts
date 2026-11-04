@@ -156,7 +156,15 @@ export type ChatRoomsListAssembleInput = {
   completionByTradeTriple: Map<string, TradeHubCompletionTimestamps>;
   orderMap: Map<
     string,
-    { id: string; order_no: string; store_id: string; order_status?: string; community_messenger_room_id?: string | null }
+    {
+      id: string;
+      order_no: string;
+      store_id: string;
+      order_status?: string;
+      fulfillment_type?: string;
+      cancel_kind?: string | null;
+      community_messenger_room_id?: string | null;
+    }
   >;
   storeMap: Map<string, { id: string; store_name: string }>;
   userLang: AppLanguageCode;
@@ -261,7 +269,12 @@ export function assembleChatRoomsList(input: ChatRoomsListAssembleInput): ChatRo
     const st = ord ? input.storeMap.get(ord.store_id) : undefined;
     const statusLabel =
       ord && typeof ord.order_status === "string"
-        ? buyerOrderStatusLabel(ord.order_status, input.userLang)
+        ? buyerOrderStatusLabel(
+            ord.order_status,
+            input.userLang,
+            ord.fulfillment_type ?? "local_delivery",
+            ord.cancel_kind
+          )
         : "";
     const title =
       ord && st

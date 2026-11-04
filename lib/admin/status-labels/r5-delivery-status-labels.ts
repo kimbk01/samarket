@@ -7,23 +7,35 @@ import {
   adminStatusLabelText,
   registerAdminStatusLabels,
 } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { translate } from "@/lib/i18n/messages";
+import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-order-process-model";
 
 /** 매장 주문 상태 — `STORE_ORDER_STATUS_LIST` (lib/stores/order-status-transitions.ts). */
 export const DELIVERY_STORE_ORDER_STATUS_NAMESPACE = "delivery.storeOrder";
 
-registerAdminStatusLabels(DELIVERY_STORE_ORDER_STATUS_NAMESPACE, {
-  pending: { ko: "주문 접수 대기", en: "Pending", tone: "neutral" },
-  accepted: { ko: "주문 수락", en: "Accepted", tone: "info" },
-  preparing: { ko: "조리 중", en: "Preparing", tone: "info" },
-  ready_for_pickup: { ko: "픽업 대기", en: "Ready for pickup", tone: "info" },
-  delivering: { ko: "배달 중", en: "Delivering", tone: "info" },
-  arrived: { ko: "도착", en: "Arrived", tone: "info" },
-  completed: { ko: "완료", en: "Completed", tone: "success" },
-  cancel_requested: { ko: "취소 요청", en: "Cancel requested", tone: "warning" },
-  cancelled: { ko: "취소됨", en: "Cancelled", tone: "neutral" },
-  refund_requested: { ko: "환불 요청", en: "Refund requested", tone: "warning" },
-  refunded: { ko: "환불됨", en: "Refunded", tone: "neutral" },
-});
+/** 이름 = 4단계 정본 키 (사장님·손님·채팅과 같은 말 · 설계안 v2 §3-1) */
+const STORE_ORDER_TONES = {
+  pending: "neutral",
+  accepted: "info",
+  preparing: "info",
+  ready_for_pickup: "info",
+  delivering: "info",
+  arrived: "info",
+  completed: "success",
+  cancel_requested: "warning",
+  cancelled: "neutral",
+  refund_requested: "warning",
+  refunded: "neutral",
+} as const;
+registerAdminStatusLabels(
+  DELIVERY_STORE_ORDER_STATUS_NAMESPACE,
+  Object.fromEntries(
+    Object.entries(ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT).map(([status, key]) => [
+      status,
+      { ko: translate("ko", key), en: translate("en", key), tone: STORE_ORDER_TONES[status as keyof typeof STORE_ORDER_TONES] },
+    ])
+  )
+);
 
 /** 배달 광고 진행 상태 — `DELIVERY_AD_LIFECYCLE_STATUSES` (lib/stores/advertising/delivery-ad-lifecycle.ts). */
 export const DELIVERY_AD_STATUS_NAMESPACE = "delivery.ad";

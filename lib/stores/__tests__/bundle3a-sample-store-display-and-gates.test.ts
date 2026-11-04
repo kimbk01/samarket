@@ -201,20 +201,16 @@ describe("C-04 — 빈 메뉴 문구", () => {
 });
 
 describe("C-08 — 주문 완료 화면 상태 문구 (SSOT)", () => {
-  it("pending=접수, completed=완료", () => {
-    expect(buyerOrderCompleteHeadline("pending", "local_delivery", "ko")).toEqual({
-      label: translate("ko", "store_order_accepted"),
-      tone: "success",
-    });
-    expect(buyerOrderCompleteHeadline("completed", "pickup", "ko").label).toBe(
-      translate("ko", "store_order_completed")
-    );
+  it("머리 = 4단계 정본 이름 (pending=접수 대기 · completed=배달완료/픽업완료)", () => {
+    expect(buyerOrderCompleteHeadline("pending", "local_delivery", "ko")).toEqual({ label: "접수 대기", tone: "progress" });
+    expect(buyerOrderCompleteHeadline("completed", "pickup", "ko")).toEqual({ label: "픽업완료", tone: "success" });
+    expect(buyerOrderCompleteHeadline("completed", "local_delivery", "ko").label).toBe("배달완료");
   });
   it("취소·환불은 「접수되었습니다」가 아니라 구매자 상태 라벨(terminal)", () => {
     for (const st of ["cancelled", "cancel_requested", "refund_requested", "refunded"]) {
       const h = buyerOrderCompleteHeadline(st, "local_delivery", "ko");
       expect(h.tone).toBe("terminal");
-      expect(h.label).not.toBe(translate("ko", "store_order_accepted"));
+      expect(h.label).not.toBe("주문접수");
       expect(h.label.length).toBeGreaterThan(0);
     }
   });

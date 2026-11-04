@@ -1,3 +1,4 @@
+import { orderStagePosition } from "@/lib/stores/store-order-process-model";
 import {
   OWNER_COMPACT_SHELL_MAX_TW,
 } from "@/lib/business/owner-compact-shell-viewport";
@@ -116,86 +117,32 @@ export const OWNER_ORDERS_HEADER_STACK_HEIGHT = "7.75rem";
 export const OWNER_ORDERS_MAIN_TOP_PAD_CLASS =
   "pt-[calc(var(--safe-top)+7.75rem)]";
 
-export function ownerOrderStatusTone(status: string): {
+/** 배지 색 — 같은 단계 = 같은 색 (정본 `orderStagePosition`) */
+export function ownerOrderStatusTone(
+  status: string,
+  fulfillment: string = "local_delivery"
+): {
   badgeBg: string;
   badgeText: string;
   stepActive: string;
 } {
-  switch (status) {
-    case "pending":
-      return {
-        badgeBg: "bg-[#FF4D4F]",
-        badgeText: "text-white",
-        stepActive: OWNER_MOBILE_RED,
-      };
-    case "accepted":
-    case "preparing":
-      return {
-        badgeBg: "bg-[#FA8C16]",
-        badgeText: "text-white",
-        stepActive: OWNER_MOBILE_ORANGE,
-      };
-    case "ready_for_pickup":
-    case "delivering":
-    case "arrived":
-      return {
-        badgeBg: "bg-[var(--biz-primary)]",
-        badgeText: "text-white",
-        stepActive: OWNER_OPS_GREEN,
-      };
-    case "completed":
-      return {
-        badgeBg: "bg-[#E5E5E5]",
-        badgeText: "text-[var(--biz-text)]",
-        stepActive: OWNER_MOBILE_GRAY,
-      };
-    case "refund_requested":
-    case "cancel_requested":
-      return {
-        badgeBg: "bg-[#B45309]",
-        badgeText: "text-white",
-        stepActive: OWNER_MOBILE_ORANGE,
-      };
-    case "cancelled":
-    case "refunded":
-      return {
-        badgeBg: "bg-[#8C8C8C]",
-        badgeText: "text-white",
-        stepActive: OWNER_MOBILE_GRAY,
-      };
-    default:
-      return {
-        badgeBg: "bg-slate-500",
-        badgeText: "text-white",
-        stepActive: OWNER_MOBILE_BLUE,
-      };
+  if (status === "refund_requested" || status === "cancel_requested") {
+    return { badgeBg: "bg-[#B45309]", badgeText: "text-white", stepActive: OWNER_MOBILE_ORANGE };
   }
-}
-
-export function ownerOrderStatusLabelKo(status: string): string {
-  switch (status) {
-    case "pending":
-      return "신규";
-    case "accepted":
-      return "주문접수";
-    case "preparing":
-    case "ready_for_pickup":
-      return "준비(조리)중";
-    case "delivering":
-      return "배달중";
-    case "arrived":
-      return "배송지 도착";
-    case "completed":
-      return "배달완료";
-    case "cancelled":
-      return "취소";
-    case "cancel_requested":
-      return "취소요청";
-    case "refunded":
-      return "취소";
-    case "refund_requested":
-      return "환불요청";
+  if (status === "cancelled" || status === "refunded") {
+    return { badgeBg: "bg-[#8C8C8C]", badgeText: "text-white", stepActive: OWNER_MOBILE_GRAY };
+  }
+  switch (orderStagePosition(status, fulfillment)) {
+    case 0:
+      return { badgeBg: "bg-[#FF4D4F]", badgeText: "text-white", stepActive: OWNER_MOBILE_RED };
+    case 1:
+    case 2:
+      return { badgeBg: "bg-[#FA8C16]", badgeText: "text-white", stepActive: OWNER_MOBILE_ORANGE };
+    case 3:
+      return { badgeBg: "bg-[var(--biz-primary)]", badgeText: "text-white", stepActive: OWNER_OPS_GREEN };
+    case 4:
+      return { badgeBg: "bg-[#E5E5E5]", badgeText: "text-[var(--biz-text)]", stepActive: OWNER_MOBILE_GRAY };
     default:
-      return status;
+      return { badgeBg: "bg-slate-500", badgeText: "text-white", stepActive: OWNER_MOBILE_BLUE };
   }
 }

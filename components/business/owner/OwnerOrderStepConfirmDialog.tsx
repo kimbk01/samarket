@@ -2,31 +2,10 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
-import type { MessageKey } from "@/lib/i18n/messages";
-
-/**
- * 다음 상태 → 확인 질문(제목)·단계 동사(확정 버튼) 키.
- * 분기는 `ownerOrderStepConfirmMessageI18n`(lib/stores/owner-order-ui-labels.ts)과 같다.
- */
-export function ownerOrderStepConfirmCopyKeys(
-  nextStatus: string,
-  fulfillment: string
-): { title: MessageKey; confirm: MessageKey } {
-  const deliveryLike = fulfillment === "local_delivery" || fulfillment === "shipping";
-  const keyMap: Record<string, { title: MessageKey; confirm: MessageKey }> = {
-    accepted: { title: "popup_q_step_accept", confirm: "popup_btn_step_accept" },
-    preparing: { title: "popup_q_step_preparing", confirm: "popup_btn_step_preparing" },
-    ready_for_pickup: deliveryLike
-      ? { title: "popup_q_step_packed", confirm: "popup_btn_step_packed" }
-      : { title: "popup_q_step_pickup_ready", confirm: "popup_btn_step_pickup_ready" },
-    delivering: { title: "popup_q_step_delivering", confirm: "popup_btn_step_delivering" },
-    arrived: { title: "popup_q_step_arrived", confirm: "popup_btn_step_arrived" },
-    completed: deliveryLike
-      ? { title: "popup_q_step_delivered", confirm: "popup_btn_step_delivered" }
-      : { title: "popup_q_step_picked_up", confirm: "popup_btn_step_picked_up" },
-  };
-  return keyMap[nextStatus] ?? { title: "popup_q_step_change", confirm: "popup_cta_change" };
-}
+import {
+  labelForOwnerTransitionFromModel,
+  ownerTransitionConfirmQuestion,
+} from "@/lib/stores/store-order-process-model";
 
 /** 주문 카드·상세 스테퍼 — 단계 전환 확인 */
 export function OwnerOrderStepConfirmDialog({
@@ -48,13 +27,15 @@ export function OwnerOrderStepConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const { t } = useI18n();
-  const copy = ownerOrderStepConfirmCopyKeys(nextStatus, fulfillment);
+  const { t, language } = useI18n();
+  /** 질문·버튼 = 4단계 정본 (§3-2) — 버튼 이름은 사장님 카드 다음 버튼과 같다 */
+  const title = ownerTransitionConfirmQuestion(nextStatus, fulfillment, t("store_owner_confirm_buyer_fallback"), language);
+  const confirm = labelForOwnerTransitionFromModel(language, "", nextStatus, fulfillment);
 
   return (
     <DibayConfirmDialog
       open={open}
-      title={t(copy.title)}
+      title={title}
       description={
         errorMessage ? (
           <span
@@ -67,7 +48,7 @@ export function OwnerOrderStepConfirmDialog({
         ) : undefined
       }
       cancelLabel={t("common_cancel")}
-      confirmLabel={busy ? t("common_processing") : t(copy.confirm)}
+      confirmLabel={busy ? t("common_processing") : confirm}
       onCancel={() => {
         if (!busy) onCancel();
       }}

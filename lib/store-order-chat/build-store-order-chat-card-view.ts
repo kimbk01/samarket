@@ -11,6 +11,7 @@ import {
   buildStoreOrderSummaryTimelineSteps,
   type StoreOrderSummaryTimelineStep,
 } from "@/lib/store-order-chat/store-order-summary-timeline";
+import { normalizeStoreOrderCancelKind } from "@/lib/stores/store-order-process-model";
 
 export type StoreOrderChatCardItemView = {
   title: string;
@@ -133,7 +134,7 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
     orderNo: text(order.order_no),
     storeName: input.storeName || text(order.store_name) || "매장",
     status,
-    statusLabel: buyerOrderStatusLabel(status, getRuntimeAppLanguage(), fulfillmentType),
+    statusLabel: buyerOrderStatusLabel(status, getRuntimeAppLanguage(), fulfillmentType, order.cancel_kind),
     fulfillmentType,
     fulfillmentLabel: isDeliveryFulfillment(fulfillmentType) ? "배달" : "포장·픽업",
     isDelivery: isDeliveryFulfillment(fulfillmentType),
@@ -160,7 +161,9 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
       fulfillmentType,
       orderStatus: status,
       orderCreatedAt,
+      acceptedAt: nullableText(order.accepted_at),
       statusEvents: input.events ?? [],
+      cancelKind: normalizeStoreOrderCancelKind(order.cancel_kind),
     }),
   };
 }

@@ -699,7 +699,7 @@ export async function loadChatRoomDetailForUser(input: {
     if (oid) {
       const { data: ordRow } = await sbAny
         .from("store_orders")
-        .select("order_no, store_id, order_status, community_messenger_room_id")
+        .select("order_no, store_id, order_status, fulfillment_type, cancel_kind, community_messenger_room_id")
         .eq("id", oid)
         .maybeSingle();
       if (ordRow) {
@@ -718,7 +718,12 @@ export async function loadChatRoomDetailForUser(input: {
           : translate(viewerLang, "store_messenger_delivery_order_title");
         statusLabel =
           typeof (ordRow as { order_status?: string }).order_status === "string"
-            ? buyerOrderStatusLabel((ordRow as { order_status: string }).order_status, viewerLang)
+            ? buyerOrderStatusLabel(
+              (ordRow as { order_status: string }).order_status,
+              viewerLang,
+              (ordRow as { fulfillment_type?: string }).fulfillment_type ?? "local_delivery",
+              (ordRow as { cancel_kind?: unknown }).cancel_kind
+            )
             : "";
       }
       partnerDispSo = partnerDisplayFromMap(await partnerPromise, partnerIdSo, partnerIdSo.slice(0, 8));

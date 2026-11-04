@@ -15,13 +15,14 @@ export function buyerFulfillmentLabel(fulfillmentType: string, t: MypageT): stri
 export function storeOrderEventLabels(t: MypageT): Record<string, string> {
   return {
     order_created: t("mypage_comp_event_order_created"),
-    order_accepted: t("mypage_comp_event_order_accepted"),
-    order_rejected: t("mypage_comp_event_order_rejected"),
-    order_preparing: t("mypage_comp_event_order_preparing"),
-    order_ready: t("mypage_comp_event_order_ready"),
-    order_delivering: t("mypage_comp_event_order_delivering"),
-    order_completed: t("mypage_comp_event_order_completed"),
-    order_cancelled: t("mypage_comp_event_order_cancelled"),
+    /** 상태 사건 이름 = 4단계 정본 이름 (설계안 v2 §3-1) */
+    order_accepted: t("order_stage_accepted"),
+    order_rejected: t("order_stage_rejected"),
+    order_preparing: t("order_stage_preparing"),
+    order_ready: t("order_stage_pickup_ready"),
+    order_delivering: t("order_stage_delivering"),
+    order_completed: t("order_stage_tab_done"),
+    order_cancelled: t("order_stage_cancelled"),
     refund_requested: t("mypage_comp_event_refund_requested"),
     refund_approved: t("mypage_comp_event_refund_approved"),
     refund_rejected: t("mypage_comp_event_refund_rejected"),
@@ -95,7 +96,7 @@ export function buyerStoreOrderProgressCopy(
   switch (order.order_status) {
     case "pending":
       return {
-        headline: t("mypage_comp_order_prog_pending_headline"),
+        headline: orderStatusLabel(order.order_status),
         lines: [t("mypage_comp_order_prog_pending_line1")],
       };
     case "accepted": {
@@ -105,16 +106,17 @@ export function buyerStoreOrderProgressCopy(
           : t("mypage_comp_order_prog_prep_fallback"),
         prepClock ? t("mypage_comp_order_prog_prep_clock_labeled", { clock: prepClock }) : "",
       ].filter(Boolean);
-      return { headline: t("mypage_comp_order_prog_accepted_headline"), lines };
+      return { headline: orderStatusLabel(order.order_status), lines };
     }
     case "preparing":
       return {
-        headline: t("mypage_comp_order_prog_preparing_headline"),
+        headline: orderStatusLabel(order.order_status),
         lines: prepClock
           ? [t("mypage_comp_order_prog_preparing_clock", { clock: prepClock })]
           : [t("mypage_comp_order_prog_preparing_default")],
       };
-    case "delivering": {
+    case "delivering":
+    case "arrived": {
       const lines = [
         deliveryLine,
         typeof d?.customer_arrived_at === "string" && d.customer_arrived_at.trim()
@@ -124,7 +126,7 @@ export function buyerStoreOrderProgressCopy(
           ? t("mypage_comp_order_prog_courier_label", { label: order.delivery_courier_label.trim() })
           : null,
       ].filter((x): x is string => typeof x === "string" && x.length > 0);
-      return { headline: t("mypage_comp_order_prog_delivering_headline"), lines };
+      return { headline: orderStatusLabel(order.order_status), lines };
     }
     default: {
       const lines: string[] = [];

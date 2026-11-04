@@ -12,7 +12,9 @@ export type StoreOrderTabId =
   | "progress"
   | "done"
   | "cancelled"
-  | "refund";
+  | "refund"
+  /** 사장님 주문 탭 「전체」 — `all`(탭 없음 = 기본 접수 대기)과 구분 */
+  | "every";
 
 const KNOWN = new Set<string>([
   "all",
@@ -25,6 +27,7 @@ const KNOWN = new Set<string>([
   "done",
   "cancelled",
   "refund",
+  "every",
 ]);
 
 export function parseStoreOrderTab(raw: string | null | undefined): StoreOrderTabId {
@@ -37,7 +40,7 @@ export function orderMatchesStoreTab(
   order: { order_status: string },
   tab: StoreOrderTabId
 ): boolean {
-  if (tab === "all") return true;
+  if (tab === "all" || tab === "every") return true;
   const s = order.order_status;
   switch (tab) {
     case "new":
@@ -116,14 +119,3 @@ export function buildStoreOrdersHref(params: {
   return `/stores/owner/orders?${p.toString()}`;
 }
 
-export const STORE_ORDER_TAB_CHIPS: Array<{ id: StoreOrderTabId; label: string }> = [
-  { id: "all", label: "전체" },
-  { id: "new", label: "신규" },
-  { id: "accepted", label: "주문접수" },
-  { id: "preparing", label: "준비(조리)중" },
-  { id: "ready", label: "픽업준비" },
-  { id: "shipping", label: "배달중" },
-  { id: "done", label: "완료" },
-  { id: "refund", label: "환불요청" },
-  { id: "cancelled", label: "취소·환불" },
-];

@@ -143,6 +143,8 @@ export function assembleChatRoomsFromSnapshotPayload(
         order_no: String(o.order_no ?? ""),
         store_id: String(o.store_id ?? ""),
         order_status: o.order_status as string | undefined,
+        fulfillment_type: o.fulfillment_type as string | undefined,
+        cancel_kind: o.cancel_kind as string | null | undefined,
         community_messenger_room_id: o.community_messenger_room_id as string | null | undefined,
       },
     ])

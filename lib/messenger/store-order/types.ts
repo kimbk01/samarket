@@ -26,6 +26,8 @@ export type StoreOrderRoomInput = Readonly<{
   orderStatusLabel?: string | null | undefined;
   /** DB `store_orders.fulfillment_type` — delivery vs pickup label wording (SSOT input). */
   fulfillmentType?: string | null | undefined;
+  /** DB `store_orders.cancel_kind` — 「rejected」면 「주문 거절」 (4단계 정본) */
+  cancelKind?: string | null | undefined;
   participantUserIds?: ReadonlyArray<string> | null | undefined;
   /** 진단 — Domain 재판정 금지 */
   roomType?: string | null | undefined;
@@ -49,6 +51,7 @@ export type StoreOrderListItem = Readonly<{
   unreadCount: number;
   orderStatusLabel: string | null;
   fulfillmentType: string | null;
+  cancelKind?: string | null;
   generation: string;
 }>;
 

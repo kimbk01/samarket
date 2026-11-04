@@ -139,7 +139,7 @@ export function StoreCommerceOrderDetailClient({
     Math.round(Number(order.amount_before_gift) || Math.max(0, Math.round(Number(order.total_amount) || 0) - discount))
   );
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
-  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type);
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type, (order as { cancel_kind?: unknown }).cancel_kind);
   const fulfillmentLabel = buyerFulfillmentLabel(order.fulfillment_type, t);
 
   return (
@@ -167,6 +167,7 @@ export function StoreCommerceOrderDetailClient({
             variant="buyer_detail"
             fulfillmentType={order.fulfillment_type}
             orderStatus={order.order_status}
+            cancelKind={(order as { cancel_kind?: unknown }).cancel_kind}
           />
         </div>
       </section>

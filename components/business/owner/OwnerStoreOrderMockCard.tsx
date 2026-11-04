@@ -35,6 +35,8 @@ import {
   processStatusLabel,
   processStepLabel,
   processSteps,
+  normalizeStoreOrderCancelKind,
+  type StoreOrderCancelKind,
   type StoreOrderProcessStepKey,
 } from "@/lib/stores/store-order-process-model";
 import {
@@ -90,9 +92,14 @@ export function OwnerStoreOrderMockCard({
   onOpenChat: () => void;
 }) {
   const { t, safeT, language } = useI18n();
-  const tone = ownerOrderStatusTone(order.order_status);
+  const tone = ownerOrderStatusTone(order.order_status, order.fulfillment_type);
   const deliveryLike = isDeliveryFulfillment(order.fulfillment_type);
-  const statusLabel = ownerOpsStatusLabelI18n(language, order.order_status, order.fulfillment_type);
+  const statusLabel = ownerOpsStatusLabelI18n(
+    language,
+    order.order_status,
+    order.fulfillment_type,
+    normalizeStoreOrderCancelKind((order as { cancel_kind?: unknown }).cancel_kind)
+  );
   const elapsed = formatOwnerOrderElapsed(order.created_at, language);
   const stalePending = classifyOwnerOrderStalePending({
     orderStatus: order.order_status,
@@ -143,7 +150,7 @@ export function OwnerStoreOrderMockCard({
       }),
     [order.delivery?.delivery_status, order.order_status, order.payment_status]
   );
-  const cancelButtonKey = ownerCancelActionButtonKey(cancelPolicy);
+  const cancelButtonKey = ownerCancelActionButtonKey(cancelPolicy, order.order_status);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -313,8 +320,14 @@ export function OwnerStoreOrderMockCard({
   );
 
   const flow = useMemo(
-    () => buildOwnerOpsFlowFromModel(order.order_status, order.fulfillment_type, language),
-    [language, order.fulfillment_type, order.order_status]
+    () =>
+      buildOwnerOpsFlowFromModel(
+        order.order_status,
+        order.fulfillment_type,
+        language,
+        normalizeStoreOrderCancelKind((order as { cancel_kind?: unknown }).cancel_kind)
+      ),
+    [language, order]
   );
 
   return (
@@ -730,9 +743,14 @@ function summarizeMenu(
 
 type FlowStep = { label: string; state: "done" | "current" | "upcoming" };
 
-function buildOwnerOpsFlowFromModel(status: string, fulfillment: string, lang: AppLanguageCode): FlowStep[] {
+function buildOwnerOpsFlowFromModel(
+  status: string,
+  fulfillment: string,
+  lang: AppLanguageCode,
+  cancelKind: StoreOrderCancelKind | null
+): FlowStep[] {
   if (isStoreOrderTerminalStatus(status)) {
-    const terminalLabel = processStatusLabel(status, fulfillment, "owner_badge", lang);
+    const terminalLabel = processStatusLabel(status, fulfillment, "owner_badge", lang, cancelKind);
     return [{ label: terminalLabel, state: "current" }];
   }
   const keys = processSteps(fulfillment);

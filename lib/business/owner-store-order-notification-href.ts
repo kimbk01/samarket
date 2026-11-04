@@ -14,7 +14,10 @@ export function ownerMobileTabForCommerceMetaKind(kind: string): OwnerMobileOrde
   ) {
     return "new";
   }
-  if (k === "store_order_refund_requested" || k === "store_order_refund_approved") {
+  if (k === "store_order_refund_requested") {
+    return "refund";
+  }
+  if (k === "store_order_refund_approved") {
     return "cancelled";
   }
   if (

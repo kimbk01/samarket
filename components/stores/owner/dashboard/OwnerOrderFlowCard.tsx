@@ -10,17 +10,18 @@ import { OWNER_COMPACT_SHELL_MAX_TW } from "@/lib/business/owner-compact-shell-v
 import { cn, ownerDashCardClass, ownerDashTypography } from "./owner-dashboard-ui";
 import type { MessageKey } from "@/lib/i18n/messages";
 
-type FlowStepKey = "waiting" | "cooking" | "delivering" | "done";
+type FlowStepKey = "accepted" | "cooking" | "delivering" | "done";
 
 const STEPS: Array<{
   key: FlowStepKey;
   labelKey: MessageKey;
-  tab: "new" | "progress" | "shipping" | "done";
+  tab: "accepted" | "preparing" | "shipping" | "done";
 }> = [
-  { key: "waiting", labelKey: "store_owner_dash_flow_waiting", tab: "new" },
-  { key: "cooking", labelKey: "store_owner_dash_flow_cooking", tab: "progress" },
-  { key: "delivering", labelKey: "store_owner_dash_flow_delivering", tab: "shipping" },
-  { key: "done", labelKey: "store_owner_dash_flow_done", tab: "done" },
+  /** 4칸 = 정본 단계 (주문접수 · 조리중 · 배달중·픽업대기 · 오늘 완료) — 접수 대기는 위 「접수 대기 주문 보기」 버튼 (설계안 v2 §3-5) */
+  { key: "accepted", labelKey: "order_stage_accepted", tab: "accepted" },
+  { key: "cooking", labelKey: "order_stage_preparing", tab: "preparing" },
+  { key: "delivering", labelKey: "order_stage_tab_third", tab: "shipping" },
+  { key: "done", labelKey: "order_stage_completed_today", tab: "done" },
 ];
 
 /**
@@ -39,13 +40,13 @@ export function OwnerOrderFlowCard({
   const { t } = useI18n();
   const ordersHref = buildOwnerOrdersEntryHref({ storeId, freshList: true });
   const counts: Record<FlowStepKey, number> = {
-    waiting: snapshot.flow_waiting_count,
+    accepted: snapshot.flow_accepted_count,
     cooking: snapshot.flow_cooking_count,
     delivering: snapshot.flow_delivering_count,
     done: snapshot.flow_completed_today_count,
   };
   const delays: Record<FlowStepKey, number> = {
-    waiting: 0,
+    accepted: 0,
     cooking: snapshot.flow_cooking_delayed_count,
     delivering: snapshot.flow_delivering_delayed_count,
     done: 0,

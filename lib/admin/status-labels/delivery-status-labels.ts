@@ -1,3 +1,5 @@
+import { translate } from "@/lib/i18n/messages";
+import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-order-process-model";
 /**
  * 배달 Admin 상태 라벨 레지스트리 (R1 공통 기준) — 원시 상태값을 운영자 한국어/영어로.
  * 미등록 코드는 「알 수 없는 상태」로 표시하고 원시 값은 기술 정보에서만 보여준다.
@@ -77,26 +79,39 @@ const RIDER_DELIVERY: Registry = {
   delivery_failed: { ko: "배달 실패", en: "Delivery failed", tone: "danger" },
   assigned: { ko: "배정됨", en: "Assigned", tone: "progress" },
   picked_up: { ko: "픽업 완료", en: "Picked up", tone: "progress" },
-  delivering: { ko: "배달 중", en: "Delivering", tone: "progress" },
+  delivering: { ko: "배달중", en: "Delivering", tone: "progress" },
   delivered: { ko: "배달 완료", en: "Delivered", tone: "success" },
   failed: { ko: "배달 실패", en: "Failed", tone: "danger" },
   cancelled: { ko: "취소", en: "Cancelled", tone: "neutral" },
 };
 
 /** 매장 주문 상태 (`store_orders.order_status`) — 배달 현장 화면 표시용. */
-const STORE_ORDER: Registry = {
-  pending: { ko: "주문 접수 대기", en: "Pending", tone: "waiting" },
-  accepted: { ko: "주문 수락", en: "Accepted", tone: "progress" },
-  preparing: { ko: "조리 중", en: "Preparing", tone: "progress" },
-  ready_for_pickup: { ko: "픽업 대기", en: "Ready for pickup", tone: "progress" },
-  delivering: { ko: "배달 중", en: "Delivering", tone: "progress" },
-  arrived: { ko: "도착", en: "Arrived", tone: "progress" },
-  completed: { ko: "완료", en: "Completed", tone: "success" },
-  cancel_requested: { ko: "취소 요청", en: "Cancel requested", tone: "warning" },
-  cancelled: { ko: "취소됨", en: "Cancelled", tone: "neutral" },
-  refund_requested: { ko: "환불 요청", en: "Refund requested", tone: "warning" },
-  refunded: { ko: "환불됨", en: "Refunded", tone: "neutral" },
-};
+/** 매장 주문 상태 이름 = 4단계 정본 키 (사장님·손님·채팅과 같은 말 · 설계안 v2 §3-1) */
+function storeOrderStatusRegistry<T extends string>(tones: Record<keyof typeof ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT, T>) {
+  const out: Record<string, { ko: string; en: string; tone: T }> = {};
+  for (const [status, key] of Object.entries(ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT)) {
+    out[status] = {
+      ko: translate("ko", key),
+      en: translate("en", key),
+      tone: tones[status as keyof typeof ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT],
+    };
+  }
+  return out;
+}
+
+const STORE_ORDER: Registry = storeOrderStatusRegistry({
+  pending: "waiting",
+  accepted: "progress",
+  preparing: "progress",
+  ready_for_pickup: "progress",
+  delivering: "progress",
+  arrived: "progress",
+  completed: "success",
+  cancel_requested: "warning",
+  cancelled: "neutral",
+  refund_requested: "warning",
+  refunded: "neutral",
+});
 
 /** 배달 경고 이벤트 상태 (`delivery_operation_alert_events.event_status`). */
 const ALERT_EVENT: Registry = {

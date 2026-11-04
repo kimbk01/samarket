@@ -31,6 +31,8 @@ export type OwnerStoreOrderListRow = {
   payment_amount: number;
   payment_status: string;
   order_status: string;
+  /** 취소 구분 (DB 2026-11-04) — 「rejected」면 「주문 거절」 */
+  cancel_kind?: string | null;
   fulfillment_type: string;
   buyer_note: string | null;
   buyer_payment_method?: string | null;

@@ -45,6 +45,7 @@ function normalizeOrderCountsSeed(meta: OwnerHubOrderCountsSeedInput): OwnerHubO
     delivery_delay_count: n(merged.delivery_delay_count),
     rider_unassigned_count: n(merged.rider_unassigned_count),
     flow_waiting_count: n(merged.flow_waiting_count),
+    flow_accepted_count: n(merged.flow_accepted_count),
     flow_cooking_count: n(merged.flow_cooking_count),
     flow_delivering_count: n(merged.flow_delivering_count),
     flow_completed_today_count: n(merged.flow_completed_today_count),

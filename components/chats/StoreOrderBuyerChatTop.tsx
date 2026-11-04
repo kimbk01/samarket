@@ -152,7 +152,7 @@ export function StoreOrderBuyerChatTop({
     return () => window.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
 
-  const statusLabel = order != null ? buyerOrderStatusLabel(order.order_status, language) : "";
+  const statusLabel = order != null ? buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type ?? "local_delivery", (order as { cancel_kind?: unknown }).cancel_kind) : "";
 
   const phone09 =
     order?.buyer_phone != null && String(order.buyer_phone).trim()

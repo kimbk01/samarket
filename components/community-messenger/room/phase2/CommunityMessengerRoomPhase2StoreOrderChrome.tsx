@@ -25,6 +25,8 @@ import {
 } from "@/lib/store-order-chat/messenger-delivery-progress";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { normalizeStoreOrderCancelKind, orderStatusName } from "@/lib/stores/store-order-process-model";
 import {
   resolveDeliveryChromePrimaryLabel,
   resolveDeliveryPeerUserId,
@@ -40,7 +42,7 @@ type Props = {
  * 주문 스냅샷·상세 drawer 는 `StoreOrderDeliveryRoomProvider` 단일 소스.
  */
 export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const [buyerVoiceOutgoingConfirmOpen, setBuyerVoiceOutgoingConfirmOpen] = useState(false);
@@ -266,6 +268,27 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     );
   }
 
+  /** 상태 이름 = 정본 (보는 사람 언어 · 방 요약에 저장된 글자를 쓰지 않음 — 서버 언어로 굳은 영어 방지) */
+  const chromeOrderStatus =
+    snapshot?.orderCard?.status ?? snapshot?.buyerOrder?.order_status ?? snapshot?.ownerOrder?.order_status ?? "";
+  const chromeFulfillment =
+    snapshot?.orderCard?.fulfillmentType ??
+    snapshot?.buyerOrder?.fulfillment_type ??
+    snapshot?.ownerOrder?.fulfillment_type ??
+    "local_delivery";
+  const chromeStatusLabel = snapshot?.orderCard?.statusLabel
+    ? snapshot.orderCard.statusLabel
+    : chromeOrderStatus
+    ? orderStatusName(
+        chromeOrderStatus,
+        chromeFulfillment,
+        language,
+        normalizeStoreOrderCancelKind(
+          (snapshot?.buyerOrder as { cancel_kind?: unknown } | undefined)?.cancel_kind ??
+            (snapshot?.ownerOrder as { cancel_kind?: unknown } | undefined)?.cancel_kind
+        )
+      )
+    : statusLabel ?? "";
   return (
     <>
       <DeliveryChromeStrip
@@ -279,19 +302,14 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
           storeOrderId
         }
         primaryLabel={chromePrimaryLabel}
-        statusLabel={
-          snapshot?.orderCard?.statusLabel ??
-          statusLabel ??
-          snapshot?.buyerOrder?.order_status ??
-          snapshot?.ownerOrder?.order_status ??
-          ""
-        }
+        statusLabel={chromeStatusLabel}
         orderStatus={
           snapshot?.orderCard?.status ??
           snapshot?.buyerOrder?.order_status ??
           snapshot?.ownerOrder?.order_status ??
           null
         }
+        language={language}
         deliveryLike={Boolean(snapshot?.orderCard?.isDelivery)}
         fulfillmentType={
           snapshot?.orderCard?.fulfillmentType ??
@@ -321,24 +339,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   );
 }
 
-const MESSENGER_DELIVERY_PROGRESS_STEP_KEYS = [
-  "store_messenger_progress_step_new_order",
-  "store_messenger_progress_step_accepted",
-  "store_messenger_progress_step_preparing",
-  "store_messenger_progress_step_delivery_ready",
-  "store_messenger_progress_step_delivering",
-  "store_messenger_progress_step_near_address",
-  "store_messenger_progress_step_done",
-] as const satisfies readonly MessageKey[];
-
-const MESSENGER_PICKUP_PROGRESS_STEP_KEYS = [
-  "store_messenger_progress_step_new_order",
-  "store_messenger_progress_step_accepted",
-  "store_messenger_progress_step_preparing",
-  "store_messenger_progress_step_pickup_ready",
-  "store_messenger_progress_step_pickup_done",
-] as const satisfies readonly MessageKey[];
-
 function DeliveryChromeStrip({
   t,
   onOpenDetail,
@@ -351,8 +351,10 @@ function DeliveryChromeStrip({
   fulfillmentType,
   paymentAmount,
   addressLine,
+  language,
 }: {
   t: StoreOrderI18nT;
+  language: AppLanguageCode;
   onOpenDetail: () => void;
   detailBtnLabel: string;
   orderNo: string;
@@ -366,11 +368,7 @@ function DeliveryChromeStrip({
 }) {
   const statusKey = (orderStatus ?? "").trim() || "pending";
   const ft = fulfillmentType.trim() || (deliveryLike ? "local_delivery" : "pickup");
-  const deliverySteps = [...messengerDeliveryProgressSteps(ft)];
-  const stepKeys = deliveryLike ? MESSENGER_DELIVERY_PROGRESS_STEP_KEYS : MESSENGER_PICKUP_PROGRESS_STEP_KEYS;
-  const localizedSteps = deliverySteps.map((step, idx) =>
-    stepKeys[idx] ? t(stepKeys[idx]!) : step
-  );
+  const localizedSteps = [...messengerDeliveryProgressSteps(ft, language)];
   const currentStep = messengerDeliveryProgressCurrentStep(statusKey, ft);
   const fillRatio = messengerDeliveryProgressFillRatio(statusKey, ft);
   const paymentLabel =

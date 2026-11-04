@@ -14,7 +14,7 @@ import type {
   StoreOrderOwnerListViewModel,
 } from "@/lib/messenger/store-order/ux-contract";
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
-import { processStatusLabel } from "@/lib/stores/store-order-process-model";
+import { normalizeStoreOrderCancelKind, processStatusLabel } from "@/lib/stores/store-order-process-model";
 
 /** raw `order_status`(pending 등) → SSOT 한글/영문 라벨. 미인식 값은 그대로 통과. */
 function resolveOrderStatusBadge(
@@ -24,7 +24,7 @@ function resolveOrderStatusBadge(
 ): string | null {
   const status = item.orderStatusLabel?.trim();
   if (!status) return null;
-  return processStatusLabel(status, item.fulfillmentType ?? "", audience, lang);
+  return processStatusLabel(status, item.fulfillmentType ?? "", audience, lang, normalizeStoreOrderCancelKind(item.cancelKind));
 }
 
 export const storeOrderRouterPort: MessengerRouterPort = {

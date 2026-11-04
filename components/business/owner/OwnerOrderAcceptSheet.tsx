@@ -51,9 +51,9 @@ export function OwnerOrderAcceptSheet({
       onClose={() => {
         if (!busy) onClose();
       }}
-      title={t("business_phase7_339")}
+      title={t("order_action_accept")}
       zIndexClass={overlayClassName ? MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS : undefined}
-      ariaLabel={t("business_phase7_339")}
+      ariaLabel={t("order_action_accept")}
       contentPaddingBottomPx={contentPaddingBottomPx}
     >
       <p className={`mt-1 ${OverlayUi.bodySecondary}`}>{t("business_phase7_340")}</p>
@@ -117,7 +117,7 @@ export function OwnerOrderAcceptSheet({
             onConfirm(Math.floor(resolved));
           }}
         >
-          {busy ? t("common_processing") : t("business_phase7_342")}
+          {busy ? t("common_processing") : t("order_action_accept")}
         </DibayOverlayButton>
       </div>
     </DibayBottomSheet>

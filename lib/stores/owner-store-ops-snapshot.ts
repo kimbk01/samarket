@@ -34,6 +34,8 @@ export type OwnerStoreOpsSnapshot = {
   delivery_delay_count: number;
   rider_unassigned_count: number;
   flow_waiting_count: number;
+  /** 주문접수(accepted) — 4단계 정본 1칸 (DB 2026-11-04) */
+  flow_accepted_count: number;
   flow_cooking_count: number;
   flow_delivering_count: number;
   flow_completed_today_count: number;
@@ -69,6 +71,7 @@ export const EMPTY_OWNER_STORE_OPS_SNAPSHOT: OwnerStoreOpsSnapshot = {
   delivery_delay_count: 0,
   rider_unassigned_count: 0,
   flow_waiting_count: 0,
+  flow_accepted_count: 0,
   flow_cooking_count: 0,
   flow_delivering_count: 0,
   flow_completed_today_count: 0,
@@ -157,6 +160,7 @@ export function parseOwnerStoreOpsSnapshotFromJson(json: unknown): OwnerStoreOps
     delivery_delay_count: n(b.delivery_delay_count),
     rider_unassigned_count: n(b.rider_unassigned_count),
     flow_waiting_count: n(b.flow_waiting_count),
+    flow_accepted_count: n(b.flow_accepted_count),
     flow_cooking_count: n(b.flow_cooking_count),
     flow_delivering_count: n(b.flow_delivering_count),
     flow_completed_today_count: completedToday,

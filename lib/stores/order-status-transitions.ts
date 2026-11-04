@@ -75,9 +75,10 @@ export function isValidOrderStatus(s: string): boolean {
 }
 
 /**
- * 오너가 설정할 수 있는 다음 상태 (fulfillment에 따라 분기)
- * 배달: preparing→ready_for_pickup(픽업준비)→delivering→arrived→completed
- * 픽업: preparing→ready_for_pickup→completed
+ * 오너가 설정할 수 있는 다음 상태 — 4단계 정본 (Owner 2026-11-04 · docs/audit/store-order-process-terms-unify-design-2026-11-04.md §3-2)
+ * 배달: pending→accepted(주문 접수)→preparing(조리 시작)→delivering(배달 출발)→completed(배달 완료)
+ * 픽업: pending→accepted→preparing→ready_for_pickup(준비 완료)→completed(픽업 완료)
+ * 예전 배달 주문(ready_for_pickup·arrived)은 이어서 delivering·completed 로 진행할 수 있게 남긴다.
  */
 export function allowedOrderTransitions(current: string, fulfillment: string): string[] {
   const deliveryLike = isDeliveryFulfillment(fulfillment);
@@ -87,13 +88,12 @@ export function allowedOrderTransitions(current: string, fulfillment: string): s
     case "accepted":
       return ["preparing", "cancelled"];
     case "preparing":
-      return ["ready_for_pickup"];
+      return deliveryLike ? ["delivering"] : ["ready_for_pickup"];
     case "ready_for_pickup":
       if (deliveryLike) return ["delivering"];
       return ["completed"];
     case "delivering":
-      /** 오너 운영 CTA: 배달완료를 우선. 서버 채팅은 완료 시 주소근처도착 라인을 보강한다. */
-      return ["completed", "arrived"];
+      return ["completed"];
     case "arrived":
       return ["completed"];
     default:
@@ -197,7 +197,9 @@ export function allowedOrderTransitionsForActor(
         return current === "delivering" && isDeliveryFulfillment(fulfillment) ? ["arrived"] : [];
       }
       if (opts?.systemPurpose === "external_delivery") {
-        return allowedOrderTransitions(current, fulfillment);
+        /** 외부 배달 연동은 배송지 도착(arrived)을 따로 알릴 수 있다 — 사장님 버튼에는 없음 */
+        const base = allowedOrderTransitions(current, fulfillment);
+        return current === "delivering" && isDeliveryFulfillment(fulfillment) ? [...base, "arrived"] : base;
       }
       if (!opts?.autoCompleteDue) return [];
       if (current === "ready_for_pickup" && !isDeliveryFulfillment(fulfillment)) {

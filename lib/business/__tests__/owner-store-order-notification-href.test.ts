@@ -11,7 +11,7 @@ describe("ownerMobileTabForCommerceMetaKind", () => {
   it("maps owner commerce kinds to mobile tabs", () => {
     expect(ownerMobileTabForCommerceMetaKind("store_order_created")).toBe("new");
     expect(ownerMobileTabForCommerceMetaKind("store_order_accept_reminder_30s")).toBe("new");
-    expect(ownerMobileTabForCommerceMetaKind("store_order_refund_requested")).toBe("cancelled");
+    expect(ownerMobileTabForCommerceMetaKind("store_order_refund_requested")).toBe("refund");
     expect(ownerMobileTabForCommerceMetaKind("store_order_buyer_cancelled")).toBe("cancelled");
     expect(ownerMobileTabForCommerceMetaKind("store_order_payment_completed")).toBe("new");
   });
@@ -28,7 +28,7 @@ describe("buildOwnerStoreOrderNotificationHref", () => {
     });
     expect(href).toContain(`storeId=${encodeURIComponent(STORE)}`);
     expect(href).toContain(`order_id=${encodeURIComponent(ORDER)}`);
-    expect(href).toContain("tab=progress");
+    expect(href).toContain("tab=preparing");
     expect(href).toContain("ack_owner_notifications=1");
     expect(href).toContain("fresh_list=1");
   });
@@ -39,7 +39,7 @@ describe("buildOwnerStoreOrderNotificationHref", () => {
       orderId: ORDER,
       kind: "store_order_refund_requested",
     });
-    expect(href).toContain("tab=cancelled");
+    expect(href).toContain("tab=refund");
     expect(href).not.toContain("ack_owner_notifications");
   });
 

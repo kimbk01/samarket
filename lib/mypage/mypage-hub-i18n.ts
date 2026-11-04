@@ -1,3 +1,4 @@
+import { orderStatusName } from "@/lib/stores/store-order-process-model";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 type TFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -14,19 +15,6 @@ const AUTOPLAY_KEYS: Record<string, MessageKey> = {
   never: "settings_autoplay_never",
 };
 
-const STORE_ORDER_STATUS_KEYS: Record<string, MessageKey> = {
-  pending: "member_order_status_pending",
-  accepted: "member_order_status_accepted",
-  preparing: "member_order_status_preparing",
-  ready_for_pickup: "member_order_status_ready_for_pickup",
-  delivering: "member_order_status_delivering",
-  arrived: "member_order_status_arrived",
-  completed: "member_order_status_completed",
-  cancelled: "member_order_status_cancelled",
-  cancel_requested: "member_order_status_cancel_requested",
-  refund_requested: "member_order_status_refund_requested",
-  refunded: "member_order_status_refunded",
-};
 
 export function hubCountryLabel(code: string, t: TFn): string {
   const key = COUNTRY_KEYS[String(code).trim().toUpperCase()];
@@ -38,9 +26,9 @@ export function hubAutoplayLabel(mode: string, t: TFn): string {
   return key ? t(key) : t("settings_autoplay_wifi_only");
 }
 
-export function hubStoreOrderStatusLabel(status: string, t: TFn): string {
-  const key = STORE_ORDER_STATUS_KEYS[String(status).trim()];
-  return key ? t(key) : status;
+/** 주문 상태 이름 — 4단계 정본 */
+export function hubStoreOrderStatusLabel(status: string, _t: TFn, fulfillment: string = "local_delivery"): string {
+  return orderStatusName(String(status).trim(), fulfillment);
 }
 
 export function hubTradeFlowLabel(value: string | null | undefined, t: TFn): string {

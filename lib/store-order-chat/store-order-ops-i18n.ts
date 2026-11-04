@@ -1,117 +1,29 @@
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
-import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { looksLikeMessageKey } from "@/lib/i18n/safe-ui-label";
-import {
-  pickLanguageFallback,
-  safeTranslate,
-  type SafeTranslateOptions,
-} from "@/lib/i18n/safe-translate";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
-import { systemChatLineForOrderStatus } from "@/lib/shared-order-chat/chat-message-builder";
-import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import {
-  chatMessageKey,
-  chatMessageKeyWithPrep,
+  normalizeStoreOrderCancelKind,
+  orderEventMessage,
+  orderStatusName,
+  type StoreOrderCancelKind,
+  type StoreOrderEventMessage,
 } from "@/lib/stores/store-order-process-model";
 
-export type StoreOrderOpsI18nT = (
-  key: MessageKey,
-  vars?: Record<string, string | number>
-) => string;
+/**
+ * 주문 채팅 사건 줄 — 4단계 정본 사건 문장(`order_event_*`) 하나로 만들고 그린다 (Owner 2026-11-04 · 설계안 v2 §3-3).
+ * 사장님·손님 같은 줄 · 보는 사람 언어로 다시 그림 · 예전 줄(옛 키·옛 본문)도 상태 값으로 새 문장을 그린다.
+ */
+export type StoreOrderOpsI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
-const STORE_ORDER_OPS_FALLBACKS: Partial<
-  Record<MessageKey, Pick<SafeTranslateOptions, "fallbackKo" | "fallbackEn">>
-> = {
-  store_delivery_ops_title_accepted: { fallbackKo: "주문 접수", fallbackEn: "Order received" },
-  store_delivery_ops_title_preparing: { fallbackKo: "조리 시작", fallbackEn: "Preparing" },
-  store_delivery_ops_title_ready: { fallbackKo: "조리 완료", fallbackEn: "Ready" },
-  store_delivery_ops_title_delivering: { fallbackKo: "배달 시작", fallbackEn: "Out for delivery" },
-  store_delivery_ops_title_arrived: { fallbackKo: "도착", fallbackEn: "Arrived" },
-  store_delivery_ops_title_completed: { fallbackKo: "완료", fallbackEn: "Complete" },
-  store_delivery_ops_title_progress: { fallbackKo: "주문 진행", fallbackEn: "Order update" },
-  store_delivery_ops_body_accepted: {
-    fallbackKo: "주문을 접수했습니다.",
-    fallbackEn: "Your order has been accepted.",
-  },
-  store_delivery_ops_body_accepted_prep: {
-    fallbackKo: "주문을 접수했습니다. 예상 준비 시간을 안내드릴게요.",
-    fallbackEn: "Your order has been accepted. We will share the estimated prep time.",
-  },
-  store_delivery_ops_body_preparing: {
-    fallbackKo: "주문을 준비하고 있습니다.",
-    fallbackEn: "Your order is being prepared.",
-  },
-  store_delivery_ops_body_ready_delivery: {
-    fallbackKo: "준비가 완료되었습니다. 곧 배달을 시작합니다.",
-    fallbackEn: "Your order is ready. Delivery will start soon.",
-  },
-  store_delivery_ops_body_ready_pickup: {
-    fallbackKo: "준비가 완료되었습니다. 픽업 대기 중입니다.",
-    fallbackEn: "Your order is ready for pickup.",
-  },
-  store_delivery_ops_body_delivering: {
-    fallbackKo: "배달을 시작했습니다.",
-    fallbackEn: "Delivery has started.",
-  },
-  store_delivery_ops_body_completed_delivery: {
-    fallbackKo: "배달이 완료되었습니다.",
-    fallbackEn: "Delivery is complete.",
-  },
-  store_delivery_ops_body_completed_pickup: {
-    fallbackKo: "주문이 완료되었습니다. 픽업해 주세요.",
-    fallbackEn: "Your order is complete. Please pick it up.",
-  },
-  store_delivery_ops_body_generic: {
-    fallbackKo: "주문 상태가 업데이트되었습니다.",
-    fallbackEn: "Your order status has been updated.",
-  },
-};
-
-/** UI `t()` — key 노출 방지 fallback 포함 */
+/** UI `t()` — key 노출 방지 */
 export function storeOrderOpsSafeT(
   lang: AppLanguageCode,
   key: MessageKey,
   vars?: Record<string, string | number>
 ): string {
-  const opts = STORE_ORDER_OPS_FALLBACKS[key];
-  return safeTranslate(lang, key, { ...opts, vars });
-}
-
-function translateOpsKey(t: StoreOrderOpsI18nT, key: MessageKey, vars?: Record<string, string | number>): string {
-  const out = t(key, vars).trim();
-  if (!out || out === key || looksLikeMessageKey(out)) {
-    const lang = getRuntimeAppLanguage();
-    const fb = STORE_ORDER_OPS_FALLBACKS[key];
-    return (
-      pickLanguageFallback(lang, fb) ??
-      storeOrderOpsSafeT(lang, "store_delivery_ops_body_generic")
-    );
-  }
-  return out;
-}
-
-/** 타임라인 배지(주문 접수·조리 시작 등) */
-export function storeOrderOpsStatusTitleKey(orderStatus: string, lineKind: string): MessageKey {
-  if (lineKind === "warning") return "store_delivery_ops_title_warning";
-  switch (orderStatus) {
-    case "pending":
-      return "store_delivery_ops_title_pending";
-    case "accepted":
-      return "store_delivery_ops_title_accepted";
-    case "preparing":
-      return "store_delivery_ops_title_preparing";
-    case "ready_for_pickup":
-      return "store_delivery_ops_title_ready";
-    case "delivering":
-      return "store_delivery_ops_title_delivering";
-    case "arrived":
-      return "store_delivery_ops_title_arrived";
-    case "completed":
-      return "store_delivery_ops_title_completed";
-    default:
-      return "store_delivery_ops_title_progress";
-  }
+  return safeTranslate(lang, key, { vars });
 }
 
 export function parseStoreOrderAcceptedPrepMinutes(content: string): number | null {
@@ -131,7 +43,11 @@ function isDeliveryFlow(lineKind: string, metadata: Record<string, unknown> | nu
   return true;
 }
 
-/** DB에 저장된 한국어 본문 대신 UI 언어로 표시 */
+function isOrderEventKey(key: string): boolean {
+  return key.startsWith("order_event_");
+}
+
+/** 사건 줄 본문 — 저장된 `order_event_*` 키 우선, 없으면 상태 값으로 정본 문장 */
 export function resolveStoreOrderOpsBodyText(input: {
   orderStatus: string;
   lineKind: string;
@@ -142,81 +58,80 @@ export function resolveStoreOrderOpsBodyText(input: {
   const { orderStatus, lineKind, content, metadata, t } = input;
   const trimmed = content.trim();
   const metaKey = typeof metadata?.message_key === "string" ? metadata.message_key.trim() : "";
+  const vars =
+    metadata?.message_vars && typeof metadata.message_vars === "object"
+      ? (metadata.message_vars as Record<string, string | number>)
+      : undefined;
+  if (metaKey && isOrderEventKey(metaKey) && looksLikeMessageKey(metaKey)) {
+    const out = t(metaKey as MessageKey, vars).trim();
+    if (out && out !== metaKey && !looksLikeMessageKey(out)) return out;
+  }
+  const status = String(orderStatus ?? "").trim();
+  const fulfillment = isDeliveryFlow(lineKind, metadata) ? "local_delivery" : "pickup";
+  const msg = orderEventMessage(status, fulfillment, {
+    prepMinutes: status === "accepted" ? parseStoreOrderAcceptedPrepMinutes(trimmed) : null,
+    cancelKind: normalizeStoreOrderCancelKind(metadata?.cancel_kind),
+    reason: typeof metadata?.cancel_reason === "string" ? metadata.cancel_reason : null,
+  });
+  if (msg) {
+    const out = t(msg.key, msg.params).trim();
+    if (out && out !== msg.key && !looksLikeMessageKey(out)) return out;
+  }
+  // 정본에 없는 예전 단계 줄(배달 「준비 완료」·「도착」)·운영팀 줄은 저장 본문 그대로
   if (metaKey && looksLikeMessageKey(metaKey)) {
-    const vars =
-      metadata?.message_vars && typeof metadata.message_vars === "object"
-        ? (metadata.message_vars as Record<string, string | number>)
-        : undefined;
-    const translated = translateOpsKey(t, metaKey as MessageKey, vars);
-    if (translated && translated !== metaKey && !looksLikeMessageKey(translated)) {
-      return translated;
-    }
+    const out = t(metaKey as MessageKey, vars).trim();
+    if (out && out !== metaKey && !looksLikeMessageKey(out)) return out;
   }
-  if (trimmed.startsWith("store_delivery_ops_") && looksLikeMessageKey(trimmed)) {
-    return translateOpsKey(t, trimmed as MessageKey);
-  }
-  const delivery = isDeliveryFlow(lineKind, metadata);
-  const status = (orderStatus || "").trim() as SharedOrderStatus;
-
-  if (status === "accepted") {
-    const mins = parseStoreOrderAcceptedPrepMinutes(content);
-    if (mins != null) {
-      return translateOpsKey(t, "store_delivery_ops_body_accepted_prep", { minutes: mins });
-    }
-    return translateOpsKey(t, "store_delivery_ops_body_accepted");
-  }
-  if (status === "preparing") return translateOpsKey(t, "store_delivery_ops_body_preparing");
-  if (status === "ready_for_pickup") {
-    return delivery
-      ? translateOpsKey(t, "store_delivery_ops_body_ready_delivery")
-      : translateOpsKey(t, "store_delivery_ops_body_ready_pickup");
-  }
-  if (status === "delivering") return translateOpsKey(t, "store_delivery_ops_body_delivering");
-  if (status === "completed") {
-    return delivery
-      ? translateOpsKey(t, "store_delivery_ops_body_completed_delivery")
-      : translateOpsKey(t, "store_delivery_ops_body_completed_pickup");
-  }
-
-  const flow: OrderChatFlow = delivery ? "delivery" : "pickup";
-  const fromCatalog = systemChatLineForOrderStatus(status, flow);
-  if (fromCatalog?.trim() && !looksLikeMessageKey(fromCatalog)) return fromCatalog;
-  if (trimmed && !looksLikeMessageKey(trimmed)) return trimmed;
-  return translateOpsKey(t, "store_delivery_ops_body_generic");
+  return trimmed && !looksLikeMessageKey(trimmed) ? trimmed : "";
 }
 
-/** 배지 라벨 — key 문자열이 화면에 나가지 않게 */
+/** 경고 줄 머리 — 사건 줄은 머리 없이 문장만 (시안 §3-3) */
 export function resolveStoreOrderOpsTitleText(input: {
   orderStatus: string;
   lineKind: string;
   t: StoreOrderOpsI18nT;
+  metadata?: Record<string, unknown> | null;
 }): string {
-  const key = storeOrderOpsStatusTitleKey(input.orderStatus, input.lineKind);
-  return translateOpsKey(input.t, key);
+  if (input.lineKind !== "warning") return "";
+  return input.t("store_delivery_ops_title_warning");
 }
 
 function fulfillmentFromChatFlow(flow: OrderChatFlow): string {
   return flow === "delivery" ? "local_delivery" : "pickup";
 }
 
-/** 서버 system 메시지 본문(기본 ko 저장 — UI는 `message_key`·orderStatus로 재번역) */
+/** 서버 사건 줄 — 키·값(화면 재번역용)과 기본 언어 본문(구 앱·미리보기용) */
+export function storeOrderMessengerEventLine(
+  status: string,
+  flow: OrderChatFlow,
+  opts?: {
+    prepMinutes?: number;
+    cancelKind?: StoreOrderCancelKind | null;
+    reason?: string | null;
+    autoCancelMinutes?: number | null;
+    language?: AppLanguageCode;
+  }
+): { content: string; message: StoreOrderEventMessage } | null {
+  const message = orderEventMessage(status, fulfillmentFromChatFlow(flow), opts);
+  if (!message) return null;
+  return { content: translate(opts?.language ?? DEFAULT_APP_LANGUAGE, message.key, message.params), message };
+}
+
+/** @deprecated 본문만 — `storeOrderMessengerEventLine` */
 export function storeOrderMessengerStatusLineContent(
-  status: SharedOrderStatus,
+  status: string,
   flow: OrderChatFlow,
   opts?: { prepMinutes?: number; language?: AppLanguageCode }
 ): string | null {
-  const lang = opts?.language ?? DEFAULT_APP_LANGUAGE;
-  const t: StoreOrderOpsI18nT = (key, vars) => translate(lang, key, vars);
-  const fulfillment = fulfillmentFromChatFlow(flow);
-  const key =
-    status === "accepted"
-      ? chatMessageKeyWithPrep(status, fulfillment, opts?.prepMinutes)
-      : chatMessageKey(status, fulfillment);
-  if (key) {
-    if (key === "store_delivery_ops_body_accepted_prep" && opts?.prepMinutes) {
-      return t(key, { minutes: opts.prepMinutes });
-    }
-    return t(key);
-  }
-  return systemChatLineForOrderStatus(status, flow, lang);
+  return storeOrderMessengerEventLine(status, flow, opts)?.content ?? null;
+}
+
+/** 주문 상태 이름 (줄 옆 배지 등) — 정본 */
+export function storeOrderOpsStatusName(
+  orderStatus: string,
+  flow: OrderChatFlow,
+  lang: AppLanguageCode,
+  cancelKind?: StoreOrderCancelKind | null
+): string {
+  return orderStatusName(orderStatus, fulfillmentFromChatFlow(flow), lang, cancelKind);
 }

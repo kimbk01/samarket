@@ -101,7 +101,8 @@ async function patch(body: Record<string, unknown>) {
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
-const DELIVERY_STEPS = ["accepted", "preparing", "ready_for_pickup", "delivering", "arrived", "completed"] as const;
+/** 4단계 정본 사장님 버튼 (Owner 2026-11-04) — 주문 접수 → 조리 시작 → 배달 출발 → 배달 완료 */
+const DELIVERY_STEPS = ["accepted", "preparing", "delivering", "completed"] as const;
 
 async function runOwnerHappyPath(w: Stage5OrderWorld) {
   const results: Array<{ status: number; body: Record<string, unknown> }> = [];

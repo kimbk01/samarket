@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-order-process-model";
 import type {
   AdminActionStatus,
   OrderStatus,
@@ -10,19 +11,7 @@ import type {
   SettlementStatus,
 } from "@/lib/admin/delivery-orders-admin/types";
 
-export const DO_ORDER_STATUS_KEYS: Record<OrderStatus, MessageKey> = {
-  pending: "admin_stores_orders_status_pending",
-  accepted: "admin_stores_orders_status_accepted",
-  preparing: "admin_stores_orders_status_preparing",
-  ready_for_pickup: "admin_stores_orders_status_ready_for_pickup",
-  delivering: "admin_stores_orders_status_delivering",
-  arrived: "admin_stores_orders_status_arrived",
-  completed: "admin_stores_orders_status_completed",
-  cancel_requested: "admin_do_os_cancel_requested",
-  cancelled: "admin_stores_orders_status_cancelled",
-  refund_requested: "admin_stores_orders_status_refund_requested",
-  refunded: "admin_stores_orders_status_refunded",
-};
+export const DO_ORDER_STATUS_KEYS: Record<OrderStatus, MessageKey> = ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT;
 
 export const DO_PAYMENT_STATUS_KEYS: Record<PaymentStatus, MessageKey> = {
   pending: "admin_do_ps_pending",

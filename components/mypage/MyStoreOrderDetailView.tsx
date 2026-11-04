@@ -590,7 +590,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
   const payDisplay = formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail);
   const chatHref = canonicalOrderChatHref;
-  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type);
+  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type, (order as { cancel_kind?: unknown }).cancel_kind);
   const eventLabels = storeOrderEventLabels(t);
   const prepClock = formatPrepClock(order.estimated_ready_at, language);
   const buyerProg = buyerStoreOrderProgressCopy(t, order, orderStatusLabel, prepClock);
@@ -807,6 +807,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             variant="buyer_detail"
             fulfillmentType={order.fulfillment_type}
             orderStatus={order.order_status}
+            cancelKind={(order as { cancel_kind?: unknown }).cancel_kind}
           />
         </div>
         {orderEvents && orderEvents.length > 0 ? (

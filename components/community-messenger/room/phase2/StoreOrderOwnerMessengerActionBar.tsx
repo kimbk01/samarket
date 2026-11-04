@@ -35,7 +35,7 @@ export function StoreOrderOwnerMessengerActionBar({
   onOpenOrderPanel,
 }: Props) {
   const { t, language } = useI18n();
-  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type);
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type, (order as { cancel_kind?: unknown }).cancel_kind);
   const showActions = ownerOrderHasTransitionButtons(order);
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
 

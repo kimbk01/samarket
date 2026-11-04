@@ -8,7 +8,7 @@ import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 import type { StoreOrderListItem } from "@/lib/messenger/store-order/types";
 import type { StoreOrderCustomerHeaderViewModel } from "@/lib/messenger/store-order/ux-contract";
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
-import { processStatusLabel } from "@/lib/stores/store-order-process-model";
+import { normalizeStoreOrderCancelKind, processStatusLabel } from "@/lib/stores/store-order-process-model";
 
 export function resolveStoreOrderCustomerHeaderKind(input: {
   roomId: string;
@@ -42,7 +42,7 @@ export function buildStoreOrderCustomerHeaderModel(
     storeImageUrl: p.surface.storeImageUrl,
     orderId: item.orderId?.trim() || null,
     orderStatusLabel: status
-      ? processStatusLabel(status, item.fulfillmentType ?? "", "buyer", lang)
+      ? processStatusLabel(status, item.fulfillmentType ?? "", "buyer", lang, normalizeStoreOrderCancelKind(item.cancelKind))
       : null,
     forbidsGeneralDirectHeader: true,
     forbidsTradeHeader: true,

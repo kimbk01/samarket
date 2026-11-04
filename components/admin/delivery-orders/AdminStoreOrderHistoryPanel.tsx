@@ -63,7 +63,7 @@ const DELIVERY_LABEL: Record<StoreOrderDeliveryStatus, { ko: string; en: string 
   waiting_rider: { ko: "라이더 대기", en: "Waiting for rider" },
   rider_assigned: { ko: "라이더 배정", en: "Rider assigned" },
   pickup_in_progress: { ko: "픽업 중", en: "Picking up" },
-  delivering: { ko: "배달 중", en: "Delivering" },
+  delivering: { ko: "배달중", en: "Delivering" },
   delivered: { ko: "배달 완료", en: "Delivered" },
   delivery_failed: { ko: "배달 실패", en: "Delivery failed" },
 };

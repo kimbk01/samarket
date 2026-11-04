@@ -1,3 +1,4 @@
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { encodeCallStubRoomTip, resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import {
@@ -11564,7 +11565,7 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
     headline: cmStoreOrderHeadline(storeName, orderNo),
     ...(profileUrl ? { thumbnailUrl: profileUrl } : {}),
     ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
-    ...(status ? { stepLabel: buyerOrderStatusLabel(status, undefined, fulfillmentType) || status } : {}),
+    ...(status ? { stepLabel: buyerOrderStatusLabel(status, DEFAULT_APP_LANGUAGE, fulfillmentType) || status } : {}),
   };
   await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
   return { ok: true, roomId: out.roomId, peerUserId: peer };

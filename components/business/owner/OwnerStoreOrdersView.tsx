@@ -52,6 +52,7 @@ import {
   type OwnerStoreOrderListRow,
 } from "@/lib/business/owner-store-order-list-row-bridge";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { orderStagePosition } from "@/lib/stores/store-order-process-model";
 import {
   buildStoreOrdersHref,
   parseStoreOrderTab,
@@ -539,45 +540,35 @@ export function OwnerStoreOrdersView() {
 
   const summaryCounts = useMemo(() => {
     if (state.kind !== "ok") {
-      return { pending: 0, preparing: 0, delivering: 0, doneToday: 0 };
+      return { pending: 0, accepted: 0, preparing: 0, delivering: 0, doneToday: 0 };
     }
-    if (dateRange) {
-      // 날짜 조건 — 그 기간 안 숫자 (「이 기간 완료」)
+    /** 칸 묶음 = 4단계 정본 위치 (접수 대기 0 · 주문접수 1 · 조리중 2 · 배달중·픽업대기 3 · 완료 4) */
+    const count = (rows: readonly OwnerStoreOrderListRow[], doneFilter: (o: OwnerStoreOrderListRow) => boolean) => {
       let pending = 0;
+      let accepted = 0;
       let preparing = 0;
       let delivering = 0;
       let done = 0;
-      for (const o of ordersForView) {
-        if (o.order_status === "pending") pending += 1;
-        if (o.order_status === "accepted" || o.order_status === "preparing" || o.order_status === "ready_for_pickup") {
-          preparing += 1;
-        }
-        if (o.order_status === "delivering" || o.order_status === "arrived") delivering += 1;
-        if (o.order_status === "completed") done += 1;
+      for (const o of rows) {
+        const pos = orderStagePosition(o.order_status, o.fulfillment_type);
+        if (pos === 0) pending += 1;
+        else if (pos === 1) accepted += 1;
+        else if (pos === 2) preparing += 1;
+        else if (pos === 3) delivering += 1;
+        else if (pos === 4 && doneFilter(o)) done += 1;
       }
-      return { pending, preparing, delivering, doneToday: done };
+      return { pending, accepted, preparing, delivering, doneToday: done };
+    };
+    if (dateRange) {
+      // 날짜 조건 — 그 기간 안 숫자 (「이 기간 완료」)
+      return count(ordersForView, () => true);
     }
     const t0 = startOfTodayMs();
-    let pending = 0;
-    let preparing = 0;
-    let delivering = 0;
-    let doneToday = 0;
-    for (const o of state.orders) {
-      if (o.order_status === "pending") pending += 1;
-      if (
-        o.order_status === "accepted" ||
-        o.order_status === "preparing" ||
-        o.order_status === "ready_for_pickup"
-      ) {
-        preparing += 1;
-      }
-      if (o.order_status === "delivering" || o.order_status === "arrived") delivering += 1;
-      if (o.order_status === "completed" && completedAtMs(o) >= t0) doneToday += 1;
-    }
+    const out = count(state.orders, (o) => completedAtMs(o) >= t0);
     // 「오늘 완료」 = 서버 숫자(홈과 같은 완료 시각·PHT 기준) 우선 — 목록은 최근 일부만 불러와 직접 세면 모자람
     const server = peekOwnerStoreOpsSnapshotFromHubCache(state.storeId);
-    if (server) doneToday = server.flow_completed_today_count;
-    return { pending, preparing, delivering, doneToday };
+    if (server) out.doneToday = server.flow_completed_today_count;
+    return out;
   }, [dateRange, ordersForView, state]);
 
   const tabBadges = useMemo(() => {
@@ -828,7 +819,7 @@ export function OwnerStoreOrdersView() {
     }
     const effectiveTab = effectiveOwnerMobileOrdersTab(tab);
     if (!orderMatchesOwnerMobileOrdersTab(order, tab)) {
-      const wantTab = ownerMobileOrdersTabForStatus(order.order_status);
+      const wantTab = ownerMobileOrdersTabForStatus(order.order_status, order.fulfillment_type);
       if (effectiveTab !== wantTab && tabSyncForOrderRef.current !== activeExpandOrderId) {
         tabSyncForOrderRef.current = activeExpandOrderId;
         setExpandedOrderId(activeExpandOrderId);
@@ -1222,7 +1213,7 @@ export function OwnerStoreOrdersView() {
             <OwnerStoreOrderDeepLinkWrongTabBanner
               storeId={state.storeId}
               orderId={highlightOrderId}
-              wantTab={ownerMobileOrdersTabForStatus(order.order_status)}
+              wantTab={ownerMobileOrdersTabForStatus(order.order_status, order.fulfillment_type)}
             />
           );
         })()

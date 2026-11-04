@@ -13,23 +13,23 @@ const base = { kind: "store_order_owner_status", order_no: "SO1", store_display_
 describe("buyer commerce inbox — cancel actor preserved", () => {
   it("accept_timeout → 미접수 자동 취소 문구 (not 「매장에 의해 취소」)", () => {
     const body = resolveCommerceNotificationInboxBody("ko", { ...base, cancel_by: "accept_timeout", timeout_minutes: 10 }, "x");
-    expect(body).toContain("10분 안에 접수되지 않아 자동 취소");
-    expect(body).not.toContain("매장에 의해");
+    expect(body).toContain("10분 안에 접수하지 않아 주문이 자동 취소되었어요");
+    expect(body).not.toContain("매장이 주문을 취소");
   });
 
   it("admin → 운영팀 취소 문구", () => {
     const body = resolveCommerceNotificationInboxBody("ko", { ...base, cancel_by: "admin" }, "x");
-    expect(body).toContain("DIBAY 운영팀에 의해 취소");
+    expect(body).toContain("DIBAY 운영팀이 주문을 취소했어요");
   });
 
   it("owner with reason → 사유 포함 (J-1)", () => {
     const body = resolveCommerceNotificationInboxBody("ko", { ...base, cancel_by: "owner", cancel_reason: "재료 소진" }, "x");
-    expect(body).toContain("매장에 의해 취소");
+    expect(body).toContain("매장이 주문을 취소했어요");
     expect(body).toContain("사유: 재료 소진");
   });
 
   it("owner without reason → 기본 매장 취소 문구", () => {
-    expect(resolveCommerceNotificationInboxBody("ko", { ...base, cancel_by: "owner" }, "x")).toContain("매장에 의해 취소");
+    expect(resolveCommerceNotificationInboxBody("ko", { ...base, cancel_by: "owner" }, "x")).toContain("매장이 주문을 취소했어요");
   });
 
   it("legacy row without cancel_by → stored sentence kept (actor not rewritten)", () => {
@@ -39,7 +39,7 @@ describe("buyer commerce inbox — cancel actor preserved", () => {
 
   it("delivery_sync arrived → 배달 완료 문구·제목", () => {
     const m = { ...base, order_status: "arrived", system_purpose: "delivery_sync" };
-    expect(resolveCommerceNotificationInboxTitle("ko", m, "x", "x")).toBe("배달이 완료됐어요");
+    expect(resolveCommerceNotificationInboxTitle("ko", m, "x", "x")).toBe("배달이 완료되었어요");
     expect(resolveCommerceNotificationInboxBody("ko", m, "x")).toContain("배달이 완료됐어요");
   });
 

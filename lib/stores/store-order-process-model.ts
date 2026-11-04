@@ -1,6 +1,8 @@
 /**
- * 매장·구매자·채팅 — 주문 프로세스 단일 파생 원천.
- * DO NOT: `order_status` 해석을 UI·채팅 파일에 따로 정의하지 말 것.
+ * 매장·구매자·채팅·알림·관리자 — 주문 단계·용어 단일 원천 (4단계 정본).
+ * 정본: docs/audit/store-order-process-terms-unify-design-2026-11-04.md §3 (Owner 2026-11-04 「용어와 프로세스를 정확히 통일」)
+ * 문구 키: `lib/i18n/catalog/store-order-stage-terms.ts`
+ * DO NOT: 주문 상태 → 이름 표를 다른 파일에 따로 만들지 말 것 (계약 테스트가 막는다).
  */
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -10,14 +12,8 @@ import {
   isDeliveryFulfillment,
   STORE_ORDER_STATUS_LIST,
 } from "@/lib/stores/order-status-transitions";
-import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
-import type { SharedOrderStatus } from "@/lib/shared-orders/types";
-import {
-  buyerDetailSixStepStates,
-  storeOrderTimelineCurrentStep,
-  type BuyerDetailStepState,
-} from "@/lib/stores/store-order-process-criteria";
 
+/** 4칸 각 칸을 대표하는 DB 상태 (3칸 = 배달 delivering / 픽업 ready_for_pickup) */
 export type StoreOrderProcessStepKey =
   | "pending"
   | "accepted"
@@ -31,25 +27,12 @@ export type StoreOrderProcessAudience = "owner" | "buyer" | "owner_badge";
 
 export type StoreOrderFlowStepState = "done" | "current" | "upcoming";
 
-const DELIVERY_STEP_KEYS: readonly StoreOrderProcessStepKey[] = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready_for_pickup",
-  "delivering",
-  "arrived",
-  "completed",
-];
+/** 취소 구분 — `store_orders.cancel_kind` (DB 가 취소 이벤트로 채움) */
+export type StoreOrderCancelKind = "rejected" | "store" | "buyer" | "system" | "admin";
 
-const PICKUP_STEP_KEYS: readonly StoreOrderProcessStepKey[] = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready_for_pickup",
-  "completed",
-];
+export const STORE_ORDER_STAGE_COUNT = 4;
 
-/** 터미널·이슈 상태 — 진행바 7/4칸 대신 단일 표시 */
+/** 터미널·이슈 상태 — 4칸 대신 1줄 표시 */
 export const STORE_ORDER_TERMINAL_STATUSES = new Set([
   "cancelled",
   "cancel_requested",
@@ -58,12 +41,11 @@ export const STORE_ORDER_TERMINAL_STATUSES = new Set([
 ]);
 
 export function isStoreOrderTerminalStatus(orderStatus: string): boolean {
-  return STORE_ORDER_TERMINAL_STATUSES.has(orderStatus.trim());
+  return STORE_ORDER_TERMINAL_STATUSES.has(String(orderStatus ?? "").trim());
 }
 
 /**
  * FLW-03 — 구매자 주문 「목록에서 숨기기」 허용 상태 = 완료·취소·환불 완료.
- * 진행 중·취소/환불 요청 중 주문을 숨기면 상세·취소 요청·알림 딥링크가 모두 끊긴다. UI·API 가 이 함수만 쓴다.
  */
 const STORE_ORDER_BUYER_HIDE_ALLOWED_STATUSES = new Set(["completed", "cancelled", "refunded"]);
 
@@ -71,217 +53,218 @@ export function isStoreOrderBuyerHideAllowedStatus(orderStatus: string): boolean
   return STORE_ORDER_BUYER_HIDE_ALLOWED_STATUSES.has(String(orderStatus ?? "").trim());
 }
 
+export function normalizeStoreOrderCancelKind(raw: unknown): StoreOrderCancelKind | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  return s === "rejected" || s === "store" || s === "buyer" || s === "system" || s === "admin" ? s : null;
+}
+
+/**
+ * 취소 이벤트 → 취소 구분. DB 트리거(`store_order_events_set_cancel_kind`)와 같은 규칙.
+ * 접수 전(pending) 매장 취소 = 거절.
+ */
+export function storeOrderCancelKindFromEvent(
+  fromStatus: string | null | undefined,
+  actorRole: string | null | undefined
+): StoreOrderCancelKind | null {
+  const from = String(fromStatus ?? "").trim();
+  const actor = String(actorRole ?? "").trim().toLowerCase();
+  if (actor === "owner") return from === "pending" ? "rejected" : "store";
+  if (actor === "buyer" || actor === "customer") return "buyer";
+  if (actor === "system") return "system";
+  if (actor === "admin") return "admin";
+  return null;
+}
+
+/** 4칸 대표 상태 (배달: 주문접수·조리중·배달중·배달완료 / 픽업: 주문접수·조리중·픽업대기·픽업완료) */
 export function processSteps(fulfillment: string): readonly StoreOrderProcessStepKey[] {
-  return isDeliveryFulfillment(fulfillment) ? DELIVERY_STEP_KEYS : PICKUP_STEP_KEYS;
+  return isDeliveryFulfillment(fulfillment)
+    ? (["accepted", "preparing", "delivering", "completed"] as const)
+    : (["accepted", "preparing", "ready_for_pickup", "completed"] as const);
 }
 
+/**
+ * 단계 위치 — 0 접수 대기 · 1 주문접수 · 2 조리중 · 3 배달중/픽업대기 · 4 완료 · -1 터미널(취소·요청).
+ * 예전 배달 주문의 ready_for_pickup 은 2(조리중), arrived 는 3(배달중).
+ */
+export function orderStagePosition(orderStatus: string, fulfillment: string): number {
+  const s = String(orderStatus ?? "").trim();
+  if (STORE_ORDER_TERMINAL_STATUSES.has(s)) return -1;
+  const delivery = isDeliveryFulfillment(fulfillment);
+  switch (s) {
+    case "pending":
+      return 0;
+    case "accepted":
+      return 1;
+    case "preparing":
+      return 2;
+    case "ready_for_pickup":
+      return delivery ? 2 : 3;
+    case "delivering":
+    case "arrived":
+      return 3;
+    case "completed":
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+/** @deprecated 이름 호환 — `orderStagePosition` */
 export function processStepIndex(orderStatus: string, fulfillment: string): number {
-  return storeOrderTimelineCurrentStep(fulfillment, orderStatus);
+  return orderStagePosition(orderStatus, fulfillment);
 }
 
-/** 구매자 상세 6열(배달) / 픽업 4+2열 — 기존 `buyerDetailSixStepStates` 계약 유지 */
-export function processBuyerDetailStepStates(
-  fulfillment: string,
-  orderStatus: string
-): BuyerDetailStepState[] {
-  return buyerDetailSixStepStates(fulfillment, orderStatus);
-}
-
-/** 오너·채팅 요약 — `processSteps` 길이와 1:1 */
+/** 4칸 상태 — 완료면 모두 done, 터미널·접수 대기는 모두 upcoming */
 export function processFlowStepStates(
   fulfillment: string,
   orderStatus: string
 ): StoreOrderFlowStepState[] {
-  const keys = processSteps(fulfillment);
-  if (STORE_ORDER_TERMINAL_STATUSES.has(orderStatus)) {
-    return keys.map(() => "upcoming" as const);
-  }
-  const idx = keys.indexOf(orderStatus as StoreOrderProcessStepKey);
-  const current = idx >= 0 ? idx : -1;
-  return keys.map((_, i) => {
-    if (current < 0) return "upcoming";
-    if (i < current) return "done";
-    if (i === current) return "current";
+  const pos = orderStagePosition(orderStatus, fulfillment);
+  return [1, 2, 3, 4].map((cell) => {
+    if (pos === 4) return "done";
+    if (pos <= 0) return "upcoming";
+    if (cell < pos) return "done";
+    if (cell === pos) return "current";
     return "upcoming";
   });
 }
 
-function orderChatFlow(fulfillment: string): OrderChatFlow {
-  return isDeliveryFulfillment(fulfillment) ? "delivery" : "pickup";
-}
-
-function statusToShared(orderStatus: string): SharedOrderStatus | null {
-  const s = orderStatus.trim();
-  const allowed: SharedOrderStatus[] = [
-    "pending",
-    "accepted",
-    "preparing",
-    "ready_for_pickup",
-    "delivering",
-    "arrived",
-    "completed",
-    "cancel_requested",
-    "cancelled",
-    "refund_requested",
-    "refunded",
-  ];
-  return (allowed as string[]).includes(s) ? (s as SharedOrderStatus) : null;
-}
-
-const OWNER_STEP_LABEL_KEYS: Record<
-  StoreOrderProcessStepKey,
-  { delivery: MessageKey; pickup: MessageKey }
-> = {
-  pending: { delivery: "store_owner_ops_flow_new", pickup: "store_owner_ops_flow_new" },
-  accepted: { delivery: "store_owner_ops_flow_accepted", pickup: "store_owner_ops_flow_accepted" },
-  preparing: { delivery: "store_owner_ops_flow_cooking", pickup: "store_owner_ops_flow_cooking" },
-  ready_for_pickup: {
-    delivery: "store_owner_ops_flow_delivery_ready",
-    pickup: "store_owner_ops_flow_pickup_ready",
-  },
-  delivering: { delivery: "store_owner_ops_flow_delivering", pickup: "store_owner_ops_flow_delivering" },
-  arrived: { delivery: "store_owner_ops_flow_near_address", pickup: "store_owner_ops_flow_near_address" },
-  completed: { delivery: "store_owner_ops_flow_done", pickup: "store_owner_ops_flow_pickup_done" },
-};
-
-const BUYER_STEP_LABEL_KEYS: Record<
-  StoreOrderProcessStepKey,
-  { delivery: MessageKey; pickup: MessageKey }
-> = {
-  pending: { delivery: "mypage_comp_order_status_pending", pickup: "mypage_comp_order_status_pending" },
-  accepted: { delivery: "mypage_comp_order_status_accepted", pickup: "mypage_comp_order_status_accepted" },
-  preparing: { delivery: "mypage_comp_order_status_preparing", pickup: "mypage_comp_order_status_preparing" },
-  ready_for_pickup: {
-    delivery: "store_order_process_step_ready_dispatch",
-    pickup: "mypage_comp_order_status_ready_for_pickup",
-  },
-  delivering: { delivery: "mypage_comp_order_status_delivering", pickup: "mypage_comp_order_status_delivering" },
-  arrived: { delivery: "mypage_comp_order_status_arrived", pickup: "mypage_comp_order_status_arrived" },
-  /** FLW-02 — 픽업 완료를 「배달완료/Delivered」로 표시하지 않는다 (오너 `store_owner_ops_flow_pickup_done` 과 같은 의미) */
-  completed: { delivery: "mypage_comp_order_status_completed", pickup: "mypage_comp_order_status_completed_pickup" },
-};
-
-const OWNER_BADGE_STATUS_KEYS: Partial<Record<string, MessageKey>> = {
-  pending: "store_owner_status_pending",
-  accepted: "store_owner_status_accepted",
-  preparing: "store_owner_status_preparing",
-  delivering: "store_owner_status_delivering",
-  arrived: "store_owner_status_arrived",
-  cancel_requested: "store_owner_status_cancel_requested",
-  cancelled: "store_owner_status_cancelled",
-  refund_requested: "store_owner_status_refund_requested",
-  refunded: "store_owner_status_refunded",
-};
-
-const BUYER_EXTRA_STATUS_KEYS: Partial<Record<string, MessageKey>> = {
-  cancelled: "mypage_comp_order_status_cancelled",
-  refund_requested: "mypage_comp_order_status_refund_requested",
-  refunded: "mypage_comp_order_status_refunded",
-  cancel_requested: "mypage_comp_order_status_cancel_requested",
-};
-
-function readyForPickupBadgeKey(fulfillment: string): MessageKey {
-  return isDeliveryFulfillment(fulfillment)
-    ? "store_owner_ops_status_ready_delivery"
-    : "store_owner_ops_status_ready_pickup";
-}
-
-function completedBadgeKey(fulfillment: string): MessageKey {
-  return isDeliveryFulfillment(fulfillment)
-    ? "store_owner_ops_status_completed_delivery"
-    : "store_owner_ops_status_completed_pickup";
-}
-
-export function processStepLabel(
-  stepKey: StoreOrderProcessStepKey,
+/** 구매자 상세 — 같은 4칸 (`processFlowStepStates` 와 동일) */
+export function processBuyerDetailStepStates(
   fulfillment: string,
-  audience: StoreOrderProcessAudience,
-  lang: AppLanguageCode = getRuntimeAppLanguage()
-): string {
-  const deliveryLike = isDeliveryFulfillment(fulfillment);
-  if (audience === "owner" || audience === "owner_badge") {
-    const row = OWNER_STEP_LABEL_KEYS[stepKey];
-    const key = deliveryLike ? row.delivery : row.pickup;
-    return translate(lang, key);
-  }
-  const row = BUYER_STEP_LABEL_KEYS[stepKey];
-  const key = deliveryLike ? row.delivery : row.pickup;
-  return translate(lang, key);
+  orderStatus: string
+): StoreOrderFlowStepState[] {
+  return processFlowStepStates(fulfillment, orderStatus);
 }
 
-export function processStatusLabel(
-  orderStatus: string,
-  fulfillment: string,
-  audience: StoreOrderProcessAudience,
-  lang: AppLanguageCode = getRuntimeAppLanguage()
-): string {
-  const status = orderStatus.trim();
-  if (audience === "owner_badge") {
-    if (status === "ready_for_pickup") return translate(lang, readyForPickupBadgeKey(fulfillment));
-    if (status === "completed") return translate(lang, completedBadgeKey(fulfillment));
-    const key = OWNER_BADGE_STATUS_KEYS[status];
-    return key ? translate(lang, key) : status;
+function stageNameKey(status: string, fulfillment: string, cancelKind?: StoreOrderCancelKind | null): MessageKey | null {
+  const delivery = isDeliveryFulfillment(fulfillment);
+  switch (status) {
+    case "pending":
+      return "order_stage_pending";
+    case "accepted":
+      return "order_stage_accepted";
+    case "preparing":
+      return "order_stage_preparing";
+    case "ready_for_pickup":
+      return delivery ? "order_stage_preparing" : "order_stage_pickup_ready";
+    case "delivering":
+    case "arrived":
+      return "order_stage_delivering";
+    case "completed":
+      return delivery ? "order_stage_delivered" : "order_stage_picked_up";
+    case "cancelled":
+      return cancelKind === "rejected" ? "order_stage_rejected" : "order_stage_cancelled";
+    case "cancel_requested":
+      return "order_stage_cancel_requested";
+    case "refund_requested":
+      return "order_stage_refund_requested";
+    case "refunded":
+      return "order_stage_refunded";
+    default:
+      return null;
   }
-  if (audience === "owner") {
-    const idx = processSteps(fulfillment).indexOf(status as StoreOrderProcessStepKey);
-    if (idx >= 0) {
-      return processStepLabel(status as StoreOrderProcessStepKey, fulfillment, "owner", lang);
-    }
-    const key = OWNER_BADGE_STATUS_KEYS[status];
-    return key ? translate(lang, key) : status;
-  }
-  const extraKey = BUYER_EXTRA_STATUS_KEYS[status];
-  if (extraKey) return translate(lang, extraKey);
-  const idx = processSteps(fulfillment).indexOf(status as StoreOrderProcessStepKey);
-  if (idx >= 0) {
-    return processStepLabel(status as StoreOrderProcessStepKey, fulfillment, "buyer", lang);
-  }
-  return status;
 }
 
 /**
- * C-08 — 구매자 주문 완료 화면 상단 상태 문구 (주문 상태 SSOT).
- * 이전에는 `completed` 외 모든 상태(취소·거절 포함)를 「주문이 접수되었습니다」로 표시했다.
- * - pending: 접수 문구 · completed: 완료 문구 · 취소·환불 등 터미널/이슈: 구매자 상태 라벨(tone terminal)
- * - 그 외 진행 상태: 구매자 진행 단계 라벨
+ * 상태만 알고 주문 방식(배달/픽업)을 모를 때 쓰는 이름 키 (관리자 표·필터 등).
+ * 완료 = 「완료」, ready_for_pickup = 「픽업대기」. 주문 방식을 알면 `orderStatusName` 을 쓴다.
  */
+export const ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT = {
+  pending: "order_stage_pending",
+  accepted: "order_stage_accepted",
+  preparing: "order_stage_preparing",
+  ready_for_pickup: "order_stage_pickup_ready",
+  delivering: "order_stage_delivering",
+  arrived: "order_stage_delivering",
+  completed: "order_stage_tab_done",
+  cancel_requested: "order_stage_cancel_requested",
+  cancelled: "order_stage_cancelled",
+  refund_requested: "order_stage_refund_requested",
+  refunded: "order_stage_refunded",
+} as const satisfies Record<(typeof STORE_ORDER_STATUS_LIST)[number], MessageKey>;
+
+/**
+ * 주문 상태 이름 — 사장님·손님·채팅·알림·관리자 모두 이 함수 하나.
+ * `cancelKind` 가 「rejected」이면 취소 대신 「주문 거절」.
+ */
+export function orderStatusName(
+  orderStatus: string,
+  fulfillment: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage(),
+  cancelKind?: StoreOrderCancelKind | null
+): string {
+  const s = String(orderStatus ?? "").trim();
+  const key = stageNameKey(s, fulfillment, cancelKind);
+  return key ? translate(lang, key) : s;
+}
+
+/** 4칸 이름 */
+export function orderStageNames(
+  fulfillment: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string[] {
+  return processSteps(fulfillment).map((k) => orderStatusName(k, fulfillment, lang));
+}
+
+/** 칸 대표 키 → 이름 */
+export function processStepLabel(
+  stepKey: StoreOrderProcessStepKey,
+  fulfillment: string,
+  _audience: StoreOrderProcessAudience = "buyer",
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  return orderStatusName(stepKey, fulfillment, lang);
+}
+
+/** 상태 이름 — 화면 구분(audience) 없이 같은 이름 */
+export function processStatusLabel(
+  orderStatus: string,
+  fulfillment: string,
+  _audience: StoreOrderProcessAudience = "buyer",
+  lang: AppLanguageCode = getRuntimeAppLanguage(),
+  cancelKind?: StoreOrderCancelKind | null
+): string {
+  return orderStatusName(orderStatus, fulfillment, lang, cancelKind);
+}
+
+/** 구매자 주문 완료 화면 머리 — 단계 이름 그대로 */
 export type BuyerOrderCompleteHeadlineTone = "success" | "progress" | "terminal";
 
 export function buyerOrderCompleteHeadline(
   orderStatus: string,
   fulfillment: string,
-  lang: AppLanguageCode = getRuntimeAppLanguage()
+  lang: AppLanguageCode = getRuntimeAppLanguage(),
+  cancelKind?: StoreOrderCancelKind | null
 ): { label: string; tone: BuyerOrderCompleteHeadlineTone } {
   const status = String(orderStatus ?? "").trim();
-  if (status === "completed") {
-    return { label: translate(lang, "store_order_completed"), tone: "success" };
-  }
-  if (status === "pending") {
-    return { label: translate(lang, "store_order_accepted"), tone: "success" };
-  }
-  if (isStoreOrderTerminalStatus(status)) {
-    return { label: processStatusLabel(status, fulfillment, "buyer", lang), tone: "terminal" };
-  }
-  return { label: processStatusLabel(status, fulfillment, "buyer", lang), tone: "progress" };
+  const label = orderStatusName(status, fulfillment, lang, cancelKind);
+  if (status === "completed") return { label, tone: "success" };
+  if (isStoreOrderTerminalStatus(status)) return { label, tone: "terminal" };
+  return { label, tone: "progress" };
 }
 
 export type OwnerNextAction = { status: string; label: string } | null;
 
-const TRANSITION_NEXT_KEYS: Partial<Record<string, MessageKey>> = {
-  accepted: "store_owner_transition_accepted",
-  preparing: "store_owner_transition_preparing",
-  ready_for_pickup: "store_owner_transition_ready",
-  delivering: "store_owner_transition_delivering",
-  arrived: "store_owner_transition_arrived",
-  completed: "store_owner_transition_completed",
-};
+function actionKeyForNext(next: string, fulfillment: string): MessageKey | null {
+  const delivery = isDeliveryFulfillment(fulfillment);
+  switch (next) {
+    case "accepted":
+      return "order_action_accept";
+    case "preparing":
+      return "order_action_start_cooking";
+    case "delivering":
+      return "order_action_depart";
+    case "ready_for_pickup":
+      return delivery ? null : "order_action_pickup_ready";
+    case "completed":
+      return delivery ? "order_action_delivered" : "order_action_picked_up";
+    default:
+      return null;
+  }
+}
 
-/** 포장(픽업) 주문 — 확인창 버튼(지시서 §8)과 같은 이름 */
-const PICKUP_TRANSITION_NEXT_KEYS: Partial<Record<string, MessageKey>> = {
-  ready_for_pickup: "popup_btn_step_pickup_ready",
-  completed: "popup_btn_step_picked_up",
-};
-
+/** 사장님 버튼 이름 — 다음 상태로 보낼 때 */
 export function labelForOwnerTransitionFromModel(
   lang: AppLanguageCode,
   current: string,
@@ -289,17 +272,13 @@ export function labelForOwnerTransitionFromModel(
   fulfillment: string
 ): string {
   if (next === "cancelled") {
-    return translate(
-      lang,
-      current === "pending" ? "store_owner_action_reject_order" : "store_owner_action_cancel_order"
-    );
+    return translate(lang, current === "pending" ? "order_action_reject" : "order_action_cancel");
   }
-  const key =
-    (isDeliveryFulfillment(fulfillment) ? undefined : PICKUP_TRANSITION_NEXT_KEYS[next]) ??
-    TRANSITION_NEXT_KEYS[next];
+  const key = actionKeyForNext(next, fulfillment);
   return key ? translate(lang, key) : next;
 }
 
+/** 사장님 다음 버튼 1개 — 허용 전이 첫 진행(취소 제외) */
 export function ownerNextAction(
   orderStatus: string,
   fulfillment: string,
@@ -308,68 +287,115 @@ export function ownerNextAction(
   const allowed = allowedOrderTransitions(orderStatus, fulfillment).filter((s) => s !== "cancelled");
   const next = allowed[0];
   if (!next) return null;
-  return {
-    status: next,
-    label: labelForOwnerTransitionFromModel(lang, orderStatus, next, fulfillment),
-  };
+  return { status: next, label: labelForOwnerTransitionFromModel(lang, orderStatus, next, fulfillment) };
 }
 
-/** 채팅 system INSERT·표시 — `store_delivery_ops_body_*` / `cm_sys_*` 단일 매핑 */
-export function chatMessageKey(
-  orderStatus: string,
-  fulfillment: string
-): MessageKey | null {
-  const shared = statusToShared(orderStatus);
-  if (!shared) return null;
-  const flow = orderChatFlow(fulfillment);
-  switch (shared) {
-    case "pending":
-      return "cm_sys_order_pending";
+/** 사장님 확인창 질문 */
+export function ownerTransitionConfirmQuestion(
+  nextStatus: string,
+  fulfillment: string,
+  who: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  const delivery = isDeliveryFulfillment(fulfillment);
+  switch (nextStatus) {
     case "accepted":
-      return "store_delivery_ops_body_accepted";
+      return translate(lang, "order_confirm_accept", { who });
     case "preparing":
-      return "store_delivery_ops_body_preparing";
-    case "ready_for_pickup":
-      return flow === "delivery" ? "store_delivery_ops_body_ready_delivery" : "store_delivery_ops_body_ready_pickup";
+      return translate(lang, "order_confirm_start_cooking");
     case "delivering":
-      return "store_delivery_ops_body_delivering";
-    case "arrived":
-      return flow === "delivery" ? "cm_sys_order_arrived" : null;
+      return translate(lang, "order_confirm_depart");
+    case "ready_for_pickup":
+      return translate(lang, "order_confirm_pickup_ready");
     case "completed":
-      return flow === "delivery"
-        ? "store_delivery_ops_body_completed_delivery"
-        : "store_delivery_ops_body_completed_pickup";
+      return translate(lang, delivery ? "order_confirm_delivered" : "order_confirm_picked_up");
+    default:
+      return translate(lang, "order_confirm_start_cooking");
+  }
+}
+
+export type StoreOrderEventMessage = { key: MessageKey; params?: Record<string, string> };
+
+/**
+ * 사건 문장 — 채팅 줄·손님 푸시·알림함이 같은 문장 (§3-3).
+ * 사유가 있으면 사유 붙은 문장, 없으면 사유 줄 없이.
+ */
+export function orderEventMessage(
+  orderStatus: string,
+  fulfillment: string,
+  opts?: {
+    prepMinutes?: number | null;
+    cancelKind?: StoreOrderCancelKind | null;
+    reason?: string | null;
+    autoCancelMinutes?: number | null;
+  }
+): StoreOrderEventMessage | null {
+  const s = String(orderStatus ?? "").trim();
+  const delivery = isDeliveryFulfillment(fulfillment);
+  const reason = String(opts?.reason ?? "").trim();
+  switch (s) {
+    case "accepted": {
+      const m = opts?.prepMinutes;
+      return m != null && m > 0
+        ? { key: "order_event_accepted_prep", params: { minutes: String(m) } }
+        : { key: "order_event_accepted" };
+    }
+    case "preparing":
+      return { key: "order_event_preparing" };
+    case "ready_for_pickup":
+      return delivery ? null : { key: "order_event_pickup_ready" };
+    case "delivering":
+      return { key: "order_event_delivering" };
+    case "arrived":
+      return null;
+    case "completed":
+      return { key: delivery ? "order_event_delivered" : "order_event_picked_up" };
+    case "cancelled": {
+      switch (opts?.cancelKind) {
+        case "rejected":
+          return reason ? { key: "order_event_rejected_reason", params: { reason } } : { key: "order_event_rejected" };
+        case "store":
+          return reason
+            ? { key: "order_event_store_cancelled_reason", params: { reason } }
+            : { key: "order_event_store_cancelled" };
+        case "buyer":
+          return { key: "order_event_buyer_cancelled" };
+        case "system": {
+          const m = opts?.autoCancelMinutes;
+          return m != null && m > 0
+            ? { key: "order_event_auto_cancelled_minutes", params: { minutes: String(m) } }
+            : { key: "order_event_auto_cancelled" };
+        }
+        case "admin":
+          return { key: "order_event_admin_cancelled" };
+        default:
+          return { key: "order_event_cancelled" };
+      }
+    }
     case "cancel_requested":
-      return "cm_sys_order_cancel_requested";
-    case "cancelled":
-      return "cm_sys_order_cancelled";
+      return reason
+        ? { key: "order_event_cancel_requested_reason", params: { reason } }
+        : { key: "order_event_cancel_requested" };
     case "refund_requested":
-      return "cm_sys_order_refund_requested";
+      return { key: "order_event_refund_requested" };
     case "refunded":
-      return "cm_sys_order_refunded";
+      return { key: "order_event_refunded" };
     default:
       return null;
   }
 }
 
-/**
- * DEF-72 — Admin(DIBAY 운영팀) 개입으로 상태가 바뀐 경우의 채팅 system 문구 키.
- * `previousStatus` 로 승인/반려/직접 취소를 구분한다 (복귀 전이 = 요청 반려).
- * 매장(OWNER) 문구(`chatMessageKey`)와 분리 — 운영 개입을 사장님 행동으로 표기하지 않는다.
- */
-export function adminChatMessageKey(previousStatus: string, nextStatus: string): MessageKey {
-  const prev = String(previousStatus ?? "").trim();
-  const next = String(nextStatus ?? "").trim();
-  if (next === "cancelled") {
-    return prev === "cancel_requested"
-      ? "cm_sys_order_admin_cancel_approved"
-      : "cm_sys_order_admin_cancelled";
-  }
-  if (next === "refunded") return "cm_sys_order_admin_refunded";
-  if (next === "refund_requested") return "cm_sys_order_admin_refund_requested";
-  if (prev === "cancel_requested") return "cm_sys_order_admin_cancel_rejected";
-  if (prev === "refund_requested") return "cm_sys_order_admin_refund_rejected";
-  return "cm_sys_order_admin_status_updated";
+export function translateOrderEventMessage(
+  msg: StoreOrderEventMessage | null,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  if (!msg) return "";
+  return translate(lang, msg.key, msg.params);
+}
+
+/** 채팅 줄 키(사유 없는 형태) — 레거시 이름 호환 */
+export function chatMessageKey(orderStatus: string, fulfillment: string): MessageKey | null {
+  return orderEventMessage(orderStatus, fulfillment)?.key ?? null;
 }
 
 export function chatMessageKeyWithPrep(
@@ -377,16 +403,37 @@ export function chatMessageKeyWithPrep(
   fulfillment: string,
   prepMinutes?: number
 ): MessageKey | null {
-  if (orderStatus === "accepted" && prepMinutes != null && prepMinutes > 0) {
-    return "store_delivery_ops_body_accepted_prep";
+  return orderEventMessage(orderStatus, fulfillment, { prepMinutes })?.key ?? null;
+}
+
+/**
+ * DEF-72 — DIBAY 운영팀 개입 사건 문장. 매장 문장과 분리.
+ */
+export function adminChatMessageKey(previousStatus: string, nextStatus: string): MessageKey {
+  const prev = String(previousStatus ?? "").trim();
+  const next = String(nextStatus ?? "").trim();
+  if (next === "cancelled") {
+    return prev === "cancel_requested" ? "order_event_admin_cancel_approved" : "order_event_admin_cancelled";
   }
-  return chatMessageKey(orderStatus, fulfillment);
+  if (next === "refunded") return "order_event_admin_refunded";
+  if (next === "refund_requested") return "order_event_admin_refund_requested";
+  if (prev === "cancel_requested") return "order_event_admin_cancel_rejected";
+  if (prev === "refund_requested") return "order_event_admin_refund_rejected";
+  return "order_event_admin_status_updated";
+}
+
+/** 상태별 색 구분 — 같은 단계 = 같은 색 (사장님 배지·목록 공통) */
+export type StoreOrderStageTone = "waiting" | "progress" | "done" | "danger" | "warning";
+
+export function orderStageTone(orderStatus: string, fulfillment: string): StoreOrderStageTone {
+  const s = String(orderStatus ?? "").trim();
+  if (s === "cancelled" || s === "refunded") return "danger";
+  if (s === "cancel_requested" || s === "refund_requested") return "warning";
+  const pos = orderStagePosition(s, fulfillment);
+  if (pos === 0) return "waiting";
+  if (pos === 4) return "done";
+  return "progress";
 }
 
 /** contract·회귀 검사용 */
-export {
-  STORE_ORDER_STATUS_LIST,
-  buyerDetailSixStepStates,
-  storeOrderTimelineCurrentStep,
-  processFlowStepStates as processStepStates,
-};
+export { STORE_ORDER_STATUS_LIST };

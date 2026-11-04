@@ -11,12 +11,13 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const FILTER_CHIP_KEYS: { key: StoreOrdersHubFilter; labelKey: MessageKey }[] = [
-  { key: "all", labelKey: "store_owner_tab_all" },
-  { key: "receiving", labelKey: "store_order_dash_chip_receiving" },
-  { key: "preparing", labelKey: "store_order_dash_chip_preparing" },
-  { key: "delivering", labelKey: "store_order_dash_chip_delivering" },
-  { key: "done", labelKey: "store_owner_tab_done" },
-  { key: "issue", labelKey: "store_owner_tab_issue_short" },
+  /** 묶음 이름 = 4단계 정본 (사장님 주문 탭과 같은 말) */
+  { key: "all", labelKey: "order_stage_tab_all" },
+  { key: "receiving", labelKey: "order_stage_tab_receiving" },
+  { key: "preparing", labelKey: "order_stage_preparing" },
+  { key: "delivering", labelKey: "order_stage_tab_third" },
+  { key: "done", labelKey: "order_stage_tab_done" },
+  { key: "issue", labelKey: "order_stage_tab_cancelled" },
 ];
 
 const RAIL =

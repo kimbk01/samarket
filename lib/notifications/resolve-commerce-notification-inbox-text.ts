@@ -31,6 +31,10 @@ export type CommerceNotificationMeta = {
   request_type?: string;
   /** user_point_charge_rejected — 반려 사유 (발송 `notify-user-points.ts`) */
   reason?: string;
+  /** 구매자 상태 알림 — 「pickup」이면 픽업완료 제목 */
+  fulfillment_type?: string;
+  /** 구매자 상태 알림 — 「rejected」이면 주문 거절 문구 */
+  cancel_kind?: string;
 };
 
 /**
@@ -46,6 +50,17 @@ function buyerStatusVariant(
     return {
       key: part === "title" ? "notify_commerce_delivery_sync_arrived_title" : "notify_commerce_delivery_sync_arrived_body",
     };
+  }
+  /** 4단계 정본 — 주문 거절·픽업완료 (발송 `notify-store-commerce.ts` 와 같은 선택) */
+  if (status === "cancelled" && m.cancel_kind === "rejected") {
+    const r = typeof m.cancel_reason === "string" ? m.cancel_reason.trim() : "";
+    if (part === "title") return { key: "notify_commerce_owner_status_rejected_title" };
+    return r
+      ? { key: "notify_commerce_owner_status_rejected_body_reason", vars: { reason: r } }
+      : { key: "notify_commerce_owner_status_rejected_body" };
+  }
+  if (status === "completed" && part === "title" && m.fulfillment_type === "pickup") {
+    return { key: "notify_commerce_owner_status_completed_pickup_title" };
   }
   if (status !== "cancelled" || part === "title") return null;
   const reason = typeof m.cancel_reason === "string" ? m.cancel_reason.trim() : "";

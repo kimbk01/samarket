@@ -63,6 +63,7 @@ export function mapStoreOrderListItem(row: StoreOrderRoomInput, generation: stri
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),
     orderStatusLabel: trimOrEmpty(row.orderStatusLabel) || null,
     fulfillmentType: trimOrEmpty(row.fulfillmentType) || null,
+    cancelKind: trimOrEmpty(row.cancelKind) || null,
     generation,
   };
 }

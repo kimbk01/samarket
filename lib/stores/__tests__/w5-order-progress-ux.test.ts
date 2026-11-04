@@ -57,8 +57,8 @@ describe("FLW-01 · FLW-07 — 정식 패널 취소·취소 요청", () => {
 });
 
 describe("FLW-02 — 픽업 완료 라벨 (프로세스 모델 단일 정의)", () => {
-  it("pickup completed = 픽업 완료 / Picked up, delivery completed = 배달완료 / Delivered", () => {
-    expect(buyerOrderStatusLabel("completed", "ko", "pickup")).toBe("픽업 완료");
+  it("pickup completed = 픽업완료 / Picked up, delivery completed = 배달완료 / Delivered", () => {
+    expect(buyerOrderStatusLabel("completed", "ko", "pickup")).toBe("픽업완료");
     expect(buyerOrderStatusLabel("completed", "en", "pickup")).toBe("Picked up");
     expect(buyerOrderStatusLabel("completed", "ko", "local_delivery")).toBe("배달완료");
     expect(buyerOrderStatusLabel("completed", "en", "local_delivery")).toBe("Delivered");
@@ -153,13 +153,13 @@ describe("FLW-06 — 구매자 취소 요청 승인 알림 문구", () => {
     expect(appendUserNotification).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        body: "「테스트매장」 주문 취소 요청이 승인되어 주문이 취소됐어요.",
+        body: "취소 요청이 승인되어 주문이 취소되었어요.",
         meta: expect.objectContaining({ cancel_by: "buyer_request", order_status: "cancelled" }),
       })
     );
   });
 
-  it("구매자 요청 승인 원장이 없으면 기존 「매장에 의해 취소」 문구 유지", async () => {
+  it("구매자 요청 승인 원장이 없으면 「매장이 주문을 취소했어요」", async () => {
     await notifyBuyerStoreOrderOwnerStatus(makeSb(null), {
       buyerUserId: "buyer-1",
       orderId: "order-1",
@@ -171,7 +171,7 @@ describe("FLW-06 — 구매자 취소 요청 승인 알림 문구", () => {
     expect(appendUserNotification).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        body: "「테스트매장」 주문이 매장에 의해 취소됐어요.",
+        body: "매장이 주문을 취소했어요.",
         meta: expect.objectContaining({ cancel_by: "owner" }),
       })
     );

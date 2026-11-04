@@ -755,8 +755,12 @@ function StoreOrderOpsSystemRow({
   return (
     <div className="delivery-ui flex w-full justify-center px-4 py-0.5">
       <p className="max-w-[min(100%,20rem)] text-center text-[12px] leading-[1.5] text-[color:var(--delivery-text-muted)] [overflow-wrap:anywhere]">
-        <span className={titleClass}>{title}</span>
-        <span className="text-[color:var(--delivery-mocha)]"> · </span>
+        {title ? (
+          <>
+            <span className={titleClass}>{title}</span>
+            <span className="text-[color:var(--delivery-mocha)]"> · </span>
+          </>
+        ) : null}
         <span className="text-[color:var(--delivery-dark)]">{body}</span>
       </p>
     </div>

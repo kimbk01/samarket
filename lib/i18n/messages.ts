@@ -57,6 +57,7 @@ import { myManagedCtaLabelsMessages } from "./catalog/my-managed-cta-labels";
 import { cmFriendAddCtaLabelsMessages } from "./catalog/cm-friend-add-cta-labels";
 import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
+import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
 import { adminDeliveryOpsUxMessages } from "./catalog/admin-delivery-ops-ux";
@@ -176,6 +177,7 @@ const KO_MESSAGES = {
   ...cmFriendAddCtaLabelsMessages.ko,
   ...feedEmergencyLabelsMessages.ko,
   ...storeOrderChatSummaryLabelsMessages.ko,
+  ...storeOrderStageTermsMessages.ko,
   ...navigationMessages.ko,
   ...notificationMessages.ko,
   ...chatsMessages.ko,
@@ -292,6 +294,7 @@ const EN_MESSAGES = {
   ...cmFriendAddCtaLabelsMessages.en,
   ...feedEmergencyLabelsMessages.en,
   ...storeOrderChatSummaryLabelsMessages.en,
+  ...storeOrderStageTermsMessages.en,
   ...navigationMessages.en,
   ...notificationMessages.en,
   ...chatsMessages.en,

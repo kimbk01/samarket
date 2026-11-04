@@ -33,18 +33,18 @@ function item(partial: Partial<StoreOrderListItem> = {}): StoreOrderListItem {
 describe("order-status raw enum → SSOT label (list row + room header)", () => {
   it("row-model customer list: translates raw order_status via processStatusLabel, not raw-passthrough", () => {
     const vm = buildStoreOrderCustomerListViewModel(item({ orderStatusLabel: "pending" }), "ko");
-    expect(vm.statusBadge).toBe("주문접수");
+    expect(vm.statusBadge).toBe("접수 대기");
     expect(vm.statusBadge).not.toBe("pending");
   });
 
   it("row-model customer list: respects explicit lang", () => {
     const vm = buildStoreOrderCustomerListViewModel(item({ orderStatusLabel: "pending" }), "en");
-    expect(vm.statusBadge).toBe("Order received");
+    expect(vm.statusBadge).toBe("Awaiting acceptance");
   });
 
   it("row-model customer list: defaults to ko when lang omitted (server-safe default, not client global)", () => {
     const vm = buildStoreOrderCustomerListViewModel(item({ orderStatusLabel: "pending" }));
-    expect(vm.statusBadge).toBe("주문접수");
+    expect(vm.statusBadge).toBe("접수 대기");
   });
 
   it("row-model owner list: uses owner_badge audience wording", () => {

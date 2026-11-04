@@ -61,6 +61,7 @@ import { myManagedCtaLabelsMessages } from "./catalog/my-managed-cta-labels";
 import { cmFriendAddCtaLabelsMessages } from "./catalog/cm-friend-add-cta-labels";
 import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
+import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
 import { chatsMessages } from "./catalog/chats";
@@ -192,6 +193,7 @@ export type MessageKey =
   | KeyOf<typeof cmFriendAddCtaLabelsMessages.ko>
   | KeyOf<typeof feedEmergencyLabelsMessages.ko>
   | KeyOf<typeof storeOrderChatSummaryLabelsMessages.ko>
+  | KeyOf<typeof storeOrderStageTermsMessages.ko>
   | KeyOf<typeof navigationMessages.ko>
   | KeyOf<typeof notificationMessages.ko>
   | KeyOf<typeof chatsMessages.ko>
@@ -286,6 +288,7 @@ type EnMessageKey =
   | KeyOf<typeof cmFriendAddCtaLabelsMessages.en>
   | KeyOf<typeof feedEmergencyLabelsMessages.en>
   | KeyOf<typeof storeOrderChatSummaryLabelsMessages.en>
+  | KeyOf<typeof storeOrderStageTermsMessages.en>
   | KeyOf<typeof navigationMessages.en>
   | KeyOf<typeof notificationMessages.en>
   | KeyOf<typeof chatsMessages.en>

@@ -726,7 +726,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
     sb
       .from("store_orders")
       .select(
-        "id, store_id, buyer_user_id, community_messenger_room_id, order_status, fulfillment_type, stores!inner(id, store_name, profile_image_url)"
+        "id, store_id, buyer_user_id, community_messenger_room_id, order_status, fulfillment_type, cancel_kind, stores!inner(id, store_name, profile_image_url)"
       )
       .eq("buyer_user_id", viewerUserId)
       .not("community_messenger_room_id", "is", null)
@@ -742,6 +742,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
     community_messenger_room_id: string;
     order_status: string | null;
     fulfillment_type: string | null;
+    cancel_kind?: string | null;
     stores: StoreEmbed;
   };
   type RawOrder = {
@@ -751,6 +752,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
     community_messenger_room_id: string;
     order_status?: string | null;
     fulfillment_type?: string | null;
+    cancel_kind?: string | null;
     stores: StoreEmbed | StoreEmbed[] | null;
   };
   const orderRows: OrderRow[] = [];
@@ -764,6 +766,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
       community_messenger_room_id: o.community_messenger_room_id,
       order_status: o.order_status ?? null,
       fulfillment_type: o.fulfillment_type ?? null,
+      cancel_kind: o.cancel_kind ?? null,
       stores,
     });
   }
@@ -843,6 +846,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
         : null,
       orderStatusLabel: o.order_status ?? null,
       fulfillmentType: o.fulfillment_type ?? null,
+      cancelKind: o.cancel_kind ?? null,
       roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
     });
   }
@@ -904,7 +908,7 @@ export async function fetchStoreOrderOwnerLiveBatch(
   const { data: orders, timing: t1 } = await timedSelect("store_orders_owner", () =>
     sb
       .from("store_orders")
-      .select("id, store_id, buyer_user_id, community_messenger_room_id, order_status, fulfillment_type")
+      .select("id, store_id, buyer_user_id, community_messenger_room_id, order_status, fulfillment_type, cancel_kind")
       .in("store_id", storeIds)
       .not("community_messenger_room_id", "is", null)
       .limit(PHASE11B_MAX_ROWS)
@@ -917,6 +921,7 @@ export async function fetchStoreOrderOwnerLiveBatch(
     community_messenger_room_id: string;
     order_status?: string | null;
     fulfillment_type?: string | null;
+    cancel_kind?: string | null;
   };
   const orderRows = (orders ?? []) as OrderRow[];
   const roomIds = orderRows.map((o) => o.community_messenger_room_id);
@@ -999,6 +1004,7 @@ export async function fetchStoreOrderOwnerLiveBatch(
         : null,
       orderStatusLabel: o.order_status ?? null,
       fulfillmentType: o.fulfillment_type ?? null,
+      cancelKind: o.cancel_kind ?? null,
       roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
     });
   }

@@ -27,6 +27,7 @@ export type StoreOrderCustomerLoaderBatchRow = Readonly<{
   latestMessage: DomainLoaderLatestMessageRow | null;
   orderStatusLabel?: string | null;
   fulfillmentType?: string | null;
+  cancelKind?: string | null;
   roomLastMessageSummary?: string | null;
   /** forbidden on customer surface */
   ownerMemberName?: string | null;
@@ -77,6 +78,7 @@ export function mapStoreOrderCustomerLoaderBatchRows(input: {
       unreadCount: row.unreadCount,
       orderStatusLabel: row.orderStatusLabel ?? null,
       fulfillmentType: row.fulfillmentType ?? null,
+      cancelKind: row.cancelKind ?? null,
       // customer surface must not carry owner ids for presentation
       storeOwnerUserIds: [],
     });

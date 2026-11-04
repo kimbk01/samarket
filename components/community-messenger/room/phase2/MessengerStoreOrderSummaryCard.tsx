@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  rebuildStoreOrderSummaryTimelineFromStored,
   type StoreOrderSummaryTimelineStep,
 } from "@/lib/store-order-chat/store-order-summary-timeline";
+import { normalizeStoreOrderCancelKind } from "@/lib/stores/store-order-process-model";
 import {
   buildStoreOrderChatCardView,
   type StoreOrderChatCardView,
@@ -77,5 +79,16 @@ function viewFromMetadata(
     order: order as Record<string, unknown>,
     items: items.filter((it): it is Record<string, unknown> => it != null && typeof it === "object"),
   });
-  return timeline?.length ? { ...view, timeline } : view;
+  if (!timeline?.length) return view;
+  /** 저장된 칸·이름은 버리고 시각만 재사용 — 4칸 정본 · 보는 사람 언어 (서버에서 굳은 영어 방지) */
+  return {
+    ...view,
+    timeline: rebuildStoreOrderSummaryTimelineFromStored({
+      stored: timeline,
+      fulfillmentType: view.fulfillmentType,
+      orderStatus: view.status,
+      acceptedAt: view.acceptedAt,
+      cancelKind: normalizeStoreOrderCancelKind((order as Record<string, unknown>).cancel_kind),
+    }),
+  };
 }

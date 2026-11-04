@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildStoreOrdersHref, type StoreOrderTabId } from "@/lib/business/store-orders-tab";
+import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { OWNER_ORDER_TAB_LABEL_KEYS, type OwnerMobileOrderTabId } from "@/lib/business/owner-mobile-orders-tab";
 
-const TRY_TABS: StoreOrderTabId[] = ["progress", "shipping", "done", "cancelled"];
+const TRY_TABS: OwnerMobileOrderTabId[] = ["accepted", "preparing", "shipping", "done", "cancelled"];
 
 export function OwnerStoreOrderDeepLinkMissBanner({
   storeId,
@@ -37,15 +38,7 @@ export function OwnerStoreOrderDeepLinkMissBanner({
             className="rounded-ui-rect border border-sam-warning/30 bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg underline"
           >
             {t("store_owner_orders_deeplink_miss_try_tab", {
-              tab: t(
-                tabId === "progress"
-                  ? "store_owner_mobile_tab_progress"
-                  : tabId === "shipping"
-                    ? "store_owner_mobile_tab_shipping"
-                    : tabId === "done"
-                      ? "store_owner_mobile_tab_done"
-                      : "store_owner_mobile_tab_cancelled"
-              ),
+              tab: t(OWNER_ORDER_TAB_LABEL_KEYS[tabId]),
             })}
           </Link>
         ))}

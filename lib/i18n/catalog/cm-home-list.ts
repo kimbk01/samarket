@@ -64,7 +64,7 @@ export const cmHomeListMessages = {
 
     cm_home_sys_permission_changed: "권한 변경",
 
-    cm_home_sys_order_accepted: "주문 접수됨",
+    cm_home_sys_order_accepted: "매장이 주문을 접수했어요",
 
     cm_home_sys_trade_offer: "거래 제안",
 
@@ -173,7 +173,7 @@ export const cmHomeListMessages = {
 
     cm_home_sys_permission_changed: "Permissions updated",
 
-    cm_home_sys_order_accepted: "Order accepted",
+    cm_home_sys_order_accepted: "The store accepted your order",
 
     cm_home_sys_trade_offer: "Trade offer",
 

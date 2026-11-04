@@ -1,17 +1,7 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
+import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-order-process-model";
 
-/** Admin order status labels (ko/en catalog) — shared by the order list and order detail. */
-export const ADMIN_STORE_ORDER_STATUS_LABEL_KEYS: Record<StoreOrderStatus, MessageKey> = {
-  pending: "admin_stores_orders_status_pending",
-  accepted: "admin_stores_orders_status_accepted",
-  preparing: "admin_stores_orders_status_preparing",
-  ready_for_pickup: "admin_stores_orders_status_ready_for_pickup",
-  delivering: "admin_stores_orders_status_delivering",
-  arrived: "admin_stores_orders_status_arrived",
-  completed: "admin_stores_orders_status_completed",
-  cancel_requested: "admin_stores_orders_status_cancel_requested",
-  cancelled: "admin_stores_orders_status_cancelled",
-  refund_requested: "admin_stores_orders_status_refund_requested",
-  refunded: "admin_stores_orders_status_refunded",
-};
+/** Admin order status labels — 4단계 정본 이름 (사장님·손님·채팅과 같은 말 · 설계안 v2 §3-1) */
+export const ADMIN_STORE_ORDER_STATUS_LABEL_KEYS: Record<StoreOrderStatus, MessageKey> =
+  ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT;

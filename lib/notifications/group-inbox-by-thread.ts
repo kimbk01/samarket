@@ -234,7 +234,11 @@ export function buildInboxGroupItems(
       language
     );
     const kindLabel = isOrderGroup
-      ? resolveInboxOrderStatusChip((metaObj as { order_status?: unknown } | null)?.order_status, language) ??
+      ? resolveInboxOrderStatusChip(
+          (metaObj as { order_status?: unknown } | null)?.order_status,
+          language,
+          metaObj as { fulfillment_type?: unknown; cancel_kind?: unknown } | null
+        ) ??
         (knd && knd !== surfaceBadge ? knd : null)
       : knd && knd !== surfaceBadge
         ? knd

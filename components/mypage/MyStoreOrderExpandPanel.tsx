@@ -427,7 +427,7 @@ export function MyStoreOrderExpandPanel({
   }
 
   const { order, items, orderEvents, hydratingDetail } = state;
-  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type);
+  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type, (order as { cancel_kind?: unknown }).cancel_kind);
   const prepClock = formatPrepClock(order.estimated_ready_at, dateLocale);
   const buyerProg = buyerStoreOrderProgressCopy(t, order, orderStatusLabel, prepClock);
   const isActive = ACTIVE_STATUSES.has(order.order_status);
@@ -509,7 +509,8 @@ export function MyStoreOrderExpandPanel({
               variant="buyer_detail"
               fulfillmentType={order.fulfillment_type}
               orderStatus={order.order_status}
-            />
+              cancelKind={(order as { cancel_kind?: unknown }).cancel_kind}
+          />
           </div>
         </div>
       ) : null}

@@ -263,7 +263,7 @@ const TERMS: Record<AdminTerminologyConcept, TerminologyEntry> = {
   },
   RECEIVE: {
     concept: "RECEIVE",
-    i18nKey: "store_owner_transition_accepted",
+    i18nKey: "order_stage_accepted",
     fallbackKo: "접수",
     fallbackEn: "Accept / receive",
     domain: "DELIVERY",

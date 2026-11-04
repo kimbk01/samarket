@@ -16,7 +16,12 @@ import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 type TimelineVariant = "default" | "buyer_detail";
 
 /** 취소·환불 등 터미널일 때 스테퍼 맨 뒤에 붙이는 단계 */
-function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode, fulfillmentType: string): {
+function terminalStepperSuffix(
+  orderStatus: string,
+  lang: AppLanguageCode,
+  fulfillmentType: string,
+  cancelKind?: unknown
+): {
   label: string;
   lineClass: string;
   circleClass: string;
@@ -28,7 +33,7 @@ function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode, fulfi
     case "refund_requested":
     case "refunded":
       return {
-        label: buyerOrderStatusLabel(orderStatus, lang, fulfillmentType),
+        label: buyerOrderStatusLabel(orderStatus, lang, fulfillmentType, cancelKind),
         lineClass:
           orderStatus === "cancelled" || orderStatus === "cancel_requested"
             ? orderStatus === "cancelled"
@@ -73,17 +78,20 @@ export function StoreCommerceOrderTimeline({
   fulfillmentType,
   orderStatus,
   variant = "default",
+  cancelKind,
 }: {
   fulfillmentType: string;
   orderStatus: string;
-  /** 주문 상세: 배달 6단계 · 픽업 4단계 */
+  /** 4칸 정본 (주문접수 · 조리중 · 배달중|픽업대기 · 배달완료|픽업완료) */
   variant?: TimelineVariant;
+  /** `store_orders.cancel_kind` — 「rejected」면 「주문 거절」 */
+  cancelKind?: unknown;
 }) {
   const { t, language } = useI18n();
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
   const terminal = ["cancelled", "refund_requested", "refunded", "cancel_requested"].includes(orderStatus);
   const allDone = orderStatus === "completed";
-  const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus, language, fulfillmentType) : null;
+  const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus, language, fulfillmentType, cancelKind) : null;
 
   if (variant === "buyer_detail") {
     const steps = deliveryLike
@@ -179,7 +187,8 @@ export function StoreCommerceOrderTimeline({
   const steps = deliveryLike
     ? [...buyerOrderTimelineDeliveryStepLabels(language, fulfillmentType)]
     : [...buyerOrderTimelinePickupStepLabels(language, fulfillmentType)];
-  const cur = processStepIndex(orderStatus, fulfillmentType);
+  /** 칸 0..3 = 단계 위치 1..4 (접수 대기 = 강조 칸 없음) */
+  const cur = processStepIndex(orderStatus, fulfillmentType) - 1;
 
   return (
     <nav

@@ -24,6 +24,7 @@ import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import {
   processStepIndex,
+  normalizeStoreOrderCancelKind,
   processStepLabel,
   processSteps,
   type StoreOrderProcessStepKey,
@@ -139,7 +140,14 @@ export function StoreOrderBuyerRoomSheet({
   }, [open, onOpenChange]);
 
   const statusLabel =
-    order != null ? buyerOrderStatusLabel(order.order_status, getRuntimeAppLanguage(), order.fulfillment_type) : "";
+    order != null
+      ? buyerOrderStatusLabel(
+          order.order_status,
+          getRuntimeAppLanguage(),
+          order.fulfillment_type,
+          normalizeStoreOrderCancelKind((order as { cancel_kind?: unknown }).cancel_kind)
+        )
+      : "";
 
   const phone09 =
     order?.buyer_phone != null && String(order.buyer_phone).trim()
@@ -522,7 +530,8 @@ function BuyerOpsStatusCard({
 }) {
   const fulfillment = order.fulfillment_type ?? "pickup";
   const steps = buyerChatFlowSteps(fulfillment);
-  const current = processStepIndex(order.order_status, fulfillment);
+  /** 칸 0..3 = 단계 위치 1..4 (접수 대기 = 강조 없음) */
+  const current = processStepIndex(order.order_status, fulfillment) - 1;
   return (
     <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
       <div className="flex items-start justify-between gap-2">
