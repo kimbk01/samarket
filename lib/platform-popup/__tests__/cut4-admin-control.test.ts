@@ -199,11 +199,14 @@ describe("CUT4 surfaces + CTA + TODAY semantic", () => {
   });
 
   it("detail UI documents TODAY != 24h", () => {
+    // F-3: 안내문 정본 = 공용 함수(popupFrequencyOperatorDescription) — 상세 화면은 그 함수를 쓴다
     const detail = readRepo(
       "components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx"
     );
-    expect(detail).toMatch(/24시간(이 아님|이 아닙니다)|not 24h|not 24 hours/i);
-    expect(detail).toMatch(/그날 끝|calendar day/i);
+    expect(detail).toContain("popupFrequencyOperatorDescription(frequencyMode");
+    const canon = readRepo("lib/admin/promotion-ownership-visibility.ts");
+    expect(canon).toMatch(/24시간이 아님|not 24 hours/i);
+    expect(canon).toMatch(/그날 끝|end of that day/i);
   });
 });
 

@@ -39,6 +39,10 @@ import {
   type PlatformEventLifecycleAction,
 } from "@/lib/platform-events/admin-validation";
 import { normalizePlatformEventSections } from "@/lib/platform-events/sections";
+import {
+  adminIsoToManilaInput,
+  adminManilaInputToIso,
+} from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { PLATFORM_EVENT_CATEGORY_MAX } from "@/lib/platform-events/types";
 
 type Props = { eventId: string | null };
@@ -1207,10 +1211,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <label className="block text-sm">
-            {safeT("admin_promotion_schedule_start", {
-              fallbackKo: "노출 시작",
-              fallbackEn: "Starts",
-            })}
+            {safeT("ads_f_start_pht", { fallbackKo: "시작 (PHT)", fallbackEn: "Start (PHT)" })}
             <input
               type="datetime-local"
               className={fieldClass}
@@ -1221,10 +1222,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             />
           </label>
           <label className="block text-sm">
-            {safeT("admin_promotion_schedule_end", {
-              fallbackKo: "노출 종료",
-              fallbackEn: "Ends",
-            })}
+            {safeT("ads_f_end_pht", { fallbackKo: "종료 (PHT)", fallbackEn: "End (PHT)" })}
             <input
               type="datetime-local"
               className={fieldClass}
@@ -1344,18 +1342,11 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   );
 }
 
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** CX-16: 칸은 「표시 기준 시간대: Asia/Manila」 그대로 PHT 벽시계 — 브라우저 시간대로 바꾸지 않는다 */
+export function toLocalInput(iso: string | null): string {
+  return adminIsoToManilaInput(iso);
 }
 
-function fromLocalInput(v: string): string | null {
-  const s = v.trim();
-  if (!s) return null;
-  const t = Date.parse(s);
-  if (!Number.isFinite(t)) return null;
-  return new Date(t).toISOString();
+export function fromLocalInput(v: string): string | null {
+  return adminManilaInputToIso(v) ?? null;
 }

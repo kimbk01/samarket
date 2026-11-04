@@ -48,10 +48,22 @@ export function ptrRevealCampaignRevision(
   return [bands.default.id, bands.tablet?.id ?? "-", bands.logo?.id ?? "-"].join("+");
 }
 
+/**
+ * P-3 (2026-11-04): PTR 낭독 문구 정본 = 캠페인 title 우선, 없으면 띠 대체 텍스트.
+ * 어드민 미리보기(`AdminPtrRevealDetailWorkspace`)도 이 함수를 쓴다.
+ */
+export function ptrRevealAccessibleText(
+  title: string | null | undefined,
+  bandAltText: string | null | undefined,
+  lastResort = "Advertisement"
+): string {
+  return title?.trim() || bandAltText?.trim() || lastResort;
+}
+
 function toBand(
   asset: PlatformPopupPtrBandAsset | undefined,
   variant: PtrBandVariant,
-  fallbackAlt: string
+  title: string | null | undefined
 ): PtrRevealBand | null {
   if (!asset) return null;
   if (!isPtrBandAspectValidForVariant(asset.aspectW, asset.aspectH, variant)) return null;
@@ -60,16 +72,15 @@ function toBand(
     assetPath: asset.assetPath,
   });
   if (!imageUrl) return null;
-  return { creativeId: asset.id, imageUrl, altText: asset.altText?.trim() || fallbackAlt };
+  return { creativeId: asset.id, imageUrl, altText: ptrRevealAccessibleText(title, asset.altText) };
 }
 
 export function buildPtrRevealAdPayload(
   candidate: PlatformPopupCandidate,
   resolved: { href: string; surface: string }
 ): PtrRevealAd | null {
-  const fallbackAlt = candidate.title?.trim() || "Advertisement";
   const bands = candidate.ptrBands ?? {};
-  const phone = toBand(bands.default, "default", fallbackAlt);
+  const phone = toBand(bands.default, "default", candidate.title);
   if (!phone) return null;
   return {
     campaignId: candidate.id,
@@ -85,8 +96,8 @@ export function buildPtrRevealAdPayload(
     timezone: candidate.timezone?.trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE,
     bands: {
       default: phone,
-      tablet: toBand(bands.tablet, "tablet", fallbackAlt),
-      logo: toBand(bands.logo, "logo", fallbackAlt),
+      tablet: toBand(bands.tablet, "tablet", candidate.title),
+      logo: toBand(bands.logo, "logo", candidate.title),
     },
     // D-2: 서버 후보 revision(띠 3종 + 목적지 해시)을 그대로 — 숨김 기록 때 앱이 이 값을 보낸다
     revision: candidate.campaignRevision ?? ptrRevealCampaignRevision(bands) ?? phone.creativeId,

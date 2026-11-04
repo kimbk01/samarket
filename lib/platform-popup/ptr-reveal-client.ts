@@ -8,7 +8,10 @@
  */
 
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
-import { getOrCreatePlatformPopupAppSessionId } from "@/lib/platform-popup/popup-app-session";
+import {
+  decidePlatformPopupIdentity,
+  getOrCreatePlatformPopupAppSessionId,
+} from "@/lib/platform-popup/popup-app-session";
 import type { PtrRevealAd } from "@/lib/platform-popup/ptr-reveal-payload";
 import { frequencyModeToDismissSuppressMode, isFrequencySuppressMode } from "@/lib/platform-popup/dismiss-ssot";
 import {
@@ -52,6 +55,8 @@ const pendingSuppress = new Map<string, string>(); // surfaceKey → campaignId
  */
 const suppressFailedHeld = new Set<string>(); // campaignId
 let lastSurfaceKey: string | null = null;
+/** CX-06: 마지막으로 본 신원(회원 id 또는 `anon:{기기}`) — 팝업 호스트와 같은 판정 */
+let identity: string | null = null;
 const listeners = new Set<() => void>();
 let version = 0;
 
@@ -67,6 +72,28 @@ export function subscribePtrRevealAds(listener: () => void): () => void {
 
 export function getPtrRevealAdsVersion(): number {
   return version;
+}
+
+/**
+ * CX-06 (광고 표면 연동 · 2026-11-04): 계정이 바뀌거나 로그아웃하면 이전 계정의 PTR 캐시·close_only 보류·
+ * 숨김 기록 보류를 모두 비운다 — 팝업 호스트와 같은 신원 판정(`decidePlatformPopupIdentity`).
+ * 로그인 확인 중(authReady=false)은 판정하지 않는다(새로고침 직후 anon → 회원 오판 방지).
+ * @returns 초기화했으면 true
+ */
+export function notePtrRevealIdentity(input: {
+  authReady: boolean;
+  userId: string | null;
+  deviceKey: string;
+}): boolean {
+  const decision = decidePlatformPopupIdentity({ previous: identity, ...input });
+  identity = decision.identity;
+  if (!decision.changed) return false;
+  entries.clear();
+  closeOnlyHeld.clear();
+  pendingSuppress.clear();
+  suppressFailedHeld.clear();
+  emit();
+  return true;
 }
 
 /** 광고 대상 표면이 아니면 null (메신저·통화·결제·주문 핵심·관리자 외 미분류) */
@@ -256,6 +283,7 @@ export function __resetPtrRevealAdsForTests(): void {
   pendingSuppress.clear();
   suppressFailedHeld.clear();
   lastSurfaceKey = null;
+  identity = null;
   listeners.clear();
   version = 0;
 }

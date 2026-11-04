@@ -139,9 +139,11 @@ Runtime fail-closed map = **CUT D**. Current `storeEligibleById: null → true` 
 
 | Role | Path | UI |
 |------|------|-----|
-| Owner | `/stores/owner/ads` | Stub — CUT C |
-| Admin | `/admin/delivery-ads` | Stub — CUT F |
-| Admin legacy | `/admin/store-insertions`, `/admin/store-banner-ads` | Writers until CUT F |
+| Owner | `/stores/owner/ads` | 운영 중 — 사장님 배달 광고 허브(`OwnerDeliveryAdsHubView`) · 상세 `[campaignId]` · 파트너 `partner` |
+| Admin | `/admin/delivery-ads` | 허브는 `/admin/advertising`(전체 광고)로 이동. 운영 화면 = `manage` · `inventory` · `commercial-settings` · `cash-charges` · `partner` · `first-party/new` · `[campaignId]` · `[campaignId]/creative` |
+| Admin legacy | `/admin/store-insertions`, `/admin/store-banner-ads` | 쓰기 없음 — 배달 광고 허브로 이동(redirect). `store-insertions?focus=coupons` 만 `/admin/store-coupon-control` |
+
+> 2026-11-04 정정 (광고 표면 연동 I3): 이전 표의 「Stub — CUT C / CUT F」「Writers until CUT F」는 코드와 달랐다. 위 표는 `app/(main)/stores/owner/ads/**`·`app/admin/delivery-ads/**`·`app/admin/store-*/page.tsx` 실제 라우트 기준이다.
 
 Preview SSOT (Owner = Admin = Customer renderer) = CUT E.
 

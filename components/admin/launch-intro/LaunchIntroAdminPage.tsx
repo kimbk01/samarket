@@ -1340,6 +1340,10 @@ export function LaunchIntroAdminPage() {
               <div>
                 <span className={label}>{t("admin_launch_intro_image")}</span>
                 <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_hint")}</p>
+                {/* IN-N6: 꽉 채우기의 가로 화면 예외 (LaunchIntroMotionStyles `.lim-cover` landscape) */}
+                <p className="mb-2 sam-text-body-secondary text-sam-muted" data-launch-intro-fit-landscape-note="">
+                  {t("admin_launch_intro_fit_landscape_note")}
+                </p>
                 {scene.layout === "logo" ? (
                   <p className="mb-2 sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_image_logo_layout_note")}</p>
                 ) : null}
@@ -1462,6 +1466,10 @@ export function LaunchIntroAdminPage() {
                   ))}
                 </select>
                 {sel === 0 ? <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_first_scene_motion_note")}</p> : null}
+                {/* IN-N6: 기기 「동작 줄이기」 설정이면 움직임 꺼짐 (LaunchIntroMotionStyles prefers-reduced-motion) */}
+                <p className="sam-text-body-secondary text-sam-muted" data-launch-intro-reduced-motion-note="">
+                  {t("admin_launch_intro_reduced_motion_note")}
+                </p>
               </div>
 
               <p className="sam-text-body-secondary text-sam-muted">{t("admin_launch_intro_text_hint")}</p>

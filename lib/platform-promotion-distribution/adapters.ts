@@ -1,3 +1,4 @@
+import { normalizePlatformPopupFrequencyMode } from "@/lib/platform-popup/presentation-contract";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import {
   isEventBannerPlacementPresentationCompatible,
@@ -96,7 +97,8 @@ export function planPopupDistributionAdapter(input: {
       href,
       surfaces,
       presentationType,
-      frequencyMode: cfg.frequencyMode?.trim() || "once_per_session",
+      // CX-07: 정본 4개 밖 값(예전 always 등)은 정본으로 맞춘다
+      frequencyMode: normalizePlatformPopupFrequencyMode(cfg.frequencyMode?.trim() || ""),
       creativeMode,
       imageUrl: String(cfg.imageUrl ?? "").trim() || null,
       imagePath: String(cfg.imagePath ?? "").trim() || null,

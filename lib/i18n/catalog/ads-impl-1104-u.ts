@@ -17,6 +17,9 @@ export const adsImpl1104SurfaceMessages = {
     admin_destination_error_external_url_private_host: "IP 주소·내부망 주소는 쓸 수 없습니다. 공개 도메인 주소를 넣어 주세요.",
     admin_destination_error_external_url_too_long: "주소가 너무 깁니다(2,048자 이하).",
     admin_destination_error_external_url_shortener: "단축 주소는 쓸 수 없습니다. 최종 주소를 넣어 주세요.",
+    admin_platform_popup_section_placement: "6. 노출 위치",
+    admin_popup_review_revert_confirm: "저장할까요? 노출 중인 광고의 노출 조건·문구가 바뀌어 다시 검토(노출 중단) 상태가 됩니다.",
+    admin_popup_review_revert_notice: "저장했습니다. 다시 승인이 필요합니다 — 검토 상태로 바뀌어 노출이 멈췄습니다.",
   },
   en: {
     admin_banners_status_scheduled: "Scheduled",
@@ -33,5 +36,8 @@ export const adsImpl1104SurfaceMessages = {
     admin_destination_error_external_url_private_host: "IP or private-network addresses are not allowed. Use a public domain.",
     admin_destination_error_external_url_too_long: "The address is too long (2,048 characters max).",
     admin_destination_error_external_url_shortener: "Short links are not allowed. Enter the final address.",
+    admin_platform_popup_section_placement: "6. Placement",
+    admin_popup_review_revert_confirm: "Save? This changes a live ad's conditions or text, so it returns to review (exposure stops).",
+    admin_popup_review_revert_notice: "Saved. Approval is needed again — it is back in review and exposure has stopped.",
   },
 } as const;

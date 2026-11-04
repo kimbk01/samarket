@@ -29,9 +29,14 @@ import {
   PTR_BAND_TABLET_MIN_VIEWPORT_PX,
   type PtrBandVariant,
 } from "@/lib/platform-popup/ptr-reveal-contract";
-import type { PtrRevealAd } from "@/lib/platform-popup/ptr-reveal-payload";
+import { ptrRevealAccessibleText, type PtrRevealAd } from "@/lib/platform-popup/ptr-reveal-payload";
 import { PLATFORM_POPUP_FREQUENCY_MODES, type PlatformPopupFrequencyMode } from "@/lib/platform-popup/presentation-contract";
 import { buildPtrRevealAdminPatch, type PtrRevealAdminForm } from "@/lib/platform-popup/ptr-reveal-admin-patch";
+import { platformPopupPatchWouldRevertToReview } from "@/lib/platform-popup/popup-admin-patch";
+import {
+  popupFrequencyOperatorDescription,
+  popupFrequencyOperatorLabel,
+} from "@/lib/admin/promotion-ownership-visibility";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 
 type Lang = "ko" | "en";
@@ -44,12 +49,6 @@ const PTR_SURFACE_OPTIONS = [
   { id: "DELIVERY", ko: "배달·매장 홈·목록 (/stores)", en: "Delivery & stores (/stores)" },
 ] as const;
 
-const FREQUENCY_LABEL: Record<PlatformPopupFrequencyMode, { ko: string; en: string }> = {
-  once_per_session: { ko: "앱 실행당 1회", en: "Once per app session" },
-  once_per_day: { ko: "하루 1회", en: "Once per day" },
-  once_campaign: { ko: "캠페인 기간 중 1회", en: "Once per campaign" },
-  close_only: { ko: "새로고침할 때마다", en: "Every refresh" },
-};
 
 type Form = PtrRevealAdminForm;
 
@@ -85,7 +84,10 @@ function previewAdFromDetail(c: PlatformPopupAdminDetail | null, form: Form | nu
   if (!c || !form) return null;
   const band = (v: PtrBandVariant) => {
     const b = c.ptrBands.find((x) => x.variant === v);
-    return b && b.imageUrl ? { creativeId: b.id, imageUrl: b.imageUrl, altText: b.altText || form.title || c.name } : null;
+    // P-3: 앱과 같은 낭독 문구(title 우선 → 띠 대체 텍스트)
+    return b && b.imageUrl
+      ? { creativeId: b.id, imageUrl: b.imageUrl, altText: ptrRevealAccessibleText(form.title, b.altText, c.name) }
+      : null;
   };
   const phone = band("default");
   if (!phone) return null;
@@ -119,7 +121,7 @@ function readImageSize(file: File): Promise<{ width: number; height: number } | 
 }
 
 export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: string }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const lang: Lang = language === "en" ? "en" : "ko";
   const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
@@ -130,6 +132,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** P-1: 저장으로 다시 검토 상태가 되면 알림을 경고 모양으로 (팝업 상세와 같음) */
+  const [noticeWarn, setNoticeWarn] = useState(false);
   const [audit, setAudit] = useState<AdminPlatformPopupAuditRow[]>([]);
 
   const load = useCallback(async () => {
@@ -173,12 +177,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     }
     const body = buildPtrRevealAdminPatch(saved, form, detail.timezone);
     if (Object.keys(body).length === 0) return;
-    const live = detail.status === "active" || detail.status === "scheduled";
-    const materialKeys = ["ctaType", "ctaLabel", "surfaces", "startAt", "frequencyMode", "audienceMode", "title"];
-    const willReview = live && materialKeys.some((k) => k in body);
-    const msg = willReview
-      ? L("저장할까요? 노출 중인 광고의 노출 조건·문구가 바뀌어 다시 검토(노출 중단) 상태가 됩니다.", "Save? This changes a live ad's conditions or text, so it returns to review (exposure stops).")
-      : L("변경 내용을 저장할까요?", "Save changes?");
+    // P-9: 서버 재검토 기준과 같은 함수 — 운영자 PTR 의 기간 변경은 재검토가 아니라 경고하지 않는다
+    const willReview = platformPopupPatchWouldRevertToReview(body, {
+      status: detail.status,
+      operatorPopup: !detail.ownerRequestId,
+    });
+    const msg = willReview ? t("admin_popup_review_revert_confirm") : L("변경 내용을 저장할까요?", "Save changes?");
     const saveOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("변경 내용 저장", "Save changes"), description: msg, confirmLabel: L("저장", "Save") });
     if (!saveOk.ok) return;
     setBusy(true);
@@ -197,7 +201,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       return;
     }
     await load();
-    setNotice(json.revertedToReview ? L("저장했습니다. 다시 검토 상태입니다.", "Saved. Back in review.") : L("저장했습니다.", "Saved."));
+    setNoticeWarn(Boolean(json.revertedToReview));
+    setNotice(json.revertedToReview ? t("admin_popup_review_revert_notice") : L("저장했습니다.", "Saved."));
   };
 
   const cancel = async () => {
@@ -392,7 +397,19 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       </div>
 
       {error ? <p className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-sm text-sam-danger">{error}</p> : null}
-      {notice ? <p className="rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2 text-sm text-sam-success">{notice}</p> : null}
+      {notice ? (
+        <p
+          className={
+            noticeWarn
+              ? "rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-sm text-sam-warning"
+              : "rounded-ui-rect border border-sam-success/30 bg-sam-success-soft px-3 py-2 text-sm text-sam-success"
+          }
+          role="status"
+          data-admin-ptr-save-reverted={noticeWarn ? "1" : "0"}
+        >
+          {notice}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-4">
@@ -415,8 +432,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 <input type="number" className="w-28 rounded border border-sam-border px-2 py-1.5" value={form.priority} onChange={(e) => patch({ priority: Number(e.target.value) || 0 })} />
                 <span className="text-xs text-sam-muted" data-admin-ptr-rank-hint="">
                   {L(
-                    "노출 순서: 영역 지정 > 우선순위(높을수록 먼저) > 덜 본 것",
-                    "Order: placement targeting > priority (higher first) > least seen"
+                    "노출 순서: 영역 지정 > 전체 → 우선순위(높을수록 먼저) → 덜 본 것",
+                    "Order: specific screens > All → priority (higher first) → least seen"
                   )}
                 </span>
               </label>
@@ -481,11 +498,14 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 <select className="rounded border border-sam-border px-2 py-1.5" value={form.frequencyMode} onChange={(e) => patch({ frequencyMode: e.target.value as PlatformPopupFrequencyMode })}>
                   {PLATFORM_POPUP_FREQUENCY_MODES.map((m) => (
                     <option key={m} value={m}>
-                      {lang === "en" ? FREQUENCY_LABEL[m].en : FREQUENCY_LABEL[m].ko}
+                      {popupFrequencyOperatorLabel(m, lang)}
                     </option>
                   ))}
                 </select>
               </label>
+              <p className="text-xs text-sam-muted sm:col-span-2" data-admin-ptr-frequency-help="">
+                {popupFrequencyOperatorDescription(form.frequencyMode, lang, "ptr")}
+              </p>
               <p className="text-xs text-sam-muted sm:col-span-2">
                 {L(`시간대: ${detail.timezone}. 노출은 이미지가 실제로 보인 새로고침만 1회로 셉니다. 과금 없음.`, `Timezone: ${detail.timezone}. An impression counts only when the image was actually shown during a refresh. No billing.`)}
               </p>

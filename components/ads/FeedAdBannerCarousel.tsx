@@ -250,6 +250,8 @@ function FeedAdBannerCarouselView({
   const [reduceMotion, setReduceMotion] = useState(false);
   const rootRef = useRef<HTMLLIElement>(null);
   const loopingRef = useRef(false);
+  /** CX-14: 손으로 넘기기 — 배달 히어로와 같은 방식(가로 40px 이상) */
+  const touchStartX = useRef<number | null>(null);
 
   const logicalIndex = multi
     ? trackIndex % slides.length
@@ -335,11 +337,28 @@ function FeedAdBannerCarouselView({
     });
   }, [multi, reduceMotion, slides.length]);
 
+  /**
+   * 자동 넘김 = 화면 안 · 앱 앞 · 동작 줄이기 꺼짐일 때만 (캐러셀 공통 정본).
+   * trackIndex 를 넣어 손으로 넘긴 직후 곧바로 또 넘어가지 않게 간격을 다시 센다.
+   */
   useEffect(() => {
-    if (!multi || !inView || !pageVisible) return;
+    if (!multi || !inView || !pageVisible || reduceMotion) return;
     const id = window.setInterval(advance, FEED_AD_SLIDE_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [advance, inView, multi, pageVisible]);
+  }, [advance, inView, multi, pageVisible, reduceMotion, trackIndex]);
+
+  const onSwipeEnd = useCallback(
+    (endX: number | undefined) => {
+      const startX = touchStartX.current;
+      touchStartX.current = null;
+      if (!multi || startX == null || endX == null) return;
+      const dx = endX - startX;
+      if (Math.abs(dx) < FEED_AD_SWIPE_THRESHOLD_PX) return;
+      if (dx < 0) advance();
+      else goToLogical(logicalIndex - 1);
+    },
+    [advance, goToLogical, logicalIndex, multi]
+  );
 
   const onTrackTransitionEnd = useCallback(
     (e: TransitionEvent<HTMLDivElement>) => {
@@ -376,35 +395,7 @@ function FeedAdBannerCarouselView({
     >
       <div className={feedAdFrameClass(density)}>
         <div className={feedAdChromeBarClass(density)}>
-          {density === "trade" ? (
-            /** v5 D4 거래 광고 머리: 광고주(캠페인 이름) 동그라미·이름 14px/700 · 「광고」 12px */
-            <span className="flex min-w-0 flex-1 items-center gap-2" data-feed-ad-advertiser="">
-              <span
-                aria-hidden
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[14px] font-bold text-sam-primary"
-              >
-                {(advertiserName[0] ?? adLabel[0] ?? "").toUpperCase()}
-              </span>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[14px] font-bold leading-[18px] text-sam-fg">
-                  {advertiserName || adLabel}
-                </span>
-                <span className="text-[12px] leading-4 text-sam-muted">{adLabel}</span>
-              </span>
-            </span>
-          ) : (
-            /** D-24 (2026-11-04): 커뮤니티도 거래와 같게 광고주 이름 + 「광고」 (이름이 없으면 「광고」만) */
-            <span className="flex min-w-0 flex-1 items-center gap-1.5" data-feed-ad-advertiser="">
-              {advertiserName ? (
-                <span className="truncate sam-text-helper font-semibold text-sam-fg" data-feed-ad-advertiser-name="">
-                  {advertiserName}
-                </span>
-              ) : null}
-              <span className="shrink-0 rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
-                {adLabel}
-              </span>
-            </span>
-          )}
+          <FeedAdAdvertiserHeader density={density} advertiserName={advertiserName} adLabel={adLabel} />
           {multi ? (
             <div className="-my-[9px] flex" role="tablist" aria-label={adLabel}>
               {slides.map((_, i) => (
@@ -435,6 +426,14 @@ function FeedAdBannerCarouselView({
           <div
             className={feedAdMediaViewportClass(density)}
             data-feed-ad-media=""
+            data-feed-ad-swipe={multi ? "1" : undefined}
+            onTouchStart={(e) => {
+              touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => onSwipeEnd(e.changedTouches[0]?.clientX)}
+            onTouchCancel={() => {
+              touchStartX.current = null;
+            }}
           >
             <div
               className="flex h-full w-full"
@@ -503,26 +502,78 @@ function FeedAdBannerCarouselView({
   );
 }
 
-/** Admin / docs Preview — same frame + media height tokens as consumer (no fetch). */
+/** CX-14: 피드 배너 손으로 넘기기 임계 — 배달 히어로(`StoresHomeHeroBanner`)와 같은 40px */
+export const FEED_AD_SWIPE_THRESHOLD_PX = 40;
+
+/**
+ * 피드 광고 머리줄 — 고객 화면·어드민 미리보기 공용 (FA-5 · 미리보기 = 고객 화면).
+ * 거래: 광고주 첫 글자 동그라미 + 이름 + 「광고」 / 커뮤니티: 이름 + 「광고」 칩 (이름이 없으면 「광고」만).
+ */
+function FeedAdAdvertiserHeader({
+  density,
+  advertiserName,
+  adLabel,
+}: {
+  density: FeedAdHostDensity;
+  advertiserName: string;
+  adLabel: string;
+}) {
+  return density === "trade" ? (
+    /** v5 D4 거래 광고 머리: 광고주(캠페인 이름) 동그라미·이름 14px/700 · 「광고」 12px */
+    <span className="flex min-w-0 flex-1 items-center gap-2" data-feed-ad-advertiser="">
+      <span
+        aria-hidden
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[14px] font-bold text-sam-primary"
+      >
+        {(advertiserName[0] ?? adLabel[0] ?? "").toUpperCase()}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-[14px] font-bold leading-[18px] text-sam-fg">
+          {advertiserName || adLabel}
+        </span>
+        <span className="text-[12px] leading-4 text-sam-muted">{adLabel}</span>
+      </span>
+    </span>
+  ) : (
+    /** D-24 (2026-11-04): 커뮤니티도 거래와 같게 광고주 이름 + 「광고」 (이름이 없으면 「광고」만) */
+    <span className="flex min-w-0 flex-1 items-center gap-1.5" data-feed-ad-advertiser="">
+      {advertiserName ? (
+        <span className="truncate sam-text-helper font-semibold text-sam-fg" data-feed-ad-advertiser-name="">
+          {advertiserName}
+        </span>
+      ) : null}
+      <span className="shrink-0 rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
+        {adLabel}
+      </span>
+    </span>
+  );
+}
+
+/** Admin / docs Preview — same frame + media height tokens + 머리줄 as consumer (no fetch). */
 export function FeedAdFramePreview({
   density,
   imageUrl,
   headline,
   alt,
+  advertiserName,
 }: {
   density: FeedAdHostDensity;
   imageUrl: string;
   headline?: string;
   alt?: string;
+  /** FA-5: 고객 화면 머리줄에 보일 광고주 이름 (캠페인 이름 · 비면 「광고」만) */
+  advertiserName?: string;
 }) {
   const { safeT } = useI18n();
   if (!imageUrl.trim()) return null;
   return (
     <div className={feedAdFrameClass(density)} data-feed-ad-preview="" data-feed-ad-density={density}>
       <div className={feedAdChromeBarClass(density)}>
-        <span className="rounded bg-sam-app px-1.5 py-0.5 sam-text-helper font-medium text-sam-muted">
-          {safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
-        </span>
+        <FeedAdAdvertiserHeader
+          density={density}
+          advertiserName={(advertiserName ?? "").trim()}
+          adLabel={safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
+        />
       </div>
       <div className={feedAdBodyClass(density)}>
         {/* eslint-disable-next-line @next/next/no-img-element -- admin local/blob preview */}

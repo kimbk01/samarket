@@ -353,6 +353,7 @@ export function LaunchIntroSceneView({
             tabIndex={onCta ? 0 : -1}
             data-launch-intro-cta={scene.cta.action.type}
             style={{
+              position: "relative",
               minWidth: "min(52cqw, 64cqmin)",
               padding: "3.2cqmin 7cqmin",
               borderRadius: 9999,
@@ -364,6 +365,7 @@ export function LaunchIntroSceneView({
               cursor: onCta ? "pointer" : "default",
             }}
           >
+            <LaunchIntroHitArea kind="cta" />
             {scene.cta.label}
           </button>
         </div>
@@ -388,9 +390,34 @@ export function LaunchIntroSceneView({
             cursor: onSkip ? "pointer" : "default",
           }}
         >
+          <LaunchIntroHitArea kind="skip" />
           {skipLabel}
         </button>
       ) : null}
     </div>
+  );
+}
+
+/** IN-N1 (2026-11-04): 광고 누르는 영역 최소 44×44 (공통 정본). */
+export const LAUNCH_INTRO_MIN_TOUCH_PX = 44;
+
+/**
+ * 보이는 버튼 모양은 그대로 두고 누르는 영역만 넓힌다 — 버튼 가운데에 붙은 투명 영역(최소 44×44, 버튼이 더 크면 버튼 크기).
+ * 버튼의 자식이라 누르면 버튼 onClick 이 그대로 실행된다. 부모 버튼은 position 이 있어야 한다(건너뛰기 absolute · CTA relative).
+ */
+function LaunchIntroHitArea({ kind }: { kind: "skip" | "cta" }) {
+  return (
+    <span
+      aria-hidden
+      data-launch-intro-hit-area={kind}
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        width: `max(100%, ${LAUNCH_INTRO_MIN_TOUCH_PX}px)`,
+        height: `max(100%, ${LAUNCH_INTRO_MIN_TOUCH_PX}px)`,
+        transform: "translate(-50%, -50%)",
+      }}
+    />
   );
 }

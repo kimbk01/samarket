@@ -47,6 +47,14 @@ import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss
 import { notifyDestinationOpenFailed, openDestination } from "@/lib/destination/open-destination";
 import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import { waitPlatformPopupImageReady } from "@/lib/platform-popup/popup-image-ready";
+import {
+  readLaunchIntroOverlayActive,
+  subscribeLaunchIntroOverlay,
+} from "@/lib/platform-popup/popup-launch-intro-gate";
+import {
+  isAnyDibayPtrRefreshRunning,
+  subscribeDibayPtrRefreshActivity,
+} from "@/lib/ui/ptr/create-dibay-ptr-store";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
@@ -130,6 +138,18 @@ export function GlobalPopupHost() {
   );
 
   const storesLcpDeferred = useStoresHomeOverlayDeferUntilInput();
+  /** CX-01: 인트로 오버레이(showing·exiting)가 있으면 보류 — LaunchIntroRoot 신호를 읽기만 한다 */
+  const launchIntroActive = useSyncExternalStore(
+    subscribeLaunchIntroOverlay,
+    readLaunchIntroOverlayActive,
+    () => false
+  );
+  /** CX-05: 어느 화면이든 PTR 새로고침 진행 중이면 보류 */
+  const ptrRefreshing = useSyncExternalStore(
+    subscribeDibayPtrRefreshActivity,
+    isAnyDibayPtrRefreshRunning,
+    () => false
+  );
   const [shellReady, setShellReady] = useState(() => isAppShellReady());
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
@@ -186,6 +206,8 @@ export function GlobalPopupHost() {
       criticalDialog: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen,
       startupDeferred: isAdminPath ? false : !shellReady,
       storesLcpDeferred: isAdminPath ? false : storesLcpDeferred,
+      launchIntroActive,
+      ptrRefreshing,
       appSessionId,
     };
   }, [
@@ -203,6 +225,8 @@ export function GlobalPopupHost() {
     shellReady,
     isAdminPath,
     storesLcpDeferred,
+    launchIntroActive,
+    ptrRefreshing,
     appSessionId,
   ]);
 
@@ -434,12 +458,16 @@ export function GlobalPopupHost() {
   }, []);
 
   /**
-   * 노출을 끝낸다. `persist` 일 때만 서버에 기록한다:
+   * 노출을 끝낸다. `persist` 일 때만 서버 숨김 행을 저장한다:
    * - PU-31 · D-21 ①: CLOSE(× · close_only) 는 효과가 없는 닫기라 **요청 0** (DB 행 없음 · 세션 숨김만)
-   * - PU-30: CTA 로 끝난 노출은 click → landing 만 남기고 dismiss·suppress 는 남기지 않는다(`persist: false`)
+   * - F-1 (DISMISS_SSOT · 2026-11-04): CTA 로 끝난 노출도 × 와 같은 빈도 숨김 행을 저장한다(`persist: true`).
+   *   분석 기록은 click → landing 만 — CTA 경로는 `recordAnalytics: false` 로 suppress 분석 기록을 보내지 않는다(PU-30).
    */
   const suppress = useCallback(
-    async (mode: PlatformPopupSuppressionMode, opts: { persist: boolean } = { persist: true }) => {
+    async (
+      mode: PlatformPopupSuppressionMode,
+      opts: { persist: boolean; recordAnalytics?: boolean } = { persist: true, recordAnalytics: true }
+    ) => {
       if (!winner) return;
       const campaignId = winner.campaignId;
       const creativeId = winner.creativeId;
@@ -458,7 +486,7 @@ export function GlobalPopupHost() {
 
       if (!opts.persist || mode === "CLOSE") return;
 
-      if (currentExposure) {
+      if (currentExposure && opts.recordAnalytics !== false) {
         void recordPlatformPopupEvent({
           campaignId,
           creativeId,
@@ -538,13 +566,15 @@ export function GlobalPopupHost() {
       deviceKey,
     }).catch(() => {});
 
-    // CTA lifecycle: navigate then end exposure locally (re-entry prevention = session block).
-    // Analytics: click → landing only (no dismiss·suppress rows · PU-30).
+    // CTA lifecycle: navigate then end exposure (re-entry prevention = session block + frequency suppress row).
+    // Analytics: click → landing only (no dismiss·suppress analytics rows · PU-30).
     // Cross-channel: same-Event content visit (session) — covers multi-campaign + close_only.
-    // PU-30: CTA 로 끝나면 dismiss·suppress 를 기록하지 않는다 — 노출만 끝내고 이번 실행 숨김(메모리)만 둔다.
-    // 「오늘 하루」·「다시 보지 않기」는 사용자가 고른 경우에만 서버 숨김이 생긴다.
+    // F-1 (DISMISS_SSOT): CTA 로 이동하면 × 와 같은 빈도 숨김 행을 서버에 저장한다 — 분석 기록(suppress 이벤트)만 생략.
     const dismissAfterCta = () => {
-      void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode), { persist: false });
+      void suppress(frequencyModeToDismissSuppressMode(winner.frequencyMode), {
+        persist: true,
+        recordAnalytics: false,
+      });
     };
 
     const parsed = parseDestinationHref(href);

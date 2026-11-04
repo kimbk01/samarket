@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
+import { useAppBootProfile } from "@/components/app/AppBootProvider";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
@@ -26,6 +27,7 @@ import {
   feedAdStandardPixelLabel,
 } from "@/lib/ads/feed-ad-geometry";
 import { checkFeedAdMemberImageFile } from "@/lib/ads/feed-ad-member-image-check";
+import { feedAdUploadRejectMessage } from "@/lib/ads/feed-ad-upload-geometry";
 import type { FeedAdMemberDisplayStatus } from "@/lib/ads/feed-ad-member-presentation";
 import { FEED_AD_SAMPLE_ASSET } from "@/lib/ads/feed-ad-sample-assets";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
@@ -120,6 +122,8 @@ export default function MemberFeedAdRequestPage() {
   const submitGuard = useMypageSubmitGuard();
   const [imgWarn, setImgWarn] = useState("");
 
+  /** FA-5: 미리보기 머리줄 = 고객 화면과 같은 광고주 이름(내 닉네임 · 없으면 「광고」만) */
+  const myNickname = useAppBootProfile()?.nickname?.trim() || undefined;
   const placement: FeedAdPlacement = useMemo(() => {
     if (domain === "trade") return surface === "home" ? "TRADE_HOME" : "TRADE_CATEGORY";
     return surface === "home" ? "COMMUNITY_HOME" : "COMMUNITY_TOPIC";
@@ -364,6 +368,9 @@ export default function MemberFeedAdRequestPage() {
               fallbackEn: "Only JPG, PNG, or WebP are allowed.",
             })
           );
+        } else if (check.error === "aspect_mismatch" || check.error === "below_min_pixels") {
+          // FA-3: 3:1 · 최소 1200×400 — 서버와 같은 거부 문구
+          setErr(feedAdUploadRejectMessage(check.error, en ? "en" : "ko"));
         } else {
           setErr(
             safeT("feed_ad_req_upload_failed", {
@@ -384,14 +391,25 @@ export default function MemberFeedAdRequestPage() {
       const fd = new FormData();
       fd.set("file", file);
       const res = await fetch("/api/me/feed-ad-requests/upload", { method: "POST", body: fd });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+        message?: string;
+      };
       if (!res.ok || !j.ok || !j.url) {
+        // FA-3: 서버 거부 사유(비율·최소 크기·읽기 실패)는 같은 문구 함수로 — 오류 코드값은 보이지 않는다
+        const geomCode =
+          j.error === "aspect_mismatch" || j.error === "below_min_pixels" || j.error === "image_decode_failed"
+            ? j.error
+            : null;
         setErr(
-          j.error ??
-            safeT("feed_ad_req_upload_failed", {
-              fallbackKo: "이미지 업로드에 실패했습니다.",
-              fallbackEn: "Image upload failed.",
-            })
+          geomCode
+            ? feedAdUploadRejectMessage(geomCode, en ? "en" : "ko")
+            : safeT("feed_ad_req_upload_failed", {
+                fallbackKo: "이미지 업로드에 실패했습니다.",
+                fallbackEn: "Image upload failed.",
+              })
         );
         return;
       }
@@ -822,6 +840,7 @@ export default function MemberFeedAdRequestPage() {
             {showSample ? (
               <div data-testid="feed-ad-sample-preview">
                 <FeedAdFramePreview
+                  advertiserName={myNickname}
                   density={density}
                   imageUrl={sample.path}
                   headline={en ? sample.headlineEn : sample.headlineKo}
@@ -882,6 +901,7 @@ export default function MemberFeedAdRequestPage() {
               {slot.imageUrl ? (
                 <div className="space-y-2" data-testid={idx === 0 ? "feed-ad-member-preview" : `feed-ad-member-preview-${idx}`}>
                   <FeedAdFramePreview
+                    advertiserName={myNickname}
                     density={density}
                     imageUrl={slot.previewUrl || slot.imageUrl}
                     headline={slot.headline}
@@ -1188,6 +1208,7 @@ export default function MemberFeedAdRequestPage() {
             <div className="space-y-2" data-testid="feed-ad-final-preview">
               {filledCreatives.map((c, i) => (
                 <FeedAdFramePreview
+                  advertiserName={myNickname}
                   key={`final-prev-${i}`}
                   density={density}
                   imageUrl={c.previewUrl || c.imageUrl}
@@ -1204,6 +1225,7 @@ export default function MemberFeedAdRequestPage() {
             </div>
           ) : showSample ? (
             <FeedAdFramePreview
+              advertiserName={myNickname}
               density={density}
               imageUrl={sample.path}
               headline={en ? sample.headlineEn : sample.headlineKo}

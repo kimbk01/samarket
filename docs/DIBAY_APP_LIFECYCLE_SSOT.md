@@ -271,6 +271,11 @@ Admin Intro ON/OFF = 기존 Live `active|paused|unpublished` + cache — **CMS �
 | 준비 중 백그라운드 (D-17 · IN-S10) | preparing 단계에서도 `visibilitychange=hidden` 을 감지 → 준비 중단(AbortController) → 커뮤니티로 넘김(`background_preparing`). 같은 epoch 재표시 없음(I-4 표와 같음) |
 | 시작 화면 닫는 곳 | 변경 없음 — `tryDismissNativeSplash`(`SplashScreen.hide` 1곳). 인트로가 넘기면 커뮤니티 `markInitialDestinationVisualReady` 가 닫는다 |
 | 손상 Live 게시본 (IN-P10) | `GET /api/launch-intro/live` 는 500 대신 200 `state=unpublished`·`publication=null` → 기기는 같은 revision 이어도 state 가 다르면 반영해 인트로를 끈다 |
+| 빈도 `every_launch` 의미 (IN-N6 · 2026-11-04) | 「새로 실행할 때마다」 = **USER_COLD**(완전히 종료 후 다시 켬)만. 백그라운드 복귀·알림/딥링크(launch intent)로 열 때는 인트로 없음. 어드민 문구 「새로 실행할 때마다(완전히 종료 후 다시 켬 · 백그라운드 복귀·알림으로 열 때는 안 나옴)」 |
+| 꽉 채우기(cover) 가로 예외 · 동작 줄이기 (IN-N6) | 세로 화면만 가장자리 잘림. 가로(태블릿·회전)는 전체 보이기 + 양옆 흐린 같은 그림(`LaunchIntroMotionStyles` `.lim-cover`). `prefers-reduced-motion` 이면 등장·둥실둥실 꺼짐, 장면 전환은 짧은 흐려짐. 어드민에 한 줄씩 안내 |
+| 터치 영역 (IN-N1) | 건너뛰기·CTA 버튼은 보이는 모양을 유지하고 누르는 영역만 최소 44×44(`LaunchIntroSceneView` 투명 hit area) |
+| CTA 이동 · 방문 기록 (IN-N3 · CX-02) | 이동은 `router.replace`(시작 화면 뒤로가기로 인트로에 돌아오지 않게) · 목적지 검증 `isLaunchIntroCtaRoutePath`(`parseDestinationHref`) 실패 → 건너뛰기와 같음. 목적지가 이벤트(`/events/{id}`)면 콘텐츠 방문 기록 1회 `recordPromotionContentVisitClient({ sourceChannel: "INTRO" })`(fire-and-forget · 이동을 막지 않음) |
+| 공통 광고 화면 인트로 카드 (IN-N2) | `GET /api/admin/advertising/other-surfaces` 가 Live 게시본 eligibility 를 읽어 `launchIntroScheduleState` 로 `intro.schedule` 을 같이 돌려준다. 게시(active)여도 시작 전 → 「예약됨」, 종료 후 → 「끝남」(`live=false`), 기간 못 읽음 → 「게시 중 · 기간 확인 못 함」 |
 
 ---
 

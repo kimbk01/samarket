@@ -3,6 +3,8 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { PTR_REVEAL_PRESENTATION } from "@/lib/platform-popup/ptr-reveal-contract";
 import { myPageBannerLiveQuerySpec } from "@/lib/my/mypage-tables-select";
+import { launchIntroScheduleState, type LaunchIntroScheduleState } from "@/lib/launch-intro/schedule";
+import type { LaunchIntroEligibility } from "@/lib/launch-intro/document";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,11 +48,30 @@ export async function GET(): Promise<NextResponse> {
   ]);
 
   const introRow = intro.data as { state?: string | null; publication_id?: string | null } | null;
+  // IN-N2 (2026-11-04): 인트로 카드도 Live 게시본의 기간(eligibility startAt·endAt)을 반영한다 — 판정은 인트로 화면·기기와
+  // 같은 함수(`launchIntroScheduleState`). 게시 중이어도 시작 전이면 「예약됨」, 종료 후면 「끝남」(노출 아님).
+  let schedule: LaunchIntroScheduleState | null = null;
+  if (introRow?.publication_id) {
+    const pub = await sb
+      .from("launch_intro_publications")
+      .select("eligibility")
+      .eq("id", introRow.publication_id)
+      .maybeSingle();
+    if (!pub.error && pub.data) {
+      const eligibility = (pub.data as { eligibility?: LaunchIntroEligibility | null }).eligibility ?? null;
+      schedule = launchIntroScheduleState(eligibility, Date.parse(nowIso));
+    }
+  }
+  const introState = String(introRow?.state ?? "unpublished");
   return NextResponse.json({
     ok: true,
     intro: {
-      state: String(introRow?.state ?? "unpublished"),
-      live: introRow?.state === "active" && Boolean(introRow?.publication_id),
+      state: introState,
+      schedule,
+      live:
+        introState === "active" &&
+        Boolean(introRow?.publication_id) &&
+        (schedule === "always" || schedule === "running"),
     },
     ptrLive: ptr.error ? null : (ptr.count ?? 0),
     mypageBannersLive: mypage.error ? null : (mypage.count ?? 0),

@@ -25,6 +25,7 @@ import {
   type PlatformPopupSuppressionRecord,
 } from "@/lib/platform-popup/suppression";
 import { platformPopupSurfaceMatches } from "@/lib/platform-popup/surfaces";
+import { suppressionModesHonoredByFrequency } from "@/lib/platform-popup/dismiss-ssot";
 import { comparePopupCandidatesForRotation } from "@/lib/platform-popup/popup-rotation";
 import {
   isPlatformPopupInterruptivePresentation,
@@ -239,7 +240,10 @@ export function selectPlatformPopupEligibleWinner(
       continue;
     }
 
+    // F-2: 지금 빈도가 인정하는 숨김 행만 본다 (예전 빈도로 남은 행은 무시)
+    const honoredModes = suppressionModesHonoredByFrequency(c.frequencyMode);
     const suppressed = (c.suppressions ?? []).some((row) =>
+      honoredModes.has(row.mode) &&
       isPlatformPopupSuppressionActive(row, {
         now: input.now,
         currentSessionKey: input.sessionKey,

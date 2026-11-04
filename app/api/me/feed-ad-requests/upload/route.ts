@@ -6,6 +6,11 @@ import {
   validateCampaignImageFile,
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import sharp from "sharp";
+import {
+  feedAdUploadRejectMessage,
+  validateFeedAdUploadGeometry,
+} from "@/lib/ads/feed-ad-upload-geometry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +49,27 @@ export async function POST(req: NextRequest) {
   const ext = extForCampaignImageMime(validated.mime);
   const path = `feed-ad-requests/${auth.userId}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
+
+  // FA-3: 관리자 피드 배너 업로드와 같은 규칙 — 3:1 · 최소 1200×400
+  let width = 0;
+  let height = 0;
+  try {
+    const meta = await sharp(buf, { failOn: "none", limitInputPixels: false }).rotate().metadata();
+    width = meta.width ?? 0;
+    height = meta.height ?? 0;
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "image_decode_failed", message: feedAdUploadRejectMessage("image_decode_failed") },
+      { status: 400 }
+    );
+  }
+  const geom = validateFeedAdUploadGeometry({ width, height });
+  if (!geom.ok) {
+    return NextResponse.json(
+      { ok: false, error: geom.error, message: feedAdUploadRejectMessage(geom.error), width, height },
+      { status: 400 }
+    );
+  }
 
   const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {
     contentType: validated.mime === "image/jpg" ? "image/jpeg" : validated.mime,

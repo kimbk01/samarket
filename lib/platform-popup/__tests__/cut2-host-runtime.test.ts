@@ -57,6 +57,8 @@ function baseCtx(over: Partial<PopupRuntimeContext> = {}): PopupRuntimeContext {
     criticalDialog: false,
     startupDeferred: false,
     storesLcpDeferred: false,
+    launchIntroActive: false,
+    ptrRefreshing: false,
     appSessionId: "sess-1",
     ...over,
   };

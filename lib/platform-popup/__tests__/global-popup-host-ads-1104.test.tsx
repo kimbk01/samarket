@@ -55,6 +55,8 @@ vi.mock("@/components/platform-popup/DibayPopupAd", () => ({
 
 import { GlobalPopupHost } from "@/components/platform-popup/GlobalPopupHost";
 import { isPlatformPopupSessionBlockedCampaign } from "@/lib/platform-popup/popup-app-session";
+import { createDibayPtrStore } from "@/lib/ui/ptr/create-dibay-ptr-store";
+import { resetLaunchIntroGateForTest } from "@/lib/platform-popup/popup-launch-intro-gate";
 
 function winner(frequencyMode: string) {
   return {
@@ -83,6 +85,7 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   window.matchMedia = ((q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} })) as never;
   window.sessionStorage.clear();
+  resetLaunchIntroGateForTest();
   fetchMock.mockClear();
   h.openDestination.mockClear();
   vi.stubGlobal("fetch", fetchMock);
@@ -137,19 +140,64 @@ describe("GlobalPopupHost — 광고 ② 구현", () => {
     expect(urls()).toContain("/api/platform-popup/suppress");
   });
 
-  it("PU-30: CTA 로 끝나면 click → landing 만 — dismiss·suppress 를 남기지 않는다", async () => {
+  it("F-1·PU-30: CTA 로 이동하면 × 와 같은 빈도 숨김을 1회 저장 — 분석 기록은 click → landing 만(suppress·dismiss 0)", async () => {
     await mountWith(winner("once_per_day"));
     await act(async () => {
       (container.querySelector("[data-cta]") as HTMLButtonElement).click();
     });
     for (let i = 0; i < 3; i++) await act(async () => {});
     expect(h.openDestination).toHaveBeenCalledTimes(1);
-    expect(urls()).not.toContain("/api/platform-popup/suppress");
+    const suppressCalls = fetchMock.mock.calls.filter((c) => String((c as unknown[])[0]) === "/api/platform-popup/suppress");
+    expect(suppressCalls).toHaveLength(1);
+    expect(JSON.parse(String(((suppressCalls[0] as unknown[])[1] as RequestInit).body))).toMatchObject({ mode: "TODAY" });
     const kinds = fetchMock.mock.calls
       .filter((c) => String((c as unknown[])[0]) === "/api/platform-popup/events")
       .map((c) => JSON.parse(String(((c as unknown[])[1] as RequestInit).body)).eventType);
     expect(kinds).toEqual(["click", "landing_success"]);
     expect(container.querySelector("[data-test-popup]")).toBeNull();
+  });
+
+  it("F-1: close_only 는 CTA 후에도 서버 숨김 요청 0", async () => {
+    await mountWith(winner("close_only"));
+    await act(async () => {
+      (container.querySelector("[data-cta]") as HTMLButtonElement).click();
+    });
+    for (let i = 0; i < 3; i++) await act(async () => {});
+    expect(urls()).not.toContain("/api/platform-popup/suppress");
+  });
+
+  it("CX-01: 인트로 오버레이가 있는 동안은 판정 보류, 사라지면 판정한다", async () => {
+    const overlay = document.createElement("div");
+    overlay.setAttribute("data-launch-intro-overlay", "");
+    document.body.appendChild(overlay);
+    await mountWith(winner("once_per_day"));
+    expect(container.querySelector("[data-test-popup]")).toBeNull();
+    expect(container.querySelector("[data-platform-popup-host]")?.getAttribute("data-eligible")).toBe("0");
+    await act(async () => {
+      overlay.remove();
+    });
+    for (let i = 0; i < 5; i++) await act(async () => {});
+    expect(container.querySelector("[data-test-popup]")).not.toBeNull();
+  });
+
+  it("CX-05: PTR 새로고침 진행 중이면 판정 보류", async () => {
+    const store = createDibayPtrStore({ preflight: () => {} });
+    let finish: () => void = () => {};
+    store.addHandler(() => new Promise<void>((r) => (finish = r)));
+    let run: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      run = store.run(60);
+    });
+    await mountWith(winner("once_per_day"));
+    expect(container.querySelector("[data-platform-popup-host]")?.getAttribute("data-eligible")).toBe("0");
+    expect(container.querySelector("[data-test-popup]")).toBeNull();
+    await act(async () => {
+      store.patch({ pullPx: 0, refreshing: false });
+      finish();
+      await run;
+    });
+    for (let i = 0; i < 5; i++) await act(async () => {});
+    expect(container.querySelector("[data-test-popup]")).not.toBeNull();
   });
 
   it("D-2: 「다시 보지 않기」는 서버 판(소재 + 목적지 해시)을 보낸다", async () => {

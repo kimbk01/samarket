@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
@@ -15,6 +15,11 @@ import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
+import { feedAdAdvertiserDisplayName } from "@/lib/ads/feed-ad-advertiser-name";
+import {
+  eventBannerUploadErrorMessage,
+  eventBannerUploadPurpose,
+} from "@/lib/platform-promotion-distribution/event-banner-upload";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 import {
   eventBannerImageGuidance,
@@ -40,7 +45,12 @@ import {
   distributionPopupLifecycleNotice,
   distributionPushLifecycleNotice,
   popupCompositionOperatorLabel,
+  popupFrequencyOperatorLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
+import {
+  PLATFORM_POPUP_FREQUENCY_MODES,
+  normalizePlatformPopupFrequencyMode,
+} from "@/lib/platform-popup/presentation-contract";
 import { resolvePlatformPopupComposition } from "@/lib/platform-popup/resolve-presentation-composition";
 
 type Props = {
@@ -168,6 +178,12 @@ export function AdminPlatformEventDistributionPanel({
   const [bannerPlacement, setBannerPlacement] = useState<EventBannerPlacement>("TRADE_HOME");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerHeadline, setBannerHeadline] = useState("");
+  /** EV-1: 배너 이미지 업로드 — 위치별 비율 검사(인라인 3:1 · 히어로 39:16)는 서버가 한다 */
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerUploadError, setBannerUploadError] = useState<string | null>(null);
+  /** 올린 이미지가 어느 형태(인라인/히어로) 규격으로 검사됐는지 — 형태를 바꾸면 다시 올리라고 알린다 */
+  const [bannerUploadedFor, setBannerUploadedFor] = useState<EventBannerPresentation | null>(null);
   const [bannerPreviewDevice, setBannerPreviewDevice] = useState<
     "phone" | "tablet_portrait" | "tablet_landscape" | "desktop"
   >("phone");
@@ -189,6 +205,41 @@ export function AdminPlatformEventDistributionPanel({
     string,
     ChannelSaveResult
   > | null>(null);
+
+  const uploadBannerImage = useCallback(
+    async (file: File) => {
+      const presentation = bannerPresentation;
+      setBannerUploading(true);
+      setBannerUploadError(null);
+      try {
+        const fd = new FormData();
+        fd.set("file", file);
+        fd.set("purpose", eventBannerUploadPurpose(presentation));
+        const res = await fetch("/api/admin/feed-ads/upload", {
+          method: "POST",
+          body: fd,
+          credentials: "include",
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          url?: string;
+          error?: string;
+          message?: string;
+        };
+        if (!res.ok || !j.ok || !j.url) {
+          setBannerUploadError(eventBannerUploadErrorMessage({ error: j.error, message: j.message, lang }));
+          return;
+        }
+        setBannerImageUrl(j.url);
+        setBannerUploadedFor(presentation);
+      } catch {
+        setBannerUploadError(eventBannerUploadErrorMessage({ error: "network_error", lang }));
+      } finally {
+        setBannerUploading(false);
+      }
+    },
+    [bannerPresentation, lang]
+  );
 
   const benefitEligible = Boolean(benefitTitle.trim());
   const bannerCompatOk = useMemo(
@@ -334,7 +385,8 @@ export function AdminPlatformEventDistributionPanel({
           setPopupChoice(choiceFromConfig(cfg));
           setPopupImageUrl(String(cfg.imageUrl ?? ""));
           setPopupImagePath(String(cfg.imagePath ?? ""));
-          setPopupFrequency(String(cfg.frequencyMode ?? "once_per_session"));
+          // CX-07: 예전 값(always 등)은 정본 4개로 맞춰 불러온다 — 다시 저장해도 frequency_invalid 가 나지 않게
+          setPopupFrequency(normalizePlatformPopupFrequencyMode(String(cfg.frequencyMode ?? "")));
           nextPopupRef = row.channelRefId ? String(row.channelRefId) : null;
           nextPopupStatus = row.status ?? null;
         }
@@ -739,15 +791,12 @@ export function AdminPlatformEventDistributionPanel({
                 onChange={(e) => setPopupFrequency(e.target.value)}
                 data-admin-popup-frequency="1"
               >
-                <option value="once_per_session">
-                  {lang === "en" ? "Once per session" : "세션당 1회"}
-                </option>
-                <option value="once_per_day">
-                  {lang === "en" ? "Once per day" : "하루 1회"}
-                </option>
-                <option value="always">
-                  {lang === "en" ? "Every visit" : "방문마다"}
-                </option>
+                {/* CX-07: 팝업 빈도 정본 4개 · 공용 라벨(팝업·PTR 상세와 같은 문구) — 「방문마다(always)」 없음 */}
+                {PLATFORM_POPUP_FREQUENCY_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {popupFrequencyOperatorLabel(m, lang)}
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -825,18 +874,64 @@ export function AdminPlatformEventDistributionPanel({
                   ))}
                 </select>
               </label>
-              <label className="block text-sm">
-                {safeT("admin_platform_events_banner_image", {
-                  fallbackKo: "배너 이미지 URL",
-                  fallbackEn: "Banner image URL",
-                })}
+              <div className="block text-sm" data-admin-banner-image-field="1">
+                <label className="block">
+                  {safeT("admin_platform_events_banner_image", {
+                    fallbackKo: "배너 이미지 URL",
+                    fallbackEn: "Banner image URL",
+                  })}
+                  <input
+                    className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                    value={bannerImageUrl}
+                    onChange={(e) => {
+                      setBannerImageUrl(e.target.value);
+                      setBannerUploadedFor(null);
+                    }}
+                  />
+                </label>
+                {/* EV-1: URL 입력과 함께 업로드 — 기존 피드 배너 업로드 API(형태별 비율 검사) 재사용 */}
                 <input
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={bannerImageUrl}
-                  onChange={(e) => setBannerImageUrl(e.target.value)}
+                  ref={bannerFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  data-admin-banner-file-input="1"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadBannerImage(f);
+                    e.target.value = "";
+                  }}
                 />
-              </label>
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  data-admin-banner-upload="1"
+                  disabled={bannerUploading || !adminAction.allowed}
+                  onClick={() => bannerFileRef.current?.click()}
+                >
+                  {bannerUploading
+                    ? safeT("ads_f_event_banner_uploading", { fallbackKo: "올리는 중…", fallbackEn: "Uploading…" })
+                    : safeT("ads_f_event_banner_upload", {
+                        fallbackKo: "내 PC에서 이미지 올리기",
+                        fallbackEn: "Upload image from PC",
+                      })}
+                </AdminActionButton>
+              </div>
             </div>
+            {bannerUploadError ? (
+              <p className="whitespace-pre-line text-sm text-sam-danger" role="alert" data-admin-banner-upload-error="1">
+                {bannerUploadError}
+              </p>
+            ) : null}
+            {bannerUploadedFor && bannerUploadedFor !== bannerPresentation ? (
+              <p className="text-sm text-sam-danger" data-admin-banner-upload-stale="1">
+                {safeT("ads_f_event_banner_reupload", {
+                  fallbackKo: "배너 형태가 바뀌어 이미지 비율이 맞지 않을 수 있습니다. 이 형태 규격으로 다시 올려 주세요.",
+                  fallbackEn: "The banner type changed, so the image ratio may not fit. Upload again for this type.",
+                })}
+              </p>
+            ) : null}
             <p className="text-xs text-sam-muted" data-admin-banner-image-guidance="1">
               {eventBannerImageGuidance(bannerPresentation, lang)}
             </p>
@@ -851,6 +946,15 @@ export function AdminPlatformEventDistributionPanel({
                 onChange={(e) => setBannerHeadline(e.target.value)}
               />
             </label>
+            {bannerPresentation === "HERO_BANNER" ? (
+              /* EV-2: 히어로는 그림 위에 글자를 쓰지 않는다 — 제목은 대체 텍스트로만 쓰인다 */
+              <p className="text-xs text-sam-muted" data-admin-banner-hero-headline-hint="1">
+                {safeT("ads_f_event_hero_headline_hint", {
+                  fallbackKo: "히어로 배너의 문구는 화면에 보이지 않고 대체 텍스트(화면 읽기)로 쓰입니다. 비우면 이벤트 제목을 씁니다.",
+                  fallbackEn: "Hero banner text is not shown on screen; it is used as alt text. If empty, the event title is used.",
+                })}
+              </p>
+            ) : null}
             {!bannerCompatOk ? (
               <p className="text-sm text-sam-danger" data-admin-banner-compat-fail="1">
                 {safeT("admin_platform_events_banner_compat_fail", {
@@ -925,6 +1029,7 @@ export function AdminPlatformEventDistributionPanel({
                         imageUrl={bannerImageUrl}
                         headline={bannerHeadline || eventTitle}
                         alt={bannerHeadline || eventTitle}
+                        advertiserName={feedAdAdvertiserDisplayName(eventTitle)}
                       />
                     </div>
                   ) : (

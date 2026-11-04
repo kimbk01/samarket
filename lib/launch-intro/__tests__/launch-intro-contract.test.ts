@@ -501,7 +501,9 @@ describe("launch intro static contract", () => {
     expect(root).toContain("<LaunchIntroPlayer");
     expect(root).toContain('running={phase === "showing" && released}');
     // 광고 ② DS-8: CTA 경로가 공통 목적지 계약을 통과할 때만 cta, 아니면 skip (동작은 launch-intro-start-path-1104 시험)
-    expect(root).toMatch(/isLaunchIntroCtaRoutePath\(path\) \? exitRef\.current\("cta", path\) : exitRef\.current\("skip"\)/);
+    // IN-N3 (2026-11-04): 통과 못 하면 skip, 통과하면 (이벤트면 방문 기록 후) cta (동작은 launch-intro-cta-visit-1104 시험)
+    expect(root).toMatch(/if \(!isLaunchIntroCtaRoutePath\(path\)\) \{\s+exitRef\.current\("skip"\);\s+return;\s+\}/);
+    expect(root).toContain('exitRef.current("cta", path);');
     const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");
     expect(admin).toContain("<LaunchIntroPlayer");
     expect(admin).not.toMatch(/from "@\/lib\/device\//);

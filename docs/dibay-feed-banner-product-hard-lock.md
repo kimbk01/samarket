@@ -69,6 +69,9 @@ Verified (unit + local runtime evidence 2026-08-10; **surface/cadence/slot-items
 | Advertiser name | 「광고」 옆 광고주 이름 = 표시 함수 `feedAdAdvertiserDisplayName` 하나(거래·커뮤니티 같음 · D-24). 이름이 비었거나 「Untitled」면 「광고」만. 회원 광고는 보는 시점의 닉네임(FB-C17). |
 | Geometry | **3:1** 가로 띠, 콘텐츠 열 폭(max 768px), cover (`lib/ads/feed-ad-geometry.ts`). 2026-11-03 정정: 거래 목록 v5(Owner 승인)에서 광고는 2칸 전체 한 줄이라 3:1 띠가 정본 — 옛 「Card-rhythm 72~88/100 고정」은 대체됨. |
 | Financial | HOLD → CAPTURE on approve; RELEASE on reject/cancel; renew = ledger spend |
+| Carousel (2026-11-04 · CX-14) | 자동 넘김 4초(`FEED_AD_SLIDE_INTERVAL_MS`) 유지 + **손으로 넘기기** — 가로 40px 이상 밀면 다음/이전(배달 히어로 `StoresHomeHeroBanner` 와 같은 방식 · `FEED_AD_SWIPE_THRESHOLD_PX`). 자동 넘김은 화면 안(35%)·앱 앞·동작 줄이기 꺼짐일 때만. 노출 기록 규칙(O-4: 지금 슬라이드 50% · 1초)은 그대로. |
+| Refetch (2026-11-04 · FA-6) | 공개 응답 `validUntil` = 지금 노출 중 캠페인의 가장 빠른 종료 시각 **과** 아직 시작 전인 active 캠페인의 가장 빠른 시작 시각 중 이른 것(`feedAdPublicValidUntil` · `loadNextFeedAdCampaignStartAt`, 같은 도메인 기준). 열린 화면은 그 시각에 다시 부른다 — 예약 캠페인이 시작 시각에 바로 나온다. |
+| Upload geometry (2026-11-04 · FA-3) | 관리자·회원 업로드 모두 **3:1(허용 오차 8%) · 최소 1200×400** 서버 검사(`lib/ads/feed-ad-upload-geometry.ts` · 배달 배너와 같은 판정·문구 함수). 회원 화면 사전 검사도 같은 함수 — 「권장보다 작음」 경고는 거부로 바뀜. |
 | Sanitation | Production-reachable HTTPS creatives only |
 | Native | **ZERO CHANGE** |
 

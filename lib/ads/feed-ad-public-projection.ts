@@ -82,16 +82,22 @@ export function projectFeedAdPublicCampaign(c: FeedAdCampaignView): FeedAdPublic
   };
 }
 
-/** 응답 캐시(15초)보다 길게 열린 화면도 기간 끝난 배너를 계속 보이지 않도록 — 가장 먼저 끝나는 시각(없으면 null) */
+/**
+ * 응답 캐시(15초)보다 길게 열린 화면도 기간 끝난 배너를 계속 보이지 않도록 — 가장 먼저 끝나는 시각(없으면 null).
+ * FA-6: 아직 시작 전인 active 캠페인의 가장 빠른 시작 시각(`nextStartAt`)도 넣는다 — 시작하면 열린 화면이 다시 불러온다.
+ */
 export function feedAdPublicValidUntil(
   campaigns: ReadonlyArray<Pick<FeedAdCampaignView, "endAt">>,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  nextStartAt: string | null = null
 ): string | null {
   let min = Number.POSITIVE_INFINITY;
   for (const c of campaigns) {
     const t = c.endAt ? Date.parse(c.endAt) : NaN;
     if (Number.isFinite(t) && t > nowMs && t < min) min = t;
   }
+  const start = nextStartAt ? Date.parse(nextStartAt) : NaN;
+  if (Number.isFinite(start) && start > nowMs && start < min) min = start;
   return Number.isFinite(min) ? new Date(min).toISOString() : null;
 }
 

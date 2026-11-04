@@ -31,6 +31,11 @@ export type PopupRuntimeContext = {
   startupDeferred: boolean;
   storesLcpDeferred: boolean;
 
+  /** CX-01: 시작 화면(인트로)이 아직 끝나지 않음(phase ≠ done) — 끝날 때까지 판정 보류 */
+  launchIntroActive: boolean;
+  /** CX-05: PTR 새로고침 진행 중(새로고침·결과 표시) — 끝날 때까지 판정 보류 */
+  ptrRefreshing: boolean;
+
   appSessionId: string;
 };
 
@@ -44,6 +49,8 @@ export type PopupRuntimeGateBlockReason =
   | "auth_permission_address_dialog"
   | "startup"
   | "stores_lcp"
+  | "launch_intro"
+  | "ptr_refreshing"
   | null;
 
 export function resolvePopupRuntimeBlockReason(
@@ -51,6 +58,7 @@ export function resolvePopupRuntimeBlockReason(
 ): PopupRuntimeGateBlockReason {
   if (!ctx.authReady || ctx.authRestoreGate) return "auth_not_ready";
   if (ctx.startupDeferred) return "startup";
+  if (ctx.launchIntroActive) return "launch_intro";
   if (!ctx.isAppForeground) return "background";
   if (ctx.isLandscape) return "landscape";
   if (ctx.incomingCall || ctx.activeCall || ctx.nativeCallTransition) return "call";
@@ -66,6 +74,7 @@ export function resolvePopupRuntimeBlockReason(
     return "auth_permission_address_dialog";
   }
   if (ctx.storesLcpDeferred) return "stores_lcp";
+  if (ctx.ptrRefreshing) return "ptr_refreshing";
   if (
     ctx.surface === "MESSENGER" ||
     ctx.surface === "CALL" ||

@@ -136,9 +136,10 @@ describe("P2-2 CAMPAIGN 숨김 revision = 소재 id", () => {
   const campaignRow = { mode: "CAMPAIGN" as const, sessionKey: null, suppressUntil: null, timezone: null, createdAt: now.toISOString() };
 
   it("같은 소재로 숨겼으면 계속 숨김, 소재가 바뀌면 다시 노출", () => {
-    const same = popup("c1", { campaignRevision: "cr-old", suppressions: [{ ...campaignRow, campaignRevision: "cr-old" }] });
+    // F-2: CAMPAIGN 숨김은 지금 빈도가 once_campaign 일 때만 본다
+    const same = popup("c1", { frequencyMode: "once_campaign", campaignRevision: "cr-old", suppressions: [{ ...campaignRow, campaignRevision: "cr-old" }] });
     expect(selectPlatformPopupEligibleWinner({ pathname: "/market", now, candidates: [same] }, "interruptive").winner).toBeNull();
-    const changed = popup("c1", { campaignRevision: "cr-new", suppressions: [{ ...campaignRow, campaignRevision: "cr-old" }] });
+    const changed = popup("c1", { frequencyMode: "once_campaign", campaignRevision: "cr-new", suppressions: [{ ...campaignRow, campaignRevision: "cr-old" }] });
     expect(selectPlatformPopupEligibleWinner({ pathname: "/market", now, candidates: [changed] }, "interruptive").winner?.id).toBe("c1");
   });
 

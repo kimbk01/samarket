@@ -4,7 +4,11 @@
  * Coordination key = Event content id + actor + session (not campaign title/URL).
  */
 
-export const PROMOTION_COORDINATION_CHANNELS = ["POPUP", "BANNER", "PUSH", "BELL"] as const;
+/**
+ * CX-03 (광고 표면 연동 · 2026-11-04): 방문 출처에 PTR(당겨서 새로고침 띠)·INTRO(시작 화면) 추가.
+ * 운영 DB `platform_promotion_content_visits.source_channel` CHECK 도 같은 6개여야 저장된다(DB 마이그레이션 별도).
+ */
+export const PROMOTION_COORDINATION_CHANNELS = ["POPUP", "BANNER", "PUSH", "BELL", "PTR", "INTRO"] as const;
 export type PromotionCoordinationChannel = (typeof PROMOTION_COORDINATION_CHANNELS)[number];
 
 export function isPromotionCoordinationChannel(

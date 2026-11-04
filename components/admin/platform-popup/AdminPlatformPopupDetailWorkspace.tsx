@@ -72,10 +72,17 @@ import {
   popupApprovalStatusLabel,
   popupCompositionOperatorLabel,
   popupDestinationSummary,
+  popupFrequencyOperatorDescription,
   popupFrequencyOperatorLabel,
   resolvePopupBenefitOperationalHint,
   popupBenefitHintLabel,
 } from "@/lib/admin/promotion-ownership-visibility";
+import {
+  buildPlatformPopupAdminPatch,
+  platformPopupPatchWouldRevertToReview,
+  type PlatformPopupAdminForm,
+} from "@/lib/platform-popup/popup-admin-patch";
+import { PLATFORM_POPUP_FREQUENCY_MODES } from "@/lib/platform-popup/presentation-contract";
 
 /** 광고 감사 G-10: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
 function toLocalInput(iso: string | null, timezone: string): string {
@@ -99,6 +106,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   /** 첫 불러오기 실패 — 캠페인이 없을 때만 표준 오류 상태 + [새로고침] (이후 재조회 실패는 기존 오류 줄) */
   const [loadErr, setLoadErr] = useState<AdminLoadFailure | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  /** P-1: 저장으로 다시 검토 상태가 됐으면 알림을 경고 모양으로 보인다 */
+  const [saveNoticeWarn, setSaveNoticeWarn] = useState(false);
   const [busy, setBusy] = useState(false);
   /** G-18: 팝업 캠페인 쓰기(저장·소재·승인·상태·삭제) = ads 키 (접근표 action — API 403 과 같은 판정) */
   const adminAction = useAdminRouteAction("/admin/platform-popup");
@@ -133,6 +142,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [promoBody, setPromoBody] = useState("");
   const [altText, setAltText] = useState("");
   const [previewOverrideUrl, setPreviewOverrideUrl] = useState<string | null>(null);
+  /** P-1: 처음 불러온 값 — 저장 때 이것과 비교해 바뀐 묶음만 보낸다(PTR 상세와 같은 방식) */
+  const savedFormRef = useRef<PlatformPopupAdminForm | null>(null);
   /** Linked Event benefit section — Benefit Dialog eligibility (CUT 1). */
   const [eventBenefit, setEventBenefit] = useState<{ title: string; body: string | null } | null>(null);
   const [eventBenefitLoading, setEventBenefitLoading] = useState(false);
@@ -172,6 +183,34 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setPromoTitle(c.title || "");
     setPromoBody(c.body || "");
     setAltText(c.creative?.altText || "");
+    {
+      const tz = c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE;
+      savedFormRef.current = {
+        name: c.name,
+        priority: c.priority,
+        timezone: tz,
+        startAt: fromLocalInput(toLocalInput(c.startAt, tz), tz),
+        endAt: fromLocalInput(toLocalInput(c.endAt, tz), tz),
+        surfaces: surfacesFromAdminSelection(adminSurfacesFromDb(c.surfaces)),
+        suppressionMode: c.suppressionMode,
+        suppressionDurationSeconds: c.suppressionDurationSeconds ?? null,
+        presentationType:
+          c.presentationType === "bottom_sheet"
+            ? "bottom_sheet"
+            : c.presentationType === "benefit_dialog"
+              ? "benefit_dialog"
+              : "center_modal",
+        frequencyMode: c.frequencyMode || "once_per_session",
+        creativeMode: c.creative?.creativeMode === "artwork" ? "artwork" : "card",
+        ctaType: c.ctaType,
+        ctaTarget: String(c.ctaTarget ?? "").trim(),
+        externalUrl: c.externalUrl || null,
+        ctaLabel: c.ctaLabel || null,
+        title: c.title || null,
+        body: c.body || null,
+        altText: c.creative?.altText || null,
+      };
+    }
     setPreviewOverrideUrl(null);
     setDirty(false);
     setNeedsCrop(false);
@@ -343,39 +382,82 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       setError(formatPlatformPopupAdminError(`cta_invalid:${ctaCheck.error}`, lang));
       return;
     }
+    const saved = savedFormRef.current;
+    if (!saved || !campaign) {
+      setBusy(false);
+      return;
+    }
+    const nextForm: PlatformPopupAdminForm = {
+      name,
+      priority,
+      timezone,
+      startAt: fromLocalInput(startLocal, timezone),
+      endAt: fromLocalInput(endLocal, timezone),
+      surfaces: surfacesFromAdminSelection(selectedSurfaces),
+      suppressionMode,
+      suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
+      presentationType,
+      frequencyMode,
+      creativeMode,
+      ctaType,
+      ctaTarget: nextTarget,
+      externalUrl: externalUrl || null,
+      ctaLabel: ctaLabel.trim() || null,
+      title: promoTitle.trim() || null,
+      body: promoBody.trim() || null,
+      altText: altText.trim() || null,
+    };
+    // P-1: 바뀐 묶음만 보낸다 — 이름만 고쳐도 노출 중 팝업이 다시 승인 대기로 내려가던 문제
+    const patchBody = buildPlatformPopupAdminPatch(saved, nextForm);
+    if (Object.keys(patchBody).length === 0) {
+      setBusy(false);
+      setDirty(false);
+      return;
+    }
+    // 저장 전 확인창: 노출 중 팝업의 재검토 대상 묶음을 고쳤을 때만 경고(PTR 상세와 같은 문구)
+    if (
+      platformPopupPatchWouldRevertToReview(patchBody, {
+        status: campaign.status,
+        operatorPopup: !campaign.ownerRequestId,
+      })
+    ) {
+      const ko = lang !== "en";
+      const ok = await confirmAdminAction({
+        level: adminActionLevel("save"),
+        ko,
+        title: ko ? "변경 내용 저장" : "Save changes",
+        description: safeT("admin_popup_review_revert_confirm"),
+        confirmLabel: ko ? "저장" : "Save",
+      });
+      if (!ok.ok) {
+        setBusy(false);
+        return;
+      }
+    }
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, {
       method: "PATCH",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        priority,
-        timezone,
-        startAt: fromLocalInput(startLocal, timezone),
-        endAt: fromLocalInput(endLocal, timezone),
-        surfaces: surfacesFromAdminSelection(selectedSurfaces),
-        suppressionMode,
-        suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
-        presentationType,
-        frequencyMode,
-        creativeMode,
-        ctaType,
-        ctaTarget: nextTarget,
-        externalUrl: externalUrl || null,
-        ctaLabel: ctaLabel.trim() || null,
-        title: promoTitle.trim() || null,
-        body: promoBody.trim() || null,
-      }),
+      body: JSON.stringify(patchBody),
     });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      revertedToReview?: boolean;
+    };
     setBusy(false);
     if (!res.ok || !json.ok) {
       setError(formatPlatformPopupAdminError(json.error || "save_failed", lang));
       return;
     }
     await load();
+    setSaveNoticeWarn(Boolean(json.revertedToReview));
     setSaveNotice(
-      language === "en" ? "Saved. List and preview reloaded." : "저장되었습니다. 목록·미리보기를 다시 불러왔습니다."
+      json.revertedToReview
+        ? safeT("admin_popup_review_revert_notice")
+        : language === "en"
+          ? "Saved. List and preview reloaded."
+          : "저장되었습니다. 목록·미리보기를 다시 불러왔습니다."
     );
   };
 
@@ -664,9 +746,14 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       ) : null}
       {saveNotice ? (
         <p
-          className="rounded border border-sam-primary/30 bg-sam-primary/5 px-3 py-2 text-sm font-medium text-sam-fg"
+          className={
+            saveNoticeWarn
+              ? "rounded border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-sm font-medium text-sam-warning"
+              : "rounded border border-sam-primary/30 bg-sam-primary/5 px-3 py-2 text-sm font-medium text-sam-fg"
+          }
           role="status"
           data-admin-popup-save-notice="1"
+          data-admin-popup-save-reverted={saveNoticeWarn ? "1" : "0"}
         >
           {saveNotice}
         </p>
@@ -889,25 +976,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 }}
                 data-admin-popup-frequency="1"
               >
-                <option value="once_per_session">
-                  {popupFrequencyOperatorLabel("once_per_session", lang)}
-                </option>
-                <option value="once_per_day">
-                  {popupFrequencyOperatorLabel("once_per_day", lang)}
-                </option>
-                <option value="once_campaign">
-                  {popupFrequencyOperatorLabel("once_campaign", lang)}
-                </option>
-                <option value="close_only">
-                  {popupFrequencyOperatorLabel("close_only", lang)}
-                </option>
+                {PLATFORM_POPUP_FREQUENCY_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {popupFrequencyOperatorLabel(m, lang)}
+                  </option>
+                ))}
               </select>
             </label>
             <p className="mt-1 text-xs text-sam-muted" data-admin-popup-frequency-help="1">
-              {/* 관리자 문구 카탈로그는 타입 크기 한도라 키를 늘리지 않고 이 화면의 다른 짧은 문구와 같이 직접 둔다 */}
-              {language === "en"
-                ? "A popup that was closed or tapped does not show again during this app session. Once per day = until the end of the campaign calendar day (not 24h)."
-                : "닫거나 버튼을 누른 팝업은 이번 앱 실행 동안 다시 나오지 않습니다. 하루 1회 = 캠페인 시간대 기준 그날 끝까지(24시간이 아님)."}
+              {/* F-3: 선택한 빈도의 정본 안내문 (팝업·PTR·이벤트 배포 같은 함수) */}
+              {popupFrequencyOperatorDescription(frequencyMode, lang, "popup")}
             </p>
             <p className="mt-2 text-xs text-sam-muted" data-admin-popup-composition-note="1">
               {language === "en" ? compositionNote.bodyEn : compositionNote.bodyKo}
@@ -1158,8 +1236,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_placement", {
-                fallbackKo: "6. 노출 위치 / 대상",
-                fallbackEn: "6. Surfaces / audience",
+                fallbackKo: "6. 노출 위치",
+                fallbackEn: "6. Placement",
               })}
             </h2>
             <p className="mb-3 text-xs text-sam-muted">

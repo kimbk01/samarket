@@ -33,6 +33,7 @@ import {
   PTR_BAND_SPECS,
   type PtrBandVariant,
 } from "@/lib/platform-popup/ptr-reveal-contract";
+import { platformPopupPatchReviewGroups } from "@/lib/platform-popup/popup-admin-patch";
 import {
   normalizeAudienceUserIds,
   normalizePtrRevealAudienceMode,
@@ -58,10 +59,24 @@ export type PlatformPopupAdminUpsertInput = {
   ctaLabel?: string | null;
   title?: string | null;
   body?: string | null;
+  /** P-2: 팝업 준비된 소재(ready)의 대체 텍스트 — PTR 띠는 띠별 alt 를 업로드로만 바꾼다 */
+  altText?: string | null;
   /** ptr_reveal only — ignored for interruptive popup campaigns */
   audienceMode?: PtrRevealAudienceMode | string;
   audienceUserIds?: string[];
 };
+
+/** P-6: IANA 시간대 이름인지 — `Intl.DateTimeFormat` 이 받아들이는 값만 저장한다 */
+export function isValidIanaTimezone(tz: string): boolean {
+  const v = tz.trim();
+  if (!v) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: v });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function normalizeSurfaces(raw: string[] | undefined): PlatformPopupTargetSurface[] | { error: string } {
   if (!raw) return [];
@@ -98,6 +113,8 @@ export async function createPlatformPopupAdminCampaign(
 
   const surfaces = normalizeSurfaces(input.surfaces?.length ? input.surfaces : ["GLOBAL"]);
   if ("error" in surfaces) return { ok: false, error: surfaces.error, httpStatus: 400 };
+  const createTz = (input.timezone ?? PLATFORM_POPUP_DEFAULT_TIMEZONE).trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE;
+  if (!isValidIanaTimezone(createTz)) return { ok: false, error: "timezone_invalid", httpStatus: 400 };
 
   const { data, error } = await sb
     .from("platform_popup_campaigns")
@@ -106,7 +123,7 @@ export async function createPlatformPopupAdminCampaign(
       status: "draft",
       approval_status: "not_submitted",
       priority: Number.isFinite(input.priority) ? Number(input.priority) : 0,
-      timezone: (input.timezone ?? PLATFORM_POPUP_DEFAULT_TIMEZONE).trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE,
+      timezone: createTz,
       // DS-5 (Owner 「설계안대로」 2026-11-04): 이동 경로 기본값(/market) 없음 — 초안은 빈칸, 검토 요청·저장 때 입력을 요구한다
       cta_type: "internal_page",
       cta_target: "",
@@ -192,6 +209,7 @@ export async function updatePlatformPopupAdminCampaign(
   if (input.patch.timezone != null) {
     const tz = input.patch.timezone.trim();
     if (!tz) return { ok: false, error: "timezone_required", httpStatus: 400 };
+    if (!isValidIanaTimezone(tz)) return { ok: false, error: "timezone_invalid", httpStatus: 400 };
     patch.timezone = tz;
   }
   if ("startAt" in input.patch) patch.start_at = input.patch.startAt || null;
@@ -308,43 +326,71 @@ export async function updatePlatformPopupAdminCampaign(
     const surfaces = normalizeSurfaces(input.patch.surfaces);
     if ("error" in surfaces) return { ok: false, error: surfaces.error, httpStatus: 400 };
     if (!surfaces.length) return { ok: false, error: "surface_required", httpStatus: 400 };
-    const { error: delErr } = await sb
+    // P-1: 지금 저장된 노출 위치와 같으면 바꾸지 않는다(재검토 사유 아님)
+    const { data: curSurfRows, error: curSurfErr } = await sb
       .from("platform_popup_campaign_surfaces")
-      .delete()
+      .select("surface")
       .eq("campaign_id", campaignId);
-    if (delErr) return { ok: false, error: delErr.message, httpStatus: 500 };
-    const { error: insErr } = await sb.from("platform_popup_campaign_surfaces").insert(
-      surfaces.map((surface) => ({ campaign_id: campaignId, surface }))
+    if (curSurfErr) return { ok: false, error: curSurfErr.message, httpStatus: 500 };
+    const curSurfaces = normalizeSurfaces(
+      ((curSurfRows ?? []) as { surface: string }[]).map((r) => String(r.surface))
     );
-    if (insErr) return { ok: false, error: insErr.message, httpStatus: 500 };
-    surfacesChanged = true;
+    const unchanged =
+      !("error" in curSurfaces) &&
+      curSurfaces.length === surfaces.length &&
+      surfaces.every((x) => curSurfaces.includes(x));
+    if (!unchanged) {
+      const { error: delErr } = await sb
+        .from("platform_popup_campaign_surfaces")
+        .delete()
+        .eq("campaign_id", campaignId);
+      if (delErr) return { ok: false, error: delErr.message, httpStatus: 500 };
+      const { error: insErr } = await sb.from("platform_popup_campaign_surfaces").insert(
+        surfaces.map((surface) => ({ campaign_id: campaignId, surface }))
+      );
+      if (insErr) return { ok: false, error: insErr.message, httpStatus: 500 };
+      surfacesChanged = true;
+    }
   }
 
-  const material = new Set(input.materialTouched ?? []);
-  if (surfacesChanged) material.add("surfaces");
-  // E-2 (Owner 2026-11-04): 운영자 팝업(사장님 신청 없음)은 기간만 바꿀 때 재검토로 되돌리지 않는다 — 관리자가 곧 승인자.
-  const operatorPopup = !(current as { owner_request_id?: string | null }).owner_request_id;
-  if (operatorPopup) material.delete("schedule");
-  else if ("start_at" in patch || "end_at" in patch || "timezone" in patch) material.add("schedule");
-  if ("suppression_mode" in patch || "suppression_duration_seconds" in patch) {
-    material.add("suppression");
+  // P-2: 팝업 준비된 소재 대체 텍스트 (PTR 띠는 띠별 업로드로만)
+  const altTextRequested = "altText" in input.patch && !isPtrCurrent;
+  const nextAltText = altTextRequested ? input.patch.altText?.trim() || null : null;
+
+  // P-1: 소재 형태(카드·아트워크)는 준비된 소재의 지금 값과 다를 때만 바뀐 것으로 본다
+  let creativeModeChanged = false;
+  let altTextChanged = false;
+  const wantsCreativeMode = input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card";
+  if (wantsCreativeMode && isPtrCurrent) {
+    return { ok: false, error: "creative_mode_invalid_for_ptr", httpStatus: 400 };
   }
-  if ("cta_type" in patch || "cta_target" in patch || "external_url" in patch || "cta_label" in patch) {
-    material.add("cta");
-  }
-  if ("presentation_type" in patch || "title" in patch || "body" in patch) {
-    material.add("creative");
-  }
-  if ("audience_mode" in patch || "audience_user_ids" in patch) {
-    // Audience expansion (esp. allowlist → all) must re-enter review when live.
-    material.add("surfaces");
-  }
-  if (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card") {
-    if (isPlatformPopupPtrRevealPresentation(current.presentation_type as string | null)) {
-      return { ok: false, error: "creative_mode_invalid_for_ptr", httpStatus: 400 };
+  if (wantsCreativeMode || altTextRequested) {
+    const { data: readyRows, error: readyErr } = await sb
+      .from("platform_popup_creatives")
+      .select("creative_mode, alt_text")
+      .eq("campaign_id", campaignId)
+      .eq("status", "ready");
+    if (readyErr) return { ok: false, error: readyErr.message, httpStatus: 500 };
+    const rows = (readyRows ?? []) as { creative_mode: string | null; alt_text: string | null }[];
+    if (wantsCreativeMode) {
+      creativeModeChanged = rows.some((r) => (r.creative_mode ?? "card") !== input.patch.creativeMode);
     }
-    material.add("creative");
+    if (altTextRequested) {
+      altTextChanged = rows.some((r) => (r.alt_text?.trim() || null) !== nextAltText);
+    }
   }
+
+  // 재검토 묶음 = 화면 확인창과 같은 함수(`platformPopupPatchReviewGroups`) — 실제로 안 바뀐 노출 위치·소재 형태·대체 텍스트는 뺀다
+  const operatorPopup = !(current as { owner_request_id?: string | null }).owner_request_id;
+  const effectiveBody: Record<string, unknown> = { ...input.patch };
+  delete effectiveBody.materialTouched;
+  if (!surfacesChanged) delete effectiveBody.surfaces;
+  if (!creativeModeChanged) delete effectiveBody.creativeMode;
+  if (!altTextChanged) delete effectiveBody.altText;
+  const material = platformPopupPatchReviewGroups(effectiveBody, { operatorPopup });
+  for (const m of input.materialTouched ?? []) material.add(m);
+  // E-2 (Owner 2026-11-04): 운영자 팝업(사장님 신청 없음)은 기간만 바꿀 때 재검토로 되돌리지 않는다 — 관리자가 곧 승인자.
+  if (operatorPopup) material.delete("schedule");
 
   let revertedToReview = false;
   if (
@@ -363,7 +409,16 @@ export async function updatePlatformPopupAdminCampaign(
   const { error: updErr } = await sb.from("platform_popup_campaigns").update(patch).eq("id", campaignId);
   if (updErr) return { ok: false, error: updErr.message, httpStatus: 500 };
 
-  if (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card") {
+  if (altTextChanged) {
+    const { error: altErr } = await sb
+      .from("platform_popup_creatives")
+      .update({ alt_text: nextAltText, updated_at: new Date().toISOString() })
+      .eq("campaign_id", campaignId)
+      .eq("status", "ready");
+    if (altErr) return { ok: false, error: altErr.message, httpStatus: 500 };
+  }
+
+  if (creativeModeChanged && (input.patch.creativeMode === "artwork" || input.patch.creativeMode === "card")) {
     const mode = input.patch.creativeMode;
     const { error: modeErr } = await sb
       .from("platform_popup_creatives")

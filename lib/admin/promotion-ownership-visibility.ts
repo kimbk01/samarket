@@ -157,26 +157,60 @@ export function popupApprovalStatusLabel(
   return (lang === "en" ? en[s] : ko[s]) ?? (approvalStatus || "—");
 }
 
+/**
+ * 광고 표면 연동 F-3·P-7·CX-08·CX-09 (2026-11-04): 빈도 이름 정본 — 팝업·PTR·이벤트 배포 패널 모든 어드민 화면이
+ * 이 함수만 쓴다. 선택지는 `PLATFORM_POPUP_FREQUENCY_MODES` 4개뿐(「방문마다」always 없음).
+ */
+const POPUP_FREQUENCY_LABEL: Record<string, { ko: string; en: string }> = {
+  once_per_session: { ko: "앱 실행당 1회", en: "Once per app launch" },
+  once_per_day: { ko: "하루 1회", en: "Once per day" },
+  once_campaign: { ko: "캠페인 1회", en: "Once per campaign" },
+  close_only: { ko: "기록 없이 닫기만", en: "Close only (no record)" },
+};
+
 export function popupFrequencyOperatorLabel(
   frequencyMode: string | null | undefined,
   lang: OwnershipLabelLang
 ): string {
   const s = String(frequencyMode ?? "").trim().toLowerCase();
-  const ko: Record<string, string> = {
-    close_only: "닫기만 (레거시)",
-    once_per_session: "세션당 1회",
-    once_per_day: "하루 1회",
-    once_campaign: "캠페인당 1회",
-    always: "방문마다",
-  };
-  const en: Record<string, string> = {
-    close_only: "Close only (legacy)",
-    once_per_session: "Once per session",
-    once_per_day: "Once per day",
-    once_campaign: "Once per campaign",
-    always: "Every visit",
-  };
-  return (lang === "en" ? en[s] : ko[s]) ?? (frequencyMode || "—");
+  const row = POPUP_FREQUENCY_LABEL[s];
+  if (row) return lang === "en" ? row.en : row.ko;
+  // 정본 4개 밖의 값(예전 저장값)은 코드값을 보이지 않는다
+  return lang === "en" ? "Unknown" : "알 수 없음";
+}
+
+/** 빈도별 안내문 정본 — 닫거나 버튼을 눌렀을 때 언제까지 안 나오는지. `kind` 는 close_only 만 팝업·PTR 이 다르다. */
+export function popupFrequencyOperatorDescription(
+  frequencyMode: string | null | undefined,
+  lang: OwnershipLabelLang,
+  kind: "popup" | "ptr" = "popup"
+): string {
+  const s = String(frequencyMode ?? "").trim().toLowerCase();
+  const en = lang === "en";
+  switch (s) {
+    case "once_per_session":
+      return en
+        ? "Once closed or tapped, it does not show again during this app launch."
+        : "닫거나 버튼을 누르면 이번 앱 실행 동안 다시 나오지 않습니다.";
+    case "once_per_day":
+      return en
+        ? "Once closed or tapped, it does not show again until the end of that day in the campaign time zone (not 24 hours)."
+        : "닫거나 버튼을 누르면 캠페인 시간대 기준 그날 끝까지 다시 나오지 않습니다(24시간이 아님).";
+    case "once_campaign":
+      return en
+        ? "Once closed or tapped, it does not show again until this version (image · destination) changes."
+        : "닫거나 버튼을 누르면 이 판(이미지·목적지)이 바뀌기 전까지 다시 나오지 않습니다.";
+    case "close_only":
+      return kind === "ptr"
+        ? en
+          ? "No record is kept. Once closed, it stays hidden only while you are on this screen; it shows again on another screen."
+          : "기록을 남기지 않습니다. 닫으면 지금 화면에 있는 동안만 안 나오고, 다른 화면으로 가면 다시 나옵니다."
+        : en
+          ? "No record is kept on the server. Once closed or tapped, it does not show again only during this app launch."
+          : "서버에 기록을 남기지 않습니다. 닫거나 버튼을 누르면 이번 앱 실행 동안만 다시 나오지 않습니다.";
+    default:
+      return "";
+  }
 }
 
 /**

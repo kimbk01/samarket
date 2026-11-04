@@ -157,7 +157,9 @@ describe("PTR reveal — resolver scope separation", () => {
   });
 
   it("frequency suppression reuses campaign records", () => {
+    // F-2: CAMPAIGN 숨김은 지금 빈도가 once_campaign 일 때만 본다
     const suppressed = ptr("p1", {
+      frequencyMode: "once_campaign",
       suppressions: [{ mode: "CAMPAIGN", sessionKey: null, suppressUntil: null, campaignRevision: null, timezone: null, createdAt: NOW.toISOString() }],
     });
     expect(selectPlatformPopupEligibleWinner({ pathname: "/market", now: NOW, candidates: [suppressed] }, "ptr_reveal").winner).toBeNull();

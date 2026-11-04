@@ -105,12 +105,9 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
           }
         />
       </div>
+      {/* CX-12: 미리보기 = 고객 화면 — 표기 색·반경을 고객 화면과 같은 클래스 하나로 */}
       <span
-        className={
-          isCustomer
-            ? `absolute left-2 top-2 z-[2] ${DELIVERY_AD_CUSTOMER_AD_TAG_CLASS}`
-            : "absolute left-2 top-2 z-[2] rounded-sm bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white"
-        }
+        className={`absolute left-2 top-2 z-[2] ${DELIVERY_AD_CUSTOMER_AD_TAG_CLASS}`}
         data-delivery-ad-label="true"
         data-delivery-ad-label-context={isCustomer ? "customer" : renderContext}
       >
@@ -139,11 +136,7 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
           ) : null}
         </div>
       ) : null}
-      {ctaLabel && renderContext !== "customer" ? (
-        <span className="absolute bottom-2 right-2 z-[2] rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-sam-fg">
-          {ctaLabel}
-        </span>
-      ) : null}
+      {/* CX-12: 고객 화면에 없는 CTA 칩은 미리보기에도 그리지 않는다 */}
     </>
   );
 

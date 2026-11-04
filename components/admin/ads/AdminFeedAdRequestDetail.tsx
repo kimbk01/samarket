@@ -38,6 +38,7 @@ type DetailPayload = {
     id: string;
     userId: string;
     memberLabel?: string;
+    memberNickname?: string;
     status: string;
     domain: string;
     placement: string;
@@ -378,9 +379,16 @@ export function AdminFeedAdRequestDetail({
       const fd = new FormData();
       fd.set("file", file);
       const up = await fetch("/api/admin/feed-ads/upload", { method: "POST", body: fd });
-      const uj = (await up.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+      const uj = (await up.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string; message?: string };
       if (!up.ok || !uj.url) {
-        setErr(uj.error ?? "upload_failed");
+        // FA-3 (2026-11-04): 서버가 준 한국어 사유를 보인다 — 코드값(aspect_mismatch 등)은 화면에 보이지 않게
+        setErr(
+          uj.message?.trim() ||
+            safeT("ads_f_upload_failed_generic", {
+              fallbackKo: "이미지를 올리지 못했습니다. 3:1 비율·1200×400 이상인지 확인해 주세요.",
+              fallbackEn: "Could not upload the image. Check it is 3:1 and at least 1200×400.",
+            })
+        );
         return;
       }
       const res = await fetch(`/api/admin/feed-ad-requests/${requestId}`, {
@@ -738,6 +746,7 @@ export function AdminFeedAdRequestDetail({
             imageUrl={primary.imageUrl}
             headline={primary.headline}
             alt={primary.altText}
+            advertiserName={r.memberNickname || undefined}
           />
         ) : (
           <p

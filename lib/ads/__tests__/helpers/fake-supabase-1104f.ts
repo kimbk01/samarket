@@ -1,5 +1,5 @@
 /**
- * 광고 ② 구현 F 시험용 메모리 Supabase — select/insert/update/delete · eq/in/is/not/or(무시)/order/limit · maybeSingle/single · rpc.
+ * 광고 ② 구현 F 시험용 메모리 Supabase — select/insert/update/delete · eq/in/is/not/gt(시각)/or(무시)/order/limit · maybeSingle/single · rpc.
  * `or()` 는 무시한다(기간 조건은 서버 코드의 다른 판정으로 거른다는 것을 시험이 직접 본다).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -47,6 +47,8 @@ export function makeFakeSb(seed: Record<string, Row[]> = {}, opts: { rpc?: (fn: 
       in: (c: string, vs: unknown[]) => (filters.push((r) => vs.map(String).includes(String(r[c]))), api),
       is: (c: string, v: unknown) => (filters.push((r) => (v === null ? r[c] == null : r[c] === v)), api),
       not: (c: string, op: string, v: unknown) => (filters.push((r) => !(op === "is" && v === null ? r[c] == null : r[c] === v)), api),
+      gt: (c: string, v: unknown) =>
+        (filters.push((r) => r[c] != null && Date.parse(String(r[c])) > Date.parse(String(v))), api),
       or: () => api,
       order: () => api,
       limit: (n: number) => ((limitN = n), api),
