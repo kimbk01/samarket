@@ -122,9 +122,9 @@ export async function GET(
   const { data: profile } = userId
     ? await sb.from("profiles").select("nickname").eq("id", userId).maybeSingle()
     : { data: null };
-  const memberLabel =
-    String((profile as { nickname?: string | null } | null)?.nickname ?? "").trim() ||
-    (userId ? `${userId.slice(0, 8)}…` : "—");
+  /** FA-5: 고객 화면 광고주 이름 = 회원 닉네임(없으면 빈 값 — 미리보기는 「광고」만) */
+  const memberNickname = String((profile as { nickname?: string | null } | null)?.nickname ?? "").trim();
+  const memberLabel = memberNickname || (userId ? `${userId.slice(0, 8)}…` : "—");
 
   const { data: holds } = await sb
     .from("feed_ad_point_holds")
@@ -163,6 +163,7 @@ export async function GET(
       id: String(row.id ?? ""),
       userId,
       memberLabel,
+      memberNickname,
       status,
       domain: String(row.domain ?? ""),
       placement: String(row.placement ?? ""),

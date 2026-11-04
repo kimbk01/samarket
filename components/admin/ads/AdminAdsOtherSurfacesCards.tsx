@@ -8,7 +8,8 @@ import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
  * 마이페이지 배너·이벤트)을 이 화면에서도 보고 들어가게 한다. 읽기 전용 요약 + 「관리」(각 화면이 정본 · 새 원장 없음 · M2 카드 형태).
  */
 type Summary = {
-  intro: { state: string; live: boolean };
+  /** schedule = Live 게시본 기간 판정(`launchIntroScheduleState`) · null = 게시본 없음·읽기 실패 */
+  intro: { state: string; live: boolean; schedule?: "always" | "scheduled" | "running" | "ended" | null };
   ptrLive: number | null;
   mypageBannersLive: number | null;
   eventsLive: number | null;
@@ -16,6 +17,27 @@ type Summary = {
 
 const INTRO_STATE_KO: Record<string, string> = { active: "게시 중", paused: "일시정지", unpublished: "게시 안 함" };
 const INTRO_STATE_EN: Record<string, string> = { active: "Live", paused: "Paused", unpublished: "Not published" };
+
+/**
+ * IN-N2 (2026-11-04): 인트로 카드 = 상태 + 기간. 게시(active)여도 시작 전이면 「예약됨」, 종료 후면 「끝남」 — 고객 기기에는 안 나온다.
+ * 기간을 못 읽었으면 「게시 중」으로 단정하지 않고 「기간 확인 못 함」을 붙인다.
+ */
+export function introCardStatusText(intro: Summary["intro"], ko: boolean): string {
+  const base = (ko ? INTRO_STATE_KO : INTRO_STATE_EN)[intro.state];
+  if (!base) return ko ? "확인 못 함" : "Unknown";
+  if (intro.state !== "active") return base;
+  switch (intro.schedule) {
+    case "scheduled":
+      return ko ? "예약됨 · 시작 전이라 안 나옴" : "Scheduled · not shown before start";
+    case "ended":
+      return ko ? "끝남 · 기간이 지나 안 나옴" : "Ended · not shown after end";
+    case "always":
+    case "running":
+      return base;
+    default:
+      return ko ? "게시 중 · 기간 확인 못 함" : "Live · period unknown";
+  }
+}
 
 export function AdminAdsOtherSurfacesCards({ ko }: { ko: boolean }) {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -42,9 +64,7 @@ export function AdminAdsOtherSurfacesCards({ ko }: { ko: boolean }) {
       key: "intro",
       title: ko ? "인트로" : "Launch intro",
       statusText:
-        summary == null
-          ? liveText(null)
-          : (ko ? INTRO_STATE_KO : INTRO_STATE_EN)[summary.intro.state] ?? (ko ? "확인 못 함" : "Unknown"),
+        summary == null ? liveText(null) : introCardStatusText(summary.intro, ko),
       href: "/admin/platform-promotion/intro",
     },
     { key: "ptr", title: ko ? "당겨서 새로고침 광고" : "Pull-to-refresh ads", statusText: liveText(summary?.ptrLive), href: "/admin/ptr-reveal-ads" },

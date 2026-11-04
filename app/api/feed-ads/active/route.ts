@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { listEligibleFeedAdCampaigns } from "@/lib/ads/feed-ad-campaigns-db";
+import { listEligibleFeedAdCampaigns, loadNextFeedAdCampaignStartAt } from "@/lib/ads/feed-ad-campaigns-db";
 import {
   listEligibleCampaignsForPlacement,
   selectCampaignsForPlacement,
@@ -39,7 +39,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   try {
     const nowMs = Date.now();
-    const all = await listEligibleFeedAdCampaigns(sb, domain);
+    // FA-6: 시작 전 캠페인의 가장 빠른 시작 시각도 validUntil 에 넣는다 (시작하면 열린 화면이 다시 부름)
+    const [all, nextStartAt] = await Promise.all([
+      listEligibleFeedAdCampaigns(sb, domain),
+      loadNextFeedAdCampaignStartAt(sb, domain, nowMs),
+    ]);
     if (wantPool) {
       const pool = listEligibleCampaignsForPlacement(all, {
         domain,
@@ -50,7 +54,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       });
       const campaigns = pool.map(projectFeedAdPublicCampaign);
       return NextResponse.json(
-        { ok: true, campaigns, campaign: campaigns[0] ?? null, validUntil: feedAdPublicValidUntil(pool, nowMs) },
+        { ok: true, campaigns, campaign: campaigns[0] ?? null, validUntil: feedAdPublicValidUntil(pool, nowMs, nextStartAt) },
         { headers: CACHE }
       );
     }
@@ -71,7 +75,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     const campaigns = picked.map(projectFeedAdPublicCampaign);
     return NextResponse.json(
-      { ok: true, campaigns, campaign: campaigns[0] ?? null, validUntil: feedAdPublicValidUntil(picked, nowMs) },
+      { ok: true, campaigns, campaign: campaigns[0] ?? null, validUntil: feedAdPublicValidUntil(picked, nowMs, nextStartAt) },
       { headers: CACHE }
     );
   } catch {

@@ -79,8 +79,41 @@ async function settleHandler(
   }
 }
 
+/**
+ * CX-05 (광고 표면 연동 · 2026-11-04): 어느 화면이든 PTR 새로고침이 진행 중(놓은 뒤 새로고침·결과 표시)이면
+ * 팝업 광고 판정을 보류한다 — 화면마다 따로 만든 PTR 저장소의 상태를 한곳에서 읽는다(읽기 전용 신호).
+ */
+const PTR_RUN_PHASES: ReadonlySet<DibayPtrPhase> = new Set<DibayPtrPhase>([
+  "REFRESHING",
+  "SUCCESS",
+  "ERROR",
+  "CANCELLED",
+]);
+const runningCores = new Set<object>();
+const activityListeners = new Set<() => void>();
+
+/** 지금 어느 PTR 이든 새로고침 진행 중인가 */
+export function isAnyDibayPtrRefreshRunning(): boolean {
+  return runningCores.size > 0;
+}
+
+export function subscribeDibayPtrRefreshActivity(listener: () => void): () => void {
+  activityListeners.add(listener);
+  return () => {
+    activityListeners.delete(listener);
+  };
+}
+
+function noteCoreRunning(core: object, running: boolean): void {
+  const before = runningCores.size > 0;
+  if (running) runningCores.add(core);
+  else runningCores.delete(core);
+  if (before !== runningCores.size > 0) activityListeners.forEach((l) => l());
+}
+
 function createCore(preflight: () => void, timings?: Partial<DibayPtrStoreTimings>) {
   const t: DibayPtrStoreTimings = { ...DEFAULT_TIMINGS, ...timings };
+  const coreId = {};
   let snapshot: DibayPtrSnapshot = DIBAY_PTR_EMPTY_SNAPSHOT;
   /** 외부 리셋·새 당김이 진행 중 run 의 늦은 쓰기를 무효화 */
   let generation = 0;
@@ -96,6 +129,7 @@ function createCore(preflight: () => void, timings?: Partial<DibayPtrStoreTiming
       return;
     }
     snapshot = next;
+    noteCoreRunning(coreId, PTR_RUN_PHASES.has(next.phase));
     listeners.forEach((l) => l());
   };
 

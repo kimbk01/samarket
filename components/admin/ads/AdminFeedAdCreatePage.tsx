@@ -27,6 +27,8 @@ import { FeedAdStoreDestinationPicker } from "@/components/admin/feed-ads/FeedAd
 import { destinationHref, eventDestinationPath } from "@/lib/destination/destination-contract";
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
+import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
+import { feedAdAdvertiserDisplayName } from "@/lib/ads/feed-ad-advertiser-name";
 
 type SlideDraft = {
   imageUrl: string;
@@ -49,8 +51,14 @@ const EMPTY_SLIDE: SlideDraft = {
 
 function humanUploadError(raw: string, ko: boolean): string {
   const s = raw.toLowerCase();
-  if (s.includes("too large") || s.includes("max") || s.includes("2mb") || s.includes("file_size")) {
+  if (s.includes("too large") || s.includes("too_large") || s.includes("max") || s.includes("2mb") || s.includes("file_size")) {
     return ko ? "파일 용량이 너무 큽니다.\n최대 2MB" : "File is too large.\nMax 2MB";
+  }
+  if (s.includes("invalid_type")) {
+    return ko ? "JPG·PNG·WebP 이미지만 올릴 수 있습니다." : "Only JPG, PNG, or WebP images are allowed.";
+  }
+  if (s.includes("decode") || s.includes("invalid_dimensions")) {
+    return ko ? "이미지를 읽지 못했습니다.\nJPG·PNG·WebP 파일을 올려 주세요." : "Could not read this image.\nUse JPG, PNG, or WebP.";
   }
   if (s.includes("aspect") || s.includes("ratio") || s.includes("geometry")) {
     return ko
@@ -62,10 +70,8 @@ function humanUploadError(raw: string, ko: boolean): string {
       ? "이미지 크기가 너무 작습니다.\n권장 크기: 1200×400 이상"
       : "Image is too small.\nRecommended: 1200×400 or larger";
   }
-  if (raw === "upload_failed" || !raw.trim()) {
-    return ko ? "이미지를 업로드하지 못했습니다." : "Could not upload the image.";
-  }
-  return raw;
+  // FA-3: 알 수 없는 코드값은 화면에 그대로 내보내지 않는다
+  return ko ? "이미지를 업로드하지 못했습니다." : "Could not upload the image.";
 }
 
 /**
@@ -325,8 +331,9 @@ export function AdminFeedAdCreatePage({
           placement,
           targetCategoryId: placement === "TRADE_CATEGORY" ? targetCategoryId : undefined,
           targetTopicSlug: placement === "COMMUNITY_TOPIC" ? targetTopicSlug : undefined,
-          startAt: startAt ? new Date(startAt).toISOString() : undefined,
-          endAt: endAt ? new Date(endAt).toISOString() : undefined,
+          // FA-4: 입력은 PHT 벽시계 — 브라우저 시간대가 아니라 Asia/Manila 로 변환
+          startAt: startAt ? adminManilaInputToIso(startAt) ?? undefined : undefined,
+          endAt: endAt ? adminManilaInputToIso(endAt) ?? undefined : undefined,
           status,
           destinationType,
           destinationId,
@@ -380,11 +387,12 @@ export function AdminFeedAdCreatePage({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          {/* 재감사 S-1 (F-1): 이 이름이 거래 피드 광고 머리에 광고주 이름으로 보인다 */}
-          <span className="mt-1 block sam-text-helper text-sam-muted">
-            {langEn
-              ? "Shown to customers as the advertiser name on the trade feed ad."
-              : "거래 피드 광고 위쪽에 광고주 이름으로 고객에게 보입니다."}
+          {/* FA-1: 이 이름이 거래·커뮤니티 피드 광고 머리줄에 광고주 이름으로 보인다 */}
+          <span className="mt-1 block sam-text-helper text-sam-muted" data-admin-feed-name-hint="1">
+            {safeT("ads_f_feed_name_hint", {
+              fallbackKo: "거래·커뮤니티 피드 광고 위쪽에 광고주 이름으로 보입니다.",
+              fallbackEn: "Shown above trade and community feed ads as the advertiser name.",
+            })}
           </span>
         </label>
       </section>
@@ -476,6 +484,15 @@ export function AdminFeedAdCreatePage({
                 : "Status: cannot add more"}
           </p>
         </div>
+        {/* FA-2: 커뮤니티 주제 배너는 커뮤니티 전체 피드에도 나온다 */}
+        {placement === "COMMUNITY_TOPIC" ? (
+          <p className="sam-text-helper text-sam-muted" data-admin-feed-topic-all-hint="1">
+            {safeT("ads_f_feed_topic_also_all_hint", {
+              fallbackKo: "커뮤니티 주제 배너는 커뮤니티 전체 피드에도 나옵니다.",
+              fallbackEn: "Community topic banners also appear in the all-topics community feed.",
+            })}
+          </p>
+        ) : null}
       </section>
 
       {/* 4 Target SSOT */}
@@ -741,7 +758,9 @@ export function AdminFeedAdCreatePage({
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block sam-text-body font-medium">Start</span>
+            <span className="mb-1 block sam-text-body font-medium">
+              {safeT("ads_f_start_pht", { fallbackKo: "시작 (PHT)", fallbackEn: "Start (PHT)" })}
+            </span>
             <input
               type="datetime-local"
               className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -750,7 +769,9 @@ export function AdminFeedAdCreatePage({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block sam-text-body font-medium">End</span>
+            <span className="mb-1 block sam-text-body font-medium">
+              {safeT("ads_f_end_pht", { fallbackKo: "종료 (PHT)", fallbackEn: "End (PHT)" })}
+            </span>
             <input
               type="datetime-local"
               className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -768,8 +789,12 @@ export function AdminFeedAdCreatePage({
             value={status}
             onChange={(e) => setStatus(e.target.value as "draft" | "active")}
           >
-            <option value="draft">draft</option>
-            <option value="active">active</option>
+            <option value="draft">
+              {safeT("ads_f_status_draft", { fallbackKo: "초안", fallbackEn: "Draft" })}
+            </option>
+            <option value="active">
+              {safeT("ads_f_status_active", { fallbackKo: "노출", fallbackEn: "Live" })}
+            </option>
           </select>
         </label>
       </section>
@@ -813,6 +838,7 @@ export function AdminFeedAdCreatePage({
                 imageUrl={first.previewUrl || first.imageUrl}
                 headline={first.headline}
                 alt={first.altText}
+                advertiserName={feedAdAdvertiserDisplayName(name)}
               />
             );
           })()}

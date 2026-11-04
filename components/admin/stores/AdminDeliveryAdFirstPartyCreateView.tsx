@@ -10,7 +10,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
-import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import {
+  deliveryAdBannerAspectStyle,
+  inventoryViewFromKey,
+} from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import {
   ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS,
   type AdminFirstPartyBannerInventoryKey,
@@ -114,8 +117,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   const guide = DELIVERY_AD_BANNER_PIXEL_GUIDE[inventoryKey];
   const scheduleOk =
     Boolean(startAt && endAt) && new Date(endAt).getTime() > new Date(startAt).getTime();
+  /** DL-1: 히어로는 그림 위에 글자를 쓰지 않는다 — 헤드라인은 대체 텍스트로만 쓰여 필수가 아니고, 서브카피는 쓰이지 않는다 */
+  const isHero = inventoryKey === "STORES_HOME_HERO";
   const canSubmit = Boolean(
-    inventoryKey && scheduleOk && headline.trim() && assetPath.trim() && ctaHref.trim() && !busy
+    inventoryKey && scheduleOk && (isHero || headline.trim()) && assetPath.trim() && ctaHref.trim() && !busy
   );
 
   /** 재감사 S-2 (H-4): 배달 배너 만들기 = business 키 (서버 배달 광고 쓰기와 같음) */
@@ -222,7 +227,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           sourceWidth,
           sourceHeight,
           headline: headline || null,
-          subcopy: subcopy || null,
+          subcopy: isHero ? null : subcopy || null,
           ctaHref,
           ...(destinationStore
             ? {
@@ -522,7 +527,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                     <img
                       src={assetPath}
                       alt=""
-                      className="w-full object-cover aspect-[39/16]"
+                      className="w-full object-cover"
+                      /* DL-3: 썸네일 비율 = 고른 지면(inventory) 비율 */
+                      style={deliveryAdBannerAspectStyle(inventory)}
+                      data-admin-delivery-fp-thumb-aspect={`${inventory.aspectRatioWidth}/${inventory.aspectRatioHeight}`}
                     />
                   </div>
                   <p className="text-[12px] tabular-nums text-sam-muted">
@@ -561,18 +569,28 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
                 />
+                {isHero ? (
+                  <span className="mt-1 block text-[12px] text-sam-muted" data-admin-delivery-fp-hero-headline-hint="1">
+                    {safeT("ads_f_delivery_hero_headline_hint", {
+                      fallbackKo: "히어로는 글자를 덮지 않고 대체 텍스트로 쓰입니다. (선택)",
+                      fallbackEn: "Hero banners do not overlay text; this is used as alt text. (Optional)",
+                    })}
+                  </span>
+                ) : null}
               </label>
-              <label className="block text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_first_party_subcopy", {
-                  fallbackKo: "서브카피",
-                  fallbackEn: "Subcopy",
-                })}
-                <input
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
-                  value={subcopy}
-                  onChange={(e) => setSubcopy(e.target.value)}
-                />
-              </label>
+              {isHero ? null : (
+                <label className="block text-[12px] text-sam-muted">
+                  {safeT("admin_delivery_ads_first_party_subcopy", {
+                    fallbackKo: "서브카피",
+                    fallbackEn: "Subcopy",
+                  })}
+                  <input
+                    className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+                    value={subcopy}
+                    onChange={(e) => setSubcopy(e.target.value)}
+                  />
+                </label>
+              )}
               <label className="block text-[12px] text-sam-muted">
                 {safeT("admin_delivery_ads_first_party_destination", {
                   fallbackKo: "이동 경로 (앱 내부)",
@@ -602,7 +620,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                   creative={{
                     assetUrl: assetPath,
                     headline: headline || null,
-                    subcopy: subcopy || null,
+                    subcopy: isHero ? null : subcopy || null,
+                    alt: headline || null,
                   }}
                   destination={{ href: ctaHref, ctaLabel: null }}
                   adLabel={lang === "en" ? "Ad" : "광고"}

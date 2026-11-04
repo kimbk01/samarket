@@ -12,6 +12,18 @@ import {
   adminManilaInputToIso,
 } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 
+/** MY-2: 업로드 거부 사유 — 코드값 대신 한국어 문구 (en 화면은 영어) */
+function mypageBannerUploadErrorMessage(code: string | null | undefined, ko: boolean): string {
+  const c = String(code ?? "").trim();
+  if (c === "file_too_large") return ko ? "파일 용량이 너무 큽니다. 최대 2MB 까지 올릴 수 있습니다." : "The file is too large (max 2MB).";
+  if (c === "invalid_type") return ko ? "JPG·PNG·WebP 이미지만 올릴 수 있습니다." : "Only JPG, PNG, or WebP images are allowed.";
+  if (c === "file_required") return ko ? "올릴 이미지 파일을 골라 주세요." : "Choose an image file to upload.";
+  if (c === "forbidden" || c === "unauthorized") {
+    return ko ? "이미지를 올릴 권한이 없습니다." : "You do not have permission to upload images.";
+  }
+  return ko ? "이미지를 올리지 못했습니다. 잠시 후 다시 올려 주세요." : "Could not upload the image. Try again shortly.";
+}
+
 /** MyPage CMS only — 회원 내정보 홈 프로필 아래(MypageHomeCmsBanner → MyTopBanner)에 활성 1건 표시 (placement not selected in UI). */
 const MYPAGE_BANNER_PLACEMENT: BannerPlacement = "mypage_top";
 
@@ -54,7 +66,8 @@ export function AdminBannerForm({
   onSubmit,
   submitLabel,
 }: AdminBannerFormProps) {
-  const { t } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   /** G-18: 마이페이지 배너 등록·수정(POST·PATCH) = ads 키 (이 폼은 /admin/my/banners 생성·편집 전용) */
   const adminAction = useAdminRouteAction("/admin/my/banners");
   const resolvedSubmitLabel = submitLabel ?? t("common_save");
@@ -77,7 +90,7 @@ export function AdminBannerForm({
       const res = await fetch("/api/admin/feed-ads/upload", { method: "POST", body: fd, credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
       if (!res.ok || !j.ok || !j.url) {
-        setUploadError(j.error ?? "upload_failed");
+        setUploadError(mypageBannerUploadErrorMessage(j.error, ko));
         return;
       }
       setValues((v) => ({ ...v, [field]: j.url as string }));
@@ -96,7 +109,7 @@ export function AdminBannerForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {uploadError ? (
         <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body text-sam-danger" role="alert">
-          이미지를 올리지 못했습니다 ({uploadError})
+          {uploadError}
         </p>
       ) : null}
       <div>
@@ -129,6 +142,13 @@ export function AdminBannerForm({
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           {t("admin_banners_field_image_desktop")}
         </label>
+        {/* MY-1: 앱 마이 배너는 작은 썸네일로만 보인다 · 업로드 허용 형식(JPG·PNG·WebP)과 같은 accept */}
+        <p className="mb-1 sam-text-helper text-sam-muted" data-admin-mypage-banner-image-hint="1">
+          {safeT("ads_f_mypage_banner_image_hint", {
+            fallbackKo: "앱에서는 48×48 썸네일로 보입니다(정사각형 권장).",
+            fallbackEn: "Shown in the app as a 48×48 thumbnail (square recommended).",
+          })}
+        </p>
         <input
           type="text"
           value={values.imageUrl}
@@ -139,7 +159,7 @@ export function AdminBannerForm({
         <label className="mt-1.5 inline-flex cursor-pointer items-center gap-2 sam-text-body-secondary text-sam-muted">
           <input
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
+            accept="image/png,image/jpeg,image/webp"
             className="sr-only"
             disabled={uploading != null}
             onChange={(e) => {
@@ -168,7 +188,7 @@ export function AdminBannerForm({
         <label className="mt-1.5 inline-flex cursor-pointer items-center gap-2 sam-text-body-secondary text-sam-muted">
           <input
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
+            accept="image/png,image/jpeg,image/webp"
             className="sr-only"
             disabled={uploading != null}
             onChange={(e) => {

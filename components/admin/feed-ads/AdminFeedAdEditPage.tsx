@@ -113,9 +113,15 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
       const fd = new FormData();
       fd.set("file", file);
       const res = await fetch("/api/admin/feed-ads/upload", { method: "POST", body: fd, credentials: "include" });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+        message?: string;
+      };
       if (!res.ok || !j.ok || !j.url) {
-        setSaveError(j.error ?? "upload_failed");
+        // FA-3: 비율·최소 크기 거부는 서버의 한국어 문구로 (코드값 노출 없음)
+        setSaveError(j.message ?? (ko ? feedAdErrorMessageKo(j.error ?? "upload_failed") : "Could not upload the image."));
         return;
       }
       setSlides((list) => list.map((s) => (s.sortOrder === sortOrder ? { ...s, imageUrl: j.url as string } : s)));
@@ -164,7 +170,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !j.ok) {
         // FB-A10 · DS-2 · DS-3: 한국어 안내 (영어 코드값을 화면에 보이지 않음)
-        setSaveError(ko ? (j.message ?? feedAdErrorMessageKo(j.error)) : (j.error ?? "save_failed"));
+        setSaveError(j.message ?? (ko ? feedAdErrorMessageKo(j.error) : "Could not save."));
         return;
       }
       router.push("/admin/advertising/banners");

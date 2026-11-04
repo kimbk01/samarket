@@ -65,6 +65,14 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
    */
   const [transition, setTransition] = useState<{ fromId: string; fromUrl: string; dir: "next" | "prev"; seq: number } | null>(null);
   const touchStartX = useRef<number | null>(null);
+  /**
+   * DL-2: 자동 넘김은 화면 안 · 앱 앞 · 동작 줄이기 꺼짐일 때만 (피드 배너 캐러셀과 같은 조건).
+   * 노출 집계는 그대로 DeliveryAdBanner(현재 슬라이드 1개)의 관찰 규칙을 따른다.
+   */
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(true);
+  const [pageVisible, setPageVisible] = useState(true);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   /**
    * 묶음4 F-06 — 같은 fetcher(single-flight + 30초 클라 캐시)로 읽는다. 허브가 진입 시 prewarm 하고,
@@ -122,10 +130,35 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
   }, [transition]);
 
   useEffect(() => {
-    if (slideCount <= 1) return;
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReduceMotion(mq.matches);
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
+  }, []);
+
+  useEffect(() => {
+    const onVis = () => setPageVisible(document.visibilityState === "visible");
+    onVis();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  useEffect(() => {
+    if (!rootEl || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) => setInView(Boolean(entry?.isIntersecting)), {
+      threshold: 0.35,
+    });
+    io.observe(rootEl);
+    return () => io.disconnect();
+  }, [rootEl]);
+
+  useEffect(() => {
+    if (slideCount <= 1 || !inView || !pageVisible || reduceMotion) return;
     const id = window.setInterval(advance, AUTO_MS);
     return () => window.clearInterval(id);
-  }, [advance, slideCount, index]);
+  }, [advance, slideCount, index, inView, pageVisible, reduceMotion]);
 
   useLayoutEffect(() => {
     markStoresHomePerf("hero");
@@ -163,6 +196,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
 
   return (
     <div
+      ref={setRootEl}
       className="relative"
       data-stores-perf="hero"
       data-stores-home-hero="banner"

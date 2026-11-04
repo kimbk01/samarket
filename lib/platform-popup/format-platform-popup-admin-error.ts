@@ -31,6 +31,11 @@ export function formatPlatformPopupAdminError(
       ? "Click destination is invalid. Check the After-click settings."
       : "클릭 후 이동 설정이 올바르지 않습니다. 경로를 확인해 주세요.";
   }
+  if (lower === "timezone_invalid" || lower === "timezone_required") {
+    return lang === "en"
+      ? "The time zone is invalid. Use a time zone name such as Asia/Manila."
+      : "시간대가 올바르지 않습니다. Asia/Manila 같은 시간대 이름을 써 주세요.";
+  }
   if (lower === "surface_required") {
     return lang === "en" ? "Select at least one placement." : "노출 위치를 하나 이상 선택해 주세요.";
   }

@@ -2044,7 +2044,7 @@ export function CommunityFeed({
 
         {/* CUT 2 — COMMUNITY_HOME × HERO host (capability registry). Collapses when empty. */}
         {feedAdSurface.placement === "COMMUNITY_HOME" ? (
-          <div className="px-4 pb-2" data-community-event-hero-host="1">
+          <div className="px-4 pb-2 empty:hidden" data-community-event-hero-host="1">
             <EventPromotionHeroBanner placement="COMMUNITY_HOME" />
           </div>
         ) : null}

@@ -121,9 +121,9 @@ describe("Phase 3 — Popup 4-presentation operational clarity", () => {
   });
 
   it("frequency labels map supported modes including once_campaign", () => {
-    expect(popupFrequencyOperatorLabel("once_per_session", "ko")).toBe("세션당 1회");
+    expect(popupFrequencyOperatorLabel("once_per_session", "ko")).toBe("앱 실행당 1회");
     expect(popupFrequencyOperatorLabel("once_per_day", "ko")).toBe("하루 1회");
-    expect(popupFrequencyOperatorLabel("once_campaign", "ko")).toBe("캠페인당 1회");
+    expect(popupFrequencyOperatorLabel("once_campaign", "ko")).toBe("캠페인 1회");
     expect(popupFrequencyOperatorLabel("close_only", "ko")).toContain("닫기");
   });
 

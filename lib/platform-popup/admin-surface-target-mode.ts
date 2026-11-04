@@ -24,7 +24,10 @@ function isConsumerSurface(value: string): value is PlatformPopupConsumerSurface
   return (PLATFORM_POPUP_CONSUMER_SURFACES as readonly string[]).includes(value);
 }
 
-/** Canonical path examples — must match resolveDibaySurface. */
+/**
+ * Canonical path examples — must match resolveDibaySurface (+ `popup-critical-path-gates` 제외 경로).
+ * P-4 (2026-11-04): 커뮤니티 `/`·`/home` 포함, 글쓰기(/write)·결제·주문·채팅 등 실제로 빠지는 경로를 함께 적는다.
+ */
 export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   {
     mode: "GLOBAL",
@@ -43,8 +46,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     labelEn: "Community",
     helpKo: "커뮤니티 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
     helpEn: "Community area. Can be combined with other areas.",
-    pagesKo: "/philife · /community",
-    pagesEn: "/philife · /community",
+    pagesKo: "/ · /home · /philife · /community",
+    pagesEn: "/ · /home · /philife · /community",
   },
   {
     mode: "TRADE",
@@ -52,8 +55,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     labelEn: "Trade",
     helpKo: "거래 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
     helpEn: "Trade area. Can be combined with other areas.",
-    pagesKo: "/market · /post · /write",
-    pagesEn: "/market · /post · /write",
+    pagesKo: "/market · /dibamarket · /post (글쓰기 /write 제외)",
+    pagesEn: "/market · /dibamarket · /post (except writing /write)",
   },
   {
     mode: "DELIVERY",
@@ -61,8 +64,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     labelEn: "Delivery",
     helpKo: "배달(소비자) 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
     helpEn: "Consumer Delivery. Can be combined with other areas.",
-    pagesKo: "/stores · /delivery · /shop",
-    pagesEn: "/stores · /delivery · /shop",
+    pagesKo: "/stores · /delivery · /shop (장바구니·결제·주문 완료 제외)",
+    pagesEn: "/stores · /delivery · /shop (except cart, checkout, order complete)",
   },
   {
     mode: "DELIVERY_OWNER",
@@ -70,8 +73,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     labelEn: "Delivery Owner",
     helpKo: "배달 오너 화면에 노출됩니다. 결제·정산·위험 작업 화면은 시스템이 잠시 가립니다.",
     helpEn: "Delivery Owner screens. Payment, settlement, and high-risk flows are gated automatically.",
-    pagesKo: "/stores/owner · /my/business",
-    pagesEn: "/stores/owner · /my/business",
+    pagesKo: "/stores/owner · /my/business (정산·광고 캐시·주문 상세 제외)",
+    pagesEn: "/stores/owner · /my/business (except settlement, ad cash, order detail)",
   },
   {
     mode: "ADMIN",
@@ -88,8 +91,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     labelEn: "My Page",
     helpKo: "내정보 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
     helpEn: "My Page area. Can be combined with other areas.",
-    pagesKo: "/mypage · /my",
-    pagesEn: "/mypage · /my",
+    pagesKo: "/mypage · /my (거래 채팅·매장 주문·사업자 화면 제외)",
+    pagesEn: "/mypage · /my (except trade chat, store orders, business screens)",
   },
 ] as const satisfies ReadonlyArray<{
   mode: PlatformPopupTargetSurface;

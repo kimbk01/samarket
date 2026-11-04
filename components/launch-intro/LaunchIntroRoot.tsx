@@ -38,6 +38,8 @@ import {
 import { onDestinationShellFrame } from "@/lib/launch-intro/os-release-owner";
 import { hasLaunchIntent } from "@/lib/lifecycle/launch-intent.client";
 import { releaseOsForLaunchIntro } from "@/lib/startup/startup-metrics";
+import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
+import { extractEventIdFromHref } from "@/lib/platform-promotion-lifecycle/content-visit-contract";
 
 function DeferredRouteTree({ children }: { children: ReactNode }) {
   const pending = getLaunchIntroDeferral();
@@ -304,10 +306,18 @@ function LaunchIntroOverlay({ snapshot }: { snapshot: LaunchIntroSnapshot }) {
     exitRef.current("complete");
   }, []);
   // DS-8: 이미 받아 둔 옛 게시본의 CTA 도 회원 금지 경로(/admin 등)·잘못된 주소로는 보내지 않는다 — 건너뛰기와 같다.
-  const onRoute = useCallback(
-    (path: string) => (isLaunchIntroCtaRoutePath(path) ? exitRef.current("cta", path) : exitRef.current("skip")),
-    []
-  );
+  // IN-N3 · CX-02 (2026-11-04): CTA 목적지가 이벤트(/events/{id})면 콘텐츠 방문 기록(출처 INTRO) 1회 — 이동은 그대로
+  // router.replace(시작 화면 뒤로가기로 인트로에 돌아오지 않게). 기록은 fire-and-forget 이라 이동을 막지 않는다.
+  const onRoute = useCallback((path: string) => {
+    if (!isLaunchIntroCtaRoutePath(path)) {
+      exitRef.current("skip");
+      return;
+    }
+    if (extractEventIdFromHref(path)) {
+      recordPromotionContentVisitClient({ hrefOrEventId: path, sourceChannel: "INTRO" });
+    }
+    exitRef.current("cta", path);
+  }, []);
   const onSkip = useCallback(() => exitRef.current("skip"), []);
   const resolveImage = useCallback((sha: string) => imageSrcs[sha] ?? null, [imageSrcs]);
 

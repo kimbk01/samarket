@@ -7,6 +7,30 @@ import {
   validateCampaignImageFile,
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import sharp from "sharp";
+import {
+  feedAdUploadRejectMessage,
+  validateFeedAdUploadGeometry,
+} from "@/lib/ads/feed-ad-upload-geometry";
+import {
+  bannerGeometryRejectMessage,
+  validateBannerCreativeGeometry,
+} from "@/lib/stores/advertising/validate-banner-creative-geometry";
+
+type UploadPurpose = "feed_ad" | "mypage_banner" | "event_hero_banner";
+
+function uploadPurposeOf(raw: FormDataEntryValue | null): UploadPurpose {
+  if (raw === "mypage_banner") return "mypage_banner";
+  // EV-1: 이벤트 배포 히어로 배너(39:16) — 배달 홈 히어로와 같은 기하 검사
+  if (raw === "event_hero_banner") return "event_hero_banner";
+  return "feed_ad";
+}
+
+const PREFIX: Record<UploadPurpose, string> = {
+  feed_ad: "_admin/feed-ads",
+  mypage_banner: "_admin/mypage-banners",
+  event_hero_banner: "_admin/event-banners/hero",
+};
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,10 +72,49 @@ export async function POST(req: NextRequest) {
 
   const ext = extForCampaignImageMime(validated.mime);
   // 감사 AD-08: 마이페이지 배너도 같은 버킷·검증을 재사용한다 (경로·감사 대상만 구분).
-  const purpose = form.get("purpose") === "mypage_banner" ? "mypage_banner" : "feed_ad";
-  const prefix = purpose === "mypage_banner" ? "_admin/mypage-banners" : "_admin/feed-ads";
-  const path = `${prefix}/${admin.userId}/${randomUUID()}.${ext}`;
+  // EV-1: 이벤트 인라인 배너는 feed_ad(3:1) · 이벤트 히어로는 event_hero_banner(39:16)
+  const purpose = uploadPurposeOf(form.get("purpose"));
+  const path = `${PREFIX[purpose]}/${admin.userId}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
+
+  // FA-3: 피드 배너는 3:1 · 최소 1200×400 / EV-1: 이벤트 히어로는 39:16 (배달 배너 업로드와 같은 방식 — sharp 로 크기 읽기)
+  if (purpose !== "mypage_banner") {
+    let width = 0;
+    let height = 0;
+    try {
+      const meta = await sharp(buf, { failOn: "none", limitInputPixels: false }).rotate().metadata();
+      width = meta.width ?? 0;
+      height = meta.height ?? 0;
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "image_decode_failed", message: feedAdUploadRejectMessage("image_decode_failed") },
+        { status: 400 }
+      );
+    }
+    if (purpose === "feed_ad") {
+      const geom = validateFeedAdUploadGeometry({ width, height });
+      if (!geom.ok) {
+        return NextResponse.json(
+          { ok: false, error: geom.error, message: feedAdUploadRejectMessage(geom.error), width, height },
+          { status: 400 }
+        );
+      }
+    } else {
+      const geom = validateBannerCreativeGeometry({ inventoryKey: "STORES_HOME_HERO", width, height });
+      if (!geom.ok) {
+        const message =
+          geom.error === "invalid_dimensions"
+            ? feedAdUploadRejectMessage("invalid_dimensions")
+            : bannerGeometryRejectMessage({
+                error: geom.error,
+                guide: geom.guide,
+                lang: "ko",
+                placementLabel: "이벤트 히어로 배너",
+              });
+        return NextResponse.json({ ok: false, error: geom.error, message, width, height }, { status: 400 });
+      }
+    }
+  }
 
   const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {
     contentType: validated.mime === "image/jpg" ? "image/jpeg" : validated.mime,
@@ -75,6 +138,7 @@ export async function POST(req: NextRequest) {
     targetType: purpose === "mypage_banner" ? "mypage_banner_image" : "feed_ad_image",
     targetId: path,
     action: purpose === "mypage_banner" ? "mypage_banner_image.upload" : "feed_ad_image.upload",
+    // EV-1: 이벤트 히어로 업로드도 같은 감사 대상(경로 접두어로 구분)
     after: { path, url: publicUrl, size: buf.length, contentType: validated.mime },
   });
 

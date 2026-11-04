@@ -209,6 +209,36 @@ export async function listEligibleFeedAdCampaigns(
   return filterFeedAdCampaignsByDestination(sb, mapped);
 }
 
+/**
+ * FA-6 (2026-11-04): 아직 시작 전인 active 캠페인 중 가장 빠른 시작 시각 — 공개 응답 `validUntil` 에 넣어
+ * 열린 화면이 시작 시각에 다시 불러오게 한다(이 값이 없으면 시작 시각이 지나도 재조회 전까지 안 보였다).
+ * 같은 도메인 전체 기준 — 다른 위치의 시작이면 재조회만 한 번 더 일어난다(노출은 서버가 다시 판정).
+ */
+export async function loadNextFeedAdCampaignStartAt(
+  sb: SupabaseClient,
+  domain: FeedAdDomain,
+  nowMs: number = Date.now()
+): Promise<string | null> {
+  const nowIso = new Date(nowMs).toISOString();
+  try {
+    const { data, error } = await sb
+      .from("feed_ad_campaigns")
+      .select("start_at")
+      .eq("domain", domain)
+      .eq("status", "active")
+      .gt("start_at", nowIso)
+      .or(`end_at.is.null,end_at.gt.${nowIso}`)
+      .order("start_at", { ascending: true })
+      .limit(1);
+    if (error) return null;
+    const raw = (data?.[0] as { start_at?: string | null } | undefined)?.start_at ?? null;
+    return raw && Number.isFinite(Date.parse(raw)) ? new Date(Date.parse(raw)).toISOString() : null;
+  } catch {
+    // 재조회 시각은 보조 정보 — 실패해도 지금 노출 목록은 그대로 보낸다
+    return null;
+  }
+}
+
 async function loadMemberNicknamesByRequestId(
   sb: SupabaseClient,
   requestIds: readonly string[]

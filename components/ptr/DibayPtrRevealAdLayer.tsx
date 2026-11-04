@@ -10,6 +10,7 @@ import {
   ensurePtrRevealAd,
   finishPtrRevealExposure,
   getPtrRevealAdsVersion,
+  notePtrRevealIdentity,
   readPtrRevealAd,
   subscribePtrRevealAds,
   type PtrRevealAd,
@@ -25,6 +26,7 @@ import { notifyDestinationOpenFailed, openDestination } from "@/lib/destination/
 import { parseDestinationHref } from "@/lib/destination/destination-contract";
 import type { DibayPtrSnapshot } from "@/lib/ui/ptr/create-dibay-ptr-store";
 import { DIBAY_PTR_THRESHOLD_PX } from "@/lib/ui/ptr/dibay-ptr-ssot";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 type Exposure = {
   id: string;
@@ -75,6 +77,15 @@ export function useDibayPtrRevealAd(
   const [, force] = useState(0);
   const isPreview = preview !== undefined;
   const previewAd = preview?.ad ?? null;
+  const membership = useClientMembershipState("ptr-reveal-ad");
+  const authReady = membership.status !== "checking";
+  const userId = membership.status === "member" ? membership.profile.id : null;
+
+  // CX-06: 계정 바뀜·로그아웃 → 이전 계정의 PTR 캐시·close_only 보류 초기화 (팝업 호스트와 같은 신원 판정)
+  useEffect(() => {
+    if (isPreview) return;
+    notePtrRevealIdentity({ authReady, userId, deviceKey: ensureClientInstanceId() });
+  }, [isPreview, authReady, userId]);
 
   useEffect(() => {
     if (isPreview) return;
@@ -202,7 +213,7 @@ export function useDibayPtrRevealAd(
       const parsed = parseDestinationHref(href);
       if (parsed.ok) {
         if (parsed.ref.kind !== "external_url") {
-          recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "BANNER" });
+          recordPromotionContentVisitClient({ hrefOrEventId: href, sourceChannel: "PTR" });
         }
         opened = openDestination(parsed.ref, router);
       } else {
