@@ -29,7 +29,7 @@ describe("Android App Icon summary single-carrier contract", () => {
     expect(fcm).toContain("onDomainNotificationPosted");
   });
 
-  it("summary adapter is sole setNumber(total) carrier with fixed id", () => {
+  it("summary adapter is sole setNumber carrier (총수 − 알림창 일반 알림 몫 · B7) with fixed id", () => {
     expect(adapter).toContain('SUMMARY_CHANNEL_ID = "dibay_app_icon_summary_v1"');
     expect(adapter).toContain("SUMMARY_NOTIFICATION_ID = 710001");
     // 2026-11-04 B7: 숫자 표시 런처는 앱 알림마다 max(1, number) 를 합산 → 요약 카드 number = 총수 − 알림창 일반

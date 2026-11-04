@@ -11,7 +11,7 @@
 | SSOT API | `GET /api/me/notifications/badge-count` |
 | Client store | `lib/notifications/notification-badge-count-store.ts` |
 | React bridge | `components/push/NativeBadgeSync.tsx` |
-| Android launcher | `DibayAppIconDeliveryAdapter` — sole `dibay_app_icon_summary_v1` + `setNumber(total)` |
+| Android launcher | `DibayAppIconDeliveryAdapter` — sole `dibay_app_icon_summary_v1` + `setNumber(summaryNumber)` (= 총수 − 알림창 일반 알림 몫 · 런처 합 = 총수 · B7 2026-11-04) |
 | Android domain tray | `DibayFirebaseMessagingService` — UX only (`setNumber(0)`; no launcher authority) |
 
 ## 동작

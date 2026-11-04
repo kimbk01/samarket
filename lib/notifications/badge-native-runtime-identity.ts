@@ -5,7 +5,7 @@
  *   MemberAppIconTotal (memberAppIconWebTotal / surface appIconTotal)
  *     → Capawesome Badge.set / Badge.get
  *     → Android Launcher (OEM Cap path)
- *     → FCM badge_count (resolveMemberAppIconTotalForNativeFcm) → Delivery Adapter setNumber
+ *     → FCM badge_count (resolveMemberAppIconTotalForNativeFcm) → Delivery Adapter setNumber(총수 − 알림창 일반 알림 몫 · B7)
  *     → domain tray children setNumber(0) (no launcher authority)
  *     → APNS aps.badge
  *
@@ -65,7 +65,9 @@ export const BADGE_NATIVE_IDENTITY_WIRES: readonly NativeIdentityWireRow[] = [
     mustContain: [
       "SUMMARY_CHANNEL_ID",
       "SUMMARY_NOTIFICATION_ID",
-      "setNumber(total)",
+      // B7 (0d131be5b · Owner 「수정 승인」 2026-11-04): 요약 카드 숫자 = 총수 − 알림창 일반 알림 몫 → 런처 합 = 총수
+      "summaryNumberFor(n, tray)",
+      "setNumber(summaryNumber)",
       "summary_applied",
       "onDomainNotificationPosted",
     ],
