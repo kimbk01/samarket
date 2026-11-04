@@ -86,12 +86,12 @@ describe("read scope plan (one function for push · bell · full list · banner)
       "await patchInboxNotificationIdsRead(sb, userId, [eventId])"
     );
     // 종 팝업·전체 알림·앱 안 배너 → activateNotificationDestination(markRead) → PATCH /api/me/notifications {ids}
-    expect(read("app/api/me/notifications/route.ts")).toContain("await patchInboxNotificationIdsRead(sb, userId, ids)");
-    expect(read("components/philife/PhilifeHeaderNotificationInbox.tsx")).toContain("markRead: markIdsRead,");
-    expect(read("components/my/MyNotificationsView.tsx")).toContain("markRead: markIdsRead,");
+    expect(read("app/api/me/notifications/route.ts")).toContain("await patchInboxNotificationIdsRead(sb, userId, ids, {");
+    expect(read("components/philife/PhilifeHeaderNotificationInbox.tsx")).toContain("markRead: (ids) => markIdsRead(ids, { opened: true }),");
+    expect(read("components/my/MyNotificationsView.tsx")).toContain("markRead: (ids) => markIdsRead(ids, { opened: true }),");
     const banner = read("components/notifications/InAppNotificationBannerHost.tsx");
     expect(banner).toContain("markRead: markBannerNotificationRead,");
-    expect(banner).toContain('body: JSON.stringify({ ids }),');
+    expect(banner).toContain('body: JSON.stringify({ ids, opened: true }),');
   });
 
   it("destination screens keep the approved thread read on open (post · order · owner order)", () => {

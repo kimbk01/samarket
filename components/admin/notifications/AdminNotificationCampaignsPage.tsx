@@ -362,6 +362,7 @@ export function AdminNotificationCampaignsPage() {
       stats: r.member_stats ?? null,
       status: r.effective_status ?? r.status,
       sendMode: r.send_mode ?? null,
+      channel: r.channel ?? null,
       recurrence: recurrenceOf(r),
     };
   };
@@ -664,6 +665,16 @@ export function AdminNotificationCampaignsPage() {
                 const num = (n: number | undefined, cls = "") => (
                   <td className={`whitespace-nowrap px-2 py-3 text-right tabular-nums ${cls}`}>{st && !rec ? formatAdminNumber(n ?? 0) : "—"}</td>
                 );
+                // 확정 설계 B-13 — 알림함 전용 알림의 푸시 칸은 0 이 아니라 「해당 없음」
+                const pushNa = r.channel === "in_app_only";
+                const pushNum = (n: number | undefined, cls = "") =>
+                  pushNa ? (
+                    <td className="whitespace-nowrap px-2 py-3 text-right text-[12px] text-sam-muted">
+                      {tx("해당 없음", "N/A")}
+                    </td>
+                  ) : (
+                    num(n, cls)
+                  );
                 const nextAt = r.latest_occurrence?.status === "queued" ? r.latest_occurrence?.scheduled_for ?? null : null;
                 const repeatLine = rec
                   ? `${tx(rec.kind === "daily" ? "매일" : rec.kind === "weekly" ? "매주" : "매월", rec.kind)}${
@@ -725,14 +736,20 @@ export function AdminNotificationCampaignsPage() {
                     </td>
                     {num(st?.target)}
                     {num(st?.inbox)}
-                    {num(st?.push_ok, "text-sam-success")}
-                    {num(st?.push_fail, st && st.push_fail > 0 ? "text-sam-danger" : "")}
-                    {num(st?.push_optout ?? 0)}
-                    {num(st?.push_setting_off ?? 0)}
-                    {num(st?.push_none)}
+                    {pushNum(st?.push_ok, "text-sam-success")}
+                    {pushNum(st?.push_fail, st && st.push_fail > 0 ? "text-sam-danger" : "")}
+                    {pushNum(st?.push_optout ?? 0)}
+                    {pushNum(st?.push_setting_off ?? 0)}
+                    {pushNum(st?.push_none)}
                     {num(st?.opened)}
                     <td className="whitespace-nowrap px-2 py-3">
-                      <SentResultBadge status={status} sendMode={r.send_mode ?? null} stats={st ?? null} ko={ko} />
+                      <SentResultBadge
+                        status={status}
+                        sendMode={r.send_mode ?? null}
+                        stats={st ?? null}
+                        channel={r.channel ?? null}
+                        ko={ko}
+                      />
                     </td>
                     <td className="whitespace-nowrap px-2 py-3">
                       <div className="flex flex-nowrap items-center gap-1">

@@ -398,7 +398,7 @@ export async function scheduleNextRecurringOccurrence(
   if (String(row.send_mode) !== "recurring" || String(row.status) !== "active") return null;
   if (String(row.recurrence_kind) === "none") return null;
 
-  const { getNextOccurrenceSequenceNumber, ensureCampaignOccurrence } = await import(
+  const { loadRecurringOccurrenceProgress, ensureCampaignOccurrence } = await import(
     "@/lib/admin/notification-campaigns/campaign-occurrence-service"
   );
   const { computeNextRecurrenceScheduledFor } = await import(
@@ -412,14 +412,8 @@ export async function scheduleNextRecurringOccurrence(
   );
   const { normalizeSelectedUserIds } = await import("@/lib/admin/notification-campaigns/selected-user-ids");
 
-  const seq = await getNextOccurrenceSequenceNumber(svc, campaignId);
-  const lastSeq = seq - 1;
-  const { data: lastOcc } = await svc
-    .from("admin_notification_campaign_occurrences")
-    .select("scheduled_for, completed_at")
-    .eq("campaign_id", campaignId)
-    .eq("sequence_number", lastSeq)
-    .maybeSingle();
+  // 확정 설계 B-12 — 반복 횟수·직전 시각은 반복 회차만으로(테스트·즉시 회차가 끼면 횟수가 틀렸다).
+  const { nextIndex: seq, last: lastOcc } = await loadRecurringOccurrenceProgress(svc, campaignId);
 
   const after = new Date(
     String((lastOcc as { completed_at?: string; scheduled_for?: string } | null)?.completed_at ??
@@ -468,12 +462,30 @@ export async function scheduleNextRecurringOccurrence(
         : null,
   });
 
+  // 확정 설계 B-13 — 반복 2회차부터도 대상 스냅샷을 넣는다(없으면 목록·상세가 「대상 0」으로 보였다).
+  const { previewCampaignAudience } = await import("@/lib/admin/notification-campaigns/campaign-audience-preview");
+  const { audiencePreviewToSnapshot } = await import("@/lib/admin/notification-campaigns/campaign-occurrence-service");
+  const recurringPayload =
+    row.target_payload && typeof row.target_payload === "object"
+      ? (row.target_payload as { selected_user_ids?: string[] })
+      : null;
+  const audienceSnapshot = await previewCampaignAudience(svc, {
+    type: row.type as "notice" | "marketing" | "system",
+    target_type: String(row.target_type ?? "all"),
+    channel: row.channel as "push_only" | "in_app_only" | "push_and_in_app",
+    segment_region_code: (row.segment_region_code as string | null) ?? null,
+    target_user_ids: normalizeSelectedUserIds(recurringPayload?.selected_user_ids),
+  })
+    .then((p) => audiencePreviewToSnapshot(p, new Date().toISOString()))
+    .catch(() => undefined);
+
   const ensured = await ensureCampaignOccurrence(svc, {
     campaignId,
-    sequenceNumber: seq,
+    ...(audienceSnapshot ? { audienceSnapshot } : {}),
     triggerType: "recurring",
     scheduledFor: next.toISOString(),
-    idempotencyKey: `recurring:${campaignId}:${seq}`,
+    // 같은 반복 시각 = 같은 회차(번호는 DB 배정 · 테스트 회차가 끼어도 겹치지 않음)
+    idempotencyKey: `recurring:${campaignId}:${next.toISOString()}`,
     campaign: snapshot,
   });
 
@@ -487,24 +499,21 @@ export async function scheduleNextRecurringOccurrence(
         ? (row.target_payload as { selected_user_ids?: string[] })
         : null;
     const selectedUserIds = normalizeSelectedUserIds(payload?.selected_user_ids);
-    const mode = selectedUserIds.length
-      ? await ensureCampaignTargetsForSelectedUsers(svc, campaignId, ensured.occurrence.id, selectedUserIds)
-      : "legacy";
-    if (mode === "legacy") {
-      // Pre-migration fallback (legacy unique campaign_id,user_id still present, or no stored
-      // selection): U1-B re-arm of the single per-campaign row, unchanged.
-      await svc
+    // 확정 설계 B-20 — 예전 캠페인 단위 키가 없어졌다(단계 C-2). 이전 회차 행을 새 회차로 **옮기지 않고 복사**한다
+    // (예전엔 옮겨서 1회차 기록이 사라졌다). 저장된 선택이 없으면 이전 회차의 받는 사람으로 새 행을 만든다.
+    let ids = selectedUserIds;
+    if (!ids.length) {
+      const { data: prevRows } = await svc
         .from("admin_notification_campaign_targets")
-        .update({
-          occurrence_id: ensured.occurrence.id,
-          status: "pending",
-          failure_reason: null,
-          skip_reason: null,
-          notification_event_id: null,
-          sent_at: null,
-        })
+        .select("user_id")
         .eq("campaign_id", campaignId)
         .neq("occurrence_id", ensured.occurrence.id);
+      ids = normalizeSelectedUserIds(
+        [...new Set(((prevRows ?? []) as Array<{ user_id?: string }>).map((r) => String(r.user_id ?? "")))].filter(Boolean)
+      );
+    }
+    if (ids.length) {
+      await ensureCampaignTargetsForSelectedUsers(svc, campaignId, ensured.occurrence.id, ids);
     }
   }
 

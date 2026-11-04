@@ -13,7 +13,6 @@ import { createAdminNotificationCampaign } from "@/lib/admin/notification-campai
 import type { CampaignWriteFields } from "@/lib/admin/notification-campaigns/campaign-input";
 import {
   ensureCampaignOccurrence,
-  getNextOccurrenceSequenceNumber,
   newOccurrenceIdempotencyKey,
 } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { evaluateOfficialCampaignSendEligibility } from "@/lib/admin/notification-campaigns/campaign-source-authority";
@@ -161,10 +160,8 @@ export async function runAdminCampaignTestSend(
     // 실제 발송과 같은 묶음 — 글 연결(appNoticeId·content_id)이 빠지면 「알림 읽음 → 글 읽음」이 테스트에서만 달랐다(재감사 C-3)
     target_payload: (camp.target_payload as Record<string, unknown> | null) ?? null,
   });
-  const sequenceNumber = await getNextOccurrenceSequenceNumber(svc, id);
   const ensured = await ensureCampaignOccurrence(svc, {
     campaignId: id,
-    sequenceNumber,
     triggerType: "test",
     idempotencyKey: newOccurrenceIdempotencyKey(idempotencyKey),
     triggeredBy: adminUserId,

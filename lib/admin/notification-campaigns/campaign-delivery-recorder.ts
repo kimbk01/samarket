@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
 import { resolveFinalOccurrenceStatus } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
-import type {
-  CampaignDeliveryChannel,
-  CampaignDeliveryStatus,
+import { readCampaignDeliveries } from "@/lib/admin/notification-campaigns/campaign-list-service";
+import {
+  isCampaignDeliveryReceivedStatus,
+  type CampaignDeliveryChannel,
+  type CampaignDeliveryStatus,
 } from "@/lib/admin/notification-campaigns/campaign-types";
 
 export type RecordCampaignDeliveryInput = {
@@ -45,6 +47,8 @@ export async function recordCampaignDelivery(
       return null;
     }
     console.warn("[recordCampaignDelivery]", error.message);
+    // 확정 설계 B-9 — 기록 실패를 숨기지 않는다: 회차에 건수를 남겨 상세 화면 「기록 실패 N건」으로 보인다.
+    await bumpOccurrenceRecordErrorCount(svc, input.occurrenceId);
     return null;
   }
   return String((data as { id?: string })?.id ?? "") || null;
@@ -55,17 +59,38 @@ export async function recordCampaignDelivery(
  * `opts.terminal` (U1-B): the batch runner's "no targets remain" decision. When provided it is the
  * only completion signal; legacy callers without it keep the previous pending-targets rule.
  */
+async function bumpOccurrenceRecordErrorCount(svc: SupabaseClient, occurrenceId: string): Promise<void> {
+  if (!occurrenceId) return;
+  try {
+    const { data } = await svc
+      .from("admin_notification_campaign_occurrences")
+      .select("record_error_count")
+      .eq("id", occurrenceId)
+      .maybeSingle();
+    const cur = Number((data as { record_error_count?: number } | null)?.record_error_count ?? 0);
+    await svc
+      .from("admin_notification_campaign_occurrences")
+      .update({ record_error_count: (Number.isFinite(cur) ? cur : 0) + 1 })
+      .eq("id", occurrenceId);
+  } catch (e) {
+    console.error("[recordCampaignDelivery] record_error_count", e instanceof Error ? e.message : e);
+  }
+}
+
 export async function refreshOccurrenceMetrics(
   svc: SupabaseClient,
   occurrenceId: string,
   opts?: { terminal?: boolean }
 ): Promise<void> {
-  const { data: rows, error } = await svc
-    .from("notification_campaign_deliveries")
-    .select("channel, status")
-    .eq("occurrence_id", occurrenceId);
-
-  if (error) return;
+  // 확정 설계 B-10 — 1,000행 상한 없이 끝까지 읽는다(목록과 같은 페이지 읽기).
+  // B-9 — 읽기 실패면 완료로 처리하지 않고 로그만 남긴다(다음 배치·다음 호출이 다시 집계).
+  let rows: Array<Record<string, unknown>>;
+  try {
+    rows = await readCampaignDeliveries(svc, [occurrenceId], "channel, status");
+  } catch (e) {
+    console.error("[refreshOccurrenceMetrics] read failed", occurrenceId, e instanceof Error ? e.message : e);
+    return;
+  }
 
   let pushSent = 0;
   let pushSkipped = 0;
@@ -85,7 +110,7 @@ export async function refreshOccurrenceMetrics(
     if (isPush) pushAttempted += 1;
     if (isInApp) inAppAttempted += 1;
 
-    if (s === "sent" || s === "opened") {
+    if (isCampaignDeliveryReceivedStatus(s)) {
       if (isPush) pushSent += 1;
       if (isInApp) inAppSent += 1;
     } else if (s === "skipped") {
@@ -185,6 +210,8 @@ async function syncCampaignAggregateFromOccurrences(
     .from("admin_notification_campaign_occurrences")
     .select("target_member_count, in_app_sent, in_app_skipped, in_app_failed")
     .eq("campaign_id", campaignId)
+    // 확정 설계 B-13 — 캠페인 합계 = 테스트 회차를 뺀 최신 실제 회차
+    .neq("trigger_type", "test")
     .order("sequence_number", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -245,6 +272,7 @@ export async function refreshCampaignDeliveryCounts(
   }
 }
 
+/** 푸시 탭으로 연 경우 — 그 알림의 알림함·푸시 기록을 「열람」으로 (확정 설계 B-1). */
 export async function markCampaignDeliveryOpened(
   svc: SupabaseClient,
   notificationEventId: string
@@ -254,12 +282,12 @@ export async function markCampaignDeliveryOpened(
     .from("notification_campaign_deliveries")
     .update({ status: "opened", opened_at: now, updated_at: now })
     .eq("notification_event_id", notificationEventId)
-    .in("status", ["sent", "pending"]);
+    .in("status", ["sent", "pending", "dismissed"]);
 }
 
 /**
- * 알림함 행을 읽으면(알림함 탭·앱 안 배너 탭·글 열람·푸시 탭 — 모두 `patchInboxNotificationIdsRead`) 그 행이
- * 운영자 알림이면 발송 기록을 「열람」으로 (재감사 A-2). 운영자 알림이 아닌 행은 걸리는 기록이 없어 아무것도 안 바뀐다.
+ * 앱 안에서 알림을 눌러 연 경우(알림함 행·종 팝업 행·앱 안 배너·알림 상세 — `opened: true`) 그 알림의
+ * **알림함 기록만** 「열람」으로 (확정 설계 B-1). 푸시 기록은 푸시를 눌렀을 때만 바뀐다.
  */
 export async function markCampaignDeliveriesOpenedForEvents(
   svc: SupabaseClient,
@@ -272,6 +300,7 @@ export async function markCampaignDeliveriesOpenedForEvents(
     .from("notification_campaign_deliveries")
     .update({ status: "opened", opened_at: now, updated_at: now })
     .in("notification_event_id", ids)
+    .eq("channel", "in_app")
     .in("status", ["sent", "pending"]);
 }
 
@@ -306,5 +335,7 @@ export async function markCampaignDeliveryDismissed(
     .from("notification_campaign_deliveries")
     .update({ status: "dismissed", updated_at: now })
     .eq("notification_event_id", notificationEventId)
-    .in("status", ["sent", "pending", "opened"]);
+    .eq("channel", "push")
+    // 확정 설계 B-17 — 이미 연 기록(opened)은 덮지 않는다. 닫음 = 받음(집계에서 성공).
+    .in("status", ["sent", "pending"]);
 }

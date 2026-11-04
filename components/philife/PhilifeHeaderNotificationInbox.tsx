@@ -845,7 +845,8 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-  const markIdsRead = useCallback(async (ids: string[]) => {
+  /** `opened` = 행을 눌러 연 경우만 (운영자 알림 열람 기록 · 확정 설계 B-1). 밀어서 읽음은 보내지 않는다. */
+  const markIdsRead = useCallback(async (ids: string[], opts?: { opened?: boolean }) => {
 
     if (ids.length === 0) return;
 
@@ -860,7 +861,7 @@ export function PhilifeHeaderNotificationInbox({
 
       headers: { "Content-Type": "application/json" },
 
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify(opts?.opened ? { ids, opened: true } : { ids }),
 
     });
 
@@ -907,7 +908,7 @@ export function PhilifeHeaderNotificationInbox({
         prewarmInboxNotificationChatHref(router, resolvedHref);
       },
       unreadIds: item.unreadCount > 0 ? item.ids : [],
-      markRead: markIdsRead,
+      markRead: (ids) => markIdsRead(ids, { opened: true }),
     });
     invalidateMeNotificationsListDedupedCache();
   };

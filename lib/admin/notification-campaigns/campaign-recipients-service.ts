@@ -3,6 +3,7 @@
  * 한 줄 = 회원 1명. 숫자 요약은 목록과 같은 계산(`memberOutcomes`·`memberStatsFromOutcomes`).
  */
 import "server-only";
+import { isCampaignDeliveryReceivedStatus } from "@/lib/admin/notification-campaigns/campaign-types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   memberOutcomes,
@@ -158,7 +159,7 @@ export async function loadCampaignRecipients(
     const o = outcomes.get(uid)!;
     const inApp = list.filter((d) => d.channel === "in_app");
     const push = list.filter((d) => d.channel === "push");
-    const inboxRow = inApp.find((d) => d.status === "sent" || d.status === "opened");
+    const inboxRow = inApp.find((d) => isCampaignDeliveryReceivedStatus(d.status));
     const openedAts = list.map((d) => d.opened_at).filter((v): v is string => typeof v === "string").sort();
     const eventIds = [...new Set(push.map((d) => String(d.notification_event_id ?? "")).filter(Boolean))];
     all.push({
@@ -168,7 +169,7 @@ export async function loadCampaignRecipients(
       inbox_at: inboxRow ? inboxRow.sent_at ?? inboxRow.created_at ?? null : null,
       devices: new Set(push.map((d) => String(d.device_id ?? "")).filter(Boolean)).size,
       push: o.pushOk ? "ok" : o.pushFail ? "fail" : o.optOut ? "optout" : o.settingOff ? "off" : "none",
-      push_ok_devices: push.filter((d) => d.status === "sent" || d.status === "opened").length,
+      push_ok_devices: push.filter((d) => isCampaignDeliveryReceivedStatus(d.status)).length,
       push_fail_devices: push.filter((d) => d.status === "failed").length,
       skip_reasons: [...new Set(list.filter((d) => d.status === "skipped").map((d) => String(d.skip_reason ?? "")).filter(Boolean))],
       failures: eventIds.flatMap((id) => failuresByEvent.get(id) ?? []),

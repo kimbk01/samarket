@@ -115,7 +115,8 @@ export default function NotificationDetailPage() {
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ids: [found.id] }),
+            // 상세를 연 것 = 실제 열람 (운영자 알림 열람 기록 · 확정 설계 B-1)
+            body: JSON.stringify({ ids: [found.id], opened: true }),
           });
           const body = (await res.json().catch(() => ({}))) as { ok?: boolean };
           if (body?.ok) {

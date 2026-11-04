@@ -323,7 +323,8 @@ function ownerStoreIdsFromInboxRows(rows: readonly InboxNotificationRow[]): stri
 export async function patchInboxNotificationIdsRead(
   sb: SupabaseClient,
   userId: string,
-  ids: string[]
+  ids: string[],
+  opts?: { campaignOpened?: boolean }
 ): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
   const unique = [...new Set(ids.map((x) => x.trim()).filter(Boolean))];
   if (unique.length === 0) {
@@ -370,11 +371,14 @@ export async function patchInboxNotificationIdsRead(
   // Temporary adapter is read-only; backfill before mutating historical rows.
   void legacyIds;
 
-  // 재감사 2026-11-03 A-2 — 어느 화면에서 읽든 운영자 알림 발송 기록에 「열람」을 남긴다.
-  await markCampaignDeliveriesOpenedForEvents(
-    sb,
-    eventRows.map((r) => r.id)
-  ).catch(() => undefined);
+  // 확정 설계 B-1 — 운영자 알림 「열람」은 회원이 알림을 눌러 연 경우(`campaignOpened`)만. 밀어서 읽음·모두 읽음·
+  // 고객센터 글 읽음·업데이트 보고는 읽음만 하고 열람으로 세지 않는다.
+  if (opts?.campaignOpened === true) {
+    await markCampaignDeliveriesOpenedForEvents(
+      sb,
+      eventRows.map((r) => r.id)
+    ).catch(() => undefined);
+  }
 
   // 재감사 2026-11-02 M2 — 알림을 읽으면 그 알림이 가리키는 고객센터 글도 읽음(글 → 알림 방향의 짝).
   await recordCustomerCenterContentViewsForNotificationIds(

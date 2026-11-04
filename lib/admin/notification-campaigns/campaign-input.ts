@@ -15,7 +15,11 @@ import { pickCampaignMetaKeys } from "@/lib/admin/notification-campaigns/campaig
  */
 
 export const CAMPAIGN_INPUT_TYPES = new Set(["notice", "marketing", "system"]);
-export const CAMPAIGN_INPUT_TARGETS = new Set(["all", "selected_users", "marketing_opt_in", "active_users", "region"]);
+/**
+ * 새로 쓰는 대상. `marketing_opt_in` 은 새 작성에서 받지 않는다(동의는 푸시 판정에서만 · Owner 2026-11-03) —
+ * 예전 행(이벤트 배포 푸시 초안 등) 수정 때만 `keepLegacyMarketingOptIn` 으로 유지 (확정 설계 B-16).
+ */
+export const CAMPAIGN_INPUT_TARGETS = new Set(["all", "selected_users", "active_users", "region"]);
 
 export type CampaignWriteBody = {
   title?: unknown;
@@ -80,7 +84,7 @@ export function optionalCampaignUrl(v: unknown, max = 2000): string | null {
 
 export function parseCampaignWriteInput(
   body: CampaignWriteBody,
-  opts?: { hasOwnTargetPayload?: boolean; keepLegacyPushOnly?: boolean }
+  opts?: { hasOwnTargetPayload?: boolean; keepLegacyPushOnly?: boolean; keepLegacyMarketingOptIn?: boolean }
 ): { ok: true; fields: CampaignWriteFields } | CampaignInputError {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const content = typeof body.body === "string" ? body.body.trim() : "";
@@ -92,10 +96,13 @@ export function parseCampaignWriteInput(
     : "push_and_in_app";
   /**
    * 「푸시만」은 새 알림에서 쓰지 않는다 — 알림함 = 대상 전원(Owner 2026-11-03) · 앱이 열린 iPhone 은
-   * OS 알림을 숨겨 알림함 행이 없으면 아무것도 안 보인다(재감사 B-2). 예전 push_only 알림 수정만 유지.
+   * OS 알림을 숨겨 알림함 행이 없으면 아무것도 안 보인다(재감사 B-2). 조용히 바꾸지 않고 거부한다(확정 설계 B-3).
+   * 예전 push_only 행(이벤트 배포 푸시 초안) 수정만 유지.
    */
-  const channel: CampaignChannel =
-    channelParsed === "push_only" && !opts?.keepLegacyPushOnly ? "push_and_in_app" : channelParsed;
+  if (channelParsed === "push_only" && !opts?.keepLegacyPushOnly) {
+    return { ok: false, status: 400, error: "push_only_retired" };
+  }
+  const channel: CampaignChannel = channelParsed;
 
   const sendModeRaw = typeof body.send_mode === "string" ? body.send_mode.trim() : "immediate";
   const send_mode = (CAMPAIGN_SEND_MODES as readonly string[]).includes(sendModeRaw)
@@ -113,7 +120,10 @@ export function parseCampaignWriteInput(
       message: "Segment targeting is not supported yet. Choose another audience.",
     };
   }
-  if (!CAMPAIGN_INPUT_TARGETS.has(targetType)) {
+  if (targetType === "marketing_opt_in" && !opts?.keepLegacyMarketingOptIn) {
+    return { ok: false, status: 400, error: "marketing_opt_in_retired" };
+  }
+  if (!CAMPAIGN_INPUT_TARGETS.has(targetType) && targetType !== "marketing_opt_in") {
     return { ok: false, status: 400, error: "invalid_target_type" };
   }
 

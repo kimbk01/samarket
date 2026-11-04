@@ -65,7 +65,10 @@ export type CampaignAudienceFilter = (typeof CAMPAIGN_AUDIENCE_FILTERS)[number];
 export const CAMPAIGN_RESULT_FILTERS = ["fail", "ok"] as const;
 export type CampaignResultFilter = (typeof CAMPAIGN_RESULT_FILTERS)[number];
 
-export type CampaignResultMemberStats = { push_fail: number; push_none: number } | null | undefined;
+export type CampaignResultMemberStats =
+  | { push_fail: number; push_none: number; target?: number; inbox?: number }
+  | null
+  | undefined;
 
 export type CampaignResultBadge =
   | "pending"
@@ -73,6 +76,10 @@ export type CampaignResultBadge =
   | "fail"
   | "none"
   | "ok"
+  /** 받는 사람 0명 회차 — 「전부 성공」 아님 (확정 설계 B-13) */
+  | "empty"
+  /** 알림함 전용 알림 — 푸시는 해당 없음 (B-13) */
+  | "inbox_only"
   | "status";
 
 /**
@@ -83,12 +90,19 @@ export function campaignResultBadge(input: {
   status: string;
   sendMode?: string | null;
   stats: CampaignResultMemberStats;
+  /** 캠페인 채널 — 알림함 전용이면 푸시 결과를 보지 않는다 */
+  channel?: string | null;
 }): CampaignResultBadge {
   const s = input.status;
   if (s === "sending") return "pending";
   if (input.sendMode === "recurring" && (s === "active" || s === "paused")) return "repeating";
   if (s === "sent" || s === "partially_failed" || s === "failed") {
     if (!input.stats) return "pending";
+    if (input.stats.target === 0) return "empty";
+    if (input.channel === "in_app_only") {
+      const target = input.stats.target ?? 0;
+      return (input.stats.inbox ?? target) < target ? "fail" : "inbox_only";
+    }
     if (input.stats.push_fail > 0) return "fail";
     if (input.stats.push_none > 0) return "none";
     return "ok";

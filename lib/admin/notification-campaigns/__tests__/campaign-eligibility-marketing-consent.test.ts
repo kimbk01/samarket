@@ -6,29 +6,14 @@ import { describe, expect, it } from "vitest";
 import {
   campaignPushSkipReasonFromDecision,
   decideCampaignPushFromPreferences,
-  evaluateCampaignUserEligibility,
-  type SettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import { normalizeNotificationPreferenceStorage } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
 
 /** 12:00 PHT — 방해금지 00:00~23:59 안 */
 const NOW = new Date("2026-11-03T04:00:00.000Z");
 
-function maps(
-  notif: Record<string, Record<string, boolean>>,
-  prefs: Record<string, Record<string, boolean>> = {}
-): SettingsMaps {
-  return { notif: new Map(Object.entries(notif)), prefs: new Map(Object.entries(prefs)) };
-}
-
-describe("알림함 = 전원", () => {
-  it.each(["notice", "system", "marketing"] as const)("%s — 동의·설정 없어도 알림함 대상", (type) => {
-    expect(evaluateCampaignUserEligibility(type, "u1", maps({}))).toEqual({ eligible: true, skipReason: null });
-    expect(
-      evaluateCampaignUserEligibility(type, "u1", maps({ u1: { marketing_enabled: false, service_enabled: false } }))
-    ).toEqual({ eligible: true, skipReason: null });
-  });
-});
+// 「알림함 = 전원」: 회원별 알림함 거르기 함수(항상 참)는 삭제했다(확정 설계 B-4) — 발송 배치는 회원을 거르지 않고
+// `sendCampaignToUser` 의 푸시 게이트만 회원 설정을 본다(run-campaign-send-batch 테스트가 검증).
 
 function prefs(
   notificationSettingsRow: Record<string, unknown> | null,

@@ -1,9 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { upsertCampaignTargetRows } from "@/lib/admin/notification-campaigns/campaign-target-rows";
-import {
-  evaluateCampaignPushGate,
-  type SettingsMaps,
-} from "@/lib/admin/notification-campaigns/campaign-eligibility";
+import { evaluateCampaignPushGate } from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import { recordCampaignDelivery } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
@@ -46,7 +43,9 @@ async function recordUserTargetStatus(
     sent_at: status === "sent" ? opts?.sentAt ?? new Date().toISOString() : null,
     occurrence_id: occurrenceId,
   };
-  await upsertCampaignTargetRows(svc, [{ campaign_id: campaign.id, user_id: userId, ...patch }]);
+  // 확정 설계 B-9 — 대상 기록 실패를 숨기지 않는다(숨기면 같은 대기 행을 매 배치 다시 읽음). 호출한 배치가 실패로 본다.
+  const { error } = await upsertCampaignTargetRows(svc, [{ campaign_id: campaign.id, user_id: userId, ...patch }]);
+  if (error) throw new Error(`campaign_target_write_failed:${error.message ?? "unknown"}`);
 }
 
 function storedRouteUrl(displayPayload: unknown): string | null {
@@ -64,7 +63,6 @@ export async function sendCampaignToUser(
   campaign: AdminNotificationCampaignRow,
   occurrenceId: string,
   userId: string,
-  maps: SettingsMaps,
   opts?: { forceChannel?: CampaignChannel; skipDuplicateCheck?: boolean; dedupeScope?: "campaign" | "occurrence" }
 ): Promise<CampaignUserSendResult> {
   const channel = opts?.forceChannel ?? campaign.channel;
@@ -233,14 +231,8 @@ export async function sendCampaignToUser(
     } else {
       // (R-4 2026-11-03) 기기 알림 권한 「꺼짐」 분기 삭제 — 그 값을 쓰는 앱 코드가 없고, 「건너뜀」 기록 뒤에도
       // dispatchPushForUser 가 그 기기로 실제 발송해 기록이 실제와 어긋났다. 사유 라벨은 예전 기록 표시용으로 남긴다.
-      const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
-        () => null
-      );
-      const badgeCount = resolveMemberAppIconTotalForNativeFcm({
-        memberAppIconWebTotal: domain?.memberAppIconWebTotal,
-        appIconTotal: domain?.projection?.appIconTotal,
-      });
-      const pushPresentation = buildAdminCampaignNotificationPresentation(
+      const buildPushPayload = (badgeCount: number | undefined) =>
+        buildAdminCampaignNotificationPresentation(
         {
           title: campaign.title,
           body: campaign.body,
@@ -273,10 +265,10 @@ export async function sendCampaignToUser(
           occurredAt: now,
           occurrenceId,
         }
-      );
-      const pushPayload = pushPresentation.pushPayload;
+      ).pushPayload;
 
-      const gate = await evaluateCampaignPushGate(svc, userId, pushPayload, campaign.type);
+      // 확정 설계 B-8 — 수신 설정 판정(게이트)을 먼저: 막힌 회원에게 배지 계산(조회 6번)을 하지 않는다.
+      const gate = await evaluateCampaignPushGate(svc, userId, buildPushPayload(undefined), campaign.type);
       if (!gate.allowed) {
         lastSkipReason = gate.skipReason ?? "user_setting_blocked";
         await recordCampaignDelivery(svc, {
@@ -290,6 +282,15 @@ export async function sendCampaignToUser(
         });
       } else {
         pushAttempted = true;
+        // 배지 계산 실패 → 숫자를 싣지 않음(기기 숫자 유지). 0 으로 보내지 않는다.
+        const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(() => null);
+        const badgeCount = domain
+          ? resolveMemberAppIconTotalForNativeFcm({
+              memberAppIconWebTotal: domain.memberAppIconWebTotal,
+              appIconTotal: domain.projection?.appIconTotal,
+            })
+          : undefined;
+        const pushPayload = buildPushPayload(badgeCount);
         const pushResult = await dispatchPushForUser(withPushSoundMode(pushPayload, gate.soundMode ?? null), {
           target_type: "admin_campaign",
           target_id: campaign.id,
@@ -330,8 +331,8 @@ export async function sendCampaignToUser(
         }
 
         if (!pushResult.deliveries.length) {
-          // 발송 스위치 꺼짐과 기기 없음은 다른 원인 — 어드민 사유를 나눠 기록 (재감사 A-4)
-          const emptyReason = pushResult.skipped_reason === "dispatch_disabled" ? "dispatch_disabled" : "token_missing";
+          // 발송 스위치 꺼짐·서버 설정 오류·기기 없음은 다른 원인 — dispatch 사유를 그대로 기록 (확정 설계 B-5).
+          const emptyReason = pushResult.skipped_reason?.trim() || "token_missing";
           lastSkipReason = emptyReason;
           await recordCampaignDelivery(svc, {
             campaignId: campaign.id,

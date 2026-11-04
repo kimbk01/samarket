@@ -31,11 +31,12 @@ export default async function AuthOnboardingTermsPage({
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   const [required, marketingDoc] = await Promise.all([resolveRequiredConsentVersions(), loadMarketingConsentDoc()]);
   // 혜택·이벤트 선택 동의는 한 번도 기록이 없는 회원(신규 가입)에게만 — 약관 개정 재동의 때 기존 선택을 덮지 않는다.
-  // 조회 오류면 묻지 않는다(기존 선택을 덮지 않기 위해 · 재감사 D-4) — 다음 방문 때 다시 판단.
+  // 조회 오류면 **보여 준다**(확정 설계 B-14): 저장 API 가 다시 읽어 기록이 있으면 덮지 않는다. 숨기면 필수 동의만
+  // 저장돼 이 회원에게 다시는 묻지 않게 된다.
   let askMarketing = false;
   if (readSb) {
     const read = await readMemberMarketingConsent(readSb, user.id);
-    askMarketing = read.ok && read.consent?.source == null;
+    askMarketing = !read.ok || read.consent?.source == null;
   }
   if (readSb) {
     const profile = await fetchProfileRowSafe(readSb, user.id);

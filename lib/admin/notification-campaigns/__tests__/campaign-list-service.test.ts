@@ -30,9 +30,11 @@ describe("ADM-05 list service", () => {
       if (c.table === "notification_campaign_deliveries") {
         return {
           data: [
-            { occurrence_id: "o2", channel: "push" },
-            { occurrence_id: "o2", channel: "in_app" },
-            { occurrence_id: "o2", channel: "in_app" },
+            // 확정 설계 B-1 — 열람 = 회원 수: 같은 회원 기기 2대 푸시 열람은 1명
+            { occurrence_id: "o2", channel: "push", user_id: "m1" },
+            { occurrence_id: "o2", channel: "push", user_id: "m1" },
+            { occurrence_id: "o2", channel: "in_app", user_id: "m1" },
+            { occurrence_id: "o2", channel: "in_app", user_id: "m2" },
           ],
         };
       }

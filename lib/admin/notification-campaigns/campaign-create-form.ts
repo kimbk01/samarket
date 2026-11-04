@@ -143,6 +143,18 @@ const ERROR_COPY: Record<string, { ko: string; en: string }> = {
   user_ids_required: { ko: "테스트로 받을 계정이 없습니다.", en: "No test recipient." },
   scheduled_at_must_be_future: { ko: "예약 시각은 지금 이후여야 합니다.", en: "The scheduled time must be in the future." },
   invalid_target_type: { ko: "받는 사람 선택이 올바르지 않습니다.", en: "Invalid audience." },
+  push_only_retired: {
+    ko: "「푸시만」 보내기는 없어졌습니다. 「알림함+푸시」로 보내 주세요.",
+    en: "Push-only is retired. Send as inbox + push.",
+  },
+  marketing_opt_in_retired: {
+    ko: "「광고 수신 동의 회원」 대상은 없어졌습니다. 동의는 푸시를 보낼 때 자동으로 확인합니다.",
+    en: "The opt-in audience is retired. Consent is checked when sending push.",
+  },
+  push_preview_failed: {
+    ko: "푸시 받을 인원을 계산하지 못했습니다. 다시 시도해 주세요.",
+    en: "Could not count push recipients. Please try again.",
+  },
   invalid_fields: { ko: "입력값을 확인하세요.", en: "Check the fields." },
   occurrence_already_exists: { ko: "이미 발송했거나 발송 중인 알림입니다.", en: "Already sent or sending." },
   occurrence_already_sending: { ko: "이미 발송 중입니다.", en: "Already sending." },

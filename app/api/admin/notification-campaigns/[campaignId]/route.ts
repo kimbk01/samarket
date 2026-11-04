@@ -224,6 +224,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ campaignI
     const parsed = parseCampaignWriteInput(merged.body, {
       hasOwnTargetPayload: merged.hasOwnTargetPayload,
       keepLegacyPushOnly: loaded.row.channel === "push_only",
+      keepLegacyMarketingOptIn: loaded.row.target_type === "marketing_opt_in",
     });
     if (!parsed.ok) {
       return NextResponse.json(

@@ -171,7 +171,8 @@ export function AdminNotificationCampaignCreatePage({
   const [soundOpen, setSoundOpen] = useState(false);
   const [soundReload, setSoundReload] = useState(0);
   /** ③ 받는 사람 — 알림함(전원) · 푸시(기기 있고 동의·설정 통과) 인원 */
-  const [audienceCount, setAudienceCount] = useState<{ inbox: number; push: number } | null>(null);
+  const [audienceCount, setAudienceCount] = useState<{ inbox: number; push: number; pushFailed: boolean } | null>(null);
+  const [audienceRetry, setAudienceRetry] = useState(0);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   // 알림 최종 설계 D1 (Owner 승인 2026-11-01): 기본 목적지 = 고객센터 글 (「알림 내용 보기」 폐지).
@@ -402,18 +403,28 @@ export function AdminNotificationCampaignCreatePage({
         }),
       })
         .then((r) => r.json())
-        .then((j: { ok?: boolean; audience?: { inAppEligibleUsers?: number; pushEligibleUsers?: number } }) => {
-          if (!cancelled && j.ok && typeof j.audience?.inAppEligibleUsers === "number") {
-            setAudienceCount({ inbox: j.audience.inAppEligibleUsers, push: j.audience.pushEligibleUsers ?? 0 });
+        .then(
+          (j: {
+            ok?: boolean;
+            audience?: { inAppEligibleUsers?: number; pushEligibleUsers?: number; pushPreviewFailed?: boolean };
+          }) => {
+            if (!cancelled && j.ok && typeof j.audience?.inAppEligibleUsers === "number") {
+              setAudienceCount({
+                inbox: j.audience.inAppEligibleUsers,
+                push: j.audience.pushEligibleUsers ?? 0,
+                // 확정 설계 B-4 — 설정을 못 읽으면 0·추정치 대신 「계산 실패」
+                pushFailed: j.audience.pushPreviewFailed === true,
+              });
+            }
           }
-        })
+        )
         .catch(() => undefined);
     }, 400);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [type, targetType, channel, regionCode, audienceUserIdsKey]);
+  }, [type, targetType, channel, regionCode, audienceUserIdsKey, audienceRetry]);
   const soundLabel = useCategorySoundLabel(category, lang === "ko", soundReload);
   const deeplink =
     destination === "post" && post
@@ -1075,11 +1086,26 @@ export function AdminNotificationCampaignCreatePage({
               <b data-admin-notif-audience-count>
                 {audienceCount == null
                   ? tx("계산 중…", "Counting…")
-                  : tx(
+                  : audienceCount.pushFailed
+                    ? tx(
+                        `알림함 ${formatAdminNumber(audienceCount.inbox)}명 · 푸시 인원 계산 실패`,
+                        `Inbox ${formatAdminNumber(audienceCount.inbox)} · Push count failed`
+                      )
+                    : tx(
                       `알림함 ${formatAdminNumber(audienceCount.inbox)}명 · 푸시 ${formatAdminNumber(audienceCount.push)}명${type === "marketing" ? "(수신 동의 회원)" : ""}`,
                       `Inbox ${formatAdminNumber(audienceCount.inbox)} · Push ${formatAdminNumber(audienceCount.push)}${type === "marketing" ? " (opted in)" : ""}`
                     )}
               </b>
+              {audienceCount?.pushFailed ? (
+                <AdminActionButton
+                  variant="secondary"
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => setAudienceRetry((n) => n + 1)}
+                >
+                  {tx("다시 시도", "Retry")}
+                </AdminActionButton>
+              ) : null}
             </span>
             <span className="flex items-center gap-2" data-admin-notif-sound>
               {tx("알림음", "Sound")}: <b>{soundLabel ?? "—"}</b>

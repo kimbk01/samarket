@@ -12,7 +12,7 @@ import {
 import type { CampaignWriteFields } from "@/lib/admin/notification-campaigns/campaign-input";
 import {
   audiencePreviewToSnapshot,
-  getNextOccurrenceSequenceNumber,
+  loadRecurringOccurrenceProgress,
   newOccurrenceIdempotencyKey,
 } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { previewCampaignAudience } from "@/lib/admin/notification-campaigns/campaign-audience-preview";
@@ -728,7 +728,7 @@ export async function scheduleDraftCampaign(
   });
   const selected =
     String(row.target_type ?? "") === "selected_users" ? readSelectedUserIdsFromPayload(row.target_payload) : [];
-  const seq = await getNextOccurrenceSequenceNumber(svc, campaignId);
+  const recurring = await loadRecurringOccurrenceProgress(svc, campaignId);
   const payload =
     row.target_payload && typeof row.target_payload === "object" && !Array.isArray(row.target_payload)
       ? (row.target_payload as Record<string, unknown>)
@@ -736,8 +736,8 @@ export async function scheduleDraftCampaign(
   const created = await createCampaignDispatchOccurrence(svc, {
     campaignId,
     adminUserId: actorId,
-    sequenceNumber: seq,
-    idempotencyKey: newOccurrenceIdempotencyKey(`occ:${campaignId}:${seq}`),
+    recurrenceIndex: recurring.nextIndex,
+    idempotencyKey: newOccurrenceIdempotencyKey(`occ:${campaignId}`),
     snapshot: snapshotFromPatch({ ...row, target_payload: payload }),
     audience: {
       type: row.type as "notice" | "marketing" | "system",

@@ -91,6 +91,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
     ...(userIds ? { target_type: "selected_users", target_user_ids: userIds } : {}),
   };
   const merged = mergeCampaignPatchOverRow(r, patch);
+  // 확정 설계 B-3·B-16 — 다시 보내기 = 새 알림. 예전 「푸시만」·「동의 회원」은 지금 규칙(알림함+푸시 · 전원, 동의는 푸시 판정)으로.
+  if (merged.body.channel === "push_only") merged.body.channel = "push_and_in_app";
+  if (merged.body.target_type === "marketing_opt_in") merged.body.target_type = "all";
   if (userIds) {
     const payload = (merged.body.target_payload && typeof merged.body.target_payload === "object"
       ? { ...(merged.body.target_payload as Record<string, unknown>) }

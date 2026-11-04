@@ -65,7 +65,10 @@ function BannerImage({ item }: { item: InAppNotificationBannerItem }) {
  * 통화 오버레이보다 낮은 z-index (`IncomingCallOverlay` 가 위).
  */
 
-/** 종 팝업 `markIdsRead` 와 같은 서버 경로(PATCH ids) — 읽음 범위는 서버 단일 함수가 정한다 */
+/**
+ * 종 팝업 `markIdsRead` 와 같은 서버 경로(PATCH ids) — 읽음 범위는 서버 단일 함수가 정한다.
+ * 배너는 탭(열기)으로만 읽음 → `opened: true` (운영자 알림 열람 기록 · 확정 설계 B-1).
+ */
 async function markBannerNotificationRead(ids: string[]): Promise<boolean> {
   if (ids.length === 0) return true;
   try {
@@ -73,7 +76,7 @@ async function markBannerNotificationRead(ids: string[]): Promise<boolean> {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ ids, opened: true }),
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
     if (!res.ok || !j?.ok) return false;

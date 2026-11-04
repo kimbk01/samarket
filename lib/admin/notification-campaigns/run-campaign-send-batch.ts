@@ -3,19 +3,15 @@ import {
   upsertCampaignTargetRows,
   type CampaignTargetWriteMode,
 } from "@/lib/admin/notification-campaigns/campaign-target-rows";
-import {
-  evaluateCampaignUserEligibility,
-  loadCampaignSettingsMaps,
-} from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import { campaignRowFromContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-content-snapshot";
-import {
-  recordCampaignDelivery,
-  refreshOccurrenceMetrics,
-} from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
+import { refreshOccurrenceMetrics } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import type { AdminNotificationCampaignOccurrenceRow, CampaignContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
 import { sendCampaignToUser } from "@/lib/admin/notification-campaigns/campaign-send-user";
-import { fetchCampaignProfileScanSlice } from "@/lib/admin/notification-campaigns/campaign-target-scan";
+import {
+  campaignActiveUsersSince,
+  fetchCampaignProfileScanSlice,
+} from "@/lib/admin/notification-campaigns/campaign-target-scan";
 import type { AdminNotificationCampaignRow, CampaignStatus } from "@/lib/admin/notification-campaigns/campaign-types";
 import {
   canTransitionCampaignStatus,
@@ -166,10 +162,20 @@ export async function runNotificationCampaignSendBatch(
 
   const now = new Date().toISOString();
 
-  if (occurrence.status !== "sending") {
+  // 확정 설계 B-11 — `active_users` 기준 시각은 회차 시작 때 1회 고정(배치마다 다시 계산하지 않음).
+  const activeSince =
+    campaign.target_type === "active_users"
+      ? occurrence.active_since ?? campaignActiveUsersSince(new Date(now))
+      : null;
+  if (occurrence.status !== "sending" || (activeSince && !occurrence.active_since)) {
     await svc
       .from("admin_notification_campaign_occurrences")
-      .update({ status: "sending", started_at: occurrence.started_at ?? now, updated_at: now })
+      .update({
+        status: "sending",
+        started_at: occurrence.started_at ?? now,
+        ...(activeSince && !occurrence.active_since ? { active_since: activeSince } : {}),
+        updated_at: now,
+      })
       .eq("id", occurrenceId);
   }
   // ADM-09: only statuses whose transition table allows `sending` (recurring stays active).
@@ -184,6 +190,7 @@ export async function runNotificationCampaignSendBatch(
 
   let scannedRaw: string[] = [];
   let nextOffset = occurrence.send_progress_offset ?? 0;
+  let nextCursor: string | null = occurrence.send_progress_cursor ?? null;
 
   if (campaign.target_type === "selected_users") {
     const { data: pending, error: pErr } = await svc
@@ -200,8 +207,9 @@ export async function runNotificationCampaignSendBatch(
   } else {
     // U1-B: a failed scan is an error, never "no more targets".
     try {
-      scannedRaw = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, NOTIFICATION_CAMPAIGN_BATCH_SIZE, {
+      scannedRaw = await fetchCampaignProfileScanSlice(svc, campaign, nextCursor, NOTIFICATION_CAMPAIGN_BATCH_SIZE, {
         throwOnError: true,
+        activeSince,
       });
     } catch {
       return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: false, error: "target_scan_failed" };
@@ -211,6 +219,7 @@ export async function runNotificationCampaignSendBatch(
       return { ok: true, processed: 0, sent: 0, skipped: 0, failed: 0, done: true };
     }
     nextOffset += scannedRaw.length;
+    nextCursor = scannedRaw[scannedRaw.length - 1] ?? nextCursor;
   }
 
   // U1-B: per-user idempotency for scan re-runs (lease expiry / killed process). Users already
@@ -232,46 +241,38 @@ export async function runNotificationCampaignSendBatch(
   }
   const dedupeScope = String(occurrence.trigger_type ?? "") === "recurring" ? "occurrence" : "campaign";
 
-  const maps = await loadCampaignSettingsMaps(svc, scannedRaw);
-
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
+  // 알림함은 대상 전원(Owner 2026-11-03) — 회원별 수신 판정은 `sendCampaignToUser` 의 푸시 게이트 1곳.
   for (const userId of scannedRaw) {
     if (alreadyProcessed.has(userId)) continue;
-    const eligibility = evaluateCampaignUserEligibility(campaign.type, userId, maps);
-    if (!eligibility.eligible) {
-      skipped += 1;
-      const reason = eligibility.skipReason ?? "policy_filtered";
-      await recordCampaignDelivery(svc, {
-        campaignId: campaign.id,
-        occurrenceId,
-        userId,
-        channel: "in_app",
-        status: "skipped",
-        skipReason: reason,
-      });
-      await upsertCampaignTargetRows(svc, [
+    try {
+      const result =
+        dedupeScope === "occurrence"
+          ? await sendCampaignToUser(svc, campaign, occurrenceId, userId, { dedupeScope })
+          : await sendCampaignToUser(svc, campaign, occurrenceId, userId);
+      if (result.sent) sent += 1;
+      else if (result.skipped) skipped += 1;
+      else if (result.failed) failed += 1;
+    } catch (e) {
+      // 확정 설계 B-9 — 한 회원의 오류가 배치 전체를 멈추지 않는다: 그 회원을 「실패」로 기록해 받은 사람 창에 보인다.
+      // 실패 기록마저 못 쓰면 배치를 멈춘다(위치를 저장하지 않으므로 다음 실행이 이 회원부터 다시 처리).
+      console.error("[campaign send batch] user failed", userId, e instanceof Error ? e.message : e);
+      const { error: markErr } = await upsertCampaignTargetRows(svc, [
         {
           campaign_id: campaign.id,
           occurrence_id: occurrenceId,
           user_id: userId,
-          status: "skipped",
-          failure_reason: reason,
-          skip_reason: reason,
+          status: "failed",
+          failure_reason: "send_exception",
+          skip_reason: "send_exception",
         },
       ]);
-      continue;
+      if (markErr) throw e;
+      failed += 1;
     }
-
-    const result =
-      dedupeScope === "occurrence"
-        ? await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps, { dedupeScope })
-        : await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps);
-    if (result.sent) sent += 1;
-    else if (result.skipped) skipped += 1;
-    else if (result.failed) failed += 1;
   }
 
   const processed = scannedRaw.length;
@@ -291,12 +292,12 @@ export async function runNotificationCampaignSendBatch(
   } else {
     let peek: string[] = [];
     try {
-      peek = await fetchCampaignProfileScanSlice(svc, campaign, nextOffset, 1, { throwOnError: true });
+      peek = await fetchCampaignProfileScanSlice(svc, campaign, nextCursor, 1, { throwOnError: true, activeSince });
     } catch {
-      // progress so far is persisted below via offset; next run resumes
+      // progress so far is persisted below via cursor; next run resumes
       await svc
         .from("admin_notification_campaign_occurrences")
-        .update({ send_progress_offset: nextOffset, updated_at: now })
+        .update({ send_progress_offset: nextOffset, send_progress_cursor: nextCursor, updated_at: now })
         .eq("id", occurrenceId);
       return { ok: false, processed: scannedRaw.length, sent, skipped, failed, done: false, error: "target_scan_failed" };
     }
@@ -308,6 +309,7 @@ export async function runNotificationCampaignSendBatch(
     .from("admin_notification_campaign_occurrences")
     .update({
       send_progress_offset: nextOffset,
+      send_progress_cursor: nextCursor,
       updated_at: now,
     })
     .eq("id", occurrenceId);
@@ -347,7 +349,6 @@ export async function runNotificationCampaignTestSend(
       .eq("id", occurrenceId);
   }
 
-  const maps = await loadCampaignSettingsMaps(svc, userIds);
   let sent = 0;
   let skipped = 0;
   let failed = 0;
@@ -355,16 +356,34 @@ export async function runNotificationCampaignTestSend(
   const forceChannel =
     campaign.channel === "test_only" ? ("push_and_in_app" as const) : undefined;
 
-  for (const userId of userIds) {
-    const result = await sendCampaignToUser(svc, campaign, occurrenceId, userId, maps, {
-      ...(forceChannel ? { forceChannel } : {}),
-      skipDuplicateCheck: true,
-    });
-    if (result.sent) sent += 1;
-    else if (result.skipped) skipped += 1;
-    else if (result.failed) failed += 1;
+  // 확정 설계 B-7 — 한 회원에서 예외가 나도 그 회원만 실패로 남기고 계속 · 회차는 **항상** 마무리(`sending` 고착 방지).
+  try {
+    for (const userId of userIds) {
+      try {
+        const result = await sendCampaignToUser(svc, campaign, occurrenceId, userId, {
+          ...(forceChannel ? { forceChannel } : {}),
+          skipDuplicateCheck: true,
+        });
+        if (result.sent) sent += 1;
+        else if (result.skipped) skipped += 1;
+        else if (result.failed) failed += 1;
+      } catch (e) {
+        failed += 1;
+        console.error("[campaign test send] user failed", e instanceof Error ? e.message : e);
+        await upsertCampaignTargetRows(svc, [
+          {
+            campaign_id: campaign.id,
+            occurrence_id: occurrenceId,
+            user_id: userId,
+            status: "failed",
+            failure_reason: "send_exception",
+            skip_reason: "send_exception",
+          },
+        ]).catch(() => undefined);
+      }
+    }
+  } finally {
+    await refreshOccurrenceMetrics(svc, occurrenceId, { terminal: true });
   }
-
-  await refreshOccurrenceMetrics(svc, occurrenceId, { terminal: true });
   return { ok: true, sent, skipped, failed };
 }

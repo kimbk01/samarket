@@ -56,7 +56,6 @@ const baseCampaign = {
   target_count: 0,
 };
 
-const maps = { notif: new Map(), prefs: new Map() };
 const occurrenceId = "occ-1";
 
 function svcMock(deviceRows: unknown[] = []) {
@@ -101,7 +100,7 @@ describe("sendCampaignToUser skip reasons", () => {
     evaluateCampaignPushGate.mockResolvedValue({ allowed: true, skipReason: null });
     dispatchPushForUser.mockResolvedValue({ ok: true, targets_found: 1, deliveries: [{ status: "sent", device_id: "dev-1", provider_response: {} }] });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    const out = await sendCampaignToUser(svcMock() as never, baseCampaign, occurrenceId, "u1", maps);
+    const out = await sendCampaignToUser(svcMock() as never, baseCampaign, occurrenceId, "u1");
     expect(out.sent).toBe(true);
     expect(dispatchPushForUser).toHaveBeenCalledTimes(1);
     expect(recordCampaignDelivery).not.toHaveBeenCalledWith(
@@ -117,7 +116,7 @@ describe("sendCampaignToUser skip reasons", () => {
     evaluateCampaignPushGate.mockResolvedValue({ allowed: true, skipReason: null });
     dispatchPushForUser.mockResolvedValue({ ok: true, targets_found: 0, deliveries: [], skipped_reason: "dispatch_disabled" });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1", maps);
+    await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1");
     expect(recordCampaignDelivery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ skipReason: "dispatch_disabled", channel: "push" })
@@ -127,7 +126,7 @@ describe("sendCampaignToUser skip reasons", () => {
   it("skips push when no tokens with token_missing", async () => {
     loadActivePushTargets.mockResolvedValue([]);
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1", maps);
+    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1");
     expect(out.skipped).toBe(true);
     expect(recordCampaignDelivery).toHaveBeenCalledWith(
       expect.anything(),
@@ -146,8 +145,7 @@ describe("sendCampaignToUser skip reasons", () => {
       svcMock([{ id: "dev-1", notification_permission_status: "denied", push_provider: "fcm", platform: "android" }]) as never,
       { ...baseCampaign, channel: "push_only" },
       occurrenceId,
-      "u1",
-      maps
+      "u1"
     );
     expect(out.sent).toBe(true);
     expect(recordCampaignDelivery).not.toHaveBeenCalledWith(
@@ -171,8 +169,7 @@ describe("sendCampaignToUser skip reasons", () => {
       svcMock([{ id: "dev-1", notification_permission_status: "granted", push_provider: "fcm", platform: "android" }]) as never,
       { ...baseCampaign, channel: "push_only" },
       occurrenceId,
-      "u1",
-      maps
+      "u1"
     );
     expect(dispatchPushForUser).toHaveBeenCalledTimes(1);
     expect(dispatchPushForUser.mock.calls[0][0].meta.push_sound_mode).toBe("silent");
@@ -184,14 +181,14 @@ describe("sendCampaignToUser skip reasons", () => {
     ]);
     evaluateCampaignPushGate.mockResolvedValue({ allowed: false, skipReason: "user_setting_blocked" });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1", maps);
+    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "push_only" }, occurrenceId, "u1");
     expect(out.skipped).toBe(true);
     expect(out.skipReason).toBe("user_setting_blocked");
   });
 
   it("in_app_only never calls dispatchPushForUser", async () => {
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1", maps);
+    const out = await sendCampaignToUser(svcMock() as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1");
     expect(out.sent).toBe(true);
     expect(dispatchPushForUser).not.toHaveBeenCalled();
   });

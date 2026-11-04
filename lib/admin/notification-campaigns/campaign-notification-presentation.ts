@@ -142,7 +142,11 @@ export function buildAdminCampaignNotificationPresentation(
   const eventId = realEventId || `preview:${campaign.id}`;
   const wireEventId = realEventId ?? (isPreview ? eventId : undefined);
   const occurredAt = opts?.occurredAt ?? new Date().toISOString();
-  const badgeCount = Math.max(0, Math.floor(Number(opts?.badgeCount) || 0));
+  // 확정 설계 B-8 — 배지 숫자를 모르면(계산 실패) 싣지 않는다. 0 을 실으면 iPhone 앱 아이콘 숫자가 지워진다.
+  const badgeCount =
+    opts?.badgeCount == null || !Number.isFinite(Number(opts.badgeCount))
+      ? null
+      : Math.max(0, Math.floor(Number(opts.badgeCount)));
   const origin = getSiteOrigin();
   const link = routeUrl.startsWith("/") ? routeUrl : `/${routeUrl}`;
   const displayPayload: Record<string, unknown> = {
@@ -232,7 +236,7 @@ export function buildAdminCampaignNotificationPresentation(
       category,
       notification_event_id: wireEventId,
       notification_id: wireEventId,
-      badge_count: badgeCount,
+      ...(badgeCount != null ? { badge_count: badgeCount } : {}),
       campaign_id: campaign.id,
       push_image_url: pushImageUrl,
       display_payload: {

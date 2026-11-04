@@ -552,6 +552,8 @@ type PatchBody = {
    */
   category?: string | null;
   ids?: string[];
+  /** 회원이 알림을 눌러 연 경우만 true — 운영자 알림 열람 기록 (확정 설계 B-1) */
+  opened?: boolean;
 };
 
 const DELETE_IDS_CAP = 200;
@@ -686,7 +688,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ids_or_mark_all_required" }, { status: 400 });
   }
 
-  const readResult = await patchInboxNotificationIdsRead(sb, userId, ids);
+  const readResult = await patchInboxNotificationIdsRead(sb, userId, ids, {
+    campaignOpened: body.opened === true,
+  });
   if (!readResult.ok) {
     return NextResponse.json({ ok: false, error: readResult.error }, { status: 500 });
   }

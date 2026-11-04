@@ -80,6 +80,8 @@ export type SentRowLite = {
   /** 결과 배지(campaignResultBadge) — 캠페인 상태·발송 방식. */
   status: string;
   sendMode: string | null;
+  /** 캠페인 채널 — 알림함 전용이면 결과 배지가 푸시를 보지 않는다 (확정 설계 B-13) */
+  channel?: string | null;
   /** 진행 중·일시정지 반복이면 지금 주기 — 「반복 설정」이 이 반복을 바꾼다(새 반복을 만들지 않음). */
   recurrence: SentRecurrence | null;
 };
@@ -91,20 +93,24 @@ export function SentResultBadge({
   status,
   sendMode,
   stats,
+  channel,
   ko,
 }: {
   status: string;
   sendMode: string | null;
   stats: MemberStats | null;
+  channel?: string | null;
   ko: boolean;
 }) {
-  const b = campaignResultBadge({ status, sendMode, stats });
+  const b = campaignResultBadge({ status, sendMode, stats, channel });
   const tone: Record<Exclude<typeof b, "status">, [string, string, string]> = {
     pending: ["발송 중 — 결과 집계 중", "Sending — collecting results", "border-sam-info text-sam-info bg-sam-info-soft"],
     repeating: ["반복 진행 중", "Repeating", "border-sam-info text-sam-info bg-sam-info-soft"],
     fail: ["실패 있음", "Has failures", "border-sam-danger text-sam-danger bg-sam-danger-soft"],
     none: ["푸시 없음 있음", "Some without push", "border-sam-border text-sam-fg bg-sam-app"],
     ok: ["전부 성공", "All delivered", "border-sam-success text-sam-success bg-sam-success-soft"],
+    empty: ["대상 없음", "No recipients", "border-sam-border text-sam-muted bg-sam-app"],
+    inbox_only: ["알림함 전달 · 푸시 해당 없음", "Inbox delivered · no push", "border-sam-success text-sam-success bg-sam-success-soft"],
   };
   if (b === "status") {
     return (
@@ -374,7 +380,7 @@ export function RecipientsModal({
           <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-semibold text-sam-fg">
             {ko ? SENT_KIND_LABEL[row.kind][0] : SENT_KIND_LABEL[row.kind][1]}
           </span>
-          <SentResultBadge status={row.status} sendMode={row.sendMode} stats={stats} ko={ko} />
+          <SentResultBadge status={row.status} sendMode={row.sendMode} stats={stats} channel={row.channel ?? null} ko={ko} />
         </>
       }
       footer={

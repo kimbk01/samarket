@@ -16,79 +16,18 @@ import {
 import { resolvePushSoundMode, type PushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 
-export type SettingsMaps = {
-  notif: Map<
-    string,
-    {
-      service_enabled?: boolean | null;
-      marketing_enabled?: boolean | null;
-      notice_enabled?: boolean | null;
-      quiet_hours_enabled?: boolean | null;
-      quiet_hours_start?: string | null;
-      quiet_hours_end?: string | null;
-    }
-  >;
-  prefs: Map<string, { push_enabled?: boolean | null }>;
-};
-
-export async function loadCampaignSettingsMaps(
-  svc: SupabaseClient,
-  userIds: string[]
-): Promise<SettingsMaps> {
-  const notif = new Map<
-    string,
-    {
-      service_enabled?: boolean | null;
-      marketing_enabled?: boolean | null;
-      notice_enabled?: boolean | null;
-      quiet_hours_enabled?: boolean | null;
-      quiet_hours_start?: string | null;
-      quiet_hours_end?: string | null;
-    }
-  >();
-  const prefs = new Map<string, { push_enabled?: boolean | null }>();
-  if (userIds.length === 0) return { notif, prefs };
-
-  const [{ data: nsRows }, { data: usRows }] = await Promise.all([
-    svc
-      .from("user_notification_settings")
-      .select(
-        "user_id, service_enabled, marketing_enabled, notice_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end"
-      )
-      .in("user_id", userIds),
-    svc.from("user_settings").select("user_id, push_enabled").in("user_id", userIds),
-  ]);
-
-  for (const r of nsRows ?? []) {
-    const id = String((r as { user_id?: string }).user_id ?? "");
-    if (id) notif.set(id, r as SettingsMaps["notif"] extends Map<string, infer V> ? V : never);
-  }
-  for (const r of usRows ?? []) {
-    const id = String((r as { user_id?: string }).user_id ?? "");
-    if (id) prefs.set(id, r as { push_enabled?: boolean | null });
-  }
-  return { notif, prefs };
-}
-
-/**
- * 알림함 대상 판정 — Owner 2026-11-03: 공지·시스템·업데이트·이벤트·마케팅 모두 **알림함은 전원**.
- * (이전: 마케팅은 광고 동의 2곳이 모두 true 여야 알림함까지 보냈다 = 한국식 사전 동의.)
- * 푸시 동의는 `evaluateCampaignPushPreference` · 발송 시 `evaluateCampaignPushGate` 가 본다.
- */
-export function evaluateCampaignUserEligibility(
-  _campaignType: AdminNotificationCampaignRow["type"],
-  _userId: string,
-  _maps: SettingsMaps
-): { eligible: boolean; skipReason: CampaignSkipReason | null } {
-  return { eligible: true, skipReason: null };
-}
-
 /** 수신 설정 판정 결과(`reason`) → 어드민 발송 기록 사유. 미리보기·발송이 같은 표를 쓴다. */
 export function campaignPushSkipReasonFromDecision(
   campaignType: AdminNotificationCampaignRow["type"],
   decision: WebPushDeliveryDecision | null
 ): CampaignSkipReason {
-  switch (decision?.reason) {
+  // 확정 설계 B-2 — 미동의·공지 끔·전체 끔이 방해금지보다 먼저(방해금지가 끝나도 못 받는 이유).
+  const domain = decision?.domainPushReason;
+  const reason =
+    domain === "master_push_disabled" || domain === "marketing_opt_out" || domain === "domain_disabled"
+      ? domain
+      : decision?.reason;
+  switch (reason) {
     case "master_push_disabled":
       return "service_disabled";
     case "marketing_opt_out":
@@ -137,10 +76,14 @@ export async function loadCampaignPreferenceSnapshots(
 ): Promise<Map<string, NormalizedNotificationPreferenceSnapshot>> {
   const out = new Map<string, NormalizedNotificationPreferenceSnapshot>();
   if (userIds.length === 0) return out;
-  const [{ data: nsRows }, { data: usRows }] = await Promise.all([
+  const [{ data: nsRows, error: nsErr }, { data: usRows, error: usErr }] = await Promise.all([
     svc.from("user_notification_settings").select(`user_id, ${NOTIFICATION_SETTINGS_SELECT}`).in("user_id", userIds),
     svc.from("user_settings").select(`user_id, ${LEGACY_USER_SETTINGS_PUSH_SELECT}`).in("user_id", userIds),
   ]);
+  // 확정 설계 B-4 — 읽기 실패를 「설정 없음(기본값)」으로 바꾸지 않는다. 미리보기가 틀린 숫자 대신 실패를 보인다.
+  if (nsErr || usErr) {
+    throw new Error(`campaign_preference_read_failed:${(nsErr ?? usErr)?.message ?? "unknown"}`);
+  }
   const ns = new Map<string, Record<string, unknown>>();
   const us = new Map<string, Record<string, unknown>>();
   for (const r of (nsRows ?? []) as Record<string, unknown>[]) ns.set(String(r.user_id ?? ""), r);

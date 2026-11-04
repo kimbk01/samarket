@@ -27,6 +27,11 @@ export const CAMPAIGN_DELIVERY_STATUSES = [
 
 export type CampaignDeliveryStatus = (typeof CAMPAIGN_DELIVERY_STATUSES)[number];
 
+/** 받음(성공) = 보냄·열람·닫음 — 닫음은 받은 뒤 회원이 지운 것 (확정 설계 B-17). */
+export function isCampaignDeliveryReceivedStatus(status: string | null | undefined): boolean {
+  return status === "sent" || status === "opened" || status === "dismissed";
+}
+
 export type AdminNotificationCampaignRow = {
   id: string;
   type: "notice" | "marketing" | "system";

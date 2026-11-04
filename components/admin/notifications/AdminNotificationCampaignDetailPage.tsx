@@ -97,6 +97,8 @@ type OccurrenceRow = {
   started_at: string | null;
   completed_at: string | null;
   last_error?: string | null;
+  /** 발송 기록 저장 실패 건수 (확정 설계 B-9) */
+  record_error_count?: number | null;
   opened?: OpenedCounts | null;
 };
 
@@ -376,20 +378,40 @@ export function AdminNotificationCampaignDetailPage() {
     await refresh();
   };
 
-  /** Resend a failed real occurrence through the same send route (claim + batch). */
-  const resendOccurrence = async (occurrenceId: string, reason: string | null) => {
+  /**
+   * 재발송 = 목록 「다시 보내기 → 실패한 회원」과 같은 경로 (확정 설계 B-6): 실패한 회원에게 **새 알림**을 만들어 보낸다.
+   * 같은 회차를 다시 돌리면 기존 알림함 행을 재사용해 앱 사용 중 회원에게 아무것도 안 보였다(I-3).
+   */
+  const resendFailedMembers = async (reason: string | null) => {
     const key = newSendIdempotencyKey();
-    const res = await fetch(`/api/admin/notification-campaigns/${id}/send`, {
+    const res = await fetch(`/api/admin/notification-campaigns/${id}/resend`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-      body: JSON.stringify({ idempotency_key: key, occurrence_id: occurrenceId, reason }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "failed", send_mode: "immediate", idempotency_key: key }),
     });
-    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (!res.ok || !j?.ok) {
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; id?: string; occurrence_id?: string };
+    if (!res.ok || !j?.ok || typeof j.id !== "string") {
       setErr(typeof j?.error === "string" ? j.error : t("admin_notif_err_save"));
+      await refresh();
+      return;
     }
-    await refresh();
+    const sendKey = `send:${key}`;
+    const sendRes = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(j.id)}/send`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": sendKey },
+      body: JSON.stringify({
+        idempotency_key: sendKey,
+        ...(j.occurrence_id ? { occurrence_id: j.occurrence_id } : {}),
+        reason,
+      }),
+    });
+    const sj = (await sendRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!sendRes.ok || sj?.ok === false) {
+      setErr(typeof sj?.error === "string" ? sj.error : t("admin_notif_err_save"));
+    }
+    router.push(`/admin/notifications/${encodeURIComponent(j.id)}`);
   };
 
   const runConfirmed = async (reason: string | null) => {
@@ -856,7 +878,7 @@ export function AdminNotificationCampaignDetailPage() {
                       safeT("admin_campaign_cms_time_immediately_resend", { fallbackKo: "즉시 재발송", fallbackEn: "Immediately" }),
                       failedReal.target_member_count ?? latestTargetCount
                     ),
-                    (reason) => resendOccurrence(failedReal.id, reason)
+                    (reason) => resendFailedMembers(reason)
                   )
                 }
               >
@@ -1057,7 +1079,16 @@ export function AdminNotificationCampaignDetailPage() {
                           })}
                         </td>
                         <td className="py-1 pr-3">{formatOpenedCounts(row.opened)}</td>
-                        <td className="py-1 pr-3 break-all text-sam-muted">{row.last_error ?? "—"}</td>
+                        <td className="py-1 pr-3 break-all text-sam-muted">
+                          {(row.record_error_count ?? 0) > 0 ? (
+                            <span className="mr-1 font-semibold text-sam-danger">
+                              {lang === "ko"
+                                ? `기록 실패 ${row.record_error_count}건`
+                                : `${row.record_error_count} record errors`}
+                            </span>
+                          ) : null}
+                          {row.last_error ?? ((row.record_error_count ?? 0) > 0 ? "" : "—")}
+                        </td>
                         <td className="py-1">
                           {row.status === "queued" && row.trigger_type !== "test" ? (
                             <AdminActionButton variant="ghost" size="sm"

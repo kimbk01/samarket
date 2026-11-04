@@ -229,8 +229,7 @@ describe("runNotificationCampaignSendBatch occurrence SSOT", () => {
       svc,
       expect.objectContaining({ id: "camp-1", channel: "push_and_in_app" }),
       "occ-1",
-      "u1",
-      expect.any(Object)
+      "u1"
     );
   });
 

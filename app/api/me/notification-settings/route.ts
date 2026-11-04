@@ -139,7 +139,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const { data: cur } = await sb.from("user_notification_settings").select(SELECT_FIELDS).eq("user_id", userId).maybeSingle();
+  // 확정 설계 B-15 — 현재 행을 못 읽으면 저장하지 않는다(기본값으로 회원 설정 전체를 덮지 않음).
+  const { data: cur, error: curErr } = await sb
+    .from("user_notification_settings")
+    .select(SELECT_FIELDS)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (curErr) {
+    return NextResponse.json({ ok: false, error: "settings_read_failed" }, { status: 503 });
+  }
 
   const curRow = (cur ?? {}) as Record<string, unknown>;
   const merged: Record<string, unknown> = {
@@ -218,7 +226,19 @@ export async function PATCH(req: NextRequest) {
   if (hasSettingsPatch) {
     // 혜택·이벤트 동의는 여기서 쓰지 않는다 — 아래 `writeMemberMarketingConsent` 1회 저장만 (재감사 D-2)
     delete merged.marketing_enabled;
-    const { error } = await sb.from("user_notification_settings").upsert(merged, { onConflict: "user_id" });
+    // 확정 설계 B-15 — 행이 있으면 **바뀐 열만** 쓴다: 빠르게 연달아 바꿀 때 앞 요청이 읽은 옛 값으로 뒤 변경을 덮지 않는다.
+    // 행이 없을 때만 기본값을 채운 전체 행을 만든다.
+    const changed: Record<string, unknown> = { updated_at: merged.updated_at };
+    for (const k of boolKeys) if (typeof body[k] === "boolean") changed[k] = body[k];
+    if (typeof body.quiet_hours_start === "string" || body.quiet_hours_start === null) {
+      changed.quiet_hours_start = body.quiet_hours_start;
+    }
+    if (typeof body.quiet_hours_end === "string" || body.quiet_hours_end === null) {
+      changed.quiet_hours_end = body.quiet_hours_end;
+    }
+    const { error } = cur
+      ? await sb.from("user_notification_settings").update(changed).eq("user_id", userId)
+      : await sb.from("user_notification_settings").upsert(merged, { onConflict: "user_id" });
 
     if (error) {
       if (error.message?.includes("does not exist")) {

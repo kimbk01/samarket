@@ -33,7 +33,8 @@ export async function ensureCampaignOccurrence(
   svc: SupabaseClient,
   input: {
     campaignId: string;
-    sequenceNumber: number;
+    /** 비우면 DB 함수가 캠페인 행을 잠그고 다음 번호를 배정한다 (확정 설계 B-12 · 동시 생성 경쟁 방지). */
+    sequenceNumber?: number | null;
     triggerType: string;
     scheduledFor?: string | null;
     idempotencyKey?: string | null;
@@ -56,7 +57,7 @@ export async function ensureCampaignOccurrence(
   const contentSnapshot = buildCampaignContentSnapshot(input.campaign);
   const { data, error } = await svc.rpc("ensure_admin_notification_campaign_occurrence", {
     p_campaign_id: input.campaignId,
-    p_sequence_number: input.sequenceNumber,
+    p_sequence_number: input.sequenceNumber ?? null,
     p_trigger_type: input.triggerType,
     p_scheduled_for: input.scheduledFor ?? null,
     p_idempotency_key: input.idempotencyKey ?? null,
@@ -209,16 +210,21 @@ export function resolveFinalOccurrenceStatus(
   return "sent";
 }
 
-export async function getNextOccurrenceSequenceNumber(
+/**
+ * 반복 발송 몇 번째인지 — `trigger_type='recurring'` 회차만 센다(테스트·즉시 회차 제외 · 확정 설계 B-12).
+ * 최대 횟수 판정과 직전 반복 회차(다음 시각 계산 기준)를 함께 돌려준다.
+ */
+export async function loadRecurringOccurrenceProgress(
   svc: SupabaseClient,
   campaignId: string
-): Promise<number> {
-  const { data } = await svc
+): Promise<{ nextIndex: number; last: { scheduled_for: string | null; completed_at: string | null } | null }> {
+  const { data, count } = await svc
     .from("admin_notification_campaign_occurrences")
-    .select("sequence_number")
+    .select("scheduled_for, completed_at", { count: "exact" })
     .eq("campaign_id", campaignId)
+    .eq("trigger_type", "recurring")
     .order("sequence_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return Math.max(1, Number((data as { sequence_number?: number } | null)?.sequence_number ?? 0) + 1);
+    .limit(1);
+  const last = ((data ?? [])[0] as { scheduled_for: string | null; completed_at: string | null } | undefined) ?? null;
+  return { nextIndex: Math.max(0, count ?? 0) + 1, last };
 }

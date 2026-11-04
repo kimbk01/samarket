@@ -1,3 +1,4 @@
+import { isCampaignDeliveryReceivedStatus } from "@/lib/admin/notification-campaigns/campaign-types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingRelationError } from "@/lib/admin/notification-campaigns/campaign-audit-log";
 import {
@@ -77,8 +78,8 @@ export function memberOutcomes(rows: readonly CampaignDeliveryLite[]): Map<strin
       opened: false,
     };
     const st = String(r.status ?? "");
-    if (r.channel === "in_app" && (st === "sent" || st === "opened")) cur.inbox = true;
-    if (r.channel === "push" && (st === "sent" || st === "opened")) cur.pushOk = true;
+    if (r.channel === "in_app" && isCampaignDeliveryReceivedStatus(st)) cur.inbox = true;
+    if (r.channel === "push" && isCampaignDeliveryReceivedStatus(st)) cur.pushOk = true;
     if (r.channel === "push" && st === "failed") cur.pushFail = true;
     // 예전 발송은 알림함 줄에, 지금은 푸시 줄에 미동의가 남는다 — 둘 다 「푸시 미동의」.
     if (st === "skipped" && r.skip_reason === "marketing_not_opted_in") cur.optOut = true;
@@ -558,20 +559,25 @@ export async function loadOpenedCountsByOccurrence(
   // PostgREST 1,000행 상한 — 끝까지 나눠 읽는다(재감사 2026-11-02 A6). 상한은 CAMPAIGN_LIST_OPENED_ROW_CAP.
   const PAGE = 1000;
   let read = 0;
+  // 확정 설계 B-1 — 열람은 회원 수(기기 여러 대여도 1명). 회차·채널별 본 회원 집합.
+  const seen = new Set<string>();
   for (let from = 0; from < CAMPAIGN_LIST_OPENED_ROW_CAP; from += PAGE) {
     const { data, error } = await svc
       .from("notification_campaign_deliveries")
-      .select("occurrence_id, channel")
+      .select("occurrence_id, channel, user_id")
       .in("occurrence_id", occurrenceIds)
       .eq("status", "opened")
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) return out;
-    const rows = (data ?? []) as Array<{ occurrence_id?: string; channel?: string }>;
+    const rows = (data ?? []) as Array<{ occurrence_id?: string; channel?: string; user_id?: string }>;
     read += rows.length;
     for (const r of rows) {
       const cur = out.get(String(r.occurrence_id ?? ""));
       if (!cur) continue;
+      const key = `${r.occurrence_id}|${r.channel}|${r.user_id ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       if (r.channel === "push") cur.push += 1;
       else if (r.channel === "in_app") cur.in_app += 1;
     }

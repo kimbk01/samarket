@@ -4,7 +4,6 @@ import { buildCampaignContentSnapshot } from "@/lib/admin/notification-campaigns
 import {
   audiencePreviewToSnapshot,
   ensureCampaignOccurrence,
-  getNextOccurrenceSequenceNumber,
   newOccurrenceIdempotencyKey,
 } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import type { CampaignSendMode } from "@/lib/admin/notification-campaigns/campaign-occurrence-types";
@@ -191,7 +190,7 @@ export async function createAdminNotificationCampaign(
     const created = await createCampaignDispatchOccurrence(svc, {
       campaignId,
       adminUserId,
-      sequenceNumber: 1,
+      recurrenceIndex: 1,
       idempotencyKey: newOccurrenceIdempotencyKey(`occ:${campaignId}:1`),
       snapshot: campaignSnapshot,
       audience: {
@@ -264,7 +263,8 @@ export async function createCampaignDispatchOccurrence(
   input: {
     campaignId: string;
     adminUserId: string;
-    sequenceNumber: number;
+    /** 반복 발송이면 몇 번째 반복인지(최대 횟수 판정) — 회차 번호와 다르다(번호는 DB 가 배정). */
+    recurrenceIndex: number;
     idempotencyKey: string;
     snapshot: Parameters<typeof ensureCampaignOccurrence>[1]["campaign"];
     audience: Parameters<typeof previewCampaignAudience>[1];
@@ -274,11 +274,10 @@ export async function createCampaignDispatchOccurrence(
 ): Promise<{ ok: true; occurrenceId: string; scheduledFor: string | null } | { ok: false; error: string }> {
   const preview = await previewCampaignAudience(svc, input.audience);
   const audienceSnapshot = audiencePreviewToSnapshot(preview, new Date().toISOString());
-  const { triggerType, scheduledFor } = resolveCampaignOccurrenceSchedule(input.schedule, input.sequenceNumber);
+  const { triggerType, scheduledFor } = resolveCampaignOccurrenceSchedule(input.schedule, input.recurrenceIndex);
 
   const ensured = await ensureCampaignOccurrence(svc, {
     campaignId: input.campaignId,
-    sequenceNumber: input.sequenceNumber,
     triggerType,
     scheduledFor,
     idempotencyKey: input.idempotencyKey,
@@ -429,10 +428,8 @@ export async function ensureDraftCampaignSendOccurrence(
     segment_region_code: str(row.segment_region_code),
     target_user_ids: selectedUserIds.length ? selectedUserIds : undefined,
   });
-  const sequenceNumber = await getNextOccurrenceSequenceNumber(svc, input.campaignId);
   const ensured = await ensureCampaignOccurrence(svc, {
     campaignId: input.campaignId,
-    sequenceNumber,
     triggerType: "immediate",
     scheduledFor: null,
     idempotencyKey: `draft-send:${input.idempotencyKey}`.slice(0, 160),

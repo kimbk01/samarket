@@ -1,13 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * ADM-02 — `admin_notification_campaign_targets` keyed per occurrence.
- *
- * Target rows are history per occurrence (unique `occurrence_id,user_id`, migration
- * 20270514120000). Until the legacy unique `campaign_id,user_id` is dropped (phase 2,
- * docs/notifications/adm02-phase2-drop-legacy-campaign-target-unique.sql) the
- * occurrence-keyed write can fail; we then fall back to the
- * legacy key so behaviour is never worse than before either migration is applied.
+ * ADM-02 — `admin_notification_campaign_targets` keyed per occurrence (unique `occurrence_id,user_id`).
+ * 예전 캠페인 단위 키 `(campaign_id,user_id)` 는 운영에서 삭제했다(확정 설계 C-2 · 2026-11-04). 예전 키로 다시
+ * 쓰던 재시도는 반복 2회차가 1회차 행을 덮어써 지웠다(B-20) — 회차 키 하나로만 쓴다.
  */
 export type CampaignTargetRow = {
   campaign_id: string;
@@ -20,17 +16,9 @@ export type CampaignTargetRow = {
   sent_at?: string | null;
 };
 
-export type CampaignTargetWriteMode = "occurrence" | "legacy";
+export type CampaignTargetWriteMode = "occurrence";
 
 type PgError = { code?: string; message?: string } | null;
-
-/**
- * 42P10: ON CONFLICT target has no matching unique (occurrence migration not applied).
- * 23505: legacy unique (campaign_id,user_id) still present and the user already has a row.
- */
-function needsLegacyKey(error: PgError): boolean {
-  return error?.code === "42P10" || error?.code === "23505";
-}
 
 export async function upsertCampaignTargetRows(
   svc: SupabaseClient,
@@ -38,14 +26,8 @@ export async function upsertCampaignTargetRows(
   opts?: { ignoreDuplicates?: boolean }
 ): Promise<{ mode: CampaignTargetWriteMode; error: PgError }> {
   if (!rows.length) return { mode: "occurrence", error: null };
-  const ignoreDuplicates = opts?.ignoreDuplicates === true;
-  const table = svc.from("admin_notification_campaign_targets");
-  const { error } = await table.upsert(rows, { onConflict: "occurrence_id,user_id", ignoreDuplicates });
-  if (!error) return { mode: "occurrence", error: null };
-  if (!needsLegacyKey(error)) return { mode: "occurrence", error };
-
-  const { error: legacyError } = await svc
+  const { error } = await svc
     .from("admin_notification_campaign_targets")
-    .upsert(rows, { onConflict: "campaign_id,user_id", ignoreDuplicates });
-  return { mode: "legacy", error: legacyError };
+    .upsert(rows, { onConflict: "occurrence_id,user_id", ignoreDuplicates: opts?.ignoreDuplicates === true });
+  return { mode: "occurrence", error: error ?? null };
 }

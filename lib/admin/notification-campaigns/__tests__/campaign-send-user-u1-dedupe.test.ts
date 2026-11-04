@@ -57,7 +57,6 @@ const baseCampaign = {
   target_count: 0,
 };
 
-const maps = { notif: new Map(), prefs: new Map() };
 const occurrenceId = "occ-1";
 
 function svcMock(deviceRows: unknown[] = []) {
@@ -116,7 +115,7 @@ describe("U1-B duplicate re-run push dedupe (isolated)", () => {
   it("re-run after in-app duplicate dispatches push WITH the existing event id (device-level dedupe applies)", async () => {
     createNotificationEvent.mockResolvedValue({ ok: false, duplicate: true, error: "duplicate" });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    await sendCampaignToUser(svcWithEvents("evt-existing") as never, baseCampaign, occurrenceId, "u1", maps);
+    await sendCampaignToUser(svcWithEvents("evt-existing") as never, baseCampaign, occurrenceId, "u1");
     expect(dispatchPushForUser).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ notification_event_id: "evt-existing" })
@@ -126,9 +125,9 @@ describe("U1-B duplicate re-run push dedupe (isolated)", () => {
   it("dedupe key: default campaign scope unchanged; occurrence scope for recurring", async () => {
     createNotificationEvent.mockResolvedValue({ ok: true, row: { id: "e1" } });
     const { sendCampaignToUser } = await import("@/lib/admin/notification-campaigns/campaign-send-user");
-    await sendCampaignToUser(svcWithEvents(null) as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1", maps);
+    await sendCampaignToUser(svcWithEvents(null) as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1");
     expect(createNotificationEvent.mock.calls[0][1].dedupeKey).toBe("admin_campaign:camp-1:u1");
-    await sendCampaignToUser(svcWithEvents(null) as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1", maps, { dedupeScope: "occurrence" });
+    await sendCampaignToUser(svcWithEvents(null) as never, { ...baseCampaign, channel: "in_app_only" }, occurrenceId, "u1", { dedupeScope: "occurrence" });
     expect(createNotificationEvent.mock.calls[1][1].dedupeKey).toBe("admin_campaign:camp-1:occ-1:u1");
   });
 });

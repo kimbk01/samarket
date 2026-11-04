@@ -151,6 +151,8 @@ export type WebPushDeliveryDecision = Readonly<{
   vibrate: boolean;
   /** 막힌 이유 — 운영자 알림 발송 기록·미리보기가 같은 값을 쓴다 (설정 읽기 실패 = `preference_read_failed`). */
   reason?: EffectiveNotificationPreferenceReason | "preference_read_failed";
+  /** 영역(동의·공지·전체) 사유 — 방해금지보다 먼저 기록할 이유 (운영자 알림 확정 설계 B-2). */
+  domainPushReason?: EffectiveNotificationPreferenceReason;
 }>;
 
 /** Pure push delivery decision — P2-A4/P2-A6 snapshot + P2-A3 resolver. */
@@ -173,6 +175,7 @@ export function resolveWebPushDeliveryFromPreferences(
     playSound: effective.playSound,
     vibrate: effective.vibrate,
     reason: effective.reason,
+    ...(effective.domainPushReason ? { domainPushReason: effective.domainPushReason } : {}),
   };
 }
 

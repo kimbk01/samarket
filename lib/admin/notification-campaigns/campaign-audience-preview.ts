@@ -1,9 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   decideCampaignPushFromPreferences,
-  evaluateCampaignUserEligibility,
   loadCampaignPreferenceSnapshots,
-  loadCampaignSettingsMaps,
 } from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import {
   campaignNeedsInApp,
@@ -36,6 +34,8 @@ export type CampaignAudiencePreview = {
   excludedInvalidTarget: number;
   truncated: boolean;
   segmentUnsupported: boolean;
+  /** 회원 설정을 읽지 못해 푸시 인원을 계산하지 못함 — 화면은 숫자 대신 「계산 실패」 (확정 설계 B-4) */
+  pushPreviewFailed: boolean;
 };
 
 function platformBucket(platform: string | null | undefined, provider: string | null | undefined): "android" | "ios" | "web" | "other" {
@@ -68,6 +68,7 @@ export async function previewCampaignAudience(
     excludedInvalidTarget: 0,
     truncated: false,
     segmentUnsupported: false,
+    pushPreviewFailed: false,
   };
 
   if (input.target_type === "segment") {
@@ -98,13 +99,10 @@ export async function previewCampaignAudience(
     truncated = scanned.truncated;
   }
 
-  const maps = await loadCampaignSettingsMaps(svc, userIds);
   const needsPush = campaignNeedsPush(input.channel);
   const needsInApp = campaignNeedsInApp(input.channel);
 
-  let eligibleUsers = 0;
   let pushEligibleUsers = 0;
-  let inAppEligibleUsers = 0;
   let excludedOptOut = 0;
   let excludedNoDevice = 0;
   let activeDevices = 0;
@@ -112,29 +110,34 @@ export async function previewCampaignAudience(
   let iosDevices = 0;
   let webDevices = 0;
 
+  // 알림함은 대상 전원(Owner 2026-11-03) — 회원별 거르기는 푸시만.
+  const eligibleUsers = userIds.length;
+  const inAppEligibleUsers = needsInApp ? eligibleUsers : 0;
+
   // Cap device lookups for preview cost
   const deviceSample = userIds.slice(0, 800);
   const now = new Date();
-  const preferenceSnapshots = needsPush
-    ? await loadCampaignPreferenceSnapshots(svc, deviceSample, now)
-    : new Map();
-
-  for (const userId of userIds) {
-    const eligibility = evaluateCampaignUserEligibility(input.type, userId, maps);
-    if (!eligibility.eligible) {
-      excludedOptOut += 1;
-      continue;
+  let preferenceSnapshots = new Map<string, Parameters<typeof decideCampaignPushFromPreferences>[2]>();
+  if (needsPush) {
+    try {
+      preferenceSnapshots = await loadCampaignPreferenceSnapshots(svc, deviceSample, now);
+    } catch (e) {
+      console.error("[campaign preview] preference read failed", e instanceof Error ? e.message : e);
+      return {
+        ...empty,
+        totalUsers: userIds.length,
+        eligibleUsers,
+        inAppEligibleUsers,
+        truncated,
+        excludedInvalidTarget,
+        pushPreviewFailed: true,
+      };
     }
-    eligibleUsers += 1;
-    if (needsInApp) inAppEligibleUsers += 1;
   }
 
-  for (const userId of deviceSample) {
-    const eligibility = evaluateCampaignUserEligibility(input.type, userId, maps);
-    if (!eligibility.eligible) continue;
-    if (!needsPush) continue;
-    // 푸시만 회원 동의·설정을 본다 (알림함은 전원 · Owner 2026-11-03) — 발송 `evaluateCampaignPushGate` 와
-    // 같은 판정 함수·같은 설정 읽기 결과(재감사 C-2). 방해금지는 미리보기 시각 기준.
+  for (const userId of needsPush ? deviceSample : []) {
+    // 푸시만 회원 동의·설정을 본다 — 발송 `evaluateCampaignPushGate` 와 같은 판정 함수·같은 설정 읽기 결과
+    // (재감사 C-2). 방해금지는 미리보기 시각 기준.
     const snapshot = preferenceSnapshots.get(userId);
     if (!snapshot || !decideCampaignPushFromPreferences(input.type, userId, snapshot, now).allowed) {
       excludedOptOut += 1;
@@ -195,5 +198,6 @@ export async function previewCampaignAudience(
     excludedInvalidTarget,
     truncated,
     segmentUnsupported: false,
+    pushPreviewFailed: false,
   };
 }

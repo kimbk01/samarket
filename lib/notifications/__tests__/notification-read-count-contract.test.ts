@@ -40,7 +40,7 @@ describe("C4 read — same event, same result on every surface", () => {
     const pushRead = read("app/api/me/notifications/read/route.ts");
     expect(pushRead).toContain("await patchInboxNotificationIdsRead(sb, userId, [eventId])");
     const listPatch = read("app/api/me/notifications/route.ts");
-    expect(listPatch).toContain("await patchInboxNotificationIdsRead(sb, userId, ids)");
+    expect(listPatch).toContain("await patchInboxNotificationIdsRead(sb, userId, ids, {");
     const nav = read("lib/notifications/navigate-notification-destination.ts");
     expect(nav).toContain("input.markRead(ids)");
   });

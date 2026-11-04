@@ -163,6 +163,11 @@ export async function PATCH(req: NextRequest) {
     /* 다음 update 에서 검증 */
   }
 
+  // 확정 설계 B-14 — 선택(혜택·이벤트) 동의를 **먼저** 저장한다. 실패하면 필수 동의도 저장하지 않고 실패로 돌려
+  // 다음 방문 때 동의 화면이 다시 나와 다시 묻는다(예전: 필수만 저장돼 선택 동의를 영영 묻지 않았다).
+  const marketingSaved = await recordSignupMarketingChoice();
+  if (marketingSaved === false) return marketingSaveFailed();
+
   const now = new Date().toISOString();
   const { data: updated, error } = await sb
     .from("profiles")
@@ -183,8 +188,6 @@ export async function PATCH(req: NextRequest) {
   if (!updated) {
     return jsonError("profile_missing_for_consent", 404, { code: "profile_missing_for_consent" });
   }
-  const marketingSaved = await recordSignupMarketingChoice();
-  if (marketingSaved === false) return marketingSaveFailed();
   return jsonOk({
     marketingSaved,
     consent: {

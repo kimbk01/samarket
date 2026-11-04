@@ -20,10 +20,24 @@ const body = {
 };
 
 describe("B-2: 「푸시만」은 새 알림에서 쓰지 않는다", () => {
-  it("새 작성·재발송의 push_only → 알림함+푸시", () => {
+  it("새 작성의 push_only → 조용히 바꾸지 않고 거부 (확정 설계 B-3)", () => {
     const parsed = parseCampaignWriteInput({ ...body, channel: "push_only" }, { hasOwnTargetPayload: true });
-    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error}`);
-    expect(parsed.fields.channel).toBe("push_and_in_app");
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.status).toBe(400);
+    expect(parsed.error).toBe("push_only_retired");
+  });
+
+  it("새 작성의 「광고 수신 동의 회원」 대상 → 거부 · 예전 행 수정은 유지 (확정 설계 B-16)", () => {
+    const rejected = parseCampaignWriteInput({ ...body, target_type: "marketing_opt_in" }, { hasOwnTargetPayload: true });
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.error).toBe("marketing_opt_in_retired");
+    const kept = parseCampaignWriteInput(
+      { ...body, target_type: "marketing_opt_in" },
+      { hasOwnTargetPayload: true, keepLegacyMarketingOptIn: true }
+    );
+    if (!kept.ok) throw new Error(`parse failed: ${kept.error}`);
+    expect(kept.fields.target_type).toBe("marketing_opt_in");
   });
 
   it("예전 push_only 알림 수정은 그대로", () => {

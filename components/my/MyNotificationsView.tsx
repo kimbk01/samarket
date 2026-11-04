@@ -411,13 +411,14 @@ export function MyNotificationsView({
     void load(true, false, true, serverOffsetRef.current);
   }, [hasMore, loadMoreBusy, load]);
 
-  const markIdsRead = useCallback(async (ids: string[]): Promise<boolean> => {
+  /** `opened` = 회원이 알림을 눌러 연 경우만 (운영자 알림 열람 기록 · 확정 설계 B-1). 밀어서 읽음·제안 처리는 보내지 않는다. */
+  const markIdsRead = useCallback(async (ids: string[], opts?: { opened?: boolean }): Promise<boolean> => {
     if (ids.length === 0) return true;
     const res = await fetch("/api/me/notifications", {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify(opts?.opened ? { ids, opened: true } : { ids }),
     });
     // U-C: 응답 JSON 이 깨져도 throw 하지 않고 실패로 처리
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
@@ -561,7 +562,7 @@ export function MyNotificationsView({
         prewarmInboxNotificationChatHref(router, resolvedHref);
       },
       unreadIds: item.unreadCount > 0 ? item.ids : [],
-      markRead: markIdsRead,
+      markRead: (ids) => markIdsRead(ids, { opened: true }),
     });
   };
 

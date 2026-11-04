@@ -31,6 +31,7 @@ class Q {
   neq(k: string, v: unknown) { this.filters.push((r) => r[k] != null && r[k] !== v); return this; }
   is(k: string, v: unknown) { this.filters.push((r) => (r[k] ?? null) === v); return this; }
   in(k: string, vs: unknown[]) { this.filters.push((r) => vs.includes(r[k])); return this; }
+  gt(k: string, v: unknown) { this.filters.push((r) => String(r[k]) > String(v)); return this; }
   gte() { return this; }
   order(k: string) { this.orderKey = k; return this; }
   range(a: number, b: number) { this.from_ = a; this.to_ = b; return this; }
@@ -156,15 +157,15 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     sendCampaignToUser.mockImplementation(sendImpl(db));
     await runToCompletion(db);
     expect(camp(db).status).toBe("active");
-    expect(sendCampaignToUser.mock.calls[0][5]).toEqual({ dedupeScope: "occurrence" });
+    expect(sendCampaignToUser.mock.calls[0][4]).toEqual({ dedupeScope: "occurrence" });
   });
 
-  it("scheduled: scheduled -> sent; non-recurring call shape unchanged (5 args)", async () => {
+  it("scheduled: scheduled -> sent; non-recurring call shape unchanged (4 args)", async () => {
     const db = makeDb({ users: 5, sendMode: "scheduled", trigger: "scheduled" });
     sendCampaignToUser.mockImplementation(sendImpl(db));
     await runToCompletion(db);
     expect(camp(db).status).toBe("sent");
-    expect(sendCampaignToUser.mock.calls[0].length).toBe(5);
+    expect(sendCampaignToUser.mock.calls[0].length).toBe(4);
   });
 
   it("test send: test occurrence closes, campaign untouched", async () => {
@@ -176,13 +177,16 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     expect(camp(db).status).toBe("draft");
   });
 
-  it("killed mid-batch (offset not saved) then resumed: no user sent twice, nobody missed", async () => {
+  it("killed mid-batch (failure record also lost, offset not saved) then resumed: no user sent twice, nobody missed", async () => {
     const db = makeDb({ users: 250 });
     let calls = 0;
     const base = sendImpl(db);
     sendCampaignToUser.mockImplementation(async (...a: unknown[]) => {
       calls += 1;
-      if (calls === 61) throw new Error("process killed"); // dies in the middle of batch 1
+      if (calls === 61) {
+        db.__fail = { "admin_notification_campaign_targets:upsert": 1 }; // 실패 기록도 못 씀 = 프로세스 종료와 같음
+        throw new Error("process killed");
+      }
       return (base as (...x: unknown[]) => Promise<unknown>)(...a);
     });
     const { runNotificationCampaignSendBatch } = await import("@/lib/admin/notification-campaigns/run-campaign-send-batch");
@@ -193,6 +197,22 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     const delivered = db.notification_campaign_deliveries.map((d) => d.user_id);
     expect(delivered.length).toBe(250);
     expect(new Set(delivered).size).toBe(250);
+  });
+
+  it("확정 설계 B-9: one member's exception → that member recorded failed, batch continues", async () => {
+    const db = makeDb({ users: 5 });
+    let calls = 0;
+    const base = sendImpl(db);
+    sendCampaignToUser.mockImplementation(async (...a: unknown[]) => {
+      calls += 1;
+      if (calls === 2) throw new Error("target write failed");
+      return (base as (...x: unknown[]) => Promise<unknown>)(...a);
+    });
+    const r = await runToCompletion(db);
+    expect(r.done).toBe(true);
+    expect(db.notification_campaign_deliveries.length).toBe(4);
+    const failedRow = db.admin_notification_campaign_targets.find((t) => t.status === "failed");
+    expect(failedRow?.skip_reason).toBe("send_exception");
   });
 
   it("DB scan error is not treated as completion; resume finishes", async () => {
@@ -276,13 +296,15 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     return db;
   }
 
-  it("recurring selected_users: NEW (queued) next occurrence re-arms existing targets as pending", async () => {
+  it("recurring selected_users without stored selection: next occurrence COPIES previous recipients; occ-1 history kept (B-20)", async () => {
     const db = recurringSelectedDb();
     const rpc = vi.fn(async () => ({ data: { id: "occ-2", campaign_id: "camp-1", sequence_number: 2, status: "queued" }, error: null }));
     const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
     const next = await scheduleNextRecurringOccurrence({ from: (t: string) => new Q(db, t), rpc } as never, "camp-1");
     expect(next?.id).toBe("occ-2");
-    expect(db.admin_notification_campaign_targets.every((t) => t.status === "pending" && t.occurrence_id === "occ-2")).toBe(true);
+    const rows = db.admin_notification_campaign_targets;
+    expect(rows.filter((t) => t.occurrence_id === "occ-1").map((t) => t.status)).toEqual(["sent", "sent", "sent"]);
+    expect(rows.filter((t) => t.occurrence_id === "occ-2" && t.status === "pending")).toHaveLength(3);
   });
 
   it("ADM-02: recurring selected_users with stored selection — next occurrence gets its OWN rows; occ-1 history kept", async () => {
@@ -316,17 +338,6 @@ describe("U1-A+B scenario matrix (isolated)", () => {
     const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
     await scheduleNextRecurringOccurrence({ from, rpc } as never, "camp-1");
     expect(selects.some((c) => c.split(",").map((x) => x.trim()).includes("target_payload"))).toBe(true);
-  });
-
-  it("ADM-02: before the unique migration (legacy UNIQUE campaign_id,user_id) falls back to U1-B re-arm", async () => {
-    const db = recurringSelectedDb();
-    (db as unknown as { __legacyUnique: boolean }).__legacyUnique = true;
-    camp(db).target_payload = { selected_user_ids: ["s0", "s1", "s2"] };
-    const rpc = vi.fn(async () => ({ data: { id: "occ-2", campaign_id: "camp-1", sequence_number: 2, status: "queued" }, error: null }));
-    const { scheduleNextRecurringOccurrence } = await import("@/lib/admin/notification-campaigns/claim-scheduled-campaign");
-    await scheduleNextRecurringOccurrence({ from: (t: string) => new Q(db, t), rpc } as never, "camp-1");
-    expect(db.admin_notification_campaign_targets).toHaveLength(3);
-    expect(db.admin_notification_campaign_targets.every((t) => t.status === "pending" && t.occurrence_id === "occ-2")).toBe(true);
   });
 
   it("recurring: idempotent RPC returning an EXISTING sent occurrence (stalled QA case) changes nothing", async () => {

@@ -128,14 +128,15 @@ describe("EVENT-01 draft send occurrence", () => {
     target_payload: { platform_event_id: "e1" },
   };
 
-  it("draft → immediate occurrence from CURRENT content, next sequence, keyed idempotency", async () => {
+  it("draft → immediate occurrence from CURRENT content, DB-assigned sequence, keyed idempotency", async () => {
     const { svc, rpc } = fakeSvc({ campaign: draft, nextSeq: 3 });
     const r = await ensureDraftCampaignSendOccurrence(svc, { campaignId: "c1", adminUserId: "a1", idempotencyKey: "k1" });
     expect(r).toEqual({ ok: true, occurrenceId: "occ-new" });
     const args = rpc.mock.calls[0]![1] as Record<string, unknown>;
     expect(args).toMatchObject({
       p_campaign_id: "c1",
-      p_sequence_number: 3,
+      // 확정 설계 B-12 — 번호는 DB 함수가 캠페인 행을 잠그고 배정(동시 생성 경쟁 방지)
+      p_sequence_number: null,
       p_trigger_type: "immediate",
       p_scheduled_for: null,
       p_idempotency_key: "draft-send:k1",

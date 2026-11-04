@@ -74,6 +74,12 @@ export type AdminNotificationCampaignOccurrenceRow = {
   send_claimed_at: string | null;
   send_lease_expires_at: string | null;
   send_progress_offset: number;
+  /** 대상 스캔 위치 = 마지막으로 처리한 회원 id (확정 설계 B-11 · 단계 C 열) */
+  send_progress_cursor?: string | null;
+  /** `active_users` 기준 시각 — 회차 시작 때 고정 (B-11) */
+  active_since?: string | null;
+  /** 발송 기록 저장 실패 건수 (B-9) */
+  record_error_count?: number;
   last_error: string | null;
   target_member_count: number;
   push_eligible_member_count: number;

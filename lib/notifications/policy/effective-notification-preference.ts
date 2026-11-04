@@ -51,6 +51,11 @@ export type EffectiveNotificationPreference = Readonly<{
   quietSuppressed: boolean;
   mandatory: boolean;
   reason: EffectiveNotificationPreferenceReason;
+  /**
+   * 영역(동의·공지·전체) 판정 사유 — 방해금지와 무관. `reason` 은 방해금지를 먼저 보여 주므로,
+   * 「왜 못 받나」 기록은 이 값을 먼저 본다 (운영자 알림 확정 설계 B-2).
+   */
+  domainPushReason?: EffectiveNotificationPreferenceReason;
   preferenceDomain: NotificationPreferenceDomain;
   policyClass: NotificationPolicyClass;
   recipientRole: NotificationPreferenceRecipientRole;
@@ -401,6 +406,7 @@ export function resolveEffectiveNotificationPreference(
     quietSuppressed,
     mandatory,
     reason,
+    domainPushReason: domainGate.pushReason,
     preferenceDomain: policy.preferenceDomain,
     policyClass: policy.policyClass,
     recipientRole: policy.recipientRole,

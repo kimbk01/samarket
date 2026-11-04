@@ -187,3 +187,14 @@ export async function enforceStoreOrderCreateQuota(userId: string) {
     code: "store_order_create_rate_limited",
   });
 }
+
+/** 운영자 알림 「내 폰으로 테스트」 — 관리자당 분당 10회 (확정 설계 B-18). */
+export async function enforceAdminCampaignTestSendQuota(adminUserId: string) {
+  return enforceRateLimit({
+    key: `admin_campaign_test_send:${adminUserId}`,
+    limit: 10,
+    windowMs: 60_000,
+    message: "테스트 발송이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.",
+    code: "test_send_rate_limited",
+  });
+}

@@ -43,7 +43,8 @@ describe("가입 동의 화면", () => {
     const form = read("components/auth/AuthConsentForm.tsx");
     expect(form).toMatch(/const \[agreeMarketing, setAgreeMarketing\] = useState\(false\)/);
     const page = read("app/auth/onboarding/terms/page.tsx");
-    expect(page).toContain("askMarketing = read.ok && read.consent?.source == null;");
+    // 확정 설계 B-14 — 조회 오류면 보여 준다(서버가 다시 읽어 기록이 있으면 덮지 않음)
+    expect(page).toContain("askMarketing = !read.ok || read.consent?.source == null;");
   });
 
   it("동의 API 는 기록이 없을 때만 signup 으로 저장", () => {

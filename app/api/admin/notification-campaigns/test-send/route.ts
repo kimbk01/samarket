@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { enforceAdminCampaignTestSendQuota } from "@/lib/security/rate-limit-presets";
 import { readAuditRequestIp } from "@/lib/admin/notification-campaigns/campaign-audit-log";
 import {
   parseCampaignWriteInput,
@@ -36,6 +38,13 @@ export async function POST(req: NextRequest) {
   if (userIds.length === 0) {
     return NextResponse.json({ ok: false, error: "user_ids_required" }, { status: 400 });
   }
+  // 확정 설계 B-18 — 본인 외 회원에게 보내면 실제 발송과 같다 → 실제 발송과 같은 `manage` 권한.
+  if (userIds.some((uid) => uid !== admin.userId)) {
+    const gate = await requireAdminPermission("manage");
+    if (!gate.ok) return gate.response;
+  }
+  const quota = await enforceAdminCampaignTestSendQuota(admin.userId);
+  if (!quota.ok) return quota.response;
 
   const parsed = parseCampaignWriteInput(body, {
     hasOwnTargetPayload: Object.prototype.hasOwnProperty.call(body, "target_payload"),

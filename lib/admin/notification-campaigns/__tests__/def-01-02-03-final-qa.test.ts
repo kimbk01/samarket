@@ -115,7 +115,7 @@ describe("DEF-01 test-send honors campaign channel", () => {
       "@/lib/admin/notification-campaigns/run-campaign-send-batch"
     );
     await runNotificationCampaignTestSend(svc as never, "camp-1", "occ-1", ["u1"]);
-    return sendCampaignToUser.mock.calls[0]?.[5] as { forceChannel?: string } | undefined;
+    return sendCampaignToUser.mock.calls[0]?.[4] as { forceChannel?: string } | undefined;
   }
 
   it("in_app_only does not force push_and_in_app", async () => {
