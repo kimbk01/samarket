@@ -23,6 +23,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { getAppSettings } from "@/lib/app-settings";
 import { formatPrice } from "@/lib/utils/format";
+import { useTradeRoomListingUnavailable } from "@/lib/community-messenger/room/phase2/use-trade-room-listing-unavailable";
 import {
   formatTradeMarketplacePeerProductTitle,
   resolveTradeWindowCounterpartyRole,
@@ -132,6 +133,14 @@ export function useMessengerRoomPhase2RoomPresentation({
     storeOrderIdForDock,
     t,
   ]);
+  /** 2차 실기 D1 (설계 G1): 글이 숨김·삭제면 방 머리·첫 안내 카드도 「볼 수 없는 글이에요」 — 판정 1곳 */
+  const tradeRoomMeta = snapshot?.room.contextMeta?.kind === "trade" ? snapshot.room.contextMeta : null;
+  const tradeListingUnavailable = useTradeRoomListingUnavailable({
+    productChatId: tradeRoomMeta?.productChatId,
+    postId: snapshot?.tradeChatRoomDetail?.product?.id ?? tradeRoomMeta?.postId,
+    viewerUserId: snapshot?.viewerUserId,
+    summaryItemStateLabel: tradeRoomMeta?.itemStateLabel,
+  });
   const tradeListingHeader = useMemo(() => {
     if (!snapshot?.room || domainChromePresentation?.chrome.profileKind !== "listing") return null;
     const product = snapshot.tradeChatRoomDetail?.product;
@@ -168,6 +177,21 @@ export function useMessengerRoomPhase2RoomPresentation({
     const priceRaw = product?.price;
     const priceLabel =
       typeof priceRaw === "number" && Number.isFinite(priceRaw) ? formatPrice(priceRaw, currency) : null;
+    if (tradeListingUnavailable) {
+      /** 볼 수 없는 글 — 제목·사진·가격 대신 「볼 수 없는 글이에요」 · 머리를 눌러도 글 창을 열지 않는다(postId 없음) */
+      const unavailableTitle = t("trade_unavailable_title");
+      return {
+        title: unavailableTitle,
+        imageUrl: null,
+        peerLabel,
+        headerTitle: formatTradeMarketplacePeerProductTitle(peerLabel, unavailableTitle),
+        postId: null,
+        counterpartyRole,
+        priceLabel: null,
+        detailHref: null,
+        unavailable: true,
+      };
+    }
     return {
       title,
       imageUrl,
@@ -178,6 +202,7 @@ export function useMessengerRoomPhase2RoomPresentation({
       counterpartyRole,
       priceLabel,
       detailHref,
+      unavailable: false,
     };
   }, [
     domainChromePresentation?.chrome.profileKind,
@@ -189,6 +214,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     snapshot?.tradeChatRoomDetail?.buyerId,
     snapshot?.tradeChatRoomDetail?.product,
     t,
+    tradeListingUnavailable,
   ]);
 
   const roomTypeLabel =

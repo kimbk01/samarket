@@ -4,6 +4,7 @@ import "server-only";
  * 실패해도 조치 결과는 그대로다(화면은 복귀 재확인으로 맞춘다). 실패는 경고 로그(분당 1회/원인).
  */
 import { publishMessengerPrivateBroadcastFromServer } from "@/lib/community-messenger/realtime/private-broadcast-server";
+import { syncTradeRoomItemStateLabels } from "@/lib/trade/listing-visibility/listing-visibility-room-sync";
 import {
   TRADE_LISTING_VISIBILITY_EVENT,
   TRADE_LISTING_VISIBILITY_TOPIC,
@@ -19,6 +20,13 @@ export async function publishTradeListingVisibility(
   const id = postId.trim();
   if (!id) return;
   const payload: TradeListingVisibilityPayload = { v: 1, postId: id, visible, reason };
+  /** 설계 G2: 그 글의 거래 채팅방 정보(글 상태 문구)도 맞춘다 — 나중에 여는 방·다른 기기도 맞게 */
+  try {
+    const res = await syncTradeRoomItemStateLabels(id);
+    if (res && res.failed > 0) console.warn("[trade-listing-visibility] room summary sync failed", { postId: id, ...res });
+  } catch (e) {
+    console.warn("[trade-listing-visibility] room summary sync error", e instanceof Error ? e.message : e);
+  }
   try {
     await publishMessengerPrivateBroadcastFromServer({
       scope: "trade-listing-visibility",

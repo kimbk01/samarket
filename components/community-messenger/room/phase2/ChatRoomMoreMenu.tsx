@@ -14,7 +14,6 @@ import {
   Video,
 } from "lucide-react";
 import { useMemo } from "react";
-import { useTradeListingRemoved } from "@/lib/trade/listing-visibility/listing-visibility-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 import {
@@ -37,7 +36,7 @@ export type Product = {
   thumbnailUrl?: string | null;
   status: "selling" | "inquiring" | "reserved" | "sold";
   allow_call: boolean;
-  /** D-4: 숨김·삭제된 글(판매자 본인 제외) — 「볼 수 없는 글이에요」, 상세로 가지 않음 */
+  /** 숨김·삭제된 글(판매자 본인 제외) — 「볼 수 없는 글이에요」, 상세로 가지 않음 · 판정 `useTradeRoomListingUnavailable` (설계 G1) */
   unavailable?: boolean;
 };
 
@@ -211,9 +210,6 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     onToggleArchive,
     onLeaveRoom,
   } = props;
-  /** 설계 §1-3: 이번 실행 중 숨김·삭제 방송을 받은 글(판매자 본인은 그대로 본다) */
-  const removedByBroadcastRaw = useTradeListingRemoved(roomType === "trade" ? tradeContext?.product.id : null);
-  const removedByBroadcast = removedByBroadcastRaw && tradeContext?.viewerRole !== "seller";
 
   const presenceLine =
     otherUser.peerPresence != null
@@ -313,7 +309,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
         </div>
       ) : null}
 
-      {roomType === "trade" && tradeContext && (tradeContext.product.unavailable || removedByBroadcast) ? (
+      {roomType === "trade" && tradeContext?.product.unavailable ? (
         <div className="border-b border-[color:var(--overlay-border)] px-3 py-2.5" data-trade-chat-product-unavailable="1">
           <p className="truncate text-[14px] font-semibold text-[color:var(--overlay-text-secondary)]">
             {t("trade_unavailable_title")}

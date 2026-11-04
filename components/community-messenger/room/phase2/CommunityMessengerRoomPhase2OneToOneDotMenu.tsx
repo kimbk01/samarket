@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isTradePostPubliclyVisible } from "@/lib/trade/listing-visibility/listing-visibility-shared";
+import { useTradeRoomListingUnavailable } from "@/lib/community-messenger/room/phase2/use-trade-room-listing-unavailable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -99,14 +99,7 @@ function buildTradeContextFromDetail(
   const sellerId = (detail.sellerId ?? "").trim();
   const buyerId = (detail.buyerId ?? "").trim();
   const viewerRole: "seller" | "buyer" = vid && vid === sellerId ? "seller" : "buyer";
-  /** D-4: 숨김·삭제된 글 — 판매자 본인 외에는 「볼 수 없는 글」 */
-  product.unavailable = viewerRole !== "seller" && !isTradePostPubliclyVisible({ status: p.status });
   return { product, sellerId, buyerId, viewerRole };
-}
-
-function isUnavailableItemStateLabel(label: string | null | undefined): boolean {
-  const t = (label ?? "").trim();
-  return t === "숨김" || t === "삭제됨";
 }
 
 /** `getChatListingItemStateLabel` 문구(판매중·예약중·거래완료/판매완료·숨김·삭제됨) → 메뉴 상품 상태 */
@@ -142,10 +135,6 @@ function buildTradeContextFromMeta(
     /** D-4: 방 메타 글 상태 문구(`getChatListingItemStateLabel`)가 숨김·삭제됨이면 「볼 수 없는 글」 */
     unavailable: false,
   };
-  /** D-4: 판매자 본인 외에는 숨김·삭제 글을 「볼 수 없는 글」로 (판매자 = `product_chats.seller_id`) */
-  const sellerId = (meta.sellerId ?? "").trim();
-  const viewerIsSeller = Boolean(sellerId) && sellerId === viewerUserId.trim();
-  product.unavailable = !viewerIsSeller && isUnavailableItemStateLabel(meta.itemStateLabel);
   return {
     product,
     sellerId: "",
@@ -322,17 +311,29 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     ]
   );
 
+  /** 2차 실기 D1 (설계 G1): ⋮ 상품 줄 「볼 수 없는 글」 = 방 머리와 같은 판정 1곳(상세 글 상태·방 정보 문구·방송 · 판매자 제외) */
+  const tradeMetaForListing =
+    vm.snapshot.room.contextMeta?.kind === "trade"
+      ? (vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1)
+      : null;
+  const tradeListingUnavailable = useTradeRoomListingUnavailable({
+    productChatId: tradeMetaForListing?.productChatId,
+    postId: vm.snapshot.tradeChatRoomDetail?.product?.id ?? tradeMetaForListing?.postId,
+    viewerUserId: vm.snapshot.viewerUserId,
+    summaryItemStateLabel: tradeMetaForListing?.itemStateLabel,
+  });
   const tradeContext: TradeRoomContext | undefined = useMemo(() => {
     if (!isTradeRoom) return undefined;
     const detail = vm.snapshot.tradeChatRoomDetail;
-    if (detail) {
-      const built = buildTradeContextFromDetail(detail, vm.snapshot.viewerUserId);
-      return built ?? undefined;
-    }
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
-    if (ctx?.kind === "trade") return buildTradeContextFromMeta(ctx, vm.snapshot.viewerUserId);
-    return undefined;
-  }, [isTradeRoom, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
+    const built = detail
+      ? buildTradeContextFromDetail(detail, vm.snapshot.viewerUserId)
+      : ctx?.kind === "trade"
+        ? buildTradeContextFromMeta(ctx, vm.snapshot.viewerUserId)
+        : null;
+    if (!built) return undefined;
+    return { ...built, product: { ...built.product, unavailable: tradeListingUnavailable } };
+  }, [isTradeRoom, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId, tradeListingUnavailable]);
 
   const tradeVideoCallEnabled = useMemo(() => {
     if (!isTradeRoom) return false;

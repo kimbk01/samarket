@@ -437,7 +437,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     [isDeliveryChatListVisual, item.lastEventAt]
   );
   const tradeListPreview = useTradeChatListPostPreviewFields({
-    postId: tradeRowModel?.postId,
+    /** 설계 G3: 「볼 수 없는 글」 줄은 미리보기(제목·가격)를 서버에서 다시 받지 않는다 — 가격이 되살아나던 결함 */
+    postId: tradeRowModel?.productUnavailable ? null : tradeRowModel?.postId,
     productTitle: tradeRowModel?.productTitle ?? "",
     productPriceText: tradeRowModel?.productPriceText,
   });
