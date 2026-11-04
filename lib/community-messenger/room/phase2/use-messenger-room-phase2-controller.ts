@@ -2583,7 +2583,7 @@ export function useMessengerRoomPhase2Controller() {
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         if (redirectIfMessengerAuthBlocked(res, json)) return;
-        showMessengerSnackbar(json.error ?? translateCmUi("cm_ui_report_failed"), { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_report_failed"), { variant: "error" });
         return;
       }
       setMemberActionTarget(null);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BASELINE_BANNED_TERMS,
+  BASELINE_EXCEPTION_PHRASES,
   matchBannedWords,
   normalizeOperatorBannedWords,
 } from "@/lib/community-feed/banned-word-match";
@@ -104,5 +105,70 @@ describe("BASELINE_BANNED_TERMS", () => {
     const terms = BASELINE_BANNED_TERMS.map((t) => t.term);
     expect(terms.every((t) => t.trim().length > 0)).toBe(true);
     expect(new Set(terms).size).toBe(terms.length);
+  });
+
+  it("기본 목록 39개(ko 20 · en 12 · tl 7) · 예외 표현 8개", () => {
+    const hangul = /[\u3130-\u318F\uAC00-\uD7A3]/;
+    const tl = new Set(["putangina", "putang ina", "tangina", "tang ina mo", "kantot", "kantutan", "pokpok"]);
+    const ko = BASELINE_BANNED_TERMS.filter((t) => hangul.test(t.term));
+    const tagalog = BASELINE_BANNED_TERMS.filter((t) => tl.has(t.term));
+    expect(BASELINE_BANNED_TERMS).toHaveLength(39);
+    expect(ko).toHaveLength(20);
+    expect(tagalog).toHaveLength(7);
+    expect(BASELINE_BANNED_TERMS.length - ko.length - tagalog.length).toBe(12);
+    expect(BASELINE_EXCEPTION_PHRASES).toHaveLength(8);
+  });
+
+  it.each(BASELINE_BANNED_TERMS.map((t) => t.term))("기본 목록 단어 자체는 차단: %s", (term) => {
+    expect(blocked(term)).toBe(true);
+  });
+
+  it.each(BASELINE_EXCEPTION_PHRASES)("예외 표현은 통과: %s", (phrase) => {
+    expect(blocked(phrase)).toBe(false);
+    expect(blocked(`오늘 ${phrase} 이야기`)).toBe(false);
+  });
+
+  it("예외 표현 옆에 진짜 욕설이 있으면 차단", () => {
+    expect(blocked("시발점 가는 길 씨발")).toBe(true);
+  });
+});
+
+describe("matchBannedWords — 언어별 정상 문장", () => {
+  it.each([
+    // tl
+    "Salamat po sa mabilis na delivery",
+    "Magkano po ito? Pwede pa ba tawad?",
+    "Kanto ng Ayala, malapit sa mall",
+    "Tanging presyo na po ito",
+    "Ang ganda ng tanghalian namin",
+    "Pupunta ako sa palengke bukas",
+    "Pokémon cards for sale po",
+    // en
+    "Brand new iPhone, never used",
+    "Can we meet at the mall tomorrow?",
+    "Analysis report attached",
+    "Cocktail glasses set",
+    "Dickens novel collection",
+    // ko
+    "씨앗 발아 키트 팝니다",
+    "시 발표회 일정 공유합니다",
+    "병원 신고 서류 문의",
+    "좋은 하루 되세요",
+  ])("통과: %s", (text) => {
+    expect(blocked(text)).toBe(false);
+  });
+});
+
+describe("matchBannedWords — 추가 우회 입력", () => {
+  it.each([
+    ["제로폭 비결합자", "씨\u200C발"],
+    ["BOM", "f\uFEFFuck"],
+    ["단어 결합자", "putang\u2060ina"],
+    ["물결표", "씨~발"],
+    ["타갈로그 띄움", "k a n t o t"],
+    ["타갈로그 대문자", "TANGINA MO"],
+    ["자음 띄움", "ㅅ ㅂ"],
+  ])("%s: %s", (_label, text) => {
+    expect(blocked(text)).toBe(true);
   });
 });

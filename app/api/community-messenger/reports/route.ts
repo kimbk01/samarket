@@ -3,6 +3,12 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import {
+  resolveMessengerReportTarget,
+  type MessengerReportMessageRow,
+  type MessengerReportType,
+} from "@/lib/community-messenger/server/messenger-report-target";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,11 +79,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  const target = await resolveMessengerReportTarget(
+    {
+      reporterUserId: auth.userId,
+      reportType: reportType as MessengerReportType,
+      roomId: body.roomId,
+      messageId: body.messageId,
+      reportedUserId: body.reportedUserId,
+    },
+    {
+      resolveMemberRoomId: async (userId, rawRoomId) => {
+        const canon = await messengerRoomCanonicalOrJsonError(userId, rawRoomId);
+        return canon.ok ? canon.canonicalRoomId : null;
+      },
+      loadMessage: async (roomId, messageId) => {
+        const { data } = await (sb as any)
+          .from("community_messenger_messages")
+          .select("sender_id, deleted_at, deleted_for_everyone_at")
+          .eq("id", messageId)
+          .eq("room_id", roomId)
+          .maybeSingle();
+        return (data as MessengerReportMessageRow | null) ?? null;
+      },
+      hasParticipantRow: async (roomId, userId) => {
+        const { data } = await (sb as any)
+          .from("community_messenger_participants")
+          .select("id")
+          .eq("room_id", roomId)
+          .eq("user_id", userId)
+          .limit(1);
+        return Array.isArray(data) && data.length > 0;
+      },
+      loadProfile: async (userId) => {
+        const { data } = await (sb as any)
+          .from("profiles")
+          .select("id, status, deleted_at")
+          .eq("id", userId)
+          .maybeSingle();
+        return data ?? null;
+      },
+    }
+  );
+  if (!target.ok) {
+    return NextResponse.json({ ok: false, error: target.error }, { status: target.status });
+  }
+
   const payload = {
     report_type: reportType,
-    room_id: String(body.roomId ?? "").trim() || null,
-    message_id: String(body.messageId ?? "").trim() || null,
-    reported_user_id: String(body.reportedUserId ?? "").trim() || null,
+    room_id: target.roomId,
+    message_id: target.messageId,
+    reported_user_id: target.reportedUserId,
     reporter_user_id: auth.userId,
     reason_type: reasonType,
     reason_detail: detail,
@@ -90,7 +141,7 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message ?? "report_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "report_failed" }, { status: 500 });
   }
   return NextResponse.json({ ok: true, reportId: data.id as string });
 }

@@ -10,8 +10,16 @@
 - `store_reports.target_type` 허용값에 `review` 추가 (배달 리뷰 신고).
 - `reports.target_type` 허용값에 `feed_ad` 추가 (광고 신고).
 - 기존 행 변경·삭제 없음. 제약만 넓힌다.
-- 미적용 상태로 웹 코드가 배포되면 리뷰·광고 신고 저장이 CHECK 위반으로 실패한다 → **마이그레이션 적용 후 main 반영** 순서를 지킨다.
-- 롤백: 새 값 행이 없을 때 이전 CHECK 로 되돌린다(새 값 행이 생긴 뒤에는 롤백 전에 처리 방침 필요).
+- **운영 대조(2026-11-05 읽기 전용):**
+  - 현재 CHECK 이름·값이 파일과 같다: `reports_target_type_check`(user·product·chat_room·chat_message·post·comment), `store_reports_target_type_check`(store·product). 파일은 여기에 `feed_ad`·`review` 만 더한다.
+  - 기존 행: `reports` 10건(chat_room 1 · product 7 · user 2), `store_reports` 0건 → 새 CHECK 검증을 모두 통과한다.
+  - 두 표에 사용자 트리거 없음. FK(`product_id→posts`·`room_id→product_chats`·`store_id→stores`)는 새 신고가 쓰지 않거나(광고: product_id null) 리뷰의 매장 id 를 넣으므로 충돌 없음.
+- **관리자 처리 경로:**
+  - 광고 신고: 통합 큐 RPC `admin_reports_unified_page` 가 ELSE 분기로 `product` 칸에 넣는다. 화면 라벨은 행의 `target_type`(feed_ad → 「광고」)로 표시한다. `admin_decide_trade_report` 의 반려·처리완료는 동작하고, 「숨김」은 게시물이 아니라 `post_not_found` 를 돌려준다 → 광고 중단은 기존 광고 관리 화면에서 한다.
+  - 리뷰 신고: 통합 큐의 `store_reports` 원장으로 보이고, 처리 API(`/api/admin/store-reports/[id]`)는 대상 종류와 무관하게 상태만 바꾼다. 리뷰 숨김은 기존 `/api/admin/store-reviews` 로 한다.
+- **API 호환:** 제약을 넓히기만 하므로 지금 운영 중인 코드(새 값을 보내지 않음)는 적용 전후 동작이 같다. 반대로 새 웹 코드를 마이그레이션 없이 배포하면 리뷰·광고 신고만 500(CHECK 위반)이 된다.
+- **적용 순서:** ① 마이그레이션 적용(Owner 승인) → ② 위 CHECK 정의 재조회로 확인 → ③ main 반영(웹 배포). ① 없이 ③ 금지.
+- **실패 시 복구:** 파일이 `begin … commit` 한 트랜잭션이라 중간 실패 시 자동으로 전부 되돌아간다(기존 CHECK 유지). 적용 후 되돌릴 때는 `feed_ad`·`review` 행이 0건인지 먼저 확인하고 이전 정의로 다시 만든다. 새 값 행이 있으면 삭제하지 않고(운영 데이터 삭제 금지) 롤백을 멈추고 보고한다.
 
 ## 2. P0-2 채팅 첨부 공개 URL
 
@@ -22,8 +30,14 @@
   - `lib/community-messenger/server/messenger-media-bucket.ts`: `messenger-media` 버킷이 존재하고 public=false 일 때만 신규 업로드를 그쪽으로 보낸다. 없으면 `post-images`(공개) 유지.
   - `app/api/community-messenger/rooms/[roomId]/messages/[messageId]/media/route.ts`: 참가자(또는 `chats` 권한 관리자 + 감사) 확인 후 10분 서명 URL 로 302.
   - `lib/community-messenger/media/messenger-media-ref.ts`: 메시지 metadata 에 bucket/path 기록, 링크는 조회 라우트 경유.
-- 따라서 현재 운영에서 메신저 신규 첨부(이미지·파일·음성·동영상)는 **공개 버킷**에 올라가고 URL 만으로 열람 가능하다. 실제 외부 유출 여부는 확인하지 않았다(NOT_PROVEN — 유출로 단정하지 않는다).
-- 레거시 거래 채팅(`/api/chat/...`, `lib/chats/chat-image-bundle.ts`)은 `post-images` 공개 URL 만 허용한다. C-4 전환 범위 밖이다.
+- **확인된 보안 결함:** 메신저 첨부가 공개 버킷에 있어 URL 만 알면 비로그인으로 HTTP 200 열람된다(감사 시 직접 확인). 제3자 실제 유출 여부만 NOT_PROVEN 이다(유출로 단정하지 않는다).
+- 공개 상태 기존 파일(2026-11-05 `storage.objects` 직접 조회, `{uid}/community/messenger-*` 경로): **580개 · 약 97.6MB · 62개 방**
+  - messenger-image 412 (2026-04-16~10-30) · messenger-voice 146 (04-05~08-09) · messenger-file 22 (06-09~08-23)
+  - 거래 채팅 첨부도 메신저 방으로 올라가므로 이 580개에 포함된다.
+  - 감사 보고의 「360개」는 잘못 센 값이다. 같은 경로 기준 재조회 결과가 580개다.
+- 레거시 거래 채팅 표(`chat_messages` 1,894행 · `product_chat_messages` 361행)에는 `post-images` 참조가 0건이다. 다만 레거시 송신 코드(`lib/chats/chat-image-bundle.ts`)는 지금도 `post-images` 공개 URL 만 받으므로, 이 경로로 새 이미지가 오면 공개 상태가 된다.
+- `meeting-open-chat/` 경로 4개(2026-03-31·08-23)는 메신저 첨부 경로가 아니다(모임 오픈채팅 — 성격 미확인 NOT_PROVEN).
+- **비공개 버킷을 만들어도 기존 580개는 공개 상태로 남는다.** 바뀌는 것은 생성 이후 새로 올리는 파일뿐이다.
 
 ### 전환 단계 (각 단계 Owner 승인)
 
@@ -32,6 +46,12 @@
    효과: 적용 후 최대 60초(음성 캐시) 내 신규 메신저 첨부가 비공개 버킷으로 간다. 기존 첨부 재생은 그대로(공개 URL 유지).
    롤백: env `MESSENGER_PRIVATE_MEDIA_BUCKET=off` → 신규 업로드가 다시 `post-images` 로. 이미 비공개에 올라간 파일은 조회 라우트로 계속 열람.
    실기기 확인: Android·iPhone 에서 이미지·음성·파일 전송 → 상대 수신·재생, 비참가자 계정으로 조회 라우트 403, 직접 public URL 404.
+   코드 확인(로컬 테스트 `messenger-media-private-access.test.ts` 18건 PASS):
+   - 업로드: 버킷이 있고 public=false 일 때만 비공개로 보냄, env off 면 레거시.
+   - 조회: 참가자만 서명 URL, 비참가자 403, 메시지가 참조하지 않는 경로 404, 삭제 메시지·다른 방 별칭 거부.
+   - 재생: 음성 `/messages/{id}/audio` 는 메시지에 기록된 버킷으로 서명(비공개 버킷 지원).
+   - 푸시: 첨부 URL 을 싣지 않음(라벨만).
+   - 새 메시지에 저장되는 `publicUrl` 은 열리지 않는 형식(`/object/public/messenger-media/...`)이다. 화면 표시는 조회 라우트로 바꿔 그리므로 영향이 없어야 하나, 실제 앱 화면은 버킷 적용 후 실기기로만 확인할 수 있다(NOT_PROVEN).
 2. **레거시 거래 채팅 첨부** — 별도 설계 필요(클라이언트가 `post-images` 공개 URL 을 직접 보내는 구조). 이번 브랜치에서 변경하지 않음.
 3. **기존 공개 파일 이전** — 파일 이동·원본 삭제·버킷 권한 변경은 별도 승인. 게시글 이미지(`post-images` 의 공개 게시물 사진)와 채팅 첨부가 같은 버킷에 섞여 있어, 버킷 전체를 비공개로 바꾸면 게시글 이미지가 깨진다 → 채팅 경로만 골라 복사 후 metadata 갱신, 확인 뒤 원본 삭제 순서로 설계해야 한다.
 
@@ -39,10 +59,19 @@
 
 ### 재동의 영향
 
-- 동의 게이트는 게시된 ko `version` 문자열로 판정한다(`lib/legal/resolve-required-consent-versions.ts`: 같은 version 의 본문 수정은 동의를 바꾸지 않는다).
+- **Owner 결정(2026-11-05): 기존 version 본문을 덮어쓰지 않고 새 version 으로 게시한다.** 이번 단계에서는 게시하지 않는다.
 - 현재 게시 terms version = `2026-04-store-review` (ko 258자 · en 501자). 이미 금지 행위·신고·차단·기록 보관 문장이 있다. 무관용·24시간·제재 단계 문장은 없다.
-- **version 을 올리면 기존 회원 전원이 재동의 게이트에 걸린다.** Owner 지시(일괄 재동의 강제 금지)에 따라 **같은 version 으로 본문만 보완 게시**하는 방식을 제안한다.
-- 다만 아래 초안은 회원 의무·제재를 구체화한다. 이것이 법적으로 재동의가 필요한 "불리한 변경"인지는 **법률 판단 필요(NOT_PROVEN)** — 필요 판단 시 version 변경 여부를 Owner 가 결정한다.
+- **현재 동의 게이트 동작(코드 확인):**
+  - `hasStoreTermsConsent` 는 회원의 `terms_version`·`privacy_version` 이 게시된 ko version 과 **정확히 같아야** 동의로 본다.
+  - 미동의 회원의 새 쓰기는 `signup_incomplete`(403)로 막히고 동의 화면으로 보내진다. 신고·차단·문의·나가기·본인 글 삭제·주문 이행 등은 예외(`member-consent-mutation-policy.ts`).
+  - 「알림만 하고 동의는 유지」하는 모드는 **없다**.
+- **따라서 지금 코드로 새 version 을 게시하면 = 기존 회원 전원 재동의 강제**가 된다.
+  - 운영 회원(2026-11-05, 삭제·탈퇴 제외): 128명 — 현재 version 동의 112명, 동의 기록 없음 16명.
+  - Owner 지시의 「130명」과 기준 차이가 있다(관리자·정지 포함 여부 등 — 미확인).
+- **충돌(보고만, 임의 선택 안 함):** 「새 version 게시」와 「일괄 재동의 강제 금지」는 지금 코드로 동시에 만족할 수 없다. 둘 중 하나가 필요하다.
+  1. 재동의를 받는다(새 version 게시 = 강제).
+  2. 동의 게이트에 「이전 version 동의를 유효로 인정」하는 규칙을 추가한다(인증·동의 코드 변경 — 별도 승인 대상).
+- 변경 내용이 법적으로 재동의가 필요한 「불리한 변경」인지는 **법률 판단 필요(NOT_PROVEN)**.
 
 ### 초안 (ko)
 

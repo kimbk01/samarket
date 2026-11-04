@@ -427,6 +427,25 @@ type ProfileCompletionRow = {
   avatar_url: string | null;
 };
 
+/** 금칙어 검사 대상 — 실제로 바뀌는 닉네임·소개글만 (기존 값 재전송으로 다른 항목 저장이 막히지 않게). */
+async function changedProfileFilterTexts(
+  userId: string,
+  next: { nickname?: unknown; bio?: unknown }
+): Promise<string[]> {
+  const candidates = (["nickname", "bio"] as const).filter((k) => {
+    const v = next[k];
+    return typeof v === "string" && v.length > 0;
+  });
+  if (candidates.length === 0) return [];
+  const serviceSb = tryCreateSupabaseServiceClient();
+  const sb = serviceSb ?? (await createSupabaseRouteHandlerClient());
+  const { data } = sb
+    ? await sb.from("profiles").select("nickname, bio").eq("id", userId).maybeSingle()
+    : { data: null };
+  const current = (data ?? {}) as { nickname?: string | null; bio?: string | null };
+  return candidates.filter((k) => next[k] !== (current[k] ?? null)).map((k) => next[k] as string);
+}
+
 async function fetchProfileCompletionRow(
   userId: string
 ): Promise<ProfileCompletionRow | null> {
@@ -1112,9 +1131,10 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  const profileTexts = [parsed.patch.nickname, parsed.patch.bio].filter(
-    (v): v is string => typeof v === "string" && v.length > 0
-  );
+  const profileTexts = await changedProfileFilterTexts(auth.userId, {
+    nickname: parsed.patch.nickname,
+    bio: parsed.patch.bio,
+  });
   if (profileTexts.length > 0) {
     const filtered = await guardBannedWords({
       userId: auth.userId,
