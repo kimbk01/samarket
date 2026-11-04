@@ -128,7 +128,8 @@ export const communityUiMessages = {
     community_community_label: "커뮤니티",
     community_feed_back_aria: "피드로",
     community_ad_badge: "광고",
-    community_top_fix_badge: "광고",
+    /** 커뮤니티 상위노출 표기 (Owner 2026-11-04 「배경 + 글자」 · 옛 O-1 「광고」 대체) */
+    community_top_fix_badge: "포인트 노출",
     community_top_fix_cta: "Community 상위노출",
     community_top_pin_cta: "커뮤니티 상위노출",
     community_top_fix_apply_title: "Community 상위노출",
@@ -681,7 +682,7 @@ export const communityUiMessages = {
     community_community_label: "Community",
     community_feed_back_aria: "Back to feed",
     community_ad_badge: "Ad",
-    community_top_fix_badge: "Ad",
+    community_top_fix_badge: "Promoted",
     community_top_fix_cta: "Community top exposure",
     community_top_pin_cta: "Community top exposure",
     community_top_fix_apply_title: "Community top exposure",

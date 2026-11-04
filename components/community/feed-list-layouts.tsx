@@ -66,7 +66,7 @@ function hasCategoryBadge(
   return Boolean((vm.topicLabel ?? "").trim() || vm.isQuestion || vm.isMeetup || vm.topBadge || vm.isAd);
 }
 
-/** 「광고」 — 유료 상위노출 글 표시 (Owner 결정 O-1·O-2·O-3 · 상위노출 카드 `AdPostCard` 와 같은 문구) */
+/** 「포인트 노출」 — 커뮤니티 유료 상위노출 글 표시 (Owner 2026-11-04 「배경 + 글자」 · 배경은 `CardShell boosted`) */
 export function CommunityAdBadge() {
   const { t } = useI18n();
   return (
@@ -298,7 +298,7 @@ function ListTextStack({
   );
 }
 
-function CardShell({ href, children }: { href: string; children: ReactNode }) {
+function CardShell({ href, children, boosted = false }: { href: string; children: ReactNode; boosted?: boolean }) {
   const router = useRouter();
   const articleRef = useRef<HTMLElement | null>(null);
   const prefetchOnIntent = () => {
@@ -328,7 +328,9 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
   return (
     <article
       ref={articleRef}
-      className={`min-h-0 ${CM_FEED_CARD_CLASS}`}
+      /* 커뮤니티 상위노출 표시 재설계 (Owner 2026-11-04): 상위노출 글은 일반 글과 같은 카드 · 배경만 다르다 */
+      className={`min-h-0 ${CM_FEED_CARD_CLASS}${boosted ? " !bg-[var(--sam-boost-card-bg)]" : ""}`}
+      data-community-boosted={boosted ? "1" : undefined}
       data-community-renderer="canonical-v1"
       data-community-card="post"
       data-community-nav="card-shell"
@@ -359,7 +361,7 @@ export function FeedListLayoutCarrotThumbRight({
 }) {
   const url = vm.thumbnailUrl;
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} boosted={vm.isAd === true}>
       <div
         className={url ? "min-h-[5.5rem] sm:min-h-[5.75rem]" : "min-h-[4.5rem] sm:min-h-[4.75rem]"}
       >
@@ -387,7 +389,7 @@ export function FeedListLayoutCarrotThumbLeft({
   const url = vm.thumbnailUrl;
   if (!url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} boosted={vm.isAd === true}>
         <div className="min-h-[4.5rem] w-full min-w-0 sm:min-h-[4.75rem]">
           <ListTextStack
             vm={vm}
@@ -399,7 +401,7 @@ export function FeedListLayoutCarrotThumbLeft({
     );
   }
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} boosted={vm.isAd === true}>
       <div className="min-h-[5.5rem] w-full min-w-0 sm:min-h-[5.75rem]">
         <ListCategoryPillRow vm={vm} />
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
@@ -417,7 +419,7 @@ export function FeedListLayoutCarrotThumbLeft({
 
 export function FeedListLayoutTextOnly({ vm }: { vm: FeedListCardViewModel }) {
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} boosted={vm.isAd === true}>
       <div className="min-h-[4.5rem] w-full min-w-0 sm:min-h-[4.75rem]">
         <ListTextStack
           vm={vm}
@@ -444,7 +446,7 @@ export function FeedListLayoutPlace({
 
   if (thumbColumn === "left" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} boosted={vm.isAd === true}>
         <div>
           <div className="flex min-w-0 items-start gap-2.5 sm:min-h-[5.75rem] sm:gap-3">
             <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
@@ -466,7 +468,7 @@ export function FeedListLayoutPlace({
   }
   if (thumbColumn === "right" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} boosted={vm.isAd === true}>
         <div className="min-h-[5.5rem] w-full min-w-0 sm:min-h-[5.75rem]">
           <ListTextStack
             vm={vm}
@@ -481,7 +483,7 @@ export function FeedListLayoutPlace({
     );
   }
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} boosted={vm.isAd === true}>
       <div className="min-h-[4.5rem] w-full min-w-0 sm:min-h-[4.75rem]">
         <ListTextStack vm={vm} firstHashtag={null} placeInMeta={pinM} />
       </div>
@@ -505,7 +507,7 @@ export function FeedListLayoutTags({
 
   if (thumbColumn === "left" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} boosted={vm.isAd === true}>
         <div>
           <div className="flex min-w-0 items-start gap-2.5 sm:min-h-[5.75rem] sm:gap-3">
             <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
@@ -523,7 +525,7 @@ export function FeedListLayoutTags({
   }
   if (thumbColumn === "right" && url) {
     return (
-      <CardShell href={vm.href}>
+      <CardShell href={vm.href} boosted={vm.isAd === true}>
         <div className="min-h-[5.5rem] w-full min-w-0 sm:min-h-[5.75rem]">
           <ListTextStack
             vm={vm}
@@ -538,7 +540,7 @@ export function FeedListLayoutTags({
     );
   }
   return (
-    <CardShell href={vm.href}>
+    <CardShell href={vm.href} boosted={vm.isAd === true}>
       <div className="min-h-[4.5rem] w-full min-w-0 sm:min-h-[4.75rem]">
         <ListTextStack vm={vm} firstHashtag={one} placeInMeta={pinM} />
       </div>

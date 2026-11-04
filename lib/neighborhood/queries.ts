@@ -188,6 +188,11 @@ export async function listNeighborhoodFeed(options: {
   hashtag?: string | null;
   /** Free-text keyword (Global Search). Title/content/summary ILIKE — not author search. */
   q?: string | null;
+  /**
+   * 커뮤니티 상위노출 표시 재설계 (Owner 2026-11-04): 이 글들만 일반 목록과 **같은 카드 값**으로 읽는다
+   * (`/api/ads/active` 위쪽 고정 글). `allLocations` 와 함께 쓴다. 공지·고정 후보는 읽지 않는다.
+   */
+  postIds?: string[] | null;
 }): Promise<NeighborhoodFeedPageResult> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -196,7 +201,13 @@ export async function listNeighborhoodFeed(options: {
     return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
   }
 
-  const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
+  const onlyPostIds = Array.isArray(options.postIds)
+    ? [...new Set(options.postIds.map((id) => String(id ?? "").trim()).filter(Boolean))].slice(0, 40)
+    : null;
+  if (onlyPostIds && onlyPostIds.length === 0) {
+    return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
+  }
+  const pageSize = onlyPostIds ? onlyPostIds.length : Math.min(Math.max(options.limit ?? 20, 1), 40);
   const offset = Math.min(Math.max(options.offset ?? 0, 0), COMMUNITY_FEED_MAX_OFFSET);
   const hashtag = normalizeCommunityHashtagQuery(options.hashtag);
   const keywordQ = sanitizeCommunityKeywordQuery(options.q);
@@ -370,6 +381,7 @@ export async function listNeighborhoodFeed(options: {
       }
     }
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
+    if (onlyPostIds) qq = qq.in("id", onlyPostIds);
     if (hashtag) {
       qq = qq.or(communityHashtagIlikeOrFilter(hashtag));
     }
@@ -409,7 +421,7 @@ export async function listNeighborhoodFeed(options: {
    */
   const topNowIso = new Date().toISOString();
   const topNowMs = Date.parse(topNowIso);
-  const topEligible = !authorUserId && !hashtag && !keywordQ && options.neighborOnly !== true;
+  const topEligible = !authorUserId && !hashtag && !keywordQ && options.neighborOnly !== true && !onlyPostIds;
   const topCandidatesP: Promise<Record<string, unknown>[]> = topEligible
     ? (async () => {
         try {

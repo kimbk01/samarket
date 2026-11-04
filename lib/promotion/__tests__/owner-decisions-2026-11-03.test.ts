@@ -15,12 +15,11 @@ import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const ko = (k: string) => translate("ko", k as MessageKey);
 
-describe("O-1 커뮤니티 상위노출 표기 = 「광고」", () => {
+describe("O-1 커뮤니티 상위노출 표기 = 「포인트 노출」 (Owner 2026-11-04 「배경 + 글자」 · 옛 「광고」 대체)", () => {
   it("카드 칩·글쓴이 메뉴·결제 창 안내", () => {
-    expect(ko("community_top_fix_badge")).toBe("광고");
+    expect(ko("community_top_fix_badge")).toBe("포인트 노출");
     expect(ko("community_my_post_ads")).toBe("내 글 상위노출");
     expect(ko("promo_sheet_not_top_pin")).not.toContain("상단 고정");
-    expect(read("components/ads/AdPostCard.tsx")).not.toContain("never 「광고」");
   });
 });
 

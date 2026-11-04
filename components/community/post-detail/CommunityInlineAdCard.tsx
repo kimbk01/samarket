@@ -3,7 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { AdFeedPost } from "@/lib/ads/types";
+import type { ActiveAdFeedItem as AdFeedPost } from "@/lib/ads/types";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { CM_FEED_CARD_CLASS } from "@/lib/community/community-ui-classes";

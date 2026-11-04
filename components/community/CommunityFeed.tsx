@@ -53,7 +53,6 @@ import {
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 import { CommunityCard } from "./CommunityCard";
 import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
-import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import { EventPromotionHeroBanner } from "@/components/platform-events/EventPromotionHeroBanner";
 import {
@@ -64,7 +63,7 @@ import {
 import { getOrCreateFeedAdSessionId } from "@/lib/ads/feed-ad-session";
 import { resolveCommunityFeedSurface } from "@/lib/community/resolve-community-feed-surface";
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
-import type { AdFeedPost } from "@/lib/ads/types";
+import type { ActiveAdFeedItem } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import {
   clearAllPhilifeFeedPersistentCaches,
@@ -378,7 +377,7 @@ export function CommunityFeed({
   const firstCardPaintStartRef = useRef(0);
   const firstCardPaintQueryKeyRef = useRef("");
   const [err, setErr] = useState("");
-  const [topAds, setTopAds] = useState<AdFeedPost[]>([]);
+  const [topAds, setTopAds] = useState<ActiveAdFeedItem[]>([]);
   const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const nextOffsetRef = useRef(bootNextOffset);
@@ -1148,7 +1147,7 @@ export function CommunityFeed({
         )
       )
         .then((r) => r.clone().json())
-        .then((j: { ads?: AdFeedPost[] }) => {
+        .then((j: { ads?: ActiveAdFeedItem[] }) => {
           if (!cancelled && j.ads) setTopAds(j.ads);
         })
         .catch(() => {
@@ -1236,7 +1235,10 @@ export function CommunityFeed({
    */
   const topAdsBelowOperator = useMemo(() => {
     const ids = new Set(operatorTopPosts.map((p) => String(p.id)));
-    return topAds.filter((ad) => !ids.has(String(ad.postId ?? "").trim())).slice(0, PROMOTED_TOP_PINS_MAX);
+    // 보는 회원에게 보일 수 있는 글(카드 값이 온 글)만 위쪽 자리를 차지한다 — 차단·숨김 글이 자리를 비우지 않게
+    return topAds
+      .filter((ad) => ad.feedPost != null && !ids.has(String(ad.postId ?? "").trim()))
+      .slice(0, PROMOTED_TOP_PINS_MAX);
   }, [topAds, operatorTopPosts]);
   const pinnedAdPostIds = useMemo(
     () => new Set(topAdsBelowOperator.map((ad) => String(ad.postId ?? "").trim()).filter(Boolean)),
@@ -2007,12 +2009,16 @@ export function CommunityFeed({
           </ul>
         ) : null}
 
+        {/* 커뮤니티 상위노출 표시 재설계 (Owner 2026-11-04 「배경 + 글자」): 위쪽 고정 글도 일반 글과 같은 카드
+            (작성자·지역·조회수·댓글·사진·시간) · 상위노출 배경 + 「포인트 노출」 · 남은 기간은 보이지 않는다(작성자 본인만 결제 창·마이 › 광고) */}
         {topAdsBelowOperator.length > 0 ? (
-          <div className="space-y-1 px-4 pt-1">
-            {topAdsBelowOperator.map((ad) => (
-              <AdPostCard key={ad.adId} ad={ad} />
+          <ul className={COMMUNITY_FEED_LIST_WRAP_CLASS} data-community-boost-top="1">
+            {topAdsBelowOperator.map((ad, index) => (
+              <li key={ad.adId} className="list-none">
+                <CommunityCard post={ad.feedPost!} priorityThumb={index < FEED_LCP_PRIORITY_COUNT} isAd />
+              </li>
             ))}
-          </div>
+          </ul>
         ) : null}
 
         {/* CUT 2 — COMMUNITY_HOME × HERO host (capability registry). Collapses when empty. */}

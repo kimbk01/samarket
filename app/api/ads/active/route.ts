@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchActiveTopFixedAdFeedPostsFromDb } from "@/lib/ads/post-ads-supabase";
 import { fetchActiveCommunityPaidExposureFeedPosts } from "@/lib/promotion/community-paid-exposure-feed";
-import type { ActiveAdsResponse, AdFeedPost } from "@/lib/ads/types";
+import type { ActiveAdFeedItem, ActiveAdsResponse, AdFeedPost } from "@/lib/ads/types";
+import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +12,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/ads/active?boardKey=plife&topic=
  * Community TOP pin — canonical: point_promotion_orders (domain=community).
+ * 응답: 남은 기간(endAt) 없음 · `feedPost` = 일반 목록 카드 값 (커뮤니티 상위노출 표시 재설계 2026-11-04).
  * Legacy post_ads active rows merged for read compatibility (deduped by postId).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -41,7 +44,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const ads = [...byPost.values()];
+    const rawAds = [...byPost.values()];
+    // 일반 목록과 같은 카드 값 — 같은 조회 함수(`listNeighborhoodFeed`)·같은 변환·같은 차단/숨김 규칙
+    const viewerUserId = await getOptionalAuthenticatedUserId().catch(() => null);
+    const feed = rawAds.length
+      ? await listNeighborhoodFeed({
+          allLocations: true,
+          postIds: rawAds.map((a) => a.postId),
+          viewerUserId,
+        }).catch(() => null)
+      : null;
+    const feedPostById = new Map((feed?.posts ?? []).map((p) => [String(p.id), p]));
+    const ads: ActiveAdFeedItem[] = rawAds.map(({ endAt: _endAt, ...rest }) => ({
+      ...rest,
+      feedPost: feedPostById.get(String(rest.postId)) ?? null,
+    }));
     const res: ActiveAdsResponse = {
       ok: true,
       ads,

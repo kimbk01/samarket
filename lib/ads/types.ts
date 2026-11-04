@@ -146,9 +146,18 @@ export interface AdApplyResponse {
   pointShortfall?: number;
 }
 
+/**
+ * 커뮤니티 상위노출 표시 재설계 (Owner 2026-11-04 「배경 + 글자」):
+ * - 회원 화면 응답에는 **남은 기간(endAt)을 싣지 않는다** — 남은 기간은 작성자 본인만(결제 창·마이 › 광고).
+ * - `feedPost` = 일반 목록과 같은 카드 값(작성자·지역·조회수·댓글·사진·시간·주제) — 위쪽 고정도 일반 카드로 그린다.
+ */
+export type ActiveAdFeedItem = Omit<AdFeedPost, "endAt"> & {
+  feedPost: import("@/lib/neighborhood/types").NeighborhoodFeedPostDTO | null;
+};
+
 export interface ActiveAdsResponse {
   ok: boolean;
-  ads: AdFeedPost[];
+  ads: ActiveAdFeedItem[];
   /** 조회 출처 — 클라이언트는 무시 가능 */
   meta?: {
     source: "supabase" | "memory" | "empty" | "point_promotion_orders";
