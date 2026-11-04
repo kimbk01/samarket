@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
+import { publishTradeListingVisibility } from "@/lib/trade/listing-visibility/listing-visibility-server";
 import {
   collectPostRowImageUrls,
   removeCanonicalImagesFromPublicUrls,
@@ -191,6 +192,11 @@ export async function POST(req: NextRequest) {
   const deleted = (data ?? []).map((r: { id: string }) => r.id);
   const deletedSet = new Set(deleted);
   const missing = eligibleIds.filter((id) => !deletedSet.has(id));
+
+  // 지운 글 — 열린 목록·검색에서 빼고 남은 거래방 글 상태 문구를 「삭제됨」으로 (최종 결함 F2 · 한 번 최대 MAX_BATCH)
+  for (const postId of deleted) {
+    await publishTradeListingVisibility(postId, false, "admin_deleted");
+  }
 
   if (deleted.length > 0 && imageUrlsToRemove.length > 0) {
     const removal = await removeCanonicalImagesFromPublicUrls({

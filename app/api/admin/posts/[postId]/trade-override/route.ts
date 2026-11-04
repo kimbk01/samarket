@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
+import { publishTradeListingVisibility } from "@/lib/trade/listing-visibility/listing-visibility-server";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -83,6 +84,10 @@ export async function POST(
     }
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    // 공개였던 글을 이번에 숨겼을 때만 — 열린 목록·검색에서 빼고 거래방 글 상태 문구도 맞춘다 (최종 결함 F2)
+    if (patch.moderation_state === "admin_hidden") {
+      await publishTradeListingVisibility(id, false, "admin_hidden");
     }
     try {
       await sb

@@ -27,6 +27,7 @@ import {
 } from "@/lib/admin/data-reset/types";
 import { POST_IMAGES_BUCKET } from "@/lib/media/post-images-storage-ownership";
 import { storageTargetsHashIdentity } from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";
+import { syncTradeRoomItemStateLabelsForPosts } from "@/lib/trade/listing-visibility/listing-visibility-room-sync";
 
 export type ExecuteDomainResetInput = {
   sb: SupabaseClient;
@@ -128,7 +129,11 @@ async function runDbActions(
     if (step.table === "posts" && plan.domain === "market" && plan.scope === "single" && plan.entityId) {
       const { error, count } = await sb.from("posts").delete({ count: "exact" }).eq("id", plan.entityId);
       if (error) errors.push(error.message);
-      else counts.posts = (counts.posts ?? 0) + (count ?? 0);
+      else {
+        counts.posts = (counts.posts ?? 0) + (count ?? 0);
+        // 거래방은 남긴다(MARKET preserve) — 남은 방의 글 상태 문구를 「삭제됨」으로 (최종 결함 F2)
+        await syncTradeRoomItemStateLabelsForPosts([plan.entityId], sb);
+      }
       continue;
     }
     if (step.table === "posts" && (plan.domain === "market" || plan.domain === "full") && plan.scope === "all") {
@@ -141,7 +146,10 @@ async function runDbActions(
       if (ids.length) {
         const { error: dErr, count } = await sb.from("posts").delete({ count: "exact" }).in("id", ids);
         if (dErr) errors.push(dErr.message);
-        else counts.posts = (counts.posts ?? 0) + (count ?? 0);
+        else {
+          counts.posts = (counts.posts ?? 0) + (count ?? 0);
+          await syncTradeRoomItemStateLabelsForPosts(ids, sb);
+        }
       }
       continue;
     }

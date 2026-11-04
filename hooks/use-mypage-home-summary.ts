@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
@@ -23,13 +24,15 @@ import {
  * - 첫 렌더: 세션 스냅샷이 있으면 그 값, 없으면 `loading`(값 자리 미니 스켈레톤).
  * - 마운트 후(첫 페인트 이후) 1회 조회 — 30초 안 재진입이면 생략.
  * - 재조회: 프로필 저장·찜 변경·하위 화면 쓰기(`invalidateMypageSummary`)·홈 복귀(pageshow/visibility).
+ * - 사용자 id 는 로그인 상태 구독값(`useClientMembershipState`)에서 읽는다 — 앱을 막 켜서 세션 복원 전에
+ *   화면이 먼저 그려져도, 복원되는 순간 조회 1회·복귀 리스너 등록 (4차 실기 F1: 처음 한 번만 읽어 「—」 고정).
  */
 export function useMypageHomeSummary(enabled: boolean): MypageHomeSummaryState | null {
-  const [viewerId] = useState(() => {
-    const uid = getCurrentUser()?.id?.trim() ?? "";
-    if (enabled && uid) seedMypageHomeSummary(uid);
-    return uid;
-  });
+  const membership = useClientMembershipState("mypage-summary");
+  const viewerId =
+    (membership.status === "member" ? membership.profile.id : getCurrentUser()?.id)?.trim() ?? "";
+  // 첫 렌더에 스냅샷 값을 쓰기 위한 동기 시드(같은 viewer 면 그대로 반환 — 네트워크 없음)
+  if (enabled && viewerId) seedMypageHomeSummary(viewerId);
 
   const summary = useSyncExternalStore(
     subscribeMypageHomeSummary,
@@ -39,7 +42,7 @@ export function useMypageHomeSummary(enabled: boolean): MypageHomeSummaryState |
 
   useEffect(() => {
     if (!enabled) return;
-    const uid = getCurrentUser()?.id?.trim() ?? "";
+    const uid = viewerId;
     if (!uid) return;
     const current = getMypageHomeSummaryState();
     if (current && current.viewerId !== uid) clearMypageHomeSummary();

@@ -63,7 +63,7 @@ describe("G2 글 노출이 바뀌면 거래방 정보의 글 상태 문구만 �
     expect(server).toMatch(/try \{\s*const res = await syncTradeRoomItemStateLabels\(id\);[\s\S]*?\} catch/);
     const sync = src("lib/trade/listing-visibility/listing-visibility-room-sync.ts");
     expect(sync).toContain('import "server-only"');
-    expect(sync).toContain('.update({ summary: next })');
+    expect(sync).toContain('.update({ summary: w.summary })');
     expect(sync).not.toMatch(/updated_at\s*:/);
   });
 });
