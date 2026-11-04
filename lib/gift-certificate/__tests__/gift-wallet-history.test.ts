@@ -1,57 +1,48 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   GIFT_HISTORY_MAX_LIMIT,
   GIFT_HISTORY_PAGE_SIZE,
   parseGiftHistoryKind,
   parseGiftHistoryPageParams,
   parseGiftHistoryUrlState,
-  summarizeGiftWalletPeriod,
+  loadGiftWalletPeriodSummary,
   writeGiftHistoryUrlState,
 } from "@/lib/gift-certificate/gift-wallet-history";
 
 const sp = (q: string) => new URLSearchParams(q);
 
-describe("summarizeGiftWalletPeriod (C-4 기간 합계)", () => {
-  it("구매=결제 금액 · 사용=적용 금액·소멸 · 선물=액면가", () => {
-    const s = summarizeGiftWalletPeriod({
-      purchases: [{ purchase_price: 900 }, { purchase_price: "450" }],
-      redemptions: [
-        { redeemed_amount: 1000, forfeited_amount: 0 },
-        { redeemed_amount: 300, forfeited_amount: 200 },
-      ],
-      receivedTransfers: [{ instance_id: "a" }],
-      sentTransfers: [{ instance_id: "b" }, { instance_id: "c" }, { instance_id: "missing" }],
-      faceValueByInstanceId: new Map([
-        ["a", 500],
-        ["b", 1000],
-        ["c", 250],
-      ]),
+describe("C-4 기간 합계 = DB 집계 1회 (P-9 · member_gift_wallet_period_sums)", () => {
+  it("구매=결제 금액 · 사용=적용 금액·소멸 · 선물=액면가 — DB 값을 그대로 칸으로", async () => {
+    const rpc = vi.fn(async () => ({
+      data: {
+        purchased: { count: 2, amount: 1350 },
+        used: { count: 2, amount: 1300, forfeited: 200 },
+        received: { count: 1, amount: 500 },
+        sent: { count: 3, amount: 1250 },
+      },
+      error: null,
+    }));
+    const r = await loadGiftWalletPeriodSummary({ rpc } as never, { userId: "u1", fromIso: "a", toIso: "b" });
+    expect(rpc).toHaveBeenCalledWith("member_gift_wallet_period_sums", { p_user_id: "u1", p_from: "a", p_to: "b" });
+    expect(r).toEqual({
+      ok: true,
+      summary: {
+        purchased: { count: 2, amount: 1350 },
+        used: { count: 2, amount: 1300 },
+        forfeited: 200,
+        received: { count: 1, amount: 500 },
+        sent: { count: 3, amount: 1250 },
+      },
     });
-    expect(s.purchased).toEqual({ count: 2, amount: 1350 });
-    expect(s.used).toEqual({ count: 2, amount: 1300 });
-    expect(s.forfeited).toBe(200);
-    expect(s.received).toEqual({ count: 1, amount: 500 });
-    expect(s.sent).toEqual({ count: 3, amount: 1250 });
-    expect(s.capped).toBe(false);
   });
 
-  it("빈 기간은 모두 0", () => {
-    const s = summarizeGiftWalletPeriod({
-      purchases: [],
-      redemptions: [],
-      receivedTransfers: [],
-      sentTransfers: [],
-      faceValueByInstanceId: new Map(),
-      capped: true,
+  it("조회 실패는 오류(0 으로 숨기지 않음)", async () => {
+    const r = await loadGiftWalletPeriodSummary({ rpc: async () => ({ data: null, error: { message: "x" } }) } as never, {
+      userId: "u1",
+      fromIso: null,
+      toIso: null,
     });
-    expect(s).toMatchObject({
-      purchased: { count: 0, amount: 0 },
-      used: { count: 0, amount: 0 },
-      forfeited: 0,
-      received: { count: 0, amount: 0 },
-      sent: { count: 0, amount: 0 },
-      capped: true,
-    });
+    expect(r.ok).toBe(false);
   });
 });
 

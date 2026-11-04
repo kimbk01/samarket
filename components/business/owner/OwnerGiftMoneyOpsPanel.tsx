@@ -57,7 +57,6 @@ type RedemptionsPayload = {
   summary: OwnerGiftRedemptionPeriodSummary;
   rows: OwnerGiftRedemptionRow[];
   total: number;
-  truncated: boolean;
   giftRail: { availablePhp: number; paidOutPhp: number } | null;
 };
 
@@ -97,7 +96,6 @@ export function OwnerGiftMoneyOpsPanel(props: {
   /** 늦게 온 이전 응답(앞 매장·기간·상태·쪽)이 새 결과를 덮지 않게 */
   const requestSeq = useRef(0);
   const customState = period.period === "custom" ? customPeriodInputState(period.fromDay, period.toDay) : "ok";
-  const truncated = data?.truncated === true;
 
   const financeHref = OwnerRoutes.finance(storeId);
 
@@ -120,15 +118,6 @@ export function OwnerGiftMoneyOpsPanel(props: {
           {customState === "inverted"
             ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
             : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
-        </p>
-      ) : null}
-      {truncated ? (
-        <p className="sam-text-xxs text-sam-warning">
-          {pickCommissionCopy(
-            lang,
-            "기간 안 내역이 많아 합계가 일부만 계산됐습니다. 기간을 줄여 주세요.",
-            "Too many entries — totals are partial. Narrow the period."
-          )}
         </p>
       ) : null}
     </div>
@@ -183,7 +172,6 @@ export function OwnerGiftMoneyOpsPanel(props: {
           redemptions?: OwnerGiftRedemptionRow[];
           summary?: OwnerGiftRedemptionPeriodSummary;
           total?: number;
-          truncated?: boolean;
           giftRail?: { availablePhp?: number; paidOutPhp?: number } | null;
         } | null;
         const promoJson = promoRes?.ok
@@ -205,7 +193,6 @@ export function OwnerGiftMoneyOpsPanel(props: {
           summary: redemptionJson.summary,
           rows: redemptionJson.redemptions ?? [],
           total: Math.max(0, Math.trunc(Number(redemptionJson.total) || 0)),
-          truncated: redemptionJson.truncated === true,
           giftRail: rail
             ? {
                 availablePhp: Math.max(0, Math.trunc(Number(rail.availablePhp) || 0)),

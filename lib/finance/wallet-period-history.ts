@@ -65,7 +65,6 @@ export type CoinPeriodSummary = {
   withdrawalPaid: number | null;
   rowCount: number;
   reconciled: boolean;
-  truncated: boolean;
 };
 
 export type CashPeriodSummary = {
@@ -91,7 +90,6 @@ export type CashPeriodSummary = {
   debitMinor: number;
   rowCount: number;
   reconciled: boolean;
-  truncated: boolean;
 };
 
 type Range = { fromIso: string | null; toIso: string | null };
@@ -100,7 +98,7 @@ type Range = { fromIso: string | null; toIso: string | null };
  * 기간 합계 = DB 집계 1회 (재감사 P-1 · `owner_wallet_period_summary` · 20271104180000).
  * 이전: 요청마다 기간 원장을 1,000줄씩 최대 5만 줄 읽어 여기서 합산(쪽·칸·알림마다 반복).
  * DB 는 종류(·방향)별 합과 시작·종료 경계의 같은 시각 줄 묶음만 준다 — 분류(`classifyCoinLedgerAmount`·`classifyCashPeriodRows`)와
- * 잔액 사슬 판정(`pickLedgerChainLatest` · R2)은 여기서 그대로 한다. 전량 합산이라 더 이상 「일부만 합산」(truncated)이 없다.
+ * 잔액 사슬 판정(`pickLedgerChainLatest` · R2)은 여기서 그대로 한다. 전량 합산이라 「일부만 합산」이 없다.
  */
 export const OWNER_WALLET_PERIOD_SUMMARY_RPC = "owner_wallet_period_summary" as const;
 
@@ -175,14 +173,13 @@ export async function loadCoinPeriodSummary(
     withdrawalPaid: r.withdrawal_paid == null ? null : Math.trunc(Number(r.withdrawal_paid) || 0),
     rowCount: Math.trunc(Number(r.row_count) || 0),
     reconciled: expected === closing,
-    truncated: false,
   };
 }
 
 /** Cash 종류별 분류 — `loadStoreStatement` 와 같은 규칙 + 나머지 종류도 숨기지 않고 other 로. */
 export function classifyCashPeriodRows(
   rows: ReadonlyArray<{ entryKind: string; direction: string; amountMinor: number }>
-): Omit<CashPeriodSummary, "wallet" | "openingMinor" | "closingMinor" | "rowCount" | "reconciled" | "truncated"> {
+): Omit<CashPeriodSummary, "wallet" | "openingMinor" | "closingMinor" | "rowCount" | "reconciled"> {
   const s = {
     topupMinor: 0,
     fromConversionMinor: 0,
@@ -265,7 +262,6 @@ export async function loadCashPeriodSummary(
     ...s,
     rowCount: Math.trunc(Number(r.row_count) || 0),
     reconciled: openingMinor + s.creditMinor - s.debitMinor === closingMinor,
-    truncated: false,
   };
 }
 

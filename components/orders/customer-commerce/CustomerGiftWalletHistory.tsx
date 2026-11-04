@@ -226,15 +226,6 @@ export function GiftWalletPeriodSummaryCard({
       <p className="mt-1 sam-text-xxs text-sam-muted">
         {pick(lang, "선물은 상대가 받은 것만 셉니다.", "Gifts count only when accepted.")}
       </p>
-      {summary.capped ? (
-        <p className="mt-1 sam-text-helper text-sam-warning" role="note">
-          {pick(
-            lang,
-            `내역이 많아 합계는 종류별 최근 ${summary.cap.toLocaleString("en-US")}건만 반영했습니다. 기간을 줄여 주세요.`,
-            `Totals cover only the latest ${summary.cap.toLocaleString("en-US")} entries of each kind. Narrow the period.`
-          )}
-        </p>
-      ) : null}
     </section>
   );
 }

@@ -3,8 +3,8 @@
  * 「페이지 이동·날짜 명확 · 계산된 내용이 나오는 구조」).
  *
  * - 기간 = 신청일(`created_at`) 기준, PHT 날짜 → UTC `[fromIso, toIso)` (`resolvePointHistoryPeriod` 와 같은 규칙).
- * - 합계는 기간 **전체** 행으로 계산 (현재 쪽 합계 아님). 행이 `PROMOTION_ORDER_SUMMARY_CAP` 를 넘으면 `capped`.
- * - 순수 함수(`summarizePromotionOrders`·`parsePromotionOrderPageParams`)는 화면·API 공용.
+ * - 합계는 기간 **전체**를 DB 집계(`member_promotion_order_period_sums` · P-9)로 계산 (현재 쪽 합계 아님 · 일부만 합산 없음).
+ * - 순수 함수(`promotionOrderSummaryFromGroups`·`parsePromotionOrderPageParams`)는 화면·API 공용.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
@@ -13,8 +13,6 @@ import type { PointPromotionOrder } from "@/lib/types/point";
 /** 한 쪽 크기 — 포인트 내역(`ME_POINTS_PAGE_SIZE`)과 같은 20 */
 export const PROMOTION_ORDERS_PAGE_SIZE = 20;
 export const PROMOTION_ORDERS_MAX_LIMIT = 100;
-/** 기간 합계 계산에 읽는 최대 행 수 */
-export const PROMOTION_ORDER_SUMMARY_CAP = 5000;
 
 /** 상태 표시 순서 — 모르는 상태는 뒤에 원래 이름 그대로 */
 export const PROMOTION_ORDER_STATUS_ORDER = [
@@ -39,62 +37,19 @@ export type PromotionOrderPeriodSummary = {
   refundPoints: number;
   /** 상태별 건수·포인트 (0건 상태는 없음) */
   byStatus: PromotionOrderStatusTotal[];
-  rowCount: number;
-  capped: boolean;
-  cap: number;
 };
 
-export type PromotionOrderSummaryRow = {
-  order_status?: string | null;
-  point_cost?: number | string | null;
-  refund_points?: number | string | null;
-};
 
 function int(v: unknown): number {
   const n = Math.trunc(Number(v));
   return Number.isFinite(n) ? n : 0;
 }
 
-export function summarizePromotionOrders(
-  rows: readonly PromotionOrderSummaryRow[],
-  opts?: { rowCount?: number; cap?: number }
-): PromotionOrderPeriodSummary {
-  const cap = opts?.cap ?? PROMOTION_ORDER_SUMMARY_CAP;
-  const byStatus = new Map<string, PromotionOrderStatusTotal>();
-  let pointCost = 0;
-  let refundPoints = 0;
-  for (const r of rows) {
-    const status = String(r.order_status ?? "").trim().toLowerCase() || "unknown";
-    const cost = Math.max(0, int(r.point_cost));
-    pointCost += cost;
-    refundPoints += Math.max(0, int(r.refund_points));
-    const cur = byStatus.get(status) ?? { status, count: 0, pointCost: 0 };
-    cur.count += 1;
-    cur.pointCost += cost;
-    byStatus.set(status, cur);
-  }
-  const order = PROMOTION_ORDER_STATUS_ORDER as readonly string[];
-  const rank = (s: string) => {
-    const i = order.indexOf(s);
-    return i < 0 ? order.length : i;
-  };
-  const rowCount = Math.max(rows.length, opts?.rowCount ?? rows.length);
-  return {
-    count: rows.length,
-    pointCost,
-    refundPoints,
-    byStatus: [...byStatus.values()].sort((a, b) => rank(a.status) - rank(b.status) || a.status.localeCompare(b.status)),
-    rowCount,
-    capped: rowCount > rows.length,
-    cap,
-  };
-}
-
 export const MEMBER_PROMOTION_ORDER_PERIOD_SUMS_RPC = "member_promotion_order_period_sums" as const;
 
 /**
- * DB 상태별 묶음 → 기간 합계. 규칙은 `summarizePromotionOrders` 와 같다(상태 정리·음수 0 은 SQL 이 줄마다 함) —
- * 묶음 하나를 「그 상태의 줄 n개」로 보고 같은 순서·같은 모양으로 만든다. 전량 합산이라 capped 없음.
+ * DB 상태별 묶음 → 기간 합계 (상태 정리·음수 0 은 SQL 이 줄마다 함) —
+ * 상태 표시 순서는 PROMOTION_ORDER_STATUS_ORDER. 전량 합산이라 「일부만 합산」 없음.
  */
 export function promotionOrderSummaryFromGroups(raw: unknown): PromotionOrderPeriodSummary {
   const groups = (Array.isArray(raw) ? raw : []) as Array<{
@@ -121,7 +76,7 @@ export function promotionOrderSummaryFromGroups(raw: unknown): PromotionOrderPer
     if (n > 0) byStatus.push({ status: String(g.status ?? "unknown"), count: n, pointCost: cost });
   }
   byStatus.sort((a, b) => rank(a.status) - rank(b.status) || a.status.localeCompare(b.status));
-  return { count, pointCost, refundPoints, byStatus, rowCount: count, capped: false, cap: PROMOTION_ORDER_SUMMARY_CAP };
+  return { count, pointCost, refundPoints, byStatus };
 }
 
 /**

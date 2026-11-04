@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
  * 쪽 나눔(C-6 · Owner 2026-11-03): `status`(all|pending|recognized|refund)·`offset`·`limit`(기본 20, 최대 100).
  * - `summary` 합계·건수는 **고른 기간 전체** 행으로 서버가 계산한다 (현재 쪽 합계 아님).
  * - `total` = 상태 거르기 뒤 전체 건수. `redemptions` = 그중 이 쪽만 (주문·고객·상품명 꾸밈은 이 쪽만).
- * - 합계·거르기·쪽은 DB 함수 `owner_gift_redemption_page` 1회(P-9) — 전량 합산이라 `truncated` 는 항상 false(호환용 필드).
+ * - 합계·거르기·쪽은 DB 함수 `owner_gift_redemption_page` 1회(P-9) — 전량 합산(「일부만 합산」 없음).
  * - 확정 여부는 수익 원장(REVENUE_AVAILABLE·RECOGNITION_CORRECTION·REVERSED 순합 > 0)으로만 판정.
  */
 
@@ -91,7 +91,6 @@ export async function GET(
     );
   }
   const pageObj = pageData as { groups?: unknown; total?: number | string; rows?: Array<RedemptionBaseRow & { recognized?: boolean }> };
-  const truncated = false;
   const summary = ownerGiftRedemptionSummaryFromGroups(pageObj.groups);
   const paged = { total: Math.max(0, Math.trunc(Number(pageObj.total) || 0)) };
   const rows = (pageObj.rows ?? []).map((r) => ({
@@ -233,7 +232,6 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     period: { ...periodParams, ...range, timezone: STORE_COMMISSION_TIMEZONE },
-    truncated,
     summary,
     status: pageParams.filter,
     offset: pageParams.offset,

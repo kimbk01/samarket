@@ -143,7 +143,6 @@ describe("재감사 R3 — 합계 칸 부호 (잔액 영향대로)", () => {
     withdrawalPaid: 0,
     rowCount: 0,
     reconciled: true,
-    truncated: false,
   });
   const tile = (tiles: { key: string; value: string }[], key: string) => tiles.find((t) => t.key === key)?.value;
 
@@ -160,7 +159,7 @@ describe("재감사 R3 — 합계 칸 부호 (잔액 영향대로)", () => {
       wallet: "cash", openingMinor: 0, closingMinor: 0, topupMinor: 0, fromConversionMinor: 0, saleFeeMinor: 100,
       outstandingCollectionMinor: 0, saleFeeReversalMinor: 2350, adSpendMinor: 0, partnerSpendMinor: 0, refundMinor: 0,
       adjustmentCreditMinor: 0, adjustmentDebitMinor: 0, otherCreditMinor: 0, otherDebitMinor: 0, creditMinor: 0,
-      debitMinor: 0, rowCount: 0, reconciled: true, truncated: false,
+      debitMinor: 0, rowCount: 0, reconciled: true,
     } as CashPeriodSummary;
     const v = tile(cashTiles(base, true, false), "fee")!;
     expect(v.startsWith("+")).toBe(true);

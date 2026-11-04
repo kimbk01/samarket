@@ -4,7 +4,7 @@
  *
  * - 기간 = PHT 날짜 → UTC `[fromIso, toIso)` (`resolvePointHistoryPeriod` 와 같은 규칙).
  *   사용 완료 목록 = 다 쓴 날(`fully_redeemed_at`), 보낸 선물 목록 = 보낸 날(`created_at`).
- * - 기간 합계 (서버가 기간 **전체** 행으로 계산 · 현재 쪽 합계 아님):
+ * - 기간 합계 (DB 집계 `member_gift_wallet_period_sums` · 기간 **전체** · 현재 쪽 합계 아님):
  *   구매 = 내가 산 상품권(`purchased_at`) · 사용 = 내 사용 기록(되돌리지 않은 `redemptions`, `created_at`) ·
  *   받은 선물 = 내가 받아 수령 완료한 선물(보낸 날) · 보낸 선물 = 내가 보내 상대가 받은 선물(보낸 날). 금액 = 페소(₱).
  * - 주소 상태: 포인트 화면과 같은 키(`period`·`pfrom`·`pto`·`page`). 단 상품권 기본 기간은 **전체**
@@ -29,7 +29,6 @@ import {
 
 export const GIFT_HISTORY_PAGE_SIZE = 20;
 export const GIFT_HISTORY_MAX_LIMIT = 100;
-export const GIFT_HISTORY_SUMMARY_CAP = 5000;
 
 export type GiftHistoryKind = "used" | "sent";
 
@@ -86,8 +85,6 @@ export type GiftWalletPeriodSummary = {
   received: GiftAmountTotal;
   /** 보낸 선물(상대 수령 완료) — 액면가 합 */
   sent: GiftAmountTotal;
-  capped: boolean;
-  cap: number;
 };
 
 type Num = number | string | null | undefined;
@@ -95,36 +92,6 @@ type Num = number | string | null | undefined;
 function int(v: Num): number {
   const n = Math.trunc(Number(v));
   return Number.isFinite(n) ? Math.max(0, n) : 0;
-}
-
-export function summarizeGiftWalletPeriod(input: {
-  purchases: ReadonlyArray<{ purchase_price?: Num }>;
-  redemptions: ReadonlyArray<{ redeemed_amount?: Num; forfeited_amount?: Num }>;
-  receivedTransfers: ReadonlyArray<{ instance_id?: string | null }>;
-  sentTransfers: ReadonlyArray<{ instance_id?: string | null }>;
-  faceValueByInstanceId: ReadonlyMap<string, number>;
-  capped?: boolean;
-  cap?: number;
-}): GiftWalletPeriodSummary {
-  const face = (rows: ReadonlyArray<{ instance_id?: string | null }>): GiftAmountTotal => ({
-    count: rows.length,
-    amount: rows.reduce((s, r) => s + int(input.faceValueByInstanceId.get(String(r.instance_id ?? "")) ?? 0), 0),
-  });
-  return {
-    purchased: {
-      count: input.purchases.length,
-      amount: input.purchases.reduce((s, r) => s + int(r.purchase_price), 0),
-    },
-    used: {
-      count: input.redemptions.length,
-      amount: input.redemptions.reduce((s, r) => s + int(r.redeemed_amount), 0),
-    },
-    forfeited: input.redemptions.reduce((s, r) => s + int(r.forfeited_amount), 0),
-    received: face(input.receivedTransfers),
-    sent: face(input.sentTransfers),
-    capped: input.capped === true,
-    cap: input.cap ?? GIFT_HISTORY_SUMMARY_CAP,
-  };
 }
 
 /** 쪽 요청 값 정리 */
@@ -225,9 +192,6 @@ export async function loadGiftWalletPeriodSummary(
       forfeited: int(o.used?.forfeited),
       received: total(o.received),
       sent: total(o.sent),
-      // DB 가 기간 전체를 합산 — 「일부만 반영」 없음
-      capped: false,
-      cap: GIFT_HISTORY_SUMMARY_CAP,
     },
   };
 }

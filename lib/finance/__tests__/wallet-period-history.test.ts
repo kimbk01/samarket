@@ -89,7 +89,6 @@ describe("P-1 — DB 집계로 만든 합계 = 줄마다 더한 합계 (운영 �
       outstandingCollectionMinor: 13600,
       rowCount: 12,
       reconciled: true,
-      truncated: false,
     });
   });
   it("같은 시각 경계 묶음은 잔액 사슬의 마지막 줄 · 기간 시작이 없으면 시작 잔액 0 · 조회 실패 = null", async () => {

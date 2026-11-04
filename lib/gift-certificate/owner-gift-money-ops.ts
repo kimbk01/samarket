@@ -162,16 +162,6 @@ export type OwnerGiftRedemptionStatusRow = Pick<
   "reversed" | "recognized" | "redeemedAmount" | "platformFeeAmount" | "merchantNetAmount"
 >;
 
-export function ownerGiftRedemptionMatchesFilter(
-  row: Pick<OwnerGiftRedemptionRow, "reversed" | "recognized">,
-  filter: OwnerGiftRedemptionFilter
-): boolean {
-  if (filter === "all") return true;
-  if (filter === "refund") return row.reversed;
-  if (filter === "recognized") return !row.reversed && row.recognized;
-  return !row.reversed && !row.recognized;
-}
-
 /** 주소 `status`·`offset`·`limit` → 안전한 값 (모르는 값은 전체·0·기본 쪽 크기). */
 export function parseOwnerGiftRedemptionPageParams(sp: Pick<URLSearchParams, "get">): {
   filter: OwnerGiftRedemptionFilter;
@@ -200,23 +190,8 @@ export type OwnerGiftRedemptionPeriodSummary = Pick<
   counts: Record<OwnerGiftRedemptionFilter, number>;
 };
 
-/** 고른 기간 **모든** 사용 행의 합계·건수 (현재 쪽이 아니라 기간 전체). */
-export function summarizeOwnerGiftRedemptionPeriod(
-  rows: ReadonlyArray<OwnerGiftRedemptionStatusRow>
-): OwnerGiftRedemptionPeriodSummary {
-  const kpis = aggregateOwnerRedemptionKpis(rows);
-  const counts: Record<OwnerGiftRedemptionFilter, number> = { all: 0, pending: 0, recognized: 0, refund: 0 };
-  for (const row of rows) {
-    counts.all += 1;
-    if (row.reversed) counts.refund += 1;
-    else if (row.recognized) counts.recognized += 1;
-    else counts.pending += 1;
-  }
-  return { ...kpis, counts };
-}
-
 /**
- * DB 상태 칸 묶음(`owner_gift_redemption_page.groups` · 재감사 P-9) → 기간 합계. 규칙은 `summarizeOwnerGiftRedemptionPeriod` 와 같다
+ * DB 상태 칸 묶음(`owner_gift_redemption_page.groups` · 재감사 P-9) → 기간 합계 (환불 / 확정 / 대기 칸 · 금액은 aggregateOwnerRedemptionKpis)
  * (줄마다 음수 0 처리는 SQL 이 함 · 묶음 = 같은 상태 줄들의 합).
  */
 export function ownerGiftRedemptionSummaryFromGroups(raw: unknown): OwnerGiftRedemptionPeriodSummary {
@@ -249,11 +224,3 @@ export function ownerGiftRedemptionSummaryFromGroups(raw: unknown): OwnerGiftRed
   return { ...kpis, counts };
 }
 
-/** 거르기 → 쪽 자르기. `total` = 거른 뒤 전체 건수. */
-export function pageOwnerGiftRedemptions<T extends Pick<OwnerGiftRedemptionRow, "reversed" | "recognized">>(
-  rows: ReadonlyArray<T>,
-  args: { filter: OwnerGiftRedemptionFilter; offset: number; limit: number }
-): { rows: T[]; total: number } {
-  const filtered = rows.filter((r) => ownerGiftRedemptionMatchesFilter(r, args.filter));
-  return { rows: filtered.slice(args.offset, args.offset + args.limit), total: filtered.length };
-}

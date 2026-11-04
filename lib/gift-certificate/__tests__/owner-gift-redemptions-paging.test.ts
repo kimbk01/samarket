@@ -4,21 +4,11 @@ import { describe, expect, it } from "vitest";
 import {
   OWNER_GIFT_REDEMPTIONS_MAX_LIMIT,
   OWNER_GIFT_REDEMPTIONS_PAGE_SIZE,
-  ownerGiftRedemptionMatchesFilter,
-  pageOwnerGiftRedemptions,
+  ownerGiftRedemptionSummaryFromGroups,
   parseOwnerGiftRedemptionPageParams,
-  summarizeOwnerGiftRedemptionPeriod,
 } from "@/lib/gift-certificate/owner-gift-money-ops";
 
 const sp = (q: string) => new URLSearchParams(q);
-const row = (id: string, reversed: boolean, recognized: boolean, net = 90) => ({
-  id,
-  reversed,
-  recognized,
-  redeemedAmount: 100,
-  platformFeeAmount: 10,
-  merchantNetAmount: net,
-});
 
 describe("C-6 사장님 상품권 사용 내역 — 쪽 나눔 파라미터", () => {
   it("기본값: 전체 · 0 · 20줄", () => {
@@ -42,36 +32,19 @@ describe("C-6 사장님 상품권 사용 내역 — 쪽 나눔 파라미터", ()
   });
 });
 
-describe("C-6 합계 = 기간 전체 (현재 쪽 아님)", () => {
-  const rows = [
-    ...Array.from({ length: 25 }, (_, i) => row(`rc${i}`, false, true)),
-    ...Array.from({ length: 7 }, (_, i) => row(`pd${i}`, false, false, 50)),
-    ...Array.from({ length: 3 }, (_, i) => row(`rf${i}`, true, true)),
-  ];
-
-  it("상태 거르기 규칙", () => {
-    expect(ownerGiftRedemptionMatchesFilter(row("a", true, true), "refund")).toBe(true);
-    expect(ownerGiftRedemptionMatchesFilter(row("a", true, true), "recognized")).toBe(false);
-    expect(ownerGiftRedemptionMatchesFilter(row("a", false, false), "pending")).toBe(true);
-    expect(ownerGiftRedemptionMatchesFilter(row("a", false, true), "all")).toBe(true);
-  });
-
-  it("합계·건수는 쪽과 무관하게 전체 행", () => {
-    const s = summarizeOwnerGiftRedemptionPeriod(rows);
+describe("C-6 합계 = 기간 전체 (DB 상태 칸 묶음 · P-9)", () => {
+  it("건수는 칸별 · 금액은 환불을 뺀 합 · 확정/대기 수익 분리", () => {
+    const s = ownerGiftRedemptionSummaryFromGroups([
+      { reversed: false, recognized: true, count: 25, redeemed: 2500, fee: 250, net: 2250 },
+      { reversed: false, recognized: false, count: 7, redeemed: 700, fee: 70, net: 350 },
+      { reversed: true, recognized: true, count: 3, redeemed: 300, fee: 30, net: 270 },
+    ]);
     expect(s.counts).toEqual({ all: 35, pending: 7, recognized: 25, refund: 3 });
-    expect(s.recognizedMerchantNet).toBe(25 * 90);
-    expect(s.pendingMerchantNet).toBe(7 * 50);
-    // 환불 행은 합계에서 빠진다
-    expect(s.redeemedGross).toBe(32 * 100);
-  });
-
-  it("쪽 자르기 — total 은 거른 뒤 전체 건수", () => {
-    const first = pageOwnerGiftRedemptions(rows, { filter: "recognized", offset: 0, limit: 20 });
-    expect(first.total).toBe(25);
-    expect(first.rows).toHaveLength(20);
-    const second = pageOwnerGiftRedemptions(rows, { filter: "recognized", offset: 20, limit: 20 });
-    expect(second.rows.map((r) => r.id)).toEqual(["rc20", "rc21", "rc22", "rc23", "rc24"]);
-    expect(pageOwnerGiftRedemptions(rows, { filter: "all", offset: 0, limit: 0 })).toEqual({ rows: [], total: 35 });
+    expect(s.recognizedMerchantNet).toBe(2250);
+    expect(s.pendingMerchantNet).toBe(350);
+    // 환불 칸은 합계에서 빠진다
+    expect(s.redeemedGross).toBe(3200);
+    expect(ownerGiftRedemptionSummaryFromGroups(null).counts.all).toBe(0);
   });
 });
 

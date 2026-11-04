@@ -3,45 +3,35 @@ import {
   PROMOTION_ORDERS_MAX_LIMIT,
   PROMOTION_ORDERS_PAGE_SIZE,
   parsePromotionOrderPageParams,
-  summarizePromotionOrders,
+  promotionOrderSummaryFromGroups,
 } from "@/lib/points/promotion-order-history";
 
 const sp = (q: string) => new URLSearchParams(q);
 
-describe("summarizePromotionOrders (C-5 기간 합계)", () => {
-  it("신청 건수·포인트 합계·상태별·환불을 기간 전체 행으로 계산", () => {
-    const s = summarizePromotionOrders([
-      { order_status: "active", point_cost: 300, refund_points: 0 },
-      { order_status: "ended", point_cost: "500", refund_points: null },
-      { order_status: "rejected", point_cost: 300, refund_points: 300 },
-      { order_status: "ACTIVE", point_cost: 200 },
-      { order_status: "paused", point_cost: 100 },
+describe("C-5 기간 합계 = DB 상태별 묶음 (P-9 · member_promotion_order_period_sums)", () => {
+  it("신청 건수·포인트·환불 합 · 상태 표시 순서 · 0건 상태는 뺀다", () => {
+    const s = promotionOrderSummaryFromGroups([
+      { status: "rejected", count: 1, point_cost: 300, refund_points: 300 },
+      { status: "ended", count: 1, point_cost: "500", refund_points: 0 },
+      { status: "active", count: 2, point_cost: 500, refund_points: 0 },
+      { status: "paused", count: 1, point_cost: 100, refund_points: 0 },
+      { status: "weird", count: 0, point_cost: 0, refund_points: 0 },
     ]);
-    expect(s.count).toBe(5);
-    expect(s.pointCost).toBe(1400);
-    expect(s.refundPoints).toBe(300);
-    expect(s.byStatus).toEqual([
-      { status: "active", count: 2, pointCost: 500 },
-      { status: "paused", count: 1, pointCost: 100 },
-      { status: "ended", count: 1, pointCost: 500 },
-      { status: "rejected", count: 1, pointCost: 300 },
-    ]);
-    expect(s.capped).toBe(false);
+    expect(s).toEqual({
+      count: 5,
+      pointCost: 1400,
+      refundPoints: 300,
+      byStatus: [
+        { status: "active", count: 2, pointCost: 500 },
+        { status: "paused", count: 1, pointCost: 100 },
+        { status: "ended", count: 1, pointCost: 500 },
+        { status: "rejected", count: 1, pointCost: 300 },
+      ],
+    });
   });
-
-  it("빈 기간은 0 · 서버 건수가 읽은 행보다 많으면 capped", () => {
-    expect(summarizePromotionOrders([])).toMatchObject({ count: 0, pointCost: 0, byStatus: [], capped: false });
-    const c = summarizePromotionOrders([{ order_status: "ended", point_cost: 1 }], { rowCount: 9, cap: 1 });
-    expect(c).toMatchObject({ capped: true, rowCount: 9, cap: 1 });
-  });
-
-  it("모르는 상태는 뒤에 그대로, 음수·비숫자 금액은 0", () => {
-    const s = summarizePromotionOrders([
-      { order_status: "weird", point_cost: -5 },
-      { order_status: "pending", point_cost: "x" },
-    ]);
-    expect(s.byStatus.map((b) => b.status)).toEqual(["pending", "weird"]);
-    expect(s.pointCost).toBe(0);
+  it("빈 결과는 0", () => {
+    expect(promotionOrderSummaryFromGroups([])).toEqual({ count: 0, pointCost: 0, refundPoints: 0, byStatus: [] });
+    expect(promotionOrderSummaryFromGroups(null).count).toBe(0);
   });
 });
 

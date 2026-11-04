@@ -133,15 +133,6 @@ export function PromotionOrderPeriodSummaryCard({
           ) : null}
         </dl>
       ) : null}
-      {summary.capped ? (
-        <p className="mt-1 sam-text-helper text-sam-warning" role="note">
-          {pick(
-            lang,
-            `이 기간 신청이 ${formatMypageNumber(summary.rowCount, { lang: language })}건이라 합계는 최근 ${formatMypageNumber(summary.cap, { lang: language })}건만 반영했습니다. 기간을 줄여 주세요.`,
-            `This period has ${summary.rowCount} requests; totals cover only the latest ${summary.cap}. Narrow the period.`
-          )}
-        </p>
-      ) : null}
     </section>
   );
 }

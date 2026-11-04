@@ -349,11 +349,6 @@ export function OwnerWalletHistory({
               {ko ? "내역 합계가 맞지 않습니다. 고객센터에 알려 주세요." : "History totals do not reconcile. Please contact support."}
             </p>
           ) : null}
-          {s.truncated ? (
-            <p className="text-xs text-sam-danger" role="alert">
-              {ko ? "기간 안 내역이 너무 많아 합계가 일부만 계산됐습니다. 기간을 줄여 주세요." : "Too many entries — totals are partial. Narrow the period."}
-            </p>
-          ) : null}
           {!adsOnly ? (
             <p className="text-xs text-sam-muted">
               {category
