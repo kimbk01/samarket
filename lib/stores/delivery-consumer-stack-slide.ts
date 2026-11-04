@@ -5,6 +5,8 @@
  */
 
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
+import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
+import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 
 function normalize(path: string | null | undefined): string {
   const raw = String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -74,4 +76,15 @@ export function deliveryConsumerStackDepth(path: string | null | undefined): num
 
 export function isDeliveryConsumerStackPath(path: string | null | undefined): boolean {
   return deliveryConsumerStackDepth(path) >= 0;
+}
+
+/**
+ * 매장 아래 하위 주소(`/stores/:slug/p/:id`·`/info`·`/reviews`·`/report` …) — Next 페이지가 화면 주인.
+ * 소프트 매장 화면은 메뉴 화면(`/stores/:slug`)에서만 그린다. 장바구니·결제는 별도 하드 경로.
+ * (2026-11-04 실기: 업종 목록 → 매장 → 상품에서 상품 본문이 숨고 매장 화면이 그려져 필수 옵션 선택 불가)
+ */
+export function isDeliveryStoreChildRoutePath(pathname: string): boolean {
+  const p = pathname.split("?")[0] ?? "";
+  if (!isStoreConsumerDetailPath(p) || isStoreCommerceCartCheckoutPath(p)) return false;
+  return deliveryConsumerStackDepth(p) > 2;
 }

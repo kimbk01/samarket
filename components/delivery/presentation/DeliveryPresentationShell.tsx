@@ -20,9 +20,11 @@ import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
 import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
+  isDeliveryStoreChildRoutePath,
 } from "@/lib/stores/delivery-consumer-stack-slide";
 import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
+import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
 import {
   DELIVERY_STACK_SLIDE_EASING,
   DELIVERY_STACK_SLIDE_MS,
@@ -90,7 +92,9 @@ function parseStoreSlug(pathname: string): string | null {
   if (!isStoreConsumerDetailPath(pathname)) return null;
   const p = pathname.split("?")[0] ?? "";
   const parts = p.replace(/^\/stores\//, "").split("/").filter(Boolean);
-  return parts[0] ?? null;
+  /** `usePathname()` 조각은 인코딩된 채라 매장 화면·API 에는 디코딩한 slug 를 넘긴다 (이중 인코딩 방지) */
+  const slug = decodeSlugSegment(parts[0] ?? "");
+  return slug || null;
 }
 
 function readFeaturedFocusProductId(): string | null {
@@ -138,6 +142,8 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   const onBrowse = isBrowsePath(pathKey);
   const onStore = isStoreConsumerDetailPath(pathKey);
   const storeSlug = onStore ? parseStoreSlug(pathKey) : null;
+  const onStoreChildRoute = isDeliveryStoreChildRoutePath(pathKey);
+  const onStoreRoot = onStore && !onStoreChildRoute && !onCartCheckoutHardRoute;
   const inDelivery = isDeliveryConsumerStackPath(pathKey);
 
   const [browseSpec, setBrowseSpec] = useState<BrowseSpec | null>(null);
@@ -191,10 +197,10 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     () => ({
       hasParkedBrowse: () => softSession,
       ensureBrowse,
-      shouldHostStore: () => softSession && onStore,
+      shouldHostStore: () => softSession && onStoreRoot,
       noteStoreRoute,
     }),
-    [softSession, onStore, ensureBrowse, noteStoreRoute]
+    [softSession, onStoreRoot, ensureBrowse, noteStoreRoute]
   );
 
   useEffect(() => {
@@ -246,7 +252,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (isBrowsePath(prev) && onStore && dNext > dPrev && storeSlug) {
+    if (isBrowsePath(prev) && onStoreRoot && dNext > dPrev && storeSlug) {
       setForwardAnimate(false);
       setBackAnimate(false);
       setHostedStoreSlug(storeSlug);
@@ -277,7 +283,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
     }
 
     setSlidePhase(onBrowse ? "idle" : onStore ? "idle_store" : "idle");
-  }, [pathKey, browseSpec, onBrowse, onStore, storeSlug, softSession]);
+  }, [pathKey, browseSpec, onBrowse, onStore, onStoreRoot, storeSlug, softSession]);
 
   useLayoutEffect(() => {
     if (!isStoresBrowseSurfacePath(pathKey)) return;
@@ -395,10 +401,12 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       slidePhase === "idle_store");
   const browseSubFromUrl = browseSpec?.initialSubSlug ?? null;
   /** cart/checkout — hard Next route; never hide children under soft store surface (Aug 22 regression). */
-  const paintSoftStoreSurface = showShellStore && !onCartCheckoutHardRoute;
+  const paintSoftStoreSurface = showShellStore && !onCartCheckoutHardRoute && !onStoreChildRoute;
   /** Soft: shell paints UI; Next children stay mounted (hidden) so router does not roll back. */
   const suppressNextChildrenPaint =
-    !onCartCheckoutHardRoute && ((showBrowseSurface && onBrowse) || showShellStore);
+    !onCartCheckoutHardRoute &&
+    !onStoreChildRoute &&
+    ((showBrowseSurface && onBrowse) || showShellStore);
   const browseLifecycle: DeliverySurfaceLifecycleState =
     slidePhase === "sliding_back" ? "entering" : onBrowse ? "active" : "parked";
   const storeLifecycle: DeliverySurfaceLifecycleState =
@@ -410,6 +418,8 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
 
   const browseStyle = useMemo((): CSSProperties => {
     if (!showBrowseSurface) return {};
+    /** 매장 하위 주소 — 목록은 보관만(뒤로 슬라이드용), 화면·높이를 차지하지 않는다 */
+    if (onStoreChildRoute) return { display: "none" };
     const y = browseOffsetY > 0 && slidePhase !== "sliding_back" && slidePhase !== "idle" ? -browseOffsetY : 0;
     if (slidePhase === "hold_browse") {
       return { transform: `translate3d(0,${y}px,0)`, zIndex: 2 };
@@ -434,7 +444,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       return { transform: `translate3d(0,${y}px,0)`, zIndex: 1 };
     }
     return { transform: `translate3d(0,${y}px,0)`, zIndex: 1 };
-  }, [showBrowseSurface, slidePhase, forwardAnimate, onStore, browseSpec, browseOffsetY]);
+  }, [showBrowseSurface, slidePhase, forwardAnimate, onStore, onStoreChildRoute, browseSpec, browseOffsetY]);
 
   const storeStyle = useMemo((): CSSProperties => {
     if (!showShellStore) return {};
