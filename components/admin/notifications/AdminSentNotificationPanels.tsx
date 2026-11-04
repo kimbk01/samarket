@@ -57,6 +57,8 @@ export type MemberStats = {
   push_optout?: number;
   /** 회원이 끈 설정·방해금지 (재감사 A-3) — 예전 응답엔 없을 수 있다 */
   push_setting_off?: number;
+  /** 방해 금지 시간 (최종 감사 M-1) — 예전 응답엔 없을 수 있다 */
+  push_quiet?: number;
   opened: number;
 };
 
@@ -229,11 +231,12 @@ function StatCards({ stats, ko }: { stats: MemberStats; ko: boolean }) {
     [tx("푸시 실패", "Push failed"), stats.push_fail, stats.push_fail ? "text-sam-danger" : ""],
     [tx("푸시 미동의", "Push opt-out"), stats.push_optout ?? 0, ""],
     [tx("설정 꺼짐", "Turned off"), stats.push_setting_off ?? 0, ""],
+    [tx("방해금지", "Quiet hours"), stats.push_quiet ?? 0, ""],
     [tx("푸시 없음", "No push"), stats.push_none, ""],
     [tx("열람", "Opened"), stats.opened, ""],
   ];
   return (
-    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-9">
       {cards.map(([k, v, cls]) => (
         <div key={k} className="rounded-ui-rect border border-sam-border px-3 py-2">
           <div className="text-[12px] text-sam-muted">{k}</div>
@@ -250,7 +253,7 @@ type RecipientRow = {
   inbox: "saved" | "not_saved";
   inbox_at: string | null;
   devices: number;
-  push: "ok" | "fail" | "optout" | "off" | "none";
+  push: "ok" | "fail" | "optout" | "off" | "quiet" | "none";
   push_ok_devices: number;
   push_fail_devices: number;
   skip_reasons: string[];
@@ -265,7 +268,7 @@ function countedLabels(labels: string[]): string {
   return [...counts].map(([l, n]) => (n > 1 ? `${l} ×${n}` : l)).join(" · ");
 }
 
-const FILTERS = ["all", "ok", "fail", "optout", "off", "none", "opened", "unread"] as const;
+const FILTERS = ["all", "ok", "fail", "optout", "off", "quiet", "none", "opened", "unread"] as const;
 type Filter = (typeof FILTERS)[number];
 
 /** 받은 사람 창 */
@@ -353,6 +356,7 @@ export function RecipientsModal({
     if (f === "fail") return stats.push_fail;
     if (f === "optout") return stats.push_optout ?? 0;
     if (f === "off") return stats.push_setting_off ?? 0;
+    if (f === "quiet") return stats.push_quiet ?? 0;
     if (f === "none") return stats.push_none;
     if (f === "opened") return stats.opened;
     return stats.target - stats.opened;
@@ -363,6 +367,7 @@ export function RecipientsModal({
     fail: tx("푸시 실패", "Push failed"),
     optout: tx("푸시 미동의", "Push opt-out"),
     off: tx("설정 꺼짐", "Turned off"),
+    quiet: tx("방해금지", "Quiet hours"),
     none: tx("푸시 없음", "No push"),
     opened: tx("열람", "Opened"),
     unread: tx("안 읽음", "Unread"),
@@ -506,7 +511,9 @@ export function RecipientsModal({
                             ? tx("푸시 미동의", "Push opt-out")
                             : r.push === "off"
                               ? tx("설정 꺼짐", "Turned off")
-                              : tx("푸시 없음", "No push")}
+                              : r.push === "quiet"
+                                ? tx("방해금지", "Quiet hours")
+                                : tx("푸시 없음", "No push")}
                         </span>
                       )}
                     </td>
@@ -544,16 +551,22 @@ function newKey(prefix: string): string {
 }
 
 /** 즉시 발송 — 알림 보내기와 같은 `/send` (만들기 → 보내기). */
-async function sendNow(
+/** 만든 알림을 바로 보내기 — 목록 「다시 보내기」·상세 「재발송」 공용 (최종 감사 D-1). */
+export async function sendNow(
   id: string,
   occurrenceId: string | null,
-  idempotencyKey: string
+  idempotencyKey: string,
+  reason?: string | null
 ): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(id)}/send`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idempotency_key: idempotencyKey, ...(occurrenceId ? { occurrence_id: occurrenceId } : {}) }),
+    headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({
+      idempotency_key: idempotencyKey,
+      ...(occurrenceId ? { occurrence_id: occurrenceId } : {}),
+      ...(reason ? { reason } : {}),
+    }),
   });
   const j = await res.json().catch(() => ({}));
   return res.ok && j.ok !== false ? { ok: true } : { ok: false, error: j.error ?? "send_failed" };

@@ -197,18 +197,28 @@ export async function claimOccurrenceSend(
   };
 }
 
-export function resolveFinalOccurrenceStatus(
-  pushFailed: number,
-  pushSent: number,
-  inAppFailed: number,
-  inAppSent: number
+/**
+ * 회차 최종 상태 = **회원 단위** (최종 감사 M-4 — 결과 배지·받은 사람 숫자와 같은 기준).
+ * 회원 1명이 어느 채널로든 받으면 성공 · 받은 것 없이 실패만 있으면 실패 회원. 기기 여러 대 중 1대 실패는 실패가 아니다.
+ */
+export function resolveFinalOccurrenceStatusByMembers(
+  rows: ReadonlyArray<{ user_id?: unknown; status?: unknown }>
 ): OccurrenceStatus {
-  const failed = pushFailed + inAppFailed;
-  const sent = pushSent + inAppSent;
-  if (failed > 0 && sent > 0) return "partially_failed";
-  if (failed > 0 && sent === 0) return "failed";
+  const ok = new Set<string>();
+  const bad = new Set<string>();
+  for (const r of rows) {
+    const uid = String(r.user_id ?? "");
+    const st = String(r.status ?? "");
+    if (st === "sent" || st === "opened" || st === "dismissed") ok.add(uid);
+    else if (st === "failed") bad.add(uid);
+  }
+  let failedMembers = 0;
+  for (const uid of bad) if (!ok.has(uid)) failedMembers += 1;
+  if (failedMembers > 0 && ok.size > 0) return "partially_failed";
+  if (failedMembers > 0) return "failed";
   return "sent";
 }
+
 
 /**
  * 반복 발송 몇 번째인지 — `trigger_type='recurring'` 회차만 센다(테스트·즉시 회차 제외 · 확정 설계 B-12).

@@ -193,15 +193,16 @@ describe.skipIf(!enabled)("A-웹 isolated integration (real Postgres + PostgREST
     // Old deployed code path (legacy key) still works after phase 1.
     const legacy = await db.from("admin_notification_campaign_targets").upsert([row(occ1, "sent")], { onConflict: "campaign_id,user_id" });
     expect(legacy.error).toBeNull();
-    // New occurrence row while legacy unique still exists → PostgREST 23505 → legacy fallback.
+    // New occurrence row while legacy unique still exists → 23505. 예전 키 재시도는 삭제됨(운영 C-2 로 키 삭제 · 확정 설계 B-20)
+    // → 오류를 그대로 돌려준다(1회차 행을 덮어쓰지 않음).
     const r1 = await upsertCampaignTargetRows(db as never, [row(occ2, "pending")], { ignoreDuplicates: true });
-    expect(r1.mode).toBe("legacy");
+    expect(r1.error).not.toBeNull();
 
     // Phase 2 (docs SQL, manual after deploy).
     const p2 = path.resolve(process.cwd(), "docs/notifications/adm02-phase2-drop-legacy-campaign-target-unique.sql");
     execSync(`${PSQL} -X -q -v ON_ERROR_STOP=1 -f ${p2}`, { stdio: "pipe" });
     const r2 = await upsertCampaignTargetRows(db as never, [row(occ2, "pending")], { ignoreDuplicates: true });
-    expect(r2).toEqual({ mode: "occurrence", error: null });
+    expect(r2).toEqual({ error: null });
     const { data } = await db.from("admin_notification_campaign_targets").select("occurrence_id, status").eq("user_id", user).order("status");
     expect(data).toEqual([
       { occurrence_id: occ2, status: "pending" },

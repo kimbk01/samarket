@@ -29,7 +29,7 @@ export type CampaignOpenedCounts = { push: number; in_app: number; capped: boole
  * 회원 단위 결과 (Owner 구현 승인 2026-11-02 · 시안 v3) — 목록·받은 사람 창이 같은 계산을 쓴다.
  * 출처 `notification_campaign_deliveries`(회원·채널·기기별 1행). 성공 = 푸시 sent/opened 1건 이상,
  * 실패 = 성공 없이 failed 만, 미동의 = 혜택·이벤트 푸시 미동의(skip_reason marketing_not_opted_in · 2026-11-03),
- * 설정 꺼짐 = 회원이 끈 알림 전체·공지 알림·방해금지(재감사 A-3 분리),
+ * 설정 꺼짐 = 회원이 끈 알림 전체·공지 알림(재감사 A-3 분리), 방해금지 = 방해 금지 시간이라 안 감(최종 감사 M-1 분리),
  * 없음 = 그 밖(기기 없음 등 skipped), 열람 = opened 1건 이상.
  */
 export type CampaignMemberStats = {
@@ -39,8 +39,10 @@ export type CampaignMemberStats = {
   push_fail: number;
   push_none: number;
   push_optout: number;
-  /** 회원이 직접 끈 설정(알림 전체·공지 알림·방해금지)으로 푸시 안 감 */
+  /** 회원이 직접 끈 설정(알림 전체·공지 알림)으로 푸시 안 감 */
   push_setting_off: number;
+  /** 방해 금지 시간이라 푸시 안 감 (최종 감사 M-1 — 「설정 꺼짐」과 분리) */
+  push_quiet: number;
   opened: number;
 };
 
@@ -58,11 +60,12 @@ export type CampaignMemberOutcome = {
   pushFail: boolean;
   optOut: boolean;
   settingOff: boolean;
+  quiet: boolean;
   opened: boolean;
 };
 
 /** 회원이 직접 끈 설정으로 막힌 사유 — 판정 결과 사유(`campaignPushSkipReasonFromDecision`)와 같은 값. */
-const SETTING_OFF_REASONS = new Set(["service_disabled", "notice_disabled", "user_setting_blocked", "quiet_hours"]);
+const SETTING_OFF_REASONS = new Set(["service_disabled", "notice_disabled", "user_setting_blocked"]);
 
 export function memberOutcomes(rows: readonly CampaignDeliveryLite[]): Map<string, CampaignMemberOutcome> {
   const out = new Map<string, CampaignMemberOutcome>();
@@ -75,6 +78,7 @@ export function memberOutcomes(rows: readonly CampaignDeliveryLite[]): Map<strin
       pushFail: false,
       optOut: false,
       settingOff: false,
+      quiet: false,
       opened: false,
     };
     const st = String(r.status ?? "");
@@ -86,6 +90,7 @@ export function memberOutcomes(rows: readonly CampaignDeliveryLite[]): Map<strin
     if (r.channel === "push" && st === "skipped" && SETTING_OFF_REASONS.has(String(r.skip_reason ?? ""))) {
       cur.settingOff = true;
     }
+    if (r.channel === "push" && st === "skipped" && r.skip_reason === "quiet_hours") cur.quiet = true;
     if (st === "opened") cur.opened = true;
     out.set(uid, cur);
   }
@@ -101,6 +106,7 @@ export function memberStatsFromOutcomes(outcomes: Map<string, CampaignMemberOutc
     push_none: 0,
     push_optout: 0,
     push_setting_off: 0,
+    push_quiet: 0,
     opened: 0,
   };
   for (const o of outcomes.values()) {
@@ -110,6 +116,7 @@ export function memberStatsFromOutcomes(outcomes: Map<string, CampaignMemberOutc
     else if (o.pushFail) s.push_fail += 1;
     else if (o.optOut) s.push_optout += 1;
     else if (o.settingOff) s.push_setting_off += 1;
+    else if (o.quiet) s.push_quiet += 1;
     else s.push_none += 1;
     if (o.opened) s.opened += 1;
   }

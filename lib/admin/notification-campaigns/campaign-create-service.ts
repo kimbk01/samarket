@@ -298,21 +298,6 @@ export async function createCampaignDispatchOccurrence(
   return { ok: true, occurrenceId: ensured.occurrence.id, scheduledFor };
 }
 
-export async function resolveLatestQueuedOccurrenceId(
-  svc: SupabaseClient,
-  campaignId: string
-): Promise<string | null> {
-  const { data } = await svc
-    .from("admin_notification_campaign_occurrences")
-    .select("id")
-    .eq("campaign_id", campaignId)
-    .in("status", ["queued", "failed"])
-    .order("sequence_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.id ? String(data.id) : null;
-}
-
 type OccurrenceSendCandidate = {
   id?: unknown;
   campaign_id?: unknown;
@@ -336,7 +321,7 @@ export async function resolveActiveOccurrenceForSend(
   campaignId: string,
   occurrenceId?: string | null
 ): Promise<string | null> {
-  const select = "id, campaign_id, trigger_type, scheduled_for";
+  const select = "id, campaign_id, trigger_type, scheduled_for, status";
   const explicit = occurrenceId?.trim();
   if (explicit) {
     const { data } = await svc
@@ -344,15 +329,18 @@ export async function resolveActiveOccurrenceForSend(
       .select(select)
       .eq("id", explicit)
       .maybeSingle();
-    const row = data as OccurrenceSendCandidate | null;
+    const row = data as (OccurrenceSendCandidate & { status?: unknown }) | null;
     if (!row || String(row.campaign_id ?? "") !== campaignId) return null;
+    // 최종 감사 M-3 — 끝난(실패 포함) 회차를 같은 회차로 다시 보내지 않는다. 다시 보내기 = `resend`(새 알림)만.
+    // 같은 회차를 다시 돌리면 이미 만든 알림함 행을 재사용해 앱 사용 중 회원에게 아무것도 안 보였다(I-3).
+    if (String(row.status ?? "") === "failed") return null;
     return isManualSendableOccurrence(row) ? explicit : null;
   }
   const { data } = await svc
     .from("admin_notification_campaign_occurrences")
     .select(select)
     .eq("campaign_id", campaignId)
-    .in("status", ["queued", "failed"])
+    .eq("status", "queued")
     .order("sequence_number", { ascending: false })
     .limit(20);
   const nowMs = Date.now();

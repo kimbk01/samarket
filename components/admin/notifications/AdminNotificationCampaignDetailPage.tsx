@@ -39,6 +39,7 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 import type { PushFailureBreakdown, PushFailureReason } from "@/lib/admin/notification-campaigns/campaign-push-failure-breakdown";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { sendNow } from "@/components/admin/notifications/AdminSentNotificationPanels";
 
 function newSendIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -396,21 +397,8 @@ export function AdminNotificationCampaignDetailPage() {
       await refresh();
       return;
     }
-    const sendKey = `send:${key}`;
-    const sendRes = await fetch(`/api/admin/notification-campaigns/${encodeURIComponent(j.id)}/send`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": sendKey },
-      body: JSON.stringify({
-        idempotency_key: sendKey,
-        ...(j.occurrence_id ? { occurrence_id: j.occurrence_id } : {}),
-        reason,
-      }),
-    });
-    const sj = (await sendRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (!sendRes.ok || sj?.ok === false) {
-      setErr(typeof sj?.error === "string" ? sj.error : t("admin_notif_err_save"));
-    }
+    const sent = await sendNow(j.id, j.occurrence_id ?? null, `send:${key}`, reason);
+    if (!sent.ok) setErr(sent.error ?? t("admin_notif_err_save"));
     router.push(`/admin/notifications/${encodeURIComponent(j.id)}`);
   };
 

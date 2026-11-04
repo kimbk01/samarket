@@ -16,18 +16,16 @@ export type CampaignTargetRow = {
   sent_at?: string | null;
 };
 
-export type CampaignTargetWriteMode = "occurrence";
-
 type PgError = { code?: string; message?: string } | null;
 
 export async function upsertCampaignTargetRows(
   svc: SupabaseClient,
   rows: CampaignTargetRow[],
   opts?: { ignoreDuplicates?: boolean }
-): Promise<{ mode: CampaignTargetWriteMode; error: PgError }> {
-  if (!rows.length) return { mode: "occurrence", error: null };
+): Promise<{ error: PgError }> {
+  if (!rows.length) return { error: null };
   const { error } = await svc
     .from("admin_notification_campaign_targets")
     .upsert(rows, { onConflict: "occurrence_id,user_id", ignoreDuplicates: opts?.ignoreDuplicates === true });
-  return { mode: "occurrence", error: error ?? null };
+  return { error: error ?? null };
 }

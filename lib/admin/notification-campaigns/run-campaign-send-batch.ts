@@ -1,8 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  upsertCampaignTargetRows,
-  type CampaignTargetWriteMode,
-} from "@/lib/admin/notification-campaigns/campaign-target-rows";
+import { upsertCampaignTargetRows } from "@/lib/admin/notification-campaigns/campaign-target-rows";
 import { campaignRowFromContentSnapshot } from "@/lib/admin/notification-campaigns/campaign-content-snapshot";
 import { refreshOccurrenceMetrics } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import { getCampaignOccurrence } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
@@ -27,18 +24,17 @@ export async function ensureCampaignTargetsForSelectedUsers(
   campaignId: string,
   occurrenceId: string,
   userIds: string[]
-): Promise<CampaignTargetWriteMode> {
+): Promise<void> {
   const rows = userIds.map((user_id) => ({
     campaign_id: campaignId,
     occurrence_id: occurrenceId,
     user_id,
     status: "pending" as const,
   }));
-  const { mode, error } = await upsertCampaignTargetRows(svc, rows, { ignoreDuplicates: true });
+  const { error } = await upsertCampaignTargetRows(svc, rows, { ignoreDuplicates: true });
   if (error && !error.message?.includes("does not exist")) {
     console.warn("[campaign targets upsert]", error.message);
   }
-  return mode;
 }
 
 export function assertOccurrenceSendAllowed(status: string): { ok: true } | { ok: false; error: string } {
@@ -189,7 +185,6 @@ export async function runNotificationCampaignSendBatch(
   }
 
   let scannedRaw: string[] = [];
-  let nextOffset = occurrence.send_progress_offset ?? 0;
   let nextCursor: string | null = occurrence.send_progress_cursor ?? null;
 
   if (campaign.target_type === "selected_users") {
@@ -218,7 +213,6 @@ export async function runNotificationCampaignSendBatch(
       await refreshOccurrenceMetrics(svc, occurrenceId, { terminal: true });
       return { ok: true, processed: 0, sent: 0, skipped: 0, failed: 0, done: true };
     }
-    nextOffset += scannedRaw.length;
     nextCursor = scannedRaw[scannedRaw.length - 1] ?? nextCursor;
   }
 
@@ -297,7 +291,7 @@ export async function runNotificationCampaignSendBatch(
       // progress so far is persisted below via cursor; next run resumes
       await svc
         .from("admin_notification_campaign_occurrences")
-        .update({ send_progress_offset: nextOffset, send_progress_cursor: nextCursor, updated_at: now })
+        .update({ send_progress_cursor: nextCursor, updated_at: now })
         .eq("id", occurrenceId);
       return { ok: false, processed: scannedRaw.length, sent, skipped, failed, done: false, error: "target_scan_failed" };
     }
@@ -308,7 +302,6 @@ export async function runNotificationCampaignSendBatch(
   await svc
     .from("admin_notification_campaign_occurrences")
     .update({
-      send_progress_offset: nextOffset,
       send_progress_cursor: nextCursor,
       updated_at: now,
     })

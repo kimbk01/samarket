@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
-import { resolveFinalOccurrenceStatus } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
+import { resolveFinalOccurrenceStatusByMembers } from "@/lib/admin/notification-campaigns/campaign-occurrence-service";
 import { readCampaignDeliveries } from "@/lib/admin/notification-campaigns/campaign-list-service";
 import {
   isCampaignDeliveryReceivedStatus,
@@ -86,7 +86,7 @@ export async function refreshOccurrenceMetrics(
   // B-9 — 읽기 실패면 완료로 처리하지 않고 로그만 남긴다(다음 배치·다음 호출이 다시 집계).
   let rows: Array<Record<string, unknown>>;
   try {
-    rows = await readCampaignDeliveries(svc, [occurrenceId], "channel, status");
+    rows = await readCampaignDeliveries(svc, [occurrenceId], "user_id, channel, status");
   } catch (e) {
     console.error("[refreshOccurrenceMetrics] read failed", occurrenceId, e instanceof Error ? e.message : e);
     return;
@@ -161,7 +161,7 @@ export async function refreshOccurrenceMetrics(
     (typeof opts?.terminal === "boolean" ? opts.terminal : (pendingTargets ?? 0) === 0);
 
   if (isDone) {
-    const finalStatus = resolveFinalOccurrenceStatus(pushFailed, pushSent, inAppFailed, inAppSent);
+    const finalStatus = resolveFinalOccurrenceStatusByMembers(rows);
     await svc
       .from("admin_notification_campaign_occurrences")
       .update({
@@ -275,13 +275,16 @@ export async function refreshCampaignDeliveryCounts(
 /** 푸시 탭으로 연 경우 — 그 알림의 알림함·푸시 기록을 「열람」으로 (확정 설계 B-1). */
 export async function markCampaignDeliveryOpened(
   svc: SupabaseClient,
-  notificationEventId: string
+  notificationEventId: string,
+  userId: string
 ): Promise<void> {
   const now = new Date().toISOString();
   await svc
     .from("notification_campaign_deliveries")
     .update({ status: "opened", opened_at: now, updated_at: now })
     .eq("notification_event_id", notificationEventId)
+    // 본인 기록만 — 남의 알림 id 로 열람을 남기지 못하게 (최종 감사 E-1)
+    .eq("user_id", userId)
     .in("status", ["sent", "pending", "dismissed"]);
 }
 
@@ -328,13 +331,15 @@ export async function markCampaignPushOpenedByOccurrence(
 
 export async function markCampaignDeliveryDismissed(
   svc: SupabaseClient,
-  notificationEventId: string
+  notificationEventId: string,
+  userId: string
 ): Promise<void> {
   const now = new Date().toISOString();
   await svc
     .from("notification_campaign_deliveries")
     .update({ status: "dismissed", updated_at: now })
     .eq("notification_event_id", notificationEventId)
+    .eq("user_id", userId)
     .eq("channel", "push")
     // 확정 설계 B-17 — 이미 연 기록(opened)은 덮지 않는다. 닫음 = 받음(집계에서 성공).
     .in("status", ["sent", "pending"]);

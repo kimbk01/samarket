@@ -69,12 +69,17 @@ export async function POST(req: NextRequest) {
     ok = await markNotificationRead(sb, userId, eventId, { openedAt: body.opened === true });
   }
   if (!ok) {
+    // 최종 감사 E-1 — 알림함에서 이미 읽은 알림(「모두 읽음」 등)의 푸시를 눌러도 회원이 연 것이다.
+    // 읽음은 바뀌지 않지만(그래서 ok:false) 운영자 알림 열람은 남긴다. 본인 알림일 때만(발송 기록이 회원 단위로 걸러짐).
+    if (body.opened === true && body.dismissed !== true) {
+      await markCampaignDeliveryOpened(sb, eventId, userId);
+    }
     return NextResponse.json({ ok: false });
   }
   if (body.dismissed === true) {
-    await markCampaignDeliveryDismissed(sb, eventId);
+    await markCampaignDeliveryDismissed(sb, eventId, userId);
   } else if (body.opened === true) {
-    await markCampaignDeliveryOpened(sb, eventId);
+    await markCampaignDeliveryOpened(sb, eventId, userId);
   }
   logNotifyOpen(body.dismissed === true ? "dismissed" : "read_marked", {
     userId,
