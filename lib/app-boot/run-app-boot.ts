@@ -140,12 +140,21 @@ export function requestAppBootProfileRecovery(): Promise<void> {
 function startAppBootRun(): Promise<void> {
   const epoch = bootEpoch;
   let run: Promise<void> | null = null;
-  run = runAppBootOnce(epoch).finally(() => {
-    if (bootInFlight === run) bootInFlight = null;
-    if (epoch !== bootEpoch) return;
-    armBackgroundHydrationOncePerSettle();
-    scheduleAutoProfileRecovery();
-  });
+  run = runAppBootOnce(epoch)
+    .catch(() => {
+      /**
+       * 인증 확인 중 예외(세션 레지스트리 네트워크 2회 실패 등) — 비회원으로 추정하지 않고
+       * `hydrating` 고착 대신 `error` 로 내려 프로필 복구(타이머·online·화면 활성화)가 다시 실행하게 한다.
+       */
+      if (epoch !== bootEpoch) return;
+      if (!isAppBootReady()) setAppBootProfileUnavailable("boot_run_failed");
+    })
+    .finally(() => {
+      if (bootInFlight === run) bootInFlight = null;
+      if (epoch !== bootEpoch) return;
+      armBackgroundHydrationOncePerSettle();
+      scheduleAutoProfileRecovery();
+    });
   bootInFlight = run;
   return run;
 }
