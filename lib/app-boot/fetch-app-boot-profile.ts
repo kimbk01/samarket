@@ -11,6 +11,12 @@ import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 export const APP_BOOT_PROFILE_MINIMAL_FLIGHT = "app-boot:profile:minimal" as const;
 const BOOT_MINIMAL_FLIGHT = APP_BOOT_PROFILE_MINIMAL_FLIGHT;
 const BOOT_MINIMAL_TTL_MS = 4_000;
+/**
+ * 요청 시작부터 본문 읽기 완료까지 한 번의 마감 시간 (`ME_PROFILE_FETCH_TIMEOUT_MS` 와 동일).
+ * 마감 초과는 throw — 401·비회원으로 해석하지 않고 캐시에도 쓰지 않는다
+ * (throw 해야 single-flight 키가 해제되어 다음 복구가 새 요청을 보낸다).
+ */
+export const APP_BOOT_PROFILE_FETCH_TIMEOUT_MS = 12_000;
 
 type AppBootProfileFetchCacheEntry = {
   expiresAt: number;
@@ -24,6 +30,8 @@ type AppBootProfileFetchCacheEntry = {
 
 let cached: AppBootProfileFetchCacheEntry | null = null;
 let cacheEpoch = 0;
+/** invalidate 이후 끝난 이전 계정·이전 회차 응답은 캐시에 쓰지 않는다. */
+let cacheGeneration = 0;
 const listeners = new Set<() => void>();
 
 function emitProfileFetchCache(): void {
@@ -54,6 +62,7 @@ export function getAppBootProfileFetchCacheEpoch(): number {
 }
 
 export function invalidateAppBootProfileCache(): void {
+  cacheGeneration += 1;
   cached = null;
   forgetSingleFlight(BOOT_MINIMAL_FLIGHT);
   emitProfileFetchCache();
@@ -87,28 +96,42 @@ export function fetchAppBootProfileMinimal(): Promise<MeProfileGetResult> {
   if (cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }
-  return runSingleFlight(BOOT_MINIMAL_FLIGHT, () => {
+  return runSingleFlight(BOOT_MINIMAL_FLIGHT, async (): Promise<MeProfileGetResult> => {
     recordBootVerifyFetch("/api/me/profile?lite=1", "app_boot_minimal");
     logShellFetchTrace({
       api: "/api/me/profile",
       component: "fetch-app-boot-profile",
       reason: "fetchAppBootProfileMinimal_network",
     });
-    return fetch("/api/me/profile?lite=1", {
-      credentials: "include",
-      cache: "no-store",
-      headers: {
-        "x-samarket-client-call-source": "app_boot_minimal",
-        "x-samarket-surface": "app_boot",
-        "x-samarket-first-paint-blocking": "1",
-      },
-    });
-  }).then(async (res): Promise<MeProfileGetResult> => {
-    const json: unknown = await res.clone().json().catch(() => ({}));
-    const result: MeProfileGetResult = { status: res.status, json };
-    if (res.ok || res.status === 401 || res.status === 403) {
-      writeProfileFetchCache(result, { fromGuestSkip: false });
+    const generation = cacheGeneration;
+    const ac = new AbortController();
+    const timer = globalThis.setTimeout(() => ac.abort(), APP_BOOT_PROFILE_FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch("/api/me/profile?lite=1", {
+        credentials: "include",
+        cache: "no-store",
+        signal: ac.signal,
+        headers: {
+          "x-samarket-client-call-source": "app_boot_minimal",
+          "x-samarket-surface": "app_boot",
+          "x-samarket-first-paint-blocking": "1",
+        },
+      });
+      let json: unknown;
+      try {
+        json = await res.json();
+      } catch (err) {
+        if (ac.signal.aborted) throw err;
+        json = {};
+      }
+      const result: MeProfileGetResult = { status: res.status, json };
+      const okBody = res.ok && (json as { ok?: unknown } | null)?.ok === true;
+      if ((okBody || res.status === 401 || res.status === 403) && generation === cacheGeneration) {
+        writeProfileFetchCache(result, { fromGuestSkip: false });
+      }
+      return result;
+    } finally {
+      globalThis.clearTimeout(timer);
     }
-    return result;
   });
 }

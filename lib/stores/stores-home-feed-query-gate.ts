@@ -105,9 +105,11 @@ export function canOpenPublicRootFeedBeforeBootReady(): boolean {
  * - Boot ready + no region → root feed (`""`)
  * - Boot hydrating + profile-lite unauth evidence → root feed (CUT-B public path)
  * - Boot hydrating + profile-lite region → region feed (no wait for full boot)
+ * - Boot `error` (getUser 확인 회원 + lite 실패) → 회원 규칙(대표 주소 → 동네 → root). 비회원 root 아님,
+ *   복구 대기 중 빈 화면 고착도 아님
  */
 export function resolveStoresHomeFeedQueryGate(primaryRegion: UserRegion | null): StoresHomeFeedQueryGate {
-  if (isAppBootReady()) {
+  if (isAppBootReady() || getAppBootSnapshot().status === "error") {
     const snap = getAppBootSnapshot();
     if (snap.status === "anonymous") {
       return { ready: true, querySuffix: "" };

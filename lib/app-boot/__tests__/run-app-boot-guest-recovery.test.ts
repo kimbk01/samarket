@@ -56,10 +56,14 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 vi.mock("@/lib/app-boot/app-boot-store", () => ({
+  getAppBootSettleSeq: () => 0,
+  getAppBootSnapshot: () => ({ status: bootReadyFlag.value ? "ready" : "hydrating", profile: null }),
   isAppBootReady: () => bootReadyFlag.value,
   setAppBootAnonymous,
   setAppBootHydrating,
   setAppBootProfile,
+  setAppBootProfileUnavailable: vi.fn(),
+  subscribeAppBoot: () => () => {},
 }));
 
 vi.mock("@/lib/profile/fetch-me-profile-deduped", () => ({

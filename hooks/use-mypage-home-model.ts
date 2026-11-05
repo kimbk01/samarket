@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { getAppBootSnapshot } from "@/lib/app-boot/app-boot-store";
+import { requestAppBootProfileRecovery } from "@/lib/app-boot/run-app-boot";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -96,6 +98,9 @@ export function useMypageHomeModel(enabled: boolean) {
       setProfilePhase("pending");
       return;
     }
+
+    /** 로그인 확인 + 앱 시작 lite 실패 상태 — 앱 시작 복구(단일 담당)에 명시 요청. 진행 중이면 합류. */
+    if (getAppBootSnapshot().status === "error") void requestAppBootProfileRecovery();
 
     if (inflightRef.current && !opts?.forceAddress) {
       await inflightRef.current;

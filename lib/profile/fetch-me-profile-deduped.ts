@@ -262,7 +262,7 @@ export function fetchMeProfileFullBackground(clientCallSource?: string): Promise
    * Viewer authority: do not start `mode=full` while boot `lite=1` is in flight —
    * wait, then re-check (mypage may reuse boot lite; other surfaces may fetch full).
    */
-  const liteInflight = getSingleFlightPromise<Response>(APP_BOOT_PROFILE_MINIMAL_FLIGHT);
+  const liteInflight = getSingleFlightPromise<unknown>(APP_BOOT_PROFILE_MINIMAL_FLIGHT);
   if (liteInflight) {
     return liteInflight
       .catch(() => null)

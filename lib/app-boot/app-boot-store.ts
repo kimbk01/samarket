@@ -13,6 +13,24 @@ const INITIAL: AppBootState = {
 
 let state: AppBootState = INITIAL;
 const listeners = new Set<() => void>();
+/**
+ * 미확정(idle·shell·hydrating·error) → 확정(ready·anonymous) 전환 회차.
+ * 백그라운드 초기화(알림음·첫 뱃지·사장님 뱃지)는 회차당 1회만 예약한다.
+ */
+let settleSeq = 0;
+
+function isSettledStatus(status: AppBootState["status"]): boolean {
+  return status === "ready" || status === "anonymous";
+}
+
+function commitState(next: AppBootState): void {
+  if (isSettledStatus(next.status) && !isSettledStatus(state.status)) settleSeq += 1;
+  state = next;
+}
+
+export function getAppBootSettleSeq(): number {
+  return settleSeq;
+}
 
 function emitReady(): void {
   if (typeof window === "undefined") return;
@@ -46,7 +64,7 @@ export function subscribeAppBoot(listener: () => void): () => void {
 }
 
 export function resetAppBootStore(): void {
-  state = INITIAL;
+  commitState(INITIAL);
   emit();
 }
 
@@ -56,24 +74,41 @@ export function resetAppBootStore(): void {
  * (full wipe forces a second cold boot wave on every login).
  */
 export function markAppBootAuthUpgradePending(): void {
-  state = {
+  commitState({
     status: "hydrating",
     profile: null,
     bootedAt: null,
     error: null,
-  };
+  });
   emit();
 }
 
 export function setAppBootShell(): void {
-  if (state.status === "ready" || state.status === "anonymous" || state.status === "hydrating") return;
-  state = { ...INITIAL, status: "shell" };
+  if (
+    state.status === "ready" ||
+    state.status === "anonymous" ||
+    state.status === "hydrating" ||
+    state.status === "error"
+  ) {
+    return;
+  }
+  commitState({ ...INITIAL, status: "shell" });
   emit();
 }
 
 export function setAppBootHydrating(): void {
   if (state.status === "ready" || state.status === "anonymous") return;
-  state = { ...state, status: "hydrating" };
+  commitState({ ...state, status: "hydrating" });
+  emit();
+}
+
+/**
+ * 로그인은 확인됐으나 lite 프로필 조회가 실패(5xx·네트워크·마감 초과)한 상태.
+ * 비회원(`anonymous`)이 아니며 시작 완료도 아니다 — READY 이벤트를 내지 않는다.
+ * 복구는 `run-app-boot` 의 프로필 복구만 담당한다.
+ */
+export function setAppBootProfileUnavailable(reason: string): void {
+  commitState({ status: "error", profile: null, bootedAt: Date.now(), error: reason });
   emit();
 }
 
@@ -82,19 +117,19 @@ export function setAppBootLoading(): void {
 }
 
 export function setAppBootAnonymous(): void {
-  state = { status: "anonymous", profile: null, bootedAt: Date.now(), error: null };
+  commitState({ status: "anonymous", profile: null, bootedAt: Date.now(), error: null });
   emit();
   emitReady();
 }
 
 export function setAppBootProfile(profile: ProfileRow, status: "ready" | "error" = "ready", error: string | null = null): void {
   const prev = state.profile;
-  state = {
+  commitState({
     status: profile ? status : "anonymous",
     profile,
     bootedAt: Date.now(),
     error,
-  };
+  });
   emit();
   emitReady();
   if (profile && profile !== prev) emitProfileUpdated();
@@ -125,12 +160,12 @@ export function mergeAppBootProfileFull(profile: ProfileRow): void {
   }
   const merged: ProfileRow = { ...state.profile, ...profile };
   const syncChanged = bootProfileSyncSliceChanged(state.profile, merged);
-  state = {
+  commitState({
     ...state,
     status: "ready",
     profile: merged,
     bootedAt: Date.now(),
-  };
+  });
   emit();
   if (syncChanged) emitProfileUpdated();
 }

@@ -27,10 +27,14 @@ import {
   peekAppBootProfileFetchCached,
 } from "@/lib/app-boot/fetch-app-boot-profile";
 import {
+  getAppBootSettleSeq,
+  getAppBootSnapshot,
   isAppBootReady,
   setAppBootAnonymous,
   setAppBootHydrating,
   setAppBootProfile,
+  setAppBootProfileUnavailable,
+  subscribeAppBoot,
 } from "@/lib/app-boot/app-boot-store";
 import { scheduleAppBootBackgroundHydration } from "@/lib/app-boot/schedule-app-boot-background";
 import { markBootMetricsApiDone } from "@/lib/startup/startup-metrics";
@@ -44,10 +48,113 @@ import type { MeProfileGetResult } from "@/lib/profile/fetch-me-profile-deduped"
 let bootEpoch = 0;
 let bootInFlight: Promise<void> | null = null;
 
+/**
+ * 로그인 확인 후 lite 실패(`error`) 복구 — 최초 실패 뒤 자동 재시도 최대 3회.
+ * 자동 횟수는 확정(ready·anonymous) 또는 epoch 무효화(로그인·로그아웃·계정 전환)에서만 0 으로 돌아간다.
+ * online·화면 활성화·명시 요청은 자동 횟수를 쓰지 않고, 진행 중 실행이 있으면 합류한다.
+ */
+export const APP_BOOT_PROFILE_RECOVERY_DELAYS_MS = [1_500, 3_000, 6_000] as const;
+let recoveryAutoAttempts = 0;
+let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+let recoveryTriggersBound = false;
+let bootStoreSubscribed = false;
+let lastArmedSettleSeq = -1;
+
+function clearRecoveryTimer(): void {
+  if (recoveryTimer != null) {
+    clearTimeout(recoveryTimer);
+    recoveryTimer = null;
+  }
+}
+
 /** wipe·invalidate 직후 진행 중 boot 가 stale 프로필을 쓰지 않게 epoch 를 올린다. */
 export function invalidateAppBootFlight(): void {
   bootEpoch += 1;
   bootInFlight = null;
+  clearRecoveryTimer();
+  recoveryAutoAttempts = 0;
+}
+
+/** 확정 회차당 1회 — ensureAppBoot 완료 경로와 상태 구독 경로가 겹쳐도 중복 예약하지 않는다. */
+function armBackgroundHydrationOncePerSettle(): void {
+  if (!isAppBootReady()) return;
+  const seq = getAppBootSettleSeq();
+  if (seq === lastArmedSettleSeq) return;
+  lastArmedSettleSeq = seq;
+  scheduleAppBootBackgroundHydration();
+}
+
+function onAppBootStoreChange(): void {
+  if (!isAppBootReady()) return;
+  clearRecoveryTimer();
+  recoveryAutoAttempts = 0;
+  /** boot 실행 밖에서 error → ready (약관 동의·프로필 저장 merge 등). 실행 중이면 완료 경로가 예약한다. */
+  if (!bootInFlight) armBackgroundHydrationOncePerSettle();
+}
+
+function ensureAppBootStoreSubscription(): void {
+  if (bootStoreSubscribed || typeof window === "undefined") return;
+  bootStoreSubscribed = true;
+  subscribeAppBoot(onAppBootStoreChange);
+}
+
+function ensureProfileRecoveryTriggers(): void {
+  if (recoveryTriggersBound || typeof window === "undefined") return;
+  recoveryTriggersBound = true;
+  window.addEventListener("online", () => {
+    void requestAppBootProfileRecovery();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    void requestAppBootProfileRecovery();
+  });
+}
+
+function scheduleAutoProfileRecovery(): void {
+  if (getAppBootSnapshot().status !== "error") return;
+  ensureProfileRecoveryTriggers();
+  if (recoveryTimer != null || bootInFlight) return;
+  if (recoveryAutoAttempts >= APP_BOOT_PROFILE_RECOVERY_DELAYS_MS.length) return;
+  const epoch = bootEpoch;
+  recoveryTimer = setTimeout(() => {
+    recoveryTimer = null;
+    if (epoch !== bootEpoch) return;
+    if (getAppBootSnapshot().status !== "error" || bootInFlight) return;
+    recoveryAutoAttempts += 1;
+    void startAppBootRun();
+  }, APP_BOOT_PROFILE_RECOVERY_DELAYS_MS[recoveryAutoAttempts]);
+}
+
+/**
+ * `error`(로그인 확인 + lite 실패)에서만 다시 실행한다. 다른 상태에서는 아무것도 하지 않는다.
+ * 같은 epoch 에서 실행은 하나 — 진행 중이면 그 Promise 에 합류한다.
+ */
+export function requestAppBootProfileRecovery(): Promise<void> {
+  if (bootInFlight) return bootInFlight;
+  if (getAppBootSnapshot().status !== "error") return Promise.resolve();
+  clearRecoveryTimer();
+  return startAppBootRun();
+}
+
+function startAppBootRun(): Promise<void> {
+  const epoch = bootEpoch;
+  let run: Promise<void> | null = null;
+  run = runAppBootOnce(epoch).finally(() => {
+    if (bootInFlight === run) bootInFlight = null;
+    if (epoch !== bootEpoch) return;
+    armBackgroundHydrationOncePerSettle();
+    scheduleAutoProfileRecovery();
+  });
+  bootInFlight = run;
+  return run;
+}
+
+/** 로그인 확인 후 lite 실패 — 5xx·네트워크·마감 초과·비정상 본문. 401·403·200(ok:true) 은 기존 판정 유지. */
+function isBootProfileFetchFailure(rejected: boolean, status: number | undefined, json: unknown): boolean {
+  if (rejected) return true;
+  if (status === 401 || status === 403) return false;
+  if (status === 200) return (json as { ok?: unknown } | null)?.ok !== true;
+  return true;
 }
 
 async function resolveBootProfileMinimal(): Promise<MeProfileGetResult> {
@@ -108,8 +215,18 @@ async function deferBootGuestForRecovery(
    */
   if (!isAppBootReady()) {
     if (recovered) {
-      const retry = await resolveBootProfileMinimal().catch(() => ({ status: 401, json: null }));
+      const retry = await resolveBootProfileMinimal().then(
+        (r) => r,
+        () => null,
+      );
       if (startEpoch !== bootEpoch) return true;
+      if (!retry) {
+        /** 세션 복구 성공 + lite 네트워크·마감 실패 — 401 증거가 아니므로 비회원 확정 금지 */
+        if (!isAppBootReady()) setAppBootProfileUnavailable("profile_fetch_failed_after_session_recovery");
+        markBootMetricsApiDone();
+        recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+        return true;
+      }
       if (applyBootProfileEvidence(retry.status, retry.json, null)) {
         markBootMetricsApiDone();
         recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
@@ -199,7 +316,8 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   });
   bumpAppWidePerf("app_bootstrap_start");
   const t0 = performance.now();
-  setAppBootHydrating();
+  /** 복구 실행 중에는 `error` 유지 — hydrating 으로 내리면 매장 피드 게이트가 매 재시도마다 빈 화면으로 돌아간다. */
+  if (getAppBootSnapshot().status !== "error") setAppBootHydrating();
 
   const sb = getSupabaseClient();
   if (!sb) {
@@ -226,12 +344,14 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
 
   let status: number | undefined;
   let json: unknown;
+  let profileRejected = false;
   if (profileSettled.status === "fulfilled") {
     status = profileSettled.value.status;
     json = profileSettled.value.json;
   } else {
     status = 500;
     json = null;
+    profileRejected = true;
   }
 
   if (!user || userError) {
@@ -255,9 +375,18 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   if (status === 401) {
     const recovery = await recoverFrom401Once("app_boot_profile");
     if (recovery.recovered) {
-      const retry = await fetchAppBootProfileMinimal();
-      status = retry.status;
-      json = retry.json;
+      const retry = await fetchAppBootProfileMinimal().then(
+        (r) => r,
+        () => null,
+      );
+      if (retry) {
+        status = retry.status;
+        json = retry.json;
+      } else {
+        status = undefined;
+        json = null;
+        profileRejected = true;
+      }
     } else if (recovery.terminal) {
       setAppBootAnonymous();
       markBootMetricsApiDone();
@@ -279,8 +408,18 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       const recovered = await runRecoverableGuestRecovery("app_boot_profile_401").catch(() => false);
       if (startEpoch !== bootEpoch) return;
       if (recovered) {
-        const retry = await fetchAppBootProfileMinimal();
+        const retry = await fetchAppBootProfileMinimal().then(
+          (r) => r,
+          () => null,
+        );
         if (startEpoch !== bootEpoch) return;
+        if (!retry) {
+          /** 세션 복구 성공 + lite 네트워크·마감 실패 — 401 증거가 아니므로 비회원 확정 금지 */
+          if (!isAppBootReady()) setAppBootProfileUnavailable("profile_fetch_failed_after_401_recovery");
+          markBootMetricsApiDone();
+          recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+          return;
+        }
         status = retry.status;
         json = retry.json;
         if (applyBootProfileEvidence(status, json, user)) {
@@ -322,6 +461,10 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       temperature: clientProfile.temperature ?? base?.temperature ?? 50,
     });
     dispatchTestAuthChanged();
+  } else if (isBootProfileFetchFailure(profileRejected, status, json)) {
+    if (isStale()) return;
+    /** getUser 로 로그인 확인된 사용자 — 프로필 조회 실패를 비회원으로 확정하지 않는다. */
+    if (!isAppBootReady()) setAppBootProfileUnavailable("profile_fetch_failed");
   } else {
     if (isStale()) return;
     setAppBootAnonymous();
@@ -341,14 +484,14 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   });
 }
 
+/**
+ * `error` 에서는 새 실행을 시작하지 않고 즉시 반환한다 (재시도는 프로필 복구만 담당).
+ * 반환은 시작 완료·비회원 확정이 아니다 — 호출처는 `isAppBootReady()`·boot profile 로 판정한다.
+ */
 export function ensureAppBoot(): Promise<void> {
+  ensureAppBootStoreSubscription();
   if (isAppBootReady()) return Promise.resolve();
-  if (!bootInFlight) {
-    const epoch = bootEpoch;
-    bootInFlight = runAppBootOnce(epoch).finally(() => {
-      bootInFlight = null;
-      scheduleAppBootBackgroundHydration();
-    });
-  }
-  return bootInFlight;
+  if (bootInFlight) return bootInFlight;
+  if (getAppBootSnapshot().status === "error") return Promise.resolve();
+  return startAppBootRun();
 }
