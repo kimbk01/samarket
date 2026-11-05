@@ -38,6 +38,23 @@ export type StoreOrderMessengerRoomEntryResult =
 
   | { ok: false; error: string };
 
+/**
+ * ensure-chat 서버 일시 오류(5xx·408·429) — 방 진입 게이트가 접근 거부 리다이렉트 대신 다시 시도로 처리한다.
+ * ensure 는 서버에서 멱등이라 재시도해도 방이 중복 생성되지 않는다.
+ */
+export class StoreOrderChatEnsureTransientError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`store_order_chat_ensure_transient_${status}`);
+    this.name = "StoreOrderChatEnsureTransientError";
+    this.status = status;
+  }
+}
+
+function isTransientStoreOrderChatEnsureStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
 /** ensure 응답에 스냅샷이 없을 때의 보조 조회 — 서버 일시 오류는 기존 `bootstrap_failed` 결과로 유지한다. */
 async function fetchEnsureFallbackBootstrap(roomId: string): Promise<CommunityMessengerRoomSnapshot | null> {
   try {
@@ -107,7 +124,10 @@ async function ensureStoreOrderChatFromSnapshot(
 
   snapshot: CommunityMessengerRoomSnapshot
 
-): Promise<{ ok: true; roomId: string; snapshot: CommunityMessengerRoomSnapshot } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; roomId: string; snapshot: CommunityMessengerRoomSnapshot }
+  | { ok: false; error: string; transientStatus?: number }
+> {
 
   const orderId = storeOrderIdFromSnapshot(snapshot);
 
@@ -145,7 +165,11 @@ async function ensureStoreOrderChatFromSnapshot(
 
   if (!res.ok || !json?.ok) {
 
-    return { ok: false, error: typeof json?.error === "string" ? json.error : "ensure_failed" };
+    return {
+      ok: false,
+      error: typeof json?.error === "string" ? json.error : "ensure_failed",
+      ...(isTransientStoreOrderChatEnsureStatus(res.status) ? { transientStatus: res.status } : {}),
+    };
 
   }
 
@@ -350,7 +374,12 @@ export async function prepareStoreOrderMessengerRoomEntryByRoomId(
   const orderId = storeOrderIdFromSnapshot(snapshot);
   if (orderId) {
     const ensured = await ensureStoreOrderChatFromSnapshot(snapshot);
-    if (!ensured.ok) return { ok: false, error: ensured.error };
+    if (!ensured.ok) {
+      if (ensured.transientStatus !== undefined) {
+        throw new StoreOrderChatEnsureTransientError(ensured.transientStatus);
+      }
+      return { ok: false, error: ensured.error };
+    }
     snapshot = ensured.snapshot;
   }
 
