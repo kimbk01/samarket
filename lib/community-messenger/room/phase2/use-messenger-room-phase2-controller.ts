@@ -84,11 +84,6 @@ import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/room/messenger-room-auth-blocked-redirect";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import {
-  clearAllCommunityCallLocalSessionFlags,
-  disposeDetachedCommunityCallIfStale,
-} from "@/lib/community-messenger/direct-call-minimize";
-import { canRoomSnapshotDisposeDetachedCall } from "@/lib/community-messenger/room/room-snapshot-call-authority";
-import {
   launchOutgoingDirectCall,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -280,8 +275,6 @@ export function useMessengerRoomPhase2Controller() {
     loadOlderMessages,
     loadOlderMessagesRef,
     loadedRef,
-    loading,
-    bootstrapServerSnapshotUnknown,
     loadingOlderMessages,
     managedDirectCallError,
     managementEventMessages,
@@ -469,17 +462,10 @@ export function useMessengerRoomPhase2Controller() {
 
   const groupInviteLink = useGroupRoomInviteLink(streamRoomId, Boolean(isPrivateGroupRoom && snapshot));
 
-  useEffect(() => {
-    /* 스냅샷 로딩 전·서버 스냅샷 미확인이면 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
-    if (!canRoomSnapshotDisposeDetachedCall({ loading, serverSnapshotUnknown: bootstrapServerSnapshotUnknown })) return;
-    void disposeDetachedCommunityCallIfStale(snapshot?.activeCall?.id ?? null);
-  }, [loading, bootstrapServerSnapshotUnknown, snapshot?.activeCall?.id]);
-
-  /** 서버에 진행 중 통화가 없을 때 sessionStorage 잔존 제거(채팅 배너는 오직 스냅샷 activeCall 만 신뢰) */
-  useEffect(() => {
-    if (!snapshot || snapshot.activeCall) return;
-    clearAllCommunityCallLocalSessionFlags();
-  }, [snapshot]);
+  /*
+   * 방 스냅샷(critical·silent_delta·RSC 시드)은 통화를 조회하지 않아 activeCall 이 항상 null 이다 — 통화 권위가 아니다.
+   * 미니화·dock·PiP 통화 media·플래그 정리는 서버 terminal 확인 경로(통화 화면·terminal cleanup)만 한다.
+   */
 
   const getRoomActionErrorMessage = useCallback(
     (error?: string) => getMessengerRoomActionErrorMessage(error, t),

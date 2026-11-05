@@ -162,11 +162,6 @@ export type MessengerRoomBootstrapRefreshDeps = {
     triggerReason?: string;
     snapshotMessageCount: number;
   }) => void;
-  /**
-   * 서버 스냅샷이 확인되지 않은 채 foreground bootstrap 이 마감 초과로 끝남(true) / 서버 스냅샷 수신(false).
-   * true 동안은 통화 상태를 모르는 것이지 통화가 없다는 근거가 아니다.
-   */
-  onBootstrapServerSnapshotUnknownChange?: (unknown: boolean) => void;
 };
 
 function applyPrimedTimelineSeed(
@@ -264,7 +259,6 @@ export function createMessengerRoomBootstrapRefresh(
     setRoomMessages,
     onBlockingBootstrapDenied,
     reportTimelineBootstrapOutcome,
-    onBootstrapServerSnapshotUnknownChange,
   } = deps;
 
   /** foreground 마감 초과 — 스냅샷은 그대로 두고(방·메시지 보존) 기존 타임라인 실패·다시 시도 UI 로 넘긴다 */
@@ -275,7 +269,6 @@ export function createMessengerRoomBootstrapRefresh(
     ownsFlight: boolean;
   }): void {
     if (args.ownsFlight) markCmRoomForegroundBootstrapFailure(roomId, args.reqSrc as CmForegroundBootstrapSource);
-    onBootstrapServerSnapshotUnknownChange?.(true);
     if ((args.shouldBlock || args.triggerReason === "timeline_bootstrap_retry") && reportTimelineBootstrapOutcome) {
       reportTimelineBootstrapOutcome({
         ok: false,
@@ -789,7 +782,6 @@ export function createMessengerRoomBootstrapRefresh(
                 return null;
               })
             : null;
-          if (joined?.roomRes.ok && joined.snap) onBootstrapServerSnapshotUnknownChange?.(false);
           if (joined) {
             applyBootstrapFlightResult({
               roomRes: joined.roomRes,
@@ -1088,7 +1080,6 @@ export function createMessengerRoomBootstrapRefresh(
         bootstrapTierHdr,
         tBoot,
       });
-      if (roomRes.ok && snap) onBootstrapServerSnapshotUnknownChange?.(false);
       if (
         shouldBlock &&
         !roomRes.ok &&
