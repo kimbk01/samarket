@@ -59,6 +59,7 @@ import {
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { type CommunityMessengerMessage, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { patchRoomSummaryInSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
 import {
   cmReceiveLatencyKey,
   cmReceiveLatencyMark,
@@ -495,6 +496,19 @@ export function useMessengerRoomPhase2Controller() {
     }
   }, [roomId, streamRoomId, snapshot?.viewerUserId]);
 
+  /** silent_delta 는 방 설정 필드를 싣지 않는다 — 저장 성공값을 화면 스냅샷과 재입장용 방 캐시에 함께 반영해야 옛 값으로 되돌아가지 않는다 */
+  const applySavedGroupRoomFields = useCallback(
+    (patch: Partial<CommunityMessengerRoomSummary>) => {
+      setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, ...patch } } : prev));
+      const uid = snapshot?.viewerUserId?.trim();
+      if (!uid) return;
+      for (const rid of new Set([streamRoomId?.trim(), roomId?.trim()])) {
+        if (rid) patchRoomSummaryInSnapshotCache({ roomId: rid, viewerUserId: uid, patch });
+      }
+    },
+    [roomId, setSnapshot, snapshot?.viewerUserId, streamRoomId]
+  );
+
   const onMessengerOutboundConfirmed = useCallback(
     (msg: CommunityMessengerMessage, clientMessageId?: string) => {
       const uid = snapshot?.viewerUserId?.trim();
@@ -799,15 +813,12 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
-      /** silent_delta 는 방 설정 필드를 싣지 않는다 — 저장값을 스냅샷에 먼저 반영해야 폼이 옛 값으로 되돌아가지 않는다 */
-      setSnapshot((prev) =>
-        prev
-          ? {
-              ...prev,
-              room: { ...prev.room, title: privateGroupTitle.trim() || prev.room.title, avatarUrl: privateGroupAvatarUrl },
-            }
-          : prev
-      );
+      const savedTitle = privateGroupTitle.trim().slice(0, 120);
+      const savedAvatarUrl = privateGroupAvatarUrl?.trim().slice(0, 2048) || null;
+      applySavedGroupRoomFields({
+        ...(savedTitle ? { title: savedTitle } : {}),
+        avatarUrl: savedAvatarUrl,
+      });
       await refresh(true);
       showMessengerSnackbar(translateCmUi("nav_messenger_save_room_settings"), { variant: "success" });
     } finally {
@@ -820,7 +831,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupAvatarUrl,
     redirectIfMessengerAuthBlocked,
     refresh,
-    setSnapshot,
+    applySavedGroupRoomFields,
     streamRoomId,
     snapshot,
   ]);
@@ -2047,20 +2058,11 @@ export function useMessengerRoomPhase2Controller() {
         return;
       }
       const savedNotice = privateGroupNoticeDraft.trim().slice(0, 2000);
-      const savedAt = new Date().toISOString();
-      setSnapshot((prev) =>
-        prev
-          ? {
-              ...prev,
-              room: {
-                ...prev.room,
-                noticeText: savedNotice,
-                noticeUpdatedAt: savedAt,
-                noticeUpdatedBy: prev.viewerUserId || prev.room.noticeUpdatedBy,
-              },
-            }
-          : prev
-      );
+      applySavedGroupRoomFields({
+        noticeText: savedNotice,
+        noticeUpdatedAt: new Date().toISOString(),
+        ...(snapshot?.viewerUserId ? { noticeUpdatedBy: snapshot.viewerUserId } : {}),
+      });
       await refresh(true);
       showMessengerSnackbar(
         isOpenGroupRoom ? translateCmUi("cm_ui_meeting_notice_saved") : translateCmUi("cm_ui_notice_saved"),
@@ -2076,7 +2078,8 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNoticeDraft,
     redirectIfMessengerAuthBlocked,
     refresh,
-    setSnapshot,
+    applySavedGroupRoomFields,
+    snapshot?.viewerUserId,
     streamRoomId,
   ]);
 
@@ -2102,22 +2105,14 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
-      setSnapshot((prev) =>
-        prev
-          ? {
-              ...prev,
-              room: {
-                ...prev.room,
-                allowMemberInvite: groupAllowMemberInvite,
-                allowAdminInvite: groupAllowAdminInvite,
-                allowAdminKick: groupAllowAdminKick,
-                allowAdminEditNotice: groupAllowAdminEditNotice,
-                allowMemberUpload: groupAllowMemberUpload,
-                allowMemberCall: groupAllowMemberCall,
-              },
-            }
-          : prev
-      );
+      applySavedGroupRoomFields({
+        allowMemberInvite: groupAllowMemberInvite,
+        allowAdminInvite: groupAllowAdminInvite,
+        allowAdminKick: groupAllowAdminKick,
+        allowAdminEditNotice: groupAllowAdminEditNotice,
+        allowMemberUpload: groupAllowMemberUpload,
+        allowMemberCall: groupAllowMemberCall,
+      });
       await refresh(true);
     } finally {
       setBusy(null);
@@ -2133,7 +2128,7 @@ export function useMessengerRoomPhase2Controller() {
     isPrivateGroupRoom,
     redirectIfMessengerAuthBlocked,
     refresh,
-    setSnapshot,
+    applySavedGroupRoomFields,
     streamRoomId,
   ]);
 
@@ -2337,7 +2332,6 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(), { variant: "error" });
           return;
         }
-        setPrivateGroupAvatarUrl(uploadJson.url);
         const patchRes = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/profile`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -2349,8 +2343,9 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(patchJson)), { variant: "error" });
           return;
         }
-        const savedAvatarUrl = uploadJson.url;
-        setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, avatarUrl: savedAvatarUrl } } : prev));
+        const savedAvatarUrl = uploadJson.url.trim().slice(0, 2048) || null;
+        setPrivateGroupAvatarUrl(savedAvatarUrl);
+        applySavedGroupRoomFields({ avatarUrl: savedAvatarUrl });
         await refresh(true);
         showMessengerSnackbar(translateCmUi("nav_messenger_save_room_settings"), { variant: "success" });
       } finally {
@@ -2363,7 +2358,7 @@ export function useMessengerRoomPhase2Controller() {
       isPrivateGroupRoom,
       redirectIfMessengerAuthBlocked,
       refresh,
-      setSnapshot,
+      applySavedGroupRoomFields,
       streamRoomId,
     ]
   );

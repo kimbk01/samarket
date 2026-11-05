@@ -6,6 +6,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
+import {
+  patchRoomSummaryInSnapshotCache,
+  peekHotRoomSnapshot,
+  peekRoomSnapshot,
+  primeHotRoomSnapshot,
+  primeRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 
 function snap(room: Partial<CommunityMessengerRoomSnapshot["room"]>): CommunityMessengerRoomSnapshot {
@@ -68,8 +75,8 @@ describe("phase2 controller — 저장 성공 뒤 refresh(true) 전에 스냅샷
   }
 
   it.each([
-    ["savePrivateGroupSettings", ["title:", "avatarUrl:"]],
-    ["savePrivateGroupNotice", ["noticeText: savedNotice", "noticeUpdatedAt: savedAt"]],
+    ["savePrivateGroupSettings", ["title: savedTitle", "avatarUrl: savedAvatarUrl"]],
+    ["savePrivateGroupNotice", ["noticeText: savedNotice", "noticeUpdatedAt:"]],
     [
       "savePrivateGroupPermissions",
       [
@@ -84,10 +91,34 @@ describe("phase2 controller — 저장 성공 뒤 refresh(true) 전에 스냅샷
     ["uploadPrivateGroupAvatar", ["avatarUrl: savedAvatarUrl"]],
   ])("%s", (name, fields) => {
     const b = body(name);
-    const patchAt = b.indexOf("setSnapshot(");
+    const patchAt = b.indexOf("applySavedGroupRoomFields(");
     const refreshAt = b.indexOf("await refresh(true)");
     expect(patchAt).toBeGreaterThan(-1);
     expect(refreshAt).toBeGreaterThan(patchAt);
     for (const f of fields) expect(b.slice(patchAt, refreshAt)).toContain(f);
+  });
+
+  it("applySavedGroupRoomFields 는 화면 스냅샷과 재입장용 방 캐시를 함께 고친다", () => {
+    const b = body("applySavedGroupRoomFields");
+    expect(b).toContain("setSnapshot(");
+    expect(b).toContain("patchRoomSummaryInSnapshotCache(");
+  });
+
+  it("사진 업로드 — 서버 저장 실패 시 폼에 새 사진을 넣지 않는다", () => {
+    const b = body("uploadPrivateGroupAvatar");
+    const setAt = b.indexOf("setPrivateGroupAvatarUrl(");
+    expect(setAt).toBeGreaterThan(b.indexOf("if (!patchRes.ok || !patchJson.ok)"));
+  });
+});
+
+describe("재입장 캐시 — 저장값 패치 뒤 peek 이 저장값을 돌려준다", () => {
+  it("entries·hot 캐시 모두", () => {
+    const stale = snap({ allowAdminKick: true, noticeText: "" });
+    primeRoomSnapshot("r1", stale);
+    primeHotRoomSnapshot("r1", stale);
+    patchRoomSummaryInSnapshotCache({ roomId: "r1", viewerUserId: "u1", patch: { allowAdminKick: false, noticeText: "b2b" } });
+    expect(peekRoomSnapshot("r1", "u1")?.room.allowAdminKick).toBe(false);
+    expect(peekRoomSnapshot("r1", "u1")?.room.noticeText).toBe("b2b");
+    expect(peekHotRoomSnapshot("r1", "u1")?.room.allowAdminKick).toBe(false);
   });
 });

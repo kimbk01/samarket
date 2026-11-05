@@ -3932,7 +3932,13 @@ export async function getCommunityMessengerSingleRoomSummaryForViewer(
   const payload = await fetchRoomsPayloadByRoomIds([rid]);
   if (!payload.roomRows.length) return null;
   const roomParticipants = payload.byRoomId.get(rid) ?? [];
-  if (!roomParticipants.some((p) => participantRowUserId(p) === viewerUserId)) return null;
+  const viewerRow = roomParticipants.find((p) => participantRowUserId(p) === viewerUserId);
+  if (!viewerRow) return null;
+  /** 그룹은 활성 참가(`left_at IS NULL`)만 — 나간 그룹 요약이 목록에 다시 들어가지 않게 */
+  const roomType = trimText((payload.roomRows[0] as { room_type?: string | null }).room_type);
+  if ((roomType === "private_group" || roomType === "open_group") && !isActiveMembershipParticipantRow(viewerRow)) {
+    return null;
+  }
   const summaries = await summarizeRoomsBatch(
     viewerUserId,
     payload.roomRows,

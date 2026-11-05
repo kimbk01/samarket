@@ -97,6 +97,11 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { applyHomeListPatch, peekLastHomeListPatchStats } from "@/lib/community-messenger/home-list-patch";
+import {
+  fetchHomeListRoomSummary,
+  pickMissingPrivateGroupRoomIds,
+} from "@/lib/community-messenger/home/home-list-missing-group-rooms";
+import { isRoomLeftLocally } from "@/lib/community-messenger/room-snapshot-cache";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fetch-client-telemetry";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
@@ -616,6 +621,34 @@ export function useCommunityMessengerHomeBootstrap({
     }
   }, []);
 
+  const missingGroupSummaryInFlightRef = useRef<Set<string>>(new Set());
+  const materializeMissingPrivateGroupRooms = useCallback(
+    (incomingGroups: CommunityMessengerBootstrap["groups"] | undefined) => {
+      const inFlight = missingGroupSummaryInFlightRef.current;
+      const ids = pickMissingPrivateGroupRoomIds(incomingGroups, dataRef.current ?? peekBootstrapCache()).filter(
+        (id) => !inFlight.has(id)
+      );
+      for (const id of ids) {
+        inFlight.add(id);
+        void fetchHomeListRoomSummary(id).then((room) => {
+          inFlight.delete(id);
+          if (!room || room.id !== id || room.roomType !== "private_group" || isRoomLeftLocally(id)) return;
+          shadowDispatch.dispatchRoomSummary("home_sync", refreshRequestIdRef.current || 1, room);
+          setData((prev) =>
+            prev
+              ? commitBootstrapSetData(
+                  prev,
+                  applyHomeListPatch(prev, { kind: "insert_room_summary", summary: room }, "home-sync"),
+                  "home_sync_missing_group_summary"
+                )
+              : prev
+          );
+        });
+      }
+    },
+    [commitBootstrapSetData, shadowDispatch]
+  );
+
   const applyHomeSyncPayload = useCallback(
     (
       payload: {
@@ -714,8 +747,9 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       });
+      if (roomMode === "critical_patch") materializeMissingPrivateGroupRooms(payload.groups);
     },
-    [shadowDispatch]
+    [materializeMissingPrivateGroupRooms, shadowDispatch]
   );
 
   useEffect(() => {
