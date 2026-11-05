@@ -5,6 +5,7 @@
  * 화면이 오류 + [다시 시도] 를 그리게 한다. 설정 조회는 single-flight(`me:phone-verification:get`, 파싱한 JSON 공유) 유지.
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 
@@ -57,9 +58,11 @@ export type PhoneVerificationGetResult = { ok: boolean; status: number; json: Re
  */
 export function fetchPhoneVerificationJson(): Promise<PhoneVerificationGetResult> {
   return runSingleFlight(PHONE_VERIFICATION_FLIGHT_KEY, async (): Promise<PhoneVerificationGetResult> => {
-    const res = await fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" });
-    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-    return { ok: res.ok, status: res.status, json };
+    return runWithSharedFlightDeadline("me_phone_verification", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+      const res = await fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store", signal });
+      const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      return { ok: res.ok, status: res.status, json };
+    });
   });
 }
 
