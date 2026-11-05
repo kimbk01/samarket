@@ -42,21 +42,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    func applicationWillResignActive(_ application: UIApplication) {
-        // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-        // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
-    }
+    // UIScene life cycle (iOS 27 SDK): UIKit no longer calls the app-level background/foreground/active
+    // or open-URL/continue delegate methods. SceneDelegate is the only caller of the handlers below.
+    // Single scene only (UIApplicationSupportsMultipleScenes = false).
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
+    @MainActor private static var isInBackground = false
+
+    @MainActor static func handleDidEnterBackground() {
+        isInBackground = true
         UserDefaults.standard.set(true, forKey: Self.lifecycleWasInBackgroundKey)
         DibayActiveCallSessionManager.shared.onAppBackground()
     }
 
-    func applicationWillEnterForeground(_ application: UIApplication) {
+    /// sceneWillEnterForeground also fires on cold launch; the app-delegate life cycle only called
+    /// applicationWillEnterForeground after a real background, so keep that condition.
+    @MainActor static func handleWillEnterForeground() {
+        guard isInBackground else { return }
+        isInBackground = false
         DibayActiveCallSessionManager.shared.onAppForeground()
     }
 
-    func applicationDidBecomeActive(_ application: UIApplication) {
+    @MainActor static func handleDidBecomeActive() {
         DibayActiveCallSessionManager.shared.onAppForeground()
         ScreenAwakeBridge.shared.reapplyOnBecomeActive()
         CallV4SurfaceOwnerBridge.flushPending()
@@ -69,7 +75,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    @MainActor static func handleOpenURLContext(_ context: UIOpenURLContext) {
+        var options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+        if let source = context.options.sourceApplication {
+            options[.sourceApplication] = source
+        }
+        if let annotation = context.options.annotation {
+            options[.annotation] = annotation
+        }
+        options[.openInPlace] = context.options.openInPlace
+        _ = handleOpenURL(context.url, options: options)
+    }
+
+    @discardableResult
+    @MainActor static func handleOpenURL(_ url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) -> Bool {
         // KakaoTalk custom-scheme return: kakao{NATIVE_APP_KEY}://oauth
         // AuthController.handleOpenUrl is @MainActor — must run on main.
         if AuthApi.isKakaoTalkLoginUrl(url) {
@@ -101,10 +120,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             NSLog("[DIBAY_Kakao] open_url kakao_scheme handled=%d", handled)
             if handled { return true }
         }
-        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+        return ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: options)
     }
 
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    @discardableResult
+    @MainActor static func handleContinueUserActivity(_ userActivity: NSUserActivity) -> Bool {
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
            let url = userActivity.webpageURL,
            AuthApi.isKakaoTalkLoginUrl(url)
@@ -113,7 +133,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             NSLog("[DIBAY_Kakao] continue_userActivity handled=%d", handled)
             return handled
         }
-        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+        return ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
     }
 
     // Capacitor PushNotifications — alert APNs token bridge (NOT VoIP/PushKit).
