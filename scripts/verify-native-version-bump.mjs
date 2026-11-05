@@ -25,7 +25,7 @@ import {
   formatReleaseClassLine,
   readAndroidVersion,
   readIosVersion,
-  stripInfoPlistFingerprint,
+  infoPlistEquivalentIgnoringFingerprint,
 } from "./lib/native-release.mjs";
 
 function git(args) {
@@ -66,7 +66,7 @@ function nativeChangesSince(base) {
   const files = git(["diff", "--name-only", base, "HEAD"]).split("\n").filter(Boolean);
   const infoPlistFingerprintOnly =
     files.includes(IOS_INFO_PLIST_PATH) &&
-    stripInfoPlistFingerprint(show(base, IOS_INFO_PLIST_PATH)) === stripInfoPlistFingerprint(show("HEAD", IOS_INFO_PLIST_PATH));
+    infoPlistEquivalentIgnoringFingerprint(show(base, IOS_INFO_PLIST_PATH), show("HEAD", IOS_INFO_PLIST_PATH));
   const packageJsonDiff = files.includes("package.json") ? git(["diff", base, "HEAD", "--", "package.json"]) : "";
   return classifyNativeChanges(files, { packageJsonDiff, infoPlistFingerprintOnly });
 }

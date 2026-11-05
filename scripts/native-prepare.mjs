@@ -26,7 +26,7 @@ import {
   isSyncGeneratedPath,
   readAndroidVersion,
   readIosVersion,
-  stripInfoPlistFingerprint,
+  infoPlistEquivalentIgnoringFingerprint,
 } from "./lib/native-release.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -81,7 +81,7 @@ function humanChanges() {
     } else if (file === IOS_INFO_PLIST_PATH) {
       const headText = git(["show", `HEAD:${IOS_INFO_PLIST_PATH}`]);
       const workText = fs.readFileSync(path.join(ROOT, IOS_INFO_PLIST_PATH), "utf8");
-      if (stripInfoPlistFingerprint(headText) === stripInfoPlistFingerprint(workText)) generated.push(file);
+      if (infoPlistEquivalentIgnoringFingerprint(headText, workText)) generated.push(file);
       else human.push(`수정 ${file}`);
     } else {
       human.push(`${status.trim() || "변경"} ${file}`);

@@ -43,13 +43,86 @@ export function readIosVersion(pbxprojText) {
   };
 }
 
-/** Info.plist 에서 빌드 지문 키(Dibay*) 를 뺀 본문 — 지문만 바뀐 Info.plist 는 "생성 변경"으로 본다. */
-export function stripInfoPlistFingerprint(plistText) {
-  // Trailing whitespace is not content: `git show` output is trimmed by the caller while the
-  // working file keeps its final newline — comparing them raw made every stamped plist "human".
-  return String(plistText ?? "")
-    .replace(/\s*<key>Dibay[A-Za-z]+<\/key>\s*<string>[^<]*<\/string>/g, "")
-    .replace(/\s+$/, "");
+const PLIST_FINGERPRINT_KEY = /^Dibay[A-Za-z]+$/;
+const PLIST_TOKEN =
+  /<\?xml[^>]*\?>|<!DOCTYPE[^>]*>|<!--[\s\S]*?-->|<plist[^>]*>|<\/plist>|<(dict|array)\s*\/>|<(\/?)(dict|array)>|<(true|false)\s*\/>|<(key|string|integer|real|date|data)>([^<]*)<\/\5>|<(string|data)\s*\/>|(\S)/g;
+
+function decodePlistEntities(s) {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * XML plist → 순서 무관 비교용 정규형 문자열. dict 키는 정렬, array 순서·자료형은 그대로 비교한다.
+ * 중복 키·알 수 없는 태그·구조 오류는 throw (호출부는 "다름"으로 처리 — fail closed).
+ * @param {string} plistText
+ * @param {{ dropFingerprint?: boolean }} [opts] 최상위 Dibay* 문자열 키(빌드 지문) 제외
+ */
+export function canonicalizeInfoPlist(plistText, opts = {}) {
+  const tokens = [];
+  for (const m of String(plistText ?? "").matchAll(PLIST_TOKEN)) {
+    if (m[8]) throw new Error(`plist: unexpected text near "${m[8]}"`);
+    if (m[1]) tokens.push({ kind: "value", value: m[1] === "dict" ? { t: "dict", v: {} } : { t: "array", v: [] } });
+    else if (m[3]) tokens.push({ kind: m[2] ? "close" : "open", tag: m[3] });
+    else if (m[4]) tokens.push({ kind: "value", value: { t: "bool", v: m[4] === "true" } });
+    else if (m[5] === "key") tokens.push({ kind: "key", value: decodePlistEntities(m[6]) });
+    else if (m[5]) tokens.push({ kind: "value", value: { t: m[5], v: decodePlistEntities(m[6]) } });
+    else if (m[7]) tokens.push({ kind: "value", value: { t: m[7], v: "" } });
+  }
+  let i = 0;
+  const parseValue = () => {
+    const tok = tokens[i++];
+    if (!tok) throw new Error("plist: unexpected end");
+    if (tok.kind === "value") return tok.value;
+    if (tok.kind !== "open") throw new Error(`plist: unexpected ${tok.kind}`);
+    if (tok.tag === "array") {
+      const v = [];
+      while (tokens[i]?.kind !== "close") v.push(parseValue());
+      if (tokens[i++].tag !== "array") throw new Error("plist: mismatched </dict>");
+      return { t: "array", v };
+    }
+    const v = {};
+    while (tokens[i]?.kind !== "close") {
+      const keyTok = tokens[i++];
+      if (keyTok?.kind !== "key") throw new Error("plist: dict entry without <key>");
+      if (Object.hasOwn(v, keyTok.value)) throw new Error(`plist: duplicate key ${keyTok.value}`);
+      v[keyTok.value] = parseValue();
+    }
+    if (tokens[i++].tag !== "dict") throw new Error("plist: mismatched </array>");
+    return { t: "dict", v };
+  };
+  const root = parseValue();
+  if (i !== tokens.length) throw new Error("plist: trailing content");
+  if (opts.dropFingerprint && root.t === "dict") {
+    for (const k of Object.keys(root.v)) {
+      if (PLIST_FINGERPRINT_KEY.test(k) && root.v[k].t === "string") delete root.v[k];
+    }
+  }
+  const stable = (node) =>
+    node.t === "dict"
+      ? { t: "dict", v: Object.fromEntries(Object.keys(node.v).sort().map((k) => [k, stable(node.v[k])])) }
+      : node.t === "array"
+        ? { t: "array", v: node.v.map(stable) }
+        : node;
+  return JSON.stringify(stable(root));
+}
+
+/**
+ * 빌드 지문(최상위 Dibay* 문자열 키)만 다르거나 키 순서만 다른 Info.plist 인가.
+ * 키 추가·삭제·값·자료형 변경, 중복 키, 파싱 불가는 false (= 사람이 만든 네이티브 변경).
+ */
+export function infoPlistEquivalentIgnoringFingerprint(aText, bText) {
+  try {
+    return (
+      canonicalizeInfoPlist(aText, { dropFingerprint: true }) === canonicalizeInfoPlist(bText, { dropFingerprint: true })
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

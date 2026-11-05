@@ -13,7 +13,7 @@ import { appendFileSync } from "node:fs";
 import {
   IOS_INFO_PLIST_PATH,
   classifyNativeChanges,
-  stripInfoPlistFingerprint,
+  infoPlistEquivalentIgnoringFingerprint,
 } from "./lib/native-release.mjs";
 
 const WORKFLOW_PATH = ".github/workflows/native-build.yml";
@@ -39,7 +39,7 @@ const show = (ref, file) => tryGit(["show", `${ref}:${file}`]) ?? "";
 
 const infoPlistFingerprintOnly =
   files.includes(IOS_INFO_PLIST_PATH) &&
-  stripInfoPlistFingerprint(show(base, IOS_INFO_PLIST_PATH)) === stripInfoPlistFingerprint(show("HEAD", IOS_INFO_PLIST_PATH));
+  infoPlistEquivalentIgnoringFingerprint(show(base, IOS_INFO_PLIST_PATH), show("HEAD", IOS_INFO_PLIST_PATH));
 const packageJsonDiff = files.includes("package.json") ? git(["diff", base, "HEAD", "--", "package.json"]) : "";
 
 const changes = classifyNativeChanges(files, { packageJsonDiff, infoPlistFingerprintOnly });
