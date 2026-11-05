@@ -21,6 +21,11 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+  isSharedFlightDeadlineError,
+  runWithSharedFlightDeadline,
+} from "@/lib/http/shared-flight-deadline";
 import { resolveCmRoomBootstrapFetchPriority, runCmBootstrapNetworkWork } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import {
   CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
@@ -743,8 +748,13 @@ export function createMessengerRoomBootstrapRefresh(
           }
         } else if (gate.skippedReason === "inflight_join") {
           const inflight = getSingleFlightPromise<BootstrapFlightResult>(flightKey);
-          if (inflight) {
-            const joined = await inflight;
+          const joined = inflight
+            ? await inflight.catch((err: unknown) => {
+                if (isSharedFlightDeadlineError(err)) return null;
+                throw err;
+              })
+            : null;
+          if (joined) {
             applyBootstrapFlightResult({
               roomRes: joined.roomRes,
               snap: joined.snap,
@@ -866,15 +876,27 @@ export function createMessengerRoomBootstrapRefresh(
                   cmReqSrc: reqSrc,
                 });
               }
-              const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
-                cache: "default",
-                credentials: "include",
-              });
-              markCmBootstrapFetchResolve(roomId);
-              const tAfterHeaders = typeof performance !== "undefined" ? performance.now() : Date.now();
+              const readBootstrapResponse = async (signal?: AbortSignal) => {
+                const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
+                  cache: "default",
+                  credentials: "include",
+                  ...(signal ? { signal } : {}),
+                });
+                markCmBootstrapFetchResolve(roomId);
+                const tAfterHeaders = typeof performance !== "undefined" ? performance.now() : Date.now();
+                const bodyText = await res.text();
+                return { res, tAfterHeaders, bodyText };
+              };
+              /** silent 만 마감 — blocking 은 loading 해제가 통화 정리(`disposeDetachedCommunityCallIfStale`)와 묶여 있어 별도 설계(B1) */
+              const { res, tAfterHeaders, bodyText } = silent
+                ? await runWithSharedFlightDeadline(
+                    "cm_room_bootstrap_silent",
+                    ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+                    readBootstrapResponse
+                  )
+                : await readBootstrapResponse();
               const fetchToHeadersMs =
                 typeof performance !== "undefined" ? tAfterHeaders - tFetch : Date.now() - (tFetch as number);
-              const bodyText = await res.text();
               const tAfterBody = typeof performance !== "undefined" ? performance.now() : Date.now();
               const responseBodyReadMs =
                 typeof performance !== "undefined" ? tAfterBody - tAfterHeaders : Date.now() - (tAfterHeaders as number);
@@ -988,6 +1010,10 @@ export function createMessengerRoomBootstrapRefresh(
         };
         runCmBootstrapNetworkWork(fetchPriority, executeFetch);
       });
+      } catch (err) {
+        /** silent 마감 초과는 실패 응답과 같게 끝낸다 — 스냅샷·loading 유지, `void refresh(true)` 로 reject 누출 금지 */
+        if (silent && isSharedFlightDeadlineError(err)) return;
+        throw err;
       } finally {
         releaseCmBootstrapRoomLock(roomId);
         if (!silent) {
