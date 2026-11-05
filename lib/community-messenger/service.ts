@@ -11952,23 +11952,45 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
   const noticeText = trimText(input.noticeText).slice(0, 2000);
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data, error } = await (sb as any).rpc("community_messenger_update_group_notice", {
-      p_room_id: roomId,
-      p_notice_text: noticeText,
-    });
-    if (!error) {
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row || row.ok) {
-        await appendCommunityMessengerSystemMessage({
-          userId: input.userId,
-          roomId,
-          content: cmMgmtNoticeContent(noticeText),
-        });
-        return { ok: true };
+    /** `community_messenger_update_group_notice` RPC 는 auth.uid() 기준이라 서비스 롤 호출에서 항상 unauthorized — 같은 검사를 여기서 한다 */
+    const userId = trimText(input.userId);
+    if (!userId) return { ok: false, error: "unauthorized" };
+    const [{ data: room, error: roomErr }, { data: me, error: meErr }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_type, allow_admin_edit_notice")
+        .eq("id", roomId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("role")
+        .eq("room_id", roomId)
+        .eq("user_id", userId)
+        .is("left_at", null)
+        .maybeSingle(),
+    ]);
+    const lookupErr = roomErr ?? meErr;
+    if (!lookupErr) {
+      if (!room || !me) return { ok: false, error: "room_not_found" };
+      if (room.room_type !== "private_group") return { ok: false, error: "not_group_room" };
+      const role = trimText(me.role);
+      if (!(role === "owner" || (role === "admin" && room.allow_admin_edit_notice === true))) {
+        return { ok: false, error: "forbidden" };
       }
-      return { ok: false, error: String(row.error ?? "update_failed") };
+      const now = nowIso();
+      const { error: updateErr } = await (sb as any)
+        .from("community_messenger_rooms")
+        .update({ notice_text: noticeText, notice_updated_at: now, notice_updated_by: userId, updated_at: now })
+        .eq("id", roomId);
+      if (updateErr) return { ok: false, error: String(updateErr.message ?? "update_failed") };
+      await appendCommunityMessengerSystemMessage({
+        userId,
+        roomId,
+        content: cmMgmtNoticeContent(noticeText),
+      });
+      return { ok: true };
     }
-    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+    if (!isMissingTableError(lookupErr)) return { ok: false, error: String(lookupErr.message ?? "update_failed") };
   }
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
   if (!fallback.ok) return fallback;

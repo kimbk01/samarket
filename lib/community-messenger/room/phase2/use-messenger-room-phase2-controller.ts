@@ -799,6 +799,15 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
+      /** silent_delta 는 방 설정 필드를 싣지 않는다 — 저장값을 스냅샷에 먼저 반영해야 폼이 옛 값으로 되돌아가지 않는다 */
+      setSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              room: { ...prev.room, title: privateGroupTitle.trim() || prev.room.title, avatarUrl: privateGroupAvatarUrl },
+            }
+          : prev
+      );
       await refresh(true);
       showMessengerSnackbar(translateCmUi("nav_messenger_save_room_settings"), { variant: "success" });
     } finally {
@@ -811,6 +820,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupAvatarUrl,
     redirectIfMessengerAuthBlocked,
     refresh,
+    setSnapshot,
     streamRoomId,
     snapshot,
   ]);
@@ -2036,6 +2046,21 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
+      const savedNotice = privateGroupNoticeDraft.trim().slice(0, 2000);
+      const savedAt = new Date().toISOString();
+      setSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              room: {
+                ...prev.room,
+                noticeText: savedNotice,
+                noticeUpdatedAt: savedAt,
+                noticeUpdatedBy: prev.viewerUserId || prev.room.noticeUpdatedBy,
+              },
+            }
+          : prev
+      );
       await refresh(true);
       showMessengerSnackbar(
         isOpenGroupRoom ? translateCmUi("cm_ui_meeting_notice_saved") : translateCmUi("cm_ui_notice_saved"),
@@ -2051,6 +2076,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNoticeDraft,
     redirectIfMessengerAuthBlocked,
     refresh,
+    setSnapshot,
     streamRoomId,
   ]);
 
@@ -2076,6 +2102,22 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
+      setSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              room: {
+                ...prev.room,
+                allowMemberInvite: groupAllowMemberInvite,
+                allowAdminInvite: groupAllowAdminInvite,
+                allowAdminKick: groupAllowAdminKick,
+                allowAdminEditNotice: groupAllowAdminEditNotice,
+                allowMemberUpload: groupAllowMemberUpload,
+                allowMemberCall: groupAllowMemberCall,
+              },
+            }
+          : prev
+      );
       await refresh(true);
     } finally {
       setBusy(null);
@@ -2091,6 +2133,7 @@ export function useMessengerRoomPhase2Controller() {
     isPrivateGroupRoom,
     redirectIfMessengerAuthBlocked,
     refresh,
+    setSnapshot,
     streamRoomId,
   ]);
 
@@ -2306,6 +2349,8 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(patchJson)), { variant: "error" });
           return;
         }
+        const savedAvatarUrl = uploadJson.url;
+        setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, avatarUrl: savedAvatarUrl } } : prev));
         await refresh(true);
         showMessengerSnackbar(translateCmUi("nav_messenger_save_room_settings"), { variant: "success" });
       } finally {
@@ -2318,6 +2363,7 @@ export function useMessengerRoomPhase2Controller() {
       isPrivateGroupRoom,
       redirectIfMessengerAuthBlocked,
       refresh,
+      setSnapshot,
       streamRoomId,
     ]
   );
