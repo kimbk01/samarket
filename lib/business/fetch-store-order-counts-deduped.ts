@@ -9,6 +9,7 @@ import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 
@@ -86,12 +87,20 @@ export function fetchStoreOrderCountsDeduped(
     });
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
     return runSingleFlight(`me:store:${sid}:order-counts`, async (): Promise<StoreOrderCountsResult> => {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/order-counts`, {
-        credentials: "include",
-        cache: "no-store",
-        headers: { "x-samarket-first-paint-blocking": "0" },
-      });
-      const json: unknown = await res.json().catch(() => ({}));
+      const { res, json } = await runWithSharedFlightDeadline(
+        "owner_store_order_counts",
+        ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+        async (signal) => {
+          const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/order-counts`, {
+            credentials: "include",
+            cache: "no-store",
+            headers: { "x-samarket-first-paint-blocking": "0" },
+            signal,
+          });
+          const json: unknown = await res.json().catch(() => ({}));
+          return { res, json };
+        }
+      );
       const parsed = parseOwnerStoreOpsSnapshotFromJson(json);
       if (res.ok && parsed) {
         seedFromParsed(sid, parsed);
