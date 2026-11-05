@@ -6,6 +6,7 @@
  */
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { peekBootstrapCache, peekMessengerBootstrapCritical } from "@/lib/community-messenger/bootstrap-cache";
 import { beginCmLiteClientFirstPaintSession } from "@/lib/community-messenger/cm-client-first-paint-perf";
 import { beginLiteClientMergeGate } from "@/lib/community-messenger/home/lite-merge-gate";
@@ -42,6 +43,31 @@ function joinBootstrapSingleFlight<T>(key: string, factory: () => Promise<T>, si
   return runSingleFlight(key, factory);
 }
 
+/** 합류한 호출자마다 본문을 따로 읽도록 복제본을 준다 (공유 Response 본문 1회 읽기 충돌 방지). */
+function joinBootstrapResponseFlight(
+  key: string,
+  factory: () => Promise<Response>,
+  signal?: AbortSignal
+): Promise<Response> {
+  return joinBootstrapSingleFlight(key, factory, signal).then((res) => res.clone());
+}
+
+/** 헤더·본문을 한 마감으로 읽어 버퍼링 — 멈춘 요청이 부트스트랩 키를 붙잡지 않는다. */
+function fetchBootstrapBuffered(
+  label: string,
+  url: string,
+  init: RequestInit
+): Promise<{ res: Response; byteLength: number }> {
+  return runWithSharedFlightDeadline(label, ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+    const raw = await fetch(url, { ...init, signal });
+    const buf = await raw.arrayBuffer();
+    return {
+      res: new Response(buf, { status: raw.status, statusText: raw.statusText, headers: raw.headers }),
+      byteLength: buf.byteLength,
+    };
+  });
+}
+
 function readResponseSizeBytes(response: Response, requestUrl: string): number | null {
   const headerValue = Number(response.headers.get("content-length") ?? "");
   if (Number.isFinite(headerValue) && headerValue > 0) return headerValue;
@@ -62,23 +88,13 @@ function readResponseSizeBytes(response: Response, requestUrl: string): number |
   return null;
 }
 
-function captureResponseSizeBytes(response: Response, requestUrl: string): void {
+function captureResponseSizeBytes(response: Response, requestUrl: string, bufferedByteLength: number): void {
   const immediate = readResponseSizeBytes(response, requestUrl);
   if (typeof immediate === "number" && Number.isFinite(immediate) && immediate > 0) {
     recordMessengerBootstrapResponseSizeBytes(immediate);
     return;
   }
-  const clone = response.clone();
-  queueMicrotask(() => {
-    void clone
-      .arrayBuffer()
-      .then((buffer) => {
-        recordMessengerBootstrapResponseSizeBytes(buffer.byteLength);
-      })
-      .catch(() => {
-        /* ignore measurement failure */
-      });
-  });
+  if (bufferedByteLength > 0) recordMessengerBootstrapResponseSizeBytes(bufferedByteLength);
 }
 
 export function fetchCommunityMessengerBootstrapClient(
@@ -111,7 +127,7 @@ export function fetchCommunityMessengerBootstrapClient(
       : mode === "lite"
         ? "/api/community-messenger/bootstrap?lite=1"
         : "/api/community-messenger/bootstrap";
-  const runFetch = async (signal?: AbortSignal): Promise<Response> => {
+  const runFetch = async (): Promise<Response> => {
     if (mode === "lite") {
       beginCmLiteClientFirstPaintSession("lite_network");
       beginLiteClientMergeGate();
@@ -123,14 +139,13 @@ export function fetchCommunityMessengerBootstrapClient(
     recordMessengerHomeBootstrapClientNetworkFetch(mode);
     const tNet0 = performance.now();
     recordBootVerifyFetch(url, `messenger_bootstrap_${mode}`);
-    const res = await fetch(url, {
+    const { res, byteLength } = await fetchBootstrapBuffered(`messenger_bootstrap_${mode}`, url, {
       cache: "no-store",
       credentials: "include",
       headers: { "x-samarket-client-call-source": `messenger_bootstrap_${mode}` },
-      ...(signal ? { signal } : {}),
     });
     recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
-    captureResponseSizeBytes(res, url);
+    captureResponseSizeBytes(res, url, byteLength);
     bumpAppWidePerf("messenger_list_fetch_success");
     const wallMs = Math.round(performance.now() - t0);
     recordAppWidePhaseLastMs("messenger_list_fetch_ms", wallMs);
@@ -149,7 +164,7 @@ export function fetchCommunityMessengerBootstrapClient(
     });
     return res;
   };
-  return joinBootstrapSingleFlight(flightKey(mode), async () => {
+  return joinBootstrapResponseFlight(flightKey(mode), async () => {
     if (mode === "lite") {
       let forceLiteNetwork = false;
       if (typeof window !== "undefined") {
@@ -185,13 +200,13 @@ export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: 
     recordMessengerHomeBootstrapClientNetworkFetch("critical");
     const tNet0 = performance.now();
     recordBootVerifyFetch(url, "messenger_bootstrap_critical");
-    const res = await fetch(url, {
+    const { res, byteLength } = await fetchBootstrapBuffered("messenger_bootstrap_critical", url, {
       cache: "no-store",
       credentials: "include",
       headers: { "x-samarket-client-call-source": "messenger_bootstrap_critical" },
     });
     recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
-    captureResponseSizeBytes(res, url);
+    captureResponseSizeBytes(res, url, byteLength);
     bumpAppWidePerf("messenger_list_fetch_success");
     const wallMs = Math.round(performance.now() - t0);
     recordAppWidePhaseLastMs("messenger_list_fetch_ms", wallMs);
@@ -210,7 +225,7 @@ export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: 
     });
     return res;
   };
-  return joinBootstrapSingleFlight(FLIGHT_CRITICAL, async () => {
+  return joinBootstrapResponseFlight(FLIGHT_CRITICAL, async () => {
     const cached = peekMessengerBootstrapCritical();
     if (cached?.tier === "critical") {
       return syntheticBootstrapJsonResponse(cached);
