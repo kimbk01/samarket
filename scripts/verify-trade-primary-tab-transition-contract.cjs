@@ -46,11 +46,12 @@ const tradeTabs = read("components/trade/TradePrimaryTabs.tsx");
 if (!tradeTabs.includes("commitTradePrimaryTabRoute")) {
   fail("TradePrimaryTabs must use commitTradePrimaryTabRoute");
 }
-if (!tradeTabs.includes("e.preventDefault()")) {
-  fail("TradePrimaryTabs Link onClick must preventDefault");
+/** 거래 E 탭 줄(Owner 2026-10-28 · 판매·둘러보기·지역·카테고리)은 button 탭 — Link 기본 이동으로 가드·커밋을 우회하지 않는다 */
+if (/<Link\b/.test(tradeTabs)) {
+  fail("TradePrimaryTabs tab row must use buttons, not Link default navigation");
 }
-if (!/onClick=\{\(e\) => \{[\s\S]*commitTab\(allTab\.href/.test(tradeTabs)) {
-  fail("TradePrimaryTabs 전체 Link onClick must commit via commitTradePrimaryTabRoute");
+if (!tradeTabs.includes("guardBeforeNavigate(href)")) {
+  fail("TradePrimaryTabs tab navigation must pass guardBeforeNavigate");
 }
 if (!tradeTabs.includes("commitTab(href, tabKey)")) {
   fail("TradePrimaryTabs 더보기 apply must use commitTradePrimaryTabRoute");
@@ -99,8 +100,19 @@ if (/function\s+NonSkeletonLoadingState[\s\S]*animate-pulse/.test(homeProductLis
 }
 
 const communityFeed = read("components/community/CommunityFeed.tsx");
-if (communityFeed.includes("<CommunityFeedSkeleton")) {
-  fail("CommunityFeed root loading must not render card skeleton during main bottom-nav transitions");
+/**
+ * 피드 스켈레톤은 피드 안에만, 스냅샷·목록이 있으면 스켈레톤 없이 바로 그린다
+ * (docs/mypage-v2/dibay-mypage-v3-real-screen-redesign.md §13-2·3). 루트 loading.tsx 금지는 위 mainTabLoadingFiles.
+ */
+const feedSkeletonUses = communityFeed.match(/<CommunityFeedSkeleton\b/g) ?? [];
+if (feedSkeletonUses.length > 1) {
+  fail("CommunityFeed must own a single feed skeleton");
+}
+if (
+  feedSkeletonUses.length === 1 &&
+  !/loading && postsForList\.length === 0 && !err \? \(\s*<CommunityFeedSkeleton\b/.test(communityFeed)
+) {
+  fail("CommunityFeed skeleton must render only while loading with no posts (snapshot paints without skeleton)");
 }
 
 const storesHub = read("components/stores/home/hub/StoresHomeHub.tsx");
