@@ -50,6 +50,13 @@ describe("B2b 계약 — 제품 composer(phase2 모드)가 보류를 해제한�
       "utf8"
     );
     expect(composer).toMatch(/useSeededSilentHoldComposerRelease\(\{\s*enabled: composerSurfaceMode === "phase2"/);
+    expect(composer).toMatch(/onTextareaRef=\{onSeededHoldTextareaNode\}/);
+  });
+
+  it("입력창 준비 확인은 프레임 수·타이머 제한 없이 이벤트로만 다시 확인한다", () => {
+    const hook = readFileSync(join(ROOT, "lib/community-messenger/room/use-seeded-silent-hold-composer-release.ts"), "utf8");
+    expect(hook).not.toMatch(/requestAnimationFrame|setTimeout|setInterval|MAX_VISIBILITY_FRAMES/);
+    expect(hook).toMatch(/new MutationObserver/);
   });
 });
 
@@ -58,6 +65,15 @@ describe("hold 해제 조건", () => {
     const h = createSeededSilentRefreshHold();
     h.arm(false);
     expect(h.pending()).toBeNull();
+    expect(h.activeGeneration()).toBe(0);
+  });
+
+  it("activeGeneration 은 보류 중인 세대만, 해제 뒤 0", () => {
+    const h = createSeededSilentRefreshHold();
+    const gen = h.arm(true);
+    expect(h.activeGeneration()).toBe(gen);
+    h.release({ roomId: "room-a", generation: gen }, snap("room-a"));
+    expect(h.activeGeneration()).toBe(0);
   });
 
   it("세대 불일치 · 방 불일치 · placeholder · 미완 시드 · 신호 없음은 해제하지 않는다", () => {
@@ -105,11 +121,15 @@ type Harness = {
   silent: () => Promise<void>;
   setSnapshot: (s: CommunityMessengerRoomSnapshot) => void;
   setTextareaVisible: (v: boolean) => void;
+  setWrapperHidden: (v: boolean) => void;
+  setVoiceRecording: (v: boolean) => void;
   setUnavailable: (v: boolean) => void;
+  notify: ReturnType<typeof vi.fn>;
 };
 
-let visible = true;
-const isVisible = () => visible;
+/** 실제 DOM 가시성 — textarea style 또는 조상 hidden 속성 */
+const isVisible = (ta: HTMLTextAreaElement) => ta.style.display !== "none" && !ta.closest("[hidden]");
+let initialTextareaVisible = true;
 
 function RoomHarness({
   roomId,
@@ -132,9 +152,10 @@ function RoomHarness({
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   const [busy, setBusy] = useState<string | null>(null);
-  const [, force] = useState(0);
   const [unavailable, setUnavailable] = useState(false);
+  const [voiceRecording, setVoiceRecording] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const network = useRef(vi.fn(networkImpl)).current;
   const busyLog = useRef<Array<string | null>>([]).current;
   busyLog.push(busy);
@@ -154,22 +175,19 @@ function RoomHarness({
       setBusy(null);
     }
   }, [refresh]);
-  const notify = useCallback(
-    (signal: SeededSilentHoldSignal) => holdRef.current.release(signal, snapshotRef.current),
-    []
-  );
-  const readGeneration = useCallback(() => holdRef.current.generation(), []);
+  const notify = useRef(
+    vi.fn((signal: SeededSilentHoldSignal) => holdRef.current.release(signal, snapshotRef.current))
+  ).current;
+  const readGeneration = useCallback(() => holdRef.current.activeGeneration(), []);
 
-  useSeededSilentHoldComposerRelease({
+  const onTextareaNode = useSeededSilentHoldComposerRelease({
     enabled: true,
     roomId: snapshot.room.id,
     snapshotPlaceholder: Boolean(snapshot.clientShellPlaceholder),
     chatUnavailable: unavailable,
-    textareaRef,
     isTextareaVisible: isVisible,
     readGeneration,
     notify,
-    recheckKey: busy,
   });
 
   out.current = {
@@ -179,19 +197,43 @@ function RoomHarness({
     silent: () => refresh(true),
     setSnapshot,
     setTextareaVisible: (v) => {
-      visible = v;
-      force((n) => n + 1);
+      if (textareaRef.current) textareaRef.current.style.display = v ? "" : "none";
     },
+    setWrapperHidden: (v) => {
+      if (v) wrapperRef.current?.setAttribute("hidden", "");
+      else wrapperRef.current?.removeAttribute("hidden");
+    },
+    setVoiceRecording,
     setUnavailable,
+    notify,
   };
-  return unavailable ? <div data-unavailable /> : <textarea ref={textareaRef} />;
+  if (unavailable) return <div data-unavailable />;
+  return (
+    <div ref={wrapperRef}>
+      {voiceRecording ? (
+        <div data-voice-pane />
+      ) : (
+        <textarea
+          /* 제품 MessengerComposerSector 와 같이 렌더마다 새 인라인 ref 콜백 */
+          ref={(node) => {
+            textareaRef.current = node;
+            if (node && !initialTextareaVisible && !node.dataset.init) {
+              node.dataset.init = "1";
+              node.style.display = "none";
+            }
+            onTextareaNode(node);
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
-  visible = true;
+  initialTextareaVisible = true;
   clearAllCommunityCallLocalSessionFlags();
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -217,8 +259,7 @@ async function mount(roomId: string, seed: CommunityMessengerRoomSnapshot, netwo
 const flush = () => act(async () => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 });
-/** textarea 가시성 rAF 확인 몇 프레임 */
-const frames = () => act(() => new Promise<void>((r) => setTimeout(r, 80)));
+const wait = (ms: number) => act(() => new Promise<void>((r) => setTimeout(r, ms)));
 
 describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () => {
   it("composer 준비(textarea 보임)로 보류 해제 → await refresh(true) 완료 · busy 해제", async () => {
@@ -230,8 +271,8 @@ describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () =
     expect(h.current!.busyLog.at(-1)).toBeNull();
   });
 
-  it("textarea 가 아직 안 보이면 보류 유지 → 보이면 해제(재확인은 상태 변경으로)", async () => {
-    visible = false;
+  it("textarea 가 아직 안 보이면 보류 유지 → 보이면 해제(DOM 가시성 변경 이벤트)", async () => {
+    initialTextareaVisible = false;
     const h = await mount("room-a", snap("room-a"));
     let done = false;
     await act(async () => {
@@ -241,9 +282,74 @@ describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () =
     expect(done).toBe(false);
     expect(h.current!.network).not.toHaveBeenCalled();
     await act(async () => h.current!.setTextareaVisible(true));
-    await frames();
+    await flush();
     expect(done).toBe(true);
     expect(h.current!.network).toHaveBeenCalledTimes(1);
+  });
+
+  it("48프레임(약 0.8초)보다 늦게 보여도, busy 등 다른 상태 변화 없이 해제", async () => {
+    initialTextareaVisible = false;
+    const h = await mount("room-a", snap("room-a"));
+    let done = false;
+    await act(async () => {
+      void h.current!.save().then(() => (done = true));
+    });
+    await wait(1_500);
+    expect(done).toBe(false);
+    await act(async () => h.current!.setTextareaVisible(true));
+    await flush();
+    expect(done).toBe(true);
+    expect(h.current!.busyLog.at(-1)).toBeNull();
+  });
+
+  it("조상 요소가 숨김→표시로 바뀌어도 해제", async () => {
+    initialTextareaVisible = false;
+    const g = await mount("room-g", snap("room-g"));
+    let done = false;
+    await act(async () => {
+      g.current!.setWrapperHidden(true);
+      g.current!.setTextareaVisible(true);
+    });
+    await flush();
+    await act(async () => {
+      void g.current!.silent().then(() => (done = true));
+    });
+    await flush();
+    expect(done).toBe(false);
+    await act(async () => g.current!.setWrapperHidden(false));
+    await flush();
+    expect(done).toBe(true);
+  });
+
+  it("textarea 가 언마운트(음성 녹음 패널)됐다가 다시 마운트되면 새 노드 기준으로 해제", async () => {
+    initialTextareaVisible = false;
+    const h = await mount("room-a", snap("room-a"));
+    let done = false;
+    await act(async () => {
+      void h.current!.silent().then(() => (done = true));
+    });
+    await act(async () => h.current!.setVoiceRecording(true));
+    await flush();
+    expect(done).toBe(false);
+    initialTextareaVisible = true;
+    await act(async () => h.current!.setVoiceRecording(false));
+    await flush();
+    expect(done).toBe(true);
+  });
+
+  it("보류가 없으면(해제 뒤 · 시드 없음) 감시·신호를 만들지 않는다", async () => {
+    const h = await mount("room-a", snap("room-a"));
+    await flush();
+    const calls = h.current!.notify.mock.calls.length;
+    expect(calls).toBe(1);
+    await act(async () => {
+      h.current!.setTextareaVisible(false);
+      h.current!.setTextareaVisible(true);
+      h.current!.setVoiceRecording(true);
+    });
+    await act(async () => h.current!.setVoiceRecording(false));
+    await flush();
+    expect(h.current!.notify.mock.calls.length).toBe(calls);
   });
 
   it("placeholder 시드는 해제하지 않는다 → 정상 서버 스냅샷 적용 뒤 해제", async () => {
@@ -260,7 +366,7 @@ describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () =
   });
 
   it("입력 불가 방(안내 줄)도 composer 준비로 본다", async () => {
-    visible = false;
+    initialTextareaVisible = false;
     const h = await mount("room-a", snap("room-a", { clientShellPlaceholder: true }));
     await act(async () => h.current!.setUnavailable(true));
     await act(async () => h.current!.setSnapshot(snap("room-a")));
@@ -303,7 +409,7 @@ describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () =
   });
 
   it("Realtime silent refresh 여러 개가 대기 중이어도 해제 시 모두 진행", async () => {
-    visible = false;
+    initialTextareaVisible = false;
     const h = await mount("room-a", snap("room-a"));
     const results: string[] = [];
     await act(async () => {
@@ -314,12 +420,12 @@ describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () =
     await flush();
     expect(results).toEqual([]);
     await act(async () => h.current!.setTextareaVisible(true));
-    await frames();
+    await flush();
     expect(results.sort()).toEqual(["rt1", "rt2", "save"]);
   });
 
   it("방 이탈(언마운트) 뒤 재진입: 새 세대로 다시 보류·해제", async () => {
-    visible = false;
+    initialTextareaVisible = false;
     const a = await mount("room-a", snap("room-a"));
     let waitingDone = false;
     await act(async () => {
@@ -327,7 +433,7 @@ describe("B2b 통합 — 그룹 설정·공지·초대 저장 busy 해제", () =
     });
     await act(async () => root.unmount());
     root = createRoot(container);
-    visible = true;
+    initialTextareaVisible = true;
     const again = await mount("room-a", snap("room-a"));
     await act(async () => {
       await again.current!.save();

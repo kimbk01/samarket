@@ -401,16 +401,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     snapshot: vm.snapshot,
     roomUnavailable: Boolean(vm.roomUnavailable),
   });
-  useSeededSilentHoldComposerRelease({
+  const onSeededHoldTextareaNode = useSeededSilentHoldComposerRelease({
     enabled: composerSurfaceMode === "phase2" && composerEntryVisible,
     roomId: String(roomKey),
     snapshotPlaceholder: Boolean(vm.snapshot.clientShellPlaceholder),
     chatUnavailable: Boolean(chatUnavailable),
-    textareaRef: vm.composerTextareaRef,
     isTextareaVisible: isDomTextareaLikelyVisible,
     readGeneration: readSeededSilentHoldGeneration,
     notify: notifySeededSilentHold,
-    recheckKey: `${vm.busy ?? ""}:${vm.roomUnavailable ? 1 : 0}:${vm.voiceRecording ? 1 : 0}`,
   });
   const chatUnavailableProductAction: MessengerRoomChatUnavailableProductAction | null = tradeBlockedProductPostId
     ? tradePostDetailSlide
@@ -560,6 +558,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           draft={draft}
           placeholder={composerPlaceholder}
           textareaRef={vm.composerTextareaRef}
+          onTextareaRef={onSeededHoldTextareaNode}
           onDraftChange={handleDraftChange}
           onAttach={() => {
             vm.composerTextareaRef.current?.blur();

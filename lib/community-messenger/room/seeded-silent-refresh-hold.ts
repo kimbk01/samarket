@@ -10,6 +10,8 @@ export type SeededSilentRefreshHold = {
   /** 화면 이탈 — 그 세대의 대기 refresh 를 풀어 영원히 남지 않게 한다(이미 다음 세대면 무시) */
   disarm(generation: number): void;
   generation(): number;
+  /** 보류 중인 세대(1 이상), 보류가 없으면 0 */
+  activeGeneration(): number;
   /** 보류 중이면 대기 Promise, 아니면 null */
   pending(): Promise<void> | null;
   /** 같은 세대 · 신호 방 = 적용 스냅샷 방 · placeholder 아닌 정상 시드일 때만 해제 */
@@ -42,6 +44,7 @@ export function createSeededSilentRefreshHold(): SeededSilentRefreshHold {
       if (active?.generation === gen) drop();
     },
     generation: () => generation,
+    activeGeneration: () => active?.generation ?? 0,
     pending: () => active?.promise ?? null,
     release(signal, snapshot) {
       const a = active;

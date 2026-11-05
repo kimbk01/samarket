@@ -917,10 +917,12 @@ export function useMessengerRoomClientPhase1({
     };
   }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps -- roomId 전환 시에만 시드·게이트 재설정
 
-  const notifyComposerTextareaVisibleForSeededBootstrap = useCallback((signal?: SeededSilentHoldSignal) => {
-    seededSilentHoldRef.current?.release(signal, snapshotRef.current);
-  }, []);
-  const readSeededSilentHoldGeneration = useCallback(() => seededSilentHoldRef.current?.generation() ?? 0, []);
+  const notifyComposerTextareaVisibleForSeededBootstrap = useCallback(
+    (signal?: SeededSilentHoldSignal): boolean =>
+      seededSilentHoldRef.current?.release(signal, snapshotRef.current) ?? false,
+    []
+  );
+  const readSeededSilentHoldGeneration = useCallback(() => seededSilentHoldRef.current?.activeGeneration() ?? 0, []);
 
   const refresh = useCallback<MessengerRoomBootstrapRefreshFn>(
     async (silent, opts) => {
