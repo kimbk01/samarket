@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 type PointsBalanceJson = { balance?: number };
 
@@ -29,13 +30,19 @@ export function useUserPointBalance(_userId?: string | null): {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const j = await runSingleFlight("me:points:balance", async (): Promise<PointsBalanceJson> => {
-        const res = await fetch("/api/me/points", { cache: "no-store", credentials: "include" });
-        if (!res.ok) {
-          throw new Error(`points_http_${res.status}`);
-        }
-        return (await res.json()) as PointsBalanceJson;
-      });
+      const j = await runSingleFlight("me:points:balance", () =>
+        runWithSharedFlightDeadline(
+          "me_points_balance",
+          ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+          async (signal): Promise<PointsBalanceJson> => {
+            const res = await fetch("/api/me/points", { cache: "no-store", credentials: "include", signal });
+            if (!res.ok) {
+              throw new Error(`points_http_${res.status}`);
+            }
+            return (await res.json()) as PointsBalanceJson;
+          }
+        )
+      );
       const next = Number(j.balance);
       if (!Number.isFinite(next)) throw new Error("points_balance_missing");
       setBalance(Math.trunc(next));

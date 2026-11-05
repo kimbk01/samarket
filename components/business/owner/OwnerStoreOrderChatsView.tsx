@@ -8,6 +8,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 type ChatRow = {
   order_id: string;
@@ -55,19 +56,22 @@ export function OwnerStoreOrderChatsView() {
     setState({ kind: "loading" });
     try {
       // Single-flight must share parsed JSON — Response body can only be read once.
-      const payload = await runSingleFlight(`owner-order-chats:${storeId}`, async () => {
-        const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/order-chats`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          store?: { store_name?: string };
-          chats?: ChatRow[];
-        };
-        return { status: res.status, json };
-      });
+      const payload = await runSingleFlight(`owner-order-chats:${storeId}`, () =>
+        runWithSharedFlightDeadline("owner_order_chats", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+          const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/order-chats`, {
+            credentials: "include",
+            cache: "no-store",
+            signal,
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            store?: { store_name?: string };
+            chats?: ChatRow[];
+          };
+          return { status: res.status, json };
+        })
+      );
       if (payload.status === 401) {
         setState({ kind: "error", message: t("common_login_required") });
         return;
