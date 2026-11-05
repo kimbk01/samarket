@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DIBAY 금융 SSOT 시안 — 회원·오너·관리자</title>
+<style>
+  :root {
+    --g: #0B421A; --g-strong: #0A3A17; --g-soft: #E9EBE7; --g-border: #C9D3CB;
+    --cream: #FFFCFC; --card: #FFFFFF; --subtle: #FCF6EE;
+    --fg: #362415; --fg2: #604C4C; --fg3: #837373; --border: rgba(54,36,21,.14);
+    --ok: #21885d; --ok-soft: #E9F3EE; --warn: #896F48; --warn-soft: #F7E8CE;
+    --bad: #d45252; --bad-soft: #fdf0f0; --r: 4px;
+    --a-fg: #1d2939; --a-fg2: #667085; --a-fg3: #98a2b3; --a-border: #e4e7ec; --a-bg: #f6f7f9;
+    --pin: #e8590c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", Roboto, sans-serif; color: var(--fg); background: #ECEAE6; font-size: 14px; }
+  body.en .ko { display: none !important; } body:not(.en) .en { display: none !important; }
+  .top { position: sticky; top: 0; z-index: 50; background: var(--g); color: var(--cream); padding: 10px 20px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .top h1 { font-size: 15px; margin: 0 16px 0 0; font-weight: 600; }
+  .top .meta { font-size: 12px; opacity: .8; margin-right: auto; }
+  .nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 20px; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 44px; z-index: 49; }
+  .nav button, .top button { min-height: 44px; padding: 0 14px; border-radius: var(--r); border: 1px solid var(--border); background: #fff; color: var(--fg); font-size: 13px; cursor: pointer; }
+  .nav button.on { background: var(--g); color: var(--cream); border-color: var(--g); }
+  .top button { background: transparent; color: var(--cream); border-color: rgba(255,252,252,.4); }
+  section.page { display: none; padding: 20px; } section.page.on { display: block; }
+  .intro { max-width: 1180px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; line-height: 1.55; font-size: 13px; }
+  .intro b { color: var(--g); }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .cap { font-size: 12px; color: var(--fg2); margin: 0 0 6px; font-weight: 600; }
+  /* phone */
+  .phone { width: 390px; background: var(--cream); border: 1px solid #cfc9c2; border-radius: 28px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.08); position: relative; }
+  .sb { height: 28px; font-size: 12px; display: flex; justify-content: space-between; padding: 6px 22px 0; color: var(--fg); }
+  .hdr { height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: var(--cream); border-bottom: 1px solid var(--border); }
+  .hdr .back { width: 44px; height: 44px; display: grid; place-items: center; font-size: 20px; }
+  .hdr .t { font-size: 17px; font-weight: 600; }
+  .body { padding: 12px 16px 96px; min-height: 640px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 14px; margin-bottom: 12px; }
+  .bal { background: var(--g); color: var(--cream); border: 0; }
+  .bal .lb { font-size: 13px; opacity: .85; } .bal .amt { font-size: 28px; font-weight: 700; margin: 4px 0 2px; letter-spacing: -.3px; }
+  .bal .sub { font-size: 12px; opacity: .8; }
+  .btns { display: flex; gap: 8px; margin-top: 12px; }
+  .btn { min-height: 44px; min-width: 44px; padding: 0 16px; border-radius: var(--r); border: 1px solid var(--g); background: var(--g); color: var(--cream); font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; flex: 1; }
+  .btn.sec { background: var(--card); color: var(--g); border-color: var(--g-border); }
+  .bal .btn { background: var(--cream); color: var(--g); border-color: var(--cream); }
+  .bal .btn.sec { background: transparent; color: var(--cream); border-color: rgba(255,252,252,.5); }
+  .btn.pressed { background: var(--g-strong); }
+  .btn.loading { opacity: .9; } .btn.loading::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,252,252,.4); border-top-color: var(--cream); animation: sp 1s linear infinite; }
+  .btn.dis { background: #cfd6d0; border-color: #cfd6d0; color: #fff; cursor: not-allowed; }
+  .btn.done { background: var(--ok); border-color: var(--ok); }
+  .btn.err { background: var(--bad); border-color: var(--bad); }
+  .btn.danger { background: var(--card); color: var(--bad); border-color: var(--bad); }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .lrow { display: flex; align-items: center; min-height: 44px; justify-content: space-between; border-top: 1px solid var(--border); font-size: 13px; }
+  .lrow:first-child { border-top: 0; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 10px; }
+  .chip { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-size: 13px; white-space: nowrap; display: inline-flex; align-items: center; }
+  .chip.on { background: var(--g); color: var(--cream); border-color: var(--g); }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .tab { flex: 1; min-height: 44px; display: grid; place-items: center; font-size: 14px; color: var(--fg2); border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--g); border-bottom-color: var(--g); font-weight: 600; }
+  .day { font-size: 12px; color: var(--fg3); margin: 12px 0 4px; }
+  .tx { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); min-height: 56px; }
+  .tx .ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--g-soft); color: var(--g); font-size: 13px; font-weight: 700; flex: none; }
+  .tx .mid { flex: 1; min-width: 0; } .tx .ti { font-size: 14px; font-weight: 600; } .tx .st { font-size: 12px; color: var(--fg2); margin-top: 2px; }
+  .tx .rt { text-align: right; } .tx .am { font-size: 15px; font-weight: 700; } .tx .ba { font-size: 11px; color: var(--fg3); margin-top: 2px; }
+  .plus { color: var(--g); } .minus { color: var(--fg); }
+  .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-ok { background: var(--ok-soft); color: var(--ok); } .b-warn { background: var(--warn-soft); color: var(--warn); }
+  .b-bad { background: var(--bad-soft); color: var(--bad); } .b-info { background: var(--g-soft); color: var(--g); } .b-mute { background: #f0eeec; color: var(--fg2); }
+  .sheet-wrap { position: absolute; inset: 80px 0 0 0; background: rgba(54,36,21,.35); display: flex; align-items: flex-end; }
+  .sheet { background: var(--card); width: 100%; border-radius: 16px 16px 0 0; padding: 8px 16px 20px; }
+  .grab { width: 40px; height: 4px; border-radius: 2px; background: #d9d3cc; margin: 4px auto 10px; }
+  .sheet h3 { font-size: 16px; margin: 0 0 4px; } .sheet .big { font-size: 26px; font-weight: 700; margin: 6px 0 10px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; min-height: 36px; align-items: center; border-top: 1px solid var(--border); font-size: 13px; }
+  .kv span:first-child { color: var(--fg2); flex: none; } .kv span:last-child { text-align: right; word-break: break-word; flex: 1; min-width: 0; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .note { font-size: 12px; color: var(--fg2); line-height: 1.5; }
+  .notice { border-radius: var(--r); padding: 12px; font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+  .n-info { background: var(--g-soft); } .n-ok { background: var(--ok-soft); } .n-warn { background: var(--warn-soft); } .n-bad { background: var(--bad-soft); }
+  .notice .nt { font-weight: 700; margin-bottom: 2px; } .notice .ref { font-size: 11px; color: var(--fg3); margin-top: 6px; }
+  .sticky { position: absolute; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--border); padding: 10px 16px 22px; }
+  .plan { border: 1px solid var(--border); border-radius: var(--r); padding: 12px; display: flex; justify-content: space-between; align-items: center; min-height: 56px; margin-bottom: 8px; background: var(--card); }
+  .plan.on { border-color: var(--g); box-shadow: inset 0 0 0 1px var(--g); }
+  .pin { position: relative; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--pin); color: #fff; font-size: 10px; font-weight: 700; margin-left: 4px; vertical-align: middle; cursor: help; }
+  .side { max-width: 360px; font-size: 12.5px; line-height: 1.55; }
+  .side .it { background: #fff; border: 1px solid var(--border); border-left: 3px solid var(--pin); border-radius: var(--r); padding: 8px 10px; margin-bottom: 8px; }
+  .side .it b { color: var(--pin); }
+  .side .it .cur { color: var(--fg2); }
+  .stateStrip { display: flex; flex-wrap: wrap; gap: 8px; max-width: 840px; }
+  .stateStrip .btn { flex: 0 0 150px; }
+  /* dialog */
+  .dlg-wrap { position: absolute; inset: 80px 0 0 0; background: rgba(54,36,21,.35); display: grid; place-items: center; padding: 20px; }
+  .dlg { background: var(--card); border-radius: 12px; padding: 18px; width: 100%; }
+  .dlg h3 { margin: 0 0 10px; font-size: 16px; }
+  /* tablet */
+  .tablet { width: 1024px; background: var(--cream); border: 1px solid #cfc9c2; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+  .tablet .split { display: grid; grid-template-columns: 1fr 380px; min-height: 560px; }
+  .tablet .split > div { padding: 14px 18px; } .tablet .split > div + div { border-left: 1px solid var(--border); background: var(--card); }
+  /* admin */
+  .admin { width: 1240px; background: var(--a-bg); color: var(--a-fg); border: 1px solid #d0d5dd; border-radius: 10px; overflow: hidden; display: grid; grid-template-columns: 220px 1fr; box-shadow: 0 6px 24px rgba(0,0,0,.08); position: relative; }
+  .admin .sbar { background: #fff; border-right: 1px solid var(--a-border); padding: 12px 0; font-size: 13px; }
+  .admin .sbar .grp { color: var(--a-fg3); font-size: 11px; padding: 10px 16px 4px; font-weight: 600; }
+  .admin .sbar a { display: flex; align-items: center; min-height: 36px; padding: 0 16px; color: var(--a-fg); text-decoration: none; }
+  .admin .sbar a.on { background: var(--g-soft); color: var(--g); font-weight: 600; border-right: 3px solid var(--g); }
+  .admin .main { padding: 16px 20px; min-width: 0; }
+  .admin h2 { font-size: 18px; margin: 0 0 4px; } .admin .desc { color: var(--a-fg2); font-size: 12.5px; margin-bottom: 12px; }
+  .abtn { min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--a-border); background: #fff; color: var(--a-fg); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .abtn.pri { background: var(--g); color: #fff; border-color: var(--g); } .abtn.dng { color: var(--bad); border-color: #f2b8b8; } .abtn.dis { opacity: .45; cursor: not-allowed; }
+  .afil { display: flex; gap: 8px; flex-wrap: wrap; background: #fff; border: 1px solid var(--a-border); border-radius: 8px; padding: 10px; margin-bottom: 12px; align-items: center; font-size: 13px; }
+  .afil .seg { display: inline-flex; border: 1px solid var(--a-border); border-radius: 6px; overflow: hidden; }
+  .afil .seg span { padding: 8px 12px; border-right: 1px solid var(--a-border); } .afil .seg span:last-child { border-right: 0; } .afil .seg span.on { background: var(--g); color: #fff; }
+  .afil input { height: 36px; border: 1px solid var(--a-border); border-radius: 6px; padding: 0 10px; font-size: 13px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+  .kpi { background: #fff; border: 1px solid var(--a-border); border-radius: 8px; padding: 10px 12px; } .kpi .k { color: var(--a-fg2); font-size: 12px; } .kpi .v { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  table.at { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--a-border); border-radius: 8px; overflow: hidden; font-size: 12.5px; }
+  .at th { text-align: left; background: #f9fafb; color: var(--a-fg2); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--a-border); white-space: nowrap; }
+  .at td { padding: 8px 10px; border-bottom: 1px solid var(--a-border); vertical-align: middle; }
+  .at tr.sel td { background: #f3f7f4; } .at td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .w { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .w-P { background: #eef4ff; color: #3538cd; } .w-C { background: var(--g-soft); color: var(--g); } .w-K { background: #fef6e7; color: #93640c; }
+  .adet { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .apanel { background: #fff; border: 1px solid var(--a-border); border-radius: 8px; padding: 12px 14px; font-size: 13px; }
+  .apanel h4 { margin: 0 0 8px; font-size: 13px; } .apanel .kv { min-height: 30px; border-color: var(--a-border); } .apanel .kv span:first-child { color: var(--a-fg2); }
+  .alink { color: var(--g); text-decoration: underline; cursor: pointer; }
+  .adlg-wrap { position: absolute; inset: 0; background: rgba(16,24,40,.45); display: grid; place-items: center; }
+  .adlg { width: 520px; background: #fff; border-radius: 10px; padding: 18px 20px; box-shadow: 0 20px 40px rgba(0,0,0,.2); }
+  .adlg h3 { margin: 0 0 4px; font-size: 16px; } .lv { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 6px; background: var(--bad-soft); color: var(--bad); margin-left: 6px; }
+  .adlg textarea, .adlg input { width: 100%; border: 1px solid var(--a-border); border-radius: 6px; padding: 8px 10px; font-size: 13px; margin-top: 4px; }
+  /* tables in docs */
+  table.doc { border-collapse: collapse; background: #fff; font-size: 12.5px; width: 100%; max-width: 1400px; }
+  .doc th, .doc td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; text-align: left; }
+  .doc th { background: var(--g); color: var(--cream); font-weight: 600; position: sticky; top: 104px; }
+  .doc td.ok { color: var(--ok); font-weight: 600; } .doc td.bad { color: var(--bad); font-weight: 600; } .doc td.np { color: var(--warn); font-weight: 600; }
+  .doc tr.grp td { background: var(--g-soft); font-weight: 700; color: var(--g); }
+  .own { background: #fff4e6; }
+  h2.sec { font-size: 16px; margin: 22px 0 8px; color: var(--g); }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>DIBAY 금융 SSOT 시안</h1>
+  <span class="meta"><span class="ko">기준: 브랜치 cursor/apple-iap-topup · 4d756ba25 · 라이트 모드 · 시안(실제 화면 아님) · 모든 이름·금액·번호는 예시 데이터</span><span class="en">Base: branch cursor/apple-iap-topup · 4d756ba25 · light mode · mockup (not live screens) · all names, amounts and IDs are sample data</span></span>
+  <button type="button" id="langBtn">한국어 / English</button>
+</div>
+<div class="nav" id="nav"></div>
+<div id="pages"></div>
+
+<script>
+const L = (ko, en) => `<span class="ko">${ko}</span><span class="en">${en}</span>`;
+const pin = (id) => `<span class="pin" title="${id}">${id.replace(/^[A-Z]+-/, "")}</span>`;
+const phone = (title, inner, extra = "") => `<div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G ▮</span></div><div class="hdr"><span class="back">‹</span><span class="t">${title}</span></div><div class="body">${inner}</div>${extra}</div>`;
+const tx = (ic, ti, st, am, ba, cls = "minus") => `<div class="tx"><div class="ic">${ic || (cls === "plus" ? "+" : "−")}</div><div class="mid"><div class="ti">${ti}</div><div class="st">${st}</div></div><div class="rt"><div class="am ${cls}">${am}</div><div class="ba">${ba}</div></div></div>`;
+const kv = (k, v) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`;
+const side = (items) => `<div class="side">${items.map(([id, cur, fix]) => `<div class="it"><b>${id}</b> <span class="cur">${L("현재", "Now")}: ${cur}</span><br/>→ ${fix}</div>`).join("")}</div>`;
+const fig = (cap, html) => `<div><p class="cap">${cap}</p>${html}</div>`;
+
+const PAGES = [];
+
+/* ───────────── 0. 연결표 ───────────── */
+PAGES.push({ id: "map", label: L("① 연결표", "① Ledger map"), html: `
+<div class="intro">${L(
+  "<b>같은 거래 = 같은 원장 행.</b> 회원·오너·관리자 화면은 모두 아래 원장 테이블을 읽는다(코드 확인). 화면이 원장에 없는 금액·잔액을 만들지 않는다. 「이후 잔액」은 원장 컬럼 <span class='mono'>balance_after / balance_after_minor</span> 값만 쓴다. 판정 열은 <b>코드 근거</b>이며 실제 화면 일치는 NOT_PROVEN.",
+  "<b>Same transaction = same ledger row.</b> Member, owner and admin screens all read the ledger tables below (verified in code). Screens never invent amounts or balances. \"Balance after\" uses only the ledger columns <span class='mono'>balance_after / balance_after_minor</span>. Verdicts are <b>code evidence</b>; live-screen match is NOT_PROVEN.")}</div>
+<table class="doc">
+<tr><th>${L("거래","Transaction")}</th><th>${L("원장 · 구분","Ledger · kind")}</th><th>${L("참조 (related_type / id)","Reference")}</th><th>${L("요청·기록 테이블","Request / record")}</th><th>${L("회원·오너 화면","Member / owner screen")}</th><th>${L("관리자 화면","Admin screen")}</th><th>${L("코드 판정","Code verdict")}</th></tr>
+<tr class="grp"><td colspan="7">Point — ${L("회원","member")} · point_ledger (${L("잔액 = SUM(amount)","balance = SUM(amount)")})</td></tr>
+<tr><td>${L("계좌·GCash 충전","Bank/GCash top-up")}</td><td>charge</td><td>point_charge / ${L("충전요청 id","request id")}</td><td>point_charge_requests</td><td>/mypage/points ${L("충전 탭·내역","charges tab · history")}</td><td>/admin/point-charges, /admin/points/ledger</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr class="own"><td>${L("Apple 충전 (신규)","Apple top-up (new)")}</td><td>charge</td><td>point_charge / ${L("충전요청 id","request id")} · idem <span class="mono">apple:&lt;txid&gt;</span></td><td>apple_iap_transactions → point_charge_requests(apple_iap)</td><td>${L("내역 — 단 「입금 확인 완료」로 표시","History — but shown as \"deposit confirmed\"")} ${pin("M-1")}</td><td>${L("Apple 화면과 충전 목록 사이 링크 없음","No link between Apple page and charge list")} ${pin("A-1")}</td><td class="bad">${L("표시 결함","Display defect")}</td></tr>
+<tr><td>${L("관리자 지급·차감","Admin credit / debit")}</td><td>admin_credit / admin_debit</td><td>admin_manual</td><td>audit_logs</td><td>${L("관리자 지급/차감 + 사유","Admin credit/debit + reason")}</td><td>/admin/points/ledger (${L("처리자 id","actor id")})</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr><td>${L("상위노출 구매·연장","Top exposure buy / extend")}</td><td>spend / promotion_extend</td><td>promotion_order / ${L("주문 id","order id")}</td><td>point_promotion_orders</td><td>${L("상위노출 + 기간","Promotion + period")}</td><td>${L("통합 원장","Unified ledger")}</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr><td>${L("피드·거래 광고 보류/확정/해제","Ad hold / capture / release")}</td><td>ad_hold · ad_purchase · ad_hold_release · ad_charge</td><td>feed_ad_request / trade_post_ad (hold:/capture:/release:/finalize:)</td><td>feed_ad_point_holds, promotion_point_holds</td><td>${L("거래 광고 보류행 제목·0P 행","trade-ad hold title · 0P row")} ${pin("M-9")}</td><td>${L("통합 원장","Unified ledger")}</td><td class="np">NOT_PROVEN (${L("운영 행 존재 미확인","prod rows unchecked")})</td></tr>
+<tr><td>${L("상품권 구매","Gift certificate")}</td><td>spend</td><td>gift_certificate_purchase / <span class="mono">buyer:idem</span></td><td>gift_certificate_*</td><td>${L("DB 설명 원문(한국어)","raw DB description (KR)")} ${pin("M-3")}</td><td>${L("통합 원장","Unified ledger")}</td><td class="np">${L("참조가 상품권 id 아님","ref is not certificate id")}</td></tr>
+<tr class="own"><td>${L("Apple 환불 회수 / 되돌림 (신규)","Apple refund recover / reversal (new)")}</td><td>admin_debit / admin_credit</td><td>apple_iap_refund(_reversal) / ${L("Apple 기록 id","Apple record id")} · idem txid</td><td>apple_iap_transactions.refund_*</td><td>${L("「관리자 차감」+ 관리자 메모 원문 노출","\"Admin debit\" + admin note exposed")} ${pin("M-2")}</td><td>/admin/apple-iap</td><td class="bad">${L("표시 결함 (내 구현)","Display defect (mine)")}</td></tr>
+<tr><td>${L("커뮤니티 회수 / 소멸","Community reclaim / expiry")}</td><td>reverse / expire</td><td>community_reclaim / —</td><td>—</td><td>${L("회수·소멸 + 음수 잔액 안내","reclaim/expiry + negative note")}</td><td>${L("통합 원장, /admin/points/expire","Unified ledger, expire page")}</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr class="grp"><td colspan="7">Cash — ${L("매장","store")} · business_cash_ledger (${L("잔액 = accounts.balance_minor ≥ 0","balance = accounts.balance_minor ≥ 0")})</td></tr>
+<tr><td>${L("계좌·GCash 충전","Bank/GCash top-up")}</td><td>TOP_UP</td><td>business_cash_charge_request / ${L("요청 id","request id")}</td><td>business_cash_charge_requests</td><td>/stores/owner/finance?section=cash · convert</td><td>/admin/delivery-ads/cash-charges, ${L("통합 원장","unified")}</td><td class="np">${L("CANCELLED → 「처리 중」","CANCELLED → \"Processing\"")} ${pin("O-1")}</td></tr>
+<tr class="own"><td>${L("Apple 충전 (신규)","Apple top-up (new)")}</td><td>TOP_UP (meta.apple_transaction_id)</td><td>business_cash_charge_request / ${L("요청 id","request id")}</td><td>apple_iap_transactions → requests(apple_iap, APPROVED)</td><td>${L("Cash 충전","Cash top-up")}</td><td>${L("큐: raw 사유 apple_iap_verified, 링크 없음","Queue: raw reason, no link")} ${pin("A-5")}</td><td class="bad">${L("표시 결함","Display defect")}</td></tr>
+<tr><td>${L("광고 사용 / 환불","Ad spend / refund")}</td><td>AD_SPEND · PARTNER_SPEND / AD_REFUND · PARTNER_REFUND</td><td>${L("사용: 상품종류/신청 id · 환불: funding id","spend: product/application id · refund: funding id")}</td><td>delivery_ads_*</td><td>section=ads (${L("짝 매칭 불가","pair not matchable")}) ${pin("O-11")}</td><td>/admin/finance/ads</td><td class="np">${L("참조 체계 상이","different ref schemes")}</td></tr>
+<tr><td>${L("배달 주문 수수료","Delivery order fee")}</td><td>SALE_FEE</td><td>store_order / ${L("주문 id","order id")}</td><td>store_commission_*</td><td>${L("주문 UUID 8자만 표시","only 8-char UUID")} ${pin("O-5")}</td><td>/admin/store-settlements, /admin/finance/orders</td><td class="np">${L("주문번호 미표시","order no. hidden")}</td></tr>
+<tr><td>${L("미납 수수료 정산","Unpaid fee settlement")}</td><td>SALE_FEE_SETTLEMENT</td><td>${L("미납 id","obligation id")}</td><td>store_commission_obligations</td><td>${L("미납 수수료 정산","Unpaid fee settlement")}</td><td>${L("「미납 수수료 회수」","\"unpaid fee recovery\"")} ${pin("O-3")}</td><td class="np">${L("명칭 불일치","naming mismatch")}</td></tr>
+<tr><td>${L("수수료 환급","Fee refund")}</td><td>SALE_FEE_REVERSAL</td><td>${L("환급 결정 id","adjustment id")}</td><td>admin_decide_store_commission_adjustment</td><td>${L("「수수료 환급」","\"Fee refund\"")}</td><td>${L("「수수료 취소」","\"Fee reversal\"")} ${pin("O-3")}</td><td class="np">${L("명칭 불일치","naming mismatch")}</td></tr>
+<tr><td>${L("관리자 조정","Admin adjustment")}</td><td>ADMIN_ADJUST (meta.reason, actor_user_id)</td><td>—</td><td>audit_logs</td><td>${L("사유·처리 주체 미표시","reason/processor hidden")} ${pin("O-6")}</td><td>${L("매장 상세 보정 폼","store correction form")}</td><td class="np">${L("오너 표시 누락","owner display gap")}</td></tr>
+<tr><td>${L("Coin → Cash 전환 (입금측)","Coin→Cash (credit side)")}</td><td>CONVERT_FROM_STORE_POINTS</td><td>${L("전환 id","conversion id")}</td><td>business_cash_conversions</td><td>${L("Cash 내역","Cash history")}</td><td>/admin/finance/conversions</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr class="grp"><td colspan="7">Coin — ${L("매장","store")} · store_economic_point_ledger (${L("충전 불가 · 출금 가능 · Cash 출금 없음","no top-up · withdrawable · Cash never withdrawable")})</td></tr>
+<tr><td>${L("판매·상품권 적립","Sale / gift earn")}</td><td>SALE_EARN · GIFT_REDEMPTION_EARN · ECONOMIC_INFLOW</td><td>${L("주문·상품권 id","order / gift id")}</td><td>—</td><td>section=coin</td><td>${L("통합 원장 wallet=COIN","Unified wallet=COIN")}</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr><td>${L("Coin → Cash 전환 (출금측)","Coin→Cash (debit side)")}</td><td>CONVERT_TO_BUSINESS_CASH</td><td>${L("전환 id","conversion id")}</td><td>business_cash_conversions</td><td>section=convert</td><td>/admin/finance/conversions</td><td class="ok">${L("연결됨","Linked")}</td></tr>
+<tr><td>${L("Coin 출금","Coin withdrawal")}</td><td>WITHDRAWAL_REQUEST → COMPLETE / RELEASE·REJECT</td><td>${L("출금 요청 id","withdrawal id")}</td><td>coin_withdrawal_requests (REQUESTED/PAID/REJECTED, paid_by, payout_method, payout_reference)</td><td>${L("지급 수단 미표시, 상태명 다름","payout method hidden, status naming differs")} ${pin("O-7")}${pin("O-2")}</td><td>/admin/finance/withdrawals (${L("처리자 id","actor id")})</td><td class="np">${L("표시 결함","display gaps")}</td></tr>
+</table>
+<h2 class="sec">${L("운영 DB 잔액·원장 대사 (읽기 전용 · 2026-11-05 20:5x PHT)","Production balance-vs-ledger check (read-only · 2026-11-05 20:5x PHT)")}</h2>
+<table class="doc" style="max-width:900px">
+<tr><th>${L("지갑","Wallet")}</th><th>${L("대상","Rows")}</th><th>${L("잔액 ≠ 원장","Mismatch")}</th><th>${L("판정 / 원인","Verdict / cause")}</th></tr>
+<tr><td>Cash</td><td>${L("3개 매장","3 stores")}</td><td>0</td><td class="ok">PASS — accounts.balance_minor = ${L("마지막","last")} balance_after_minor</td></tr>
+<tr><td>Coin</td><td>${L("2개 매장","2 stores")}</td><td>0</td><td class="ok">PASS — accounts.balance = ${L("마지막","last")} balance_after</td></tr>
+<tr><td>Point</td><td>${L("29명","29 members")}</td><td>1</td><td class="np">${L("동일 시각 +1/−1 시험행(finance_f07_projection_proof) 순서 동률 → 마지막 balance_after 7, SUM 6. 회원 잔액 표시는 SUM=6. 데이터 수정 안 함.","Same-timestamp +1/−1 test rows (finance_f07_projection_proof) tie → last balance_after 7, SUM 6. Member balance uses SUM=6. Data not modified.")}</td></tr>
+<tr><td>Point</td><td>${L("음수 잔액","negative")}</td><td>1 (−38P)</td><td class="ok">${L("커뮤니티 회수(reverse) 결과 — 기존 정책(음수 안내 문구)","community reclaim — existing policy (negative note)")}</td></tr>
+</table>
+<p class="note">${L("Apple 테이블은 운영 DB 미적용이라 Apple 거래 대사는 NOT_PROVEN.","Apple tables are not applied in production, so Apple reconciliation is NOT_PROVEN.")}</p>
+` });
+
+/* ───────────── 1. 회원 Point ───────────── */
+const memberHome = phone(L("포인트", "Points"), `
+  <div class="card bal"><div class="lb">${L("사용 가능 포인트", "Available points")}</div><div class="amt">12,450 P</div><div class="sub">${L("2026.11.05 20:41 PHT 기준 · 원장 합계", "As of 2026.11.05 20:41 PHT · ledger sum")}</div>
+    <div class="btns"><span class="btn">${L("충전하기", "Top up")}</span><span class="btn sec">${L("상위노출", "Promote")}</span></div></div>
+  <div class="card" style="padding:0 14px"><div class="lrow"><span>${L("30일 내 소멸 예정", "Expiring in 30 days")}</span><b>300 P ›</b></div><div class="lrow"><span>${L("충전 확인 대기", "Top-ups awaiting check")}</span><span class="badge b-warn">${L("1건", "1")}</span></div></div>
+  <div class="chips"><span class="chip on">${L("이번 달", "This month")}</span><span class="chip">${L("지난달", "Last month")}</span><span class="chip">3${L("개월", " months")}</span><span class="chip">${L("기간 선택", "Custom")}</span>${pin("M-7")}</div>
+  <div class="tabs"><span class="tab on">${L("전체", "All")}</span><span class="tab">${L("적립", "In")}</span><span class="tab">${L("사용", "Out")}</span><span class="tab">${L("충전", "Top-ups")}</span></div>
+  <div class="day">${L("11월 5일 (목)", "Thu, Nov 5")}</div>
+  ${tx("", L("포인트 충전", "Point top-up"), L("Apple 결제 · 20:12", "Apple payment · 20:12") + pin("M-1"), "+1,000 P", L("잔액 12,450 P", "Bal 12,450 P"), "plus")}
+  ${tx("", L("상위노출 구매", "Top exposure"), L("아이폰 15 판매 · 7일 · 18:03", "iPhone 15 listing · 7 days · 18:03"), "−300 P", L("잔액 11,450 P", "Bal 11,450 P"))}
+  <div class="day">${L("11월 3일 (화)", "Tue, Nov 3")}</div>
+  ${tx("", L("Apple 환불 회수", "Apple refund recovered"), L("운영팀 처리 · 15:20", "By support · 15:20") + pin("M-2"), "−500 P", L("잔액 11,750 P", "Bal 11,750 P"))}
+  ${tx("", L("포인트 충전", "Point top-up"), L("계좌 입금 · 입금 확인 완료 · 11:02", "Bank deposit · confirmed · 11:02") + pin("M-6"), "+5,000 P", L("잔액 12,250 P", "Bal 12,250 P"), "plus")}
+  ${tx("", L("상품권 구매", "Gift certificate"), L("DIBAY 상품권 ₱500 · 09:40", "DIBAY gift ₱500 · 09:40") + pin("M-3"), "−5,000 P", L("잔액 7,250 P", "Bal 7,250 P"))}
+  <div style="display:flex;gap:6px;justify-content:center;margin-top:12px"><span class="chip">‹</span><span class="chip on">1</span><span class="chip">2</span><span class="chip">›</span></div>`);
+
+const memberSheet = phone(L("포인트", "Points"), `<div style="height:520px"></div>`, `<div class="sheet-wrap"><div class="sheet"><div class="grab"></div>
+  <h3>${L("포인트 충전", "Point top-up")} <span class="badge b-ok">${L("충전 완료", "Credited")}</span></h3>
+  <div class="big plus">+1,000 P</div>
+  ${kv(L("결제 수단", "Method"), L("Apple 결제 (App Store)", "Apple payment (App Store)"))}
+  ${kv(L("결제 금액", "Paid"), L("App Store 영수증 기준", "Per App Store receipt"))}
+  ${kv(L("처리 일시", "Processed"), "2026.11.05 20:12 PHT")}
+  ${kv(L("이후 잔액", "Balance after"), "12,450 P")}
+  ${kv(L("거래번호", "Transaction no."), `<span class="mono">PL-8E21C4A0</span> ${pin("M-11")}`)}
+  ${kv(L("충전 요청", "Top-up request"), `<span class="mono">#A41C09E2</span>`)}
+  ${kv(L("Apple 거래", "Apple transaction"), `<span class="mono">…7731 0042</span>`)}
+  <div class="btns" style="margin-top:14px"><span class="btn sec">${L("고객센터 문의", "Contact support")}</span><span class="btn">${L("닫기", "Close")}</span></div>
+  <p class="note" style="margin-top:8px">${L("적립(+) 항목에는 「사용처」를 표시하지 않습니다. 관리자 내부 메모는 회원에게 보이지 않습니다.", "Credit (+) rows show no \"Used for\". Internal admin notes are never shown to members.")}</p>
+</div></div>`);
+
+const memberCharge = phone(L("포인트 충전", "Top up points"), `
+  <p class="cap">${L("충전 플랜", "Plan")}</p>
+  <div class="plan on"><div><b>1,000 P</b><div class="note">${L("기본", "Basic")}</div></div><b>₱99.00</b></div>
+  <div class="plan"><div><b>5,500 P</b><div class="note">${L("+10% 보너스", "+10% bonus")}</div></div><b>₱499.00</b></div>
+  <div class="plan"><div><b>12,000 P</b><div class="note">${L("+20% 보너스", "+20% bonus")}</div></div><b>₱999.00</b></div>
+  <p class="cap" style="margin-top:12px">${L("결제 수단", "Payment method")}</p>
+  <div class="chips"><span class="chip on">${L("Apple 결제", "Apple payment")}</span></div>
+  <p class="note">${L("iOS 앱에서는 Apple 결제만 표시됩니다(계좌·GCash 안내 숨김). 가격은 App Store 표시 가격입니다. 서버가 적립을 확인한 뒤에만 완료로 표시됩니다.", "On the iOS app only Apple payment is shown (bank/GCash hidden). Prices come from the App Store. Completion shows only after the server confirms the credit.")}</p>`,
+  `<div class="sticky"><span class="btn" style="width:100%">${L("₱99.00 Apple로 결제", "Pay ₱99.00 with Apple")}</span></div>`);
+
+const memberChargesTab = phone(L("포인트", "Points"), `
+  <div class="tabs"><span class="tab">${L("전체", "All")}</span><span class="tab">${L("적립", "In")}</span><span class="tab">${L("사용", "Out")}</span><span class="tab on">${L("충전", "Top-ups")}</span></div>
+  <div class="chips"><span class="chip on">${L("전체", "All")}</span><span class="chip">${L("확인 대기", "Awaiting check")}</span><span class="chip">${L("충전 완료", "Credited")}</span><span class="chip">${L("반려", "Rejected")}</span>${pin("M-5")}</div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>5,500 P</b><span class="badge b-warn">${L("확인 대기", "Awaiting check")}</span></div>
+    <div class="note">₱499.00 · ${L("계좌 입금", "Bank deposit")} · ${L("신청 11.05 19:02 PHT", "Requested 11.05 19:02 PHT")}</div>
+    <div class="btns"><span class="btn danger">${L("신청 취소", "Cancel request")}</span></div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>1,000 P</b><span class="badge b-ok">${L("충전 완료", "Credited")}</span></div>
+    <div class="note">₱99.00 · ${L("Apple 결제", "Apple payment")} · ${L("처리 11.05 20:12 PHT", "Processed 11.05 20:12 PHT")}</div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>1,000 P</b><span class="badge b-bad">${L("반려", "Rejected")}</span></div>
+    <div class="note">₱99.00 · GCash · ${L("처리 11.02 10:15 PHT", "Processed 11.02 10:15 PHT")}</div>
+    <div class="notice n-bad" style="margin:8px 0 0">${L("반려 사유: 입금자명이 확인되지 않습니다.", "Reason: depositor name not found.")}</div></div>`);
+
+PAGES.push({ id: "member", label: L("② 회원 Point", "② Member Point"), html: `
+<div class="intro">${L("기존 /mypage/points 구조(잔액 카드 · 소멸·대기 행 · 기간 칩 · 4탭 · 날짜 그룹 내역 · 상세 시트)를 유지하고, 결함 위치만 고친다. 주황 번호 = 결함 목록 ⑧ 탭의 ID.", "Keeps the existing /mypage/points structure (balance card · expiring/pending rows · period chips · 4 tabs · day-grouped history · detail sheet) and fixes only defect spots. Orange numbers = defect IDs on tab ⑧.")}</div>
+<div class="row">
+  ${fig(L("A. 포인트 홈 (내역 전체)", "A. Points home (all history)"), memberHome)}
+  ${fig(L("B. 거래 상세 시트", "B. Transaction detail sheet"), memberSheet)}
+  ${fig(L("C. 충전 (iOS Apple)", "C. Top up (iOS Apple)"), memberCharge)}
+  ${fig(L("D. 충전 탭 — 상태 명칭 통일", "D. Top-ups tab — unified status"), memberChargesTab)}
+  ${side([
+    ["M-1", L("Apple 충전도 「입금 확인 완료」·「입금」 행으로 표시", "Apple top-up shown as \"deposit confirmed\""), L("결제 수단별 부제목: 「Apple 결제」/「계좌 입금 · 입금 확인 완료」", "Per-method subtitle: \"Apple payment\" / \"Bank deposit · confirmed\"")],
+    ["M-2", L("Apple 환불 회수가 「관리자 차감」+ 관리자 메모 원문", "Apple refund shown as \"Admin debit\" + raw admin note"), L("「Apple 환불 회수 · 운영팀 처리」고정 문구, 메모 비노출", "Fixed \"Apple refund recovered · by support\"; note hidden")],
+    ["M-3", L("영어 화면에 DB 한국어 설명 노출", "Korean DB descriptions on the English screen"), L("구분별 ko/en 부제목 키 사용", "Per-category ko/en subtitle keys")],
+    ["M-5", L("회원 「대기/승인」 vs 관리자 「대기중/승인완료」", "Member \"pending/approved\" vs admin wording"), L("상태 명칭 1세트 공용 (확인 대기·충전 완료·반려·취소됨·보류)", "One shared status set")],
+    ["M-6", L("결제 수단 「수동확인」 내부 용어", "Method shows internal \"Manual confirm\""), L("「계좌 입금」", "\"Bank deposit\"")],
+    ["M-7", L("상태·기간 칩 32px, 페이저 36px", "Chips 32px, pager 36px"), L("최소 44px", "min 44px")],
+    ["M-11", L("거래번호·참조 미표시", "No transaction no. / references"), L("상세 시트에 거래번호(원장 id 8자)·충전 요청·Apple 거래 끝 8자리", "Sheet shows ledger no., request, Apple tx tail")],
+  ])}
+</div>` });
+
+/* ───────────── 2. Apple 상태 ───────────── */
+const ap = (title, cls, nt, body, ctas, ref = true) => phone(L("포인트 충전", "Top up points"), `
+  <div class="plan on"><div><b>1,000 P</b></div><b>₱99.00</b></div>
+  <div class="notice ${cls}"><div class="nt">${nt}</div>${body}${ref ? `<div class="ref">${L("참조번호", "Reference")} A41C09E2</div>` : ""}</div>
+  <div class="btns">${ctas}</div>`);
+PAGES.push({ id: "apple", label: L("③ Apple 결제 상태", "③ Apple states"), html: `
+<div class="intro">${L("구현된 AppleIapStatusNotice 단계(phase)를 그대로 그린 것이다. <b>적립 완료는 서버가 원장 적립을 확인한 뒤에만</b> 표시한다. 결제 진행·확인 중에는 새 결제를 막는다(중복 탭 방지). 고객센터 CTA는 검토·환불 검토·지연 확인에서만.", "Draws the implemented AppleIapStatusNotice phases. <b>\"Credited\" only after the server confirms the ledger credit.</b> New purchases are blocked while purchasing/verifying. Support CTA only for review, refund review and delayed verification.")}</div>
+<div class="row">
+  ${fig(L("결제 진행", "Purchasing"), ap("", "n-info", L("App Store 결제 진행 중", "App Store payment in progress"), L("결제 창을 완료해 주세요.", "Finish the App Store sheet."), `<span class="btn loading dis">${L("결제 진행 중", "Processing")}</span>`, false))}
+  ${fig(L("확인 중 (서버 검증)", "Verifying"), ap("", "n-info", L("결제 확인 중", "Confirming payment"), L("Apple 결제를 확인하고 있습니다. 잠시 후 자동으로 반영됩니다.", "We are confirming your Apple payment."), `<span class="btn loading dis">${L("확인 중", "Checking")}</span><span class="btn sec">${L("다시 확인", "Check again")}</span>`))}
+  ${fig(L("적립 완료", "Credited"), ap("", "n-ok", L("1,000 P 적립 완료", "1,000 P credited"), L("현재 잔액 12,450 P", "Balance 12,450 P"), `<span class="btn done">${L("완료", "Done")}</span>`))}
+  ${fig(L("지연 (확인 지연)", "Delayed"), ap("", "n-warn", L("확인이 지연되고 있습니다", "Confirmation is delayed"), L("결제는 Apple에 기록되었습니다. 중복 결제하지 마세요. 앱을 다시 열면 자동으로 다시 확인합니다.", "Your payment is recorded by Apple. Do not pay again. We re-check when you reopen the app."), `<span class="btn sec">${L("다시 확인", "Check again")}</span><span class="btn sec">${L("고객센터", "Support")}</span>`))}
+  ${fig(L("승인 대기 (자녀 보호 등)", "Awaiting approval"), ap("", "n-warn", L("결제 승인 대기", "Waiting for approval"), L("보호자 승인 후 자동 적립됩니다.", "Credited automatically once approved."), `<span class="btn sec">${L("다시 확인", "Check again")}</span>`))}
+  ${fig(L("검토 중", "Under review"), ap("", "n-warn", L("운영팀 확인 중", "Under review"), L("결제는 확인되었고 적립 전 검토 중입니다. 결과는 알림으로 안내됩니다.", "Payment received; under review before crediting."), `<span class="btn sec">${L("고객센터", "Support")}</span>`))}
+  ${fig(L("환불 검토", "Refund review"), ap("", "n-bad", L("환불 검토 중", "Refund under review"), L("Apple 환불이 접수되어 운영팀이 확인하고 있습니다. 자동 차감되지 않습니다.", "Apple reported a refund; support is reviewing. Nothing is deducted automatically."), `<span class="btn sec">${L("고객센터", "Support")}</span>`))}
+  ${fig(L("취소 / 실패", "Cancelled / failed"), ap("", "n-bad", L("결제가 완료되지 않았습니다", "Payment not completed"), L("청구되지 않았습니다.", "You were not charged."), `<span class="btn">${L("다시 시도", "Try again")}</span>`, false))}
+</div>
+<h2 class="sec">${L("버튼 상태 6종 (공통)", "Button states (shared)")}</h2>
+<div class="stateStrip"><span class="btn">${L("기본", "Default")}</span><span class="btn pressed">${L("눌림", "Pressed")}</span><span class="btn loading">${L("처리 중", "Loading")}</span><span class="btn dis">${L("비활성", "Disabled")}</span><span class="btn done">✓ ${L("완료", "Done")}</span><span class="btn err">${L("오류 — 다시 시도", "Error — retry")}</span></div>
+<p class="note" style="margin-top:8px">${L("최소 높이 44px · 처리 중에는 재탭 불가 · 완료 상태는 결제 CTA를 다시 노출하지 않음.", "Min height 44px · no re-tap while loading · completed state never re-shows the pay CTA.")}</p>` });
+
+/* ───────────── 3. 오너 Cash ───────────── */
+const ownerTabs = (on) => `<div class="chips">${[["transactions", "거래 요약", "Summary"], ["outstanding", "미납", "Unpaid"], ["coin", "Coin", "Coin"], ["cash", "Cash", "Cash"], ["ads", "광고", "Ads"], ["convert", "충전·전환", "Top up · Convert"], ["withdraw", "출금", "Withdraw"]].map(([k, ko, en]) => `<span class="chip ${k === on ? "on" : ""}">${L(ko, en)}</span>`).join("")}${pin("O-4")}</div>`;
+const ownerCash = phone(L("매장 금융", "Store finance"), `${ownerTabs("cash")}
+  <div class="card bal"><div class="lb">${L("Cash 잔액", "Cash balance")}</div><div class="amt">₱8,450.00</div><div class="sub">${L("광고비·수수료 결제용 · 출금 불가", "For ads & fees · not withdrawable")}</div>
+    <div class="btns"><span class="btn">${L("Cash 충전", "Top up Cash")}</span></div></div>
+  <div class="chips"><span class="chip on">${L("이번 달", "This month")}</span><span class="chip">${L("지난달", "Last month")}</span><span class="chip">${L("기간 선택", "Custom")}</span></div>
+  <div class="card" style="padding:0 14px"><div class="lrow"><span>${L("기초 잔액", "Opening")}</span><b>₱2,000.00</b></div><div class="lrow"><span>${L("기말 잔액", "Closing")}</span><b>₱8,450.00</b></div></div>
+  <div class="day">${L("11월 5일 (목)", "Thu, Nov 5")}</div>
+  ${tx("", L("Cash 충전", "Cash top-up"), L("Apple 결제 · 20:15 PHT", "Apple payment · 20:15 PHT"), "+₱500.00", L("잔액 ₱8,450.00", "Bal ₱8,450.00"), "plus")}
+  ${tx("", L("판매 수수료", "Sales fee"), L("주문 #D-10234 · 19:40 PHT", "Order #D-10234 · 19:40 PHT") + pin("O-5"), "−₱45.00", L("잔액 ₱7,950.00", "Bal ₱7,950.00"))}
+  ${tx("", L("수수료 환급", "Fee refund"), L("주문 #D-10198 · 운영팀 결정 · 14:02 PHT", "Order #D-10198 · support decision · 14:02 PHT") + pin("O-3"), "+₱30.00", L("잔액 ₱7,995.00", "Bal ₱7,995.00"), "plus")}
+  ${tx("", L("광고 사용", "Ad spend"), L("배너 광고 · 신청 #7F21C0 · 10:00 PHT", "Banner ad · application #7F21C0 · 10:00 PHT"), "−₱1,000.00", L("잔액 ₱7,965.00", "Bal ₱7,965.00"))}
+  ${tx("", L("관리자 조정", "Admin adjustment"), L("운영팀 · 사유: 이중 결제 정정 · 09:12 PHT", "Support · reason: duplicate payment fix · 09:12 PHT") + pin("O-6"), "+₱200.00", L("잔액 ₱8,965.00", "Bal ₱8,965.00"), "plus")}`);
+const ownerTopups = phone(L("매장 금융", "Store finance"), `${ownerTabs("convert")}
+  <p class="cap">${L("Cash 충전 (iOS)", "Top up Cash (iOS)")}</p>
+  <div class="chips"><span class="chip">₱100</span><span class="chip on">₱500</span><span class="chip">₱1,000</span><span class="chip">₱5,000</span></div>
+  <p class="note">${L("Cash 고정 금액은 제안값 — Owner 확정 전.", "Cash fixed amounts are a proposal — pending Owner decision.")}</p>
+  <span class="btn" style="width:100%;margin:8px 0 14px">${L("₱500 Apple로 결제", "Pay ₱500 with Apple")}</span>
+  <p class="cap">${L("충전 요청", "Top-up requests")}</p>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>₱500.00</b><span class="badge b-ok">${L("충전 완료", "Credited")}</span></div><div class="note">${L("Apple 결제 · 11.05 20:15 PHT", "Apple payment · 11.05 20:15 PHT")}</div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>₱2,000.00</b><span class="badge b-warn">${L("확인 대기", "Awaiting check")}</span></div><div class="note">${L("계좌 입금 · 11.05 18:20 PHT", "Bank deposit · 11.05 18:20 PHT")}</div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>₱1,000.00</b><span class="badge b-mute">${L("취소됨", "Cancelled")}</span>${pin("O-1")}</div><div class="note">GCash · 11.04 09:00 PHT</div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>₱300.00</b><span class="badge b-bad">${L("반려", "Rejected")}</span></div><div class="note">${L("계좌 입금 · 11.03 PHT · 사유: 금액 불일치", "Bank · 11.03 PHT · reason: amount mismatch")}</div></div>`);
+const ownerTablet = `<div class="tablet"><div class="hdr"><span class="back">‹</span><span class="t">${L("매장 금융 — Cash (태블릿 가로)", "Store finance — Cash (tablet landscape)")}</span></div><div class="split"><div>${ownerTabs("cash")}
+  ${tx("", L("판매 수수료", "Sales fee"), L("주문 #D-10234 · 11.05 19:40 PHT", "Order #D-10234 · 11.05 19:40 PHT"), "−₱45.00", L("잔액 ₱7,950.00", "Bal ₱7,950.00"))}
+  ${tx("", L("수수료 환급", "Fee refund"), L("주문 #D-10198 · 11.05 14:02 PHT", "Order #D-10198 · 11.05 14:02 PHT"), "+₱30.00", L("잔액 ₱7,995.00", "Bal ₱7,995.00"), "plus")}
+  ${tx("", L("광고 사용", "Ad spend"), L("배너 광고 · 11.05 10:00 PHT", "Banner ad · 11.05 10:00 PHT"), "−₱1,000.00", L("잔액 ₱7,965.00", "Bal ₱7,965.00"))}</div>
+  <div><h3 style="margin:0 0 6px">${L("판매 수수료", "Sales fee")}</h3><div class="big" style="font-size:24px;font-weight:700">−₱45.00</div>
+  ${kv(L("주문", "Order"), `<span class="alink">#D-10234</span>`)}${kv(L("수수료 기준 금액", "Fee base"), "₱450.00")}${kv(L("처리 일시", "Processed"), "2026.11.05 19:40 PHT")}${kv(L("이후 잔액", "Balance after"), "₱7,950.00")}${kv(L("거래번호", "Transaction no."), `<span class="mono">BC-91A2F0C4</span>`)}
+  <div class="btns" style="margin-top:12px"><span class="btn sec">${L("정산 내역 보기", "View settlements")}</span></div></div></div></div>`;
+PAGES.push({ id: "ownercash", label: L("④ 오너 Cash", "④ Owner Cash"), html: `
+<div class="intro">${L("기존 /stores/owner/finance 탭 구조를 유지한다. <b>Cash는 출금 버튼이 없다</b>(hard-lock). 충전 CTA는 오너, 승인·반려는 관리자 전용.", "Keeps the existing /stores/owner/finance tabs. <b>Cash has no withdraw button</b> (hard-lock). Top-up CTA for owners; approve/reject is admin-only.")}</div>
+<div class="row">${fig(L("A. Cash 홈·내역", "A. Cash home & history"), ownerCash)}${fig(L("B. 충전 (Apple) · 요청 상태", "B. Top-up (Apple) · request status"), ownerTopups)}
+${side([
+  ["O-1", L("CANCELLED 요청이 「처리 중」", "CANCELLED shows \"Processing\""), L("「취소됨」 배지", "\"Cancelled\" badge")],
+  ["O-3", L("수수료 환급/취소, 캐시/Cash 혼용", "fee refund vs reversal, 캐시 vs Cash"), L("오너·관리자 공용 명칭 1세트", "One shared label set")],
+  ["O-4", L("금융 탭·기간 칩·페이저·「자세히」 < 44px", "tabs/chips/pager/details < 44px"), L("최소 44px", "min 44px")],
+  ["O-5", L("주문 UUID 8자만 표시", "only 8-char order UUID"), L("주문번호 표시 (이미 조회 중인 값)", "Show order no. (already fetched)")],
+  ["O-6", L("관리자 조정 사유·주체 미표시", "admin adjust reason/processor hidden"), L("「운영팀 · 사유」 표시 (관리자 개인명 비노출)", "\"Support · reason\" (no admin name)")],
+  ["O-8", L("PHT 표기·연도 혼재", "PHT suffix/year inconsistent"), L("모든 시각 「YYYY.MM.DD HH:mm PHT」", "All times \"YYYY.MM.DD HH:mm PHT\"")],
+])}</div>
+<h2 class="sec">${L("태블릿·데스크톱 가로 — 목록 + 상세 2단", "Tablet / desktop landscape — list + detail")}</h2>${ownerTablet}` });
+
+/* ───────────── 4. 오너 Coin ───────────── */
+const ownerCoin = phone(L("매장 금융", "Store finance"), `${ownerTabs("coin")}
+  <div class="card bal"><div class="lb">${L("Coin 잔액", "Coin balance")}</div><div class="amt">3,200 C</div><div class="sub">${L("판매·상품권 적립 · 충전 불가", "Earned from sales & gifts · no top-up")}</div>
+    <div class="btns"><span class="btn">${L("Cash로 전환", "Convert to Cash")}</span><span class="btn sec">${L("출금 신청", "Withdraw")}</span></div></div>
+  <div class="day">${L("11월 5일 (목)", "Thu, Nov 5")}</div>
+  ${tx("", L("판매 적립", "Sale earning"), L("주문 #D-10234 · 19:40 PHT", "Order #D-10234 · 19:40 PHT"), "+120 C", L("잔액 3,200 C", "Bal 3,200 C"), "plus")}
+  ${tx("", L("Cash 전환", "Converted to Cash"), L("₱500.00 입금 · 13:00 PHT", "₱500.00 credited · 13:00 PHT"), "−500 C", L("잔액 3,080 C", "Bal 3,080 C"))}
+  ${tx("", L("출금 신청 (보류)", "Withdrawal held"), L("신청 #W-3F10 · 09:30 PHT", "Request #W-3F10 · 09:30 PHT"), "−1,000 C", L("잔액 3,580 C", "Bal 3,580 C"))}`);
+const ownerConvert = phone(L("매장 금융", "Store finance"), `<div style="height:520px"></div>`, `<div class="sheet-wrap"><div class="sheet"><div class="grab"></div>
+  <h3>${L("Coin → Cash 전환 확인", "Confirm Coin → Cash")}</h3>
+  ${kv(L("전환 Coin", "Coin"), "500 C")}${kv(L("적용 비율 (서버 미리보기)", "Rate (server preview)"), "1 C = ₱1.00")}${kv(L("입금될 Cash", "Cash credited"), "₱500.00")}${kv(L("미납 수수료 우선 정산", "Unpaid fees settled first"), "−₱45.00")}${kv(L("실제 Cash 증가", "Net Cash increase"), "<b>₱455.00</b>")}${kv(L("전환 후 Coin", "Coin after"), "2,700 C")}
+  <p class="note">${L("전환은 되돌릴 수 없습니다. 비율이 바뀌면 다시 확인합니다.", "Conversion is final. If the rate changes, you will be asked again.")}</p>
+  <div class="btns"><span class="btn sec">${L("취소", "Cancel")}</span><span class="btn">${L("500 C 전환", "Convert 500 C")}</span></div></div></div>`);
+const ownerWithdraw = phone(L("매장 금융", "Store finance"), `${ownerTabs("withdraw")}
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>1,000 C</b><span class="badge b-warn">${L("지급 대기", "Awaiting payout")}</span>${pin("O-2")}</div><div class="note">${L("신청 11.05 09:30 PHT · Coin 보류됨", "Requested 11.05 09:30 PHT · Coin held")}</div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>2,000 C</b><span class="badge b-ok">${L("지급 완료", "Paid")}</span></div>
+    <div class="note">${L("지급 11.01 16:20 PHT · GCash · 참조 GC-88120", "Paid 11.01 16:20 PHT · GCash · ref GC-88120")}${pin("O-7")}</div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><b>500 C</b><span class="badge b-bad">${L("반려 · Coin 환원", "Rejected · Coin returned")}</span></div>
+    <div class="note">${L("처리 10.28 PHT · 사유: 계좌 정보 불일치", "10.28 PHT · reason: account mismatch")}</div><div class="btns"><span class="btn sec">${L("문의하기", "Contact support")}</span></div></div>
+  <p class="note">${L("출금 신청 → (관리자) 지급 완료 또는 반려. 신청과 실제 송금 완료는 다른 상태입니다. 승인 단계는 기존 계약에 없어 표시하지 않습니다.", "Request → (admin) paid or rejected. Request and actual transfer are different states. There is no separate approval step in the existing contract.")}</p>`);
+const ownerSettle = phone(L("매장 금융", "Store finance"), `${ownerTabs("transactions")}
+  <div class="card"><p class="cap">${L("11월 정산 요약 (PHT)", "November settlement (PHT)")}</p>
+  ${kv(L("수수료 부과 주문", "Charged orders"), "42")}${kv(L("수수료 기준 금액", "Fee base"), "₱18,900.00")}${kv(L("순 수수료 (부과 − 환급)", "Net fee (charged − refunded)"), "₱1,860.00")}${kv(L("미납 수수료", "Unpaid fees"), "₱45.00")}</div>
+  <div class="notice n-info">${L("고객은 매장에 직접 결제합니다. 주문별 지급(정산 버튼)은 없습니다. 수수료는 Cash에서 차감되고, 환급은 운영팀 결정으로만 처리됩니다.", "Customers pay the store directly. There is no per-order payout. Fees are deducted from Cash; refunds only by support decision.")}</div>
+  <span class="btn sec" style="width:100%">${L("정산 상세 보기", "Settlement details")}</span>`);
+PAGES.push({ id: "ownercoin", label: L("⑤ 오너 Coin·정산", "⑤ Owner Coin · settlement"), html: `
+<div class="intro">${L("입금(Cash 충전) · 출금(Coin 출금) · 정산(수수료)을 서로 다른 화면·상태로 유지한다. Coin 출금 상태는 기존 DB 계약(REQUESTED/PAID/REJECTED)만 표시. Cash 출금은 만들지 않는다.", "Deposit (Cash top-up), withdrawal (Coin) and settlement (fees) stay separate. Coin withdrawal shows only the existing DB states (REQUESTED/PAID/REJECTED). No Cash withdrawal.")}</div>
+<div class="row">${fig(L("A. Coin 홈·내역", "A. Coin home"), ownerCoin)}${fig(L("B. 전환 확인 시트", "B. Convert confirmation"), ownerConvert)}${fig(L("C. 출금 신청·처리 상태", "C. Withdrawals"), ownerWithdraw)}${fig(L("D. 정산 요약", "D. Settlement summary"), ownerSettle)}
+${side([
+  ["O-2", L("REQUESTED: 오너 「처리 중」/관리자 「신청」", "REQUESTED: owner \"Processing\" / admin \"Requested\""), L("양쪽 「지급 대기」", "Both \"Awaiting payout\"")],
+  ["O-7", L("지급 수단 조회하지만 미표시", "payout method fetched but hidden"), L("「GCash · 참조」 표시", "Show \"GCash · ref\"")],
+  ["O-12", L("APPROVED/CANCELLED 분기 — 기록 경로 없음", "APPROVED/CANCELLED branches unreachable"), L("유지 (표시만, 기능 추가 없음)", "Keep (display only)")],
+])}</div>` });
+
+/* ───────────── 5. 관리자 통합 ───────────── */
+const sidebar = (on) => `<div class="sbar"><div class="grp">${L("금융", "Finance")}</div>${[["hub", "금융 홈", "Finance hub"], ["tx", "통합 거래 원장", "Unified ledger"], ["pc", "Point 충전 요청", "Point top-ups"], ["cc", "Cash 충전 요청", "Cash top-ups"], ["ap", "Apple IAP", "Apple IAP"], ["wd", "Coin 출금", "Coin withdrawals"], ["cv", "Coin 전환", "Conversions"], ["st", "수수료 정산", "Fee settlement"], ["au", "감사 로그", "Audit logs"]].map(([k, ko, en]) => `<a class="${k === on ? "on" : ""}">${L(ko, en)}</a>`).join("")}</div>`;
+const adminUnified = `<div class="admin">${sidebar("tx")}<div class="main">
+  <h2>${L("통합 거래 원장", "Unified ledger")}</h2><div class="desc">${L("point_ledger · business_cash_ledger · store_economic_point_ledger 를 같은 RPC(admin_finance_unified_tx_page)로 조회. 행 = 원장 1행.", "Reads point_ledger, business_cash_ledger and store_economic_point_ledger through one RPC. Row = one ledger row.")}</div>
+  <div class="afil"><span class="seg"><span class="on">${L("전체", "All")}</span><span>Point</span><span>Cash</span><span>Coin</span></span>
+    <span class="seg"><span class="on">${L("전체", "All")}</span><span>${L("입금", "Deposit")}</span><span>${L("사용", "Use")}</span><span>${L("출금", "Withdraw")}</span><span>${L("정산", "Settle")}</span><span>${L("조정", "Adjust")}</span></span>
+    <span class="seg"><span class="on">${L("모든 수단", "All methods")}</span><span>${L("계좌", "Bank")}</span><span>GCash</span><span>Apple</span></span>
+    <input placeholder="거래번호 · 회원 · 매장 · 주문 · Apple ID" style="width:260px" /><span class="abtn">2026.11.01 – 11.05 PHT</span></div>
+  <div class="kpis"><div class="kpi"><div class="k">${L("입금 (Point+Cash)", "Deposits")}</div><div class="v">₱24,598</div></div><div class="kpi"><div class="k">${L("사용", "Usage")}</div><div class="v">₱9,410</div></div><div class="kpi"><div class="k">${L("Coin 출금 지급", "Coin paid out")}</div><div class="v">2,000 C</div></div><div class="kpi"><div class="k">${L("검토 필요", "Needs review")}</div><div class="v" style="color:var(--bad)">3</div></div></div>
+  <table class="at"><tr><th>${L("거래번호", "Tx no.")}</th><th>${L("시각 (PHT)", "Time (PHT)")}</th><th>${L("지갑", "Wallet")}</th><th>${L("구분", "Kind")}</th><th>${L("주체", "Party")}</th><th>${L("수단", "Method")}</th><th class="r">${L("금액", "Amount")}</th><th class="r">${L("이후 잔액", "Bal. after")}</th><th>${L("처리자", "By")}</th><th>${L("참조", "Reference")}</th></tr>
+  <tr class="sel"><td class="mono">PL-8E21C4A0</td><td>11.05 20:12</td><td><span class="w w-P">Point</span></td><td>${L("충전", "Top-up")}</td><td>${L("회원 마닐라킴", "Member ManilaKim")}</td><td>Apple</td><td class="r plus">+1,000 P</td><td class="r">12,450 P</td><td>${L("시스템 (자동)", "System (auto)")}</td><td><span class="alink">${L("충전 #A41C09E2", "Request #A41C09E2")}</span> · <span class="alink">Apple …77310042</span> ${pin("A-1")}</td></tr>
+  <tr><td class="mono">BC-91A2F0C4</td><td>11.05 19:40</td><td><span class="w w-C">Cash</span></td><td>${L("판매 수수료", "Sales fee")}</td><td>${L("매장 바나나치킨", "Store Banana Chicken")}</td><td>—</td><td class="r">−₱45.00</td><td class="r">₱7,950.00</td><td>${L("시스템", "System")}</td><td><span class="alink">${L("주문 #D-10234", "Order #D-10234")}</span></td></tr>
+  <tr><td class="mono">BC-1C77A9E0</td><td>11.05 09:12</td><td><span class="w w-C">Cash</span></td><td>${L("관리자 조정", "Admin adjust")}</td><td>${L("매장 바나나치킨", "Store Banana Chicken")}</td><td>—</td><td class="r plus">+₱200.00</td><td class="r">₱8,965.00</td><td>${L("관리자 이지원", "Admin Jiwon Lee")} ${pin("A-7")}</td><td><span class="alink">${L("감사 로그", "Audit log")}</span></td></tr>
+  <tr><td class="mono">CN-0A11B2D3</td><td>11.05 09:30</td><td><span class="w w-K">Coin</span></td><td>${L("출금 신청 (보류)", "Withdrawal hold")}</td><td>${L("매장 바나나치킨", "Store Banana Chicken")}</td><td>GCash</td><td class="r">−1,000 C</td><td class="r">3,580 C</td><td>${L("오너", "Owner")}</td><td><span class="alink">${L("출금 #W-3F10", "Withdrawal #W-3F10")}</span></td></tr>
+  <tr><td class="mono">PL-3D90E1B7</td><td>11.03 15:20</td><td><span class="w w-P">Point</span></td><td>${L("Apple 환불 회수", "Apple refund recovered")}</td><td>${L("회원 세부댁", "Member CebuMom")}</td><td>Apple</td><td class="r">−500 P</td><td class="r">11,750 P</td><td>${L("관리자 박도윤", "Admin Doyun Park")}</td><td><span class="alink">Apple …55120871</span> · <span class="alink">${L("감사 로그", "Audit log")}</span></td></tr></table>
+  <div class="adet"><div class="apanel"><h4>${L("거래 상세 — PL-8E21C4A0", "Transaction — PL-8E21C4A0")}</h4>
+    ${kv(L("지갑 · 구분", "Wallet · kind"), "Point · charge")}${kv(L("주체", "Party"), L("회원 마닐라킴 (id 9c72…)", "Member ManilaKim (id 9c72…)"))}${kv(L("금액", "Amount"), "+1,000 P")}${kv(L("이후 잔액 (원장)", "Balance after (ledger)"), "12,450 P")}${kv(L("처리", "Processed"), L("2026.11.05 20:12 PHT · 시스템 자동 (서명 검증)", "2026.11.05 20:12 PHT · system auto (signature verified)"))}${kv(L("멱등 키", "Idempotency key"), `<span class="mono">apple:2000000777310042</span>`)}</div>
+    <div class="apanel"><h4>${L("연결된 기록", "Linked records")}</h4>
+    ${kv(L("충전 요청", "Top-up request"), `<span class="alink">/admin/point-charges/A41C09E2…</span> · ${L("충전 완료", "Credited")}`)}${kv(L("Apple 거래", "Apple transaction"), `<span class="alink">/admin/apple-iap?id=…</span> · Production · ${L("서명 검증 통과", "signature OK")}`)}${kv(L("감사 로그", "Audit"), L("자동 적립 — 감사 행 없음 (관리자 처리 시에만)", "Auto credit — no audit row (admin actions only)"))}${kv(L("회원 화면 표시", "Member sees"), L("「포인트 충전 · Apple 결제」 +1,000 P", "\"Point top-up · Apple payment\" +1,000 P"))}</div></div>
+</div></div>`;
+const adminChargeDlg = `<div class="admin" style="height:520px">${sidebar("pc")}<div class="main">
+  <h2>${L("Point 충전 요청", "Point top-ups")}</h2>
+  <table class="at"><tr><th>${L("신청 (PHT)", "Requested (PHT)")}</th><th>${L("회원", "Member")}</th><th>${L("수단", "Method")}</th><th class="r">${L("금액", "Amount")}</th><th>${L("상태", "Status")}</th><th>${L("처리자", "By")}</th><th></th></tr>
+  <tr><td>11.05 19:02</td><td>${L("세부댁", "CebuMom")}</td><td>${L("계좌 입금", "Bank")}</td><td class="r">₱499 → 5,500 P</td><td><span class="badge b-warn">${L("확인 대기", "Awaiting check")}</span></td><td>—</td><td><span class="abtn pri">${L("승인", "Approve")}</span> <span class="abtn">${L("반려", "Reject")}</span> <span class="alink">${L("상세", "Details")}</span></td></tr>
+  <tr><td>11.05 20:12</td><td>${L("마닐라킴", "ManilaKim")}</td><td>Apple</td><td class="r">₱99 → 1,000 P</td><td><span class="badge b-ok">${L("충전 완료", "Credited")}</span></td><td>${L("시스템 (자동)", "System (auto)")}</td><td><span class="alink">${L("상세", "Details")}</span> ${pin("A-3")} · <span class="alink">Apple ›</span></td></tr></table>
+  <div class="adlg-wrap"><div class="adlg"><h3>${L("충전 승인", "Approve top-up")} <span class="lv">L2</span></h3>
+    <div class="desc" style="margin:0 0 8px">${L("입금 확인 후 원장에 적립합니다. 되돌리려면 별도 차감이 필요합니다.", "Credits the ledger after deposit check. Reversal needs a separate debit.")}</div>
+    ${kv(L("거래 종류", "Type"), L("Point 충전 승인 (입금)", "Point top-up approval (deposit)"))}${kv(L("대상", "Target"), L("회원 세부댁 · 요청 #B7E0…", "Member CebuMom · request #B7E0…"))}${kv(L("금액", "Amount"), L("₱499.00 입금 → 5,500 P 적립", "₱499.00 paid → 5,500 P credited"))}${kv(L("처리 결과", "Result"), L("잔액 1,200 P → 6,700 P · 상태 「충전 완료」", "Balance 1,200 P → 6,700 P · status \"Credited\""))}
+    <label style="font-size:12px;color:var(--a-fg2);display:block;margin-top:8px">${L("확인 근거 (필수)", "Evidence note (required)")}<textarea rows="2">BDO 11/05 19:00 · ₱499 · CEBU MOM</textarea></label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><span class="abtn">${L("취소", "Cancel")}</span><span class="abtn pri">${L("승인하고 적립", "Approve & credit")}</span></div></div></div>
+</div></div>`;
+PAGES.push({ id: "admin", label: L("⑥ 관리자 통합", "⑥ Admin unified"), html: `
+<div class="intro">${L("기존 /admin/finance/transactions(통합 원장)와 각 요청 큐를 유지한다. 시안의 변경점: 수단 필터(Apple 포함)·처리자 이름·참조 링크(충전 요청 ↔ Apple ↔ 감사 로그)·금전 확인창 4요소(거래 종류·대상·금액·처리 결과). 완료 행에는 승인 CTA 없음.", "Keeps /admin/finance/transactions and the request queues. Changes: method filter (incl. Apple), processor names, reference links (request ↔ Apple ↔ audit), and 4-part money confirm (type, target, amount, result). No approve CTA on completed rows.")}</div>
+${fig(L("A. 통합 원장 + 거래 상세 (데스크톱 1240px)", "A. Unified ledger + detail (desktop 1240px)"), adminUnified)}
+<div style="height:20px"></div>
+${fig(L("B. 충전 큐 + 금전 확인창", "B. Top-up queue + money confirm"), adminChargeDlg)}
+<div class="row" style="margin-top:16px">${side([
+  ["A-1", L("Apple 화면 ↔ 충전 목록·원장 링크 없음 (내 구현)", "No link between Apple page and charge list/ledger (mine)"), L("Apple 행에 「Apple ›」, Apple 상세에 「충전 요청 ›」「원장 ›」", "Apple ›, request ›, ledger › links")],
+  ["A-3", L("완료 Point 충전 행에 상세 링크 없음 · 메모 입력 편집 가능", "Completed rows lack Details · memo editable"), L("상세 링크 항상, 완료 행 메모 읽기 전용", "Details always; memo read-only when done")],
+  ["A-5", L("Cash 큐 처리자 미표시 · raw 사유 apple_iap_verified · 권한 게이트 없음", "Cash queue: no processor, raw reason, no permission gate"), L("처리자 이름·「Apple 서명 검증 자동 적립」·business 권한 게이트", "Processor name, readable reason, permission gate")],
+  ["A-7", L("처리자 UUID/8자 id", "Processor shown as UUID"), L("닉네임 (id 툴팁)", "Nickname (id tooltip)")],
+  ["A-9", L("수수료 결정 다이얼로그가 adminActionLevel 미사용", "Fee decision dialog skips adminActionLevel"), L("adminActionLevel(\"refund\") 확인 단계 적용", "Use the standard confirm level")],
+  ["A-10", L("감사 로그 action/target raw 코드", "Audit log raw codes"), L("금융 action만 라벨 매핑", "Label finance actions")],
+])}</div>` });
+
+/* ───────────── 6. 관리자 Apple ───────────── */
+const adminApple = `<div class="admin">${sidebar("ap")}<div class="main">
+  <h2>Apple IAP</h2><div class="desc">${L("Apple 서명 검증 기록(apple_iap_transactions). 검증 통과 거래만 원장에 적립되고, 환불은 자동 차감 없이 여기서 결정한다.", "Apple signed-transaction records. Only verified transactions are credited; refunds are decided here, never auto-deducted.")}</div>
+  <div class="afil"><span class="seg"><span class="on">${L("확인 필요 3", "Attention 3")}</span><span>${L("환불 1", "Refund 1")}</span><span>${L("전체", "All")}</span><span>${L("내부 대사", "Internal recon")}</span></span><input placeholder="Apple transaction ID · 회원 / member · 매장 / store" style="width:260px" /></div>
+  <table class="at"><tr><th>${L("시각 (PHT)", "Time (PHT)")}</th><th>${L("대상", "Party")}</th><th>${L("상품", "Product")}</th><th class="r">${L("적립", "Credit")}</th><th>${L("검증", "Verify")}</th><th>${L("적립 상태", "Credit status")}</th><th>${L("환불", "Refund")}</th><th>Apple ID</th></tr>
+  <tr><td>11.05 20:30</td><td>${L("회원 마닐라킴", "ManilaKim")}</td><td>point_5500</td><td class="r">5,500 P</td><td><span class="badge b-ok">${L("서명 OK · Production", "Signed · Production")}</span></td><td><span class="badge b-warn">${L("적립 대기 (지연)", "Credit pending (delayed)")}</span> ${pin("A-8")}</td><td>—</td><td class="mono">…77310077</td></tr>
+  <tr class="sel"><td>11.03 15:02</td><td>${L("회원 세부댁", "CebuMom")}</td><td>point_1000</td><td class="r">1,000 P</td><td><span class="badge b-ok">${L("서명 OK · Production", "Signed · Production")}</span></td><td><span class="badge b-ok">${L("적립 완료", "Credited")}</span></td><td><span class="badge b-bad">${L("환불 검토", "Refund review")}</span></td><td class="mono">…55120871</td></tr>
+  <tr><td>11.02 11:40</td><td>${L("매장 바나나치킨", "Banana Chicken")}</td><td>cash_500</td><td class="r">₱500.00</td><td><span class="badge b-ok">${L("서명 OK · Sandbox", "Signed · Sandbox")}</span></td><td><span class="badge b-warn">${L("검토 — 환경 불허", "Review — env not allowed")}</span></td><td>—</td><td class="mono">…10044120</td></tr></table>
+  <div class="adet"><div class="apanel"><h4>${L("거래 상세 — Apple …55120871", "Transaction — Apple …55120871")}</h4>
+    ${kv(L("검증", "Verification"), L("x5c 체인 Apple Root G3 · ES256 · 번들 일치 · Consumable · Production", "x5c chain Apple Root G3 · ES256 · bundle match · Consumable · Production"))}${kv(L("구매 / 서명 시각", "Purchased / signed"), "2026.11.03 15:01 / 15:01 PHT")}${kv(L("적립", "Credited"), L("1,000 P · 11.03 15:02 PHT · 시스템 자동", "1,000 P · 11.03 15:02 PHT · system auto"))}${kv(L("원장 · 충전 요청", "Ledger · request"), `<span class="alink">PL-0F3B…</span> · <span class="alink">#C219…</span>`)}${kv(L("환불 알림", "Refund notice"), L("REFUND · 11.04 08:10 PHT (Apple 서버 알림)", "REFUND · 11.04 08:10 PHT (Apple notification)"))}${kv(L("회원 현재 잔액", "Member balance now"), "1,800 P")}</div>
+    <div class="apanel"><h4>${L("환불 처리", "Refund decision")}</h4>
+    <p class="desc" style="margin:0 0 8px">${L("자동 차감·음수 잔액 없음. 잔액이 회수 금액보다 적으면 회수 버튼이 비활성되고(예: 420 P &lt; 1,000 P) 면제 또는 미처리 유지만 가능.", "No auto deduction or negative balance. If the balance is below the amount (e.g. 420 P &lt; 1,000 P), Recover is disabled; only Waive or leave open.")}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="abtn dng">${L("회수", "Recover")}</span><span class="abtn">${L("회수 면제", "Waive")}</span><span class="abtn dng dis">${L("회수 (잔액 부족 예시)", "Recover (insufficient example)")}</span></div>
+    ${kv(L("처리 이력", "History"), L("— (미처리)", "— (open)"))}</div></div>
+  <div class="adlg-wrap" style="left:220px"><div class="adlg"><h3>${L("Apple 환불 회수", "Recover Apple refund")} <span class="lv">L3</span></h3>
+    ${kv(L("거래 종류", "Type"), L("Point 회수 (admin_debit · apple_iap_refund)", "Point recovery (admin_debit · apple_iap_refund)"))}${kv(L("대상", "Target"), L("회원 세부댁 · Apple …55120871", "Member CebuMom · Apple …55120871"))}${kv(L("금액", "Amount"), "−1,000 P")}${kv(L("처리 결과", "Result"), L("잔액 1,800 P → 800 P · 환불 상태 「회수됨」 · 회원 화면 「Apple 환불 회수」", "Balance 1,800 → 800 P · refund \"Recovered\" · member sees \"Apple refund recovered\""))}
+    <label style="font-size:12px;color:var(--a-fg2);display:block;margin-top:8px">${L("사유 (필수 · 내부 기록, 회원 비노출)", "Reason (required · internal, hidden from member)")}<textarea rows="2"></textarea></label>
+    <label style="font-size:12px;color:var(--a-fg2);display:block;margin-top:6px">${L("확인을 위해 Apple 거래 ID 입력", "Type the Apple transaction ID to confirm")}<input class="mono" placeholder="2000000555120871" /></label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><span class="abtn">${L("취소", "Cancel")}</span><span class="abtn dng" style="background:var(--bad);color:#fff">${L("회수 실행", "Recover")}</span></div></div></div>
+</div></div>`;
+const adminRecon = `<div class="admin">${sidebar("ap")}<div class="main">
+  <h2>${L("Apple IAP — 내부 대사", "Apple IAP — internal reconciliation")}</h2><div class="desc">${L("Apple 기록 ↔ 원장 적립을 같은 DB 안에서 맞춘다(기존 데이터만). Apple 실제 지급액(App Store Connect 지급 보고서)과의 대사는 현재 계약·데이터가 없어 <b>Owner 결정 필요</b>로 비워 둔다.", "Matches Apple records to ledger credits inside the DB (existing data only). Matching against Apple's actual payouts (App Store Connect reports) has no contract or data yet — left as <b>Owner decision required</b>.")}</div>
+  <div class="kpis"><div class="kpi"><div class="k">${L("검증 통과 (11월)", "Verified (Nov)")}</div><div class="v">128</div></div><div class="kpi"><div class="k">${L("적립 완료 = 원장 행", "Credited = ledger rows")}</div><div class="v" style="color:var(--ok)">125 = 125</div></div><div class="kpi"><div class="k">${L("적립 대기·검토", "Pending / review")}</div><div class="v" style="color:var(--warn)">3</div></div><div class="kpi"><div class="k">${L("환불 (회수·면제·대기)", "Refunds (rec / waived / open)")}</div><div class="v">1 / 0 / 1</div></div></div>
+  <table class="at"><tr><th>${L("일자 (PHT)", "Day (PHT)")}</th><th>${L("상품", "Product")}</th><th class="r">${L("Apple 기록", "Apple records")}</th><th class="r">${L("원장 적립 건", "Ledger credits")}</th><th class="r">${L("적립 합계", "Credited total")}</th><th class="r">${L("환불", "Refunds")}</th><th>${L("판정", "Check")}</th></tr>
+  <tr><td>11.05</td><td>point_1000</td><td class="r">12</td><td class="r">12</td><td class="r">12,000 P</td><td class="r">0</td><td><span class="badge b-ok">${L("일치", "Match")}</span></td></tr>
+  <tr><td>11.05</td><td>point_5500</td><td class="r">4</td><td class="r">3</td><td class="r">16,500 P</td><td class="r">0</td><td><span class="badge b-warn">${L("1건 적립 대기", "1 pending")}</span></td></tr>
+  <tr><td>11.05</td><td>cash_500</td><td class="r">2</td><td class="r">2</td><td class="r">₱1,000.00</td><td class="r">0</td><td><span class="badge b-ok">${L("일치", "Match")}</span></td></tr>
+  <tr><td colspan="7" style="color:var(--a-fg2)">${L("Apple 실제 지급액 대사 — 계약 없음 · Owner 결정 필요 (기능 추가하지 않음)", "Apple payout reconciliation — no contract · Owner decision required (not built)")}</td></tr></table>
+</div></div>`;
+PAGES.push({ id: "adminapple", label: L("⑦ 관리자 Apple IAP", "⑦ Admin Apple IAP"), html: `
+<div class="intro">${L("구현된 /admin/apple-iap(확인 필요·환불·전체 탭, 상세, 회수 L3·면제·재적립·수동 적립)를 기준으로, 검증 근거 표시·원장/충전 요청 링크·처리자 이름·URL 상세(?id=)·raw 코드 라벨을 보완한 시안. 회수는 잔액 부족 시 비활성(음수 금지).", "Based on the implemented /admin/apple-iap (attention/refund/all, detail, recover L3, waive, recredit, manual credit), adding verification evidence, ledger/request links, processor names, URL detail (?id=) and labels for raw codes. Recover is disabled when balance is short.")}</div>
+${fig(L("A. 검증·환불 검토 + 회수 확인창 (L3)", "A. Verification & refund review + recover confirm (L3)"), adminApple)}
+<div style="height:20px"></div>
+${fig(L("B. 내부 대사 탭 (기존 데이터만)", "B. Internal reconciliation tab (existing data only)"), adminRecon)}
+<div class="row" style="margin-top:16px">${side([
+  ["A-8", L("review_reason raw 코드 · Sandbox 하드코딩 · URL 상세 없음 · credited_by/원장 id 미표시 (내 구현)", "raw review_reason · hard-coded Sandbox · no URL detail · credited_by/ledger ids hidden (mine)"), L("사유 라벨 ko/en, ?id= 상세, 처리자·원장·요청 링크", "Reason labels, ?id= detail, processor/ledger/request links")],
+  ["A-14", L("Apple 매출 vs 실제 지급 대사 없음", "No Apple sales vs payout recon"), L("내부 대사만 시안 · 지급 대사는 Owner 결정 필요", "Internal recon only · payout recon needs Owner decision")],
+])}</div>` });
+
+/* ───────────── 7. 결함·수정 목록 ───────────── */
+const D = [
+  ["M-1", "own", "회원", "Apple 충전이 「입금 확인 완료」·「입금」으로 표시", "lib/points/project-point-financial-history.ts:401-403 · components/points/PointFinancialHistoryList.tsx:219-225", "API·UI"],
+  ["M-2", "own", "회원", "Apple 환불 회수 원장 설명에 관리자 메모 포함 → 회원 상세 「사유」로 노출", "supabase/migrations/20271107100000_apple_iap_topup.sql:846,854 · project-point-financial-history.ts:144-149", "DB(미적용 파일)"],
+  ["M-3", "", "회원", "영어 화면에 DB 한국어 설명·투영 한국어 부제목 노출", "project-point-financial-history.ts:205,257,398,401-403,460 · PointFinancialHistoryList.tsx:97-104,192", "API·UI"],
+  ["M-4", "", "회원", "적립 행에도 「사용처」 라벨 · 관리자 행 사유 2회 표시", "PointFinancialHistoryList.tsx:187-193,227-233", "UI"],
+  ["M-5", "", "회원·관리자", "충전 상태 명칭 불일치 (대기/승인 vs 대기중/승인완료)·배지 색 상이", "PointChargeRequestList.tsx:10-17,33 · PointChargeBadge.tsx:7-17 · points-ui.ts:6-7", "UI·i18n"],
+  ["M-6", "", "회원", "결제 수단 manual_confirm 「수동확인」 내부 용어", "lib/i18n/catalog/points-labels.ts:31,105 vs points-ui.ts:38", "i18n"],
+  ["M-7", "", "회원", "터치 영역 < 44px (상태 칩 32, 기간 칩 32, 페이저 36)", "app/(main)/mypage/points/page.tsx:583 · StoreCommissionLedgerParts.tsx:68-71,437", "UI"],
+  ["M-8", "", "회원", "금액 toLocaleString 직접 사용 (포맷 계약 위반)", "PointChargeForm.tsx:189 · PointPeriodSummary.tsx:114-115", "UI"],
+  ["M-9", "", "회원", "거래 광고 0P finalize 행·보류 제목 (운영 행 존재 NOT_PROVEN)", "trade-post-ad-point-flow.ts:122-130 · point-period-history.ts:38-55", "API"],
+  ["M-10", "", "회원", "상위노출 폼 「포인트 충전」 링크가 /mypage/points(raw a)", "PointPromotionOrderForm.tsx:225-230", "UI"],
+  ["M-11", "", "회원", "거래번호·충전 요청·Apple 참조 미표시", "PointFinancialHistoryList.tsx:106 · point-financial-history.ts:60-66", "API·UI"],
+  ["O-1", "", "오너", "CANCELLED Cash 충전이 「처리 중」", "components/business/owner/OwnerBusinessCashView.tsx:280-293", "UI"],
+  ["O-2", "", "오너·관리자", "출금 REQUESTED 「처리 중」 vs 「신청」, 충전 PENDING 「처리 중」 vs 「대기」", "OwnerCoinWithdrawalPanel.tsx:179 · AdminCoinWithdrawalsPanel.tsx:241 · presentation.ts:73,83", "UI·i18n"],
+  ["O-3", "", "오너·관리자", "SALE_FEE_REVERSAL 환급/취소, SETTLEMENT 정산/회수, AD_SPEND 사용/지출, 캐시/Cash 혼용", "OwnerStoreFinanceView.tsx:102-127 · presentation.ts:44-45,133 · store-commission-contract.ts:309", "i18n"],
+  ["O-4", "", "오너", "금융 탭·페이저·기간 칩·「자세히」 < 44px", "OwnerFinanceNav.tsx:40 · StoreCommissionLedgerParts.tsx:68-71,437 · CurrencyHistoryRow.tsx:76", "UI"],
+  ["O-5", "", "오너", "수수료 행 주문번호 미표시 (UUID 8자)", "OwnerStoreFinanceView.tsx:131-143 · wallet-period-history.ts:325-345", "API·UI"],
+  ["O-6", "", "오너", "관리자 조정 사유·주체 미표시 (meta.reason 미조회)", "wallet-period-history.ts:356-358,400-410", "API·UI"],
+  ["O-7", "", "오너", "출금 지급 수단 조회하나 미표시", "withdrawals/route.ts:123 · OwnerCoinWithdrawalPanel.tsx:182-185", "UI"],
+  ["O-8", "", "오너", "PHT 접미사·연도 표기 불일치", "OwnerCoinWithdrawalPanel.tsx:163,181 · CurrencyHistoryRow.tsx:36-43", "UI"],
+  ["O-9", "", "오너", "알 수 없는 section → 탭만 있는 빈 화면", "lib/finance/routes.ts:201-218", "UI"],
+  ["O-10", "", "오너", "미납 페이저 loading=false 고정 → 연타 시 중복 요청", "OwnerStoreFinanceView.tsx:410", "UI"],
+  ["O-11", "", "오너", "광고 사용·환불 참조 id 체계 상이 → 짝 매칭 불가 (표시만 보완, DB 변경 안 함)", "ast004_ast005.sql:664-667,744", "API(표시)"],
+  ["A-1", "own", "관리자", "Apple IAP 화면이 Point/Cash 충전 목록·원장과 링크 없음", "admin-menu.ts · AdminPointChargeInlineActions.tsx · AdminDeliveryAdCashChargeQueuePage.tsx", "UI"],
+  ["A-2", "", "관리자", "Point 충전 상세에 verification_note(apple:txid) 미표시", "AdminPointChargeDetailPage.tsx", "API·UI"],
+  ["A-3", "", "관리자", "완료 Point 충전 행 상세 링크 없음 · 메모 입력 편집 가능", "AdminPointChargeInlineActions.tsx:148-156,159-186", "UI"],
+  ["A-5", "", "관리자", "Cash 큐 처리자 미표시 · decided_reason raw(apple_iap_verified) · business 권한 게이트 없음", "AdminDeliveryAdCashChargeQueuePage.tsx:40-57,515-519,566,576", "API·UI"],
+  ["A-7", "", "관리자", "처리자 UUID/8자 id 표시", "AdminPointChargeDetailPage.tsx:157,166 · AdminCoinWithdrawalsPanel.tsx:374 · AdminAppleIapReviewPage.tsx:294 · StoreCommissionLedgerTable.tsx:336", "API·UI"],
+  ["A-8", "own", "관리자", "Apple review_reason raw · Sandbox 하드코딩 · URL 상세 없음 · credited_by/원장 id 미표시", "AdminAppleIapReviewPage.tsx:242-248,282-283,196", "UI·i18n"],
+  ["A-9", "", "관리자", "수수료 결정 다이얼로그가 adminActionLevel 미사용", "AdminStoreCommissionLedgerPage.tsx:1109-1145", "UI"],
+  ["A-10", "", "관리자", "감사 로그 action·target_type raw 코드", "AdminAuditLogsPage.tsx:267,270,312,314", "UI"],
+  ["A-11", "", "관리자", "aria-label 영어 하드코딩 · 한국어 폼 「Bank」", "AdminStoreCommissionLedgerPage.tsx:737,1179,1201 · AdminCoinWithdrawalsPanel.tsx:464", "UI"],
+  ["A-13", "", "관리자", "PHT 표기 불일치 (Point 충전 목록 PHT 라벨 없음)", "AdminPointChargeListPage.tsx:136,143", "UI"],
+  ["A-14", "", "관리자", "Apple 매출 vs Apple 실제 지급 대사 없음 — 계약·데이터 없음", "검색 결과 없음 (reconcil/대사/payout)", "Owner 결정"],
+];
+const FIX = [
+  ["DB", "DB-1", "apple_iap_admin_decide_refund — point_ledger.description 을 고정 회원 문구로(관리자 메모는 apple_iap_transactions.refund_decision_note 에만). 미적용 마이그레이션 파일 수정 · 기존 테이블 무변경", "M-2"],
+  ["DB", "DB-2", "Apple Cash 회수/되돌림 meta 키를 기존 admin_adjust_business_cash 와 같은 reason 으로 통일 (같은 미적용 파일)", "O-6"],
+  ["DB", "—", "기존 원장·잔액 계산·hard-lock·출금 정책 변경 없음. 데이터 보정 없음 (Point 동률 시험행 포함)", "—"],
+  ["API", "API-1", "/api/me/points 내역: paymentMethod·참조(충전 요청 8자·Apple 거래 끝 8자리)·부제목 i18n 코드 추가, 한국어 하드코딩 부제목 제거", "M-1·M-3·M-11"],
+  ["API", "API-2", "오너 wallet history: 주문번호 표시값, ADMIN_ADJUST meta.reason 노출(처리자는 「운영팀」)", "O-5·O-6·O-11"],
+  ["API", "API-3", "관리자: Point 충전 상세 verificationNote, Cash 큐 admin_user_id+닉네임, Apple 상세 credited_by·원장/요청 id, 처리자 닉네임 공용 해석", "A-2·A-5·A-7·A-8"],
+  ["UI", "UI-M", "회원: 결제 수단별 부제목·상세 시트 필드(거래번호·참조)·「사용처」 차변만·상태 명칭 공용·「계좌 입금」·칩/페이저 44px·포맷터·상위노출 충전 링크", "M-1…M-11"],
+  ["UI", "UI-O", "오너: CANCELLED 배지·상태/항목 명칭 공용·탭/칩/페이저 44px·주문번호·조정 사유·지급 수단·PHT 표기·알 수 없는 section 기본 탭·미납 페이저 로딩", "O-1…O-11"],
+  ["UI", "UI-A", "관리자: Apple↔충전↔원장 링크·완료 행 상세/메모 읽기 전용·Cash 큐 처리자·권한 게이트·사유 라벨·처리자 이름·Apple ?id= 상세·수수료 결정 확인 레벨·감사 로그 금융 라벨·aria/Bank·PHT 라벨", "A-1…A-13"],
+  ["Owner", "OD-1", "상태·항목 명칭 공용 1세트 확정 (시안 값: 확인 대기·충전 완료·반려·취소됨·보류 / 지급 대기·지급 완료·반려·Coin 환원 / 수수료 환급·미납 수수료 정산·광고 사용)", "M-5·O-2·O-3"],
+  ["Owner", "OD-2", "회원·오너에게 관리자 조정 사유를 보일지 (시안: 보임, 처리자는 「운영팀」)", "O-6"],
+  ["Owner", "OD-3", "Apple 실제 지급액 대사 도입 여부 (App Store Connect 보고서 연동 = 새 기능)", "A-14"],
+  ["Owner", "OD-4", "Cash Apple 고정 금액 (제안 ₱100/₱500/₱1,000/₱5,000)", "—"],
+];
+PAGES.push({ id: "defects", label: L("⑧ 결함·수정 목록", "⑧ Defects & fixes"), html: `
+<div class="intro">${L("<b>주황 배경 = 이번 Apple IAP 구현(4d756ba25)에서 내가 만든 결함.</b> 근거는 코드 파일:라인(작업 트리 4d756ba25). 실제 화면 캡처 근거는 없음 — 로그인 계정 없이 확인 불가하여 NOT_PROVEN.", "<b>Orange rows = defects I introduced in the Apple IAP work (4d756ba25).</b> Evidence = code file:line. No live-screen captures — not possible without a login, so NOT_PROVEN.")}</div>
+<table class="doc"><tr><th>ID</th><th>${L("영역", "Area")}</th><th>${L("결함", "Defect")}</th><th>${L("코드 근거", "Code evidence")}</th><th>${L("수정 층", "Layer")}</th></tr>
+${D.map(([id, own, area, d, ev, layer]) => `<tr class="${own ? "own" : ""}"><td><b>${id}</b></td><td>${area}</td><td>${d}</td><td class="mono">${ev}</td><td>${layer}</td></tr>`).join("")}</table>
+<h2 class="sec">${L("시안 승인 후 최소 수정 목록", "Minimal fix list after approval")}</h2>
+<table class="doc"><tr><th>${L("층", "Layer")}</th><th>ID</th><th>${L("내용", "Change")}</th><th>${L("해결 결함", "Fixes")}</th></tr>
+${FIX.map(([l, id, c, f]) => `<tr><td><b>${l}</b></td><td>${id}</td><td>${c}</td><td>${f}</td></tr>`).join("")}</table>` });
+
+const nav = document.getElementById("nav"), pages = document.getElementById("pages");
+PAGES.forEach((p, i) => {
+  const b = document.createElement("button"); b.type = "button"; b.innerHTML = p.label; b.dataset.id = p.id; nav.appendChild(b);
+  const s = document.createElement("section"); s.className = "page"; s.id = "p-" + p.id; s.innerHTML = p.html; pages.appendChild(s);
+});
+function show(id) { document.querySelectorAll("section.page").forEach((s) => s.classList.toggle("on", s.id === "p-" + id)); nav.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.id === id)); history.replaceState(null, "", "#" + id); }
+nav.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.id); });
+document.getElementById("langBtn").addEventListener("click", () => document.body.classList.toggle("en"));
+if (location.search.includes("lang=en")) document.body.classList.add("en");
+show((location.hash || "#map").slice(1));
+</script>
+</body>
+</html>
