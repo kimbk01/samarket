@@ -1,5 +1,15 @@
 import type { ChatMessage } from "@/lib/types/chat";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
+
+/** 공유 요청 안에서 헤더·본문 읽기를 한 마감으로 묶는다 — 멈춘 요청이 방 진입·과거 로드 키를 붙잡지 않게 */
+function fetchChatMessagesJson(label: string, url: string): Promise<{ ok: boolean; data: unknown }> {
+  return runWithSharedFlightDeadline(label, ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+    const res = await fetch(url, { credentials: "include", cache: "no-store", signal });
+    if (!res.ok) return { ok: false, data: null };
+    return { ok: true, data: await res.json() };
+  });
+}
 
 type IntegratedRow = {
   id: string;
@@ -236,15 +246,14 @@ export function fetchIntegratedChatRoomMessagesWithMeta(
   const key = integratedMessagesKey(roomId);
   return runSingleFlight(key, async () => {
     try {
-      const res = await fetch(
-        `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`,
-        { credentials: "include", cache: "no-store" }
+      const { ok, data } = await fetchChatMessagesJson(
+        "chat_integrated_messages",
+        `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`
       );
-      if (!res.ok) {
+      if (!ok) {
         const cached = readMessageCache(integratedMessageCache, roomId);
         return { messages: cached ?? [], hasMore: false, nextCursor: null };
       }
-      const data = await res.json();
       const parsed = parseIntegratedMessagesPayload(data);
       writeMessageCache(integratedMessageCache, roomId, parsed.messages);
       return parsed;
@@ -268,14 +277,13 @@ export async function fetchIntegratedChatRoomMessagesPage(
   });
   const pageKey = `chat:integrated-messages-page:${roomId}:${input.cursor.before}:${input.cursor.beforeCreatedAt}:${limit}`;
   return runSingleFlight(pageKey, async () => {
-    const res = await fetch(
-      `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?${params}`,
-      { credentials: "include", cache: "no-store" }
+    const { ok, data } = await fetchChatMessagesJson(
+      "chat_integrated_messages_page",
+      `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?${params}`
     );
-    if (!res.ok) {
+    if (!ok) {
       return { messages: [], hasMore: false, nextCursor: null };
     }
-    const data = await res.json();
     return parseIntegratedMessagesPayload(data);
   });
 }
@@ -332,15 +340,14 @@ export function fetchLegacyChatRoomMessagesWithMeta(
   const key = `chat:legacy-messages:${roomId}`;
   return runSingleFlight(key, async () => {
     try {
-      const res = await fetch(
-        `/api/chat/room/${encodeURIComponent(roomId)}/messages?limit=${limit}`,
-        { credentials: "include", cache: "no-store" }
+      const { ok, data } = await fetchChatMessagesJson(
+        "chat_legacy_messages",
+        `/api/chat/room/${encodeURIComponent(roomId)}/messages?limit=${limit}`
       );
-      if (!res.ok) {
+      if (!ok) {
         const cached = readMessageCache(legacyMessageCache, roomId);
         return { messages: cached ?? [], hasMore: false, nextCursor: null };
       }
-      const data = await res.json();
       const parsed = parseLegacyMessagesPayload(data);
       writeMessageCache(legacyMessageCache, roomId, parsed.messages);
       return parsed;
@@ -364,14 +371,13 @@ export async function fetchLegacyChatRoomMessagesPage(
   });
   const pageKey = `chat:legacy-messages-page:${roomId}:${input.cursor.before}:${input.cursor.beforeCreatedAt}:${limit}`;
   return runSingleFlight(pageKey, async () => {
-    const res = await fetch(`/api/chat/room/${encodeURIComponent(roomId)}/messages?${params}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!res.ok) {
+    const { ok, data } = await fetchChatMessagesJson(
+      "chat_legacy_messages_page",
+      `/api/chat/room/${encodeURIComponent(roomId)}/messages?${params}`
+    );
+    if (!ok) {
       return { messages: [], hasMore: false, nextCursor: null };
     }
-    const data = await res.json();
     return parseLegacyMessagesPayload(data);
   });
 }
