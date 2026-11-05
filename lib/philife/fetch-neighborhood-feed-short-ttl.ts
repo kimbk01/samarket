@@ -14,6 +14,7 @@ import {
   getSingleFlightPromise,
   runSingleFlight,
 } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { samarketFeedTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 
 const CLIENT_TTL_MS = 1200;
@@ -192,13 +193,15 @@ export async function fetchNeighborhoodFeedShortTtl(url: string, init?: RequestI
       return again.boxed;
     }
     clientMetrics.network_fetches += 1;
-    const res = await fetch(url, sharedInit);
-    const bodyText = await res.text();
-    const b: Boxed = {
-      status: res.status,
-      bodyText,
-      headersSerialized: serializeResponseHeaders(res),
-    };
+    const b = await runWithSharedFlightDeadline(
+      "philife_neighborhood_feed",
+      ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+      async (signal): Promise<Boxed> => {
+        const res = await fetch(url, { ...sharedInit, signal });
+        const bodyText = await res.text();
+        return { status: res.status, bodyText, headersSerialized: serializeResponseHeaders(res) };
+      }
+    );
     completed.set(key, { boxed: b, expiresAt: performance.now() + CLIENT_TTL_MS });
     return b;
   });

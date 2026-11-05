@@ -57,7 +57,9 @@ describe("COMM-03 short-ttl abort ownership", () => {
     expect(body.ok).toBe(true);
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
     const [, init] = vi.mocked(fetch).mock.calls[0]!;
-    expect((init as RequestInit | undefined)?.signal).toBeUndefined();
+    const sharedSignal = (init as RequestInit | undefined)?.signal;
+    expect(sharedSignal).not.toBe(acA.signal);
+    expect(sharedSignal?.aborted ?? false).toBe(false);
   });
 
   it("source contract: shared fetch uses stripped init; CommunityFeed still passes signal", async () => {
@@ -69,7 +71,8 @@ describe("COMM-03 short-ttl abort ownership", () => {
     );
     expect(ttl).toContain("initWithoutConsumerSignal");
     expect(ttl).toContain("awaitBoxedForConsumer");
-    expect(ttl).toContain("fetch(url, sharedInit)");
+    expect(ttl).toContain("fetch(url, { ...sharedInit, signal })");
+    expect(ttl).toContain("runWithSharedFlightDeadline(");
     const feed = readFileSync(
       resolve(process.cwd(), "components/community/CommunityFeed.tsx"),
       "utf8"

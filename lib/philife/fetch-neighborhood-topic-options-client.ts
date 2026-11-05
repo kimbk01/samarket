@@ -2,6 +2,7 @@
 
 import { philifeNeighborhoodTopicOptionsUrl } from "@domain/philife/api";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
 
 export type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
@@ -62,6 +63,13 @@ function hydrateMemoryFromPersistent(): void {
 
 const PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_WRITE_FLIGHT = "philife:neighborhood-topic-options:write-fresh";
 
+function fetchTopicOptionsWithDeadline(label: string): Promise<PhilifeNeighborhoodTopicOptionsJson> {
+  return runWithSharedFlightDeadline(label, ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store", signal });
+    return (await res.json()) as PhilifeNeighborhoodTopicOptionsJson;
+  });
+}
+
 /**
  * Community feed topic-options — **stale-while-revalidate**.
  *
@@ -73,8 +81,7 @@ const PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_WRITE_FLIGHT = "philife:neighborhood-to
  */
 export function fetchPhilifeNeighborhoodTopicOptions(): Promise<PhilifeNeighborhoodTopicOptionsJson> {
   return runSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT, async () => {
-    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store" });
-    const json = (await res.json()) as PhilifeNeighborhoodTopicOptionsJson;
+    const json = await fetchTopicOptionsWithDeadline("philife_topic_options");
     if (isTopicOptionsPayloadUsable(json)) {
       topicOptionsCache = {
         value: json,
@@ -92,8 +99,7 @@ export function fetchPhilifeNeighborhoodTopicOptions(): Promise<PhilifeNeighborh
  */
 export function fetchPhilifeNeighborhoodTopicOptionsForWrite(): Promise<PhilifeNeighborhoodTopicOptionsJson> {
   return runSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_WRITE_FLIGHT, async () => {
-    const res = await fetch(philifeNeighborhoodTopicOptionsUrl(), { cache: "no-store" });
-    return (await res.json()) as PhilifeNeighborhoodTopicOptionsJson;
+    return fetchTopicOptionsWithDeadline("philife_topic_options_write");
   });
 }
 
