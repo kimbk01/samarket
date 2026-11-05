@@ -149,11 +149,18 @@ function startAppBootRun(): Promise<void> {
   return run;
 }
 
-/** 로그인 확인 후 lite 실패 — 5xx·네트워크·마감 초과·비정상 본문. 401·403·200(ok:true) 은 기존 판정 유지. */
+/**
+ * 로그인 확인 후 lite 실패 — 5xx·네트워크·마감 초과·비정상 본문·`ok:true, profile:null`.
+ * 서버는 미인증을 401 로 먼저 돌려주고 프로필 행이 없으면 생성하므로, 200 + profile 없음은 DB 조회·생성 실패다.
+ * 401·403 은 기존 판정 유지.
+ */
 function isBootProfileFetchFailure(rejected: boolean, status: number | undefined, json: unknown): boolean {
   if (rejected) return true;
   if (status === 401 || status === 403) return false;
-  if (status === 200) return (json as { ok?: unknown } | null)?.ok !== true;
+  if (status === 200) {
+    const data = json as { ok?: unknown; profile?: unknown } | null;
+    return data?.ok !== true || data.profile == null;
+  }
   return true;
 }
 

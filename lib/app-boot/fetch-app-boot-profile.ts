@@ -125,7 +125,8 @@ export function fetchAppBootProfileMinimal(): Promise<MeProfileGetResult> {
         json = {};
       }
       const result: MeProfileGetResult = { status: res.status, json };
-      const okBody = res.ok && (json as { ok?: unknown } | null)?.ok === true;
+      const body = json as { ok?: unknown; profile?: unknown } | null;
+      const okBody = res.ok && body?.ok === true && body.profile != null;
       if ((okBody || res.status === 401 || res.status === 403) && generation === cacheGeneration) {
         writeProfileFetchCache(result, { fromGuestSkip: false });
       }

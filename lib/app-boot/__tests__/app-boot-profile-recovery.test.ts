@@ -77,6 +77,9 @@ type Responder = (init: RequestInit) => Promise<Response>;
 function okProfile(profile: ProfileRow = PROFILE): Responder {
   return () => Promise.resolve(new Response(JSON.stringify({ ok: true, profile }), { status: 200 }));
 }
+function nullProfile(): Responder {
+  return () => Promise.resolve(new Response(JSON.stringify({ ok: true, profile: null }), { status: 200 }));
+}
 function status401(): Responder {
   return () => Promise.resolve(new Response(JSON.stringify({ ok: false, authenticated: false }), { status: 401 }));
 }
@@ -603,5 +606,53 @@ describe("앱 시작 lite 프로필 — 추가 검증", () => {
     await vi.advanceTimersByTimeAsync(1_500);
     await flush();
     expect(m.store.getAppBootSnapshot().status).toBe("ready");
+  });
+});
+
+describe("F1 — 로그인 확인 + 200 ok:true profile:null", () => {
+  it("비회원 확정 금지 → error, lite 캐시 미기록", async () => {
+    liteQueue = [nullProfile()];
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(m.store.getAppBootSnapshot().status).toBe("error");
+    expect(statuses).not.toContain("anonymous");
+    expect(readyEvents).toBe(0);
+    expect(m.guest.isGuestAuthEstablished()).toBe(false);
+    expect(m.liteCache.peekAppBootProfileFetchCached()).toBeNull();
+  });
+
+  it("DB 일시 오류 후 복구 → 새 요청으로 ready, 약관·가입(READY)·지역·알림 초기화 1회", async () => {
+    liteQueue = [nullProfile(), okProfile()];
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(m.store.getAppBootSnapshot().status).toBe("error");
+    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(liteCalls).toBe(2);
+    expect(m.store.getAppBootSnapshot().status).toBe("ready");
+    expect(m.store.peekAppBootProfile()?.id).toBe("u1");
+    expect(readyEvents).toBe(1);
+    expect(profileUpdatedEvents).toBe(1);
+    expect(armNotificationSoundSsotFirstLoad).toHaveBeenCalledTimes(1);
+    expect(ensureInitialBadgeSnapshotForBoot).toHaveBeenCalledTimes(1);
+    expect(enableOwnerHubBadgeBackgroundHydration).toHaveBeenCalledTimes(1);
+  });
+
+  it("profile:null 이 계속되면 자동 재시도 3회 후 정지", async () => {
+    liteDefault = nullProfile();
+    const m = await load();
+    await m.run.ensureAppBoot();
+    await vi.advanceTimersByTimeAsync(1_500 + 3_000 + 6_000);
+    expect(liteCalls).toBe(4);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(liteCalls).toBe(4);
+    expect(m.store.getAppBootSnapshot().status).toBe("error");
+  });
+
+  it("실제 비회원 403 은 기존 계약(anonymous) 유지", async () => {
+    liteQueue = [() => Promise.resolve(new Response(JSON.stringify({ ok: false }), { status: 403 }))];
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(m.store.getAppBootSnapshot().status).toBe("anonymous");
   });
 });
