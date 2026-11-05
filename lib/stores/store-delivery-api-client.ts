@@ -133,6 +133,31 @@ function withAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<
   });
 }
 
+/**
+ * 공유 GET 의 헤더·본문 읽기를 한 마감으로 묶는다 — 멈춘 응답이 단일 비행 키를 영구 점유하지 않게.
+ * `callerSignal` 은 기존처럼 공유 fetch 를 함께 끊는 호출처(프리워밍·장바구니 ETA)만 넘긴다.
+ */
+function runStoreGetWithDeadline<T>(
+  label: string,
+  work: (signal: AbortSignal) => Promise<T>,
+  callerSignal?: AbortSignal
+): Promise<T> {
+  return runWithSharedFlightDeadline(label, ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (deadlineSignal) => {
+    if (!callerSignal) return work(deadlineSignal);
+    const ac = new AbortController();
+    const abort = () => ac.abort();
+    if (callerSignal.aborted) ac.abort();
+    callerSignal.addEventListener("abort", abort, { once: true });
+    deadlineSignal.addEventListener("abort", abort, { once: true });
+    try {
+      return await work(ac.signal);
+    } finally {
+      callerSignal.removeEventListener("abort", abort);
+      deadlineSignal.removeEventListener("abort", abort);
+    }
+  });
+}
+
 function readStoreHubSummaryCache(cacheKey: string): StoreHubSummaryCacheSnapshot {
   const hit = storeHubSummaryCache.get(cacheKey);
   if (!hit) return { value: null, isFresh: false };
@@ -274,23 +299,26 @@ export async function fetchStoreSummaryDeduped(
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
-    const res = await withAbortSignal(
-      fetch(`/api/stores/${encodeURIComponent(s)}/summary`, {
-        cache: "no-store",
-        signal: opts?.signal,
-      }),
+    const { ok, value } = await runStoreGetWithDeadline(
+      "stores_summary",
+      async (signal) => {
+        const res = await withAbortSignal(
+          fetch(`/api/stores/${encodeURIComponent(s)}/summary`, { cache: "no-store", signal }),
+          opts?.signal
+        );
+        if (opts?.signal?.aborted) throw abortError();
+        logDeliveryFetchTrace({
+          api: `/api/stores/${s}/summary`,
+          component: "store-delivery-api-client",
+          reason: "fetchStoreSummaryDeduped_network",
+          pathname: deliveryFetchTracePathname(),
+        });
+        const json = await res.json().catch(() => ({}));
+        return { ok: res.ok, value: { status: res.status, json } };
+      },
       opts?.signal
     );
-    if (opts?.signal?.aborted) throw abortError();
-    logDeliveryFetchTrace({
-      api: `/api/stores/${s}/summary`,
-      component: "store-delivery-api-client",
-      reason: "fetchStoreSummaryDeduped_network",
-      pathname: deliveryFetchTracePathname(),
-    });
-    const json = await res.json().catch(() => ({}));
-    const value = { status: res.status, json };
-    if (res.ok) {
+    if (ok) {
       storeSummaryPublicCache.set(s, { expiresAt: Date.now() + STORE_SUMMARY_PUBLIC_CACHE_TTL_MS, value });
     } else {
       storeSummaryPublicCache.delete(s);
@@ -323,22 +351,25 @@ export async function fetchStoreMenusDeduped(
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
     beginMenusColdFillClientSession(s, fetchPath);
-    const res = await withAbortSignal(
-      fetch(`/api/stores/${encodeURIComponent(s)}/menus`, {
-        cache: "no-store",
-        signal: opts?.signal,
-      }),
+    const { res, text } = await runStoreGetWithDeadline(
+      "stores_menus",
+      async (signal) => {
+        const r = await withAbortSignal(
+          fetch(`/api/stores/${encodeURIComponent(s)}/menus`, { cache: "no-store", signal }),
+          opts?.signal
+        );
+        if (opts?.signal?.aborted) throw abortError();
+        logDeliveryFetchTrace({
+          api: `/api/stores/${s}/menus`,
+          component: "store-delivery-api-client",
+          reason: "fetchStoreMenusDeduped_network",
+          pathname: deliveryFetchTracePathname(),
+        });
+        markMenusColdFillFetchHeaders(s);
+        return { res: r, text: await r.text() };
+      },
       opts?.signal
     );
-    if (opts?.signal?.aborted) throw abortError();
-    logDeliveryFetchTrace({
-      api: `/api/stores/${s}/menus`,
-      component: "store-delivery-api-client",
-      reason: "fetchStoreMenusDeduped_network",
-      pathname: deliveryFetchTracePathname(),
-    });
-    markMenusColdFillFetchHeaders(s);
-    const text = await res.text();
     markMenusColdFillResponseDownload(s, text.length);
     let json: unknown = {};
     try {
@@ -370,13 +401,15 @@ export async function fetchStoreReviewsSummaryDeduped(slug: string): Promise<Sto
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
-    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews-summary`, { cache: "no-store" });
-    logDeliveryFetchTrace({
-      api: `/api/stores/${s}/reviews-summary`,
-      component: "store-delivery-api-client",
-      reason: "fetchStoreReviewsSummaryDeduped_network",
+    const { res, json } = await runStoreGetWithDeadline("stores_reviews_summary", async (signal) => {
+      const r = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews-summary`, { cache: "no-store", signal });
+      logDeliveryFetchTrace({
+        api: `/api/stores/${s}/reviews-summary`,
+        component: "store-delivery-api-client",
+        reason: "fetchStoreReviewsSummaryDeduped_network",
+      });
+      return { res: r, json: await r.json().catch(() => ({})) };
     });
-    const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     if (res.ok) {
       storeReviewsSummaryCache.set(s, { expiresAt: Date.now() + STORE_REVIEWS_SUMMARY_CACHE_TTL_MS, value });
@@ -400,8 +433,10 @@ export async function fetchStorePublicBySlugDeduped(slug: string): Promise<Store
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
-    const res = await fetch(`/api/stores/${encodeURIComponent(s)}`, { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
+    const { res, json } = await runStoreGetWithDeadline("stores_public", async (signal) => {
+      const r = await fetch(`/api/stores/${encodeURIComponent(s)}`, { cache: "no-store", signal });
+      return { res: r, json: await r.json().catch(() => ({})) };
+    });
     const value = { status: res.status, json };
     if (res.ok) {
       storePublicCache.set(s, { expiresAt: Date.now() + STORE_PUBLIC_CACHE_TTL_MS, value });
@@ -445,8 +480,10 @@ export async function fetchStoreProductPublicDeduped(
         return { status: inFlightCached.value.status, json: inFlightCached.value.json };
       }
     }
-    const res = await fetch(`/api/stores/products/${encodeURIComponent(id)}`, { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
+    const { res, json } = await runStoreGetWithDeadline("stores_product", async (signal) => {
+      const r = await fetch(`/api/stores/products/${encodeURIComponent(id)}`, { cache: "no-store", signal });
+      return { res: r, json: await r.json().catch(() => ({})) };
+    });
     const value = { status: res.status, json };
     if (res.ok) {
       storeProductPublicCache.set(id, { expiresAt: Date.now() + STORE_PRODUCT_PUBLIC_CACHE_TTL_MS, value });
@@ -470,8 +507,10 @@ export async function fetchStoreReviewsPublicDeduped(storeSlug: string): Promise
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
-    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews`, { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
+    const { res, json } = await runStoreGetWithDeadline("stores_reviews", async (signal) => {
+      const r = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews`, { cache: "no-store", signal });
+      return { res: r, json: await r.json().catch(() => ({})) };
+    });
     const value = { status: res.status, json };
     if (res.ok) {
       storeReviewsPublicCache.set(s, { expiresAt: Date.now() + STORE_REVIEWS_PUBLIC_CACHE_TTL_MS, value });
@@ -555,14 +594,17 @@ export async function fetchStoresTaxonomyDeduped(
       return { status: inflightCached.value.status, json: inflightCached.value.json };
     }
     const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
-    const res = await fetch("/api/stores/taxonomy", {
-      cache: "no-store",
-      headers: {
-        ...storesApiAcceptLanguageHeader(lang),
-        ...storesHomeClientCallSourceHeader(opts.clientCallSource),
-      },
+    const { res, json } = await runStoreGetWithDeadline("stores_taxonomy", async (signal) => {
+      const r = await fetch("/api/stores/taxonomy", {
+        cache: "no-store",
+        signal,
+        headers: {
+          ...storesApiAcceptLanguageHeader(lang),
+          ...storesHomeClientCallSourceHeader(opts.clientCallSource),
+        },
+      });
+      return { res: r, json: await r.json().catch(() => ({})) };
     });
-    const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     if (res.ok && res.status === 200) {
       storeTaxonomyPublicCache.set(k, { expiresAt: Date.now() + STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS, value });
@@ -710,11 +752,14 @@ export async function fetchStoresBrowseDeduped(
    */
   return runSingleFlight(flightKey, async () => {
     const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
-    const res = await fetch(`/api/stores/browse?${qs}`, {
-      cache: "no-store",
-      headers: storesApiAcceptLanguageHeader(lang),
+    const { res, json } = await runStoreGetWithDeadline("stores_browse", async (signal) => {
+      const r = await fetch(`/api/stores/browse?${qs}`, {
+        cache: "no-store",
+        signal,
+        headers: storesApiAcceptLanguageHeader(lang),
+      });
+      return { res: r, json: await r.json().catch(() => ({})) };
     });
-    const json = await res.json().catch(() => ({}));
     const value: StoreApiJsonResponse = { status: res.status, json };
     if (!bypass && (res.ok || res.status === 401 || res.status === 403)) {
       const storedAt = Date.now();
@@ -898,11 +943,10 @@ export async function fetchMeStoreOrderDetailDeduped(
     const url = force
       ? `/api/me/store-orders/${encodeURIComponent(id)}?fresh=1`
       : `/api/me/store-orders/${encodeURIComponent(id)}`;
-    const res = await fetch(url, {
-      credentials: "include",
-      cache: "no-store",
+    const { res, json } = await runStoreGetWithDeadline("me_store_order_detail", async (signal) => {
+      const r = await fetch(url, { credentials: "include", cache: "no-store", signal });
+      return { res: r, json: await r.json().catch(() => ({})) };
     });
-    const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     // 신선한 응답을 일반 캐시에도 반영 → 이후 non-force 호출에 재사용
     primeMeStoreOrderResponseCache(
@@ -948,11 +992,10 @@ export async function fetchMeStoreOrderEventsDeduped(
     const url = force
       ? `/api/me/store-orders/${encodeURIComponent(id)}/events?fresh=1`
       : `/api/me/store-orders/${encodeURIComponent(id)}/events`;
-    const res = await fetch(url, {
-      credentials: "include",
-      cache: "no-store",
+    const { res, json } = await runStoreGetWithDeadline("me_store_order_events", async (signal) => {
+      const r = await fetch(url, { credentials: "include", cache: "no-store", signal });
+      return { res: r, json: await r.json().catch(() => ({})) };
     });
-    const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     primeMeStoreOrderResponseCache(
       meStoreOrderEventsCache,
@@ -1033,12 +1076,18 @@ export async function fetchStoreDeliveryEtaDeduped(
   const flight = runSingleFlight(flightKey, async () => {
     const again = storeDeliveryEtaCache.get(flightKey);
     if (again && again.expiresAt > Date.now()) return again.value;
-    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/delivery-eta?${qs}`, {
-      credentials: "include",
-      cache: "no-store",
-      signal: opts?.signal,
-    });
-    const json = await res.json().catch(() => ({}));
+    const { res, json } = await runStoreGetWithDeadline(
+      "stores_delivery_eta",
+      async (signal) => {
+        const r = await fetch(`/api/stores/${encodeURIComponent(s)}/delivery-eta?${qs}`, {
+          credentials: "include",
+          cache: "no-store",
+          signal,
+        });
+        return { res: r, json: await r.json().catch(() => ({})) };
+      },
+      opts?.signal
+    );
     const value = { status: res.status, json };
     if (res.ok && (json as { ok?: boolean })?.ok === true) {
       storeDeliveryEtaCache.set(flightKey, {
@@ -1111,14 +1160,13 @@ export async function postMeStoreOrder(body: Record<string, unknown>): Promise<S
 export async function fetchMeStoreOrdersListDeduped(queryWithQuestionOrEmpty: string): Promise<StoreApiJsonResponse> {
   const q = queryWithQuestionOrEmpty.trim();
   const path = q.startsWith("?") ? q : q ? `?${q}` : "";
-  return runSingleFlight(`me:store-orders:list:get:${path}`, async () => {
-    const res = await fetch(`/api/me/store-orders${path}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
-  });
+  return runSingleFlight(`me:store-orders:list:get:${path}`, () =>
+    runStoreGetWithDeadline("me_store_orders_list", async (signal) => {
+      const res = await fetch(`/api/me/store-orders${path}`, { credentials: "include", cache: "no-store", signal });
+      const json = await res.json().catch(() => ({}));
+      return { status: res.status, json };
+    })
+  );
 }
 
 /** GET /api/me/store-orders?hub_summary=1 — stores hub buyer card (lightweight) */
@@ -1136,12 +1184,15 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
       return { status: inFlightCached.status, json: inFlightCached.json };
     }
     markStoresHomeHubSummaryNetwork();
-    const res = await fetch("/api/me/store-orders?hub_summary=1", {
-      credentials: "include",
-      cache: "no-store",
+    const value = await runStoreGetWithDeadline("me_store_orders_hub_summary", async (signal) => {
+      const res = await fetch("/api/me/store-orders?hub_summary=1", {
+        credentials: "include",
+        cache: "no-store",
+        signal,
+      });
+      const json = await res.json().catch(() => ({}));
+      return { status: res.status, json };
     });
-    const json = await res.json().catch(() => ({}));
-    const value = { status: res.status, json };
     primeStoreHubSummaryCache(cacheKey, value);
     return value;
   });
