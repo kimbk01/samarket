@@ -105,7 +105,8 @@ export function useMypageHomeModel(enabled: boolean) {
     const gen = ++refreshGenRef.current;
     // 재시도 시 오류 카드 → 확인 중으로 전환
     setProfilePhase((prev) => (prev === "error" ? "pending" : prev));
-    const run = (async () => {
+    let run: Promise<void> | null = null;
+    run = (async () => {
       try {
         const [profileResult, address] = await Promise.all([
           resolveMypageHomeProfileResult(),
@@ -145,7 +146,7 @@ export function useMypageHomeModel(enabled: boolean) {
         // 네트워크 예외 — projection 은 지우지 않음
         setProfilePhase("error");
       } finally {
-        if (inflightRef.current) inflightRef.current = null;
+        if (inflightRef.current === run) inflightRef.current = null;
       }
     })();
     inflightRef.current = run;

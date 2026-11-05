@@ -114,14 +114,39 @@ function profileFetchHeaders(clientCallSource: string | undefined, extra: Record
   };
 }
 
-async function fetchMeProfileNetwork(clientCallSource?: string): Promise<Response> {
+/**
+ * 요청 시작부터 본문 읽기 완료까지 한 번의 마감 시간.
+ * 마감 초과는 네트워크 예외로 throw — 401·비회원으로 해석하지 않고, 캐시에도 쓰지 않는다
+ * (throw 해야 single-flight 키가 해제되어 다음 호출이 새 요청을 보낸다).
+ */
+export const ME_PROFILE_FETCH_TIMEOUT_MS = 12_000;
+
+async function fetchMeProfileResultWithDeadline(url: string, init: RequestInit): Promise<MeProfileGetResult> {
+  const ac = new AbortController();
+  const timer = globalThis.setTimeout(() => ac.abort(), ME_PROFILE_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...init, signal: ac.signal });
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch (err) {
+      if (ac.signal.aborted) throw err;
+      json = {};
+    }
+    return { status: res.status, json };
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+}
+
+async function fetchMeProfileNetwork(clientCallSource?: string): Promise<MeProfileGetResult> {
   recordBootVerifyFetch("/api/me/profile?mode=full", clientCallSource ?? "profile_full");
   logShellFetchTrace({
     api: "/api/me/profile",
     component: clientCallSource ?? "fetch-me-profile-deduped",
     reason: "fetchMeProfileFullBackground_network",
   });
-  return fetch("/api/me/profile?mode=full", {
+  return fetchMeProfileResultWithDeadline("/api/me/profile?mode=full", {
     credentials: "include",
     cache: "no-store",
     headers: profileFetchHeaders(clientCallSource, {
@@ -129,11 +154,6 @@ async function fetchMeProfileNetwork(clientCallSource?: string): Promise<Respons
       "x-samarket-surface": "background",
     }),
   });
-}
-
-async function parseMeProfileResponse(res: Response): Promise<MeProfileGetResult> {
-  const json: unknown = await res.clone().json().catch(() => ({}));
-  return { status: res.status, json };
 }
 
 const GUEST_PROFILE_401: MeProfileGetResult = {
@@ -151,26 +171,25 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
     return guestMeProfileResult(clientCallSource);
   }
 
-  let res = await fetchMeProfileNetwork(clientCallSource);
+  let result = await fetchMeProfileNetwork(clientCallSource);
 
-  if (res.status === 401) {
+  if (result.status === 401) {
     const recovery = await recoverFrom401Once("me_profile_full");
     if (recovery.recovered) {
-      res = await fetchMeProfileNetwork(clientCallSource);
+      result = await fetchMeProfileNetwork(clientCallSource);
     } else if (recovery.phase === "recovering" || recovery.phase === "loading") {
-      return parseMeProfileResponse(res);
+      return result;
     } else if (recovery.phase === "terminal_guest" || isGuestAuthEstablished()) {
-      const result = await parseMeProfileResponse(res);
       cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
       return result;
     } else if (!recovery.terminal) {
-      return parseMeProfileResponse(res);
+      return result;
     }
   }
 
-  const result = await parseMeProfileResponse(res);
-  if (res.ok || res.status === 401 || res.status === 403) {
-    if (res.status === 401) {
+  const resOk = result.status >= 200 && result.status < 300;
+  if (resOk || result.status === 401 || result.status === 403) {
+    if (result.status === 401) {
       noteGuest401(clientCallSource ?? "me_profile_full", {
         url: "/api/me/profile?mode=full",
         recovering: true,
@@ -190,22 +209,19 @@ export async function fetchMeProfileFresh(clientCallSource = "profile_edit_fresh
   /** 네트워크 오류는 null 로 — 호출 화면이 로딩·저장 중 상태에 갇히지 않도록 절대 throw 하지 않는다 */
   try {
     recordBootVerifyFetch("/api/me/profile?mode=full&fresh=1", clientCallSource);
-    let res = await fetch("/api/me/profile?mode=full&fresh=1", {
+    const freshInit: RequestInit = {
       credentials: "include",
       cache: "no-store",
       headers: profileFetchHeaders(clientCallSource),
-    });
-    if (res.status === 401) {
+    };
+    let result = await fetchMeProfileResultWithDeadline("/api/me/profile?mode=full&fresh=1", freshInit);
+    if (result.status === 401) {
       const recovery = await recoverFrom401Once("me_profile_full");
       if (!recovery.recovered) return null;
-      res = await fetch("/api/me/profile?mode=full&fresh=1", {
-        credentials: "include",
-        cache: "no-store",
-        headers: profileFetchHeaders(clientCallSource),
-      });
+      result = await fetchMeProfileResultWithDeadline("/api/me/profile?mode=full&fresh=1", freshInit);
     }
-    if (!res.ok) return null;
-    const json = (await res.json().catch(() => null)) as { ok?: boolean; profile?: ProfileRow | null } | null;
+    if (result.status < 200 || result.status >= 300) return null;
+    const json = result.json as { ok?: boolean; profile?: ProfileRow | null } | null;
     const profile = json?.ok ? json.profile ?? null : null;
     if (profile?.id?.trim()) {
       primeMeProfileDedupedFromKnownProfile(profile);

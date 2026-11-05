@@ -168,13 +168,31 @@ export async function fetchAddressDefaultsSnapshot(
       const timeoutMs = Math.max(1_000, Number(opts?.timeoutMs ?? 8_000));
       const ac = new AbortController();
       const t = globalThis.setTimeout(() => ac.abort(), timeoutMs);
+      type AddressDefaultsJson = {
+        ok?: boolean;
+        defaults?: {
+          master?: unknown;
+          life?: unknown;
+          trade?: unknown;
+          delivery?: unknown;
+        };
+        neighborhoodFromLife?: LifeDefaultLocationSummary;
+      };
       let res: Response;
+      let json: AddressDefaultsJson;
+      /** 마감 시간은 본문 읽기 완료까지 — 헤더 뒤 본문이 멈춰도 flight 가 끝나야 다음 호출이 새 요청을 보낸다 */
       try {
         res = await fetch("/api/me/address-defaults", {
           credentials: "include",
           cache: "no-store",
           signal: ac.signal,
         });
+        try {
+          json = (await res.json()) as AddressDefaultsJson;
+        } catch (bodyErr) {
+          if (ac.signal.aborted) throw bodyErr;
+          json = {};
+        }
       } catch (err) {
         const aborted = ac.signal.aborted;
         pushMypageNetMarker({
@@ -190,16 +208,6 @@ export async function fetchAddressDefaultsSnapshot(
       } finally {
         globalThis.clearTimeout(t);
       }
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        defaults?: {
-          master?: unknown;
-          life?: unknown;
-          trade?: unknown;
-          delivery?: unknown;
-        };
-        neighborhoodFromLife?: LifeDefaultLocationSummary;
-      };
       const neighborhoodFromLife =
         json?.neighborhoodFromLife &&
         typeof json.neighborhoodFromLife === "object" &&
