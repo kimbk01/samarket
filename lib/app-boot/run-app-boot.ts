@@ -24,6 +24,7 @@ import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
 import type { ProfileRow } from "@/lib/profile/types";
 import {
   fetchAppBootProfileMinimal,
+  invalidateAppBootProfileCache,
   peekAppBootProfileFetchCached,
 } from "@/lib/app-boot/fetch-app-boot-profile";
 import {
@@ -222,6 +223,8 @@ async function deferBootGuestForRecovery(
    */
   if (!isAppBootReady()) {
     if (recovered) {
+      /** 세션 복구 전 401 lite 캐시(4초)를 재사용하지 않는다 — 복구 성공 시에만 */
+      invalidateAppBootProfileCache();
       const retry = await resolveBootProfileMinimal().then(
         (r) => r,
         () => null,
@@ -382,6 +385,8 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   if (status === 401) {
     const recovery = await recoverFrom401Once("app_boot_profile");
     if (recovery.recovered) {
+      /** 세션 복구 전 401 lite 캐시(4초)를 재사용하지 않는다 — 복구 성공 시에만 */
+      invalidateAppBootProfileCache();
       const retry = await fetchAppBootProfileMinimal().then(
         (r) => r,
         () => null,
@@ -415,6 +420,8 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       const recovered = await runRecoverableGuestRecovery("app_boot_profile_401").catch(() => false);
       if (startEpoch !== bootEpoch) return;
       if (recovered) {
+        /** 세션 복구 전 401 lite 캐시(4초)를 재사용하지 않는다 — 복구 성공 시에만 */
+        invalidateAppBootProfileCache();
         const retry = await fetchAppBootProfileMinimal().then(
           (r) => r,
           () => null,

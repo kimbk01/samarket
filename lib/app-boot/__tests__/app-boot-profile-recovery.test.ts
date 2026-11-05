@@ -649,10 +649,86 @@ describe("F1 — 로그인 확인 + 200 ok:true profile:null", () => {
     expect(m.store.getAppBootSnapshot().status).toBe("error");
   });
 
+  it("F1 실제 비회원 401 은 기존 계약 유지(복구 실패 → anonymous)", async () => {
+    liteQueue = [status401()];
+    recoverFrom401Once.mockResolvedValue({ recovered: false, terminal: true, phase: "terminal" });
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(m.store.getAppBootSnapshot().status).toBe("anonymous");
+  });
+
   it("실제 비회원 403 은 기존 계약(anonymous) 유지", async () => {
     liteQueue = [() => Promise.resolve(new Response(JSON.stringify({ ok: false }), { status: 403 }))];
     const m = await load();
     await m.run.ensureAppBoot();
     expect(m.store.getAppBootSnapshot().status).toBe("anonymous");
+  });
+});
+
+describe("F2 — 세션 복구 성공 직후 이전 401 lite 캐시 재사용 금지", () => {
+  it("401 복구 성공(recoverFrom401Once) → 재조회는 새 네트워크 요청 → ready", async () => {
+    liteQueue = [status401(), okProfile()];
+    recoverFrom401Once.mockResolvedValue({ recovered: true });
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(liteCalls).toBe(2);
+    expect(m.store.getAppBootSnapshot().status).toBe("ready");
+    expect(statuses).not.toContain("anonymous");
+  });
+
+  it("복구 가능한 401(runRecoverableGuestRecovery 성공) → 새 요청 → ready, 비회원 확정 없음", async () => {
+    liteQueue = [status401(), okProfile()];
+    recoverFrom401Once.mockResolvedValue({ recovered: false, terminal: false, phase: "recovering" });
+    runRecoverableGuestRecovery.mockResolvedValue(true);
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(liteCalls).toBe(2);
+    expect(m.store.getAppBootSnapshot().status).toBe("ready");
+    expect(m.guest.isTerminalGuestAuthEstablished()).toBe(false);
+    expect(markSessionTerminalGuestFromClient).not.toHaveBeenCalled();
+  });
+
+  it("세션 복구 성공(getUser 비어 있음 → 레지스트리 일시 오류 → 복구) → 새 요청 → ready", async () => {
+    dedupeSupabaseAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    fetchAuthSessionNoStore.mockResolvedValue({ ok: false, status: 503 });
+    const m = await load();
+    runRecoverableGuestRecovery.mockImplementation(async () => {
+      m.guest.clearGuestAuthState();
+      return true;
+    });
+    liteQueue = [status401(), okProfile()];
+    await m.run.ensureAppBoot();
+    expect(liteCalls).toBe(2);
+    expect(m.store.getAppBootSnapshot().status).toBe("ready");
+    expect(m.guest.isTerminalGuestAuthEstablished()).toBe(false);
+    expect(markSessionTerminalGuestFromClient).not.toHaveBeenCalled();
+  });
+
+  it("복구 실패(복구 가능한 401 → 복구 실패) → 캐시 무효화·재조회 없이 기존 비회원 판정", async () => {
+    liteQueue = [status401()];
+    recoverFrom401Once.mockResolvedValue({ recovered: false, terminal: false, phase: "recovering" });
+    runRecoverableGuestRecovery.mockResolvedValue(false);
+    const m = await load();
+    await m.run.ensureAppBoot();
+    expect(liteCalls).toBe(1);
+    expect(m.liteCache.peekAppBootProfileFetchCached()?.status).toBe(401);
+    expect(m.store.getAppBootSnapshot().status).toBe("anonymous");
+    expect(markSessionTerminalGuestFromClient).toHaveBeenCalledWith("app_boot_profile_401_unresolved");
+  });
+
+  it("복구 후 재조회 중 로그아웃 → 이전 계정 응답이 캐시·상태에 재유입되지 않음", async () => {
+    const late = deferred();
+    liteQueue = [status401(), late.responder];
+    recoverFrom401Once.mockResolvedValue({ recovered: true });
+    const m = await load();
+    const run = m.run.ensureAppBoot();
+    await flush();
+    expect(liteCalls).toBe(2);
+    logout(m);
+    late.resolve(new Response(JSON.stringify({ ok: true, profile: PROFILE }), { status: 200 }));
+    await run;
+    await flush();
+    expect(m.store.getAppBootSnapshot().status).toBe("idle");
+    expect(m.liteCache.peekAppBootProfileFetchCached()).toBeNull();
   });
 });
