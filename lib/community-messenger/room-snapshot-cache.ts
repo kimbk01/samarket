@@ -15,6 +15,7 @@ import {
   wasRoomPrefetchRecentlySuccessful,
 } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import {
   applyAtomicRoomRead,
@@ -569,11 +570,18 @@ export async function prefetchCommunityMessengerRoomSnapshot(
         roomIdSuffix: key.slice(-8),
         query: ROOM_PREFETCH_QUERY,
       });
-      const res = await fetch(`${communityMessengerRoomBootstrapPath(key)}${ROOM_PREFETCH_QUERY}`, {
-        cache: "default",
-        credentials: "include",
-      });
-      const json = await res.json().catch(() => null);
+      const { res, json } = await runWithSharedFlightDeadline(
+        "cm_room_prefetch",
+        ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+        async (signal) => {
+          const res = await fetch(`${communityMessengerRoomBootstrapPath(key)}${ROOM_PREFETCH_QUERY}`, {
+            cache: "default",
+            credentials: "include",
+            signal,
+          });
+          return { res, json: await res.json().catch(() => null) };
+        }
+      );
       const snap = parseCommunityMessengerRoomSnapshotResponse(json);
       if (res.ok && snap) {
         lastPrefetchSuccessRoomId = key;
