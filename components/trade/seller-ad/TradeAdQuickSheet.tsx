@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { adShortagePoints, canAffordAd } from "@/lib/points/ad-shortage";
 import { createPromotionAttemptKeyStore } from "@/lib/points/promotion-attempt-key";
 import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
@@ -85,18 +86,20 @@ export function TradeAdQuickSheet({
     setLoadFailed(false);
     try {
       const [promo, points, banner] = await runSingleFlight(`trade-ad-sheet:${postId}`, () =>
-        Promise.all([
-          fetch(
-            `/api/me/points/promotion-orders?catalog=1&domain=trade&targetId=${encodeURIComponent(postId)}`,
-            { credentials: "include", cache: "no-store" }
-          ).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
-          fetch("/api/me/points", { credentials: "include", cache: "no-store" }).then((r) =>
-            r.ok ? r.json() : Promise.reject(new Error(String(r.status)))
-          ),
-          fetch("/api/me/feed-ad-requests?domain=trade", { credentials: "include", cache: "no-store" })
-            .then((r) => (r.ok ? r.json() : null))
-            .catch(() => null),
-        ])
+        runWithSharedFlightDeadline("trade_ad_sheet", ENTRY_SHARED_FLIGHT_DEADLINE_MS, (signal) =>
+          Promise.all([
+            fetch(
+              `/api/me/points/promotion-orders?catalog=1&domain=trade&targetId=${encodeURIComponent(postId)}`,
+              { credentials: "include", cache: "no-store", signal }
+            ).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+            fetch("/api/me/points", { credentials: "include", cache: "no-store", signal }).then((r) =>
+              r.ok ? r.json() : Promise.reject(new Error(String(r.status)))
+            ),
+            fetch("/api/me/feed-ad-requests?domain=trade", { credentials: "include", cache: "no-store", signal })
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+          ])
+        )
       );
       const p = promo as {
         catalog?: BoostItem[];

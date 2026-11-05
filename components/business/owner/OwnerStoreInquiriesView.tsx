@@ -7,6 +7,7 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreRowFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -93,17 +94,20 @@ export function OwnerStoreInquiriesView() {
         return;
       }
       // Single-flight must share parsed JSON — Response body can only be read once.
-      const payload = await runSingleFlight(`me:stores:${store.id}:inquiries:get`, async () => {
-        const ir = await fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {
-          credentials: "include",
-        });
-        const ij = (await ir.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          inquiries?: Row[];
-        };
-        return { httpOk: ir.ok, ij };
-      });
+      const payload = await runSingleFlight(`me:stores:${store.id}:inquiries:get`, () =>
+        runWithSharedFlightDeadline("owner_store_inquiries", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+          const ir = await fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {
+            credentials: "include",
+            signal,
+          });
+          const ij = (await ir.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            inquiries?: Row[];
+          };
+          return { httpOk: ir.ok, ij };
+        })
+      );
       if (!payload.httpOk || !payload.ij?.ok) {
         if (silent) return;
         setState({

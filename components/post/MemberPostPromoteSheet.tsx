@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -64,26 +65,30 @@ export function MemberPostPromoteSheet({
     setLoading(true);
     setErr("");
     try {
-      const [promoRes, balRes] = await runSingleFlight(`member-promote:${domain}:${postId}`, () =>
-        Promise.all([
-          fetch(
-            `/api/me/points/promotion-orders?catalog=1&domain=${encodeURIComponent(domain)}&targetId=${encodeURIComponent(postId)}`,
-            {
-              cache: "no-store",
-              credentials: "include",
-            }
-          ),
-          fetch("/api/me/points", { cache: "no-store", credentials: "include" }),
-        ])
+      /** 공유 비행은 파싱된 JSON 을 나눈다 — Response 본문은 한 번만 읽힌다 */
+      const [promoJ, balJ] = await runSingleFlight(`member-promote:${domain}:${postId}`, () =>
+        runWithSharedFlightDeadline("member_post_promote_sheet", ENTRY_SHARED_FLIGHT_DEADLINE_MS, (signal) =>
+          Promise.all([
+            fetch(
+              `/api/me/points/promotion-orders?catalog=1&domain=${encodeURIComponent(domain)}&targetId=${encodeURIComponent(postId)}`,
+              {
+                cache: "no-store",
+                credentials: "include",
+                signal,
+              }
+            ).then(
+              async (r) =>
+                (await r.json().catch(() => ({}))) as {
+                  catalog?: CatalogItem[];
+                  activeForTarget?: { endAt?: string; orderStatus?: string } | null;
+                }
+            ),
+            fetch("/api/me/points", { cache: "no-store", credentials: "include", signal }).then(
+              async (r) => (await r.json().catch(() => ({}))) as { balance?: number; points?: number }
+            ),
+          ])
+        )
       );
-      const promoJ = (await promoRes.json().catch(() => ({}))) as {
-        catalog?: CatalogItem[];
-        activeForTarget?: { endAt?: string; orderStatus?: string } | null;
-      };
-      const balJ = (await balRes.json().catch(() => ({}))) as {
-        balance?: number;
-        points?: number;
-      };
       const items = Array.isArray(promoJ.catalog) ? promoJ.catalog : [];
       setCatalog(items);
       // 재감사 R-01 (P0): 결과를 모르는 결제가 있으면 그 상품을 그대로 둔다 (첫 상품으로 되돌리면 새 키 → 두 번째 차감)

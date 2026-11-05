@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -76,18 +77,21 @@ export function OwnerStoreReviewsView() {
       setStoreId(sid);
 
       // Single-flight must share parsed JSON — Response body can only be read once.
-      const payload = await runSingleFlight(`me:store:${sid}:owner-reviews:list`, async () => {
-        const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/reviews`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const j = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          reviews?: ReviewRow[];
-        };
-        return { httpOk: res.ok, j };
-      });
+      const payload = await runSingleFlight(`me:store:${sid}:owner-reviews:list`, () =>
+        runWithSharedFlightDeadline("owner_store_reviews", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+          const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/reviews`, {
+            credentials: "include",
+            cache: "no-store",
+            signal,
+          });
+          const j = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            reviews?: ReviewRow[];
+          };
+          return { httpOk: res.ok, j };
+        })
+      );
       if (!payload.httpOk || !payload.j?.ok) {
         if (silent) return;
         setErr(typeof payload.j?.error === "string" ? payload.j.error : "load_failed");
