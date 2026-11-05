@@ -62,6 +62,11 @@ import {
   isMessengerRoomBootstrapReadySnapshot,
   pickAuthoritativeMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  createSeededSilentRefreshHold,
+  type SeededSilentHoldSignal,
+  type SeededSilentRefreshHold,
+} from "@/lib/community-messenger/room/seeded-silent-refresh-hold";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import {
   patchRoomPeerReadReceiptInSnapshotCache,
@@ -875,31 +880,27 @@ export function useMessengerRoomClientPhase1({
   const entrySilentBurstUntilRef = useRef(0);
   const entrySilentRefreshDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const entrySilentBurstAwaitRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
-  /** RSC 시드가 있을 때만 — composer textarea 가 실제 visible 될 때까지 silent `refresh(true)` 보류 */
-  const seededRoomEntryRef = useRef(Boolean(initialServerSnapshot));
-  const seededFirstSilentHoldPromiseRef = useRef(Promise.resolve() as Promise<void>);
-  const releaseSeededFirstSilentHoldRef = useRef<(() => void) | null>(null);
+  /** 시드 진입 — 실제 composer 가 준비될 때까지 silent `refresh(true)` 보류 (`seeded-silent-refresh-hold`) */
+  const seededSilentHoldRef = useRef<SeededSilentRefreshHold | null>(null);
+  const seededSilentHoldArmRef = useRef<{ roomId: string; generation: number } | null>(null);
+  if (seededSilentHoldRef.current == null) seededSilentHoldRef.current = createSeededSilentRefreshHold();
+  /* 렌더 중 arm — 자식 composer 의 layout effect 가 부모보다 먼저 돌아도 현재 세대를 읽는다 */
+  if (seededSilentHoldArmRef.current?.roomId !== roomId) {
+    seededSilentHoldArmRef.current = {
+      roomId,
+      generation: seededSilentHoldRef.current.arm(Boolean(initialServerSnapshot)),
+    };
+  }
 
   useLayoutEffect(() => {
     entrySilentBurstUntilRef.current =
       (typeof performance !== "undefined" ? performance.now() : Date.now()) + ROOM_ENTRY_SILENT_REFRESH_BURST_MS;
-    seededRoomEntryRef.current = Boolean(initialServerSnapshot);
-    releaseSeededFirstSilentHoldRef.current?.();
-    releaseSeededFirstSilentHoldRef.current = null;
-    if (Boolean(initialServerSnapshot)) {
-      seededFirstSilentHoldPromiseRef.current = new Promise<void>((resolve) => {
-        releaseSeededFirstSilentHoldRef.current = () => {
-          resolve();
-        };
-      });
-    } else {
-      seededFirstSilentHoldPromiseRef.current = Promise.resolve();
-    }
+    const seededHold = seededSilentHoldRef.current!;
+    const seededHoldGeneration = seededSilentHoldArmRef.current?.generation ?? 0;
     return () => {
       clearCmRoomForegroundBootstrapLock(roomId);
       clearCmBootstrapDebounceForRoom(roomId);
-      releaseSeededFirstSilentHoldRef.current?.();
-      releaseSeededFirstSilentHoldRef.current = null;
+      seededHold.disarm(seededHoldGeneration);
       if (swrDeferredBootstrapTimerRef.current != null) {
         clearTimeout(swrDeferredBootstrapTimerRef.current);
         swrDeferredBootstrapTimerRef.current = null;
@@ -916,13 +917,10 @@ export function useMessengerRoomClientPhase1({
     };
   }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps -- roomId 전환 시에만 시드·게이트 재설정
 
-  const notifyComposerTextareaVisibleForSeededBootstrap = useCallback(() => {
-    const release = releaseSeededFirstSilentHoldRef.current;
-    if (release) {
-      releaseSeededFirstSilentHoldRef.current = null;
-      release();
-    }
+  const notifyComposerTextareaVisibleForSeededBootstrap = useCallback((signal?: SeededSilentHoldSignal) => {
+    seededSilentHoldRef.current?.release(signal, snapshotRef.current);
   }, []);
+  const readSeededSilentHoldGeneration = useCallback(() => seededSilentHoldRef.current?.generation() ?? 0, []);
 
   const refresh = useCallback<MessengerRoomBootstrapRefreshFn>(
     async (silent, opts) => {
@@ -930,9 +928,8 @@ export function useMessengerRoomClientPhase1({
         return;
       }
       if (silent === true && !opts?.forceSilentNetwork) {
-        if (seededRoomEntryRef.current && releaseSeededFirstSilentHoldRef.current) {
-          await seededFirstSilentHoldPromiseRef.current;
-        }
+        const seededHoldPending = seededSilentHoldRef.current?.pending();
+        if (seededHoldPending) await seededHoldPending;
         const now = typeof performance !== "undefined" ? performance.now() : Date.now();
         if (now < entrySilentBurstUntilRef.current) {
           let slot = entrySilentBurstAwaitRef.current;
@@ -2019,6 +2016,7 @@ export function useMessengerRoomClientPhase1({
   CM_SNAPSHOT_FIRST_PAGE,
   composerTextareaRef,
   notifyComposerTextareaVisibleForSeededBootstrap,
+  readSeededSilentHoldGeneration,
   contextMetaFromUrlHandledRef,
   deferredMemberBootstrapRef,
   dismissRoomSheet,

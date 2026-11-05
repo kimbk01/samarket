@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useSeededSilentHoldComposerRelease } from "@/lib/community-messenger/room/use-seeded-silent-hold-composer-release";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -180,7 +181,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     tradeListingPostId: vm.snapshot?.tradeChatRoomDetail?.product?.id ?? null,
   });
   const {
-    notifyComposerTextareaVisibleForSeededBootstrap,
+    notifyComposerTextareaVisibleForSeededBootstrap: notifySeededSilentHold,
+    readSeededSilentHoldGeneration,
     loading: phase1Loading,
     snapshot: phase1Snapshot,
     replyToMessage,
@@ -191,6 +193,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     focusTimelineMessage,
   } = useMessengerRoomClientPhase1Context();
   const roomKey = vm.snapshot.room.id;
+  const notifyComposerTextareaVisibleForSeededBootstrap = useCallback(
+    () => notifySeededSilentHold({ roomId: String(roomKey).trim(), generation: readSeededSilentHoldGeneration() }),
+    [notifySeededSilentHold, readSeededSilentHoldGeneration, roomKey]
+  );
   const [draft, setDraft] = useState("");
   const isPrivateGroupRoom = vm.snapshot.room.roomType === "private_group";
   const mentionCandidates = useMemo(
@@ -394,6 +400,17 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const chatUnavailable = resolveMessengerRoomChatUnavailable({
     snapshot: vm.snapshot,
     roomUnavailable: Boolean(vm.roomUnavailable),
+  });
+  useSeededSilentHoldComposerRelease({
+    enabled: composerSurfaceMode === "phase2" && composerEntryVisible,
+    roomId: String(roomKey),
+    snapshotPlaceholder: Boolean(vm.snapshot.clientShellPlaceholder),
+    chatUnavailable: Boolean(chatUnavailable),
+    textareaRef: vm.composerTextareaRef,
+    isTextareaVisible: isDomTextareaLikelyVisible,
+    readGeneration: readSeededSilentHoldGeneration,
+    notify: notifySeededSilentHold,
+    recheckKey: `${vm.busy ?? ""}:${vm.roomUnavailable ? 1 : 0}:${vm.voiceRecording ? 1 : 0}`,
   });
   const chatUnavailableProductAction: MessengerRoomChatUnavailableProductAction | null = tradeBlockedProductPostId
     ? tradePostDetailSlide
