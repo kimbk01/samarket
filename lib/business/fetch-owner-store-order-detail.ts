@@ -1,4 +1,5 @@
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   normalizeOwnerStoreOrderReviewDetail,
   type OwnerStoreOrderReviewDetail,
@@ -37,22 +38,29 @@ export function fetchOwnerStoreOrderDetailDeduped(
 
   return runSingleFlight(ownerStoreOrderDetailFlightKey(sid, oid), async () => {
     try {
-      const res = await fetch(
-        `/api/me/stores/${encodeURIComponent(sid)}/orders/${encodeURIComponent(oid)}`,
-        { credentials: "include", cache: "no-store" }
+      const { resOk, status, json } = await runWithSharedFlightDeadline(
+        "owner_store_order_detail",
+        ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+        async (signal) => {
+          const res = await fetch(
+            `/api/me/stores/${encodeURIComponent(sid)}/orders/${encodeURIComponent(oid)}`,
+            { credentials: "include", cache: "no-store", signal }
+          );
+          const body = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            order?: Record<string, unknown>;
+            delivery?: unknown;
+            review?: unknown;
+          };
+          return { resOk: res.ok, status: res.status, json: body };
+        }
       );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        order?: Record<string, unknown>;
-        delivery?: unknown;
-        review?: unknown;
-      };
 
-      const ok = res.ok && json.ok === true;
+      const ok = resOk && json.ok === true;
       return {
         ok,
-        status: res.status,
+        status,
         error: ok ? null : typeof json.error === "string" ? json.error : "load_failed",
         order: json.order ?? null,
         delivery: json.delivery ?? null,

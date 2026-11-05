@@ -3,6 +3,7 @@
  * (매장 관리 허브 vs 주문 목록 등)
  */
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 export type MeStoresListResult = {
@@ -63,11 +64,13 @@ export function fetchMeStoresListDeduped(): Promise<MeStoresListResult> {
     return Promise.resolve(cached.value);
   }
   return runSingleFlight(FLIGHT_KEY, () =>
-    fetch("/api/me/stores", { credentials: "include", cache: "no-store" })
-  ).then(async (res): Promise<MeStoresListResult> => {
-    const json: unknown = await res.clone().json().catch(() => ({}));
-    const result = { status: res.status, json };
-    if (res.ok || res.status === 401 || res.status === 503) {
+    runWithSharedFlightDeadline("me_stores_list", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+      const res = await fetch("/api/me/stores", { credentials: "include", cache: "no-store", signal });
+      const json: unknown = await res.json().catch(() => ({}));
+      return { status: res.status, json };
+    })
+  ).then((result): MeStoresListResult => {
+    if ((result.status >= 200 && result.status < 300) || result.status === 401 || result.status === 503) {
       cached = { value: result, expiresAt: Date.now() + TTL_MS };
     }
     return result;

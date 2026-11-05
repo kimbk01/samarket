@@ -3,6 +3,7 @@
  * 응답은 `owner-store-orders-list-cache` 에 파싱·정규화 후 보관 (허브 타임라인 캐시와 분리).
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   peekOwnerStoreOrdersListCache,
   seedOwnerStoreOrdersListCacheFromJson,
@@ -12,6 +13,15 @@ export type StoreOrdersListResult = {
   status: number;
   json: unknown;
 };
+
+/** 공유 요청 안에서 헤더·본문 읽기를 한 마감으로 묶는다 — 멈춘 요청이 주문 목록 키를 붙잡지 않게 */
+function fetchOwnerOrdersJson(label: string, url: string): Promise<{ ok: boolean; status: number; json: unknown }> {
+  return runWithSharedFlightDeadline(label, ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+    const res = await fetch(url, { credentials: "include", cache: "no-store", signal });
+    const json: unknown = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, json };
+  });
+}
 
 export function fetchStoreOrdersListDeduped(
   storeId: string,
@@ -37,17 +47,16 @@ export function fetchStoreOrdersListDeduped(
   const flightKey = fresh ? `me:store:${sid}:orders:fresh` : `me:store:${sid}:orders`;
   const query = fresh ? "?fresh=1" : "";
   return runSingleFlight(flightKey, async (): Promise<StoreOrdersListResult> => {
-    const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/orders${query}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json: unknown = await res.json().catch(() => ({}));
-    if (res.ok) {
+    const { ok, status, json } = await fetchOwnerOrdersJson(
+      "owner_store_orders_list",
+      `/api/me/stores/${encodeURIComponent(sid)}/orders${query}`
+    );
+    if (ok) {
       seedOwnerStoreOrdersListCacheFromJson(sid, json);
       const cached = peekOwnerStoreOrdersListCache(sid);
       if (cached) {
         return {
-          status: res.status,
+          status,
           json: {
             ok: true,
             orders: cached.orders,
@@ -56,7 +65,7 @@ export function fetchStoreOrdersListDeduped(
         };
       }
     }
-    return { status: res.status, json };
+    return { status, json };
   });
 }
 
@@ -68,12 +77,11 @@ export function fetchOwnerStoreOrdersHistoryPage(
   const sid = storeId.trim();
   const c = cursor.trim();
   return runSingleFlight(`me:store:${sid}:orders:history:${c}`, async (): Promise<StoreOrdersListResult> => {
-    const res = await fetch(
-      `/api/me/stores/${encodeURIComponent(sid)}/orders?history_cursor=${encodeURIComponent(c)}`,
-      { credentials: "include", cache: "no-store" }
+    const { status, json } = await fetchOwnerOrdersJson(
+      "owner_store_orders_history",
+      `/api/me/stores/${encodeURIComponent(sid)}/orders?history_cursor=${encodeURIComponent(c)}`
     );
-    const json: unknown = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    return { status, json };
   });
 }
 
@@ -90,11 +98,10 @@ export function fetchOwnerStoreOrdersDatePage(
   const qs = new URLSearchParams({ from: filter.from, to: filter.to, basis: filter.basis });
   if (cursor.trim()) qs.set("history_cursor", cursor.trim());
   return runSingleFlight(`me:store:${sid}:orders:date:${qs.toString()}`, async (): Promise<StoreOrdersListResult> => {
-    const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/orders?${qs.toString()}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json: unknown = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const { status, json } = await fetchOwnerOrdersJson(
+      "owner_store_orders_date",
+      `/api/me/stores/${encodeURIComponent(sid)}/orders?${qs.toString()}`
+    );
+    return { status, json };
   });
 }
