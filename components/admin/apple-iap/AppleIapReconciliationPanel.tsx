@@ -4,10 +4,16 @@ import { useCallback, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminDecimal, formatAdminNumber, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
+import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
 import type { AppleIapReconGroup } from "@/lib/apple-iap/apple-iap-reconciliation";
 
 function phtToday(): string {
-  return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+  return manilaDateKey(new Date().toISOString()) ?? "";
+}
+
+function phtMonthStart(today: string): string {
+  const [y, m] = today.split("-");
+  return y && m ? `${y}-${m}-01` : today;
 }
 
 function money(milli: number, currency: string): string {
@@ -19,7 +25,7 @@ const INPUT = "min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface 
 /** A-14 — Apple 결제 대사: 기간 합계 + 거래별 CSV. 수수료·실제 지급액은 App Store Connect 보고서에서 대조한다. */
 export function AppleIapReconciliationPanel({ ko }: { ko: boolean }) {
   const today = phtToday();
-  const [from, setFrom] = useState(`${today.slice(0, 8)}01`);
+  const [from, setFrom] = useState(phtMonthStart(today));
   const [to, setTo] = useState(today);
   const [groups, setGroups] = useState<AppleIapReconGroup[] | null>(null);
   const [loading, setLoading] = useState(false);
