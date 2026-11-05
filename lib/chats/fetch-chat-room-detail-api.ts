@@ -1,6 +1,7 @@
 "use client";
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 import { isMissingPostRowChatProductTitle } from "@/lib/chats/chat-product-from-post";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -88,11 +89,19 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
       }
     }
     try {
-      const res = await fetch(`/api/chat/room/${encodeURIComponent(key)}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j: unknown = await res.json().catch(() => null);
+      const { res, j } = await runWithSharedFlightDeadline(
+        "trade_chat_room_detail",
+        ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+        async (signal) => {
+          const res = await fetch(`/api/chat/room/${encodeURIComponent(key)}`, {
+            credentials: "include",
+            cache: "no-store",
+            signal,
+          });
+          const j: unknown = await res.json().catch(() => null);
+          return { res, j };
+        }
+      );
       if (res.status === 404) return { ok: false, status: 404, code: "not_found" as const };
       if (res.status === 401 || res.status === 403) return { ok: false, status: res.status, code: "auth" as const };
       if (!res.ok || !isChatRoomPayload(j)) return { ok: false, status: res.status, code: "load_failed" as const };
