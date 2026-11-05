@@ -38,6 +38,7 @@ import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchAdminStoresReviewList } from "@/lib/admin/fetch-admin-list-entry-client";
 import {
   AdminStoreReviewPanel,
   adminStoreActionSuccessMessage,
@@ -152,8 +153,14 @@ export function AdminStoresPage() {
     setError(null);
     setErrorStatus(undefined);
     try {
-      const res = await fetch(`/api/admin/stores${apiQs}`, { credentials: "include" });
-      const json = await res.json().catch(() => null);
+      const res = await fetchAdminStoresReviewList(apiQs);
+      const json = res.json as {
+        ok?: boolean;
+        error?: string;
+        stores?: AdminStoreRow[];
+        counts?: unknown;
+        total?: unknown;
+      } | null;
       if (res.status === 403) {
         setError("forbidden");
         setErrorStatus(403);
