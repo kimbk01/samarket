@@ -5,6 +5,7 @@
  * JSON 은 단일 파싱 결과로 공유.
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 export type GroupChatBootstrapPayload = {
   ok?: boolean;
@@ -22,12 +23,15 @@ export async function fetchGroupChatBootstrapDeduped(roomId: string): Promise<{
   if (!rid) {
     return { status: 400, data: { error: "invalid_room" } };
   }
-  const res = await runSingleFlight(`group-chat:bootstrap:${rid}`, () =>
-    fetch(`/api/group-chat/rooms/${encodeURIComponent(rid)}/bootstrap`, {
-      credentials: "include",
-      cache: "no-store",
+  return runSingleFlight(`group-chat:bootstrap:${rid}`, () =>
+    runWithSharedFlightDeadline("group_chat_bootstrap", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+      const res = await fetch(`/api/group-chat/rooms/${encodeURIComponent(rid)}/bootstrap`, {
+        credentials: "include",
+        cache: "no-store",
+        signal,
+      });
+      const data = (await res.json().catch(() => ({}))) as GroupChatBootstrapPayload;
+      return { status: res.status, data };
     })
   );
-  const data = (await res.clone().json().catch(() => ({}))) as GroupChatBootstrapPayload;
-  return { status: res.status, data };
 }
