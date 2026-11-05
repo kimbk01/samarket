@@ -6,6 +6,7 @@ import {
 import {
   downgradeCommunityMessengerCallSessionToVoice,
   getCommunityMessengerCallSessionById,
+  lookupCommunityMessengerCallSessionById,
   reconcileUserLiveCallSessions,
   updateCommunityMessengerCallSession,
   upgradeCommunityMessengerCallSessionToVideo,
@@ -42,14 +43,20 @@ export async function GET(
   if (req.nextUrl.searchParams.get("reconcile") === "1") {
     await reconcileUserLiveCallSessions(auth.userId, "session_get");
   }
-  const session = await getCommunityMessengerCallSessionById(auth.userId, sessionId);
-  if (!session) {
+  const lookup = await lookupCommunityMessengerCallSessionById(auth.userId, sessionId);
+  if (lookup.kind === "error") {
+    return NextResponse.json(
+      { ok: false, error: "call_session_lookup_unavailable" },
+      { status: 503, headers: { ...SESSION_GET_CACHE_HEADERS, "Retry-After": "2" } }
+    );
+  }
+  if (lookup.kind !== "found") {
     return NextResponse.json(
       { ok: false, error: "not_found" },
       { status: 404, headers: SESSION_GET_CACHE_HEADERS }
     );
   }
-  return NextResponse.json({ ok: true, session }, { headers: SESSION_GET_CACHE_HEADERS });
+  return NextResponse.json({ ok: true, session: lookup.session }, { headers: SESSION_GET_CACHE_HEADERS });
 }
 
 export async function PATCH(

@@ -156,6 +156,14 @@ import {
   readAndroidOsPipCallSessionId,
   expandCommunityCallFromAndroidOsPip,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { releaseLocalCallFlagsForMissingSession } from "@/lib/community-messenger/call-session-missing-local-cleanup";
+import {
+  classifyCallSessionFetchResponse,
+  createCallSessionLookupHealth,
+  type CallSessionFetchOutcome,
+  type CallSessionLookupDecision,
+  type CallSessionLookupHealth,
+} from "@/lib/community-messenger/call-session-lookup-health";
 import { shouldUseAndroidOsPipSafeLayout } from "@/lib/community-messenger/call-android-os-pip-layout";
 import {
   beginDockEnterTransition,
@@ -1118,6 +1126,14 @@ export function CommunityMessengerCallClient({
   const refreshScheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSilentRefreshAtRef = useRef<number>(0);
   const sessionSilentRefreshBackoffUntilRef = useRef<number>(0);
+  /** 세션 조회 실패 분류·제한 재시도 — sessionId 별 */
+  const sessionLookupHealthRef = useRef<CallSessionLookupHealth | null>(null);
+  const sessionLookupRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 첫 조회가 일시 실패해 재시도 대기 중 — 「통화 없음」 대신 로딩 유지 */
+  const sessionLookupLoadingHeldRef = useRef(false);
+  const refreshSessionRef = useRef<((silent?: boolean) => Promise<CommunityMessengerCallSession | null>) | null>(null);
+  const currentSessionIdRef = useRef(sessionId);
+  currentSessionIdRef.current = sessionId;
   const autoJoinBlockedRef = useRef(false);
   const joinGenerationRef = useRef(0);
   /** 수락·거절·종료 PATCH 중복 클릭 방지 */
@@ -1234,7 +1250,66 @@ export function CommunityMessengerCallClient({
     hadRemoteVideoForLayoutRef.current = false;
     refreshSilentInFlightRef.current = null;
     refreshTerminalSilentInFlightRef.current = null;
+    sessionLookupLoadingHeldRef.current = false;
+    return () => {
+      if (sessionLookupRetryTimerRef.current) {
+        clearTimeout(sessionLookupRetryTimerRef.current);
+        sessionLookupRetryTimerRef.current = null;
+      }
+    };
   }, [sessionId]);
+
+  const readSessionLookupHealth = useCallback((): CallSessionLookupHealth => {
+    const current = sessionLookupHealthRef.current;
+    if (current && current.sessionId === sessionId) return current;
+    const next = createCallSessionLookupHealth(sessionId);
+    sessionLookupHealthRef.current = next;
+    return next;
+  }, [sessionId]);
+
+  /**
+   * 404 확정 — 이 sessionId 의 로컬 표시 플래그만, 통화가 살아 있다는 근거(join 미디어·detached)가 없을 때만 정리.
+   * 미디어는 내리지 않는다. 다른 세션의 플래그·벨·잠금은 건드리지 않는다.
+   */
+  const releaseLocalFlagsForMissingSession = useCallback((sid: string): boolean => {
+    const cleared = releaseLocalCallFlagsForMissingSession({
+      sessionId: sid,
+      joinedMediaSessionId: joinedRef.current ? (mediaOwnerSessionIdRef.current ?? sid) : null,
+      notifyHostSync: notifyCommunityCallHostSync,
+    });
+    console.info(
+      cleared
+        ? "[cm-call-state] session_not_found_confirmed_flags_cleared"
+        : "[cm-call-state] session_not_found_confirmed_keep_live",
+      { sessionId: sid }
+    );
+    return cleared;
+  }, []);
+
+  /** 실패 결과 반영 — 재시도 예약(제한·간격은 health), 404 확정 시 위 정리. 반환: 세션을 null 로 비워도 되는가 */
+  const applySessionLookupFailure = useCallback(
+    (decision: Exclude<CallSessionLookupDecision, { action: "apply" }>, sid: string, health: CallSessionLookupHealth) => {
+      sessionSilentRefreshBackoffUntilRef.current = health.backoffUntil();
+      if (sessionLookupRetryTimerRef.current) {
+        clearTimeout(sessionLookupRetryTimerRef.current);
+        sessionLookupRetryTimerRef.current = null;
+      }
+      if (decision.action === "keep") {
+        if (decision.retryAt != null) {
+          const delay = Math.max(0, decision.retryAt - Date.now()) + 20;
+          sessionLookupRetryTimerRef.current = setTimeout(() => {
+            sessionLookupRetryTimerRef.current = null;
+            if (currentSessionIdRef.current !== sid) return;
+            void refreshSessionRef.current?.(true);
+          }, delay);
+        }
+        return { clearSession: false, pending: decision.retryAt != null };
+      }
+      const cleared = releaseLocalFlagsForMissingSession(sid);
+      return { clearSession: cleared, pending: false };
+    },
+    [releaseLocalFlagsForMissingSession]
+  );
 
   useEffect(() => {
     callKindBootRef.current = { sid: null, kind: null };
@@ -1407,18 +1482,46 @@ export function CommunityMessengerCallClient({
           return sessionRef.current;
         }
         if (!silent) setLoading(true);
+        const requestedSessionId = sessionId;
+        const health = readSessionLookupHealth();
+        let holdLoading = false;
         try {
-          const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-            cache: "no-store",
-          });
-          if (res.status === 429) {
-            const ra = res.headers.get("Retry-After");
-            const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
-            sessionSilentRefreshBackoffUntilRef.current = Date.now() + sec * 1000;
-            return sessionRef.current;
+          let outcome: CallSessionFetchOutcome;
+          try {
+            const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+              cache: "no-store",
+            });
+            const json = (await res.json().catch(() => null)) as SessionResponse | null;
+            outcome = classifyCallSessionFetchResponse(res.status, json, res.headers.get("Retry-After"));
+          } catch {
+            outcome = { kind: "transient" };
           }
-          const json = (await res.json().catch(() => ({}))) as SessionResponse;
-          let nextSession = res.ok && json.ok && json.session ? json.session : null;
+          /* 세션 전환 뒤 늦게 온 응답 — 현재 통화 상태에 반영하지 않는다 */
+          if (currentSessionIdRef.current !== requestedSessionId) return null;
+          const decision = health.record(outcome, Date.now());
+          let nextSession: CommunityMessengerCallSession | null;
+          if (decision.action === "apply") {
+            sessionSilentRefreshBackoffUntilRef.current = 0;
+            nextSession = decision.session;
+          } else {
+            const failure = applySessionLookupFailure(decision, requestedSessionId, health);
+            if (!failure.clearSession) {
+              if (!silent && failure.pending && !sessionRef.current) {
+                sessionLookupLoadingHeldRef.current = true;
+                holdLoading = true;
+              } else if (sessionLookupLoadingHeldRef.current && !failure.pending) {
+                sessionLookupLoadingHeldRef.current = false;
+                setLoading(false);
+                if (!sessionRef.current) setErrorMessage(t("cm_ui_call_session_missing"));
+              }
+              return sessionRef.current;
+            }
+            nextSession = null;
+          }
+          if (sessionLookupLoadingHeldRef.current) {
+            sessionLookupLoadingHeldRef.current = false;
+            setLoading(false);
+          }
           const pin = callTerminalLocalPinRef.current;
           if (
             pin &&
@@ -1467,7 +1570,7 @@ export function CommunityMessengerCallClient({
           }
           return nextSession;
         } finally {
-          if (!silent) setLoading(false);
+          if (!silent && !holdLoading) setLoading(false);
         }
       };
       if (silent) {
@@ -1487,8 +1590,12 @@ export function CommunityMessengerCallClient({
       }
       return run();
     },
-    [sessionId]
+    [applySessionLookupFailure, readSessionLookupHealth, sessionId]
   );
+
+  useEffect(() => {
+    refreshSessionRef.current = refreshSession;
+  }, [refreshSession]);
 
   useEffect(() => {
     void fetchMessengerCallSoundConfig();
@@ -1505,6 +1612,8 @@ export function CommunityMessengerCallClient({
     (reason: "realtime" | "poll" | "ui" | "terminal") => {
       const now = Date.now();
       if (now < sessionSilentRefreshBackoffUntilRef.current) return;
+      /* 자동 폴링만 제한 — 연속 실패 소진·401·404 확정 뒤에는 온라인/화면 복귀·Realtime 신호로만 재조회 */
+      if (reason === "poll" && !readSessionLookupHealth().canAutoRetry(now)) return;
       /** cancel/reject/end: 60/120ms·SILENT_GAP 없이 즉시 GET — 대기 중인 비터미널 스케줄은 취소 */
       if (reason === "terminal") {
         if (sessionRealtimeDebounceRef.current) {
@@ -1533,8 +1642,26 @@ export function CommunityMessengerCallClient({
         void refreshSession(true);
       }, reason === "poll" ? 120 : 60);
     },
-    [refreshSession]
+    [readSessionLookupHealth, refreshSession]
   );
+
+  /** 네트워크·화면 복귀 — 실패로 멈춘 세션 조회를 1회 재개(429 대기는 유지) */
+  useEffect(() => {
+    if (typeof window === "undefined" || isCommunityMessengerTempCallSessionId(sessionId)) return;
+    const resume = () => {
+      if (document.visibilityState === "hidden") return;
+      const health = readSessionLookupHealth();
+      health.resume();
+      sessionSilentRefreshBackoffUntilRef.current = health.backoffUntil();
+      scheduleSilentRefresh("ui");
+    };
+    window.addEventListener("online", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      window.removeEventListener("online", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [readSessionLookupHealth, scheduleSilentRefresh, sessionId]);
 
   /** 1:1 전용 라우트: missed timeout — CallEngine controller SSOT */
   useEffect(() => {
@@ -3911,11 +4038,29 @@ export function CommunityMessengerCallClient({
       }
 
       setLoading(true);
+      let holdLoading = false;
       try {
-        const sessionRes = await fetch(sessionUrl, { cache: "no-store" });
+        let outcome: CallSessionFetchOutcome;
+        try {
+          const sessionRes = await fetch(sessionUrl, { cache: "no-store" });
+          const json = (await sessionRes.json().catch(() => null)) as SessionResponse | null;
+          outcome = classifyCallSessionFetchResponse(sessionRes.status, json, sessionRes.headers.get("Retry-After"));
+        } catch {
+          outcome = { kind: "transient" };
+        }
         if (cancelled) return;
-        const json = (await sessionRes.json().catch(() => ({}))) as SessionResponse;
-        const nextSession = sessionRes.ok && json.ok && json.session ? json.session : null;
+        const health = readSessionLookupHealth();
+        const decision = health.record(outcome, Date.now());
+        if (decision.action !== "apply") {
+          const failure = applySessionLookupFailure(decision, sessionId, health);
+          if (failure.pending) {
+            /* 일시 실패·첫 404 — 제한 재시도 동안 「통화 없음」 대신 로딩 유지 */
+            sessionLookupLoadingHeldRef.current = true;
+            holdLoading = true;
+            return;
+          }
+        }
+        const nextSession = decision.action === "apply" ? decision.session : null;
         const ms = Math.round(perfNow() - shellT0);
         logClientPerf("messenger-call.session.shell", {
           phase: nextSession ? "fetch_ok" : "fetch_miss",
@@ -3941,7 +4086,7 @@ export function CommunityMessengerCallClient({
         }
         /* Agora 토큰: session 상태 반영 후 prefetch effect 가 단일 요청 */
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !holdLoading) setLoading(false);
       }
     };
 
@@ -3950,7 +4095,7 @@ export function CommunityMessengerCallClient({
       cancelled = true;
       void disposeCallMedia({ domAudioNuclear: false });
     };
-  }, [disposeCallMedia, refreshSession, sessionId]);
+  }, [applySessionLookupFailure, disposeCallMedia, readSessionLookupHealth, refreshSession, sessionId]);
 
   useEffect(() => {
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;

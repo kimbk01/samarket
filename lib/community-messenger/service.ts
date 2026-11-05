@@ -5404,14 +5404,33 @@ async function getActiveCallSessionForRoom(
   return mapped;
 }
 
+/**
+ * 통화 세션 조회 결과 — `not_found`(행 없음·잘못된 id)·`forbidden`(참여자 아님)은 서버 DB 기준 확정,
+ * `error` 는 DB 일시 오류(행 유무 미확인)라 부재로 해석하면 안 된다.
+ */
+export type CommunityMessengerCallSessionLookup =
+  | { kind: "found"; session: CommunityMessengerCallSession }
+  | { kind: "not_found" }
+  | { kind: "forbidden" }
+  | { kind: "error" };
+
 export async function getCommunityMessengerCallSessionById(
   userId: string,
   sessionId: string
 ): Promise<CommunityMessengerCallSession | null> {
+  const lookup = await lookupCommunityMessengerCallSessionById(userId, sessionId);
+  return lookup.kind === "found" ? lookup.session : null;
+}
+
+export async function lookupCommunityMessengerCallSessionById(
+  userId: string,
+  sessionId: string
+): Promise<CommunityMessengerCallSessionLookup> {
   const id = trimText(sessionId);
-  if (!id) return null;
+  if (!id) return { kind: "not_found" };
   const sb = getSupabaseOrNull();
   if (sb) {
+    if (!isUuidLikeCallSessionId(id)) return { kind: "not_found" };
     const [sessionRes, participantRes] = await Promise.all([
       (sb as any)
         .from("community_messenger_call_sessions")
@@ -5427,43 +5446,58 @@ export async function getCommunityMessengerCallSessionById(
         .order("created_at", { ascending: true }),
     ]);
     const { data, error } = sessionRes as { data: unknown; error: unknown };
-    if (data && !error) {
-      const row = data as CallSessionRow;
-      const participantRows = (!participantRes.error && participantRes.data
-        ? participantRes.data
-        : []) as CallSessionParticipantRow[];
-      const participants = dedupeIds(
-        participantRows.map((item) => item.user_id).filter((value): value is string => typeof value === "string" && value.length > 0)
-      );
-      const mode = trimText(row.session_mode ?? "") || "direct";
-      const canRead =
-        callSessionParticipantsContain(participants, userId) ||
-        (mode === "direct" &&
-          (messengerUserIdsEqual(row.initiator_user_id, userId) ||
-            messengerUserIdsEqual(row.recipient_user_id, userId)));
-      if (!canRead) return null;
-      return mapCallSession(
+    if (error) return { kind: "error" };
+    if (!data) return { kind: "not_found" };
+    const row = data as CallSessionRow;
+    const participantsFailed = Boolean(participantRes.error);
+    const participantRows = (!participantsFailed && participantRes.data
+      ? participantRes.data
+      : []) as CallSessionParticipantRow[];
+    const participants = dedupeIds(
+      participantRows.map((item) => item.user_id).filter((value): value is string => typeof value === "string" && value.length > 0)
+    );
+    const mode = trimText(row.session_mode ?? "") || "direct";
+    const canRead =
+      callSessionParticipantsContain(participants, userId) ||
+      (mode === "direct" &&
+        (messengerUserIdsEqual(row.initiator_user_id, userId) ||
+          messengerUserIdsEqual(row.recipient_user_id, userId)));
+    if (!canRead) return participantsFailed ? { kind: "error" } : { kind: "forbidden" };
+    return {
+      kind: "found",
+      session: await mapCallSession(
         userId,
         row,
         participantRows.length ? participantRows : null,
         undefined,
         participantRows.length > 0,
         "labels_only"
-      );
-    }
+      ),
+    };
   }
 
+  /* Supabase 미구성(로컬 개발) 전용 — DB 오류를 이 경로로 대체하지 않는다 */
   const dev = getDevState();
   const session = dev.callSessions.find((item) => item.id === id);
-  if (!session) return null;
+  if (!session) return { kind: "not_found" };
   const participants = dedupeIds(session.participants.map((item) => item.userId));
   const canRead =
     callSessionParticipantsContain(participants, userId) ||
     (session.sessionMode === "direct" &&
       (messengerUserIdsEqual(session.initiatorUserId, userId) ||
         messengerUserIdsEqual(session.recipientUserId, userId)));
-  if (!canRead) return null;
-  return mapCallSession(userId, session, undefined, undefined, undefined, "labels_only");
+  if (!canRead) return { kind: "forbidden" };
+  return {
+    kind: "found",
+    session: await mapCallSession(userId, session, undefined, undefined, undefined, "labels_only"),
+  };
+}
+
+const CALL_SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `community_messenger_call_sessions.id` 는 uuid — 형식이 아니면 조회 없이 부재(잘못된 id) */
+function isUuidLikeCallSessionId(id: string): boolean {
+  return CALL_SESSION_UUID_RE.test(id);
 }
 
 function isCallStubRecord(value: unknown): value is Record<string, unknown> {
