@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
-import { formatAdminNumber, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
+import { formatAdminDecimal, formatAdminNumber, formatAdminPhpMinor } from "@/lib/admin/ui-standard/admin-format";
 import type { AppleIapReconGroup } from "@/lib/apple-iap/apple-iap-reconciliation";
 
 function phtToday(): string {
@@ -11,7 +11,7 @@ function phtToday(): string {
 }
 
 function money(milli: number, currency: string): string {
-  return `${(milli / 1000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  return `${formatAdminDecimal(milli / 1000)} ${currency}`;
 }
 
 const INPUT = "min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body";
