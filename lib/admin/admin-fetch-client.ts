@@ -3,6 +3,7 @@
 import { clearAllAdminQueryCache, invalidateAdminQueryCache } from "@/lib/admin/admin-query-cache";
 import { logAdminApiCall } from "@/lib/admin/admin-perf-logger";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 type AdminFetchInit = RequestInit & {
   /** single-flight·TTL 캐시 키. 생략 시 method+url */
@@ -28,6 +29,20 @@ function cloneForCache(res: Response): Response {
   return res.clone();
 }
 
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+/**
+ * 공유 GET 은 헤더·본문 읽기를 한 마감으로 묶어 메모리에 받아 둔다 — 멈춘 응답이 목록 키를 붙잡지 않게.
+ * 저장·승인 등 GET 외 요청과 호출자 signal 이 있는 요청은 마감을 걸지 않는다(중복 실행 위험).
+ */
+function fetchBufferedGet(url: string, init?: AdminFetchInit): Promise<Response> {
+  return runWithSharedFlightDeadline("admin_fetch_get", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+    const res = await fetch(url, { ...init, signal });
+    const body = NULL_BODY_STATUSES.has(res.status) ? null : await res.arrayBuffer();
+    return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
+  });
+}
+
 /**
  * 어드민 클라이언트 fetch — 동시 중복 합류 + 짧은 GET TTL 캐시 + dev perf 로그.
  */
@@ -50,7 +65,7 @@ export async function adminFetch(url: string, init?: AdminFetchInit): Promise<Re
   // waiters parse `{}` (empty list) while the network payload was actually fine.
   const shared = runSingleFlight(dedupeKey, async () => {
     logAdminApiCall(dedupeKey);
-    const res = await fetch(url, init);
+    const res = method === "GET" && !init?.signal ? await fetchBufferedGet(url, init) : await fetch(url, init);
     if (method === "GET" && cacheTtlMs > 0 && res.ok) {
       const cachedAt = Date.now();
       responseCache.set(dedupeKey, {
