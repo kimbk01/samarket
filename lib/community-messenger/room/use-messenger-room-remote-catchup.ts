@@ -14,6 +14,7 @@ import {
   selectNewestConfirmedMessageAnchor,
 } from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
 import { isOpenRoomTerminalCatchUpPendingForRoom } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 
@@ -159,6 +160,13 @@ function runOutcomeSingleFlight(
 export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchupDeps): MessengerRoomRemoteCatchupApi {
   const { roomId, streamRoomId, refresh, snapshotRef, roomMessagesRef, setRoomMessages } = deps;
   const doFetch: typeof fetch = deps.fetchImpl ?? ((...a) => fetch(...a));
+  /** 헤더·본문 전체 마감 — 초과는 throw → 각 호출처의 기존 catch(네트워크 실패와 같은 결과) */
+  const fetchJson = <T,>(path: string): Promise<{ res: Response; json: T }> =>
+    runWithSharedFlightDeadline("cm_room_catchup", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+      const res = await doFetch(path, { cache: "no-store", credentials: "include", signal });
+      const json = (await res.json().catch(() => ({}))) as T;
+      return { res, json };
+    });
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const setTimer = deps.setTimer ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
 
@@ -190,15 +198,11 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
     if (!id) return Promise.resolve("failed");
     return runOutcomeSingleFlight(id, "latest", async () => {
       try {
-        const res = await doFetch(buildCommunityMessengerMessagesLatestPath(id), {
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (res.status === 429) return "rate_limited";
-        const json = (await res.json().catch(() => ({}))) as {
+        const { res, json } = await fetchJson<{
           ok?: boolean;
           messages?: CommunityMessengerMessage[];
-        };
+        }>(buildCommunityMessengerMessagesLatestPath(id));
+        if (res.status === 429) return "rate_limited";
         if (!res.ok || !json.ok || !Array.isArray(json.messages)) return "failed";
         if (json.messages.length === 0) return "none";
         mergeCatchUpRows(id, json.messages);
@@ -227,17 +231,13 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
       let mergedAny = false;
       for (let page = 0; page < MESSENGER_ROOM_AFTER_CATCHUP_MAX_PAGES; page++) {
         try {
-          const res = await doFetch(buildCommunityMessengerMessagesAfterPath(id, cursor), {
-            cache: "no-store",
-            credentials: "include",
-          });
-          if (res.status === 429) return mergedAny ? "merged" : "rate_limited";
-          const json = (await res.json().catch(() => ({}))) as {
+          const { res, json } = await fetchJson<{
             ok?: boolean;
             code?: string;
             messages?: CommunityMessengerMessage[];
             hasMore?: boolean;
-          };
+          }>(buildCommunityMessengerMessagesAfterPath(id, cursor));
+          if (res.status === 429) return mergedAny ? "merged" : "rate_limited";
           if (res.status === 404 && json.code === "not_found" && page === 0) {
             /**
              * C-9: 앵커가 viewer 기준 숨김/삭제 → 같은 앵커 재시도는 영원히 404.
@@ -282,18 +282,14 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
       const rid = (snapshotRef.current?.room?.id?.trim() || streamRoomId?.trim() || "").trim();
       if (!rid) return "failed";
       try {
-        const res = await doFetch(
-          `${communityMessengerRoomResourcePath(rid)}/messages/${encodeURIComponent(mid)}`,
-          { cache: "no-store", credentials: "include" }
-        );
+        const { res, json } = await fetchJson<{
+          ok?: boolean;
+          message?: CommunityMessengerMessage;
+        }>(`${communityMessengerRoomResourcePath(rid)}/messages/${encodeURIComponent(mid)}`);
         if (res.status === 429) {
           lastRateLimitDelayMs = parseRetryAfterMs(res);
           return "rate_limited";
         }
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          message?: CommunityMessengerMessage;
-        };
         if (res.ok && json.ok && json.message) {
           const row = json.message;
           setRoomMessages((prev) => mergeRoomMessages(prev, [row]));
