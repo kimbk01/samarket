@@ -84,6 +84,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId
       deeplink_url: (campaignRow as { deeplink_url?: string | null }).deeplink_url,
       web_url: (campaignRow as { web_url?: string | null }).web_url,
       target_url: (campaignRow as { target_url?: string | null }).target_url,
+      title: (campaignRow as { title?: string | null }).title,
+      body: (campaignRow as { body?: string | null }).body,
     },
     async (eventId) => {
       const { data } = await svc

@@ -8,6 +8,11 @@ import { validateOfficialCampaignSource } from "@/lib/admin/notification-campaig
 import { validateCampaignLinkInput } from "@/lib/admin/notification-campaigns/campaign-link-target";
 import { readSelectedUserIdsFromPayload } from "@/lib/admin/notification-campaigns/selected-user-ids";
 import { pickCampaignMetaKeys } from "@/lib/admin/notification-campaigns/campaign-list-kind";
+import {
+  evaluateNonPromotionalCampaign,
+  NON_PROMOTIONAL_ATTESTATION_KEY,
+  readNonPromotionalAttestation,
+} from "@/lib/admin/notification-campaigns/campaign-promotional-guard";
 
 /**
  * ADM-04: one request parser for create (POST) and edit (PATCH) — same field rules, same
@@ -167,7 +172,20 @@ export function parseCampaignWriteInput(
   // 분류(notice_category)·다시 보내기 원본(resend_of) — 목적지 정규화가 target_payload 를 새로 만들어도 남긴다.
   const metaKeys = pickCampaignMetaKeys(body.target_payload, typ);
   if (!metaKeys.ok) return { ok: false, status: 400, error: metaKeys.error };
-  const targetPayloadWithMeta = { ...resolvedPayload.target_payload, ...metaKeys.meta };
+  // 공지·시스템 = 「광고 내용 없음」 확인 + 광고 표지어 없음 (Owner 2026-11-05). 확인 기록은 목적지 정규화 뒤에도 남긴다.
+  const attested = readNonPromotionalAttestation(body.target_payload);
+  const nonPromotional = evaluateNonPromotionalCampaign({
+    type: typ,
+    title,
+    body: content,
+    target_payload: body.target_payload,
+  });
+  if (!nonPromotional.ok) return { ok: false, status: 400, error: nonPromotional.error };
+  const targetPayloadWithMeta = {
+    ...resolvedPayload.target_payload,
+    ...metaKeys.meta,
+    ...((typ === "notice" || typ === "system") && attested ? { [NON_PROMOTIONAL_ATTESTATION_KEY]: true } : {}),
+  };
 
   const scheduled_at =
     typeof body.scheduled_at === "string" && body.scheduled_at.trim() ? body.scheduled_at.trim() : null;

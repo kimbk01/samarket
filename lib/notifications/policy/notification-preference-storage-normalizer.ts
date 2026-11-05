@@ -14,6 +14,7 @@ import {
   type NormalizedOwnerPreferenceSnapshot,
   type NormalizedQuietPreference,
 } from "@/lib/notifications/policy/notification-preference-normalized-snapshot";
+import { hasValidMarketingConsent } from "@/lib/legal/marketing-consent-validity";
 
 /** Canonical row shape — `user_notification_settings` notification columns. */
 export type NotificationSettingsStorageRow = Readonly<{
@@ -26,6 +27,7 @@ export type NotificationSettingsStorageRow = Readonly<{
   community_social_enabled?: boolean | null;
   notice_enabled?: boolean | null;
   marketing_enabled?: boolean | null;
+  marketing_consent_source?: string | null;
   sound_enabled?: boolean | null;
   vibration_enabled?: boolean | null;
   quiet_hours_enabled?: boolean | null;
@@ -223,13 +225,12 @@ function resolveMemberSnapshot(
       )
     : LEGACY_USER_SETTINGS_PUSH_DEFAULTS.chat_push_enabled;
 
+  // 광고성 알림 = 회원이 직접 한 동의만 (Owner 2026-11-05 HARD LOCK 제한 재개) — 시스템 기본 ON 은 동의 아님.
   const marketingEnabled = hasNotificationRow
-    ? notificationRow.marketing_enabled === undefined
-      ? NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled
-      : notificationRow.marketing_enabled === true
+    ? hasValidMarketingConsent(notificationRow)
     : NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled;
 
-  // 혜택·이벤트 수신 동의 정본 1곳 (Owner 2026-11-03) — `user_notification_settings.marketing_enabled`.
+  // 혜택·이벤트 수신 동의 정본 1곳 (Owner 2026-11-03) — `user_notification_settings.marketing_enabled` + 출처.
   // 구 열 `user_settings.marketing_push_enabled` 는 판정에 쓰지 않는다(더 이상 쓰지도 않음 · 재감사 D-8).
   const marketingPushEnabled = marketingEnabled;
 
@@ -359,7 +360,8 @@ export function resolveAdminOpsSnapshot(
  *
  * Precedence locks:
  * - Push master: legacy `push_enabled` + canonical `service_enabled` (AND at resolver; both stored separately).
- * - Marketing: strict opt-in on `marketing_enabled` only (single source, 2026-11-03); marketingPushEnabled mirrors it.
+ * - Marketing: strict opt-in — `marketing_enabled === true` AND voluntary `marketing_consent_source`
+ *   (signup · settings, 2026-11-05); marketingPushEnabled mirrors it.
  * - Quiet/DND: OR active window (`web-push-user-settings-gate` truth).
  * - Owner optional / admin ops: dedicated P2-A6 rows; absent → P2-A3 compat undefined.
  */

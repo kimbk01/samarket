@@ -60,7 +60,7 @@ describe("B-2 막힌 이유 — 영역 사유가 방해금지보다 먼저", () 
     );
   });
   it("동의 + 방해금지 → 방해금지", () => {
-    expect(decideCampaignPushFromPreferences("marketing", "u1", prefs({ ...QUIET, marketing_enabled: true }), NOW).skipReason).toBe(
+    expect(decideCampaignPushFromPreferences("marketing", "u1", prefs({ ...QUIET, marketing_enabled: true, marketing_consent_source: "settings" }), NOW).skipReason).toBe(
       "quiet_hours"
     );
   });

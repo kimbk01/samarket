@@ -9,12 +9,13 @@ import {
   readMemberMarketingConsent,
   writeMemberMarketingConsent,
 } from "@/lib/legal/marketing-consent.server";
+import { hasValidMarketingConsent } from "@/lib/legal/marketing-consent-validity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SELECT_FIELDS =
-  "service_enabled, trade_chat_enabled, community_chat_enabled, order_enabled, store_enabled, trade_events_enabled, community_social_enabled, notice_enabled, marketing_enabled, sound_enabled, vibration_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end";
+  "service_enabled, trade_chat_enabled, community_chat_enabled, order_enabled, store_enabled, trade_events_enabled, community_social_enabled, notice_enabled, marketing_enabled, marketing_consent_source, sound_enabled, vibration_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end";
 
 const DEFAULTS = {
   service_enabled: true,
@@ -59,8 +60,10 @@ function normalizeSettingsRow(row: Record<string, unknown>) {
     trade_events_enabled: row.trade_events_enabled !== false,
     community_social_enabled: row.community_social_enabled !== false,
     notice_enabled: row.notice_enabled !== false,
-    marketing_enabled:
-      row.marketing_enabled === undefined ? DEFAULTS.marketing_enabled : row.marketing_enabled === true,
+    // 화면 ON = 실제 광고 수신 여부(직접 동의만 · Owner 2026-11-05). 저장값은 바꾸지 않는다.
+    marketing_enabled: hasValidMarketingConsent(row),
+    marketing_consent_source:
+      typeof row.marketing_consent_source === "string" ? row.marketing_consent_source : null,
     sound_enabled: row.sound_enabled !== false,
     vibration_enabled: row.vibration_enabled !== false,
     quiet_hours_enabled: row.quiet_hours_enabled === true,

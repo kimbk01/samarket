@@ -32,7 +32,12 @@ const decide = (type: "notice" | "system" | "marketing", p: ReturnType<typeof pr
 
 describe("푸시 = 동의·회원 설정 (발송·미리보기 같은 판정 · 재감사 C-2)", () => {
   it("이벤트·마케팅 — marketing_enabled 만 본다 (구 marketing_push_enabled 무시)", () => {
-    expect(decide("marketing", prefs({ marketing_enabled: true })).allowed).toBe(true);
+    expect(decide("marketing", prefs({ marketing_enabled: true, marketing_consent_source: "settings" })).allowed).toBe(true);
+    // 2026-11-05 — 시스템 기본 ON(기존 회원 일괄)은 동의가 아니다
+    expect(
+      decide("marketing", prefs({ marketing_enabled: true, marketing_consent_source: "existing_member_default" })).skipReason
+    ).toBe("marketing_not_opted_in");
+    expect(decide("notice", prefs({ marketing_enabled: true, marketing_consent_source: "existing_member_default" })).allowed).toBe(true);
     expect(decide("marketing", prefs(null)).skipReason).toBe("marketing_not_opted_in");
     expect(decide("marketing", prefs({ marketing_enabled: false }, { marketing_push_enabled: true })).skipReason).toBe(
       "marketing_not_opted_in"
@@ -45,7 +50,7 @@ describe("푸시 = 동의·회원 설정 (발송·미리보기 같은 판정 · 
     expect(decide("notice", prefs({ notice_enabled: false })).skipReason).toBe("notice_disabled");
     expect(decide("system", prefs({ notice_enabled: false })).skipReason).toBe("notice_disabled");
     expect(decide("notice", prefs(null, { push_enabled: false })).skipReason).toBe("service_disabled");
-    expect(decide("marketing", prefs({ marketing_enabled: true, service_enabled: false })).skipReason).toBe(
+    expect(decide("marketing", prefs({ marketing_enabled: true, marketing_consent_source: "settings", service_enabled: false })).skipReason).toBe(
       "service_disabled"
     );
   });
@@ -58,7 +63,7 @@ describe("푸시 = 동의·회원 설정 (발송·미리보기 같은 판정 · 
   it("방해금지 시간 = quiet_hours (동의 회원이라도 「미동의」로 적지 않음 · A-3)", () => {
     const quiet = { quiet_hours_enabled: true, quiet_hours_start: "00:00", quiet_hours_end: "23:59" };
     expect(decide("notice", prefs(quiet)).skipReason).toBe("quiet_hours");
-    expect(decide("marketing", prefs({ ...quiet, marketing_enabled: true })).skipReason).toBe("quiet_hours");
+    expect(decide("marketing", prefs({ ...quiet, marketing_enabled: true, marketing_consent_source: "settings" })).skipReason).toBe("quiet_hours");
   });
 });
 

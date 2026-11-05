@@ -52,10 +52,9 @@ function currentMarketingPushAllowed(
   const marketingDb =
     n == null
       ? NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled
-      : n.marketing_enabled === undefined
-        ? NOTIFICATION_SETTINGS_STORAGE_DEFAULTS.marketing_enabled
-        : n.marketing_enabled === true;
-  // 2026-11-03 — 혜택·이벤트 동의 정본 1곳: `marketing_enabled` 만 본다 (구 `marketing_push_enabled` 무시).
+      : n.marketing_enabled === true &&
+        (n.marketing_consent_source === "signup" || n.marketing_consent_source === "settings");
+  // 2026-11-05 — 직접 동의(가입·내정보)만 광고 수신. 구 `marketing_push_enabled` 무시.
   void u;
   return marketingDb;
 }
@@ -117,6 +116,7 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
       service_enabled: true,
       order_enabled: false,
       marketing_enabled: true,
+      marketing_consent_source: "settings",
     };
     const result = snap(n, null);
     expect(result.member?.orderEnabled).toBe(false);
@@ -180,27 +180,46 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
     );
   });
 
-  it("T9 — marketing opt-in = marketing_enabled only (single source 2026-11-03)", () => {
-    const bothOn = snap({ marketing_enabled: true }, { marketing_push_enabled: true });
+  it("T9 — marketing opt-in = marketing_enabled + voluntary source (2026-11-05)", () => {
+    const bothOn = snap(
+      { marketing_enabled: true, marketing_consent_source: "signup" },
+      { marketing_push_enabled: true }
+    );
     expect(bothOn.member?.marketingEnabled).toBe(true);
     expect(bothOn.member?.marketingPushEnabled).toBe(true);
     assertParityWithCurrentSemantics(
-      { marketing_enabled: true },
+      { marketing_enabled: true, marketing_consent_source: "signup" },
       { marketing_push_enabled: true },
       bothOn.member!
     );
 
-    const dbOnly = snap({ marketing_enabled: true }, { marketing_push_enabled: false });
+    const dbOnly = snap(
+      { marketing_enabled: true, marketing_consent_source: "settings" },
+      { marketing_push_enabled: false }
+    );
     expect(dbOnly.member?.marketingEnabled).toBe(true);
     expect(dbOnly.member?.marketingPushEnabled).toBe(true);
 
     const legacyOnly = snap({ marketing_enabled: false }, { marketing_push_enabled: true });
     expect(legacyOnly.member?.marketingPushEnabled).toBe(false);
     assertParityWithCurrentSemantics(
-      { marketing_enabled: true },
+      { marketing_enabled: true, marketing_consent_source: "settings" },
       { marketing_push_enabled: false },
       dbOnly.member!
     );
+  });
+
+  it("T9b — system default ON / admin_created / no source is not consent (stored value kept)", () => {
+    for (const source of ["existing_member_default", "admin_created", null, undefined, "unknown"]) {
+      const row: NotificationSettingsStorageRow = { marketing_enabled: true, marketing_consent_source: source };
+      const result = snap(row, null);
+      expect(result.member?.marketingEnabled).toBe(false);
+      expect(result.member?.marketingPushEnabled).toBe(false);
+      expect(row.marketing_enabled).toBe(true);
+      assertParityWithCurrentSemantics(row, null, result.member!);
+    }
+    const off = snap({ marketing_enabled: false, marketing_consent_source: "settings" }, null);
+    expect(off.member?.marketingEnabled).toBe(false);
   });
 
   it("T10 — chat push off preserves domain toggles", () => {
@@ -362,6 +381,7 @@ describe("normalizeNotificationPreferenceStorage (P2-A4)", () => {
       community_social_enabled: true,
       notice_enabled: true,
       marketing_enabled: true,
+      marketing_consent_source: "signup",
       sound_enabled: true,
       vibration_enabled: true,
       quiet_hours_enabled: false,

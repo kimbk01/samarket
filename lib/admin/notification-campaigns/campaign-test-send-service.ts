@@ -102,6 +102,8 @@ export async function runAdminCampaignTestSend(
       deeplink_url: (camp as { deeplink_url?: string | null }).deeplink_url,
       web_url: (camp as { web_url?: string | null }).web_url,
       target_url: (camp as { target_url?: string | null }).target_url,
+      title: (camp as { title?: string | null }).title,
+      body: (camp as { body?: string | null }).body,
     },
     async (eventId) => {
       const { data } = await svc

@@ -51,6 +51,10 @@ import {
   type CampaignNoticeCategory,
 } from "@/lib/admin/notification-campaigns/campaign-list-kind";
 import { SoundModal, useCategorySoundLabel } from "@/components/admin/notifications/AdminSentNotificationPanels";
+import {
+  NON_PROMOTIONAL_ATTESTATION_KEY,
+  readNonPromotionalAttestation,
+} from "@/lib/admin/notification-campaigns/campaign-promotional-guard";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -168,6 +172,8 @@ export function AdminNotificationCampaignCreatePage({
   const tx = (ko: string, en: string) => (lang === "ko" ? ko : en);
 
   const [category, setCategory] = useState<CampaignNoticeCategory>("notice");
+  /** 공지·시스템 = 「광고 내용 없음」 확인 필수 (Owner 2026-11-05 · 서버가 저장·발송 때 다시 검사). */
+  const [nonPromotionalAttested, setNonPromotionalAttested] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
   const [soundReload, setSoundReload] = useState(0);
   /** ③ 받는 사람 — 알림함(전원) · 푸시(기기 있고 동의·설정 통과) 인원 */
@@ -306,6 +312,7 @@ export function AdminNotificationCampaignCreatePage({
         }
         const str = (v: unknown) => (typeof v === "string" ? v : "");
         setCategory(campaignListKindOf({ type: c.type, target_payload: c.target_payload }));
+        setNonPromotionalAttested(readNonPromotionalAttestation(c.target_payload));
         setTitle(str(c.title));
         setBody(str(c.body));
         const ch = str(c.channel);
@@ -469,8 +476,18 @@ export function AdminNotificationCampaignCreatePage({
   const categoryMissing = !postFitsCategory
     ? [{ id: "post" as const, ko: "분류와 같은 게시판의 글을 고르세요", en: "Choose a post from the matching board" }]
     : [];
-  const missingTest = [...categoryMissing, ...campaignCreateMissingForTest(formState)];
-  const missingSend = [...categoryMissing, ...campaignCreateMissingForSend(formState)];
+  const attestationMissing =
+    (type === "notice" || type === "system") && !nonPromotionalAttested
+      ? [
+          {
+            id: "non_promotional" as const,
+            ko: "광고·혜택·이벤트 내용이 없음을 확인하세요 (광고성이면 「마케팅」 분류)",
+            en: "Confirm there is no promotional content (use Marketing for promotions)",
+          },
+        ]
+      : [];
+  const missingTest = [...categoryMissing, ...attestationMissing, ...campaignCreateMissingForTest(formState)];
+  const missingSend = [...categoryMissing, ...attestationMissing, ...campaignCreateMissingForSend(formState)];
   const sendReady = missingSend.length === 0;
 
   const errorFrom = (j: { error?: unknown }) => campaignCreateErrorMessage(j.error, lang);
@@ -487,6 +504,9 @@ export function AdminNotificationCampaignCreatePage({
           : campaignDestinationPayload(destination) ?? {}),
       // 보낼 때 고른 분류 — 보낸 알림 목록의 분류 탭(서버가 저장 때 남긴다)
       notice_category: category,
+      ...((type === "notice" || type === "system") && nonPromotionalAttested
+        ? { [NON_PROMOTIONAL_ATTESTATION_KEY]: true }
+        : {}),
     };
     return {
       title,
@@ -844,6 +864,23 @@ export function AdminNotificationCampaignCreatePage({
                 "Appears under the same category tab. Each category allows its own destinations."
               )}
             </p>
+            {type === "notice" || type === "system" ? (
+              <label className="flex items-start gap-2 text-sm text-sam-fg" data-admin-notif-non-promotional={nonPromotionalAttested ? "1" : "0"}>
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={nonPromotionalAttested}
+                  disabled={editingLive}
+                  onChange={(e) => setNonPromotionalAttested(e.target.checked)}
+                />
+                <span>
+                  {tx(
+                    "이 알림에는 광고·혜택·할인·이벤트 내용이 없습니다. (광고성이면 「마케팅」 분류로 보내야 직접 동의한 회원에게만 갑니다)",
+                    "This notification has no promotional, benefit, discount or event content. (Promotions must use Marketing so only opted-in members receive them.)"
+                  )}
+                </span>
+              </label>
+            ) : null}
           </div>
 
           {/* ① 내용 */}

@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { upsertCampaignTargetRows } from "@/lib/admin/notification-campaigns/campaign-target-rows";
-import { evaluateCampaignPushGate } from "@/lib/admin/notification-campaigns/campaign-eligibility";
+import {
+  evaluateCampaignPushGate,
+  loadCampaignPreferenceSnapshots,
+} from "@/lib/admin/notification-campaigns/campaign-eligibility";
 import { recordCampaignDelivery } from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import type { CampaignSkipReason } from "@/lib/admin/notification-campaigns/campaign-skip-reasons";
 import { buildAdminCampaignNotificationPresentation } from "@/lib/admin/notification-campaigns/campaign-notification-presentation";
@@ -46,6 +49,18 @@ async function recordUserTargetStatus(
   // 확정 설계 B-9 — 대상 기록 실패를 숨기지 않는다(숨기면 같은 대기 행을 매 배치 다시 읽음). 호출한 배치가 실패로 본다.
   const { error } = await upsertCampaignTargetRows(svc, [{ campaign_id: campaign.id, user_id: userId, ...patch }]);
   if (error) throw new Error(`campaign_target_write_failed:${error.message ?? "unknown"}`);
+}
+
+async function marketingCampaignConsentSkipReason(
+  svc: SupabaseClient,
+  userId: string
+): Promise<CampaignSkipReason | null> {
+  try {
+    const snapshots = await loadCampaignPreferenceSnapshots(svc, [userId]);
+    return snapshots.get(userId)?.member?.marketingEnabled === true ? null : "marketing_not_opted_in";
+  } catch {
+    return "policy_filtered";
+  }
 }
 
 function storedRouteUrl(displayPayload: unknown): string | null {
@@ -127,6 +142,27 @@ export async function sendCampaignToUser(
     : opts?.dedupeScope === "occurrence"
       ? `admin_campaign:${campaign.id}:${occurrenceId}:${userId}`
       : `admin_campaign:${campaign.id}:${userId}`;
+
+  // 광고성(마케팅) 캠페인 = 직접 동의 회원만 알림함·푸시 모두 (Owner 2026-11-05). 설정을 못 읽으면 보내지 않는다.
+  // 공지·시스템 캠페인과 일반 알림함 생성 규칙은 그대로.
+  if (campaign.type === "marketing") {
+    const consentSkip = await marketingCampaignConsentSkipReason(svc, userId);
+    if (consentSkip) {
+      for (const ch of ["in_app", "push"] as const) {
+        if (ch === "in_app" ? !campaignNeedsInApp(channel) : !campaignNeedsPush(channel)) continue;
+        await recordCampaignDelivery(svc, {
+          campaignId: campaign.id,
+          occurrenceId,
+          userId,
+          channel: ch,
+          status: "skipped",
+          skipReason: consentSkip,
+        });
+      }
+      await recordUserTargetStatus(svc, campaign, occurrenceId, userId, "skipped", { skipReason: consentSkip });
+      return { ok: true, sent: false, skipped: true, failed: false, skipReason: consentSkip, notificationEventId: null };
+    }
+  }
 
   if (campaignNeedsInApp(channel)) {
     const created = await createNotificationEvent(svc, {

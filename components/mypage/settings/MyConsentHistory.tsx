@@ -102,11 +102,11 @@ export function MyConsentHistory() {
       const off = safeT("mypage_consent_marketing_off", { fallbackKo: "받지 않음", fallbackEn: "Off" });
       return m.at ? `${off} · ${formatMypageDate(m.at)}` : off;
     }
-    // Pre-existing members were switched on by default (2026-11-03) — not an explicit agreement.
+    // Pre-existing members were switched on by default (2026-11-03) — not an explicit agreement, so not sent.
     if (m.source === "existing_member_default") {
       return safeT("mypage_consent_marketing_default", {
-        fallbackKo: "받음 · 기존 회원 기본 설정",
-        fallbackEn: "On · existing-member default",
+        fallbackKo: "받지 않음 · 직접 동의 전",
+        fallbackEn: "Off · not opted in",
       });
     }
     const on = safeT("mypage_consent_marketing_on", { fallbackKo: "받음 · 동의", fallbackEn: "On · agreed" });

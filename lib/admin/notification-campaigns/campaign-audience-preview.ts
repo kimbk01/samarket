@@ -110,15 +110,16 @@ export async function previewCampaignAudience(
   let iosDevices = 0;
   let webDevices = 0;
 
-  // 알림함은 대상 전원(Owner 2026-11-03) — 회원별 거르기는 푸시만.
+  // 알림함은 대상 전원(Owner 2026-11-03) — 단 광고성(마케팅)은 직접 동의 회원만 (Owner 2026-11-05 · 발송과 같은 판정).
   const eligibleUsers = userIds.length;
-  const inAppEligibleUsers = needsInApp ? eligibleUsers : 0;
+  const marketingInboxGate = needsInApp && input.type === "marketing";
+  let inAppEligibleUsers = needsInApp ? eligibleUsers : 0;
 
   // Cap device lookups for preview cost
   const deviceSample = userIds.slice(0, 800);
   const now = new Date();
   let preferenceSnapshots = new Map<string, Parameters<typeof decideCampaignPushFromPreferences>[2]>();
-  if (needsPush) {
+  if (needsPush || marketingInboxGate) {
     try {
       preferenceSnapshots = await loadCampaignPreferenceSnapshots(svc, deviceSample, now);
     } catch (e) {
@@ -127,12 +128,16 @@ export async function previewCampaignAudience(
         ...empty,
         totalUsers: userIds.length,
         eligibleUsers,
-        inAppEligibleUsers,
+        inAppEligibleUsers: marketingInboxGate ? 0 : inAppEligibleUsers,
         truncated,
         excludedInvalidTarget,
         pushPreviewFailed: true,
       };
     }
+  }
+  if (marketingInboxGate && deviceSample.length > 0) {
+    const consented = deviceSample.filter((id) => preferenceSnapshots.get(id)?.member?.marketingEnabled === true).length;
+    inAppEligibleUsers = Math.round((consented * eligibleUsers) / deviceSample.length);
   }
 
   for (const userId of needsPush ? deviceSample : []) {

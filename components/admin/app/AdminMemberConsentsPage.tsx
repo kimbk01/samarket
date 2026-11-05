@@ -149,8 +149,8 @@ export function AdminMemberConsentsPage() {
               {member.marketingConsentSource ? ` · ${member.marketingConsentSource}` : ""}
               {member.marketingConsentSource === "existing_member_default"
                 ? ko
-                  ? " (기존 회원 기본 설정 — 명시 동의 아님)"
-                  : " (existing-member default — not an explicit consent)"
+                  ? " (기존 회원 기본 설정 — 명시 동의 아님 · 광고 발송 안 함)"
+                  : " (existing-member default — not an explicit consent · no promotional sends)"
                 : ""}
             </li>
           </ul>
