@@ -156,6 +156,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // IA-06: 최고관리자 전용 메뉴 화면 — 화면 자체를 최고관리자로 (쓰기 API 는 이미 requireSuperAdmin)
   { path: "/admin/system", requirement: SUPER },
   { path: "/admin/feed-emergency", requirement: SUPER },
+  /** Apple 인앱 결제 검토 — 지급 재처리·환불 회수 (API = requireSuperAdmin) */
+  { path: "/admin/apple-iap", requirement: SUPER },
   { path: "/admin/runtime-health", requirement: SUPER },
   { path: "/admin/delivery-release-gate", requirement: SUPER },
   { path: "/admin/store-fee-policies", requirement: ANY, action: SUPER },

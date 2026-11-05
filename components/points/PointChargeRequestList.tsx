@@ -20,6 +20,7 @@ const PAYMENT_KEYS: Record<PointPaymentMethod, MessageKey> = {
   bank_transfer: "point_pay_bank_transfer",
   gcash: "point_pay_manual_confirm",
   manual_confirm: "point_pay_manual_confirm",
+  apple_iap: "point_pay_apple_iap",
 };
 
 interface PointChargeRequestListProps {

@@ -13,10 +13,15 @@ import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { recommendChargePlanId } from "@/lib/points/ad-shortage";
+import { useAppleIapTopUp } from "@/lib/apple-iap/use-apple-iap-top-up";
+import { appleIapPhaseBlocksNewPurchase } from "@/lib/apple-iap/apple-iap-contract";
+import { AppleIapStatusNotice } from "@/components/apple-iap/AppleIapStatusNotice";
 
 interface PointChargeFormProps {
   plans: PointPlan[];
   onSuccess: () => void;
+  /** Apple 결제 지급 완료 후 [확인] — 없으면 onSuccess */
+  onAppleCredited?: () => void;
   onClose?: () => void;
   /** page = full-screen form (CS Slice 2); sheet = legacy bottom sheet overlay */
   /** page = 자체 본문 열 · screen = `MyScreen` 안(열은 화면 틀이 소유) · sheet = 시트 */
@@ -26,18 +31,28 @@ interface PointChargeFormProps {
 }
 
 export function PointChargeForm({
-  plans,
+  plans: allPlans,
   onSuccess,
+  onAppleCredited,
   onClose,
   layout = "sheet",
   recommendForPoints = 0,
 }: PointChargeFormProps) {
   const { t, language } = useI18n();
+  /** iOS 앱에 Apple 결제 모듈이 있으면 Apple 결제만 (계좌 안내 숨김 · Apple 3.1.1/3.1.3). Android·웹·구 바이너리는 기존 그대로. */
+  const apple = useAppleIapTopUp({ kind: "point" });
+  const appleProductByPlanId = new Map(
+    apple.products.filter((p) => p.pointPlanId).map((p) => [p.pointPlanId as string, p])
+  );
+  const plans = apple.available ? allPlans.filter((p) => appleProductByPlanId.has(p.id)) : allPlans;
   // 플랜 이름·설명은 화면 언어로 고른다 — 서버 언어 판정(쿠키 없음 → 기본값)에 맡기면 한국어 화면에 영문이 나왔음 (실기 2026-11-03)
   const planName = (p: PointPlan) => (language === "en" ? p.nameEn : p.nameKo) || p.name;
   const planDescription = (p: PointPlan) => (language === "en" ? p.descriptionEn : p.descriptionKo) || p.description;
   const recommendedPlanId = recommendForPoints > 0 ? recommendChargePlanId(plans, recommendForPoints) : null;
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(recommendedPlanId ?? plans[0]?.id ?? "");
+  const [pickedPlanId, setSelectedPlanId] = useState<string>(recommendedPlanId ?? plans[0]?.id ?? "");
+  const selectedPlanId = plans.some((p) => p.id === pickedPlanId)
+    ? pickedPlanId
+    : (recommendedPlanId ?? plans[0]?.id ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PointPaymentMethod>("manual_confirm");
   const [depositorName, setDepositorName] = useState("");
   const [userMemo, setUserMemo] = useState("");
@@ -70,6 +85,17 @@ export function PointChargeForm({
   const methodLabel = (m: PointPaymentMethod) =>
     m === "manual_confirm" ? t("points_ui_method_manual") : t("points_ui_method_bank");
 
+  const appleProduct = selectedPlanId ? appleProductByPlanId.get(selectedPlanId) : undefined;
+  const appleBlocked = apple.busy || appleIapPhaseBlocksNewPurchase(apple.phase);
+  const appleSubmitDisabled = appleBlocked || !appleProduct;
+  const submitApple = () => {
+    if (appleProduct) void apple.purchase(appleProduct.productId);
+  };
+  const dismissApple = () => {
+    if (apple.phase === "credited") (onAppleCredited ?? onSuccess)();
+    apple.dismiss();
+  };
+
   const submit = () =>
     guard.run(async () => {
       if (!selectedPlanId) return;
@@ -101,6 +127,18 @@ export function PointChargeForm({
 
   const body = (
     <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-4 pt-2` : undefined}>
+      {apple.available && plans.length === 0 ? (
+        <AppleIapStatusNotice
+          phase={apple.phase}
+          delayed={apple.delayed}
+          attempt={apple.attempt}
+          errorCode={apple.errorCode}
+          busy={apple.busy}
+          variant="mypage"
+          onRecheck={() => void apple.recheck()}
+          onDismiss={dismissApple}
+        />
+      ) : null}
       {plans.length === 0 ? (
         <p
           className={
@@ -109,7 +147,11 @@ export function PointChargeForm({
               : "rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted"
           }
         >
-          {t("mypage_oa_charge_no_plans")}
+          {!apple.available
+            ? t("mypage_oa_charge_no_plans")
+            : apple.loading
+              ? t("apple_iap_loading")
+              : t("apple_iap_unavailable")}
         </p>
       ) : (
         <>
@@ -167,7 +209,10 @@ export function PointChargeForm({
                         className={overlay ? ovB1 : "sam-text-body"}
                       />
                       <p className={overlay ? `${ovB2} ${ovMuted}` : "sam-text-helper text-sam-muted"}>
-                        {formatMypageMoney(plan.paymentAmount)}
+                        {apple.available
+                          ? (apple.prices[appleProductByPlanId.get(plan.id)?.productId ?? ""] ??
+                            t("apple_iap_price_from_store"))
+                          : formatMypageMoney(plan.paymentAmount)}
                       </p>
                       {(plan.bonusPointAmount ?? 0) > 0 && (
                         <p className={overlay ? `${ovCap} font-semibold text-[color:var(--overlay-primary)]` : "sam-text-xxs text-sam-success"}>
@@ -186,7 +231,21 @@ export function PointChargeForm({
           </p>
           <div className="mb-4 flex flex-wrap gap-2">
             {/* 「자동 이체」 제거 (Owner 승인 v3): 서버는 두 방식 모두 관리자 확인 후 지급 — 자동 처리 없음 */}
-            {(["manual_confirm"] as PointPaymentMethod[]).map((m) => (
+            {apple.available ? (
+              <button
+                type="button"
+                aria-pressed
+                data-selected={overlay ? "true" : undefined}
+                className={
+                  overlay
+                    ? `${OverlayUi.chip} min-w-[8rem] flex-1`
+                    : "min-h-11 min-w-[8rem] flex-1 rounded-ui-rect border border-sam-primary bg-sam-pressed-surface py-2.5 sam-text-body-secondary font-medium text-sam-primary"
+                }
+              >
+                {t("apple_iap_method_label")}
+              </button>
+            ) : null}
+            {(apple.available ? [] : (["manual_confirm"] as PointPaymentMethod[])).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -207,7 +266,7 @@ export function PointChargeForm({
             ))}
           </div>
 
-          {paymentMethod === "manual_confirm" && (
+          {!apple.available && paymentMethod === "manual_confirm" && (
             <div className="mb-4 space-y-2">
               <div
                 className={
@@ -249,9 +308,33 @@ export function PointChargeForm({
             </div>
           )}
 
+          {apple.available ? (
+            <AppleIapStatusNotice
+              phase={apple.phase}
+              delayed={apple.delayed}
+              attempt={apple.attempt}
+              errorCode={apple.errorCode}
+              busy={apple.busy}
+              variant="mypage"
+              onRecheck={() => void apple.recheck()}
+              onDismiss={dismissApple}
+            />
+          ) : null}
+
           {err ? <p className={`mb-3 ${OverlayUi.captionDanger}`}>{err}</p> : null}
 
-          {layout === "page" ? null : (
+          {layout === "page" ? null : apple.available ? (
+            <DibayOverlayButton
+              roleTone="primary"
+              type="button"
+              onClick={submitApple}
+              disabled={appleSubmitDisabled}
+              loading={apple.busy}
+              className="w-full"
+            >
+              {apple.busy ? t("apple_iap_phase_purchasing") : t("apple_iap_pay_cta")}
+            </DibayOverlayButton>
+          ) : (
             <DibayOverlayButton
               roleTone="primary"
               type="button"
@@ -276,12 +359,21 @@ export function PointChargeForm({
         {plans.length > 0 ? (
           <MyStickyCta
             dirty={Boolean(selectedPlanId)}
-            primary={{
-              label: t("points_ui_submit_charge"),
-              onPress: () => void submit(),
-              loading: submitting,
-              disabled: submitting,
-            }}
+            primary={
+              apple.available
+                ? {
+                    label: t("apple_iap_pay_cta"),
+                    onPress: submitApple,
+                    loading: apple.busy,
+                    disabled: appleSubmitDisabled,
+                  }
+                : {
+                    label: t("points_ui_submit_charge"),
+                    onPress: () => void submit(),
+                    loading: submitting,
+                    disabled: submitting,
+                  }
+            }
           />
         ) : null}
       </>

@@ -5,7 +5,8 @@
 export type PointPaymentMethod =
   | "bank_transfer"
   | "gcash"
-  | "manual_confirm";
+  | "manual_confirm"
+  | "apple_iap";
 
 export type PointChargeRequestStatus =
   | "pending"

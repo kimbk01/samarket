@@ -151,6 +151,10 @@ function MyPointsChargePageInner() {
               invalidateMypageSummary();
               router.replace(returnTo ?? (fromCs ? "/mypage/points?from=customer-center" : "/mypage/points"));
             }}
+            onAppleCredited={() => {
+              invalidateMypageSummary();
+              router.replace(returnTo ?? (fromCs ? "/mypage/points?from=customer-center" : "/mypage/points"));
+            }}
           />
         )}
       </div>

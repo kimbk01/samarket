@@ -27,6 +27,9 @@ import { STORE_MONEY_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-sig
 import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key";
 import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodChoiceChips";
+import { useAppleIapTopUp } from "@/lib/apple-iap/use-apple-iap-top-up";
+import { appleIapPhaseBlocksNewPurchase } from "@/lib/apple-iap/apple-iap-contract";
+import { AppleIapStatusNotice } from "@/components/apple-iap/AppleIapStatusNotice";
 
 type TopUpRow = {
   id: string;
@@ -148,6 +151,19 @@ export function OwnerBusinessCashView({
   // R1 — 매장 단위 알림이라 회원 종 숫자로는 못 받음(N-3 FAIL) → 이 매장의 처리 결과 신호로
   // Cash·Coin 잔액·충전 목록을 함께 보인다 → 매장 처리 결과 전부
   useRefetchOnNotificationArrival(refetchSilently, { storeId, kinds: STORE_MONEY_OUTCOME_KINDS });
+
+  /** iOS 앱에 Apple 결제 모듈이 있으면 Apple 결제만 (입금 안내·참조번호 숨김). Android·웹·구 바이너리는 기존 그대로. */
+  const apple = useAppleIapTopUp({
+    kind: "cash",
+    storeId,
+    onCredited: async () => {
+      await load({ silent: true });
+      await onChanged?.();
+    },
+  });
+  const [appleProductId, setAppleProductId] = useState("");
+  const appleSelected = apple.products.find((p) => p.productId === appleProductId) ?? apple.products[0];
+  const appleSubmitDisabled = !appleSelected || apple.busy || appleIapPhaseBlocksNewPurchase(apple.phase);
 
   /** FIN-04 — DB request-writer codes (owner_create_business_cash_charge_request). */
   const topUpErrorMessage = (code: string | undefined): string => {
@@ -313,6 +329,59 @@ export function OwnerBusinessCashView({
           fallbackEn: "Top up Cash",
         })}
       >
+        {apple.available ? (
+          <div data-owner-bc-topup-apple="1">
+            {apple.products.length === 0 ? (
+              <p className="mb-2 text-xs text-sam-muted">
+                {apple.loading ? t("apple_iap_loading") : t("apple_iap_unavailable")}
+              </p>
+            ) : (
+              <>
+                <p className="mb-1 text-xs font-medium text-sam-muted">{t("apple_iap_select_amount")}</p>
+                <div className="mb-2">
+                  <OwnerMethodChoiceChips
+                    options={apple.products.map((p) => ({
+                      value: p.productId,
+                      label: `${formatDeliveryAdPhpMinor(p.cashAmountMinor ?? 0)}${
+                        apple.prices[p.productId] ? ` · ${apple.prices[p.productId]}` : ""
+                      }`,
+                    }))}
+                    value={appleSelected?.productId ?? ""}
+                    onChange={setAppleProductId}
+                    disabled={apple.busy}
+                    ariaLabel={t("apple_iap_select_amount")}
+                    dataAttr="data-owner-bc-topup-apple-product"
+                  />
+                </div>
+              </>
+            )}
+            <AppleIapStatusNotice
+              phase={apple.phase}
+              delayed={apple.delayed}
+              attempt={apple.attempt}
+              errorCode={apple.errorCode}
+              busy={apple.busy}
+              variant="owner"
+              onRecheck={() => void apple.recheck()}
+              onDismiss={apple.dismiss}
+            />
+            <div className={OWNER_FORM_ACTION_ROW_CLASS}>
+              <button
+                type="button"
+                className={OwnerCta.formPrimary}
+                disabled={appleSubmitDisabled}
+                aria-busy={apple.busy}
+                onClick={() => {
+                  if (appleSelected) void apple.purchase(appleSelected.productId);
+                }}
+                data-owner-cta="primary"
+              >
+                {apple.busy ? t("apple_iap_phase_purchasing") : t("apple_iap_pay_cta")}
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         <p className="mb-2 text-xs text-sam-muted" data-owner-bc-topup-deposit-rule="1">
           {safeT("owner_bc_topup_deposit_rule", {
             fallbackKo: "먼저 입금한 뒤 입금 수단과 참조번호(거래번호)를 입력해 주세요. 관리자가 입금을 확인한 뒤 충전됩니다.",
@@ -379,6 +448,8 @@ export function OwnerBusinessCashView({
             })}
           </button>
         </div>
+        </>
+        )}
       </OwnerStoreAdminDashSection>
 
       <OwnerCoinConvertSection

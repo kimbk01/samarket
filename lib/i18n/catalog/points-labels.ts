@@ -30,6 +30,8 @@ export const pointsLabelsMessages = {
 
     point_pay_manual_confirm: "수동확인",
 
+    point_pay_apple_iap: "Apple 결제",
+
     point_ledger_charge: "충전",
 
     point_ledger_spend: "사용",
@@ -101,6 +103,8 @@ export const pointsLabelsMessages = {
     point_pay_gcash: "GCash",
 
     point_pay_manual_confirm: "Manual confirm",
+
+    point_pay_apple_iap: "Apple payment",
 
     point_ledger_charge: "Top-up",
 

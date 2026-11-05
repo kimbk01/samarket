@@ -410,9 +410,11 @@ describe("CUT J IA separation hard lock", () => {
     // + 재감사 B 도메인 「이벤트」 별칭 (배달·거래·커뮤니티 `/admin/platform-events?domain=`) = 235.
     // − 알림 발송 v3 (2026-10-30 Owner 승인) 광고·배너 「홍보 발송」 별칭 삭제 (알림 › 푸시·알림 발송 한 곳) = 234.
     // + Owner 결정 O-6 (2026-11-03) 도메인 신청 처리 별칭: 배달 2(매장 홍보·사장님 팝업) + 거래 1(회원 배너) + 커뮤니티 2(회원 배너·상위노출 가격) = 239.
-    expect(leaves).toHaveLength(239);
+    // + Apple IAP (2026-11-05 Owner 최종 구현 지시) 결제·정산 「Apple 결제 검토」 `/admin/apple-iap` = 240.
+    expect(leaves).toHaveLength(240);
     // 원래 메뉴 leaf = 203 − (`?from=` 진입점 3개[프로모션·마이페이지 배너, 배달 광고]가 별칭으로 바뀜) + 고객지원 보기 2개 = 202
-    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(202);
+    // + Apple 결제 검토 = 203
+    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(203);
   });
 
   it("J21–J34 operational findability primary paths", () => {

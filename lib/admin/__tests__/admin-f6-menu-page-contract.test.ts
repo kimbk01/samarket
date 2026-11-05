@@ -101,6 +101,7 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   "points-policy": "components/admin/point-policies/AdminPointPolicyPage.tsx",
   "points-execute": "components/admin/point-executions/AdminPointExecutionPage.tsx",
   "points-expire": "components/admin/points/AdminPointExpirePage.tsx",
+  "apple-iap": "components/admin/apple-iap/AdminAppleIapReviewPage.tsx",
   "finance-transactions": "app/admin/finance/transactions/page.tsx",
   "finance-stores": "app/admin/finance/stores/page.tsx",
   "finance-orders": "app/admin/finance/orders/page.tsx",

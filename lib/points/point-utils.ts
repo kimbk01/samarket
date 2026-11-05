@@ -41,6 +41,7 @@ export const POINT_PAYMENT_METHOD_LABELS: Record<PointPaymentMethod, string> = {
   bank_transfer: pointPaymentMethodLabel("bank_transfer"),
   gcash: pointPaymentMethodLabel("gcash"),
   manual_confirm: pointPaymentMethodLabel("manual_confirm"),
+  apple_iap: pointPaymentMethodLabel("apple_iap"),
 };
 
 /** @deprecated use `pointLedgerEntryLabel(type)` */

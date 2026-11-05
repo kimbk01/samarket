@@ -24,6 +24,8 @@ export function ownerCashTopUpMethodLabel(method: string, ko: boolean): string {
       return "Maya";
     case "other":
       return ko ? "기타" : "Other";
+    case "apple_iap":
+      return ko ? "Apple 결제" : "Apple payment";
     default:
       return method;
   }

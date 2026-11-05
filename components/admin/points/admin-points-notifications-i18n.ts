@@ -30,6 +30,7 @@ export const ADMIN_POINTS_PAYMENT_METHOD_KEYS: Record<PointPaymentMethod, Messag
   bank_transfer: "admin_points_payment_bank_transfer",
   gcash: "admin_points_payment_gcash",
   manual_confirm: "admin_points_payment_manual_confirm",
+  apple_iap: "admin_points_payment_apple_iap",
 };
 
 export const ADMIN_POINTS_LEDGER_TYPE_KEYS: Record<PointLedgerEntryType, MessageKey> = {

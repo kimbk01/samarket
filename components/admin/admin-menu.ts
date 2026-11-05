@@ -133,6 +133,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "points-policy": "admin_menu_points_policy",
   "points-execute": "admin_menu_points_execute",
   "points-expire": "admin_menu_points_expire",
+  "apple-iap": "admin_menu_apple_iap",
   "store-points-admin": "admin_menu_store_points",
   "store-point-charges-admin": "admin_menu_store_point_charges",
   "store-point-ledger-admin": "admin_menu_store_point_ledger",
@@ -1284,6 +1285,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
           { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
           { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
+          { key: "apple-iap", title: "", path: "/admin/apple-iap", roles: ["master"], status: "done" },
         ],
       },
       {
