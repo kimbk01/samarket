@@ -76,11 +76,15 @@ export function AdminStoreBalanceCorrectionForm({
       title: ko ? "잔액을 정정하시겠습니까?" : "Apply this balance correction?",
       description: `${storeName} · ${asset === "cash" ? "Cash" : "Coin"} ${dirLabel} ${amountLabel} · ${modeLabel}\n${
         ko ? "근거" : "Evidence"
-      }: ${evidenceRef.trim()}`,
+      }: ${evidenceRef.trim()}\n\n${
+        ko
+          ? "입력한 사유는 사장님 정산 내역에 그대로 보입니다. 거래번호·내부 판단은 근거 칸에만 적으세요."
+          : "The reason is shown to the owner in their finance history. Keep tx numbers and internal notes in Evidence."
+      }`,
       confirmLabel: ko ? "정정 실행" : "Apply correction",
       destructive: true,
       retypeValue: storeName,
-      reasonPlaceholder: ko ? "예: 은행 입금 누락 확인 (거래번호 …)" : "e.g. Missed bank deposit confirmed (tx …)",
+      reasonPlaceholder: ko ? "사장님에게 보이는 사유 (예: 입금 누락 정정)" : "Reason shown to the owner (e.g. Missed deposit corrected)",
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -174,7 +178,7 @@ export function AdminStoreBalanceCorrectionForm({
           value={evidenceRef}
           maxLength={500}
           onChange={(e) => setEvidenceRef(e.target.value)}
-          placeholder={ko ? "근거 (거래번호·문의 번호·문서)" : "Evidence (tx no. / ticket / document)"}
+          placeholder={ko ? "근거 — 관리자만 (거래번호·문의 번호·문서)" : "Evidence — admins only (tx no. / ticket / document)"}
         />
       </div>
       <label className="mt-2 flex items-center gap-2 text-[13px] text-sam-fg">

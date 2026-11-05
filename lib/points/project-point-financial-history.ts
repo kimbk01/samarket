@@ -171,6 +171,44 @@ function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
   };
 }
 
+/**
+ * 관리자 수동 지급·회수의 공개 사유 — 감사 기록(audit_logs · user_points)의 `reason`.
+ * 예전 원장 설명은 「사유 · 내부 메모」를 합쳐 썼으므로 원장 설명을 회원에게 그대로 보이지 않는다.
+ * 조회 실패 = null → 호출부는 공개 사유를 비운다(운영팀만 표시).
+ */
+async function loadAdminAdjustPublicReasonMap(
+  sb: SupabaseClient,
+  rows: LedgerRow[]
+): Promise<Map<string, string> | null> {
+  const map = new Map<string, string>();
+  const ids = [...new Set(rows.map((r) => String(r.id ?? "").trim()).filter(Boolean))];
+  const userIds = [...new Set(rows.map((r) => String(r.user_id ?? "").trim()).filter(Boolean))];
+  if (!ids.length || !userIds.length) return map;
+  const { data, error } = await sb
+    .from("audit_logs")
+    .select("after_json")
+    .eq("target_type", "user_points")
+    .in("target_id", userIds)
+    .in("after_json->>ledger_id", ids);
+  if (error) return null;
+  for (const row of (data ?? []) as Array<{ after_json?: Record<string, unknown> | null }>) {
+    const after = row.after_json ?? {};
+    const lid = typeof after.ledger_id === "string" ? after.ledger_id : "";
+    const reason = typeof after.reason === "string" ? after.reason.trim() : "";
+    if (lid && reason) map.set(lid, reason);
+  }
+  return map;
+}
+
+export function withAdminAdjustPublicReason(
+  item: PointFinancialHistoryItem,
+  reasons: Map<string, string> | null
+): PointFinancialHistoryItem {
+  if (!item.adjustment || !MEMBER_PUBLIC_REASON_RELATED_TYPES.has(String(item.relatedType).trim())) return item;
+  const publicReason = reasons == null ? "" : (reasons.get(item.ledgerId) ?? item.adjustment.publicReason ?? "");
+  return { ...item, adjustment: { ...item.adjustment, publicReason } };
+}
+
 async function loadPromotionMap(
   sb: SupabaseClient,
   orderIds: string[]
@@ -762,11 +800,16 @@ async function projectPointLedgerRows(
     .map((r) => String(r.related_id ?? "").replace(/^(hold:|release:|capture:)/, "").trim())
     .filter(Boolean);
   const holdStatus = await loadFeedAdHoldStatusMap(sb, feedRequestIds);
+  const adjustReasons = await loadAdminAdjustPublicReasonMap(
+    sb,
+    pageRows.filter((r) => MEMBER_PUBLIC_REASON_RELATED_TYPES.has(String(r.related_type ?? "").trim()))
+  );
 
   return pageRows
     .map((row) =>
       enrichCommunityItem(enrichItem(asLedgerItemBase(row), promotions, charges, posts, holdToOrder), communityPosts)
     )
+    .map((item) => withAdminAdjustPublicReason(item, adjustReasons))
     .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
     .filter((item): item is PointFinancialHistoryItem => item != null)
     .filter((item) => matchesPointFinancialFilter(item, filter));

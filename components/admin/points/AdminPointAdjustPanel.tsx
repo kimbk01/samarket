@@ -256,7 +256,7 @@ export function AdminPointAdjustPanel({
           />
         </label>
         <label className="block text-sm sm:col-span-2">
-          <span className="text-sam-muted">{ko ? "메모" : "Memo"}</span>
+          <span className="text-sam-muted">{ko ? "내부 메모 (관리자만 · 회원에게 안 보임)" : "Internal memo (admins only · hidden from member)"}</span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             value={memo}

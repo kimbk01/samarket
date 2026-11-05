@@ -18,8 +18,9 @@ import type { MessageKey } from "@/lib/i18n/message-key";
 import { financeTransactionDetailHref } from "@/lib/finance/routes";
 import { financeRefNo } from "@/lib/finance/finance-display-labels";
 import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
+import { AppleIapReconciliationPanel } from "@/components/admin/apple-iap/AppleIapReconciliationPanel";
 
-type Filter = "attention" | "refund" | "all";
+type Filter = "attention" | "refund" | "all" | "recon";
 type Decision = "recover" | "waive" | "recredit";
 
 type ListRow = {
@@ -131,6 +132,7 @@ export function AdminAppleIapReviewPage() {
   const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
+    if (filter === "recon") return;
     let cancelled = false;
     void (async () => {
       setLoading(true);
@@ -253,10 +255,13 @@ export function AdminAppleIapReviewPage() {
           { id: "attention", label: t("apple_iap_admin_filter_attention") },
           { id: "refund", label: t("apple_iap_admin_filter_refund") },
           { id: "all", label: t("apple_iap_admin_filter_all") },
+          { id: "recon", label: ko ? "대사" : "Reconciliation" },
         ]}
       />
 
-      {loading ? (
+      {filter === "recon" ? (
+        <AppleIapReconciliationPanel ko={ko} />
+      ) : loading ? (
         <AdminLoadingState ko={ko} />
       ) : error ? (
         <AdminErrorState ko={ko} code={error.code} httpStatus={error.httpStatus} onRetry={() => setReloadNonce((n) => n + 1)} />

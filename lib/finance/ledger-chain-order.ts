@@ -42,23 +42,27 @@ export function orderLedgerChainDesc<T>(
   view: (r: T) => LedgerChainView,
   olderBalance: number | null = null
 ): T[] {
-  const out: T[] = [];
+  const groups: T[][] = [];
   let i = 0;
   while (i < rows.length) {
     const at = view(rows[i]!).createdAt;
     let j = i + 1;
     while (j < rows.length && view(rows[j]!).createdAt === at) j += 1;
-    const group = rows.slice(i, j);
-    if (group.length < 2) {
-      out.push(...group);
-    } else {
-      const prev = j < rows.length ? view(rows[j]!).balanceAfter : olderBalance;
-      const asc = chainAscending(group, view, prev);
-      out.push(...(asc ? asc.reverse() : group));
-    }
+    groups.push(rows.slice(i, j));
     i = j;
   }
-  return out;
+  // 오래된 묶음부터 — 다음 묶음의 시작 잔액은 앞 묶음을 사슬로 정한 뒤의 마지막 잔액이다
+  // (같은 시각 묶음이 연달아 있으면 앞 묶음의 무작위 id 순 첫 줄은 마지막 잔액이 아니다)
+  const ordered: T[][] = new Array(groups.length);
+  let prev = olderBalance;
+  for (let g = groups.length - 1; g >= 0; g -= 1) {
+    const group = groups[g]!;
+    const asc = group.length < 2 ? group : chainAscending(group, view, prev);
+    const desc = asc ? [...asc].reverse() : group;
+    ordered[g] = desc;
+    prev = view(desc[0]!).balanceAfter;
+  }
+  return ordered.flat();
 }
 
 /** 최신 줄 (같은 시각이면 사슬의 마지막 줄). `rows` = created_at 내림차순. */

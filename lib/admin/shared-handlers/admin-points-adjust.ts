@@ -45,7 +45,8 @@ export async function handleAdminPointsAdjustPost(
   const amount = Math.trunc(Number(body.amount) || 0);
   const reason = String(body.reason ?? "").trim();
   const memo = String(body.memo ?? "").trim();
-  const description = memo ? `${reason} · ${memo}` : reason;
+  // 원장 설명 = 회원에게 보이는 공개 사유만. 내부 메모는 감사 기록(after.memo)에만 남긴다.
+  const description = reason;
 
   if (op !== "credit" && op !== "debit") {
     return NextResponse.json({ ok: false, error: "invalid_op" }, { status: 400 });

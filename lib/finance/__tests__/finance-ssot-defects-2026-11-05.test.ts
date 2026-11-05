@@ -16,8 +16,10 @@ import { walletLedgerAdApplicationId, walletLedgerPublicReason } from "@/lib/fin
 import { financeAuditActionLabel, financeAuditTargetLabel } from "@/lib/admin/finance-audit-labels";
 import { adminActorLabel } from "@/lib/admin/load-admin-actor-names";
 import { toMemberChargeRequest } from "@/lib/points/admin-user-points-shared";
-import { toMemberPointHistoryItem } from "@/lib/points/project-point-financial-history";
-import { isHiddenCaptureAuditRow } from "@/lib/points/point-period-history";
+import { toMemberPointHistoryItem, withAdminAdjustPublicReason } from "@/lib/points/project-point-financial-history";
+import { isHiddenCaptureAuditRow, pickPointLedgerChainTail } from "@/lib/points/point-period-history";
+import { orderLedgerChainDesc } from "@/lib/finance/ledger-chain-order";
+import { appleIapReconCsv, phtDayRange, summarizeAppleIapRecon } from "@/lib/apple-iap/apple-iap-reconciliation";
 import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
 import type { PointChargeRequest } from "@/lib/types/point";
 import {
@@ -128,6 +130,21 @@ describe("내부 메모·처리자 노출 차단", () => {
     expect(m.actorId).toBeNull();
   });
 
+  it("예전 「사유 · 내부 메모」 원장 — 감사 기록의 공개 사유만, 조회 실패면 비움", () => {
+    const legacy = {
+      ...baseItem,
+      relatedType: "admin_manual",
+      description: "이벤트 보상 · 내부 확인용 메모",
+      adjustment: { reason: "이벤트 보상 · 내부 확인용 메모", publicReason: "이벤트 보상 · 내부 확인용 메모", actorType: "admin" },
+    } as PointFinancialHistoryItem;
+    const fromAudit = toMemberPointHistoryItem(withAdminAdjustPublicReason(legacy, new Map([["l1", "이벤트 보상"]])));
+    expect(fromAudit.subtitle).toBe("이벤트 보상");
+    expect(JSON.stringify(fromAudit)).not.toContain("내부 확인용 메모");
+    const failed = toMemberPointHistoryItem(withAdminAdjustPublicReason(legacy, null));
+    expect(failed.subtitle).toBe("운영팀");
+    expect(JSON.stringify(failed)).not.toContain("내부 확인용 메모");
+  });
+
   it("회원 충전 신청 — 관리자 메모·처리자·검증 메모 제거", () => {
     const r = toMemberChargeRequest({
       id: "c1",
@@ -162,6 +179,81 @@ describe("내부 메모·처리자 노출 차단", () => {
     const names = new Map([["a", "운영자A"]]);
     expect(adminActorLabel(names, "a")).toBe("운영자A");
     expect(adminActorLabel(names, null)).toBeNull();
+  });
+});
+
+describe("Point 잔액 사슬 — 같은 시각 +1/−1 묶음이 연달아 있을 때", () => {
+  // 운영 원장 모양 그대로: 6 → (+1 → 7, −1 → 6) → (+1 → 7, −1 → 6). id 순서는 사슬과 반대.
+  const rows = [
+    { id: "d4", created_at: "2026-09-17T15:34:45Z", amount: -1, balance_after: 6 },
+    { id: "d3", created_at: "2026-09-17T15:34:45Z", amount: 1, balance_after: 7 },
+    { id: "c2", created_at: "2026-09-17T15:30:44Z", amount: 1, balance_after: 7 },
+    { id: "c1", created_at: "2026-09-17T15:30:44Z", amount: -1, balance_after: 6 },
+    { id: "b0", created_at: "2026-09-07T15:11:02Z", amount: 1, balance_after: 6 },
+  ];
+
+  it("앞 묶음을 사슬로 정한 잔액에서 다음 묶음을 시작한다 — 최신 잔액 6", () => {
+    const view = (r: (typeof rows)[number]) => ({ createdAt: r.created_at, signed: r.amount, balanceAfter: r.balance_after });
+    const ordered = orderLedgerChainDesc(rows, view);
+    expect(ordered.map((r) => r.id)).toEqual(["d4", "d3", "c1", "c2", "b0"]);
+    expect(pickPointLedgerChainTail(rows)?.balance_after).toBe(6);
+  });
+});
+
+describe("A-14 Apple 결제 대사 자료", () => {
+  const base = {
+    original_transaction_id: null,
+    environment: "Production",
+    purchase_date: "2026-11-05T01:00:00Z",
+    product_id: "dibay.point.1000",
+    kind: "point",
+    currency: "PHP",
+    storefront: "PHL",
+    price_milli: 55000,
+    point_amount: 1000,
+    cash_amount_minor: null,
+    credited_at: "2026-11-05T01:00:05Z",
+    credit_ledger_id: "led-1",
+    refund_notified_at: null,
+    refund_ledger_id: null,
+  };
+
+  it("결제 완료 줄만 합계 · 지급 전·환불 처리 상태를 따로 센다", () => {
+    const groups = summarizeAppleIapRecon([
+      { ...base, transaction_id: "t1", status: "credited", refund_status: "none" },
+      { ...base, transaction_id: "t2", status: "credited", refund_status: "recovered", refund_notified_at: "2026-11-06T00:00:00Z" },
+      { ...base, transaction_id: "t3", status: "received", refund_status: "none", credited_at: null, credit_ledger_id: null },
+      { ...base, transaction_id: null, status: "prepared", refund_status: "none" },
+      { ...base, transaction_id: "t4", status: "user_cancelled", refund_status: "none" },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      purchases: 3,
+      customerPriceMilli: 165000,
+      credited: 2,
+      creditedPoint: 2000,
+      notCredited: 1,
+      refunds: 1,
+      refundRecovered: 1,
+    });
+  });
+
+  it("CSV — 결제 완료 거래 1건 = 1줄, 고객 결제가는 통화 단위", () => {
+    const csv = appleIapReconCsv([
+      { ...base, transaction_id: "t1", status: "credited", refund_status: "none" },
+      { ...base, transaction_id: null, status: "prepared", refund_status: "none" },
+    ]).trim().split("\n");
+    expect(csv).toHaveLength(2);
+    expect(csv[1]).toContain("t1,,Production,2026-11-05 09:00:00,dibay.point.1000,point,PHL,PHP,55.00,credited");
+  });
+
+  it("기간은 PHT 하루 경계 · 잘못된 값은 거부", () => {
+    expect(phtDayRange("2026-11-01", "2026-11-30")).toEqual({
+      fromIso: "2026-10-31T16:00:00.000Z",
+      toIso: "2026-11-30T16:00:00.000Z",
+    });
+    expect(phtDayRange("2026-11-30", "2026-11-01")).toBeNull();
+    expect(phtDayRange("bad", "2026-11-01")).toBeNull();
   });
 });
 
