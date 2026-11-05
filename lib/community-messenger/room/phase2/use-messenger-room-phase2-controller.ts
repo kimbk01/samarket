@@ -87,6 +87,7 @@ import {
   clearAllCommunityCallLocalSessionFlags,
   disposeDetachedCommunityCallIfStale,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { canRoomSnapshotDisposeDetachedCall } from "@/lib/community-messenger/room/room-snapshot-call-authority";
 import {
   launchOutgoingDirectCall,
   rememberCallNavigationReturnPath,
@@ -280,6 +281,7 @@ export function useMessengerRoomPhase2Controller() {
     loadOlderMessagesRef,
     loadedRef,
     loading,
+    bootstrapServerSnapshotUnknown,
     loadingOlderMessages,
     managedDirectCallError,
     managementEventMessages,
@@ -468,10 +470,10 @@ export function useMessengerRoomPhase2Controller() {
   const groupInviteLink = useGroupRoomInviteLink(streamRoomId, Boolean(isPrivateGroupRoom && snapshot));
 
   useEffect(() => {
-    /* 스냅샷 로딩 전에는 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
-    if (loading) return;
+    /* 스냅샷 로딩 전·서버 스냅샷 미확인이면 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
+    if (!canRoomSnapshotDisposeDetachedCall({ loading, serverSnapshotUnknown: bootstrapServerSnapshotUnknown })) return;
     void disposeDetachedCommunityCallIfStale(snapshot?.activeCall?.id ?? null);
-  }, [loading, snapshot?.activeCall?.id]);
+  }, [loading, bootstrapServerSnapshotUnknown, snapshot?.activeCall?.id]);
 
   /** 서버에 진행 중 통화가 없을 때 sessionStorage 잔존 제거(채팅 배너는 오직 스냅샷 activeCall 만 신뢰) */
   useEffect(() => {

@@ -2,7 +2,7 @@
 /**
  * 방 silent bootstrap 공유 요청 마감(A1).
  * - silent 마감 초과는 기존 silent 실패 응답과 같다: 스냅샷·loading 을 건드리지 않는다(통화 정리 effect 비발화).
- * - blocking 요청은 바꾸지 않는다(signal 없음) — 별도 설계(B1).
+ * - foreground(blocking) 마감은 `room-bootstrap-foreground-deadline.test.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installStallFetch, stallState } from "@/lib/http/__tests__/shared-flight-stall-harness";
@@ -145,16 +145,5 @@ describe("A1 정상 경로 보존", () => {
     expect(deps.setSnapshot).toHaveBeenCalled();
     expect(deps.setLoading).not.toHaveBeenCalled();
     expect(deps.silentRoomRefreshBusyRef.current).toBe(false);
-  });
-
-  it("blocking 요청은 변경 없음: signal 없이 보낸다", async () => {
-    const create = await loadRefresh();
-    const deps = makeDeps("room-n2");
-    const o = track(create(deps as never)(false, { forceForegroundBlock: true, triggerReason: "lifecycle_first_block" }));
-    await vi.advanceTimersByTimeAsync(1_000);
-    expect(o.state).toBe("resolved");
-    expect(stallState.fetchCalls).toBe(1);
-    expect(fetchInit(0).signal).toBeUndefined();
-    expect(deps.setLoading).toHaveBeenCalledWith(false);
   });
 });

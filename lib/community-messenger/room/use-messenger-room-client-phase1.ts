@@ -619,6 +619,8 @@ export function useMessengerRoomClientPhase1({
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   /** 부트스트랩 대기와 입력창 활성을 분리 — 타임라인만 스켈레톤·보강 */
   const [loading, setLoading] = useState(false);
+  /** foreground bootstrap 마감 초과 후 서버 스냅샷 미확인 — 통화 상태 모름(통화 없음 근거 아님) */
+  const [bootstrapServerSnapshotUnknown, setBootstrapServerSnapshotUnknown] = useState(false);
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   /** R2-M8: viewport DOM 부착 후에만 virtualizer·파생 목록 마운트 (scroll root 없이 getVirtualItems()=[] 방지) */
@@ -820,6 +822,7 @@ export function useMessengerRoomClientPhase1({
     onBlockingBootstrapDenied: (status: number) => onBlockingBootstrapDeniedRef.current(status),
     reportTimelineBootstrapOutcome: (payload: TimelineBootstrapOutcomePayload) =>
       reportTimelineBootstrapOutcomeRef.current(payload),
+    onBootstrapServerSnapshotUnknownChange: setBootstrapServerSnapshotUnknown,
   });
   refreshBootstrapDepsRef.current = {
     roomId,
@@ -837,6 +840,7 @@ export function useMessengerRoomClientPhase1({
     onBlockingBootstrapDenied: (status: number) => onBlockingBootstrapDeniedRef.current(status),
     reportTimelineBootstrapOutcome: (payload: TimelineBootstrapOutcomePayload) =>
       reportTimelineBootstrapOutcomeRef.current(payload),
+    onBootstrapServerSnapshotUnknownChange: setBootstrapServerSnapshotUnknown,
   };
 
   const refreshBootstrapImplRef = useRef<ReturnType<typeof createMessengerRoomBootstrapRefresh> | null>(
@@ -861,6 +865,7 @@ export function useMessengerRoomClientPhase1({
       swrDeferredBootstrapTimerRef: d.swrDeferredBootstrapTimerRef,
       onBlockingBootstrapDenied: d.onBlockingBootstrapDenied,
       reportTimelineBootstrapOutcome: d.reportTimelineBootstrapOutcome,
+      onBootstrapServerSnapshotUnknownChange: d.onBootstrapServerSnapshotUnknownChange,
     });
     return refreshBootstrapImplRef.current;
   }, []);
@@ -2053,6 +2058,7 @@ export function useMessengerRoomClientPhase1({
   loadedRef,
   loadFriends,
   loading,
+  bootstrapServerSnapshotUnknown,
   loadingOlderMessages,
   timelineInitialLoadComplete,
   timelineLoadFailed,

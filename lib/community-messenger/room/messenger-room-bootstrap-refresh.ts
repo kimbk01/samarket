@@ -162,6 +162,11 @@ export type MessengerRoomBootstrapRefreshDeps = {
     triggerReason?: string;
     snapshotMessageCount: number;
   }) => void;
+  /**
+   * 서버 스냅샷이 확인되지 않은 채 foreground bootstrap 이 마감 초과로 끝남(true) / 서버 스냅샷 수신(false).
+   * true 동안은 통화 상태를 모르는 것이지 통화가 없다는 근거가 아니다.
+   */
+  onBootstrapServerSnapshotUnknownChange?: (unknown: boolean) => void;
 };
 
 function applyPrimedTimelineSeed(
@@ -259,7 +264,29 @@ export function createMessengerRoomBootstrapRefresh(
     setRoomMessages,
     onBlockingBootstrapDenied,
     reportTimelineBootstrapOutcome,
+    onBootstrapServerSnapshotUnknownChange,
   } = deps;
+
+  /** foreground 마감 초과 — 스냅샷은 그대로 두고(방·메시지 보존) 기존 타임라인 실패·다시 시도 UI 로 넘긴다 */
+  function handleForegroundBootstrapDeadline(args: {
+    shouldBlock: boolean;
+    reqSrc: string;
+    triggerReason?: string;
+    ownsFlight: boolean;
+  }): void {
+    if (args.ownsFlight) markCmRoomForegroundBootstrapFailure(roomId, args.reqSrc as CmForegroundBootstrapSource);
+    onBootstrapServerSnapshotUnknownChange?.(true);
+    if ((args.shouldBlock || args.triggerReason === "timeline_bootstrap_retry") && reportTimelineBootstrapOutcome) {
+      reportTimelineBootstrapOutcome({
+        ok: false,
+        httpStatus: 0,
+        shouldBlock: args.shouldBlock,
+        silent: false,
+        triggerReason: args.triggerReason,
+        snapshotMessageCount: 0,
+      });
+    }
+  }
 
   /** 사일런트 GET 폭주(visibility/pageshow/realtime 버스트) 완화 */
   let lastSilentRefreshAt = 0;
@@ -750,10 +777,19 @@ export function createMessengerRoomBootstrapRefresh(
           const inflight = getSingleFlightPromise<BootstrapFlightResult>(flightKey);
           const joined = inflight
             ? await inflight.catch((err: unknown) => {
-                if (isSharedFlightDeadlineError(err)) return null;
-                throw err;
+                if (!isSharedFlightDeadlineError(err)) throw err;
+                if (!silent) {
+                  handleForegroundBootstrapDeadline({
+                    shouldBlock,
+                    reqSrc,
+                    triggerReason: opts?.triggerReason,
+                    ownsFlight: false,
+                  });
+                }
+                return null;
               })
             : null;
+          if (joined?.roomRes.ok && joined.snap) onBootstrapServerSnapshotUnknownChange?.(false);
           if (joined) {
             applyBootstrapFlightResult({
               roomRes: joined.roomRes,
@@ -887,14 +923,11 @@ export function createMessengerRoomBootstrapRefresh(
                 const bodyText = await res.text();
                 return { res, tAfterHeaders, bodyText };
               };
-              /** silent 만 마감 — blocking 은 loading 해제가 통화 정리(`disposeDetachedCommunityCallIfStale`)와 묶여 있어 별도 설계(B1) */
-              const { res, tAfterHeaders, bodyText } = silent
-                ? await runWithSharedFlightDeadline(
-                    "cm_room_bootstrap_silent",
-                    ENTRY_SHARED_FLIGHT_DEADLINE_MS,
-                    readBootstrapResponse
-                  )
-                : await readBootstrapResponse();
+              const { res, tAfterHeaders, bodyText } = await runWithSharedFlightDeadline(
+                silent ? "cm_room_bootstrap_silent" : "cm_room_bootstrap_foreground",
+                ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+                readBootstrapResponse
+              );
               const fetchToHeadersMs =
                 typeof performance !== "undefined" ? tAfterHeaders - tFetch : Date.now() - (tFetch as number);
               const tAfterBody = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -1011,8 +1044,13 @@ export function createMessengerRoomBootstrapRefresh(
         runCmBootstrapNetworkWork(fetchPriority, executeFetch);
       });
       } catch (err) {
-        /** silent 마감 초과는 실패 응답과 같게 끝낸다 — 스냅샷·loading 유지, `void refresh(true)` 로 reject 누출 금지 */
-        if (silent && isSharedFlightDeadlineError(err)) return;
+        /** 마감 초과: 스냅샷 유지 · reject 누출 금지. silent 는 실패 응답과 같고, foreground 는 서버 스냅샷 미확인으로 표시 */
+        if (isSharedFlightDeadlineError(err)) {
+          if (!silent) {
+            handleForegroundBootstrapDeadline({ shouldBlock, reqSrc, triggerReason: opts?.triggerReason, ownsFlight: true });
+          }
+          return;
+        }
         throw err;
       } finally {
         releaseCmBootstrapRoomLock(roomId);
@@ -1050,6 +1088,7 @@ export function createMessengerRoomBootstrapRefresh(
         bootstrapTierHdr,
         tBoot,
       });
+      if (roomRes.ok && snap) onBootstrapServerSnapshotUnknownChange?.(false);
       if (
         shouldBlock &&
         !roomRes.ok &&
