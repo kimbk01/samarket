@@ -7,6 +7,7 @@
  */
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import type { PointChargeRequest } from "@/lib/types/point";
 import type {
   PointFinancialFilter,
@@ -155,14 +156,17 @@ export async function fetchMePoints(opts: {
   const cacheKey = `${opts.filter}|${periodKey(opts.period)}${pageKey(opts.page)}`;
   // 본문은 single-flight 안에서 1회만 파싱 — 합류한 호출이 같은 Response 를 다시 읽지 않게
   const flightKey = `me:points:fin:${cacheKey}:${opts.cursor ?? "0"}:${opts.page?.withSummary === false ? "ns" : "s"}`;
-  const result = await runSingleFlight(flightKey, async () => {
-    const res = await fetch(`/api/me/points?${qs.toString()}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const body = (await res.json().catch(() => ({}))) as MePointsResponse;
-    return { status: res.status, ok: res.ok, json: body };
-  });
+  const result = await runSingleFlight(flightKey, () =>
+    runWithSharedFlightDeadline("me_points", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+      const res = await fetch(`/api/me/points?${qs.toString()}`, {
+        credentials: "include",
+        cache: "no-store",
+        signal,
+      });
+      const body = (await res.json().catch(() => ({}))) as MePointsResponse;
+      return { status: res.status, ok: res.ok, json: body };
+    })
+  );
   // 합계를 뺀 응답(쪽만 바꿈)은 캐시하지 않는다 — 재진입 첫 화면에 합계가 비지 않게
   if (result.ok && result.json?.ok && !opts.cursor && opts.page?.withSummary !== false) {
     cache.set(cacheKey, { value: result.json, savedAt: Date.now() });
