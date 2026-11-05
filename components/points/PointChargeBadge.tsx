@@ -1,33 +1,10 @@
 "use client";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { FinanceStatusBadge } from "@/components/finance/FinanceStatusBadge";
+import { pointChargeStatusDisplay } from "@/lib/finance/finance-display-labels";
 import type { PointChargeRequestStatus } from "@/lib/types/point";
 
-const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
-  pending: "points_ui_badge_pending",
-  waiting_confirm: "point_status_waiting_confirm",
-  on_hold: "point_status_on_hold",
-  approved: "points_ui_badge_approved",
-  rejected: "point_status_rejected",
-  cancelled: "point_status_cancelled",
-};
-
-const STYLES: Record<PointChargeRequestStatus, string> = {
-  pending: "bg-sam-info-soft text-sam-info",
-  waiting_confirm: "bg-sam-warning-soft text-sam-warning",
-  on_hold: "bg-sam-surface-muted text-sam-muted",
-  approved: "bg-sam-success-soft text-sam-success",
-  rejected: "bg-sam-danger-soft text-sam-danger",
-  cancelled: "bg-sam-surface-muted text-sam-meta",
-};
-
+/** 관리자 Point 충전 목록 배지 — 회원 화면과 같은 상태 이름 (금융 SSOT) */
 export function PointChargeBadge({ status }: { status: PointChargeRequestStatus }) {
-  const { t } = useI18n();
-
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${STYLES[status]}`}>
-      {t(STATUS_KEYS[status])}
-    </span>
-  );
+  return <FinanceStatusBadge label={pointChargeStatusDisplay(status)} fallback={status} />;
 }

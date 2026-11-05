@@ -246,7 +246,7 @@ export function splitStoreCommissionApproval(input: {
 
 export const STORE_COMMISSION_ROW_STATE_LABEL: Record<StoreCommissionRowState, { ko: string; en: string }> = {
   charged: { ko: "차감 완료", en: "Charged" },
-  outstanding: { ko: "미납(캐시 부족)", en: "Outstanding" },
+  outstanding: { ko: "미납(Cash 부족)", en: "Outstanding" },
   review_required: { ko: "취소·환불 검토 중", en: "Under review" },
   refunded: { ko: "수수료 환급", en: "Fee refunded" },
   kept: { ko: "환급 반려", en: "Refund rejected" },
@@ -300,17 +300,18 @@ export const BUSINESS_CASH_LEDGER_KINDS = [
 
 export type BusinessCashLedgerKind = (typeof BUSINESS_CASH_LEDGER_KINDS)[number];
 
+/** 이름 = `lib/finance/presentation` TYPE_LABELS 와 같은 1벌 (관리자·사장님 공용 · 금융 SSOT) */
 export const BUSINESS_CASH_LEDGER_KIND_LABEL: Record<BusinessCashLedgerKind, { ko: string; en: string }> = {
-  TOP_UP: { ko: "캐시 충전", en: "Top-up" },
-  CONVERT_FROM_STORE_POINTS: { ko: "Coin→캐시 전환", en: "Coin → Cash" },
-  SALE_FEE: { ko: "수수료 차감", en: "Commission" },
-  SALE_FEE_SETTLEMENT: { ko: "미납 수수료 정산", en: "Unpaid commission settled" },
-  SALE_FEE_REVERSAL: { ko: "수수료 환급", en: "Commission refund" },
+  TOP_UP: { ko: "Cash 충전", en: "Cash top-up" },
+  CONVERT_FROM_STORE_POINTS: { ko: "Coin→Cash 전환 (Cash 입금)", en: "Coin→Cash convert (Cash in)" },
+  SALE_FEE: { ko: "판매 수수료", en: "Sale fee" },
+  SALE_FEE_SETTLEMENT: { ko: "미납 수수료 정산", en: "Unpaid fee settlement" },
+  SALE_FEE_REVERSAL: { ko: "수수료 환급", en: "Fee refund" },
   AD_SPEND: { ko: "광고 사용", en: "Ad spend" },
   AD_REFUND: { ko: "광고 환불", en: "Ad refund" },
-  PARTNER_SPEND: { ko: "제휴 사용", en: "Partner spend" },
-  PARTNER_REFUND: { ko: "제휴 환불", en: "Partner refund" },
-  ADMIN_ADJUST: { ko: "관리자 조정", en: "Admin adjustment" },
+  PARTNER_SPEND: { ko: "Partner 사용", en: "Partner spend" },
+  PARTNER_REFUND: { ko: "Partner 환불", en: "Partner refund" },
+  ADMIN_ADJUST: { ko: "잔액 조정", en: "Balance adjustment" },
   SYSTEM: { ko: "시스템", en: "System" },
 };
 

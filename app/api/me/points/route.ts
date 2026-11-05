@@ -18,8 +18,10 @@ import {
   loadPointFinancialHistory,
   loadPointFinancialHistoryChainPage,
   serializePointFinancialPage,
+  toMemberPointHistoryItem,
 } from "@/lib/points/project-point-financial-history";
 import { readUserPointBalanceResult } from "@/lib/points/user-point-ledger";
+import { toMemberChargeRequest } from "@/lib/points/admin-user-points-shared";
 import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
 export const runtime = "nodejs";
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     if (!pageRes.ok) return NextResponse.json({ ok: false, error: pageRes.error }, { status: 500 });
     const { items, ...chargeRequestsPage } = pageRes.page;
-    return NextResponse.json({ ok: true, chargeRequests: items, chargeRequestsPage });
+    return NextResponse.json({ ok: true, chargeRequests: items.map(toMemberChargeRequest), chargeRequestsPage });
   }
 
   // P-4 — 회원 화면은 잔액만 쓴다. 누적 합계(totalCredit·totalDebit·lastOccurredAt·ledgerSum — 원장 5천 줄 + 원장 합)는
@@ -151,9 +153,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const history =
     "page" in historyRes
-      ? serializePointFinancialPage(historyRes.page)
+      ? (() => {
+          const page = serializePointFinancialPage(historyRes.page);
+          return { ...page, items: page.items.map(toMemberPointHistoryItem) };
+        })()
       : {
-          items: historyRes.items,
+          items: historyRes.items.map(toMemberPointHistoryItem),
           hasMore: historyRes.offset + historyRes.limit < historyRes.total,
           nextCursor: null,
           total: historyRes.total,
@@ -218,7 +223,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       createdAt: item.occurredAt,
       actorType: item.actorType,
     })),
-    chargeRequests,
+    chargeRequests: chargeRequests.map(toMemberChargeRequest),
     ...periodExtras,
     expiring,
     ...(expiringError ? { expiringError: true } : {}),

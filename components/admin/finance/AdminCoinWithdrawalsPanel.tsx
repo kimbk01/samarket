@@ -10,6 +10,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { financeStoreHref } from "@/lib/finance/routes";
 import { financeStatusLabel, formatFinanceAmount } from "@/lib/finance/presentation";
+import { coinWithdrawalStatusDisplay, financeLabelText } from "@/lib/finance/finance-display-labels";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { AdminTechId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -37,6 +38,8 @@ type WithdrawalRow = {
   created_at: string;
   paid_at?: string | null;
   paid_by?: string | null;
+  /** 처리 관리자 닉네임 (API) */
+  admin_actor_name?: string | null;
   rejected_by?: string | null;
   rejected_at?: string | null;
   approved_by?: string | null;
@@ -302,7 +305,7 @@ export function AdminCoinWithdrawalsPanel() {
               {rows.map((r) => {
                 // 송금에 필요한 수단·은행·계좌번호·예금주를 모두 표시 (실기 2026-11-03: 계좌번호가 목록에 없었음)
                 const payoutLabel = [
-                  r.destination_type === "gcash" ? "GCash" : r.bank_name || (ko ? "은행" : "Bank"),
+                  r.destination_type === "gcash" ? "GCash" : r.bank_name || (ko ? "은행 송금" : "Bank transfer"),
                   r.account_number || "—",
                   r.account_name,
                 ]
@@ -352,7 +355,10 @@ export function AdminCoinWithdrawalsPanel() {
                     </td>
                     <td className="px-3 py-2 sam-text-xxs">{payoutLabel}</td>
                     <td className="px-3 py-2">
-                      {financeStatusLabel(r.status, ko)}
+                      {(() => {
+                        const st = coinWithdrawalStatusDisplay(r.status);
+                        return st ? financeLabelText(st, ko) : financeStatusLabel(r.status, ko);
+                      })()}
                       {String(r.status).toUpperCase() === "REJECTED" && r.rejection_reason ? (
                         <span className="block sam-text-xxs text-sam-muted">
                           {ko ? "사유" : "Reason"}: {r.rejection_reason}
@@ -371,8 +377,19 @@ export function AdminCoinWithdrawalsPanel() {
                           ? formatAdminManilaDateTime(r.rejected_at)
                           : "—"}
                     </td>
-                    <td className="px-3 py-2 font-mono text-[12px]" data-finance-withdrawal-admin-actor="1">
-                      <AdminTechId id={adminActor} />
+                    <td className="px-3 py-2 text-[12px]" data-finance-withdrawal-admin-actor="1">
+                      {r.admin_actor_name ? (
+                        <>
+                          <span className="font-semibold text-sam-fg">{r.admin_actor_name}</span>
+                          <span className="block font-mono sam-text-xxs text-sam-muted">
+                            <AdminTechId id={adminActor} />
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-mono">
+                          <AdminTechId id={adminActor} />
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 font-mono text-[12px]"><AdminTechId id={r.id} /></td>
                     <td className="px-3 py-2">
@@ -461,7 +478,7 @@ function PayoutReferenceSheet({
 }) {
   const [reference, setReference] = useState("");
   const ready = reference.trim().length > 0;
-  const methodLabel = payoutMethod === "gcash" ? "GCash" : "Bank";
+  const methodLabel = payoutMethod === "gcash" ? "GCash" : ko ? "은행 송금" : "Bank transfer";
   return (
     <AdminFormSheet
       title={ko ? "출금 지급 완료" : "Mark withdrawal paid"}

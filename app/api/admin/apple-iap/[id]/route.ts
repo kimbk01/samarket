@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
+import { adminActorLabel, loadAdminActorNames } from "@/lib/admin/load-admin-actor-names";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,5 +45,11 @@ export async function GET(_req: Request, ctx: Ctx) {
         .limit(50)
     : { data: [] };
 
-  return NextResponse.json({ ok: true, row: r, balance, notifications: notifications.data ?? [] });
+  const names = await loadAdminActorNames(guard.sb, [r.credited_by as string | null, r.refund_decided_by as string | null]);
+  const actors = {
+    creditedBy: adminActorLabel(names, r.credited_by as string | null),
+    refundDecidedBy: adminActorLabel(names, r.refund_decided_by as string | null),
+  };
+
+  return NextResponse.json({ ok: true, row: r, balance, notifications: notifications.data ?? [], actors });
 }

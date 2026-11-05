@@ -37,7 +37,7 @@ export function OwnerFinanceNav({
           <Link
             key={item.key}
             href={href}
-            className={`rounded-ui-rect px-2.5 py-1.5 text-xs font-medium ${
+            className={`inline-flex min-h-11 items-center rounded-ui-rect px-3 py-2 text-xs font-medium ${
               isActive
                 ? "bg-signature/10 text-signature"
                 : "border border-sam-border bg-sam-app text-sam-fg"

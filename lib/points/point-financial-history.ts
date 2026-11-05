@@ -64,10 +64,17 @@ export type PointFinancialDepositFact = {
   requestStatus: string;
   approvedAt: string | null;
   processedAt: string | null;
+  /** 결제 수단 원본 코드 — 화면은 `financePaymentMethodDisplay` 로만 이름을 만든다 */
+  paymentMethod?: string | null;
+  /** Apple 결제 충전만 — Apple 거래 번호 끝 8자리 (영수증 대조용) */
+  appleTxTail?: string | null;
 };
 
 export type PointFinancialAdjustmentFact = {
+  /** 관리자 화면용 원장 설명 원문 (회원 API 는 `toMemberPointHistoryItem` 이 공개 사유로 바꾼다) */
   reason: string;
+  /** 회원에게 보여도 되는 사유 — 수동 지급·회수 사유만, 그 밖은 빈 문자열 */
+  publicReason?: string;
   actorType: PointLedgerActorType;
 };
 
@@ -196,14 +203,14 @@ export function pointFinancialCategoryTitle(category: PointFinancialCategory): {
     case "ADMIN_CREDIT":
       return {
         titleKey: "point_fin_cat_admin_credit",
-        fallbackTitleKo: "관리자 지급",
-        fallbackTitleEn: "Admin credit",
+        fallbackTitleKo: "포인트 지급",
+        fallbackTitleEn: "Point credit",
       };
     case "ADMIN_DEBIT":
       return {
         titleKey: "point_fin_cat_admin_debit",
-        fallbackTitleKo: "관리자 차감",
-        fallbackTitleEn: "Admin debit",
+        fallbackTitleKo: "포인트 회수",
+        fallbackTitleEn: "Point reclaim",
       };
     case "EXPIRATION":
       return {

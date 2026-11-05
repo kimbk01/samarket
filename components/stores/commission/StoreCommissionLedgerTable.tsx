@@ -176,10 +176,10 @@ export function CommissionLedgerTable({
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "수수료 기준액", "Base")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "요율", "Rate")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "부과", "Charged")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "캐시 차감", "Cash taken")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "Cash 차감", "Cash taken")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "미납", "Unpaid")}</th>
             {/* 캐시 환급과 미납 취소를 한 칸에 합쳐 「환급」으로 보이던 결함 — 위 합계 칸과 같은 두 칸 (실기 T-8 발견 결함 2) */}
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "캐시 환급", "Cash refunded")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "Cash 환급", "Cash refunded")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")}</th>
             <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{pickCommissionCopy(lang, "부과 시각 (PHT)", "Charged (PHT)")}</th>
             <th className={`${th} sticky right-0 z-20 border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "액션", "Action")}</th>
@@ -313,7 +313,7 @@ export function CommissionOrderDetailPanel({
         `수수료 부과 (${commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)} 단계)`,
         `Commission charged (${commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)})`
       ),
-      body: pickCommissionCopy(lang, `부과 ${formatCashMinor(row.feeChargedMinor)} — 캐시에서 자동 차감, 부족분은 미납`, `Charged ${formatCashMinor(row.feeChargedMinor)} — auto-debited from Cash, shortfall unpaid`),
+      body: pickCommissionCopy(lang, `부과 ${formatCashMinor(row.feeChargedMinor)} — Cash에서 자동 차감, 부족분은 미납`, `Charged ${formatCashMinor(row.feeChargedMinor)} — auto-debited from Cash, shortfall unpaid`),
     },
   ];
   if (row.reviewFlaggedAt || row.adjustmentTrigger) {
@@ -332,20 +332,22 @@ export function CommissionOrderDetailPanel({
       title: `${STORE_COMMISSION_DECISION_LABEL[d.decision][lang]}${
         audience === "owner"
           ? ` · ${pickCommissionCopy(lang, "운영팀", "Operations")}`
-          : d.adminUserId
-            ? ` · admin ${d.adminUserId.slice(0, 8)}`
-            : ""
+          : d.adminUserName
+            ? ` · ${d.adminUserName}`
+            : d.adminUserId
+              ? ` · ${d.adminUserId.slice(0, 8)}…`
+              : ""
       }`,
       body: pickCommissionCopy(
         lang,
-        `승인 ${formatCashMinor(d.approvedMinor)} = 캐시 환급 ${formatCashMinor(d.cashRefundMinor)} + 미납 취소 ${formatCashMinor(d.outstandingCancelMinor)} · 사유: ${d.reason}`,
+        `승인 ${formatCashMinor(d.approvedMinor)} = Cash 환급 ${formatCashMinor(d.cashRefundMinor)} + 미납 취소 ${formatCashMinor(d.outstandingCancelMinor)} · 사유: ${d.reason}`,
         `Approved ${formatCashMinor(d.approvedMinor)} = Cash ${formatCashMinor(d.cashRefundMinor)} + unpaid cancelled ${formatCashMinor(d.outstandingCancelMinor)} · Reason: ${d.reason}`
       ),
     });
   }
 
   return (
-    <div className="fixed inset-0 z-[1300] flex items-end justify-end bg-black/30 lg:items-stretch" role="dialog" aria-modal="true" aria-label="order detail" onClick={onClose}>
+    <div className="fixed inset-0 z-[1300] flex items-end justify-end bg-black/30 lg:items-stretch" role="dialog" aria-modal="true" aria-label={pickCommissionCopy(lang, "주문 수수료 상세", "Order commission detail")} onClick={onClose}>
       <aside
         className="mx-auto flex max-h-[88dvh] w-full max-w-[32rem] flex-col rounded-t-[length:var(--overlay-radius-xl)] border border-b-0 border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] pb-[var(--kb-safe-bottom,var(--safe-bottom,0px))] shadow-[var(--overlay-elevation-3)] lg:mx-0 lg:max-h-none lg:w-[440px] lg:max-w-none lg:rounded-none lg:border-0 lg:pb-0"
         onClick={(e) => e.stopPropagation()}
@@ -377,13 +379,13 @@ export function CommissionOrderDetailPanel({
             <dl className="mt-1 divide-y divide-sam-border-soft">
               <DetailRow label={pickCommissionCopy(lang, "수수료 기준액 (주문)", "Commission base")} value={formatMoneyPhp(row.commissionBasePhp)} />
               <DetailRow label={pickCommissionCopy(lang, "원래 부과 수수료", "Original commission")} value={formatCashMinor(row.feeChargedMinor)} strong />
-              <DetailRow label={pickCommissionCopy(lang, "실제 캐시 차감", "Cash actually taken")} value={formatCashMinor(cashDeductedMinor(row))} />
+              <DetailRow label={pickCommissionCopy(lang, "실제 Cash 차감", "Cash actually taken")} value={formatCashMinor(cashDeductedMinor(row))} />
               <DetailRow
                 label={pickCommissionCopy(lang, "현재 미납", "Unpaid now")}
                 value={formatCashMinor(row.feeOutstandingMinor)}
                 tone={row.feeOutstandingMinor > 0 ? "danger" : undefined}
               />
-              <DetailRow label={pickCommissionCopy(lang, "캐시 환급", "Cash refunded")} value={formatCashMinor(d?.cashRefundMinor ?? 0)} />
+              <DetailRow label={pickCommissionCopy(lang, "Cash 환급", "Cash refunded")} value={formatCashMinor(d?.cashRefundMinor ?? 0)} />
               <DetailRow label={pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")} value={formatCashMinor(d?.outstandingCancelMinor ?? 0)} />
               {row.state === "review_required" ? (
                 <DetailRow label={pickCommissionCopy(lang, "환급 가능액 (최대)", "Refundable (max)")} value={formatCashMinor(refundable)} tone="good" strong />

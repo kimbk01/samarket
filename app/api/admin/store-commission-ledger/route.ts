@@ -6,6 +6,7 @@ import {
   loadStoreCashOverview,
   loadStoreCommissionBreakdown,
   loadStoreCommissionLedgerPage,
+  withAdminActorNames,
   loadStorePlatformPayable,
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest) {
       payableSummary: payable.summary,
       ...overview,
       ...ledger,
+      rows: await withAdminActorNames(sb, ledger.rows),
     });
   } catch (e) {
     return internalErrorResponse("load_failed", "[admin/store-commission-ledger]", e);

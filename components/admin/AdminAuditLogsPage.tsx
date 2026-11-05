@@ -27,6 +27,7 @@ import {
   type AuditLogActorFilter,
 } from "@/lib/admin/audit/admin-audit-log-list-query";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { financeAuditActionLabel, financeAuditTargetLabel } from "@/lib/admin/finance-audit-labels";
 
 type Row = {
   id: string;
@@ -70,6 +71,14 @@ const FIELD =
 const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-sam-muted";
 
 const pht = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
+
+function actionText(r: Row, ko: boolean): string {
+  return financeAuditActionLabel(r.action, r.target_type, ko) ?? r.action;
+}
+
+function targetText(r: Row, ko: boolean): string {
+  return financeAuditTargetLabel(r.target_type, ko) ?? r.target_type;
+}
 
 function actorLabel(r: Row, ko: boolean): string {
   const type = ACTOR_TYPE_LABEL[r.actor_type];
@@ -264,10 +273,10 @@ export function AdminAuditLogsPage() {
                   <td className="px-3 py-2">{actorLabel(r, ko)}</td>
                   <td className="px-3 py-2">
                     <AdminActionButton variant="ghost" size="sm" className="!px-0 text-left">
-                      {r.action}
+                      {actionText(r, ko)}
                     </AdminActionButton>
                   </td>
-                  <td className="px-3 py-2 text-sam-muted">{r.target_type}</td>
+                  <td className="px-3 py-2 text-sam-muted">{targetText(r, ko)}</td>
                 </tr>
               ))}
             </tbody>
@@ -291,7 +300,7 @@ export function AdminAuditLogsPage() {
         open={openRow != null}
         onClose={() => setOpenRow(null)}
         ko={ko}
-        title={openRow?.action ?? ""}
+        title={openRow ? actionText(openRow, ko) : ""}
         subtitle={openRow ? pht(openRow.created_at) : undefined}
         primaryActions={
           openRow ? (
@@ -309,12 +318,14 @@ export function AdminAuditLogsPage() {
               <dt className="text-sam-muted">{ko ? "행위자" : "Actor"}</dt>
               <dd>{actorLabel(openRow, ko)}</dd>
               <dt className="text-sam-muted">{ko ? "작업" : "Action"}</dt>
-              <dd>{openRow.action}</dd>
+              <dd>{actionText(openRow, ko)}</dd>
               <dt className="text-sam-muted">{ko ? "대상 종류" : "Target type"}</dt>
-              <dd>{openRow.target_type}</dd>
+              <dd>{targetText(openRow, ko)}</dd>
             </dl>
             <AdminTechDetails ko={ko}>
               <p>log id: {openRow.id}</p>
+              <p>action: {openRow.action}</p>
+              <p>target_type: {openRow.target_type}</p>
               <p>actor_type: {openRow.actor_type}</p>
               <p>actor_id: {openRow.actor_id ?? "—"}</p>
               <p>target_id: {openRow.target_id}</p>

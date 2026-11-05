@@ -118,6 +118,15 @@ export function AdminPointChargeInlineActions({
                 </td>
                 <td className="px-3 py-2.5 text-sam-muted">
                   {pointPaymentMethodLabel(t, r.paymentMethod)}
+                  {r.verificationNote?.startsWith("apple:") ? (
+                    <Link
+                      href={`/admin/apple-iap?txn=${encodeURIComponent(r.verificationNote.slice("apple:".length))}`}
+                      className="block sam-text-xxs font-medium text-sam-primary hover:underline"
+                      data-point-charge-apple-link="1"
+                    >
+                      {t("apple_iap_admin_link_apple")}
+                    </Link>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">
                   {r.depositorName || <span className="text-sam-meta">-</span>}
@@ -134,17 +143,18 @@ export function AdminPointChargeInlineActions({
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                   <span className="block" data-point-charge-requested-at="1">
                     {ko ? "신청 " : "Requested "}
-                    {formatAdminManilaDateTime(r.requestedAt)}
+                    {formatAdminManilaDateTime(r.requestedAt)} PHT
                   </span>
                   {/* H-10 — 처리 시각 (승인·반려·보류 처리 후) */}
                   {r.processedAt || r.approvedAt ? (
                     <span className="block sam-text-xxs" data-point-charge-processed-at="1">
                       {ko ? "처리 " : "Processed "}
-                      {formatAdminManilaDateTime(r.processedAt || r.approvedAt)}
+                      {formatAdminManilaDateTime(r.processedAt || r.approvedAt)} PHT
                     </span>
                   ) : null}
                 </td>
                 <td className="px-3 py-2.5">
+                  {canAct ? (
                   <input
                     type="text"
                     value={memo}
@@ -154,6 +164,11 @@ export function AdminPointChargeInlineActions({
                     placeholder={t("admin_points_admin_memo_inline_ph")}
                     className="w-28 rounded border border-sam-border px-2 py-1 sam-text-xxs outline-none focus:border-sam-primary"
                   />
+                  ) : (
+                    <span className="block max-w-[10rem] break-words sam-text-xxs text-sam-muted" data-point-charge-memo-readonly="1">
+                      {r.adminMemo?.trim() || "—"}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">
                   {canAct ? (
@@ -184,7 +199,16 @@ export function AdminPointChargeInlineActions({
                       </Link>
                     </div>
                   ) : (
-                    <span className="sam-text-xxs text-sam-meta">{t("admin_points_done")}</span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="sam-text-xxs text-sam-meta">{t("admin_points_done")}</span>
+                      <Link
+                        href={`/admin/point-charges/${encodeURIComponent(r.id)}`}
+                        className="sam-text-xxs font-medium text-sam-primary hover:underline"
+                        data-point-charge-detail-link="1"
+                      >
+                        {ko ? "상세" : "Details"}
+                      </Link>
+                    </div>
                   )}
                 </td>
               </tr>

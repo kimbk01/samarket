@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { pointChargeStatusLabel, pointPaymentMethodLabel } from "@/components/admin/points/admin-points-notifications-i18n";
+import { pointPaymentMethodLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { useCallback, useEffect, useState } from "react";
 import type { PointChargeRequest } from "@/lib/types/point";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -12,6 +12,8 @@ import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
+import Link from "next/link";
+import { PointChargeBadge } from "@/components/points/PointChargeBadge";
 
 interface AdminPointChargeDetailPageProps {
   requestId: string;
@@ -125,17 +127,7 @@ export function AdminPointChargeDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_points_th_status")}</dt>
             <dd>
-              <span
-                className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                  request.requestStatus === "approved"
-                    ? "bg-sam-success-soft text-sam-success"
-                    : request.requestStatus === "rejected"
-                      ? "bg-sam-danger-soft text-sam-danger"
-                      : "bg-sam-surface-muted text-sam-fg"
-                }`}
-              >
-                {pointChargeStatusLabel(t, request.requestStatus)}
-              </span>
+              <PointChargeBadge status={request.requestStatus} />
             </dd>
           </div>
           <div>
@@ -145,16 +137,16 @@ export function AdminPointChargeDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_points_charge_label_dates")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
-              {formatAdminManilaDateTime(request.requestedAt)} /{" "}
-              {formatAdminManilaDateTime(request.updatedAt)}
+              {formatAdminManilaDateTime(request.requestedAt)} PHT /{" "}
+              {formatAdminManilaDateTime(request.updatedAt)} PHT
             </dd>
           </div>
           {request.approvedAt ? (
             <div>
               <dt className="text-sam-muted">{t("admin_points_charge_label_approved_at")}</dt>
               <dd className="text-sam-fg">
-                {formatAdminManilaDateTime(request.approvedAt)}
-                {request.approvedBy ? ` · ${request.approvedBy}` : ""}
+                {formatAdminManilaDateTime(request.approvedAt)} PHT
+                {request.approvedByName ?? request.approvedBy ? ` · ${request.approvedByName ?? request.approvedBy}` : ""}
               </dd>
             </div>
           ) : null}
@@ -162,8 +154,25 @@ export function AdminPointChargeDetailPage({
             <div>
               <dt className="text-sam-muted">{t("admin_points_charge_label_processed_at")}</dt>
               <dd className="text-sam-fg">
-                {formatAdminManilaDateTime(request.processedAt)}
-                {request.processedBy ? ` · ${request.processedBy}` : ""}
+                {formatAdminManilaDateTime(request.processedAt)} PHT
+                {request.processedByName ?? request.processedBy ? ` · ${request.processedByName ?? request.processedBy}` : ""}
+              </dd>
+            </div>
+          ) : null}
+          {request.verificationNote ? (
+            <div data-point-charge-verification-note="1">
+              <dt className="text-sam-muted">{ko ? "확인 기록" : "Verification"}</dt>
+              <dd className="break-all font-mono text-sam-fg">
+                {request.verificationNote}
+                {request.verificationNote.startsWith("apple:") ? (
+                  <Link
+                    href={`/admin/apple-iap?txn=${encodeURIComponent(request.verificationNote.slice("apple:".length))}`}
+                    className="ml-2 font-sans text-sam-primary hover:underline"
+                    data-point-charge-apple-link="1"
+                  >
+                    {t("apple_iap_admin_link_apple")}
+                  </Link>
+                ) : null}
               </dd>
             </div>
           ) : null}
@@ -183,6 +192,9 @@ export function AdminPointChargeDetailPage({
         </dl>
       </AdminCard>
       <AdminCard titleKey="admin_points_admin_memo_card">
+        <p className="mb-2 sam-text-helper text-sam-muted">
+          {ko ? "내부 메모 — 회원 화면·회원 API 에 나가지 않습니다." : "Internal memo — never shown to the member or member API."}
+        </p>
         {memoErr ? <p className="mb-2 sam-text-helper text-sam-danger">{memoErr}</p> : null}
         <div className="flex gap-2">
           <input

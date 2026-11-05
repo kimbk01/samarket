@@ -30,6 +30,13 @@ import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodC
 import { useAppleIapTopUp } from "@/lib/apple-iap/use-apple-iap-top-up";
 import { appleIapPhaseBlocksNewPurchase } from "@/lib/apple-iap/apple-iap-contract";
 import { AppleIapStatusNotice } from "@/components/apple-iap/AppleIapStatusNotice";
+import { FinanceStatusBadge } from "@/components/finance/FinanceStatusBadge";
+import {
+  appleTransactionTail,
+  cashTopUpStatusDisplay,
+  financePaymentMethodDisplay,
+  financeRefNo,
+} from "@/lib/finance/finance-display-labels";
 
 type TopUpRow = {
   id: string;
@@ -235,8 +242,8 @@ export function OwnerBusinessCashView({
       /** OA-18 — 완료는 사장님 공통 토스트 (안내·경고만 화면 안 문구) */
       toast.success(
         safeT("owner_finance_cash_topup_pending", {
-          fallbackKo: "캐시 충전 신청이 접수되었습니다. 관리자 승인 후 반영됩니다.",
-          fallbackEn: "Cash top-up requested. It applies after admin approval.",
+          fallbackKo: "Cash 충전 신청이 접수되었습니다. 입금 확인 후 충전됩니다.",
+          fallbackEn: "Cash top-up requested. It is credited once the deposit is confirmed.",
         })
       );
       setTopUpAmountPhp("");
@@ -252,6 +259,22 @@ export function OwnerBusinessCashView({
   useEffect(() => {
     if (focusTopUp) focusRef.current?.scrollIntoView({ block: "center" });
   }, [focusTopUp]);
+
+  /** 결제 수단 · 참조 · 신청 번호 — Apple 결제는 `apple:<거래번호>` 원문 대신 끝 8자리만 */
+  const topUpReferenceText = (r: TopUpRow): string => {
+    const ko = language !== "en";
+    const isApple = String(r.paymentMethod ?? "").toLowerCase() === "apple_iap";
+    const method = isApple
+      ? financePaymentMethodDisplay("apple_iap")
+      : null;
+    const methodText = method
+      ? safeT(method.key, { fallbackKo: method.ko, fallbackEn: method.en })
+      : r.paymentMethod
+        ? ownerCashTopUpMethodLabel(r.paymentMethod, ko)
+        : "";
+    const ref = isApple ? appleTransactionTail(r.paymentReference) : r.paymentReference?.trim() || null;
+    return [methodText, ref, financeRefNo(r.id)].filter(Boolean).join(" · ");
+  };
 
   const renderTopUpRow = (r: TopUpRow, focused: boolean) => (
     <li
@@ -269,28 +292,15 @@ export function OwnerBusinessCashView({
           {language === "en" ? "Requested" : "신청"} {formatManilaDateTime(r.createdAt)}
           {r.decidedAt ? ` · ${language === "en" ? "Processed" : "처리"} ${formatManilaDateTime(r.decidedAt)}` : ""} PHT
         </span>
-        {r.paymentReference ? (
-          <span className="ml-2 break-all text-xs text-sam-muted">
-            {r.paymentMethod ? `${ownerCashTopUpMethodLabel(r.paymentMethod, language === "ko")} · ` : ""}
-            {r.paymentReference}
-          </span>
-        ) : null}
+        <span className="block break-all text-xs text-sam-muted" data-owner-cash-topup-ref="1">
+          {topUpReferenceText(r)}
+        </span>
       </span>
-      <span className="shrink-0 text-sam-muted">
-        {r.status.toLowerCase() === "approved"
-          ? safeT("owner_finance_cash_topup_status_approved", {
-              fallbackKo: "충전 완료",
-              fallbackEn: "Completed",
-            })
-          : r.status.toLowerCase() === "rejected"
-            ? safeT("owner_finance_cash_topup_status_rejected", {
-                fallbackKo: "반려",
-                fallbackEn: "Rejected",
-              })
-            : safeT("owner_finance_cash_topup_status_pending", {
-                fallbackKo: "처리 중",
-                fallbackEn: "Processing",
-              })}
+      <span className="shrink-0 text-right text-sam-muted">
+        <FinanceStatusBadge
+          label={cashTopUpStatusDisplay(r.status)}
+          fallback={language === "en" ? "Unknown" : "확인 필요"}
+        />
         {/* P1 — 반려 사유를 사장님에게 그대로 표시 */}
         {r.status.toLowerCase() === "rejected" && r.rejectReason ? (
           <span className="block text-xs text-sam-danger">{r.rejectReason}</span>
@@ -325,7 +335,7 @@ export function OwnerBusinessCashView({
 
       <OwnerStoreAdminDashSection
         title={safeT("owner_finance_cash_topup_title", {
-          fallbackKo: "캐시 충전",
+          fallbackKo: "Cash 충전",
           fallbackEn: "Top up Cash",
         })}
       >

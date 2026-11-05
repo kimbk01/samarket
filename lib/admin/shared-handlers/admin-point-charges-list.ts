@@ -6,7 +6,7 @@ import "server-only";
 import type { SharedAdminHandlerGate } from "@/lib/admin/shared-handlers/shared-admin-handler-gate";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
+import { POINT_CHARGE_REQUEST_ADMIN_ROW_SELECT } from "@/lib/points/point-query-select";
 import {
   isMissingPointsTable,
   normalizeChargeRequest,
@@ -118,7 +118,7 @@ export async function handleAdminPointChargesListGet(
     count = Number(res.total ?? 0);
     rows = [];
     if (!error && ids.length) {
-      const full = await sb.from("point_charge_requests").select(POINT_CHARGE_REQUEST_ROW_SELECT).in("id", ids);
+      const full = await sb.from("point_charge_requests").select(POINT_CHARGE_REQUEST_ADMIN_ROW_SELECT).in("id", ids);
       error = full.error;
       const byId = new Map(
         ((full.data ?? []) as unknown as Record<string, unknown>[]).map((r) => [String(r.id ?? ""), r])
@@ -129,7 +129,7 @@ export async function handleAdminPointChargesListGet(
     const [from, to] = adminListRange(page);
     let query = sb
       .from("point_charge_requests")
-      .select(POINT_CHARGE_REQUEST_ROW_SELECT, { count: "exact" })
+      .select(POINT_CHARGE_REQUEST_ADMIN_ROW_SELECT, { count: "exact" })
       .order("requested_at", { ascending: false })
       .order("id", { ascending: false })
       .range(from, to);

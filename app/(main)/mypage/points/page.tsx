@@ -558,9 +558,8 @@ function MypagePointsPageInner() {
                 <div>
                   <p className="mb-3 sam-text-helper text-sam-muted">
                     {safeT("point_fin_charges_hint", {
-                      fallbackKo: "입금 신청 상태입니다. 실제 포인트 지급은 승인 후 내역에 표시됩니다.",
-                      fallbackEn:
-                        "These are deposit requests. Point credits appear in history after approval.",
+                      fallbackKo: "충전 신청 상태입니다. 포인트는 충전 완료 후 내역에 표시됩니다.",
+                      fallbackEn: "Your top-up requests. Points appear in history once the top-up is complete.",
                     })}
                   </p>
                   {/* 기간 신청 / 대기 건만 (대기는 기간 무관) */}
@@ -568,7 +567,7 @@ function MypagePointsPageInner() {
                     {(
                       [
                         [null, pick("기간 내 신청", "In period")],
-                        ["pending", pick(`대기 ${pendingCharges}`, `Pending ${pendingCharges}`)],
+                        ["pending", pick(`입금 신청 ${pendingCharges}`, `Deposit requested ${pendingCharges}`)],
                       ] as const
                     ).map(([value, label]) => (
                       <button
@@ -580,7 +579,7 @@ function MypagePointsPageInner() {
                           setChargeStatus(value);
                           setChargePageNo(0);
                         }}
-                        className={`${chargeStatus === value ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} ${Sam.focusRing}`}
+                        className={`${chargeStatus === value ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-11 ${Sam.focusRing}`}
                       >
                         {label}
                       </button>
@@ -588,7 +587,7 @@ function MypagePointsPageInner() {
                   </div>
                   {chargeStatus === "pending" ? (
                     <p className="mb-2 sam-text-helper text-sam-muted">
-                      {pick("기간과 관계없이 취소할 수 있는 대기 신청입니다.", "Pending requests you can cancel, regardless of period.")}
+                      {pick("기간과 관계없이 취소할 수 있는 입금 신청입니다.", "Deposit requests you can cancel, regardless of period.")}
                     </p>
                   ) : periodBlocked ? null : chargeSummary ? (
                     <PointChargePeriodSummaryLine summary={chargeSummary} lang={lang} audience="member" />

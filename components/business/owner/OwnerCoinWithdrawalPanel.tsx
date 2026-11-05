@@ -20,6 +20,12 @@ import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { COIN_WITHDRAWAL_LABEL_KO } from "@/lib/finance/product-decision-lock";
 import { buildOwnerSupportContext } from "@/lib/support/support-context";
 import { navigateToSupportCenter } from "@/lib/support/open-support-center";
+import { FinanceStatusBadge } from "@/components/finance/FinanceStatusBadge";
+import {
+  coinWithdrawalStatusDisplay,
+  financePayoutMethodDisplay,
+  financeRefNo,
+} from "@/lib/finance/finance-display-labels";
 
 type WithdrawalRow = {
   id: string;
@@ -40,7 +46,7 @@ type WithdrawalRow = {
 function phtShort(iso: string | null | undefined): string {
   if (!iso) return "";
   const v = formatManilaDateTime(iso);
-  return v === "—" ? "" : v;
+  return v === "—" ? "" : `${v} PHT`;
 }
 
 /** P0-5 — 출금 신청 오류 코드 → 사장님 문구 (「처리 실패」 한 줄로 뭉개지 않음). */
@@ -161,34 +167,29 @@ export function OwnerCoinWithdrawalPanel({
         {Math.trunc(Number(row.amount) || 0).toLocaleString()} Coin
         <span className="ml-2 text-xs font-normal text-sam-muted">
           {ownerUiCopy(language, "신청", "Requested")} {phtShort(row.created_at)}
+          {financeRefNo(row.id) ? ` · ${financeRefNo(row.id)}` : ""}
         </span>
       </span>
       <span className="text-sam-muted">
-        {(() => {
-          // 상태 = DB 값 그대로 (취소를 「반려」로 묶지 않는다 — 고객이 보는 문구가 실제 처리와 같아야 함)
-          const st = row.status.toUpperCase();
-          if (st === "PAID")
-            return safeT("owner_finance_withdraw_status_paid", { fallbackKo: "지급 완료", fallbackEn: "Paid" });
-          if (st === "REJECTED")
-            return safeT("owner_finance_withdraw_status_rejected", { fallbackKo: "반려", fallbackEn: "Rejected" });
-          if (st === "CANCELLED")
-            return safeT("owner_finance_withdraw_status_cancelled", { fallbackKo: "취소", fallbackEn: "Cancelled" });
-          // DB 허용 상태 — 승인 후 지급 전 (재감사 R6-h · 이전: 「처리 중」으로 뭉뚱그림)
-          if (st === "APPROVED")
-            return ownerUiCopy(language, "승인됨 (지급 대기)", "Approved (awaiting payout)");
-          return safeT("owner_finance_withdraw_status_requested", { fallbackKo: "처리 중", fallbackEn: "Processing" });
-        })()}
+        {/* 상태 = DB 값 그대로 (취소를 「반려」로 묶지 않는다) · 이름은 금융 SSOT */}
+        <FinanceStatusBadge
+          label={coinWithdrawalStatusDisplay(row.status)}
+          fallback={ownerUiCopy(language, "확인 필요", "Unknown")}
+        />
         {row.status.toUpperCase() === "APPROVED" && phtShort(row.approved_at) ? ` · ${phtShort(row.approved_at)}` : ""}
         {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
+        {row.status.toUpperCase() === "PAID" && financePayoutMethodDisplay(row.payout_method)
+          ? ` · ${(() => {
+              const m = financePayoutMethodDisplay(row.payout_method)!;
+              return safeT(m.key, { fallbackKo: m.ko, fallbackEn: m.en });
+            })()}`
+          : ""}
         {row.status.toUpperCase() === "PAID" && row.payout_reference
           ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`
           : ""}
         {row.status.toUpperCase() === "REJECTED" && row.rejected_at ? ` · ${phtShort(row.rejected_at)}` : ""}
         {row.status.toUpperCase() === "REJECTED" && row.rejection_reason
           ? ` · ${ownerUiCopy(language, "사유", "Reason")}: ${row.rejection_reason}`
-          : ""}
-        {row.status.toUpperCase() === "REJECTED"
-          ? ` · ${ownerUiCopy(language, "Coin 환원됨", "Coin returned")}`
           : ""}
       </span>
       <button

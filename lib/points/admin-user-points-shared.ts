@@ -65,5 +65,21 @@ export function normalizeChargeRequest(
     approvedBy: row.approved_by ? String(row.approved_by) : undefined,
     processedAt: row.processed_at ? String(row.processed_at) : undefined,
     processedBy: row.processed_by ? String(row.processed_by) : undefined,
+    ...(row.verification_note ? { verificationNote: String(row.verification_note) } : {}),
   };
+}
+
+/** 회원 API 응답 — 관리자 메모·처리자 id 는 내부 기록 (회원에게는 반려 사유만 공개) */
+export function toMemberChargeRequest(r: PointChargeRequest): PointChargeRequest {
+  const {
+    adminMemo: _adminMemo,
+    approvedBy: _approvedBy,
+    processedBy: _processedBy,
+    approvedByName: _approvedByName,
+    processedByName: _processedByName,
+    verificationNote: _verificationNote,
+    ...rest
+  } = r;
+  void [_adminMemo, _approvedBy, _processedBy, _approvedByName, _processedByName, _verificationNote];
+  return rest;
 }

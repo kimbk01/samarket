@@ -6,6 +6,7 @@
  */
 import { CurrencyAmount } from "@/components/currency";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatMypageNumber } from "@/lib/mypage/format-mypage-date";
 import type {
   PointChargeRequestPeriodSummary,
   PointPeriodSummary,
@@ -111,8 +112,8 @@ export function PointPeriodSummaryCard({
 function chargeAmountText(v: { count: number; paymentAmount: number; pointAmount: number }, lang: Lang): string {
   return pick(
     lang,
-    `${v.count}건 ${formatMoneyPhp(v.paymentAmount)} (${v.pointAmount.toLocaleString("en-US")}P)`,
-    `${v.count} · ${formatMoneyPhp(v.paymentAmount)} (${v.pointAmount.toLocaleString("en-US")}P)`
+    `${v.count}건 ${formatMoneyPhp(v.paymentAmount)} (${formatMypageNumber(v.pointAmount)}P)`,
+    `${v.count} · ${formatMoneyPhp(v.paymentAmount)} (${formatMypageNumber(v.pointAmount)}P)`
   );
 }
 

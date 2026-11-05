@@ -54,7 +54,7 @@ describe("GET /api/admin/coin-withdrawals", () => {
   it("focusId → focus 행을 함께 돌려준다 (지원 딥링크)", async () => {
     const json = await get("status=all&limit=20&offset=0&focusId=req-9");
     // 매장 이름·사장님 이름을 붙여 돌려준다 (조회 결과가 없으면 null)
-    expect(json.focus).toEqual({ id: "req-9", status: "PAID", store_name: null, owner_name: null });
+    expect(json.focus).toEqual({ id: "req-9", status: "PAID", store_name: null, owner_name: null, admin_actor_name: null });
   });
 
   it("H-10 from/to → 신청 시각(created_at) PHT 기간 · summary=1 → 기간 전체 합계", async () => {

@@ -138,6 +138,8 @@ type DecisionModal = {
   amountPhp: string;
   reason: string;
   step: "form" | "confirm";
+  /** L3(환급 승인) 대상 재입력 — 주문번호 */
+  retype: string;
   /** One key per opened decision — a double click / retry replays, never re-executes. */
   idempotencyKey: string;
 };
@@ -573,7 +575,7 @@ export function AdminStoreCommissionLedgerPage() {
 
   const openDecision = (row: StoreCommissionLedgerRow) => {
     setModalError(null);
-    setModal({ row, decision: null, amountPhp: "", reason: "", step: "form", idempotencyKey: newKey() });
+    setModal({ row, decision: null, amountPhp: "", reason: "", step: "form", retype: "", idempotencyKey: newKey() });
   };
 
   const rows = data?.rows ?? [];
@@ -593,6 +595,10 @@ export function AdminStoreCommissionLedgerPage() {
         })()
       : null
     : null;
+  /** 확인 단계 = 공용 표 — 환급 승인은 금전 이동(되돌릴 수 없음) L3 · 반려는 L2 */
+  const decisionLevel = modal?.decision === "approve" ? adminActionLevel("refund") : adminActionLevel("reject");
+  const retypeOk =
+    decisionLevel !== "L3" || (modal != null && modal.retype.trim() === String(modal.row.orderNo ?? "").trim());
   const decisionValid =
     !!modal?.decision &&
     modal.reason.trim().length >= 2 &&
@@ -655,7 +661,7 @@ export function AdminStoreCommissionLedgerPage() {
         </div>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="work cards">
+      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={pickCommissionCopy(lang, "처리할 일", "Work cards")}>
         <WorkCard
           title={pickCommissionCopy(lang, "자동 수수료", "Auto commission")}
           value={
@@ -734,7 +740,7 @@ export function AdminStoreCommissionLedgerPage() {
         />
       </section>
 
-      <nav className="flex flex-wrap items-center gap-1.5" aria-label="tabs">
+      <nav className="flex flex-wrap items-center gap-1.5" aria-label={pickCommissionCopy(lang, "수수료 원장 탭", "Commission ledger tabs")}>
         {TABS.map((t) => (
           <AdminChipButton selected={tab === t} key={t} aria-current={tab === t ? "page" : undefined} onClick={() => setUrl({ tab: t, state: "" })}>
             {COMMISSION_TAB_LABEL[t][lang]}
@@ -863,7 +869,7 @@ export function AdminStoreCommissionLedgerPage() {
 
       {tab === "cash" ? (
         <>
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label="policy">
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={pickCommissionCopy(lang, "수수료 정책", "Commission policy")}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="sam-text-helper font-medium text-sam-fg">
                 {pickCommissionCopy(lang, "캐시 부족 매장 신규 주문 차단", "Block new orders when Cash is short")}
@@ -970,7 +976,7 @@ export function AdminStoreCommissionLedgerPage() {
 
       {tab === "exceptions" ? (
         <>
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label="integrity">
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={pickCommissionCopy(lang, "정합성 점검", "Integrity check")}>
             <h2 className="text-sm font-semibold text-sam-fg">{pickCommissionCopy(lang, "기록 무결성 검사", "Record integrity check")}</h2>
             <p className="mt-1 sam-text-xxs text-sam-muted">
               {pickCommissionCopy(
@@ -1138,7 +1144,7 @@ export function AdminStoreCommissionLedgerPage() {
                           : pickCommissionCopy(lang, "환급 반려 확정", "Confirm rejection"),
                       roleTone: modal.decision === "approve" ? "primary" : "destructive",
                       loading: busy,
-                      disabled: busy,
+                      disabled: busy || !retypeOk,
                       onClick: () => void submitDecision(),
                     },
               ]
@@ -1162,7 +1168,7 @@ export function AdminStoreCommissionLedgerPage() {
                     <span className="sam-text-helper text-sam-fg">
                       <b>{pickCommissionCopy(lang, "환급 승인", "Approve refund")}</b>
                       <br />
-                      {pickCommissionCopy(lang, "미납이 먼저 취소되고, 남은 금액만 실제 차감액 한도로 캐시에 환급됩니다.", "Unpaid is cancelled first; only the remainder returns to Cash, capped at what was paid.")}
+                      {pickCommissionCopy(lang, "미납이 먼저 취소되고, 남은 금액만 실제 차감액 한도로 Cash 에 환급됩니다.", "Unpaid is cancelled first; only the remainder returns to Cash, capped at what was paid.")}
                     </span>
                   </label>
                   {modal.decision === "approve" ? (
@@ -1176,7 +1182,7 @@ export function AdminStoreCommissionLedgerPage() {
                       )}
                       value={modal.amountPhp}
                       onChange={(e) => setModal({ ...modal, amountPhp: e.target.value })}
-                      aria-label="amount"
+                      aria-label={pickCommissionCopy(lang, "승인 금액", "Approved amount")}
                     />
                   ) : null}
                   <label
@@ -1198,7 +1204,7 @@ export function AdminStoreCommissionLedgerPage() {
                   placeholder={pickCommissionCopy(lang, "처리 사유 (필수, 매장에도 표시됨)", "Reason (required, visible to the store)")}
                   value={modal.reason}
                   onChange={(e) => setModal({ ...modal, reason: e.target.value })}
-                  aria-label="reason"
+                  aria-label={pickCommissionCopy(lang, "처리 사유", "Reason")}
                 />
               </>
             ) : (
@@ -1211,7 +1217,7 @@ export function AdminStoreCommissionLedgerPage() {
                 {modal.decision === "approve" && decisionPreview ? (
                   <p>
                     {pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")} {formatCashMinor(decisionPreview.outstandingCancelMinor)} ·{" "}
-                    {pickCommissionCopy(lang, "캐시 환급", "Cash refund")} {formatCashMinor(decisionPreview.cashRefundMinor)}
+                    {pickCommissionCopy(lang, "Cash 환급", "Cash refund")} {formatCashMinor(decisionPreview.cashRefundMinor)}
                   </p>
                 ) : (
                   <p>{pickCommissionCopy(lang, "환급 없음 — 금액 이동 없음", "No refund — no money moves")}</p>
@@ -1219,6 +1225,24 @@ export function AdminStoreCommissionLedgerPage() {
                 <p className="break-words">
                   {pickCommissionCopy(lang, "사유", "Reason")}: {modal.reason}
                 </p>
+                {decisionLevel === "L3" ? (
+                  <label className="mt-2 block" data-decision-retype="1">
+                    <span className="block">
+                      {pickCommissionCopy(
+                        lang,
+                        `확인을 위해 주문번호 ${modal.row.orderNo} 를 입력하세요.`,
+                        `Type order number ${modal.row.orderNo} to confirm.`
+                      )}
+                    </span>
+                    <input
+                      className="mt-1 min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm text-sam-fg"
+                      value={modal.retype}
+                      onChange={(e) => setModal({ ...modal, retype: e.target.value })}
+                      aria-label={pickCommissionCopy(lang, "주문번호 재입력", "Re-type order number")}
+                      autoComplete="off"
+                    />
+                  </label>
+                ) : null}
               </div>
             )}
             {modalError ? <p className="sam-text-helper text-sam-danger" role="alert">{modalError}</p> : null}

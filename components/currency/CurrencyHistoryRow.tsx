@@ -33,14 +33,15 @@ export function CurrencyHistoryRow({
   const locale = catalogDateLocale(language);
   const when =
     createdAt && createdAt.trim()
-      ? new Date(createdAt).toLocaleString(locale, {
+      ? `${new Date(createdAt).toLocaleString(locale, {
+          year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
           // 시간 기준 = 필리핀 (기기 시간대와 무관 · 날짜 묶음 머리줄과 같은 날짜)
           timeZone: "Asia/Manila",
-        })
+        })} PHT`
       : null;
 
   return (
@@ -73,7 +74,10 @@ export function CurrencyHistoryRow({
         />
         {detailHref ? (
           // 앱 안 이동 — 전체 다시 로드 없이 (D-13)
-          <Link href={detailHref} className="mt-1 block sam-text-xxs text-sam-primary underline-offset-2 hover:underline">
+          <Link
+            href={detailHref}
+            className="mt-1 inline-flex min-h-11 min-w-11 items-center justify-end sam-text-xxs text-sam-primary underline-offset-2 hover:underline"
+          >
             {language === "en" ? "Details" : "자세히"}
           </Link>
         ) : null}

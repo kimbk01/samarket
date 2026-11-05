@@ -1,6 +1,9 @@
 "use client";
 
+import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -12,6 +15,9 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { MessageKey } from "@/lib/i18n/message-key";
+import { financeTransactionDetailHref } from "@/lib/finance/routes";
+import { financeRefNo } from "@/lib/finance/finance-display-labels";
+import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
 
 type Filter = "attention" | "refund" | "all";
 type Decision = "recover" | "waive" | "recredit";
@@ -37,7 +43,30 @@ type Detail = {
   row: Record<string, unknown>;
   balance: number | null;
   notifications: Array<Record<string, unknown>>;
+  actors: { creditedBy: string | null; refundDecidedBy: string | null };
 };
+
+const REASON_KEYS: Record<string, MessageKey> = {
+  attempt_reused: "apple_iap_admin_reason_attempt_reused",
+  product_mismatch: "apple_iap_admin_reason_product_mismatch",
+  revoked: "apple_iap_admin_reason_revoked",
+};
+
+/** 충전 신청 화면 주소 — Point: 충전 상세 · Cash: 매장 Cash 충전 큐(그 신청만) */
+function chargeRequestHref(kind: string, row: Record<string, unknown>): string | null {
+  if (kind === "point" && row.point_charge_request_id) return `/admin/point-charges/${String(row.point_charge_request_id)}`;
+  if (kind === "cash" && row.cash_charge_request_id) {
+    return `/admin/delivery-ads/cash-charges?requestId=${encodeURIComponent(String(row.cash_charge_request_id))}`;
+  }
+  return null;
+}
+
+/** 통합 거래 상세(원장 1줄) 주소 — Point 원장 / Cash 원장 */
+function ledgerHref(kind: string, ledgerId: unknown): string | null {
+  const id = String(ledgerId ?? "").trim();
+  if (!id) return null;
+  return financeTransactionDetailHref(`${kind === "cash" ? "cash" : "point"}:${id}`);
+}
 
 const STATUS_KEYS: Record<string, MessageKey> = {
   prepared: "apple_iap_admin_status_prepared",
@@ -79,11 +108,23 @@ function amountLabel(kind: string, point: unknown, cashMinor: unknown): string {
 export function AdminAppleIapReviewPage() {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlId = (searchParams.get("id") ?? "").trim();
+  const urlTxn = (searchParams.get("txn") ?? "").trim();
   const [filter, setFilter] = useState<Filter>("attention");
   const [rows, setRows] = useState<ListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // `?id=` — 충전 신청·원장 화면에서 이 거래로 바로 연다
+  const [selectedId, setSelectedIdState] = useState<string | null>(appleIapIsUuid(urlId) ? urlId : null);
+  const setSelectedId = useCallback(
+    (id: string | null) => {
+      setSelectedIdState(id);
+      router.replace(id ? `/admin/apple-iap?id=${encodeURIComponent(id)}` : "/admin/apple-iap", { scroll: false });
+    },
+    [router]
+  );
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -95,14 +136,18 @@ export function AdminAppleIapReviewPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/admin/apple-iap?filter=${filter}`, { credentials: "include", cache: "no-store" });
+        const qs = new URLSearchParams({ filter });
+        if (urlTxn) qs.set("txn", urlTxn);
+        const res = await fetch(`/api/admin/apple-iap?${qs.toString()}`, { credentials: "include", cache: "no-store" });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; rows?: ListRow[] };
         if (cancelled) return;
         if (!res.ok || j.ok !== true) {
           setError({ code: String(j.error ?? "load_failed"), httpStatus: res.status });
           return;
         }
-        setRows(j.rows ?? []);
+        const list = j.rows ?? [];
+        setRows(list);
+        if (urlTxn && list.length === 1) setSelectedIdState(list[0]!.id);
       } catch {
         if (!cancelled) setError({ code: "network_error" });
       } finally {
@@ -112,14 +157,19 @@ export function AdminAppleIapReviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [filter, reloadNonce]);
+  }, [filter, reloadNonce, urlTxn]);
 
   const loadDetail = useCallback(async (id: string) => {
     setDetail(null);
     const res = await fetch(`/api/admin/apple-iap/${id}`, { credentials: "include", cache: "no-store" });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean } & Partial<Detail>;
     if (res.ok && j.ok === true && j.row) {
-      setDetail({ row: j.row, balance: j.balance ?? null, notifications: j.notifications ?? [] });
+      setDetail({
+        row: j.row,
+        balance: j.balance ?? null,
+        notifications: j.notifications ?? [],
+        actors: j.actors ?? { creditedBy: null, refundDecidedBy: null },
+      });
     }
   }, []);
 
@@ -234,18 +284,24 @@ export function AdminAppleIapReviewPage() {
                 >
                   <td className="px-3 py-2 tabular-nums">{formatAdminManilaDateTime(r.created_at)}</td>
                   <td className="px-3 py-2">
-                    {r.user_nickname ?? r.user_id.slice(0, 8)}
+                    {r.user_nickname ?? formatAdminShortId(r.user_id)}
                     {r.store_name ? <span className="block text-sam-muted">{r.store_name}</span> : null}
                   </td>
                   <td className="px-3 py-2 tabular-nums">{amountLabel(r.kind, r.point_amount, r.cash_amount_minor)}</td>
                   <td className="px-3 py-2">
                     {STATUS_KEYS[r.status] ? t(STATUS_KEYS[r.status]) : r.status}
-                    {r.review_reason ? <span className="block text-sam-muted">{r.review_reason}</span> : null}
+                    {r.review_reason ? (
+                      <span className="block text-sam-muted">
+                        {REASON_KEYS[r.review_reason] ? t(REASON_KEYS[r.review_reason]) : r.review_reason}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">{REFUND_KEYS[r.refund_status] ? t(REFUND_KEYS[r.refund_status]) : r.refund_status}</td>
                   <td className="px-3 py-2 font-mono">
                     {r.transaction_id ?? "—"}
-                    {r.environment === "Sandbox" ? <span className="ml-1 text-sam-warning">Sandbox</span> : null}
+                    {r.environment === "Sandbox" ? (
+                      <span className="ml-1 text-sam-warning">{t("apple_iap_admin_env_sandbox")}</span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2">
                     <AdminActionButton
@@ -274,13 +330,55 @@ export function AdminAppleIapReviewPage() {
             <>
               <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sam-text-body-secondary md:grid-cols-2">
                 <dt className="text-sam-muted">{t("apple_iap_admin_col_txn")}</dt>
-                <dd className="font-mono">{String(d.transaction_id ?? "—")}</dd>
+                <dd className="font-mono">
+                  {String(d.transaction_id ?? "—")}
+                  {d.environment === "Sandbox" ? (
+                    <span className="ml-1 font-sans text-sam-warning">{t("apple_iap_admin_env_sandbox")}</span>
+                  ) : null}
+                </dd>
                 <dt className="text-sam-muted">{t("apple_iap_admin_col_amount")}</dt>
                 <dd>{amountLabel(String(d.kind), d.point_amount, d.cash_amount_minor)}</dd>
                 <dt className="text-sam-muted">{t("apple_iap_admin_col_status")}</dt>
                 <dd>
                   {STATUS_KEYS[dStatus] ? t(STATUS_KEYS[dStatus]) : dStatus}
-                  {d.review_reason ? ` · ${String(d.review_reason)}` : ""}
+                  {d.review_reason
+                    ? ` · ${REASON_KEYS[String(d.review_reason)] ? t(REASON_KEYS[String(d.review_reason)]) : String(d.review_reason)}`
+                    : ""}
+                </dd>
+                <dt className="text-sam-muted">{t("apple_iap_admin_detail_credited")}</dt>
+                <dd>
+                  {d.credited_at
+                    ? `${formatAdminManilaDateTime(String(d.credited_at))} PHT · ${
+                        detail?.actors.creditedBy ?? t("apple_iap_admin_detail_auto")
+                      }`
+                    : "—"}
+                </dd>
+                <dt className="text-sam-muted">{t("apple_iap_admin_detail_charge_request")}</dt>
+                <dd>
+                  {(() => {
+                    const id = d.kind === "cash" ? d.cash_charge_request_id : d.point_charge_request_id;
+                    const href = chargeRequestHref(String(d.kind), d);
+                    return href ? (
+                      <Link href={href} className="text-sam-primary underline-offset-2 hover:underline">
+                        {financeRefNo(String(id))}
+                      </Link>
+                    ) : (
+                      "—"
+                    );
+                  })()}
+                </dd>
+                <dt className="text-sam-muted">{t("apple_iap_admin_detail_credit_ledger")}</dt>
+                <dd>
+                  {(() => {
+                    const href = ledgerHref(String(d.kind), d.credit_ledger_id);
+                    return href ? (
+                      <Link href={href} className="text-sam-primary underline-offset-2 hover:underline">
+                        {financeRefNo(String(d.credit_ledger_id))}
+                      </Link>
+                    ) : (
+                      "—"
+                    );
+                  })()}
                 </dd>
                 <dt className="text-sam-muted">{t("apple_iap_admin_col_refund")}</dt>
                 <dd>{REFUND_KEYS[dRefund] ? t(REFUND_KEYS[dRefund]) : dRefund}</dd>
@@ -291,9 +389,24 @@ export function AdminAppleIapReviewPage() {
                 <dt className="text-sam-muted">{t("apple_iap_admin_detail_refund_history")}</dt>
                 <dd>
                   {d.refund_decided_at
-                    ? `${formatAdminManilaDateTime(String(d.refund_decided_at))} PHT · ${String(d.refund_decided_by ?? "").slice(0, 8)} · ${String(d.refund_decision_note ?? "")}`
+                    ? `${formatAdminManilaDateTime(String(d.refund_decided_at))} PHT · ${detail?.actors.refundDecidedBy ?? "—"} · ${String(d.refund_decision_note ?? "")}`
                     : "—"}
                 </dd>
+                {d.refund_ledger_id || d.refund_reversal_ledger_id ? (
+                  <>
+                    <dt className="text-sam-muted">{t("apple_iap_admin_detail_refund_ledger")}</dt>
+                    <dd className="flex flex-wrap gap-2">
+                      {[d.refund_ledger_id, d.refund_reversal_ledger_id].map((lid) => {
+                        const href = ledgerHref(String(d.kind), lid);
+                        return href ? (
+                          <Link key={String(lid)} href={href} className="text-sam-primary underline-offset-2 hover:underline">
+                            {financeRefNo(String(lid))}
+                          </Link>
+                        ) : null;
+                      })}
+                    </dd>
+                  </>
+                ) : null}
               </dl>
 
               {detail && detail.notifications.length > 0 ? (

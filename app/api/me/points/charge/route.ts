@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { isMissingPointsTable, normalizeChargeRequest } from "@/lib/points/admin-user-points-shared";
+import { isMissingPointsTable, normalizeChargeRequest, toMemberChargeRequest } from "@/lib/points/admin-user-points-shared";
 import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
 import {
   computeAppliedRate,
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       ok: true,
       idempotent: true,
-      request: normalizeChargeRequest(ex, userId, userNickname),
+      request: toMemberChargeRequest(normalizeChargeRequest(ex, userId, userNickname)),
       plan: normalizePointPlanRow(plan, "ko"),
     });
   };
@@ -151,6 +151,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "insert_failed" }, { status: 500 });
   }
 
-  const request = normalizeChargeRequest(row as Record<string, unknown>, userId, userNickname);
+  const request = toMemberChargeRequest(normalizeChargeRequest(row as Record<string, unknown>, userId, userNickname));
   return NextResponse.json({ ok: true, request, plan: normalizePointPlanRow(plan, "ko") });
 }

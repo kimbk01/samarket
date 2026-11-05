@@ -116,7 +116,12 @@ export function AdminPointAdjustPanel({
         })}`,
         ko ? (target.op === "credit" ? "지급 후" : "회수 후") : "After",
         formatFinanceAmount({ wallet: "POINT", amount: after }),
+        "",
+        ko
+          ? "입력한 사유는 회원 Point 내역에 그대로 보입니다. 내부 메모는 적지 마세요."
+          : "The reason is shown to the member in their Point history. Do not enter internal notes.",
       ].join("\n"),
+      reasonPlaceholder: ko ? "회원에게 보이는 사유" : "Reason shown to the member",
       confirmLabel:
         target.op === "credit" ? (ko ? "Point 지급" : "Credit Point") : ko ? "Point 회수" : "Reclaim Point",
       destructive: target.op === "debit",

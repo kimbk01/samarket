@@ -843,7 +843,7 @@ BEGIN
         idempotency_key
       ) VALUES (
         v_row.user_id, 'admin_debit', -v_row.point_amount, v_sum - v_row.point_amount, 'apple_iap_refund',
-        v_row.id::text, left('Apple 환불 회수 · ' || v_note, 500), 'admin', p_admin_user_id, v_row.transaction_id
+        v_row.id::text, 'Apple 환불 회수', 'admin', p_admin_user_id, v_row.transaction_id
       ) RETURNING id INTO v_ledger;
     ELSE
       INSERT INTO public.point_ledger (
@@ -851,7 +851,7 @@ BEGIN
         idempotency_key
       ) VALUES (
         v_row.user_id, 'admin_credit', v_row.point_amount, v_sum + v_row.point_amount, 'apple_iap_refund_reversal',
-        v_row.id::text, left('Apple 환불 취소 · 회수분 되돌림 · ' || v_note, 500), 'admin', p_admin_user_id,
+        v_row.id::text, 'Apple 환불 취소 반영', 'admin', p_admin_user_id,
         v_row.transaction_id
       ) RETURNING id INTO v_ledger;
     END IF;

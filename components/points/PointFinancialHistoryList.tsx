@@ -10,8 +10,25 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatMypageDate, mypageDateGroupKey } from "@/lib/mypage/format-mypage-date";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { pointChargeStatusLabel, pointPromotionOrderStatusText } from "@/lib/points/point-label-i18n";
-import type { PointChargeRequestStatus } from "@/lib/types/point";
+import { pointPromotionOrderStatusText } from "@/lib/points/point-label-i18n";
+import {
+  FINANCE_PUBLIC_PROCESSOR,
+  financePaymentMethodDisplay,
+  financeRefNo,
+  financeTxNo,
+  pointChargeStatusDisplay,
+} from "@/lib/finance/finance-display-labels";
+
+const HANGUL = /[\u3131-\u318e\uac00-\ud7a3]/;
+
+/** 부제 — 영어 화면에서 한글 원문(관리자 입력 사유 등)은 영어 부제가 있으면 그것을 쓴다 */
+function pointItemSubtitle(item: PointFinancialHistoryItem, lang: AppLanguageCode): string {
+  if (item.relatedObject?.missing) return lang === "en" ? "Deleted post" : "삭제된 게시물";
+  const ko = item.subtitle ?? "";
+  if (lang !== "en") return ko;
+  if (item.subtitleEn) return item.subtitleEn;
+  return HANGUL.test(ko) && item.adjustment == null ? "" : ko;
+}
 
 /** 줄 제목 — 번역 키 우선, 없으면 서버 기본 문구 (재감사 R8-b · 「상위노출」 번역 키를 화면이 쓰도록) */
 function pointItemTitle(
@@ -94,20 +111,13 @@ export function PointFinancialHistoryList({
               const range = item.promotion
                 ? formatRange(item.promotion.startAt, item.promotion.endAt, language)
                 : "";
-              const relatedLabel =
-                item.relatedObject?.missing && language === "en"
-                  ? "Deleted post"
-                  : item.relatedObject?.missing
-                    ? "삭제된 게시물"
-                    : language === "en" && item.subtitleEn && item.subtitle === item.description
-                      ? item.subtitleEn
-                      : item.subtitle;
+              const relatedLabel = pointItemSubtitle(item, language);
               return (
                 <li key={item.ledgerId}>
                   <button
                     type="button"
                     onClick={() => onSelect?.(item)}
-                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left hover:bg-sam-app"
+                    className="flex min-h-11 w-full items-start justify-between gap-3 px-4 py-3 text-left hover:bg-sam-app"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="sam-text-body font-semibold text-sam-fg">{title}</p>
@@ -154,6 +164,13 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
   const title = pointItemTitle(item, safeT);
   const promoLabel =
     language === "en" ? item.promotion?.productLabelEn : item.promotion?.productLabelKo;
+  const subtitle = pointItemSubtitle(item, language);
+  const txNo = financeTxNo("POINT", item.ledgerId);
+  const method = item.deposit ? financePaymentMethodDisplay(item.deposit.paymentMethod) : null;
+  const chargeStatus = item.deposit ? pointChargeStatusDisplay(item.deposit.requestStatus) : null;
+  const chargeRef = item.deposit ? financeRefNo(item.deposit.chargeRequestId) : null;
+  const label = (l: { key: MessageKey; ko: string; en: string }) =>
+    safeT(l.key, { fallbackKo: l.ko, fallbackEn: l.en });
 
   return (
     <DibayBottomSheet open={Boolean(item)} onClose={onClose} title={title}>
@@ -171,6 +188,14 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           </dt>
           <dd className="min-w-0 break-words text-right">{formatMypageDate(item.occurredAt, { style: "datetime", lang: language })}</dd>
         </div>
+        {txNo ? (
+          <div className="flex justify-between gap-3">
+            <dt className={OverlayUi.bodySecondary}>
+              {safeT("fin_detail_tx_no", { fallbackKo: "거래번호", fallbackEn: "Transaction no." })}
+            </dt>
+            <dd className="min-w-0 break-words text-right tabular-nums" data-point-fin-tx-no="1">{txNo}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-3">
           <dt className={OverlayUi.bodySecondary}>
             {safeT("point_fin_detail_balance", { fallbackKo: "이후 잔액", fallbackEn: "Balance after" })}
@@ -184,12 +209,14 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
             />
           </dd>
         </div>
-        {item.subtitle ? (
+        {subtitle && !item.deposit && !item.adjustment ? (
           <div className="flex justify-between gap-3">
             <dt className={OverlayUi.bodySecondary}>
-              {safeT("point_fin_detail_usage", { fallbackKo: "사용처", fallbackEn: "Usage" })}
+              {item.signedAmount < 0
+                ? safeT("point_fin_detail_usage", { fallbackKo: "사용처", fallbackEn: "Usage" })
+                : safeT("fin_detail_content", { fallbackKo: "내용", fallbackEn: "Details" })}
             </dt>
-            <dd className="min-w-0 break-words text-right">{item.subtitle}</dd>
+            <dd className="min-w-0 break-words text-right">{subtitle}</dd>
           </div>
         ) : null}
         {item.promotion ? (
@@ -217,20 +244,52 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           </>
         ) : null}
         {item.deposit ? (
-          <div className="flex justify-between gap-3">
-            <dt className={OverlayUi.bodySecondary}>
-              {safeT("point_fin_detail_deposit", { fallbackKo: "입금", fallbackEn: "Deposit" })}
-            </dt>
-            <dd className="min-w-0 break-words text-right">{item.deposit.planName || pointChargeStatusLabel(item.deposit.requestStatus as PointChargeRequestStatus)}</dd>
-          </div>
+          <>
+            {method ? (
+              <div className="flex justify-between gap-3">
+                <dt className={OverlayUi.bodySecondary}>
+                  {safeT("fin_detail_method", { fallbackKo: "결제 수단", fallbackEn: "Payment method" })}
+                </dt>
+                <dd className="min-w-0 break-words text-right">{label(method)}</dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between gap-3">
+              <dt className={OverlayUi.bodySecondary}>
+                {safeT("fin_detail_charge_request", { fallbackKo: "충전 신청", fallbackEn: "Top-up request" })}
+              </dt>
+              <dd className="min-w-0 break-words text-right" data-point-fin-charge-ref="1">
+                {[item.deposit.planName, chargeRef, chargeStatus ? label(chargeStatus) : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </dd>
+            </div>
+            {item.deposit.appleTxTail ? (
+              <div className="flex justify-between gap-3">
+                <dt className={OverlayUi.bodySecondary}>
+                  {safeT("fin_detail_apple_tx", { fallbackKo: "Apple 거래", fallbackEn: "Apple transaction" })}
+                </dt>
+                <dd className="min-w-0 break-words text-right tabular-nums">{item.deposit.appleTxTail}</dd>
+              </div>
+            ) : null}
+          </>
         ) : null}
-        {item.adjustment?.reason ? (
-          <div className="flex justify-between gap-3">
-            <dt className={OverlayUi.bodySecondary}>
-              {safeT("point_fin_detail_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}
-            </dt>
-            <dd className="min-w-0 break-words text-right">{item.adjustment.reason}</dd>
-          </div>
+        {item.adjustment ? (
+          <>
+            <div className="flex justify-between gap-3">
+              <dt className={OverlayUi.bodySecondary}>
+                {safeT("fin_detail_processor", { fallbackKo: "처리", fallbackEn: "Processed by" })}
+              </dt>
+              <dd className="min-w-0 break-words text-right">{label(FINANCE_PUBLIC_PROCESSOR)}</dd>
+            </div>
+            {item.adjustment.publicReason ? (
+              <div className="flex justify-between gap-3">
+                <dt className={OverlayUi.bodySecondary}>
+                  {safeT("point_fin_detail_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}
+                </dt>
+                <dd className="min-w-0 break-words text-right">{item.adjustment.publicReason}</dd>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </dl>
       <div className="mt-6">

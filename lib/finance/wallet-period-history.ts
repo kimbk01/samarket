@@ -8,6 +8,7 @@
  * @see docs/audit/currency-history-screens-design-2026-11-03.md
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { appleTransactionTail } from "@/lib/finance/finance-display-labels";
 import {
   BUSINESS_CASH_LEDGER_TABLE,
   STORE_ECONOMIC_POINT_LEDGER_TABLE,
@@ -305,7 +306,36 @@ export type WalletHistoryRow = {
   referenceAmount?: number | null;
   /** Cash 수수료 줄(SALE_FEE·SALE_FEE_SETTLEMENT·SALE_FEE_REVERSAL) — 원장 meta.order_id 의 주문번호 (D-6). 없으면 생략. */
   orderNo?: string | null;
+  /** 관리자 수동 조정(ADMIN_ADJUST) 사유 — 관리자가 조정 폼에 적은 공개 사유(meta.reason)만. Apple 환불 처리 메모는 싣지 않는다. */
+  publicReason?: string | null;
+  /** Apple 결제 Cash 충전 줄 — Apple 거래 번호 끝 8자리 */
+  appleTxTail?: string | null;
+  /** 광고·Partner 사용/환불 줄 — 같은 광고 신청 번호 (환불 원장은 related_id 가 funding id 라 키에서 읽는다 · DB 무변경) */
+  adApplicationId?: string | null;
 };
+
+/** 광고 사용 `related_id` = 신청 id · 광고 환불은 `idempotency_key = bc_refund:<종류>:<신청 id>` */
+export function walletLedgerAdApplicationId(
+  entryKind: string,
+  relatedId: string | null,
+  idempotencyKey: unknown
+): string | null {
+  if (entryKind === "AD_SPEND" || entryKind === "PARTNER_SPEND") return relatedId?.trim() || null;
+  if (entryKind === "AD_REFUND" || entryKind === "PARTNER_REFUND") {
+    const m = /^bc_refund:[^:]+:(.+)$/.exec(String(idempotencyKey ?? "").trim());
+    return m?.[1]?.trim() || null;
+  }
+  return null;
+}
+
+/** 오너에게 보이는 조정 사유 — 관리자 수동 조정만 (Apple 환불 회수·되돌림의 관리자 메모는 내부 기록) */
+export function walletLedgerPublicReason(entryKind: string, relatedType: string | null, meta: Record<string, unknown> | null): string | null {
+  if (entryKind !== "ADMIN_ADJUST" || !meta) return null;
+  if (String(relatedType ?? "") !== "admin_adjustment") return null;
+  const v = meta.reason;
+  const reason = typeof v === "string" ? v.trim() : "";
+  return reason || null;
+}
 
 /** 주문번호를 붙이는 Cash 수수료 줄 종류 (정산 화면 `order_no=` 링크 · D-6) */
 export const CASH_SALE_FEE_ENTRY_KINDS: readonly string[] = CASH_CATEGORY_KINDS.saleFee;
@@ -355,7 +385,7 @@ export async function loadWalletHistoryPage(
   const table = isCoin ? STORE_ECONOMIC_POINT_LEDGER_TABLE : BUSINESS_CASH_LEDGER_TABLE;
   const cols = isCoin
     ? "id, entry_kind, amount, balance_after, related_type, related_id, created_at, meta"
-    : "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at, meta";
+    : "id, entry_kind, direction, amount_minor, balance_after_minor, related_type, related_id, created_at, meta, idempotency_key";
   const from = Math.max(0, input.offset - PAGE_CHAIN_MARGIN);
   const to = input.offset + input.limit - 1 + PAGE_CHAIN_MARGIN;
   // 같은 조건(매장·기간·종류) — 창 조회와 경계 묶음 조회가 같은 조건을 쓴다
@@ -399,15 +429,26 @@ export async function loadWalletHistoryPage(
     const entryKind = String(r.entry_kind ?? "");
     const meta = r.meta && typeof r.meta === "object" ? (r.meta as Record<string, unknown>) : null;
     const metaAmount = Math.trunc(Number(meta?.amount) || 0);
+    const relatedType = r.related_type == null ? null : String(r.related_type);
+    const publicReason = walletLedgerPublicReason(entryKind, relatedType, meta);
+    const appleTx =
+      !isCoin && entryKind === "TOP_UP" && typeof meta?.apple_transaction_id === "string"
+        ? appleTransactionTail(meta.apple_transaction_id)
+        : null;
+    const relatedIdText = r.related_id == null ? null : String(r.related_id);
+    const adApplicationId = isCoin ? null : walletLedgerAdApplicationId(entryKind, relatedIdText, r.idempotency_key);
     return {
       id: String(r.id ?? ""),
       entryKind,
       signedAmount: isCoin ? amt : cashSigned(r),
       balanceAfter: Math.trunc(Number(isCoin ? r.balance_after : r.balance_after_minor) || 0),
-      relatedType: r.related_type == null ? null : String(r.related_type),
+      relatedType,
       relatedId: r.related_id == null ? null : String(r.related_id),
       createdAt: String(r.created_at ?? ""),
       ...(isCoin && entryKind === "WITHDRAWAL_COMPLETE" && metaAmount > 0 ? { referenceAmount: metaAmount } : {}),
+      ...(publicReason ? { publicReason } : {}),
+      ...(appleTx ? { appleTxTail: appleTx } : {}),
+      ...(adApplicationId ? { adApplicationId } : {}),
     };
   });
   if (isCoin) {

@@ -1,5 +1,6 @@
 import { safeNotifyOwnerCoinWithdrawalOutcome } from "@/lib/currency/coin-withdrawal-notify";
 import { after, NextRequest, NextResponse } from "next/server";
+import { adminActorLabel, loadAdminActorNames } from "@/lib/admin/load-admin-actor-names";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import {
@@ -35,7 +36,9 @@ type WithdrawalListRow = { store_id?: string | null; owner_user_id?: string | nu
 async function attachStoreNames(
   sb: Parameters<typeof rejectCoinWithdrawal>[0],
   rows: WithdrawalListRow[]
-): Promise<Array<WithdrawalListRow & { store_name: string | null; owner_name: string | null }>> {
+): Promise<
+  Array<WithdrawalListRow & { store_name: string | null; owner_name: string | null; admin_actor_name: string | null }>
+> {
   const ids = Array.from(new Set(rows.map((r) => String(r.store_id ?? "")).filter(Boolean)));
   const ownerIds = Array.from(new Set(rows.map((r) => String(r.owner_user_id ?? "")).filter(Boolean)));
   const names = new Map<string, string>();
@@ -46,6 +49,11 @@ async function attachStoreNames(
       ? sb.from("profiles").select("id, display_name, nickname, username").in("id", ownerIds)
       : Promise.resolve({ data: null }),
   ]);
+  const actorIdOf = (r: WithdrawalListRow) => {
+    const x = r as { paid_by?: unknown; rejected_by?: unknown; approved_by?: unknown };
+    return String(x.paid_by ?? x.rejected_by ?? x.approved_by ?? "").trim() || null;
+  };
+  const actorNames = await loadAdminActorNames(sb, rows.map(actorIdOf));
   for (const s of (storesRes.data ?? []) as Array<{ id: string; store_name?: string | null }>) {
     names.set(String(s.id), String(s.store_name ?? ""));
   }
@@ -63,6 +71,7 @@ async function attachStoreNames(
     ...r,
     store_name: names.get(String(r.store_id ?? "")) || null,
     owner_name: ownerNames.get(String(r.owner_user_id ?? "")) || null,
+    admin_actor_name: adminActorLabel(actorNames, actorIdOf(r)),
   }));
 }
 

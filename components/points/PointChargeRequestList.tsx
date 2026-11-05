@@ -2,47 +2,26 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { FinanceStatusBadge } from "@/components/finance/FinanceStatusBadge";
+import {
+  financePaymentMethodDisplay,
+  financeRefNo,
+  pointChargeStatusDisplay,
+} from "@/lib/finance/finance-display-labels";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
-import type { PointChargeRequest, PointChargeRequestStatus, PointPaymentMethod } from "@/lib/types/point";
+import type { PointChargeRequest } from "@/lib/types/point";
 import { pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
-
-const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
-  pending: "point_status_pending",
-  waiting_confirm: "point_status_waiting_confirm",
-  on_hold: "point_status_on_hold",
-  approved: "point_status_approved",
-  rejected: "point_status_rejected",
-  cancelled: "point_status_cancelled",
-};
-
-const PAYMENT_KEYS: Record<PointPaymentMethod, MessageKey> = {
-  bank_transfer: "point_pay_bank_transfer",
-  gcash: "point_pay_manual_confirm",
-  manual_confirm: "point_pay_manual_confirm",
-  apple_iap: "point_pay_apple_iap",
-};
 
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
   onCancel?: (id: string) => void;
 }
 
-/** 상태 뱃지 — sam 토큰만 (C.0.2 색 규칙) */
-const STATUS_CLASS: Record<PointChargeRequest["requestStatus"], string> = {
-  pending: "bg-sam-surface-muted text-sam-fg",
-  waiting_confirm: "bg-sam-warning-soft text-sam-warning",
-  on_hold: "bg-sam-border-soft text-sam-muted",
-  approved: "bg-sam-success-soft text-sam-success",
-  rejected: "bg-sam-danger-soft text-sam-danger",
-  cancelled: "bg-sam-border-soft text-sam-muted",
-};
-
 export function PointChargeRequestList({
   requests,
   onCancel,
 }: PointChargeRequestListProps) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
 
   const handleCancel = (id: string) => {
     onCancel?.(id);
@@ -60,6 +39,8 @@ export function PointChargeRequestList({
     <ul className="space-y-3">
       {requests.map((r) => {
         const stamp = pointChargeProcessedStamp(r);
+        const method = financePaymentMethodDisplay(r.paymentMethod);
+        const refNo = financeRefNo(r.id);
         return (
         <li
           key={r.id}
@@ -76,14 +57,15 @@ export function PointChargeRequestList({
             />
           </div>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {r.paymentMethod === "gcash" ? "GCash" : t(PAYMENT_KEYS[r.paymentMethod])}
+            {method ? safeT(method.key, { fallbackKo: method.ko, fallbackEn: method.en }) : null}
+            {refNo ? (
+              <span className="ml-1 tabular-nums text-sam-meta" data-point-charge-ref-no="1">
+                {refNo}
+              </span>
+            ) : null}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <span
-              className={`inline-block rounded-full px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
-            >
-              {t(STATUS_KEYS[r.requestStatus])}
-            </span>
+            <FinanceStatusBadge label={pointChargeStatusDisplay(r.requestStatus)} />
           </div>
           {/* 신청·처리 두 시각 (설계 §2-2) — 처리 시각 = processed_at, 없으면 approved_at */}
           <p className="mt-1 sam-text-helper text-sam-meta" data-point-charge-requested-at="1">

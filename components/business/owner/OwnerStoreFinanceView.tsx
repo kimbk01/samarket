@@ -31,18 +31,14 @@ import {
   COIN_WITHDRAWAL_LABEL_KO,
 } from "@/lib/finance/product-decision-lock";
 import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
-import { financeRelatedTypeLabel, formatFinanceAmount } from "@/lib/finance/presentation";
-
-type LedgerRow = {
-  id: string;
-  entryKind: string;
-  amount?: number;
-  amountMinor?: number;
-  direction?: string;
-  relatedType?: string | null;
-  relatedId?: string | null;
-  createdAt: string;
-};
+import { financeRelatedTypeLabel, financeTypeLabelOrNull, formatFinanceAmount } from "@/lib/finance/presentation";
+import {
+  FINANCE_PUBLIC_PROCESSOR,
+  financeLabelText,
+  financePaymentMethodDisplay,
+  financeRefNo,
+  financeTxNo,
+} from "@/lib/finance/finance-display-labels";
 
 type FinancePayload = {
   assets?: {
@@ -73,75 +69,49 @@ type FinancePayload = {
 /** 미납 수수료 목록 한 쪽 — 서버 `OBLIGATION_PAGE_SIZE` 와 같음 */
 const OWNER_OBLIGATION_PAGE_SIZE = 20;
 
-function mapCoinLedgerTitle(t: (key: MessageKey) => string, kind: string): string {
-  switch (kind) {
-    case "SALE_EARN":
-      return t("owner_copy_finance_coin_ledger_sale_earn");
-    case "REVERSAL":
-      return t("owner_copy_finance_coin_ledger_reversal");
-    case "GIFT_REDEMPTION_EARN":
-      return t("owner_copy_finance_coin_ledger_gift_redemption_earn");
-    case "CONVERT_TO_BUSINESS_CASH":
-      return t("owner_copy_finance_coin_ledger_convert_to_cash");
-    case "WITHDRAWAL_REQUEST":
-      return t("owner_copy_finance_coin_ledger_withdrawal_request");
-    case "WITHDRAWAL_RELEASE":
-    case "WITHDRAWAL_REJECT":
-      return t("owner_copy_finance_coin_ledger_withdrawal_release");
-    case "WITHDRAWAL_COMPLETE":
-      return t("owner_copy_finance_coin_ledger_withdrawal_complete");
-    case "ADMIN_ADJUST":
-      return t("owner_copy_finance_ledger_admin_adjust");
-    case "ECONOMIC_INFLOW":
-      return t("owner_copy_finance_coin_ledger_economic_inflow");
-    default:
-      return t("owner_copy_finance_coin_ledger_default");
-  }
+/** Cash·Coin 원장 이름 = 관리자와 같은 표 (`financeTypeLabelOrNull`) · 표에 없으면 기본 문구 */
+function mapCoinLedgerTitle(t: (key: MessageKey) => string, kind: string, ko: boolean): string {
+  return financeTypeLabelOrNull(kind, ko) ?? t("owner_copy_finance_coin_ledger_default");
 }
 
-function mapCashLedgerTitle(t: (key: MessageKey) => string, kind: string): string {
-  switch (kind) {
-    case "TOP_UP":
-      return t("owner_copy_finance_cash_ledger_top_up");
-    case "CONVERT_FROM_STORE_POINTS":
-      return t("owner_copy_finance_cash_ledger_convert_from_coin");
-    case "AD_SPEND":
-      return t("owner_copy_finance_cash_ledger_ad_spend");
-    case "AD_REFUND":
-      return t("owner_copy_finance_cash_ledger_ad_refund");
-    case "PARTNER_SPEND":
-      return t("owner_copy_finance_cash_ledger_partner_spend");
-    case "PARTNER_REFUND":
-      return t("owner_copy_finance_cash_ledger_partner_refund");
-    case "SALE_FEE":
-      return t("owner_copy_finance_cash_ledger_sale_fee");
-    case "SALE_FEE_SETTLEMENT":
-      return t("owner_copy_finance_cash_ledger_sale_fee_settlement");
-    case "SALE_FEE_REVERSAL":
-      return t("owner_copy_finance_cash_ledger_sale_fee_reversal");
-    case "ADMIN_ADJUST":
-      return t("owner_copy_finance_ledger_admin_adjust");
-    default:
-      return t("owner_copy_finance_cash_ledger_default");
-  }
+function mapCashLedgerTitle(t: (key: MessageKey) => string, kind: string, ko: boolean): string {
+  return financeTypeLabelOrNull(kind, ko) ?? t("owner_copy_finance_cash_ledger_default");
 }
 
-
-/** P1 — 원천 거래 표시: 사람이 읽는 이름 · 짧은 ID (원시 테이블명 노출 금지). null when absent. */
+/**
+ * 원천 거래 표시 — 거래번호 · 주문번호/신청 번호 · 처리 주체 (원시 테이블명·UUID 노출 금지).
+ * 관리자 화면과 같은 번호(`financeTxNo`·`financeRefNo`)를 쓴다.
+ */
 function ledgerReference(
-  row: LedgerRow,
+  row: WalletHistoryRow,
+  wallet: "COIN" | "CASH",
   language: "ko" | "en",
   t: (key: MessageKey) => string
 ): string | null {
-  const type = String(row.relatedType ?? "").trim();
-  const id = String(row.relatedId ?? "").trim();
-  if (!type && !id) return null;
-  // 이름표 = 관리자와 같은 공용 표 (lib/finance/presentation RELATED_TYPE_LABELS)
-  const name = financeRelatedTypeLabel(type, language !== "en") ?? t("owner_copy_finance_ledger_related");
-  const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
-  return [name, shortId].filter(Boolean).join(" · ");
+  const ko = language !== "en";
+  const parts: string[] = [];
+  const txNo = financeTxNo(wallet, row.id);
+  if (txNo) parts.push(txNo);
+  if (row.orderNo) {
+    parts.push(`${ko ? "주문" : "Order"} ${row.orderNo}`);
+  } else if (row.appleTxTail) {
+    parts.push(`${financeLabelText(financePaymentMethodDisplay("apple_iap")!, ko)} ${row.appleTxTail}`);
+  } else if (row.entryKind === "ADMIN_ADJUST") {
+    parts.push(financeLabelText(FINANCE_PUBLIC_PROCESSOR, ko));
+    if (row.publicReason) parts.push(`${ko ? "사유" : "Reason"}: ${row.publicReason}`);
+  } else if (row.adApplicationId) {
+    parts.push(`${ko ? "광고 신청" : "Ad request"} ${financeRefNo(row.adApplicationId)}`);
+  } else {
+    const type = String(row.relatedType ?? "").trim();
+    const id = String(row.relatedId ?? "").trim();
+    if (type || id) {
+      // 이름표 = 관리자와 같은 공용 표 (lib/finance/presentation RELATED_TYPE_LABELS)
+      const name = financeRelatedTypeLabel(type, ko) ?? t("owner_copy_finance_ledger_related");
+      parts.push([name, financeRefNo(id)].filter(Boolean).join(" "));
+    }
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
-
 
 /**
  * Owner Finance — same read-model story as Admin, owner-scoped section shell.
@@ -167,6 +137,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const [obligationOffset, setObligationOffset] = useState(0);
   const [obligationTotal, setObligationTotal] = useState<number | null>(null);
   const [obligationListError, setObligationListError] = useState(false);
+  const [obligationFetching, setObligationFetching] = useState(false);
   /** 미납 합계가 전체 기준인지 — false 면 숫자 대신 「합계를 불러오지 못했습니다」 (D-8) */
   const [saleFeeTotalsComplete, setSaleFeeTotalsComplete] = useState(true);
   /** 늦게 온 이전 응답이 새 응답을 덮지 않게 (재감사 R5-a) */
@@ -188,6 +159,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     // (실기 FAIL 2026-11-03: 전환 후 「불러오는 중」 으로 전체가 바뀌어 안내가 사라지고 맨 위로 이동,
     //  관리자 반려 뒤 출금 내역은 갱신되는데 「출금 가능 Coin」 은 0 으로 남음).
     if (!opts?.silent) setLoading(true);
+    setObligationFetching(true);
     setError(null);
     try {
       const [financeRes, ledgerRes] = await Promise.all([
@@ -228,7 +200,10 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     } catch {
       if (seq === loadSeq.current) setError(t("common_error"));
     } finally {
-      if (seq === loadSeq.current) setLoading(false);
+      if (seq === loadSeq.current) {
+        setLoading(false);
+        setObligationFetching(false);
+      }
     }
   }, [obligationOffset, storeId, t]);
 
@@ -286,7 +261,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   }, [router, searchParams, section, storeId]);
 
   const lang2 = language === "en" ? "en" : "ko";
-  const refFor = (row: WalletHistoryRow) => ledgerReference({ ...row, amount: row.signedAmount }, lang2, t);
+  const coinRefFor = (row: WalletHistoryRow) => ledgerReference(row, "COIN", lang2, t);
+  const cashRefFor = (row: WalletHistoryRow) => ledgerReference(row, "CASH", lang2, t);
   // 줄을 누르면 그 건으로 이동 (설계안 §2-4)
   // 출금 줄 → 그 출금 신청을 표시 (재감사 R6-i — 이전: 출금 탭 첫 화면)
   const coinDetailHref = (row: WalletHistoryRow): string | undefined =>
@@ -390,7 +366,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                     }).toString()}`}
                     className="font-semibold text-signature hover:underline"
                   >
-                    {t("owner_copy_finance_fee_detail")} · {r.orderNo || `${r.orderId.slice(0, 8)}…`}
+                    {t("owner_copy_finance_fee_detail")} · {r.orderNo || financeRefNo(r.orderId)}
                   </Link>
                   <p className="mt-1 tabular-nums text-sam-muted">
                     {formatFinanceAmount({ wallet: "CASH", amount: r.feeOutstandingMinor, isMinor: true })}{" "}
@@ -407,7 +383,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             offset={obligationOffset}
             pageSize={OWNER_OBLIGATION_PAGE_SIZE}
             total={obligationTotal ?? 0}
-            loading={false}
+            loading={obligationFetching}
             onChange={setObligationOffset}
             lang={ko ? "ko" : "en"}
           />
@@ -430,8 +406,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               storeId={storeId}
               wallet="coin"
               reloadKey={historyReloadKey}
-              titleFor={(k) => mapCoinLedgerTitle(t, k)}
-              referenceFor={refFor}
+              titleFor={(k) => mapCoinLedgerTitle(t, k, ko)}
+              referenceFor={coinRefFor}
               detailHrefFor={coinDetailHref}
             />
           </div>
@@ -456,8 +432,8 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               wallet="cash"
               adsOnly={section === "ads"}
               reloadKey={historyReloadKey}
-              titleFor={(k) => mapCashLedgerTitle(t, k)}
-              referenceFor={refFor}
+              titleFor={(k) => mapCashLedgerTitle(t, k, ko)}
+              referenceFor={cashRefFor}
               detailHrefFor={cashDetailHref}
             />
           </div>

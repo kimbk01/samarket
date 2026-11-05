@@ -42,6 +42,11 @@ export interface PointChargeRequest {
   approvedBy?: string;
   processedAt?: string;
   processedBy?: string;
+  /** 관리자 화면만 — 처리자 닉네임 */
+  approvedByName?: string;
+  processedByName?: string;
+  /** 관리자 화면만 — 확인 기록 (Apple 결제는 `apple:<거래번호>`) */
+  verificationNote?: string;
 }
 
 export interface PointPlan {

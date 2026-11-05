@@ -10,7 +10,7 @@ import { CurrencyAmount } from "@/components/currency";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
-import { formatMypageMoney } from "@/lib/mypage/format-mypage-date";
+import { formatMypageMoney, formatMypageNumber } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { recommendChargePlanId } from "@/lib/points/ad-shortage";
 import { useAppleIapTopUp } from "@/lib/apple-iap/use-apple-iap-top-up";
@@ -186,7 +186,7 @@ export function PointChargeForm({
                       </p>
                       {plan.id === recommendedPlanId ? (
                         <p className="mt-0.5 sam-text-helper font-semibold text-sam-primary" data-point-plan-recommended>
-                          {t("points_ui_plan_recommended", { points: `${recommendForPoints.toLocaleString()}P` })}
+                          {t("points_ui_plan_recommended", { points: `${formatMypageNumber(recommendForPoints)}P` })}
                         </p>
                       ) : null}
                       {planDescription(plan) ? (

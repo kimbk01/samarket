@@ -8,16 +8,19 @@ const LIST_SELECT =
   "id, kind, user_id, store_id, product_id, status, refund_status, point_amount, cash_amount_minor, transaction_id, environment, review_reason, verified_via, created_at, credited_at, refund_notified_at, refund_decided_at";
 
 /**
- * GET /api/admin/apple-iap?filter=attention|refund|all
+ * GET /api/admin/apple-iap?filter=attention|refund|all  (·`txn=<Apple 거래번호>` — 충전 신청·원장 화면에서 그 거래 1건)
  * attention = 지급 확인 중(received)·검토(review)·환불 검토 · refund = 환불 기록이 있는 거래 · all = 최근 200건
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const guard = await requireSuperAdmin();
   if (!guard.ok) return guard.response;
   const filter = req.nextUrl.searchParams.get("filter") ?? "attention";
+  const txn = (req.nextUrl.searchParams.get("txn") ?? "").replace(/^apple:/, "").trim();
 
   let q = guard.sb.from("apple_iap_transactions").select(LIST_SELECT).order("updated_at", { ascending: false }).limit(200);
-  if (filter === "attention") {
+  if (txn) {
+    q = q.eq("transaction_id", txn);
+  } else if (filter === "attention") {
     q = q.or("status.in.(received,review),refund_status.in.(review,reversed_review)");
   } else if (filter === "refund") {
     q = q.neq("refund_status", "none");

@@ -32,11 +32,13 @@ export const POINT_CHARGE_REQUEST_PAGE_SIZE = 20;
 export const POINT_CHARGE_PENDING_STATUSES = ["pending", "waiting_confirm"] as const;
 
 /**
- * 화면에서 숨기는 승인 확정 감사 행(금액 0 · `ad_purchase` · `capture:*`) — 피드 광고·커뮤니티/거래 상위노출(`promotion_order`).
+ * 화면에서 숨기는 승인 확정 감사 행(금액 0) — 피드 광고·상위노출 `ad_purchase`·`capture:*`, 거래 광고 `ad_charge`·`finalize:*`.
  * DB 조건으로 미리 빼서 전체 건수가 실제 표시 줄 수와 같게 한다 (재감사 R8-c · 표시 규칙 `isHiddenCaptureAuditRow` 와 같은 조건).
  */
 export const POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR =
-  'entry_type.neq.ad_purchase,entry_type.is.null,related_type.not.in.(feed_ad_request,promotion_order),related_type.is.null,related_id.is.null,related_id.not.like."capture:*",amount.neq.0';
+  'amount.neq.0,and(' +
+  'or(entry_type.neq.ad_purchase,entry_type.is.null,related_type.not.in.(feed_ad_request,promotion_order),related_type.is.null,related_id.is.null,related_id.not.like."capture:*"),' +
+  'or(entry_type.neq.ad_charge,entry_type.is.null,related_type.neq.trade_post_ad,related_type.is.null,related_id.is.null,related_id.not.like."finalize:*"))';
 
 /** 표시 쪽 같은 규칙 (DB 조건 `POINT_LEDGER_HIDE_CAPTURE_AUDIT_OR` 의 부정) */
 export function isHiddenCaptureAuditRow(r: {
@@ -47,11 +49,11 @@ export function isHiddenCaptureAuditRow(r: {
 }): boolean {
   const et = String(r.entry_type ?? "").trim().toLowerCase();
   const rt = String(r.related_type ?? "").trim().toLowerCase();
+  if (Math.trunc(Number(r.amount ?? 0) || 0) !== 0) return false;
+  const rid = String(r.related_id ?? "");
   return (
-    et === "ad_purchase" &&
-    (rt === "feed_ad_request" || rt === "promotion_order") &&
-    String(r.related_id ?? "").startsWith("capture:") &&
-    Math.trunc(Number(r.amount ?? 0) || 0) === 0
+    (et === "ad_purchase" && (rt === "feed_ad_request" || rt === "promotion_order") && rid.startsWith("capture:")) ||
+    (et === "ad_charge" && rt === "trade_post_ad" && rid.startsWith("finalize:"))
   );
 }
 

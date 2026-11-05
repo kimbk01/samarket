@@ -21,9 +21,9 @@ const zero = { charge: 0, grant: 0, refund: 0, use: 0, reclaim: 0, hold: 0, rows
 
 describe("F-3 사장님 「수수료 환급」 칩 = 실제 처리", () => {
   it("캐시 환급만 / 미납 취소만 / 둘 다", () => {
-    expect(commissionOwnerRefundedLabel({ cashRefundMinor: 500, outstandingCancelMinor: 0 }, "ko")).toBe("캐시 환급");
+    expect(commissionOwnerRefundedLabel({ cashRefundMinor: 500, outstandingCancelMinor: 0 }, "ko")).toBe("Cash 환급");
     expect(commissionOwnerRefundedLabel({ cashRefundMinor: 0, outstandingCancelMinor: 300 }, "ko")).toBe("미납 취소");
-    expect(commissionOwnerRefundedLabel({ cashRefundMinor: 500, outstandingCancelMinor: 300 }, "ko")).toBe("캐시 환급·미납 취소");
+    expect(commissionOwnerRefundedLabel({ cashRefundMinor: 500, outstandingCancelMinor: 300 }, "ko")).toBe("Cash 환급·미납 취소");
     expect(commissionOwnerRefundedLabel({ cashRefundMinor: 500, outstandingCancelMinor: 0 }, "en")).toBe("Cash refunded");
   });
   it("금액 정보가 없으면 null → 공용 이름 유지", () => {

@@ -64,6 +64,7 @@ const pointHistory = vi.hoisted(() => ({
   })),
   loadPointFinancialHistoryChainPage: vi.fn(),
   serializePointFinancialPage: (page: { items: unknown[] }) => ({ items: page.items, hasMore: false, nextCursor: null, total: 0 }),
+  toMemberPointHistoryItem: <T,>(item: T) => item,
 }));
 vi.mock("@/lib/points/project-point-financial-history", () => pointHistory);
 vi.mock("@/lib/points/point-period-history", async (orig) => ({

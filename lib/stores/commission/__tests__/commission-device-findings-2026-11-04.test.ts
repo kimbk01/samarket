@@ -69,7 +69,7 @@ describe("실기 발견 결함 1 — 수수료 표·상세 영문 코드 → 한
 describe("실기 발견 결함 2 — 「환급」 칸 = 캐시 환급 + 미납 취소 혼합 → 두 칸", () => {
   it("표 머리글·칸이 캐시 환급과 미납 취소로 나뉜다 (위 합계 칸과 같은 말)", () => {
     const table = read("components/stores/commission/StoreCommissionLedgerTable.tsx");
-    expect(table).toContain('pickCommissionCopy(lang, "캐시 환급", "Cash refunded")');
+    expect(table).toContain('pickCommissionCopy(lang, "Cash 환급", "Cash refunded")');
     expect(table).toContain('pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")');
     expect(table).not.toContain('pickCommissionCopy(lang, "환급", "Refunded")');
     expect(table).not.toContain("refundedMinor(r) > 0 ? formatCashMinor(refundedMinor(r))");

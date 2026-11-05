@@ -29,10 +29,22 @@ import {
 } from "@/lib/points/point-period-history";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
 import { readUserPointBalanceResult, sumUserPointLedger } from "@/lib/points/user-point-ledger";
+import {
+  appleRefundLedgerLabel,
+  appleTransactionTail,
+  FINANCE_PUBLIC_PROCESSOR,
+  pointChargeSubtitle,
+} from "@/lib/finance/finance-display-labels";
 import type { PointPromotionOrder } from "@/lib/types/point";
 
 const DELETED_POST_KO = "삭제된 게시물";
 const DELETED_POST_EN = "Deleted post";
+
+/**
+ * 관리자가 입력한 사유 중 회원에게 보여도 되는 것 — 수동 지급·회수(admin_manual) 사유만.
+ * 관리자 화면이 「회원 내역에 표시」로 안내하고 받는다. 그 밖의 관리자 원장 설명(Apple 환불 메모·점검 행 등)은 내부 기록.
+ */
+const MEMBER_PUBLIC_REASON_RELATED_TYPES = new Set(["admin_manual"]);
 
 type LedgerRow = Record<string, unknown>;
 
@@ -117,6 +129,13 @@ function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
       resolvedTitles = pointFinancialCategoryTitle("ADMIN_DEBIT");
     }
   }
+  const appleRefund = appleRefundLedgerLabel(relatedType);
+  if (appleRefund) {
+    resolvedTitles = { titleKey: appleRefund.key, fallbackTitleKo: appleRefund.ko, fallbackTitleEn: appleRefund.en };
+  }
+  const isAdminRow = resolvedCategory === "ADMIN_CREDIT" || resolvedCategory === "ADMIN_DEBIT" || Boolean(appleRefund);
+  const publicReason =
+    isAdminRow && MEMBER_PUBLIC_REASON_RELATED_TYPES.has(relatedType.trim()) ? description.trim() : "";
 
   return {
     ledgerId: String(row.id ?? ""),
@@ -141,13 +160,13 @@ function asLedgerItemBase(row: LedgerRow): PointFinancialHistoryItem {
     relatedObject: null,
     promotion: null,
     deposit: null,
-    adjustment:
-      resolvedCategory === "ADMIN_CREDIT" || resolvedCategory === "ADMIN_DEBIT"
-        ? {
-            reason: description,
-            actorType: (String(row.actor_type ?? "admin") as "user" | "admin" | "system"),
-          }
-        : null,
+    adjustment: isAdminRow
+      ? {
+          reason: description,
+          publicReason,
+          actorType: (String(row.actor_type ?? "admin") as "user" | "admin" | "system"),
+        }
+      : null,
     status: null,
   };
 }
@@ -181,7 +200,7 @@ async function loadChargeMap(
   const { data, error } = await sb
     .from("point_charge_requests")
     .select(
-      "id, plan_name, point_amount, request_status, approved_at, processed_at"
+      "id, plan_name, point_amount, request_status, approved_at, processed_at, payment_method, idempotency_key"
     )
     .in("id", ids);
   if (error) {
@@ -198,6 +217,9 @@ async function loadChargeMap(
       requestStatus: String(r.request_status ?? ""),
       approvedAt: r.approved_at ? String(r.approved_at) : null,
       processedAt: r.processed_at ? String(r.processed_at) : null,
+      paymentMethod: r.payment_method ? String(r.payment_method) : null,
+      appleTxTail:
+        String(r.payment_method ?? "") === "apple_iap" ? appleTransactionTail(String(r.idempotency_key ?? "")) : null,
     });
   }
   return map;
@@ -255,6 +277,7 @@ function enrichCommunityItem(
         missing: true,
       },
       subtitle: item.subtitle || DELETED_COMMUNITY_KO,
+      ...(item.subtitle ? {} : { subtitleEn: DELETED_POST_EN }),
     };
   }
   return {
@@ -376,6 +399,8 @@ function enrichItem(
         missing: targetMissing,
       };
       item.subtitle = targetTitle || DELETED_POST_KO;
+      if (targetTitle) delete item.subtitleEn;
+      else item.subtitleEn = DELETED_POST_EN;
       item.status = order.orderStatus;
     } else {
       item.relatedObject = {
@@ -385,6 +410,7 @@ function enrichItem(
         missing: true,
       };
       item.subtitle = DELETED_POST_KO;
+      item.subtitleEn = DELETED_POST_EN;
     }
   }
 
@@ -398,10 +424,10 @@ function enrichItem(
         label: dep.planName || "포인트 충전",
         missing: false,
       };
-      item.subtitle =
-        dep.requestStatus === "approved" || dep.requestStatus === "completed"
-          ? "입금 확인 완료"
-          : dep.planName || item.description;
+      // 결제 수단 · 신청 상태 (Apple 결제를 「입금 확인」으로 쓰지 않는다)
+      const sub = pointChargeSubtitle(dep.paymentMethod, dep.requestStatus);
+      item.subtitle = sub.ko || dep.planName || item.description;
+      if (sub.en) item.subtitleEn = sub.en;
       item.status = dep.requestStatus;
     } else if (item.description) {
       item.subtitle = item.description;
@@ -420,7 +446,7 @@ function applyFeedAdHoldCaptureProjection(
   const et = item.entryType.trim().toLowerCase();
   const rt = item.relatedType.trim().toLowerCase();
   // 커뮤니티·거래 상위노출 승인 확정 0P 줄 — 피드 광고와 같은 규칙으로 숨김 (재감사 R8-c)
-  if (rt === "promotion_order") {
+  if (rt === "promotion_order" || rt === "trade_post_ad") {
     return isHiddenCaptureAuditRow({ entry_type: et, related_type: rt, related_id: item.relatedId, amount: item.signedAmount })
       ? null
       : item;
@@ -458,6 +484,7 @@ function applyFeedAdHoldCaptureProjection(
         ...item,
         status: "released",
         subtitle: item.subtitle || "보류 해제됨",
+        ...(item.subtitle ? {} : { subtitleEn: "Hold released" }),
       };
     }
     return { ...item, status: st || "held" };
@@ -743,6 +770,25 @@ async function projectPointLedgerRows(
     .map((item) => applyFeedAdHoldCaptureProjection(item, holdStatus))
     .filter((item): item is PointFinancialHistoryItem => item != null)
     .filter((item) => matchesPointFinancialFilter(item, filter));
+}
+
+/**
+ * 회원 API 응답용 — 처리 관리자 id·내부 원장 설명을 뺀다 (관리자 화면은 원본 사용).
+ * 관리자 줄의 설명은 공개 사유(adjustment.reason)만 남긴다.
+ */
+export function toMemberPointHistoryItem(item: PointFinancialHistoryItem): PointFinancialHistoryItem {
+  if (!item.adjustment) return { ...item, actorId: null };
+  const pub = item.adjustment.publicReason ?? "";
+  const { subtitleEn: _internalEn, ...rest } = item;
+  void _internalEn;
+  return {
+    ...rest,
+    actorId: null,
+    description: pub,
+    subtitle: pub || FINANCE_PUBLIC_PROCESSOR.ko,
+    ...(pub ? {} : { subtitleEn: FINANCE_PUBLIC_PROCESSOR.en }),
+    adjustment: { ...item.adjustment, reason: pub, publicReason: pub },
+  };
 }
 
 export function serializePointFinancialPage(page: PointFinancialHistoryPage) {

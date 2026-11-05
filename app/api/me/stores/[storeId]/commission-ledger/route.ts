@@ -7,6 +7,7 @@ import {
   loadStoreCashOverview,
   loadStoreCommissionBreakdown,
   loadStoreCommissionLedgerPage,
+  withoutAdminActors,
   loadStorePlatformPayable,
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import {
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ storeId
       breakdown: { group: q.group === "store" ? "day" : q.group, rows: breakdown },
       payableSummary: payable.summary,
       ...ledger,
+      rows: withoutAdminActors(ledger.rows),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "load_failed";

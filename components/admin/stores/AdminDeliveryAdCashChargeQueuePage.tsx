@@ -6,6 +6,7 @@
  */
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -54,7 +55,18 @@ type ChargeRequest = {
   payment_reference?: string | null;
   proof_file_path?: string | null;
   decided_reason?: string | null;
+  /** 처리 관리자 — 관리자 화면에만 (회원·오너는 「운영팀」) */
+  admin_user_id?: string | null;
+  admin_name?: string | null;
 };
+
+/** 처리 근거 코드 → 사람 문구 (원문 코드는 접힌 기술 정보에만) */
+function cashDecidedReasonLabel(code: string | null | undefined, ko: boolean): string | null {
+  const c = String(code ?? "").trim();
+  if (!c) return null;
+  if (c === "apple_iap_verified") return ko ? "Apple 결제 자동 확인" : "Apple payment auto-verified";
+  return c;
+}
 
 type ActionResult = {
   ok: boolean;
@@ -68,6 +80,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const { t, safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const writeAction = useAdminRouteAction("/admin/delivery-ads/cash-charges");
   const pathname = usePathname();
   const focusRequestId = (searchParams.get("requestId") ?? "").trim();
   /**
@@ -290,7 +303,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
 
   /** Confirm-first (R2): 적립 = moneyApprove(L2) · 반려 = reject(L2) — 사유는 API `reason` 으로 전송. */
   const requestConfirm = async (target: { id: string; op: "approve" | "reject" }) => {
-    if (busyId != null) return;
+    if (busyId != null || !writeAction.allowed) return;
     const { id, op } = target;
     const row = rows.find((r) => r.id === id);
     const when = row?.created_at ? formatAdminManilaDateTime(String(row.created_at)) : "";
@@ -533,7 +546,18 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                   className={`break-all px-2 py-3 text-[12px] ${r.payment_reference ? "text-sam-fg" : "text-sam-danger"}`}
                   data-admin-cash-charge-reference={r.payment_reference ? "1" : "missing"}
                 >
-                  {r.payment_reference
+                  {r.payment_reference && r.payment_method === "apple_iap" ? (
+                    <>
+                      {ownerCashTopUpMethodLabel(r.payment_method, ko)} · {r.payment_reference.replace(/^apple:/, "")}
+                      <Link
+                        href={`/admin/apple-iap?txn=${encodeURIComponent(r.payment_reference.replace(/^apple:/, ""))}`}
+                        className="block font-semibold text-sam-primary hover:underline"
+                        data-admin-cash-charge-apple-link="1"
+                      >
+                        {t("apple_iap_admin_link_apple")}
+                      </Link>
+                    </>
+                  ) : r.payment_reference
                     ? `${r.payment_method ? `${ownerCashTopUpMethodLabel(r.payment_method, ko)} · ` : ""}${r.payment_reference}`
                     : r.status === "PENDING"
                       ? ko
@@ -558,12 +582,21 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 </td>
                 <td className="whitespace-nowrap px-2 py-3 text-sam-muted" data-admin-cash-charge-decided-at="1">
                   {r.decided_at ? formatAdminManilaDateTime(String(r.decided_at)) : "—"}
+                  {r.decided_at ? (
+                    <span className="block text-[12px]" data-admin-cash-charge-processor="1">
+                      {r.admin_name ?? (ko ? "처리자 기록 없음" : "No processor recorded")}
+                    </span>
+                  ) : null}
+                  {r.status === "APPROVED" && cashDecidedReasonLabel(r.decided_reason, ko) ? (
+                    <span className="block text-[12px]">{cashDecidedReasonLabel(r.decided_reason, ko)}</span>
+                  ) : null}
                 </td>
                 <td className="px-2 py-3">
                   {r.status === "PENDING" ? (
                   <div className="flex flex-wrap gap-2">
                   <AdminActionButton variant="secondary" size="sm"
-                    disabled={busyId != null}
+                    disabled={busyId != null || !writeAction.allowed}
+                    title={!writeAction.allowed ? writeAction.reason ?? undefined : undefined}
                     onClick={() => void requestConfirm({ id: r.id, op: "approve" })}
                     data-admin-cash-charge-complete={r.id}
                   >
@@ -573,7 +606,8 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     })}
                   </AdminActionButton>
                   <AdminActionButton variant="secondary" size="sm"
-                    disabled={busyId != null}
+                    disabled={busyId != null || !writeAction.allowed}
+                    title={!writeAction.allowed ? writeAction.reason ?? undefined : undefined}
                     onClick={() => void requestConfirm({ id: r.id, op: "reject" })}
                     data-admin-cash-charge-reject={r.id}
                   >

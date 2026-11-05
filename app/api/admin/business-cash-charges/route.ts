@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { memberOpsListRange, parseMemberOpsListPageIfRequested } from "@/lib/admin/member-ops-list/member-ops-list-page";
+import { adminActorLabel, loadAdminActorNames } from "@/lib/admin/load-admin-actor-names";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
@@ -61,6 +62,7 @@ type ChargeRequestRowWithStore = {
   payment_reference?: string | null;
   proof_file_path?: string | null;
   decided_reason?: string | null;
+  admin_user_id?: string | null;
   stores?: { store_name?: string | null } | { store_name?: string | null }[] | null;
 };
 
@@ -91,7 +93,7 @@ export async function GET(req: NextRequest) {
   let q = gate.sb
     .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
     .select(
-      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, payment_method, payment_reference, proof_file_path, decided_reason, stores(store_name)",
+      "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason, payment_method, payment_reference, proof_file_path, decided_reason, admin_user_id, stores(store_name)",
       page ? { count: "exact" } : undefined
     )
     .order("created_at", { ascending: false });
@@ -121,10 +123,16 @@ export async function GET(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  const requests = ((data ?? []) as unknown as ChargeRequestRowWithStore[]).map(({ stores, ...row }) => {
+  const rawRows = (data ?? []) as unknown as ChargeRequestRowWithStore[];
+  const actorNames = await loadAdminActorNames(
+    gate.sb,
+    rawRows.map((r) => r.admin_user_id)
+  );
+  const requests = rawRows.map(({ stores, ...row }) => {
     const embed = Array.isArray(stores) ? stores[0] : stores;
     const storeName = String(embed?.store_name ?? "").trim();
-    return { ...row, store_name: storeName || null };
+    const adminId = row.admin_user_id ?? null;
+    return { ...row, store_name: storeName || null, admin_name: adminActorLabel(actorNames, adminId) };
   });
   if (page) {
     return NextResponse.json({

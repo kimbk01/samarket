@@ -10,7 +10,8 @@ import {
   isMissingPointsTable,
   normalizeChargeRequest,
 } from "@/lib/points/admin-user-points-shared";
-import { POINT_CHARGE_REQUEST_ROW_SELECT } from "@/lib/points/point-query-select";
+import { POINT_CHARGE_REQUEST_ADMIN_ROW_SELECT } from "@/lib/points/point-query-select";
+import { adminActorLabel, loadAdminActorNames } from "@/lib/admin/load-admin-actor-names";
 import {
   notifyUserPointChargeApproved,
   notifyUserPointChargeOnHold,
@@ -46,7 +47,7 @@ export async function handleAdminPointChargeGet(
   const { sb } = gate;
   const { data: row, error } = await sb
     .from("point_charge_requests")
-    .select(POINT_CHARGE_REQUEST_ROW_SELECT)
+    .select(POINT_CHARGE_REQUEST_ADMIN_ROW_SELECT)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -65,9 +66,18 @@ export async function handleAdminPointChargeGet(
   const { data: profile } = await sb.from("profiles").select("nickname").eq("id", userId).maybeSingle();
   const userNickname = String((profile as { nickname?: string } | null)?.nickname ?? "");
 
+  const request = normalizeChargeRequest(rec, userId, userNickname);
+  const names = await loadAdminActorNames(sb, [request.approvedBy, request.processedBy]);
+  const approvedByName = adminActorLabel(names, request.approvedBy);
+  const processedByName = adminActorLabel(names, request.processedBy);
+
   return NextResponse.json({
     ok: true,
-    request: normalizeChargeRequest(rec, userId, userNickname),
+    request: {
+      ...request,
+      ...(approvedByName ? { approvedByName } : {}),
+      ...(processedByName ? { processedByName } : {}),
+    },
   });
 }
 

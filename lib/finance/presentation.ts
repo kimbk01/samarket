@@ -35,25 +35,27 @@ export function formatFinanceAmount(input: {
   });
 }
 
+/** Cash·Coin 원장 종류 이름 — 관리자·사장님 공용 1벌 (사장님 화면도 이 표를 쓴다 · 금융 SSOT) */
 const TYPE_LABELS: Record<string, { ko: string; en: string }> = {
   TOP_UP: { ko: "Cash 충전", en: "Cash top-up" },
   // 같은 전환의 두 원장 행 — 필터·목록에서 구분되게 (실기 2026-11-03: 같은 이름 2개)
   CONVERT_FROM_STORE_POINTS: { ko: "Coin→Cash 전환 (Cash 입금)", en: "Coin→Cash convert (Cash in)" },
   CONVERT_TO_BUSINESS_CASH: { ko: "Coin→Cash 전환 (Coin 차감)", en: "Coin→Cash convert (Coin out)" },
   SALE_FEE: { ko: "판매 수수료", en: "Sale fee" },
-  SALE_FEE_SETTLEMENT: { ko: "미납 수수료 회수", en: "Outstanding fee collection" },
-  SALE_FEE_REVERSAL: { ko: "수수료 취소", en: "Fee reversal" },
-  AD_SPEND: { ko: "광고 지출", en: "Ad spend" },
+  SALE_FEE_SETTLEMENT: { ko: "미납 수수료 정산", en: "Unpaid fee settlement" },
+  SALE_FEE_REVERSAL: { ko: "수수료 환급", en: "Fee refund" },
+  AD_SPEND: { ko: "광고 사용", en: "Ad spend" },
   AD_REFUND: { ko: "광고 환불", en: "Ad refund" },
-  PARTNER_SPEND: { ko: "Partner 지출", en: "Partner spend" },
+  PARTNER_SPEND: { ko: "Partner 사용", en: "Partner spend" },
   PARTNER_REFUND: { ko: "Partner 환불", en: "Partner refund" },
-  ADMIN_ADJUST: { ko: "관리자 조정", en: "Admin adjustment" },
+  ADMIN_ADJUST: { ko: "잔액 조정", en: "Balance adjustment" },
+  SYSTEM: { ko: "시스템", en: "System" },
   SALE_EARN: { ko: "판매 Coin 적립", en: "Sale Coin earn" },
   GIFT_REDEMPTION_EARN: { ko: "상품권 Coin 적립", en: "Gift Coin earn" },
-  REVERSAL: { ko: "취소/반전", en: "Reversal" },
-  WITHDRAWAL_REQUEST: { ko: "출금 신청", en: "Withdrawal request" },
-  WITHDRAWAL_COMPLETE: { ko: "출금 지급", en: "Withdrawal paid" },
-  WITHDRAWAL_RELEASE: { ko: "출금 해제", en: "Withdrawal release" },
+  REVERSAL: { ko: "적립 취소", en: "Earn reversal" },
+  WITHDRAWAL_REQUEST: { ko: "출금 신청 (Coin 보류)", en: "Withdrawal requested (Coin held)" },
+  WITHDRAWAL_COMPLETE: { ko: "출금 완료", en: "Withdrawal paid" },
+  WITHDRAWAL_RELEASE: { ko: "출금 반려 (Coin 환원)", en: "Withdrawal rejected (Coin returned)" },
   ECONOMIC_INFLOW: { ko: "Coin 유입", en: "Coin inflow" },
   POINT_CHARGE: { ko: "Point 충전", en: "Point charge" },
   POINT_SPEND: { ko: "Point 사용", en: "Point spend" },
@@ -64,6 +66,16 @@ const TYPE_LABELS: Record<string, { ko: string; en: string }> = {
   POINT_RECLAIM: { ko: "Point 회수", en: "Point reclaim" },
   POINT_REFUND: { ko: "Point 환불", en: "Point refund" },
 };
+
+/** 구 종류 코드 — 이름만 같고 필터 항목은 따로 두지 않는다 */
+const TYPE_LABEL_ALIASES: Record<string, string> = {
+  WITHDRAWAL_REJECT: "WITHDRAWAL_RELEASE",
+};
+
+function typeLabelHit(type: string | null | undefined): { ko: string; en: string } | undefined {
+  const key = String(type ?? "").trim();
+  return TYPE_LABELS[TYPE_LABEL_ALIASES[key] ?? key];
+}
 
 const STATUS_LABELS: Record<string, { ko: string; en: string }> = {
   open: { ko: "미납", en: "Outstanding" },
@@ -88,8 +100,14 @@ const STATUS_LABELS: Record<string, { ko: string; en: string }> = {
   paid: { ko: "지급 완료", en: "Paid" },
 };
 
+/** 표에 있는 종류만 이름을 준다 — 없으면 null (사장님 화면은 기본 문구로 대체) */
+export function financeTypeLabelOrNull(type: string, ko: boolean): string | null {
+  const hit = typeLabelHit(type);
+  return hit ? (ko ? hit.ko : hit.en) : null;
+}
+
 export function financeTypeLabel(type: string, ko: boolean): string {
-  const hit = TYPE_LABELS[String(type ?? "").trim()];
+  const hit = typeLabelHit(type);
   if (hit) return ko ? hit.ko : hit.en;
   return String(type ?? "—");
 }

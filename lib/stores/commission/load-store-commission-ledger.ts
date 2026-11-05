@@ -4,6 +4,7 @@
  * Rows, states, totals and period balances are computed in SQL; this module only maps them.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadAdminActorNames } from "@/lib/admin/load-admin-actor-names";
 import {
   STORE_COMMISSION_RPC,
   type BusinessCashLedgerKind,
@@ -56,9 +57,31 @@ export type StoreCommissionLedgerRow = {
     outstandingCancelMinor: number;
     reason: string;
     adminUserId: string | null;
+    /** 관리자 화면만 — 처리 관리자 닉네임 (사장님 응답은 `withoutAdminActors` 로 id·이름 제거) */
+    adminUserName?: string | null;
     decidedAt: string;
   };
 };
+
+/** 사장님 응답 — 수수료 결정 처리 관리자 id 를 내보내지 않는다 (화면은 「운영팀」) */
+export function withoutAdminActors(rows: StoreCommissionLedgerRow[]): StoreCommissionLedgerRow[] {
+  return rows.map((r) =>
+    r.decision ? { ...r, decision: { ...r.decision, adminUserId: null, adminUserName: null } } : r
+  );
+}
+
+/** 관리자 응답 — 처리 관리자 닉네임을 붙인다 */
+export async function withAdminActorNames(
+  sb: SupabaseClient,
+  rows: StoreCommissionLedgerRow[]
+): Promise<StoreCommissionLedgerRow[]> {
+  const names = await loadAdminActorNames(sb, rows.map((r) => r.decision?.adminUserId));
+  return rows.map((r) =>
+    r.decision?.adminUserId
+      ? { ...r, decision: { ...r.decision, adminUserName: names.get(r.decision.adminUserId) ?? null } }
+      : r
+  );
+}
 
 export type StoreCommissionLedgerSummary = {
   count: number;

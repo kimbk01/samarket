@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyAmount } from "@/components/currency";
 import { formatMypageNumber } from "@/lib/mypage/format-mypage-date";
@@ -222,12 +223,15 @@ export function PointPromotionOrderForm({
         {submitText}
       </button>
       {!canSubmit && insufficient ? (
-        <a href="/mypage/points" className="block text-center sam-text-body text-sam-primary">
+        <Link
+          href="/mypage/points/charge"
+          className="flex min-h-11 items-center justify-center sam-text-body font-medium text-sam-primary"
+        >
           {safeT("promo_sheet_go_points", {
             fallbackKo: "포인트 충전",
             fallbackEn: "Add Point",
           })}
-        </a>
+        </Link>
       ) : null}
     </form>
   );

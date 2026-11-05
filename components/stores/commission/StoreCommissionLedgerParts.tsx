@@ -67,11 +67,11 @@ export const COMMISSION_PRESS =
 
 export const chipClass = (active: boolean) =>
   active
-    ? `inline-flex min-h-8 items-center rounded-full border border-signature bg-signature px-3 py-1.5 sam-text-xxs font-semibold text-white ${COMMISSION_PRESS}`
-    : `inline-flex min-h-8 items-center rounded-full border border-sam-border-soft bg-sam-app px-3 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted disabled:opacity-45 ${COMMISSION_PRESS}`;
+    ? `inline-flex min-h-11 items-center rounded-full border border-signature bg-signature px-3 py-1.5 sam-text-xxs font-semibold text-white ${COMMISSION_PRESS}`
+    : `inline-flex min-h-11 items-center rounded-full border border-sam-border-soft bg-sam-app px-3 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted disabled:opacity-45 ${COMMISSION_PRESS}`;
 
 /** Small secondary button inside table rows (상세 / 원장 보기). */
-export const ROW_ACTION_BTN = `inline-flex min-h-9 items-center whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted ${COMMISSION_PRESS}`;
+export const ROW_ACTION_BTN = `inline-flex min-h-11 items-center whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted ${COMMISSION_PRESS}`;
 
 export function CommissionStateChip({
   state,
@@ -434,7 +434,7 @@ export function LedgerPager({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(pages, Math.floor(offset / pageSize) + 1);
   const shown = total === 0 ? 0 : Math.min(offset + pageSize, total) - offset;
-  const btn = `inline-flex min-h-9 min-w-9 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg active:bg-sam-surface-muted disabled:opacity-40 ${COMMISSION_PRESS}`;
+  const btn = `inline-flex min-h-11 min-w-11 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg active:bg-sam-surface-muted disabled:opacity-40 ${COMMISSION_PRESS}`;
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 sam-text-helper" data-commission-pager="1">
       <span className="text-sam-muted">
@@ -446,7 +446,7 @@ export function LedgerPager({
       </span>
       {pages > 1 ? (
         <div className="flex items-center gap-1.5">
-          <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(0)} aria-label="first page">
+          <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(0)} aria-label={pickCommissionCopy(lang, "첫 페이지", "First page")}>
             «
           </button>
           <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(Math.max(0, offset - pageSize))}>
@@ -458,7 +458,7 @@ export function LedgerPager({
           <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange(offset + pageSize)}>
             {pickCommissionCopy(lang, "다음", "Next")}
           </button>
-          <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange((pages - 1) * pageSize)} aria-label="last page">
+          <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange((pages - 1) * pageSize)} aria-label={pickCommissionCopy(lang, "마지막 페이지", "Last page")}>
             »
           </button>
         </div>

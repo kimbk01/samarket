@@ -63,8 +63,8 @@ export function commissionOwnerRefundedLabel(
   const cash = Number(decision?.cashRefundMinor ?? 0) > 0;
   const cancel = Number(decision?.outstandingCancelMinor ?? 0) > 0;
   const en = lang === "en";
-  if (cash && cancel) return en ? "Cash refunded · Unpaid cancelled" : "캐시 환급·미납 취소";
-  if (cash) return en ? "Cash refunded" : "캐시 환급";
+  if (cash && cancel) return en ? "Cash refunded · Unpaid cancelled" : "Cash 환급·미납 취소";
+  if (cash) return en ? "Cash refunded" : "Cash 환급";
   if (cancel) return en ? "Unpaid cancelled" : "미납 취소";
   return null;
 }
