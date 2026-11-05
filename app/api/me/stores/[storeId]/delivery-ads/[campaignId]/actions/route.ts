@@ -21,6 +21,7 @@ import {
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 import type { SecureCanonicalBcFailure } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import { clientSafeErrorDetail } from "@/lib/security/internal-error-response";
+import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +128,10 @@ export async function POST(
 
   /** submit/resubmit = 비즈캐시 차감 + 전이 (V3-04 DEF-7 원자 함수). */
   const isSubmit = action === "submit" || action === "resubmit";
+  if (isSubmit) {
+    const iosBlocked = blockIosAppDigitalPurchase(req);
+    if (iosBlocked) return iosBlocked;
+  }
 
   const productKind =
     body.productKind === "banner" || body.product_kind === "banner" ? "banner" : "store_sponsored";

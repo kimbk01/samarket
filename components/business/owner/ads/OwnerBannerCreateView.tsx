@@ -59,6 +59,11 @@ import { CAMPAIGN_IMAGE_MAX_BYTES } from "@/lib/admin/notification-campaigns/val
 import {
   OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
+import { OwnerIosCashPurchaseNotice } from "@/components/business/owner/OwnerIosCashPurchaseNotice";
+import {
+  dibayShellRequestHeaders,
+  useIosAppDigitalPurchaseBlocked,
+} from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 
 type EligibleStore = {
   id: string;
@@ -111,6 +116,7 @@ type UploadedCreative = {
  */
 export function OwnerBannerCreateView() {
   const { t, safeT, language } = useI18n();
+  const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = language === "en" ? "en" : "ko";
@@ -449,7 +455,7 @@ export function OwnerBannerCreateView() {
       {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...dibayShellRequestHeaders() },
         body: JSON.stringify({
           inventoryKey,
           packageId,
@@ -570,17 +576,19 @@ export function OwnerBannerCreateView() {
   ]);
 
   const requestSubmit = useCallback(() => {
-    if (!canSubmit || !quote || cashBalanceMinor == null) return;
+    if (iosCashPurchaseBlocked || !canSubmit || !quote || cashBalanceMinor == null) return;
     if (cashBalanceMinor < quote.finalPayableMinor) {
       setShortageModalOpen(true);
       return;
     }
     void submit();
-  }, [canSubmit, cashBalanceMinor, quote, submit]);
+  }, [canSubmit, cashBalanceMinor, iosCashPurchaseBlocked, quote, submit]);
 
   const errorText =
     error?.startsWith("__geom__")
       ? error.slice("__geom__".length)
+      : error === "ios_digital_purchase_unavailable"
+      ? t("owner_ios_cash_purchase_unavailable")
       : error === "file_too_large"
       ? t("business_image_upload_too_large")
       : error === "inventory"
@@ -1141,20 +1149,24 @@ export function OwnerBannerCreateView() {
               >
                 {draftBusy ? t("owner_ads_loading") : t("owner_ads_save_draft")}
               </button>
-              <button
-                type="button"
-                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
-                disabled={!canSubmit || busy || draftBusy}
-                data-owner-ads-submit-cta="apply"
-                onClick={() => requestSubmit()}
-              >
-                {busy
-                  ? t("owner_ads_loading")
-                  : safeT("owner_ads_apply_submit_cta", {
-                      fallbackKo: "광고 신청",
-                      fallbackEn: "Submit ad application",
-                    })}
-              </button>
+              {iosCashPurchaseBlocked ? (
+                <OwnerIosCashPurchaseNotice className="self-center text-xs" />
+              ) : (
+                <button
+                  type="button"
+                  className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                  disabled={!canSubmit || busy || draftBusy}
+                  data-owner-ads-submit-cta="apply"
+                  onClick={() => requestSubmit()}
+                >
+                  {busy
+                    ? t("owner_ads_loading")
+                    : safeT("owner_ads_apply_submit_cta", {
+                        fallbackKo: "광고 신청",
+                        fallbackEn: "Submit ad application",
+                      })}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { submitPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-writer";
 import { assertOwnerPlatformPopupNewSalesAllowed } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export async function POST(
       { status: 403 }
     );
   }
+  const iosBlocked = blockIosAppDigitalPurchase(req);
+  if (iosBlocked) return iosBlocked;
 
   const { requestId } = await ctx.params;
   const body = (await req.json().catch(() => ({}))) as { idempotencyKey?: string };

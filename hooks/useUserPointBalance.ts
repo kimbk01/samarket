@@ -54,11 +54,8 @@ export function useUserPointBalance(_userId?: string | null): {
       const next = Number(j.balance);
       if (!Number.isFinite(next)) throw new Error("points_balance_missing");
       const total = Math.trunc(next);
-      const apple = Math.max(0, Math.trunc(Number(j.appleFunds?.appleOnlyPoints ?? 0)) || 0);
-      const general =
-        apple > 0
-          ? Math.max(0, Math.trunc(Number(j.appleFunds?.generalAvailablePoints ?? 0)) || 0)
-          : total;
+      const apple = Math.trunc(Number(j.appleFunds?.appleOnlyPoints ?? 0)) || 0;
+      const general = apple > 0 ? Math.trunc(Number(j.appleFunds?.generalAvailablePoints ?? 0)) || 0 : total;
       setBalance(total);
       setAppleOnly(apple);
       setGeneralAvailable(general);

@@ -32,6 +32,7 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   invalid_json: "common_error",
   // OPS-01 — store_notices 테이블 부재(503)
   store_notices_unavailable: "business_ops3b_err_notices_unavailable",
+  ios_digital_purchase_unavailable: "owner_ios_cash_purchase_unavailable",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;

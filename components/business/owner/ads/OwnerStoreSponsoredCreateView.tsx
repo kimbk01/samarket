@@ -38,6 +38,11 @@ import {
 import { deliveryAdCommercialPlacementLabel } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { DeliveryAdBrowseTargetKind } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
+import { OwnerIosCashPurchaseNotice } from "@/components/business/owner/OwnerIosCashPurchaseNotice";
+import {
+  dibayShellRequestHeaders,
+  useIosAppDigitalPurchaseBlocked,
+} from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 
 type EligibleStore = {
   id: string;
@@ -119,6 +124,7 @@ type CommercialPlacement = {
  */
 export function OwnerStoreSponsoredCreateView() {
   const { t, safeT, language } = useI18n();
+  const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = language === "en" ? "en" : "ko";
@@ -398,7 +404,7 @@ export function OwnerStoreSponsoredCreateView() {
         {
           method: "PATCH",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...dibayShellRequestHeaders() },
           body: JSON.stringify({
             inventoryKeys: [inventoryKey],
             packageId,
@@ -522,7 +528,9 @@ export function OwnerStoreSponsoredCreateView() {
   }, [packageId, persistDraft, quote, refetchCommercial]);
 
   const errorText =
-    error === "inventory"
+    error === "ios_digital_purchase_unavailable"
+      ? t("owner_ios_cash_purchase_unavailable")
+      : error === "inventory"
       ? t("owner_ads_error_inventory")
       : error === "store"
         ? t("owner_ads_error_store")
@@ -550,13 +558,13 @@ export function OwnerStoreSponsoredCreateView() {
   );
 
   const requestSubmit = useCallback(() => {
-    if (!canSubmit || !quote || cashBalanceMinor == null) return;
+    if (iosCashPurchaseBlocked || !canSubmit || !quote || cashBalanceMinor == null) return;
     if (cashBalanceMinor < quote.finalPayableMinor) {
       setShortageModalOpen(true);
       return;
     }
     void submit();
-  }, [canSubmit, cashBalanceMinor, quote, submit]);
+  }, [canSubmit, cashBalanceMinor, iosCashPurchaseBlocked, quote, submit]);
 
   const confirmRows = useMemo(() => {
     if (!selectedStore) return [];
@@ -844,20 +852,24 @@ export function OwnerStoreSponsoredCreateView() {
               >
                 {draftBusy ? t("owner_ads_loading") : t("owner_ads_save_draft")}
               </button>
-              <button
-                type="button"
-                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
-                disabled={!canSubmit || busy || draftBusy}
-                data-owner-ads-submit-cta="apply"
-                onClick={() => requestSubmit()}
-              >
-                {busy
-                  ? t("owner_ads_loading")
-                  : safeT("owner_ads_apply_submit_cta", {
-                      fallbackKo: "광고 신청",
-                      fallbackEn: "Submit ad application",
-                    })}
-              </button>
+              {iosCashPurchaseBlocked ? (
+                <OwnerIosCashPurchaseNotice className="self-center text-xs" />
+              ) : (
+                <button
+                  type="button"
+                  className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                  disabled={!canSubmit || busy || draftBusy}
+                  data-owner-ads-submit-cta="apply"
+                  onClick={() => requestSubmit()}
+                >
+                  {busy
+                    ? t("owner_ads_loading")
+                    : safeT("owner_ads_apply_submit_cta", {
+                        fallbackKo: "광고 신청",
+                        fallbackEn: "Submit ad application",
+                      })}
+                </button>
+              )}
             </div>
           </div>
         </div>

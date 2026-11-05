@@ -55,6 +55,11 @@ import {
 } from "@/lib/stores/advertising/owner-delivery-ad-r2-operations";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
+import { OwnerIosCashPurchaseNotice } from "@/components/business/owner/OwnerIosCashPurchaseNotice";
+import {
+  dibayShellRequestHeaders,
+  useIosAppDigitalPurchaseBlocked,
+} from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
   "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg";
@@ -109,6 +114,7 @@ function draftEditHref(productKind: DeliveryAdOwnerProductKind, storeId: string,
 
 export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }) {
   const { t, safeT } = useI18n();
+  const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const router = useRouter();
   const sp = useSearchParams();
   const storeIdQ = sp.get("storeId")?.trim() ?? "";
@@ -344,8 +350,12 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     });
   }, [campaign, productKind, storeId]);
 
+  const isCashSubmitAction = (a: OwnerNextAction) =>
+    a.kind === "action" && (a.action === "submit" || a.action === "resubmit");
+  const iosCashSubmitHidden = iosCashPurchaseBlocked && nextActions.some(isCashSubmitAction);
   const actionCtas = nextActions.filter(
-    (a): a is Extract<OwnerNextAction, { kind: "action" }> => a.kind === "action"
+    (a): a is Extract<OwnerNextAction, { kind: "action" }> =>
+      a.kind === "action" && !(iosCashPurchaseBlocked && isCashSubmitAction(a))
   );
   /** 하단 바는 실행할 동작이 있을 때만 — 그때만 사장님 탭 스크롤 숨김 끔 */
   useOwnerFooterAboveNavPresence(aboveBottomNav && actionCtas.length > 0);
@@ -375,7 +385,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...dibayShellRequestHeaders() },
           body: JSON.stringify({ action, productKind }),
         }
       );
@@ -385,7 +395,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         campaign?: DetailCampaign;
       };
       if (!res.ok || !json.ok || !json.campaign) {
-        setError("generic");
+        setError(json.error === "ios_digital_purchase_unavailable" ? json.error : "generic");
         return;
       }
       setCampaign(json.campaign);
@@ -511,7 +521,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         {t(ownerLifecycleStatusI18nKey(campaign.lifecycleStatus))}
       </h1>
 
-      {error ? (
+      {iosCashSubmitHidden ? <OwnerIosCashPurchaseNotice className="mt-2" /> : null}
+
+      {error && error !== "ios_digital_purchase_unavailable" ? (
         <p className="mt-2 text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",

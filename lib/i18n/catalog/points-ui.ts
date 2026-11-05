@@ -254,6 +254,8 @@ export const pointsUiMessages = {
     apple_iap_loading: "결제 상품을 불러오는 중입니다…",
     apple_iap_unavailable: "Apple 결제 상품을 준비 중입니다. 잠시 후 다시 확인해 주세요.",
     apple_iap_point_use_note: "Apple 결제로 충전한 Point는 광고·홍보에만 사용할 수 있습니다. 상품권·매장 주문에는 사용할 수 없습니다.",
+    owner_ios_cash_purchase_unavailable:
+      "iPhone 앱에서는 Cash 충전과 Cash 광고 결제를 이용할 수 없습니다. 잔액·내역·진행 중인 광고는 그대로 확인할 수 있습니다.",
     apple_iap_select_amount: "충전 금액",
     apple_iap_price_from_store: "가격은 결제 화면에서 확인됩니다",
     apple_iap_phase_preparing: "결제를 준비하고 있습니다…",
@@ -616,6 +618,8 @@ export const pointsUiMessages = {
     apple_iap_loading: "Loading purchase options…",
     apple_iap_unavailable: "Apple payment options are being prepared. Please check again later.",
     apple_iap_point_use_note: "Point charged through Apple can only be used for ads and promotions, not for gift certificates or store orders.",
+    owner_ios_cash_purchase_unavailable:
+      "Cash top-up and Cash ad payments aren't available in the iPhone app. You can still view your balance, history and active ads.",
     apple_iap_select_amount: "Top-up amount",
     apple_iap_price_from_store: "Price is shown on the payment sheet",
     apple_iap_phase_preparing: "Preparing payment…",

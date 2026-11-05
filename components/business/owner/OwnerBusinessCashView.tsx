@@ -28,6 +28,11 @@ import { newOwnerFormRequestKey, ownerCashTopUpMethodLabel } from "@/lib/busines
 import { BC_CHARGE_DEFAULT_PAYMENT_METHODS } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodChoiceChips";
 import { FinanceStatusBadge } from "@/components/finance/FinanceStatusBadge";
+import { OwnerIosCashPurchaseNotice } from "@/components/business/owner/OwnerIosCashPurchaseNotice";
+import {
+  dibayShellRequestHeaders,
+  useIosAppDigitalPurchaseBlocked,
+} from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 import {
   appleTransactionTail,
   cashTopUpStatusDisplay,
@@ -65,6 +70,7 @@ export function OwnerBusinessCashView({
   const { t, safeT, language } = useI18n();
   const toast = useOwnerToast();
   const locale = catalogDateLocale(language);
+  const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +215,7 @@ export function OwnerBusinessCashView({
       const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/business-cash`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...dibayShellRequestHeaders() },
         body: JSON.stringify({
           op: "topup_request",
           amountMinor,
@@ -323,6 +329,10 @@ export function OwnerBusinessCashView({
           fallbackEn: "Top up Cash",
         })}
       >
+        {iosCashPurchaseBlocked ? (
+          <OwnerIosCashPurchaseNotice />
+        ) : (
+        <>
         <p className="mb-2 text-xs text-sam-muted" data-owner-bc-topup-deposit-rule="1">
           {safeT("owner_bc_topup_deposit_rule", {
             fallbackKo: "먼저 입금한 뒤 입금 수단과 참조번호(거래번호)를 입력해 주세요. 관리자가 입금을 확인한 뒤 충전됩니다.",
@@ -389,6 +399,8 @@ export function OwnerBusinessCashView({
             })}
           </button>
         </div>
+        </>
+        )}
       </OwnerStoreAdminDashSection>
 
       <OwnerCoinConvertSection

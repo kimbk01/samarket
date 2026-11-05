@@ -16,6 +16,7 @@ import {
   loadStoreEconomicPointsBalance,
 } from "@/lib/stores/advertising/canonical-business-cash-writer";
 import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
+import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -181,6 +182,8 @@ export async function POST(
   }
 
   if (op === "topup_request") {
+    const iosBlocked = blockIosAppDigitalPurchase(req);
+    if (iosBlocked) return iosBlocked;
     const amountMinor = Math.trunc(Number(body.amountMinor) || 0);
     // FIN-04 / IA-22 — the form owns one stable key per submission; no server-made fallback (retries must replay).
     const idem = String(body.idempotencyKey ?? "").trim();

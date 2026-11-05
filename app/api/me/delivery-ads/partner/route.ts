@@ -14,6 +14,7 @@ import {
   ownerRequestPartnerMembershipCancel,
   partnerMembershipEffectiveStatusLabel,
 } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
+import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +131,8 @@ export async function POST(req: NextRequest) {
   if (op === "apply") {
     const block = ownerStoreOperationalWriteBlock(gate.store.approval_status);
     if (block) return NextResponse.json({ ok: false, error: block.error }, { status: block.status });
+    const iosBlocked = blockIosAppDigitalPurchase(req);
+    if (iosBlocked) return iosBlocked;
     const result = await ownerApplyPartnerMembership(sb, {
       storeId,
       actorUserId: userId,

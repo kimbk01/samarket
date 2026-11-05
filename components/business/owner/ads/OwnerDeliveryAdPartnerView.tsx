@@ -11,6 +11,11 @@ import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { DeliveryAdOwnerPartnerStepProgress } from "@/components/stores/advertising/DeliveryAdOwnerPartnerStepProgress";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
+import { OwnerIosCashPurchaseNotice } from "@/components/business/owner/OwnerIosCashPurchaseNotice";
+import {
+  dibayShellRequestHeaders,
+  useIosAppDigitalPurchaseBlocked,
+} from "@/lib/apple-iap/use-ios-digital-purchase-blocked";
 
 type PartnerPayload = {
   ok?: boolean;
@@ -46,6 +51,7 @@ type HubStore = {
 
 export function OwnerDeliveryAdPartnerView() {
   const { t, safeT } = useI18n();
+  const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() || "";
   const [stores, setStores] = useState<HubStore[]>([]);
@@ -136,7 +142,7 @@ export function OwnerDeliveryAdPartnerView() {
       const res = await fetch("/api/me/delivery-ads/partner", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...dibayShellRequestHeaders() },
         body: JSON.stringify({
           op,
           storeId,
@@ -238,7 +244,9 @@ export function OwnerDeliveryAdPartnerView() {
         </ul>
       </section>
 
-      {error ? (
+      {error === "ios_digital_purchase_unavailable" ? (
+        <OwnerIosCashPurchaseNotice className="mt-3" />
+      ) : error ? (
         <p className="mt-3 text-[13px] text-sam-danger" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
@@ -275,7 +283,9 @@ export function OwnerDeliveryAdPartnerView() {
             {t("owner_ads_partner_payment_note")}
           </p>
 
-          {data.canApply ? (
+          {data.canApply && iosCashPurchaseBlocked ? (
+            <OwnerIosCashPurchaseNotice />
+          ) : data.canApply ? (
             <button
               type="button"
               disabled={busy}

@@ -166,6 +166,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       DibayAppOrientationPlugin(),
       // Edge swipe back — on only while a web screen asks (community write composer)
       DibayBackSwipePlugin(),
+      // Apple in-app purchase (StoreKit 2 · Point top-up)
+      DibayStoreKitPlugin(),
     ]
   }
 
