@@ -63,6 +63,7 @@ export function coinWithdrawalStatusDisplay(status: string): (FinanceLabel & { t
 // ── 결제 수단 — 내부 코드(manual_confirm 등)를 화면에 쓰지 않는다 ──
 const PAYMENT_METHOD: Record<string, FinanceLabel> = {
   apple_iap: { key: "fin_method_apple_iap", ko: "Apple 결제", en: "Apple payment" },
+  apple_iap_sandbox: { key: "fin_method_apple_iap_sandbox", ko: "Apple 테스트 결제 (Sandbox)", en: "Apple test payment (Sandbox)" },
   bank_transfer: { key: "fin_method_bank_deposit", ko: "계좌 입금", en: "Bank deposit" },
   manual_confirm: { key: "fin_method_bank_deposit", ko: "계좌 입금", en: "Bank deposit" },
   bank: { key: "fin_method_bank_deposit", ko: "계좌 입금", en: "Bank deposit" },

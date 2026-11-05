@@ -19,8 +19,9 @@ import { financeTransactionDetailHref } from "@/lib/finance/routes";
 import { financeRefNo } from "@/lib/finance/finance-display-labels";
 import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
 import { AppleIapReconciliationPanel } from "@/components/admin/apple-iap/AppleIapReconciliationPanel";
+import { AppleIapSandboxAccountsPanel } from "@/components/admin/apple-iap/AppleIapSandboxAccountsPanel";
 
-type Filter = "attention" | "refund" | "all" | "recon";
+type Filter = "attention" | "refund" | "all" | "recon" | "sandbox";
 type Decision = "recover" | "waive" | "recredit";
 
 type ListRow = {
@@ -51,6 +52,8 @@ const REASON_KEYS: Record<string, MessageKey> = {
   attempt_reused: "apple_iap_admin_reason_attempt_reused",
   product_mismatch: "apple_iap_admin_reason_product_mismatch",
   revoked: "apple_iap_admin_reason_revoked",
+  sandbox_account_not_allowed: "apple_iap_admin_reason_sandbox_account_not_allowed",
+  sandbox_cap_exceeded: "apple_iap_admin_reason_sandbox_cap_exceeded",
 };
 
 /** 충전 신청 화면 주소 — Point: 충전 상세 · Cash: 매장 Cash 충전 큐(그 신청만) */
@@ -132,7 +135,7 @@ export function AdminAppleIapReviewPage() {
   const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
-    if (filter === "recon") return;
+    if (filter === "recon" || filter === "sandbox") return;
     let cancelled = false;
     void (async () => {
       setLoading(true);
@@ -256,11 +259,14 @@ export function AdminAppleIapReviewPage() {
           { id: "refund", label: t("apple_iap_admin_filter_refund") },
           { id: "all", label: t("apple_iap_admin_filter_all") },
           { id: "recon", label: ko ? "대사" : "Reconciliation" },
+          { id: "sandbox", label: t("apple_iap_admin_filter_sandbox") },
         ]}
       />
 
       {filter === "recon" ? (
         <AppleIapReconciliationPanel ko={ko} />
+      ) : filter === "sandbox" ? (
+        <AppleIapSandboxAccountsPanel ko={ko} />
       ) : loading ? (
         <AdminLoadingState ko={ko} />
       ) : error ? (

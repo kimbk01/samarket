@@ -15,6 +15,7 @@ import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/forma
 import {
   giftPurchaseErrorFallbacks,
   mapGiftPurchaseErrorKey,
+  readGiftPurchaseErrorAmounts,
 } from "@/lib/gift-certificate/map-gift-purchase-error";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
@@ -42,7 +43,13 @@ export function BuyerGiftDetailView({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const from = searchParams.get("from")?.trim() || "";
-  const { balance, loading: balanceLoading, refresh: refreshBalance } = useUserPointBalance();
+  const {
+    balance,
+    appleOnly,
+    generalAvailable,
+    loading: balanceLoading,
+    refresh: refreshBalance,
+  } = useUserPointBalance();
   const [product, setProduct] = useState<GiftMallProduct | null>(null);
   const [ready, setReady] = useState(false);
   const [missing, setMissing] = useState(false);
@@ -104,13 +111,13 @@ export function BuyerGiftDetailView({
 
   const enough = useMemo(() => {
     if (!product) return false;
-    return balance >= product.purchasePrice;
-  }, [balance, product]);
+    return generalAvailable >= product.purchasePrice;
+  }, [generalAvailable, product]);
 
   const shortfall = useMemo(() => {
     if (!product) return 0;
-    return Math.max(0, product.purchasePrice - balance);
-  }, [balance, product]);
+    return Math.max(0, product.purchasePrice - generalAvailable);
+  }, [generalAvailable, product]);
 
   const productDisplayTitle = useMemo(() => product?.title ?? "", [product]);
 
@@ -144,9 +151,9 @@ export function BuyerGiftDetailView({
       }
       if (!json.ok) {
         const key = mapGiftPurchaseErrorKey(json.error);
-        setErrorMsg(safeT(key, giftPurchaseErrorFallbacks(key)));
+        setErrorMsg(safeT(key, giftPurchaseErrorFallbacks(key, readGiftPurchaseErrorAmounts(json))));
         setConfirmOpen(false);
-        if (json.error === "insufficient_balance") {
+        if (json.error === "insufficient_balance" || json.error === "point_apple_funds_restricted") {
           void refreshBalance();
         }
         return;
@@ -324,6 +331,26 @@ export function BuyerGiftDetailView({
             <CurrencyAmount currency="point" amount={balance} compactPoint className="text-sm" />
           )}
         </div>
+        {appleOnly > 0 && !balanceLoading ? (
+          <>
+            <div className="mt-1 flex items-center justify-between gap-2 text-sm" data-gift-point-usable="1">
+              <span className="text-sam-muted">
+                {safeT("gift_u2_detail_usable_label", {
+                  fallbackKo: "이 결제에 사용 가능",
+                  fallbackEn: "Usable for this payment",
+                })}
+              </span>
+              <CurrencyAmount currency="point" amount={generalAvailable} compactPoint className="text-sm" />
+            </div>
+            <p className="mt-1 text-xs text-sam-muted">
+              {safeT("gift_u2_detail_apple_only_note", {
+                fallbackKo: `Apple 결제로 충전한 ${appleOnly.toLocaleString()}P는 광고·홍보에만 사용할 수 있습니다.`,
+                fallbackEn: `${appleOnly.toLocaleString()}P charged through Apple can only be used for ads and promotions.`,
+                vars: { apple: appleOnly.toLocaleString() },
+              })}
+            </p>
+          </>
+        ) : null}
         <div className="mt-1 flex items-center justify-between gap-2 text-sm">
           <span className="text-sam-muted">
             {safeT("gift_u2_detail_need_label", {

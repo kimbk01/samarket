@@ -257,7 +257,9 @@ async function loadChargeMap(
       processedAt: r.processed_at ? String(r.processed_at) : null,
       paymentMethod: r.payment_method ? String(r.payment_method) : null,
       appleTxTail:
-        String(r.payment_method ?? "") === "apple_iap" ? appleTransactionTail(String(r.idempotency_key ?? "")) : null,
+        String(r.payment_method ?? "").startsWith("apple_iap")
+          ? appleTransactionTail(String(r.idempotency_key ?? "").replace(/^apple-sandbox:/, ""))
+          : null,
     });
   }
   return map;

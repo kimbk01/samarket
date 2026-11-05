@@ -11,6 +11,10 @@
 --   - Cash 한도는 운영 정책(business_cash_charge_policy) 그대로. Apple 결제 준비 시 예약으로 원자 집계, 지급 시 한도 재검사 없음.
 --   - 기존 데이터 이관·잔액 직접 수정 없음. 기존 표·트리거·제약 변경 없음.
 --   - 기존 함수 변경 1건: owner_create_business_cash_charge_request 의 월 한도 집계에 유효한 Apple 예약 합계를 더한다.
+--   - Cash IAP 출시 보류: 상품표는 Point 만(CHECK), 결제 준비·지급 함수도 cash 를 거절한다.
+--   - Sandbox: 서버 허용 설정(APPLE_IAP_ALLOW_SANDBOX) + apple_iap_sandbox_accounts 등록 계정 + 계정별 누적 11,000P 안에서만
+--     지급. 결제수단 apple_iap_sandbox · 키 apple-sandbox:<거래번호> 로 운영 실결제와 구분한다.
+--   - Apple 충전분 사용처 통제(광고·홍보 전용)는 20271107110000_point_apple_funds_digital_only.sql.
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1. Apple 상품 대응표 (상품 등록·가격 확정은 Owner 승인 후 — 이 마이그레이션은 행을 넣지 않는다)
@@ -32,6 +36,11 @@ CREATE TABLE IF NOT EXISTS public.apple_iap_products (
 
 CREATE UNIQUE INDEX IF NOT EXISTS apple_iap_products_point_plan_uidx
   ON public.apple_iap_products (point_plan_id) WHERE point_plan_id IS NOT NULL;
+
+-- Cash IAP 출시 보류 (Owner 2026-11-05: 판매 수수료 사용의 Apple 정책 적합성 미확인) — Cash 상품 등록 자체를 막는다.
+-- 해제는 정책 확인·Owner 승인 후 새 마이그레이션으로만.
+ALTER TABLE public.apple_iap_products DROP CONSTRAINT IF EXISTS apple_iap_products_point_only_chk;
+ALTER TABLE public.apple_iap_products ADD CONSTRAINT apple_iap_products_point_only_chk CHECK (kind = 'point');
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. Apple 거래 기록 (id = StoreKit appAccountToken)
@@ -150,6 +159,30 @@ CREATE TRIGGER trg_apple_iap_notifications_block_client_role_writes
   BEFORE INSERT OR UPDATE OR DELETE ON public.apple_iap_notifications
   FOR EACH ROW EXECUTE FUNCTION public.block_client_role_direct_writes();
 
+-- Sandbox(심사·시험) 지급 허용 계정 — 최고관리자 등록, 삭제 불가(해제는 revoked_at). 지급 상한은 거래 합계로 계산.
+CREATE TABLE IF NOT EXISTS public.apple_iap_sandbox_accounts (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE RESTRICT,
+  note text NOT NULL CHECK (char_length(btrim(note)) BETWEEN 2 AND 200),
+  added_by uuid NOT NULL,
+  added_at timestamptz NOT NULL DEFAULT now(),
+  revoked_by uuid,
+  revoked_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.apple_iap_sandbox_accounts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.apple_iap_sandbox_accounts FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_apple_iap_sandbox_accounts_block_client_role_writes ON public.apple_iap_sandbox_accounts;
+CREATE TRIGGER trg_apple_iap_sandbox_accounts_block_client_role_writes
+  BEFORE INSERT OR UPDATE OR DELETE ON public.apple_iap_sandbox_accounts
+  FOR EACH ROW EXECUTE FUNCTION public.block_client_role_direct_writes();
+
+-- Sandbox 계정별 누적 지급 상한 (Owner 2026-11-05 임시 시험 상한 11,000P)
+CREATE OR REPLACE FUNCTION public.apple_iap_sandbox_point_cap()
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+AS $fn$ SELECT 11000 $fn$;
+
 -- Apple 거래 기록은 삭제하지 않는다 (지급·환불 대사 근거)
 CREATE OR REPLACE FUNCTION public.apple_iap_transactions_forbid_delete()
 RETURNS trigger
@@ -165,6 +198,55 @@ DROP TRIGGER IF EXISTS trg_apple_iap_transactions_forbid_delete ON public.apple_
 CREATE TRIGGER trg_apple_iap_transactions_forbid_delete
   BEFORE DELETE ON public.apple_iap_transactions
   FOR EACH ROW EXECUTE FUNCTION public.apple_iap_transactions_forbid_delete();
+DROP TRIGGER IF EXISTS trg_apple_iap_sandbox_accounts_forbid_delete ON public.apple_iap_sandbox_accounts;
+CREATE TRIGGER trg_apple_iap_sandbox_accounts_forbid_delete
+  BEFORE DELETE ON public.apple_iap_sandbox_accounts
+  FOR EACH ROW EXECUTE FUNCTION public.apple_iap_transactions_forbid_delete();
+
+-- Sandbox 시험 계정 등록·해제 (최고관리자 · 서버 경로만). 재등록해도 상한은 지급 이력으로 계산된다.
+CREATE OR REPLACE FUNCTION public.apple_iap_sandbox_account_set(
+  p_admin_user_id uuid,
+  p_user_id uuid,
+  p_note text,
+  p_active boolean
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $fn$
+DECLARE
+  v_note text := nullif(btrim(coalesce(p_note, '')), '');
+BEGIN
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
+  END IF;
+  IF p_admin_user_id IS NULL OR NOT internal.is_platform_admin(p_admin_user_id) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'admin_required');
+  END IF;
+  IF p_user_id IS NULL OR p_active IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = p_user_id) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'user_not_found');
+  END IF;
+  IF p_active THEN
+    IF v_note IS NULL OR char_length(v_note) < 2 OR char_length(v_note) > 200 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'note_required');
+    END IF;
+    INSERT INTO public.apple_iap_sandbox_accounts (user_id, note, added_by)
+    VALUES (p_user_id, v_note, p_admin_user_id)
+    ON CONFLICT (user_id) DO UPDATE
+      SET note = EXCLUDED.note, added_by = EXCLUDED.added_by, added_at = now(),
+          revoked_by = NULL, revoked_at = NULL, updated_at = now();
+  ELSE
+    UPDATE public.apple_iap_sandbox_accounts
+       SET revoked_by = p_admin_user_id, revoked_at = now(), updated_at = now()
+     WHERE user_id = p_user_id AND revoked_at IS NULL;
+  END IF;
+  RETURN jsonb_build_object('ok', true, 'user_id', p_user_id, 'active', p_active);
+END;
+$fn$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. Cash 예약 합계 (유효 예약 = 확인 중 거래 + 만료 전 준비·승인 대기)
@@ -229,8 +311,8 @@ BEGIN
   IF v_key IS NULL OR char_length(v_key) < 8 OR char_length(v_key) > 200 THEN
     RETURN jsonb_build_object('ok', false, 'error', 'idempotency_required');
   END IF;
-  IF v_kind = 'cash' AND p_store_id IS NULL THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'invalid_input');
+  IF v_kind = 'cash' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'cash_iap_disabled');
   END IF;
 
   IF v_kind = 'cash' THEN
@@ -505,6 +587,9 @@ DECLARE
   v_bal bigint;
   v_settle jsonb;
   v_actor text := CASE WHEN p_admin_user_id IS NULL THEN 'system' ELSE 'admin' END;
+  v_sandbox boolean;
+  v_key text;
+  v_sandbox_used integer;
 BEGIN
   IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
     RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
@@ -517,6 +602,8 @@ BEGIN
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'error', 'not_found');
   END IF;
+  v_sandbox := v_row.environment = 'Sandbox';
+  v_key := CASE WHEN v_sandbox THEN 'apple-sandbox:' ELSE 'apple:' END || coalesce(v_row.transaction_id, '');
 
   IF v_row.status = 'credited' THEN
     IF v_row.kind = 'point' THEN
@@ -549,6 +636,35 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'self_credit_forbidden');
   END IF;
 
+  -- Cash IAP 출시 보류 — 지급하지 않는다 (상품 등록·결제 준비도 막혀 있어 정상 경로로는 여기에 오지 않는다)
+  IF v_row.kind = 'cash' THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'cash_iap_disabled', 'status', v_row.status);
+  END IF;
+
+  -- Sandbox(심사·시험) 결제: 등록된 시험 계정 + 계정별 누적 11,000P 안에서만 지급. 그 밖에는 검토로 두고 지급 없음.
+  -- 상한은 지급 완료된 Sandbox 거래 합계로 계산한다 (거래 기록은 삭제 불가 → 초기화로 우회 불가).
+  IF v_sandbox THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('apple_iap_sandbox_cap:' || v_row.user_id::text, 0));
+    IF NOT EXISTS (
+      SELECT 1 FROM public.apple_iap_sandbox_accounts a WHERE a.user_id = v_row.user_id AND a.revoked_at IS NULL
+    ) THEN
+      UPDATE public.apple_iap_transactions
+         SET status = 'review', review_reason = 'sandbox_account_not_allowed', updated_at = now()
+       WHERE id = v_row.id;
+      RETURN jsonb_build_object('ok', false, 'error', 'sandbox_account_not_allowed', 'status', 'review');
+    END IF;
+    SELECT coalesce(sum(t.point_amount), 0)::integer INTO v_sandbox_used
+      FROM public.apple_iap_transactions t
+     WHERE t.user_id = v_row.user_id AND t.environment = 'Sandbox' AND t.status = 'credited';
+    IF v_sandbox_used + v_row.point_amount > public.apple_iap_sandbox_point_cap() THEN
+      UPDATE public.apple_iap_transactions
+         SET status = 'review', review_reason = 'sandbox_cap_exceeded', updated_at = now()
+       WHERE id = v_row.id;
+      RETURN jsonb_build_object('ok', false, 'error', 'sandbox_cap_exceeded', 'status', 'review',
+                                'used_points', v_sandbox_used, 'cap_points', public.apple_iap_sandbox_point_cap());
+    END IF;
+  END IF;
+
   IF v_row.kind = 'point' THEN
     SELECT points INTO v_cache FROM public.profiles WHERE id = v_row.user_id FOR UPDATE;
     IF NOT FOUND THEN
@@ -566,12 +682,13 @@ BEGIN
       approved_at, approved_by, processed_at, processed_by, verified_at, verified_by, verification_note,
       idempotency_key
     ) VALUES (
-      v_row.user_id, v_row.point_plan_id::text, v_row.plan_name, 'apple_iap', v_row.payment_amount,
+      v_row.user_id, v_row.point_plan_id::text, v_row.plan_name,
+      CASE WHEN v_sandbox THEN 'apple_iap_sandbox' ELSE 'apple_iap' END, v_row.payment_amount,
       v_row.point_amount, v_row.applied_rate, v_row.rate_version,
       'approved', '', '', v_row.created_at, now(),
       now(), p_admin_user_id, now(), p_admin_user_id, now(), p_admin_user_id,
-      'apple:' || v_row.transaction_id,
-      'apple:' || v_row.transaction_id
+      v_key,
+      v_key
     ) RETURNING id INTO v_req_id;
 
     v_balance := v_sum + v_row.point_amount;
@@ -580,7 +697,8 @@ BEGIN
       idempotency_key
     ) VALUES (
       v_row.user_id, 'charge', v_row.point_amount, v_balance, 'point_charge', v_req_id::text,
-      'Apple 결제 포인트 충전', v_actor, p_admin_user_id, 'apple:' || v_row.transaction_id
+      CASE WHEN v_sandbox THEN 'Apple 테스트 결제 (Sandbox) 포인트 지급' ELSE 'Apple 결제 포인트 충전' END,
+      v_actor, p_admin_user_id, v_key
     ) RETURNING id INTO v_ledger;
 
     v_balance := public.project_user_point_balance_from_ledger(v_row.user_id);
@@ -1043,6 +1161,11 @@ REVOKE ALL ON FUNCTION public.apple_iap_log_notification(text, text, text, text,
 REVOKE ALL ON FUNCTION public.apple_iap_record_refund_notification(text, text, text, text, text, timestamptz, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.apple_iap_admin_decide_refund(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.apple_iap_transactions_forbid_delete() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.apple_iap_sandbox_account_set(uuid, uuid, text, boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.apple_iap_sandbox_point_cap() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apple_iap_sandbox_account_set(uuid, uuid, text, boolean) TO service_role;
+GRANT EXECUTE ON FUNCTION public.apple_iap_sandbox_point_cap() TO service_role;
+GRANT SELECT ON public.apple_iap_sandbox_accounts TO service_role;
 
 GRANT EXECUTE ON FUNCTION public.apple_iap_cash_active_reserved_minor(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.apple_iap_prepare(uuid, text, text, uuid, text) TO service_role;

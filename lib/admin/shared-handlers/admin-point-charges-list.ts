@@ -3,6 +3,7 @@
  * 원래 라우트(권한 키 `point`)와 거래 Admin 라우트(O-2 활성 관리자 전원)가 같은 처리를 공유한다 — 데이터·규칙 SSOT 하나.
  */
 import "server-only";
+import { APPLE_IAP_SANDBOX_PAYMENT_METHOD } from "@/lib/apple-iap/apple-iap-contract";
 import type { SharedAdminHandlerGate } from "@/lib/admin/shared-handlers/shared-admin-handler-gate";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -70,6 +71,7 @@ export async function handleAdminPointChargesListGet(
           amount2Column: "payment_amount",
           period,
           buckets: POINT_CHARGE_SUMMARY_BUCKETS,
+          neq: { payment_method: APPLE_IAP_SANDBOX_PAYMENT_METHOD },
         })
       : Promise.resolve(undefined);
 

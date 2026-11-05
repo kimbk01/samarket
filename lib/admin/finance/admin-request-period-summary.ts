@@ -146,6 +146,7 @@ type SummaryQuery = {
   gte: (col: string, v: string) => SummaryQuery;
   lt: (col: string, v: string) => SummaryQuery;
   eq: (col: string, v: string) => SummaryQuery;
+  neq: (col: string, v: string) => SummaryQuery;
   in: (col: string, v: readonly string[]) => SummaryQuery;
   order: (col: string, o: { ascending: boolean }) => SummaryQuery;
   range: (a: number, b: number) => PromiseLike<{ data: unknown[] | null; error: { message?: string } | null }>;
@@ -166,6 +167,8 @@ export async function loadAdminRequestPeriodSummary(
     period: AdminRequestPeriod;
     buckets: AdminRequestStatusBuckets;
     eq?: Record<string, string>;
+    /** 합계에서 뺄 값 (예: Apple 테스트 결제 `payment_method = apple_iap_sandbox`) */
+    neq?: Record<string, string>;
     /** 승인·반려 처리 시각 열 — 없으면 표 이름으로 `ADMIN_REQUEST_DECIDED_TIME_COLUMNS` 를 쓴다. */
     decidedTimeColumns?: { approved: string; rejected: string } | null;
   }
@@ -189,6 +192,7 @@ export async function loadAdminRequestPeriodSummary(
       if (input.period.toIso) q = q.lt(timeColumn, input.period.toIso);
       if (statuses) q = q.in(input.statusColumn, statuses);
       for (const [k, v] of Object.entries(input.eq ?? {})) q = q.eq(k, v);
+      for (const [k, v] of Object.entries(input.neq ?? {})) q = q.neq(k, v);
       const { data, error } = await q
         .order("id", { ascending: true })
         .range(page * SUMMARY_PAGE, page * SUMMARY_PAGE + SUMMARY_PAGE - 1);

@@ -64,6 +64,10 @@ export const giftCertificateU2Messages = {
     gift_u2_success_dialog_body_no_number: "결제 Point {price}",
 
     gift_u2_err_insufficient: "Point가 부족합니다.",
+    gift_u2_detail_usable_label: "이 결제에 사용 가능",
+    gift_u2_detail_apple_only_note: "Apple 결제로 충전한 {apple}P는 광고·홍보에만 사용할 수 있습니다.",
+    gift_u2_err_apple_restricted:
+      "보유 Point {total}P 중 이 결제에 사용할 수 있는 Point는 {usable}P입니다. Apple 결제로 충전한 Point는 광고·홍보에만 사용할 수 있습니다.",
     gift_u2_err_unavailable: "현재 구매할 수 없는 상품권입니다.",
     gift_u2_err_not_found: "상품권을 찾을 수 없습니다.",
     gift_u2_err_generic: "구매에 실패했습니다. 잠시 후 다시 시도해 주세요.",
@@ -157,6 +161,10 @@ export const giftCertificateU2Messages = {
     gift_u2_success_dialog_body_no_number: "Point spent {price}",
 
     gift_u2_err_insufficient: "Not enough Point.",
+    gift_u2_detail_usable_label: "Usable for this payment",
+    gift_u2_detail_apple_only_note: "{apple}P charged through Apple can only be used for ads and promotions.",
+    gift_u2_err_apple_restricted:
+      "You have {total}P, of which {usable}P can be used for this payment. Point charged through Apple can only be used for ads and promotions.",
     gift_u2_err_unavailable: "This gift certificate is not available for purchase.",
     gift_u2_err_not_found: "Gift certificate not found.",
     gift_u2_err_generic: "Purchase failed. Please try again.",

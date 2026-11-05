@@ -24,6 +24,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
+  // Cash IAP 출시 보류 (Owner 2026-11-05) — DB(apple_iap_prepare·apple_iap_credit)도 같은 이유로 거절한다.
+  if (body.kind === "cash") {
+    return NextResponse.json({ ok: false, error: "cash_iap_disabled" }, { status: 403 });
+  }
   const kind = body.kind === "point" || body.kind === "cash" ? body.kind : null;
   const productId = String(body.productId ?? "").trim();
   const clientKey = String(body.clientKey ?? "").trim().slice(0, 200);

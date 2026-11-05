@@ -6,6 +6,10 @@
  */
 
 export const APPLE_IAP_PAYMENT_METHOD = "apple_iap" as const;
+/** Apple 테스트 결제(Sandbox) 지급 — 운영 매출·정산 합계에서 제외하는 결제수단 */
+export const APPLE_IAP_SANDBOX_PAYMENT_METHOD = "apple_iap_sandbox" as const;
+/** DB `apple_iap_sandbox_point_cap()` 과 같은 값 (테스트 계정별 누적 지급 상한) */
+export const APPLE_IAP_SANDBOX_POINT_CAP = 11000;
 export const APPLE_IAP_STOREKIT_PLUGIN_ID = "DibayStoreKit" as const;
 
 export type AppleIapKind = "point" | "cash";

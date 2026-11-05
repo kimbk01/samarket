@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
-type PointsBalanceJson = { balance?: number };
+type PointsBalanceJson = {
+  balance?: number;
+  appleFunds?: { appleOnlyPoints?: number; generalAvailablePoints?: number } | null;
+};
 
 /**
  * 클라이언트 — /api/me/points 잔액 조회 (세션 쿠키, mock 금지).
@@ -16,14 +19,19 @@ type PointsBalanceJson = { balance?: number };
  *
  * MYPAGE-03: fetch failure must not be presented as balance 0 — use `error`.
  * D4: 음수(시스템 회수 후 미정산)는 실제 잔액 — 0 으로 자르지 않는다(financial hard-lock §8).
+ * appleOnly: Apple 결제 충전분(광고·홍보 전용). 0 이면 generalAvailable = balance (기존과 같음).
  */
 export function useUserPointBalance(_userId?: string | null): {
   balance: number;
+  appleOnly: number;
+  generalAvailable: number;
   loading: boolean;
   error: boolean;
   refresh: () => Promise<void>;
 } {
   const [balance, setBalance] = useState(0);
+  const [appleOnly, setAppleOnly] = useState(0);
+  const [generalAvailable, setGeneralAvailable] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -45,7 +53,15 @@ export function useUserPointBalance(_userId?: string | null): {
       );
       const next = Number(j.balance);
       if (!Number.isFinite(next)) throw new Error("points_balance_missing");
-      setBalance(Math.trunc(next));
+      const total = Math.trunc(next);
+      const apple = Math.max(0, Math.trunc(Number(j.appleFunds?.appleOnlyPoints ?? 0)) || 0);
+      const general =
+        apple > 0
+          ? Math.max(0, Math.trunc(Number(j.appleFunds?.generalAvailablePoints ?? 0)) || 0)
+          : total;
+      setBalance(total);
+      setAppleOnly(apple);
+      setGeneralAvailable(general);
       setError(false);
     } catch {
       setError(true);
@@ -58,5 +74,5 @@ export function useUserPointBalance(_userId?: string | null): {
     void refresh();
   }, [refresh]);
 
-  return { balance, loading, error, refresh };
+  return { balance, appleOnly, generalAvailable, loading, error, refresh };
 }

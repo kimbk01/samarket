@@ -46,7 +46,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
   }
   /** Apple 결제는 서명 검증 경로(/api/me/apple-iap/verify)에서만 승인 완료 행으로 들어간다 */
-  if (paymentMethod === "apple_iap") {
+  if (String(paymentMethod).startsWith("apple_iap")) {
     return NextResponse.json({ ok: false, error: "invalid_payment_method" }, { status: 400 });
   }
   const idempotencyKey = String(body.idempotencyKey ?? "").trim().slice(0, 120);

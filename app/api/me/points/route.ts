@@ -21,6 +21,7 @@ import {
   toMemberPointHistoryItem,
 } from "@/lib/points/project-point-financial-history";
 import { readUserPointBalanceResult } from "@/lib/points/user-point-ledger";
+import { readPointAppleFundSummary } from "@/lib/points/point-apple-funds";
 import { toMemberChargeRequest } from "@/lib/points/admin-user-points-shared";
 import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
 
@@ -102,6 +103,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "points_balance_unavailable" }, { status: 503 });
   }
   const balance = balanceRes.balance;
+  const appleFundSummary = await readPointAppleFundSummary(sb, userId);
+  const appleFunds =
+    appleFundSummary && appleFundSummary.appleOnlyPoints > 0
+      ? {
+          appleOnlyPoints: appleFundSummary.appleOnlyPoints,
+          generalAvailablePoints: appleFundSummary.generalAvailablePoints,
+        }
+      : null;
   const listFromIso = period.explicit ? period.fromIso : null;
   const listToIso = period.explicit ? period.toIso : null;
   const historyRes = offsetMode
@@ -208,6 +217,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     ok: true,
     balance,
+    /** Apple 충전분이 남아 있을 때만 — 광고·홍보 전용 금액과 상품권·주문에 쓸 수 있는 Point */
+    ...(appleFunds ? { appleFunds } : {}),
     history,
     /** @deprecated use history.items — kept for older clients during cutover */
     ledger: history.items.map((item) => ({

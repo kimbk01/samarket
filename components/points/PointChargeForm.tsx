@@ -266,6 +266,15 @@ export function PointChargeForm({
             ))}
           </div>
 
+          {apple.available ? (
+            <p
+              className={overlay ? `mb-4 ${ovB2} ${ovFg}` : "mb-4 sam-text-helper text-sam-muted"}
+              data-point-charge-apple-use-note="1"
+            >
+              {t("apple_iap_point_use_note")}
+            </p>
+          ) : null}
+
           {!apple.available && paymentMethod === "manual_confirm" && (
             <div className="mb-4 space-y-2">
               <div

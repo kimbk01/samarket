@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { giftCertificatePurchase } from "@/lib/gift-certificate/gift-certificate-rpc";
+import {
+  POINT_APPLE_FUNDS_RESTRICTED,
+  isPointAppleFundsRestrictedError,
+  readPointAppleFundSummary,
+} from "@/lib/points/point-apple-funds";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -39,6 +44,23 @@ export async function POST(req: NextRequest) {
     idempotencyKey,
   });
   if (!result.ok) {
+    if (isPointAppleFundsRestrictedError(result.error)) {
+      const summary = await readPointAppleFundSummary(sb, userId);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: POINT_APPLE_FUNDS_RESTRICTED,
+          ...(summary
+            ? {
+                total_points: summary.totalPoints,
+                apple_only_points: summary.appleOnlyPoints,
+                usable_points: summary.generalAvailablePoints,
+              }
+            : {}),
+        },
+        { status: 402 }
+      );
+    }
     const code = result.error;
     const status =
       code === "insufficient_balance"
