@@ -29,7 +29,12 @@ import {
   tradeMarketplaceCityScopeFromMasterAddress,
   type TradeMarketplaceHydrateOutcome,
 } from "@/lib/trade/location/resolve-trade-marketplace-default-city";
-import { isAppBootReady } from "@/lib/app-boot/app-boot-store";
+import { getAppBootSnapshot } from "@/lib/app-boot/app-boot-store";
+
+function isAppBootInProgress(): boolean {
+  const status = getAppBootSnapshot().status;
+  return status === "idle" || status === "shell" || status === "hydrating";
+}
 
 let sharedHydrateFlight: Promise<TradeMarketplaceHydrateOutcome> | null = null;
 
@@ -148,10 +153,11 @@ export function useTradeMarketplaceLocationHydrate(): {
         if (runId !== runIdRef.current) return;
         if (outcome.kind !== "resolved") {
           /**
-           * pending_auth before boot settles → boot-ready retry (below) owns the next run.
-           * transient_error, or pending_auth after boot settled → bounded timed retry, then failed.
+           * pending_auth while boot is still running → boot-ready retry (below) owns the next run.
+           * transient_error, or pending_auth after boot settled or in `error` (READY may never come)
+           * → bounded timed retry, then failed.
            */
-          const waitForBootEvent = outcome.kind === "pending_auth" && !isAppBootReady();
+          const waitForBootEvent = outcome.kind === "pending_auth" && isAppBootInProgress();
           if (!waitForBootEvent) scheduleHydrateRetry();
           return;
         }
