@@ -644,6 +644,8 @@ export function CommunityMessengerCallClient({
   const [loading, setLoading] = useState(() => initialCallHydration.loading);
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /** 세션 조회 자동 재시도 중단(일시 오류 소진·401) — 세션은 유지, 화면에만 표시 */
+  const [sessionLookupStall, setSessionLookupStall] = useState<null | "unavailable" | "auth">(null);
   const [joined, setJoined] = useState(false);
   const [remoteJoined, setRemoteJoined] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -1131,6 +1133,7 @@ export function CommunityMessengerCallClient({
   const sessionLookupRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 첫 조회가 일시 실패해 재시도 대기 중 — 「통화 없음」 대신 로딩 유지 */
   const sessionLookupLoadingHeldRef = useRef(false);
+  const sessionLookupManualRetryRef = useRef(false);
   const refreshSessionRef = useRef<((silent?: boolean) => Promise<CommunityMessengerCallSession | null>) | null>(null);
   const currentSessionIdRef = useRef(sessionId);
   currentSessionIdRef.current = sessionId;
@@ -1251,6 +1254,8 @@ export function CommunityMessengerCallClient({
     refreshSilentInFlightRef.current = null;
     refreshTerminalSilentInFlightRef.current = null;
     sessionLookupLoadingHeldRef.current = false;
+    sessionLookupManualRetryRef.current = false;
+    setSessionLookupStall(null);
     return () => {
       if (sessionLookupRetryTimerRef.current) {
         clearTimeout(sessionLookupRetryTimerRef.current);
@@ -1288,14 +1293,21 @@ export function CommunityMessengerCallClient({
 
   /** 실패 결과 반영 — 재시도 예약(제한·간격은 health), 404 확정 시 위 정리. 반환: 세션을 null 로 비워도 되는가 */
   const applySessionLookupFailure = useCallback(
-    (decision: Exclude<CallSessionLookupDecision, { action: "apply" }>, sid: string, health: CallSessionLookupHealth) => {
+    (
+      decision: Exclude<CallSessionLookupDecision, { action: "apply" }>,
+      sid: string,
+      health: CallSessionLookupHealth,
+      outcomeKind: CallSessionFetchOutcome["kind"]
+    ) => {
       sessionSilentRefreshBackoffUntilRef.current = health.backoffUntil();
       if (sessionLookupRetryTimerRef.current) {
         clearTimeout(sessionLookupRetryTimerRef.current);
         sessionLookupRetryTimerRef.current = null;
       }
       if (decision.action === "keep") {
-        if (decision.retryAt != null) {
+        if (decision.retryAt == null) {
+          setSessionLookupStall(outcomeKind === "auth_required" ? "auth" : "unavailable");
+        } else {
           const delay = Math.max(0, decision.retryAt - Date.now()) + 20;
           sessionLookupRetryTimerRef.current = setTimeout(() => {
             sessionLookupRetryTimerRef.current = null;
@@ -1502,17 +1514,18 @@ export function CommunityMessengerCallClient({
           let nextSession: CommunityMessengerCallSession | null;
           if (decision.action === "apply") {
             sessionSilentRefreshBackoffUntilRef.current = 0;
+            setSessionLookupStall(null);
             nextSession = decision.session;
           } else {
-            const failure = applySessionLookupFailure(decision, requestedSessionId, health);
+            const failure = applySessionLookupFailure(decision, requestedSessionId, health, outcome.kind);
             if (!failure.clearSession) {
               if (!silent && failure.pending && !sessionRef.current) {
                 sessionLookupLoadingHeldRef.current = true;
                 holdLoading = true;
               } else if (sessionLookupLoadingHeldRef.current && !failure.pending) {
+                /* 재시도 소진·401 — 영구 로딩 대신 조회 중단 화면(sessionLookupStall) */
                 sessionLookupLoadingHeldRef.current = false;
                 setLoading(false);
-                if (!sessionRef.current) setErrorMessage(t("cm_ui_call_session_missing"));
               }
               return sessionRef.current;
             }
@@ -1653,6 +1666,11 @@ export function CommunityMessengerCallClient({
       const health = readSessionLookupHealth();
       health.resume();
       sessionSilentRefreshBackoffUntilRef.current = health.backoffUntil();
+      /* 예약된 재시도는 아래 1회 재조회로 대체 — 타이머 중복 방지 */
+      if (sessionLookupRetryTimerRef.current) {
+        clearTimeout(sessionLookupRetryTimerRef.current);
+        sessionLookupRetryTimerRef.current = null;
+      }
       scheduleSilentRefresh("ui");
     };
     window.addEventListener("online", resume);
@@ -1662,6 +1680,24 @@ export function CommunityMessengerCallClient({
       document.removeEventListener("visibilitychange", resume);
     };
   }, [readSessionLookupHealth, scheduleSilentRefresh, sessionId]);
+
+  /** 첫 진입 조회 중단 화면의 「다시 시도」 — 사용자 동작 1회당 요청 1회 */
+  const retrySessionLookupNow = useCallback(() => {
+    if (sessionLookupManualRetryRef.current) return;
+    const health = readSessionLookupHealth();
+    health.resume();
+    sessionSilentRefreshBackoffUntilRef.current = health.backoffUntil();
+    if (sessionLookupRetryTimerRef.current) {
+      clearTimeout(sessionLookupRetryTimerRef.current);
+      sessionLookupRetryTimerRef.current = null;
+    }
+    setSessionLookupStall(null);
+    setErrorMessage(null);
+    sessionLookupManualRetryRef.current = true;
+    void refreshSession(false).finally(() => {
+      sessionLookupManualRetryRef.current = false;
+    });
+  }, [readSessionLookupHealth, refreshSession]);
 
   /** 1:1 전용 라우트: missed timeout — CallEngine controller SSOT */
   useEffect(() => {
@@ -4052,13 +4088,17 @@ export function CommunityMessengerCallClient({
         const health = readSessionLookupHealth();
         const decision = health.record(outcome, Date.now());
         if (decision.action !== "apply") {
-          const failure = applySessionLookupFailure(decision, sessionId, health);
+          const failure = applySessionLookupFailure(decision, sessionId, health, outcome.kind);
           if (failure.pending) {
             /* 일시 실패·첫 404 — 제한 재시도 동안 「통화 없음」 대신 로딩 유지 */
             sessionLookupLoadingHeldRef.current = true;
             holdLoading = true;
             return;
           }
+          /* 401 — 「통화 없음」이 아니라 조회 중단 화면 */
+          if (decision.action === "keep") return;
+        } else {
+          setSessionLookupStall(null);
         }
         const nextSession = decision.action === "apply" ? decision.session : null;
         const ms = Math.round(perfNow() - shellT0);
@@ -5119,7 +5159,24 @@ export function CommunityMessengerCallClient({
   if (!session) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="sam-text-page-title font-semibold text-ui-fg">{t("cm_ui_not_found_call")}</p>
+        {sessionLookupStall ? (
+          <>
+            <p className="sam-text-body font-semibold text-ui-fg">
+              {sessionLookupStall === "auth"
+                ? t("cm_ui_call_session_lookup_auth")
+                : t("cm_ui_call_session_lookup_unavailable")}
+            </p>
+            <button
+              type="button"
+              onClick={retrySessionLookupNow}
+              className="rounded-ui-rect border border-ui-border px-4 py-3 sam-text-body font-semibold text-ui-fg"
+            >
+              {t("cm_ui_retry")}
+            </button>
+          </>
+        ) : (
+          <p className="sam-text-page-title font-semibold text-ui-fg">{t("cm_ui_not_found_call")}</p>
+        )}
         <button
           type="button"
           onClick={() => router.replace("/community-messenger?section=chats")}
@@ -5548,6 +5605,11 @@ export function CommunityMessengerCallClient({
   const subStatusText =
     failureEndedDetail ??
     errorMessage ??
+    (sessionLookupStall && !isTerminalCallSessionStatus(session.status)
+      ? sessionLookupStall === "auth"
+        ? t("cm_ui_call_session_lookup_auth")
+        : t("cm_ui_call_session_lookup_paused")
+      : null) ??
     (localVideoPlayBlocked && !permissionBlockedUi && !instantCallActiveUi
       ? t("cm_ui_video_preparing_display")
       : displayCallPhase === "ringing"
