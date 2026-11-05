@@ -13,16 +13,7 @@ export type CampaignCreateType = "notice" | "marketing" | "system";
 /** inbox = 알림 상세 · post = 고객센터 글 · event = 이벤트 · app = 앱 화면 */
 export type CampaignDestination = "inbox" | "post" | "event" | "app";
 
-export type CampaignCreateMissingId =
-  | "title"
-  | "body"
-  | "post"
-  | "event"
-  | "app"
-  | "selected_users"
-  | "region"
-  | "scheduled_at"
-  | "non_promotional";
+export type CampaignCreateMissingId = "title" | "body" | "post" | "event" | "app" | "selected_users" | "region" | "scheduled_at";
 
 export type CampaignCreateMissingItem = { id: CampaignCreateMissingId; ko: string; en: string };
 
@@ -137,14 +128,6 @@ const ERROR_COPY: Record<string, { ko: string; en: string }> = {
   marketing_source_required: { ko: "열릴 화면(목적지)을 고르세요.", en: "Choose where the notification opens." },
   campaign_source_required: { ko: "열릴 화면(목적지)을 확인하세요.", en: "Check where the notification opens." },
   invalid_content_bind: { ko: "고른 글을 다시 선택하세요.", en: "Select the post again." },
-  non_promotional_attestation_required: {
-    ko: "공지·시스템 알림은 「광고·혜택·이벤트 내용이 없음」을 확인해야 보낼 수 있습니다. 광고성이면 「마케팅」 분류로 보내세요.",
-    en: "Notice/system notifications need the “no promotional content” confirmation. Send promotions as Marketing.",
-  },
-  promotional_content_requires_marketing_type: {
-    ko: "제목·내용에 광고성 표현(할인·쿠폰·이벤트·무료 등)이 있습니다. 「마케팅」 분류로 보내거나 문구를 고치세요.",
-    en: "The title or message looks promotional (discount, coupon, event, free…). Send it as Marketing or reword it.",
-  },
   invalid_link: { ko: "열 수 없는 앱 화면 경로입니다.", en: "That app screen path is not allowed." },
   content_source_missing: { ko: "고른 고객센터 글을 찾을 수 없습니다.", en: "The post was not found." },
   content_source_unavailable: {

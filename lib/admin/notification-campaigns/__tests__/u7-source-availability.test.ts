@@ -12,7 +12,7 @@ import { loadActiveEventHeroBanners } from "@/lib/platform-promotion-distributio
 const NOTICE_ID = "6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 const NOTICE_ROW = {
   type: "notice",
-  target_payload: { appNoticeId: NOTICE_ID, content_type: "notice", non_promotional_attested: true },
+  target_payload: { appNoticeId: NOTICE_ID, content_type: "notice" },
 };
 const noEventLookup = async () => null;
 const DAY = 86_400_000;
@@ -55,7 +55,7 @@ describe("EVENT-06 content-bound send eligibility", () => {
       throw new Error("invalid input syntax for type uuid");
     });
     const r = await evaluateOfficialCampaignSendEligibility(
-      { type: "notice", target_payload: { appNoticeId: "n-1", content_type: "notice", non_promotional_attested: true } },
+      { type: "notice", target_payload: { appNoticeId: "n-1", content_type: "notice" } },
       noEventLookup,
       lookup
     );

@@ -3,7 +3,7 @@
  * - 시스템 기본 ON(existing_member_default)·admin_created·출처 없음 → 마케팅 캠페인 알림함·푸시 없음
  * - 설정 읽기 실패 → 마케팅 캠페인 알림함·푸시 없음 (fail-closed)
  * - 공지·시스템 캠페인은 그대로 (알림함 전원 · 푸시 게이트 기존 판정)
- * - 공지·시스템으로 광고 우회 → 확인 기록 없으면 발송 거부, 광고 표지어 있으면 거부
+ * - 공지·시스템으로 광고 우회 → 기존 원본 규칙(이벤트·마케팅 글은 마케팅 유형만)으로 막는다. 정상 공지는 추가 확인 없이 발송
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -168,68 +168,51 @@ describe("마케팅 캠페인 — 직접 동의 회원만 알림함·푸시", ()
   });
 });
 
-describe("공지·시스템 우회 차단 — 발송 직전 판정", () => {
+describe("공지·시스템 — 정상 발송 유지 · 유형 우회는 원본 규칙으로 차단", () => {
   const noEvent = async () => null;
   const published = async () => ({ is_active: true });
   const NOTICE_ID = "6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 
-  it("확인 기록 없는 기존 공지 초안 → 발송 거부", async () => {
+  it("기존 공지 초안(추가 확인 기록 없음) → 발송 가능", async () => {
     const { evaluateOfficialCampaignSendEligibility } = await import(
       "@/lib/admin/notification-campaigns/campaign-source-authority"
     );
     const r = await evaluateOfficialCampaignSendEligibility(
-      { type: "notice", title: "점검 안내", body: "b", target_payload: { appNoticeId: NOTICE_ID, content_type: "notice" } },
+      { type: "notice", target_payload: { appNoticeId: NOTICE_ID, content_type: "notice" } },
       noEvent,
       published
     );
-    expect(r).toEqual({ ok: false, error: "non_promotional_attestation_required" });
+    expect(r.ok).toBe(true);
   });
 
-  it("확인 기록 + 광고 표지어 → 발송 거부 / 표지어 없음 → 통과", async () => {
-    const { evaluateOfficialCampaignSendEligibility } = await import(
+  it("공지·시스템은 마케팅 글·이벤트 화면에 묶을 수 없다", async () => {
+    const { validateOfficialCampaignSource, CAMPAIGN_APP_ROUTE_DESTINATION } = await import(
       "@/lib/admin/notification-campaigns/campaign-source-authority"
     );
-    const payload = { appNoticeId: NOTICE_ID, content_type: "notice", non_promotional_attested: true };
-    const promo = await evaluateOfficialCampaignSendEligibility(
-      { type: "notice", title: "치킨 무료 구매 이벤트 마감", body: "b", target_payload: payload },
-      noEvent,
-      published
-    );
-    expect(promo).toEqual({ ok: false, error: "promotional_content_requires_marketing_type" });
-    const ok = await evaluateOfficialCampaignSendEligibility(
-      { type: "notice", title: "서버 점검 안내", body: "03:00~04:00", target_payload: payload },
-      noEvent,
-      published
-    );
-    expect(ok.ok).toBe(true);
-  });
-
-  it("마케팅 유형은 확인 기록·표지어 검사 대상이 아니다 (동의 판정으로 보호)", async () => {
-    const { evaluateNonPromotionalCampaign } = await import("@/lib/admin/notification-campaigns/campaign-promotional-guard");
-    expect(evaluateNonPromotionalCampaign({ type: "marketing", title: "무료 이벤트", target_payload: null })).toEqual({ ok: true });
-    expect(evaluateNonPromotionalCampaign({ type: "system", title: "Update", target_payload: {} })).toMatchObject({
-      ok: false,
-      error: "non_promotional_attestation_required",
-    });
     expect(
-      evaluateNonPromotionalCampaign({ type: "system", title: "Big SALE today", target_payload: { non_promotional_attested: true } })
-    ).toMatchObject({ ok: false, error: "promotional_content_requires_marketing_type" });
+      validateOfficialCampaignSource({
+        campaign_type: "notice",
+        target_payload: { content_id: NOTICE_ID, content_type: "marketing" },
+      })
+    ).toEqual({ ok: false, error: "invalid_content_bind" });
+    expect(
+      validateOfficialCampaignSource({
+        campaign_type: "system",
+        target_payload: { content_id: NOTICE_ID, content_type: "marketing" },
+      })
+    ).toEqual({ ok: false, error: "invalid_content_bind" });
+    expect(
+      validateOfficialCampaignSource({
+        campaign_type: "notice",
+        target_payload: { destination: CAMPAIGN_APP_ROUTE_DESTINATION },
+        deeplink_url: "/events/evt-1",
+      })
+    ).toEqual({ ok: false, error: "notice_content_required" });
   });
 
-  it("즉시·예약·테스트 발송 세 경로 모두 제목·내용을 판정에 넘긴다", () => {
-    for (const f of [
-      "app/api/admin/notification-campaigns/[campaignId]/send/route.ts",
-      "lib/admin/notification-campaigns/claim-scheduled-campaign.ts",
-      "lib/admin/notification-campaigns/campaign-test-send-service.ts",
-    ]) {
-      const src = read(f);
-      const call = src.slice(src.indexOf("evaluateOfficialCampaignSendEligibility("));
-      expect(call.slice(0, 700), f).toMatch(/title: \(\w+ as \{ title\?: string \| null \}\)\.title/);
-      expect(call.slice(0, 700), f).toMatch(/body: \(\w+ as \{ body\?: string \| null \}\)\.body/);
-    }
-    expect(read("lib/admin/notification-campaigns/claim-scheduled-campaign.ts")).toContain(
-      '.select("id, type, title, body, target_payload, deeplink_url, web_url, target_url")'
-    );
+  it("「이벤트」 분류는 마케팅 유형으로 저장된다 (동의 판정 대상)", async () => {
+    const { campaignTypeForNoticeCategory } = await import("@/lib/admin/notification-campaigns/campaign-list-kind");
+    expect(campaignTypeForNoticeCategory("event")).toBe("marketing");
   });
 });
 

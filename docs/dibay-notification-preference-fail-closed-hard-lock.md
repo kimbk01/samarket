@@ -63,7 +63,7 @@ Owner 승인 범위: **시스템 기본 ON 회원이 광고성 알림을 받지 
 | 동의 저장 | 회원이 직접 켠 경우만 `marketing_enabled=true` | 2026-11-03 기존 회원 일괄 `marketing_enabled=true` · `marketing_consent_source='existing_member_default'` |
 | 판정 (`resolveMemberSnapshot`) | 직접 동의만 마케팅 ON | `marketing_enabled === true` 만 보고 출처를 보지 않음 → 기본값도 동의로 판정 |
 | 마케팅 캠페인 알림함 | 동의 회원만 | 대상 전원에게 알림함 행 생성 (회원 판정 없음) |
-| 공지·시스템 캠페인 | 광고 내용 없음 | 내용 판정 없음 — 광고를 공지로 보내면 동의와 무관하게 전원 발송 |
+| 공지·시스템 캠페인 | 광고를 공지로 보내지 않음 | 원본 규칙(`validateOfficialCampaignSource`)이 이미 막음 — 공지=공지 글·승인 앱 화면(이벤트 경로 제외), 시스템=시스템·업데이트 글, 마케팅 글·이벤트는 마케팅 유형만. 「이벤트」 분류는 마케팅 유형으로 저장 |
 
 운영 DB 읽기 (2026-11-05 19:06 PHT): `existing_member_default` + true = 129명, `settings` + true = 1명, 그 외 0명.
 2026-11-03 09:33 UTC 일괄 ON 이후 마케팅 캠페인 푸시 발송 0건 (운영 DB `admin_notification_campaigns`·발송 기록 조회).
@@ -72,7 +72,7 @@ Owner 승인 범위: **시스템 기본 ON 회원이 광고성 알림을 받지 
 
 - 직접 동의 = `marketing_enabled === true` **그리고** `marketing_consent_source ∈ {signup, settings}` (`lib/legal/marketing-consent-validity.ts`). 정규화(`resolveMemberSnapshot`)가 이 값으로 `marketingEnabled`·`marketingPushEnabled` 를 만든다. 설정 읽기 SELECT 에 `marketing_consent_source` 추가.
 - 마케팅 캠페인(`type=marketing`)은 알림함 행도 직접 동의 회원만 만든다(`sendCampaignToUser`). 설정을 못 읽으면 만들지 않는다(fail-closed · `policy_filtered`). 미리보기 알림함 인원도 같은 판정.
-- 공지·시스템 캠페인은 작성자 「광고 내용 없음」 확인(`target_payload.non_promotional_attested`)이 있어야 저장·발송된다. 광고 표지어 검사는 보조 단계이며 단독 판정이 아니다(`campaign-promotional-guard.ts`). 발송 직전(즉시·예약·반복·테스트) 다시 판정.
+- (철회 2026-11-05 · Owner 재감사) `4141afca4` 에 넣었던 공지·시스템 「광고 내용 없음」 필수 확인과 광고 표지어 자동 차단은 승인 범위 밖이라 되돌렸다 — 기존 공지 초안 51건·시스템 8건 발송을 막았고, 표지어는 키워드 판정이다. 유형 우회 차단은 위 원본 규칙이 맡는다. 이미 저장된 `target_payload.non_promotional_attested` 값은 읽지 않는 기록으로 남는다(데이터 변경 없음).
 - 내정보 설정 GET 의 `marketing_enabled` = 실제 수신 여부(직접 동의), `marketing_consent_source` 함께 반환.
 
 ### 바꾸지 않은 것

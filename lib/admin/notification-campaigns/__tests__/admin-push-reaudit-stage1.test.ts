@@ -16,12 +16,7 @@ const body = {
   type: "notice",
   target_type: "all",
   deeplink_url: "/mypage/customer-center/notice/366d11ab-c19f-497a-9894-04ff4f3225bc",
-  target_payload: {
-    notice_category: "notice",
-    content_type: "notice",
-    content_id: "366d11ab-c19f-497a-9894-04ff4f3225bc",
-    non_promotional_attested: true,
-  },
+  target_payload: { notice_category: "notice", content_type: "notice", content_id: "366d11ab-c19f-497a-9894-04ff4f3225bc" },
 };
 
 describe("B-2: 「푸시만」은 새 알림에서 쓰지 않는다", () => {

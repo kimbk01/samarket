@@ -100,7 +100,6 @@
 | UX-07 | P2 | 매장 리뷰 화면: 검색·필터·정렬 없음, 카드 1건이 약 230px 높이(한 화면 4건), 「숨김」이 버튼이 아닌 텍스트 링크, 「기술 정보」 펼침이 운영자 화면에 노출 | 운영 화면 `/admin/store-reviews` | 목록 표준(표·필터·밀도) 미적용 |
 | UX-08 | P2 | 배달 광고 관리: 「종료」 지면인 광고 3건이 「승인 대기·검토 필요」로 처리 대기 목록에 남음 (상태 표시 모순) | 운영 화면 `/admin/delivery-ads/manage` | 종료 광고가 처리 필요 큐에서 제외되지 않음 (원인 코드 미추적 — NOT_PROVEN) |
 | ~~UX-09~~ | **철회** | (정정 2026-10-30 보완) 화면의 「중지」는 버튼이 아니라 **상태 배지**였다. 운영 DB 7건 모두 `disabled` 이고 배지(`promotion-operation-status.ts:29`)가 맞게 표시되며, 중지 버튼은 `canDirectPause` 일 때만 나온다(`AdminPromotionBannerListClient.tsx:243`). 코드 결함 아님. 남는 것은 운영 목록에 `QA-*` 테스트 데이터 7건이 보이는 데이터 정리 문제뿐 | 운영 화면 + 운영 DB | — |
-| UX-10 | P2 | (추가 2026-11-05) 알림 「새 작성」 화면에 **초안 저장 버튼 없음** — 「발송」(즉시·예약·반복)과 「내 폰으로 테스트」만 있어, 발송하지 않고 초안으로 남기려면 API `save_as_draft` 를 직접 써야 함. 「변경 저장」은 기존 초안 수정 화면에만 있음. 또 알림 캠페인에 삭제 기능이 없음(보관만) — 확인용 초안 `91308b9a…`(「앱 점검 안내 (관리자 확인용 초안)」)이 삭제되지 않고 draft 로 남아 있음. 기록만 · 구현은 별도 승인 | `AdminNotificationCampaignCreatePage.tsx` 새 작성 `dispatch` (`save_as_draft: false` 고정) · `onSaveDraftEdit` 는 `editStatus === "draft"` 일 때만 · `[campaignId]/route.ts` GET·PATCH 만 | 새 작성 = 생성 후 바로 발송·예약 흐름으로 설계 |
 
 ### C-2. 광고·배너·팝업
 

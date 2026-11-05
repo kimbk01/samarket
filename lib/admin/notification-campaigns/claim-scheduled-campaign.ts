@@ -88,7 +88,7 @@ export async function drainNotificationCampaignSendBatches(
 
   const { data: campaignRow, error: campaignErr } = await svc
     .from("admin_notification_campaigns")
-    .select("id, type, title, body, target_payload, deeplink_url, web_url, target_url")
+    .select("id, type, target_payload, deeplink_url, web_url, target_url")
     .eq("id", occurrence.campaign_id)
     .maybeSingle();
   if (campaignErr || !campaignRow) {
@@ -120,8 +120,6 @@ export async function drainNotificationCampaignSendBatches(
       deeplink_url: (campaignRow as { deeplink_url?: string | null }).deeplink_url,
       web_url: (campaignRow as { web_url?: string | null }).web_url,
       target_url: (campaignRow as { target_url?: string | null }).target_url,
-      title: (campaignRow as { title?: string | null }).title,
-      body: (campaignRow as { body?: string | null }).body,
     },
     async (eventId) => {
       const { data } = await svc

@@ -122,7 +122,6 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
           target_type: "selected_users",
           target_user_ids: ["u1"],
           app_notice_id: contentId,
-          target_payload: { non_promotional_attested: true },
         }),
       }) as never
     );
@@ -134,7 +133,6 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
       content_type: "notice",
       canonical_route: `/mypage/customer-center/notice/${contentId}`,
       selected_user_ids: ["u1"],
-      non_promotional_attested: true,
     });
     expect(inserted[0]?.target_count).toBe(1);
   });
@@ -202,7 +200,6 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
             content_id: contentId,
             content_type: "system",
             custom: true,
-            non_promotional_attested: true,
           },
         }),
       }) as never
@@ -249,7 +246,6 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
           body: "b",
           type: "notice",
           app_notice_id: "n-1",
-          target_payload: { non_promotional_attested: true },
         }),
       }) as never
     );
@@ -259,44 +255,7 @@ describe("POST /api/admin/notification-campaigns target_payload contract", () =>
       content_id: "n-1",
       content_type: "notice",
       canonical_route: "/mypage/customer-center/notice/n-1",
-      non_promotional_attested: true,
     });
-  });
-
-  it("2026-11-05: notice/system without the no-promotion confirmation is rejected", async () => {
-    const inserted = mockInsertCapture();
-    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
-    const res = await POST(
-      new Request("http://localhost/api/admin/notification-campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "t", body: "b", type: "notice", app_notice_id: "n-1" }),
-      }) as never
-    );
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as { error?: string }).error).toBe("non_promotional_attestation_required");
-    expect(inserted).toHaveLength(0);
-  });
-
-  it("2026-11-05: confirmed notice with promotional wording is still rejected (send as marketing)", async () => {
-    const inserted = mockInsertCapture();
-    const { POST } = await import("@/app/api/admin/notification-campaigns/route");
-    const res = await POST(
-      new Request("http://localhost/api/admin/notification-campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "치킨 무료 이벤트",
-          body: "b",
-          type: "notice",
-          app_notice_id: "n-1",
-          target_payload: { non_promotional_attested: true },
-        }),
-      }) as never
-    );
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as { error?: string }).error).toBe("promotional_content_requires_marketing_type");
-    expect(inserted).toHaveLength(0);
   });
 
   it("marketing Event identity + canonical path creates platform_event payload", async () => {

@@ -37,10 +37,6 @@ import {
   type PlatformEventPublicationInput,
 } from "@/lib/platform-events/publication";
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
-import {
-  evaluateNonPromotionalCampaign,
-  type NonPromotionalGuardError,
-} from "@/lib/admin/notification-campaigns/campaign-promotional-guard";
 
 export type OfficialCampaignType = "notice" | "system" | "marketing";
 
@@ -66,8 +62,7 @@ export type CampaignSourceAuthorityError =
   | "event_source_unavailable"
   | "content_source_missing"
   | "content_source_unavailable"
-  | "content_source_lookup_failed"
-  | NonPromotionalGuardError;
+  | "content_source_lookup_failed";
 
 export type CampaignSourceAuthorityOk = {
   ok: true;
@@ -435,20 +430,11 @@ export async function evaluateOfficialCampaignSendEligibility(
     deeplink_url?: string | null;
     web_url?: string | null;
     target_url?: string | null;
-    title?: string | null;
-    body?: string | null;
   },
   lookupEvent: PlatformEventSendLookup,
   lookupContent?: CustomerCenterContentSendLookup
 ): Promise<CampaignSourceAuthorityResult> {
   const typ = trimStr(row.type).toLowerCase();
-  const nonPromotional = evaluateNonPromotionalCampaign({
-    type: typ,
-    title: row.title,
-    body: row.body,
-    target_payload: row.target_payload,
-  });
-  if (!nonPromotional.ok) return { ok: false, error: nonPromotional.error };
   const structural = validateOfficialCampaignSource({
     campaign_type: typ,
     target_payload: row.target_payload,
