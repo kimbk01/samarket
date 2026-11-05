@@ -763,32 +763,88 @@ export function useMessengerRoomPhase2Controller() {
     [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot, t]
   );
 
-  useEffect(() => {
-    if (!snapshot) return;
-    if (isPrivateGroupRoom || isOpenGroupRoom) {
-      setPrivateGroupNoticeDraft(snapshot.room.noticeText ?? "");
-    }
-    if (!isPrivateGroupRoom) return;
-    setPrivateGroupTitle(snapshot.room.title);
-    setPrivateGroupAvatarUrl(snapshot.room.avatarUrl ?? null);
-    setGroupAllowMemberInvite(snapshot.room.allowMemberInvite !== false);
-    setGroupAllowAdminInvite(snapshot.room.allowAdminInvite !== false);
-    setGroupAllowAdminKick(snapshot.room.allowAdminKick !== false);
-    setGroupAllowAdminEditNotice(snapshot.room.allowAdminEditNotice !== false);
-    setGroupAllowMemberUpload(snapshot.room.allowMemberUpload !== false);
-    setGroupAllowMemberCall(snapshot.room.allowMemberCall !== false);
-  }, [isOpenGroupRoom, isPrivateGroupRoom, snapshot]);
+  /** 설정 입력값은 방 필드 값이 바뀔 때만 다시 맞춘다 — 스냅샷 객체 갱신(접속 상태·메시지 등)마다 맞추면 입력 중인 내용이 지워진다 */
+  const syncedRoom = snapshot?.room ?? null;
+  const syncedRoomId = syncedRoom?.id ?? null;
+  const syncedNoticeText = syncedRoom?.noticeText ?? "";
+  const syncedTitle = syncedRoom?.title ?? "";
+  const syncedAvatarUrl = syncedRoom?.avatarUrl ?? null;
+  const syncedAllowMemberInvite = syncedRoom?.allowMemberInvite !== false;
+  const syncedAllowAdminInvite = syncedRoom?.allowAdminInvite !== false;
+  const syncedAllowAdminKick = syncedRoom?.allowAdminKick !== false;
+  const syncedAllowAdminEditNotice = syncedRoom?.allowAdminEditNotice !== false;
+  const syncedAllowMemberUpload = syncedRoom?.allowMemberUpload !== false;
+  const syncedAllowMemberCall = syncedRoom?.allowMemberCall !== false;
+  const syncedSummary = syncedRoom?.summary ?? "";
+  const syncedMemberLimit = syncedRoom?.memberLimit ?? 200;
+  const syncedDiscoverable = Boolean(syncedRoom?.isDiscoverable);
+  const syncedJoinPolicy = syncedRoom?.joinPolicy === "free" ? "free" : "password";
+  const syncedIdentityPolicy = syncedRoom?.identityPolicy === "real_name" ? "real_name" : "alias_allowed";
 
   useEffect(() => {
-    if (!snapshot || !isOpenGroupRoom) return;
-    setOpenGroupTitle(snapshot.room.title);
-    setOpenGroupSummary(snapshot.room.summary ?? "");
+    if (!syncedRoomId) return;
+    if (isPrivateGroupRoom || isOpenGroupRoom) {
+      setPrivateGroupNoticeDraft(syncedNoticeText);
+    }
+  }, [isOpenGroupRoom, isPrivateGroupRoom, syncedNoticeText, syncedRoomId, setPrivateGroupNoticeDraft]);
+
+  useEffect(() => {
+    if (!syncedRoomId || !isPrivateGroupRoom) return;
+    setPrivateGroupTitle(syncedTitle);
+    setPrivateGroupAvatarUrl(syncedAvatarUrl);
+  }, [isPrivateGroupRoom, syncedAvatarUrl, syncedRoomId, syncedTitle, setPrivateGroupAvatarUrl, setPrivateGroupTitle]);
+
+  useEffect(() => {
+    if (!syncedRoomId || !isPrivateGroupRoom) return;
+    setGroupAllowMemberInvite(syncedAllowMemberInvite);
+    setGroupAllowAdminInvite(syncedAllowAdminInvite);
+    setGroupAllowAdminKick(syncedAllowAdminKick);
+    setGroupAllowAdminEditNotice(syncedAllowAdminEditNotice);
+    setGroupAllowMemberUpload(syncedAllowMemberUpload);
+    setGroupAllowMemberCall(syncedAllowMemberCall);
+  }, [
+    isPrivateGroupRoom,
+    syncedRoomId,
+    syncedAllowMemberInvite,
+    syncedAllowAdminInvite,
+    syncedAllowAdminKick,
+    syncedAllowAdminEditNotice,
+    syncedAllowMemberUpload,
+    syncedAllowMemberCall,
+    setGroupAllowMemberInvite,
+    setGroupAllowAdminInvite,
+    setGroupAllowAdminKick,
+    setGroupAllowAdminEditNotice,
+    setGroupAllowMemberUpload,
+    setGroupAllowMemberCall,
+  ]);
+
+  useEffect(() => {
+    if (!syncedRoomId || !isOpenGroupRoom) return;
+    setOpenGroupTitle(syncedTitle);
+    setOpenGroupSummary(syncedSummary);
     setOpenGroupPassword("");
-    setOpenGroupMemberLimit(String(snapshot.room.memberLimit ?? 200));
-    setOpenGroupDiscoverable(snapshot.room.isDiscoverable);
-    setOpenGroupJoinPolicy(snapshot.room.joinPolicy === "free" ? "free" : "password");
-    setOpenGroupIdentityPolicy(snapshot.room.identityPolicy === "real_name" ? "real_name" : "alias_allowed");
-  }, [isOpenGroupRoom, snapshot]);
+    setOpenGroupMemberLimit(String(syncedMemberLimit));
+    setOpenGroupDiscoverable(syncedDiscoverable);
+    setOpenGroupJoinPolicy(syncedJoinPolicy);
+    setOpenGroupIdentityPolicy(syncedIdentityPolicy);
+  }, [
+    isOpenGroupRoom,
+    syncedRoomId,
+    syncedTitle,
+    syncedSummary,
+    syncedMemberLimit,
+    syncedDiscoverable,
+    syncedJoinPolicy,
+    syncedIdentityPolicy,
+    setOpenGroupTitle,
+    setOpenGroupSummary,
+    setOpenGroupPassword,
+    setOpenGroupMemberLimit,
+    setOpenGroupDiscoverable,
+    setOpenGroupJoinPolicy,
+    setOpenGroupIdentityPolicy,
+  ]);
 
   useEffect(() => {
     if ((activeSheet !== "members" && activeSheet !== "invite") || !isPrivateGroupRoom || friendsLoaded) return;

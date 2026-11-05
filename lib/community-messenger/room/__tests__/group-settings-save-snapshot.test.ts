@@ -104,6 +104,14 @@ describe("phase2 controller — 저장 성공 뒤 refresh(true) 전에 스냅샷
     expect(b).toContain("patchRoomSummaryInSnapshotCache(");
   });
 
+  it("설정 입력값 동기화 effect 는 스냅샷 객체가 아니라 방 필드 값에만 반응한다 — 입력 중 공지가 지워지지 않게", () => {
+    expect(src).not.toMatch(/\}, \[isOpenGroupRoom, isPrivateGroupRoom, snapshot\]\);/);
+    expect(src).not.toMatch(/\}, \[isOpenGroupRoom, snapshot\]\);/);
+    expect(src).toMatch(
+      /setPrivateGroupNoticeDraft\(syncedNoticeText\);\s*\}\s*\}, \[isOpenGroupRoom, isPrivateGroupRoom, syncedNoticeText, syncedRoomId, setPrivateGroupNoticeDraft\]\);/
+    );
+  });
+
   it("사진 업로드 — 서버 저장 실패 시 폼에 새 사진을 넣지 않는다", () => {
     const b = body("uploadPrivateGroupAvatar");
     const setAt = b.indexOf("setPrivateGroupAvatarUrl(");
