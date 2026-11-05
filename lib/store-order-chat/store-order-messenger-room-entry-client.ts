@@ -29,6 +29,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
 import { invalidateRoomSnapshot, peekRoomSnapshot, primeHotRoomSnapshot, primeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 
 
 
@@ -53,6 +54,24 @@ export class StoreOrderChatEnsureTransientError extends Error {
 
 function isTransientStoreOrderChatEnsureStatus(status: number): boolean {
   return status >= 500 || status === 408 || status === 429;
+}
+
+/**
+ * ensure-chat POST 1회 — 헤더·본문 전체 마감. 마감 초과는 네트워크 오류와 같이 throw 한다
+ * (호출처의 기존 네트워크 오류 처리: 진입 게이트 다시 시도 · 패널 네트워크 오류). 자동 재전송 없음.
+ */
+async function postStoreOrderEnsureChat(
+  url: string
+): Promise<{ res: Response; json: Record<string, unknown> & { ok?: boolean; error?: string; community_messenger_room_id?: string | null } }> {
+  return runWithSharedFlightDeadline("store_order_ensure_chat", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+    const res = await fetch(url, { method: "POST", credentials: "include", cache: "no-store", signal });
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+      ok?: boolean;
+      error?: string;
+      community_messenger_room_id?: string | null;
+    };
+    return { res, json };
+  });
 }
 
 /** ensure 응답에 스냅샷이 없을 때의 보조 조회 — 서버 일시 오류는 기존 `bootstrap_failed` 결과로 유지한다. */
@@ -151,17 +170,7 @@ async function ensureStoreOrderChatFromSnapshot(
 
 
 
-  const res = await fetch(url, { method: "POST", credentials: "include", cache: "no-store" });
-
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
-
-    ok?: boolean;
-
-    error?: string;
-
-    community_messenger_room_id?: string | null;
-
-  };
+  const { res, json } = await postStoreOrderEnsureChat(url);
 
   if (!res.ok || !json?.ok) {
 
@@ -247,17 +256,7 @@ export async function prepareStoreOrderMessengerRoomEntryByOrder(
 
 
 
-  const ensureRes = await fetch(ensureUrl, { method: "POST", credentials: "include", cache: "no-store" });
-
-  const ensureJson = (await ensureRes.json().catch(() => ({}))) as Record<string, unknown> & {
-
-    ok?: boolean;
-
-    error?: string;
-
-    community_messenger_room_id?: string | null;
-
-  };
+  const { res: ensureRes, json: ensureJson } = await postStoreOrderEnsureChat(ensureUrl);
 
   if (!ensureRes.ok || !ensureJson?.ok) {
 
