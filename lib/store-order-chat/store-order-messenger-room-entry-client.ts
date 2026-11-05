@@ -17,7 +17,10 @@ import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-orde
 
 import { parseCommunityMessengerRoomSnapshotResponse } from "@/lib/community-messenger/messenger-room-bootstrap";
 
-import { fetchCommunityMessengerRoomBootstrapClient } from "@/lib/community-messenger/room/fetch-community-messenger-room-bootstrap-client";
+import {
+  fetchCommunityMessengerRoomBootstrapClient,
+  MessengerRoomBootstrapTransientError,
+} from "@/lib/community-messenger/room/fetch-community-messenger-room-bootstrap-client";
 
 import {
 
@@ -34,6 +37,16 @@ export type StoreOrderMessengerRoomEntryResult =
   | { ok: true; roomId: string; snapshot: CommunityMessengerRoomSnapshot }
 
   | { ok: false; error: string };
+
+/** ensure 응답에 스냅샷이 없을 때의 보조 조회 — 서버 일시 오류는 기존 `bootstrap_failed` 결과로 유지한다. */
+async function fetchEnsureFallbackBootstrap(roomId: string): Promise<CommunityMessengerRoomSnapshot | null> {
+  try {
+    return await fetchCommunityMessengerRoomBootstrapClient(roomId, { bustCache: true });
+  } catch (error) {
+    if (error instanceof MessengerRoomBootstrapTransientError) return null;
+    throw error;
+  }
+}
 
 
 
@@ -148,7 +161,7 @@ async function ensureStoreOrderChatFromSnapshot(
 
     invalidateRoomSnapshot(roomId);
 
-    nextSnapshot = await fetchCommunityMessengerRoomBootstrapClient(roomId, { bustCache: true });
+    nextSnapshot = await fetchEnsureFallbackBootstrap(roomId);
 
   }
 
@@ -256,7 +269,7 @@ export async function prepareStoreOrderMessengerRoomEntryByOrder(
 
     invalidateRoomSnapshot(roomId);
 
-    snapshot = await fetchCommunityMessengerRoomBootstrapClient(roomId, { bustCache: true });
+    snapshot = await fetchEnsureFallbackBootstrap(roomId);
 
   }
 

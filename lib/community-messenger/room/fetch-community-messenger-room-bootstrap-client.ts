@@ -27,6 +27,23 @@ import { noteTradeChatRoomBootstrapDoneForShellBreakdown } from "@/lib/trade/tra
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isAuthoritativeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
+/**
+ * 서버 일시 오류(5xx·408·429) — 접근 거부(401·403·404·410)와 구분해 재시도 가능한 실패로 전달한다.
+ * 접근 거부·기타 4xx 는 기존대로 `null`.
+ */
+export class MessengerRoomBootstrapTransientError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`cm_room_bootstrap_transient_${status}`);
+    this.name = "MessengerRoomBootstrapTransientError";
+    this.status = status;
+  }
+}
+
+function isTransientMessengerRoomBootstrapStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
+
 /** blocking 첫 입장과 동일한 쿼리 — 메시지·멤버 시드 포함 */
 export function communityMessengerRoomBlockingBootstrapQuery(): string {
   return `?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block&messages=${COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
@@ -80,6 +97,9 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
       }
     );
     const tJson1 = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (isTransientMessengerRoomBootstrapStatus(res.status)) {
+      throw new MessengerRoomBootstrapTransientError(res.status);
+    }
     if (!res.ok) return null;
     const tSnap0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     const parsed = parseCommunityMessengerRoomSnapshotResponse(json);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { CommunityMessengerRoomEntryEmpty } from "@/components/community-messenger/room/CommunityMessengerRoomEntryEmpty";
@@ -129,6 +129,9 @@ export function CommunityMessengerRoomBootstrapGate({
     () => !peekMountableEntrySnapshot(roomId, viewerUserId)
   );
   const [entryError, setEntryError] = useState<string | null>(null);
+  /** 네트워크·마감·서버 일시 오류 — 접근 거부(entryError)와 달리 리다이렉트하지 않고 재시도 */
+  const [entryTransientFailed, setEntryTransientFailed] = useState(false);
+  const [entryAttempt, setEntryAttempt] = useState(0);
 
   useEffect(() => {
     const rid = roomId.trim();
@@ -155,6 +158,7 @@ export function CommunityMessengerRoomBootstrapGate({
 
     let cancelled = false;
     setEntryError(null);
+    setEntryTransientFailed(false);
 
     const cached = peekMountableEntrySnapshot(rid, viewerUserId);
     if (cached) {
@@ -168,11 +172,16 @@ export function CommunityMessengerRoomBootstrapGate({
       setBootstrapPending(false);
       // background refresh — do not clear room to spinner
       void (async () => {
-        const result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
-          instantContextMeta: cmCtx,
-          myRole: instantMyRole,
-          viewerUserId: viewerUserId?.trim() || undefined,
-        });
+        let result: Awaited<ReturnType<typeof prepareStoreOrderMessengerRoomEntryByRoomId>>;
+        try {
+          result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
+            instantContextMeta: cmCtx,
+            myRole: instantMyRole,
+            viewerUserId: viewerUserId?.trim() || undefined,
+          });
+        } catch {
+          return;
+        }
         if (cancelled || !result.ok) return;
         if (!canMountCommunityMessengerRoomClient(result.snapshot)) return;
         const canonicalRoomId = normalizedRoomId(result.roomId);
@@ -193,11 +202,19 @@ export function CommunityMessengerRoomBootstrapGate({
     setEntrySnapshot(null);
 
     void (async () => {
-      const result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
-        instantContextMeta: cmCtx,
-        myRole: instantMyRole,
-        viewerUserId: viewerUserId?.trim() || undefined,
-      });
+      let result: Awaited<ReturnType<typeof prepareStoreOrderMessengerRoomEntryByRoomId>>;
+      try {
+        result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
+          instantContextMeta: cmCtx,
+          myRole: instantMyRole,
+          viewerUserId: viewerUserId?.trim() || undefined,
+        });
+      } catch {
+        if (cancelled) return;
+        setEntryTransientFailed(true);
+        setBootstrapPending(false);
+        return;
+      }
       if (cancelled) return;
       if (!result.ok) {
         setEntryError(result.error);
@@ -226,13 +243,25 @@ export function CommunityMessengerRoomBootstrapGate({
     return () => {
       cancelled = true;
     };
-  }, [roomId, viewerUserId, cmCtx, instantMyRole]);
+  }, [roomId, viewerUserId, cmCtx, instantMyRole, entryAttempt]);
 
   useEffect(() => {
     if (!entryError || redirectedRef.current || bootstrapPending) return;
     redirectedRef.current = true;
     redirectResourceAccessDenied(router, "/community-messenger");
   }, [entryError, bootstrapPending, router]);
+
+  const retryEntry = useCallback(() => {
+    setEntryTransientFailed(false);
+    setBootstrapPending(true);
+    setEntryAttempt((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!entryTransientFailed || typeof window === "undefined") return;
+    window.addEventListener("online", retryEntry);
+    return () => window.removeEventListener("online", retryEntry);
+  }, [entryTransientFailed, retryEntry]);
 
   if (entryError) {
     return null;
@@ -269,6 +298,7 @@ export function CommunityMessengerRoomBootstrapGate({
           recordShellPaint={false}
           recordPass1Milestones
           dataAttrs={{ "data-cm-room-pass1-stable-shell": "" }}
+          onRetryAfterFailure={entryTransientFailed ? retryEntry : undefined}
         />
       ) : (
         <CommunityMessengerRoomClient
