@@ -2,6 +2,7 @@
 
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   peekChatRoomDetailMemory,
   updateChatRoomDetailMemory,
@@ -77,13 +78,21 @@ export async function fetchChatRoomBootstrapApi(
       }
       sp.set("phase", phase);
       const qs = sp.toString() ? `?${sp.toString()}` : "";
-      const res = await fetch(`/api/chat/room/${encodeURIComponent(key)}/bootstrap${qs}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => null)) as
-        | { room?: unknown; messages?: unknown }
-        | null;
+      const { res, json } = await runWithSharedFlightDeadline(
+        "chat_room_bootstrap",
+        ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+        async (signal) => {
+          const r = await fetch(`/api/chat/room/${encodeURIComponent(key)}/bootstrap${qs}`, {
+            credentials: "include",
+            cache: "no-store",
+            signal,
+          });
+          const body = (await r.json().catch(() => null)) as
+            | { room?: unknown; messages?: unknown }
+            | null;
+          return { res: r, json: body };
+        }
+      );
       const room = json?.room;
       if (res.status === 404) return { ok: false, status: 404, code: "not_found" as const };
       if (res.status === 401 || res.status === 403) return { ok: false, status: res.status, code: "auth" as const };
