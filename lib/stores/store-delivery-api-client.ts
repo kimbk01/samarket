@@ -3,6 +3,7 @@
  * 컴포넌트에 `fetch("/api/stores/...")` 를 흩뿌리지 않고 한곳에서 유지한다.
  */
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   deliveryCustomerOrderDetailCacheKey,
   deliveryCustomerOrderEventsCacheKey,
@@ -745,16 +746,20 @@ export async function fetchStoresHomeFeedDeduped(
      * Hub useLayoutEffect cleanup was aborting the in-flight network when feedReady
      * flipped early (public root before boot), leaving feedReady=1 with 0 rows and
      * no subsequent home-feed. Waiters still cancel via `withAbortSignal` below.
+     * 공유 fetch 는 자체 마감으로만 끊는다 — 멈춘 응답이 단일 비행 키를 영구 점유하지 않게.
      */
-    const res = await fetch(`/api/stores/home-feed${suffix}`, {
-      cache: "no-store",
-      headers: {
-        ...storesApiAcceptLanguageHeader(lang),
-        ...storesHomeClientCallSourceHeader(opts.clientCallSource),
-      },
+    return runWithSharedFlightDeadline("stores_home_feed", ENTRY_SHARED_FLIGHT_DEADLINE_MS, async (signal) => {
+      const res = await fetch(`/api/stores/home-feed${suffix}`, {
+        cache: "no-store",
+        signal,
+        headers: {
+          ...storesApiAcceptLanguageHeader(lang),
+          ...storesHomeClientCallSourceHeader(opts.clientCallSource),
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      return { status: res.status, json };
     });
-    const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
   });
   return withAbortSignal(flight, opts.signal);
 }

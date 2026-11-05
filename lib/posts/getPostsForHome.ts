@@ -3,6 +3,7 @@
 import { setTradeRadiusOptionsKmFromServer } from "@/lib/trade/location/trade-radius-options";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { dropPostFromTradeFeedClientCache, invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListPayloadBytes } from "@/lib/trade/trade-c2c-perf-metrics";
@@ -682,28 +683,37 @@ export async function getPostsForHome(
       const dbg = samarketRuntimeDebugEnabled();
       const wallT0 = dbg ? performance.now() : 0;
       const tNet0 = dbg ? performance.now() : 0;
-      const res = await fetch(`/api/philife/posts?${params.toString()}`, {
-        credentials: "include",
-        cache: "no-store" as const,
-        headers: normalized.forceFreshRankedWindow
-          ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
-          : undefined,
-      });
-      if (dbg) {
-        recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
-      }
-      if (!res.ok) {
+      let tJson0 = 0;
+      /** 공유 비행(prewarm·목록 합류)은 자체 마감으로만 끊는다 — 마감 초과·본문 중단은 아래 catch 에서 실패 결과 */
+      const data = await runWithSharedFlightDeadline(
+        "trade_home_posts",
+        ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+        async (signal) => {
+          const res = await fetch(`/api/philife/posts?${params.toString()}`, {
+            credentials: "include",
+            cache: "no-store" as const,
+            signal,
+            headers: normalized.forceFreshRankedWindow
+              ? { [DIBAY_MARKET_FRESH_FEED_HEADER]: "1" }
+              : undefined,
+          });
+          if (dbg) {
+            recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
+          }
+          if (!res.ok) return null;
+          tJson0 = dbg ? performance.now() : 0;
+          return (await res.json()) as {
+            posts?: PostWithMeta[];
+            hasMore?: boolean;
+            nextCursor?: string | null;
+            favoriteMap?: Record<string, boolean>;
+            radiusOptionsKm?: unknown;
+          };
+        }
+      );
+      if (!data) {
         return failedHomePostsResult();
       }
-
-      const tJson0 = dbg ? performance.now() : 0;
-      const data = (await res.json()) as {
-        posts?: PostWithMeta[];
-        hasMore?: boolean;
-        nextCursor?: string | null;
-        favoriteMap?: Record<string, boolean>;
-        radiusOptionsKm?: unknown;
-      };
       /** 거래 D: 서버가 보낸 어드민 반경 선택지 — 📍 시트가 같은 값으로 그린다 */
       if (data.radiusOptionsKm !== undefined) setTradeRadiusOptionsKmFromServer(data.radiusOptionsKm);
       if (dbg) {

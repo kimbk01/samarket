@@ -13,6 +13,7 @@ import {
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 import {
   recordCmRoomBootstrapCacheHit,
@@ -65,10 +66,19 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
       noteTradeChatEntryJourneyMilestone("bootstrap_fetch_start");
     }
     const tFetch0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const res = await fetch(url, { credentials: "include", cache: "no-store" });
-    const tHeaders = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const tJson0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const json = await res.json().catch(() => null);
+    let tHeaders = tFetch0;
+    let tJson0 = tFetch0;
+    const { res, json } = await runWithSharedFlightDeadline(
+      "cm_room_entry_bootstrap",
+      ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+      async (signal) => {
+        const response = await fetch(url, { credentials: "include", cache: "no-store", signal });
+        tHeaders = typeof performance !== "undefined" ? performance.now() : Date.now();
+        tJson0 = tHeaders;
+        const body: unknown = await response.json().catch(() => null);
+        return { res: response, json: body };
+      }
+    );
     const tJson1 = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (!res.ok) return null;
     const tSnap0 = typeof performance !== "undefined" ? performance.now() : Date.now();
