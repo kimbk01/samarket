@@ -59,7 +59,14 @@ export function useMypageHomeSummary(enabled: boolean): MypageHomeSummaryState |
       if (document.visibilityState === "visible") refetch(false);
     };
     const onPageShow = () => refetch(false);
-    const onAuthChanged = () => clearMypageHomeSummary();
+    // 같은 viewer 의 인증 이벤트(SIGNED_IN·앱 시작 완료)로 값을 비우면 다시 읽지 않아 「—」 고정
+    // (실측 2026-11-07 iPhone 17e: 요약 응답 뒤 boot-ready 인증 이벤트가 비움). 계정이 바뀐 경우만 비우고 다시 읽는다.
+    const onAuthChanged = () => {
+      const id = getCurrentUser()?.id?.trim() ?? "";
+      if (id && getMypageHomeSummaryState()?.viewerId === id) return;
+      clearMypageHomeSummary();
+      if (id) void loadMypageHomeSummary(id, { force: true });
+    };
 
     window.addEventListener(PROFILE_UPDATED_EVENT, onForce);
     window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onForce);
