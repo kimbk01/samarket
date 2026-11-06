@@ -9,7 +9,7 @@ import {
   FORM_FOCUS_GAP_PX,
   resolveFormEffectiveViewportTopPx,
   resolveFormFocusTargetRect,
-  resolveFormVisualViewportFrame,
+  resolveFormVisualViewportClientBand,
   restoreFormFocusOverscrollInScrollRoot,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
@@ -162,7 +162,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     };
 
     const resolveLiveBandBottomPx = () => {
-      const live = resolveFormVisualViewportFrame().visualBottomPx;
+      const live = resolveFormVisualViewportClientBand().bottomPx;
       if (!(live > 0)) return bottomRef.current;
       // React snap can lag one frame behind Android adjustResize — never use a
       // stale taller band or landscape focus stays below the IME.
@@ -309,7 +309,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     const timers = [0, 50, 150, 320].map((ms) =>
       window.setTimeout(() => {
         if (activeFocusedRef.current !== focused || !document.contains(focused)) return;
-        const live = resolveFormVisualViewportFrame().visualBottomPx;
+        const live = resolveFormVisualViewportClientBand().bottomPx;
         let bandBottom = Math.min(bottom, live > 0 ? live : bottom);
         const footer = findNearestFormKeyboardFooter(focused);
         if (footer && !footer.contains(focused)) {

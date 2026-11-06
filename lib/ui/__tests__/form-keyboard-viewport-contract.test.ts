@@ -8,12 +8,31 @@ import {
   resolveFormKeyboardOpenFromViewport,
   resolveFormKeyboardStageBand,
   resolveFormFocusTargetRect,
+  resolveFormVisualViewportClientBand,
   resolveFormVisualViewportOverlayGapPx,
 } from "@/lib/ui/form-keyboard-viewport-contract";
 
 describe("form-keyboard-viewport-contract", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("iOS WKWebView scrolled under keyboard: client band = pageTop − scrollY (iPhone 17e measured)", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 587,
+      scrollY: 257,
+      visualViewport: { offsetTop: 257, pageTop: 257, height: 516 },
+    });
+    expect(resolveFormVisualViewportClientBand()).toEqual({ topPx: 0, bottomPx: 516 });
+  });
+
+  it("Chrome/Android: client band equals offsetTop band", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 640,
+      scrollY: 300,
+      visualViewport: { offsetTop: 40, pageTop: 340, height: 400 },
+    });
+    expect(resolveFormVisualViewportClientBand()).toEqual({ topPx: 40, bottomPx: 440 });
   });
 
   it("Android adjustResize: layout aligned → occlusion 0 (no double pad)", () => {

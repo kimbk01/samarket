@@ -140,6 +140,31 @@ export function resolveFormVisualViewportFrame(minHeightPx = FORM_VIEWPORT_MIN_P
   return { heightPx, offsetTopPx, visualBottomPx: offsetTopPx + heightPx };
 }
 
+/**
+ * Visible band in `getBoundingClientRect()` coordinates.
+ * iOS WKWebView with the document scrolled under the keyboard reports `offsetTop` relative to a
+ * layout viewport at page 0 while client rects follow `scrollY` (measured: offsetTop 257 = scrollY 257,
+ * button rect = pageY − scrollY) — `offsetTop + height` then lands below the AutoFill bar.
+ * `pageTop − scrollY` equals `offsetTop` by spec wherever the two agree (Chrome/Android).
+ */
+export function resolveFormVisualViewportClientBand(minHeightPx = FORM_VIEWPORT_MIN_PX): {
+  topPx: number;
+  bottomPx: number;
+} {
+  const frame = resolveFormVisualViewportFrame(minHeightPx);
+  if (typeof window === "undefined" || !window.visualViewport) {
+    return { topPx: frame.offsetTopPx, bottomPx: frame.visualBottomPx };
+  }
+  const vv = window.visualViewport;
+  const pageTop = Number(vv.pageTop);
+  const scrollY = Number(window.scrollY);
+  const topPx =
+    Number.isFinite(pageTop) && Number.isFinite(scrollY)
+      ? Math.max(0, Math.round(pageTop - scrollY))
+      : frame.offsetTopPx;
+  return { topPx, bottomPx: topPx + frame.heightPx };
+}
+
 export function resolveFormVisualViewportOverlayGapPx(): number {
   if (typeof window === "undefined") return 0;
   const vv = window.visualViewport;
@@ -447,15 +472,15 @@ export function resolveFormEffectiveViewportTopPx(args?: {
   /** Focused control height (textarea: pass caret-line estimate, not full scroll height). */
   focusedHeightPx?: number;
 }): number {
-  const frame = resolveFormVisualViewportFrame();
-  let topPx = frame.offsetTopPx;
+  const band = resolveFormVisualViewportClientBand();
+  let topPx = band.topPx;
   const chrome = args?.stickyChromeEl;
   if (chrome) {
     const bottom = Math.round(chrome.getBoundingClientRect().bottom);
     if (Number.isFinite(bottom)) topPx = Math.max(topPx, bottom);
   }
 
-  const bandBottom = args?.effectiveViewportBottom ?? frame.visualBottomPx;
+  const bandBottom = args?.effectiveViewportBottom ?? band.bottomPx;
   const focusedNeed = Math.max(0, Math.round(args?.focusedHeightPx ?? 0));
   const minUsable = Math.max(
     FORM_FOCUS_MIN_USABLE_BAND_PX,
@@ -471,9 +496,9 @@ export function resolveFormEffectiveViewportTopPx(args?: {
     !chrome &&
     focusedNeed > 0 &&
     usable < minUsable &&
-    bandBottom > frame.offsetTopPx
+    bandBottom > band.topPx
   ) {
-    const relaxedFloor = frame.offsetTopPx;
+    const relaxedFloor = band.topPx;
     const fitTop = bandBottom - minUsable;
     topPx = Math.max(relaxedFloor, Math.min(topPx, fitTop));
   }
