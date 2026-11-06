@@ -332,7 +332,7 @@ export function PointChargeForm({
 
           {err ? <p className={`mb-3 ${OverlayUi.captionDanger}`}>{err}</p> : null}
 
-          {layout === "page" ? null : apple.available ? (
+          {!overlay ? null : apple.available ? (
             <DibayOverlayButton
               roleTone="primary"
               type="button"
@@ -360,7 +360,7 @@ export function PointChargeForm({
     </div>
   );
 
-  if (layout === "page") {
+  if (!overlay) {
     // S41 — 하단 고정 [충전 요청] (활성 = 플랜 선택 & 미제출 중)
     return (
       <>

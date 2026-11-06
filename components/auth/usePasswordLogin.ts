@@ -207,7 +207,7 @@ export function usePasswordLogin({
           if (normalizedRaw.includes("invalid login credentials")) {
             message = identifier.includes("@")
               ? t("auth_err_wrong_password_email")
-              : t("auth_err_wrong_password");
+              : t("auth_err_invalid_credentials");
           }
           showError(message);
           return;
