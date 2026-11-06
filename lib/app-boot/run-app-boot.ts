@@ -419,6 +419,13 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
+    } else if (recovery.phase === "loading") {
+      /** 세션 확인이 일시 장애(네트워크·마감)로 끝남 — 401 비회원 증거가 아니므로 기존 error 복구(1.5·3·6초)로 */
+      if (startEpoch !== bootEpoch) return;
+      if (!isAppBootReady()) setAppBootProfileUnavailable("profile_401_session_check_transient");
+      markBootMetricsApiDone();
+      recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+      return;
     } else {
       /**
        * CUT-A — profile 401 + non-terminal recovery must not park forever in hydrating.

@@ -43,6 +43,7 @@ import {
   peekClientMembershipRecoveryForTests,
   primeMembershipOnBoot,
   resetClientMembershipStateForTests,
+  retryClientMembershipRecovery,
   subscribeClientMembershipStoreForTests,
 } from "@/hooks/use-client-membership-state";
 
@@ -212,5 +213,100 @@ describe("use-client-membership-state retry contract", () => {
     await primeMembershipOnBoot();
     expect(ensureSessionHealthyMock).toHaveBeenCalledTimes(4);
     expect(peekClientMembershipRecoveryForTests().terminal).toBe(true);
+  });
+});
+
+describe("use-client-membership-state transient failure is not guest", () => {
+  const LOADING = { ok: false, phase: "loading", terminal: false };
+
+  async function exhaustRetries(): Promise<void> {
+    await primeMembershipOnBoot();
+    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(3_000);
+    await vi.advanceTimersByTimeAsync(6_000);
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    getCurrentUserMock.mockReturnValue(null);
+    ensureSessionHealthyMock.mockReset();
+    resolveClientMembershipMock.mockReset();
+  });
+
+  afterEach(() => {
+    resetClientMembershipStateForTests();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("3 transient (loading) failures keep checking + recoveryFailed — never guest", async () => {
+    ensureSessionHealthyMock.mockResolvedValue(LOADING);
+    const seen: string[] = [];
+    const unsubscribe = subscribeClientMembershipStoreForTests(() => {
+      seen.push(peekClientMembershipRecoveryForTests().state.status);
+    });
+
+    await exhaustRetries();
+
+    const peek = peekClientMembershipRecoveryForTests();
+    expect(ensureSessionHealthyMock).toHaveBeenCalledTimes(4);
+    expect(peek.terminal).toBe(true);
+    expect(peek.state.status).toBe("checking");
+    expect(peek.recoveryFailed).toBe(true);
+    expect(seen).not.toContain("guest");
+
+    // remount 도 guest 로 바꾸지 않는다
+    await primeMembershipOnBoot();
+    expect(peekClientMembershipRecoveryForTests().state.status).toBe("checking");
+    expect(peekClientMembershipRecoveryForTests().recoveryFailed).toBe(true);
+    unsubscribe();
+  });
+
+  it("thrown session checks are transient too (recoveryFailed, not guest)", async () => {
+    ensureSessionHealthyMock.mockRejectedValue(new Error("shared flight deadline"));
+    await exhaustRetries();
+    const peek = peekClientMembershipRecoveryForTests();
+    expect(peek.state.status).toBe("checking");
+    expect(peek.recoveryFailed).toBe(true);
+  });
+
+  it("server-confirmed no session (recovering) still settles guest after exhaustion", async () => {
+    ensureSessionHealthyMock.mockResolvedValue(RECOVERING);
+    await exhaustRetries();
+    const peek = peekClientMembershipRecoveryForTests();
+    expect(peek.state.status).toBe("guest");
+    expect(peek.recoveryFailed).toBe(false);
+  });
+
+  it("explicit retry after recovery failure returns to member when network recovers", async () => {
+    ensureSessionHealthyMock.mockResolvedValue(LOADING);
+    await exhaustRetries();
+    expect(peekClientMembershipRecoveryForTests().recoveryFailed).toBe(true);
+
+    ensureSessionHealthyMock.mockResolvedValue({ ok: true, phase: "authenticated" });
+    resolveClientMembershipMock.mockResolvedValue({
+      status: "member",
+      profile: { id: "user-1" },
+    } as never);
+    retryClientMembershipRecovery("test");
+    await vi.advanceTimersByTimeAsync(0);
+
+    const peek = peekClientMembershipRecoveryForTests();
+    expect(ensureSessionHealthyMock).toHaveBeenCalledTimes(5);
+    expect(peek.state.status).toBe("member");
+    expect(peek.recoveryFailed).toBe(false);
+    expect(peek.terminal).toBe(false);
+  });
+
+  it("explicit retry is a no-op while a recovery cycle is still running", async () => {
+    ensureSessionHealthyMock.mockResolvedValue(LOADING);
+    await primeMembershipOnBoot();
+    const generationBefore = peekClientMembershipRecoveryForTests().generation;
+    retryClientMembershipRecovery("test");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(peekClientMembershipRecoveryForTests().generation).toBe(generationBefore);
+    expect(ensureSessionHealthyMock).toHaveBeenCalledTimes(1);
   });
 });

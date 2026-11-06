@@ -24,7 +24,11 @@ import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDas
 import { MypageProfileSheetsHost } from "@/components/mypage/profile-settings/MypageProfileSheetsHost";
 import { MypageProfileSheetsProvider } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { MypageProfileEditQueryOpener } from "@/components/mypage/profile-settings/MypageProfileEditQueryOpener";
-import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  retryClientMembershipRecovery,
+  useClientMembershipRecoveryFailed,
+  useClientMembershipState,
+} from "@/hooks/use-client-membership-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
@@ -75,6 +79,8 @@ export function MyContent({
   const treatAsMember =
     Boolean(sessionUser?.id) || membership.status === "member";
   const isConfirmedGuest = !sessionUser?.id && membership.status === "guest";
+
+  const membershipCheckFailed = useClientMembershipRecoveryFailed() && !treatAsMember;
 
   const { projection, refresh, needsRelogin, loadFailed } = useMypageHomeModel(treatAsMember);
 
@@ -160,9 +166,13 @@ export function MyContent({
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageHomeDashboard
             projection={projection}
-            onProfileRefresh={() => void refresh()}
+            onProfileRefresh={
+              membershipCheckFailed
+                ? () => retryClientMembershipRecovery("mypage-root")
+                : () => void refresh()
+            }
             needsRelogin={needsRelogin}
-            loadFailed={loadFailed}
+            loadFailed={loadFailed || membershipCheckFailed}
             ownerStoreGateSeed={ownerStoreGateSeed}
             adminMenuSeed={adminMenuSeed}
           />

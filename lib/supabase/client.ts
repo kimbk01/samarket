@@ -7,6 +7,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logAuthClientCreated, logAuthSessionChanged } from "@/lib/supabase/auth-refresh-telemetry";
 import { dispatchSamarketRealtimeTokenRefreshed } from "@/lib/supabase/realtime-auth-events";
+import { createSupabaseAuthDeadlineFetch } from "@/lib/supabase/auth-request-deadline";
 let client: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
@@ -33,6 +34,9 @@ export function getSupabaseClient(): SupabaseClient | null {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
+      },
+      global: {
+        fetch: createSupabaseAuthDeadlineFetch((input, init) => fetch(input, init)),
       },
     });
     const sb = client;

@@ -4,7 +4,11 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
-import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { MembershipCheckFailedPanel } from "@/components/auth/MembershipCheckFailedPanel";
+import {
+  useClientMembershipRecoveryFailed,
+  useClientMembershipState,
+} from "@/hooks/use-client-membership-state";
 import { samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 
 function isCommunityMessengerRoomEntryPath(pathname: string | null): boolean {
@@ -19,6 +23,7 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
   const { t } = useI18n();
   const pathname = usePathname();
   const membership = useClientMembershipState("community-messenger-guest-gate");
+  const recoveryFailed = useClientMembershipRecoveryFailed();
   const roomEntryPath = isCommunityMessengerRoomEntryPath(pathname);
 
   const guestGateDebugProbe =
@@ -33,6 +38,14 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
     ) : null;
 
   if (membership.status === "checking" && !roomEntryPath) {
+    if (recoveryFailed) {
+      return (
+        <>
+          {guestGateDebugProbe}
+          <MembershipCheckFailedPanel source="community-messenger-guest-gate" className="min-h-[40vh] justify-center" />
+        </>
+      );
+    }
     return (
       <>
         {guestGateDebugProbe}

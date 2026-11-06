@@ -5,7 +5,7 @@
  * @see docs/dibay-session-policy.md
  */
 
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type AuthChangeEvent, type Session } from "@supabase/supabase-js";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 import { isTerminalAuthCode, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
@@ -336,9 +336,16 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
 
     setSessionPhase("loading");
 
-    const { data: sessionData } = await sb.auth.getSession();
+    const { data: sessionData, error: sessionErr } = await sb.auth.getSession();
     if (sessionData.session?.user?.id) {
       const result = await confirmAuthenticatedWithRegistry(source, sessionData.session.user.id);
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
+    }
+    // 저장 세션의 갱신이 네트워크 오류로 끝남 — 세션은 auth-js 가 보존한다. 같은 토큰 갱신을 다시 기다리지 않는다.
+    if (isAuthRetryableFetchError(sessionErr)) {
+      setSessionPhase("loading");
+      const result = { ok: false as const, phase: "loading" as const, terminal: false };
       logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
       return result;
     }

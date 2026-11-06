@@ -52,3 +52,40 @@ export async function runWithSharedFlightDeadline<T>(
     globalThis.clearTimeout(timer);
   }
 }
+
+/**
+ * `runWithSharedFlightDeadline` 과 같은 계약이되, `work` 가 signal 을 따르지 않는 대기(세션 복구 등)를 포함해도
+ * 마감 시각에 반드시 `SharedFlightDeadlineError` 로 끝난다. 마감 뒤 `work` 의 결과는 버린다 —
+ * `work` 는 `signal.aborted` 이후 캐시·상태를 쓰지 않아야 한다.
+ */
+export function runWithSettledSharedFlightDeadline<T>(
+  label: string,
+  timeoutMs: number,
+  work: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const ac = new AbortController();
+  return new Promise<T>((resolve, reject) => {
+    const timer = globalThis.setTimeout(() => {
+      ac.abort();
+      reject(new SharedFlightDeadlineError(label, timeoutMs));
+    }, timeoutMs);
+    let pending: Promise<T>;
+    try {
+      pending = work(ac.signal);
+    } catch (error) {
+      globalThis.clearTimeout(timer);
+      reject(error);
+      return;
+    }
+    pending.then(
+      (value) => {
+        globalThis.clearTimeout(timer);
+        if (!ac.signal.aborted) resolve(value);
+      },
+      (error: unknown) => {
+        globalThis.clearTimeout(timer);
+        if (!ac.signal.aborted) reject(error);
+      }
+    );
+  });
+}

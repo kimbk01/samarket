@@ -8,6 +8,10 @@ import {
 } from "@/lib/auth/guest-auth-state";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  ENTRY_SHARED_FLIGHT_DEADLINE_MS,
+  runWithSettledSharedFlightDeadline,
+} from "@/lib/http/shared-flight-deadline";
+import {
   bumpAppWidePerf,
   recordAppWidePhaseLastMs,
 } from "@/lib/runtime/samarket-runtime-debug";
@@ -39,6 +43,9 @@ export function clearAuthSessionClientCache(): void {
 /**
  * 여러 클라이언트 컴포넌트가 동시에 세션을 확인할 때 요청을 하나로 합칩니다.
  * (레이아웃·게이트·리다이렉트·로그인 직후 동기화 등이 같은 틱에 겹칠 때 대기 시간·부하 감소)
+ *
+ * 합류 요청 전체(세션 준비 대기 → 요청 → 본문 읽기)는 `ENTRY_SHARED_FLIGHT_DEADLINE_MS` 안에 끝난다.
+ * 마감 초과는 `SharedFlightDeadlineError` throw — 401·비회원 증거가 아니다.
  */
 export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Response> {
   if (isRecoverableGuestAuthEstablished()) {
@@ -78,69 +85,81 @@ export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Resp
       })
     );
   }
-  return runSingleFlight(SESSION_GET_FLIGHT, async () => {
-    if (peekAuthSessionClientCacheHit()) {
-      return new Response(JSON.stringify({ ok: true, authenticated: true }), {
-        status: 200,
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-          "x-samarket-session-client-cache-hit": "1",
-        },
+  return runSingleFlight(SESSION_GET_FLIGHT, () =>
+    runWithSettledSharedFlightDeadline("auth_session_get", ENTRY_SHARED_FLIGHT_DEADLINE_MS, (signal) =>
+      fetchAuthSessionFlight(signal, clientCallSource)
+    )
+  );
+}
+
+async function fetchAuthSessionFlight(signal: AbortSignal, clientCallSource?: string): Promise<Response> {
+  if (peekAuthSessionClientCacheHit()) {
+    return new Response(JSON.stringify({ ok: true, authenticated: true }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "x-samarket-session-client-cache-hit": "1",
+      },
+    });
+  }
+  bumpAppWidePerf("auth_session_resolve_start");
+  const t0 = performance.now();
+  await awaitClientSupabaseSessionReady(SESSION_PREFETCH_WAIT_MS);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (signal.aborted) throw new Error("fetchAuthSessionNoStore: deadline aborted");
+    try {
+      const raw = await fetch("/api/auth/session", {
+        credentials: "include",
+        cache: "no-store",
+        headers: clientCallSource ? { "x-samarket-client-call-source": clientCallSource } : undefined,
+        signal,
       });
-    }
-    bumpAppWidePerf("auth_session_resolve_start");
-    const t0 = performance.now();
-    await awaitClientSupabaseSessionReady(SESSION_PREFETCH_WAIT_MS);
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch("/api/auth/session", {
-          credentials: "include",
-          cache: "no-store",
-          headers: clientCallSource ? { "x-samarket-client-call-source": clientCallSource } : undefined,
+      const body = raw.status === 204 || raw.status === 304 ? null : await raw.arrayBuffer();
+      if (signal.aborted) throw new Error("fetchAuthSessionNoStore: deadline aborted");
+      const res = new Response(body, { status: raw.status, statusText: raw.statusText, headers: raw.headers });
+      if (res.ok) {
+        setAuthSessionClientCacheOk();
+      } else if (res.status === 401) {
+        clearAuthSessionClientCache();
+      }
+      if (res.status === 401 && attempt === 0) {
+        logFetchClientTelemetry("auth_401", {
+          auth_401_url: "/api/auth/session",
+          auth_401_source: "fetchAuthSessionNoStore",
+          attempt: attempt + 1,
         });
-        if (res.ok) {
-          setAuthSessionClientCacheOk();
-        } else if (res.status === 401) {
-          clearAuthSessionClientCache();
-        }
-        if (res.status === 401 && attempt === 0) {
-          logFetchClientTelemetry("auth_401", {
-            auth_401_url: "/api/auth/session",
-            auth_401_source: "fetchAuthSessionNoStore",
-            attempt: attempt + 1,
-          });
-          await new Promise((r) => setTimeout(r, SESSION_401_RETRY_MS));
-          continue;
-        }
-        if (res.status === 401) {
-          noteGuest401(clientCallSource ?? "fetchAuthSessionNoStore", {
-            url: "/api/auth/session",
-          });
-        }
-        bumpAppWidePerf("auth_session_resolve_success");
-        recordAppWidePhaseLastMs("auth_session_resolve_ms", Math.round(performance.now() - t0));
-        return res;
-      } catch (e) {
-        if (isLikelyFetchAbortError(e, null)) {
-          logFetchClientTelemetry("fetch_abort", {
-            fetch_abort_url: "/api/auth/session",
-            fetch_abort_reason: "abort_or_navigator_abort",
-            fetch_abort_after_route_change: false,
-          });
-          throw e;
-        }
-        if (attempt === 0) {
-          logFetchClientTelemetry("fetch_network_retry", {
-            fetch_abort_url: "/api/auth/session",
-            message: String(e instanceof Error ? e.message : e),
-            attempt: 1,
-          });
-          await new Promise((r) => setTimeout(r, SESSION_401_RETRY_MS));
-          continue;
-        }
+        await new Promise((r) => setTimeout(r, SESSION_401_RETRY_MS));
+        continue;
+      }
+      if (res.status === 401) {
+        noteGuest401(clientCallSource ?? "fetchAuthSessionNoStore", {
+          url: "/api/auth/session",
+        });
+      }
+      bumpAppWidePerf("auth_session_resolve_success");
+      recordAppWidePhaseLastMs("auth_session_resolve_ms", Math.round(performance.now() - t0));
+      return res;
+    } catch (e) {
+      if (signal.aborted) throw e;
+      if (isLikelyFetchAbortError(e, null)) {
+        logFetchClientTelemetry("fetch_abort", {
+          fetch_abort_url: "/api/auth/session",
+          fetch_abort_reason: "abort_or_navigator_abort",
+          fetch_abort_after_route_change: false,
+        });
         throw e;
       }
+      if (attempt === 0) {
+        logFetchClientTelemetry("fetch_network_retry", {
+          fetch_abort_url: "/api/auth/session",
+          message: String(e instanceof Error ? e.message : e),
+          attempt: 1,
+        });
+        await new Promise((r) => setTimeout(r, SESSION_401_RETRY_MS));
+        continue;
+      }
+      throw e;
     }
-    throw new Error("fetchAuthSessionNoStore: exhausted attempts");
-  });
+  }
+  throw new Error("fetchAuthSessionNoStore: exhausted attempts");
 }

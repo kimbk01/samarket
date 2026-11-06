@@ -27,14 +27,13 @@ describe("messenger room shell dual-context SSOT contract", () => {
     expect(gate).toContain('args.membershipStatus !== "member"');
   });
 
-  it("membership recovery terminal settles checking → guest (no infinite checking)", () => {
+  it("membership recovery terminal settles checking (no infinite checking): server no-session → guest, transient → recoveryFailed", () => {
     const membership = read("hooks/use-client-membership-state.ts");
     expect(membership).toContain("auth_membership_recovery_terminal");
+    expect(membership).toMatch(/recoveryTerminal = true[\s\S]*settleTerminalMembership\(\)/);
+    expect(membership).toMatch(/if \(recoveryTerminal\) \{[\s\S]*settleTerminalMembership\(\)/);
     expect(membership).toMatch(
-      /recoveryTerminal = true[\s\S]*status === "checking"[\s\S]*publish\(\{ status: "guest" \}\)/,
-    );
-    expect(membership).toMatch(
-      /if \(recoveryTerminal\) \{[\s\S]*status === "checking"[\s\S]*publish\(\{ status: "guest" \}\)/,
+      /function settleTerminalMembership[\s\S]*lastUnsettledCause === "recovering"[\s\S]*publish\(\{ status: "guest" \}\)[\s\S]*publish\(\{ status: "checking" \}, true\)/,
     );
   });
 

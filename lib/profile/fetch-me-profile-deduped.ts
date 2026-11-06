@@ -6,6 +6,7 @@ import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
+import { runWithSettledSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   isGuestAuthEstablished,
   logGuestFetchSkipped,
@@ -121,9 +122,16 @@ function profileFetchHeaders(clientCallSource: string | undefined, extra: Record
  */
 export const ME_PROFILE_FETCH_TIMEOUT_MS = 12_000;
 
-async function fetchMeProfileResultWithDeadline(url: string, init: RequestInit): Promise<MeProfileGetResult> {
+async function fetchMeProfileResultWithDeadline(
+  url: string,
+  init: RequestInit,
+  flightSignal?: AbortSignal,
+): Promise<MeProfileGetResult> {
   const ac = new AbortController();
   const timer = globalThis.setTimeout(() => ac.abort(), ME_PROFILE_FETCH_TIMEOUT_MS);
+  const onFlightAbort = () => ac.abort();
+  if (flightSignal?.aborted) ac.abort();
+  else flightSignal?.addEventListener("abort", onFlightAbort, { once: true });
   try {
     const res = await fetch(url, { ...init, signal: ac.signal });
     let json: unknown;
@@ -136,10 +144,11 @@ async function fetchMeProfileResultWithDeadline(url: string, init: RequestInit):
     return { status: res.status, json };
   } finally {
     globalThis.clearTimeout(timer);
+    flightSignal?.removeEventListener("abort", onFlightAbort);
   }
 }
 
-async function fetchMeProfileNetwork(clientCallSource?: string): Promise<MeProfileGetResult> {
+async function fetchMeProfileNetwork(clientCallSource?: string, flightSignal?: AbortSignal): Promise<MeProfileGetResult> {
   recordBootVerifyFetch("/api/me/profile?mode=full", clientCallSource ?? "profile_full");
   logShellFetchTrace({
     api: "/api/me/profile",
@@ -153,7 +162,7 @@ async function fetchMeProfileNetwork(clientCallSource?: string): Promise<MeProfi
       "x-samarket-first-paint-blocking": "0",
       "x-samarket-surface": "background",
     }),
-  });
+  }, flightSignal);
 }
 
 const GUEST_PROFILE_401: MeProfileGetResult = {
@@ -166,17 +175,21 @@ function guestMeProfileResult(clientCallSource?: string): MeProfileGetResult {
   return GUEST_PROFILE_401;
 }
 
-async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise<MeProfileGetResult> {
+async function fetchMeProfileWith401Recovery(
+  clientCallSource: string | undefined,
+  flightSignal: AbortSignal,
+): Promise<MeProfileGetResult> {
   if (isGuestAuthEstablished()) {
     return guestMeProfileResult(clientCallSource);
   }
 
-  let result = await fetchMeProfileNetwork(clientCallSource);
+  let result = await fetchMeProfileNetwork(clientCallSource, flightSignal);
 
   if (result.status === 401) {
     const recovery = await recoverFrom401Once("me_profile_full");
+    if (flightSignal.aborted) return result;
     if (recovery.recovered) {
-      result = await fetchMeProfileNetwork(clientCallSource);
+      result = await fetchMeProfileNetwork(clientCallSource, flightSignal);
     } else if (recovery.phase === "recovering" || recovery.phase === "loading") {
       return result;
     } else if (recovery.phase === "terminal_guest" || isGuestAuthEstablished()) {
@@ -187,6 +200,7 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
     }
   }
 
+  if (flightSignal.aborted) return result;
   const resOk = result.status >= 200 && result.status < 300;
   if (resOk || result.status === 401 || result.status === 403) {
     if (result.status === 401) {
@@ -268,5 +282,9 @@ export function fetchMeProfileFullBackground(clientCallSource?: string): Promise
       .catch(() => null)
       .then(() => fetchMeProfileFullBackground(clientCallSource));
   }
-  return runSingleFlight(FLIGHT_KEY_FULL, () => fetchMeProfileWith401Recovery(clientCallSource));
+  return runSingleFlight(FLIGHT_KEY_FULL, () =>
+    runWithSettledSharedFlightDeadline("me_profile_full", ME_PROFILE_FETCH_TIMEOUT_MS, (signal) =>
+      fetchMeProfileWith401Recovery(clientCallSource, signal)
+    )
+  );
 }

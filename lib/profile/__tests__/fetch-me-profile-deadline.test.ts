@@ -7,6 +7,7 @@ vi.mock("@/lib/dibay/shell-fetch-trace", () => ({ logShellFetchTrace: vi.fn() })
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
 import { isGuestAuthEstablished } from "@/lib/auth/guest-auth-state";
 import { getSingleFlightPromise } from "@/lib/http/run-single-flight";
+import { isSharedFlightDeadlineError } from "@/lib/http/shared-flight-deadline";
 import { resolveMypageHomeProfileResult } from "@/lib/mypage/resolve-mypage-home-profile";
 import {
   fetchMeProfileFresh,
@@ -211,7 +212,7 @@ describe("me profile fetch deadline (request + body)", () => {
     const r = track(resolveMypageHomeProfileResult());
     await vi.advanceTimersByTimeAsync(ME_PROFILE_FETCH_TIMEOUT_MS);
     expect(r).toMatchObject({ settled: true, ok: false });
-    expect((r.error as DOMException).name).toBe("AbortError");
+    expect(isSharedFlightDeadlineError(r.error)).toBe(true);
     expect(recoverFrom401Once).not.toHaveBeenCalled();
     expect(isGuestAuthEstablished()).toBe(guestBefore);
     expect(peekMeProfileCached()).toBeNull();
@@ -234,6 +235,34 @@ describe("me profile fetch deadline (request + body)", () => {
     expect(res.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("C4 401 → session recovery stalls: shared flight ends at the deadline, released, late recovery writes no cache", async () => {
+    let finishRecovery: ((v: { recovered: true }) => void) | null = null;
+    vi.mocked(recoverFrom401Once).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRecovery = resolve;
+        }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: false }), { status: 401 }))
+      .mockImplementation(async () => profileResponse("late"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const p = track(fetchMeProfileFullBackground("t"));
+    await vi.advanceTimersByTimeAsync(ME_PROFILE_FETCH_TIMEOUT_MS - 1);
+    expect(p.settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(p).toMatchObject({ settled: true, ok: false });
+    expect(isSharedFlightDeadlineError(p.error)).toBe(true);
+    expect(getSingleFlightPromise(FLIGHT_KEY)).toBeUndefined();
+
+    finishRecovery!({ recovered: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(peekMeProfileCached()).toBeNull();
   });
 
   it("fresh: stall resolves null at deadline (sheet leaves loading), no prime, timer cleared", async () => {

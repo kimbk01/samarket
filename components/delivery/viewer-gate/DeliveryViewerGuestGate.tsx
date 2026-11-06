@@ -2,7 +2,11 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { MembershipCheckFailedPanel } from "@/components/auth/MembershipCheckFailedPanel";
+import {
+  useClientMembershipRecoveryFailed,
+  useClientMembershipState,
+} from "@/hooks/use-client-membership-state";
 import { DeliveryViewerGatePanel } from "@/components/delivery/viewer-gate/DeliveryViewerGatePanel";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
@@ -22,12 +26,20 @@ import { STORES_DELIVERY_CONTENT_INNER_CLASS } from "@/lib/stores/stores-home-ui
 export function DeliveryViewerGuestGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   const membership = useClientMembershipState("delivery-viewer-guest-gate");
+  const recoveryFailed = useClientMembershipRecoveryFailed();
   const gated = isDeliveryViewerGatedPath(pathname);
 
   if (!gated || membership.status === "member") return <>{children}</>;
 
   if (membership.status === "checking") {
     if (!isStoreConsumerDetailPath(pathname)) return <>{children}</>;
+    if (recoveryFailed) {
+      return (
+        <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
+          <MembershipCheckFailedPanel source="delivery-viewer-guest-gate" />
+        </div>
+      );
+    }
     return (
       <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
         <StoreDeliveryListLoading />

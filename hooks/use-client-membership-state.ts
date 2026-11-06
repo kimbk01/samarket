@@ -20,14 +20,21 @@ export type ClientMembershipState =
 
 type MembershipStoreSnapshot = {
   state: ClientMembershipState;
+  /** checking + 재시도 소진(마지막 원인이 일시 장애) — 화면은 오류·다시 시도를 그린다 */
+  recoveryFailed: boolean;
   revision: number;
 };
+
+/** 마지막 미확정(checking) 결과의 원인 — "recovering" 만 서버가 세션 없음을 알린 경우 */
+type MembershipUnsettledCause = "loading" | "recovering";
 
 /**
  * P0-1 membership recovery retry 계약 (auth-recovery-failed terminal):
  * - 동일 recovery cycle 자동 재시도 최대 3회, exponential backoff 1.5s → 3s → 6s (+jitter)
  * - 3회 실패 → terminal(auth-recovery-failed): 자동 timer 재시도 금지
  *   (UI 상태명은 기존 "checking" 재사용 — 새 전역 상태 시스템 금지 계약)
+ * - terminal 시 마지막 원인이 "recovering"(서버 세션 없음)이면 guest, 일시 장애("loading"·예외)면
+ *   checking + recoveryFailed — 로그인 사용자를 네트워크 장애로 비회원 처리하지 않는다
  * - 새 recovery cycle 은 명시 이벤트에서만: SIGNED_IN·TOKEN_REFRESHED 성공·
  *   online 복귀·visibility hidden→visible·명시적 auth 변경(TEST_AUTH_CHANGED_EVENT)
  * - mount/remount 만으로 실패 카운터를 초기화하지 않는다 (module 단위 유지)
@@ -39,8 +46,10 @@ const MEMBERSHIP_MAX_RETRY_ATTEMPTS = MEMBERSHIP_RETRY_BACKOFF_MS.length;
 
 let storeSnapshot: MembershipStoreSnapshot = {
   state: { status: "checking" },
+  recoveryFailed: false,
   revision: 0,
 };
+let lastUnsettledCause: MembershipUnsettledCause = "loading";
 let inflight: Promise<ClientMembershipState> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
@@ -85,9 +94,19 @@ function membershipFromCache(): ClientMembershipState {
   return { status: "checking" };
 }
 
-function publish(state: ClientMembershipState): void {
-  storeSnapshot = { state, revision: storeSnapshot.revision + 1 };
+function publish(state: ClientMembershipState, recoveryFailed = false): void {
+  storeSnapshot = { state, recoveryFailed, revision: storeSnapshot.revision + 1 };
   listeners.forEach((listener) => listener());
+}
+
+/** terminal(재시도 소진) 상태의 화면 표시 — 서버 세션 없음만 guest, 일시 장애는 확인 실패 */
+function settleTerminalMembership(): void {
+  if (storeSnapshot.state.status !== "checking") return;
+  if (lastUnsettledCause === "recovering") {
+    publish({ status: "guest" });
+  } else if (!storeSnapshot.recoveryFailed) {
+    publish({ status: "checking" }, true);
+  }
 }
 
 function subscribe(listener: () => void): () => void {
@@ -112,6 +131,7 @@ async function resolveMembershipState(source: string): Promise<ClientMembershipS
 
   const health = await ensureSessionHealthy(`membership:${source}`);
   if (health.phase === "loading" || health.phase === "recovering") {
+    lastUnsettledCause = health.phase;
     return { status: "checking" };
   }
   if (health.ok === false && health.terminal) {
@@ -136,12 +156,8 @@ function scheduleMembershipRetry(source: string): void {
   if (retryTimer || recoveryTerminal) return;
   if (recoveryAttempt >= MEMBERSHIP_MAX_RETRY_ATTEMPTS) {
     recoveryTerminal = true;
-    logMembershipRecovery("auth_membership_recovery_terminal", { source });
-    // Never leave UI on permanent "checking" — settle guest; AuthSessionBoundary
-    // fail-opens when session API/cookies still prove authenticated.
-    if (storeSnapshot.state.status === "checking") {
-      publish({ status: "guest" });
-    }
+    logMembershipRecovery("auth_membership_recovery_terminal", { source, cause: lastUnsettledCause });
+    settleTerminalMembership();
     return;
   }
   const delayMs =
@@ -170,11 +186,8 @@ function ensureMembershipResolved(source: string): Promise<ClientMembershipState
   if (inflight) return inflight;
 
   // terminal(auth-recovery-failed) — mount/remount 로는 새 resolve 를 시작하지 않는다.
-  // Still settle checking → guest so Loading… cannot hang forever.
   if (recoveryTerminal) {
-    if (storeSnapshot.state.status === "checking") {
-      publish({ status: "guest" });
-    }
+    settleTerminalMembership();
     return Promise.resolve(storeSnapshot.state);
   }
   // backoff 대기 중 remount — timer 가 예정한 재시도를 기다린다 (즉시 재호출 금지).
@@ -193,6 +206,7 @@ function ensureMembershipResolved(source: string): Promise<ClientMembershipState
       return next;
     })
     .catch(() => {
+      lastUnsettledCause = "loading";
       publish({ status: "checking" });
       scheduleMembershipRetry(source);
       return { status: "checking" } as const;
@@ -232,6 +246,12 @@ function resumeMembershipRecoveryIfTerminal(reason: string): void {
   if (!recoveryTerminal) return;
   beginNewMembershipRecoveryCycle(reason);
   void ensureMembershipResolved(reason);
+}
+
+/** 확인 실패 화면의 [다시 시도] — 명시 사용자 이벤트로 새 recovery cycle 1회 */
+export function retryClientMembershipRecovery(reason: string): void {
+  bindGlobalAuthListener();
+  resumeMembershipRecoveryIfTerminal(`user_retry:${reason}`);
 }
 
 let authListenerBound = false;
@@ -281,6 +301,12 @@ export function useClientMembershipState(source: string): ClientMembershipState 
   return snapshot.state;
 }
 
+/** checking 중 재시도 소진(일시 장애) 여부 — 확인 실패 + 다시 시도 표시용 */
+export function useClientMembershipRecoveryFailed(): boolean {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return snapshot.state.status === "checking" && snapshot.recoveryFailed;
+}
+
 /** Stage 2 — boot flight 와 membership resolve 병렬 (shell render 는 차단하지 않음). */
 export function primeMembershipOnBoot(): Promise<ClientMembershipState> {
   bindGlobalAuthListener();
@@ -294,6 +320,7 @@ export function peekClientMembershipRecoveryForTests(): {
   terminal: boolean;
   hasTimer: boolean;
   state: ClientMembershipState;
+  recoveryFailed: boolean;
 } {
   return {
     generation: recoveryGeneration,
@@ -301,6 +328,7 @@ export function peekClientMembershipRecoveryForTests(): {
     terminal: recoveryTerminal,
     hasTimer: retryTimer != null,
     state: storeSnapshot.state,
+    recoveryFailed: storeSnapshot.recoveryFailed,
   };
 }
 
@@ -317,7 +345,8 @@ export function resetClientMembershipStateForTests(): void {
   }
   inflight = null;
   listeners.clear();
-  storeSnapshot = { state: { status: "checking" }, revision: 0 };
+  storeSnapshot = { state: { status: "checking" }, recoveryFailed: false, revision: 0 };
+  lastUnsettledCause = "loading";
   recoveryGeneration = 0;
   recoveryAttempt = 0;
   recoveryTerminal = false;

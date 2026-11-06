@@ -586,6 +586,36 @@ describe("앱 시작 lite 프로필 — 추가 검증", () => {
     expect(markSessionTerminalGuestFromClient).not.toHaveBeenCalled();
   });
 
+  it("401 → 세션 확인 일시 장애(loading) → 비회원 확정 금지(error), 이후 자동 복구로 ready", async () => {
+    liteQueue = [status401()];
+    recoverFrom401Once.mockResolvedValue({ recovered: false, terminal: false, phase: "loading" });
+    const m = await load();
+    await m.run.ensureAppBoot();
+    await flush();
+    expect(m.store.getAppBootSnapshot().status).toBe("error");
+    expect(statuses).not.toContain("anonymous");
+    expect(m.guest.isGuestAuthEstablished()).toBe(false);
+    expect(markSessionTerminalGuestFromClient).not.toHaveBeenCalled();
+    expect(runRecoverableGuestRecovery).not.toHaveBeenCalled();
+
+    liteDefault = okProfile();
+    await vi.advanceTimersByTimeAsync(4_000 + 1_500);
+    await flush();
+    expect(m.store.getAppBootSnapshot().status).toBe("ready");
+  });
+
+  it("401 → 서버 세션 없음(recovering) + 복구 실패 → 기존 비회원 확정 경로 유지", async () => {
+    liteQueue = [status401()];
+    recoverFrom401Once.mockResolvedValue({ recovered: false, terminal: false, phase: "recovering" });
+    runRecoverableGuestRecovery.mockResolvedValue(false);
+    const m = await load();
+    await m.run.ensureAppBoot();
+    await flush();
+    expect(runRecoverableGuestRecovery).toHaveBeenCalledTimes(1);
+    expect(m.store.getAppBootSnapshot().status).toBe("anonymous");
+    expect(markSessionTerminalGuestFromClient).toHaveBeenCalledWith("app_boot_profile_401_unresolved");
+  });
+
   it("getUser 비어 있음 → 세션 레지스트리 인증 → 복구 성공 → lite 마감 초과 → error, 이후 복구", async () => {
     dedupeSupabaseAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
     fetchAuthSessionNoStore.mockResolvedValue({ ok: true, status: 200 });
