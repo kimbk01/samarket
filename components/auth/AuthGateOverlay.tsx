@@ -16,12 +16,6 @@ export const AUTH_GATE_OVERLAY_Z_CLASS = "z-[1310]";
 export const AUTH_GATE_PANEL_MAX_H_CLASS =
   "!max-h-[min(calc(100dvh_-_2*var(--overlay-space-3,16px)_-_var(--safe-top,0px)_-_var(--safe-bottom,0px)),var(--auth-gate-keyboard-max-h,640px))]";
 
-/**
- * 패널 자체 스크롤. `.dibay-overlay-dialog`(레이어 밖 CSS)의 `overflow: hidden` 이 일반 utility 보다 우선하므로
- * important 가 없으면 상한 높이 아래 내용(동의 버튼 등)이 잘리고 스크롤도 안 된다.
- */
-export const AUTH_GATE_PANEL_SCROLL_CLASS = "!overflow-y-auto overscroll-y-contain";
-
 /** 키보드가 열렸을 때 visualViewport 높이 안에 패널을 유지하는 여백 */
 const AUTH_GATE_KEYBOARD_GAP_PX = 16;
 
@@ -38,6 +32,8 @@ type AuthGateOverlayProps = {
    * (history 로 빠져 게이트 아래 화면으로 이동하지 않음). onClose 가 있으면 무시된다.
    */
   holdHardwareBack?: boolean;
+  /** 본문 스크롤 밖 고정 하단 (주 CTA) — 패널 높이가 모자라도 항상 보인다. */
+  footer?: ReactNode;
 };
 
 const noop = () => {};
@@ -55,14 +51,15 @@ export function AuthGateOverlay({
   labelledBy,
   describedBy,
   holdHardwareBack = false,
+  footer,
 }: AuthGateOverlayProps) {
-  const panelRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const { keyboardOpen, visualViewportHeight, effectiveViewportBottom } = useFormKeyboardViewport({
     enabled: open,
   });
   useFormKeyboardFocusVisibility({
     enabled: open,
-    scrollRootRef: panelRef,
+    scrollRootRef: bodyRef,
     effectiveViewportBottom,
   });
 
@@ -87,13 +84,19 @@ export function AuthGateOverlay({
       describedBy={describedBy}
     >
       <div
-        ref={panelRef}
-        className={`${OverlayUi.dialogPanel} ${AUTH_GATE_PANEL_MAX_H_CLASS} ${AUTH_GATE_PANEL_SCROLL_CLASS}`}
+        className={`${OverlayUi.dialogPanel} ${AUTH_GATE_PANEL_MAX_H_CLASS}`}
         style={panelStyle}
         data-dibay-overlay="auth-gate"
         onClick={(e) => e.stopPropagation()}
       >
-        {children}
+        <div ref={bodyRef} className={OverlayUi.dialogScroll} data-auth-gate-scroll="1">
+          {children}
+        </div>
+        {footer != null ? (
+          <div className="dibay-overlay-dialog__footer" data-auth-gate-footer="1">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </DibayOverlayRoot>
   );

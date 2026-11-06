@@ -266,6 +266,24 @@ export function AuthConsentForm({
         description={description}
         titleId="dibay-onboarding-consent-title"
         descriptionId="dibay-onboarding-consent-desc"
+        footer={
+          <>
+            {error ? (
+              <p className={`mb-3 ${DIBAY_ONBOARDING_ERROR_CLASS}`} role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={submitting || !requiredOk}
+              className={DIBAY_ONBOARDING_PRIMARY_BTN}
+              data-testid="auth-consent-submit"
+            >
+              {submitting ? t("auth_consent_submitting") : t("auth_consent_submit")}
+            </button>
+          </>
+        }
       >
         {isReconsent && shownVersions ? (
           <div className={`mb-3 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>
@@ -376,7 +394,7 @@ export function AuthConsentForm({
                   type="date"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="min-h-[44px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[15px] text-sam-fg"
+                  className="block min-h-[44px] w-full min-w-0 appearance-none rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[15px] text-sam-fg"
                   max={new Date().toISOString().slice(0, 10)}
                   data-testid="auth-consent-dob"
                 />
@@ -418,21 +436,6 @@ export function AuthConsentForm({
         ) : null}
 
         <div className={`mt-3 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>{t("auth_consent_safety_notice")}</div>
-
-        {error ? (
-          <p className={`mt-4 ${DIBAY_ONBOARDING_ERROR_CLASS}`} role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() => void handleSubmit()}
-          disabled={submitting || !requiredOk}
-          className={`mt-5 ${DIBAY_ONBOARDING_PRIMARY_BTN}`}
-        >
-          {submitting ? t("auth_consent_submitting") : t("auth_consent_submit")}
-        </button>
 
         <div className="mt-5 border-t border-sam-border pt-4" data-auth-consent-escape>
           <p className="text-[12px] text-sam-muted">{t("auth_consent_escape_hint")}</p>

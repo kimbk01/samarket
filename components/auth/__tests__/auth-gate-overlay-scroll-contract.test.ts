@@ -1,18 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AUTH_GATE_PANEL_SCROLL_CLASS } from "@/components/auth/AuthGateOverlay";
 
-describe("auth gate overlay panel scroll (App Review Guideline 4, 2026-11-06)", () => {
-  it("panel scroll beats the unlayered `.dibay-overlay-dialog { overflow: hidden }`", () => {
-    const css = readFileSync(join(process.cwd(), "app/dibay-overlay.css"), "utf8");
-    const dialogRule = css.match(/\n\.dibay-overlay-dialog \{[^}]*\}/)?.[0] ?? "";
-    expect(dialogRule).toMatch(/overflow: hidden/);
-    expect(AUTH_GATE_PANEL_SCROLL_CLASS.split(/\s+/)).toContain("!overflow-y-auto");
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
+
+describe("auth gate overlay: scroll body + fixed CTA footer (App Review Guideline 4, 2026-11-06)", () => {
+  it("panel keeps the dialog SSOT (overflow hidden) and scrolls through the dialog scroll body", () => {
+    const css = read("app/dibay-overlay.css");
+    expect(css.match(/\n\.dibay-overlay-dialog \{[^}]*\}/)?.[0] ?? "").toMatch(/overflow: hidden/);
+    expect(css.match(/\n\.dibay-overlay-dialog-scroll \{[^}]*\}/)?.[0] ?? "").toMatch(/overflow-y: auto/);
+    expect(css).toMatch(/\.dibay-overlay-dialog__footer \{[^}]*flex-shrink: 0/);
+
+    const src = read("components/auth/AuthGateOverlay.tsx");
+    expect(src).not.toMatch(/!overflow-y-auto/);
+    expect(src).toMatch(/<div ref=\{bodyRef\} className=\{OverlayUi\.dialogScroll\}/);
+    expect(src).toMatch(/scrollRootRef: bodyRef/);
+    expect(src).toMatch(/className="dibay-overlay-dialog__footer"/);
   });
 
-  it("AuthGateOverlay panel uses the scroll class", () => {
-    const src = readFileSync(join(process.cwd(), "components/auth/AuthGateOverlay.tsx"), "utf8");
-    expect(src).toMatch(/\$\{AUTH_GATE_PANEL_MAX_H_CLASS\} \$\{AUTH_GATE_PANEL_SCROLL_CLASS\}/);
+  it("consent submit CTA lives in the fixed footer, not the scroll body", () => {
+    const shell = read("components/auth/DibayOnboardingOverlayShell.tsx");
+    expect(shell).toMatch(/footer=\{footer\}/);
+    const form = read("components/auth/AuthConsentForm.tsx");
+    const footerStart = form.indexOf("footer={");
+    const childrenStart = form.indexOf("{isReconsent && shownVersions");
+    const submitAt = form.indexOf('data-testid="auth-consent-submit"');
+    expect(footerStart).toBeGreaterThan(-1);
+    expect(submitAt).toBeGreaterThan(footerStart);
+    expect(submitAt).toBeLessThan(childrenStart);
+    expect(form.match(/auth_consent_submit"\)/g)?.length).toBe(1);
   });
 });

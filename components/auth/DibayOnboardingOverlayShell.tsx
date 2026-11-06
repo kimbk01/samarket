@@ -18,6 +18,8 @@ type DibayOnboardingOverlayShellProps = {
   descriptionId?: string;
   headerExtra?: ReactNode;
   children: ReactNode;
+  /** 본문 스크롤 밖 고정 하단 — 주 CTA 는 여기에 둔다. */
+  footer?: ReactNode;
 };
 
 export function DibayOnboardingOverlayShell({
@@ -28,9 +30,17 @@ export function DibayOnboardingOverlayShell({
   descriptionId,
   headerExtra,
   children,
+  footer,
 }: DibayOnboardingOverlayShellProps) {
   return (
-    <AuthGateOverlay open labelledBy={titleId} describedBy={descriptionId} role="dialog" holdHardwareBack>
+    <AuthGateOverlay
+      open
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      role="dialog"
+      holdHardwareBack
+      footer={footer}
+    >
       <div className="mx-auto flex justify-center" aria-hidden>
         <DibayAuthLogo size={52} />
       </div>
