@@ -217,14 +217,22 @@ export function useMypageHomeModel(enabled: boolean) {
 
   useEffect(() => {
     const onAuthChanged = () => {
+      const viewerId = getCurrentUser()?.id?.trim() ?? "";
+      const shown = getMypageHomeProjection()?.viewerId ?? "";
+      if (viewerId && viewerId === shown) return;
       seededRef.current = false;
       clearMypageHomeStore();
       clearMypageHomeCaches();
       setProfilePhase("pending");
+      // 비운 뒤 다시 읽지 않으면 마운트 상태로 로그인한 화면이 스켈레톤에 고착된다
+      // (실측 2026-11-07 iPhone 17e 아이디 로그인 → 내정보 1분+ 「확인 중」). 이전 viewer 비행 결과는 버린다.
+      refreshGenRef.current += 1;
+      inflightRef.current = null;
+      void refresh();
     };
     window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     if (!projection?.profile) return;
