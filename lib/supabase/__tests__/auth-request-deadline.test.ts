@@ -1,10 +1,5 @@
 /**
- * 인증 요청 마감 — 실제 auth-js(2.99.2) GoTrueClient + GoTrue v2.197.0 갱신 규칙 모사 서버.
- *
- * 서버 규칙(`internal/tokens/service.go` RefreshTokenGrant, v1 토큰):
- * - 활성 토큰 → 회전(폐기 + 자식 발급)
- * - 폐기 토큰이 현재 활성 토큰의 parent → 활성 토큰 반환 (응답 유실 복구, 재사용 허용 시간과 무관)
- * - 그 외 폐기 토큰: 재사용 허용 시간(운영 10초) 안이면 교체, 밖이면 토큰 family 폐기 + refresh_token_already_used
+ * 인증 요청 마감 — 실제 auth-js(2.99.2) GoTrueClient + GoTrue v2.197.0 갱신 규칙 모사 서버(`gotrue-fake-server.ts`).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GoTrueClient, processLock, type AuthChangeEvent } from "@supabase/auth-js";
@@ -13,120 +8,18 @@ import {
   createSupabaseAuthDeadlineFetch,
   isSupabaseAuthRequestUrl,
 } from "@/lib/supabase/auth-request-deadline";
+import {
+  FAKE_AUTH_URL as AUTH_URL,
+  FAKE_USER_ID,
+  createGoTrueServer,
+  memoryStorage,
+  seedExpiredSession,
+  type GoTrueServer,
+} from "./gotrue-fake-server";
 
-const AUTH_URL = "https://proj.supabase.co/auth/v1";
 const STORAGE_KEY = "test-auth-token";
-const REUSE_INTERVAL_MS = 10_000;
 
-type TokenRow = { revoked: boolean; parent: string | null; updatedAt: number; family: string };
-
-type ResponsePlan = "immediate" | { delayMs: number } | "hang" | "body_stall";
-
-function abortError(): DOMException {
-  return new DOMException("The operation was aborted.", "AbortError");
-}
-
-function createGoTrueRefreshServer() {
-  const tokens = new Map<string, TokenRow>();
-  let seq = 0;
-  const plans: ResponsePlan[] = [];
-  const state = { refreshCalls: 0, familyRevoked: false, rotations: 0 };
-
-  function issue(parent: string | null, family: string): string {
-    seq += 1;
-    const token = `rt-${seq}`;
-    tokens.set(token, { revoked: false, parent, updatedAt: Date.now(), family });
-    return token;
-  }
-
-  function activeOf(family: string): string | null {
-    for (const [token, row] of tokens) if (row.family === family && !row.revoked) return token;
-    return null;
-  }
-
-  function grant(refreshToken: string): { status: number; body: Record<string, unknown> } {
-    const row = tokens.get(refreshToken);
-    if (!row) return { status: 400, body: { error_code: "refresh_token_not_found", msg: "Invalid Refresh Token: Refresh Token Not Found" } };
-    let issued: string;
-    if (row.revoked) {
-      const active = activeOf(row.family);
-      if (active && tokens.get(active)!.parent === refreshToken) {
-        issued = active;
-      } else if (Date.now() > row.updatedAt + REUSE_INTERVAL_MS) {
-        for (const r of tokens.values()) if (r.family === row.family) r.revoked = true;
-        state.familyRevoked = true;
-        return { status: 400, body: { error_code: "refresh_token_already_used", msg: "Invalid Refresh Token: Already Used" } };
-      } else {
-        issued = issue(refreshToken, row.family);
-      }
-    } else {
-      row.revoked = true;
-      row.updatedAt = Date.now();
-      issued = issue(refreshToken, row.family);
-      state.rotations += 1;
-    }
-    return {
-      status: 200,
-      body: {
-        access_token: `at-for-${issued}`,
-        refresh_token: issued,
-        token_type: "bearer",
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        user: { id: "user-1", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" },
-      },
-    };
-  }
-
-  const fetchImpl: typeof fetch = async (input, init) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const signal = init?.signal ?? undefined;
-    if (!url.includes("/token?grant_type=refresh_token")) {
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
-    }
-    state.refreshCalls += 1;
-    const { refresh_token } = JSON.parse(String(init?.body ?? "{}")) as { refresh_token: string };
-    // 서버는 요청을 받는 즉시 처리(회전 커밋)한다 — 응답 전달만 지연·유실될 수 있다.
-    const result = grant(refresh_token);
-    const plan = plans.shift() ?? "immediate";
-    const json = JSON.stringify(result.body);
-    if (plan === "immediate") return new Response(json, { status: result.status });
-    if (plan === "body_stall") {
-      const body = new ReadableStream<Uint8Array>({
-        start(controller) {
-          signal?.addEventListener("abort", () => controller.error(abortError()), { once: true });
-        },
-      });
-      return new Response(body, { status: result.status });
-    }
-    return new Promise<Response>((resolve, reject) => {
-      const timer =
-        plan === "hang" ? null : setTimeout(() => resolve(new Response(json, { status: result.status })), plan.delayMs);
-      signal?.addEventListener(
-        "abort",
-        () => {
-          if (timer) clearTimeout(timer);
-          reject(abortError());
-        },
-        { once: true },
-      );
-    });
-  };
-
-  return { tokens, plans, state, issue, fetchImpl, activeOf };
-}
-
-function memoryStorage() {
-  const map = new Map<string, string>();
-  return {
-    map,
-    getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => void map.set(k, v),
-    removeItem: (k: string) => void map.delete(k),
-  };
-}
-
-async function setupClient(server: ReturnType<typeof createGoTrueRefreshServer>) {
+async function setupClient(server: GoTrueServer) {
   const storage = memoryStorage();
   const client = new GoTrueClient({
     url: AUTH_URL,
@@ -143,19 +36,9 @@ async function setupClient(server: ReturnType<typeof createGoTrueRefreshServer>)
   client.onAuthStateChange((event) => {
     events.push(event);
   });
-  const r0 = server.issue(null, "family-1");
-  storage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      access_token: "at-expired",
-      refresh_token: r0,
-      token_type: "bearer",
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) - 60,
-      user: { id: "user-1" },
-    }),
-  );
-  return { client, storage, events, r0 };
+  const { sessionId, refreshToken: r0 } = server.createSession();
+  seedExpiredSession(storage, STORAGE_KEY, r0);
+  return { client, storage, events, r0, sessionId };
 }
 
 function storedRefreshToken(storage: ReturnType<typeof memoryStorage>): string | null {
@@ -194,7 +77,7 @@ describe("supabase auth request deadline", () => {
   });
 
   it("normal refresh rotates once and saves the new token", async () => {
-    const server = createGoTrueRefreshServer();
+    const server = createGoTrueServer();
     const { client, storage, events, r0 } = await setupClient(server);
     const res = await client.getSession();
     expect(res.error).toBeNull();
@@ -207,8 +90,8 @@ describe("supabase auth request deadline", () => {
   });
 
   it("server rotated but response was slower than the deadline: retry with the same token recovers the active token (no logout)", async () => {
-    const server = createGoTrueRefreshServer();
-    const { client, storage, events, r0 } = await setupClient(server);
+    const server = createGoTrueServer();
+    const { client, storage, events, r0, sessionId } = await setupClient(server);
     server.plans.push({ delayMs: 15_000 }, "immediate");
 
     const pending = client.getSession();
@@ -217,7 +100,7 @@ describe("supabase auth request deadline", () => {
     const res = await pending;
 
     expect(res.error).toBeNull();
-    const active = server.activeOf("family-1");
+    const active = server.activeOf(sessionId);
     expect(res.data.session?.refresh_token).toBe(active);
     expect(server.tokens.get(active!)!.parent).toBe(r0);
     expect(server.state.refreshCalls).toBe(2);
@@ -234,8 +117,8 @@ describe("supabase auth request deadline", () => {
   });
 
   it("server rotated but response body stalled: deadline covers body read, retry recovers", async () => {
-    const server = createGoTrueRefreshServer();
-    const { client, storage, events } = await setupClient(server);
+    const server = createGoTrueServer();
+    const { client, storage, events, sessionId } = await setupClient(server);
     server.plans.push("body_stall", "immediate");
 
     const pending = client.getSession();
@@ -243,14 +126,14 @@ describe("supabase auth request deadline", () => {
     const res = await pending;
 
     expect(res.error).toBeNull();
-    expect(res.data.session?.refresh_token).toBe(server.activeOf("family-1"));
-    expect(storedRefreshToken(storage)).toBe(server.activeOf("family-1"));
+    expect(res.data.session?.refresh_token).toBe(server.activeOf(sessionId));
+    expect(storedRefreshToken(storage)).toBe(server.activeOf(sessionId));
     expect(server.state.familyRevoked).toBe(false);
     expect(events).not.toContain("SIGNED_OUT");
   });
 
   it("unresponsive auth server: getSession ends within the auth-js retry window, session kept, lock released", async () => {
-    const server = createGoTrueRefreshServer();
+    const server = createGoTrueServer();
     const { client, storage, events, r0 } = await setupClient(server);
     server.plans.push("hang", "hang", "hang", "hang", "hang");
 
@@ -275,14 +158,14 @@ describe("supabase auth request deadline", () => {
     server.plans.length = 0;
     const next = await client.getSession();
     expect(next.error).toBeNull();
-    expect(next.data.session?.user?.id).toBe("user-1");
+    expect(next.data.session?.user?.id).toBe(FAKE_USER_ID);
     expect(server.state.familyRevoked).toBe(false);
   });
 
   it("control: without the deadline the same unresponsive refresh never settles (20 min)", async () => {
     // 멈춘 갱신은 저장 키 단위 processLock 을 영구 점유한다 — 다른 테스트와 키를 분리한다.
     const CONTROL_KEY = "control-auth-token";
-    const server = createGoTrueRefreshServer();
+    const server = createGoTrueServer();
     const storage = memoryStorage();
     const client = new GoTrueClient({
       url: AUTH_URL,
@@ -295,18 +178,7 @@ describe("supabase auth request deadline", () => {
       fetch: server.fetchImpl,
     });
     await client.initialize();
-    const r0 = server.issue(null, "family-1");
-    storage.setItem(
-      CONTROL_KEY,
-      JSON.stringify({
-        access_token: "at-expired",
-        refresh_token: r0,
-        token_type: "bearer",
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) - 60,
-        user: { id: "user-1" },
-      }),
-    );
+    seedExpiredSession(storage, CONTROL_KEY, server.createSession().refreshToken);
     server.plans.push("hang");
     let settled = false;
     void client.getSession().finally(() => {
@@ -318,7 +190,7 @@ describe("supabase auth request deadline", () => {
   });
 
   it("concurrent getSession/refresh callers share a single refresh request", async () => {
-    const server = createGoTrueRefreshServer();
+    const server = createGoTrueServer();
     const { client } = await setupClient(server);
     server.plans.push({ delayMs: 2_000 });
 
@@ -333,7 +205,7 @@ describe("supabase auth request deadline", () => {
   });
 
   it("revoked refresh token keeps the existing security policy (session removed, SIGNED_OUT)", async () => {
-    const server = createGoTrueRefreshServer();
+    const server = createGoTrueServer();
     const { client, storage, events, r0 } = await setupClient(server);
     server.tokens.delete(r0);
 
