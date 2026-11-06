@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ageYearsFromDob,
   evaluateAgeAttestationInput,
@@ -24,9 +24,16 @@ describe("member age gate", () => {
   });
 
   it("evaluateAgeAttestationInput fail-closed", () => {
-    expect(evaluateAgeAttestationInput({ attestAge: true, dateOfBirth: "2012-11-06" }).ok).toBe(false);
-    const ok = evaluateAgeAttestationInput({ attestAge: true, dateOfBirth: "2000-01-01" });
-    expect(ok.ok).toBe(true);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 10, 5)));
+    try {
+      expect(evaluateAgeAttestationInput({ attestAge: true, dateOfBirth: "2012-11-06" }).ok).toBe(false);
+      expect(evaluateAgeAttestationInput({ attestAge: true, dateOfBirth: "2012-11-05" }).ok).toBe(true);
+      const ok = evaluateAgeAttestationInput({ attestAge: true, dateOfBirth: "2000-01-01" });
+      expect(ok.ok).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("required consents need legal + age", () => {
