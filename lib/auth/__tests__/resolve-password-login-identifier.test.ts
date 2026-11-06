@@ -14,11 +14,19 @@ vi.mock("@/lib/admin/admin-membership", () => ({
 import { resolvePasswordLoginIdentifier } from "@/lib/auth/resolve-password-login-identifier";
 
 type QueryResult = { data: unknown[] | null; error: { message?: string } | null };
+type AuthUserResult = { data: { user: { email?: string | null } | null }; error: { message?: string } | null };
 
 function makeServiceClient(
-  handler: (column: "username" | "auth_login_email" | "email", value: string) => Promise<QueryResult>
+  handler: (column: "username" | "auth_login_email" | "email", value: string) => Promise<QueryResult>,
+  authUsers: Record<string, string> = {},
 ) {
+  const getUserById = vi.fn(async (id: string): Promise<AuthUserResult> => {
+    const email = authUsers[id];
+    if (email === undefined) return { data: { user: null }, error: { message: "not found" } };
+    return { data: { user: { email } }, error: null };
+  });
   return {
+    getUserById,
     from: () => ({
       select: () => ({
         ilike: (_column: string, value: string) => ({
@@ -29,8 +37,17 @@ function makeServiceClient(
         }),
       }),
     }),
+    auth: { admin: { getUserById } },
   };
 }
+
+const ISSUED_ROW = {
+  id: "39fcc298-0e5c-48da-bb47-28ce90db595a",
+  username: "dibay_63292c",
+  auth_login_email: "appreview01@manual.local",
+  provider: "admin_manual",
+  auth_provider: "admin_manual",
+};
 
 describe("resolvePasswordLoginIdentifier", () => {
   beforeEach(() => {
@@ -68,6 +85,71 @@ describe("resolvePasswordLoginIdentifier", () => {
     expect(res).toEqual({ ok: true, identifier: "mixedid@manual.local" });
   });
 
+  it("issued manual ID still signs in after auto DIBAY ID replaced username (Auth UID verified)", async () => {
+    const client = makeServiceClient(
+      async (column, value) => {
+        if (column === "auth_login_email" && value === "appreview01@manual.local") {
+          return { error: null, data: [ISSUED_ROW] };
+        }
+        return { error: null, data: [] };
+      },
+      { [ISSUED_ROW.id]: "appreview01@manual.local" },
+    );
+    mockTryCreateSupabaseServiceClient.mockReturnValue(client);
+    const res = await resolvePasswordLoginIdentifier("AppReview01");
+    expect(res).toEqual({ ok: true, identifier: "appreview01@manual.local" });
+    expect(client.getUserById).toHaveBeenCalledWith(ISSUED_ROW.id);
+  });
+
+  it("issued ID wins over another member who later took the same display username", async () => {
+    mockTryCreateSupabaseServiceClient.mockReturnValue(
+      makeServiceClient(
+        async (column) => {
+          if (column === "auth_login_email") return { error: null, data: [ISSUED_ROW] };
+          if (column === "username") {
+            return {
+              error: null,
+              data: [{ id: "other", username: "appreview01", auth_login_email: "other@manual.local", provider: "admin_manual" }],
+            };
+          }
+          return { error: null, data: [] };
+        },
+        { [ISSUED_ROW.id]: "appreview01@manual.local" },
+      ),
+    );
+    const res = await resolvePasswordLoginIdentifier("appreview01");
+    expect(res).toEqual({ ok: true, identifier: "appreview01@manual.local" });
+  });
+
+  it("does not trust the issued-ID profile row when Auth email for that UID differs", async () => {
+    mockTryCreateSupabaseServiceClient.mockReturnValue(
+      makeServiceClient(
+        async (column) => {
+          if (column === "auth_login_email") return { error: null, data: [ISSUED_ROW] };
+          return { error: null, data: [] };
+        },
+        { [ISSUED_ROW.id]: "someone-else@manual.local" },
+      ),
+    );
+    const res = await resolvePasswordLoginIdentifier("appreview01");
+    expect(res).toEqual({ ok: true, identifier: "appreview01@manual.local" });
+  });
+
+  it("ignores non-manual rows on the issued-ID path", async () => {
+    const client = makeServiceClient(
+      async (column) => {
+        if (column === "auth_login_email") {
+          return { error: null, data: [{ ...ISSUED_ROW, provider: "kakao", auth_provider: "kakao" }] };
+        }
+        return { error: null, data: [] };
+      },
+      { [ISSUED_ROW.id]: "appreview01@manual.local" },
+    );
+    mockTryCreateSupabaseServiceClient.mockReturnValue(client);
+    await resolvePasswordLoginIdentifier("appreview01");
+    expect(client.getUserById).not.toHaveBeenCalled();
+  });
+
   it("fails open to user email when profile lookup errors", async () => {
     mockTryCreateSupabaseServiceClient.mockReturnValue(
       makeServiceClient(async (column) => {
@@ -79,7 +161,7 @@ describe("resolvePasswordLoginIdentifier", () => {
     expect(res).toEqual({ ok: true, identifier: "normal.user@example.com" });
   });
 
-  it("returns conflict when identifier lookup finds duplicates", async () => {
+  it("duplicate username does not disclose the conflict (generic sign-in failure path)", async () => {
     mockTryCreateSupabaseServiceClient.mockReturnValue(
       makeServiceClient(async (column) => {
         if (column === "username") {
@@ -95,26 +177,18 @@ describe("resolvePasswordLoginIdentifier", () => {
       })
     );
     const res = await resolvePasswordLoginIdentifier("sameid");
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.code).toBe("login_identifier_conflict");
-      expect(res.status).toBe(409);
-    }
+    expect(res).toEqual({ ok: true, identifier: "sameid@manual.local" });
   });
 
-  it("returns not_found when username does not exist", async () => {
+  it("unknown ID gets the same response shape as an issued ID (no existence disclosure)", async () => {
     mockTryCreateSupabaseServiceClient.mockReturnValue(
       makeServiceClient(async () => ({ error: null, data: [] }))
     );
     const res = await resolvePasswordLoginIdentifier("no-such-user");
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.code).toBe("login_identifier_not_found");
-      expect(res.status).toBe(404);
-    }
+    expect(res).toEqual({ ok: true, identifier: "no-such-user@manual.local" });
   });
 
-  it("blocks password login for social-only members without admin membership", async () => {
+  it("keeps social-only members out of password login without revealing the account", async () => {
     mockTryCreateSupabaseServiceClient.mockReturnValue(
       makeServiceClient(async (column) => {
         if (column === "username") {
@@ -136,11 +210,7 @@ describe("resolvePasswordLoginIdentifier", () => {
     );
     mockHasActiveAdminMembership.mockResolvedValue(false);
     const res = await resolvePasswordLoginIdentifier("snsuser");
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.code).toBe("password_login_blocked_for_social_account");
-      expect(res.status).toBe(400);
-    }
+    expect(res).toEqual({ ok: true, identifier: "snsuser@manual.local" });
     expect(mockHasActiveAdminMembership).toHaveBeenCalledWith(expect.anything(), "member-social-1");
   });
 

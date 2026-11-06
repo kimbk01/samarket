@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
@@ -12,11 +12,12 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { useOAuthLogin, type OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
+import { AuthIdLoginEntry } from "@/components/auth/AuthIdLoginEntry";
 
 /**
- * 화면에 바로 놓는 고객 로그인 본문 (로고 · 제목 · 소셜 로그인 · 숨김 운영자 로그인) — 비로그인 내정보(`/mypage`).
+ * 화면에 바로 놓는 고객 로그인 본문 (로고 · 제목 · 소셜 로그인 · 아이디로 로그인) — 비로그인 내정보(`/mypage`).
  * 처리 순서는 `AuthModal` 과 같다. 계정 충돌 안내는 항상 떠 있는 `AuthModal` 쪽 호스트 1개만 띄운다(중복 모달 방지).
- * 운영자(아이디·비밀번호) 로그인 입구는 화면에 없고 로고 4회 탭으로만 열린다.
+ * 아이디·비밀번호 폼은 SNS 아래 「아이디로 로그인」(상시) 또는 로고 4회 탭(보조)으로 열린다.
  */
 export function AuthLoginPanel({
   active,
@@ -42,6 +43,7 @@ export function AuthLoginPanel({
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
   const [providersLoadFailed, setProvidersLoadFailed] = useState(false);
+  const idLoginPanelId = useId();
 
   const handleAuthSuccess = useCallback(
     async (input: OAuthAuthSuccessInput) => {
@@ -177,16 +179,25 @@ export function AuthLoginPanel({
             {t("auth_sns_providers_load_failed")}
           </p>
         ) : null}
+        {passwordEnabled ? (
+          <AuthIdLoginEntry
+            expanded={showEmailLogin}
+            controlsId={idLoginPanelId}
+            disabled={loading}
+            onOpen={handleOpenInternalLogin}
+          />
+        ) : null}
         <OAuthInlineLoginHint status={oauthInlineStatus} />
         {!showEmailLogin && displayError ? (
           <p className="sam-text-body-secondary text-center text-sam-danger" role="alert">{displayError}</p>
         ) : null}
         {passwordEnabled && showEmailLogin ? (
-          <div data-auth-surface="internal" data-testid="auth-internal-login-panel">
+          <div id={idLoginPanelId} data-auth-surface="internal" data-testid="auth-internal-login-panel">
             <p className="mt-1 sam-text-body-secondary text-center text-sam-muted">
               {t("auth_login_internal_hint")}
             </p>
             <PasswordLoginForm
+              autoFocusIdentifier
               identifier={passwordLogin.identifier}
               password={passwordLogin.password}
               error={displayError}

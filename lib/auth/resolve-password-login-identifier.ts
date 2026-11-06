@@ -14,11 +14,8 @@ export type ResolvedPasswordLoginIdentifier =
       error: string;
       code:
         | "identifier_required"
-        | "login_identifier_not_found"
         | "login_identifier_lookup_unconfigured"
-        | "login_identifier_lookup_failed"
-        | "login_identifier_conflict"
-        | "password_login_blocked_for_social_account";
+        | "login_identifier_lookup_failed";
     };
 
 const SOCIAL_PROVIDER_SET = new Set(["google", "kakao", "naver", "apple", "facebook"]);
@@ -40,6 +37,40 @@ type ProfileLoginLookupRow = {
   auth_provider?: string | null;
 };
 
+type ServiceClient = NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>;
+
+const PROFILE_LOOKUP_COLUMNS = "id, username, email, auth_login_email, provider, auth_provider";
+
+function isManualMemberRow(row: ProfileLoginLookupRow | null | undefined): boolean {
+  return (
+    normalizeProvider(row?.provider) === "admin_manual" || normalizeProvider(row?.auth_provider) === "admin_manual"
+  );
+}
+
+/**
+ * 관리자 발급 ID — Auth 이메일 `<id>@manual.local` 이 발급 ID 의 고정 기준이다.
+ * `profiles.username` 은 자동 디바이 ID 부여로 바뀔 수 있으므로 기준으로 쓰지 않는다.
+ * 프로필 1건 + 같은 Auth UID 의 실제 이메일 일치까지 확인된 경우에만 돌려준다.
+ */
+async function findVerifiedIssuedManualMember(
+  sb: ServiceClient,
+  issuedEmail: string,
+): Promise<ProfileLoginLookupRow | null> {
+  const { data, error } = await sb
+    .from("profiles")
+    .select(PROFILE_LOOKUP_COLUMNS)
+    .eq("auth_login_email", issuedEmail)
+    .limit(2);
+  if (error || !Array.isArray(data) || data.length !== 1) return null;
+  const row = data[0] as ProfileLoginLookupRow;
+  const userId = String(row.id ?? "").trim();
+  if (!userId || !isManualMemberRow(row)) return null;
+  const { data: authData, error: authError } = await sb.auth.admin.getUserById(userId);
+  if (authError) return null;
+  const authEmail = String(authData?.user?.email ?? "").trim().toLowerCase();
+  return authEmail === issuedEmail ? row : null;
+}
+
 function pickResolvedIdentifier(row: ProfileLoginLookupRow, fallbackEmail: string): string {
   const authLoginEmail = String(row?.auth_login_email ?? "").trim().toLowerCase();
   if (authLoginEmail) return authLoginEmail;
@@ -48,6 +79,11 @@ function pickResolvedIdentifier(row: ProfileLoginLookupRow, fallbackEmail: strin
   return fallbackEmail;
 }
 
+/**
+ * 아이디 로그인 식별자 해석.
+ * 없는 아이디·중복·SNS 전용 계정은 응답으로 구분하지 않는다 — 발급 ID 규칙 주소를 돌려주고
+ * 비밀번호 검증(`signInWithPassword`)이 일반 「아이디 또는 비밀번호」 오류로 끝나게 한다.
+ */
 export async function resolvePasswordLoginIdentifier(raw: string): Promise<ResolvedPasswordLoginIdentifier> {
   const trimmed = raw.trim();
   const normalized = trimmed.toLowerCase();
@@ -66,6 +102,7 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
    * profiles 조회 실패/지연이 있어도 이메일 비밀번호 로그인 자체가 막히지 않아야 한다.
    */
   const directEmailFallback = lookupByEmail ? normalized : resolveManualMemberSignInEmail(trimmed);
+  const undisclosed: ResolvedPasswordLoginIdentifier = { ok: true, identifier: directEmailFallback };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
@@ -77,41 +114,37 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
       code: "login_identifier_lookup_unconfigured",
     };
   }
-  const baseQuery = sb
-    .from("profiles")
-    .select("id, username, email, auth_login_email, provider, auth_provider");
-  const fetchByUsername = async () => {
-    return await baseQuery
-      .ilike("username", escapeIlikePatternFragment(normalized))
-      .limit(2);
-  };
-  const fetchByAuthLoginEmail = async () => {
-    return await baseQuery
-      .eq("auth_login_email", normalized)
-      .limit(2);
-  };
-  const fetchByEmail = async () => {
-    return await baseQuery
-      .eq("email", normalized)
-      .limit(2);
-  };
+
+  if (!lookupByEmail) {
+    const issuedEmail = buildManualMemberAuthEmail(normalized);
+    const issued = await findVerifiedIssuedManualMember(sb, issuedEmail).catch(() => null);
+    if (issued) return { ok: true, identifier: issuedEmail };
+  }
 
   const readRows = async (): Promise<
     { ok: true; rows: ProfileLoginLookupRow[] }
     | { ok: false; errorCode: "login_identifier_lookup_failed" }
   > => {
     if (!lookupByEmail) {
-      const { data, error } = await fetchByUsername();
+      const { data, error } = await sb
+        .from("profiles")
+        .select(PROFILE_LOOKUP_COLUMNS)
+        .ilike("username", escapeIlikePatternFragment(normalized))
+        .limit(2);
       if (error) return { ok: false, errorCode: "login_identifier_lookup_failed" };
       return { ok: true, rows: Array.isArray(data) ? (data as ProfileLoginLookupRow[]) : [] };
     }
-    const byAuthLoginEmail = await fetchByAuthLoginEmail();
+    const byAuthLoginEmail = await sb
+      .from("profiles")
+      .select(PROFILE_LOOKUP_COLUMNS)
+      .eq("auth_login_email", normalized)
+      .limit(2);
     if (byAuthLoginEmail.error) {
       return { ok: true, rows: [] };
     }
     const authRows = Array.isArray(byAuthLoginEmail.data) ? (byAuthLoginEmail.data as ProfileLoginLookupRow[]) : [];
     if (authRows.length > 0) return { ok: true, rows: authRows };
-    const byEmail = await fetchByEmail();
+    const byEmail = await sb.from("profiles").select(PROFILE_LOOKUP_COLUMNS).eq("email", normalized).limit(2);
     if (byEmail.error) {
       return { ok: true, rows: [] };
     }
@@ -130,34 +163,8 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
   }
 
   const rows = loaded.rows;
-  if (rows.length > 1) {
-    return {
-      ok: false,
-      status: 409,
-      error: "로그인 아이디가 중복되어 확인이 필요합니다. 관리자에게 문의해 주세요.",
-      code: "login_identifier_conflict",
-    };
-  }
-  const row = rows[0] ?? null;
-  if (!row) {
-    if (!lookupByEmail) {
-      return {
-        ok: false,
-        status: 404,
-        error: "입력한 로그인 아이디를 찾을 수 없습니다.",
-        code: "login_identifier_not_found",
-      };
-    }
-    /**
-     * profiles 행이 누락/지연된 수동 회원도 로그인 가능하도록
-     * 관리자 수동 회원 이메일 규칙으로 폴백한다.
-     * 실제 인증 성패는 signInWithPassword에서 최종 판정된다.
-     */
-    return {
-      ok: true,
-      identifier: directEmailFallback,
-    };
-  }
+  if (rows.length !== 1) return undisclosed;
+  const row = rows[0];
   const provider = normalizeProvider(row?.provider || row?.auth_provider);
   if (isSocialOnlyProvider(provider)) {
     /**
@@ -169,20 +176,13 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     const userId = String(row?.id ?? "").trim();
     const allowAdminPasswordLogin =
       userId.length > 0 && (await hasActiveAdminMembership(sb, userId).catch(() => false));
-    if (!allowAdminPasswordLogin) {
-      return {
-        ok: false,
-        status: 400,
-        error: "이 계정은 SNS 전용 계정입니다. 아래 SNS 로그인 버튼으로 로그인해 주세요.",
-        code: "password_login_blocked_for_social_account",
-      };
-    }
+    if (!allowAdminPasswordLogin) return undisclosed;
   }
   const resolvedFromRow = pickResolvedIdentifier(row, directEmailFallback);
   if (resolvedFromRow) return { ok: true, identifier: resolvedFromRow };
-  if (provider === "admin_manual") {
+  if (isManualMemberRow(row)) {
     const username = String(row?.username ?? "").trim().toLowerCase();
     if (username) return { ok: true, identifier: buildManualMemberAuthEmail(username) };
   }
-  return { ok: true, identifier: directEmailFallback };
+  return undisclosed;
 }

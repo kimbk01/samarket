@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
@@ -16,6 +16,8 @@ type Props = {
   className?: string;
   /** `overlay` = 로그인 팝업 안 (팝업 SSOT 입력칸·버튼·오류색). 로그인 페이지는 기본 `page`. */
   surface?: "page" | "overlay";
+  /** 「아이디로 로그인」으로 폼을 연 직후 아이디 칸에 포커스 */
+  autoFocusIdentifier?: boolean;
   onIdentifierChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void | Promise<void>;
@@ -30,11 +32,15 @@ export function PasswordLoginForm({
   loadingText = "",
   className,
   surface = "page",
+  autoFocusIdentifier = false,
   onIdentifierChange,
   onPasswordChange,
   onSubmit,
 }: Props) {
   const { t } = useI18n();
+  const fieldId = useId();
+  const identifierId = `${fieldId}-identifier`;
+  const passwordId = `${fieldId}-password`;
   /** K-07 — 포커스 입력 + 로그인 버튼(`data-form-keyboard-keep-visible`)을 키보드 위 보이는 영역에 */
   const { effectiveViewportBottom } = useFormKeyboardViewport();
   useFormKeyboardFocusVisibility({ effectiveViewportBottom });
@@ -70,8 +76,12 @@ export function PasswordLoginForm({
     >
       <fieldset disabled={disabled} className="space-y-4">
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("auth_login_identifier")}</label>
+          <label htmlFor={identifierId} className="block sam-text-body-secondary font-medium text-sam-fg">
+            {t("auth_login_identifier")}
+          </label>
           <input
+            id={identifierId}
+            autoFocus={autoFocusIdentifier}
             type="text"
             inputMode="email"
             autoComplete="off"
@@ -83,8 +93,11 @@ export function PasswordLoginForm({
           />
         </div>
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("auth_password")}</label>
+          <label htmlFor={passwordId} className="block sam-text-body-secondary font-medium text-sam-fg">
+            {t("auth_password")}
+          </label>
           <input
+            id={passwordId}
             type="password"
             autoComplete="new-password"
             value={password}

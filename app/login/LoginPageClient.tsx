@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
+import { AuthIdLoginEntry } from "@/components/auth/AuthIdLoginEntry";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import { AuthAccountStatusNoticeBlock, AuthLoginNotice, type AuthLoginNoticeState } from "@/components/auth/AuthLoginNotice";
@@ -91,6 +92,7 @@ function LoginPageContent() {
   /** 안내(로그아웃·세션 만료) / 오류 / 계정 상태(정지·차단·탈퇴) — 톤 분리 (P2-15) */
   const [notice, setNotice] = useState<AuthLoginNoticeState | null>(null);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const idLoginPanelId = useId();
 
   useEffect(() => {
     if (openInternalLogin) {
@@ -391,6 +393,16 @@ function LoginPageContent() {
             }
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
+          {passwordEnabled ? (
+            <div className="mt-3">
+              <AuthIdLoginEntry
+                expanded={showEmailLogin}
+                controlsId={idLoginPanelId}
+                disabled={loading}
+                onOpen={handleOpenInternalLogin}
+              />
+            </div>
+          ) : null}
           <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
         </div>
         {providersError ? (
@@ -405,7 +417,7 @@ function LoginPageContent() {
           <AuthAccountStatusNoticeBlock status={displayNotice.accountStatus} text={displayNotice.text} className="mt-4" />
         ) : null}
         {passwordEnabled && showEmailLogin ? (
-          <div className="mt-4" data-auth-surface="internal" data-testid="auth-internal-login-panel">
+          <div id={idLoginPanelId} className="mt-4" data-auth-surface="internal" data-testid="auth-internal-login-panel">
             <p className="sam-text-body-secondary text-sam-muted">
               {t("auth_login_internal_hint")}
             </p>
@@ -413,6 +425,7 @@ function LoginPageContent() {
               <AuthLoginNotice notice={displayNotice} className="mt-2" />
             ) : null}
             <PasswordLoginForm
+              autoFocusIdentifier
               identifier={passwordLogin.identifier}
               password={passwordLogin.password}
               error={formError}

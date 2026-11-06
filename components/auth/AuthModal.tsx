@@ -2,7 +2,7 @@
 
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
@@ -17,6 +17,7 @@ import type { LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
+import { AuthIdLoginEntry } from "@/components/auth/AuthIdLoginEntry";
 
 type Props = {
   open: boolean;
@@ -33,6 +34,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
   const [providersLoadFailed, setProvidersLoadFailed] = useState(false);
+  const idLoginPanelId = useId();
 
   const next = useMemo(() => {
     if (detail?.next?.trim()) return detail.next.trim();
@@ -185,17 +187,26 @@ export function AuthModal({ open, detail, onClose }: Props) {
                 {t("auth_sns_providers_load_failed")}
               </p>
             ) : null}
+            {passwordEnabled ? (
+              <AuthIdLoginEntry
+                expanded={showEmailLogin}
+                controlsId={idLoginPanelId}
+                disabled={loading}
+                onOpen={handleOpenInternalLogin}
+              />
+            ) : null}
             <OAuthInlineLoginHint status={oauthInlineStatus} />
             {!showEmailLogin && displayError ? (
               <p className="sam-text-body-secondary text-center text-sam-danger" role="alert">{displayError}</p>
             ) : null}
             {passwordEnabled && showEmailLogin ? (
-              <div data-auth-surface="internal" data-testid="auth-internal-login-panel">
+              <div id={idLoginPanelId} data-auth-surface="internal" data-testid="auth-internal-login-panel">
                 <p className="mt-1 sam-text-body-secondary text-center text-sam-muted">
                   {t("auth_login_internal_hint")}
                 </p>
                 <PasswordLoginForm
                   surface="overlay"
+                  autoFocusIdentifier
                   identifier={passwordLogin.identifier}
                   password={passwordLogin.password}
                   error={displayError}

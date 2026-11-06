@@ -16,8 +16,9 @@ export const authUiMessages = {
     auth_login_subtitle: "일반 회원은 소셜 계정으로 로그인하세요.",
     auth_login_divider_id_password: "또는 내부/운영 로그인",
     auth_login_internal_entry: "내부/운영 로그인",
-    auth_login_internal_hint:
-      "일반 회원은 위 소셜 로그인을 이용하세요. 아래는 내부·운영·QA 계정용입니다.",
+    auth_login_internal_hint: "SNS로 가입한 회원은 위 SNS 버튼으로 로그인하세요.",
+    auth_login_with_id: "아이디로 로그인",
+    auth_login_with_id_hint: "발급받은 계정 전용 · 신규 가입 불가",
     auth_no_login_methods: "현재 사용 가능한 로그인 방식이 없습니다. 관리자에게 문의해 주세요.",
     auth_sns_providers_loading: "SNS 로그인 설정을 불러오는 중…",
     auth_sns_providers_none: "현재 사용 가능한 SNS 로그인이 없습니다.",
@@ -296,8 +297,9 @@ export const authUiMessages = {
     auth_login_subtitle: "Members should sign in with a social account.",
     auth_login_divider_id_password: "Or internal / operations login",
     auth_login_internal_entry: "Internal / operations login",
-    auth_login_internal_hint:
-      "Members should use social sign-in above. The form below is for internal, operations, and QA accounts only.",
+    auth_login_internal_hint: "Members who joined with a social account should use the buttons above.",
+    auth_login_with_id: "Sign in with ID",
+    auth_login_with_id_hint: "Issued accounts only · No new sign-ups",
     auth_no_login_methods: "No sign-in methods are available. Please contact an administrator.",
     auth_sns_providers_loading: "Loading social sign-in settings…",
     auth_sns_providers_none: "No social sign-in is available right now.",

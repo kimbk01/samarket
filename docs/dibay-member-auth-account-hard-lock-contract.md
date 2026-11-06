@@ -313,7 +313,7 @@ Internal             →  Manual ID / password (alias → auth email)
 ```
 
 - Shared UI fields are allowed only if **authority and product copy** stay separated (customer must not believe email signup is the product membership path).
-- Social-only accounts remain blocked from password login (`password_login_blocked_for_social_account`).
+- Social-only accounts remain blocked from password login. Since 2026-11-07 (Owner) the resolver no longer returns a distinct code for this case, unknown IDs, or duplicates — it returns the issued-ID address so sign-in ends with the generic invalid-credentials error (no account-existence disclosure). Admin-issued IDs resolve via the Auth email `<id>@manual.local` verified against the same Auth UID.
 - Legacy `POST /api/test-login` stays gone (410); do not revive parallel cookie auth for product.
 
 ---

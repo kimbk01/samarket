@@ -64,15 +64,24 @@ describe("customer / internal login surface separation", () => {
     expect(password?.sort_order).toBeGreaterThan(google?.sort_order ?? 0);
   });
 
-  it("source: LoginPage / AuthModal / 내정보 로그인 — 운영자 입구 글자 없음, 로고 4회 탭으로만 폼 (Owner 2026-11-02)", () => {
+  it("source: LoginPage / AuthModal / 내정보 로그인 — SNS 아래 상시 「아이디로 로그인」, 폼은 접힌 채 시작, 로고 4회 탭은 보조 (Owner 2026-11-07)", () => {
     const login = readFileSync(join(process.cwd(), "app/login/LoginPageClient.tsx"), "utf8");
     const modal = readFileSync(join(process.cwd(), "components/auth/AuthModal.tsx"), "utf8");
     const panel = readFileSync(join(process.cwd(), "components/auth/AuthLoginPanel.tsx"), "utf8");
     for (const src of [login, modal, panel]) {
-      expect(src).toMatch(/useState\(false\)/);
+      expect(src).toMatch(/const \[showEmailLogin, setShowEmailLogin\] = useState\(false\)/);
       expect(src).not.toMatch(/showEmailEntry=/);
       expect(src).toMatch(/<DibayAuthLogoHiddenGate[^>]*onUnlock=\{handleOpenInternalLogin\}/);
       expect(src).toMatch(/data-auth-surface="internal"/);
+      const providerAt = src.indexOf("<LoginProviderButtons");
+      const entryAt = src.indexOf("<AuthIdLoginEntry");
+      const formAt = src.indexOf("<PasswordLoginForm");
+      expect(providerAt).toBeGreaterThan(-1);
+      expect(entryAt).toBeGreaterThan(providerAt);
+      expect(formAt).toBeGreaterThan(entryAt);
+      expect(src).toMatch(/\{passwordEnabled \? \(\s*(<div className="mt-3">\s*)?<AuthIdLoginEntry/);
+      expect(src).toMatch(/onOpen=\{handleOpenInternalLogin\}/);
+      expect(src).toMatch(/id=\{idLoginPanelId\}/);
     }
     // 운영 북마크 `/login?internal=1` 유지
     expect(login).toMatch(/searchParams\?\.get\("internal"\)/);

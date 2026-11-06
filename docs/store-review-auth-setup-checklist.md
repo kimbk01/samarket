@@ -28,10 +28,11 @@
 - admin panel can create `admin_manual` account
 - reviewer account email and password documented for App Store Connect / Play Console review notes
 
-### 심사 메모 필수 문안 — 아이디·비밀번호 로그인 숨김 (2026-11-02~)
-고객 로그인 화면(내정보·로그인 창·`/login`)에는 아이디·비밀번호 입구가 보이지 않는다. 로고를 3초 안에 4번 눌러야 폼이 열린다
-(`components/auth/DibayAuthLogoHiddenGate.tsx`). 심사용 계정이 아이디·비밀번호 계정이면 **제출 때마다** 아래 문안을
-App Store Connect 「App Review Information › Notes」와 Play Console 「앱 액세스(App access) › 안내」에 그대로 붙인다.
-이 문안이 없으면 심사자가 로그인하지 못해 반려된다(App Store 지침 2.1 / 2.3.1).
+### 심사 메모 필수 문안 — 「아이디로 로그인」 (2026-11-07~)
+고객 로그인 화면(내정보·로그인 창·`/login`)의 SNS 버튼 아래에 「아이디로 로그인 · 발급받은 계정 전용 · 신규 가입 불가」가 항상 보인다
+(`components/auth/AuthIdLoginEntry.tsx`). 로고 4회 탭은 보조 입구로 남아 있으나 **심사 메모에 쓰지 않는다**.
+발급 ID 는 Auth 이메일 `<id>@manual.local` 기준으로 해석한다 — 첫 로그인 때 디바이 ID 가 자동 부여돼 표시 아이디가 바뀌어도 발급 ID 로 로그인된다.
+심사용 계정이 아이디·비밀번호 계정이면 **제출 때마다** 아래 문안을 App Store Connect 「App Review Information › Notes」와
+Play Console 「앱 액세스(App access) › 안내」에 붙인다 (App Store 지침 2.1).
 
-> Demo account sign-in: on the login screen, tap the dibaY logo 4 times within 3 seconds. The ID/password form appears below the social sign-in buttons. Sign in with the demo credentials provided above.
+> Demo account sign-in: open the My Info tab (bottom right). Below the Google / Kakao / Apple buttons, tap "아이디로 로그인" (Sign in with ID), then enter the demo ID and password provided above.
