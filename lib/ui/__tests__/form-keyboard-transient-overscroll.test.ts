@@ -74,6 +74,22 @@ describe("포커스 보정 — 키보드 순간 높이로 내린 스크롤 되�
     expect(a.root.scrollTop).toBe(50);
   });
 
+  it("확인 버튼(K-07)을 위해 내린 양도 순간 높이가 끝나면 되돌린다 (실측 iPhone 17e 아이디 로그인)", () => {
+    const { root, focused } = fixture(670, 712);
+    const btn = {
+      getBoundingClientRect: () => ({ top: 846 - root.scrollTop, bottom: 887 - root.scrollTop }),
+    } as unknown as HTMLElement;
+    Object.defineProperty(root, "scrollHeight", { value: 2000 });
+    Object.defineProperty(root, "clientHeight", { value: 700 });
+    const debt = freshDebt();
+    correctFocusInScrollRoot(debt, { focused, root, bandBottom: 543, viewportTop: 0, gap: 12, companion: btn });
+    expect(root.scrollTop).toBe(356);
+    expect(debt.debtPx).toBe(356);
+    correctFocusInScrollRoot(debt, { focused, root, bandBottom: 1200, viewportTop: 0, gap: 12, companion: btn });
+    expect(root.scrollTop).toBe(0);
+    expect(debt.debtPx).toBe(0);
+  });
+
   it("되돌림 함수 — 빚·현재 스크롤·여유 중 가장 작은 만큼 · 키보드보다 큰 칸은 0", () => {
     const { root, focused } = fixture(145, 204);
     root.scrollTop = 25;

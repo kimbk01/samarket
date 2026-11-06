@@ -66,26 +66,6 @@ function findNearestFormKeyboardFooter(focused: Element): HTMLElement | null {
   return null;
 }
 
-/** K-07 — the field's own confirm button (`data-form-keyboard-keep-visible`) joins it above the keyboard. */
-function revealCompanion(
-  focused: HTMLElement,
-  root: HTMLElement | null,
-  bandBottom: number,
-  effectiveViewportTop: number,
-  gap: number
-): void {
-  const companion = findFormKeyboardKeepVisibleCompanion(focused);
-  if (!companion) return;
-  ensureFormKeepVisibleCompanionInScrollRoot({
-    focused,
-    companion,
-    scrollRoot: root,
-    effectiveViewportBottom: bandBottom,
-    effectiveViewportTop,
-    focusGapPx: gap,
-  });
-}
-
 /** 포커스 보정이 이 입력칸에서 스크롤 영역을 내린 양 — 키보드 순간 높이로 내린 스크롤을 되돌리는 기준 */
 export type OverscrollDebt = { root: HTMLElement | null; focused: HTMLElement | null; debtPx: number; expectedTop: number };
 
@@ -96,9 +76,17 @@ export type OverscrollDebt = { root: HTMLElement | null; focused: HTMLElement | 
  */
 export function correctFocusInScrollRoot(
   debt: OverscrollDebt,
-  args: { focused: HTMLElement; root: HTMLElement | null; bandBottom: number; viewportTop: number; gap: number }
+  args: {
+    focused: HTMLElement;
+    root: HTMLElement | null;
+    bandBottom: number;
+    viewportTop: number;
+    gap: number;
+    /** K-07 — the field's own confirm button (`data-form-keyboard-keep-visible`) joins it above the keyboard. */
+    companion?: HTMLElement | null;
+  }
 ): void {
-  const { focused, root, bandBottom, viewportTop, gap } = args;
+  const { focused, root, bandBottom, viewportTop, gap, companion } = args;
   if (debt.root !== root || debt.focused !== focused) {
     debt.debtPx = 0;
   } else if (root) {
@@ -131,6 +119,20 @@ export function correctFocusInScrollRoot(
       focusGapPx: gap,
       debtPx: debt.debtPx,
     });
+  }
+  if (companion) {
+    // 확인 버튼을 위해 내린 양도 빚 — 빠지면 다음 보정이 사용자 스크롤로 오판해 빚 전체를 버린다
+    // (실측 2026-11-07 iPhone 17e: 순간 높이 543 에서 177+92 내림 → 버림 → 아이디 칸이 상태바 아래로).
+    const before = root ? root.scrollTop : 0;
+    ensureFormKeepVisibleCompanionInScrollRoot({
+      focused,
+      companion,
+      scrollRoot: root,
+      effectiveViewportBottom: bandBottom,
+      effectiveViewportTop: viewportTop,
+      focusGapPx: gap,
+    });
+    if (root) debt.debtPx = Math.max(0, debt.debtPx + (root.scrollTop - before));
   }
   if (root) debt.expectedTop = root.scrollTop;
 }
@@ -207,8 +209,8 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         bandBottom,
         viewportTop: effectiveViewportTop,
         gap: gapRef.current,
+        companion: findFormKeyboardKeepVisibleCompanion(focused),
       });
-      revealCompanion(focused, root, bandBottom, effectiveViewportTop, gapRef.current);
     };
 
     const observeGrowth = (focused: HTMLElement) => {
@@ -342,8 +344,8 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
           bandBottom,
           viewportTop: effectiveViewportTop,
           gap,
+          companion: findFormKeyboardKeepVisibleCompanion(focused),
         });
-        revealCompanion(focused, root, bandBottom, effectiveViewportTop, gap);
       }, ms)
     );
     return () => {
