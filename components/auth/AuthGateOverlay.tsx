@@ -16,6 +16,12 @@ export const AUTH_GATE_OVERLAY_Z_CLASS = "z-[1310]";
 export const AUTH_GATE_PANEL_MAX_H_CLASS =
   "!max-h-[min(calc(100dvh_-_2*var(--overlay-space-3,16px)_-_var(--safe-top,0px)_-_var(--safe-bottom,0px)),var(--auth-gate-keyboard-max-h,640px))]";
 
+/**
+ * 패널 자체 스크롤. `.dibay-overlay-dialog`(레이어 밖 CSS)의 `overflow: hidden` 이 일반 utility 보다 우선하므로
+ * important 가 없으면 상한 높이 아래 내용(동의 버튼 등)이 잘리고 스크롤도 안 된다.
+ */
+export const AUTH_GATE_PANEL_SCROLL_CLASS = "!overflow-y-auto overscroll-y-contain";
+
 /** 키보드가 열렸을 때 visualViewport 높이 안에 패널을 유지하는 여백 */
 const AUTH_GATE_KEYBOARD_GAP_PX = 16;
 
@@ -82,7 +88,7 @@ export function AuthGateOverlay({
     >
       <div
         ref={panelRef}
-        className={`${OverlayUi.dialogPanel} ${AUTH_GATE_PANEL_MAX_H_CLASS} overflow-y-auto overscroll-y-contain`}
+        className={`${OverlayUi.dialogPanel} ${AUTH_GATE_PANEL_MAX_H_CLASS} ${AUTH_GATE_PANEL_SCROLL_CLASS}`}
         style={panelStyle}
         data-dibay-overlay="auth-gate"
         onClick={(e) => e.stopPropagation()}
