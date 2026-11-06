@@ -425,6 +425,12 @@ export function CommunityFeed({
     : locationKey
       ? philifeFeedSessionKeyForLocation(locationKey)
       : "";
+  /** 피드 질의 식별자(캐시 키와 같은 축, viewer 제외) — 표시 행이 어느 질의 소유인지 판정한다. */
+  const feedContentKey = `${feedSessionKey}\u001f${category}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}`;
+  /** 현재 `posts` 가 속한 질의. 다른 질의의 행을 새 주제·탭 아래 보여주지 않는다. */
+  const postsContentKeyRef = useRef(bootPosts.length > 0 ? feedContentKey : "");
+  /** 화면에 그려진 콘텐츠(행·로딩·안내)가 속한 질의 — 스와이프 전환의 목적지 도착 신호 */
+  const [settledFeedContentKey, setSettledFeedContentKey] = useState(postsContentKeyRef.current);
 
   /**
    * Persistent topic-options 는 hydration 완료 후, 첫 paint 전에만 적용한다.
@@ -495,22 +501,27 @@ export function CommunityFeed({
     [posts.length, feedAdSurface.placement, feedAdSurface.surfaceKey, feedAdSessionId]
   );
 
-  /** Surface SSOT: topic feed without ?category= → write slug into URL (preserve nav model). */
+  /**
+   * Surface SSOT: topic URL slug → canonical surface slug.
+   * 입력은 URL 만 — `category` state 는 URL 보다 한 render 늦을 수 있어, state 로 비교하면 진행 중인
+   * 이동과 같은(또는 이전) 주소로 replace 가 한 번 더 나간다.
+   */
+  const urlTopicSurfaceSlug =
+    navSelection.kind === "topic"
+      ? resolveCommunityFeedSurface(plan.category, "topic").topicSlug ?? ""
+      : "";
   useEffect(() => {
     if (!topicAuthorityReady) return;
-    if (feedAdSurface.placement !== "COMMUNITY_TOPIC") return;
-    const want = feedAdSurface.topicSlug ?? "";
-    if (!want) return;
-    if (plan.category === want) return;
+    if (!urlTopicSurfaceSlug) return;
+    if (plan.category === urlTopicSurfaceSlug) return;
     const target = buildCommunityFeedHref(pathname, {
-      selection: { kind: "topic", topicSlug: want, allSort: "latest" },
+      selection: { kind: "topic", topicSlug: urlTopicSurfaceSlug, allSort: "latest" },
       base: searchQueryString,
     });
     void router.replace(target, { scroll: false });
   }, [
     topicAuthorityReady,
-    feedAdSurface.placement,
-    feedAdSurface.topicSlug,
+    urlTopicSurfaceSlug,
     plan.category,
     searchQueryString,
     pathname,
@@ -811,6 +822,7 @@ export function CommunityFeed({
             patchedRows = patchNeighborhoodFeedRows(prev, next);
             return patchedRows;
           });
+          postsContentKeyRef.current = feedContentKey;
         } else {
           setPosts((prev) => mergeNeighborhoodFeedById(prev, next, true));
         }
@@ -939,6 +951,7 @@ export function CommunityFeed({
       locationKey,
       locationMeta,
       feedSessionKey,
+      feedContentKey,
       plan.globalFeed,
       plan.requiresRegion,
       t,
@@ -969,6 +982,8 @@ export function CommunityFeed({
           fallbackEn: "Set your neighborhood first.",
         })
       );
+      postsContentKeyRef.current = feedContentKey;
+      setSettledFeedContentKey(feedContentKey);
       return;
     }
 
@@ -1018,6 +1033,8 @@ export function CommunityFeed({
           feedSort
         );
       }
+      postsContentKeyRef.current = feedContentKey;
+      setSettledFeedContentKey(feedContentKey);
       setLoading(false);
       /** Cache/RSC first paint 후 — shellReady 이전 네트워크는 splash hydrate 와 경합하므로 지연 */
       const cancelNetwork = whenAppShellReady(() => {
@@ -1051,6 +1068,7 @@ export function CommunityFeed({
           feedSort
         );
 
+    const rowsBelongToQuery = postsContentKeyRef.current === feedContentKey;
     if (snapMeta?.posts?.length) {
       setPosts((prev) => patchNeighborhoodFeedRows(prev, snapMeta.posts));
       setHasMore(snapMeta.hasMore);
@@ -1063,10 +1081,18 @@ export function CommunityFeed({
       setErr("");
       setLoading(false);
     } else {
+      if (!rowsBelongToQuery) {
+        /** 캐시 미스 — 이전 주제·탭의 행을 새 선택 아래 남기지 않고 이 질의의 로딩으로 전환 */
+        setPosts([]);
+        setHasMore(false);
+      }
       setErr("");
     }
+    postsContentKeyRef.current = feedContentKey;
+    setSettledFeedContentKey(feedContentKey);
 
-    const hasRenderableRows = !!snapMeta?.posts?.length || postsRef.current.length > 0;
+    const hasRenderableRows =
+      !!snapMeta?.posts?.length || (rowsBelongToQuery && postsRef.current.length > 0);
     /**
      * STATE CLASSIFICATION — cold miss must hold PENDING across whenAppShellReady deferral.
      * Do not leave posts=[] + loading=false (false empty CTA) before fetchPage starts.
@@ -1100,6 +1126,7 @@ export function CommunityFeed({
     topicAuthorityReady,
     locationKey,
     feedSessionKey,
+    feedContentKey,
     safeT,
   ]);
 
@@ -1264,21 +1291,27 @@ export function CommunityFeed({
   const philifeComposeHref = buildPhilifeComposeHref(category);
 
   /** Nav 선택 단일 진입점 — 상태 갱신 + URL 동기화 + hub state 저장 (Home/Topic/Local/Popular 공통) */
+  /**
+   * @returns 이동을 시작했으면 true. 같은 선택·이탈 가드 거부면 false (요청 0건).
+   *
+   * `category` state 는 여기서 바꾸지 않는다 — URL → `plan.category` → layout effect 가 단일 경로.
+   * 주소는 Next 가 감싼 `history.replaceState` 로 바꾼다: `/philife` 서버 페이지는 query 를 쓰지 않으므로
+   * RSC 왕복이 화면에 주는 것이 없고, 왕복을 기다리면 주제 전환이 네트워크만큼 늦어진다.
+   * (Next app-router 가 replaceState 를 ACTION_RESTORE 로 받아 `useSearchParams` 를 동기화한다.)
+   */
   const applyNavSelection = useCallback(
-    (sel: CommunityNavSelection) => {
-      const changed = !isSameCommunityNavSelection(sel, navSelection);
-      if (changed && !guardBeforeNavigate()) return;
-      const nextCategory = sel.kind === "topic" ? sel.topicSlug.trim().toLowerCase() : "";
-      setCategory(nextCategory);
+    (sel: CommunityNavSelection): boolean => {
+      if (isSameCommunityNavSelection(sel, navSelection)) return false;
+      if (!guardBeforeNavigate()) return false;
       const target = buildCommunityFeedHref(pathname, { selection: sel, base: searchKeyForNav });
       beginMenuNavigation(target, "community-topic");
       writeCommunityHubState(sel);
-      void router.replace(target, { scroll: false });
+      window.history.replaceState(null, "", target);
+      return true;
     },
     [
       beginMenuNavigation,
       pathname,
-      router,
       searchKeyForNav,
       navSelection.kind,
       navSelection.topicSlug,
@@ -1583,13 +1616,21 @@ export function CommunityFeed({
   }, [chipsLoadDone, activeTopicTabIndex, navSelection.kind, navSelection.allSort]);
 
   /**
+   * 스와이프로 시작한 이동의 목적지 nav key — 이 이동의 진입은 스와이프 패널(settle 모드)이 소유하므로
+   * 아래 탭 진입 애니메이션을 같이 재생하지 않는다. 다음 nav 변경에서 항상 소비된다.
+   */
+  const swipeNavKeyRef = useRef<string | null>(null);
+
+  /**
    * 주제·동네 탭 선택 시 본문 패널 우→좌 440ms 진입.
-   * 최초 마운트·최신순|인기순(all) 전환에는 재생하지 않음.
+   * 최초 마운트·최신순|인기순(all) 전환·스와이프 이동에는 재생하지 않음.
    */
   const prevTopicPanelNavKeyRef = useRef<string | null>(null);
   const [topicPanelEnterId, setTopicPanelEnterId] = useState(0);
   useLayoutEffect(() => {
     const key = communityNavSelectionKey(navSelection);
+    const fromSwipe = swipeNavKeyRef.current === key;
+    swipeNavKeyRef.current = null;
     const isTopicStrip = navSelection.kind === "topic" || navSelection.kind === "local";
     if (!isTopicStrip) {
       prevTopicPanelNavKeyRef.current = key;
@@ -1601,29 +1642,39 @@ export function CommunityFeed({
     }
     if (prevTopicPanelNavKeyRef.current === key) return;
     prevTopicPanelNavKeyRef.current = key;
+    if (fromSwipe) return;
     setTopicPanelEnterId((n) => n + 1);
   }, [navSelection.kind, navSelection.topicSlug]);
 
-  const swipeToNextTab = useCallback(() => {
-    if (!navItems.length) return;
+  const swipeToNavItem = useCallback(
+    (item: CommunityNavComposeItem): boolean => {
+      const sel = communityNavComposeItemToSelection(item);
+      swipeNavKeyRef.current = communityNavSelectionKey(sel);
+      const started = applyNavSelection(sel);
+      if (!started) swipeNavKeyRef.current = null;
+      return started;
+    },
+    [applyNavSelection]
+  );
+
+  const swipeToNextTab = useCallback((): boolean => {
+    if (!navItems.length) return false;
     const i = activeTopicTabIndex;
     if (i < navItems.length - 1) {
-      const next = navItems[i + 1]!;
-      applyNavSelection(communityNavComposeItemToSelection(next));
-      return;
+      return swipeToNavItem(navItems[i + 1]!);
     }
     const href = getBottomNavAdjacentHref("community", "next") ?? "/market";
-    if (!guardBeforeNavigate()) return;
+    if (!guardBeforeNavigate()) return false;
     void router.push(href, { scroll: false });
-  }, [navItems, activeTopicTabIndex, applyNavSelection, router, guardBeforeNavigate]);
+    return true;
+  }, [navItems, activeTopicTabIndex, swipeToNavItem, router, guardBeforeNavigate]);
 
-  const swipeToPrevTab = useCallback(() => {
-    if (!navItems.length) return;
+  const swipeToPrevTab = useCallback((): boolean => {
+    if (!navItems.length) return false;
     const i = activeTopicTabIndex;
-    if (i <= 0) return;
-    const prev = navItems[i - 1]!;
-    applyNavSelection(communityNavComposeItemToSelection(prev));
-  }, [navItems, activeTopicTabIndex, applyNavSelection]);
+    if (i <= 0) return false;
+    return swipeToNavItem(navItems[i - 1]!);
+  }, [navItems, activeTopicTabIndex, swipeToNavItem]);
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const canSwipeToNext = useMemo(() => navItems.length > 0, [navItems.length]);
@@ -1638,6 +1689,7 @@ export function CommunityFeed({
     onCommitPrev: swipeToPrevTab,
     canGoNext: canSwipeToNext,
     canGoPrev: canSwipeToPrev,
+    settleKey: settledFeedContentKey,
   });
 
   useEffect(() => {
