@@ -85,6 +85,9 @@ export function PasswordLoginForm({
             type="text"
             inputMode="email"
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={identifier}
             onChange={(e) => handleIdentifierChange(e.target.value)}
             placeholder={t("auth_login_identifier")}
