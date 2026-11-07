@@ -84,3 +84,12 @@
   - 앱이 활성(잠금 해제·앱 열기)되면 `DibayDeferredCallMediaPermission` 이 마이크(영상은 이어서 카메라) OS 창을 띄운다. 허용 → 오디오/영상 캡처 재시작 (`restartLocalAudioCapture` / `restartLocalMediaCapture`). 허용 안 함 → 통화 종료 + 「설정」 안내.
   - 이미 거부 상태로 받으면 → 기존처럼 바로 종료 + 안내. 걸 때(발신)는 빌드 26 과 동일. Android 무변경.
 - **실기 항목 (NOT_PROVEN 까지)**: 새로 설치·로그인 → 잠금 상태 음성 받기 → 연결 유지 → 잠금 해제 시 마이크 창 → 허용 → 서로 들림 / 허용 안 함 → 종료+안내 / 영상 동일(마이크→카메라) / 이미 거부 상태 받기 → 바로 종료+안내.
+
+## §10 로그인 직후 마이크·카메라 OS 창 복원 (Owner 2026-11-08 「그래」)
+
+- **빌드 27 실기 (운영 DB)**: 세션 3996ac8b — ringing 03:42:02 → accepted 03:42:09 → connected 03:42:10(양쪽) → ended_by_callee 03:42:20 PHT. 잠금 화면 받기 연결은 PASS. 잠금 화면에 허용 창 없음은 iOS 제약(잠금 화면 위 권한 창 불가).
+- **Owner 지시**: 「통화가 오면, 잠금이든 뭐든 … 잠금에서 어느 어플이 비번을 누르냐」 → 전화가 오기 전에 허용을 받아 둔다.
+- **충돌 보고**: §8 「텔레그램 방식(로그인 때 묻지 않음)」과 다름 — Owner 「그래」로 이 절이 우선.
+- **수정 (웹만, 재빌드 없음)**: `DiBaYDevicePermissionOnboardingGate` 알림 OS 창 다음 iOS 마이크 → 카메라 OS 창 (`lib/permissions/post-login-call-media-os-request.ts`, 68901b386 의 B 복원). 앱 자체 화면 없음, 아직 안 물은 것만. 빌드 27 네이티브(`requestCallMediaPermissions`) 그대로 사용.
+- **남는 경로**: 로그인 때 「허용 안 함」 → 받기는 빌드 27 대로(이미 거부 → 종료+설정 안내). Android 무변경.
+- **실기 (NOT_PROVEN 까지)**: 앱 삭제·재설치(빌드 27) → 로그인 → 알림·마이크·카메라 OS 창 3개 → 잠금 상태 음성·영상 받기 → 바로 서로 들림/보임.
