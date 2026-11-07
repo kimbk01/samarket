@@ -21,6 +21,10 @@ export const communityMessengerUiMessages = {
     cm_ui_call_type_outgoing: "발신",
     cm_ui_call_type_incoming: "수신",
     cm_ui_call_label: "통화",
+    cm_ui_mic_preask_title: "전화를 받으려면 마이크가 필요해요",
+    cm_ui_mic_preask_body:
+      "DIBAY 음성·영상 통화에서 상대방과 말하려면 마이크 권한이 필요합니다. 다음 화면에서 허용 여부를 선택해 주세요.",
+    cm_ui_mic_preask_continue: "계속",
     cm_ui_call_logs_load_failed: "통화 기록을 불러오지 못했습니다.",
     cm_ui_call_logs_network_failed: "네트워크 오류로 통화 기록을 불러오지 못했습니다.",
     cm_ui_call_logs_title: "통화 기록",
@@ -1194,6 +1198,10 @@ export const communityMessengerUiMessages = {
     cm_ui_call_type_outgoing: "Outgoing",
     cm_ui_call_type_incoming: "Incoming",
     cm_ui_call_label: "Call",
+    cm_ui_mic_preask_title: "Microphone needed for calls",
+    cm_ui_mic_preask_body:
+      "DIBAY voice and video calls need microphone access so you can talk. Choose whether to allow it on the next screen.",
+    cm_ui_mic_preask_continue: "Continue",
     cm_ui_call_logs_load_failed: "Could not load call logs.",
     cm_ui_call_logs_network_failed: "Could not load call logs due to a network error.",
     cm_ui_call_logs_title: "Call logs",
