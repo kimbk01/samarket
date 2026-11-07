@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OAuthInlineStatus } from "@/lib/auth/oauth/use-oauth-login";
+import { isDibayWindowsShell } from "@/lib/platform/dibay-windows-shell";
 
 type Props = {
   status: OAuthInlineStatus;
@@ -15,7 +16,9 @@ export function OAuthInlineLoginHint({ status, className = "" }: Props) {
 
   const message =
     status === "awaiting_return"
-      ? t("auth_oauth_return_hint")
+      ? isDibayWindowsShell()
+        ? t("auth_windows_browser_login_waiting")
+        : t("auth_oauth_return_hint")
       : t("auth_oauth_signing_in_hint");
 
   return (

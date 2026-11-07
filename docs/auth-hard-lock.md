@@ -316,3 +316,9 @@ Session / Destination / Completion / Profile 의미 불변.
 - 결과: Windows 셸 로그인은 W0 상태(앱 창 안 웹 OAuth)로 돌아간다. 카카오·Apple 은 앱 창 안, **Google 은 Google 정책(임베디드 로그인 금지)으로 보안 코드 요구 — 미해결**. Windows 앱의 Google 버튼 처리는 Owner 결정 대기.
 - 인증 계약은 W2 이전과 같다. Android·iOS·브라우저 무변경(W2 때도 무변경).
 
+## Amendment 2026-11-08 (3) — Windows 셸 Google 로그인만 기본 브라우저 (Owner 「구글은 다른 창이 뜨는 부분이면 그렇게 해야지」)
+
+- Owner 결정: Google 버튼을 숨기지 않는다. Google 은 Google 정책(임베디드 로그인 금지)상 같은 창이 불가하므로 **Google 만** 기본 브라우저로 로그인한다. 카카오·Apple 은 같은 창(W0)을 유지한다.
+- 내용: W2(`a86a303c3`) 코드를 다시 넣되, 분기 조건을 `provider === "google"` 로 좁혔다. 셸 `Program.cs` 빌드 오류 CS0029 를 고쳤다. 셸 0.4.0.0.
+- Contract delta 는 Amendment 2026-11-08 과 같다(Google 한정). Android·iOS·브라우저 무변경.
+- Evidence: 코드 PASS. 실기(Google 브라우저 로그인 → 앱 복귀)는 노트북 셸 0.4.0.0 설치 후 — NOT_PROVEN.

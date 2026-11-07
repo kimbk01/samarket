@@ -11,12 +11,18 @@
  * - email conflict 시 generic 에러 문구 중복 표시 금지 (isNativeProviderEmailConflictError)
  */
 
+import {
+  isDibayWindowsShell,
+  openDibayWindowsShellSystemBrowser,
+  supportsDibayWindowsShellBrowserLogin,
+} from "@/lib/platform/dibay-windows-shell";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
 import {
   fetchNativeOAuthAuthorizeUrl,
+  fetchWindowsShellOAuthAuthorizeUrl,
   isOAuthLoginStartSupported,
   startOAuthLogin,
 } from "@/lib/auth/oauth/start-oauth-login";
@@ -230,6 +236,7 @@ function isNaverProvider(provider: OAuthProvider): boolean {
 }
 
 function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
+  if (code === "windows_browser_open_failed") return t("auth_windows_browser_open_failed");
   if (code === "oauth_flow_in_flight") return t("auth_err_oauth_start_failed");
   if (code === "invalid_provider") return t("auth_err_invalid_provider");
   if (code === "supabase_unconfigured") return t("auth_err_supabase_unconfigured");
@@ -519,6 +526,37 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     [],
   );
 
+  /**
+   * Windows 셸(W2) — 로그인 화면을 앱 창이 아니라 **기본 브라우저**로 연다.
+   * 서버·복귀 경로는 Android Custom Tab 과 같다: launch=native → capacitor-return → dibay://auth/callback
+   * → 셸 `auth.return` → `WindowsShellOAuthReturnListener` → deliverNativeOAuthReturnUrl → /auth/callback.
+   */
+  const runWindowsShellBrowserOAuth = useCallback(
+    async (provider: OAuthProvider, handoffNext: string | null) => {
+      const flow = tryBeginOAuthFlow(provider);
+      if (!flow.ok) {
+        throw new Error("oauth_flow_in_flight");
+      }
+      try {
+        setOauthInlineStatus("preparing");
+        const authorizeUrl = await fetchWindowsShellOAuthAuthorizeUrl(provider, handoffNext);
+        setOauthInlineStatus("opening");
+        setSharedLaunchKind("web_redirect");
+        if (!openDibayWindowsShellSystemBrowser(authorizeUrl)) {
+          const err = new Error("windows_browser_open_failed");
+          err.name = "windows_browser_open_failed";
+          throw err;
+        }
+        logOAuthNativeEvent("windows_shell_browser_opened", { provider });
+        setOauthInlineStatus("awaiting_return");
+      } catch (err) {
+        flow.release();
+        throw err;
+      }
+    },
+    [],
+  );
+
   const startOAuthProvider = useCallback(
     (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
@@ -675,6 +713,26 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           return;
         }
 
+        /**
+         * Windows 셸 W2 — **Google 만** 기본 브라우저(Owner 2026-11-08 「구글은 다른 창이 뜨는 부분이면 그렇게」).
+         * Google 은 앱 내장 화면 로그인을 정책으로 막는다(보안 코드 요구 — 노트북 실기). 카카오·Apple 은 같은 창(W0) 유지.
+         * 셸 브리지 v2 이상만. v1(W0 빌드)·브라우저·Android·iOS 는 아래 기존 경로.
+         */
+        if (
+          provider === "google"
+          && routing.action === "web_oauth_start"
+          && isDibayWindowsShell()
+          && (await supportsDibayWindowsShellBrowserLogin())
+        ) {
+          try {
+            markAuthLifecycleStage("provider_launch_requested", { via: "windows_shell_browser" });
+            await runWindowsShellBrowserOAuth(provider, next);
+          } catch (err) {
+            await handleOAuthStartFailure(err);
+          }
+          return;
+        }
+
         if (routing.action === "web_oauth_start" && isNativeAppOAuthShell()) {
           try {
             markAuthLifecycleStage("provider_launch_requested", { via: "capacitor_custom_tab" });
@@ -703,6 +761,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       handleOAuthStartFailure,
       next,
       runCapacitorCustomTabOAuth,
+      runWindowsShellBrowserOAuth,
       t,
     ],
   );

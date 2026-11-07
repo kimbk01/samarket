@@ -176,3 +176,15 @@
     2. Windows 앱에서 Google 버튼 숨김
     3. 지금처럼 둠(보안 코드 화면)
 
+## 11. Google 한정 재적용 (2026-11-08, Owner 「구글은 다른 창이 뜨는 부분이면 그렇게 해야지」)
+
+- **근거:**
+  - 레거시 PC 앱(카카오톡 PC)은 같은 창에서 **자기 계정**으로 로그인한다. Google 로그인은 없다.
+  - 디바이 Windows 앱은 같은 창에서 카카오는 PASS(W0 실기)다. Google 은 Google 정책·노트북 화면(보안 코드)으로 불가하다.
+  - Android(네이티브 계정 선택)·iOS(ASWebAuthenticationSession 시트)는 OS 가 앱 위 로그인 화면을 줘서 브라우저 창이 없다. Windows 는 그런 OS 화면이 없다.
+- **변경:**
+  - W2 코드를 다시 넣었다.
+  - `use-oauth-login.ts` 분기에 `provider === "google"` 를 추가했다. 카카오·Apple 은 Windows 셸에서도 같은 창이다.
+  - `Program.cs` CS0029 수정(`Application.Start(p =>`)과 재발 방지 테스트를 넣었다.
+  - 셸 Version 0.4.0.0.
+- **처음 W2 와 다른 점:** 카카오·Apple 이 브라우저로 가지 않는다(처음 W2 는 세 공급자 모두 브라우저).

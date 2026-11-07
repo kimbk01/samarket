@@ -234,3 +234,6 @@ windows/                         ← 새 최상위 폴더 (android/·ios/ 와 �
 W2(기본 브라우저 로그인)는 Owner 지시로 되돌렸다. 기록: `docs/audit/windows-shell-w2-login-plan-2026-11-08.md` §10.
 Windows 셸은 W0 동작이고 Version 은 0.3.0.0 이다. Windows 앱의 Google 로그인 방식은 Owner 결정 대기다.
 
+## 14. Google 한정 재적용 (2026-11-08)
+
+Owner 결정으로 Windows 셸에서 **Google 로그인만** 기본 브라우저로 한다. 카카오·Apple 은 같은 창이다. 셸 0.4.0.0. 기록: W2 계획서 §11.

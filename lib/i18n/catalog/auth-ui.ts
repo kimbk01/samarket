@@ -37,6 +37,9 @@ export const authUiMessages = {
     auth_login_completing_retry: "다시 시도",
     auth_oauth_signing_in_hint: "로그인 준비 중…",
     auth_oauth_return_hint: "브라우저에서 로그인을 완료한 뒤 이 화면으로 돌아와 주세요.",
+    /** Windows 셸 W2 — 기본 브라우저 로그인 대기·열기 실패 (Owner 승인 2026-11-08) */
+    auth_windows_browser_login_waiting: "브라우저에서 로그인을 마치면 앱으로 돌아옵니다.",
+    auth_windows_browser_open_failed: "브라우저를 열지 못했습니다. 다시 시도해 주세요.",
     auth_oauth_launch_title: "로그인 계속",
     auth_oauth_launch_preparing: "로그인 준비 중…",
     auth_oauth_launch_bridge_preparing: "앱 연결 준비 중…",
@@ -318,6 +321,8 @@ export const authUiMessages = {
     auth_login_completing_retry: "Try again",
     auth_oauth_signing_in_hint: "Preparing sign-in…",
     auth_oauth_return_hint: "Finish sign-in in the browser, then return here.",
+    auth_windows_browser_login_waiting: "Finish signing in in your browser to return to the app.",
+    auth_windows_browser_open_failed: "Couldn't open your browser. Please try again.",
     auth_oauth_launch_title: "Continue sign-in",
     auth_oauth_launch_preparing: "Preparing sign-in…",
     auth_oauth_launch_bridge_preparing: "Connecting to the app…",

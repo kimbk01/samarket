@@ -148,6 +148,48 @@ export async function fetchNativeOAuthAuthorizeUrl(
 }
 
 /**
+ * Windows 셸(W2) — Android Custom Tab 과 같은 서버 경로(`launch=native` → capacitor-return → dibay://auth/callback)의
+ * 인가 주소만 받는다. Capacitor 브리지 대기·Android 쿠키 flush 는 하지 않는다(WebView2 는 쿠키를 디스크에 둔다).
+ * PKCE verifier 는 이 fetch 응답 쿠키로 **앱 WebView2** 에 저장되고, 복귀 후 같은 WebView2 의 /auth/callback 이 교환한다.
+ */
+export async function fetchWindowsShellOAuthAuthorizeUrl(
+  provider: OAuthProvider,
+  next?: string | null,
+): Promise<string> {
+  if (!isSupabaseOAuthProvider(provider)) {
+    throw startError("invalid_provider", "지원하지 않는 OAuth provider입니다.");
+  }
+  const startPath = buildNativeStartPath(provider, next);
+  const res = await fetchWithTimeout(startPath, {
+    method: "GET",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  }, NATIVE_OAUTH_START_FETCH_TIMEOUT_MS);
+  const json = (await res.json().catch(() => null)) as OAuthStartResponse | null;
+  if (!res.ok || !json?.ok || !json.authorizeUrl?.trim()) {
+    throw startError(
+      json?.ok === false ? json.errorCode || "oauth_start_failed" : "oauth_start_failed",
+      json?.ok === false ? json.message : "OAuth 시작 URL을 만들지 못했습니다.",
+    );
+  }
+  const redirectTo = json.redirectTo?.trim() ?? "";
+  if (!isNativeOAuthSupabaseRedirectUrl(redirectTo)) {
+    logOAuthNativeEvent("native_start_redirect_mismatch", { redirectTo, startPath, shell: "windows" });
+    throw startError(
+      "oauth_native_redirect_mismatch",
+      "Windows shell OAuth redirectTo must use /auth/oauth/capacitor-return on samarket.vercel.app.",
+    );
+  }
+  logOAuthNativeEvent("native_start_ok", {
+    provider: json.provider,
+    redirectTo,
+    authorizeUrlLen: json.authorizeUrl.trim().length,
+    shell: "windows",
+  });
+  return json.authorizeUrl.trim();
+}
+
+/**
  * Native: launch page → Custom Tab → https capacitor-return → dibay://auth/callback
  * Web: start API 302
  */

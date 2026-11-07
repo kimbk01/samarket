@@ -28,7 +28,7 @@ export const OAUTH_COMPLETING_EVENT = "dibay:oauth-completing";
 /** Process-wide dedupe across listener + launcher completion (one logical settle). */
 const handledWebCallbackUrls = new Set<string>();
 
-export type NativeOAuthReturnVia = "app_url_open" | "as_web_auth_completion";
+export type NativeOAuthReturnVia = "app_url_open" | "as_web_auth_completion" | "windows_shell";
 
 export type NativeOAuthReturnBridgeResult =
   | { ok: true; webCallbackUrl: string; navigated: true }
