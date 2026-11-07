@@ -70,13 +70,32 @@ describe("PC QR login — approve route (phone)", () => {
 });
 
 describe("PC QR login — where it shows", () => {
-  it("PC QR panel renders only inside the Windows app and on the login page above the provider buttons", () => {
+  it("Windows app login: QR first; 「모바일이 없으세요?」 → provider buttons; 「QR로 로그인」 back (Owner 2026-11-08)", () => {
     const panel = read("components/auth/PcQrLoginPanel.tsx");
     expect(panel).toContain("isDibayWindowsShell()");
     const login = read("app/login/LoginPageClient.tsx");
-    const panelIdx = login.indexOf("<PcQrLoginPanel");
-    expect(panelIdx).toBeGreaterThan(0);
-    expect(login.indexOf("<LoginProviderButtons")).toBeGreaterThan(panelIdx);
+    expect(login).toContain("const showPcQrLogin = isWindowsShell && pcQrLoginMode && pcQrLoginAvailable;");
+    // QR 모드이면 패널 + 「모바일이 없으세요?」, 아니면 기존 버튼
+    const qrBranch = login.indexOf("{showPcQrLogin ? (");
+    const panelIdx = login.indexOf("<PcQrLoginPanel", qrBranch);
+    const noMobileIdx = login.indexOf('t("auth_pc_qr_no_mobile")', qrBranch);
+    const buttonsIdx = login.indexOf("<LoginProviderButtons", qrBranch);
+    expect(qrBranch).toBeGreaterThan(0);
+    expect(panelIdx).toBeGreaterThan(qrBranch);
+    expect(noMobileIdx).toBeGreaterThan(panelIdx);
+    expect(buttonsIdx).toBeGreaterThan(noMobileIdx);
+    expect(login).toContain("onClick={() => setPcQrLoginMode(false)}");
+    expect(login).toContain("onClick={() => setPcQrLoginMode(true)}");
+    // QR 을 만들 수 없으면 기존 버튼, 「QR로 로그인」도 숨김
+    expect(login).toContain("onUnavailable={() => setPcQrLoginAvailable(false)}");
+    expect(login).toContain("{isWindowsShell && pcQrLoginAvailable ? (");
+    // 서버 렌더·브라우저·휴대폰 앱은 Windows 셸 false → 기존 화면
+    expect(login).toMatch(/function windowsShellServerSnapshot\(\): boolean \{\s*return false;/);
+  });
+
+  it("phone done screen: 「PC에 로그인되었습니다」 + [확인] → 내정보", () => {
+    const scan = read("components/my/settings/PcLoginScanContent.tsx");
+    expect(scan).toMatch(/state\.kind === "done"[\s\S]{0,600}t\("pc_login_done"\)[\s\S]{0,500}router\.push\(MYPAGE_PROFILE_HREF\)[\s\S]{0,120}t\("pc_login_done_ok"\)/);
   });
 
   it("phone menu row (My → 설정 → PC 로그인) shows only in the dibaY phone app", () => {

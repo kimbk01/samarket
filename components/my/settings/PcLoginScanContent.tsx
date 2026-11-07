@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import jsQR from "jsqr";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { parsePcQrLoginPayload } from "@/lib/auth/pc-qr-login/pc-qr-login-contract";
+import { MYPAGE_PROFILE_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 type Describe = {
@@ -36,6 +38,7 @@ function formatTime(iso: string): string {
  */
 export function PcLoginScanContent() {
   const { t } = useI18n();
+  const router = useRouter();
   const [isApp] = useState(() => typeof window !== "undefined" && isCapacitorNativePlatform());
   const [state, setState] = useState<ScreenState>({ kind: "scanning", notice: null });
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -176,10 +179,19 @@ export function PcLoginScanContent() {
     );
   }
 
+  /** 허용 완료 — 「PC에 로그인되었습니다」 → [확인] → 내정보 (Owner 2026-11-08) */
   if (state.kind === "done") {
     return (
       <div className="px-4 py-10 text-center" data-testid="pc-login-done">
         <p className="sam-text-body font-semibold text-sam-fg">{t("pc_login_done")}</p>
+        <button
+          type="button"
+          className="mt-6 w-full max-w-sm rounded-ui-rect bg-sam-primary py-3 sam-text-body font-semibold text-white"
+          data-testid="pc-login-done-ok"
+          onClick={() => router.push(MYPAGE_PROFILE_HREF)}
+        >
+          {t("pc_login_done_ok")}
+        </button>
       </div>
     );
   }

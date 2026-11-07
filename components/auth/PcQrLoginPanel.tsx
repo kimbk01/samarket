@@ -27,9 +27,12 @@ type PanelState =
 export function PcQrLoginPanel({
   next,
   onApproved,
+  onUnavailable,
 }: {
   next: string | null;
   onApproved: (input: PcQrLoginApproved) => Promise<void> | void;
+  /** QR 을 만들 수 없음(서버 미준비·오류) — 로그인 화면은 기존 버튼으로 */
+  onUnavailable?: () => void;
 }) {
   const { t } = useI18n();
   const [state, setState] = useState<PanelState>({ kind: "loading" });
@@ -125,6 +128,14 @@ export function PcQrLoginPanel({
     };
   }, [next, startRequest, state]);
 
+  const onUnavailableRef = useRef(onUnavailable);
+  useEffect(() => {
+    onUnavailableRef.current = onUnavailable;
+  }, [onUnavailable]);
+  useEffect(() => {
+    if (state.kind === "hidden" && enabled) onUnavailableRef.current?.();
+  }, [enabled, state.kind]);
+
   if (state.kind === "hidden") return null;
 
   const secondsLeft = state.kind === "ready" ? Math.max(0, Math.ceil((state.expiresAt - now) / 1000)) : null;
@@ -166,9 +177,6 @@ export function PcQrLoginPanel({
           {t("auth_pc_qr_new")}
         </button>
       ) : null}
-      <p className="mt-4 sam-text-xxs text-sam-muted" aria-hidden>
-        ── {t("auth_pc_qr_or")} ──
-      </p>
     </section>
   );
 }

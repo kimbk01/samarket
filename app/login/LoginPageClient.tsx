@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { DibayAuthLogoHiddenGate } from "@/components/auth/DibayAuthLogoHiddenGate";
@@ -25,6 +25,7 @@ import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-ident
 import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
 import { PcQrLoginPanel, type PcQrLoginApproved } from "@/components/auth/PcQrLoginPanel";
+import { isDibayWindowsShell } from "@/lib/platform/dibay-windows-shell";
 import { AUTH_LOGIN_DELAY_NOTICE_MS } from "@/lib/auth/oauth/auth-login-phase";
 import { NATIVE_LOGIN_INTERRUPTED_REASON } from "@/lib/auth/native/native-login-interrupt-marker.client";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -32,6 +33,15 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/css-vars";
 import { mapAuthErrorMessage, resolveAuthAccountStatusNotice } from "@/lib/auth/login-error-i18n";
+
+
+/** Windows 셸 판정 — 바뀌지 않는 값이라 구독 없음. 서버 렌더는 false */
+function subscribeWindowsShellNoop(): () => void {
+  return () => {};
+}
+function windowsShellServerSnapshot(): boolean {
+  return false;
+}
 
 function LoginPageContent() {
   const { t } = useI18n();
@@ -72,6 +82,15 @@ function LoginPageContent() {
     },
     [next, router],
   );
+  /**
+   * PC QR 로그인 (Windows 앱만) — 처음에는 QR 만 보이고 「모바일이 없으세요?」로 기존 로그인 버튼 (Owner 2026-11-08).
+   * Windows 셸 판정은 서버 렌더에서 false → 하이드레이션 뒤 true (useSyncExternalStore).
+   * QR 을 만들 수 없으면(서버 오류 등) 기존 로그인 버튼으로 내려가고, 「QR로 로그인」도 숨긴다.
+   */
+  const isWindowsShell = useSyncExternalStore(subscribeWindowsShellNoop, isDibayWindowsShell, windowsShellServerSnapshot);
+  const [pcQrLoginMode, setPcQrLoginMode] = useState(true);
+  const [pcQrLoginAvailable, setPcQrLoginAvailable] = useState(true);
+  const showPcQrLogin = isWindowsShell && pcQrLoginMode && pcQrLoginAvailable;
   /** PC QR 로그인 (Windows 앱) — 승인 응답이 세션 쿠키를 준 뒤 기존 완료 경로로 */
   const handlePcQrLoginApproved = useCallback(
     async (input: PcQrLoginApproved) => {
@@ -393,7 +412,27 @@ function LoginPageContent() {
         <p className="mt-1 text-center sam-text-body-secondary text-sam-muted" data-testid="auth-login-auto-signup-hint">
           {t("auth_login_auto_signup_hint")}
         </p>
-        <PcQrLoginPanel next={next ?? null} onApproved={handlePcQrLoginApproved} />
+        {showPcQrLogin ? (
+          <>
+            {/* Windows 앱 — 처음에는 QR 만 (Owner 2026-11-08). 「모바일이 없으세요?」 → 기존 로그인 버튼 */}
+            <PcQrLoginPanel
+              next={next ?? null}
+              onApproved={handlePcQrLoginApproved}
+              onUnavailable={() => setPcQrLoginAvailable(false)}
+            />
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                className="sam-text-body-secondary font-semibold text-sam-fg underline underline-offset-4"
+                data-testid="pc-qr-login-no-mobile"
+                onClick={() => setPcQrLoginMode(false)}
+              >
+                {t("auth_pc_qr_no_mobile")}
+              </button>
+            </div>
+          </>
+        ) : (
+        <>
         <div className="mt-5">
           <LoginProviderButtons
             surface="page"
@@ -461,6 +500,20 @@ function LoginPageContent() {
         ) : displayNotice && displayNotice.tone !== "account" ? (
           <AuthLoginNotice notice={displayNotice} className="mt-4" />
         ) : null}
+        {isWindowsShell && pcQrLoginAvailable ? (
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              className="sam-text-body-secondary font-semibold text-sam-fg underline underline-offset-4"
+              data-testid="pc-qr-login-back-to-qr"
+              onClick={() => setPcQrLoginMode(true)}
+            >
+              {t("auth_pc_qr_use_qr")}
+            </button>
+          </div>
+        ) : null}
+        </>
+        )}
       </div>
       </div>
       <AuthProviderEmailConflictHost
