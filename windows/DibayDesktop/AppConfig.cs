@@ -10,7 +10,7 @@ internal static class AppConfig
     public const string WindowTitle = "DIBAY";
 
     /// <summary>웹 ↔ 셸 메시지 버전 — lib/platform/dibay-windows-shell.ts 의 DIBAY_WINDOWS_SHELL_BRIDGE_VERSION 과 같아야 한다.</summary>
-    public const int BridgeVersion = 2;
+    public const int BridgeVersion = 1;
 
     /// <summary>
     /// 앱 창 안에서 열어도 되는 호스트. 그 밖의 주소는 기본 브라우저로 연다.
@@ -38,21 +38,6 @@ internal static class AppConfig
         }
         return false;
     }
-
-    /// <summary>
-    /// W2: 기본 브라우저로 열어도 되는 로그인 인가 주소 — 우리 Supabase 프로젝트(https, *.supabase.co)만.
-    /// 웹이 보내는 auth.open 주소가 이 조건이 아니면 셸은 무시한다(아무 주소나 여는 통로 방지).
-    /// </summary>
-    public static bool IsAuthOpenAllowed(Uri uri) =>
-        uri.Scheme == Uri.UriSchemeHttps &&
-        uri.Host.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase) &&
-        uri.AbsolutePath.StartsWith("/auth/v1/authorize", StringComparison.Ordinal);
-
-    /// <summary>W2: 로그인 복귀 — dibay://auth/callback… 만.</summary>
-    public static bool IsAuthReturnUri(Uri uri) =>
-        uri.Scheme == "dibay" &&
-        string.Equals(uri.Host, "auth", StringComparison.OrdinalIgnoreCase) &&
-        uri.AbsolutePath.StartsWith("/callback", StringComparison.Ordinal);
 
     public static bool IsAppOrigin(Uri uri) =>
         uri.Scheme == Uri.UriSchemeHttps &&

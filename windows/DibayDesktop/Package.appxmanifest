@@ -10,7 +10,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <Identity Name="DibayDesktop.Dev" Publisher="CN=DIBAY Dev" Version="0.2.0.0" />
+  <Identity Name="DibayDesktop.Dev" Publisher="CN=DIBAY Dev" Version="0.3.0.0" />
 
   <Properties>
     <DisplayName>DIBAY (dev)</DisplayName>
@@ -38,14 +38,6 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#0B421A" />
       </uap:VisualElements>
-      <Extensions>
-        <!-- W2: 로그인 복귀 dibay://auth/callback — 앱이 꺼져 있어도 켜진다 (단일 실행은 Program.cs) -->
-        <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="dibay">
-            <uap:DisplayName>DIBAY</uap:DisplayName>
-          </uap:Protocol>
-        </uap:Extension>
-      </Extensions>
     </Application>
   </Applications>
 

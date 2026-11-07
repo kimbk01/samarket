@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { isDibayWindowsShell } from "@/lib/platform/dibay-windows-shell";
 import {
   getOAuthLoginContinueLabelKey,
   getOAuthLoginPrimaryStyle,
@@ -38,8 +37,6 @@ function statusMessage(
     return t("auth_oauth_redirecting_label");
   }
   if (status === "awaiting_return") {
-    /** Windows 셸 W2 — 기본 브라우저 로그인 대기 */
-    if (isDibayWindowsShell()) return t("auth_windows_browser_login_waiting");
     return safeT("auth_oauth_launch_body", {
       fallbackKo: "로그인을 완료하면 자동으로 돌아옵니다.",
       fallbackEn: "Return here after you finish sign-in.",

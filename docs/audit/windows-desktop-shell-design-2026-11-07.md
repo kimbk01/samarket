@@ -228,3 +228,9 @@ windows/                         ← 새 최상위 폴더 (android/·ios/ 와 �
   - `scripts/lib/native-release.mjs` — `readWindowsVersion`·`classifyWindowsChanges`·Windows 역행·증가 가드 (기존 Android·iOS 함수·반환 형태 무변경).
   - `verify-native-version-bump.mjs` — `[배포 구분]`·기준 줄에 Windows 를 표시하고, `--release --windows-only` 를 추가했다.
   - `docs/native-build-release-process.md` — §1·§2·§5 에 Windows 를 추가했다.
+
+## 13. W2 되돌림 (2026-11-08)
+
+W2(기본 브라우저 로그인)는 Owner 지시로 되돌렸다. 기록: `docs/audit/windows-shell-w2-login-plan-2026-11-08.md` §10.
+Windows 셸은 W0 동작이고 Version 은 0.3.0.0 이다. Windows 앱의 Google 로그인 방식은 Owner 결정 대기다.
+

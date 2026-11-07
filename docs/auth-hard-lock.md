@@ -310,3 +310,9 @@ Session / Destination / Completion / Profile 의미 불변.
 - **계획서:** `docs/audit/windows-shell-w2-login-plan-2026-11-08.md`
 - **Evidence:** 코드 PASS(계약 테스트 19건 · 인증 테스트 · 타입검사). 실기 W2-1~7 은 노트북 셸 0.2.0.0 설치 후 — 그 전까지 NOT_PROVEN.
 
+## Amendment 2026-11-08 (2) — Windows 셸 기본 브라우저 로그인(W2) 되돌림 (Owner 「W2 되돌리기」)
+
+- 노트북 실기: Google 로그인 시 크롬 창이 열리는 동작이 Owner 가 원하는 화면이 아님 → Owner 지시로 W2(`a86a303c3`) 전체를 되돌린다.
+- 결과: Windows 셸 로그인은 W0 상태(앱 창 안 웹 OAuth)로 돌아간다. 카카오·Apple 은 앱 창 안, **Google 은 Google 정책(임베디드 로그인 금지)으로 보안 코드 요구 — 미해결**. Windows 앱의 Google 버튼 처리는 Owner 결정 대기.
+- 인증 계약은 W2 이전과 같다. Android·iOS·브라우저 무변경(W2 때도 무변경).
+

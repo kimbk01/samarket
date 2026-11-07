@@ -5,7 +5,6 @@ import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstra
 import { LifecycleRouteEffects } from "@/lib/lifecycle/lifecycle-route-effects.client";
 import { LaunchIntroRoot } from "@/components/launch-intro/LaunchIntroRoot";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
-import { WindowsShellOAuthReturnListener } from "@/components/auth/WindowsShellOAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
@@ -114,7 +113,6 @@ export default async function RootLayout({
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
             <OAuthReturnListener />
-            <WindowsShellOAuthReturnListener />
             <CallIncomingChromeRoot />
             <NotificationSoundLeaderBootstrap />
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
