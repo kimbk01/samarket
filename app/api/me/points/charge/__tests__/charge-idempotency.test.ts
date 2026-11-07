@@ -87,3 +87,40 @@ describe("POST /api/me/points/charge — idempotency", () => {
     expect(inserts).toHaveLength(0);
   });
 });
+
+describe("POST /api/me/points/charge — iOS app (Apple 3.1.1)", () => {
+  const iosReq = (headers: Record<string, string>) =>
+    new Request("https://x.test/api/me/points/charge", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ planId: "plan-1", paymentMethod: "manual_confirm", depositorName: "홍", idempotencyKey: "point_charge:ios12345" }),
+    }) as never;
+
+  it("refuses a bank-transfer charge from the iOS app shell before any write", async () => {
+    const res = await POST(iosReq({ "x-dibay-shell": "ios" }));
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe("ios_digital_purchase_unavailable");
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("refuses the iOS app WKWebView user agent even without the shell header", async () => {
+    const res = await POST(
+      iosReq({
+        "user-agent":
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 27_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("keeps Safari on iPhone (web user) working", async () => {
+    const res = await POST(
+      iosReq({
+        "user-agent":
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 27_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1",
+      })
+    );
+    expect(res.status).toBe(200);
+  });
+});

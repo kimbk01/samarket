@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthAccountStatusNotice } from "@/lib/auth/login-error-i18n";
 
 /** 계정 정지·차단·탈퇴 안내에서 쓰는 공개 고객센터 연락처 (로그아웃 상태에서도 열림). */
-export const AUTH_ACCOUNT_SUPPORT_HREF = "mailto:support@dibay.app";
+export const AUTH_ACCOUNT_SUPPORT_HREF = "mailto:im2pact@gmail.com";
 
 export type AuthLoginNoticeState = {
   /** info = 로그아웃·세션 만료 등 중립 안내 / error = 로그인 실패 / account = 계정 상태 전용 블록 */

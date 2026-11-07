@@ -21,7 +21,7 @@ const KO_BODY = `1. 개인정보처리방침 개요
 
 DIBAY(서비스 표기: dibaY)는 커뮤니티, 중고거래(마켓), 매장·배달 주문, 채팅(거래·커뮤니티 메신저·주문 채팅), 알림, 음성·영상 통화 기능을 제공하는 서비스입니다. 본 방침은 DIBAY가 서비스 제공을 위해 실제로 처리하는 개인정보의 항목, 목적, 보유·이용, 외부 서비스 이용, 이용자 권리, 회원탈퇴·삭제 요청 방법을 안내합니다.
 
-문의: support@dibay.app
+문의: im2pact@gmail.com
 공개 주소: https://samarket.vercel.app/privacy
 
 2. 처리하는 개인정보 항목
@@ -152,7 +152,7 @@ DIBAY는 자체 피드 광고·프로모션·포인트 연동 기능을 운영�
 
 12. 이용자의 권리와 행사 방법
 
-이용자는 서비스 내 프로필·설정 메뉴에서 회원 정보를 열람·수정하고, 알림 설정을 변경하며, 계정 삭제 요청을 할 수 있습니다. 문의는 support@dibay.app로 접수할 수 있습니다.
+이용자는 서비스 내 프로필·설정 메뉴에서 회원 정보를 열람·수정하고, 알림 설정을 변경하며, 계정 삭제 요청을 할 수 있습니다. 문의는 im2pact@gmail.com로 접수할 수 있습니다.
 
 13. 회원탈퇴 및 개인정보 삭제
 
@@ -168,7 +168,7 @@ DIBAY는 자체 피드 광고·프로모션·포인트 연동 기능을 운영�
 
 15. 아동·미성년자
 
-DIBAY는 보호자 동의 없이 아동의 개인정보를 수집·이용하는 것을 목적으로 하지 않습니다. 관련 문의·삭제는 support@dibay.app 및 계정 삭제 요청 경로로 요청할 수 있습니다. 세부 연령 기준은 운영 정책에 따릅니다.
+DIBAY는 보호자 동의 없이 아동의 개인정보를 수집·이용하는 것을 목적으로 하지 않습니다. 관련 문의·삭제는 im2pact@gmail.com 및 계정 삭제 요청 경로로 요청할 수 있습니다. 세부 연령 기준은 운영 정책에 따릅니다.
 
 16. 개인정보 보호를 위한 안전조치
 
@@ -176,7 +176,7 @@ DIBAY는 보호자 동의 없이 아동의 개인정보를 수집·이용하는 
 
 17. 개인정보 보호 문의처
 
-- 이메일: support@dibay.app
+- 이메일: im2pact@gmail.com
 - 서비스명: DIBAY (dibaY)
 - 사업자 등록 정보·대표자·주소·전화 등 추가 사업자 정보는 공개 페이지 https://samarket.vercel.app/business-info 및 등록된 값이 있는 범위에서 확인할 수 있습니다. 미등록 항목은 별도 고지 전까지 이메일로 문의합니다.
 
@@ -192,7 +192,7 @@ const EN_BODY = `1. Overview
 
 DIBAY (product branding: dibaY) provides community, marketplace trade, store/delivery orders, chat (trade, community messenger, store-order chat), notifications, and voice/video calls. This Privacy Policy explains what personal information DIBAY actually processes, why, how long it may be kept, external services used, your rights, and how to request account deletion.
 
-Contact: support@dibay.app
+Contact: im2pact@gmail.com
 Public URL: https://samarket.vercel.app/privacy
 
 2. Personal information we process
@@ -323,7 +323,7 @@ DIBAY may operate first-party feed ads/promotions and point-related campaigns. T
 
 12. Your rights
 
-You may view/update profile information in-app, change notification settings, and request account deletion. Contact support@dibay.app for inquiries.
+You may view/update profile information in-app, change notification settings, and request account deletion. Contact im2pact@gmail.com for inquiries.
 
 13. Account deletion
 
@@ -338,7 +338,7 @@ When purposes end or deletion/de-identification completes, we delete or irrevers
 
 15. Children
 
-DIBAY does not intend to collect children’s personal information without a guardian’s involvement. Related inquiries/deletion can be requested via support@dibay.app or the account-deletion path. Detailed age criteria follow operational policy.
+DIBAY does not intend to collect children’s personal information without a guardian’s involvement. Related inquiries/deletion can be requested via im2pact@gmail.com or the account-deletion path. Detailed age criteria follow operational policy.
 
 16. Security measures
 
@@ -346,7 +346,7 @@ We apply access controls, authentication/session management, HTTPS in transit, d
 
 17. Privacy contact
 
-- Email: support@dibay.app
+- Email: im2pact@gmail.com
 - Service: DIBAY (dibaY)
 - Additional business registration details (representative, address, phone, etc.) appear on https://samarket.vercel.app/business-info when published. If a field is empty, contact us by email until updated.
 

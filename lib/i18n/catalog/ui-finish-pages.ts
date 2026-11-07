@@ -34,9 +34,9 @@ export const uiFinishPagesMessages = {
     account_delete_public_how_1:
       "아래 「계정 삭제 계속」을 눌러 DIBAY에 로그인한 뒤, 내정보/설정의 계정 삭제 화면에서 요청을 제출합니다.",
     account_delete_public_how_2:
-      "앱을 사용할 수 없는 경우 support@dibay.app 로 계정 삭제 요청을 보내 주세요. 본인 확인을 위해 가입에 사용한 로그인 방식(Google/Apple/Kakao 등)과 닉네임·이메일을 함께 적어 주세요.",
+      "앱을 사용할 수 없는 경우 im2pact@gmail.com 로 계정 삭제 요청을 보내 주세요. 본인 확인을 위해 가입에 사용한 로그인 방식(Google/Apple/Kakao 등)과 닉네임·이메일을 함께 적어 주세요.",
     account_delete_public_cta_login: "계정 삭제 계속 (로그인)",
-    account_delete_public_cta_email: "이메일로 요청 (support@dibay.app)",
+    account_delete_public_cta_email: "이메일로 요청 (im2pact@gmail.com)",
     account_delete_public_retain_title: "보관될 수 있는 정보",
     account_delete_public_retain_body:
       "거래·주문·신고·정산·감사·법령상 의무 이행에 필요한 기록은 목적 달성까지 보관될 수 있습니다. 자세한 내용은 개인정보처리방침을 확인하세요.",
@@ -84,9 +84,9 @@ export const uiFinishPagesMessages = {
     account_delete_public_how_1:
       "Tap Continue below, sign in to DIBAY, then submit a request from My / Settings → account deletion.",
     account_delete_public_how_2:
-      "If you cannot use the app, email support@dibay.app to request account deletion. Include your sign-in method (Google/Apple/Kakao, etc.) and nickname/email for identity verification.",
+      "If you cannot use the app, email im2pact@gmail.com to request account deletion. Include your sign-in method (Google/Apple/Kakao, etc.) and nickname/email for identity verification.",
     account_delete_public_cta_login: "Continue account deletion (sign in)",
-    account_delete_public_cta_email: "Email request (support@dibay.app)",
+    account_delete_public_cta_email: "Email request (im2pact@gmail.com)",
     account_delete_public_retain_title: "Data that may be retained",
     account_delete_public_retain_body:
       "Records needed for trades, orders, reports, settlement, auditing, or legal duties may be kept until those purposes end. See the Privacy Policy for details.",

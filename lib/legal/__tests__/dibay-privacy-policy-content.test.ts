@@ -25,7 +25,7 @@ describe("DIBAY privacy policy content (Play)", () => {
       const { title, body } = DIBAY_PRIVACY_POLICY_CONTENT[locale];
       expect(title.length).toBeGreaterThan(4);
       expect(body.length).toBeGreaterThan(2000);
-      expect(body).toMatch(/support@dibay\.app/);
+      expect(body).toMatch(/im2pact@gmail\.com/);
       expect(body).toMatch(/samarket\.vercel\.app\/privacy/);
       expect(body).toMatch(/Supabase/);
       expect(body).toMatch(/Agora/);

@@ -12,6 +12,10 @@ import {
 } from "@/lib/admin/admin-user-deletion";
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 import { deactivateAllUserPushTokensForAccountRemoval } from "@/lib/push/dispatch/deactivate-failed-token";
+import {
+  revokeAppleSigninTokenForUser,
+  type AppleTokenRevokeResult,
+} from "@/lib/auth/native/apple-siwa-token.server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { suspendOwnerStoreSalesOnMemberSanction } from "@/lib/admin-business/suspend-owner-store-sales-on-member-sanction";
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
@@ -160,6 +164,11 @@ export async function POST(
   // deactivation error is recorded but never rolls it back.
   const pushTokenDeactivation = await deactivateAllUserPushTokensForAccountRemoval(sb, userId);
 
+  // App Store 계정 삭제 요구 — Sign in with Apple 토큰 폐기 (purge 로 auth 행이 지워지기 전에). 실패는 기록만.
+  const appleTokenRevoke = await revokeAppleSigninTokenForUser(sb, userId).catch(
+    (): AppleTokenRevokeResult => ({ status: "failed", detail: "unexpected_error" })
+  );
+
   await sb
     .from("account_deletion_requests")
     .update({
@@ -188,6 +197,7 @@ export async function POST(
       pushTokensDeactivated: pushTokenDeactivation.ok,
       ownerStoresSuspended: ownerStoreSales.filter((r) => r.changed).map((r) => r.storeId),
       pushTokenDeactivationErrors: pushTokenDeactivation.errors,
+      appleTokenRevoke,
     },
   });
 

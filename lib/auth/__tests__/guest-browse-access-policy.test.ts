@@ -23,6 +23,7 @@ describe("guest-browse-access-policy", () => {
     "/stores/some-store/menu",
     "/stores/some-store/checkout",
     "/search",
+    "/business-info",
     "/mypage",
     "/mypage/account",
     "/mypage/section/trade",

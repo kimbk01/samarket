@@ -46,9 +46,9 @@ export function AccountDeletePublicPageClient() {
         <li>
           {safeT("account_delete_public_how_2", {
             fallbackKo:
-              "앱을 사용할 수 없는 경우 support@dibay.app 로 계정 삭제 요청을 보내 주세요. 본인 확인을 위해 가입에 사용한 로그인 방식(Google/Apple/Kakao 등)과 닉네임·이메일을 함께 적어 주세요.",
+              "앱을 사용할 수 없는 경우 im2pact@gmail.com 로 계정 삭제 요청을 보내 주세요. 본인 확인을 위해 가입에 사용한 로그인 방식(Google/Apple/Kakao 등)과 닉네임·이메일을 함께 적어 주세요.",
             fallbackEn:
-              "If you cannot use the app, email support@dibay.app to request account deletion. Include your sign-in method (Google/Apple/Kakao, etc.) and nickname/email for identity verification.",
+              "If you cannot use the app, email im2pact@gmail.com to request account deletion. Include your sign-in method (Google/Apple/Kakao, etc.) and nickname/email for identity verification.",
           })}
         </li>
       </ol>
@@ -64,12 +64,12 @@ export function AccountDeletePublicPageClient() {
           })}
         </Link>
         <a
-          href="mailto:support@dibay.app?subject=DIBAY%20account%20deletion%20request"
+          href="mailto:im2pact@gmail.com?subject=DIBAY%20account%20deletion%20request"
           className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border px-4 py-2.5 text-sm font-medium text-sam-fg"
         >
           {safeT("account_delete_public_cta_email", {
-            fallbackKo: "이메일로 요청 (support@dibay.app)",
-            fallbackEn: "Email request (support@dibay.app)",
+            fallbackKo: "이메일로 요청 (im2pact@gmail.com)",
+            fallbackEn: "Email request (im2pact@gmail.com)",
           })}
         </a>
       </div>

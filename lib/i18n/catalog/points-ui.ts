@@ -347,7 +347,7 @@ export const pointsUiMessages = {
     apple_iap_admin_reason_sandbox_cap_exceeded: "테스트 결제(Sandbox) — 계정별 누적 상한 초과로 지급하지 않음",
     apple_iap_admin_filter_sandbox: "테스트 계정",
     apple_iap_admin_sandbox_desc:
-      "등록된 계정만 Apple 테스트 결제(Sandbox)로 Point 를 받을 수 있습니다 (서버 허용 설정과 함께). 계정별 누적 {cap}P 까지 · 해제 후 다시 등록해도 누적은 이어집니다. 테스트 지급은 운영 매출·정산 합계에서 빠집니다.",
+      "Apple 테스트 결제(Sandbox — App Review·TestFlight)는 서버 허용 설정이 켜져 있으면 모든 회원에게 지급됩니다. 회원별 누적 {cap}P 까지 · 넘으면 검토로 두고 지급하지 않습니다. 아래 등록 목록은 기록용입니다. 테스트 지급은 운영 매출·정산 합계에서 빠집니다.",
     apple_iap_admin_sandbox_user_ph: "회원 ID (UUID)",
     apple_iap_admin_sandbox_note_ph: "용도 메모 (필수, 2~200자 · 예: App Review 계정)",
     apple_iap_admin_sandbox_add: "테스트 계정 등록",
@@ -711,7 +711,7 @@ export const pointsUiMessages = {
     apple_iap_admin_reason_sandbox_cap_exceeded: "Sandbox payment — per-account test limit reached, not credited",
     apple_iap_admin_filter_sandbox: "Test accounts",
     apple_iap_admin_sandbox_desc:
-      "Only registered accounts receive Point from Apple Sandbox payments (together with the server setting). Up to {cap}P per account in total; re-registering does not reset the total. Test credits are excluded from production revenue and settlement totals.",
+      "Apple Sandbox payments (App Review, TestFlight) credit Point to any member while the server setting is on. Up to {cap}P per member in total; anything above goes to review without credit. The list below is for record only. Test credits are excluded from production revenue and settlement totals.",
     apple_iap_admin_sandbox_user_ph: "Member ID (UUID)",
     apple_iap_admin_sandbox_note_ph: "Purpose note (required, 2–200 chars, e.g. App Review account)",
     apple_iap_admin_sandbox_add: "Register test account",

@@ -12,6 +12,7 @@ import {
   totalPointsFromPlanRow,
 } from "@/lib/points/point-plan-shared";
 import type { PointPaymentMethod } from "@/lib/types/point";
+import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+  /** iOS 앱 안 포인트 구매는 Apple 결제만 (3.1.1) — 계좌이체 신청은 iOS 앱 요청이면 쓰기 전에 거절 */
+  const iosBlocked = blockIosAppDigitalPurchase(req);
+  if (iosBlocked) return iosBlocked;
 
   let body: Partial<ChargeBody>;
   try {

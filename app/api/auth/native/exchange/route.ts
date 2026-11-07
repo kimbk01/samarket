@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+import { storeAppleSigninRefreshToken } from "@/lib/auth/native/apple-siwa-token.server";
 import { resolveAuthProviderLoginGate } from "@/lib/auth/auth-provider-store";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { parseNativeExchangeRequest } from "@/lib/auth/native/native-exchange-contract.server";
@@ -134,5 +135,19 @@ export async function POST(req: NextRequest) {
     200,
   );
   attachSessionCookies(response, sessionCookies);
+
+  // App Store 계정 삭제 요구 — 탈퇴 때 폐기할 Apple 토큰을 응답 뒤에 저장 (실패해도 로그인 무영향)
+  if (result.provider === "apple" && exchangeInput.authorizationCode && result.userId) {
+    const appleUserId = String(result.userId);
+    const authorizationCode = exchangeInput.authorizationCode;
+    after(async () => {
+      const sb = tryCreateSupabaseServiceClient();
+      if (!sb) return;
+      const stored = await storeAppleSigninRefreshToken(sb, { userId: appleUserId, authorizationCode });
+      if (!stored.ok && stored.reason !== "unconfigured") {
+        console.warn("[native-exchange] apple token store skipped:", stored.reason);
+      }
+    });
+  }
   return response;
 }

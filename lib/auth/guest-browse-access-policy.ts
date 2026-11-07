@@ -83,6 +83,8 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
   }
 
   if (pathname === "/search" || pathname.startsWith("/search/")) return true;
+  /** 운영자(사업자) 정보 — 개인정보처리방침·비로그인 메뉴가 안내하는 공개 페이지 (App Store 1.5·5.1.1) */
+  if (pathname === "/business-info" || pathname.startsWith("/business-info/")) return true;
   if (pathname === "/services" || pathname.startsWith("/services/")) return true;
   if (pathname === "/features" || pathname.startsWith("/features/")) return true;
 

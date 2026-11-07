@@ -11,7 +11,7 @@ describe("account delete public surface", () => {
     const guest = readFileSync(path.join(root, "lib/auth/guest-browse-access-policy.ts"), "utf8");
     const signup = readFileSync(path.join(root, "lib/auth/dibay-signup-status.ts"), "utf8");
     expect(page).toContain("AccountDeletePublicPageClient");
-    expect(client).toContain("support@dibay.app");
+    expect(client).toContain("im2pact@gmail.com");
     expect(client).toContain("MYPAGE_HOME_ACCOUNT_LEAVE_HREF");
     expect(guest).toContain('pathname === "/account/delete"');
     expect(signup).toContain('p === "/account/delete"');
