@@ -190,6 +190,23 @@
 }
 
 /**
+ * 분할 진입 틀(P2, 2026-11-07) — 「채팅방 입장 중…」은 0.24초 뒤에 나타난다.
+ * 데이터가 빨리 오면(측정 약 0.09초) 대기 표시가 번쩍 나타났다 사라지는 깜빡임 없이 바로 대화가 채워진다.
+ */
+@keyframes cm-split-room-entry-wait-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+[data-cm-room-split-entry-frame] [data-cm-room-split-entry-wait] {
+  animation: cm-split-room-entry-wait-in 160ms ease-out 240ms both;
+}
+
+/**
  * 모바일 PAGE_HIERARCHY: List → Room = RIGHT → LEFT (90%).
  * WIDE split uses separate rules below (pane-local, not full-page copy).
  */

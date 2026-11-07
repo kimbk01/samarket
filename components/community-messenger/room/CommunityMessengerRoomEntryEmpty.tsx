@@ -4,6 +4,8 @@ import { memo, useLayoutEffect } from "react";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MessengerSplitRoomEntryFrame } from "@/components/community-messenger/room/MessengerSplitRoomEntryFrame";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import {
   noteCmRoomEntryShellFirstPaint,
   noteCmRoomStableShellPainted,
@@ -36,6 +38,7 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
   onRetryAfterFailure?: () => void;
 }) {
   const { safeT } = useI18n();
+  const isSplit = useIsMessengerSplitViewport();
   const params = useParams();
   const resolvedRoomId = roomId?.trim() || String(params?.roomId ?? "").trim();
   const enteringLabel = safeT("cm_ui_entering", {
@@ -57,6 +60,55 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
       noteR2M11DRoomSuspenseRelease(rid);
     }
   }, [recordPass1Milestones, recordSegmentFallback, recordShellPaint, resolvedRoomId]);
+
+  /**
+   * 분할 화면(768px+) — 칸 전체를 덮는 대기 화면 대신, 불러오는 동안과 같은 틀(상단바 + 대화 배경) 안의
+   * 대화 영역에만 대기·실패 표시 (설계 P2, 2026-11-07). 휴대폰은 아래 기존 화면 그대로.
+   */
+  if (isSplit) {
+    const failed = Boolean(onRetryAfterFailure);
+    return (
+      <MessengerSplitRoomEntryFrame
+        roomId={resolvedRoomId}
+        dataAttrs={{
+          "data-cm-room-entry-empty": "",
+          ...(failed ? { "data-cm-room-entry-failed": "" } : { "data-cm-room-entry-buffering": "" }),
+          ...dataAttrs,
+        }}
+        ariaProps={
+          failed
+            ? { role: "alert" }
+            : { role: "status", "aria-live": "polite", "aria-busy": true, "aria-label": enteringLabel }
+        }
+      >
+        {failed ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">
+              {safeT("cm_ui_timeline_load_failed", {
+                fallbackKo: "대화 내용을 불러오지 못했습니다.",
+                fallbackEn: "Could not load this conversation.",
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={onRetryAfterFailure}
+              className="rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-4 py-2 sam-text-helper font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
+            >
+              {safeT("cm_ui_timeline_retry", { fallbackKo: "다시 불러오기", fallbackEn: "Try again" })}
+            </button>
+          </div>
+        ) : (
+          <div
+            data-cm-room-split-entry-wait=""
+            className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-[color:var(--cm-room-primary)]" aria-hidden />
+            <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">{enteringLabel}</p>
+          </div>
+        )}
+      </MessengerSplitRoomEntryFrame>
+    );
+  }
 
   if (onRetryAfterFailure) {
     return (
