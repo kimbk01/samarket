@@ -26,7 +26,7 @@
 | Vercel 환경변수 | `APNS_KEY_P8`·`APNS_KEY_ID`·`APNS_TEAM_ID`·`APNS_BUNDLE_ID`·`APNS_VOIP_TOPIC`, `APPLE_IAP_BUNDLE_ID`, `AUTH_APPLE_NATIVE_CLIENT_ID`/`APPLE_NATIVE_BUNDLE_ID`(또는 `AUTH_APPLE_NATIVE_AUDIENCES`), `APPLE_SIWA_TEAM_ID`·`APPLE_SIWA_KEY_ID`·`APPLE_SIWA_KEY_P8` | Owner 입력 · 작업자 목록 제공 |
 | 운영 DB | `apple_iap_products.product_id` 3행 → `com.dibay.ph.point.1000/5000/10000` (마이그레이션, 승인 필요) | 작업자 |
 | 카카오 개발자 콘솔 | iOS 번들 ID `com.dibay.ph` 추가 | Owner |
-| Supabase Auth (웹 Apple 로그인) | 웹·Android 의 「Apple로 계속하기」가 쓰는 Services ID·키가 옛 팀이면 새 팀으로 — **현재 설정 팀 NOT_PROVEN** (Supabase 대시보드 확인 필요) | Owner 확인 |
+| Supabase Auth (웹 Apple 로그인) | **확인됨 (2026-11-07 대시보드 읽기)**: Apple 켜짐, Client IDs = `com.dibay.login2` (옛 팀 2TFKXT6Y99 의 Services ID). → 새 팀 Services ID(부록 A5)·새 비밀키로 교체, Client IDs 에 새 번들 `com.dibay.ph` 도 함께. Apple OAuth 비밀키는 6개월마다 재발급 필요(대시보드 경고) | Owner 입력 · 작업자 안내 |
 | 웹 코드 | 변경 없음 예상 (값은 전부 환경변수) | — |
 
 ## 4. 바뀌는 동작·영향 경로 (통화 규정 3번 항목)
@@ -39,7 +39,7 @@
 | 취소/거절/종료/부재중·상태 폴링·통화 기록·팝업 | 무변경 | 낮음 |
 | 일반 알림(채팅 등) | 새 토픽 `com.dibay.ph` | 확장 번들 불일치 시 알림 꾸밈 실패 |
 | **설치된 구 바이너리 호환** | 옛 번들 iOS 설치본은 전환 순간부터 푸시·통화 수신 불가 (시험 기기만) | 의도된 영향 — 옛 앱 삭제 안내 |
-| Apple 로그인 | 사용자 식별값이 팀별 → 기존 Apple 회원 3명(`11222`, `dibay_d7fc34` 심사관, `dibay_9d830a` 시험)은 새 앱에서 새 회원 | `11222` 실회원 여부 Owner 확인 |
+| Apple 로그인 | 사용자 식별값이 팀별 → 기존 Apple 회원 3명(`11222`, `dibay_d7fc34` 심사관, `dibay_9d830a` 시험)은 새 앱에서 새 회원 | Owner 확인(2026-11-07): 3명 모두 시험 계정 — 영향 없음 |
 | 웹·iOS Apple 로그인 팀 불일치 | 같은 사람이 회원 2명으로 갈림 → 같은 날 함께 전환 | 3절 Supabase 확인 필수 |
 
 ## 5. 순서
@@ -60,7 +60,7 @@
 ## 7. NOT_PROVEN
 - 같은 사람의 두 번째 개인 계정 허용 여부(Apple 문구 없음).
 - 앱 이름 「DiBaY - 디바이」 를 새 계정에서 쓸 수 있는지.
-- 웹 Apple 로그인(Supabase)이 쓰는 Services ID 의 팀.
+- (해결) 웹 Apple 로그인 Services ID = `com.dibay.login2`, 옛 팀 — 전환 대상 확정.
 
 ## 부록 A. Owner Apple 등록 순서 (새 계정 승인 후 · 작업자는 값 입력·서명·결제를 대신하지 않음)
 
@@ -70,7 +70,7 @@
 | A2 | developer.apple.com › Identifiers › App IDs | `com.dibay.ph` 생성 — Capabilities: Push Notifications, Sign In with Apple | — |
 | A3 | 같은 화면 | `com.dibay.ph.DibayPushServiceExtension` 생성 (알림 확장) | — |
 | A4 | Keys | 키 2개를 따로 생성 — ① Apple Push Notifications service(APNs, 환경 Sandbox & Production, 범위 Team Scoped) ② Sign in with Apple (Primary App ID `com.dibay.ph`). **각 .p8 은 한 번만 내려받을 수 있다** (Apple: 「you won't be able to download it again」) | 각 Key ID, Team ID (.p8 파일은 Owner 가 Vercel 에 직접 입력: ① → `APNS_KEY_P8`, ② → `APPLE_SIWA_KEY_P8`) |
-| A5 | Identifiers › Services IDs (웹 Apple 로그인 쓰는 경우만) | 예: `com.dibay.ph.web` — Sign in with Apple, 도메인 `ckdosyydvgzqwpbwuhon.supabase.co`·`samarket.vercel.app`, Return URL `https://ckdosyydvgzqwpbwuhon.supabase.co/auth/v1/callback` | Services ID — 웹 Apple 로그인이 Supabase 경로인지는 NOT_PROVEN, 전환 전 확인 |
+| A5 | Identifiers › Services IDs (웹 Apple 로그인 — 사용 중 확인됨) | 예: `com.dibay.ph.web` — Sign in with Apple, 도메인 `ckdosyydvgzqwpbwuhon.supabase.co`·`samarket.vercel.app`, Return URL `https://ckdosyydvgzqwpbwuhon.supabase.co/auth/v1/callback` | Services ID (현재 옛 팀 `com.dibay.login2` 를 대체) |
 | A6 | App Store Connect › 앱 › + | 새 앱: 번들 `com.dibay.ph`, 이름(「DiBaY - 디바이」 가능 여부 확인), 기본 언어, SKU | 등록된 이름·Apple ID(숫자) |
 | A7 | 앱 › 앱 내 구입 | 소모품 3종 `com.dibay.ph.point.1000/5000/10000` — 이름·가격은 `docs/apple-iap-asc-point-products.md` | 생성 결과 |
 | A8 | 앱 › App 정보 | App Store 서버 알림 V2 URL `https://samarket.vercel.app/api/webhooks/apple-app-store` (Production·Sandbox) | — |
