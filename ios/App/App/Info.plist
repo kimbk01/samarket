@@ -49,6 +49,8 @@
 	<string>4b093a61645a</string>
 	<key>DibayGitShaFull</key>
 	<string>4b093a61645a3eedac1c5ca42a9fc09a401bf4f5</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>KAKAO_NATIVE_APP_KEY</key>
 	<string>$(KAKAO_NATIVE_APP_KEY)</string>
 	<key>LSApplicationQueriesSchemes</key>

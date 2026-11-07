@@ -635,14 +635,8 @@ export const PostCard = memo(function PostCard({
           thumbnailUrl={thumbnailFetchUrl}
         />
       ) : null}
-      {showcase ? (
-      <span
-        data-trade-showcase-badge="1"
-        className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded-ui-rect bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white"
-      >
-        {t("trade_showcase_card_badge")}
-      </span>
-      ) : !isSoldOrClosed || soldKeepsFavoriteToggle ? (
+      {/* 샘플(쇼케이스) 카드 — 목록 뱃지 없음 (Owner 2026-11-08). 거래 불가 안내는 눌렀을 때 상세에서만. */}
+      {showcase ? null : !isSoldOrClosed || soldKeepsFavoriteToggle ? (
       <div className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/85 p-1 shadow-sm">
         <PostFavoriteButton
           postId={post.id}

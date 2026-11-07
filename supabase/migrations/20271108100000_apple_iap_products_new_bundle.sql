@@ -19,6 +19,8 @@ begin
   if exists (
     select 1 from public.apple_iap_transactions
      where product_id in ('com.dibay.app.point.1000', 'com.dibay.app.point.5000', 'com.dibay.app.point.10000')
+       -- 지급 없이 끝난 기록(실패·사용자 취소)은 제외 — 2026-11-08 시뮬레이터 결제 시도 실패 1건(54ae8cfb…)
+       and status not in ('failed', 'user_cancelled')
   ) then
     raise exception 'apple_iap_transactions already reference old product ids — stop and review';
   end if;
