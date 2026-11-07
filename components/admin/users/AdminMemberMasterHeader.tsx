@@ -441,6 +441,7 @@ export function AdminMemberMasterHeader({
         open={showDibayId}
         userId={user.id}
         currentDibayId={user.dibay_id}
+        isAdminCreatedMember={user.signup_provider === "manual"}
         onClose={() => setShowDibayId(false)}
         onSuccess={() => onUpdated?.()}
       />

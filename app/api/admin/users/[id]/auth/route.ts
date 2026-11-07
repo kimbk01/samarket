@@ -89,10 +89,13 @@ export async function GET(
   const passwordResetSupported = resolveMemberPasswordResetSupported({
     authUserPresent: Boolean(authUser),
     identityProviders: identities.map((row) => row.provider),
+    authEmail: authUser?.email ?? null,
+    profileAuthLoginEmail: profileAuthLoginEmail,
     profileAuthProvider: profile
       ? ((profile as { auth_provider?: string | null }).auth_provider ?? null)
       : null,
     profileProvider: profile ? ((profile as { provider?: string | null }).provider ?? null) : null,
+    linkedSnsProviders: linkedIdentities.map((row: { provider: string }) => row.provider),
   });
 
   return NextResponse.json({
@@ -212,15 +215,20 @@ export async function PATCH(
   );
   const { data: profileHint } = await gate.sb
     .from("profiles")
-    .select("auth_provider, provider")
+    .select("auth_provider, provider, auth_login_email")
     .eq("id", userId)
     .maybeSingle();
+  const patchLinked =
+    (await loadLinkedIdentitiesMapChunked(gate.sb, [userId]).catch(() => new Map())).get(userId) ?? [];
   if (
     !resolveMemberPasswordResetSupported({
       authUserPresent: true,
       identityProviders,
+      authEmail: authData.user.email ?? null,
+      profileAuthLoginEmail: (profileHint as { auth_login_email?: string | null } | null)?.auth_login_email,
       profileAuthProvider: (profileHint as { auth_provider?: string | null } | null)?.auth_provider,
       profileProvider: (profileHint as { provider?: string | null } | null)?.provider,
+      linkedSnsProviders: patchLinked.map((row: { provider: string }) => row.provider),
     })
   ) {
     return NextResponse.json(

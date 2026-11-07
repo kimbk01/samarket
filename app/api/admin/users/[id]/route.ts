@@ -30,6 +30,8 @@ import type { AdminUserDetail } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
 import { manualLoginIdFromAuthEmail } from "@/lib/admin-users/member-sns-account";
+import { resolveMemberPasswordResetSupported } from "@/lib/admin-users/member-password-eligibility";
+import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
 import { normalizeAdminAuthProvider as normalizeStoreAuthProviderForDetail } from "@/lib/admin-users/resolve-admin-auth-provider";
 import {
   ensureManualLoginEmailAligned,
@@ -653,6 +655,8 @@ export async function PATCH(
     dibayId?: string;
     /** 관리자 아이디 변경 사유 — admin_set_dibay_id 가 같은 트랜잭션에서 audit_logs 에 기록 */
     dibayIdReason?: string;
+    /** 관리자 생성 회원: @ID 변경 시 실제 로그인 아이디(@manual.local)도 같이 변경 (설계안 ⑧ G3) */
+    syncManualLoginId?: boolean;
     phone?: string;
     email?: string;
     password?: string;
@@ -846,6 +850,44 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
   }
 
+  /**
+   * 설계안 ⑧ G3 — 관리자 생성 회원은 @ID 와 실제 로그인 아이디(xxx@manual.local)가 따로 남는다.
+   * 관리자가 「로그인 아이디도 같이 변경」을 고르면 RPC 전에 대상·중복을 확인하고, RPC 성공 후 Auth 로그인 주소를 바꾼다.
+   */
+  const syncManualLoginId = body.syncManualLoginId === true && Boolean(nextDibayId);
+  const nextManualLoginEmail = syncManualLoginId && nextDibayId ? buildManualMemberAuthEmail(nextDibayId) : null;
+  if (syncManualLoginId && nextManualLoginEmail) {
+    const syncLinked = (await loadLinkedIdentitiesMapChunked(sb, [userId]).catch(() => new Map())).get(userId) ?? [];
+    const isAdminCreated = resolveMemberPasswordResetSupported({
+      authUserPresent: Boolean(authLookup.data?.user),
+      authEmail: currentAuthEmail,
+      profileAuthLoginEmail: (initialProfile as { auth_login_email?: string | null }).auth_login_email ?? null,
+      profileAuthProvider: (initialProfile as { auth_provider?: string | null }).auth_provider ?? null,
+      profileProvider: (initialProfile as { provider?: string | null }).provider ?? null,
+      linkedSnsProviders: syncLinked.map((row: { provider: string }) => row.provider),
+    });
+    if (!isAdminCreated) {
+      return NextResponse.json(
+        { ok: false, error: "login_id_sync_not_manual", message: "관리자 생성 회원만 로그인 아이디를 바꿀 수 있습니다." },
+        { status: 400 },
+      );
+    }
+    if (nextManualLoginEmail !== currentAuthEmail) {
+      const [authOwner, profileOwner] = await Promise.all([
+        findAuthUserByEmail(sb, nextManualLoginEmail).catch(() => null),
+        sb.from("profiles").select("id").eq("auth_login_email", nextManualLoginEmail).neq("id", userId).limit(1),
+      ]);
+      const takenByAuth = Boolean(authOwner && authOwner.id !== userId);
+      const takenByProfile = Array.isArray(profileOwner.data) && profileOwner.data.length > 0;
+      if (takenByAuth || takenByProfile) {
+        return NextResponse.json(
+          { ok: false, error: "login_id_taken", message: "같은 로그인 아이디를 쓰는 계정이 이미 있습니다." },
+          { status: 409 },
+        );
+      }
+    }
+  }
+
   if (nextDibayId) {
     const { data: rpcData, error: rpcError } = await sb.rpc("admin_set_dibay_id", {
       p_target_user_id: userId,
@@ -868,6 +910,32 @@ export async function PATCH(
               ? 500
               : 400;
       return NextResponse.json({ ok: false, error: code }, { status });
+    }
+    if (syncManualLoginId && nextManualLoginEmail && nextManualLoginEmail !== currentAuthEmail) {
+      const { error: loginErr } = await sb.auth.admin.updateUserById(userId, {
+        email: nextManualLoginEmail,
+        email_confirm: true,
+      });
+      if (loginErr) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "login_id_update_failed",
+            message: "@회원 ID 는 바뀌었지만 로그인 아이디 변경에 실패했습니다. 다시 시도해 주세요.",
+          },
+          { status: 500 },
+        );
+      }
+      await sb.from("profiles").update({ auth_login_email: nextManualLoginEmail }).eq("id", userId);
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: gate.actor.userId,
+        target_type: "member",
+        target_id: userId,
+        action: "admin_member_login_id_change",
+        before_json: { login_email: currentAuthEmail },
+        after_json: { login_email: nextManualLoginEmail, reason: dibayIdReason, via: "users_patch_dibay_id" },
+      });
     }
   }
 

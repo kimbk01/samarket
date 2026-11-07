@@ -101,3 +101,27 @@ describe("어드민 회원 로그인 계정 표시 (설계안 ③④)", () => {
     expect(ma).not.toMatch(/if \(!pickTrimmed\(existing\.email\) && email\) patch\.email = email;/);
   });
 });
+
+describe("@ID 변경 시 로그인 아이디 함께 변경 (설계안 ⑧ G3)", () => {
+  it("관리자 생성 회원에게만 선택이 보이고, 선택했을 때만 서버에 요청한다", () => {
+    const dialog = src("components/admin/users/AdminMemberDibayIdDialog.tsx");
+    expect(dialog).toMatch(/로그인 아이디도 같이 변경/);
+    expect(dialog).toMatch(/isAdminCreatedMember && syncLoginId \? \{ syncManualLoginId: true \} : \{\}/);
+    expect(src("components/admin/users/AdminMemberMasterHeader.tsx")).toMatch(
+      /isAdminCreatedMember=\{user\.signup_provider === "manual"\}/,
+    );
+  });
+
+  it("서버 — 관리자 생성 회원 확인·중복 확인을 RPC 전에, Auth 로그인 주소 변경·감사 기록을 RPC 후에", () => {
+    const route = src("app/api/admin/users/[id]/route.ts");
+    const iCheck = route.indexOf('error: "login_id_sync_not_manual"');
+    const iTaken = route.indexOf('error: "login_id_taken"');
+    const iRpc = route.indexOf('sb.rpc("admin_set_dibay_id"');
+    const iAuth = route.indexOf("email: nextManualLoginEmail,");
+    expect(iCheck).toBeGreaterThan(0);
+    expect(iCheck).toBeLessThan(iRpc);
+    expect(iTaken).toBeLessThan(iRpc);
+    expect(iAuth).toBeGreaterThan(iRpc);
+    expect(route).toMatch(/admin_member_login_id_change/);
+  });
+});

@@ -69,26 +69,50 @@ describe("P4 member create / edit / password workflows", () => {
     expect(header).toMatch(/passwordResetSupported/);
   });
 
-  it("password eligibility excludes social-only without email/manual", () => {
+  it("password eligibility = 관리자 생성 회원만 (Owner 2026-11-08 「수동 회원만」)", () => {
+    // 관리자 생성: admin_manual 표시 또는 @manual.local 로그인 주소
     expect(
-      resolveMemberPasswordResetSupported({
-        authUserPresent: true,
-        identityProviders: ["email"],
-      }),
+      resolveMemberPasswordResetSupported({ authUserPresent: true, profileAuthProvider: "admin_manual" }),
     ).toBe(true);
     expect(
       resolveMemberPasswordResetSupported({
         authUserPresent: true,
-        identityProviders: ["kakao"],
+        identityProviders: ["email"],
+        authEmail: "appreview01@manual.local",
+      }),
+    ).toBe(true);
+    // 네이티브 SNS 회원 — Supabase 내부 로그인 방식은 email 이지만 대상 아님
+    expect(
+      resolveMemberPasswordResetSupported({
+        authUserPresent: true,
+        identityProviders: ["email"],
+        authEmail: "apple.001125.x@apple.native.dibay.internal",
+        profileProvider: "apple",
+        linkedSnsProviders: ["apple"],
       }),
     ).toBe(false);
     expect(
       resolveMemberPasswordResetSupported({
         authUserPresent: true,
-        identityProviders: ["kakao"],
-        profileAuthProvider: "admin_manual",
+        identityProviders: ["email"],
+        authEmail: "google.1@google.native.dibay.internal",
+        profileProvider: "email",
+        linkedSnsProviders: ["google"],
       }),
-    ).toBe(true);
+    ).toBe(false);
+    // SNS 가 연결되면 admin_manual 표시가 있어도 대상 아님
+    expect(
+      resolveMemberPasswordResetSupported({
+        authUserPresent: true,
+        profileAuthProvider: "admin_manual",
+        linkedSnsProviders: ["kakao"],
+      }),
+    ).toBe(false);
+    // 일반 이메일 가입 — 대상 아님
+    expect(
+      resolveMemberPasswordResetSupported({ authUserPresent: true, identityProviders: ["email"], authEmail: "a@gmail.com" }),
+    ).toBe(false);
+    expect(resolveMemberPasswordResetSupported({ authUserPresent: false, profileAuthProvider: "admin_manual" })).toBe(false);
     const authRoute = src("app/api/admin/users/[id]/auth/route.ts");
     expect(authRoute).toMatch(/passwordResetSupported/);
     expect(authRoute).toMatch(/PASSWORD_TEMP_SET/);

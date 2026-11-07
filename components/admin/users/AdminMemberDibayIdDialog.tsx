@@ -17,12 +17,15 @@ export function AdminMemberDibayIdDialog({
   open,
   userId,
   currentDibayId,
+  isAdminCreatedMember = false,
   onClose,
   onSuccess,
 }: {
   open: boolean;
   userId: string;
   currentDibayId?: string | null;
+  /** 관리자 생성 회원 — 로그인 아이디(@manual.local)를 @ID 와 함께 바꿀 수 있다 (설계안 ⑧ G3) */
+  isAdminCreatedMember?: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }) {
@@ -30,6 +33,7 @@ export function AdminMemberDibayIdDialog({
   const [nextId, setNextId] = useState(() => normalizeDibayIdInput(currentDibayId));
   /** 변경 사유 — 필수 (서버·DB admin_set_dibay_id 가 같은 트랜잭션에서 감사 기록) */
   const [reason, setReason] = useState("");
+  const [syncLoginId, setSyncLoginId] = useState(false);
   const [pending, setPending] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -37,6 +41,7 @@ export function AdminMemberDibayIdDialog({
     if (!open) return;
     setNextId(normalizeDibayIdInput(currentDibayId));
     setReason("");
+    setSyncLoginId(false);
     setErrorText(null);
     setPending(false);
   }, [open, currentDibayId]);
@@ -71,10 +76,23 @@ export function AdminMemberDibayIdDialog({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dibayId: normalized, dibayIdReason: trimmedReason }),
+        body: JSON.stringify({
+          dibayId: normalized,
+          dibayIdReason: trimmedReason,
+          ...(isAdminCreatedMember && syncLoginId ? { syncManualLoginId: true } : {}),
+        }),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
+        if (
+          (data.error === "login_id_taken" ||
+            data.error === "login_id_update_failed" ||
+            data.error === "login_id_sync_not_manual") &&
+          data.message
+        ) {
+          setErrorText(data.message);
+          return;
+        }
         if (data.error === "dibay_id_similar_taken" || data.error === "dibay_id_reserved_prefix") {
           setErrorText(dibayIdErrorMessageKo(data.error) ?? MEMBER_ADMIN_COPY.mutation_failed);
           return;
@@ -168,6 +186,24 @@ export function AdminMemberDibayIdDialog({
             관리자 변경은 회원 본인의 1회 변경권을 사용하지 않습니다. 사유는 관리자 작업 기록에 남습니다.
           </span>
         </label>
+        {isAdminCreatedMember ? (
+          <label className="flex items-start gap-2 text-[13px]" data-member-dibay-id-sync-login="1">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={syncLoginId}
+              onChange={(e) => setSyncLoginId(e.target.checked)}
+            />
+            <span>
+              <span className="block font-medium text-sam-fg">로그인 아이디도 같이 변경</span>
+              <span className="block text-[12px] text-sam-muted">
+                {syncLoginId
+                  ? `로그인 아이디가 「${normalized || "새 아이디"}」 로 바뀌고, 기존 로그인 아이디로는 로그인할 수 없습니다.`
+                  : "선택하지 않으면 @회원 ID 만 바뀌고 로그인 아이디는 그대로입니다."}
+              </span>
+            </span>
+          </label>
+        ) : null}
       </div>
     </MemberAdminDialog>
   );
