@@ -4,6 +4,7 @@
 
 import type { ModerationStatus } from "@/lib/types/report";
 import type { AdminMemberRoleBadge } from "@/lib/admin-users/member-role-badges";
+import type { AdminMemberLoginAccount } from "@/lib/admin-users/member-sns-account";
 
 export type MemberType = "normal" | "premium" | "admin";
 /** List tab/query compat only — not Person identity SSOT. */
@@ -51,6 +52,8 @@ export interface AdminUser {
   authProvider?: AdminAuthProvider;
   providerLabel?: string;
   providerUserId?: string;
+  /** 로그인 계정 — SNS(user_auth_identities) 또는 관리자 생성 로그인 아이디 (설계안 ③) */
+  loginAccount?: AdminMemberLoginAccount | null;
   phone?: string;
   phoneVerifiedAt?: string;
   verifiedMemberAt?: string;
@@ -135,6 +138,8 @@ export interface UserModerationLog {
 export interface AdminUserDetail {
   id: string;
   username: string | null;
+  /** 가입 방식 — 목록과 같은 판정(user_auth_identities 우선, 설계안 ④) */
+  signup_provider?: AdminAuthProvider;
   dibay_id?: string | null;
   dibay_id_locked?: boolean;
   dibay_id_auto_assigned?: boolean;

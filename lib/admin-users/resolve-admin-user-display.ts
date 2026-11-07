@@ -35,6 +35,9 @@ export type AdminLinkedIdentity = {
   provider: string;
   providerUserId: string;
   email: string | null;
+  /** Apple 「이메일 가리기」 등 릴레이 주소 */
+  emailIsPrivateRelay?: boolean;
+  linkedAt?: string | null;
 };
 
 export type AdminDisplayProfile = {

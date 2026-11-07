@@ -5,6 +5,8 @@ import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
 import {
+  dibayIdErrorMessageKo,
+  isSystemReservedDibayIdPrefix,
   isValidDibayIdFormat,
   normalizeDibayIdInput,
 } from "@/lib/auth/dibay-id-policy";
@@ -48,7 +50,9 @@ export function AdminMemberDibayIdDialog({
     if (!dirty) return null;
     if (!normalized) return "새 @회원 ID를 입력해 주세요.";
     if (!isValidDibayIdFormat(normalized)) {
-      return "사용할 수 없는 @회원 ID 형식입니다. 영문 소문자·숫자·._ 조합(3–20자)만 가능합니다.";
+      return isSystemReservedDibayIdPrefix(normalized)
+        ? (dibayIdErrorMessageKo("dibay_id_reserved_prefix") as string)
+        : "사용할 수 없는 @회원 ID 형식입니다. 영문 소문자·숫자·._ 조합(3–20자)만 가능합니다.";
     }
     if (!trimmedReason) return "변경 사유를 입력해 주세요.";
     if (trimmedReason.length > DIBAY_ID_REASON_MAX) return `변경 사유는 ${DIBAY_ID_REASON_MAX}자 이내로 입력해 주세요.`;
@@ -71,6 +75,10 @@ export function AdminMemberDibayIdDialog({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
+        if (data.error === "dibay_id_similar_taken" || data.error === "dibay_id_reserved_prefix") {
+          setErrorText(dibayIdErrorMessageKo(data.error) ?? MEMBER_ADMIN_COPY.mutation_failed);
+          return;
+        }
         if (res.status === 409 || data.error === "dibay_id_taken") {
           setErrorText("이미 사용 중인 @회원 ID입니다.");
           return;

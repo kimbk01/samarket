@@ -9,7 +9,16 @@ import {
   normalizeAdminAuthProvider,
   resolveAdminAuthProvider,
 } from "@/lib/admin-users/resolve-admin-auth-provider";
-import { resolveAdminDisplayEmail } from "@/lib/admin-users/resolve-admin-user-display";
+import {
+  resolveAdminDisplayEmail,
+  type AdminLinkedIdentity,
+} from "@/lib/admin-users/resolve-admin-user-display";
+import { loadLinkedIdentitiesMapChunked } from "@/lib/admin-users/admin-users-list-server";
+import {
+  adminMemberLoginAccountCopyValue,
+  manualLoginIdFromAuthEmail,
+  resolveAdminMemberLoginAccount,
+} from "@/lib/admin-users/member-sns-account";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 import type { MemberType } from "@/lib/types/admin-user";
 import {
@@ -87,10 +96,20 @@ type AdminUserListItem = AdminUser & {
   roleBadges: AdminMemberRoleBadge[];
 };
 
-function profileIsManualMember(row: Pick<ProfileRow, "auth_provider" | "provider">): boolean {
+const SNS_ADMIN_PROVIDERS = new Set(["google", "kakao", "apple", "naver", "facebook"]);
+
+/**
+ * 관리자 생성 회원 — provider 가 manual 계열이거나, SNS 가 아니면서 로그인 주소가 `@manual.local`.
+ * (2026-10-02 이전 프로필 보정 코드가 provider 를 email 로 덮어쓴 25명 포함 — 설계안 ⑤)
+ */
+function profileIsManualMember(
+  row: Pick<ProfileRow, "auth_provider" | "provider" | "auth_login_email">,
+): boolean {
   const provider =
     normalizeAdminAuthProvider(row.auth_provider) ?? normalizeAdminAuthProvider(row.provider);
-  return provider === "manual";
+  if (provider === "manual") return true;
+  if (provider && SNS_ADMIN_PROVIDERS.has(provider)) return false;
+  return manualLoginIdFromAuthEmail(row.auth_login_email) !== null;
 }
 
 function normalizeRoleToken(value: string | null | undefined): string {
@@ -169,7 +188,14 @@ function parsePrivilegeFilter(raw: string | null): AdminMemberPrivilegeFilter | 
 
 function parseOriginFilter(raw: string | null): AdminMemberOriginFilter | null {
   const value = normalizeRoleToken(raw);
-  return value === "email" || value === "manual" || value === "kakao" || value === "other" ? value : null;
+  return value === "email" ||
+    value === "manual" ||
+    value === "kakao" ||
+    value === "google" ||
+    value === "apple" ||
+    value === "other"
+    ? value
+    : null;
 }
 
 function mapProfileRowToAdminUser(input: {
@@ -187,15 +213,27 @@ function mapProfileRowToAdminUser(input: {
   }>;
   hasAdminMembership: boolean;
   adminMembershipRole: "admin" | "super_admin" | null;
+  linkedIdentities: readonly AdminLinkedIdentity[] | null;
 }): AdminUserListItem {
   const { row: r, warnedUserIds, storeCount, hasApprovedStore, stores, hasAdminMembership, adminMembershipRole } = input;
+  const linkedIdentities = input.linkedIdentities ?? null;
+  // SNS 계정 기준 = user_auth_identities (설계안 ③) — profiles.provider 가 email 로 잘못 남은 회원도 바르게 분류
   const authProvider = resolveAdminAuthProvider({
     profile: r,
     isManualTestUser: profileIsManualMember(r),
+    linkedProviders: (linkedIdentities ?? []).map((row) => row.provider),
   });
+  // 연락 이메일 = 실제 연락 가능한 주소만. 내부 로그인 주소(native·@manual.local)로 되돌아가지 않는다 (설계안 ①)
   const displayEmail = resolveAdminDisplayEmail({
     profile: r,
+    linkedIdentities,
     provider: authProvider,
+  });
+  const loginAccount = resolveAdminMemberLoginAccount({
+    provider: authProvider,
+    linkedIdentities,
+    profileProviderUserId: r.provider_user_id,
+    authLoginEmail: r.auth_login_email,
   });
   const roleBadges = resolveAdminMemberRoleBadges({
     hasStoreOwnership: storeCount > 0,
@@ -211,15 +249,16 @@ function mapProfileRowToAdminUser(input: {
   const displayName = resolveDisplayName({
     display_name: nickname || r.display_name,
     nickname: r.nickname,
-    email: displayEmail ?? r.email,
+    email: displayEmail,
     username,
   });
-  const email = displayEmail ?? r.auth_login_email?.trim() ?? r.email?.trim() ?? undefined;
+  const email = displayEmail ?? undefined;
 
   return {
     id: r.id,
     loginUsername: username ?? undefined,
-    loginIdentifier: email ?? undefined,
+    loginIdentifier: adminMemberLoginAccountCopyValue(loginAccount) ?? email ?? undefined,
+    loginAccount,
     username,
     dibay_id: dibayId,
     dibay_id_locked: r.dibay_id_locked === true,
@@ -234,7 +273,7 @@ function mapProfileRowToAdminUser(input: {
     email,
     authProvider,
     providerLabel: adminAuthProviderLabel(authProvider),
-    providerUserId: r.provider_user_id?.trim() || undefined,
+    providerUserId: loginAccount?.providerUserId ?? undefined,
     phone: r.phone?.trim() || undefined,
     memberType,
     profileRole: r.role ?? undefined,
@@ -364,7 +403,23 @@ export async function GET(req: NextRequest) {
     const storeIdOwnerIds = uniqueAdminMemberIds(
       (storeIdResult.data ?? []).map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? "")),
     );
-    const storeSearchOwnerIds = uniqueAdminMemberIds([...storeNameOwnerIds, ...storeIdOwnerIds]);
+    // SNS 고유번호(카카오 회원번호·Apple sub·Google id)·SNS 계정 이메일 검색 (설계안 ③)
+    let identitySearchIds: string[] = [];
+    if (search && !uuidSearch) {
+      const { data: identityRows } = await supabase
+        .from("user_auth_identities")
+        .select("user_id")
+        .or(`provider_user_id.ilike.%${search}%,email.ilike.%${search}%`)
+        .limit(ADMIN_MEMBER_STORE_NAME_MATCH_LIMIT);
+      identitySearchIds = uniqueAdminMemberIds(
+        (identityRows ?? []).map((r) => String((r as { user_id?: string }).user_id ?? "")),
+      );
+    }
+    const storeSearchOwnerIds = uniqueAdminMemberIds([
+      ...storeNameOwnerIds,
+      ...storeIdOwnerIds,
+      ...identitySearchIds,
+    ]);
 
     const listOps = (
       includeAuthLoginEmail: boolean,
@@ -462,6 +517,9 @@ export async function GET(req: NextRequest) {
 
     const profileRows = (rows ?? []) as ProfileRow[];
     const profileIds = profileRows.map((row) => row.id).filter(Boolean);
+    const linkedIdentitiesMap = await loadLinkedIdentitiesMapChunked(supabase, profileIds).catch(
+      () => new Map<string, AdminLinkedIdentity[]>(),
+    );
 
     const runStatusCount = async (
       includeAuthLoginEmail: boolean,
@@ -583,6 +641,7 @@ export async function GET(req: NextRequest) {
         stores: store.stores,
         hasAdminMembership,
         adminMembershipRole: adminMembershipRoleByUser.get(r.id) ?? null,
+        linkedIdentities: linkedIdentitiesMap.get(r.id) ?? null,
       });
     });
 

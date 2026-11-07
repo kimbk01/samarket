@@ -204,6 +204,14 @@ export function ProfileDibayIdSection({
         if (code === "dibay_id_taken") {
           setAvailable(false);
           setError(t("profile_edit_dibay_id_err_duplicate"));
+        } else if (code === "dibay_id_similar_taken") {
+          setAvailable(false);
+          setError(
+            safeT("profile_edit_dibay_id_err_similar", {
+              fallbackKo: "비슷한 아이디(점·밑줄만 다름)가 이미 있습니다. 다른 아이디를 입력하세요.",
+              fallbackEn: "A similar ID (differing only by . or _) already exists. Try another ID.",
+            })
+          );
         } else if (code === "dibay_id_already_locked" || code === "dibay_id_change_limit") {
           setError(
             safeT("profile_edit_dibay_id_err_change_limit", {

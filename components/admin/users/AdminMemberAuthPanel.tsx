@@ -9,6 +9,7 @@ import {
   resolveDetailAuthProvider,
 } from "@/components/admin/users/admin-user-lite-display";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { memberDetailContactEmail, memberDetailLoginIdLabel } from "@/lib/admin-users/member-detail-control-center-ia";
 import {
   memberDetailAccountStateLabelKo,
@@ -16,8 +17,13 @@ import {
   memberDetailVerificationLabelKo,
 } from "@/lib/admin-users/member-detail-presentation";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { AdminAuthProvider } from "@/lib/types/admin-user";
+import type { AdminLinkedIdentity } from "@/lib/admin-users/resolve-admin-user-display";
 
 type AuthPayload = {
+  signupProvider?: AdminAuthProvider;
+  manualLoginId?: string | null;
+  linkedIdentities?: AdminLinkedIdentity[];
   auth: {
     email: string | null;
     emailConfirmedAt: string | null;
@@ -104,7 +110,11 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
   }
 
   const { auth, authLoadError, profile } = state.data;
-  const providers = auth?.identities.map((row) => row.provider).filter(Boolean).join(", ") || empty;
+  // Supabase 내부 로그인 방식 — 네이티브 SNS 도 「email」(내부 주소+비밀번호)이라 SNS 판정에 쓰지 않는다 (설계안 ④)
+  const internalLoginMethods = auth?.identities.map((row) => row.provider).filter(Boolean).join(", ") || empty;
+  const signupProvider = state.data.signupProvider ?? resolveDetailAuthProvider(user.email);
+  const manualLoginId = state.data.manualLoginId ?? null;
+  const linked = (state.data.linkedIdentities ?? []).filter((row) => row.provider !== "email");
   const canChangePassword = Boolean(auth);
 
   return (
@@ -126,10 +136,19 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
             empty
           }
         />
-        <Field label="로그인 ID" value={memberDetailLoginIdLabel(user.username) || empty} />
+        <Field
+          label="실제 로그인 아이디"
+          value={
+            manualLoginId
+              ? manualLoginId
+              : linked.length > 0
+                ? "SNS 로그인 (아이디 없음)"
+                : memberDetailLoginIdLabel(user.username) || empty
+          }
+        />
         <Field label="계정 상태" value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)} />
         <Field label="인증" value={memberDetailVerificationLabelKo(user.phone_verified)} />
-        <Field label="가입 경로" value={memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email))} />
+        <Field label="가입 경로" value={memberDetailSignupOriginLabelKo(signupProvider)} />
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_verify", { fallbackKo: "인증", fallbackEn: "Verification" })}>
         <Field
@@ -137,7 +156,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
           value={user.phone_verified === true ? t("admin_users_lite_verified_done") : t("admin_users_lite_verified_pending")}
         />
         <Field label={safeT("admin_users_cc_auth_email_confirmed", { fallbackKo: "이메일 확인", fallbackEn: "Email confirmed" })} value={fmt(auth?.emailConfirmedAt)} />
-        <Field label={safeT("admin_users_cc_auth_providers", { fallbackKo: "연결 provider", fallbackEn: "Linked providers" })} value={providers} />
+        <Field label="내부 로그인 방식" value={internalLoginMethods} />
         {authLoadError ? <p className="mt-2 text-[12px] text-sam-danger">{authLoadError}</p> : null}
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_login", { fallbackKo: "로그인", fallbackEn: "Login" })}>
@@ -145,6 +164,57 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         <Field label={safeT("admin_users_label_auth_last_login", { fallbackKo: "Auth 최근 로그인", fallbackEn: "Auth last sign-in" })} value={fmt(auth?.lastSignInAt)} />
         <Field label={safeT("admin_users_cc_auth_profile_provider", { fallbackKo: "프로필 provider", fallbackEn: "Profile provider" })} value={profile?.authProvider || profile?.provider || empty} />
       </Fieldset>
+      <section className={`${ADMIN_USERS_LITE_CARD} p-3 lg:col-span-2`} data-member-auth-linked-accounts="1">
+        <h3 className="mb-1 text-[12px] font-bold uppercase tracking-wide text-sam-muted">연결된 로그인 계정</h3>
+        {linked.length === 0 ? (
+          <p className="py-1.5 text-[13px] text-sam-muted">
+            {manualLoginId ? `관리자 생성 계정 · 로그인 아이디 ${manualLoginId}` : "연결된 SNS 계정 없음"}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead className="text-[12px] text-sam-muted">
+                <tr>
+                  <th className="py-1.5 pr-3 font-medium">제공자</th>
+                  <th className="py-1.5 pr-3 font-medium">계정 이메일</th>
+                  <th className="py-1.5 pr-3 font-medium">고유번호</th>
+                  <th className="py-1.5 pr-3 font-medium">연결 일시 (PHT)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linked.map((row) => (
+                  <tr key={`${row.provider}:${row.providerUserId}`} className="border-t border-sam-border-soft">
+                    <td className="py-1.5 pr-3 font-medium text-sam-fg">{memberDetailSignupOriginLabelKo(row.provider)}</td>
+                    <td className="break-all py-1.5 pr-3 text-sam-fg">
+                      {row.email
+                        ? row.emailIsPrivateRelay
+                          ? `${row.email} (이메일 가리기)`
+                          : row.email
+                        : row.provider === "kakao"
+                          ? "— (카카오 이메일 미동의)"
+                          : row.provider === "apple"
+                            ? "— (Apple 이메일 가리기)"
+                            : empty}
+                    </td>
+                    <td className="break-all py-1.5 pr-3 font-mono text-[12px] text-sam-fg">
+                      <AdminActionButton
+                        variant="ghost"
+                        size="sm"
+                        className="!h-auto !px-0 !py-0 text-left !font-mono !text-[12px] !font-normal"
+                        title="클릭하면 복사"
+                        onClick={() => void navigator.clipboard?.writeText(row.providerUserId).catch(() => {})}
+                      >
+                        {row.providerUserId}
+                      </AdminActionButton>
+                    </td>
+                    <td className="whitespace-nowrap py-1.5 pr-3 text-sam-muted">{fmt(row.linkedAt ?? null)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
             <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-3 lg:col-span-2`} data-member-auth-password-note="1">
         <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">{t("admin_users_auth_password_section")}</h3>
         <p className="text-[13px] text-sam-fg">

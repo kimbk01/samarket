@@ -253,6 +253,7 @@ export const settingsUiMessages = {
     profile_edit_dibay_id_confirm_btn: "아이디 확정",
     profile_edit_dibay_id_available: "사용 가능한 아이디입니다.",
     profile_edit_dibay_id_err_duplicate: "이미 사용 중인 아이디입니다.",
+    profile_edit_dibay_id_err_similar: "비슷한 아이디(점·밑줄만 다름)가 이미 있습니다. 다른 아이디를 입력하세요.",
     profile_edit_dibay_id_err_empty: "아이디를 입력해 주세요.",
     profile_edit_dibay_id_err_format:
       "아이디는 영문 소문자, 숫자, 점, 언더바만 사용할 수 있습니다.",
@@ -653,6 +654,7 @@ export const settingsUiMessages = {
     profile_edit_dibay_id_confirm_btn: "Confirm username",
     profile_edit_dibay_id_available: "This username is available.",
     profile_edit_dibay_id_err_duplicate: "This username is already taken.",
+    profile_edit_dibay_id_err_similar: "A similar ID (differing only by . or _) already exists. Try another ID.",
     profile_edit_dibay_id_err_empty: "Enter a username.",
     profile_edit_dibay_id_err_format:
       "Usernames may only use lowercase letters, numbers, dots, and underscores.",

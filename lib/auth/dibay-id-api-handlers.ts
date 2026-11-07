@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
+import { dibayIdSimilarityKey, isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
 
 export async function reserveDibayIdForUser(
@@ -46,7 +46,19 @@ export async function reserveDibayIdForUser(
         (r as { username_confirmed?: boolean }).username_confirmed === true
     );
 
-  return { ok: true, available: !takenByOther, normalized };
+  // 비슷한 아이디(점·밑줄만 다름) — DB 생성 컬럼 dibay_id_key 기준 (컬럼 적용 전이면 이 검사만 건너뜀, 최종 판정은 DB 함수)
+  let similarByOther = false;
+  if (!takenByOther) {
+    const { data: keyHits, error: keyErr } = await sb
+      .from("profiles")
+      .select("id")
+      .eq("dibay_id_key", dibayIdSimilarityKey(normalized))
+      .neq("id", userId)
+      .limit(1);
+    if (!keyErr) similarByOther = (keyHits ?? []).length > 0;
+  }
+
+  return { ok: true, available: !takenByOther && !similarByOther, normalized };
 }
 
 type RpcResult = {
@@ -94,6 +106,7 @@ export async function confirmDibayIdForUser(
       code === "terms_required"
         ? 403
         : code === "dibay_id_taken" ||
+            code === "dibay_id_similar_taken" ||
             code === "dibay_id_already_locked" ||
             code === "dibay_id_change_limit"
           ? 409

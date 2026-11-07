@@ -5,7 +5,7 @@ import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
-import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
+import { inferAuthProviderFromSyntheticEmail, pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
 import { mergeOAuthAvatarIntoPatch } from "@/lib/auth/refresh-oauth-avatar-if-legacy";
 import { withVerifiedOAuthAvatar } from "@/lib/profile/verify-remote-profile-image.server";
 import { isForbiddenSocialProviderUserId } from "@/lib/auth/provider-identity/profile-identity-metadata-contract";
@@ -61,22 +61,20 @@ function normalizeProvider(provider: string | null | undefined): string | null {
 }
 
 /**
- * `profiles.provider` / `profiles.auth_provider` 컬럼은
- * `profiles_provider_check` 제약(`'google','kakao','naver','manual','email'`)을 받는다.
- * 정책 코드(`store-member-policy`)는 표시·정책 분기용으로 `'admin_manual'` 을 쓰지만,
- * DB에 그대로 넣으면 제약 위반이 되므로 저장 직전 `'manual'` 로 매핑한다.
+ * `profiles.provider` / `profiles.auth_provider` 컬럼은 운영 DB 제약 `profiles_provider_check`
+ * (`'google','kakao','naver','apple','facebook','admin_manual','email'`, 운영 조회 2026-11-08)을 받는다.
+ * 관리자 생성 계열(`manual`·`admin_manual`)은 `'admin_manual'` 로 저장한다 — `'manual'` 은 제약 위반 (설계안 ⑥).
  */
 function normalizeProviderForDb(provider: string | null | undefined): string | null {
   const normalized = normalizeStoreAuthProvider(provider);
   if (!normalized) return null;
-  if (normalized === "admin_manual") return "manual";
+  if (normalized === "admin_manual" || normalized === "manual") return "admin_manual";
   if (
     normalized === "google" ||
     normalized === "kakao" ||
     normalized === "naver" ||
     normalized === "apple" ||
     normalized === "facebook" ||
-    normalized === "manual" ||
     normalized === "email"
   ) {
     return normalized;
@@ -470,7 +468,8 @@ export async function ensureAuthProfileRow(
     const oauthAvatar = withDefaultAvatar((await withVerifiedOAuthAvatar(seed, null)).avatarCandidate);
     const seedRow = {
       id: user.id,
-      email,
+      // 연락 이메일 칸에는 실제 연락 주소만 (로그인 주소 @manual.local 은 auth_login_email 에만 — 설계안 ②)
+      email: pickContactEmailForProfile(email),
       display_name: displaySeed,
       username: username ?? displaySeed,
       nickname: displaySeed,
@@ -543,7 +542,9 @@ export async function ensureAuthProfileRow(
     }
   } else {
     const patch: Record<string, unknown> = {};
-    if (!pickTrimmed(existing.email) && email) patch.email = email;
+    // 연락 이메일 칸에 내부 로그인 주소(native·@manual.local)를 채우지 않는다 (설계안 ②)
+    const contactEmail = pickContactEmailForProfile(email);
+    if (!pickTrimmed(existing.email) && contactEmail) patch.email = contactEmail;
     const needsDisplayName = !pickTrimmed((existing as { display_name?: string | null }).display_name) && Boolean(nickname);
     const needsNickname = !pickTrimmed(existing.nickname) && Boolean(nickname);
     if (needsDisplayName) patch.display_name = await ensureUniqueNickname();
@@ -551,7 +552,14 @@ export async function ensureAuthProfileRow(
       patch.username = username;
     }
     if (needsNickname) patch.nickname = await ensureUniqueNickname();
-    if (!pickTrimmed((existing as { auth_login_email?: string | null }).auth_login_email) && email) patch.auth_login_email = email;
+    // auth_login_email: SNS 내부 주소(*.native.dibay.internal)는 기록하지 않는다. 관리자 생성 @manual.local 은 실제 로그인 주소라 유지.
+    if (
+      !pickTrimmed((existing as { auth_login_email?: string | null }).auth_login_email) &&
+      email &&
+      !inferAuthProviderFromSyntheticEmail(email)
+    ) {
+      patch.auth_login_email = email;
+    }
     if (!pickTrimmed((existing as { provider?: string | null }).provider) && dbProvider) patch.provider = dbProvider;
     if (!pickTrimmed(existing.auth_provider) && dbProvider) patch.auth_provider = dbProvider;
     if (!pickTrimmed((existing as { member_status?: string | null }).member_status)) {

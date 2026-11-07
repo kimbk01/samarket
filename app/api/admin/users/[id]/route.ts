@@ -28,6 +28,9 @@ import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { AdminUserDetail } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
+import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
+import { manualLoginIdFromAuthEmail } from "@/lib/admin-users/member-sns-account";
+import { normalizeAdminAuthProvider as normalizeStoreAuthProviderForDetail } from "@/lib/admin-users/resolve-admin-auth-provider";
 import {
   ensureManualLoginEmailAligned,
   resolveContactEmailCredentialPatch,
@@ -446,7 +449,7 @@ export async function GET(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, provider, auth_provider, member_status, member_type, status, deleted_at, verified_member_at, created_at, last_login_at, region_code, region_name, address_street_line, address_detail, trust_score"
+      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, auth_login_email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, phone_verification_method, provider, auth_provider, member_status, member_type, status, deleted_at, verified_member_at, created_at, last_login_at, region_code, region_name, address_street_line, address_detail, trust_score"
     )
     .eq("id", rawId)
     .maybeSingle();
@@ -475,6 +478,7 @@ export async function GET(
       dibay_id_changed_once?: boolean | null;
       dibay_id_changed_at?: string | null;
       email?: string | null;
+      auth_login_email?: string | null;
       role?: string | null;
       display_name?: string | null;
       nickname?: string | null;
@@ -491,6 +495,19 @@ export async function GET(
       last_login_at?: string | null;
       trust_score?: number | null;
     };
+    // 가입 방식 = 목록과 같은 판정: user_auth_identities 우선, 관리자 생성(@manual.local) 인식 (설계안 ④)
+    const detailLinked =
+      (await loadLinkedIdentitiesMapChunked(supabase, [rawId]).catch(() => new Map<string, AdminLinkedIdentity[]>())).get(
+        rawId,
+      ) ?? [];
+    const detailManualLoginId = manualLoginIdFromAuthEmail(prof.auth_login_email);
+    const signupProvider = resolveAdminAuthProvider({
+      profile: prof,
+      linkedProviders: linkedProvidersFromIdentities(detailLinked),
+      isManualTestUser:
+        normalizeStoreAuthProviderForDetail(prof.auth_provider ?? prof.provider) === "manual" ||
+        (detailManualLoginId !== null && !detailLinked.some((row) => row.provider !== "email")),
+    });
     /** 대표 주소 SSOT = user_addresses.is_default_master (앱 게이트와 동일) — 레거시 profiles.region_* 는 사용하지 않음 (감사 #9) */
     const defaultMasterAddress = await loadAuthOnlyContactAddress(supabase as SupabaseClient, rawId).catch(() => null);
     const hasWarn = await userHasRecentWarn(supabase, rawId).catch(() => false);
@@ -508,7 +525,9 @@ export async function GET(
       dibay_id_initial: prof.dibay_id_initial ?? null,
       dibay_id_changed_once: prof.dibay_id_changed_once === true,
       dibay_id_changed_at: prof.dibay_id_changed_at ?? null,
-      email: prof.email ?? null,
+      // 연락 이메일만 — 내부 로그인 주소(native·@manual.local)는 내보내지 않는다 (설계안 ①)
+      email: pickContactEmailForProfile(prof.email) ?? null,
+      signup_provider: signupProvider,
       role: String(prof.role ?? "user").trim() || "user",
       display_name: prof.display_name ?? null,
       nickname: prof.nickname ?? null,
@@ -841,7 +860,13 @@ export async function PATCH(
     if (rpc.ok !== true) {
       const code = String(rpc.error ?? "dibay_id_update_failed");
       const status =
-        code === "dibay_id_taken" ? 409 : code === "profile_missing" ? 404 : code === "forbidden" ? 500 : 400;
+        code === "dibay_id_taken" || code === "dibay_id_similar_taken"
+          ? 409
+          : code === "profile_missing"
+            ? 404
+            : code === "forbidden"
+              ? 500
+              : 400;
       return NextResponse.json({ ok: false, error: code }, { status });
     }
   }

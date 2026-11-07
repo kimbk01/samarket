@@ -14,7 +14,7 @@ export type AdminMemberStoreFilter = "has_store" | "no_store";
 /** OD-03: `admin` includes 최고관리자; cell badge differentiates. */
 export type AdminMemberPrivilegeFilter = "admin" | "member";
 /** R0 origin axis — UI Korean; URL uses these canonical tokens. */
-export type AdminMemberOriginFilter = "email" | "manual" | "kakao" | "other";
+export type AdminMemberOriginFilter = "email" | "manual" | "kakao" | "google" | "apple" | "other";
 
 export function isAdminMemberUuidSearch(raw: string): boolean {
   return ADMIN_MEMBER_UUID_RE.test(raw.trim());
@@ -249,7 +249,9 @@ export function adminMemberPrivilegeFilterPlan(
 
 const MANUAL_PROVIDER_IN =
   "manual,manual_admin,manual_admin_backfill,admin_manual";
-const OTHER_PROVIDER_IN = "google,apple,naver,facebook";
+const OTHER_PROVIDER_IN = "naver,facebook";
+/** 관리자 생성 회원의 로그인 주소 (provider 가 email 로 잘못 남은 회원 포함 — 설계안 ⑤) */
+const MANUAL_LOGIN_EMAIL_LIKE = "%@manual.local";
 
 /** Signup/origin axis — human labels in UI; tokens stay in URL/query. */
 export function adminMemberOriginFilterOps(
@@ -260,15 +262,15 @@ export function adminMemberOriginFilterOps(
     return [
       {
         type: "or",
-        value: `auth_provider.in.(${MANUAL_PROVIDER_IN}),provider.in.(${MANUAL_PROVIDER_IN})`,
+        value: `auth_provider.in.(${MANUAL_PROVIDER_IN}),provider.in.(${MANUAL_PROVIDER_IN}),auth_login_email.ilike.${MANUAL_LOGIN_EMAIL_LIKE}`,
       },
     ];
   }
-  if (origin === "kakao") {
+  if (origin === "kakao" || origin === "google" || origin === "apple") {
     return [
       {
         type: "or",
-        value: "auth_provider.eq.kakao,provider.eq.kakao",
+        value: `auth_provider.eq.${origin},provider.eq.${origin}`,
       },
     ];
   }
@@ -280,12 +282,16 @@ export function adminMemberOriginFilterOps(
       },
     ];
   }
-  // 일반 가입 (email) — include null/empty provider as email-class signup
+  // 일반 가입 (email) — include null/empty provider as email-class signup, 관리자 생성(@manual.local) 제외
   return [
     {
       type: "or",
       value:
         "auth_provider.eq.email,provider.eq.email,and(auth_provider.is.null,provider.is.null)",
+    },
+    {
+      type: "or",
+      value: `auth_login_email.is.null,auth_login_email.not.ilike.${MANUAL_LOGIN_EMAIL_LIKE}`,
     },
   ];
 }

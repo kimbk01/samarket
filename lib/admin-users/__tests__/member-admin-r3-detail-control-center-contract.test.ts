@@ -216,7 +216,7 @@ describe("R3 Member Detail Control Center IA", () => {
   it("account/auth suppresses synthetic contact email", () => {
     const auth = src("components/admin/users/AdminMemberAuthPanel.tsx");
     expect(auth).toMatch(/memberDetailContactEmail/);
-    expect(auth).toMatch(/로그인 ID/);
+    expect(auth).toMatch(/실제 로그인 아이디/);
     expect(auth).toMatch(/memberDetailAccountStateLabelKo/);
     expect(auth).toMatch(/memberDetailVerificationLabelKo/);
   });

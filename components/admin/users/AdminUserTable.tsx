@@ -4,6 +4,11 @@ import { forwardRef, memo, useCallback } from "react";
 import Link from "next/link";
 import { adminMemberNicknameSecondary } from "@/lib/admin-users/admin-member-identity";
 import {
+  adminContactEmailEmptyReasonKo,
+  adminMemberLoginAccountCopyValue,
+  adminMemberLoginAccountLabelKo,
+} from "@/lib/admin-users/member-sns-account";
+import {
   MEMBER_LIST_AT_ID_COLUMN_KO,
   MEMBER_LIST_DETAIL_ACTION_KO,
   MEMBER_LIST_STORE_NONE_KO,
@@ -87,6 +92,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   const phone = user.phone?.trim() || "";
   const contactEmail = user.email?.trim() || "";
   const provider = resolveProvider(user);
+  const accountLabel = adminMemberLoginAccountLabelKo(user.loginAccount);
+  const accountCopy = adminMemberLoginAccountCopyValue(user.loginAccount);
+  const contactEmptyReason = contactEmail ? null : adminContactEmailEmptyReasonKo(user.loginAccount);
 
   return (
     <tr
@@ -113,6 +121,21 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold text-sam-fg">{display}</p>
             {nick ? <p className="truncate text-[12px] text-sam-muted">{nick}</p> : null}
+            {accountLabel ? (
+              <AdminActionButton
+                variant="ghost"
+                size="sm"
+                className="!h-auto !px-0 !py-0 block max-w-[260px] truncate text-left !text-[12px] !font-normal text-sam-muted"
+                title={accountCopy ? `${accountLabel} — 클릭하면 복사` : accountLabel}
+                data-member-list-login-account={user.loginAccount?.provider ?? ""}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (accountCopy) void navigator.clipboard?.writeText(accountCopy).catch(() => {});
+                }}
+              >
+                {accountLabel}
+              </AdminActionButton>
+            ) : null}
           </div>
         </div>
       </td>
@@ -133,7 +156,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="px-3 py-2 text-sam-muted">
         <p>{phone || emptyCell}</p>
-        <p className="text-[12px] text-sam-muted">{contactEmail || emptyCell}</p>
+        <p className="text-[12px] text-sam-muted" data-member-list-contact-email="1">
+          {contactEmail || (contactEmptyReason ? `${emptyCell} (${contactEmptyReason})` : emptyCell)}
+        </p>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[12px] font-semibold ${statusBadgeClass(status)}`}>

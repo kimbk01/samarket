@@ -77,7 +77,7 @@ export async function loadLinkedIdentitiesMapChunked(
     chunks.map((chunk) =>
       sb
         .from("user_auth_identities")
-        .select("user_id, provider, provider_user_id, email")
+        .select("user_id, provider, provider_user_id, email, email_is_private_relay, linked_at")
         .in("user_id", chunk),
     ),
   );
@@ -89,6 +89,8 @@ export async function loadLinkedIdentitiesMapChunked(
       provider?: string | null;
       provider_user_id?: string | null;
       email?: string | null;
+      email_is_private_relay?: boolean | null;
+      linked_at?: string | null;
     }>) {
       const userId = String(row.user_id ?? "").trim();
       const provider = String(row.provider ?? "").trim().toLowerCase();
@@ -98,6 +100,8 @@ export async function loadLinkedIdentitiesMapChunked(
         provider,
         providerUserId,
         email: pickString(row.email),
+        emailIsPrivateRelay: row.email_is_private_relay === true,
+        linkedAt: pickString(row.linked_at),
       };
       const existing = out.get(userId);
       if (existing) {

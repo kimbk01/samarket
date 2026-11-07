@@ -5,6 +5,9 @@ import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-que
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 import { resolveMemberPasswordResetSupported } from "@/lib/admin-users/member-password-eligibility";
 import { ensureManualLoginEmailAligned } from "@/lib/auth/manual-member-login-credential";
+import { loadLinkedIdentitiesMapChunked } from "@/lib/admin-users/admin-users-list-server";
+import { resolveAdminAuthProvider } from "@/lib/admin-users/resolve-admin-auth-provider";
+import { manualLoginIdFromAuthEmail } from "@/lib/admin-users/member-sns-account";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 
 export const runtime = "nodejs";
@@ -49,6 +52,34 @@ export async function GET(
   const authUser = authRes.data?.user ?? null;
   const authError = authRes.error?.message ?? null;
 
+  // SNS 계정 기준 = user_auth_identities (설계안 ④). Supabase identities 는 네이티브 SNS 도 「email」 이라 SNS 판정에 쓰지 않는다.
+  const linkedIdentities =
+    (await loadLinkedIdentitiesMapChunked(gate.sb, [userId]).catch(() => new Map())).get(userId) ?? [];
+  const profileForProvider = (profile ?? {}) as {
+    provider?: string | null;
+    auth_provider?: string | null;
+    email?: string | null;
+    auth_login_email?: string | null;
+  };
+  const profileAuthLoginEmail = String(profileForProvider.auth_login_email ?? "").trim() || null;
+  const manualLoginId =
+    manualLoginIdFromAuthEmail(profileAuthLoginEmail) ?? manualLoginIdFromAuthEmail(authUser?.email ?? null);
+  const signupProvider = resolveAdminAuthProvider({
+    authUser: authUser
+      ? {
+          email: authUser.email ?? null,
+          app_metadata: (authUser.app_metadata ?? null) as Record<string, unknown> | null,
+          user_metadata: (authUser.user_metadata ?? null) as Record<string, unknown> | null,
+          identities: (authUser.identities ?? []).map((row) => ({ provider: row.provider ?? null })),
+        }
+      : null,
+    profile: profileForProvider,
+    linkedProviders: linkedIdentities.map((row: { provider: string }) => row.provider),
+    isManualTestUser:
+      manualLoginId !== null &&
+      !linkedIdentities.some((row: { provider: string }) => row.provider !== "email"),
+  });
+
   const identities = (authUser?.identities ?? []).map((identity) => ({
     provider: String(identity.provider ?? "").trim() || null,
     identityId: String(identity.id ?? "").trim() || null,
@@ -67,6 +98,9 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     passwordResetSupported,
+    signupProvider,
+    manualLoginId,
+    linkedIdentities,
     auth: authUser
       ? {
           email: authUser.email ?? null,

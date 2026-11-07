@@ -217,7 +217,7 @@ export function AdminMemberOverviewPanel({
         <Fact label="인증" value={memberDetailVerificationLabelKo(user.phone_verified)} />
         <Fact
           label="가입 경로"
-          value={memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email))}
+          value={memberDetailSignupOriginLabelKo(user.signup_provider ?? resolveDetailAuthProvider(user.email))}
         />
       </dl>
     ),

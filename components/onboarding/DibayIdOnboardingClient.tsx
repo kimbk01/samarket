@@ -109,7 +109,7 @@ export function DibayIdOnboardingClient() {
         const code = (json as { error?: string } | null)?.error ?? "";
         if (code === "terms_required") {
           setError(t("auth_consent_both_required"));
-        } else if (code === "dibay_id_taken") {
+        } else if (code === "dibay_id_taken" || code === "dibay_id_similar_taken") {
           setError(t("auth_onboarding_username_taken"));
         } else {
           setError(code || t("auth_onboarding_save_failed"));

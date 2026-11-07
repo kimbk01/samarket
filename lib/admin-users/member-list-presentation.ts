@@ -163,6 +163,10 @@ export function memberListOriginFilterLabelKo(origin: AdminMemberOriginFilter): 
       return MEMBER_ADMIN_COPY.origin_admin_manual;
     case "kakao":
       return MEMBER_ADMIN_COPY.origin_kakao;
+    case "google":
+      return "Google";
+    case "apple":
+      return "Apple";
     case "other":
       return MEMBER_LIST_ORIGIN_OTHER_KO;
   }
@@ -234,7 +238,9 @@ function parsePrivilege(raw: string): AdminMemberPrivilegeFilter | "" {
 
 function parseOrigin(raw: string): AdminMemberOriginFilter | "" {
   const v = raw.trim().toLowerCase();
-  return v === "email" || v === "manual" || v === "kakao" || v === "other" ? v : "";
+  return v === "email" || v === "manual" || v === "kakao" || v === "google" || v === "apple" || v === "other"
+    ? v
+    : "";
 }
 
 function parseDateYmd(raw: string): string {

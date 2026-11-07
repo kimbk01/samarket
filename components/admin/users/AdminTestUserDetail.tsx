@@ -51,6 +51,8 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 export type AdminUserDetailPayload = {
   id: string;
   username: string | null;
+  /** 가입 방식 — 목록과 같은 판정 (설계안 ④) */
+  signup_provider?: AdminAuthProvider;
   dibay_id?: string | null;
   email?: string | null;
   role: string;

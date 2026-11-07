@@ -168,6 +168,8 @@ export function AdminUserFilterBar({
             <option value="email">{memberListOriginFilterLabelKo("email")}</option>
             <option value="manual">{memberListOriginFilterLabelKo("manual")}</option>
             <option value="kakao">{memberListOriginFilterLabelKo("kakao")}</option>
+            <option value="google">{memberListOriginFilterLabelKo("google")}</option>
+            <option value="apple">{memberListOriginFilterLabelKo("apple")}</option>
             <option value="other">{memberListOriginFilterLabelKo("other")}</option>
           </select>
         </label>

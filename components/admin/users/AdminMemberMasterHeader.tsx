@@ -109,7 +109,7 @@ export function AdminMemberMasterHeader({
   const isAdmin = Boolean(adminMembership);
   const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
   const isSuper = membershipRole === "super_admin" || (isAdmin && isSuperAdmin);
-  const signupOrigin = memberDetailSignupOriginLabelKo(resolveDetailAuthProvider(user.email));
+  const signupOrigin = memberDetailSignupOriginLabelKo(user.signup_provider ?? resolveDetailAuthProvider(user.email));
   const [showEdit, setShowEdit] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDibayId, setShowDibayId] = useState(false);
