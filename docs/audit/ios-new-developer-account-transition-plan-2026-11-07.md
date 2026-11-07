@@ -1,5 +1,6 @@
 # DIBAY iOS 새 개발자 계정 전환 계획 (통화 변경 규정 적용 문서) — 2026-11-07 PHT
 
+> **Owner 승인: 2026-11-07 「계획 승인」.** 번들 ID `com.dibay.ph` 확정.
 > Owner 결정: 새 개발자 계정(필리핀 주소·개인)으로 출시. 이 문서는 AGENTS.md 「통화 변경 규정」 3번(수정 전 영향 분석·계획 문서 → **Owner 승인 후 구현**)에 따른 계획이다. **아직 구현하지 않았다.** 새 계정 승인 후 Owner 승인을 받아 시작한다.
 > 근거는 코드·운영 DB 직접 확인. 확인 못 한 것은 NOT_PROVEN.
 
@@ -60,3 +61,20 @@
 - 같은 사람의 두 번째 개인 계정 허용 여부(Apple 문구 없음).
 - 앱 이름 「DiBaY - 디바이」 를 새 계정에서 쓸 수 있는지.
 - 웹 Apple 로그인(Supabase)이 쓰는 Services ID 의 팀.
+
+## 부록 A. Owner Apple 등록 순서 (새 계정 승인 후 · 작업자는 값 입력·서명·결제를 대신하지 않음)
+
+| # | 화면 | 할 일 | 작업자에게 알려 줄 값 |
+|---|---|---|---|
+| A1 | App Store Connect › 비즈니스 | 유료 앱 계약 동의, 은행(필리핀 PHP), 세금(W-8BEN — 거주국 필리핀) | 계약 상태 |
+| A2 | developer.apple.com › Identifiers › App IDs | `com.dibay.ph` 생성 — Capabilities: Push Notifications, Sign In with Apple | — |
+| A3 | 같은 화면 | `com.dibay.ph.DibayPushServiceExtension` 생성 (알림 확장) | — |
+| A4 | Keys | 키 2개를 따로 생성 — ① Apple Push Notifications service(APNs, 환경 Sandbox & Production, 범위 Team Scoped) ② Sign in with Apple (Primary App ID `com.dibay.ph`). **각 .p8 은 한 번만 내려받을 수 있다** (Apple: 「you won't be able to download it again」) | 각 Key ID, Team ID (.p8 파일은 Owner 가 Vercel 에 직접 입력: ① → `APNS_KEY_P8`, ② → `APPLE_SIWA_KEY_P8`) |
+| A5 | Identifiers › Services IDs (웹 Apple 로그인 쓰는 경우만) | 예: `com.dibay.ph.web` — Sign in with Apple, 도메인 `ckdosyydvgzqwpbwuhon.supabase.co`·`samarket.vercel.app`, Return URL `https://ckdosyydvgzqwpbwuhon.supabase.co/auth/v1/callback` | Services ID — 웹 Apple 로그인이 Supabase 경로인지는 NOT_PROVEN, 전환 전 확인 |
+| A6 | App Store Connect › 앱 › + | 새 앱: 번들 `com.dibay.ph`, 이름(「DiBaY - 디바이」 가능 여부 확인), 기본 언어, SKU | 등록된 이름·Apple ID(숫자) |
+| A7 | 앱 › 앱 내 구입 | 소모품 3종 `com.dibay.ph.point.1000/5000/10000` — 이름·가격은 `docs/apple-iap-asc-point-products.md` | 생성 결과 |
+| A8 | 앱 › App 정보 | App Store 서버 알림 V2 URL `https://samarket.vercel.app/api/webhooks/apple-app-store` (Production·Sandbox) | — |
+| A9 | 앱 › 개인정보·연령 등급·가격/판매 국가 | 개인정보 라벨(옛 앱과 같은 16개 유형 + 생년월일 수집 반영), 연령 등급 설문(사용자 콘텐츠·채팅), 판매 국가(필리핀 + Owner 결정) | — |
+| A10 | Vercel › samarket › Environment Variables (Production) | 3절 표의 값을 **같은 날 한 번에** 교체 (작업자가 전환 커밋을 main 에 올리기 직전) | 교체 완료 시각 |
+
+키를 하나로 합쳐 APNs·Sign in with Apple 을 함께 쓰는 방식은 Apple 문서에 명시가 없어(NOT_PROVEN) 쓰지 않는다.

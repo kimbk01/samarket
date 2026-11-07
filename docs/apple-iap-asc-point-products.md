@@ -1,4 +1,6 @@
-# Apple IAP — App Store Connect Point 상품 등록안 (Build 23)
+# Apple IAP — App Store Connect Point 상품 등록안
+
+> 2026-11-07 갱신: 새 개발자 계정·번들 `com.dibay.ph` 기준 (전환 계획 `docs/audit/ios-new-developer-account-transition-plan-2026-11-07.md`). 옛 상품 ID `com.dibay.app.point.*` 는 옛 계정에만 남는다.
 
 Cash IAP 는 등록하지 않는다. 아래 「ASC 확인」 칸은 ASC 에서 실제로 본 값으로만 채운다 (추정 금지).
 
@@ -6,9 +8,9 @@ Cash IAP 는 등록하지 않는다. 아래 「ASC 확인」 칸은 ASC 에서 �
 
 | 참조 이름 | 상품 ID (제안) | 기준 가격 (필리핀) | 지급 | 운영 `point_plans` |
 |---|---|---|---|---|
-| DIBAY Point 1,000 | `com.dibay.app.point.1000` | ₱1,000 | 1,000P | `a1000001-0001-4000-8000-000000000001` (1,000 + 0) |
-| DIBAY Point 5,250 | `com.dibay.app.point.5000` | ₱5,000 | 5,250P | `a1000002-0002-4000-8000-000000000002` (5,000 + 250) |
-| DIBAY Point 11,000 | `com.dibay.app.point.10000` | ₱10,000 | 11,000P | `a1000003-0003-4000-8000-000000000003` (10,000 + 1,000) |
+| DIBAY Point 1,000 | `com.dibay.ph.point.1000` | ₱1,000 | 1,000P | `a1000001-0001-4000-8000-000000000001` (1,000 + 0) |
+| DIBAY Point 5,250 | `com.dibay.ph.point.5000` | ₱5,000 | 5,250P | `a1000002-0002-4000-8000-000000000002` (5,000 + 250) |
+| DIBAY Point 11,000 | `com.dibay.ph.point.10000` | ₱10,000 | 11,000P | `a1000003-0003-4000-8000-000000000003` (10,000 + 1,000) |
 
 - 지급 Point 는 서버가 `point_plans.point_amount + bonus_amount` 로 계산한다 (앱·Apple 금액으로 계산하지 않음).
 - 상품 ID 는 한 번 쓰면 재사용할 수 없다 — ASC 생성 전에 확정.
@@ -32,11 +34,11 @@ To test: sign in with the review account in App Review Information → My Page �
 choose a package. Purchased Points appear in the Points history immediately after the purchase.
 ```
 
-- 화면 경로(코드 확인): `/mypage/points/charge` (`PointChargeForm`). 메뉴 이름은 Build 23 화면에서 다시 확인 ☐
+- 화면 경로(코드 확인): `/mypage/points/charge` (`PointChargeForm`). 메뉴 이름은 새 앱 화면에서 다시 확인 ☐
 
-- 심사용 스크린샷: Point 충전 화면(Apple 결제 버튼이 보이는 상태) 1장 — Build 23 Sandbox 에서 촬영.
-- 심사 계정은 관리자 「Apple 결제 → 테스트 계정」 탭에 등록해야 Sandbox 결제가 지급된다 (누적 11,000P 상한).
-- 첫 IAP 는 앱 버전과 함께 심사받는다 — Build 23 버전 페이지의 「앱 내 구입」에 3종을 연결.
+- 심사용 스크린샷: Point 충전 화면(Apple 결제 버튼이 보이는 상태) 1장 — 새 앱 TestFlight Sandbox 에서 촬영.
+- Sandbox(심사·TestFlight) 결제는 모든 회원에게 지급된다 — 회원별 누적 34,500P 상한 (마이그레이션 20271107120000). 「테스트 계정」 탭은 기록용.
+- 첫 IAP 는 앱 버전과 함께 심사받는다 — 새 앱 첫 버전 페이지의 「앱 내 구입」에 3종을 연결.
 
 ## 4. 계약·세금·은행 (ASC → 비즈니스)
 
@@ -46,13 +48,9 @@ choose a package. Purchased Points appear in the Points history immediately afte
 
 - Production·Sandbox URL 모두: `https://samarket.vercel.app/api/webhooks/apple-app-store` · 버전 V2 ☐
 
-## 6. ASC 확정 후 DB 등록 (Owner 승인 후 · 운영 DB 적용과 같은 단계)
+## 6. ASC 확정 후 DB 반영 (Owner 승인 후 · 운영 DB 적용과 같은 단계)
 
-```sql
-INSERT INTO public.apple_iap_products (product_id, kind, point_plan_id, is_active, sort_order) VALUES
-  ('com.dibay.app.point.1000',  'point', 'a1000001-0001-4000-8000-000000000001', true, 10),
-  ('com.dibay.app.point.5000',  'point', 'a1000002-0002-4000-8000-000000000002', true, 20),
-  ('com.dibay.app.point.10000', 'point', 'a1000003-0003-4000-8000-000000000003', true, 30);
-```
-
-상품 ID 가 ASC 에서 달라지면 위 값만 바꾼다. Cash 상품 행은 DB 제약(`kind = 'point'`)으로 들어가지 않는다.
+옛 상품 3행은 운영 DB 에 이미 있다(2026-11-07 조회). 새 계정에서 상품을 만든 뒤
+`supabase/migrations/20271108100000_apple_iap_products_new_bundle.sql` 로 상품 ID 만 교체한다
+(옛 ID 로 기록된 Apple 거래가 있으면 스스로 중단 · 지급 플랜 연결 불변). 상품 ID 가 ASC 에서 달라지면 이 파일의 값만 바꾼다.
+Cash 상품 행은 DB 제약(`kind = 'point'`)으로 들어가지 않는다.
