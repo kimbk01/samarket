@@ -322,3 +322,21 @@ Session / Destination / Completion / Profile 의미 불변.
 - 내용: W2(`a86a303c3`) 코드를 다시 넣되, 분기 조건을 `provider === "google"` 로 좁혔다. 셸 `Program.cs` 빌드 오류 CS0029 를 고쳤다. 셸 0.4.0.0.
 - Contract delta 는 Amendment 2026-11-08 과 같다(Google 한정). Android·iOS·브라우저 무변경.
 - Evidence: 코드 PASS. 실기(Google 브라우저 로그인 → 앱 복귀)는 노트북 셸 0.4.0.0 설치 후 — NOT_PROVEN.
+
+## Amendment 2026-11-08 (4) — PC QR 로그인 (Reopen §4 trigger 2: 새 로그인 방식 · Owner 「그래 만들어」)
+
+- **계약 변경점:** 로그인된 휴대폰 디바이 앱이 PC(Windows 앱) 로그인 요청을 승인하면, PC 에 **그 회원의 세션**을 1회 발급한다.
+- **세션 발급 방식은 새로 만들지 않았다:** 네이티브 로그인과 같은 `mintNativeOwnerSessionViaMagicLink`(메일 발송 없음)를 쓴다.
+- **로그인 뒤 처리도 같다:** 탈퇴 회수 → `resolveCommonAuthDestination` → `syncActiveSessionForUser`. 클라 완료는 `finishClientAuthLogin`(Set-Cookie 동기화 = 네이티브 교환과 같은 경로)이다.
+- Destination·Completion·Session·Profile 의미는 무변경이다. 완료 경로를 둘 만들지 않았다.
+- **보안 장치:**
+  - 2분 만료
+  - 승인·소비 각 1회(조건부 UPDATE)
+  - QR 의 nonce 와 PC httpOnly 쿠키 비밀값을 분리 — 해시만 저장
+  - 휴대폰 확인 화면(기기·시각·위치)
+  - 차단·탈퇴 회원 거부(정지는 로그인 허용 규칙 그대로)
+  - IP·회원별 횟수 제한
+  - 감사 기록 `auth.pc_qr_login_approve` · `auth.pc_qr_login`
+- **중앙 변경 게이트:** `POST /api/auth/qr-login/start`·`approve` 를 EXEMPT 로 추가했다(14 → 16). 라우트가 자체 판정한다 — 다른 로그인 라우트와 같은 방식이다.
+- **DB:** `public.pc_login_requests`(RLS 강제·service_role 전용). **운영 적용은 Owner 별도 승인이다.** 적용 전에는 QR 영역이 숨겨진다(시작 API 503).
+- **설계:** `docs/audit/windows-qr-login-design-2026-11-08.md`

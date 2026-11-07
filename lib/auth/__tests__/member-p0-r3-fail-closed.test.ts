@@ -253,15 +253,16 @@ describe("P0-R3 fail-closed enforce gate", () => {
   });
 });
 
-describe("P0-R3 EXEMPT 14 exact rules", () => {
-  it("has exactly 14 EXEMPT rules and inventory paths", () => {
+describe("P0-R3 EXEMPT 16 exact rules", () => {
+  // 2026-11-08: 14 → 16 — PC QR 로그인 start·approve (Owner 「그래 만들어」)
+  it("has exactly 16 EXEMPT rules and inventory paths", () => {
     expect(MEMBER_MUTATION_EXEMPT_RULES.length).toBe(MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT);
-    expect(MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT).toBe(14);
+    expect(MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT).toBe(16);
   });
 
   it("table-driven: every EXEMPT inventory row classifies EXEMPT", () => {
     const rows = loadMutationCsv().filter((r) => r.CLASS === "EXEMPT");
-    expect(rows.length).toBe(14);
+    expect(rows.length).toBe(16);
     for (const row of rows) {
       expect(resolveMemberActionClassForApiMutation(row.PATH)).toBe("EXEMPT");
       expect(resolveMemberMutationPolicyClass(row.PATH)).toBe("EXEMPT");

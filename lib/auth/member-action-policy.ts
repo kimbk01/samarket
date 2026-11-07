@@ -101,6 +101,26 @@ export const MEMBER_MUTATION_EXEMPT_RULES: ReadonlyArray<{
     dataMutationEffect: "identifier lookup only; no product mutation",
   },
   {
+    match: (p) => p === "/api/auth/qr-login/start",
+    method: "POST",
+    inventoryPath: "POST /api/auth/qr-login/start",
+    why: "PC QR login — logged-out PC creates a 2-minute login request (Owner 2026-11-08)",
+    actor: "member",
+    allowedStates: ALL_LIFECYCLE,
+    allowedAction: "pc_qr_login_start",
+    dataMutationEffect: "inserts one pc_login_requests row (hashes only); no member data; IP rate-limited",
+  },
+  {
+    match: (p) => p === "/api/auth/qr-login/approve",
+    method: "POST",
+    inventoryPath: "POST /api/auth/qr-login/approve",
+    why: "PC QR login — phone approves a PC login for the same account (auth bootstrap, like native exchange)",
+    actor: "member",
+    allowedStates: ALL_LIFECYCLE,
+    allowedAction: "pc_qr_login_approve",
+    dataMutationEffect: "marks one pending request approved; route denies blocked/withdrawn; no product mutation",
+  },
+  {
     match: (p) => p === "/api/auth/profile/ensure",
     method: "POST",
     inventoryPath: "POST /api/auth/profile/ensure",
@@ -191,7 +211,8 @@ export const MEMBER_MUTATION_EXEMPT_RULES: ReadonlyArray<{
 ];
 
 /** Inventory EXEMPT count Owner contract (exact 14 — presence 2026-11-01). */
-export const MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT = 14;
+/** 2026-11-08: 14 → 16 — PC QR 로그인 start·approve (Owner 「그래 만들어」 · 인증 잠금 트리거 2) */
+export const MEMBER_MUTATION_EXEMPT_INVENTORY_COUNT = 16;
 
 export function isMemberMutationExemptPath(pathname: string): boolean {
   const p = normalizeApiPath(pathname);

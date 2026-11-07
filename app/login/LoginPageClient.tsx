@@ -24,6 +24,7 @@ import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEma
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
+import { PcQrLoginPanel, type PcQrLoginApproved } from "@/components/auth/PcQrLoginPanel";
 import { AUTH_LOGIN_DELAY_NOTICE_MS } from "@/lib/auth/oauth/auth-login-phase";
 import { NATIVE_LOGIN_INTERRUPTED_REASON } from "@/lib/auth/native/native-login-interrupt-marker.client";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -66,6 +67,21 @@ function LoginPageContent() {
         signupComplete: input.signupComplete,
         // Slice 6-7: preserve Native Thin Handoff client-sync flag (do not drop).
         syncFromNativeExchangeCookies: input.syncFromNativeExchangeCookies === true,
+        router,
+      });
+    },
+    [next, router],
+  );
+  /** PC QR 로그인 (Windows 앱) — 승인 응답이 세션 쿠키를 준 뒤 기존 완료 경로로 */
+  const handlePcQrLoginApproved = useCallback(
+    async (input: PcQrLoginApproved) => {
+      await finishClientAuthLogin({
+        redirectTo: input.redirectTo,
+        next: next ?? null,
+        needsTermsAgreement: input.needsTermsAgreement,
+        consentComplete: !input.needsTermsAgreement,
+        signupComplete: input.signupComplete,
+        syncFromNativeExchangeCookies: true,
         router,
       });
     },
@@ -377,6 +393,7 @@ function LoginPageContent() {
         <p className="mt-1 text-center sam-text-body-secondary text-sam-muted" data-testid="auth-login-auto-signup-hint">
           {t("auth_login_auto_signup_hint")}
         </p>
+        <PcQrLoginPanel next={next ?? null} onApproved={handlePcQrLoginApproved} />
         <div className="mt-5">
           <LoginProviderButtons
             surface="page"

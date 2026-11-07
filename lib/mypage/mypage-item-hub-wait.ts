@@ -16,6 +16,7 @@ const NO_HUB_WAIT_ITEMS: Readonly<Record<string, ReadonlySet<string>>> = {
     "personalization",
     "chat-settings",
     "cache",
+    "pc-login",
     "version",
     "leave",
     "terms",
@@ -32,7 +33,7 @@ export function isMypageItemWithoutHubWait(section: string, item: string): boole
 export function mypageItemScreenTemplate(section: string, item: string): MyScreenTemplate {
   if (section === "account" && /-users$/.test(item)) return "list";
   if (section === "settings") {
-    if (item === "cache" || item === "version" || item === "leave" || item === "language") return "static";
+    if (item === "cache" || item === "pc-login" || item === "version" || item === "leave" || item === "language") return "static";
     return "settings";
   }
   if (section === "store" && item === "payment") return "hub";

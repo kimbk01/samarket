@@ -53,6 +53,22 @@ function read(rel: string): string {
 }
 
 /** Extract finishClientAuthLogin({...}) object literal that includes redirectTo: input.redirectTo */
+function extractPcQrFinishCallBlock(src: string): string {
+  const fnIdx = src.indexOf("const handlePcQrLoginApproved = useCallback(");
+  expect(fnIdx, "pc qr finish handler missing").toBeGreaterThanOrEqual(0);
+  const open = src.indexOf("finishClientAuthLogin(", fnIdx);
+  const brace = src.indexOf("{", open);
+  let depth = 0;
+  for (let i = brace; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) return src.slice(brace, i + 1);
+    }
+  }
+  throw new Error("unclosed pc qr finishClientAuthLogin object");
+}
+
 function extractOauthFinishCallBlock(src: string): string {
   const marker = "redirectTo: input.redirectTo";
   const idx = src.indexOf(marker);
@@ -101,11 +117,21 @@ describe("Slice 6-7 UI client-sync handoff First Break fix", () => {
     );
   });
 
+  it("PC QR login finish forwards the server Set-Cookie sync flag (same as native exchange)", () => {
+    // PC QR 로그인(2026-11-08): 상태 확인 응답이 Set-Cookie 로 세션을 준다 — 네이티브 교환과 같은 동기화 경로
+    const login = read("app/login/LoginPageClient.tsx");
+    const block = extractPcQrFinishCallBlock(login);
+    expect(block).toMatch(/syncFromNativeExchangeCookies:\s*true/);
+  });
+
   it("Email / session-restore finish calls do not force native sync flag", () => {
     const login = read("app/login/LoginPageClient.tsx");
     const modal = read("components/auth/AuthModal.tsx");
     // Non-OAuth finish sites must not hardcode syncFromNativeExchangeCookies: true
-    const loginNonOauth = login.replace(extractOauthFinishCallBlock(login), "");
+    // (PC QR 로그인 블록은 서버 Set-Cookie 경로라 별도 테스트로 고정하고 여기서는 제외)
+    const loginNonOauth = login
+      .replace(extractOauthFinishCallBlock(login), "")
+      .replace(extractPcQrFinishCallBlock(login), "");
     const modalNonOauth = modal.replace(extractOauthFinishCallBlock(modal), "");
     expect(loginNonOauth).not.toMatch(/syncFromNativeExchangeCookies:\s*true/);
     expect(modalNonOauth).not.toMatch(/syncFromNativeExchangeCookies:\s*true/);

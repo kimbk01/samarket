@@ -170,3 +170,25 @@
 
 - `app/api/auth/native/exchange/route.ts` 에서 보조 조사(서브 에이전트)가 지적한 내용: 93줄의 임시 응답에 넣은 `samarket_active_session_id` 쿠키가, 123줄에서 응답을 새로 만들 때 옮겨지지 않을 수 있다.
 - **작업자가 직접 실행해 확인하지 않았다 — NOT_PROVEN.** QR 로그인 구현 때 같은 쿠키를 다루므로, 그때 먼저 사실 확인 후 보고한다.
+
+## 11. 구현 기록 (2026-11-08, Owner 「그래 만들어」)
+
+- **결정 (작업자가 권장안으로 확정, Owner 「나머지는 권장안」):**
+  - QR 은 Windows 앱 로그인 화면에만 보인다.
+  - 휴대폰 메뉴는 My → 설정 → PC 로그인이고, 디바이 앱(Android·iOS)에서만 보인다.
+  - 확인 화면에 위치(Vercel IP 국가·도시)를 표시한다.
+  - 로그인 알림·기기 목록은 다음 단계로 둔다.
+- **파일:**
+  - 서버: `lib/auth/pc-qr-login/*`(계약·저장소·세션), `app/api/auth/qr-login/{start,status,describe,approve}`
+  - 화면: `components/auth/PcQrLoginPanel.tsx`(PC), `components/my/settings/PcLoginScanContent.tsx`(휴대폰)
+  - 등록: 설정 행 `{ kind: "pc-login" }`, 항목 등록, 문구(ko·en)
+  - DB 파일: `supabase/migrations/20271108150000_pc_qr_login_requests.sql`
+  - 의존성: `qrcode` 1.5.4, `jsqr` 1.4.0, `@types/qrcode` 1.5.5
+- **계획과 다른 점:**
+  1. QR 내용을 URL 대신 `dibay-pc-login:v1:<id>:<nonce>` 로 했다. 다른 카메라 앱이 여는 주소가 없어서 앱 안 스캐너에서만 의미가 있다.
+  2. 중앙 변경 게이트 EXEMPT 를 14 → 16 으로 늘렸다(고정 개수 테스트와 인벤토리 함께 갱신). 인벤토리 요약 total 은 presence(2026-11-01) 반영 누락을 함께 정정해 313 이다.
+- **로컬 검증 (코드 PASS):**
+  - QR 로그인 테스트 18건 — 1회용·만료·PC 결합·차단·탈퇴·쿠키 이동·동시 소비
+  - 관련 테스트 3,922건, `typecheck:build`·`typecheck:test`, eslint
+  - 서브 에이전트가 지적한 `native/exchange` 활성 세션 쿠키 문제와 같은 일이 QR 에서 생기지 않게, 상태 응답은 `cookieCarrier` 쿠키를 최종 응답으로 옮긴다(테스트로 고정). `native/exchange` 자체는 범위 밖이라 고치지 않았다(NOT_PROVEN 보고 유지).
+- **운영:** DB 미적용 상태로 반영하면 QR 영역은 숨겨지고 기존 로그인은 그대로다. 실기는 DB 적용 후 Owner 휴대폰 스캔으로 확인한다.

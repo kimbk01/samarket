@@ -131,6 +131,7 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       navItem("settings", "personalization"),
       navItem("settings", "video-autoplay"),
       navItem("settings", "cache"),
+      navItem("settings", "pc-login"),
       navItem("settings", "notices"),
       navItem("settings", "support"),
       navItem("settings", "terms"),

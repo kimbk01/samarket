@@ -132,6 +132,7 @@ exports[`내정보 홈 = 분류 허브 (IA 2026-11-02) > IA 구조 스냅샷 1`]
           "mypage_comp_menu_account_notifications_title → /mypage/section/settings/notifications",
           "settings_chat → /mypage/section/settings/chat-settings",
           "kind:language-toggle",
+          "kind:pc-login",
           "settings_cache_clear → /mypage/section/settings/cache",
           "settings_version → /mypage/section/settings/version",
         ],

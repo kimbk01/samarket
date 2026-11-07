@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
+import { PcLoginScanContent } from "@/components/my/settings/PcLoginScanContent";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
 import { CountrySettingsContent } from "@/components/my/settings/CountrySettingsContent";
 import { LanguageSettingsContent } from "@/components/my/settings/LanguageSettingsContent";
@@ -53,6 +54,9 @@ export function MyPageItemStaticContent({ section, item }: { section: string; it
       return <VideoAutoplayContent />;
     case "cache":
       return <CacheSettingsContent />;
+    /** PC QR 로그인 — 휴대폰 앱에서 PC 화면 QR 스캔·허용 (Owner 2026-11-08) */
+    case "pc-login":
+      return <PcLoginScanContent />;
     case "version":
       return <VersionContent />;
     case "leave":

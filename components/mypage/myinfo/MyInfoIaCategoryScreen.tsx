@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
@@ -32,6 +34,23 @@ type Seeds = {
   ownerStoreGateSeed?: MypageOwnerStoreGateSeed | null;
   adminMenuSeed?: MypageAdminMenuSeed | null;
 };
+
+export const MYPAGE_PC_LOGIN_HREF = "/mypage/section/settings/pc-login";
+
+/** PC QR 로그인 행 — 디바이 휴대폰 앱에서만 (PC·모바일 웹에서는 찍을 수 없으므로 숨김) */
+function PcLoginIaRow({ first }: { first: boolean }) {
+  const [isApp, setIsApp] = useState(false);
+  useEffect(() => {
+    setIsApp(isCapacitorNativePlatform());
+  }, []);
+  if (!isApp) return null;
+  return (
+    <MyInfoHomeLinkRow
+      first={first}
+      item={{ href: MYPAGE_PC_LOGIN_HREF, titleKey: "mypage_mnav_settings_pc_login", icon: "shield" }}
+    />
+  );
+}
 
 function IaRow({
   row,
@@ -74,6 +93,8 @@ function IaRow({
       );
     case "admin":
       return null;
+    case "pc-login":
+      return <PcLoginIaRow first={first} />;
     default:
       return null;
   }

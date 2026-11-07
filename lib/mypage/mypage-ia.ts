@@ -35,7 +35,9 @@ export type MypageIaRow =
   | { kind: "store-owner-entry" }
   | { kind: "customer-center" }
   | { kind: "logout" }
-  | { kind: "admin" };
+  | { kind: "admin" }
+  /** PC QR 로그인 — 디바이 휴대폰 앱(Android·iOS)에서만 보이는 행 (Owner 2026-11-08) */
+  | { kind: "pc-login" };
 
 export type MypageIaGroup = { titleKey: MessageKey | null; rows: MypageIaRow[] };
 
@@ -242,6 +244,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
           link("/mypage/section/settings/notifications", "mypage_comp_menu_account_notifications_title", "bell"),
           link("/mypage/section/settings/chat-settings", "settings_chat", "message-square"),
           { kind: "language-toggle", icon: "languages" },
+          { kind: "pc-login" },
           link("/mypage/section/settings/cache", "settings_cache_clear", "trash-2"),
           link("/mypage/section/settings/version", "settings_version", "info", {
             valueSource: { kind: "installed-version" },
