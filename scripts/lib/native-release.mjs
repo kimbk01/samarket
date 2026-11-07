@@ -13,6 +13,8 @@
 export const ANDROID_GRADLE_PATH = "android/app/build.gradle";
 export const IOS_PBXPROJ_PATH = "ios/App/App.xcodeproj/project.pbxproj";
 export const IOS_INFO_PLIST_PATH = "ios/App/App/Info.plist";
+/** Windows 데스크톱 셸(WebView2 + MSIX) — 설계 W1 (`docs/audit/windows-desktop-shell-design-2026-11-07.md`). */
+export const WINDOWS_MANIFEST_PATH = "windows/DibayDesktop/Package.appxmanifest";
 
 /** @returns {{ versionCode: number | null, versionName: string | null }} */
 export function readAndroidVersion(gradleText) {
@@ -234,11 +236,68 @@ export function checkNativeVersionBump({ changes, base, head }) {
   return problems;
 }
 
-/** 보고 첫 줄 — docs/native-build-release-process.md §3 형식. */
-export function formatReleaseClassLine({ changes, head, base }) {
+/**
+ * Windows 패키지 버전 — `<Identity ... Version="a.b.c.d" />` (MSIX 4자리).
+ * @returns {{ version: string | null, parts: number[] | null }}
+ */
+export function readWindowsVersion(manifestText) {
+  const m = /<Identity\b[^>]*\bVersion="(\d+)\.(\d+)\.(\d+)\.(\d+)"/.exec(manifestText ?? "");
+  if (!m) return { version: null, parts: null };
+  const parts = m.slice(1, 5).map(Number);
+  return { version: parts.join("."), parts };
+}
+
+/** a < b → 음수, 같으면 0, a > b → 양수. 값이 없으면 null. */
+export function compareWindowsVersion(a, b) {
+  if (!a?.parts || !b?.parts) return null;
+  for (let i = 0; i < 4; i += 1) {
+    if (a.parts[i] !== b.parts[i]) return a.parts[i] - b.parts[i];
+  }
+  return 0;
+}
+
+/**
+ * Windows 셸 재빌드가 필요한 변경 — `windows/**` (문서·.gitignore 제외).
+ * Android·iOS 분류(`classifyNativeChanges`)와 따로 둔다 — 기존 반환 형태·호출처 무변경.
+ * @returns {string[]}
+ */
+export function classifyWindowsChanges(files) {
+  const out = [];
+  for (const raw of files) {
+    const f = String(raw ?? "").replace(/\\/g, "/");
+    if (!f.startsWith("windows/") || f.endsWith(".md") || f.endsWith("/.gitignore")) continue;
+    out.push(f);
+  }
+  return out;
+}
+
+/** CI 가드 — Windows 패키지 버전 역행만 실패. */
+export function checkWindowsVersionIntegrity({ base, head }) {
+  const cmp = compareWindowsVersion(head, base);
+  if (base?.version && (head?.version == null || (cmp != null && cmp < 0))) {
+    return [`Windows 패키지 Version 이 ${base.version} → ${head?.version ?? "?"} 로 내려갔습니다 (${WINDOWS_MANIFEST_PATH}).`];
+  }
+  return [];
+}
+
+/** 빌드(설치·Store) 시점 가드 — 마지막 Version 변경 이후 windows/** 변경이 있으면 Version 이 커야 한다. */
+export function checkWindowsVersionBump({ changes, base, head }) {
+  if (changes.length === 0) return [];
+  const cmp = compareWindowsVersion(head, base);
+  if (head?.version == null || (base?.version != null && cmp != null && cmp <= 0)) {
+    return [
+      `Windows 네이티브 변경(${changes.slice(0, 5).join(", ")}${changes.length > 5 ? " …" : ""})인데 Version 이 ${base?.version ?? "?"} → ${head?.version ?? "?"} 입니다. ${WINDOWS_MANIFEST_PATH} 의 Identity Version 을 올리세요.`,
+    ];
+  }
+  return [];
+}
+
+/** 보고 첫 줄 — docs/native-build-release-process.md §3 형식. `windows` 는 선택(없으면 기존과 같은 결과). */
+export function formatReleaseClassLine({ changes, head, base, windows }) {
   const needAndroid = changes.android.length > 0;
   const needIos = changes.ios.length > 0;
-  if (!needAndroid && !needIos) return "[배포 구분] 웹만 — Vercel 배포 후 앱 재시작만 하면 반영 (재빌드 불필요)";
+  const needWindows = (windows?.changes?.length ?? 0) > 0;
+  if (!needAndroid && !needIos && !needWindows) return "[배포 구분] 웹만 — Vercel 배포 후 앱 재시작만 하면 반영 (재빌드 불필요)";
   /** 이 범위에서 번호를 올리지 않았으면 다음 빌드 때 올릴 목표 번호를 표시한다. */
   const target = (h, b) => (h != null && b != null && h <= b ? `${h + 1} · 빌드 시 증가` : `${h}`);
   const parts = [];
@@ -246,6 +305,10 @@ export function formatReleaseClassLine({ changes, head, base }) {
     parts.push(`Android ${head.android.versionName} (versionCode ${target(head.android.versionCode, base?.android.versionCode)})`);
   }
   if (needIos) parts.push(`iOS ${head.ios.marketingVersion} (build ${target(head.ios.buildNumber, base?.ios.buildNumber)})`);
+  if (needWindows) {
+    const same = compareWindowsVersion(windows.head, windows.base);
+    parts.push(`Windows ${windows.head?.version ?? "?"}${same != null && same <= 0 ? " (빌드 시 증가)" : ""}`);
+  }
   return `[배포 구분] 네이티브 — 재빌드·재설치 필요: ${parts.join(" / ")}`;
 }
 
@@ -253,4 +316,5 @@ export function formatReleaseClassLine({ changes, head, base }) {
 export const BUILD_NUMBER_LOG_ARGS = {
   android: ["log", "-n", "1", "--format=%H", "-G", "versionCode  *[0-9]", "HEAD", "--", ANDROID_GRADLE_PATH],
   ios: ["log", "-n", "1", "--format=%H", "-G", "CURRENT_PROJECT_VERSION = ", "HEAD", "--", IOS_PBXPROJ_PATH],
+  windows: ["log", "-n", "1", "--format=%H", "-G", "<Identity .*Version=", "HEAD", "--", WINDOWS_MANIFEST_PATH],
 };

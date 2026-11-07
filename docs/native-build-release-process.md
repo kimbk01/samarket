@@ -17,6 +17,7 @@ DIBAY 앱은 Capacitor 셸이 `https://samarket.vercel.app` 을 불러오는 구
 |---|---|---|
 | **웹만** | `app/` `components/` `lib/` `hooks/` `messages/` `public/` `supabase/` 등 | main 반영 → Vercel Production 배포 → **앱 재시작만** |
 | **네이티브** | `android/**` · `ios/**` · `capacitor.config.ts` · `package.json` 의 Capacitor 의존성(`@capacitor/*`, `@capawesome/*`, `*capacitor-*`) | 위 + **APK·iOS 재빌드·재설치** |
+| **네이티브(Windows)** | `windows/**` (`.md`·`.gitignore` 제외) — WinUI 3 + WebView2 셸 | 위 + **Windows 셸 재빌드·재설치** (노트북 Visual Studio, `windows/README.md`) |
 
 - `.md` 와 sync 생성 파일(`capacitor-www/**`, `ios/App/App/public/**`, `lib/build/generated-app-build-fingerprint.ts`, 지문 키만 바뀐 `Info.plist` 등)은 네이티브 변경이 아니다.
 - 판정은 사람이 하지 않는다: `npm run verify:native-version-bump` 첫 줄이 `[배포 구분]` 을 출력한다(로직: `scripts/lib/native-release.mjs`).
@@ -27,9 +28,11 @@ DIBAY 앱은 Capacitor 셸이 `https://samarket.vercel.app` 을 불러오는 구
   - Android → `android/app/build.gradle` 의 `versionCode` +1
   - iOS → `ios/App/App.xcodeproj/project.pbxproj` 의 `CURRENT_PROJECT_VERSION` **4곳 모두** +1 (App·푸시 확장 × Debug·Release, 값 동일)
   - 공통(`capacitor.config.ts`, Capacitor 의존성) → 둘 다
+  - Windows → `windows/DibayDesktop/Package.appxmanifest` 의 `<Identity ... Version="a.b.c.d">` 를 올린다(MSIX 4자리, 예: `0.1.0.0` → `0.1.1.0`). Android·iOS 와 독립.
 - 번호 증가는 main 커밋으로 올린 뒤 빌드한다. 사용자에게 보이는 릴리스면 `versionName` / `MARKETING_VERSION` 도 올린다(선택). **로컬에서 버전을 임의로 바꿔 빌드하지 않는다**(예: 저장소에 없는 `1.0.1`).
 - 강제: `npm run native:prepare` 가 `verify:native-version-bump --release` 로 확인 — 플랫폼별 마지막 번호 변경 커밋 이후 네이티브 변경이 있는데 번호가 그대로면 **빌드 전에 중단**(같은 번호로 다른 바이너리가 설치되는 것 방지). GitHub `Native build` 워크플로도 같은 검사를 한다 — 수동 실행(설치·배포용 산출물)은 미증가 시 실패, main push(컴파일 검증)는 경고만 하고 서명 Release APK 를 만들지 않는다.
-- CI `native-version-bump` 잡(커밋 단위): `[배포 구분]` 출력 + 번호 역행·iOS 4곳 불일치만 실패. 네이티브 변경에 번호 증가가 없어도 실패하지 않는다.
+- Windows 강제: Windows 셸은 Mac 에서 빌드할 수 없다(노트북 Visual Studio). 그래서 **Mac 에서** `node scripts/verify-native-version-bump.mjs --release --windows-only` 를 PASS 시킨 main 을 노트북이 받아 빌드한다. 마지막 Version 변경 이후 `windows/**` 변경이 있는데 Version 이 그대로면 실패한다. 시험 실행(Debug F5)은 번호를 올리지 않는다. 설치·Store 용 빌드만 올린다.
+- CI `native-version-bump` 잡(커밋 단위): `[배포 구분]` 출력 + 번호 역행·iOS 4곳 불일치·Windows Version 역행만 실패. 네이티브 변경에 번호 증가가 없어도 실패하지 않는다.
 - 빌드 시점: APK = 실기기 설치 검증이 필요할 때 · AAB = Google Play 새 버전 등록 때 · iOS = 실기기 검증·TestFlight·App Store 때만. 웹·DB 수정마다 빌드하지 않는다. 스토어 업로드 ≠ 출시 — 출시는 Owner 승인.
 
 ## 3. 보고 형식 — 모든 작업 보고의 첫 줄
@@ -76,6 +79,7 @@ Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-contro
   order by last_seen_at desc;
   ```
 - 목표 버전·빌드가 보이면 설치 완료. 안 보이면 설치 단계에서 막힌 것 — 그 단계의 화면만 요청한다.
+- Windows 셸: 알림 등록(W3) 전에는 `user_devices` 에 windows 행이 생기지 않는다. 그동안은 셸이 웹에 알려 주는 버전(`app.info`)과 Visual Studio 출력 창의 패키지 이름(`DibayDesktop.Dev_<버전>_x64`)으로 확인한다.
 
 ## 6. 실기기 이슈 진단의 첫 단계
 
@@ -97,3 +101,4 @@ Mac 에서 Claude 가 직접 수행해야 하면 Owner 가 `claude remote-contro
 - 2026-10-20: 브랜치·PR 전제 제거 — main 직접 반영(`AGENTS.md` 「개발 프로세스」), 빌드 번호 작업당 1회, 빌드 시점(APK·AAB·iOS) 명시.
 - 2026-10-20 (Owner 승인): 빌드 번호 증가를 커밋 단위 CI 강제 → 빌드 시점(`native:prepare` → `--release`) 강제로 이동. CI 잡은 분류·역행·불일치만 검사.
 - 2026-10-26 (Owner 승인): `--ios-only` 추가 — iOS 만 빌드할 때 Android 빌드 번호 가드를 함께 요구하지 않음(`--android-only` 와 대칭). 각 플랫폼 가드 자체는 유지.
+- 2026-11-08 (Owner 「다음 넘어 가라」 — Windows 설계 W1): Windows 셸 추가 — `windows/**` = 네이티브(Windows), `Package.appxmanifest` Identity Version 증가, `--release --windows-only` 가드(Mac 에서 실행 후 노트북 빌드), CI 는 Version 역행만 실패. Android·iOS 분류·가드 무변경(`classifyWindowsChanges` 별도 함수).

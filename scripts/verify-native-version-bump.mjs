@@ -11,6 +11,7 @@
  *   node scripts/verify-native-version-bump.mjs              # 기준 = origin/main 과의 merge-base (main 위면 HEAD^1)
  *   node scripts/verify-native-version-bump.mjs --base=<ref>
  *   node scripts/verify-native-version-bump.mjs --release [--android-only | --ios-only]
+ *   node scripts/verify-native-version-bump.mjs --release --windows-only   # Windows 셸 설치·Store 빌드 직전 (W1)
  * 출력 첫 줄은 보고용 [배포 구분] 한 줄. 위반이 있으면 exit 1.
  */
 import { execFileSync } from "node:child_process";
@@ -19,12 +20,17 @@ import {
   BUILD_NUMBER_LOG_ARGS,
   IOS_INFO_PLIST_PATH,
   IOS_PBXPROJ_PATH,
+  WINDOWS_MANIFEST_PATH,
   checkNativeVersionBump,
   checkVersionIntegrity,
+  checkWindowsVersionBump,
+  checkWindowsVersionIntegrity,
   classifyNativeChanges,
+  classifyWindowsChanges,
   formatReleaseClassLine,
   readAndroidVersion,
   readIosVersion,
+  readWindowsVersion,
   infoPlistEquivalentIgnoringFingerprint,
 } from "./lib/native-release.mjs";
 
@@ -59,7 +65,13 @@ const show = (ref, file) => tryGit(["show", `${ref}:${file}`]) ?? "";
 const versionsAt = (ref) => ({
   android: readAndroidVersion(show(ref, ANDROID_GRADLE_PATH)),
   ios: readIosVersion(show(ref, IOS_PBXPROJ_PATH)),
+  windows: readWindowsVersion(show(ref, WINDOWS_MANIFEST_PATH)),
 });
+
+/** base..HEAD 의 Windows 셸 변경 — Android·iOS 분류와 별도 (W1). */
+function windowsChangesSince(base) {
+  return classifyWindowsChanges(git(["diff", "--name-only", base, "HEAD"]).split("\n").filter(Boolean));
+}
 
 /** base..HEAD 의 네이티브 변경(플랫폼별 근거 경로). */
 function nativeChangesSince(base) {
@@ -72,6 +84,27 @@ function nativeChangesSince(base) {
 }
 
 const headV = versionsAt("HEAD");
+
+if (process.argv.includes("--release") && process.argv.includes("--windows-only")) {
+  const problems = checkWindowsVersionIntegrity({ base: headV.windows, head: headV.windows });
+  const bumpCommit = tryGit(BUILD_NUMBER_LOG_ARGS.windows);
+  if (!bumpCommit) {
+    problems.push("windows: Version 을 바꾼 커밋을 찾지 못했습니다 (전체 히스토리 필요)");
+  } else {
+    const changes = windowsChangesSince(bumpCommit);
+    console.log(
+      `[native-version-bump] --release windows: 마지막 Version 변경 ${bumpCommit.slice(0, 8)} 이후 Windows 변경 ${changes.length}건`,
+    );
+    problems.push(...checkWindowsVersionBump({ changes, base: versionsAt(bumpCommit).windows, head: headV.windows }));
+  }
+  if (problems.length > 0) {
+    for (const p of problems) console.error(`[native-version-bump] FAIL: ${p}`);
+    console.error("[native-version-bump] Version 을 올려 main 에 커밋·푸시한 뒤 다시 실행하세요. 규정: docs/native-build-release-process.md §2");
+    process.exit(1);
+  }
+  console.log(`[native-version-bump] RELEASE READY · Windows ${headV.windows.version}`);
+  process.exit(0);
+}
 
 if (process.argv.includes("--release")) {
   const androidOnly = process.argv.includes("--android-only");
@@ -110,12 +143,24 @@ const base = resolveBase();
 const changes = nativeChangesSince(base);
 const baseV = versionsAt(base);
 
-console.log(formatReleaseClassLine({ changes, head: headV, base: baseV }));
+const windowsChanges = windowsChangesSince(base);
+
 console.log(
-  `[native-version-bump] base=${base} · Android ${baseV.android.versionName}(${baseV.android.versionCode}) → ${headV.android.versionName}(${headV.android.versionCode}) · iOS ${baseV.ios.marketingVersion}(${baseV.ios.buildNumber}) → ${headV.ios.marketingVersion}(${headV.ios.buildNumber})`,
+  formatReleaseClassLine({
+    changes,
+    head: headV,
+    base: baseV,
+    windows: { changes: windowsChanges, head: headV.windows, base: baseV.windows },
+  }),
+);
+console.log(
+  `[native-version-bump] base=${base} · Android ${baseV.android.versionName}(${baseV.android.versionCode}) → ${headV.android.versionName}(${headV.android.versionCode}) · iOS ${baseV.ios.marketingVersion}(${baseV.ios.buildNumber}) → ${headV.ios.marketingVersion}(${headV.ios.buildNumber}) · Windows ${baseV.windows.version ?? "-"} → ${headV.windows.version ?? "-"}`,
 );
 
-const problems = checkVersionIntegrity({ base: baseV, head: headV });
+const problems = [
+  ...checkVersionIntegrity({ base: baseV, head: headV }),
+  ...checkWindowsVersionIntegrity({ base: baseV.windows, head: headV.windows }),
+];
 if (problems.length > 0) {
   for (const p of problems) console.error(`[native-version-bump] FAIL: ${p}`);
   console.error("[native-version-bump] 규정: docs/native-build-release-process.md §2");

@@ -181,3 +181,48 @@ test("release class line shows the next build number when not yet bumped", () =>
   );
   assert.match(formatReleaseClassLine({ changes, head: versions(4, "1.2", "1.2", 5), base }), /versionCode 4\) \/ iOS 1\.2 \(build 5\)$/);
 });
+
+// ── Windows 데스크톱 셸 (W1, 2026-11-08) — Android·iOS 분류·결과는 그대로, Windows 는 별도 함수 ──
+import {
+  checkWindowsVersionBump,
+  checkWindowsVersionIntegrity,
+  classifyWindowsChanges,
+  compareWindowsVersion,
+  readWindowsVersion,
+} from "../lib/native-release.mjs";
+
+const appx = (v) => `<Package>\n  <Identity Name="DibayDesktop.Dev" Publisher="CN=DIBAY Dev" Version="${v}" />\n</Package>`;
+
+test("reads Windows package version (4 parts) and compares", () => {
+  assert.deepEqual(readWindowsVersion(appx("0.1.0.0")), { version: "0.1.0.0", parts: [0, 1, 0, 0] });
+  assert.deepEqual(readWindowsVersion(""), { version: null, parts: null });
+  assert.ok(compareWindowsVersion(readWindowsVersion(appx("0.1.1.0")), readWindowsVersion(appx("0.1.0.9"))) > 0);
+  assert.equal(compareWindowsVersion(readWindowsVersion(appx("1.0.0.0")), readWindowsVersion(appx("1.0.0.0"))), 0);
+});
+
+test("windows/** is a Windows native change; docs and .gitignore are not; Android/iOS classification unchanged", () => {
+  const files = ["windows/DibayDesktop/MainWindow.xaml.cs", "windows/README.md", "windows/.gitignore", "lib/a.ts"];
+  assert.deepEqual(classifyWindowsChanges(files), ["windows/DibayDesktop/MainWindow.xaml.cs"]);
+  assert.deepEqual(classifyNativeChanges(files), { android: [], ios: [] });
+});
+
+test("release class line names Windows only when windows/** changed", () => {
+  const head = versions(3, "1.2", "1.2", 4);
+  const none = { android: [], ios: [] };
+  assert.match(formatReleaseClassLine({ changes: none, head }), /웹만/);
+  const w = { changes: ["windows/DibayDesktop/App.xaml.cs"], head: readWindowsVersion(appx("0.1.0.0")), base: readWindowsVersion(appx("0.1.0.0")) };
+  assert.equal(
+    formatReleaseClassLine({ changes: none, head, base: head, windows: w }),
+    "[배포 구분] 네이티브 — 재빌드·재설치 필요: Windows 0.1.0.0 (빌드 시 증가)",
+  );
+});
+
+test("Windows guards — CI fails only on regression; release requires a bump after windows/** changes", () => {
+  const v = (x) => readWindowsVersion(appx(x));
+  assert.deepEqual(checkWindowsVersionIntegrity({ base: v("0.1.0.0"), head: v("0.1.0.0") }), []);
+  assert.equal(checkWindowsVersionIntegrity({ base: v("0.2.0.0"), head: v("0.1.0.0") }).length, 1);
+  assert.deepEqual(checkWindowsVersionIntegrity({ base: readWindowsVersion(""), head: v("0.1.0.0") }), []);
+  assert.deepEqual(checkWindowsVersionBump({ changes: [], base: v("0.1.0.0"), head: v("0.1.0.0") }), []);
+  assert.equal(checkWindowsVersionBump({ changes: ["windows/x.cs"], base: v("0.1.0.0"), head: v("0.1.0.0") }).length, 1);
+  assert.deepEqual(checkWindowsVersionBump({ changes: ["windows/x.cs"], base: v("0.1.0.0"), head: v("0.1.1.0") }), []);
+});

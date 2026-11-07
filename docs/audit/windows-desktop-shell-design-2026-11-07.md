@@ -214,3 +214,17 @@ windows/                         ← 새 최상위 폴더 (android/·ios/ 와 �
 - **검증:**
   - 웹 코드 PASS (테스트·타입검사·린트)
   - **셸 빌드·실행은 Mac 에서 불가 — NOT_PROVEN.** 노트북에 Visual Studio 를 설치한 뒤 `windows/README.md` 확인 항목으로 확인한다.
+
+## 12. W0 실기 결과 · W1 구현 (2026-11-08)
+
+- **W0 실기** (노트북, Debug 빌드, 운영 `12c70a284`):
+  - 첫 빌드 오류 0, 「배포: 1 성공」.
+  - 앱 실행·운영 웹·왼쪽 레일 PASS(화면).
+  - 카카오 로그인 PASS(Owner 확인).
+  - Google 로그인은 예상된 FAIL — Google 이 「보안 코드」를 요구했다(화면). W2 에서 해결한다.
+  - 메신저·거래·배달 이동, 창 위치·크기 기억, 외부 링크 → 기본 브라우저: PASS(Owner 「모두 완료」, 화면 캡처 없음).
+  - Apple 로그인: NOT_PROVEN(시험 여부 미기록).
+- **W1 구현:**
+  - `scripts/lib/native-release.mjs` — `readWindowsVersion`·`classifyWindowsChanges`·Windows 역행·증가 가드 (기존 Android·iOS 함수·반환 형태 무변경).
+  - `verify-native-version-bump.mjs` — `[배포 구분]`·기준 줄에 Windows 를 표시하고, `--release --windows-only` 를 추가했다.
+  - `docs/native-build-release-process.md` — §1·§2·§5 에 Windows 를 추가했다.
