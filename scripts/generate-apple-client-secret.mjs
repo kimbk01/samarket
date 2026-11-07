@@ -8,9 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { importPKCS8, SignJWT } from "jose";
 
-const TEAM_ID = process.env.APPLE_TEAM_ID ?? "2TFKXT6Y99";
-const KEY_ID = process.env.APPLE_KEY_ID ?? "3747N7936Z";
-const CLIENT_ID = process.env.APPLE_CLIENT_ID ?? "com.dibay.login2";
+const TEAM_ID = process.env.APPLE_TEAM_ID ?? "ATB959PF9V";
+const KEY_ID = process.env.APPLE_KEY_ID ?? "PDV9Z8ZS83";
+const CLIENT_ID = process.env.APPLE_CLIENT_ID ?? "com.dibay.ph.web";
 const AUTH_KEY_FILENAME = process.env.APPLE_AUTH_KEY_PATH ?? `AuthKey_${KEY_ID}.p8`;
 const EXPIRY_DAYS = 180;
 
