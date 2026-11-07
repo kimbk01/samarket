@@ -56,7 +56,7 @@ export const TRADE_METRIC_DEFINITIONS: readonly TradeMetricDefinition[] = [
   },
   {
     id: "trade.promotion_review",
-    labelKo: "홍보 승인 대기",
+    labelKo: "상위노출 승인 대기",
     labelEn: "Promotions pending review",
     section: "action",
     source: "pending.promotionReview",
@@ -76,7 +76,7 @@ export const TRADE_METRIC_DEFINITIONS: readonly TradeMetricDefinition[] = [
   },
   {
     id: "trade.promotions_overdue",
-    labelKo: "종료일 지난 홍보",
+    labelKo: "종료일 지난 상위노출",
     labelEn: "Promotions past end date",
     section: "risk",
     source: "pending.overduePromotions",
@@ -108,7 +108,7 @@ export const TRADE_METRIC_DEFINITIONS: readonly TradeMetricDefinition[] = [
   ),
   {
     id: "trade.promotions_active",
-    labelKo: "노출 중인 홍보",
+    labelKo: "노출 중인 상위노출",
     labelEn: "Promotions live",
     section: "state",
     source: "current.activePromotions",

@@ -59,7 +59,7 @@ export function giftPurchaseErrorFallbacks(
       const total = (amounts?.total ?? 0).toLocaleString("en-US");
       const usable = (amounts?.usable ?? 0).toLocaleString("en-US");
       return {
-        fallbackKo: `보유 Point ${total}P 중 이 결제에 사용할 수 있는 Point는 ${usable}P입니다. Apple 결제로 충전한 Point는 광고·홍보에만 사용할 수 있습니다.`,
+        fallbackKo: `보유 Point ${total}P 중 이 결제에 사용할 수 있는 Point는 ${usable}P입니다. Apple 결제로 충전한 Point는 광고·상위노출에만 사용할 수 있습니다.`,
         fallbackEn: `You have ${total}P, of which ${usable}P can be used for this payment. Point charged through Apple can only be used for ads and promotions.`,
         vars: { total, usable },
       };

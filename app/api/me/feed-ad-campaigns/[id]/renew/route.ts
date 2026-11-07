@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/me/feed-ad-campaigns/[id]/renew
  * Unchanged creative/destination renewal — Point spend + end_at extension.
+ * D-01: DB 함수 `member_feed_ad_renew` 한 트랜잭션 · body.expectedCost = 화면이 보여 준 가격 (다르면 409 price_changed).
  */
 export async function POST(
   req: NextRequest,
@@ -23,6 +24,7 @@ export async function POST(
   let body: {
     productId?: string;
     idempotencyKey?: string;
+    expectedCost?: number;
     creativeOrDestinationChanged?: boolean;
   };
   try {
@@ -47,10 +49,22 @@ export async function POST(
     campaignId: id,
     productId: String(body.productId ?? ""),
     idempotencyKey: idem,
+    expectedCost: typeof body.expectedCost === "number" ? body.expectedCost : null,
     creativeOrDestinationChanged: Boolean(body.creativeOrDestinationChanged),
   });
 
   if (!result.ok) {
+    if (result.error === "price_changed") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: result.error,
+          pointCost: result.pointCost ?? null,
+          durationDays: result.durationDays ?? null,
+        },
+        { status: result.httpStatus }
+      );
+    }
     return NextResponse.json(
       { ok: false, error: result.error },
       { status: result.httpStatus }

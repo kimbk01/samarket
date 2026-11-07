@@ -156,7 +156,9 @@ function lastAudit() {
 }
 
 describe("조치 × 화면 — 피드 배너 (허브 ↔ 도메인 같은 단계·감사 이름·before/after)", () => {
-  it.each(MATRIX)("$action: 두 화면 같은 감사 이름 $audit · before/after · 화면 표시", async (row) => {
+  it.each(MATRIX.filter((r) => r.action === "approve" || r.action === "extend_compensation"))(
+    "$action: 두 화면 같은 감사 이름 $audit · before/after · 화면 표시 (DB 함수가 감사를 안 쓰는 조치 = TS 가 1행)",
+    async (row) => {
     const body = {
       reason: "운영 확인 사유",
       internalReason: "내부 메모",
@@ -189,13 +191,33 @@ describe("조치 × 화면 — 피드 배너 (허브 ↔ 도메인 같은 단계
         screen,
       });
     }
-    if (row.action === "end") {
-      expect(hubAudit.after).toMatchObject({ fault: "operator", refund_amount: 150 });
-      expect(domainAudit.after).toMatchObject({ fault: "operator", refund_amount: 150 });
-    }
     // 같은 동작 단계 표 (공통 화면 copy = 도메인 상세 copy)
     expect(adsWorkspaceMutationConfirmCopy(row.action, true, { family: "feed_banner" }).level).toBe(row.level);
-  });
+    }
+  );
+
+  it.each(MATRIX.filter((r) => r.action === "pause" || r.action === "resume" || r.action === "end"))(
+    "D-14 $action: 감사는 DB 함수 1행만 — TS 감사 0 · 두 화면 모두 DB 래퍼에 screen(hub·domain) 전달",
+    async (row) => {
+      const body = { reason: "운영 확인 사유", internalReason: "내부 메모", fault: "operator" };
+      const writer =
+        row.action === "pause" ? adminPauseFeedAd : row.action === "resume" ? adminResumeFeedAd : adminEndFeedAd;
+      const h = await hub({ family: "feed_banner", entityId: "req-1", action: row.action, ...body });
+      expect(h.status).toBe(200);
+      const d = await domain("req-1", { action: row.action, ...body });
+      expect(d.status).toBe(200);
+      expect(appendAdminRouteAudit).not.toHaveBeenCalled();
+      expect(writer).toHaveBeenCalledTimes(2);
+      expect(writer.mock.calls[0]![1]).toMatchObject({
+        campaignId: "camp-1",
+        publicReason: "운영 확인 사유",
+        internalReason: "내부 메모",
+        screen: "hub",
+      });
+      expect(writer.mock.calls[1]![1]).toMatchObject({ campaignId: "camp-1", screen: "domain" });
+      expect(adsWorkspaceMutationConfirmCopy(row.action, true, { family: "feed_banner" }).level).toBe(row.level);
+    }
+  );
 
   it.each(["pause", "resume", "end", "extend_compensation", "approve"] as const)(
     "%s: 사유 없으면 두 화면 모두 400 reason_required · 쓰기·감사 0 (FB-A05)",
@@ -220,6 +242,7 @@ describe("조치 × 화면 — 피드 배너 (허브 ↔ 도메인 같은 단계
       adminUserId: "admin-1",
       publicReason: "신고 확인",
       internalReason: "메모",
+      screen: "hub",
     });
   });
 
@@ -253,13 +276,19 @@ describe("AL-09 · AL-10 — 신청 없는 운영자 등록 캠페인", () => {
     );
   });
 
-  it("AL-10: 감사 대상 유형 = feed_ad_campaign (캠페인 id) · 감사 이름은 같다", async () => {
-    await hub({ family: "feed_banner", entityId: "camp-9", action: "pause", reason: "점검" });
+  it("AL-10: 감사 대상 유형 = feed_ad_campaign (캠페인 id) · 감사 이름은 같다 (TS 가 감사를 쓰는 보상 연장)", async () => {
+    await hub({ family: "feed_banner", entityId: "camp-9", action: "extend_compensation", reason: "점검 보상", requestedDays: 2 });
     expect(lastAudit()).toMatchObject({
-      action: "feed_ad_request.pause",
+      action: "feed_ad_request.extend_compensation",
       targetType: "feed_ad_campaign",
       targetId: "camp-9",
     });
+  });
+
+  it("D-14: 운영자 등록 캠페인 정지 → TS 감사 0 (대상 유형은 DB 함수가 request_id 유무로 정한다)", async () => {
+    await hub({ family: "feed_banner", entityId: "camp-9", action: "pause", reason: "점검" });
+    expect(appendAdminRouteAudit).not.toHaveBeenCalled();
+    expect(adminPauseFeedAd).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ campaignId: "camp-9", screen: "hub" }));
   });
 });
 

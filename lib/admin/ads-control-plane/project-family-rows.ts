@@ -15,7 +15,15 @@ import type {
   AdsBillingCurrency,
   AdsControlDomain,
   AdsExecutionRow,
+  AdsLedgerFields,
 } from "@/lib/admin/ads-control-plane/types";
+import {
+  adsLedgerAdvertiserLabel,
+  adsLedgerDetailHref,
+  adsLedgerKindLabel,
+  adsLedgerPerformanceLabel,
+  adsLedgerStatusLabel,
+} from "@/lib/admin/ads-ledger/ad-ledger-presentation";
 import {
   adsPaymentLabel,
   adsRemainingPeriodLabel,
@@ -37,6 +45,7 @@ import {
 import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
 import { formatAdsPeriodRange, resolveBoostStoredPeriodBounds } from "@/lib/admin/ads-exposure/canonical-location-period";
 import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
+import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -782,4 +791,173 @@ export function sortAdsActionItemsByAtDesc(rows: AdsActionItem[]): AdsActionItem
   return [...rows].sort(
     (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 광고 원장 (설계 ads-admin-ssot-design-2026-11-07 §1-3 · AA-14 · 2026-11-07)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 원장 행의 원천 칸 (DB `admin_ads_ledger_page` rows) — 원장 칸(`AdsLedgerFields`) 밖 */
+export type AdsLedgerRowMeta = {
+  family: string;
+  sourceId: string;
+  itemId: string;
+  ops: string;
+  statusTab: string;
+  at: string;
+  domain: string;
+  product: string;
+  sourceKind: string;
+  title: string | null;
+  imageUrl: string | null;
+  destination: string | null;
+  priority: number | null;
+};
+
+const LEDGER_OPS: ReadonlySet<string> = new Set([
+  "pending",
+  "scheduled",
+  "live",
+  "paused",
+  "ended",
+  "rejected",
+  "draft",
+  "archived",
+]);
+
+function ledgerOps(raw: string): AdsOpsStatus {
+  return (LEDGER_OPS.has(raw) ? raw : mapRawToAdsOpsStatus(raw)) as AdsOpsStatus;
+}
+
+/** 원장 상태 탭 → 노출 표시 상태 (`resolveShellStatusTab` 가 같은 탭을 다시 낸다) */
+function runtimeFromLedgerTab(tab: string): NonNullable<AdsActionItem["runtimeDisplayStatus"]> {
+  switch (tab) {
+    case "live":
+      return "live_now";
+    case "waiting":
+      return "eligible_waiting";
+    case "scheduled":
+      return "scheduled";
+    case "paused":
+      return "paused";
+    case "pending":
+      return "pending";
+    case "incomplete":
+      return "incomplete";
+    case "rejected":
+      return "rejected";
+    default:
+      return "ended";
+  }
+}
+
+/**
+ * 원장 칸을 기존 projector 행에 붙인다.
+ * - 광고주 이름(uuid 앞자리 대신 닉네임·매장 이름·운영자·이벤트) · 회원 상세 링크
+ * - 상태 하나: DB 원장 상태를 그대로 쓴다 — 기간이 지난 정지는 「종료(기간 만료)」(AA-14),
+ *   피드 회원 신청은 연결 캠페인 상태·기간(신청↔캠페인 한 행)
+ */
+export function applyAdsLedgerToItem(
+  item: AdsActionItem,
+  meta: AdsLedgerRowMeta,
+  ledger: AdsLedgerFields
+): AdsActionItem {
+  const ops = ledgerOps(meta.ops);
+  const next: AdsActionItem = {
+    ...item,
+    ledger,
+    applicantLabel: adsLedgerAdvertiserLabel(ledger, true),
+    memberId: ledger.advertiserType === "member" ? ledger.advertiserId : item.memberId,
+    memberHref:
+      ledger.advertiserType === "member" && ledger.advertiserId ? memberHref(ledger.advertiserId) : item.memberHref,
+    performanceLabel:
+      ledger.impressions != null || ledger.clicks != null ? adsLedgerPerformanceLabel(ledger, true) : item.performanceLabel,
+  };
+  const expired = ledger.endedReason === "expired";
+  if (expired || meta.family === "feed_request") {
+    next.opsStatus = ops;
+    next.runtimeDisplayStatus = runtimeFromLedgerTab(meta.statusTab);
+    next.status = expired ? adsLedgerStatusLabel("ended", ledger, true) : opsLabel(ops);
+    next.lifecycleStatusLabel = next.status;
+    next.operatingStatusLabel = next.status;
+    next.exposureLabel = exposureFromOps(ops);
+    next.eligibility = exposureFromOps(ops);
+    next.entity = isAdsShellExecutionOps(ops) ? "execution" : "application";
+    if (expired) next.completenessClass = null;
+  }
+  if (meta.family === "feed_request" && (ledger.startAt || ledger.endAt)) {
+    next.periodLabel = formatPeriod(ledger.startAt, ledger.endAt);
+    next.remainingLabel = adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null;
+  }
+  if (meta.family === "feed_request" && meta.priority != null) next.priority = meta.priority;
+  return next;
+}
+
+/** 원장 칸만으로 그리는 새 종류 (PTR 띠 · 이벤트 히어로 · 마이 배너 · 인트로) */
+export function projectLedgerOnlyItem(meta: AdsLedgerRowMeta, ledger: AdsLedgerFields): AdsActionItem {
+  const ops = ledgerOps(meta.ops);
+  const status =
+    ledger.endedReason === "expired" ? adsLedgerStatusLabel("ended", ledger, true) : opsLabel(ops);
+  const domain: AdsControlDomain =
+    ledger.kind === "ptr"
+      ? "popup"
+      : ledger.kind === "event_hero"
+        ? "event_banner"
+        : ledger.kind === "my_banner"
+          ? "my_banner"
+          : "intro";
+  const href = adsLedgerDetailHref(ledger.kind, meta.sourceId, ledger);
+  const fallbackTitle =
+    ledger.kind === "intro"
+      ? `${adsLedgerKindLabel("intro", true)} ${meta.at ? formatAdminManilaDateSafe(meta.at) : ""}`.trim()
+      : adsLedgerKindLabel(ledger.kind, true);
+  return {
+    id: meta.itemId,
+    domain,
+    product: meta.product,
+    entity: "execution",
+    applicantLabel: adsLedgerAdvertiserLabel(ledger, true),
+    storeId: null,
+    memberId: null,
+    creativeHint: meta.imageUrl,
+    placementHint: ledger.locationTarget ?? ledger.locationKey,
+    amountLabel: null,
+    currency: "N_A",
+    status,
+    opsStatus: ops,
+    whyActionable: null,
+    paymentLabel: adsPaymentLabel("ADMIN_DIRECT", "N_A", true),
+    periodLabel: formatPeriod(ledger.startAt, ledger.endAt),
+    remainingLabel: adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null,
+    performanceLabel:
+      ledger.impressions != null || ledger.clicks != null ? adsLedgerPerformanceLabel(ledger, true) : null,
+    exposureLabel: exposureFromOps(ops),
+    eligibility: exposureFromOps(ops),
+    ageHours: ageHours(meta.at),
+    at: meta.at,
+    // PTR 은 플랫폼 팝업 캠페인 표 — 정지·재개·종료·기간 변경은 팝업 캠페인 조치 그대로
+    source: ledger.kind === "ptr" ? "platform_popup_campaigns" : `ledger:${ledger.kind}`,
+    href,
+    statementHref: null,
+    financeHref: null,
+    memberHref: null,
+    title: String(meta.title ?? "").trim() || fallbackTitle,
+    creativeImageUrl: meta.imageUrl,
+    destinationLabel: meta.destination,
+    priority: meta.priority,
+    lifecycleStatusLabel: status,
+    operatingStatusLabel: status,
+    runtimeDisplayStatus: runtimeFromLedgerTab(meta.statusTab),
+    isRuntimeWinner: meta.statusTab === "live",
+    sourceKind: "admin_direct",
+    previewHref: href,
+    periodStartAt: ledger.startAt,
+    periodEndAt: ledger.endAt,
+    pausedBy: ledger.pausedBy,
+    ledger,
+  };
+}
+
+function formatAdminManilaDateSafe(iso: string): string {
+  return Number.isFinite(new Date(iso).getTime()) ? formatAdminManilaDate(iso) : "";
 }

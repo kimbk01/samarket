@@ -1,4 +1,4 @@
-import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { requireAdsWriteAdmin } from "@/lib/admin/access/require-ads-write-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { runCommunityPromotionOrderAction } from "@/lib/admin/community-admin/community-promotion-order-action";
 
@@ -23,7 +23,8 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireCommunityAdmin("promotion");
+  // 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads 키 (공통 광고 화면과 같은 키)
+  const admin = await requireAdsWriteAdmin();
   if (!admin.ok) return admin.response;
   const { sb } = admin;
 
@@ -34,6 +35,8 @@ export async function PATCH(
     fault?: string;
     reasonCode?: string;
     preview?: boolean;
+    /** D-10: 운영자 내부 메모 (회원 응답·알림에 나가지 않음) */
+    internalReason?: string;
   };
 
   const out = await runCommunityPromotionOrderAction(sb, req, {
@@ -44,6 +47,7 @@ export async function PATCH(
     fault: body.fault,
     reasonCode: body.reasonCode,
     preview: body.preview === true,
+    internalReason: body.internalReason,
   });
   if (!out.ok) {
     return NextResponse.json({ ok: false, error: out.error }, { status: out.httpStatus });

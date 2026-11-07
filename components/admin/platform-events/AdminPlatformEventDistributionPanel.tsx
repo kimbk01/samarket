@@ -72,6 +72,8 @@ type ChannelSaveResult = {
   error?: string;
   action?: string;
   channelRefId?: string | null;
+  /** D-06: 이 저장으로 노출 중 팝업이 재검토로 내려감 */
+  revertedToReview?: boolean;
 };
 
 const POPUP_CHOICES: Array<{
@@ -158,7 +160,7 @@ export function AdminPlatformEventDistributionPanel({
   benefitBody = null,
   heroImageUrl = null,
 }: Props) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const [toggles, setToggles] = useState<PromotionDistributionToggleDraft>(emptyDistributionToggles);
@@ -513,11 +515,15 @@ export function AdminPlatformEventDistributionPanel({
         );
         return;
       }
+      const savedMsg = safeT("admin_platform_events_distribution_saved", {
+        fallbackKo: "배포 설정이 저장되었습니다. 푸시는 별도 발송이 필요합니다.",
+        fallbackEn: "Distribution saved. Push still requires an explicit send.",
+      });
+      // D-06: 팝업 그림·CTA·노출 위치 등 승인 대상 칸이 바뀌면 노출 중 팝업이 재검토로 내려간다 — 알린다
       setInfo(
-        safeT("admin_platform_events_distribution_saved", {
-          fallbackKo: "배포 설정이 저장되었습니다. 푸시는 별도 발송이 필요합니다.",
-          fallbackEn: "Distribution saved. Push still requires an explicit send.",
-        })
+        popupResult?.ok && popupResult.revertedToReview
+          ? `${savedMsg} ${t("ads3_w2_event_popup_reverted_review")}`
+          : savedMsg
       );
       await load();
     } catch {
@@ -548,6 +554,7 @@ export function AdminPlatformEventDistributionPanel({
     heroImageUrl,
     load,
     safeT,
+    t,
   ]);
 
   const pushHasUnsavedChanges =
@@ -946,6 +953,12 @@ export function AdminPlatformEventDistributionPanel({
                 onChange={(e) => setBannerHeadline(e.target.value)}
               />
             </label>
+            {bannerPresentation === "HERO_BANNER" ? (
+              /* D-19: 같은 위치 히어로 순서 = 실제 정렬(`compareEventHeroBannerRows` · 최근 수정 먼저) */
+              <p className="text-xs text-sam-muted" data-admin-banner-hero-order-hint="1">
+                {t("ads3_w2_event_hero_order_hint")}
+              </p>
+            ) : null}
             {bannerPresentation === "HERO_BANNER" ? (
               /* EV-2: 히어로는 그림 위에 글자를 쓰지 않는다 — 제목은 대체 텍스트로만 쓰인다 */
               <p className="text-xs text-sam-muted" data-admin-banner-hero-headline-hint="1">

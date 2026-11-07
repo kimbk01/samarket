@@ -344,7 +344,7 @@ export function BuyerGiftDetailView({
             </div>
             <p className="mt-1 text-xs text-sam-muted">
               {safeT("gift_u2_detail_apple_only_note", {
-                fallbackKo: `Apple 결제로 충전한 ${appleOnly.toLocaleString()}P는 광고·홍보에만 사용할 수 있습니다.`,
+                fallbackKo: `Apple 결제로 충전한 ${appleOnly.toLocaleString()}P는 광고·상위노출에만 사용할 수 있습니다.`,
                 fallbackEn: `${appleOnly.toLocaleString()}P charged through Apple can only be used for ads and promotions.`,
                 vars: { apple: appleOnly.toLocaleString() },
               })}

@@ -81,6 +81,10 @@ function makeRenewDb(state: {
   /** 재감사 F-04: 연장 UPDATE 오류 문구 (DB 트리거 `feed_ad_pool_capacity_full` 흉내) */
   failCampaignUpdateMessage?: string;
   products?: Row[];
+  /** D-01: DB 함수 흉내용 — 잔액 · 자리 없음 · rpc 호출 기록 */
+  balance?: number;
+  capacityFull?: boolean;
+  rpcCalls?: { fn: string; args: Row }[];
 }) {
   const products: Row[] = state.products ?? [
     {
@@ -197,9 +201,53 @@ function makeRenewDb(state: {
     return api;
   }
 
+  /**
+   * `member_feed_ad_renew` 흉내 (D-01 계약): 한 트랜잭션 — 같은 키 원장이 있으면 지금 종료일만 돌려주고 연장하지 않음 ·
+   * 가격 확인 · 잔액 부족/자리 없음이면 아무것도 바꾸지 않음.
+   */
+  function memberFeedAdRenew(args: Row) {
+    const userId = String(args.p_user);
+    const campaignId = String(args.p_campaign);
+    const key = String(args.p_key);
+    const c = state.campaigns.find((r) => r.id === campaignId);
+    const req = c ? state.requests.find((r) => r.id === c.request_id) : undefined;
+    if (!c || !req || String(req.user_id) !== userId || c.source !== "MEMBER_REQUESTED") {
+      return { ok: false, error: "not_found" };
+    }
+    if (c.status === "paused" && c.paused_by === "admin") return { ok: false, error: "admin_paused" };
+    if (c.status === "ended") return { ok: false, error: "admin_ended" };
+    if (c.status !== "active") return { ok: false, error: "not_renewable" };
+    const relatedId = `renew:${campaignId}:${key}`;
+    if (state.ledger.some((l) => l.user_id === userId && l.related_id === relatedId)) {
+      return { ok: true, end_at: c.end_at, point_cost: 0, idempotent: true };
+    }
+    const product = products.find((p) => p.id === args.p_product);
+    if (!product) return { ok: false, error: "not_found" };
+    if (product.domain !== c.domain) return { ok: false, error: "domain_mismatch" };
+    const cost = Number(product.point_cost);
+    if (Number(args.p_expected_cost) !== cost) {
+      return { ok: false, error: "price_changed", point_cost: cost, duration_days: product.duration_days };
+    }
+    if ((state.balance ?? 1_000_000) < cost) return { ok: false, error: "insufficient_balance" };
+    if (state.capacityFull) return { ok: false, error: "capacity_full" };
+    const nowMs = Date.parse("2026-08-10T00:00:00.000Z");
+    const base = Math.max(nowMs, c.end_at ? Date.parse(String(c.end_at)) : 0);
+    const endAt = new Date(base + Number(product.duration_days) * 86_400_000).toISOString();
+    state.ledger.push({ user_id: userId, related_type: "feed_ad_request", related_id: relatedId, amount: -cost });
+    state.balance = (state.balance ?? 1_000_000) - cost;
+    c.end_at = endAt;
+    req.end_at = endAt;
+    return { ok: true, end_at: endAt, point_cost: cost, idempotent: false };
+  }
+
   return {
     from(table: string) {
       return tableApi(table);
+    },
+    rpc: async (fn: string, args: Row) => {
+      state.rpcCalls?.push({ fn, args });
+      if (fn !== "member_feed_ad_renew") return { data: null, error: { message: "unknown_fn" } };
+      return { data: memberFeedAdRenew(args), error: null };
     },
   } as unknown as SupabaseClient;
 }
@@ -326,278 +374,163 @@ describe("PHASE 3 slot + delivery (D5-D8)", () => {
   });
 });
 
-describe("PHASE 3 renewal financial (D9–D14)", () => {
+describe("PHASE 3 renewal (D9–D14 · D-01 DB 함수 한 트랜잭션)", () => {
   beforeEach(() => {
     vi.mocked(spendUserPoints).mockClear();
     vi.mocked(creditUserPoints).mockClear();
-    vi.mocked(spendUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
-    vi.mocked(creditUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
   });
 
+  const NOW = Date.parse("2026-08-10T00:00:00.000Z");
+  const stateWith = (over: Partial<Row> = {}, extra: Partial<Parameters<typeof makeRenewDb>[0]> = {}) => ({
+    campaigns: [
+      {
+        id: "camp-1",
+        source: "MEMBER_REQUESTED",
+        request_id: "req-1",
+        domain: "trade",
+        status: "active",
+        end_at: "2026-08-12T00:00:00.000Z",
+        paused_by: null,
+        ...over,
+      } as Row,
+    ],
+    requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }] as Row[],
+    ledger: [] as Row[],
+    rpcCalls: [] as { fn: string; args: Row }[],
+    ...extra,
+  });
+  const renew = (sb: SupabaseClient, key: string, more: Partial<Parameters<typeof renewFeedAdCampaign>[1]> = {}) =>
+    renewFeedAdCampaign(sb, {
+      userId: "u1",
+      campaignId: "camp-1",
+      productId: "feed_banner_trade_7",
+      idempotencyKey: key,
+      expectedCost: 15000,
+      ...more,
+    });
+
   it("renewal end base = max(now, current end)", () => {
-    const now = Date.parse("2026-08-10T00:00:00.000Z");
-    const fromFuture = computeFeedAdRenewalEndAt({
-      currentEndAt: "2026-08-20T00:00:00.000Z",
-      durationDays: 7,
-      nowMs: now,
-    });
+    const fromFuture = computeFeedAdRenewalEndAt({ currentEndAt: "2026-08-20T00:00:00.000Z", durationDays: 7, nowMs: NOW });
     expect(Date.parse(fromFuture)).toBe(Date.parse("2026-08-27T00:00:00.000Z"));
-    const fromPast = computeFeedAdRenewalEndAt({
-      currentEndAt: "2026-08-01T00:00:00.000Z",
-      durationDays: 7,
-      nowMs: now,
-    });
+    const fromPast = computeFeedAdRenewalEndAt({ currentEndAt: "2026-08-01T00:00:00.000Z", durationDays: 7, nowMs: NOW });
     expect(Date.parse(fromPast)).toBe(Date.parse("2026-08-17T00:00:00.000Z"));
   });
 
-  it("D9 renew success → spend + end_at extension", async () => {
-    const now = Date.parse("2026-08-10T00:00:00.000Z");
-    const state = {
-      campaigns: [
-        {
-          id: "camp-1",
-          source: "MEMBER_REQUESTED",
-          request_id: "req-1",
-          domain: "trade",
-          status: "active",
-          end_at: "2026-08-12T00:00:00.000Z",
-        },
-      ],
-      requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
-      ledger: [] as Row[],
-    };
-    const sb = makeRenewDb(state);
-    const res = await renewFeedAdCampaign(sb, {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-1",
-      nowMs: now,
-    });
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(Date.parse(res.endAt)).toBe(Date.parse("2026-08-19T00:00:00.000Z"));
-    }
-    expect(spendUserPoints).toHaveBeenCalledTimes(1);
-    expect(state.campaigns[0]?.end_at).toBe("2026-08-19T00:00:00.000Z");
-  });
-
-  it("D10 renew financial failure → no extension", async () => {
-    vi.mocked(spendUserPoints).mockResolvedValueOnce({
-      ok: false,
-      error: "insufficient_balance",
-      code: "insufficient_balance",
-    });
-    const state = {
-      campaigns: [
-        {
-          id: "camp-1",
-          source: "MEMBER_REQUESTED",
-          request_id: "req-1",
-          domain: "trade",
-          status: "active",
-          end_at: "2026-08-12T00:00:00.000Z",
-        },
-      ],
-      requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
-      ledger: [] as Row[],
-    };
-    const sb = makeRenewDb(state);
-    const res = await renewFeedAdCampaign(sb, {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-fail",
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
-    });
-    expect(res.ok).toBe(false);
-    expect(state.campaigns[0]?.end_at).toBe("2026-08-12T00:00:00.000Z");
-  });
-
-  it("D11 extension failure → Point refund (no leak)", async () => {
-    const state = {
-      campaigns: [
-        {
-          id: "camp-1",
-          source: "MEMBER_REQUESTED",
-          request_id: "req-1",
-          domain: "trade",
-          status: "active",
-          end_at: "2026-08-12T00:00:00.000Z",
-        },
-      ],
-      requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
-      ledger: [] as Row[],
-      failCampaignUpdate: true,
-    };
-    const sb = makeRenewDb(state);
-    const res = await renewFeedAdCampaign(sb, {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-ext-fail",
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
-    });
-    expect(res.ok).toBe(false);
-    expect(creditUserPoints).toHaveBeenCalledTimes(1);
-  });
-
-  it("D12 double renew same key → no second spend when already extended", async () => {
-    const now = Date.parse("2026-08-10T00:00:00.000Z");
-    const state = {
-      campaigns: [
-        {
-          id: "camp-1",
-          source: "MEMBER_REQUESTED",
-          request_id: "req-1",
-          domain: "trade",
-          status: "active",
-          end_at: "2026-08-19T00:00:00.000Z",
-        },
-      ],
-      requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
-      ledger: [
-        {
-          user_id: "u1",
-          related_type: "feed_ad_request",
-          related_id: "renew:camp-1:idem-dup",
-        },
-      ] as Row[],
-    };
-    const sb = makeRenewDb(state);
-    const res = await renewFeedAdCampaign(sb, {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-dup",
-      nowMs: now,
-    });
-    expect(res.ok).toBe(true);
-    if (res.ok) expect(res.idempotentReplay).toBe(true);
+  it("D9 연장 성공 → DB 함수 1회(화면 가격 전달) · 종료일 +7일 · 원장 1행 · TS 차감 0", async () => {
+    const state = stateWith();
+    const res = await renew(makeRenewDb(state), "idem-1");
+    expect(res).toMatchObject({ ok: true, campaignId: "camp-1", pointCost: 15000, idempotentReplay: false });
+    if (res.ok) expect(Date.parse(res.endAt)).toBe(Date.parse("2026-08-19T00:00:00.000Z"));
+    expect(state.rpcCalls).toEqual([
+      {
+        fn: "member_feed_ad_renew",
+        args: { p_user: "u1", p_campaign: "camp-1", p_product: "feed_banner_trade_7", p_key: "idem-1", p_expected_cost: 15000 },
+      },
+    ]);
+    expect(state.ledger).toHaveLength(1);
     expect(spendUserPoints).not.toHaveBeenCalled();
   });
 
+  it("D10 잔액 부족 → 402 · 연장 없음 · 원장 0", async () => {
+    const state = stateWith({}, { balance: 100 });
+    const res = await renew(makeRenewDb(state), "idem-fail");
+    expect(res).toMatchObject({ ok: false, error: "insufficient_balance", httpStatus: 402 });
+    expect(state.campaigns[0]?.end_at).toBe("2026-08-12T00:00:00.000Z");
+    expect(state.ledger).toHaveLength(0);
+  });
+
+  it("D11 자리 없음 → 409 capacity_full · 원장 0 · TS 환급 경로 없음", async () => {
+    const state = stateWith({}, { capacityFull: true });
+    const res = await renew(makeRenewDb(state), "idem-ext-fail");
+    expect(res).toMatchObject({ ok: false, error: "capacity_full", httpStatus: 409 });
+    expect(state.ledger).toHaveLength(0);
+    expect(creditUserPoints).not.toHaveBeenCalled();
+    expect(state.campaigns[0]?.end_at).toBe("2026-08-12T00:00:00.000Z");
+  });
+
+  it("D12 (D-01) 이미 처리된 같은 키를 다시 보내면 연장하지 않는다 — 종료일 불변 · 차감 없음", async () => {
+    // 첫 결제(키 idem-dup)로 이미 08-12 → 08-19 로 늘어난 상태
+    const state = stateWith(
+      { end_at: "2026-08-19T00:00:00.000Z" },
+      { ledger: [{ user_id: "u1", related_type: "feed_ad_request", related_id: "renew:camp-1:idem-dup", amount: -15000 }] }
+    );
+    const sb = makeRenewDb(state);
+    for (let i = 0; i < 3; i += 1) {
+      const res = await renewFeedAdCampaign(sb, {
+        userId: "u1",
+        campaignId: "camp-1",
+        productId: "feed_banner_trade_7",
+        idempotencyKey: "idem-dup",
+        expectedCost: 15000,
+        nowMs: NOW,
+      } as Parameters<typeof renewFeedAdCampaign>[1]);
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.idempotentReplay).toBe(true);
+        expect(res.endAt).toBe("2026-08-19T00:00:00.000Z");
+      }
+    }
+    expect(state.campaigns[0]?.end_at).toBe("2026-08-19T00:00:00.000Z");
+    expect(state.ledger).toHaveLength(1);
+    expect(spendUserPoints).not.toHaveBeenCalled();
+  });
+
+  it("D12b 새 키 1번 + 같은 키 재전송 2번 → 기간은 1번만 늘어난다", async () => {
+    const state = stateWith();
+    const sb = makeRenewDb(state);
+    await renew(sb, "idem-once");
+    await renew(sb, "idem-once");
+    await renew(sb, "idem-once");
+    expect(state.campaigns[0]?.end_at).toBe("2026-08-19T00:00:00.000Z");
+    expect(state.ledger).toHaveLength(1);
+  });
+
+  it("D-01 화면 가격과 지금 가격이 다르면 409 price_changed + 지금 가격 · 차감·연장 없음", async () => {
+    const state = stateWith();
+    const res = await renew(makeRenewDb(state), "idem-price", { expectedCost: 9000 });
+    expect(res).toMatchObject({ ok: false, error: "price_changed", httpStatus: 409, pointCost: 15000, durationDays: 7 });
+    expect(state.ledger).toHaveLength(0);
+    expect(state.campaigns[0]?.end_at).toBe("2026-08-12T00:00:00.000Z");
+  });
+
+  it("가격 확인값이 없는 옛 화면 → 지금 상품 가격을 확인값으로 넘긴다", async () => {
+    const state = stateWith();
+    const res = await renew(makeRenewDb(state), "idem-old-ui", { expectedCost: undefined });
+    expect(res.ok).toBe(true);
+    expect(state.rpcCalls?.[0]?.args.p_expected_cost).toBe(15000);
+  });
+
+  it("DB 함수 오류(응답 없음) → 500 renew_failed (원문 오류 노출 없음 · 화면은 같은 키로 재확인)", async () => {
+    const sb = makeRenewDb(stateWith());
+    (sb as unknown as { rpc: unknown }).rpc = async () => ({ data: null, error: { message: "connection reset" } });
+    const res = await renew(sb, "idem-err");
+    expect(res).toEqual({ ok: false, error: "renew_failed", httpStatus: 500 });
+  });
+
   it("D13 unchanged creative → renew allowed", async () => {
-    const res = await renewFeedAdCampaign(makeRenewDb({
-      campaigns: [
-        {
-          id: "camp-1",
-          source: "MEMBER_REQUESTED",
-          request_id: "req-1",
-          domain: "trade",
-          status: "active",
-          end_at: "2026-08-12T00:00:00.000Z",
-        },
-      ],
-      requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
-      ledger: [],
-    }), {
-      userId: "u1",
-      campaignId: "camp-1",
+    const res = await renew(makeRenewDb(stateWith()), "idem-ok", {
       productId: "feed_banner_trade_3",
-      idempotencyKey: "idem-ok",
+      expectedCost: 8000,
       creativeOrDestinationChanged: false,
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
     });
     expect(res.ok).toBe(true);
   });
 
-  it("D14 changed creative → re_review_required", async () => {
-    const res = await renewFeedAdCampaign(makeRenewDb({
-      campaigns: [],
-      requests: [],
-      ledger: [],
-    }), {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-x",
-      creativeOrDestinationChanged: true,
-    });
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toBe("re_review_required");
-  });
-});
-
-describe("재감사 2026-11-04 — 회원 연장 (Owner 결정 1 · F-04)", () => {
-  beforeEach(() => {
-    vi.mocked(spendUserPoints).mockClear();
-    vi.mocked(creditUserPoints).mockClear();
-    vi.mocked(spendUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
-    vi.mocked(creditUserPoints).mockResolvedValue({ ok: true, balanceAfter: 50 });
-  });
-  // FB-M11 (2026-11-04): 관리자 정지는 paused_by='admin' 으로만 판정 (「paused = 관리자」 추정 제거)
-  const base = (status: string, end_at = "2026-08-12T00:00:00.000Z", paused_by: string | null = status === "paused" ? "admin" : null) => ({
-    campaigns: [{ id: "camp-1", source: "MEMBER_REQUESTED", request_id: "req-1", domain: "trade", status, end_at, paused_by }],
-    requests: [{ id: "req-1", user_id: "u1", status: "active", domain: "trade" }],
-    ledger: [] as Row[],
+  it("D14 changed creative → re_review_required (DB 호출 없음)", async () => {
+    const state = stateWith();
+    const res = await renew(makeRenewDb(state), "idem-x", { creativeOrDestinationChanged: true });
+    expect(res).toMatchObject({ ok: false, error: "re_review_required" });
+    expect(state.rpcCalls).toHaveLength(0);
   });
 
   it.each([
     ["paused", "admin_paused"],
     ["ended", "admin_ended"],
-  ])("관리자가 %s 한 광고는 결제·연장으로 다시 켤 수 없다 (차감 없음 · 캠페인 그대로)", async (status, error) => {
-    const state = base(status);
-    const res = await renewFeedAdCampaign(makeRenewDb(state), {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: `idem-${status}`,
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
-    });
+  ])("관리자가 %s 한 광고는 연장 불가 → 409 %s · 캠페인 그대로", async (status, error) => {
+    const state = stateWith({ status, paused_by: status === "paused" ? "admin" : null });
+    const res = await renew(makeRenewDb(state), `idem-${status}`);
     expect(res).toMatchObject({ ok: false, error, httpStatus: 409 });
-    expect(spendUserPoints).not.toHaveBeenCalled();
     expect(state.campaigns[0]?.status).toBe(status);
-  });
-
-  it("FB-M11: paused_by 가 admin 이 아닌 정지는 「관리자 정지」로 보지 않는다 (연장은 active 만 · not_renewable)", async () => {
-    const state = base("paused", "2026-08-12T00:00:00.000Z", "system");
-    const res = await renewFeedAdCampaign(makeRenewDb(state), {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-sys-paused",
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
-    });
-    expect(res).toMatchObject({ ok: false, error: "not_renewable", httpStatus: 409 });
-    expect(spendUserPoints).not.toHaveBeenCalled();
-  });
-
-  it("기간이 끝나 저절로 끝난 광고(active · 종료일 지남)는 연장된다", async () => {
-    const state = base("active", "2026-08-01T00:00:00.000Z");
-    const res = await renewFeedAdCampaign(makeRenewDb(state), {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-expired",
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
-    });
-    // 끝난 광고를 다시 켜면 자리 검사를 한다 — 흉내 DB 의 다른 캠페인은 없으므로 통과
-    expect(res.ok).toBe(true);
-    expect(spendUserPoints).toHaveBeenCalledTimes(1);
-  });
-
-  it("F-04: 차감됐는데 연장이 「자리 없음」으로 막히면 실제 빠진 금액을 1회 환급한다", async () => {
-    const state = {
-      ...base("active", "2026-08-12T00:00:00.000Z"),
-      ledger: [{ user_id: "u1", related_type: "feed_ad_request", related_id: "renew:camp-1:idem-retry", amount: -15000 }] as Row[],
-      failCampaignUpdate: true,
-      failCampaignUpdateMessage: "feed_ad_pool_capacity_full",
-    };
-    const res = await renewFeedAdCampaign(makeRenewDb(state), {
-      userId: "u1",
-      campaignId: "camp-1",
-      productId: "feed_banner_trade_7",
-      idempotencyKey: "idem-retry",
-      nowMs: Date.parse("2026-08-10T00:00:00.000Z"),
-    });
-    expect(res).toMatchObject({ ok: false, error: "capacity_full" });
-    expect(spendUserPoints).not.toHaveBeenCalled();
-    expect(creditUserPoints).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(creditUserPoints).mock.calls[0]![1]).toMatchObject({
-      userId: "u1",
-      amount: 15000,
-      relatedId: "renew-refund:camp-1:idem-retry",
-    });
+    expect(state.ledger).toHaveLength(0);
   });
 });

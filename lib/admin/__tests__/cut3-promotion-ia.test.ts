@@ -59,6 +59,8 @@ describe("CUT3 Promotion IA navigation", () => {
       "promotion-ptr-ads",
       "promotion-banners",
       "promotion-owner-requests",
+      // 광고 원장 §5 (2026-11-07): 플랫폼 운영 › 광고 = 같은 원장 + `?domain=platform`
+      "promotion-ads-ledger",
     ]);
     expect(keys).not.toContain("promotion-intro");
     // Startup group: build-time OS start screen + runtime launch Intro (separate systems).
@@ -70,6 +72,8 @@ describe("CUT3 Promotion IA navigation", () => {
       "settings-startup-config",
       "menu-main-bottom-nav",
       "my-banners",
+      // 광고 원장 §5 (2026-11-07): 내정보 › 배너 = 같은 원장 + `?domain=mypage`
+      "my-ads-ledger",
       "my-sections",
       "my-services",
     ]);

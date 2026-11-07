@@ -4,6 +4,7 @@ import {
   DIBAY_PTR_ERROR_HOLD_MS,
   DIBAY_PTR_HANDLER_TIMEOUT_MS,
   DIBAY_PTR_MIN_SPIN_MS,
+  DIBAY_PTR_REVEAL_AD_HOLD_MS,
   DIBAY_PTR_SUCCESS_HOLD_MS,
   resolveDibayPtrSlotPx,
   type DibayPtrHandler,
@@ -34,6 +35,8 @@ export type DibayPtrStoreTimings = {
   successHoldMs: number;
   errorHoldMs: number;
   handlerTimeoutMs: number;
+  /** D-05: 광고 띠가 보인 회차의 결과 표시 유지 시간(성공·실패 공통 하한) */
+  revealAdHoldMs: number;
 };
 
 const DEFAULT_TIMINGS: DibayPtrStoreTimings = {
@@ -41,6 +44,7 @@ const DEFAULT_TIMINGS: DibayPtrStoreTimings = {
   successHoldMs: DIBAY_PTR_SUCCESS_HOLD_MS,
   errorHoldMs: DIBAY_PTR_ERROR_HOLD_MS,
   handlerTimeoutMs: DIBAY_PTR_HANDLER_TIMEOUT_MS,
+  revealAdHoldMs: DIBAY_PTR_REVEAL_AD_HOLD_MS,
 };
 
 function wait(ms: number): Promise<void> {
@@ -117,6 +121,8 @@ function createCore(preflight: () => void, timings?: Partial<DibayPtrStoreTiming
   let snapshot: DibayPtrSnapshot = DIBAY_PTR_EMPTY_SNAPSHOT;
   /** 외부 리셋·새 당김이 진행 중 run 의 늦은 쓰기를 무효화 */
   let generation = 0;
+  /** D-05: 띠 레이어가 알린 「광고 띠 보임」(읽기 신호) — 결과 표시 유지 시간만 바꾼다 */
+  let revealAdVisible = false;
   const listeners = new Set<() => void>();
 
   const write = (next: DibayPtrSnapshot) => {
@@ -200,13 +206,24 @@ function createCore(preflight: () => void, timings?: Partial<DibayPtrStoreTiming
       phase: outcome.status === "success" ? "SUCCESS" : "ERROR",
       outcome,
     });
-    await wait(outcome.status === "success" ? t.successHoldMs : t.errorHoldMs);
+    const baseHoldMs = outcome.status === "success" ? t.successHoldMs : t.errorHoldMs;
+    await wait(baseHoldMs);
     if (gen !== generation) return outcome;
+    // D-05: 광고 띠가 보였으면 결과 표시를 revealAdHoldMs 까지 연장 — 그 사이 본문 터치·스크롤은 patch 로 즉시 접힘(generation 무효화)
+    if (revealAdVisible && t.revealAdHoldMs > baseHoldMs) {
+      await wait(t.revealAdHoldMs - baseHoldMs);
+      if (gen !== generation) return outcome;
+    }
     write(DIBAY_PTR_EMPTY_SNAPSHOT);
     return outcome;
   };
 
-  return { subscribe, getSnapshot, getServerSnapshot, patch, run };
+  /** D-05: 띠 레이어 → 저장소 신호. 상태(snapshot)는 바꾸지 않는다 */
+  const noteRevealAdVisible = (visible: boolean) => {
+    revealAdVisible = visible;
+  };
+
+  return { subscribe, getSnapshot, getServerSnapshot, patch, run, noteRevealAdVisible };
 }
 
 /** 다중 핸들러(`Promise.all`) — 커뮤니티·메신저·배달 홈·browse */
@@ -221,6 +238,7 @@ export function createDibayPtrStore(options: {
     getSnapshot: core.getSnapshot,
     getServerSnapshot: core.getServerSnapshot,
     patch: core.patch,
+    noteRevealAdVisible: core.noteRevealAdVisible,
     addHandler(fn: DibayPtrHandler): () => void {
       handlers.add(fn);
       return () => {
@@ -250,6 +268,7 @@ export function createDibayKeyedPtrStore(options: {
     getSnapshot: core.getSnapshot,
     getServerSnapshot: core.getServerSnapshot,
     patch: core.patch,
+    noteRevealAdVisible: core.noteRevealAdVisible,
     addHandler(key: string, fn: DibayPtrHandler): () => void {
       handlers.set(key, fn);
       return () => {

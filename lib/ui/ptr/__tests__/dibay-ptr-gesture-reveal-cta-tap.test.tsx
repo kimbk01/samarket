@@ -82,4 +82,30 @@ describe("PTR gesture — reveal CTA tap during result hold (V-13)", () => {
 
     expect(patch).toHaveBeenCalledWith({ pullPx: 0 });
   });
+  /**
+   * D-05 (재감사 3차): 커뮤니티·거래는 띠가 본문 `<main>` 밖 전역 헤더(`AppStickyHeader` · `[data-app-sticky-header]`)에 그려지고
+   * 제스처는 스크롤 루트에만 붙는다(bindStickyHeader 없음) — 헤더 CTA 탭은 손가락 감지에 닿지 않는다.
+   * 그 화면의 실패 원인은 「접힘」이 아니라 유지 시간(D-05 · 3초 연장)이다.
+   */
+  it("커뮤니티·거래 구조: 헤더(감지 밖)의 CTA 탭은 제스처에 닿지 않는다", async () => {
+    await mount("SUCCESS");
+    const header = document.createElement("div");
+    header.setAttribute("data-app-sticky-header", "");
+    document.body.appendChild(header);
+    const cta = document.createElement("button");
+    cta.setAttribute("data-ptr-reveal-cta", "");
+    header.appendChild(cta);
+    const plainHeaderTap = document.createElement("div");
+    header.appendChild(plainHeaderTap);
+
+    touch(cta, "touchstart");
+    touch(cta, "touchend");
+    touch(plainHeaderTap, "touchstart");
+    touch(plainHeaderTap, "touchend");
+
+    expect(scrollRoot.contains(cta)).toBe(false);
+    expect(patch).not.toHaveBeenCalled();
+    expect(snapshot.pullPx).toBe(64);
+    header.remove();
+  });
 });

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
+import {
+  ADMIN_REASON_REQUIRED_CODE,
+  parseAdminInternalReason,
+  parseAdminReason,
+} from "@/lib/admin/operator-ux/admin-reason";
+import { persistAdvertisingAdminMemo } from "@/lib/ads/advertising-admin-memo";
+import { advertisingWorkspaceMemoTargetType } from "@/lib/admin/advertising-workspace/workspace-memo-gate";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import {
   adminExtendDeliveryAdCampaign,
@@ -140,6 +147,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       },
       { status: result.httpStatus }
     );
+  }
+  // D-10 — 내부 메모는 연장 감사 사유에 섞지 않고 운영자 메모로만 남긴다.
+  const internalReason = parseAdminInternalReason(body.internalReason);
+  if (internalReason) {
+    const meta = getAuditRequestMeta(req);
+    await persistAdvertisingAdminMemo(sb, {
+      adminId: admin.userId,
+      adId: campaignId,
+      targetType: advertisingWorkspaceMemoTargetType(
+        body.productKind === "banner" ? "delivery_banner" : "delivery_sponsored"
+      ),
+      kind: "internal",
+      memo: `[extend] ${internalReason}`,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
   }
   return NextResponse.json({ ok: true, extension: result });
 }

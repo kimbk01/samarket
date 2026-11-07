@@ -120,6 +120,12 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
       // Owner 결정 O-6 (2026-11-03): 배달 메뉴에서 매장 홍보·사장님 팝업 신청 처리 (공통 「광고 승인」 별칭)
       "delivery-store-promo-requests",
       "delivery-owner-popup-requests",
+      // 광고 원장 §5 (Owner 「설계안대로 진행」 2026-11-07): 배달 › 광고 = 같은 원장 + `?domain=delivery` ·
+      // 숨김 메뉴였던 운영 목록·Cash 충전 대기열·상품 가격을 별칭으로 노출 (원래 화면 소속 = 광고 작업 공간 그대로)
+      "delivery-ads-ledger",
+      "delivery-ads-ops-entry",
+      "delivery-ads-cash-queue",
+      "delivery-ads-products-entry",
     ],
   },
   {
@@ -324,6 +330,8 @@ export const CUT_J_J_AMD_5_PROMOTION_TREE = [
       "promotion-ptr-ads",
       "promotion-banners",
       "promotion-owner-requests",
+      // 광고 원장 §5 (2026-11-07): 플랫폼 운영 › 광고 = 같은 원장 + `?domain=platform`
+      "promotion-ads-ledger",
     ],
   },
   {
@@ -334,6 +342,8 @@ export const CUT_J_J_AMD_5_PROMOTION_TREE = [
       "settings-startup-config",
       "menu-main-bottom-nav",
       "my-banners",
+      // 광고 원장 §5 (2026-11-07): 내정보 › 배너 = 같은 원장 + `?domain=mypage`
+      "my-ads-ledger",
       "my-sections",
       "my-services",
     ],

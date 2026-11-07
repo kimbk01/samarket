@@ -79,6 +79,8 @@ describe("Ads FULL SSOT normalization", () => {
       "ads-authority-placements",
       "ads-authority-products",
       "ads-authority-history",
+      // 설계 ads-admin-ssot §5 (2026-11-07): 공통 「충전·문의」
+      "ads-authority-charge-inquiry",
     ]);
   });
 

@@ -51,8 +51,8 @@ export async function GET() {
  * Body: { backgroundColor: "#RRGGBB", resetLogo?: boolean }
  */
 export async function PUT(req: NextRequest) {
-  // G-18: 앱 공통 설정 쓰기 = settings 키 (메뉴·CTA·API 동일 — admin-route-access.ts)
-  const gate = await requireAdminPermission("settings");
+  // 광고 SSOT §4 (2026-11-07): 인트로·시작 화면 쓰기 = ads 키 (광고 메뉴 안의 기능 · 메뉴·CTA·API 동일 — admin-route-access.ts)
+  const gate = await requireAdminPermission("ads");
   if (!gate.ok) return gate.response;
   const admin = { userId: gate.actor.userId };
   const sb = tryGetSupabaseForStores();

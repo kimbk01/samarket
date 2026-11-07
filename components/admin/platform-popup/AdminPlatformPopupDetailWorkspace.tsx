@@ -12,6 +12,7 @@ import {
   type AdminPlatformPopupAuditRow,
 } from "@/components/admin/platform-popup/AdminPlatformPopupAuditHistory";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -463,7 +464,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
   /**
    * 상태 전이 확인 (확인 단계 표 `adminActionLevel`): 승인 = approve(L2) · 노출 시작 = exposeStart(L2) ·
-   * 노출 중지 = exposeStop(L1) · 종료 = forceCancel(L3, 캠페인 이름 재입력).
+   * 정지 = pause(L2 · 사유 필수 · AD2-02 공통 화면과 같은 단계) · 종료 = forceCancel(L3 · 사유만 — 대상 재입력 없음, Owner 2026-11-07).
    * L2·L3 사유는 전이 API 본문 `reason` 으로 보내고 서버가 감사 기록에 남긴다.
    */
   const confirmTransition = async (
@@ -499,7 +500,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     }
     if (next === "paused") {
       return confirmAdminAction({
-        level: adminActionLevel("exposeStop"),
+        level: adminActionLevel("pause"),
         ko,
         title: ko ? "팝업 노출 중지" : "Stop popup exposure",
         description: ko
@@ -518,7 +519,6 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           : `End "${name}". An ended popup cannot be shown again.`,
         confirmLabel: ko ? "종료" : "End",
         destructive: true,
-        retypeValue: name,
       });
     }
     return { ok: true, reason: null };
@@ -544,44 +544,6 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       return;
     }
     await load();
-  };
-
-  const deleteDraft = async () => {
-    const ko = language !== "en";
-    const confirmed = await confirmAdminAction({
-      level: adminActionLevel("delete"),
-      ko,
-      title: ko ? "임시저장 팝업 삭제" : "Delete draft popup",
-      description: ko
-        ? "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
-        : "Delete this draft popup? This cannot be undone.",
-      confirmLabel: adminCta("delete", ko),
-      destructive: true,
-      retypeValue: campaign?.name?.trim() || campaignId,
-    });
-    if (!confirmed.ok) return;
-    setBusy(true);
-    setError(null);
-    const res = await fetch("/api/admin/advertising-workspace/action", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        family: "platform_popup_campaign",
-        entityId: campaignId,
-        action: "delete_safe_draft",
-        reason: confirmed.reason,
-      }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    setBusy(false);
-    if (!res.ok || !json.ok) {
-      setError(
-        formatPlatformPopupAdminError(json.error || "delete_failed", language === "en" ? "en" : "ko")
-      );
-      return;
-    }
-    router.push("/admin/advertising");
   };
 
   const uploadCreative = async (file: File, applyCrop: boolean) => {
@@ -1623,19 +1585,17 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   fallbackEn: "End",
                 })}
               </AdminActionButton>
-              {canDeleteDraft ? (
-                <AdminActionButton
-                  variant="danger"
-                  size="sm"
-                  disabled={writeBlocked}
-                  onClick={() => void deleteDraft()}
-                  data-admin-popup-delete-draft="1"
-                >
-                  {safeT("admin_platform_popup_action_delete_draft", {
-                    fallbackKo: "삭제",
-                    fallbackEn: "Delete",
-                  })}
-                </AdminActionButton>
+              {canDeleteDraft && adminAction.allowed ? (
+                /* 재입력 제거(Owner 2026-11-07): 삭제 = 사유만 · 공용 삭제 조치(R2) */
+                <span className="contents" data-admin-popup-delete-draft="1">
+                  <AdminAdDeleteAction
+                    kind="popup_campaign"
+                    id={campaignId}
+                    title={campaign?.name?.trim() || campaignId}
+                    size="sm"
+                    onDone={() => router.push("/admin/advertising")}
+                  />
+                </span>
               ) : null}
             </div>
           </AdminCard>

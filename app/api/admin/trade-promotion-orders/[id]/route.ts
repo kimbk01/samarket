@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { requireAdsWriteAdmin } from "@/lib/admin/access/require-ads-write-admin";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { mapPointPromotionOrderRow } from "@/lib/points/point-promotion-orders-db";
@@ -85,13 +86,14 @@ export async function GET(
 /**
  * PATCH /api/admin/trade-promotion-orders/[id]
  * body: { action: approve|reject|pause|resume|end, reason?, fault?: operator|member|none, reasonCode?, preview? }
- * 조치 1건 = 거래 홍보 DB 함수 1번 (상태·보류/확정/해제·환급·감사 한 트랜잭션, 설계 v2 §G-0). 권한: 활성 관리자 전원 (O-2).
+ * 조치 1건 = 거래 홍보 DB 함수 1번 (상태·보류/확정/해제·환급·감사 한 트랜잭션, 설계 v2 §G-0). 권한: ads 키 (2026-11-07 권한 표 §4).
  */
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireTradeAdmin();
+  /** 권한 표 §4 (2026-11-07): 거래 상위노출 쓰기 = ads 키 — 도메인 `trade/promotions/[id]` 와 같은 키 */
+  const admin = await requireAdsWriteAdmin();
   if (!admin.ok) return admin.response;
 
   const { id } = await ctx.params;

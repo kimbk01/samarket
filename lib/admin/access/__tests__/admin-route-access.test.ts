@@ -74,7 +74,10 @@ function guardCallsFor(req: AdminRouteRequirement): string[] {
     case "deploy_owner":
       return ["requireDeployOwner("];
     case "permission":
-      return [`requireAdminPermission("${req.key}")`];
+      // 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads 키 전용 가드 `requireAdsWriteAdmin` (= requireAdminPermission("ads"))
+      return req.key === "ads"
+        ? [`requireAdminPermission("ads")`, "requireAdsWriteAdmin("]
+        : [`requireAdminPermission("${req.key}")`];
     case "domain":
       if (req.guard === "trade") return ["requireTradeAdmin("];
       if (req.guard === "community") return [`requireCommunityAdmin("${req.area}")`];
@@ -158,6 +161,8 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/feed-ad-requests", route: "feed-ad-requests/[id]/route.ts", method: "PATCH" },
   { page: "/admin/platform-promotion/banners", route: "platform-events/[eventId]/distribution/route.ts", method: "PUT" },
   { page: "/admin/trade/points", route: "trade/points/adjust/route.ts", method: "POST" },
+  // 광고 SSOT §4 (2026-11-07) — 거래 상위노출 쓰기 = ads (조회는 거래 가드)
+  { page: "/admin/trade/promotions", route: "trade/promotions/[id]/route.ts", method: "POST" },
   { page: "/admin/home-feed", route: "home-feed-policies/route.ts", method: "PUT" },
   { page: "/admin/personalized-feed", route: "personalized-feed-policies/route.ts", method: "PUT" },
   { page: "/admin/exposure-policies", route: "exposure-policies/[id]/route.ts", method: "PATCH" },
@@ -165,7 +170,7 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/stores", route: "stores/[id]/route.ts", method: "PATCH" },
   { page: "/admin/business", route: "stores/[id]/route.ts", method: "PATCH" },
   { page: "/admin/delivery-ads", route: "delivery-ads/[campaignId]/actions/route.ts", method: "POST" },
-  // G-18 (Owner 승인 2026-10-30) — 앱 공통 설정 쓰기 = settings
+  // G-18 (Owner 승인 2026-10-30) — 앱 공통 설정 쓰기 = settings · 인트로·시작 화면은 광고 SSOT §4 (2026-11-07) 로 ads
   { page: "/admin/settings/startup-config", route: "startup-config/route.ts", method: "PUT" },
   { page: "/admin/platform-promotion/os-start", route: "os-launch/route.ts", method: "PUT" },
   { page: "/admin/platform-promotion/intro", route: "launch-intro/route.ts", method: "PUT" },

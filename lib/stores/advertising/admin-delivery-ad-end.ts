@@ -17,10 +17,11 @@ export function isDeliveryAdEndFault(v: unknown): v is DeliveryAdEndFault {
 }
 
 /**
- * 진행 중 종료 = 귀책 + 비례 환급 함수로 종료하는 상태 (노출 중 · 사장님/관리자 정지 중).
- * 그 밖의 종료 가능 상태(예약 SCHEDULED)는 기존 전이 함수(`admin_delivery_ad_transition` end)를 쓴다.
+ * 진행 중 종료 = 귀책 + 비례 환급 함수로 종료하는 상태 (노출 중 · 예약 · 사장님/관리자 정지 중).
+ * D-02 (2026-11-07) — 예약(SCHEDULED)도 선결제가 있으므로 같은 함수로 간다 (DB 함수가 SCHEDULED 를 받는다 · 전액 비례).
+ * 예전에는 SCHEDULED 가 빠져 환급 없는 `admin_delivery_ad_transition` end 로 갔다.
  */
-export const DELIVERY_AD_LIVE_END_LIFECYCLES = ["ACTIVE", "PAUSED_OWNER", "PAUSED_ADMIN"] as const;
+export const DELIVERY_AD_LIVE_END_LIFECYCLES = ["ACTIVE", "SCHEDULED", "PAUSED_OWNER", "PAUSED_ADMIN"] as const;
 
 export function isDeliveryAdLiveEndLifecycle(status: string | null | undefined): boolean {
   return (DELIVERY_AD_LIVE_END_LIFECYCLES as readonly string[]).includes(String(status ?? ""));

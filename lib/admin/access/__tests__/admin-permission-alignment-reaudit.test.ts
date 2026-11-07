@@ -139,12 +139,9 @@ describe("G-01 (P0) · IA-04 — 광고 워크스페이스 조치 = 계열별 �
   });
 
   it("드로어 CTA 거래·커뮤니티 홍보", () => {
-    expect(advertisingWorkspaceFamilyActionRequirement("boost_trade")).toEqual({ kind: "domain", guard: "trade" });
-    expect(advertisingWorkspaceFamilyActionRequirement("boost_community")).toEqual({
-      kind: "domain",
-      guard: "community",
-      area: "promotion",
-    });
+    // 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads (도메인·공통 같은 키 — 예전 거래 Admin·커뮤니티 promotion)
+    expect(advertisingWorkspaceFamilyActionRequirement("boost_trade")).toEqual({ kind: "permission", key: "ads" });
+    expect(advertisingWorkspaceFamilyActionRequirement("boost_community")).toEqual({ kind: "permission", key: "ads" });
   });
 });
 
@@ -168,6 +165,14 @@ describe("IA-04 (K-2) · G-18 — 광고·홍보 콘텐츠 쓰기 = ads", () => 
     ["banners/route.ts", "POST"],
     ["banners/[id]/route.ts", "PATCH"],
     ["banners/[id]/route.ts", "DELETE"],
+    // 광고 SSOT §4 (2026-11-07): 인트로·시작 화면 쓰기 = ads (settings 에서 이동)
+    ["launch-intro/route.ts", "PUT"],
+    ["launch-intro/route.ts", "DELETE"],
+    ["launch-intro/publish/route.ts", "POST"],
+    ["launch-intro/state/route.ts", "POST"],
+    ["launch-intro/upload/route.ts", "POST"],
+    ["os-launch/route.ts", "PUT"],
+    ["os-launch/logo/route.ts", "POST"],
   ])("%s %s", (route, method) => {
     expectHandlerKey(route, method, "ads");
   });
@@ -178,14 +183,14 @@ describe("IA-04 (K-2) · G-18 — 광고·홍보 콘텐츠 쓰기 = ads", () => 
     }
   });
 
-  it.each(["/admin/feed-ads/new", "/admin/feed-ads/abc/edit", "/admin/ad-applications/abc", "/admin/platform-popup", "/admin/platform-popup/abc", "/admin/platform-events/new", "/admin/my/banners", "/admin/my/banners/create"])(
+  it.each(["/admin/feed-ads/new", "/admin/feed-ads/abc/edit", "/admin/ad-applications/abc", "/admin/platform-popup", "/admin/platform-popup/abc", "/admin/platform-events/new", "/admin/my/banners", "/admin/my/banners/create", "/admin/platform-promotion/intro", "/admin/platform-promotion/os-start"])(
     "화면 %s — 열람 전원 · 작업 ads (운영자 기본에 ads 있음)",
     (page) => {
       expectMatrix((a) => canAccessAdminRoute(page, a), [true, true, true], `view ${page}`);
       expectMatrix((a) => canActOnAdminRoute(page, a), [true, true, true], `action ${page}`);
       expect(canAccessAdminRoute(page, BARE)).toBe(true);
       expect(canActOnAdminRoute(page, BARE)).toBe(false);
-      expect(resolveAdminRouteActionState({ href: page, actor: BARE, actorLoading: false }).reason).toContain("ads");
+      expect(resolveAdminRouteActionState({ href: page, actor: BARE, actorLoading: false }).reason).toContain("광고/노출");
       expectMenuAgreesWithView(page);
     }
   );
@@ -207,13 +212,6 @@ describe("G-18 — 앱 공통 설정 쓰기 = settings (운영자 기본은 sett
     ["main-bottom-nav/route.ts", "DELETE"],
     ["app-business-info/route.ts", "POST"],
     ["app-business-info/[id]/route.ts", "PATCH"],
-    ["launch-intro/route.ts", "PUT"],
-    ["launch-intro/route.ts", "DELETE"],
-    ["launch-intro/publish/route.ts", "POST"],
-    ["launch-intro/state/route.ts", "POST"],
-    ["launch-intro/upload/route.ts", "POST"],
-    ["os-launch/route.ts", "PUT"],
-    ["os-launch/logo/route.ts", "POST"],
     ["startup-config/route.ts", "PUT"],
     ["startup-config/upload-image/route.ts", "POST"],
   ])("%s %s", (route, method) => {
@@ -224,13 +222,11 @@ describe("G-18 — 앱 공통 설정 쓰기 = settings (운영자 기본은 sett
     "/admin/menus/main-bottom-nav",
     "/admin/app/business",
     "/admin/app/business/create",
-    "/admin/platform-promotion/intro",
-    "/admin/platform-promotion/os-start",
     "/admin/settings/startup-config",
   ])("화면 %s — 열람 전원 · 작업 settings", (page) => {
     expectMatrix((a) => canAccessAdminRoute(page, a), [true, true, true], `view ${page}`);
     expectMatrix((a) => canActOnAdminRoute(page, a), [false, true, true], `action ${page}`);
-    expect(resolveAdminRouteActionState({ href: page, actor: OPERATOR, actorLoading: false }).reason).toContain("settings");
+    expect(resolveAdminRouteActionState({ href: page, actor: OPERATOR, actorLoading: false }).reason).toContain("운영 설정");
     expectMenuAgreesWithView(page);
   });
 });

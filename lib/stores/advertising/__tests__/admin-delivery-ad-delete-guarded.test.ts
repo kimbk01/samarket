@@ -1,6 +1,7 @@
 /**
  * AL-01 · 보완 설계 §4-3 — 배달 광고 관리자 초안 삭제 (공통·도메인 같은 함수) 동작 시험.
- * 생성 감사 행만 있는 초안은 지워지고, 노출·문의·결제·막는 감사·사장님 광고·초안 아님은 막힌다. 소재 행도 정리된다.
+ * AD2-10 · AD2-11 (2026-11-07): 사유 필수 · 이력(노출·문의·결제·막는 감사) 검사·삭제·감사 1행은 DB 함수
+ * `admin_delivery_ad_delete_draft` 한 트랜잭션 — TS 는 같은 판 확인 후 함수 1번만 부르고 표를 직접 지우지 않는다.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,10 +23,20 @@ function makeDb(seed: Record<string, Row[]>) {
   for (const [k, v] of Object.entries(seed)) tables[k] = v.map((r) => ({ ...r }));
   const deletes: Array<{ table: string; filters: Record<string, unknown> }> = [];
   const inserts: Array<{ table: string; row: Row }> = [];
+  const rpcCalls: Array<{ fn: string; args: unknown }> = [];
+  let rpcResult: { data: unknown; error: unknown } = { data: { ok: true }, error: null };
   const sb = {
     tables,
     deletes,
     inserts,
+    rpcCalls,
+    setRpc(r: { data: unknown; error: unknown }) {
+      rpcResult = r;
+    },
+    async rpc(fn: string, args: unknown) {
+      rpcCalls.push({ fn, args });
+      return rpcResult;
+    },
     from(table: string) {
       const filters: Record<string, unknown> = {};
       let mode: "select" | "delete" | "insert" = "select";
@@ -127,86 +138,51 @@ beforeEach(() => {
 });
 
 describe("AL-01 adminDeleteDeliveryAdDraftGuarded", () => {
-  it("생성·초안 편집 감사 행만 있는 운영자 초안 → 삭제 성공 · 소재(이전 판 포함) 삭제 · 감사 1행", async () => {
+  it("운영자 초안 + 사유 → DB 함수 1번(사유 전달) · TS 가 표를 직접 지우거나 감사를 쓰지 않음", async () => {
     const sb = makeDb(seedBase());
     const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, input);
     expect(res).toEqual({ ok: true, campaignId: CID });
-    expect(sb.tables.store_banner_ad_campaigns).toEqual([]);
-    expect(sb.tables.delivery_banner_campaign_inventories).toEqual([]);
-    expect(sb.tables.delivery_ad_creatives.map((r) => r.id)).toEqual(["cr-other"]);
-    const campDel = sb.deletes.find((d) => d.table === "store_banner_ad_campaigns");
-    expect(campDel?.filters).toEqual({
-      id: CID,
-      lifecycle_status: "DRAFT",
-      campaign_source: "DIBAY_FIRST_PARTY",
-      updated_at: UPDATED,
-    });
-    const audits = sb.inserts.filter((i) => i.table === "delivery_ad_audit_logs");
-    expect(audits).toHaveLength(1);
-    expect(audits[0].row).toMatchObject({
-      action: "deleted_safe_draft",
-      actor_type: "admin",
-      actor_user_id: ADMIN,
-      reason: "잘못 만든 초안",
-      after_json: { deleted: true, creatives_deleted: ["cr-2", "cr-1"] },
-    });
-  });
-
-  it("노출 기록 1건 → delete_not_allowed · 아무것도 지우지 않음", async () => {
-    const sb = makeDb(
-      seedBase({
-        delivery_ad_impression_events: [{ id: "i1", campaign_id: CID, product_kind: "banner" }],
-      })
-    );
-    const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, input);
-    expect(res).toEqual({ ok: false, error: "delete_not_allowed", httpStatus: 422 });
+    expect(sb.rpcCalls).toEqual([
+      { fn: "admin_delivery_ad_delete_draft", args: { p_campaign: CID, p_admin: ADMIN, p_reason: "잘못 만든 초안" } },
+    ]);
     expect(sb.deletes).toEqual([]);
     expect(sb.inserts).toEqual([]);
   });
 
-  it("문의 건 1건(연쇄 삭제 대상) → delete_not_allowed · 문의 건 그대로", async () => {
-    const sb = makeDb(
-      seedBase({
-        delivery_ad_operations_cases: [{ id: "case-1", product_kind: "banner", banner_campaign_id: CID }],
-      })
-    );
-    const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, input);
-    expect(res).toEqual({ ok: false, error: "delete_not_allowed", httpStatus: 422 });
-    expect(sb.deletes).toEqual([]);
-    expect(sb.tables.delivery_ad_operations_cases).toHaveLength(1);
+  it("사유 없음·1자 → reason_required · DB 함수 안 부름", async () => {
+    for (const reason of [null, "a"]) {
+      const sb = makeDb(seedBase());
+      const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, { ...input, reason });
+      expect(res).toEqual({ ok: false, error: "reason_required", httpStatus: 400 });
+      expect(sb.rpcCalls).toEqual([]);
+    }
   });
 
-  it("결제(SECURED) → delete_blocked_funding_secured", async () => {
-    hasCanonicalBcFundingSecured.mockResolvedValue(true);
+  it.each([
+    ["delete_not_allowed", 422],
+    ["delete_blocked_funding_secured", 409],
+    ["not_draft", 422],
+  ] as const)("DB 함수가 %s → 같은 코드 · %s", async (code, status) => {
     const sb = makeDb(seedBase());
+    sb.setRpc({ data: { ok: false, error: code }, error: null });
     const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, input);
-    expect(res).toEqual({ ok: false, error: "delete_blocked_funding_secured", httpStatus: 409 });
+    expect(res).toEqual({ ok: false, error: code, httpStatus: status });
     expect(sb.deletes).toEqual([]);
   });
 
-  it("환불된 결제 기록(원장 이력) → delete_not_allowed", async () => {
-    const sb = makeDb(
-      seedBase({
-        delivery_ad_canonical_bc_fundings: [
-          { id: "f1", product_kind: "banner", application_id: CID, status: "REFUNDED" },
-        ],
-      })
-    );
+  it("DB 함수 없음 → rpc_missing 503 · 삭제 폴백 없음", async () => {
+    const sb = makeDb(seedBase());
+    sb.setRpc({ data: null, error: { code: "PGRST202", message: "Could not find the function" } });
     const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, input);
-    expect(res).toEqual({ ok: false, error: "delete_not_allowed", httpStatus: 422 });
+    expect(res).toEqual({ ok: false, error: "rpc_missing", httpStatus: 503 });
+    expect(sb.deletes).toEqual([]);
   });
 
-  it("막는 감사 행(제출 등) → delete_not_allowed", async () => {
-    const sb = makeDb(
-      seedBase({
-        delivery_ad_audit_logs: [
-          { id: "a1", campaign_id: CID, product_kind: "banner", action: "admin_first_party_banner_create" },
-          { id: "a3", campaign_id: CID, product_kind: "banner", action: "submitted" },
-        ],
-      })
-    );
+  it("DB 원문 오류 → db_error (원문 노출 없음)", async () => {
+    const sb = makeDb(seedBase());
+    sb.setRpc({ data: null, error: { code: "23503", message: "fk violation detail" } });
     const res = await adminDeleteDeliveryAdDraftGuarded(sb as never, input);
-    expect(res).toEqual({ ok: false, error: "delete_not_allowed", httpStatus: 422 });
+    expect(res).toEqual({ ok: false, error: "db_error", httpStatus: 500 });
   });
 
   it("사장님 광고(OWNER_PAID · 값 없음 포함) → not_admin_direct", async () => {

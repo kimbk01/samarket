@@ -127,7 +127,7 @@ const TERMS: Record<AdminTerminologyConcept, TerminologyEntry> = {
   PROMOTION: {
     concept: "PROMOTION",
     i18nKey: "admin_menu_community_promotions",
-    fallbackKo: "홍보",
+    fallbackKo: "상위노출",
     fallbackEn: "Promotion",
     domain: "COMMUNITY",
     meaning: "Point paid exposure (point_promotion_orders)",

@@ -17,6 +17,10 @@ import {
   type AdminRouteAccessActor,
   type AdminRouteRequirement,
 } from "@/lib/admin/access/admin-route-access";
+import type { CommunityAdminArea } from "@/lib/admin/community-admin/community-admin-permissions";
+import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 /** `/api/admin/me` 스냅샷 → 접근표 actor. 스냅샷이 없으면 null (기존 동작 유지). */
 export function adminAccessActorFromMe(
@@ -83,24 +87,70 @@ export function decideAdminPageGate(input: {
   return "allow";
 }
 
-/** 쓰기 작업이 막힌 이유 (짧은 한국어 문구). */
-export function describeAdminRequirementDenial(requirement: AdminRouteRequirement): string {
+/** 권한 이름 문구 키 — 관리자 계정 화면(`admin-permissions-label-i18n.ts`)과 같은 키(`admin_perm_*`). */
+const PERMISSION_LABEL_KEY: Record<AdminPermissionKey, MessageKey> = {
+  users: "admin_perm_users",
+  users_edit_membership: "admin_perm_users_edit_membership",
+  regions: "admin_perm_regions",
+  products: "admin_perm_products",
+  boards: "admin_perm_boards",
+  post_write: "admin_perm_post_write",
+  comment_write: "admin_perm_comment_write",
+  product_edit: "admin_perm_product_edit",
+  business: "admin_perm_business",
+  jobs: "admin_perm_jobs",
+  real_estate: "admin_perm_real_estate",
+  used_car: "admin_perm_used_car",
+  chats: "admin_perm_chats",
+  reviews: "admin_perm_reviews",
+  reports: "admin_perm_reports",
+  support: "admin_perm_support",
+  ads: "admin_perm_ads",
+  point: "admin_perm_point",
+  settings: "admin_perm_settings",
+  manage: "admin_perm_manage",
+  dev: "admin_perm_dev",
+  create_admin: "admin_perm_create_admin",
+};
+
+const COMMUNITY_AREA_LABEL_KEY: Record<CommunityAdminArea, MessageKey> = {
+  content: "admin_access_area_content",
+  moderation: "admin_access_area_moderation",
+  promotion: "admin_access_area_promotion",
+  points: "admin_access_area_points",
+  read: "admin_access_area_read",
+};
+
+/**
+ * 쓰기 작업이 막힌 이유 — 버튼 꺼짐 이유 공용 함수 (설계 §4 「○○ 권한이 필요합니다」 · 2026-11-07).
+ * 권한 키 원문(`ads` 등)을 보이지 않고 권한 이름(「광고/노출」)으로 쓴다. 기본 한국어.
+ */
+export function describeAdminRequirementDenial(
+  requirement: AdminRouteRequirement,
+  language: AppLanguageCode = "ko"
+): string {
   switch (requirement.kind) {
     case "deploy_owner":
-      return "배포 담당자만 실행할 수 있습니다.";
+      return translate(language, "admin_access_need_deploy_owner");
     case "super_admin":
-      return "최고관리자만 실행할 수 있습니다.";
+      return translate(language, "admin_access_need_super_admin");
     case "permission":
-      return `「${requirement.key}」 권한이 있어야 실행할 수 있습니다.`;
+      return translate(language, "admin_access_need_permission", {
+        perm: translate(language, PERMISSION_LABEL_KEY[requirement.key]),
+      });
     case "domain":
       if (requirement.guard === "community" && requirement.area === "promotion") {
-        return "커뮤니티 「promotion」 권한이 있고 정지되지 않은 운영자만 실행할 수 있습니다.";
+        return translate(language, "admin_access_need_community_promotion");
       }
-      if (requirement.guard === "community") return `커뮤니티 「${requirement.area}」 권한이 있어야 실행할 수 있습니다.`;
-      if (requirement.guard === "chat") return "채팅 관리 권한이 있어야 실행할 수 있습니다.";
-      return "권한이 있어야 실행할 수 있습니다.";
+      if (requirement.guard === "community") {
+        return translate(language, "admin_access_need_community_area", {
+          area: translate(language, COMMUNITY_AREA_LABEL_KEY[requirement.area]),
+        });
+      }
+      if (requirement.guard === "chat") return translate(language, "admin_access_need_chat");
+      return translate(language, "admin_access_need_admin");
     case "any_admin":
-      return "관리자만 실행할 수 있습니다.";
+      return translate(language, "admin_access_need_admin");
   }
 }
 

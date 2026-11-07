@@ -101,6 +101,14 @@ QA 캠페인 `5f811614-b537-4603-908b-972f16591ba6`: **paused + allowlist(aaaa�
 3. **표시:** 슬롯에 디코드된 band 렌더 (`DibayPtrRevealBand`)
 4. **Impression:** `REFRESHING|SUCCESS|ERROR` 유지 + `pullPx ≥ 58` + 해당 image onLoad + `document.visibilityState=visible`
 5. PTR 엔진(새로고침)은 광고 모듈을 **기다리지 않음** — 광고 실패가 새로고침을 막지 않음
+6. **결과 표시 유지 시간 (D-05 · Owner 결정 2026-11-07 · 확정)**
+   - 광고 띠가 없으면: 성공 700ms · 실패 2,200ms (변경 없음)
+   - 광고 띠가 **실제로 보인 회차만**(4번 impression 조건 충족): 성공·실패 모두 **3,000ms** (`DIBAY_PTR_REVEAL_AD_HOLD_MS`)
+   - 신호: 띠 레이어(`DibayPtrRevealAdLayer` → `useDibayPtrRevealAd`)가 노출 시작(impression)·끝(IDLE·언마운트)을 PTR 저장소 `noteRevealAdVisible(true|false)` 로 알린다. 저장소 상태(phase)는 바꾸지 않는 읽기 신호다
+   - 연장 중 **본문 터치·스크롤이면 즉시 접힘** — 제스처 훅의 `resetPull`(본문 탭 → `pullPx:0`)·`subscribeAppShellScroll`(최상단 벗어남) 동작 그대로
+   - 근거: 운영 이벤트상 띠 노출 → 접힘 1.22·1.38초(V-13 FAIL) · 노출 1회(1초) + 누를 반응 시간
+   - 회귀: CX-05 팝업 판정 보류가 광고 있을 때 최대 3초까지 늘어난다(결과 표시 단계 = PTR 진행 중)
+7. **CTA 위치와 손가락 감지 (D-05)**: 커뮤니티(`/philife`)·거래(`/market`)는 띠가 본문 `<main>` 밖 전역 헤더(`AppStickyHeader`, `[data-app-sticky-header]` 의 `stickyBelow`·`TradeMarketPullRefreshHint`)에 그려지고 제스처는 본문 스크롤 루트에만 붙는다 → CTA 탭은 감지에 닿지 않는다. 매장 홈·browse 는 헤더에도 감지가 붙어(`bindStickyHeader`) `data-ptr-reveal-cta` 제외 규칙(a35dbb5a7)이 필요하다. 시험: `lib/ui/ptr/__tests__/dibay-ptr-gesture-reveal-cta-tap.test.tsx` · `dibay-ptr-reveal-ad-hold-d05.test.tsx`
 
 ---
 
@@ -136,6 +144,12 @@ QA 캠페인 `5f811614-b537-4603-908b-972f16591ba6`: **paused + allowlist(aaaa�
 | `suppress` | 빈도 억제 |
 
 관리자 통계는 동일 이벤트 테이블 집계(캠페인 스코프).
+
+**기록 조건 (D-12 · D-13 · 2026-11-07)**
+
+- 기록 API(`/api/platform-popup/events`)는 캠페인이 `active`·`scheduled`·`paused`(정지 직후 늦은 기록 허용) 일 때만 저장한다. PTR 캠페인은 허용 목록(`ptr_audience_mode = allowlist`)에 그 회원이 있어야 한다. 아니면 **200 + 저장 안 함**(`skipped`)
+- 중복 거르기 키 = 캠페인 + **노출 id(exposureId)** + 종류. DB 부분 고유 인덱스(`platform_popup_campaign_events_exposure_event_uidx`)에 걸린 insert(23505)는 `deduped` 로 처리
+- CTA 클릭은 3초 연장(§5-6) 안에서 같은 노출 id 로 `click` → `landing_success|landing_failure` 순서
 
 ---
 

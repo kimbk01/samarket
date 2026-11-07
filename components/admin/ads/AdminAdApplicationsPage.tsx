@@ -43,9 +43,9 @@ const DOMAIN_CHOICES: Array<{
     href: ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
     titleKey: "admin_ad_applications_community_title",
     descKey: "admin_ad_applications_community_desc",
-    fallbackTitleKo: "커뮤니티 게시글 홍보",
+    fallbackTitleKo: "커뮤니티 게시글 상위노출",
     fallbackTitleEn: "Community post promotions",
-    fallbackDescKo: "승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 홍보 화면에서 합니다.",
+    fallbackDescKo: "승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 상위노출 화면에서 합니다.",
     fallbackDescEn: "Goes live without approval. Pause, resume or end in Post promotions.",
   },
   {
@@ -107,7 +107,7 @@ export function AdminAdApplicationsPage({
       <p className="text-sm text-sam-muted">
         {language === "en"
           ? "Redirecting to community promotions…"
-          : "커뮤니티 홍보 큐로 이동 중…"}
+          : "커뮤니티 상위노출 큐로 이동 중…"}
       </p>
     );
   }
@@ -175,7 +175,7 @@ export function AdminAdApplicationsPage({
         description={
           domain === "community"
             ? safeT(choice.descKey, {
-                fallbackKo: "커뮤니티 포인트 홍보는 승인 절차가 없습니다. 노출 관리는 게시글 홍보 화면에서 합니다.",
+                fallbackKo: "커뮤니티 포인트 상위노출은 승인 절차가 없습니다. 노출 관리는 게시글 상위노출 화면에서 합니다.",
                 fallbackEn: "Community Point promotions need no approval. Manage exposure in Post promotions.",
               })
             : safeT(choice.descKey, {
@@ -189,7 +189,7 @@ export function AdminAdApplicationsPage({
         <Suspense fallback={null}>
           <AdminOpsCrossLinkBar
             links={communityCrossLinks}
-            noteKo="커뮤니티 내 포인트 홍보입니다. Feed Ads·배달 광고 집행과는 별도입니다."
+            noteKo="커뮤니티 내 포인트 상위노출입니다. Feed Ads·배달 광고 집행과는 별도입니다."
             noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
           />
         </Suspense>
@@ -219,7 +219,7 @@ export function AdminAdApplicationsPage({
           <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
             {language === "en" ? "View only. " : "조회 전용입니다. "}
             <Link href={ARO_IA_001_COMMUNITY_PROMOTIONS_PATH} className="underline" data-community-promo-ops-link="1">
-              {language === "en" ? "Pause / resume / end in Post promotions" : "노출 중지·재개·종료는 게시글 홍보에서 처리합니다"}
+              {language === "en" ? "Pause / resume / end in Post promotions" : "노출 중지·재개·종료는 게시글 상위노출에서 처리합니다"}
             </Link>
           </p>
           <AdminCommunityPromotionQueue domain="community" />

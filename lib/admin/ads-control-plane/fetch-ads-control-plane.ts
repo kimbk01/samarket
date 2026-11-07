@@ -49,8 +49,13 @@ export type AdsControlPlanePageParams = {
   mode?: string;
   status?: string;
   family?: string;
-  /** Owner 결정 O-6② — trade·community·delivery · 비움 = 전체 */
+  /** Owner 결정 O-6② — trade·community·delivery·platform·mypage · 비움 = 전체 */
   domain?: string;
+  /** 원장 — 종류 · 위치(`KEY|대상`) · 광고주 uuid · 삭제 포함 */
+  kind?: string;
+  location?: string;
+  advertiser?: string;
+  includeDeleted?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -71,6 +76,10 @@ export async function fetchAdsControlPlane(
       if (page.status) params.set("status", page.status);
       if (page.family) params.set("family", page.family);
       if (page.domain) params.set("domain", page.domain);
+      if (page.kind) params.set("kind", page.kind);
+      if (page.location) params.set("location", page.location);
+      if (page.advertiser) params.set("advertiser", page.advertiser);
+      if (page.includeDeleted) params.set("include_deleted", "1");
       if (typeof page.limit === "number") params.set("limit", String(page.limit));
       if (typeof page.offset === "number") params.set("offset", String(page.offset));
     }

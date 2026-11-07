@@ -145,6 +145,11 @@ export function listWorkspaceDrawerActions(input: {
   if ((input.family === "boost_trade" || input.family === "boost_community") && isListingPausedBoost(input.pausedBy)) {
     out = out.filter((a) => a !== "resume");
   }
+  // D-03: 진행 중(ACTIVE·SCHEDULED·PAUSED_*) 배달 광고는 강제 종료(terminate) 대신 귀책·환급 종료(end)만 —
+  // 서버도 terminate 를 `use_end_with_fault`(422)로 거부한다. 버튼을 보이지 않는다.
+  if (input.family === "delivery_banner" || input.family === "delivery_sponsored") {
+    out = out.filter((a) => a !== "terminate");
+  }
   return out;
 }
 

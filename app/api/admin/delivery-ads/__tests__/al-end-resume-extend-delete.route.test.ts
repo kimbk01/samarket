@@ -135,19 +135,18 @@ describe("AL-04 종료 (도메인 actions 라우트)", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("예약(SCHEDULED) 종료: 사유 없음 → 400 · 사유 있으면 기존 전이 함수", async () => {
+  it("예약(SCHEDULED) 종료 (D-02 · 2026-11-07): 귀책 없음 → 400 · 귀책+사유 → 귀책·환급 함수 (전이 함수 아님)", async () => {
     campaignRow = { id: "c1", lifecycle_status: "SCHEDULED", updated_at: UPDATED };
-    const bad = await actionsPost(req("actions", endBody({ expectedLifecycle: "SCHEDULED" })), ctx);
+    const bad = await actionsPost(req("actions", endBody({ expectedLifecycle: "SCHEDULED", reason: "노출 전 취소" })), ctx);
     expect(bad.status).toBe(400);
-    expect((await bad.json()).error).toBe("reason_required");
-    adminTransitionDeliveryAdCampaign.mockResolvedValue({ ok: true, campaignId: "c1" });
+    expect((await bad.json()).error).toBe("fault_required");
     const ok = await actionsPost(
-      req("actions", endBody({ expectedLifecycle: "SCHEDULED", reason: "노출 전 취소" })),
+      req("actions", endBody({ expectedLifecycle: "SCHEDULED", reason: "노출 전 취소", fault: "operator" })),
       ctx
     );
     expect(ok.status).toBe(200);
-    expect(adminTransitionDeliveryAdCampaign.mock.calls[0][1]).toMatchObject({ action: "end", reason: "노출 전 취소" });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("admin_delivery_ad_end_with_refund", expect.objectContaining({ p_fault: "operator" }));
+    expect(adminTransitionDeliveryAdCampaign).not.toHaveBeenCalled();
   });
 });
 

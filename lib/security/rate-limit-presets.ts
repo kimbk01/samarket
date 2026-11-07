@@ -245,7 +245,10 @@ export async function enforceAdEventRecordQuota(route: AdEventRecordRoute, actor
 
 /**
  * D-21 ④ — 팝업 이벤트 중복 거르기: 같은 보는 사람 · 소재 · 종류는 10분에 1번만 저장한다(피드와 같은 방식).
- * @returns true = 저장해도 됨 · false = 이미 10분 안에 저장됨(저장 생략)
+ * D-13 (재감사 3차 2026-11-07): 노출 id(exposureId)가 있으면 키 = 보는 사람 · 캠페인 · **노출 id** · 종류 —
+ * 노출 1회의 같은 종류는 한 번만, 다른 노출은 각각 센다(예전 키는 노출 id 가 없어 다른 노출의 기록을 지웠다).
+ * 최종 보장은 DB 부분 고유 인덱스(`platform_popup_campaign_events_exposure_event_uidx`) — Redis 가 없을 때의 메모리 거르기는 보조다.
+ * @returns true = 저장해도 됨 · false = 이미 저장됨(저장 생략)
  */
 export const PLATFORM_POPUP_EVENT_DEDUPE_WINDOW_MS = 600_000;
 
@@ -253,10 +256,14 @@ export async function claimPlatformPopupEventDedupe(input: {
   viewerKey: string;
   campaignId: string;
   creativeId: string | null;
+  /** D-13: 노출 1회 id — 있으면 소재 대신 이 값으로 거른다 */
+  exposureId?: string | null;
   eventType: string;
 }): Promise<boolean> {
+  const exposureId = input.exposureId?.trim() || null;
+  const scope = exposureId ? `x:${exposureId}` : `c:${input.creativeId ?? "-"}`;
   const r = await enforceRateLimit({
-    key: `platform_popup_event_once:${input.viewerKey}:${input.campaignId}:${input.creativeId ?? "-"}:${input.eventType}`,
+    key: `platform_popup_event_once:${input.viewerKey}:${input.campaignId}:${scope}:${input.eventType}`,
     limit: 1,
     windowMs: PLATFORM_POPUP_EVENT_DEDUPE_WINDOW_MS,
   });

@@ -326,6 +326,8 @@ export default function MyAdsPageClient() {
     setActionErr("");
     const attempts = renewAttemptRef.current;
     const idem = attempts.keyFor(renewTarget.campaignId, renewProductId);
+    /** D-01: 화면에 보인 가격 — 서버(DB)가 지금 가격과 다르면 차감 없이 409 price_changed */
+    const shownCost = renewCatalog.find((p) => p.id === renewProductId)?.pointCost;
     try {
       let res: Response;
       try {
@@ -339,6 +341,7 @@ export default function MyAdsPageClient() {
           body: JSON.stringify({
             productId: renewProductId,
             idempotencyKey: idem,
+            ...(typeof shownCost === "number" ? { expectedCost: shownCost } : {}),
             creativeOrDestinationChanged: false,
           }),
         });
@@ -354,8 +357,32 @@ export default function MyAdsPageClient() {
         return;
       }
       attempts.settleIfFinal(res.status);
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        pointCost?: number | null;
+        durationDays?: number | null;
+      };
       if (!res.ok || !j.ok) {
+        if (j.error === "price_changed") {
+          /** 차감 없음 — 새 가격을 창에 반영하고 다시 확인하게 한다 */
+          const nextCost = typeof j.pointCost === "number" ? j.pointCost : null;
+          const nextDays = typeof j.durationDays === "number" ? j.durationDays : null;
+          setRenewCatalog((prev) =>
+            prev.map((p) =>
+              p.id === renewProductId
+                ? { ...p, ...(nextCost != null ? { pointCost: nextCost } : {}), ...(nextDays != null ? { durationDays: nextDays } : {}) }
+                : p
+            )
+          );
+          setActionErr(
+            safeT("feed_ad_renew_price_changed", {
+              fallbackKo: "가격이 바뀌었습니다. 결제되지 않았습니다. 새 가격을 확인하고 다시 눌러 주세요.",
+              fallbackEn: "The price has changed. You were not charged. Check the new price and tap again.",
+            })
+          );
+          return;
+        }
         if (j.error === "idempotency_consumed") {
           setRenewTarget(null);
           const msg = safeT("feed_ad_renew_already_processed", {

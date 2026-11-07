@@ -17,6 +17,11 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
   }),
 }));
 
+// 어드민 SSOT §3-2 (2026-11-07): 마이 배너 삭제 = 공용 `AdminAdDeleteAction`(kind my_banner · 사유만).
+vi.mock("@/components/admin/ads/AdminAdDeleteAction", () => ({
+  AdminAdDeleteAction: (p: { kind: string; id: string }) => <button data-ad-delete-kind={p.kind} data-id={p.id}>삭제</button>,
+}));
+
 import { AdminMySectionsView } from "../AdminMySectionsPage";
 import { AdminMyServicesView } from "../AdminMyServicesPage";
 import { AdminMyBannersView } from "../AdminMyBannersPage";
@@ -96,6 +101,7 @@ describe("V3-11 admin my-page screens", () => {
       />
     );
     expect(withRemove).toContain(">삭제<");
+    expect(withRemove).toContain('data-ad-delete-kind="my_banner"');
   });
 
   it("banners: empty list shows a guarded 「등록」 CTA to the create screen (광고 정리 1)", () => {

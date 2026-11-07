@@ -117,6 +117,8 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   "ads-authority-placements": "components/admin/ads/AdminAdsPlacementManagementView.tsx",
   "ads-authority-products": "components/admin/ads/AdminAdsProductsCommercialView.tsx",
   "ads-authority-history": "components/admin/ads/AdminAdsHistoryLedgerView.tsx",
+  // 설계 ads-admin-ssot §5 (2026-11-07): 공통 「충전·문의」
+  "ads-authority-charge-inquiry": "components/admin/ads/AdminAdsChargeInquiryHub.tsx",
   "ads-banners-overview": "components/admin/banners-overview/AdminBannersOverviewPage.tsx",
   "delivery-ads-ops": "components/admin/stores/AdminDeliveryAdsControlPlane.tsx",
   "ads-placement-map": "components/admin/stores/AdminDeliveryAdInventoryManagementView.tsx",
@@ -199,6 +201,7 @@ const TITLE_EXCEPTIONS: Readonly<Record<string, string>> = {
   "finance-cash": "`?wallet=CASH` 쿼리 변형 — 「전체 거래」 화면을 공유하며 제목은 기준 leaf 라벨",
   "cp-monitoring": "`#monitoring` 해시 — 「시스템 개요」 화면 안 섹션 (섹션 제목이 메뉴 라벨)",
   "delivery-ads-control": "리다이렉트 전용 (/admin/advertising) — 제목은 이동한 화면이 소유",
+  "delivery-ads-cash-charges": "광고 원장 §5 (2026-11-07) 메뉴 노출만 추가 — 화면 파일(AdminDeliveryAdCashChargeQueuePage)은 다른 담당, 제목 「매장 캐시 충전 승인」 하드코딩 · 병합 후 메뉴 키로 교체",
   "ads-feed-applications": "리다이렉트 전용 (/admin/advertising/applications)",
   "ads-applications": "리다이렉트 전용 (/admin/advertising/boosts)",
   "ads-community-promote": "리다이렉트 전용 (/admin/community/promotions)",

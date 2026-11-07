@@ -19,7 +19,7 @@ export type TradePostHardDeleteEligibilityInput = {
   soldBuyerId?: string | null;
   /** 설계 v2 §F-1-4 (O-3): 관리자 삭제 상태인 글만 영구 삭제 */
   moderationState?: string | null;
-  /** 연결된 신고·거래 채팅·홍보 수 — 하나라도 있으면 증거 보존을 위해 영구 삭제 불가 */
+  /** 연결된 신고·거래 채팅·상위노출 수 — 하나라도 있으면 증거 보존을 위해 영구 삭제 불가 */
   reportCount?: number;
   chatCount?: number;
   promotionCount?: number;
@@ -77,7 +77,7 @@ export function tradePostHardDeleteBlockerLabel(
     case "has_chats":
       return en ? "Has trade chats — evidence kept" : "거래 채팅 있음 — 증거 보존";
     case "has_promotions":
-      return en ? "Has promotion orders — records kept" : "홍보 주문 있음 — 기록 보존";
+      return en ? "Has promotion orders — records kept" : "상위노출 주문 있음 — 기록 보존";
     default:
       return en ? "Blocked" : "차단됨";
   }

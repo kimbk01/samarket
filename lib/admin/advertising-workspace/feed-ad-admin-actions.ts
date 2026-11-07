@@ -8,6 +8,8 @@
  *   보상 연장 = `feed_ad_request.extend_compensation` (AD-206 · 허브도 같은 이름).
  * - 감사 대상 유형: 회원 신청이 있으면 `feed_ad_request`(신청 id), 신청 없는 운영자 등록 캠페인이면 `feed_ad_campaign`(캠페인 id) (AL-10).
  * - 정지·재개·종료는 담당 F 의 DB 함수 래퍼 `lib/ads/admin-feed-ad-lifecycle.ts` 만 부른다 (D-5 · 정지 시간 연장 · 귀책 비례 환급).
+ *   D-14 (2026-11-07): 정지·재개·종료 감사는 **DB 함수가 1행만** 쓴다(화면 이름 p_screen 전달). 여기서 추가 감사를 쓰지 않는다
+ *   (예전에는 1번 조치에 감사 2행). 승인·보상 연장은 DB 함수가 감사를 쓰지 않으므로 여기서 쓴다.
  * - 정지·재개·종료·연장 모두 공개 사유 필수(2자 · 120자) · 내부 메모 선택 (FB-A05 · D-6). 빈 사유를 코드값으로 바꿔 저장하지 않는다.
  * 서버 전용.
  */
@@ -181,9 +183,9 @@ export async function runFeedAdAdminAction(
   if (!target.campaignId) {
     return { ok: false, httpStatus: 400, body: { ok: false, error: "missing_campaign" } };
   }
-  const before = await readCampaign(sb, target.campaignId);
 
   if (input.action === "extend_compensation") {
+    const before = await readCampaign(sb, target.campaignId);
     const days = Number(input.requestedDays ?? 0);
     const ext = await adminCompensateExtendFeedAdCampaign(sb, {
       adminUserId: input.adminUserId,
@@ -226,6 +228,7 @@ export async function runFeedAdAdminAction(
     adminUserId: input.adminUserId,
     publicReason,
     internalReason,
+    screen: input.screen,
   };
 
   if (input.action === "end") {
@@ -244,20 +247,8 @@ export async function runFeedAdAdminAction(
     if (isPreview) {
       return { ok: true, httpStatus: 200, body: { ok: true, preview, refundPoints } };
     }
+    // D-14: 감사는 admin_feed_ad_end 가 같은 트랜잭션에서 1행 기록
     const after = await readCampaign(sb, target.campaignId);
-    await appendAdsAdminActionAudit(sb, req, {
-      actorId: input.adminUserId,
-      targetType: auditTargetType,
-      targetId: auditTargetId,
-      action: auditAction,
-      screen: input.screen,
-      before: { campaign: before },
-      after: { status: after?.status ?? "ended", campaign_id: target.campaignId, campaign: after },
-      reasonPublic: publicReason,
-      reasonInternal: internalReason,
-      fault: input.fault ?? null,
-      refundAmount: refundPoints,
-    });
     return {
       ok: true,
       httpStatus: 200,
@@ -275,23 +266,8 @@ export async function runFeedAdAdminAction(
   const res =
     input.action === "pause" ? await adminPauseFeedAd(sb, reasons) : await adminResumeFeedAd(sb, reasons);
   if (!res.ok) return lifecycleFail(res);
+  // D-14: 감사는 admin_feed_ad_pause/resume 이 같은 트랜잭션에서 1행 기록
   const after = await readCampaign(sb, target.campaignId);
-  await appendAdsAdminActionAudit(sb, req, {
-    actorId: input.adminUserId,
-    targetType: auditTargetType,
-    targetId: auditTargetId,
-    action: auditAction,
-    screen: input.screen,
-    before: { campaign: before },
-    after: {
-      status: after?.status ?? res.status ?? null,
-      campaign_id: target.campaignId,
-      campaign: after,
-      ...(input.action === "resume" ? { extended_seconds: num(res.extended_seconds) } : {}),
-    },
-    reasonPublic: publicReason,
-    reasonInternal: internalReason,
-  });
   return {
     ok: true,
     httpStatus: 200,

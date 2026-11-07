@@ -13,6 +13,11 @@ const fake = createFakeCommunitySupabase((c) => handler(c));
 vi.mock("@/lib/admin/community-admin/community-admin-guards", () => ({
   requireCommunityAdmin: async () => ({ ok: true, userId: "admin-1", actor: { userId: "admin-1" }, sb: fake.sb }),
 }));
+// AD2-08 (2026-11-07): 커뮤니티 상위노출 목록 조회 = 공통 광고 화면과 같은 활성 관리자 전원(requireAdminApiActor)
+vi.mock("@/lib/admin/require-admin-permission", () => ({
+  requireAdminApiActor: async () => ({ ok: true, actor: { userId: "admin-1" }, sb: fake.sb }),
+  requireAdminPermission: async () => ({ ok: true, actor: { userId: "admin-1" }, sb: fake.sb }),
+}));
 vi.mock("@/lib/admin/require-admin-api", () => ({
   requireAdminApiUser: async () => ({ ok: true, userId: "admin-1" }),
 }));

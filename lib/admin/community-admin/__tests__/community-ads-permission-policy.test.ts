@@ -31,7 +31,11 @@ describe("community ads permission policy", () => {
 
   it("promotion end still requires fault + reason and uses the refund RPC", () => {
     const route = read("app/api/admin/community-promotion-orders/[id]/route.ts");
-    expect(route).toContain('requireCommunityAdmin("promotion")');
+    // 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads 키 전용 가드(정지 운영자는 requireAdminApiActor 가 막는다)
+    expect(route).toContain("requireAdsWriteAdmin()");
+    const gate = read("lib/admin/access/require-ads-write-admin.ts");
+    expect(gate).toContain('requireAdminPermission("ads")');
+    expect(read("lib/admin/require-admin-permission.ts")).toContain("admin_actor_suspended");
     // H-3: 사유·귀책 규칙은 광고 허브와 같은 단일 구현에 있다
     expect(route).toContain("runCommunityPromotionOrderAction");
     const action = read("lib/admin/community-admin/community-promotion-order-action.ts");

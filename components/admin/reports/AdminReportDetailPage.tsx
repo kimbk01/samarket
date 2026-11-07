@@ -157,6 +157,22 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
               )}
             </dd>
           </div>
+          {report.targetType === "feed_ad" && report.targetId ? (
+            /* D-17: 광고 신고 → 피드 광고 상세 */
+            <div>
+              <dt className="text-sam-muted">{t("admin_report_target_feed_ad")}</dt>
+              <dd>
+                <Link
+                  href={`/admin/feed-ads/${encodeURIComponent(report.targetId)}`}
+                  className="text-signature hover:underline"
+                  prefetch={false}
+                  data-admin-report-feed-ad-link=""
+                >
+                  {t("ads3_w2_report_open_feed_ad")}
+                </Link>
+              </dd>
+            </div>
+          ) : null}
           {report.targetType === "product" && report.targetId && (
             <div>
               <dt className="text-sam-muted">{t("admin_report_dt_post")}</dt>

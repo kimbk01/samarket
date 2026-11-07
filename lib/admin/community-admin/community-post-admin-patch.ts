@@ -6,9 +6,10 @@
  * - 숨김·삭제·본문 수정은 사유 필수 (복구는 L1 — 사유 선택).
  * - 상태 변경 → moderated_by/at/reason, 본문 수정 → last_edited_* (리비전은 DB 트리거).
  * - 외부 수집 글(origin_kind=imported)만 content_blocks 수정 가능 (C-08).
- * - 노출 중·중지 홍보가 걸린 글을 숨김·삭제하면 귀책(promotionFault) 필수 (광고 설계 D-10):
- *   글을 바꾸기 **전에** 주문 종료 단일 경로(`runCommunityPromotionOrderAction` → admin_promotion_end ·
- *   주문 감사 · 구매자 알림)로 먼저 끝낸다. 하나라도 종료에 실패하면 글은 숨기거나 지우지 않는다.
+ * - 노출 중·중지 상위노출이 걸린 글을 숨김·삭제하면 귀책(promotionFault) 필수 (광고 설계 D-10).
+ *   D-11 ① (2026-11-07): 주문 종료(admin_promotion_end)와 글 상태 변경을 DB 함수 `admin_community_post_moderate`
+ *   **한 트랜잭션**으로 처리한다. 예전에는 주문을 먼저 끝내고 글을 CAS 로 바꿔, CAS 409 면 주문만 끝난 채 남았다.
+ *   함수가 없거나 실패하면 주문·글 모두 그대로다(2단계 폴백 없음). 주문 감사·구매자 알림은 성공 후 TS 가 남긴다.
  * 서버 전용.
  */
 import "server-only";
@@ -19,12 +20,15 @@ import {
   listRunningCommunityPromotionsForPost,
   parseCommunityPromotionFault,
 } from "@/lib/admin/community-admin/community-promotion-admin";
-import { runCommunityPromotionOrderAction } from "@/lib/admin/community-admin/community-promotion-order-action";
 import { sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
 import {
   notifyCommunityContentModerated,
   type CommunityContentModerationKind,
 } from "@/lib/notifications/notify-community-moderation";
+import {
+  moderateCommunityPostWithPromotions,
+  recordModeratedPromotionEnds,
+} from "@/lib/admin/community-admin/community-post-moderate-rpc";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
 import { mergePostBodyImages } from "@/lib/philife/post-body-images";
 
@@ -244,7 +248,7 @@ export async function applyCommunityPostAdminPatch(
   // community_posts 에 updated_at 자동 갱신 트리거가 없다 — CAS 토큰을 직접 전진시킨다.
   patch.updated_at = nowIso;
 
-  // ── 홍보 중인 글 숨김·삭제: 귀책 선택 필수 (§F-1-2 #3·#5·#6)
+  // ── 상위노출 중인 글 숨김·삭제: 귀책 선택 필수 (§F-1-2 #3·#5·#6)
   const promotions = removing ? await listRunningCommunityPromotionsForPost(sb, postId) : [];
   const fault = parseCommunityPromotionFault(body.promotionFault);
   if (promotions.length > 0 && !fault) {
@@ -258,50 +262,68 @@ export async function applyCommunityPostAdminPatch(
     };
   }
 
-  // ── 홍보 먼저 종료 (D-10) — 주문 감사·구매자 알림까지 주문 조치와 같은 경로. 실패하면 글 변경 없음.
+  // ── D-11 ① 진행 중 상위노출이 있는 글 숨김·삭제 = DB 함수 1번(주문 종료 + 글 상태 변경 한 트랜잭션).
   const promotionEnd: Array<Record<string, unknown>> = [];
-  if (removing && fault) {
-    for (const p of promotions) {
-      const res = await runCommunityPromotionOrderAction(sb, req, {
-        orderId: p.id,
-        actorId: input.actorId,
-        action: "end",
-        reason,
-        fault,
-        reasonCode: nextStatus === "deleted" ? "post_deleted" : "post_hidden",
-      });
-      if (!res.ok) {
-        return {
-          status: res.httpStatus >= 500 ? 500 : 409,
-          body: {
-            ok: false,
-            error: "promotion_end_failed",
-            orderId: p.id,
-            endError: res.error,
-            ...(promotionEnd.length ? { promotionEnd } : {}),
-          },
-        };
+  let updated: unknown = null;
+  if (removing && fault && promotions.length > 0) {
+    const moderated = await moderateCommunityPostWithPromotions(sb, {
+      postId,
+      actorId: input.actorId,
+      action: nextStatus === "deleted" ? "delete" : "hide",
+      fault,
+      reason: reason ?? "",
+      expectedUpdatedAt: String(before.updated_at ?? expected),
+    });
+    if (!moderated.ok) {
+      if (moderated.error === "conflict") {
+        const fresh = await loadPostRow(sb, postId);
+        return { status: 409, body: { ok: false, error: "conflict", post: fresh } };
       }
-      promotionEnd.push({
-        orderId: p.id,
-        ok: true,
-        refundPoints: Number(res.body.refundPoints ?? 0) || 0,
-        refundLedgerId: res.body.refundLedgerId ?? null,
-      });
+      return {
+        status: moderated.httpStatus,
+        body: { ok: false, error: moderated.error, ...(moderated.detail ?? {}) },
+      };
     }
-  }
-
-  const { data: updated, error } = await sb
-    .from("community_posts")
-    .update(patch)
-    .eq("id", postId)
-    .eq("updated_at", String(before.updated_at))
-    .select(COMMUNITY_POST_ADMIN_ROW_SELECT)
-    .maybeSingle();
-  if (error) return { status: 500, body: { ok: false, error: error.message } };
-  if (!updated) {
-    const fresh = await loadPostRow(sb, postId);
-    return { status: 409, body: { ok: false, error: "conflict", post: fresh } };
+    promotionEnd.push(
+      ...(await recordModeratedPromotionEnds(sb, req, {
+        actorId: input.actorId,
+        promotions,
+        moderated,
+        fault,
+        reason,
+        endReasonCode: nextStatus === "deleted" ? "post_deleted" : "post_hidden",
+      }))
+    );
+    // 상태 외 칸(신고 표시·본문 등)이 같이 왔으면 같은 글에 이어서 저장한다 (상태·처리 칸은 DB 함수가 이미 썼다).
+    const rest: Record<string, unknown> = { ...patch };
+    for (const k of ["status", "moderated_by", "moderated_at", "moderation_reason", "updated_at"]) delete rest[k];
+    if (Object.keys(rest).length > 0) {
+      const { data: restRow, error: restErr } = await sb
+        .from("community_posts")
+        .update({ ...rest, updated_at: new Date().toISOString() })
+        .eq("id", postId)
+        .select(COMMUNITY_POST_ADMIN_ROW_SELECT)
+        .maybeSingle();
+      if (restErr) return { status: 500, body: { ok: false, error: "update_failed" } };
+      updated = restRow;
+    } else {
+      updated = await loadPostRow(sb, postId);
+    }
+    if (!updated) return { status: 404, body: { ok: false, error: "not_found" } };
+  } else {
+    const { data, error } = await sb
+      .from("community_posts")
+      .update(patch)
+      .eq("id", postId)
+      .eq("updated_at", String(before.updated_at))
+      .select(COMMUNITY_POST_ADMIN_ROW_SELECT)
+      .maybeSingle();
+    if (error) return { status: 500, body: { ok: false, error: error.message } };
+    if (!data) {
+      const fresh = await loadPostRow(sb, postId);
+      return { status: 409, body: { ok: false, error: "conflict", post: fresh } };
+    }
+    updated = data;
   }
   const after = updated as unknown as PostRow;
 

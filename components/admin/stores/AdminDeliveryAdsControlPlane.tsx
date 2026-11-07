@@ -260,12 +260,12 @@ export function AdminDeliveryAdsControlPlane() {
                 links={[
                   {
                     href: ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
-                    labelKo: "커뮤니티 홍보 관리",
+                    labelKo: "커뮤니티 상위노출 관리",
                     labelEn: "Community promotion queue",
                     dataAttr: "ads-hub-to-community-promo",
                   },
                 ]}
-                noteKo="커뮤니티 내 포인트 홍보입니다. Feed Ads·배달 광고 집행과는 별도입니다."
+                noteKo="커뮤니티 내 포인트 상위노출입니다. Feed Ads·배달 광고 집행과는 별도입니다."
                 noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
               />
             </Suspense>

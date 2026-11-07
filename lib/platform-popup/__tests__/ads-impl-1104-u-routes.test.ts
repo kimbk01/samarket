@@ -18,7 +18,15 @@ vi.mock("@/lib/supabase/try-supabase-server", () => ({
         h.inserts.push({ table, row });
         return { error: null };
       },
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { timezone: "Asia/Manila" }, error: null }) }) }),
+      // D-12: 기록 API 는 캠페인 상태를 읽는다 — 노출 중 팝업으로 둔다
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: { timezone: "Asia/Manila", status: "active", presentation_type: "center_modal" },
+            error: null,
+          }),
+        }),
+      }),
     }),
     rpc: h.rpc,
   }),
@@ -60,17 +68,21 @@ describe("D-21 ③ 요청 제한 키", () => {
 });
 
 describe("POST /api/platform-popup/events", () => {
-  it("④ 같은 보는 사람·소재·종류는 10분 1번만 저장 — 두 번째는 저장 생략 + ok:true, deduped:true", async () => {
+  /** D-13 (재감사 3차): 키에 노출 id 가 들어간다 — 같은 노출·같은 종류만 거르고, 다른 노출은 각각 저장한다 */
+  it("④+D-13 같은 보는 사람·노출·종류는 1번만 저장 — 같은 노출 두 번째는 deduped · 다른 노출은 따로 저장", async () => {
     const ip = nextIp();
     const body = { campaignId: "c1", creativeId: "cr1", eventType: "click", source: "click_handler", exposureId: "e1", deviceKey: "dev-dedupe" };
     const a = await popupEvents(req("/api/platform-popup/events", body, ip));
-    const b = await popupEvents(req("/api/platform-popup/events", { ...body, exposureId: "e2" }, ip));
+    const b = await popupEvents(req("/api/platform-popup/events", body, ip));
     expect(a.status).toBe(200);
     expect(await b.json()).toMatchObject({ ok: true, deduped: true });
     expect(h.inserts.filter((i) => i.table === "platform_popup_campaign_events")).toHaveLength(1);
+    // 다른 노출(e2)은 같은 소재여도 따로 저장 (예전 키는 노출 id 가 없어 지웠다)
+    await popupEvents(req("/api/platform-popup/events", { ...body, exposureId: "e2" }, ip));
+    expect(h.inserts).toHaveLength(2);
     // 종류가 다르면 따로 저장
     await popupEvents(req("/api/platform-popup/events", { ...body, eventType: "landing_success" }, ip));
-    expect(h.inserts).toHaveLength(2);
+    expect(h.inserts).toHaveLength(3);
   });
 
   it("③ 1분 120회를 넘으면 429 (요청 제한)", async () => {

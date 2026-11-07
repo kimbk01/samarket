@@ -1,4 +1,4 @@
-import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
+import { requireAdminApiActor } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeAdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { ADMIN_LIST_MAX_OFFSET } from "@/lib/admin/pagination/parse-admin-list-page";
@@ -28,7 +28,8 @@ const TAB_STATUSES: Record<string, string[] | null> = {
  *      pausedAt, pausedSecondsTotal, post: { id, title, status, authorId, authorLabel } | null }] }
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireCommunityAdmin("read");
+  // AD2-08 (2026-11-07): 조회 = 공통 광고 화면과 같은 키(활성 관리자 전원 · 정지 운영자 차단)
+  const admin = await requireAdminApiActor();
   if (!admin.ok) return admin.response;
   const { sb } = admin;
 

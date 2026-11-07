@@ -29,6 +29,7 @@ import { runFeedAdAdminAction } from "@/lib/admin/advertising-workspace/feed-ad-
 import { adsClientSafeErrorCode } from "@/lib/admin/advertising-workspace/ads-admin-action-audit";
 import { ADS_WORKSPACE_REASON_REQUIRED_ACTIONS } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
 import {
+  DELIVERY_AD_USE_END_WITH_FAULT_CODE,
   isAdminDeliveryAdAction,
   isAdminDeliveryAdProduct,
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
@@ -438,7 +439,8 @@ export async function POST(req: NextRequest) {
               ? clientSafeErrorDetail(result.error, result.detail, 400, "[ads-workspace delivery]") ?? null
               : null,
         },
-        { status: 400 }
+        // D-03: 진행 중 강제 종료 거부(귀책·환급 종료를 쓰라는 업무 거부) = 422 — 배달 도메인 API 와 같은 코드
+        { status: result.error === DELIVERY_AD_USE_END_WITH_FAULT_CODE ? 422 : 400 }
       );
     }
     await persistInternalReason();

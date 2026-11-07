@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 /**
- * 광고 ② AD-123 (2026-11-04) — 거래 상위노출 종료 = forceCancel(L3): 사유 + 대상 재입력.
- * 재입력이 없거나 다르면 실행 버튼이 꺼지고, 같게 입력하면 켜진다.
+ * 어드민 SSOT §3-1 (Owner 2026-11-07 · AD-123 대체) — 거래 상위노출 종료 = L3: 공개 사유 + 내부 메모 + 귀책 + 환급 미리보기.
+ * 대상 재입력 칸이 없고(사유만 입력하면 실행 가능), 내부 메모는 `internalReason` 으로만 간다(D-10).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React, { act, type ReactNode } from "react";
@@ -27,6 +27,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => {}, replace: () => {}, prefetch: () => {} }),
   usePathname: () => "/admin/trade/promotions",
   useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock("@/components/admin/ads/AdminAdDeleteAction", () => ({
+  AdminAdDeleteAction: () => null,
 }));
 
 import { TradePromotionEndSheet } from "@/components/admin/trade/promotions/TradePromotionsPage";
@@ -83,30 +87,32 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe("AD-123 거래 상위노출 종료 — 대상 재입력(L3)", () => {
-  it("재입력이 없거나 다르면 실행 버튼이 꺼지고, 글 제목을 그대로 입력하면 켜진다", async () => {
+describe("거래 상위노출 종료 — 대상 재입력 없음 · 내부 메모 분리", () => {
+  it("귀책·사유만으로 2단계 실행 버튼이 켜지고, 재입력 칸이 없다 · 내부 메모는 internalReason 으로 전송", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => root.render(<TradePromotionEndSheet row={row} onClose={() => {}} onSettled={() => {}} />));
-    // 책임 구분 → 미리보기
     const operator = document.querySelector('input[type="radio"]') as HTMLInputElement;
     await act(async () => operator.click());
     await flush();
-    const reason = document.querySelector("textarea") as HTMLTextAreaElement;
+    const reason = document.querySelector('textarea[placeholder="종료 사유 (회원에게 전달됩니다)"]') as HTMLTextAreaElement;
+    const memo = document.querySelector("[data-admin-ads-internal-memo] textarea") as HTMLTextAreaElement;
+    expect(memo).toBeTruthy();
     await act(async () => setValue(reason, "운영 사유로 종료"));
+    await act(async () => setValue(memo, "내부 확인 메모"));
     const next = btn("admin_chat_sheet_next");
     expect(next.disabled).toBe(false);
     await act(async () => next.click());
 
-    // 2단계 — 재입력 칸이 있고, 비어 있으면 실행 꺼짐
-    expect(document.body.textContent).toContain("admin_chat_sheet_retype_label");
-    const run = () => btn("종료");
-    expect(run().disabled).toBe(true);
-    const retype = document.querySelector("[data-admin-chat-sheet-step='2'] input") as HTMLInputElement;
-    await act(async () => setValue(retype, "아이폰"));
-    expect(run().disabled).toBe(true);
-    await act(async () => setValue(retype, "아이폰 15 팝니다"));
-    expect(run().disabled).toBe(false);
+    expect(document.body.textContent).not.toContain("admin_chat_sheet_retype_label");
+    expect(document.querySelector("[data-admin-chat-sheet-step='2'] input")).toBeNull();
+    const run = btn("종료");
+    expect(run.disabled).toBe(false);
+    await act(async () => run.click());
+    await flush();
+    const last = fetchMock.mock.calls.at(-1)!;
+    const sent = JSON.parse(String((last[1] as { body: string }).body)) as Record<string, unknown>;
+    expect(sent).toMatchObject({ action: "end", fault: "operator", reason: "운영 사유로 종료", internalReason: "내부 확인 메모" });
   });
 });

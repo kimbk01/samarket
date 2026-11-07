@@ -167,7 +167,22 @@ describe("Phase 3 operational close — writer materialization", () => {
     createPopup.mockReset();
     updatePopup.mockReset();
     createNotify.mockReset();
-    createPopup.mockResolvedValue({ ok: true, id: "popup-1" });
+    // D-06: 이벤트 저장은 만든 뒤 팝업 행을 읽어 바뀐 칸만 보낸다 — 실제 writer 처럼 초안 행을 남긴다
+    createPopup.mockImplementation(async () => {
+      sb._tables.platform_popup_campaigns.push({
+        id: "popup-1",
+        status: "draft",
+        name: "draft",
+        priority: 100,
+        timezone: "Asia/Manila",
+        frequency_mode: "once_per_session",
+        suppression_mode: "SESSION",
+        presentation_type: "center_modal",
+        cta_type: "internal_page",
+        cta_target: "",
+      });
+      return { ok: true, id: "popup-1" };
+    });
     updatePopup.mockResolvedValue({ ok: true, id: "popup-1", revertedToReview: false });
     createNotify.mockImplementation(
       async (
@@ -289,8 +304,8 @@ describe("Phase 3 operational close — writer materialization", () => {
       ...base,
       toggles: { popup: true, banner: false, push: false, bell: false },
     });
-    // Seed a popup campaign row so pause update can target it.
-    sb._tables.platform_popup_campaigns.push({ id: "popup-1", status: "active" });
+    // 만든 팝업 행이 노출 중이 된 상태로 둔다 (pause 가 대상으로 삼을 행)
+    sb._tables.platform_popup_campaigns[0].status = "active";
     const off = await saveEventDistribution(sb as never, {
       ...base,
       toggles: { popup: false, banner: false, push: false, bell: false },

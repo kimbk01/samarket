@@ -101,6 +101,17 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-authority-placements": "admin_menu_ads_authority_placements_inventory",
   "ads-authority-products": "admin_menu_ads_authority_products",
   "ads-authority-history": "admin_menu_ads_authority_history",
+  // 광고 원장 (설계 ads-admin-ssot-design-2026-11-07 §5 · 2026-11-07): 공통 「충전·문의」 + 도메인 메뉴 = 같은 원장 + `?domain=`
+  "ads-authority-charge-inquiry": "admin_menu_ads_charge_inquiry",
+  "delivery-ads-ledger": "admin_menu_ads_ledger_domain",
+  "trade-ads-ledger": "admin_menu_ads_ledger_domain",
+  "community-ads-ledger": "admin_menu_ads_ledger_domain",
+  "promotion-ads-ledger": "admin_menu_ads_ledger_domain",
+  "my-ads-ledger": "admin_menu_ads_ledger_domain",
+  "delivery-ads-cash-queue": "admin_menu_delivery_ads_cash_queue",
+  "delivery-ads-cash-charges": "admin_menu_delivery_ads_cash_queue",
+  "delivery-ads-ops-entry": "admin_menu_delivery_ads_ops",
+  "delivery-ads-products-entry": "admin_menu_delivery_ads_commercial",
   "ads-placement-map": "admin_menu_placement_map",
   "ads-trade-promote": "admin_menu_ads_promote_group",
   "ads-applications-group": "admin_menu_ads_applications_group",
@@ -711,6 +722,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           // Owner 결정 O-6: 배달 담당이 자기 메뉴에서 매장 홍보·사장님 팝업 신청을 처리 (공통 「광고 승인」 화면, 기본 메뉴는 그대로 1개)
           { key: "delivery-store-promo-requests", title: "", path: "/admin/advertising/applications?family=sponsored&domain=delivery", entryAlias: true, status: "done" },
           { key: "delivery-owner-popup-requests", title: "", path: "/admin/advertising?family=popup&domain=delivery", entryAlias: true, status: "done" },
+          // §5 (2026-11-07): 배달 › 광고 = 같은 원장 + 도메인 거름 · 숨김 메뉴(ads-legacy)였던 운영 목록·상품 가격·Cash 충전 대기열을
+          // 보이는 메뉴로 — 원래 화면 소속(CUT J 하드락: 광고 작업 공간)은 그대로 두고 배달 메뉴에서 바로 연다(entryAlias).
+          { key: "delivery-ads-ledger", title: "", path: "/admin/advertising?domain=delivery", entryAlias: true, status: "done" },
+          { key: "delivery-ads-ops-entry", title: "", path: "/admin/delivery-ads/manage", entryAlias: true, status: "done" },
+          { key: "delivery-ads-cash-queue", title: "", path: "/admin/delivery-ads/cash-charges", entryAlias: true, status: "done" },
+          { key: "delivery-ads-products-entry", title: "", path: "/admin/delivery-ads/commercial-settings", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -922,6 +939,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "trade-popups", title: "", path: "/admin/platform-popup?domain=trade", entryAlias: true, status: "done" },
           { key: "trade-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=trade", entryAlias: true, status: "done" },
           { key: "trade-events", title: "", path: "/admin/platform-events?domain=trade", entryAlias: true, status: "done" },
+          // §5 (2026-11-07): 거래 › 광고 = 같은 원장 + 도메인 거름
+          { key: "trade-ads-ledger", title: "", path: "/admin/advertising?domain=trade", entryAlias: true, status: "done" },
           // Owner 결정 O-6: 회원 피드 배너 신청 처리 (공통 「광고 승인」 화면 · 배너 종류)
           { key: "trade-member-banner-requests", title: "", path: "/admin/advertising/applications?family=banner&domain=trade", entryAlias: true, status: "done" },
         ],
@@ -1073,6 +1092,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "community-popups", title: "", path: "/admin/platform-popup?domain=community", entryAlias: true, status: "done" },
           { key: "community-ptr-ads", title: "", path: "/admin/ptr-reveal-ads?domain=community", entryAlias: true, status: "done" },
           { key: "community-events", title: "", path: "/admin/platform-events?domain=community", entryAlias: true, status: "done" },
+          // §5 (2026-11-07): 커뮤니티 › 광고 = 같은 원장 + 도메인 거름
+          { key: "community-ads-ledger", title: "", path: "/admin/advertising?domain=community", entryAlias: true, status: "done" },
           // Owner 결정 O-6: 회원 피드 배너 신청 처리 · 커뮤니티 상위노출 가격(거래와 같은 가격 화면 — 커뮤니티 행 포함)
           { key: "community-member-banner-requests", title: "", path: "/admin/advertising/applications?family=banner&domain=community", entryAlias: true, status: "done" },
           { key: "community-boost-prices", title: "", path: "/admin/trade-ad-policies", entryAlias: true, status: "done" },
@@ -1414,6 +1435,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             matchPaths: ["/admin/promoted-items"],
             status: "done",
           },
+          {
+            // §5 공통 「충전·문의」 — 광고주 충전 요청·광고 문의 모음 (처리는 각 화면)
+            key: "ads-authority-charge-inquiry",
+            title: "",
+            path: "/admin/advertising/charges",
+            status: "done",
+          },
         ],
       },
       {
@@ -1555,6 +1583,21 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "partial",
           },
           {
+            key: "delivery-ads-ops",
+            title: "",
+            path: "/admin/delivery-ads/manage",
+            matchPaths: ["/admin/delivery-ads/manage"],
+            matchPathPrefixes: ["/admin/delivery-ads"],
+            status: "partial",
+          },
+          {
+            // §5 (2026-11-07): Cash 충전 대기열 원래 메뉴(광고 작업 공간 · 숨김) — 배달 메뉴 별칭(delivery-ads-cash-queue)의 원래 항목
+            key: "delivery-ads-cash-charges",
+            title: "",
+            path: "/admin/delivery-ads/cash-charges",
+            status: "partial",
+          },
+          {
             key: "ads-feed-applications",
             title: "",
             path: "/admin/ad-applications?domain=feed",
@@ -1572,15 +1615,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/ad-applications?domain=community",
             status: "partial",
           },
+          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "partial" },
           {
-            key: "delivery-ads-ops",
+            key: "delivery-ads-commercial",
             title: "",
-            path: "/admin/delivery-ads/manage",
-            matchPaths: ["/admin/delivery-ads/manage"],
-            matchPathPrefixes: ["/admin/delivery-ads"],
+            path: "/admin/delivery-ads/commercial-settings",
             status: "partial",
           },
-          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "partial" },
           // Platform Promotion leaves moved to `promotion` workspace (CUT 3).
           // Keys KEEP for findAdminMenuByKey / redirects; paths removed so Ads does not steal IA.
           { key: "ads-platform-popup", title: "", status: "partial", sidebarPublic: false },
@@ -1597,12 +1638,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "ads-feed-products",
             title: "",
             path: "/admin/feed-ad-products",
-            status: "partial",
-          },
-          {
-            key: "delivery-ads-commercial",
-            title: "",
-            path: "/admin/delivery-ads/commercial-settings",
             status: "partial",
           },
           {
@@ -1676,6 +1711,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             matchPaths: ["/admin/platform-event-owner-requests/"],
             status: "done",
           },
+          // §5 (2026-11-07): 플랫폼 운영 › 광고 = 같은 원장 + 도메인 거름 (운영자 팝업·PTR·인트로·이벤트 배너)
+          { key: "promotion-ads-ledger", title: "", path: "/admin/advertising?domain=platform", entryAlias: true, status: "done" },
         ],
       },
       {
@@ -1708,6 +1745,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           { key: "my-banners", title: "", path: "/admin/my/banners", status: "done" },
+          // §5 (2026-11-07): 내정보 › 배너 = 같은 원장 + 도메인 거름
+          { key: "my-ads-ledger", title: "", path: "/admin/advertising?domain=mypage", entryAlias: true, status: "done" },
           { key: "my-sections", title: "", path: "/admin/my/sections", status: "done" },
           { key: "my-services", title: "", path: "/admin/my/services", status: "done" },
         ],

@@ -6,6 +6,11 @@
  * 정렬·페이지·전체 건수(total)·모드별 상태 탭 개수(summaryCounts)를 받는다 (원천별 120건 상한·메모리 합치기 없음).
  * 페이지 행만 원천별 id 로 읽어 기존 projector 로 그린다. 점유·충돌·종료 임박은 노출 일정 lifecycle 전체(상한 없음).
  * 팝업 오너 신청(`platform_popup_owner_requests`)도 원천에 포함 — 운영 실제 열(`POPUP_REQUEST_SELECT`)만 읽는다.
+ *
+ * 광고 원장 (설계 ads-admin-ssot-design-2026-11-07 §1·§5 · 2026-11-07): 목록 = DB `admin_ads_ledger_page` 한 번.
+ * 14줄 표의 13종(PTR·마이 배너·인트로·이벤트 히어로 포함) · 신청↔캠페인 한 행 · 위치·광고주·결제·성과·상태 하나 ·
+ * 삭제 표시 제외. 행마다 원장 칸(`item.ledger`)을 붙이고, 새 종류(PTR·이벤트 히어로·마이 배너·인트로)는 원장 칸만으로 그린다.
+ * 원장 함수가 운영 DB 에 아직 없으면(마이그레이션 적용 전) 옛 `admin_ads_workspace_page` 로 읽는다(`page.ledger = false`).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
@@ -54,6 +59,13 @@ import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-camp
 import type { FeedAdCampaignView } from "@/lib/ads/feed-ad-placement";
 import { pinEnsuredBoostOrderInApplications } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import type { AdsLedgerDomain, AdsLedgerFields, AdsLedgerKind, AdsLedgerLocationCount } from "@/lib/admin/ads-control-plane/types";
+import { parseAdsLedgerRow, isAdsLedgerKind } from "@/lib/admin/ads-ledger/ad-ledger-presentation";
+import {
+  applyAdsLedgerToItem,
+  projectLedgerOnlyItem,
+  type AdsLedgerRowMeta,
+} from "@/lib/admin/ads-control-plane/project-family-rows";
 
 function isMissing(err: { message?: string } | null | undefined, re: RegExp): boolean {
   return !!err && re.test(String(err.message ?? ""));
@@ -67,6 +79,15 @@ function formatPeriod(startAt: string | null | undefined, endAt: string | null |
 }
 
 export const ADS_WORKSPACE_PAGE_RPC = "admin_ads_workspace_page";
+/** 광고 원장 페이지 (20271107220000_admin_ads_ledger.sql) */
+export const ADS_LEDGER_PAGE_RPC = "admin_ads_ledger_page";
+
+/** 원장 함수가 아직 없을 때(PostgREST PGRST202 · 함수 없음) — 옛 함수로 읽는다. */
+export function isMissingLedgerRpcError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "PGRST202" || err.code === "42883") return true;
+  return /admin_ads_ledger_page/.test(String(err.message ?? "")) && /could not find|does not exist/i.test(String(err.message ?? ""));
+}
 
 /** 화면 페이지 크기 상한 (AdminPagination 20/50/100). */
 export const ADS_WORKSPACE_PAGE_MAX_LIMIT = 100;
@@ -93,8 +114,16 @@ export type AdsWorkspacePageQuery = {
   status?: string | null;
   /** 종류 탭 — "all" 또는 비움 = 전체 */
   family?: string | null;
-  /** Owner 결정 O-6② — 도메인 거름 (trade·community·delivery) · 비움 = 전체 */
+  /** Owner 결정 O-6② — 도메인 거름 (trade·community·delivery·platform·mypage) · 비움 = 전체 */
   domain?: AdsWorkspaceDomain | null;
+  /** 원장 — 종류 거름 */
+  kind?: AdsLedgerKind | null;
+  /** 원장 — 위치 거름 (`KEY` 또는 `KEY|대상`) */
+  location?: string | null;
+  /** 원장 — 광고주(회원·매장·이벤트 uuid) 거름 */
+  advertiser?: string | null;
+  /** 원장 — 이력 › 삭제됨 */
+  includeDeleted?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -121,12 +150,18 @@ export type LoadAdsControlPlaneOptions = {
 
 type WorkspaceRef = { family: string; sourceId: string; itemId: string };
 
+/** 원장 칸만으로 그리는 새 종류 (기존 원천 projector 없음) */
+const LEDGER_ONLY_FAMILIES = new Set(["ptr", "event_hero", "my_banner", "intro"]);
+
 type WorkspaceRpcPayload = {
   total?: unknown;
   rows?: unknown;
   summary_counts?: unknown;
   queue_counts?: { feed_pending?: unknown; trade_pending?: unknown; community_pending?: unknown } | null;
   popup_surfaces?: unknown;
+  ledger?: unknown;
+  kind_counts?: unknown;
+  location_counts?: unknown;
 };
 
 const num = (v: unknown): number => {
@@ -319,7 +354,9 @@ function promoteExecutionRow(r: PromoteOrderRow): AdsExecutionRow | null {
 }
 
 const WORKSPACE_MODES = new Set(["all", "applications", "operations", "history", "boosts"]);
-export const ADS_WORKSPACE_DOMAINS = ["trade", "community", "delivery"] as const;
+export const ADS_WORKSPACE_DOMAINS = ["trade", "community", "delivery", "platform", "mypage"] as const satisfies readonly AdsLedgerDomain[];
+/** 옛 함수(`admin_ads_workspace_page`)가 받는 도메인 */
+const LEGACY_WORKSPACE_DOMAINS = new Set(["trade", "community", "delivery"]);
 export type AdsWorkspaceDomain = (typeof ADS_WORKSPACE_DOMAINS)[number];
 
 export async function loadAdsControlPlane(
@@ -341,6 +378,10 @@ export async function loadAdsControlPlane(
     Math.max(1, Math.floor(Number(pageQuery.limit) || ADS_WORKSPACE_DEFAULT_LIMIT))
   );
   const offset = Math.max(0, Math.min(100_000, Math.floor(Number(pageQuery.offset) || 0)));
+  const kind = isAdsLedgerKind(pageQuery.kind) ? pageQuery.kind : null;
+  const location = String(pageQuery.location ?? "").trim() || null;
+  const advertiser = String(pageQuery.advertiser ?? "").trim() || null;
+  const includeDeleted = pageQuery.includeDeleted === true;
 
   // 실제 노출 1위 팝업 (런타임 사실) — 노출 중/노출 대기 탭 구분에 RPC 로 넘긴다.
   let popupWinnerIds = new Set<string>();
@@ -363,18 +404,37 @@ export async function loadAdsControlPlane(
     return q;
   })();
 
-  const [rpcRes, deliveryQueue, popupOwnerPending, globalSchedule, scopedSchedule] = await Promise.all([
-    sb.rpc(ADS_WORKSPACE_PAGE_RPC, {
-      p_mode: mode,
-      p_status: statusTab === "all" ? null : statusTab,
-      p_family: familyTab === "all" ? null : familyTab,
-      p_store_id: storeId || null,
-      p_popup_winner_ids: [...popupWinnerIds],
-      p_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
-      p_limit: limit,
-      p_offset: offset,
+  const baseRpcArgs = {
+    p_mode: mode,
+    p_status: statusTab === "all" ? null : statusTab,
+    p_family: familyTab === "all" ? null : familyTab,
+    p_store_id: storeId || null,
+    p_popup_winner_ids: [...popupWinnerIds],
+    p_pending_asset: DELIVERY_BANNER_CREATIVE_READINESS.pendingAssetPath,
+    p_limit: limit,
+    p_offset: offset,
+  };
+  const ledgerRpc = async () => {
+    const res = await sb.rpc(ADS_LEDGER_PAGE_RPC, {
+      ...baseRpcArgs,
       p_domain: domain,
-    }),
+      p_kind: kind,
+      p_location: location,
+      p_include_deleted: includeDeleted,
+      p_advertiser: advertiser,
+    });
+    if (!res.error || !isMissingLedgerRpcError(res.error)) return res;
+    // 운영 DB 적용 전 — 옛 함수 (원장 칸 없음 · 새 종류 없음)
+    sectionErrors.push("ledger_rpc_missing");
+    return sb.rpc(ADS_WORKSPACE_PAGE_RPC, {
+      ...baseRpcArgs,
+      p_status: statusTab === "all" || statusTab === "deleted" ? null : statusTab,
+      p_domain: domain && LEGACY_WORKSPACE_DOMAINS.has(domain) ? domain : null,
+    });
+  };
+
+  const [rpcRes, deliveryQueue, popupOwnerPending, globalSchedule, scopedSchedule] = await Promise.all([
+    ledgerRpc(),
     listDeliveryAdAdminActionQueue(sb, { limit: 1 }),
     popupOwnerPendingQ,
     loadAdminDeliveryAdCampaignsByLifecycles(sb, DELIVERY_SCHEDULE_LIFECYCLES),
@@ -385,13 +445,36 @@ export async function loadAdsControlPlane(
   if (rpcRes.error) throw new Error(rpcRes.error.message);
   const payload = (rpcRes.data ?? {}) as WorkspaceRpcPayload;
 
-  const refs: WorkspaceRef[] = (Array.isArray(payload.rows) ? (payload.rows as Record<string, unknown>[]) : []).map(
-    (r) => ({
-      family: String(r.family ?? ""),
-      sourceId: String(r.source_id ?? ""),
-      itemId: String(r.item_id ?? ""),
-    })
-  );
+  const rawRows = Array.isArray(payload.rows) ? (payload.rows as Record<string, unknown>[]) : [];
+  const refs: WorkspaceRef[] = rawRows.map((r) => ({
+    family: String(r.family ?? ""),
+    sourceId: String(r.source_id ?? ""),
+    itemId: String(r.item_id ?? ""),
+  }));
+  /** 원장 칸 (item_id → 칸 · 메타) — 옛 함수 응답이면 비어 있다 */
+  const ledgerByItem = new Map<string, { ledger: AdsLedgerFields; meta: AdsLedgerRowMeta }>();
+  for (const row of rawRows) {
+    const ledger = parseAdsLedgerRow(row);
+    if (!ledger) continue;
+    ledgerByItem.set(String(row.item_id ?? ""), {
+      ledger,
+      meta: {
+        family: String(row.family ?? ""),
+        sourceId: String(row.source_id ?? ""),
+        itemId: String(row.item_id ?? ""),
+        ops: String(row.ops ?? ""),
+        statusTab: String(row.status_tab ?? ""),
+        at: String(row.at ?? ""),
+        domain: String(row.domain ?? ""),
+        product: String(row.product ?? ""),
+        sourceKind: String(row.source_kind ?? ""),
+        title: row.title == null ? null : String(row.title),
+        imageUrl: row.image_url == null ? null : String(row.image_url),
+        destination: row.destination == null ? null : String(row.destination),
+        priority: row.priority == null || !Number.isFinite(Number(row.priority)) ? null : Number(row.priority),
+      },
+    });
+  }
   const popupGroupsRaw = (Array.isArray(payload.popup_surfaces) ? payload.popup_surfaces : []) as Array<{
     surfaces?: unknown;
     live_ids?: unknown;
@@ -432,14 +515,19 @@ export async function loadAdsControlPlane(
 
   const hydrated = await hydrateWorkspaceRefs(
     sb,
-    [...refs, ...popupPanelRefs, ...ensureRef],
+    [...refs.filter((r) => !LEDGER_ONLY_FAMILIES.has(r.family)), ...popupPanelRefs, ...ensureRef],
     { winnerIds: popupWinnerIds, winnerById },
     sectionErrors
   );
 
-  // RPC 순서 유지 — 읽는 사이 지워진 행은 건너뛴다.
+  // RPC 순서 유지 — 읽는 사이 지워진 행은 건너뛴다. 원장 칸을 붙인다(새 종류는 원장 칸만으로 그린다).
   const pageItems = refs
-    .map((r) => hydrated.items.get(r.itemId))
+    .map((r) => {
+      const led = ledgerByItem.get(r.itemId);
+      if (LEDGER_ONLY_FAMILIES.has(r.family)) return led ? projectLedgerOnlyItem(led.meta, led.ledger) : undefined;
+      const item = hydrated.items.get(r.itemId);
+      return item && led ? applyAdsLedgerToItem(item, led.meta, led.ledger) : item;
+    })
     .filter((i): i is AdsActionItem => i != null);
   const pinned = ensureBoostOrderId
     ? [...hydrated.items.values()].filter(
@@ -602,15 +690,35 @@ export async function loadAdsControlPlane(
 
   const creatives: AdsActionItem[] = [];
 
+  const isLedger = payload.ledger === true;
   const pageMeta: AdsWorkspacePageMeta = {
     mode,
     status: statusTab,
     family: familyTab,
     domain,
+    kind,
+    location,
+    advertiser,
+    ledger: isLedger,
     total: num(payload.total),
     limit,
     offset,
   };
+  const kindCounts: Partial<Record<AdsLedgerKind, number>> = {};
+  if (isLedger && payload.kind_counts && typeof payload.kind_counts === "object") {
+    for (const [k, v] of Object.entries(payload.kind_counts as Record<string, unknown>)) {
+      if (isAdsLedgerKind(k)) kindCounts[k] = num(v);
+    }
+  }
+  const locationCounts: AdsLedgerLocationCount[] = isLedger && Array.isArray(payload.location_counts)
+    ? (payload.location_counts as Record<string, unknown>[]).map((l) => ({
+        locationKey: l.location_key == null ? null : String(l.location_key),
+        locationTarget: l.location_target == null ? null : String(l.location_target),
+        locationTargetName: l.location_target_name == null ? null : String(l.location_target_name),
+        statusTab: String(l.status_tab ?? ""),
+        n: num(l.n),
+      }))
+    : [];
   const summaryCounts =
     payload.summary_counts && typeof payload.summary_counts === "object"
       ? (payload.summary_counts as AdsControlPlaneModel["summaryCounts"])
@@ -621,6 +729,7 @@ export async function loadAdsControlPlane(
     page: pageMeta,
     summaryCounts,
     popupSurfaces,
+    ...(isLedger ? { kindCounts, locationCounts } : {}),
     actionRequired: actionRequired.slice(0, 60),
     queues: {
       delivery: {

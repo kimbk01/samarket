@@ -2,7 +2,8 @@
 
 /**
  * 거래 상위노출 (설계 v2 §G-1 · 재감사 R3 P-6 「광고」 용어) — 거래 글 상위노출 주문의 승인·반려·일시 중지·재개·종료.
- * 종료: 책임 구분 선택 → 환급 미리보기(변경 없음) → 사유 → 2단계 확인.
+ * 종료: 책임 구분 선택 → 환급 미리보기(변경 없음) → 공개 사유(+ 내부 메모) → 2단계 확인 (대상 재입력 없음 · 어드민 SSOT §3-1).
+ * 승인도 사유 필수(AD2-01) · 정지·재개·종료는 공개 사유 + 내부 메모 두 칸(D-10) · 삭제는 공용 `AdminAdDeleteAction`(사유만).
  * URL: tab(탭 — 대시보드 딥링크) · userId · postId · from/to(PHT) · (호환) period · page · size(20/50/100)
  */
 import Link from "next/link";
@@ -42,6 +43,16 @@ import {
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
+import { adsWorkspaceActionSplitsReason } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import { AdsInternalMemoField } from "@/components/admin/community/kit/AdsInternalMemoField";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
+import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+
+/** D-10 — 내부 메모가 있으면 `internalReason` 으로 보낸다(회원 응답·알림에 나가지 않음). */
+function withInternalMemo(body: Record<string, unknown>, memo: string): Record<string, unknown> {
+  const m = memo.trim();
+  return m ? { ...body, internalReason: m } : body;
+}
 
 const LIST_EXTRAS = ["userId", "postId"] as const;
 const TABS = ["pending_review", "active", "paused", "ended", "rejected", "all"] as const;
@@ -142,6 +153,8 @@ export function TradePromotionsPage() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
   const [warning, setWarning] = useState(false);
+  /** 권한 표 §4: 거래 상위노출 쓰기 = ads (API `requireAdsWriteAdmin` 과 같은 접근표 판정) */
+  const writeGuard = useAdminWriteGuard("/admin/trade/promotions");
 
   const params = lq.apiParams();
   params.set("tab", tab);
@@ -291,7 +304,19 @@ export function TradePromotionsPage() {
                   {r.ended_by_label ? <div className="text-[12px] text-sam-muted">처리: {r.ended_by_label}</div> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <RowActions row={r} onPick={(kind) => setSheet({ kind, row: r })} />
+                  <RowActions row={r} onPick={(kind) => { if (writeGuard.guard()) setSheet({ kind, row: r }); }} />
+                  <div className="mt-1">
+                    <AdminAdDeleteAction
+                      kind="trade_promotion"
+                      id={r.id}
+                      title={titleOf(r)}
+                      size="sm"
+                      onDone={() => {
+                        emitAdminQueueChanged("trade_promo_pending");
+                        void reload();
+                      }}
+                    />
+                  </div>
                   <AdminTechDetails ko>
                     <div>order: {r.id}</div>
                     {r.placement ? <div>placement: {r.placement}</div> : null}
@@ -364,7 +389,7 @@ function orderRows(r: Row) {
 
 type SettleFn = (k: CommunitySheetSettle, okMessage: string, sideEffectWarning: boolean) => void;
 
-/** 승인 — 사유 없이 2단계 확인 (확인 화면에서 내용 재확인) */
+/** 승인 — 사유 필수 2단계 확인 (AD2-01 · 공통 화면과 같은 L2) */
 function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; onSettled: SettleFn }) {
   const warn = useRef(false);
   const waiting = useRef(false);
@@ -373,10 +398,10 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
       title="상위노출 승인"
       rows={orderRows(row)}
       notice="승인하면 바로 노출이 시작되고 보류한 포인트가 차감 확정됩니다. 회원에게 알림이 전달됩니다."
-      reason={null}
+      reason={{ minLength: 2, placeholder: "승인 사유 (회원에게 전달됩니다)" }}
       confirmLabel="승인"
-      onSubmit={async () => {
-        const { result, json } = await postAction(row.id, { action: "approve" });
+      onSubmit={async (reason) => {
+        const { result, json } = await postAction(row.id, { action: "approve", reason });
         warn.current = json.sideEffectWarning === true;
         waiting.current = json.waiting === "listing";
         return result;
@@ -430,6 +455,8 @@ function ReasonActionSheet({
 }) {
   const cfg = REASON_ACTION[kind];
   const warn = useRef(false);
+  const [memo, setMemo] = useState("");
+  const split = adsWorkspaceActionSplitsReason(kind);
   /** 재감사 B-3: 재개 결과 — 글 숨김 대기 · 글 판매완료·삭제로 종료 */
   const outcome = useRef<"waiting" | "ended" | null>(null);
   return (
@@ -441,7 +468,7 @@ function ReasonActionSheet({
       destructive={cfg.destructive}
       confirmLabel={cfg.title.replace("상위노출 ", "")}
       onSubmit={async (reason) => {
-        const { result, json } = await postAction(row.id, { action: kind, reason });
+        const { result, json } = await postAction(row.id, withInternalMemo({ action: kind, reason }, split ? memo : ""));
         warn.current = json.sideEffectWarning === true;
         outcome.current = json.waiting === "listing" ? "waiting" : kind === "resume" && json.order_status === "ended" ? "ended" : null;
         return result;
@@ -458,7 +485,9 @@ function ReasonActionSheet({
           warn.current
         )
       }
-    />
+    >
+      {split ? <AdsInternalMemoField value={memo} onChange={setMemo} /> : null}
+    </CommunityActionSheet>
   );
 }
 
@@ -469,6 +498,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
   const [fault, setFault] = useState<"operator" | "member" | "none" | null>(null);
   const [preview, setPreview] = useState<{ fault: string; data: Preview } | { fault: string; error: string } | null>(null);
   const done = useRef({ refund: 0, warn: false });
+  const [memo, setMemo] = useState("");
 
   useEffect(() => {
     if (!fault) return;
@@ -502,11 +532,9 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
       : null;
 
   /**
-   * 광고 ② AD-123 (2026-11-04): 종료 = forceCancel(L3) — 사유 + **대상 재입력**.
-   * 커뮤니티 상위노출 종료 화면과 같은 규칙(글 제목, 40자 넘으면 「상위노출 종료」).
+   * 어드민 SSOT §3-1 (Owner 2026-11-07 · AD-123 대체): 종료 = L3 — 공개 사유 + 내부 메모 + 귀책 + 환급 미리보기.
+   * 대상 재입력은 없다(귀책·환급 미리보기가 실수를 막는다).
    */
-  const retypeTitle = titleOf(row).trim();
-  const retype = retypeTitle && retypeTitle.length <= 40 ? retypeTitle : "상위노출 종료";
 
   return (
     <CommunityActionSheet
@@ -519,12 +547,14 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
       ]}
       notice="종료하면 다시 노출할 수 없습니다. 회원에게 종료 사유와 환급 포인트가 알림으로 전달됩니다."
       reason={{ minLength: 2, placeholder: "종료 사유 (회원에게 전달됩니다)" }}
-      retypeValue={retype}
       ready={ready}
       destructive
       confirmLabel="종료"
       onSubmit={async (reason) => {
-        const { result, json } = await postAction(row.id, { action: "end", fault, reason });
+        const { result, json } = await postAction(
+          row.id,
+          withInternalMemo({ action: "end", fault, reason }, adsWorkspaceActionSplitsReason("end") ? memo : "")
+        );
         done.current = { refund: Number(json.refund_points ?? 0) || 0, warn: json.sideEffectWarning === true };
         return result;
       }}
@@ -575,9 +605,10 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
           {tradeErrorText(current.error)}
         </p>
       ) : null}
+      {adsWorkspaceActionSplitsReason("end") ? <AdsInternalMemoField value={memo} onChange={setMemo} /> : null}
     </CommunityActionSheet>
   );
 }
 
-/** 시험용 — 종료 시트(AD-123 대상 재입력) 단독 렌더 */
+/** 시험용 — 종료 시트 단독 렌더 (대상 재입력 없음) */
 export { EndSheet as TradePromotionEndSheet };

@@ -13,6 +13,10 @@ import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/commu
 import { parseCommunityPromotionFault } from "@/lib/admin/community-admin/community-promotion-admin";
 import { notifyCommunityPromotionEnded } from "@/lib/notifications/notify-community-moderation";
 import { applyBoostLifecycle } from "@/lib/promotion/admin-boost-lifecycle";
+import { parseAdminInternalReason } from "@/lib/admin/operator-ux/admin-reason";
+import { persistAdvertisingAdminMemo } from "@/lib/ads/advertising-admin-memo";
+import { advertisingWorkspaceMemoTargetType } from "@/lib/admin/advertising-workspace/workspace-memo-gate";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 
 export const COMMUNITY_PROMOTION_ORDER_AUDIT_SELECT =
   "id, domain, user_id, target_id, order_status, point_cost, duration_days, start_at, end_at, review_reason, " +
@@ -26,6 +30,11 @@ export type CommunityPromotionOrderActionInput = {
   fault?: unknown;
   reasonCode?: unknown;
   preview?: boolean;
+  /**
+   * D-10 (2026-11-07) — 도메인 화면의 내부 메모(운영자만). 공개 사유(`reason`)와 달리 회원 알림·응답에 나가지 않고
+   * 같은 조치의 운영자 메모(감사)로만 남긴다. 공통 광고 화면은 자기 경로에서 따로 남기므로 넘기지 않는다.
+   */
+  internalReason?: unknown;
 };
 
 export type CommunityPromotionOrderActionResult =
@@ -100,6 +109,20 @@ export async function runCommunityPromotionOrderAction(
       ...(action === "resume" ? { extended_seconds: res.extendedSeconds ?? 0 } : {}),
     },
   });
+
+  const internalReason = parseAdminInternalReason(input.internalReason);
+  if (internalReason) {
+    const meta = req ? getAuditRequestMeta(req) : { ip: null, userAgent: null };
+    await persistAdvertisingAdminMemo(sb, {
+      adminId: input.actorId,
+      adId: orderId,
+      targetType: advertisingWorkspaceMemoTargetType("boost_community"),
+      kind: "internal",
+      memo: `[${action}] ${internalReason}`,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+  }
 
   if (action === "end") {
     try {

@@ -32,8 +32,9 @@ describe("finance × ads product decision lock", () => {
     expect(AD_NORMAL_EXPIRY_REFUND).toBe(false);
     expect(mayRefundAdFunding("admin_reject")).toBe(true);
     expect(mayRefundAdFunding("user_cancel_before_capture")).toBe(true);
-    const endSrc = read("lib/ads/end-feed-ad-campaign.ts");
-    expect(endSrc).toMatch(/NO automatic Point refund/i);
+    // 2026-11-07: 옛 TS 종료 writer 삭제 — 종료 정본 = DB 함수 admin_feed_ad_end 래퍼
+    const endSrc = read("lib/ads/admin-feed-ad-lifecycle.ts");
+    expect(endSrc).toContain("admin_feed_ad_end");
   });
 
   it("AD-P0-3 trade_post_ads new writes blocked", () => {

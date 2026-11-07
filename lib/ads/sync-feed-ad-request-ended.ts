@@ -2,7 +2,7 @@
  * Keep feed_ad_requests terminal when its campaign is ended.
  *
  * CONTRACT:
- * - Campaign end writers MUST call this (or endFeedAdCampaign which does).
+ * - Campaign end writers MUST call this (관리자 종료 경로 = DB 함수 `admin_feed_ad_end` · 옛 TS writer 삭제 2026-11-07).
  * - Idempotent: already-ended request is a no-op success.
  * - Does NOT refund (CAPTURE settled). ADMIN_END_REFUND_POLICY_REQUIRED untouched.
  * - Does NOT invent feed eligibility — feed reads campaign status/window/creatives.

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 작성자 상세 (설계 §C-10) — ① 요약 카드 ② 활동 탭(글·댓글·받은 신고·낸 신고·조치·포인트·홍보)
+ * 작성자 상세 (설계 §C-10) — ① 요약 카드 ② 활동 탭(글·댓글·받은 신고·낸 신고·조치·포인트·상위노출)
  * ③ 조치(경고 보내기 L2 · 활동 제한 L2 · 제한 해제 L2 · 계정 정지로 이동) ④ 기술 정보.
  * 구역 값이 null 이면 「확인 불가」 (빈 목록으로 대체하지 않는다).
  */
@@ -96,7 +96,7 @@ const TABS = [
   { value: "made", label: "낸 신고" },
   { value: "sanctions", label: "조치" },
   { value: "points", label: "포인트" },
-  { value: "promotions", label: "홍보" },
+  { value: "promotions", label: "상위노출" },
 ];
 
 const DAY_OPTIONS: { value: string; label: string }[] = [
@@ -570,7 +570,7 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
     );
   }
   if (d.promotions == null) return <Unavailable />;
-  if (d.promotions.length === 0) return <Empty text="게시글 홍보 내역이 없습니다." />;
+  if (d.promotions.length === 0) return <Empty text="게시글 상위노출 내역이 없습니다." />;
   return (
     <CommunityTable head={["게시글", "기간", "결제 포인트", "상태", "신청"]}>
       {d.promotions.map((r) => (

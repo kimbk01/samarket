@@ -31,6 +31,7 @@ import "@/lib/admin/status-labels/ads-status-labels";
 import { adsOpsStatusLabel, mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
 import { useAdminAccessActor } from "@/components/admin/access/use-admin-route-access";
 import { canAccessAdminRoute, type AdminRouteAccessActor } from "@/lib/admin/access/admin-route-access";
+import { AdminAdsDeletedList } from "@/components/admin/ads/AdminAdsDeletedList";
 
 /** 원래 상태 코드(영문 소문자·밑줄)면 운영 상태 이름, 이미 사람이 읽는 문구면 그대로 */
 function historyStatusDisplay(raw: string, ko: boolean): string {
@@ -269,7 +270,7 @@ export function AdminAdsHistoryLedgerView() {
 }
 
 function AdminAdsHistoryLedgerViewInner() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const { actor: accessActor } = useAdminAccessActor();
   /** R7 서버 페이지 — 원천 합치기·필터·정렬·페이지·전체 건수(total)는 서버(DB). */
@@ -278,10 +279,12 @@ function AdminAdsHistoryLedgerViewInner() {
   const [errStatus, setErrStatus] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   /** R7 목록 표준 8 — 영역(`domain`)·상태(`status`)·검색어(`q`)를 주소에 둔다. */
-  const lq = useAdminListQuery<"domain">({
+  const lq = useAdminListQuery<"domain" | "view">({
     statuses: HISTORY_STATUSES,
-    extras: ["domain"],
+    extras: ["domain", "view"],
   });
+  /** R2 (2026-11-07 · §3-2): 「삭제됨」 = 삭제 표시된 광고 목록 + 삭제 취소. 주소 `?view=deleted`. */
+  const deletedView = lq.query.extras.view === "deleted";
   const domain: AdsHistoryDomainFilter = (HISTORY_DOMAINS as readonly string[]).includes(lq.query.extras.domain)
     ? (lq.query.extras.domain as AdsHistoryDomainFilter)
     : "all";
@@ -292,6 +295,7 @@ function AdminAdsHistoryLedgerViewInner() {
   const { page, size } = lq.query;
 
   const load = useCallback(async () => {
+    if (deletedView) return;
     setErr("");
     setErrStatus(undefined);
     setBusy(true);
@@ -325,7 +329,7 @@ function AdminAdsHistoryLedgerViewInner() {
     }
     // refreshKey — 같은 조건 「조회」도 다시 불러온다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, q, status, page, size, refreshKey]);
+  }, [domain, q, status, page, size, refreshKey, deletedView]);
 
   useEffect(() => {
     void load();
@@ -354,6 +358,27 @@ function AdminAdsHistoryLedgerViewInner() {
         }
       />
 
+      <div className="flex flex-wrap gap-2" data-ads-history-view="1">
+        <AdminChipButton
+          selected={!deletedView}
+          data-ads-history-view-option="ledger"
+          onClick={() => lq.setExtra("view", "")}
+        >
+          {ko ? "전체 이력" : "All history"}
+        </AdminChipButton>
+        <AdminChipButton
+          selected={deletedView}
+          data-ads-history-view-option="deleted"
+          onClick={() => lq.setExtra("view", "deleted")}
+        >
+          {t("admin_ads_history_filter_deleted")}
+        </AdminChipButton>
+      </div>
+
+      {deletedView ? (
+        <AdminAdsDeletedList page={page} size={size} onPageChange={lq.setPage} onSizeChange={lq.setSize} />
+      ) : (
+      <>
       <AdminFilterBar
         ko={ko}
         draft={lq.draft}
@@ -479,6 +504,8 @@ function AdminAdsHistoryLedgerViewInner() {
           onSizeChange={lq.setSize}
         />
       ) : null}
+      </>
+      )}
     </div>
   );
 }

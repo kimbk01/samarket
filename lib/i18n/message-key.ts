@@ -121,6 +121,11 @@ import { adsImpl1104FeedMessages } from "./catalog/ads-impl-1104-f";
 import { adsImpl1104SurfaceMessages } from "./catalog/ads-impl-1104-u";
 import { adsImpl1104AdminMessages } from "./catalog/ads-impl-1104-a";
 import { adsImpl1104IntroMessages } from "./catalog/ads-impl-1104-i";
+import { adsImpl1107MoneyMessages } from "./catalog/ads-impl-1107-w1";
+import { adsImpl1107PopupMessages } from "./catalog/ads-impl-1107-w2";
+import { adsImpl1107DeliveryMessages } from "./catalog/ads-impl-1107-w3";
+import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
+import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -154,6 +159,11 @@ export type MessageKey =
   | KeyOf<typeof adsImpl1104SurfaceMessages.ko>
   | KeyOf<typeof adsImpl1104AdminMessages.ko>
   | KeyOf<typeof adsImpl1104IntroMessages.ko>
+  | KeyOf<typeof adsImpl1107MoneyMessages.ko>
+  | KeyOf<typeof adsImpl1107PopupMessages.ko>
+  | KeyOf<typeof adsImpl1107DeliveryMessages.ko>
+  | KeyOf<typeof adsImpl1107LedgerMessages.ko>
+  | KeyOf<typeof adsImpl1107DeleteMessages.ko>
   | KeyOf<typeof commonMessages.ko>
   | KeyOf<typeof myMessages.ko>
   | KeyOf<typeof mypageHubMessages.ko>
@@ -368,6 +378,11 @@ type EnMessageKey =
   | KeyOf<typeof adsImpl1104SurfaceMessages.en>
   | KeyOf<typeof adsImpl1104AdminMessages.en>
   | KeyOf<typeof adsImpl1104IntroMessages.en>
+  | KeyOf<typeof adsImpl1107MoneyMessages.en>
+  | KeyOf<typeof adsImpl1107PopupMessages.en>
+  | KeyOf<typeof adsImpl1107DeliveryMessages.en>
+  | KeyOf<typeof adsImpl1107LedgerMessages.en>
+  | KeyOf<typeof adsImpl1107DeleteMessages.en>
   | KeyOf<typeof enJson>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

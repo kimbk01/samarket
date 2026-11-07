@@ -49,6 +49,27 @@ function toTargetType(t: string): Report["targetType"] {
   return "product";
 }
 
+/** D-17: 광고 신고 대상 제목 — 캠페인 이름 (없으면 「광고」) */
+export function feedAdReportTargetTitle(name: string | null | undefined): string {
+  const n = String(name ?? "").trim();
+  return n ? `광고 · ${n}` : "광고";
+}
+
+async function loadFeedAdCampaignNames(supabase: SupabaseClient, ids: string[]): Promise<Record<string, string>> {
+  const uniq = [...new Set(ids.map((x) => String(x ?? "").trim()).filter(Boolean))];
+  const out: Record<string, string> = {};
+  if (uniq.length === 0) return out;
+  try {
+    const { data } = await supabase.from("feed_ad_campaigns").select("id, name").in("id", uniq);
+    if (Array.isArray(data)) {
+      for (const c of data as { id: string; name?: string | null }[]) out[String(c.id)] = String(c.name ?? "");
+    }
+  } catch {
+    /* 이름 조회 실패 = 「광고」만 표시 */
+  }
+  return out;
+}
+
 function resolvePostIdForReport(r: ReportRow): string | null {
   const tt = (r.target_type ?? "").toLowerCase();
   if (tt === "post" || tt === "product") return (r.product_id ?? r.target_id)?.trim() || null;
@@ -130,6 +151,12 @@ export async function mapTradeReportRowsForAdmin(supabase: SupabaseClient, list:
     }
   }
 
+  // D-17 (재감사 3차): 광고 신고 대상 = 피드 광고 캠페인 이름 (예전: 「광고 캠페인 <uuid>」)
+  const feedAdNameById = await loadFeedAdCampaignNames(
+    supabase,
+    list.filter((r) => toTargetType(r.target_type) === "feed_ad").map((r) => r.target_id)
+  );
+
   const reports: Report[] = list.map((r) => {
     const targetType = toTargetType(r.target_type);
     const postId = resolvePostIdForReport(r) ?? "";
@@ -140,7 +167,7 @@ export async function mapTradeReportRowsForAdmin(supabase: SupabaseClient, list:
         : targetType === "chat"
           ? `채팅 ${r.target_id}`
           : targetType === "feed_ad"
-            ? `광고 캠페인 ${r.target_id}`
+            ? feedAdReportTargetTitle(feedAdNameById[r.target_id])
             : (nicknameById[r.target_id] ?? r.target_id);
     const targetUserIdForProduct = postAuthorById[productId] ?? "";
     const ttRaw = (r.target_type ?? "").toLowerCase();
@@ -227,7 +254,8 @@ export async function loadAdminReportById(supabase: SupabaseClient, reportId: st
       // Never treat room/message id as profiles.user_id (P1-2 P0 guard).
       targetUserIdOut = "";
     } else if (targetType === "feed_ad") {
-      targetTitle = `광고 캠페인 ${r.target_id}`;
+      const names = await loadFeedAdCampaignNames(supabase, [r.target_id]);
+      targetTitle = feedAdReportTargetTitle(names[r.target_id]);
       targetUserIdOut = "";
     }
 

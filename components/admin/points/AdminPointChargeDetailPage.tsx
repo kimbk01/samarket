@@ -223,6 +223,8 @@ export function AdminPointChargeDetailPage({
         >
           {ko ? "이 회원 포인트 원장 열기" : "Open this member's point ledger"}
         </a>
+        {/* 광고 원장 §2 반대 방향 (2026-11-07): 충전 상세 → 이 광고주(회원)의 광고 */}
+        <a href={`/admin/advertising?advertiser=${encodeURIComponent(request.userId)}`} className="mt-2 ml-3 inline-block sam-text-body-secondary font-semibold text-sam-primary underline" data-admin-charge-advertiser-ads="1">{t("ads_ledger_sc_ads_of_advertiser")}</a>
       </AdminCard>
     </div>
   );

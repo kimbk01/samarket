@@ -55,8 +55,9 @@ describe("ADS dual-stack removal — Delivery operator authority", () => {
     expect(controlPage).toContain("redirect");
     expect(controlPage).toContain("/admin/advertising");
     expect(controlPage).not.toContain("AdminDeliveryAdsControlPlane");
+    // 설계 ads-admin-ssot §6 (2026-11-07): import 0 이던 옛 관제 화면은 삭제 — 원장 화면(AdminAdvertisingWorkspace)이 그 역할
     expect(existsSync(resolve(process.cwd(), "components/admin/ads/AdminAdsExposureControlPlane.tsx"))).toBe(
-      true
+      false
     );
 
     const legacyInsertions = read("app/admin/store-insertions/page.tsx");
@@ -80,8 +81,8 @@ describe("ADS dual-stack removal — Delivery operator authority", () => {
     const paths = collectMenuPaths(adminMenu);
     const deliveryOps = paths.filter((p) => p.path === "/admin/delivery-ads/manage");
     const control = paths.filter((p) => p.path === "/admin/delivery-ads");
-    expect(deliveryOps.length).toBe(1);
-    expect(deliveryOps[0]?.key).toBe("delivery-ads-ops");
+    // 설계 ads-admin-ssot §5 (2026-11-07): 원래 leaf 1개(광고 작업 공간) + 배달 메뉴 별칭 진입점 1개(같은 화면)
+    expect(deliveryOps.map((p) => p.key).sort()).toEqual(["delivery-ads-ops", "delivery-ads-ops-entry"]);
     expect(control.length).toBe(1);
     expect(control[0]?.key).toBe("delivery-ads-control");
     const competing = paths.filter(

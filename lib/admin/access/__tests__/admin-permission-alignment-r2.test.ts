@@ -108,7 +108,7 @@ describe("R2 · FN-01 거래 포인트 쓰기 = point", () => {
     expectMatrix((a) => menuVisible("/admin/trade/points", a), [true, true, true], "menu trade points (조회)");
     expectMatrix((a) => canActOnAdminRoute("/admin/trade/points", a), [false, true, true], "action adjust");
     expect(resolveAdminRouteActionState({ href: "/admin/trade/points", actor: OPERATOR, actorLoading: false }).reason).toContain(
-      "point"
+      "포인트 운영"
     );
     expect(handler("trade/point-charges/[id]/route.ts", "PATCH")).toContain(permCall("point"));
     expect(handler("point-charges/[id]/route.ts", "PATCH")).toContain(permCall("point"));
@@ -125,7 +125,7 @@ describe("R2 · IA-01 푸시 캠페인 실제 발송 = manage", () => {
     expectMatrix((a) => canActOnAdminRoute("/admin/notifications", a), [false, false, true], "send action");
     expect(
       resolveAdminRouteActionState({ href: "/admin/notifications/abc", actor: OPERATOR_POINT, actorLoading: false }).reason
-    ).toContain("manage");
+    ).toContain("관리/보고");
     expect(handler("notification-campaigns/[campaignId]/send/route.ts", "POST")).toContain(permCall("manage"));
     const actions = handler("notification-campaigns/[campaignId]/actions/route.ts", "POST");
     expect(actions).toContain("isCampaignSendCausingAction(action)");
@@ -222,7 +222,7 @@ describe("R2 · IA-07 / AD-06 매장·광고 쓰기 = business", () => {
     expectMatrix((a) => canActOnAdminRoute(page, a), [true, true, true], `action ${page}`);
     expect(canAccessAdminRoute(page, BARE)).toBe(true);
     expect(canActOnAdminRoute(page, BARE)).toBe(false);
-    expect(resolveAdminRouteActionState({ href: page, actor: BARE, actorLoading: false }).reason).toContain("business");
+    expect(resolveAdminRouteActionState({ href: page, actor: BARE, actorLoading: false }).reason).toContain("매장 (배달관련)");
     expect(handler(route, method)).toContain(permCall("business"));
   });
 

@@ -34,6 +34,10 @@ import {
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminLoadingState, AdminResultBanner, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import {
+  CommunityPromotionFaultPicker,
+  type CommunityPromotionFault,
+} from "@/components/admin/community/kit/CommunityPromotionFaultPicker";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import {
   COMMUNITY_GONE_MESSAGE,
@@ -111,13 +115,14 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-function bodyFor(action: MeetingAction, r: Row, reason: string): Record<string, unknown> {
+function bodyFor(action: MeetingAction, r: Row, reason: string, promotionFault = ""): Record<string, unknown> {
   const expected = {
     expectedStatus: r.status ?? null,
     expectedPlatformApprovalStatus: r.platform_approval_status ?? null,
     expectedPostStatus: r.post_id ? (r.post_status ?? null) : undefined,
   };
-  const withReason = reason ? { reason } : {};
+  // D-11 ② — 모임 글을 숨기는 조치(반려·숨김)는 진행 중 상위노출이 있으면 귀책을 함께 보낸다.
+  const withReason = { ...(reason ? { reason } : {}), ...(promotionFault ? { promotionFault } : {}) };
   const hasPost = Boolean(r.post_id);
   switch (action) {
     case "approve":
@@ -169,6 +174,9 @@ export function AdminCommunityEngineMeetingsClient() {
   const [reloadKey, setReloadKey] = useState(0);
   const [banner, setBanner] = useState<CommunityBanner>(null);
   const [pending, setPending] = useState<{ action: MeetingAction; row: Row } | null>(null);
+  /** D-11 ② — 서버가 상위노출 중이라고 알려 오면 시트 안에서 귀책을 묻는다. */
+  const [meetingFault, setMeetingFault] = useState<CommunityPromotionFault>("");
+  const [meetingFaultNeeded, setMeetingFaultNeeded] = useState(false);
 
   const [insightId, setInsightId] = useState<string | null>(null);
   const [insight, setInsight] = useState<ChatSummaryPayload | null>(null);
@@ -334,7 +342,11 @@ export function AdminCommunityEngineMeetingsClient() {
       size="sm"
       disabled={!canContent || !!pending}
       title={noPermTitle}
-      onClick={() => setPending({ action: a, row: r })}
+      onClick={() => {
+        setMeetingFault("");
+        setMeetingFaultNeeded(false);
+        setPending({ action: a, row: r });
+      }}
     >
       {ACTION_META[a].label}
     </AdminActionButton>
@@ -527,14 +539,21 @@ export function AdminCommunityEngineMeetingsClient() {
           }
           destructive={meta.destructive}
           confirmLabel={meta.label}
-          onSubmit={async (reason) =>
-            toCommunitySheetResult(
-              await communityJsonFetch(`/api/admin/community/engine/meetings/${encodeURIComponent(str(pending.row.id))}`, {
+          ready={!meetingFaultNeeded || meetingFault !== ""}
+          onSubmit={async (reason) => {
+            const r = await communityJsonFetch(
+              `/api/admin/community/engine/meetings/${encodeURIComponent(str(pending.row.id))}`,
+              {
                 method: "PATCH",
-                body: bodyFor(pending.action, pending.row, reason),
-              })
-            )
-          }
+                body: bodyFor(pending.action, pending.row, reason, meetingFault),
+              }
+            );
+            if (!r.ok && r.code === "promotion_fault_required") {
+              setMeetingFaultNeeded(true);
+              return { ok: false, status: 400, code: "상위노출 중인 모임 글입니다. 아래에서 귀책을 선택한 뒤 다시 눌러 주세요." };
+            }
+            return toCommunitySheetResult(r);
+          }}
           onClose={() => setPending(null)}
           onSettled={(k) => {
             const label = meta.label;
@@ -544,7 +563,9 @@ export function AdminCommunityEngineMeetingsClient() {
             else setBanner({ ok: false, code: COMMUNITY_GONE_MESSAGE });
             reload();
           }}
-        />
+        >
+          {meetingFaultNeeded ? <CommunityPromotionFaultPicker value={meetingFault} onChange={setMeetingFault} /> : null}
+        </CommunityActionSheet>
       ) : null}
     </div>
   );

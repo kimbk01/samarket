@@ -86,7 +86,7 @@ const row = {
 
 type Reply = "network" | { status: number; body: unknown };
 let replies: Reply[] = [];
-let posts: Array<{ key: string | null; bodyKey: string; productId: string }> = [];
+let posts: Array<{ key: string | null; bodyKey: string; productId: string; expectedCost?: number }> = [];
 let listCalls = 0;
 let container: HTMLDivElement;
 let root: Root;
@@ -114,8 +114,13 @@ beforeEach(() => {
       if (u === "/api/me/points/promotion-orders") return json({ orders: [] });
       if (u.endsWith("/renew") && init?.method === "POST") {
         const headers = new Headers(init.headers);
-        const body = JSON.parse(String(init.body)) as { idempotencyKey: string; productId: string };
-        posts.push({ key: headers.get("Idempotency-Key"), bodyKey: body.idempotencyKey, productId: body.productId });
+        const body = JSON.parse(String(init.body)) as { idempotencyKey: string; productId: string; expectedCost?: number };
+        posts.push({
+          key: headers.get("Idempotency-Key"),
+          bodyKey: body.idempotencyKey,
+          productId: body.productId,
+          expectedCost: body.expectedCost,
+        });
         const r = replies.shift() ?? { status: 200, body: { ok: true } };
         if (r === "network") return Promise.reject(new TypeError("network"));
         return json(r.body, r.status);
@@ -226,5 +231,32 @@ describe("FB-M13 피드 배너 연장 — 같은 결제 시도는 같은 키", (
     expect(container.textContent).toContain("이미 처리된 연장입니다");
     expect(listCalls).toBeGreaterThan(before);
     expect(q('[data-testid="feed-ad-renew-sheet"]')).toBeNull();
+  });
+});
+
+describe("D-01 (2026-11-07) 연장 가격 확인", () => {
+  it("화면에 보인 선택 상품 가격을 expectedCost 로 보낸다", async () => {
+    await mount();
+    await openSheet();
+    await act(async () => buttonWith("14일")!.click());
+    await confirm();
+    expect(posts[0]).toMatchObject({ productId: "feed_14", expectedCost: 12000 });
+  });
+
+  it("409 price_changed → 「가격이 바뀌었습니다」 · 창에 새 가격 · 다시 누르면 새 키·새 가격", async () => {
+    replies = [
+      { status: 409, body: { ok: false, error: "price_changed", pointCost: 9000, durationDays: 7 } },
+      { status: 200, body: { ok: true } },
+    ];
+    await mount();
+    await openSheet();
+    await confirm();
+    expect(q('[data-testid="feed-ad-renew-error"]')?.textContent).toContain("가격이 바뀌었습니다");
+    expect(q('[data-testid="feed-ad-renew-sheet"]')?.textContent).toContain("9000P");
+    await confirm();
+    expect(posts).toHaveLength(2);
+    expect(posts[0]!.expectedCost).toBe(7000);
+    expect(posts[1]!.expectedCost).toBe(9000);
+    expect(posts[1]!.key).not.toBe(posts[0]!.key);
   });
 });

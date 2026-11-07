@@ -92,8 +92,9 @@ describe("adminEndDeliveryAdWithRefund", () => {
   });
 
   it("진행 중 상태·귀책 문구", () => {
-    expect(["ACTIVE", "PAUSED_OWNER", "PAUSED_ADMIN"].every(isDeliveryAdLiveEndLifecycle)).toBe(true);
-    expect(isDeliveryAdLiveEndLifecycle("SCHEDULED")).toBe(false);
+    // D-02 (2026-11-07): 예약(SCHEDULED)도 선결제가 있어 귀책·비례 환급 종료로 간다.
+    expect(["ACTIVE", "SCHEDULED", "PAUSED_OWNER", "PAUSED_ADMIN"].every(isDeliveryAdLiveEndLifecycle)).toBe(true);
+    expect(isDeliveryAdLiveEndLifecycle("DRAFT")).toBe(false);
     expect(deliveryAdEndFaultLabel("operator", true)).toBe("운영 사유 — 남은 기간 비례 환급");
     expect(deliveryAdEndFaultLabel("member", true)).toBe("사장님 사유 — 환급 없음");
     expect(deliveryAdEndFaultLabel("none", true)).toBe("해당 없음 — 환급 없음");

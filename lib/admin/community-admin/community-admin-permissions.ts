@@ -9,11 +9,11 @@ export type CommunityAdminArea =
   | "content"
   /** 신고 처리·경고·커뮤니티 활동 제한 */
   | "moderation"
-  /** 홍보 노출 중지·재개·종료·환급 */
+  /** 상위노출 노출 중지·재개·종료·환급 */
   | "promotion"
   /** 포인트 지급·회수·충전·포인트 정책 */
   | "points"
-  /** 조회 전용 화면 (작성자·기록·통계·홍보 목록·보상 원장) */
+  /** 조회 전용 화면 (작성자·기록·통계·상위노출 목록·보상 원장) */
   | "read";
 
 export const COMMUNITY_ADMIN_AREA_PERMISSIONS: Record<CommunityAdminArea, readonly AdminPermissionKey[]> = {
@@ -27,7 +27,7 @@ export const COMMUNITY_ADMIN_AREA_PERMISSIONS: Record<CommunityAdminArea, readon
 export const COMMUNITY_ADMIN_AREA_LABEL_KO: Record<CommunityAdminArea, string> = {
   content: "게시판 관리",
   moderation: "신고 처리",
-  promotion: "홍보",
+  promotion: "상위노출",
   points: "포인트",
   read: "커뮤니티 조회",
 };

@@ -1,6 +1,8 @@
 /**
  * Admin CTA 확인 등급 (R1 공통 기준 · 수정 계획 2-3)
- * L0 확인 없음(조회·필터·새로고침·상세) · L1 확인 · L2 확인 + 사유 필수 · L3 확인 + 사유 + 대상 재입력.
+ * L0 확인 없음(조회·필터·새로고침·상세) · L1 확인 · L2 확인 + 사유 필수 · L3 확인 + 사유 (+ 광고 밖만 대상 재입력).
+ * 광고 조치는 `action`(광고 동작 · `ADMIN_AD_REASON_ONLY_ACTIONS`)으로 부르면 재입력이 없다 — `retypeValue` 를 넘겨도 무시한다
+ * (SSOT §3-1 · Owner 2026-11-07). 광고 밖 돈 조치(Apple IAP 회수 등)는 `level: "L3"` + `retypeValue` 그대로 재입력을 묻는다.
  * 화면은 이 함수 결과(`ok` / `reason`)만 사용하고, 서버도 같은 사유 규칙을 검증한다.
  * 관리자 셸 안에서는 셸의 `AdminConfirmHost`(AdminActionConfirmDialog 하나)에 사유·재입력을 한 화면으로 띄운다.
  * 셸 밖(호스트 없음)에서만 앱 공용 대화상자로 순서대로 묻는다.
@@ -8,6 +10,11 @@
 
 import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { openAdminConfirmHost } from "@/lib/admin/operator-ux/admin-confirm-host";
+import {
+  adminActionAllowsRetype,
+  adminActionLevel,
+  type AdminActionKind,
+} from "@/lib/admin/operator-ux/admin-action-levels";
 
 import { ADMIN_PUBLIC_REASON_MAX_LENGTH, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
 
@@ -15,8 +22,7 @@ export { ADMIN_REASON_MIN_LENGTH };
 
 export type AdminConfirmLevel = "L1" | "L2" | "L3";
 
-export async function confirmAdminAction(input: {
-  level: AdminConfirmLevel;
+type ConfirmAdminActionInput = {
   ko: boolean;
   title: string;
   description?: string;
@@ -27,7 +33,36 @@ export async function confirmAdminAction(input: {
   reasonPlaceholder?: string;
   /** D-6: 공개 사유(120자) + 내부 메모 두 칸 (L2·L3 만). 결과에 `internalMemo` 가 붙는다. */
   splitReason?: boolean;
-}): Promise<{ ok: false } | { ok: true; reason: string | null; internalMemo?: string | null }> {
+} & (
+  | {
+      level: AdminConfirmLevel;
+      /** 동작 종류 — 주면 재입력 허용 여부를 동작 표에서 정한다(광고 조치 = 재입력 없음). */
+      action?: AdminActionKind;
+    }
+  | {
+      /** 동작 종류만 주면 단계도 동작 표(`adminActionLevel`)에서 정한다. */
+      action: AdminActionKind;
+      level?: undefined;
+    }
+);
+
+/** 입력 → 실제 단계·재입력 값. 광고 조치(`action`)는 재입력 없음. 순수 함수 (시험용 export). */
+export function resolveAdminConfirmPlan(input: {
+  level?: AdminConfirmLevel;
+  action?: AdminActionKind;
+  retypeValue?: string;
+}): { level: AdminConfirmLevel; retypeValue: string | undefined } {
+  const level: AdminConfirmLevel = input.action ? adminActionLevel(input.action) : (input.level ?? "L1");
+  const retypeAllowed = level === "L3" && (input.action ? adminActionAllowsRetype(input.action) : true);
+  const retype = retypeAllowed && input.retypeValue?.trim() ? input.retypeValue : undefined;
+  return { level, retypeValue: retype };
+}
+
+export async function confirmAdminAction(
+  rawInput: ConfirmAdminActionInput
+): Promise<{ ok: false } | { ok: true; reason: string | null; internalMemo?: string | null }> {
+  const plan = resolveAdminConfirmPlan(rawInput);
+  const input = { ...rawInput, level: plan.level, retypeValue: plan.retypeValue };
   const split = Boolean(input.splitReason) && input.level !== "L1";
   const cancelLabel = input.ko ? "취소" : "Cancel";
   const hosted = openAdminConfirmHost({

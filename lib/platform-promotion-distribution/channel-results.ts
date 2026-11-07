@@ -3,7 +3,13 @@
  */
 
 export type ChannelMaterializeStatus =
-  | { ok: true; channelRefId: string | null; action: "created" | "updated" | "paused" | "ended" | "noop" }
+  | {
+      ok: true;
+      channelRefId: string | null;
+      action: "created" | "updated" | "paused" | "ended" | "noop";
+      /** D-06: 이 저장으로 노출 중 팝업이 재검토(다시 승인 필요)로 내려갔다 */
+      revertedToReview?: boolean;
+    }
   | { ok: false; error: string; channelRefId?: string | null };
 
 export type DistributionChannelResults = {

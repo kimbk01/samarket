@@ -98,19 +98,12 @@ describe("delivery ad extension money semantics", () => {
     );
     expect(shared).toContain("adminCompensateExtendFeedAdCampaign");
     const renew = readFileSync(join(process.cwd(), "lib/ads/renew-feed-ad-campaign.ts"), "utf8");
-    expect(renew).toContain("spendUserPoints");
-    expect(renew).toContain("Period extended + Point NOT spent = forbidden");
+    // D-01 (2026-11-07): 차감과 연장이 DB 함수 1번(member_feed_ad_renew) 안 — 「연장됐는데 차감 안 됨」이 구조상 없다
+    expect(renew).toContain('rpc("member_feed_ad_renew"');
   });
 
-  it("control plane does not coerce unavailable collision counts to 0", () => {
-    const ui = readFileSync(
-      join(process.cwd(), "components/admin/ads/AdminAdsExposureControlPlane.tsx"),
-      "utf8"
-    );
-    expect(ui).toContain("collisionBlocking.unavailable");
-    expect(ui).not.toMatch(/collisionBlocking\.count \?\? 0/);
-    expect(ui).not.toMatch(/collisionWarning\.count \?\? 0/);
-  });
+  // 설계 ads-admin-ssot §6 (2026-11-07): 「control plane does not coerce unavailable collision counts」 — 옛 관제 화면 삭제로 시험 대상 없음
+  // (로더의 unavailable 표시는 lib/admin/ads-control-plane/load-ads-control-plane.ts 그대로)
 
   it("owner popup creative uses POPUP_CREATIVE_SOURCE_MAX_BYTES", () => {
     const route = readFileSync(

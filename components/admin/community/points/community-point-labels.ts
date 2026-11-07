@@ -6,14 +6,14 @@ export const COMMUNITY_POINT_TYPE_OPTIONS: { value: string; label: string }[] = 
   { value: "", label: "전체 유형" },
   { value: "community_reward", label: "커뮤니티 보상" },
   { value: "community_reclaim", label: "보상 회수" },
-  { value: "promotion_order", label: "게시글 홍보 (차감·환급)" },
+  { value: "promotion_order", label: "게시글 상위노출 (차감·환급)" },
   { value: "admin_manual", label: "관리자 지급·회수" },
 ];
 
 const RELATED: Record<string, string> = {
   community_reward: "커뮤니티 보상",
   community_reclaim: "보상 회수",
-  promotion_order: "게시글 홍보",
+  promotion_order: "게시글 상위노출",
   admin_manual: "관리자",
 };
 

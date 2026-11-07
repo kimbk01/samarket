@@ -6,7 +6,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   adminActionAllowed,
   adminActionRequiresReason,
+  DELIVERY_AD_USE_END_WITH_FAULT_CODE,
   isAdminDeliveryAdAction,
+  isDeliveryAdInProgressLifecycle,
   isAdminDeliveryAdProduct,
   resolveApprovedGoLiveStatus,
   validateAdminDeliveryAdSchedule,
@@ -26,6 +28,7 @@ import {
   type DeliveryAdHistoryFlags,
 } from "@/lib/stores/advertising/delivery-ad-audit";
 import { adminDeleteDeliveryAdDraftGuarded } from "@/lib/stores/advertising/admin-delivery-ad-delete";
+import { validateDeliveryFirstPartyBannerDestination } from "@/lib/destination/delivery-banner-destination";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import {
   validateOwnerBannerInventory,
@@ -81,12 +84,19 @@ export type AdminDeliveryAdWriterError =
   | "destination_not_ready"
   | "funding_required"
   | "use_extension_flow"
+  /** D-03 — 진행 중 강제 종료 거부 → 귀책·환급 종료를 쓴다. */
+  | "use_end_with_fault"
+  /** D-09 — 목적지가 계약 3종·이 매장이 아님. */
+  | "invalid_destination"
   | "capacity_full"
   | "reject_refund_failed"
   /** ADS-01 — 승인 시점에 원 신청 기간이 이미 끝남. */
   | "period_expired"
   /** ADS-11 — 재개 시점에 기간이 이미 끝남. */
   | "period_ended"
+  /** AD2-11 — 삭제 DB 함수 없음 · 삭제 실패. */
+  | "rpc_missing"
+  | "delete_failed"
   | "db_error"
   | "rpc_failed";
 
@@ -237,6 +247,10 @@ export async function adminTransitionDeliveryAdCampaign(
   }
   if (!isAdminDeliveryAdAction(input.action) || input.action === "delete_safe_draft") {
     return { ok: false, error: "invalid_action" };
+  }
+  if (input.action === "terminate" && isDeliveryAdInProgressLifecycle(input.expectedLifecycle)) {
+    // D-03 — 진행 중 강제 종료는 환급 없이 끝나므로 거부한다. 귀책·환급 미리보기가 있는 「종료」를 쓴다.
+    return { ok: false, error: DELIVERY_AD_USE_END_WITH_FAULT_CODE };
   }
   if (!adminActionAllowed(input.action, input.expectedLifecycle)) {
     return { ok: false, error: "illegal_transition" };
@@ -780,7 +794,12 @@ export async function adminReplaceBannerCreative(
   return { ok: true, creativeId: String(created.id), version: Number(created.version) };
 }
 
-/** Admin final destination — single cta_href field (Owner request → Admin final). */
+/**
+ * Admin final destination — single cta_href field (Owner request → Admin final).
+ * D-09 (2026-11-07) — 만들기 경로와 같은 DS-6 검사(`validateDeliveryFirstPartyBannerDestination`)를 수정에도 쓴다.
+ * 매장 id → slug 는 DB 에서 확인한다. 매장이 있으면 그 매장 3종만 · 사장님 유료(OWNER_PAID)는 매장 3종만 ·
+ * 매장 없는 운영자 자체 배너는 이벤트·배달 안 화면만. 예전에는 「/ 로 시작」만 봐서 다른 매장·배달 밖 경로도 저장됐다.
+ */
 export async function adminUpdateBannerDestination(
   sb: SupabaseClient,
   input: {
@@ -794,7 +813,7 @@ export async function adminUpdateBannerDestination(
 ): Promise<{ ok: true } | { ok: false; error: AdminDeliveryAdWriterError; detail?: string }> {
   const { data: row, error: loadErr } = await sb
     .from(BANNER_AD_CAMPAIGN_TABLE)
-    .select("id, store_id, creative_id, cta_href, updated_at")
+    .select("id, store_id, creative_id, cta_href, updated_at, campaign_source")
     .eq("id", input.campaignId)
     .maybeSingle();
   if (loadErr) return { ok: false, error: "db_error", detail: loadErr.message };
@@ -804,11 +823,29 @@ export async function adminUpdateBannerDestination(
   }
 
   const storeId = row.store_id == null ? null : String(row.store_id);
+  const ownerPaid = String((row as { campaign_source?: unknown }).campaign_source ?? "OWNER_PAID") !== "DIBAY_FIRST_PARTY";
   let nextHref = String(input.ctaHref ?? "").trim();
   let resolvedCtaType: string | null = null;
 
+  // 사장님 유료 배너는 매장 3종만 — 매장이 없으면 목적지를 정할 수 없다.
+  if (ownerPaid && !storeId) {
+    return { ok: false, error: "destination_not_ready", detail: "store_required" };
+  }
+
+  let storeSlug: string | null = null;
+  if (storeId) {
+    const { data: store, error: storeErr } = await sb
+      .from("stores")
+      .select("slug")
+      .eq("id", storeId)
+      .maybeSingle();
+    if (storeErr) return { ok: false, error: "db_error", detail: storeErr.message };
+    storeSlug = String((store as { slug?: string } | null)?.slug ?? "").trim() || null;
+    if (!storeSlug) return { ok: false, error: "destination_not_ready", detail: "store_slug_missing" };
+  }
+
   if (input.ctaType != null && String(input.ctaType).trim()) {
-    if (!storeId) return { ok: false, error: "destination_not_ready", detail: "store_required" };
+    if (!storeId || !storeSlug) return { ok: false, error: "destination_not_ready", detail: "store_required" };
     const cta = validateOwnerBannerCta({
       ctaType: input.ctaType,
       ctaTargetId: storeId,
@@ -816,16 +853,15 @@ export async function adminUpdateBannerDestination(
     if (!cta.ok) {
       return { ok: false, error: "destination_not_ready", detail: cta.error };
     }
-    const { data: store } = await sb
-      .from("stores")
-      .select("slug")
-      .eq("id", storeId)
-      .maybeSingle();
-    const slug = String((store as { slug?: string } | null)?.slug ?? "").trim();
-    if (!slug) return { ok: false, error: "destination_not_ready", detail: "store_slug_missing" };
-    nextHref = resolveOwnerBannerCtaHref({ ctaType: cta.ctaType, storeSlug: slug });
+    nextHref = resolveOwnerBannerCtaHref({ ctaType: cta.ctaType, storeSlug });
     resolvedCtaType = cta.ctaType;
   }
+
+  const dest = validateDeliveryFirstPartyBannerDestination({ ctaHref: nextHref, storeSlug });
+  if (!dest.ok) {
+    return { ok: false, error: "invalid_destination", detail: dest.error };
+  }
+  nextHref = dest.href;
 
   if (!isDeliveryBannerDestinationReady(nextHref)) {
     return { ok: false, error: "destination_not_ready", detail: "invalid_cta_href" };

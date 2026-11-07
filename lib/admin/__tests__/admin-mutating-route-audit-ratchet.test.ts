@@ -234,6 +234,8 @@ const DB_AUDITED_ADMIN_ROUTES: Readonly<Record<string, string>> = {
   "app/api/admin/trade/restrictions/[id]/revoke/route.ts": "admin_revoke_trade_sanction (20270522120300)",
   "app/api/admin/trade/promotions/[id]/route.ts": "admin_trade_promotion_* → trade_promotion_audit (20270522120400)",
   "app/api/admin/trade-promotion-orders/[id]/route.ts": "admin_trade_promotion_* → trade_promotion_audit (20270522120400)",
+  "app/api/admin/ads/delete/route.ts": "admin_ad_delete → audit_logs ad.delete (20271107210001)",
+  "app/api/admin/ads/undelete/route.ts": "admin_ad_undelete → audit_logs ad.undelete (20271107210001)",
 };
 
 describe("V3-12 admin mutating route audit ratchet", () => {

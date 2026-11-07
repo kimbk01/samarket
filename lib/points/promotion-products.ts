@@ -91,10 +91,11 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     descriptionKey: "promo_product_community_3_desc",
     fallbackTitleKo: "커뮤니티 3일 상위 노출",
     fallbackTitleEn: "Community top exposure · 3 days",
+    // D-08 (2026-11-07): 거래와 같은 뜻 — 피드 위쪽 자리는 1개(가장 최근 결제) · 나머지는 제자리에 「포인트 노출」
     fallbackDescKo:
-      "결제 즉시 커뮤니티 피드 상단에 3일간 우선 노출됩니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
+      "결제 즉시 3일간 커뮤니티 홈 피드와 이 글의 주제 피드에 노출됩니다. 피드 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘포인트 노출’로 보입니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
     fallbackDescEn:
-      "After payment, priority at top of the community feed for 3 days. No admin approval wait — Points are charged immediately.",
+      "After payment, shown for 3 days on the Community home feed and this post’s topic feed. One top spot per feed (latest payment); others show a “Promoted” label in their usual place. No admin approval wait — Points are charged immediately.",
   },
   {
     id: "community_promote_7",
@@ -110,10 +111,11 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     descriptionKey: "promo_product_community_7_desc",
     fallbackTitleKo: "커뮤니티 7일 상위 노출",
     fallbackTitleEn: "Community top exposure · 7 days",
+    // D-08 (2026-11-07): 거래와 같은 뜻 — 피드 위쪽 자리는 1개(가장 최근 결제) · 나머지는 제자리에 「포인트 노출」
     fallbackDescKo:
-      "결제 즉시 커뮤니티 피드 상단에 7일간 우선 노출됩니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
+      "결제 즉시 7일간 커뮤니티 홈 피드와 이 글의 주제 피드에 노출됩니다. 피드 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘포인트 노출’로 보입니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
     fallbackDescEn:
-      "After payment, priority at top of the community feed for 7 days. No admin approval wait — Points are charged immediately.",
+      "After payment, shown for 7 days on the Community home feed and this post’s topic feed. One top spot per feed (latest payment); others show a “Promoted” label in their usual place. No admin approval wait — Points are charged immediately.",
   },
 ];
 

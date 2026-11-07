@@ -131,7 +131,8 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
     expect(adminMessages.en.admin_menu_community_reports.toLowerCase()).toContain("general");
     expect(adminMessages.ko.admin_menu_community_section_promo_point).toContain("홍보");
     const promoPage = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(promoPage).toMatch(/포인트 홍보/);
+    // 2026-11-07 (W3→R1): 「홍보」 → 「상위노출」 정본 문구
+    expect(promoPage).toMatch(/포인트 상위노출/);
   });
 
   it("menu still exposes primary Community leaves (KEEP)", () => {

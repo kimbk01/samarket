@@ -576,6 +576,8 @@ export function FeedAdFramePreview({
           advertiserName={(advertiserName ?? "").trim()}
           adLabel={safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
         />
+        {/* D-17: 고객 화면과 같은 머리줄 — 신고 버튼 자리까지 같게(미리보기는 누르지 않음) */}
+        <FeedAdReportButton campaignId="" preview />
       </div>
       <div className={feedAdBodyClass(density)}>
         {/* eslint-disable-next-line @next/next/no-img-element -- admin local/blob preview */}

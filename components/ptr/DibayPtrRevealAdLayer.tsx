@@ -20,6 +20,7 @@ import {
   PTR_BAND_SPECS,
   resolvePtrBandVariantForViewport,
 } from "@/lib/platform-popup/ptr-reveal-contract";
+import { newPlatformPopupExposureId } from "@/lib/platform-popup/popup-exposure-id";
 import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
 import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import { notifyDestinationOpenFailed, openDestination } from "@/lib/destination/open-destination";
@@ -39,11 +40,6 @@ type Exposure = {
   creativeId?: string;
 };
 
-function newExposureId(): string {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `ptr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function isHrefSafe(href: string): boolean {
   const h = href.trim();
@@ -67,7 +63,12 @@ export type DibayPtrRevealPreview = { ad: PtrRevealAd | null; showGuides?: boole
 export function useDibayPtrRevealAd(
   snap: DibayPtrSnapshot,
   frameWidthPx: number,
-  preview?: DibayPtrRevealPreview
+  preview?: DibayPtrRevealPreview,
+  /**
+   * D-05: 띠 노출 시작(true)·끝(false)을 PTR 저장소에 알린다 — 저장소는 광고가 보인 회차만 결과 표시를 3초로 연장.
+   * 관리자 미리보기는 알리지 않는다.
+   */
+  onAdVisibleChange?: (visible: boolean) => void
 ) {
   const pathname = usePathname() ?? "/";
   // 캐시 버전 — 노출 종료로 항목이 비워지면 즉시 다음 유휴 조회(회전·빈도 반영)
@@ -77,6 +78,25 @@ export function useDibayPtrRevealAd(
   const [, force] = useState(0);
   const isPreview = preview !== undefined;
   const previewAd = preview?.ad ?? null;
+  const adVisibleRef = useRef(false);
+  const onAdVisibleChangeRef = useRef(onAdVisibleChange);
+  useEffect(() => {
+    onAdVisibleChangeRef.current = onAdVisibleChange;
+  });
+  const signalAdVisible = useCallback(
+    (visible: boolean) => {
+      if (isPreview || adVisibleRef.current === visible) return;
+      adVisibleRef.current = visible;
+      try {
+        onAdVisibleChangeRef.current?.(visible);
+      } catch {
+        /* 광고 신호 실패는 새로고침과 무관 */
+      }
+    },
+    [isPreview]
+  );
+  // 언마운트 = 띠 끝
+  useEffect(() => () => signalAdVisible(false), [signalAdVisible]);
   const membership = useClientMembershipState("ptr-reveal-ad");
   const authReady = membership.status !== "checking";
   const userId = membership.status === "member" ? membership.profile.id : null;
@@ -106,6 +126,7 @@ export function useDibayPtrRevealAd(
       return;
     }
     if (snap.phase === "IDLE") {
+      signalAdVisible(false);
       if (cur && !cur.finished) {
         cur.finished = true;
         if (cur.impressed) {
@@ -137,11 +158,11 @@ export function useDibayPtrRevealAd(
     if (!cur) {
       const ad = readPtrRevealAd(pathname, deviceVariant);
       if (ad) {
-        exposureRef.current = { id: newExposureId(), ad, impressed: false, finished: false, variant: deviceVariant };
+        exposureRef.current = { id: newPlatformPopupExposureId(), ad, impressed: false, finished: false, variant: deviceVariant };
         force((n) => n + 1);
       }
     }
-  }, [snap.phase, pathname, isPreview, previewAd, deviceVariant]);
+  }, [snap.phase, pathname, isPreview, previewAd, deviceVariant, signalAdVisible]);
 
   const exposure = exposureRef.current;
   const band =
@@ -169,6 +190,7 @@ export function useDibayPtrRevealAd(
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     ex.impressed = true;
     ex.creativeId = band.creativeId;
+    signalAdVisible(true);
     void recordPlatformPopupEvent({
       campaignId: ex.ad.campaignId,
       creativeId: band.creativeId,

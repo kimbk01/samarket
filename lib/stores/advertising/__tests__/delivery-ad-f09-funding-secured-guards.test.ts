@@ -183,19 +183,33 @@ describe("admin safe-draft delete", () => {
   // AL-01 — 관리자 삭제는 운영자 직접 등록(DIBAY_FIRST_PARTY) 초안만 (보완 설계 §4-3).
   const adminDirectCampaign = { ...baseCampaign, owner_user_id: null, campaign_source: "DIBAY_FIRST_PARTY" };
 
-  it("blocked when funding SECURED", async () => {
-    hasCanonicalBcFundingSecured.mockResolvedValue(true);
-    const sb = makeSb({ store_paid_ad_campaigns: [{ ...adminDirectCampaign }] });
-    const res = await adminDeleteSafeDraftDeliveryAdCampaign(sb as never, input);
+  // AD2-10 · AD2-11 (2026-11-07): 결제(SECURED)·이력 검사·삭제·감사는 DB 함수 admin_delivery_ad_delete_draft 한 트랜잭션.
+  it("blocked when funding SECURED (DB 함수가 거부) · TS 직접 삭제 없음", async () => {
+    const sb = makeSb({ store_paid_ad_campaigns: [{ ...adminDirectCampaign }] }, () => ({
+      data: { ok: false, error: "delete_blocked_funding_secured" },
+      error: null,
+    }));
+    const res = await adminDeleteSafeDraftDeliveryAdCampaign(sb as never, { ...input, reason: "잘못 만든 초안" });
     expect(res).toEqual({ ok: false, error: "delete_blocked_funding_secured" });
+    expect(sb.deletes).toEqual([]);
+    expect(sb.rpcCalls.map((c) => c.fn)).toEqual(["admin_delivery_ad_delete_draft"]);
+  });
+
+  it("allowed without SECURED funding → DB 함수 1번", async () => {
+    const sb = makeSb({ store_paid_ad_campaigns: [{ ...adminDirectCampaign }] }, () => ({ data: { ok: true }, error: null }));
+    const res = await adminDeleteSafeDraftDeliveryAdCampaign(sb as never, { ...input, reason: "잘못 만든 초안" });
+    expect(res.ok).toBe(true);
+    expect(sb.rpcCalls).toEqual([
+      { fn: "admin_delivery_ad_delete_draft", args: { p_campaign: "camp-1", p_admin: "admin-1", p_reason: "잘못 만든 초안" } },
+    ]);
     expect(sb.deletes).toEqual([]);
   });
 
-  it("allowed without SECURED funding", async () => {
+  it("사유 없음 → reason_required (AD2-10)", async () => {
     const sb = makeSb({ store_paid_ad_campaigns: [{ ...adminDirectCampaign }] });
     const res = await adminDeleteSafeDraftDeliveryAdCampaign(sb as never, input);
-    expect(res.ok).toBe(true);
-    expect(sb.deletes.some((d) => d.table === "store_paid_ad_campaigns")).toBe(true);
+    expect(res).toEqual({ ok: false, error: "reason_required" });
+    expect(sb.rpcCalls).toEqual([]);
   });
 });
 

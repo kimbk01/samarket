@@ -573,7 +573,7 @@ export function AdminPostsPageContent() {
         <CommunityActionSheet
           title={`게시글 ${n}건 영구 삭제`}
           rows={sheetRows}
-          notice="되돌릴 수 없습니다. 삭제 상태로 30일이 지났고, 처리 안 된 신고·홍보·연결된 모임이 없는 글만 지워집니다. 조건에 맞지 않는 글은 건너뛰고 이유를 알려 드립니다. 지우기 전 내용은 운영 기록에 보존됩니다."
+          notice="되돌릴 수 없습니다. 삭제 상태로 30일이 지났고, 처리 안 된 신고·상위노출·연결된 모임이 없는 글만 지워집니다. 조건에 맞지 않는 글은 건너뛰고 이유를 알려 드립니다. 지우기 전 내용은 운영 기록에 보존됩니다."
           reason={{ minLength: 2, placeholder: "영구 삭제 사유" }}
           retypeValue="영구 삭제"
           destructive

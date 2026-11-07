@@ -105,7 +105,8 @@ export async function POST(req: NextRequest) {
       .eq("id", targetId)
       .maybeSingle();
     if (adErr) {
-      return NextResponse.json({ ok: false, error: adErr.message }, { status: 500 });
+      console.error("[reports] feed_ad_lookup_failed", adErr.message);
+      return NextResponse.json({ ok: false, error: "신고 접수에 실패했습니다." }, { status: 500 });
     }
     if (!ad) {
       return NextResponse.json({ ok: false, error: "해당 광고를 찾을 수 없습니다." }, { status: 404 });
@@ -114,10 +115,11 @@ export async function POST(req: NextRequest) {
   }
 
   /**
-   * P-2 (거래 글 신고만): 같은 신고자·같은 거래 글은 한 번만 접수 — 다시 누르면 기존 접수를 돌려준다.
+   * P-2 (거래 글 신고) + D-17 (광고 신고 · 재감사 3차 2026-11-07): 같은 신고자·같은 대상은 한 번만 접수 — 다시 누르면 기존 접수를 돌려준다.
    * 커뮤니티 글·댓글·사용자·채팅 신고는 기존 동작 그대로(범위 밖).
    */
-  const { data: existing } = targetType !== "product" ? { data: null } : await sbAny
+  const oncePerReporter = targetType === "product" || targetType === "feed_ad";
+  const { data: existing } = !oncePerReporter ? { data: null } : await sbAny
     .from("reports")
     .select("id")
     .eq("reporter_id", reporterId)
@@ -150,7 +152,7 @@ export async function POST(req: NextRequest) {
   if (error) {
     const msg = String(error.message ?? "");
     /** RP-1: 동시에 두 번 눌러 DB 유니크 인덱스(`uq_reports_product_reporter_target`)에 걸리면 먼저 접수된 것을 돌려준다 */
-    if (targetType === "product" && String((error as { code?: unknown }).code ?? "") === "23505") {
+    if (oncePerReporter && String((error as { code?: unknown }).code ?? "") === "23505") {
       const { data: dup } = await sbAny
         .from("reports")
         .select("id")

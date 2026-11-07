@@ -3,7 +3,9 @@
  * - 저장: 앱 안 경로·이벤트만, **링크 필수**(외부 https · 빈칸 거부) — `validateMyPageBannerLinkForSave`
  * - 노출: 링크가 없거나 형식이 틀린 배너, **끝난(또는 비공개) 이벤트로 가는 배너**는 고객에게 보내지 않는다 —
  *   `filterMyPageBannersWithLiveDestination` (이벤트 확인 = 팝업과 같은 `loadPopupEventDestinationLookups`)
- * - 운영에 이미 저장된 외부 링크 행은 데이터를 바꾸지 않는다(그대로 노출 · Owner 판단 대기).
+ * - 운영에 이미 저장된 외부 링크 행은 데이터를 바꾸지 않는다.
+ * - D-16 (광고 3차 재감사 · 2026-11-07): 고객에게 보낼 때도 외부 링크(`external_url`) 배너는 **제외**한다
+ *   (저장 규칙과 같은 뜻 · 예전에는 노출 단계에서 다시 거르지 않았다).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { destinationHref, parseDestinationHref } from "@/lib/destination/destination-contract";
@@ -38,6 +40,7 @@ export async function filterMyPageBannersWithLiveDestination<T extends { link_ur
   return parsedRows
     .filter(({ parsed }) => {
       if (!parsed.ok) return false;
+      if (parsed.ref.kind === "external_url") return false;
       if (parsed.ref.kind !== "event") return true;
       const l = lookups.get(parsed.ref.eventId);
       return Boolean(l && l.exists && l.visible && !l.expired);

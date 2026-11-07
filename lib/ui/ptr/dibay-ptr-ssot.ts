@@ -30,8 +30,14 @@ export const DIBAY_PTR_CLICK_SUPPRESS_RATIO = 0.25;
  */
 export const DIBAY_PTR_CLICK_SUPPRESS_WINDOW_MS = 400;
 
-/** 성공 문구 유지(ms) — 잠정 */
+/** 성공 문구 유지(ms) — 광고 띠가 없을 때 (잠정) */
 export const DIBAY_PTR_SUCCESS_HOLD_MS = 700;
+/**
+ * D-05 (Owner 결정 2026-11-07 · 확정): 광고 띠가 실제로 보인 회차만 결과 표시를 이 시간까지 유지한다.
+ * 근거 = 노출 1회(1초 MRC) + 누를 반응 시간. 광고가 없으면 위 성공/실패 유지 시간 그대로.
+ * 연장 중 본문 터치·스크롤이면 제스처 훅(`resetPull`·`subscribeAppShellScroll`)이 즉시 접는다.
+ */
+export const DIBAY_PTR_REVEAL_AD_HOLD_MS = 3000;
 /** 실패 문구 유지(ms) — 잠정 */
 export const DIBAY_PTR_ERROR_HOLD_MS = 2200;
 /**

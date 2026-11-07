@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { bannerPlacementDefaultCapacity } from "@/lib/ads/banner-placement-capacity-ssot";
 import {
   countFeedAdPoolOccupancy,
   feedAdPoolCapacity,
@@ -518,4 +519,147 @@ export function feedPoolCreateBlockedCopy(ko: boolean): { title: string; body: s
         title: "Registration unavailable",
         body: "This placement has reached its campaign capacity.",
       };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 위치 지도 = 지면 전체 (설계 ads-admin-ssot-design-2026-11-07 §5 · 2026-11-07)
+// 칸마다 수용량 · 노출 중 · 예약 · 비어 있음 → 누르면 원장(`/admin/advertising?location=`)이 그 위치로 걸러진다.
+// 수 = 원장 함수 `admin_ads_ledger_page.location_counts` (원장 행과 같은 원천). 수용량 = 기존 정의만
+// (banner-placement-capacity-ssot · feed-ad-pool-capacity · 상위노출 위쪽 1자리 · 팝업 화면당 1개) — 정의가 없으면 null.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type LedgerSurfaceGroup = "delivery" | "feed" | "boost" | "popup" | "ptr" | "mypage" | "intro" | "event";
+
+export type LedgerSurfaceCell = {
+  group: LedgerSurfaceGroup;
+  locationKey: string;
+  /** 업종 slug · 카테고리 id · 주제 slug · 팝업/PTR 화면 · 이벤트 화면 (null = 그 지면 전체) */
+  locationTarget: string | null;
+  locationTargetName: string | null;
+  capacity: number | null;
+  live: number;
+  scheduled: number;
+  waiting: number;
+  /** 수용량이 있을 때만 — 수용량 − (노출 중 + 대기) */
+  vacant: number | null;
+  /** 원장 거름 주소 */
+  ledgerHref: string;
+};
+
+/** §5 지면 목록 (대상 없는 기본 칸) — 원장 위치 키와 같은 값 */
+export const LEDGER_SURFACE_BASE: ReadonlyArray<{ group: LedgerSurfaceGroup; locationKey: string; locationTarget?: string }> = [
+  { group: "delivery", locationKey: "STORES_HOME_HERO" },
+  { group: "delivery", locationKey: "STORES_HOME_INLINE_1" },
+  { group: "delivery", locationKey: "STORES_CATEGORY_TOP" },
+  { group: "delivery", locationKey: "STORES_SEARCH_TOP" },
+  { group: "delivery", locationKey: "STORES_HOME_FEED" },
+  { group: "delivery", locationKey: "STORES_CATEGORY_FEED" },
+  { group: "feed", locationKey: "TRADE_HOME" },
+  { group: "feed", locationKey: "TRADE_CATEGORY" },
+  { group: "feed", locationKey: "COMMUNITY_HOME" },
+  { group: "feed", locationKey: "COMMUNITY_TOPIC" },
+  { group: "boost", locationKey: "TRADE_BOOST_TOP" },
+  { group: "boost", locationKey: "COMMUNITY_BOOST_TOP" },
+  { group: "popup", locationKey: "POPUP", locationTarget: "COMMUNITY" },
+  { group: "popup", locationKey: "POPUP", locationTarget: "TRADE" },
+  { group: "popup", locationKey: "POPUP", locationTarget: "DELIVERY" },
+  { group: "popup", locationKey: "POPUP", locationTarget: "MYPAGE" },
+  { group: "popup", locationKey: "POPUP", locationTarget: "GLOBAL" },
+  { group: "ptr", locationKey: "PTR", locationTarget: "COMMUNITY" },
+  { group: "ptr", locationKey: "PTR", locationTarget: "TRADE" },
+  { group: "ptr", locationKey: "PTR", locationTarget: "DELIVERY" },
+  { group: "ptr", locationKey: "PTR", locationTarget: "GLOBAL" },
+  { group: "mypage", locationKey: "MYPAGE_TOP" },
+  { group: "intro", locationKey: "APP_INTRO" },
+  { group: "event", locationKey: "EVENT_HERO" },
+];
+
+/** 대상별로 칸을 더 나누는 지면 (업종 상단·업종 목록·카테고리·주제) */
+const LEDGER_SURFACE_SPLIT_BY_TARGET = new Set(["STORES_CATEGORY_TOP", "STORES_CATEGORY_FEED", "TRADE_CATEGORY", "COMMUNITY_TOPIC"]);
+
+export function ledgerSurfaceCapacity(locationKey: string): number | null {
+  switch (locationKey) {
+    case "STORES_HOME_HERO":
+      return DELIVERY_HERO_CAPACITY;
+    case "STORES_HOME_INLINE_1":
+    case "STORES_CATEGORY_TOP":
+    case "STORES_SEARCH_TOP":
+      return bannerPlacementDefaultCapacity(locationKey);
+    case "TRADE_HOME":
+    case "TRADE_CATEGORY":
+    case "COMMUNITY_HOME":
+    case "COMMUNITY_TOPIC":
+      return feedAdPoolCapacity(locationKey);
+    case "TRADE_BOOST_TOP":
+    case "COMMUNITY_BOOST_TOP":
+      return 1;
+    case "POPUP":
+      return 1;
+    default:
+      return null;
+  }
+}
+
+export function ledgerSurfaceHref(locationKey: string, locationTarget: string | null): string {
+  const v = locationTarget ? `${locationKey}|${locationTarget}` : locationKey;
+  return `/admin/advertising?location=${encodeURIComponent(v)}`;
+}
+
+type LocationCountRow = {
+  locationKey: string | null;
+  locationTarget: string | null;
+  locationTargetName: string | null;
+  statusTab: string;
+  n: number;
+};
+
+/**
+ * 원장 위치 수 → 지면 칸. 팝업·PTR 은 화면 목록(`COMMUNITY,TRADE`)에 그 화면이 들어 있으면 그 칸에 센다
+ * (원장 거름 `?location=POPUP|TRADE` 와 같은 규칙). 전체 화면(GLOBAL) 팝업·PTR 은 「전체 화면」 칸에 따로 센다.
+ */
+export function projectLedgerSurfaceMap(rows: readonly LocationCountRow[]): LedgerSurfaceCell[] {
+  const cells: LedgerSurfaceCell[] = [];
+  const add = (group: LedgerSurfaceGroup, key: string, target: string | null, name: string | null) => {
+    const matches = rows.filter((r) => {
+      if (String(r.locationKey ?? "").toUpperCase() !== key) return false;
+      if (key === "POPUP" || key === "PTR") {
+        if (!target) return true;
+        const list = String(r.locationTarget ?? "GLOBAL").toUpperCase().split(",").map((s) => s.trim());
+        return list.includes(target);
+      }
+      if (target == null) return true;
+      return String(r.locationTarget ?? "").toLowerCase() === target.toLowerCase();
+    });
+    const sum = (tab: string) => matches.filter((r) => r.statusTab === tab).reduce((a, r) => a + r.n, 0);
+    const capacity = ledgerSurfaceCapacity(key);
+    const live = sum("live");
+    const waiting = sum("waiting");
+    cells.push({
+      group,
+      locationKey: key,
+      locationTarget: target,
+      locationTargetName: name,
+      capacity,
+      live,
+      scheduled: sum("scheduled"),
+      waiting,
+      vacant: capacity == null ? null : Math.max(0, capacity - live),
+      ledgerHref: ledgerSurfaceHref(key, target),
+    });
+  };
+  for (const base of LEDGER_SURFACE_BASE) {
+    add(base.group, base.locationKey, base.locationTarget ?? null, null);
+    if (LEDGER_SURFACE_SPLIT_BY_TARGET.has(base.locationKey)) {
+      const targets = new Map<string, string | null>();
+      for (const r of rows) {
+        if (String(r.locationKey ?? "").toUpperCase() !== base.locationKey) continue;
+        const t = String(r.locationTarget ?? "").trim();
+        if (t && !targets.has(t)) targets.set(t, r.locationTargetName);
+      }
+      for (const [t, name] of [...targets.entries()].sort((a, b) => String(a[1] ?? a[0]).localeCompare(String(b[1] ?? b[0])))) {
+        add(base.group, base.locationKey, t, name);
+      }
+    }
+  }
+  return cells;
 }

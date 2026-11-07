@@ -49,7 +49,11 @@ import {
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import { DeliveryAdOwnerPhoneFrame } from "@/components/stores/advertising/DeliveryAdOwnerPhoneFrame";
-import { adsWorkspaceMutationConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import {
+  adsWorkspaceActionSplitsReason,
+  adsWorkspaceMutationConfirmCopy,
+} from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import type { WorkspaceDrawerAction } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
 import type {
   DeliveryAdAnalyticsDateRange,
@@ -97,6 +101,17 @@ function deliveryReviewToWorkspaceAction(
   return null;
 }
 
+/**
+ * D-10 (2026-11-07) — 사장님에게 결과가 보이는 운영 조치(정지·재개·종료)는 공개 사유 + 내부 메모 두 칸.
+ * 공통 화면과 같은 판정 함수(`adsWorkspaceActionSplitsReason`)를 쓴다.
+ */
+function deliveryOpsSplitsReason(action: AdminDeliveryAdAction): boolean {
+  if (action === "pause" || action === "resume" || action === "end") {
+    return adsWorkspaceActionSplitsReason(action);
+  }
+  return false;
+}
+
 /** 심사 결정 → 확인 단계 동작 표 (R2): 승인 = approve(L2) · 반려·수정 요청 = reject(L2) — 사유는 API `reason` 으로 전송. */
 function deliveryReviewConfirmKind(action: AdminDeliveryAdAction): AdminActionKind {
   return action === "approve" ? "approve" : "reject";
@@ -105,8 +120,9 @@ function deliveryReviewConfirmKind(action: AdminDeliveryAdAction): AdminActionKi
 /**
  * 운영 조치 → 확인 단계 동작 표 (R2 · 설계 §6 공통 규칙 · AL-04/05/06). 단계는 `adminActionLevel` 한 표에서 정한다.
  * - 정지 pause(L2 사유) · 재개 resume(L2 사유) · 검수 시작 reviewStart(L1)
- * - 종료 end(L3 = 사유 + 귀책 + 대상 재입력 + 환급 미리보기 — 진행 중이면 아래 「종료」 패널에서 귀책·미리보기 후 확인창)
- * - 강제 종료 forceCancel(L3) · 보관 disable(L1) · 초안 삭제 delete(L3, 사유 → 삭제 감사 reason)
+ * - 종료 end(L3 = 사유 + 귀책 + 환급 미리보기 — 진행 중이면 아래 「종료」 패널에서 귀책·미리보기 후 확인창 · 대상 재입력 없음)
+ * - 보관 disable(L1) · 삭제는 공용 `AdminAdDeleteAction`(사유만 · 대상 재입력 없음)
+ * - D-03: 진행 중 「강제 종료(terminate)」는 버튼에서 뺀다(환급 없이 끝나므로) — 종료(귀책·환급)만.
  * 사유는 API 본문 `reason`(+ ownerVisibleNotes) 으로 보내고 서버가 같은 규칙으로 검사한다.
  */
 const DELIVERY_AD_OPS_CONFIRM: Partial<
@@ -147,14 +163,6 @@ const DELIVERY_AD_OPS_CONFIRM: Partial<
     descEn: "The ad stops showing. This cannot be undone.",
     destructive: true,
   },
-  terminate: {
-    kind: "forceCancel",
-    titleKo: "이 광고를 강제 종료할까요?",
-    titleEn: "Force-end this ad?",
-    descKo: "되돌릴 수 없습니다. 노출이 즉시 끝납니다.",
-    descEn: "This cannot be undone. The ad stops showing immediately.",
-    destructive: true,
-  },
   archive: {
     kind: "disable",
     titleKo: "이 광고를 보관할까요?",
@@ -163,27 +171,15 @@ const DELIVERY_AD_OPS_CONFIRM: Partial<
     descEn: "The ad moves to the archive.",
     destructive: false,
   },
-  delete_safe_draft: {
-    kind: "delete",
-    titleKo: "이 초안을 삭제할까요?",
-    titleEn: "Delete this draft?",
-    descKo: "되돌릴 수 없습니다. 작성 중인 광고 초안과 소재가 삭제됩니다. 작업 기록 1건은 남습니다.",
-    descEn: "This cannot be undone. The draft ad and its creative are deleted. One activity record remains.",
-    destructive: true,
-  },
 };
 
 /** 보완 설계 §4-3 — 삭제·종료·보관은 「삭제 자리」 한 곳에서만 보인다 (일반 조치 목록에서 뺀다). */
-const DELETE_SLOT_ACTIONS = new Set<AdminDeliveryAdAction>(["delete_safe_draft", "end", "archive"]);
+const DELETE_SLOT_ACTIONS = new Set<AdminDeliveryAdAction>(["end", "archive"]);
 
-/** 삭제 실패 코드 중 「삭제 불가 → 종료·보관」 안내로 바꾸는 것. */
-const DELETE_BLOCKED_CODES = new Set([
-  "delete_not_allowed",
-  "delete_blocked_funding_secured",
-  "not_draft",
-  "not_admin_direct",
-]);
-
+/**
+ * 상세 조치 목록. D-03 — 「강제 종료(terminate)」는 넣지 않는다(진행 중이면 환급 없이 끝남 → 종료로 대체).
+ * 삭제는 어드민 SSOT §3-2 공용 `AdminAdDeleteAction`(사유만 입력 → 상태별 완전 삭제·삭제 표시·종료+삭제 표시).
+ */
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
   "request_changes",
@@ -192,9 +188,7 @@ const ACTIONS: AdminDeliveryAdAction[] = [
   "pause",
   "resume",
   "end",
-  "terminate",
   "archive",
-  "delete_safe_draft",
 ];
 
 type Props = {
@@ -275,8 +269,6 @@ export function AdminDeliveryAdDetailWorkspace({
     remainingSeconds: number;
   } | null>(null);
   const [endPreviewBusy, setEndPreviewBusy] = useState(false);
-  /** AL-02 — 삭제가 서버에서 막힌 이유 코드 (삭제 자리에 안내 + 종료·보관). */
-  const [deleteBlockedCode, setDeleteBlockedCode] = useState<string | null>(null);
   const [extendQuote, setExtendQuote] = useState<{
     amountMinor: number;
     currency: string;
@@ -482,7 +474,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
   async function runAction(
     action: AdminDeliveryAdAction,
-    opts?: { reason?: string; confirmed?: boolean; fault?: DeliveryAdEndFault }
+    opts?: { reason?: string; internalMemo?: string | null; confirmed?: boolean; fault?: DeliveryAdEndFault }
   ) {
     if (!campaign || busy) return;
 
@@ -530,10 +522,14 @@ export function AdminDeliveryAdDetailWorkspace({
           fallbackEn: action,
         }),
         destructive: opsConfirm.destructive,
-        retypeValue: target,
+        splitReason: deliveryOpsSplitsReason(action),
       });
       if (!confirmed.ok) return;
-      await runAction(action, { reason: confirmed.reason ?? "", confirmed: true });
+      await runAction(action, {
+        reason: confirmed.reason ?? "",
+        internalMemo: confirmed.internalMemo ?? null,
+        confirmed: true,
+      });
       return;
     }
 
@@ -557,8 +553,10 @@ export function AdminDeliveryAdDetailWorkspace({
             action,
             expectedLifecycle: campaign.lifecycleStatus,
             expectedUpdatedAt: campaign.updatedAt,
+            // D-10 — 사장님에게는 공개 사유만 · 내부 메모는 별도 칸(서버가 운영자 메모로만 저장).
             reason: reasonValue || null,
             ownerVisibleNotes: reasonValue || null,
+            ...(opts?.internalMemo?.trim() ? { internalReason: opts.internalMemo.trim() } : {}),
             ...(opts?.fault ? { fault: opts.fault, preview: false } : {}),
           }),
         }
@@ -569,9 +567,6 @@ export function AdminDeliveryAdDetailWorkspace({
         result?: { refundWarning?: string; refundQueued?: boolean };
       };
       if (!res.ok || !json.ok) {
-        if (action === "delete_safe_draft" && json.error && DELETE_BLOCKED_CODES.has(json.error)) {
-          setDeleteBlockedCode(json.error);
-        }
         setError(
           json.error === "funding_required"
             ? t("admin_delivery_ad_funding_required")
@@ -584,10 +579,6 @@ export function AdminDeliveryAdDetailWorkspace({
       const refundQueued = json.result?.refundQueued === true;
       if (action === "approve" || action === "reject" || action === "request_changes") {
         setReviewSuccessKind(action);
-      }
-      if (action === "delete_safe_draft") {
-        router.push(DELIVERY_AD_ADMIN_ROUTES.hub);
-        return;
       }
       if (action === "end") {
         setEndPanelOpen(false);
@@ -655,7 +646,7 @@ export function AdminDeliveryAdDetailWorkspace({
     }
   }
 
-  /** AL-04 — 종료 L3: 사유 + 대상 재입력 확인창 → 귀책과 함께 종료 실행. */
+  /** AL-04 — 종료 L3: 공개 사유 + 내부 메모 확인창(대상 재입력 없음 · 귀책·환급 미리보기가 실수를 막는다) → 귀책과 함께 종료 실행. */
   async function confirmEnd() {
     if (!campaign || !endFault || !endPreview) return;
     const ko = lang !== "en";
@@ -675,10 +666,15 @@ export function AdminDeliveryAdDetailWorkspace({
         fallbackEn: "End",
       }),
       destructive: true,
-      retypeValue: target,
+      splitReason: deliveryOpsSplitsReason("end"),
     });
     if (!confirmed.ok) return;
-    await runAction("end", { reason: confirmed.reason ?? "", confirmed: true, fault: endFault });
+    await runAction("end", {
+      reason: confirmed.reason ?? "",
+      internalMemo: confirmed.internalMemo ?? null,
+      confirmed: true,
+      fault: endFault,
+    });
   }
 
   async function saveSchedule() {
@@ -797,6 +793,7 @@ export function AdminDeliveryAdDetailWorkspace({
         ? `종료 ${formatAdminManilaDateTime(quote.previousEndAt)} → ${formatAdminManilaDateTime(quote.newEndAt)} (필리핀 시간) · ${quote.daysAdded}일 · 추가 비용 ${amountLabel}`
         : `End ${formatAdminManilaDateTime(quote.previousEndAt)} → ${formatAdminManilaDateTime(quote.newEndAt)} (PHT) · ${quote.daysAdded} days · Amount ${amountLabel}`,
       confirmLabel: ko ? "연장 실행" : "Apply extension",
+      splitReason: adsWorkspaceActionSplitsReason("extend_compensation"),
     });
     if (!confirmed.ok) return;
     setExtendBusy(true);
@@ -814,6 +811,7 @@ export function AdminDeliveryAdDetailWorkspace({
             requestedDays: extendDays,
             extensionKind: extendKind,
             reason: (confirmed.reason ?? "").trim(),
+            ...(confirmed.internalMemo?.trim() ? { internalReason: confirmed.internalMemo.trim() } : {}),
           }),
         }
       );
@@ -981,92 +979,46 @@ export function AdminDeliveryAdDetailWorkspace({
     });
   }, [campaign, creative]);
 
-  // AL-02 · §4-3 — 삭제 자리: 삭제 가능(운영자 등록 초안)이면 삭제 버튼, 아니면 이유 + 종료·보관 버튼.
+  // 어드민 SSOT §3-2 — 삭제 자리: 공용 삭제(사유만 입력 · 상태별 완전 삭제/삭제 표시/종료+삭제 표시) + 종료·보관.
   const closeActions = allowedActions.filter((a) => a === "end" || a === "archive");
   const koUi = lang !== "en";
   let deleteSlot: ReactNode = null;
   if (campaign) {
-    const isDraft = campaign.lifecycleStatus === "DRAFT";
-    const adminDirect = campaign.campaignSource === "DIBAY_FIRST_PARTY";
-    const canDelete =
-      allowedActions.includes("delete_safe_draft") && adminDirect && !deleteBlockedCode;
-    const blockedCode =
-      deleteBlockedCode ??
-      (!adminDirect ? (isDraft ? "not_admin_direct" : "delete_not_allowed") : isDraft ? null : "not_draft");
-    const showSlot = canDelete || isDraft || closeActions.length > 0 || deleteBlockedCode != null;
-    const notice = (() => {
-      if (!blockedCode) return null;
-      if (blockedCode === "not_admin_direct") {
-        return koUi
-          ? "삭제할 수 없습니다 — 운영자 등록 광고만 삭제할 수 있습니다 (사장님 초안은 사장님이 삭제합니다)"
-          : "Cannot delete — only operator-registered ads can be deleted (owners delete their own drafts).";
-      }
-      if (blockedCode === "delete_blocked_funding_secured") {
-        return koUi
-          ? "삭제할 수 없습니다 — 결제된 캐시가 있어 종료(또는 보관)만 됩니다"
-          : "Cannot delete — paid Cash is held, so it can only be ended (or archived).";
-      }
-      if (blockedCode === "not_draft") {
-        return koUi
-          ? "삭제할 수 없습니다 — 초안이 아니어서 종료(또는 보관)만 됩니다"
-          : "Cannot delete — not a draft, so it can only be ended (or archived).";
-      }
-      return koUi
-        ? "삭제할 수 없습니다 — 노출·결제 이력이 있어 종료(또는 보관)만 됩니다"
-        : "Cannot delete — it has exposure or payment history, so it can only be ended (or archived).";
-    })();
-    deleteSlot = showSlot ? (
+    deleteSlot = (
       <div
         className="mt-3 flex flex-col gap-2 border-t border-sam-border pt-3"
-        data-admin-delivery-ads-delete-slot={canDelete ? "delete" : "blocked"}
+        data-admin-delivery-ads-delete-slot="delete"
       >
-        {canDelete ? (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {closeActions.map((action) => (
             <AdminActionButton
-              variant="danger"
+              variant={action === "end" ? "danger" : "secondary"}
               size="sm"
+              key={action}
               disabled={busy || writeBlocked}
               title={writeBlockedTitle}
-              data-admin-delivery-ads-action="delete_safe_draft"
-              onClick={() => void runAction("delete_safe_draft")}
+              data-admin-delivery-ads-action={action}
+              onClick={() => void runAction(action)}
             >
-              {safeT("admin_delivery_ads_action_delete_safe_draft" as MessageKey, {
-                fallbackKo: "초안 삭제",
-                fallbackEn: "Delete draft",
+              {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
+                fallbackKo: action === "end" ? "종료" : "보관",
+                fallbackEn: action === "end" ? "End" : "Archive",
               })}
             </AdminActionButton>
-          </div>
-        ) : (
-          <>
-            {notice ? (
-              <p className="text-[12px] text-sam-muted" data-admin-delivery-ads-delete-blocked="1">
-                {notice}
-              </p>
-            ) : null}
-            {closeActions.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {closeActions.map((action) => (
-                  <AdminActionButton
-                    variant={action === "end" ? "danger" : "secondary"}
-                    size="sm"
-                    key={action}
-                    disabled={busy || writeBlocked}
-                    title={writeBlockedTitle}
-                    data-admin-delivery-ads-action={action}
-                    onClick={() => void runAction(action)}
-                  >
-                    {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-                      fallbackKo: action === "end" ? "종료" : "보관",
-                      fallbackEn: action === "end" ? "End" : "Archive",
-                    })}
-                  </AdminActionButton>
-                ))}
-              </div>
-            ) : null}
-          </>
-        )}
+          ))}
+          <AdminAdDeleteAction
+            kind={campaign.productKind === "banner" ? "delivery_banner" : "delivery_sponsored"}
+            id={campaign.id}
+            title={campaign.title?.trim() || campaign.id}
+            size="sm"
+            onDone={() => {
+              emitAdminQueueChanged("delivery_ad_ops");
+              router.push(DELIVERY_AD_ADMIN_ROUTES.hub);
+            }}
+          />
+        </div>
       </div>
-    ) : null;
+    );
   }
 
   // AL-04 · D-13 — 진행 중 종료 패널: 귀책 라디오 → 서버 미리보기 → 「종료 진행」(L3 확인창).
@@ -1645,7 +1597,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     ? requiredDecision.primaryReviewActions
                     : allowedActions
                   ).filter((a) => !DELETE_SLOT_ACTIONS.has(a)).map((action) => (
-                    <AdminActionButton variant={action === "terminate" ? "danger" : "secondary"} size="sm"
+                    <AdminActionButton variant="secondary" size="sm"
                       key={action}
                       title={writeBlockedTitle}
                       disabled={
@@ -1698,14 +1650,14 @@ export function AdminDeliveryAdDetailWorkspace({
             >
               <p className="text-[12px] font-semibold text-sam-fg">
                 {safeT("admin_delivery_ads_related_support_title", {
-                  fallbackKo: "관련 문의 (Support)",
+                  fallbackKo: "관련 문의",
                   fallbackEn: "Related Support cases",
                 })}
               </p>
               <p className="mt-1 text-[12px] text-sam-muted">
                 {safeT("admin_delivery_ads_related_support_note", {
                   fallbackKo:
-                    "고객지원 문의입니다. 광고 승인/중지는 아래 운영 대화가 아니라 Ads lifecycle에서 처리합니다.",
+                    "고객지원 문의입니다. 광고 승인·정지는 아래 운영 대화가 아니라 「광고 운영 조치」에서 처리합니다.",
                   fallbackEn:
                     "Customer support cases. Approve/pause ads via Ads lifecycle — not this Support inbox.",
                 })}
@@ -1877,9 +1829,9 @@ export function AdminDeliveryAdDetailWorkspace({
                 <p className="mt-2 text-[12px] text-sam-muted">
                   {safeT("admin_delivery_ads_schedule_no_silent_extend", {
                     fallbackKo:
-                      "종료일을 늘리려면 「일정 저장」이 아니라 아래 기간 연장(유료/보상)을 사용하세요. 숨김 CTA는 없습니다 — 일시중지·강제중단·종료만 지원합니다.",
+                      "종료일을 늘리려면 「일정 저장」이 아니라 아래 기간 연장(유료/보상)을 사용하세요. 숨김 CTA는 없습니다 — 일시중지·종료만 지원합니다.",
                     fallbackEn:
-                      "To lengthen end date, use Period extension (PAID/compensation) below — not Save schedule. No hide CTA — pause, terminate, and end only.",
+                      "To lengthen end date, use Period extension (PAID/compensation) below — not Save schedule. No hide CTA — pause and end only.",
                   })}
                 </p>
 

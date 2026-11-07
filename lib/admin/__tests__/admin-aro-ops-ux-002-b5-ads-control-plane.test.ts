@@ -14,9 +14,11 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
       true
     );
     expect(existsSync(resolve(process.cwd(), "app/api/admin/ads-control-plane/route.ts"))).toBe(true);
+    // 설계 ads-admin-ssot §6 (2026-11-07): 옛 관제 UI(import 0) 삭제 — 읽기 모델은 원장 화면이 쓴다
     expect(existsSync(resolve(process.cwd(), "components/admin/ads/AdminAdsExposureControlPlane.tsx"))).toBe(
-      true
+      false
     );
+    expect(existsSync(resolve(process.cwd(), "components/admin/ads/AdminAdvertisingWorkspace.tsx"))).toBe(true);
 
     const loader = read("lib/admin/ads-control-plane/load-ads-control-plane.ts");
     expect(loader).toContain("listDeliveryAdAdminActionQueue");
@@ -28,12 +30,6 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
     expect(loader).not.toMatch(/\.(insert|update|delete|upsert)\(/);
     expect(loader).not.toMatch(/CREATE TABLE|unified_campaign/i);
 
-    const ui = read("components/admin/ads/AdminAdsExposureControlPlane.tsx");
-    expect(ui).toContain('data-aro-ops-ux-002-b5="1"');
-    expect(ui).toContain("action-required");
-    expect(ui).toContain('id="placement-map"');
-    expect(ui).toMatch(/노출 위치|Placements/);
-    expect(ui).not.toMatch(/캠페인/);
   });
 
   it("Control Plane owns /admin/delivery-ads; Delivery hub is /manage (no dual mount)", () => {

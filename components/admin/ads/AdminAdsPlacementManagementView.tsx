@@ -17,6 +17,7 @@ import {
   type AdminDomainScope,
 } from "@/lib/admin/list-query/admin-domain-scope";
 import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
+import { AdminAdsLedgerSurfaceMap } from "@/components/admin/ads/AdminAdsLedgerSurfaceMap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
@@ -486,6 +487,9 @@ function AdminAdsPlacementManagementViewInner() {
       <div className="flex flex-wrap items-end gap-3" role="search" data-admin-placements-domain-filter="1">
         <AdminDomainScopeSelect ko={ko} value={domainScope} onChange={setDomainScope} />
       </div>
+
+      {/* 설계 ads-admin-ssot §5 (2026-11-07): 지면 전체 위치 지도 — 칸을 누르면 원장이 그 위치로 걸러진다 */}
+      <AdminAdsLedgerSurfaceMap domain={domainScope || null} />
 
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       {err ? (

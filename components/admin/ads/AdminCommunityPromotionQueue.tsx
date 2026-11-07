@@ -118,7 +118,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                   fallbackEn: "Trade promote requests",
                 })
               : safeT("admin_comm_promo_title", {
-                  fallbackKo: "게시물 홍보 신청",
+                  fallbackKo: "게시물 상위노출 신청",
                   fallbackEn: "Post promotion requests",
                 })}
           </h2>
@@ -128,7 +128,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                 ? "Trade boosts go live on payment without approval. This list is order history; pause, resume or end them in Trade › Boosts."
                 : "거래 상위노출은 승인 없이 결제 즉시 노출됩니다. 이 목록은 주문 내역 조회용이고, 중지·재개·종료는 거래 › 상위노출에서 합니다."
               : safeT("admin_comm_promo_hint", {
-                  fallbackKo: "커뮤니티 게시글 홍보는 승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 홍보 화면에서 합니다.",
+                  fallbackKo: "커뮤니티 게시글 상위노출은 승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 상위노출 화면에서 합니다.",
                   fallbackEn: "Community post promotions go live without approval. Pause, resume or end them in Post promotions.",
                 })}
           </p>
@@ -138,7 +138,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
               data-community-promo-ops-link="1"
               className="sam-text-helper font-semibold text-signature underline-offset-2 hover:underline"
             >
-              {en ? "Open Post promotions" : "게시글 홍보에서 관리하기"}
+              {en ? "Open Post promotions" : "게시글 상위노출에서 관리하기"}
             </Link>
           ) : (
             <Link

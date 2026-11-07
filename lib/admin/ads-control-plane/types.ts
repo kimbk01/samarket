@@ -5,7 +5,66 @@
 
 import type { AdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
 
-export type AdsControlDomain = "delivery" | "feed" | "popup" | "trade_promote" | "community_promote";
+export type AdsControlDomain =
+  | "delivery"
+  | "feed"
+  | "popup"
+  | "trade_promote"
+  | "community_promote"
+  /** 원장 §1-2 — 이벤트 히어로 배너 · 마이 배너 · 인트로 (2026-11-07) */
+  | "event_banner"
+  | "my_banner"
+  | "intro";
+
+/** 원장 종류 13 (설계 §1-2 · 「이벤트(콘텐츠)」는 광고가 아니라 원장에 넣지 않는다). DB `admin_ads_ledger_rows.kind` 와 같은 값. */
+export type AdsLedgerKind =
+  | "trade_promotion"
+  | "community_promotion"
+  | "feed_member"
+  | "feed_admin"
+  | "feed_event"
+  | "event_hero"
+  | "popup_admin"
+  | "popup_owner"
+  | "ptr"
+  | "delivery_banner"
+  | "delivery_sponsored"
+  | "my_banner"
+  | "intro";
+
+/** 원장 도메인 (도메인 메뉴 `?domain=`) — 거래 · 커뮤니티 · 배달 · 플랫폼 운영 · 내정보 */
+export type AdsLedgerDomain = "trade" | "community" | "delivery" | "platform" | "mypage";
+
+/** 원장 한 행의 공통 칸 (설계 §1-3) — DB `admin_ads_ledger_page` rows 그대로. */
+export type AdsLedgerFields = {
+  kind: AdsLedgerKind;
+  /** DB 원장 상태 탭 (pending·scheduled·live·waiting·incomplete·paused·ended·rejected·deleted) */
+  statusTab: string;
+  ledgerDomain: AdsLedgerDomain;
+  locationKey: string | null;
+  locationTarget: string | null;
+  locationTargetName: string | null;
+  advertiserType: "member" | "store" | "operator" | "event" | "unknown";
+  advertiserId: string | null;
+  advertiserName: string | null;
+  payCurrency: "POINT" | "BUSINESS_CASH" | "NONE";
+  /** POINT = 포인트 · BUSINESS_CASH = minor(센타보) */
+  payAmount: number | null;
+  payStatus: "paid" | "held" | "refunded" | "partial_refund" | "unpaid" | "none" | "unknown";
+  refundAmount: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  startAt: string | null;
+  endAt: string | null;
+  pausedBy: string | null;
+  /** AA-14 — 기간이 지난 정지 → 'expired' */
+  endedReason: "expired" | null;
+  deleteKind: string | null;
+  deleted: boolean;
+  linkedRequestId: string | null;
+  linkedCampaignId: string | null;
+  storeId: string | null;
+};
 
 export type AdsBillingCurrency = "CASH" | "POINT" | "UNKNOWN" | "N_A";
 
@@ -89,6 +148,8 @@ export type AdsActionItem = {
    * 관리자 재개를 숨긴다(거래 도메인 화면과 같은 조건). 다른 계열 null.
    */
   pausedBy?: string | null;
+  /** 원장 칸 (설계 §1-3) — 원장 함수가 있을 때만 */
+  ledger?: AdsLedgerFields | null;
   /** AL-08: 기간 변경 입력칸 초기값 (원래 ISO) — 팝업 캠페인만 */
   periodStartAt?: string | null;
   periodEndAt?: string | null;
@@ -140,11 +201,27 @@ export type AdsWorkspacePageMeta = {
   status: string;
   /** "all" = 종류 전체 */
   family: string;
-  /** Owner 결정 O-6② — 도메인 거름 · null = 전체 */
-  domain?: "trade" | "community" | "delivery" | null;
+  /** Owner 결정 O-6② — 도메인 거름 · null = 전체 (원장: platform · mypage 추가) */
+  domain?: AdsLedgerDomain | null;
+  /** 원장 — 종류 거름 */
+  kind?: AdsLedgerKind | null;
+  /** 원장 — 위치 거름 (`KEY` 또는 `KEY|대상`) · 위치 지도 칸 */
+  location?: string | null;
+  /** 원장 — 광고주 거름 (회원·매장·이벤트 id) */
+  advertiser?: string | null;
+  /** 원장 함수로 읽었는가 (false = 옛 함수 · 운영 DB 적용 전) */
+  ledger?: boolean;
   total: number;
   limit: number;
   offset: number;
+};
+
+export type AdsLedgerLocationCount = {
+  locationKey: string | null;
+  locationTarget: string | null;
+  locationTargetName: string | null;
+  statusTab: string;
+  n: number;
 };
 
 /** R7 — 팝업 위치별 점유 (팝업 캠페인 전체 기준 · 위치 문자열 = 연결된 surface 목록). */
@@ -168,6 +245,10 @@ export type AdsControlPlaneModel = {
   summaryCounts?: Partial<Record<string, Partial<Record<string, number>>>>;
   /** R7 — 팝업 위치별 점유 패널 원본. */
   popupSurfaces?: AdsWorkspacePopupSurfaceGroup[];
+  /** 원장 — 종류별 행 수 (거름 반영 · 삭제 제외) */
+  kindCounts?: Partial<Record<AdsLedgerKind, number>>;
+  /** 원장 — 위치(키·대상)별 상태 수 (위치 지도) */
+  locationCounts?: AdsLedgerLocationCount[];
   actionRequired: AdsActionItem[];
   queues: {
     delivery: { count: number | null; unavailable: boolean; href: string; source: string };

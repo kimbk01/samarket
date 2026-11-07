@@ -80,7 +80,7 @@ export function AdminCommunityStatsPage() {
     <div className="space-y-4" data-community-stats="1">
       <CommunityListShell
         title="운영 통계"
-        description="선택한 기간의 게시글·댓글·신고·조치·포인트·충전·홍보 현황입니다. 기준: 필리핀 시간"
+        description="선택한 기간의 게시글·댓글·신고·조치·포인트·충전·상위노출 현황입니다. 기준: 필리핀 시간"
         actions={
           <>
             <span className="text-[13px] text-sam-muted">마지막 갱신 {updated ? `${updated} PHT` : "—"}</span>
@@ -156,15 +156,15 @@ export function AdminCommunityStatsPage() {
               <Tile label="게시글 좋아요" value={s.engagement?.post_likes} />
               <Tile label="댓글 좋아요" value={s.engagement?.comment_likes} />
             </Group>
-            <Group title="충전·홍보">
+            <Group title="충전·상위노출">
               <Tile
                 label="충전 승인"
                 value={s.charges?.approved_count}
                 sub={`결제 ₱${n(s.charges?.approved_payment_amount)} · 지급 ${n(s.charges?.approved_point_amount)} P`}
               />
               <Tile label="충전 반려" value={s.charges?.rejected_count} />
-              <Tile label="신규 홍보" value={s.promotions?.new_count} sub={`차감 ${n(s.promotions?.new_point_cost)} P`} />
-              <Tile label="종료된 홍보" value={s.promotions?.ended_count} />
+              <Tile label="신규 상위노출" value={s.promotions?.new_count} sub={`차감 ${n(s.promotions?.new_point_cost)} P`} />
+              <Tile label="종료된 상위노출" value={s.promotions?.ended_count} />
             </Group>
 
             <section className="space-y-2">

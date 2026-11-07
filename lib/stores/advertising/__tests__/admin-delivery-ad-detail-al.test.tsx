@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
  * AL-02 · AL-04 · AL-05 · AL-06 — 배달 광고 상세 화면 렌더 시험.
- * 삭제 자리(삭제 불가 안내 + 종료/보관) · 진행 중 종료 패널(귀책 → 미리보기 → L3 확인창) · 재개 L2 · 검수 시작 L1 · 연장 L2.
+ * 삭제 자리(공용 삭제 `AdminAdDeleteAction` + 종료/보관 · 어드민 SSOT §3-2) · 진행 중 종료 패널(귀책 → 미리보기 → L3 확인창,
+ * 대상 재입력 없음 · 공개 사유/내부 메모 두 칸 D-10) · 재개 L2 · 검수 시작 L1 · 연장 L2 · D-03 강제 종료 버튼 없음.
  */
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -43,6 +44,13 @@ vi.mock("@/components/stores/advertising/DeliveryAdOwnerPhoneFrame", () => ({
 vi.mock("@/components/common/SamarketThumbnail", () => ({ SamarketThumbnail: () => null }));
 vi.mock("@/components/admin/access/use-admin-route-access", () => ({
   useAdminRouteAction: () => ({ allowed: true, reason: null }),
+}));
+vi.mock("@/components/admin/ads/AdminAdDeleteAction", () => ({
+  AdminAdDeleteAction: (p: { kind: string; id: string }) => (
+    <button data-test-ad-delete-kind={p.kind} data-id={p.id}>
+      삭제
+    </button>
+  ),
 }));
 const confirmAdminAction = vi.fn();
 vi.mock("@/lib/admin/operator-ux/admin-confirm-action", () => ({
@@ -187,41 +195,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("AL-02 삭제 자리", () => {
-  it("진행 중 사장님 광고: 삭제 버튼 대신 안내 + 종료 버튼 (일반 목록에는 종료 없음)", async () => {
+describe("AL-02 삭제 자리 → 공용 삭제 (어드민 SSOT §3-2 · 2026-11-07)", () => {
+  it("진행 중 사장님 광고: 공용 삭제(delivery_banner) + 종료 버튼 · 「강제 종료」 없음(D-03) · 일반 목록에는 종료 없음", async () => {
     await mount();
     const slot = host.querySelector("[data-admin-delivery-ads-delete-slot]");
-    expect(slot?.getAttribute("data-admin-delivery-ads-delete-slot")).toBe("blocked");
-    expect(slot?.textContent).toContain("삭제할 수 없습니다 — 노출·결제 이력이 있어 종료(또는 보관)만 됩니다");
+    expect(slot?.getAttribute("data-admin-delivery-ads-delete-slot")).toBe("delete");
+    expect(slot?.querySelector('[data-test-ad-delete-kind="delivery_banner"]')?.getAttribute("data-id")).toBe("c1");
     expect(host.querySelectorAll('[data-admin-delivery-ads-action="end"]')).toHaveLength(1);
+    expect(host.querySelector('[data-admin-delivery-ads-action="terminate"]')).toBeNull();
     expect(host.querySelector('[data-admin-delivery-ads-action="delete_safe_draft"]')).toBeNull();
   });
 
-  it("운영자 등록 초안: 삭제 버튼 · 서버가 막으면 이유 문구로 바뀐다", async () => {
-    current = campaign({ lifecycleStatus: "DRAFT", campaignSource: "DIBAY_FIRST_PARTY", ownerUserId: null });
-    confirmAdminAction.mockResolvedValue({ ok: true, reason: "잘못 만듦" });
-    actionResponse = () => ({ status: 422, json: { ok: false, error: "delete_not_allowed" } });
+  it("매장 홍보 초안: 공용 삭제 kind = delivery_sponsored (사장님 초안도 422 안내 대신 삭제 자리)", async () => {
+    current = campaign({ productKind: "store_sponsored", lifecycleStatus: "DRAFT", campaignSource: "OWNER_PAID" });
     await mount();
-    const del = btn('[data-admin-delivery-ads-action="delete_safe_draft"]');
-    expect(del).not.toBeNull();
-    await act(async () => {
-      del?.click();
-    });
-    await flush();
-    expect(confirmAdminAction.mock.calls[0][0]).toMatchObject({ level: "L3", retypeValue: "가을 배너" });
-    expect(adminActionLevel).toHaveBeenCalledWith("delete");
-    const slot = host.querySelector("[data-admin-delivery-ads-delete-slot]");
-    expect(slot?.getAttribute("data-admin-delivery-ads-delete-slot")).toBe("blocked");
-    expect(host.textContent).toContain("노출·결제·문의 이력이 있어 삭제할 수 없습니다");
-  });
-
-  it("사장님 초안: 삭제 버튼 없이 「운영자 등록 광고만」 안내", async () => {
-    current = campaign({ lifecycleStatus: "DRAFT", campaignSource: "OWNER_PAID" });
-    await mount();
-    expect(host.querySelector('[data-admin-delivery-ads-action="delete_safe_draft"]')).toBeNull();
-    expect(host.querySelector("[data-admin-delivery-ads-delete-blocked]")?.textContent).toContain(
-      "운영자 등록 광고만 삭제할 수 있습니다"
-    );
+    expect(host.querySelector('[data-test-ad-delete-kind="delivery_sponsored"]')).not.toBeNull();
+    expect(host.querySelector("[data-admin-delivery-ads-delete-blocked]")).toBeNull();
   });
 });
 
@@ -231,7 +220,7 @@ describe("AL-04 진행 중 종료 = 귀책 + 미리보기 + L3", () => {
       b.preview === true
         ? { status: 200, json: { ok: true, result: { preview: true, refundAmount: 50000, paidAmount: 100000, remainingSeconds: 90000 } } }
         : { status: 200, json: { ok: true, result: { preview: false } } };
-    confirmAdminAction.mockResolvedValue({ ok: true, reason: "운영 오류로 종료" });
+    confirmAdminAction.mockResolvedValue({ ok: true, reason: "운영 오류로 종료", internalMemo: "내부 확인" });
     await mount();
     await act(async () => {
       btn('[data-admin-delivery-ads-action="end"]')?.click();
@@ -257,10 +246,18 @@ describe("AL-04 진행 중 종료 = 귀책 + 미리보기 + L3", () => {
     });
     await flush();
     expect(adminActionLevel).toHaveBeenCalledWith("end");
-    expect(confirmAdminAction.mock.calls[0][0]).toMatchObject({ level: "L3", retypeValue: "가을 배너" });
+    // 어드민 SSOT §3-1: 대상 재입력 없음 · D-10 공개 사유 + 내부 메모 두 칸
+    expect(confirmAdminAction.mock.calls[0][0]).toMatchObject({ level: "L3", splitReason: true });
+    expect(confirmAdminAction.mock.calls[0][0].retypeValue).toBeUndefined();
     expect(String(confirmAdminAction.mock.calls[0][0].description)).toContain("운영 사유 — 남은 기간 비례 환급");
     const runCall = calls.find((c) => c.url.includes("/actions") && c.body?.preview === false);
-    expect(runCall?.body).toMatchObject({ action: "end", fault: "operator", reason: "운영 오류로 종료" });
+    expect(runCall?.body).toMatchObject({
+      action: "end",
+      fault: "operator",
+      reason: "운영 오류로 종료",
+      ownerVisibleNotes: "운영 오류로 종료",
+      internalReason: "내부 확인",
+    });
   });
 });
 

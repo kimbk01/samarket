@@ -24,6 +24,10 @@ const reclaim = vi.fn(async (..._a: unknown[]) => undefined);
 vi.mock("@/lib/admin/community-admin/community-admin-guards", () => ({
   requireCommunityAdmin: async () => ({ ok: true, userId: "admin-1", actor: { userId: "admin-1" }, sb: fake.sb }),
 }));
+// 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads 키 전용 가드
+vi.mock("@/lib/admin/access/require-ads-write-admin", () => ({
+  requireAdsWriteAdmin: async () => ({ ok: true, userId: "admin-1", actor: { userId: "admin-1" }, sb: fake.sb }),
+}));
 vi.mock("@/lib/admin/community-admin/community-admin-audit", () => ({
   appendCommunityAdminAudit: (...a: unknown[]) => audit(...a),
 }));
@@ -211,12 +215,15 @@ describe("posts PATCH — CAS · 사유 · 외부 수집 블록 · 홍보 귀책
     expect(fake.calls.some((c) => c.op === "update")).toBe(false);
   });
 
-  it("operator fault ends the promotion through the RPC and notifies the buyer with the refund", async () => {
+  it("operator fault ends the promotion through the moderate RPC (D-11 · one transaction) and notifies the buyer with the refund", async () => {
     handler = postHandler({
       before: memberPost,
       promotions: [{ id: "ord-1", user_id: "buyer-1", order_status: "active", end_at: "2026-10-25T00:00:00Z" }],
     });
-    rpcHandler = () => ({ data: { ok: true, refund_points: 420, refund_ledger_id: "led-1", has_payment_record: true }, error: null });
+    rpcHandler = () => ({
+      data: { ok: true, ended_orders: [{ order_id: "ord-1", user_id: "buyer-1", refund_points: 420 }], refund_points: 420 },
+      error: null,
+    });
     const res = await patchPost({
       status: "deleted",
       reason: "카테고리 정리",
@@ -224,13 +231,13 @@ describe("posts PATCH — CAS · 사유 · 외부 수집 블록 · 홍보 귀책
       expectedUpdatedAt: LOADED,
     });
     expect(res.status).toBe(200);
-    const rpc = fake.rpcCalls.find((c) => c.fn === "admin_promotion_end")!;
-    expect(rpc.args).toMatchObject({
-      p_order_id: "ord-1",
-      p_actor_id: "admin-1",
-      p_reason_code: "post_deleted",
+    expect(fake.rpcCalls.map((c) => c.fn)).toEqual(["admin_community_post_moderate"]);
+    expect(fake.rpcCalls[0]!.args).toMatchObject({
+      p_post: "post-1",
+      p_admin: "admin-1",
+      p_action: "delete",
       p_fault: "operator",
-      p_preview: false,
+      p_reason: "카테고리 정리",
     });
     expect(notifyPromotionEnded).toHaveBeenCalledWith(
       expect.anything(),

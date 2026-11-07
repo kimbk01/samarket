@@ -104,7 +104,8 @@ describe("CUT F Admin Delivery Ads", () => {
 
   it("F12 TERMINATE requires reason", () => {
     expect(adminActionRequiresReason("terminate")).toBe(true);
-    expect(adminActionAllowed("terminate", "ACTIVE")).toBe(true);
+    // D-03 (2026-11-07): 진행 중 강제 종료는 환급 없이 끝나므로 금지 → 귀책·환급 「종료」만.
+    expect(adminActionAllowed("terminate", "ACTIVE")).toBe(false);
   });
 
   it("F13 Archive from terminal states", () => {

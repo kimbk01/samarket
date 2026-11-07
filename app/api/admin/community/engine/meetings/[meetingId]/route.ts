@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { notifyCommunityMeetingDecision } from "@/lib/notifications/notify-community-moderation";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
+import {
+  listRunningCommunityPromotionsForPost,
+  parseCommunityPromotionFault,
+  type RunningCommunityPromotion,
+} from "@/lib/admin/community-admin/community-promotion-admin";
+import {
+  moderateCommunityPostWithPromotions,
+  recordModeratedPromotionEnds,
+} from "@/lib/admin/community-admin/community-post-moderate-rpc";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +38,9 @@ const CLOSE_STATUSES = new Set(["closed", "ended", "cancelled"]);
  *   은 reason(2자 이상) 필수 → 400 reason_required
  * - expected* 가 오면 현재 값과 비교, 다르면 409 conflict { current }. 갱신 자체도 읽은 값 기준 CAS.
  * - 반려·종료 시 개설자 알림, 모든 변경 감사 기록.
+ * - D-11 ② (2026-11-07): 모임 글 숨김도 진행 중 상위노출을 확인한다 — 있으면 귀책(promotionFault: operator|member) 필수
+ *   (없으면 400 promotion_fault_required). 숨김은 글 관리 숨김과 같은 DB 함수 `admin_community_post_moderate`
+ *   (주문 종료 + 글 숨김 한 트랜잭션)로 처리한다. 예전에는 상위노출을 보지 않아 트리거가 「회원 숨김 = 정지」로 처리했다.
  */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId: string }> }) {
   const admin = await requireCommunityAdmin("content");
@@ -49,6 +61,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId
     expectedStatus?: string | null;
     expectedPlatformApprovalStatus?: string | null;
     expectedPostStatus?: string | null;
+    promotionFault?: string | null;
   };
   try {
     body = await req.json();
@@ -137,6 +150,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId
     return conflict();
   }
 
+  // ── D-11 ② 상위노출 중인 모임 글 숨김: 귀책 필수 (글 관리 숨김과 같은 규칙)
+  const promotions: RunningCommunityPromotion[] =
+    isHide && postId ? await listRunningCommunityPromotionsForPost(sb, postId) : [];
+  const promotionFault = parseCommunityPromotionFault(body.promotionFault);
+  if (promotions.length > 0 && !promotionFault) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "promotion_fault_required",
+        promotions: promotions.map((p) => ({ id: p.id, orderStatus: p.orderStatus, endAt: p.endAt })),
+      },
+      { status: 400 }
+    );
+  }
+
   const before: Record<string, unknown> = {
     status: meeting.status,
     platform_approval_status: meeting.platform_approval_status,
@@ -157,10 +185,43 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId
     if (!upd || upd.length === 0) return conflict();
   }
 
+  let promotionEnd: Array<Record<string, unknown>> = [];
   if (shouldPatchPost) {
     if (!postId) return NextResponse.json({ ok: false, error: "post_not_found" }, { status: 404 });
-    const { error: postError } = await sb.from("community_posts").update(postPatch).eq("id", postId);
-    if (postError) return NextResponse.json({ ok: false, error: postError.message }, { status: 500 });
+    if (isHide && promotions.length > 0) {
+      // 주문 종료 + 글 숨김 = DB 함수 1번. 실패하면 글·주문 모두 그대로.
+      const moderated = await moderateCommunityPostWithPromotions(sb, {
+        postId,
+        actorId: admin.userId,
+        action: "hide",
+        fault: promotionFault,
+        reason: reason ?? "",
+      });
+      if (!moderated.ok) {
+        return NextResponse.json(
+          { ok: false, error: moderated.error, ...(moderated.detail ?? {}) },
+          { status: moderated.httpStatus }
+        );
+      }
+      promotionEnd = await recordModeratedPromotionEnds(sb, req, {
+        actorId: admin.userId,
+        promotions,
+        moderated,
+        fault: promotionFault,
+        reason,
+        endReasonCode: "post_hidden",
+      });
+      // 상태는 함수가 썼다 — 나머지 칸(is_hidden)만 이어서 저장.
+      const rest: Record<string, unknown> = { ...postPatch };
+      delete rest.status;
+      if (Object.keys(rest).length > 0) {
+        const { error: restError } = await sb.from("community_posts").update(rest).eq("id", postId);
+        if (restError) return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+      }
+    } else {
+      const { error: postError } = await sb.from("community_posts").update(postPatch).eq("id", postId);
+      if (postError) return NextResponse.json({ ok: false, error: postError.message }, { status: 500 });
+    }
     if (isHide) {
       await applyCommunityPointReclaimOnPostAdminRemove({ postId });
     }
@@ -187,6 +248,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId
       ...(shouldPatchPost
         ? { post_id: postId, post_status: postPatch.status ?? null, post_is_hidden: postPatch.is_hidden ?? null }
         : {}),
+      ...(promotionEnd.length ? { promotion_end: promotionEnd, promotion_fault: promotionFault } : {}),
     },
   });
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { newPlatformPopupExposureId } from "@/lib/platform-popup/popup-exposure-id";
 import { DibayPopupAd } from "@/components/platform-popup/DibayPopupAd";
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
@@ -433,7 +434,8 @@ export function GlobalPopupHost() {
     void waitPlatformPopupImageReady(winner.creative.imageUrl).then((result) => {
       if (cancelled) return;
       if (result === "ready") {
-        setExposureId(`${winner.campaignId}:${winner.creativeId}:${generationRef.current}`);
+        // D-13: 노출 1회 = 겹치지 않는 노출 id 1개 (impression·click·landing·dismiss 가 같은 값을 쓴다)
+        setExposureId(newPlatformPopupExposureId());
         setHostState((s) => reducePlatformPopupHostState(s, { type: "SHOW" }));
         return;
       }

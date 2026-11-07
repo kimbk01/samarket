@@ -11,6 +11,10 @@
  * 결과(jsonb)는 그대로 돌려준다. 오류 코드는 `feedAdLifecycleErrorMessageKo` 로 한국어로 바꿔 화면에 보인다.
  * 공개 사유(회원에게 보임 · 120자) ≠ 내부 메모(어드민만). 회원 응답에는 공개 사유만 나간다.
  * 어드민 화면·라우트 연결은 담당 A.
+ *
+ * D-14 (광고 3차 재감사 · 2026-11-07): 세 함수 모두 마지막 인자 `p_screen`(조치한 화면)을 넘긴다.
+ * 감사는 DB 함수가 같은 트랜잭션에서 1행만 쓴다 (대상 = 신청 있으면 feed_ad_request/신청 id, 없으면 feed_ad_campaign/캠페인 id ·
+ * after_json.screen). 호출하는 TS 는 정지·재개·종료 감사를 따로 쓰지 않는다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
@@ -25,7 +29,14 @@ type ReasonInput = {
   adminUserId: string;
   publicReason?: string | null;
   internalReason?: string | null;
+  /** D-14: 조치한 화면 (감사 after_json.screen) */
+  screen?: string | null;
 };
+
+function screenArg(input: ReasonInput): string | null {
+  const s = String(input.screen ?? "").trim();
+  return s ? s.slice(0, 64) : null;
+}
 
 function cleanReasons(input: ReasonInput):
   | { ok: true; publicReason: string | null; internalReason: string | null }
@@ -64,6 +75,7 @@ export async function adminPauseFeedAd(sb: SupabaseClient, input: ReasonInput): 
     p_admin_id: input.adminUserId.trim(),
     p_public_reason: r.publicReason,
     p_internal_reason: r.internalReason,
+    p_screen: screenArg(input),
   });
 }
 
@@ -76,6 +88,7 @@ export async function adminResumeFeedAd(sb: SupabaseClient, input: ReasonInput):
     p_admin_id: input.adminUserId.trim(),
     p_public_reason: r.publicReason,
     p_internal_reason: r.internalReason,
+    p_screen: screenArg(input),
   });
 }
 
@@ -95,6 +108,7 @@ export async function adminEndFeedAd(
     p_public_reason: r.publicReason,
     p_internal_reason: r.internalReason,
     p_preview: input.preview === true,
+    p_screen: screenArg(input),
   });
 }
 

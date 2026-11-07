@@ -258,7 +258,8 @@ describe("D-5 · D-6 · FB-M11 관리자 정지·재개·종료 lib", () => {
     expect(p).toEqual({ ok: true, status: "paused" });
     expect(fake.rpcCalls[0]).toEqual({
       fn: "admin_feed_ad_pause",
-      args: { p_campaign_id: "c1", p_admin_id: "a1", p_public_reason: "이미지 확인 중", p_internal_reason: "신고 3건" },
+      // D-14 (2026-11-07): 조치한 화면을 p_screen 으로 넘긴다 (없으면 null · 기존 호출 호환)
+      args: { p_campaign_id: "c1", p_admin_id: "a1", p_public_reason: "이미지 확인 중", p_internal_reason: "신고 3건", p_screen: null },
     });
     expect(await adminResumeFeedAd(fake.sb, { campaignId: "c1", adminUserId: "a1" })).toMatchObject({ ok: true, extended_seconds: 7200 });
     const e = await adminEndFeedAd(fake.sb, { campaignId: "c1", adminUserId: "a1", fault: "operator", preview: true });

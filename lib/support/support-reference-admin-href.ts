@@ -70,6 +70,36 @@ export function resolveSupportReferenceAdminHref(
         labelEn: "Open popup request",
         mutationOwner: "ADS",
       };
+    // 광고 원장 §2 (2026-11-07): 운영자 팝업 · PTR · 피드 운영자 캠페인 · 이벤트 배너 참조
+    case "PLATFORM_POPUP_CAMPAIGN":
+      return {
+        href: `/admin/platform-popup/${encodeURIComponent(id)}`,
+        labelKo: "운영자 팝업 보기",
+        labelEn: "Open operator popup",
+        mutationOwner: "ADS",
+      };
+    case "PTR_REVEAL_CAMPAIGN":
+      return {
+        href: `/admin/ptr-reveal-ads/${encodeURIComponent(id)}`,
+        labelKo: "PTR 띠 광고 보기",
+        labelEn: "Open PTR band ad",
+        mutationOwner: "ADS",
+      };
+    case "FEED_AD_CAMPAIGN":
+      return {
+        href: `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
+        labelKo: "피드 배너(운영자) 보기",
+        labelEn: "Open operator feed banner",
+        mutationOwner: "ADS",
+      };
+    case "EVENT_BANNER":
+      // 이벤트 배너 = 이벤트 배포 행 id — 원장에서 그 광고 행을 연다
+      return {
+        href: `/admin/advertising?kind=event_hero`,
+        labelKo: "이벤트 배너 보기",
+        labelEn: "Open event banner",
+        mutationOwner: "ADS",
+      };
     case "STORE_ORDER":
       return {
         href: `/admin/stores/orders/${encodeURIComponent(id)}`,
@@ -191,6 +221,13 @@ export function resolveSupportCaseContextLinks(input: {
       labelEn: "Finance control plane (B4)",
       mutationOwner: "FINANCE",
     });
+    // 광고 원장 §2 반대 방향 (2026-11-07): 문의 상세 → 「이 광고주의 광고」 = 같은 원장 + 광고주 거름
+    links.push({
+      href: `/admin/advertising?advertiser=${encodeURIComponent(storeId)}`,
+      labelKo: "이 광고주의 광고",
+      labelEn: "This advertiser's ads",
+      mutationOwner: "ADS",
+    });
   }
   const userId = (input.requesterUserId ?? "").trim();
   if (userId) {
@@ -199,6 +236,12 @@ export function resolveSupportCaseContextLinks(input: {
       labelKo: "회원 보기",
       labelEn: "Open member",
       mutationOwner: "MEMBER",
+    });
+    links.push({
+      href: `/admin/advertising?advertiser=${encodeURIComponent(userId)}`,
+      labelKo: "이 광고주의 광고",
+      labelEn: "This advertiser's ads",
+      mutationOwner: "ADS",
     });
     // 채팅 Admin 설계 §2-3: 요청자의 거래·주문 채팅방 (본문 열람은 방 권한 규칙 그대로).
     links.push({

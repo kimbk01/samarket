@@ -269,7 +269,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.promotions_running",
-    "노출 중 홍보",
+    "노출 중 상위노출",
     "Running promotions",
     "state",
     "promotion",
@@ -291,8 +291,8 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   period("community.period.admin_actions", "관리자 조치", "Admin actions", "admin_actions.total", "/admin/community/audit"),
   period("community.period.charges_approved", "충전 승인", "Top-ups approved", "charges.approved_count", STATS),
   period("community.period.charges_rejected", "충전 반려", "Top-ups rejected", "charges.rejected_count", STATS),
-  period("community.period.promotions_new", "신규 홍보", "New promotions", "promotions.new_count", STATS),
-  period("community.period.promotions_ended", "종료된 홍보", "Promotions ended", "promotions.ended_count", STATS),
+  period("community.period.promotions_new", "신규 상위노출", "New promotions", "promotions.new_count", STATS),
+  period("community.period.promotions_ended", "종료된 상위노출", "Promotions ended", "promotions.ended_count", STATS),
 ];
 
 export type CommunityMetricId = (typeof COMMUNITY_METRIC_DEFINITIONS)[number]["id"];

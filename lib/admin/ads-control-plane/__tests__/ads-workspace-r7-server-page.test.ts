@@ -137,7 +137,8 @@ vi.mock("@/lib/platform-popup/admin-campaign-loader", () => ({
 }));
 
 import {
-  ADS_WORKSPACE_PAGE_RPC,
+  // 광고 원장 (2026-11-07): 목록 = `admin_ads_ledger_page` (옛 `admin_ads_workspace_page` 는 원장 함수가 없을 때만)
+  ADS_LEDGER_PAGE_RPC as ADS_WORKSPACE_PAGE_RPC,
   loadAdsControlPlane,
 } from "@/lib/admin/ads-control-plane/load-ads-control-plane";
 import { computeAdsWorkspaceSummaryCounts } from "@/lib/admin/advertising-workspace/workspace-summary";
@@ -189,6 +190,10 @@ describe("광고 작업 화면 — R7 서버 페이지", () => {
       status: "live",
       family: "banner",
       domain: null,
+      kind: null,
+      location: null,
+      advertiser: null,
+      ledger: false,
       total: 345,
       limit: 50,
       offset: 100,

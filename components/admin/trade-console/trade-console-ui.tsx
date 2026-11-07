@@ -41,7 +41,7 @@ export function TradePromoBadge({ active }: { active: boolean }) {
   if (!active) return <span className="sam-text-xxs text-sam-muted">—</span>;
   return (
     <span className="inline-flex items-center rounded border border-sam-primary-border bg-sam-primary-soft px-1.5 py-0.5 sam-text-xxs font-medium text-sam-primary">
-      홍보중
+      상위노출 중
     </span>
   );
 }

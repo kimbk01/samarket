@@ -55,9 +55,5 @@ describe("ads from-scratch recovery contracts", () => {
     expect(isAdsTestFixtureLabel("나의 오른손떡방")).toBe(false);
   });
 
-  it("control plane defaults to ops data filter", () => {
-    const src = read("components/admin/ads/AdminAdsExposureControlPlane.tsx");
-    expect(src).toContain('useState<OpsDataFilter>("ops")');
-    expect(src).toContain("data-admin-ads-data-filter");
-  });
+  // 설계 ads-admin-ssot §6 (2026-11-07): 「control plane defaults to ops data filter」 — 옛 관제 화면(import 0) 삭제로 시험 대상 없음
 });

@@ -49,7 +49,8 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     expect(terminologyDisplay("COMMENT", "ko")).toMatch(/댓글/);
     expect(terminologyDisplay("REPORT", "ko")).toMatch(/신고/);
     expect(terminologyDisplay("MEETING_REPORT", "ko")).toMatch(/모임/);
-    expect(terminologyDisplay("PROMOTION", "ko")).toMatch(/홍보/);
+    // D-15 (2026-11-07): 커뮤니티 PROMOTION 정본 용어 = 「상위노출」 (광고 ≠ 상위노출 구분은 유지)
+    expect(terminologyDisplay("PROMOTION", "ko")).toMatch(/상위노출/);
     expect(terminologyDisplay("ADVERTISEMENT", "ko")).toMatch(/광고/);
     expect(terminologyDisplay("SUPPORT_CASE", "ko")).toMatch(/고객지원|지원|케이스|Case/i);
     expect(terminologyDisplay("HIDE", "ko")).toBe("숨김");

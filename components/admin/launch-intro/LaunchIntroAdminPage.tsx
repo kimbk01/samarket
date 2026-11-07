@@ -72,6 +72,7 @@ import {
   validateLaunchIntroEligibility,
 } from "@/lib/launch-intro/schedule";
 import { AdminTechId, formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { launchIntroInvalidPublicationReasonKey } from "@/lib/launch-intro/invalid-publication-reason";
 
 /** 광고 감사 I-5: API·검사 오류 코드 → 한국어 문구 (원문 코드는 모르는 코드일 때만 괄호로) */
@@ -881,7 +882,7 @@ export function LaunchIntroAdminPage() {
           ? "admin_launch_intro_reactivate_confirm_desc_none"
           : copy.desc;
     // 확인 단계(adminActionLevel): 일시정지 = exposeStop(L1) · 재개·재게시 = exposeStart(L2) ·
-    // 게시 중단 = forceCancel(L3, 게시 번호 재입력 — 기존 L2 에서 낮추지 않음). L2·L3 사유는 상태 API 로 보내 감사에 남긴다.
+    // 게시 중단 = forceCancel(L3 — 사유만 · 대상 재입력 없음 · 어드민 SSOT §3-1). L2·L3 사유는 상태 API 로 보내 감사에 남긴다.
     const unpublishTarget =
       pub ?? (snap?.live?.publication_id ? (snap.publications.find((p) => p.id === snap.live.publication_id) ?? null) : null);
     // 광고 감사 I-3: 재게시·재개도 게시와 같은 「인트로 전체 최대 5초」 — 서버도 같은 규칙으로 거부한다
@@ -903,7 +904,6 @@ export function LaunchIntroAdminPage() {
       description: t(desc, { id: pub ? formatAdminShortId(pub.id) : "", date: pub ? fmtDate(pub.created_at) : "" }),
       confirmLabel: t(copy.label),
       destructive: action === "unpublish",
-      retypeValue: action === "unpublish" && unpublishTarget ? formatAdminShortId(unpublishTarget.id) : undefined,
     });
     if (!confirmed.ok) return;
     await call(
@@ -1142,6 +1142,7 @@ export function LaunchIntroAdminPage() {
                             </span>
                           ) : null}
                         </span>
+                        <span className="flex flex-wrap items-center gap-2">
                         {launchIntroCanReactivate(live, p.id) ? (
                           <span className="flex flex-wrap items-center gap-2">
                             {launchIntroTotalDurationMs(p.document) > LAUNCH_INTRO_TOTAL_MAX_MS ? (
@@ -1159,6 +1160,17 @@ export function LaunchIntroAdminPage() {
                             </AdminActionButton>
                           </span>
                         ) : null}
+                        {/* 어드민 SSOT §1-2 · §3-2 — 게시본 1개 = 원장 1행 · 삭제는 사유만(대상 재입력 없음). */}
+                        {writeBlocked ? null : (
+                          <AdminAdDeleteAction
+                            kind="intro"
+                            id={p.id}
+                            title={formatAdminShortId(p.id)}
+                            size="sm"
+                            onDone={() => void call("/api/admin/launch-intro", { method: "GET" }, "")}
+                          />
+                        )}
+                        </span>
                       </li>
                     );
                   })}
@@ -1675,7 +1687,6 @@ export function LaunchIntroAdminPage() {
                       title: t("admin_launch_intro_delete_confirm"),
                       confirmLabel: t("admin_launch_intro_delete"),
                       destructive: true,
-                      retypeValue: formatAdminShortId(snap.draft!.id),
                     });
                     if (!confirmed.ok) return;
                     void call(

@@ -187,11 +187,13 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/notifications", requirement: ANY, action: perm("manage") },
   { path: "/admin/settings/auth", requirement: perm("settings") },
   // G-18 (Owner 승인 2026-10-30): 앱 공통 설정 쓰기 = settings 키 — 조회는 전원 그대로.
-  // API: startup-config PUT·upload-image / os-launch PUT·logo / launch-intro PUT·DELETE·publish·state·upload /
+  // API: startup-config PUT·upload-image /
   //      main-bottom-nav PUT·DELETE / app-business-info POST·[id] PATCH = requireAdminPermission("settings")
   { path: "/admin/settings/startup-config", requirement: ANY, action: perm("settings") },
-  { path: "/admin/platform-promotion/os-start", requirement: ANY, action: perm("settings") },
-  { path: "/admin/platform-promotion/intro", requirement: ANY, action: perm("settings") },
+  // 광고 SSOT §4 (Owner 「설계안대로 진행」 2026-11-07): 인트로·시작 화면은 광고 메뉴 안의 기능 → 쓰기 = ads 키.
+  // API: os-launch PUT·logo / launch-intro PUT·DELETE·publish·state·upload = requireAdminPermission("ads")
+  { path: "/admin/platform-promotion/os-start", requirement: ANY, action: perm("ads") },
+  { path: "/admin/platform-promotion/intro", requirement: ANY, action: perm("ads") },
   { path: "/admin/menus/main-bottom-nav", requirement: ANY, action: perm("settings") },
   { path: "/admin/app/business", requirement: ANY, action: perm("settings") },
   { path: "/admin/settings", requirement: ANY },
@@ -216,6 +218,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   // IA-07/AD-06: 조회는 전원, 쓰기(입점 심사·매장 PATCH·일괄·광고 조치) = business 키
   { path: "/admin/stores", requirement: ANY, action: perm("business") },
   { path: "/admin/business", requirement: ANY, action: perm("business") },
+  // AD2-09 (2026-11-07): 비즈니스 캐시 충전 대기열 — 화면 = 조회 API(`business-cash-charges` GET = business) 같은 키
+  { path: "/admin/delivery-ads/cash-charges", requirement: perm("business") },
   { path: "/admin/delivery-ads", requirement: ANY, action: perm("business") },
 
   // ── 광고·홍보 콘텐츠 쓰기 (IA-04 K-2 · G-18, Owner 승인 2026-10-30) = ads 키 — 조회는 전원 그대로.
@@ -251,6 +255,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/trade/point-charges", requirement: perm("point") },
   // G-15: 거래 회원 조회(목록·상세·거래·제재 이력 GET) = 중앙 회원과 같은 users 키
   { path: "/admin/trade/members", requirement: perm("users") },
+  // 광고 SSOT §4 (2026-11-07): 거래 상위노출 쓰기 = ads 키 (공통 광고 화면과 같은 키 · API `trade/promotions/[id]` POST)
+  { path: "/admin/trade/promotions", requirement: TRADE, action: perm("ads") },
   { path: "/admin/trade", requirement: TRADE },
   { path: "/admin/trade-ad-policies", requirement: TRADE },
   { path: "/admin/trade-flow", requirement: TRADE },
@@ -268,7 +274,9 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/community/members", requirement: community("read") },
   { path: "/admin/community/restrictions", requirement: community("read"), action: community("moderation") },
   { path: "/admin/community/stats", requirement: community("read") },
-  { path: "/admin/community/promotions", requirement: community("read"), action: community("promotion") },
+  // AD2-08 · §4 (2026-11-07): 커뮤니티 상위노출 — 조회 = 공통 광고 화면과 같은 전원(API GET `community-promotion-orders` 도 같음) ·
+  //   쓰기 = ads 키 (API PATCH `community-promotion-orders/[id]` = requireAdsWriteAdmin)
+  { path: "/admin/community/promotions", requirement: ANY, action: perm("ads") },
   { path: "/admin/community/points", requirement: community("read"), action: perm("point") },
   { path: "/admin/community", requirement: community("content") },
   { path: "/admin/philife/meeting-reports", requirement: ANY, action: community("moderation") },
@@ -294,7 +302,7 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
  * 광고 워크스페이스 조치(`POST /api/admin/advertising-workspace/action`) 계열 → 서버 가드와 같은 요구 권한 (G-01 · IA-04).
  * 배달 광고 = business (배달 광고 조치 API 와 같음, ads 를 겹쳐 요구하지 않음) · 사장님 팝업 신청 = business
  * (`platform-popup-requests/[id]/actions` 와 같음) · 피드 배너·플랫폼 팝업 캠페인 = ads ·
- * 거래 홍보 = 거래 Admin (O-2) · 커뮤니티 홍보 = 커뮤니티 promotion.
+ * 거래·커뮤니티 상위노출 = ads (광고 SSOT §4 · 2026-11-07 — 예전 거래 Admin·커뮤니티 promotion 에서 통일).
  */
 export function advertisingWorkspaceFamilyActionRequirement(family: string): AdminRouteRequirement {
   switch (family) {
@@ -305,10 +313,10 @@ export function advertisingWorkspaceFamilyActionRequirement(family: string): Adm
     case "feed_banner":
     case "platform_popup_campaign":
       return perm("ads");
+    // 광고 SSOT §4 (2026-11-07): 상위노출 쓰기 = ads 키 (도메인 화면·공통 화면 같은 키)
     case "boost_trade":
-      return TRADE;
     case "boost_community":
-      return community("promotion");
+      return perm("ads");
     default:
       return ANY;
   }
@@ -382,6 +390,8 @@ export function actorMeetsAdminRouteRequirement(
     case "deploy_owner":
       return isSuper && actor.isDeployOwner === true;
     case "permission":
+      // 정지된 운영자: 서버 `requireAdminApiActor`(AD-07)가 모든 관리자 API 를 막는다 — 권한 키가 있어도 불가 (최고관리자 제외)
+      if (!isSuper && actor.accountSuspended === true) return false;
       return isSuper || hasPermission(perms, requirement.key);
     case "domain":
       if (isSuper) return true;

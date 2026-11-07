@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 포인트 내역·지급 (설계 §C-13) — 커뮤니티 관련 원장(보상·회수·홍보 차감/환급·관리자 지급/회수).
+ * 포인트 내역·지급 (설계 §C-13) — 커뮤니티 관련 원장(보상·회수·상위노출 차감/환급·관리자 지급/회수).
  * 「포인트 지급/회수」 = 공통 지급 패널(L3, 확인 화면을 열 때 멱등 키 1회 생성)을 시트로 연다.
  * URL: type · userId · from/to(PHT) · (호환) period · page · size
  */
@@ -89,7 +89,7 @@ export function AdminCommunityPointsPage() {
   return (
     <CommunityListShell
       title="포인트 내역·지급"
-      description="커뮤니티 보상·회수·홍보 차감과 환급, 관리자 지급·회수 내역을 확인합니다. 포인트는 전체 서비스 공통입니다."
+      description="커뮤니티 보상·회수·상위노출 차감과 환급, 관리자 지급·회수 내역을 확인합니다. 포인트는 전체 서비스 공통입니다."
       actions={
         <AdminActionButton
           variant="secondary"
@@ -122,7 +122,7 @@ export function AdminCommunityPointsPage() {
                 </p>
               ) : null}
               {state.data.promoOrderIdCapped ? (
-                <p className="text-[12px] text-sam-warning">오래된 홍보 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
+                <p className="text-[12px] text-sam-warning">오래된 상위노출 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
               ) : null}
             </div>
           ) : null}

@@ -37,7 +37,11 @@ import {
   createPlatformPopupAdminCampaign,
   replacePlatformPopupReadyCreative,
   updatePlatformPopupAdminCampaign,
+  type PlatformPopupAdminUpsertInput,
 } from "@/lib/platform-popup/admin-campaign-writer";
+import { buildPlatformPopupAdminPatch, type PlatformPopupAdminForm } from "@/lib/platform-popup/popup-admin-patch";
+import { frequencyModeToDismissSuppressMode } from "@/lib/platform-popup/dismiss-ssot";
+import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
 import { transitionPlatformPopupCampaign } from "@/lib/platform-popup/admin-transitions";
 
 export type SaveEventDistributionInput = {
@@ -233,7 +237,7 @@ async function materializePopup(
   }
 
   let ref = existingRef;
-  let action: "created" | "updated" = "updated";
+  let action: "created" | "updated" | "noop" = "updated";
   if (!ref) {
     const created = await createPlatformPopupAdminCampaign(sb, {
       adminUserId: input.adminUserId,
@@ -245,24 +249,47 @@ async function materializePopup(
     action = "created";
   }
 
-  const updated = await updatePlatformPopupAdminCampaign(sb, {
-    campaignId: ref,
-    adminUserId: input.adminUserId,
-    patch: {
-      name: plan.name,
-      startAt: plan.startAt,
-      endAt: plan.endAt,
-      ctaType: "event_detail",
-      ctaTarget: input.eventId,
-      surfaces: plan.surfaces,
-      presentationType: plan.presentationType,
-      frequencyMode: plan.frequencyMode,
-      creativeMode: plan.creativeMode,
-    },
-  });
-  if (!updated.ok) return { ok: false, error: updated.error, channelRefId: ref };
+  /**
+   * D-06 (+R3-P-05 · 재감사 3차 2026-11-07): 지금 팝업 행을 읽어 **바뀐 칸만** 보낸다(어드민 상세와 같은
+   * `buildPlatformPopupAdminPatch`). 예전에는 CTA·표시 형태·노출 위치·빈도를 통째로 보내 노출 중 이벤트 팝업이
+   * 저장할 때마다 재검토로 내려갔다. 빈도 → 억제 모드 매핑도 같은 함수가 맞춘다.
+   */
+  const savedState = await readPopupSavedState(sb, ref);
+  if ("error" in savedState) return { ok: false, error: savedState.error, channelRefId: ref };
+  // 관리자가 종료한 팝업은 이벤트 저장이 건드리지 않는다 (피드 AL-11 과 같은 규칙 · 예전: 409 ended_immutable)
+  if (savedState.status === "ended") return { ok: true, channelRefId: ref, action: "noop" };
 
-  if (plan.imageUrl && plan.imagePath) {
+  const nextForm: PlatformPopupAdminForm = {
+    ...savedState.form,
+    name: plan.name,
+    startAt: toIsoOrRaw(plan.startAt),
+    endAt: toIsoOrRaw(plan.endAt),
+    ctaType: "event_detail",
+    ctaTarget: input.eventId,
+    surfaces: plan.surfaces,
+    presentationType: plan.presentationType,
+    frequencyMode: plan.frequencyMode,
+    // R3-P-05: 억제 모드는 빈도 정본에서 정한다(이벤트 배포는 기간 억제를 쓰지 않음)
+    suppressionMode: frequencyModeToDismissSuppressMode(plan.frequencyMode),
+    suppressionDurationSeconds: null,
+    creativeMode: plan.creativeMode,
+  };
+  const patchBody = buildPlatformPopupAdminPatch(savedState.form, nextForm);
+  let revertedToReview = false;
+  let changed = false;
+  if (Object.keys(patchBody).length > 0) {
+    const updated = await updatePlatformPopupAdminCampaign(sb, {
+      campaignId: ref,
+      adminUserId: input.adminUserId,
+      patch: patchBody as PlatformPopupAdminUpsertInput,
+    });
+    if (!updated.ok) return { ok: false, error: updated.error, channelRefId: ref };
+    revertedToReview = updated.revertedToReview;
+    changed = true;
+  }
+
+  // 같은 그림(asset_path 같음)이면 소재를 교체하지 않는다 — 새 소재 행은 「한 번만 보기」 숨김을 풀고 재검토로 보낸다
+  if (plan.imageUrl && plan.imagePath && plan.imagePath !== savedState.readyAssetPath) {
     const creative = await replacePlatformPopupReadyCreative(sb, {
       campaignId: ref,
       adminUserId: input.adminUserId,
@@ -274,7 +301,10 @@ async function materializePopup(
       aspectH: plan.creativeMode === "artwork" ? 1 : 25,
     });
     if (!creative.ok) return { ok: false, error: creative.error, channelRefId: ref };
+    revertedToReview = revertedToReview || creative.revertedToReview;
+    changed = true;
   }
+  if (action === "updated" && !changed) action = "noop";
 
   // Publication guard: never leave interruptive popup active for non-public Events.
   if (!eventPubliclyActive) {
@@ -282,7 +312,72 @@ async function materializePopup(
     if (paused.error) return { ok: false, error: paused.error, channelRefId: ref };
   }
 
-  return { ok: true, channelRefId: ref, action };
+  return revertedToReview
+    ? { ok: true, channelRefId: ref, action, revertedToReview: true }
+    : { ok: true, channelRefId: ref, action };
+}
+
+function toIsoOrRaw(v: string | null | undefined): string | null {
+  if (v == null || String(v).trim() === "") return null;
+  const t = Date.parse(String(v));
+  return Number.isFinite(t) ? new Date(t).toISOString() : String(v);
+}
+
+type PopupSavedState = { status: string; form: PlatformPopupAdminForm; readyAssetPath: string | null };
+
+/** D-06: 이벤트 팝업의 지금 저장값 — `buildPlatformPopupAdminPatch` 의 saved 쪽(어드민 상세 `savedFormRef` 와 같은 칸) */
+async function readPopupSavedState(sb: SupabaseClient, campaignId: string): Promise<PopupSavedState | { error: string }> {
+  const [campRes, surfRes, creativeRes] = await Promise.all([
+    sb
+      .from("platform_popup_campaigns")
+      .select(
+        "status, name, priority, timezone, start_at, end_at, suppression_mode, suppression_duration_seconds, presentation_type, frequency_mode, cta_type, cta_target, external_url, cta_label, title, body"
+      )
+      .eq("id", campaignId)
+      .maybeSingle(),
+    sb.from("platform_popup_campaign_surfaces").select("surface").eq("campaign_id", campaignId),
+    sb
+      .from("platform_popup_creatives")
+      .select("asset_path, creative_mode, alt_text")
+      .eq("campaign_id", campaignId)
+      .eq("status", "ready"),
+  ]);
+  if (campRes.error) return { error: campRes.error.message };
+  if (!campRes.data) return { error: "not_found" };
+  if (surfRes.error) return { error: surfRes.error.message };
+  if (creativeRes.error) return { error: creativeRes.error.message };
+  const c = campRes.data as Record<string, unknown>;
+  const str = (v: unknown) => (v == null ? "" : String(v));
+  const opt = (v: unknown) => (v == null || String(v).trim() === "" ? null : String(v));
+  const ready = ((creativeRes.data ?? []) as { asset_path?: string | null; creative_mode?: string | null; alt_text?: string | null }[])[0];
+  const surfaces = ((surfRes.data ?? []) as { surface?: string | null }[])
+    .map((r) => str(r.surface).trim().toUpperCase())
+    .filter(Boolean);
+  return {
+    status: str(c.status),
+    readyAssetPath: opt(ready?.asset_path),
+    form: {
+      name: str(c.name),
+      priority: Number(c.priority ?? 0),
+      timezone: str(c.timezone).trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE,
+      startAt: toIsoOrRaw(opt(c.start_at)),
+      endAt: toIsoOrRaw(opt(c.end_at)),
+      surfaces,
+      suppressionMode: str(c.suppression_mode).toUpperCase(),
+      suppressionDurationSeconds:
+        c.suppression_duration_seconds == null ? null : Number(c.suppression_duration_seconds),
+      presentationType: str(c.presentation_type),
+      frequencyMode: str(c.frequency_mode),
+      creativeMode: ready?.creative_mode === "artwork" ? "artwork" : "card",
+      ctaType: str(c.cta_type),
+      ctaTarget: str(c.cta_target).trim(),
+      externalUrl: opt(c.external_url),
+      ctaLabel: opt(c.cta_label),
+      title: opt(c.title),
+      body: opt(c.body),
+      altText: opt(ready?.alt_text),
+    },
+  };
 }
 
 async function materializeBanner(

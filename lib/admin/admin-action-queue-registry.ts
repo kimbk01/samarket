@@ -288,7 +288,8 @@ export const ADMIN_ACTION_QUEUE_REGISTRY: readonly AdminActionQueueCategoryDef[]
     soundEligible: false,
     requiredPermission: null,
     listHref: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable`,
-    sidebarMenuKeys: ["delivery-ads-control"],
+    // AD2-05 (2026-11-07): 배지는 보이는 메뉴(배달 › 배달 광고 운영 목록)에 — 숨김 메뉴(delivery-ads-control)에 걸려 안 보였다
+    sidebarMenuKeys: ["delivery-ads-ops-entry"],
     titleKo: "배달 광고 운영 대기",
     titleEn: "Delivery ads waiting",
     domainKo: "광고 · 배달",

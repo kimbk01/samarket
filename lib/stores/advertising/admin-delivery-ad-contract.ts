@@ -113,11 +113,30 @@ export function adminActionTargetLifecycle(
   void from;
 }
 
+/**
+ * D-03 (2026-11-07) — 진행 중(노출·예약·정지) 상태. 이 상태의 「강제 종료(terminate)」는 환급 없이 끝내므로 막고,
+ * 귀책 + 환급 미리보기가 있는 「종료(end)」만 쓴다 (정본 §6 종료 = L3 귀책 + 환급 미리보기).
+ */
+export const DELIVERY_AD_IN_PROGRESS_LIFECYCLES = [
+  "ACTIVE",
+  "SCHEDULED",
+  "PAUSED_OWNER",
+  "PAUSED_ADMIN",
+] as const;
+
+export function isDeliveryAdInProgressLifecycle(status: string | null | undefined): boolean {
+  return (DELIVERY_AD_IN_PROGRESS_LIFECYCLES as readonly string[]).includes(String(status ?? ""));
+}
+
+/** D-03 — 진행 중 강제 종료 요청을 서버가 거부할 때 쓰는 코드 (422). */
+export const DELIVERY_AD_USE_END_WITH_FAULT_CODE = "use_end_with_fault" as const;
+
 export function adminActionAllowed(
   action: AdminDeliveryAdAction,
   from: DeliveryAdLifecycleStatus
 ): boolean {
   if (action === "delete_safe_draft") return from === "DRAFT";
+  if (action === "terminate" && isDeliveryAdInProgressLifecycle(from)) return false;
   const to = adminActionTargetLifecycle(action, from);
   if (!to) return false;
   return canTransitionDeliveryAdLifecycle(from, to, "admin");

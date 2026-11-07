@@ -20,7 +20,7 @@ const REVENUE_LINKS = [
     href: "/admin/promoted-items",
     titleKo: "게시물 상위 노출",
     titleEn: "Post paid exposure",
-    descKo: "거래·커뮤니티 Point 홍보 entitlement",
+    descKo: "거래·커뮤니티 Point 상위노출",
     descEn: "Trade/Community Point entitlements",
   },
   {

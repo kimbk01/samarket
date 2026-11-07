@@ -101,7 +101,7 @@ const OPERATOR_LABELS: Record<string, { ko: string; en: string }> = {
   community_reward: { ko: "커뮤니티 보상 (글/댓글)", en: "Community reward (post/comment)" },
   community_reclaim: { ko: "커뮤니티 보상 회수", en: "Community reward reclaim" },
   gift_certificate_purchase: { ko: "상품권 구매", en: "Gift certificate purchase" },
-  promotion_order: { ko: "게시물 홍보 주문", en: "Post promotion order" },
+  promotion_order: { ko: "게시물 상위노출 주문", en: "Post promotion order" },
   feed_ad_request: { ko: "피드 광고 신청", en: "Feed ad request" },
   admin_manual: { ko: "관리자 수동 지급·회수", en: "Admin manual credit/debit" },
   store_order_discount: { ko: "매장 주문 할인", en: "Store order discount" },

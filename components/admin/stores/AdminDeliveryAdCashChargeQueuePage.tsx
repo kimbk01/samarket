@@ -521,6 +521,8 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                   >
                     {ko ? "매장 재무" : "Store finance"}
                   </Link>
+                  {/* 광고 원장 §2 반대 방향 (2026-11-07): 충전 대기열 → 이 광고주(매장)의 광고 */}
+                  <Link href={`/admin/advertising?advertiser=${encodeURIComponent(r.store_id)}`} className="mt-1 ml-2 inline-block text-[12px] font-semibold text-sam-primary hover:underline" data-admin-cash-charge-advertiser-ads="1">{t("ads_ledger_sc_ads_of_advertiser")}</Link>
                   <AdminTechDetails ko={ko}>
                     store {r.store_id}
                     <br />

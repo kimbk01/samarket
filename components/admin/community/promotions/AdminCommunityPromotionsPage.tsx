@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * 게시글 홍보 (설계 §C-12 · §F-1) — 커뮤니티 홍보 주문만 (`point_promotion_orders` domain=community).
+ * 게시글 상위노출 (설계 §C-12 · §F-1) — 커뮤니티 상위노출 주문만 (`point_promotion_orders` domain=community).
  * 조치: 「노출 중지」 L2(사유) · 「노출 재개」 L2(exposeStart · 사유 · 종료일을 중지 시간만큼 연장) ·
- *       「홍보 종료」 L3(귀책 선택 → 환급 미리보기 → 대상 재입력 → 실행).
+ *       「상위노출 종료」 L3(귀책 선택 → 환급 미리보기 → 공개 사유 + 내부 메모 → 실행 · 대상 재입력 없음 · 어드민 SSOT §3-1).
+ * D-10: 정지·재개·종료는 공개 사유(회원에게 전달) + 내부 메모(운영자만 · `internalReason`) 두 칸.
+ * 삭제는 공용 `AdminAdDeleteAction`(사유만).
  * URL: tab=active|paused|ended|rejected|all · page · size(20/50/100)
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -30,6 +32,9 @@ import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { adsWorkspaceActionSplitsReason } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import { AdsInternalMemoField } from "@/components/admin/community/kit/AdsInternalMemoField";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import {
   COMMUNITY_GONE_MESSAGE,
   COMMUNITY_STALE_MESSAGE,
@@ -65,6 +70,12 @@ type ListResponse = { ok?: boolean; error?: string; total?: number; orders?: Ord
 
 type Preview = { refundPoints: number; paidPoints: number | null; remainingSeconds: number; hasPaymentRecord: boolean };
 
+/** D-10 — 내부 메모가 있으면 `internalReason` 으로 보낸다(회원 응답·알림에 나가지 않음). */
+function withInternalMemo(body: Record<string, unknown>, memo: string | null | undefined): Record<string, unknown> {
+  const m = String(memo ?? "").trim();
+  return m ? { ...body, internalReason: m } : body;
+}
+
 const shortDate = (iso: string | null | undefined) => (iso ? formatAdminManilaDateTime(iso).slice(5, 16) : "—");
 
 function remainingDays(o: Order): string | null {
@@ -80,13 +91,15 @@ type Sheet = { kind: "pause" | "end"; order: Order } | null;
 
 export function AdminCommunityPromotionsPage() {
   const q = useCommunityQueryState();
-  /** 쓰기(노출 중지·재개·홍보 종료) — 접근표 action community("promotion"). 서버 가드는 그대로. */
+  /** 쓰기(노출 중지·재개·상위노출 종료) — 접근표 action community("promotion"). 서버 가드는 그대로. */
   const action = useAdminRouteAction("/admin/community/promotions");
   const canAct = action.allowed;
   const tab = (TABS as readonly string[]).includes(q.get("tab")) ? q.get("tab") : "active";
   const [sheet, setSheet] = useState<Sheet>(null);
   const [banner, setBanner] = useState<CommunityBannerState>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** D-10 — 노출 중지 시트의 내부 메모 */
+  const [pauseMemo, setPauseMemo] = useState("");
 
   const { state, reload } = useCommunityAdminJson<ListResponse>(
     `/api/admin/community-promotion-orders?status=${tab}&limit=${q.size}&offset=${(q.page - 1) * q.size}`
@@ -108,6 +121,7 @@ export function AdminCommunityPromotionsPage() {
       title: "노출 재개",
       description: `「${o.post?.title || o.targetTitle || "게시글"}」 상위노출을 다시 노출합니다. 종료일은 중지했던 시간만큼 늘어납니다.`,
       confirmLabel: "노출 재개",
+      splitReason: adsWorkspaceActionSplitsReason("resume"),
     });
     if (!c.ok) return;
     setBusyId(o.id);
@@ -115,7 +129,7 @@ export function AdminCommunityPromotionsPage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "resume", reason: c.reason }),
+      body: JSON.stringify(withInternalMemo({ action: "resume", reason: c.reason }, c.internalMemo)),
     });
     setBusyId(null);
     reload();
@@ -233,7 +247,9 @@ export function AdminCommunityPromotionsPage() {
                           disabled={!canAct || busyId === o.id}
                           title={canAct ? undefined : (action.reason ?? undefined)}
                           onClick={() => {
-                            if (canAct) setSheet({ kind: "pause", order: o });
+                            if (!canAct) return;
+                            setPauseMemo("");
+                            setSheet({ kind: "pause", order: o });
                           }}
                         >
                           노출 중지
@@ -264,6 +280,15 @@ export function AdminCommunityPromotionsPage() {
                   ) : (
                     <span className="text-sam-muted">—</span>
                   )}
+                  <div className="mt-1">
+                    <AdminAdDeleteAction
+                      kind="community_promotion"
+                      id={o.id}
+                      title={o.post?.title || o.targetTitle || "게시글"}
+                      size="sm"
+                      onDone={() => reload()}
+                    />
+                  </div>
                   <AdminTechDetails ko>
                     <div>order: {o.id}</div>
                     {o.endReasonCode ? <div>end_reason: {o.endReasonCode}</div> : null}
@@ -289,12 +314,18 @@ export function AdminCommunityPromotionsPage() {
               method: "PATCH",
               credentials: "include",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "pause", reason }),
+              body: JSON.stringify(
+                withInternalMemo({ action: "pause", reason }, adsWorkspaceActionSplitsReason("pause") ? pauseMemo : "")
+              ),
             })
           }
           onClose={() => setSheet(null)}
           onSettled={(k) => settle(k, "상위노출 노출을 중지했습니다.")}
-        />
+        >
+          {adsWorkspaceActionSplitsReason("pause") ? (
+            <AdsInternalMemoField value={pauseMemo} onChange={setPauseMemo} />
+          ) : null}
+        </CommunityActionSheet>
       ) : null}
 
       {sheet?.kind === "end" ? (
@@ -321,7 +352,7 @@ function orderRows(o: Order) {
   ];
 }
 
-/** 홍보 종료 L3 — 귀책을 고르면 서버 미리보기로 환급 예정 포인트를 먼저 보여 준다. */
+/** 상위노출 종료 L3 — 귀책을 고르면 서버 미리보기로 환급 예정 포인트를 먼저 보여 준다 (대상 재입력 없음). */
 function EndPromotionSheet({
   order,
   canWrite,
@@ -336,6 +367,7 @@ function EndPromotionSheet({
   const [fault, setFault] = useState<"operator" | "member" | null>(null);
   const [preview, setPreview] = useState<{ fault: string; data: Preview } | { fault: string; error: string } | null>(null);
   const lastRefund = useRef(0);
+  const [memo, setMemo] = useState("");
   const url = `/api/admin/community-promotion-orders/${encodeURIComponent(order.id)}`;
 
   useEffect(() => {
@@ -376,8 +408,6 @@ function EndPromotionSheet({
   }, [fault, url]);
 
   const ready = Boolean(fault && preview && preview.fault === fault && "data" in preview);
-  const title = order.post?.title || order.targetTitle || "";
-  const retype = title && title.length <= 40 ? title : "상위노출 종료";
 
   return (
     <CommunityActionSheet
@@ -390,7 +420,6 @@ function EndPromotionSheet({
       ]}
       notice="종료하면 다시 노출할 수 없습니다. 회원에게 종료 사유와 환급 포인트가 알림으로 전달됩니다."
       reason={{ minLength: 2, placeholder: "종료 사유 (회원에게 전달됩니다)" }}
-      retypeValue={retype}
       ready={ready && canWrite}
       destructive
       confirmLabel="상위노출 종료"
@@ -401,7 +430,9 @@ function EndPromotionSheet({
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "end", fault, reason }),
+            body: JSON.stringify(
+              withInternalMemo({ action: "end", fault, reason }, adsWorkspaceActionSplitsReason("end") ? memo : "")
+            ),
           });
           const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; refundPoints?: number };
           if (res.ok && j.ok !== false) {
@@ -445,6 +476,7 @@ function EndPromotionSheet({
       {preview && "error" in preview ? (
         <AdminResultBanner ko result={{ ok: false, code: preview.error }} />
       ) : null}
+      {adsWorkspaceActionSplitsReason("end") ? <AdsInternalMemoField value={memo} onChange={setMemo} /> : null}
     </CommunityActionSheet>
   );
 }

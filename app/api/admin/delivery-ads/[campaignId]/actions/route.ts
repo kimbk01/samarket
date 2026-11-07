@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
+  ADMIN_REASON_REQUIRED_CODE,
+  parseAdminInternalReason,
+  parseAdminReason,
+} from "@/lib/admin/operator-ux/admin-reason";
+import { persistAdvertisingAdminMemo } from "@/lib/ads/advertising-admin-memo";
+import { advertisingWorkspaceMemoTargetType } from "@/lib/admin/advertising-workspace/workspace-memo-gate";
+import { getAuditRequestMeta } from "@/lib/audit/request-meta";
+import {
+  DELIVERY_AD_USE_END_WITH_FAULT_CODE,
   isAdminDeliveryAdAction,
   isAdminDeliveryAdProduct,
+  isDeliveryAdInProgressLifecycle,
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import {
@@ -100,10 +109,45 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (body.action === "approve" && !parseAdminReason(reason)) {
     return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
   }
-  const ownerVisibleNotes =
+  /**
+   * D-10 (2026-11-07) — 공개 사유(`reason`)만 사장님에게 보인다(`ownerVisibleNotes` → 사장님 응답 reviewNotes).
+   * 내부 메모(`internalReason`)는 사장님 칸에 넣지 않고 같은 조치의 운영자 메모(감사)로만 남긴다.
+   */
+  const ownerVisibleNotesRaw =
     body.ownerVisibleNotes == null ? null : String(body.ownerVisibleNotes);
+  const internalReason = parseAdminInternalReason(body.internalReason);
+  const ownerVisibleNotes =
+    internalReason && ownerVisibleNotesRaw != null && ownerVisibleNotesRaw.trim() === internalReason
+      ? reason
+      : ownerVisibleNotesRaw;
+  const productKind = body.productKind;
+  const action = body.action;
+  const persistInternalReason = async () => {
+    if (!internalReason) return;
+    const meta = getAuditRequestMeta(req);
+    await persistAdvertisingAdminMemo(sb, {
+      adminId: admin.userId,
+      adId: campaignId,
+      targetType: advertisingWorkspaceMemoTargetType(
+        productKind === "banner" ? "delivery_banner" : "delivery_sponsored"
+      ),
+      kind: "internal",
+      memo: `[${action}] ${internalReason}`,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+  };
+
+  // D-03 — 진행 중(노출·예약·정지) 강제 종료는 환급 없이 끝나므로 거부한다 → 귀책·환급 「종료」를 쓴다.
+  if (body.action === "terminate" && isDeliveryAdInProgressLifecycle(expectedLifecycle)) {
+    return NextResponse.json({ ok: false, error: DELIVERY_AD_USE_END_WITH_FAULT_CODE }, { status: 422 });
+  }
 
   if (body.action === "delete_safe_draft") {
+    // AD2-10 — 삭제도 사유 필수 (예전: 사유 없이 통과).
+    if (!parseAdminReason(reason)) {
+      return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+    }
     // AL-01 — 공통 광고 화면과 같은 삭제 함수. 이력(노출·결제·문의·막는 감사)은 서버가 센다.
     const del = await adminDeleteDeliveryAdDraftGuarded(sb, {
       adminUserId: admin.userId,
@@ -165,6 +209,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       if (!ended.ok) {
         return NextResponse.json({ ok: false, error: ended.error }, { status: ended.httpStatus });
       }
+      if (!ended.preview) await persistInternalReason();
       return NextResponse.json({
         ok: true,
         result: {
@@ -207,6 +252,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
             ? 404
             : result.error === "reason_required" ||
                 result.error === "illegal_transition" ||
+                result.error === DELIVERY_AD_USE_END_WITH_FAULT_CODE ||
                 result.error === "funding_required" ||
                 result.error === "period_expired" ||
                 result.error === "period_ended"
@@ -225,5 +271,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     );
   }
 
+  await persistInternalReason();
   return NextResponse.json({ ok: true, result });
 }

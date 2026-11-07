@@ -8,6 +8,7 @@
  */
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
+import { CommunityPromotionFaultPicker } from "@/components/admin/community/kit/CommunityPromotionFaultPicker";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -397,7 +398,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       ),
     },
     {
-      label: "홍보",
+      label: "상위노출",
       value:
         promotions.length > 0 ? (
           <span className="flex flex-col gap-0.5">
@@ -410,14 +411,14 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
               </span>
             ))}
             <Link href="/admin/community/promotions" className="text-sam-info hover:underline">
-              홍보 화면에서 보기
+              상위노출 화면에서 보기
             </Link>
           </span>
         ) : (
           <span>
-            노출 중인 홍보 없음 ·{" "}
+            노출 중인 상위노출 없음 ·{" "}
             <Link href="/admin/community/promotions" className="text-sam-info hover:underline">
-              홍보 화면
+              상위노출 화면
             </Link>
           </span>
         ),
@@ -431,20 +432,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   ];
 
   const faultPicker = showFault ? (
-    <fieldset className="space-y-1 rounded-ui-rect border border-sam-border p-2 text-[13px]">
-      <legend className="px-1 font-semibold text-sam-fg">상위노출 중입니다 · 귀책 선택 (필수)</legend>
-      <p className="text-[12px] text-sam-muted">
-        이 글에 진행 중인 상위노출이 있습니다. 숨기거나 삭제하기 전에 상위노출을 먼저 종료합니다. 종료에 실패하면 글은 바뀌지 않습니다.
-      </p>
-      <label className="flex items-center gap-2">
-        <input type="radio" name="promotion-fault" checked={fault === "operator"} onChange={() => setFault("operator")} />
-        운영 사유 (남은 기간 환급)
-      </label>
-      <label className="flex items-center gap-2">
-        <input type="radio" name="promotion-fault" checked={fault === "member"} onChange={() => setFault("member")} />
-        회원 사유 (환급 없음)
-      </label>
-    </fieldset>
+    <CommunityPromotionFaultPicker value={fault} onChange={setFault} />
   ) : null;
 
   const actionButtons = (

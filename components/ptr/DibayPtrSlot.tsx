@@ -20,6 +20,8 @@ export type DibayPtrSlotStore = {
   subscribe: (listener: () => void) => () => void;
   getSnapshot: () => DibayPtrSnapshot;
   getServerSnapshot: () => DibayPtrSnapshot;
+  /** D-05: 띠 광고 노출 시작/끝 신호 — 광고가 보인 회차만 결과 표시 3초 */
+  noteRevealAdVisible?: (visible: boolean) => void;
 };
 
 const TONE_TEXT_CLASS: Record<DibayPtrTone, string> = {
@@ -94,7 +96,7 @@ export function DibayPtrSlot({
     return () => ro.disconnect();
   }, []);
   // 띠 광고(ptr_reveal) — 사전 디코드된 광고가 있을 때만. 메신저 등 비광고 표면은 조회 자체를 안 함.
-  const reveal = useDibayPtrRevealAd(snap, frameWidthPx, adPreview);
+  const reveal = useDibayPtrRevealAd(snap, frameWidthPx, adPreview, store.noteRevealAdVisible);
   const adActive = reveal.active && visible;
   const effectiveTone: DibayPtrTone = adActive ? "onBrand" : tone;
   const textClass = adActive ? "text-white" : TONE_TEXT_CLASS[tone];

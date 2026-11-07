@@ -178,7 +178,8 @@ describe("마이 배너 MB-C04 · MB-A03 · DS-7", () => {
       { id: "5", link_url: "https://example.com/qa" },
     ];
     const out = await filterMyPageBannersWithLiveDestination(sb as never, rows, Date.parse("2026-11-04T00:00:00Z"));
-    expect(out.map((r) => r.id)).toEqual(["3", "4", "5"]);
+    // D-16 (2026-11-07): 외부 링크 배너는 고객 응답에서 뺀다
+    expect(out.map((r) => r.id)).toEqual(["3", "4"]);
   });
 });
 

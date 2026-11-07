@@ -71,6 +71,23 @@ import { adminIsoToManilaInput, adminManilaInputToIso } from "@/lib/admin/operat
 import { isDeliveryAdLiveEndLifecycle } from "@/lib/stores/advertising/admin-delivery-ad-end";
 import { formatAdminDeliveryAdPriceOrUnset } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { AdminAdsOtherSurfacesCards } from "@/components/admin/ads/AdminAdsOtherSurfacesCards";
+import {
+  AdminAdsLedgerDrawerPanel,
+  AdminAdsLedgerShortcuts,
+  adsLedgerRowTexts,
+} from "@/components/admin/ads/AdminAdsLedgerParts";
+import {
+  ADS_LEDGER_DOMAINS,
+  adsLedgerAdvertiserLabel,
+  adsLedgerDomainLabel,
+  adsLedgerKindLabel,
+  isAdsLedgerKind,
+} from "@/lib/admin/ads-ledger/ad-ledger-presentation";
+import {
+  adLocationFilterValue,
+  adLocationLabel,
+  parseAdLocationFilterValue,
+} from "@/lib/admin/ads-ledger/ad-location-label";
 
 /**
  * PHASE 2 — header CTA by page responsibility.
@@ -134,6 +151,10 @@ function statusTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShell
       { id: "incomplete", ko: "비노출", en: "Not exposing" },
       { id: "ended", ko: "종료", en: "Ended" },
     ];
+  }
+  if (mode === "history") {
+    // 설계 §5 「이력(삭제됨 포함)」 — 원장 함수가 삭제 표시 행을 `deleted` 탭으로 준다
+    return [...STATUS_TABS_ALL, { id: "deleted" as string as AdsShellStatusTab, ko: "삭제됨", en: "Deleted" }];
   }
   return STATUS_TABS_ALL;
 }
@@ -282,7 +303,22 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   }, [pathname, router, searchParams]);
   /** Owner 결정 O-6② — `?domain=` (도메인 메뉴 바로가기) = 서버에서 그 도메인 행만 거른다 */
   const domainRaw = (searchParams.get("domain") ?? "").trim();
-  const domainFilter = domainRaw === "trade" || domainRaw === "community" || domainRaw === "delivery" ? domainRaw : "";
+  const domainFilter = (ADS_LEDGER_DOMAINS as readonly string[]).includes(domainRaw) ? domainRaw : "";
+  /** 원장 거름 (설계 §1·§5) — `?kind=` 종류 · `?location=` 위치 지도 칸 · `?advertiser=` 문의·충전 상세의 「이 광고주의 광고」 */
+  const kindFilterRaw = (searchParams.get("kind") ?? "").trim();
+  const kindFilter = isAdsLedgerKind(kindFilterRaw) ? kindFilterRaw : "";
+  const locationFilter = parseAdLocationFilterValue(searchParams.get("location"));
+  const locationFilterValue = locationFilter ? adLocationFilterValue(locationFilter.key, locationFilter.target) : "";
+  const advertiserFilter = (searchParams.get("advertiser") ?? "").trim();
+  const clearLedgerFilter = useCallback(
+    (key: "kind" | "location" | "advertiser") => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete(key);
+      const q = next.toString();
+      router.replace(q ? `${pathname}?${q}` : pathname);
+    },
+    [pathname, router, searchParams]
+  );
   const clearDomainFilter = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("domain");
@@ -300,7 +336,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
    * 요약 카드(승인 대기 등)는 화면 탭 목록 밖 상태도 열 수 있으므로 허용 상태 = 전체 상태 탭.
    */
   const lq = useAdminListQuery<"family">({
-    statuses: STATUS_TABS_ALL.map((t) => t.id),
+    statuses: [...STATUS_TABS_ALL.map((t) => t.id), "deleted" as string as AdsShellStatusTab],
     defaults: { status: defaultStatusTabForMode(mode) },
     extras: ["family"],
     extraDefaults: { family: "all" },
@@ -349,6 +385,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         status: statusTab,
         family,
         domain: domainFilter || undefined,
+        kind: kindFilter || undefined,
+        location: locationFilterValue || undefined,
+        advertiser: advertiserFilter || undefined,
+        includeDeleted: mode === "history" && String(statusTab) === "deleted" ? true : undefined,
         limit: listSize,
         offset: (listPage - 1) * listSize,
       },
@@ -360,11 +400,29 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       return;
     }
     setModel(result.plane);
-  }, [boostOrderIdRaw, storeFilter, domainFilter, mode, statusTab, family, listPage, listSize]);
+  }, [
+    boostOrderIdRaw,
+    storeFilter,
+    domainFilter,
+    kindFilter,
+    locationFilterValue,
+    advertiserFilter,
+    mode,
+    statusTab,
+    family,
+    listPage,
+    listSize,
+  ]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** 광고주 거름 칩 — 거른 행의 광고주 이름 (원장 칸) */
+  const advertiserFilterLedger = useMemo(() => {
+    if (!advertiserFilter || !model) return null;
+    return model.applications.find((i) => i.ledger?.advertiserId === advertiserFilter)?.ledger ?? null;
+  }, [advertiserFilter, model]);
 
   const storeFilterLabel = useMemo(() => {
     if (!storeFilter || !model) return storeFilter;
@@ -695,12 +753,6 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   /** 귀책 「해당 없음」은 피드·배달만 (상위노출 DB 함수는 운영/회원 두 가지) */
   const endAllowsNoFault = boostEndFamily === "feed_banner" || endIsDelivery;
   const communityEndEntityId = communityEndPending ? parseWorkspaceEntityId(communityEndPending.item.id) : null;
-  /** 종료 = forceCancel(L3) — 폼 대화상자에서도 대상 재입력을 받는다. */
-  const communityEndRetype = communityEndPending
-    ? communityEndPending.item.creativeHint?.trim() ||
-      communityEndPending.item.applicantLabel?.trim() ||
-      parseWorkspaceEntityId(communityEndPending.item.id)
-    : undefined;
 
   useEffect(() => {
     setEndFault(null);
@@ -824,8 +876,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       }
       // 확인 단계는 동작 표(copy.level = adminActionLevel)로 정하고, L2·L3 사유는 API 본문 reason 으로 보낸다.
       void (async () => {
-        const retypeValue =
-          rowItem.creativeHint?.trim() || rowItem.applicantLabel?.trim() || parseWorkspaceEntityId(rowItem.id);
+        // 설계 §3-1: 광고 조치에 대상 재입력(retype) 없음 — 사유만 (L3 = 사유 · R2 중앙 정의)
         const confirmed = await confirmAdminAction({
           level: copy.level,
           ko,
@@ -834,7 +885,6 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           confirmLabel: copy.confirmLabel,
           destructive: copy.tone === "danger",
           reasonPlaceholder: copy.reasonLabel,
-          retypeValue,
           splitReason: copy.splitReason,
         });
         if (!confirmed.ok) return;
@@ -936,7 +986,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           <AdminPageHeader titleKey={modeTitleKey(mode)} description={modeDescription(mode, ko)} />
           <p className="text-[12px] text-sam-muted" data-admin-ads-promotion-deeplink-note="1">
             {/* D-19 (Owner 권장안 승인 2026-11-04): 목록에 없는 인트로·PTR·마이 배너·이벤트는 아래 카드에서 바로 이동 */}
-            {mode === "all"
+            {model?.page?.ledger
+              ? t("ads_ledger_note_rows")
+              : mode === "all"
               ? ko
                 ? "인트로·당겨서 새로고침 광고·마이 배너·이벤트는 아래 카드에서 바로 이동해 관리합니다."
                 : "Manage intro, pull-to-refresh ads, My page banners and events from the cards below."
@@ -977,13 +1029,62 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             >
               <span className="truncate">
                 {ko
-                  ? `${domainFilter === "trade" ? "거래" : domainFilter === "community" ? "커뮤니티" : "배달"}만 보는 중`
-                  : `Showing ${domainFilter} only`}
+                  ? `${adsLedgerDomainLabel(domainFilter, true)}만 보는 중`
+                  : `Showing ${adsLedgerDomainLabel(domainFilter, false)} only`}
               </span>
               <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={clearDomainFilter}>
                 {ko ? "전체 보기" : "Show all"}
               </AdminActionButton>
             </span>
+          ) : null}
+          {kindFilter || locationFilter || advertiserFilter ? (
+            <div className="flex flex-wrap gap-2" data-admin-ads-ledger-filters="1">
+              {kindFilter ? (
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-3 py-1 text-[12px] text-sam-fg"
+                  data-admin-ads-kind-filter-chip={kindFilter}
+                >
+                  {t("ads_ledger_filter_kind", { label: adsLedgerKindLabel(kindFilter, ko) })}
+                  <AdminActionButton variant="quiet" size="sm" onClick={() => clearLedgerFilter("kind")}>
+                    {t("ads_ledger_filter_clear")}
+                  </AdminActionButton>
+                </span>
+              ) : null}
+              {locationFilter ? (
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-3 py-1 text-[12px] text-sam-fg"
+                  data-admin-ads-location-filter-chip={locationFilterValue}
+                >
+                  {t("ads_ledger_filter_location", {
+                    label: adLocationLabel(
+                      {
+                        locationKey: locationFilter.key,
+                        locationTarget: locationFilter.target,
+                        locationTargetName: model?.locationCounts?.find(
+                          (c) => c.locationKey === locationFilter.key && (c.locationTarget ?? null) === locationFilter.target
+                        )?.locationTargetName,
+                      },
+                      ko
+                    ),
+                  })}
+                  <AdminActionButton variant="quiet" size="sm" onClick={() => clearLedgerFilter("location")}>
+                    {t("ads_ledger_filter_clear")}
+                  </AdminActionButton>
+                </span>
+              ) : null}
+              {advertiserFilter ? (
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-3 py-1 text-[12px] text-sam-fg"
+                  data-admin-ads-advertiser-filter-chip="1"
+                >
+                  {t("ads_ledger_filter_advertiser")}
+                  {advertiserFilterLedger ? `: ${adsLedgerAdvertiserLabel(advertiserFilterLedger, ko)}` : ""}
+                  <AdminActionButton variant="quiet" size="sm" onClick={() => clearLedgerFilter("advertiser")}>
+                    {t("ads_ledger_filter_clear")}
+                  </AdminActionButton>
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {headerCtas.showRegister || headerCtas.showPlacementsLink ? (
@@ -1267,6 +1368,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                         )
                       : [];
                   const open = manageOpenId === r.id;
+                  /** 원장 칸 (§1-3) — 있으면 종류·위치·광고주·결제·상태·성과를 원장 값으로 */
+                  const lx = item?.ledger ? adsLedgerRowTexts(item.ledger, ko) : null;
                   const primary =
                     opsControlMode
                       ? resolveOperationsPrimaryCta(r, {
@@ -1315,33 +1418,58 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               {ko ? "대상" : "Tgt"}
                             </span>
                           )}
-                          <span className="font-medium text-sam-fg">{r.kindLabel}</span>
+                          <span className="font-medium text-sam-fg" data-admin-ads-ledger-kind={item?.ledger?.kind}>
+                            {lx ? lx.kindLabel : r.kindLabel}
+                          </span>
                         </div>
                       </td>
                       <td className="px-2 py-2 max-w-[180px]">
                         <div className="truncate font-medium">{r.title}</div>
                         {opsControlMode ? (
                           <div className="mt-0.5 truncate text-[12px] text-sam-muted">
-                            {r.targetLabel !== r.title ? r.targetLabel : r.applicantLabel}
+                            {lx ? lx.advertiser : r.targetLabel !== r.title ? r.targetLabel : r.applicantLabel}
+                          </div>
+                        ) : null}
+                        {opsControlMode && lx ? (
+                          <div className="mt-0.5 truncate text-[12px] text-sam-muted" data-admin-ads-ledger-payment={r.id}>
+                            {lx.payment}
                           </div>
                         ) : null}
                       </td>
                       {opsControlMode ? null : (
                         <>
-                          <td className="px-2 py-2">
-                            {r.sourceKind === "admin_direct"
-                              ? ko
-                                ? "운영자 등록"
-                                : "Operator registered"
-                              : r.applicantLabel}
+                          <td className="px-2 py-2" data-admin-ads-ledger-advertiser={lx ? r.id : undefined}>
+                            {lx
+                              ? lx.advertiser
+                              : r.sourceKind === "admin_direct"
+                                ? ko
+                                  ? "운영자 등록"
+                                  : "Operator registered"
+                                : r.applicantLabel}
                           </td>
-                          <td className="px-2 py-2">{r.memberOrStore}</td>
+                          <td className="px-2 py-2">
+                            {lx && item?.ledger?.advertiserId && item.memberHref ? (
+                              <Link href={item.memberHref} className="underline">
+                                {lx.advertiser}
+                              </Link>
+                            ) : lx ? (
+                              "—"
+                            ) : (
+                              r.memberOrStore
+                            )}
+                          </td>
                         </>
                       )}
-                      <td className="px-2 py-2 max-w-[220px] text-[12px]">{r.placementLabel}</td>
+                      <td className="px-2 py-2 max-w-[220px] text-[12px]" data-admin-ads-ledger-location={lx ? r.id : undefined}>
+                        {lx ? lx.location : r.placementLabel}
+                      </td>
                       <td className="px-2 py-2 whitespace-nowrap text-[12px]">
                         <div>{r.periodLabel}</div>
-                        {r.performanceLabel ? (
+                        {lx ? (
+                          <div className="text-[12px] tabular-nums text-sam-muted" data-admin-ads-ledger-performance={r.id}>
+                            {lx.performance}
+                          </div>
+                        ) : r.performanceLabel ? (
                           <div className="text-[12px] tabular-nums text-sam-muted" data-feed-ad-counts={r.id}>
                             {r.performanceLabel}
                           </div>
@@ -1354,10 +1482,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                         <td className="px-2 py-2 whitespace-nowrap text-[12px]">{r.remainingLabel}</td>
                       )}
                       {opsControlMode ? null : (
-                        <td className="px-2 py-2">{r.paymentLabel}</td>
+                        <td className="px-2 py-2" data-admin-ads-ledger-payment={lx ? r.id : undefined}>
+                          {lx ? lx.payment : r.paymentLabel}
+                        </td>
                       )}
-                      <td className="px-2 py-2">
-                        {mode === "applications" ? r.applicationStatusLabel : r.campaignStatusLabel}
+                      <td className="px-2 py-2" data-admin-ads-ledger-status={lx ? r.id : undefined}>
+                        {lx ? lx.statusLabel : mode === "applications" ? r.applicationStatusLabel : r.campaignStatusLabel}
                       </td>
                       <td className="px-2 py-2">
                         <div>{r.runtimeExposureStatusLabel}</div>
@@ -1380,6 +1510,20 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                         ) : null}
                       </td>
                       <td className="relative px-2 py-2">
+                        {item?.ledger && mode !== "applications" ? (
+                          /* 바로 가기 (§2) · 관리 패널(바로 수정·삭제) */
+                          <div className="mb-1 flex flex-col items-start gap-1" data-admin-ads-ledger-row-tools={r.id}>
+                            <AdminActionButton
+                              variant="quiet"
+                              size="sm"
+                              data-admin-ads-ledger-open-panel="1"
+                              onClick={() => setSelected(item)}
+                            >
+                              {t("ads_ledger_open_panel")}
+                            </AdminActionButton>
+                            <AdminAdsLedgerShortcuts item={item} compact />
+                          </div>
+                        ) : null}
                         {mode === "applications" ? (
                           <div className="flex flex-col items-start gap-1">
                             <AdminActionLink
@@ -1630,7 +1774,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           />
         ) : null}
 
-        {opsControlMode && selected && selectedShell ? (
+        {(opsControlMode || mode === "all" || mode === "history") && selected && selectedShell ? (
         <aside
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
           data-shell-detail-panel="1"
@@ -1654,12 +1798,17 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 </p>
               </div>
 
-              <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
-                <h3 className="text-[12px] font-semibold text-sam-fg">
-                  {ko ? "실제 노출 위치" : "Actual exposure location"}
-                </h3>
-                <p className="mt-1 text-[13px] text-sam-fg">{selectedShell.placementLabel}</p>
-              </section>
+              {selected.ledger ? (
+                /* 원장 칸 · 바로 가기 · 바로 수정 · 삭제 (설계 §1-3 · §2 · §3-2 · §3-3) */
+                <AdminAdsLedgerDrawerPanel key={selected.id} item={selected} onChanged={() => void load()} />
+              ) : (
+                <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
+                  <h3 className="text-[12px] font-semibold text-sam-fg">
+                    {ko ? "실제 노출 위치" : "Actual exposure location"}
+                  </h3>
+                  <p className="mt-1 text-[13px] text-sam-fg">{selectedShell.placementLabel}</p>
+                </section>
+              )}
 
               <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
                 <h3 className="text-[12px] font-semibold text-sam-fg">
@@ -1887,7 +2036,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         </Link>
       </p>
 
-      {/* 폼 시트(표준 AdminFormSheet) — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 실행 확인(사유·대상 재입력)은 confirmAdminAction. */}
+      {/* 폼 시트(표준 AdminFormSheet) — 커뮤니티 홍보 종료(귀책 선택·환급 미리보기 입력). 실행 확인(사유만 · 대상 재입력 없음 §3-1)은 confirmAdminAction. */}
       {communityEndPending ? (
         <AdminFormSheet
           title={pendingMutation?.copy.title ?? ""}
@@ -1921,7 +2070,6 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   }
                   const { action, item, copy } = pendingMutation;
                   const fault = communityEndPending ? endFault : null;
-                  const retypeValue = communityEndRetype;
                   // 폼을 닫은 뒤 실행 확인 — 단계는 동작 표(copy.level = forceCancel L3), 사유는 API 본문 reason.
                   setPendingMutation(null);
                   void (async () => {
@@ -1933,7 +2081,6 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                       confirmLabel: copy.confirmLabel,
                       destructive: copy.tone === "danger",
                       reasonPlaceholder: copy.reasonLabel,
-                      retypeValue: retypeValue || undefined,
                       splitReason: copy.splitReason,
                     });
                     if (!confirmed.ok) return;

@@ -199,12 +199,7 @@ export function AdminPlatformPopupListPage() {
       description: msg,
       confirmLabel: adminCta("delete", ko),
       destructive: true,
-      retypeValue:
-        ids.length === 1
-          ? titles[0] || ids[0]
-          : ko
-            ? `${ids.length}개 삭제`
-            : `delete ${ids.length}`,
+      // 재입력 제거(Owner 2026-11-07): 삭제·일괄 삭제 = 사유만
     });
     if (!confirmed.ok) return;
     setDeleting(true);

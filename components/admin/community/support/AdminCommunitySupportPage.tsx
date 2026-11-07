@@ -53,7 +53,7 @@ const REFERENCE_LABEL: Record<string, string> = {
   COMMUNITY_REPORT: "신고",
   COMMUNITY_SANCTION: "활동 제한",
   POINT_CHARGE_REQUEST: "충전 신청",
-  POINT_PROMOTION_ORDER: "게시글 홍보",
+  POINT_PROMOTION_ORDER: "게시글 상위노출",
   TRADE_POST: "거래글",
   TRADE_CHAT_ROOM: "거래 채팅",
   TRADE_SANCTION: "거래 활동 제한",
@@ -121,8 +121,8 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
         appeal
           ? "회원이 숨김·삭제·활동 제한에 이의를 제기한 문의입니다. 답변·처리는 상담 화면에서 합니다."
           : trade
-            ? "거래글·거래 채팅·거래 제한·거래 홍보 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
-            : "포인트·충전·홍보·게시물·신고·제재 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
+            ? "거래글·거래 채팅·거래 제한·거래 상위노출 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
+            : "포인트·충전·상위노출·게시물·신고·제재 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
       }
       tabs={
         <div className="space-y-2">

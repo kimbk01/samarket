@@ -154,7 +154,7 @@ export async function recordDeliveryAdClickFromToken(
   if (!verified.ok) return { ok: false, error: verified.error };
   const p = verified.payload;
   if (p.preview) return { ok: false, error: "preview_forbidden" };
-  if (!p.storeId) return { ok: false, error: "invalid_payload" };
+  // D-20 ① (2026-11-07): 매장 없는 배너 클릭도 기록한다 (delivery_ad_click_events.store_id NULL 허용 · 목적지 검사는 그대로).
 
   if (
     input.claimedDestinationType &&
@@ -177,7 +177,7 @@ export async function recordDeliveryAdClickFromToken(
     p_product_kind: p.productKind,
     p_creative_id: p.creativeId,
     p_inventory_id: p.inventoryId,
-    p_store_id: p.storeId,
+    p_store_id: p.storeId || null,
     p_surface: p.surface,
     p_placement_index: p.placementIndex,
     p_viewer_session_hash: input.viewerSessionHash,

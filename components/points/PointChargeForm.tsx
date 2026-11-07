@@ -16,6 +16,10 @@ import { recommendChargePlanId } from "@/lib/points/ad-shortage";
 import { useAppleIapTopUp } from "@/lib/apple-iap/use-apple-iap-top-up";
 import { appleIapPhaseBlocksNewPurchase } from "@/lib/apple-iap/apple-iap-contract";
 import { AppleIapStatusNotice } from "@/components/apple-iap/AppleIapStatusNotice";
+import Link from "next/link";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { usePointChargeMode } from "@/components/points/use-point-charge-mode";
+import { POINT_CHARGE_APP_UPDATE_HREF, isIosPointChargeBlockedResponse } from "@/lib/points/ios-point-charge-gate";
 
 interface PointChargeFormProps {
   plans: PointPlan[];
@@ -41,6 +45,13 @@ export function PointChargeForm({
   const { t, language } = useI18n();
   /** iOS 앱에 Apple 결제 모듈이 있으면 Apple 결제만 (계좌 안내 숨김 · Apple 3.1.1/3.1.3). Android·웹·구 바이너리는 기존 그대로. */
   const apple = useAppleIapTopUp({ kind: "point" });
+  /**
+   * D-07: iOS 앱인데 StoreKit 이 없는 구 빌드(22 이하)는 서버가 계좌 충전을 403 으로 막는다 — 같은 신호로 판정해
+   * 계좌 폼 대신 「앱 업데이트」 안내. 서버 403 `ios_digital_purchase_unavailable` 응답도 같은 안내로 바꾼다.
+   */
+  const chargeMode = usePointChargeMode();
+  const [iosBlockedByServer, setIosBlockedByServer] = useState(false);
+  const iosUpdateRequired = !apple.available && (chargeMode === "ios_update_required" || iosBlockedByServer);
   const appleProductByPlanId = new Map(
     apple.products.filter((p) => p.pointPlanId).map((p) => [p.pointPlanId as string, p])
   );
@@ -111,6 +122,11 @@ export function PointChargeForm({
           body: JSON.stringify({ planId: selectedPlanId, paymentMethod, depositorName, userMemo, idempotencyKey: requestKey }),
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (isIosPointChargeBlockedResponse(res.status, j.error)) {
+          setErr("");
+          setIosBlockedByServer(true);
+          return;
+        }
         if (!res.ok || !j.ok) {
           // 서버 오류 코드는 노출하지 않는다 — 공통 실패 문구 + 실패 토스트
           setErr(t("points_ui_request_failed"));
@@ -125,7 +141,31 @@ export function PointChargeForm({
       }
     });
 
-  const body = (
+  const iosUpdateNotice = (
+    <div
+      className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-4 pt-2` : undefined}
+      data-testid="point-charge-ios-update-required"
+    >
+      <p
+        className={
+          overlay
+            ? `rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-6 text-center ${ovB1} ${ovFg}`
+            : "rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-fg"
+        }
+      >
+        {t("points_charge_ios_update_required")}
+      </p>
+      <Link
+        href={POINT_CHARGE_APP_UPDATE_HREF}
+        className={`${Sam.btn.primaryCombo} ${Sam.focusRing} mt-3 flex min-h-12 w-full items-center justify-center`}
+        data-testid="point-charge-ios-update-cta"
+      >
+        {t("points_charge_ios_update_cta")}
+      </Link>
+    </div>
+  );
+
+  const body = iosUpdateRequired ? iosUpdateNotice : (
     <div className={layout === "page" ? `${CUSTOMER_CENTER_FORM_COLUMN_CLASS} pb-4 pt-2` : undefined}>
       {apple.available && plans.length === 0 ? (
         <AppleIapStatusNotice
@@ -365,7 +405,7 @@ export function PointChargeForm({
     return (
       <>
         {body}
-        {plans.length > 0 ? (
+        {plans.length > 0 && !iosUpdateRequired ? (
           <MyStickyCta
             dirty={Boolean(selectedPlanId)}
             primary={

@@ -7,7 +7,7 @@
  *   (orphan request rows must not look like feed-eligible "광고중").
  * - Natural window expiry is RESOLVER-ONLY (no cron required for feed).
  * - Writers that end a campaign MUST also mark the linked request ended
- *   (`endFeedAdCampaign` / sync helper) so admin filters stay honest.
+ *   (`admin_feed_ad_end` DB 함수 / sync helper) so admin filters stay honest.
  */
 
 import { isFeedAdCampaignEligibleNow } from "@/lib/ads/feed-ad-placement";

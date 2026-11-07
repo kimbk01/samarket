@@ -76,7 +76,19 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                 {t(REPORT_TARGET_TYPE_LABEL_KEYS[r.targetType] ?? "admin_report_target_user")}
               </td>
               <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-fg">
-                {r.targetTitle ?? r.targetId}
+                {r.targetType === "feed_ad" && r.targetId ? (
+                  /* D-17: 광고 신고 대상 → 피드 광고 상세 */
+                  <Link
+                    href={`/admin/feed-ads/${encodeURIComponent(r.targetId)}`}
+                    className="text-signature hover:underline"
+                    prefetch={false}
+                    data-admin-report-feed-ad-link=""
+                  >
+                    {r.targetTitle ?? t("admin_report_target_feed_ad")}
+                  </Link>
+                ) : (
+                  r.targetTitle ?? r.targetId
+                )}
               </td>
               <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-muted">
                 {r.productTitle ?? "-"}

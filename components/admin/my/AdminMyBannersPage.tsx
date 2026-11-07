@@ -9,10 +9,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminBannerStatusBadge } from "@/components/admin/banners/AdminBannerStatusBadge";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
-import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
-import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { isAdminBannerHardDeletable } from "@/lib/admin-banners/admin-banner-remove-policy";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { adminBannerDisplayStatus, type AdminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 import type { AdminBanner } from "@/lib/types/admin-banner";
 
@@ -65,7 +63,6 @@ export function AdminMyBannersPage() {
     setReloadKey((k) => k + 1);
   };
 
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const ko = language !== "en";
   /** 상태 필터 — API(GET /api/admin/banners)는 조건 없이 전체를 주므로 화면에서 거른다. */
   const [statusFilter, setStatusFilter] = useState<"" | AdminBannerDisplayStatus>("");
@@ -74,45 +71,6 @@ export function AdminMyBannersPage() {
     () => (statusFilter ? items.filter((b) => adminBannerDisplayStatus(b) === statusFilter) : items),
     [items, statusFilter]
   );
-  /** 삭제 (감사 AD-01 · Owner J-4): 게시한 적 없는 초안만 실제 삭제, 그 외는 숨김 보관 — 서버가 판정한다 (광고 S-3: 게시 이력 기준). */
-  const remove = async (b: AdminBanner) => {
-    const hard = isAdminBannerHardDeletable(b);
-    const c = await confirmAdminAction({
-      level: adminActionLevel("delete"),
-      ko,
-      destructive: true,
-      retypeValue: b.title,
-      title: ko ? `「${b.title}」 배너 삭제` : `Delete banner "${b.title}"`,
-      description: hard
-        ? ko
-          ? "게시한 적 없는 초안이라 완전히 삭제합니다."
-          : "This draft was never published, so it is deleted permanently."
-        : ko
-          ? "게시 이력이 있어 지우지 않고 숨김으로 보관합니다. 고객 화면에서는 바로 사라집니다."
-          : "It has been published before, so it is archived as hidden instead of deleted.",
-      confirmLabel: ko ? "삭제" : "Delete",
-    });
-    if (!c.ok) return;
-    setRemovingId(b.id);
-    try {
-      const res = await fetch(`/api/admin/banners/${encodeURIComponent(b.id)}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: c.reason }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || json.ok === false) {
-        setError(json.error ?? "delete_failed");
-        setHttpStatus(res.status);
-      } else {
-        reload();
-      }
-    } finally {
-      setRemovingId(null);
-    }
-  };
-
   return (
     <AdminMyBannersView
       ko={language !== "en"}
@@ -147,8 +105,7 @@ export function AdminMyBannersPage() {
           }}
         />
       }
-      onRemove={remove}
-      removingId={removingId}
+      onRemove={reload}
       writeDeniedReason={adminAction.allowed ? null : (adminAction.reason ?? "")}
     />
   );
@@ -165,7 +122,6 @@ export function AdminMyBannersView({
   onRetry,
   items,
   onRemove,
-  removingId = null,
   writeDeniedReason = null,
   filterBar = null,
   filtered = false,
@@ -181,8 +137,11 @@ export function AdminMyBannersView({
   onRetry?: () => void;
   items: AdminBanner[];
   ko?: boolean;
+  /**
+   * 삭제가 끝난 뒤 호출 (목록 새로고침). 있으면 행에 공용 삭제(`AdminAdDeleteAction` · kind my_banner · 사유만 ·
+   * 대상 재입력 없음 · 어드민 SSOT §3-1)를 둔다. 게시 이력 없는 초안 = 완전 삭제 · 그 외 = 숨김 보관은 서버가 정한다.
+   */
   onRemove?: (banner: AdminBanner) => void;
-  removingId?: string | null;
   /** null = 쓰기 가능. 문자열 = 추가·수정·삭제 비활성 (사유, 로딩 중이면 빈 문자열) */
   writeDeniedReason?: string | null;
   /** 목록 필터 바 (상태) — 헤더 아래 */
@@ -282,15 +241,19 @@ export function AdminMyBannersView({
                         {ko ? "수정" : "Edit"}
                       </AdminActionLink>
                       {onRemove ? (
-                        <AdminActionButton
-                          variant="danger"
-                          size="sm"
-                          disabled={removingId === b.id || writeDenied}
-                          title={writeDeniedReason || undefined}
-                          onClick={() => onRemove(b)}
-                        >
-                          {ko ? "삭제" : "Delete"}
-                        </AdminActionButton>
+                        writeDenied ? (
+                          <AdminActionButton variant="danger" size="sm" disabled title={writeDeniedReason || undefined}>
+                            {ko ? "삭제" : "Delete"}
+                          </AdminActionButton>
+                        ) : (
+                          <AdminAdDeleteAction
+                            kind="my_banner"
+                            id={b.id}
+                            title={b.title}
+                            size="sm"
+                            onDone={() => onRemove(b)}
+                          />
+                        )
                       ) : null}
                     </div>
                   </td>

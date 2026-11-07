@@ -55,7 +55,7 @@ describe("ARO-OPS-UX-002-B8 shared UI / geometry", () => {
   it("B8 Control Planes consume shared chrome (parity wire)", () => {
     for (const rel of [
       "components/admin/finance/AdminFinanceControlPlane.tsx",
-      "components/admin/ads/AdminAdsExposureControlPlane.tsx",
+      // 설계 ads-admin-ssot §6 (2026-11-07): 광고 관제(AdminAdsExposureControlPlane · import 0)는 삭제 — 원장 화면이 대신한다
       "components/admin/support/AdminSupportControlPlane.tsx",
     ]) {
       const src = read(rel);

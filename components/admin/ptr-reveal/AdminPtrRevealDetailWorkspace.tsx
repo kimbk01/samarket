@@ -10,6 +10,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminPtrRevealPreview } from "@/components/admin/ptr-reveal/AdminPtrRevealPreview";
@@ -220,7 +221,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     }
     const nextStatus = typeof body.nextStatus === "string" ? body.nextStatus : "";
     // 동작 표(adminActionLevel): 검토 요청 = save(L1) · 승인(예약) = approve(L2) · 승인 후 노출·다시 노출 = exposeStart(L2) ·
-    // 반려 = reject(L2) · 노출 중지 = exposeStop(L1) · 종료 = forceCancel(L3, 광고 이름 재입력). L2·L3 사유는 전이 API 로 보내 감사에 남긴다.
+    // 반려 = reject(L2) · 정지 = pause(L2 · 사유 필수 · AD2-02) · 종료 = forceCancel(L3 · 사유만 — 대상 재입력 없음, Owner 2026-11-07).
+    // L2·L3 사유는 전이 API 로 보내 감사에 남긴다.
     const kind: AdminActionKind =
       body.action === "approve"
         ? body.activate
@@ -231,7 +233,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
           : nextStatus === "rejected"
             ? "reject"
             : nextStatus === "paused"
-              ? "exposeStop"
+              ? "pause"
               : nextStatus === "ended"
                 ? "forceCancel"
                 : "save";
@@ -248,13 +250,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
             ? adminCta("exposeStart", ko)
             : kind === "reject"
               ? adminCta("reject", ko)
-              : kind === "exposeStop"
+              : kind === "pause"
                 ? adminCta("exposeStop", ko)
                 : kind === "forceCancel"
                   ? L("종료", "End")
                   : L("검토 요청", "Submit for review"),
-      destructive: kind === "reject" || kind === "exposeStop" || kind === "forceCancel",
-      retypeValue: kind === "forceCancel" ? detail?.name?.trim() || campaignId : undefined,
+      destructive: kind === "reject" || kind === "pause" || kind === "forceCancel",
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -293,45 +294,6 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       return;
     }
     router.push(`/admin/ptr-reveal-ads/${json.id}`);
-  };
-
-  /**
-   * AL-03: 팝업 상세와 같은 초안 삭제(L3 · 광고 이름 재입력 · 사유) — 같은 서버 경로(`advertising-workspace/action` ·
-   * `delete_safe_draft`). 서버가 초안·관리자 직접 등록·노출 기록 0 을 다시 확인한다(보완 §4-3).
-   */
-  const deleteDraft = async () => {
-    if (!writeGuard.guard()) return;
-    const ko = lang !== "en";
-    const confirmed = await confirmAdminAction({
-      level: adminActionLevel("delete"),
-      ko,
-      title: L("임시저장 광고 삭제", "Delete draft ad"),
-      description: L("임시저장 광고를 삭제할까요? 이 작업은 되돌릴 수 없습니다.", "Delete this draft ad? This cannot be undone."),
-      confirmLabel: adminCta("delete", ko),
-      destructive: true,
-      retypeValue: detail?.name?.trim() || campaignId,
-    });
-    if (!confirmed.ok) return;
-    setBusy(true);
-    setError(null);
-    const res = await fetch("/api/admin/advertising-workspace/action", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        family: "platform_popup_campaign",
-        entityId: campaignId,
-        action: "delete_safe_draft",
-        reason: confirmed.reason,
-      }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    setBusy(false);
-    if (!res.ok || !json.ok) {
-      setError(formatPlatformPopupAdminError(json.error || "delete_failed", lang));
-      return;
-    }
-    router.push("/admin/ptr-reveal-ads");
   };
 
   if (!detail || !form) {
@@ -613,10 +575,17 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" }, "종료할까요? 종료한 광고는 다시 켤 수 없습니다.", "End this ad? Ended ads cannot be restarted.")}>
                 {L("종료", "End")}
               </AdminActionButton>
-              {canDeleteDraft ?
-                <AdminActionButton variant="danger" size="sm" disabled={writeBlocked} onClick={() => void deleteDraft()} data-admin-ptr-delete-draft="">
-                  {L("삭제", "Delete")}
-                </AdminActionButton>
+              {canDeleteDraft && !writeBlocked ?
+                /* 재입력 제거(Owner 2026-11-07): 삭제 = 사유만 · 공용 삭제 조치(R2) */
+                <span className="contents" data-admin-ptr-delete-draft="">
+                  <AdminAdDeleteAction
+                    kind="ptr"
+                    id={campaignId}
+                    title={detail?.name?.trim() || campaignId}
+                    size="sm"
+                    onDone={() => router.push("/admin/ptr-reveal-ads")}
+                  />
+                </span>
               : null}
             </div>
             <p className="mt-2 text-xs text-sam-muted">
@@ -718,7 +687,7 @@ function PtrBandUploadSlot({
   const remove = async () => {
     if (!slotWriteGuard.guard()) return;
     if (!current) return;
-    // 이미지 삭제 = delete(L3, 이미지 이름 재입력). 사유는 DELETE 본문으로 보내 감사에 남긴다.
+    // 이미지 삭제 = delete(L3 · 사유만 — 재입력 없음, Owner 2026-11-07). 사유는 DELETE 본문으로 보내 감사에 남긴다.
     const removeOk = await confirmAdminAction({
       level: adminActionLevel("delete"),
       ko: lang !== "en",
@@ -729,7 +698,6 @@ function PtrBandUploadSlot({
       ),
       confirmLabel: L("삭제", "Delete"),
       destructive: true,
-      retypeValue: L(spec.labelKo, spec.labelEn),
     });
     if (!removeOk.ok) return;
     setBusy(true);

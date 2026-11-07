@@ -17,6 +17,10 @@ export type AdminAuthorityVerb =
   | "HOLD"
   | "CANCEL_REQUEST"
   | "DELETE_DRAFT"
+  /** 광고 삭제 (설계 §3-2 · 2026-11-07) — 상태에 따라 완전 삭제 / 삭제 표시 / 종료 + 삭제 표시 (DB `admin_ad_delete`). */
+  | "DELETE"
+  /** 삭제 취소 (A-2) — 삭제 표시만 되돌림 (DB `admin_ad_undelete`). */
+  | "UNDELETE"
   | "ARCHIVE"
   | "PAUSE"
   | "RESUME"
@@ -47,6 +51,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
 > = {
   delivery_sponsored: {
     VIEW: "Y",
+    DELETE: "Y",
+    UNDELETE: "Y",
     APPROVE: "Y",
     REJECT: "Y",
     REQUEST_REVISION: "Y",
@@ -69,6 +75,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
   },
   delivery_banner: {
     VIEW: "Y",
+    DELETE: "Y",
+    UNDELETE: "Y",
     CREATE: "Y", // admin first-party
     APPROVE: "Y",
     REJECT: "Y",
@@ -92,6 +100,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
   },
   feed_banner: {
     VIEW: "Y",
+    DELETE: "Y",
+    UNDELETE: "Y",
     CREATE: "Y",
     APPROVE: "Y",
     REJECT: "Y",
@@ -109,6 +119,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
   },
   boost_trade: {
     VIEW: "Y",
+    DELETE: "Y",
+    UNDELETE: "Y",
     // OWNER POLICY: new purchases skip approval; legacy pending rows may still approve/reject.
     APPROVE: "Y",
     REJECT: "Y",
@@ -125,6 +137,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
   },
   boost_community: {
     VIEW: "Y",
+    DELETE: "Y",
+    UNDELETE: "Y",
     APPROVE: "Y",
     REJECT: "Y",
     CANCEL_REQUEST: "Y",
@@ -139,6 +153,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
   },
   platform_popup: {
     VIEW: "Y",
+    DELETE: "Y",
+    UNDELETE: "Y",
     CREATE: "Y",
     APPROVE: "Y",
     REJECT: "Y",
@@ -162,9 +178,23 @@ export function isAdminAuthorityCtaAllowed(
   return ADMIN_AUTHORITY_MATRIX[family][verb] === "Y";
 }
 
+/**
+ * 권한 표 §4 (2026-11-07) — 계열 → 쓰기 권한 키. 메뉴·화면·버튼·API 같은 키.
+ * 배달 광고 = business · 그 밖(피드·팝업·상위노출) = ads. 사장님 팝업 신청은 `platform-popup-requests` (business) 경로.
+ */
+export const ADMIN_AUTHORITY_FAMILY_WRITE_PERMISSION: Record<AdminAuthorityFamily, "ads" | "business"> = {
+  delivery_sponsored: "business",
+  delivery_banner: "business",
+  feed_banner: "ads",
+  boost_trade: "ads",
+  boost_community: "ads",
+  platform_popup: "ads",
+};
+
 /** Human verb meanings — DELETE ≠ END ≠ TERMINATE ≠ ARCHIVE */
 export const ADMIN_AUTHORITY_VERB_MEANING = {
   DELETE_DRAFT: "draft_or_invalid_request_only_physical_delete",
+  DELETE: "reason_only_hard_or_soft_or_end_then_soft",
   END: "normal_completion",
   TERMINATE: "admin_force_kill_active_or_scheduled",
   ARCHIVE: "hide_from_ops_list_keep_history",

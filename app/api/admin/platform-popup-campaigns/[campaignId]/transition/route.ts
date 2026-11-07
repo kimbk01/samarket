@@ -42,11 +42,13 @@ export async function POST(
     reason?: unknown;
   };
 
-  // R2 — 승인·노출 시작·반려(L2)·종료(L3)는 처리 사유 필수, 노출 중지·검토 요청(L1)은 선택. 감사 after_json.reason 에 남긴다.
+  // R2 — 승인·노출 시작·반려·정지(L2)·종료(L3)는 처리 사유 필수, 검토 요청(L1)은 선택. 감사 after_json.reason 에 남긴다.
+  // AD2-02 (2026-11-07): 정지(paused)도 사유 필수 — 공통 화면(pause = L2)과 같은 단계.
   const isApprove = body.action === "approve" || Boolean(body.activate) || Boolean(body.schedule);
   const reasonRequired =
     isApprove ||
     body.nextStatus === "active" ||
+    body.nextStatus === "paused" ||
     body.nextStatus === "ended" ||
     body.nextStatus === "rejected" ||
     body.nextApproval === "rejected";
