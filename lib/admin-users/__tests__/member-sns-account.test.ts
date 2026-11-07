@@ -85,6 +85,8 @@ describe("어드민 회원 로그인 계정 표시 (설계안 ③④)", () => {
     const panel = src("components/admin/users/AdminMemberAuthPanel.tsx");
     expect(panel).toMatch(/연결된 로그인 계정/);
     expect(panel).toMatch(/내부 로그인 방식/);
+    expect(panel).toMatch(/SNS 이름/);
+    expect(src("lib/admin-users/admin-users-list-server.ts")).toMatch(/providerName: providerNameFromRawProfile\(row\.raw_profile\)/);
     expect(panel).not.toMatch(/fallbackKo: "연결 provider"/);
     for (const f of ["components/admin/users/AdminMemberMasterHeader.tsx", "components/admin/users/AdminMemberOverviewPanel.tsx"]) {
       expect(src(f), f).toMatch(/user\.signup_provider \?\? resolveDetailAuthProvider/);

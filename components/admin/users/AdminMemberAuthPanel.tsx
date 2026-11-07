@@ -176,6 +176,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
               <thead className="text-[12px] text-sam-muted">
                 <tr>
                   <th className="py-1.5 pr-3 font-medium">제공자</th>
+                  <th className="py-1.5 pr-3 font-medium">SNS 이름</th>
                   <th className="py-1.5 pr-3 font-medium">계정 이메일</th>
                   <th className="py-1.5 pr-3 font-medium">고유번호</th>
                   <th className="py-1.5 pr-3 font-medium">연결 일시 (PHT)</th>
@@ -185,6 +186,9 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
                 {linked.map((row) => (
                   <tr key={`${row.provider}:${row.providerUserId}`} className="border-t border-sam-border-soft">
                     <td className="py-1.5 pr-3 font-medium text-sam-fg">{memberDetailSignupOriginLabelKo(row.provider)}</td>
+                    <td className="py-1.5 pr-3 text-sam-fg" data-member-auth-provider-name="1">
+                      {row.providerName ?? (row.provider === "apple" ? "— (Apple 이 이름을 주지 않음)" : empty)}
+                    </td>
                     <td className="break-all py-1.5 pr-3 text-sam-fg">
                       {row.email
                         ? row.emailIsPrivateRelay

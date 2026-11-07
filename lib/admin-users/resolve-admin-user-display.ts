@@ -38,6 +38,8 @@ export type AdminLinkedIdentity = {
   /** Apple 「이메일 가리기」 등 릴레이 주소 */
   emailIsPrivateRelay?: boolean;
   linkedAt?: string | null;
+  /** SNS 가 준 이름 (Apple 첫 로그인 이름·카카오 닉네임 등) */
+  providerName?: string | null;
 };
 
 export type AdminDisplayProfile = {

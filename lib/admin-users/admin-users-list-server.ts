@@ -64,6 +64,16 @@ export function buildAuthUserMap(authUsers: AdminAuthListUser[]): Map<string, Ad
   return map;
 }
 
+/**
+ * SNS 가 준 이름 — 회원이 디바이 닉네임을 바꿔도 원래 이름으로 본인 확인 (설계안: 어드민이 원래 이름 확인).
+ * Apple: full_name(첫 로그인 때만) · Kakao: profile.nickname · 그 외 name
+ */
+function providerNameFromRawProfile(raw: Record<string, unknown> | null | undefined): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const profile = (raw.profile && typeof raw.profile === "object" ? raw.profile : null) as Record<string, unknown> | null;
+  return pickString(raw.full_name) ?? pickString(raw.name) ?? pickString(profile?.nickname) ?? pickString(raw.nickname);
+}
+
 export async function loadLinkedIdentitiesMapChunked(
   sb: SupabaseClient,
   userIds: string[],
@@ -77,7 +87,7 @@ export async function loadLinkedIdentitiesMapChunked(
     chunks.map((chunk) =>
       sb
         .from("user_auth_identities")
-        .select("user_id, provider, provider_user_id, email, email_is_private_relay, linked_at")
+        .select("user_id, provider, provider_user_id, email, email_is_private_relay, linked_at, raw_profile")
         .in("user_id", chunk),
     ),
   );
@@ -91,6 +101,7 @@ export async function loadLinkedIdentitiesMapChunked(
       email?: string | null;
       email_is_private_relay?: boolean | null;
       linked_at?: string | null;
+      raw_profile?: Record<string, unknown> | null;
     }>) {
       const userId = String(row.user_id ?? "").trim();
       const provider = String(row.provider ?? "").trim().toLowerCase();
@@ -102,6 +113,7 @@ export async function loadLinkedIdentitiesMapChunked(
         email: pickString(row.email),
         emailIsPrivateRelay: row.email_is_private_relay === true,
         linkedAt: pickString(row.linked_at),
+        providerName: providerNameFromRawProfile(row.raw_profile),
       };
       const existing = out.get(userId);
       if (existing) {
