@@ -42,6 +42,11 @@
 | B-13 | 앱 이름 표기 4가지(`dibaY`·`DIBAY`·`DIBAY MARKET`·`DiBaY - 디바이`) | **Owner 결정** | Store 감사 U-4 | Store 이름 예약 전 확정 |
 | B-14 | PC 배달 탭 768px 폭 | **Owner 결정** | 2026-11-07 PC 레일 작업 | PC 배달 화면 |
 
+| B-15 | 태블릿 설정 → 채팅 탭 이동 때 흰 화면(3초 시점), 4~7초 뒤 표시 — 재시도에서는 재현 안 됨 | 재현 안 됨(1회) | Xiaomi 04:39 PHT 캡처 · 재시도 녹화 | 새 웹 배포 직후 1회 — 관찰 |
+| B-16 | 다른 「헤더 아래 탭」(`MarketplaceSellHubPills`·`HomePurchaseSalesHubTabs`)의 PC 정렬 | 미조사 | B-8 감사 중 발견 | PC 정렬 |
+
+**감사 결과:** `docs/audit/post-plan-backlog-audit-2026-11-08.md` (2026-11-08)
+
 ## C. 운영 방식
 
 - 새 「보고만」 항목이 생기면 이 표에 한 줄 추가하고, 보고 끝에 「후속 목록 B-n 추가」로 적는다.
