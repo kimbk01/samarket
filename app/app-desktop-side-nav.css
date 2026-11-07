@@ -125,3 +125,14 @@ html:has(.app-bottom-nav-shell--side-rail) .app-side-rail-fixed-inset {
     left: calc(var(--app-side-rail-width, 72px) + var(--safe-left, 0px)) !important;
   }
 }
+
+/**
+ * PC 대화방 말풍선 영역 T1 (docs/audit/messenger-room-desktop-timeline-width-design-2026-11-07.md)
+ * 원인: `.chat-timeline-sheet` 의 `max-w-[760px] mx-auto` (CommunityMessengerRoomPhase2MessageTimeline) —
+ * PC 메신저 칸이 넓어지면 말풍선만 가운데 760 열에 남아 입력줄·상단바(칸 전체)와 양끝이 어긋난다.
+ * DESKTOP 세로 레일 셸에서만 최대 폭을 푼다. 말풍선 1개(520px)·사진 카드·날짜 칩 최대 폭은 각자 클래스 그대로(T3).
+ * 높이·키보드·스크롤 계약(`app/chat-viewport-shell.css`, 방 뷰포트 문서 §0)은 건드리지 않는다.
+ */
+.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"] [data-cm-room] .chat-timeline-sheet {
+  max-width: none;
+}

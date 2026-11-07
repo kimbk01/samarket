@@ -107,3 +107,28 @@ describe("메신저 PC 전체 폭 M1·M3 (docs/audit/messenger-desktop-wide-desi
     expect(sheetCss).toContain("left: max(0px, calc((100vw - min(100vw, 66rem)) / 2)) !important;");
   });
 });
+
+describe("PC 대화방 말풍선 영역 T1~T3 (docs/audit/messenger-room-desktop-timeline-width-design-2026-11-07.md)", () => {
+  it("T1 — DESKTOP 세로 레일 셸에서만 말풍선 시트 최대 폭을 푼다", () => {
+    const t1 = css.split("PC 대화방 말풍선 영역 T1")[1] ?? "";
+    expect(t1).toMatch(
+      /\.app-shell\[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"\] \[data-cm-room\] \.chat-timeline-sheet \{\s*max-width: none;\s*\}/,
+    );
+    const selectors = t1
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.endsWith("{"));
+    expect(selectors).toEqual([
+      '.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"] [data-cm-room] .chat-timeline-sheet {',
+    ]);
+  });
+
+  it("T2·T3 — 방 컴포넌트의 760 기본값·말풍선 520·높이 계약 CSS 는 그대로 (휴대폰·태블릿 무변화)", () => {
+    const timeline = src("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx");
+    expect(timeline).toContain('className="chat-timeline-sheet mx-auto w-full max-w-[760px]"');
+    expect(src("app/chat-viewport-shell.css")).not.toMatch(/chat-timeline-sheet[^{]*\{[^}]*max-width/);
+    const rows = src("components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx");
+    expect(rows).toContain("max-w-[min(76vw,520px)]");
+  });
+});
