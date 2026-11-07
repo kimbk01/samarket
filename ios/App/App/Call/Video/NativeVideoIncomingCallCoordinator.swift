@@ -66,32 +66,15 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     }
 
     log("ios_native_video_permission_check_started", sid)
+    // 권한으로 수신을 막지 않는다 (정책 Media tier: must not block receive · Owner 승인 2026-11-08).
+    // 예전: 마이크·카메라 미허용이면 시간초과(앱 20초·잠금 3초) 뒤 서버 reject.
+    // 지금: 아직 안 물은 것만 OS 창(마이크 → 카메라)을 띄우고 바로 수락 진행 — 미허용이면 해당 장치 없이 연결.
     let micContext = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
-    DibayVideoMediaPermission.ensureGranted(sessionId: sid, context: micContext) { [weak self] granted in
-      guard let self else { return }
-      guard self.isStillAccepting(sessionId: sid) else {
-        self.abortStaleAnswer(
-          sessionId: sid,
-          stage: "permission",
-          completion: completion
-        )
-        return
-      }
-      if !granted {
-        self.failBeforeFulfill(
-          sessionId: sid,
-          generation: NativeVideoCallRuntime.shared.currentGeneration(),
-          reason: .missingCameraOrMicrophonePermission,
-          failMarker: "video_accept_fail_permission",
-          serverAction: "reject",
-          completion: completion
-        )
-        return
-      }
-      self.log("ios_native_video_permission_granted", sid)
-      NativeVideoCallLog.corr("I5", callId: sid, details: "event=permission_ready")
-      self.continueAnswerAfterPermissions(sessionId: sid, completion: completion)
-    }
+    DibayVideoMediaPermission.requestIfNeededWithoutBlocking(sessionId: sid, context: micContext)
+    let snap = DibayVideoMediaPermission.snapshot()
+    log("ios_native_video_permission_nonblocking", sid, "mic=\(snap.microphone) camera=\(snap.camera)")
+    NativeVideoCallLog.corr("I5", callId: sid, details: "event=permission_ready nonblocking=1")
+    continueAnswerAfterPermissions(sessionId: sid, completion: completion)
   }
 
   private func continueAnswerAfterPermissions(

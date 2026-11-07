@@ -8,12 +8,40 @@ enum DibayVideoMediaPermission {
     context: DibayVoiceMicrophoneGateContext,
     completion: @escaping (Bool) -> Void
   ) {
+    // 카메라는 마이크 결과와 무관하게 묻는다 (Owner 2026-11-08: 마이크 시간초과·거부 시 카메라 창이 안 뜨던 결함).
     DibayVoiceMicrophonePermission.ensureGranted(sessionId: sessionId, context: context) { micGranted in
-      guard micGranted else {
-        completion(false)
-        return
+      ensureCameraGranted(sessionId: sessionId, context: context) { camGranted in
+        completion(micGranted && camGranted)
       }
-      ensureCameraGranted(sessionId: sessionId, context: context, completion: completion)
+    }
+  }
+
+  /**
+   * 영상 수신 수락 전용 — 권한으로 통화를 막지 않는다 (정책 Media tier: must not block receive).
+   * 마이크 → 카메라 순서로 아직 안 물은 것만 OS 창을 띄우고(제한 시간 없음) 바로 돌아온다.
+   */
+  static func requestIfNeededWithoutBlocking(sessionId: String, context: DibayVoiceMicrophoneGateContext) {
+    let requestCamera = {
+      guard AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined else { return }
+      AVCaptureDevice.requestAccess(for: .video) { granted in
+        NativeVideoCallLog.info(
+          granted ? "ios_native_video_camera_nonblocking_granted" : "ios_native_video_camera_nonblocking_denied",
+          callId: sessionId,
+          details: "context=\(context)"
+        )
+      }
+    }
+    if DibayVoiceMicrophonePermission.currentState() == .notDetermined {
+      DibayVoiceMicrophonePermission.requestSystemRecordPermission { granted in
+        NativeVideoCallLog.info(
+          granted ? "ios_native_video_mic_nonblocking_granted" : "ios_native_video_mic_nonblocking_denied",
+          callId: sessionId,
+          details: "context=\(context)"
+        )
+        DispatchQueue.main.async { requestCamera() }
+      }
+    } else {
+      requestCamera()
     }
   }
 

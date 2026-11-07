@@ -1548,17 +1548,12 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       return
     }
     acceptStarted = true
+    // 권한으로 수신을 막지 않는다 (정책 Media tier: must not block receive · Owner 승인 2026-11-08).
+    // 예전: 권한 미허용·시간초과면 decline. 지금: 아직 안 물은 것만 OS 창, 받기는 바로 진행.
     let context = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
-    DibayVideoMediaPermission.ensureGranted(sessionId: boundCallId, context: context) { [weak self] granted in
-      guard let self else { return }
-      guard granted else {
-        self.acceptStarted = false
-        NativeVideoCallLog.info("video_accept_fail_permission", callId: self.boundCallId, details: "source=\(source)")
-        NativeVideoCallKitBridge.requestEnd(callId: self.boundCallId, kind: "decline")
-        return
-      }
-      NativeVideoCallKitBridge.requestAnswer(callId: self.boundCallId, source: source)
-    }
+    DibayVideoMediaPermission.requestIfNeededWithoutBlocking(sessionId: boundCallId, context: context)
+    NativeVideoCallLog.info("video_accept_permission_nonblocking", callId: boundCallId, details: "source=\(source)")
+    NativeVideoCallKitBridge.requestAnswer(callId: boundCallId, source: source)
   }
 
   private func replaceSubview(in container: UIView, with child: UIView, mediaOverlay: Bool) {

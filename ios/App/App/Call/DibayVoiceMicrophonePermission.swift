@@ -141,7 +141,29 @@ enum DibayVoiceMicrophonePermission {
     }
   }
 
-  private static func requestSystemRecordPermission(completion: @escaping (Bool) -> Void) {
+  /**
+   * 수신 수락 전용 — 권한으로 통화를 막지 않는다 (정책 Media tier: must not block receive · Owner 2026-11-08).
+   * 아직 안 물었으면 OS 창만 띄우고(제한 시간 없음) 바로 돌아온다. 결과는 OS 가 기록하고 로그만 남긴다.
+   * 미허용 상태로도 수락·입장은 계속된다(마이크 없이 연결).
+   */
+  static func requestIfNeededWithoutBlocking(sessionId: String, context: DibayVoiceMicrophoneGateContext) {
+    let state = currentState()
+    DibayCallLog.info(
+      "ios_native_voice_mic_nonblocking_check",
+      sessionId: sessionId,
+      detail: "context=\(context) state=\(state)"
+    )
+    guard state == .notDetermined else { return }
+    requestSystemRecordPermission { granted in
+      DibayCallLog.info(
+        granted ? "ios_native_voice_mic_nonblocking_granted" : "ios_native_voice_mic_nonblocking_denied",
+        sessionId: sessionId,
+        detail: "context=\(context)"
+      )
+    }
+  }
+
+  static func requestSystemRecordPermission(completion: @escaping (Bool) -> Void) {
     if #available(iOS 17.0, *) {
       AVAudioApplication.requestRecordPermission { granted in
         completion(granted)
