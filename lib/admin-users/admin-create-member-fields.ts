@@ -4,6 +4,7 @@ import {
   type AdminCreateMemberAddressInput,
 } from "@/lib/admin-users/admin-create-member-address";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { checkAdminSetPassword } from "@/lib/auth/admin-set-password-policy";
 
 export type AdminCreateMemberFormField =
   | "username"
@@ -41,7 +42,8 @@ export function validateAdminCreateMemberForm(
   if (!id || id.length < 2 || id.length > 64) {
     errors.username = "admin_users_err_username_length";
   }
-  if (!input.password || input.password.length < 4) {
+  const passwordRule = checkAdminSetPassword(input.password, "member");
+  if (!input.password || !passwordRule.ok) {
     errors.password = "admin_users_err_password_min";
   } else if (input.password !== input.passwordConfirm) {
     errors.passwordConfirm = "admin_users_err_password_mismatch";

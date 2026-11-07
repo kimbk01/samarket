@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { requireAdminPermission, requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -240,8 +241,12 @@ export async function POST(req: NextRequest) {
   if (loginId.length < 2) {
     return NextResponse.json({ ok: false, error: "login_id_required" }, { status: 400 });
   }
-  if (password.length < 4) {
-    return NextResponse.json({ ok: false, error: "password_min" }, { status: 400 });
+  const passwordRule = checkAdminSetPassword(password, "staff");
+  if (!passwordRule.ok) {
+    return NextResponse.json(
+      { ok: false, error: passwordRule.error, message: passwordRule.messageKo },
+      { status: 400 },
+    );
   }
   if (uiRole === "master") {
     return NextResponse.json({ ok: false, error: "cannot_create_super_admin" }, { status: 400 });
@@ -255,6 +260,13 @@ export async function POST(req: NextRequest) {
     user_metadata: { nickname: displayName, username: loginId, login_id: loginId, auth_provider: "admin_manual" },
   } as never);
 
+  const weakPassword = createErr ? mapSupabaseWeakPasswordError(createErr) : null;
+  if (weakPassword) {
+    return NextResponse.json(
+      { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+      { status: 422 },
+    );
+  }
   if (createErr || !created.user) {
     return NextResponse.json({ ok: false, error: createErr?.message ?? "auth_create_failed" }, { status: 500 });
   }

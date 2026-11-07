@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import {
+  STAFF_PASSWORD_MIN_LENGTH,
+  adminSetPasswordHintKo,
+  checkAdminSetPassword,
+} from "@/lib/auth/admin-set-password-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey, AdminStaff } from "@/lib/types/admin-staff";
@@ -115,8 +120,9 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
     }
     const canSetPassword = isSuperAdmin && Boolean(newPassword || confirmPassword);
     if (canSetPassword) {
-      if (newPassword.length < 4) {
-        setError(t("admin_users_err_password_min"));
+      const passwordRule = checkAdminSetPassword(newPassword, "staff");
+      if (!passwordRule.ok) {
+        setError(passwordRule.messageKo);
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -230,10 +236,10 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                minLength={4}
+                minLength={STAFF_PASSWORD_MIN_LENGTH}
                 maxLength={128}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                placeholder={t("admin_users_ph_password_min")}
+                placeholder={adminSetPasswordHintKo("staff")}
                 data-admin-staff-password-input="1"
               />
               <p className="mt-1 text-[12px] text-sam-muted">{t("admin_users_auth_password_hint")}</p>
@@ -245,10 +251,10 @@ export function EditAdminForm({ staffId, isSelf = false, onClose, onSuccess }: E
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                minLength={4}
+                minLength={STAFF_PASSWORD_MIN_LENGTH}
                 maxLength={128}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                placeholder={t("admin_users_ph_password_min")}
+                placeholder={adminSetPasswordHintKo("staff")}
                 data-admin-staff-password-confirm="1"
               />
             </div>

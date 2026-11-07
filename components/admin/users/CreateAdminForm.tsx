@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import {
+  STAFF_PASSWORD_MIN_LENGTH,
+  adminSetPasswordHintKo,
+  checkAdminSetPassword,
+} from "@/lib/auth/admin-set-password-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -61,8 +66,9 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
       setError(t("admin_users_err_login_id_length"));
       return;
     }
-    if (!password || password.length < 4) {
-      setError(t("admin_users_err_password_min"));
+    const passwordRule = checkAdminSetPassword(password, "staff");
+    if (!passwordRule.ok) {
+      setError(passwordRule.messageKo);
       return;
     }
     if (displayName.trim().length > 64) {
@@ -125,11 +131,11 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={4}
+                minLength={STAFF_PASSWORD_MIN_LENGTH}
                 maxLength={128}
                 autoComplete="new-password"
                 className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder={t("admin_users_ph_password_min")}
+                placeholder={adminSetPasswordHintKo("staff")}
               />
             </div>
           </div>

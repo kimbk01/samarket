@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
 import { isMemberNicknameTaken, validateMemberNicknameInput } from "@/lib/profile/member-nickname-policy";
@@ -686,11 +687,12 @@ export async function PATCH(
   let nextPassword: string | null = null;
   if (hasPassword) {
     const pwd = String(passwordRaw);
-    if (pwd.length < 4) {
-      return NextResponse.json({ ok: false, error: "password_min" }, { status: 400 });
-    }
-    if (pwd.length > 128) {
-      return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
+    const passwordRule = checkAdminSetPassword(pwd, "member");
+    if (!passwordRule.ok) {
+      return NextResponse.json(
+        { ok: false, error: passwordRule.error, message: passwordRule.messageKo },
+        { status: 400 },
+      );
     }
     nextPassword = pwd;
   }
@@ -952,6 +954,21 @@ export async function PATCH(
   }
   if (Object.keys(authPatch).length > 0) {
     const { error: authErr } = await sb.auth.admin.updateUserById(userId, authPatch as never);
+    const weakPassword = authErr && nextPassword ? mapSupabaseWeakPasswordError(authErr) : null;
+    if (weakPassword) {
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: gate.actor.userId,
+        target_type: "member",
+        target_id: userId,
+        action: "PASSWORD_TEMP_SET_REJECTED",
+        after_json: { reasons: weakPassword.reasons, via: "users_patch" },
+      });
+      return NextResponse.json(
+        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+        { status: 422 },
+      );
+    }
     if (authErr) {
       return NextResponse.json(
         {

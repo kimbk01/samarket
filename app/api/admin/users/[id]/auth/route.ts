@@ -5,6 +5,7 @@ import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-que
 import { assertMemberPasswordChangeAllowed } from "@/lib/admin-users/member-auth-target";
 import { resolveMemberPasswordResetSupported } from "@/lib/admin-users/member-password-eligibility";
 import { ensureManualLoginEmailAligned } from "@/lib/auth/manual-member-login-credential";
+import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,14 +115,17 @@ export async function PATCH(
   }
 
   const password = String(body.password ?? "");
-  if (!password || password.length < 4) {
+  const rule = checkAdminSetPassword(password, "member");
+  if (!rule.ok) {
     return NextResponse.json(
-      { ok: false, error: "password_min", errorKey: "admin_users_err_password_min" },
+      {
+        ok: false,
+        error: rule.error,
+        message: rule.messageKo,
+        ...(rule.error === "password_min" ? { errorKey: "admin_users_err_password_min" } : {}),
+      },
       { status: 400 }
     );
-  }
-  if (password.length > 128) {
-    return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
   }
 
   const targetGuard = await assertMemberPasswordChangeAllowed(gate.sb, {
@@ -192,6 +196,21 @@ export async function PATCH(
   }
 
   const { error: updateErr } = await gate.sb.auth.admin.updateUserById(userId, { password });
+  const weak = updateErr ? mapSupabaseWeakPasswordError(updateErr) : null;
+  if (weak) {
+    void appendAuditLog(gate.sb, {
+      actor_type: "admin",
+      actor_id: gate.actor.userId,
+      target_type: "member",
+      target_id: userId,
+      action: "PASSWORD_TEMP_SET_REJECTED",
+      after_json: { reasons: weak.reasons, via: "auth_route" },
+    });
+    return NextResponse.json(
+      { ok: false, error: weak.error, reasons: weak.reasons, message: weak.messageKo },
+      { status: 422 }
+    );
+  }
   if (updateErr) {
     return NextResponse.json(
       { ok: false, error: "password_update_failed", message: updateErr.message },

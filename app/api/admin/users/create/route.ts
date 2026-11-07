@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
@@ -160,8 +161,9 @@ export async function POST(req: NextRequest) {
   if (!username || username.length < 2 || username.length > 64) {
     return jsonFieldError("username", "admin_users_err_username_length", 400);
   }
-  if (!password || password.length < 4) {
-    return jsonFieldError("password", "admin_users_err_password_min", 400);
+  const passwordRule = checkAdminSetPassword(password, "member");
+  if (!passwordRule.ok) {
+    return jsonFieldError("password", "admin_users_err_password_min", 400, passwordRule.messageKo);
   }
   if (!nickname || nickname.length > 20) {
     return jsonFieldError("nickname", "admin_users_err_nickname_length", 400);
@@ -243,6 +245,13 @@ export async function POST(req: NextRequest) {
   });
 
   const id = created.user?.id;
+  const weakPassword = authError ? mapSupabaseWeakPasswordError(authError) : null;
+  if (weakPassword) {
+    return NextResponse.json(
+      { ok: false, field: "password", error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+      { status: 422 },
+    );
+  }
   if (authError || !id) {
     const raw = String(authError?.message ?? "").trim();
     const lower = raw.toLowerCase();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { MEMBER_PASSWORD_MIN_LENGTH } from "@/lib/auth/admin-set-password-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminManualMemberAddressBlock } from "@/components/admin/users/AdminManualMemberAddressBlock";
@@ -219,6 +220,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       const data = (await res.json()) as {
         ok?: boolean;
         error?: string;
+        message?: string;
         errorKey?: MessageKey;
         field?: string;
         user?: { id?: string; email?: string };
@@ -231,7 +233,9 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
           (mapped ? mapServerFieldToKey(mapped, res.status, data.error) : undefined);
         const rawError = data.error?.trim() || "";
         let message = rawError ? adminOperatorErrorMessage(rawError, language !== "en") : "";
-        if (res.status === 401) {
+        if (data.error === "password_weak" && data.message) {
+          message = data.message;
+        } else if (res.status === 401) {
           message = t("admin_users_err_login_retry");
         } else if (res.status === 403) {
           message = t("admin_users_err_admin_only_create");
@@ -352,7 +356,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                   setPassword(e.target.value);
                   touchField("password");
                 }}
-                minLength={4}
+                minLength={MEMBER_PASSWORD_MIN_LENGTH}
                 maxLength={128}
                 autoComplete="new-password"
                 aria-invalid={Boolean(resolvedFieldMessages.password)}

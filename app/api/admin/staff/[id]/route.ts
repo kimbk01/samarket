@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { ensureManualLoginEmailAligned } from "@/lib/auth/manual-member-login-credential";
@@ -138,13 +139,21 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
     }
     const pwd = String(passwordRaw);
-    if (pwd.length < 4) {
-      return NextResponse.json({ ok: false, error: "password_min" }, { status: 400 });
-    }
-    if (pwd.length > 128) {
-      return NextResponse.json({ ok: false, error: "password_too_long" }, { status: 400 });
+    const passwordRule = checkAdminSetPassword(pwd, "staff");
+    if (!passwordRule.ok) {
+      return NextResponse.json(
+        { ok: false, error: passwordRule.error, message: passwordRule.messageKo },
+        { status: 400 },
+      );
     }
     const { error: pwdErr } = await sb.auth.admin.updateUserById(staffId, { password: pwd });
+    const weakPassword = pwdErr ? mapSupabaseWeakPasswordError(pwdErr) : null;
+    if (weakPassword) {
+      return NextResponse.json(
+        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, message: weakPassword.messageKo },
+        { status: 422 },
+      );
+    }
     if (pwdErr) {
       return NextResponse.json(
         { ok: false, error: "password_update_failed", message: pwdErr.message },

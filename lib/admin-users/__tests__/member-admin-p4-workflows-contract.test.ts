@@ -22,8 +22,8 @@ describe("P4 member create / edit / password workflows", () => {
     const errors = validateAdminCreateMemberForm(
       {
         username: "qa_p4_user",
-        password: "1234",
-        passwordConfirm: "9999",
+        password: "123456",
+        passwordConfirm: "999999",
         nickname: "큐에이",
         name: "테스터",
         email: "",
