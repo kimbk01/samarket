@@ -79,7 +79,6 @@ Full doc: `docs/permissions/dibay-legacy-call-receive-policy.md`
 - **Runtime tier:** Notification → FCM → Runtime → Ring → Incoming UI. FSI/mic/camera/battery/speaker/bluetooth **must not** block Runtime.
 - **Lock Screen tier:** FSI/battery → lock full UI only; Runtime/Ring/Incoming UI **continue**.
 - **Media tier:** Mic/Camera at accept/outgoing gesture → Join only; **must not** block receive.
-  - iOS (Owner 2026-11-08): post-login gate requests Mic → Camera **OS prompts only** (no DIBAY modal) right after the notification OS prompt, only when not yet determined (`requestPostLoginCallMediaOsPermissions`).
-  - iOS incoming accept (voice/video): permission **never** rejects/declines the call — not-yet-determined → OS prompt without timeout, accept continues; denied → join without that device (`requestIfNeededWithoutBlocking`). Outgoing gesture keeps the permission check.
+  - iOS (Owner 2026-11-08 「텔레그램 방식」): Mic/Camera asked **only** at call gesture (never at login). Not-determined → OS prompt with **no timeout** (wait for the user's answer). Denied (now or already) → outgoing does not start / incoming accept ends the call, then `DibayCallPermissionSettingsPrompt` (alert with Settings button; local notification when backgrounded). Notification/ringing receive itself is not gated by mic/camera. Android keeps its own flow (ringing continues + settings).
 - **Invariant:** Permission UX changes **must not** modify Runtime, FCM, Agora, Native Runtime, `NotificationReceiveGate`.
 - Post-login FSI (Android): `runPostLoginFullScreenIntentCheck()` — FSI off → `openFullScreenIntentSettings()` direct, no DIBAY modal. Resume/visibility: sync only.

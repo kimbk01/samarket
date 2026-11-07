@@ -13,7 +13,6 @@ import {
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
 import { runPostLoginFullScreenIntentCheck } from "@/lib/permissions/permission-manager/post-login-full-screen-intent-check";
-import { requestPostLoginCallMediaOsPermissions } from "@/lib/permissions/post-login-call-media-os-request";
 import {
   getCachedNotificationReceiveSnapshot,
   syncNotificationState,
@@ -54,8 +53,7 @@ export function waitForNotificationOnboardingSettled(): Promise<void> {
 }
 
 /**
- * 로그인 후 — native: 알림 OS prompt → (iOS) 마이크·카메라 OS prompt → (Android) FSI 설정 유도.
- * 앱 자체 안내 화면 없음(OS 창만). 통화 수락은 권한으로 막지 않는다(네이티브 Media tier).
+ * 로그인 후 — native: 알림 OS prompt → (Android) FSI 설정 유도. mic/camera는 통화 제스처만.
  */
 export function DiBaYDevicePermissionOnboardingGate() {
   const pathname = usePathname() ?? "";
@@ -79,14 +77,6 @@ export function DiBaYDevicePermissionOnboardingGate() {
       await syncNotificationState();
       if (isCapacitorNativePlatform()) {
         await runNotificationGuideFlow("first_login");
-        // iOS: 알림 OS 창 다음 마이크 → 카메라 OS 창 (앱 화면 없음 · 아직 안 물은 것만) — Owner 2026-11-08
-        if (resolveCapacitorShellPlatform() === "ios") {
-          try {
-            await requestPostLoginCallMediaOsPermissions();
-          } catch {
-            /* 권한 요청 실패가 로그인 흐름을 막지 않는다 */
-          }
-        }
         // B5: FSI (lock-screen tier) only when notifications are actually allowed — never send a
         // member who just declined notifications to the OS FSI settings screen.
         if (

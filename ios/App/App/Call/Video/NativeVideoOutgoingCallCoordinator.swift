@@ -67,6 +67,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       if !granted {
         self.log("ios_native_video_outgoing_permission_denied", sid)
         self.terminateOutgoing(sessionId: sid, reason: "permission_denied")
+        DibayCallPermissionSettingsPrompt.present(kind: DibayCallPermissionSettingsPrompt.kindForVideoDenial(), sessionId: sid)
         return
       }
       self.log("ios_native_video_permission_granted", sid)

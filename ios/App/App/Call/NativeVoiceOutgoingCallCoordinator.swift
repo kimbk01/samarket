@@ -34,6 +34,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       guard micGranted else {
         self.log("ios_native_voice_outgoing_mic_denied", sid, "agora_join=0")
         NativeVoiceCallOwner.release(callId: sid, reason: "mic_permission_denied")
+        DibayCallPermissionSettingsPrompt.present(kind: .microphone, sessionId: sid)
         return
       }
       self.continueOutgoingAfterMicGranted(

@@ -32,15 +32,18 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     log("ios_native_voice_answer_started", sid)
 
-    // 권한으로 수신을 막지 않는다 (정책 Media tier: must not block receive · Owner 승인 2026-11-08).
-    // 예전: 마이크 미허용이면 앱 20초·잠금 3초 뒤 서버 reject → 세션 20f28db1 「거절」.
-    // 지금: 아직 안 물었으면 OS 창만 띄우고 바로 수락 진행 — 미허용이면 마이크 없이 연결.
     let micContext = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
-    DibayVoiceMicrophonePermission.requestIfNeededWithoutBlocking(sessionId: sid, context: micContext)
-    if DibayVoiceMicrophonePermission.currentState() == .denied {
-      log("ios_native_voice_mic_denied_join_without_mic", sid, "context=\(micContext)")
+    DibayVoiceMicrophonePermission.ensureGranted(sessionId: sid, context: micContext) { [weak self] micGranted in
+      guard let self else {
+        completion(false)
+        return
+      }
+      guard micGranted else {
+        self.failMicrophoneBeforeAccept(sessionId: sid, context: micContext, completion: completion)
+        return
+      }
+      self.continueHandleAnswer(sessionId: sid, completion: completion)
     }
-    continueHandleAnswer(sessionId: sid, completion: completion)
   }
 
   private func continueHandleAnswer(
@@ -193,6 +196,8 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       serverAction: "reject"
     )
     completion(false)
+    // 텔레그램 방식: 거부로 통화가 끝나면 「설정」 안내(앱이 뒤에 있으면 알림).
+    DibayCallPermissionSettingsPrompt.present(kind: .microphone, sessionId: sessionId)
   }
 
   // MARK: - Reject / End / Terminal
