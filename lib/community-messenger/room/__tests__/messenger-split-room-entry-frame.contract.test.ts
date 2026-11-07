@@ -58,6 +58,16 @@ describe("messenger split room entry frame (P1·P2)", () => {
     expect(frame).toContain('className="cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden"');
   });
 
+  it("B-6 — frame keeps the status-line height of the real header (title does not jump on arrival)", () => {
+    const header = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");
+    const frame = read("components/community-messenger/room/MessengerSplitRoomEntryFrame.tsx");
+    const statusCls = "truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]";
+    expect(header).toContain(`<p className="${statusCls}">{statusLine}</p>`);
+    expect(frame).toContain(`SPLIT_ROOM_ENTRY_FRAME_STATUS_LINE_CLASS =\n  "${statusCls}"`);
+    // 제목 다음 줄에 상태 줄 자리 — 문구는 비워 둔다 (계약에 없는 값 금지)
+    expect(frame).toMatch(/\{seed\.title\}\s*<\/p>[\s\S]*?<p className=\{SPLIT_ROOM_ENTRY_FRAME_STATUS_LINE_CLASS\} aria-hidden>\s*\{"\\u00a0"\}/);
+  });
+
   it("wait indicator appears after a short delay (no blink on fast loads)", () => {
     const css = read("app/messenger-view-transitions.css");
     expect(css).toMatch(

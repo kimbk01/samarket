@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import { describe, expect, it } from "vitest";
 import { buildDibayWebAppManifest } from "@/lib/pwa/dibay-web-app-manifest";
 import { proxy } from "@/proxy";
@@ -16,6 +17,9 @@ describe("Windows Store PWA readiness", () => {
     expect(m.display).toBe("standalone");
     expect(m.name).toBeTruthy();
     expect(m.short_name).toBeTruthy();
+    // B-13: 표시명은 단일 소스에서만 (직접 적은 글자 금지)
+    expect(m.name).toBe(APP_PRODUCT_DISPLAY_NAME);
+    expect(m.short_name).toBe(APP_PRODUCT_DISPLAY_NAME);
     expect(m.icons?.some((i) => i.sizes === "512x512")).toBe(true);
   });
 

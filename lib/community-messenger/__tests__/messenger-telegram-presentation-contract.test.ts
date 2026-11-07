@@ -53,9 +53,9 @@ describe("messenger presentation contract", () => {
     expect(css).toMatch(/\n\.messenger-exit-active \{[\s\S]*?translate3d\(90%,\s*0,\s*0\)/);
     expect(css).not.toMatch(/\n\.messenger-exit-active \{[\s\S]*?translate3d\(0,\s*20%/);
 
-    expect(css).toMatch(
-      /\[data-messenger-responsive-shell="wide"\] \.messenger-enter \{[\s\S]*?translate3d\(-28px/
-    );
+    // B-5: 분할(wide) 진입·퇴장 모션 없음 — wide enter/exit transform 규칙 0, pane transform 고정
+    expect(css).not.toMatch(/\[data-messenger-responsive-shell="wide"\] \.messenger-(enter|exit)/);
+    expect(css).toMatch(/\[data-messenger-split-room-pane\] \.cm-room-shell \{[^}]*transform: none !important;/);
     expect(css).not.toContain("messenger-room-enter-spinner");
 
     expect(css).toContain("sam-messenger-pillar-list-enter-rtl");
@@ -119,18 +119,19 @@ describe("messenger presentation contract", () => {
     expect(row).not.toContain("durationLabel || timeLabel");
   });
 
-  it("split-room-pane transform:none must not kill enter phase", () => {
+  it("split-room-pane: no enter/exit motion — layout + transform locked in one block (B-5, 2026-11-08)", () => {
     const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
-    expect(css).toContain(
-      "[data-messenger-split-room-pane] .messenger-page:not(.messenger-enter):not(.messenger-enter-active)"
+    // 분할 칸에는 진입 phase 예외가 없다 (셸이 splitPaneMode 에서 enter 를 시작하지 않음)
+    expect(css).not.toContain(":not(.messenger-enter):not(.messenger-enter-active)");
+    const lockBlock = css.match(
+      /\[data-messenger-split-room-pane\] \.messenger-page,[\s\S]*?contain: none !important;\s*transform: none !important;\s*\}/
     );
-    const killBlock = css.match(
-      /\[data-messenger-split-room-pane\] \.messenger-page[\s\S]*?contain: none !important;/
+    expect(lockBlock).toBeTruthy();
+    const shell = readFileSync(
+      resolve(root, "components/community-messenger/room/MessengerRoomSwipeBackShell.tsx"),
+      "utf8"
     );
-    expect(killBlock?.[0] ?? "").not.toMatch(/transform:\s*none\s*!important/);
-    expect(css).toMatch(
-      /\.messenger-page:not\(\.messenger-enter\):not\(\.messenger-enter-active\)[\s\S]*?transform:\s*none\s*!important/
-    );
+    expect(shell).toContain("if (splitPaneMode || reducedMotion) return;");
   });
 
   it("call slide SSOT stays in Telegram short band", async () => {

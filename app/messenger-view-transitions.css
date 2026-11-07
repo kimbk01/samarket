@@ -54,7 +54,7 @@
   z-index: 60;
 }
 
-/* 768px+ split — 우측 pane 안에서만 렌더 (전체 화면 fixed·슬라이드 진입 금지) */
+/* 768px+ split — 우측 pane 안에서만 렌더 (전체 화면 fixed 금지 · 진입 모션 없음) */
 [data-messenger-responsive-shell="wide"] .messenger-page {
   position: relative;
   inset: auto;
@@ -69,31 +69,11 @@
   z-index: auto;
 }
 
-/* 768px+ split — 우측 pane: 좌→우 진입 (이전 transform:none 제거) */
-[data-messenger-responsive-shell="wide"] .messenger-enter {
-  transform: translate3d(-28px, 0, 0) !important;
-  opacity: 1 !important;
-  transition: none !important;
-}
-
-[data-messenger-responsive-shell="wide"] .messenger-enter-active {
-  transform: translate3d(0, 0, 0) !important;
-  opacity: 1 !important;
-  transition:
-    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important;
-}
-
-[data-messenger-responsive-shell="wide"] .messenger-exit {
-  transform: translate3d(0, 0, 0) !important;
-  opacity: 1 !important;
-}
-
-[data-messenger-responsive-shell="wide"] .messenger-exit-active {
-  transform: translate3d(-16px, 0, 0) !important;
-  opacity: 1 !important;
-  transition:
-    transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing) !important;
-}
+/*
+ * 768px+ split — 진입·퇴장 모션 없음 (Owner 2026-11-08 B-5 · 권장안 ②).
+ * 분할 화면은 MessengerSplitRoomEntryFrame → 방 화면 같은 프레임 교체만 한다.
+ * `MessengerRoomSwipeBackShell` 이 splitPaneMode 에서 enter phase 를 시작하지 않는다.
+ */
 
 /**
  * 768px+ split — 방 route 가 우측 pane 밖(뷰포트 전체)으로 탈출하지 못하게 격리.
@@ -121,11 +101,7 @@
     max-width: 100%;
   }
 
-  /**
-   * CONTRACT: layout lock (position/size) vs enter phase (transform).
-   * DO NOT apply `transform:none` to `.messenger-enter` / `.messenger-enter-active` —
-   * that kills wide 좌→우 room enter (same-specificity later !important).
-   */
+  /** CONTRACT: 분할 우측 pane 은 위치·크기·transform 고정 (모바일 진입 transform 유입 차단 · B-5). */
   [data-messenger-split-room-pane] .messenger-page,
   [data-messenger-split-room-pane] [data-cm-room-segment-layout],
   [data-messenger-split-room-pane] [data-cm-room],
@@ -143,12 +119,6 @@
     min-height: 0 !important;
     z-index: auto !important;
     contain: none !important;
-  }
-
-  [data-messenger-split-room-pane] .messenger-page:not(.messenger-enter):not(.messenger-enter-active),
-  [data-messenger-split-room-pane] [data-cm-room-segment-layout]:not(.messenger-enter):not(.messenger-enter-active),
-  [data-messenger-split-room-pane] [data-cm-room]:not(.messenger-enter):not(.messenger-enter-active),
-  [data-messenger-split-room-pane] .cm-room-shell:not(.messenger-enter):not(.messenger-enter-active) {
     transform: none !important;
   }
 

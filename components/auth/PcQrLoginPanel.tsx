@@ -180,3 +180,28 @@ export function PcQrLoginPanel({
     </section>
   );
 }
+
+/**
+ * 하이드레이션 전 QR 자리 (B-11) — 서버 HTML 에만 들어가고 Windows 앱(`html[data-dibay-host-shell-boot="windows"]`)
+ * 에서만 CSS 로 보인다. `PcQrLoginPanel` 의 대기 상태와 같은 모양이라 앱 코드가 뜬 뒤 그대로 교체된다.
+ * 요청·버튼 동작은 없다 (실제 QR 은 하이드레이션 뒤 `PcQrLoginPanel` 이 만든다).
+ */
+export function PcQrLoginBootPlaceholder() {
+  const { t } = useI18n();
+  return (
+    <div data-pc-qr-boot-placeholder="" aria-hidden>
+      <section className="mt-5 flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-app px-4 py-4">
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("auth_pc_qr_title")}</h2>
+        <div className="mt-3 flex h-[220px] w-[220px] items-center justify-center bg-white">
+          <span className="sam-text-body-secondary text-sam-muted">…</span>
+        </div>
+        <p className="mt-3 text-center sam-text-body-secondary text-sam-muted">{t("auth_pc_qr_steps")}</p>
+      </section>
+      <div className="mt-4 text-center">
+        <span className="sam-text-body-secondary font-semibold text-sam-fg underline underline-offset-4">
+          {t("auth_pc_qr_no_mobile")}
+        </span>
+      </div>
+    </div>
+  );
+}

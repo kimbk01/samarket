@@ -8,7 +8,7 @@
  * - AppRouteTransition must not compete on messenger-internal hierarchy
  *   (`shouldSuppressMessengerPageMotionMainShellSlide`)
  * - OVERLAY / IN_SURFACE_DETAIL / NATIVE_SURFACE are NOT owned here
- * - WIDE/SPLIT: pane-local enter; do not copy full-page mobile axis blindly
+ * - WIDE/SPLIT (≥768px): NO enter/exit motion — pane swap only (MessengerSplitRoomEntryFrame → room, Owner 2026-11-08 B-5)
  *
  * Consumers: pillar layouts, MessengerRoomSwipeBackShell, messenger-view-transitions.css
  * DO NOT add Framer / new navigation state machines / animation-before-router delays.

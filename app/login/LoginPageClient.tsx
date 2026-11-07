@@ -24,7 +24,7 @@ import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEma
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { parseProviderEmailConflictRedirectParams } from "@/components/auth/provider-email-conflict-redirect";
 import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
-import { PcQrLoginPanel, type PcQrLoginApproved } from "@/components/auth/PcQrLoginPanel";
+import { PcQrLoginBootPlaceholder, PcQrLoginPanel, type PcQrLoginApproved } from "@/components/auth/PcQrLoginPanel";
 import { isDibayWindowsShell } from "@/lib/platform/dibay-windows-shell";
 import { AUTH_LOGIN_DELAY_NOTICE_MS } from "@/lib/auth/oauth/auth-login-phase";
 import { NATIVE_LOGIN_INTERRUPTED_REASON } from "@/lib/auth/native/native-login-interrupt-marker.client";
@@ -433,6 +433,9 @@ function LoginPageContent() {
           </>
         ) : (
         <>
+        {/* B-11: 서버 HTML·하이드레이션 첫 화면에서는 Windows 앱 판정 전 — Windows 앱이면 CSS 가 아래 일반 로그인을 숨기고 QR 자리를 보인다 */}
+        {!isWindowsShell ? <PcQrLoginBootPlaceholder /> : null}
+        <div data-login-standard-methods="" data-windows-shell-pending={isWindowsShell ? undefined : ""}>
         <div className="mt-5">
           <LoginProviderButtons
             surface="page"
@@ -512,6 +515,7 @@ function LoginPageContent() {
             </button>
           </div>
         ) : null}
+        </div>
         </>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import {
   DIBAY_APP_ICON_180_PATH,
   DIBAY_APP_ICON_512_PATH,
@@ -12,8 +13,9 @@ import {
  */
 export function buildDibayWebAppManifest() {
   return {
-    name: "dibaY",
-    short_name: "dibaY",
+    /** 제품 표시명 단일 소스 (`lib/brand/app-display-name.ts`) — 직접 적지 않는다 (B-13, 2026-11-08) */
+    name: APP_PRODUCT_DISPLAY_NAME,
+    short_name: APP_PRODUCT_DISPLAY_NAME,
     /**
      * 앱 식별자 고정 — Microsoft Store(PWABuilder)·Edge·Chrome 설치 앱의 정체성.
      * 값이 없으면 브라우저가 start_url 로 계산하므로 같은 값("/")을 명시해 기존 설치에 영향이 없다.

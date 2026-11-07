@@ -30,6 +30,7 @@ import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { RequiredConsentVersionsBootstrap } from "@/components/legal/RequiredConsentVersionsBootstrap";
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
+import { DIBAY_HOST_SHELL_BOOT_SCRIPT } from "@/lib/platform/dibay-windows-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -100,7 +101,10 @@ export default async function RootLayout({
 
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
-      <head />
+      <head>
+        {/* B-11: Windows 앱이면 화면을 그리기 전에 표시 — 로그인 첫 화면 일반 버튼→QR 깜빡임 방지 (웹 브라우저·폰 앱은 무동작) */}
+        <script dangerouslySetInnerHTML={{ __html: DIBAY_HOST_SHELL_BOOT_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         {/* Launch Intro (native, cached publication only): LaunchIntroRoot defers the route tree
             while the Intro owns the launch (DEFERRED MOUNT). Web / no launch epoch → HOME as before. */}

@@ -63,6 +63,15 @@ export function isDibayWindowsShell(): boolean {
   return readWebView2Bridge() !== null;
 }
 
+/**
+ * 화면을 그리기 전(하이드레이션 전) Windows 셸 표시 — `<html data-dibay-host-shell-boot="windows">` (B-11, 2026-11-08).
+ * 서버는 Windows 앱인지 모르므로, 로그인 화면이 일반 버튼을 먼저 그렸다가 QR 로 바뀌는 깜빡임을 CSS 로 막는다.
+ * `app/layout.tsx` `<head>` 인라인 스크립트가 이 문자열을 그대로 실행한다 — 판정은 `readWebView2Bridge` 와 같은 조건.
+ */
+export const DIBAY_HOST_SHELL_BOOT_ATTR = "data-dibay-host-shell-boot";
+export const DIBAY_HOST_SHELL_BOOT_SCRIPT =
+  'try{var w=window.chrome&&window.chrome.webview;if(w&&typeof w.postMessage==="function"&&typeof w.addEventListener==="function"&&typeof w.removeEventListener==="function")document.documentElement.setAttribute("data-dibay-host-shell-boot","windows")}catch(e){}';
+
 /** 화면 속성용 값 — Windows 셸이면 "windows", 아니면 "" (서버 렌더도 ""). */
 export function readDibayHostShellAttr(): "windows" | "" {
   return isDibayWindowsShell() ? "windows" : "";

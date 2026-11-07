@@ -49,3 +49,19 @@
     transform: translate3d(0, 0, 0);
   }
 }
+
+/*
+ * B-11 (2026-11-08) — Windows 앱 로그인 첫 화면: 하이드레이션 전에는 QR 자리만, 일반 로그인은 숨김.
+ * `html[data-dibay-host-shell-boot="windows"]` 는 `<head>` 인라인 스크립트가 화면 그리기 전에 붙인다.
+ * 하이드레이션 뒤 React 가 Windows 앱으로 판정하면 `data-windows-shell-pending` 이 빠지고 자리 표시는 렌더되지 않는다
+ * (「모바일이 없으세요?」로 연 일반 로그인은 그대로 보인다). 웹 브라우저·폰 앱은 속성이 없어 영향 없음.
+ */
+[data-pc-qr-boot-placeholder] {
+  display: none;
+}
+html[data-dibay-host-shell-boot="windows"] [data-pc-qr-boot-placeholder] {
+  display: block;
+}
+html[data-dibay-host-shell-boot="windows"] [data-login-standard-methods][data-windows-shell-pending] {
+  display: none;
+}

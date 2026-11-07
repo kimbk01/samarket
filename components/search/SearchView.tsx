@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from "react";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { getPostsForHome } from "@/lib/posts/getPostsForHome";
@@ -178,6 +179,8 @@ export function SearchView() {
     setMainTier1Extras({
       stickyBelow: (
         <div className="border-b border-sam-border bg-[var(--sub-bg)]">
+          {/* B-16: 밑줄·배경은 화면 전체 폭, 검색 줄은 헤더 제목과 같은 본문 열 (D2 · B-8 과 같은 방식, 휴대폰은 동일) */}
+          <div className={APP_MAIN_COLUMN_CLASS}>
           <div className="flex h-12 items-center gap-2 px-4 py-1.5">
             <div className="min-w-0 flex-1">
               <SearchInputBar
@@ -205,6 +208,7 @@ export function SearchView() {
               distanceEnabled={Boolean(locGate.lguCityId)}
             />
           ) : null}
+          </div>
         </div>
       ),
     });

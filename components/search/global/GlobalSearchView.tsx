@@ -61,6 +61,7 @@ import { getViewerUserId } from "@/lib/auth/viewer-user-id";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { DeliverySearchMenu, DeliverySearchStore } from "@/components/delivery/search/DeliverySearchResults";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveBodyBottomNavClearanceClass } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { useTradeListingVisibilityRemoval } from "@/lib/trade/listing-visibility/listing-visibility-client";
@@ -126,6 +127,8 @@ function GlobalSearchStickyInput({
 
   return (
     <div className="border-b border-sam-border bg-[var(--sub-bg)]">
+      {/* B-16: 밑줄·배경은 화면 전체 폭, 검색 줄은 헤더 제목과 같은 본문 열 (D2 · B-8 과 같은 방식, 휴대폰은 동일) */}
+      <div className={APP_MAIN_COLUMN_CLASS}>
       <div className="flex h-12 items-center gap-2 px-4 py-1.5">
         <div className="min-w-0 flex-1">
           <SearchInputBar
@@ -141,6 +144,7 @@ function GlobalSearchStickyInput({
             })}
           />
         </div>
+      </div>
       </div>
     </div>
   );
