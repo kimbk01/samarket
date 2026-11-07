@@ -79,3 +79,16 @@
 | A10 | Vercel › samarket › Environment Variables (Production) | 3절 표의 값을 **같은 날 한 번에** 교체 (작업자가 전환 커밋을 main 에 올리기 직전) | 교체 완료 시각 |
 
 키를 하나로 합쳐 APNs·Sign in with Apple 을 함께 쓰는 방식은 Apple 문서에 명시가 없어(NOT_PROVEN) 쓰지 않는다.
+
+## 부록 B. 등록 결과 (2026-11-08, Owner 로그인 Chrome 에서 작업자가 등록 · 각 항목 등록 후 목록/상세 화면 재확인)
+| 항목 | 값 | 상태 |
+|---|---|---|
+| App ID | `com.dibay.ph` (팀 ATB959PF9V) — Communication Notifications · In-App Purchase · Push Notifications · Sign In with Apple | 등록 |
+| 알림 확장 App ID | `com.dibay.ph.DibayPushServiceExtension` | 등록 |
+| Services ID | `com.dibay.ph.web` — Sign In with Apple 켜짐, Primary `com.dibay.ph`, 도메인 `ckdosyydvgzqwpbwuhon.supabase.co`·`samarket.vercel.app`, Return `https://ckdosyydvgzqwpbwuhon.supabase.co/auth/v1/callback` | 등록·저장 확인 |
+| App Store Connect 이용 약관 | Owner 직접 동의 | 완료 |
+| 새 앱 | Apple ID **6831952401**, 번들 `com.dibay.ph`, SKU `dibay-ph-ios`, 기본 언어 한국어, **임시 이름 「DiBaY 디바이」** — 「DiBaY - 디바이」는 옛 계정 앱이 점유(「이미 사용 중」 확인) | iOS 1.0 제출 준비 중 |
+| IAP | `com.dibay.ph.point.1000` (6831952525) · `com.dibay.ph.point.5000` (6831952704) · `com.dibay.ph.point.10000` — 소모품, 참조 이름 DIBAY Point 1,000 / 5,250 / 11,000 | 제출 준비 중 · 가격·판매 국가·현지화는 유료 앱 계약 후 |
+| App Store 서버 알림 | 운영·Sandbox 모두 `https://samarket.vercel.app/api/webhooks/apple-app-store` | 저장 확인 · 서버는 `APPLE_IAP_BUNDLE_ID` 교체 전까지 새 앱 알림을 번들 불일치로 무시(정상) |
+
+남은 Owner 작업: 유료 앱 계약·은행·세금(W-8BEN 필리핀) · 키 2개(APNs, Sign in with Apple) 생성·내려받기·Vercel 입력 · 옛 계정에서 앱 이름 변경 후 새 앱 이름을 「DiBaY - 디바이」로 · 카카오 콘솔 iOS 번들 `com.dibay.ph` 추가.
