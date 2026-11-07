@@ -11,6 +11,13 @@ describe("WebPushSettingsRow U-6 hide rule", () => {
     expect(shouldHideWebPushSettingsRow({ windowsShell: true, loaded: true, status: on })).toBe(true);
   });
 
+  it("phone app (Capacitor Android·iOS) — always hidden even if server web push is on (B-1)", () => {
+    expect(shouldHideWebPushSettingsRow({ windowsShell: false, nativeApp: true, loaded: true, status: on })).toBe(true);
+    expect(
+      shouldHideWebPushSettingsRow({ windowsShell: false, nativeApp: true, loaded: true, status: { ...on, subscription_count: 3 } }),
+    ).toBe(true);
+  });
+
   it("while loading — not drawn (no skeleton-then-vanish)", () => {
     expect(shouldHideWebPushSettingsRow({ windowsShell: false, loaded: false, status: null })).toBe(true);
   });
@@ -40,7 +47,8 @@ describe("WebPushSettingsRow U-6 hide rule", () => {
 
   it("component returns null through the rule; Windows check is hydration-safe (server snapshot false)", () => {
     const src = readFileSync(join(process.cwd(), "components/my/settings/WebPushSettingsRow.tsx"), "utf8");
-    expect(src).toContain("if (shouldHideWebPushSettingsRow({ windowsShell, loaded, status })) return null;");
+    expect(src).toContain("if (shouldHideWebPushSettingsRow({ windowsShell, nativeApp, loaded, status })) return null;");
+    expect(src).toContain("useSyncExternalStore(subscribeNoop, isCapacitorNativePlatform, serverSnapshotFalse)");
     expect(src).toContain("useSyncExternalStore(subscribeNoop, isDibayWindowsShell, serverSnapshotFalse)");
   });
 });

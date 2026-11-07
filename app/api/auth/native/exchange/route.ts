@@ -34,6 +34,32 @@ function attachSessionCookies(target: NextResponse, cookiesToSet: CookieToSet[])
 }
 
 /**
+ * B-3 (2026-11-08 후속 감사) — 로그인 처리(`syncActiveSessionForUser`·탈퇴 회수)가 운반 응답에 쓴 쿠키
+ * (`samarket_active_session_id` 설정·삭제)를 최종 응답으로 옮긴다. 이전에는 최종 응답을 새로 만들며 버려졌다.
+ */
+function carryContextCookies(target: NextResponse, carrier: NextResponse, onlyDeletions: boolean): void {
+  for (const cookie of carrier.cookies.getAll()) {
+    if (onlyDeletions && !isCookieDeletion(cookie.value, cookie.maxAge)) continue;
+    try {
+      target.cookies.set(cookie);
+    } catch {
+      /* ignore malformed cookie options */
+    }
+  }
+}
+
+/** 실패 응답에는 쿠키 「삭제」만 싣는다 — 실패한 로그인이 세션 쿠키를 남기면 안 된다 */
+function isCookieDeletion(value: string | undefined, maxAge: number | undefined): boolean {
+  return !value || maxAge === 0;
+}
+
+function sessionCookieDeletions(cookiesToSet: CookieToSet[]): CookieToSet[] {
+  return cookiesToSet.filter(({ value, options }) =>
+    isCookieDeletion(value, typeof options?.maxAge === "number" ? (options.maxAge as number) : undefined),
+  );
+}
+
+/**
  * P2: Native SDK token → server verify → Supabase session.
  * Web OAuth (`/api/auth/oauth/start`) 와 동시 실행 금지 — 클라 `tryBeginOAuthFlow` mutex.
  */
@@ -90,8 +116,9 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  let response = noStoreJson({ ok: false, errorCode: "pending" }, 500);
-  const context = createNativeExchangeContext(req, response, routeSb);
+  /** 로그인 처리가 쓰는 쿠키 운반 응답 — 최종 응답으로 옮긴다 (B-3) */
+  const cookieCarrier = noStoreJson({ ok: false, errorCode: "pending" }, 500);
+  const context = createNativeExchangeContext(req, cookieCarrier, routeSb);
 
   const result = await exchangeNativeProviderToken(exchangeInput, context);
 
@@ -110,7 +137,11 @@ export async function POST(req: NextRequest) {
         stashToken: result.conflict.stashToken,
       };
     }
-    return noStoreJson(body, result.status);
+    const failure = noStoreJson(body, result.status);
+    // 탈퇴 회수 등 — 쿠키 삭제만 옮긴다 (활성 세션 쿠키 삭제·Supabase 로그아웃)
+    attachSessionCookies(failure, sessionCookieDeletions(sessionCookies));
+    carryContextCookies(failure, cookieCarrier, true);
+    return failure;
   }
 
   if (result.sessionEstablished !== true) {
@@ -120,7 +151,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  response = noStoreJson(
+  const response = noStoreJson(
     {
       ok: true,
       provider: result.provider,
@@ -135,6 +166,7 @@ export async function POST(req: NextRequest) {
     200,
   );
   attachSessionCookies(response, sessionCookies);
+  carryContextCookies(response, cookieCarrier, false);
 
   // App Store 계정 삭제 요구 — 탈퇴 때 폐기할 Apple 토큰을 응답 뒤에 저장 (실패해도 로그인 무영향)
   if (result.provider === "apple" && exchangeInput.authorizationCode && result.userId) {

@@ -78,7 +78,13 @@ describe("Sign in with Apple token store/revoke (App Store account deletion)", (
     const enc = encryptAppleRefreshToken(CONFIG, "r.secret-token");
     expect(enc).not.toContain("secret-token");
     expect(decryptAppleRefreshToken(CONFIG, enc)).toBe("r.secret-token");
-    expect(decryptAppleRefreshToken(CONFIG, enc.replace(/.$/, (c) => (c === "A" ? "B" : "A")))).toBeNull();
+    // B-10 (후속 감사 2026-11-08): 끝 글자 바꾸기는 base64url 여분 비트만 바뀌는 경우(끝 글자 'A', 약 6.5%)가 있어
+    // 위조가 되지 않았다 — 마지막 조각을 바이트로 풀어 첫 바이트를 실제로 뒤집는다.
+    const parts = enc.split(".");
+    const last = Buffer.from(parts[parts.length - 1]!, "base64url");
+    last[0] = last[0]! ^ 0x01;
+    parts[parts.length - 1] = last.toString("base64url");
+    expect(decryptAppleRefreshToken(CONFIG, parts.join("."))).toBeNull();
   });
 
   it("does nothing when the Apple key is not configured (login unaffected)", async () => {

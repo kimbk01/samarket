@@ -111,3 +111,16 @@
 ## 4. 새로 추가 (후속 목록)
 
 - **B-16:** `MarketplaceSellHubPills`·`HomePurchaseSalesHubTabs` 등 다른 「헤더 아래 탭」의 PC 정렬 — 미조사.
+
+## 5. 묶음 1 반영 (2026-11-08, Owner 「묶음 1 진행」)
+
+| # | 변경 | 검증 |
+|---|---|---|
+| B-3 | `native/exchange/route.ts` 운반 응답 쿠키를 최종 응답으로 — 성공 전부, 실패 삭제만 | 라우트 테스트 2건(신규) + 기존 3건 PASS |
+| B-1 | `WebPushSettingsRow` 휴대폰 앱(`isCapacitorNativePlatform`)이면 숨김 | 테스트 1건 추가(7 PASS) |
+| B-8 | `MyProductFilter` 밑줄은 전체 폭 바깥 틀, 탭은 `APP_MAIN_COLUMN_CLASS` 안, 탭 좌우 여백 `px-1` 유지(휴대폰 동일) | 계약 테스트 2건 |
+| B-9 | 테스트 기본 시각 정오 PHT 고정 | 7 PASS |
+| B-10 | 위조 흉내를 마지막 조각 첫 바이트 XOR 로 | 15회 연속 PASS |
+
+- 공통: 관련 테스트 4,659건, `typecheck:build`·`typecheck:test`, eslint PASS.
+- 실기·운영 NOT_PROVEN: B-3 앱 로그인 쿠키(운영 응답 확인 예정), B-8 PC 화면.

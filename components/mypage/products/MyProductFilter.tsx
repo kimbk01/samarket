@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MyTabs } from "@/components/mypage/ds/MyTabs";
 import { Sam } from "@/lib/ui/css-vars";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 
 const FILTER_LABEL_KEY: Record<MyProductFilterKey, MessageKey> = {
   all: "common_all",
@@ -57,10 +58,16 @@ export function MyProductFilter({
     fallbackEn: "Show only listings shown as Ad in lists",
   });
 
-  /** 내정보 공통 탭(`MyTabs`) — 「포인트 홍보」는 거래 J H-2 결정대로 같은 줄 마지막 칸(가려지지 않게 스크롤 칸 안) */
+  /**
+   * 내정보 공통 탭(`MyTabs`) — 「포인트 홍보」는 거래 J H-2 결정대로 같은 줄 마지막 칸(가려지지 않게 스크롤 칸 안).
+   * B-8 (후속 감사 2026-11-08): 밑줄은 화면 전체 폭(바깥 틀), 탭은 헤더 제목과 같은 본문 열(`APP_MAIN_COLUMN_CLASS`).
+   * 휴대폰은 본문 열 = 화면 폭이라 이전과 같다 (거래 허브 탭 `TradeHubTopTabs` 와 같은 방식).
+   */
   return (
+    <div className="w-full border-b border-sam-border" data-my-product-filter-row>
+    <div className={APP_MAIN_COLUMN_CLASS}>
     <MyTabs
-      className="px-1"
+      className="border-b-0 px-1"
       ariaLabel={safeT("marketplace_seller_products_title", { fallbackKo: "내 매물", fallbackEn: "My listings" })}
       value={value}
       onChange={onChange}
@@ -85,5 +92,7 @@ export function MyProductFilter({
         </button>
       }
     />
+    </div>
+    </div>
   );
 }

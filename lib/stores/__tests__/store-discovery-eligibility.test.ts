@@ -23,8 +23,15 @@ const breakHours = {
   },
 };
 
+/**
+ * B-9 (후속 감사 2026-11-08) — 기본 시각을 정오 PHT 로 고정. 실제 시계를 쓰면 영업 종료 「23:59」(종료 시각 미포함)
+ * 때문에 23:59 PHT 1분 동안 CI 가 실패했다. 형제 테스트(`noonManila`)와 같은 값.
+ */
+const FIXED_NOON_MANILA = new Date("2026-08-23T04:30:00.000Z");
+
 function baseInput(overrides: Record<string, unknown> = {}) {
   return {
+    now: FIXED_NOON_MANILA,
     business_hours_json: openHours,
     is_open: true,
     point_commerce_blocked: false,

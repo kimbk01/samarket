@@ -340,3 +340,13 @@ Session / Destination / Completion / Profile 의미 불변.
 - **중앙 변경 게이트:** `POST /api/auth/qr-login/start`·`approve` 를 EXEMPT 로 추가했다(14 → 16). 라우트가 자체 판정한다 — 다른 로그인 라우트와 같은 방식이다.
 - **DB:** `public.pc_login_requests`(RLS 강제·service_role 전용). **운영 적용은 Owner 별도 승인이다.** 적용 전에는 QR 영역이 숨겨진다(시작 API 503).
 - **설계:** `docs/audit/windows-qr-login-design-2026-11-08.md`
+
+## Amendment 2026-11-08 (5) — 앱 로그인 응답 활성 세션 쿠키 운반 (Reopen §4 trigger 3: Code First Break · Owner 「묶음 1 진행」)
+
+- **First Break (테스트 재현):** `POST /api/auth/native/exchange` 최종 응답이 Supabase 세션 쿠키만 싣고, 로그인 처리가 임시 응답에 쓴 `samarket_active_session_id` 를 버렸다. 탈퇴 거절 응답도 쿠키 삭제를 싣지 않았다.
+- **Contract delta:** 임시 응답을 쿠키 운반 응답으로 두고 최종 응답에 옮긴다.
+  - 성공: 전부 옮긴다.
+  - 실패: 삭제 쿠키만 옮긴다 — 실패한 로그인이 세션 쿠키를 남기지 않는다.
+- Destination·Completion·Session·Profile 의미는 무변경이다. 웹 OAuth·PC QR·비밀번호 경로는 이미 같은 응답에 쓰므로 무변경이다.
+- **Evidence:** `app/api/auth/native/exchange/__tests__/route-active-session-cookie.test.ts` (성공 200 에 활성 세션 쿠키, 탈퇴 403 에 삭제만). 앱 실기 NOT_PROVEN.
+- **감사:** `docs/audit/post-plan-backlog-audit-2026-11-08.md` B-3
