@@ -78,6 +78,7 @@ import {
 } from "@/components/admin/ads/AdminAdsLedgerParts";
 import {
   ADS_LEDGER_DOMAINS,
+  ADS_LEDGER_KINDS,
   adsLedgerAdvertiserLabel,
   adsLedgerDomainLabel,
   adsLedgerKindLabel,
@@ -417,6 +418,47 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * 실기 v6 FAIL 1 (Owner 「설계안대로 진행」 2026-11-07): 원장 종류 칩 = 원장 13종 + 전체 (설계 §5 「종류 필터」).
+   * 칩 수는 종류 거름을 뺀 값이어야 한다(서버 `kind_counts` 는 종류 거름이 들어간 값) → 위치 지도와 같이
+   * 도메인·광고주·매장 거름만 넣고 1번 더 읽는다(그 거름이 바뀔 때만).
+   */
+  const showKindChips = mode === "all" || mode === "history";
+  const [kindChipCounts, setKindChipCounts] = useState<Partial<Record<string, number>> | null>(null);
+  useEffect(() => {
+    if (!showKindChips) return;
+    let alive = true;
+    void fetchAdsControlPlane({
+      storeId: storeFilter || undefined,
+      page: {
+        mode: "all",
+        limit: 1,
+        offset: 0,
+        domain: domainFilter || undefined,
+        advertiser: advertiserFilter || undefined,
+      },
+    }).then((r) => {
+      if (!alive) return;
+      setKindChipCounts(r.ok && r.plane.page?.ledger ? (r.plane.kindCounts ?? {}) : null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [showKindChips, storeFilter, domainFilter, advertiserFilter]);
+  const setKindFilter = useCallback(
+    (kind: string) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (kind) next.set("kind", kind);
+      else next.delete("kind");
+      // 종류가 계열보다 좁은 거름 — 둘이 어긋나지 않게 계열은 전체로, 쪽은 처음으로
+      next.delete("family");
+      next.delete("page");
+      const q = next.toString();
+      router.replace(q ? `${pathname}?${q}` : pathname);
+    },
+    [pathname, router, searchParams]
+  );
 
   /** 광고주 거름 칩 — 거른 행의 광고주 이름 (원장 칸) */
   const advertiserFilterLedger = useMemo(() => {
@@ -1192,6 +1234,30 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           </AdminChipButton>
         ))}
       </div>
+
+      {showKindChips ? (
+        <div className="flex flex-wrap gap-2" data-shell-kind-tabs="1" role="group" aria-label={t("ads_ledger_kind_chips_label")}>
+          <AdminChipButton selected={!kindFilter} data-kind-tab="all" onClick={() => setKindFilter("")}>
+            {t("ads_ledger_kind_all")}
+          </AdminChipButton>
+          {ADS_LEDGER_KINDS.map((k) => {
+            const n = kindChipCounts ? (kindChipCounts[k] ?? 0) : null;
+            return (
+              <AdminChipButton
+                key={k}
+                selected={kindFilter === k}
+                count={n}
+                data-kind-tab={k}
+                // 0건 종류도 보이되(없다는 것을 알 수 있게) 누르지 않는다 — 지금 고른 종류는 해제할 수 있게 둔다
+                disabled={n === 0 && kindFilter !== k}
+                onClick={() => setKindFilter(kindFilter === k ? "" : k)}
+              >
+                {adsLedgerKindLabel(k, ko)}
+              </AdminChipButton>
+            );
+          })}
+        </div>
+      ) : null}
 
       {family === "popup" && popupQueue.length > 0 ? (
         <section

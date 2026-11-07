@@ -1,7 +1,7 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ReportTargetType } from "@/lib/types/report";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { submitReportDaangn } from "@/lib/reports/submitReportDaangn";
@@ -41,6 +41,8 @@ export function ReportActionSheet({
   const [detail, setDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 실기 v6 FAIL 5: 버튼은 스크롤 밖 고정 하단(`footer`) — 제출은 `form` 속성으로 이 form 을 가리킨다 */
+  const formId = useId();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,8 +85,18 @@ export function ReportActionSheet({
       }}
       title={title ?? t("nav_messenger_report")}
       ariaLabel={title ?? t("nav_messenger_report")}
+      footer={
+        <div className={OverlayUi.actionsRow} data-report-sheet-footer="1">
+          <DibayOverlayButton roleTone="secondary" type="button" disabled={submitting} onClick={onClose}>
+            {t("common_cancel")}
+          </DibayOverlayButton>
+          <DibayOverlayButton roleTone="primary" type="submit" form={formId} disabled={!reasonCode || submitting}>
+            {submitting ? t("ui_report_submitting") : t("ui_report_submit")}
+          </DibayOverlayButton>
+        </div>
+      }
     >
-      <form onSubmit={(e) => void handleSubmit(e)} className="px-1 pb-2">
+      <form id={formId} onSubmit={(e) => void handleSubmit(e)} className="px-1 pb-2">
         <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
           {targetLabel && <span>{targetLabel} </span>}
           {t("ui_report_select_prompt")}
@@ -111,14 +123,6 @@ export function ReportActionSheet({
           </div>
         )}
         {error && <p className={`mt-2 ${OverlayUi.captionDanger}`}>{error}</p>}
-        <div className="mt-4 flex gap-2">
-          <DibayOverlayButton roleTone="secondary" type="button" disabled={submitting} onClick={onClose}>
-            {t("common_cancel")}
-          </DibayOverlayButton>
-          <DibayOverlayButton roleTone="primary" type="submit" disabled={!reasonCode || submitting}>
-            {submitting ? t("ui_report_submitting") : t("ui_report_submit")}
-          </DibayOverlayButton>
-        </div>
       </form>
     </DibayBottomSheet>
   );

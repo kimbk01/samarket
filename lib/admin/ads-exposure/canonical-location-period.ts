@@ -4,6 +4,7 @@
  * Do NOT invent per-screen date/placement formatters.
  */
 
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import {
   humanPlacementLabel,
   humanPopupSurfaceShortLabel,
@@ -54,14 +55,9 @@ export function formatAdsPeriodRange(
       error: true,
     };
   }
-  const fmt = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${y}.${m}.${day} ${hh}:${mm}`;
-  };
+  // 실기 v6 FAIL 2-1 (2026-11-07): 실행 기계 시간대(`getHours`)가 아니라 PHT 고정 — 원장 목록은 서버(UTC)에서 만든다
+  const fmt = (d: Date) =>
+    formatAdminManilaDateTime(d.toISOString()).replace(/^(\d{4})-(\d{2})-(\d{2})/, "$1.$2.$3");
   return { label: `${fmt(s)} ~ ${fmt(e)}`, valid: true, error: false };
 }
 

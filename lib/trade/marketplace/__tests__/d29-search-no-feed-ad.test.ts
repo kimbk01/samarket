@@ -17,5 +17,8 @@ describe("D-29 검색 중에는 피드 배너 0", () => {
     const src = read(file);
     expect(src).toContain(`{!q?.trim() && shouldInjectFeedAdAtContentIndex(index, ${plan}) ? (`);
     expect(src).toMatch(/const q = sanitizeMarketplaceQueryText\(searchParams\.get\("q"\)\) \?\? null;/);
+    // v6 FAIL 4 (2026-11-07): 샘플 묶음 안 광고 자리도 같은 부품 — 그 부품이 검색어가 있으면 그리지 않는다
+    expect(src).toMatch(/const renderTrade(Home|Category)FeedAd = \(slotOrdinal: number\) =>\s*q\?\.trim\(\) \? null : \(/);
+    expect(src.match(/<FeedAdBannerCarousel/g)?.length).toBe(1);
   });
 });

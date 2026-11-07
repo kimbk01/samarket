@@ -293,8 +293,14 @@ export function toAdsShellListRow(
     item.lifecycleStatusLabel ||
     adsOpsStatusLabel(ops, ko);
 
+  /** 실기 v6 FAIL 2-5·2-6 (2026-11-07): 종료·반려·삭제 광고는 신청 모양이어도 「승인 전」·「종료까지 N」을 쓰지 않는다 */
+  const terminal = statusTab === "ended" || statusTab === "rejected" || String(statusTab) === "deleted";
   let runtimeLabel: string;
-  if (isApplication) {
+  if (terminal) {
+    runtimeLabel = boostDomain
+      ? boostRuntimeLabelFromTab(statusTab, ko) || (ko ? "종료" : "Ended")
+      : runtimeLabelFromTab(statusTab, ko) || (ko ? "종료" : "Ended");
+  } else if (isApplication) {
     runtimeLabel = formatPreApprovalRuntimeStatus(ko);
   } else if (boostDomain) {
     runtimeLabel =
@@ -305,10 +311,16 @@ export function toAdsShellListRow(
     runtimeLabel = runtimeLabelFromTab(statusTab, ko) || (ko ? "—" : "—");
   }
 
-  // Prefer ISO-ish fragments from periodLabel when start/end not on item.
-  const { startIso, endIso } = splitPeriodHint(item.periodLabel);
+  // 실기 v6 FAIL 2-2 (2026-11-07): 서버가 만든 기간 글자(PHT · 시간대 표시 없음)를 브라우저에서 다시 읽으면
+  // 기기 시간대로 해석돼 남은 기간이 어긋났다 → 행의 ISO 시각(원장 칸 · 기간 칸)을 먼저 쓴다. 글자 읽기는 옛 행(ISO 없음)만.
+  const isoStart = item.periodStartAt ?? item.ledger?.startAt ?? null;
+  const isoEnd = item.periodEndAt ?? item.ledger?.endAt ?? null;
+  const { startIso, endIso } =
+    isoStart || isoEnd ? { startIso: isoStart, endIso: isoEnd } : splitPeriodHint(item.periodLabel);
   const periodFmt = formatAdsPeriodRange(startIso, endIso, ko);
-  const remainingFmt = formatAdsRemaining(startIso, endIso, Date.now(), ko);
+  const remainingFmt = terminal
+    ? { label: ko ? "종료됨" : "Ended", kind: "ended" as const }
+    : formatAdsRemaining(startIso, endIso, Date.now(), ko);
   const periodLabel = periodFmt.valid
     ? periodFmt.label
     : periodFmt.error

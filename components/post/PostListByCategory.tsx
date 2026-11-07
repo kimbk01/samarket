@@ -914,7 +914,9 @@ export function PostListByCategory({
           surfaceKey: tradeCategorySurfaceKey,
           feedSessionId: tradeCategoryAdSessionId,
         }),
-        tradeCategoryGridColumnCount
+        tradeCategoryGridColumnCount,
+        // v6 FAIL 4: 목록 끝 샘플까지 칸을 센다(실제 글 뒤 샘플이 줄을 끝내면 그 자리에 광고)
+        !hasMore && !showcasePlan.firstSoldId ? showcaseRest.shown.length : 0
       ),
     [
       posts,
@@ -1036,6 +1038,20 @@ export function PostListByCategory({
     );
   }
 
+  /** 피드 배너 1자리 — 글 뒤·샘플 묶음 안 모두 같은 부품 (D-29: 검색어가 있으면 끼우지 않는다) */
+  const renderTradeCategoryFeedAd = (slotOrdinal: number) =>
+    q?.trim() ? null : (
+      <FeedAdBannerCarousel
+        domain="trade"
+        placement="TRADE_CATEGORY"
+        categoryId={categoryId}
+        surfaceKey={tradeCategorySurfaceKey}
+        feedSessionId={tradeCategoryAdSessionId}
+        slotOrdinal={slotOrdinal}
+        campaignPool={feedAdPool ?? []}
+      />
+    );
+
   return (
     <>
       {tradePullRefreshRegister}
@@ -1043,10 +1059,15 @@ export function PostListByCategory({
         {posts.map((post, index) => (
           <Fragment key={`list-row-${post.id}`}>
           {!hasMore && post.id === showcasePlan.firstSoldId
-            ? showcaseRest.shown.map((item) => (
-                <li key={`showcase-${item.id}`} className="min-w-0">
-                  <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
-                </li>
+            ? showcaseRest.shown.map((item, k) => (
+                <Fragment key={`showcase-${item.id}`}>
+                  <li className="min-w-0">
+                    <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+                  </li>
+                  {tradeCategoryAdPlan.inCellsBeforeByIndex.get(index)?.afterCells === k + 1
+                    ? renderTradeCategoryFeedAd(tradeCategoryAdPlan.inCellsBeforeByIndex.get(index)!.slotOrdinal)
+                    : null}
+                </Fragment>
               ))
             : null}
           {shouldShowTradeListSectionDivider(posts[index - 1]?.list_section, post.list_section, index) ? (
@@ -1065,16 +1086,9 @@ export function PostListByCategory({
               />
             </li>
             {/* D-29 (2026-11-04): 검색어가 있으면 피드 배너를 끼우지 않는다 */}
+            {/* D-29 (2026-11-04): 검색어가 있으면 피드 배너를 끼우지 않는다 */}
             {!q?.trim() && shouldInjectFeedAdAtContentIndex(index, tradeCategoryAdPlan) ? (
-              <FeedAdBannerCarousel
-                domain="trade"
-                placement="TRADE_CATEGORY"
-                categoryId={categoryId}
-                surfaceKey={tradeCategorySurfaceKey}
-                feedSessionId={tradeCategoryAdSessionId}
-                slotOrdinal={tradeCategoryAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
-                campaignPool={feedAdPool ?? []}
-              />
+              renderTradeCategoryFeedAd(tradeCategoryAdPlan.slotOrdinalByContentIndex.get(index) ?? 0)
             ) : null}
           </Fragment>
           {showcasePlan.afterPostId.get(post.id) ? (
@@ -1082,14 +1096,22 @@ export function PostListByCategory({
               <TradeShowcaseCard item={showcasePlan.afterPostId.get(post.id)!} onOpen={setShowcaseOpen} />
             </li>
           ) : null}
+          {tradeCategoryAdPlan.inCellsAfterByIndex.get(index)
+            ? renderTradeCategoryFeedAd(tradeCategoryAdPlan.inCellsAfterByIndex.get(index)!.slotOrdinal)
+            : null}
           </Fragment>
         ))}
         {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 같은 그리드에 이어서(판매완료 글이 있으면 그 앞 · 검색 제외) */}
         {!hasMore && !showcasePlan.firstSoldId
-          ? showcaseRest.shown.map((item) => (
-              <li key={`showcase-${item.id}`} className="min-w-0">
-                <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
-              </li>
+          ? showcaseRest.shown.map((item, k) => (
+              <Fragment key={`showcase-${item.id}`}>
+                <li className="min-w-0">
+                  <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+                </li>
+                {tradeCategoryAdPlan.trailing?.afterCells === k + 1
+                  ? renderTradeCategoryFeedAd(tradeCategoryAdPlan.trailing.slotOrdinal)
+                  : null}
+              </Fragment>
             ))
           : null}
       </ul>

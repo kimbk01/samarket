@@ -863,9 +863,19 @@ export function applyAdsLedgerToItem(
   ledger: AdsLedgerFields
 ): AdsActionItem {
   const ops = ledgerOps(meta.ops);
+  const ledgerTitle = String(meta.title ?? "").trim();
+  const terminal = meta.statusTab === "ended" || meta.statusTab === "rejected" || meta.statusTab === "deleted";
   const next: AdsActionItem = {
     ...item,
     ledger,
+    // 실기 v6 FAIL 2-3·2-4 (2026-11-07): 광고주 칸을 「운영자」로 덮으면서 캠페인 이름이 사라졌고, 회원 신청 행은 글 uuid 가 제목이었다
+    // → 제목 = 원장 제목(캠페인 이름·주제·이벤트 제목·글 제목). 원장 제목이 없을 때만 기존 제목.
+    title: ledgerTitle || item.title,
+    // 실기 v6 FAIL 2-2: 목록 줄이 기간 글자를 다시 읽지 않도록 ISO 시각을 행에 둔다
+    periodStartAt: ledger.startAt ?? item.periodStartAt ?? null,
+    periodEndAt: ledger.endAt ?? item.periodEndAt ?? null,
+    // 실기 v6 FAIL 2-6: 일찍 끝난 광고에 「종료까지 N」을 쓰지 않는다
+    remainingLabel: terminal ? "종료됨" : item.remainingLabel,
     applicantLabel: adsLedgerAdvertiserLabel(ledger, true),
     memberId: ledger.advertiserType === "member" ? ledger.advertiserId : item.memberId,
     memberHref:
@@ -887,7 +897,7 @@ export function applyAdsLedgerToItem(
   }
   if (meta.family === "feed_request" && (ledger.startAt || ledger.endAt)) {
     next.periodLabel = formatPeriod(ledger.startAt, ledger.endAt);
-    next.remainingLabel = adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null;
+    next.remainingLabel = terminal ? "종료됨" : adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null;
   }
   if (meta.family === "feed_request" && meta.priority != null) next.priority = meta.priority;
   return next;
@@ -928,7 +938,10 @@ export function projectLedgerOnlyItem(meta: AdsLedgerRowMeta, ledger: AdsLedgerF
     whyActionable: null,
     paymentLabel: adsPaymentLabel("ADMIN_DIRECT", "N_A", true),
     periodLabel: formatPeriod(ledger.startAt, ledger.endAt),
-    remainingLabel: adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null,
+    remainingLabel:
+      meta.statusTab === "ended" || meta.statusTab === "rejected" || meta.statusTab === "deleted"
+        ? "종료됨"
+        : adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null,
     performanceLabel:
       ledger.impressions != null || ledger.clicks != null ? adsLedgerPerformanceLabel(ledger, true) : null,
     exposureLabel: exposureFromOps(ops),

@@ -878,7 +878,9 @@ export function HomeProductList({
           surfaceKey: "trade:home",
           feedSessionId: tradeHomeAdSessionId,
         }),
-        tradeHomeGridColumnCount
+        tradeHomeGridColumnCount,
+        // v6 FAIL 4: 목록 끝 샘플까지 칸을 센다(실제 글 뒤 샘플이 줄을 끝내면 그 자리에 광고)
+        tradeHomeListEnded && !showcasePlan.firstSoldId ? showcaseRest.shown.length : 0
       ),
     [
       visiblePosts,
@@ -1212,6 +1214,19 @@ export function HomeProductList({
     );
   }
 
+  /** 피드 배너 1자리 — 글 뒤·샘플 묶음 안 모두 같은 부품 (D-29: 검색어가 있으면 끼우지 않는다) */
+  const renderTradeHomeFeedAd = (slotOrdinal: number) =>
+    q?.trim() ? null : (
+      <FeedAdBannerCarousel
+        domain="trade"
+        placement="TRADE_HOME"
+        surfaceKey="trade:home"
+        feedSessionId={tradeHomeAdSessionId}
+        slotOrdinal={slotOrdinal}
+        campaignPool={feedAdPool ?? []}
+      />
+    );
+
   return (
     <>
       {tradePullRefreshRegister}
@@ -1247,10 +1262,15 @@ export function HomeProductList({
         {visiblePosts.map((post, index) => (
           <Fragment key={`list-row-${post.id}`}>
           {!(listPagination.hasMore || serverHasMore) && post.id === showcasePlan.firstSoldId
-            ? showcaseRest.shown.map((item) => (
-                <li key={`showcase-${item.id}`} className="min-w-0">
-                  <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
-                </li>
+            ? showcaseRest.shown.map((item, k) => (
+                <Fragment key={`showcase-${item.id}`}>
+                  <li className="min-w-0">
+                    <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+                  </li>
+                  {tradeHomeAdPlan.inCellsBeforeByIndex.get(index)?.afterCells === k + 1
+                    ? renderTradeHomeFeedAd(tradeHomeAdPlan.inCellsBeforeByIndex.get(index)!.slotOrdinal)
+                    : null}
+                </Fragment>
               ))
             : null}
           {shouldShowTradeListSectionDivider(visiblePosts[index - 1]?.list_section, post.list_section, index) ? (
@@ -1277,14 +1297,7 @@ export function HomeProductList({
             </li>
             {/* D-29 (2026-11-04): 검색어가 있으면 피드 배너를 끼우지 않는다 */}
             {!q?.trim() && shouldInjectFeedAdAtContentIndex(index, tradeHomeAdPlan) ? (
-              <FeedAdBannerCarousel
-                domain="trade"
-                placement="TRADE_HOME"
-                surfaceKey="trade:home"
-                feedSessionId={tradeHomeAdSessionId}
-                slotOrdinal={tradeHomeAdPlan.slotOrdinalByContentIndex.get(index) ?? 0}
-                campaignPool={feedAdPool ?? []}
-              />
+              renderTradeHomeFeedAd(tradeHomeAdPlan.slotOrdinalByContentIndex.get(index) ?? 0)
             ) : null}
           </Fragment>
           {showcasePlan.afterPostId.get(post.id) ? (
@@ -1292,14 +1305,22 @@ export function HomeProductList({
               <TradeShowcaseCard item={showcasePlan.afterPostId.get(post.id)!} onOpen={setShowcaseOpen} />
             </li>
           ) : null}
+          {tradeHomeAdPlan.inCellsAfterByIndex.get(index)
+            ? renderTradeHomeFeedAd(tradeHomeAdPlan.inCellsAfterByIndex.get(index)!.slotOrdinal)
+            : null}
           </Fragment>
         ))}
         {/* 끼우고 남은 샘플 — 실제 글을 끝까지 받은 뒤 같은 그리드에 이어서(판매완료 글이 있으면 그 앞 · 검색 제외) */}
         {!(listPagination.hasMore || serverHasMore) && !showcasePlan.firstSoldId
-          ? showcaseRest.shown.map((item) => (
-              <li key={`showcase-${item.id}`} className="min-w-0">
-                <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
-              </li>
+          ? showcaseRest.shown.map((item, k) => (
+              <Fragment key={`showcase-${item.id}`}>
+                <li className="min-w-0">
+                  <TradeShowcaseCard item={item} onOpen={setShowcaseOpen} />
+                </li>
+                {tradeHomeAdPlan.trailing?.afterCells === k + 1
+                  ? renderTradeHomeFeedAd(tradeHomeAdPlan.trailing.slotOrdinal)
+                  : null}
+              </Fragment>
             ))
           : null}
       </ul>

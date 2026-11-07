@@ -16,6 +16,18 @@ import { adLocationLabel } from "@/lib/admin/ads-ledger/ad-location-label";
 
 const GROUP_ORDER: LedgerSurfaceGroup[] = ["delivery", "feed", "boost", "popup", "ptr", "mypage", "intro", "event"];
 
+/** 실기 v6 FAIL 3: 대상별로 나뉘는 지면의 합계 칸은 「업종마다 수용 N」처럼 단위를 붙인다(합계와 1곳 수용량을 나란히 두지 않음) */
+function perTargetCapacityKey(
+  locationKey: string
+):
+  | "ads_ledger_map_capacity_each_store_category"
+  | "ads_ledger_map_capacity_each_trade_category"
+  | "ads_ledger_map_capacity_each_topic" {
+  if (locationKey === "COMMUNITY_TOPIC") return "ads_ledger_map_capacity_each_topic";
+  if (locationKey === "TRADE_CATEGORY") return "ads_ledger_map_capacity_each_trade_category";
+  return "ads_ledger_map_capacity_each_store_category";
+}
+
 export function AdminAdsLedgerSurfaceMap({ domain }: { domain?: string | null }) {
   const { language, t } = useI18n();
   const ko = language !== "en";
@@ -69,10 +81,17 @@ export function AdminAdsLedgerSurfaceMap({ domain }: { domain?: string | null })
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-sam-muted tabular-nums">
-                  <span>
-                    {c.capacity == null ? t("ads_ledger_map_capacity_open") : t("ads_ledger_map_capacity", { n: c.capacity })}
+                  <span data-admin-ads-ledger-surface-capacity={c.capacityPerTarget ? "per-target" : "cell"}>
+                    {c.capacity == null
+                      ? t("ads_ledger_map_capacity_open")
+                      : c.capacityPerTarget
+                        ? t(perTargetCapacityKey(c.locationKey), { n: c.capacity })
+                        : t("ads_ledger_map_capacity", { n: c.capacity })}
                   </span>
                   <span>{t("ads_ledger_map_live", { n: c.live })}</span>
+                  {c.capacityPerTarget && c.liveTargets ? (
+                    <span>{t("ads_ledger_map_live_targets", { n: c.liveTargets })}</span>
+                  ) : null}
                   {c.waiting > 0 ? <span>{t("ads_ledger_map_waiting", { n: c.waiting })}</span> : null}
                   <span>{t("ads_ledger_map_scheduled", { n: c.scheduled })}</span>
                   {c.vacant != null && c.vacant > 0 ? <span>{t("ads_ledger_map_vacant")}</span> : null}

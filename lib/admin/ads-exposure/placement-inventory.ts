@@ -540,8 +540,15 @@ export type LedgerSurfaceCell = {
   live: number;
   scheduled: number;
   waiting: number;
-  /** 수용량이 있을 때만 — 수용량 − (노출 중 + 대기) */
+  /** 수용량이 있을 때만 — 수용량 − (노출 중 + 대기) · 대상별로 나뉘는 지면의 합계 칸은 null(비어 있는지는 대상 칸에서만 본다) */
   vacant: number | null;
+  /**
+   * 실기 v6 FAIL 3 (2026-11-07): 대상별로 나뉘는 지면(업종 상단·카테고리·주제)의 「전체」 합계 칸 — `capacity` 는 **대상 1곳당** 수용량이다.
+   * 합계 노출 수와 1곳 수용량을 나란히 두면 초과처럼 보였다(업종 8곳 × 1 → 「수용 1 · 노출 중 8」).
+   */
+  capacityPerTarget: boolean;
+  /** 합계 칸만 — 노출 중인 대상(업종·카테고리·주제) 수 */
+  liveTargets: number | null;
   /** 원장 거름 주소 */
   ledgerHref: string;
 };
@@ -634,6 +641,15 @@ export function projectLedgerSurfaceMap(rows: readonly LocationCountRow[]): Ledg
     const capacity = ledgerSurfaceCapacity(key);
     const live = sum("live");
     const waiting = sum("waiting");
+    const aggregate = target == null && LEDGER_SURFACE_SPLIT_BY_TARGET.has(key);
+    const liveTargets = aggregate
+      ? new Set(
+          matches
+            .filter((r) => r.statusTab === "live" && r.n > 0)
+            .map((r) => String(r.locationTarget ?? "").trim().toLowerCase())
+            .filter(Boolean)
+        ).size
+      : null;
     cells.push({
       group,
       locationKey: key,
@@ -643,7 +659,9 @@ export function projectLedgerSurfaceMap(rows: readonly LocationCountRow[]): Ledg
       live,
       scheduled: sum("scheduled"),
       waiting,
-      vacant: capacity == null ? null : Math.max(0, capacity - live),
+      vacant: capacity == null || aggregate ? null : Math.max(0, capacity - live),
+      capacityPerTarget: aggregate,
+      liveTargets,
       ledgerHref: ledgerSurfaceHref(key, target),
     });
   };
