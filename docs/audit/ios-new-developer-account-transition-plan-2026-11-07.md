@@ -92,3 +92,35 @@
 | App Store 서버 알림 | 운영·Sandbox 모두 `https://samarket.vercel.app/api/webhooks/apple-app-store` | 저장 확인 · 서버는 `APPLE_IAP_BUNDLE_ID` 교체 전까지 새 앱 알림을 번들 불일치로 무시(정상) |
 
 남은 Owner 작업: 유료 앱 계약·은행·세금(W-8BEN 필리핀) · 키 2개(APNs, Sign in with Apple) 생성·내려받기·Vercel 입력 · 옛 계정에서 앱 이름 변경 후 새 앱 이름을 「DiBaY - 디바이」로 · 카카오 콘솔 iOS 번들 `com.dibay.ph` 추가.
+
+## 부록 C. 키·전환일 값 목록 (2026-11-08) — 비밀키 내용은 기록하지 않는다
+
+| 키 | Key ID | 설정 | 파일 (Owner 보관) |
+|---|---|---|---|
+| APNs | `NJ6LH56Z5R` | Team Scoped (All topics) · Sandbox & Production | `AuthKey_NJ6LH56Z5R.p8` |
+| Sign in with Apple | `PDV9Z8ZS83` | Primary `com.dibay.ph` + 그룹 `com.dibay.ph.web` | `AuthKey_PDV9Z8ZS83.p8` |
+
+### 전환일 Vercel (Production) — Owner 입력
+| 변수 | 새 값 |
+|---|---|
+| `APNS_TEAM_ID` | `ATB959PF9V` |
+| `APNS_KEY_ID` | `NJ6LH56Z5R` |
+| `APNS_KEY_P8` | `AuthKey_NJ6LH56Z5R.p8` 내용 전체 |
+| `APNS_BUNDLE_ID` | `com.dibay.ph` |
+| `APNS_VOIP_TOPIC` | `com.dibay.ph.voip` |
+| `APNS_PRODUCTION` | 현재 값 유지 |
+| `APPLE_IAP_BUNDLE_ID` | `com.dibay.ph` |
+| `AUTH_APPLE_NATIVE_CLIENT_ID` | `com.dibay.ph` |
+| `APPLE_SIWA_TEAM_ID` | `ATB959PF9V` |
+| `APPLE_SIWA_KEY_ID` | `PDV9Z8ZS83` |
+| `APPLE_SIWA_KEY_P8` | `AuthKey_PDV9Z8ZS83.p8` 내용 전체 |
+
+### 전환일 Supabase Auth › Apple — Owner 입력
+- Client IDs: `com.dibay.ph.web,com.dibay.ph`
+- Secret Key: 프로젝트 루트에서 `APPLE_AUTH_KEY_PATH=<보관 경로>/AuthKey_PDV9Z8ZS83.p8 node scripts/generate-apple-client-secret.mjs` 실행 결과(기본값 팀 ATB959PF9V · 키 PDV9Z8ZS83 · client com.dibay.ph.web 로 갱신됨). 6개월마다 재발급.
+
+### 코드 (브랜치 `feat/ios-new-account-transition`)
+- `project.pbxproj`: `DEVELOPMENT_TEAM` 4곳 → `ATB959PF9V`, 앱 `com.dibay.ph`, 확장 `com.dibay.ph.DibayPushServiceExtension`
+- `Info.plist`: URL 타입 이름 → `$(PRODUCT_BUNDLE_IDENTIFIER)` (scheme `dibay` 그대로)
+- `NativeAppleAuthPlugin.swift`: 진단 로그의 audience 비교를 실행 중 번들 ID 기준으로
+- 바꾸지 않음: `capacitor.config.ts` appId(Android 공유) · 로그 subsystem `com.dibay.app` 문자열(콘솔 필터용, 동작 무관) · Android 전부

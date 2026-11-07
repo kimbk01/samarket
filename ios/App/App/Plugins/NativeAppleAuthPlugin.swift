@@ -8,7 +8,7 @@ import UIKit
 /**
  * P2 — Sign in with Apple via AuthenticationServices.
  * CAPBridgedPlugin — App target compile 시 Capacitor 자동 등록.
- * Xcode: Sign in with Apple capability + com.dibay.app
+ * Xcode: Sign in with Apple capability + app bundle ID (com.dibay.ph)
  *
  * Diagnostic-only events (no auth behavior change): appleAttemptId correlation,
  * lifecycle/anchor/thread fields, completion-timeout observe (no auto reject/retry).
@@ -82,8 +82,8 @@ public class NativeAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorization
           }
           return ""
         }()
-        // Bundle ID expected for Native SIWA — not a secret.
-        audMatched = aud == "com.dibay.app"
+        // Native SIWA audience = this app's bundle ID (diagnostic only — not a secret).
+        audMatched = aud == (Bundle.main.bundleIdentifier ?? "")
         if let tokenNonce = json["nonce"] as? String, let raw = currentNonce, !raw.isEmpty {
           nonceMatched = tokenNonce == sha256(raw)
         }

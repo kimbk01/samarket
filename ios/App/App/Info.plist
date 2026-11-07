@@ -30,7 +30,7 @@
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.dibay.app</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>dibay</string>
