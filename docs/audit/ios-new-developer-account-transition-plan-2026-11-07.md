@@ -124,3 +124,8 @@
 - `Info.plist`: URL 타입 이름 → `$(PRODUCT_BUNDLE_IDENTIFIER)` (scheme `dibay` 그대로)
 - `NativeAppleAuthPlugin.swift`: 진단 로그의 audience 비교를 실행 중 번들 ID 기준으로
 - 바꾸지 않음: `capacitor.config.ts` appId(Android 공유) · 로그 subsystem `com.dibay.app` 문자열(콘솔 필터용, 동작 무관) · Android 전부
+
+## 부록 D. 앱 이름 이전 (2026-11-08, Owner 캡처로 확인)
+- 옛 계정 앱 6790213062 (`com.dibay.app`) 이름 → **「DIBAY Legacy」** (한국어, 저장 완료)
+- 새 계정 앱 6831952401 (`com.dibay.ph`) 이름 → **「DiBaY - 디바이」** (저장 완료)
+- 남은 앱 정보: 부제(권고 「커뮤니티·중고거래·배달·채팅」), 카테고리(옛 앱: 소셜 네트워킹 / 쇼핑), 콘텐츠 권한 — 제출 정보 입력 단계에서
