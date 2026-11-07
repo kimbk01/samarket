@@ -158,6 +158,9 @@ export async function proxy(request: NextRequest) {
   if (
     pathname === "/favicon.ico" ||
     pathname === "/manifest.webmanifest" ||
+    // Service Worker 스크립트 — 브라우저가 쿠키 없이도 주기적으로 다시 받아 업데이트를 확인한다.
+    // 인증 게이트에 걸리면 비로그인·세션 만료 상태에서 307 → /login HTML 이 와서 SW 업데이트가 실패한다.
+    pathname === "/sw.js" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
     /\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff2?|ttf|otf|eot)$/i.test(
