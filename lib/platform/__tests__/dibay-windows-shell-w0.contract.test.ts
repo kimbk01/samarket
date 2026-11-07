@@ -99,18 +99,19 @@ describe("Windows shell W0", () => {
     expect(src.match(/hostShell/g)?.length).toBe(2);
   });
 
-  it("shell bridge version matches the web constant; shell answers only app.info in W0", () => {
+  it("shell bridge version matches the web constant; shell accepts messages only from the app origin", () => {
     const cfg = read("windows/DibayDesktop/AppConfig.cs");
     expect(cfg).toContain(`public const int BridgeVersion = ${DIBAY_WINDOWS_SHELL_BRIDGE_VERSION};`);
     const win = read("windows/DibayDesktop/MainWindow.xaml.cs");
     expect(win).toContain('if (type == "app.info")');
-    expect(win).not.toMatch(/type == "(auth\.open|push\.register)"/);
+    // 알림 등록(push.register)은 W3 — 아직 없음
+    expect(win).not.toMatch(/type == "push\.register"/);
     expect(win).toContain("AppConfig.IsAppOrigin(source)");
   });
 
   it("package identity is the dev placeholder (real values only after Store name reservation)", () => {
     const manifest = read("windows/DibayDesktop/Package.appxmanifest");
-    expect(manifest).toContain('<Identity Name="DibayDesktop.Dev" Publisher="CN=DIBAY Dev" Version="0.1.0.0" />');
+    expect(manifest).toMatch(/<Identity Name="DibayDesktop\.Dev" Publisher="CN=DIBAY Dev" Version="\d+\.\d+\.\d+\.\d+" \/>/);
     expect(manifest).toContain("<DisplayName>DIBAY (dev)</DisplayName>");
   });
 

@@ -131,3 +131,29 @@
 
 1. 인증 잠금 재개방 — **트리거 5**(Google 의 앱 안 로그인 금지 정책).
 2. 화면 문구 2개(§2-3).
+
+## 9. 구현 기록 (2026-11-08, Owner 「W2 구현」)
+
+- **웹:**
+  - `dibay-windows-shell.ts` 브리지 v2 — `auth.open` · `auth.return.request`, 셸 v2 판정을 기억한다.
+  - `fetchWindowsShellOAuthAuthorizeUrl`
+  - `use-oauth-login.ts` Windows 분기 — Capacitor 분기 앞, 셸 v2 일 때만.
+  - `WindowsShellOAuthReturnListener`(layout)
+  - 대기·실패 문구 2개
+  - 복귀 경로 표시 `windows_shell`
+- **셸 0.2.0.0:**
+  - `dibay` 프로토콜
+  - `Program.cs` 단일 실행(`AppInstance.FindOrRegisterForKey` → `RedirectActivationToAsync`)
+  - `auth.open` 은 `https://*.supabase.co/auth/v1/authorize…` 만 기본 브라우저로 연다.
+- **계획과 다른 점 (2개):**
+  1. **복귀 전달 방식:** 「복귀 주소를 바로 보냄」 → 「셸이 보관 → `auth.return.available` 알림 → 웹이 요청하면 한 번만 보내고 지움」.
+     - 이유: 앱이 꺼진 상태에서 켜질 때 웹이 아직 안 떠 있어 메시지가 사라질 수 있다.
+     - 또 `/auth/callback` 이동 뒤 같은 인가 코드가 다시 전달되면 교환이 실패한다.
+  2. **앱 창 안 로그인 호스트 목록(카카오·Apple·Google)을 빼지 않았다.**
+     - 이유: 셸 버전 확인이 시간 안에 답하지 못해 웹이 앱 창 안 로그인으로 내려가는 경우, 목록을 빼면 로그인 화면이 브라우저로 튀어 어디로도 돌아오지 않는다.
+     - 셸 v2 + 정상 응답이면 웹은 항상 기본 브라우저 경로를 쓴다.
+- **검증:**
+  - 코드 PASS — 계약 테스트 19건(W0 10 + W2 9), 인증·로그인 테스트 990건 통과, `typecheck:build`·`typecheck:test`·eslint.
+  - 기존 실패 1건 `apple-siwa-token.test.ts` 는 변경 전 코드에서도 같은 실패(로컬 환경) — 이번 변경과 무관하다.
+  - 실기 W2-1~7: NOT_PROVEN (노트북 설치 후).
+

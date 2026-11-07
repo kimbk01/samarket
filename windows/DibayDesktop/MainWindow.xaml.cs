@@ -13,7 +13,9 @@ namespace DibayDesktop;
 /// W0 셸 창 — WebView2 1개가 운영 웹을 연다.
 /// - 창 위치·크기를 기억한다.
 /// - 앱 밖 주소(새 창·외부 링크)는 기본 브라우저로 연다.
-/// - 웹이 보내는 메시지는 W0 에서 「app.info」 하나만 받는다 (auth.open = W2, push.register = W3).
+/// - 웹 메시지: app.info(W0) · auth.open · auth.return.request(W2). push.register 는 W3.
+/// - W2 로그인 복귀: dibay://auth/callback 을 보관 → 「auth.return.available」 알림 → 웹이 요청하면 한 번만 보내고 지운다
+///   (같은 인가 코드를 두 번 교환하지 않게).
 /// </summary>
 public sealed partial class MainWindow : Window
 {
@@ -21,6 +23,9 @@ public sealed partial class MainWindow : Window
     private const int DefaultWidth = 1280;
     private const int DefaultHeight = 820;
     private const int MinRestoreSize = 480;
+
+    /// <summary>W2: 아직 웹에 넘기지 않은 로그인 복귀 주소 (한 번 보내면 지운다).</summary>
+    private string? _pendingAuthReturn;
 
     public MainWindow()
     {
@@ -100,6 +105,67 @@ public sealed partial class MainWindow : Window
                 appVersion = ReadPackageVersion(),
             });
             sender.PostWebMessageAsJson(reply);
+            return;
+        }
+
+        if (type == "auth.open")
+        {
+            // W2: 로그인 인가 주소를 기본 브라우저로 — 우리 Supabase 인가 주소만.
+            var url = ReadStringProperty(e.WebMessageAsJson, "url");
+            if (url is not null && Uri.TryCreate(url, UriKind.Absolute, out var authUri) && AppConfig.IsAuthOpenAllowed(authUri))
+            {
+                _ = Launcher.LaunchUriAsync(authUri);
+            }
+            return;
+        }
+
+        if (type == "auth.return.request")
+        {
+            // W2: 웹이 준비됐다 — 보관한 복귀 주소를 한 번만 보내고 지운다.
+            SendPendingAuthReturn(sender);
+        }
+    }
+
+    /// <summary>App — dibay://auth/callback 로 활성화됨 (콜드 스타트·이미 켜진 창 모두).</summary>
+    public void ReceiveAuthReturn(string url)
+    {
+        _pendingAuthReturn = url;
+        var core = Web.CoreWebView2;
+        if (core is null) return; // 웹이 뜨면 리스너가 auth.return.request 로 받아 간다.
+        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "auth.return.available" }));
+    }
+
+    public void BringToFront()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+        {
+            presenter.Restore();
+        }
+        Activate();
+    }
+
+    private void SendPendingAuthReturn(CoreWebView2 core)
+    {
+        var url = _pendingAuthReturn;
+        if (url is null) return;
+        _pendingAuthReturn = null;
+        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "auth.return", url }));
+    }
+
+    private static string? ReadStringProperty(string json, string name)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == JsonValueKind.Object &&
+                   doc.RootElement.TryGetProperty(name, out var prop) &&
+                   prop.ValueKind == JsonValueKind.String
+                ? prop.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 

@@ -296,3 +296,17 @@ Session / Destination / Completion / Profile 의미 불변.
 - 이유: 24h `admin_memberships` 3,474건(관리자 계정 2,230 · 일반 회원 1,244) — 요청마다 같은 행 재조회.
 - 불변: 판정식(활성 membership role 이 admin·super_admin) · 최고관리자 예외 · 직원 권한 로드 · 세션 확인 · DB·RLS.
 Session / Destination / Completion / Profile 의미 불변.
+
+---
+
+## Amendment 2026-11-08 — Windows 셸 로그인을 기본 브라우저로 (Reopen §4 trigger 5: 플랫폼 정책 · Owner 「W2 구현」)
+
+- **First Break:** Windows 데스크톱 셸(WebView2, W0 빌드)에서 Google 로그인 시 Google 이 「보안 코드」를 요구 → 정상 로그인 불가 (노트북 실기 화면 2026-11-08). 근거: Google OAuth 정책 — 앱이 제어하는 임베디드 user-agent 금지.
+- **Contract delta:** Windows 셸(브리지 v2 이상)에서만 `web_oauth_start` 의 실행 위치를 「앱 창 안」 → 「기본 브라우저」로 바꾼다.
+  - 서버 경로는 Android Custom Tab 과 같다: `launch=native` → `capacitor-return` → `dibay://auth/callback` → 셸 `auth.return` → `deliverNativeOAuthReturnUrl(…, "windows_shell")` → `/auth/callback`.
+  - Destination·Completion·Session·Profile 의미는 무변경이다.
+  - 방식 결정표(`oauth-native-routing.ts`) 무변경. 서버·Supabase 설정 무변경.
+  - Android·iOS·브라우저 경로 무변경 (분기 조건 `isDibayWindowsShell()` + 셸 v2).
+- **계획서:** `docs/audit/windows-shell-w2-login-plan-2026-11-08.md`
+- **Evidence:** 코드 PASS(계약 테스트 19건 · 인증 테스트 · 타입검사). 실기 W2-1~7 은 노트북 셸 0.2.0.0 설치 후 — 그 전까지 NOT_PROVEN.
+
