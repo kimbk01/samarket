@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { requestNotificationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
+import { isDibayWindowsShell } from "@/lib/platform/dibay-windows-shell";
 
 function isPushSupported(): boolean {
   return (
@@ -13,6 +14,32 @@ function isPushSupported(): boolean {
     "PushManager" in window &&
     "Notification" in window
   );
+}
+
+function subscribeNoop(): () => void {
+  return () => {};
+}
+function serverSnapshotFalse(): boolean {
+  return false;
+}
+
+/**
+ * U-6 (Owner 「U-6 진행」 2026-11-08) — 「브라우저 알림」 줄을 쓸 수 없을 때는 보이지 않는다.
+ * - Windows 앱(WebView2 셸): 항상 숨김 — Windows 알림은 W3(WNS)에서 따로.
+ * - 서버 웹 푸시 꺼짐(키 없음·표 없음·`WEB_PUSH_ENABLED` 아님·상태 조회 실패): 숨김.
+ *   단, 이미 등록된 구독이 있으면 해제할 수 있게 보인다.
+ * - 상태를 읽는 동안에는 그리지 않는다(뼈대가 보였다가 사라지는 깜빡임 방지).
+ */
+export function shouldHideWebPushSettingsRow(input: {
+  windowsShell: boolean;
+  loaded: boolean;
+  status: StatusRes | null;
+}): boolean {
+  if (input.windowsShell) return true;
+  if (!input.loaded) return true;
+  const s = input.status;
+  const serverOff = !s?.ok || Boolean(s.table_missing) || !s.vapid_configured || !s.web_push_enabled;
+  return serverOff && (s?.subscription_count ?? 0) < 1;
 }
 
 type StatusRes = {
@@ -25,6 +52,7 @@ type StatusRes = {
 
 export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
   const { t } = useI18n();
+  const windowsShell = useSyncExternalStore(subscribeNoop, isDibayWindowsShell, serverSnapshotFalse);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<StatusRes | null>(null);
   const [busy, setBusy] = useState(false);
@@ -140,14 +168,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     }
   }, [refresh, t]);
 
-  if (!loaded) {
-    return (
-      <div className="border-b border-sam-border-soft px-3 py-2.5">
-        <div className="h-4 w-40 rounded bg-sam-surface-muted" />
-        <div className="mt-2 h-3 w-full max-w-sm rounded bg-sam-app" />
-      </div>
-    );
-  }
+  if (shouldHideWebPushSettingsRow({ windowsShell, loaded, status })) return null;
 
   const supported = isPushSupported();
   const count = status?.subscription_count ?? 0;
