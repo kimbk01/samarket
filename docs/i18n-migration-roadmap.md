@@ -1,7 +1,7 @@
 # DIBAY i18n 전체 완료 — 실행 순서 (마스터 플랜)
 
 > **목적**: 배민·당근·카톡과 동일하게 **키 + ko/en 카탈로그**로 UI를 통일한다. 자동 번역·언어별 페이지 복제는 하지 않는다.  
-> **규칙**: [i18n-development-rules.md](./i18n-development-rules.md) · **진행 상태**: [i18n-migration-track-state.md](./i18n-migration-track-state.md)
+> **단일 정의**: [i18n-ssot.md](./i18n-ssot.md) (충돌 시 우선) · **규칙**: [i18n-development-rules.md](./i18n-development-rules.md) · **진행 상태**: [i18n-migration-track-state.md](./i18n-migration-track-state.md)
 
 ---
 

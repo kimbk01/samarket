@@ -1,5 +1,7 @@
 # DIBAY i18n 개발 규칙
 
+> **단일 정의는 [i18n-ssot.md](./i18n-ssot.md)** (Owner 2026-11-08). 이 문서와 충돌하면 SSOT 문서가 우선한다. 기능 추가 후 `npm run check:i18n-quality` 를 함께 돌린다.
+
 **전체 완료 순서**: [i18n-migration-roadmap.md](./i18n-migration-roadmap.md) · **진행 체크**: [i18n-migration-track-state.md](./i18n-migration-track-state.md)
 
 ## 지원 언어
@@ -10,8 +12,8 @@
 ## UI 문구 작성
 
 1. 신규·수정 UI 문구는 **`t("message_key")`** 를 사용한다 (`useI18n()`).
-2. 같은 키를 **`lib/i18n/catalog/*` 또는 `messages/ko.json` / `messages/en.json`** 에 **ko·en 둘 다** 추가한다.
-3. **`tt("한국어 문장")`은 신규 기능에서 사용하지 않는다.** (기존 한국어 역검색 호환용만 유지)
+2. 같은 키를 **`lib/i18n/catalog/*` 한 파일에만** ko·en 둘 다 추가한다. `messages/*.json` 에는 신규 키를 넣지 않는다(S5 에서 카탈로그로 통합).
+3. **`tt("한국어 문장")`·`fallbackEn` 문장·인라인 `{ ko, en }`·언어 삼항은 신규 사용 금지** (기존은 SSOT S6 에서 키로 이관).
 4. **JSX·props에 한글 문자열을 직접 넣지 않는다.** (예: `>저장<`, `placeholder="검색"`)
 
 ## 언어 설정(사용자) — source of truth

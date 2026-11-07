@@ -250,6 +250,8 @@
     "check:i18n": "node scripts/check-i18n-messages.mjs",
     "check:i18n-staged": "node scripts/check-i18n-staged-keys.mjs --staged",
     "check:i18n-hardcoded": "node scripts/check-hardcoded-korean.mjs",
+    "check:i18n-quality": "vitest run lib/i18n/__tests__/i18n-quality.test.ts",
+    "check:i18n-quality:baseline": "I18N_QUALITY_WRITE_BASELINE=1 vitest run lib/i18n/__tests__/i18n-quality.test.ts",
     "verify:i18n-key-exposure": "node scripts/verify-i18n-key-exposure.mjs",
     "verify:schema-authority": "node scripts/verify-schema-authority.mjs",
     "verify:prod-function-drift": "node scripts/verify-prod-function-drift.mjs",
