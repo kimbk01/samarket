@@ -57,10 +57,11 @@ windows/                         ← 새 최상위 폴더 (android/·ios/ 와 �
 
 ### W0 — 셸 뼈대 + 웹의 Windows 판정 (통화·알림·인증 동작 변경 0)
 - **셸:** WebView2 창 1개가 운영 주소를 연다. 창 크기·위치를 기억한다. 외부 링크는 기본 브라우저로 연다. 크롬(테두리)은 OS 기본 그대로다.
-- **웹:**
-  - `DibayAppPlatform` 에 `windows` 를 추가한다.
-  - 판정에 `window.chrome.webview` 존재를 넣는다.
-  - `dibay_app=windows` 표시를 허용한다.
+- **웹 (구현 때 정정 — 2026-11-08):** 처음 설계는 `DibayAppPlatform` 에 `windows` 를 넣는 것이었다. 그런데 그 값이 non-null 이면 「네이티브 셸」로 가는 호출처(로그인·푸시·통화·권한)가 바뀐다. 그래서 다음처럼 바꿨다.
+  - 기존 Android·iOS 판정은 **건드리지 않는다.**
+  - 별도 함수(`lib/platform/dibay-windows-shell.ts`, `window.chrome.webview` 존재)로만 알아본다.
+  - `dibay_app=windows` 표시는 쓰지 않는다.
+  - W0 에서 쓰는 곳은 화면 속성 `data-dibay-host-shell="windows"` 하나뿐이다.
   - 기기 분류(`DESKTOP_WINDOWS`)와 화면(레일)은 바꾸지 않는다.
 - **영향받는 곳:** `resolveCapacitorShellPlatform()` 을 쓰는 모든 분기. 지금은 android·ios 가 아니면 「웹」으로 처리된다.
   - 권한 어댑터
@@ -196,3 +197,20 @@ windows/                         ← 새 최상위 폴더 (android/·ios/ 와 �
 1. W4(통화) 동결 해제 여부와 시점.
 2. Azure 계정·Entra 앱 등록 (W3 선행). 회사 계정으로 만들지 여부는 Store 계정과 맞춘다.
 3. 노트북에 Visual Studio(빌드 도구) 설치 승인 (W0 선행).
+
+## 11. W0 구현 기록 (2026-11-08, Owner 「W0 진행」)
+
+- **웹:**
+  - `lib/platform/dibay-windows-shell.ts` — 판정, `app.info` 브리지 v1
+  - `ConditionalAppShell` 화면 속성 1개
+  - `vercel-ignored-build-step` 에 `windows/` 추가
+  - 계약 테스트 10건
+- **셸:** `windows/DibayDesktop` — WinUI 3 + WebView2, 단일 프로젝트 MSIX
+  - 시험 신원 `DibayDesktop.Dev` / 「DIBAY (dev)」
+  - 창 위치·크기 기억
+  - 앱 밖 주소 → 기본 브라우저
+  - 앱 주소에서 온 `app.info` 에만 답함
+  - 빌드 방법: `windows/README.md`
+- **검증:**
+  - 웹 코드 PASS (테스트·타입검사·린트)
+  - **셸 빌드·실행은 Mac 에서 불가 — NOT_PROVEN.** 노트북에 Visual Studio 를 설치한 뒤 `windows/README.md` 확인 항목으로 확인한다.

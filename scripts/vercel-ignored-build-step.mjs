@@ -28,6 +28,8 @@ const SKIP_DIR_PREFIXES = [
   // 네이티브 앱 소스(APK·iOS 빌드 전용) — Next.js 번들에 들어가지 않는다. 빌드 번호 증가 커밋 등.
   "android/",
   "ios/",
+  // Windows 데스크톱 셸(WebView2 + MSIX) 소스 — 설계 W0. 웹 번들에 들어가지 않는다.
+  "windows/",
 ];
 
 /** 테스트 전용 파일 — 번들에 들어가지 않는다(CI 는 그대로 돈다). */

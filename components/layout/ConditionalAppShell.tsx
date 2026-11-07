@@ -18,6 +18,7 @@ import {
   resolveBottomNavScrollHideOuterClass,
 } from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { readDibayHostShellAttr } from "@/lib/platform/dibay-windows-shell";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
@@ -156,6 +157,15 @@ function MarkInitialDestinationVisualReadyOnce({ pathname }: { pathname: string 
   return null;
 }
 
+
+/** Windows 셸(WebView2) 표시 — 설계 W0. 화면 속성만, 동작 분기 없음. 서버 렌더는 "" (하이드레이션 안전). */
+function subscribeHostShellNoop(): () => void {
+  return () => {};
+}
+function readHostShellServerSnapshot(): "windows" | "" {
+  return "";
+}
+
 export function ConditionalAppShell({
   children,
   regionBarInLayout = false,
@@ -168,6 +178,7 @@ export function ConditionalAppShell({
 }) {
   const pathname = usePathname();
   const appShell = useDibayAppShellAuthority();
+  const hostShell = useSyncExternalStore(subscribeHostShellNoop, readDibayHostShellAttr, readHostShellServerSnapshot);
   /**
    * DO NOT useSearchParams() here — this shell wraps `/stores/owner/**` above page Suspense.
    * Suspending remount paints only `Loading…` with no `data-biz` Owner shell.
@@ -419,6 +430,7 @@ export function ConditionalAppShell({
       data-dibay-layout-mode={appShell.layoutMode}
       data-dibay-nav-presentation={appShell.navigationPresentation}
       data-dibay-window-class={appShell.windowClass ?? ""}
+      data-dibay-host-shell={hostShell}
       suppressHydrationWarning
     >
       {/** App Ready before BottomNav layout — children layout effects run depth-first first→last */}

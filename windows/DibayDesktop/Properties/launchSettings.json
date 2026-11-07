@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "DibayDesktop (Package)": {
+      "commandName": "MsixPackage"
+    }
+  }
+}

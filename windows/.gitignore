@@ -1,0 +1,10 @@
+# Visual Studio / .NET 빌드 산출물
+bin/
+obj/
+.vs/
+*.user
+AppPackages/
+BundleArtifacts/
+# 서명 인증서(개인 키) — 절대 커밋하지 않는다
+*.pfx
+*.p12
