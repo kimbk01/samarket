@@ -267,7 +267,7 @@ export function SupportTriageFlow({
                     })}
                     {": "}
                     {supportReferenceLabel(safeT, state.referenceType)}
-                    {state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
+                    {state.referenceTitle ? ` · ${state.referenceTitle}` : state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
                   </div>
                 ) : null}
                 <button
@@ -474,7 +474,7 @@ function HandoffSummaryBody({
             {": "}
             <span className="text-[var(--overlay-text)]">
               {supportReferenceLabel(safeT, state.referenceType)}
-              {state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
+              {state.referenceTitle ? ` · ${state.referenceTitle}` : state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
             </span>
           </div>
         ) : null}

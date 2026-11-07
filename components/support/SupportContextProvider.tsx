@@ -28,6 +28,7 @@ export function SupportContextProvider({
       value.sourceSurface,
       value.referenceType,
       value.referenceId,
+      value.referenceTitle,
       value.storeId,
     ]
   );

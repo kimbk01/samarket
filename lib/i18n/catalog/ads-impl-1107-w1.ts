@@ -12,6 +12,9 @@ export const adsImpl1107MoneyMessages = {
     promo_sheet_surface_community_topic: "이 게시물 주제(토픽) 피드",
     promo_sheet_community_immediate_note:
       "포인트 결제 즉시 노출됩니다. 피드 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘포인트 노출’로 보입니다. 관리자 승인이 없습니다.",
+    /** Owner 2026-11-07 「불필요한 설명이 너무 많다」: 상위노출 창 상품 줄 한 줄 (위치 · 위쪽 1자리 = 가장 최근 결제) */
+    promo_sheet_where_community: "커뮤니티 홈·주제 피드 위쪽 · 1자리(가장 최근 결제)",
+    trade_ad_boost_paused_short: "멈춤",
     philife_write_ad_product_top_fixed_desc:
       "커뮤니티 피드에 {days}일간 노출됩니다. 피드 위쪽 자리는 1개(가장 최근 결제)이고, 나머지는 제자리에 ‘포인트 노출’로 보입니다.",
   },
@@ -23,6 +26,8 @@ export const adsImpl1107MoneyMessages = {
     promo_sheet_surface_community_topic: "This post's topic feed",
     promo_sheet_community_immediate_note:
       "Goes live immediately with Point. One top spot per feed (latest payment); others show a “Promoted” label in their usual place. No admin approval.",
+    promo_sheet_where_community: "Top of Community home & topic feed · 1 spot (latest payment)",
+    trade_ad_boost_paused_short: "Paused",
     philife_write_ad_product_top_fixed_desc:
       "Shown on the community feed for {days} days. One top spot per feed (latest payment); others show a “Promoted” label in their usual place.",
   },

@@ -109,6 +109,7 @@ export function resetSupportModalToStart(nextContext?: SupportContext | null): v
               needsCategorySelection: true,
               referenceType: undefined,
               referenceId: undefined,
+              referenceTitle: undefined,
               explicitOtherSelection: undefined,
             }
           : null,

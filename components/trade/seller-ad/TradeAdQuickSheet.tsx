@@ -220,7 +220,10 @@ export function TradeAdQuickSheet({
   };
   const goSupport = () => {
     onClose();
-    router.push(buildSupportEnterHref({ category: "AD", referenceType: "TRADE_POST", referenceId: postId }));
+    router.push(
+      // 설계 2026-11-08 ①: 관련 항목에 uuid 대신 글 제목(표시용)
+      buildSupportEnterHref({ category: "AD", referenceType: "TRADE_POST", referenceId: postId, referenceTitle: postTitle })
+    );
   };
 
   const start = async () => {
@@ -257,10 +260,16 @@ export function TradeAdQuickSheet({
         endAt?: string;
         extended?: boolean;
         idempotent?: boolean;
+        balanceAfter?: number;
       };
       /** 성공 응답인데 본문을 못 읽음 = 결과를 모름 → 키 유지 */
       if (res.ok && typeof j.ok !== "boolean") status = null;
       if (res.ok && j.ok) {
+        // 실기 v6 재실기 관찰 (2026-11-07): 결제 뒤에도 「내 포인트」가 결제 전 값으로 남았다 → 서버가 준 결제 후 잔액으로 바꾼다
+        if (typeof j.balanceAfter === "number" && Number.isFinite(j.balanceAfter)) {
+          const after = j.balanceAfter;
+          setData((prev) => (prev ? { ...prev, balance: after } : prev));
+        }
         setStartedExtended(j.extended === true);
         setStartedReplay(j.idempotent === true);
         setStartedEndAt(j.endAt ?? "");
@@ -433,7 +442,8 @@ export function TradeAdQuickSheet({
                       {data.boostActive?.pending
                         ? t("trade_ad_boost_pending")
                         : data.boostActive?.paused
-                          ? t("trade_ad_boost_paused")
+                          ? // 설계 2026-11-08 ③: 이유·남은 기간은 줄 아래 한 번만 — 오른쪽은 한 단어
+                            t("trade_ad_boost_paused_short")
                           : t("trade_ad_boost_running", {
                             days: String(
                               r.endAt ? Math.max(0, Math.ceil((Date.parse(r.endAt) - Date.now()) / DAY_MS)) : 0

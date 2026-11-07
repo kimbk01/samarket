@@ -4,7 +4,7 @@
  * (`support-reference-authority`). 클라이언트·서버 공용 (순수 함수).
  * 거래 Admin 설계 v2 §G-4 · D-28 (거래 제한·숨김 알림 → 거래 이의신청).
  */
-import { buildMemberSupportContext, type SupportContext } from "@/lib/support/support-context";
+import { buildMemberSupportContext, supportReferenceTitle, type SupportContext } from "@/lib/support/support-context";
 import { MEMBER_SUPPORT_CATEGORIES, type MemberSupportCategory } from "@/lib/support/support-category-registry";
 
 const ENTER_PATH = "/support/enter";
@@ -15,11 +15,15 @@ export function buildSupportEnterHref(input: {
   category: MemberSupportCategory;
   referenceType?: string;
   referenceId?: string;
+  /** 설계 2026-11-08 ①: 관련 항목 표시용 제목(선택) */
+  referenceTitle?: string;
 }): string {
   const p = new URLSearchParams({ category: input.category });
   if (input.referenceType && input.referenceId) {
     p.set("referenceType", input.referenceType);
     p.set("referenceId", input.referenceId);
+    const title = supportReferenceTitle(input.referenceTitle);
+    if (title) p.set("referenceTitle", title);
   }
   return `${ENTER_PATH}?${p.toString()}`;
 }
@@ -36,6 +40,6 @@ export function supportContextFromEnterQuery(search: URLSearchParams | null | un
     enabled: true,
     category: category as MemberSupportCategory,
     sourceSurface: "notification_link",
-    ...(withRef ? { referenceType, referenceId } : {}),
+    ...(withRef ? { referenceType, referenceId, referenceTitle: supportReferenceTitle(search.get("referenceTitle")) } : {}),
   });
 }

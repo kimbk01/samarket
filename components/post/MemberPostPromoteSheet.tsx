@@ -44,7 +44,7 @@ export function MemberPostPromoteSheet({
   const { t, language, safeT } = useI18n();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
-  const [productId, setProductId] = useState<MemberPromotionProductId>(
+  const [productId, setProductId] = useState<MemberPromotionProductId | null>(
     domain === "community" ? "community_promote_3" : "trade_promote_7"
   );
   const [loading, setLoading] = useState(false);
@@ -93,14 +93,18 @@ export function MemberPostPromoteSheet({
       setCatalog(items);
       // 재감사 R-01 (P0): 결과를 모르는 결제가 있으면 그 상품을 그대로 둔다 (첫 상품으로 되돌리면 새 키 → 두 번째 차감)
       const pendingProduct = attemptKeys.current.pendingProductFor(postId);
+      const bal = Number(balJ.balance ?? balJ.points);
+      const balOk = Number.isFinite(bal) ? bal : null;
+      setBalance(balOk);
+      // 설계 2026-11-08 ⑨: 기본 선택 = 결과를 모르는 결제 상품 → 지금 고른 상품(살 수 있으면) → 살 수 있는 첫 상품 → 없음
+      const canBuy = (i: CatalogItem) => balOk != null && balOk >= i.pointCost;
       setProductId((prev) => {
         const pending = items.find((i) => i.id === pendingProduct);
         if (pending) return pending.id;
-        if (prev && items.some((i) => i.id === prev)) return prev;
-        return items[0]?.id ?? prev;
+        const prevItem = items.find((i) => i.id === prev);
+        if (prevItem && canBuy(prevItem)) return prevItem.id;
+        return items.find(canBuy)?.id ?? null;
       });
-      const bal = Number(balJ.balance ?? balJ.points);
-      setBalance(Number.isFinite(bal) ? bal : null);
       const st = String(promoJ.activeForTarget?.orderStatus ?? "").toLowerCase();
       const activeEnd = promoJ.activeForTarget?.endAt?.trim() || null;
       setPausedExisting(st === "paused");
@@ -133,12 +137,25 @@ export function MemberPostPromoteSheet({
     void load();
   }, [open, load]);
 
+  /**
+   * 설계 2026-11-08 ⑨ (거래 광고 창 시안 v3 와 같음): 모자란 상품 줄은 고를 수 없다.
+   * 예외 — 결과를 모르는 결제 상품(재감사 R-01)은 잔액이 줄어도 그대로 고른다(같은 키로 다시 확인).
+   */
+  const pendingProductId = attemptKeys.current.pendingProductFor(postId);
+  const canBuyItem = useCallback(
+    (c: CatalogItem) => c.id === pendingProductId || (balance != null && balance >= c.pointCost),
+    [balance, pendingProductId]
+  );
   const selected = useMemo(
-    () => catalog.find((c) => c.id === productId) ?? catalog[0] ?? null,
-    [catalog, productId]
+    () => catalog.find((c) => c.id === productId && canBuyItem(c)) ?? null,
+    [catalog, productId, canBuyItem]
   );
   const cost = selected?.pointCost ?? 0;
-  const insufficient = balance != null && balance < cost;
+  /** 고를 수 있는 상품이 없을 때 충전 화면에 넘길 부족분 = 가장 적게 모자란 양 */
+  const minShortage = catalog.reduce((min, c) => {
+    const sh = balance != null ? Math.max(0, c.pointCost - balance) : 0;
+    return sh > 0 && (min === 0 || sh < min) ? sh : min;
+  }, 0);
   /**
    * 재감사 R2 (Owner 「기간 이전에 추가 포인트를 결제하고 추가 신청하면 연장」 · D-4 커뮤니티 같은 규칙):
    * 홍보 중(active)이면 같은 상품 줄로 연장. 심사 중·일시정지면 상태만 보여 준다.
@@ -151,7 +168,7 @@ export function MemberPostPromoteSheet({
   };
 
   const purchase = async () => {
-    if (!selected || busy || insufficient) return;
+    if (!selected || busy) return;
     setBusy(true);
     setErr("");
     const idem = attemptKeys.current.keyFor(postId, selected.id);
@@ -257,6 +274,20 @@ export function MemberPostPromoteSheet({
           fallbackEn: "Trade top exposure",
         });
 
+  /** 충전 화면: 고른 상품에 모자란 만큼(`need`) · 돌아올 주소(거래 광고 창과 같은 경로) */
+  const chargeHref = (() => {
+    const qs = new URLSearchParams();
+    if (minShortage > 0) qs.set("need", String(minShortage));
+    if (typeof window !== "undefined") qs.set("returnTo", `${window.location.pathname}${window.location.search}`);
+    const q = qs.toString();
+    return q ? `/mypage/points/charge?${q}` : "/mypage/points/charge";
+  })();
+  const fmtP = (n: number) => `${Math.max(0, Math.floor(n)).toLocaleString(langEn ? "en-US" : "ko-KR")}P`;
+
+  /**
+   * Owner 2026-11-07 「포인트 사용을 위한 불필요한 설명이 너무 많다 — 정확한 버튼」:
+   * 버튼 하나 = 고른 상품 금액으로 시작·연장(「10,000P로 시작」) · 모자라면 그 자리에서 충전.
+   */
   const catalogFooter =
     successEndAt || loading ? null : statusOnly ? (
       <div className={OverlayUi.actionsRow}>
@@ -266,32 +297,27 @@ export function MemberPostPromoteSheet({
       </div>
     ) : (
       <div className={OverlayUi.actionsRow}>
-        {insufficient ? (
-          <a href="/mypage/points" className={`${OverlayUi.btn.secondary} text-center`}>
+        {!selected ? (
+          <a href={chargeHref} className={`${OverlayUi.btn.primary} text-center`} data-promo-sheet-charge="1">
             {safeT("promo_sheet_go_points", {
               fallbackKo: "포인트 충전",
               fallbackEn: "Add Point",
             })}
           </a>
-        ) : null}
-        <DibayOverlayButton
-          roleTone="primary"
-          disabled={busy || !selected || insufficient || catalog.length === 0}
-          loading={busy}
-          onClick={() => void purchase()}
-        >
-          {busy
-            ? t("common_loading")
-            : extending
-              ? safeT("promo_sheet_extend_cta", {
-                  fallbackKo: "포인트로 연장하기",
-                  fallbackEn: "Extend with Point",
-                })
-              : safeT("promo_sheet_cta", {
-                  fallbackKo: `${cost.toLocaleString()} 포인트로 신청`,
-                  fallbackEn: `Apply with ${cost.toLocaleString()} Point`,
-                })}
-        </DibayOverlayButton>
+        ) : (
+          <DibayOverlayButton
+            roleTone="primary"
+            disabled={busy}
+            loading={busy}
+            onClick={() => void purchase()}
+          >
+            {busy
+              ? t("common_loading")
+              : extending
+                ? t("trade_ad_extend", { points: fmtP(cost) })
+                : t("trade_ad_start", { points: fmtP(cost) })}
+          </DibayOverlayButton>
+        )}
       </div>
     );
 
@@ -311,6 +337,23 @@ export function MemberPostPromoteSheet({
       footer={successFooter ?? catalogFooter}
     >
       <p className={`mb-2 line-clamp-2 ${OverlayUi.bodySecondary}`}>{postTitle}</p>
+      {!successEndAt && !statusOnly ? (
+        <div
+          className="mb-2.5 flex items-center gap-2.5 rounded-ui-rect border border-[color:var(--currency-point-border)] bg-[color:var(--currency-point-bg)] px-3.5 py-3"
+          data-promo-sheet-balance="1"
+        >
+          <span className="text-[13px] text-sam-muted">{t("trade_ad_my_points")}</span>
+          <span className="ml-auto text-[22px] font-extrabold tabular-nums text-sam-fg">
+            {balance == null ? "—" : fmtP(balance)}
+          </span>
+          <a
+            href={chargeHref}
+            className="inline-flex h-8 shrink-0 items-center rounded-ui-rect border border-sam-primary px-3 text-[13px] font-bold text-sam-primary"
+          >
+            {t("trade_ad_charge_small")}
+          </a>
+        </div>
+      ) : null}
 
       {successEndAt ? (
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
@@ -398,38 +441,14 @@ export function MemberPostPromoteSheet({
         </div>
       ) : (
         <>
-          {extending ? (
-            <div className="mb-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
-              <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
-                {domain === "community"
-                  ? safeT("promo_sheet_already_active", {
-                      fallbackKo: "광고 중",
-                      fallbackEn: "Promotion active",
-                    })
-                  : safeT("promo_sheet_already_active_trade", {
-                      fallbackKo: "광고 중",
-                      fallbackEn: "Ad active",
-                    })}
-              </p>
-              {activeEndAt ? (
-                <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-                  {safeT("promo_sheet_ends_at", {
-                    fallbackKo: "종료",
-                    fallbackEn: "Ends",
-                  })}
-                  {": "}
-                  {formatPhtDisplayDateTime(activeEndAt, langEn ? "en" : "ko")}
-                </p>
-              ) : null}
-              <p className={`mt-2 ${OverlayUi.caption}`}>
-                {safeT("promo_sheet_extend_note", {
-                  fallbackKo: "기간 중 다시 결제하면 끝나는 날이 늘어나요. 목록 자리(순서)는 그대로예요.",
-                  fallbackEn: "Paying again during the period extends the end date. Your place in the list stays the same.",
-                })}
-              </p>
-            </div>
+          {extending && activeEndAt ? (
+            <p className={`mb-2 ${OverlayUi.bodySecondary}`} data-promo-sheet-running="1">
+              {safeT("promo_sheet_already_active", { fallbackKo: "광고 중", fallbackEn: "Promotion active" })}
+              {" · "}
+              {t("trade_ad_ends", { date: formatPhtDisplayDateTime(activeEndAt, langEn ? "en" : "ko") })}
+            </p>
           ) : null}
-          <div className="space-y-2">
+          <div role="radiogroup" aria-label={sheetTitle} className="space-y-1.5">
             {catalog.map((item) => {
               const newEnd = extending ? extendEndOf(item.durationDays) : null;
               const title = extending
@@ -437,139 +456,61 @@ export function MemberPostPromoteSheet({
                 : langEn
                   ? item.fallbackTitleEn
                   : item.fallbackTitleKo;
-              const desc = newEnd
+              /** 한 줄: 연장이면 끝나는 날 · 아니면 노출 위치(위쪽 1자리 = 가장 최근 결제 · D-08 뜻 유지) */
+              const where = newEnd
                 ? t("promo_sheet_extend_new_end", { date: formatPhtDisplayDateTime(newEnd, langEn ? "en" : "ko") })
-                : langEn
-                  ? item.fallbackDescEn
-                  : item.fallbackDescKo;
-              const selectedNow = item.id === (selected?.id ?? productId);
+                : t("promo_sheet_where_community");
+              const short = balance != null ? Math.max(0, item.pointCost - balance) : 0;
+              const enabled = canBuyItem(item);
+              const selectedNow = enabled && item.id === selected?.id;
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setProductId(item.id)}
+                  role="radio"
+                  aria-checked={selectedNow}
+                  disabled={!enabled}
+                  onClick={() => enabled && setProductId(item.id)}
                   data-selected={selectedNow ? "true" : undefined}
-                  className={`${OverlayUi.selectCard} !flex-col !items-stretch !gap-0`}
+                  data-promo-sheet-option-state={selectedNow ? "selected" : enabled ? "enabled" : "disabled"}
+                  className={`flex min-h-14 w-full items-center gap-2.5 rounded-ui-rect border px-3 py-2.5 text-left ${
+                    selectedNow
+                      ? "border-2 border-sam-primary bg-sam-pressed-surface"
+                      : enabled
+                        ? "border-sam-border bg-sam-surface"
+                        : "border-sam-border bg-sam-app"
+                  }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">{title}</span>
-                    <CurrencyAmount
-                      currency="point"
-                      amount={item.pointCost}
-                      compactPoint
-                      className="text-[length:var(--overlay-body-2-size)]"
-                    />
-                  </div>
-                  <p className={`mt-1 ${OverlayUi.caption}`}>{desc}</p>
+                  <span
+                    aria-hidden
+                    className={`h-5 w-5 shrink-0 rounded-full border-2 ${
+                      selectedNow
+                        ? "border-[6px] border-sam-primary"
+                        : enabled
+                          ? "border-sam-border"
+                          : "border-sam-border-soft bg-sam-surface-muted"
+                    }`}
+                  />
+                  <span className={`min-w-0 flex-1 text-[15px] font-semibold ${enabled ? "text-sam-fg" : "text-sam-muted"}`}>
+                    {title}
+                    <span className="block text-[12px] font-normal text-sam-muted">{where}</span>
+                  </span>
+                  <span className="shrink-0 text-right tabular-nums">
+                    <span className={`block text-[15px] font-bold ${enabled ? "text-sam-fg" : "text-sam-muted"}`}>
+                      {fmtP(item.pointCost)}
+                    </span>
+                    {short > 0 ? (
+                      <span className="block text-[12px] font-bold text-sam-danger" data-promo-sheet-short>
+                        {t("trade_ad_short", { points: fmtP(short) })}
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               );
             })}
           </div>
-
-          <ul
-            className={`mt-3 space-y-1 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-2.5 ${OverlayUi.caption}`}
-          >
-            <li>
-              {safeT("promo_sheet_surfaces_intro", {
-                fallbackKo: "적용 위치",
-                fallbackEn: "Where it appears",
-              })}
-            </li>
-            {domain === "community" ? (
-              <>
-                <li>
-                  ·{" "}
-                  {safeT("promo_sheet_surface_community_home", {
-                    fallbackKo: "커뮤니티 홈 피드 상단",
-                    fallbackEn: "Community home feed top",
-                  })}
-                </li>
-                <li>
-                  ·{" "}
-                  {safeT("promo_sheet_surface_community_topic", {
-                    fallbackKo: "이 게시물 주제(토픽) 피드 상단",
-                    fallbackEn: "This post's topic feed top",
-                  })}
-                </li>
-                <li className="pt-1">
-                  {safeT("promo_sheet_community_immediate_note", {
-                    fallbackKo:
-                      "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
-                    fallbackEn:
-                      "Goes live at the top of the feed immediately with Point. No admin approval.",
-                  })}
-                </li>
-              </>
-            ) : (
-              <>
-                <li>
-                  ·{" "}
-                  {safeT("promo_sheet_surface_trade_home", {
-                    fallbackKo: "거래 홈 목록",
-                    fallbackEn: "Trade home list",
-                  })}
-                </li>
-                <li>
-                  ·{" "}
-                  {safeT("promo_sheet_surface_trade_category", {
-                    fallbackKo: "이 게시물의 카테고리 목록",
-                    fallbackEn: "This post's category list",
-                  })}
-                </li>
-                <li className="pt-1">
-                  {safeT("promo_sheet_trade_ad_label_note", {
-                    fallbackKo: "노출 중인 글은 거래 목록에 ‘광고’로 표시돼요.",
-                    fallbackEn: "While live, your listing shows an “Ad” label in Trade lists.",
-                  })}
-                </li>
-                <li>
-                  {safeT("promo_sheet_not_top_pin", {
-                    fallbackKo: "커뮤니티 상단 고정·피드 광고와는 다른 기능입니다.",
-                    fallbackEn: "Different from Community top-pin and Feed ads.",
-                  })}
-                </li>
-              </>
-            )}
-          </ul>
-
-          <div className="mt-4 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-3">
-            <p className={OverlayUi.bodySecondary}>
-              {safeT("promo_sheet_balance", {
-                fallbackKo: "보유 포인트",
-                fallbackEn: "Your Point",
-              })}
-              {": "}
-              {balance == null ? (
-                <span className="font-semibold text-[color:var(--overlay-text-primary)]">—</span>
-              ) : (
-                <CurrencyAmount currency="point" amount={balance} compactPoint className="font-semibold" />
-              )}
-            </p>
-            {selected && balance != null && !insufficient ? (
-              <p className={`mt-1 ${OverlayUi.caption}`}>
-                {safeT("promo_sheet_balance_remain", {
-                  fallbackKo: "결제 후 예상 잔액",
-                  fallbackEn: "Estimated balance after",
-                })}
-                {": "}
-                <CurrencyAmount
-                  currency="point"
-                  amount={balance - cost}
-                  compactPoint
-                  className="font-medium"
-                />
-              </p>
-            ) : null}
-            {insufficient ? (
-              <p className={`mt-2 ${OverlayUi.captionDanger}`}>
-                {safeT("points_ui_insufficient", {
-                  fallbackKo: "포인트가 부족합니다.",
-                  fallbackEn: "Not enough Point.",
-                })}
-              </p>
-            ) : null}
-            {err ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{err}</p> : null}
-          </div>
+          {extending ? <p className={`mt-2 ${OverlayUi.bodySecondary}`}>{t("trade_ad_extend_keeps_place")}</p> : null}
+          {err ? <p className={`mt-2 ${OverlayUi.captionDanger}`}>{err}</p> : null}
         </>
       )}
     </DibayBottomSheet>

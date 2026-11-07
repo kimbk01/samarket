@@ -12,7 +12,7 @@ describe("reaudit R1", () => {
     expect(route).toContain("isTradeBoostOrderOngoing(o, now)");
     const sheet = src("components/trade/seller-ad/TradeAdQuickSheet.tsx");
     expect(sheet).toContain('paused: st === "paused"');
-    expect(sheet).toContain('t("trade_ad_boost_paused")');
+    expect(sheet).toContain(`t("trade_ad_boost_paused_short")`);
   });
   it("E-9: an ended Live schedule is not copied into the publish form", () => {
     const admin = src("components/admin/launch-intro/LaunchIntroAdminPage.tsx");

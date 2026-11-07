@@ -132,7 +132,7 @@ describe("재감사 R2 — 연장 (DB·API·창)", () => {
     expect(trade).toContain("trade_ad_option_boost_extend");
     expect(trade).toContain("!running.pending && !running.paused");
     const community = read("components/post/MemberPostPromoteSheet.tsx");
-    expect(community).toContain("promo_sheet_extend_cta");
+    expect(community).toContain("trade_ad_extend");
     expect(community).toContain("const statusOnly = pendingExisting || pausedExisting;");
   });
 

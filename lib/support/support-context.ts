@@ -28,6 +28,8 @@ export type SupportContext = {
   sourceSurface: string;
   referenceType?: string;
   referenceId?: string;
+  /** 설계 2026-11-08 ①: 관련 항목 **표시용** 제목(최대 80자) — 권한·저장은 referenceType+referenceId 만 본다 */
+  referenceTitle?: string;
   storeId?: string;
   /**
    * Set only when the user explicitly picked 기타 on a generic hub gate / triage.
@@ -55,6 +57,7 @@ export type MemberSupportContextInput = {
   sourceSurface: string;
   referenceType?: string;
   referenceId?: string;
+  referenceTitle?: string;
   explicitOtherSelection?: boolean;
 };
 
@@ -76,8 +79,15 @@ export function buildMemberSupportContext(input: MemberSupportContextInput): Sup
     sourceSurface: input.sourceSurface.trim() || "unknown",
     referenceType: input.referenceType?.trim() || undefined,
     referenceId: input.referenceId?.trim() || undefined,
+    ...(supportReferenceTitle(input.referenceTitle) ? { referenceTitle: supportReferenceTitle(input.referenceTitle) } : {}),
     ...(input.explicitOtherSelection === true ? { explicitOtherSelection: true } : {}),
   };
+}
+
+/** 표시용 제목 정리 — 앞뒤 공백 제거 · 80자 자름 · 비면 undefined */
+export function supportReferenceTitle(v: string | null | undefined): string | undefined {
+  const t = String(v ?? "").replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, 80) : undefined;
 }
 
 export function buildOwnerSupportContext(input: OwnerSupportContextInput): SupportContext {

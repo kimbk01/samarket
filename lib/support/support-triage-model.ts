@@ -31,6 +31,8 @@ export type SupportTriageState = {
   categoryLocked: boolean;
   referenceType?: string;
   referenceId?: string;
+  /** 표시용 제목(설계 2026-11-08 ①) */
+  referenceTitle?: string;
   guidance: SupportGuidanceEntryRow | null;
   guidanceEmpty: boolean;
   guidanceOutcome: "ESCALATED_TO_HUMAN" | "RESOLVED_BY_GUIDANCE" | null;
@@ -113,6 +115,7 @@ export function initSupportTriageFromContext(
     categoryLocked: true,
     referenceType: context.referenceType?.trim() || undefined,
     referenceId: context.referenceId?.trim() || undefined,
+    referenceTitle: context.referenceTitle?.trim() || undefined,
     guidance: null,
     guidanceEmpty: false,
     guidanceOutcome: null,
@@ -246,6 +249,7 @@ export function supportTriageReducer(
         categoryLocked: false,
         referenceType: undefined,
         referenceId: undefined,
+        referenceTitle: undefined,
         guidance: null,
         guidanceEmpty: false,
         guidanceOutcome: null,
@@ -266,6 +270,7 @@ export function buildTriageOpenContext(state: SupportTriageState): SupportContex
     storeId: state.storeId,
     referenceType: state.referenceType,
     referenceId: state.referenceId,
+    ...(state.referenceTitle ? { referenceTitle: state.referenceTitle } : {}),
     ...(state.explicitOtherSelection ? { explicitOtherSelection: true } : {}),
   };
 }
