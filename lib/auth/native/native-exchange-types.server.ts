@@ -21,6 +21,8 @@ export type NativeExchangeRequest = {
   authorizationCode?: string | null;
   nonce?: string | null;
   userIdentifier?: string | null;
+  /** Apple 첫 로그인 때만 오는 이름 (identity token 에 없음) */
+  fullName?: string | null;
   next?: string | null;
 };
 

@@ -164,6 +164,7 @@ export const appleNativeProviderAdapter: NativeProviderAdapter = {
     const session = await establishAppleNativeSession(context, {
       verified: appleVerified,
       userIdentifier: input.userIdentifier,
+      fullName: input.fullName ?? null,
       next: input.next,
     });
 

@@ -74,11 +74,18 @@ export type AppleNativeSessionResult =
 function buildAppleUserMetadata(
   verified: AppleVerifiedIdentityToken,
   userIdentifier?: string | null,
+  fullName?: string | null,
 ): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     provider: "apple",
     apple_sub: verified.sub,
   };
+  // Apple 이름은 첫 로그인 때만 온다 — 받은 때만 기록 (없을 때 기존 값을 지우지 않도록 키 자체를 넣지 않음)
+  const name = String(fullName ?? "").trim();
+  if (name) {
+    metadata.full_name = name;
+    metadata.name = name;
+  }
   const uid = String(userIdentifier ?? "").trim();
   if (uid) metadata.apple_user_identifier = uid;
   if (verified.email && !verified.isPrivateRelayEmail) {
@@ -118,7 +125,7 @@ const APPLE_WITHDRAWN_RESULT: AppleNativeSessionResult = {
 async function prepareExistingAppleAuthUser(
   adminSb: SupabaseClient,
   userId: string,
-  args: { verified: AppleVerifiedIdentityToken; userIdentifier?: string | null },
+  args: { verified: AppleVerifiedIdentityToken; userIdentifier?: string | null; fullName?: string | null },
 ): Promise<AppleAuthUserPrepared | AppleNativeSessionResult> {
   const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(userId);
   if (getUserError || !existingUserData.user) {
@@ -154,7 +161,7 @@ async function prepareExistingAppleAuthUser(
     password,
     email: authEmail,
     email_confirm: true,
-    user_metadata: buildAppleUserMetadata(args.verified, args.userIdentifier),
+    user_metadata: buildAppleUserMetadata(args.verified, args.userIdentifier, args.fullName),
     app_metadata: buildDibayNativeAppMetadata("apple"),
   });
   if (updateError) {
@@ -174,6 +181,7 @@ async function upsertAppleAuthUser(
     existingUserId: string | null;
     verified: AppleVerifiedIdentityToken;
     userIdentifier?: string | null;
+    fullName?: string | null;
   },
 ): Promise<AppleAuthUserPrepared | AppleNativeSessionResult> {
   if (args.existingUserId) {
@@ -186,7 +194,7 @@ async function upsertAppleAuthUser(
     email: authEmail,
     password,
     email_confirm: true,
-    user_metadata: buildAppleUserMetadata(args.verified, args.userIdentifier),
+    user_metadata: buildAppleUserMetadata(args.verified, args.userIdentifier, args.fullName),
     app_metadata: buildDibayNativeAppMetadata("apple"),
   });
   if (createError || !created.user) {
@@ -237,13 +245,44 @@ async function persistAppleProfileIdentity(
   await adminSb.from("profiles").update(patch).eq("id", userId).then(() => undefined, () => undefined);
 }
 
-function syntheticUserForEnsure(userId: string, verified: AppleVerifiedIdentityToken): User {
+/** SNS 연결 기록(user_auth_identities.raw_profile)에 Apple 이름 보관 — 어드민 원본 확인용 */
+async function recordAppleFullNameOnIdentity(
+  adminSb: SupabaseClient,
+  userId: string,
+  sub: string,
+  fullName: string | null | undefined,
+): Promise<void> {
+  const name = String(fullName ?? "").trim();
+  if (!name) return;
+  const { data } = await adminSb
+    .from("user_auth_identities")
+    .select("id, raw_profile")
+    .eq("user_id", userId)
+    .eq("provider", "apple")
+    .eq("provider_user_id", sub)
+    .maybeSingle();
+  const row = data as { id?: string; raw_profile?: Record<string, unknown> | null } | null;
+  if (!row?.id) return;
+  const raw = row.raw_profile && typeof row.raw_profile === "object" ? row.raw_profile : {};
+  if (raw.full_name === name) return;
+  await adminSb
+    .from("user_auth_identities")
+    .update({ raw_profile: { ...raw, full_name: name } })
+    .eq("id", row.id)
+    .then(() => undefined, () => undefined);
+}
+
+function syntheticUserForEnsure(
+  userId: string,
+  verified: AppleVerifiedIdentityToken,
+  fullName?: string | null,
+): User {
   const authEmail = resolveAuthEmailForAppleUser(verified);
   return {
     id: userId,
     email: authEmail,
     app_metadata: { provider: "apple" },
-    user_metadata: buildAppleUserMetadata(verified),
+    user_metadata: buildAppleUserMetadata(verified, null, fullName),
     aud: "authenticated",
     created_at: new Date().toISOString(),
     identities: [
@@ -270,6 +309,8 @@ export async function establishAppleNativeSession(
   input: {
     verified: AppleVerifiedIdentityToken;
     userIdentifier?: string | null;
+    /** Apple 첫 로그인 때만 오는 이름 — 없으면 null */
+    fullName?: string | null;
     next?: string | null;
   },
 ): Promise<AppleNativeSessionResult> {
@@ -311,6 +352,7 @@ export async function establishAppleNativeSession(
     existingUserId: existingProfileId,
     verified: input.verified,
     userIdentifier,
+    fullName: input.fullName ?? null,
   });
   if ("ok" in upsert) return upsert;
 
@@ -350,7 +392,7 @@ export async function establishAppleNativeSession(
     return APPLE_WITHDRAWN_RESULT;
   }
 
-  const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);
+  const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified, input.fullName ?? null);
 
   let profileOutcome: EnsureUserProfileOutcome | null = null;
   try {
@@ -385,6 +427,7 @@ export async function establishAppleNativeSession(
       status: 409,
     };
   }
+  await recordAppleFullNameOnIdentity(ctx.adminSb, signedUser.id, input.verified.sub, input.fullName ?? null);
 
   let redirectTo = safeNext ?? POST_LOGIN_PATH;
   let signupComplete = false;

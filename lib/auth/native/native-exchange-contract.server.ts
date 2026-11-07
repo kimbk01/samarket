@@ -1,5 +1,6 @@
 import type { NativeExchangeProvider, NativeExchangeRequest } from "@/lib/auth/native/native-exchange-types.server";
 import { normalizeNativeExchangeProvider } from "@/lib/auth/native/native-exchange-types.server";
+import { normalizeAppleFullName } from "@/lib/auth/native/native-apple-auth-contract";
 
 function readNonEmptyString(value: unknown): string | null {
   const s = String(value ?? "").trim();
@@ -23,6 +24,7 @@ export function parseNativeExchangeRequest(body: Record<string, unknown>): Nativ
     authorizationCode: readNonEmptyString(body.authorizationCode),
     nonce: readNonEmptyString(body.nonce),
     userIdentifier: readNonEmptyString(body.userIdentifier),
+    fullName: normalizeAppleFullName(body.fullName),
     next: typeof body.next === "string" ? body.next : null,
   };
 }

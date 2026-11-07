@@ -41,7 +41,22 @@ export type NativeAppleExchangeRequest = {
   authorizationCode?: string;
   nonce?: string;
   userIdentifier?: string;
+  /**
+   * Apple 이 「처음 로그인할 때 한 번만」 주는 이름 (ASAuthorizationAppleIDCredential.fullName).
+   * identity token 에는 이름이 없으므로 이때 서버로 보내지 않으면 다시 받을 수 없다.
+   */
+  fullName?: string;
 };
+
+/** Apple 이름 정규화 — 제어문자 제거·공백 정리·50자 제한. 비면 null */
+export function normalizeAppleFullName(value: unknown): string | null {
+  const cleaned = String(value ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, 50);
+}
 
 export function buildNativeAppleExchangeRequest(
   result: NativeAppleSignInResult,
@@ -56,6 +71,8 @@ export function buildNativeAppleExchangeRequest(
   if (code) body.authorizationCode = code;
   if (nonce) body.nonce = nonce;
   if (userId) body.userIdentifier = userId;
+  const fullName = normalizeAppleFullName(result.fullName);
+  if (fullName) body.fullName = fullName;
   return body;
 }
 
@@ -78,6 +95,8 @@ export function parseNativeAppleExchangeBody(
   if (authorizationCode) parsed.authorizationCode = authorizationCode;
   if (nonce) parsed.nonce = nonce;
   if (userIdentifier) parsed.userIdentifier = userIdentifier;
+  const fullName = normalizeAppleFullName(body.fullName);
+  if (fullName) parsed.fullName = fullName;
   return parsed;
 }
 

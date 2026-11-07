@@ -53,4 +53,31 @@ describe("refresh-oauth-nickname-if-legacy", () => {
       )
     ).toBeNull();
   });
+
+  it("시스템 임시 닉네임 「DIBAY 사용자」 는 가입 완료 후에도 SNS 이름으로 교체 (Apple 첫 로그인 이름)", () => {
+    expect(
+      buildOAuthNicknamePatch(
+        { onboarding_completed_at: "2026-11-07T00:00:00Z", nickname: "DIBAY 사용자", display_name: "DIBAY 사용자" },
+        { nicknameCandidate: "BONGKI Kim" },
+      ),
+    ).toEqual({ nickname: "BONGKI Kim", display_name: "BONGKI Kim" });
+  });
+
+  it("회원이 디바이에서 바꾼 닉네임은 SNS 이름으로 덮어쓰지 않는다", () => {
+    expect(
+      shouldRefreshNicknameFromOAuth(
+        { onboarding_completed_at: "2026-11-07T00:00:00Z", nickname: "봉기네", display_name: "봉기네" },
+        "BONGKI Kim",
+      ),
+    ).toBe(false);
+    expect(
+      shouldRefreshNicknameFromOAuth({ onboarding_completed_at: null, nickname: "봉기네", display_name: "봉기네" }, "BONGKI Kim"),
+    ).toBe(false);
+  });
+
+  it("후보가 임시 닉네임 자체면 교체하지 않는다", () => {
+    expect(
+      shouldRefreshNicknameFromOAuth({ onboarding_completed_at: null, nickname: "DIBAY 사용자", display_name: null }, "DIBAY 사용자"),
+    ).toBe(false);
+  });
 });
