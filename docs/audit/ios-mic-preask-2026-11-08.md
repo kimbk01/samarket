@@ -35,3 +35,8 @@ Owner 관찰: 받았는데 거절됨, 받는 순간 마이크 허용 창이 보�
 1. 아이폰 새 앱 삭제 → TestFlight 재설치 → 로그인 → 채팅 진입 → 안내 → 계속 → iOS 마이크 창 → 허용
 2. Android(qqqq) → 아이폰 음성 통화 → 수락 → 바로 연결(accepted/connected) 확인
 3. 결과는 이 문서 아래에 기록
+
+## 6. 확장 (Owner 2026-11-08 「마이크·알림·영상 통화 카메라 승인 요청 화면이 나와야」)
+- 같은 안내 한 번에 **알림 · 마이크 · 카메라** 중 아직 묻지 않은 것만 줄로 표시 → 「계속」 → 알림(단일 경로 `requestNotificationFromGuide`, LOCK 준수) → 마이크+카메라(`requestNativeCallMediaPermissions("video")`, 카메라 불필요 시 "voice").
+- 알림이 이미 로그인 때 정해졌으면 알림 줄은 안 나온다. 거부된 권한은 다시 묻지 않는다(기존 설정 안내 경로).
+- 시험 8건(새 설치 3종·남은 것만·모두 정해짐·Android/웹 제외·1회·순서·voice/video·iOS 외 무요청).
