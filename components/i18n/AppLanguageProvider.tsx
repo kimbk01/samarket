@@ -12,6 +12,7 @@ import {
 } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
+  peekRemoteConfirmedPreferredLanguage,
   peekUserSettingsSnapshot,
   subscribeUserSettings,
   syncUserSettings,
@@ -26,9 +27,19 @@ import {
   type StoredPreferredLanguage,
 } from "@/lib/i18n/config";
 import {
-  persistExplicitLanguage,
-  resolveClientLanguagePresentation,
-  type ClientLanguagePresentation,
+  decideAccountLanguageSync,
+  displayLanguageCookieValue,
+  resolveClientAppLanguage,
+  type AppLanguageResolution,
+} from "@/lib/i18n/app-language-authority";
+import {
+  clearPendingAccountLanguage,
+  readDeviceLanguageCandidates,
+  readDeviceLanguageChoice,
+  readPendingAccountLanguage,
+  writeDeviceLanguageChoice,
+  writeDisplayLanguageCookie,
+  writePendingAccountLanguage,
 } from "@/lib/i18n/language-preference";
 import { translateText, type MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate, type SafeTranslateOptions } from "@/lib/i18n/safe-translate";
@@ -36,7 +47,7 @@ import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 type AppLanguageContextValue = {
   language: AppLanguageCode;
-  /** null = 기기 언어 따름(명시 ko/en 미선택) */
+  /** 지금 문맥(로그인=계정, 비로그인=기기)에서 사용자가 고른 값. null = 기기 언어 따름 */
   languagePreference: StoredPreferredLanguage;
   setLanguage: (language: AppLanguageCode) => void;
   /** UI 표시용 — key·빈값·미치환 placeholder 노출 방지 (전역 기본) */
@@ -48,22 +59,35 @@ type AppLanguageContextValue = {
 
 const AppLanguageContext = createContext<AppLanguageContextValue | null>(null);
 
-function resolvePresentationForCurrentUser(
-  cachedPreferredLanguage?: unknown
-): ClientLanguagePresentation {
-  const userId = getCurrentUser()?.id;
-  return resolveClientLanguagePresentation({
+/**
+ * 언어 결정 — `docs/i18n-ssot.md` §2 · `lib/i18n/app-language-authority.ts` 만 사용.
+ * 기기 언어는 저장하지 않는다. 계정 언어는 서버 값이 기준이고, 기기 값으로 덮지 않는다.
+ */
+function computeResolution(): AppLanguageResolution {
+  const userId = getCurrentUser()?.id ?? null;
+  return resolveClientAppLanguage({
     isLoggedIn: Boolean(userId),
-    cachedPreferredLanguage: userId ? cachedPreferredLanguage : undefined,
+    pending: userId ? readPendingAccountLanguage(userId) : null,
+    account: userId ? peekUserSettingsSnapshot(userId).preferred_language : null,
+    deviceChoice: readDeviceLanguageChoice(),
+    deviceLanguages: readDeviceLanguageCandidates(),
   });
 }
 
+/** React 밖 i18n(`getRuntimeAppLanguage`) 구독자 알림 — Provider 는 이 이벤트를 다시 받지 않는다 */
 function emitLanguageChanged(language: AppLanguageCode): void {
   window.dispatchEvent(
     new CustomEvent<AppLanguageCode>(APP_LANGUAGE_CHANGED_EVENT, {
       detail: language,
     })
   );
+}
+
+/** 서버 저장 — 성공을 서버가 확인하면 미전송 표시를 지운다 */
+function saveAccountLanguage(userId: string, language: AppLanguageCode): Promise<void> {
+  return updateUserSettings(userId, { preferred_language: language }, { onFailure: "keepLocal" }).then((ok) => {
+    if (ok && readPendingAccountLanguage(userId) === language) clearPendingAccountLanguage(userId);
+  });
 }
 
 export function AppLanguageProvider({
@@ -84,125 +108,86 @@ export function AppLanguageProvider({
    */
   setRuntimeAppLanguage(language);
   const [languagePreference, setLanguagePreferenceState] = useState<StoredPreferredLanguage>(null);
-  const lastAppliedRef = useRef<ClientLanguagePresentation | null>(null);
+  const lastAppliedRef = useRef<AppLanguageResolution | null>(null);
 
-  const applyPresentation = useCallback((presentation: ClientLanguagePresentation) => {
+  const apply = useCallback((r: AppLanguageResolution) => {
+    writeDisplayLanguageCookie(displayLanguageCookieValue(r));
     const last = lastAppliedRef.current;
-    if (
-      last &&
-      last.preference === presentation.preference &&
-      last.resolved === presentation.resolved
-    ) {
-      return;
-    }
-    lastAppliedRef.current = presentation;
-
-    if (presentation.preference) {
-      persistExplicitLanguage(presentation.resolved);
-    }
-    setLanguagePreferenceState(presentation.preference);
-    setLanguageState(presentation.resolved);
-    setRuntimeAppLanguage(presentation.resolved);
-    emitLanguageChanged(presentation.resolved);
+    if (last && last.resolved === r.resolved && last.preference === r.preference) return;
+    const languageChanged = !last || last.resolved !== r.resolved;
+    lastAppliedRef.current = r;
+    setLanguagePreferenceState(r.preference);
+    setLanguageState(r.resolved);
+    setRuntimeAppLanguage(r.resolved);
+    if (languageChanged) emitLanguageChanged(r.resolved);
   }, []);
+
+  const refresh = useCallback(() => apply(computeResolution()), [apply]);
+
+  /** 계정 설정을 서버에서 받아 반영 — 미전송 토글만 다시 올린다 */
+  const syncAccount = useCallback(async () => {
+    const userId = getCurrentUser()?.id;
+    if (!userId) return;
+    await syncUserSettings(userId).catch(() => null);
+    if (getCurrentUser()?.id !== userId) return;
+    const remote = peekRemoteConfirmedPreferredLanguage(userId);
+    if (remote !== undefined) {
+      const decision = decideAccountLanguageSync({ pending: readPendingAccountLanguage(userId), remote });
+      if (decision.clearPending) clearPendingAccountLanguage(userId);
+      if (decision.upload) void saveAccountLanguage(userId, decision.upload).then(refresh);
+    }
+    refresh();
+  }, [refresh]);
 
   const setLanguage = useCallback(
     (next: AppLanguageCode) => {
       const explicit = parseExplicitAppLanguage(next);
       if (!explicit) return;
-
-      persistExplicitLanguage(explicit);
+      writeDeviceLanguageChoice(explicit);
       const userId = getCurrentUser()?.id;
       if (userId) {
-        void updateUserSettings(userId, { preferred_language: explicit }, { onFailure: "keepLocal" });
+        writePendingAccountLanguage(userId, explicit);
+        void saveAccountLanguage(userId, explicit).then(refresh);
       }
-      applyPresentation({ preference: explicit, resolved: explicit });
+      refresh();
     },
-    [applyPresentation]
+    [refresh]
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const userId = getCurrentUser()?.id;
-    const cachedPreferredLanguage = userId
-      ? peekUserSettingsSnapshot(userId).preferred_language
-      : undefined;
-
-    applyPresentation(
-      resolveClientLanguagePresentation({
-        isLoggedIn: Boolean(userId),
-        cachedPreferredLanguage,
-      })
-    );
-
-    async function syncSettingsLanguage() {
-      const syncUserId = getCurrentUser()?.id;
-      if (!syncUserId) return;
-
-      await syncUserSettings(syncUserId).catch(() => null);
-      if (cancelled) return;
-
-      const snapshot = peekUserSettingsSnapshot(syncUserId);
-      applyPresentation(
-        resolveClientLanguagePresentation({
-          isLoggedIn: true,
-          cachedPreferredLanguage: snapshot.preferred_language,
-        })
-      );
-    }
-
-    void syncSettingsLanguage();
-
-    const onLanguageChanged = (event: Event) => {
-      const next = parseExplicitAppLanguage(
-        (event as CustomEvent<AppLanguageCode | undefined>).detail
-      );
-      if (next) {
-        applyPresentation({ preference: next, resolved: next });
-        return;
-      }
-      applyPresentation(
-        resolvePresentationForCurrentUser(
-          getCurrentUser()?.id
-            ? peekUserSettingsSnapshot(getCurrentUser()!.id).preferred_language
-            : undefined
-        )
-      );
-    };
+    refresh();
+    void syncAccount();
 
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== APP_LANGUAGE_STORAGE_KEY) return;
-      applyPresentation(
-        resolvePresentationForCurrentUser(
-          getCurrentUser()?.id
-            ? peekUserSettingsSnapshot(getCurrentUser()!.id).preferred_language
-            : undefined
-        )
-      );
-    };
-
-    window.addEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
-    window.addEventListener("storage", onStorage);
-    const unsubscribeSettings = subscribeUserSettings(({ userId, settings }) => {
-      if (userId !== getCurrentUser()?.id) return;
-      const presentation = resolveClientLanguagePresentation({
-        isLoggedIn: true,
-        cachedPreferredLanguage: settings.preferred_language,
-      });
-      const settingsExplicit = parseExplicitAppLanguage(settings.preferred_language);
-      if (presentation.preference != null && presentation.preference !== settingsExplicit) {
-        void updateUserSettings(userId, { preferred_language: presentation.preference }, { onFailure: "keepLocal" });
+      if (event.key === null || event.key === APP_LANGUAGE_STORAGE_KEY || event.key.startsWith("samarket_app_language_pending:")) {
+        refresh();
       }
-      applyPresentation(presentation);
+    };
+    window.addEventListener("storage", onStorage);
+    const unsubscribeSettings = subscribeUserSettings(({ userId }) => {
+      if (userId === getCurrentUser()?.id) refresh();
+    });
+    /**
+     * 로그인·로그아웃(새로고침 없는 전환 포함) — 문맥이 바뀌면 다시 계산.
+     * 세션 모듈은 마운트 후 동적으로 불러온다: `useI18n` 만 쓰는 화면·테스트가 인증 모듈 전체를 끌어오지 않게.
+     */
+    let unsubscribePhase: () => void = () => undefined;
+    let disposed = false;
+    void import("@/lib/auth/dibay-session-manager").then(({ subscribeSessionPhase }) => {
+      if (disposed) return;
+      unsubscribePhase = subscribeSessionPhase((phase) => {
+        if (phase === "authenticated") void syncAccount();
+        else if (phase === "terminal_guest") refresh();
+      });
     });
 
     return () => {
-      cancelled = true;
-      window.removeEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
+      disposed = true;
       window.removeEventListener("storage", onStorage);
       unsubscribeSettings();
+      unsubscribePhase();
     };
-  }, [applyPresentation]);
+  }, [refresh, syncAccount]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;

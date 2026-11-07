@@ -15,6 +15,7 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { storesApiAcceptLanguageHeader } from "@/lib/i18n/language-preference";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -228,7 +229,12 @@ export function AdminStoresHomeShelvesEditor({
     setHomeFeedStatus("loading");
     void (async () => {
       try {
-        const res = await fetch("/api/stores/home-feed?fresh=1", { credentials: "include", cache: "no-store" });
+        /** 앱과 같은 언어로 미리보기 — 어드민 화면 언어를 실어 보낸다 (`docs/i18n-ssot.md` §2) */
+        const res = await fetch("/api/stores/home-feed?fresh=1", {
+          credentials: "include",
+          cache: "no-store",
+          headers: storesApiAcceptLanguageHeader(ko ? "ko" : "en"),
+        });
         const json = (await res.json()) as {
           ok?: boolean;
           error?: string;

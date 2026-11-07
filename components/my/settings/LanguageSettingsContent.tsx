@@ -1,13 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import {
-  peekUserSettingsSnapshot,
-  subscribeUserSettings,
-  syncUserSettings,
-} from "@/lib/settings/user-settings-store";
 import { SUPPORTED_APP_LANGUAGES, type AppLanguageCode } from "@/lib/i18n/config";
 
 const CHOICES = SUPPORTED_APP_LANGUAGES;
@@ -20,46 +14,18 @@ function choiceLabel(
   return t("mypage_english");
 }
 
-/** 앱 UI 언어 — source of truth: user_settings + AppLanguageProvider (profiles 미사용) */
+/** 앱 UI 언어 — 선택 표시는 지금 화면 언어 하나만 본다 (`docs/i18n-ssot.md` §2, Provider 가 결정) */
 export function LanguageSettingsContent() {
-  const { language, languagePreference, setLanguage, t } = useI18n();
-  const activeLanguage = languagePreference ?? language;
-  const userId = getCurrentUser()?.id ?? "me";
-  const [current, setCurrent] = useState<AppLanguageCode>(language);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { language, setLanguage, t } = useI18n();
   const [savedHint, setSavedHint] = useState(false);
 
-  useEffect(() => {
-    setCurrent(activeLanguage);
-  }, [activeLanguage]);
-
-  useEffect(() => {
-    const applyCurrent = () => {
-      const explicit = peekUserSettingsSnapshot(userId).preferred_language;
-      if (explicit === "ko" || explicit === "en") setCurrent(explicit);
-      else setCurrent(activeLanguage);
-    };
-    applyCurrent();
-    void syncUserSettings(userId).then(() => applyCurrent());
-    const unsubscribe = subscribeUserSettings(({ userId: changedUserId }) => {
-      if (changedUserId === userId) applyCurrent();
-    });
-    return unsubscribe;
-  }, [activeLanguage, userId]);
-
   const select = useCallback(
-    async (choice: AppLanguageCode) => {
-      if (busy || choice === current) return;
-      setBusy(true);
-      setError("");
-      setSavedHint(false);
-      setCurrent(choice);
+    (choice: AppLanguageCode) => {
+      if (choice === language) return;
       setLanguage(choice);
-      setBusy(false);
       setSavedHint(true);
     },
-    [busy, current, setLanguage]
+    [language, setLanguage]
   );
 
   return (
@@ -67,19 +33,18 @@ export function LanguageSettingsContent() {
       <p className="sam-text-helper text-sam-meta">{t("language_settings_subtitle")}</p>
       <div className="flex w-full flex-col gap-2">
         {CHOICES.map((choice) => {
-          const active = current === choice;
+          const active = language === choice;
           return (
             <button
               key={choice}
               type="button"
-              disabled={busy}
               aria-pressed={active}
               className={`flex h-11 w-full items-center justify-between rounded-ui-rect border px-4 transition-colors disabled:opacity-60 ${
                 active
                   ? "border-sam-primary bg-sam-pressed-surface text-sam-fg"
                   : "border-sam-border bg-sam-surface text-sam-muted hover:border-sam-border-strong hover:text-sam-fg"
               }`}
-              onClick={() => void select(choice)}
+              onClick={() => select(choice)}
             >
               <span className="sam-text-body font-semibold">{choiceLabel(choice, t)}</span>
               {active ? <span className="text-sam-primary">✓</span> : null}
@@ -92,7 +57,6 @@ export function LanguageSettingsContent() {
       ) : (
         <p className="sam-text-helper text-sam-meta">{t("common_selected")}</p>
       )}
-      {error ? <p className="sam-text-body-secondary text-sam-danger">{error}</p> : null}
     </div>
   );
 }

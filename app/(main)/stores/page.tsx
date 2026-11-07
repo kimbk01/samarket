@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { StoresHub } from "@/components/stores/StoresHub";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
+import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 
@@ -9,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const h = await headers();
   const cookieStore = await cookies();
   const lang = resolveServerInitialLanguage({
-    cookieValue: cookieStore.get("sam_lang")?.value ?? cookieStore.get("app_lang")?.value,
+    cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
   return {

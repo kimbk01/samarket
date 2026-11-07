@@ -4,20 +4,15 @@
  */
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { DEFAULT_USER_SETTINGS } from "@/lib/types/settings-db";
-import {
-  normalizeLanguagePreferenceForStorage,
-  type AppLanguageCode,
-} from "@/lib/i18n/config";
+import { normalizeLanguagePreferenceForStorage, type StoredPreferredLanguage } from "@/lib/i18n/config";
 import { mergeUserSettingsPreferredLanguage } from "@/lib/settings/reconcile-user-settings-language";
 
 const STORAGE_KEY = "kasama_user_settings";
 export const USER_SETTINGS_CHANGED_EVENT = "samarket:user-settings-changed";
 const cache = new Map<string, Partial<UserSettingsRow>>();
 const inflight = new Map<string, Promise<Partial<UserSettingsRow>>>();
-/** GET sync 시 서버 null + 로컬 explicit 업로드 — 동시·반복 PATCH 방지 */
-const languageUploadInflight = new Map<string, Promise<void>>();
-const languageUploadCooldownUntil = new Map<string, number>();
-const LANGUAGE_UPLOAD_COOLDOWN_MS = 30_000;
+/** 이번 세션에서 서버가 확인해 준 계정 언어 — 없으면 미확인(오프라인·실패) */
+const remoteConfirmedLanguage = new Map<string, StoredPreferredLanguage>();
 
 function getStored(userId: string): Partial<UserSettingsRow> {
   if (typeof window === "undefined") return { ...DEFAULT_USER_SETTINGS };
@@ -70,54 +65,22 @@ function applySettings(userId: string, partial?: Partial<UserSettingsRow> | null
   return next;
 }
 
-function schedulePreferredLanguageUpload(userId: string, language: AppLanguageCode): void {
-  const cooldownUntil = languageUploadCooldownUntil.get(userId) ?? 0;
-  if (Date.now() < cooldownUntil) return;
-
-  const inflightKey = `${userId}:${language}`;
-  if (languageUploadInflight.has(inflightKey)) return;
-
-  const task = fetch("/api/me/settings", {
-    method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ preferred_language: language }),
-  })
-    .then(async (res) => {
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; settings?: Partial<UserSettingsRow> };
-      if (res.ok && json?.ok) {
-        languageUploadCooldownUntil.set(userId, Date.now() + LANGUAGE_UPLOAD_COOLDOWN_MS);
-        applyMergedRemoteSettings(userId, json.settings ?? { preferred_language: language }, {
-          allowUpload: false,
-        });
-        return;
-      }
-      if (!res.ok) {
-        languageUploadCooldownUntil.set(userId, Date.now() + LANGUAGE_UPLOAD_COOLDOWN_MS);
-      }
-    })
-    .catch(() => {
-      languageUploadCooldownUntil.set(userId, Date.now() + LANGUAGE_UPLOAD_COOLDOWN_MS);
-    })
-    .finally(() => {
-      languageUploadInflight.delete(inflightKey);
-    });
-
-  languageUploadInflight.set(inflightKey, task);
+/** 서버 응답 반영 — 계정 언어는 서버 값 그대로(기기 값으로 덮지 않음, `docs/i18n-ssot.md` §2) */
+function applyMergedRemoteSettings(userId: string, remote: Partial<UserSettingsRow>): Partial<UserSettingsRow> {
+  const local = cache.get(userId) ?? getStored(userId);
+  const { settings } = mergeUserSettingsPreferredLanguage(userId, remote, local);
+  if ("preferred_language" in remote) {
+    remoteConfirmedLanguage.set(userId, normalizeLanguagePreferenceForStorage(remote.preferred_language));
+  }
+  return applySettings(userId, settings);
 }
 
-function applyMergedRemoteSettings(
-  userId: string,
-  remote: Partial<UserSettingsRow>,
-  options?: { allowUpload?: boolean }
-): Partial<UserSettingsRow> {
-  const local = cache.get(userId) ?? getStored(userId);
-  const { settings, shouldUploadToServer } = mergeUserSettingsPreferredLanguage(userId, remote, local);
-  const applied = applySettings(userId, settings);
-  if (options?.allowUpload !== false && shouldUploadToServer) {
-    schedulePreferredLanguageUpload(userId, shouldUploadToServer);
-  }
-  return applied;
+/**
+ * 서버가 이번 세션에 확인해 준 계정 언어. `undefined` = 아직 확인 못 함(캐시 값만 있음).
+ * 미전송 토글(pending) 정리는 서버 확인 값으로만 한다.
+ */
+export function peekRemoteConfirmedPreferredLanguage(userId: string): StoredPreferredLanguage | undefined {
+  return remoteConfirmedLanguage.has(userId) ? remoteConfirmedLanguage.get(userId) ?? null : undefined;
 }
 
 /** `getUserSettings` sync 트리거 없이 설정 캐시만 읽기 (언어 병합·Provider용) */
@@ -177,7 +140,7 @@ export const USER_SETTINGS_SAVE_FAILED_EVENT = "samarket:user-settings-save-fail
  * 설정 일부 업데이트 — UI 는 즉시 갱신하고 서버로 동기화한다.
  * 서버 저장이 실패하면(D16):
  *  - `revert`(기본): 바꾼 항목만 이전 값으로 되돌리고 실패 이벤트를 보낸다 — 화면에 저장된 것처럼 남기지 않는다.
- *  - `keepLocal`: 기기 설정 성격(언어)은 기기 값 유지(다음 동기화에서 재업로드).
+ *  - `keepLocal`: 화면 값은 유지(언어 — 미전송 값은 Provider 가 pending 으로 다음 동기화 때 다시 올린다).
  * 반환값: 서버 저장 성공 여부.
  */
 export function updateUserSettings(
@@ -216,7 +179,7 @@ export function updateUserSettings(
     .then(async (res) => {
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; settings?: Partial<UserSettingsRow> };
       if (res.ok && json?.ok) {
-        applyMergedRemoteSettings(userId, json.settings ?? partial, { allowUpload: false });
+        applyMergedRemoteSettings(userId, json.settings ?? partial);
         return true;
       }
       return fail();
@@ -243,8 +206,7 @@ export function subscribeUserSettings(
 export function clearUserSettingsClientCache(): void {
   cache.clear();
   inflight.clear();
-  languageUploadInflight.clear();
-  languageUploadCooldownUntil.clear();
+  remoteConfirmedLanguage.clear();
   if (typeof window === "undefined") return;
   try {
     const prefix = `${STORAGE_KEY}_`;

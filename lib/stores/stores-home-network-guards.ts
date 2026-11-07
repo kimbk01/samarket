@@ -4,13 +4,7 @@
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
-import {
-
-  readExplicitLanguageCookie,
-
-  readExplicitLocalLanguage,
-
-} from "@/lib/i18n/language-preference";
+import { peekExplicitDisplayLanguage } from "@/lib/i18n/language-preference";
 
 import {
 
@@ -40,7 +34,9 @@ function readExplicitStoresHomeLanguage(): AppLanguageCode | null {
 
   if (typeof window === "undefined") return null;
 
-  return readExplicitLocalLanguage() ?? readExplicitLanguageCookie();
+  /** 화면 언어 쿠키(로그인 계정 언어 반영) → 기기 선택 — `docs/i18n-ssot.md` §2 */
+
+  return peekExplicitDisplayLanguage();
 
 }
 

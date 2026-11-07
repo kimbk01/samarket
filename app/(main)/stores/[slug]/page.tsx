@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { headers } from "next/headers";
 import { StoreDetailPageEnterTrace } from "@/components/stores/detail/StoreDetailPageEnterTrace";
 import { DeliveryStoreRouteBridge } from "@/components/delivery/presentation/DeliveryStoreRouteBridge";
+import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { loadStoreSeoMetadataBySlug } from "@/lib/stores/load-store-seo-metadata";
@@ -17,7 +18,7 @@ export async function generateMetadata({
   const h = await headers();
   const cookieStore = await cookies();
   const lang = resolveServerInitialLanguage({
-    cookieValue: cookieStore.get("sam_lang")?.value ?? cookieStore.get("app_lang")?.value,
+    cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
   const fallbackTitle = safeTranslate(lang, "store_fallback_name", {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { APP_LANGUAGE_STORAGE_KEY } from "@/lib/i18n/config";
+import { getDeviceAppLanguage, peekExplicitDisplayLanguage } from "@/lib/i18n/language-preference";
 import type { StoresBrowseClientCacheSnapshot } from "@/lib/stores/store-delivery-api-client";
 import { parseStoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 
@@ -151,19 +151,10 @@ export function clearAllStoresBrowseSessionCaches(): void {
   }
 }
 
-/** `useState` 초기화·Provider 전 — cookie/localStorage 와 동일 파티션 */
+/** `useState` 초기화·Provider 전 — 화면 언어 쿠키 → 기기 선택 → 기기 언어 (`docs/i18n-ssot.md` §2) */
 export function resolveBrowseSessionLanguageClient(): AppLanguageCode {
   if (typeof window === "undefined") return "en";
-  try {
-    const ls = localStorage.getItem(APP_LANGUAGE_STORAGE_KEY)?.trim().toLowerCase();
-    if (ls === "ko" || ls === "en") return ls;
-    const m = document.cookie.match(/(?:^|;\s*)(?:sam_lang|app_lang)=([^;]+)/);
-    const ck = m?.[1]?.trim().toLowerCase();
-    if (ck === "ko" || ck === "en") return ck;
-  } catch {
-    /* ignore */
-  }
-  return "en";
+  return peekExplicitDisplayLanguage() ?? getDeviceAppLanguage();
 }
 
 export function readInitialBrowseListSessionSnapshot(): StoresBrowseClientCacheSnapshot | null {

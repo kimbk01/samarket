@@ -189,9 +189,12 @@ export async function PATCH(req: NextRequest) {
     ...patch,
     user_id: auth.userId,
     updated_at: new Date().toISOString(),
-    ...(patch.preferred_language !== undefined
-      ? { preferred_language: preferredLanguageToDbColumn(patch.preferred_language) }
-      : {}),
+    /** 언어는 항상 DB 호환값으로 — 새 행·언어 없는 저장은 `""`(기기 언어 따름), 열 기본값 'ko' 를 쓰지 않는다 */
+    preferred_language: preferredLanguageToDbColumn(
+      patch.preferred_language !== undefined
+        ? patch.preferred_language
+        : preferredLanguageFromDbColumn((before as { preferred_language?: unknown } | null)?.preferred_language)
+    ),
   };
 
   const { data, error } = await sb

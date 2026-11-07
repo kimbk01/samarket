@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { storesApiAcceptLanguageHeader } from "@/lib/i18n/language-preference";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import {
   StoreBrowseCategoryRowCard,
@@ -98,7 +99,12 @@ export function AdminStoresCategoryBrowseLivePreview({
         /** 앱과 같은 요청 — limit 을 붙이지 않는다 (서버 기본 개수). */
         const qs = new URLSearchParams({ primary: pk, sub: sk, fresh: "1" });
         const [res, banner] = await Promise.all([
-          fetch(`/api/stores/browse?${qs.toString()}`, { credentials: "include", cache: "no-store" }),
+          fetch(`/api/stores/browse?${qs.toString()}`, {
+            credentials: "include",
+            cache: "no-store",
+            /** 어드민 화면 언어로 미리보기 (`docs/i18n-ssot.md` §2) */
+            headers: storesApiAcceptLanguageHeader(ko ? "ko" : "en"),
+          }),
           loadTopBanner(pk, sk),
         ]);
         const json = (await res.json()) as {

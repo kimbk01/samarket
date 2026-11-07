@@ -1,96 +1,29 @@
 import { describe, expect, it } from "vitest";
-import {
-  mergeUserSettingsPreferredLanguage,
-  reconcilePreferredLanguageOnRemoteSync,
-} from "@/lib/settings/reconcile-user-settings-language";
+import { mergeUserSettingsPreferredLanguage } from "@/lib/settings/reconcile-user-settings-language";
 
-describe("reconcilePreferredLanguageOnRemoteSync", () => {
-  it("matches when remote and local agree", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: "en",
-        localPreferredLanguage: "en",
-      })
-    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: null });
-  });
-
-  it("prefers local explicit when remote differs (same-device user choice)", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: "ko",
-        localPreferredLanguage: "en",
-      })
-    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: "en" });
-  });
-
-  it("prefers persistedAppLanguage over stale kasama cache", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: "ko",
-        localPreferredLanguage: "ko",
-        persistedAppLanguage: "en",
-      })
-    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: "en" });
-  });
-
-  it("keeps local explicit when remote is null", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: null,
-        localPreferredLanguage: "ko",
-      })
-    ).toEqual({ preferredLanguage: "ko", shouldUploadToServer: "ko" });
-  });
-
-  it("uses remote when local has no explicit language", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: "en",
-        localPreferredLanguage: null,
-      })
-    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: null });
-  });
-
-  it("uploads local explicit when remote is null", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: null,
-        localPreferredLanguage: null,
-        persistedAppLanguage: "en",
-      })
-    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: "en" });
-  });
-
-  it("returns null when neither side has explicit language", () => {
-    expect(
-      reconcilePreferredLanguageOnRemoteSync({
-        remotePreferredLanguage: "",
-        localPreferredLanguage: "system",
-      })
-    ).toEqual({ preferredLanguage: null, shouldUploadToServer: null });
-  });
-});
-
+/** 계정 언어는 서버 값이 기준 — 기기 값으로 덮지 않는다 (`docs/i18n-ssot.md` §2) */
 describe("mergeUserSettingsPreferredLanguage", () => {
-  it("merges remote fields but preserves local language until server confirms", () => {
-    const { settings, shouldUploadToServer } = mergeUserSettingsPreferredLanguage(
-      "user-1",
-      { push_enabled: false, preferred_language: null },
-      { push_enabled: true, preferred_language: "en" }
-    );
-    expect(settings.user_id).toBe("user-1");
-    expect(settings.push_enabled).toBe(false);
-    expect(settings.preferred_language).toBe("en");
-    expect(shouldUploadToServer).toBe("en");
+  it("서버 값이 캐시 값을 이긴다", () => {
+    expect(
+      mergeUserSettingsPreferredLanguage("u1", { preferred_language: "ko" }, { preferred_language: "en" }).settings
+        .preferred_language
+    ).toBe("ko");
   });
 
-  it("local explicit wins over stale remote on conflict", () => {
-    const { settings, shouldUploadToServer } = mergeUserSettingsPreferredLanguage(
-      "user-1",
-      { preferred_language: "ko" },
-      { preferred_language: "en" }
-    );
-    expect(settings.preferred_language).toBe("en");
-    expect(shouldUploadToServer).toBe("en");
+  it("서버 값이 없으면(기기 따름) null 로 둔다 — 캐시 값을 올리지 않는다", () => {
+    expect(
+      mergeUserSettingsPreferredLanguage("u1", { preferred_language: "" }, { preferred_language: "en" }).settings
+        .preferred_language
+    ).toBeNull();
+  });
+
+  it("다른 설정 값은 서버 값으로 합친다", () => {
+    const merged = mergeUserSettingsPreferredLanguage(
+      "u1",
+      { preferred_language: "en", marketing_push_enabled: true } as never,
+      { marketing_push_enabled: false } as never
+    ).settings as Record<string, unknown>;
+    expect(merged.marketing_push_enabled).toBe(true);
+    expect(merged.user_id).toBe("u1");
   });
 });

@@ -2,6 +2,8 @@
  * 배달·매장(스토어 커머스) 클라이언트 API — 동일 URL 동시 요청 합류(runSingleFlight).
  * 컴포넌트에 `fetch("/api/stores/...")` 를 흩뿌리지 않고 한곳에서 유지한다.
  */
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
@@ -1045,13 +1047,16 @@ export async function fetchStoreDeliveryEtaDeduped(
   opts?: {
     signal?: AbortSignal;
     trace?: { component?: string; reason?: string; triggeredBy?: string; pathname?: string };
+    /** ETA 문구 언어 — 생략 시 앱 화면 언어 (`docs/i18n-ssot.md` §2: 서버 문구 API 는 앱 언어를 실어 보낸다) */
+    language?: AppLanguageCode;
   }
 ): Promise<StoreApiJsonResponse> {
   const s = slug.trim();
   const id = deliveryUserAddressId.trim();
   if (!s || !id) return { status: 400, json: { ok: false } };
+  const lang = opts?.language ?? getRuntimeAppLanguage();
   const qs = new URLSearchParams({ delivery_user_address_id: id }).toString();
-  const flightKey = `stores:delivery-eta:${s}:${id}`;
+  const flightKey = `stores:delivery-eta:${s}:${id}:${lang}`;
   const pathname =
     opts?.trace?.pathname ??
     (typeof window !== "undefined" ? window.location.pathname : "/api/stores/[slug]/delivery-eta");
@@ -1079,10 +1084,12 @@ export async function fetchStoreDeliveryEtaDeduped(
     const { res, json } = await runStoreGetWithDeadline(
       "stores_delivery_eta",
       async (signal) => {
+        const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
         const r = await fetch(`/api/stores/${encodeURIComponent(s)}/delivery-eta?${qs}`, {
           credentials: "include",
           cache: "no-store",
           signal,
+          headers: storesApiAcceptLanguageHeader(lang),
         });
         return { res: r, json: await r.json().catch(() => ({})) };
       },

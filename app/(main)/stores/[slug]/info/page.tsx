@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreDetailInfoPublic } from "@/components/stores/StoreDetailInfoPublic";
+import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 
@@ -17,7 +18,7 @@ export async function generateMetadata({
   const h = await headers();
   const cookieStore = await cookies();
   const lang = resolveServerInitialLanguage({
-    cookieValue: cookieStore.get("sam_lang")?.value ?? cookieStore.get("app_lang")?.value,
+    cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
   const fallbackInfoTitle = safeTranslate(lang, "store_meta_store_info_title", {

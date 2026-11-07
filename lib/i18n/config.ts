@@ -5,7 +5,10 @@ export const SUPPORTED_LANGUAGES = SUPPORTED_APP_LANGUAGES;
 
 export type AppLanguageCode = (typeof SUPPORTED_APP_LANGUAGES)[number];
 
-/** 레거시·알림 등 명시적 ko/en 없을 때 제품 기본값 */
+/**
+ * 레거시 서버 함수 매개변수 기본값(언어를 안 넘긴 호출). 앱 화면·요청 언어 결정에는 쓰지 않는다 —
+ * 결정은 `lib/i18n/app-language-authority.ts` (호출부 정리는 SSOT S6).
+ */
 export const DEFAULT_APP_LANGUAGE: AppLanguageCode = "ko";
 
 /** 기기/Accept-Language에 ko가 없을 때 UI fallback (DIBAY: 그 외 영어) */
@@ -24,7 +27,10 @@ export type AppLanguagePreference = StoredPreferredLanguage;
 
 export const APP_LANGUAGE_STORAGE_KEY = "samarket_app_language";
 export const APP_LANGUAGE_COOKIE = "samarket_signup_locale";
-/** 최초 방문 시 기기 언어 1회 seed 완료 표시 (이후 navigator 재적용 금지) */
+/**
+ * @deprecated 레거시 — 기기 언어 1회 seed 표시였다. `docs/i18n-ssot.md` §2: 기기 언어는 저장하지 않고 매번 계산한다.
+ * 읽지도 쓰지도 않는다(세션 정리 허용 목록에서만 이름 유지).
+ */
 export const APP_LANGUAGE_DEVICE_SEEDED_KEY = "samarket_lang_device_seeded";
 export const APP_LANGUAGE_CHANGED_EVENT = "samarket-language-changed";
 

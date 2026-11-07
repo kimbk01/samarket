@@ -312,6 +312,6 @@ export async function GET(req: NextRequest) {
   }
 
   response.cookies.set(SIGNUP_NICKNAME_COOKIE, "", { path: "/", maxAge: 0 });
-  response.cookies.set(APP_LANGUAGE_COOKIE, "", { path: "/", maxAge: 0 });
+  /** 화면 언어 쿠키는 기기 값이라 지우지 않는다 — 지우면 로그인 직후 첫 화면이 다른 언어로 그려진다 (`docs/i18n-ssot.md` §2) */
   return response;
 }

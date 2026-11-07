@@ -35,8 +35,9 @@ export function MyInfoLanguageToggleRow({
   icon?: ReactNode;
   first?: boolean;
 }) {
-  const { language, languagePreference, setLanguage, t } = useI18n();
-  const activeLanguage = languagePreference ?? language;
+  const { language, setLanguage, t } = useI18n();
+  /** 선택 표시 = 지금 화면 언어 (`docs/i18n-ssot.md` §2) */
+  const activeLanguage = language;
   const groupLabel = t("mypage_comp_menu_account_language_title");
 
   return (
