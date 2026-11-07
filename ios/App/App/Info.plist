@@ -61,8 +61,6 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>영상 통화를 위해 카메라 접근이 필요합니다.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>배달·근처 서비스 이용을 위해 위치 접근이 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>배달·근처 서비스 이용을 위해 위치 접근이 필요합니다.</string>
 	<key>NSMicrophoneUsageDescription</key>
