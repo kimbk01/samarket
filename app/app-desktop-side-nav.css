@@ -104,3 +104,24 @@ html:has(.app-bottom-nav-shell--side-rail) .app-side-rail-fixed-inset {
     max-width: 66rem;
   }
 }
+
+/**
+ * 메신저 PC 전체 폭 M3 (docs/audit/messenger-desktop-wide-design-2026-11-07.md)
+ * PC 메신저는 본문 열 제한이 없어 목록 칸이 본문 왼쪽 끝(레일 바로 오른쪽)에서 시작한다.
+ * 메신저 홈 하단 시트(split-list)를 목록 칸에 맞춘다 — `app/messenger-home-bottom-sheet.css` 의
+ * 「화면 가운데 열」 기준 left(레일 이전 계산)를 DESKTOP 세로 레일 셸에서만 덮는다.
+ * 레일이 숨겨진 순간(통화·지원 모달)에는 셸 왼쪽 여백도 0 이므로 safe-left 만.
+ * 휴대폰·태블릿(레일 없음)은 기존 식 그대로.
+ */
+@media (min-width: 768px) {
+  html:has(.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"])
+    :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
+    left: var(--safe-left, 0px) !important;
+  }
+
+  /* 위 규칙보다 특이도가 높아야 한다 (레일이 있으면 이 값이 이긴다) */
+  html:has(.app-shell[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"]):has(.app-bottom-nav-shell--side-rail)
+    :is(.messenger-home-bottom-sheet-panel, .messenger-home-bottom-sheet-panel--device-bottom).messenger-home-bottom-sheet-panel--split-list {
+    left: calc(var(--app-side-rail-width, 72px) + var(--safe-left, 0px)) !important;
+  }
+}

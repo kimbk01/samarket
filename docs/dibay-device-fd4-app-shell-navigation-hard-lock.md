@@ -6,6 +6,9 @@
 > 「Existing main BottomNav is reused for every family / no restored Desktop side nav」와 DO NOT 의 「restore MainDesktopSideNav」는 DESKTOP 계열에 한해 해제한다.
 > 그 외 조항은 모두 유지한다: PHONE·TABLET·UNKNOWN 하단 탭, 폭·터치·UA 로 셸 선택 금지, 리마운트 금지, FD1~FD3, 도메인 폭(Messenger 768·Community 767·Trade grid·Owner 1024).
 > 설계: `docs/audit/windows-desktop-shell-rail-design-2026-11-07.md` (구현은 별도 승인 후).
+>
+> **Owner 추가 해제 (2026-11-07 PHT, 원문 「권장 사항을 따른다」 → 「M0~M5 구현」)** — DESKTOP 세로 레일 셸의 **메신저 화면(`/community-messenger/**`) 본문 열 폭 제한만** 해제(레일 | 목록 | 대화방 창 전체).
+> 「Messenger 768」 분할 기준·목록 칸 폭(`clamp(360px,35vw,470px)`)·휴대폰/태블릿 메신저는 유지. 설계: `docs/audit/messenger-desktop-wide-design-2026-11-07.md`.
 **Declared:** 2026-09-25  
 **Evidence:** `.tmp/fd4-shell-runtime/` (`samsung.json` · `xiaomi.json` · `iphonebk.json` · `SUMMARY.json`)
 

@@ -66,7 +66,7 @@ describe("D2 desktop header alignment", () => {
   });
 
   it("DESKTOP 계열에서만 적용한다 (휴대폰·태블릿 헤더 무변화)", () => {
-    const rules = (css.split("D2 —")[1] ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rules = ((css.split("D2 —")[1] ?? "").split("메신저 PC 전체 폭 M3")[0] ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
     const selectors = rules
       .split("\n")
       .map((l) => l.trim())
@@ -76,5 +76,34 @@ describe("D2 desktop header alignment", () => {
     for (const sel of selectors) {
       expect(sel.startsWith('.app-shell[data-dibay-shell-family="DESKTOP"]')).toBe(true);
     }
+  });
+});
+
+describe("메신저 PC 전체 폭 M1·M3 (docs/audit/messenger-desktop-wide-design-2026-11-07.md)", () => {
+  it("M1 — PC 세로 레일 + 메신저 화면에서만 본문 열 제한을 푼다", () => {
+    const shell = src("components/layout/ConditionalAppShell.tsx");
+    expect(shell).toContain(
+      'f.isMypageAddressFlowPage || (isDesktopSideRail && f.isCommunityMessengerSurface)\n          ? "w-full min-w-0"\n          : APP_MAIN_COLUMN_CLASS',
+    );
+  });
+
+  it("M2 — 목록 칸 폭·768 분할 기준은 그대로", () => {
+    const pane = src("lib/ui/messenger-split-pane-layout.ts");
+    expect(pane).toContain('MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS = "clamp(360px, 35vw, 470px)"');
+    expect(src("hooks/use-is-messenger-split-viewport.ts")).toContain("APP_MESSENGER_SPLIT_MIN_PX");
+  });
+
+  it("M3 — 메신저 하단 시트는 레일 셸에서만 목록 칸(레일 오른쪽)에 맞춘다, 768 이상에서만", () => {
+    const m3 = css.split("메신저 PC 전체 폭 M3")[1] ?? "";
+    expect(m3).toContain("@media (min-width: 768px)");
+    expect(m3).toMatch(
+      /html:has\(\.app-shell\[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"\]\)\s*:is\(\.messenger-home-bottom-sheet-panel, \.messenger-home-bottom-sheet-panel--device-bottom\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: var\(--safe-left, 0px\) !important;/,
+    );
+    expect(m3).toMatch(
+      /html:has\(\.app-shell\[data-dibay-nav-presentation="DESKTOP_SIDE_RAIL"\]\):has\(\.app-bottom-nav-shell--side-rail\)\s*:is\([^)]*\)\.messenger-home-bottom-sheet-panel--split-list \{\s*left: calc\(var\(--app-side-rail-width, 72px\) \+ var\(--safe-left, 0px\)\) !important;/,
+    );
+    // 휴대폰·태블릿용 기존 식은 그대로 (레일 없는 셸)
+    const sheetCss = src("app/messenger-home-bottom-sheet.css");
+    expect(sheetCss).toContain("left: max(0px, calc((100vw - min(100vw, 66rem)) / 2)) !important;");
   });
 });
