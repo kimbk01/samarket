@@ -5,6 +5,7 @@ import {
   type MessengerRoomListSource,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
+import { isMessengerSplitFrameDirectHeaderRoom } from "@/lib/community-messenger/room/messenger-split-room-entry-frame-seed";
 import {
   isRoomSnapshotFresh,
   prefetchCommunityMessengerRoomSnapshot,
@@ -123,6 +124,9 @@ export async function runCommunityMessengerRoomForwardNavigation(
           ...(room.chatDomain ? { expectedDomain: room.chatDomain } : null),
           ...((room.domainIdentityKey ?? room.domainIdentity)?.trim()
             ? { expectedIdentityKey: (room.domainIdentityKey ?? room.domainIdentity)!.trim() }
+            : null),
+          ...(isMessengerSplitFrameDirectHeaderRoom(room, args.listSource)
+            ? { splitFrameHeader: "direct" as const }
             : null),
         }
       : undefined

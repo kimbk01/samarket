@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  isMessengerSplitFrameDirectHeaderRoom,
   readMessengerSplitRoomEntryFrameSeed,
   readMessengerSplitRoomEntryFrameSeedRaw,
 } from "@/lib/community-messenger/room/messenger-split-room-entry-frame-seed";
@@ -78,6 +79,36 @@ describe("messenger split room entry frame (P1·P2)", () => {
     expect(
       readMessengerSplitRoomEntryFrameSeed("r1", JSON.stringify({ title: "  ", expectedDomain: "general_direct" }))
     ).toBeNull();
+  });
+
+  it("F1 — 운영 실측: 목록 요약에 chatDomain 이 없어도 inbox 1:1 은 이름·사진 (splitFrameHeader)", () => {
+    // 운영 진입 의도 실측 형태: { title, avatarUrl } 만 — expectedDomain 없음
+    const prodLike = JSON.stringify({ title: "zxzx11", avatarUrl: "https://x/p.jpg", splitFrameHeader: "direct" });
+    expect(readMessengerSplitRoomEntryFrameSeed("r1", prodLike)).toEqual({ title: "zxzx11", avatarUrl: "https://x/p.jpg" });
+    // 표시가 없으면(거래·배달·그룹·알림 진입) 빈 상단바
+    expect(readMessengerSplitRoomEntryFrameSeed("r1", JSON.stringify({ title: "zxzx11", avatarUrl: null }))).toBeNull();
+    // 표시가 있어도 도메인이 다르면 빈 상단바
+    expect(
+      readMessengerSplitRoomEntryFrameSeed(
+        "r1",
+        JSON.stringify({ title: "x", splitFrameHeader: "direct", expectedDomain: "trade" })
+      )
+    ).toBeNull();
+  });
+
+  it("F1 — 판정: inbox + direct 만, 거래·배달 목록·그룹 제외", () => {
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "direct", chatDomain: undefined }, "inbox")).toBe(true);
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "direct", chatDomain: "general_direct" }, "inbox")).toBe(true);
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "direct", chatDomain: "trade" }, "inbox")).toBe(false);
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "direct", chatDomain: undefined }, "trade")).toBe(false);
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "direct", chatDomain: undefined }, "delivery")).toBe(false);
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "private_group", chatDomain: undefined }, "inbox")).toBe(false);
+    expect(isMessengerSplitFrameDirectHeaderRoom({ roomType: "open_group", chatDomain: undefined }, "inbox")).toBe(false);
+  });
+
+  it("F1 — 목록 → 방 이동이 진입 의도에 splitFrameHeader 를 저장", () => {
+    const src = read("lib/community-messenger/community-messenger-room-forward-navigation.ts");
+    expect(src).toMatch(/isMessengerSplitFrameDirectHeaderRoom\(room, args\.listSource\)[\s\S]{0,80}splitFrameHeader: "direct"/);
   });
 
   it("seed raw — reads the entry intent of the same room only", () => {

@@ -34,3 +34,20 @@ Owner 지시: 「정확한 원인 조사」→「P1·P2 구현」(2026-11-07).
 - 코드: 계약 테스트 6 + 관련 메신저 테스트 60, `typecheck:build`, eslint — PASS.
 - 로컬 실측: 개발 서버가 방 진입마다 컴파일·전체 새로고침해 시간 측정 불가 — NOT_PROVEN.
 - 운영 실측(노트북 크롬, 같은 4ms 기록): 반영 후 수행.
+
+## 5. 운영 실측 1차 (`df7780be3`, 노트북 크롬 1771px, 23:3x PHT)
+
+| 경우 | 오른쪽 칸 | 판정 |
+|---|---|---|
+| 처음 여는 방 zxzx11 | 연두 → 0.14초 틀(빈 상단바) → 0.85초 방 | 흰 칸·대기 화면 없음 PASS · 이름 없음 FAIL |
+| 처음 여는 방 Shawn Park | 연두 → 0.05초 틀 → 0.61초 방 | 같음 |
+| 이미 연 방 | 연두 → 0.22초 방 | PASS |
+| 방 → 다른 방 | 방 → 0.04초 틀(빈 상단바) → 0.61초 방 | 이름 약 0.6초 사라짐 FAIL |
+
+대기 표시는 한 번도 보이지 않음(투명도 0). 상단바 높이 틀·방 모두 48px.
+
+## 6. F1 — 이름·사진 누락 정정 (Owner 「F1 반영」)
+
+원인(작업자 결함): 목록 요약에 `chatDomain` 이 없어 진입 의도 seed 에 `expectedDomain` 이 없음(운영 sessionStorage 실측) → `general_direct` 조건에서 전부 탈락.
+수정: `runCommunityMessengerRoomForwardNavigation` 이 목록 출처 inbox + `roomType` direct 이면 seed 에 `splitFrameHeader: "direct"` 저장(`isMessengerSplitFrameDirectHeaderRoom`). 틀은 이 표시(또는 `general_direct`)일 때만 이름·사진. 도메인이 다르게 오면 빈 상단바.
+남는 차이: 실제 상단바의 이름 아래 작은 줄(「1:1 대화 · …」)은 틀에 없음 — 방이 열릴 때 이름이 몇 px 위로 이동할 수 있음.

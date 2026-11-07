@@ -35,6 +35,8 @@ type RoomEntryIntentRow = {
     avatarUrl?: string | null;
     expectedDomain?: ChatDomain;
     expectedIdentityKey?: string;
+    /** 분할 진입 틀 상단바 — 일반 대화 목록(inbox)에서 누른 1:1 방이면 "direct" (F1, 2026-11-07) */
+    splitFrameHeader?: "direct";
   };
 };
 
