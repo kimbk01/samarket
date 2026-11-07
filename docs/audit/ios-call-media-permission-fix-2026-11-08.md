@@ -74,3 +74,13 @@
 - 파일: `DibayVoiceMicrophonePermission.swift`(시간 제한 제거 · `DibayCallPermissionSettingsPrompt` 추가), `DibayVideoMediaPermission.swift`(카메라 시간 제한 제거), 수신·발신 코디네이터 5곳 거부 시 안내 호출. 웹 B 파일 삭제·게이트 원복.
 - Android(APK 1.2.5 (37)): 받기 때 OS 창 답 대기·거부 시 계속 울림+설정 열기 — 변경 없음.
 - NOT_PROVEN: 잠금 화면 CallKit 받기에서 OS 권한 창이 보이는 모습(실기기 확인 대상).
+
+## §9 빌드 27 — 잠금 화면에서 받기 (Owner 2026-11-08 승인 「그래 진행 해라」)
+
+- **실기 FAIL (빌드 26)**: 잠금 상태에서 첫 통화 받기 → 마이크 허용 창이 잠금 화면에 안 뜸 → 응답 대기 중 CallKit 시간 초과 → 거절 처리 (session 9f7ec2d0, 03:18:39 → 03:18:56 PHT).
+- **원인**: iOS 는 잠금 화면 위에 권한 창을 띄우지 않는다. 받기(CXAnswerCallAction)를 권한 응답까지 미루면 CallKit 이 끝낸다.
+- **수정**
+  - 받기 때 권한이 「아직 안 정함」이고 거부된 것이 없으면 **먼저 연결** (`NativeVoiceIncomingCallCoordinator.handleAnswer`, `NativeVideoIncomingCallCoordinator.handleAnswer`).
+  - 앱이 활성(잠금 해제·앱 열기)되면 `DibayDeferredCallMediaPermission` 이 마이크(영상은 이어서 카메라) OS 창을 띄운다. 허용 → 오디오/영상 캡처 재시작 (`restartLocalAudioCapture` / `restartLocalMediaCapture`). 허용 안 함 → 통화 종료 + 「설정」 안내.
+  - 이미 거부 상태로 받으면 → 기존처럼 바로 종료 + 안내. 걸 때(발신)는 빌드 26 과 동일. Android 무변경.
+- **실기 항목 (NOT_PROVEN 까지)**: 새로 설치·로그인 → 잠금 상태 음성 받기 → 연결 유지 → 잠금 해제 시 마이크 창 → 허용 → 서로 들림 / 허용 안 함 → 종료+안내 / 영상 동일(마이크→카메라) / 이미 거부 상태 받기 → 바로 종료+안내.

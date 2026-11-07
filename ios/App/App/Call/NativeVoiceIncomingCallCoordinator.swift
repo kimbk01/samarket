@@ -33,6 +33,14 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     log("ios_native_voice_answer_started", sid)
 
     let micContext = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
+    // 빌드 27 (Owner 2026-11-08): 잠금 화면에서는 OS 허용 창이 안 뜬다 — 「아직 안 정함」이면 먼저 연결하고,
+    // 잠금을 풀거나 앱이 켜질 때 묻는다. 「허용 안 함」이면 그때 통화를 끝내고 설정 안내.
+    if DibayVoiceMicrophonePermission.currentState() == .notDetermined {
+      log("ios_native_voice_answer_mic_deferred", sid)
+      continueHandleAnswer(sessionId: sid, completion: completion)
+      DibayDeferredCallMediaPermission.scheduleAfterAccept(sessionId: sid, lane: .voice)
+      return
+    }
     DibayVoiceMicrophonePermission.ensureGranted(sessionId: sid, context: micContext) { [weak self] micGranted in
       guard let self else {
         completion(false)

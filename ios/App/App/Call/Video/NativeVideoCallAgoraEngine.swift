@@ -185,6 +185,27 @@ final class NativeVideoCallAgoraEngine: NSObject {
     NativeVideoCallLog.info("camera_toggle", callId: sid, details: "enabled=\(enabled)")
   }
 
+  /// 통화 중 마이크·카메라 권한을 새로 허용받은 뒤 — 녹음·카메라 장치를 다시 켠다 (Owner 2026-11-08).
+  func restartLocalMediaCapture(callId: String) {
+    let requested = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    let sid = activeCallId
+    let rtc = engine
+    lock.unlock()
+    guard let rtc, let sid, !sid.isEmpty, sid == requested else { return }
+    let audioOff = rtc.enableLocalAudio(false)
+    let audioOn = rtc.enableLocalAudio(true)
+    let videoOff = rtc.enableLocalVideo(false)
+    let videoOn = rtc.enableLocalVideo(true)
+    rtc.startPreview()
+    NativeVideoCallLog.info(
+      "ios_native_video_local_media_restarted",
+      callId: sid,
+      details: "audio=\(audioOff)/\(audioOn) video=\(videoOff)/\(videoOn)"
+    )
+    attachLocalPreviewNowIfNeeded(callId: sid)
+  }
+
   @discardableResult
   func setMicMuted(_ muted: Bool) -> Bool {
     lock.lock()

@@ -227,6 +227,21 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     return true
   }
 
+  /// 통화 중 마이크 권한을 새로 허용받은 뒤 — 녹음 장치를 다시 켠다 (잠금 화면 받기 후 권한 허용 · Owner 2026-11-08).
+  @discardableResult
+  func restartLocalAudioCapture(callId: String) -> Bool {
+    let requested = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    let sid = activeCallId
+    let rtc = engine
+    lock.unlock()
+    guard let rtc, let sid, !sid.isEmpty, sid == requested else { return false }
+    let off = rtc.enableLocalAudio(false)
+    let on = rtc.enableLocalAudio(true)
+    DibayCallLog.info("ios_native_voice_local_audio_restarted", sessionId: sid, detail: "off=\(off) on=\(on)")
+    return on == 0
+  }
+
   /**
    * A6 / CALL-6: real microphone mute for the current occupant call.
    * Android `setMicMuted` / iOS video `setMicMuted` parity.

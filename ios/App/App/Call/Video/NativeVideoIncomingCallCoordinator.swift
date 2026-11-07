@@ -67,6 +67,16 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
 
     log("ios_native_video_permission_check_started", sid)
     let micContext = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
+    // 빌드 27 (Owner 2026-11-08): 이미 거부된 권한이 없고 「아직 안 정함」이 있으면 먼저 연결 →
+    // 잠금 해제·앱 활성 때 마이크→카메라 순서로 묻는다. 거부가 하나라도 있으면 기존대로 종료+설정 안내.
+    let media = DibayVideoMediaPermission.snapshot()
+    let anyDenied = media.microphone == "permanently_denied" || media.camera == "permanently_denied"
+    if !anyDenied, DibayDeferredCallMediaPermission.hasUndetermined(lane: .video) {
+      log("ios_native_video_answer_permission_deferred", sid)
+      continueAnswerAfterPermissions(sessionId: sid, completion: completion)
+      DibayDeferredCallMediaPermission.scheduleAfterAccept(sessionId: sid, lane: .video)
+      return
+    }
     DibayVideoMediaPermission.ensureGranted(sessionId: sid, context: micContext) { [weak self] granted in
       guard let self else { return }
       guard self.isStillAccepting(sessionId: sid) else {

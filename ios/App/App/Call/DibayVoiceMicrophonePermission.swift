@@ -184,3 +184,128 @@ enum DibayCallPermissionSettingsPrompt {
     return top
   }
 }
+
+/**
+ * 받기 직후 권한 묻기 — 잠금 화면 받기 대응 (Owner 승인 2026-11-08 · 빌드 27).
+ * 잠금 화면에서는 앱이 권한 창을 띄울 수 없어, 받기가 답을 기다리면 CallKit 이 시간 초과로 통화를 끝낸다
+ * (빌드 26 세션 9f7ec2d0: 03:18:39 울림 → 03:18:56 거절, 받음 기록 없음).
+ * 그래서 「아직 안 정함」이면 먼저 연결하고, 앱이 화면에 올라올 때(잠금 해제·앱 열기) OS 창을 띄운다.
+ * 허용 → 통화 중 장치를 다시 켬 · 거부 → 통화 종료 + 「설정」 안내(텔레그램 방식).
+ */
+enum DibayDeferredCallMediaPermission {
+  enum Lane {
+    case voice
+    case video
+  }
+
+  private static var observers: [String: NSObjectProtocol] = [:]
+
+  /// 받기에서 「아직 안 정함」 권한이 있는지 — 있으면 먼저 연결하고 이 함수로 나중에 묻는다.
+  static func hasUndetermined(lane: Lane) -> Bool {
+    if DibayVoiceMicrophonePermission.currentState() == .notDetermined { return true }
+    if lane == .video, AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined { return true }
+    return false
+  }
+
+  static func scheduleAfterAccept(sessionId: String, lane: Lane) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty, hasUndetermined(lane: lane) else { return }
+    DispatchQueue.main.async {
+      if UIApplication.shared.applicationState == .active {
+        DibayCallLog.info("ios_call_deferred_permission_run_now", sessionId: sid, detail: "lane=\(lane)")
+        run(sessionId: sid, lane: lane)
+        return
+      }
+      DibayCallLog.info("ios_call_deferred_permission_wait_active", sessionId: sid, detail: "lane=\(lane)")
+      if let old = observers.removeValue(forKey: sid) {
+        NotificationCenter.default.removeObserver(old)
+      }
+      observers[sid] = NotificationCenter.default.addObserver(
+        forName: UIApplication.didBecomeActiveNotification,
+        object: nil,
+        queue: .main
+      ) { _ in
+        if let token = observers.removeValue(forKey: sid) {
+          NotificationCenter.default.removeObserver(token)
+        }
+        guard isCallActive(sessionId: sid, lane: lane) else {
+          DibayCallLog.info("ios_call_deferred_permission_call_gone", sessionId: sid, detail: "lane=\(lane)")
+          return
+        }
+        run(sessionId: sid, lane: lane)
+      }
+    }
+  }
+
+  private static func isCallActive(sessionId: String, lane: Lane) -> Bool {
+    switch lane {
+    case .voice:
+      return NativeVoiceCallRuntime.shared.snapshot().session?.sessionId == sessionId
+    case .video:
+      return NativeVideoCallRuntime.shared.snapshot().session?.sessionId == sessionId
+    }
+  }
+
+  private static func run(sessionId: String, lane: Lane) {
+    requestMicIfNeeded { micGranted in
+      guard micGranted else {
+        endForDenial(sessionId: sessionId, lane: lane, kind: .microphone)
+        return
+      }
+      guard lane == .video else {
+        NativeVoiceCallAgoraEngine.shared.restartLocalAudioCapture(callId: sessionId)
+        return
+      }
+      requestCameraIfNeeded { camGranted in
+        guard camGranted else {
+          endForDenial(sessionId: sessionId, lane: lane, kind: .camera)
+          return
+        }
+        NativeVideoCallAgoraEngine.shared.restartLocalMediaCapture(callId: sessionId)
+      }
+    }
+  }
+
+  private static func requestMicIfNeeded(completion: @escaping (Bool) -> Void) {
+    switch DibayVoiceMicrophonePermission.currentState() {
+    case .granted:
+      completion(true)
+    case .denied:
+      completion(false)
+    case .notDetermined:
+      if #available(iOS 17.0, *) {
+        AVAudioApplication.requestRecordPermission { granted in
+          DispatchQueue.main.async { completion(granted) }
+        }
+      } else {
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+          DispatchQueue.main.async { completion(granted) }
+        }
+      }
+    }
+  }
+
+  private static func requestCameraIfNeeded(completion: @escaping (Bool) -> Void) {
+    switch AVCaptureDevice.authorizationStatus(for: .video) {
+    case .authorized:
+      completion(true)
+    case .notDetermined:
+      AVCaptureDevice.requestAccess(for: .video) { granted in
+        DispatchQueue.main.async { completion(granted) }
+      }
+    default:
+      completion(false)
+    }
+  }
+
+  private static func endForDenial(sessionId: String, lane: Lane, kind: DibayCallPermissionSettingsPrompt.Kind) {
+    DibayCallLog.info("ios_call_deferred_permission_denied_end", sessionId: sessionId, detail: "lane=\(lane) kind=\(kind)")
+    switch lane {
+    case .voice:
+      NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sessionId) {}
+    case .video:
+      NativeVideoCallKitBridge.requestEnd(callId: sessionId, kind: "end")
+    }
+    DibayCallPermissionSettingsPrompt.present(kind: kind, sessionId: sessionId)
+  }
+}
