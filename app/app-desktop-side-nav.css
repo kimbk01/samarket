@@ -1,8 +1,106 @@
 /**
- * MainDesktopSideNav — 메인 5탭(커뮤니티·거래·배달·채팅·내정보) 용도로는 사용하지 않음.
- * 모든 viewport 에서 BottomNav 가 SSOT. 이 파일은 레거시 클래스 역호환만 유지한다.
+ * 레거시 `MainDesktopSideNav` 클래스 — 컴포넌트는 마운트하지 않는다 (역호환만).
  */
-
 .app-desktop-side-nav {
   display: none !important;
+}
+
+/**
+ * 데스크톱 왼쪽 세로 레일 (Owner 2026-11-07 FD4 데스크톱 조항 해제 · D1)
+ * 설계: docs/audit/windows-desktop-shell-rail-design-2026-11-07.md
+ *
+ * - 셸 판정: `resolveAppShell().navigationPresentation === "DESKTOP_SIDE_RAIL"` (DESKTOP 계열만, 창 폭 무관).
+ * - 같은 `BottomNav` 를 세로로 배치 — 탭·선택·배지·색 토큰(`--app-bottom-nav-*`)은 하단 탭과 동일.
+ * - 폭 72px = `MAIN_DESKTOP_SIDE_NAV_WIDTH_PX` (기존 상수).
+ * - 레일이 있으면 하단 탭이 없으므로 하단 탭 높이·돌출 변수를 0 으로 둔다 → 본문·시트·토스트·FAB 하단 여백 단일 토큰이 함께 0.
+ *   (`--app-bottom-nav-clearance` 는 :root 에서 이 변수들로 계산된다.)
+ */
+html:has(.app-bottom-nav-shell--side-rail) {
+  --app-side-rail-width: 72px;
+  --app-bottom-nav-height: 0px !important;
+  --main-scroll-nav-overhang: 0px !important;
+  --delivery-home-above-nav: 0px !important;
+  --delivery-home-overhang: 0px !important;
+}
+
+/** 본문은 레일 오른쪽에서 시작 — 트리·요소 종류는 그대로(리마운트 없음), 여백만 */
+html:has(.app-bottom-nav-shell--side-rail) .app-shell {
+  padding-left: calc(var(--app-side-rail-width) + var(--safe-left, 0px));
+}
+
+/** 화면 고정(fixed inset-x-0) 플로팅 요소 — 레일과 겹치지 않게 같은 폭만큼 비킨다 */
+html:has(.app-bottom-nav-shell--side-rail) .app-side-rail-fixed-inset {
+  left: calc(var(--app-side-rail-width) + var(--safe-left, 0px));
+}
+
+.app-bottom-nav-shell.app-bottom-nav-shell--side-rail {
+  --app-bottom-nav-orbit-rise: 0px;
+  --app-bottom-nav-scroll-hide-orbit-extra: 0px;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: auto;
+  width: calc(var(--app-side-rail-width, 72px) + var(--safe-left, 0px));
+  height: auto;
+  padding: var(--safe-top, 0px) 0 var(--safe-bottom) var(--safe-left, 0px);
+  justify-content: flex-start;
+  border-top: 0;
+  border-right: 1px solid var(--app-bottom-nav-border);
+  box-shadow: none;
+  transform: none;
+}
+
+.app-bottom-nav-shell--side-rail .app-bottom-nav-plane {
+  height: 100%;
+}
+
+.app-bottom-nav-shell--side-rail .app-bottom-nav-container {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  height: auto;
+  padding: 8px 0;
+}
+
+.app-bottom-nav-shell--side-rail .app-bottom-nav-item {
+  flex: 0 0 auto;
+  width: 100%;
+  height: var(--app-side-rail-width, 72px);
+}
+
+/**
+ * D2 — 데스크톱 1단 헤더 안쪽을 본문 열과 같은 폭으로 정렬 (배경 띠·아래 구분선은 전체 폭 유지).
+ * 카테고리 줄(`dibay-category-rail-host`)은 이미 본문 열을 쓴다 → 제목줄(중첩 embedded 셸)만 맞춘다.
+ * 폭 체인 SSOT: `lib/ui/app-content-layout.ts` `APP_MAIN_COLUMN_MAX_WIDTH_CLASS`
+ * (42rem · sm 46rem · md 52rem · lg 60rem · xl 66rem) — 값이 바뀌면 여기와 테스트를 같이 바꾼다.
+ * DESKTOP 계열에서만 적용 → 휴대폰·태블릿 헤더는 바뀌지 않는다.
+ */
+.app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
+    max-width: 46rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
+    max-width: 52rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
+    max-width: 60rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .app-shell[data-dibay-shell-family="DESKTOP"] [data-app-sticky-header] .sector-header-shell--embedded > .sector-header-shell--embedded {
+    max-width: 66rem;
+  }
 }

@@ -235,6 +235,11 @@ export function ConditionalAppShell({
     messengerSplitViewport: isMessengerSplitViewport,
   });
   const showBottomNavMounted = showBottomNavEffective;
+  /**
+   * 데스크톱(DESKTOP 계열) — 같은 하단 탭을 왼쪽 세로 레일로 (Owner 2026-11-07 FD4 데스크톱 조항 해제).
+   * 표시 조건은 하단 탭과 동일(`showBottomNavMounted`). 레일에는 스크롤·키보드 숨김·메신저 목록 칸 폭을 쓰지 않는다.
+   */
+  const isDesktopSideRail = appShell.navigationPresentation === "DESKTOP_SIDE_RAIL";
   const mainBottomClassLive = useMemo(() => {
     if (!storeOwnerFlyoutSuppressesBottomNav) {
       return f.mainBottomClass;
@@ -245,6 +250,7 @@ export function ConditionalAppShell({
   }, [storeOwnerFlyoutSuppressesBottomNav, f]);
   const bottomNavScrollHideEnabled =
     showBottomNavMounted &&
+    !isDesktopSideRail &&
     resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife, routeSearch);
   const isBrowseRoute = pathNoQuery.startsWith("/stores/browse/");
   const browseScrollChromeHidden = useBrowseScrollChromeHidden(
@@ -384,9 +390,10 @@ export function ConditionalAppShell({
    */
   const [bottomNavKeyboardState, setBottomNavKeyboardState] =
     useState<BottomNavKeyboardHideState>("visible");
-  const bottomNavKeyboardHidden = showBottomNavMounted && bottomNavKeyboardState !== "visible";
+  const bottomNavKeyboardHidden =
+    showBottomNavMounted && !isDesktopSideRail && bottomNavKeyboardState !== "visible";
   const bottomNavKeyboardResized =
-    showBottomNavMounted && bottomNavKeyboardState === "hidden_layout_resized";
+    showBottomNavMounted && !isDesktopSideRail && bottomNavKeyboardState === "hidden_layout_resized";
   /**
    * Clearance SSOT — mount only (`showBottomNavEffective`).
    * DO NOT couple to scroll-hide: hide is transform-only; coupling caused hub thrash.
@@ -439,13 +446,14 @@ export function ConditionalAppShell({
         {mainBodyTransition}
       </main>
       <MarkInitialDestinationVisualReadyOnce pathname={pathname} />
-      {showBottomNavMounted ? (
+      {showBottomNavMounted && !isDesktopSideRail ? (
         <BottomNavKeyboardHideProbe onStateChange={setBottomNavKeyboardState} />
       ) : null}
       {showBottomNavMounted ? (
         <BottomNav
           initialTabs={initialMainBottomNavItems}
           bodyPortal={isMessengerStackSurface}
+          presentation={isDesktopSideRail ? "side-rail" : "bottom"}
           /** 키보드·스크롤로 숨긴 하단 탭은 누를 수도, 포커스로 닿을 수도 없게 (크롬 S4 B-04) */
           inert={bottomNavKeyboardHidden || bottomNavScrollHidden}
           extraOuterClassName={[
@@ -461,8 +469,9 @@ export function ConditionalAppShell({
              * ≥768 split: BottomNav = left list pane only (APK/iOS/Windows/tablet 동일).
              * <768 phone: class present, media inactive → viewport 전폭.
              */
-            pathname === "/community-messenger" ||
-            (pathname?.startsWith("/community-messenger/") ?? false)
+            !isDesktopSideRail &&
+            (pathname === "/community-messenger" ||
+              (pathname?.startsWith("/community-messenger/") ?? false))
               ? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS
               : "",
           ]

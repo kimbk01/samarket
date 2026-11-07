@@ -107,7 +107,9 @@ describe("FD3 native authority sharing", () => {
   });
 
   it("PWA manifest is not a phone portrait SSOT", () => {
-    const manifest = src("app/manifest.ts");
+    /** 값 단일 정의는 `lib/pwa/dibay-web-app-manifest.ts` (`app/manifest.ts` 는 그대로 반환, 3a48eb6cd) */
+    const manifest = src("lib/pwa/dibay-web-app-manifest.ts");
+    expect(src("app/manifest.ts")).toContain("buildDibayWebAppManifest()");
     expect(manifest).toContain('orientation: "any"');
     expect(manifest).not.toContain("portrait-primary");
   });

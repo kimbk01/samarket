@@ -153,6 +153,15 @@ export const BOTTOM_NAV_SHELL = {
   heightClass: "h-[60px]",
 } as const;
 
+/**
+ * 데스크톱(DESKTOP 계열) 왼쪽 세로 레일 — 같은 `BottomNav` 를 세로로 배치 (`app/app-desktop-side-nav.css`).
+ * 폭 72px = `MAIN_DESKTOP_SIDE_NAV_WIDTH_PX`(기존 상수). 레일이 있으면 하단 탭 높이·돌출 변수는 0 으로 바뀐다.
+ */
+export const BOTTOM_NAV_SIDE_RAIL_CLASS = "app-bottom-nav-shell--side-rail";
+
+/** 레일 폭만큼 비켜야 하는 화면 고정(fixed inset-x-0) 요소 — 거래 플로팅 바·FAB 섹터 */
+export const SIDE_RAIL_FIXED_INSET_CLASS = "app-side-rail-fixed-inset";
+
 /** 필라이프·거래·매장 오너 하단 탭 `translate-y` 전환 — `ConditionalAppShell`·`OwnerMobileBottomNav` 공통 */
 export const BOTTOM_NAV_OUTER_MOTION =
   "transition-transform duration-150 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";

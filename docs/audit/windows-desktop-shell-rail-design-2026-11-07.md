@@ -1,6 +1,6 @@
 # DIBAY 데스크톱(Windows·PC) 셸 — 왼쪽 세로 내비·헤더 정렬 설계서 (2026-11-07 PHT)
 
-> 상태: **설계만. 구현 0건.** Owner 승인 후 구현한다.
+> 상태: **D1·D2 구현 완료 (Owner 「D1·D2 구현」 2026-11-07)** — 구현 중 바뀐 점은 §10.
 > 근거 = main `3a48eb6cd` 코드 직접 확인 + 운영 화면 측정(비로그인, Mac 내장 브라우저 1280×800, `docs/audit/windows-msstore-launch-audit-2026-11-07.md` §4).
 > 확인 못 한 것은 NOT_PROVEN 으로 적는다.
 
@@ -96,3 +96,43 @@
 - U-5 「Windows 앱 받기」 — Store 주소 발급 후.
 - U-6 알림 켜기 버튼 — Windows 알림 방식(셸 WNS 또는 운영 Web Push) 결정 후, 알림 규정 절차.
 - 배달 768 폭의 데스크톱 확장 — Owner 결정 필요(R8).
+
+## 10. 구현 기록 (2026-11-07) — 설계와 달라진 점 (정정)
+1. **R4 정정 — 옛 `MainDesktopSideNav` 를 되살리지 않았다.** 하단 탭(`BottomNav`)에는 옛 컴포넌트에 없는 동작이 있다: 로그인 필요 탭, 배달 장바구니 탭, 사장님 매장 링크, 화면 전환 방향, 미리 불러오기. 옛 컴포넌트를 쓰면 동작이 갈라진다. 그래서 **같은 `BottomNav` 에 `presentation="side-rail"` 만 넘기고, 배치는 CSS 로 세로로 바꿨다.** 로직 복제 0이다. `MainDesktopSideNav.tsx` 는 계속 마운트하지 않는다.
+2. **선택 탭 색 정정** — 설계서 R4 의 「선택 = 브랜드 그린」은 틀렸다. 현행 정본은 Owner 2026-11-03 결정 「브라운 채움 + 골드 아이콘」(`app/app-bottom-nav.css`)이고, 레일도 같은 토큰을 그대로 쓴다.
+3. **하단 여백 처리** — 레일이 있으면 `html` 에서 다음 네 변수를 0 으로 둔다. 그러면 단일 토큰 `--app-bottom-nav-clearance` 와 FAB·시트·토스트의 하단 여백이 함께 0 이 된다.
+   - `--app-bottom-nav-height`
+   - `--main-scroll-nav-overhang`
+   - `--delivery-home-above-nav`
+   - `--delivery-home-overhang`
+4. **화면 고정 플로팅** — 거래 플로팅 바와 FAB 섹터에 `app-side-rail-fixed-inset` 을 붙여, 레일 폭만큼 왼쪽을 비킨다.
+5. **D2** — 1단 제목줄(중첩 `sector-header-shell--embedded`)에만, DESKTOP 계열일 때 본문 열과 같은 rem 폭 체인을 준다. 테스트로 SSOT 와 같은지 고정했다.
+
+### 바뀐 파일
+- `lib/device/dibay-shell-resolver.ts`
+- `components/layout/ConditionalAppShell.tsx`
+- `components/layout/BottomNav.tsx`
+- `lib/main-menu/bottom-nav-config.ts`
+- `app/app-desktop-side-nav.css`
+- `components/layout/MainBottomNavFabSector.tsx`
+- `components/home/HomeTradeHubFloatingBar.tsx`
+- 테스트:
+  - `lib/device/tests/dibay-shell-resolver.test.ts`
+  - `lib/layout/__tests__/bottom-nav-keyboard-hide.test.ts`
+  - 신규 `lib/layout/__tests__/desktop-side-rail-contract.test.ts`
+- `lib/device/tests/dibay-orientation-policy.test.ts` — 3a48eb6cd 매니페스트 분리 때 같이 고쳤어야 할 경로를 정정 (작업자 회귀)
+
+### 화면 확인 (작업자, 로컬 dev `next dev --webpack` · Mac 내장 브라우저 · **비로그인**)
+| 조건 | 결과 |
+|---|---|
+| 1280×800 커뮤니티 | 레일 0~72, 셸 왼쪽 여백 72, 하단 변수 0, 가로 넘침 0. 제목줄·카테고리·본문 148~1204 정렬 |
+| 1280×800 거래 | 제목줄 148~1204, 그리드 141~1197 |
+| 1280×800 배달·채팅·내정보 | 레일 표시·선택 탭 정상. 배달 768 폭 유지. 채팅·배달은 비로그인 안내 카드 |
+| 900×700 커뮤니티 | 레일 유지, 본문 72~900, 가로 넘침 0 |
+| 휴대폰 에뮬레이션 375×812 | 판정 UNKNOWN → 하단 탭 그대로, 셸 여백 0, 하단 변수 60px |
+
+### NOT_PROVEN
+- 로그인 상태 화면, 메신저 3열(목록·방), 거래 플로팅 바·FAB 위치 — 비로그인이라 그 요소가 나타나지 않았다.
+- 768px 미만 데스크톱 창 — 이 브라우저는 768 미만이면 휴대폰으로 위장해 판정이 달라진다.
+- 실제 Windows 화면(Edge 설치 앱)과 콜드 스타트 깜빡임.
+- Android·iPhone 실기 무변화 — 코드상 PHONE/TABLET 은 레일 경로에 들어가지 않는다는 단위 테스트만 있다.

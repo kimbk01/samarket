@@ -16,6 +16,7 @@ import {
   HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS,
   HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS,
   HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS,
+  SIDE_RAIL_FIXED_INSET_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
@@ -179,7 +180,7 @@ export function HomeTradeHubFloatingBar() {
       </DibayBottomSheet>
 
       <div
-        className={`pointer-events-none fixed inset-x-0 ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} ${shellZ}`}
+        className={`pointer-events-none fixed inset-x-0 ${SIDE_RAIL_FIXED_INSET_CLASS} ${HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS} ${shellZ}`}
         data-kb-hide="1"
       >
         {/*

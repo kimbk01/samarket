@@ -18,6 +18,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BOTTOM_NAV_OUTER_MOTION,
   BOTTOM_NAV_SHELL,
+  BOTTOM_NAV_SIDE_RAIL_CLASS,
   BOTTOM_NAV_THEME,
   bottomNavUsesDeliveryHubShell,
   type BottomNavItemConfig,
@@ -698,6 +699,7 @@ export function BottomNav({
   bodyPortal = false,
   extraOuterClassName = "",
   inert = false,
+  presentation = "bottom",
 }: {
   /**
    * SSR hydrate 호환을 위해 시그니처 유지 — 실제 탭 단일 소스는
@@ -709,6 +711,11 @@ export function BottomNav({
   extraOuterClassName?: string;
   /** Keyboard-hide (translated off-screen) — remove from focus order / hit-testing. */
   inert?: boolean;
+  /**
+   * `side-rail` — 데스크톱(DESKTOP 계열) 왼쪽 세로 레일. 탭·이동·배지·로그인 처리 로직은 같고 배치만 CSS 로 바꾼다
+   * (`app/app-desktop-side-nav.css`). 셸 판정은 `resolveAppShell().navigationPresentation` 단일 정의.
+   */
+  presentation?: "bottom" | "side-rail";
 }) {
   void initialTabs;
   if (!shouldDeferUnreadBadgeRepaint()) {
@@ -845,6 +852,7 @@ export function BottomNav({
 
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
+    presentation === "side-rail" ? BOTTOM_NAV_SIDE_RAIL_CLASS : "",
     bodyPortal || effectiveOuterExtra.length > 0 ? BOTTOM_NAV_OUTER_MOTION : "",
     effectiveOuterExtra,
   ]

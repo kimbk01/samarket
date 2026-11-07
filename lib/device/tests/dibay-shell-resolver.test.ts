@@ -74,17 +74,20 @@ describe("FD4 shell family is DeviceClass only", () => {
     const shell = shellOf("DESKTOP_WINDOWS", 500);
     expect(shell.shellFamily).toBe("DESKTOP");
     expect(shell.layoutMode).toBe("DESKTOP_STACKED");
-    expect(shell.navigationPresentation).toBe("EXISTING_MAIN_BOTTOM_NAV");
+    /** Owner 2026-11-07 FD4 데스크톱 조항 해제 — 좁은 창이어도 세로 레일 (카톡 PC형) */
+    expect(shell.navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
   });
 
   it("DESKTOP_WINDOWS + LARGE stays DESKTOP family", () => {
     const shell = shellOf("DESKTOP_WINDOWS", 1400);
     expect(shell.shellFamily).toBe("DESKTOP");
-    expect(shell.navigationPresentation).toBe("EXISTING_MAIN_BOTTOM_NAV");
+    expect(shell.navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
+    expect(shell.presentationSource).toBe("desktop_side_rail");
   });
 
   it("WEB_DESKTOP narrow is still Desktop family", () => {
     expect(shellOf("WEB_DESKTOP", 500).shellFamily).toBe("DESKTOP");
+    expect(shellOf("WEB_DESKTOP", 500).navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
   });
 
   it("UNKNOWN stays UNKNOWN_SAFE and does not infer a family", () => {
@@ -119,19 +122,30 @@ describe("FD4 keyboard and orientation cannot change shell family", () => {
 });
 
 describe("FD4 shell resolver never invents a second nav", () => {
-  it("every DeviceClass reuses existing BottomNav presentation", () => {
+  it("phone·tablet·unknown keep existing BottomNav at every width (APK·iOS·iPad 무변화)", () => {
     const classes: DibayDeviceClass[] = [
       "PHONE_ANDROID",
       "PHONE_IOS",
       "TABLET_ANDROID",
       "TABLET_IPAD",
-      "DESKTOP_WINDOWS",
-      "WEB_DESKTOP",
       "UNKNOWN",
     ];
     for (const deviceClass of classes) {
-      expect(shellFamilyForDeviceClass(deviceClass) === "UNKNOWN" || shellFamilyForDeviceClass(deviceClass)).toBeTruthy();
-      expect(shellOf(deviceClass, 800).navigationPresentation).toBe("EXISTING_MAIN_BOTTOM_NAV");
+      for (const width of [320, 390, 800, 1024, 1400]) {
+        const shell = shellOf(deviceClass, width);
+        expect(shell.shellFamily).not.toBe("DESKTOP");
+        expect(shell.navigationPresentation).toBe("EXISTING_MAIN_BOTTOM_NAV");
+        expect(shell.presentationSource).toBe("existing_main_bottom_nav");
+      }
+    }
+  });
+
+  it("only DESKTOP family uses the side rail, at every width", () => {
+    for (const deviceClass of ["DESKTOP_WINDOWS", "WEB_DESKTOP"] as DibayDeviceClass[]) {
+      expect(shellFamilyForDeviceClass(deviceClass)).toBe("DESKTOP");
+      for (const width of [390, 500, 800, 1400]) {
+        expect(shellOf(deviceClass, width).navigationPresentation).toBe("DESKTOP_SIDE_RAIL");
+      }
     }
   });
 

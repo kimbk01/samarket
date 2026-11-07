@@ -17,6 +17,7 @@ import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
 import {
   MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
   MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS,
+  SIDE_RAIL_FIXED_INSET_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
 import {
   isMainBottomNavFabHrefActive,
@@ -286,7 +287,7 @@ export function MainBottomNavFabSector() {
         data-fab-shell-expanded={shellExpanded ? "true" : "false"}
         data-panel-enter-ready={panelEnterReady ? "true" : "false"}
         data-fab-surface-alpha={FAB_SURFACE_ALPHA}
-        className={`main-bottom-nav-fab-sector pointer-events-none fixed inset-x-0 ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS}`}
+        className={`main-bottom-nav-fab-sector pointer-events-none fixed inset-x-0 ${SIDE_RAIL_FIXED_INSET_CLASS} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS}`}
         data-kb-hide="1"
         style={fabRootStyle}
       >
