@@ -52,6 +52,7 @@ export const FOREIGN_CODE_FILE_ALLOW: Readonly<Record<string, string>> = {
 /** 카탈로그 밖 `{ko,en}` 허용 — 화면 문구가 아니라 서버가 검증하는 입력값일 때만, 이유 필수 */
 export const NON_CATALOG_INLINE_FILE_ALLOW: Readonly<Record<string, string>> = {
   "lib/account/account-deletion-contract.ts": "탈퇴 확인어(계정삭제·DELETE) — 클라이언트·서버가 같이 검증하는 입력값",
+  "lib/settings/user-settings-store.ts": "언어 이름(한국어·English) — 화면 언어와 무관하게 자기 언어로 보여 주는 이름(엔도님), 번역 문구 아님",
 };
 
 /** 개발자 용어 — 대소문자 구분 기술명 */

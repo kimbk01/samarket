@@ -4,6 +4,7 @@
  */
 export const copyOwnerMessages = {
   ko: {
+    owner_apply_nickname_save_failed: "신청자 닉네임을 저장하지 못해 신청이 접수되지 않았습니다. 잠시 후 다시 신청해 주세요.",
     business_placement: "노출 영역",
     business_price: "금액",
     business_campaign_id: "캠페인 ID",
@@ -82,6 +83,7 @@ export const copyOwnerMessages = {
     business_converting: "전환 중…",
   },
   en: {
+    owner_apply_nickname_save_failed: "We could not save the applicant nickname, so the application was not submitted. Please try again shortly.",
     business_placement: "Placement",
     business_price: "Price",
     business_campaign_id: "Campaign id",

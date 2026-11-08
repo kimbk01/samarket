@@ -132,6 +132,7 @@ export const copyLibMessages = {
     legal_terms: "이용약관",
     legal_privacy: "개인정보처리방침",
     legal_benefits_events_consent_optional: "혜택·이벤트 수신 동의(선택)",
+    points_days_day_top_exposure: "상위노출 {days}일",
   },
   en: {
     ads_ended: "Ended",
@@ -262,5 +263,6 @@ export const copyLibMessages = {
     legal_terms: "Terms",
     legal_privacy: "Privacy",
     legal_benefits_events_consent_optional: "Benefits & events consent (optional)",
+    points_days_day_top_exposure: "{days}-day top exposure",
   },
 } as const;

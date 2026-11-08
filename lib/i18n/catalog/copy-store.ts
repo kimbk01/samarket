@@ -4,6 +4,8 @@
  */
 export const copyStoreMessages = {
   ko: {
+    stores_count_items: "{n}건",
+    orders_count_items: "{n}건",
     stores_cash_balance: "캐시 잔액",
     stores_unpaid_commission: "미납 수수료",
     stores_net_balance_unpaid: "순잔액 (잔액 − 미납)",
@@ -171,8 +173,14 @@ export const copyStoreMessages = {
     stores_primary_category: "1차 업종 정책",
     stores_default: "기본",
     stores_missing_policy: "정책 없음",
+    stores_delivery_home_store_ads: "배달 홈 매장 광고",
+    stores_category_store_ads: "업종 매장 광고",
+    stores_delivery_home_top_banner: "배달 홈 상단 배너",
+    stores_search_results_top_banner: "검색 결과 상단 배너",
   },
   en: {
+    stores_count_items: "{n}",
+    orders_count_items: "{n}",
     stores_cash_balance: "Cash balance",
     stores_unpaid_commission: "Unpaid commission",
     stores_net_balance_unpaid: "Net (balance − unpaid)",
@@ -340,5 +348,9 @@ export const copyStoreMessages = {
     stores_primary_category: "Primary category",
     stores_default: "Default",
     stores_missing_policy: "Missing policy",
+    stores_delivery_home_store_ads: "Delivery home store ads",
+    stores_category_store_ads: "Category store ads",
+    stores_delivery_home_top_banner: "Delivery home top banner",
+    stores_search_results_top_banner: "Search results top banner",
   },
 } as const;

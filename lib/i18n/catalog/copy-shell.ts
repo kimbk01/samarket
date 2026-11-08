@@ -4,6 +4,7 @@
  */
 export const copyShellMessages = {
   ko: {
+    home_categories_empty: "등록된 카테고리가 없습니다.",
     terms_terms_of_service: "이용약관",
     points_deleted_post: "삭제된 게시물",
     points_hold_released: "보류 해제",
@@ -43,6 +44,7 @@ export const copyShellMessages = {
     currency_from_coin: "Coin에서 전환",
   },
   en: {
+    home_categories_empty: "No categories yet.",
     terms_terms_of_service: "Terms of service",
     points_deleted_post: "Deleted post",
     points_hold_released: "Hold released",
