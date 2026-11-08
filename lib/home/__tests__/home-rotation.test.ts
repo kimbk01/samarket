@@ -97,6 +97,12 @@ describe("홈 매장 후보 — 배달 탭과 같은 판정·순서", () => {
     expect(filterHomeStorePool(feed, c).map((s) => s.id)).toEqual(["mart"]);
   });
 
+  it("빈 칸 이유 — 영업시간 밖이어도 배달 지역 안 매장이 있으면 「지금 영업 중 없음」 판단용", () => {
+    const allClosed = [store({ id: "x", status: "closed" }), store({ id: "far", status: "closed", distanceOutOfRange: true })];
+    expect(filterHomeStorePool(allClosed, DEFAULT_HOME_LAYOUT.stores)).toEqual([]);
+    expect(filterHomeStorePool(allClosed, DEFAULT_HOME_LAYOUT.stores, { requireOpen: false }).map((s) => s.id)).toEqual(["x"]);
+  });
+
   it("자동 — 업종·최근 주문 조건", () => {
     const c = cloneHomeLayout(DEFAULT_HOME_LAYOUT).stores;
     c.autoCategorySlugs = ["mart"];

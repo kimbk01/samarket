@@ -46,6 +46,10 @@ export function resolveServiceDescLines(
   return [t(HOME_MENU_CATALOG[card.key].descKey)];
 }
 
+/**
+ * 누름 효과 (Owner 2026-11-09 「선택 시 색상 변경 · 눌림 효과」): 누르는 동안 브랜드 연초록 바탕 + 살짝 작아짐(0.97) + 그림자 없앰.
+ * 「동작 줄이기」 설정이면 크기 변화 없음.
+ */
 export function HomeServiceCards({
   services,
   catalog,
@@ -86,7 +90,7 @@ export function HomeServiceCards({
                 key={c.key}
                 type="button"
                 onClick={() => onOpen(c.key)}
-                className="relative min-h-[112px] overflow-hidden rounded-ui-rect bg-white px-3.5 pb-3 pt-3.5 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] transition-transform active:scale-[0.98]"
+                className="relative min-h-[112px] overflow-hidden rounded-ui-rect bg-white px-3.5 pb-3 pt-3.5 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] transition-[transform,background-color,box-shadow] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.97] active:bg-sam-primary-soft active:shadow-none motion-reduce:transition-none motion-reduce:active:scale-100"
                 data-home-service={c.key}
               >
                 <span className="block text-[17px] font-bold tracking-[-0.02em] text-[#141a16]">{title(c)}</span>
@@ -119,7 +123,7 @@ export function HomeServiceCards({
                 key={c.key}
                 type="button"
                 onClick={() => onOpen(c.key)}
-                className="relative rounded-ui-rect bg-white px-3 py-3 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] transition-transform active:scale-[0.98]"
+                className="relative rounded-ui-rect bg-white px-3 py-3 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] transition-[transform,background-color,box-shadow] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.97] active:bg-sam-primary-soft active:shadow-none motion-reduce:transition-none motion-reduce:active:scale-100"
                 data-home-service={c.key}
               >
                 <span className="block truncate text-[15px] font-semibold text-[#141a16]">{title(c)}</span>

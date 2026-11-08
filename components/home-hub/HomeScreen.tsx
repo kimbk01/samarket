@@ -51,7 +51,7 @@ const SHORTCUT_ICON: Record<HomeMenuKey, LucideIcon> = {
 const HOME_BELL_BTN_CLASS =
   "relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#141a16] transition-colors active:bg-black/[0.06]";
 const HOME_BELL_BADGE_CLASS =
-  "pointer-events-none absolute left-[24px] top-[2px] grid h-4 min-w-4 place-items-center rounded-full bg-[#F03A2E] px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-[#F3F5F3]";
+  "pointer-events-none absolute left-[24px] top-0 grid h-4 min-w-4 place-items-center rounded-full bg-[#F03A2E] px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-[#F3F5F3]";
 
 /**
  * 앱 홈 `/`·`/home` — 홈 시안 v22 (Owner 「이대로 구현」 2026-11-09).

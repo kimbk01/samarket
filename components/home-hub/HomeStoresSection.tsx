@@ -18,7 +18,8 @@ type Shown = { store: StoreHomeFeedItem; menus: HomeStoreMenuItem[]; adLabel: bo
 type LoadState =
   | { kind: "loading" }
   | { kind: "gate"; gate: Exclude<DeliveryViewerGate, "ok"> }
-  | { kind: "empty" }
+  /** none = 이 주소로 배달되는 후보 매장 없음 · closed = 후보는 있으나 지금 모두 영업시간 밖 */
+  | { kind: "empty"; reason: "none" | "closed" }
   | { kind: "ready"; shown: Shown[] };
 
 function peso(n: number): string {
@@ -30,8 +31,15 @@ function peso(n: number): string {
  * (배달 가능 → 같은 동네 → 가까운 거리 → 주문 많은 → 평점). 홈만 따로 판정하지 않는다.
  * 지금 주문할 수 있는 곳만: 영업 중 · 배달 켬 · 배달 지역 안. 어드민 조건(직접 고르기/자동)으로 거른다.
  */
-export function filterHomeStorePool(stores: readonly StoreHomeFeedItem[], cfg: HomeStoresConfig): StoreHomeFeedItem[] {
-  const eligible = stores.filter((s) => s.status === "open" && s.deliveryAvailable && s.distanceOutOfRange !== true);
+export function filterHomeStorePool(
+  stores: readonly StoreHomeFeedItem[],
+  cfg: HomeStoresConfig,
+  opts: { requireOpen?: boolean } = {}
+): StoreHomeFeedItem[] {
+  const requireOpen = opts.requireOpen !== false;
+  const eligible = stores.filter(
+    (s) => (!requireOpen || s.status === "open") && s.deliveryAvailable && s.distanceOutOfRange !== true
+  );
   if (cfg.mode === "manual") {
     const picked = new Set(cfg.picks.map((p) => p.storeId));
     return eligible.filter((s) => picked.has(s.id));
@@ -54,7 +62,8 @@ export function filterHomeStorePool(stores: readonly StoreHomeFeedItem[], cfg: H
 
 /**
  * 「지금 주문할 수 있는 매장」 — 매장별 메뉴 사진 가로 넘김. 새로고침·재접속 때 지난번에 안 나온 매장·메뉴 먼저.
- * 비로그인 = 로그인 안내(S-07) · 저장 주소 없음 = 주소 등록 안내 · 배달 되는 매장 0 = 한 줄 안내.
+ * 비로그인 = 로그인 안내(S-07) · 저장 주소 없음 = 주소 등록 안내 · 배달 되는 매장 0 = 「배달되는 매장 없음」 ·
+ * 배달 되는 매장은 있는데 모두 영업시간 밖 = 「지금 영업 중인 매장 없음」 (운영 11-09 04:15 PHT 실기: 48곳 전부 closed).
  * 메뉴·＋ 누르면 그 메뉴 화면(`/stores/매장/p/메뉴`)에서 담기 — 담기 시트는 배달 화면 안에서만 열리는 기존 계약 그대로.
  */
 export function HomeStoresSection({
@@ -96,7 +105,10 @@ export function HomeStoresSection({
         setState({ kind: "gate", gate });
         return;
       }
-      const pool = filterHomeStorePool(json.stores ?? [], config);
+      const feedStores = json.stores ?? [];
+      const pool = filterHomeStorePool(feedStores, config);
+      const emptyReason: "none" | "closed" =
+        filterHomeStorePool(feedStores, config, { requireOpen: false }).length > 0 ? "closed" : "none";
       const take = Math.min(config.showCount, HOME_STORE_SHOW_MAX);
       const idOf = (s: StoreHomeFeedItem) => s.id;
       // 메뉴 없는 매장을 빼고도 채우도록 3곳 더 후보로
@@ -105,7 +117,7 @@ export function HomeStoresSection({
           ? keepSessionPick(pool, idOf, rot.session.stores, take + 3)
           : rotateUnseenFirst(pool, idOf, rot.history.log.stores, take + 3);
       if (ordered.length === 0) {
-        setState({ kind: "empty" });
+        setState({ kind: "empty", reason: emptyReason });
         rot.commit({ stores: [] });
         return;
       }
@@ -134,7 +146,7 @@ export function HomeStoresSection({
         if (shown.length >= take) break;
       }
       rot.commit({ stores: shown.map((s) => s.store.id), menus: menuPick });
-      setState(shown.length > 0 ? { kind: "ready", shown } : { kind: "empty" });
+      setState(shown.length > 0 ? { kind: "ready", shown } : { kind: "empty", reason: emptyReason });
     })();
     return () => {
       alive = false;
@@ -169,7 +181,9 @@ export function HomeStoresSection({
     return (
       <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores data-home-stores-empty>
         <HomeSectionHead title={title} moreLabel={t("home_menu_stores")} onMore={more} />
-        <p className="px-[18px] text-[13.5px] text-[#767676]">{t("home_stores_empty")}</p>
+        <p className="px-[18px] text-[13.5px] text-[#767676]">
+          {state.reason === "closed" ? t("home_stores_closed_now") : t("home_stores_empty")}
+        </p>
       </section>
     );
   }
