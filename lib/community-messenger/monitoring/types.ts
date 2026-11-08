@@ -19,6 +19,8 @@ export type MessengerMonitoringCategory =
   | "call.network"
   | "call.reconnect"
   | "call.signaling"
+  /** U2 (2026-11-08) — V4 웹 수신 발견 경로(Realtime·폴링) 측정 */
+  | "call.incoming_discovery"
   | "api.community_messenger"
   | "api.integrated_chat"
   | "db.community_messenger";
