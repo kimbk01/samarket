@@ -128,6 +128,8 @@ export function projectBoostHistoryRow(input: {
   const productKey = input.domain === "community" ? "community_boost" : "trade_boost";
   const canon = ADS_CANONICAL_PRODUCTS[productKey];
   const amount = formatHistoricalPointAmount(input.pointCost);
+  /** L25: 같은 금액의 영어 칸 (화면이 언어에 따라 고름) */
+  const amountEn = formatHistoricalPointAmount(input.pointCost, false);
   const status = String(input.orderStatus ?? "").toLowerCase();
   const source = sourceLabels("member");
   const timeline: AdsHistoryTimelineEvent[] = [];
@@ -155,6 +157,7 @@ export function projectBoostHistoryRow(input: {
       actorLabel: null,
       actorProven: false,
       amountLabel: amount.label,
+      amountLabelEn: amountEn.label,
       reason: null,
       evidence: "event",
       evidenceNoteKo: "주문에 저장된 당시 청구 포인트",
@@ -269,6 +272,7 @@ export function projectBoostHistoryRow(input: {
     applicantLabel: input.userId ? input.userId.slice(0, 8) : null,
     paymentCurrency: "POINT",
     historicalAmountLabel: amount.label,
+    historicalAmountLabelEn: amountEn.label,
     historicalAmountProven: amount.proven,
     paymentState: payState,
     paymentStateLabelKo: payLabels.ko,
@@ -319,6 +323,8 @@ export function projectFeedBannerHistoryRow(input: {
   const amount = adminDirect
     ? { label: null as string | null, proven: true }
     : formatHistoricalPointAmount(input.pointCost);
+  /** L25: 같은 금액의 영어 칸 (화면이 언어에 따라 고름) */
+  const amountEn = adminDirect ? { label: null as string | null } : formatHistoricalPointAmount(input.pointCost, false);
   const status = String(input.status ?? "").toLowerCase();
   const timeline: AdsHistoryTimelineEvent[] = [];
 
@@ -376,6 +382,7 @@ export function projectFeedBannerHistoryRow(input: {
       actorLabel: null,
       actorProven: false,
       amountLabel: amount.label,
+      amountLabelEn: amountEn.label,
       reason: null,
       evidence: amount.proven ? "event" : "not_proven",
       evidenceNoteKo: K(amount.proven ? "admin_ads_history_note_points_saved" : "admin_ads_history_amount_missing"),
@@ -555,6 +562,8 @@ export function projectDeliveryHistoryRow(input: {
   const amount = adminDirect
     ? { label: null as string | null, proven: true }
     : formatHistoricalBusinessCashMinor(input.finalPayableMinor, input.currency);
+  /** L25: 비즈니스 캐시 금액은 통화 코드 + 숫자라 언어와 무관 — 영어 칸도 같은 값 */
+  const amountEn = amount;
   const timeline: AdsHistoryTimelineEvent[] = [];
 
   timeline.push({
@@ -583,6 +592,7 @@ export function projectDeliveryHistoryRow(input: {
     actorLabel: null,
     actorProven: false,
     amountLabel: amount.label,
+      amountLabelEn: amountEn.label,
     reason: null,
     evidence: adminDirect ? "gap" : amount.proven ? "event" : "not_proven",
     evidenceNoteKo: K(adminDirect ? "admin_ads_history_no_payment" : amount.proven ? "admin_ads_history_amount_saved_at_application" : "admin_ads_history_amount_missing"),
@@ -758,6 +768,7 @@ export function projectDeliveryHistoryRow(input: {
       : input.ownerUserId?.slice(0, 8) ?? null,
     paymentCurrency: adminDirect ? "NONE" : "BUSINESS_CASH",
     historicalAmountLabel: amount.label,
+    historicalAmountLabelEn: amountEn.label,
     historicalAmountProven: amount.proven,
     paymentState: payState,
     paymentStateLabelKo: payLabels.ko,
@@ -938,6 +949,8 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
 }): AdsHistoryLedgerRow {
   const canon = ADS_CANONICAL_PRODUCTS.popup;
   const amount = formatHistoricalBusinessCashMinor(input.priceMinor, input.currency);
+  /** L25: 비즈니스 캐시 금액은 언어와 무관 — 영어 칸도 같은 값 */
+  const amountEn = amount;
   const payStatus = String(input.paymentStatus ?? "").toLowerCase();
   const payState: AdsHistoryPaymentState =
     payStatus === "refunded"
@@ -970,6 +983,7 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
       actorLabel: null,
       actorProven: false,
       amountLabel: amount.label,
+      amountLabelEn: amountEn.label,
       reason: null,
       evidence: amount.proven ? "event" : "not_proven",
       evidenceNoteKo: K(amount.proven ? "admin_ads_history_amount_saved_on_application" : "admin_ads_history_amount_missing"),
@@ -1006,6 +1020,7 @@ export function projectPopupOwnerLegacyHistoryRow(input: {
     applicantLabel: input.ownerUserId?.slice(0, 8) ?? null,
     paymentCurrency: "BUSINESS_CASH",
     historicalAmountLabel: amount.label,
+    historicalAmountLabelEn: amountEn.label,
     historicalAmountProven: amount.proven,
     paymentState: payState,
     paymentStateLabelKo: payLabels.ko,

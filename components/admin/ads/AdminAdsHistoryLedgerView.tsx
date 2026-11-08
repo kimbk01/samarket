@@ -94,7 +94,7 @@ function LedgerRow({
         </td>
         <td className="py-2 pr-2 text-[12px] text-sam-muted">
           {ko ? row.sourceLabelKo : row.sourceLabelEn}
-          {row.historicalAmountLabel ? ` · ${row.historicalAmountLabel}` : ""}
+          {row.historicalAmountLabel ? ` · ${ko ? row.historicalAmountLabel : row.historicalAmountLabelEn ?? row.historicalAmountLabel}` : ""}
           {!row.historicalAmountProven && row.paymentCurrency !== "NONE"
             ? translateBy(ko ? "ko" : "en", "admin_ads_amount_unknown")
             : ""}
@@ -151,7 +151,7 @@ export function RowDetail({
         <div>
           <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_payment")}</dt>
           <dd className="font-medium" data-ads-history-amount-proven={row.historicalAmountProven ? "1" : "0"}>
-            {row.historicalAmountLabel ??
+            {(ko ? row.historicalAmountLabel : row.historicalAmountLabelEn ?? row.historicalAmountLabel) ??
               (row.paymentCurrency === "NONE"
                 ? translateBy(ko ? "ko" : "en", "admin_ads_no_payment")
                 : translateBy(ko ? "ko" : "en", "admin_ads_amount_not_stored"))}
@@ -196,7 +196,7 @@ export function RowDetail({
                 ) : null}
               </p>
               {ev.amountLabel ? (
-                <p className="text-[12px] text-sam-fg">{ev.amountLabel}</p>
+                <p className="text-[12px] text-sam-fg">{ko ? ev.amountLabel : ev.amountLabelEn ?? ev.amountLabel}</p>
               ) : null}
               {ev.reason ? (
                 <p className="text-[12px] text-sam-muted">

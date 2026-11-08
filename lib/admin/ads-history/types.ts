@@ -64,6 +64,8 @@ export type AdsHistoryTimelineEvent = {
   actorLabel: string | null;
   actorProven: boolean;
   amountLabel: string | null;
+  /** L25 — 같은 금액의 영어 표시. 없으면 amountLabel */
+  amountLabelEn?: string | null;
   reason: string | null;
   evidence: AdsHistoryEvidenceKind;
   evidenceNoteKo: string | null;
@@ -83,6 +85,8 @@ export type AdsHistoryLedgerRow = {
   applicantLabel: string | null;
   paymentCurrency: AdsHistoryPaymentCurrency;
   historicalAmountLabel: string | null;
+  /** L25 — 같은 금액의 영어 표시. 없으면 historicalAmountLabel */
+  historicalAmountLabelEn?: string | null;
   /** true when amount came from stored charge evidence (never current catalog). */
   historicalAmountProven: boolean;
   paymentState: AdsHistoryPaymentState;
