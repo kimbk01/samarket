@@ -1736,8 +1736,8 @@ public class MainActivity extends BridgeActivity {
     if (handoffCoverErrorText != null) {
       String detail =
           (reason != null && !reason.isEmpty())
-              ? ("연결에 실패했습니다. " + reason)
-              : "연결에 실패했습니다. 다시 시도해 주세요.";
+              ? getString(R.string.dibay_handoff_error_with_reason, reason)
+              : getString(R.string.dibay_handoff_error);
       handoffCoverErrorText.setText(detail);
     }
     handoffCoverErrorPanel.setVisibility(View.VISIBLE);

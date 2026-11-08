@@ -59,6 +59,9 @@
     <string name="dibay_webview_error_retry">Try again</string>
     <string name="dibay_webview_renderer_gone_title">The screen needs to reload</string>
     <string name="dibay_webview_renderer_gone_body">Tap Try again to return to where you were.</string>
+    <!-- S8-2b: 화면 넘김 덮개 연결 실패 (통화 아님) -->
+    <string name="dibay_handoff_error">Couldn\'t connect. Please try again.</string>
+    <string name="dibay_handoff_error_with_reason">Couldn\'t connect. %1$s</string>
 
     <!-- Android Delivery Adapter v1 — App Icon summary (not Bell / not notification_events) -->
     <string name="dibay_app_icon_summary_title">DIBAY</string>

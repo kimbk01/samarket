@@ -33,6 +33,9 @@ describe("Android strings 언어 계약 (S8-2)", () => {
       "dibay_webview_error_retry",
       "dibay_webview_renderer_gone_title",
       "dibay_webview_renderer_gone_body",
+      // S8-2b: 화면 넘김 덮개 연결 실패 — 한국어는 이전 코드 문구 그대로
+      "dibay_handoff_error",
+      "dibay_handoff_error_with_reason",
     ]) {
       expect(ko[key], key).toBeDefined();
     }
