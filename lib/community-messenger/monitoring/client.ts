@@ -428,6 +428,27 @@ export function messengerMonitorSilentFailFallbackBootstrapMs(latencyMs: number)
   });
 }
 
+let realtimeConnectionMonitorRequested = false;
+
+/**
+ * D2: 처음 실시간 구독 결과를 기록할 때 연결 끊김 진단을 1회 설치한다(실시간을 쓰는 화면에서만).
+ * 동적 import — 모니터링 클라이언트가 Supabase 클라이언트를 정적으로 끌어오지 않게 한다. 실패해도 무시.
+ */
+function ensureRealtimeConnectionMonitor(): void {
+  if (realtimeConnectionMonitorRequested || typeof window === "undefined") return;
+  realtimeConnectionMonitorRequested = true;
+  void Promise.all([import("@/lib/supabase/client"), import("./realtime-connection-monitor")])
+    .then(([supabase, monitor]) => {
+      const realtime = supabase.getSupabaseClient()?.realtime;
+      if (!monitor.installRealtimeConnectionMonitor(realtime, messengerMonitorRecord)) {
+        realtimeConnectionMonitorRequested = false;
+      }
+    })
+    .catch(() => {
+      realtimeConnectionMonitorRequested = false;
+    });
+}
+
 /** Supabase 채널 `subscribe` 결과 — 홈/방 번들 등 scope 로 구분 */
 export function messengerMonitorRealtimeSubscriptionOutcome(
   scope: string,
@@ -435,6 +456,7 @@ export function messengerMonitorRealtimeSubscriptionOutcome(
   channelStatus?: string,
   extraLabels?: Record<string, string>
 ): void {
+  ensureRealtimeConnectionMonitor();
   messengerMonitorRecord({
     category: "realtime.subscription",
     metric: "channel_subscribe",

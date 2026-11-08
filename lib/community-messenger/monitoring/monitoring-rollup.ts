@@ -5,8 +5,14 @@
  * 저장 키: (category, metric, outcome, platform). ID·본문·자유 라벨은 저장하지 않는다.
  * D1(2026-11-08): `realtime.subscription/channel_subscribe` 는 metric 을 `channel_subscribe.<종류>.<상태>.<단계>` 로 세분화
  *   (docs/audit/realtime-subscription-diagnostics-rollup-design-2026-11-08.md).
+ * D2(2026-11-09): `realtime.connection` 은 허용 표와 정확히 맞는 metric 만 저장
+ *   (docs/audit/realtime-connection-drop-diagnostics-design-2026-11-09.md).
  */
 
+import {
+  REALTIME_CONNECTION_CATEGORY,
+  isAllowedRealtimeConnectionMetric,
+} from "./realtime-connection-rollup-key";
 import {
   REALTIME_SUBSCRIPTION_CATEGORY,
   REALTIME_SUBSCRIPTION_METRIC,
@@ -70,6 +76,11 @@ function normalizeOutcome(labels: unknown): "" | "ok" | "error" {
  * D1 위조 방어: `realtime.subscription` 의 세분 metric(`channel_subscribe.…`)은 허용 표와 정확히 맞을 때만 쓰고,
  * 아니면 `channel_subscribe` 로 되돌린다 — 임의 문자열로 집계 행을 늘릴 수 없다.
  */
+/** D2 위조 방어: `realtime.connection` 은 허용 표 밖 metric 을 버린다(임의 문자열로 행을 늘릴 수 없다). */
+function isRejectedRealtimeConnectionMetric(category: string, metric: string): boolean {
+  return category === REALTIME_CONNECTION_CATEGORY && !isAllowedRealtimeConnectionMetric(metric);
+}
+
 function guardRealtimeSubscriptionMetric(category: string, metric: string): string {
   if (category !== REALTIME_SUBSCRIPTION_CATEGORY) return metric;
   if (!metric.startsWith(`${REALTIME_SUBSCRIPTION_METRIC}.`)) return metric;
@@ -118,6 +129,7 @@ export function buildMonitoringRollupRows(
       category,
       normalizeKeyPart(realtimeSubscriptionRollupMetric(category, baseMetric, e.labels), METRIC_RE) ?? baseMetric,
     );
+    if (isRejectedRealtimeConnectionMetric(category, metric)) continue;
     const row = rowFor(category, metric, normalizeOutcome(e.labels));
     if (!row) continue;
     row.event_count = Math.min(row.event_count + 1, COUNT_CAP);
@@ -134,6 +146,7 @@ export function buildMonitoringRollupRows(
     const count = clampCount(d.count);
     if (!category || !rawMetric || count === 0) continue;
     const metric = guardRealtimeSubscriptionMetric(category, rawMetric);
+    if (isRejectedRealtimeConnectionMetric(category, metric)) continue;
     const row = rowFor(category, metric, "");
     if (!row) continue;
     row.dropped_count = Math.min(row.dropped_count + count, COUNT_CAP);

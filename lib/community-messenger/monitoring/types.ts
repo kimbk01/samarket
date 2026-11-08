@@ -15,6 +15,8 @@ export type MessengerMonitoringCategory =
   | "chat.realtime"
   | "chat.unread_sync"
   | "realtime.subscription"
+  /** D2 (2026-11-09) — 실시간 웹소켓 끊김 이유(심장박동 시간 초과·닫힘 코드·화면·토큰 상태) */
+  | "realtime.connection"
   | "call.connection"
   | "call.network"
   | "call.reconnect"
