@@ -6,7 +6,7 @@ import {
   normalizePhilippinesPhoneNumber,
   isValidPhilippinesMobilePhone,
 } from "@/lib/phone/philippines-phone";
-import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import { PHONE_VERIFY_COUNTRY_OPTIONS, PHONE_VERIFY_DEFAULT_COUNTRY } from "@/lib/phone/phone-country-codes";
 import { formatPhMobileDisplayPlus63, normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS, PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
@@ -388,14 +388,34 @@ export function PhoneVerificationBox({
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <input
-              type="tel"
-              inputMode="tel"
-              value={formatPhMobileDisplayPlus63(parsePhMobileInput(phone)) || phone}
-              onChange={(e) => setPhone(parsePhMobileInput(e.target.value))}
-              placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
-              className={inputClass}
-            />
+            {/* 국가번호 칸 + 번호 칸 분리 (Owner 2026-11-09). autoComplete 로 기기 저장 번호 제안 → 그대로 고칠 수 있음. */}
+            <div className="grid min-w-0 grid-cols-[auto_1fr] gap-2">
+              <select
+                defaultValue={PHONE_VERIFY_DEFAULT_COUNTRY.dialCode}
+                aria-label={t("my_phone_country_code_label")}
+                autoComplete="tel-country-code"
+                className={`${inputClass} !w-auto`}
+                data-testid="phone-verify-country-code"
+              >
+                {PHONE_VERIFY_COUNTRY_OPTIONS.map((c) => (
+                  <option key={c.iso} value={c.dialCode}>
+                    {`${c.flag} ${c.dialCode}`}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                name="tel"
+                aria-label={t("my_phone_number_label")}
+                value={formatPhNationalDisplay(phone)}
+                onChange={(e) => setPhone(parsePhMobileInput(e.target.value))}
+                placeholder={t("my_phone_number_placeholder")}
+                className={`${inputClass} min-w-0`}
+                data-testid="phone-verify-number"
+              />
+            </div>
             <button
               type="button"
               disabled={sending || cooldownLeft > 0}
@@ -466,4 +486,11 @@ export function PhoneVerificationBox({
       ) : null}
     </div>
   );
+}
+
+/** 번호 칸 표시 — 국가번호는 옆 칸에 있으므로 `+63` 없이 `917 123 4567` (저장 상태는 그대로 `09…`). */
+function formatPhNationalDisplay(phone: string): string {
+  const d = parsePhMobileInput(phone);
+  if (!d || d === "0") return d;
+  return formatPhMobileDisplayPlus63(d).replace(/^\+63\s?/, "");
 }

@@ -23,8 +23,30 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     expect(src).toContain("ConsentLegalDocSheet");
     // Marketing = main SSOT: only when the page asks (no prior record), sent with the doc version.
     expect(src).toContain("...(marketing ? { agreeMarketing, marketingVersion: marketing.version } : {})");
-    expect(src).toContain("...(needsAge ? { attestAge: true, dateOfBirth: dateOfBirth.trim() } : {})");
+    expect(src).toContain("...(needsAge ? { attestAge: true, dateOfBirth } : {})");
     expect(src).not.toContain('target="_blank"');
+  });
+
+  it("AuthConsentForm DOB = year·month·day selects; submit never silently disabled (Owner 2026-11-09)", () => {
+    const src = readFileSync(path.join(root, "components/auth/AuthConsentForm.tsx"), "utf8");
+    expect(src).not.toContain('type="date"');
+    expect(src).toContain('data-testid="auth-consent-dob-year"');
+    expect(src).toContain('data-testid="auth-consent-dob-month"');
+    expect(src).toContain('data-testid="auth-consent-dob-day"');
+    // 빠진 항목이 있어도 버튼은 눌리고, 이유를 보여 준다.
+    expect(src).toContain("disabled={submitting}");
+    expect(src).not.toContain("requiredOk");
+    expect(src).toContain('safeT("auth_consent_age_check_required")');
+    expect(src).toContain('safeT("auth_consent_dob_required")');
+  });
+
+  it("PhoneVerificationBox: country code and number are separate fields with device autofill", () => {
+    const src = readFileSync(path.join(root, "components/mypage/profile/PhoneVerificationBox.tsx"), "utf8");
+    expect(src).toContain('data-testid="phone-verify-country-code"');
+    expect(src).toContain('data-testid="phone-verify-number"');
+    expect(src).toContain('autoComplete="tel"');
+    expect(src).toContain('t("my_phone_number_placeholder")');
+    expect(src).not.toContain("PH_MOBILE_PLUS63_PLACEHOLDER");
   });
 
   it("legal-consent PATCH uses atomic RPC (no soft-skip required ledger)", () => {
