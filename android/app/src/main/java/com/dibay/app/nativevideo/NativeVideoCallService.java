@@ -261,8 +261,9 @@ public class NativeVideoCallService extends Service {
     if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
     // DEFAULT — status-bar / shade ongoing only (heads-up requires HIGH). Voice FGS parity.
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "DIBAY Native Video Call", NotificationManager.IMPORTANCE_DEFAULT);
-    channel.setDescription("Native video call foreground service (ongoing, no heads-up)");
+        new NotificationChannel(
+            CHANNEL_ID, DibayNativeLocale.string(this, R.string.dibay_call_ch_video_ongoing_name), NotificationManager.IMPORTANCE_DEFAULT);
+    channel.setDescription(DibayNativeLocale.string(this, R.string.dibay_call_ch_video_ongoing_desc));
     channel.setSound(null, null);
     channel.enableVibration(false);
     channel.setShowBadge(false);

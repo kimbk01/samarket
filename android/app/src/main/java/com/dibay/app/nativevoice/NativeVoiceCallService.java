@@ -265,8 +265,9 @@ public class NativeVoiceCallService extends Service {
     // DEFAULT shows the status-bar chip reliably but never triggers a heads-up popup
     // (heads-up requires IMPORTANCE_HIGH specifically).
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "DIBAY Native Voice Call", NotificationManager.IMPORTANCE_DEFAULT);
-    channel.setDescription("Native voice call foreground service (ongoing, silent)");
+        new NotificationChannel(
+            CHANNEL_ID, DibayNativeLocale.string(this, R.string.dibay_call_ch_voice_ongoing_name), NotificationManager.IMPORTANCE_DEFAULT);
+    channel.setDescription(DibayNativeLocale.string(this, R.string.dibay_call_ch_voice_ongoing_desc));
     // A-3: ongoing chip only — the ring is the incoming channel's job, never this one.
     channel.setSound(null, null);
     channel.enableVibration(false);

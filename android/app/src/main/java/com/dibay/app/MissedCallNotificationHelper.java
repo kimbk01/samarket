@@ -75,8 +75,9 @@ public final class MissedCallNotificationHelper {
     NotificationManager nm = context.getSystemService(NotificationManager.class);
     if (nm == null || nm.getNotificationChannel(CHANNEL_ID) != null) return;
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "부재중 통화", NotificationManager.IMPORTANCE_DEFAULT);
-    channel.setDescription("부재중 통화 알림");
+        new NotificationChannel(
+            CHANNEL_ID, DibayNativeLocale.string(context, R.string.dibay_call_ch_missed_name), NotificationManager.IMPORTANCE_DEFAULT);
+    channel.setDescription(DibayNativeLocale.string(context, R.string.dibay_call_ch_missed_desc));
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);

@@ -95,4 +95,19 @@
     <string name="dibay_notif_ch_app_icon_name">읽지 않은 알림</string>
     <string name="dibay_notif_ch_app_icon_desc">읽지 않은 알림 개수 요약</string>
     <string name="dibay_notif_self_name">나</string>
+    <!-- 언어 SSOT S8-4b: 통화 알림 채널 — Owner 승인(2026-11-08) 문구. 이름 「수신 통화」「부재중 통화」「통화 진행」·설명 「부재중 통화 알림」은 이전 글자 그대로 -->
+    <string name="dibay_call_ch_incoming_name">수신 통화</string>
+    <string name="dibay_call_ch_incoming_desc">걸려 오는 통화 알림</string>
+    <string name="dibay_call_ch_missed_name">부재중 통화</string>
+    <string name="dibay_call_ch_missed_desc">부재중 통화 알림</string>
+    <string name="dibay_call_ch_active_name">통화 진행</string>
+    <string name="dibay_call_ch_active_desc">통화 중 상태 표시</string>
+    <string name="dibay_call_ch_voice_incoming_name">음성 통화 수신</string>
+    <string name="dibay_call_ch_voice_incoming_desc">음성 통화가 걸려 올 때 알림</string>
+    <string name="dibay_call_ch_video_incoming_name">영상 통화 수신</string>
+    <string name="dibay_call_ch_video_incoming_desc">영상 통화가 걸려 올 때 알림</string>
+    <string name="dibay_call_ch_voice_ongoing_name">음성 통화 중</string>
+    <string name="dibay_call_ch_voice_ongoing_desc">음성 통화 중 상태 표시</string>
+    <string name="dibay_call_ch_video_ongoing_name">영상 통화 중</string>
+    <string name="dibay_call_ch_video_ongoing_desc">영상 통화 중 상태 표시</string>
 </resources>

@@ -107,4 +107,20 @@
     <string name="dibay_notif_ch_app_icon_name">Unread notifications</string>
     <string name="dibay_notif_ch_app_icon_desc">Summary of unread notifications</string>
     <string name="dibay_notif_self_name">Me</string>
+
+    <!-- 언어 SSOT S8-4b: 통화 알림 채널 이름·설명(휴대폰 알림 설정에 보임) — 한국어는 values-ko -->
+    <string name="dibay_call_ch_incoming_name">Incoming calls</string>
+    <string name="dibay_call_ch_incoming_desc">Alerts for incoming calls</string>
+    <string name="dibay_call_ch_missed_name">Missed calls</string>
+    <string name="dibay_call_ch_missed_desc">Missed call alerts</string>
+    <string name="dibay_call_ch_active_name">Ongoing calls</string>
+    <string name="dibay_call_ch_active_desc">Shows an ongoing call</string>
+    <string name="dibay_call_ch_voice_incoming_name">Incoming voice calls</string>
+    <string name="dibay_call_ch_voice_incoming_desc">Alerts for incoming voice calls</string>
+    <string name="dibay_call_ch_video_incoming_name">Incoming video calls</string>
+    <string name="dibay_call_ch_video_incoming_desc">Alerts for incoming video calls</string>
+    <string name="dibay_call_ch_voice_ongoing_name">Voice call in progress</string>
+    <string name="dibay_call_ch_voice_ongoing_desc">Shows a voice call in progress</string>
+    <string name="dibay_call_ch_video_ongoing_name">Video call in progress</string>
+    <string name="dibay_call_ch_video_ongoing_desc">Shows a video call in progress</string>
 </resources>

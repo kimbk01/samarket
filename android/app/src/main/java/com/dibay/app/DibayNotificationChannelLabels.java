@@ -78,11 +78,56 @@ public final class DibayNotificationChannelLabels {
       NotificationManager nm = app.getSystemService(NotificationManager.class);
       if (nm == null) return;
       int changed = relabelAll(app, nm);
+      // 통화 알림이 떠 있으면(수신·통화 중) 통화 채널은 건드리지 않고 다음 시작 때 다시 — 판을 저장하지 않는다
+      if (hasActiveCallNotification(nm)) {
+        Log.i(TAG, "[relabel] call_channels_deferred mark=" + mark + " changed=" + changed);
+        return;
+      }
+      changed += relabelCallChannels(app, nm);
       prefs.edit().putString(KEY_APPLIED, mark).apply();
       Log.i(TAG, "[relabel] mark=" + mark + " changed=" + changed);
     } catch (RuntimeException error) {
       Log.w(TAG, "[relabel] failed", error);
     }
+  }
+
+  /** 언어 SSOT S8-4b — 통화 채널 {채널 id, 이름 리소스, 설명 리소스}. 옛 채널 id 는 대상 아님(코드가 지우거나 쓰지 않음). */
+  static final Object[][] CALL_CHANNEL_LABELS = {
+    {IncomingCallNotificationBuilder.CHANNEL_ID, R.string.dibay_call_ch_incoming_name, R.string.dibay_call_ch_incoming_desc},
+    {MissedCallNotificationHelper.CHANNEL_ID, R.string.dibay_call_ch_missed_name, R.string.dibay_call_ch_missed_desc},
+    {com.dibay.app.call.CallForegroundService.CHANNEL_ID, R.string.dibay_call_ch_active_name, R.string.dibay_call_ch_active_desc},
+    {com.dibay.app.nativevoice.NativeVoiceCallNotification.CHANNEL_ID, R.string.dibay_call_ch_voice_incoming_name, R.string.dibay_call_ch_voice_incoming_desc},
+    {com.dibay.app.nativevideo.NativeVideoCallNotification.CHANNEL_ID, R.string.dibay_call_ch_video_incoming_name, R.string.dibay_call_ch_video_incoming_desc},
+    {com.dibay.app.nativevoice.NativeVoiceCallService.CHANNEL_ID, R.string.dibay_call_ch_voice_ongoing_name, R.string.dibay_call_ch_voice_ongoing_desc},
+    {com.dibay.app.nativevideo.NativeVideoCallService.CHANNEL_ID, R.string.dibay_call_ch_video_ongoing_name, R.string.dibay_call_ch_video_ongoing_desc},
+  };
+
+  /** 지금 통화 채널 알림(수신 벨·통화 중 표시)이 떠 있는가 — 읽기만 한다. 부재중 알림은 오래 남으므로 제외. */
+  static boolean hasActiveCallNotification(NotificationManager nm) {
+    try {
+      for (android.service.notification.StatusBarNotification sbn : nm.getActiveNotifications()) {
+        String channelId = sbn.getNotification() != null ? sbn.getNotification().getChannelId() : null;
+        if (channelId == null || channelId.startsWith("dibay_calls_missed")) continue;
+        if (DibayNotificationChannelRegistry.isCallChannelId(channelId)) return true;
+      }
+    } catch (RuntimeException error) {
+      return true; // 모르면 통화 채널은 건드리지 않는다
+    }
+    return false;
+  }
+
+  static int relabelCallChannels(Context app, NotificationManager nm) {
+    int changed = 0;
+    for (Object[] row : CALL_CHANNEL_LABELS) {
+      if (applyLabels(
+          nm,
+          (String) row[0],
+          DibayNativeLocale.string(app, (Integer) row[1]),
+          DibayNativeLocale.string(app, (Integer) row[2]))) {
+        changed++;
+      }
+    }
+    return changed;
   }
 
   static int relabelAll(Context app, NotificationManager nm) {

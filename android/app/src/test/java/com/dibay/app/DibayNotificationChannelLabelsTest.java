@@ -130,6 +130,53 @@ public class DibayNotificationChannelLabelsTest {
   }
 
   @Test
+  public void callChannelsRelabelOnlyNameAndDescription() {
+    NotificationChannel ch =
+        new NotificationChannel(
+            "dibay_native_voice_incoming_v2", "DIBAY Native Voice", NotificationManager.IMPORTANCE_HIGH);
+    ch.setDescription("Native Voice Runtime incoming — UI/FSI only (ring via RingOwner)");
+    ch.setSound(null, null);
+    ch.enableVibration(true);
+    nm.createNotificationChannel(ch);
+    storeLanguage("ko");
+
+    DibayNotificationChannelLabels.relabelIfNeeded(app);
+
+    NotificationChannel after = nm.getNotificationChannel("dibay_native_voice_incoming_v2");
+    assertEquals("음성 통화 수신", after.getName().toString());
+    assertEquals("음성 통화가 걸려 올 때 알림", after.getDescription());
+    assertEquals(NotificationManager.IMPORTANCE_HIGH, after.getImportance());
+    assertTrue(after.shouldVibrate());
+    assertNull(after.getSound());
+    assertNull(nm.getNotificationChannel("dibay_calls_incoming_v7")); // 없는 통화 채널은 만들지 않음
+  }
+
+  @Test
+  public void activeCallNotificationDefersCallChannels() {
+    nm.createNotificationChannel(
+        new NotificationChannel("dibay_calls_incoming_v7", "수신 통화", NotificationManager.IMPORTANCE_HIGH));
+    nm.createNotificationChannel(
+        new NotificationChannel("dibay_trade_v1", "거래 알림", NotificationManager.IMPORTANCE_HIGH));
+    nm.notify(
+        4242,
+        new androidx.core.app.NotificationCompat.Builder(app, "dibay_calls_incoming_v7")
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .build());
+
+    DibayNotificationChannelLabels.relabelIfNeeded(app); // 기기 언어 영어
+
+    assertEquals("Trades", nm.getNotificationChannel("dibay_trade_v1").getName().toString());
+    assertEquals("수신 통화", nm.getNotificationChannel("dibay_calls_incoming_v7").getName().toString());
+    assertNull(
+        app.getSharedPreferences(DibayNotificationChannelLabels.PREFS, Context.MODE_PRIVATE)
+            .getString(DibayNotificationChannelLabels.KEY_APPLIED, null));
+
+    nm.cancel(4242);
+    DibayNotificationChannelLabels.relabelIfNeeded(app);
+    assertEquals("Incoming calls", nm.getNotificationChannel("dibay_calls_incoming_v7").getName().toString());
+  }
+
+  @Test
   public void languageFollowsStoredThenDevice() {
     assertEquals("en", DibayNotificationChannelLabels.language(app));
     storeLanguage("ko");

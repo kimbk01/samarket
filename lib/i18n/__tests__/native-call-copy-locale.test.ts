@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
  * 언어 SSOT S8-3 — 통화 네이티브 문구 계약 (docs/audit/i18n-s8-native-plan-2026-11-08.md §13).
  * - Android: 기본 values = 영어, values-ko = 한국어. iOS: ko.lproj·en.lproj/Localizable.strings 키 대칭.
  * - 한국어 값은 S8-3 이전 화면 문구와 글자 하나까지 같다(아래 고정표 = S8-3 직전 main 의 값).
- * - 통화 코드에 남는 한글 문자열은 동작 판정 토큰·대체값·S8-4 채널 이름뿐.
+ * - 통화 코드에 남는 한글 문자열은 동작 판정 토큰·대체값뿐. 통화 채널 이름·설명은 리소스(S8-4b).
  */
 const read = (p: string) => readFileSync(p, "utf8");
 const HANGUL = /[가-힣]/;
@@ -122,13 +122,10 @@ const IOS_KO_BEFORE: Record<string, string> = {
   call_incoming_fallback: "수신 통화",
 };
 
-/** 통화 코드에 남아도 되는 한글 문자열 — 동작 판정 토큰(§1-6·§13-0)·대체값·S8-4 알림 채널 이름 */
+/** 통화 코드에 남아도 되는 한글 문자열 — 동작 판정 토큰(§1-6·§13-0)·대체값 (채널 이름은 S8-4b 에서 리소스로) */
 const ALLOWED_HANGUL_LITERALS: Record<string, string[]> = {
   "IncomingCallUiCopy.java": ["DiBay 영상 통화", "DiBay 음성 통화", "영상", "님의 전화", "음성 통화", "영상 통화"],
   "FcmPayloadResolver.java": ["수신 통화"],
-  "IncomingCallNotificationBuilder.java": ["수신 통화", "수신 통화 — UI only (ring via RingOwner, alias "],
-  "MissedCallNotificationHelper.java": ["부재중 통화", "부재중 통화 알림"],
-  "CallForegroundService.java": ["통화 진행", "활성 통화 foreground service"],
   "IncomingCallCallerIdentity.swift": ["영상통화", "음성통화", "영상 통화", "음성 통화", "님의 전화"],
 };
 const CALL_CODE = [
@@ -186,7 +183,21 @@ describe("통화 네이티브 문구 언어 계약 (S8-3)", () => {
     }
   });
 
-  it("통화 코드의 한글 문자열은 허용 목록(판정 토큰·대체값·S8-4 채널 이름)뿐", () => {
+  it("S8-4b: 통화 알림 채널 이름·설명은 리소스 — 코드에 글자 없음·개발 용어 없음", () => {
+    for (const p of CALL_CODE.filter((f) => f.endsWith(".java"))) {
+      const src = read(p);
+      expect(/new NotificationChannel\(\s*\w+,\s*"/.test(src), `${p} 채널 이름 글자`).toBe(false);
+      expect(/setDescription\(\s*"/.test(src), `${p} 채널 설명 글자`).toBe(false);
+    }
+    const callChannelValues = Object.entries(base).filter(([k]) => k.startsWith("dibay_call_ch_"));
+    expect(callChannelValues.length).toBe(14);
+    for (const [k, v] of callChannelValues) {
+      expect(/Native|RingOwner|foreground|FSI|UI only/i.test(v), `${k} 개발 용어`).toBe(false);
+      expect(ko[k], k).toBeDefined();
+    }
+  });
+
+  it("통화 코드의 한글 문자열은 허용 목록(판정 토큰·대체값)뿐", () => {
     for (const p of CALL_CODE) {
       const name = p.split("/").pop() ?? p;
       const allowed = new Set(ALLOWED_HANGUL_LITERALS[name] ?? []);

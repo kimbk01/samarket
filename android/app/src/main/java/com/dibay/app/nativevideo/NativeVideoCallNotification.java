@@ -17,6 +17,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -321,8 +322,9 @@ public final class NativeVideoCallNotification {
     }
     if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "DIBAY Native Video", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("Native Video Runtime incoming — UI/FSI only (ring via RingOwner)");
+        new NotificationChannel(
+            CHANNEL_ID, DibayNativeLocale.string(context, R.string.dibay_call_ch_video_incoming_name), NotificationManager.IMPORTANCE_HIGH);
+    channel.setDescription(DibayNativeLocale.string(context, R.string.dibay_call_ch_video_incoming_desc));
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     channel.enableVibration(true);
     channel.setSound(null, null);

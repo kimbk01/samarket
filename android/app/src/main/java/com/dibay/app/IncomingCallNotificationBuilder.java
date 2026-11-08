@@ -59,8 +59,9 @@ public final class IncomingCallNotificationBuilder {
       return;
     }
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "수신 통화", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("수신 통화 — UI only (ring via RingOwner, alias " + CHANNEL_ID_ALIAS + ")");
+        new NotificationChannel(
+            CHANNEL_ID, DibayNativeLocale.string(context, R.string.dibay_call_ch_incoming_name), NotificationManager.IMPORTANCE_HIGH);
+    channel.setDescription(DibayNativeLocale.string(context, R.string.dibay_call_ch_incoming_desc));
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     channel.setSound(null, null);

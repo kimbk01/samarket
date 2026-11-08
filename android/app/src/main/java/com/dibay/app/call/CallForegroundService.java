@@ -42,7 +42,7 @@ public class CallForegroundService extends Service {
   public static final String EXTRA_PHASE = "phase";
 
   private static final String TAG = "DIBAY_CALL";
-  private static final String CHANNEL_ID = "dibay_active_call";
+  public static final String CHANNEL_ID = "dibay_active_call";
   private static final int NOTIFICATION_ID = 92001;
   private static final long HEARTBEAT_TIMEOUT_MS = 35_000L;
   private static final AtomicReference<String> ACTIVE_CALL_ID = new AtomicReference<>(null);
@@ -660,8 +660,9 @@ public class CallForegroundService extends Service {
     if (nm == null) return;
     if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "통화 진행", NotificationManager.IMPORTANCE_LOW);
-    channel.setDescription("활성 통화 foreground service");
+        new NotificationChannel(
+            CHANNEL_ID, DibayNativeLocale.string(this, R.string.dibay_call_ch_active_name), NotificationManager.IMPORTANCE_LOW);
+    channel.setDescription(DibayNativeLocale.string(this, R.string.dibay_call_ch_active_desc));
     nm.createNotificationChannel(channel);
   }
 }
