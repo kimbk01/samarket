@@ -319,7 +319,7 @@ export const authUiMessages = {
     auth_err_generic_retry: "Something went wrong. Please try again in a moment.",
     auth_account_status_suspended_title: "This account is suspended",
     auth_account_status_blocked_title: "This account is blocked",
-    auth_account_status_withdrawn_title: "This account was withdrawn",
+    auth_account_status_withdrawn_title: "This account has been deleted",
     auth_account_status_support_cta: "Contact support",
     auth_provider_email_conflict_existing_unavailable:
       "Your original sign-in method is not available right now. Continue with another account or contact support.",
@@ -422,7 +422,7 @@ export const authUiMessages = {
     auth_err_user_upsert_failed: "Account setup failed. Please try again.",
     auth_err_supabase_service_unconfigured: "Sign-in is temporarily unavailable. Please try again shortly.",
     auth_err_session_missing: "Your session expired or is invalid. Please sign in again.",
-    auth_err_account_withdrawn: "This account was withdrawn. Please contact support to use it again.",
+    auth_err_account_withdrawn: "This account has been deleted. Please contact support to use it again.",
     auth_err_account_blocked: "This account is blocked. Please contact support for details.",
     auth_err_account_suspended: "This account is currently suspended. Please contact support for details.",
     auth_err_provider_account_reconciliation_required:
@@ -564,8 +564,7 @@ export const authUiMessages = {
     auth_consent_optional_prefix: "[Optional]",
     auth_consent_marketing_link: "View details",
     auth_consent_marketing_save_failed: "Could not save your optional choice. Please try again.",
-    auth_consent_feature_notice:
-      "You can sign up and use the service without optional consents. Benefits & events notifications can be changed anytime in My info › Notification settings.",
+    auth_consent_feature_notice: "You can sign up and use the service without optional consents. Benefits & events notifications can be changed anytime in My page › Notification settings.",
     auth_consent_safety_notice:
       "Harmful content, fraud, hate speech, privacy leaks, and illegal trade are prohibited and may be reported or blocked.",
     auth_consent_escape_hint: "Without agreeing you can still contact support or report, delete your account, or log out.",

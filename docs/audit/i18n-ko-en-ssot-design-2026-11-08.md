@@ -221,3 +221,17 @@
    - 알림 설정: SQL 파일명을 치환값으로 넘기던 것을 삭제했다.
    - 통화 화면 문구 4키(`cm_ui_media_*`, `cm_ui_call_failed_insecure_context_detail`): **카탈로그 값만** 바꿨다. 통화 코드(`lib/community-messenger/media-errors.ts` 등)는 바꾸지 않았다. 개발자용 설정 안내(Agora 키·`npm run dev:https`)는 화면에서 빠졌고, 로그로 옮기는 작업은 통화 규정상 별도 계획이 필요하다(계획 완료 후 감사).
    - 어드민 피드 긴급 3키(`feed_em_act_*`)는 고객 쪽 API(`/api/feed/emergency`)가 같은 모듈을 가져다 써서 고객 키로 판정됐다. 「Fallback」 → 「대체 피드」로 바꿨다.
+
+---
+
+## 10. S4 결과 (용어집·짧은 자리)
+
+| 규칙 | S3 후 | S4 후 | 비고 |
+|---|---|---|---|
+| glossary | 82 | **0** | 문구 71키 통일 + 「지역·동네」 = Region and neighborhood 같은 정상 번역 11키는 규칙 정밀화(`requiredEn`)로 판정 제외 |
+| length-budget | 37(경고) | **0 — 실패 규칙으로 전환** | 치환값 `{x}` = 3글자로 계산(`displayLengthForBudget`). 3키는 이 계산만으로 기준 안. 34키 축약 |
+
+- 용어 통일: 캐시(기기) → 임시 데이터 / Temporary data(15), 내정보 → My page(15), 동네 → Neighborhood(17, 커뮤니티 피드 전환 탭 「Local」 → 「Neighborhood」), 탈퇴 → Delete account(11), 관심목록 → Favorites(3), 관심 사용자 → Favorite users(4), 관심이웃 → Following(3 + 화면 확인 중 발견 8), 상품권 gift cards → gift certificates(1), 매장 shop·merchant → Store(2).
+- 관심이웃 8키는 검사가 놓친 것(금지어만 봄) — 화면 확인 중 발견해 같이 고치고, 규칙에 「Neighbor 만 쓰면 위반(Follow 있으면 허용)」을 보강.
+- 390px 화면(로컬 개발 서버·비로그인): 커뮤니티 ko 「최신순 / 동네」, en 「Newest / Neighborhood」, 가로 넘침 0(scrollWidth 390). 내정보 설정 메뉴는 비로그인이라 **NOT_PROVEN**.
+- 남은 것: 발견 목록 L6(상품권 Gift 100건 — Owner 결정), L7, L8.

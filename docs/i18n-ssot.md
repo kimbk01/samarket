@@ -68,10 +68,10 @@
 |---|---|---|
 | 내정보 | My page (하단 탭은 `My`) | My info, My profile, My account, Mypage |
 | 탈퇴(회원·계정) | Delete account / account deletion | withdraw, withdrawal, leave (모임·방 나가기의 Leave 는 별개) |
-| 동네 | Neighborhood | area, region, local, town, district |
+| 동네 | Neighborhood | area, region, local, town, district, barangay (「지역·동네」처럼 지역이 함께 있으면 Region 을 함께 써도 되지만 Neighborhood 는 있어야 함) |
 | 관심목록·관심 상품 | Favorites | wishlist, saved items |
 | 관심 사용자 | Favorite users | starred |
-| 관심이웃 | Following (neighbors you follow) | interested neighbors |
+| 관심이웃 | Following (neighbors you follow) | interested neighbors, Neighbor(s) 만 쓰기 (Follow 가 함께 있으면 허용) |
 | 상품권 | Gift certificate | gift card, voucher |
 | 매장 | Store | shop, merchant |
 | 사장님 | Owner | boss, merchant |
@@ -90,7 +90,8 @@
 | 화면·시트 제목 (`_title`) | 40 |
 | 토스트 (`_toast`) | 80 |
 
-현재는 **경고**(검사 출력에 개수 표시). S4 완료 후 실패로 바꾼다.
+- S4 부터 **실패**(기준선 없음, 0건 유지). 넘치면 문구를 줄인다. 2단 탭은 이름을 자르지 않고 가로 스와이프(Owner 고정).
+- 길이는 화면 기준으로 센다: 치환값 `{x}` 하나 = 3글자(`displayLengthForBudget`).
 
 ### 4-4. 표기
 
@@ -114,7 +115,7 @@
 | `jargon-en` / `jargon-ko` | 고객·사장님 키의 개발자 용어 | 새 항목 실패 |
 | `glossary` | 용어집 「쓰지 않는 영어」 | 새 항목 실패 |
 | `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항·`tt("…")` 개수 | 파일별 증가 실패 (인라인은 서버 검증 입력값만 허용 목록 `NON_CATALOG_INLINE_FILE_ALLOW`, 이유 필수) |
-| `length-budget` | 4-3 기준 초과 | 경고 |
+| `length-budget` | 4-3 기준 초과(고객·사장님 키) | 실패 (S4 부터, 기준선 없음) |
 
 - 「고객·사장님 키」 판정(S3 정밀화 — `areaFromUsage`·`libReachAreas`):
   - 고객·사장님 화면 파일(`app`·`components`·`hooks`, 어드민 경로 밖)이 직접 쓰면 고객·사장님 키.

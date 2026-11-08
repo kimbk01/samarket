@@ -5,6 +5,7 @@ import {
   collectKeyRuleFindings,
   diffFileRule,
   diffKeyRule,
+  displayLengthForBudget,
   emptyFileRuleCounts,
   glossaryHits,
   jargonHit,
@@ -61,6 +62,16 @@ describe("i18n-quality 규칙", () => {
     expect(glossaryHits("탈퇴 신청하기", "Request to leave")).toEqual(["account-deletion"]);
     expect(glossaryHits("모임에서 탈퇴", "Leave the meeting")).toEqual([]);
     expect(glossaryHits("캐시 삭제", "Clear cache")).toEqual(["device-temporary-data"]);
+    expect(glossaryHits("기본 동네", "Default area")).toEqual(["neighborhood"]);
+    expect(glossaryHits("지역·동네 설정", "Region and neighborhood settings")).toEqual([]);
+    expect(glossaryHits("동네", "Local")).toEqual(["neighborhood"]);
+    expect(glossaryHits("관심이웃 글만 보기", "Neighbor posts only")).toEqual(["following-neighbors"]);
+    expect(glossaryHits("관심이웃 해제", "Unfollow neighbor")).toEqual([]);
+  });
+
+  it("길이 추정 — 치환값은 3글자", () => {
+    expect(displayLengthForBudget("{count} new messages")).toBe(16);
+    expect(displayLengthForBudget("Confirm")).toBe(7);
   });
 
   it("치환값 불일치·영어 안 한글·중복 키를 잡는다", () => {

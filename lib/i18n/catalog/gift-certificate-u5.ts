@@ -131,7 +131,7 @@ export const giftCertificateU5Messages = {
     gift_u5_panel_settlement_title: "Redemption settlement",
     gift_u5_panel_settlement_value: "Redeemed value",
     gift_u5_panel_settlement_fee: "DIBAY fee",
-    gift_u5_panel_settlement_merchant: "Merchant net",
+    gift_u5_panel_settlement_merchant: "Store settlement",
     gift_u5_panel_promo_title: "Promotion",
     gift_u5_panel_promo_discount: "Discount",
     gift_u5_panel_promo_owner_burden: "Owner burden",

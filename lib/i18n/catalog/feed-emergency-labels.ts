@@ -22,7 +22,7 @@ export const feedEmergencyLabelsMessages = {
   },
   en: {
     feed_em_sec_recommended: "Recommended",
-    feed_em_sec_local_latest: "Local latest",
+    feed_em_sec_local_latest: "Neighborhood latest",
     feed_em_sec_bumped: "Bumped",
     feed_em_sec_sponsored: "Ads / promos",
     feed_em_sec_premium_shops: "Premium shops",

@@ -283,7 +283,7 @@ export const addressesUiMessages = {
     addr_ui_no_place_id_move:
       "Google place id is unavailable at this coordinate. Tap another location or select a place by search.",
     addr_ui_open_fine_tune: "Open fine-tune location",
-    addr_ui_pick_delivery_cta: "Select delivery address / add address",
+    addr_ui_pick_delivery_cta: "Choose or add address",
     addr_ui_pick_label_type: "Please choose an address designation type.",
     addr_ui_pick_location_title: "Select location",
     addr_ui_change_location: "Change location",
@@ -304,7 +304,7 @@ export const addressesUiMessages = {
     addr_ui_remove_recent_aria: "Remove from recent address list",
     addr_ui_resolve_failed: "Failed to load address. Please try again shortly.",
     addr_ui_resolve_failed_short: "Failed to load address.",
-    addr_v2_identity_mismatch_title: "The selected place and pin may not match.",
+    addr_v2_identity_mismatch_title: "Place and pin may not match.",
     addr_v2_identity_mismatch_lead: "Choose how you want to save this location.",
     addr_v2_identity_selected_place: "Selected place",
     addr_v2_identity_current_pin: "Current pin location",

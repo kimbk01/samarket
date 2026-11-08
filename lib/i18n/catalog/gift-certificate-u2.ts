@@ -171,7 +171,7 @@ export const giftCertificateU2Messages = {
     gift_u2_err_unauthorized: "Sign in required.",
 
     gift_u2_wallet_empty: "You don’t have any gift certificates yet.",
-    gift_u2_wallet_browse_cta: "Browse gift certificates",
+    gift_u2_wallet_browse_cta: "View gift certificates",
     gift_u2_wallet_detail_cta: "Gift details",
     gift_u2_wallet_remaining: "Balance",
     gift_u2_public_number_label: "Gift number",

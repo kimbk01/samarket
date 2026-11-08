@@ -5,6 +5,7 @@
  * - `koMatch`: 한국어 값이 이 패턴에 맞는 키만 검사한다.
  * - `koExclude`: 같은 단어라도 다른 뜻인 문맥(예: 모임 탈퇴 = Leave)을 뺀다.
  * - `forbiddenEn`: 영어 값에 있으면 위반. 정본 영어는 `en`.
+ * - `requiredEn`: 있으면 「`forbiddenEn` 이 있고 **`requiredEn` 이 없을 때만**」 위반 — 한국어에 다른 단어가 함께 있을 때(예: 「지역·동네」 = Region and neighborhood) 오판을 막는다.
  * - `forbiddenKoWithEn`: 한국어 단어 자체가 금지인 경우(영어 값이 이 패턴이면 한국어를 바꿔야 함).
  */
 export type GlossaryEntry = {
@@ -14,6 +15,7 @@ export type GlossaryEntry = {
   koMatch: RegExp;
   koExclude?: RegExp;
   forbiddenEn: RegExp;
+  requiredEn?: RegExp;
   note?: string;
 };
 
@@ -39,7 +41,9 @@ export const DIBAY_GLOSSARY: readonly GlossaryEntry[] = [
     ko: "동네",
     en: "Neighborhood",
     koMatch: /동네/,
-    forbiddenEn: /\b(area|region|local|town|district)s?\b/i,
+    forbiddenEn: /\b(area|region|local|town|district|barangay)s?\b/i,
+    requiredEn: /\bneighbou?rhoods?\b/i,
+    note: "「지역·동네」처럼 지역이 함께 있으면 Region 을 써도 되지만 Neighborhood 는 있어야 한다",
   },
   {
     id: "favorites",
@@ -60,7 +64,9 @@ export const DIBAY_GLOSSARY: readonly GlossaryEntry[] = [
     ko: "관심이웃",
     en: "Following (neighbors you follow)",
     koMatch: /관심\s?이웃/,
-    forbiddenEn: /\binterested\s+neighbou?rs?\b/i,
+    forbiddenEn: /\binterested\s+neighbou?rs?\b|\bneighbou?rs?\b/i,
+    requiredEn: /follow/i,
+    note: "「관심이웃」을 Neighbor(s) 로만 옮기지 않는다 — Follow 가 있어야 한다",
   },
   {
     id: "gift-certificate",

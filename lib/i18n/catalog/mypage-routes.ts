@@ -355,7 +355,7 @@ export const mypageRoutesMessages = {
     mypage_oa_ads_boost_status_ended_sold: "Ended · Sold",
     mypage_oa_ads_boost_status_ended_deleted: "Ended · Listing deleted",
     mypage_oa_ads_boost_status_ended_policy: "Ended · Policy",
-    mypage_oa_ads_kind_promo_cta: "Promote a post with Point",
+    mypage_oa_ads_kind_promo_cta: "Promote with Point",
     mypage_oa_ads_kind_sheet_title: "Which ad would you like?",
     mypage_oa_ads_load_failed: "Couldn't load your ads.",
     mypage_oa_ads_tab_active: "Running",

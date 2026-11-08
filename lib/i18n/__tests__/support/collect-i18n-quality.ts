@@ -9,6 +9,7 @@ import {
   addFileRuleCounts,
   areaFromUsage,
   collectKeyRuleFindings,
+  displayLengthForBudget,
   emptyFileRuleCounts,
   isAdminPath,
   lengthBudgetForKey,
@@ -158,7 +159,7 @@ export async function collectI18nQuality(input: {
     const budget = lengthBudgetForKey(key);
     if (budget == null || area !== "user") continue;
     for (const lang of ["ko", "en"] as const) {
-      const len = [...(lang === "ko" ? ko[key] : en[key]) ?? ""].length;
+      const len = displayLengthForBudget((lang === "ko" ? ko[key] : en[key]) ?? "");
       if (len > budget) lengthOver.push({ key, lang, length: len, budget });
     }
   }

@@ -137,7 +137,7 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_ops_block_cansell:
       "Sales permission is not granted yet. You can prepare products; order intake waits for Admin sales approval.",
     owner_copy_orders_fresh_new_title: "Orders awaiting acceptance",
-    owner_copy_orders_long_waiting_title: "{count} orders awaiting acceptance for a long time",
+    owner_copy_orders_long_waiting_title: "{count} orders waiting a long time",
     owner_copy_home_store_status_aria: "Store status",
     owner_copy_settings_visibility_open_title: "Visibility · Open",
     owner_copy_coin_withdrawal_confirm_note: "The Coin is held after the request; payout follows admin review.",

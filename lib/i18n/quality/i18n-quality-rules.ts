@@ -97,7 +97,7 @@ export function glossaryHits(ko: string, en: string): string[] {
   for (const g of DIBAY_GLOSSARY) {
     if (!g.koMatch.test(ko)) continue;
     if (g.koExclude?.test(ko)) continue;
-    if (g.forbiddenEn.test(en)) out.push(g.id);
+    if (g.forbiddenEn.test(en) && !(g.requiredEn && g.requiredEn.test(en))) out.push(g.id);
   }
   return out;
 }
@@ -112,6 +112,11 @@ export function lengthBudgetForKey(key: string): number | null {
   if (/_title$/.test(key)) return 40;
   if (/_toast$/.test(key)) return 80;
   return null;
+}
+
+/** 화면에 보이는 길이 추정 — 치환값 `{x}` 는 3글자로 센다(숫자·짧은 값 기준). `docs/i18n-ssot.md` §4-3 */
+export function displayLengthForBudget(value: string): number {
+  return [...value.replace(PLACEHOLDER_GLOBAL, "xxx")].length;
 }
 
 export type CatalogSource = { source: string; ko: Readonly<Record<string, string>>; en: Readonly<Record<string, string>> };

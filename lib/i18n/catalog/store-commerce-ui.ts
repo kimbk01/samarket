@@ -2026,7 +2026,7 @@ export const storeCommerceUiMessages = {
 
     store_order_now_subtitle: "Open · delivery or pickup available",
 
-    store_neighborhood_more_title: "More in this area",
+    store_neighborhood_more_title: "More in this neighborhood",
 
     store_neighborhood_more_subtitle: "Mixed by distance and popularity",
 
@@ -2131,7 +2131,7 @@ export const storeCommerceUiMessages = {
     store_fulfillment_delivery_short: "Delivery",
     store_fulfillment_pickup_short: "Pickup",
     store_location_map_title: "{store} location",
-    store_location_region_barangay: "Region · barangay",
+    store_location_region_barangay: "Region · Neighborhood",
     store_location_section_default: "Location",
     store_meta_cart_title: "Cart",
     store_meta_checkout_title: "Checkout",
@@ -2806,7 +2806,7 @@ export const storeCommerceUiMessages = {
     store_menu_search_no_results: "No search results.",
     store_menu_no_items_registered: "No items listed yet.",
     store_menu_load_failed: "Couldn't load the menu.",
-    store_sample_store_badge: "Sample store · No real orders",
+    store_sample_store_badge: "Sample · No orders",
     store_sample_order_blocked: "This is a sample store, so real orders aren't available",
     store_sales_not_open_order_blocked: "This store isn't approved for sales yet, so ordering is unavailable",
     store_menu_select_blocked_default:
@@ -2921,8 +2921,7 @@ export const storeCommerceUiMessages = {
     store_err_pickup_combo: "Pickup is not available for this store and cart.",
     store_err_delivery_not_offered: "This store does not offer delivery. Change fulfillment.",
     store_err_shipping_items_in_cart: "Some cart items cannot be delivered or shipped.",
-    store_err_region_only_address:
-      "Region-only delivery addresses cannot be used. Delete it and pick a full address.",
+    store_err_region_only_address: "Region-only delivery addresses cannot be used. Delete it and add an address with a neighborhood.",
     store_err_select_delivery_address:
       "Delivery: check My page addresses or add one, then select a delivery address.",
     store_err_saved_address_required:
@@ -3191,7 +3190,7 @@ export const storeCommerceUiMessages = {
     store_owner_point_not_ad_cash:
       "Read-only historical record; not a current payment method.",
     store_owner_point_blocked_badge: "Historical record",
-    store_owner_point_charge_cta: "View historical records",
+    store_owner_point_charge_cta: "View past records",
     store_owner_point_account_cta: "View historical notice",
     store_owner_point_section_account: "Historical notice",
     store_owner_point_section_charge: "Historical operations record",
@@ -3350,7 +3349,7 @@ export const storeCommerceUiMessages = {
     store_owner_dash_cancel_basis: "Cancelled/refunded {cancelled} / orders {total}",
     store_owner_dash_no_sales_today: "No orders yet today",
     store_owner_dash_no_compare_yesterday: "No sales at this time yesterday",
-    store_owner_dash_pending_orders_btn: "View pending orders ({count})",
+    store_owner_dash_pending_orders_btn: "Pending orders ({count})",
     store_owner_dash_orders_list_btn: "View orders",
     store_owner_dash_orders_list_link: "Orders",
     store_owner_dash_care_reviews: "Review replies",

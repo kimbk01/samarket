@@ -22,7 +22,7 @@ export const adminShellFrameMessages = {
     admin_shell_search_failed: "불러오기 실패",
   },
   en: {
-    admin_landscape_guard_title: "Use the admin console on a tablet in landscape or on a PC",
+    admin_landscape_guard_title: "Use a tablet in landscape or a PC",
     admin_landscape_guard_desc:
       "Rotate your device to landscape or widen the browser window (at least 1024px wide). Anything you were editing is kept.",
     admin_landscape_guard_logout: "Sign out",

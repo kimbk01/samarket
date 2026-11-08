@@ -574,7 +574,7 @@ export const giftOpsCenterMessages = {
     gift_ops_finance_confirm_body: "Status will refresh after confirm.",
     gift_ops_finance_confirm_ok: "Confirm",
     gift_ops_finance_confirm_cancel: "Cancel",
-    gift_ops_conversion_confirm_title: "Review this historical conversion record?",
+    gift_ops_conversion_confirm_title: "Review this past conversion record?",
     gift_ops_sec_lifecycle_timeline: "Lifecycle timeline",
     gift_ops_timeline_empty: "No timeline events.",
     gift_ops_sec_corrective: "Admin corrective actions",

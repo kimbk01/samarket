@@ -47,7 +47,7 @@ export const ownerStage4FeedbackMessages = {
     owner_s4_state_empty_title: "Nothing to show yet.",
     owner_s4_state_error_title: "Could not load.",
     owner_s4_state_retry: "Retry",
-    owner_s4_state_no_permission_title: "You do not have permission to use this screen.",
+    owner_s4_state_no_permission_title: "You don't have access to this screen.",
     owner_s4_state_suspended_title: "This store is suspended.",
     owner_s4_state_under_review_title: "Store review is in progress.",
     owner_s4_state_revision_requested_title: "Store information needs revision.",

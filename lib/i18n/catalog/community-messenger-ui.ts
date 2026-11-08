@@ -347,7 +347,7 @@ export const communityMessengerUiMessages = {
     cm_ui_prompt_report_detail: "신고 내용을 입력해 주세요.",
     cm_ui_report_received: "접수되었습니다.",
     cm_ui_report_failed: "신고 접수에 실패했습니다.",
-    cm_ui_cleared_local_preview_cache: "이 기기에서 미리보기 캐시만 정리했습니다.",
+    cm_ui_cleared_local_preview_cache: "이 기기에서 미리보기 임시 데이터만 정리했습니다.",
     cm_ui_open_chat_hub_desc:
       "참여 중인 그룹 채팅을 확인하고 새 그룹을 만들 수 있습니다.",
     cm_ui_open_chat_joined_heading: "내 그룹",
@@ -1523,7 +1523,7 @@ export const communityMessengerUiMessages = {
     cm_ui_prompt_report_detail: "Please enter report details.",
     cm_ui_report_received: "Received.",
     cm_ui_report_failed: "Failed to submit report.",
-    cm_ui_cleared_local_preview_cache: "Cleared local preview cache on this device only.",
+    cm_ui_cleared_local_preview_cache: "Cleared temporary preview data on this device only.",
     cm_ui_open_chat_hub_desc:
       "View your group chats and create new group rooms here.",
     cm_ui_open_chat_joined_heading: "My groups",

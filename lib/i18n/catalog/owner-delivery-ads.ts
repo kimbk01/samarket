@@ -560,7 +560,7 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_confirm_cash_after_pay: "Balance after payment",
     owner_ads_cash_history: "History",
     owner_ads_cash_history_empty: "No cash history yet.",
-    owner_ads_price_unset_title: "This ad product does not have a sell price yet.",
+    owner_ads_price_unset_title: "This ad product has no price yet.",
     owner_ads_price_unset_body: "You can apply after a price is set.",
     owner_ads_banner_placement_title: "Banner placement",
     owner_ads_banner_dest_store_help_named: "Customers go to {store} detail.",
@@ -607,7 +607,7 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_commercial_package_bound: "Period linked",
     owner_ads_workspace_store_sponsored_title: "Apply — store promotion",
     owner_ads_workspace_banner_title: "Apply — banner",
-    owner_ads_create_store_sponsored_cta: "Apply for store promotion",
+    owner_ads_create_store_sponsored_cta: "Create store promotion",
     owner_ads_create_banner_cta: "Create banner ad",
     owner_ads_product_entry_title: "Which ad do you want to create?",
     owner_ads_product_store_sponsored_desc:

@@ -71,8 +71,7 @@ export const uiFinishPagesMessages = {
       "Phone numbers, sign-in provider information, and trade and report records may be retained for a period for safety and dispute resolution.",
     ui_finish_privacy_p3:
       "Members can start a deletion request from in-app account settings and the web account deletion page.",
-    ui_finish_privacy_p4:
-      "Except for records that must be kept for operations or legal reasons, personal information is managed through de-identification or deletion according to our withdrawal policy.",
+    ui_finish_privacy_p4: "Except for records that must be kept for operations or legal reasons, personal information is managed through de-identification or deletion according to our account deletion policy.",
 
     ui_finish_account_delete_title: "Account deletion request",
     ui_finish_account_delete_desc:

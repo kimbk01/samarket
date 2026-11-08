@@ -671,7 +671,7 @@ export const uiPhaseFinishMessages = {
     ui_fav_chat_continue: "Continue chat",
     ui_fav_err_reserved_other: "Another buyer has a reservation in progress.",
     ui_fav_err_sold_no_chat: "You cannot start a new chat on a completed listing.",
-    ui_fav_reserved_other_title: "Another buyer has a reservation in progress",
+    ui_fav_reserved_other_title: "Reserved by another buyer",
     ui_fav_seller_info: "Seller info",
     ui_fav_seller_fallback: "Seller",
     ui_fav_hub_segment_trade: "Marketplace",
@@ -751,7 +751,7 @@ export const uiPhaseFinishMessages = {
     ui_orders_hub_open_menu_aria: "Open store admin menu",
 
     ui_member_benefit_inactive: "Inactive",
-    ui_member_benefit_profile_badge: "· Profile badge: {label}",
+    ui_member_benefit_profile_badge: "· Badge: {label}",
     ui_member_benefit_priority_boost:
       "· Visibility boost: home +{home} / search +{search} / shop featured +{shop}",
     ui_member_benefit_point_bonus: "· Point bonus: {rate}%",

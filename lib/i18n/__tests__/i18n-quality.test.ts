@@ -114,16 +114,9 @@ describe("check:i18n-quality — 언어 SSOT", () => {
     });
   }
 
-  it("length-budget: 경고만 (S4 후 실패로 전환)", () => {
-    if (result.lengthOver.length) {
-      console.warn(
-        `[check:i18n-quality] length-budget 경고 ${result.lengthOver.length}건\n` +
-          result.lengthOver
-            .slice(0, 20)
-            .map((x) => `  ${x.key} (${x.lang}) ${x.length}/${x.budget}`)
-            .join("\n")
-      );
-    }
-    expect(true).toBe(true);
+  /** S4 부터 실패 — 기준선 없음(0건 유지). 넘치면 문구를 줄인다. 2단 탭은 자르지 않고 가로 스와이프(Owner 고정) */
+  it("length-budget: 고객·사장님 짧은 자리 길이 초과 0", () => {
+    const list = result.lengthOver.map((x) => `${x.key} (${x.lang}) ${x.length}/${x.budget}`);
+    expect(list, `length-budget 초과 ${list.length}건\n${list.slice(0, 40).join("\n")}`).toEqual([]);
   });
 });
