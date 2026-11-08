@@ -65,7 +65,7 @@ export type BuildCallV4ScreenViewModelInput = {
 };
 
 function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): CallScreenViewModel {
-  const statusText = safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
+  const statusText = safeT("cm_ui_connecting");
   return {
     visualTheme: "starbucks",
     mode: "voice",
@@ -123,7 +123,7 @@ function buildCallV4ConnectionPresentation(
   }
   if (callPhase === "connecting" || phase === "joining" || phase === "accepting") {
     return {
-      connectionLabel: safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" }),
+      connectionLabel: safeT("cm_ui_connecting"),
       connectionSignalTier: null,
     };
   }
@@ -146,7 +146,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     nativeAcceptInflight || phase === "accepting" || phase === "joining";
   const peerLabel =
     identity.peerLabel?.trim() ||
-    safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" });
+    safeT("cm_ui_call_active_voice");
 
   const displayPhase: CallV4Phase =
     nativeAcceptInflight && phase === "incoming_ringing" ? "accepting" : phase;
@@ -159,7 +159,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     primaryActions.push(
       {
         id: "reject",
-        label: safeT("cm_ui_reject", { fallbackKo: "거절", fallbackEn: "Decline" }),
+        label: safeT("cm_ui_reject"),
         icon: "decline",
         tone: "danger",
         dataTestId: "call-v4-incoming-reject",
@@ -167,7 +167,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
       },
       {
         id: "accept",
-        label: safeT("cm_ui_accept", { fallbackKo: "수락", fallbackEn: "Accept" }),
+        label: safeT("cm_ui_accept"),
         icon: "accept",
         tone: "accept",
         dataTestId: "call-v4-incoming-accept",
@@ -179,7 +179,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
   } else if (isOutgoingDialing) {
     primaryActions.push({
       id: "end",
-      label: safeT("cm_ui_end_call", { fallbackKo: "통화 종료", fallbackEn: "End call" }),
+      label: safeT("cm_ui_end_call"),
       icon: "end",
       tone: "danger",
       dataTestId: "call-v4-cancel-button",
@@ -188,7 +188,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
   } else if (phase === "joining" || phase === "connected" || phase === "accepting") {
     primaryActions.push({
       id: "end",
-      label: safeT("cm_ui_end_call", { fallbackKo: "통화 종료", fallbackEn: "End call" }),
+      label: safeT("cm_ui_end_call"),
       icon: "end",
       tone: "danger",
       dataTestId: "call-v4-end-button",
@@ -217,15 +217,15 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     secondaryActions.push({
       id: "mute",
       label: ms.micEnabled
-        ? safeT("cm_ui_mute", { fallbackKo: "음소거", fallbackEn: "Mute" })
-        : safeT("cm_ui_unmute", { fallbackKo: "음소거 해제", fallbackEn: "Unmute" }),
+        ? safeT("cm_ui_mute")
+        : safeT("cm_ui_unmute"),
       icon: "mic",
       active: !ms.micEnabled,
       onClick: () => void setCallV4MicEnabled(callId, !ms.micEnabled),
     });
     secondaryActions.push({
       id: "speaker",
-      label: safeT("cm_ui_speaker", { fallbackKo: "스피커", fallbackEn: "Speaker" }),
+      label: safeT("cm_ui_speaker"),
       icon: "speaker",
       active: ms.speakerEnabled,
       onClick: () => void toggleCallV4SpeakerRoute(callId),
@@ -237,8 +237,8 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
       {
         id: "camera",
         label: ms.cameraEnabled
-          ? safeT("cm_ui_camera_off", { fallbackKo: "카메라 끄기", fallbackEn: "Turn camera off" })
-          : safeT("cm_ui_switch_to_video", { fallbackKo: "카메라 켜기", fallbackEn: "Turn camera on" }),
+          ? safeT("cm_ui_camera_off")
+          : safeT("cm_ui_switch_to_video"),
         icon: "video",
         active: ms.cameraEnabled,
         onClick: () => {
@@ -251,7 +251,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
       },
       {
         id: "camera-switch",
-        label: safeT("cm_ui_switch_camera", { fallbackKo: "전환", fallbackEn: "Flip" }),
+        label: safeT("cm_ui_switch_camera"),
         icon: "camera-switch",
         disabled: !ms.cameraEnabled || !isCallV4CameraSwitchAvailable(callId),
         onClick: () => void switchCallV4CameraFacing(callId, presenter?.localVideoRef.current ?? null),
@@ -261,29 +261,23 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
 
   const statusText =
     callPhase === "connected"
-      ? safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" })
+      ? safeT("cm_ui_call_active_voice")
       : phase === "ending"
-        ? safeT("cm_ui_ending_call", { fallbackKo: "종료 중", fallbackEn: "Ending…" })
+        ? safeT("cm_ui_ending_call")
         : isOutgoingDialing
-          ? safeT("cm_ui_call_status_outgoing_dialing", { fallbackKo: "발신 중", fallbackEn: "Calling" })
+          ? safeT("cm_ui_call_status_outgoing_dialing")
           : phase === "incoming_ringing" && !suppressIncomingActions
-            ? safeT("cm_ui_incoming_phone", { fallbackKo: "휴대전화", fallbackEn: "mobile" })
-            : safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
+            ? safeT("cm_ui_incoming_phone")
+            : safeT("cm_ui_connecting");
 
   const subStatusText = isOutgoingDialing
-    ? safeT("cm_ui_waiting_for_peer_answer", {
-        fallbackKo: "상대방의 응답을 기다리는 중",
-        fallbackEn: "Waiting for the other person to answer",
-      })
+    ? safeT("cm_ui_waiting_for_peer_answer")
     : phase === "incoming_ringing" && !suppressIncomingActions
-      ? safeT("cm_ui_choose_accept_or_reject", {
-          fallbackKo: "수락 또는 거절을 선택하세요",
-          fallbackEn: "Choose accept or decline",
-        })
+      ? safeT("cm_ui_choose_accept_or_reject")
       : callPhase === "connected"
         ? null
         : suppressIncomingActions
-          ? safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" })
+          ? safeT("cm_ui_connecting")
           : null;
 
   const connectionPresentation = buildCallV4ConnectionPresentation(

@@ -84,10 +84,7 @@ function buildPrimaryActions(input: BuildCallV3ScreenViewModelInput): CallAction
     return [
       {
         id: "end",
-        label: safeT("cm_ui_end_call", {
-          fallbackKo: "통화 종료",
-          fallbackEn: "End call",
-        }),
+        label: safeT("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
         dataTestId: "call-v3-cancel-button",
@@ -100,10 +97,7 @@ function buildPrimaryActions(input: BuildCallV3ScreenViewModelInput): CallAction
     return [
       {
         id: "end",
-        label: safeT("cm_ui_end_call", {
-          fallbackKo: "통화 종료",
-          fallbackEn: "End call",
-        }),
+        label: safeT("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
         dataTestId: "call-v3-end-button",
@@ -126,49 +120,25 @@ export function buildCallV3ScreenViewModel(input: BuildCallV3ScreenViewModelInpu
 
   const statusText =
     callPhase === "connected"
-      ? safeT("cm_ui_call_active_voice", {
-          fallbackKo: "통화 중",
-          fallbackEn: "On a call",
-        })
+      ? safeT("cm_ui_call_active_voice")
       : phase === "ending"
-        ? safeT("cm_ui_ending_call", {
-            fallbackKo: "종료 중",
-            fallbackEn: "Ending…",
-          })
+        ? safeT("cm_ui_ending_call")
         : isOutgoingDialing
-          ? safeT("cm_ui_call_status_outgoing_dialing", {
-              fallbackKo: "발신 중",
-              fallbackEn: "Calling",
-            })
+          ? safeT("cm_ui_call_status_outgoing_dialing")
           : phase === "incoming_ringing"
-            ? safeT("cm_ui_incoming_phone", {
-                fallbackKo: "휴대전화",
-                fallbackEn: "mobile",
-              })
-            : safeT("cm_ui_connecting", {
-                fallbackKo: "연결 중",
-                fallbackEn: "Connecting",
-              });
+            ? safeT("cm_ui_incoming_phone")
+            : safeT("cm_ui_connecting");
 
   const subStatusText =
     isOutgoingDialing
-      ? safeT("cm_ui_waiting_for_peer_answer", {
-          fallbackKo: "상대방의 응답을 기다리는 중",
-          fallbackEn: "Waiting for the other person to answer",
-        })
+      ? safeT("cm_ui_waiting_for_peer_answer")
       : phase === "incoming_ringing"
-        ? safeT("cm_ui_choose_accept_or_reject", {
-            fallbackKo: "수락 또는 거절을 선택하세요",
-            fallbackEn: "Choose accept or decline",
-          })
+        ? safeT("cm_ui_choose_accept_or_reject")
         : null;
 
   const peerLabel =
     identity.peerLabel?.trim() ||
-    safeT("cm_ui_call_peer_unknown", {
-      fallbackKo: "알 수 없음",
-      fallbackEn: "Unknown",
-    });
+    safeT("cm_ui_call_peer_unknown");
 
   return {
     visualTheme: "starbucks",

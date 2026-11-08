@@ -60,10 +60,7 @@ export function AndroidOsPipSafeCallView({ vm }: AndroidOsPipSafeCallViewProps) 
             <button
               type="button"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/12 text-white"
-              aria-label={safeT("cm_ui_call_dock_expand", {
-                fallbackKo: "통화 화면 펼치기",
-                fallbackEn: "Expand call screen",
-              })}
+              aria-label={safeT("cm_ui_call_dock_expand")}
               onClick={() => restoreAction()}
             >
               <Maximize2 size={15} strokeWidth={2.25} />

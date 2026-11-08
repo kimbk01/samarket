@@ -11,6 +11,7 @@ import {
   type CallInAppNoticeEvent,
   type CallInAppNoticeSpec,
 } from "@/lib/community-messenger/call-ui/call-in-app-notice-contract";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type CallInAppNoticeState = {
   event: CallInAppNoticeEvent;
@@ -30,46 +31,16 @@ type Store = {
 };
 
 const FALLBACKS: Record<CallInAppNoticeEvent, { ko: string; en: string }> = {
-  peer_busy: {
-    ko: "상대방이 현재 통화중입니다.",
-    en: "The other person is currently on another call.",
-  },
-  caller_busy: {
-    ko: "다른 통화를 이용 중이라 새 통화를 시작할 수 없습니다.",
-    en: "You are already on another call, so a new call cannot be started.",
-  },
-  peer_declined: {
-    ko: "상대방이 통화를 거절했습니다",
-    en: "The other person declined the call",
-  },
-  call_failed: {
-    ko: "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-    en: "Could not start the call. Please try again.",
-  },
-  remote_ended: {
-    ko: "통화가 종료되었습니다",
-    en: "Call ended",
-  },
-  missed: {
-    ko: "부재중 알림",
-    en: "Missed call",
-  },
-  no_answer: {
-    ko: "상대방이 응답하지 않았습니다.",
-    en: "The other person did not answer.",
-  },
-  reconnecting: {
-    ko: "다시 연결하는 중…",
-    en: "Reconnecting…",
-  },
-  network_warning: {
-    ko: "네트워크 상태를 확인해 주세요.",
-    en: "Check your network connection.",
-  },
-  permission_required: {
-    ko: "마이크 권한이 필요합니다",
-    en: "Microphone access required",
-  },
+  peer_busy: catalogPair("community_messenger_the_other_person_is_currently_on"),
+  caller_busy: catalogPair("community_messenger_you_are_already_on_another_call"),
+  peer_declined: catalogPair("community_messenger_the_other_person_declined_the_call"),
+  call_failed: catalogPair("community_messenger_could_not_start_the_call_please"),
+  remote_ended: catalogPair("community_messenger_call_ended"),
+  missed: catalogPair("community_messenger_missed_call"),
+  no_answer: catalogPair("community_messenger_the_other_person_did_not_answer"),
+  reconnecting: catalogPair("community_messenger_reconnecting"),
+  network_warning: catalogPair("community_messenger_check_your_network_connection"),
+  permission_required: catalogPair("community_messenger_microphone_access_required"),
 };
 
 export function resolveCallInAppNoticeMessage(

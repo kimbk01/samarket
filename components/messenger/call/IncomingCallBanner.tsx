@@ -79,14 +79,8 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
   const KindIcon = callKind === "video" ? Video : Phone;
   const callTypeLabel =
     callKind === "video"
-      ? safeT("cm_ui_dibay_video_call_brand", {
-          fallbackKo: "영상 통화",
-          fallbackEn: "Video call",
-        })
-      : safeT("cm_ui_incoming_phone", {
-          fallbackKo: "휴대전화",
-          fallbackEn: "mobile",
-        });
+      ? safeT("cm_ui_dibay_video_call_brand")
+      : safeT("cm_ui_incoming_phone");
 
   const handleReject = () => {
     triggerIncomingCallBannerHaptic(10);

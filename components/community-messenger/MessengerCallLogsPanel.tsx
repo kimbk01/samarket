@@ -310,10 +310,7 @@ export function MessengerCallLogsPanel({
           return next;
         });
         showMessengerSnackbar(
-          safeT("cm_ui_call_log_deleted", {
-            fallbackKo: "통화 기록을 삭제했습니다.",
-            fallbackEn: "Call log deleted.",
-          }),
+          safeT("cm_ui_call_log_deleted"),
           { variant: "success" }
         );
       } catch {
@@ -353,10 +350,7 @@ export function MessengerCallLogsPanel({
 
     if (!peerUserId && !historicRoomId) {
       alertOutgoingCallFailure(
-        safeT("cm_ui_call_outgoing_missing_room", {
-          fallbackKo: "통화를 시작할 수 없습니다. 상대 정보가 없습니다.",
-          fallbackEn: "Cannot start the call. Peer information is missing.",
-        }),
+        safeT("cm_ui_call_outgoing_missing_room"),
       );
       return;
     }

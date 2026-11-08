@@ -92,10 +92,7 @@ export function CommunityMessengerCallPeerDetailPanel({
   const resolveSectionLabel = useCallback(
     (sectionKind: "today" | "yesterday" | "date", sectionKey: string) => {
       if (sectionKind === "today") {
-        return safeT("cm_ui_call_peer_history_section_today", {
-          fallbackKo: "오늘",
-          fallbackEn: "Today",
-        });
+        return safeT("cm_ui_call_peer_history_section_today");
       }
       if (sectionKind === "yesterday") {
         return t("cm_ui_call_log_time_yesterday");
@@ -114,10 +111,7 @@ export function CommunityMessengerCallPeerDetailPanel({
     const roomId = selection.roomId?.trim();
     if (!roomId) {
       showMessengerSnackbar(
-        safeT("cm_ui_call_outgoing_missing_room", {
-          fallbackKo: "방 정보가 없어 채팅을 열 수 없습니다.",
-          fallbackEn: "Cannot open chat because room information is missing.",
-        }),
+        safeT("cm_ui_call_outgoing_missing_room"),
         { variant: "error" }
       );
       return;
@@ -180,16 +174,16 @@ export function CommunityMessengerCallPeerDetailPanel({
           >
             <MessageCircle className="h-6 w-6" aria-hidden />
             <span className="sam-text-helper font-medium text-white">
-              {safeT("cm_ui_call_peer_detail_chat", { fallbackKo: "채팅", fallbackEn: "Chat" })}
+              {safeT("cm_ui_call_peer_detail_chat")}
             </span>
           </button>
           <CallActionTile
-            label={safeT("cm_ui_call_peer_detail_voice", { fallbackKo: "음성 통화", fallbackEn: "Voice call" })}
+            label={safeT("cm_ui_call_peer_detail_voice")}
             icon="voice"
             onPress={() => onRequestOutgoingConfirm("voice")}
           />
           <CallActionTile
-            label={safeT("cm_ui_call_peer_detail_video", { fallbackKo: "영상 통화", fallbackEn: "Video call" })}
+            label={safeT("cm_ui_call_peer_detail_video")}
             icon="video"
             onPress={() => onRequestOutgoingConfirm("video")}
           />
@@ -222,10 +216,7 @@ export function CommunityMessengerCallPeerDetailPanel({
             className="w-full rounded-ui-rect py-3 sam-text-body font-medium text-white active:opacity-90"
             style={{ backgroundColor: STARBUCKS_GREEN }}
           >
-            {safeT("cm_ui_call_peer_history_more", {
-              fallbackKo: "통화 이력 더보기",
-              fallbackEn: "See more call history",
-            })}
+            {safeT("cm_ui_call_peer_history_more")}
           </button>
         </div>
       ) : (

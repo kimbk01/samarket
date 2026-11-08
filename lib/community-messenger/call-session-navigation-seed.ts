@@ -370,15 +370,9 @@ export { isOutgoingCallPhoneVerificationRequired };
 function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
   const lang = getRuntimeAppLanguage();
   if (kind === "video") {
-    return safeTranslate(lang, "cm_ui_call_permission_settings_video", {
-      fallbackKo: "카메라/마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
-      fallbackEn: "Camera/microphone access is turned off. Allow it in settings.",
-    });
+    return safeTranslate(lang, "cm_ui_call_permission_settings_video");
   }
-  return safeTranslate(lang, "cm_ui_call_permission_settings_voice", {
-    fallbackKo: "마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
-    fallbackEn: "Microphone access is turned off. Allow it in settings.",
-  });
+  return safeTranslate(lang, "cm_ui_call_permission_settings_voice");
 }
 
 /** 발신 세션 POST 는 사용자 대기 구간이므로 브라우저에 높은 네트워크 우선순위를 힌트한다. */
@@ -416,16 +410,10 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
   });
   if (!lock.ok) {
     if (lock.reason === "active_call") {
-      const msg = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_already_in_progress", {
-        fallbackKo: "현재 통화가 진행 중입니다.",
-        fallbackEn: "A call is already in progress.",
-      });
+      const msg = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_already_in_progress");
       return { ok: false, userMessage: msg, blockedCallId: lock.existingCallId };
     }
-    const msg = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_start_in_progress", {
-      fallbackKo: "통화 연결 중입니다. 잠시만 기다려 주세요.",
-      fallbackEn: "Connecting a call. Please wait.",
-    });
+    const msg = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_start_in_progress");
     return { ok: false, userMessage: msg };
   }
 
@@ -515,10 +503,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       const denyMessage = resolveDirectCallDenyUserMessageFromApiError(err);
       return fail(
         denyMessage ??
-          safeTranslate(getRuntimeAppLanguage(), "cm_social_cannot_start_chat", {
-            fallbackKo: "대화를 시작할 수 없습니다.",
-            fallbackEn: "You can't start a conversation with this user.",
-          })
+          safeTranslate(getRuntimeAppLanguage(), "cm_social_cannot_start_chat")
       );
     }
     if (!res.ok || !json.ok || !json.roomId) {

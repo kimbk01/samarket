@@ -88,14 +88,8 @@ export function CallV3IncomingBanner() {
   const peerLabel =
     identity.peerLabel?.trim() ||
     (identity.mediaType === "video"
-      ? safeT("cm_ui_call_log_video_incoming", {
-          fallbackKo: "영상 통화 수신",
-          fallbackEn: "Incoming video call",
-        })
-      : safeT("cm_ui_call_log_voice_incoming", {
-          fallbackKo: "음성 통화 수신",
-          fallbackEn: "Incoming voice call",
-        }));
+      ? safeT("cm_ui_call_log_video_incoming")
+      : safeT("cm_ui_call_log_voice_incoming"));
 
   const banner = (
     <div

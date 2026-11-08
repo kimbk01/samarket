@@ -40,7 +40,7 @@ export function CallInAppNoticeCenterDialog() {
       })
     : "";
 
-  const confirmLabel = safeT("common_confirm", { fallbackKo: "확인", fallbackEn: "Confirm" });
+  const confirmLabel = safeT("common_confirm");
 
   const onConfirm = () => {
     if (event) dismiss(event);

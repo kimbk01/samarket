@@ -1,5 +1,5 @@
 /**
- * 메신저 화면 문구(통화 제외).
+ * 메신저 화면 문구(통화 포함 — S8-5).
  * S6(언어 SSOT, 2026-11-08): 코드 안 언어 삼항·문구 쌍·인라인 표에서 옮긴 문구 (`docs/i18n-ssot.md` §3).
  */
 export const copyMessengerMessages = {
@@ -16,6 +16,16 @@ export const copyMessengerMessages = {
     community_messenger_unreadroomcount_unread: "읽지 않음 {unreadRoomCount}",
     community_messenger_listing_unavailable: "상품 정보를 확인할 수 없습니다",
     community_messenger_couldn_t_load_trade_chats: "거래 채팅을 불러오지 못했습니다.",
+    community_messenger_the_other_person_is_currently_on: "상대방이 현재 통화중입니다.",
+    community_messenger_you_are_already_on_another_call: "다른 통화를 이용 중이라 새 통화를 시작할 수 없습니다.",
+    community_messenger_the_other_person_declined_the_call: "상대방이 통화를 거절했습니다",
+    community_messenger_could_not_start_the_call_please: "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    community_messenger_call_ended: "통화가 종료되었습니다",
+    community_messenger_missed_call: "부재중 알림",
+    community_messenger_the_other_person_did_not_answer: "상대방이 응답하지 않았습니다.",
+    community_messenger_reconnecting: "다시 연결하는 중…",
+    community_messenger_check_your_network_connection: "네트워크 상태를 확인해 주세요.",
+    community_messenger_microphone_access_required: "마이크 권한이 필요합니다",
   },
   en: {
     community_messenger_loading: "Loading…",
@@ -30,5 +40,15 @@ export const copyMessengerMessages = {
     community_messenger_unreadroomcount_unread: "{unreadRoomCount} unread",
     community_messenger_listing_unavailable: "Listing unavailable",
     community_messenger_couldn_t_load_trade_chats: "Couldn’t load trade chats.",
+    community_messenger_the_other_person_is_currently_on: "The other person is currently on another call.",
+    community_messenger_you_are_already_on_another_call: "You are already on another call, so a new call cannot be started.",
+    community_messenger_the_other_person_declined_the_call: "The other person declined the call",
+    community_messenger_could_not_start_the_call_please: "Could not start the call. Please try again.",
+    community_messenger_call_ended: "Call ended",
+    community_messenger_missed_call: "Missed call",
+    community_messenger_the_other_person_did_not_answer: "The other person did not answer.",
+    community_messenger_reconnecting: "Reconnecting…",
+    community_messenger_check_your_network_connection: "Check your network connection.",
+    community_messenger_microphone_access_required: "Microphone access required",
   },
 } as const;

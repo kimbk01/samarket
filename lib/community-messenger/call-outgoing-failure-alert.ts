@@ -13,18 +13,12 @@ export function outgoingCallStartFailedMessage(): string {
 }
 
 export function outgoingCallVoiceOnlyMessage(): string {
-  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_voice_only_available", {
-    fallbackKo: "지금은 음성 통화만 사용할 수 있습니다.",
-    fallbackEn: "Only voice calls are available right now.",
-  });
+  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_voice_only_available");
 }
 
 export function outgoingCallMediaPermissionMessage(kind: "voice" | "video"): string {
   if (kind === "video") {
-    return safeTranslate(getRuntimeAppLanguage(), "cm_ui_mic_camera_permission_required", {
-      fallbackKo: "마이크·카메라 권한이 필요합니다",
-      fallbackEn: "Microphone and camera access required",
-    });
+    return safeTranslate(getRuntimeAppLanguage(), "cm_ui_mic_camera_permission_required");
   }
   return resolveCallInAppNoticeMessage("permission_required");
 }

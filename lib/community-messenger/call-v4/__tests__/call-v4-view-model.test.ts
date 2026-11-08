@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import type { CallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-types";
 
@@ -20,8 +21,9 @@ const identity: CallV4Identity = {
   peerAvatarUrl: null,
 };
 
+/** 언어 SSOT S8-5: 대체 문구 대신 실제 카탈로그 값(ko) — 화면과 같은 문구로 확인 */
 const safeT = (key: string, options?: { fallbackKo?: string; fallbackEn?: string }) =>
-  options?.fallbackKo ?? options?.fallbackEn ?? key;
+  safeTranslate("ko", key as never, options);
 
 const router = { replace: vi.fn(), push: vi.fn() };
 

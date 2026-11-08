@@ -32,10 +32,7 @@ export function isOutgoingCallPhoneVerificationRequired(result: {
 }
 
 function alreadyInProgressMessage(): string {
-  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_already_in_progress", {
-    fallbackKo: "현재 통화가 진행 중입니다.",
-    fallbackEn: "A call is already in progress.",
-  });
+  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_already_in_progress");
 }
 
 /** instant dial / redial 진입 전 — activeCallSession 또는 lock 존재 시 차단 */
@@ -85,10 +82,7 @@ export function guardInstantOutgoingCallStart(
     return {
       ok: false,
       blockedCallId: "",
-      userMessage: safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_start_in_progress", {
-        fallbackKo: "통화 연결 중입니다. 잠시만 기다려 주세요.",
-        fallbackEn: "Connecting a call. Please wait.",
-      }),
+      userMessage: safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_start_in_progress"),
     };
   }
   return { ok: true };

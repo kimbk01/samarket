@@ -36,7 +36,7 @@ export function CallInAppNoticeBanner() {
 
   const { severity } = current.spec;
   const surface = surfaceClasses(severity);
-  const dismissLabel = safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" });
+  const dismissLabel = safeT("common_close");
 
   return (
     <div

@@ -13,10 +13,7 @@ type Props = {
 /** 통화 기록 삭제 확인 — DIBAY Confirm SSOT [취소 | 삭제]. */
 export function MessengerCallLogDeleteConfirmDialog({ open, busy = false, onCancel, onConfirm }: Props) {
   const { t, safeT } = useI18n();
-  const body = safeT("cm_ui_confirm_delete_call_log", {
-    fallbackKo: "이 통화 기록을 삭제할까요?",
-    fallbackEn: "Delete this call log?",
-  });
+  const body = safeT("cm_ui_confirm_delete_call_log");
 
   return (
     <DibayConfirmDialog

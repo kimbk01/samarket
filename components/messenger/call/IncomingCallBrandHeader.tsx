@@ -18,14 +18,8 @@ export function IncomingCallBrandHeader({
   const isStarbucks = visualTheme === "starbucks";
   const appCallLine =
     mode === "video"
-      ? safeT("cm_ui_dibay_video_call_brand", {
-          fallbackKo: "DiBay 영상 통화",
-          fallbackEn: "DiBay video call",
-        })
-      : safeT("cm_ui_dibay_voice_call_brand", {
-          fallbackKo: "DiBay 음성 통화",
-          fallbackEn: "DiBay voice call",
-        });
+      ? safeT("cm_ui_dibay_video_call_brand")
+      : safeT("cm_ui_dibay_voice_call_brand");
   const CallKindIcon = mode === "video" ? Video : Phone;
 
   return (

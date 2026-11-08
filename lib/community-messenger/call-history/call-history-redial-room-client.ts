@@ -20,10 +20,7 @@ export type CallHistoryRedialRoomClientResult =
 export function callHistoryRedialRoomFailureMessage(error: string): string {
   const deny = resolveDirectCallDenyUserMessageFromApiError(error);
   if (deny) return deny;
-  return safeTranslate(getRuntimeAppLanguage(), "cm_call_deny_room_mismatch", {
-    fallbackKo: "이 대화방 상태에서는 통화를 시작할 수 없습니다.",
-    fallbackEn: "You cannot start a call in this room state.",
-  });
+  return safeTranslate(getRuntimeAppLanguage(), "cm_call_deny_room_mismatch");
 }
 
 export async function resolveCallHistoryRedialRoomClient(input: {

@@ -393,10 +393,7 @@ export async function hydrateCallV4CalleeScreen(callId: string): Promise<boolean
 }
 
 function outgoingMissingRoomMessage(): string {
-  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_outgoing_missing_room", {
-    fallbackKo: "방 정보가 없어 통화를 시작할 수 없습니다.",
-    fallbackEn: "Cannot start a call because room information is missing.",
-  });
+  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_outgoing_missing_room");
 }
 
 function outgoingGenericErrorMessage(): string {

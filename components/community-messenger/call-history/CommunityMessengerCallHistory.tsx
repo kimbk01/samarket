@@ -126,10 +126,7 @@ export function CommunityMessengerCallHistory({
           >
             {loadingMore
               ? t("cm_ui_loading_conversation")
-              : safeT("cm_ui_call_peer_history_more", {
-                  fallbackKo: "통화 이력 더보기",
-                  fallbackEn: "See more call history",
-                })}
+              : safeT("cm_ui_call_peer_history_more")}
           </button>
         </div>
       ) : (

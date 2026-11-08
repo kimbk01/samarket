@@ -2209,10 +2209,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (session.sessionMode === "group") {
         if (!isCmGroupCallEnabled()) {
           alertOutgoingCallFailure(
-            safeT("cm_ui_call_direct_voice_only", {
-              fallbackKo: "지금은 1:1 음성 통화만 사용할 수 있습니다.",
-              fallbackEn: "Only 1:1 voice calls are available right now.",
-            }),
+            safeT("cm_ui_call_direct_voice_only"),
           );
           return;
         }

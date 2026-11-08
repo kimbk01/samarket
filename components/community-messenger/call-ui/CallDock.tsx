@@ -25,10 +25,7 @@ export function CallDock({ snapshot, onExpand, onEnd, onToggleMute }: CallDockPr
     <div
       className="pointer-events-auto w-full"
       role="region"
-      aria-label={safeT("cm_ui_call_dock_region", {
-        fallbackKo: "진행 중인 통화",
-        fallbackEn: "Ongoing call",
-      })}
+      aria-label={safeT("cm_ui_call_dock_region")}
     >
       <div
         className="flex items-center gap-3 rounded-ui-rect bg-[#006241] px-3 py-2.5 shadow-[0_8px_28px_rgba(0,61,41,0.42)] ring-1 ring-[#D4E9E2]/22"
@@ -41,10 +38,7 @@ export function CallDock({ snapshot, onExpand, onEnd, onToggleMute }: CallDockPr
         }}
         role="button"
         tabIndex={0}
-        aria-label={safeT("cm_ui_call_dock_restore", {
-          fallbackKo: "통화 화면으로 돌아가기",
-          fallbackEn: "Return to call screen",
-        })}
+        aria-label={safeT("cm_ui_call_dock_restore")}
       >
         <DockThumb snapshot={snapshot} />
         <div className="min-w-0 flex-1">
@@ -56,8 +50,8 @@ export function CallDock({ snapshot, onExpand, onEnd, onToggleMute }: CallDockPr
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#003D29]/45 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/18"
           aria-label={
             snapshot.micMuted
-              ? safeT("cm_ui_unmute", { fallbackKo: "음소거 해제", fallbackEn: "Unmute" })
-              : safeT("cm_ui_mute", { fallbackKo: "음소거", fallbackEn: "Mute" })
+              ? safeT("cm_ui_unmute")
+              : safeT("cm_ui_mute")
           }
           onClick={(event) => {
             event.stopPropagation();
@@ -69,7 +63,7 @@ export function CallDock({ snapshot, onExpand, onEnd, onToggleMute }: CallDockPr
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#C0392B] text-white shadow-sm"
-          aria-label={safeT("cm_ui_end_call", { fallbackKo: "통화 종료", fallbackEn: "End call" })}
+          aria-label={safeT("cm_ui_end_call")}
           onClick={(event) => {
             event.stopPropagation();
             onEnd();
@@ -80,10 +74,7 @@ export function CallDock({ snapshot, onExpand, onEnd, onToggleMute }: CallDockPr
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#003D29]/45 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/18"
-          aria-label={safeT("cm_ui_call_dock_expand", {
-            fallbackKo: "통화 화면 펼치기",
-            fallbackEn: "Expand call screen",
-          })}
+          aria-label={safeT("cm_ui_call_dock_expand")}
           onClick={onExpandClick}
         >
           <Maximize2 size={16} strokeWidth={2.25} />

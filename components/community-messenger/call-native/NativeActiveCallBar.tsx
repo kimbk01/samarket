@@ -141,11 +141,8 @@ export function NativeActiveCallBar() {
 
   if (!visible || typeof document === "undefined") return null;
 
-  const label = safeT("cm_ui_native_call_bar_label", { fallbackKo: "통화 중", fallbackEn: "On a call" });
-  const returnLabel = safeT("cm_ui_native_call_bar_return", {
-    fallbackKo: "통화 화면으로 돌아가기",
-    fallbackEn: "Return to call",
-  });
+  const label = safeT("cm_ui_native_call_bar_label");
+  const returnLabel = safeT("cm_ui_native_call_bar_return");
   const duration = formatNativeCallBarDuration(connectedAt, nowMs);
 
   return createPortal(

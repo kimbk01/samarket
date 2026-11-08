@@ -27,8 +27,8 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
 
   const title =
     kind === "video"
-      ? safeT("cm_ui_face_talk_label", { fallbackKo: "영상통화", fallbackEn: "Video Call" })
-      : safeT("cm_ui_voice_talk_label", { fallbackKo: "음성통화", fallbackEn: "Voice Call" });
+      ? safeT("cm_ui_face_talk_label")
+      : safeT("cm_ui_voice_talk_label");
   const openedAtRef = useRef(0);
 
   useEffect(() => {
