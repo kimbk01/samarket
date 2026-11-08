@@ -122,6 +122,10 @@ export function AppLanguageProvider({
         .then((m) => m.setNativeAppLanguage(display))
         .catch(() => undefined);
     }
+    /** S8-6 — 이 기기의 실제 화면 언어를 서버에 기록(서버 알림 문구 언어). 같은 값·기록 완료는 모듈 안에서 생략 */
+    void import("@/lib/i18n/report-device-app-language")
+      .then((m) => m.reportDeviceAppLanguage(getCurrentUser()?.id, r.resolved))
+      .catch(() => undefined);
     const last = lastAppliedRef.current;
     if (last && last.resolved === r.resolved && last.preference === r.preference) return;
     const languageChanged = !last || last.resolved !== r.resolved;

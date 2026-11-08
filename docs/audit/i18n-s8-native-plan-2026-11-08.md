@@ -469,6 +469,31 @@ S8-6b 커밋 되돌리기 → 이전 순서. 열·기본값은 남겨도 무해(
 3. 채팅 목록 RPC(D4) 를 S8-6a 마이그레이션에 함께 넣을지 — 권장: 넣음(같은 원인, 같은 기본값 변경).
 4. S8-6a 운영 DB 적용 승인(별도).
 
+## 18. S8-6 결과 (2026-11-08 — Owner 「권장대로 승인」: 안·134행 그대로·D4 함께·운영 적용)
+
+### 18-0. 계획과 다르게 한 것 (먼저 보고)
+- **§17-1 S8-6b ③ 「사진」「사진 n장」「(이미지)」 키화 — 하지 않음.** 확인 결과 푸시와 무관: 거래 채팅 푸시 본문은 `chat_messages.message_type=image` 로 받는 사람 언어 카탈로그 문구(`notify_preview_sent_photo`)를 이미 사용(`build-message-notification-display.ts` `resolvePreviewText`), 그룹 경로는 운영 `group_messages` 0행. 이 문구는 **양쪽이 함께 보는 저장 미리보기** 문제라 별도 설계 → 발견 목록 **L21**.
+
+### 18-1. S8-6a 운영 DB (적용 18:45 PHT, 마이그레이션 `20271108190000_i18n_s8_6_server_push_language.sql`)
+
+| 항목 | 적용 전 | 적용 후 |
+|---|---|---|
+| `user_settings.preferred_language` 기본값 | `'ko'` | `''` |
+| 기존 설정 134행 | ko 97 · en 37 | 그대로 (명시값 아닌 행 0) |
+| `user_devices.app_language` | 없음 | `text null`, 검사 `ko`/`en`/null |
+| `get_chat_rooms_snapshot` 정의 md5 | `c9d702a7…` | 새 언어 문장을 이전 문장으로 되돌리면 `c9d702a7…` 와 같음 → **언어 CTE 외 변경 0** · SECURITY DEFINER·권한 유지 |
+| 채팅 목록 `user_lang`(전 사용자 134명 실행) | profiles 기준 | ko 97 · en 37 = 계정 설정과 일치. 바뀐 25명(ko→en 22, en→ko 3)은 앱 설정 언어와 맞춰진 것(D4) |
+
+### 18-2. S8-6b 웹·서버
+- `POST /api/me/devices/app-language` — 본인 + 이 기기(device_id) 행의 `app_language` 만 갱신. 동의 게이트 예외 = 기기 등록과 같은 `device_notification`.
+- `lib/i18n/report-device-app-language.ts` — `AppLanguageProvider.apply` 에서 화면 언어 결과값(기기 따름 포함)을 기록. 서버가 행을 바꾼 값만 기억, 행 없음·실패는 1분 간격 재시도, throw 없음. 웹만 바뀌므로 구 앱도 동작.
+- `loadNotificationUserLanguage` = 계정 명시값 → 최근 활성 기기 `app_language` → en. profiles 읽기 삭제.
+- 통화: `lib/push/**`·`lib/community-messenger/service.ts`·네이티브 diff 0.
+
+### 18-3. 검증
+- 코드 PASS: vitest(알림·i18n·채팅·동의 게이트 240+파일), typecheck 2종, eslint, `check:i18n-quality`.
+- NOT_PROVEN: 운영 `user_devices.app_language` 기록(main 반영 후 앱 재시작 필요) · 기기 따름 사용자 푸시 언어 수신 캡처.
+
 ## 부록 A — 통화·알림 네이티브 한국어 문자열 114개 (역할)
 
 | 위치 | 문자열 | 역할 |

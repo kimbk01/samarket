@@ -76,6 +76,7 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   // device / notification opt-out & delivery plumbing
   R("POST", "/api/me/devices/deactivate", "device_notification"),
   R("POST", "/api/me/devices/register", "device_notification"),
+  R("POST", "/api/me/devices/app-language", "device_notification"),
   R("POST", "/api/me/push/subscribe", "device_notification"),
   R("DELETE", "/api/me/push/unsubscribe", "device_notification"),
   R("PATCH", "/api/me/notification-settings", "device_notification"),

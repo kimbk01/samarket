@@ -1,5 +1,5 @@
 /**
- * OPS-10 — 리뷰 답글 알림 제목·본문이 주문자 언어(profiles.preferred_language)로 나간다.
+ * OPS-10 — 리뷰 답글 알림 제목·본문이 주문자 언어(계정 설정 `user_settings.preferred_language`, S8-6)로 나간다.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,7 +14,7 @@ function makeSb() {
         eq: () => b,
         update: () => b,
         maybeSingle: async () => {
-          if (table === "profiles") return { data: { preferred_language: buyerLanguage }, error: null };
+          if (table === "user_settings") return { data: { preferred_language: buyerLanguage }, error: null };
           return {
             data: { id: "r-1", order_id: "o-1", store_id: "store-1", buyer_user_id: "buyer-1", owner_reply_content: null },
             error: null,

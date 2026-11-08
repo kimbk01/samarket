@@ -126,7 +126,7 @@ describe("FLW-06 — 구매자 취소 요청 승인 알림 문구", () => {
           limit: vi.fn(() => chain),
           maybeSingle: vi.fn(async () => {
             if (table === "store_order_cancel_requests") return { data: cancelRequestRow, error: null };
-            if (table === "profiles") return { data: { preferred_language: "ko" }, error: null };
+            if (table === "user_settings") return { data: { preferred_language: "ko" }, error: null };
             if (table === "stores") return { data: { store_name: "테스트매장" }, error: null };
             return { data: null, error: null };
           }),
