@@ -4,6 +4,8 @@
  */
 export const copyAdminMessages = {
   ko: {
+    admin_menu_trade_label_name_en: "영어 이름 (필수 — 영어 화면 표시)",
+    admin_name_en_required: "영어 이름을 입력해 주세요. 영어 화면에 이 이름이 보입니다.",
     admin_count_items: "{n}건",
     admin_popup_delete_one_default_title: "팝업 캠페인",
     admin_popup_delete_one_confirm: "'{title}'을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.",
@@ -1142,6 +1144,8 @@ export const copyAdminMessages = {
     admin_days_d: "{days}일",
   },
   en: {
+    admin_menu_trade_label_name_en: "English name (required — shown on English screens)",
+    admin_name_en_required: "Enter the English name. It is shown on English screens.",
     admin_count_items: "{n}",
     admin_popup_delete_one_default_title: "this draft popup",
     admin_popup_delete_one_confirm: "Delete '{title}'? This cannot be undone.",

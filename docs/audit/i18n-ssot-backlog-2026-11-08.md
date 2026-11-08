@@ -20,3 +20,5 @@
 | L13 | S6 | 한국어 전용 수량 접미사 「건」(영어 없음) 4곳 — 카탈로그 값은 빈 값 불가라 그대로 둠. `{n}건`/`{n}` 같은 수량 키로 옮겨야 함 | S6 check:i18n | S6 2단계 |
 | L14 | S6 | 어드민 인라인 표에 숨어 있던 「홍보」 표기 3키(`admin_advertising`·`admin_promotion` 「광고·홍보」, `admin_delivery_store_list_promote` 「상위홍보」) — 카탈로그로 옮기며 D-15 검사에 드러남. D-15 범위 밖 목록(보고만)에 넣어 둠. 또 `AdminDeliveryAdsControlPlane` 은 화면에 「매장 홍보·배너 승인·운영」을 보여 주는데 S6 전 테스트는 소스의 다른 대체 문구를 보고 「홍보 0」 PASS 하고 있었음 | S6 2단계 테스트 | **Owner 결정 필요** — D-15 적용 여부 |
 | L15 | S6 | 변수 키 `safeT(x as MessageKey, { fallbackKo, fallbackEn })` 141곳(어드민 83·고객·사장님 58, 통화 제외)과 어드민 용어 표(`lib/admin/management/terminology.ts` — 일부 `i18nKey` 가 카탈로그에 없어 대체 문구가 실제 화면 문구) — 키 후보를 열거해 카탈로그에 넣거나 키 타입을 좁혀야 대체 문구를 지울 수 있음 | S6 2단계 집계 | 기록 — 계획 완료 후 감사(어드민분은 S9 와 함께) |
+| L16 | S7 | 어드민 오류 문구가 한국어로 고정된 경로 — 커뮤니티 주제 화면 `topicErrorText`(한국어 문장 + `adminOperatorErrorMessage(c, true)`), 거래 카테고리 `ERROR_KO` 표 | S7 오류 문구 연결 중 | 기록 — S9(어드민 영어) |
+| L17 | S7 | 코드에 한국어만 박힌 화면 문구(영어 짝 없음) — 예: 「(제목 없음)」 2곳, 커뮤니티 주제 오류 문장. `check:i18n-quality` 는 영어 짝이 있는 형태만 셈 | S7 DB 문장 조사 중 | 기록 — 계획 완료 후 감사(`check-hardcoded-korean` 기준선과 연결) |
