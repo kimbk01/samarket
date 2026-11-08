@@ -94,8 +94,8 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
   }),
   item({
     key: "admin_notice_legacy",
-    labelKo: "옛 관리자 공지",
-    labelEn: "Legacy admin notice",
+    labelKo: "이전 관리자 공지",
+    labelEn: "Admin notice (old)",
     audience: "member",
     match: { eventTypes: ["admin_notice", "notice_published"], kinds: ["", "admin_notice"] },
     soundEventKey: "item_admin_notice_legacy",
