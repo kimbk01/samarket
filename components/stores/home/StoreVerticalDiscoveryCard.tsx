@@ -1,6 +1,10 @@
 "use client";
 import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  resolveStoreTaxonomyPrimaryDisplayName,
+  resolveStoreTaxonomyTopicDisplayName,
+} from "@/lib/stores/resolve-store-taxonomy-display-name";
 
 import Link from "next/link";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -72,6 +76,8 @@ export type StoreVerticalCardModel = Pick<
   | "slug"
   | "nameKo"
   | "tagline"
+  | "primarySlug"
+  | "subSlug"
   | "primaryNameKo"
   | "subNameKo"
   | "regionLabel"
@@ -107,6 +113,8 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     slug: store.slug,
     nameKo: store.nameKo,
     tagline: store.tagline,
+    primarySlug: store.primarySlug,
+    subSlug: store.subSlug,
     primaryNameKo: store.primaryNameKo,
     subNameKo: store.subNameKo,
     regionLabel: store.regionLabel,
@@ -139,6 +147,8 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     slug: store.slug,
     nameKo: store.nameKo,
     tagline: store.tagline,
+    primarySlug: store.primarySlug ?? "",
+    subSlug: "",
     primaryNameKo: store.primaryNameKo ?? "",
     subNameKo: "",
     regionLabel: store.regionLabel,
@@ -174,7 +184,7 @@ export function StoreVerticalDiscoveryCard({
   /** 광고·추천 등 부가 라벨 */
   adHint?: string | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(store.slug);
   const freeDeliveryLabel = t("store_free_delivery_applied");
@@ -244,10 +254,14 @@ export function StoreVerticalDiscoveryCard({
   const prefetchProductDetail = (_productId: string) => {
     /* RSC storm 방지 — 상품 상세는 탭 시 `deliveryStoreDetailPrefetch`·Link 마운트로만 */
   };
-  const primaryName = store.primaryNameKo?.trim() || t("store_fallback_name");
+  /** 업종 이름 — 저장값(한국어)이 아니라 화면 언어로 (`/stores` 배달 UI 와 같은 함수) */
+  const primaryName =
+    store.primaryNameKo?.trim() ?
+      resolveStoreTaxonomyPrimaryDisplayName(language, store.primarySlug ?? "", store.primaryNameKo)
+    : t("store_fallback_name");
   const categoryLine =
     store.subNameKo?.trim() ?
-      `${primaryName} · ${store.subNameKo}`
+      `${primaryName} · ${resolveStoreTaxonomyTopicDisplayName(language, store.subSlug ?? "", store.subNameKo)}`
     : primaryName;
 
   const distLabel =

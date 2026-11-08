@@ -67,6 +67,8 @@ import {
   resolveHomeFeedProductFetchCap,
 } from "@/lib/stores/store-home-feed-product-fetch-cap";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
+import { localizedStorePrepLabel } from "@/lib/stores/store-delivery-eta-label";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
@@ -665,7 +667,9 @@ export async function GET(req: Request) {
 
       const minPhp = extras.minOrderPhp;
       const minOrderLabel =
-        minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
+        minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ?
+          translate(uiLang, "store_min_order_amount_colon", { amount: formatMoneyPhp(minPhp) })
+        : null;
 
       let distanceKm: number | null = distById.get(r.id) ?? null;
       let distancePolicyApplied = false;
@@ -700,7 +704,7 @@ export async function GET(req: Request) {
         maxDeliveryDistanceKm = svc.applies ? svc.maxKm : null;
       }
 
-      const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
+      const regionLabel = formatStoreLocationLine(r) ?? translate(uiLang, "store_location_unregistered");
 
       const effective = effectiveById.get(r.id) ?? r;
       const isSameAddress = isSameDeliveryAddressForList(origin, effective);
@@ -743,7 +747,7 @@ export async function GET(req: Request) {
         deliveryAvailable: !!r.delivery_available,
         pickupAvailable: r.pickup_available !== false,
         minOrderLabel,
-        estPrepLabel: extras.estPrepLabel,
+        estPrepLabel: localizedStorePrepLabel(extras, uiLang),
         prepMinutes: extras.prepMinutes,
         rideMinutes,
         etaLabel,

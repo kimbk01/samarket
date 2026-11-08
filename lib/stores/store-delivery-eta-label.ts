@@ -10,6 +10,20 @@ function etaT(
   return translate(lang, key, vars);
 }
 
+/**
+ * API 의 `estPrepLabel` — 분 숫자가 있으면 요청 언어로(`30분` / `30 min`), 없으면 사장님이 적은 글 그대로.
+ * (`parseCommerceExtrasFromHoursJson` 은 언어를 모르고 `{n}분` 을 만든다 — 화면 문구는 여기서만.)
+ */
+export function localizedStorePrepLabel(
+  extras: { prepMinutes: number | null; estPrepLabel: string },
+  lang: AppLanguageCode
+): string {
+  if (extras.prepMinutes != null && Number.isFinite(extras.prepMinutes)) {
+    return etaT(lang, "store_prep_minutes_unit", { minutes: Math.round(extras.prepMinutes) });
+  }
+  return extras.estPrepLabel;
+}
+
 /** 라이딩 분이 없을 때 목록·카드에 쓰는 조리 중심 라벨 */
 export function formatPrepOnlyEtaLabel(
   extras: Pick<CommerceExtrasFromHours, "estPrepLabel">,

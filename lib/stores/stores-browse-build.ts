@@ -56,6 +56,8 @@ import type { BrowseTaxonomySlice } from "@/lib/stores/stores-browse-taxonomy-ca
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { localizedStorePrepLabel } from "@/lib/stores/store-delivery-eta-label";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import {
   deliveryMenuIncludesStore,
@@ -1028,7 +1030,7 @@ export function assembleStoresBrowseResponse(
     /** CUT 2 — display/status OOR always from dual-mode evaluator (not shadow prefer). */
     const distanceOutOfRange = rowDistance.outOfRange;
     const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r, distanceOutOfRange);
-    const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
+    const regionLabel = formatStoreLocationLine(r) ?? translate(uiLang, "store_location_unregistered");
     const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
     const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
 
@@ -1091,7 +1093,7 @@ export function assembleStoresBrowseResponse(
       isFeatured: isStoreFeaturedActive(r, featuredNowMs),
       isSampleStore: r.is_sample_store === true,
       firstListedAt: r.first_listed_at ?? null,
-      estPrepLabel: extras.estPrepLabel,
+      estPrepLabel: localizedStorePrepLabel(extras, uiLang),
       prepMinutes: extras.prepMinutes,
       rideMinutes,
       etaLabel: rowLabels.etaLabel,
