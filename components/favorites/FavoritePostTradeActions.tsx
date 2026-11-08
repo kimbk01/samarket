@@ -140,6 +140,10 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     chatBlockedByOtherReservation ||
     (isSold && !allowChatAfterSold && !existingRoomId);
 
+  /**
+   * 채팅 버튼에 잠시 머물면 채팅 화면만 미리받기 — 방 생성 POST 는 하지 않는다.
+   * T1 (Owner 「T1 구현 승인」 2026-11-09): 마우스만 올려도 메시지 없는 방이 생기던 결함. 생성 선행은 pointerdown·탭에서만.
+   */
   const scheduleTradeChatPrepare = useCallback(() => {
     if (!showChat || existingRoomId) return;
     if (chatBlockedByOtherReservation) return;
@@ -152,7 +156,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
         existingRoomId,
         existingRoomSource,
         existingMessengerRoomId,
-        prepareIfCreate: true,
+        prepareIfCreate: false,
       });
     }, 180);
   }, [

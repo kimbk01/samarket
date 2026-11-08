@@ -1007,7 +1007,10 @@ export function PostDetailView({
   const showJobApplyBtn = ctaPolicy.showJobApplyBtn;
   const showJobHireMergedApplyChatBtn = ctaPolicy.jobHireMergedApplyChatBtn;
 
-  /** 채팅 버튼에 잠시 머물면 POST 선행 — 탭 시 inflight/캐시로 체감 지연 감소 */
+  /**
+   * 채팅 버튼에 잠시 머물면 채팅 화면만 미리받기 — 방 생성 POST 는 하지 않는다(T1: 마우스만 올려도 빈 방 생성).
+   * 방 생성 선행은 누르기 시작(pointerdown)·탭 경로에서만.
+   */
   const scheduleTradeChatPrepare = useCallback(() => {
     if (!uiTradeChatEnabled) return;
     if (existingTradeRoomId) return;
@@ -1022,7 +1025,7 @@ export function PostDetailView({
         existingRoomId: existingTradeRoomId,
         existingRoomSource: existingTradeRoomSource,
         existingMessengerRoomId: existingTradeMessengerId,
-        prepareIfCreate: true,
+        prepareIfCreate: false,
       });
     }, 72);
   }, [
@@ -1088,7 +1091,12 @@ export function PostDetailView({
     prefetchTradeChatShell,
   ]);
 
-  /** 상세 진입 직후 채팅 라우트·선행 resolve — 탭 전 호버 없이도 체감 지연 완화 */
+  /**
+   * 상세 진입 직후 채팅 화면 미리받기만 — 방 생성·재오픈(resolve POST)은 하지 않는다.
+   * T1 (Owner 「T1 구현 승인」 2026-11-09): 보기만 해도 메시지 없는 채팅방이 생기고(운영 444개 중 270개),
+   * 기존 방은 재오픈·숨김 참여자 되살림이 일어나던 결함. 방은 「채팅하기」를 누를 때(pointerdown·탭)만 만든다.
+   * @see docs/audit/seven-defects-design-2026-11-09.md (브랜치) §T1
+   */
   useEffect(() => {
     if (resolvedViewerId === undefined || resolvedViewerId === null) return;
     if (postOwnedByUserId(post as unknown as Record<string, unknown>, resolvedViewerId)) return;
@@ -1098,7 +1106,7 @@ export function PostDetailView({
       existingRoomId: existingTradeRoomId,
       existingRoomSource: existingTradeRoomSource,
       existingMessengerRoomId: existingTradeMessengerId,
-      prepareIfCreate: !existingTradeRoomId,
+      prepareIfCreate: false,
     });
   }, [
     post,
