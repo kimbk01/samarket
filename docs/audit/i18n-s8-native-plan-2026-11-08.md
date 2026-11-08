@@ -417,6 +417,58 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 | 검증 (코드 PASS) | Android 단위 테스트 198개 중 195 PASS(실패 3 = 이전부터, L19) — 새 2건: 통화 채널 다시 붙인 뒤 중요도·진동·소리 그대로·없는 채널 안 만듦 / 통화 알림이 떠 있으면 통화 채널 미룸·판 미저장 → 알림 사라진 뒤 붙음 · `assembleDebug` · vitest 문자열 계약(통화 채널 글자·개발 용어 0) · 통화 검사 14종 **S8-4b 전후 같은 결과**(PASS 8 · 이전부터 실패 6 같은 내용) |
 | 실기기 | **NOT_PROVEN** — 기기 덤프 대조 + §8 통화 행렬 |
 
+## 17. S8-6 상세 계획 (서버 푸시 문구 언어 · L3, 2026-11-08 — Owner 「S8-6 계획 보고」) · **계획만, 구현은 승인 후**
+
+### 17-0. 확인한 사실 (운영 DB 읽기 전용 · 18:40 PHT 조회 / 코드 `2799e03f1`)
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 푸시 제목·본문 출처 | 알림 행(`notification_events.title/body`)을 **그대로** 보냄. 발송 단계(`lib/push/dispatch/**`)에는 언어 처리 없음 | `notify-push-dispatcher.ts:98-99` |
+| 문구 언어 결정 | 알림을 만들 때 받는 사람 1명 기준 1회 — `loadNotificationUserLanguage` (33곳·작성 파일 38개 중 대부분) | grep |
+| 현재 순서 | `user_settings.preferred_language`(ko/en) → 없으면 **폐기 열** `profiles.preferred_language` | `notification-user-language.ts` |
+| `user_settings.preferred_language` 기본값 | **`'ko'`** — 그래서 134행 전부 ko 97·en 37 「명시값」. 서버가 「기기 언어 따름」 사용자를 구분할 방법이 지금 **없음** | 운영 DB |
+| profiles 와 설정이 다른 사용자 | 25명 (설정 없는 프로필 0 → 지금 profiles 대체는 실제로 쓰이지 않음) | 운영 DB |
+| `user_devices` 언어 열 | 없음 | 운영 DB 열 목록 |
+| 알림 기기(fcm·apns)가 2대 이상인 사용자 | **0명** (활성 기기 보유 30명) | 운영 DB |
+| 언어 무시 한국어 고정 푸시 문구 | 거래 채팅 「사진」·「사진 n장」(`chat/room/[roomId]/send:175`, `chat/rooms/[roomId]/messages:320·355`), 그룹 채팅 「(이미지)」「사진」(`group-chat/rooms/[roomId]/messages:125·142`) | grep |
+
+**결론:** S8-6 의 핵심 문제는 「기기별 언어」가 아니라 **서버가 「기기 언어 따름」을 모른다는 것**이다(기본값 `'ko'` 때문). 이건 설계 §6 Owner 결정 ①(기존 134행 처리)·S1-DB(기본값 `''`) 와 같은 원인이다.
+
+### 17-1. 안 (작업자 권장)
+
+| 단계 | 내용 | 바뀌는 곳 | 통화 |
+|---|---|---|---|
+| **S8-6a DB** | ① `user_settings.preferred_language` 기본값 `'ko'` → `''`(= 기기 언어 따름) ② `user_devices.app_language text null`(ko/en 검사) 열 추가 ③ 기존 134행: **Owner 결정 ①** 필요 — 권장 = 손대지 않음(사용자 선택과 자동 값을 구분할 수 없으므로 지우면 실제 선택한 사람의 언어가 바뀜) | `supabase/migrations` · **운영 적용 Owner 승인** | 무관 |
+| **S8-6b 웹·서버** | ① 앱이 화면 언어를 정할 때(시작·변경) **지금 기기에서 실제로 쓰는 언어**(ko/en)를 새 API `POST /api/me/devices/app-language` 로 기록 — 기기 등록 RPC(통화 토큰 등록 경로)는 **건드리지 않음**. 구 바이너리도 웹이 보내므로 새 빌드 불필요 ② `loadNotificationUserLanguage` 순서 = 계정 명시값(ko/en) → 최근 활성 기기의 `app_language` → en. **profiles 대체 삭제**(설계 SSOT §2) ③ 한국어 고정 미리보기 「사진」「사진 n장」「(이미지)」 → 받는 사람 언어 카탈로그 키 | `lib/notifications/notification-user-language.ts`, `components/i18n/AppLanguageProvider`, 새 API 1개, 채팅 send 라우트 3개, catalog | **통화 푸시 제외** — 아래 |
+| 통화 | 통화 푸시(VoIP/FCM) 제목·본문은 **바꾸지 않음**(§1 원칙 2 — 구 앱 「님의 전화」·「영상」 판정 의존). 수신 화면 언어는 S8-3 네이티브 리소스가 이미 정함. `lib/community-messenger/service.ts` 통화 함수·`lib/push/**` 발송 diff 0 이 승인 조건 | — | **diff 0 확인** |
+
+**기기별(같은 사용자의 기기마다 다른 언어) 문구는 만들지 않는다** — 알림 기기 2대 이상 사용자 0명이고, 문구가 알림 행 1개에 저장되므로 기기별로 하려면 발송 단계(통화와 같은 `dispatch`)를 바꿔야 한다. 계정 1언어 = 최근 기기 언어로 충분.
+
+### 17-2. 영향·깨질 수 있는 것 → 같은 단계 처리
+
+| 바뀌는 것 | 영향 | 처리 |
+|---|---|---|
+| 기본값 `''` | 새 가입자 설정이 「기기 언어 따름」 → 클라이언트 `resolveClientAppLanguage` 는 이미 빈 값 = 기기 언어(S1) · 채팅 목록 RPC `get_chat_rooms_snapshot` 은 **profiles 를 읽음**(D4) | D4 RPC 수정은 S1-DB 범위 — 같은 마이그레이션에 넣을지 **Owner 결정**(넣지 않으면 기존 동작 유지, 회귀 없음) |
+| profiles 대체 삭제 | 지금 설정 없는 프로필 0 → 실제 영향 0 (운영 DB) | 단위 테스트 |
+| 기기 언어 기록 실패(네트워크·비로그인) | 기록 없으면 en — **지금(ko 기본)보다 영어가 되는 사람**: 기본값 `''` 이후 가입·기기 기록 전 사용자만 | 앱 시작마다 기록(값 같으면 생략) |
+| 이메일 알림(`send-notification-email-resend`) | 같은 함수 사용 → 같은 순서 | 단위 테스트 |
+
+### 17-3. 검증
+
+- 코드: 언어 순서 단위 테스트(명시 ko/en · 빈 값+기기 ko/en · 기기 없음 → en), 새 API 권한(본인 기기만), 통화 파일 diff 0, typecheck·eslint·관련 vitest.
+- 운영(적용 후): `user_devices.app_language` 기록 대조, 언어 조건별 `notification_events.title` 언어 대조, 수신 캡처 ko/en — **NOT_PROVEN 까지는 PASS 아님**.
+
+### 17-4. 되돌리기
+
+S8-6b 커밋 되돌리기 → 이전 순서. 열·기본값은 남겨도 무해(기본값은 `'ko'` 로 되돌리는 마이그레이션 1개).
+
+### 17-5. Owner 결정 필요
+
+1. S8-6 안(계정 명시값 → 최근 기기 언어 → en, 기기별 문구 없음) 승인.
+2. 설계 §6 ① 기존 134행 처리 — 권장: 그대로 둠.
+3. 채팅 목록 RPC(D4) 를 S8-6a 마이그레이션에 함께 넣을지 — 권장: 넣음(같은 원인, 같은 기본값 변경).
+4. S8-6a 운영 DB 적용 승인(별도).
+
 ## 부록 A — 통화·알림 네이티브 한국어 문자열 114개 (역할)
 
 | 위치 | 문자열 | 역할 |
