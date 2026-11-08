@@ -10,6 +10,7 @@ import type {
   PromotionDistributionToggleDraft,
 } from "@/lib/platform-promotion-distribution/types";
 import { emptyDistributionToggles } from "@/lib/platform-promotion-distribution/types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export async function listDistributionsForEvent(
   sb: SupabaseClient,
@@ -63,7 +64,7 @@ export function channelSummaryFromToggles(
   const on = (["popup", "banner", "push", "bell"] as const)
     .filter((k) => toggles[k])
     .map((k) => labels[k]);
-  if (on.length === 0) return lang === "en" ? "No channels" : "채널 없음";
+  if (on.length === 0) return translateBy(lang, "platform_promotion_distribution_no_channels");
   return on.join(" · ");
 }
 

@@ -4,6 +4,7 @@
  * Scope B WP4 — event board list contract, EVT-02 ended view, availability helper, admin validation.
  */
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -184,10 +185,10 @@ describe("WP4 EVT-02 public view contract (no 410)", () => {
 
   it("detail route + page use the view contract and never answer 410", () => {
     const root = process.cwd();
-    const route = readFileSync(join(root, "app/api/platform-events/[eventId]/route.ts"), "utf8");
+    const route = withCatalogCopy(readFileSync(join(root, "app/api/platform-events/[eventId]/route.ts"), "utf8"));
     expect(route).toContain("resolvePlatformEventPublicView");
     expect(route).not.toMatch(/\b410\b/);
-    const content = readFileSync(join(root, "components/platform-events/PlatformEventDetailContent.tsx"), "utf8");
+    const content = withCatalogCopy(readFileSync(join(root, "components/platform-events/PlatformEventDetailContent.tsx"), "utf8"));
     expect(content).toContain("종료된 이벤트입니다");
     expect(content).toContain("openDestination");
     expect(content).not.toMatch(/<Link\b/);

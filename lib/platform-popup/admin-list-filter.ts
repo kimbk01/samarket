@@ -4,6 +4,7 @@
  */
 
 import { PLATFORM_POPUP_CAMPAIGN_STATUSES } from "@/lib/platform-popup/types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 상태 필터 특수값 — 「지금 노출 중」(운영 상태 ACTIVE: status=active · 시작 ≤ 지금 · 종료 없음/≥ 지금). */
 export const PLATFORM_POPUP_LIVE_STATUS_FILTER = "live" as const;
@@ -15,5 +16,5 @@ export const PLATFORM_POPUP_ADMIN_LIST_STATUS_FILTERS: readonly string[] = [
 ];
 
 export function platformPopupLiveStatusFilterLabel(lang: "ko" | "en"): string {
-  return lang === "en" ? "Live now" : "지금 노출 중";
+  return translateBy(lang, "platform_popup_live_now");
 }

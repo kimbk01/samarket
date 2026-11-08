@@ -4,6 +4,7 @@
  * R8-b 「상위노출」 번역 키 · R8-c 0P 승인 확정 줄 숨김 · R4 직접 기간 확인.
  */
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { describe, expect, it } from "vitest";
 import { orderLedgerChainDesc } from "@/lib/finance/ledger-chain-order";
 import {
@@ -35,7 +36,7 @@ import {
 import { pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
 
 const P = { period: "this_month" as const, fromDay: null, toDay: null, fromIso: null, toIso: null };
-const read = (f: string) => readFileSync(f, "utf8");
+const read = (f: string) => withCatalogCopy(readFileSync(f, "utf8"));
 const ORDER = "11111111-1111-4111-8111-111111111111";
 
 describe("R3-g 보류 중 칸 — 사용·환불 이중 계산 없음", () => {
@@ -294,7 +295,8 @@ describe("R6 쪽 이동 · 주소 · 대기 · 취소 시각 / R4 직접 기간"
     // 실기 발견 결함 4 — 취소 시각만 다른 형식이던 것 → 신청·처리와 같은 formatMypageDate
     const list = read("components/points/PointChargeRequestList.tsx");
     expect(list).not.toContain("formatPointChargePht");
-    expect(list).toMatch(/"취소"\} \{formatMypageDate\(stamp\.at, \{ style: "datetime"/);
+    /** 언어 SSOT S6: 「취소」 = 카탈로그 points_cancelled */
+    expect(list).toMatch(/translateBy\(language, "points_cancelled"\)\} \{formatMypageDate\(stamp\.at, \{ style: "datetime"/);
   });
 
   it("충전 신청 기간 합계는 「신청일 기준」", () => {

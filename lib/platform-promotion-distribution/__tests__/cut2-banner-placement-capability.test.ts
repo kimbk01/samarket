@@ -3,6 +3,7 @@
  * CUT 2 — Banner placement capability registry + host parity.
  */
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -19,7 +20,7 @@ import { planBannerDistributionAdapter } from "@/lib/platform-promotion-distribu
 const ROOT = process.cwd();
 
 function readRepo(rel: string): string {
-  return readFileSync(join(ROOT, rel), "utf8");
+  return withCatalogCopy(readFileSync(join(ROOT, rel), "utf8"));
 }
 
 describe("CUT2 capability registry matrix", () => {

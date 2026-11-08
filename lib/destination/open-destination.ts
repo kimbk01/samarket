@@ -24,10 +24,7 @@ type RouterLike = { push: (href: string) => void };
 export function notifyDestinationOpenFailed(): void {
   if (typeof window === "undefined") return;
   const lang = getRuntimeAppLanguage();
-  const title = safeTranslate(lang, "destination_open_failed_title", {
-    fallbackKo: "열 수 없는 링크입니다",
-    fallbackEn: "This link can't be opened",
-  });
+  const title = safeTranslate(lang, "destination_open_failed_title");
   void import("@/components/ui/dibay-overlay/DibayAppDialogProvider")
     .then(({ dibayAlert }) => dibayAlert({ title }))
     .catch(() => {});

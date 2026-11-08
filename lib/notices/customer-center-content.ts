@@ -1,4 +1,5 @@
-/**
+
+import { translateBy } from "@/lib/i18n/translate-by";/**
  * Customer Center Content SSOT — physical table remains `app_notices`.
  * Campaigns = delivery copy; notification_events = Bell/read-state.
  */
@@ -94,7 +95,5 @@ export function isCustomerCenterContentPublishedNow(row: {
 }
 
 export function customerCenterContentUnavailableFallback(language: "ko" | "en" = "ko"): string {
-  return language === "en"
-    ? "This notice has ended or is no longer available."
-    : "이 안내는 종료되었거나 더 이상 제공되지 않습니다.";
+  return translateBy(language, "notices_this_notice_has_ended_or_is");
 }

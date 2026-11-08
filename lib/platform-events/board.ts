@@ -9,6 +9,7 @@
  * Order: is_pinned desc → sort_order asc → start desc → id (stable keyset cursor).
  */
 import { buildPlatformEventDetailPath, type PlatformEventRow } from "@/lib/platform-events/types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const PLATFORM_EVENT_BOARD_STATES = ["ongoing", "ended"] as const;
 export type PlatformEventBoardState = (typeof PLATFORM_EVENT_BOARD_STATES)[number];
@@ -221,7 +222,7 @@ export function formatPlatformEventPeriod(startsAt: string | null, endsAt: strin
   const a = startsAt ? fmt(startsAt) : "";
   const b = endsAt ? fmt(endsAt) : "";
   if (a && b) return `${a} – ${b}`;
-  if (a) return language === "en" ? `From ${a}` : `${a}부터`;
-  if (b) return language === "en" ? `Until ${b}` : `${b}까지`;
+  if (a) return translateBy(language, "platform_events_from_a", { a });
+  if (b) return translateBy(language, "platform_events_until_b", { b });
   return "";
 }

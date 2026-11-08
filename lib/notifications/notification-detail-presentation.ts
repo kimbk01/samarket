@@ -3,6 +3,7 @@
  * 저장된 알림 값(분류·meta·외부 링크·원본 여부)만 쓴다 — 목적지·읽음 판정은 바꾸지 않는다.
  */
 import type { MemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type NotificationDetailHeaderKey =
   | "notif_detail_header_notice"
@@ -191,9 +192,7 @@ export function formatNotificationDetailDateTime(iso: string, language: string):
       hour: "numeric",
       minute: "2-digit",
     }).format(d);
-    return language === "en"
-      ? `${get("weekday")}, ${get("month")}/${get("day")}/${get("year")} ${time}`
-      : `${get("year")}.${get("month")}.${get("day")} (${get("weekday")}) ${time}`;
+    return translateBy(language, "notifications_date_weekday_time", { year: get("year"), month: get("month"), day: get("day"), weekday: get("weekday"), time });
   } catch {
     return d.toISOString();
   }

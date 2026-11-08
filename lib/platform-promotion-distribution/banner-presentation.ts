@@ -1,4 +1,5 @@
-/**
+
+import { translateBy } from "@/lib/i18n/translate-by";/**
  * Event / Platform Promotion Banner — Placement × Presentation capability SSOT.
  *
  * ONE matrix controls BOTH:
@@ -150,9 +151,9 @@ export function eventBannerPresentationLabel(
   lang: "ko" | "en"
 ): string {
   if (presentation === "HERO_BANNER") {
-    return lang === "en" ? "Hero banner" : "히어로 배너";
+    return translateBy(lang, "platform_promotion_distribution_hero_banner");
   }
-  return lang === "en" ? "Inline banner" : "인라인 배너";
+  return translateBy(lang, "platform_promotion_distribution_inline_banner");
 }
 
 export function eventBannerPlacementLabel(
@@ -160,9 +161,9 @@ export function eventBannerPlacementLabel(
   lang: "ko" | "en"
 ): string {
   if (placement === "COMMUNITY_HOME") {
-    return lang === "en" ? "Community home" : "커뮤니티 홈";
+    return translateBy(lang, "platform_promotion_distribution_community_home");
   }
-  return lang === "en" ? "Trade home" : "거래 홈";
+  return translateBy(lang, "platform_promotion_distribution_trade_home");
 }
 
 export function eventBannerImageGuidance(

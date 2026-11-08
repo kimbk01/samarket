@@ -8,6 +8,7 @@ import { tradeFieldAdminLabel } from "@/lib/trade/category-form/field-admin-labe
 import { resolveTradeComposition } from "@/lib/trade/category-form/resolve-composition";
 import { jobWorkCategoryDisplay } from "@/lib/jobs/form-options";
 import { formatPrice } from "@/lib/utils/format";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type JobDetailCompositionRow = { fieldId: string; label: string; value: string };
 
@@ -49,12 +50,8 @@ export function formatJobsCompositionDetailField(input: {
   const kind = String(input.listingKind).trim() === "hire" ? "hire" : "work";
   if (input.fieldId === "listing_kind") {
     return kind === "hire"
-      ? input.lang === "en"
-        ? "Hiring"
-        : "구인"
-      : input.lang === "en"
-        ? "Looking for work"
-        : "구직";
+      ? translateBy(input.lang, "jobs_hiring")
+      : translateBy(input.lang, "jobs_looking_for_work");
   }
   if (input.fieldId === "work_category" || input.fieldId === "work_category_other") {
     const display = jobWorkCategoryDisplay(input.meta, input.lang);
@@ -63,7 +60,7 @@ export function formatJobsCompositionDetailField(input: {
   }
   if (input.fieldId === "pay_amount") {
     const payType = String(input.meta.pay_type ?? "").trim();
-    if (!input.rawValue && payType === "negotiate") return input.lang === "en" ? "Negotiable" : "협의";
+    if (!input.rawValue && payType === "negotiate") return translateBy(input.lang, "jobs_negotiable");
     return input.rawValue || null;
   }
   return input.rawValue;

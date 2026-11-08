@@ -18,6 +18,7 @@ import {
   FEED_AD_MEDIA_ASPECT_W,
   FEED_AD_RECOMMENDED_UPLOAD,
 } from "@/lib/ads/feed-ad-geometry";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 피드 배너 업로드 규격 — 배달 배너 픽셀 안내와 같은 모양(배달 지면 키만 없음). */
 export const FEED_AD_UPLOAD_PIXEL_GUIDE: Omit<BannerCreativePixelGuide, "inventoryKey"> = {
@@ -65,15 +66,13 @@ export function feedAdUploadRejectMessage(
   lang: "ko" | "en" = "ko"
 ): string {
   if (error === "image_decode_failed" || error === "invalid_dimensions") {
-    return lang === "en"
-      ? "Could not read this image. Upload a JPG, PNG, or WebP file."
-      : "이미지를 읽지 못했습니다. JPG·PNG·WebP 파일을 올려 주세요.";
+    return translateBy(lang, "ads_could_not_read_this_image_upload");
   }
   return bannerGeometryRejectMessage({
     error,
     // 문구 함수는 비율·크기 값만 읽는다 (지면 키 미사용)
     guide: FEED_AD_UPLOAD_PIXEL_GUIDE as BannerCreativePixelGuide,
     lang,
-    placementLabel: lang === "en" ? "feed banner" : "피드 배너",
+    placementLabel: translateBy(lang, "ads_feed_banner"),
   });
 }

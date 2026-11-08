@@ -3,6 +3,7 @@
  * (docs/support-center/support-ui-notification-ssot-spec.md §3B, §3C D1).
  */
 import { readFileSync } from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { supportUiMessages } from "@/lib/i18n/catalog/support-ui";
@@ -28,7 +29,9 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 /** Catalog-backed safeT stand-in (returns the KO catalog value, else the KO fallback). */
 const ko = supportUiMessages.ko as Record<string, string>;
-const safeT = (key: string, opts: { fallbackKo: string }) => ko[key] ?? opts.fallbackKo;
+/** 언어 SSOT S6: 실제 safeT 처럼 대체 문구는 선택 — 호출부가 대체 문구를 넘기지 않는다 */
+const safeT = (key: string, opts?: { fallbackKo?: string }) =>
+  ko[key] ?? (MESSAGES.ko as unknown as Record<string, string>)[key] ?? opts?.fallbackKo ?? key;
 
 describe("B3 reference labels — every reference type has KO+EN copy", () => {
   it("no raw enum leaks", () => {

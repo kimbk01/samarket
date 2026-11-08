@@ -3,6 +3,8 @@
  * D-1·D-2·D-3·D-10·D-11·D-14·D-15·F-2·F-3 — 순수 함수는 동작으로, 화면 배선은 소스로 검사.
  */
 import { readFileSync } from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { commissionOwnerRefundedLabel } from "@/lib/stores/commission/store-commission-display-labels";
@@ -16,7 +18,7 @@ import type { PointChargeRequestStatus } from "@/lib/types/point";
 import { communityAuditTargetHref } from "@/components/admin/community/audit/community-audit-labels";
 
 const ROOT = path.resolve(__dirname, "../../..");
-const src = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
+const src = (p: string) => withCatalogCopy(readFileSync(path.join(ROOT, p), "utf8"));
 const zero = { charge: 0, grant: 0, refund: 0, use: 0, reclaim: 0, hold: 0, rows: 1 };
 
 describe("F-3 사장님 「수수료 환급」 칩 = 실제 처리", () => {
@@ -45,7 +47,9 @@ describe("D-14 ③ 보류 칸 — 순변화 음수는 「보류 해제」", () =
   });
   it("회원 카드도 같은 규칙", () => {
     const c = src("components/points/PointPeriodSummary.tsx");
-    expect(c).toMatch(/hold < 0\s*\?\s*pick\(lang, "보류 해제", "Hold released"\)/);
+    /** 언어 SSOT S6: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(c).toMatch(/hold < 0\s*\?\s*translateBy\(lang, "points_hold_released"\)/);
+    expect([MESSAGES.ko.points_hold_released, MESSAGES.en.points_hold_released]).toEqual(["보류 해제", "Hold released"]);
   });
 });
 
@@ -58,7 +62,11 @@ describe("D-14 ①② 회원 포인트 화면", () => {
   it("충전 합계의 상태 합계 칸 이름 = 「처리 대기(보류 포함)」 (회원만)", () => {
     expect(page).toMatch(/<PointChargePeriodSummaryLine summary=\{chargeSummary\} lang=\{lang\} audience="member" \/>/);
     const c = src("components/points/PointPeriodSummary.tsx");
-    expect(c).toMatch(/"처리 대기\(보류 포함\)", "Awaiting processing \(incl\. on hold\)"/);
+    expect(c).toMatch(/translateBy\(lang, "points_awaiting_processing_incl_on_hold"\)/);
+    expect([MESSAGES.ko.points_awaiting_processing_incl_on_hold, MESSAGES.en.points_awaiting_processing_incl_on_hold]).toEqual([
+      "처리 대기(보류 포함)",
+      "Awaiting processing (incl. on hold)",
+    ]);
   });
 });
 

@@ -13,6 +13,7 @@
 import { isFeedAdCampaignEligibleNow } from "@/lib/ads/feed-ad-placement";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type FeedAdMemberDisplayStatus =
   | "pending_review"
@@ -208,7 +209,7 @@ export function formatFeedAdRemaining(
 ): string {
   if (remainingMs == null) return "";
   if (remainingMs <= 0) {
-    return lang === "en" ? "Ended" : "종료됨";
+    return translateBy(lang, "ads_ended");
   }
   const totalMin = Math.floor(remainingMs / 60_000);
   const days = Math.floor(totalMin / (60 * 24));

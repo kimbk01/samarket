@@ -8,6 +8,7 @@
  */
 import type { EventBannerPresentation } from "@/lib/platform-promotion-distribution/banner-presentation";
 import { feedAdUploadRejectMessage } from "@/lib/ads/feed-ad-upload-geometry";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type EventBannerUploadPurpose = "feed_ad" | "event_hero_banner";
 
@@ -30,10 +31,10 @@ export function eventBannerUploadErrorMessage(input: {
     return feedAdUploadRejectMessage("image_decode_failed", input.lang);
   }
   if (code === "file_too_large") {
-    return input.lang === "en" ? "The file is too large (max 2MB)." : "파일 용량이 너무 큽니다. 최대 2MB 까지 올릴 수 있습니다.";
+    return translateBy(input.lang, "platform_promotion_distribution_the_file_is_too_large_max");
   }
   if (code === "invalid_type") {
-    return input.lang === "en" ? "Only JPG, PNG, or WebP images are allowed." : "JPG·PNG·WebP 이미지만 올릴 수 있습니다.";
+    return translateBy(input.lang, "platform_promotion_distribution_only_jpg_png_or_webp_images");
   }
-  return input.lang === "en" ? "Could not upload the image." : "이미지를 올리지 못했습니다.";
+  return translateBy(input.lang, "platform_promotion_distribution_could_not_upload_the_image");
 }
