@@ -1,10 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
 
 export function NotFoundClient() {
   const { t } = useI18n();
+
+  useEffect(() => {
+    // 루트 not-found 는 (main) 셸 밖에서 그려진다 — 해제 주체가 없으면 OS 시작 화면에 갇힌다 (C2 · R1-e). 멱등.
+    tryDismissNativeSplash("not_found");
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-center">

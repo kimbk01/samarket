@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
 import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
+import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -17,6 +18,9 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
     console.error("[GlobalError]", error);
     noteEntryFailure("global_error");
+    // 루트 레이아웃이 깨지면 (main) 셸·AppBootProvider 가 없다 — 여기서 해제하지 않으면 OS 시작 화면에 갇힌다 (C2 · R1-e).
+    // 브리지 직접 호출(동적 import 불필요)·멱등. 새로고침이 이어져도 해제가 먼저라 오류 안내가 보인다.
+    tryDismissNativeSplash("global_error");
     if (isWebpackChunkLoadError(error)) {
       scheduleChunkReloadOnce();
     }

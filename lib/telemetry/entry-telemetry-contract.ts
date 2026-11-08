@@ -24,7 +24,8 @@ export type EntryEventType = (typeof ENTRY_EVENT_TYPES)[number];
 export const ENTRY_PLATFORMS = ["android", "ios", "web"] as const;
 export type EntryPlatform = (typeof ENTRY_PLATFORMS)[number];
 
-export const ENTRY_FAILURE_CLASSES = ["chunk_reload", "error_boundary", "global_error"] as const;
+/** pre_hydration_chunk = React 마운트 전 번들·청크 실패 (루트 초기 가드, lib/startup/pre-hydration-guard-script.ts). */
+export const ENTRY_FAILURE_CLASSES = ["chunk_reload", "error_boundary", "global_error", "pre_hydration_chunk"] as const;
 export type EntryFailureClass = (typeof ENTRY_FAILURE_CLASSES)[number];
 
 export const ENTRY_RECOVERY = ["none", "after_reload"] as const;

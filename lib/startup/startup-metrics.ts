@@ -49,8 +49,12 @@ declare global {
   }
 }
 
-/** Main shell 없는 경로 — shellReady 미발화 시 firstPaint 에서 splash 해제 */
-const SPLASH_AUTH_SHELL_FALLBACK_PREFIXES = [
+/**
+ * Main shell 없는 경로 — shellReady 미발화 시 firstPaint 에서 splash 해제.
+ * `app/` 최상위 경로 중 `(main)` 밖의 페이지 세그먼트는 모두 여기 있어야 한다 (해제 주체 0 경로 금지 —
+ * `lib/startup/__tests__/splash-release-owner-coverage.test.ts`). `/dev` 는 2026-11-08 C2 에서 추가.
+ */
+export const SPLASH_AUTH_SHELL_FALLBACK_PREFIXES = [
   "/login",
   "/signup",
   "/auth",
@@ -58,6 +62,7 @@ const SPLASH_AUTH_SHELL_FALLBACK_PREFIXES = [
   "/admin",
   "/terms",
   "/privacy",
+  "/dev",
 ] as const;
 
 function nowMs(): number {
@@ -77,7 +82,7 @@ function readBootPathname(): string {
   return normalizeBootPathname(window.location.pathname ?? "/");
 }
 
-function isSplashAuthShellFallbackPath(pathname: string): boolean {
+export function isSplashAuthShellFallbackPath(pathname: string): boolean {
   const p = normalizeBootPathname(pathname);
   for (const prefix of SPLASH_AUTH_SHELL_FALLBACK_PREFIXES) {
     if (p === prefix || p.startsWith(`${prefix}/`)) return true;
@@ -237,72 +242,78 @@ export function tryDismissNativeSplash(reason: string): void {
 
   if (typeof window === "undefined") return;
 
+  /**
+   * C2 (docs/audit/app-entry-resume-stabilization-plan-2026-11-08.md §4): 네이티브 브리지는 **즉시·동기로** 부른다.
+   * 브리지는 네이티브 앱에서만 존재하므로(웹·Windows 셸은 undefined → 무동작) Capacitor 판정 import 가 필요 없다.
+   * 이전에는 Capacitor 코어 모듈 동적 불러오기를 기다린 뒤에 불러, 그 청크가 실패하면 해제도 실패했다 (R1-e).
+   */
+  let bridgeOk = false;
+  try {
+    const bridge = (
+      window as unknown as {
+        DibayBootBridge?: {
+          dismissSplash?: () => void;
+          endHandoffCover?: () => void;
+        };
+      }
+    ).DibayBootBridge;
+    if (bridge?.dismissSplash) {
+      bridge.dismissSplash();
+      bridgeOk = true;
+    }
+    // Remote App Ready — remove Native Handoff Cover once (idempotent on native side).
+    try {
+      bridge?.endHandoffCover?.();
+    } catch {
+      /* ignore */
+    }
+  } catch (e) {
+    logSplashDismiss(reason, false, `DibayBootBridge err=${String(e)}`);
+  }
+
+  try {
+    window.__dibayNativeSplashDismiss?.();
+  } catch {
+    /* ignore */
+  }
+
+  // R17-OS iOS — release the app-native LaunchScreen continuation
+  // (DibayRootBridgeViewController) after the current frame has been presented.
+  // Frame fence only: no timer, no network/data wait. Android uses DibayBootBridge above.
+  try {
+    const wkBootBridge = (
+      window as unknown as {
+        webkit?: {
+          messageHandlers?: {
+            DibayBootBridge?: { postMessage: (msg: unknown) => void };
+          };
+        };
+      }
+    ).webkit?.messageHandlers?.DibayBootBridge;
+    if (wkBootBridge?.postMessage) {
+      const postDismiss = () => {
+        try {
+          wkBootBridge.postMessage({ action: "dismissSplash" });
+        } catch {
+          /* ignore */
+        }
+      };
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => requestAnimationFrame(postDismiss));
+      } else {
+        postDismiss();
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Cap SplashScreen plugin hide — launchShowDuration 0 이라 보조 경로. 실패해도 위 브리지 해제는 이미 끝났다.
   void (async () => {
     try {
       const { Capacitor } = await import("@capacitor/core");
       if (!Capacitor.isNativePlatform()) {
         return;
-      }
-
-      let bridgeOk = false;
-      try {
-        const bridge = (
-          window as unknown as {
-            DibayBootBridge?: {
-              dismissSplash?: () => void;
-              endHandoffCover?: () => void;
-            };
-          }
-        ).DibayBootBridge;
-        if (bridge?.dismissSplash) {
-          bridge.dismissSplash();
-          bridgeOk = true;
-        }
-        // Remote App Ready — remove Native Handoff Cover once (idempotent on native side).
-        try {
-          bridge?.endHandoffCover?.();
-        } catch {
-          /* ignore */
-        }
-      } catch (e) {
-        logSplashDismiss(reason, false, `DibayBootBridge err=${String(e)}`);
-      }
-
-      try {
-        window.__dibayNativeSplashDismiss?.();
-      } catch {
-        /* ignore */
-      }
-
-      // R17-OS iOS — release the app-native LaunchScreen continuation
-      // (DibayRootBridgeViewController) after the current frame has been presented.
-      // Frame fence only: no timer, no network/data wait. Android uses DibayBootBridge above.
-      try {
-        const wkBootBridge = (
-          window as unknown as {
-            webkit?: {
-              messageHandlers?: {
-                DibayBootBridge?: { postMessage: (msg: unknown) => void };
-              };
-            };
-          }
-        ).webkit?.messageHandlers?.DibayBootBridge;
-        if (wkBootBridge?.postMessage) {
-          const postDismiss = () => {
-            try {
-              wkBootBridge.postMessage({ action: "dismissSplash" });
-            } catch {
-              /* ignore */
-            }
-          };
-          if (typeof requestAnimationFrame === "function") {
-            requestAnimationFrame(() => requestAnimationFrame(postDismiss));
-          } else {
-            postDismiss();
-          }
-        }
-      } catch {
-        /* ignore */
       }
 
       try {

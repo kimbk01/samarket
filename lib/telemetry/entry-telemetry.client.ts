@@ -10,6 +10,7 @@
  */
 
 import {
+  ENTRY_FAILURE_CLASSES,
   ENTRY_TELEMETRY_ENDPOINT,
   ENTRY_TELEMETRY_MAX_EVENTS_PER_RUN,
   ENTRY_TELEMETRY_SCHEMA_VERSION,
@@ -293,7 +294,7 @@ function takePendingRecovery(): { prev: EntryFailureClass | null } | null {
   const raw = readSession(RECOVERY_KEY);
   if (!raw) return null;
   writeSession(RECOVERY_KEY, null);
-  if (raw === "chunk_reload" || raw === "error_boundary" || raw === "global_error") return { prev: raw };
+  if ((ENTRY_FAILURE_CLASSES as readonly string[]).includes(raw)) return { prev: raw as EntryFailureClass };
   return { prev: null };
 }
 

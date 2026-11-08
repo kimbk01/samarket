@@ -31,7 +31,11 @@ import { RequiredConsentVersionsBootstrap } from "@/components/legal/RequiredCon
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
 import { requiredConsentForClient } from "@/lib/legal/client-required-consent";
 import { DIBAY_HOST_SHELL_BOOT_SCRIPT } from "@/lib/platform/dibay-windows-shell";
+import { buildPreHydrationGuardScript } from "@/lib/startup/pre-hydration-guard-script";
 import "./globals.css";
+
+/** C2 — hydration 전 청크 실패 초기 가드 (빌드 SHA 고정 문자열, 요청마다 같은 값). */
+const PRE_HYDRATION_GUARD_SCRIPT = buildPreHydrationGuardScript(process.env.NEXT_PUBLIC_WEB_DEPLOY_SHA);
 
 export const metadata: Metadata = {
   title: APP_PRODUCT_DISPLAY_NAME,
@@ -104,6 +108,8 @@ export default async function RootLayout({
       <head>
         {/* B-11: Windows 앱이면 화면을 그리기 전에 표시 — 로그인 첫 화면 일반 버튼→QR 깜빡임 방지 (웹 브라우저·폰 앱은 무동작) */}
         <script dangerouslySetInnerHTML={{ __html: DIBAY_HOST_SHELL_BOOT_SCRIPT }} />
+        {/* C2: 앱 번들·초기 청크 실패 시 OS 시작 화면에 갇히지 않게 — 빌드당 새로고침 1회, 이후 오류 안내+해제 */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_GUARD_SCRIPT }} />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         {/* Launch Intro (native, cached publication only): LaunchIntroRoot defers the route tree
