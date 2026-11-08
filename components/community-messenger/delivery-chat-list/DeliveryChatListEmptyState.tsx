@@ -19,15 +19,8 @@ function DeliveryChatEmptyIcon() {
 export function DeliveryChatListEmptyState({ filterSummary }: { filterSummary?: string | null }) {
   const { safeT } = useI18n();
   const message = filterSummary
-    ? safeT("cm_delivery_chat_list_empty_filtered", {
-        fallbackKo: `${filterSummary} 주문 채팅이 없습니다.`,
-        fallbackEn: `No ${filterSummary} order chats yet.`,
-        vars: { filterLabel: filterSummary },
-      })
-    : safeT("cm_delivery_chat_list_empty", {
-        fallbackKo: "해당 주문 채팅이 없습니다.",
-        fallbackEn: "No order chats yet.",
-      });
+    ? safeT("cm_delivery_chat_list_empty_filtered", { vars: { filterLabel: filterSummary } })
+    : safeT("cm_delivery_chat_list_empty");
 
   return (
     <div

@@ -21,6 +21,7 @@ import {
   publishRoomMissedCallBadgeByRoom,
   subscribeRoomMissedCallBadge,
 } from "@/lib/notifications/client/room-missed-call-badge-store";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type ShellInboxRow = {
   domain: "general_direct" | "group";
@@ -225,7 +226,7 @@ export function DomainShellCanaryHomeGate(props: Props) {
   if (mode === "loading") {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-sam-muted">
-        {language === "en" ? "Loading…" : "불러오는 중…"}
+        {translateBy(language, "community_messenger_loading")}
       </div>
     );
   }
@@ -241,11 +242,11 @@ export function DomainShellCanaryHomeGate(props: Props) {
     );
   }
 
-  const tradeLabel = language === "en" ? "Trade chats" : "거래 채팅";
-  const orderLabel = language === "en" ? "Order chats" : "주문 채팅";
-  const canaryLabel = language === "en" ? "Domain Shell Canary" : "도메인 셸 카나리";
-  const generalLabel = language === "en" ? "General" : "일반";
-  const groupLabel = language === "en" ? "Groups" : "그룹";
+  const tradeLabel = translateBy(language, "community_messenger_trade_chats");
+  const orderLabel = translateBy(language, "community_messenger_order_chats");
+  const canaryLabel = translateBy(language, "community_messenger_domain_shell_canary");
+  const generalLabel = translateBy(language, "community_messenger_general");
+  const groupLabel = translateBy(language, "community_messenger_groups");
   const tradeKilled = isClientBundleKilled("trade");
   const soKilled = isClientBundleKilled("store_order_customer");
   const generalRows = dto.inbox.filter((row) => row.domain === "general_direct");
@@ -261,7 +262,7 @@ export function DomainShellCanaryHomeGate(props: Props) {
       key={`${row.domain}:${row.roomId}`}
       href={row.href}
       title={row.title}
-      preview={row.previewText || (language === "en" ? "No messages" : "메시지가 없습니다")}
+      preview={row.previewText || (translateBy(language, "community_messenger_no_messages"))}
       avatarUrl={row.avatarUrl}
       avatarKind={row.domain === "group" ? "group" : "user"}
       unreadCount={roomBadge}
@@ -302,7 +303,7 @@ export function DomainShellCanaryHomeGate(props: Props) {
             href={dto.tradeHub.href}
             title={tradeLabel}
             preview={
-              dto.tradeHub.previewText || (language === "en" ? "No messages" : "메시지가 없습니다")
+              dto.tradeHub.previewText || (translateBy(language, "community_messenger_no_messages"))
             }
             unreadCount={dto.tradeHub.unreadRoomCount}
             time={formatDomainCanaryTime(dto.tradeHub.latestActivityAt ?? "")}
@@ -322,7 +323,7 @@ export function DomainShellCanaryHomeGate(props: Props) {
             title={orderLabel}
             preview={
               dto.storeOrderHub.previewText ||
-              (language === "en" ? "No messages" : "메시지가 없습니다")
+              (translateBy(language, "community_messenger_no_messages"))
             }
             unreadCount={dto.storeOrderHub.unreadRoomCount}
             time={formatDomainCanaryTime(dto.storeOrderHub.latestActivityAt ?? "")}

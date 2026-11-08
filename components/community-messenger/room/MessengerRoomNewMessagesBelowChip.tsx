@@ -34,15 +34,8 @@ export function MessengerRoomNewMessagesBelowChip({
 
   const badge = formatUnreadBadgeCount(fab.badgeCount);
   const aria = badge
-    ? safeT("cm_ui_jump_latest_unread_aria", {
-        fallbackKo: `읽지 않은 메시지로 이동, ${badge}개 남음`,
-        fallbackEn: `Jump to unread, ${badge} remaining`,
-        vars: { count: badge },
-      })
-    : safeT("cm_ui_jump_latest_aria", {
-        fallbackKo: "최신 메시지로 이동",
-        fallbackEn: "Jump to latest",
-      });
+    ? safeT("cm_ui_jump_latest_unread_aria", { vars: { count: badge } })
+    : safeT("cm_ui_jump_latest_aria");
 
   return (
     <div className="pointer-events-none absolute bottom-[calc(0.5rem+var(--safe-bottom))] right-3 z-10 sm:right-4">

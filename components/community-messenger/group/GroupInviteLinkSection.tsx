@@ -141,10 +141,7 @@ export function GroupInviteLinkSection({
                 ? t("chats_spinner_loading_aria")
                 : state.enabled && state.inviteUrl
                   ? state.inviteUrl
-                  : safeT("cm_ui_group_invite_link_disabled", {
-                      fallbackKo: "초대 링크가 비활성화되어 있습니다.",
-                      fallbackEn: "Invite link is disabled.",
-                    })}
+                  : safeT("cm_ui_group_invite_link_disabled")}
             </p>
           </div>
         </div>
@@ -179,10 +176,7 @@ export function GroupInviteLinkSection({
               onClick={() => setShowCreate((v) => !v)}
               className="min-h-[44px] rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-2 sam-text-helper font-semibold text-[#006241]"
             >
-              {safeT("cm_ui_group_invite_create_link", {
-                fallbackKo: "새 링크 만들기",
-                fallbackEn: "Create new link",
-              })}
+              {safeT("cm_ui_group_invite_create_link")}
             </button>
           </div>
         ) : null}
@@ -191,18 +185,12 @@ export function GroupInviteLinkSection({
       {canManage && showCreate ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-body font-semibold text-sam-fg">
-            {safeT("cm_ui_group_invite_create_link", {
-              fallbackKo: "새 링크 만들기",
-              fallbackEn: "Create new link",
-            })}
+            {safeT("cm_ui_group_invite_create_link")}
           </p>
           <input
             value={linkName}
             onChange={(e) => setLinkName(e.target.value)}
-            placeholder={safeT("cm_ui_group_invite_link_name_ph", {
-              fallbackKo: "링크 이름 (선택)",
-              fallbackEn: "Link name (optional)",
-            })}
+            placeholder={safeT("cm_ui_group_invite_link_name_ph")}
             className="mt-3 h-10 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body"
           />
           <label className="mt-3 flex items-center gap-2 sam-text-helper text-sam-fg">
@@ -211,10 +199,7 @@ export function GroupInviteLinkSection({
               checked={requiresApproval}
               onChange={(e) => setRequiresApproval(e.target.checked)}
             />
-            {safeT("cm_ui_group_invite_requires_approval", {
-              fallbackKo: "관리자 승인 필요",
-              fallbackEn: "Require admin approval",
-            })}
+            {safeT("cm_ui_group_invite_requires_approval")}
           </label>
           <button
             type="button"
@@ -224,10 +209,7 @@ export function GroupInviteLinkSection({
           >
             {creating
               ? t("cm_ui_creating")
-              : safeT("cm_ui_group_invite_create_link", {
-                  fallbackKo: "링크 만들기",
-                  fallbackEn: "Create link",
-                })}
+              : safeT("cm_ui_group_invite_create_link")}
           </button>
         </div>
       ) : null}
@@ -235,10 +217,7 @@ export function GroupInviteLinkSection({
       {canManage && links.length > 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-body font-semibold text-sam-fg">
-            {safeT("cm_ui_group_invite_links_list", {
-              fallbackKo: "초대 링크",
-              fallbackEn: "Invite links",
-            })}
+            {safeT("cm_ui_group_invite_links_list")}
           </p>
           <ul className="mt-3 space-y-3">
             {links.map((link) => (
@@ -246,26 +225,14 @@ export function GroupInviteLinkSection({
                 <p className="sam-text-body font-medium text-sam-fg">
                   {link.name ||
                     (link.isDefault
-                      ? safeT("cm_ui_group_invite_default_link", {
-                          fallbackKo: "기본 링크",
-                          fallbackEn: "Default link",
-                        })
-                      : safeT("cm_ui_group_invite_link", {
-                          fallbackKo: "초대 링크",
-                          fallbackEn: "Invite link",
-                        }))}
+                      ? safeT("cm_ui_group_invite_default_link")
+                      : safeT("cm_ui_group_invite_link"))}
                 </p>
                 <p className="mt-1 break-all sam-text-helper text-sam-muted">{link.inviteUrl}</p>
                 <p className="mt-1 sam-text-helper text-sam-muted">
                   {link.requiresApproval
-                    ? safeT("cm_ui_group_invite_requires_approval", {
-                        fallbackKo: "관리자 승인 필요",
-                        fallbackEn: "Require admin approval",
-                      })
-                    : safeT("cm_ui_group_invite_instant_join", {
-                        fallbackKo: "즉시 참여",
-                        fallbackEn: "Instant join",
-                      })}
+                    ? safeT("cm_ui_group_invite_requires_approval")
+                    : safeT("cm_ui_group_invite_instant_join")}
                   {" · "}
                   {link.usageCount}
                   {link.usageLimit != null ? `/${link.usageLimit}` : ""}
@@ -283,10 +250,7 @@ export function GroupInviteLinkSection({
                     className="rounded-ui-rect border border-red-200 px-3 py-1.5 sam-text-helper text-red-600"
                     onClick={() => void revokeLink(link.id)}
                   >
-                    {safeT("cm_ui_group_invite_revoke", {
-                      fallbackKo: "링크 폐기",
-                      fallbackEn: "Revoke link",
-                    })}
+                    {safeT("cm_ui_group_invite_revoke")}
                   </button>
                 </div>
               </li>
@@ -298,17 +262,11 @@ export function GroupInviteLinkSection({
       {canManage ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-body font-semibold text-sam-fg">
-            {safeT("cm_ui_group_join_requests_title", {
-              fallbackKo: `가입 요청${pendingCount ? ` ${pendingCount}` : ""}`,
-              fallbackEn: `Join requests${pendingCount ? ` ${pendingCount}` : ""}`,
-            })}
+            {safeT("cm_ui_group_join_requests_title")}
           </p>
           {requests.length === 0 ? (
             <p className="mt-2 sam-text-helper text-sam-muted">
-              {safeT("cm_ui_group_join_requests_empty", {
-                fallbackKo: "대기 중인 가입 요청이 없습니다.",
-                fallbackEn: "No pending join requests.",
-              })}
+              {safeT("cm_ui_group_join_requests_empty")}
             </p>
           ) : (
             <ul className="mt-3 space-y-3">
@@ -325,7 +283,7 @@ export function GroupInviteLinkSection({
                       className="min-h-[40px] flex-1 rounded-ui-rect bg-[#006241] px-3 py-2 sam-text-helper font-semibold text-white disabled:opacity-40"
                       onClick={() => void decide(req.id, "approved")}
                     >
-                      {safeT("cm_ui_group_join_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
+                      {safeT("cm_ui_group_join_approve")}
                     </button>
                     <button
                       type="button"
@@ -333,7 +291,7 @@ export function GroupInviteLinkSection({
                       className="min-h-[40px] flex-1 rounded-ui-rect border border-red-200 px-3 py-2 sam-text-helper font-semibold text-red-600 disabled:opacity-40"
                       onClick={() => void decide(req.id, "rejected")}
                     >
-                      {safeT("cm_ui_group_join_reject", { fallbackKo: "거절", fallbackEn: "Reject" })}
+                      {safeT("cm_ui_group_join_reject")}
                     </button>
                   </div>
                 </li>

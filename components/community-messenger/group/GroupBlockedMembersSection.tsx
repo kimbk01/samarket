@@ -57,19 +57,13 @@ export function GroupBlockedMembersSection({ roomId, canManage }: GroupBlockedMe
   return (
     <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <p className="sam-text-body font-semibold text-sam-fg">
-        {safeT("cm_ui_blocked_members", {
-          fallbackKo: "차단된 멤버",
-          fallbackEn: "Blocked members",
-        })}
+        {safeT("cm_ui_blocked_members")}
       </p>
       {!loaded ? (
         <p className="mt-2 sam-text-helper text-sam-muted">{t("chats_spinner_loading_aria")}</p>
       ) : bans.length === 0 ? (
         <p className="mt-2 sam-text-helper text-sam-muted">
-          {safeT("cm_ui_blocked_members_empty", {
-            fallbackKo: "차단된 멤버가 없습니다.",
-            fallbackEn: "No blocked members.",
-          })}
+          {safeT("cm_ui_blocked_members_empty")}
         </p>
       ) : (
         <ul className="mt-3 space-y-3">
@@ -106,10 +100,7 @@ export function GroupBlockedMembersSection({ roomId, canManage }: GroupBlockedMe
                   className="mt-2 min-h-[40px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper font-semibold text-sam-fg disabled:opacity-40"
                   onClick={() => void unban(ban.userId)}
                 >
-                  {safeT("cm_ui_unban_member", {
-                    fallbackKo: "차단 해제",
-                    fallbackEn: "Unban",
-                  })}
+                  {safeT("cm_ui_unban_member")}
                 </button>
               </div>
             </li>

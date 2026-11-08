@@ -52,6 +52,7 @@ import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-poli
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type TradeListDto = {
   authority: "domain_trade_list_canary";
@@ -299,7 +300,7 @@ export function DomainTradeListCanaryGate({
     };
   }, [softFail]);
 
-  const title = language === "en" ? "Trade chats" : "거래 채팅";
+  const title = translateBy(language, "community_messenger_trade_chats");
   const unreadRoomCount = dto?.hub.unreadRoomCount ?? 0;
 
   const visibleRows = useMemo(() => {
@@ -333,12 +334,12 @@ export function DomainTradeListCanaryGate({
 
   const filterLabel = (id: TradeListRoleFilter) => {
     if (id === "all") {
-      return safeT("cm_trade_chat_filter_all", { fallbackKo: "전체", fallbackEn: "All" });
+      return safeT("cm_trade_chat_filter_all");
     }
     if (id === "selling") {
-      return safeT("cm_trade_chat_filter_selling", { fallbackKo: "판매", fallbackEn: "Selling" });
+      return safeT("cm_trade_chat_filter_selling");
     }
-    return safeT("cm_trade_chat_filter_buying", { fallbackKo: "구매", fallbackEn: "Buying" });
+    return safeT("cm_trade_chat_filter_buying");
   };
 
   const patchRoomParticipant = useCallback(
@@ -549,7 +550,7 @@ export function DomainTradeListCanaryGate({
           </div>
         ) : null}
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-sm text-sam-muted">
-          <p>{language === "en" ? "Couldn’t load trade chats." : "거래 채팅을 불러오지 못했습니다."}</p>
+          <p>{translateBy(language, "community_messenger_couldn_t_load_trade_chats")}</p>
           <button
             type="button"
             className="rounded-md bg-sam-primary px-3 py-1.5 text-xs text-white"
@@ -559,7 +560,7 @@ export function DomainTradeListCanaryGate({
               window.location.reload();
             }}
           >
-            {language === "en" ? "Retry" : "다시 시도"}
+            {translateBy(language, "community_messenger_retry")}
           </button>
         </div>
       </div>
@@ -584,7 +585,7 @@ export function DomainTradeListCanaryGate({
             <div className="text-base font-semibold text-sam-fg">{title}</div>
             {unreadRoomCount > 0 ? (
               <div className="text-xs text-sam-muted">
-                {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
+                {translateBy(language, "community_messenger_unreadroomcount_unread", { unreadRoomCount })}
               </div>
             ) : null}
           </>

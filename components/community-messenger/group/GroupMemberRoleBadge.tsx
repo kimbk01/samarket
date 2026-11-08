@@ -16,7 +16,7 @@ export function GroupMemberRoleBadge({ role, className = "" }: GroupMemberRoleBa
       <span
         className={`inline-flex shrink-0 items-center rounded-ui-rect bg-[#006241] px-1.5 py-0.5 sam-text-xxs font-bold uppercase tracking-wide text-white ${className}`}
       >
-        {safeT("cm_ui_group_role_owner_badge", { fallbackKo: "OWNER", fallbackEn: "OWNER" })}
+        {safeT("cm_ui_group_role_owner_badge")}
       </span>
     );
   }
@@ -25,7 +25,7 @@ export function GroupMemberRoleBadge({ role, className = "" }: GroupMemberRoleBa
       <span
         className={`inline-flex shrink-0 items-center rounded-ui-rect bg-[#00754A] px-1.5 py-0.5 sam-text-xxs font-bold uppercase tracking-wide text-white ${className}`}
       >
-        {safeT("cm_ui_group_role_admin_badge", { fallbackKo: "ADMIN", fallbackEn: "ADMIN" })}
+        {safeT("cm_ui_group_role_admin_badge")}
       </span>
     );
   }
@@ -34,7 +34,7 @@ export function GroupMemberRoleBadge({ role, className = "" }: GroupMemberRoleBa
       <span
         className={`inline-flex shrink-0 items-center rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-semibold text-sam-muted ${className}`}
       >
-        {safeT("cm_ui_group_role_member_badge", { fallbackKo: "멤버", fallbackEn: "Member" })}
+        {safeT("cm_ui_group_role_member_badge")}
       </span>
     );
   }

@@ -30,6 +30,7 @@ import {
 import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 import { MESSENGER_HUB_LIST_SCROLL_BOTTOM_INSET_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type { SoCustomerListDto };
 
@@ -201,7 +202,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
     };
   }, [softFail]);
 
-  const title = language === "en" ? "Order chats" : "주문 채팅";
+  const title = translateBy(language, "community_messenger_order_chats");
   const unreadRoomCount = dto?.hub.unreadRoomCount ?? 0;
 
   if (mode === "loading" && !dto) {
@@ -242,7 +243,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
           </div>
         ) : null}
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-sm text-sam-muted">
-          <p>{language === "en" ? "Couldn’t load order chats." : "주문 채팅을 불러오지 못했습니다."}</p>
+          <p>{translateBy(language, "community_messenger_couldn_t_load_order_chats")}</p>
           <button
             type="button"
             className="rounded-md bg-sam-primary px-3 py-1.5 text-xs text-white"
@@ -252,7 +253,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
               window.location.reload();
             }}
           >
-            {language === "en" ? "Retry" : "다시 시도"}
+            {translateBy(language, "community_messenger_retry")}
           </button>
         </div>
       </div>
@@ -274,7 +275,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
           <div className="text-base font-semibold text-sam-fg">{title}</div>
           {unreadRoomCount > 0 ? (
             <div className="text-xs text-sam-muted">
-              {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
+              {translateBy(language, "community_messenger_unreadroomcount_unread", { unreadRoomCount })}
             </div>
           ) : null}
         </div>
@@ -291,7 +292,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
             title={row.storeName}
             preview={
               guardRawCmListPreviewText(row.previewText, dto.viewerUserId) ||
-              (language === "en" ? "No messages" : "메시지가 없습니다")
+              (translateBy(language, "community_messenger_no_messages"))
             }
             avatarUrl={row.storeImageUrl}
             avatarKind="store"

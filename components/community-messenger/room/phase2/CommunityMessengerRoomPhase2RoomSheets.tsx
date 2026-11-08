@@ -177,11 +177,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 }}
                 onGiftFriendRequired={() => {
                   showMessengerSnackbar(
-                    safeT("gift_u3_friend_only", {
-                      fallbackKo: "친구로 추가한 회원에게만 상품권을 선물할 수 있습니다.",
-                      fallbackEn:
-                        "You can only send gift certificates to members you’ve added as friends.",
-                    }),
+                    safeT("gift_u3_friend_only"),
                     { variant: "error" }
                   );
                 }}

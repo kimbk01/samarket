@@ -27,10 +27,7 @@ export function GroupPinnedMessageBanner({
       <Pin className="mt-0.5 h-4 w-4 shrink-0 text-[#006241]" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="sam-text-xxs font-semibold text-[#006241]">
-          {safeT("cm_ui_group_pinned_notice", {
-            fallbackKo: "공지",
-            fallbackEn: "Notice",
-          })}
+          {safeT("cm_ui_group_pinned_notice")}
         </p>
         {senderLabel ? (
           <p className="sam-text-xxs font-medium text-sam-muted">{senderLabel}</p>

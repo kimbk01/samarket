@@ -41,10 +41,7 @@ export function MessengerGiftCertificateCard(props: {
   if (!meta) {
     return (
       <p className="text-sm text-sam-muted">
-        {safeT("gift_cert_chat_card_invalid", {
-          fallbackKo: "상품권 정보를 불러올 수 없습니다",
-          fallbackEn: "Gift certificate details unavailable",
-        })}
+        {safeT("gift_cert_chat_card_invalid")}
       </p>
     );
   }
@@ -63,20 +60,14 @@ export function MessengerGiftCertificateCard(props: {
   const expirationDisplay = presentation
     ? formatGiftInstanceExpirationDisplay({
         validUntil: presentation.validUntil,
-        noExpiryLabel: safeT("gift_portrait_expiry_none", {
-          fallbackKo: "만료 없음",
-          fallbackEn: "No expiry",
-        }),
+        noExpiryLabel: safeT("gift_portrait_expiry_none"),
       })
     : null;
   const publicGiftNumber =
     presentation?.publicGiftNumber ??
     meta.public_gift_number?.trim() ??
     null;
-  const peerFallback = safeT("commerce_hub_gift_chat_sender_fallback", {
-    fallbackKo: "친구",
-    fallbackEn: "Friend",
-  });
+  const peerFallback = safeT("commerce_hub_gift_chat_sender_fallback");
   const senderName = presentation?.senderDisplayName?.trim() || peerFallback;
   /** Presentation batch currently exposes sender nick only; peer fallback keeps body role-correct. */
   const recipientName = peerFallback;
@@ -114,24 +105,12 @@ export function MessengerGiftCertificateCard(props: {
 
   const statusHuman =
     displayStatus === "PENDING"
-      ? safeT("gift_cert_chat_status_pending", {
-          fallbackKo: "수령 대기",
-          fallbackEn: "Awaiting accept",
-        })
+      ? safeT("gift_cert_chat_status_pending")
       : displayStatus === "ACCEPTED"
-        ? safeT("gift_cert_chat_status_accepted", {
-            fallbackKo: "수령 완료",
-            fallbackEn: "Accepted",
-          })
+        ? safeT("gift_cert_chat_status_accepted")
         : displayStatus === "REJECTED"
-          ? safeT("gift_cert_chat_status_rejected", {
-              fallbackKo: "거절됨",
-              fallbackEn: "Rejected",
-            })
-          : safeT("gift_u3_card_cancelled", {
-              fallbackKo: "선물 취소됨",
-              fallbackEn: "Gift cancelled",
-            });
+          ? safeT("gift_cert_chat_status_rejected")
+          : safeT("gift_u3_card_cancelled");
 
   return (
     <div
@@ -212,10 +191,7 @@ export function MessengerGiftCertificateCard(props: {
                 void act("accept");
               }}
             >
-              {safeT("gift_cert_chat_accept", {
-                fallbackKo: "선물 받기",
-                fallbackEn: "Accept gift",
-              })}
+              {safeT("gift_cert_chat_accept")}
             </button>
             <button
               type="button"
@@ -227,10 +203,7 @@ export function MessengerGiftCertificateCard(props: {
                 setConfirmKind("reject");
               }}
             >
-              {safeT("gift_cert_chat_reject", {
-                fallbackKo: "거절",
-                fallbackEn: "Decline",
-              })}
+              {safeT("gift_cert_chat_reject")}
             </button>
           </div>
         ) : null}
@@ -245,10 +218,7 @@ export function MessengerGiftCertificateCard(props: {
               setConfirmKind("cancel");
             }}
           >
-            {safeT("gift_u3_card_cancel", {
-              fallbackKo: "선물 취소",
-              fallbackEn: "Cancel gift",
-            })}
+            {safeT("gift_u3_card_cancel")}
           </button>
         ) : null}
         {props.isRecipient && displayStatus === "ACCEPTED" ? (
@@ -257,10 +227,7 @@ export function MessengerGiftCertificateCard(props: {
             className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[44px] w-full items-center justify-center px-3 text-sm`}
             data-gift-card-wallet-cta="1"
           >
-            {safeT("commerce_hub_gift_my_wallet_cta", {
-              fallbackKo: "내 상품권",
-              fallbackEn: "My gifts",
-            })}
+            {safeT("commerce_hub_gift_my_wallet_cta")}
           </Link>
         ) : null}
       </div>
@@ -269,26 +236,14 @@ export function MessengerGiftCertificateCard(props: {
         open={confirmKind != null}
         title={
           confirmKind === "cancel"
-            ? safeT("popup_q_cancel_gift", {
-                fallbackKo: "상품권 선물을 취소할까요?",
-                fallbackEn: "Cancel this gift?",
-              })
-            : safeT("popup_q_reject_gift", {
-                fallbackKo: "이 상품권을 거절할까요?",
-                fallbackEn: "Decline this gift certificate?",
-              })
+            ? safeT("popup_q_cancel_gift")
+            : safeT("popup_q_reject_gift")
         }
-        cancelLabel={safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+        cancelLabel={safeT("common_cancel")}
         confirmLabel={
           confirmKind === "cancel"
-            ? safeT("popup_btn_cancel_gift", {
-                fallbackKo: "선물 취소",
-                fallbackEn: "Cancel gift",
-              })
-            : safeT("common_reject", {
-                fallbackKo: "거절",
-                fallbackEn: "Decline",
-              })
+            ? safeT("popup_btn_cancel_gift")
+            : safeT("common_reject")
         }
         confirmTone="destructive"
         onCancel={() => setConfirmKind(null)}

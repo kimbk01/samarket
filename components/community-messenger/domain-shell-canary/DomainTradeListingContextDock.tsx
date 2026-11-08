@@ -3,6 +3,7 @@
 import { MessengerTradeProductDockRow } from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type DomainTradeListingContextDockProps = {
   itemId: string | null;
@@ -38,7 +39,7 @@ export function DomainTradeListingContextDock({
         data-domain-trade-listing-dock="unavailable"
       >
         <p className="sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-          {language === "en" ? "Listing unavailable" : "상품 정보를 확인할 수 없습니다"}
+          {translateBy(language, "community_messenger_listing_unavailable")}
         </p>
       </div>
     );

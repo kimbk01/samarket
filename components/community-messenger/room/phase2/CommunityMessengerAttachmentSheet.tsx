@@ -359,7 +359,7 @@ export function CommunityMessengerAttachmentSheet({
 
   const actionLabel = (id: MessengerAttachmentActionId): string => {
     if (id === "photo") return t("cm_ui_attach_photo");
-    return safeT("gift_u3_wallet_send", { fallbackKo: "선물하기", fallbackEn: "Send gift" });
+    return safeT("gift_u3_wallet_send");
   };
 
   const actionIcon = (id: MessengerAttachmentActionId) => {

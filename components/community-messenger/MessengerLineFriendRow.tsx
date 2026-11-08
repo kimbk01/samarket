@@ -268,18 +268,18 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   );
 
   const favoriteSwipeLabel = friend.isFavoriteFriend
-    ? safeT("cm_ui_release", { fallbackKo: "해제", fallbackEn: "Release" })
-    : safeT("cm_ui_favorite", { fallbackKo: "즐겨찾기", fallbackEn: "Favorite" });
+    ? safeT("cm_ui_release")
+    : safeT("cm_ui_favorite");
   const hideSwipeLabel = friend.isHiddenFriend
-    ? safeT("cm_ui_unhide", { fallbackKo: "숨김 해제", fallbackEn: "Unhide" })
-    : safeT("common_hide", { fallbackKo: "숨기기", fallbackEn: "Hide" });
+    ? safeT("cm_ui_unhide")
+    : safeT("common_hide");
   const blockSwipeLabel = friend.blocked
-    ? safeT("cm_ui_unblock", { fallbackKo: "차단 해제", fallbackEn: "Unblock" })
-    : safeT("cm_social_block", { fallbackKo: "차단", fallbackEn: "Block" });
-  const removeSwipeLabel = safeT("common_delete", { fallbackKo: "삭제", fallbackEn: "Delete" });
+    ? safeT("cm_ui_unblock")
+    : safeT("cm_social_block");
+  const removeSwipeLabel = safeT("common_delete");
   const favoriteAriaLabel = friend.isFavoriteFriend
-    ? safeT("cm_ui_unfavorite", { fallbackKo: "즐겨찾기 해제", fallbackEn: "Unfavorite" })
-    : safeT("cm_ui_favorite", { fallbackKo: "즐겨찾기", fallbackEn: "Favorite" });
+    ? safeT("cm_ui_unfavorite")
+    : safeT("cm_ui_favorite");
 
   return (
     <div

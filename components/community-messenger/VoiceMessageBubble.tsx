@@ -253,24 +253,12 @@ export function VoiceMessageBubble({
     playing && remainingSec != null && Number.isFinite(remainingSec) ? remainingSec : Math.max(0, durationSeconds);
 
   const playAriaLabel = playing
-    ? safeT("common_pause", { fallbackKo: "일시정지", fallbackEn: "Pause" })
-    : safeT("common_play", { fallbackKo: "재생", fallbackEn: "Play" });
-  const loadingAriaLabel = safeT("chats_spinner_loading_aria", {
-    fallbackKo: "불러오는 중",
-    fallbackEn: "Loading",
-  });
-  const waveformSeekAriaLabel = safeT("nav_messenger_voice_waveform_seek", {
-    fallbackKo: "재생 위치 — 파형을 눌러 이동",
-    fallbackEn: "Playback position — tap the waveform to seek",
-  });
-  const loadErrorAriaLabel = safeT("nav_messenger_voice_load_failed", {
-    fallbackKo: "음성을 불러오지 못했습니다.",
-    fallbackEn: "Could not load this voice message.",
-  });
-  const playbackRateAriaLabel = safeT("nav_messenger_voice_playback_rate", {
-    fallbackKo: "재생 속도",
-    fallbackEn: "Playback speed",
-  });
+    ? safeT("common_pause")
+    : safeT("common_play");
+  const loadingAriaLabel = safeT("chats_spinner_loading_aria");
+  const waveformSeekAriaLabel = safeT("nav_messenger_voice_waveform_seek");
+  const loadErrorAriaLabel = safeT("nav_messenger_voice_load_failed");
+  const playbackRateAriaLabel = safeT("nav_messenger_voice_playback_rate");
 
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">

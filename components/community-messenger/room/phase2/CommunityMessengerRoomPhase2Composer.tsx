@@ -416,10 +416,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       : { kind: "link", href: `/post/${encodeURIComponent(tradeBlockedProductPostId)}` }
     : null;
   const composerPlaceholder = isDeliveryRoom
-    ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" }))
+    ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder"))
     : vm.snapshot.clientShellPlaceholder
-      ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
-      : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
+      ? safeT("nav_messenger_input_placeholder")
+      : safeT("cm_ui_message");
 
   const pickMention = useCallback(
     (candidate: GroupMentionCandidate) => {

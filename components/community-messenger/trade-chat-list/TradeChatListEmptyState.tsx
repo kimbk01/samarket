@@ -19,15 +19,8 @@ function TradeChatEmptyIcon() {
 export function TradeChatListEmptyState({ filterSummary }: { filterSummary?: string | null }) {
   const { safeT } = useI18n();
   const message = filterSummary
-    ? safeT("cm_trade_chat_list_empty_filtered", {
-        fallbackKo: `${filterSummary} 채팅이 없습니다.`,
-        fallbackEn: `No ${filterSummary} chats yet.`,
-        vars: { filterLabel: filterSummary },
-      })
-    : safeT("cm_trade_chat_list_empty", {
-        fallbackKo: "해당 거래 채팅이 없습니다.",
-        fallbackEn: "No trade chats yet.",
-      });
+    ? safeT("cm_trade_chat_list_empty_filtered", { vars: { filterLabel: filterSummary } })
+    : safeT("cm_trade_chat_list_empty");
 
   return (
     <div

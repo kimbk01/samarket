@@ -41,10 +41,7 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
   const isSplit = useIsMessengerSplitViewport();
   const params = useParams();
   const resolvedRoomId = roomId?.trim() || String(params?.roomId ?? "").trim();
-  const enteringLabel = safeT("cm_ui_entering", {
-    fallbackKo: "채팅방 입장 중…",
-    fallbackEn: "Entering chat…",
-  });
+  const enteringLabel = safeT("cm_ui_entering");
 
   useLayoutEffect(() => {
     if (recordSegmentFallback) noteR2M11SegmentLoadingFallbackVisible();
@@ -84,17 +81,14 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
         {failed ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
             <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">
-              {safeT("cm_ui_timeline_load_failed", {
-                fallbackKo: "대화 내용을 불러오지 못했습니다.",
-                fallbackEn: "Could not load this conversation.",
-              })}
+              {safeT("cm_ui_timeline_load_failed")}
             </p>
             <button
               type="button"
               onClick={onRetryAfterFailure}
               className="rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-4 py-2 sam-text-helper font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
             >
-              {safeT("cm_ui_timeline_retry", { fallbackKo: "다시 불러오기", fallbackEn: "Try again" })}
+              {safeT("cm_ui_timeline_retry")}
             </button>
           </div>
         ) : (
@@ -123,17 +117,14 @@ export const CommunityMessengerRoomEntryEmpty = memo(function CommunityMessenger
       >
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-[color:var(--cm-room-chat-bg)] px-6 text-center">
           <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">
-            {safeT("cm_ui_timeline_load_failed", {
-              fallbackKo: "대화 내용을 불러오지 못했습니다.",
-              fallbackEn: "Could not load this conversation.",
-            })}
+            {safeT("cm_ui_timeline_load_failed")}
           </p>
           <button
             type="button"
             onClick={onRetryAfterFailure}
             className="rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-4 py-2 sam-text-helper font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
           >
-            {safeT("cm_ui_timeline_retry", { fallbackKo: "다시 불러오기", fallbackEn: "Try again" })}
+            {safeT("cm_ui_timeline_retry")}
           </button>
         </div>
       </div>
