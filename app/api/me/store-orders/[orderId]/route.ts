@@ -75,18 +75,12 @@ export async function GET(
   const auth_ms = Math.round(perfNowMs() - tAuth0);
   if (!session.ok) return session.response;
 
-  void (async () => {
-    try {
-      const { clearNotificationTarget } = await import("@/lib/notifications/notification-targets");
-      await clearNotificationTarget(sb as import("@supabase/supabase-js").SupabaseClient<any>, {
-        userId: buyerId,
-        targetType: "buyer_order",
-        targetId: oid,
-      });
-    } catch {
-      /* badge target clear best-effort */
-    }
-  })();
+  /**
+   * D6 (Owner 「D6 구현 승인」 2026-11-09): 조회(GET)는 쓰기 0 — 알림 대상 읽음 처리를 하지 않는다.
+   * 이 GET 은 주문 목록 마우스 올림·포커스 미리받기에서도 나가 「보지 않았는데 읽음」이 됐다.
+   * 읽음은 사용자가 실제로 본 화면이 명시적으로 보낸다(`postNotificationThreadRead` → read-thread):
+   * 주문 상세 페이지·펼침 패널·매장 주문 상세, 그리고 주문 채팅 읽음(read-order-chat).
+   */
 
   if (snap && "body" in snap) {
     const linkedRoomId =

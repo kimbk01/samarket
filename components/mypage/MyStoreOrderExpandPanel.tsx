@@ -41,7 +41,8 @@ import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
 import { shouldEnableStoreOrderSupportFab } from "@/lib/support/store-order-support-fab";
-/** 색 = `--sol-panel-*` 토큰 (배달 허브에서는 기존과 같은 값 — X19·C5) */
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
+/** 색 =`--sol-panel-*` 토큰 (배달 허브에서는 기존과 같은 값 — X19·C5) */
 import "@/app/store-order-list-tokens.css";
 
 type ItemRow = {
@@ -374,6 +375,22 @@ export function MyStoreOrderExpandPanel({
 
   const listSeedRef = useRef(listSeed);
   listSeedRef.current = listSeed;
+
+  /**
+   * D6 (Owner 「D6 구현 승인」 2026-11-09): 사용자가 펼침 패널을 실제로 열어 주문을 보면 그때 읽음 — 주문 상세 페이지
+   * (`MyStoreOrderDetailView`)와 같은 명시적 경로. 주문 상세 GET 은 더 이상 읽음 처리를 하지 않는다
+   * (마우스 올림·포커스 미리받기로 읽음이 되던 결함). 패널은 펼침(클릭·`?expand=` 진입) 때만 마운트된다.
+   */
+  const notificationReadOnceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!orderId || state.kind !== "ok") return;
+    if (notificationReadOnceRef.current === orderId) return;
+    notificationReadOnceRef.current = orderId;
+    void postNotificationThreadRead(orderId, {
+      threadType: "order",
+      readReason: "order_detail_opened",
+    });
+  }, [orderId, state.kind]);
 
   useEffect(() => {
     const initial = buildInitialPanelState(orderId, listSeedRef.current);

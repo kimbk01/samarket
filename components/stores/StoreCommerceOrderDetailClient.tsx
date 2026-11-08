@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
@@ -113,6 +114,22 @@ export function StoreCommerceOrderDetailClient({
   }, [load]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
+
+  /**
+   * D6 (Owner 「D6 구현 승인」 2026-11-09): 주문 상세를 실제로 본 화면이 명시적으로 읽음 — 주문 상세 GET 이
+   * 더 이상 읽음 처리를 하지 않으므로, 이전과 같이 이 화면을 보면 주문 알림이 읽음이 되도록 유지한다.
+   */
+  const notificationReadOnceRef = useRef<string | null>(null);
+  const loaded = state.kind === "ok";
+  useEffect(() => {
+    if (!orderId || !loaded) return;
+    if (notificationReadOnceRef.current === orderId) return;
+    notificationReadOnceRef.current = orderId;
+    void postNotificationThreadRead(orderId, {
+      threadType: "order",
+      readReason: "order_detail_opened",
+    });
+  }, [orderId, loaded]);
 
   if (state.kind === "loading") {
     return <p className="px-4 py-8 text-center text-sm text-sam-muted">{t("common_loading")}</p>;
