@@ -1,0 +1,25 @@
+/**
+ * 앱 홈 상단 배너 — 네이버형(카드·배경 없음) 글자·색 (Owner 시안 v22 · 네이버 홈 실측 비율).
+ * 앱 홈 `HomeBannerView` 와 어드민 「홈 구성」 미리보기가 같은 클래스를 쓴다.
+ */
+.home-banner-frame {
+  background: #f3f5f3;
+}
+.home-banner-title {
+  color: #141a16;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+.home-banner-body {
+  margin-top: 4px;
+  color: #767676;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.home-banner-ad {
+  margin-top: 4px;
+  color: #999999;
+  font-size: 11px;
+  font-weight: 500;
+}

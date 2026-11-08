@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Bike, ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchMeStoreOrdersHubSummaryDeduped,
@@ -11,7 +12,7 @@ import type { BuyerStoreOrdersHubSummary } from "@/lib/delivery/customer/load-bu
 import { orderStatusName } from "@/lib/stores/store-order-process-model";
 
 /**
- * 홈 「지금 진행 중」 — 진행 중인 배달 주문이 있을 때만 보인다(없으면 칸 자체 없음, 홈 설계안 v11 §2).
+ * 진행 중 배달 한 줄 (회원만) — 진행 중인 배달 주문이 있을 때만 배너 아래 한 줄로 보인다(없으면 칸 없음, 시안 v22).
  * 데이터 = 기존 구매자 주문 요약(`/api/me/store-orders?hub_summary=1`). 상태 이름 = 주문 단일 정의 `orderStatusName`.
  */
 export function HomeOngoingSection({ refreshSeq }: { refreshSeq: number }) {
@@ -38,20 +39,22 @@ export function HomeOngoingSection({ refreshSeq }: { refreshSeq: number }) {
   if (!summary || summary.activeOrders <= 0 || !summary.recent) return null;
   const recent = summary.recent;
   return (
-    <section className="mt-2 bg-white px-4 py-3.5" data-home-ongoing>
-      <h2 className="mb-2.5 text-[16px] font-extrabold">{t("home_ongoing_title")}</h2>
-      <button
-        type="button"
-        onClick={() => router.push("/orders")}
-        className="flex w-full flex-col gap-0.5 rounded-ui-rect border border-sam-border p-3 text-left"
-      >
-        <span className="text-[11px] font-extrabold text-[#C0622A]">{t("home_ongoing_delivery")}</span>
-        <b className="text-[14px]">{recent.store_name}</b>
-        <span className="text-[12px] text-sam-muted">
-          {orderStatusName(recent.order_status, "delivery", language)}
+    <button
+      type="button"
+      onClick={() => router.push("/orders")}
+      className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-2.5 rounded-ui-rect bg-white px-3.5 py-3 text-left shadow-[0_1px_3px_rgba(20,40,25,0.06)] active:opacity-80"
+      data-home-ongoing
+    >
+      <Bike className="h-5 w-5 shrink-0 text-sam-primary" strokeWidth={1.8} aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-[14px] text-[#141a16]">
+        <b className="font-semibold">{recent.store_name}</b>
+        <span className="text-[#767676]">
+          {" "}
+          {t("home_ongoing_line", { status: orderStatusName(recent.order_status, "delivery", language) })}
           {summary.activeOrders > 1 ? t("home_ongoing_more", { count: summary.activeOrders - 1 }) : ""}
         </span>
-      </button>
-    </section>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#999]" aria-hidden />
+    </button>
   );
 }

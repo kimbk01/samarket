@@ -92,6 +92,7 @@ import { adminTechInfoMessages } from "./catalog/admin-tech-info";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
 import { homeHubMessages } from "./catalog/home-hub";
+import { homeHubAdminMessages } from "./catalog/home-hub-admin";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
@@ -220,6 +221,7 @@ const KO_MESSAGES = {
   ...chatsMessages.ko,
   ...ptrMessages.ko,
   ...homeHubMessages.ko,
+  ...homeHubAdminMessages.ko,
   ...storeCommerceUiMessages.ko,
   ...cmMonitoringSloMessages.ko,
   ...communityMessengerUiMessages.ko,
@@ -374,6 +376,7 @@ const EN_MESSAGES = {
   ...chatsMessages.en,
   ...ptrMessages.en,
   ...homeHubMessages.en,
+  ...homeHubAdminMessages.en,
   ...storeCommerceUiMessages.en,
   ...cmMonitoringSloMessages.en,
   ...communityMessengerUiMessages.en,

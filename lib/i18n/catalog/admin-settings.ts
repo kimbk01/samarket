@@ -409,7 +409,7 @@ export const adminSettingsMessages = {
     admin_first_entry_save_tab: "시작 탭 저장",
     admin_startup_config_initial_surface: "시작 화면",
     admin_startup_config_initial_surface_hint:
-      "기본값은 커뮤니티입니다. 저장 후 다음 앱 실행부터 적용됩니다.",
+      "기본값은 홈입니다. 저장 후 다음 앱 실행부터 적용됩니다.",
     admin_startup_config_surface_home: "홈",
     admin_startup_config_surface_community: "커뮤니티",
     admin_startup_config_surface_trade: "거래",
@@ -844,7 +844,7 @@ export const adminSettingsMessages = {
     admin_first_entry_save_tab: "Save launch tab",
     admin_startup_config_initial_surface: "Initial screen",
     admin_startup_config_initial_surface_hint:
-      "Default is Community. Applies on the next app launch after save.",
+      "Default is Home. Applies on the next app launch after save.",
     admin_startup_config_surface_home: "Home",
     admin_startup_config_surface_community: "Community",
     admin_startup_config_surface_trade: "Trade",

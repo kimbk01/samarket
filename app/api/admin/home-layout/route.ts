@@ -12,17 +12,18 @@ import {
   validateHomeLayoutPayload,
 } from "@/lib/home/home-layout-contract";
 import { loadHomeLayoutFromStore } from "@/lib/home/load-home-layout-server";
+import { loadHomeCatalogFromStore } from "@/lib/home/load-home-catalog-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 어드민 「홈 구성」 — 조회는 관리자 전원 */
+/** 어드민 「홈 구성」 — 조회는 관리자 전원. 분류 목록(배달 업종·거래 카테고리·정보교환 주제)을 함께 준다 */
 export async function GET() {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
-  const payload = await loadHomeLayoutFromStore();
-  return NextResponse.json({ ok: true as const, ...payload });
+  const [payload, catalog] = await Promise.all([loadHomeLayoutFromStore(), loadHomeCatalogFromStore()]);
+  return NextResponse.json({ ok: true as const, ...payload, catalog });
 }
 
 /**

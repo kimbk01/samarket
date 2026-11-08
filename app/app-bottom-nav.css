@@ -869,3 +869,35 @@ html:has(.app-bottom-nav-shell--delivery) {
     transform: translate(18%, -18%) scale(1);
   }
 }
+
+/* ==========================================================================
+ * 배지 위치 — 아이콘의 약 30%만 겹침 (Owner 2026-11-09 「해당 아이콘의 대략 30% 겹치게」)
+ * 운영 실측(11-09): 배지가 채팅 아이콘(22px) 폭의 73%를 덮음 → 배지 왼쪽 끝 = 아이콘 오른쪽 끝 − 7px,
+ * 배지 아래 끝 = 아이콘 위 끝 + 7px. 숫자가 늘면(99+) 바깥(오른쪽)으로만 늘어나 겹침은 7px 그대로.
+ * 선택 탭(검은 사각형)도 같은 규칙 — 사각형 모서리 기준.
+ * ========================================================================== */
+.app-bottom-nav-inline-icon > .bottom-nav-hub-badge,
+.app-bottom-nav-item .app-bottom-nav-inline-icon > .bottom-nav-hub-badge {
+  top: -11px !important;
+  left: calc(100% - 7px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+
+.app-bottom-nav-item .bottom-nav-hub-badge {
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 4px !important;
+  font-size: 10.5px !important;
+}
+
+/* 위치는 transform 을 쓰지 않으므로 튀어나오는 효과는 독립 scale 속성으로 (transform !important 와 겹치지 않게) */
+@keyframes app-bottom-nav-badge-pop {
+  0% {
+    scale: 0.4;
+  }
+  100% {
+    scale: 1;
+  }
+}

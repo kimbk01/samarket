@@ -26,8 +26,17 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
       href: () => peekTradeListReturnHref() ?? "/market",
     },
   ];
+  /**
+   * 선택 버튼 모양 + 눌림 효과 (Owner 2026-11-09 「선택된 버튼 형태 · 눌림 효과」):
+   * 둥근 바탕 안에 두 버튼 — 선택 = 브랜드 초록 채움·흰 글자, 나머지 = 회색 글자.
+   * 누르면 살짝 작아지고(0.96) 바탕이 진해진다. 「동작 줄이기」 설정이면 크기 변화 없음.
+   */
   return (
-    <span className="flex min-w-0 items-baseline gap-3.5" role="tablist" data-community-trade-title-switch>
+    <span
+      className="inline-flex min-w-0 items-center gap-0.5 rounded-full bg-black/[0.06] p-[3px]"
+      role="tablist"
+      data-community-trade-title-switch
+    >
       {items.map((it) => {
         const on = it.key === active;
         return (
@@ -37,7 +46,11 @@ export function CommunityTradeTitleSwitch({ active }: { active: "community" | "t
             role="tab"
             aria-selected={on}
             data-active={on ? "" : undefined}
-            className={`whitespace-nowrap ${on ? "text-sam-fg" : "text-sam-muted"}`}
+            className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 text-[15px] leading-none transition-[transform,background-color,color] duration-100 ease-out [-webkit-tap-highlight-color:transparent] active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100 ${
+              on
+                ? "bg-sam-primary font-bold text-white shadow-[0_1px_3px_rgba(11,66,26,0.25)] active:brightness-90"
+                : "font-semibold text-sam-muted active:bg-black/[0.08]"
+            }`}
             onClick={() => {
               if (on) return;
               router.push(it.href());
