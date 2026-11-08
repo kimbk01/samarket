@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
+  HOME_MENU_CATALOG,
   HOME_BANNER_IMAGE_MAX_PX,
   HOME_BANNER_IMAGE_MIN_PX,
   HOME_BANNER_RATIO_CSS,
@@ -16,10 +17,17 @@ import {
 import { keepSessionPick, nextBannerId } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 
-/** 로그인이 필요한 이동 곳 — 비로그인이면 기존 로그인 안내 */
-function guestGateFor(href: string): "messenger_open" | "delivery_order" | null {
-  if (href.startsWith("/community-messenger")) return "messenger_open";
-  if (href.startsWith("/orders")) return "delivery_order";
+/**
+ * 로그인이 필요한 이동 곳 — 서비스 카드와 같은 기준(메뉴 카탈로그 `guestAuthAction`) 하나로 판정 (감사 중복 2026-11-09).
+ * 배너 주소의 경로가 카탈로그 메뉴 경로와 같거나 그 아래면 그 메뉴의 로그인 안내를 쓴다.
+ */
+function guestGateFor(href: string) {
+  const path = href.split(/[?#]/)[0] ?? "";
+  for (const m of Object.values(HOME_MENU_CATALOG)) {
+    if (!m.guestAuthAction) continue;
+    const base = m.href.split(/[?#]/)[0] ?? "";
+    if (path === base || path.startsWith(`${base}/`)) return m.guestAuthAction;
+  }
   return null;
 }
 

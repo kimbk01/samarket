@@ -13,12 +13,15 @@ import type { HomeStoreMenuItem } from "@/lib/home/home-catalog-types";
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
+import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
+import { storeDisplayStatusLabelKey } from "@/lib/stores/store-display-status-label";
 
 type Shown = { store: StoreHomeFeedItem; menus: HomeStoreMenuItem[]; adLabel: boolean };
 type LoadState =
   | { kind: "loading" }
   | { kind: "gate"; gate: Exclude<DeliveryViewerGate, "ok"> }
   | { kind: "empty" }
+  | { kind: "error" }
   | { kind: "ready"; shown: Shown[] };
 
 function peso(n: number): string {
@@ -26,9 +29,10 @@ function peso(n: number): string {
 }
 
 /**
- * 후보 매장 — 배달 탭 홈 피드(`/api/stores/home-feed`)와 같은 판정·순서를 그대로 쓴다
- * (배달 가능 → 같은 동네 → 가까운 거리 → 주문 많은 → 평점). 홈만 따로 판정하지 않는다.
- * 지금 주문할 수 있는 곳만: 영업 중 · 배달 켬 · 배달 지역 안. 어드민 조건(직접 고르기/자동)으로 거른다.
+ * 후보 매장 — 배달 탭 홈 피드(`/api/stores/home-feed`)와 같은 판정을 그대로 쓴다. 홈만 따로 판정하지 않는다.
+ * 조건: 배달 켬 · 배달 지역 안 (영업시간 밖·샘플도 포함 — Owner 2026-11-09). `requireOpen` 은 영업 중만 볼 때.
+ * 순서: 직접 고르기 = 어드민이 고른 순서 (감사 E10) · 자동 = 영업 중 먼저, 그다음 배달 탭 순서
+ * (배달 가능 → 같은 동네 → 가까운 거리 → 주문 많은 → 평점), 「새로 연 순」이면 처음 공개일 최신순.
  */
 export function filterHomeStorePool(
   stores: readonly StoreHomeFeedItem[],
@@ -40,8 +44,8 @@ export function filterHomeStorePool(
     (s) => (!requireOpen || s.status === "open") && s.deliveryAvailable && s.distanceOutOfRange !== true
   );
   if (cfg.mode === "manual") {
-    const picked = new Set(cfg.picks.map((p) => p.storeId));
-    return eligible.filter((s) => picked.has(s.id));
+    const byId = new Map(eligible.map((s) => [s.id, s] as const));
+    return cfg.picks.map((p) => byId.get(p.storeId)).filter((s): s is StoreHomeFeedItem => Boolean(s));
   }
   let pool = eligible;
   if (cfg.autoCategorySlugs.length > 0) {
@@ -56,11 +60,11 @@ export function filterHomeStorePool(
       return tb - ta;
     });
   }
-  return pool;
+  return [...pool.filter((s) => s.status === "open"), ...pool.filter((s) => s.status !== "open")];
 }
 
 /**
- * 「지금 주문할 수 있는 매장」 — 매장별 메뉴 사진 가로 넘김. 배달 지역 안 매장은 영업시간 밖이어도 보인다(영업 중 먼저, 상태 표시).
+ * 「우리 동네 배달 매장」 — 매장별 메뉴 사진 가로 넘김. 배달 지역 안 매장은 영업시간 밖이어도 보인다(상태 표시).
  * 새로고침·재접속 때 지난번에 안 나온 매장·메뉴 먼저.
  * 비로그인 = 로그인 안내(S-07) · 저장 주소 없음 = 주소 등록 안내 · 배달 지역 안 매장 0 = 「배달되는 매장 없음」.
  * 메뉴·＋ 누르면 그 메뉴 화면(`/stores/매장/p/메뉴`)에서 담기 — 담기 시트는 배달 화면 안에서만 열리는 기존 계약 그대로.
@@ -81,15 +85,7 @@ export function HomeStoresSection({
   const { t, language } = useI18n();
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
-  /** 배달 탭 매장 카드와 같은 상태 문구 (`StoreDeliveryRowCard`) */
-  const statusLabel = (status: StoreHomeFeedItem["status"] | "resting") =>
-    status === "open"
-      ? t("store_open_now")
-      : status === "resting"
-        ? t("store_resting_now")
-        : status === "closed"
-          ? t("store_closed_now")
-          : t("store_preparing");
+  const [retryKey, setRetryKey] = useState(0);
   const mode = rot?.mode;
   const seq = rot?.seq;
   const cfgKey = JSON.stringify(config);
@@ -106,20 +102,20 @@ export function HomeStoresSection({
       const feed = await fetchStoresHomeFeedDeduped("", { language, clientCallSource: "stores_home_mount" }).catch(
         () => null
       );
-      const json = (feed?.json ?? {}) as { stores?: StoreHomeFeedItem[]; meta?: { viewer_gate?: DeliveryViewerGate } };
-      const gate = json.meta?.viewer_gate;
       if (!alive) return;
+      // 실패는 「매장 없음」이 아니라 오류로 보이고, 교체 기록에 넣지 않는다 (감사 E8)
+      if (!feed || feed.status !== 200) {
+        setState({ kind: "error" });
+        return;
+      }
+      const json = (feed.json ?? {}) as { stores?: StoreHomeFeedItem[]; meta?: { viewer_gate?: DeliveryViewerGate } };
+      const gate = json.meta?.viewer_gate;
       if (gate === "login_required" || gate === "address_required") {
         setState({ kind: "gate", gate });
         return;
       }
-      const feedStores = json.stores ?? [];
-      /**
-       * Owner 2026-11-09 「샘플이라도 배달 지역 안이면 홈에서도 보여야」 — 영업시간 밖 매장도 보인다(상태 표시).
-       * 영업 중 먼저, 그다음 나머지(각각 배달 탭 순서 유지).
-       */
-      const inArea = filterHomeStorePool(feedStores, config, { requireOpen: false });
-      const pool = [...inArea.filter((s) => s.status === "open"), ...inArea.filter((s) => s.status !== "open")];
+      // Owner 2026-11-09 「샘플이라도 배달 지역 안이면 홈에서도 보여야」 — 영업시간 밖 매장도 후보(상태 표시)
+      const pool = filterHomeStorePool(json.stores ?? [], config, { requireOpen: false });
       const take = Math.min(config.showCount, HOME_STORE_SHOW_MAX);
       const idOf = (s: StoreHomeFeedItem) => s.id;
       // 메뉴 없는 매장을 빼고도 채우도록 3곳 더 후보로
@@ -140,6 +136,10 @@ export function HomeStoresSection({
         menus?: Record<string, HomeStoreMenuItem[]>;
       } | null;
       if (!alive) return;
+      if (!body?.menus) {
+        setState({ kind: "error" });
+        return;
+      }
       const menusById = body?.menus ?? {};
       const shown: Shown[] = [];
       const menuPick: Record<string, string[]> = {};
@@ -163,7 +163,7 @@ export function HomeStoresSection({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
-  }, [isMember, mode, seq, cfgKey, language]);
+  }, [isMember, mode, seq, cfgKey, language, retryKey]);
 
   if (state.kind === "gate") {
     const login = state.gate === "login_required";
@@ -183,6 +183,14 @@ export function HomeStoresSection({
             {login ? t("home_sign_in") : t("home_stores_address_cta")}
           </button>
         </div>
+      </section>
+    );
+  }
+  if (state.kind === "error") {
+    return (
+      <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores data-home-stores-error>
+        <HomeSectionHead title={title} />
+        <HomeLoadError onRetry={() => setRetryKey((n) => n + 1)} />
       </section>
     );
   }
@@ -242,7 +250,9 @@ export function HomeStoresSection({
                 <span className="block truncate text-[12.5px] text-[#767676]">
                   {[store.primaryNameKo, store.regionLabel].filter(Boolean).join(" · ")}
                   {" · "}
-                  <span className={store.status === "open" ? "text-sam-primary" : "text-[#999]"}>{statusLabel(store.status)}</span>
+                  <span className={store.status === "open" ? "text-sam-primary" : "text-[#999]"}>
+                    {t(storeDisplayStatusLabelKey(store.status))}
+                  </span>
                 </span>
               </span>
               <span className="shrink-0 text-[13px] font-semibold text-sam-primary">{t("home_order_now")} ›</span>

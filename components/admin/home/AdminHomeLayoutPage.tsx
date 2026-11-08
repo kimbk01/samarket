@@ -55,6 +55,7 @@ import {
   HOME_TRADES_MAX,
   HOME_TRADES_MIN,
   isSafeHomeHref,
+  isSafeHomeImageUrl,
   type HomeAudience,
   type HomeBannerConfig,
   type HomeBannerRatio,
@@ -71,6 +72,11 @@ import {
 import { homeCatalogName, type HomeCatalog } from "@/lib/home/home-catalog-types";
 import type { AdminHomeStoreRow } from "@/app/api/admin/home-layout/stores/route";
 import type { AdminHomeStoreProductRow } from "@/app/api/admin/home-layout/store-products/route";
+import type {
+  AdminHomeStorePreviewCity,
+  AdminHomeStorePreviewRow,
+} from "@/app/api/admin/home-layout/stores-preview/route";
+import { storeDisplayStatusLabelKey } from "@/lib/stores/store-display-status-label";
 
 type LoadResponse = {
   ok: boolean;
@@ -403,12 +409,15 @@ function BannerPreview({ banner, language, tr }: { banner: HomeBannerConfig; lan
   );
 }
 
-/** 누르면 이동 — 메뉴 목록 또는 앱 안 주소 */
+/**
+ * 누르면 이동 — 메뉴 목록 또는 앱 안 주소.
+ * 직접 입력은 친 그대로 저장 값에 들어가고, 잘못된 주소면 저장 전 검사에서 막는다 (감사 E12 — 예전 값 남기기·「/」 자동 대입 없음).
+ */
 function HrefPicker({ value, onChange, tr }: { value: string; onChange: (v: string) => void; tr: Tr }) {
   const matched = HOME_MENU_KEYS.find((k) => HOME_MENU_CATALOG[k].href === value);
-  const mode = !value ? "none" : (matched ?? "custom");
-  const [custom, setCustom] = useState(mode === "custom" ? value : "");
-  const invalid = mode === "custom" && !isSafeHomeHref(custom);
+  const [customMode, setCustomMode] = useState(() => Boolean(value) && !matched);
+  const mode = customMode ? "custom" : !value ? "none" : (matched ?? "custom");
+  const invalid = mode === "custom" && Boolean(value.trim()) && !isSafeHomeHref(value);
   return (
     <div className="space-y-2">
       <select
@@ -416,9 +425,16 @@ function HrefPicker({ value, onChange, tr }: { value: string; onChange: (v: stri
         value={mode}
         onChange={(e) => {
           const v = e.target.value;
-          if (v === "none") onChange("");
-          else if (v === "custom") onChange(custom && isSafeHomeHref(custom) ? custom : "/");
-          else onChange(HOME_MENU_CATALOG[v as (typeof HOME_MENU_KEYS)[number]].href);
+          if (v === "none") {
+            setCustomMode(false);
+            onChange("");
+          } else if (v === "custom") {
+            setCustomMode(true);
+            onChange("");
+          } else {
+            setCustomMode(false);
+            onChange(HOME_MENU_CATALOG[v as (typeof HOME_MENU_KEYS)[number]].href);
+          }
         }}
       >
         <option value="none">{tr("admin_home_layout_href_none")}</option>
@@ -432,12 +448,9 @@ function HrefPicker({ value, onChange, tr }: { value: string; onChange: (v: stri
       {mode === "custom" ? (
         <input
           className={INPUT_CLS}
-          value={custom}
+          value={value}
           placeholder={tr("admin_home_layout_href_custom_ph")}
-          onChange={(e) => {
-            setCustom(e.target.value);
-            if (isSafeHomeHref(e.target.value) && e.target.value.trim()) onChange(e.target.value.trim());
-          }}
+          onChange={(e) => onChange(e.target.value)}
         />
       ) : null}
       {invalid ? <p className="sam-text-helper text-sam-danger">{tr("admin_home_layout_href_invalid")}</p> : null}
@@ -486,8 +499,24 @@ function newBannerId(): string {
   return `b-${Date.now().toString(36)}`;
 }
 
-function BannersTab({ draft, setDraft, tr, language }: { draft: HomeLayoutConfig; setDraft: SetDraft; tr: Tr; language: string }) {
+function BannersTab({
+  draft,
+  setDraft,
+  tr,
+  language,
+  focus,
+}: {
+  draft: HomeLayoutConfig;
+  setDraft: SetDraft;
+  tr: Tr;
+  language: string;
+  /** 저장 검사에서 걸린 배너 — 그 배너를 골라 보여 준다 (감사 E9) */
+  focus: { id: string; nonce: number } | null;
+}) {
   const [selId, setSelId] = useState<string | null>(draft.banners[0]?.id ?? null);
+  useEffect(() => {
+    if (focus) setSelId(focus.id);
+  }, [focus]);
   const sel = draft.banners.find((b) => b.id === selId) ?? null;
   const patch = (id: string, p: Partial<HomeBannerConfig>) =>
     setDraft((d) => ({ ...d, banners: d.banners.map((b) => (b.id === id ? { ...b, ...p } : b)) }));
@@ -839,7 +868,7 @@ function storeNotShownReasons(s: AdminHomeStoreRow, tr: Tr): string[] {
   if (!s.approved) r.push(tr("admin_home_layout_reason_not_approved"));
   if (!s.visible) r.push(tr("admin_home_layout_reason_hidden"));
   if (!s.deliveryAvailable) r.push(tr("admin_home_layout_reason_no_delivery"));
-  if (!s.isOpen) r.push(tr("admin_home_layout_reason_closed"));
+  // 영업시간 밖·영업 꺼짐은 이유가 아니다 — 홈은 배달 지역 안이면 보여 준다 (Owner 2026-11-09)
   if (s.activeMenuCount === 0) r.push(tr("admin_home_layout_reason_no_menu"));
   return r;
 }
@@ -855,7 +884,11 @@ function StoreChips({ s, tr }: { s: AdminHomeStoreRow; tr: Tr }) {
       {chip(s.approved, tr("admin_home_layout_chip_approved"))}
       {chip(s.visible, tr("admin_home_layout_chip_visible"))}
       {chip(s.deliveryAvailable, tr("admin_home_layout_chip_delivery"))}
-      {chip(s.isOpen, tr("admin_home_layout_chip_open"))}
+      <span
+        className={`rounded-ui-rect px-1.5 py-0.5 sam-text-helper ${s.isOpen ? "bg-sam-success-soft text-sam-success" : "bg-sam-surface-muted text-sam-muted"}`}
+      >
+        {s.isOpen ? tr("admin_home_layout_chip_open") : tr("admin_home_layout_chip_closed")}
+      </span>
       {s.isSample ? (
         <span className="rounded-ui-rect bg-sam-warning-soft px-1.5 py-0.5 sam-text-helper text-sam-warning">{tr("admin_home_layout_chip_sample")}</span>
       ) : null}
@@ -909,12 +942,12 @@ function PickMenus({ pick, onChange, tr }: { pick: HomeStorePick; onChange: (p: 
               return (
                 <label
                   key={p.id}
-                  className={`flex items-center gap-2 rounded-ui-rect border border-sam-border p-1.5 ${p.hidden || full ? "opacity-50" : ""}`}
+                  className={`flex items-center gap-2 rounded-ui-rect border border-sam-border p-1.5 ${p.hiddenReason || full ? "opacity-50" : ""}`}
                 >
                   <input
                     type="checkbox"
                     checked={on}
-                    disabled={!on && (p.hidden || full)}
+                    disabled={!on && (Boolean(p.hiddenReason) || full)}
                     onChange={(e) =>
                       onChange({
                         ...pick,
@@ -927,7 +960,8 @@ function PickMenus({ pick, onChange, tr }: { pick: HomeStorePick; onChange: (p: 
                     <span className="block truncate sam-text-body">{p.title}</span>
                     <span className="block sam-text-helper text-sam-muted">
                       {formatAdminPhp(p.price)}
-                      {p.hidden ? ` · ${tr("admin_home_layout_menu_hidden")}` : ""}
+                      {p.hiddenReason === "no_photo" ? ` · ${tr("admin_home_layout_menu_no_photo")}` : ""}
+                      {p.hiddenReason === "review_or_section" ? ` · ${tr("admin_home_layout_menu_hidden")}` : ""}
                     </span>
                   </span>
                   {on ? <span className="sam-text-helper font-bold text-sam-primary">{idx + 1}</span> : null}
@@ -935,6 +969,176 @@ function PickMenus({ pick, onChange, tr }: { pick: HomeStorePick; onChange: (p: 
               );
             })}
           </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 주소별 미리보기 (계획 7번 · Owner 「계획대로 수정」 2026-11-09) — 도시를 고르면 그 도시를 대표 배달 주소로 둔 회원에게
+ * 홈 「배달 매장」 칸에 나올 매장을 지금 고친 설정(저장 전 포함)으로 보여 준다. 배달 지역 판정은 서버가 배달 탭과 같은 판정으로 한다.
+ */
+function StoresPreviewBox({ st, tr }: { st: HomeLayoutConfig["stores"]; tr: Tr }) {
+  const [cities, setCities] = useState<AdminHomeStorePreviewCity[]>([]);
+  const [cityQ, setCityQ] = useState("");
+  const [lguId, setLguId] = useState("");
+  const [rows, setRows] = useState<AdminHomeStorePreviewRow[] | null>(null);
+  const [outOfArea, setOutOfArea] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const loadCities = useCallback(async (q: string) => {
+    try {
+      const r = await fetch(`/api/admin/home-layout/stores-preview${q ? `?q=${encodeURIComponent(q)}` : ""}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const d = (await r.json()) as { ok?: boolean; cities?: AdminHomeStorePreviewCity[] };
+      if (d.ok) {
+        setCities((prev) => {
+          const m = new Map(prev.map((c) => [c.id, c] as const));
+          for (const c of d.cities ?? []) m.set(c.id, c);
+          return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+        });
+      }
+    } catch {
+      /* 도시 목록 없음 — 검색으로 다시 시도 */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCities("");
+  }, [loadCities]);
+
+  useEffect(() => {
+    if (!lguId) return;
+    let alive = true;
+    setLoading(true);
+    setFailed(false);
+    void fetch(`/api/admin/home-layout/stores-preview?lguId=${encodeURIComponent(lguId)}`, { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; stores?: AdminHomeStorePreviewRow[]; outOfArea?: number }) => {
+        if (!alive) return;
+        if (!d.ok) {
+          setFailed(true);
+          setRows(null);
+          return;
+        }
+        setRows(d.stores ?? []);
+        setOutOfArea(d.outOfArea ?? 0);
+      })
+      .catch(() => {
+        if (alive) {
+          setFailed(true);
+          setRows(null);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [lguId]);
+
+  /** 앱과 같은 순서 규칙 — 직접 고르기 = 고른 순서, 자동 = 조건으로 거른 뒤 영업 중 먼저 */
+  const ordered = useMemo(() => {
+    if (!rows) return [];
+    if (st.mode === "manual") {
+      const byId = new Map(rows.map((r) => [r.id, r] as const));
+      return st.picks.map((p) => byId.get(p.storeId)).filter((r): r is AdminHomeStorePreviewRow => Boolean(r));
+    }
+    let pool = rows;
+    if (st.autoCategorySlugs.length > 0) {
+      const cats = new Set(st.autoCategorySlugs);
+      pool = pool.filter((r) => r.categorySlug != null && cats.has(r.categorySlug));
+    }
+    if (st.autoFilter === "recent_orders") pool = pool.filter((r) => r.completedOrderCount30d > 0);
+    if (st.autoFilter === "newest") {
+      pool = [...pool].sort((a, b) => (b.firstListedAt ? Date.parse(b.firstListedAt) : 0) - (a.firstListedAt ? Date.parse(a.firstListedAt) : 0));
+    }
+    return [...pool.filter((r) => r.status === "open"), ...pool.filter((r) => r.status !== "open")];
+  }, [rows, st.mode, st.picks, st.autoCategorySlugs, st.autoFilter]);
+
+  /** 앱은 보일 메뉴가 없는 매장을 건너뛰고 다음 매장으로 채운다 — 그 순서대로 「첫 화면」 표시 */
+  const marked = useMemo(() => {
+    const withMenu = ordered.filter((r) => r.visibleMenuCount > 0).slice(0, st.showCount);
+    const firstIds = new Set(withMenu.map((r) => r.id));
+    return ordered.map((r) => ({ r, noMenu: r.visibleMenuCount === 0, first: firstIds.has(r.id) }));
+  }, [ordered, st.showCount]);
+
+  return (
+    <div className={BOX_CLS} data-admin-home-stores-preview>
+      <b className="sam-text-section-title">{tr("admin_home_layout_preview_by_city")}</b>
+      <p className="mt-1 sam-text-helper text-sam-muted">{tr("admin_home_layout_preview_by_city_hint")}</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <select className={INPUT_CLS} value={lguId} onChange={(e) => setLguId(e.target.value)}>
+          <option value="">{tr("admin_home_layout_preview_city_select")}</option>
+          {cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-2">
+          <input
+            className={INPUT_CLS}
+            value={cityQ}
+            placeholder={tr("admin_home_layout_preview_city_search_ph")}
+            onChange={(e) => setCityQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && cityQ.trim().length >= 2) void loadCities(cityQ.trim());
+            }}
+          />
+          <AdminActionButton size="sm" disabled={cityQ.trim().length < 2} onClick={() => void loadCities(cityQ.trim())}>
+            {tr("admin_home_layout_stores_search")}
+          </AdminActionButton>
+        </div>
+      </div>
+      {loading ? <p className="mt-2 sam-text-helper text-sam-muted">{tr("admin_home_layout_loading")}</p> : null}
+      {failed ? <p className="mt-2 sam-text-helper text-sam-danger">{tr("admin_home_layout_err_read_failed")}</p> : null}
+      {rows && !loading ? (
+        <div className="mt-2">
+          {ordered.length === 0 ? <p className="sam-text-helper text-sam-muted">{tr("admin_home_layout_preview_empty")}</p> : null}
+          {marked.map(({ r, noMenu, first }) => {
+            return (
+              <div key={r.id} className="flex flex-wrap items-center gap-2 border-t border-sam-border py-1.5 first:border-t-0">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate sam-text-body font-semibold">{r.name}</span>
+                  <span className="block sam-text-helper text-sam-muted">
+                    {[
+                      r.categoryName,
+                      tr(storeDisplayStatusLabelKey(r.status)),
+                      r.distanceKm != null ? tr("admin_home_layout_preview_distance", { km: r.distanceKm }) : null,
+                      tr("admin_home_layout_preview_menus", { count: r.visibleMenuCount }),
+                      r.isSample ? tr("admin_home_layout_chip_sample") : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </span>
+                <span
+                  className={`rounded-ui-rect px-1.5 py-0.5 sam-text-helper ${
+                    noMenu
+                      ? "bg-sam-danger-soft text-sam-danger"
+                      : first
+                        ? "bg-sam-success-soft text-sam-success"
+                        : "bg-sam-surface-muted text-sam-muted"
+                  }`}
+                >
+                  {noMenu
+                    ? tr("admin_home_layout_preview_no_menu")
+                    : first
+                      ? tr("admin_home_layout_preview_first")
+                      : tr("admin_home_layout_preview_next")}
+                </span>
+              </div>
+            );
+          })}
+          {outOfArea > 0 ? (
+            <p className="mt-2 sam-text-helper text-sam-muted">{tr("admin_home_layout_preview_out_of_area", { count: outOfArea })}</p>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1161,6 +1365,8 @@ function StoresTab({
         </div>
       )}
 
+      <StoresPreviewBox st={st} tr={tr} />
+
       <div className={`${BOX_CLS} bg-sam-surface-muted`}>
         <b className="sam-text-body">{tr("admin_home_layout_fixed_rules_title")}</b>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 sam-text-helper text-sam-muted">
@@ -1335,6 +1541,39 @@ function SectionsTab({ draft, setDraft, tr }: { draft: HomeLayoutConfig; setDraf
  * 어드민 「홈 구성」 — 앱 홈의 모든 칸을 여기서 정한다 (Owner 「이대로 구현」 2026-11-09, 홈 시안 v22).
  * 저장 = 읽은 판(`updated_at`)과 다르면 409 로 멈춤 · 저장 기록 남김 · 앱은 다음 새로고침·재접속에 반영.
  */
+/** 저장 오류 코드 → 문구 (감사 E9 — 코드값을 그대로 보이지 않는다) */
+const SAVE_ERROR_KEY: Readonly<Record<string, MessageKey>> = {
+  banner_title_required: "admin_home_layout_err_banner_title",
+  banner_image_required: "admin_home_layout_err_banner_image",
+  invalid_banner_href: "admin_home_layout_err_banner_href",
+  invalid_banner: "admin_home_layout_err_banner_title",
+  too_many_banners: "admin_home_layout_err_too_many_banners",
+  too_many_store_picks: "admin_home_layout_err_too_many_picks",
+  too_many_large_cards: "admin_home_layout_err_too_many_large",
+  too_many_small_cards: "admin_home_layout_err_too_many_small",
+  too_many_shortcuts: "admin_home_layout_err_too_many_shortcuts",
+  invalid_schema_version: "admin_home_layout_err_schema",
+  invalid_body: "admin_home_layout_err_schema",
+  invalid_json: "admin_home_layout_err_schema",
+  invalid_expected_revision: "admin_home_layout_err_schema",
+  read_failed: "admin_home_layout_err_read_failed",
+  save_failed: "admin_home_layout_err_save_failed",
+  supabase_unconfigured: "admin_home_layout_err_read_failed",
+};
+
+/**
+ * 저장 전 검사 — 서버(`validateHomeLayoutPayload`)와 같은 배너 규칙. 걸린 배너 id·코드를 돌려준다.
+ * 꺼 둔 배너도 서버가 검사하므로 똑같이 본다.
+ */
+function findBannerProblem(d: HomeLayoutConfig): { id: string; code: string } | null {
+  for (const b of d.banners) {
+    if (!b.title.ko.trim()) return { id: b.id, code: "banner_title_required" };
+    if (!isSafeHomeImageUrl(b.imageUrl)) return { id: b.id, code: "banner_image_required" };
+    if (!isSafeHomeHref(b.href)) return { id: b.id, code: "invalid_banner_href" };
+  }
+  return null;
+}
+
 export function AdminHomeLayoutPage() {
   const { language, t: tr } = useI18n();
   const ko = language !== "en";
@@ -1349,6 +1588,7 @@ export function AdminHomeLayoutPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [tab, setTab] = useState<TabKey>("banners");
+  const [bannerFocus, setBannerFocus] = useState<{ id: string; nonce: number } | null>(null);
 
   const setDraft = useCallback<SetDraft>((fn) => {
     setDraftState((d) => (d ? fn(d) : d));
@@ -1379,8 +1619,20 @@ export function AdminHomeLayoutPage() {
 
   const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(draft), [saved, draft]);
 
+  const errorText = (code: string) => {
+    const key = SAVE_ERROR_KEY[code];
+    return key ? tr(key) : tr("admin_home_layout_save_failed", { reason: code });
+  };
+
   const save = async () => {
     if (!draft) return;
+    const problem = findBannerProblem(draft);
+    if (problem) {
+      setTab("banners");
+      setBannerFocus((prev) => ({ id: problem.id, nonce: (prev?.nonce ?? 0) + 1 }));
+      setMessage({ type: "err", text: errorText(problem.code) });
+      return;
+    }
     const ok = await confirmAdminAction({
       level: adminActionLevel("runtimeSettingChange"),
       ko,
@@ -1398,19 +1650,22 @@ export function AdminHomeLayoutPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ config: draft, expectedRevision: revision }),
       });
-      const data = (await res.json()) as LoadResponse;
+      const data = (await res.json().catch(() => ({ ok: false }))) as LoadResponse;
       if (res.status === 409) {
         setMessage({ type: "err", text: tr("admin_home_layout_conflict") });
         return;
       }
-      if (!res.ok || !data.ok || !data.config) throw new Error(data.error ?? `http_${res.status}`);
+      if (!res.ok || !data.ok || !data.config) {
+        setMessage({ type: "err", text: errorText(data.error ?? `http_${res.status}`) });
+        return;
+      }
       setSaved(cloneHomeLayout(data.config));
       setDraftState(cloneHomeLayout(data.config));
       setRevision(data.revision ?? null);
       setSource("db");
       setMessage({ type: "ok", text: tr("admin_home_layout_saved") });
-    } catch (e) {
-      setMessage({ type: "err", text: tr("admin_home_layout_save_failed", { reason: e instanceof Error ? e.message : "" }) });
+    } catch {
+      setMessage({ type: "err", text: tr("admin_home_layout_err_network") });
     } finally {
       setSaving(false);
     }
@@ -1436,7 +1691,8 @@ export function AdminHomeLayoutPage() {
           ) : null}
           <AdminActionButton
             variant="primary"
-            disabled={!dirty || saving || !adminAction.allowed}
+            /* 저장값이 없을 때(기본 구성)는 바꾸지 않아도 그대로 저장할 수 있다 (감사 E13) */
+            disabled={(!dirty && source === "db") || saving || !adminAction.allowed}
             title={adminAction.reason ?? undefined}
             onClick={() => void save()}
           >
@@ -1473,7 +1729,9 @@ export function AdminHomeLayoutPage() {
         syncUrl={false}
       />
 
-      {tab === "banners" ? <BannersTab draft={draft} setDraft={setDraft} tr={tr} language={language} /> : null}
+      {tab === "banners" ? (
+        <BannersTab draft={draft} setDraft={setDraft} tr={tr} language={language} focus={bannerFocus} />
+      ) : null}
       {tab === "services" ? <ServicesTab draft={draft} setDraft={setDraft} tr={tr} /> : null}
       {tab === "categories" ? (
         <CategoriesTab draft={draft} setDraft={setDraft} tr={tr} language={language} catalog={catalog} />

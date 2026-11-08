@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
+import { isHomeStoreMenuVisible } from "@/lib/home/home-store-menu-visibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export type AdminHomeStoreRow = {
   deliveryAvailable: boolean;
   isOpen: boolean;
   isSample: boolean;
-  /** 판매 중 · 손님에게 보이는 메뉴 수 */
+  /** 홈에 보일 수 있는 메뉴 수 — 판매 중 · 손님에게 보임 · 사진 있음 (`isHomeStoreMenuVisible`, 앱 홈과 같은 판정) */
   activeMenuCount: number;
 };
 
@@ -60,12 +60,12 @@ export async function GET(req: Request) {
   if (storeIds.length > 0) {
     const { data: prods } = await sb
       .from("store_products")
-      .select("store_id, admin_review_status, store_menu_sections ( is_hidden )")
+      .select("store_id, thumbnail_url, admin_review_status, store_menu_sections ( is_hidden )")
       .in("store_id", storeIds)
       .eq("product_status", "active")
       .limit(3000);
     for (const p of (prods ?? []) as Record<string, unknown>[]) {
-      if (storeProductBuyerVisibilityBlocked(p)) continue;
+      if (!isHomeStoreMenuVisible(p as Parameters<typeof isHomeStoreMenuVisible>[0])) continue;
       const sid = String(p.store_id);
       counts.set(sid, (counts.get(sid) ?? 0) + 1);
     }

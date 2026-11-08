@@ -6,6 +6,7 @@
  * Discovery/ranking/order unchanged; presentation only.
  */
 
+import { storeDisplayStatusLabelKey } from "@/lib/stores/store-display-status-label";
 import { StoreSampleStoreBadge } from "@/components/stores/StoreSampleStoreBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
@@ -208,12 +209,12 @@ function StoreBrowseCategoryRowCardInner({
 
   const statusBadge =
     data.status === "open"
-      ? { label: t("store_open_now"), className: "bg-sam-success-soft text-sam-success" }
+      ? { label: t(storeDisplayStatusLabelKey(data.status)), className: "bg-sam-success-soft text-sam-success" }
       : data.status === "resting"
-        ? { label: t("store_resting_now"), className: "bg-sam-warning-soft text-sam-warning" }
+        ? { label: t(storeDisplayStatusLabelKey(data.status)), className: "bg-sam-warning-soft text-sam-warning" }
         : data.status === "closed"
-          ? { label: t("store_closed_now"), className: "bg-sam-surface-muted text-sam-muted" }
-          : { label: t("store_preparing"), className: "bg-sam-warning-soft text-sam-warning" };
+          ? { label: t(storeDisplayStatusLabelKey(data.status)), className: "bg-sam-surface-muted text-sam-muted" }
+          : { label: t(storeDisplayStatusLabelKey(data.status)), className: "bg-sam-warning-soft text-sam-warning" };
 
   const badgeLabels = resolveStoreListCardBadges({
     statusLabel: statusBadge.label,

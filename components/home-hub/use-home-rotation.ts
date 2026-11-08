@@ -16,6 +16,9 @@ import {
  * - mode "rotate" : 새 세션(재접속) 또는 당겨서 새로고침 → `history`(지난번에 보인 것) 기준으로 새로 고름
  * `seq` 가 바뀌면 각 칸이 다시 고른다.
  */
+/** 매장별 메뉴 기록을 남길 최근 매장 수 */
+const HOME_MENU_LOG_STORES_MAX = 30;
+
 export type HomeRotationCtl = {
   mode: "session" | "rotate";
   seq: number;
@@ -39,12 +42,12 @@ export function useHomeRotation(): { ctl: HomeRotationCtl | null; init: () => vo
         log.menus[storeId] = pushShownLog(log.menus[storeId] ?? [], menuIds);
       }
     }
-    currentRef.current = {
-      ...cur,
-      ...partial,
-      menus: partial.menus ? { ...cur.menus, ...partial.menus } : cur.menus,
-      log,
-    };
+    const menus = partial.menus ? { ...cur.menus, ...partial.menus } : cur.menus;
+    // 매장별 메뉴 기록은 최근에 보인 매장만 남긴다 — 매장 키가 끝없이 쌓이지 않게 (감사 누수 2026-11-09)
+    const keep = new Set(log.stores.slice(0, HOME_MENU_LOG_STORES_MAX));
+    for (const k of Object.keys(log.menus)) if (!keep.has(k)) delete log.menus[k];
+    for (const k of Object.keys(menus)) if (!keep.has(k)) delete menus[k];
+    currentRef.current = { ...cur, ...partial, menus, log };
     saveHomePick(currentRef.current);
   }, []);
 

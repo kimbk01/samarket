@@ -6,6 +6,7 @@ import {
   HOME_MENU_CATALOG,
   HOME_SECTION_KEYS,
   HOME_STORE_PICKS_MAX,
+  HOME_UPLOAD_BUCKET,
   cloneHomeLayout,
   isSafeHomeHref,
   isSafeHomeImageUrl,
@@ -85,6 +86,27 @@ describe("home layout contract (홈 시안 v22)", () => {
     expect(isSafeHomeImageUrl("/images/home-banners/a.png")).toBe(true);
     expect(isSafeHomeImageUrl("/images/../x")).toBe(false);
     expect(isSafeHomeImageUrl("javascript:alert(1)")).toBe(false);
+  });
+
+  it("링크 — 역슬래시·제어문자로 바깥 사이트 가는 우회 거절 (감사 E7)", () => {
+    expect(isSafeHomeHref("/\\evil.com")).toBe(false);
+    expect(isSafeHomeHref("/\\\\evil.com")).toBe(false);
+    expect(isSafeHomeHref("/a\tb")).toBe(false);
+    expect(isSafeHomeHref("/community-messenger?section=chats")).toBe(true);
+    expect(isSafeHomeHref("/market#top")).toBe(true);
+  });
+
+  it("이미지 — 앱 정적 경로·우리 공개 버킷만 (아무 https 거절)", () => {
+    const prev = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abc.supabase.co";
+    try {
+      expect(isSafeHomeImageUrl(`https://abc.supabase.co/storage/v1/object/public/${HOME_UPLOAD_BUCKET}/_admin/home-banners/a.webp`)).toBe(true);
+      expect(isSafeHomeImageUrl("https://abc.supabase.co/storage/v1/object/public/other-bucket/a.webp")).toBe(false);
+      expect(isSafeHomeImageUrl("https://evil.example/a.webp")).toBe(false);
+      expect(isSafeHomeImageUrl("http://abc.supabase.co/storage/v1/object/public/" + HOME_UPLOAD_BUCKET + "/a.webp")).toBe(false);
+    } finally {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = prev;
+    }
   });
 
   it("저장 검증 — 제목 없는 배너·바깥 링크·후보 매장 21곳·예전 판 거절, 기본값 통과", () => {

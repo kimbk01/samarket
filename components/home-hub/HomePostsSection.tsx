@@ -8,6 +8,7 @@ import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import type { HomePostsConfig } from "@/lib/home/home-layout-contract";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
+import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 import { COMMUNITY_FEED_LIST_WRAP_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 /**
@@ -27,6 +28,8 @@ export function HomePostsSection({
 }) {
   const { t } = useI18n();
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -39,20 +42,35 @@ export function HomePostsSection({
     void fetchNeighborhoodFeedShortTtl(url, { credentials: "include" })
       .then(async (res) => {
         const data = (res.ok ? await res.json() : null) as { posts?: NeighborhoodFeedPostDTO[] } | null;
-        if (alive) setPosts((data?.posts ?? []).filter((p) => !p.is_notice).slice(0, config.count));
+        if (!alive) return;
+        // 실패는 「글 없음」이 아니라 오류로 보인다 (감사 E8)
+        if (!data || !Array.isArray(data.posts)) {
+          setFailed(true);
+          return;
+        }
+        setFailed(false);
+        setPosts(data.posts.filter((p) => !p.is_notice).slice(0, config.count));
       })
       .catch(() => {
-        if (alive) setPosts([]);
+        if (alive) setFailed(true);
       });
     return () => {
       alive = false;
     };
-  }, [config.count, config.sort, config.topicSlug, refreshSeq]);
+  }, [config.count, config.sort, config.topicSlug, refreshSeq, retryKey]);
 
   return (
     <section className="mt-3 pt-[18px]" data-home-posts>
       <HomeSectionHead title={title} />
-      {posts == null ? (
+      {failed ? (
+        <HomeLoadError
+          onRetry={() => {
+            setFailed(false);
+            setPosts(null);
+            setRetryKey((n) => n + 1);
+          }}
+        />
+      ) : posts == null ? (
         <div className="space-y-3 px-4 pb-5">
           {[0, 1].map((i) => (
             <span key={i} className="block h-[88px] animate-pulse rounded-ui-rect bg-[#eef1ee]" />

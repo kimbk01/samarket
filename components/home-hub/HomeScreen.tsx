@@ -202,7 +202,10 @@ export function HomeScreen({
 
       {sections.map((key) => {
         if (key === "banner") {
-          return banners.length ? <HomeBanner key={key} banners={banners} isMember={isMember} rot={rot} /> : null;
+          // 회원 확인 중에는 대상(회원/비로그인)을 몰라 배너를 고르지 않는다 — 비로그인용 배너가 잠깐 보이는 것 방지 (감사 E14)
+          return banners.length ? (
+            <HomeBanner key={key} banners={banners} isMember={isMember} rot={membership.status === "checking" ? null : rot} />
+          ) : null;
         }
         if (key === "ongoing") {
           return isMember ? <HomeOngoingSection key={key} refreshSeq={refreshSeq} /> : null;

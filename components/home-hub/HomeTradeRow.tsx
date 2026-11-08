@@ -13,6 +13,7 @@ import { homeCatalogName, type HomeTradeCategory } from "@/lib/home/home-catalog
 import { keepSessionPick, rotateUnseenFirst } from "@/lib/home/home-rotation";
 import type { HomeRotationCtl } from "@/components/home-hub/use-home-rotation";
 import { HomeSectionHead } from "@/components/home-hub/HomeSectionHead";
+import { HomeLoadError } from "@/components/home-hub/HomeLoadError";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -43,6 +44,8 @@ export function HomeTradeRow({
   const { t, language } = useI18n();
   const router = useRouter();
   const [items, setItems] = useState<PostWithMeta[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const mode = rot?.mode;
   const seq = rot?.seq;
 
@@ -61,6 +64,12 @@ export function HomeTradeRow({
         ...(refreshSeq > 0 ? { bypassClientCache: true } : {}),
       }).catch(() => null);
       if (!alive) return;
+      // 실패는 「거래 없음」이 아니라 오류로 보이고, 교체 기록에 넣지 않는다 (감사 E8)
+      if (!r || r.failed) {
+        setFailed(true);
+        return;
+      }
+      setFailed(false);
       // 최근 7일 글 먼저, 모자라면 그보다 오래된 글로 채운다 (각각 받은 순서 = 최신순)
       const since = Date.now() - HOME_TRADES_RECENT_DAYS * DAY_MS;
       const listed = (r?.posts ?? []).filter(
@@ -80,7 +89,7 @@ export function HomeTradeRow({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
-  }, [mode, seq, config.count, config.sort, config.tradeCategoryId]);
+  }, [mode, seq, config.count, config.sort, config.tradeCategoryId, retryKey]);
 
   const catName = (id: string | null | undefined) => {
     const c = tradeCategories.find((x) => x.id === id);
@@ -90,7 +99,15 @@ export function HomeTradeRow({
   return (
     <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-trades>
       <HomeSectionHead title={title} />
-      {items == null ? (
+      {failed ? (
+        <HomeLoadError
+          onRetry={() => {
+            setFailed(false);
+            setItems(null);
+            setRetryKey((n) => n + 1);
+          }}
+        />
+      ) : items == null ? (
         <div className="flex gap-2.5 overflow-hidden px-4">
           {[0, 1, 2].map((i) => (
             <span key={i} className="h-[118px] w-[118px] shrink-0 animate-pulse rounded-ui-rect bg-[#eef1ee]" />

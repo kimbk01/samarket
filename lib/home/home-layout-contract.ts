@@ -516,18 +516,58 @@ function cleanIdList(raw: unknown, max: number): string[] {
   return out;
 }
 
-/** 앱 안 경로만 (`/…`, `//` 금지) — 바깥 사이트 주소는 받지 않는다 (Owner 시안 v22) */
+const SAME_ORIGIN_PROBE = "https://home-href.invalid";
+/** 경로를 흐리는 글자 — 역슬래시(`/\\host` 는 브라우저가 `//host` 로 읽음)·제어문자·공백 */
+const AMBIGUOUS_PATH_CHARS = /[\\\s\u0000-\u001f\u007f]/;
+
+/**
+ * 앱 안 경로만 (`/…`) — 바깥 사이트 주소는 받지 않는다 (Owner 시안 v22).
+ * `//host`·`/\\host`·제어문자는 거절하고, 최종으로 같은 사이트로 풀리는지 확인한다 (감사 E7 2026-11-09).
+ */
 export function isSafeHomeHref(href: string): boolean {
   const h = href.trim();
   if (!h) return true;
-  return h.startsWith("/") && !h.startsWith("//") && !/\s/.test(h);
+  if (!h.startsWith("/") || h.startsWith("//") || AMBIGUOUS_PATH_CHARS.test(h)) return false;
+  try {
+    return new URL(h, SAME_ORIGIN_PROBE).origin === SAME_ORIGIN_PROBE;
+  } catch {
+    return false;
+  }
 }
 
-/** 올린 공개 URL(https) 또는 앱 정적 경로(`/images/…`) */
+/** 어드민 올리기 저장소(공개 버킷) 경로 — 올리기 API 와 같은 값 */
+export const HOME_UPLOAD_BUCKET = "admin-notification-campaign-images" as const;
+
+function supabaseOrigin(): string | null {
+  const raw = (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_URL : undefined)?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 배너·카드 이미지 — 앱 정적 경로(`/images/…`) 또는 어드민이 올린 공개 버킷 주소만 (감사 2026-11-09: 아무 https 허용 금지).
+ */
 export function isSafeHomeImageUrl(url: string): boolean {
   const u = url.trim();
-  if (u.startsWith("/images/") && !u.includes("..")) return true;
-  return /^https:\/\/[^\s"'<>]+$/i.test(u);
+  if (!u || AMBIGUOUS_PATH_CHARS.test(u)) return false;
+  if (u.startsWith("/images/")) return !u.includes("..");
+  const origin = supabaseOrigin();
+  if (!origin) return false;
+  try {
+    const parsed = new URL(u);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.origin === origin &&
+      parsed.pathname.startsWith(`/storage/v1/object/public/${HOME_UPLOAD_BUCKET}/`) &&
+      !parsed.pathname.includes("..")
+    );
+  } catch {
+    return false;
+  }
 }
 
 function normalizeSections(raw: unknown): HomeSectionConfig[] {

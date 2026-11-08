@@ -14,14 +14,18 @@ import {
   HOME_IMAGE_MAX_BYTES,
   HOME_IMAGE_RATIO_TOLERANCE,
   HOME_SERVICE_IMAGE_PX,
+  HOME_UPLOAD_BUCKET,
+  isSafeHomeImageUrl,
   type HomeBannerRatio,
 } from "@/lib/home/home-layout-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 기존 캠페인 이미지 버킷 재사용 — 경로만 나눈다 (새 버킷·DB 변경 없음) */
-const BUCKET = "admin-notification-campaign-images";
+/** 기존 캠페인 이미지 버킷 재사용 — 경로만 나눈다 (새 버킷·DB 변경 없음). 이름은 계약 하나(`HOME_UPLOAD_BUCKET`) */
+const BUCKET = HOME_UPLOAD_BUCKET;
+/** 실제 파일 형식(헤더) — 브라우저가 보낸 `file.type` 만 믿지 않는다 (감사 누락 2026-11-09) */
+const ALLOWED_REAL_FORMATS = new Set(["png", "jpeg", "webp"]);
 
 /**
  * 어드민 「홈 구성」 이미지 올리기 — POST multipart: kind=banner|service, ratio(banner), file.
@@ -60,6 +64,9 @@ export async function POST(req: NextRequest) {
   let height = 0;
   try {
     const meta = await sharp(buf).metadata();
+    if (!meta.format || !ALLOWED_REAL_FORMATS.has(meta.format)) {
+      return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
+    }
     width = meta.width ?? 0;
     height = meta.height ?? 0;
   } catch {
@@ -100,6 +107,11 @@ export async function POST(req: NextRequest) {
   const {
     data: { publicUrl },
   } = svc.storage.from(BUCKET).getPublicUrl(path);
+  // 저장 검사(계약 `isSafeHomeImageUrl`)를 통과하는 주소인지 — 통과 못 하면 저장할 수 없으므로 여기서 멈춘다
+  if (!isSafeHomeImageUrl(publicUrl)) {
+    console.error("[api/admin/home-layout/upload] public url rejected by contract", publicUrl);
+    return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 500 });
+  }
 
   await appendAdminRouteAudit(svc, req, {
     actorId: gate.actor.userId,

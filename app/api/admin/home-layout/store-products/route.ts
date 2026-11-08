@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { storeProductBuyerVisibilityBlocked } from "@/lib/stores/store-product-buyer-sellability";
+import { homeStoreMenuHiddenReason } from "@/lib/home/home-store-menu-visibility";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 
 export const runtime = "nodejs";
@@ -13,8 +13,11 @@ export type AdminHomeStoreProductRow = {
   price: number;
   thumbnailUrl: string | null;
   isFeatured: boolean;
-  /** 검수 반려·대기 또는 숨긴 메뉴 구역 — 손님에게 안 보여 홈에도 안 나옴 */
-  hidden: boolean;
+  /**
+   * 홈에 안 나오는 이유 — 앱 홈과 같은 판정(`homeStoreMenuHiddenReason`).
+   * review_or_section = 검수 반려·대기·숨긴 메뉴 구역 · no_photo = 사진 없음 · null = 보임
+   */
+  hiddenReason: "review_or_section" | "no_photo" | null;
 };
 
 /**
@@ -47,7 +50,7 @@ export async function GET(req: Request) {
     price: Number(p.price ?? 0),
     thumbnailUrl: resolveBrowseFeaturedMenuImageUrl(p.thumbnail_url as string | null),
     isFeatured: p.is_featured === true,
-    hidden: storeProductBuyerVisibilityBlocked(p),
+    hiddenReason: homeStoreMenuHiddenReason(p as Parameters<typeof homeStoreMenuHiddenReason>[0]),
   }));
   return NextResponse.json({ ok: true, products });
 }

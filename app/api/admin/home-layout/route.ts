@@ -4,7 +4,6 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   HOME_LAYOUT_SERVER_CACHE_TAG,
@@ -22,8 +21,13 @@ export async function GET() {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
-  const [payload, catalog] = await Promise.all([loadHomeLayoutFromStore(), loadHomeCatalogFromStore()]);
-  return NextResponse.json({ ok: true as const, ...payload, catalog });
+  try {
+    const [payload, catalog] = await Promise.all([loadHomeLayoutFromStore(), loadHomeCatalogFromStore()]);
+    return NextResponse.json({ ok: true as const, ...payload, catalog });
+  } catch (e) {
+    console.error("[GET admin home-layout] read failed", e);
+    return NextResponse.json({ ok: false, error: "read_failed" }, { status: 503 });
+  }
 }
 
 /**
@@ -50,7 +54,14 @@ export async function PUT(req: NextRequest) {
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const current = await loadHomeLayoutFromStore();
+  // 읽기 오류를 「저장값 없음」으로 오해해 처음 저장(insert)으로 가지 않도록 503 으로 멈춘다 (감사 E15)
+  let current: Awaited<ReturnType<typeof loadHomeLayoutFromStore>>;
+  try {
+    current = await loadHomeLayoutFromStore();
+  } catch (e) {
+    console.error("[PUT admin home-layout] read failed", e);
+    return NextResponse.json({ ok: false, error: "read_failed" }, { status: 503 });
+  }
   if ((current.revision ?? null) !== (expected ?? null)) {
     return NextResponse.json(
       { ok: false, error: "stale_revision", revision: current.revision },
@@ -89,9 +100,10 @@ export async function PUT(req: NextRequest) {
   }
 
   const rm = getAuditRequestMeta(req);
-  void appendAuditLog(sb, {
+  // 저장 기록은 응답 전에 끝낸다(서버리스에서 응답 뒤 유실 방지 — 감사 누락 2026-11-09)
+  await appendAuditLog(sb, {
     actor_type: "admin",
-    actor_id: await getRouteUserId(),
+    actor_id: gate.actor.userId,
     target_type: "home_layout",
     target_id: "global",
     action: "home_layout.update",
@@ -100,8 +112,13 @@ export async function PUT(req: NextRequest) {
     ip: rm.ip,
     user_agent: rm.userAgent,
   });
-  revalidateTag(HOME_LAYOUT_SERVER_CACHE_TAG, "default");
+  // 즉시 만료 — "default" 는 옛 값을 먼저 주는 방식이라 저장 직후 첫 요청이 옛 구성을 받는다 (감사 E6)
+  revalidateTag(HOME_LAYOUT_SERVER_CACHE_TAG, { expire: 0 });
 
-  const saved = await loadHomeLayoutFromStore();
-  return NextResponse.json({ ok: true as const, ...saved });
+  try {
+    const saved = await loadHomeLayoutFromStore();
+    return NextResponse.json({ ok: true as const, ...saved });
+  } catch {
+    return NextResponse.json({ ok: true as const, source: "db" as const, config: validated.config, revision: nextUpdatedAt });
+  }
 }

@@ -16,7 +16,18 @@ export type HomeLayoutServerPayload = {
   revision: string | null;
 };
 
-/** 캐시 없이 읽기 — 어드민 GET·저장 직전 비교용 */
+/** DB 읽기 실패 — 캐시에 기본값이 저장되지 않도록 던진다 (감사 E5·E15 2026-11-09) */
+export class HomeLayoutReadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HomeLayoutReadError";
+  }
+}
+
+/**
+ * 캐시 없이 읽기 — 어드민 GET·저장 직전 비교용.
+ * 읽기 오류면 `HomeLayoutReadError` 를 던진다(기본값으로 바꿔 돌려주지 않음 — 저장값이 없는 것과 구분).
+ */
 export async function loadHomeLayoutFromStore(): Promise<HomeLayoutServerPayload> {
   const sb = tryGetSupabaseForStores();
   if (!sb) return { source: "default", config: cloneHomeLayout(DEFAULT_HOME_LAYOUT), revision: null };
@@ -25,10 +36,7 @@ export async function loadHomeLayoutFromStore(): Promise<HomeLayoutServerPayload
     .select("value_json, updated_at")
     .eq("key", HOME_LAYOUT_SETTINGS_KEY)
     .maybeSingle();
-  if (error) {
-    console.warn("[home-layout] load fallback:", error.message);
-    return { source: "default", config: cloneHomeLayout(DEFAULT_HOME_LAYOUT), revision: null };
-  }
+  if (error) throw new HomeLayoutReadError(error.message);
   const valueJson = (data as { value_json?: unknown } | null)?.value_json ?? null;
   const updatedAt = (data as { updated_at?: string | null } | null)?.updated_at ?? null;
   return {
@@ -44,12 +52,13 @@ const loadHomeLayoutCachedInternal = unstable_cache(
   { revalidate: 300, tags: [HOME_LAYOUT_SERVER_CACHE_TAG] }
 );
 
-/** 앱 홈 — 서버 캐시(어드민 저장 시 태그 무효화) */
+/** 앱 홈 — 서버 캐시(어드민 저장 시 태그 즉시 만료). 읽기 실패는 캐시하지 않고 이번 요청만 기본값 */
 export async function loadHomeLayoutServerCached(): Promise<HomeLayoutServerPayload> {
   try {
     const p = await loadHomeLayoutCachedInternal();
     return { source: p.source, config: cloneHomeLayout(p.config), revision: p.revision };
-  } catch {
+  } catch (e) {
+    console.warn("[home-layout] load fallback (not cached):", e instanceof Error ? e.message : e);
     return { source: "default", config: cloneHomeLayout(DEFAULT_HOME_LAYOUT), revision: null };
   }
 }

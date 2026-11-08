@@ -90,6 +90,22 @@ describe("홈 매장 후보 — 배달 탭과 같은 판정·순서", () => {
     expect(filterHomeStorePool(feed, DEFAULT_HOME_LAYOUT.stores).map((s) => s.id)).toEqual(["a", "mart"]);
   });
 
+  it("자동 — 영업시간 밖도 후보, 영업 중 먼저 (Owner 「샘플이라도 보여야」)", () => {
+    const f = [store({ id: "c1", status: "closed" }), store({ id: "o1" }), store({ id: "c2", status: "closed" })];
+    expect(filterHomeStorePool(f, DEFAULT_HOME_LAYOUT.stores, { requireOpen: false }).map((s) => s.id)).toEqual([
+      "o1",
+      "c1",
+      "c2",
+    ]);
+  });
+
+  it("직접 고르기 — 어드민이 고른 순서 그대로 (감사 E10)", () => {
+    const c = cloneHomeLayout(DEFAULT_HOME_LAYOUT).stores;
+    c.mode = "manual";
+    c.picks = ["mart", "a"].map((storeId) => ({ storeId, menuMode: "auto" as const, productIds: [], adLabel: false }));
+    expect(filterHomeStorePool(feed, c).map((s) => s.id)).toEqual(["mart", "a"]);
+  });
+
   it("직접 고르기 — 고른 매장 중 주문 가능한 곳만 (지역 밖·영업 안 함은 빠짐)", () => {
     const c = cloneHomeLayout(DEFAULT_HOME_LAYOUT).stores;
     c.mode = "manual";

@@ -4,7 +4,7 @@ import { HOME_LAYOUT_SERVER_CACHE_TAG } from "@/lib/home/home-layout-contract";
 import type { HomeCatalog } from "@/lib/home/home-catalog-types";
 
 /**
- * 홈이 쓰는 분류 목록 (서버 캐시 5분) — 앱 홈·어드민 「홈 구성」 같은 값.
+ * 홈이 쓰는 분류 목록 (서버 캐시 5분, 읽기 실패는 캐시하지 않음) — 앱 홈·어드민 「홈 구성」 같은 값.
  * - 배달 업종: `store_categories` (업종 그림 = 어드민 「매장 업종 관리」에 올린 그림 그대로)
  * - 거래 카테고리: `categories` type=trade 1차 (서비스 카드 「거래」 자동 설명 · 거래 칸 필터)
  * - 정보교환 주제: `community_topics` (교민 이야기 칸 필터)
@@ -32,6 +32,9 @@ export async function loadHomeCatalogFromStore(): Promise<HomeCatalog> {
       .eq("is_visible", true)
       .order("sort_order", { ascending: true }),
   ]);
+  // 읽기 실패는 던진다 — 빈 목록이 5분 캐시되지 않게 (감사 E5 2026-11-09)
+  const firstError = sc.error ?? tc.error ?? ct.error;
+  if (firstError) throw new Error(`[home-catalog] ${firstError.message}`);
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   return {
     storeCategories: ((sc.data ?? []) as Record<string, unknown>[])
@@ -60,7 +63,8 @@ const loadHomeCatalogCachedInternal = unstable_cache(
 export async function loadHomeCatalogServerCached(): Promise<HomeCatalog> {
   try {
     return await loadHomeCatalogCachedInternal();
-  } catch {
+  } catch (e) {
+    console.warn("[home-catalog] load fallback (not cached):", e instanceof Error ? e.message : e);
     return { storeCategories: [], tradeCategories: [], communityTopics: [] };
   }
 }
