@@ -61,9 +61,9 @@ export function deriveCityMunicipalityFromAddressText(
 ): string | null {
   const prov = cleanAddressText(province) || null;
   for (const raw of lines) {
-    const line = cleanAddressText(raw);
-    if (!line) continue;
-    const segments = line
+    // 줄바꿈도 구간 구분자 — 공백 정리(cleanAddressText)를 먼저 하면 「…\nQuezon City」가 한 구간으로 붙는다(2026-11-09 aa44 등 4건)
+    if (!cleanAddressText(raw)) continue;
+    const segments = String(raw)
       .split(/[,\n]/)
       .map((x) => x.replace(/\s+/g, " ").trim())
       .filter(Boolean)

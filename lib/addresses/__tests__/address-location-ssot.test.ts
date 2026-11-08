@@ -99,6 +99,10 @@ describe("주소 SSOT — 위치값 계산", () => {
       "Quezon City",
     );
     expect(deriveCityMunicipalityFromAddressText(["Exchange Road, Barangay Ortigas Center, Metro Manila"])).toBeNull();
+    // 줄바꿈으로 구분된 주소(운영 aa44·aa66·aa77·aa88)
+    expect(deriveCityMunicipalityFromAddressText(["18 Don Mariano Marcos Ave\n18 Don Mariano Marcos Avenue\nQuezon City"])).toBe(
+      "Quezon City",
+    );
   });
 
   it("화면이 보낸 예전 지역 ID 보다 주소 문장 계산이 우선 (A6)", () => {
