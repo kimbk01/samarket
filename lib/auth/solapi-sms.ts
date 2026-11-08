@@ -1,7 +1,8 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { requireSolapiSmsEnv } from "@/lib/env/solapi-sms";
 
-const SMS_SEND_FAILED_MESSAGE = "인증번호 발송에 실패했습니다.";
+/** 발송 기록(error_summary) 전용 — 회원 화면 문구는 phone-otp-client-errors 카탈로그 */
+const SMS_SEND_FAILED_MESSAGE = "SMS send failed";
 
 type SendSolapiSmsResult =
   | { ok: true; providerMessageId: string | null }

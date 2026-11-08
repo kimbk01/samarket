@@ -86,7 +86,7 @@ export function PhoneVerificationBox({
    */
   surface?: "page" | "overlay";
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const ov = surface === "overlay" && !compact;
   const ovCls = {
     card: `rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3`,
@@ -146,9 +146,9 @@ export function PhoneVerificationBox({
     }
   }, [countryOptions, dialCode]);
 
-  const countryNoticeNames = countryOptions
-    .map((c) => `${language === "en" ? c.labelEn : c.labelKo}(${c.dialCode})`)
-    .join(language === "en" ? ", " : "·");
+  const countryNoticeKey = countryOptions.some((c) => c.iso === "KR")
+    ? "my_phone_country_only_notice_ph_kr"
+    : "my_phone_country_only_notice_ph";
   const cooldownSec = Math.max(1, Number(settings?.resend_cooldown_seconds ?? 60));
   const cooldownLeft = resolvePhoneOtpCooldownLeft(cooldownUntil, nowMs);
 
@@ -419,10 +419,7 @@ export function PhoneVerificationBox({
         </div>
       ) : (
         <>
-          {/*
-            국가번호 = 버튼 2개 (Owner 2026-11-09: 드롭다운 대신). 기기 기본 선택 상자를 쓰지 않아 iOS·Android 동일.
-            안내는 버튼 바로 아래 작은 글씨, 오류가 보일 때는 숨긴다(오류 이유와 섞여 보이지 않게).
-          */}
+          {/* Country code = 2 buttons (Owner 2026-11-09, no native select — same on iOS/Android). Notice hidden while an error shows. */}
           <div
             role="radiogroup"
             aria-label={t("my_phone_country_code_label")}
@@ -453,14 +450,14 @@ export function PhoneVerificationBox({
                   data-testid={`phone-verify-country-${c.iso}`}
                 >
                   <span aria-hidden>{c.flag}</span>
-                  <span className="truncate">{`${c.dialCode} ${language === "en" ? c.labelEn : c.labelKo}`}</span>
+                  <span className="truncate">{`${c.dialCode} ${t(c.iso === "KR" ? "my_phone_country_name_KR" : "my_phone_country_name_PH")}`}</span>
                 </button>
               );
             })}
           </div>
           {error ? null : (
             <p className="sam-text-helper text-sam-muted" data-testid="phone-verify-country-notice">
-              {t("my_phone_country_only_notice", { countries: countryNoticeNames })}
+              {t(countryNoticeKey)}
             </p>
           )}
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">

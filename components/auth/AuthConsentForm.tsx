@@ -408,7 +408,7 @@ export function AuthConsentForm({
                     <option value="">{safeT("auth_consent_dob_year")}</option>
                     {dobYearOptions.map((y) => (
                       <option key={y} value={y}>
-                        {language === "en" ? y : `${y}년`}
+                        {t("auth_consent_dob_year_option", { year: y })}
                       </option>
                     ))}
                   </select>
@@ -422,7 +422,7 @@ export function AuthConsentForm({
                     <option value="">{safeT("auth_consent_dob_month")}</option>
                     {Array.from({ length: 12 }, (_, i) => pad2(i + 1)).map((m) => (
                       <option key={m} value={m}>
-                        {language === "en" ? Number(m) : `${Number(m)}월`}
+                        {t("auth_consent_dob_month_option", { month: Number(m) })}
                       </option>
                     ))}
                   </select>
@@ -436,7 +436,7 @@ export function AuthConsentForm({
                     <option value="">{safeT("auth_consent_dob_day")}</option>
                     {Array.from({ length: dobDayCount }, (_, i) => pad2(i + 1)).map((d) => (
                       <option key={d} value={d}>
-                        {language === "en" ? Number(d) : `${Number(d)}일`}
+                        {t("auth_consent_dob_day_option", { day: Number(d) })}
                       </option>
                     ))}
                   </select>

@@ -9,13 +9,11 @@ export type PhoneCountryOption = {
   iso: "PH" | "KR";
   dialCode: "+63" | "+82";
   flag: string;
-  labelKo: string;
-  labelEn: string;
 };
 
 export const PHONE_VERIFY_COUNTRY_OPTIONS: readonly PhoneCountryOption[] = [
-  { iso: "PH", dialCode: "+63", flag: "🇵🇭", labelKo: "필리핀", labelEn: "Philippines" },
-  { iso: "KR", dialCode: "+82", flag: "🇰🇷", labelKo: "한국", labelEn: "Korea" },
+  { iso: "PH", dialCode: "+63", flag: "🇵🇭" },
+  { iso: "KR", dialCode: "+82", flag: "🇰🇷" },
 ] as const;
 
 export const PHONE_VERIFY_DEFAULT_COUNTRY: PhoneCountryOption = PHONE_VERIFY_COUNTRY_OPTIONS[0]!;

@@ -59,9 +59,10 @@ describe("저장 번호 표시 — 한국·필리핀 구분", () => {
   });
 
   it("어드민 표시에 나라 라벨", () => {
-    expect(adminPhoneWithCountry("+821012345678")).toBe("🇰🇷 한국 · +82 10 1234 5678");
-    expect(adminPhoneWithCountry("09171234567")).toBe("🇵🇭 필리핀 · +63 917 123 4567");
-    expect(adminPhoneWithCountry("")).toBe("");
+    const name = (c: "PH" | "KR") => (c === "KR" ? "KR-name" : "PH-name");
+    expect(adminPhoneWithCountry("+821012345678", name)).toBe("🇰🇷 KR-name · +82 10 1234 5678");
+    expect(adminPhoneWithCountry("09171234567", name)).toBe("🇵🇭 PH-name · +63 917 123 4567");
+    expect(adminPhoneWithCountry("", name)).toBe("");
   });
 });
 

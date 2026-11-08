@@ -71,7 +71,7 @@ function resolveVerifyTarget(inputPhone: string): ResolvedVerifyPhone | null {
 /** 발송 업체 분기 — 문자 문구는 나라별 (Solapi 한국 SMS 90byte 이내). */
 async function sendVerifySms(target: ResolvedVerifyPhone, otpCode: string) {
   if (target.country === "KR") {
-    return sendSolapiSms(`0${target.storage.phone_number}`, `[DIBAY] 인증번호 ${otpCode}`);
+    return sendSolapiSms(`0${target.storage.phone_number}`, `[DIBAY] Verification code: ${otpCode}`);
   }
   return sendSemaphoreSms(target.e164, `[DIBAY] Verification code: ${otpCode}`);
 }

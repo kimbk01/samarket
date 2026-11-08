@@ -129,7 +129,9 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
       <Fieldset title={safeT("admin_users_auth_contact")}>
         <Field
           label={t("admin_users_lite_label_phone")}
-          value={adminPhoneWithCountry(profile?.phone || user.contact_phone, language === "en" ? "en" : "ko") || empty}
+          value={adminPhoneWithCountry(profile?.phone || user.contact_phone, (c) =>
+              t(c === "KR" ? "my_phone_country_name_KR" : "my_phone_country_name_PH"),
+            ) || empty}
         />
         <Field
           label={t("admin_users_member_contact_email")}

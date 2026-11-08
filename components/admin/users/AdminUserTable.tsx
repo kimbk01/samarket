@@ -92,7 +92,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   const origin = memberListSignupOriginLabel(user.authProvider, language);
   const verifyLabel = memberListVerificationLabel(user, language);
   const copyId = publicId || user.id;
-  const phone = adminPhoneWithCountry(user.phone, language === "en" ? "en" : "ko");
+  const phone = adminPhoneWithCountry(user.phone, (c) =>
+    t(c === "KR" ? "my_phone_country_name_KR" : "my_phone_country_name_PH"),
+  );
   const contactEmail = user.email?.trim() || "";
   const provider = resolveProvider(user);
   const accountLabel = adminMemberLoginAccountLabelKo(user.loginAccount);

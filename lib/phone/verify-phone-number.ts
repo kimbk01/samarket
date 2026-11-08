@@ -119,9 +119,4 @@ export function detectStoredPhoneCountry(row: {
   return null;
 }
 
-/** 어드민·내정보 국가 라벨 */
-export function verifyPhoneCountryLabel(country: VerifyPhoneCountry | null, lang: "ko" | "en" = "ko"): string {
-  if (country === "KR") return lang === "en" ? "🇰🇷 Korea" : "🇰🇷 한국";
-  if (country === "PH") return lang === "en" ? "🇵🇭 Philippines" : "🇵🇭 필리핀";
-  return "";
-}
+export const VERIFY_PHONE_COUNTRY_FLAG: Record<VerifyPhoneCountry, string> = { PH: "🇵🇭", KR: "🇰🇷" };
