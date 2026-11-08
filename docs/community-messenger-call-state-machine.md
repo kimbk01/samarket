@@ -26,7 +26,7 @@
 
 | 단계 | 코드·경로 |
 |------|-----------|
-| Provider | `lib/community-messenger/room/CommunityMessengerGroupCallProviderBridge.tsx` |
+| Provider | `lib/community-messenger/room/MessengerRoomGroupCallShell.tsx` 가 Provider 를 항상 같은 자리에 그림 · 값은 형제 값 공급자 `CommunityMessengerGroupCallValueHost`(`CommunityMessengerGroupCallProviderBridge.tsx`)가 훅 실행 후 올림 (D2-다 2026-11-09 — 모듈 로드 후 방 화면 재생성 방지) |
 | 훅 | `lib/community-messenger/use-community-messenger-group-call.ts` |
 | Agora 세션 | `lib/community-messenger/call-provider/group-agora-session.ts` |
 | 토큰 | `GET /api/community-messenger/calls/sessions/[sessionId]/token` (group 허용) |
