@@ -28,7 +28,10 @@ describe("native voice FGS channel A-3 contract", () => {
 
   it("channel has no sound/vibration and stays DEFAULT (status-bar chip, no heads-up)", () => {
     const ensure = service.slice(service.indexOf("private void ensureChannel()"));
-    expect(ensure).toMatch(/new NotificationChannel\(CHANNEL_ID, "[^"]+", NotificationManager\.IMPORTANCE_DEFAULT\)/);
+    // S8-4b (2026-11-08): 채널 이름은 앱 언어 리소스(`dibay_call_ch_voice_ongoing_name`) — 중요도 DEFAULT 계약은 그대로.
+    expect(ensure).toMatch(
+      /new NotificationChannel\(\s*CHANNEL_ID,\s*DibayNativeLocale\.string\(this, R\.string\.dibay_call_ch_voice_ongoing_name\),\s*NotificationManager\.IMPORTANCE_DEFAULT\)/,
+    );
     expect(ensure).toContain("channel.setSound(null, null)");
     expect(ensure).toContain("channel.enableVibration(false)");
   });
