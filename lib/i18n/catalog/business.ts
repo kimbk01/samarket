@@ -1,6 +1,5 @@
 export const businessMessages = {
   ko: {
-    business_phase7_001: ")만 저장됩니다.",
     business_phase7_002: "+ 카테고리 추가 관리",
     business_phase7_003: "0 이면 0₱ 표시",
     business_phase7_004: "1 이상 — 실제 청구는 0₱",
@@ -250,7 +249,6 @@ export const businessMessages = {
     business_phase7_188: "업로드 중…",
     business_phase7_189: "업종 (표시명)",
     business_phase7_190: "업종 분류",
-    business_phase7_191: "업종 표기 (business_type)",
     business_phase7_192: "여기를 눌러 사진 추가",
     business_phase7_193: "연락 가능한 카카오 ID",
     business_phase7_194: "연락처",
@@ -391,8 +389,8 @@ export const businessMessages = {
     business_phase7_331: "환불 처리 완료",
     business_phase7_332: "환불 처리된 주문입니다.",
     business_phase7_333: "후기 요약",
-    business_phase7_334: "DB 분류를 불러오지 못했습니다. 아래는 DB의 업종 표기 필드입니다.",
-    business_phase7_335: "DB 분류를 쓸 수 없을 때는 아래 표시명(",
+    business_phase7_334: "업종 분류를 불러오지 못했습니다. 아래는 지금 저장된 업종 이름입니다.",
+    business_phase7_335: "업종 분류를 불러오지 못해 아래 업종 이름만 저장됩니다.",
     business_phase7_336: "GCash name (선택)",
     business_phase7_337: "GCash no. (선택)",
     business_phase7_338: "JPG · PNG · WEBP · 최대 5MB",
@@ -418,7 +416,7 @@ export const businessMessages = {
     business_phase7_360: "이미지 정보가 올바르지 않습니다.",
     business_phase7_361: "대표 이미지를 확인할 수 없습니다.",
     business_phase7_362: "판매 승인이 필요합니다. 관리자에게 판매 권한 승인을 요청하세요.",
-    business_phase7_363: "DB 마이그레이션(store_menu_sections)을 적용한 뒤 다시 시도해 주세요.",
+    business_phase7_363: "지금은 메뉴 분류를 저장할 수 없습니다. 잠시 후 다시 시도하거나 고객센터에 문의해 주세요.",
     business_phase7_364: "먼저 카테고리 관리에서 메뉴 구역을 추가한 뒤 등록해 주세요.",
     business_phase7_365: "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요.",
     business_phase7_366: "대표 이미지를 등록해 주세요.",
@@ -504,7 +502,7 @@ export const businessMessages = {
     business_phase7_447:
       "연결이 깨졌거나 삭제된 메뉴·공지일 수 있습니다. 링크 타입을 확인한 뒤 목록에서 다시 선택해 주세요.",
     business_phase7_448: "연결 대상이 올바르지 않습니다. 메뉴·공지를 목록에서 다시 선택해 주세요.",
-    business_phase7_449: "이미지 저장소 버킷이 없습니다. 안내에 따라 Supabase에 store-product-images 버킷을 만든 뒤 다시 시도해 주세요.",
+    business_phase7_449: "지금은 이미지를 저장할 수 없습니다. 잠시 후 다시 시도하거나 고객센터에 문의해 주세요.",
     business_phase7_450: "매장 상태상 이미지를 올릴 수 없습니다.",
     business_phase7_451: "(제목 없음)",
     business_phase7_452: "배너 추가",
@@ -565,7 +563,7 @@ export const businessMessages = {
     business_phase7_506: "선택한 2차 업종 (세부)을 찾을 수 없습니다. 목록을 새로고침한 뒤 다시 선택해 주세요.",
     business_phase7_507: "2차 업종 (세부)이 선택한 1차 업종과 맞지 않습니다. 다시 맞춰 주세요.",
     business_phase7_508: "매장 이름은 2자 이상 입력해 주세요.",
-    business_phase7_509: "영업·배달 안내(JSON) 형식이 올바르지 않습니다.",
+    business_phase7_509: "영업·배달 안내 형식이 올바르지 않습니다. 내용을 확인해 주세요.",
     business_phase7_510: "갤러리 이미지 목록 형식이 올바르지 않습니다.",
     business_phase7_511: "위도(-90~90) 형식을 확인해 주세요.",
     business_phase7_512: "경도(-180~180) 형식을 확인해 주세요.",
@@ -603,11 +601,9 @@ export const businessMessages = {
     business_phase7_539: "메뉴판에서 품절 메뉴를 카테고리 맨 아래로 모으기",
     business_phase7_540:
       "배달 예상 시간·거리는 매장 지도 위치가 있어야 계산됩니다. 주소록에서 이 매장에 연결된 「매장」 주소를 저장하면 그 위치로 맞춰지고, 없으면 아래 위도·경도를 입력한 뒤 저장하세요.",
-    business_phase7_541:
-      "Supabase 연결이 없어 DB 분류를 불러오지 못했습니다. .env를 확인한 뒤 개발 서버를 다시 시작해 주세요.",
-    business_phase7_542:
-      "Supabase 연결이 없어 DB 분류를 불러오지 못했습니다. .env의 Supabase URL·키를 확인해 주세요.",
-    business_phase7_543: "store_topics 테이블이 없습니다. 마이그레이션을 적용해 주세요.",
+    business_phase7_541: "업종 분류를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    business_phase7_542: "업종 분류를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    business_phase7_543: "세부 업종을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
     business_phase7_544: "로고·매장명·연락처·주소 등은 ",
     business_phase7_545: "에서 수정합니다.",
     business_phase7_546: "알림음은 관리자 ",
@@ -669,8 +665,6 @@ export const businessMessages = {
     business_phase7_601: "완료 기준",
     business_phase7_602: "상품",
     business_phase7_603: "{v1}건 · {v2}%",
-    business_phase7_604:
-      "매출은 최근 주문 목록(최대 100건) 기준 추정치입니다. 정산은 실제 정산 API 반영값입니다.",
     business_phase7_605: "문의",
     business_phase7_606: "로그인하고 매장 시작하기",
     business_phase7_607: "주문·문의·메뉴를 한곳에서 운영해 보세요.",
@@ -697,8 +691,6 @@ export const businessMessages = {
     business_phase7_627: "승인이 완료되면 매장 관리 화면이 열립니다. 잠시만 기다려 주세요.",
     business_phase7_628: "매장 관리",
     business_phase7_629: "승인된 매장만 매장 어드민을 이용할 수 있습니다.",
-    business_phase7_630:
-      "상점 운영자 계정(ownerUserId)이 로그인 UUID와 연결되면 운영 기능을 더 넓힐 수 있어요.",
     business_phase7_631: "팔로우 (예정)",
     business_phase7_632: "상품 ({v1})",
     business_phase7_633: "노출 분류:",
@@ -723,7 +715,6 @@ export const businessMessages = {
     business_phase7_649: "- 플랫폼 {v1} - 고정 {v2} - 배달수익 {v3} =",
     business_phase7_650: "입금 확인 {v1}",
     business_phase7_651: "주문 관리로",
-    business_phase7_652: "정산 테이블이 아직 적용되지 않았습니다.",
     business_phase7_653: "심사 대기",
     business_phase7_654: "검토 중",
     business_phase7_655: "보완 요청",
@@ -745,8 +736,6 @@ export const businessMessages = {
       "이 매장에 연결된 주소록 항목이 없습니다. 주소록에서 유형을 「매장」으로 고르고 이 매장을 연결한 뒤, 지도에서 위치를 저장해 주세요.",
     business_phase7_671: "대표 주소가 없습니다. 주소록에서 대표 주소를 먼저 설정해 주세요.",
     business_phase7_672: "주소록 열기",
-    business_phase7_673:
-      "어드민 «매장 설정»·/stores 와 같은 1·2차 업종입니다. 1차 선택 후 세부(예: 한식·중식)를 고르세요.",
     business_phase7_674: "매장 입점 신청",
     business_phase7_675: "이전으로",
     business_phase7_676: "신청 상태 확인 중…",
@@ -756,8 +745,7 @@ export const businessMessages = {
     business_phase7_680: "실명을 입력해 주세요.",
     business_phase7_681:
       "로그인이 필요합니다. 로그인 페이지에서 이메일(또는 수동 가입 아이디)과 비밀번호로 로그인한 뒤 다시 시도해 주세요.",
-    business_phase7_682:
-      "매장 DB(Supabase)가 연결되어 있지 않아 신청을 저장할 수 없습니다. 환경 변수를 확인하거나 관리자에게 문의해 주세요.",
+    business_phase7_682: "지금은 신청을 저장할 수 없습니다. 잠시 후 다시 시도하거나 고객센터에 문의해 주세요.",
     business_phase7_683: "서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     business_phase7_684: "이미 심사 중이거나 승인된 매장이 있습니다. 내 상점에서 확인해 주세요.",
     business_phase7_685:
@@ -768,8 +756,7 @@ export const businessMessages = {
     business_phase7_688: "1차·2차 업종을 모두 선택해 주세요.",
     business_phase7_689: "실명을 1~20자로 입력해 주세요.",
     business_phase7_690: "매장 ID(영문/숫자/하이픈, 3~40자)를 입력해 주세요.",
-    business_phase7_691:
-      "현재 계정이 auth.users에 없어 매장을 등록할 수 없습니다. Supabase 로그인 계정을 사용해 주세요.",
+    business_phase7_691: "현재 계정으로는 매장을 등록할 수 없습니다. 다시 로그인한 뒤 시도해 주세요.",
     business_phase7_692: "신청에 실패했습니다.",
     business_phase7_693: "요청 사항",
     business_phase7_694: "관리자에게 전달할 요청 사항 (선택)",
@@ -796,7 +783,6 @@ export const businessMessages = {
     business_apply_submit_blocked_address: "대표 주소를 설정하면 신청할 수 있습니다.",
   },
   en: {
-    business_phase7_001: ") is saved only.",
     business_phase7_002: "+ Manage categories",
     business_phase7_003: "Enter 0 to show ₱0",
     business_phase7_004: "1 or more — actual charge is ₱0",
@@ -1047,7 +1033,6 @@ export const businessMessages = {
     business_phase7_188: "Uploading…",
     business_phase7_189: "Category (display name)",
     business_phase7_190: "Business category",
-    business_phase7_191: "Category label (business_type)",
     business_phase7_192: "Tap here to add a photo",
     business_phase7_193: "Kakao ID for contact",
     business_phase7_194: "Contact information",
@@ -1188,9 +1173,8 @@ export const businessMessages = {
     business_phase7_331: "Refund processed",
     business_phase7_332: "This order has been refunded.",
     business_phase7_333: "Review summary",
-    business_phase7_334:
-      "Could not load DB categories. The business_type field below is shown instead.",
-    business_phase7_335: "When DB categories are unavailable, only the display name (",
+    business_phase7_334: "Categories couldn't load. Below is the category name currently saved.",
+    business_phase7_335: "Categories couldn't load, so only the category name below will be saved.",
     business_phase7_336: "GCash name (optional)",
     business_phase7_337: "GCash no. (optional)",
     business_phase7_338: "JPG · PNG · WEBP · up to 5MB",
@@ -1216,7 +1200,7 @@ export const businessMessages = {
     business_phase7_360: "Image data is invalid.",
     business_phase7_361: "Could not verify the cover image.",
     business_phase7_362: "Sales approval is required. Ask an admin to approve selling.",
-    business_phase7_363: "Apply the store_menu_sections migration, then try again.",
+    business_phase7_363: "Menu sections can't be saved right now. Please try again later or contact customer support.",
     business_phase7_364: "Add a menu section in category management before registering.",
     business_phase7_365: "The selected category is missing or not in this store. Pick again.",
     business_phase7_366: "Register a cover image.",
@@ -1305,8 +1289,7 @@ export const businessMessages = {
     business_phase7_447:
       "The link may be broken or the menu/notice was removed. Check link type and pick again from the list.",
     business_phase7_448: "Invalid link target. Pick a menu or notice from the list again.",
-    business_phase7_449:
-      "Image bucket missing. Create the store-product-images bucket in Supabase, then try again.",
+    business_phase7_449: "Images can't be saved right now. Please try again later or contact customer support.",
     business_phase7_450: "Cannot upload images for this store status.",
     business_phase7_451: "(No title)",
     business_phase7_452: "Add banner",
@@ -1369,7 +1352,7 @@ export const businessMessages = {
     business_phase7_506: "Selected subcategory was not found. Refresh the list and try again.",
     business_phase7_507: "Subcategory does not match the primary category. Align them and try again.",
     business_phase7_508: "Store name must be at least 2 characters.",
-    business_phase7_509: "Business/delivery info (JSON) format is invalid.",
+    business_phase7_509: "The business and delivery info format is invalid. Please check the details.",
     business_phase7_510: "Gallery image list format is invalid.",
     business_phase7_511: "Check latitude format (-90 to 90).",
     business_phase7_512: "Check longitude format (-180 to 180).",
@@ -1409,11 +1392,9 @@ export const businessMessages = {
     business_phase7_539: "Move sold-out menu items to the bottom of each category",
     business_phase7_540:
       "Delivery time and distance need the store map location. Save a linked 「Store」 address in your address book to sync it, or enter latitude/longitude below and save.",
-    business_phase7_541:
-      "Supabase is not connected; DB categories could not load. Check .env and restart the dev server.",
-    business_phase7_542:
-      "Supabase is not connected; DB categories could not load. Check Supabase URL and keys in .env.",
-    business_phase7_543: "store_topics table is missing. Apply migrations.",
+    business_phase7_541: "Categories couldn't load. Please try again later.",
+    business_phase7_542: "Categories couldn't load. Please try again later.",
+    business_phase7_543: "Subcategories couldn't load. Please try again later.",
     business_phase7_544: "Edit logo, store name, contact, address, etc. in ",
     business_phase7_545: ".",
     business_phase7_546: "Notification sound is set in admin ",
@@ -1475,8 +1456,6 @@ export const businessMessages = {
     business_phase7_601: "Completed orders basis",
     business_phase7_602: "Products",
     business_phase7_603: "{v1} · {v2}%",
-    business_phase7_604:
-      "Sales are estimated from recent orders (up to 100). Settlements reflect actual settlement API values.",
     business_phase7_605: "Inquiries",
     business_phase7_606: "Log in to start your store",
     business_phase7_607: "Manage orders, inquiries, and menus in one place.",
@@ -1503,8 +1482,6 @@ export const businessMessages = {
     business_phase7_627: "The store admin opens after approval. Please wait a moment.",
     business_phase7_628: "Store management",
     business_phase7_629: "Only approved stores can use the store admin.",
-    business_phase7_630:
-      "Link the operator account (ownerUserId) to your login UUID to unlock more ops features.",
     business_phase7_631: "Follow (coming soon)",
     business_phase7_632: "Products ({v1})",
     business_phase7_633: "Listing category:",
@@ -1529,7 +1506,6 @@ export const businessMessages = {
     business_phase7_649: "- platform {v1} - fixed {v2} - delivery {v3} =",
     business_phase7_650: "Payout confirmed {v1}",
     business_phase7_651: "Go to orders",
-    business_phase7_652: "Settlement table migration is not applied yet.",
     business_phase7_653: "Review pending",
     business_phase7_654: "Under review",
     business_phase7_655: "Revision requested",
@@ -1551,8 +1527,6 @@ export const businessMessages = {
       "No address book entry linked to this store. Add a Store-type address, link this store, and save the map pin.",
     business_phase7_671: "No default address. Set a default address in your address book first.",
     business_phase7_672: "Open address book",
-    business_phase7_673:
-      "Same primary/secondary categories as admin Store settings and /stores. Pick primary, then detail (e.g. Korean, Chinese).",
     business_phase7_674: "Store onboarding application",
     business_phase7_675: "Go back",
     business_phase7_676: "Checking application status…",
@@ -1562,8 +1536,7 @@ export const businessMessages = {
     business_phase7_680: "Please enter your legal name.",
     business_phase7_681:
       "Sign-in required. Log in with your email (or manual sign-up ID) and password, then try again.",
-    business_phase7_682:
-      "The store database (Supabase) is not connected, so your application cannot be saved. Check environment variables or contact an administrator.",
+    business_phase7_682: "Your application can't be saved right now. Please try again later or contact customer support.",
     business_phase7_683: "The service is temporarily unavailable. Please try again later.",
     business_phase7_684: "You already have a store under review or approved. Check My store.",
     business_phase7_685:
@@ -1574,8 +1547,7 @@ export const businessMessages = {
     business_phase7_688: "Select both primary and secondary categories.",
     business_phase7_689: "Enter your legal name (1–20 characters).",
     business_phase7_690: "Enter a store ID (letters, numbers, hyphens; 3–40 characters).",
-    business_phase7_691:
-      "Your account is not in auth.users, so the store cannot be registered. Use a Supabase sign-in account.",
+    business_phase7_691: "This account can't register a store. Please sign in again and try again.",
     business_phase7_692: "Application failed.",
     business_phase7_693: "Request note",
     business_phase7_694: "Request note for admin review (optional)",

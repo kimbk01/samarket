@@ -40,7 +40,7 @@ export const uiFinishPagesMessages = {
     account_delete_public_retain_title: "보관될 수 있는 정보",
     account_delete_public_retain_body:
       "거래·주문·신고·정산·감사·법령상 의무 이행에 필요한 기록은 목적 달성까지 보관될 수 있습니다. 자세한 내용은 개인정보처리방침을 확인하세요.",
-    account_delete_public_in_app: "앱 내 경로: 내정보 → 설정 → 계정 삭제 (/mypage/section/settings/leave)",
+    account_delete_public_in_app: "앱 내 경로: 내정보 → 설정 → 계정 삭제",
 
     ui_finish_posts_new_title: "서비스·거래 글쓰기",
     ui_finish_posts_new_body:
@@ -90,7 +90,7 @@ export const uiFinishPagesMessages = {
     account_delete_public_retain_title: "Data that may be retained",
     account_delete_public_retain_body:
       "Records needed for trades, orders, reports, settlement, auditing, or legal duties may be kept until those purposes end. See the Privacy Policy for details.",
-    account_delete_public_in_app: "In-app path: My → Settings → account deletion (/mypage/section/settings/leave)",
+    account_delete_public_in_app: "In the app: My → Settings → Delete account",
 
     ui_finish_posts_new_title: "Service & trade writing",
     ui_finish_posts_new_body:

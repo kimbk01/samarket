@@ -95,7 +95,6 @@ export const uiPhaseFinishMessages = {
       "진행 중에는 약 30초마다 위치를 올립니다. 완료 시 라이더 최근 좌표가 가능하면 POD 위치로 저장됩니다.",
 
     ui_orders_hub_store_loading: "매장 정보 불러오는 중…",
-    ui_orders_hub_db_disconnected: "매장 DB가 연결되지 않았습니다.",
     ui_orders_hub_load_failed: "매장을 불러오지 못했습니다. ({message})",
     ui_orders_hub_status_unknown: "상태를 확인할 수 없습니다.",
     ui_orders_hub_menu_aria: "매장 관리 메뉴",
@@ -575,8 +574,7 @@ export const uiPhaseFinishMessages = {
     ui_delivery_banner_slide_aria: "{n}번째 배너",
     ui_delivery_product_photo_thumb_aria: "사진 {n}/{total}",
     ui_group_chat_title: "그룹 채팅",
-    ui_group_chat_intro:
-      "새 방을 만들면 소유자로 입장합니다. 링크로 방 id를 알면 `/group-chat/방id` 로 바로 들어갈 수 있어요.",
+    ui_group_chat_intro: "새 방을 만들면 방장으로 입장합니다. 방 링크를 받았다면 링크를 열어 바로 들어갈 수 있어요.",
     ui_group_chat_room_name_label: "방 이름 (선택)",
     ui_group_chat_room_name_ph: "예: 동호회 잡담",
     ui_group_chat_create_failed: "생성에 실패했습니다.",
@@ -745,7 +743,6 @@ export const uiPhaseFinishMessages = {
       "While in progress, location is sent about every 30 seconds. On completion, your latest coordinates may be saved as POD location when available.",
 
     ui_orders_hub_store_loading: "Loading store info…",
-    ui_orders_hub_db_disconnected: "Store database is not connected.",
     ui_orders_hub_load_failed: "Could not load store. ({message})",
     ui_orders_hub_status_unknown: "Could not verify status.",
     ui_orders_hub_menu_aria: "Store management menu",
@@ -1221,8 +1218,7 @@ export const uiPhaseFinishMessages = {
     ui_delivery_banner_slide_aria: "Banner {n}",
     ui_delivery_product_photo_thumb_aria: "Photo {n} of {total}",
     ui_group_chat_title: "Group chat",
-    ui_group_chat_intro:
-      "Creating a room makes you the owner. If you know a room ID, open `/group-chat/room-ID` directly.",
+    ui_group_chat_intro: "Create a room to join as its owner. If you have a room link, open it to join directly.",
     ui_group_chat_room_name_label: "Room name (optional)",
     ui_group_chat_room_name_ph: "e.g. club chat",
     ui_group_chat_create_failed: "Could not create room.",

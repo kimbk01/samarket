@@ -64,10 +64,13 @@ const JARGON_KO_WORDS = /마이그레이션|스키마|슬러그|부트스트랩|
 const SNAKE_IDENTIFIER = /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/;
 const DOTTED_IDENTIFIER = /\b[a-z_]{3,}\.[a-z_]{3,}\b/;
 const APP_PATH = /(^|[\s`(「])\/[a-z][a-z0-9-]*/;
+/** 개발자 용어가 아닌 것 — 사용자에게 보여 주는 이메일·도메인, 단위 표기(`/day`·`/ea`) */
+const EMAIL_OR_DOMAIN = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+|\b[a-z0-9-]+\.(?:com|net|org|ph|kr|io)\b/gi;
+const UNIT_SUFFIX = /\/(?:day|ea|mo|month|week|night|hr|h|kg|pc|pcs)\b/g;
 const PLACEHOLDER_GLOBAL = /\{[a-zA-Z_][a-zA-Z0-9_]*\}/g;
 
 function stripPlaceholders(s: string): string {
-  return s.replace(PLACEHOLDER_GLOBAL, " ");
+  return s.replace(PLACEHOLDER_GLOBAL, " ").replace(EMAIL_OR_DOMAIN, " ").replace(UNIT_SUFFIX, " ");
 }
 
 export function jargonHit(value: string, lang: I18nLang): string | null {
@@ -202,10 +205,89 @@ export function isAdminPath(rel: string): boolean {
   return ADMIN_PATH.test(rel);
 }
 
-/** 키 사용처 판정 — 어드민 경로에서만 쓰면 admin, 그 외 user. 사용처 미발견은 `admin_` 접두만 admin */
-export function areaFromUsage(key: string, usedIn: ReadonlySet<"admin" | "user"> | undefined): KeyArea {
-  if (usedIn && usedIn.size > 0) return usedIn.has("user") ? "user" : "admin";
-  return key.startsWith("admin_") ? "admin" : "user";
+/**
+ * 키 사용처 종류 — `user`: 고객·사장님 화면 파일(app·components·hooks, 어드민 경로 밖)이 직접 씀,
+ * `admin`: 어드민 경로가 쓰거나 어드민만 가져다 쓰는 `lib` 파일이 씀,
+ * `user-indirect`: 고객·사장님 쪽에서 가져다 쓰는(또는 가져다 쓰는 곳을 못 찾은) `lib` 파일이 씀.
+ */
+export type KeyUsage = "admin" | "user" | "user-indirect";
+
+/**
+ * 키 사용처 판정 (`docs/i18n-ssot.md` §5).
+ * - 고객·사장님 화면이 직접 쓰면 user.
+ * - `lib` 을 거쳐 쓰면 그 `lib` 파일을 가져다 쓰는 쪽(가져오기 관계를 끝까지 따라감)으로 판정. 단 `admin_` 접두 키는 `lib` 경유만으로는 user 로 보지 않는다.
+ * - 사용처 미발견: `admin_` 접두만 admin.
+ */
+export function areaFromUsage(key: string, usedIn: ReadonlySet<KeyUsage> | undefined): KeyArea {
+  const adminKey = key.startsWith("admin_");
+  if (usedIn && usedIn.size > 0) {
+    if (usedIn.has("user")) return "user";
+    if (usedIn.has("user-indirect") && !adminKey) return "user";
+    return "admin";
+  }
+  return adminKey ? "admin" : "user";
+}
+
+const IMPORT_SPEC = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)["']([^"']+)["']/gm;
+
+/** 파일 안의 가져오기 대상 — 저장소 기준 경로 후보(확장자 없음). `@/` 와 상대 경로만 */
+export function importTargets(rel: string, text: string): string[] {
+  const out: string[] = [];
+  IMPORT_SPEC.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = IMPORT_SPEC.exec(text))) {
+    const spec = m[1];
+    if (spec.startsWith("@/")) out.push(spec.slice(2));
+    else if (spec.startsWith("./") || spec.startsWith("../")) {
+      const parts = rel.split("/").slice(0, -1);
+      for (const seg of spec.split("/")) {
+        if (seg === "..") parts.pop();
+        else if (seg !== ".") parts.push(seg);
+      }
+      out.push(parts.join("/"));
+    }
+  }
+  return out;
+}
+
+/**
+ * `lib` 파일별로 결국 어떤 화면이 쓰는지 — 가져오기 관계를 거꾸로 끝까지 따라간다.
+ * 반환: 파일 → 닿는 화면 종류(admin·user). 닿는 화면이 없으면 빈 집합.
+ */
+export function libReachAreas(files: ReadonlyMap<string, string>): Map<string, Set<"admin" | "user">> {
+  const resolve = (base: string): string | null => {
+    for (const c of [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+      if (files.has(c)) return c;
+    }
+    return null;
+  };
+  const importers = new Map<string, Set<string>>();
+  for (const [rel, text] of files) {
+    for (const t of importTargets(rel, text)) {
+      const target = resolve(t);
+      if (!target || target === rel) continue;
+      const set = importers.get(target) ?? new Set<string>();
+      set.add(rel);
+      importers.set(target, set);
+    }
+  }
+  const memo = new Map<string, Set<"admin" | "user">>();
+  const reach = (rel: string, stack: Set<string>): Set<"admin" | "user"> => {
+    if (isAdminPath(rel)) return new Set(["admin"]);
+    if (!rel.startsWith("lib/")) return new Set(["user"]);
+    const cached = memo.get(rel);
+    if (cached) return cached;
+    if (stack.has(rel)) return new Set();
+    stack.add(rel);
+    const acc = new Set<"admin" | "user">();
+    for (const imp of importers.get(rel) ?? []) for (const a of reach(imp, stack)) acc.add(a);
+    stack.delete(rel);
+    memo.set(rel, acc);
+    return acc;
+  };
+  const out = new Map<string, Set<"admin" | "user">>();
+  for (const rel of files.keys()) if (rel.startsWith("lib/") && !isAdminPath(rel)) out.set(rel, reach(rel, new Set()));
+  return out;
 }
 
 /** 기준선 비교 결과 */

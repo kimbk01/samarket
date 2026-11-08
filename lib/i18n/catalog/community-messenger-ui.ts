@@ -926,8 +926,7 @@ export const communityMessengerUiMessages = {
       "브라우저 주소창의 자물쇠에서 마이크·카메라를 허용하거나, 기기 설정에서 접근을 허용해 주세요.",
     cm_ui_call_failed_permission_detail_voice:
       "브라우저 주소창의 자물쇠에서 마이크를 허용하거나, 기기 설정에서 마이크 접근을 허용해 주세요.",
-    cm_ui_call_failed_insecure_context_detail:
-      "HTTPS 주소(자물쇠 표시)로 접속해야 통화할 수 있습니다. PC는 https://localhost 또는 dev 서버가 안내하는 https 주소를 이용하세요.",
+    cm_ui_call_failed_insecure_context_detail: "보안 연결에서만 통화할 수 있습니다. 앱에서 다시 시도해 주세요.",
     cm_ui_call_failed_ice_detail: "통화 연결(ICE)에 실패했습니다.",
     cm_ui_call_failed_network_detail: "네트워크 상태를 확인해 주세요.",
     cm_ui_call_failed_signaling_detail: "통화 서버 연결에 실패했습니다.",
@@ -998,12 +997,9 @@ export const communityMessengerUiMessages = {
     cm_ui_friend_request_rejected_snackbar: "{name}님이 친구 요청을 거절했습니다.",
     cm_ui_group_members_and_others: "{names} 외 {count}명",
     cm_ui_settings_backup_export_failed: "설정 백업 파일을 만들지 못했습니다.",
-    cm_ui_media_https_required:
-      "이 주소(HTTP·사설 IP)에서는 브라우저 보안 정책으로 영상·음성 통화(WebRTC)를 사용할 수 없습니다. PC: https://localhost:3000 또는 `npm run dev:https` 로 띄운 주소로 접속하세요. 휴대폰: 같은 Wi‑Fi에서도 HTTPS(역프록시·mkcert) 또는 터널링이 필요합니다.",
-    cm_ui_media_agora_setup_required:
-      "통화 서비스(Agora)가 연결되지 않았습니다. 프로젝트 루트 `.env.local` 에 NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID=… 를 넣은 뒤 개발 서버를 재시작하세요(빌드된 클라이언트에는 빌드 시점 값이 박힙니다). 운영에서는 토큰 발급용 COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE 도 서버에 설정하세요.",
-    cm_ui_media_insecure_origin_hint:
-      "HTTP(예: 192.168.x.x:3000)에서는 브라우저가 마이크·카메라를 막습니다. `npm run dev:https` 로 띄운 뒤 터미널에 나온 https:// 주소로 접속하거나, PC에서는 localhost 로 접속하세요. 휴대폰·다른 기기는 HTTPS(역프록시·mkcert)가 필요합니다.",
+    cm_ui_media_https_required: "이 주소에서는 브라우저 보안 정책으로 영상·음성 통화를 사용할 수 없습니다. 앱에서 다시 시도해 주세요.",
+    cm_ui_media_agora_setup_required: "지금은 통화 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    cm_ui_media_insecure_origin_hint: "이 주소에서는 브라우저가 마이크·카메라를 막습니다. 앱에서 다시 시도해 주세요.",
     cm_ui_media_device_in_use: "다른 앱이 장치를 사용 중일 수 있습니다. 장치 점유를 해제한 뒤 다시 시도해 주세요.",
     cm_ui_media_permission_video_site_settings:
       "카메라와 마이크 권한이 필요합니다. 브라우저 주소창 왼쪽의 사이트 설정에서 권한을 허용해 주세요.",
@@ -2110,8 +2106,7 @@ export const communityMessengerUiMessages = {
       "Allow microphone and camera in the browser lock icon or in your device settings.",
     cm_ui_call_failed_permission_detail_voice:
       "Allow the microphone in the browser lock icon or in your device settings.",
-    cm_ui_call_failed_insecure_context_detail:
-      "Open the app over HTTPS (lock icon). On PC use https://localhost or the https URL from your dev server.",
+    cm_ui_call_failed_insecure_context_detail: "Calls only work on a secure connection. Please try again in the app.",
     cm_ui_call_failed_ice_detail: "Call connection (ICE) failed.",
     cm_ui_call_failed_network_detail: "Check your network connection.",
     cm_ui_call_failed_signaling_detail: "Could not connect to the call server.",
@@ -2182,12 +2177,9 @@ export const communityMessengerUiMessages = {
     cm_ui_friend_request_rejected_snackbar: "{name} declined your friend request.",
     cm_ui_group_members_and_others: "{names} and {count} more",
     cm_ui_settings_backup_export_failed: "Could not create the settings backup file.",
-    cm_ui_media_https_required:
-      "Video and voice calls (WebRTC) are blocked on this address (HTTP or private IP) by browser security. On PC use https://localhost:3000 or the URL from `npm run dev:https`. On mobile, HTTPS (reverse proxy, mkcert) or tunneling is required even on the same Wi‑Fi.",
-    cm_ui_media_agora_setup_required:
-      "Call service (Agora) is not configured. Add NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID=… to `.env.local` in the project root and restart the dev server (the built client embeds values from build time). In production, also set COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE on the server for token issuance.",
-    cm_ui_media_insecure_origin_hint:
-      "On HTTP (e.g. 192.168.x.x:3000) the browser blocks microphone and camera. Run `npm run dev:https` and open the https:// URL from the terminal, or use localhost on PC. Other devices need HTTPS (reverse proxy, mkcert).",
+    cm_ui_media_https_required: "Your browser blocks video and voice calls on this address. Please try again in the app.",
+    cm_ui_media_agora_setup_required: "Calls are unavailable right now. Please try again later.",
+    cm_ui_media_insecure_origin_hint: "Your browser blocks the microphone and camera on this address. Please try again in the app.",
     cm_ui_media_device_in_use:
       "Another app may be using the device. Release it and try again.",
     cm_ui_media_permission_video_site_settings:

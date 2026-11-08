@@ -9,6 +9,7 @@ import {
   glossaryHits,
   jargonHit,
   lengthBudgetForKey,
+  libReachAreas,
 } from "@/lib/i18n/quality/i18n-quality-rules";
 import { parseCatalogSource } from "./support/collect-i18n-quality";
 
@@ -22,6 +23,34 @@ describe("i18n-quality 규칙", () => {
     expect(jargonHit("스키마를 업데이트해 주세요", "ko")).toBe("스키마");
     expect(jargonHit("학원 원장님 소개", "ko")).toBeNull();
     expect(jargonHit("친구 / 관심 사용자", "ko")).toBeNull();
+    /** 사용자에게 보여 주는 이메일·도메인, 단위 표기는 개발자 용어가 아니다 */
+    expect(jargonHit("Email us at help@gmail.com", "en")).toBeNull();
+    expect(jargonHit("name@example.com", "en")).toBeNull();
+    expect(jargonHit("Avg {amount}/day", "en")).toBeNull();
+    expect(jargonHit("/ea", "en")).toBeNull();
+    expect(jargonHit("Listed on /stores", "en")).toBe("/stores");
+    expect(jargonHit("Check posts.seller_listing_state", "en")).not.toBeNull();
+  });
+
+  it("영역 판정 — lib 은 가져다 쓰는 화면을 끝까지 따라가고, admin_ 키는 lib 경유만으로 고객 키가 아니다", () => {
+    const files = new Map<string, string>([
+      ["components/admin/A.tsx", `import { x } from "@/lib/a/labels";`],
+      ["lib/a/labels.ts", `import { y } from "./deep";`],
+      ["lib/a/deep.ts", `export const y = "k";`],
+      ["components/shop/B.tsx", `import { z } from "@/lib/b/shared";`],
+      ["lib/b/shared.ts", `export const z = 1;`],
+      ["lib/c/orphan.ts", `export const o = 1;`],
+    ]);
+    const r = libReachAreas(files);
+    expect([...(r.get("lib/a/deep.ts") ?? [])]).toEqual(["admin"]);
+    expect([...(r.get("lib/b/shared.ts") ?? [])]).toEqual(["user"]);
+    expect(r.get("lib/c/orphan.ts")?.size).toBe(0);
+    expect(areaFromUsage("feed_x", new Set(["admin"]))).toBe("admin");
+    expect(areaFromUsage("feed_x", new Set(["user-indirect"]))).toBe("user");
+    expect(areaFromUsage("admin_x", new Set(["user-indirect"]))).toBe("admin");
+    expect(areaFromUsage("admin_x", new Set(["user"]))).toBe("user");
+    expect(areaFromUsage("admin_x", undefined)).toBe("admin");
+    expect(areaFromUsage("ui_x", undefined)).toBe("user");
   });
 
   it("용어집 위반을 잡고 다른 뜻 문맥은 뺀다", () => {

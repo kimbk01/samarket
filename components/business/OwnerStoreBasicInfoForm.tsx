@@ -1163,11 +1163,7 @@ export function OwnerStoreBasicInfoForm({
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_541")}</>
                 ) : (
-                  <>
-                    {t("business_phase7_335")}
-                    <code className="rounded-ui-rect bg-sam-warning-soft px-1">business_type</code>
-                    {t("business_phase7_001")}
-                  </>
+                  <>{t("business_phase7_335")}</>
                 )}
               </p>
               <select

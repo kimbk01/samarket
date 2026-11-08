@@ -242,8 +242,6 @@ export const giftOpsCenterMessages = {
     gift_ops_store_cash: "과거 전환 기록",
     gift_ops_cta_product_detail: "상품 상세",
     gift_ops_field_sales_window: "판매기간",
-    gift_ops_expiry_edit_blocked:
-      "유효기간 정책은 현재 Product PATCH 대상이 아닙니다. G2 상품 마스터에 expiry_policy 컬럼·validateGiftProductExpiryPolicy가 없고, 도메인 계약은 발급 잔액 만료를 비활성화합니다.",
     gift_ops_expiry_not_on_product: "발급 잔액 만료 없음 (상품 마스터 미지원)",
     gift_ops_funding_none: "할인 없음 (NONE)",
     gift_ops_settlement_empty: "정산 데이터가 없습니다.",
@@ -539,8 +537,6 @@ export const giftOpsCenterMessages = {
     gift_ops_store_cash: "Historical conversion records",
     gift_ops_cta_product_detail: "Product detail",
     gift_ops_field_sales_window: "Sales window",
-    gift_ops_expiry_edit_blocked:
-      "Expiry policy is not a Product PATCH field on this branch. G2 product master has no expiry columns or validator; domain contract disables instance balance expiry.",
     gift_ops_expiry_not_on_product: "No product-master expiry (not on G2 product)",
     gift_ops_funding_none: "No discount (NONE)",
     gift_ops_settlement_empty: "No settlement data.",

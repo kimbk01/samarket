@@ -198,3 +198,26 @@
 - 실행 중 반대 언어 대체 제거: `translate`(en 없으면 ko 값), `safeTranslate`(반대 언어 키 → 반대 언어 fallback). 남는 대체는 같은 언어 공통 문장뿐.
 - 커뮤니티 주제 라벨: 영어 화면에서 한국어 이름을 쓰지 않는다. 운영 DB 주제 9개 중 `name_en` 빈 6개(추천·필리핀생할·여행정보·일상생활·질문있어요·필리핀 뉴스) — 질문있어요(slug `question`)는 「Questions」, 나머지 5개는 「Topic」 으로 표시 → **FAIL(데이터)**, S7 에서 어드민 `name_en` 입력(Owner 승인) 전까지 남는다.
 - 탈퇴: 공개 삭제 요청 화면 확인어가 화면 언어를 따른다(ko `계정삭제`/en `DELETE`). 서버 `POST /api/me/leave-request` 는 둘 다 허용, 오류는 코드(`confirmation_invalid`·`delete_request_save_failed`)만 — 한국어 오류 원문·DB 오류 원문을 화면에 보내지 않는다. 내정보 탈퇴(확인 시트)는 변경 없음(`계정삭제` 전송).
+
+---
+
+## 9. S3 결과 (개발자 용어)
+
+| 규칙 | S2 후 | S3 후 | 비고 |
+|---|---|---|---|
+| jargon-en | 108 | **0** | |
+| jargon-ko | 91 | **0** | |
+| 고객·사장님 키(판정 기준) | 12,693 | 12,067 | 판정 정밀화로 591키를 어드민 키로 바로 분류 + 키 삭제 35 (전체 키 23,682 → 23,647) |
+
+113키(en·ko 합집합) 처리 내역:
+
+1. **판정 오류 40키 — 검사 정밀화(문구 변경 없음)**
+   - `lib` 경유 어드민 키 34: `admin_biz_status_axis_*` 19, `admin_cm_slo_*` 9, `prod_mig_*` 6. 어드민 화면 문구라 S9 범위다.
+   - 오탐 6: 사용자 안내 이메일 2(`account_delete_public_cta_email`·`account_delete_public_how_2`), `name@example.com` 1(`signup_email_placeholder`), 단위 표기 3(`owner_ads_package_daily_avg`·`post_preview_rent_car_daily`·`store_per_unit_suffix`).
+2. **미사용 34키 삭제** — 코드·테스트·스크립트에서 리터럴·템플릿(`접두_${…}`) 참조 0 확인. 대부분 「API·DB 연동 후 표시」 같은 개발 단계 안내문. `business_phase7_001`(문장 조각)은 호출부를 한 문장으로 합치며 함께 삭제.
+3. **사용 중 39키 — 사용자 문장으로 교체**
+   - 오류 상태: 「무엇이 안 됐는지 + 할 수 있는 일」 한 문장. Supabase·마이그레이션·테이블·열 이름·`.env`·SQL 파일명을 화면에서 뺐다(예: `store_db_not_configured`, `chats_listing_save_schema_error`, `nav_messenger_migration_required`).
+   - 사장님 업종 안내: 화면에 `business_type` 코드 표기를 그리던 조각 3개를 한 문장으로 합쳤다.
+   - 알림 설정: SQL 파일명을 치환값으로 넘기던 것을 삭제했다.
+   - 통화 화면 문구 4키(`cm_ui_media_*`, `cm_ui_call_failed_insecure_context_detail`): **카탈로그 값만** 바꿨다. 통화 코드(`lib/community-messenger/media-errors.ts` 등)는 바꾸지 않았다. 개발자용 설정 안내(Agora 키·`npm run dev:https`)는 화면에서 빠졌고, 로그로 옮기는 작업은 통화 규정상 별도 계획이 필요하다(계획 완료 후 감사).
+   - 어드민 피드 긴급 3키(`feed_em_act_*`)는 고객 쪽 API(`/api/feed/emergency`)가 같은 모듈을 가져다 써서 고객 키로 판정됐다. 「Fallback」 → 「대체 피드」로 바꿨다.

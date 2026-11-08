@@ -70,8 +70,7 @@ export const chatsMessages = {
     chats_trade_list_completed_chat_preview: "거래가 완료된 채팅입니다.",
     chats_delivery_list_completed_label: "배달완료",
     chats_delivery_list_completed_chat_preview: "주문이 완료된 채팅입니다.",
-    chats_listing_save_schema_error:
-      "판매 단계를 DB에 반영하지 못했습니다. Supabase에 posts.seller_listing_state 컬럼이 있는지 확인한 뒤 다시 시도해 주세요.",
+    chats_listing_save_schema_error: "판매 단계를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     chats_listing_save_network_error: "네트워크 오류로 저장하지 못했습니다.",
     chats_realtime_status_checking: "채팅 연결 상태 확인 중",
     chats_realtime_status_live: "실시간 연결됨",
@@ -170,8 +169,7 @@ export const chatsMessages = {
     chats_trade_list_completed_chat_preview: "This trade chat is complete.",
     chats_delivery_list_completed_label: "Delivered",
     chats_delivery_list_completed_chat_preview: "This order chat is complete.",
-    chats_listing_save_schema_error:
-      "Could not save the listing stage. Check that posts.seller_listing_state exists in Supabase, then try again.",
+    chats_listing_save_schema_error: "Couldn't save the listing stage. Please try again later.",
     chats_listing_save_network_error: "Could not save because of a network error.",
     chats_realtime_status_checking: "Checking chat connection",
     chats_realtime_status_live: "Live connection",

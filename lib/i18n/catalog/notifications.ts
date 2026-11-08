@@ -220,8 +220,7 @@ export const notificationMessages = {
     notify_commerce_auto_completed_body:
       "「{store}」 주문이 기한에 따라 자동으로 완료 처리됐어요.",
     notify_store_point_blocked_title: "이전 매장 운영 기록",
-    notify_store_point_blocked_body:
-      "이전 매장 운영 내역의 보관 기록입니다(기록값 {balance}P · 기준값 {required}P).",
+    notify_store_point_blocked_body: "이전 매장 운영 내역의 보관 기록입니다(기록값 {balance}P · 기준값 {required}P).",
     notify_store_point_deducted_title: "과거 운영 내역 기록",
     notify_store_point_deducted_body: "이전 매장 운영 내역에 {fee}P 기록이 있습니다. 기록값 {balance}P",
     notify_store_point_low_title: "이전 매장 운영 내역",
@@ -582,12 +581,11 @@ export const notificationMessages = {
     notify_commerce_auto_completed_body:
       "Your \"{store}\" order was automatically marked as completed when the time limit expired.",
     notify_store_point_blocked_title: "Historical store operations",
-    notify_store_point_blocked_body:
-      "This is an archived historical store operations ledger entry ({balance}P recorded · {required}P reference).",
-    notify_store_point_deducted_title: "Historical operations ledger",
+    notify_store_point_blocked_body: "This is an archived record from past store operations ({balance}P recorded · {required}P reference).",
+    notify_store_point_deducted_title: "Past operations record",
     notify_store_point_deducted_body: "Archived entry {fee}P · recorded value {balance}P",
-    notify_store_point_low_title: "Historical store operations ledger",
-    notify_store_point_low_body: "The archived ledger value is {balance}P.",
+    notify_store_point_low_title: "Past store operations",
+    notify_store_point_low_body: "The archived record value is {balance}P.",
     notify_store_point_charge_approved_title: "Historical operations record",
     notify_store_point_charge_approved_body: "Archived entry {points}P · recorded value {balance}P",
     notify_store_point_charge_rejected_title: "Historical operations record",

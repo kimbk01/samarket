@@ -108,8 +108,7 @@ export const storeCommerceUiMessages = {
 
     store_browse_primary_fallback: "매장",
 
-    store_supabase_unconfigured_hint:
-      "Supabase가 연결되지 않았거나 매장 테이블이 아직 없습니다.",
+    store_supabase_unconfigured_hint: "지금은 매장 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
 
     store_browse_primary_restaurant: "식당",
 
@@ -234,7 +233,6 @@ export const storeCommerceUiMessages = {
 
     store_my_store_label: "내 매장",
 
-    store_listed_on_stores: "/stores 노출",
 
     store_other_owned_stores: "다른 소유 매장 {count}건 — 운영 센터에서 전환할 수 있어요.",
 
@@ -1010,8 +1008,7 @@ export const storeCommerceUiMessages = {
     store_orders_list_link: "주문 목록",
     store_server_config_required: "서버 설정이 필요합니다.",
     store_pickup_address_heading: "픽업 (매장 주소)",
-    store_db_not_configured:
-      "Supabase가 연결되지 않았거나 매장 테이블이 없습니다. SQL 마이그레이션을 적용해 주세요.",
+    store_db_not_configured: "지금은 매장 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
     store_not_found_short: "매장을 찾을 수 없습니다.",
     store_back_to_store_list: "매장 목록으로",
     store_menu_blocked_break:
@@ -1235,7 +1232,6 @@ export const storeCommerceUiMessages = {
     store_err_payment_method_select: "결제 방법을 선택해 주세요.",
     store_owner_notifications_title: "알림",
     store_owner_notification_settings_title: "알림 설정",
-    store_owner_slug_not_found: "등록된 매장을 찾을 수 없습니다. 주소(slug)를 확인해 주세요.",
     store_owner_go_order_management: "주문 관리로",
     store_owner_notif_login_only: "로그인한 사장님 계정에서만 알림 설정을 바꿀 수 있어요.",
     store_owner_notif_table_missing: "알림 설정 테이블이 아직 없습니다.",
@@ -1410,8 +1406,6 @@ export const storeCommerceUiMessages = {
     store_search_chip_latenight: "야식",
     store_search_chip_free_delivery: "무료배달",
     store_biz_my_store_fallback: "내 매장",
-    store_biz_order_chat_modal_body:
-      "배달·매장 주문 대화는 `/community-messenger/delivery-chats`와 메신저 방에서 이어집니다.",
     store_pay_label_cod: "COD",
     store_pay_label_gcash: "GCash",
     store_pay_label_bank_transfer: "계좌이체",
@@ -1427,16 +1421,12 @@ export const storeCommerceUiMessages = {
     store_owner_point_not_ad_cash:
       "읽기 전용 과거 기록이며 현재 결제 수단이 아닙니다.",
     store_owner_point_blocked_badge: "과거 기록",
-    store_owner_point_blocked_message:
-      "이전 매장 운영 내역의 읽기 전용 보관 기록입니다.",
     store_owner_point_charge_cta: "과거 기록 보기",
     store_owner_point_account_cta: "과거 안내 보기",
     store_owner_point_section_account: "과거 안내",
     store_owner_point_section_charge: "과거 운영 기록",
     store_owner_point_balance_current: "과거 내역 기록값",
-    store_owner_point_charge_ratio_hint: "이 값은 이전 매장 운영 내역의 보관 기록입니다.",
     store_owner_point_inquiry_cta: "기록 문의",
-    store_owner_point_ledger_title: "과거 내역",
     store_owner_point_ledger_empty: "과거 운영 기록이 없습니다.",
     store_owner_point_estimated_orders: "과거 기준값",
     store_owner_point_estimated_orders_unit: "{count}건 기록",
@@ -1744,8 +1734,6 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_filter_from: "시작일",
     store_owner_settlement_filter_to: "종료일",
     store_owner_settlement_filter_order_no: "주문번호",
-    store_owner_settlement_period_hint:
-      "기간은 정산 내역 생성일(완료 인식) 기준입니다. 표시 수수료율은 현재 정책이며, 주문별 수수료는 스냅샷을 따릅니다.",
     store_owner_settlement_refreshing: "새로고침 중…",
     store_owner_settlement_manage_orders: "주문 관리",
     store_owner_settlement_loading: "불러오는 중…",
@@ -1887,8 +1875,7 @@ export const storeCommerceUiMessages = {
 
     store_browse_primary_fallback: "Store",
 
-    store_supabase_unconfigured_hint:
-      "Supabase is not connected or store tables are not set up yet.",
+    store_supabase_unconfigured_hint: "Stores can't be loaded right now. Please try again later.",
 
     store_browse_primary_restaurant: "Restaurant",
 
@@ -2013,7 +2000,6 @@ export const storeCommerceUiMessages = {
 
     store_my_store_label: "My store",
 
-    store_listed_on_stores: "Listed on /stores",
 
     store_other_owned_stores: "{count} more owned stores — switch in the owner center.",
 
@@ -2788,8 +2774,7 @@ export const storeCommerceUiMessages = {
     store_orders_list_link: "Order list",
     store_server_config_required: "Server configuration is required.",
     store_pickup_address_heading: "Pickup (store address)",
-    store_db_not_configured:
-      "Supabase is not connected or store tables are missing. Apply SQL migrations.",
+    store_db_not_configured: "Store info can't be loaded right now. Please try again later.",
     store_not_found_short: "Store not found.",
     store_back_to_store_list: "Back to store list",
     store_menu_blocked_break:
@@ -3016,7 +3001,6 @@ export const storeCommerceUiMessages = {
     store_err_payment_method_select: "Please select a payment method.",
     store_owner_notifications_title: "Notifications",
     store_owner_notification_settings_title: "Notification settings",
-    store_owner_slug_not_found: "Store not found. Check the address (slug).",
     store_owner_go_order_management: "Order management",
     store_owner_notif_login_only: "Only a signed-in store owner account can change these settings.",
     store_owner_notif_table_missing: "The notification settings table is not ready yet.",
@@ -3192,8 +3176,6 @@ export const storeCommerceUiMessages = {
     store_search_chip_latenight: "Late night",
     store_search_chip_free_delivery: "Free delivery",
     store_biz_my_store_fallback: "My store",
-    store_biz_order_chat_modal_body:
-      "Delivery and store order chats continue in the Messenger delivery inbox.",
     store_pay_label_cod: "COD",
     store_pay_label_gcash: "GCash",
     store_pay_label_bank_transfer: "Bank transfer",
@@ -3209,16 +3191,12 @@ export const storeCommerceUiMessages = {
     store_owner_point_not_ad_cash:
       "Read-only historical record; not a current payment method.",
     store_owner_point_blocked_badge: "Historical record",
-    store_owner_point_blocked_message:
-      "Read-only archived entry from the historical store operations ledger.",
     store_owner_point_charge_cta: "View historical records",
     store_owner_point_account_cta: "View historical notice",
     store_owner_point_section_account: "Historical notice",
     store_owner_point_section_charge: "Historical operations record",
     store_owner_point_balance_current: "Historical recorded value",
-    store_owner_point_charge_ratio_hint: "This value is archived from the previous store operations ledger.",
     store_owner_point_inquiry_cta: "Ask about record",
-    store_owner_point_ledger_title: "Historical ledger entries",
     store_owner_point_ledger_empty: "No historical operations records.",
     store_owner_point_estimated_orders: "Historical reference count",
     store_owner_point_estimated_orders_unit: "{count} recorded",
@@ -3527,8 +3505,6 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_filter_from: "From",
     store_owner_settlement_filter_to: "To",
     store_owner_settlement_filter_order_no: "Order number",
-    store_owner_settlement_period_hint:
-      "Period uses settlement ledger created_at (completion recognition). Header rate is current policy; per-order fees use snapshots.",
     store_owner_settlement_refreshing: "Refreshing…",
     store_owner_settlement_manage_orders: "Manage orders",
     store_owner_settlement_loading: "Loading…",

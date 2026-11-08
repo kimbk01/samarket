@@ -609,7 +609,6 @@ export const mypageComponentsMessages = {
     mypage_comp_review_status_unknown: "리뷰 상태를 확인할 수 없어요.",
     mypage_comp_order_chat_view: "주문 채팅 보기",
     mypage_comp_write_review: "리뷰 작성하기",
-    mypage_comp_review_unavailable: "리뷰를 등록할 수 없습니다. (DB 미적용이거나 일시 오류일 수 있습니다.)",
 
     mypage_comp_refund_pending_notice:
       "환불 요청이 접수되었습니다. 매장·운영 확인 후 처리됩니다. 실제 금액 반환은 매장과 직접 조율하면 됩니다.",
@@ -662,7 +661,7 @@ export const mypageComponentsMessages = {
     mypage_comp_orders_hide_schema_missing: "서버 설정이 아직 적용되지 않아 삭제를 처리할 수 없습니다.",
     mypage_comp_orders_hide_err_in_progress: "진행 중인 주문은 숨길 수 없어요. 완료·취소된 뒤에 숨길 수 있어요.",
     mypage_comp_orders_hide_failed: "삭제에 실패했습니다. ({code})",
-    mypage_comp_orders_supabase_unconfigured: "서버에 Supabase(매장 주문) 설정이 없어 목록을 불러올 수 없습니다.",
+    mypage_comp_orders_supabase_unconfigured: "지금은 매장 주문 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
     mypage_comp_orders_cancel_err_short: "매장이 접수한 뒤에는 여기서 취소할 수 없습니다.",
 
     mypage_comp_more_aria: "더보기",
@@ -1551,7 +1550,6 @@ export const mypageComponentsMessages = {
     mypage_comp_review_status_unknown: "Could not verify review status.",
     mypage_comp_order_chat_view: "Open order chat",
     mypage_comp_write_review: "Write a review",
-    mypage_comp_review_unavailable: "Reviews aren’t available right now. (schema or temporary error)",
 
     mypage_comp_refund_pending_notice:
       "Refund request received. The store/ops will process it. Coordinate the actual refund with the store.",
@@ -1604,7 +1602,7 @@ export const mypageComponentsMessages = {
     mypage_comp_orders_hide_schema_missing: "Server setup isn’t applied yet; can’t remove from list.",
     mypage_comp_orders_hide_err_in_progress: "Orders in progress can’t be hidden. You can hide them after they’re completed or cancelled.",
     mypage_comp_orders_hide_failed: "Could not remove. ({code})",
-    mypage_comp_orders_supabase_unconfigured: "Store orders aren’t configured on the server (Supabase).",
+    mypage_comp_orders_supabase_unconfigured: "Store orders can't be loaded right now. Please try again later.",
     mypage_comp_orders_cancel_err_short: "Can’t cancel here after the store accepts.",
 
     mypage_comp_more_aria: "More options",

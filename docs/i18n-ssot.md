@@ -116,4 +116,9 @@
 | `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항·`tt("…")` 개수 | 파일별 증가 실패 (인라인은 서버 검증 입력값만 허용 목록 `NON_CATALOG_INLINE_FILE_ALLOW`, 이유 필수) |
 | `length-budget` | 4-3 기준 초과 | 경고 |
 
-- 「고객·사장님 키」 판정: 키를 쓰는 코드가 어드민 경로(`app/admin`·`components/admin`·`app/api/admin`·`lib/admin`)에만 있으면 어드민 키, 그 외(사용처를 못 찾은 키 포함, 단 `admin_` 접두는 어드민)는 고객·사장님 키.
+- 「고객·사장님 키」 판정(S3 정밀화 — `areaFromUsage`·`libReachAreas`):
+  - 고객·사장님 화면 파일(`app`·`components`·`hooks`, 어드민 경로 밖)이 직접 쓰면 고객·사장님 키.
+  - `lib` 파일이 쓰면 그 파일을 가져다 쓰는 쪽을 가져오기 관계로 끝까지 따라가 판정한다. 어드민 경로(`app/admin`·`components/admin`·`app/api/admin`·`lib/admin`)만 닿으면 어드민 키, 고객 쪽이 닿거나 가져다 쓰는 곳을 못 찾으면 고객·사장님 키.
+  - `admin_` 접두 키는 `lib` 경유만으로는 고객·사장님 키로 보지 않는다(고객 화면이 직접 쓸 때만).
+  - 사용처를 못 찾은 키: `admin_` 접두만 어드민, 나머지는 고객·사장님.
+- 개발자 용어 검사에서 빼는 것: 사용자에게 보여 주는 이메일·도메인(`help@…`, `example.com`), 단위 표기(`/day`·`/ea` 등).

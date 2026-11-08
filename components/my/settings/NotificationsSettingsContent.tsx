@@ -498,7 +498,7 @@ export function NotificationsSettingsContent() {
                 {t("notifications_commerce_email_desc")}
                 {commerceEmailColumnMissing ? (
                   <span className="mt-1 block text-[11px] leading-snug text-sam-warning">
-                    {t("settings_notif_db_migration", { file: "manual-apply-notifications-full.sql" })}
+                    {t("settings_notif_db_migration")}
                   </span>
                 ) : null}
                 {commerceEmailPatchError ? (

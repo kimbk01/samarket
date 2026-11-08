@@ -371,8 +371,6 @@ export const myMessages = {
     order_notifications_marketing: "마케팅·이벤트 알림 받기",
     order_notifications_marketing_desc: "주문 시뮬에서는 사용 예약. 푸시 확장 시 연결.",
     points_subtitle: "잔액·충전·내역",
-    points_backend_notice:
-      "포인트 잔액·내역은 DB/API 연동 후 표시됩니다. 샘플 데이터는 사용하지 않습니다.",
     points_charge: "충전 신청",
     points_ledger: "거래내역",
     points_promotion: "포인트 노출 신청",
@@ -489,11 +487,9 @@ export const myMessages = {
     member_order_pickup_short: "포장",
     member_order_has_request: "요청있음",
     member_order_items_more: "{first} 외 {count}건",
-    order_notifications_table_missing:
-      "알림 설정 테이블이 아직 없습니다. 마이그레이션 적용 후 다시 시도해 주세요.",
+    order_notifications_table_missing: "지금은 알림 설정을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.",
     order_notifications_load_failed: "설정을 불러오지 못했습니다.",
-    order_notifications_storage_intro:
-      "주문·매장 인앱 알림은 Supabase `user_notification_settings` 에 저장됩니다.",
+    order_notifications_storage_intro: "주문·매장 인앱 알림 설정은 계정에 저장됩니다.",
     order_notifications_all_settings_link: "전체 알림 설정",
     order_notifications_storage_suffix: "에서 채팅·이메일 등을 함께 조정할 수 있어요.",
     order_notifications_order_toggle: "주문 알림 (상태·취소·환불 등)",
@@ -929,8 +925,6 @@ export const myMessages = {
     order_notifications_marketing_desc:
       "Reserved for use in the order simulator. Connect when push is expanded.",
     points_subtitle: "Balance, top-up, history",
-    points_backend_notice:
-      "Point balance and history will appear after DB/API integration. Sample data is not used.",
     points_charge: "Top-up request",
     points_ledger: "Transaction history",
     points_promotion: "Point exposure request",
@@ -1047,11 +1041,9 @@ export const myMessages = {
     member_order_pickup_short: "Pickup",
     member_order_has_request: "Has request",
     member_order_items_more: "{first} + {count} more",
-    order_notifications_table_missing:
-      "The notification settings table is not ready yet. Apply the migration and try again.",
+    order_notifications_table_missing: "Notification settings can't be saved right now. Please try again later.",
     order_notifications_load_failed: "Could not load settings.",
-    order_notifications_storage_intro:
-      "In-app order and store notifications are stored in Supabase `user_notification_settings`.",
+    order_notifications_storage_intro: "In-app order and store notification settings are saved to your account.",
     order_notifications_all_settings_link: "All notification settings",
     order_notifications_storage_suffix: " to adjust chat, email, and more together.",
     order_notifications_order_toggle: "Order alerts (status, cancel, refund, etc.)",

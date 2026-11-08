@@ -12,6 +12,8 @@ import {
   emptyFileRuleCounts,
   isAdminPath,
   lengthBudgetForKey,
+  libReachAreas,
+  type KeyUsage,
   type CatalogSource,
   type FileRuleCounts,
   type KeyArea,
@@ -110,21 +112,33 @@ export async function collectI18nQuality(input: {
   for (const d of SOURCE_DIRS) await walk(root, d, files);
   files.sort();
   const keySet = new Set(Object.keys(ko));
-  const usage = new Map<string, Set<"admin" | "user">>();
+  const usage = new Map<string, Set<KeyUsage>>();
   const fileCounts = emptyFileRuleCounts();
   const literal = /["'`]([a-z][a-z0-9_.]{3,})["'`]/g;
+  const texts = new Map<string, string>();
   let i = 0;
   for (const rel of files) {
     if (++i % 400 === 0) await yieldToEventLoop();
+    texts.set(rel, await readFile(path.join(root, rel), "utf8"));
+  }
+  const reach = libReachAreas(texts);
+  for (const [rel, text] of texts) {
     if (rel.startsWith(`${CATALOG_DIR}/`) || rel === "lib/i18n/message-key.ts") continue;
-    const text = await readFile(path.join(root, rel), "utf8");
-    const area: "admin" | "user" = isAdminPath(rel) ? "admin" : "user";
+    let areas: KeyUsage[];
+    if (isAdminPath(rel)) areas = ["admin"];
+    else if (!rel.startsWith("lib/")) areas = ["user"];
+    else {
+      const r = reach.get(rel) ?? new Set();
+      areas = [];
+      if (r.has("admin")) areas.push("admin");
+      if (r.has("user") || r.size === 0) areas.push("user-indirect");
+    }
     literal.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = literal.exec(text))) {
       if (!keySet.has(m[1])) continue;
       const set = usage.get(m[1]) ?? new Set();
-      set.add(area);
+      for (const a of areas) set.add(a);
       usage.set(m[1], set);
     }
     if (!rel.startsWith("lib/i18n/")) addFileRuleCounts(fileCounts, rel, text);
