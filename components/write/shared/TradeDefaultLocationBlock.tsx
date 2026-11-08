@@ -21,6 +21,10 @@ import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressPublicArea,
+} from "@/lib/addresses/address-display-levels";
 import { usePathname } from "next/navigation";
 
 function pickAddressForTradeWrite(defaults: { master?: unknown } | undefined): UserAddressDTO | null {
@@ -165,6 +169,8 @@ export function TradeDefaultLocationBlock({
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const [displayLine, setDisplayLine] = useState<string | null>(null);
+  /** 「거래 지역」 칸 표시 = ① 공개 지역(시/군) — Owner 2026-11-09. displayLine(장소 TITLE)은 거래희망장소 기본값으로만 쓴다 */
+  const [publicCityLine, setPublicCityLine] = useState<string | null>(null);
   const displayLineRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const syncRef = useRef(onSyncRegionCity);
@@ -196,7 +202,10 @@ export function TradeDefaultLocationBlock({
             listResult.ok && handoff.addressId
               ? listResult.rows.find((a) => a.id === handoff.addressId) ?? null
               : null;
-          if (row) national = await resolveNationalLguFromAddress(row);
+          if (row) {
+            national = await resolveNationalLguFromAddress(row);
+            setPublicCityLine(formatAddressPublicArea(addressDisplayPartsFromUserAddress(row)));
+          }
         } catch {
           /* national resolve best-effort */
         }
@@ -242,6 +251,7 @@ export function TradeDefaultLocationBlock({
       if (requestGeneration !== requestGenerationRef.current) return;
       displayLineRef.current = next.line;
       setDisplayLine(next.line);
+      setPublicCityLine(formatAddressPublicArea(addressDisplayPartsFromUserAddress(addr)));
       const nationalOk = national.status === "resolved" && !!national.tradeLguId;
       resolvedRef.current?.({
         ready: true,
@@ -348,7 +358,8 @@ export function TradeDefaultLocationBlock({
     ? fixedLocationLine?.trim() || "—"
     : !ready
       ? "…"
-      : displayLine?.trim() || t("trade_write_no_rep_address");
+      : (karrotMeetSpotUi ? displayLine?.trim() : publicCityLine?.trim() || displayLine?.trim()) ||
+        t("trade_write_no_rep_address");
   const locationLabel = karrotMeetSpotUi ? heading : t("trade_write_trade_region");
   const errorText = error || meetSpotError || "";
 

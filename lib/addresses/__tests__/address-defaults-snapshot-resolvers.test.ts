@@ -102,18 +102,22 @@ describe("address-defaults-snapshot-resolvers", () => {
     expect(line).toBe("Makati");
   });
 
-  it("picks master row for stores header TITLE chip", () => {
+  it("picks master row for stores header chip (② 배달 지역)", () => {
     const state = resolveDeliveryHomeHeaderStateFromSnapshot(
       snapshot({
         defaults: {
           master: addr({
             id: "m1",
             neighborhoodName: "Malate",
+            barangay: "Malate",
+            cityMunicipality: "Manila",
             buildingName: "12B",
           }),
           delivery: addr({
             id: "d1",
             neighborhoodName: "Ermita",
+            barangay: "Ermita",
+            cityMunicipality: "Manila",
             buildingName: "Other",
           }),
         },
@@ -122,7 +126,8 @@ describe("address-defaults-snapshot-resolvers", () => {
     expect(state.status).toBe("ready");
     if (state.status !== "ready") throw new Error("expected ready");
     expect(state.hasLinkedAddress).toBe(true);
-    expect(state.line).toBe("12B");
+    // master 행 사용(delivery 행 Ermita 아님) — ② 배달 지역 「바랑가이, 시/군」
+    expect(state.line).toBe("Malate, Manila");
   });
 
   it("does not fall back to delivery or life neighborhood when master is missing", () => {

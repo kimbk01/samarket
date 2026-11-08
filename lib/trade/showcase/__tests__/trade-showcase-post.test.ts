@@ -33,10 +33,11 @@ describe("샘플 = 실제 글 모양", () => {
     for (let t = 0; t < 6; t += 1) expect(keys.filter((k) => k % 10 === t)).toHaveLength(10);
   });
 
-  it("모든 샘플 지역 줄이 영문 「도시 › 동네」", () => {
+  /** Owner 2026-11-09: 거래 카드 = ① 공개 지역(시/군)만 (이전 P-6 「도시 › 동네」 대체) */
+  it("모든 샘플 지역 줄이 영문 시/군 이름 하나", () => {
     for (const l of Object.values(TRADE_SHOWCASE_LISTINGS)) {
       const line = resolveTradeCardCityAreaLine({ tradeLguId: l.trade_lgu_id, region: l.region, city: l.city });
-      expect(line).toMatch(/^[A-Za-zñ .–-]+ City › [A-Za-zñ0-9 .–-]+$/);
+      expect(line).toMatch(/^[A-Za-zñ .–-]+ City$/);
     }
   });
 

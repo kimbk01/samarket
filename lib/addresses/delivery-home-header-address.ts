@@ -1,12 +1,16 @@
 /**
  * CONTRACT — 배달 홈(`/stores`) 헤더 칩.
- * 화면 칩은 대표 주소(`isDefaultMaster`) TITLE 줄.
+ * 화면 칩은 대표 주소(`isDefaultMaster`)의 ② 배달 지역(바랑가이, 시/군). 지역 칸이 없는 예전 행만 TITLE.
  * checkout/delivery current address도 master만 읽는다.
  * DO NOT: 헤더 버튼에 `store_address_manage_link` — `delivery-home-header-label.ts`.
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import { formatUserAddressTitle } from "@/lib/addresses/user-address-display-ssot";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressDeliveryArea,
+} from "@/lib/addresses/address-display-levels";
 
 function isDisplayNullish(s: string | null | undefined): boolean {
   const t = s?.trim();
@@ -60,11 +64,13 @@ export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | un
 }
 
 /**
- * 배달 홈 헤더 칩 — TITLE (place/building → street/road → Barangay).
+ * 배달 홈·매장 목록 헤더 칩 — **② 배달 지역**「Diliman, Quezon City」(Owner 2026-11-09 「배달은 Diliman, Quezon City 까지 거리 문제로」).
+ * 이전 TITLE(장소 이름 「Ra Cafe」)은 거리 판단이 안 돼 교체. 주소 표시 SSOT `address-display-levels`.
  */
 export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | undefined): string | null {
   if (!a?.id) return null;
-  return normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressTitle(a));
+  const area = formatAddressDeliveryArea(addressDisplayPartsFromUserAddress(a));
+  return normalizeDeliveryHomeHeaderDisplayLine(area ?? formatUserAddressTitle(a));
 }
 
 function pickDefaultAddressRow(

@@ -2,6 +2,10 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { formatPhAddressCardOneLine } from "@/lib/addresses/ph-address-display";
 import { buildPublicAllowListAddressLine } from "@/lib/addresses/public-address-allow-list";
 import { formatPhDetailThenStreetFromParts } from "@/lib/stores/store-location-label";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressFullLines,
+} from "@/lib/addresses/address-display-levels";
 
 /**
  * PUBLIC ADDRESS SSOT — Community / Trade / open surfaces.
@@ -259,9 +263,15 @@ export function toCheckoutDeliveryPayload(a: UserAddressDTO): CheckoutDeliveryPa
   let address_detail: string;
 
   if (isPh) {
+    /**
+     * ③ 전체 주소(주소 표시 SSOT) — 큰 줄 「장소, 도로, 바랑가이, 시/군」 · 세부 줄 「호수·층」.
+     * 이전: 카드 본문(streetBody)이 바랑가이·시를 떼어 주문 기록에 「Diliman, Quezon City」가 없었고,
+     * 장소 이름(Ra Cafe)이 세부 칸으로 들어갔다(2026-11-09 감사).
+     */
+    const full = formatAddressFullLines(addressDisplayPartsFromUserAddress(a));
     const ph = formatPhAddressCardOneLine(a);
-    summary_line = ph.streetBody || buildTradePublicLine(a);
-    address_detail = ph.gatePrefix || a.detailAddress?.trim() || "";
+    summary_line = full.main || ph.streetBody || buildTradePublicLine(a);
+    address_detail = full.detail || "";
   } else {
     summary_line = buildAddressManagementListPrimaryLine(a);
     const main = summary_line.trim();

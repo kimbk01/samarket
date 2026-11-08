@@ -548,8 +548,17 @@ export async function POST(req: NextRequest) {
     address1: addrSummaryRaw || null,
     address2: addrDetailRaw || null,
   });
-  const delivery_address_summary = normDeliveryAddr.address1;
-  const delivery_address_detail = normDeliveryAddr.address2;
+  /**
+   * 대표 주소 배달은 ③ 전체 주소(주소 표시 SSOT)를 그대로 기록한다.
+   * normalize 의 꼬리 지우기는 지역 칸(앱 동네 ID)을 단어로 지워 「…, Manila, 1003 Metro Manila」→「…, 1003 Metro」처럼
+   * 시 이름을 잘랐다(운영 주문 확인 2026-11-09). 본문 입력(대표 주소 없는 경로)만 기존 normalize 를 쓴다.
+   */
+  const delivery_address_summary = masterCheckoutPayload
+    ? addrSummaryRaw || null
+    : normDeliveryAddr.address1;
+  const delivery_address_detail = masterCheckoutPayload
+    ? addrDetailRaw || null
+    : normDeliveryAddr.address2;
   const delivery_region = normDeliveryAddr.region;
   const delivery_city = normDeliveryAddr.city;
   if (fulfillment === "local_delivery" || fulfillment === "shipping") {

@@ -18,8 +18,8 @@ function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO
     phoneNumber: null,
     countryCode: "PH",
     countryName: "Philippines",
-    province: partial.province ?? "Metro Manila",
-    cityMunicipality: partial.cityMunicipality ?? "Manila",
+    province: partial.province === undefined ? "Metro Manila" : partial.province,
+    cityMunicipality: partial.cityMunicipality === undefined ? "Manila" : partial.cityMunicipality,
     barangay: partial.barangay ?? null,
     district: partial.district ?? null,
     streetAddress: partial.streetAddress ?? null,
@@ -117,7 +117,8 @@ describe("normalizeDeliveryHomeHeaderDisplayLine", () => {
   });
 });
 describe("resolveDeliveryHomeHeaderDisplayLine", () => {
-  it("TITLE chip is building name, not the compact PH book string", () => {
+  /** Owner 2026-11-09: 배달 헤더 = ② 배달 지역 「바랑가이, 시/군」 (이전 TITLE 장소 이름 대체) */
+  it("② 배달 지역 = 「Diliman, Quezon City」 — 장소 이름·세부·도로 없음", () => {
     const row = addr({
       id: "office1",
       labelType: "office",
@@ -130,37 +131,30 @@ describe("resolveDeliveryHomeHeaderDisplayLine", () => {
       neighborhoodName: "Diliman",
       formattedAddress:
         "UP EEEI Smart Systems Laboratory, 3/F Room, 310 P. Velasquez Street, Diliman, Quezon City, Metro Manila, Philippines",
-      fullAddress:
-        "UP EEEI Smart Systems Laboratory, 3/F Room, 310 P. Velasquez Street, Diliman, Quezon City, Metro Manila, Philippines",
     });
     const line = resolveDeliveryHomeHeaderDisplayLine(row);
-    expect(line).toBe("UP EEEI Smart Systems Laboratory");
+    expect(line).toBe("Diliman, Quezon City");
     expect(line).not.toContain("wwwww");
-    expect(line).not.toContain("Quezon City");
+    expect(line).not.toContain("UP EEEI");
   });
 
-  it("TITLE chip falls back to Barangay before neighborhood", () => {
+  it("바랑가이가 동네 이름보다 먼저 — 「Malate, Manila」", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
-      addr({
-        id: "a5",
-        buildingName: null,
-        barangay: "Malate",
-        neighborhoodName: "Ermita",
-        detailAddress: "1003 - COD",
-      }),
+      addr({ id: "a5", buildingName: null, barangay: "Malate", neighborhoodName: "Ermita", detailAddress: "1003 - COD" }),
     );
-    expect(line).toBe("Barangay Malate");
+    expect(line).toBe("Malate, Manila");
   });
 
-  it("TITLE chip falls back to street/formatted headline instead of showing not-set", () => {
+  it("바랑가이 없으면 시/군만", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
-      addr({
-        id: "a6",
-        buildingName: "Mabini Street",
-        streetAddress: "Mabini Street",
-        neighborhoodName: null,
-        formattedAddress: "Mabini Street, Manila, Metro Manila, Philippines",
-      }),
+      addr({ id: "a6", buildingName: "Mabini Street", streetAddress: "Mabini Street", neighborhoodName: null }),
+    );
+    expect(line).toBe("Manila");
+  });
+
+  it("지역 칸이 하나도 없는 예전 행만 TITLE", () => {
+    const line = resolveDeliveryHomeHeaderDisplayLine(
+      addr({ id: "a7", cityMunicipality: null, province: null, buildingName: "Mabini Street", streetAddress: "Mabini Street" }),
     );
     expect(line).toBe("Mabini Street");
   });

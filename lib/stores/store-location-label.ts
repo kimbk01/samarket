@@ -1,58 +1,41 @@
-import { REGIONS } from "@/lib/products/form-options";
+import {
+  addressDisplayPartsFromStoreRow,
+  formatAddressDeliveryArea,
+  formatAddressPublicArea,
+  formatBarangayLabel,
+} from "@/lib/addresses/address-display-levels";
 
-function regionRowFromStored(regionRaw: string) {
-  const r = regionRaw.trim();
-  if (!r) return null;
-  return REGIONS.find((x) => x.id === r) ?? REGIONS.find((x) => x.name === r) ?? null;
-}
-
-function cityRowFromStored(regionRow: (typeof REGIONS)[number], cityRaw: string) {
-  const c = cityRaw.trim();
-  if (!c) return null;
-  return (
-    regionRow.cities.find((x) => x.id === c) ?? regionRow.cities.find((x) => x.name === c) ?? null
-  );
-}
-
-/**
- * DB `stores.region` / `stores.city` — **ID(`manila`·`m1`) 또는 과거 저장분 표시명** 모두 해석.
- */
-export function resolveStoreRegionCityLabels(parts: {
+type StoreLocationParts = {
+  district?: string | null;
   city?: string | null;
   region?: string | null;
-}): { regionLabel: string | null; neighborhoodLabel: string | null } {
-  const rRaw = typeof parts.region === "string" ? parts.region.trim() : "";
-  const cRaw = typeof parts.city === "string" ? parts.city.trim() : "";
-  if (!rRaw && !cRaw) return { regionLabel: null, neighborhoodLabel: null };
+  address_line1?: string | null;
+  address_line2?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
+};
 
-  const regionRow = regionRowFromStored(rRaw);
-  if (!regionRow) {
-    return { regionLabel: rRaw || null, neighborhoodLabel: cRaw || null };
-  }
-  const cityRow = cRaw ? cityRowFromStored(regionRow, cRaw) : null;
+/**
+ * 매장 정보 화면 「지역」「동네」 두 칸 — 주소 표시 SSOT(`address-display-levels`).
+ * regionLabel = 시/군(①), neighborhoodLabel = 바랑가이. 매장 지역 칸 두 형식(오너 폼·Google)을 같은 결과로 해석.
+ */
+export function resolveStoreRegionCityLabels(parts: StoreLocationParts): {
+  regionLabel: string | null;
+  neighborhoodLabel: string | null;
+} {
+  const p = addressDisplayPartsFromStoreRow(parts);
   return {
-    regionLabel: regionRow.name,
-    neighborhoodLabel: cityRow?.name ?? (cRaw || null),
+    regionLabel: formatAddressPublicArea(p),
+    neighborhoodLabel: formatBarangayLabel(p?.barangay) || null,
   };
 }
 
 /**
- * 매장 **지역·동네** 한 줄 — 카탈로그에 있는 쌍일 때만 (목록·필터와 동일한 엄격도).
- * 저장은 ID 기준(`LocationSelector`); 구데이터는 표시명도 허용.
+ * 매장 **배달 지역** 한 줄(②) — 「Diliman, Quezon City」. 매장 카드·상단 바·SEO 공통.
+ * 이전: 앱 동네 목록 쌍일 때만 「Quezon City · Diliman」, Google 형식 매장은 null(운영 다수 매장 지역 빈칸).
  */
-export function formatStoreLocationLine(parts: {
-  district?: string | null;
-  city?: string | null;
-  region?: string | null;
-}): string | null {
-  const rRaw = typeof parts.region === "string" ? parts.region.trim() : "";
-  const cRaw = typeof parts.city === "string" ? parts.city.trim() : "";
-  if (!rRaw || !cRaw) return null;
-  const regionRow = regionRowFromStored(rRaw);
-  if (!regionRow) return null;
-  const cityRow = cityRowFromStored(regionRow, cRaw);
-  if (!cityRow) return null;
-  return `${regionRow.name} · ${cityRow.name}`;
+export function formatStoreLocationLine(parts: StoreLocationParts): string | null {
+  return formatAddressDeliveryArea(addressDisplayPartsFromStoreRow(parts));
 }
 
 function cleanAddressText(v: unknown): string {
@@ -261,24 +244,8 @@ export function formatStoreAddressDetailForDisplay(address_line2?: string | null
   return short || full;
 }
 
-function locationCatalogLineRedundantWithDetail(loc: string, detailJoined: string): boolean {
-  const nd = normAddrDedupKey(detailJoined);
-  if (!nd) return false;
-  return loc
-    .split("·")
-    .map((x) => normAddrDedupKey(x))
-    .filter(Boolean)
-    .every((p) => nd.includes(p));
-}
-
 /** 필리핀 표시 — 주소록·매장 신청과 동일: `세부, 가로` (지역·동네는 `locationLine` 분리). */
-export function resolveStoreAddressDisplayParts(parts: {
-  region?: string | null;
-  city?: string | null;
-  district?: string | null;
-  address_line1?: string | null;
-  address_line2?: string | null;
-}): StoreAddressDisplayParts {
+export function resolveStoreAddressDisplayParts(parts: StoreLocationParts): StoreAddressDisplayParts {
   return {
     detail: formatStoreAddressDetailForDisplay(parts.address_line2),
     streetBody: formatStoreAddressStreetDisplay(parts),
@@ -286,18 +253,18 @@ export function resolveStoreAddressDisplayParts(parts: {
   };
 }
 
-/** 픽업·매장 안내용 — 상세이 있으면 앞에, 없으면 가로/지역만 한 줄. */
-export function formatStorePickupAddressLines(parts: {
-  region?: string | null;
-  city?: string | null;
-  district?: string | null;
-  address_line1?: string | null;
-  address_line2?: string | null;
-}): string[] {
-  const loc = formatStoreLocationLine(parts);
-  const detail = buildStoreAddressDisplay(parts).full;
-  if (!loc) return detail ? [detail] : [];
-  if (!detail) return [loc];
-  if (locationCatalogLineRedundantWithDetail(loc, detail)) return [detail];
-  return [`${detail}, ${loc}`];
+/** 픽업·매장 안내용(③) — 「세부, 도로, 바랑가이, 시/군」 한 줄. 같은 조각은 한 번만. */
+export function formatStorePickupAddressLines(parts: StoreLocationParts): string[] {
+  const detailBody = buildStoreAddressDisplay(parts).full;
+  const p = addressDisplayPartsFromStoreRow(parts);
+  const area = formatAddressDeliveryArea(p);
+  const segs = dedupeAddressSegmentList(
+    [detailBody, area]
+      .filter(Boolean)
+      .flatMap((x) => String(x).split(/[,，]/))
+      .map((x) => x.trim())
+      .filter(Boolean),
+  );
+  const line = segs.join(", ");
+  return line ? [line] : [];
 }

@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { formatPublicAddress } from "@/lib/addresses/user-address-format";
+import {
+  addressDisplayPartsFromStoreRow,
+  formatAddressPublicArea,
+} from "@/lib/addresses/address-display-levels";
 
 /**
  * COMMUNITY PUBLIC LOCATION SSOT — CITY ONLY (CUT 1).
@@ -81,12 +85,18 @@ export async function loadLocationCitiesByIds(
   const ids = [...new Set([...locationIds].map((x) => String(x ?? "").trim()).filter(Boolean))];
   const out = new Map<string, string>();
   if (ids.length === 0) return out;
-  const { data, error } = await sb.from("locations").select("id, city").in("id", ids);
+  const { data, error } = await sb.from("locations").select("id, city, name").in("id", ids);
   if (error || !Array.isArray(data)) return out;
-  for (const row of data as { id?: string; city?: string | null }[]) {
+  for (const row of data as { id?: string; city?: string | null; name?: string | null }[]) {
     const id = String(row.id ?? "").trim();
-    const city = String(row.city ?? "").trim();
-    if (id && city) out.set(id, city);
+    if (!id) continue;
+    /**
+     * ① 공개 지역(시/군) — locations.city 는 앱 동네 목록의 「지역」 이름이라 Makati 동네도 「Manila」였다(2026-11-09 감사).
+     * (지역, 동네) 쌍을 거래 공개 도시와 같은 시/군 이름으로 바꾼다. 못 바꾸면 기존 city.
+     */
+    const store = addressDisplayPartsFromStoreRow({ region: row.city ?? null, city: row.name ?? null });
+    const city = formatAddressPublicArea(store) || String(row.city ?? "").trim();
+    if (city) out.set(id, city);
   }
   return out;
 }

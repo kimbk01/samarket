@@ -1,5 +1,6 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { REGIONS } from "@/lib/products/form-options";
+import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 
 /**
  * PUBLIC ADDRESS SSOT — Community / Trade / open surfaces.
@@ -53,6 +54,10 @@ function taxonomyCityLeadingLabel(appRegionId: string | null | undefined, appCit
  */
 export function resolvePublicCityMunicipalityLabel(a: UserAddressDTO | null | undefined): string | null {
   if (!a) return null;
+  /** ① 공개 지역 = LGU 이름(거래 공개 도시와 같은 이름 — 「Manila City」「Quezon City」) · 주소 표시 SSOT */
+  const fromLgu = clean(resolvePublicCityName({ cityLguId: a.canonicalLguId ?? null, cityText: null }));
+  if (isUsableCityMunicipalityLabel(fromLgu)) return fromLgu;
+
   const fromColumn = clean(a.cityMunicipality);
   if (isUsableCityMunicipalityLabel(fromColumn)) return fromColumn;
 

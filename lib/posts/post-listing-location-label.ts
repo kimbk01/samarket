@@ -115,20 +115,13 @@ export function resolveTradePostListingLocationLine(
 }
 
 /**
- * P-6 (2026-10-27, Owner 승인 v3): 목록 카드 지역 = 「도시 › 동네」 한 규칙.
- * 도시는 공개 도시 SSOT(`resolveTradeListingPublicCityLabel`), 동네는 앱 지역 ID 라벨의 마지막 칸.
- * 동네를 알 수 없거나 도시와 같으면 도시만. 거래희망장소(meet_spot)는 쓰지 않는다.
+ * 목록 카드 지역 = **① 공개 지역(시/군)만** — Owner 2026-11-09 「거래는 Quezon City 가 나와야」.
+ * 이전 P-6(2026-10-27 승인 v3) 「도시 › 동네」를 이 지시로 대체한다. 거래희망장소(meet_spot)는 쓰지 않는다.
  */
 export function resolveTradeCardCityAreaLine(input: {
   tradeLguId?: string | null;
   region?: string | null;
   city?: string | null;
 }): string | null {
-  const cityLabel = resolveTradeListingPublicCityLabel(input);
-  const local = formatPostListingLocationLine(input.region, input.city);
-  const parts = (local ?? "").split(/\s*[·›]\s*/).map((x) => x.trim()).filter(Boolean);
-  const area = parts.length > 1 ? parts[parts.length - 1]! : "";
-  if (!cityLabel) return local;
-  if (!area || area === cityLabel) return cityLabel;
-  return `${cityLabel} › ${area}`;
+  return resolveTradeListingPublicCityLabel(input);
 }
