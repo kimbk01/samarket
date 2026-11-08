@@ -45,7 +45,8 @@ type OwnerHubRuntimeValue = {
   stores: StoreRow[] | null;
   selectedRow: StoreRow | null;
   orderAlertsBadge: number;
-  refreshOrderAttention: () => Promise<void>;
+  /** `force` — 캐시를 건너뛰고 서버에서 받음 (실시간 주문 신호 때) */
+  refreshOrderAttention: (opts?: { force?: boolean }) => Promise<void>;
   /**
    * Dashboard (and similar) may subscribe for ops-snapshot cache refresh.
    * Orders list must NOT full-load from this — `useOwnerStoreOrdersRealtime` owns row patch.
@@ -192,21 +193,27 @@ export function OwnerHubRuntimeProvider({
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
 
-  const refreshOrderAttention = useCallback(async () => {
+  const refreshOrderAttention = useCallback(async (opts?: { force?: boolean }) => {
     if (!orderCountsStoreId) {
       setOrderAlertsBadge(0);
       prevPendingDeliveryRef.current = null;
       return;
     }
     try {
-      const { json: raw } = await fetchStoreOrderCountsDeduped(orderCountsStoreId);
+      const { json: raw } = await fetchStoreOrderCountsDeduped(orderCountsStoreId, {
+        force: opts?.force === true,
+      });
       const parsed = parseOwnerStoreOpsSnapshotFromJson(raw);
       if (!parsed) {
         setOrderAlertsBadge(0);
         prevPendingDeliveryRef.current = null;
         return;
       }
-      seedOwnerHubOrderCountsCache(orderCountsStoreId, parsed);
+      /**
+       * O1 (Owner 「O1 구현 승인」 2026-11-09): 여기서 캐시에 다시 넣지 않는다 — 서버에서 받은 값은
+       * `fetchStoreOrderCountsDeduped` 가 이미 넣고, 캐시에서 꺼낸 값을 다시 넣으면 만료 시각만 20초 늘어
+       * 신호가 이어질 때 옛 숫자가 계속 남았다.
+       */
       const nextBadge = ownerHubOrderAlertsFromMeta(parsed);
       setOrderAlertsBadge((prev) => (prev === nextBadge ? prev : nextBadge));
       const delivery = parsed.pending_delivery_count;
@@ -260,8 +267,14 @@ export function OwnerHubRuntimeProvider({
       /** UPDATE burst — 목록 캐시 무효화는 INSERT 만(주문 화면 RT·single-flight 와 중복 refetch 방지) */
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       dispatchOwnerHubBadgeRefresh({ source: "owner_hub_runtime_store_orders" });
+      /**
+       * O1 (Owner 「O1 구현 승인」 2026-11-09): 주문 신호(새 주문·상태 변경)가 오면 주문 수 캐시를 비우고 서버에서 받는다
+       * — docs/owner-hub-cold-path-contract.md 「Realtime 시 invalidate 후 재조회」. 이전에는 20초 캐시 값을 그대로 받아
+       * 새 주문 배지가 최대 20초(신호가 이어지면 그 이상) 늦었다. 450ms 묶음·같은 매장 요청 합치기는 그대로.
+       */
+      if (orderCountsStoreId) invalidateOwnerHubOrderCountsCache(orderCountsStoreId);
       void (async () => {
-        await refreshOrderAttention();
+        await refreshOrderAttention({ force: true });
         notifyOrdersRefresh();
       })();
     },
