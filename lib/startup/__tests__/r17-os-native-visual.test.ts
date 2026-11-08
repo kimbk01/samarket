@@ -126,6 +126,30 @@ describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
     expect(vc).toContain("pauseStartupFaultProbe(docURL: docURL)");
   });
 
+  it("iOS T_doc (Owner 2026-11-08): first-document wait cap = Android load timeout, call routes skipped, late document recovers", () => {
+    const vc = src("ios/App/App/DibayRootBridgeViewController.swift");
+    const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    const iosMs = Number(/static let startupDocWaitTimeoutMs = ([\d_]+)/.exec(vc)?.[1]?.replace(/_/g, ""));
+    const androidMs = Number(/WEBVIEW_LOAD_TIMEOUT_MS = ([\d_]+)L/.exec(main)?.[1]?.replace(/_/g, ""));
+    expect(iosMs).toBe(10_000);
+    expect(iosMs).toBe(androidMs);
+    // 문서 시작에서 관찰 시작, 문서 완료·실패·WebContent 종료에서 정지
+    expect(vc).toMatch(/func startupFaultDocumentStarted\(\) \{\n    stopStartupFaultProbe\(\)\n    startStartupDocWait\(\)/);
+    expect(vc).toMatch(/func startupFaultDocumentFinished\(\) \{\n    stopStartupFaultProbe\(\)\n    stopStartupDocWait\(\)/);
+    expect(vc).toMatch(/func startupFaultContentProcessTerminated\(\) \{\n    stopStartupFaultProbe\(\)\n    stopStartupDocWait\(\)/);
+    // 시작 화면이 있을 때만 · 통화 경로/네이티브 통화 화면 제외(시작·발동 두 번 확인) · 앱 활성 시간만
+    const docWait = vc.slice(vc.indexOf("private func startStartupDocWait"), vc.indexOf("/// D5: 비활성이면"));
+    expect(docWait).toContain("guard launchContinuation != nil else { return }");
+    expect(docWait.match(/startupFaultIsCallRoute\(webView\?\.url\)/g)?.length).toBe(2);
+    expect(docWait).toContain("guard UIApplication.shared.applicationState == .active else {");
+    // 로드를 끊지 않는다 — stopLoading·reload 금지, 오류 화면만
+    expect(docWait).not.toMatch(/stopLoading|\.reload\(\)/);
+    expect(docWait).toContain('showStartupErrorView(kind: .network, reason: "DOC_WAIT_TIMEOUT")');
+    // 문서가 늦게 도착하면 오류 화면을 걷고 시작 화면으로 되돌린다
+    expect(vc).toContain("if startupErrorViewFromDocWait {\n      // T_doc");
+    expect(vc).toContain('NSLog("[DibayRootBridge] startup_doc_wait_recovered")');
+  });
+
   it("Android: no time-based release on the healthy path (D3) · call routes skip the fault probe (D4) · paused while hidden (D5)", () => {
     const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(main).not.toContain("visual_state_fallback");

@@ -3,7 +3,7 @@
 - 지시: Owner 「설계안 작성」 (2026-11-08, build 28 실기 보고 직후)
 - 근거 계획: `docs/audit/app-entry-resume-stabilization-plan-2026-11-08.md` §4 C7 · §13 · §14
 - 하드락: `docs/dibay-app-entry-resume-hard-lock.md` (DRAFT) H1
-- 상태: **설계만.** 코드·빌드·운영 변경 없음.
+- 상태: Owner 「승인, 구현해」(2026-11-08) → **구현** (`ios/App/App/DibayRootBridgeViewController.swift` · r17 계약 검사 · 하드락 H1-2 개정). 늦게 도착한 문서는 오류 화면을 걷고 **시작 화면을 다시 덮어** 정상 흐름(웹 해제·T_js·T_release)으로 잇는다. 웹 `dismissSplash` 는 시작 화면이 없으면 아무 것도 하지 않음(코드 확인: `removeLaunchContinuation` 의 `guard let continuation = launchContinuation else { return }`).
 
 ## 1. 결함 (실기 증거)
 
