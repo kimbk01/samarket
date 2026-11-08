@@ -37,7 +37,7 @@
 
 ## 3. 문구 원본
 
-1. **원본 = `lib/i18n/catalog/*.ts` 하나.** 한 키는 한 파일에만 둔다. `messages/ko.json`·`en.json` 은 S5 에서 카탈로그로 옮기고 삭제한다(그 전까지 신규 키 추가 금지).
+1. **원본 = `lib/i18n/catalog/*.ts` 하나.** 한 키는 한 파일에만 둔다(`duplicate-key` 0 — S5 부터 기준선 없음). `messages/ko.json`·`en.json` 은 S5 에서 `admin-console-core.ts`·`app-shell-core.ts` 로 옮기고 삭제했다.
 2. **화면 문구는 키(`t("key")`)로만 만든다.** 다음은 신규 금지, 기존은 S6 에서 키로 옮긴다:
    - `fallbackEn` / `fallbackKo` 에 문장 쓰기
    - 인라인 `{ ko: "…", en: "…" }`

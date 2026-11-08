@@ -53,11 +53,6 @@ function classifyDomain(key) {
   return "other";
 }
 
-function readJsonEntries(filePath) {
-  const raw = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  return Object.entries(raw).map(([key, value]) => ({ key, value: String(value ?? "") }));
-}
-
 function extractCatalogEntries(filePath, lang) {
   const content = fs.readFileSync(filePath, "utf8");
   const re = new RegExp(`\\n  ${lang}: \\{([\\s\\S]*?)\\n  \\},`, "m");
@@ -66,7 +61,7 @@ function extractCatalogEntries(filePath, lang) {
   const block = match[1];
   const out = [];
   const keyValueRe =
-    /^\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(?:\n\s*)?(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')/gm;
+    /^\s+"?([a-zA-Z_][a-zA-Z0-9_.]*)"?\s*:\s*(?:\n\s*)?(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')/gm;
   let m;
   while ((m = keyValueRe.exec(block)) !== null) {
     const value = (m[2] ?? m[3] ?? "").replace(/\\n/g, "\n").replace(/\\"/g, '"');
@@ -77,12 +72,7 @@ function extractCatalogEntries(filePath, lang) {
 
 function collectMerged(lang) {
   const map = new Map();
-  const jsonPath = path.join(ROOT, "messages", `${lang}.json`);
-  if (fs.existsSync(jsonPath)) {
-    for (const { key, value } of readJsonEntries(jsonPath)) {
-      map.set(key, { value, source: "messages" });
-    }
-  }
+  /** S5(2026-11-08): `messages/*.json` 폐지 — 원본은 카탈로그 TS 만 */
   const dir = path.join(ROOT, "lib", "i18n", "catalog");
   for (const file of fs.readdirSync(dir)) {
     if (!file.endsWith(".ts")) continue;

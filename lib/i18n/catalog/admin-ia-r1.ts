@@ -15,9 +15,6 @@ export const adminIaR1Messages = {
     admin_report_processed_post_manage: "이 글 관리(숨김·삭제)",
     admin_report_sanctions_intro:
       "반려·경고·채팅 제한·게시글 숨김·계정 정지 등 처리 결과는 처리 이력에 기록되고, 제재가 걸리면 제재 기록에도 남습니다.",
-    // 재감사 E-3 (RS-03): 신고 목록 문구 — admin.ts 원문은 그대로 두고 여기서 덮어쓴다
-    // (admin.ts 안에서 고치면 그 파일의 추론 타입이 직렬화 한도를 넘어 TS7056 이 난다).
-    admin_report_list_title: "신고 목록 (통합)",
     admin_report_list_description:
       "신고 원장 6종을 한 목록으로 봅니다. 거래(reports)·커뮤니티(community_reports) 신고는 「상세」에서 처리하고, 매장·모임·메신저·구 거래 채팅 신고는 조회만 하며 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.",
     admin_report_filter_domain_all: "도메인: 전체",
@@ -93,7 +90,6 @@ export const adminIaR1Messages = {
     admin_report_processed_post_manage: "Manage this post (hide/delete)",
     admin_report_sanctions_intro:
       "Rejections, warnings, chat restrictions, hidden posts and suspensions are recorded in the action history; sanctions also appear in the sanction log.",
-    admin_report_list_title: "Reports (unified)",
     admin_report_list_description:
       "All six report ledgers in one list. Trade (reports) and community (community_reports) reports are processed from Detail; store, meeting, messenger and legacy trade-chat reports are view-only here and processed via each row’s domain screen. Account suspensions are done in member detail.",
     admin_report_filter_domain_all: "Domain: all",

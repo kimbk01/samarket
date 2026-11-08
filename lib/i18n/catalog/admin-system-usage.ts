@@ -19,7 +19,6 @@ export const adminSystemUsageMessages = {
     admin_system_health_status_warning: "주의",
     admin_system_health_status_critical: "위험",
     admin_runtime_health_subtitle: "PostgreSQL capability 감지 + 운영 ON/OFF + fallback 상태.",
-    admin_runtime_health_refresh: "감지 새로고침",
     admin_runtime_health_error_title: "오류",
     admin_runtime_health_warnings_title: "Fallback / 위험 경고",
     admin_runtime_health_effective_hint:
@@ -34,7 +33,6 @@ export const adminSystemUsageMessages = {
       "수동 체크 테이블이 없거나(마이그레이션 미적용), 항목이 없습니다.",
     admin_delivery_gate_unchecked: "미확인",
     admin_delivery_gate_memo_placeholder: "메모(선택)",
-    admin_page_usage_optimization: "비용 최적화",
     admin_usage_card_title: "Supabase 사용량 및 월간 비용 추정",
     admin_usage_surge_warning: "사용량/비용 급증 경고 (임계치 초과). 모니터링 권장.",
     admin_usage_db: "DB 사용량",
@@ -62,7 +60,6 @@ export const adminSystemUsageMessages = {
     admin_system_health_status_warning: "Warning",
     admin_system_health_status_critical: "Critical",
     admin_runtime_health_subtitle: "PostgreSQL capability detection + ops ON/OFF + fallback state.",
-    admin_runtime_health_refresh: "Refresh detection",
     admin_runtime_health_error_title: "Error",
     admin_runtime_health_warnings_title: "Fallback / risk warnings",
     admin_runtime_health_effective_hint:
@@ -76,7 +73,6 @@ export const adminSystemUsageMessages = {
     admin_delivery_gate_manual_empty: "Manual check table missing (migration) or no items.",
     admin_delivery_gate_unchecked: "Not checked",
     admin_delivery_gate_memo_placeholder: "Memo (optional)",
-    admin_page_usage_optimization: "Cost optimization",
     admin_usage_card_title: "Supabase usage and monthly cost estimate",
     admin_usage_surge_warning: "Usage/cost surge warning (threshold exceeded). Monitor recommended.",
     admin_usage_db: "DB usage",

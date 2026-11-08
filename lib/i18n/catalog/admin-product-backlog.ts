@@ -1,7 +1,6 @@
 /** Phase 11: components/admin/product-backlog */
 export const adminProductBacklogMessages = {
   ko: {
-    admin_product_backlog_page_title: "제품 개선 백로그",
     admin_product_backlog_tab_summary: "요약",
     admin_product_backlog_tab_feedback: "피드백 인박스",
     admin_product_backlog_tab_board: "백로그 보드",
@@ -91,7 +90,6 @@ export const adminProductBacklogMessages = {
     admin_product_backlog_owner_assignee: "담당 {name}",
   },
   en: {
-    admin_product_backlog_page_title: "Product improvement backlog",
     admin_product_backlog_tab_summary: "Summary",
     admin_product_backlog_tab_feedback: "Feedback inbox",
     admin_product_backlog_tab_board: "Backlog board",

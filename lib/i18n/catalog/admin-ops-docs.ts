@@ -1,7 +1,6 @@
 /** Phase 11: components/admin/ops-docs */
 export const adminOpsDocsMessages = {
   ko: {
-    admin_ops_doc_page_title: "운영 문서 (SOP / 플레이북 / 시나리오)",
     admin_ops_doc_create: "문서 생성",
     admin_ops_doc_view_summary: "요약 보기",
     admin_ops_doc_view_list: "목록 보기",
@@ -86,7 +85,6 @@ export const adminOpsDocsMessages = {
     admin_ops_doc_log_approve: "승인",
   },
   en: {
-    admin_ops_doc_page_title: "Ops docs (SOP / playbooks / scenarios)",
     admin_ops_doc_create: "Create document",
     admin_ops_doc_view_summary: "View summary",
     admin_ops_doc_view_list: "View list",

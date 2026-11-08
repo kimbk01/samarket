@@ -56,9 +56,6 @@ export const platformPopupOwnerMessages = {
     admin_platform_popup_creative_spec_formats: "지원 형식  JPG / PNG / WEBP · 원본 최대 8MB (최적화 후 저장)",
     admin_platform_popup_load_image: "이미지 불러오기",
     admin_platform_popup_crop_confirm: "중앙 크롭 결과 (저장될 최종 이미지)",
-    admin_platform_popup_section_placement: "이 팝업을 어디에 노출할까요?",
-    admin_platform_popup_placement_system_note:
-      "메신저·통화·관리자·오너 운영·결제·주문 Critical 화면은 시스템에서 자동 제외됩니다.",
     admin_platform_popup_placement_current: "현재 선택",
     admin_platform_popup_preview_phone: "휴대폰",
     admin_platform_popup_preview_tablet: "태블릿",
@@ -128,9 +125,6 @@ export const platformPopupOwnerMessages = {
     admin_platform_popup_creative_spec_formats: "Formats  JPG / PNG / WEBP · source max 8MB (optimized on upload)",
     admin_platform_popup_load_image: "Load image",
     admin_platform_popup_crop_confirm: "Center-crop result (final asset to save)",
-    admin_platform_popup_section_placement: "Where should this popup appear?",
-    admin_platform_popup_placement_system_note:
-      "Messenger, Call, Admin, Owner Ops, Payment, and order-critical screens are excluded automatically.",
     admin_platform_popup_placement_current: "Selected",
     admin_platform_popup_preview_phone: "Phone",
     admin_platform_popup_preview_tablet: "Tablet",

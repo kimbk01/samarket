@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 import {
   buildMemberListQueryString,
   parseMemberListQueryState,
@@ -82,7 +83,7 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
   });
 
   it("ko/en catalogs define Slice 6 ownership keys", () => {
-    const catalog = read("lib/i18n/catalog/admin.ts");
+    /** 언어 SSOT S5: 키당 원본 1곳 — ko·en 정의 여부로 확인 */
     for (const key of [
       "admin_menu_reports_observation",
       "admin_menu_ads_feed_applications",
@@ -93,10 +94,9 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
       "admin_users_col_staff_person",
       "admin_users_col_staff_user_id",
       "admin_audit_ownership_banner",
-    ]) {
-      const re = new RegExp(`${key}:`, "g");
-      const matches = catalog.match(re) ?? [];
-      expect(matches.length, key).toBeGreaterThanOrEqual(2);
+    ] as const) {
+      expect(MESSAGES.ko[key], key).toBeTruthy();
+      expect(MESSAGES.en[key], key).toBeTruthy();
     }
   });
 });

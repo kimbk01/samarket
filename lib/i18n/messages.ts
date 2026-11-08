@@ -75,12 +75,9 @@ import { adsImpl1107PopupMessages } from "./catalog/ads-impl-1107-w2";
 import { adsImpl1107DeliveryMessages } from "./catalog/ads-impl-1107-w3";
 import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
 import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
-import { adminChatR1EMessages } from "./catalog/admin-chat-r1-media";
-import { adminChatR1DMessages } from "./catalog/admin-chat-r1-dashboard";
 import { adminChatR1CMessages } from "./catalog/admin-chat-r1-pages";
 import { adminChatR1BMessages } from "./catalog/admin-chat-r1-data";
 import { adminChatR1AMessages } from "./catalog/admin-chat-r1-access";
-import { adminDeliveryR4EMessages } from "./catalog/admin-delivery-r4-app-sync";
 import { adminDeliveryR4DMessages } from "./catalog/admin-delivery-r4-field-monitoring";
 import { adminDeliveryR4CMessages } from "./catalog/admin-delivery-r4-fees-settings";
 import { adminDeliveryR4BMessages } from "./catalog/admin-delivery-r4-orders";
@@ -122,8 +119,8 @@ import { ownerStage4FeedbackMessages } from "./catalog/owner-stage4-feedback";
 import { ownerStage4NavMessages } from "./catalog/owner-stage4-nav";
 import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import { ownerUiCopyKeysMessages } from "./catalog/owner-ui-copy-keys";
-import koJson from "@/messages/ko.json";
-import enJson from "@/messages/en.json";
+import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
+import { appShellCoreMessages } from "./catalog/app-shell-core";
 
 import type { MessageKey } from "./message-key";
 export type { MessageKey } from "./message-key";
@@ -230,15 +227,13 @@ const KO_MESSAGES = {
   ...adminDeployMessages.ko,
   ...adminBoostPricesMessages.ko,
   ...adminTradeSoldWindowMessages.ko,
-  ...koJson,
+  ...adminConsoleCoreMessages.ko,
+  ...appShellCoreMessages.ko,
   // 배달 Admin 운영 UX 교정 — ko.json 보다 뒤 (같은 키 교정 우선)
   ...adminDeliveryOpsUxMessages.ko,
-  ...adminChatR1EMessages.ko,
-  ...adminChatR1DMessages.ko,
   ...adminChatR1CMessages.ko,
   ...adminChatR1BMessages.ko,
   ...adminChatR1AMessages.ko,
-  ...adminDeliveryR4EMessages.ko,
   ...adminDeliveryR4DMessages.ko,
   ...adminDeliveryR4CMessages.ko,
   ...adminDeliveryR4BMessages.ko,
@@ -358,14 +353,12 @@ const EN_MESSAGES = {
   ...adminDeployMessages.en,
   ...adminBoostPricesMessages.en,
   ...adminTradeSoldWindowMessages.en,
-  ...enJson,
+  ...adminConsoleCoreMessages.en,
+  ...appShellCoreMessages.en,
   ...adminDeliveryOpsUxMessages.en,
-  ...adminChatR1EMessages.en,
-  ...adminChatR1DMessages.en,
   ...adminChatR1CMessages.en,
   ...adminChatR1BMessages.en,
   ...adminChatR1AMessages.en,
-  ...adminDeliveryR4EMessages.en,
   ...adminDeliveryR4DMessages.en,
   ...adminDeliveryR4CMessages.en,
   ...adminDeliveryR4BMessages.en,

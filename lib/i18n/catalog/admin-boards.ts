@@ -17,7 +17,6 @@ export const adminBoardsMessages = {
     admin_board_view_on_web: "웹에서 보기",
     admin_board_err_supabase: "Supabase 서비스 키가 없어 목록을 불러올 수 없습니다. Vercel 환경변수(SUPABASE_SERVICE_ROLE_KEY 등)를 확인하세요.",
     admin_board_err_forbidden: "관리자만 볼 수 있습니다.",
-    admin_board_err_list_status: "목록을 불러오지 못했습니다. ({status})",
     admin_board_err_list_request: "목록 요청에 실패했습니다.",
     admin_board_create_title: "게시판 추가",
     admin_board_close_aria: "닫기",
@@ -67,7 +66,6 @@ export const adminBoardsMessages = {
     admin_board_err_supabase:
       "Cannot load list: Supabase service key missing. Check Vercel env (SUPABASE_SERVICE_ROLE_KEY, etc.).",
     admin_board_err_forbidden: "Admins only.",
-    admin_board_err_list_status: "Could not load list ({status}).",
     admin_board_err_list_request: "List request failed.",
     admin_board_create_title: "Add board",
     admin_board_close_aria: "Close",

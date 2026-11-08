@@ -12,9 +12,6 @@ export const adminChatR1AMessages = {
     admin_chat_r1_content_locked_reason:
       "신고·거래·주문에 연결되지 않은 사적 방입니다. 열람 사유(10자 이상)를 입력하면 본문을 불러오며, 열람 기록이 남습니다.",
     admin_chat_r1_content_unlock_cta: "사유 입력 후 열람",
-    admin_chat_r1_content_reason_prompt_title: "고스트 열람 사유",
-    admin_chat_r1_content_reason_prompt_desc:
-      "신고·법적 요청 번호와 열람 목적을 10자 이상 입력하세요. 감사 기록에 남습니다.",
     admin_chat_r1_content_reason_placeholder: "예: 법적 요청 2026-123 확인 목적",
     admin_chat_r1_content_reason_too_short: "사유는 10자 이상이어야 합니다.",
     admin_chat_r1_content_basis_linked_report: "열람 근거: 처리 중인 신고 연결",
@@ -42,9 +39,6 @@ export const adminChatR1AMessages = {
     admin_chat_r1_content_locked_reason:
       "This private room is not linked to a report, trade, or order. Enter a reason (10+ characters) to load messages; the view is audited.",
     admin_chat_r1_content_unlock_cta: "Enter reason and view",
-    admin_chat_r1_content_reason_prompt_title: "Ghost view reason",
-    admin_chat_r1_content_reason_prompt_desc:
-      "Enter the report or legal request number and purpose (10+ characters). It is recorded in the audit log.",
     admin_chat_r1_content_reason_placeholder: "e.g. Legal request 2026-123 review",
     admin_chat_r1_content_reason_too_short: "The reason must be at least 10 characters.",
     admin_chat_r1_content_basis_linked_report: "View basis: open report linked",

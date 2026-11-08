@@ -28,7 +28,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_partner_col_store: "매장",
     admin_delivery_ads_partner_col_status: "상태",
     admin_delivery_ads_partner_col_period: "기간",
-    admin_delivery_ads_stub_title: "배달 광고 관리",
     admin_delivery_ads_stub_body:
       "이 화면에서 승인·반려·운영을 진행하세요.",
     admin_delivery_ads_loading: "불러오는 중…",
@@ -84,8 +83,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_action_approve: "승인",
     admin_delivery_ads_action_reject: "반려",
     admin_delivery_ads_action_pause: "일시중지",
-    admin_delivery_ads_schedule_no_silent_extend:
-      "종료일을 늘리려면 「일정 저장」이 아니라 아래 기간 연장(유료/보상)을 사용하세요. 숨김 CTA는 없습니다 — 일시중지·강제 종료·종료만 지원합니다.",
     admin_delivery_ads_extension_title: "기간 연장",
     admin_delivery_ads_action_resume: "광고 재개",
     admin_delivery_ads_action_end: "광고 종료",
@@ -115,8 +112,6 @@ export const adminDeliveryAdsMessages = {
     admin_menu_ads_authority_placements: "광고 위치",
     admin_menu_ads_authority_products: "광고 상품 / 가격",
     admin_menu_ads_authority_history: "광고 이력",
-    admin_menu_delivery_ads_ops: "배달 광고",
-    admin_menu_delivery_ads_commercial: "광고 상품 설정",
     admin_delivery_ads_commercial_title: "광고 상품 설정",
     admin_delivery_ads_commercial_subtitle:
       "기간 패키지 · 가격 · 지면 판매 · Partner (Admin SSOT)",
@@ -236,9 +231,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_execution_list_title: "광고 노출 목록",
     admin_delivery_ads_open_store_finance: "매장의 Cash/Coin 보기",
     admin_delivery_ads_open_cash_queue: "Cash 충전 대기열",
-    admin_delivery_ads_related_support_title: "관련 문의 (Support)",
-    admin_delivery_ads_related_support_note:
-      "고객지원 문의입니다. 광고 승인/중지는 아래 운영 대화가 아니라 Ads lifecycle에서 처리합니다.",
     admin_delivery_ads_open_related_support: "관련 문의 열기",
     admin_delivery_ads_open_store_support: "매장 Support 보기",
     admin_delivery_ads_hub_view_actionable: "처리 필요",
@@ -298,7 +290,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_fp_remove_image: "이미지 삭제",
     admin_delivery_ads_fp_schedule_invalid: "종료 일시는 시작 일시보다 이후여야 합니다.",
     admin_fp_home_hero_ops: "슬라이드 배너 · 5초 · 1장 · dots · swipe · loop",
-    admin_fp_search_ops: "검색 결과 위 · 동시 1개",
     admin_delivery_ads_partner_memberships_title: "Partner 멤버십",
     admin_delivery_ads_partner_memberships_desc:
       "가입 대기 · 이용 중 · 해지 예정 · 종료 (월 회비 결제는 미구현)",
@@ -355,8 +346,6 @@ export const adminDeliveryAdsMessages = {
     admin_ads_hero_auto: "자동 전환: 5초 · 무한 루프 · 좌우 swipe · 하단 dots",
     admin_ads_hero_order: "표시 순서·일정 편입/제외는 광고 목록에서 관리",
     admin_ads_search_customer: "고객이 검색했을 때 매장 목록 위에 배너가 표시됩니다.",
-    admin_ads_search_resolver:
-      "여러 캠페인이 겹치면 기존 resolver 정책으로 1개를 선택합니다. 정책은 노출 SSOT에서 확인하세요.",
     admin_ads_aspect: "비율",
     admin_ads_sellable: "판매",
     admin_ads_manage: "관리",
@@ -398,7 +387,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_partner_col_store: "Store",
     admin_delivery_ads_partner_col_status: "Status",
     admin_delivery_ads_partner_col_period: "Period",
-    admin_delivery_ads_stub_title: "Delivery ads",
     admin_delivery_ads_stub_body:
       "The unified control plane is live. Review, approve, and operate campaigns here.",
     admin_delivery_ads_loading: "Loading…",
@@ -454,8 +442,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_action_approve: "Approve",
     admin_delivery_ads_action_reject: "Reject",
     admin_delivery_ads_action_pause: "Pause",
-    admin_delivery_ads_schedule_no_silent_extend:
-      "To lengthen end date, use Period extension (PAID/compensation) below — not Save schedule. No hide CTA — pause, terminate, and end only.",
     admin_delivery_ads_extension_title: "Period extension",
     admin_delivery_ads_action_resume: "Resume",
     admin_delivery_ads_action_end: "End",
@@ -485,8 +471,6 @@ export const adminDeliveryAdsMessages = {
     admin_menu_ads_authority_placements: "Ad placements",
     admin_menu_ads_authority_products: "Ad products / pricing",
     admin_menu_ads_authority_history: "Ad history",
-    admin_menu_delivery_ads_ops: "Delivery ads",
-    admin_menu_delivery_ads_commercial: "Ad product settings",
     admin_delivery_ads_commercial_title: "Ad product settings",
     admin_delivery_ads_commercial_subtitle:
       "Packages · prices · placement sellability · Partner (Admin SSOT)",
@@ -608,9 +592,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_execution_list_title: "Ad executions",
     admin_delivery_ads_open_store_finance: "Open the store's Cash/Coin",
     admin_delivery_ads_open_cash_queue: "Cash top-up queue",
-    admin_delivery_ads_related_support_title: "Related Support cases",
-    admin_delivery_ads_related_support_note:
-      "Customer support cases. Approve/pause ads via Ads lifecycle — not this Support inbox.",
     admin_delivery_ads_open_related_support: "Open related Support",
     admin_delivery_ads_open_store_support: "Store Support inbox",
     admin_delivery_ads_hub_view_actionable: "Needs action",
@@ -673,7 +654,6 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_fp_remove_image: "Remove image",
     admin_delivery_ads_fp_schedule_invalid: "End must be after start.",
     admin_fp_home_hero_ops: "Carousel · 5s · 1 visible · dots · swipe · loop",
-    admin_fp_search_ops: "Above search results · max 1",
     admin_delivery_ads_partner_memberships_title: "Partner memberships",
     admin_delivery_ads_partner_memberships_desc:
       "Pending · active · cancel pending · ended (monthly fee payment not implemented)",
@@ -730,8 +710,6 @@ export const adminDeliveryAdsMessages = {
     admin_ads_hero_auto: "Auto: 5s · loop · swipe · dots",
     admin_ads_hero_order: "Order and schedule inclusion are managed in the ad list",
     admin_ads_search_customer: "Shown above the store list when customers search.",
-    admin_ads_search_resolver:
-      "When campaigns overlap, the existing resolver picks one. See exposure SSOT for the policy.",
     admin_ads_aspect: "Aspect",
     admin_ads_sellable: "Sellable",
     admin_ads_manage: "Manage",

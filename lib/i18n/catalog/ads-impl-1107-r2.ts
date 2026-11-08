@@ -54,7 +54,6 @@ export const adsImpl1107DeleteMessages = {
     admin_ad_delete_cancel: "취소",
     admin_ad_delete_back: "이전",
     admin_ad_delete_done: "삭제했습니다.",
-    admin_ad_delete_done_end: "종료하고 삭제했습니다.",
 
     // ── 삭제 취소 (A-2 · L2 · 사유)
     admin_ad_undelete_button: "삭제 취소",
@@ -137,7 +136,6 @@ export const adsImpl1107DeleteMessages = {
     admin_ad_delete_cancel: "Cancel",
     admin_ad_delete_back: "Back",
     admin_ad_delete_done: "Deleted.",
-    admin_ad_delete_done_end: "Ended and deleted.",
 
     admin_ad_undelete_button: "Restore",
     admin_ad_undelete_title: "Restore “{title}”?",

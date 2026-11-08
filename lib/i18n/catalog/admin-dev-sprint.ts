@@ -1,7 +1,6 @@
 /** Phase 11: components/admin/dev-sprints, lib/dev-sprints labels */
 export const adminDevSprintMessages = {
   ko: {
-    admin_dev_sprint_page_title: "개발 스프린트",
     admin_dev_sprint_tab_summary: "요약",
     admin_dev_sprint_tab_board: "스프린트 보드",
     admin_dev_sprint_tab_items: "스프린트 작업",
@@ -63,7 +62,6 @@ export const adminDevSprintMessages = {
     admin_dev_sprint_post_release_72h: "72시간 후",
   },
   en: {
-    admin_dev_sprint_page_title: "Dev sprints",
     admin_dev_sprint_tab_summary: "Summary",
     admin_dev_sprint_tab_board: "Sprint board",
     admin_dev_sprint_tab_items: "Sprint items",

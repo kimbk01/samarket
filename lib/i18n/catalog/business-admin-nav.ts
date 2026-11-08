@@ -18,8 +18,6 @@ export const businessAdminNavMessages = {
 
     biz_nav_section_settlement: "정산",
 
-    biz_nav_section_growth: "성장",
-
     biz_nav_section_settings: "시스템",
 
     biz_nav_dashboard: "대시보드",
@@ -52,8 +50,6 @@ export const businessAdminNavMessages = {
 
     biz_nav_delivery_ops_desc: "영업·배달·노출",
 
-    biz_nav_ops_status: "영업·운영 상태",
-
     biz_nav_ops_status_desc: "심사·노출·판매 권한과 수정 안내",
 
     biz_nav_products: "상품 관리",
@@ -82,8 +78,6 @@ export const businessAdminNavMessages = {
 
     biz_nav_notices_desc: "위치별 공지",
 
-    biz_nav_ops_review: "운영 · 심사",
-
     biz_nav_public_store: "공개 매장 페이지",
 
     biz_nav_public_store_desc: "고객 화면 미리보기",
@@ -110,19 +104,13 @@ export const businessAdminNavMessages = {
     biz_nav_notifications_desc: "주문·결제·환불 알림 확인 · 알림음 설정",
     biz_nav_notification_settings: "내 계정 알림 설정",
     biz_nav_notification_settings_desc: "새 주문 푸시·알림음 설정 (전체 매장 공통)",
-    my_biz_group_store: "상점 관리",
     my_biz_group_orders: "주문·정산",
     my_biz_group_products: "상품 관리",
-    my_biz_group_extra: "추가 기능",
     my_biz_orders_manage: "주문 관리",
     my_biz_inquiries_received: "받은 문의",
-    my_biz_ops_status: "운영·심사 상태",
-    my_biz_staff: "직원 관리",
     my_biz_staff_hint: "준비 중",
     my_biz_reviews: "리뷰 관리",
-    my_biz_public_hint: "고객이 보는 창",
     my_biz_ads_hint: "배달 광고",
-    my_biz_notif_hint: "배달 알림음(전역)",
     biz_title_orders: "주문 관리",
     biz_title_inquiries: "매장 문의",
     biz_title_settlements: "정산",
@@ -173,8 +161,6 @@ export const businessAdminNavMessages = {
     biz_title_product_edit: "상품 수정",
     biz_title_products: "상품 관리",
     biz_title_basic_info: "기본 정보",
-    biz_title_ops: "운영 · 심사",
-    biz_title_reviews: "리뷰 관리",
     biz_title_banners: "배너 관리",
     biz_title_notices: "공지 관리",
     biz_title_settings: "설정",
@@ -185,9 +171,7 @@ export const businessAdminNavMessages = {
     biz_title_customer_care: "고객 응대",
     biz_title_customer_center: "고객센터",
     biz_title_care_messages: "관리자 쪽지",
-    biz_title_care_cs_inquiries: "1:1 문의",
     biz_title_gift_certificates: "상품권 사용 · 수익",
-    biz_title_gift_money: "상품권 수익·현금 관리",
     biz_title_gift_history: "환전·전환 내역",
     biz_title_gift_redemptions: "상품권 사용 내역",
     biz_title_gift_cash_out: "수익금 환전 신청",
@@ -212,8 +196,6 @@ export const businessAdminNavMessages = {
     biz_nav_section_store: "Store",
 
     biz_nav_section_settlement: "Settlement",
-
-    biz_nav_section_growth: "Growth",
 
     biz_nav_section_settings: "System",
 
@@ -247,8 +229,6 @@ export const businessAdminNavMessages = {
 
     biz_nav_delivery_ops_desc: "Hours, delivery & visibility",
 
-    biz_nav_ops_status: "Ops & status",
-
     biz_nav_ops_status_desc: "Approval, visibility, sales rights & where to edit",
 
     biz_nav_products: "Product management",
@@ -277,8 +257,6 @@ export const businessAdminNavMessages = {
 
     biz_nav_notices_desc: "Notices by placement",
 
-    biz_nav_ops_review: "Ops & review",
-
     biz_nav_public_store: "Public store page",
 
     biz_nav_public_store_desc: "Customer-facing preview",
@@ -305,19 +283,13 @@ export const businessAdminNavMessages = {
     biz_nav_notifications_desc: "Order · payment · refund alerts · sound settings",
     biz_nav_notification_settings: "My notification settings",
     biz_nav_notification_settings_desc: "New-order push and alert sound (all stores)",
-    my_biz_group_store: "Store management",
     my_biz_group_orders: "Orders & settlement",
     my_biz_group_products: "Products",
-    my_biz_group_extra: "More",
     my_biz_orders_manage: "Orders",
     my_biz_inquiries_received: "Inquiries",
-    my_biz_ops_status: "Ops & review",
-    my_biz_staff: "Staff",
     my_biz_staff_hint: "Coming soon",
     my_biz_reviews: "Reviews",
-    my_biz_public_hint: "Customer view",
     my_biz_ads_hint: "Delivery ads",
-    my_biz_notif_hint: "Delivery sounds (global)",
     biz_title_orders: "Orders",
     biz_title_inquiries: "Store inquiries",
     biz_title_settlements: "Settlements",
@@ -368,8 +340,6 @@ export const businessAdminNavMessages = {
     biz_title_product_edit: "Edit product",
     biz_title_products: "Products",
     biz_title_basic_info: "Basic info",
-    biz_title_ops: "Ops & review",
-    biz_title_reviews: "Reviews",
     biz_title_banners: "Banners",
     biz_title_notices: "Notices",
     biz_title_settings: "Settings",
@@ -380,9 +350,7 @@ export const businessAdminNavMessages = {
     biz_title_customer_care: "Customer care",
     biz_title_customer_center: "Customer center",
     biz_title_care_messages: "Admin messages",
-    biz_title_care_cs_inquiries: "1:1 Inquiry",
     biz_title_gift_certificates: "Gift usage & revenue",
-    biz_title_gift_money: "Gift revenue & cash",
     biz_title_gift_history: "Cash-out & conversion history",
     biz_title_gift_redemptions: "Gift usage history",
     biz_title_gift_cash_out: "Request revenue cash-out",

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 
 const root = process.cwd();
 
@@ -63,11 +64,16 @@ describe("admin community operator console contract", () => {
     expect(menu).toMatch(/admin_menu_community_comments/);
     expect(menu).toMatch(/admin_menu_community_reports/);
 
-    const catalog = read("lib/i18n/catalog/admin.ts");
-    expect(catalog).toMatch(/admin_menu_community_topics:/);
-    expect(catalog).toMatch(/admin_menu_community_posts:/);
-    expect(catalog).toMatch(/admin_menu_community_comments:/);
-    expect(catalog).toMatch(/admin_menu_community_reports:/);
+    /** 언어 SSOT S5: 키당 원본 1곳 — 특정 카탈로그 파일이 아니라 ko·en 정의 여부로 확인 */
+    for (const key of [
+      "admin_menu_community_topics",
+      "admin_menu_community_posts",
+      "admin_menu_community_comments",
+      "admin_menu_community_reports",
+    ] as const) {
+      expect(MESSAGES.ko[key], key).toBeTruthy();
+      expect(MESSAGES.en[key], key).toBeTruthy();
+    }
   });
 
   it("home summary module exists", () => {

@@ -129,13 +129,8 @@ export const authUiMessages = {
     auth_err_wrong_password_email: "가입되지 않은 이메일이거나 비밀번호가 올바르지 않습니다.",
     auth_err_wrong_password: "비밀번호가 올바르지 않습니다.",
     auth_err_login_unknown: "로그인 처리 중 알 수 없는 오류가 발생했습니다.",
-    auth_err_kakao_start_url_failed: "카카오 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_oauth_start_failed: "소셜 로그인을 시작하지 못했습니다.",
     auth_err_oauth_authorize_url_failed: "소셜 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
-    auth_err_oauth_redirect_mismatch:
-      "앱 로그인 설정이 올바르지 않습니다. 앱을 다시 실행한 뒤 시도해 주세요. 문제가 계속되면 고객센터에 문의해 주세요.",
-    auth_err_oauth_redirect_missing:
-      "앱 로그인 연결 정보를 확인하지 못했습니다. 앱을 다시 실행한 뒤 로그인해 주세요.",
     auth_err_native_oauth_redirect_invalid:
       "앱 로그인을 준비하지 못했습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
     auth_err_oauth_bridge_not_ready:
@@ -197,8 +192,6 @@ export const authUiMessages = {
     auth_logout_submit: "로그아웃",
     auth_logout_submitting: "로그아웃 중…",
     auth_logout_all_label: "모든 기기에서 로그아웃",
-    auth_logout_all_confirm_title: "모든 기기에서 로그아웃하시겠습니까?",
-    auth_logout_all_confirm_body: "연결된 모든 기기에서 로그아웃됩니다. 다시 이용하려면 로그인이 필요합니다.",
     auth_phone_gate_title: "전화번호 인증이 필요합니다",
     auth_phone_gate_unverified_title: "전화번호 인증이 완료되지 않았습니다",
     auth_phone_gate_requirement: "전화번호 인증 후 이용할 수 있습니다.",
@@ -237,8 +230,6 @@ export const authUiMessages = {
     auth_address_gate_cta: "주소 설정하기",
     auth_consent_both_required: "이용약관과 개인정보처리방침에 모두 동의해 주세요.",
     auth_consent_save_failed: "동의를 저장하지 못했습니다.",
-    auth_consent_intro:
-      "SNS 최초 로그인 후에는 이용약관과 개인정보처리방침 동의가 필요합니다. 동의 완료 후 글쓰기, 채팅, 거래, 신고 기능을 이용할 수 있습니다.",
     auth_consent_all_label: "전체 동의",
     auth_consent_all_hint: "선택 항목을 포함합니다. 개별 항목은 나중에 변경할 수 있습니다.",
     auth_consent_section_required: "필수 동의",
@@ -247,11 +238,9 @@ export const authUiMessages = {
     auth_consent_tag_optional: "선택",
     auth_consent_terms_label: "이용약관에 동의합니다.",
     auth_consent_terms_link: "이용약관 보기",
-    auth_consent_privacy_label: "개인정보처리방침에 동의합니다.",
     auth_consent_privacy_collect_label: "개인정보 수집·이용에 동의합니다.",
     auth_consent_privacy_collect_hint: "서비스 제공에 필요한 최소한의 개인정보를 수집·이용합니다.",
     auth_consent_privacy_link: "개인정보처리방침 보기",
-    auth_consent_optional_prefix: "[선택]",
     auth_consent_marketing_link: "전문 보기",
     auth_consent_marketing_save_failed: "선택 동의를 저장하지 못했습니다. 다시 눌러 주세요.",
     auth_consent_feature_notice:
@@ -439,13 +428,8 @@ export const authUiMessages = {
     auth_err_wrong_password_email: "Unknown email or incorrect password.",
     auth_err_wrong_password: "Incorrect password.",
     auth_err_login_unknown: "An unknown error occurred during sign-in.",
-    auth_err_kakao_start_url_failed: "Could not start Kakao sign-in. Try again shortly.",
     auth_err_oauth_start_failed: "Could not start social sign-in.",
     auth_err_oauth_authorize_url_failed: "Could not create social sign-in URL. Try again shortly.",
-    auth_err_oauth_redirect_mismatch:
-      "App sign-in is not configured correctly. Restart the app and try again. If it keeps failing, contact support.",
-    auth_err_oauth_redirect_missing:
-      "Could not verify app sign-in redirect. Restart the app and try signing in again.",
     auth_err_native_oauth_redirect_invalid:
       "Could not prepare app sign-in. Fully close the app and open it again.",
     auth_err_oauth_bridge_not_ready:
@@ -507,8 +491,6 @@ export const authUiMessages = {
     auth_logout_submit: "Sign out",
     auth_logout_submitting: "Signing out…",
     auth_logout_all_label: "Sign out on all devices",
-    auth_logout_all_confirm_title: "Sign out on all devices?",
-    auth_logout_all_confirm_body: "You will be signed out on every device. Sign in again to continue.",
     auth_phone_gate_title: "Phone verification required",
     auth_phone_gate_unverified_title: "Phone verification is not complete",
     auth_phone_gate_requirement: "Available after phone verification.",
@@ -547,8 +529,6 @@ export const authUiMessages = {
     auth_address_gate_cta: "Set address",
     auth_consent_both_required: "Please agree to both the Terms of Service and Privacy Policy.",
     auth_consent_save_failed: "Could not save your consent.",
-    auth_consent_intro:
-      "After your first social sign-in, you must agree to the Terms and Privacy Policy to use writing, chat, trade, and reporting features.",
     auth_consent_all_label: "Agree to all",
     auth_consent_all_hint: "Includes optional items. You can change individual items later.",
     auth_consent_section_required: "Required",
@@ -557,11 +537,9 @@ export const authUiMessages = {
     auth_consent_tag_optional: "Optional",
     auth_consent_terms_label: "I agree to the Terms of Service.",
     auth_consent_terms_link: "View Terms",
-    auth_consent_privacy_label: "I agree to the Privacy Policy.",
     auth_consent_privacy_collect_label: "I agree to the collection and use of personal information.",
     auth_consent_privacy_collect_hint: "We collect and use the minimum personal information needed to provide the service.",
     auth_consent_privacy_link: "View Privacy Policy",
-    auth_consent_optional_prefix: "[Optional]",
     auth_consent_marketing_link: "View details",
     auth_consent_marketing_save_failed: "Could not save your optional choice. Please try again.",
     auth_consent_feature_notice: "You can sign up and use the service without optional consents. Benefits & events notifications can be changed anytime in My page › Notification settings.",

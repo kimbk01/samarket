@@ -5,7 +5,7 @@ import { adminMenu } from "@/components/admin/admin-menu";
 import { adminCategoriesMessages } from "@/lib/i18n/catalog/admin-categories";
 import { adminMenusMessages } from "@/lib/i18n/catalog/admin-menus";
 import { adminTradeMessages } from "@/lib/i18n/catalog/admin-trade";
-import { adminMessages } from "@/lib/i18n/catalog/admin";
+import { MESSAGES } from "@/lib/i18n/messages";
 
 function read(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), "utf8");
@@ -57,8 +57,9 @@ describe("CUT A2 admin taxonomy SSOT", () => {
   });
 
   it("admin copy uses 주제 / 카테고리 / 옵션 (T0)", () => {
-    expect(adminMessages.ko.admin_menu_menu_trade).toBe("주제 (거래)");
-    expect(adminMessages.en.admin_menu_menu_trade).toBe("Subjects (trade)");
+    /** 언어 SSOT S5: 화면 값으로 확인 — 이전 기대값 「주제 (거래)」는 화면에 나오지 않던 값(L9, Owner 결정 대기) */
+    expect(MESSAGES.ko.admin_menu_menu_trade).toBe("카테고리");
+    expect(MESSAGES.en.admin_menu_menu_trade).toBe("Categories");
     expect(adminMenusMessages.ko.admin_menu_trade_mgmt_title).toBe("거래 메뉴 설정");
     expect(adminMenusMessages.en.admin_menu_trade_mgmt_title).toBe("Trade menu settings");
     expect(adminMenusMessages.ko.admin_menu_trade_items_heading).toBe("주제");

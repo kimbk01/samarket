@@ -21,7 +21,8 @@ import {
   type KeyRuleFindings,
 } from "@/lib/i18n/quality/i18n-quality-rules";
 
-const SOURCE_DIRS = ["app", "components", "lib", "hooks"] as const;
+/** 코드 폴더 전부 — S5 에서 `contexts` 등 누락 정정 */
+const SOURCE_DIRS = ["app", "components", "lib", "hooks", "contexts", "services", "repositories", "config", "data", "types"] as const;
 const CATALOG_DIR = "lib/i18n/catalog";
 
 /** 카탈로그 파일에 **직접 적힌** ko/en 키만 (다른 카탈로그 펼침 `...x.ko` 는 제외) */
@@ -98,14 +99,6 @@ export async function collectI18nQuality(input: {
   for (const f of catalogFiles) {
     const rel = `${CATALOG_DIR}/${f}`;
     sources.push(parseCatalogSource(rel, await readFile(path.join(root, rel), "utf8")));
-  }
-  for (const lang of ["ko", "en"] as const) {
-    const rel = `messages/${lang}.json`;
-    const json = JSON.parse(await readFile(path.join(root, rel), "utf8")) as Record<string, unknown>;
-    const bag = Object.fromEntries(Object.entries(json).map(([k, v]) => [k, String(v ?? "")]));
-    const existing = sources.find((s) => s.source === "messages/*.json");
-    if (existing) (existing as { [K in typeof lang]: Record<string, string> })[lang] = bag;
-    else sources.push({ source: "messages/*.json", ko: lang === "ko" ? bag : {}, en: lang === "en" ? bag : {} });
   }
 
   // 2) 코드 파일 — 키 사용처 + 파일 규칙

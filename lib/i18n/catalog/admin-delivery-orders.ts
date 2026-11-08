@@ -2,7 +2,6 @@
 export const adminDeliveryOrdersMessages = {
   ko: {
     admin_do_common_loading: "불러오는 중…",
-    admin_do_common_ledger_loading: "원장 불러오는 중…",
     admin_do_common_refreshing: "갱신 중…",
     admin_do_common_refresh: "새로고침",
     admin_do_common_load_failed: "불러오지 못했습니다 ({error}).",
@@ -68,7 +67,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_dashboard_ledger_hide_list:
       "목록에서만 제거는 이 브라우저 세션에서 표시만 숨깁니다.",
     admin_do_dashboard_ledger_db_delete: "DB에서 삭제는 원장에서 영구 삭제합니다.",
-    admin_do_dashboard_go_store_orders: "매장 주문(액션)으로 이동",
     admin_do_dashboard_kpi_card: "KPI (현재 목록 기준 · 최대 500건)",
     admin_do_dashboard_urgent_card: "긴급 운영 큐 (필터 적용 결과 기준)",
     admin_do_dashboard_urgent_hint:
@@ -94,7 +92,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_dashboard_list_load_failed:
       "주문 목록을 불러오지 못했습니다 ({error}). Supabase 설정·관리자 로그인을 확인하세요.",
     admin_do_nav_order_list: "주문 목록",
-    admin_do_nav_store_orders: "매장 주문(액션)",
     admin_do_nav_order_chat: "주문 채팅",
     admin_do_nav_ops_alerts: "운영 알림",
     admin_do_nav_cancellations: "취소",
@@ -104,7 +101,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_nav_logs: "로그",
     admin_do_detail_title: "주문 상세",
     admin_do_detail_not_found: "주문을 찾을 수 없습니다.",
-    admin_do_detail_search_hint: "매장 주문(액션)에서 order_id로 검색",
     admin_do_detail_ledger_subtitle:
       "Supabase store_orders 원장 · 품목 스냅샷",
     admin_do_detail_messenger_ledger: " · 메신저 배달 채팅 원장",
@@ -132,7 +128,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refund_req: "환불 요청 ({status}) · {by}",
     admin_do_cancel_label: "취소: {reason}",
     admin_do_refund_label: "환불: {reason}",
-    admin_do_dispute_flag: "이 주문에 신고·분쟁 플래그가 있습니다.",
     admin_do_dispute_memo: "분쟁 메모: ",
     admin_do_go_dispute_console: "신고·분쟁 콘솔로 이동",
     admin_do_ops_intro:
@@ -150,8 +145,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_order_chat: "주문 채팅",
     admin_do_user_store_detail: "사용자 매장 상세",
     admin_do_admin_store_detail: "관리자 매장 보기",
-    admin_do_confirm_force_cancel:
-      "주문을 강제 취소할까요? (완료·환불된 주문은 거절됩니다)",
     admin_do_confirm_refund_request: "환불 요청 상태로 올릴까요?",
     admin_do_confirm_refund_complete:
       "환불 완료(원장·재고·정산 반영)를 진행할까요?",
@@ -162,7 +155,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_cancel_rejected: "취소 요청 거절",
     admin_do_cancel_done: "취소 완료",
     admin_do_refund_pending: "환불 요청 대기",
-    admin_do_refund_approved: "환불 승인됨",
     admin_do_refund_rejected: "환불 거절",
     admin_do_refund_done: "환불 완료",
     admin_do_audit_title: "주문 감사 로그",
@@ -180,10 +172,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refunds_intro:
       "order_status = refund_requested 원장만 표시합니다. 승인은 DB API로 처리하고, 거절·기타 조정은",
     admin_do_refunds_card: "대기 목록 (원장)",
-    admin_do_refunds_confirm:
-      "환불을 승인할까요? 주문이 refunded로 바뀌고 재고가 복구되며 예정 정산이 취소될 수 있습니다.",
-    admin_do_refunds_approve_failed: "승인 실패",
-    admin_do_refunds_approve_ok: "환불 승인을 반영했습니다.",
     admin_do_refunds_network_error: "네트워크 오류",
     admin_do_settlements_title: "정산 관리",
     admin_do_settlements_intro:
@@ -201,7 +189,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_reports_intro:
       "store_reports 실데이터입니다. 상태 변경·메모·기각은",
     admin_do_reports_console: "매장·상품 신고",
-    admin_do_reports_console_suffix: "콘솔에서 처리하세요.",
     admin_do_reports_same_authority: "동일 authority. 조치 콘솔:",
     admin_do_reports_card: "신고 목록",
     admin_do_reports_empty: "신고가 없습니다.",
@@ -221,27 +208,13 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refund_req_empty: "대기 중인 환불 요청이 없습니다.",
     admin_do_orders_empty: "조건에 맞는 주문이 없습니다.",
     admin_do_chat_title: "주문 채팅",
-    admin_do_chat_desc:
-      "배달·매장 주문 채팅은 Delivery Authority입니다. CM room은 메시지 chrome 참조만 합니다(생성·소유 이전 금지).",
-    admin_do_chat_open_store_orders: "매장 주문(액션)에서 열기",
-    admin_do_chat_delivery_table: "배달 주문 상세(표)",
-    admin_do_chat_room_hint:
-      "주문 {orderId}의 대화는 연결된 메신저 방에서 확인합니다. Admin은 조회만 하며 방을 만들지 않습니다.",
-    admin_do_chat_list_merged:
-      "연결된 store_order 메신저 방이 있는 주문을 표시합니다. (Delivery lookup · 방 생성 없음)",
-    admin_do_chat_stub_badge: "STUB · Admin 주문채팅 목록 미연결",
-    admin_do_chat_stub_hint:
-      "Authority = Delivery(store_orders lookup). Messenger는 참조 entry만 — 빈 목록을 PASS로 보지 마세요.",
     admin_do_chat_list_loading: "불러오는 중…",
     admin_do_chat_list_empty: "채팅 없음",
-    admin_do_chat_list_error: "주문 채팅 목록을 불러오지 못했습니다.",
     admin_do_chat_col_order: "주문",
     admin_do_chat_col_store: "매장",
     admin_do_chat_col_customer: "고객",
     admin_do_chat_col_last: "최근 메시지",
     admin_do_chat_open_room: "주문 채팅 열기",
-    admin_do_chat_lookup_empty:
-      "이 주문에 연결된 메신저 채팅방이 없습니다. (조회 전용 — 방을 생성하지 않습니다)",
     admin_do_chat_open_inbox: "배달 채팅함 열기",
     admin_do_chat_store_orders: "매장 주문 관리",
     admin_do_admin_memo: "관리자 메모",
@@ -261,7 +234,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_filter_buyer: "주문자",
     admin_do_filter_buyer_placeholder: "이름·전화·회원 ID",
     admin_do_filter_order_no: "주문번호",
-    admin_do_filter_report_only: "신고 건만",
     admin_do_filter_settlement_hold: "정산 보류만",
     admin_do_order_type_delivery: "배달",
     admin_do_order_type_pickup: "포장",
@@ -294,8 +266,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_kpi_today_refund_req: "오늘 환불요청",
     admin_do_kpi_in_progress: "진행중 주문",
     admin_do_kpi_paid_sum_today: "오늘 결제합(유료)",
-    admin_do_kpi_settlement_scheduled: "정산 예정(합계)",
-    admin_do_kpi_settlement_held: "정산 보류(합계)",
     admin_do_kpi_settlement_see_ledger: "정산 KPI는 주문 목록이 아니라 정산 원장에서 확인하세요.",
     admin_do_filter_hollow_note:
       "정산·매장 신고는 이 목록 projection에 연결되지 않습니다. 정산=/admin/store-settlements · 신고=/admin/store-reports",
@@ -330,7 +300,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_detail_dt_no: "아니오",
     admin_do_detail_dt_dispute: "분쟁·긴급 상태",
     admin_do_detail_dt_ops_memo: "운영 메모",
-    admin_do_detail_dt_refund_approved: "환불 승인 시각",
     admin_do_detail_dt_refund_done: "환불 완료 시각",
     admin_do_detail_dt_buyer: "주문자",
     admin_do_detail_dt_phone: "연락처",
@@ -343,7 +312,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_hold_modal_title: "정산 보류",
     admin_do_hold_modal_label: "보류 사유 (필수)",
     admin_do_hold_modal_confirm: "보류",
-    admin_do_refund_modal_approve_title: "환불 승인",
     admin_do_refund_modal_reject_title: "환불 거절",
     admin_do_refund_modal_approve_label: "승인 메모 (필수)",
     admin_do_refund_modal_reject_label: "거절 사유 (필수)",
@@ -373,14 +341,12 @@ export const adminDeliveryOrdersMessages = {
     admin_do_aa_manual_hold: "수동 보류",
     admin_do_aa_admin_cancelled: "관리자 취소",
     admin_do_aa_dispute_reviewing: "분쟁 검토",
-    admin_do_aa_refund_approved: "환불 승인 처리",
     admin_do_aa_refund_rejected: "환불 거절",
     admin_do_cancellations_intro_suffix: "과 주문 상세에서 진행하세요.",
     admin_do_settlements_intro_suffix: "에서 처리합니다.",
   },
   en: {
     admin_do_common_loading: "Loading…",
-    admin_do_common_ledger_loading: "Loading ledger…",
     admin_do_common_refreshing: "Refreshing…",
     admin_do_common_refresh: "Refresh",
     admin_do_common_load_failed: "Could not load ({error}).",
@@ -445,7 +411,6 @@ export const adminDeliveryOrdersMessages = {
       "It shares the same DB. Deleting in DB updates the server immediately; returning to this tab reloads the list (and refreshes about every 30s while visible).",
     admin_do_dashboard_ledger_hide_list: "Remove from list only hides rows in this browser session.",
     admin_do_dashboard_ledger_db_delete: "Delete from DB permanently removes ledger rows.",
-    admin_do_dashboard_go_store_orders: "Go to store orders (actions)",
     admin_do_dashboard_kpi_card: "KPI (current list · max 500)",
     admin_do_dashboard_urgent_card: "Urgent ops queue (filtered)",
     admin_do_dashboard_urgent_hint:
@@ -470,7 +435,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_dashboard_list_load_failed:
       "Could not load orders ({error}). Check Supabase and admin login.",
     admin_do_nav_order_list: "Order list",
-    admin_do_nav_store_orders: "Store orders (actions)",
     admin_do_nav_order_chat: "Order chat",
     admin_do_nav_ops_alerts: "Ops alerts",
     admin_do_nav_cancellations: "Cancellations",
@@ -480,7 +444,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_nav_logs: "Logs",
     admin_do_detail_title: "Order detail",
     admin_do_detail_not_found: "Order not found.",
-    admin_do_detail_search_hint: "Search by order_id in store orders (actions)",
     admin_do_detail_ledger_subtitle: "Supabase store_orders ledger · line snapshots",
     admin_do_detail_messenger_ledger: " · messenger delivery chat ledger",
     admin_do_card_basic: "Basic info",
@@ -507,7 +470,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refund_req: "Refund request ({status}) · {by}",
     admin_do_cancel_label: "Cancel: {reason}",
     admin_do_refund_label: "Refund: {reason}",
-    admin_do_dispute_flag: "This order has a report or dispute flag.",
     admin_do_dispute_memo: "Dispute memo: ",
     admin_do_go_dispute_console: "Open dispute console",
     admin_do_ops_intro:
@@ -525,8 +487,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_order_chat: "Order chat",
     admin_do_user_store_detail: "User store detail",
     admin_do_admin_store_detail: "Open Admin store",
-    admin_do_confirm_force_cancel:
-      "Force-cancel this order? (Completed/refunded orders are rejected.)",
     admin_do_confirm_refund_request: "Mark as refund requested?",
     admin_do_confirm_refund_complete:
       "Complete refund (ledger, inventory, settlement)?",
@@ -537,7 +497,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_cancel_rejected: "Cancel rejected",
     admin_do_cancel_done: "Cancelled",
     admin_do_refund_pending: "Refund pending",
-    admin_do_refund_approved: "Refund approved",
     admin_do_refund_rejected: "Refund rejected",
     admin_do_refund_done: "Refunded",
     admin_do_audit_title: "Order audit log",
@@ -554,10 +513,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refunds_intro:
       "Shows refund_requested ledger only. Approval via DB API; reject/adjust in",
     admin_do_refunds_card: "Pending list (ledger)",
-    admin_do_refunds_confirm:
-      "Approve refund? Order becomes refunded, stock may restore, scheduled settlement may cancel.",
-    admin_do_refunds_approve_failed: "Approval failed",
-    admin_do_refunds_approve_ok: "Refund approved.",
     admin_do_refunds_network_error: "Network error",
     admin_do_settlements_title: "Settlement management",
     admin_do_settlements_intro: "Per-order settlement snapshots follow ledger mapping. Payouts/holds see",
@@ -573,7 +528,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_reports_title: "Reports & disputes",
     admin_do_reports_intro: "Live store_reports. Status/memo/dismiss in",
     admin_do_reports_console: "Store & product reports",
-    admin_do_reports_console_suffix: "console.",
     admin_do_reports_same_authority: "Same authority. Action console:",
     admin_do_reports_card: "Report list",
     admin_do_reports_empty: "No reports.",
@@ -593,27 +547,13 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refund_req_empty: "No pending refund requests.",
     admin_do_orders_empty: "No orders match filters.",
     admin_do_chat_title: "Order chat",
-    admin_do_chat_desc:
-      "Delivery owns store-order chat. CM rooms are message chrome only (no create / ownership move).",
-    admin_do_chat_open_store_orders: "Open from store orders (actions)",
-    admin_do_chat_delivery_table: "Delivery order table",
-    admin_do_chat_room_hint:
-      "Conversation for order {orderId} is in the linked messenger room. Admin is lookup-only and does not create rooms.",
-    admin_do_chat_list_merged:
-      "Shows orders that already have a store_order messenger room (Delivery lookup — no create).",
-    admin_do_chat_stub_badge: "STUB · Admin order-chat list not wired",
-    admin_do_chat_stub_hint:
-      "Authority = Delivery (store_orders lookup). Messenger is reference entry only — do not mark an empty list as PASS.",
     admin_do_chat_list_loading: "Loading…",
     admin_do_chat_list_empty: "No chats",
-    admin_do_chat_list_error: "Could not load order chats.",
     admin_do_chat_col_order: "Order",
     admin_do_chat_col_store: "Store",
     admin_do_chat_col_customer: "Customer",
     admin_do_chat_col_last: "Last message",
     admin_do_chat_open_room: "Open order chat",
-    admin_do_chat_lookup_empty:
-      "No messenger room is linked to this order. (Lookup only — rooms are not created here.)",
     admin_do_chat_open_inbox: "Open delivery inbox",
     admin_do_chat_store_orders: "Store order management",
     admin_do_admin_memo: "Admin memo",
@@ -633,7 +573,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_filter_buyer: "Buyer",
     admin_do_filter_buyer_placeholder: "Name, phone, member ID",
     admin_do_filter_order_no: "Order #",
-    admin_do_filter_report_only: "Reported only",
     admin_do_filter_settlement_hold: "Settlement on hold",
     admin_do_order_type_delivery: "Delivery",
     admin_do_order_type_pickup: "Pickup",
@@ -666,8 +605,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_kpi_today_refund_req: "Refund req. today",
     admin_do_kpi_in_progress: "In progress",
     admin_do_kpi_paid_sum_today: "Paid sum today",
-    admin_do_kpi_settlement_scheduled: "Scheduled settlement",
-    admin_do_kpi_settlement_held: "Held settlement",
     admin_do_kpi_settlement_see_ledger: "Settlement KPIs belong on the settlements ledger, not this order list.",
     admin_do_filter_hollow_note:
       "Settlement and store reports are not on this order projection. Settlements=/admin/store-settlements · Reports=/admin/store-reports",
@@ -702,7 +639,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_detail_dt_no: "No",
     admin_do_detail_dt_dispute: "Dispute / urgent",
     admin_do_detail_dt_ops_memo: "Ops memo",
-    admin_do_detail_dt_refund_approved: "Refund approved at",
     admin_do_detail_dt_refund_done: "Refund completed at",
     admin_do_detail_dt_buyer: "Buyer",
     admin_do_detail_dt_phone: "Phone",
@@ -715,7 +651,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_hold_modal_title: "Hold settlement",
     admin_do_hold_modal_label: "Hold reason (required)",
     admin_do_hold_modal_confirm: "Hold",
-    admin_do_refund_modal_approve_title: "Approve refund",
     admin_do_refund_modal_reject_title: "Reject refund",
     admin_do_refund_modal_approve_label: "Approval note (required)",
     admin_do_refund_modal_reject_label: "Rejection reason (required)",
@@ -744,7 +679,6 @@ export const adminDeliveryOrdersMessages = {
     admin_do_aa_manual_hold: "Manual hold",
     admin_do_aa_admin_cancelled: "Admin cancelled",
     admin_do_aa_dispute_reviewing: "Dispute review",
-    admin_do_aa_refund_approved: "Refund approved",
     admin_do_aa_refund_rejected: "Refund rejected",
     admin_do_cancellations_intro_suffix: " or order detail.",
     admin_do_settlements_intro_suffix: ".",

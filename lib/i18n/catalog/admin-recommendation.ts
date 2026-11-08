@@ -88,7 +88,6 @@ export const adminRecommendationMessages = {
     admin_rec_report_th_reason: "이유",
     admin_rec_report_live_suffix: "· Live",
     admin_rec_incident_btn_resolve: "해결",
-    admin_rec_mon_page_title: "추천 운영 모니터링",
     admin_rec_mon_page_desc: "헬스·섹션·이슈·알림 규칙·알림 이벤트",
     admin_rec_mon_page_desc_db:
       "헬스·섹션·이슈·알림 규칙·알림 이벤트 — 알림 규칙·이슈·알림 이벤트 이력은 운영 설정 저장소에 저장됩니다.",
@@ -98,8 +97,6 @@ export const adminRecommendationMessages = {
     admin_rec_mon_tab_rules: "알림 규칙",
     admin_rec_mon_tab_events: "알림 이벤트",
     admin_rec_mon_loading_settings: "알림 규칙 등 운영 설정을 불러오는 중…",
-    admin_rec_mon_hydrate_fail:
-      "추천 운영 설정 로드에 실패했습니다. 알림 규칙은 기본값일 수 있습니다.",
     admin_rec_mon_card_timeline: "최근 이벤트 타임라인",
     admin_rec_mon_card_surface_health: "Surface 헬스",
     admin_rec_mon_card_section_status: "섹션별 상태",
@@ -148,7 +145,6 @@ export const adminRecommendationMessages = {
     admin_rec_incident_type_kill_switch_enabled: "킬스위치 활성화",
     admin_rec_incident_type_deployment_failure: "배포 실패",
     admin_rec_incident_type_section_disabled: "섹션 비활성화",
-    admin_rec_auto_page_title: "추천 운영 자동화",
     admin_rec_auto_page_desc: "임계치 기반 자동 Fallback·롤백·Escalation·Dry-run",
     admin_rec_auto_page_desc_db:
       "임계치 기반 자동 Fallback·롤백·Escalation·Dry-run — 정책·규칙·실행 이력은 운영 설정 저장소에 저장됩니다.",
@@ -158,8 +154,6 @@ export const adminRecommendationMessages = {
     admin_rec_auto_tab_recovery: "Recovery 상태",
     admin_rec_auto_tab_simulator: "시뮬레이션",
     admin_rec_auto_loading_settings: "운영 설정을 불러오는 중…",
-    admin_rec_auto_hydrate_fail:
-      "서버에서 추천 운영 설정을 불러오지 못했습니다. 기본값으로 표시 중입니다.",
     admin_rec_auto_summary_policy: "정책",
     admin_rec_auto_summary_active_total: "활성 / 전체",
     admin_rec_auto_summary_today_runs: "오늘 실행",
@@ -203,7 +197,6 @@ export const adminRecommendationMessages = {
     admin_rec_auto_sim_need_rollback: "롤백 필요",
     admin_rec_auto_sim_need_recovery: "복귀 필요",
     admin_rec_auto_sim_action_taken: "수행한 조치",
-    admin_rec_report_page_title: "추천 운영 보고서",
     admin_rec_report_page_desc: "일간·주간 성과 리포트, KPI, 브리핑 보드",
     admin_rec_report_card_list: "보고서 목록",
     admin_rec_report_not_found_title: "보고서 없음",
@@ -256,7 +249,6 @@ export const adminRecommendationMessages = {
     admin_rec_report_briefing_sections_up: "주목 섹션 (상승)",
     admin_rec_report_briefing_sections_down: "주목 섹션 (하락)",
     admin_rec_report_briefing_deploy_summary: "배포 / 롤백 / 자동화 요약",
-    admin_rec_exp_page_title: "추천 A/B 실험",
     admin_rec_exp_tab_experiments: "실험 목록",
     admin_rec_exp_tab_versions: "피드 버전",
     admin_rec_exp_tab_assignments: "사용자 배정",
@@ -415,7 +407,6 @@ export const adminRecommendationMessages = {
     admin_rec_report_th_reason: "Reason",
     admin_rec_report_live_suffix: "· Live",
     admin_rec_incident_btn_resolve: "Resolve",
-    admin_rec_mon_page_title: "Recommendation ops monitoring",
     admin_rec_mon_page_desc: "Health, sections, incidents, alert rules, and events",
     admin_rec_mon_page_desc_db:
       "Health, sections, incidents, alert rules, and events — rules, incidents, and event history are saved in the operations settings store.",
@@ -425,8 +416,6 @@ export const adminRecommendationMessages = {
     admin_rec_mon_tab_rules: "Alert rules",
     admin_rec_mon_tab_events: "Alert events",
     admin_rec_mon_loading_settings: "Loading ops settings including alert rules…",
-    admin_rec_mon_hydrate_fail:
-      "Failed to load recommendation ops settings. Alert rules may use defaults.",
     admin_rec_mon_card_timeline: "Recent event timeline",
     admin_rec_mon_card_surface_health: "Surface health",
     admin_rec_mon_card_section_status: "Section status",
@@ -473,7 +462,6 @@ export const adminRecommendationMessages = {
     admin_rec_incident_type_kill_switch_enabled: "Kill switch enabled",
     admin_rec_incident_type_deployment_failure: "Deployment failure",
     admin_rec_incident_type_section_disabled: "Section disabled",
-    admin_rec_auto_page_title: "Recommendation ops automation",
     admin_rec_auto_page_desc: "Threshold-based fallback, rollback, escalation, and dry-run",
     admin_rec_auto_page_desc_db:
       "Threshold-based fallback, rollback, escalation, and dry-run — policies, rules, and execution history are saved in the operations settings store.",
@@ -483,8 +471,6 @@ export const adminRecommendationMessages = {
     admin_rec_auto_tab_recovery: "Recovery state",
     admin_rec_auto_tab_simulator: "Simulation",
     admin_rec_auto_loading_settings: "Loading ops settings…",
-    admin_rec_auto_hydrate_fail:
-      "Could not load recommendation ops settings from server. Showing defaults.",
     admin_rec_auto_summary_policy: "Policies",
     admin_rec_auto_summary_active_total: "Active / total",
     admin_rec_auto_summary_today_runs: "Runs today",
@@ -527,7 +513,6 @@ export const adminRecommendationMessages = {
     admin_rec_auto_sim_need_rollback: "Rollback needed",
     admin_rec_auto_sim_need_recovery: "Recovery needed",
     admin_rec_auto_sim_action_taken: "Action taken",
-    admin_rec_report_page_title: "Recommendation ops reports",
     admin_rec_report_page_desc: "Daily/weekly performance reports, KPIs, briefing board",
     admin_rec_report_card_list: "Report list",
     admin_rec_report_not_found_title: "Report not found",
@@ -580,7 +565,6 @@ export const adminRecommendationMessages = {
     admin_rec_report_briefing_sections_up: "Notable sections (up)",
     admin_rec_report_briefing_sections_down: "Notable sections (down)",
     admin_rec_report_briefing_deploy_summary: "Deploy / rollback / automation summary",
-    admin_rec_exp_page_title: "Recommendation A/B experiments",
     admin_rec_exp_tab_experiments: "Experiments",
     admin_rec_exp_tab_versions: "Feed versions",
     admin_rec_exp_tab_assignments: "User assignments",

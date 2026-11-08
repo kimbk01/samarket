@@ -20,7 +20,7 @@ import {
   ARO_IA_001_OWNERS,
   ARO_IA_001_SUPPORT_PATH,
 } from "@/lib/admin/aro-ia-001-community-common-links";
-import { adminMessages } from "@/lib/i18n/catalog/admin";
+import { MESSAGES } from "@/lib/i18n/messages";
 
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
@@ -125,11 +125,17 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
   });
 
   it("T13 — labels clarify scope without Feed Ads wording", () => {
-    expect(adminMessages.ko.admin_menu_community_reports).toBe("일반 신고");
-    expect(adminMessages.ko.admin_menu_community_point_policies).toContain("커뮤니티");
-    expect(adminMessages.ko.admin_menu_meeting_reports).toBe("모임 신고");
-    expect(adminMessages.en.admin_menu_community_reports.toLowerCase()).toContain("general");
-    expect(adminMessages.ko.admin_menu_community_section_promo_point).toContain("홍보");
+    /**
+     * 언어 SSOT S5(2026-11-08): 문구 원본이 키당 1곳이 되어 화면 값(`MESSAGES`)으로 확인한다.
+     * 이전 기대값(「일반 신고」·「커뮤니티 포인트 정책」·「홍보 / 포인트」)은 `admin.ts` 에만 있었고
+     * 뒤 카탈로그가 덮어써 화면에 나오지 않던 값이다 — 라벨 결정은 Owner 결정 대기
+     * (`docs/audit/i18n-ssot-backlog-2026-11-08.md` L9).
+     */
+    expect(MESSAGES.ko.admin_menu_community_reports).toBe("신고 처리함");
+    expect(MESSAGES.ko.admin_menu_community_point_policies).toBe("포인트 정책");
+    expect(MESSAGES.ko.admin_menu_meeting_reports).toBe("모임 신고");
+    expect(MESSAGES.en.admin_menu_community_reports).toBe("Report inbox");
+    expect(MESSAGES.ko.admin_menu_community_section_promo_point).toBe("포인트·충전");
     const promoPage = read("components/admin/ads/AdminAdApplicationsPage.tsx");
     // 2026-11-07 (W3→R1): 「홍보」 → 「상위노출」 정본 문구
     expect(promoPage).toMatch(/포인트 상위노출/);
