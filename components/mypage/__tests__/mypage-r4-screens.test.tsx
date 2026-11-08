@@ -16,22 +16,24 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(search),
 }));
 
-/** Provider 밖 기본 `useI18n` 은 렌더마다 새 `t` 를 만든다 — 실제 앱(Provider)처럼 안정된 ko 번역 객체로 고정 */
+/** Provider 밖 기본 `useI18n` 은 렌더마다 새 `t` 를 만든다 — 실제 앱(Provider)처럼 언어별로 안정된 번역 객체로 고정 (기본 ko) */
+const i18nMockState = vi.hoisted(() => ({ lang: "ko" as "ko" | "en" }));
 vi.mock("@/components/i18n/AppLanguageProvider", async () => {
   const { safeTranslate } = await import("@/lib/i18n/safe-translate");
   const { translateText } = await import("@/lib/i18n/messages");
-  const stable = {
-    language: "ko",
-    languagePreference: "ko",
+  const build = (lang: "ko" | "en") => ({
+    language: lang,
+    languagePreference: lang,
     setLanguage: () => undefined,
-    t: (key: string, vars?: Record<string, string | number>) => safeTranslate("ko", key as never, { vars }),
+    t: (key: string, vars?: Record<string, string | number>) => safeTranslate(lang, key as never, { vars }),
     safeT: (key: string, fallbacks?: string | { fallbackKo?: string; fallbackEn?: string }) =>
       typeof fallbacks === "string"
-        ? safeTranslate("ko", key as never, { fallbackKo: fallbacks, fallbackEn: fallbacks })
-        : safeTranslate("ko", key as never, fallbacks),
-    tt: (text: string, vars?: Record<string, string | number>) => translateText("ko", text, vars),
-  };
-  return { useI18n: () => stable };
+        ? safeTranslate(lang, key as never, { fallbackKo: fallbacks, fallbackEn: fallbacks })
+        : safeTranslate(lang, key as never, fallbacks),
+    tt: (text: string, vars?: Record<string, string | number>) => translateText(lang, text, vars),
+  });
+  const stable = { ko: build("ko"), en: build("en") };
+  return { useI18n: () => stable[i18nMockState.lang] };
 });
 
 vi.mock("@/lib/ui/use-form-keyboard-viewport", () => ({
@@ -401,5 +403,46 @@ describe("S19 탈퇴 — 확인 시트 · 공용 상수 · 공개 경로 보존"
     mount(<AccountDeletionRequestForm source="web_delete_request" />);
     expect(q("mypage-leave-form")).toBeNull();
     expect(host!.querySelector('input[type="text"]')).not.toBeNull();
+  });
+
+  it("언어 SSOT S2 — 공개 경로 영어 화면: 확인어 DELETE·한글 없음·서버 원문 미노출", async () => {
+    i18nMockState.lang = "en";
+    try {
+      const fetchMock = vi.fn(async () => jsonResponse({ ok: false, error: "최종 확인 입력이 올바르지 않습니다." }, 400));
+      vi.stubGlobal("fetch", fetchMock);
+      mount(<AccountDeletionRequestForm source="web_delete_request" />);
+      const input = host!.querySelector('input[type="text"]') as HTMLInputElement;
+      expect(input.placeholder).toBe("DELETE");
+      expect(host!.textContent).toContain("Type `DELETE` in the field below to continue.");
+      expect(host!.textContent).not.toMatch(/[가-힣]/);
+
+      const submit = () => {
+        const btn = [...host!.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Submit request" || b.className.includes("bg-red-500"));
+        click(btn ?? null);
+      };
+      const type = (v: string) =>
+        act(() => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, v);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+
+      /** 한국어 확인어를 영어 화면에서 입력하면 거부(화면 언어의 확인어만) */
+      type("계정삭제");
+      submit();
+      await flush(4);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(host!.textContent).toContain("Type `DELETE` exactly in the confirmation field.");
+
+      type("DELETE");
+      submit();
+      await flush(6);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(String(((fetchMock.mock.calls[0] as unknown[])[1] as RequestInit).body));
+      expect(body.confirmationText).toBe("DELETE");
+      /** 서버가 한국어 원문을 보내도 화면은 영어 카탈로그 문구 */
+      expect(host!.textContent).not.toMatch(/[가-힣]/);
+    } finally {
+      i18nMockState.lang = "ko";
+    }
   });
 });

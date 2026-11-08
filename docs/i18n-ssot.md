@@ -44,9 +44,13 @@
    - `lang === "en" ? "…" : "…"` 같은 언어 삼항
    - `tt("한국어 문장")` 역검색
 3. **다른 언어로 대체하지 않는다.** 영어 화면에 한국어, 한국어 화면에 영어가 나오면 결함이다. 영어 키가 없거나 치환값이 안 맞는 경우는 검사에서 막는다.
+   - 실행 중(S2 구현): `translate`·`safeTranslate` 는 같은 언어 안에서만 대체한다 — 카탈로그 → 같은 언어 `fallbackKo`/`fallbackEn` → 같은 언어 공통 문장 `common_content_unavailable`. 반대 언어 값·반대 언어 fallback 은 쓰지 않는다.
+   - 서버 API 는 화면 문장 대신 **오류 코드**를 보내고, 문구는 클라이언트 카탈로그가 정한다(예: 탈퇴 요청 `confirmation_invalid`).
+   - 사용자가 입력해야 하는 확인어는 언어별 계약 상수 1곳에 둔다: 탈퇴 ko `계정삭제` · en `DELETE` (`lib/account/account-deletion-contract.ts`). 서버는 둘 중 하나면 통과.
 4. **ko·en 치환값(`{name}`)은 같아야 한다.**
 5. **DB 에 화면 문장을 저장하지 않는다**(메시지 미리보기·포인트 내역 설명 등). 종류 코드 + 값을 저장하고 화면에서 키로 그린다(S7).
 6. **어드민이 등록하는 이름은 ko·en 둘 다 필수**(S7). 영어 화면은 `name_en` → slug 카탈로그 키 → 공통 문장 순서. 한국어 이름·slug 를 펼친 영어는 쓰지 않는다.
+   - 커뮤니티 주제(S2 구현 — `lib/i18n/community-topic-label-i18n.ts`): en `name_en` → 동네 카테고리 slug 키 → 「Topic」, ko 어드민 이름 → 동네 카테고리 slug 키 → 「주제」. 영어 이름이 빈 주제는 영어 화면에 「Topic」 으로 나온다 — **데이터 결함**(어드민 `name_en` 입력 필요, S7).
 
 ## 4. 문구 규칙 (고객·사장님 화면)
 
@@ -109,7 +113,7 @@
 | `foreign-script-code` / `foreign-locale-code` | 코드에 다른 언어 글자·언어 코드 | 파일별 새 항목 실패(허용 목록 제외) |
 | `jargon-en` / `jargon-ko` | 고객·사장님 키의 개발자 용어 | 새 항목 실패 |
 | `glossary` | 용어집 「쓰지 않는 영어」 | 새 항목 실패 |
-| `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항·`tt("…")` 개수 | 파일별 증가 실패 |
+| `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항·`tt("…")` 개수 | 파일별 증가 실패 (인라인은 서버 검증 입력값만 허용 목록 `NON_CATALOG_INLINE_FILE_ALLOW`, 이유 필수) |
 | `length-budget` | 4-3 기준 초과 | 경고 |
 
 - 「고객·사장님 키」 판정: 키를 쓰는 코드가 어드민 경로(`app/admin`·`components/admin`·`app/api/admin`·`lib/admin`)에만 있으면 어드민 키, 그 외(사용처를 못 찾은 키 포함, 단 `admin_` 접두는 어드민)는 고객·사장님 키.

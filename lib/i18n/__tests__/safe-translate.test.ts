@@ -20,6 +20,17 @@ describe("safeTranslate", () => {
     expect(safeTranslate("en", fake, { fallbackKo: "한국어", fallbackEn: "English" })).toBe("English");
   });
 
+  it("never shows the other language (fallback of the other language is ignored)", () => {
+    const fake = "zzz_nonexistent_key_for_safe_translate_test" as never;
+    expect(safeTranslate("en", fake, { fallbackKo: "한국어" })).toBe("Unable to load this content.");
+    expect(safeTranslate("ko", fake, { fallbackEn: "English" })).toBe("내용을 불러올 수 없습니다.");
+    /** 치환값이 남으면 반대 언어로 바꾸지 않고 같은 언어 공통 문장 */
+    expect(safeTranslate("en", "ui_account_delete_confirm_hint")).toBe("Unable to load this content.");
+    expect(safeTranslate("en", "ui_account_delete_confirm_hint", { vars: { word: "DELETE" } })).toBe(
+      "Type `DELETE` in the field below to continue."
+    );
+  });
+
   it("uses user-facing default when no fallback", () => {
     const fake = "zzz_nonexistent_key_for_safe_translate_test" as never;
     expect(safeTranslate("ko", fake)).toBe("내용을 불러올 수 없습니다.");

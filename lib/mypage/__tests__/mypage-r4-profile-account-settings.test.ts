@@ -31,6 +31,7 @@ import { resolveVersionScreenCta } from "@/lib/platform/android-play-version-scr
 import {
   ACCOUNT_DELETION_CONFIRMATION_TOKEN,
   isAccountDeletionConfirmationValid,
+  accountDeletionConfirmationWord,
 } from "@/lib/account/account-deletion-contract";
 import { MYPAGE_MOTION_MS } from "@/lib/mypage/mypage-authority-contract";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -335,8 +336,20 @@ describe("S19 탈퇴 — 공용 확인 상수", () => {
   it("API 와 클라이언트가 같은 상수", () => {
     expect(ACCOUNT_DELETION_CONFIRMATION_TOKEN).toBe("계정삭제");
     expect(isAccountDeletionConfirmationValid(" 계정삭제 ")).toBe(true);
+    expect(isAccountDeletionConfirmationValid(" DELETE ")).toBe(true);
     expect(isAccountDeletionConfirmationValid("delete")).toBe(false);
     expect(read("app/api/me/leave-request/route.ts")).toContain("isAccountDeletionConfirmationValid");
+  });
+
+  it("언어 SSOT S2 — 확인어는 화면 언어별 상수 1곳, 서버 오류는 코드만", () => {
+    expect(accountDeletionConfirmationWord("ko")).toBe("계정삭제");
+    expect(accountDeletionConfirmationWord("en")).toBe("DELETE");
+    const route = read("app/api/me/leave-request/route.ts");
+    expect(route).toContain('error: "confirmation_invalid"');
+    expect(route).not.toMatch(/error:\s*"[^"]*[가-힣]/);
+    const form = read("components/account/AccountDeletionRequestForm.tsx");
+    expect(form).toContain("accountDeletionConfirmationWord(language)");
+    expect(form).not.toContain("ui_account_delete_confirm_word");
   });
 });
 

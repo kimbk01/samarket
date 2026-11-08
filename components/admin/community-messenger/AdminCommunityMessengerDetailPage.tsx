@@ -502,12 +502,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     {call.callerLabel} {"->"} {call.peerLabel}
                   </p>
                   <p className="mt-1 sam-text-helper text-sam-muted">
-                    {t("admin_cm_common_call_duration", {
-                      kind: call.callKind,
-                      status: call.status,
-                      seconds: call.durationSeconds,
-                      count: 0,
-                    }).replace(" · 참여 0명", "").replace(" · 0 participants", "").replace(" · 参与 0人", "")}
+                    {call.callKind} · {call.status} ·{" "}
+                    {t("admin_chat_calls_seconds", { seconds: call.durationSeconds })}
                   </p>
                   <p className="mt-1 sam-text-helper text-sam-meta">{formatDateTime(call.startedAt)}</p>
                 </div>

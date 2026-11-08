@@ -4,7 +4,7 @@ export type OwnerHubBadgeBreakdown = {
   chatUnread: number;
   /** 하단 「메신저」탭(`/community-messenger`) — 친구·그룹·거래·배달 메신저 참가자 미읽음 */
   communityMessengerUnread: number;
-  /** 하단 「커뮤니티」탭 — 커뮤니티·일반 DM 등(非 거래 item_trade) 참가자 미읽음 */
+  /** 하단 「커뮤니티」탭 — 커뮤니티·일반 DM 등(거래 item_trade 제외) 참가자 미읽음 */
   philifeChatUnread: number;
   /** 거래 + 커뮤니티 채팅 미읽음 합 */
   socialChatUnread: number;

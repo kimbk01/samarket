@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     body = {};
   }
   if (!isAccountDeletionConfirmationValid(body.confirmationText)) {
-    return NextResponse.json({ ok: false, error: "최종 확인 입력이 올바르지 않습니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "confirmation_invalid" }, { status: 400 });
   }
 
   const { error: requestError } = await sb.from("account_deletion_requests").insert({
@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     requested_at: requestedAt,
   });
   if (requestError) {
-    return NextResponse.json({ ok: false, error: requestError.message || "delete_request_save_failed" }, { status: 500 });
+    console.error("[leave-request] insert failed", requestError.message);
+    return NextResponse.json({ ok: false, error: "delete_request_save_failed" }, { status: 500 });
   }
 
   await sb

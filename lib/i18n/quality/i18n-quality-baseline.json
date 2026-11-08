@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-08 04:53 PHT",
+ "generatedAtPht": "2026-11-08 12:12 PHT",
  "keyRules": {
   "duplicate-key": [
    "admin_ad_applications_title",
@@ -386,8 +386,7 @@
    "admin_topics_header_desc_simple",
    "owner_copy_products_admin_lock_blocked",
    "owner_copy_products_admin_lock_hidden",
-   "owner_copy_products_admin_lock_sold_out",
-   "ui_group_chat_intro"
+   "owner_copy_products_admin_lock_sold_out"
   ],
   "hangul-in-en": [
    "admin_api_failure",
@@ -1214,13 +1213,7 @@
    "admin_surface_home",
    "admin_surface_search",
    "admin_surface_shop",
-   "admin_target_score",
-   "business_phase7_279",
-   "cm_ui_unread",
-   "ui_account_delete_confirm_err",
-   "ui_account_delete_confirm_hint",
-   "ui_account_delete_confirm_ph",
-   "ui_account_delete_confirm_word"
+   "admin_target_score"
   ],
   "foreign-script-catalog": [],
   "jargon-en": [
@@ -1515,14 +1508,8 @@
   ]
  },
  "fileRules": {
-  "foreign-script-code": {
-   "components/admin/community-messenger/AdminCommunityMessengerDetailPage.tsx": 3,
-   "lib/chats/owner-hub-badge-types.ts": 1,
-   "lib/ui/app-feed-card.ts": 1
-  },
-  "foreign-locale-code": {
-   "lib/product-backlog/product-backlog-utils.ts": 2
-  },
+  "foreign-script-code": {},
+  "foreign-locale-code": {},
   "non-catalog-fallback-en": {
    "app/(main)/business-info/BusinessInfoPageClient.tsx": 9,
    "app/(main)/group/[token]/page.tsx": 19,

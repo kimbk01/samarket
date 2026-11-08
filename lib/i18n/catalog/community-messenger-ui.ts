@@ -1753,7 +1753,7 @@ export const communityMessengerUiMessages = {
     cm_ui_chat_group_trade: "Trade chats",
     cm_ui_chat_group_order: "Order chats",
     cm_ui_chat_group_general: "General chats",
-    cm_ui_unread: "안 읽음",
+    cm_ui_unread: "Unread",
     cm_ui_chat_list_filter_hint: "Use the list for filters, unread, and pinned.",
     cm_ui_filter_button_short: "Filter",
     cm_ui_conversation_notifications: "Conversation notifications",

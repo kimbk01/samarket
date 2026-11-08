@@ -48,6 +48,11 @@ export const FOREIGN_CODE_FILE_ALLOW: Readonly<Record<string, string>> = {
   "lib/jobs/form-options.ts": "구직 글의 할 수 있는 언어 선택지 값(tl) — 앱 UI 언어 아님",
 };
 
+/** 카탈로그 밖 `{ko,en}` 허용 — 화면 문구가 아니라 서버가 검증하는 입력값일 때만, 이유 필수 */
+export const NON_CATALOG_INLINE_FILE_ALLOW: Readonly<Record<string, string>> = {
+  "lib/account/account-deletion-contract.ts": "탈퇴 확인어(계정삭제·DELETE) — 클라이언트·서버가 같이 검증하는 입력값",
+};
+
 /** 개발자 용어 — 대소문자 구분 기술명 */
 const TECH_TOKENS =
   /\b(Supabase|RLS|RPC|APIs?|JSON|UUIDs?|VoIP|FCM|Agora|CallKit|PushKit|SSOT|i18n|HTTPS?|DB)\b|\.env\b/;
@@ -182,7 +187,7 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
     put("foreign-locale-code", count(FOREIGN_LOCALE_CODE_GLOBAL, text));
   }
   put("non-catalog-fallback-en", count(FALLBACK_EN, text));
-  put("non-catalog-inline-ko-en", count(INLINE_KO_EN, text));
+  if (!NON_CATALOG_INLINE_FILE_ALLOW[rel]) put("non-catalog-inline-ko-en", count(INLINE_KO_EN, text));
   put("non-catalog-lang-ternary", count(LANG_TERNARY, text));
   put("non-catalog-tt", count(TT_CALL, text));
 }

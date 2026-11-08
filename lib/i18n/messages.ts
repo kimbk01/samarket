@@ -424,7 +424,8 @@ export function translate(
   if (primary === undefined && language === "ko") {
     warnMissingKey("ko", key);
   }
-  const template = String(primary ?? MESSAGES.ko[key] ?? "");
+  /** 다른 언어로 대체하지 않는다 — ko·en 키 대칭은 `check:i18n` 이 보장 */
+  const template = String(primary ?? "");
   if (!vars) return template;
   return Object.entries(vars).reduce<string>(
     (acc, [name, value]) => acc.replaceAll(`{${name}}`, String(value)),

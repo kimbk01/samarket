@@ -170,6 +170,5 @@ export function getHandoffStatusLabel(t: ProductBacklogTranslate, v: OpsDevHando
 
 export function productBacklogDateLocale(language: string): string {
   if (language === "ko") return "ko-KR";
-  if (language === "zh-CN") return "zh-CN";
   return "en-US";
 }

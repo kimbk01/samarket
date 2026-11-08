@@ -555,6 +555,7 @@ export const myMessages = {
     neighborhood_category_promo: "홍보",
     neighborhood_category_notice: "공지",
     neighborhood_category_etc: "기타",
+    community_topic_label_fallback: "주제",
   },
   en: {
     settings_global_subtitle: "App-wide settings",
@@ -1112,6 +1113,7 @@ export const myMessages = {
     neighborhood_category_promo: "Promotions",
     neighborhood_category_notice: "Notices",
     neighborhood_category_etc: "Other",
+    community_topic_label_fallback: "Topic",
   },
   
 } as const;

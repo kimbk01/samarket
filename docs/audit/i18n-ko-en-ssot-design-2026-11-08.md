@@ -182,3 +182,19 @@
 | foreign-locale-code | 1파일 2 | `product-backlog-utils.ts` zh-CN |
 | non-catalog fallbackEn / 인라인 / 언어 삼항 / tt | 2,834 / 1,408 / 714 / 12 | `lib/i18n/**` 제외, 삼항은 ko·en 모두·변수명 7종 |
 | length-budget(경고) | 47 | aria 제외 |
+
+---
+
+## 8. S2 결과 (잔재·섞임)
+
+| 규칙 | S0 기준선 | S2 후 | 처리 |
+|---|---|---|---|
+| hangul-in-en (고객·사장님) | 6 | **0** | `cm_ui_unread` en 「Unread」, `business_phase7_279` ko·en 값이 서로 뒤바뀐 것 정정, 탈퇴 확인어 4키 → 언어별 상수 + `{word}` 치환 (`_ph`·`_word` 키 삭제) |
+| hangul-in-en (전체) | 831 | 825 | 남은 825 는 어드민 키(S9) |
+| placeholder-parity | 39 | 38 | `ui_group_chat_intro` en `{id}` → `room-ID`. 남은 38: 어드민 35(S9) + 사장님 `owner_copy_products_admin_lock_*` 3(ko 만 `{label}`, 호출부가 값을 넘김 — 화면 섞임 없음, 문구 정리는 계획 완료 후 감사) |
+| foreign-script-code | 3파일 5자 | **0** | 어드민 「参与 0人」 문자열 지우기 땜빵 → 전용 표시(종류·상태·`admin_chat_calls_seconds`), 주석 한자 2자 |
+| foreign-locale-code | 1파일 2 | **0** | `product-backlog-utils.ts` zh-CN 분기 삭제 |
+
+- 실행 중 반대 언어 대체 제거: `translate`(en 없으면 ko 값), `safeTranslate`(반대 언어 키 → 반대 언어 fallback). 남는 대체는 같은 언어 공통 문장뿐.
+- 커뮤니티 주제 라벨: 영어 화면에서 한국어 이름을 쓰지 않는다. 운영 DB 주제 9개 중 `name_en` 빈 6개(추천·필리핀생할·여행정보·일상생활·질문있어요·필리핀 뉴스) — 질문있어요(slug `question`)는 「Questions」, 나머지 5개는 「Topic」 으로 표시 → **FAIL(데이터)**, S7 에서 어드민 `name_en` 입력(Owner 승인) 전까지 남는다.
+- 탈퇴: 공개 삭제 요청 화면 확인어가 화면 언어를 따른다(ko `계정삭제`/en `DELETE`). 서버 `POST /api/me/leave-request` 는 둘 다 허용, 오류는 코드(`confirmation_invalid`·`delete_request_save_failed`)만 — 한국어 오류 원문·DB 오류 원문을 화면에 보내지 않는다. 내정보 탈퇴(확인 시트)는 변경 없음(`계정삭제` 전송).

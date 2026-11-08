@@ -17,6 +17,7 @@ import { useMyScreenBackGuard } from "@/components/mypage/ds/MyScreen";
 import {
   ACCOUNT_DELETION_CONFIRMATION_TOKEN,
   ACCOUNT_DELETION_REASON_MAX,
+  accountDeletionConfirmationWord,
 } from "@/lib/account/account-deletion-contract";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
@@ -225,8 +226,9 @@ export function AccountDeletionRequestForm({ source }: Props) {
 
 /** 공개 삭제 요청 페이지(`/account/delete-request`) — 현행 단어 입력·모양·동작 그대로 (S19 보존 조건) */
 function PublicAccountDeletionRequestForm({ source }: Props) {
-  const { t } = useI18n();
-  const confirmWord = t("ui_account_delete_confirm_word");
+  const { t, language } = useI18n();
+  /** 확인어는 화면 언어별 계약 상수 — 카탈로그에 따로 두지 않는다 */
+  const confirmWord = accountDeletionConfirmationWord(language);
   const [confirmationText, setConfirmationText] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -235,7 +237,7 @@ function PublicAccountDeletionRequestForm({ source }: Props) {
 
   const handleConfirm = async () => {
     if (confirmationText.trim() !== confirmWord) {
-      setError(t("ui_account_delete_confirm_err"));
+      setError(t("ui_account_delete_confirm_err", { word: confirmWord }));
       return;
     }
     setSubmitting(true);
@@ -257,7 +259,12 @@ function PublicAccountDeletionRequestForm({ source }: Props) {
         requestedAt?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(typeof json.error === "string" ? json.error : t("ui_account_delete_submit_err"));
+        /** 서버 원문은 화면에 보이지 않는다 — 코드만 보고 화면 언어 문구로 */
+        setError(
+          json.error === "confirmation_invalid"
+            ? t("ui_account_delete_confirm_err", { word: confirmWord })
+            : t("ui_account_delete_submit_err")
+        );
         return;
       }
       setSubmittedAt(typeof json.requestedAt === "string" ? json.requestedAt : new Date().toISOString());
@@ -301,13 +308,13 @@ function PublicAccountDeletionRequestForm({ source }: Props) {
 
       <div className="rounded-ui-rect border border-red-200 bg-red-50 p-4">
         <label className="block text-[13px] font-semibold text-red-800">{t("ui_account_delete_confirm_label")}</label>
-        <p className="mt-1 sam-text-body-secondary text-red-700">{t("ui_account_delete_confirm_hint")}</p>
+        <p className="mt-1 sam-text-body-secondary text-red-700">{t("ui_account_delete_confirm_hint", { word: confirmWord })}</p>
         <input
           type="text"
           value={confirmationText}
           onChange={(e) => setConfirmationText(e.target.value)}
           className="mt-3 w-full rounded-ui-rect border border-red-200 bg-white px-3 py-2 sam-text-body"
-          placeholder={t("ui_account_delete_confirm_ph")}
+          placeholder={confirmWord}
         />
       </div>
 

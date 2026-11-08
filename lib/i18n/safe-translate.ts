@@ -3,9 +3,9 @@ import { translate, type MessageKey } from "./messages";
 import { looksLikeMessageKey } from "./safe-ui-label";
 
 export type SafeTranslateOptions = {
-  /** 한국어 모드 우선 fallback */
+  /** 한국어 화면에서만 쓰는 대체 문구 */
   fallbackKo?: string;
-  /** 영어 모드 우선 fallback */
+  /** 영어 화면에서만 쓰는 대체 문구 */
   fallbackEn?: string;
   vars?: Record<string, string | number>;
 };
@@ -34,8 +34,8 @@ export function pickLanguageFallback(
 ): string | undefined {
   const ko = opts?.fallbackKo?.trim();
   const en = opts?.fallbackEn?.trim();
-  if (lang === "ko") return ko || en || undefined;
-  return en || ko || undefined;
+  /** 다른 언어로 대체하지 않는다 (`docs/i18n-ssot.md` §3) */
+  return (lang === "ko" ? ko : en) || undefined;
 }
 
 export function isUnsafeTranslationResult(key: MessageKey, raw: string): boolean {
@@ -58,6 +58,7 @@ export function defaultUnavailableFallback(lang: AppLanguageCode): string {
 
 /**
  * UI 표시용 안전 번역 — key·빈 문자열·미치환 placeholder·snake_case 토큰을 화면에 노출하지 않음.
+ * 같은 언어 안에서만 대체한다: 카탈로그 → 같은 언어 fallback → 같은 언어 공통 문장. 반대 언어 문구는 쓰지 않는다.
  * `translate()` 는 서버·역검색·로그용으로 그대로 두고, 화면은 `t()`(Provider) 또는 본 함수를 쓴다.
  */
 export function safeTranslate(
@@ -68,10 +69,6 @@ export function safeTranslate(
   const vars = opts?.vars;
   const primary = translate(lang, key, vars).trim();
   if (!isUnsafeTranslationResult(key, primary)) return primary;
-
-  const crossLang: AppLanguageCode = lang === "ko" ? "en" : "ko";
-  const cross = translate(crossLang, key, vars).trim();
-  if (!isUnsafeTranslationResult(key, cross)) return cross;
 
   const picked = pickLanguageFallback(lang, opts);
   if (picked) return picked;
