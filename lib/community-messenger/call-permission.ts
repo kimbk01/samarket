@@ -77,8 +77,8 @@ let primedIdleReleaseSuspended = false;
 
 const PRIMED_STREAM_IDLE_RELEASE_MS = 90_000;
 
-function callPermissionT(key: MessageKey, fallbackKo: string, fallbackEn: string): string {
-  return safeTranslate(getRuntimeAppLanguage(), key, { fallbackKo, fallbackEn });
+function callPermissionT(key: MessageKey): string {
+  return safeTranslate(getRuntimeAppLanguage(), key);
 }
 
 export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCallKind): {
@@ -89,21 +89,13 @@ export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCal
   return {
     description:
       kind === "video"
-        ? callPermissionT(
-            "permission_call_guide_video_desc",
-            "브라우저 또는 기기 설정에서 카메라와 마이크를 허용해 주세요.",
-            "Allow camera and microphone in browser or device settings.",
-          )
-        : callPermissionT(
-            "permission_call_guide_voice_desc",
-            "브라우저 또는 기기 설정에서 마이크를 허용해 주세요.",
-            "Allow microphone in browser or device settings.",
-          ),
+        ? callPermissionT("permission_call_guide_video_desc")
+        : callPermissionT("permission_call_guide_voice_desc"),
     retryLabel:
       kind === "video"
-        ? callPermissionT("permission_call_retry_video", "카메라/마이크 확인", "Check camera/microphone")
-        : callPermissionT("permission_call_retry_voice", "마이크 확인", "Check microphone"),
-    settingsLabel: callPermissionT("permission_call_settings_label", "권한 설정 안내", "Permission setup guide"),
+        ? callPermissionT("permission_call_retry_video")
+        : callPermissionT("permission_call_retry_voice"),
+    settingsLabel: callPermissionT("permission_call_settings_label"),
   };
 }
 

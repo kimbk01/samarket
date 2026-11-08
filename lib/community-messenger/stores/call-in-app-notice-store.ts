@@ -11,7 +11,6 @@ import {
   type CallInAppNoticeEvent,
   type CallInAppNoticeSpec,
 } from "@/lib/community-messenger/call-ui/call-in-app-notice-contract";
-import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type CallInAppNoticeState = {
   event: CallInAppNoticeEvent;
@@ -30,19 +29,6 @@ type Store = {
   clear: () => void;
 };
 
-const FALLBACKS: Record<CallInAppNoticeEvent, { ko: string; en: string }> = {
-  peer_busy: catalogPair("community_messenger_the_other_person_is_currently_on"),
-  caller_busy: catalogPair("community_messenger_you_are_already_on_another_call"),
-  peer_declined: catalogPair("community_messenger_the_other_person_declined_the_call"),
-  call_failed: catalogPair("community_messenger_could_not_start_the_call_please"),
-  remote_ended: catalogPair("community_messenger_call_ended"),
-  missed: catalogPair("community_messenger_missed_call"),
-  no_answer: catalogPair("community_messenger_the_other_person_did_not_answer"),
-  reconnecting: catalogPair("community_messenger_reconnecting"),
-  network_warning: catalogPair("community_messenger_check_your_network_connection"),
-  permission_required: catalogPair("community_messenger_microphone_access_required"),
-};
-
 export function resolveCallInAppNoticeMessage(
   event: CallInAppNoticeEvent,
   messageOverride?: string | null
@@ -50,11 +36,7 @@ export function resolveCallInAppNoticeMessage(
   const override = messageOverride?.trim();
   if (override && !isRawErrorCode(override)) return override;
   const spec = getCallInAppNoticeSpec(event);
-  const fb = FALLBACKS[event];
-  return safeTranslate(getRuntimeAppLanguage(), spec.messageKey, {
-    fallbackKo: fb.ko,
-    fallbackEn: fb.en,
-  });
+  return safeTranslate(getRuntimeAppLanguage(), spec.messageKey);
 }
 
 function isRawErrorCode(text: string): boolean {

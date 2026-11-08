@@ -212,10 +212,7 @@ export function CommunityMessengerCallRow({
     language,
     t("cm_ui_call_log_time_yesterday")
   );
-  const subtitleText = safeT(vm.subtitleMessageKey, {
-    fallbackKo: "통화 기록",
-    fallbackEn: "Call log",
-  });
+  const subtitleText = safeT(vm.subtitleMessageKey);
   const durationOnly = vm.durationLabel?.trim() || null;
 
   const avatarNode = (

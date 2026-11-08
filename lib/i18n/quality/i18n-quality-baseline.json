@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-08 20:54 PHT",
+ "generatedAtPht": "2026-11-08 21:12 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -23,16 +23,8 @@
   "foreign-script-code": {},
   "foreign-locale-code": {},
   "non-catalog-fallback-en": {
-   "components/community-messenger/call-history/CommunityMessengerCallDirectionBadge.tsx": 1,
-   "components/community-messenger/call-history/CommunityMessengerCallPeerHistoryRow.tsx": 1,
-   "components/community-messenger/call-history/CommunityMessengerCallRow.tsx": 1,
    "components/community-messenger/call-history/CommunityMessengerCallStatusBadge.tsx": 1,
-   "components/community-messenger/friend-list/CommunityMessengerFriendStatusBadge.tsx": 1,
-   "components/messenger/call/CallInAppNoticeCenterDialog.tsx": 2,
-   "lib/community-messenger/call-permission.ts": 1,
-   "lib/community-messenger/call-v4/call-v4-view-model.ts": 5,
-   "lib/community-messenger/direct-call-permission-messages.ts": 8,
-   "lib/community-messenger/stores/call-in-app-notice-store.ts": 1
+   "components/community-messenger/friend-list/CommunityMessengerFriendStatusBadge.tsx": 1
   },
   "non-catalog-inline-ko-en": {
    "lib/admin/deploy-promotion/deploy-ops-remote.ts": 1,

@@ -96,16 +96,6 @@ function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): C
   };
 }
 
-const CONNECTION_SIGNAL_FALLBACKS: Record<
-  CallV4ConnectionSignalTier,
-  { fallbackKo: string; fallbackEn: string }
-> = {
-  good: { fallbackKo: "통신 상태 좋음", fallbackEn: "Connection quality · good" },
-  fair: { fallbackKo: "통신 상태 보통", fallbackEn: "Connection quality · fair" },
-  poor: { fallbackKo: "통신 상태 나쁨", fallbackEn: "Connection quality · poor" },
-  checking: { fallbackKo: "통신 상태 확인 중", fallbackEn: "Checking connection…" },
-};
-
 function buildCallV4ConnectionPresentation(
   callPhase: CallPhase,
   phase: CallV4Phase,
@@ -117,7 +107,7 @@ function buildCallV4ConnectionPresentation(
     const key = callV4ConnectionSignalTierMessageKey(resolvedTier);
     return {
       /** Dock·상태 pill 용 — 풀스크린 상단 대형 패널에는 노출하지 않는다. */
-      connectionLabel: safeT(key, CONNECTION_SIGNAL_FALLBACKS[resolvedTier]),
+      connectionLabel: safeT(key),
       connectionSignalTier: resolvedTier === "checking" ? null : resolvedTier,
     };
   }

@@ -27,18 +27,8 @@ export function CallInAppNoticeCenterDialog() {
   const copy = event ? getCallInAppNoticeCenterCopy(event) : null;
   const open = Boolean(copy);
 
-  const title = copy
-    ? safeT(copy.titleKey, {
-        fallbackKo: copy.fallbackTitleKo,
-        fallbackEn: copy.fallbackTitleEn,
-      })
-    : "";
-  const body = copy
-    ? safeT(copy.bodyKey, {
-        fallbackKo: copy.fallbackBodyKo,
-        fallbackEn: copy.fallbackBodyEn,
-      })
-    : "";
+  const title = copy ? safeT(copy.titleKey) : "";
+  const body = copy ? safeT(copy.bodyKey) : "";
 
   const confirmLabel = safeT("common_confirm");
 

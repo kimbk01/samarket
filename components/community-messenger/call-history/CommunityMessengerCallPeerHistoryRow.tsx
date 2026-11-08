@@ -18,10 +18,7 @@ export function CommunityMessengerCallPeerHistoryRow({ call }: Props) {
   const { safeT, language } = useI18n();
   const vm = presentCallHistoryRow(call);
   const timeLabel = formatCallPeerDetailRowTime(resolveCallLogListTimestampIso(call), language);
-  const kindLabel = safeT(vm.subtitleMessageKey, {
-    fallbackKo: "통화 기록",
-    fallbackEn: "Call log",
-  });
+  const kindLabel = safeT(vm.subtitleMessageKey);
 
   const Icon = vm.callKind === "video" ? CommunityMessengerCallVideoOutlineIcon : CommunityMessengerCallPhoneOutlineIcon;
 

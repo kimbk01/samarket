@@ -42,44 +42,9 @@ export function directCallDenyMessageKey(code: DirectCallDenyCode): MessageKey {
   return DIRECT_CALL_DENY_MESSAGE_KEYS[code];
 }
 
-const DIRECT_CALL_DENY_FALLBACKS: Record<
-  DirectCallDenyCode,
-  { fallbackKo: string; fallbackEn: string }
-> = {
-  deny_blocked: {
-    fallbackKo: "차단된 사용자와는 메시지나 통화를 할 수 없습니다.",
-    fallbackEn: "You cannot message or call a blocked user.",
-  },
-  deny_privacy: {
-    fallbackKo: "상대방의 통화 설정으로 인해 연결할 수 없습니다.",
-    fallbackEn: "The other person's call settings do not allow this call.",
-  },
-  deny_room_state_mismatch: {
-    fallbackKo: "이 대화방 상태에서는 통화를 시작할 수 없습니다.",
-    fallbackEn: "You cannot start a call in this room state.",
-  },
-  deny_deleted_account: {
-    fallbackKo: "통화할 수 없는 계정입니다.",
-    fallbackEn: "This account cannot receive calls.",
-  },
-  deny_group_room: {
-    fallbackKo: "그룹 통화는 아직 지원하지 않습니다.",
-    fallbackEn: "Group calls are not supported yet.",
-  },
-  deny_permission: {
-    fallbackKo: "마이크 또는 카메라 권한이 필요합니다.",
-    fallbackEn: "Microphone or camera permission is required.",
-  },
-  deny_peer_rejected: {
-    fallbackKo: "상대가 친구 요청을 거절해 통화할 수 없습니다.",
-    fallbackEn: "You can't call this person because they declined your friend request.",
-  },
-};
-
 export function resolveDirectCallDenyUserMessage(code: DirectCallDenyCode): string {
   const key = directCallDenyMessageKey(code);
-  const fb = DIRECT_CALL_DENY_FALLBACKS[code];
-  return safeTranslate(getRuntimeAppLanguage(), key, fb);
+  return safeTranslate(getRuntimeAppLanguage(), key);
 }
 
 export function resolveDirectCallDenyUserMessageFromApiError(error: string | null | undefined): string | null {

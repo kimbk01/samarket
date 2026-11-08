@@ -15,10 +15,7 @@ type Props = {
 export function CommunityMessengerCallDirectionBadge({ displayType, labelKey }: Props) {
   const { safeT } = useI18n();
   const presentation = presentCallHistoryStatus(displayType);
-  const label = safeT(labelKey, {
-    fallbackKo: "통화",
-    fallbackEn: "Call",
-  });
+  const label = safeT(labelKey);
   const isMissed = isCallLogMissedDisplayType(displayType);
   const isAnswered = displayType === "incoming" || displayType === "outgoing";
 
