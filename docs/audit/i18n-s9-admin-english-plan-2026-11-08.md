@@ -1,4 +1,4 @@
-# 언어 SSOT S9 — 어드민 영어 계획 (2026-11-08 · Owner 「S9 계획 보고」) · **계획만, 구현은 승인 후**
+# 언어 SSOT S9 — 어드민 영어 계획 (2026-11-08 · Owner 「S9 계획 보고」) · Owner 「권장대로 승인」 → 구현 완료 (§7)
 
 > 설계 `i18n-ko-en-ssot-design-2026-11-08.md` §5 S9 「어드민 영어 안 한글, 키 펼친 영어(`Board Today Items` 류), 치환 불일치」. 측정 기준 = main `7b9a409cf` · `lib/i18n/quality/i18n-quality-baseline.json` + 카탈로그 전수 추출(18:53 PHT).
 
@@ -72,3 +72,24 @@
 
 1. S9 안 승인 (A 703 · B 346 + 미사용 40 삭제 · C 20 · 검사 규칙 `key-echo-en`).
 2. 어드민 영어에 운영 용어(API·DB·ID·QA·DR 등) 허용 — 권장: 허용(운영자 화면, 설계 §4-3 금지어는 고객·사장님 한정).
+
+## 7. 결과 (2026-11-08 — Owner 「권장대로 승인」)
+
+### 7-0. 먼저 보고 (작업자 잘못)
+- **S8-4b(`2799e03f1`)가 CI `check` 를 깨뜨렸다** — 통화 채널 이름을 리소스로 옮기면서 글자 이름을 기대하던 통화 계약 테스트 `lib/call/__tests__/native-voice-fgs-channel-v2-contract.test.ts` 를 S8-4b 검증 때 돌리지 않았다. Owner 가 CI 결과를 전달한 뒤 `03dc5ba78`(19:02 PHT, 통화 테스트 1파일 단독)로 정정: 이름이 `dibay_call_ch_voice_ongoing_name` 리소스이고 중요도 `IMPORTANCE_DEFAULT` 인지 검사(무음·무진동 검사 그대로, 동작 변경 없음). 안드로이드 소스를 읽는 테스트 45개 + `lib/call` 30파일 174테스트 PASS.
+
+### 7-1. 바꾼 것
+| 항목 | 결과 |
+|---|---|
+| A `admin-misc.ts` 영어 | 703키 작성 (한국어 복사 → 영어) |
+| B `admin-ops-tools.ts` 영어 | 346키 다시 작성 · 미사용 40키 ko·en 삭제(532 → 492키) |
+| C 치환값 | ops-tools 19 (B 에 포함) · `admin_topics_header_desc_simple` en = 「Manage the order, status, and visibility of community categories.」 |
+| 검사 | `key-echo-en` 규칙 추가(`lib/i18n/quality/i18n-quality-rules.ts`, 치환값은 단어로 세지 않음) · 기준선 `hangul-in-en` 703 → **0**, `placeholder-parity` 23 → **3**(사장님 3), `key-echo-en` **0** |
+| 한국어 | 두 파일 한국어 값 지문 = S9 전과 같음(`lib/i18n/__tests__/s9-admin-ko-unchanged.test.ts`) |
+| 문서 | `docs/i18n-ssot.md` §4-4 — 어드민은 4-1 금지어 미적용(운영 용어 허용), 키 펼침 금지 |
+
+작성 방식: 4묶음 병렬 작성 → 자동 점검(치환값·한글·길이·키 펼침·같은 한국어 다른 영어 24건 중 11건 통일, 문맥별로 다른 것은 유지 — 예 「노출」 Visible/Exposure) → 무작위 40개 검토. 작성자가 불확실하다고 한 값 중 「진행」 버튼(상태를 진행 중으로) → 「Mark in progress」, 「담당」 → 「Assignee」(사장님 Owner 와 겹침 방지) 정정.
+
+### 7-2. 검증
+- 코드 PASS: vitest(어드민·i18n·관련 31 + 폴더 410파일 3,580테스트), `check:i18n-quality` 18/18, typecheck 2종, eslint.
+- 화면: **NOT_PROVEN** — 로컬 어드민 로그인은 운영 계정 비밀번호가 필요해 작업자가 할 수 없음. main 반영 후 어드민 영어 모드(QA 보드·출시 준비·DR·운영 도구 보드·런북) 확인 대상.

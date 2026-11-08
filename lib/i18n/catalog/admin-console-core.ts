@@ -740,7 +740,7 @@ export const adminConsoleCoreMessages = {
     admin_topics_err_save: "Save failed",
     admin_topics_err_slug_duplicate: "This slug already exists in the section.",
     admin_topics_form_add_content: "Add topic",
-    admin_topics_header_desc_simple: "Manage the topics shown in the app community. (Section: {section})",
+    admin_topics_header_desc_simple: "Manage the order, status, and visibility of community categories.",
     admin_topics_label_name: "Name (Korean)",
     admin_topics_label_name_en: "Name (English)",
     admin_topics_label_name_en_simple: "English (optional)",

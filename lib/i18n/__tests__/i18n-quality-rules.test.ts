@@ -8,6 +8,7 @@ import {
   displayLengthForBudget,
   emptyFileRuleCounts,
   glossaryHits,
+  isKeyEchoEnglish,
   jargonHit,
   lengthBudgetForKey,
   libReachAreas,
@@ -138,5 +139,23 @@ describe("i18n-quality 규칙", () => {
     expect(lengthBudgetForKey("nav_bottom_my")).toBe(12);
     expect(lengthBudgetForKey("nav_bottom_bar_aria")).toBeNull();
     expect(lengthBudgetForKey("trade_detail_buy_cta")).toBe(22);
+  });
+
+  it("S9 key-echo-en — 키 끝 단어를 제목형으로 펼친 영어만 잡는다", () => {
+    expect(isKeyEchoEnglish("admin_ops_tools_board_today_items", "Board Today Items")).toBe(true);
+    expect(isKeyEchoEnglish("admin_ops_tools_runbook_tab_logs", "Runbook Tab Logs")).toBe(true);
+    expect(isKeyEchoEnglish("admin_ops_tools_runbook_tab_logs", "Tab Logs")).toBe(true);
+    expect(isKeyEchoEnglish("admin_ops_tools_runbook_tab_logs", "Run logs")).toBe(false);
+    expect(isKeyEchoEnglish("admin_ops_tools_kill_switch", "Kill switch")).toBe(false);
+    expect(isKeyEchoEnglish("admin_ops_tools_priority_high", "High")).toBe(false);
+    expect(isKeyEchoEnglish("admin_ops_tools_board_overdue_count", "Overdue: {count}")).toBe(false);
+    expect(isKeyEchoEnglish("admin_ops_tools_learning_th_surface_type", "Surface / Type")).toBe(true);
+    const f = collectKeyRuleFindings({
+      ko: { admin_ops_tools_board_due: "기한 {date}", admin_users_col_member_id: "회원 ID" },
+      en: { admin_ops_tools_board_due: "Board Due", admin_users_col_member_id: "Member ID" },
+      sources: [],
+      areaOfKey: () => "admin",
+    });
+    expect([...f["key-echo-en"].keys()]).toEqual(["admin_ops_tools_board_due"]);
   });
 });

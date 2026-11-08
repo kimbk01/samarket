@@ -16,6 +16,7 @@ export const KEY_RULE_IDS = [
   "jargon-en",
   "jargon-ko",
   "glossary",
+  "key-echo-en",
 ] as const;
 export type KeyRuleId = (typeof KEY_RULE_IDS)[number];
 
@@ -132,6 +133,24 @@ export type KeyRuleInput = {
 
 export type KeyRuleFindings = Record<KeyRuleId, Map<string, string>>;
 
+/**
+ * S9 — 영어 값이 키 이름 끝 단어를 제목형으로 펼친 것(「Board Today Items」 ← `admin_ops_tools_board_today_items`)인지 검사할 키 접두.
+ * 다른 어드민 파일의 같은 모양(「Report ID」「Copy UUID」)은 정상 영어라 검사하지 않는다(`docs/audit/i18n-s9-admin-english-plan-2026-11-08.md` §1).
+ */
+export const KEY_ECHO_EN_PREFIXES: readonly string[] = ["admin_ops_tools_"];
+
+/** 영어 값이 키 끝 단어 2개 이상을 그대로 제목형(단어마다 대문자)으로 펼친 값이면 true */
+export function isKeyEchoEnglish(key: string, en: string): boolean {
+  /** 치환값(`{count}`)은 단어가 아니다 — 「Overdue: {count}」 를 키 끝 「overdue_count」 로 오판하지 않는다 */
+  const words = en.replace(/\{\w+\}/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return false;
+  if (!words.every((w) => !/^[A-Za-z]/.test(w) || /^[A-Z]/.test(w))) return false;
+  const vw = en.replace(/\{\w+\}/g, " ").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const kw = key.toLowerCase().split("_").filter(Boolean);
+  if (vw.length < 2 || vw.length > kw.length) return false;
+  return vw.every((w, i) => w === kw[kw.length - vw.length + i]);
+}
+
 /** 키 규칙 — 값은 사람이 읽는 근거(파일·단어) */
 export function collectKeyRuleFindings(input: KeyRuleInput): KeyRuleFindings {
   const f = Object.fromEntries(KEY_RULE_IDS.map((id) => [id, new Map<string, string>()])) as KeyRuleFindings;
@@ -159,6 +178,9 @@ export function collectKeyRuleFindings(input: KeyRuleInput): KeyRuleFindings {
       f["placeholder-parity"].set(key, `ko[${placeholderSignature(ko)}] en[${placeholderSignature(en)}]`);
     }
     if (HANGUL.test(en)) f["hangul-in-en"].set(key, en.slice(0, 60));
+    if (KEY_ECHO_EN_PREFIXES.some((p) => key.startsWith(p)) && isKeyEchoEnglish(key, en)) {
+      f["key-echo-en"].set(key, en.slice(0, 60));
+    }
     if (!FOREIGN_SCRIPT_CATALOG_ALLOW[key] && (FOREIGN_SCRIPT.test(ko) || FOREIGN_SCRIPT.test(en))) {
       f["foreign-script-catalog"].set(key, (FOREIGN_SCRIPT.test(ko) ? ko : en).slice(0, 60));
     }
