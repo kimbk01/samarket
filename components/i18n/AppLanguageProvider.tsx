@@ -109,9 +109,19 @@ export function AppLanguageProvider({
   setRuntimeAppLanguage(language);
   const [languagePreference, setLanguagePreferenceState] = useState<StoredPreferredLanguage>(null);
   const lastAppliedRef = useRef<AppLanguageResolution | null>(null);
+  /** S8-1 — 마지막으로 네이티브에 보낸 화면 언어(undefined = 아직 안 보냄) */
+  const nativeLanguageRef = useRef<AppLanguageCode | null | undefined>(undefined);
 
   const apply = useCallback((r: AppLanguageResolution) => {
-    writeDisplayLanguageCookie(displayLanguageCookieValue(r));
+    const display = displayLanguageCookieValue(r);
+    writeDisplayLanguageCookie(display);
+    /** S8-1 — 같은 값을 네이티브에도 저장(값이 바뀔 때만). 웹·구 앱은 모듈 안에서 생략 */
+    if (nativeLanguageRef.current !== display) {
+      nativeLanguageRef.current = display;
+      void import("@/lib/i18n/native-app-language")
+        .then((m) => m.setNativeAppLanguage(display))
+        .catch(() => undefined);
+    }
     const last = lastAppliedRef.current;
     if (last && last.resolved === r.resolved && last.preference === r.preference) return;
     const languageChanged = !last || last.resolved !== r.resolved;

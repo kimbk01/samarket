@@ -134,6 +134,17 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 2. **S8-6 푸시 언어 기준(L3)** — 기기별 앱 언어 기록 방식 채택 여부.
 3. **빌드 시점** — S8-1~4 는 새 바이너리 필요. 네이티브 빌드는 Owner 가 한 번에(일괄) 진행하는 방식 유지 여부.
 
+## 10. S8-1 결과 (언어 저장 통로, 2026-11-08 — Owner 「S8-1 진행」)
+
+| 항목 | 내용 |
+|---|---|
+| 네이티브 | `DibayAppLanguage.set({ language })` · `get()` — iOS `UserDefaults["dibay_app_language"]`, Android `SharedPreferences("dibay_app_language").language`. 값은 "ko"·"en" 만, 그 외·null = 지움(기기 언어 따름). 정적 읽기 `storedLanguage()` 는 S8-3·S8-4 용 — **이 단계는 저장만, 어떤 화면·통화 동작도 읽지 않음** |
+| 등록 | iOS `DibayRootBridgeViewController.makeAppTargetPlugins()` + Xcode 프로젝트 4곳 + 계약 목록(`scripts/ios-app-target-plugins.mjs`), Android `MainActivity.registerPlugin` |
+| 웹 | `lib/i18n/native-app-language.ts` — 웹·구 앱(플러그인 없음)은 호출하지 않음, 오류는 삼킴. `AppLanguageProvider` 가 화면 언어 쿠키와 **같은 값**(`displayLanguageCookieValue`)을 바뀔 때만 보냄(동적 import — S1 과 같은 이유) |
+| 통화 코드 | 변경 0 (통화 플러그인 등록 계약 `verify:ios-call-package-classlist-contract` PASS) |
+| 검증 | 웹 typecheck 2종·eslint·관련 vitest 224·전체 vitest · iOS 시뮬레이터 빌드 **BUILD SUCCEEDED**(새 파일 컴파일) · Android `compileDebugJavaWithJavac` PASS · Android 단위 테스트 2/2 · iOS 등록 계약 PASS(12개) |
+| 실기기 | **NOT_PROVEN** — 새 바이너리(Android 38·iOS 28 예정) 설치 후: 언어 바꾸기 → `get()` 또는 기기 로그로 저장값 확인, 로그아웃·계정 전환 시 값 확인. 빌드는 Owner 일괄 빌드 때 |
+
 ## 부록 A — 통화·알림 네이티브 한국어 문자열 114개 (역할)
 
 | 위치 | 문자열 | 역할 |

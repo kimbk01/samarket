@@ -1258,6 +1258,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
     registerPlugin(NotificationSoundBridgePlugin.class);
     registerPlugin(DibayAppIconDeliveryPlugin.class);
+    registerPlugin(DibayAppLanguagePlugin.class);
     registerPlugin(DibayDeviceClassPlugin.class);
     registerPlugin(DibayAppOrientationPlugin.class);
     registerPlugin(DibayPlayInAppUpdatePlugin.class);

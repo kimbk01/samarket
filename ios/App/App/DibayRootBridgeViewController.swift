@@ -164,6 +164,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       DibayDeviceClassPlugin(),
       // App-shell orientation route mode (admin landscape, v4 §2-2 C)
       DibayAppOrientationPlugin(),
+      // App language → native store (언어 SSOT S8-1 — store only, no behavior change)
+      DibayAppLanguagePlugin(),
       // Edge swipe back — on only while a web screen asks (community write composer)
       DibayBackSwipePlugin(),
       // Apple in-app purchase (StoreKit 2 · Point top-up)
