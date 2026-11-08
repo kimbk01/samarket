@@ -52,7 +52,7 @@
 | # | 계약 근거 | 처리 | 상태 |
 |---|---|---|---|
 | B-2 | 잠금 파일(`package-lock.json`)에 이미 포함 — 로컬 폴더만 누락 | 공용 폴더에 같은 버전 설치(`npm install --no-save`) | 아래 보고 참조 |
-| B-4 | 운영 데이터 정리 정식 경로(백업 → 1행 → 전후 대조) | 실행 안 함 — 운영 DB 변경은 Owner 별도 승인 | **Owner 승인 대기** |
+| B-4 | 운영 데이터 정리 정식 경로(백업 → 1행 → 전후 대조) | Owner 「B-4 실행 승인」 → 12:08 PHT 실행: 회원 B `c741c5b6…` 의 google 연결 1행(`auth.identities` `3b73256c…`) 백업(`public._backup_b4_auth_identity_20271108`, RLS 켬·anon/authenticated 권한 없음) 후 삭제. 실행 전 조회 = 승인 때 조회와 같음 | 운영 DB PASS: 백업 1행(열 값 실행 전 조회와 일치) · B 는 email 1행만 · 해당 Google ID 연결 0행 · B 회원 유지. 회원 A 로 웹 Google 로그인은 NOT_PROVEN(Owner 확인) |
 | B-5 | 분할은 진입 모션 없음(셸 `splitPaneMode`·P1·P2·F1 승인 작업의 전제). 「칸 안 좌→우」 CSS 는 2026-07-31 이후 쓰이지 않는 코드 | 권장안 ② — 쓰이지 않는 CSS 삭제, 계약 문구·테스트를 「모션 없음」으로 정정 | 코드 PASS |
 | B-6 | 틀 계약 「방이 열릴 때 위치 이동 없음」(`messenger-split-room-entry-frame.contract.test.ts`) | 틀 상단바에 실제 상태 줄과 같은 클래스의 빈 줄(문구 없음) | 코드 PASS · 화면 측정은 배포 후 |
 | B-11 | Windows 앱 로그인 「처음은 무조건 QR」(Owner 2026-11-08) | `<head>` 인라인 스크립트가 그리기 전 `html[data-dibay-host-shell-boot]` 표시 → CSS 가 일반 로그인 숨김·QR 자리 표시 | 코드 PASS · 노트북 확인 Owner |
