@@ -17,8 +17,11 @@ export const ENTRY_TELEMETRY_MAX_EVENTS_PER_RUN = 6;
 export const ENTRY_EVENT_KINDS = ["cold", "resume"] as const;
 export type EntryEventKind = (typeof ENTRY_EVENT_KINDS)[number];
 
-/** released = 시작 화면 해제 · failure = 시작/복귀 중 실패 · no_release = 해제 신호 없이 관측 한도 경과 · resume = 복귀 */
-export const ENTRY_EVENT_TYPES = ["released", "failure", "no_release", "resume"] as const;
+/**
+ * released = 시작 화면 해제 · failure = 시작/복귀 중 실패 · no_release = 해제 신호 없이 관측 한도 경과 · resume = 복귀 ·
+ * update_reload = 복귀 시 새 웹 배포로 안전 새로고침 (C3, lib/startup/web-version-resume.client.ts)
+ */
+export const ENTRY_EVENT_TYPES = ["released", "failure", "no_release", "resume", "update_reload"] as const;
 export type EntryEventType = (typeof ENTRY_EVENT_TYPES)[number];
 
 export const ENTRY_PLATFORMS = ["android", "ios", "web"] as const;

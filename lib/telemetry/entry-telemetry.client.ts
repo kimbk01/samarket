@@ -372,6 +372,15 @@ export function noteEntryFailure(failure: EntryFailureClass): void {
   }
 }
 
+/** C3 — 새 웹 배포로 안전 새로고침 직전 (곧 문서가 사라지므로 즉시 송신). */
+export function noteEntryUpdateReload(): void {
+  try {
+    sendNow("resume", "update_reload", {});
+  } catch {
+    /* ignore */
+  }
+}
+
 export function resetEntryTelemetryForTests(): void {
   state = freshState();
 }

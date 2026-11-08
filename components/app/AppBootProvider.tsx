@@ -26,6 +26,7 @@ import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkRelo
 import { logAppBuildFingerprintOnce } from "@/lib/build/app-build-fingerprint";
 import { AbandonedR15LocalStatePurge } from "@/components/app/AbandonedR15LocalStatePurge";
 import { startEntryTelemetry } from "@/lib/telemetry/entry-telemetry.client";
+import { startWebVersionResumeCheck } from "@/lib/startup/web-version-resume.client";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -59,6 +60,8 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
     logAppBuildFingerprintOnce("AppBootProvider");
     // C8 관측 시작 (해제 없음 관측·복귀 기록) — 부팅 순서·네트워크에 영향 없음.
     startEntryTelemetry();
+    // C3 — 30분 이상 백그라운드 후 복귀 시 새 웹 배포 확인, 허브 화면·통화/입력/모달 없음일 때만 1회 새로고침.
+    startWebVersionResumeCheck();
     clearChunkReloadSessionFlag();
     setAppBootShell();
     markBootMetricsReactMounted();

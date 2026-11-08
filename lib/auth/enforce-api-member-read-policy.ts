@@ -34,6 +34,8 @@ export function isMemberReadExemptPath(pathname: string): boolean {
   if (p === "/api/auth" || p.startsWith("/api/auth/")) return true;
   if (p === "/api/support" || p.startsWith("/api/support/")) return true;
   if (p === "/api/me/profile" || p === "/api/me/signup-status") return true;
+  // C3 복귀 시 웹 버전 확인 — 회원 데이터 없음·DB 미사용 (app/api/app/web-version/route.ts).
+  if (p === "/api/app/web-version") return true;
   return false;
 }
 
