@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { philippinesPhoneLookupVariants, philippinesPhoneStorageFields } from "@/lib/auth/phone-otp-phone-canonical";
+import { resolveVerifyPhone } from "@/lib/phone/verify-phone-number";
 
 export type PhoneDuplicateHit = {
   profileId: string;
@@ -15,9 +15,10 @@ export async function findPhoneDuplicateOnOtherProfile(
   userId: string,
   inputPhone: string,
 ): Promise<PhoneDuplicateHit | null> {
-  const phoneVariants = philippinesPhoneLookupVariants(inputPhone);
-  const fields = philippinesPhoneStorageFields(inputPhone);
-  const national = fields.phone_number?.trim() ?? "";
+  // 필리핀(09·+63 표기)·한국(+82) 공통 — `verify-phone-number` 단일 정의.
+  const resolved = resolveVerifyPhone(inputPhone);
+  const phoneVariants = resolved?.lookupVariants ?? [];
+  const national = resolved?.storage.phone_number.trim() ?? "";
 
   const phoneChecks = phoneVariants.map(async (phone) => {
     const { data, error } = await sb

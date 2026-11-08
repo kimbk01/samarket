@@ -16,6 +16,8 @@ export type RequiredInfoPhoneSettings = {
   provider: "supabase" | "semaphore";
   guideText: string;
   resendCooldownSeconds: number;
+  /** 인증 가능한 국가번호 (`+63`·`+82`) */
+  countryDialCodes?: string[];
 };
 
 type PhoneSnapshot = {
@@ -35,6 +37,7 @@ type PhoneSnapshot = {
     provider: "supabase" | "semaphore";
     guide_text: string;
     resend_cooldown_seconds: number;
+    country_dial_codes?: string[];
   };
 };
 
@@ -60,6 +63,7 @@ export function buildRequiredInfoPhoneSnapshot(
           provider: phoneSettings.provider,
           guide_text: phoneSettings.guideText,
           resend_cooldown_seconds: phoneSettings.resendCooldownSeconds,
+          country_dial_codes: phoneSettings.countryDialCodes,
         }
       : undefined,
   };

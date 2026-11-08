@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/member-access";
 import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { loadAuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
+import { resolveAvailableVerifyDialCodes } from "@/lib/phone/available-verify-countries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,8 @@ export async function GET() {
       full_member_access_ok: fullMemberAccessOk,
       store_member_status: state.storeMemberStatus ?? "sns_member",
       consent_required: state.hasRequiredConsent === false,
-      settings: phoneSettings,
+      // 인증 가능한 국가번호 — +63(Semaphore) 항상, +82 는 Solapi 설정이 있을 때만 (Owner 2026-11-09).
+      settings: { ...phoneSettings, country_dial_codes: resolveAvailableVerifyDialCodes() },
     },
   });
 }

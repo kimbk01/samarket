@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminPhoneWithCountry } from "@/lib/phone/admin-phone-country-display";
 import type { AdminUserDetailPayload } from "@/components/admin/users/AdminTestUserDetail";
 import {
   displayNameForDetailUser,
@@ -126,7 +127,10 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         <Field label={safeT("admin_users_label_login_alias")} value={user.username?.trim() || empty} />
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_contact")}>
-        <Field label={t("admin_users_lite_label_phone")} value={profile?.phone || user.contact_phone || empty} />
+        <Field
+          label={t("admin_users_lite_label_phone")}
+          value={adminPhoneWithCountry(profile?.phone || user.contact_phone, language === "en" ? "en" : "ko") || empty}
+        />
         <Field
           label={t("admin_users_member_contact_email")}
           value={

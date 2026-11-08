@@ -8,12 +8,15 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
+import { parseVerifyDialCodes } from "@/lib/phone/phone-country-codes";
 
 export type PhoneVerificationSettings = {
   enabled: boolean;
   provider: "supabase" | "semaphore";
   guide_text: string;
   resend_cooldown_seconds: number;
+  /** 인증 가능한 국가번호 (`+63`·`+82`) — 서버 `resolveAvailableVerifyDialCodes` */
+  country_dial_codes: string[];
 };
 
 export type PhoneVerificationLoadResult =
@@ -30,6 +33,7 @@ type SettingsJson = {
       provider?: string;
       guide_text?: string;
       resend_cooldown_seconds?: number;
+      country_dial_codes?: unknown;
     };
   };
 };
@@ -43,6 +47,7 @@ export function parsePhoneVerificationSettings(json: unknown): PhoneVerification
     provider: s.provider === "semaphore" ? "semaphore" : "supabase",
     guide_text: s.guide_text ?? "",
     resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60),
+    country_dial_codes: parseVerifyDialCodes(s.country_dial_codes),
   };
 }
 

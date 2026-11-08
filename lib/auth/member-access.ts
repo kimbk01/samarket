@@ -10,7 +10,7 @@ import { mergeOAuthAvatarIntoPatch } from "@/lib/auth/refresh-oauth-avatar-if-le
 import { withVerifiedOAuthAvatar } from "@/lib/profile/verify-remote-profile-image.server";
 import { isForbiddenSocialProviderUserId } from "@/lib/auth/provider-identity/profile-identity-metadata-contract";
 import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-legacy";
-import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
+import { resolveProfilePhoneStored } from "@/lib/profile/resolve-profile-phone";
 import {
   deriveStoreMemberStatus,
   hasStoreTermsConsent,
@@ -651,7 +651,7 @@ export async function loadMemberAccessState(
   const status = normalizeMemberStatus(pickTrimmed(profile?.status));
   const phoneCountryCode = pickTrimmed((profile as { phone_country_code?: string | null } | null)?.phone_country_code) ?? "+63";
   const phoneNumber = pickTrimmed((profile as { phone_number?: string | null } | null)?.phone_number);
-  const phone = resolveProfilePhoneDb09({
+  const phone = resolveProfilePhoneStored({
     phone: profile?.phone,
     phone_country_code: phoneCountryCode,
     phone_number: phoneNumber,

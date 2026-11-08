@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { verifyPhoneCountryLabel } from "@/lib/phone/verify-phone-number";
 import Link from "next/link";
 import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
@@ -418,7 +419,12 @@ export function AdminPhoneVerificationOpsPage() {
                   <li key={d.id} className="rounded-ui-rect border border-sam-border px-2 py-1.5">
                     <AdminStatusLabel namespace={MEMBERS_SMS_OUTCOME_NS} code={d.outcome} ko={ko} />{" "}
                     · {pht(d.created_at)}
-                    {d.provider_code ? ` · ${d.provider_code}` : ""}
+                    {d.provider_code
+                      ? ` · ${verifyPhoneCountryLabel(
+                          String(d.provider_code).startsWith("solapi") ? "KR" : "PH",
+                          language === "en" ? "en" : "ko",
+                        )} · ${d.provider_code}`
+                      : ""}
                     {d.error_summary ? ` · ${d.error_summary}` : ""}
                   </li>
                 ))}

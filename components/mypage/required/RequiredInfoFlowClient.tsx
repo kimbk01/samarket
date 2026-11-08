@@ -28,6 +28,7 @@ import {
   type RequiredInfoStep,
 } from "@/lib/mypage/required-info-flow";
 import { PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { parseVerifyDialCodes } from "@/lib/phone/phone-country-codes";
 
 export function RequiredInfoFlowClient() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export function RequiredInfoFlowClient() {
             provider?: string;
             guide_text?: string;
             resend_cooldown_seconds?: number;
+            country_dial_codes?: unknown;
           };
         };
       };
@@ -67,6 +69,7 @@ export function RequiredInfoFlowClient() {
           provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
           guideText: String(s.guide_text ?? ""),
           resendCooldownSeconds: Number(s.resend_cooldown_seconds ?? 60),
+          countryDialCodes: parseVerifyDialCodes(s.country_dial_codes),
         });
       } else {
         setPhoneSettings(null);

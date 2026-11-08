@@ -72,3 +72,22 @@ export function hydrateProfileRowPhone<T extends ProfilePhoneRowSlice>(row: T): 
     phone_number: row.phone_number ?? fields.phone_number,
   };
 }
+
+/**
+ * 한국(+82) 인증 번호 — `profiles.phone` 은 E.164 `+8210…` (Owner 2026-11-09, Solapi 인증).
+ * 필리핀 `09…` 복원(`resolveProfilePhoneDb09`)과 겹치지 않는다.
+ */
+export function resolveProfilePhoneKrE164(row: ProfilePhoneRowSlice): string | null {
+  const phone = String(row.phone ?? "").replace(/[\s()-]/g, "").trim();
+  if (/^\+8210\d{7,8}$/.test(phone) || /^\+821[16789]\d{7,8}$/.test(phone)) return phone;
+  if (String(row.phone_country_code ?? "").trim() === "+82") {
+    const national = String(row.phone_number ?? "").replace(/\D/g, "").replace(/^0/, "");
+    if (/^1[016789]\d{7,8}$/.test(national)) return `+82${national}`;
+  }
+  return null;
+}
+
+/** 저장 번호 그대로 — 필리핀 `09…` 또는 한국 `+82…` (표시·게이트 공통). */
+export function resolveProfilePhoneStored(row: ProfilePhoneRowSlice): string | null {
+  return resolveProfilePhoneDb09(row) ?? resolveProfilePhoneKrE164(row);
+}

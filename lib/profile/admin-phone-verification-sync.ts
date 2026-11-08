@@ -2,12 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   profilePhoneStorageFieldsFromDb09,
   resolveProfilePhoneDb09,
+  resolveProfilePhoneKrE164,
+  resolveProfilePhoneStored,
   type ProfilePhoneRowSlice,
 } from "@/lib/profile/resolve-profile-phone";
+import { formatKoreaMobileLocal } from "@/lib/phone/verify-phone-number";
 import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
 import { hasVerifiedPhone, type PhoneVerificationGateInput } from "@/lib/auth/post-login-profile-policy";
 
-export type ProfilePhoneVerificationMethod = "admin_manual" | "semaphore_local";
+export type ProfilePhoneVerificationMethod = "admin_manual" | "semaphore_local" | "solapi";
 
 const PROFILE_PHONE_ROW_SELECT = "phone, phone_country_code, phone_number";
 
@@ -29,14 +32,16 @@ export function buildPhoneVerifiedMemberPatch(input: {
     member_status: "active",
     verified_member_at: nowIso,
     status: "verified_user",
-    preferred_country: "PH",
     phone_verification_attempt_count: 0,
     updated_at: nowIso,
   };
 
   const resolved = input.phoneRow ? resolveProfilePhoneDb09(input.phoneRow) : null;
   if (resolved) {
-    Object.assign(patch, profilePhoneStorageFieldsFromDb09(resolved));
+    Object.assign(patch, profilePhoneStorageFieldsFromDb09(resolved), { preferred_country: "PH" });
+  } else if (!(input.phoneRow && resolveProfilePhoneKrE164(input.phoneRow))) {
+    // 번호 없는 수동 인증(레거시) — 이전처럼 PH. 한국 번호 회원은 나라 설정을 바꾸지 않는다.
+    patch.preferred_country = "PH";
   }
 
   return patch;
@@ -51,9 +56,9 @@ export function hasPhoneForAdminManualVerify(
   nextPhonePatch?: Record<string, unknown> | null,
 ): boolean {
   if (nextPhonePatch) {
-    return resolveProfilePhoneDb09(nextPhonePatch as ProfilePhoneRowSlice) != null;
+    return resolveProfilePhoneStored(nextPhonePatch as ProfilePhoneRowSlice) != null;
   }
-  return phoneRow ? resolveProfilePhoneDb09(phoneRow) != null : false;
+  return phoneRow ? resolveProfilePhoneStored(phoneRow) != null : false;
 }
 
 export function buildPhoneVerificationResetPatch(nowIso?: string): Record<string, unknown> {
@@ -85,8 +90,11 @@ export async function loadProfilePhoneRowSlice(
 /** 나의정보·프로필 수정 readonly — `phone` / `phone_number` 레거시 복원 후 +63 표기 */
 export function formatProfilePhoneForDisplay(row: ProfilePhoneRowSlice): string {
   const db09 = resolveProfilePhoneDb09(row);
-  if (!db09) return "";
-  return formatPhMobileDisplayPlus63(db09);
+  if (db09) return formatPhMobileDisplayPlus63(db09);
+  const kr = resolveProfilePhoneKrE164(row);
+  // `+82 10 1234 5678` — 국가번호 + 국내 번호(앞 0 제외)
+  if (kr) return `+82 ${formatKoreaMobileLocal(`0${kr.slice(3)}`).slice(1)}`;
+  return "";
 }
 
 export type AdminPhoneVerificationStatus = "unverified" | "pending" | "verified" | "rejected";

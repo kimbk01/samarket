@@ -6,7 +6,8 @@ import {
   normalizePhilippinesPhoneNumber,
   isValidPhilippinesMobilePhone,
 } from "@/lib/phone/philippines-phone";
-import { PHONE_VERIFY_COUNTRY_OPTIONS, PHONE_VERIFY_DEFAULT_COUNTRY } from "@/lib/phone/phone-country-codes";
+import { phoneVerifyCountryOptionsFor } from "@/lib/phone/phone-country-codes";
+import { formatKoreaMobileLocal, parseKoreaMobileLocal, parseKoreaMobileTyping } from "@/lib/phone/verify-phone-number";
 import { formatPhMobileDisplayPlus63, normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS, PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
@@ -28,6 +29,8 @@ type VerificationSettings = {
   provider?: "supabase" | "semaphore" | string;
   guide_text: string;
   resend_cooldown_seconds: number;
+  /** 인증 가능한 국가번호 (`+63`·`+82`) — 없으면 +63 만 */
+  country_dial_codes?: string[];
 };
 
 type VerifySnapshot = {
@@ -83,7 +86,7 @@ export function PhoneVerificationBox({
    */
   surface?: "page" | "overlay";
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const ov = surface === "overlay" && !compact;
   const ovCls = {
     card: `rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3`,
@@ -114,12 +117,38 @@ export function PhoneVerificationBox({
     email: snapshot.email ?? null,
   });
 
-  useEffect(() => {
-    setPhone(resolvedSnapshotPhone ?? "");
-    setAllowEdit(!verified);
-  }, [resolvedSnapshotPhone, verified]);
-
   const settings = snapshot.settings;
+  /** 국가번호 칸 — +63 필리핀(Semaphore) · +82 한국(Solapi, 서버가 허용할 때만) (Owner 2026-11-09). */
+  const countryOptions = useMemo(
+    () => phoneVerifyCountryOptionsFor(settings?.country_dial_codes),
+    [settings?.country_dial_codes],
+  );
+  const snapshotIsKorea =
+    String(snapshot.phone ?? "").startsWith("+82") || String(snapshot.phone_country_code ?? "") === "+82";
+  const [dialCode, setDialCode] = useState<string>(snapshotIsKorea ? "+82" : "+63");
+  const isKorea = dialCode === "+82";
+
+  useEffect(() => {
+    if (snapshotIsKorea) {
+      setDialCode("+82");
+      setPhone(parseKoreaMobileTyping(String(snapshot.phone ?? "")));
+    } else {
+      setPhone(resolvedSnapshotPhone ?? "");
+    }
+    setAllowEdit(!verified);
+  }, [resolvedSnapshotPhone, verified, snapshotIsKorea, snapshot.phone]);
+
+  /** 서버가 내준 목록에 없는 국가번호가 선택돼 있으면 첫 항목으로 되돌린다. */
+  useEffect(() => {
+    if (!countryOptions.some((c) => c.dialCode === dialCode)) {
+      setDialCode(countryOptions[0]?.dialCode ?? "+63");
+      setPhone("");
+    }
+  }, [countryOptions, dialCode]);
+
+  const countryNoticeNames = countryOptions
+    .map((c) => `${language === "en" ? c.labelEn : c.labelKo}(${c.dialCode})`)
+    .join(language === "en" ? ", " : "·");
   const cooldownSec = Math.max(1, Number(settings?.resend_cooldown_seconds ?? 60));
   const cooldownLeft = resolvePhoneOtpCooldownLeft(cooldownUntil, nowMs);
 
@@ -135,7 +164,9 @@ export function PhoneVerificationBox({
     return () => window.clearInterval(id);
   }, [cooldownUntil]);
   const normalizedPhone = useMemo(() => normalizePhilippinesPhoneNumber(phone), [phone]);
+  const koreaLocal = isKorea ? parseKoreaMobileLocal(phone) : null;
   const phoneForApi = useMemo(() => {
+    if (isKorea) return koreaLocal ? `+82${koreaLocal.slice(1)}` : "";
     const db = normalizePhMobileDb(phone);
     if (db) return db;
     const e164 = normalizedPhone;
@@ -143,14 +174,15 @@ export function PhoneVerificationBox({
       return normalizePhMobileDb(parsePhMobileInput(e164)) ?? e164;
     }
     return e164;
-  }, [phone, normalizedPhone]);
-  const validPhone = isValidPhilippinesMobilePhone(normalizedPhone);
+  }, [phone, normalizedPhone, isKorea, koreaLocal]);
+  const validPhone = isKorea ? koreaLocal != null : isValidPhilippinesMobilePhone(normalizedPhone);
+  const invalidPhoneMessage = () => (isKorea ? t("my_phone_rule_invalid_kr") : t("my_phone_rule_invalid"));
 
   const requestOtp = async () => {
     setError(null);
     setMessage(null);
     if (!validPhone) {
-      setError(t("my_phone_rule_invalid"));
+      setError(invalidPhoneMessage());
       return;
     }
     setSending(true);
@@ -192,7 +224,7 @@ export function PhoneVerificationBox({
     setError(null);
     setMessage(null);
     if (!validPhone) {
-      setError(t("my_phone_rule_invalid"));
+      setError(invalidPhoneMessage());
       return;
     }
     if (!isValidPhoneOtpCodeInput(otp)) {
@@ -391,13 +423,18 @@ export function PhoneVerificationBox({
             {/* 국가번호 칸 + 번호 칸 분리 (Owner 2026-11-09). autoComplete 로 기기 저장 번호 제안 → 그대로 고칠 수 있음. */}
             <div className="grid min-w-0 grid-cols-[auto_1fr] gap-2">
               <select
-                defaultValue={PHONE_VERIFY_DEFAULT_COUNTRY.dialCode}
+                value={dialCode}
+                onChange={(e) => {
+                  setDialCode(e.target.value);
+                  setPhone("");
+                  setError(null);
+                }}
                 aria-label={t("my_phone_country_code_label")}
                 autoComplete="tel-country-code"
                 className={`${inputClass} !w-auto`}
                 data-testid="phone-verify-country-code"
               >
-                {PHONE_VERIFY_COUNTRY_OPTIONS.map((c) => (
+                {countryOptions.map((c) => (
                   <option key={c.iso} value={c.dialCode}>
                     {`${c.flag} ${c.dialCode}`}
                   </option>
@@ -409,8 +446,10 @@ export function PhoneVerificationBox({
                 autoComplete="tel"
                 name="tel"
                 aria-label={t("my_phone_number_label")}
-                value={formatPhNationalDisplay(phone)}
-                onChange={(e) => setPhone(parsePhMobileInput(e.target.value))}
+                value={isKorea ? formatKoreaMobileLocal(phone) : formatPhNationalDisplay(phone)}
+                onChange={(e) =>
+                  setPhone(isKorea ? parseKoreaMobileTyping(e.target.value) : parsePhMobileInput(e.target.value))
+                }
                 placeholder={t("my_phone_number_placeholder")}
                 className={`${inputClass} min-w-0`}
                 data-testid="phone-verify-number"
@@ -425,6 +464,9 @@ export function PhoneVerificationBox({
               {sending ? t("my_phone_sending") : t("my_phone_send_otp")}
             </button>
           </div>
+          <p className="sam-text-helper text-sam-muted" data-testid="phone-verify-country-notice">
+            {t("my_phone_country_only_notice", { countries: countryNoticeNames })}
+          </p>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
               type="text"

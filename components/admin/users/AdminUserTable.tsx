@@ -19,6 +19,7 @@ import {
   memberListVerificationLabel,
 } from "@/lib/admin-users/member-list-presentation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminPhoneWithCountry } from "@/lib/phone/admin-phone-country-display";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminUserListPagination } from "./AdminUserListPagination";
 import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
@@ -91,7 +92,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   const origin = memberListSignupOriginLabel(user.authProvider, language);
   const verifyLabel = memberListVerificationLabel(user, language);
   const copyId = publicId || user.id;
-  const phone = user.phone?.trim() || "";
+  const phone = adminPhoneWithCountry(user.phone, language === "en" ? "en" : "ko");
   const contactEmail = user.email?.trim() || "";
   const provider = resolveProvider(user);
   const accountLabel = adminMemberLoginAccountLabelKo(user.loginAccount);

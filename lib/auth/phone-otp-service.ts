@@ -8,15 +8,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomInt } from "node:crypto";
 import { loadAuthPhoneSettings, type AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import { resolvePhoneOtpHashSecret } from "@/lib/auth/phone-otp-hash-secret";
-import { isValidPhilippinesMobilePhone } from "@/lib/phone/philippines-phone";
 import { isValidPhoneOtpCodeInput } from "@/lib/auth/phone-otp-contract";
 import { findPhoneDuplicateOnOtherProfile } from "@/lib/auth/phone-otp-duplicate-check";
-import {
-  philippinesPhoneDb09,
-  philippinesPhoneE164,
-  philippinesPhoneStorageFields,
-  philippinesPhonesMatchForOtp,
-} from "@/lib/auth/phone-otp-phone-canonical";
+import { resolveVerifyPhone, type ResolvedVerifyPhone, type VerifyPhoneProvider } from "@/lib/phone/verify-phone-number";
+import { isSolapiSmsConfigured } from "@/lib/env/solapi-sms";
+import { sendSolapiSms } from "@/lib/auth/solapi-sms";
 import { recordPhoneOtpDeliveryEvent } from "@/lib/auth/phone-otp-ops";
 import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
 
@@ -42,7 +38,7 @@ type VerifyOtpResult = {
   /** 승격 시 "active" · 제재(정지·차단·탈퇴) 회원은 기존 값 유지. */
   member_status: string;
   phone_verified: true;
-  verification_method: "semaphore_local";
+  verification_method: VerifyPhoneProvider;
 };
 
 function fail(
@@ -57,8 +53,27 @@ function invalidPhoneResult(): ServiceResult<never> {
   return fail(
     400,
     "phone_invalid",
-    "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567",
+    "필리핀(+63)·한국(+82) 휴대폰 번호만 인증할 수 있습니다. 번호를 확인해 주세요.",
   );
+}
+
+/**
+ * 입력 번호 → 인증 대상 (필리핀 +63 = Semaphore · 한국 +82 = Solapi, Owner 2026-11-09).
+ * 한국은 Solapi 설정(키·발신번호)이 있을 때만 받는다. 그 외 나라는 거절.
+ */
+function resolveVerifyTarget(inputPhone: string): ResolvedVerifyPhone | null {
+  const resolved = resolveVerifyPhone(inputPhone);
+  if (!resolved) return null;
+  if (resolved.country === "KR" && !isSolapiSmsConfigured()) return null;
+  return resolved;
+}
+
+/** 발송 업체 분기 — 문자 문구는 나라별 (Solapi 한국 SMS 90byte 이내). */
+async function sendVerifySms(target: ResolvedVerifyPhone, otpCode: string) {
+  if (target.country === "KR") {
+    return sendSolapiSms(`0${target.storage.phone_number}`, `[DIBAY] 인증번호 ${otpCode}`);
+  }
+  return sendSemaphoreSms(target.e164, `[DIBAY] Verification code: ${otpCode}`);
 }
 
 function phoneDuplicateResult(): ServiceResult<never> {
@@ -249,10 +264,10 @@ export async function sendPhoneOtpForUser(
   if (!runtime.ok) return runtime;
   const { settings, hashSecret } = runtime.data;
 
-  const normalizedPhone = philippinesPhoneE164(inputPhone);
-  if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
-  const phoneFields = philippinesPhoneStorageFields(inputPhone);
-  if (!phoneFields.phone) return invalidPhoneResult();
+  const target = resolveVerifyTarget(inputPhone);
+  if (!target) return invalidPhoneResult();
+  const normalizedPhone = target.e164;
+  const phoneFields = target.storage;
 
   const uniqueCheck = await ensurePhoneUnique(sb, userId, inputPhone);
   if (!uniqueCheck.ok) return uniqueCheck;
@@ -275,13 +290,12 @@ export async function sendPhoneOtpForUser(
   const otpRow = await upsertPhoneOtpChallenge(sb, userId, normalizedPhone, otpCodeHash, expiresAtIso);
   if (!otpRow.ok) return otpRow;
 
-  const smsMessage = `[DIBAY] Verification code: ${otpCode}`;
-  const smsSent = await sendSemaphoreSms(normalizedPhone, smsMessage);
+  const smsSent = await sendVerifySms(target, otpCode);
   if (!smsSent.ok) {
     await recordPhoneOtpDeliveryEvent(sb, {
       userId,
       outcome: "failed",
-      providerCode: "otp_send_failed",
+      providerCode: `${target.provider}:otp_send_failed`,
       errorSummary: smsSent.error,
     });
     return fail(502, "otp_send_failed", "인증번호 발송에 실패했습니다.");
@@ -289,7 +303,7 @@ export async function sendPhoneOtpForUser(
   await recordPhoneOtpDeliveryEvent(sb, {
     userId,
     outcome: "success",
-    providerCode: "semaphore_local",
+    providerCode: target.provider,
     providerMessageId: smsSent.providerMessageId,
   });
 
@@ -316,7 +330,7 @@ export async function sendPhoneOtpForUser(
     .eq("id", userId)
     .or("phone_verified.is.null,phone_verified.eq.false");
 
-  return { ok: true, data: { phone: phoneFields.phone ?? normalizedPhone, settings } };
+  return { ok: true, data: { phone: phoneFields.phone, settings } };
 }
 
 export async function verifyPhoneOtpForUser(
@@ -329,10 +343,10 @@ export async function verifyPhoneOtpForUser(
   if (!runtime.ok) return runtime;
   const { settings, hashSecret } = runtime.data;
 
-  const normalizedPhone = philippinesPhoneE164(inputPhone);
-  if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
-  const phoneFields = philippinesPhoneStorageFields(inputPhone);
-  if (!phoneFields.phone) return invalidPhoneResult();
+  const target = resolveVerifyTarget(inputPhone);
+  if (!target) return invalidPhoneResult();
+  const normalizedPhone = target.e164;
+  const phoneFields = target.storage;
   if (!isValidPhoneOtpCodeInput(String(otp ?? ""))) {
     return fail(400, "otp_invalid", "인증번호를 확인해 주세요.");
   }
@@ -357,7 +371,8 @@ export async function verifyPhoneOtpForUser(
   if (!challenge) {
     return fail(400, "otp_required", "먼저 인증번호를 요청해 주세요.");
   }
-  if (!philippinesPhonesMatchForOtp(challenge.phone, normalizedPhone)) {
+  const challengeTarget = resolveVerifyPhone(challenge.phone);
+  if (!challengeTarget || challengeTarget.e164 !== normalizedPhone) {
     return fail(400, "otp_phone_mismatch", "요청한 전화번호와 인증 대상 번호가 다릅니다.");
   }
   if (new Date(challenge.otp_expires_at).getTime() < Date.now()) {
@@ -372,7 +387,7 @@ export async function verifyPhoneOtpForUser(
     );
   }
 
-  const challengePhoneE164 = philippinesPhoneE164(challenge.phone);
+  const challengePhoneE164 = challengeTarget.e164;
   const providedHash = hashOtpCode(challengePhoneE164, String(otp).trim(), hashSecret);
   if (providedHash !== challenge.otp_code_hash) {
     await updatePhoneOtpChallengeAttempts(sb, userId, challenge.attempt_count + 1);
@@ -388,9 +403,10 @@ export async function verifyPhoneOtpForUser(
     phone_verified: true,
     phone_verified_at: nowIso,
     phone_verification_status: "verified",
-    phone_verification_method: "semaphore_local",
+    phone_verification_method: target.provider,
     phone_verification_attempt_count: 0,
-    preferred_country: "PH",
+    // 필리핀 번호만 기존처럼 PH 로 맞춘다 — 한국 번호 인증은 회원의 나라 설정을 바꾸지 않는다.
+    ...(target.country === "PH" ? { preferred_country: "PH" } : {}),
     updated_at: nowIso,
   };
   let promoted = false;
@@ -428,10 +444,10 @@ export async function verifyPhoneOtpForUser(
   return {
     ok: true,
     data: {
-      phone: phoneFields.phone ?? philippinesPhoneDb09(inputPhone) ?? normalizedPhone,
+      phone: phoneFields.phone,
       member_status: promoted ? "active" : String(otpState.data.member_status ?? ""),
       phone_verified: true,
-      verification_method: "semaphore_local",
+      verification_method: target.provider,
     },
   };
 }
