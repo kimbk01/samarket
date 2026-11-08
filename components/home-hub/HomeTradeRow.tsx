@@ -89,7 +89,7 @@ export function HomeTradeRow({
 
   return (
     <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-trades>
-      <HomeSectionHead title={title} moreLabel={t("home_more")} onMore={() => router.push("/market")} />
+      <HomeSectionHead title={title} />
       {items == null ? (
         <div className="flex gap-2.5 overflow-hidden px-4">
           {[0, 1, 2].map((i) => (

@@ -2,7 +2,7 @@
 
 import { ChevronRight } from "lucide-react";
 
-/** 홈 칸 제목 줄 — 네이버 홈 비율(16 · 600), 오른쪽 「더보기 ›」 */
+/** 홈 칸 제목 줄 — 네이버 홈 비율(16 · 600). 홈은 요약만 보이므로 「더보기 ›」 는 쓰지 않는다 (Owner 2026-11-09) */
 export function HomeSectionHead({
   title,
   moreLabel,

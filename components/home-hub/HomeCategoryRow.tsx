@@ -20,7 +20,7 @@ export function HomeCategoryRow({
   categories: HomeStoreCategory[];
   title: string;
 }) {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
   const router = useRouter();
   const ordered =
     config.slugs.length > 0
@@ -32,7 +32,7 @@ export function HomeCategoryRow({
   const row = config.layout === "row";
   return (
     <section className="mt-3 bg-white pb-4 pt-[18px]" data-home-categories>
-      <HomeSectionHead title={title} moreLabel={t("home_all")} onMore={() => router.push("/stores")} />
+      <HomeSectionHead title={title} />
       <div
         className={
           row

@@ -140,7 +140,7 @@ export function HomeScreen({
     : t("home_address_all");
 
   return (
-    <div className="min-h-full bg-[#F3F5F3] pb-6" data-home-screen>
+    <div className="min-h-full bg-[#F3F5F3]" data-home-screen>
       <HomePullRefreshHost />
 
       {/* 상단 — 로고 · 오른쪽 주소 · 종 (Owner 2026-11-09 「로고 우측에 주소」) */}

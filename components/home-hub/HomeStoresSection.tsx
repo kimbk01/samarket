@@ -154,8 +154,6 @@ export function HomeStoresSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 교체는 mode·seq(새로고침)·구성 기준
   }, [isMember, mode, seq, cfgKey, language]);
 
-  const more = () => router.push("/stores");
-
   if (state.kind === "gate") {
     const login = state.gate === "login_required";
     return (
@@ -180,7 +178,7 @@ export function HomeStoresSection({
   if (state.kind === "empty") {
     return (
       <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores data-home-stores-empty>
-        <HomeSectionHead title={title} moreLabel={t("home_menu_stores")} onMore={more} />
+        <HomeSectionHead title={title} />
         <p className="px-[18px] text-[13.5px] text-[#767676]">
           {state.reason === "closed" ? t("home_stores_closed_now") : t("home_stores_empty")}
         </p>
@@ -201,7 +199,7 @@ export function HomeStoresSection({
   }
   return (
     <section className="mt-3 bg-white pb-5 pt-[18px]" data-home-stores>
-      <HomeSectionHead title={title} moreLabel={t("home_menu_stores")} onMore={more} />
+      <HomeSectionHead title={title} />
       {state.shown.map(({ store, menus, adLabel }, i) => {
         const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
         return (

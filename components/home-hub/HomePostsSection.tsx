@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityCard } from "@/components/community/CommunityCard";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
@@ -27,7 +26,6 @@ export function HomePostsSection({
   refreshSeq: number;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[] | null>(null);
 
   useEffect(() => {
@@ -51,10 +49,9 @@ export function HomePostsSection({
     };
   }, [config.count, config.sort, config.topicSlug, refreshSeq]);
 
-  const more = config.topicSlug ? `/philife?category=${encodeURIComponent(config.topicSlug)}` : "/philife";
   return (
     <section className="mt-3 pt-[18px]" data-home-posts>
-      <HomeSectionHead title={title} moreLabel={t("home_menu_philife")} onMore={() => router.push(more)} />
+      <HomeSectionHead title={title} />
       {posts == null ? (
         <div className="space-y-3 px-4 pb-5">
           {[0, 1].map((i) => (
@@ -66,7 +63,7 @@ export function HomePostsSection({
       ) : (
         /* 게시판(`CommunityFeed`)과 같은 토큰 범위·같은 목록 틀 — 테두리·모서리·간격이 게시판과 같다 */
         <div data-community-ui className={COMMUNITY_FONT_CLASS}>
-          <ul className={COMMUNITY_FEED_LIST_WRAP_CLASS}>
+          <ul className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} !pb-0`}>
             {posts.map((p) => (
               <li key={p.id} className="list-none">
                 <CommunityCard post={p} />
