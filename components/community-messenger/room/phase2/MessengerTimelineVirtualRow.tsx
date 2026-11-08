@@ -45,6 +45,7 @@ import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
 import { MessengerTradeListingChangeSystemRow } from "@/components/community-messenger/room/phase2/MessengerTradeListingChangeSystemRow";
+import { resolveCmSystemMessageText } from "@/lib/community-messenger/system-message-i18n";
 import { resolveTradeListingChangeSystemState } from "@/lib/trade/trade-listing-change-system-message";
 import {
   CommunityPostShareMessageCard,
@@ -646,7 +647,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ) : item.messageType === "system" ? (
         <div className="max-w-[min(100%,22rem)] min-w-0 px-3">
           <div className={systemBubbleClass}>
-            <p className="whitespace-pre-line break-words text-center sam-text-helper leading-5">{item.content}</p>
+            <p className="whitespace-pre-line break-words text-center sam-text-helper leading-5">
+              {resolveCmSystemMessageText({ content: item.content, metadata }, t)}
+            </p>
           </div>
         </div>
       ) : item.messageType === "call_stub" ? (

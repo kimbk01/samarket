@@ -118,6 +118,7 @@ function parseLiteBundle(payload: CmBootstrapSnapshotPayloadJson) {
       last_message: (r.last_message as string | null) ?? null,
       last_message_at: (r.last_message_at as string | null) ?? null,
       last_message_type: (r.last_message_type ?? "text") as "text" | "image" | "file" | "system",
+      last_message_meta: r.last_message_meta ?? null,
     };
   });
 

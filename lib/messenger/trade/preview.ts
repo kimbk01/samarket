@@ -5,6 +5,8 @@ import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-
 import { formatCmListPreviewTextForViewer } from "@/lib/community-messenger/cm-home-list-copy";
 import type { CommunityMessengerMessageType } from "@/lib/community-messenger/types";
 import type { DomainPreview } from "@/lib/messenger/contracts/ports";
+import { resolveDomainListSystemPreviewText } from "@/lib/messenger/contracts/domain-list-system-preview";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { TradeListItem } from "@/lib/messenger/trade/types";
 
 export type TradePreviewMessage = Readonly<{
@@ -76,14 +78,36 @@ export function tradeListItemViewerUserId(
  * 거래 리스트 행·허브 공용 프리뷰 — viewer 기준 통화 문구 + 실제 message_type 라벨.
  * row-model 과 hub 가 같은 함수를 써서 hub/row previewText 가 일치한다.
  */
+/** 언어 SSOT B3 — 최신 시스템 메시지를 종류 코드 메타로 보는 사람 언어로 그린 문장. 없으면 null(저장 글자 그대로) */
+export function resolveTradeListItemLocalizedSystemPreview(
+  item: Pick<TradeListItem, "lastMessage" | "lastMessageType" | "lastMessageIsSystem" | "lastMessageMeta">,
+  lang?: AppLanguageCode | null
+): string | null {
+  const type = (item.lastMessageType ?? "").trim() || (item.lastMessageIsSystem ? "system" : "text");
+  if (type !== "system") return null;
+  return resolveDomainListSystemPreviewText({ lastMessage: item.lastMessage, meta: item.lastMessageMeta }, lang);
+}
+
 export function resolveTradeListItemPreview(
   item: Pick<
     TradeListItem,
-    "lastMessage" | "lastMessageType" | "lastMessageIsSystem" | "viewerRole" | "sellerUserId" | "counterpartyUserId"
-  >
+    | "lastMessage"
+    | "lastMessageType"
+    | "lastMessageIsSystem"
+    | "lastMessageMeta"
+    | "viewerRole"
+    | "sellerUserId"
+    | "counterpartyUserId"
+  >,
+  /** 서버 조립은 요청 언어를 넘긴다. 없으면 클라이언트 런타임 언어 */
+  lang?: AppLanguageCode | null
 ): DomainPreview {
   const viewerUserId = tradeListItemViewerUserId(item) || null;
   const type = (item.lastMessageType ?? "").trim() || (item.lastMessageIsSystem ? "system" : "text");
+  const localizedSystem = resolveTradeListItemLocalizedSystemPreview(item, lang);
+  if (localizedSystem) {
+    return resolveTradePreview({ content: localizedSystem, messageType: "system", isSystemAllowed: true });
+  }
   if (TRADE_LIST_LABELED_MESSAGE_TYPES.has(type)) {
     const label = formatCmListPreviewTextForViewer(
       { lastMessage: item.lastMessage, lastMessageType: type as CommunityMessengerMessageType },

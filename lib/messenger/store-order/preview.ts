@@ -9,6 +9,9 @@ import {
   contentHitsStoreOrderPreviewForbiddenMarkers,
   STORE_ORDER_DOMAIN,
 } from "@/lib/messenger/store-order/design-lock";
+import { resolveDomainListSystemPreviewText } from "@/lib/messenger/contracts/domain-list-system-preview";
+import type { StoreOrderListItem } from "@/lib/messenger/store-order/types";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 /** PreviewPort 유일한 메시지 입력 — 다른 필드명으로 우회 금지 */
 export type StoreOrderLatestChatMessage = Readonly<{
@@ -75,6 +78,22 @@ export function resolveStoreOrderPreview(input: StoreOrderPreviewPortInput): Dom
     throw new Error("dibay_store_order_preview_status_text_forbidden");
   }
   return { text: content, source: "latest_user_message" };
+}
+
+/**
+ * 언어 SSOT B3 — PreviewPort 에 넣을 최신 메시지 본문. 시스템 메시지(주문 사건·상품 상태 등)의 종류 코드 메타가
+ * 저장 글자와 맞으면 보는 사람 언어 문장, 아니면 저장 글자 그대로. 주문 요약은 다루지 않는다(가림 정책 유지).
+ */
+export function storeOrderListItemPreviewSourceText(
+  item: Pick<StoreOrderListItem, "latestChatMessageText" | "lastMessageMeta">,
+  lang?: AppLanguageCode | null
+): string {
+  return (
+    resolveDomainListSystemPreviewText(
+      { lastMessage: item.latestChatMessageText, meta: item.lastMessageMeta },
+      lang
+    ) ?? item.latestChatMessageText
+  );
 }
 
 const BARE_ORDER_STATUS_PREVIEWS = new Set([

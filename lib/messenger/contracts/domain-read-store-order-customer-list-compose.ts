@@ -128,7 +128,9 @@ export async function composeDomainReadStoreOrderCustomerListDto(
       return { ok: false, trigger: "viewer_mismatch" };
     }
 
-    const hub = buildStoreOrderHubViewModel(so.rows);
+    /** 언어 SSOT B3 — 행·hub 미리보기를 같은 요청 언어로(hub_preview_mismatch 방지) */
+    const lang = await resolveDomainReadRequestLanguage();
+    const hub = buildStoreOrderHubViewModel(so.rows, lang);
     const latest = selectLatestRowByActivityAt(so.rows, (r) => ({
       activityAt: r.latestChatMessageAt,
       tieKey: r.roomId,
@@ -138,7 +140,6 @@ export async function composeDomainReadStoreOrderCustomerListDto(
       return { ok: false, trigger: "store_order_hub_latest_mismatch" };
     }
 
-    const lang = await resolveDomainReadRequestLanguage();
     const vms = so.rows.map((row) => buildStoreOrderCustomerListViewModel(row, lang));
     const sorted = [...vms].sort((a, b) => {
       const ta = Date.parse(a.lastMessageAt) || 0;

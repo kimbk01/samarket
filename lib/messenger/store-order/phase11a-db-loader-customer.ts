@@ -75,6 +75,7 @@ export function mapStoreOrderCustomerLoaderBatchRows(input: {
         orderStatusLabel: row.orderStatusLabel,
       }),
       latestChatMessageAt: row.latestMessage?.createdAt ?? null,
+      ...(row.latestMessage?.systemMeta ? { lastMessageMeta: row.latestMessage.systemMeta } : {}),
       unreadCount: row.unreadCount,
       orderStatusLabel: row.orderStatusLabel ?? null,
       fulfillmentType: row.fulfillmentType ?? null,

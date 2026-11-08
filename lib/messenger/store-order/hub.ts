@@ -11,10 +11,14 @@
  */
 import { selectLatestRowByActivityAt } from "@/lib/messenger/contracts/latest-activity-selector";
 import { assertDomainAllowedOnHomeInboxList } from "@/lib/messenger/contracts/home-surface";
-import { resolveStoreOrderPreview } from "@/lib/messenger/store-order/preview";
+import {
+  resolveStoreOrderPreview,
+  storeOrderListItemPreviewSourceText,
+} from "@/lib/messenger/store-order/preview";
 import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 import { STORE_ORDER_LIST_HREF, type StoreOrderHubViewModel } from "@/lib/messenger/store-order/ux-contract";
 import type { StoreOrderListItem } from "@/lib/messenger/store-order/types";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 function normalizeActivityAt(at: string | null | undefined): string | null {
   const t = typeof at === "string" ? at.trim() : "";
@@ -22,7 +26,9 @@ function normalizeActivityAt(at: string | null | undefined): string | null {
 }
 
 export function buildStoreOrderHubViewModel(
-  rows: ReadonlyArray<StoreOrderListItem>
+  rows: ReadonlyArray<StoreOrderListItem>,
+  /** 서버 조립은 요청 언어(목록 행과 같은 언어 — hub_preview_mismatch 방지) */
+  lang?: AppLanguageCode | null
 ): StoreOrderHubViewModel {
   for (const r of rows) {
     if (r.chatDomain !== STORE_ORDER_DOMAIN) {
@@ -37,7 +43,7 @@ export function buildStoreOrderHubViewModel(
     ? resolveStoreOrderPreview({
         chatDomain: STORE_ORDER_DOMAIN,
         latestChatMessage: {
-          text: latest.latestChatMessageText,
+          text: storeOrderListItemPreviewSourceText(latest, lang),
           messageType: latest.latestChatMessageType,
           isSystemAllowed: true,
         },

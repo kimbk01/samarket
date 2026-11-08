@@ -87,6 +87,7 @@ export function mapTradeListItem(
     productChatId: trimOrEmpty(row.productChatId) || null,
     lastMessage: trimOrEmpty(row.lastMessage),
     lastMessageType: trimOrEmpty(row.lastMessageType) || null,
+    ...(row.lastMessageMeta ? { lastMessageMeta: row.lastMessageMeta } : {}),
     lastMessageIsSystem: row.lastMessageIsSystem === true,
     lastMessageAt: lastAt,
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),

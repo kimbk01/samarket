@@ -11,13 +11,18 @@ import { resolveTradeListItemPreview, resolveTradePreview } from "@/lib/messenge
 import { TRADE_DOMAIN } from "@/lib/messenger/trade/domain";
 import { TRADE_LIST_HREF, type TradeHubViewModel } from "@/lib/messenger/trade/ux-contract";
 import type { TradeListItem } from "@/lib/messenger/trade/types";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 function normalizeActivityAt(at: string | null | undefined): string | null {
   const t = typeof at === "string" ? at.trim() : "";
   return t || null;
 }
 
-export function buildTradeHubViewModel(rows: ReadonlyArray<TradeListItem>): TradeHubViewModel {
+export function buildTradeHubViewModel(
+  rows: ReadonlyArray<TradeListItem>,
+  /** 서버 조립은 요청 언어(목록 행과 같은 언어) */
+  lang?: AppLanguageCode | null
+): TradeHubViewModel {
   for (const r of rows) {
     if (r.chatDomain !== TRADE_DOMAIN) {
       throw new Error("dibay_trade_hub_foreign_row");
@@ -28,7 +33,7 @@ export function buildTradeHubViewModel(rows: ReadonlyArray<TradeListItem>): Trad
     tieKey: r.roomId,
   }));
   const preview = latest
-    ? resolveTradeListItemPreview(latest)
+    ? resolveTradeListItemPreview(latest, lang)
     : resolveTradePreview(null);
   const unreadRoomCount = rows.filter((r) => r.unreadCount > 0).length;
   return {

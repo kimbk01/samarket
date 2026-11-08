@@ -1118,6 +1118,7 @@ function forwardCommerceRowToDomainList(r: CommunityMessengerRoomSummary, viewer
     previewText,
     lastMessageAt,
     lastMessageType: r.lastMessageType ?? null,
+    lastMessageMeta: r.lastMessageMeta ?? null,
     boostUnread: false,
   };
   const applied =

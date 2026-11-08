@@ -5,6 +5,7 @@ import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-
 import { buildChatDomainRoomHref } from "@/lib/chat-domain/ports/router-port";
 import type { MessengerRouterPort } from "@/lib/messenger/contracts/ports";
 import { resolveGeneralDirectPreview } from "@/lib/messenger/general-direct/preview";
+import { resolveDomainListSystemPreviewText } from "@/lib/messenger/contracts/domain-list-system-preview";
 import { resolveGeneralDirectDisplayFromListItem } from "@/lib/messenger/general-direct/presentation";
 import {
   GENERAL_DIRECT_DOMAIN,
@@ -27,7 +28,10 @@ export const generalDirectRouterPort: MessengerRouterPort = {
 export function buildGeneralDirectRowModel(item: GeneralDirectListItem): GeneralDirectRowModel {
   const identity = resolveGeneralDirectDisplayFromListItem(item);
   const preview = resolveGeneralDirectPreview({
-    content: resolveRoomLastMessageForViewer(item.lastMessage, null),
+    /** 언어 SSOT B3 — 시스템 문장 종류 코드 메타가 맞으면 보는 사람 언어, 아니면 지금과 같음 */
+    content:
+      resolveDomainListSystemPreviewText({ lastMessage: item.lastMessage, meta: item.lastMessageMeta }) ??
+      resolveRoomLastMessageForViewer(item.lastMessage, null),
     messageType: "text",
     isSystemAllowed: true,
   });

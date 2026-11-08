@@ -1,10 +1,10 @@
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  cmMgmtMemberInviteContent,
-  cmMgmtMemberKickContent,
-  cmMgmtNoticeContent,
-  cmMgmtPermissionsContent,
+  cmMgmtMemberInviteMessage,
+  cmMgmtMemberKickMessage,
+  cmMgmtNoticeMessage,
+  cmMgmtPermissionsMessage,
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { cmServiceT } from "@/lib/community-messenger/cm-service-copy";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -70,9 +70,13 @@ function roomDeletedError(room: GroupRoomRow): string | null {
 
 async function appendGroupMgmtSystemMessage(
   sb: GroupRoomSupabase,
-  input: { actorUserId: string; roomId: string; content: string }
+  input: { actorUserId: string; roomId: string; content: string; metadata?: Record<string, unknown> }
 ): Promise<void> {
-  const inserted = await insertGroupSystemMessage(sb, { roomId: input.roomId, content: input.content });
+  const inserted = await insertGroupSystemMessage(sb, {
+    roomId: input.roomId,
+    content: input.content,
+    metadata: input.metadata,
+  });
   if (inserted.ok) {
     await publishGroupRoomListBump({
       roomId: input.roomId,
@@ -187,6 +191,8 @@ export async function createGroupRoom(input: CreateGroupRoomInput): Promise<Crea
     actorUserId: userId,
     roomId: roomInsert.roomId,
     content: createdContent,
+    /** 언어 SSOT B3-a — 보는 사람 언어로 다시 그릴 종류 코드 */
+    metadata: { domain: "group_mgmt", message_key: "cm_svc_group_room_created", message_vars: { name: title } },
   });
 
   void (async () => {
@@ -289,7 +295,7 @@ export async function inviteGroupMembers(input: {
   await appendGroupMgmtSystemMessage(sb, {
     actorUserId: userId,
     roomId,
-    content: cmMgmtMemberInviteContent(labels),
+    ...cmMgmtMemberInviteMessage(labels),
   });
 
   if (upsert.newlyInvitedMemberIds.length > 0) {
@@ -378,7 +384,7 @@ export async function kickGroupMember(input: {
   await appendGroupMgmtSystemMessage(sb, {
     actorUserId: userId,
     roomId,
-    content: cmMgmtMemberKickContent(targetMap.get(targetUserId)),
+    ...cmMgmtMemberKickMessage(targetMap.get(targetUserId)),
   });
   return { ok: true };
 }
@@ -527,13 +533,13 @@ export async function updateGroupRoomSettings(input: {
     await appendGroupMgmtSystemMessage(sb, {
       actorUserId: userId,
       roomId,
-      content: cmMgmtNoticeContent(trimText(input.settings.noticeText)),
+      ...cmMgmtNoticeMessage(trimText(input.settings.noticeText)),
     });
   } else if (wantsPermissions) {
     await appendGroupMgmtSystemMessage(sb, {
       actorUserId: userId,
       roomId,
-      content: cmMgmtPermissionsContent(),
+      ...cmMgmtPermissionsMessage(),
     });
   }
 

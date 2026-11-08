@@ -3,6 +3,7 @@
  * N+1 금지. 통합 mega bootstrap / legacy process cache 금지.
  */
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 
 export type DomainLoaderQueryBudget = Readonly<{
   domain: ChatDomain;
@@ -81,6 +82,8 @@ export type DomainLoaderLatestMessageRow = Readonly<{
   createdAt: string;
   /** community_messenger_messages.message_type — 리스트 라벨(통화·스티커·상품권) 변환용 */
   messageType?: string | null;
+  /** 언어 SSOT B3 — 시스템 메시지 `metadata` 종류 코드 메타(`cmRoomLastMessageMetaFromMessage`). 없으면 저장 글자 */
+  systemMeta?: CmRoomLastMessageMeta | null;
 }>;
 
 export type DomainLoaderRoomSeedRow = Readonly<{

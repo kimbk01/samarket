@@ -3,6 +3,7 @@
  * 상품·주문·매장·그룹 context 필드 금지.
  */
 import type { DomainListSnapshot } from "@/lib/messenger/contracts/ports";
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 
 export const GENERAL_DIRECT_DOMAIN = "general_direct" as const;
 
@@ -14,6 +15,8 @@ export type GeneralDirectRoomInput = Readonly<{
   peerDisplayName: string | null | undefined;
   peerAvatarUrl: string | null | undefined;
   lastMessage: string | null | undefined;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageAt: string | null | undefined;
   unreadCount: number | null | undefined;
   updatedAt?: string | null | undefined;
@@ -29,6 +32,8 @@ export type GeneralDirectListItem = Readonly<{
   peerDisplayName: string;
   peerAvatarUrl: string | null;
   lastMessage: string;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageAt: string;
   unreadCount: number;
   updatedAt: string;

@@ -4,6 +4,10 @@ import {
 } from "@/lib/community-messenger/consistency/messenger-consistency-version";
 import { callStubRoomTipFromMessage } from "@/lib/community-messenger/call-stub-room-tip";
 import { setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
+import {
+  cmRoomLastMessageMetaFromMessage,
+  type CmRoomLastMessageMeta,
+} from "@/lib/community-messenger/system-message-i18n";
 import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
   CommunityMessengerBootstrap,
@@ -59,6 +63,8 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   lastMessage: string;
   lastMessageType: CommunityMessengerMessageType;
   lastMessageAt: string;
+  /** 언어 SSOT B3 — 시스템 메시지 종류 코드(서버 트리거와 같은 규칙). 시스템이 아니면 null(지난 메타 지움) */
+  lastMessageMeta: CmRoomLastMessageMeta | null;
 } | null {
   const content = trimText(row.content);
   const mtRaw = trimText(row.message_type) || "text";
@@ -92,13 +98,21 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   }
   if (messageType === "system") lastMessage = lastMessage || "알림";
   if (!lastMessage) lastMessage = "새 메시지";
-  return { lastMessage, lastMessageType: messageType, lastMessageAt: createdAt };
+  const lastMessageMeta =
+    messageType === "system"
+      ? cmRoomLastMessageMetaFromMessage(
+          content,
+          row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : null
+        )
+      : null;
+  return { lastMessage, lastMessageType: messageType, lastMessageAt: createdAt, lastMessageMeta };
 }
 
 function patchRoomInList(
   rooms: CommunityMessengerRoomSummary[],
   roomId: string,
-  patch: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">
+  patch: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt"> &
+    Partial<Pick<CommunityMessengerRoomSummary, "lastMessageMeta">>
 ): CommunityMessengerRoomSummary[] {
   const target = normalizeCmListRoomId(roomId);
   const idx = rooms.findIndex((r) => normalizeCmListRoomId(String(r.id)) === target);
@@ -171,7 +185,8 @@ export function shouldApplyCallStubListPreviewPatch(
 export function patchBootstrapRoomListForCallStubPreviewUpdate(
   data: CommunityMessengerBootstrap,
   roomId: string,
-  preview: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">
+  preview: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt"> &
+    Partial<Pick<CommunityMessengerRoomSummary, "lastMessageMeta">>
 ): CommunityMessengerBootstrap {
   const rid = String(roomId ?? "").trim();
   if (!rid) return data;

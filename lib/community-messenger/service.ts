@@ -97,12 +97,13 @@ import {
 } from "@/lib/community-messenger/cm-service-copy";
 import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
 import {
-  cmMgmtAdminRoleContent,
-  cmMgmtMemberInviteContent,
-  cmMgmtMemberKickContent,
+  cmMgmtAdminRoleMessage,
+  cmMgmtMemberInviteMessage,
+  cmMgmtMemberKickMessage,
   cmMgmtNoticeContent,
-  cmMgmtOwnerTransferContent,
-  cmMgmtPermissionsContent,
+  cmMgmtNoticeMessage,
+  cmMgmtOwnerTransferMessage,
+  cmMgmtPermissionsMessage,
   cmStoreOrderHeadline,
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
@@ -415,6 +416,7 @@ import {
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
 import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { parseCmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
 import {
   memberDisplayLabelFromRow,
@@ -522,6 +524,8 @@ type RoomRow = {
   last_message: string | null;
   last_message_at: string | null;
   last_message_type: string | null;
+  /** 언어 SSOT B3 — 마지막 시스템 메시지 종류 코드(DB 트리거가 채움). 목록 미리보기를 보는 사람 언어로 그림 */
+  last_message_meta?: unknown;
   direct_key?: string | null;
   chat_domain?: string | null;
   domain_identity?: string | null;
@@ -2782,6 +2786,10 @@ function buildRoomSummaryFromHydratedMembers(
       (roomLastMessageHiddenByFloor ? "" : roomLastMessage) ||
       cmRoomLastMessagePlaceholder(roomType === "direct" ? "direct" : "group"),
     lastMessageType: roomLastMessageHiddenByFloor ? "text" : roomLastMessageType,
+    lastMessageMeta:
+      roomLastMessageHiddenByFloor || roomLastMessageType !== "system"
+        ? null
+        : parseCmRoomLastMessageMeta(isDbRoom ? (room as RoomRow).last_message_meta : null),
     lastMessageAt: roomLastAt,
     memberCount: effectiveMemberCount,
     ownerUserId,
@@ -3313,6 +3321,7 @@ type BootstrapRoomRowRpc = {
   last_message?: string | null;
   last_message_at?: string | null;
   last_message_type?: RoomRow["last_message_type"] | null;
+  last_message_meta?: unknown;
   direct_key?: string | null;
 };
 
@@ -3369,9 +3378,15 @@ async function fetchBootstrapRoomsViaRpc(
   sb: SupabaseLike,
   roomIds: string[]
 ): Promise<RoomRow[] | null> {
-  const { data, error } = await (sb as any).rpc("community_messenger_bootstrap_rooms", {
+  /** 언어 SSOT B3 — v2 = 같은 열 + `last_message_meta`. v2 가 없는 DB 에서는 기존 함수 */
+  let { data, error } = await (sb as any).rpc("community_messenger_bootstrap_rooms_v2", {
     p_room_ids: roomIds,
   });
+  if (error && isMissingRpcFunctionError(error)) {
+    ({ data, error } = await (sb as any).rpc("community_messenger_bootstrap_rooms", {
+      p_room_ids: roomIds,
+    }));
+  }
   if (error) {
     if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
     throw error;
@@ -3398,6 +3413,7 @@ async function fetchBootstrapRoomsViaRpc(
     last_message: row.last_message ?? null,
     last_message_at: row.last_message_at ?? null,
     last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],
+    last_message_meta: row.last_message_meta ?? null,
   }));
   return rpcIncludesDirectKeyColumn ? mapped : attachDirectKeysToRoomRows(sb, mapped);
 }
@@ -3415,6 +3431,7 @@ type BootstrapLiteRoomsBundleRpcJson = {
     last_message?: string | null;
     last_message_at?: string | null;
     last_message_type?: string | null;
+    last_message_meta?: unknown;
   }> | null;
   participants?: Array<{
     room_id?: string | null;
@@ -3481,6 +3498,7 @@ async function fetchBootstrapLiteMyRoomsBundleViaRpc(
     last_message: row.last_message ?? null,
     last_message_at: row.last_message_at ?? null,
     last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],
+    last_message_meta: row.last_message_meta ?? null,
   }));
   const roomsParseMs = performance.now() - tRoomsParse;
   const tPartsParse = performance.now();
@@ -3519,7 +3537,7 @@ async function fetchBootstrapLiteMyRoomsBundleViaRpc(
 
 /** home-sync critical — DB select 최소(응답 필드는 summarize·hydrate 로 동일 표면 유지) */
 const HOME_SYNC_CRITICAL_ROOMS_SELECT =
-  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
+  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by";
 
 export async function fetchMyRoomsPayload(
   userId: string,
@@ -3541,7 +3559,7 @@ export async function fetchMyRoomsPayload(
   const bootstrapLiteBundle = options?.bootstrapLiteBundle === true;
   const roomsTableSelect = criticalSlimRoomSelect
     ? HOME_SYNC_CRITICAL_ROOMS_SELECT
-    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
+    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by";
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
@@ -3847,7 +3865,7 @@ async function fetchRoomsPayloadByRoomIds(
           (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity"
+              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity"
             )
             .in("id", uniqueRoomIds),
           (sb as any)
@@ -4168,7 +4186,7 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta"
         )
         .eq("room_type", "open_group")
         .eq("is_discoverable", true)
@@ -11943,7 +11961,7 @@ const fallback = ensureCommunityMessengerDevFallbackAllowed();
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: cmMgmtMemberInviteContent(labels),
+    ...cmMgmtMemberInviteMessage(labels),
   });
   return { ok: true };
 }
@@ -11992,7 +12010,7 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
       await appendCommunityMessengerSystemMessage({
         userId,
         roomId,
-        content: cmMgmtNoticeContent(noticeText),
+        ...cmMgmtNoticeMessage(noticeText),
       });
       return { ok: true };
     }
@@ -12057,7 +12075,7 @@ export async function updateCommunityMessengerPrivateGroupPermissions(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: cmMgmtPermissionsContent(),
+          ...cmMgmtPermissionsMessage(),
         });
         return { ok: true };
       }
@@ -12080,7 +12098,7 @@ export async function updateCommunityMessengerPrivateGroupPermissions(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: cmMgmtPermissionsContent(),
+    ...cmMgmtPermissionsMessage(),
   });
   return { ok: true };
 }
@@ -12146,7 +12164,7 @@ export async function setCommunityMessengerGroupMemberRole(input: {
     await appendCommunityMessengerSystemMessage({
       userId: actorUserId,
       roomId,
-      content: cmMgmtAdminRoleContent(nextRole, target?.label),
+      ...cmMgmtAdminRoleMessage(nextRole, target?.label),
     });
     return { ok: true };
   }
@@ -12164,7 +12182,7 @@ export async function setCommunityMessengerGroupMemberRole(input: {
   await appendCommunityMessengerSystemMessage({
     userId: actorUserId,
     roomId,
-    content: cmMgmtAdminRoleContent(nextRole, targetProfile?.label),
+    ...cmMgmtAdminRoleMessage(nextRole, targetProfile?.label),
   });
   return { ok: true };
 }
@@ -12190,7 +12208,7 @@ export async function transferCommunityMessengerGroupOwner(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: cmMgmtOwnerTransferContent(target?.label),
+          ...cmMgmtOwnerTransferMessage(target?.label),
         });
         return { ok: true };
       }
@@ -12217,7 +12235,7 @@ export async function transferCommunityMessengerGroupOwner(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: cmMgmtOwnerTransferContent(targetProfile?.label),
+    ...cmMgmtOwnerTransferMessage(targetProfile?.label),
   });
   return { ok: true };
 }
@@ -12252,7 +12270,7 @@ const fallback = ensureCommunityMessengerDevFallbackAllowed();
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: cmMgmtMemberKickContent(targetProfile?.label),
+    ...cmMgmtMemberKickMessage(targetProfile?.label),
   });
   return { ok: true };
 }
@@ -15261,7 +15279,7 @@ export async function runCommunityMessengerRoomTradeDiagnosticsParallelForE2e(
   const { data: roomData } = await (sb as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta"
     )
     .eq("id", id)
     .maybeSingle();
@@ -15510,9 +15528,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
     /** defer seed: `notice_text` 만 제외 — 첫 페인트·textarea 전 공지 본문은 불필요, `bootstrapEnrichmentPending` 경로로 후속 보강 가능. */
     const roomSelectColsDeferSeedNoNoticeBody =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by";
     const roomSelectColsFull =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity, deleted_at, deleted_by";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by";
     const roomSelectForBootstrap =
       deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)
@@ -17827,6 +17845,8 @@ async function appendCommunityMessengerSystemMessage(input: {
   userId: string;
   roomId: string;
   content: string;
+  /** 언어 SSOT B3-a — 종류 코드(`message_key`·`message_vars`). 없으면 {} (이전과 같음) */
+  metadata?: Record<string, unknown>;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
@@ -17841,7 +17861,7 @@ async function appendCommunityMessengerSystemMessage(input: {
         sender_id: null,
         message_type: "system",
         content,
-        metadata: {},
+        metadata: input.metadata ?? {},
         created_at: createdAt,
       })
       .select("id")

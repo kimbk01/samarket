@@ -56,6 +56,7 @@ export function mapGeneralDirectListItem(
     peerDisplayName: peerName,
     peerAvatarUrl: trimOrEmpty(row.peerAvatarUrl) || null,
     lastMessage: trimOrEmpty(row.lastMessage),
+    ...(row.lastMessageMeta ? { lastMessageMeta: row.lastMessageMeta } : {}),
     lastMessageAt: lastAt,
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),
     updatedAt: trimOrEmpty(row.updatedAt) || lastAt,

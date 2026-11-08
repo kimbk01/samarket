@@ -9,6 +9,7 @@
  * - DO NOT full-refresh / silent hydrated refresh from here.
  */
 
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import { isChatDomain, type ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
   applyDomainStoreOrderListRealtimeMessagePatch,
@@ -65,6 +66,8 @@ export type RoomActivityProjection = {
   boostUnread?: boolean;
   unreadCount?: number;
   lastMessageType?: CommunityMessengerMessageType;
+  /** 언어 SSOT B3 — 시스템 메시지 종류 코드(목록이 보는 사람 언어로 그림). 시스템이 아니면 null */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   source: RoomActivityProjectionSource;
   viewerUserId?: string | null;
 };
@@ -260,6 +263,8 @@ function buildPatch(activity: RoomActivityProjection): HomeListPatch | null {
       content: previewText,
       message_type: lastMessageType,
       created_at: activityAt,
+      /** B3 — 종류 코드를 다시 실어 목록 패치가 같은 메타를 만든다(text 는 content 에서 다시 계산) */
+      ...(activity.lastMessageMeta ? { metadata: activity.lastMessageMeta } : {}),
     },
     boostUnreadCount: false,
   };
@@ -281,6 +286,7 @@ function routeDomainCanary(
       roomId: trim(activity.roomId),
       previewText: trim(activity.previewText),
       lastMessageType,
+      lastMessageMeta: activity.lastMessageMeta ?? null,
       lastMessageAt: trim(activity.activityAt),
       boostUnread: activity.boostUnread === true,
     });
@@ -290,6 +296,7 @@ function routeDomainCanary(
       roomId: trim(activity.roomId),
       previewText: trim(activity.previewText),
       lastMessageType,
+      lastMessageMeta: activity.lastMessageMeta ?? null,
       lastMessageAt: trim(activity.activityAt),
       boostUnread: activity.boostUnread === true,
     });
@@ -629,6 +636,7 @@ export function roomActivityFromMessengerMessage(args: {
     revision: args.revision,
     boostUnread: args.boostUnread,
     lastMessageType: preview.lastMessageType,
+    lastMessageMeta: preview.lastMessageMeta,
     source: args.source,
     viewerUserId: args.viewerUserId,
   };
@@ -663,6 +671,7 @@ export function roomActivityFromMessageRow(args: {
     revision: args.revision,
     boostUnread: args.boostUnread,
     lastMessageType: preview.lastMessageType,
+    lastMessageMeta: preview.lastMessageMeta,
     source: args.source,
     viewerUserId: args.viewerUserId,
   };

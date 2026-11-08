@@ -36,7 +36,7 @@ export { buildTradeHubViewModel, assertHomeInboxRejectsTradeDomain } from "@/lib
 export { resolveTradePresentation, resolveTradePresentationFromListItem } from "@/lib/messenger/trade/presentation";
 export { resolveTradeHeaderKind, buildTradeHeaderModel } from "@/lib/messenger/trade/header";
 export { resolveTradePreview, assertTradePreviewDoesNotUseMetadata } from "@/lib/messenger/trade/preview";
-export { buildTradeListViewModel, tradeStatusBadgeSeparated, tradeRouterPort } from "@/lib/messenger/trade/row-model";
+export { buildTradeListViewModel, buildTradeListViewModelForLanguage, tradeStatusBadgeSeparated, tradeRouterPort } from "@/lib/messenger/trade/row-model";
 export {
   resolveTradeViewerRole,
   tradeViewerRoleLabelKo,

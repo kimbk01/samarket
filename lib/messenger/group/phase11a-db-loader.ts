@@ -74,6 +74,7 @@ export function mapGroupLoaderBatchRows(input: {
         latestMessage: row.latestMessage,
         roomLastMessageSummary: row.roomLastMessageSummary,
       }),
+      ...(row.latestMessage?.systemMeta ? { lastMessageMeta: row.latestMessage.systemMeta } : {}),
       lastMessageAt: row.latestMessage?.createdAt ?? null,
       unreadCount: row.unreadCount,
       memberUserIds: [...row.memberUserIds],

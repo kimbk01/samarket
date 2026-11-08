@@ -3,6 +3,7 @@
  * trade/general 타입 상속 금지. Identity: store_order:{orderId}
  */
 import type { DomainListSnapshot } from "@/lib/messenger/contracts/ports";
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 
 export { STORE_ORDER_DOMAIN };
@@ -21,6 +22,8 @@ export type StoreOrderRoomInput = Readonly<{
   /** 최신 주문채팅 메시지 본문 — PreviewPort 입력 전용 원천 */
   latestChatMessageText: string | null | undefined;
   latestChatMessageType?: string | null | undefined;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   latestChatMessageAt: string | null | undefined;
   unreadCount: number | null | undefined;
   orderStatusLabel?: string | null | undefined;
@@ -47,6 +50,8 @@ export type StoreOrderListItem = Readonly<{
   customerAvatarUrl: string | null;
   latestChatMessageText: string;
   latestChatMessageType: string;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   latestChatMessageAt: string;
   unreadCount: number;
   orderStatusLabel: string | null;

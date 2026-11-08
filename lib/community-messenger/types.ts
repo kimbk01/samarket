@@ -1,3 +1,4 @@
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import type { ChatRoom } from "@/lib/types/chat";
 import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
 import type { FriendshipDirection } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
@@ -189,6 +190,8 @@ export type CommunityMessengerRoomSummary = {
   isPinned?: boolean;
   lastMessage: string;
   lastMessageType?: CommunityMessengerMessageType;
+  /** 언어 SSOT B3 — 마지막 메시지가 시스템일 때 종류 코드. 목록 미리보기를 보는 사람 언어로 그림(없으면 저장 글자) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageAt: string;
   memberCount: number;
   /**

@@ -3,6 +3,7 @@
  * Identity: trade:{itemId}:{sellerId}:{counterpartyId} (schema buyerId ≈ counterparty)
  */
 import type { DomainListSnapshot } from "@/lib/messenger/contracts/ports";
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import { TRADE_DOMAIN } from "@/lib/messenger/trade/domain";
 
 export { TRADE_DOMAIN };
@@ -25,6 +26,8 @@ export type TradeRoomInput = Readonly<{
   lastMessage: string | null | undefined;
   /** 최신 메시지 message_type (call_stub·sticker·gift_certificate 등 라벨 변환용) */
   lastMessageType?: string | null | undefined;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageAt: string | null | undefined;
   unreadCount: number | null | undefined;
   tradeStatusLabel?: string | null | undefined;
@@ -54,6 +57,8 @@ export type TradeListItem = Readonly<{
   lastMessage: string;
   /** 최신 메시지 message_type — 없으면 lastMessageIsSystem 기준(레거시) */
   lastMessageType?: string | null;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageIsSystem: boolean;
   lastMessageAt: string;
   unreadCount: number;

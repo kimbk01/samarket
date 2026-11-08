@@ -4,6 +4,7 @@
  *
  * @see docs/community-messenger/telegram-list-authority-writer-audit.md
  */
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import {
   assertListMutationFields,
   isServerLastMessageAtStale,
@@ -58,10 +59,16 @@ function resolveCanaryRealtimePreviewText(input: {
   viewerUserId: string;
   previewText: string;
   lastMessageType?: CommunityMessengerMessageType | null;
+  /** 언어 SSOT B3 — 시스템 메시지 종류 코드(있으면 보는 사람 언어로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
 }): string {
   if (input.lastMessageType) {
     return formatCmListPreviewTextForViewer(
-      { lastMessage: input.previewText, lastMessageType: input.lastMessageType },
+      {
+        lastMessage: input.previewText,
+        lastMessageType: input.lastMessageType,
+        lastMessageMeta: input.lastMessageMeta ?? null,
+      },
       input.viewerUserId
     );
   }
@@ -77,6 +84,8 @@ export function applyDomainTradeListRealtimeMessagePatch(rawInput: {
   boostUnread: boolean;
   /** Realtime 행 message_type — 있으면 viewer 기준 라벨로 변환 후 저장 */
   lastMessageType?: CommunityMessengerMessageType | null;
+  /** 언어 SSOT B3 — 시스템 메시지 종류 코드(있으면 보는 사람 언어로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
 }): boolean {
   const input = { ...rawInput, previewText: resolveCanaryRealtimePreviewText(rawInput) };
   const cached = peekDomainTradeListCanaryCache(input.viewerUserId);
@@ -199,6 +208,8 @@ export function applyDomainStoreOrderListRealtimeMessagePatch(rawInput: {
   boostUnread: boolean;
   /** Realtime 행 message_type — 있으면 viewer 기준 라벨로 변환 후 저장 */
   lastMessageType?: CommunityMessengerMessageType | null;
+  /** 언어 SSOT B3 — 시스템 메시지 종류 코드(있으면 보는 사람 언어로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
 }): boolean {
   const input = { ...rawInput, previewText: resolveCanaryRealtimePreviewText(rawInput) };
   const cached = peekDomainStoreOrderCustomerListCanaryCache(input.viewerUserId);

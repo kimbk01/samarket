@@ -75,6 +75,7 @@ export function mapGeneralDirectLoaderBatchRows(input: {
         roomLastMessageSummary: row.roomLastMessageSummary,
         roomTitle: row.roomTitle,
       }),
+      ...(row.latestMessage?.systemMeta ? { lastMessageMeta: row.latestMessage.systemMeta } : {}),
       lastMessageAt: row.latestMessage?.createdAt ?? null,
       unreadCount: row.unreadCount,
     });

@@ -3,6 +3,7 @@
  * Identity: group:{groupId}. general_direct RowModel 상속 금지.
  */
 import type { DomainListSnapshot } from "@/lib/messenger/contracts/ports";
+import type { CmRoomLastMessageMeta } from "@/lib/community-messenger/system-message-i18n";
 import {
   GROUP_DOMAIN,
   type GroupSubtype,
@@ -21,6 +22,8 @@ export type GroupRoomInput = Readonly<{
   groupImageUrl: string | null | undefined;
   memberCount: number | null | undefined;
   lastMessage: string | null | undefined;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageAt: string | null | undefined;
   unreadCount: number | null | undefined;
   updatedAt?: string | null | undefined;
@@ -41,6 +44,8 @@ export type GroupListItem = Readonly<{
   groupImageUrl: string | null;
   memberCount: number;
   lastMessage: string;
+  /** 언어 SSOT B3 — 최신 시스템 메시지 종류 코드 메타(없으면 저장 글자 그대로) */
+  lastMessageMeta?: CmRoomLastMessageMeta | null;
   lastMessageAt: string;
   unreadCount: number;
   updatedAt: string;

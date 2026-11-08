@@ -69,6 +69,7 @@ export function mapGroupListItem(row: GroupRoomInput, generation: string): Group
     groupImageUrl: trimOrEmpty(row.groupImageUrl) || null,
     memberCount: Math.max(0, Math.floor(Number(row.memberCount) || 0)),
     lastMessage: trimOrEmpty(row.lastMessage),
+    ...(row.lastMessageMeta ? { lastMessageMeta: row.lastMessageMeta } : {}),
     lastMessageAt: lastAt,
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),
     updatedAt: trimOrEmpty(row.updatedAt) || lastAt,

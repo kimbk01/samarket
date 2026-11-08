@@ -94,6 +94,7 @@ export function mapTradeLoaderBatchRows(input: {
         orderStatusLabel: null,
       }),
       lastMessageType: row.latestMessage?.messageType ?? null,
+      ...(row.latestMessage?.systemMeta ? { lastMessageMeta: row.latestMessage.systemMeta } : {}),
       lastMessageAt: row.latestMessage?.createdAt ?? null,
       lastMessageIsSystem: row.latestMessage?.isSystem === true,
       unreadCount: row.unreadCount,

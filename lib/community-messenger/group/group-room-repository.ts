@@ -120,7 +120,7 @@ export async function insertGroupParticipants(
 
 export async function insertGroupSystemMessage(
   sb: GroupRoomSupabase,
-  input: { roomId: string; content: string; createdAt?: string }
+  input: { roomId: string; content: string; createdAt?: string; metadata?: Record<string, unknown> }
 ): Promise<{ ok: true; createdAt: string } | { ok: false; error: string }> {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
@@ -131,7 +131,7 @@ export async function insertGroupSystemMessage(
     sender_id: null,
     message_type: "system",
     content,
-    metadata: {},
+    metadata: input.metadata ?? {},
     created_at: createdAt,
   });
   if (insertError) {

@@ -1,3 +1,5 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+import { resolveCmSystemListPreview } from "@/lib/community-messenger/system-message-i18n";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import {
   formatCallStubRoomTipForViewer,
@@ -115,7 +117,13 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
      * 방 생성 시 `last_message=''`·`last_message_type='system'` 이 기본값 — 메시지가 없는 방이다.
      * "시스템 메시지"로 표기하지 않고 아래 빈 방/컨텍스트 안내로 내려간다.
      */
-    if (lastMessage) return formatSystemPreview(lastMessage);
+    if (lastMessage) {
+      /** 언어 SSOT B3 — 종류 코드가 저장 글자와 맞으면 보는 사람 언어로, 아니면 저장 글자 */
+      return (
+        resolveCmSystemListPreview({ lastMessage, meta: room.lastMessageMeta }, translateCmUi) ??
+        formatSystemPreview(lastMessage)
+      );
+    }
   } else if (lastMessageType === "gift_certificate") {
     return translateCmUi("cm_home_preview_gift");
   } else if (lastMessageType === "sticker") {
@@ -151,13 +159,18 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
  * Realtime 행의 원문(`cmcall1|…` 토큰·스티커 경로·영문 상품권 content)을 viewer 기준 라벨로 바꾼다.
  */
 export function formatCmListPreviewTextForViewer(
-  input: { lastMessage: string | null | undefined; lastMessageType?: CommunityMessengerMessageType | null },
+  input: {
+    lastMessage: string | null | undefined;
+    lastMessageType?: CommunityMessengerMessageType | null;
+    lastMessageMeta?: CommunityMessengerRoomSummary["lastMessageMeta"];
+  },
   viewerUserId?: string | null
 ): string {
   const room = {
     lastMessage: String(input.lastMessage ?? ""),
     lastMessageType: input.lastMessageType ?? "text",
-  } as Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType"> as CommunityMessengerRoomSummary;
+    lastMessageMeta: input.lastMessageMeta ?? null,
+  } as Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageMeta"> as CommunityMessengerRoomSummary;
   return getRoomPreviewText(room, viewerUserId);
 }
 
@@ -207,42 +220,82 @@ export function cmTradeChatModeLockedCopy(): string {
   return translateCmUi("cm_svc_trade_chat_mode_locked");
 }
 
-export function cmMgmtMemberInviteContent(labels?: string): string {
+/**
+ * 언어 SSOT B3-a — 그룹 관리 시스템 메시지. 저장 글자(`content`)와 함께 종류 코드(`metadata.message_key`·`message_vars`)를 남겨
+ * 대화방·목록이 보는 사람 언어로 다시 그린다(`lib/community-messenger/system-message-i18n.ts`).
+ */
+export type CmMgmtSystemMessage = {
+  content: string;
+  metadata: { domain: "group_mgmt"; message_key: MessageKey; message_vars?: Record<string, string> };
+};
+
+export function cmMgmtSystemMessage(key: MessageKey, vars?: Record<string, string>): CmMgmtSystemMessage {
+  return {
+    content: translateCmUi(key, vars),
+    metadata: { domain: "group_mgmt", message_key: key, ...(vars ? { message_vars: vars } : {}) },
+  };
+}
+
+export function cmMgmtMemberInviteMessage(labels?: string): CmMgmtSystemMessage {
   return labels
-    ? translateCmUi("cm_svc_mgmt_member_invite_named", { labels })
-    : translateCmUi("cm_svc_mgmt_member_invite");
+    ? cmMgmtSystemMessage("cm_svc_mgmt_member_invite_named", { labels })
+    : cmMgmtSystemMessage("cm_svc_mgmt_member_invite");
+}
+
+export function cmMgmtNoticeMessage(noticeText: string): CmMgmtSystemMessage {
+  const text = noticeText.trim();
+  return text
+    ? cmMgmtSystemMessage("cm_svc_mgmt_notice_edit", { text })
+    : cmMgmtSystemMessage("cm_svc_mgmt_notice_delete");
+}
+
+export function cmMgmtPermissionsMessage(): CmMgmtSystemMessage {
+  return cmMgmtSystemMessage("cm_svc_mgmt_permissions");
+}
+
+export function cmMgmtAdminRoleMessage(nextRole: "admin" | "member", targetLabel?: string): CmMgmtSystemMessage {
+  if (nextRole === "admin") {
+    return targetLabel
+      ? cmMgmtSystemMessage("cm_svc_mgmt_admin_assign_named", { name: targetLabel })
+      : cmMgmtSystemMessage("cm_svc_mgmt_admin_assign");
+  }
+  return targetLabel
+    ? cmMgmtSystemMessage("cm_svc_mgmt_admin_revoke_named", { name: targetLabel })
+    : cmMgmtSystemMessage("cm_svc_mgmt_admin_revoke");
+}
+
+export function cmMgmtOwnerTransferMessage(targetLabel?: string): CmMgmtSystemMessage {
+  return targetLabel
+    ? cmMgmtSystemMessage("cm_svc_mgmt_owner_transfer_named", { name: targetLabel })
+    : cmMgmtSystemMessage("cm_svc_mgmt_owner_transfer");
+}
+
+export function cmMgmtMemberKickMessage(targetLabel?: string): CmMgmtSystemMessage {
+  return targetLabel
+    ? cmMgmtSystemMessage("cm_svc_mgmt_member_kick_named", { name: targetLabel })
+    : cmMgmtSystemMessage("cm_svc_mgmt_member_kick");
+}
+
+export function cmMgmtMemberInviteContent(labels?: string): string {
+  return cmMgmtMemberInviteMessage(labels).content;
 }
 
 export function cmMgmtNoticeContent(noticeText: string): string {
-  const text = noticeText.trim();
-  return text
-    ? translateCmUi("cm_svc_mgmt_notice_edit", { text })
-    : translateCmUi("cm_svc_mgmt_notice_delete");
+  return cmMgmtNoticeMessage(noticeText).content;
 }
 
 export function cmMgmtPermissionsContent(): string {
-  return translateCmUi("cm_svc_mgmt_permissions");
+  return cmMgmtPermissionsMessage().content;
 }
 
 export function cmMgmtAdminRoleContent(nextRole: "admin" | "member", targetLabel?: string): string {
-  if (nextRole === "admin") {
-    return targetLabel
-      ? translateCmUi("cm_svc_mgmt_admin_assign_named", { name: targetLabel })
-      : translateCmUi("cm_svc_mgmt_admin_assign");
-  }
-  return targetLabel
-    ? translateCmUi("cm_svc_mgmt_admin_revoke_named", { name: targetLabel })
-    : translateCmUi("cm_svc_mgmt_admin_revoke");
+  return cmMgmtAdminRoleMessage(nextRole, targetLabel).content;
 }
 
 export function cmMgmtOwnerTransferContent(targetLabel?: string): string {
-  return targetLabel
-    ? translateCmUi("cm_svc_mgmt_owner_transfer_named", { name: targetLabel })
-    : translateCmUi("cm_svc_mgmt_owner_transfer");
+  return cmMgmtOwnerTransferMessage(targetLabel).content;
 }
 
 export function cmMgmtMemberKickContent(targetLabel?: string): string {
-  return targetLabel
-    ? translateCmUi("cm_svc_mgmt_member_kick_named", { name: targetLabel })
-    : translateCmUi("cm_svc_mgmt_member_kick");
+  return cmMgmtMemberKickMessage(targetLabel).content;
 }

@@ -10,7 +10,8 @@ import {
 import { selectLatestRowByActivityAt } from "@/lib/messenger/contracts/latest-activity-selector";
 import { runTradeBootstrap } from "@/lib/messenger/trade/phase6-bootstrap";
 import { buildTradeHubViewModel } from "@/lib/messenger/trade/hub";
-import { buildTradeListViewModel } from "@/lib/messenger/trade/row-model";
+import { buildTradeListViewModelForLanguage } from "@/lib/messenger/trade/row-model";
+import { resolveDomainReadRequestLanguage } from "@/lib/messenger/contracts/domain-read-request-language";
 import { sortTradeListRows } from "@/lib/messenger/trade/list-sort-filter";
 import { TRADE_DOMAIN } from "@/lib/messenger/trade/domain";
 
@@ -121,7 +122,9 @@ export async function composeDomainReadTradeListDto(
       return { ok: false, trigger: "viewer_mismatch" };
     }
 
-    const hub = buildTradeHubViewModel(trade.rows);
+    /** 언어 SSOT B3 — 저장 시스템 문장 미리보기를 요청 언어로(서버에는 런타임 언어가 없다) */
+    const lang = await resolveDomainReadRequestLanguage();
+    const hub = buildTradeHubViewModel(trade.rows, lang);
     const latest = selectLatestRowByActivityAt(trade.rows, (r) => ({
       activityAt: r.lastMessageAt,
       tieKey: r.roomId,
@@ -131,7 +134,7 @@ export async function composeDomainReadTradeListDto(
       return { ok: false, trigger: "trade_hub_latest_mismatch" };
     }
 
-    const vms = trade.rows.map(buildTradeListViewModel);
+    const vms = trade.rows.map((row) => buildTradeListViewModelForLanguage(row, lang));
     const sorted = sortTradeListRows(vms);
     const latestVm =
       sorted.find((r) => r.roomId === hub.latestRoomId) ??

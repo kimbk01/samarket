@@ -6,6 +6,10 @@ import {
   decodeCallStubRoomTip,
   resolveRoomLastMessageForViewer,
 } from "@/lib/community-messenger/call-stub-room-tip";
+import {
+  cmRoomLastMessageMetaFromMessage,
+  type CmRoomLastMessageMeta,
+} from "@/lib/community-messenger/system-message-i18n";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   timedSelect,
@@ -75,11 +79,20 @@ function profileName(row: {
   return row.display_name?.trim() || row.nickname?.trim() || null;
 }
 
+/** 언어 SSOT B3 — 시스템 메시지는 `metadata` 종류 코드로 만든 메타를 함께 싣는다(목록 미리보기를 보는 사람 언어로) */
+type LatestMessageByRoom = {
+  bodyText: string | null;
+  isSystem: boolean;
+  createdAt: string;
+  messageType: string;
+  systemMeta: CmRoomLastMessageMeta | null;
+};
+
 async function loadLatestMessagesByRoomIds(
   sb: SupabaseClient,
   roomIds: string[]
 ): Promise<{
-  map: Map<string, { bodyText: string | null; isSystem: boolean; createdAt: string; messageType: string }>;
+  map: Map<string, LatestMessageByRoom>;
   timing: Phase11bQueryTiming;
 }> {
   if (roomIds.length === 0) {
@@ -91,17 +104,18 @@ async function loadLatestMessagesByRoomIds(
   const { data, timing } = await timedSelect("latest_messages", () =>
     sb
       .from("community_messenger_messages")
-      .select("room_id, content, message_type, created_at")
+      .select("room_id, content, message_type, created_at, metadata")
       .in("room_id", roomIds)
       .order("created_at", { ascending: false })
       .limit(Math.min(roomIds.length * 3, 600))
   );
-  const map = new Map<string, { bodyText: string | null; isSystem: boolean; createdAt: string; messageType: string }>();
+  const map = new Map<string, LatestMessageByRoom>();
   for (const row of (data ?? []) as Array<{
     room_id?: string;
     content?: string | null;
     message_type?: string | null;
     created_at?: string;
+    metadata?: Record<string, unknown> | null;
   }>) {
     const rid = String(row.room_id ?? "");
     if (!rid || map.has(rid)) continue;
@@ -111,6 +125,15 @@ async function loadLatestMessagesByRoomIds(
       isSystem: mt === "system" || mt === "call_stub",
       createdAt: String(row.created_at ?? ""),
       messageType: mt || "text",
+      systemMeta:
+        mt === "system"
+          ? cmRoomLastMessageMetaFromMessage(
+              typeof row.content === "string" ? row.content : null,
+              row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+                ? row.metadata
+                : null
+            )
+          : null,
     });
   }
   return { map, timing };
@@ -369,6 +392,7 @@ export async function fetchGeneralDirectLiveBatch(
             bodyText: latest.bodyText,
             isSystem: latest.isSystem,
             createdAt: latest.createdAt,
+            systemMeta: latest.systemMeta,
           }
         : null,
       roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
@@ -511,6 +535,7 @@ export async function fetchGroupLiveBatch(
             bodyText: latest.bodyText,
             isSystem: latest.isSystem,
             createdAt: latest.createdAt,
+            systemMeta: latest.systemMeta,
           }
         : null,
       roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
@@ -684,6 +709,7 @@ export async function fetchTradeLiveBatch(
             bodyText: tradeLatestBodyWithCallTipToken(latest, room.last_message),
             isSystem: latest.isSystem,
             createdAt: latest.createdAt,
+            systemMeta: latest.systemMeta,
             messageType: latest.messageType,
           }
         : null,
@@ -842,6 +868,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
             bodyText: latest.bodyText,
             isSystem: latest.isSystem,
             createdAt: latest.createdAt,
+            systemMeta: latest.systemMeta,
           }
         : null,
       orderStatusLabel: o.order_status ?? null,
@@ -1000,6 +1027,7 @@ export async function fetchStoreOrderOwnerLiveBatch(
             bodyText: latest.bodyText,
             isSystem: latest.isSystem,
             createdAt: latest.createdAt,
+            systemMeta: latest.systemMeta,
           }
         : null,
       orderStatusLabel: o.order_status ?? null,

@@ -632,7 +632,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation_history")}</p>
                     <div className="mt-2 space-y-2">
                       {vm.managementEventMessages.map((event) => {
-                        const summary = describeManagementEvent(event.content);
+                        const summary = describeManagementEvent(event.content, event.metadata);
                         return (
                           <button
                             key={event.id}
@@ -1320,7 +1320,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </div>
                       <div className="mt-3 space-y-2">
                         {vm.managementEventMessages.map((event) => {
-                          const summary = describeManagementEvent(event.content);
+                          const summary = describeManagementEvent(event.content, event.metadata);
                           return (
                             <button
                               key={`info:${event.id}`}

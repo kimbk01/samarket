@@ -6,7 +6,10 @@ import { buildChatDomainRoomHref } from "@/lib/chat-domain/ports/router-port";
 import type { MessengerRouterPort } from "@/lib/messenger/contracts/ports";
 import { resolveStoreOrderCustomerPresentationFromListItem } from "@/lib/messenger/store-order/customer-presentation-resolver";
 import { resolveStoreOrderOwnerPresentationFromListItem } from "@/lib/messenger/store-order/owner-presentation-resolver";
-import { resolveStoreOrderPreview } from "@/lib/messenger/store-order/preview";
+import {
+  resolveStoreOrderPreview,
+  storeOrderListItemPreviewSourceText,
+} from "@/lib/messenger/store-order/preview";
 import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 import type { StoreOrderListItem } from "@/lib/messenger/store-order/types";
 import type {
@@ -39,11 +42,11 @@ export const storeOrderRouterPort: MessengerRouterPort = {
     }),
 };
 
-function previewFromItem(item: StoreOrderListItem): string {
+function previewFromItem(item: StoreOrderListItem, lang: AppLanguageCode): string {
   return resolveStoreOrderPreview({
     chatDomain: STORE_ORDER_DOMAIN,
     latestChatMessage: {
-      text: item.latestChatMessageText,
+      text: storeOrderListItemPreviewSourceText(item, lang),
       messageType: item.latestChatMessageType,
     },
   }).text;
@@ -61,7 +64,7 @@ export function buildStoreOrderCustomerListViewModel(
     orderId: item.orderId,
     storeName: presentation.surface.storeName,
     storeImageUrl: presentation.surface.storeImageUrl,
-    previewText: previewFromItem(item),
+    previewText: previewFromItem(item, lang),
     unreadCount: item.unreadCount,
     lastMessageAt: item.latestChatMessageAt,
     href: storeOrderRouterPort.buildRoomHref({
@@ -84,7 +87,7 @@ export function buildStoreOrderOwnerListViewModel(
     orderId: item.orderId,
     customerName: presentation.surface.customerName,
     customerAvatarUrl: presentation.surface.customerAvatarUrl,
-    previewText: previewFromItem(item),
+    previewText: previewFromItem(item, lang),
     unreadCount: item.unreadCount,
     lastMessageAt: item.latestChatMessageAt,
     href: storeOrderRouterPort.buildRoomHref({

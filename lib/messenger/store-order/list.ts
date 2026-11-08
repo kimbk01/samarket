@@ -59,6 +59,7 @@ export function mapStoreOrderListItem(row: StoreOrderRoomInput, generation: stri
     customerAvatarUrl: trimOrEmpty(row.customerAvatarUrl) || null,
     latestChatMessageText: trimOrEmpty(row.latestChatMessageText),
     latestChatMessageType: trimOrEmpty(row.latestChatMessageType) || "text",
+    ...(row.lastMessageMeta ? { lastMessageMeta: row.lastMessageMeta } : {}),
     latestChatMessageAt: trimOrEmpty(row.latestChatMessageAt),
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),
     orderStatusLabel: trimOrEmpty(row.orderStatusLabel) || null,
