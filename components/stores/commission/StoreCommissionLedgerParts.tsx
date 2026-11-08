@@ -38,6 +38,7 @@ import {
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type CommissionLang = "ko" | "en";
 
@@ -259,13 +260,13 @@ export function CommissionFilterChips({
 }
 
 const PERIOD_LABEL: Record<StoreCommissionPeriod, { ko: string; en: string }> = {
-  all: { ko: "전체 기간", en: "All time" },
-  today: { ko: "오늘", en: "Today" },
-  yesterday: { ko: "어제", en: "Yesterday" },
-  this_week: { ko: "이번 주", en: "This week" },
-  this_month: { ko: "이번 달", en: "This month" },
-  last_month: { ko: "지난달", en: "Last month" },
-  custom: { ko: "기간 지정", en: "Custom" },
+  all: catalogPair("stores_all_time"),
+  today: catalogPair("stores_today"),
+  yesterday: catalogPair("stores_yesterday"),
+  this_week: catalogPair("stores_this_week"),
+  this_month: catalogPair("stores_this_month"),
+  last_month: catalogPair("stores_last_month"),
+  custom: catalogPair("stores_custom"),
 };
 
 export function CommissionPeriodFilter({
@@ -468,21 +469,21 @@ export type CommissionTab = "ledger" | "review" | "cash" | "exceptions" | "payab
 
 /** A: 전체 거래 · B: 취소·환불 검토 · C: 매장 캐시 · D: 금융 예외 · 별도 레일: 플랫폼 지급 의무 */
 export const COMMISSION_TAB_LABEL: Record<CommissionTab, { ko: string; en: string }> = {
-  ledger: { ko: "전체 거래", en: "All transactions" },
-  review: { ko: "취소·환불 검토", en: "Cancel/refund review" },
-  cash: { ko: "매장 캐시", en: "Cash" },
-  exceptions: { ko: "금융 예외", en: "Financial exceptions" },
-  payable: { ko: "플랫폼 지급 의무", en: "Platform payable" },
+  ledger: catalogPair("stores_all_transactions"),
+  review: catalogPair("stores_cancel_refund_review"),
+  cash: catalogPair("stores_cash_2"),
+  exceptions: catalogPair("stores_financial_exceptions"),
+  payable: catalogPair("stores_platform_payable"),
 };
 
 export type CommissionReviewFilter = "review_required" | "approved" | "rejected" | "decided";
 export const COMMISSION_REVIEW_FILTERS: readonly CommissionReviewFilter[] = ["review_required", "approved", "rejected", "decided"];
 
 const REVIEW_FILTER_LABEL: Record<CommissionReviewFilter, { ko: string; en: string }> = {
-  review_required: { ko: "검토 대기", en: "Awaiting review" },
-  approved: { ko: "환급 승인", en: "Refund approved" },
-  rejected: { ko: "환급 반려", en: "Refund rejected" },
-  decided: { ko: "전체 결정", en: "All decisions" },
+  review_required: catalogPair("stores_awaiting_review_2"),
+  approved: catalogPair("stores_refund_approved"),
+  rejected: catalogPair("stores_refund_rejected"),
+  decided: catalogPair("stores_all_decisions"),
 };
 
 /** Tab → ledger filter state (the review tab is a fixed decision view of the same ledger). */
@@ -531,9 +532,9 @@ export function CommissionReviewFilterChips({
 export type CommissionBreakdownGroup = "day" | "month" | "store";
 
 const BREAKDOWN_GROUP_LABEL: Record<CommissionBreakdownGroup, { ko: string; en: string }> = {
-  day: { ko: "일별", en: "Daily" },
-  month: { ko: "월별", en: "Monthly" },
-  store: { ko: "매장별", en: "By store" },
+  day: catalogPair("stores_daily"),
+  month: catalogPair("stores_monthly"),
+  store: catalogPair("stores_by_store"),
 };
 
 /** Day / month / store totals — buckets computed in SQL (Asia/Manila calendar). */

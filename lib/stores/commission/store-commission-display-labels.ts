@@ -8,6 +8,7 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { processStatusLabel } from "@/lib/stores/store-order-process-model";
 import { labelCheckoutPaymentMethod } from "@/lib/stores/payment-methods-config";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 배달·픽업 구분을 못 읽은 줄은 배달 기준 표기 (수수료는 배달 주문이 대부분 · 상태 이름 대부분 공통) */
 const DEFAULT_FULFILLMENT = "local_delivery";
@@ -37,11 +38,11 @@ export function commissionOrderStatusLine(
 }
 
 const POLICY_SCOPE_LABEL: Record<string, { ko: string; en: string }> = {
-  store: { ko: "매장 개별 정책", en: "Store override" },
-  topic: { ko: "2차 업종 정책", en: "Secondary category" },
-  category: { ko: "1차 업종 정책", en: "Primary category" },
-  default: { ko: "기본", en: "Default" },
-  missing_policy: { ko: "정책 없음", en: "Missing policy" },
+  store: catalogPair("stores_store_override"),
+  topic: catalogPair("stores_secondary_category"),
+  category: catalogPair("stores_primary_category"),
+  default: catalogPair("stores_default"),
+  missing_policy: catalogPair("stores_missing_policy"),
 };
 
 export function commissionPolicyScopeLabel(scope: string | null | undefined, lang: AppLanguageCode): string | null {

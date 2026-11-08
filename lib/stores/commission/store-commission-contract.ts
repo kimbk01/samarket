@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Store Commission × Business Cash — SSOT contract (labels, types, pure helpers).
  * Doc: docs/store-commission-cash-settlement-ssot.md
  * Migration (money authority): supabase/migrations/20270510120000_store_commission_cash_ssot.sql
@@ -102,13 +103,10 @@ export const STORE_COMMISSION_RPC = {
 export type StorePayoutClass = "direct_collected" | "payable" | "gift_rail" | "legacy_manual_paid";
 
 export const STORE_PAYOUT_CLASS_LABEL: Record<StorePayoutClass, { ko: string; en: string }> = {
-  direct_collected: { ko: "매장 직접 수령 (지급 대상 아님)", en: "Collected by store (no payout)" },
-  payable: { ko: "플랫폼 지급 의무 (쿠폰 → Coin 미적립)", en: "Platform owes store (coupon → Coin pending)" },
-  gift_rail: {
-    ko: "상품권 정산 레일 지급 대상 (순액, 상품권 지급으로 정산)",
-    en: "Gift rail payable (net, paid via gift payout)",
-  },
-  legacy_manual_paid: { ko: "과거 수동 지급 (검토 필요)", en: "Legacy manual payout (review)" },
+  direct_collected: catalogPair("stores_collected_by_store_no_payout"),
+  payable: catalogPair("stores_platform_owes_store_coupon_coin_pending"),
+  gift_rail: catalogPair("stores_gift_rail_payable_net_paid_via"),
+  legacy_manual_paid: catalogPair("stores_legacy_manual_payout_review"),
 };
 
 /** UTC cutoff for stage 2-B money rules — earlier sale Coin rows are `legacy_preserved` (D-5, never corrected). */
@@ -245,18 +243,18 @@ export function splitStoreCommissionApproval(input: {
 }
 
 export const STORE_COMMISSION_ROW_STATE_LABEL: Record<StoreCommissionRowState, { ko: string; en: string }> = {
-  charged: { ko: "차감 완료", en: "Charged" },
-  outstanding: { ko: "미납(Cash 부족)", en: "Outstanding" },
-  review_required: { ko: "취소·환불 검토 중", en: "Under review" },
-  refunded: { ko: "수수료 환급", en: "Fee refunded" },
-  kept: { ko: "환급 반려", en: "Refund rejected" },
+  charged: catalogPair("stores_charged_2"),
+  outstanding: catalogPair("stores_outstanding_2"),
+  review_required: catalogPair("stores_under_review"),
+  refunded: catalogPair("stores_fee_refunded"),
+  kept: catalogPair("stores_refund_rejected"),
 };
 
 export const STORE_COMMISSION_FILTER_LABEL: Record<StoreCommissionLedgerFilterState, { ko: string; en: string }> = {
-  all: { ko: "전체", en: "All" },
-  decided: { ko: "전체 결정", en: "All decisions" },
-  approved: { ko: "환급 승인", en: "Refund approved" },
-  rejected: { ko: "환급 반려", en: "Refund rejected" },
+  all: catalogPair("stores_all"),
+  decided: catalogPair("stores_all_decisions"),
+  approved: catalogPair("stores_refund_approved"),
+  rejected: catalogPair("stores_refund_rejected"),
   ...STORE_COMMISSION_ROW_STATE_LABEL,
 };
 
@@ -270,17 +268,14 @@ export const STORE_COMMISSION_ROW_STATE_CHIP: Record<StoreCommissionRowState, st
 };
 
 export const STORE_COMMISSION_DECISION_LABEL: Record<StoreCommissionAdjustmentRecordDecision, { ko: string; en: string }> = {
-  approve: { ko: "환급 승인", en: "Refund approved" },
-  reject: { ko: "환급 반려", en: "Refund rejected" },
-  legacy_auto: { ko: "자동 환급(이전 방식)", en: "Automatic refund (legacy)" },
+  approve: catalogPair("stores_refund_approved"),
+  reject: catalogPair("stores_refund_rejected"),
+  legacy_auto: catalogPair("stores_automatic_refund_legacy"),
 };
 
 export const STORE_CASH_ORDER_GATE_LABEL: Record<StoreCashOrderGateMode, { ko: string; en: string }> = {
-  off: { ko: "차단 안 함 (마이너스여도 주문 접수)", en: "Off (orders accepted even when negative)" },
-  block_when_not_positive: {
-    ko: "순잔액 0 이하이면 신규 주문 차단",
-    en: "Block new orders when net cash <= 0",
-  },
+  off: catalogPair("stores_off_orders_accepted_even_when_negative"),
+  block_when_not_positive: catalogPair("stores_block_new_orders_when_net_cash"),
 };
 
 /** business_cash_ledger.entry_kind values shown in the Cash history filter. */
@@ -302,17 +297,17 @@ export type BusinessCashLedgerKind = (typeof BUSINESS_CASH_LEDGER_KINDS)[number]
 
 /** 이름 = `lib/finance/presentation` TYPE_LABELS 와 같은 1벌 (관리자·사장님 공용 · 금융 SSOT) */
 export const BUSINESS_CASH_LEDGER_KIND_LABEL: Record<BusinessCashLedgerKind, { ko: string; en: string }> = {
-  TOP_UP: { ko: "Cash 충전", en: "Cash top-up" },
-  CONVERT_FROM_STORE_POINTS: { ko: "Coin→Cash 전환 (Cash 입금)", en: "Coin→Cash convert (Cash in)" },
-  SALE_FEE: { ko: "판매 수수료", en: "Sale fee" },
-  SALE_FEE_SETTLEMENT: { ko: "미납 수수료 정산", en: "Unpaid fee settlement" },
-  SALE_FEE_REVERSAL: { ko: "수수료 환급", en: "Fee refund" },
-  AD_SPEND: { ko: "광고 사용", en: "Ad spend" },
-  AD_REFUND: { ko: "광고 환불", en: "Ad refund" },
-  PARTNER_SPEND: { ko: "Partner 사용", en: "Partner spend" },
-  PARTNER_REFUND: { ko: "Partner 환불", en: "Partner refund" },
-  ADMIN_ADJUST: { ko: "잔액 조정", en: "Balance adjustment" },
-  SYSTEM: { ko: "시스템", en: "System" },
+  TOP_UP: catalogPair("stores_cash_top_up"),
+  CONVERT_FROM_STORE_POINTS: catalogPair("stores_coin_cash_convert_cash_in"),
+  SALE_FEE: catalogPair("stores_sale_fee"),
+  SALE_FEE_SETTLEMENT: catalogPair("stores_unpaid_fee_settlement"),
+  SALE_FEE_REVERSAL: catalogPair("stores_fee_refund"),
+  AD_SPEND: catalogPair("stores_ad_spend"),
+  AD_REFUND: catalogPair("stores_ad_refund"),
+  PARTNER_SPEND: catalogPair("stores_partner_spend"),
+  PARTNER_REFUND: catalogPair("stores_partner_refund"),
+  ADMIN_ADJUST: catalogPair("stores_balance_adjustment"),
+  SYSTEM: catalogPair("stores_system"),
 };
 
 export function isBusinessCashLedgerKind(v: unknown): v is BusinessCashLedgerKind {

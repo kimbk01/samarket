@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { resolve } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
@@ -10,7 +12,7 @@ import {
 } from "@/lib/stores/commission/store-commission-display-labels";
 import { loadStoreCommissionLedgerPage } from "@/lib/stores/commission/load-store-commission-ledger";
 
-const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf8");
+const read = (p: string) => withCatalogCopy(readFileSync(resolve(process.cwd(), p), "utf8"));
 
 describe("실기 발견 결함 1 — 수수료 표·상세 영문 코드 → 한국어 (2026-11-04)", () => {
   it("운영 실기 값 preparing · cod · category 가 그대로 나오지 않는다", () => {
@@ -42,7 +44,9 @@ describe("실기 발견 결함 1 — 수수료 표·상세 영문 코드 → 한
 
   it("사장님 화면 결정 이력에는 관리자 id 대신 「운영팀」", () => {
     const table = read("components/stores/commission/StoreCommissionLedgerTable.tsx");
-    expect(table).toMatch(/audience === "owner"\s*\?\s*` · \$\{pickCommissionCopy\(lang, "운영팀", "Operations"\)\}`/);
+    /** 언어 SSOT S6: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(table).toMatch(/audience === "owner"\s*\?\s*` · \$\{translateBy\(lang, "stores_operations", undefined, "en"\)\}`/);
+    expect([MESSAGES.ko.stores_operations, MESSAGES.en.stores_operations]).toEqual(["운영팀", "Operations"]);
   });
 
   it("목록 로더가 그 쪽 주문의 배달·픽업 구분을 붙인다 (DB 함수 변경 없음)", async () => {
@@ -69,9 +73,12 @@ describe("실기 발견 결함 1 — 수수료 표·상세 영문 코드 → 한
 describe("실기 발견 결함 2 — 「환급」 칸 = 캐시 환급 + 미납 취소 혼합 → 두 칸", () => {
   it("표 머리글·칸이 캐시 환급과 미납 취소로 나뉜다 (위 합계 칸과 같은 말)", () => {
     const table = read("components/stores/commission/StoreCommissionLedgerTable.tsx");
-    expect(table).toContain('pickCommissionCopy(lang, "Cash 환급", "Cash refunded")');
-    expect(table).toContain('pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")');
-    expect(table).not.toContain('pickCommissionCopy(lang, "환급", "Refunded")');
+    expect(table).toContain('translateBy(lang, "stores_cash_refunded", undefined, "en")');
+    expect([MESSAGES.ko.stores_cash_refunded, MESSAGES.en.stores_cash_refunded]).toEqual(["Cash 환급", "Cash refunded"]);
+    expect(table).toContain('translateBy(lang, "stores_unpaid_cancelled", undefined, "en")');
+    expect([MESSAGES.ko.stores_unpaid_cancelled, MESSAGES.en.stores_unpaid_cancelled]).toEqual(["미납 취소", "Unpaid cancelled"]);
+    /** 「환급 / Refunded」 칸 이름을 쓰지 않는다 — 카탈로그로 옮긴 문구까지 포함해 판정 */
+    expect(table).not.toContain(": 환급 | Refunded */");
     expect(table).not.toContain("refundedMinor(r) > 0 ? formatCashMinor(refundedMinor(r))");
   });
 });

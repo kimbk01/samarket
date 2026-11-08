@@ -28,6 +28,8 @@ import {
   type CommissionLang,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type CommissionRowTone = "anomaly" | "review" | "approved" | "rejected" | "normal";
 
@@ -58,10 +60,10 @@ const TONE_EDGE: Record<CommissionRowTone, string> = {
 };
 
 export const COMMISSION_TONE_LABEL: Record<Exclude<CommissionRowTone, "normal">, { ko: string; en: string }> = {
-  anomaly: { ko: "원장 이상", en: "Ledger anomaly" },
-  review: { ko: "검토 대기", en: "Awaiting review" },
-  approved: { ko: "환급 승인", en: "Refund approved" },
-  rejected: { ko: "환급 반려", en: "Refund rejected" },
+  anomaly: catalogPair("stores_ledger_anomaly"),
+  review: catalogPair("stores_awaiting_review_2"),
+  approved: catalogPair("stores_refund_approved"),
+  rejected: catalogPair("stores_refund_rejected"),
 };
 
 const TONE_BADGE: Record<Exclude<CommissionRowTone, "normal">, string> = {
@@ -122,7 +124,7 @@ export function HorizontalScrollRegion({ label, lang, children }: { label: strin
     <div className="relative min-w-0">
       {scrollable ? (
         <p className="mb-1 sam-text-xxs text-sam-muted" data-scroll-hint="1">
-          {pickCommissionCopy(lang, "← 표를 좌우로 밀어 나머지 열을 확인하세요 →", "← Scroll the table sideways for more columns →")}
+          {translateBy(lang, "stores_scroll_the_table_sideways_for_more", undefined, "en")}
         </p>
       ) : null}
       <div
@@ -170,19 +172,19 @@ export function CommissionLedgerTable({
       <table className="w-full min-w-[960px] border-separate border-spacing-0 text-left text-sm" data-commission-table="1">
         <thead className="sam-text-xxs text-sam-muted">
           <tr>
-            <th className={`${th} sticky left-0 z-20 border-b border-sam-border-soft bg-sam-app`}>{pickCommissionCopy(lang, "주문번호", "Order")}</th>
-            {showStore ? <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{pickCommissionCopy(lang, "매장", "Store")}</th> : null}
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{pickCommissionCopy(lang, "처리 상태", "Status")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "수수료 기준액", "Base")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "요율", "Rate")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "부과", "Charged")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "Cash 차감", "Cash taken")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "미납", "Unpaid")}</th>
+            <th className={`${th} sticky left-0 z-20 border-b border-sam-border-soft bg-sam-app`}>{translateBy(lang, "stores_order_2", undefined, "en")}</th>
+            {showStore ? <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{translateBy(lang, "stores_store_2", undefined, "en")}</th> : null}
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{translateBy(lang, "stores_status", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_base_2", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_rate", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_charged", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_cash_taken", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_unpaid", undefined, "en")}</th>
             {/* 캐시 환급과 미납 취소를 한 칸에 합쳐 「환급」으로 보이던 결함 — 위 합계 칸과 같은 두 칸 (실기 T-8 발견 결함 2) */}
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "Cash 환급", "Cash refunded")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")}</th>
-            <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{pickCommissionCopy(lang, "부과 시각 (PHT)", "Charged (PHT)")}</th>
-            <th className={`${th} sticky right-0 z-20 border-b border-sam-border-soft bg-sam-app text-right`}>{pickCommissionCopy(lang, "액션", "Action")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_cash_refunded", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_unpaid_cancelled", undefined, "en")}</th>
+            <th className={`${th} border-b border-sam-border-soft bg-sam-app`}>{translateBy(lang, "stores_charged_pht", undefined, "en")}</th>
+            <th className={`${th} sticky right-0 z-20 border-b border-sam-border-soft bg-sam-app text-right`}>{translateBy(lang, "stores_action", undefined, "en")}</th>
           </tr>
         </thead>
         <tbody>
@@ -243,7 +245,7 @@ export function CommissionLedgerTable({
                 <td className={`${cell} sticky right-0 z-10 px-3 py-2 text-right`} onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-1.5">
                     <button type="button" className={ROW_ACTION_BTN} onClick={() => onOpen(r)}>
-                      {pickCommissionCopy(lang, "상세", "Detail")}
+                      {translateBy(lang, "stores_detail", undefined, "en")}
                     </button>
                     {renderAction ? renderAction(r) : null}
                   </div>
@@ -321,8 +323,8 @@ export function CommissionOrderDetailPanel({
       at: row.reviewFlaggedAt,
       title:
         row.adjustmentTrigger === "refunded"
-          ? pickCommissionCopy(lang, "환불 — 수수료 검토 대기", "Refunded — commission review")
-          : pickCommissionCopy(lang, "조리 후 취소 — 수수료 검토 대기", "Cancelled after cooking — commission review"),
+          ? translateBy(lang, "stores_refunded_commission_review", undefined, "en")
+          : translateBy(lang, "stores_cancelled_after_cooking_commission_review", undefined, "en"),
     });
   }
   if (d) {
@@ -331,7 +333,7 @@ export function CommissionOrderDetailPanel({
       // 사장님 화면에는 관리자 내부 id 대신 「운영팀」 (실기 O-2 발견 결함 1-f) · 관리자 화면은 그대로
       title: `${STORE_COMMISSION_DECISION_LABEL[d.decision][lang]}${
         audience === "owner"
-          ? ` · ${pickCommissionCopy(lang, "운영팀", "Operations")}`
+          ? ` · ${translateBy(lang, "stores_operations", undefined, "en")}`
           : d.adminUserName
             ? ` · ${d.adminUserName}`
             : d.adminUserId
@@ -347,7 +349,7 @@ export function CommissionOrderDetailPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-[1300] flex items-end justify-end bg-black/30 lg:items-stretch" role="dialog" aria-modal="true" aria-label={pickCommissionCopy(lang, "주문 수수료 상세", "Order commission detail")} onClick={onClose}>
+    <div className="fixed inset-0 z-[1300] flex items-end justify-end bg-black/30 lg:items-stretch" role="dialog" aria-modal="true" aria-label={translateBy(lang, "stores_order_commission_detail", undefined, "en")} onClick={onClose}>
       <aside
         className="mx-auto flex max-h-[88dvh] w-full max-w-[32rem] flex-col rounded-t-[length:var(--overlay-radius-xl)] border border-b-0 border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] pb-[var(--kb-safe-bottom,var(--safe-bottom,0px))] shadow-[var(--overlay-elevation-3)] lg:mx-0 lg:max-h-none lg:w-[440px] lg:max-w-none lg:rounded-none lg:border-0 lg:pb-0"
         onClick={(e) => e.stopPropagation()}
@@ -365,50 +367,50 @@ export function CommissionOrderDetailPanel({
             </div>
             {orderHref ? (
               <Link href={orderHref} className="mt-1.5 inline-block sam-text-helper font-medium text-signature underline-offset-2 hover:underline">
-                {pickCommissionCopy(lang, "주문 상세 보기", "Open order")}
+                {translateBy(lang, "stores_open_order", undefined, "en")}
               </Link>
             ) : null}
           </div>
           <button type="button" className="sam-btn sam-btn--cancel sam-btn--sm shrink-0 whitespace-nowrap" onClick={onClose} aria-label="close">
-            {pickCommissionCopy(lang, "닫기", "Close")}
+            {translateBy(lang, "stores_close", undefined, "en")}
           </button>
         </header>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           <section>
-            <h3 className="sam-text-helper font-semibold text-sam-fg">{pickCommissionCopy(lang, "금액", "Amounts")}</h3>
+            <h3 className="sam-text-helper font-semibold text-sam-fg">{translateBy(lang, "stores_amounts", undefined, "en")}</h3>
             <dl className="mt-1 divide-y divide-sam-border-soft">
-              <DetailRow label={pickCommissionCopy(lang, "수수료 기준액 (주문)", "Commission base")} value={formatMoneyPhp(row.commissionBasePhp)} />
-              <DetailRow label={pickCommissionCopy(lang, "원래 부과 수수료", "Original commission")} value={formatCashMinor(row.feeChargedMinor)} strong />
-              <DetailRow label={pickCommissionCopy(lang, "실제 Cash 차감", "Cash actually taken")} value={formatCashMinor(cashDeductedMinor(row))} />
+              <DetailRow label={translateBy(lang, "stores_commission_base_2", undefined, "en")} value={formatMoneyPhp(row.commissionBasePhp)} />
+              <DetailRow label={translateBy(lang, "stores_original_commission", undefined, "en")} value={formatCashMinor(row.feeChargedMinor)} strong />
+              <DetailRow label={translateBy(lang, "stores_cash_actually_taken", undefined, "en")} value={formatCashMinor(cashDeductedMinor(row))} />
               <DetailRow
-                label={pickCommissionCopy(lang, "현재 미납", "Unpaid now")}
+                label={translateBy(lang, "stores_unpaid_now", undefined, "en")}
                 value={formatCashMinor(row.feeOutstandingMinor)}
                 tone={row.feeOutstandingMinor > 0 ? "danger" : undefined}
               />
-              <DetailRow label={pickCommissionCopy(lang, "Cash 환급", "Cash refunded")} value={formatCashMinor(d?.cashRefundMinor ?? 0)} />
-              <DetailRow label={pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")} value={formatCashMinor(d?.outstandingCancelMinor ?? 0)} />
+              <DetailRow label={translateBy(lang, "stores_cash_refunded", undefined, "en")} value={formatCashMinor(d?.cashRefundMinor ?? 0)} />
+              <DetailRow label={translateBy(lang, "stores_unpaid_cancelled", undefined, "en")} value={formatCashMinor(d?.outstandingCancelMinor ?? 0)} />
               {row.state === "review_required" ? (
-                <DetailRow label={pickCommissionCopy(lang, "환급 가능액 (최대)", "Refundable (max)")} value={formatCashMinor(refundable)} tone="good" strong />
+                <DetailRow label={translateBy(lang, "stores_refundable_max", undefined, "en")} value={formatCashMinor(refundable)} tone="good" strong />
               ) : null}
-              <DetailRow label={pickCommissionCopy(lang, "플랫폼 순수수료", "Platform net commission")} value={formatCashMinor(net)} strong />
+              <DetailRow label={translateBy(lang, "stores_platform_net_commission", undefined, "en")} value={formatCashMinor(net)} strong />
             </dl>
           </section>
           <section>
-            <h3 className="sam-text-helper font-semibold text-sam-fg">{pickCommissionCopy(lang, "수수료 계산 (부과 시점 고정)", "Fee calculation (frozen at charge)")}</h3>
+            <h3 className="sam-text-helper font-semibold text-sam-fg">{translateBy(lang, "stores_fee_calculation_frozen_at_charge", undefined, "en")}</h3>
             {b ? (
               <dl className="mt-1 divide-y divide-sam-border-soft">
-                <DetailRow label={pickCommissionCopy(lang, "정책", "Policy")} value={`${b.policyName ?? "—"}${commissionPolicyScopeLabel(b.scope, lang) ? ` (${commissionPolicyScopeLabel(b.scope, lang)})` : ""}`} />
-                <DetailRow label={pickCommissionCopy(lang, "요율", "Rate")} value={row.feePercent != null ? `${row.feePercent}%` : "—"} />
-                <DetailRow label={pickCommissionCopy(lang, "요율 수수료", "Percent fee")} value={formatCashPhp2(b.percentFeePhp)} />
-                <DetailRow label={pickCommissionCopy(lang, "고정 수수료", "Fixed fee")} value={formatCashPhp2(b.fixedFeePhp)} />
-                <DetailRow label={pickCommissionCopy(lang, "배달비 수수료", "Delivery fee income")} value={formatCashPhp2(b.deliveryIncomePhp)} />
+                <DetailRow label={translateBy(lang, "stores_policy", undefined, "en")} value={`${b.policyName ?? "—"}${commissionPolicyScopeLabel(b.scope, lang) ? ` (${commissionPolicyScopeLabel(b.scope, lang)})` : ""}`} />
+                <DetailRow label={translateBy(lang, "stores_rate", undefined, "en")} value={row.feePercent != null ? `${row.feePercent}%` : "—"} />
+                <DetailRow label={translateBy(lang, "stores_percent_fee", undefined, "en")} value={formatCashPhp2(b.percentFeePhp)} />
+                <DetailRow label={translateBy(lang, "stores_fixed_fee", undefined, "en")} value={formatCashPhp2(b.fixedFeePhp)} />
+                <DetailRow label={translateBy(lang, "stores_delivery_fee_income", undefined, "en")} value={formatCashPhp2(b.deliveryIncomePhp)} />
               </dl>
             ) : (
-              <p className="mt-1 sam-text-helper text-sam-muted">{pickCommissionCopy(lang, "과거 부과 — 정책 스냅샷 없음", "Legacy charge — no policy snapshot")}</p>
+              <p className="mt-1 sam-text-helper text-sam-muted">{translateBy(lang, "stores_legacy_charge_no_policy_snapshot", undefined, "en")}</p>
             )}
           </section>
           <section>
-            <h3 className="sam-text-helper font-semibold text-sam-fg">{pickCommissionCopy(lang, "처리 이력", "History")}</h3>
+            <h3 className="sam-text-helper font-semibold text-sam-fg">{translateBy(lang, "stores_history", undefined, "en")}</h3>
             <ol className="mt-1 space-y-2 border-l-2 border-sam-border-soft pl-3">
               {history.map((h, i) => (
                 <li key={i}>

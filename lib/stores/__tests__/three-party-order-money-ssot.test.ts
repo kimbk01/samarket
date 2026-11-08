@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,7 +14,7 @@ import { ownerOrderFinanceHref } from "@/lib/finance/deep-links";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { mypageComponentsMessages } from "@/lib/i18n/catalog/mypage-components";
 
-const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf8");
+const read = (p: string) => withCatalogCopy(readFileSync(resolve(process.cwd(), p), "utf8"));
 
 /** A raw store_orders row as the buyer snapshot RPCs return it (to_jsonb(o.*)). */
 const RAW = {
@@ -136,7 +138,9 @@ describe("legacy UI/UX/CTA contracts (no dark mode — legacy backgrounds kept)"
     expect(admin).toContain('roleTone: modal.decision === "approve" ? "primary" : "destructive"');
     expect(admin).toContain("loading: busy");
     expect(admin).not.toContain('className="fixed inset-0 z-50');
-    expect(admin).toContain('pickCommissionCopy(lang, "이전", "Back")');
+    /** 언어 SSOT S6: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(admin).toContain('translateBy(lang, "admin_ad_delete_back", undefined, "en")');
+    expect([MESSAGES.ko.admin_ad_delete_back, MESSAGES.en.admin_ad_delete_back]).toEqual(["이전", "Back"]);
   });
 
   it("admin keeps the console background (no full-bleed page background override)", () => {
