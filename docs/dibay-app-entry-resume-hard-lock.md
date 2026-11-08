@@ -18,7 +18,7 @@
 3. 시작 경로(인트로 준비 포함)의 모든 비동기 대기는 상한·예외 처리를 가진다. 상한 없는 `await` 금지.
 
 ## H3. 배포 스큐
-1. 켜져 있는 앱이 구버전 자산 404 로 깨지는 상태를 허용하지 않는다(스큐 보호 또는 동등 수단 필수).
+1. 켜져 있는 앱이 구버전 자산 404 로 깨지는 상태를 허용하지 않는다. 수단 = 복귀 버전 확인 1회 새로고침(C3 `web-version-resume`) + 파일 로드 실패 빌드당 1회 새로고침(청크 가드·`app/error`·`global-error`) + hydration 전 초기 가드(C2). **정적 파일 주소에 배포별 값(`?dpl`)을 붙여 배포마다 캐시를 무효화하는 방식 금지** — Vercel Skew Protection 꺼짐 유지 (근거 `docs/audit/android-cold-start-deploy-cache-root-cause-2026-11-09.md`, Owner 「승인, 적용해」 2026-11-09).
 2. 빌드 변경 감지는 복귀 조정자가 하고, 새로고침은 통제된 시점 1회만 한다.
 
 ## H4. 세션 갱신 (2026-11-08 재감사로 수정 — Supabase 공식 SSR 계약 기준 혼합 구조)
@@ -42,4 +42,5 @@
 - 2026-11-08 DRAFT 작성 (Claude, 감사 근거).
 - 2026-11-08 재감사 반영 (`docs/audit/app-entry-resume-stabilization-plan-2026-11-08.md`): H1-2 고장 판정 정의·재시도 상한, H4 혼합 구조로 수정. 여전히 DRAFT.
 - 2026-11-08 H1-2 개정 (Owner 「승인, 구현해」): 고장 판정에 T_doc(첫 문서 대기 10초) 추가 — iOS build 28 실기 FAIL(녹색 로고 20.5초) 근거. 여전히 DRAFT.
+- 2026-11-09 H3-1 개정: Skew Protection 끔(06:43:13 PHT) — `?dpl` 이 배포마다 첫 화면 파일 주소 100% 를 바꿔 Android 새 배포 첫 실행 7~10초(통제 실험 8.1초 vs 2.1초). 여전히 DRAFT.
 - 2026-11-08 구현 대조: H1(Android C1·iOS C7 코드)·H2(C2)·H3(C3·Skew 7일)·H4(Amendment (6)(7))·H6(C8) 반영 — §13 표. H5(복귀 요청 묶기)는 보류. Owner 승인 전 DRAFT 유지.

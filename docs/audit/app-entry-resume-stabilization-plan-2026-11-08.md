@@ -186,7 +186,7 @@ RELEASED 유지(마지막 화면·채팅 위치·입력 보존) → 복귀 조�
 |---|---|---|---|
 | Phase 1 C8 계측 | R5 | **반영** · iOS·Android 수신 확인 | `1481629b7` |
 | Phase 2a C2 웹 해제 | R1-e | **반영** | `9a488885d` |
-| Phase 2b C3 배포 스큐 | R2·R2-c | **반영** · Skew Protection 7일 · 이전 배포 청크 `?dpl=` 200 실측 | `94c563a80` |
+| Phase 2b C3 배포 스큐 | R2·R2-c | **반영** · Skew Protection 7일 · 이전 배포 청크 `?dpl=` 200 실측 → **2026-11-09 Skew Protection 끔** (배포마다 첫 화면 캐시 100% 무효 → Android 새 배포 첫 실행 7~10초, `docs/audit/android-cold-start-deploy-cache-root-cause-2026-11-09.md`). C3 복귀 버전 확인은 유지 | `94c563a80` · 설정 06:43 PHT |
 | R2-b 무한 새로고침 | R2-b | **이번 반영 (비통화 경로)** — 루트 오류·최상위 오류·전역 미처리 거부는 빌드당 1회. 통화 경계 3곳은 통화 규정상 기존 함수 그대로 | 이번 커밋 |
 | Phase 3-1 `/api` 게이트 무갱신 검증 | R3·R3-a | **반영** | `f1b30dfe5` |
 | Phase 3-2a 세션 신선도 관문 | R3 | **반영** | `a4d44372b` |
