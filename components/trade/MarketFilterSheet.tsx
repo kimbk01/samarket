@@ -458,20 +458,14 @@ export function MarketFilterSheet({
     {
       value: "latest" as SortOption,
       key: "marketplace_filter_sort_latest" as const,
-      fallbackKo: "최신순",
-      fallbackEn: "Latest",
     },
     {
       value: "near" as SortOption,
       key: "marketplace_filter_sort_distance" as const,
-      fallbackKo: "가까운순",
-      fallbackEn: "Nearest",
     },
     {
       value: "popular" as SortOption,
       key: "marketplace_filter_sort_popular" as const,
-      fallbackKo: "인기순",
-      fallbackEn: "Popular",
     },
   ] as const;
 
@@ -479,20 +473,14 @@ export function MarketFilterSheet({
     {
       value: "all" as TradeStateOption,
       key: "marketplace_filter_trade_state_all" as const,
-      fallbackKo: "전체",
-      fallbackEn: "All",
     },
     {
       value: "active" as TradeStateOption,
       key: "marketplace_filter_trade_state_active" as const,
-      fallbackKo: "판매중",
-      fallbackEn: "Available",
     },
     {
       value: "sold" as TradeStateOption,
       key: "marketplace_filter_trade_state_sold" as const,
-      fallbackKo: "판매완료",
-      fallbackEn: "Sold",
     },
   ] as const;
 
@@ -792,7 +780,7 @@ export function MarketFilterSheet({
             <RadioItem
               key={opt.value}
               checked={state.sort === opt.value}
-              label={safeT(opt.key, { fallbackKo: opt.fallbackKo, fallbackEn: opt.fallbackEn })}
+              label={safeT(opt.key)}
               onChange={() => setState((s) => ({ ...s, sort: opt.value }))}
             />
           ))}
@@ -829,7 +817,7 @@ export function MarketFilterSheet({
             <RadioItem
               key={opt.value}
               checked={state.tradeState === opt.value}
-              label={safeT(opt.key, { fallbackKo: opt.fallbackKo, fallbackEn: opt.fallbackEn })}
+              label={safeT(opt.key)}
               onChange={() => setState((s) => ({ ...s, tradeState: opt.value }))}
             />
           ))}
