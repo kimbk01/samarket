@@ -48,6 +48,11 @@ import {
 } from "@/lib/stores/store-order-process-model";
 import { buildStoreOrderSummaryTimelineSteps } from "@/lib/store-order-chat/store-order-summary-timeline";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
+import {
+  storeOrderChatParticipantsNeedingUpsert,
+  storeOrderSummaryMessageNeedsUpdate,
+  type StoreOrderChatExistingParticipant,
+} from "@/lib/community-messenger/store-order-chat-ensure-diff";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -260,35 +265,51 @@ async function loadStoreOrderSummaryMessageState(
   sb: SupabaseClient<any>,
   roomId: string,
   orderId: string
-): Promise<{ metadataSummaryId: string; legacySystemSummaryId: string }> {
+): Promise<{
+  metadataSummaryId: string;
+  legacySystemSummaryId: string;
+  /** S1: 찾은 요약 메시지의 현재 본문·메타 — 같은 값이면 다시 쓰지 않는다 */
+  existingContent: unknown;
+  existingMetadata: unknown;
+}> {
   const { data: byMeta, error: metaErr } = await sb
     .from("community_messenger_messages")
-    .select("id")
+    .select("id, content, metadata")
     .eq("room_id", roomId)
     .eq("message_type", "system")
     .filter("metadata->>kind", "eq", "store_order_summary")
     .filter("metadata->>storeOrderId", "eq", orderId)
     .limit(1)
     .maybeSingle();
-  const metadataSummaryId = !metaErr ? trimText((byMeta as { id?: unknown } | null)?.id) : "";
-  if (metadataSummaryId) return { metadataSummaryId, legacySystemSummaryId: "" };
+  const metaRow = !metaErr ? (byMeta as { id?: unknown; content?: unknown; metadata?: unknown } | null) : null;
+  const metadataSummaryId = trimText(metaRow?.id);
+  if (metadataSummaryId) {
+    return {
+      metadataSummaryId,
+      legacySystemSummaryId: "",
+      existingContent: metaRow?.content,
+      existingMetadata: metaRow?.metadata,
+    };
+  }
 
   const { data: rows } = await sb
     .from("community_messenger_messages")
-    .select("id, content")
+    .select("id, content, metadata")
     .eq("room_id", roomId)
     .eq("message_type", "system")
     .order("created_at", { ascending: true })
     .limit(40);
-  for (const row of (rows ?? []) as Array<{ content?: unknown }>) {
+  for (const row of (rows ?? []) as Array<{ id?: unknown; content?: unknown; metadata?: unknown }>) {
     if (isStoreOrderSummarySystemContent(String(row.content ?? ""))) {
       return {
         metadataSummaryId,
-        legacySystemSummaryId: trimText((row as { id?: unknown }).id),
+        legacySystemSummaryId: trimText(row.id),
+        existingContent: row.content,
+        existingMetadata: row.metadata,
       };
     }
   }
-  return { metadataSummaryId, legacySystemSummaryId: "" };
+  return { metadataSummaryId, legacySystemSummaryId: "", existingContent: null, existingMetadata: null };
 }
 
 async function loadStoreOrderStatusEvents(
@@ -360,6 +381,20 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
   };
   const updateSummaryId = summaryState.metadataSummaryId || summaryState.legacySystemSummaryId;
   if (updateSummaryId) {
+    /**
+     * S1 (2026-11-09): 본문·메타가 이미 같으면 쓰지 않는다 — 채팅 열기마다 같은 값 UPDATE →
+     * Realtime 전파·방 미리보기 재계산(아래 rooms UPDATE)이 생기던 결함. 값이 다를 때(상태 변경 등)만 기존대로 갱신.
+     */
+    if (
+      !storeOrderSummaryMessageNeedsUpdate({
+        existingContent: summaryState.existingContent,
+        existingMetadata: summaryState.existingMetadata,
+        nextContent: content,
+        nextMetadata: metadata,
+      })
+    ) {
+      return;
+    }
     await sb
       .from("community_messenger_messages")
       .update({
@@ -561,10 +596,23 @@ export async function ensureStoreOrderMessengerRoom(
       roomCreated = Boolean(roomId);
     }
   } else {
-    await sb
+    /**
+     * S1 (2026-11-09): 방 `summary`(text JSON)가 이미 같으면 쓰지 않는다 — 열기마다 `updated_at` 만 바뀌는
+     * UPDATE 가 Realtime 으로 양쪽 목록·방에 전파되던 결함. 다를 때(상태·금액·매장 설정 변경)만 기존대로 갱신.
+     */
+    const nextSummary = serializeCommunityMessengerRoomContextMeta(meta);
+    const { data: roomRow } = await sb
       .from("community_messenger_rooms")
-      .update({ summary: serializeCommunityMessengerRoomContextMeta(meta), updated_at: createdAt })
-      .eq("id", roomId);
+      .select("summary")
+      .eq("id", roomId)
+      .maybeSingle();
+    const currentSummary = (roomRow as { summary?: unknown } | null)?.summary;
+    if (currentSummary !== nextSummary) {
+      await sb
+        .from("community_messenger_rooms")
+        .update({ summary: nextSummary, updated_at: createdAt })
+        .eq("id", roomId);
+    }
   }
   if (!roomId) return { ok: false, error: "room_create_failed", status: 500 };
 
@@ -574,10 +622,29 @@ export async function ensureStoreOrderMessengerRoom(
       roomCreated,
     })
   ) {
-    const participants = [
+    const planned = [
       { room_id: roomId, user_id: buyerUserId, role: "member", store_order_role: "customer" },
       { room_id: roomId, user_id: ownerUserId, role: "owner", store_order_role: "owner" },
     ];
+    /**
+     * S1 (2026-11-09): 행이 이미 있고 `role`·`store_order_role` 이 같으면 upsert 생략 — 이 upsert 는 두 열만 바꾸므로
+     * 같은 값이면 데이터가 같다. 방을 새로 만든 경우는 조회 없이 둘 다 넣는다(기존 동작 그대로).
+     * 행이 없으면(삭제된 참가자 재진입) 기존대로 넣는다. 동시 요청은 upsert onConflict 로 기존과 같이 안전.
+     */
+    let participants = planned;
+    if (!roomCreated) {
+      const { data: existingParts, error: existingErr } = await sb
+        .from("community_messenger_participants")
+        .select("user_id, role, store_order_role")
+        .eq("room_id", roomId)
+        .in("user_id", [buyerUserId, ownerUserId]);
+      if (!existingErr) {
+        participants = storeOrderChatParticipantsNeedingUpsert(
+          planned,
+          (existingParts ?? []) as StoreOrderChatExistingParticipant[]
+        );
+      }
+    }
     const partResults = await Promise.all(
       participants.map((participant) =>
         sb.from("community_messenger_participants").upsert(participant, {
@@ -590,7 +657,13 @@ export async function ensureStoreOrderMessengerRoom(
       if (partErr) return { ok: false, error: partErr.message, status: 500 };
     }
   }
-  await sb.from("store_orders").update({ community_messenger_room_id: roomId }).eq("id", orderId);
+  /**
+   * S1 (2026-11-09): 이미 같은 방이 연결돼 있으면 쓰지 않는다 — 같은 값 UPDATE 도 `store_orders_updated_at`
+   * 트리거로 `updated_at` 이 바뀌고 Realtime(주문 목록·사장님 화면)으로 전파됐다. 연결이 없거나 다를 때만 쓴다.
+   */
+  if (existingLinked !== roomId) {
+    await sb.from("store_orders").update({ community_messenger_room_id: roomId }).eq("id", orderId);
+  }
 
   const ensured: Extract<StoreOrderMessengerEnsureResult, { ok: true }> = {
     ok: true,
