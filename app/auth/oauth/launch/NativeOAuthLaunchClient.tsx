@@ -108,10 +108,7 @@ export function NativeOAuthLaunchClient() {
       return;
     }
     if (!provider) {
-      setError(safeT("auth_err_invalid_provider", {
-        fallbackKo: "지원하지 않는 로그인 방식입니다.",
-        fallbackEn: "This sign-in method is not supported.",
-      }));
+      setError(safeT("auth_err_invalid_provider"));
       setLoading(false);
       return;
     }
@@ -160,16 +157,10 @@ export function NativeOAuthLaunchClient() {
           if (code === "oauth_start_timeout") {
             setError(t("auth_err_auth_timeout"));
           } else if (code === "oauth_bridge_not_ready") {
-            setError(safeT("auth_err_oauth_bridge_not_ready", {
-              fallbackKo: "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
-              fallbackEn: "App sign-in is not connected yet. Fully close the app and open it again.",
-            }));
+            setError(safeT("auth_err_oauth_bridge_not_ready"));
             setDevError(formatBridgeDiagnosticsForDev());
           } else if (code === "oauth_native_redirect_mismatch") {
-            setError(safeT("auth_err_oauth_start_failed", {
-              fallbackKo: "앱 로그인 주소가 올바르지 않습니다. Supabase Redirect URLs에 https://samarket.vercel.app/** 가 등록되어 있는지 확인해 주세요.",
-              fallbackEn: "App sign-in redirect is misconfigured. Check Supabase Redirect URLs include https://samarket.vercel.app/**.",
-            }));
+            setError(safeT("auth_err_oauth_start_failed"));
           } else {
             setError(t("auth_err_oauth_start_failed"));
           }
@@ -214,10 +205,7 @@ export function NativeOAuthLaunchClient() {
       setBridgeReady(readyNow);
       if (!readyNow) {
         dispatchOAuthPendingClear("oauth_launch_bridge_timeout");
-        setError(safeT("auth_err_oauth_bridge_not_ready", {
-          fallbackKo: "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
-          fallbackEn: "App sign-in is not connected yet. Fully close the app and open it again.",
-        }));
+        setError(safeT("auth_err_oauth_bridge_not_ready"));
         setDevError(formatBridgeDiagnosticsForDev());
         return;
       }
@@ -270,10 +258,7 @@ export function NativeOAuthLaunchClient() {
     router.replace("/login");
   }, [router]);
 
-  const backLabel = safeT("auth_oauth_launch_back", {
-    fallbackKo: "돌아가기",
-    fallbackEn: "Go back",
-  });
+  const backLabel = safeT("auth_oauth_launch_back");
 
   if (!provider) {
     return (
@@ -296,26 +281,14 @@ export function NativeOAuthLaunchClient() {
           <OAuthLoginProviderIcon provider={provider} size="primary" />
         </div>
         <h1 className="text-lg font-semibold text-sam-fg">
-          {safeT("auth_oauth_launch_title", {
-            fallbackKo: "로그인 계속",
-            fallbackEn: "Continue sign-in",
-          })}
+          {safeT("auth_oauth_launch_title")}
         </h1>
         <p className="text-sm text-sam-muted">
           {loading
-            ? safeT("auth_oauth_launch_preparing", {
-                fallbackKo: "로그인 준비 중…",
-                fallbackEn: "Preparing sign-in…",
-              })
+            ? safeT("auth_oauth_launch_preparing")
             : !bridgeReady
-              ? safeT("auth_oauth_launch_bridge_preparing", {
-                  fallbackKo: "앱 연결 준비 중…",
-                  fallbackEn: "Connecting to the app…",
-                })
-              : safeT("auth_oauth_launch_body", {
-                  fallbackKo: "아래 버튼을 눌러 로그인 창을 열어 주세요.",
-                  fallbackEn: "Tap the button below to open the sign-in window.",
-                })}
+              ? safeT("auth_oauth_launch_bridge_preparing")
+              : safeT("auth_oauth_launch_body")}
         </p>
 
         <button

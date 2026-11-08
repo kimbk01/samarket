@@ -18,10 +18,7 @@ const REDIRECT_DELAY_MS = 500;
 let redirectInFlightKey: string | null = null;
 
 export function resourceAccessDeniedMessage(): string {
-  return safeTranslate(getRuntimeAppLanguage(), "auth_resource_access_denied", {
-    fallbackKo: "존재하지 않거나 접근할 수 없는 정보입니다.",
-    fallbackEn: "This information does not exist or is not accessible.",
-  });
+  return safeTranslate(getRuntimeAppLanguage(), "auth_resource_access_denied");
 }
 
 /** 팝업 SSOT §3-10 (B4) — `DibayToast` 와 같은 클래스·위치(하단 토스트 줄)·시간. React 밖이라 DOM 으로 직접 그린다. */

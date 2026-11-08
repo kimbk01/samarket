@@ -52,17 +52,14 @@ export default function OAuthCapacitorReturnPage() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-sam-app px-6 text-center">
       <p className="sam-text-body-secondary text-sam-muted">
-        {safeT("auth_oauth_return_to_app_hint", {
-          fallbackKo: "앱이 자동으로 열리지 않으면 아래 버튼을 눌러 주세요.",
-          fallbackEn: "If the app does not open automatically, tap the button below.",
-        })}
+        {safeT("auth_oauth_return_to_app_hint")}
       </p>
       <a
         href={fallbackHref}
         className="inline-flex min-h-[48px] w-full max-w-xs items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[15px] font-semibold text-sam-on-primary"
         data-testid="capacitor-return-fallback"
       >
-        {safeT("auth_oauth_return_to_app", { fallbackKo: "앱으로 돌아가기", fallbackEn: "Return to the app" })}
+        {safeT("auth_oauth_return_to_app")}
       </a>
     </main>
   );

@@ -18,12 +18,16 @@ vi.mock("@/hooks/use-client-membership-state", () => ({
   retryClientMembershipRecovery: (reason: string) => retryClientMembershipRecovery(reason),
 }));
 
-vi.mock("@/components/i18n/AppLanguageProvider", () => ({
+vi.mock("@/components/i18n/AppLanguageProvider", async () => {
+  /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
+  const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+  return ({
   useI18n: () => ({
     t: (key: string) => `t:${key}`,
-    safeT: (key: string, o: { fallbackKo: string }) => `safeT:${key}:${o.fallbackKo}`,
+    safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
   }),
-}));
+  });
+});
 
 vi.mock("@/lib/runtime/samarket-runtime-debug", () => ({ samarketRuntimeDebugEnabled: () => false }));
 vi.mock("@/components/auth/GuestLoginRequiredPanel", () => ({
@@ -136,7 +140,7 @@ describe("membership check failed — gates show error + retry instead of infini
     recoveryFailed.current = true;
     render(<CommunityMessengerGuestGate><div data-testid="child" /></CommunityMessengerGuestGate>);
     expect(container.querySelector("[data-testid=membership-check-failed]")).not.toBeNull();
-    expect(container.textContent).toContain("auth_membership_check_failed");
+    expect(container.textContent).toContain("로그인 상태를 확인하지 못했어요");
     expect(container.querySelector("[data-cm-guest-gate-spinner]")).toBeNull();
     expect(container.querySelector("[data-testid=guest-panel]")).toBeNull();
     clickRetry();

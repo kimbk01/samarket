@@ -3,6 +3,7 @@
  * CUT 1 — presentation geometry + Event Benefit authority (focused structural).
  */
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -16,7 +17,7 @@ import type { PlatformPopupCandidate } from "@/lib/platform-popup/resolve-popup-
 const ROOT = process.cwd();
 
 function readRepo(rel: string): string {
-  return readFileSync(join(ROOT, rel), "utf8");
+  return withCatalogCopy(readFileSync(join(ROOT, rel), "utf8"));
 }
 
 const baseCandidate: PlatformPopupCandidate = {

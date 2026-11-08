@@ -115,15 +115,9 @@ export function AuthConsentForm({
   );
 
   const ageRequiredMessage = () =>
-    safeT("auth_consent_age_required", {
-      fallbackKo: "만 14세 이상 확인과 생년월일을 입력해 주세요.",
-      fallbackEn: "Confirm you are 14+ and enter your date of birth.",
-    });
+    safeT("auth_consent_age_required");
   const underageMessage = () =>
-    safeT("auth_consent_age_under_minimum", {
-      fallbackKo: "만 14세 이상만 가입할 수 있습니다.",
-      fallbackEn: "You must be at least 14 years old to join.",
-    });
+    safeT("auth_consent_age_under_minimum");
   const handleSubmit = async () => {
     if (inFlightRef.current || submitting) return;
     if (needsLegal && (!agreeTerms || !agreePrivacy)) {
@@ -234,28 +228,16 @@ export function AuthConsentForm({
   };
 
   const title = ageOnly
-    ? safeT("auth_consent_age_title", { fallbackKo: "연령 확인", fallbackEn: "Age verification" })
+    ? safeT("auth_consent_age_title")
     : isReconsent
-      ? safeT("auth_consent_reconsent_title", { fallbackKo: "약관 재동의", fallbackEn: "Review updated terms" })
+      ? safeT("auth_consent_reconsent_title")
       : t("auth_consent_title");
 
   const description = ageOnly
-    ? safeT("auth_consent_age_intro", {
-        fallbackKo: "서비스 이용을 위해 만 14세 이상임을 생년월일로 확인해 주세요.",
-        fallbackEn: "Confirm you are 14 or older with your date of birth to continue.",
-      })
+    ? safeT("auth_consent_age_intro")
     : isReconsent
-      ? safeT("auth_consent_reconsent_intro", {
-          fallbackKo:
-            "이용약관 또는 개인정보처리방침이 개정되어 동의가 필요합니다. 필수 항목에 동의하면 서비스를 계속 이용할 수 있습니다.",
-          fallbackEn:
-            "Terms or Privacy Policy were updated. Agree to the required items to keep using the service.",
-        })
-      : safeT("auth_consent_intro_v2", {
-          fallbackKo:
-            "서비스 이용을 위해 아래 항목에 동의해 주세요. 선택 항목은 동의하지 않아도 가입할 수 있습니다.",
-          fallbackEn: "Please agree to the items below. Optional items are not required to join.",
-        });
+      ? safeT("auth_consent_reconsent_intro")
+      : safeT("auth_consent_intro_v2");
 
   const showAllToggle = [needsLegal, needsAge, Boolean(marketing)].filter(Boolean).length > 1;
 
@@ -287,11 +269,7 @@ export function AuthConsentForm({
       >
         {isReconsent && shownVersions ? (
           <div className={`mb-3 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>
-            {safeT("auth_consent_required_versions", {
-              fallbackKo: `필수 버전: 이용약관 ${shownVersions.termsVersion} · 개인정보 ${shownVersions.privacyVersion}`,
-              fallbackEn: `Required: Terms ${shownVersions.termsVersion} · Privacy ${shownVersions.privacyVersion}`,
-              vars: { terms: shownVersions.termsVersion, privacy: shownVersions.privacyVersion },
-            })}
+            {safeT("auth_consent_required_versions", { vars: { terms: shownVersions.termsVersion, privacy: shownVersions.privacyVersion } })}
           </div>
         ) : null}
 
@@ -373,22 +351,16 @@ export function AuthConsentForm({
                 />
                 <span className={DIBAY_ONBOARDING_LABEL_CLASS}>
                   {tagReq}
-                  {safeT("auth_consent_age_label", {
-                    fallbackKo: "만 14세 이상입니다",
-                    fallbackEn: "I am 14 years of age or older",
-                  })}
+                  {safeT("auth_consent_age_label")}
                   <span className="mt-0.5 block text-[12px] text-sam-muted">
-                    {safeT("auth_consent_age_hint", {
-                      fallbackKo: "자기신고 · 신원 인증이 아닙니다",
-                      fallbackEn: "Self-declaration · not identity verification",
-                    })}
+                    {safeT("auth_consent_age_hint")}
                   </span>
                 </span>
               </label>
 
               <label className="mt-2 block space-y-1">
                 <span className="text-[12px] font-bold text-sam-muted">
-                  {safeT("auth_consent_dob_label", { fallbackKo: "생년월일", fallbackEn: "Date of birth" })}
+                  {safeT("auth_consent_dob_label")}
                 </span>
                 <input
                   type="date"

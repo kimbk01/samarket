@@ -17,10 +17,7 @@ export function MembershipCheckFailedPanel({ source, className = "" }: { source:
       data-testid="membership-check-failed"
     >
       <p className="sam-text-body text-sam-fg">
-        {safeT("auth_membership_check_failed", {
-          fallbackKo: "로그인 상태를 확인하지 못했어요",
-          fallbackEn: "Couldn't verify your sign-in status",
-        })}
+        {safeT("auth_membership_check_failed")}
       </p>
       <button
         type="button"

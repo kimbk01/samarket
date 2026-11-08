@@ -1,4 +1,5 @@
 import type { LinkableAuthProvider, StoredAuthProvider } from "@/lib/auth/provider-identity/types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const PROVIDER_LABEL_KO: Record<StoredAuthProvider, string> = {
   google: "Google",
@@ -24,7 +25,7 @@ export function resolveProviderDisplayName(
 ): string {
   const key = String(provider ?? "").trim().toLowerCase() as StoredAuthProvider;
   const table = lang === "en" ? PROVIDER_LABEL_EN : PROVIDER_LABEL_KO;
-  return table[key] ?? (lang === "en" ? "Sign-in method" : "로그인 방식");
+  return table[key] ?? (translateBy(lang, "auth_sign_in_method"));
 }
 
 export function isLinkableAuthProvider(value: string): value is LinkableAuthProvider {

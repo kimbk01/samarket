@@ -66,31 +66,18 @@ export function PhoneVerificationRequiredSheet() {
     <DibayBottomSheet
       open={Boolean(detail)}
       onClose={close}
-      title={safeT("auth_phone_gate_unverified_title", {
-        fallbackKo: "전화번호 인증이 완료되지 않았습니다",
-        fallbackEn: "Phone verification is not complete",
-      })}
+      title={safeT("auth_phone_gate_unverified_title")}
       showHandle={false}
     >
       <p className={`text-center ${OverlayUi.bodySecondary}`}>
-        {safeT("auth_phone_gate_messenger_action_body", {
-          fallbackKo: "메시지 전송 등 이 기능을 사용하려면 전화번호 인증이 필요합니다. 인증 후 다시 시도해 주세요.",
-          fallbackEn:
-            "Phone verification is required to send messages and use this feature. Verify your number and try again.",
-        })}
+        {safeT("auth_phone_gate_messenger_action_body")}
       </p>
       <div className={`${OverlayUi.actionsStack} mt-5`}>
         <DibayOverlayButton roleTone="primary" onClick={goVerify}>
-          {safeT("auth_phone_gate_verify", {
-            fallbackKo: "전화 인증하기",
-            fallbackEn: "Verify phone",
-          })}
+          {safeT("auth_phone_gate_verify")}
         </DibayOverlayButton>
         <DibayOverlayButton roleTone="secondary" onClick={close}>
-          {safeT("auth_login_required_later", {
-            fallbackKo: "나중에 하기",
-            fallbackEn: "Later",
-          })}
+          {safeT("auth_login_required_later")}
         </DibayOverlayButton>
       </div>
     </DibayBottomSheet>

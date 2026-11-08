@@ -29,10 +29,7 @@ function statusMessage(
   safeT: ReturnType<typeof useI18n>["safeT"],
 ): string {
   if (status === "preparing") {
-    return safeT("auth_oauth_launch_preparing", {
-      fallbackKo: "로그인 준비 중…",
-      fallbackEn: "Preparing sign-in…",
-    });
+    return safeT("auth_oauth_launch_preparing");
   }
   if (status === "opening") {
     return t("auth_oauth_redirecting_label");
@@ -40,15 +37,9 @@ function statusMessage(
   if (status === "awaiting_return") {
     /** Windows 셸 W2 — 기본 브라우저 로그인 대기 */
     if (isDibayWindowsShell()) return t("auth_windows_browser_login_waiting");
-    return safeT("auth_oauth_launch_body", {
-      fallbackKo: "로그인을 완료하면 자동으로 돌아옵니다.",
-      fallbackEn: "Return here after you finish sign-in.",
-    });
+    return safeT("auth_oauth_launch_body");
   }
-  return safeT("auth_oauth_launch_body", {
-    fallbackKo: "아래 버튼을 눌러 로그인 창을 열어 주세요.",
-    fallbackEn: "Tap the button below to open the sign-in window.",
-  });
+  return safeT("auth_oauth_launch_body");
 }
 
 export function OAuthProviderLoginPanel({
@@ -114,10 +105,7 @@ export function OAuthProviderLoginPanel({
       className="auth-oauth-panel-host fixed inset-0 z-[1320] flex flex-col justify-end"
       role="dialog"
       aria-modal="true"
-      aria-label={safeT("auth_oauth_launch_title", {
-        fallbackKo: "로그인 계속",
-        fallbackEn: "Continue sign-in",
-      })}
+      aria-label={safeT("auth_oauth_launch_title")}
     >
       <button
         type="button"
@@ -134,10 +122,7 @@ export function OAuthProviderLoginPanel({
             <OAuthLoginProviderIcon provider={provider} size="primary" />
           </div>
           <h2 className="text-lg font-semibold text-sam-fg">
-            {safeT("auth_oauth_launch_title", {
-              fallbackKo: "로그인 계속",
-              fallbackEn: "Continue sign-in",
-            })}
+            {safeT("auth_oauth_launch_title")}
           </h2>
           <p className="text-sm text-sam-muted">{body}</p>
           <div
@@ -157,10 +142,7 @@ export function OAuthProviderLoginPanel({
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {onCancel ? (
             <button type="button" className={`${OverlayUi.textActionMuted} mx-auto underline`} onClick={onCancel}>
-              {safeT("auth_oauth_launch_back", {
-                fallbackKo: "돌아가기",
-                fallbackEn: "Go back",
-              })}
+              {safeT("auth_oauth_launch_back")}
             </button>
           ) : null}
         </div>
