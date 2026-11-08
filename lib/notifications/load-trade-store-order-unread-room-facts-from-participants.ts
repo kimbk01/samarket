@@ -13,6 +13,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isRoomUuidFallbackIdentityKey } from "@/lib/notifications/badge-authority-rebuild/canonical-conversation-room-identity";
+import {
+  loadUnreadParticipantRoomRows,
+  type UnreadParticipantRoomRows,
+} from "@/lib/notifications/load-unread-participant-room-rows";
+
+/** 이전 rooms 조회의 `.in("chat_domain", ["trade", "store_order"])` 와 같은 조건(메모리 적용). */
+const TRADE_STORE_ORDER_CHAT_DOMAINS = new Set(["trade", "store_order"]);
 
 export type TradeStoreOrderUnreadRoomFactsFromParticipants = Readonly<{
   tradeUnreadRoomIds: readonly string[];
@@ -158,42 +165,28 @@ export function partitionTradeStoreOrderUnreadRoomFactsFromParticipants(input: {
 
 export async function loadTradeStoreOrderUnreadRoomFactsFromParticipants(
   sb: SupabaseClient,
-  userId: string
+  userId: string,
+  /** S2: 배지 권위 1회 계산에서 메신저 로더와 같은 조회 결과를 나눠 쓴다(없으면 직접 조회). */
+  preloaded?: Promise<UnreadParticipantRoomRows> | UnreadParticipantRoomRows
 ): Promise<TradeStoreOrderUnreadRoomFactsFromParticipants> {
   const uid = userId.trim();
   if (!uid) return EMPTY;
 
-  const { data: parts, error: partErr } = await sb
-    .from("community_messenger_participants")
-    .select("room_id, unread_count, left_at")
-    .eq("user_id", uid)
-    .gt("unread_count", 0)
-    .is("left_at", null);
-
-  if (partErr) {
-    console.warn("[loadTradeStoreOrderUnreadRoomFactsFromParticipants]", partErr.message);
+  const loaded = await (preloaded ?? loadUnreadParticipantRoomRows(sb, uid));
+  if (!loaded.ok) {
+    console.warn(
+      loaded.stage === "rooms"
+        ? "[loadTradeStoreOrderUnreadRoomFactsFromParticipants] rooms"
+        : "[loadTradeStoreOrderUnreadRoomFactsFromParticipants]",
+      loaded.message
+    );
     return EMPTY;
   }
-
-  const roomIds = [
-    ...new Set(
-      (parts ?? [])
-        .map((p) => String((p as PartRow).room_id ?? "").trim())
-        .filter(Boolean)
-    ),
-  ];
-  if (roomIds.length === 0) return EMPTY;
-
-  const { data: rooms, error: roomErr } = await sb
-    .from("community_messenger_rooms")
-    .select("id, chat_domain, deleted_at, last_message, domain_identity_key")
-    .in("id", roomIds)
-    .in("chat_domain", ["trade", "store_order"]);
-
-  if (roomErr) {
-    console.warn("[loadTradeStoreOrderUnreadRoomFactsFromParticipants] rooms", roomErr.message);
-    return EMPTY;
-  }
+  const parts = loaded.parts as PartRow[];
+  if (!parts.some((p) => String(p.room_id ?? "").trim())) return EMPTY;
+  const rooms = (loaded.rooms as RoomRow[]).filter((r) =>
+    TRADE_STORE_ORDER_CHAT_DOMAINS.has(String(r.chat_domain ?? ""))
+  );
 
   const orderIds = [
     ...new Set(

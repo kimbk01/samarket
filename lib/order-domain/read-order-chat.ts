@@ -12,6 +12,7 @@ import {
 } from "@/lib/notifications/pipeline/notify-badge-service";
 import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
 import { DIBAY_MARK_ROOM_READ_ATOMIC_RPC } from "@/lib/messenger/contracts/room-unread-authority";
+import { domainBadgeReadMutationAckFields } from "@/lib/notifications/pipeline/domain-badge-read-ack";
 import {
   buildSoMarkReadIdempotencyKey,
   resolveRoomReadableTipMessageId,
@@ -44,6 +45,12 @@ export type ReadOrderChatResult =
       surface: "bottom_nav_delivery" | "owner_commerce_inbox";
       ownerFabSurface?: "fab_owner_order_chat";
       authority: "room_unread_v1";
+      /**
+       * S2 (2026-11-09) — P3-a 읽음 ACK 계약(`domain-badge-read-ack.ts`)과 같은 Domain 배지 스냅샷.
+       * 이 라우트가 이미 계산하던 값(force 1회)을 응답에 실어, 읽은 기기가 `applyDomainBadgeAuthorityFromReadAck`
+       * 로 그대로 적용한다(이전: 계산만 하고 클라이언트가 쓰지 않음). 최상위 `authority` 계약은 그대로 둔다.
+       */
+      badgeAck: ReturnType<typeof domainBadgeReadMutationAckFields>;
     }
   | { ok: false; error: string; status?: number };
 
@@ -195,5 +202,6 @@ export async function readOrderChat(
     surface: ctx.role === "owner" ? "owner_commerce_inbox" : "bottom_nav_delivery",
     ...(ctx.role === "owner" ? { ownerFabSurface: "fab_owner_order_chat" as const } : {}),
     authority: "room_unread_v1",
+    badgeAck: domainBadgeReadMutationAckFields(domain),
   };
 }

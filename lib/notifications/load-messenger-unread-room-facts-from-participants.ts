@@ -13,6 +13,10 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isRoomUuidFallbackIdentityKey } from "@/lib/notifications/badge-authority-rebuild/canonical-conversation-room-identity";
+import {
+  loadUnreadParticipantRoomRows,
+  type UnreadParticipantRoomRows,
+} from "@/lib/notifications/load-unread-participant-room-rows";
 
 export type MessengerUnreadRoomFactsFromParticipants = Readonly<{
   generalDirectUnreadRoomIds: readonly string[];
@@ -113,41 +117,26 @@ export function partitionMessengerUnreadRoomFactsFromParticipants(
 
 export async function loadMessengerUnreadRoomFactsFromParticipants(
   sb: SupabaseClient,
-  userId: string
+  userId: string,
+  /** S2: 배지 권위 1회 계산에서 거래·주문 로더와 같은 조회 결과를 나눠 쓴다(없으면 직접 조회). */
+  preloaded?: Promise<UnreadParticipantRoomRows> | UnreadParticipantRoomRows
 ): Promise<MessengerUnreadRoomFactsFromParticipants> {
   const uid = userId.trim();
   if (!uid) return EMPTY;
 
-  const { data: parts, error: partErr } = await sb
-    .from("community_messenger_participants")
-    .select("room_id, unread_count, left_at")
-    .eq("user_id", uid)
-    .gt("unread_count", 0)
-    .is("left_at", null);
-
-  if (partErr) {
-    console.warn("[loadMessengerUnreadRoomFactsFromParticipants]", partErr.message);
+  const loaded = await (preloaded ?? loadUnreadParticipantRoomRows(sb, uid));
+  if (!loaded.ok) {
+    console.warn(
+      loaded.stage === "rooms"
+        ? "[loadMessengerUnreadRoomFactsFromParticipants] rooms"
+        : "[loadMessengerUnreadRoomFactsFromParticipants]",
+      loaded.message
+    );
     return EMPTY;
   }
-
-  const roomIds = [
-    ...new Set(
-      (parts ?? [])
-        .map((p) => String((p as PartRow).room_id ?? "").trim())
-        .filter(Boolean)
-    ),
-  ];
-  if (roomIds.length === 0) return EMPTY;
-
-  const { data: rooms, error: roomErr } = await sb
-    .from("community_messenger_rooms")
-    .select("id, chat_domain, deleted_at, last_message, domain_identity_key")
-    .in("id", roomIds);
-
-  if (roomErr) {
-    console.warn("[loadMessengerUnreadRoomFactsFromParticipants] rooms", roomErr.message);
-    return EMPTY;
-  }
+  const parts = loaded.parts as PartRow[];
+  if (!parts.some((p) => String(p.room_id ?? "").trim())) return EMPTY;
+  const rooms = loaded.rooms as RoomRow[];
 
   const base = partitionMessengerUnreadRoomFactsFromParticipants(
     (parts ?? []) as PartRow[],

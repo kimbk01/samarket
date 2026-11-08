@@ -54,6 +54,7 @@ import { loadBellExplainUnreadEventRows } from "@/lib/notifications/load-bell-ex
 import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
 import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
 import { loadTradeStoreOrderUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-trade-store-order-unread-room-facts-from-participants";
+import { loadUnreadParticipantRoomRows } from "@/lib/notifications/load-unread-participant-room-rows";
 
 export type DomainBadgeAuthorityHttpPayload = {
   ok: true;
@@ -179,10 +180,12 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const uid = userId.trim();
   const projectionVersionMs = Date.now();
 
+  /** S2 (2026-11-09): participants·rooms 를 1회만 읽어 메신저·거래/주문 로더가 나눠 쓴다(같은 조회 2건 중복 제거). */
+  const unreadParticipantRoomRows = loadUnreadParticipantRoomRows(sb, uid);
   const [messengerRooms, tradeStoreRooms, missed, categoryCounts, bellExplainRows, ownerO] =
     await Promise.all([
-      loadMessengerUnreadRoomFactsFromParticipants(sb, uid),
-      loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid),
+      loadMessengerUnreadRoomFactsFromParticipants(sb, uid, unreadParticipantRoomRows),
+      loadTradeStoreOrderUnreadRoomFactsFromParticipants(sb, uid, unreadParticipantRoomRows),
       loadOrphanMissedCallFacts(sb, uid),
       /** BRIDGE: category diagnostics only — NOT Member Bell digit. Exit when inbox UI drops categoryCounts.total. */
       countNotificationEventsBadge(sb, uid),

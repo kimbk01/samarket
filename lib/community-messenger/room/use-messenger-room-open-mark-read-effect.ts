@@ -41,6 +41,7 @@ import {
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomReadEffectReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+import { applyDomainBadgeAuthorityFromReadAck } from "@/lib/notifications/client/notification-events-read-resync";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -136,6 +137,8 @@ type OrderChatReadResponse = {
   ok?: boolean;
   error?: string;
   role?: "owner" | "customer";
+  /** S2: 서버가 읽음 직후 계산한 Domain 배지 스냅샷 (P3-a 읽음 ACK 계약) */
+  badgeAck?: Record<string, unknown>;
 };
 
 export function traceRoomOpenAlignChain(
@@ -656,6 +659,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             if (json.ok === true) {
               refreshLocalReadGuardServerAck(id);
               const alignMs = applyOptimisticRoomRead(snap, lastReadMessageId);
+              /**
+               * S2 (2026-11-09): 서버가 이미 계산한 배지 스냅샷을 그대로 적용 — 버전이 이전이면 무시(역전),
+               * 같으면 그대로(중복). 다른 기기·재연결 경로는 기존 Realtime/복귀 재조회가 그대로 맡는다.
+               */
+              applyDomainBadgeAuthorityFromReadAck(json.badgeAck, "room_open_mark_read");
               dispatchOrderChatReadRefresh(id, json.role);
               earlyOptimisticMessageIdRef.current = null;
               preOptimisticUnreadRef.current = null;
