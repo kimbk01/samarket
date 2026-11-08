@@ -28,6 +28,7 @@ import {
 } from "@/lib/stores/sales/store-sales-period";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type SalesRow = StoreSalesBucket & { netCommissionMinor: number };
 type SalesResponse = {
@@ -132,12 +133,12 @@ export function OwnerStoreSalesView() {
 
   return (
     <div className="space-y-3 px-3 pb-6" data-owner-sales-view="1">
-      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "매출", "Sales")}>
+      <OwnerStoreAdminDashSection title={translateBy(lang, "business_sales", undefined, "en")}>
         <div className="space-y-3">
           <div
             className="grid grid-cols-2 overflow-hidden rounded-ui-rect border border-sam-border"
             role="tablist"
-            aria-label={pickCommissionCopy(lang, "보기 단위", "View")}
+            aria-label={translateBy(lang, "business_view", undefined, "en")}
           >
             {(["day", "month"] as const).map((g) => (
               <button
@@ -151,7 +152,7 @@ export function OwnerStoreSalesView() {
                 }`}
                 data-owner-sales-grain={g}
               >
-                {g === "day" ? pickCommissionCopy(lang, "일별", "Daily") : pickCommissionCopy(lang, "월별", "Monthly")}
+                {g === "day" ? translateBy(lang, "business_daily", undefined, "en") : translateBy(lang, "business_monthly", undefined, "en")}
               </button>
             ))}
           </div>
@@ -167,19 +168,15 @@ export function OwnerStoreSalesView() {
             />
           ) : (
             <p className="sam-text-xxs text-sam-muted">
-              {pickCommissionCopy(lang, "최근 12개월 · 필리핀 시간 기준", "Last 12 months · Philippine time")}
+              {translateBy(lang, "business_last_12_months_philippine_time", undefined, "en")}
             </p>
           )}
 
           {customState !== "ok" ? (
             <p className="sam-text-body text-sam-muted" role="status" data-owner-sales-custom={customState}>
               {customState === "inverted"
-                ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
-                : pickCommissionCopy(
-                    lang,
-                    "시작일과 종료일을 모두 고르면 매출을 보여 드립니다.",
-                    "Pick both start and end dates to see sales."
-                  )}
+                ? translateBy(lang, "business_start_date_is_after_end_date", undefined, "en")
+                : translateBy(lang, "business_pick_both_start_and_end_dates_2", undefined, "en")}
             </p>
           ) : null}
 
@@ -195,7 +192,7 @@ export function OwnerStoreSalesView() {
           {totals ? (
             <div className="grid grid-cols-2 gap-2" data-owner-sales-totals="1">
               {tile(
-                pickCommissionCopy(lang, "완료 매출", "Completed sales"),
+                translateBy(lang, "business_completed_sales", undefined, "en"),
                 formatMoneyPhp(totals.netSalesPhp),
                 totals.refundedCount > 0
                   ? pickCommissionCopy(
@@ -203,29 +200,29 @@ export function OwnerStoreSalesView() {
                       `환불 ${totals.refundedCount}건 ${formatMoneyPhp(totals.refundedPhp)} 차감`,
                       `${totals.refundedCount} refunds ${formatMoneyPhp(totals.refundedPhp)} deducted`
                     )
-                  : pickCommissionCopy(lang, "완료 시각 기준", "By completion time")
+                  : translateBy(lang, "business_by_completion_time", undefined, "en")
               )}
               {tile(
-                pickCommissionCopy(lang, "완료 주문", "Completed orders"),
+                translateBy(lang, "business_completed_orders", undefined, "en"),
                 pickCommissionCopy(lang, `${totals.completedCount}건`, String(totals.completedCount)),
                 pickCommissionCopy(lang, `들어온 주문 ${totals.createdCount}건`, `${totals.createdCount} received`)
               )}
               {tile(
-                pickCommissionCopy(lang, "평균 주문 금액", "Average order"),
+                translateBy(lang, "business_average_order", undefined, "en"),
                 formatMoneyPhp(totals.avgOrderValuePhp),
                 pickCommissionCopy(lang, `매출 ÷ 완료 ${totals.completedCount}건`, `Sales ÷ ${totals.completedCount} completed`)
               )}
               {tile(
-                pickCommissionCopy(lang, "수수료", "Commission"),
+                translateBy(lang, "business_commission", undefined, "en"),
                 <CurrencyAmount currency="cash" amount={totals.netCommissionMinor} isMinor />,
-                pickCommissionCopy(lang, "정산 화면과 같은 값", "Same as settlements")
+                translateBy(lang, "business_same_as_settlements", undefined, "en")
               )}
             </div>
           ) : null}
 
           {totals && rows.length === 0 && !loading ? (
             <p className="sam-text-body text-sam-muted">
-              {pickCommissionCopy(lang, "이 기간에 매출이 없습니다.", "No sales in this period.")}
+              {translateBy(lang, "business_no_sales_in_this_period", undefined, "en")}
             </p>
           ) : null}
 
@@ -235,11 +232,11 @@ export function OwnerStoreSalesView() {
                 <thead className="bg-sam-surface-muted text-left text-sam-muted">
                   <tr>
                     <th className="px-2 py-1.5">{pickCommissionCopy(lang, grain === "day" ? "날짜" : "월", grain === "day" ? "Date" : "Month")}</th>
-                    <th className="px-2 py-1.5 text-right">{pickCommissionCopy(lang, "완료", "Done")}</th>
-                    <th className="px-2 py-1.5 text-right">{pickCommissionCopy(lang, "매출", "Sales")}</th>
-                    <th className="px-2 py-1.5 text-right">{pickCommissionCopy(lang, "평균", "Avg")}</th>
-                    <th className="px-2 py-1.5 text-right">{pickCommissionCopy(lang, "취소", "Cancel")}</th>
-                    <th className="px-2 py-1.5 text-right">{pickCommissionCopy(lang, "수수료", "Fee")}</th>
+                    <th className="px-2 py-1.5 text-right">{translateBy(lang, "business_done", undefined, "en")}</th>
+                    <th className="px-2 py-1.5 text-right">{translateBy(lang, "business_sales", undefined, "en")}</th>
+                    <th className="px-2 py-1.5 text-right">{translateBy(lang, "business_avg", undefined, "en")}</th>
+                    <th className="px-2 py-1.5 text-right">{translateBy(lang, "business_cancel", undefined, "en")}</th>
+                    <th className="px-2 py-1.5 text-right">{translateBy(lang, "business_fee", undefined, "en")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -286,11 +283,7 @@ export function OwnerStoreSalesView() {
           ) : null}
 
           <p className="sam-text-xxs text-sam-muted">
-            {pickCommissionCopy(
-              lang,
-              "매출 = 완료된 주문 금액(완료 시각 기준, 환불은 환불한 날 차감) · 취소 = 그날 들어온 주문 중 취소·환불 · 수수료 = 부과 시각 기준",
-              "Sales = completed orders by completion time (refunds deducted on refund day) · Cancel = orders received that day then cancelled/refunded · Fee = by charge time"
-            )}
+            {translateBy(lang, "business_sales_completed_orders_by_completion_time", undefined, "en")}
           </p>
         </div>
       </OwnerStoreAdminDashSection>

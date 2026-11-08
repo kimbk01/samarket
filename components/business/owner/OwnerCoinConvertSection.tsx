@@ -26,6 +26,7 @@ import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { BusinessCashConversionQuote } from "@/lib/stores/advertising/canonical-business-cash-contract";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Quote = BusinessCashConversionQuote;
 
@@ -252,7 +253,7 @@ export function OwnerCoinConvertSection({
   return (
     <div id="convert" data-owner-bc-convert="1">
       <OwnerStoreAdminDashSection
-        title={ownerUiCopy(language, "Coin → Cash 전환", "Coin → Cash")}
+        title={translateBy(language, "business_coin_cash")}
       >
         {policyError ? (
           <p className="text-sm text-sam-danger" role="alert" data-owner-convert-policy-unavailable="1">
@@ -263,15 +264,15 @@ export function OwnerCoinConvertSection({
         ) : (
           <>
             <dl className="mb-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm" data-owner-convert-policy="1">
-              <dt className="text-sam-muted">{ownerUiCopy(language, "보유 Coin", "Coin balance")}</dt>
+              <dt className="text-sam-muted">{translateBy(language, "business_coin_balance")}</dt>
               <dd className="text-right tabular-nums">{policy.storePointsBalance.toLocaleString(locale)} Coin</dd>
-              <dt className="text-sam-muted">{ownerUiCopy(language, "지금 전환 가능", "Convertible now")}</dt>
+              <dt className="text-sam-muted">{translateBy(language, "business_convertible_now")}</dt>
               <dd className="text-right tabular-nums" data-owner-convert-max="1">{policy.maxConvertible.toLocaleString(locale)} Coin</dd>
-              <dt className="text-sam-muted">{ownerUiCopy(language, "전환율", "Rate")}</dt>
+              <dt className="text-sam-muted">{translateBy(language, "business_rate")}</dt>
               <dd className="text-right tabular-nums">1 Coin = {formatCashPhp2(policy.ratePesosPerPoint)}</dd>
               {policy.outstandingFeeMinor > 0 ? (
                 <>
-                  <dt className="text-sam-muted">{ownerUiCopy(language, "미납 수수료", "Unpaid fees")}</dt>
+                  <dt className="text-sam-muted">{translateBy(language, "business_unpaid_fees")}</dt>
                   <dd className="text-right tabular-nums">{formatDeliveryAdPhpMinor(policy.outstandingFeeMinor)}</dd>
                 </>
               ) : null}
@@ -282,16 +283,12 @@ export function OwnerCoinConvertSection({
             {!convertible ? (
               <p className="mb-2 text-sm text-sam-danger" role="status" data-owner-convert-blocked="1">
                 {policy.blockers.filter((b) => b !== "amount_required").map((b) => reason(b)).join(" ") ||
-                  ownerUiCopy(language, "지금 전환할 수 있는 Coin이 없습니다.", "No Coin can be converted right now.")}
+                  translateBy(language, "business_no_coin_can_be_converted_right")}
               </p>
             ) : null}
             {policy.outstandingFeeMinor > 0 ? (
               <p className="mb-2 sam-text-helper text-sam-muted">
-                {ownerUiCopy(
-                  language,
-                  "전환으로 받은 Cash는 미납 수수료부터 정산됩니다.",
-                  "Cash from conversion first settles unpaid fees."
-                )}
+                {translateBy(language, "business_cash_from_conversion_first_settles_unpaid")}
               </p>
             ) : null}
             <div className={OWNER_FORM_ACTION_ROW_CLASS}>
@@ -305,7 +302,7 @@ export function OwnerCoinConvertSection({
                   setQuote(null);
                   setError(null);
                 }}
-                placeholder={ownerUiCopy(language, "전환할 Coin", "Coin to convert")}
+                placeholder={translateBy(language, "business_coin_to_convert")}
                 data-owner-convert-input="1"
               />
               <button
@@ -316,7 +313,7 @@ export function OwnerCoinConvertSection({
                 data-owner-cta="secondary"
               >
                 {previewing
-                  ? ownerUiCopy(language, "확인 중…", "Checking…")
+                  ? translateBy(language, "business_checking")
                   : safeT("owner_bc_quote")}
               </button>
             </div>
@@ -329,17 +326,17 @@ export function OwnerCoinConvertSection({
           <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm" data-owner-convert-preview="1">
             {quote.canConvert ? (
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-                <dt className="text-sam-muted">{ownerUiCopy(language, "전환할 Coin", "Coin to convert")}</dt>
+                <dt className="text-sam-muted">{translateBy(language, "business_coin_to_convert")}</dt>
                 <dd className="text-right tabular-nums">{quote.requestedPoints.toLocaleString(locale)} Coin</dd>
                 <dt className="text-sam-muted">{ownerUiCopy(language, "Coin", "Coin")}</dt>
                 <dd className="text-right tabular-nums">
                   {quote.storePointsBalance.toLocaleString(locale)} → {(quote.coinAfter ?? 0).toLocaleString(locale)}
                 </dd>
-                <dt className="text-sam-muted">{ownerUiCopy(language, "전환 Cash", "Cash from conversion")}</dt>
+                <dt className="text-sam-muted">{translateBy(language, "business_cash_from_conversion")}</dt>
                 <dd className="text-right tabular-nums">{formatDeliveryAdPhpMinor(quote.expectedBusinessCashMinor ?? 0)}</dd>
-                <dt className="text-sam-muted">{ownerUiCopy(language, "미납 수수료 정산", "Unpaid fees settled")}</dt>
+                <dt className="text-sam-muted">{translateBy(language, "business_unpaid_fees_settled")}</dt>
                 <dd className="text-right tabular-nums">{(quote.feeSettleMinor ?? 0) > 0 ? "−" : ""}{formatDeliveryAdPhpMinor(quote.feeSettleMinor ?? 0)}</dd>
-                <dt className="text-sam-muted">{ownerUiCopy(language, "실제 Cash 증가", "Net Cash increase")}</dt>
+                <dt className="text-sam-muted">{translateBy(language, "business_net_cash_increase")}</dt>
                 <dd className="text-right font-semibold tabular-nums">{formatDeliveryAdPhpMinor(quote.cashNetIncreaseMinor ?? 0)}</dd>
                 <dt className="text-sam-muted">Cash</dt>
                 <dd className="text-right tabular-nums">
@@ -362,7 +359,7 @@ export function OwnerCoinConvertSection({
               data-owner-cta="primary"
               data-owner-convert-open-confirm="1"
             >
-              {busy ? ownerUiCopy(language, "전환 중…", "Converting…") : ownerUiCopy(language, COIN_TO_CASH_LABEL_KO, "Convert Coin to Cash")}
+              {busy ? translateBy(language, "business_converting") : ownerUiCopy(language, COIN_TO_CASH_LABEL_KO, "Convert Coin to Cash")}
             </button>
             <p className="sam-text-xxs text-sam-muted">
               {ownerUiCopy(
@@ -395,7 +392,7 @@ export function OwnerCoinConvertSection({
             : null
         }
         confirmLabel={t("popup_btn_convert")}
-        confirmBusyLabel={ownerUiCopy(language, "전환 중…", "Converting…")}
+        confirmBusyLabel={translateBy(language, "business_converting")}
         busy={busy}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={async () => {

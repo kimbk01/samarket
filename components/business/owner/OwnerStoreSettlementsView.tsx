@@ -57,6 +57,7 @@ import {
   type CommissionTab,
 } from "@/components/stores/commission/StoreCommissionLedgerParts";
 import { CommissionLedgerTable, CommissionOrderDetailPanel } from "@/components/stores/commission/StoreCommissionLedgerTable";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const PAGE_SIZE = 100;
 /** Same tabs as Admin minus the admin-only financial exceptions view. */
@@ -270,16 +271,12 @@ export function OwnerStoreSettlementsView() {
 
   return (
     <div className={`mx-auto min-w-0 max-w-6xl ${OWNER_STORE_STACK_Y_CLASS}`} data-commission-owner="1">
-      <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료·캐시 내역", "Commission & Cash history")}>
+      <OwnerStoreAdminDashSection title={translateBy(lang, "business_commission_cash_history", undefined, "en")}>
         <p className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted">
-          {pickCommissionCopy(lang, "조회 전용", "Read only")}
+          {translateBy(lang, "business_read_only", undefined, "en")}
         </p>
         <p className="sam-text-body text-sam-muted">
-          {pickCommissionCopy(
-            lang,
-            "주문 대금은 고객에게 직접 받고, 플랫폼 수수료는 조리 시작 때 캐시에서 차감됩니다.",
-            "You collect payment from buyers directly; commission is charged from Cash when cooking starts."
-          )}
+          {translateBy(lang, "business_you_collect_payment_from_buyers_directly", undefined, "en")}
         </p>
         <div className="mt-3">{data?.position ? <StoreCashPositionCard position={data.position} lang={lang} showGatePolicy={false} /> : null}</div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -288,7 +285,7 @@ export function OwnerStoreSettlementsView() {
             className={OwnerCta.primary}
             data-owner-cash-topup="1"
           >
-            {pickCommissionCopy(lang, "캐시 충전", "Top up Cash")}
+            {translateBy(lang, "business_top_up_cash", undefined, "en")}
           </Link>
           <Link href={OwnerRoutes.orders(storeId)} className={OwnerCta.secondary} data-owner-orders-link="1">
             {t("store_owner_settlement_manage_orders")}
@@ -330,8 +327,8 @@ export function OwnerStoreSettlementsView() {
       {customState !== "ok" ? (
         <p className="sam-text-body text-sam-muted" role="status" data-owner-settlement-custom={customState}>
           {customState === "inverted"
-            ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
-            : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
+            ? translateBy(lang, "business_start_date_is_after_end_date", undefined, "en")
+            : translateBy(lang, "business_pick_both_start_and_end_dates", undefined, "en")}
         </p>
       ) : null}
 
@@ -347,7 +344,7 @@ export function OwnerStoreSettlementsView() {
                 setPayableAll(false);
               }}
             >
-              {pickCommissionCopy(lang, "지급 의무만", "Payable only")}
+              {translateBy(lang, "business_payable_only", undefined, "en")}
             </button>
             <button
               type="button"
@@ -357,7 +354,7 @@ export function OwnerStoreSettlementsView() {
                 setPayableAll(true);
               }}
             >
-              {pickCommissionCopy(lang, "완료 주문 전체", "All completed orders")}
+              {translateBy(lang, "business_all_completed_orders", undefined, "en")}
             </button>
           </div>
           <div className="mt-3">{payable ? <PlatformPayableTable page={payable} lang={lang} showStore={false} /> : null}</div>
@@ -378,7 +375,7 @@ export function OwnerStoreSettlementsView() {
         </OwnerStoreAdminDashSection>
       ) : (
         <>
-          <OwnerStoreAdminDashSection title={pickCommissionCopy(lang, "수수료 합계", "Commission totals")}>
+          <OwnerStoreAdminDashSection title={translateBy(lang, "business_commission_totals", undefined, "en")}>
             {data?.summary ? (
               <CommissionSummaryGrid summary={data.summary} lang={lang} />
             ) : (
@@ -465,8 +462,8 @@ export function OwnerStoreSettlementsView() {
             <div className="space-y-2">
               <p className="sam-text-xxs text-sam-muted">
                 {selected.state === "review_required"
-                  ? pickCommissionCopy(lang, "운영팀이 수수료 환급 여부를 검토 중입니다. 결정되면 이 화면에 사유와 금액이 표시됩니다.", "Operations is reviewing this fee. The decision and reason will appear here.")
-                  : pickCommissionCopy(lang, "조회 전용 — 금액 정정은 운영팀 결정 기록으로만 이루어집니다.", "Read only — corrections only via an operations decision record.")}
+                  ? translateBy(lang, "business_operations_is_reviewing_this_fee_the", undefined, "en")
+                  : translateBy(lang, "business_read_only_corrections_only_via_an", undefined, "en")}
               </p>
               <button
                 type="button"
@@ -488,7 +485,7 @@ export function OwnerStoreSettlementsView() {
                   );
                 }}
               >
-                {pickCommissionCopy(lang, "이 주문 수수료 문의·이의 제기", "Ask about / dispute this fee")}
+                {translateBy(lang, "business_ask_about_dispute_this_fee", undefined, "en")}
               </button>
             </div>
           }

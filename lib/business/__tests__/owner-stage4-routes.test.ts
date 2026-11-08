@@ -2,6 +2,8 @@
  * 4단계 4-2·4-3·4-5 — IA-07(레거시·슬러그 리다이렉트 쿼리 보존) · IA-08(storeId 정규화) · IA-12(섹션·CS 정규화).
  */
 import { readFileSync, existsSync } from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -22,7 +24,7 @@ import { normalizeOwnerFinanceSection } from "@/lib/finance/routes";
 import { ownerStage4RoutesMessages } from "@/lib/i18n/catalog/owner-stage4-routes";
 
 const root = process.cwd();
-const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 
 /** 24 레거시 URL (`/my/business/*` 20 + `/mypage/business/*` 4) → 캐노니컬 1홉. */
 const LEGACY_TABLE: ReadonlyArray<readonly [string, string]> = [
@@ -273,7 +275,9 @@ describe("IA-13 settlement wording (owner UI)", () => {
     );
     // Owner 2026-11-03 「Coin 출금으로 통일」 — product-decision-lock (Coin→지급 = 출금) 과 일치.
     expect(read("components/finance/OwnerFinanceNav.tsx")).toContain('labelKo: "Coin 출금"');
-    expect(read("components/business/owner/OwnerStoreSettlementsView.tsx")).toContain('"수수료·캐시 내역"');
+    /** 언어 SSOT S6: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(read("components/business/owner/OwnerStoreSettlementsView.tsx")).toContain('translateBy(lang, "business_commission_cash_history"');
+    expect(MESSAGES.ko.business_commission_cash_history).toBe("수수료·캐시 내역");
   });
 
   it("new catalog ko/en parity", () => {

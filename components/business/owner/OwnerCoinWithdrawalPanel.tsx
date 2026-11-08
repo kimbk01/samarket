@@ -26,6 +26,7 @@ import {
   financePayoutMethodDisplay,
   financeRefNo,
 } from "@/lib/finance/finance-display-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type WithdrawalRow = {
   id: string;
@@ -166,7 +167,7 @@ export function OwnerCoinWithdrawalPanel({
       <span className="font-medium text-sam-fg">
         {Math.trunc(Number(row.amount) || 0).toLocaleString()} Coin
         <span className="ml-2 text-xs font-normal text-sam-muted">
-          {ownerUiCopy(language, "신청", "Requested")} {phtShort(row.created_at)}
+          {translateBy(language, "business_requested_2")} {phtShort(row.created_at)}
           {financeRefNo(row.id) ? ` · ${financeRefNo(row.id)}` : ""}
         </span>
       </span>
@@ -174,7 +175,7 @@ export function OwnerCoinWithdrawalPanel({
         {/* 상태 = DB 값 그대로 (취소를 「반려」로 묶지 않는다) · 이름은 금융 SSOT */}
         <FinanceStatusBadge
           label={coinWithdrawalStatusDisplay(row.status)}
-          fallback={ownerUiCopy(language, "확인 필요", "Unknown")}
+          fallback={translateBy(language, "business_unknown")}
         />
         {row.status.toUpperCase() === "APPROVED" && phtShort(row.approved_at) ? ` · ${phtShort(row.approved_at)}` : ""}
         {row.status.toUpperCase() === "PAID" && row.paid_at ? ` · ${phtShort(row.paid_at)}` : ""}
@@ -185,11 +186,11 @@ export function OwnerCoinWithdrawalPanel({
             })()}`
           : ""}
         {row.status.toUpperCase() === "PAID" && row.payout_reference
-          ? ` · ${ownerUiCopy(language, "지급 참조", "Payout ref")} ${row.payout_reference}`
+          ? ` · ${translateBy(language, "business_payout_ref")} ${row.payout_reference}`
           : ""}
         {row.status.toUpperCase() === "REJECTED" && row.rejected_at ? ` · ${phtShort(row.rejected_at)}` : ""}
         {row.status.toUpperCase() === "REJECTED" && row.rejection_reason
-          ? ` · ${ownerUiCopy(language, "사유", "Reason")}: ${row.rejection_reason}`
+          ? ` · ${translateBy(language, "business_reason")}: ${row.rejection_reason}`
           : ""}
       </span>
       <button
@@ -293,7 +294,7 @@ export function OwnerCoinWithdrawalPanel({
     >
       <div id="coin-withdraw" className="space-y-3">
         <p className="text-sm" data-owner-withdraw-available="1">
-          <span className="text-sam-muted">{ownerUiCopy(language, "출금 가능 Coin", "Available Coin")}: </span>
+          <span className="text-sam-muted">{translateBy(language, "business_available_coin")}: </span>
           <span className="font-semibold tabular-nums">
             {availableCoin == null ? "—" : `${availableCoin < 0 ? "−" : ""}${Math.abs(availableCoin).toLocaleString()} Coin`}
           </span>
@@ -303,12 +304,8 @@ export function OwnerCoinWithdrawalPanel({
             {availableCoin == null
               ? withdrawalErrorMessage("balance_unavailable", language, null)
               : availableCoin < 0
-                ? ownerUiCopy(
-                    language,
-                    "환불로 차감된 Coin(마이너스 잔액)이 있어 출금할 수 없습니다. 새 적립으로 먼저 상계됩니다.",
-                    "Coin is negative after refunds, so it cannot be withdrawn. New earnings offset it first."
-                  )
-                : ownerUiCopy(language, "출금할 수 있는 Coin이 없습니다.", "No Coin available to withdraw.")}
+                ? translateBy(language, "business_coin_is_negative_after_refunds_so")
+                : translateBy(language, "business_no_coin_available_to_withdraw")}
           </p>
         ) : null}
         {error ? <p className="text-sm text-sam-danger" role="alert">{error}</p> : null}
@@ -389,17 +386,17 @@ export function OwnerCoinWithdrawalPanel({
         {focusRow ? (
           <div ref={focusRef} className="mt-2 space-y-1" data-owner-coin-withdrawal-focus={focusRow.id}>
             <p className="text-xs font-semibold text-sam-primary">
-              {ownerUiCopy(language, "선택한 출금 신청", "Selected withdrawal")}
+              {translateBy(language, "business_selected_withdrawal")}
             </p>
             <ul>{renderWithdrawalRow(focusRow, true)}</ul>
           </div>
         ) : null}
         {historyError ? (
           <p className="mt-2 text-sm text-sam-danger" role="alert">
-            {ownerUiCopy(language, "출금 신청 내역을 불러오지 못했습니다.", "Could not load withdrawal requests.")}
+            {translateBy(language, "business_could_not_load_withdrawal_requests")}
           </p>
         ) : historyLoading && rows.length === 0 ? (
-          <p className="mt-2 text-sm text-sam-muted">{ownerUiCopy(language, "불러오는 중…", "Loading…")}</p>
+          <p className="mt-2 text-sm text-sam-muted">{translateBy(language, "business_loading")}</p>
         ) : rows.length === 0 ? (
           <p className="mt-2 text-sm text-sam-muted">
             {safeT("owner_finance_withdraw_history_empty")}

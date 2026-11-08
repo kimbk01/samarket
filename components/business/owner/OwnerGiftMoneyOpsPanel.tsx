@@ -41,6 +41,7 @@ import {
   OWNER_MONEY_PERIODS,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type MoneyView = "money" | "history" | "redemptions";
 
@@ -116,8 +117,8 @@ export function OwnerGiftMoneyOpsPanel(props: {
       {customState !== "ok" ? (
         <p className="text-sm text-sam-muted" role="status" data-owner-gift-custom={customState}>
           {customState === "inverted"
-            ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
-            : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
+            ? translateBy(lang, "business_start_date_is_after_end_date", undefined, "en")
+            : translateBy(lang, "business_pick_both_start_and_end_dates", undefined, "en")}
         </p>
       ) : null}
     </div>
@@ -241,16 +242,8 @@ export function OwnerGiftMoneyOpsPanel(props: {
     >
       <p className="text-sm text-sam-danger">
         {data
-          ? pickCommissionCopy(
-              lang,
-              "최신 내역을 불러오지 못했습니다. 아래는 앞서 불러온 내역입니다.",
-              "Could not refresh. Showing the last loaded data."
-            )
-          : pickCommissionCopy(
-              lang,
-              "상품권 사용 내역을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
-              "Could not load gift redemptions. Please try again."
-            )}
+          ? translateBy(lang, "business_could_not_refresh_showing_the_last", undefined, "en")
+          : translateBy(lang, "business_could_not_load_gift_redemptions_please", undefined, "en")}
       </p>
       <button
         type="button"
@@ -259,7 +252,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         onClick={() => void load()}
         data-owner-gift-retry="1"
       >
-        {pickCommissionCopy(lang, "다시 시도", "Retry")}
+        {translateBy(lang, "business_retry", undefined, "en")}
       </button>
     </div>
   ) : null;
@@ -337,7 +330,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         </div>
         {errorBand}
         {customState !== "ok" || (error && !data) ? null : loading && !data ? (
-          <p className="text-sm text-sam-muted">{pickCommissionCopy(lang, "불러오는 중…", "Loading…")}</p>
+          <p className="text-sm text-sam-muted">{translateBy(lang, "business_loading", undefined, "en")}</p>
         ) : (summary?.counts.all ?? 0) === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-sam-muted">
@@ -349,7 +342,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           </div>
         ) : pageRows.length === 0 ? (
           <p className="text-sm text-sam-muted">
-            {pickCommissionCopy(lang, "이 조건에 맞는 내역이 없습니다.", "No entries match this filter.")}
+            {translateBy(lang, "business_no_entries_match_this_filter", undefined, "en")}
           </p>
         ) : (
           <ul className="space-y-2" data-owner-gift-redemption-list="1">
@@ -435,7 +428,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         {errorBand}
         {customState !== "ok" || !summary ? (
           loading && customState === "ok" && !error ? (
-            <p className="text-sm text-sam-muted">{pickCommissionCopy(lang, "불러오는 중…", "Loading…")}</p>
+            <p className="text-sm text-sam-muted">{translateBy(lang, "business_loading", undefined, "en")}</p>
           ) : null
         ) : (
           <div className="grid grid-cols-2 gap-2">

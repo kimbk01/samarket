@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -49,7 +50,7 @@ describe("C-6 합계 = 기간 전체 (DB 상태 칸 묶음 · P-9)", () => {
 });
 
 describe("C-6 화면·API 계약 (소스)", () => {
-  const read = (rel: string) => readFileSync(resolve(process.cwd(), rel), "utf8");
+  const read = (rel: string) => withCatalogCopy(readFileSync(resolve(process.cwd(), rel), "utf8"));
   const route = read("app/api/me/stores/[storeId]/gift-certificates/redemptions/route.ts");
   const panel = read("components/business/owner/OwnerGiftMoneyOpsPanel.tsx");
 
