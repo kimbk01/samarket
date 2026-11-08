@@ -42,6 +42,7 @@ import type { ProfileRequirementField } from "@/lib/profile/profile-requirements
 import type { Profile } from "@/lib/types/profile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { openMemberAddressBook } from "@/lib/addresses/member-address-caller-context";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const HAS_ANY_STORE = true;
 const APPLY_PATH = "/stores/owner/apply";
@@ -224,9 +225,7 @@ export default function BusinessApplyRoute() {
         } else if (json?.error === STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR) {
           // v4 UI-05 — 신청자 닉네임 저장 실패 전용 안내 (신청은 저장되지 않음)
           setSubmitError(
-            language === "en"
-              ? "We could not save the applicant nickname, so the application was not submitted. Please try again shortly."
-              : "신청자 닉네임을 저장하지 못해 신청이 접수되지 않았습니다. 잠시 후 다시 신청해 주세요."
+            translateBy(language, "owner_apply_nickname_save_failed")
           );
         } else {
           setSubmitError(t("business_phase7_683"));
