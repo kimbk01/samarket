@@ -59,3 +59,21 @@
 2. B3-c 지난 데이터 채우기(상품 상태·주문 사건만, 주문 요약 옛 행은 저장 글자로 남김) 운영 적용 승인.
 3. B3-d 구 거래 채팅 — 고객 화면 노출 여부 확인 후 보고로 진행.
 4. L21 원문(「사진」 저장)은 데이터 0건·경로 미사용 → **처리 대상에서 제외**하고 발견 목록 L21 을 이 설계로 대체.
+
+## 6. 구현 중 정정 (2026-11-08 · Owner 「권장대로 승인」 후 · **구현 중단**)
+
+**작업자 잘못 — 설계 §1 B3-b 와 §2 에 빠진 것 2가지**
+
+1. **실시간 이벤트**: §2 에 「방 행은 같은 트랜잭션에서 이미 갱신되는 행」이라 적었지만, `community_messenger_rooms` 는 Realtime publication(`supabase_realtime`) 대상이다. 메시지 INSERT 트리거로 방을 따로 UPDATE 하면 **방 변경 이벤트가 하나 더** 나가고, 클라이언트는 이 이벤트를 구독한다(`community-messenger-home-realtime-channels.ts:348`·`community-messenger-room-meta-realtime-channel.ts:28`·`global-messenger-room-bundle-channel.ts:425`).
+   → 정정: **방 BEFORE UPDATE 트리거**로 작성처의 같은 UPDATE 안에서 채운다(이벤트 수 변화 0). DB 작성 함수 3개 모두 「메시지 INSERT → 방 UPDATE」 순서라 방금 넣은 메시지를 읽을 수 있다. 조회는 인덱스 `(room_id, created_at DESC, id DESC)` 로 1행.
+2. **목록 읽기 경로**: 목록은 방 행을 직접 select 만 하는 게 아니라 **운영 DB 함수 3개**가 만들어 돌려준다 — `community_messenger_bootstrap_rooms`·`community_messenger_bootstrap_lite_my_rooms_bundle`·`get_cm_bootstrap_full_snapshot`(메신저 목록 핫패스). 새 열을 쓰려면 이 3개 함수의 반환값과 `service.ts` 방 select·변환(약 10곳)을 함께 바꿔야 한다. §1 표에는 「스냅샷 조립의 select」만 적었다.
+
+**진행 상태**
+- 운영 DB 적용(열·트리거): **권한 판정에서 거부** — 적용 안 함, 운영 변경 0. 우회하지 않음.
+- 코드: 새 열이 없을 때 main 에 올리면 목록 조회가 깨지므로 **main 반영 안 함**. 작성분(마이그레이션 파일·공용 해석 함수 `lib/community-messenger/system-message-i18n.ts`·목록 키 2개)은 브랜치 `feat/i18n-b3-stored-preview`(`b01c68bd4`)에 보관.
+- 같이 확인된 점: 주문 요약은 이미 `kind=store_order_summary`, 상품 상태는 `kind=listing_change`·`listingState` 를 남기고 있어 **키를 새로 남겨야 하는 작성처는 그룹 관리 메시지뿐**(`lib/community-messenger/service.ts` 비통화 함수 10곳 · `group/group-room-service.ts` 5곳). 상품 상태 목록 문구는 대화방 줄과 같은 키로 그리면 한국어가 「제품의 상태가 예약중으로 변경되었습니다.」→「상품 상태 변경 · 예약중」으로 바뀐다.
+- 운영 영향 수(19:47 PHT): 마지막 메시지가 시스템인 방 899 — 주문 사건 키 384 · 주문 요약 47 · 상품 상태 10 · 코드 없음 452.
+
+**다시 진행하려면 필요한 것**
+1. 운영 DB 적용 권한(`apply_migration`) — Owner 가 허용.
+2. 범위 정정 승인: 목록 RPC 3개 반환값에 `last_message_meta` 추가 + `service.ts` 방 select·변환 + 메신저 목록 성능 검사(`verify:parity-gates` 메신저 항목).
