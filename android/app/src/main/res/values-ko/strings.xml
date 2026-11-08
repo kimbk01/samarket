@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  언어 SSOT S8-2 (2026-11-08): 기본 values 가 영어인 키의 한국어. 키는 values/strings.xml 과 같아야 한다
+  (lib/i18n/__tests__/android-strings-locale.test.ts 가 검사). 통화·알림 문구는 S8-3·S8-4 에서 옮긴다.
+-->
+<resources>
+    <string name="dibay_webview_error_title">서버에 연결할 수 없습니다</string>
+    <string name="dibay_webview_error_body">네트워크 연결을 확인한 뒤 다시 시도해 주세요.</string>
+    <string name="dibay_webview_error_retry">다시 시도</string>
+    <string name="dibay_webview_renderer_gone_title">화면을 다시 불러와야 합니다</string>
+    <string name="dibay_webview_renderer_gone_body">다시 시도를 누르면 보던 화면으로 돌아갑니다.</string>
+</resources>
