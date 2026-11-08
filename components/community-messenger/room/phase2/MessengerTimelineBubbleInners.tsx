@@ -14,6 +14,7 @@ import {
 import { MessengerChatImageBubble } from "@/components/community-messenger/room/MessengerChatImageBubble";
 import { VoiceMessageBubble } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { GroupMentionText } from "@/components/community-messenger/group/GroupMentionText";
+import { MessengerLinkifiedText } from "@/components/community-messenger/room/MessengerLinkifiedText";
 import {
   buildMessengerFileDownloadUrl,
   openMessengerFileInNativeShellIfNeeded,
@@ -262,7 +263,7 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
     highlightMentions && item.messageType === "text" ? (
       <GroupMentionText content={item.content} isMine={mineLight} />
     ) : (
-      item.content
+      <MessengerLinkifiedText content={item.content} />
     );
   return (
     <div className="flex w-max max-w-full flex-col gap-2">

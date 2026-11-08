@@ -11,8 +11,14 @@ import { recordCmPolishAttachmentDecodeMs } from "@/lib/community-messenger/moni
 import { MESSENGER_ALBUM_REST_TILE_INDEX } from "@/lib/community-messenger/attachment/messenger-photo-save-menu";
 import { withMessengerMediaRouteUrls } from "@/lib/community-messenger/media/messenger-media-ref";
 
+/**
+ * 사진 말풍선 너비는 사진을 불러오기 전부터 고정한다.
+ * 감싸는 말풍선이 내용 크기만큼 줄어드는 구조라, `w-full` 이면 불러오기 전 너비가 최소값(140px)이었다가
+ * 사진이 오면 원본 크기만큼(최대폭) 커지며 말풍선이 바뀌었다(2026-11-08 운영 실측 140→232px).
+ * 높이는 저장된 비율(`image_width`/`image_height`)로 함께 확보된다. 좁은 화면은 `max-w-full` 로 행 안에 맞춘다.
+ */
 const BUBBLE_MAX =
-  "mx-auto w-full min-w-[140px] max-w-[min(62vw,280px)] sm:max-w-[min(62vw,320px)] md:max-w-[min(62vw,360px)]";
+  "mx-auto w-[min(62vw,280px)] max-w-full sm:w-[min(62vw,320px)] md:w-[min(62vw,360px)]";
 
 function clampAspectRatio(n: number): number {
   return Math.min(1.5, Math.max(0.75, n));
@@ -209,7 +215,7 @@ function SingleChatImage({
         aria-label={t("cm_ui_view_photo_large")}
       >
         <div
-          className="relative max-h-[360px] w-full overflow-hidden"
+          className="relative max-h-[360px] w-full overflow-hidden bg-black/10"
           style={{ aspectRatio: ratio, contain: "layout" }}
         >
           {underlaySrc ? (
@@ -226,7 +232,8 @@ function SingleChatImage({
           <img
             src={src}
             alt=""
-            className="relative h-full w-full object-cover"
+            /* 칸 크기는 위 비율 상자가 정한다 — 사진은 그 칸을 채우기만 한다(원본 비율이 잘린 비율과 달라도 칸이 바뀌지 않게). */
+            className="absolute inset-0 h-full w-full object-cover"
             loading={underlaySrc ? "eager" : "lazy"}
             decoding="async"
             onLoad={(e) => {
