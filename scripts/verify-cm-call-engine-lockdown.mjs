@@ -126,6 +126,12 @@ function isRawStorageException(relPath) {
     "lib/community-messenger/cm-call-debug.ts",
     "lib/community-messenger/room/use-messenger-room-client-phase1.ts",
     "lib/permissions/dibay-device-permission-onboarding.ts",
+    // Owner 「검사 목록에 허용」 2026-11-08 — call keys used outside the engine, not call session state:
+    // incoming-call banner tab leader lock (`samarket:cm-incoming-call-tab-leader`, sessionStorage) —
+    // only picks which browser tab shows the incoming banner.
+    "lib/community-messenger/incoming-call-tab-leader.ts",
+    // room UI preference: call-stub messages the user hid (`cm_hidden_call_stubs:${roomId}`, localStorage).
+    "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
   ].includes(relPath);
 }
 
@@ -145,6 +151,20 @@ function keyWordTokens(text) {
     .map((t) => t.toLowerCase());
 }
 
+/**
+ * When the key expression is a bare identifier, also read the value of every same-file
+ * `const|let NAME = "…" / `…`` so a constant whose VALUE carries `call` is still caught
+ * (e.g. `const LOCK_KEY = "…incoming-call…"`).
+ */
+function resolvedKeyText(src, keyText) {
+  if (!/^[A-Za-z_$][\w$]*$/.test(keyText)) return keyText;
+  const decl = new RegExp(`\\b(?:const|let)\\s+${keyText}\\s*=\\s*(["'\`])([\\s\\S]*?)\\1`, "g");
+  const values = [];
+  let d;
+  while ((d = decl.exec(src)) !== null) values.push(d[2]);
+  return values.length > 0 ? `${keyText} ${values.join(" ")}` : keyText;
+}
+
 function findRawStorageCallKeys(src) {
   const hits = [];
   STORAGE_KEY_ACCESS.lastIndex = 0;
@@ -152,7 +172,7 @@ function findRawStorageCallKeys(src) {
   while ((m = STORAGE_KEY_ACCESS.exec(src)) !== null) {
     const keyExpr = m[2] ?? m[3] ?? "";
     const keyText = keyExpr.trim();
-    const tokens = keyWordTokens(keyText);
+    const tokens = keyWordTokens(resolvedKeyText(src, keyText));
     if (tokens.includes("call") || tokens.includes("calls")) {
       hits.push({ storage: m[1], keyText });
     }
