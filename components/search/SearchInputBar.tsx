@@ -47,10 +47,7 @@ export function SearchInputBar({
           }}
           placeholder={
             placeholder ??
-            safeT("global_search_placeholder", {
-              fallbackKo: "검색어를 입력하세요",
-              fallbackEn: "Search",
-            })
+            safeT("global_search_placeholder")
           }
           className="min-w-0 w-full rounded-full border border-sam-border bg-sam-app-soft py-2.5 pl-4 pr-10 text-[15px] text-sam-fg outline-none placeholder:text-sam-fg-subtle [&::-webkit-search-cancel-button]:hidden"
         />
@@ -59,10 +56,7 @@ export function SearchInputBar({
             type="button"
             data-global-search-clear-query="true"
             className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-sam-muted"
-            aria-label={safeT("global_search_clear_query", {
-              fallbackKo: "검색어 지우기",
-              fallbackEn: "Clear search",
-            })}
+            aria-label={safeT("global_search_clear_query")}
             onClick={() => onChange("")}
           >
             ×
@@ -73,7 +67,7 @@ export function SearchInputBar({
         type="submit"
         className="shrink-0 rounded-full bg-sam-primary px-4 py-2.5 text-sm font-semibold text-sam-on-primary active:bg-sam-primary-active"
       >
-        {safeT("common_search", { fallbackKo: "검색", fallbackEn: "Search" })}
+        {safeT("common_search")}
       </button>
     </form>
   );

@@ -6,6 +6,7 @@ import { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export function CurrencyHistoryRow({
   currency,
@@ -78,7 +79,7 @@ export function CurrencyHistoryRow({
             href={detailHref}
             className="mt-1 inline-flex min-h-11 min-w-11 items-center justify-end sam-text-xxs text-sam-primary underline-offset-2 hover:underline"
           >
-            {language === "en" ? "Details" : "자세히"}
+            {translateBy(language, "currency_details")}
           </Link>
         ) : null}
       </div>

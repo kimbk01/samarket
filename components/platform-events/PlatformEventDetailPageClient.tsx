@@ -7,6 +7,7 @@ import { AppEmptyState } from "@/components/app-shell/AppEmptyState";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import type { PlatformEventRow } from "@/lib/platform-events/types";
 import type { PlatformEventAvailability } from "@/lib/platform-events/publication";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) {
   const { safeT, language } = useI18n();
@@ -22,8 +23,8 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
     if (!id) {
       setAvailability("missing");
       setFallback({
-        title: language === "en" ? "Not found" : "찾을 수 없음",
-        body: language === "en" ? "We could not find this event." : "이벤트를 찾을 수 없습니다.",
+        title: translateBy(language, "platform_events_not_found"),
+        body: translateBy(language, "platform_events_we_could_not_find_this_event"),
       });
       setLoading(false);
       return;
@@ -58,11 +59,9 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
         if (!cancelled) {
           setAvailability("missing");
           setFallback({
-            title: language === "en" ? "Not found" : "찾을 수 없음",
+            title: translateBy(language, "platform_events_not_found"),
             body:
-              language === "en"
-                ? "We could not load this event."
-                : "이벤트를 불러오지 못했습니다.",
+              translateBy(language, "platform_events_we_could_not_load_this_event"),
           });
         }
       } finally {
@@ -79,7 +78,7 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
       {/* 1단 제목·뒤로 = 전역 헤더(`resolve-main-tier1` `/events/[id]`) (크롬 S2) */}
       {loading ? (
         <p className="px-4 py-8 text-sm text-sam-muted">
-          {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          {safeT("common_loading")}
         </p>
       ) : event && (availability === "active" || availability === "ended") ? (
         <PlatformEventDetailContent
@@ -94,10 +93,7 @@ export function PlatformEventDetailPageClient({ eventId }: { eventId: string }) 
             description={fallback?.body}
             action={
               <Link href="/events" className="text-sm font-semibold text-sam-primary underline">
-                {safeT("platform_event_go_board", {
-                  fallbackKo: "이벤트 목록으로",
-                  fallbackEn: "Back to events",
-                })}
+                {safeT("platform_event_go_board")}
               </Link>
             }
           />

@@ -201,8 +201,8 @@ export function PlatformEventBoardClient({
 
   const tabLabel = (s: PlatformEventBoardState) =>
     s === "ongoing"
-      ? safeT("platform_event_board_tab_ongoing", { fallbackKo: "진행 중", fallbackEn: "Ongoing" })
-      : safeT("platform_event_board_tab_ended", { fallbackKo: "종료", fallbackEn: "Ended" });
+      ? safeT("platform_event_board_tab_ongoing")
+      : safeT("platform_event_board_tab_ended");
 
   return (
     <div className="min-h-dvh bg-sam-app text-sam-fg" data-platform-event-board="1">
@@ -238,14 +238,8 @@ export function PlatformEventBoardClient({
           <AppEmptyState
             title={
               tab === "ongoing"
-                ? safeT("platform_event_board_empty_ongoing", {
-                    fallbackKo: "진행 중인 이벤트가 없습니다.",
-                    fallbackEn: "No ongoing events.",
-                  })
-                : safeT("platform_event_board_empty_ended", {
-                    fallbackKo: "최근 30일 내 종료된 이벤트가 없습니다.",
-                    fallbackEn: "No events ended in the last 30 days.",
-                  })
+                ? safeT("platform_event_board_empty_ongoing")
+                : safeT("platform_event_board_empty_ended")
             }
           />
         ) : null}
@@ -253,24 +247,21 @@ export function PlatformEventBoardClient({
         {errorTab === tab ? (
           <div className="mt-4 flex flex-col items-center gap-2 text-center">
             <p className="text-sm text-sam-muted">
-              {safeT("platform_event_board_load_failed", {
-                fallbackKo: "이벤트를 불러오지 못했습니다.",
-                fallbackEn: "Could not load events.",
-              })}
+              {safeT("platform_event_board_load_failed")}
             </p>
             <button
               type="button"
               className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm}`}
               onClick={() => void load(tab, current.loaded ? current.nextCursor : null)}
             >
-              {safeT("platform_event_board_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+              {safeT("platform_event_board_retry")}
             </button>
           </div>
         ) : null}
 
         {loading ? (
           <p className="py-6 text-center text-sm text-sam-muted">
-            {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+            {safeT("common_loading")}
           </p>
         ) : current.nextCursor && errorTab !== tab ? (
           <div ref={sentinelRef} className="mt-4">
@@ -280,7 +271,7 @@ export function PlatformEventBoardClient({
               onClick={() => void load(tab, current.nextCursor)}
               data-platform-event-board-more="1"
             >
-              {safeT("platform_event_board_more", { fallbackKo: "더보기", fallbackEn: "Load more" })}
+              {safeT("platform_event_board_more")}
             </button>
           </div>
         ) : null}
@@ -303,11 +294,11 @@ function EventBoardCard({
   const period = formatPlatformEventPeriod(item.startsAt, item.endsAt, lang);
   const ended = item.state === "ended";
   const badge = ended
-    ? safeT("platform_event_board_ended_badge", { fallbackKo: "종료", fallbackEn: "Ended" })
+    ? safeT("platform_event_board_ended_badge")
     : item.dday ??
       (item.endsAt
         ? null
-        : safeT("platform_event_board_always_on", { fallbackKo: "상시 진행", fallbackEn: "Always on" }));
+        : safeT("platform_event_board_always_on"));
   return (
     <button
       type="button"
@@ -331,7 +322,7 @@ function EventBoardCard({
         <div className="flex flex-wrap items-center gap-1.5">
           {item.isPinned ? (
             <span className={Sam.chip.neutral}>
-              {safeT("platform_event_board_pinned", { fallbackKo: "고정", fallbackEn: "Pinned" })}
+              {safeT("platform_event_board_pinned")}
             </span>
           ) : null}
           {item.category ? <span className={Sam.chip.neutral}>{item.category}</span> : null}

@@ -165,7 +165,7 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
   if (loading) {
     return (
       <p className="px-4 py-6 text-sm text-sam-muted">
-        {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        {safeT("common_loading")}
       </p>
     );
   }
@@ -174,7 +174,7 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
       <div className="px-4 py-6">
         <p className="text-sm text-sam-danger">{supportErrorLabel(safeT, error)}</p>
         <button type="button" className="mt-2 text-sm underline" onClick={() => void load()}>
-          {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+          {safeT("common_retry")}
         </button>
       </div>
     );
@@ -182,10 +182,7 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
   if (cases.length === 0) {
     return (
       <p className="px-4 py-6 text-sm text-sam-muted">
-        {safeT("support_history_empty", {
-          fallbackKo: "상담 내역이 없습니다.",
-          fallbackEn: "No support conversations yet.",
-        })}
+        {safeT("support_history_empty")}
       </p>
     );
   }

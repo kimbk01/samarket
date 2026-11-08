@@ -156,14 +156,8 @@ export function MessengerGiftOfferFlow({
       // Room/gift surfaces suppress main bottom nav; avoid phantom above-nav lift.
       title={
         phase === "confirm"
-          ? safeT("gift_u3_confirm_title", {
-              fallbackKo: "선물 확인",
-              fallbackEn: "Confirm gift",
-            })
-          : safeT("gift_u3_selector_title", {
-              fallbackKo: "선물할 상품권",
-              fallbackEn: "Choose a gift",
-            })
+          ? safeT("gift_u3_confirm_title")
+          : safeT("gift_u3_selector_title")
       }
       footer={
         phase === "confirm" && selected ? (
@@ -177,7 +171,7 @@ export function MessengerGiftOfferFlow({
                 setErrorMsg(null);
               }}
             >
-              {safeT("gift_u3_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+              {safeT("gift_u3_confirm_cancel")}
             </button>
             <button
               type="button"
@@ -187,14 +181,8 @@ export function MessengerGiftOfferFlow({
               onClick={() => void send()}
             >
               {busy
-                ? safeT("gift_u3_confirm_pending", {
-                    fallbackKo: "보내는 중…",
-                    fallbackEn: "Sending…",
-                  })
-                : safeT("gift_u3_confirm_send", {
-                    fallbackKo: "선물 보내기",
-                    fallbackEn: "Send gift",
-                  })}
+                ? safeT("gift_u3_confirm_pending")
+                : safeT("gift_u3_confirm_send")}
             </button>
           </div>
         ) : null
@@ -210,20 +198,14 @@ export function MessengerGiftOfferFlow({
           offerable.length === 0 ? (
             <div className="space-y-3" data-gift-offer-empty="1">
               <p className={`${TEXT_BODY2} text-[color:var(--overlay-text-secondary)]`}>
-                {safeT("gift_u3_selector_empty", {
-                  fallbackKo: "선물할 수 있는 상품권이 없습니다.",
-                  fallbackEn: "No gift certificates available to send.",
-                })}
+                {safeT("gift_u3_selector_empty")}
               </p>
               <Link
                 href="/stores/gift-mall"
                 className={OverlayUi.btn.primary}
                 onClick={onClose}
               >
-                {safeT("gift_u3_selector_browse", {
-                  fallbackKo: "상품권 둘러보기",
-                  fallbackEn: "Browse gift mall",
-                })}
+                {safeT("gift_u3_selector_browse")}
               </Link>
             </div>
           ) : (
@@ -258,19 +240,13 @@ export function MessengerGiftOfferFlow({
                       showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
                       expirationDisplay={formatGiftInstanceExpirationDisplay({
                         validUntil: row.validUntil,
-                        noExpiryLabel: safeT("gift_portrait_expiry_none", {
-                          fallbackKo: "만료 없음",
-                          fallbackEn: "No expiry",
-                        }),
+                        noExpiryLabel: safeT("gift_portrait_expiry_none"),
                       })}
                       showValidity
                       className="pointer-events-none"
                     />
                     <span className={`mt-2 block text-center ${TEXT_BODY2} font-semibold text-[color:var(--overlay-primary)]`}>
-                      {safeT("gift_u3_selector_pick", {
-                        fallbackKo: "선택",
-                        fallbackEn: "Select",
-                      })}
+                      {safeT("gift_u3_selector_pick")}
                     </span>
                   </button>
                 </li>
@@ -300,20 +276,12 @@ export function MessengerGiftOfferFlow({
               showGiftNumber={Boolean(selected.publicGiftNumber?.trim())}
               expirationDisplay={formatGiftInstanceExpirationDisplay({
                 validUntil: selected.validUntil,
-                noExpiryLabel: safeT("gift_portrait_expiry_none", {
-                  fallbackKo: "만료 없음",
-                  fallbackEn: "No expiry",
-                }),
+                noExpiryLabel: safeT("gift_portrait_expiry_none"),
               })}
               showValidity
             />
             <p className={`${TEXT_BODY2} text-[color:var(--overlay-text-primary)]`}>
-              {safeT("gift_u3_confirm_lock_hint", {
-                fallbackKo:
-                  "상대방이 수령하거나 거절할 때까지 이 상품권은 사용할 수 없습니다.",
-                fallbackEn:
-                  "This gift can’t be used until the recipient accepts or declines.",
-              })}
+              {safeT("gift_u3_confirm_lock_hint")}
             </p>
           </div>
         ) : null}

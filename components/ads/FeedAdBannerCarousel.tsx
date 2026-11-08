@@ -213,7 +213,7 @@ export function FeedAdBannerCarousel({
       placement={placement}
       slotOrdinal={Math.max(0, Math.floor(slotOrdinal))}
       feedSessionId={feedSessionId}
-      adLabel={safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
+      adLabel={safeT("ui_home_feed_ad_label")}
       altFallback={t("ui_home_feed_ad_label")}
     />
   );
@@ -574,7 +574,7 @@ export function FeedAdFramePreview({
         <FeedAdAdvertiserHeader
           density={density}
           advertiserName={(advertiserName ?? "").trim()}
-          adLabel={safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
+          adLabel={safeT("ui_home_feed_ad_label")}
         />
         {/* D-17: 고객 화면과 같은 머리줄 — 신고 버튼 자리까지 같게(미리보기는 누르지 않음) */}
         <FeedAdReportButton campaignId="" preview />

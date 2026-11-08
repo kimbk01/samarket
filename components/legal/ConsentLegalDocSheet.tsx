@@ -50,18 +50,12 @@ export function ConsentLegalDocSheet({ open, kind, onClose }: Props) {
           return;
         }
         setError(
-          safeT("auth_consent_doc_load_failed", {
-            fallbackKo: "약관을 불러오지 못했습니다.",
-            fallbackEn: "Could not load the document.",
-          }),
+          safeT("auth_consent_doc_load_failed"),
         );
       } catch {
         if (!cancelled) {
           setError(
-            safeT("auth_consent_doc_load_failed", {
-              fallbackKo: "약관을 불러오지 못했습니다.",
-              fallbackEn: "Could not load the document.",
-            }),
+            safeT("auth_consent_doc_load_failed"),
           );
         }
       } finally {
@@ -81,7 +75,7 @@ export function ConsentLegalDocSheet({ open, kind, onClose }: Props) {
       heightRatio={0.85}
       footer={
         <button type="button" className={DIBAY_ONBOARDING_PRIMARY_BTN} onClick={onClose}>
-          {safeT("auth_consent_doc_sheet_ok", { fallbackKo: "확인", fallbackEn: "OK" })}
+          {safeT("auth_consent_doc_sheet_ok")}
         </button>
       }
     >

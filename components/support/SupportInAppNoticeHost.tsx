@@ -69,7 +69,7 @@ export function SupportInAppNoticeHost() {
           }}
         >
           <p className={OverlayUi.bannerTitle}>
-            {safeT("support_center_brand_title", { fallbackKo: "DIBAY 고객센터", fallbackEn: "DIBAY Support" })}
+            {safeT("support_center_brand_title")}
             {" · "}
             {safeT(headline.key, { fallbackKo: headline.ko, fallbackEn: headline.en })}
           </p>
@@ -82,7 +82,7 @@ export function SupportInAppNoticeHost() {
           className="dibay-overlay-icon-btn -my-1 -mr-1 text-[length:var(--overlay-caption-size)] font-medium"
           onClick={dismissSupportInAppNotice}
         >
-          {safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}
+          {safeT("common_close")}
         </button>
       </div>
     </div>

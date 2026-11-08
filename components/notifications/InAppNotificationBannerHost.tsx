@@ -216,7 +216,7 @@ export function InAppNotificationBannerHost() {
         </button>
         <button
           type="button"
-          aria-label={safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}
+          aria-label={safeT("common_close")}
           className="sr-only focus:not-sr-only focus:absolute focus:right-1 focus:top-1 focus:h-11 focus:w-11 focus:rounded-full focus:bg-sam-app"
           onClick={dismiss}
         >

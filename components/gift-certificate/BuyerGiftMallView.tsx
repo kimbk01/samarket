@@ -131,44 +131,29 @@ export function BuyerGiftMallView() {
       ) : null}
 
       <p className="mb-3 text-sm leading-relaxed text-sam-muted" data-gift-mall-desc="1">
-        {safeT("gift_u2_mall_desc", {
-          fallbackKo: "포인트로 매장·DIBAY 상품권을 구매할 수 있습니다. 유효기간은 상품권마다 다를 수 있습니다.",
-          fallbackEn: "Buy store and DIBAY gift certificates with Point. Validity may vary by product.",
-        })}
+        {safeT("gift_u2_mall_desc")}
       </p>
 
       <div className="mb-4">
         <CommerceSecondaryCtaLink href={walletHref} className="w-full" data-gift-mall-wallet-cta="1">
-          {safeT("commerce_hub_gift_my_wallet_cta", {
-            fallbackKo: "내 상품권",
-            fallbackEn: "My gifts",
-          })}
+          {safeT("commerce_hub_gift_my_wallet_cta")}
         </CommerceSecondaryCtaLink>
       </div>
 
       {loadError ? (
         <div className="space-y-3" data-gift-mall-error="1">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_u2_mall_error", {
-              fallbackKo: "상품권을 불러오지 못했습니다.",
-              fallbackEn: "Could not load gift certificates.",
-            })}
+            {safeT("gift_u2_mall_error")}
           </p>
           <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
-            {safeT("gift_u2_mall_retry", {
-              fallbackKo: "다시 시도",
-              fallbackEn: "Try again",
-            })}
+            {safeT("gift_u2_mall_retry")}
           </button>
         </div>
       ) : !ready ? (
         <div className="flex min-h-[30vh] items-center justify-center text-sm text-sam-muted">…</div>
       ) : visibleProducts.length === 0 ? (
         <p className="text-sm text-sam-muted" data-gift-mall-empty="1">
-          {safeT("gift_u2_mall_empty", {
-            fallbackKo: "현재 판매 중인 상품권이 없습니다.",
-            fallbackEn: "No gift certificates are currently on sale.",
-          })}
+          {safeT("gift_u2_mall_empty")}
         </p>
       ) : (
         <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>

@@ -1,6 +1,7 @@
 import { TermsPageClient, type TermsInitialDoc } from "./TermsPageClient";
 import { loadPublishedAppLegalDocument } from "@/lib/legal/load-published-legal-document";
 import { STORE_TERMS_VERSION } from "@/lib/auth/store-member-policy";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ function toInitial(
     };
   }
   return {
-    title: locale === "en" ? "Terms of service" : "이용약관",
+    title: translateBy(locale, "terms_terms_of_service"),
     body: "",
     version: STORE_TERMS_VERSION,
     source: "fallback",

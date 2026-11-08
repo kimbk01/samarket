@@ -42,10 +42,7 @@ export function SupportCenterEnterClient() {
       {error ? (
         <>
           <p className="text-center text-sm text-sam-muted">
-            {safeT("support_enter_missing_context", {
-              fallbackKo: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
-              fallbackEn: "Could not load inquiry context. Please try again.",
-            })}
+            {safeT("support_enter_missing_context")}
           </p>
           {/* 막다른 화면 금지 — 고객센터로 나가는 CTA */}
           <button
@@ -53,12 +50,12 @@ export function SupportCenterEnterClient() {
             className={`${Sam.btn.secondary} mt-4`}
             onClick={() => router.replace("/mypage/customer-center")}
           >
-            {safeT("mypage_hub_support", { fallbackKo: "고객센터", fallbackEn: "Customer center" })}
+            {safeT("mypage_hub_support")}
           </button>
         </>
       ) : (
         <p className="text-sm text-sam-muted">
-          {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          {safeT("common_loading")}
         </p>
       )}
     </div>

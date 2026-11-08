@@ -9,6 +9,7 @@ import type { PromotionOrderPeriodSummary } from "@/lib/points/promotion-order-h
 import { pointPromotionOrderStatusText } from "@/lib/points/point-label-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointPromotionOrder, PointPromotionPlacement } from "@/lib/types/point";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 
 const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
@@ -94,7 +95,7 @@ export function PromotionOrderPeriodSummaryCard({
   if (!summary) {
     return error ? (
       <p className="sam-text-helper text-sam-danger" role="alert">
-        {pick(lang, "기간 합계를 불러오지 못했습니다.", "Could not load the period totals.")}
+        {translateBy(lang, "points_could_not_load_the_period_totals")}
       </p>
     ) : null;
   }
@@ -104,14 +105,14 @@ export function PromotionOrderPeriodSummaryCard({
       className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
       data-testid="promotion-orders-period-summary"
     >
-      <p className="mb-1 sam-text-xxs text-sam-muted">{pick(lang, "신청일 기준", "By request date")}</p>
+      <p className="mb-1 sam-text-xxs text-sam-muted">{translateBy(lang, "points_by_request_date")}</p>
       <div className="grid grid-cols-2 gap-2">
         <div data-testid="pos-count">
-          <p className="sam-text-helper text-sam-muted">{pick(lang, "신청", "Requests")}</p>
+          <p className="sam-text-helper text-sam-muted">{translateBy(lang, "points_requests")}</p>
           <p className="sam-text-body tabular-nums text-sam-fg">{countText(summary.count)}</p>
         </div>
         <div data-testid="pos-point">
-          <p className="sam-text-helper text-sam-muted">{pick(lang, "사용 포인트 합계", "Points spent")}</p>
+          <p className="sam-text-helper text-sam-muted">{translateBy(lang, "points_points_spent")}</p>
           <CurrencyAmount currency="point" amount={summary.pointCost} compactPoint className="sam-text-body" />
         </div>
       </div>
@@ -127,7 +128,7 @@ export function PromotionOrderPeriodSummaryCard({
           ))}
           {summary.refundPoints > 0 ? (
             <div className="flex justify-between gap-2" data-testid="pos-refund">
-              <dt className="text-sam-muted">{pick(lang, "환불된 포인트", "Points refunded")}</dt>
+              <dt className="text-sam-muted">{translateBy(lang, "points_points_refunded")}</dt>
               <dd className="text-right tabular-nums text-sam-fg">{formatMypagePoint(summary.refundPoints, { lang: language })}</dd>
             </div>
           ) : null}

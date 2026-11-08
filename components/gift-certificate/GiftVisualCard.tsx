@@ -116,14 +116,8 @@ export function GiftVisualCard({
   const isUsed = surface === "used" || faded;
   const faceSize = resolveSize({ size, faceVariant, fullWidth, compact });
 
-  const badgePlatform = safeT("gift_portrait_badge_platform", {
-    fallbackKo: "DIBAY 상품권",
-    fallbackEn: "DIBAY gift",
-  });
-  const badgeStore = safeT("gift_portrait_badge_store", {
-    fallbackKo: "매장 상품권",
-    fallbackEn: "Store gift",
-  });
+  const badgePlatform = safeT("gift_portrait_badge_platform");
+  const badgeStore = safeT("gift_portrait_badge_store");
   const resolvedExpiry =
     expirationDisplay != null && expirationDisplay.trim() !== ""
       ? expirationDisplay.trim()
@@ -148,48 +142,18 @@ export function GiftVisualCard({
   });
 
   const labels = {
-    faceAmountLabel: safeT("commerce_hub_gift_face_label", {
-      fallbackKo: "금액",
-      fallbackEn: "Amount",
-    }),
-    purchaseLabel: safeT("commerce_hub_gift_purchase_label", {
-      fallbackKo: "구매 금액",
-      fallbackEn: "Purchase amount",
-    }),
-    balanceLabel: safeT("gift_u2_wallet_remaining", {
-      fallbackKo: "잔액",
-      fallbackEn: "Balance",
-    }),
-    usedLabel: safeT("commerce_hub_used_completed", {
-      fallbackKo: "사용 완료",
-      fallbackEn: "Fully used",
-    }),
-    issuerLabel: safeT("gift_portrait_issuer_label", {
-      fallbackKo: "발행처",
-      fallbackEn: "Issuer",
-    }),
-    expiryLabel: safeT("gift_portrait_expiry_label", {
-      fallbackKo: "유효기간",
-      fallbackEn: "Valid until",
-    }),
-    numberLabel: safeT("gift_u2_public_number_label", {
-      fallbackKo: "상품권 번호",
-      fallbackEn: "Gift number",
-    }),
+    faceAmountLabel: safeT("commerce_hub_gift_face_label"),
+    purchaseLabel: safeT("commerce_hub_gift_purchase_label"),
+    balanceLabel: safeT("gift_u2_wallet_remaining"),
+    usedLabel: safeT("commerce_hub_used_completed"),
+    issuerLabel: safeT("gift_portrait_issuer_label"),
+    expiryLabel: safeT("gift_portrait_expiry_label"),
+    numberLabel: safeT("gift_u2_public_number_label"),
     numberUnavailable:
       context === "mall" || context === "admin_preview"
-        ? safeT("gift_portrait_number_preview", {
-            fallbackKo: "구매 후 발급",
-            fallbackEn: "Issued after purchase",
-          })
-        : safeT("gift_portrait_number_after_acceptance", {
-            fallbackKo: "수령 후 표시",
-            fallbackEn: "Shown after acceptance",
-          }),
-    storeScopeNotice: safeT("gift_portrait_store_scope_notice", {
-      fallbackKo: "매장 상품권은 해당 매장에서만 사용 가능합니다",
-      fallbackEn: "Store gift certificates are usable only at that store",
-    }),
+        ? safeT("gift_portrait_number_preview")
+        : safeT("gift_portrait_number_after_acceptance"),
+    storeScopeNotice: safeT("gift_portrait_store_scope_notice"),
   };
 
   const detailBtn = detailHref ? (
@@ -198,17 +162,11 @@ export function GiftVisualCard({
       prefetch={false}
       className={`${Sam.btn.secondary} min-h-[40px] flex-1 px-3 text-sm`}
     >
-      {safeT("commerce_hub_gift_detail_cta", {
-        fallbackKo: "상세보기",
-        fallbackEn: "Details",
-      })}
+      {safeT("commerce_hub_gift_detail_cta")}
     </Link>
   ) : onDetail ? (
     <button type="button" className={`${Sam.btn.secondary} min-h-[40px] flex-1 px-3 text-sm`} onClick={onDetail}>
-      {safeT("commerce_hub_gift_detail_cta", {
-        fallbackKo: "상세보기",
-        fallbackEn: "Details",
-      })}
+      {safeT("commerce_hub_gift_detail_cta")}
     </button>
   ) : null;
 
@@ -220,10 +178,7 @@ export function GiftVisualCard({
         disabled={sendDisabled}
         onClick={onSend}
       >
-        {safeT("gift_u3_wallet_send", {
-          fallbackKo: "선물하기",
-          fallbackEn: "Send as gift",
-        })}
+        {safeT("gift_u3_wallet_send")}
       </button>
     ) : null;
 

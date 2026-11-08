@@ -76,10 +76,7 @@ export function GiftSalesDateTimeField({
   const [draftMinute, setDraftMinute] = useState("00");
   const resolvedEmpty =
     emptyLabel ??
-    safeT("gift_ops_datetime_unset", {
-      fallbackKo: "설정 안 함",
-      fallbackEn: "Not set",
-    });
+    safeT("gift_ops_datetime_unset");
 
   useEffect(() => {
     if (!open) return;
@@ -96,10 +93,7 @@ export function GiftSalesDateTimeField({
       buildLocalValue(parseParts(value).date, parseParts(value).hour, parseParts(value).minute) !==
         buildLocalValue(parseParts(previousValue).date, parseParts(previousValue).hour, parseParts(previousValue).minute));
 
-  const confirmLabel = safeT("gift_ops_datetime_apply", {
-    fallbackKo: "선택 완료",
-    fallbackEn: "Apply selection",
-  });
+  const confirmLabel = safeT("gift_ops_datetime_apply");
 
   const hourOptions = useMemo(() => HOURS, []);
   const minuteOptions = useMemo(() => MINUTES, []);
@@ -117,10 +111,7 @@ export function GiftSalesDateTimeField({
           {formatDisplay(value, resolvedEmpty)}
         </span>
         <span className="shrink-0 text-xs font-semibold text-sam-primary">
-          {safeT("gift_ops_datetime_change", {
-            fallbackKo: "변경",
-            fallbackEn: "Change",
-          })}
+          {safeT("gift_ops_datetime_change")}
         </span>
       </AdminActionButton>
 
@@ -139,7 +130,7 @@ export function GiftSalesDateTimeField({
         actions={[
           {
             key: "cancel",
-            label: safeT("gift_ops_datetime_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+            label: safeT("gift_ops_datetime_cancel"),
             onClick: () => setOpen(false),
             roleTone: "secondary",
           },
@@ -157,10 +148,7 @@ export function GiftSalesDateTimeField({
         <div className="mt-3 space-y-3">
           <label className="block space-y-1 text-sm">
             <span className="text-sam-muted">
-              {safeT("gift_ops_datetime_date_label", {
-                fallbackKo: "날짜",
-                fallbackEn: "Date",
-              })}
+              {safeT("gift_ops_datetime_date_label")}
             </span>
             <input
               className={Sam.input.base}
@@ -173,10 +161,7 @@ export function GiftSalesDateTimeField({
           <div className="grid grid-cols-2 gap-2">
             <label className="block space-y-1 text-sm">
               <span className="text-sam-muted">
-                {safeT("gift_ops_datetime_hour_label", {
-                  fallbackKo: "시",
-                  fallbackEn: "Hour",
-                })}
+                {safeT("gift_ops_datetime_hour_label")}
               </span>
               <select
                 className={Sam.input.base}
@@ -193,10 +178,7 @@ export function GiftSalesDateTimeField({
             </label>
             <label className="block space-y-1 text-sm">
               <span className="text-sam-muted">
-                {safeT("gift_ops_datetime_minute_label", {
-                  fallbackKo: "분",
-                  fallbackEn: "Minute",
-                })}
+                {safeT("gift_ops_datetime_minute_label")}
               </span>
               <select
                 className={Sam.input.base}
@@ -223,10 +205,7 @@ export function GiftSalesDateTimeField({
                 setDraftMinute("00");
               }}
             >
-              {safeT("gift_ops_datetime_clear", {
-                fallbackKo: "비우기",
-                fallbackEn: "Clear",
-              })}
+              {safeT("gift_ops_datetime_clear")}
             </AdminActionButton>
           ) : null}
           {previousValue !== undefined && draftLocal !== value ? (

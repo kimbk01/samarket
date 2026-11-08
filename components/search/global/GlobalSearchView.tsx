@@ -80,10 +80,7 @@ function GlobalSearchHeaderBackButton({ onClose }: { onClose: () => void }) {
       type="button"
       data-global-search-header-back="true"
       className={SECTOR_HEADER_BACK_CLASS}
-      aria-label={safeT("global_search_close", {
-        fallbackKo: "검색 닫기",
-        fallbackEn: "Close search",
-      })}
+      aria-label={safeT("global_search_close")}
       onClick={onClose}
     >
       <AppBackIcon />
@@ -98,10 +95,7 @@ function GlobalSearchCloseButton({ onClose }: { onClose: () => void }) {
       type="button"
       data-global-search-close="true"
       className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
-      aria-label={safeT("global_search_close", {
-        fallbackKo: "검색 닫기",
-        fallbackEn: "Close search",
-      })}
+      aria-label={safeT("global_search_close")}
       onClick={onClose}
     >
       <AppCloseIcon className="h-5 w-5" />
@@ -138,10 +132,7 @@ function GlobalSearchStickyInput({
               onKeywordChange(next);
             }}
             onSubmit={submitSearch}
-            placeholder={safeT("global_search_placeholder", {
-              fallbackKo: "커뮤니티, 거래, 배달, 채팅 검색",
-              fallbackEn: "Search community, market, delivery, chat",
-            })}
+            placeholder={safeT("global_search_placeholder")}
           />
         </div>
       </div>

@@ -94,10 +94,7 @@ export function WalletGiftFriendPicker({
       const json = (await res.json()) as { ok?: boolean; roomId?: string; error?: string };
       if (!res.ok || !json.ok || !json.roomId) {
         setErrorMsg(
-          safeT("gift_u3_err_not_friend", {
-            fallbackKo: "친구에게만 상품권을 선물할 수 있습니다.",
-            fallbackEn: "You can only send gift certificates to friends.",
-          })
+          safeT("gift_u3_err_not_friend")
         );
         return;
       }
@@ -119,19 +116,13 @@ export function WalletGiftFriendPicker({
       open={open}
       onClose={onClose}
       // Gift buyer routes suppress main bottom nav; default above-nav lift leaves a 60px page gap.
-      title={safeT("gift_u3_transfer_title", {
-        fallbackKo: "상품권 선물하기",
-        fallbackEn: "Send gift certificate",
-      })}
+      title={safeT("gift_u3_transfer_title")}
     >
       <div className="pb-1" data-wallet-gift-friend-picker="1">
         {instance ? (
           <div className="mb-4">
             <p className={`mb-2 ${TEXT_CAPTION} font-medium ${TEXT_MUTED}`}>
-              {safeT("gift_u3_transfer_preview_label", {
-                fallbackKo: "보낼 상품권",
-                fallbackEn: "Gift to send",
-              })}
+              {safeT("gift_u3_transfer_preview_label")}
             </p>
             <GiftVisualCard
               visual={{
@@ -149,10 +140,7 @@ export function WalletGiftFriendPicker({
               remainingBalance={instance.remainingBalance}
               expirationDisplay={formatGiftInstanceExpirationDisplay({
                 validUntil: instance.validUntil,
-                noExpiryLabel: safeT("gift_portrait_expiry_none", {
-                  fallbackKo: "만료 없음",
-                  fallbackEn: "No expiry",
-                }),
+                noExpiryLabel: safeT("gift_portrait_expiry_none"),
               })}
               showValidity
               className="border-0 shadow-none"
@@ -161,10 +149,7 @@ export function WalletGiftFriendPicker({
         ) : null}
 
         <p className={`mb-2 ${TEXT_BODY2} font-semibold text-[color:var(--overlay-text-primary)]`}>
-          {safeT("gift_u3_friend_pick_recipient", {
-            fallbackKo: "받는 사람 선택",
-            fallbackEn: "Choose recipient",
-          })}
+          {safeT("gift_u3_friend_pick_recipient")}
         </p>
 
         {errorMsg ? <p className={`mb-2 ${TEXT_BODY2} text-[color:var(--overlay-danger)]`}>{errorMsg}</p> : null}
@@ -172,10 +157,7 @@ export function WalletGiftFriendPicker({
           <p className={`${TEXT_BODY2} ${TEXT_MUTED}`}>…</p>
         ) : friends.length === 0 ? (
           <p className={`${TEXT_BODY2} ${TEXT_MUTED}`} data-wallet-gift-friend-empty="1">
-            {safeT("gift_u3_friend_pick_empty", {
-              fallbackKo: "선물할 수 있는 친구가 없습니다.",
-              fallbackEn: "No friends available to gift.",
-            })}
+            {safeT("gift_u3_friend_pick_empty")}
           </p>
         ) : (
           <ul className="mb-4 max-h-[40vh] space-y-2 overflow-y-auto">
@@ -220,10 +202,7 @@ export function WalletGiftFriendPicker({
           data-wallet-gift-friend-continue="1"
           onClick={() => void continueToRoom()}
         >
-          {safeT("gift_u3_friend_pick_continue", {
-            fallbackKo: "다음",
-            fallbackEn: "Continue",
-          })}
+          {safeT("gift_u3_friend_pick_continue")}
         </button>
       </div>
     </DibayBottomSheet>

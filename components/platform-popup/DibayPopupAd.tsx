@@ -76,34 +76,13 @@ export function DibayPopupAd({
   const [mediaReady, setMediaReady] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
-  const closeLabel = safeT("platform_popup_dismiss_close", {
-    fallbackKo: "닫기",
-    fallbackEn: "Close",
-  });
-  const todayLabel = safeT("platform_popup_suppress_today", {
-    fallbackKo: "오늘 하루 보지 않기",
-    fallbackEn: "Don't show today",
-  });
-  const durationLabel = safeT("platform_popup_suppress_duration", {
-    fallbackKo: "일정 기간 보지 않기",
-    fallbackEn: "Snooze for a while",
-  });
-  const campaignLabel = safeT("platform_popup_suppress_campaign", {
-    fallbackKo: "다시 보지 않기",
-    fallbackEn: "Don't show again",
-  });
-  const creativeAria = safeT("platform_popup_creative_ad_aria", {
-    fallbackKo: "광고",
-    fallbackEn: "Advertisement",
-  });
-  const ctaAria = safeT("platform_popup_cta_aria", {
-    fallbackKo: "자세히 보기",
-    fallbackEn: "View details",
-  });
-  const backdropAria = safeT("platform_popup_backdrop_close_aria", {
-    fallbackKo: "닫기",
-    fallbackEn: "Close",
-  });
+  const closeLabel = safeT("platform_popup_dismiss_close");
+  const todayLabel = safeT("platform_popup_suppress_today");
+  const durationLabel = safeT("platform_popup_suppress_duration");
+  const campaignLabel = safeT("platform_popup_suppress_campaign");
+  const creativeAria = safeT("platform_popup_creative_ad_aria");
+  const ctaAria = safeT("platform_popup_cta_aria");
+  const backdropAria = safeT("platform_popup_backdrop_close_aria");
 
   const markMediaReady = useCallback(() => {
     setMediaReady(true);

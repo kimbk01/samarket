@@ -11,6 +11,7 @@ import type {
   PointChargeRequestPeriodSummary,
   PointPeriodSummary,
 } from "@/lib/points/point-period-history";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Lang = "ko" | "en";
 const pick = (lang: Lang, ko: string, en: string) => (lang === "en" ? en : ko);
@@ -49,8 +50,8 @@ function Cell({
 /** 보류 칸 이름 — 순변화(보류 − 해제) 양수 = 「보류 중」, 음수 = 「보류 해제」 (D-14 ③ · 관리자 `formatAdminPointBucketLine` 과 같은 규칙) */
 export function pointHoldCellLabel(hold: number, lang: Lang): string {
   return hold < 0
-    ? pick(lang, "보류 해제", "Hold released")
-    : pick(lang, "보류 중 (보류−해제)", "On hold (held−released)");
+    ? translateBy(lang, "points_hold_released")
+    : translateBy(lang, "points_on_hold_held_released");
 }
 
 export function PointPeriodSummaryCard({
@@ -65,21 +66,21 @@ export function PointPeriodSummaryCard({
   if (!summary) {
     return error ? (
       <p className="sam-text-helper text-sam-danger" role="alert">
-        {pick(lang, "기간 합계를 불러오지 못했습니다.", "Could not load the period totals.")}
+        {translateBy(lang, "points_could_not_load_the_period_totals")}
       </p>
     ) : null;
   }
   return (
     <section className="flex flex-col gap-2" data-testid="points-period-summary">
       <div className="grid grid-cols-2 gap-2">
-        <Cell label={pick(lang, "기간 시작 잔액", "Opening balance")} amount={summary.openingBalance} sign={0} testId="pps-opening" />
-        <Cell label={pick(lang, "기간 종료 잔액", "Closing balance")} amount={summary.closingBalance} sign={0} testId="pps-closing" />
-        <Cell label={pick(lang, "충전", "Top-ups")} amount={summary.charge} sign={1} testId="pps-charge" />
-        <Cell label={pick(lang, "지급 (이벤트·관리자)", "Granted (events·admin)")} amount={summary.grant} sign={1} testId="pps-grant" />
-        <Cell label={pick(lang, "사용", "Used")} amount={summary.use} sign={-1} testId="pps-use" />
-        <Cell label={pick(lang, "회수·차감", "Reclaimed·deducted")} amount={summary.reclaim} sign={-1} testId="pps-reclaim" />
+        <Cell label={translateBy(lang, "points_opening_balance")} amount={summary.openingBalance} sign={0} testId="pps-opening" />
+        <Cell label={translateBy(lang, "points_closing_balance")} amount={summary.closingBalance} sign={0} testId="pps-closing" />
+        <Cell label={translateBy(lang, "points_top_ups")} amount={summary.charge} sign={1} testId="pps-charge" />
+        <Cell label={translateBy(lang, "points_granted_events_admin")} amount={summary.grant} sign={1} testId="pps-grant" />
+        <Cell label={translateBy(lang, "points_used")} amount={summary.use} sign={-1} testId="pps-use" />
+        <Cell label={translateBy(lang, "points_reclaimed_deducted")} amount={summary.reclaim} sign={-1} testId="pps-reclaim" />
         {summary.refund > 0 ? (
-          <Cell label={pick(lang, "환불·환원", "Refunds")} amount={summary.refund} sign={1} testId="pps-refund" />
+          <Cell label={translateBy(lang, "points_refunds")} amount={summary.refund} sign={1} testId="pps-refund" />
         ) : null}
         {/* 보류 중 = 기간 안 보류 − 보류 해제 (승인 확정분은 「사용」) — 0 이면 숨김 (재감사 R3-g).
             D-14 ③ — 순변화가 음수(이전 기간 보류가 이 기간에 해제)면 「보류 중」이 아니라 「보류 해제」. 부호 = 잔액 증감 그대로. */}
@@ -102,7 +103,7 @@ export function PointPeriodSummaryCard({
         </p>
       ) : summary.consistent === false ? (
         <p className="sam-text-helper text-sam-danger" role="alert" data-testid="pps-mismatch">
-          {pick(lang, "내역 합계가 맞지 않습니다", "History totals do not add up")}
+          {translateBy(lang, "points_history_totals_do_not_add_up")}
         </p>
       ) : null}
     </section>
@@ -133,22 +134,22 @@ export function PointChargePeriodSummaryLine({
 }) {
   const pendingLabel =
     audience === "member"
-      ? pick(lang, "처리 대기(보류 포함)", "Awaiting processing (incl. on hold)")
-      : pick(lang, "대기", "Pending");
+      ? translateBy(lang, "points_awaiting_processing_incl_on_hold")
+      : translateBy(lang, "points_pending");
   const rows: Array<[string, { count: number; paymentAmount: number; pointAmount: number }]> = [
-    [pick(lang, "신청", "Requested"), summary.requested],
-    [pick(lang, "승인", "Approved"), summary.approved],
-    [pick(lang, "반려", "Rejected"), summary.rejected],
+    [translateBy(lang, "points_requested"), summary.requested],
+    [translateBy(lang, "points_approved"), summary.approved],
+    [translateBy(lang, "points_rejected"), summary.rejected],
     [pendingLabel, summary.pending],
   ];
-  if (summary.cancelled.count > 0) rows.push([pick(lang, "취소", "Cancelled"), summary.cancelled]);
+  if (summary.cancelled.count > 0) rows.push([translateBy(lang, "points_cancelled"), summary.cancelled]);
   return (
     <div
       className="mb-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
       data-testid="points-charge-period-summary"
     >
       <p className="mb-1 sam-text-xxs text-sam-muted" data-testid="points-charge-summary-basis">
-        {pick(lang, "신청일 기준", "By request date")}
+        {translateBy(lang, "points_by_request_date")}
       </p>
       <dl className="grid grid-cols-1 gap-1 sam-text-helper">
         {rows.map(([label, v]) => (

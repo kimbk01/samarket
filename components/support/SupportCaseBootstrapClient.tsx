@@ -52,7 +52,7 @@ export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center bg-sam-app px-4 py-8">
       <p className="text-sm text-sam-muted">
-        {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        {safeT("common_loading")}
       </p>
     </div>
   );

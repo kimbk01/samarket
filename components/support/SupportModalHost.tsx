@@ -129,10 +129,7 @@ function SupportSheetChrome({
 function ContextChips({ context }: { context: SupportContext }) {
   const { safeT } = useI18n();
   if (!context.category || context.needsCategorySelection) return null;
-  const defLabel = safeT("support_enter_category_label", {
-    fallbackKo: "문의 유형",
-    fallbackEn: "Category",
-  });
+  const defLabel = safeT("support_enter_category_label");
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       <span className="rounded-[length:var(--overlay-radius-sm)] border border-[var(--overlay-border)] px-2 py-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
@@ -140,18 +137,12 @@ function ContextChips({ context }: { context: SupportContext }) {
       </span>
       {context.audience === "OWNER" && context.storeId ? (
         <span className="rounded-[length:var(--overlay-radius-sm)] border border-[var(--overlay-border)] px-2 py-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
-          {safeT("support_chip_store", {
-            fallbackKo: "매장",
-            fallbackEn: "Store",
-          })}
+          {safeT("support_chip_store")}
         </span>
       ) : null}
       {context.referenceType ? (
         <span className="rounded-[length:var(--overlay-radius-sm)] border border-[var(--overlay-border)] px-2 py-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
-          {safeT("support_triage_field_reference", {
-            fallbackKo: "관련 항목",
-            fallbackEn: "Related item",
-          })}
+          {safeT("support_triage_field_reference")}
         </span>
       ) : null}
     </div>
@@ -404,15 +395,9 @@ function SupportActiveConversation({
       ) : error && messages.length === 0 ? (
         <div className="rounded-[length:var(--overlay-radius-md)] bg-[color:color-mix(in_srgb,var(--overlay-danger)_8%,#fff)] p-4 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-danger)]">
           {error === "unauthorized"
-            ? safeT("support_case_auth_required", {
-                fallbackKo: "로그인이 필요합니다.",
-                fallbackEn: "Please sign in to view this case.",
-              })
+            ? safeT("support_case_auth_required")
             : error === "forbidden"
-              ? safeT("support_case_unavailable", {
-                  fallbackKo: "이 문의를 열 수 없습니다.",
-                  fallbackEn: "This support case is unavailable.",
-                })
+              ? safeT("support_case_unavailable")
               : supportErrorLabel(safeT, error)}
           {error !== "forbidden" ? (
             <DibayOverlayButton
@@ -420,7 +405,7 @@ function SupportActiveConversation({
               className="mt-3 w-full"
               onClick={() => void load()}
             >
-              {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+              {safeT("common_retry")}
             </DibayOverlayButton>
           ) : null}
         </div>
@@ -456,10 +441,7 @@ function SupportActiveConversation({
                 >
                   {!mine ? (
                     <p className="mb-1 text-[length:var(--overlay-caption-size)] font-semibold text-[var(--overlay-text-secondary)]">
-                      {safeT("support_agent_identity", {
-                        fallbackKo: "DIBAY 고객센터",
-                        fallbackEn: "DIBAY Support",
-                      })}
+                      {safeT("support_agent_identity")}
                     </p>
                   ) : null}
                   {m.deleted_at ? (
@@ -467,10 +449,7 @@ function SupportActiveConversation({
                       className={`italic ${mine ? "text-[color:color-mix(in_srgb,var(--overlay-surface)_80%,transparent)]" : "text-[var(--overlay-text-secondary)]"}`}
                       data-support-msg-deleted="1"
                     >
-                      {safeT("support_message_deleted", {
-                        fallbackKo: "삭제된 메시지입니다.",
-                        fallbackEn: "This message was deleted.",
-                      })}
+                      {safeT("support_message_deleted")}
                     </p>
                   ) : (
                     <p className="whitespace-pre-wrap break-words">{m.body}</p>
@@ -482,7 +461,7 @@ function SupportActiveConversation({
                   >
                     {new Date(m.created_at).toLocaleString()}
                     {m.edited_at && !m.deleted_at
-                      ? ` · ${safeT("support_message_edited", { fallbackKo: "수정됨", fallbackEn: "edited" })}`
+                      ? ` · ${safeT("support_message_edited")}`
                       : ""}
                   </p>
                 </div>
@@ -496,10 +475,7 @@ function SupportActiveConversation({
         {closed ? (
           <div className="space-y-2">
             <p className={`${OverlayUi.bodySecondary} !mb-0`}>
-              {safeT("support_case_closed_hint", {
-                fallbackKo: "이 문의는 종료되었습니다.",
-                fallbackEn: "This case is closed.",
-              })}
+              {safeT("support_case_closed_hint")}
             </p>
             <DibayOverlayButton
               roleTone="primary"
@@ -515,20 +491,14 @@ function SupportActiveConversation({
                 )
               }
             >
-              {safeT("support_new_inquiry_cta", {
-                fallbackKo: "새 문의하기",
-                fallbackEn: "New inquiry",
-              })}
+              {safeT("support_new_inquiry_cta")}
             </DibayOverlayButton>
           </div>
         ) : (
           <div className="space-y-1.5">
             {offline ? (
               <p className={`${OverlayUi.caption} !mb-0`}>
-                {safeT("support_offline_hint", {
-                  fallbackKo: "오프라인입니다. 연결 후 다시 시도해 주세요.",
-                  fallbackEn: "You are offline. Retry when connected.",
-                })}
+                {safeT("support_offline_hint")}
               </p>
             ) : null}
             {error ? (
@@ -544,10 +514,7 @@ function SupportActiveConversation({
                 data-form-keyboard-field="1"
                 disabled={sending || offline}
                 className={`${OverlayUi.input} min-h-11 flex-1 resize-none !py-2.5`}
-                placeholder={safeT("support_message_placeholder", {
-                  fallbackKo: "메시지를 입력하세요",
-                  fallbackEn: "Type your message",
-                })}
+                placeholder={safeT("support_message_placeholder")}
               />
               <DibayOverlayButton
                 roleTone="primary"
@@ -555,15 +522,9 @@ function SupportActiveConversation({
                 disabled={sending || offline || !draft.trim()}
                 loading={sending}
                 onClick={() => void send()}
-                aria-label={safeT("support_send_cta", {
-                  fallbackKo: "전송",
-                  fallbackEn: "Send",
-                })}
+                aria-label={safeT("support_send_cta")}
               >
-                {safeT("support_send_cta", {
-                  fallbackKo: "전송",
-                  fallbackEn: "Send",
-                })}
+                {safeT("support_send_cta")}
               </DibayOverlayButton>
             </div>
           </div>
@@ -608,10 +569,7 @@ function SupportStartBody({
     <SupportSheetChrome
       titleId={titleId}
       title={title}
-      statusText={safeT("support_enter_greeting", {
-        fallbackKo: "무엇을 도와드릴까요?",
-        fallbackEn: "How can we help?",
-      })}
+      statusText={safeT("support_enter_greeting")}
       onClose={onClose}
       closeLabel={closeLabel}
       subContext={context ? <ContextChips context={context} /> : null}
@@ -627,10 +585,7 @@ function SupportStartBody({
         />
       ) : (
         <p className={OverlayUi.bodySecondary}>
-          {safeT("support_enter_missing_context", {
-            fallbackKo: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
-            fallbackEn: "Could not load inquiry context. Please try again.",
-          })}
+          {safeT("support_enter_missing_context")}
         </p>
       )}
     </SupportSheetChrome>
@@ -797,14 +752,8 @@ export function SupportModalHost() {
     setStartError(null);
   }, []);
 
-  const title = safeT("support_center_brand_title", {
-    fallbackKo: "DIBAY 고객센터",
-    fallbackEn: "DIBAY Support",
-  });
-  const closeLabel = safeT("support_modal_close_aria", {
-    fallbackKo: "고객센터 닫기",
-    fallbackEn: "Close support",
-  });
+  const title = safeT("support_center_brand_title");
+  const closeLabel = safeT("support_modal_close_aria");
 
   const showStart = open && !modal.caseId;
   const showActive = open && Boolean(modal.caseId);

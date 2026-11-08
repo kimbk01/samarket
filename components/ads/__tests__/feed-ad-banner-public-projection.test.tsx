@@ -10,11 +10,13 @@ import { createRoot, type Root } from "react-dom/client";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/components/i18n/AppLanguageProvider", () => {
+vi.mock("@/components/i18n/AppLanguageProvider", async () => {
+  /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
+  const { safeTranslate } = await import("@/lib/i18n/safe-translate");
   const value = {
     language: "ko",
     t: (k: string) => (k === "ui_home_feed_ad_label" ? "광고" : k),
-    safeT: (_k: string, o?: { fallbackKo?: string }) => o?.fallbackKo ?? _k,
+    safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
   };
   return { useI18n: () => value };
 });

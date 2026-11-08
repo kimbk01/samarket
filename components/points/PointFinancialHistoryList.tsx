@@ -18,12 +18,13 @@ import {
   financeTxNo,
   pointChargeStatusDisplay,
 } from "@/lib/finance/finance-display-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const HANGUL = /[\u3131-\u318e\uac00-\ud7a3]/;
 
 /** 부제 — 영어 화면에서 한글 원문(관리자 입력 사유 등)은 영어 부제가 있으면 그것을 쓴다 */
 function pointItemSubtitle(item: PointFinancialHistoryItem, lang: AppLanguageCode): string {
-  if (item.relatedObject?.missing) return lang === "en" ? "Deleted post" : "삭제된 게시물";
+  if (item.relatedObject?.missing) return translateBy(lang, "points_deleted_post");
   const ko = item.subtitle ?? "";
   if (lang !== "en") return ko;
   if (item.subtitleEn) return item.subtitleEn;
@@ -84,10 +85,7 @@ export function PointFinancialHistoryList({
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         {emptyLabel ??
-          safeT("point_fin_empty", {
-            fallbackKo: "포인트 내역이 없습니다.",
-            fallbackEn: "No Point history yet.",
-          })}
+          safeT("point_fin_empty")}
       </div>
     );
   }
@@ -184,21 +182,21 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
       <dl className={`space-y-2 ${OverlayUi.body}`}>
         <div className="flex justify-between gap-3">
           <dt className={OverlayUi.bodySecondary}>
-            {safeT("point_fin_detail_time", { fallbackKo: "거래 일시", fallbackEn: "Time" })}
+            {safeT("point_fin_detail_time")}
           </dt>
           <dd className="min-w-0 break-words text-right">{formatMypageDate(item.occurredAt, { style: "datetime", lang: language })}</dd>
         </div>
         {txNo ? (
           <div className="flex justify-between gap-3">
             <dt className={OverlayUi.bodySecondary}>
-              {safeT("fin_detail_tx_no", { fallbackKo: "거래번호", fallbackEn: "Transaction no." })}
+              {safeT("fin_detail_tx_no")}
             </dt>
             <dd className="min-w-0 break-words text-right tabular-nums" data-point-fin-tx-no="1">{txNo}</dd>
           </div>
         ) : null}
         <div className="flex justify-between gap-3">
           <dt className={OverlayUi.bodySecondary}>
-            {safeT("point_fin_detail_balance", { fallbackKo: "이후 잔액", fallbackEn: "Balance after" })}
+            {safeT("point_fin_detail_balance")}
           </dt>
           <dd className="min-w-0 break-words text-right">
             <CurrencyAmount
@@ -213,8 +211,8 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           <div className="flex justify-between gap-3">
             <dt className={OverlayUi.bodySecondary}>
               {item.signedAmount < 0
-                ? safeT("point_fin_detail_usage", { fallbackKo: "사용처", fallbackEn: "Usage" })
-                : safeT("fin_detail_content", { fallbackKo: "내용", fallbackEn: "Details" })}
+                ? safeT("point_fin_detail_usage")
+                : safeT("fin_detail_content")}
             </dt>
             <dd className="min-w-0 break-words text-right">{subtitle}</dd>
           </div>
@@ -223,13 +221,13 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           <>
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("point_fin_detail_product", { fallbackKo: "상위노출 상품", fallbackEn: "Product" })}
+                {safeT("point_fin_detail_product")}
               </dt>
               <dd className="min-w-0 break-words text-right">{promoLabel}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("point_fin_detail_period", { fallbackKo: "상위노출 기간", fallbackEn: "Period" })}
+                {safeT("point_fin_detail_period")}
               </dt>
               <dd className="min-w-0 break-words text-right">
                 {formatRange(item.promotion.startAt, item.promotion.endAt, language)}
@@ -237,7 +235,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
             </div>
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("point_fin_detail_status", { fallbackKo: "상태", fallbackEn: "Status" })}
+                {safeT("point_fin_detail_status")}
               </dt>
               <dd className="min-w-0 break-words text-right">{pointPromotionOrderStatusText(t, item.promotion.orderStatus)}</dd>
             </div>
@@ -248,14 +246,14 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
             {method ? (
               <div className="flex justify-between gap-3">
                 <dt className={OverlayUi.bodySecondary}>
-                  {safeT("fin_detail_method", { fallbackKo: "결제 수단", fallbackEn: "Payment method" })}
+                  {safeT("fin_detail_method")}
                 </dt>
                 <dd className="min-w-0 break-words text-right">{label(method)}</dd>
               </div>
             ) : null}
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("fin_detail_charge_request", { fallbackKo: "충전 신청", fallbackEn: "Top-up request" })}
+                {safeT("fin_detail_charge_request")}
               </dt>
               <dd className="min-w-0 break-words text-right" data-point-fin-charge-ref="1">
                 {[item.deposit.planName, chargeRef, chargeStatus ? label(chargeStatus) : null]
@@ -266,7 +264,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
             {item.deposit.appleTxTail ? (
               <div className="flex justify-between gap-3">
                 <dt className={OverlayUi.bodySecondary}>
-                  {safeT("fin_detail_apple_tx", { fallbackKo: "Apple 거래", fallbackEn: "Apple transaction" })}
+                  {safeT("fin_detail_apple_tx")}
                 </dt>
                 <dd className="min-w-0 break-words text-right tabular-nums">{item.deposit.appleTxTail}</dd>
               </div>
@@ -277,14 +275,14 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           <>
             <div className="flex justify-between gap-3">
               <dt className={OverlayUi.bodySecondary}>
-                {safeT("fin_detail_processor", { fallbackKo: "처리", fallbackEn: "Processed by" })}
+                {safeT("fin_detail_processor")}
               </dt>
               <dd className="min-w-0 break-words text-right">{label(FINANCE_PUBLIC_PROCESSOR)}</dd>
             </div>
             {item.adjustment.publicReason ? (
               <div className="flex justify-between gap-3">
                 <dt className={OverlayUi.bodySecondary}>
-                  {safeT("point_fin_detail_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}
+                  {safeT("point_fin_detail_reason")}
                 </dt>
                 <dd className="min-w-0 break-words text-right">{item.adjustment.publicReason}</dd>
               </div>

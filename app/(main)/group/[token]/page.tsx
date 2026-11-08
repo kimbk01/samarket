@@ -38,10 +38,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
         if (!cancelled) {
           setStatus("error");
           setMessage(
-            safeT("cm_ui_group_invite_invalid", {
-              fallbackKo: "유효하지 않은 초대 링크입니다.",
-              fallbackEn: "This invite link is invalid.",
-            })
+            safeT("cm_ui_group_invite_invalid")
           );
         }
         return;
@@ -57,10 +54,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
         setRetryable(true);
         setStatus("error");
         setMessage(
-          safeT("common_network_error_retry", {
-            fallbackKo: "네트워크 오류가 발생했어요. 다시 시도해 주세요.",
-            fallbackEn: "Network error. Please try again.",
-          })
+          safeT("common_network_error_retry")
         );
         return;
       }
@@ -70,10 +64,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
         setRetryable(res.status >= 500);
         setStatus("error");
         setMessage(
-          safeT("cm_ui_group_invite_invalid", {
-            fallbackKo: "유효하지 않은 초대 링크입니다.",
-            fallbackEn: "This invite link is invalid.",
-          })
+          safeT("cm_ui_group_invite_invalid")
         );
         return;
       }
@@ -106,14 +97,8 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
     setStatus("ready");
     setMessage(
       json.code === "user_banned"
-        ? safeT("cm_ui_group_user_banned", {
-            fallbackKo: "이 그룹에서 차단되어 참여할 수 없습니다.",
-            fallbackEn: "You are banned from this group and cannot join.",
-          })
-        : safeT("cm_ui_group_invite_join_failed", {
-            fallbackKo: "그룹 참여에 실패했습니다.",
-            fallbackEn: "Could not join the group.",
-          })
+        ? safeT("cm_ui_group_user_banned")
+        : safeT("cm_ui_group_invite_join_failed")
     );
   }
 
@@ -149,14 +134,8 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
     setStatus("ready");
     setMessage(
       json.code === "user_banned"
-        ? safeT("cm_ui_group_user_banned", {
-            fallbackKo: "이 그룹에서 차단되어 참여할 수 없습니다.",
-            fallbackEn: "You are banned from this group and cannot join.",
-          })
-        : safeT("cm_ui_group_join_request_failed", {
-            fallbackKo: "가입 요청에 실패했습니다.",
-            fallbackEn: "Could not send join request.",
-          })
+        ? safeT("cm_ui_group_user_banned")
+        : safeT("cm_ui_group_join_request_failed")
     );
   }
 
@@ -176,10 +155,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
     return (
       <main className="flex min-h-[50vh] items-center justify-center bg-sam-app px-4">
         <p className="sam-text-body-lg text-sam-fg">
-          {safeT("cm_ui_group_invite_preview_loading", {
-            fallbackKo: "그룹 정보를 불러오는 중…",
-            fallbackEn: "Loading group…",
-          })}
+          {safeT("cm_ui_group_invite_preview_loading")}
         </p>
       </main>
     );
@@ -200,7 +176,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
               setReloadKey((k) => k + 1);
             }}
           >
-            {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+            {safeT("common_retry")}
           </button>
         ) : null}
         <button
@@ -208,7 +184,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg"
           onClick={() => router.replace("/community-messenger")}
         >
-          {safeT("cm_ui_group_invite_go_messenger", { fallbackKo: "메신저로 이동", fallbackEn: "Go to Messenger" })}
+          {safeT("cm_ui_group_invite_go_messenger")}
         </button>
       </main>
     );
@@ -225,10 +201,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
       )}
       <h1 className="text-center sam-text-page-title font-semibold text-sam-fg">{preview.title || "Group"}</h1>
       <p className="text-center sam-text-helper text-sam-muted">
-        {safeT("cm_ui_group_member_count_label", {
-          fallbackKo: `멤버 ${preview.memberCount}명`,
-          fallbackEn: `${preview.memberCount} members`,
-        })}
+        {safeT("cm_ui_group_member_count_label")}
       </p>
       {preview.summary ? <p className="text-center sam-text-body text-sam-muted">{preview.summary}</p> : null}
       {message ? <p className="text-center sam-text-helper text-red-600">{message}</p> : null}
@@ -239,22 +212,16 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg"
           onClick={() => router.replace(buildGroupRoomWebPath(preview.roomId))}
         >
-          {safeT("cm_ui_group_open", { fallbackKo: "그룹 열기", fallbackEn: "Open group" })}
+          {safeT("cm_ui_group_open")}
         </button>
       ) : preview.viewerStatus === "banned" ? (
         <p className="text-center sam-text-body font-semibold text-red-700">
-          {safeT("cm_ui_group_user_banned", {
-            fallbackKo: "이 그룹에서 차단되어 참여할 수 없습니다.",
-            fallbackEn: "You are banned from this group and cannot join.",
-          })}
+          {safeT("cm_ui_group_user_banned")}
         </p>
       ) : preview.viewerStatus === "pending" ? (
         <div className="flex w-full flex-col gap-2">
           <p className="text-center sam-text-body text-sam-fg">
-            {safeT("cm_ui_group_join_pending", {
-              fallbackKo: "승인 대기 중",
-              fallbackEn: "Awaiting approval",
-            })}
+            {safeT("cm_ui_group_join_pending")}
           </p>
           <button
             type="button"
@@ -262,10 +229,7 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
             disabled={status === "busy"}
             onClick={() => void cancelRequest()}
           >
-            {safeT("cm_ui_group_join_cancel_request", {
-              fallbackKo: "요청 취소",
-              fallbackEn: "Cancel request",
-            })}
+            {safeT("cm_ui_group_join_cancel_request")}
           </button>
         </div>
       ) : preview.requiresApproval ? (
@@ -276,8 +240,8 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
           onClick={() => void requestJoin()}
         >
           {status === "busy"
-            ? safeT("cm_ui_group_join_requesting", { fallbackKo: "요청 중…", fallbackEn: "Requesting…" })
-            : safeT("cm_ui_group_join_request", { fallbackKo: "가입 요청", fallbackEn: "Request to join" })}
+            ? safeT("cm_ui_group_join_requesting")
+            : safeT("cm_ui_group_join_request")}
         </button>
       ) : (
         <button
@@ -287,11 +251,8 @@ export default function GroupInviteJoinPage({ params }: { params: Promise<{ toke
           onClick={() => void joinNow()}
         >
           {status === "busy"
-            ? safeT("cm_ui_group_invite_joining", {
-                fallbackKo: "그룹에 참여하는 중…",
-                fallbackEn: "Joining group…",
-              })
-            : safeT("cm_ui_group_join", { fallbackKo: "그룹 참여", fallbackEn: "Join group" })}
+            ? safeT("cm_ui_group_invite_joining")
+            : safeT("cm_ui_group_join")}
         </button>
       )}
     </main>

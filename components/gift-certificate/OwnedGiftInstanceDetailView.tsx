@@ -136,10 +136,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
         <GiftInstanceDetailSkeleton />
       ) : loadState.kind === "forbidden" ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_u3_wallet_pending_lock", {
-            fallbackKo: "수령 대기 중인 상품권은 선물 수락 후 확인할 수 있습니다.",
-            fallbackEn: "Accept the gift to view owned instance details.",
-          })}
+          {safeT("gift_u3_wallet_pending_lock")}
         </p>
       ) : loadState.kind === "not_found" ? (
         <MyStateView
@@ -179,10 +176,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
             showGiftNumber={Boolean(instance.publicGiftNumber?.trim())}
             expirationDisplay={formatGiftInstanceExpirationDisplay({
               validUntil: instance.validUntil,
-              noExpiryLabel: safeT("gift_portrait_expiry_none", {
-                fallbackKo: "만료 없음",
-                fallbackEn: "No expiry",
-              }),
+              noExpiryLabel: safeT("gift_portrait_expiry_none"),
             })}
             showValidity
             showSend={Boolean(canSend)}
@@ -191,10 +185,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
           {instance.publicGiftNumber ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm">
               <span className="text-sam-muted">
-                {safeT("gift_u2_public_number_label", {
-                  fallbackKo: "상품권 번호",
-                  fallbackEn: "Gift number",
-                })}
+                {safeT("gift_u2_public_number_label")}
               </span>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <span className="font-medium tabular-nums text-sam-fg">{instance.publicGiftNumber}</span>
@@ -204,27 +195,21 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
                   onClick={() => void copyNumber(instance.publicGiftNumber)}
                 >
                   {copied
-                    ? safeT("gift_u2_public_number_copied", { fallbackKo: "복사됨", fallbackEn: "Copied" })
-                    : safeT("gift_u2_public_number_copy", { fallbackKo: "번호 복사", fallbackEn: "Copy number" })}
+                    ? safeT("gift_u2_public_number_copied")
+                    : safeT("gift_u2_public_number_copy")}
                 </button>
               </div>
             </div>
           ) : null}
           {instance.status === "GIFT_LOCKED" ? (
             <p className="text-sm font-medium text-sam-danger">
-              {safeT("gift_u3_wallet_pending_lock", {
-                fallbackKo: "수령 대기 중",
-                fallbackEn: "Awaiting accept",
-              })}
+              {safeT("gift_u3_wallet_pending_lock")}
             </p>
           ) : null}
           {instance.redemptionHistory.length > 0 ? (
             <section data-gift-redemption-history="1">
               <h2 className="mb-2 text-sm font-semibold text-sam-fg">
-                {safeT("commerce_hub_redemption_history", {
-                  fallbackKo: "사용 내역",
-                  fallbackEn: "Redemption history",
-                })}
+                {safeT("commerce_hub_redemption_history")}
               </h2>
               <ul className="space-y-2">
                 {instance.redemptionHistory.map((r) => (
@@ -237,28 +222,19 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
                     <dl className="mt-1.5 space-y-1 text-sam-muted">
                       <div className="flex justify-between gap-3">
                         <dt>
-                          {safeT("commerce_hub_gift_face_label", {
-                            fallbackKo: "상품권 금액",
-                            fallbackEn: "Certificate amount",
-                          })}
+                          {safeT("commerce_hub_gift_face_label")}
                         </dt>
                         <dd className="tabular-nums text-sam-fg">{formatMypageMoney(instance.faceValue)}</dd>
                       </div>
                       <div className="flex justify-between gap-3">
                         <dt>
-                          {safeT("commerce_hub_gift_purchase_label", {
-                            fallbackKo: "구매 금액",
-                            fallbackEn: "Purchase amount",
-                          })}
+                          {safeT("commerce_hub_gift_purchase_label")}
                         </dt>
                         <dd className="tabular-nums text-sam-fg">{formatMypageMoney(instance.purchasePrice)}</dd>
                       </div>
                       <div className="flex justify-between gap-3">
                         <dt>
-                          {safeT("commerce_hub_gift_applied_label", {
-                            fallbackKo: "실제 적용 금액",
-                            fallbackEn: "Applied amount",
-                          })}
+                          {safeT("commerce_hub_gift_applied_label")}
                         </dt>
                         <dd className="tabular-nums text-sam-fg" data-gift-history-applied="1">
                           {formatMypageMoney(r.redeemedAmount)}
@@ -267,10 +243,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
                       {r.forfeitedAmount > 0 ? (
                         <div className="flex justify-between gap-3">
                           <dt>
-                            {safeT("commerce_hub_gift_forfeited_label", {
-                              fallbackKo: "소멸 금액",
-                              fallbackEn: "Forfeited amount",
-                            })}
+                            {safeT("commerce_hub_gift_forfeited_label")}
                           </dt>
                           <dd className="tabular-nums text-sam-fg" data-gift-history-forfeited="1">
                             {formatMypageMoney(r.forfeitedAmount)}
@@ -280,10 +253,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
                       {r.additionalPaymentAmount != null && r.additionalPaymentAmount > 0 ? (
                         <div className="flex justify-between gap-3">
                           <dt>
-                            {safeT("commerce_hub_gift_additional_label", {
-                              fallbackKo: "추가 결제 금액",
-                              fallbackEn: "Additional payment",
-                            })}
+                            {safeT("commerce_hub_gift_additional_label")}
                           </dt>
                           <dd className="tabular-nums text-sam-fg" data-gift-history-additional="1">
                             {formatMypageMoney(r.additionalPaymentAmount)}
@@ -293,10 +263,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
                       {r.orderId ? (
                         <div className="flex justify-between gap-3">
                           <dt>
-                            {safeT("commerce_hub_gift_order_label", {
-                              fallbackKo: "주문",
-                              fallbackEn: "Order",
-                            })}
+                            {safeT("commerce_hub_gift_order_label")}
                           </dt>
                           <dd className="truncate font-mono text-xs text-sam-fg" data-gift-history-order="1">
                             {r.orderId}
@@ -305,10 +272,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
                       ) : null}
                       <div className="flex justify-between gap-3">
                         <dt>
-                          {safeT("commerce_hub_gift_used_at_label", {
-                            fallbackKo: "사용 일시",
-                            fallbackEn: "Used at",
-                          })}
+                          {safeT("commerce_hub_gift_used_at_label")}
                         </dt>
                         <dd className="tabular-nums text-sam-fg">
                           {formatMypageDate(r.redeemedAt, { style: "datetime", lang: language }) || r.redeemedAt}
@@ -326,16 +290,13 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
         <MyStickyCta
           dirty
           primary={{
-            label: safeT("commerce_hub_use_on_order_cta", {
-              fallbackKo: "주문에 사용하기",
-              fallbackEn: "Use on order",
-            }),
+            label: safeT("commerce_hub_use_on_order_cta"),
             onPress: () => router.push(useHref),
           }}
           secondary={
             canSend
               ? {
-                  label: safeT("gift_u3_wallet_send", { fallbackKo: "선물하기", fallbackEn: "Send as gift" }),
+                  label: safeT("gift_u3_wallet_send"),
                   onPress: () => setSendOpen(true),
                 }
               : undefined

@@ -156,10 +156,7 @@ export function RegionBar({
     ) : stringTitle ? (
       stringTitle
     ) : (
-      safeT("common_content_unavailable", {
-        fallbackKo: "내용을 표시할 수 없습니다",
-        fallbackEn: "Content unavailable",
-      })
+      safeT("common_content_unavailable")
     );
 
   const trailing =

@@ -26,9 +26,13 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => React.createElement("img", { alt: String(props.alt ?? "") }),
 }));
-vi.mock("@/components/i18n/AppLanguageProvider", () => ({
-  useI18n: () => ({ safeT: (k: string, f?: { fallbackKo?: string }) => f?.fallbackKo ?? k }),
-}));
+vi.mock("@/components/i18n/AppLanguageProvider", async () => {
+  /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
+  const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+  return ({
+  useI18n: () => ({ safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o) }),
+  });
+});
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: () => true,
   resolveCapacitorShellPlatform: () => "android",

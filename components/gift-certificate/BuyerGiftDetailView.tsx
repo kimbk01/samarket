@@ -185,59 +185,34 @@ export function BuyerGiftDetailView({
     return (
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
         <p className="text-sm text-sam-muted">
-          {safeT("gift_u2_err_not_found", {
-            fallbackKo: "상품권을 찾을 수 없습니다.",
-            fallbackEn: "Gift certificate not found.",
-          })}
+          {safeT("gift_u2_err_not_found")}
         </p>
         <Link
           href={mallHref}
           className={`${Sam.btn.secondary} mt-4 inline-flex min-h-[44px] items-center justify-center px-4`}
         >
-          {safeT("gift_u2_detail_browse_other", {
-            fallbackKo: "다른 상품권 보기",
-            fallbackEn: "Browse other gifts",
-          })}
+          {safeT("gift_u2_detail_browse_other")}
         </Link>
       </div>
     );
   }
 
-  const priceLabel = safeT("gift_u2_detail_buy_with_points", {
-    fallbackKo: "{price} Point로 구매",
-    fallbackEn: "Buy for {price} Point",
-    vars: { price: product.purchasePrice.toLocaleString() },
-  });
+  const priceLabel = safeT("gift_u2_detail_buy_with_points", { vars: { price: product.purchasePrice.toLocaleString() } });
   const successBody = purchasedGiftNumber
-    ? safeT("gift_u2_success_dialog_body", {
-        fallbackKo: "결제 Point {price}\n상품권 번호 {number}",
-        fallbackEn: "Point spent {price}\nGift number {number}",
-        vars: {
+    ? safeT("gift_u2_success_dialog_body", { vars: {
           price: product.purchasePrice.toLocaleString(),
           number: purchasedGiftNumber,
-        },
-      })
-    : safeT("gift_u2_success_dialog_body_no_number", {
-        fallbackKo: "결제 Point {price}",
-        fallbackEn: "Point spent {price}",
-        vars: { price: product.purchasePrice.toLocaleString() },
-      });
+        } })
+    : safeT("gift_u2_success_dialog_body_no_number", { vars: { price: product.purchasePrice.toLocaleString() } });
 
-  const noExpiryLabel = safeT("gift_portrait_expiry_none", {
-    fallbackKo: "만료 없음",
-    fallbackEn: "No expiry",
-  });
+  const noExpiryLabel = safeT("gift_portrait_expiry_none");
   const expirationDisplay = formatGiftProductExpirationDisplay({
     expiryPolicy: product.expiryPolicy,
     validityDays: product.validityDays,
     fixedValidUntil: product.fixedValidUntil,
     noExpiryLabel,
     daysAfterIssueLabel: (days) =>
-      safeT("gift_portrait_expiry_days_after_issue", {
-        fallbackKo: `발급 후 ${days}일`,
-        fallbackEn: `${days} days after issue`,
-        vars: { days: String(days) },
-      }),
+      safeT("gift_portrait_expiry_days_after_issue", { vars: { days: String(days) } }),
   });
 
   return (
@@ -270,10 +245,7 @@ export function BuyerGiftDetailView({
             style={GIFT_DETAIL_BUY_BTN_STYLE}
             data-gift-detail-login-cta="1"
           >
-            {safeT("gift_u2_detail_login_cta", {
-              fallbackKo: "로그인하고 구매",
-              fallbackEn: "Sign in to buy",
-            })}
+            {safeT("gift_u2_detail_login_cta")}
           </Link>
         ) : (
           <>
@@ -289,10 +261,7 @@ export function BuyerGiftDetailView({
                 setConfirmOpen(true);
               }}
             >
-              {safeT("commerce_hub_gift_buy_cta", {
-                fallbackKo: "상품권 구매하기",
-                fallbackEn: "Buy gift certificate",
-              })}
+              {safeT("commerce_hub_gift_buy_cta")}
               {" · "}
               {priceLabel}
             </button>
@@ -303,10 +272,7 @@ export function BuyerGiftDetailView({
                 style={GIFT_DETAIL_BUY_BTN_STYLE}
                 data-gift-detail-charge-cta="1"
               >
-                {safeT("gift_u2_detail_charge_cta", {
-                  fallbackKo: "Point 충전하기",
-                  fallbackEn: "Top up Point",
-                })}
+                {safeT("gift_u2_detail_charge_cta")}
               </Link>
             ) : null}
           </>
@@ -320,10 +286,7 @@ export function BuyerGiftDetailView({
       >
         <div className="flex items-center justify-between gap-2 text-sm">
           <span className="text-sam-muted">
-            {safeT("gift_u2_detail_balance_label", {
-              fallbackKo: "보유 포인트",
-              fallbackEn: "Your Point",
-            })}
+            {safeT("gift_u2_detail_balance_label")}
           </span>
           {balanceLoading ? (
             <span className="tabular-nums font-semibold text-sam-fg">…</span>
@@ -335,28 +298,18 @@ export function BuyerGiftDetailView({
           <>
             <div className="mt-1 flex items-center justify-between gap-2 text-sm" data-gift-point-usable="1">
               <span className="text-sam-muted">
-                {safeT("gift_u2_detail_usable_label", {
-                  fallbackKo: "이 결제에 사용 가능",
-                  fallbackEn: "Usable for this payment",
-                })}
+                {safeT("gift_u2_detail_usable_label")}
               </span>
               <CurrencyAmount currency="point" amount={generalAvailable} compactPoint className="text-sm" />
             </div>
             <p className="mt-1 text-xs text-sam-muted">
-              {safeT("gift_u2_detail_apple_only_note", {
-                fallbackKo: `Apple 결제로 충전한 ${appleOnly.toLocaleString()}P는 광고·상위노출에만 사용할 수 있습니다.`,
-                fallbackEn: `${appleOnly.toLocaleString()}P charged through Apple can only be used for ads and promotions.`,
-                vars: { apple: appleOnly.toLocaleString() },
-              })}
+              {safeT("gift_u2_detail_apple_only_note", { vars: { apple: appleOnly.toLocaleString() } })}
             </p>
           </>
         ) : null}
         <div className="mt-1 flex items-center justify-between gap-2 text-sm">
           <span className="text-sam-muted">
-            {safeT("gift_u2_detail_need_label", {
-              fallbackKo: "구매 필요",
-              fallbackEn: "Required",
-            })}
+            {safeT("gift_u2_detail_need_label")}
           </span>
           <CurrencyAmount
             currency="point"
@@ -367,66 +320,39 @@ export function BuyerGiftDetailView({
         </div>
         {!enough && authed ? (
           <p className="mt-2 text-sm text-sam-danger">
-            {safeT("gift_u2_detail_shortfall", {
-              fallbackKo: "{shortfall} Point가 부족합니다.",
-              fallbackEn: "You need {shortfall} more Point.",
-              vars: { shortfall: shortfall.toLocaleString() },
-            })}
+            {safeT("gift_u2_detail_shortfall", { vars: { shortfall: shortfall.toLocaleString() } })}
           </p>
         ) : null}
       </div>
 
       <div className="mb-8 min-w-0 space-y-1">
         <p className="text-sm text-sam-muted">
-          {safeT("gift_u2_detail_unit", {
-            fallbackKo: "구매 단위 1장",
-            fallbackEn: "Sold per certificate",
-          })}
+          {safeT("gift_u2_detail_unit")}
         </p>
         <p className="text-sm text-sam-muted">
           {product.transferable
-            ? safeT("gift_u2_mall_transferable", {
-                fallbackKo: "선물 가능",
-                fallbackEn: "Transferable",
-              })
-            : safeT("gift_u2_mall_non_transferable", {
-                fallbackKo: "선물 불가",
-                fallbackEn: "Non-transferable",
-              })}
+            ? safeT("gift_u2_mall_transferable")
+            : safeT("gift_u2_mall_non_transferable")}
         </p>
         <p className="text-sm text-sam-fg">
-          {safeT("gift_u2_detail_usable_store", {
-            fallbackKo: "사용 가능 매장",
-            fallbackEn: "Usable at",
-          })}
+          {safeT("gift_u2_detail_usable_store")}
           : {product.storeName}
         </p>
         {product.salesEndsAt ? (
           <p className="text-xs text-sam-muted">
-            {safeT("gift_u2_detail_sales_ends", {
-              fallbackKo: "판매 종료",
-              fallbackEn: "Sales end",
-            })}
+            {safeT("gift_u2_detail_sales_ends")}
             : {new Date(product.salesEndsAt).toLocaleString()}
           </p>
         ) : null}
         {expirationDisplay ? (
           <p className="text-sm font-medium text-sam-fg" data-gift-detail-expiry="1">
-            {safeT("gift_portrait_expiry_label", {
-              fallbackKo: "유효기간",
-              fallbackEn: "Valid until",
-            })}
+            {safeT("gift_portrait_expiry_label")}
             {": "}
             {expirationDisplay}
           </p>
         ) : null}
         <p className="text-xs text-sam-muted">
-          {safeT("gift_u2_detail_terms", {
-            fallbackKo:
-              "상품권은 포인트로만 구매할 수 있습니다. 구매 후 잔액은 해당 매장 주문에서 사용할 수 있습니다.",
-            fallbackEn:
-              "Gift certificates can only be purchased with Point. Remaining balance can be used at this store’s orders.",
-          })}
+          {safeT("gift_u2_detail_terms")}
         </p>
       </div>
 
@@ -455,10 +381,7 @@ export function BuyerGiftDetailView({
               onClick={() => void purchase()}
             >
               {busy
-                ? safeT("gift_u2_confirm_pending", {
-                    fallbackKo: "구매 중…",
-                    fallbackEn: "Purchasing…",
-                  })
+                ? safeT("gift_u2_confirm_pending")
                 : safeT("popup_btn_buy")}
             </DibayOverlayButton>
           </div>
@@ -492,10 +415,7 @@ export function BuyerGiftDetailView({
           router.push(mallHref);
         }}
         dismissible
-        title={safeT("gift_u2_success_title", {
-          fallbackKo: "상품권 구매가 완료되었습니다.",
-          fallbackEn: "Gift certificate purchased.",
-        })}
+        title={safeT("gift_u2_success_title")}
         description={successBody}
         footer={
           <div className={OverlayUi.actionsRow}>
@@ -507,10 +427,7 @@ export function BuyerGiftDetailView({
                 router.push(mallHref);
               }}
             >
-              {safeT("gift_u2_success_browse_cta", {
-                fallbackKo: "상품권 더 둘러보기",
-                fallbackEn: "Browse more gifts",
-              })}
+              {safeT("gift_u2_success_browse_cta")}
             </DibayOverlayButton>
             <DibayOverlayButton
               roleTone="primary"
@@ -520,10 +437,7 @@ export function BuyerGiftDetailView({
                 router.push(canonicalHubHref("gifts"));
               }}
             >
-              {safeT("gift_u2_success_wallet_cta", {
-                fallbackKo: "내 상품권 보기",
-                fallbackEn: "View my gifts",
-              })}
+              {safeT("gift_u2_success_wallet_cta")}
             </DibayOverlayButton>
           </div>
         }

@@ -119,10 +119,7 @@ export function LegalDocumentPageClient({
       {showDocumentTitle ? <h1 className="text-2xl font-semibold text-sam-fg">{displayTitle}</h1> : null}
       {version ? (
         <p className={`${showDocumentTitle ? "mt-2" : ""} text-xs text-sam-meta`}>
-          {safeT("legal_document_version_label", {
-            fallbackKo: `버전 ${version}`,
-            fallbackEn: `Version ${version}`,
-          })}
+          {safeT("legal_document_version_label")}
           {source === "cms" ? " · CMS" : ""}
         </p>
       ) : null}

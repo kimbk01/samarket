@@ -1238,11 +1238,7 @@ export function HomeProductList({
             className="pointer-events-auto absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-signature px-4 py-2 text-[14px] font-semibold text-white shadow-md"
             onClick={() => void applyPendingHomeFreshness()}
           >
-            {safeT("trade_market_new_listings_cta", {
-              vars: { count: pendingNewCount },
-              fallbackKo: `새 매물 ${pendingNewCount}개`,
-              fallbackEn: `${pendingNewCount} new listings`,
-            })}
+            {safeT("trade_market_new_listings_cta", { vars: { count: pendingNewCount } })}
           </button>
         </div>
       ) : null}

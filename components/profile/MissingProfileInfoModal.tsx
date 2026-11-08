@@ -98,57 +98,33 @@ export function MissingProfileInfoModal() {
 
   const missingItemLabels = [
     displayNameMissing
-      ? safeT("profile_gate_item_display_name", {
-          fallbackKo: "프로필 이름 설정 필요",
-          fallbackEn: "Display name needed",
-        })
+      ? safeT("profile_gate_item_display_name")
       : null,
     phoneMissing
-      ? safeT("profile_gate_item_phone", {
-          fallbackKo: "전화번호 인증 필요",
-          fallbackEn: "Phone verification needed",
-        })
+      ? safeT("profile_gate_item_phone")
       : null,
     addressMissing
-      ? safeT("profile_gate_item_address", {
-          fallbackKo: "기본주소 등록 필요",
-          fallbackEn: "Default address needed",
-        })
+      ? safeT("profile_gate_item_address")
       : null,
   ].filter((label): label is string => Boolean(label));
 
   const title = phoneOnly
-    ? safeT("popup_q_verify_phone", {
-        fallbackKo: "전화번호를 인증할까요?",
-        fallbackEn: "Verify your phone number?",
-      })
+    ? safeT("popup_q_verify_phone")
     : addressOnly
-      ? safeT("popup_q_register_address", {
-          fallbackKo: "기본 주소를 등록할까요?",
-          fallbackEn: "Add your main address?",
-        })
+      ? safeT("popup_q_register_address")
       : displayNameOnly
-        ? safeT("popup_q_set_profile_name", {
-            fallbackKo: "프로필 이름을 설정할까요?",
-            fallbackEn: "Set your profile name?",
-          })
-        : safeT("popup_q_fill_required_info", {
-            fallbackKo: "필요한 정보를 입력할까요?",
-            fallbackEn: "Fill in the required info?",
-          });
+        ? safeT("popup_q_set_profile_name")
+        : safeT("popup_q_fill_required_info");
 
   const description = phoneOnly || addressOnly || displayNameOnly ? undefined : missingItemLabels.join(" · ");
 
   const primaryLabel = phoneOnly
-    ? safeT("popup_btn_verify", { fallbackKo: "인증하기", fallbackEn: "Verify" })
+    ? safeT("popup_btn_verify")
     : addressOnly
-      ? safeT("popup_btn_register_address", { fallbackKo: "주소 등록", fallbackEn: "Add address" })
+      ? safeT("popup_btn_register_address")
       : displayNameOnly
-        ? safeT("popup_btn_set_name", { fallbackKo: "이름 설정", fallbackEn: "Set name" })
-        : safeT("popup_btn_go_my_info", {
-            fallbackKo: "내정보로 이동",
-            fallbackEn: "Go to My info",
-          });
+        ? safeT("popup_btn_set_name")
+        : safeT("popup_btn_go_my_info");
 
   return (
     <ProfileGateAlertDialog
@@ -159,7 +135,7 @@ export function MissingProfileInfoModal() {
       description={description}
       primaryLabel={primaryLabel}
       onPrimary={goPrimary}
-      secondaryLabel={safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+      secondaryLabel={safeT("common_cancel")}
       onSecondary={onLater}
     />
   );

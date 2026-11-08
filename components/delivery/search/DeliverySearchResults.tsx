@@ -75,10 +75,7 @@ export function DeliverySearchResults({
   const { t, safeT } = useI18n();
   const hasAny = (stores?.length ?? 0) + (menus?.length ?? 0) > 0;
   const banner = searchTopBanner ?? null;
-  const adLabel = safeT("store_insertion_sponsored", {
-    fallbackKo: "광고",
-    fallbackEn: "Sponsored",
-  });
+  const adLabel = safeT("store_insertion_sponsored");
 
   if (loading && !hasAny) {
     return (

@@ -24,10 +24,7 @@ export function SupportFab({
       }}
     >
       <span>
-        {safeT("support_fab_label", {
-          fallbackKo: "고객센터",
-          fallbackEn: "Support",
-        })}
+        {safeT("support_fab_label")}
       </span>
       <Headphones className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
     </button>

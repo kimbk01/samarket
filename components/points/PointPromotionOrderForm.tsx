@@ -161,10 +161,7 @@ export function PointPromotionOrderForm({
           <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
         ) : catalog.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
-            {safeT("promo_no_active_products", {
-              fallbackKo: "지금 신청할 수 있는 상위노출 상품이 없어요.",
-              fallbackEn: "No top exposure products are available right now.",
-            })}
+            {safeT("promo_no_active_products")}
           </p>
         ) : null}
         {(catalog ?? []).map((item) => {
@@ -227,10 +224,7 @@ export function PointPromotionOrderForm({
           href="/mypage/points/charge"
           className="flex min-h-11 items-center justify-center sam-text-body font-medium text-sam-primary"
         >
-          {safeT("promo_sheet_go_points", {
-            fallbackKo: "포인트 충전",
-            fallbackEn: "Add Point",
-          })}
+          {safeT("promo_sheet_go_points")}
         </Link>
       ) : null}
     </form>

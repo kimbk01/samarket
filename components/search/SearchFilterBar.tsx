@@ -129,10 +129,7 @@ export function SearchFilterBar({
           <option value="newest">{safeT("trade_market_sort_latest")}</option>
           {distanceEnabled ? (
             <option value="distance">
-              {safeT("trade_market_sort_distance", {
-                fallbackKo: "가까운순",
-                fallbackEn: "Nearest",
-              })}
+              {safeT("trade_market_sort_distance")}
             </option>
           ) : null}
         </select>
@@ -142,10 +139,7 @@ export function SearchFilterBar({
           min={0}
           value={filters.priceMin}
           onChange={(e) => onChange({ ...filters, priceMin: e.target.value })}
-          placeholder={safeT("trade_market_price_min", {
-            fallbackKo: "최소 가격",
-            fallbackEn: "Min price",
-          })}
+          placeholder={safeT("trade_market_price_min")}
           className="min-h-[44px] w-[7.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         />
         <input
@@ -154,10 +148,7 @@ export function SearchFilterBar({
           min={0}
           value={filters.priceMax}
           onChange={(e) => onChange({ ...filters, priceMax: e.target.value })}
-          placeholder={safeT("trade_market_price_max", {
-            fallbackKo: "최대 가격",
-            fallbackEn: "Max price",
-          })}
+          placeholder={safeT("trade_market_price_max")}
           className="min-h-[44px] w-[7.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         />
         <CompositionAttributeFilterSelects

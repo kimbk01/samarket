@@ -50,10 +50,7 @@ export function SupportGenericHubInquireGate({
           );
         }}
       >
-        {safeT("support_enter_cta", {
-          fallbackKo: "문의하기",
-          fallbackEn: "Contact us",
-        })}
+        {safeT("support_enter_cta")}
       </button>
     </div>
   );

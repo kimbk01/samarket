@@ -187,10 +187,7 @@ export function SearchView() {
                 value={keyword}
                 onChange={setKeyword}
                 onSubmit={handleSubmit}
-                placeholder={safeT("marketplace_search_placeholder", {
-                  fallbackKo: "Marketplace에서 검색",
-                  fallbackEn: "Search Marketplace",
-                })}
+                placeholder={safeT("marketplace_search_placeholder")}
                 autoFocus
               />
             </div>
@@ -238,10 +235,7 @@ export function SearchView() {
                 disabled={loading || unresolved || !locGate.canFetch}
                 onClick={() => void fetchPage(page + 1, true)}
               >
-                {safeT("trade_market_load_more", {
-                  fallbackKo: "더 보기",
-                  fallbackEn: "Load more",
-                })}
+                {safeT("trade_market_load_more")}
               </button>
             </div>
           ) : null}

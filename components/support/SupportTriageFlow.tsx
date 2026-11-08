@@ -225,10 +225,7 @@ export function SupportTriageFlow({
           data-support-triage-back="1"
           onClick={() => dispatch({ type: "BACK" })}
         >
-          {safeT("support_triage_back", {
-            fallbackKo: "뒤로",
-            fallbackEn: "Back",
-          })}
+          {safeT("support_triage_back")}
         </button>
       ) : null}
 
@@ -252,19 +249,13 @@ export function SupportTriageFlow({
             {state.categoryLocked ? (
               <div className="mb-1 rounded-ui-rect border border-[var(--overlay-border)] px-3 py-2 text-[13px] text-[var(--overlay-text-secondary)]">
                 <div>
-                  {safeT("support_triage_field_category", {
-                    fallbackKo: "문의 분야",
-                    fallbackEn: "Category",
-                  })}
+                  {safeT("support_triage_field_category")}
                   {": "}
                   {labelForCategory(safeT, state.category)}
                 </div>
                 {state.referenceType ? (
                   <div className="mt-1">
-                    {safeT("support_triage_field_reference", {
-                      fallbackKo: "관련 항목",
-                      fallbackEn: "Related item",
-                    })}
+                    {safeT("support_triage_field_reference")}
                     {": "}
                     {supportReferenceLabel(safeT, state.referenceType)}
                     {state.referenceTitle ? ` · ${state.referenceTitle}` : state.referenceId ? ` · ${state.referenceId.slice(0, 8)}…` : ""}
@@ -276,18 +267,12 @@ export function SupportTriageFlow({
                   data-support-triage-switch-generic="1"
                   onClick={() => dispatch({ type: "SWITCH_TO_GENERIC" })}
                 >
-                  {safeT("support_triage_other_problem", {
-                    fallbackKo: "다른 문제 문의",
-                    fallbackEn: "Ask about something else",
-                  })}
+                  {safeT("support_triage_other_problem")}
                 </button>
               </div>
             ) : null}
             <p className={OverlayUi.bodySecondary}>
-              {safeT("support_triage_choose_issue", {
-                fallbackKo: "세부 유형을 선택해 주세요.",
-                fallbackEn: "Choose a more specific issue.",
-              })}
+              {safeT("support_triage_choose_issue")}
             </p>
             {issues.map((issue) => (
               <TriageListButton
@@ -305,10 +290,7 @@ export function SupportTriageFlow({
           <div className="grid gap-3" data-support-triage-guidance="1">
             {guidanceLoading ? (
               <p className={OverlayUi.bodySecondary}>
-                {safeT("support_triage_guidance_loading", {
-                  fallbackKo: "안내를 불러오는 중…",
-                  fallbackEn: "Loading guidance…",
-                })}
+                {safeT("support_triage_guidance_loading")}
               </p>
             ) : null}
             {state.guidance ? (
@@ -325,10 +307,7 @@ export function SupportTriageFlow({
                     className="text-[13px] font-medium text-[var(--overlay-brand)] underline"
                     data-support-guidance-cta="1"
                   >
-                    {safeT("support_triage_guidance_cta", {
-                      fallbackKo: "관련 화면 열기",
-                      fallbackEn: "Open related screen",
-                    })}
+                    {safeT("support_triage_guidance_cta")}
                   </a>
                 ) : null}
                 <div className="grid gap-2 pt-1">
@@ -341,10 +320,7 @@ export function SupportTriageFlow({
                       onResolvedWithoutCase();
                     }}
                   >
-                    {safeT("support_triage_resolved", {
-                      fallbackKo: "해결됐어요",
-                      fallbackEn: "That solved it",
-                    })}
+                    {safeT("support_triage_resolved")}
                   </DibayOverlayButton>
                   <DibayOverlayButton
                     roleTone="primary"
@@ -352,10 +328,7 @@ export function SupportTriageFlow({
                     data-support-guidance-escalate="1"
                     onClick={() => dispatch({ type: "GUIDANCE_ESCALATE" })}
                   >
-                    {safeT("support_triage_ask_human", {
-                      fallbackKo: "상담사에게 문의",
-                      fallbackEn: "Talk to support",
-                    })}
+                    {safeT("support_triage_ask_human")}
                   </DibayOverlayButton>
                 </div>
               </>
@@ -385,10 +358,7 @@ export function SupportTriageFlow({
       {state.step === "GUIDANCE" && state.guidanceEmpty && !guidanceLoading ? (
         <div className="shrink-0 space-y-2 border-t border-[var(--overlay-border)] pt-2">
           <p className={OverlayUi.body}>
-            {safeT("support_triage_ask_human_prompt", {
-              fallbackKo: "상담사에게 문의하시겠어요?",
-              fallbackEn: "Would you like to talk to support?",
-            })}
+            {safeT("support_triage_ask_human_prompt")}
           </p>
           <DibayOverlayButton
             roleTone="primary"
@@ -396,10 +366,7 @@ export function SupportTriageFlow({
             data-support-guidance-escalate="1"
             onClick={() => dispatch({ type: "GUIDANCE_ESCALATE" })}
           >
-            {safeT("support_triage_ask_human", {
-              fallbackKo: "상담사에게 문의",
-              fallbackEn: "Talk to support",
-            })}
+            {safeT("support_triage_ask_human")}
           </DibayOverlayButton>
         </div>
       ) : null}
@@ -422,10 +389,7 @@ export function SupportTriageFlow({
             data-support-triage-create="1"
             onClick={submitHandoff}
           >
-            {safeT("support_triage_ask_human", {
-              fallbackKo: "상담사에게 문의",
-              fallbackEn: "Talk to support",
-            })}
+            {safeT("support_triage_ask_human")}
           </DibayOverlayButton>
         </div>
       ) : null}
@@ -450,27 +414,18 @@ function HandoffSummaryBody({
     <div className="grid gap-3" data-support-triage-handoff="1">
       <div className="rounded-ui-rect border border-[var(--overlay-border)] px-3 py-2 text-[13px] text-[var(--overlay-text-secondary)]">
         <div>
-          {safeT("support_triage_field_category", {
-            fallbackKo: "문의 분야",
-            fallbackEn: "Category",
-          })}
+          {safeT("support_triage_field_category")}
           {": "}
           <span className="text-[var(--overlay-text)]">{labelCategory}</span>
         </div>
         <div className="mt-1">
-          {safeT("support_triage_field_issue", {
-            fallbackKo: "문의 유형",
-            fallbackEn: "Issue",
-          })}
+          {safeT("support_triage_field_issue")}
           {": "}
           <span className="text-[var(--overlay-text)]">{labelIssue}</span>
         </div>
         {state.referenceType ? (
           <div className="mt-1">
-            {safeT("support_triage_field_reference", {
-              fallbackKo: "관련 항목",
-              fallbackEn: "Related item",
-            })}
+            {safeT("support_triage_field_reference")}
             {": "}
             <span className="text-[var(--overlay-text)]">
               {supportReferenceLabel(safeT, state.referenceType)}
@@ -482,10 +437,7 @@ function HandoffSummaryBody({
 
       <label className="grid gap-1">
         <span className="text-[13px] font-medium text-[var(--overlay-text)]">
-          {safeT("support_triage_field_summary", {
-            fallbackKo: "문의 내용",
-            fallbackEn: "Details",
-          })}
+          {safeT("support_triage_field_summary")}
         </span>
         <textarea
           value={state.initialSummary}
@@ -494,10 +446,7 @@ function HandoffSummaryBody({
           data-form-keyboard-field="1"
           data-support-triage-summary="1"
           className={`${OverlayUi.input} min-h-[6rem] resize-none`}
-          placeholder={safeT("support_triage_summary_placeholder", {
-            fallbackKo: "상황을 짧게 적어 주세요.",
-            fallbackEn: "Briefly describe what happened.",
-          })}
+          placeholder={safeT("support_triage_summary_placeholder")}
         />
       </label>
     </div>

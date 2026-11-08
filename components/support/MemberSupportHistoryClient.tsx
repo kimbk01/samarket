@@ -21,10 +21,7 @@ export function MemberSupportHistoryClient() {
   return (
     <SupportContextProvider value={DISABLED_SUPPORT_CONTEXT}>
       <MyScreen
-        title={safeT("support_history_title", {
-          fallbackKo: "상담 내역",
-          fallbackEn: "Support history",
-        })}
+        title={safeT("support_history_title")}
         backHref={backHref}
         preferHistoryBack={false}
         template="list"

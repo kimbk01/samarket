@@ -11,6 +11,7 @@ import {
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import type { PointChargeRequest } from "@/lib/types/point";
 import { pointChargeProcessedStamp } from "@/lib/points/point-charge-request-display";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
@@ -69,11 +70,11 @@ export function PointChargeRequestList({
           </div>
           {/* 신청·처리 두 시각 (설계 §2-2) — 처리 시각 = processed_at, 없으면 approved_at */}
           <p className="mt-1 sam-text-helper text-sam-meta" data-point-charge-requested-at="1">
-            {language === "en" ? "Requested" : "신청"} {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
+            {translateBy(language, "points_requested")} {formatMypageDate(r.requestedAt, { style: "datetime", lang: language })}
             {stamp?.kind === "processed" ? (
               <span data-point-charge-processed-at="1">
                 {" · "}
-                {language === "en" ? "Processed" : "처리"}{" "}
+                {translateBy(language, "points_processed")}{" "}
                 {formatMypageDate(stamp.at, { style: "datetime", lang: language })}
               </span>
             ) : null}
@@ -81,12 +82,12 @@ export function PointChargeRequestList({
           {/* 취소 시각 — 신청·처리 시각과 같은 표기(필리핀 시간 고정 · 실기 발견 결함 4 — 이전: 이 줄만 다른 형식) */}
           {stamp?.kind === "cancelled" ? (
             <p className="mt-0.5 sam-text-helper text-sam-meta" data-point-charge-cancelled-at="1">
-              {language === "en" ? "Cancelled" : "취소"} {formatMypageDate(stamp.at, { style: "datetime", lang: language })}
+              {translateBy(language, "points_cancelled")} {formatMypageDate(stamp.at, { style: "datetime", lang: language })}
             </p>
           ) : null}
           {r.requestStatus === "rejected" && r.rejectReason ? (
             <p className="mt-1 sam-text-helper text-sam-danger" data-point-charge-reject-reason="1">
-              {language === "en" ? "Reason" : "반려 사유"}: {r.rejectReason}
+              {translateBy(language, "points_reason")}: {r.rejectReason}
             </p>
           ) : null}
           {onCancel && ["pending", "waiting_confirm"].includes(r.requestStatus) && (

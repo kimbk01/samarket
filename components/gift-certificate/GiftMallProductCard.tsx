@@ -16,21 +16,14 @@ export function GiftMallProductCard({
 }) {
   const { safeT } = useI18n();
   const displayTitle = product.title;
-  const noExpiryLabel = safeT("gift_portrait_expiry_none", {
-    fallbackKo: "만료 없음",
-    fallbackEn: "No expiry",
-  });
+  const noExpiryLabel = safeT("gift_portrait_expiry_none");
   const expirationDisplay = formatGiftProductExpirationDisplay({
     expiryPolicy: product.expiryPolicy,
     validityDays: product.validityDays,
     fixedValidUntil: product.fixedValidUntil,
     noExpiryLabel,
     daysAfterIssueLabel: (days) =>
-      safeT("gift_portrait_expiry_days_after_issue", {
-        fallbackKo: `발급 후 ${days}일`,
-        fallbackEn: `${days} days after issue`,
-        vars: { days: String(days) },
-      }),
+      safeT("gift_portrait_expiry_days_after_issue", { vars: { days: String(days) } }),
   });
 
   return (
@@ -54,10 +47,7 @@ export function GiftMallProductCard({
           showValidity={Boolean(expirationDisplay)}
           footer={
             <span className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[44px] w-full rounded-ui-rect`}>
-              {safeT("gift_u2_mall_card_view", {
-                fallbackKo: "상품권 보기",
-                fallbackEn: "View gift",
-              })}
+              {safeT("gift_u2_mall_card_view")}
             </span>
           }
         />

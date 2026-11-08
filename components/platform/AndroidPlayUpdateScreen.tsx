@@ -49,45 +49,30 @@ export function AndroidPlayUpdateScreen({
 
   const errorText = (error: UpdateScreenError | null): string | null => {
     if (error === "blocked_by_call") {
-      return safeT("settings_version_blocked_by_call", {
-        fallbackKo: "통화 중에는 업데이트를 시작할 수 없습니다",
-        fallbackEn: "Updates cannot start while a call is in progress",
-      });
+      return safeT("settings_version_blocked_by_call");
     }
     if (error === "start_failed") {
-      return safeT("settings_version_start_failed", {
-        fallbackKo: "업데이트를 시작하지 못했습니다",
-        fallbackEn: "Could not start the update",
-      });
+      return safeT("settings_version_start_failed");
     }
     if (error === "install_failed") {
-      return safeT("settings_version_install_failed", {
-        fallbackKo: "업데이트 설치를 시작하지 못했습니다",
-        fallbackEn: "Could not start installing the update",
-      });
+      return safeT("settings_version_install_failed");
     }
     if (error === "download_failed") {
-      return safeT("settings_update_screen_download_failed", {
-        fallbackKo: "업데이트하지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도해 주세요.",
-        fallbackEn: "Could not update. Check your network connection and try again.",
-      });
+      return safeT("settings_update_screen_download_failed");
     }
     return null;
   };
 
-  const later = safeT("settings_version_install_later", { fallbackKo: "나중에", fallbackEn: "Later" });
+  const later = safeT("settings_version_install_later");
   const error = errorText(screen?.error ?? null);
   const showProgress = step === "preparing" || step === "downloading" || step === "installing";
 
   const progressLabel =
     step === "downloading"
-      ? safeT("settings_update_screen_downloading", { fallbackKo: "다운로드 중…", fallbackEn: "Downloading…" })
+      ? safeT("settings_update_screen_downloading")
       : step === "installing"
-        ? safeT("settings_update_screen_installing", { fallbackKo: "설치 중…", fallbackEn: "Installing…" })
-        : safeT("settings_update_screen_preparing", {
-            fallbackKo: "업데이트 준비 중…",
-            fallbackEn: "Preparing update…",
-          });
+        ? safeT("settings_update_screen_installing")
+        : safeT("settings_update_screen_preparing");
   const percent = step === "downloading" ? (screen?.percent ?? null) : null;
 
   const payload = screen?.payload ?? null;
@@ -175,16 +160,13 @@ export function AndroidPlayUpdateScreen({
                   className="min-h-[44px] font-semibold text-sam-primary"
                   onClick={onClose}
                 >
-                  {safeT("settings_update_screen_close", { fallbackKo: "닫기", fallbackEn: "Close" })}
+                  {safeT("settings_update_screen_close")}
                 </button>
               ) : null}
             </div>
             {screen?.waitingForCall ? (
               <p className="mt-2 text-[13px] text-sam-muted" data-testid="android-play-update-wait-call">
-                {safeT("settings_update_screen_wait_call", {
-                  fallbackKo: "통화가 끝나면 설치됩니다",
-                  fallbackEn: "Installs when your call ends",
-                })}
+                {safeT("settings_update_screen_wait_call")}
               </p>
             ) : null}
           </div>
@@ -192,34 +174,19 @@ export function AndroidPlayUpdateScreen({
           <>
             <h1 id={titleId} className="mt-5 text-center text-[22px] font-extrabold tracking-[-0.3px]">
               {step === "ready"
-                ? safeT("settings_update_screen_ready_title", {
-                    fallbackKo: "업데이트 준비 완료",
-                    fallbackEn: "Update ready",
-                  })
-                : safeT("settings_update_screen_title", {
-                    fallbackKo: "DIBAY 앱 업데이트",
-                    fallbackEn: "DIBAY app update",
-                  })}
+                ? safeT("settings_update_screen_ready_title")
+                : safeT("settings_update_screen_title")}
             </h1>
             <p className="mx-auto mt-2 max-w-[22rem] text-center text-[15px] leading-relaxed text-sam-fg">
               {step === "ready"
-                ? safeT("settings_update_screen_ready_desc", {
-                    fallbackKo: "다운로드가 끝났습니다. 설치하면 앱이 다시 시작됩니다.",
-                    fallbackEn: "Download finished. Installing will restart the app.",
-                  })
+                ? safeT("settings_update_screen_ready_desc")
                 : forced
-                  ? safeT("settings_update_screen_desc_forced", {
-                      fallbackKo: "DIBAY 앱을 사용하기 전에 최신 버전으로 업데이트해주세요.",
-                      fallbackEn: "Please update to the latest version before using DIBAY.",
-                    })
-                  : safeT("settings_update_screen_desc", {
-                      fallbackKo: "새 버전이 있습니다. 지금 업데이트하면 더 안정적으로 사용할 수 있습니다.",
-                      fallbackEn: "A new version is available. Update now for a more stable app.",
-                    })}
+                  ? safeT("settings_update_screen_desc_forced")
+                  : safeT("settings_update_screen_desc")}
             </p>
             {step === "intro" && sizeLabel ? (
               <p className="mt-1 text-center text-[13px] text-sam-fg" data-testid="android-play-update-size">
-                {safeT("settings_update_screen_size", { fallbackKo: "예상 크기", fallbackEn: "Estimated size" })}:{" "}
+                {safeT("settings_update_screen_size")}:{" "}
                 {sizeLabel}
               </p>
             ) : null}
@@ -230,14 +197,14 @@ export function AndroidPlayUpdateScreen({
               >
                 {installedLabel ? (
                   <>
-                    {safeT("settings_version_current_label", { fallbackKo: "현재 버전", fallbackEn: "Current version" })}{" "}
+                    {safeT("settings_version_current_label")}{" "}
                     <span className="font-semibold text-sam-fg">{installedLabel}</span>
                   </>
                 ) : null}
                 {installedLabel && newBuild != null ? " · " : null}
                 {newBuild != null ? (
                   <>
-                    {safeT("settings_version_new_build_label", { fallbackKo: "새 빌드", fallbackEn: "New build" })}{" "}
+                    {safeT("settings_version_new_build_label")}{" "}
                     <span className="font-semibold text-sam-fg">{newBuild}</span>
                   </>
                 ) : null}
@@ -249,7 +216,7 @@ export function AndroidPlayUpdateScreen({
                 className="mx-auto mt-3 block min-h-[44px] text-[14px] font-semibold text-sam-primary"
                 onClick={onDetails}
               >
-                {safeT("settings_update_screen_details", { fallbackKo: "상세 정보 보기", fallbackEn: "View details" })}
+                {safeT("settings_update_screen_details")}
               </button>
             ) : null}
           </>
@@ -276,10 +243,10 @@ export function AndroidPlayUpdateScreen({
             data-testid="android-play-update-cta"
           >
             {step === "ready"
-              ? safeT("settings_update_screen_install", { fallbackKo: "설치", fallbackEn: "Install" })
+              ? safeT("settings_update_screen_install")
               : error
-                ? safeT("settings_update_screen_retry", { fallbackKo: "다시 시도", fallbackEn: "Try again" })
-                : safeT("settings_version_update_button", { fallbackKo: "업데이트", fallbackEn: "Update" })}
+                ? safeT("settings_update_screen_retry")
+                : safeT("settings_version_update_button")}
           </button>
         ) : null}
       </div>

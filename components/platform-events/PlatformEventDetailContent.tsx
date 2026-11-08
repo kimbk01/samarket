@@ -150,7 +150,7 @@ export function PlatformEventDetailContent({
           className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-3 text-center text-[14px] font-semibold text-sam-muted"
           data-platform-event-ended-band="1"
         >
-          {safeTranslate(language, "platform_event_detail_ended_band", { fallbackKo: "종료된 이벤트입니다", fallbackEn: "This event has ended." })}
+          {safeTranslate(language, "platform_event_detail_ended_band")}
         </div>
       ) : null}
       {event.heroImageUrl && /^https?:\/\//i.test(event.heroImageUrl) ? (
