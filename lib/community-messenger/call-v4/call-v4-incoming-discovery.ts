@@ -32,6 +32,14 @@ import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 const INCOMING_POLL_MS = 2_000;
 const INCOMING_POLL_MAX_BACKOFF_MS = 30_000;
 const INCOMING_POLL_MAX_BACKOFF_STEPS = 4;
+/**
+ * S4 (docs/audit/supabase-request-surge-s4-poll-reduction-design-2026-11-08.md · Owner 「지금 구현」 2026-11-08):
+ * 실시간 수신 채널이 SUBSCRIBED 를 5초 이상 유지하는 동안만 2초 → 10초.
+ * 10초 = 실시간이 몰래 끊겨도(무음 사망) 30초 울림 안에 조회로 반드시 찾는 상한(요청 왕복 포함 약 11초).
+ * 울리는 중·끊김·오류·연결 중에는 2초 그대로. SUBSCRIBED 만으로 0 으로 만들지 않는다(Owner 지시).
+ */
+export const CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS = 10_000;
+export const CALL_V4_INCOMING_REALTIME_STABLE_AFTER_MS = 5_000;
 
 function pickIncomingRingingCallee(sessions: CommunityMessengerCallSession[]): CommunityMessengerCallSession | null {
   for (const session of sessions) {
@@ -78,9 +86,24 @@ export function shouldRunCallV4IncomingDiscoveryHttpPoll(): boolean {
   );
 }
 
-function resolveCallV4IncomingDiscoveryPollDelayMs(allowHttp: boolean, consecutiveNetworkFailures: number): number {
+/**
+ * 조회 간격 — 순서가 곧 우선순위다.
+ * 1) 채팅 화면 밖(울림 없음): 60초 대기(HTTP 없음) — 기존
+ * 2) 예외 실패 백오프: 2→30초 — 기존
+ * 3) 울리는 중: 2초 — 원격 종료 백업(T2)·수락 흐름이 이 주기에 기댐
+ * 4) 실시간 SUBSCRIBED 5초 이상 유지: 10초 (S4)
+ * 5) 그 밖(끊김·오류·연결 중·피드 없음): 2초 — 기존
+ */
+export function resolveCallV4IncomingDiscoveryPollDelayMs(
+  allowHttp: boolean,
+  consecutiveNetworkFailures: number,
+  realtime?: { ringing: boolean; healthy: boolean },
+): number {
   if (!allowHttp) return INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
-  if (consecutiveNetworkFailures <= 0) return INCOMING_POLL_MS;
+  if (consecutiveNetworkFailures <= 0) {
+    if (realtime && !realtime.ringing && realtime.healthy) return CALL_V4_INCOMING_POLL_REALTIME_HEALTHY_MS;
+    return INCOMING_POLL_MS;
+  }
   const steps = Math.min(consecutiveNetworkFailures, INCOMING_POLL_MAX_BACKOFF_STEPS);
   return Math.min(INCOMING_POLL_MS * 2 ** steps, INCOMING_POLL_MAX_BACKOFF_MS);
 }
@@ -126,7 +149,7 @@ export async function tryHydrateCallV4IncomingForWebOwner(callId: string): Promi
 export const CALL_V4_INCOMING_REALTIME_NEVER_AFTER_MS = 10_000;
 const DISCOVERY_MEASURE_MAX_CALLS = 20;
 
-type IncomingTickSource = "poll" | "realtime";
+type IncomingTickSource = "poll" | "realtime" | "resync";
 
 type IncomingDiscoveryMeasure = {
   realtimeSeen: boolean;
@@ -139,6 +162,10 @@ function readTabState(): "visible" | "hidden" {
 
 function recordIncomingDiscoveryMetric(metric: string, value: number): void {
   messengerMonitorRecord({ category: "call.incoming_discovery", metric, value, unit: "ms" });
+}
+
+function recordIncomingDiscoveryCount(metric: string): void {
+  messengerMonitorRecord({ category: "call.incoming_discovery", metric, value: 1, unit: "count" });
 }
 
 function elapsedSinceStartMs(startedAt: string | null | undefined): number {
@@ -166,6 +193,14 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
   /** U2: 브라우저·PWA 에서만 Realtime 신호를 병행한다(아래 acquire). */
   const realtimeFeedActive = !isCapacitorNativePlatform();
   let releaseRealtimeFeed: () => void = () => {};
+  /** S4: 실시간 수신 채널 상태 — SUBSCRIBED 가 언제부터 이어졌는가 */
+  let feedStatus: string | null = null;
+  let subscribedSince: number | null = null;
+  const isRealtimeHealthy = (): boolean =>
+    realtimeFeedActive &&
+    feedStatus === "SUBSCRIBED" &&
+    subscribedSince != null &&
+    Date.now() - subscribedSince >= CALL_V4_INCOMING_REALTIME_STABLE_AFTER_MS;
   /** 측정 — 조회로 처음 발견한 callId, Realtime 신호가 도착한 callId */
   const measures = new Map<string, IncomingDiscoveryMeasure>();
   const realtimeSignaled = new Set<string>();
@@ -218,10 +253,18 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     }
   };
 
+  /** 항상 타이머 1개만 — 즉시 조회(resync)와 정기 조회가 겹쳐도 예약이 두 갈래로 갈라지지 않게 기존 예약을 지운다. */
   const scheduleNextPoll = () => {
     if (cancelled) return;
+    if (pollTimer != null) {
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
+    }
     const allowHttp = shouldRunCallV4IncomingDiscoveryHttpPoll();
-    const delayMs = resolveCallV4IncomingDiscoveryPollDelayMs(allowHttp, consecutiveNetworkFailures);
+    const delayMs = resolveCallV4IncomingDiscoveryPollDelayMs(allowHttp, consecutiveNetworkFailures, {
+      ringing: hasCallV4IncomingDiscoveryRingingCallee(),
+      healthy: isRealtimeHealthy(),
+    });
     pollTimer = window.setTimeout(() => {
       pollTimer = null;
       void tick("poll").finally(scheduleNextPoll);
@@ -231,13 +274,19 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
   const tick = async (source: IncomingTickSource) => {
     if (cancelled) return;
     if (inFlight) {
-      if (source === "realtime") pendingRealtimeTick = true;
+      if (source !== "poll") pendingRealtimeTick = true;
       return;
     }
     syncCallV4NativeAcceptingSurfaceFromWindowLocation();
     if (!shouldRunCallV4IncomingDiscoveryHttpPoll()) return;
 
     inFlight = true;
+    if (source === "poll" && realtimeFeedActive) {
+      /** S4 측정 — 정기 조회 1회가 어떤 상태에서 나갔는가(축소 효과 실측) */
+      recordIncomingDiscoveryCount(
+        `poll_tick_${isRealtimeHealthy() ? "subscribed" : "unsubscribed"}_${readTabState()}`,
+      );
+    }
     try {
       const sessions = await callV4FetchIncomingSessions();
       consecutiveNetworkFailures = 0;
@@ -281,7 +330,8 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       inFlight = false;
       if (pendingRealtimeTick && !cancelled) {
         pendingRealtimeTick = false;
-        void tick("realtime");
+        /** 밀린 신호 조회가 울림을 발견하면 간격이 바뀌므로(→2초) 끝난 뒤 다시 예약한다. */
+        void tick("realtime").finally(scheduleNextPoll);
       }
     }
   };
@@ -290,6 +340,24 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
    * U2: 브라우저·PWA 에서만 Realtime 신호를 병행한다. iOS 앱 셸은 CallKit 과 웹 시트 순서 위험(K4)으로 제외.
    * 폴링 주기·조건·실패 처리는 그대로다(신호는 같은 tick 을 한 번 더 부를 뿐).
    */
+  /** S4: 상태가 바뀐 순간 기다리지 않고 1회 조회한 뒤 그 상태의 간격으로 다시 예약한다. */
+  const resyncNow = () => {
+    if (cancelled) return;
+    if (pollTimer != null) {
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+    void tick("resync").finally(scheduleNextPoll);
+  };
+  const onVisibilityResync = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") resyncNow();
+  };
+  const onOnlineResync = () => resyncNow();
+  if (realtimeFeedActive && typeof window !== "undefined") {
+    document.addEventListener("visibilitychange", onVisibilityResync);
+    window.addEventListener("online", onOnlineResync);
+  }
+
   if (realtimeFeedActive) {
     releaseRealtimeFeed = acquireCallV4IncomingRealtimeFeed(userId, {
       onRinging: ({ callId, startedAt }) => {
@@ -299,7 +367,8 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
         noteRealtimeSignal(callId, startedAt);
         if (!firstSignal) return;
         logCallV4("incoming_realtime_signal", { callId });
-        void tick("realtime");
+        /** S4: 울림이 시작되면 다음 예약(10초일 수 있음)을 버리고 울림 중 2초 주기로 다시 잡는다. */
+        void tick("realtime").finally(scheduleNextPoll);
       },
       /** T1 (원격 종료 주 경로): 내 수신 행이 ringing 이 아니게 됐다 → 서버 확인 후 정리(누가 종료했든 온다). */
       onSessionStatus: ({ callId, status }) => {
@@ -310,6 +379,15 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       },
       onStatus: (status) => {
         if (cancelled) return;
+        const wasHealthyStatus = feedStatus === "SUBSCRIBED";
+        feedStatus = status;
+        if (status === "SUBSCRIBED") {
+          if (!wasHealthyStatus) subscribedSince = Date.now();
+        } else {
+          subscribedSince = null;
+        }
+        /** S4: 연결이 붙거나 끊기는 순간 1회 조회(놓친 울림 복구) + 새 간격으로 다시 예약 */
+        if ((status === "SUBSCRIBED") !== wasHealthyStatus) resyncNow();
         if (status === "SUBSCRIBED") {
           recordIncomingDiscoveryMetric(`incoming_feed_subscribed_${readTabState()}`, 0);
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
@@ -323,6 +401,10 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
   return () => {
     cancelled = true;
     releaseRealtimeFeed();
+    if (realtimeFeedActive && typeof window !== "undefined") {
+      document.removeEventListener("visibilitychange", onVisibilityResync);
+      window.removeEventListener("online", onOnlineResync);
+    }
     for (const m of measures.values()) {
       if (m.neverTimer) clearTimeout(m.neverTimer);
     }

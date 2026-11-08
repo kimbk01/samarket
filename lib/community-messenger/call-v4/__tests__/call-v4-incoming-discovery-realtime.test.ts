@@ -90,11 +90,14 @@ describe("V4 웹 수신 — 기존 폴링 유지", () => {
     expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 
-  it("Realtime 구독 상태(SUBSCRIBED)와 상관없이 폴링은 계속된다", async () => {
+  it("S4: SUBSCRIBED 직후에도 폴링은 멈추지 않는다(즉시 1회 + 5초 동안 2초 주기)", async () => {
     stop = startCallV4IncomingDiscovery("user-b");
     await flush(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     feed.listener?.onStatus?.("SUBSCRIBED");
-    await flush(2_000 * 3);
+    await flush(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await flush(2_000 * 2);
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
