@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-08 15:03 PHT",
+ "generatedAtPht": "2026-11-08 15:24 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -749,16 +749,13 @@
    "app/admin/system/deploy/page.tsx": 6,
    "components/admin/ads/AdminAdApplicationsPage.tsx": 5,
    "components/admin/destination/AdminDestinationResolvedHint.tsx": 2,
-   "components/admin/gift/AdminGiftOpsCenter.tsx": 2,
-   "components/admin/gift/panels/AdminGiftProductDetailConsole.tsx": 2,
-   "components/admin/gift/panels/AdminGiftRedemptionsPanel.tsx": 1,
+   "components/admin/gift/AdminGiftOpsCenter.tsx": 1,
    "components/admin/platform-events/AdminPlatformEventEditorClient.tsx": 4,
    "components/admin/platform-events/AdminPlatformEventOwnerRequestDetailClient.tsx": 1,
    "components/admin/platform-popup/AdminPlatformPopupPreview.tsx": 1,
    "components/admin/prelaunch-reset/AdminPrelaunchResetPage.tsx": 1,
    "components/admin/stores/AdminDeliveryAdActionQueuePanel.tsx": 3,
-   "components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx": 11,
-   "components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx": 1,
+   "components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx": 10,
    "components/admin/stores/AdminDeliveryAdsControlPlane.tsx": 6,
    "components/auth/GuestLoginRequiredPanel.tsx": 1,
    "components/business/owner/ads/OwnerBannerCreateView.tsx": 1,
@@ -789,7 +786,6 @@
    "components/community-messenger/MessengerGiftCertificateCard.tsx": 2,
    "components/community-messenger/MessengerOutgoingCallConfirmDialog.tsx": 2,
    "components/finance/FinanceStatusBadge.tsx": 1,
-   "components/gift-certificate/BuyerGiftMallView.tsx": 1,
    "components/messenger/call/CallInAppNoticeBanner.tsx": 1,
    "components/messenger/call/CallInAppNoticeCenterDialog.tsx": 3,
    "components/messenger/call/IncomingCallBanner.tsx": 2,
@@ -798,18 +794,12 @@
    "components/mypage/cs/MemberCsNoteListClient.tsx": 2,
    "components/mypage/products/MyProductFilter.tsx": 1,
    "components/orders/customer-commerce/CommerceHubStoreOwnerEntryCta.tsx": 1,
-   "components/orders/customer-commerce/CustomerCommerceHubPrimaryTabs.tsx": 1,
-   "components/orders/customer-commerce/CustomerCouponWalletBody.tsx": 1,
-   "components/orders/customer-commerce/CustomerGiftWalletBody.tsx": 1,
    "components/points/PointChargeRequestList.tsx": 1,
    "components/points/PointFinancialHistoryList.tsx": 2,
    "components/stores/advertising/DeliveryAdOperationsTimeline.tsx": 1,
-   "components/stores/advertising/DeliveryAdPerformancePanel.tsx": 2,
-   "components/support/SupportCasesHistoryList.tsx": 2,
-   "components/support/SupportInAppNoticeHost.tsx": 1,
-   "components/support/SupportModalHost.tsx": 1,
+   "components/stores/advertising/DeliveryAdPerformancePanel.tsx": 1,
+   "components/support/SupportCasesHistoryList.tsx": 1,
    "components/support/SupportTriageFlow.tsx": 4,
-   "components/trade/MarketFilterSheet.tsx": 8,
    "lib/admin/management/result-count.ts": 4,
    "lib/admin/management/terminology.ts": 36,
    "lib/admin/notification-campaigns/campaign-action-confirm-copy.ts": 3,
@@ -828,35 +818,15 @@
    "lib/gift-certificate/map-gift-purchase-error.ts": 7,
    "lib/gift-certificate/map-gift-transfer-error.ts": 7,
    "lib/stores/advertising/delivery-ad-launch-placement-product.ts": 2,
-   "lib/support/support-display-labels.ts": 3,
-   "lib/support/support-status-label.ts": 5
+   "lib/support/support-display-labels.ts": 3
   },
   "non-catalog-inline-ko-en": {
-   "app/api/admin/delivery-ads/commercial/route.ts": 1,
-   "components/admin/system/AdminRuntimeHealthPage.tsx": 6,
    "lib/admin/deploy-promotion/deploy-ops-remote.ts": 1,
-   "lib/admin/management/operational-frequency.ts": 5,
-   "lib/admin/metrics/chat-metrics.ts": 3,
    "lib/admin/metrics/dashboard-overview-contract.ts": 5,
-   "lib/admin/placement-map-read-model.ts": 8,
-   "lib/admin/store-orders/admin-store-order-intervention-contract.ts": 6,
-   "lib/admin/support-control-plane/load-support-control-plane.ts": 2,
-   "lib/community-messenger/stores/call-in-app-notice-store.ts": 10,
-   "lib/points/point-financial-history.ts": 1,
-   "lib/settings/user-settings-store.ts": 1,
-   "lib/stores/advertising/delivery-ad-commercial-labels.ts": 4
+   "lib/community-messenger/stores/call-in-app-notice-store.ts": 10
   },
-  "non-catalog-lang-ternary": {
-   "app/(main)/stores/owner/apply/page.tsx": 1,
-   "components/admin/notifications/AdminNotificationCampaignDetailPage.tsx": 1,
-   "components/admin/platform-popup/AdminPlatformPopupListPage.tsx": 1,
-   "components/admin/users/AdminMemberOverviewPanel.tsx": 1
-  },
-  "non-catalog-tt": {
-   "components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx": 2,
-   "components/home/AllServicesSection.tsx": 3,
-   "components/home/HomeTradeHistorySheetContent.tsx": 5
-  },
+  "non-catalog-lang-ternary": {},
+  "non-catalog-tt": {},
   "non-catalog-lang-pair": {}
  }
 }
