@@ -30,10 +30,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
-  const metaDefaultTitle = safeTranslate(lang, "store_browse_meta_default", {
-    fallbackKo: "매장 둘러보기",
-    fallbackEn: "Browse stores",
-  });
+  const metaDefaultTitle = safeTranslate(lang, "store_browse_meta_default");
   if (!p) return { title: metaDefaultTitle };
 
   /**
@@ -62,25 +59,13 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
   const label = subName ? `${primaryName} · ${subName}` : primaryName;
   const description = subName
-    ? safeTranslate(lang, "store_browse_meta_desc_sub", {
-        vars: { sub: subName, primary: primaryName },
-        fallbackKo: `${subName} ${primaryName} 매장을 동네 기준으로 찾아보세요.`,
-        fallbackEn: `Find ${subName} ${primaryName} stores near you.`,
-      })
-    : safeTranslate(lang, "store_browse_meta_desc_primary", {
-        vars: { primary: primaryName },
-        fallbackKo: `${primaryName} 업종 매장을 동네 기준으로 찾아보세요.`,
-        fallbackEn: `Find ${primaryName} stores near you.`,
-      });
+    ? safeTranslate(lang, "store_browse_meta_desc_sub", { vars: { sub: subName, primary: primaryName } })
+    : safeTranslate(lang, "store_browse_meta_desc_primary", { vars: { primary: primaryName } });
 
   const path = `/stores/browse/${encodeURIComponent(p)}?sub=${encodeURIComponent(sub || "all")}`;
 
   return {
-    title: safeTranslate(lang, "store_browse_meta_title_suffix", {
-      vars: { label },
-      fallbackKo: `${label} 매장`,
-      fallbackEn: `${label} stores`,
-    }),
+    title: safeTranslate(lang, "store_browse_meta_title_suffix", { vars: { label } }),
     description: description.slice(0, 160),
     ...(base ? { alternates: { canonical: `${base}${path}` } } : {}),
   };

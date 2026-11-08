@@ -13,14 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
     acceptLanguage: h.get("accept-language"),
   });
   return {
-    title: safeTranslate(lang, "store_meta_report_title", {
-      fallbackKo: "매장·상품 신고",
-      fallbackEn: "Report store or item",
-    }),
-    description: safeTranslate(lang, "store_meta_report_desc", {
-      fallbackKo: "매장 또는 상품에 대한 신고를 접수합니다.",
-      fallbackEn: "Submit a report about a store or product.",
-    }),
+    title: safeTranslate(lang, "store_meta_report_title"),
+    description: safeTranslate(lang, "store_meta_report_desc"),
   };
 }
 

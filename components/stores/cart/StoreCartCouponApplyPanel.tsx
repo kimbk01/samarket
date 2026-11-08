@@ -65,7 +65,7 @@ export function StoreCartCouponApplyPanel({
                 <p>
                   {line.ineligibleReasonKey
                     ? t(line.ineligibleReasonKey)
-                    : safeT("store_coupon_unusable", { fallbackKo: "지금은 사용할 수 없습니다", fallbackEn: "Not usable now" })}
+                    : safeT("store_coupon_unusable")}
                   {line.shortagePhp != null && line.shortagePhp > 0
                     ? ` · ${t("store_min_order_add_more", { amount: formatMoneyPhp(line.shortagePhp) })}`
                     : ""}
@@ -122,7 +122,7 @@ export function StoreCartCouponApplyPanel({
               data-cart-coupon-change="1"
               onClick={() => setShowPicker((v) => !v)}
             >
-              {safeT("store_coupon_cart_change", { fallbackKo: "변경", fallbackEn: "Change" })}
+              {safeT("store_coupon_cart_change")}
             </button>
           ) : null}
         </div>
@@ -133,7 +133,7 @@ export function StoreCartCouponApplyPanel({
           data-cart-coupon-pick="1"
           onClick={() => setShowPicker(true)}
         >
-          {safeT("store_coupon_cart_pick", { fallbackKo: "쿠폰 선택", fallbackEn: "Choose coupon" })}
+          {safeT("store_coupon_cart_pick")}
         </button>
       )}
 

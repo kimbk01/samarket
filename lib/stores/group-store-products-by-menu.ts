@@ -7,19 +7,13 @@ import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 export function itemTypeShortLabel(item_type: unknown, lang: AppLanguageCode): string | null {
   const t = typeof item_type === "string" ? item_type : null;
   if (t === "menu") {
-    return safeTranslate(lang, "store_item_type_menu", { fallbackKo: "메뉴", fallbackEn: "Menu" });
+    return safeTranslate(lang, "store_item_type_menu");
   }
   if (t === "service") {
-    return safeTranslate(lang, "store_item_type_service", {
-      fallbackKo: "서비스",
-      fallbackEn: "Service",
-    });
+    return safeTranslate(lang, "store_item_type_service");
   }
   if (t === "product") {
-    return safeTranslate(lang, "store_item_type_product", {
-      fallbackKo: "상품",
-      fallbackEn: "Product",
-    });
+    return safeTranslate(lang, "store_item_type_product");
   }
   return null;
 }

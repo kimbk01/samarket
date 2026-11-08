@@ -37,10 +37,7 @@ export function DeliveryAdOperationsTimeline({
   if (messages.length === 0) {
     return (
       <p className="text-[13px] text-sam-muted" role="status">
-        {safeT("delivery_ad_ops_ui_empty", {
-          fallbackKo: "운영 기록이 없습니다.",
-          fallbackEn: "No operations history yet.",
-        })}
+        {safeT("delivery_ad_ops_ui_empty")}
       </p>
     );
   }

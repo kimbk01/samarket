@@ -35,10 +35,7 @@ export function CustomerCommerceHubPrimaryTabs() {
     <nav
       className={`${APP_MAIN_HEADER_INNER_CLASS} border-b border-sam-border bg-sam-surface/95`}
       data-commerce-hub-primary-tabs="1"
-      aria-label={safeT("commerce_hub_title", {
-        fallbackKo: "주문·혜택",
-        fallbackEn: "Orders & benefits",
-      })}
+      aria-label={safeT("commerce_hub_title")}
     >
       <div
         className="grid grid-cols-3 gap-0"

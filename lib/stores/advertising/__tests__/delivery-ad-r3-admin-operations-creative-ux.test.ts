@@ -4,6 +4,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -35,7 +36,7 @@ import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-c
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
 const root = process.cwd();
-const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 
 const hub = () => read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
 const detail = () => read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");

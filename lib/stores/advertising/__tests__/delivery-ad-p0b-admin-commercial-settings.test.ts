@@ -3,6 +3,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -20,7 +21,7 @@ import {
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
 const root = process.cwd();
-const read = (p: string) => readFileSync(join(root, p), "utf8");
+const read = (p: string) => withCatalogCopy(readFileSync(join(root, p), "utf8"));
 
 describe("P0-B Admin delivery ad commercial settings", () => {
   it("T1 — Admin settings route + component exist", () => {

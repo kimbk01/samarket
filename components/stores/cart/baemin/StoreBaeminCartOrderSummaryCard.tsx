@@ -92,10 +92,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
           <Row
             label={
               <>
-                {safeT("gift_u4_summary_gift_line", {
-                  fallbackKo: "상품권 사용",
-                  fallbackEn: "Gift certificate",
-                })}
+                {safeT("gift_u4_summary_gift_line")}
                 {giftTitle ? (
                   <span className="mt-0.5 block max-w-[200px] truncate text-[12px] font-normal text-[color:var(--delivery-text-muted)]">
                     {giftTitle}

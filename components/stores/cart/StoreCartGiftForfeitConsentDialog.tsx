@@ -25,28 +25,15 @@ export function StoreCartGiftForfeitConsentDialog({
   return (
     <DibayConfirmDialog
       open={open}
-      ariaLabel={safeT("gift_u4_forfeit_confirm_title", {
-        fallbackKo: "상품권 잔액 소멸 안내",
-        fallbackEn: "Unused gift balance will expire",
-      })}
+      ariaLabel={safeT("gift_u4_forfeit_confirm_title")}
       title={safeT("popup_q_use_gift_forfeit", { vars: { amount: formatMoneyPhp(giftForfeited) } })}
       description={
         open ? (
           <span data-cart-gift-forfeit-confirm-body="1">
-            {safeT("gift_u4_forfeit_confirm_body", {
-              fallbackKo: `상품권은 한 번 사용하면 전액 소진됩니다. 이번 주문에 ${formatMoneyPhp(
-                giftUsed
-              )} 사용되고 남은 ${formatMoneyPhp(giftForfeited)}은(는) 소멸됩니다. (주문이 취소되면 상품권은 복원됩니다)`,
-              fallbackEn: `A gift certificate is used up in one order. ${formatMoneyPhp(
-                giftUsed
-              )} is used on this order and the remaining ${formatMoneyPhp(
-                giftForfeited
-              )} will expire. (The gift is restored if the order is cancelled.)`,
-              vars: {
+            {safeT("gift_u4_forfeit_confirm_body", { vars: {
                 used: formatMoneyPhp(giftUsed),
                 forfeit: formatMoneyPhp(giftForfeited),
-              },
-            })}
+              } })}
           </span>
         ) : null
       }

@@ -97,10 +97,7 @@ function useGiftExpiryLabel() {
   return (validUntil: string | null | undefined) =>
     formatGiftInstanceExpirationDisplay({
       validUntil,
-      noExpiryLabel: safeT("gift_portrait_expiry_none", {
-        fallbackKo: "만료 없음",
-        fallbackEn: "No expiry",
-      }),
+      noExpiryLabel: safeT("gift_portrait_expiry_none"),
     });
 }
 
@@ -142,28 +139,16 @@ function transferStatusLabel(
 ): string {
   const s = status.toUpperCase();
   if (s === "PENDING") {
-    return safeT("commerce_hub_transfer_status_pending", {
-      fallbackKo: "받기 대기",
-      fallbackEn: "Awaiting accept",
-    });
+    return safeT("commerce_hub_transfer_status_pending");
   }
   if (s === "ACCEPTED") {
-    return safeT("commerce_hub_transfer_status_accepted", {
-      fallbackKo: "수령 완료",
-      fallbackEn: "Accepted",
-    });
+    return safeT("commerce_hub_transfer_status_accepted");
   }
   if (s === "REJECTED") {
-    return safeT("commerce_hub_transfer_status_rejected", {
-      fallbackKo: "거절됨",
-      fallbackEn: "Declined",
-    });
+    return safeT("commerce_hub_transfer_status_rejected");
   }
   if (s === "CANCELLED") {
-    return safeT("commerce_hub_transfer_status_cancelled", {
-      fallbackKo: "취소됨",
-      fallbackEn: "Cancelled",
-    });
+    return safeT("commerce_hub_transfer_status_cancelled");
   }
   return status;
 }
@@ -190,12 +175,9 @@ function TransferCard({
     if (
       kind === "reject" &&
       !(await dibayConfirm({
-        title: safeT("popup_q_reject_gift", {
-          fallbackKo: "이 상품권을 거절할까요?",
-          fallbackEn: "Decline this gift certificate?",
-        }),
-        cancelLabel: safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
-        confirmLabel: safeT("common_reject", { fallbackKo: "거절", fallbackEn: "Decline" }),
+        title: safeT("popup_q_reject_gift"),
+        cancelLabel: safeT("common_cancel"),
+        confirmLabel: safeT("common_reject"),
         confirmTone: "destructive",
       }))
     ) {
@@ -226,10 +208,7 @@ function TransferCard({
       purchasePrice={transfer.purchasePrice}
       expirationDisplay={formatGiftInstanceExpirationDisplay({
         validUntil: transfer.validUntil,
-        noExpiryLabel: safeT("gift_portrait_expiry_none", {
-          fallbackKo: "만료 없음",
-          fallbackEn: "No expiry",
-        }),
+        noExpiryLabel: safeT("gift_portrait_expiry_none"),
       })}
       showValidity
       publicGiftNumber={transfer.publicGiftNumber}
@@ -240,14 +219,8 @@ function TransferCard({
           {peerName ? (
             <p className="text-sm text-sam-muted">
               {direction === "received"
-                ? safeT("commerce_hub_transfer_from_sender", {
-                    fallbackKo: "보낸 사람",
-                    fallbackEn: "From",
-                  })
-                : safeT("commerce_hub_transfer_to_recipient", {
-                    fallbackKo: "받는 사람",
-                    fallbackEn: "To",
-                  })}
+                ? safeT("commerce_hub_transfer_from_sender")
+                : safeT("commerce_hub_transfer_to_recipient")}
               : <span className="font-medium text-sam-fg">{peerName}</span>
             </p>
           ) : null}
@@ -257,29 +230,20 @@ function TransferCard({
                 className="min-h-[44px] flex-1 px-3"
                 onClick={() => void act("accept")}
               >
-                {safeT("gift_cert_chat_accept", {
-                  fallbackKo: "선물 받기",
-                  fallbackEn: "Accept gift",
-                })}
+                {safeT("gift_cert_chat_accept")}
               </CommercePrimaryCtaButton>
               <button
                 type="button"
                 className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-3 text-sm`}
                 onClick={() => void act("reject")}
               >
-                {safeT("gift_cert_chat_reject", {
-                  fallbackKo: "거절",
-                  fallbackEn: "Decline",
-                })}
+                {safeT("gift_cert_chat_reject")}
               </button>
             </div>
           ) : null}
           {direction === "sent" && pending && onCancel ? (
             <button type="button" className={`${Sam.btn.secondary} min-h-[44px] w-full px-3 text-sm`} onClick={onCancel}>
-              {safeT("gift_u3_wallet_cancel_gift", {
-                fallbackKo: "선물 취소",
-                fallbackEn: "Cancel gift",
-              })}
+              {safeT("gift_u3_wallet_cancel_gift")}
             </button>
           ) : null}
         </div>
@@ -361,20 +325,14 @@ export function CustomerGiftWalletBody({
 
       <div className="mb-3 flex flex-col gap-2">
         <CommercePrimaryCtaLink href={browseHref} data-gift-wallet-buy-cta="1">
-          {safeT("commerce_hub_gift_buy_cta", {
-            fallbackKo: "상품권 구매하기",
-            fallbackEn: "Buy gift certificates",
-          })}
+          {safeT("commerce_hub_gift_buy_cta")}
         </CommercePrimaryCtaLink>
       </div>
       {!ready ? (
         <GiftWalletCardsSkeleton />
       ) : !isAuthed ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_certificate_wallet_login", {
-            fallbackKo: "로그인하면 상품권을 볼 수 있습니다.",
-            fallbackEn: "Sign in to see your gift certificates.",
-          })}
+          {safeT("gift_certificate_wallet_login")}
         </p>
       ) : error && !data ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center" data-wallet-error="1">
@@ -386,15 +344,9 @@ export function CustomerGiftWalletBody({
       ) : giftTab === "owned" ? (
         ownedRows.length === 0 ? (
           <CommerceEmptyState
-            title={safeT("commerce_hub_gifts_empty_owned_title", {
-              fallbackKo: "보유한 상품권이 없습니다.",
-              fallbackEn: "You don't have any gift certificates yet.",
-            })}
+            title={safeT("commerce_hub_gifts_empty_owned_title")}
             ctaHref={browseHref}
-            ctaLabel={safeT("commerce_hub_gift_browse_cta", {
-              fallbackKo: "상품권 둘러보기",
-              fallbackEn: "Browse gift certificates",
-            })}
+            ctaLabel={safeT("commerce_hub_gift_browse_cta")}
           />
         ) : (
           <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
@@ -423,10 +375,7 @@ export function CustomerGiftWalletBody({
                     showValidity
                     statusLabel={
                       locked
-                        ? safeT("gift_u3_wallet_pending_lock", {
-                            fallbackKo: "수령 대기 중",
-                            fallbackEn: "Awaiting accept",
-                          })
+                        ? safeT("gift_u3_wallet_pending_lock")
                         : undefined
                     }
                     detailHref={ownedGiftInstanceHref(row.id, { from, giftTab: "owned" })}
@@ -442,10 +391,7 @@ export function CustomerGiftWalletBody({
       ) : giftTab === "received" ? (
         !wallet || wallet.pendingTransfers.length === 0 ? (
           <CommerceEmptyState
-            title={safeT("gift_certificate_wallet_empty", {
-              fallbackKo: "표시할 상품권이 없습니다.",
-              fallbackEn: "No gift certificates to show.",
-            })}
+            title={safeT("gift_certificate_wallet_empty")}
           />
         ) : (
           <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
@@ -470,10 +416,7 @@ export function CustomerGiftWalletBody({
           </div>
         ) : history.sentItems.length === 0 ? (
           <CommerceEmptyState
-            title={safeT("gift_certificate_wallet_empty", {
-              fallbackKo: "표시할 상품권이 없습니다.",
-              fallbackEn: "No gift certificates to show.",
-            })}
+            title={safeT("gift_certificate_wallet_empty")}
           />
         ) : (
           <div className={historyDim}>
@@ -488,15 +431,9 @@ export function CustomerGiftWalletBody({
                       /** 브라우저 기본 확인창 → 앱 공통 확인창 (팝업 SSOT B3 · 같은 문구 · 확인 시 같은 요청) */
                       if (
                         !(await dibayConfirm({
-                          title: safeT("popup_q_cancel_gift", {
-                            fallbackKo: "상품권 선물을 취소할까요?",
-                            fallbackEn: "Cancel this gift?",
-                          }),
-                          cancelLabel: safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
-                          confirmLabel: safeT("popup_btn_cancel_gift", {
-                            fallbackKo: "선물 취소",
-                            fallbackEn: "Cancel gift",
-                          }),
+                          title: safeT("popup_q_cancel_gift"),
+                          cancelLabel: safeT("common_cancel"),
+                          confirmLabel: safeT("popup_btn_cancel_gift"),
                           confirmTone: "destructive",
                         }))
                       ) {
@@ -531,10 +468,7 @@ export function CustomerGiftWalletBody({
           </div>
         ) : history.usedItems.length === 0 ? (
         <CommerceEmptyState
-          title={safeT("gift_certificate_wallet_empty", {
-            fallbackKo: "표시할 상품권이 없습니다.",
-            fallbackEn: "No gift certificates to show.",
-          })}
+          title={safeT("gift_certificate_wallet_empty")}
         />
       ) : (
         <div className={historyDim}>
@@ -568,20 +502,14 @@ export function CustomerGiftWalletBody({
                       <dl className="space-y-1 text-xs text-sam-muted" data-gift-used-summary="1">
                         <div className="flex justify-between gap-2">
                           <dt>
-                            {safeT("commerce_hub_gift_applied_label", {
-                              fallbackKo: "실제 적용 금액",
-                              fallbackEn: "Applied amount",
-                            })}
+                            {safeT("commerce_hub_gift_applied_label")}
                           </dt>
                           <dd className="tabular-nums text-sam-fg">{formatMypageMoney(latest.redeemedAmount)}</dd>
                         </div>
                         {latest.forfeitedAmount > 0 ? (
                           <div className="flex justify-between gap-2">
                             <dt>
-                              {safeT("commerce_hub_gift_forfeited_label", {
-                                fallbackKo: "소멸 금액",
-                                fallbackEn: "Forfeited amount",
-                              })}
+                              {safeT("commerce_hub_gift_forfeited_label")}
                             </dt>
                             <dd className="tabular-nums text-sam-fg">{formatMypageMoney(latest.forfeitedAmount)}</dd>
                           </div>
@@ -589,10 +517,7 @@ export function CustomerGiftWalletBody({
                         {latest.storeName ? (
                           <div className="flex justify-between gap-2">
                             <dt>
-                              {safeT("commerce_hub_used_latest_store", {
-                                fallbackKo: "사용 매장",
-                                fallbackEn: "Used at",
-                              })}
+                              {safeT("commerce_hub_used_latest_store")}
                             </dt>
                             <dd className="truncate text-sam-fg">{latest.storeName}</dd>
                           </div>
@@ -600,10 +525,7 @@ export function CustomerGiftWalletBody({
                         {latest.redeemedAt ? (
                           <div className="flex justify-between gap-2">
                             <dt>
-                              {safeT("commerce_hub_gift_used_at_label", {
-                                fallbackKo: "사용 일시",
-                                fallbackEn: "Used at",
-                              })}
+                              {safeT("commerce_hub_gift_used_at_label")}
                             </dt>
                             {/* 사용 일시 — PHT 연도·시각까지 (C-4 · 예전엔 UTC 원문 그대로) */}
                             <dd className="tabular-nums text-sam-fg" data-testid="gift-used-at">
@@ -614,10 +536,7 @@ export function CustomerGiftWalletBody({
                       </dl>
                     ) : row.latestRedemptionStoreName ? (
                       <p className="text-xs text-sam-muted">
-                        {safeT("commerce_hub_used_latest_store", {
-                          fallbackKo: "최근 사용 매장",
-                          fallbackEn: "Last used at",
-                        })}
+                        {safeT("commerce_hub_used_latest_store")}
                         : {row.latestRedemptionStoreName}
                       </p>
                     ) : undefined

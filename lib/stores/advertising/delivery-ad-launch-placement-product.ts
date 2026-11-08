@@ -10,6 +10,7 @@ import {
   FUTURE_DELIVERY_AD_INVENTORY_KEYS,
   type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** Launch sellable store-sponsored placements (Recovery Audit). */
 export const LAUNCH_STORE_PROMOTION_PLACEMENTS = [
@@ -138,7 +139,7 @@ export function ownerCategoryPlacementTitle(input: {
 }): string {
   const label = String(input.primaryCategoryLabel ?? "").trim();
   if (label) {
-    return input.lang === "en" ? `${label} store ads` : `${label} 매장 광고`;
+    return translateBy(input.lang, "stores_label_store_ads", { label });
   }
   return input.lang === "en" ? input.fallbackEn : input.fallbackKo;
 }
@@ -150,9 +151,9 @@ export function ownerPrimaryBrowsePlacementTitle(input: {
 }): string {
   const label = String(input.primaryCategoryLabel ?? "").trim();
   if (label) {
-    return input.lang === "en" ? `${label} (1st category)` : `${label} (1차 업종)`;
+    return translateBy(input.lang, "stores_label_1st_category", { label });
   }
-  return input.lang === "en" ? "1st category list" : "1차 업종 목록";
+  return translateBy(input.lang, "stores_text_2");
 }
 
 /** 2nd-level browse placement title from store taxonomy. */
@@ -162,9 +163,9 @@ export function ownerSecondaryBrowsePlacementTitle(input: {
 }): string {
   const label = String(input.secondaryCategoryLabel ?? "").trim();
   if (label) {
-    return input.lang === "en" ? `${label} (2nd category)` : `${label} (2차 업종)`;
+    return translateBy(input.lang, "stores_label_2nd_category", { label });
   }
-  return input.lang === "en" ? "2nd category list" : "2차 업종 목록";
+  return translateBy(input.lang, "stores_text_3");
 }
 
 /** Primary UI must never show raw inventory keys as the main label. */

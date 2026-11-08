@@ -50,13 +50,10 @@ export function StoreCartGiftApplyPanel({
         data-cart-gift-state="empty"
       >
         <h3 className="text-sm font-semibold text-sam-fg">
-          {safeT("gift_u4_cart_section", { fallbackKo: "상품권", fallbackEn: "Gift certificate" })}
+          {safeT("gift_u4_cart_section")}
         </h3>
         <p className="mt-1 text-sm text-sam-muted">
-          {safeT("gift_u4_cart_empty", {
-            fallbackKo: "사용 가능한 상품권이 없습니다.",
-            fallbackEn: "No gift certificates available.",
-          })}
+          {safeT("gift_u4_cart_empty")}
         </p>
       </section>
     );
@@ -79,7 +76,7 @@ export function StoreCartGiftApplyPanel({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-sam-fg">
-          {safeT("gift_u4_cart_section", { fallbackKo: "상품권", fallbackEn: "Gift certificate" })}
+          {safeT("gift_u4_cart_section")}
         </h3>
         {appliedInstanceId ? (
           <button
@@ -88,17 +85,13 @@ export function StoreCartGiftApplyPanel({
             data-cart-gift-none="1"
             onClick={onChooseNone}
           >
-            {safeT("gift_u4_cart_none", { fallbackKo: "사용 취소", fallbackEn: "Remove" })}
+            {safeT("gift_u4_cart_none")}
           </button>
         ) : null}
       </div>
 
       <p className="mb-2 text-xs text-sam-muted">
-        {safeT("gift_u4_cart_available_count", {
-          fallbackKo: `사용 가능한 상품권 ${gifts.length}개`,
-          fallbackEn: `${gifts.length} gift certificate(s) available`,
-          vars: { count: gifts.length },
-        })}
+        {safeT("gift_u4_cart_available_count", { vars: { count: gifts.length } })}
       </p>
 
       {applied && appliedPreview ? (
@@ -131,11 +124,7 @@ export function StoreCartGiftApplyPanel({
           </p>
           {appliedPreview.giftForfeited > 0 ? (
             <p className="mt-1 text-center text-xs font-medium text-sam-danger" data-cart-gift-forfeit="1">
-              {safeT("gift_u4_cart_forfeit", {
-                fallbackKo: `미사용 ${formatMoneyPhp(appliedPreview.giftForfeited)} 소멸`,
-                fallbackEn: `${formatMoneyPhp(appliedPreview.giftForfeited)} unused will expire`,
-                vars: { amount: formatMoneyPhp(appliedPreview.giftForfeited) },
-              })}
+              {safeT("gift_u4_cart_forfeit", { vars: { amount: formatMoneyPhp(appliedPreview.giftForfeited) } })}
             </p>
           ) : null}
           {gifts.length > 1 ? (
@@ -145,7 +134,7 @@ export function StoreCartGiftApplyPanel({
               data-cart-gift-change="1"
               onClick={() => setShowPicker((v) => !v)}
             >
-              {safeT("gift_u4_cart_change", { fallbackKo: "변경", fallbackEn: "Change" })}
+              {safeT("gift_u4_cart_change")}
             </button>
           ) : null}
         </div>
@@ -156,10 +145,7 @@ export function StoreCartGiftApplyPanel({
           data-cart-gift-pick="1"
           onClick={() => setShowPicker(true)}
         >
-          {safeT("gift_u4_cart_pick", {
-            fallbackKo: "상품권 선택",
-            fallbackEn: "Choose gift certificate",
-          })}
+          {safeT("gift_u4_cart_pick")}
         </button>
       )}
 
@@ -212,29 +198,18 @@ export function StoreCartGiftApplyPanel({
                     className="pointer-events-none"
                   />
                   <p className="mt-2 text-center text-xs font-medium text-signature">
-                    {safeT("gift_u4_cart_usable", {
-                      fallbackKo: `이번 주문 사용 ${formatMoneyPhp(preview.giftUsed)}`,
-                      fallbackEn: `Use ${formatMoneyPhp(preview.giftUsed)} on this order`,
-                      vars: { amount: formatMoneyPhp(preview.giftUsed) },
-                    })}
+                    {safeT("gift_u4_cart_usable", { vars: { amount: formatMoneyPhp(preview.giftUsed) } })}
                   </p>
                   {preview.giftForfeited > 0 ? (
                     <p
                       className="mt-1 text-center text-xs font-medium text-sam-danger"
                       data-cart-gift-option-forfeit={g.instanceId}
                     >
-                      {safeT("gift_u4_cart_forfeit", {
-                        fallbackKo: `미사용 ${formatMoneyPhp(preview.giftForfeited)} 소멸`,
-                        fallbackEn: `${formatMoneyPhp(preview.giftForfeited)} unused will expire`,
-                        vars: { amount: formatMoneyPhp(preview.giftForfeited) },
-                      })}
+                      {safeT("gift_u4_cart_forfeit", { vars: { amount: formatMoneyPhp(preview.giftForfeited) } })}
                     </p>
                   ) : null}
                   <span className="mt-1 block text-center text-sm font-semibold text-signature">
-                    {safeT("gift_u4_cart_use_this", {
-                      fallbackKo: "이 상품권 사용",
-                      fallbackEn: "Use this gift",
-                    })}
+                    {safeT("gift_u4_cart_use_this")}
                   </span>
                 </button>
               </li>

@@ -37,14 +37,8 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
   const shortage = Math.max(0, adAmountMinor - balanceMinor);
   const description = [
     `${t("owner_ads_confirm_ad_amount")}: ${formatDeliveryAdPhpMinor(adAmountMinor)}`,
-    `${safeT("owner_bc_balance_label", {
-      fallbackKo: "Cash 잔액",
-      fallbackEn: "Cash balance",
-    })}: ${formatDeliveryAdPhpMinor(balanceMinor)}`,
-    `${safeT("owner_ads_cash_shortage_amount", {
-      fallbackKo: "부족 금액",
-      fallbackEn: "Shortfall",
-    })}: ${formatDeliveryAdPhpMinor(shortage)}`,
+    `${safeT("owner_bc_balance_label")}: ${formatDeliveryAdPhpMinor(balanceMinor)}`,
+    `${safeT("owner_ads_cash_shortage_amount")}: ${formatDeliveryAdPhpMinor(shortage)}`,
   ].join("\n");
 
   const sid = String(storeId ?? "").trim();

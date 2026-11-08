@@ -21,14 +21,8 @@ export async function generateMetadata({
     cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
-  const fallbackReviewsTitle = safeTranslate(lang, "store_meta_reviews_title", {
-    fallbackKo: "리뷰",
-    fallbackEn: "Reviews",
-  });
-  const fallbackStoreName = safeTranslate(lang, "store_fallback_name", {
-    fallbackKo: "매장",
-    fallbackEn: "Store",
-  });
+  const fallbackReviewsTitle = safeTranslate(lang, "store_meta_reviews_title");
+  const fallbackStoreName = safeTranslate(lang, "store_fallback_name");
   if (!decoded) return { title: fallbackReviewsTitle };
 
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";

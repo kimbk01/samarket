@@ -105,10 +105,7 @@ export function CustomerCouponWalletBody({
         <CouponWalletCardsSkeleton />
       ) : !isAuthed ? (
         <p className="text-sm text-sam-muted">
-          {safeT("store_coupon_wallet_login", {
-            fallbackKo: "로그인하면 쿠폰을 볼 수 있습니다.",
-            fallbackEn: "Sign in to see your coupons.",
-          })}
+          {safeT("store_coupon_wallet_login")}
         </p>
       ) : error && !data ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center" data-wallet-error="1">
@@ -120,14 +117,8 @@ export function CustomerCouponWalletBody({
       ) : visible.length === 0 ? (
         <CommerceEmptyState
           icon="🎟️"
-          title={safeT("commerce_hub_coupons_empty_title", {
-            fallbackKo: "보유한 쿠폰이 없습니다.",
-            fallbackEn: "You have no coupons.",
-          })}
-          description={safeT("commerce_hub_coupons_empty_wallet_only", {
-            fallbackKo: "보유·사용 내역은 이 화면에서 확인할 수 있습니다.",
-            fallbackEn: "View held and used coupons here.",
-          })}
+          title={safeT("commerce_hub_coupons_empty_title")}
+          description={safeT("commerce_hub_coupons_empty_wallet_only")}
         />
       ) : (
         <ul className="min-w-0 space-y-3 pb-8">

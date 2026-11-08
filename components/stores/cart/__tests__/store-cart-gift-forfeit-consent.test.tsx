@@ -5,13 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type { CheckoutEligibleGift } from "@/lib/gift-certificate/checkout-eligible-gifts";
 
-vi.mock("@/components/i18n/AppLanguageProvider", () => ({
+vi.mock("@/components/i18n/AppLanguageProvider", async () => {
+  /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
+  const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+  return ({
   useI18n: () => ({
     t: (key: string) => key,
-    safeT: (_key: string, opts?: { fallbackKo?: string; fallbackEn?: string }) =>
-      opts?.fallbackKo ?? opts?.fallbackEn ?? _key,
+    safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
   }),
-}));
+  });
+});
 
 vi.mock("@/components/gift-certificate/GiftVisualCard", () => ({
   GiftVisualCard: ({ title }: { title: string }) => <div data-mock-gift-card="1">{title}</div>,

@@ -1162,15 +1162,9 @@ export function StoresBrowsePrimaryView({
             <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>
             <p className="mt-1 text-xs text-sam-meta dark:text-sam-muted">
               {menuRoot ?
-                safeT("store_browse_menu_empty_hint", {
-                  fallbackKo: "조건에 맞는 매장이 없습니다. 필터를 바꾸거나 다른 메뉴를 골라 보세요.",
-                  fallbackEn: "No stores match. Change the filters or pick another menu.",
-                })
+                safeT("store_browse_menu_empty_hint")
               : browseScopePolicy?.enabled === false
-                ? safeT("store_browse_scope_disabled_hint", {
-                    fallbackKo: "이 업종(1·2차)은 현재 운영에서 비활성입니다.",
-                    fallbackEn: "This category scope is currently disabled by operations.",
-                  })
+                ? safeT("store_browse_scope_disabled_hint")
                 : feedSource === "supabase_unconfigured"
                   ? t("store_browse_empty_preparing")
                   : t("store_browse_empty_hint")}

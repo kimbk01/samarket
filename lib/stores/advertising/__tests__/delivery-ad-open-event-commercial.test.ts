@@ -2,6 +2,7 @@
  * Open-event commercial seed + grandfather/snapshot copy contracts.
  */
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -13,7 +14,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 
 const root = process.cwd();
-const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 
 describe("Delivery ads open-event commercial CUT", () => {
   it("migration seeds 12 package prices + partner 120/15%", () => {

@@ -24,6 +24,7 @@ import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertis
 import { storeSponsoredRequiresBannerCreative } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { AdminDeliveryAdListBucket } from "@/lib/stores/advertising/admin-delivery-ad-contract";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** Hub default — never "all" (ended would dominate). */
 export const ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW = "actionable" as const;
@@ -100,9 +101,9 @@ export function adminDeliveryAdCampaignSourceHumanLabel(
   lang: "ko" | "en"
 ): string {
   if (source === "DIBAY_FIRST_PARTY") {
-    return lang === "en" ? "DIBAY ad" : "디바이 광고";
+    return translateBy(lang, "stores_dibay_ad");
   }
-  return lang === "en" ? "Advertiser ad" : "광고주 광고";
+  return translateBy(lang, "stores_advertiser_ad");
 }
 
 export type AdminDeliveryAdProductLabelKey =
@@ -123,9 +124,9 @@ export function adminDeliveryAdProductHumanLabel(
   lang: "ko" | "en"
 ): string {
   if (product === "banner") {
-    return lang === "en" ? "Banner ad" : "배너 광고";
+    return translateBy(lang, "stores_banner_ad");
   }
-  return lang === "en" ? "Store promotion" : "매장 홍보";
+  return translateBy(lang, "stores_store_promotion");
 }
 
 /** Inventory / placement human label (commercial placement map + fallback). */
@@ -162,7 +163,7 @@ export function formatAdminDeliveryAdPriceOrUnset(
   lang: "ko" | "en" = "ko"
 ): string {
   if (amountMinor == null || !Number.isInteger(amountMinor)) {
-    return lang === "en" ? "Not set" : "미설정";
+    return translateBy(lang, "stores_not_set");
   }
   return formatDeliveryAdPhpMinor(amountMinor);
 }

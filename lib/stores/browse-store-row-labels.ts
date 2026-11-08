@@ -65,17 +65,10 @@ export function formatBrowseStoreRowLabels(
   );
   const paymentMethodsLine =
     payFromCfg.trim() ||
-    safeTranslate(lang, "store_pay_methods_fallback", {
-      fallbackKo: "GCash · COD 등 (매장 확인)",
-      fallbackEn: "GCash, COD, etc. (confirm with store)",
-    });
+    safeTranslate(lang, "store_pay_methods_fallback");
   const minOrderLabel =
     commerce.minOrderPhp != null && Number.isFinite(commerce.minOrderPhp) && commerce.minOrderPhp > 0
-      ? safeTranslate(lang, "store_min_order_amount_colon", {
-          vars: { amount: formatMoneyPhp(commerce.minOrderPhp) },
-          fallbackKo: `최소주문 ${formatMoneyPhp(commerce.minOrderPhp)}`,
-          fallbackEn: `Min. order ${formatMoneyPhp(commerce.minOrderPhp)}`,
-        })
+      ? safeTranslate(lang, "store_min_order_amount_colon", { vars: { amount: formatMoneyPhp(commerce.minOrderPhp) } })
       : null;
 
   return {

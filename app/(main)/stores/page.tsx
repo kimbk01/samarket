@@ -14,11 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
     acceptLanguage: h.get("accept-language"),
   });
   return {
-    title: safeTranslate(lang, "store_feed_stores_title", { fallbackKo: "매장", fallbackEn: "Stores" }),
-    description: safeTranslate(lang, "store_stores_page_meta_description", {
-      fallbackKo: "동네 매장을 지역·검색·업종별로 찾고, 메뉴·상품을 주문해 보세요.",
-      fallbackEn: "Find neighborhood stores by area, search, and category — order food and products.",
-    }),
+    title: safeTranslate(lang, "store_feed_stores_title"),
+    description: safeTranslate(lang, "store_stores_page_meta_description"),
   };
 }
 

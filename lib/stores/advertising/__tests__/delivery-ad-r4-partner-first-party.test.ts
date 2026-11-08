@@ -4,6 +4,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -31,7 +32,7 @@ import { adminCreateDeliveryAdFirstPartyStoreSponsored } from "@/lib/stores/adve
 import { DELIVERY_AD_ADMIN_ROUTES, DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
 const root = process.cwd();
-const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 
 const migPending = () =>
   read("supabase/migrations/20261201250000_delivery_ads_r4_partner_membership_pending.sql");

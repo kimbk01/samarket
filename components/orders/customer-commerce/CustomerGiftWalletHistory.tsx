@@ -19,6 +19,7 @@ import {
   type GiftHistoryKind,
   type GiftWalletPeriodSummary,
 } from "@/lib/gift-certificate/gift-wallet-history";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Lang = "ko" | "en";
 const pick = (lang: Lang, ko: string, en: string) => (lang === "en" ? en : ko);
@@ -199,7 +200,7 @@ export function GiftWalletPeriodSummaryCard({
   if (!summary) {
     return error ? (
       <p className="mb-3 sam-text-helper text-sam-danger" role="alert">
-        {pick(lang, "기간 합계를 불러오지 못했습니다.", "Could not load the period totals.")}
+        {translateBy(lang, "orders_could_not_load_the_period_totals")}
       </p>
     ) : null;
   }
@@ -209,22 +210,22 @@ export function GiftWalletPeriodSummaryCard({
       data-testid="gift-wallet-period-summary"
     >
       <p className="mb-1 sam-text-xxs text-sam-muted">
-        {pick(lang, "건수 · 금액 (구매일·사용일·보낸 날 기준)", "Count · amount (by purchase, use, or send date)")}
+        {translateBy(lang, "orders_count_amount_by_purchase_use_or")}
       </p>
       <dl className="grid grid-cols-1 gap-1 sam-text-helper">
-        <Row label={pick(lang, "구매 (결제 금액)", "Purchased (paid)")} value={summary.purchased} testId="gws-purchased" lang={lang} />
-        <Row label={pick(lang, "사용 (적용 금액)", "Used (applied)")} value={summary.used} testId="gws-used" lang={lang} />
+        <Row label={translateBy(lang, "orders_purchased_paid")} value={summary.purchased} testId="gws-purchased" lang={lang} />
+        <Row label={translateBy(lang, "orders_used_applied")} value={summary.used} testId="gws-used" lang={lang} />
         {summary.forfeited > 0 ? (
           <div className="flex justify-between gap-2" data-testid="gws-forfeited">
-            <dt className="text-sam-muted">{pick(lang, "사용 때 소멸", "Forfeited on use")}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "orders_forfeited_on_use")}</dt>
             <dd className="text-right tabular-nums text-sam-fg">{formatMypageMoney(summary.forfeited)}</dd>
           </div>
         ) : null}
-        <Row label={pick(lang, "받은 선물 (액면가)", "Gifts received (face value)")} value={summary.received} testId="gws-received" lang={lang} />
-        <Row label={pick(lang, "보낸 선물 (액면가)", "Gifts sent (face value)")} value={summary.sent} testId="gws-sent" lang={lang} />
+        <Row label={translateBy(lang, "orders_gifts_received_face_value")} value={summary.received} testId="gws-received" lang={lang} />
+        <Row label={translateBy(lang, "orders_gifts_sent_face_value")} value={summary.sent} testId="gws-sent" lang={lang} />
       </dl>
       <p className="mt-1 sam-text-xxs text-sam-muted">
-        {pick(lang, "선물은 상대가 받은 것만 셉니다.", "Gifts count only when accepted.")}
+        {translateBy(lang, "orders_gifts_count_only_when_accepted")}
       </p>
     </section>
   );

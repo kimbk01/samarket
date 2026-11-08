@@ -16,13 +16,17 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
-vi.mock("@/components/i18n/AppLanguageProvider", () => ({
+vi.mock("@/components/i18n/AppLanguageProvider", async () => {
+  /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
+  const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+  return ({
   useI18n: () => ({
     t: (k: string) => k,
-    safeT: (k: string, o?: { fallbackKo?: string }) => o?.fallbackKo ?? k,
+    safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
     language: "ko",
   }),
-}));
+  });
+});
 vi.mock("@/components/admin/shell/AdminDeliveryCmsChrome", () => ({
   AdminDeliveryCmsChrome: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -168,9 +172,9 @@ async function mount() {
     root.render(<AdminDeliveryAdDetailWorkspace campaignId="c1" productHint="banner" />);
   });
   await flush();
-  // 「추가 검수 액션」 펼치기
+  // 「결정 실행」 펼치기 — 언어 SSOT S6: 화면 문구(카탈로그 admin_delivery_ads_section_decision_actions). 이전 「추가 검수 액션」은 화면에 나오지 않던 대체 문구
   const toggle = Array.from(host.querySelectorAll("button")).find((b) =>
-    (b.textContent ?? "").includes("추가 검수 액션")
+    (b.textContent ?? "").includes("결정 실행")
   );
   await act(async () => {
     toggle?.click();

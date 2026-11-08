@@ -21,14 +21,8 @@ export async function generateMetadata({
     cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
-  const fallbackInfoTitle = safeTranslate(lang, "store_meta_store_info_title", {
-    fallbackKo: "가게정보",
-    fallbackEn: "Store info",
-  });
-  const fallbackStoreName = safeTranslate(lang, "store_fallback_name", {
-    fallbackKo: "매장",
-    fallbackEn: "Store",
-  });
+  const fallbackInfoTitle = safeTranslate(lang, "store_meta_store_info_title");
+  const fallbackStoreName = safeTranslate(lang, "store_fallback_name");
   if (!decoded) return { title: fallbackInfoTitle };
 
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -8,7 +9,7 @@ import { launchBannerByInventory } from "@/lib/stores/advertising/delivery-ad-la
 const root = process.cwd();
 
 function read(rel: string) {
-  return readFileSync(join(root, rel), "utf8");
+  return withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 }
 
 describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
@@ -56,7 +57,8 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
     expect(studio).toContain("data-admin-banner-request-summary");
     expect(studio).toContain("data-admin-banner-pc-upload");
     expect(studio).toContain("/api/admin/delivery-ads/upload-banner-image");
-    expect(studio).toContain("이미지 변경");
+    /** 언어 SSOT S6: 화면 문구(admin_delivery_ads_creative_replace). 이전 기대 「이미지 변경」은 화면에 나오지 않던 대체 문구 */
+    expect(studio).toContain("이미지 교체");
     expect(studio).toContain("이미지 삭제");
   });
 

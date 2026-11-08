@@ -37,6 +37,7 @@ import {
   STORE_COMMISSION_PERIODS,
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type CommissionLang = "ko" | "en";
 
@@ -126,14 +127,14 @@ export function StoreCashPositionCard({
   return (
     <div className="space-y-2" data-store-cash-position={position.storeId}>
       <div className="grid gap-2 sm:grid-cols-3">
-        <Tile label={pickCommissionCopy(lang, "캐시 잔액", "Cash balance")} value={formatCashMinor(position.balanceMinor)} />
+        <Tile label={translateBy(lang, "stores_cash_balance", undefined, "en")} value={formatCashMinor(position.balanceMinor)} />
         <Tile
-          label={pickCommissionCopy(lang, "미납 수수료", "Unpaid commission")}
+          label={translateBy(lang, "stores_unpaid_commission", undefined, "en")}
           value={formatCashMinor(position.outstandingMinor)}
           tone={position.outstandingMinor > 0 ? "danger" : "default"}
         />
         <Tile
-          label={pickCommissionCopy(lang, "순잔액 (잔액 − 미납)", "Net (balance − unpaid)")}
+          label={translateBy(lang, "stores_net_balance_unpaid", undefined, "en")}
           value={formatCashMinor(position.netMinor)}
           tone={position.netMinor < 0 ? "danger" : "good"}
         />
@@ -145,15 +146,11 @@ export function StoreCashPositionCard({
         role="status"
       >
         {position.orderable
-          ? pickCommissionCopy(lang, "신규 주문 접수 가능", "Accepting new orders")
-          : pickCommissionCopy(
-              lang,
-              "순잔액이 0 이하라 신규 주문이 차단되었습니다. 이미 받은 주문은 정상 처리됩니다. 캐시를 충전하면 미납 수수료가 먼저 정산되고, 순잔액이 0보다 커지는 즉시 다시 열립니다.",
-              "New orders are blocked (net <= 0). Orders already received continue normally. A top-up settles unpaid commission first; ordering reopens as soon as net is above 0."
-            )}
+          ? translateBy(lang, "stores_accepting_new_orders", undefined, "en")
+          : translateBy(lang, "stores_new_orders_are_blocked_net_0", undefined, "en")}
         {showGatePolicy ? (
           <span className="ml-1 sam-text-xxs font-normal">
-            · {pickCommissionCopy(lang, "정책", "Policy")}: {STORE_CASH_ORDER_GATE_LABEL[position.gateMode][lang]}
+            · {translateBy(lang, "stores_policy", undefined, "en")}: {STORE_CASH_ORDER_GATE_LABEL[position.gateMode][lang]}
           </span>
         ) : null}
       </p>
@@ -166,7 +163,7 @@ export function CommissionSummaryGrid({ summary, lang }: { summary: StoreCommiss
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <Tile
-          label={pickCommissionCopy(lang, "수수료 부과", "Commission charged")}
+          label={translateBy(lang, "stores_commission_charged", undefined, "en")}
           value={formatCashMinor(summary.feeChargedMinor)}
           hint={pickCommissionCopy(
             lang,
@@ -174,29 +171,29 @@ export function CommissionSummaryGrid({ summary, lang }: { summary: StoreCommiss
             `${summary.count} orders · base ${formatMoneyPhp(summary.commissionBasePhp)}`
           )}
         />
-        <Tile label={pickCommissionCopy(lang, "캐시에서 차감됨", "Paid from Cash")} value={formatCashMinor(summary.feePaidMinor)} tone="good" />
+        <Tile label={translateBy(lang, "stores_paid_from_cash", undefined, "en")} value={formatCashMinor(summary.feePaidMinor)} tone="good" />
         <Tile
-          label={pickCommissionCopy(lang, "미납 (캐시 부족)", "Unpaid (short Cash)")}
+          label={translateBy(lang, "stores_unpaid_short_cash", undefined, "en")}
           value={formatCashMinor(summary.feeOutstandingMinor)}
           tone={summary.feeOutstandingMinor > 0 ? "danger" : "default"}
         />
         <Tile
-          label={pickCommissionCopy(lang, "취소·환불 검토 대기", "Awaiting review")}
+          label={translateBy(lang, "stores_awaiting_review", undefined, "en")}
           value={`${summary.reviewCount}${pickCommissionCopy(lang, "건", "")}`}
           tone={summary.reviewCount > 0 ? "warn" : "default"}
           hint={formatCashMinor(summary.reviewFeeMinor)}
         />
-        <Tile label={pickCommissionCopy(lang, "캐시로 환급", "Refunded to Cash")} value={formatCashMinor(summary.cashRefundedMinor)} />
-        <Tile label={pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")} value={formatCashMinor(summary.outstandingCancelledMinor)} />
+        <Tile label={translateBy(lang, "stores_refunded_to_cash", undefined, "en")} value={formatCashMinor(summary.cashRefundedMinor)} />
+        <Tile label={translateBy(lang, "stores_unpaid_cancelled", undefined, "en")} value={formatCashMinor(summary.outstandingCancelledMinor)} />
         <Tile
-          label={pickCommissionCopy(lang, "순 수수료 (부과 − 환급 − 미납취소)", "Net commission")}
+          label={translateBy(lang, "stores_net_commission", undefined, "en")}
           value={formatCashMinor(summary.netCommissionMinor)}
         />
       </div>
       <p className={`sam-text-xxs ${summary.reconciles ? "text-sam-muted" : "font-semibold text-red-700"}`}>
         {summary.reconciles
-          ? pickCommissionCopy(lang, "대사: 부과 = 차감 + 미납 + 환급 + 미납취소 ✓ (서버 계산)", "Check: charged = paid + unpaid + refunded + cancelled ✓ (server)")
-          : pickCommissionCopy(lang, "대사 불일치 — 원부과액 미상 레거시 행 포함", "Mismatch — includes legacy rows with unknown original fee")}
+          ? translateBy(lang, "stores_check_charged_paid_unpaid_refunded_cancelled", undefined, "en")
+          : translateBy(lang, "stores_mismatch_includes_legacy_rows_with_unknown", undefined, "en")}
       </p>
     </div>
   );
@@ -208,16 +205,16 @@ export function CommissionRowMoney({ row, lang }: { row: StoreCommissionLedgerRo
   return (
     <div className="sam-text-xxs text-sam-muted tabular-nums">
       <p>
-        {pickCommissionCopy(lang, "기준액", "Base")} {formatMoneyPhp(row.commissionBasePhp)} · {pickCommissionCopy(lang, "수수료", "Fee")}{" "}
+        {translateBy(lang, "stores_base", undefined, "en")} {formatMoneyPhp(row.commissionBasePhp)} · {translateBy(lang, "stores_fee", undefined, "en")}{" "}
         {formatCashMinor(row.feeChargedMinor)}
         {rate}
       </p>
       <p>
-        {pickCommissionCopy(lang, "캐시 차감", "Paid")} {formatCashMinor(row.feePaidMinor)} · {pickCommissionCopy(lang, "미납", "Unpaid")}{" "}
+        {translateBy(lang, "stores_paid", undefined, "en")} {formatCashMinor(row.feePaidMinor)} · {translateBy(lang, "stores_unpaid", undefined, "en")}{" "}
         {formatCashMinor(row.feeOutstandingMinor)}
       </p>
       <p>
-        {pickCommissionCopy(lang, "부과 시점", "Charged at")}: {commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)} · {formatTs(row.chargedAt)}
+        {translateBy(lang, "stores_charged_at", undefined, "en")}: {commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)} · {formatTs(row.chargedAt)}
       </p>
       {d ? (
         <div className="mt-1 rounded-ui-rect bg-sam-surface-muted px-2 py-1 text-sam-fg">
@@ -225,11 +222,11 @@ export function CommissionRowMoney({ row, lang }: { row: StoreCommissionLedgerRo
             {STORE_COMMISSION_DECISION_LABEL[d.decision][lang]} · {formatTs(d.decidedAt)}
           </p>
           <p>
-            {pickCommissionCopy(lang, "승인액", "Approved")} {formatCashMinor(d.approvedMinor)} = {pickCommissionCopy(lang, "캐시 환급", "Cash")}{" "}
-            {formatCashMinor(d.cashRefundMinor)} + {pickCommissionCopy(lang, "미납 취소", "unpaid cancelled")} {formatCashMinor(d.outstandingCancelMinor)}
+            {translateBy(lang, "stores_approved", undefined, "en")} {formatCashMinor(d.approvedMinor)} = {translateBy(lang, "stores_cash", undefined, "en")}{" "}
+            {formatCashMinor(d.cashRefundMinor)} + {translateBy(lang, "stores_unpaid_cancelled_2", undefined, "en")} {formatCashMinor(d.outstandingCancelMinor)}
           </p>
           <p>
-            {pickCommissionCopy(lang, "사유", "Reason")}: {d.reason}
+            {translateBy(lang, "stores_reason", undefined, "en")}: {d.reason}
           </p>
         </div>
       ) : null}
@@ -312,7 +309,7 @@ export function CommissionPeriodFilter({
           />
         </>
       ) : null}
-      <span className="sam-text-xxs text-sam-muted">{pickCommissionCopy(lang, "기준: 필리핀 시간 (UTC+8)", "Basis: Philippine time (UTC+8)")}</span>
+      <span className="sam-text-xxs text-sam-muted">{translateBy(lang, "stores_basis_philippine_time_utc_8", undefined, "en")}</span>
     </div>
   );
 }
@@ -331,7 +328,7 @@ export function CashLedgerKindChips({
   return (
     <div className="flex flex-wrap gap-1.5">
       <button type="button" className={chipClass(value.length === 0)} onClick={() => onChange([])}>
-        {pickCommissionCopy(lang, "전체 유형", "All types")}
+        {translateBy(lang, "stores_all_types", undefined, "en")}
       </button>
       {BUSINESS_CASH_LEDGER_KINDS.map((k) => (
         <button key={k} type="button" className={chipClass(value.includes(k))} onClick={() => toggle(k)}>
@@ -360,8 +357,8 @@ export function CashLedgerView({
     <div className="space-y-3">
       <div className="grid gap-2 sm:grid-cols-4">
         <Tile label={pickCommissionCopy(lang, owner ? "기간 시작 잔액" : "기간 시작 잔액(원장)", owner ? "Opening balance" : "Opening (ledger)")} value={formatCashMinor(page.openingMinor)} />
-        <Tile label={pickCommissionCopy(lang, "입금 합계", "Credits")} value={formatCashMinor(page.creditMinor)} tone="good" />
-        <Tile label={pickCommissionCopy(lang, "출금 합계", "Debits")} value={formatCashMinor(page.debitMinor)} tone="danger" />
+        <Tile label={translateBy(lang, "stores_credits", undefined, "en")} value={formatCashMinor(page.creditMinor)} tone="good" />
+        <Tile label={translateBy(lang, "stores_debits", undefined, "en")} value={formatCashMinor(page.debitMinor)} tone="danger" />
         <Tile label={pickCommissionCopy(lang, owner ? "기간 종료 잔액" : "기간 종료 잔액(원장)", owner ? "Closing balance" : "Closing (ledger)")} value={formatCashMinor(page.closingMinor)} />
       </div>
       {page.ledgerMismatchStoreIds.length > 0 ? (
@@ -379,18 +376,18 @@ export function CashLedgerView({
         </p>
       ) : null}
       {page.rows.length === 0 ? (
-        <p className="sam-text-body text-sam-muted">{pickCommissionCopy(lang, "거래 내역이 없습니다.", "No transactions.")}</p>
+        <p className="sam-text-body text-sam-muted">{translateBy(lang, "stores_no_transactions", undefined, "en")}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="sam-text-xxs text-sam-muted">
               <tr>
-                <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "시각", "Time")}</th>
-                {showStore ? <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "매장", "Store")}</th> : null}
-                <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "유형", "Type")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "금액", "Amount")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "거래 후 잔액", "Balance after")}</th>
-                <th className="py-1.5">{pickCommissionCopy(lang, "거래 ID", "Tx ID")}</th>
+                <th className="py-1.5 pr-3">{translateBy(lang, "stores_time", undefined, "en")}</th>
+                {showStore ? <th className="py-1.5 pr-3">{translateBy(lang, "stores_store", undefined, "en")}</th> : null}
+                <th className="py-1.5 pr-3">{translateBy(lang, "stores_type", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_amount", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_balance_after", undefined, "en")}</th>
+                <th className="py-1.5">{translateBy(lang, "stores_tx_id", undefined, "en")}</th>
               </tr>
             </thead>
             <tbody>
@@ -446,19 +443,19 @@ export function LedgerPager({
       </span>
       {pages > 1 ? (
         <div className="flex items-center gap-1.5">
-          <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(0)} aria-label={pickCommissionCopy(lang, "첫 페이지", "First page")}>
+          <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(0)} aria-label={translateBy(lang, "stores_first_page", undefined, "en")}>
             «
           </button>
           <button type="button" className={btn} disabled={page === 1 || loading} onClick={() => onChange(Math.max(0, offset - pageSize))}>
-            {pickCommissionCopy(lang, "이전", "Prev")}
+            {translateBy(lang, "stores_prev", undefined, "en")}
           </button>
           <span className="px-1 tabular-nums text-sam-fg">
             {page} / {pages}
           </span>
           <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange(offset + pageSize)}>
-            {pickCommissionCopy(lang, "다음", "Next")}
+            {translateBy(lang, "stores_next", undefined, "en")}
           </button>
-          <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange((pages - 1) * pageSize)} aria-label={pickCommissionCopy(lang, "마지막 페이지", "Last page")}>
+          <button type="button" className={btn} disabled={page >= pages || loading} onClick={() => onChange((pages - 1) * pageSize)} aria-label={translateBy(lang, "stores_last_page", undefined, "en")}>
             »
           </button>
         </div>
@@ -572,20 +569,20 @@ export function CommissionBreakdownTable({
         ))}
       </div>
       {rows.length === 0 ? (
-        <p className="mt-2 sam-text-body text-sam-muted">{pickCommissionCopy(lang, "기간 내 부과 내역이 없습니다.", "No charges in this period.")}</p>
+        <p className="mt-2 sam-text-body text-sam-muted">{translateBy(lang, "stores_no_charges_in_this_period", undefined, "en")}</p>
       ) : (
         <div className="mt-2 overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="sam-text-xxs text-sam-muted">
               <tr>
                 <th className="py-1.5 pr-3">{BREAKDOWN_GROUP_LABEL[group][lang]}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "건수", "Orders")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "수수료 기준 매출", "Commission base")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "부과", "Charged")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "캐시 차감", "Paid from Cash")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "미납", "Outstanding")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "환급·미납취소", "Refunded/cancelled")}</th>
-                <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "순수수료", "Net commission")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_orders", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_commission_base", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_charged", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_paid_from_cash_2", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_outstanding", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_refunded_cancelled", undefined, "en")}</th>
+                <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_net_commission_2", undefined, "en")}</th>
               </tr>
             </thead>
             <tbody>
@@ -620,7 +617,7 @@ export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePl
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Tile
-          label={pickCommissionCopy(lang, "플랫폼 → 매장 지급 합계", "Platform owes stores (total)")}
+          label={translateBy(lang, "stores_platform_owes_stores_total", undefined, "en")}
           value={formatMoneyPhp(summary.platformOwesPhp)}
           hint={pickCommissionCopy(
             lang,
@@ -629,7 +626,7 @@ export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePl
           )}
         />
         <Tile
-          label={pickCommissionCopy(lang, "상품권 정산 레일 (순액)", "Gift rail payable (net)")}
+          label={translateBy(lang, "stores_gift_rail_payable_net", undefined, "en")}
           value={formatMoneyPhp(summary.giftRailNetPhp)}
           hint={pickCommissionCopy(
             lang,
@@ -638,22 +635,22 @@ export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePl
           )}
         />
         <Tile
-          label={pickCommissionCopy(lang, "쿠폰 Coin 미적립", "Coupon Coin not yet credited")}
+          label={translateBy(lang, "stores_coupon_coin_not_yet_credited", undefined, "en")}
           value={formatMoneyPhp(summary.payablePhp)}
           tone={summary.payablePhp > 0 ? "warn" : "default"}
           hint={pickCommissionCopy(lang, `${summary.payableOrders}건`, `${summary.payableOrders} orders`)}
         />
         <Tile
-          label={pickCommissionCopy(lang, "쿠폰 Coin 적립됨", "Coupon paid via Coin")}
+          label={translateBy(lang, "stores_coupon_paid_via_coin", undefined, "en")}
           value={formatMoneyPhp(summary.heldPaidByCoinPhp)}
         />
         <Tile
-          label={pickCommissionCopy(lang, "매장 직접 수령", "Collected by stores")}
+          label={translateBy(lang, "stores_collected_by_stores", undefined, "en")}
           value={formatMoneyPhp(summary.directCollectedPhp)}
-          hint={pickCommissionCopy(lang, "지급 대상 아님", "Not a payout")}
+          hint={translateBy(lang, "stores_not_a_payout", undefined, "en")}
         />
         <Tile
-          label={pickCommissionCopy(lang, "플랫폼 보유 (상품권·쿠폰 총액)", "Platform-held (gift/coupon gross)")}
+          label={translateBy(lang, "stores_platform_held_gift_coupon_gross", undefined, "en")}
           value={formatMoneyPhp(summary.platformHeldPhp)}
         />
       </div>
@@ -684,21 +681,21 @@ export function PlatformPayableSummaryGrid({ summary, lang }: { summary: StorePl
 
 export function PlatformPayableTable({ page, lang, showStore }: { page: StorePlatformPayablePage; lang: CommissionLang; showStore: boolean }) {
   if (page.rows.length === 0) {
-    return <p className="sam-text-body text-sam-muted">{pickCommissionCopy(lang, "해당 주문이 없습니다.", "No orders.")}</p>;
+    return <p className="sam-text-body text-sam-muted">{translateBy(lang, "stores_no_orders", undefined, "en")}</p>;
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="sam-text-xxs text-sam-muted">
           <tr>
-            <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "주문", "Order")}</th>
-            {showStore ? <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "매장", "Store")}</th> : null}
-            <th className="py-1.5 pr-3">{pickCommissionCopy(lang, "분류", "Class")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "직접 수령", "Direct")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "플랫폼 보유", "Held")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "상품권 순액(레일)", "Gift net (rail)")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "쿠폰 Coin", "Coupon Coin")}</th>
-            <th className="py-1.5 pr-3 text-right">{pickCommissionCopy(lang, "Coin 미적립", "Coin pending")}</th>
+            <th className="py-1.5 pr-3">{translateBy(lang, "stores_order", undefined, "en")}</th>
+            {showStore ? <th className="py-1.5 pr-3">{translateBy(lang, "stores_store", undefined, "en")}</th> : null}
+            <th className="py-1.5 pr-3">{translateBy(lang, "stores_class", undefined, "en")}</th>
+            <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_direct", undefined, "en")}</th>
+            <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_held", undefined, "en")}</th>
+            <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_gift_net_rail", undefined, "en")}</th>
+            <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_coupon_coin", undefined, "en")}</th>
+            <th className="py-1.5 pr-3 text-right">{translateBy(lang, "stores_coin_pending", undefined, "en")}</th>
           </tr>
         </thead>
         <tbody>
@@ -707,7 +704,7 @@ export function PlatformPayableTable({ page, lang, showStore }: { page: StorePla
               <td className="py-1.5 pr-3">
                 <div className="font-medium">{r.orderNo}</div>
                 <div className="sam-text-xxs text-sam-muted">
-                  {pickCommissionCopy(lang, "완료", "Done")} {formatTs(r.completedAt)}
+                  {translateBy(lang, "stores_done", undefined, "en")} {formatTs(r.completedAt)}
                 </div>
               </td>
               {showStore ? <td className="py-1.5 pr-3">{r.storeName}</td> : null}

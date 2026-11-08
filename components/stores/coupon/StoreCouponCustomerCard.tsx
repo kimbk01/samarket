@@ -44,25 +44,13 @@ export function StoreCouponCustomerCard({
     : "";
   const storeName =
     card.storeName ||
-    safeT("store_coupon_wallet_store_fallback", { fallbackKo: "매장", fallbackEn: "Store" });
+    safeT("store_coupon_wallet_store_fallback");
   const displayTitle = card.titleIsCustomerOpaque
-    ? safeT("store_coupon_face_title_fallback", {
-        vars: { store: storeName },
-        fallbackKo: `${storeName} 할인`,
-        fallbackEn: `${storeName} discount`,
-      })
+    ? safeT("store_coupon_face_title_fallback", { vars: { store: storeName } })
     : card.title ||
-      safeT("store_coupon_face_title_fallback", {
-        vars: { store: storeName },
-        fallbackKo: `${storeName} 할인`,
-        fallbackEn: `${storeName} discount`,
-      });
+      safeT("store_coupon_face_title_fallback", { vars: { store: storeName } });
   const benefitHero = card.benefitLabel
-    ? safeT("store_coupon_face_benefit", {
-        vars: { amount: card.benefitLabel },
-        fallbackKo: `${card.benefitLabel} 할인`,
-        fallbackEn: `${card.benefitLabel} off`,
-      })
+    ? safeT("store_coupon_face_benefit", { vars: { amount: card.benefitLabel } })
     : "";
   const showNumber = Boolean(card.couponNumber?.trim()) && !card.couponNumberLegacy;
   const isExpiring = card.bucket === "expiring";
@@ -89,7 +77,7 @@ export function StoreCouponCustomerCard({
         </div>
         <div className="mt-1.5 flex min-w-0 flex-wrap gap-1" data-coupon-face-badges="1">
           <span className={`${BADGE} bg-signature/15 text-signature`}>
-            {safeT("store_coupon_face_badge_free", { fallbackKo: "무료쿠폰", fallbackEn: "Free coupon" })}
+            {safeT("store_coupon_face_badge_free")}
           </span>
           {isExpiring ? (
             <span className={`${BADGE} bg-sam-warning/20 text-sam-fg`} data-coupon-face-expiring="1">
@@ -113,11 +101,7 @@ export function StoreCouponCustomerCard({
             ) : null}
             {card.validUntilLabel ? (
               <p className="text-xs text-sam-muted">
-                {safeT("store_coupon_face_valid_until", {
-                  vars: { date: card.validUntilLabel },
-                  fallbackKo: `사용기한 ${card.validUntilLabel}까지`,
-                  fallbackEn: `Valid until ${card.validUntilLabel}`,
-                })}
+                {safeT("store_coupon_face_valid_until", { vars: { date: card.validUntilLabel } })}
               </p>
             ) : null}
             {card.targetKey ? <p className="text-xs text-sam-muted">{t(card.targetKey)}</p> : null}
@@ -177,10 +161,7 @@ export function StoreCouponCustomerCard({
             </a>
           ) : storeHref ? (
             <Link className={CTA_PRIMARY} href={storeHref} onClick={() => onUse?.()} data-store-coupon-detail-cta="store">
-              {safeT("store_coupon_face_go_store", {
-                fallbackKo: "해당 매장 바로가기",
-                fallbackEn: "Go to store",
-              })}
+              {safeT("store_coupon_face_go_store")}
             </Link>
           ) : (
             <p className="text-center text-sm font-medium text-signature">{heldLabel ?? t("store_coupon_claimed")}</p>
@@ -202,10 +183,7 @@ export function StoreCouponCustomerCard({
           </Link>
         ) : storeHref && card.bucket !== "redeemed" ? (
           <Link className={CTA_OUTLINE} href={storeHref}>
-            {safeT("store_coupon_face_go_store", {
-              fallbackKo: "해당 매장 바로가기",
-              fallbackEn: "Go to store",
-            })}
+            {safeT("store_coupon_face_go_store")}
           </Link>
         ) : null}
       </div>

@@ -73,10 +73,7 @@ export function DeliveryAdOwnerApplicationConfirm({
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-[#757575]">
-              {safeT("owner_ads_confirm_cash_balance_ad", {
-                fallbackKo: "Cash",
-                fallbackEn: "Cash",
-              })}
+              {safeT("owner_ads_confirm_cash_balance_ad")}
             </dt>
             <dd className="font-semibold tabular-nums text-sam-fg">
               {formatDeliveryAdPhpMinor(cashBreakdown.balanceMinor)}
@@ -84,10 +81,7 @@ export function DeliveryAdOwnerApplicationConfirm({
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-[#757575]">
-              {safeT("owner_ads_confirm_amount_needed", {
-                fallbackKo: "신청 시 결제 금액",
-                fallbackEn: "Amount charged on submit",
-              })}
+              {safeT("owner_ads_confirm_amount_needed")}
             </dt>
             <dd className="font-semibold tabular-nums text-sam-fg">
               {formatDeliveryAdPhpMinor(cashBreakdown.adAmountMinor)}
@@ -97,10 +91,7 @@ export function DeliveryAdOwnerApplicationConfirm({
             <>
               <div className="flex items-center justify-between gap-3 border-t border-[#BDBDBD] pt-2">
                 <dt className="text-[#757575]">
-                  {safeT("owner_ads_cash_shortage_amount", {
-                    fallbackKo: "현재 부족 금액",
-                    fallbackEn: "Current shortfall",
-                  })}
+                  {safeT("owner_ads_cash_shortage_amount")}
                 </dt>
                 <dd className="font-bold tabular-nums text-red-600">
                   {formatDeliveryAdPhpMinor(shortageMinor)}
@@ -110,12 +101,7 @@ export function DeliveryAdOwnerApplicationConfirm({
                 {t("owner_ads_funding_insufficient")}
               </p>
               <p className="text-[12px] leading-relaxed text-[#757575]">
-                {safeT("owner_ads_cash_shortage_prep_copy", {
-                  fallbackKo:
-                    "광고 신청 시 Cash가 결제됩니다. 현재 잔액이 부족하므로 충전 후 다시 신청해 주세요.",
-                  fallbackEn:
-                    "Cash is charged on submit. Top up your balance, then submit again.",
-                })}
+                {safeT("owner_ads_cash_shortage_prep_copy")}
               </p>
             </>
           ) : afterPayMinor != null ? (

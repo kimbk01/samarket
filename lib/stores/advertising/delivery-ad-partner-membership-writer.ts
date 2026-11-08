@@ -23,6 +23,7 @@ import {
   DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE,
   parseInsufficientBusinessCashRpc,
 } from "@/lib/stores/advertising/canonical-business-cash-contract";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type PartnerMembershipWriterError =
   | "not_found"
@@ -516,20 +517,20 @@ export function partnerMembershipAdminFilterLabel(
 ): string {
   switch (status) {
     case "PENDING_REVIEW":
-      return lang === "en" ? "Pending review" : "가입 대기";
+      return translateBy(lang, "stores_pending_review");
     case "ACTIVE":
-      return lang === "en" ? "Active" : "이용 중";
+      return translateBy(lang, "stores_active");
     case "CANCEL_PENDING":
-      return lang === "en" ? "Cancel pending" : "해지 예정";
+      return translateBy(lang, "stores_cancel_pending");
     case "ENDED":
-      return lang === "en" ? "Ended" : "종료";
+      return translateBy(lang, "stores_ended");
     case "REJECTED":
-      return lang === "en" ? "Rejected" : "거절";
+      return translateBy(lang, "stores_rejected");
     case "PAST_DUE":
-      return lang === "en" ? "Past due" : "연체";
+      return translateBy(lang, "stores_past_due");
     case "NONE":
     default:
-      return lang === "en" ? "None" : "없음";
+      return translateBy(lang, "stores_none");
   }
 }
 
@@ -540,7 +541,7 @@ export function partnerMembershipEffectiveStatusLabel(
   nowMs: number = Date.now()
 ): string {
   if (isPartnerMembershipPeriodExpired(row, nowMs)) {
-    return lang === "en" ? "Expired" : "기간 만료";
+    return translateBy(lang, "stores_expired");
   }
   return partnerMembershipAdminFilterLabel(row.status, lang);
 }

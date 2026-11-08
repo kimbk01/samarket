@@ -13,10 +13,7 @@ export function localizeMenuSectionHeadings(
   sections: MenuSection[],
   lang: AppLanguageCode
 ): MenuSection[] {
-  const uncategorized = safeTranslate(lang, "store_menu_uncategorized", {
-    fallbackKo: "기타 메뉴",
-    fallbackEn: "Other menu",
-  });
+  const uncategorized = safeTranslate(lang, "store_menu_uncategorized");
   return sections.map((s) => {
     const h = s.heading.trim();
     const isUncategorized =

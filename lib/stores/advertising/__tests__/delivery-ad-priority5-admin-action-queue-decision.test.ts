@@ -3,6 +3,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -17,7 +18,7 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { DELIVERY_AD_LIFECYCLE_STATUSES } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 
 const root = process.cwd();
-const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 
 const hubSrc = () => read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
 const queuePanelSrc = () => read("components/admin/stores/AdminDeliveryAdActionQueuePanel.tsx");

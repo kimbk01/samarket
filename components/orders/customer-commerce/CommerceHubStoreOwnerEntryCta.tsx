@@ -90,7 +90,7 @@ export function CommerceHubStoreOwnerEntryCta() {
         data-commerce-hub-owner-cta-placeholder="1"
       >
         <span className="truncate break-keep">
-          {safeT("mypage_hub_store_apply", { fallbackKo: "매장 신청", fallbackEn: "Apply for store" })}
+          {safeT("mypage_hub_store_apply")}
         </span>
         <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
       </span>

@@ -25,10 +25,7 @@ export function DeliveryAdOperationsComposer({
   return (
     <div className="space-y-2">
       <label className="block text-[12px] font-medium text-sam-fg" htmlFor="delivery-ad-ops-composer">
-        {safeT("delivery_ad_ops_ui_composer_label", {
-          fallbackKo: "메시지 작성",
-          fallbackEn: "Write a message",
-        })}
+        {safeT("delivery_ad_ops_ui_composer_label")}
       </label>
       <textarea
         id="delivery-ad-ops-composer"
@@ -37,10 +34,7 @@ export function DeliveryAdOperationsComposer({
         maxLength={DELIVERY_AD_OPS_HUMAN_MESSAGE_MAX_CHARS}
         disabled={disabled || sending}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={safeT("delivery_ad_ops_ui_composer_placeholder", {
-          fallbackKo: "운영 메시지를 입력하세요",
-          fallbackEn: "Enter an operations message",
-        })}
+        placeholder={safeT("delivery_ad_ops_ui_composer_placeholder")}
       />
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-sam-muted tabular-nums">
@@ -57,10 +51,7 @@ export function DeliveryAdOperationsComposer({
           }}
         >
           {sending
-            ? safeT("delivery_ad_ops_ui_sending", {
-                fallbackKo: "전송 중…",
-                fallbackEn: "Sending…",
-              })
+            ? safeT("delivery_ad_ops_ui_sending")
             : t("delivery_ad_ops_ui_send")}
         </button>
       </div>

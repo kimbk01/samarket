@@ -13,10 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
     acceptLanguage: h.get("accept-language"),
   });
   return {
-    title: safeTranslate(lang, "store_meta_cart_title", {
-      fallbackKo: "장바구니",
-      fallbackEn: "Cart",
-    }),
+    title: safeTranslate(lang, "store_meta_cart_title"),
   };
 }
 

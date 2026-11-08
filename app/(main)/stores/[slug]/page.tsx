@@ -21,10 +21,7 @@ export async function generateMetadata({
     cookieValue: cookieStore.get(APP_LANGUAGE_COOKIE)?.value,
     acceptLanguage: h.get("accept-language"),
   });
-  const fallbackTitle = safeTranslate(lang, "store_fallback_name", {
-    fallbackKo: "매장",
-    fallbackEn: "Store",
-  });
+  const fallbackTitle = safeTranslate(lang, "store_fallback_name");
   if (!decoded) return { title: fallbackTitle };
 
   const seo = await loadStoreSeoMetadataBySlug(decoded);

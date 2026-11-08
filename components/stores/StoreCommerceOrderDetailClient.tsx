@@ -281,19 +281,13 @@ export function StoreCommerceOrderDetailClient({
             <>
               <div className="flex justify-between">
                 <span className="text-sam-muted">
-                  {safeT("gift_u4_order_amount_before_gift", {
-                    fallbackKo: "상품권 적용 전 금액",
-                    fallbackEn: "Amount before gift",
-                  })}
+                  {safeT("gift_u4_order_amount_before_gift")}
                 </span>
                 <span>{formatMoneyPhp(amountBeforeGift)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sam-muted">
-                  {safeT("gift_u4_order_gift_line", {
-                    fallbackKo: "상품권 사용",
-                    fallbackEn: "Gift certificate",
-                  })}
+                  {safeT("gift_u4_order_gift_line")}
                 </span>
                 <span>-{formatMoneyPhp(giftUsed)}</span>
               </div>
@@ -301,10 +295,7 @@ export function StoreCommerceOrderDetailClient({
           ) : null}
           <div className="flex justify-between font-bold">
             <span>
-              {safeT("store_order_customer_remaining_payment", {
-                fallbackKo: "추가 결제액",
-                fallbackEn: "Remaining payment",
-              })}
+              {safeT("store_order_customer_remaining_payment")}
             </span>
             <span>{formatMoneyPhp(order.payment_amount)}</span>
           </div>

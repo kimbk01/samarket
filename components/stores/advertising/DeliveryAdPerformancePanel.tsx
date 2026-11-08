@@ -56,18 +56,9 @@ export function DeliveryAdPerformancePanel(props: {
 }) {
   const { safeT } = useI18n();
   const labels = {
-    na: safeT("delivery_ads_perf_not_available", {
-      fallbackKo: "—",
-      fallbackEn: "—",
-    }),
-    billing: safeT("delivery_ads_perf_billing_not_launched", {
-      fallbackKo: "과금 미시작",
-      fallbackEn: "Billing not launched",
-    }),
-    notConfigured: safeT("delivery_ads_perf_not_configured", {
-      fallbackKo: "미설정",
-      fallbackEn: "Not configured",
-    }),
+    na: safeT("delivery_ads_perf_not_available"),
+    billing: safeT("delivery_ads_perf_billing_not_launched"),
+    notConfigured: safeT("delivery_ads_perf_not_configured"),
   };
 
   const rows: Array<{
@@ -134,10 +125,7 @@ export function DeliveryAdPerformancePanel(props: {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[14px] font-semibold text-sam-fg">
-          {safeT("delivery_ads_perf_section_title", {
-            fallbackKo: "광고 성과",
-            fallbackEn: "Ad performance",
-          })}
+          {safeT("delivery_ads_perf_section_title")}
         </h3>
         {props.onRangeChange ? (
           <div className="flex flex-wrap gap-1">
@@ -161,35 +149,23 @@ export function DeliveryAdPerformancePanel(props: {
 
       {props.performance?.platform.billingStatus === "billing_not_launched" ? (
         <p className="text-[12px] text-sam-muted">
-          {safeT("delivery_ads_perf_billing_banner", {
-            fallbackKo: "광고 과금 정책이 아직 활성화되지 않았습니다.",
-            fallbackEn: "Ad billing policy is not launched yet.",
-          })}
+          {safeT("delivery_ads_perf_billing_banner")}
         </p>
       ) : null}
 
       {props.performance?.platform.attributionStatus === "not_configured" ? (
         <p className="text-[12px] text-sam-muted">
-          {safeT("delivery_ads_perf_attribution_banner", {
-            fallbackKo: "주문 귀속 정책이 아직 설정되지 않았습니다.",
-            fallbackEn: "Order attribution policy is not configured yet.",
-          })}
+          {safeT("delivery_ads_perf_attribution_banner")}
         </p>
       ) : null}
 
       {props.loading ? (
         <p className="text-[13px] text-sam-muted">
-          {safeT("delivery_ads_perf_loading", {
-            fallbackKo: "성과를 불러오는 중…",
-            fallbackEn: "Loading performance…",
-          })}
+          {safeT("delivery_ads_perf_loading")}
         </p>
       ) : !props.performance ? (
         <p className="text-[13px] text-sam-muted">
-          {safeT("delivery_ads_perf_empty", {
-            fallbackKo: "아직 집계된 광고 성과가 없습니다.",
-            fallbackEn: "No ad performance has been aggregated yet.",
-          })}
+          {safeT("delivery_ads_perf_empty")}
         </p>
       ) : (
         <div

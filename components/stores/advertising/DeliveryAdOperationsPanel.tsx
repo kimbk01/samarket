@@ -150,10 +150,7 @@ export function DeliveryAdOperationsPanel({
       };
       if (!res.ok || !json.ok) {
         setSendError(
-          safeT("delivery_ad_ops_ui_send_error", {
-            fallbackKo: "메시지를 보내지 못했습니다. 다시 시도해 주세요.",
-            fallbackEn: "Could not send the message. Please try again.",
-          })
+          safeT("delivery_ad_ops_ui_send_error")
         );
         return;
       }
@@ -163,10 +160,7 @@ export function DeliveryAdOperationsPanel({
       await load();
     } catch {
       setSendError(
-        safeT("delivery_ad_ops_ui_send_error", {
-          fallbackKo: "메시지를 보내지 못했습니다. 다시 시도해 주세요.",
-          fallbackEn: "Could not send the message. Please try again.",
-        })
+        safeT("delivery_ad_ops_ui_send_error")
       );
     } finally {
       setSending(false);
@@ -187,17 +181,11 @@ export function DeliveryAdOperationsPanel({
       <div className="flex items-center justify-between gap-2">
         {hideHeading ? (
           <span className="sr-only" id="delivery-ad-ops-heading">
-            {safeT("delivery_ad_ops_ui_section_title", {
-              fallbackKo: "광고 운영",
-              fallbackEn: "Ad operations",
-            })}
+            {safeT("delivery_ad_ops_ui_section_title")}
           </span>
         ) : (
           <h2 id="delivery-ad-ops-heading" className="text-[15px] font-semibold text-sam-fg">
-            {safeT("delivery_ad_ops_ui_section_title", {
-              fallbackKo: "광고 운영",
-              fallbackEn: "Ad operations",
-            })}
+            {safeT("delivery_ad_ops_ui_section_title")}
           </h2>
         )}
         {opsReady && unreadCount > 0 ? (
@@ -212,36 +200,18 @@ export function DeliveryAdOperationsPanel({
 
       {opsReady ? (
         <p className="text-[13px] text-sam-muted">
-          {safeT("delivery_ad_ops_ui_case_status_label", {
-            fallbackKo: "처리 상태",
-            fallbackEn: "Case status",
-          })}
+          {safeT("delivery_ad_ops_ui_case_status_label")}
           {": "}
           <span className="font-medium text-sam-fg">
             {caseStatus === "OPEN"
-              ? safeT("delivery_ad_ops_ui_case_open", {
-                  fallbackKo: "열림",
-                  fallbackEn: "Open",
-                })
+              ? safeT("delivery_ad_ops_ui_case_open")
               : caseStatus === "WAITING_OWNER"
-                ? safeT("delivery_ad_ops_ui_case_waiting_owner", {
-                    fallbackKo: "오너 응답 대기",
-                    fallbackEn: "Waiting on owner",
-                  })
+                ? safeT("delivery_ad_ops_ui_case_waiting_owner")
                 : caseStatus === "WAITING_ADMIN"
-                  ? safeT("delivery_ad_ops_ui_case_waiting_admin", {
-                      fallbackKo: "관리자 처리 대기",
-                      fallbackEn: "Waiting on admin",
-                    })
+                  ? safeT("delivery_ad_ops_ui_case_waiting_admin")
                   : caseStatus === "RESOLVED"
-                    ? safeT("delivery_ad_ops_ui_case_resolved", {
-                        fallbackKo: "종료",
-                        fallbackEn: "Resolved",
-                      })
-                    : safeT("delivery_ad_ops_ui_case_none", {
-                        fallbackKo: "아직 없음",
-                        fallbackEn: "None yet",
-                      })}
+                    ? safeT("delivery_ad_ops_ui_case_resolved")
+                    : safeT("delivery_ad_ops_ui_case_none")}
           </span>
         </p>
       ) : null}
@@ -252,10 +222,7 @@ export function DeliveryAdOperationsPanel({
         </p>
       ) : opsUnavailable ? (
         <p className="text-[13px] text-sam-muted" role="status" data-delivery-ad-ops-unavailable="1">
-          {safeT("delivery_ad_ops_ui_unavailable", {
-            fallbackKo: "광고 운영 연결을 사용할 수 없습니다.",
-            fallbackEn: "Ad operations connection is unavailable.",
-          })}
+          {safeT("delivery_ad_ops_ui_unavailable")}
         </p>
       ) : (
         <DeliveryAdOperationsTimeline messages={messages} viewerRole={actorRole} />
