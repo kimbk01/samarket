@@ -33,13 +33,17 @@ export function parseStoreOrderAcceptedPrepMinutes(content: string): number | nu
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * 주문 방식(`orderFlow`)이 있으면 그것이 기준 — 픽업 주문의 `lineKind: "delivery"` 완료 줄을 배달 문장으로 잘못 그리던 결함(L24, 2026-11-08).
+ * 방식 값이 없는 옛 줄만 줄 종류·배달 상태로 판정.
+ */
 function isDeliveryFlow(lineKind: string, metadata: Record<string, unknown> | null): boolean {
+  const flow = metadata?.orderFlow;
+  if (flow === "pickup") return false;
+  if (flow === "delivery") return true;
   if (lineKind === "delivery") return true;
   const ds = metadata?.deliveryStatus;
   if (typeof ds === "string" && ds.trim()) return true;
-  const flow = metadata?.orderFlow;
-  if (flow === "delivery") return true;
-  if (flow === "pickup") return false;
   return true;
 }
 

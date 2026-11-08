@@ -130,12 +130,7 @@ export function resolveCmSystemListPreview(
   if (metaMatches && meta) {
     if (meta.kind === "store_order_summary") return t("cm_home_preview_order_summary");
     /** 주문 사건 — 대화방 줄과 같은 함수(저장 키가 정리돼도 주문 상태로 정본 문장) */
-    /**
-     * 픽업 주문의 `lineKind: "delivery"` 줄은 공용 함수가 배달 문장으로 만든다(대화방 기존 결함 — 발견 목록 L24,
-     * 주문 단계 영역이라 이번 범위 밖). 목록에 퍼뜨리지 않도록 이 조합만 저장 글자를 유지한다.
-     */
-    const pickupLineMisread = meta.orderFlow === "pickup" && meta.lineKind === "delivery";
-    if (meta.domain === "store_order" && !pickupLineMisread) {
+    if (meta.domain === "store_order") {
       const body = resolveStoreOrderOpsBodyText({
         orderStatus: meta.orderStatus?.trim() || "status",
         lineKind: meta.lineKind?.trim() || "status",

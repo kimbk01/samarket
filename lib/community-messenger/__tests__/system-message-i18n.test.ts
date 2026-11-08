@@ -114,8 +114,8 @@ describe("B3 system-message-i18n", () => {
   });
 });
 
-describe("B3 픽업 완료 줄 보호 (L24)", () => {
-  it("픽업 주문의 delivery 줄은 목록에서 저장 글자 유지(배달 문장으로 바꾸지 않음)", () => {
+describe("B3 픽업 완료 줄 (L24 수정 후)", () => {
+  it("픽업 주문의 delivery 완료 줄 → 픽업 문장(배달 문장 아님)", () => {
     const lastMessage = "주문이 완료되었습니다. 픽업해 주세요.";
     const meta = cmRoomLastMessageMetaFromMessage(lastMessage, {
       domain: "store_order",
@@ -123,6 +123,9 @@ describe("B3 픽업 완료 줄 보호 (L24)", () => {
       orderFlow: "pickup",
       orderStatus: "completed",
     });
-    expect(resolveCmSystemListPreview({ lastMessage, meta }, en)).toBeNull();
+    const out = resolveCmSystemListPreview({ lastMessage, meta }, en) ?? "";
+    expect(out).not.toMatch(/deliver/i);
+    expect(out).not.toMatch(/[가-힣]/);
+    expect(resolveCmSystemListPreview({ lastMessage, meta }, ko) ?? "").not.toContain("배달");
   });
 });
