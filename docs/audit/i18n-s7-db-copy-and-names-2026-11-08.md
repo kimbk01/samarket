@@ -75,3 +75,16 @@ update store_categories c set name_en = v.en from (values
 
 - 2·3 은 운영 DB 변경 — **Owner 승인 전 적용하지 않음**.
 - 메신저·포인트 화면이 DB 문장을 쓰지 않는다는 판단은 코드 확인까지만(실기 영어 화면 NOT_PROVEN).
+
+## 5. 적용 기록 — 빈 영어 이름 19개 (Owner 「제안대로 적용」, 2026-11-08 16:0x PHT)
+
+| 단계 | 결과 |
+|---|---|
+| 적용 전 재확인 | 빈 값 categories 5 · community_topics 6 · store_categories 8 = 19 (제안과 같음). 트리거는 `updated_at` 자동 갱신뿐 |
+| 백업 | `public._i18n_s7_name_en_backup` — 19행 전체 열(jsonb), RLS 켬 |
+| 시험 조회 | 19개 slug 각각 정확히 1행, 모두 백업에 있음 |
+| 적용 | 한 트랜잭션, 백업에 있는 행 중 아직 빈 값만, 5·6·8 이 아니면 전체 취소하도록 — 5·6·8 적용, 빈 값 0·0·0 |
+| 전후 대조(열 단위) | 바뀐 열 = `name_en` 19행 + `updated_at` 14행(주제·업종 트리거) — **그 외 열 변경 0**. 값 19개 제안과 동일 |
+| 운영 화면 | **FAIL — 커뮤니티 주제**: 운영 `/api/philife/neighborhood-topic-options` 가 여전히 `name_en: null`(엣지 캐시 MISS 에서도). 원인 = 피드 주제 RPC `philife_list_default_section_topics_for_feed` 가 `name_en` 열을 고르지 않음(원래 영어 이름이 있던 맛집·골프·유머도 같음). 수정 마이그레이션 `20271108160000_philife_topics_for_feed_name_en.sql`(열 1개 추가) — **운영 적용 Owner 승인 필요** |
+| 운영 화면 — 거래 카테고리·매장 업종 | 거래 카테고리 조회는 `name_en` 포함(코드 확인), 매장 업종은 지금 영어 화면 값과 같은 이름이라 화면 변화 없음. 실제 영어 화면 확인은 NOT_PROVEN(이 브라우저는 로그인 계정 언어가 한국어 — 계정 설정은 바꾸지 않음) |
+| 되돌리기 | `update <표> set name_en = (b.row_before->>'name_en') from _i18n_s7_name_en_backup b where b.t='<표>' and <표>.id::text=b.id;` |
