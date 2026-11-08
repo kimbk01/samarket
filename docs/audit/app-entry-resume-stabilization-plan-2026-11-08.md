@@ -190,8 +190,8 @@ RELEASED 유지(마지막 화면·채팅 위치·입력 보존) → 복귀 조�
 | R2-b 무한 새로고침 | R2-b | **이번 반영 (비통화 경로)** — 루트 오류·최상위 오류·전역 미처리 거부는 빌드당 1회. 통화 경계 3곳은 통화 규정상 기존 함수 그대로 | 이번 커밋 |
 | Phase 3-1 `/api` 게이트 무갱신 검증 | R3·R3-a | **반영** | `f1b30dfe5` |
 | Phase 3-2a 세션 신선도 관문 | R3 | **반영** | `a4d44372b` |
-| **Phase 4 C1 Android** | R1·R1-a·R1-b·R1-c | **이번 반영 (코드)** — 고장 판정(T_js 8s·T_release 15s, 앱이 보일 때만, 자동 재로드 1회, 통화 경로 자동 재로드 금지)·오류 화면 즉시 해제(pending 잠금 해소)·화면 커밋 콜백 보조 해제·주 문서 4xx 상태 기록·SSL 주 문서만·오프라인/웹 고장 문구 | 이번 커밋 · **빌드 대기(Owner 일괄)** |
-| **Phase 4 C7 iOS** | R1·R1-d·R4 | **이번 반영 (코드)** — navigation delegate 프록시(Capacitor handler 전달 유지)·고장 판정(Android 와 같은 값)·탐색 실패·「앱 없이 로드 멈춤」은 빈 화면 대신 오류 안내+재시도·WebContent 종료 시 시작 화면 재설치 | 이번 커밋 · **빌드 대기(Owner 일괄)** |
+| **Phase 4 C1 Android** | R1·R1-a·R1-b·R1-c | **이번 반영 (코드)** — 고장 판정(T_js 8s·T_release 15s, 앱이 보일 때만 — 백그라운드면 멈춤·복귀 시 재개, 자동 재로드 1회, 통화 경로는 고장 판정 제외)·오류 화면 즉시 해제(pending 잠금 해소)·화면 커밋 콜백 해제(1.5초 보조 해제는 `fd2cd7b32` 에서 제거)·주 문서 4xx 상태 기록·SSL 주 문서만·오프라인/웹 고장 문구 | 이번 커밋 · **빌드 대기(Owner 일괄)** |
+| **Phase 4 C7 iOS** | R1·R1-d·R4 | **이번 반영 (코드)** — navigation delegate 프록시(Capacitor handler 전달 유지)·고장 판정(Android 와 같은 값, 통화 경로 제외, 비활성이면 멈춤·복귀 시 재개)·탐색 실패·「앱 없이 로드 멈춤」은 빈 화면 대신 오류 안내+재시도·WebContent 종료 시 시작 화면 재설치(통화 경로·네이티브 통화 화면 표시 중이면 안 함) | `1212c1fb4` + 검토 수정 `fd2cd7b32` · **빌드 대기(Owner 일괄)** |
 | 3-2b 복귀 요청 묶기 | (효율) | 보류 — 결함 아님. 서버 갱신 문제는 3-2a 로 처리. 내일 측정 후 재판단 | — |
 | 3-3 IP 전달 | (조건부) | 내일 측정에서 서버 갱신이 남을 때만 | 예약 측정 2026-11-09 16:45 PHT |
 | C6 공유 캐시 | — | 보류(이득 작음) | phase3 설계 §3 |
@@ -209,8 +209,8 @@ FIRST DIVERGENCE            Android MainActivity setKeepOnScreenCondition 이 �
 WHY WEB/SERVER FIX INSUFFICIENT  Phase 2a 초기 가드는 HTML 이 도착하고 JS 가 실행될 때만 동작.
 EXACT NATIVE OWNER          Android: MainActivity(시작 화면 해제·오류 화면), DibayBridgeWebViewClient(HTTP·SSL 분류), 신규 DibayStartupFaultPolicy.
                             iOS: DibayRootBridgeViewController(연장 화면·고장 판정·오류 화면), DibayNavigationDelegateProxy(같은 파일).
-VOICE IMPACT / VIDEO IMPACT 없음 — 통화 Activity·Service·Runtime·CallKit·PushKit·Agora 파일 무수정. 고장 판정은 앱이 보일 때만 세고,
-                            통화 경로(call 포함) 문서는 자동 재로드하지 않는다. V4 수락 handoff 코드 무수정.
+VOICE IMPACT / VIDEO IMPACT 없음 — 통화 Activity·Service·Runtime·CallKit·PushKit·Agora 파일 무수정. 고장 판정은 앱이 보일 때만 세고(비활성이면 멈춤),
+                            통화 경로(경로에 call, 쿼리·조각 제외) 문서는 고장 판정·오류 화면·iOS 화면 덮기 대상에서 제외 = 이전 동작 그대로 (`fd2cd7b32`). V4 수락 handoff 코드 무수정.
 ANDROID IMPACT              시작 화면이 풀리지 않던 고장에서 오류 화면(다시 시도)으로 전환. 정상 시작 해제 시각 무변화(웹 신호가 먼저 옴).
 IOS IMPACT                  같음 + WebContent 종료 후 재로드 중 빈 화면 대신 시작 화면. 탐색 실패 시 빈 화면 대신 오류 안내.
 CALLKIT/PUSHKIT IMPACT      없음 (파일 무수정, 통화 UI 는 별도 VC).
