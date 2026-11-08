@@ -230,7 +230,7 @@ ROLLBACK BOUNDARY           이번 네이티브 커밋 revert 후 재빌드 (웹
 |---|---|---|---|---|
 | 1 | D1 하드락 충돌(표시 타이머 금지 vs 무한 대기 금지) | 표시 타이머 금지 유지 + 고장 판정 허용 | **적용** — C1·C7 코드, r17 계약 테스트 개정 | `1212c1fb4` |
 | 2 | LIFECYCLE_SSOT §7.2 인트로 준비 무제한 | 웹 타이머 추가 | **적용 안 함 (권장안 정정)** — 현재 main 에 준비 try/catch(D-16)·백그라운드 중단(D-17) 이미 있음, 준비 시간 제한은 Owner 결정 4(2026-11-04)가 금지하고 테스트로 고정(`launch-intro-no-safety-timer-invalid-row.test.ts`). 준비가 끝나지 않는 경우는 AppBootProvider 의 `reactMounted` 이후 네이티브 고장 판정(T_release 15초)이 처리 | 코드 확인 |
-| 3 | C8 실패 기록 표 | 로그 + 실패만 표 | **코드·마이그레이션 반영, 운영 DB 적용은 권한 거부** — Claude Code 권한 분류기가 운영 DB 적용(apply_migration)을 거부. 적용 전에는 저장만 건너뛴다. Vercel Pro 로그 보존 1일(공식 문서) | `7b6776c0a`, `supabase/migrations/20271108170000_app_entry_failures.sql` |
+| 3 | C8 실패 기록 표 | 로그 + 실패만 표 | **적용 완료** — 2026-11-08 18:36 PHT Owner 「권한 허용, 적용해」 후 운영 DB 적용. 확인: RLS·force RLS on, 정책 0(service_role 전용), anon·authenticated 권한 없음, 인덱스 4(`(run,seq)` 고유 포함). 끝단 시험: 표시된 시험 이벤트 1건(`run=qa-claude-c8-20261108`) 운영 API → 표 저장 확인(deployment_id·server_sha 기록) 후 삭제, 현재 0행. Vercel Pro 로그 보존 1일(공식 문서) | `7b6776c0a`, `supabase/migrations/20271108170000_app_entry_failures.sql` |
 | 4 | Skew Protection | 7~30일 활성 | **적용** 7일 · 이전 배포 청크 200 실측 | `94c563a80` |
 | 5 | 인증 구조 | 혼합(Supabase 공식) | **적용** 3-1·3-2a, 효과 측정 예약 2026-11-09 16:45 PHT | `f1b30dfe5`·`a4d44372b` |
 | 6 | 네이티브 C1·C7 | 구현 + Owner 일괄 빌드 | **코드 적용** · 설치용 빌드·실기는 Owner 일괄 | §14 |
