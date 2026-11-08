@@ -130,14 +130,15 @@ function creationSourceLabel(
   if (!source) {
     return safeT("gift_ops_source_legacy");
   }
-  const map: Record<string, { key: string; ko: string; en: string }> = {
-    OWNER_APPLICATION: { key: "gift_ops_source_owner_application", ko: "매장 신청", en: "Owner application" },
-    ADMIN_DIRECT_STORE: { key: "gift_ops_source_admin_direct_store", ko: "Admin 직접 (매장)", en: "Admin direct (Store)" },
-    ADMIN_DIRECT_PLATFORM: { key: "gift_ops_source_admin_direct_platform", ko: "Admin 직접 (DIBAY)", en: "Admin direct (DIBAY)" },
+  /** 문구는 카탈로그 키만 (언어 SSOT S6 — 코드 안 사본 삭제) */
+  const map: Record<string, { key: "gift_ops_source_owner_application" | "gift_ops_source_admin_direct_store" | "gift_ops_source_admin_direct_platform" }> = {
+    OWNER_APPLICATION: { key: "gift_ops_source_owner_application" },
+    ADMIN_DIRECT_STORE: { key: "gift_ops_source_admin_direct_store" },
+    ADMIN_DIRECT_PLATFORM: { key: "gift_ops_source_admin_direct_platform" },
   };
   const row = map[source];
   if (!row) return source;
-  return safeT(row.key as "gift_ops_source_owner_application", { fallbackKo: row.ko, fallbackEn: row.en });
+  return safeT(row.key);
 }
 
 function toLocalInput(iso: string | null): string {
@@ -887,7 +888,7 @@ export function AdminGiftProductDetailConsole({
             className="shrink-0"
             onClick={() => setSection(sec.id)}
           >
-            {safeT(sec.key, { fallbackKo: sec.ko, fallbackEn: sec.en })}
+            {safeT(sec.key)}
           </AdminChipButton>
         ))}
       </div>

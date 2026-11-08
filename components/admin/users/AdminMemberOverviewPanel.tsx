@@ -306,7 +306,7 @@ export function AdminMemberOverviewPanel({
             />
             <ActivityLine
               label={t("admin_users_cc_tab_delivery")}
-              summary={`${metricNum(state.overview.delivery.total)}${language === "en" ? "" : "건"} · ${t("admin_users_cc_overview_last_order")} ${metricTime(state.overview.delivery.lastOrderAt, fmtTime)}`}
+              summary={`${translateBy(language, "admin_count_items", { n: metricNum(state.overview.delivery.total) })} · ${t("admin_users_cc_overview_last_order")} ${metricTime(state.overview.delivery.lastOrderAt, fmtTime)}`}
               onView={() => onOpenTab("delivery")}
               viewLabel={viewLabel}
             />

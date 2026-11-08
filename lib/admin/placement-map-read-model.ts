@@ -24,6 +24,7 @@ import { STORES_SEARCH_TOP_LAUNCH } from "@/lib/stores/advertising/delivery-ad-p
 import { CUT_J_DETAIL_INVENTORY_STATUS } from "@/lib/stores/advertising/delivery-ad-inventory";
 import type { FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const PLACEMENT_MAP_ENTRY = "/admin/delivery-ads/inventory" as const;
 export const PLACEMENT_MAP_HASH = "placement-map" as const;
@@ -103,46 +104,14 @@ const DELIVERY_DISPLAY: Record<
   DeliveryAdInventoryKey,
   { ko: string; en: string; route: string }
 > = {
-  STORES_HOME_HERO: {
-    ko: "배달 홈 · 상단 배너",
-    en: "Delivery Home · Top hero",
-    route: "/stores (HOME hero)",
-  },
-  STORES_HOME_FEED: {
-    ko: "배달 홈 · 매장 목록 광고",
-    en: "Delivery Home · Store list ads",
-    route: "/stores (HOME feed)",
-  },
-  STORES_HOME_INLINE_1: {
-    ko: "배달 홈 · 인라인 배너",
-    en: "Delivery Home · Inline banner",
-    route: "/stores (before rest_stores)",
-  },
-  STORES_CATEGORY_FEED: {
-    ko: "업종별 목록 · 매장 광고",
-    en: "Category browse · Store ads",
-    route: "/stores browse",
-  },
-  STORES_CATEGORY_TOP: {
-    ko: "업종별 목록 · 상단 배너",
-    en: "Category browse · Top banner",
-    route: "/stores browse top",
-  },
-  STORES_CATEGORY_INLINE: {
-    ko: "업종별 목록 · 인라인 (미래)",
-    en: "Category browse · Inline (future)",
-    route: "FUTURE",
-  },
-  STORES_SEARCH_TOP: {
-    ko: "검색 결과 · 상단 광고",
-    en: "Search results · Top banner",
-    route: "/stores search",
-  },
-  STORE_DETAIL_RECOMMENDATION_BANNER: {
-    ko: "매장 상세 · 추천 배너 (차단)",
-    en: "Store detail · Recommendation (blocked)",
-    route: "STORE DETAIL — blocked",
-  },
+  STORES_HOME_HERO: { ...catalogPair("admin_delivery_home_top_hero"), route: "/stores (HOME hero)" },
+  STORES_HOME_FEED: { ...catalogPair("admin_delivery_home_store_list_ads"), route: "/stores (HOME feed)" },
+  STORES_HOME_INLINE_1: { ...catalogPair("admin_delivery_home_inline_banner_2"), route: "/stores (before rest_stores)" },
+  STORES_CATEGORY_FEED: { ...catalogPair("admin_category_browse_store_ads"), route: "/stores browse" },
+  STORES_CATEGORY_TOP: { ...catalogPair("admin_category_browse_top_banner"), route: "/stores browse top" },
+  STORES_CATEGORY_INLINE: { ...catalogPair("admin_category_browse_inline_future"), route: "FUTURE" },
+  STORES_SEARCH_TOP: { ...catalogPair("admin_search_results_top_banner_2"), route: "/stores search" },
+  STORE_DETAIL_RECOMMENDATION_BANNER: { ...catalogPair("admin_store_detail_recommendation_blocked"), route: "STORE DETAIL — blocked" },
 };
 
 function deliveryOpsHref(key: DeliveryAdInventoryKey): string {
@@ -214,38 +183,10 @@ const FEED_PLACEMENTS: readonly {
   route: string;
   consumer: string;
 }[] = [
-  {
-    id: "TRADE_HOME",
-    screen: "TRADE_FEED",
-    ko: "거래 홈 · 피드 배너",
-    en: "Trade home · Feed banner",
-    route: "/market (trade feed)",
-    consumer: "FeedAdBannerCarousel ← GET /api/feed-ads/active",
-  },
-  {
-    id: "TRADE_CATEGORY",
-    screen: "TRADE_FEED",
-    ko: "거래 카테고리 · 피드 배너",
-    en: "Trade category · Feed banner",
-    route: "/market category",
-    consumer: "FeedAdBannerCarousel (TRADE_CATEGORY)",
-  },
-  {
-    id: "COMMUNITY_HOME",
-    screen: "COMMUNITY_FEED",
-    ko: "커뮤니티 홈 · 피드 배너",
-    en: "Community home · Feed banner",
-    route: "/philife ALL → COMMUNITY_HOME",
-    consumer: "CommunityFeed / FeedAdBannerCarousel",
-  },
-  {
-    id: "COMMUNITY_TOPIC",
-    screen: "COMMUNITY_FEED",
-    ko: "커뮤니티 토픽 · 피드 배너",
-    en: "Community topic · Feed banner",
-    route: "/philife TOPIC",
-    consumer: "CommunityFeed (topic pool)",
-  },
+  { ...catalogPair("admin_trade_home_feed_banner_2"), id: "TRADE_HOME", screen: "TRADE_FEED", route: "/market (trade feed)", consumer: "FeedAdBannerCarousel ← GET /api/feed-ads/active" },
+  { ...catalogPair("admin_trade_category_feed_banner_2"), id: "TRADE_CATEGORY", screen: "TRADE_FEED", route: "/market category", consumer: "FeedAdBannerCarousel (TRADE_CATEGORY)" },
+  { ...catalogPair("admin_community_home_feed_banner_2"), id: "COMMUNITY_HOME", screen: "COMMUNITY_FEED", route: "/philife ALL → COMMUNITY_HOME", consumer: "CommunityFeed / FeedAdBannerCarousel" },
+  { ...catalogPair("admin_community_topic_feed_banner_2"), id: "COMMUNITY_TOPIC", screen: "COMMUNITY_FEED", route: "/philife TOPIC", consumer: "CommunityFeed (topic pool)" },
 ];
 
 export function listFeedPlacementMapRows(): PlacementMapRow[] {

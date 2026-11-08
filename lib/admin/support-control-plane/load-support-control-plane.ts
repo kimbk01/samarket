@@ -28,9 +28,9 @@ function ageHours(iso: string): number | null {
 function ageLabel(hours: number | null): { ko: string; en: string } {
   if (hours == null) return catalogPair("admin_del_common_dash");
   if (hours < 1) return catalogPair("admin_text_6");
-  if (hours < 24) return { ko: `${hours}시간`, en: `${hours}h` };
+  if (hours < 24) return catalogPair("admin_hours_h", { hours });
   const days = Math.floor(hours / 24);
-  return { ko: `${days}일`, en: `${days}d` };
+  return catalogPair("admin_days_d", { days });
 }
 
 function isActionable(status: string): boolean {

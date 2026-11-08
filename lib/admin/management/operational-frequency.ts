@@ -2,34 +2,15 @@ import {
   OPERATIONAL_FREQUENCY_ORDER,
   type OperationalFrequencyClass,
 } from "./types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** Operational semantics — never claim measured usage %. */
 export const OPERATIONAL_FREQUENCY_LABEL = {
-  DAILY_CRITICAL: {
-    ko: "실시간 처리",
-    en: "Real-time operations",
-    purpose: "Repeated same-day operator actions that unblock users/stores",
-  },
-  FREQUENT: {
-    ko: "반복 관리",
-    en: "Routine management",
-    purpose: "Daily/weekly entity management lists",
-  },
-  OCCASIONAL: {
-    ko: "가끔 처리",
-    en: "Occasional handling",
-    purpose: "Infrequent but operational tasks",
-  },
-  CONFIGURATION: {
-    ko: "설정",
-    en: "Configuration",
-    purpose: "Policies and settings",
-  },
-  ARCHIVE: {
-    ko: "기록",
-    en: "Records / archive",
-    purpose: "Logs, history, deprecated compat",
-  },
+  DAILY_CRITICAL: { ...catalogPair("admin_real_time_operations"), purpose: "Repeated same-day operator actions that unblock users/stores" },
+  FREQUENT: { ...catalogPair("admin_routine_management"), purpose: "Daily/weekly entity management lists" },
+  OCCASIONAL: { ...catalogPair("admin_occasional_handling"), purpose: "Infrequent but operational tasks" },
+  CONFIGURATION: { ...catalogPair("admin_configuration"), purpose: "Policies and settings" },
+  ARCHIVE: { ...catalogPair("admin_records_archive"), purpose: "Logs, history, deprecated compat" },
 } as const satisfies Record<
   OperationalFrequencyClass,
   { ko: string; en: string; purpose: string }

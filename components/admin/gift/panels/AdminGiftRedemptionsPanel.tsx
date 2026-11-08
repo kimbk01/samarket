@@ -107,9 +107,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                   recognized: "gift_ops_red_filter_recognized",
                   reversed: "gift_ops_red_filter_reversed",
                 } as const
-              )[f.id],
-              { fallbackKo: f.ko, fallbackEn: f.en }
-            )}
+              )[f.id])}
           </Link>
         ))}
       </div>

@@ -15,6 +15,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type RuntimeHealthPayload = {
   ok?: boolean;
@@ -45,42 +46,12 @@ const SETTINGS_KEYS = [
 ] as const;
 
 const SETTING_LABELS: Record<(typeof SETTINGS_KEYS)[number], { ko: string; en: string; descKo: string; descEn: string }> = {
-  enable_pg_cron: {
-    ko: "예약 작업 실행",
-    en: "Scheduled jobs",
-    descKo: "DB 예약 작업(주기 스캔 등)을 서버에서 자동 실행합니다.",
-    descEn: "Runs periodic database jobs (scans, etc.) automatically.",
-  },
-  enable_realtime_optimization: {
-    ko: "실시간 전송 최적화",
-    en: "Realtime optimization",
-    descKo: "실시간 알림 전송량을 줄이는 최적화를 사용합니다.",
-    descEn: "Uses optimizations that reduce realtime traffic.",
-  },
-  enable_delivery_realtime_filtering: {
-    ko: "배달 실시간 필터링",
-    en: "Delivery realtime filtering",
-    descKo: "배달 화면에 필요한 변경만 실시간으로 받도록 거릅니다.",
-    descEn: "Filters realtime updates to what delivery screens need.",
-  },
-  enable_alert_runner: {
-    ko: "배달 경고 자동 생성",
-    en: "Delivery alert runner",
-    descKo: "SLA 규칙에 따라 배달 경고를 자동으로 만듭니다.",
-    descEn: "Creates delivery alerts automatically from SLA rules.",
-  },
-  enable_recovery_runner: {
-    ko: "자동 복구 실행",
-    en: "Recovery runner",
-    descKo: "멈춘 주문·알림을 주기적으로 자동 복구합니다.",
-    descEn: "Periodically recovers stuck orders and alerts.",
-  },
-  enable_auto_actions: {
-    ko: "자동 조치",
-    en: "Auto actions",
-    descKo: "표시 전용 — 어떤 실행기도 이 값을 읽지 않습니다. 실제 켜기/끄기는 「자동 조치」 화면에서 합니다.",
-    descEn: "Display only — no runner reads this value. Turn auto actions on/off on the Auto actions page.",
-  },
+  enable_pg_cron: { ...catalogPair("admin_scheduled_jobs"), descKo: "DB 예약 작업(주기 스캔 등)을 서버에서 자동 실행합니다.", descEn: "Runs periodic database jobs (scans, etc.) automatically." },
+  enable_realtime_optimization: { ...catalogPair("admin_realtime_optimization"), descKo: "실시간 알림 전송량을 줄이는 최적화를 사용합니다.", descEn: "Uses optimizations that reduce realtime traffic." },
+  enable_delivery_realtime_filtering: { ...catalogPair("admin_delivery_realtime_filtering"), descKo: "배달 화면에 필요한 변경만 실시간으로 받도록 거릅니다.", descEn: "Filters realtime updates to what delivery screens need." },
+  enable_alert_runner: { ...catalogPair("admin_delivery_alert_runner"), descKo: "SLA 규칙에 따라 배달 경고를 자동으로 만듭니다.", descEn: "Creates delivery alerts automatically from SLA rules." },
+  enable_recovery_runner: { ...catalogPair("admin_recovery_runner"), descKo: "멈춘 주문·알림을 주기적으로 자동 복구합니다.", descEn: "Periodically recovers stuck orders and alerts." },
+  enable_auto_actions: { ...catalogPair("admin_r4d_console_auto_card_title"), descKo: "표시 전용 — 어떤 실행기도 이 값을 읽지 않습니다. 실제 켜기/끄기는 「자동 조치」 화면에서 합니다.", descEn: "Display only — no runner reads this value. Turn auto actions on/off on the Auto actions page." },
 };
 
 /** 코드 형태(snake_case)만 오류 코드로 사용 — 원문 메시지는 노출하지 않는다. */

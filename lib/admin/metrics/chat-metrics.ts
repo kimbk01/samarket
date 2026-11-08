@@ -203,21 +203,9 @@ const DOMAIN_LABEL: Record<ChatDomain, { ko: string; en: string }> = {
 };
 
 const REPORT_LABEL: Record<ChatReportType, { ko: string; en: string; source: ChatMetricSource }> = {
-  messenger: {
-    ko: "채팅 신고 · 메신저",
-    en: "Chat reports · Messenger",
-    source: { kind: "queue", categories: ["messenger_actionable"] },
-  },
-  trade_chat: {
-    ko: "채팅 신고 · 거래 채팅 (레거시)",
-    en: "Chat reports · Trade chat (legacy)",
-    source: { kind: "direct", description: "chat_reports.status ∈ received|triaging|escalated" },
-  },
-  trade_report: {
-    ko: "채팅 신고 · 거래 채팅방 신고",
-    en: "Chat reports · Trade chat room",
-    source: { kind: "direct", description: "reports.target_type ∈ chat_room|chat_message, status ∈ pending|reviewing" },
-  },
+  messenger: { ...catalogPair("admin_chat_reports_messenger"), source: { kind: "queue", categories: ["messenger_actionable"] } },
+  trade_chat: { ...catalogPair("admin_chat_reports_trade_chat_legacy"), source: { kind: "direct", description: "chat_reports.status ∈ received|triaging|escalated" } },
+  trade_report: { ...catalogPair("admin_chat_reports_trade_chat_room"), source: { kind: "direct", description: "reports.target_type ∈ chat_room|chat_message, status ∈ pending|reviewing" } },
 };
 
 const PUSH_LABEL: Record<ChatPushEventGroup, { ko: string; en: string }> = {

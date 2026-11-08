@@ -17,6 +17,7 @@ import {
   isDeliveryAdCommercialPlacementKey,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,10 +35,7 @@ export async function GET() {
     ok: true,
     catalog,
     placementLabels: DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS,
-    priceChangeWarning: {
-      ko: "가격 변경은 기존 신청/구매 금액에 소급 적용되지 않습니다.",
-      en: "Price changes do not apply retroactively to existing applications or purchases.",
-    },
+    priceChangeWarning: catalogPair("api_price_changes_do_not_apply_retroactively"),
   });
 }
 

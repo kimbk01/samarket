@@ -64,54 +64,18 @@ export const ADMIN_STORE_ORDER_INTERVENTION_LABEL: Record<
   AdminStoreOrderInterventionAction,
   { ko: string; en: string; confirmKo: string; confirmEn: string; destructive: boolean }
 > = {
-  cancel_request_approve: {
-    ko: "취소 요청 승인",
-    en: "Approve cancel request",
-    confirmKo: "주문이 취소되고 재고·상품권·쿠폰이 복원됩니다. 조리 이후 취소면 수수료는 수수료 검토로 넘어갑니다.",
-    confirmEn: "The order is cancelled and stock, gift and coupons are restored. A post-cooking cancel sends the fee to commission review.",
-    destructive: true,
-  },
-  cancel_request_reject: {
-    ko: "취소 요청 반려",
-    en: "Reject cancel request",
-    confirmKo: "요청 직전 상태로 되돌립니다. 조리 단계로 돌아가면 그 시점에 수수료가 부과됩니다.",
-    confirmEn: "Restores the status before the request. Returning to a cooking status charges the commission then.",
-    destructive: false,
-  },
+  cancel_request_approve: { ...catalogPair("admin_approve_cancel_request"), confirmKo: "주문이 취소되고 재고·상품권·쿠폰이 복원됩니다. 조리 이후 취소면 수수료는 수수료 검토로 넘어갑니다.", confirmEn: "The order is cancelled and stock, gift and coupons are restored. A post-cooking cancel sends the fee to commission review.", destructive: true },
+  cancel_request_reject: { ...catalogPair("admin_reject_cancel_request"), confirmKo: "요청 직전 상태로 되돌립니다. 조리 단계로 돌아가면 그 시점에 수수료가 부과됩니다.", confirmEn: "Restores the status before the request. Returning to a cooking status charges the commission then.", destructive: false },
   /**
    * DEF-23 / C-9 — 「환불 처리 기록」: customers pay the store directly, so this only records that the
    * store refunded the customer. No platform money moves.
    */
-  refund_approve: {
-    ko: "환불 처리 기록",
-    en: "Record refund",
-    confirmKo:
-      "고객 결제는 매장에서 직접 처리, 플랫폼 자금 이동 없음. 매장이 고객에게 환불한 사실을 기록하고 주문을 환불 완료로 바꾸며 상품권·재고를 복원합니다. 수수료는 수수료 검토로 넘어갑니다.",
-    confirmEn:
-      "The customer pays the store directly — no platform money moves. This records that the store refunded the customer, marks the order refunded and restores gift/stock. The fee goes to commission review.",
-    destructive: true,
-  },
-  refund_reject: {
-    ko: "환불 반려",
-    en: "Reject refund",
-    confirmKo: "환불 요청 직전 상태(서버 기록 기준)로 되돌립니다. 플랫폼 자금 이동은 없습니다.",
-    confirmEn: "Restores the status recorded before the refund request. No money moves.",
-    destructive: false,
-  },
-  force_cancel: {
-    ko: "강제 취소",
-    en: "Force cancel",
-    confirmKo: "매장 결정 없이 주문을 취소합니다. 예외 상황에서만 사용하세요.",
-    confirmEn: "Cancels the order without the store's decision. Exceptions only.",
-    destructive: true,
-  },
-  refund_request_create: {
-    ko: "환불 요청 생성",
-    en: "Open refund request",
-    confirmKo: "주문을 환불 요청 상태로 바꿉니다. 승인·반려는 별도로 결정합니다.",
-    confirmEn: "Moves the order to refund requested. Approval is a separate decision.",
-    destructive: false,
-  },
+  refund_approve: { ...catalogPair("admin_do_refund_modal_approve_title"), confirmKo:
+      "고객 결제는 매장에서 직접 처리, 플랫폼 자금 이동 없음. 매장이 고객에게 환불한 사실을 기록하고 주문을 환불 완료로 바꾸며 상품권·재고를 복원합니다. 수수료는 수수료 검토로 넘어갑니다.", confirmEn:
+      "The customer pays the store directly — no platform money moves. This records that the store refunded the customer, marks the order refunded and restores gift/stock. The fee goes to commission review.", destructive: true },
+  refund_reject: { ...catalogPair("admin_store_order_intervention_refund_reject"), confirmKo: "환불 요청 직전 상태(서버 기록 기준)로 되돌립니다. 플랫폼 자금 이동은 없습니다.", confirmEn: "Restores the status recorded before the refund request. No money moves.", destructive: false },
+  force_cancel: { ...catalogPair("admin_store_order_intervention_force_cancel"), confirmKo: "매장 결정 없이 주문을 취소합니다. 예외 상황에서만 사용하세요.", confirmEn: "Cancels the order without the store's decision. Exceptions only.", destructive: true },
+  refund_request_create: { ...catalogPair("admin_open_refund_request"), confirmKo: "주문을 환불 요청 상태로 바꿉니다. 승인·반려는 별도로 결정합니다.", confirmEn: "Moves the order to refund requested. Approval is a separate decision.", destructive: false },
 };
 
 export const ADMIN_STORE_ORDER_INTERVENTION_ERROR: Record<string, { ko: string; en: string }> = {

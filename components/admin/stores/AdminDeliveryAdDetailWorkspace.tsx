@@ -662,10 +662,7 @@ export function AdminDeliveryAdDetailWorkspace({
         `${ko ? "귀책" : "Responsibility"}: ${deliveryAdEndFaultLabel(endFault, ko)}`,
         `${ko ? "환급 예정 비즈니스 캐시" : "Business Cash refund"}: ${formatAdminDeliveryAdPriceOrUnset(endPreview.refundAmount, lang)}`,
       ].join("\n"),
-      confirmLabel: safeT("admin_delivery_ads_action_end" as MessageKey, {
-        fallbackKo: "종료",
-        fallbackEn: "End",
-      }),
+      confirmLabel: safeT("admin_delivery_ads_action_end" as MessageKey),
       destructive: true,
       splitReason: deliveryOpsSplitsReason("end"),
     });

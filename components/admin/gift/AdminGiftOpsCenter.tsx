@@ -191,12 +191,7 @@ export function AdminGiftOpsCenter() {
                       "store-cash": "gift_ops_finance_store_cash",
                       recovery: "gift_ops_finance_recovery",
                     } as const
-                  )[s.id],
-                  {
-                    fallbackKo: s.ko,
-                    fallbackEn: s.en,
-                  }
-                )}
+                  )[s.id])}
               </Link>
             ))}
           </div>

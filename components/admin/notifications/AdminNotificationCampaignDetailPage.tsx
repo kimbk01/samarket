@@ -936,8 +936,7 @@ export function AdminNotificationCampaignDetailPage() {
                     {failures.byReason.map((b) => (
                       <li key={b.reason} className="rounded-ui-rect bg-sam-app px-3 py-2">
                         <p className="font-medium text-sam-fg">
-                          {pushFailureReasonLabel(b.reason, lang)} · {b.count}
-                          {lang === "en" ? "" : "건"}
+                          {pushFailureReasonLabel(b.reason, lang)} · {translateBy(lang, "admin_count_items", { n: b.count })}
                         </p>
                         <p className="text-xs text-sam-muted">{pushFailureReasonHelp(b.reason, lang)}</p>
                       </li>

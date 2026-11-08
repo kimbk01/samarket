@@ -181,9 +181,9 @@ export function AdminPlatformPopupListPage() {
       .filter(Boolean) as string[];
     const msg =
       ids.length === 1
-        ? lang === "en"
-          ? `Delete '${titles[0] || "this draft popup"}'? This cannot be undone.`
-          : `'${titles[0] || "팝업 캠페인"}'을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`
+        ? translateBy(lang, "admin_popup_delete_one_confirm", {
+            title: titles[0] || translateBy(lang, "admin_popup_delete_one_default_title"),
+          })
         : translateBy(lang, "admin_delete_length_selected_popup_campaigns_this", { length: ids.length });
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(ids.length > 1 ? "bulk" : "delete"),

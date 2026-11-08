@@ -194,13 +194,14 @@ export function AdminDeliveryAdPartnerMembershipsView() {
   };
 
   const filters = [
-    ["open", "open", "진행 중", "In progress"],
-    ["PENDING_REVIEW", "pending", "가입 대기", "Pending"],
-    ["ACTIVE", "active", "이용 중", "Active"],
-    ["CANCEL_PENDING", "cancel", "해지 예정", "Cancel pending"],
-    ["REJECTED", "rejected", "반려", "Rejected"],
-    ["ENDED", "ended", "종료", "Ended"],
-    ["all", "all", "전체", "All"],
+    /** 문구는 카탈로그 admin_delivery_ads_partner_filter_{key} (언어 SSOT S6 — 코드 안 사본 삭제) */
+    ["open", "open"],
+    ["PENDING_REVIEW", "pending"],
+    ["ACTIVE", "active"],
+    ["CANCEL_PENDING", "cancel"],
+    ["REJECTED", "rejected"],
+    ["ENDED", "ended"],
+    ["all", "all"],
   ] as const;
 
   return (
@@ -272,7 +273,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
           }
           data-admin-partner-filters="1"
         >
-          {filters.map(([value, key, ko, en]) => {
+          {filters.map(([value, key]) => {
             const selected = filter === value;
             return (
               <AdminChipButton selected={selected}
@@ -281,10 +282,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                 data-partner-filter={key}
                 data-selected={selected ? "1" : "0"}
               >
-                {safeT(`admin_delivery_ads_partner_filter_${key}` as "admin_delivery_ads_partner_filter_open", {
-                  fallbackKo: ko,
-                  fallbackEn: en,
-                })}
+                {safeT(`admin_delivery_ads_partner_filter_${key}` as "admin_delivery_ads_partner_filter_open")}
               </AdminChipButton>
             );
           })}
