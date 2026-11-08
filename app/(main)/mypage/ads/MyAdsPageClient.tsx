@@ -861,8 +861,7 @@ export default function MyAdsPageClient() {
                   <CurrencyAmount currency="point" amount={p.pointCost} compactPoint className="font-semibold" />
                 </div>
                 <p className={OverlayUi.caption}>
-                  {p.durationDays}
-                  {en ? " days" : "일"}
+                  {t("mypage_ads_days", { n: p.durationDays })}
                 </p>
               </button>
             ))}
@@ -889,7 +888,7 @@ export default function MyAdsPageClient() {
               loading={renewBusy}
               onClick={() => void submitRenew()}
             >
-              {renewBusy ? t("common_loading") : en ? "Pay & renew" : "결제하고 연장"}
+              {renewBusy ? t("common_loading") : t("mypage_ads_pay_and_renew")}
             </DibayOverlayButton>
           </div>
         </div>

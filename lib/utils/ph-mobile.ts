@@ -4,7 +4,7 @@
  * 국제 표기 `+63 956 188 6313` (3·3·4) — `formatPhMobileDisplayPlus63`.
  */
 
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 
 /** DB·검증용: 반드시 09로 시작하는 11자리 숫자만 허용 */
@@ -16,7 +16,7 @@ export const PH_LOCAL_MOBILE_LENGTH = 11;
 export const PH_LOCAL_MOBILE_RULE_MESSAGE_KO =
   "휴대전화는 09로 시작하는 11자리만 입력할 수 있습니다. 형식: 09## ### #### (+63으로 붙여넣기 가능).";
 
-export function getPhLocalMobileRuleMessage(language: AppLanguageCode = DEFAULT_APP_LANGUAGE): string {
+export function getPhLocalMobileRuleMessage(language: AppLanguageCode): string {
   return translate(language, "phone_rule");
 }
 

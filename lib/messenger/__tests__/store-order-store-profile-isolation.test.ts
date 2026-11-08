@@ -50,7 +50,7 @@ describe("store order customer store profile isolation", () => {
     expect(listed.ok).toBe(true);
     if (!listed.ok) return;
     const row = listed.snapshot.rows[0]!;
-    const header = buildStoreOrderCustomerHeaderModel(row);
+    const header = buildStoreOrderCustomerHeaderModel(row, "ko");
     expect(header.kind).toBe("buyer_store");
     if (header.kind !== "buyer_store") return;
     expect(header.storeName).toBe("MARKET MARKET");
@@ -87,7 +87,7 @@ describe("store order customer store profile isolation", () => {
     });
     expect(listed.ok).toBe(true);
     if (!listed.ok) return;
-    const header = buildStoreOrderCustomerHeaderModel(listed.snapshot.rows[0]!);
+    const header = buildStoreOrderCustomerHeaderModel(listed.snapshot.rows[0]!, "ko");
     expect(header.kind).toBe("buyer_store");
     if (header.kind !== "buyer_store") return;
     expect(header.storeName).toBe("MARKET MARKET");

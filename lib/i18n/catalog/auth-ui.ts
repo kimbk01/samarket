@@ -290,7 +290,7 @@ export const authUiMessages = {
     auth_onboarding_next: "다음",
     auth_onboarding_address_title: "대표 주소 등록",
     auth_onboarding_address_desc:
-      "필리핀 내 거래·동네·배달을 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해 주세요. 동네 글쓰기·거래 글쓰기·커뮤니티 메신저 채팅을 하시려면 주소 등록 후 마이페이지에서 전화번호 인증까지 완료해 주세요.",
+      "필리핀 내 거래·동네·배달을 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해 주세요. 동네 글쓰기·거래 글쓰기·커뮤니티 메신저 채팅을 하시려면 주소 등록 후 내정보에서 전화번호 인증까지 완료해 주세요.",
     auth_onboarding_address_done: "주소 설정이 완료되었습니다. 바로 이동합니다…",
     auth_session_expired_notice: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
     auth_login_required_notice: "로그인이 필요한 화면입니다. 로그인해 주세요.",

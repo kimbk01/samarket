@@ -79,8 +79,8 @@ describe("store-order preview summary marker — row-level redact", () => {
       latestChatMessageText: "네 알겠습니다",
       latestChatMessageAt: "2026-07-22T02:00:00.000Z",
     });
-    const vmSummary = buildStoreOrderCustomerListViewModel(summary);
-    const vmNormal = buildStoreOrderCustomerListViewModel(normal);
+    const vmSummary = buildStoreOrderCustomerListViewModel(summary, "ko");
+    const vmNormal = buildStoreOrderCustomerListViewModel(normal, "ko");
     expect(vmSummary.previewText).toBe(STORE_ORDER_SUMMARY_REDACTED_PREVIEW);
     expect(vmNormal.previewText).toBe("네 알겠습니다");
     const hub = buildStoreOrderHubViewModel([summary, normal]);

@@ -26,10 +26,6 @@ import type {
   StorePlatformPayableSummary,
 } from "@/lib/stores/commission/load-store-commission-ledger";
 import { buildStoreCommissionLedgerSearch, formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
-import {
-  COIN_TO_CASH_LABEL_KO,
-  COIN_WITHDRAWAL_LABEL_KO,
-} from "@/lib/finance/product-decision-lock";
 import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
 import { financeRelatedTypeLabel, financeTypeLabelOrNull, formatFinanceAmount } from "@/lib/finance/presentation";
 import {
@@ -93,14 +89,14 @@ function ledgerReference(
   const txNo = financeTxNo(wallet, row.id);
   if (txNo) parts.push(txNo);
   if (row.orderNo) {
-    parts.push(`${ko ? "주문" : "Order"} ${row.orderNo}`);
+    parts.push(`${t("owner_finance_view_order")} ${row.orderNo}`);
   } else if (row.appleTxTail) {
     parts.push(`${financeLabelText(financePaymentMethodDisplay("apple_iap")!, ko)} ${row.appleTxTail}`);
   } else if (row.entryKind === "ADMIN_ADJUST") {
     parts.push(financeLabelText(FINANCE_PUBLIC_PROCESSOR, ko));
-    if (row.publicReason) parts.push(`${ko ? "사유" : "Reason"}: ${row.publicReason}`);
+    if (row.publicReason) parts.push(`${t("owner_finance_view_reason")}: ${row.publicReason}`);
   } else if (row.adApplicationId) {
-    parts.push(`${ko ? "광고 신청" : "Ad request"} ${financeRefNo(row.adApplicationId)}`);
+    parts.push(`${t("owner_finance_view_ad_request")} ${financeRefNo(row.adApplicationId)}`);
   } else {
     const type = String(row.relatedType ?? "").trim();
     const id = String(row.relatedId ?? "").trim();
@@ -346,12 +342,12 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             </p>
           ) : (
             <p className="text-sm font-semibold text-sam-danger" role="alert" data-owner-outstanding-total="unavailable">
-              {ko ? "합계를 불러오지 못했습니다" : "Couldn't load the total"}
+              {t("owner_finance_view_total_load_failed")}
             </p>
           )}
           {obligationListError ? (
             <p className="text-sm text-sam-danger" role="alert">
-              {ko ? "미납 목록을 불러오지 못했습니다." : "Could not load the outstanding list."}
+              {t("owner_finance_view_outstanding_load_failed")}
             </p>
           ) : obligationRows.length === 0 ? (
             <p className="text-sm text-sam-muted">{t("owner_copy_finance_no_outstanding_fees")}</p>
@@ -373,7 +369,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
                     / {formatFinanceAmount({ wallet: "CASH", amount: r.feeDueMinor, isMinor: true })}
                   </p>
                   <p className="mt-0.5 sam-text-xxs tabular-nums text-sam-muted">
-                    {ko ? "부과" : "Charged"} {formatManilaDateTime(r.createdAt)} PHT
+                    {t("owner_finance_view_charged")} {formatManilaDateTime(r.createdAt)} PHT
                   </p>
                 </li>
               ))}
@@ -395,10 +391,10 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           <CurrencyBalanceCard currency="coin" amount={coinBalance} />
           <div className="flex flex-wrap gap-2">
             <Link href={convertHref} className={OwnerCta.primary} data-owner-finance-cta="convert">
-              {ko ? COIN_TO_CASH_LABEL_KO : "Convert Coin to Cash"}
+              {t("owner_finance_view_convert_coin_to_cash")}
             </Link>
             <Link href={withdrawHref} className={OwnerCta.secondary} data-owner-finance-cta="withdraw">
-              {ko ? COIN_WITHDRAWAL_LABEL_KO : "Request Coin withdrawal"}
+              {t("owner_finance_view_request_coin_withdrawal")}
             </Link>
           </div>
           <div id="coin-history">

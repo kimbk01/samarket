@@ -3,6 +3,7 @@
 import { Filter, Search } from "lucide-react";
 import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
@@ -72,7 +73,8 @@ function OwnerOrdersDateChips({
   onChange: (next: { from: string; to: string } | null) => void;
   language: string;
 }) {
-  const ko = language === "ko";
+  /** 원래 `language === "ko"` — 한국어가 아니면 영어 */
+  const L = (key: Parameters<typeof translateBy>[1]) => translateBy(language, key, undefined, "en");
   const today = manilaDayString(0);
   const yesterday = manilaDayString(1);
   const isToday = dateFilter?.from === today && dateFilter?.to === today;
@@ -89,30 +91,30 @@ function OwnerOrdersDateChips({
     <div className="mt-2 space-y-1.5" data-owner-orders-date-chips="1">
       <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
         <button type="button" className={chip(dateFilter == null && !customOpen)} onClick={() => { setCustomOpen(false); onChange(null); }}>
-          {ko ? "최근" : "Recent"}
+          {L("owner_orders_date_recent")}
         </button>
         <button type="button" className={chip(isToday && !customOpen)} onClick={() => { setCustomOpen(false); onChange({ from: today, to: today }); }}>
-          {ko ? "오늘" : "Today"}
+          {L("owner_orders_date_today")}
         </button>
         <button type="button" className={chip(isYesterday && !customOpen)} onClick={() => { setCustomOpen(false); onChange({ from: yesterday, to: yesterday }); }}>
-          {ko ? "어제" : "Yesterday"}
+          {L("owner_orders_date_yesterday")}
         </button>
         <button type="button" className={chip(customOpen || isCustom)} onClick={() => setCustomOpen(true)}>
-          {ko ? "기간 지정" : "Custom"}
+          {L("owner_orders_date_custom")}
         </button>
       </div>
       {customOpen ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          <input type="date" value={draftFrom} max={today} onChange={(e) => setDraftFrom(e.target.value)} aria-label={ko ? "시작일" : "From"} className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[12px]" />
+          <input type="date" value={draftFrom} max={today} onChange={(e) => setDraftFrom(e.target.value)} aria-label={L("owner_orders_date_from")} className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[12px]" />
           <span className="text-[12px] text-sam-muted">~</span>
-          <input type="date" value={draftTo} max={today} onChange={(e) => setDraftTo(e.target.value)} aria-label={ko ? "종료일" : "To"} className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[12px]" />
+          <input type="date" value={draftTo} max={today} onChange={(e) => setDraftTo(e.target.value)} aria-label={L("owner_orders_date_to")} className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[12px]" />
           <button
             type="button"
             className={chip(true)}
             disabled={!draftFrom || !draftTo || draftFrom > draftTo}
             onClick={() => onChange({ from: draftFrom, to: draftTo })}
           >
-            {ko ? "적용" : "Apply"}
+            {L("owner_orders_date_apply")}
           </button>
         </div>
       ) : null}
@@ -121,8 +123,8 @@ function OwnerOrdersDateChips({
           {dateFilter.from === dateFilter.to ? dateFilter.from : `${dateFilter.from} ~ ${dateFilter.to}`}
           {" · "}
           {dateFilter.basis === "completed"
-            ? ko ? "완료 시각 기준 (PHT)" : "By completion time (PHT)"
-            : ko ? "들어온 시각 기준 (PHT)" : "By order time (PHT)"}
+            ? L("owner_orders_date_basis_completed")
+            : L("owner_orders_date_basis_created")}
         </p>
       ) : null}
     </div>

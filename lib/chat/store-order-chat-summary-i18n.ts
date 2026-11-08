@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
@@ -11,7 +10,7 @@ function ocT(lang: AppLanguageCode, key: MessageKey, vars?: Record<string, strin
 
 export function fulfillmentLabel(
   ft: string | null | undefined,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   const s = String(ft ?? "").trim();
   if (s === "local_delivery" || s === "shipping") {
@@ -22,7 +21,7 @@ export function fulfillmentLabel(
 
 export function buildStoreOrderSummaryBodyI18n(
   input: StoreOrderSummaryInput,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   const parts: string[] = [];
   parts.push(ocT(lang, "store_oc_summary_received"));

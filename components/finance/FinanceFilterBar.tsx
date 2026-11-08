@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   financeFiltersToSearchParams,
   parseFinanceFilters,
@@ -19,6 +20,7 @@ export function FinanceFilterBar({
   basePath: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const sp = useSearchParams();
   const initial = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
   const [draft, setDraft] = useState<FinanceFilterState>(initial);
@@ -43,7 +45,7 @@ export function FinanceFilterBar({
       data-finance-filter-bar="1"
     >
       <label className="sam-text-helper">
-        <span className="text-sam-muted">{ko ? "자산" : "Wallet"}</span>
+        <span className="text-sam-muted">{t("finance_wallet")}</span>
         <select
           className="mt-1 block rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
           value={draft.wallet ?? ""}
@@ -54,20 +56,20 @@ export function FinanceFilterBar({
             }))
           }
         >
-          <option value="">{ko ? "전체" : "All"}</option>
+          <option value="">{t("common_all")}</option>
           <option value="POINT">Point</option>
           <option value="COIN">Coin</option>
           <option value="CASH">Cash</option>
         </select>
       </label>
       <label className="sam-text-helper">
-        <span className="text-sam-muted">{ko ? "유형" : "Type"}</span>
+        <span className="text-sam-muted">{t("finance_filter_type")}</span>
         <select
           className="mt-1 block max-w-[14rem] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
           value={draft.type ?? ""}
           onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value || null }))}
         >
-          <option value="">{ko ? "전체" : "All"}</option>
+          <option value="">{t("common_all")}</option>
           {typeOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -76,7 +78,7 @@ export function FinanceFilterBar({
         </select>
       </label>
       <label className="sam-text-helper">
-        <span className="text-sam-muted">{ko ? "매장 ID" : "Store ID"}</span>
+        <span className="text-sam-muted">{t("finance_store_id")}</span>
         <input
           className="mt-1 block min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
           value={draft.storeId ?? ""}
@@ -84,7 +86,7 @@ export function FinanceFilterBar({
         />
       </label>
       <label className="sam-text-helper">
-        <span className="text-sam-muted">{ko ? "주문 ID" : "Order ID"}</span>
+        <span className="text-sam-muted">{t("finance_order_id")}</span>
         <input
           className="mt-1 block min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
           value={draft.orderId ?? ""}
@@ -92,7 +94,7 @@ export function FinanceFilterBar({
         />
       </label>
       <label className="sam-text-helper">
-        <span className="text-sam-muted">{ko ? "시작일" : "From"}</span>
+        <span className="text-sam-muted">{t("finance_from_date")}</span>
         <input
           type="date"
           className="mt-1 block rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
@@ -101,7 +103,7 @@ export function FinanceFilterBar({
         />
       </label>
       <label className="sam-text-helper">
-        <span className="text-sam-muted">{ko ? "종료일" : "To"}</span>
+        <span className="text-sam-muted">{t("finance_to_date")}</span>
         <input
           type="date"
           className="mt-1 block rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"

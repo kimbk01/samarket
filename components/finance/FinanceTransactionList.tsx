@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -45,6 +46,7 @@ export function FinanceTransactionList({
   emptyFiltered?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
 
   if (loading) {
     return (
@@ -70,9 +72,7 @@ export function FinanceTransactionList({
           message={
             emptyFiltered
               ? undefined
-              : ko
-                ? "거래가 없습니다."
-                : "No transactions."
+              : t("finance_no_transactions")
           }
           onReset={emptyFiltered ? () => router.push("/admin/finance/transactions") : undefined}
         />
@@ -89,14 +89,14 @@ export function FinanceTransactionList({
         <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
-              <th className="px-3 py-2">{ko ? "일시 (PHT)" : "When (PHT)"}</th>
-              <th className="px-3 py-2">{ko ? "구분" : "Type"}</th>
-              <th className="px-3 py-2">{ko ? "매장/회원" : "Store/Member"}</th>
-              <th className="px-3 py-2">{ko ? "연결 대상" : "Linked to"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "유입" : "In"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "유출" : "Out"}</th>
-              <th className="px-3 py-2">{ko ? "자산" : "Wallet"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "잔액" : "Balance"}</th>
+              <th className="px-3 py-2">{t("finance_when_pht")}</th>
+              <th className="px-3 py-2">{t("finance_type_col")}</th>
+              <th className="px-3 py-2">{t("finance_store_member")}</th>
+              <th className="px-3 py-2">{t("finance_linked_to")}</th>
+              <th className="px-3 py-2 text-right">{t("finance_in")}</th>
+              <th className="px-3 py-2 text-right">{t("finance_out")}</th>
+              <th className="px-3 py-2">{t("finance_wallet")}</th>
+              <th className="px-3 py-2 text-right">{t("finance_balance")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sam-border-soft">

@@ -53,7 +53,7 @@ function chat(id: string, roomId: string, at: string): Row {
 
 describe("F-2 comment notifications group by post", () => {
   it("1 comment → 1 card, no group count", () => {
-    const items = buildInboxGroupItems([comment("a", "P1", "2026-11-01T00:13:51Z")]);
+    const items = buildInboxGroupItems([comment("a", "P1", "2026-11-01T00:13:51Z")], "ko");
     expect(items).toHaveLength(1);
     expect(items[0]!.ids).toEqual(["a"]);
   });
@@ -63,7 +63,7 @@ describe("F-2 comment notifications group by post", () => {
       comment("c", "P1", "2026-11-01T00:15:51Z"),
       comment("b", "P1", "2026-11-01T00:15:38Z"),
       comment("a", "P1", "2026-11-01T00:15:25Z"),
-    ]);
+    ], "ko");
     expect(items).toHaveLength(1);
     expect(items[0]!.ids).toEqual(["c", "b", "a"]);
     expect(items[0]!.unreadCount).toBe(3);
@@ -78,7 +78,7 @@ describe("F-2 comment notifications group by post", () => {
       comment("c", "P1", "2026-11-01T00:15:51Z"),
       comment("b", "P1", "2026-11-01T00:14:03Z", true),
       comment("a", "P1", "2026-10-28T12:14:02Z", true),
-    ]);
+    ], "ko");
     expect(items).toHaveLength(1);
     expect(items[0]!.ids).toHaveLength(3);
     expect(items[0]!.unreadCount).toBe(1);
@@ -89,7 +89,7 @@ describe("F-2 comment notifications group by post", () => {
       comment("old", "P1", "2026-11-01T00:10:00Z"),
       chat("m1", "R1", "2026-11-01T00:12:00Z"),
       comment("new", "P1", "2026-11-01T00:14:00Z"),
-    ]);
+    ], "ko");
     expect(items.map((i) => i.ids)).toEqual([["new", "old"], ["m1"]]);
   });
 
@@ -105,12 +105,12 @@ describe("F-2 comment notifications group by post", () => {
     expect(keys[1]).toBe("post:P2");
     expect(keys[2]).toBe("one:l");
     expect(keys[3]).toBe("cm:R1");
-    expect(buildInboxGroupItems(rows)).toHaveLength(4);
+    expect(buildInboxGroupItems(rows, "ko")).toHaveLength(4);
   });
 
   it("legacy stored comment rows (2026-09 「새 댓글」 shape) group the same way", () => {
     const legacy = { ...comment("s", "P1", "2026-09-24T15:46:29Z", true, "CD-C1"), title: "새 댓글" } as Row;
-    const items = buildInboxGroupItems([comment("n", "P1", "2026-11-01T00:15:00Z"), legacy]);
+    const items = buildInboxGroupItems([comment("n", "P1", "2026-11-01T00:15:00Z"), legacy], "ko");
     expect(items).toHaveLength(1);
     expect(items[0]!.ids).toEqual(["n", "s"]);
   });

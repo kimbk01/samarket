@@ -515,7 +515,7 @@ export const storeCommerceUiMessages = {
 
     store_delivery_address_loading: "배달 주소 정보를 불러오는 중입니다…",
 
-    store_delivery_address_1_aria: "배달주소 1 (마이페이지) 선택",
+    store_delivery_address_1_aria: "배달주소 1 (내정보) 선택",
 
     store_delivery_address_1: "배달주소 1",
 
@@ -1116,14 +1116,14 @@ export const storeCommerceUiMessages = {
     store_label_store_info: "매장 정보",
     store_label_delivery_address: "배송지",
     store_cart_login_for_saved_address:
-      "로그인하면 마이페이지에 저장한 배달 주소를 여기서 선택할 수 있습니다.",
+      "로그인하면 내정보에 저장한 배달 주소를 여기서 선택할 수 있습니다.",
     store_cart_legacy_address_notice:
       "예전 장바구니에만 있던 배송지 {count}건은 저장되지 않습니다.",
     store_address_manage_link: "주소 관리",
     store_cart_legacy_address_suffix: "에서 Google 검색 주소를 저장한 뒤 다시 선택해 주세요.",
     store_cart_profile_default_delivery: "내정보 · 주소 관리 기본 배달",
     store_cart_no_saved_delivery_address:
-      "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요.",
+      "내정보에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요.",
     store_cart_address_check_before_order: "주문 전 지역·주소 한 줄이 3자 이상인지 확인해 주세요.",
     store_cart_saved_address_aria: "{label}, 저장 주소 {index} 선택",
     store_cart_profile_address_manage: "내정보 · 주소 관리",
@@ -1132,7 +1132,7 @@ export const storeCommerceUiMessages = {
     store_cart_verify_delivery_address:
       "선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {streetLabel}이 필요합니다.",
     store_cart_address_too_short:
-      "마이페이지 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나",
+      "내정보 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나",
     store_cart_address_add_suffix: "에서 저장 주소를 추가해 주세요.",
     store_cart_eta_ref: "예상 도착(참고): {label}",
     store_cart_eta_manual_hint: "매장 설정에서 수기 배달 시간을 입력하면 여기에 표시됩니다.",
@@ -1158,11 +1158,11 @@ export const storeCommerceUiMessages = {
     store_err_region_only_address:
       "주소: 지역만 고른 배달주소는 주문할 수 없습니다. 해당 항목을 삭제한 뒤 배송지 추가에서 동네까지 선택해 주세요.",
     store_err_select_delivery_address:
-      "배달: 마이페이지 주소를 확인하거나 배송지 추가 후, 라디오로 배달 주소를 선택해 주세요.",
+      "배달: 내정보 주소를 확인하거나 배송지 추가 후, 라디오로 배달 주소를 선택해 주세요.",
     store_err_saved_address_required:
       "배달: 저장된 주소를 선택해 주세요. 주소 관리를 통해 검색 주소를 저장한 뒤 주문할 수 있습니다.",
     store_err_delivery_address_incomplete:
-      "배달: 선택한 배달주소에 지역·동네 또는 {streetLabel}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 마이페이지에서 주소를 저장해 주세요.",
+      "배달: 선택한 배달주소에 지역·동네 또는 {streetLabel}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 내정보에서 주소를 저장해 주세요.",
     store_checkout_phone_partial: "{phone} (입력 미완성)",
     store_checkout_not_entered: "(미입력)",
     store_err_payment_method:

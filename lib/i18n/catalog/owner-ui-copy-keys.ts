@@ -86,7 +86,7 @@ export const ownerUiCopyKeysMessages = {
   en: {
     owner_copy_finance_coin_ledger_sale_earn: "Sale earning",
     owner_copy_finance_coin_ledger_reversal: "Reversal",
-    owner_copy_finance_coin_ledger_gift_redemption_earn: "Gift redemption earning",
+    owner_copy_finance_coin_ledger_gift_redemption_earn: "Gift certificate redemption earning",
     owner_copy_finance_coin_ledger_convert_to_cash: "Cash conversion",
     owner_copy_finance_coin_ledger_withdrawal_request: "Coin withdrawal request (held)",
     owner_copy_finance_coin_ledger_withdrawal_release: "Coin withdrawal rejected (returned)",

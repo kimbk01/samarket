@@ -35,32 +35,32 @@ import {
 
 describe("PRD-15 validateOwnerProductFields — boundaries", () => {
   it("accepts values at the limit and rejects one above", () => {
-    expect(validateOwnerProductFields({ title: "a".repeat(OWNER_PRODUCT_TITLE_MAX) }).ok).toBe(true);
-    const t = validateOwnerProductFields({ title: "a".repeat(OWNER_PRODUCT_TITLE_MAX + 1) });
+    expect(validateOwnerProductFields({ title: "a".repeat(OWNER_PRODUCT_TITLE_MAX) }, "ko").ok).toBe(true);
+    const t = validateOwnerProductFields({ title: "a".repeat(OWNER_PRODUCT_TITLE_MAX + 1) }, "ko");
     expect(t).toMatchObject({ ok: false, error: "title_too_long" });
-    expect(validateOwnerProductFields({ summary: "s".repeat(OWNER_PRODUCT_SUMMARY_MAX) }).ok).toBe(true);
-    expect(validateOwnerProductFields({ summary: "s".repeat(OWNER_PRODUCT_SUMMARY_MAX + 1) })).toMatchObject({
+    expect(validateOwnerProductFields({ summary: "s".repeat(OWNER_PRODUCT_SUMMARY_MAX) }, "ko").ok).toBe(true);
+    expect(validateOwnerProductFields({ summary: "s".repeat(OWNER_PRODUCT_SUMMARY_MAX + 1) }, "ko")).toMatchObject({
       ok: false,
       error: "summary_too_long",
     });
-    expect(validateOwnerProductFields({ price: OWNER_PRODUCT_PRICE_MAX }).ok).toBe(true);
-    expect(validateOwnerProductFields({ price: OWNER_PRODUCT_PRICE_MAX + 1 })).toMatchObject({
+    expect(validateOwnerProductFields({ price: OWNER_PRODUCT_PRICE_MAX }, "ko").ok).toBe(true);
+    expect(validateOwnerProductFields({ price: OWNER_PRODUCT_PRICE_MAX + 1 }, "ko")).toMatchObject({
       ok: false,
       error: "price_too_large",
     });
-    expect(validateOwnerProductFields({ stock_qty: OWNER_PRODUCT_STOCK_MAX }).ok).toBe(true);
-    expect(validateOwnerProductFields({ stock_qty: OWNER_PRODUCT_STOCK_MAX + 1 })).toMatchObject({
+    expect(validateOwnerProductFields({ stock_qty: OWNER_PRODUCT_STOCK_MAX }, "ko").ok).toBe(true);
+    expect(validateOwnerProductFields({ stock_qty: OWNER_PRODUCT_STOCK_MAX + 1 }, "ko")).toMatchObject({
       ok: false,
       error: "stock_too_large",
     });
   });
 
   it("undefined fields are not checked (unchanged fields pass — preservation)", () => {
-    expect(validateOwnerProductFields({}).ok).toBe(true);
+    expect(validateOwnerProductFields({}, "ko").ok).toBe(true);
   });
 
   it("title limit counts trimmed length and the message carries the limit", () => {
-    expect(validateOwnerProductFields({ title: `  ${"a".repeat(120)}  ` }).ok).toBe(true);
+    expect(validateOwnerProductFields({ title: `  ${"a".repeat(120)}  ` }, "ko").ok).toBe(true);
     const r = validateOwnerProductFields({ title: "a".repeat(121) }, "ko");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toContain("120");
@@ -124,7 +124,7 @@ describe("PRD-14 option groups — duplicate names / ids, PRD-15 price delta cap
           { id: "b", name: "l", priceDelta: 10 },
         ],
       },
-    ]);
+    ], "ko");
     expect(dupName).toMatchObject({ ok: false, error: "duplicate_option_name" });
     const base = {
       nameKo: "Size",
@@ -134,12 +134,12 @@ describe("PRD-14 option groups — duplicate names / ids, PRD-15 price delta cap
       maxSelect: 1,
       options: [{ id: "a", name: "L", priceDelta: 0 }],
     };
-    expect(validateOwnerOptionsJsonPayload([{ ...base, id: "g1" }, { ...base, id: "g1" }])).toMatchObject({
+    expect(validateOwnerOptionsJsonPayload([{ ...base, id: "g1" }, { ...base, id: "g1" }], "ko")).toMatchObject({
       ok: false,
       error: "duplicate_option_group_id",
     });
     // legacy groups without ids fall back to index keys — not a duplicate
-    expect(validateOwnerOptionsJsonPayload([{ ...base }, { ...base }]).ok).toBe(true);
+    expect(validateOwnerOptionsJsonPayload([{ ...base }, { ...base }], "ko").ok).toBe(true);
   });
 
   it("price delta cap", () => {

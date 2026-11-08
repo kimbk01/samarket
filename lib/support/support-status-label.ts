@@ -9,6 +9,7 @@
  *   RESOLVED | ARCHIVED      → 상담 종료
  */
 import type { SupportCaseStatus } from "@/lib/support/support-case-types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type SupportCaseStatusLabelKey =
   | "support_status_active"
@@ -40,38 +41,35 @@ export function supportCaseStatusLabelMeta(status: SupportCaseStatus | null): {
 export function supportAdminStatusLabel(status: string | null | undefined, ko: boolean): string {
   switch (String(status ?? "").trim()) {
     case "OPEN":
-      return ko ? "접수" : "Open";
+      return translateBy(ko ? "ko" : "en", "support_admin_status_open");
     case "WAITING_ADMIN":
-      return ko ? "답변 대기" : "Waiting admin";
+      return translateBy(ko ? "ko" : "en", "support_admin_status_waiting_admin");
     case "WAITING_USER":
-      return ko ? "사용자 답변 대기" : "Waiting user";
+      return translateBy(ko ? "ko" : "en", "support_admin_status_waiting_user");
     case "RESOLVED":
-      return ko ? "종료" : "Resolved";
+      return translateBy(ko ? "ko" : "en", "support_admin_status_resolved");
     case "ARCHIVED":
-      return ko ? "보관" : "Archived";
+      return translateBy(ko ? "ko" : "en", "support_admin_status_archived");
     default:
-      return ko ? "확인 필요" : "Unknown";
+      return translateBy(ko ? "ko" : "en", "support_status_unknown");
   }
 }
 
 export function supportAudienceLabel(audience: string | null | undefined, ko: boolean): string {
-  return String(audience ?? "").trim().toUpperCase() === "OWNER"
-    ? ko
-      ? "사장님"
-      : "Owner"
-    : ko
-      ? "회원"
-      : "Member";
+  return translateBy(
+    ko ? "ko" : "en",
+    String(audience ?? "").trim().toUpperCase() === "OWNER" ? "support_audience_owner" : "support_audience_member"
+  );
 }
 
 export function supportPriorityLabel(priority: string | null | undefined, ko: boolean): string {
   switch (String(priority ?? "").trim()) {
     case "HIGH":
-      return ko ? "높음" : "High";
+      return translateBy(ko ? "ko" : "en", "support_priority_high");
     case "URGENT":
-      return ko ? "긴급" : "Urgent";
+      return translateBy(ko ? "ko" : "en", "support_priority_urgent");
     default:
-      return ko ? "일반" : "Normal";
+      return translateBy(ko ? "ko" : "en", "support_priority_normal");
   }
 }
 

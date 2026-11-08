@@ -3,7 +3,6 @@
  */
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 /** 글 성격: 구인 vs 구직 (meta.listing_kind) */
@@ -91,7 +90,7 @@ export function jobWorkCategoryDbLabel(lang: AppLanguageCode, dbValue: string): 
 /** 목록·상세에 표시할 업종 라벨 */
 export function jobWorkCategoryDisplay(
   meta: Record<string, unknown> | undefined | null,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   if (!meta || typeof meta !== "object") return "";
   const wc = String((meta as { work_category?: unknown }).work_category ?? "").trim();

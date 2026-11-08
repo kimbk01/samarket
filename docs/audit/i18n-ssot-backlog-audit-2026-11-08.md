@@ -64,3 +64,22 @@
   - `non-catalog-bool-lang-ternary` (L22): `ko ? "한국어" : …`·`en ? "English" : "한국어"`, 따옴표 3종, 테스트 파일 제외 → 기준선 **3,119곳·255파일** (어드민 2,909 · 그 밖 210). §0 의 2,329 는 큰따옴표 `ko ?` 형태만 센 숫자.
   - `hardcoded-korean` (L17): `scripts/check-hardcoded-korean.mjs` 와 같은 4패턴 → 기준선 **486곳·66파일** (어드민 459 · 그 밖 27). 스크립트 483 과의 차이 3 = 검사 폴더 범위(검사는 `hooks`·`contexts` 등 포함).
 - 기존 키 규칙 기준선 변동 0. 화면 변화 0.
+
+### B2 고객·사장님 문구 (Owner 「권장대로 승인」)
+
+**먼저 보고**
+- L6 영어를 바꾸면서 정산 라벨 1개에서 「지급 대상(payable)」 뜻을 빠뜨렸다(「Gift certificate payout (net)」). 이 값을 고정한 테스트가 실패해서 발견했고, 「Gift certificate payable (net)」·「Gift certificate payable (net, paid via gift certificate payout)」로 정정했다.
+- L6 은 영어 문구를 고정해 둔 테스트 2개(`lib/stores/commission/__tests__/stage2b-money-rails.test.ts`, `lib/gift-certificate/__tests__/notify-gift-transfer-cancelled.test.ts`)와 운영 QA 스크립트 2개(`scripts/qa/admin-gift-ui-smoke-close.mjs`, `owner-o16-production-390-smoke.mjs`)도 새 값으로 바꿨다.
+
+| 항목 | 결과 |
+|---|---|
+| L22 고객·사장님 | 불리언 언어 삼항 **207곳 → 0** (22파일) — 화면 글자 ko·en 그대로, 새 키 196(copy-shell 55 · copy-owner 52 · copy-store 6 · copy-lib 83), 기존 키 재사용 6. 기준선 3,119 → **2,912** (어드민 2,909 + 시작 보호 스크립트 3). |
+| 남긴 3곳 | `lib/startup/pre-hydration-guard-script.ts` — React 이전 인라인 스크립트라 카탈로그를 쓸 수 없고 진입 안정화(다른 작업) 파일. 손대지 않음 |
+| 남긴 1곳 | `app/(main)/mypage/ads/feed-request/page.tsx` 약 499줄 — 영어 화면만 클라이언트 문장, 한국어 화면은 서버 메시지를 그대로 표시(한국어 짝이 원래 없음). 새 한국어 문장을 만들어야 해서 보류 |
+| L6 | 「상품권」+「Gift」만이던 52키 → 「Gift certificate」(탭·칩·배지 자리 해당 0). 버튼 길이(22자) 때문에 `gift_u2_wallet_detail_cta` 만 「Certificate details」 |
+| L8 | 한국어 「마이페이지」 8키 → 「내정보」 (영어는 이미 My page) |
+| L2 | 서버 함수 31곳의 언어 기본값 「ko」 삭제(필수). 타입 검사로 찾은 누락 호출: **장바구니 배달 예상 시간 문구(`StoreCommerceCartPageClient.tsx`)가 영어 화면에도 한국어로 나오던 결함** → 화면 언어 전달로 수정. 그 밖: 검증 하네스 2곳(화면 아님, 이전 값 명시), 사용처 없는 래퍼 2개(언어 인자 추가·이름대로 ko 명시), 테스트 호출 34곳(이전 기본값 "ko" 명시), ETA 함수 매개변수 순서 정리 |
+
+**검증**: typecheck 2종 PASS · eslint 변경 파일 오류 0 · vitest 관련 822파일 6,669 테스트 + 상품권·주소·가입 255파일 PASS(수정한 2개 포함) · `check:i18n-quality` 20/20 PASS.
+**범위 밖 발견(보고만)**: `npm run verify:three-currency-product` 실패 — `components/admin/ads/AdminAdvertisingWorkspace.tsx` 에 「Business Cash」 표현. 이번 변경과 무관(파일 미변경), 통화(화폐) 용어 규정 영역.
+**NOT_PROVEN**: 화면 캡처(로컬 로그인 필요 화면) — 반영 후 앱 재시작으로 확인.

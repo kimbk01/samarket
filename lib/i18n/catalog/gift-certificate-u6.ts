@@ -49,7 +49,7 @@ export const giftCertificateU6Messages = {
     gift_u6_kpi_store_cash_total: "Historical conversion records (total)",
     gift_u6_recovery_empty: "No open recovery obligations.",
     gift_u6_products_fee: "Platform fee",
-    gift_u6_tracking_title: "Gift tracking",
+    gift_u6_tracking_title: "Gift certificate tracking",
     gift_u6_tracking_search: "Search",
   },
 } as const;

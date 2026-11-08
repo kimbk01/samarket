@@ -91,7 +91,7 @@ describe("StoreOrderInvariantTest (10)", () => {
     });
     expect(listed.ok).toBe(true);
     if (!listed.ok) return;
-    const header = buildStoreOrderCustomerHeaderModel(listed.snapshot.rows[0]!);
+    const header = buildStoreOrderCustomerHeaderModel(listed.snapshot.rows[0]!, "ko");
     expect(header.kind).not.toBe("general_peer" as never);
     expect(header.kind).toBe("buyer_store");
     expect(header.forbidsGeneralDirectHeader).toBe(true);
@@ -169,7 +169,7 @@ describe("StoreOrderInvariantTest (10)", () => {
         { domain: "group", count: 0 }
       )
     ).toThrow(/tab_domains/);
-    const row = buildStoreOrderCustomerListViewModel(listed.snapshot.rows[0]!);
+    const row = buildStoreOrderCustomerListViewModel(listed.snapshot.rows[0]!, "ko");
     expect(row.previewText).toBe("혹시 빨리 될까요?");
     expect(row.previewText).not.toBe(row.statusBadge);
   });

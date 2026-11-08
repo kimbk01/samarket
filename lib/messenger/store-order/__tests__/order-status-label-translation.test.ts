@@ -43,7 +43,7 @@ describe("order-status raw enum → SSOT label (list row + room header)", () => 
   });
 
   it("row-model customer list: defaults to ko when lang omitted (server-safe default, not client global)", () => {
-    const vm = buildStoreOrderCustomerListViewModel(item({ orderStatusLabel: "pending" }));
+    const vm = buildStoreOrderCustomerListViewModel(item({ orderStatusLabel: "pending" }), "ko");
     expect(vm.statusBadge).toBe("접수 대기");
   });
 

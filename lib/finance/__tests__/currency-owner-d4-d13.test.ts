@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { cashTiles } from "@/components/business/owner/OwnerWalletHistory";
+import { MESSAGES } from "@/lib/i18n/messages";
 import {
   CASH_CATEGORY_KINDS,
   categoryKinds,
@@ -223,8 +224,10 @@ describe("D-4 · D-5 · D-8 · D-9 화면 계약", () => {
   it("D-8 미납 합계 — totalsComplete=false 면 숫자 대신 문구", () => {
     const v = src("components/business/owner/OwnerStoreFinanceView.tsx");
     expect(v).toContain("setSaleFeeTotalsComplete(json.saleFeeObligations?.totalsComplete !== false)");
-    expect(v).toContain("합계를 불러오지 못했습니다");
-    expect(v).toContain("Couldn't load the total");
+    /** 언어 SSOT B2: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 (화면 문구 그대로) */
+    expect(v).toContain('t("owner_finance_view_total_load_failed")');
+    expect(MESSAGES.ko.owner_finance_view_total_load_failed).toBe("합계를 불러오지 못했습니다");
+    expect(MESSAGES.en.owner_finance_view_total_load_failed).toBe("Couldn't load the total");
   });
 
   it("D-9 출금 — approved_at 읽고 「승인됨 (지급 대기)」 뒤 시각", () => {

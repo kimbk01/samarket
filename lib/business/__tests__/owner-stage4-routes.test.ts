@@ -274,7 +274,8 @@ describe("IA-13 settlement wording (owner UI)", () => {
       'biz_nav_settlements_desc: "수수료 부과·캐시 차감·미납 내역"'
     );
     // Owner 2026-11-03 「Coin 출금으로 통일」 — product-decision-lock (Coin→지급 = 출금) 과 일치.
-    expect(read("components/finance/OwnerFinanceNav.tsx")).toContain('labelKo: "Coin 출금"');
+    expect(read("components/finance/OwnerFinanceNav.tsx")).toContain('labelKey: "finance_coin_withdrawal"');
+    expect(MESSAGES.ko.finance_coin_withdrawal).toBe("Coin 출금");
     /** 언어 SSOT S6: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
     expect(read("components/business/owner/OwnerStoreSettlementsView.tsx")).toContain('translateBy(lang, "business_commission_cash_history"');
     expect(MESSAGES.ko.business_commission_cash_history).toBe("수수료·캐시 내역");

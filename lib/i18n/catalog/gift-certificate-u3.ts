@@ -58,7 +58,7 @@ export const giftCertificateU3Messages = {
     gift_u3_err_generic: "Couldn’t send the gift. Please try again.",
     gift_u3_friend_pick_empty: "No friends available to gift.",
     gift_u3_transfer_title: "Send gift certificate",
-    gift_u3_transfer_preview_label: "Gift to send",
+    gift_u3_transfer_preview_label: "Gift certificate to send",
     gift_u3_friend_pick_recipient: "Choose recipient",
     gift_u3_friend_pick_continue: "Continue",
   },

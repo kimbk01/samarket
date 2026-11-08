@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-08 19:13 PHT",
+ "generatedAtPht": "2026-11-08 19:29 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -84,8 +84,6 @@
   "non-catalog-tt": {},
   "non-catalog-lang-pair": {},
   "non-catalog-bool-lang-ternary": {
-   "app/(main)/mypage/ads/feed-request/page.tsx": 52,
-   "app/(main)/mypage/ads/MyAdsPageClient.tsx": 2,
    "app/admin/order-chats/page.tsx": 7,
    "components/admin/AdminAuditLogsPage.tsx": 16,
    "components/admin/AdminOpsCrossLinkBar.tsx": 1,
@@ -270,10 +268,6 @@
    "components/admin/users/AdminUserFilterBar.tsx": 11,
    "components/admin/users/AdminUserListPage.tsx": 5,
    "components/admin/users/AdminUserPointsSection.tsx": 5,
-   "components/business/owner/OwnerStoreFinanceView.tsx": 6,
-   "components/business/owner/OwnerStoreOrdersMobileBody.tsx": 9,
-   "components/business/owner/OwnerWalletHistory.tsx": 32,
-   "components/business/StoreBusinessGuard.tsx": 2,
    "components/finance/AdminFinanceAdsView.tsx": 20,
    "components/finance/AdminFinanceConversionsView.tsx": 10,
    "components/finance/AdminFinanceHubView.tsx": 4,
@@ -287,13 +281,6 @@
    "components/finance/AdminFinanceTransactionsView.tsx": 9,
    "components/finance/AdminFinanceWithdrawalsShell.tsx": 2,
    "components/finance/FinanceAdminNav.tsx": 1,
-   "components/finance/FinanceFilterBar.tsx": 8,
-   "components/finance/FinanceSummaryStrip.tsx": 5,
-   "components/finance/FinanceTransactionDetail.tsx": 17,
-   "components/finance/FinanceTransactionList.tsx": 9,
-   "components/finance/OrderMoneyChainView.tsx": 11,
-   "components/finance/OwnerFinanceNav.tsx": 1,
-   "components/finance/OwnerFinanceStoreSwitcher.tsx": 1,
    "lib/admin-business/admin-store-kind-presentation.ts": 5,
    "lib/admin-business/admin-store-visibility-lock-copy.ts": 2,
    "lib/admin-business/store-audit-action-labels.ts": 1,
@@ -326,19 +313,10 @@
    "lib/admin/store-orders/admin-store-order-detail-contract.ts": 2,
    "lib/admin/store-orders/admin-store-order-ops-contract.ts": 4,
    "lib/admin/users/admin-user-points-query.ts": 1,
-   "lib/ads/ads-canonical-product-ssot.ts": 3,
-   "lib/business/owner-form-request-key.ts": 3,
    "lib/finance/admin-finance-period-sums.ts": 5,
-   "lib/finance/presentation.ts": 3,
-   "lib/my/my-page-banner-destination.ts": 3,
-   "lib/notifications/notification-destination-hint.ts": 23,
    "lib/startup/pre-hydration-guard-script.ts": 3,
    "lib/stores/advertising/admin-delivery-ad-end.ts": 3,
-   "lib/stores/commission/store-commission-display-labels.ts": 3,
-   "lib/stores/coupon-offer-promotion-deeplink.ts": 2,
-   "lib/stores/delivery-rider-ops-mode.ts": 1,
-   "lib/stores/product/stores-home-shelf-admin-tabs.ts": 8,
-   "lib/support/support-status-label.ts": 11
+   "lib/stores/product/stores-home-shelf-admin-tabs.ts": 8
   },
   "hardcoded-korean": {
    "app/admin/community/posts/AdminPostsPageContent.tsx": 5,

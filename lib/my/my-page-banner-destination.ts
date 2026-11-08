@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { destinationHref, parseDestinationHref } from "@/lib/destination/destination-contract";
 import { loadPopupEventDestinationLookups } from "@/lib/platform-popup/popup-event-destination-availability";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type MyPageBannerLinkSaveError = "link_required" | "external_link_forbidden" | "invalid_link";
 
@@ -54,12 +55,10 @@ export function myPageBannerLinkErrorMessage(raw: string | null | undefined, ko:
   if (!code.startsWith("invalid_target_url:")) return null;
   const reason = code.slice("invalid_target_url:".length);
   if (reason === "link_required") {
-    return ko ? "누르면 이동할 링크를 입력해 주세요(앱 안 경로 또는 이벤트)." : "Enter where the banner goes (in-app path or event).";
+    return translateBy(ko ? "ko" : "en", "my_banner_link_required");
   }
   if (reason === "external_link_forbidden") {
-    return ko
-      ? "마이 배너는 외부 링크를 쓸 수 없습니다. 앱 안 경로(/…) 또는 이벤트(/events/…)를 넣어 주세요."
-      : "My-page banners cannot use external links. Use an in-app path (/…) or an event (/events/…).";
+    return translateBy(ko ? "ko" : "en", "my_banner_external_link_forbidden", { event_path: "/events/…" });
   }
-  return ko ? "링크 형식이 올바르지 않습니다. /로 시작하는 앱 안 경로를 넣어 주세요." : "Invalid link. Use an in-app path starting with /.";
+  return translateBy(ko ? "ko" : "en", "my_banner_link_invalid");
 }

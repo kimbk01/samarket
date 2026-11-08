@@ -85,7 +85,7 @@ export const giftCertificateOwnerO16Messages = {
     biz_care_sender_me: "나 (매장 오너)",
   },
   en: {
-    gift_owner_home_money_title: "Gift revenue",
+    gift_owner_home_money_title: "Gift certificate revenue",
     gift_owner_kpi_cash_out_pending: "Cash-out requested",
     gift_owner_kpi_processing_pending: "Pending processing",
     gift_owner_tab_summary: "Revenue summary",
@@ -93,7 +93,7 @@ export const giftCertificateOwnerO16Messages = {
     gift_owner_tab_redemptions: "Usage history",
     gift_owner_history_combined_title: "Cash-out & conversion history",
     gift_owner_action_cash_out_desc:
-      "Coin accrues only DIBAY-funded coupon support. Gift revenue is paid separately by gift settlement. Manage Coin withdrawals and history in Store Finance.",
+      "Coin accrues only DIBAY-funded coupon support. Gift certificate revenue is paid separately by gift certificate settlement. Manage Coin withdrawals and history in Store Finance.",
     gift_owner_action_convert_desc: "Review historical conversion records in read-only mode.",
     gift_owner_action_pending: "Pending cash-out & conversion",
     gift_owner_action_pending_desc: "Review pending cash-out and conversion requests.",
@@ -104,7 +104,7 @@ export const giftCertificateOwnerO16Messages = {
     gift_owner_redemption_filter_recognized: "Recognized",
     gift_owner_redemption_filter_refund: "Refund",
     gift_owner_cta_money: "Manage revenue",
-    gift_owner_product_mgmt_title: "Gift product management",
+    gift_owner_product_mgmt_title: "Gift certificate products",
     gift_owner_redemption_customer: "Customer",
     gift_owner_redemption_order_status: "Order status",
     gift_owner_cta_cash_out: "Request revenue cash-out",

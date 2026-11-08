@@ -1,3 +1,4 @@
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 /**
  * Phase 11D-A — Domain Bootstrap HTTP (read-only) + Shadow / Shell capture.
  * persistent cache write 0 · Realtime 0 · production home wiring 0.
@@ -370,7 +371,7 @@ export async function runPhase11dAShadowCompare(
   const gVms = group.rows.map(buildGroupRowModel);
   const trHub = buildTradeHubViewModel(trade.rows as ReadonlyArray<TradeListItem>);
   const soHub = buildStoreOrderHubViewModel(so.rows as ReadonlyArray<StoreOrderListItem>);
-  const soList = so.rows.map((row) => buildStoreOrderCustomerListViewModel(row));
+  const soList = so.rows.map((row) => buildStoreOrderCustomerListViewModel(row, DEFAULT_APP_LANGUAGE)); /* 감사 L2 — 검증 하네스(화면 아님): 기본값이던 언어를 명시 */
   const trList = trade.rows.map(buildTradeListViewModel);
 
   const shell = composePhase10ShellFinal({

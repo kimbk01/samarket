@@ -1,11 +1,11 @@
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 
 /** 인앱 알림 목록 UI용 짧은 라벨 */
 export function notificationTypeLabel(
   notificationType: string,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string {
   switch (notificationType) {
     case "commerce":
@@ -28,7 +28,7 @@ export function notificationTypeLabel(
 /** commerce 알림 meta.kind → 부가 라벨 (없으면 null) */
 export function commerceMetaKindLabel(
   kind: unknown,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string | null {
   if (typeof kind !== "string" || !kind) return null;
   const m: Record<string, MessageKey> = {

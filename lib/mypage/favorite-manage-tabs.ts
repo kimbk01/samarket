@@ -1,5 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 
@@ -43,7 +43,7 @@ export function countFavoriteManageTabs(posts: FavoritedPost[]): Record<Favorite
 
 export function getFavoriteManageTabLabel(
   id: FavoriteManageTabId,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string {
   const tab = FAVORITE_MANAGE_TABS.find((item) => item.id === id);
   return tab ? translate(language, tab.labelKey) : id;

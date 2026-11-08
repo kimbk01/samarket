@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import type { ProductOptionGroup } from "@/lib/stores/owner-product-options-json";
 import { optionsJsonToFormGroups, ownerOptionsClampInt } from "@/lib/stores/owner-product-options-json";
@@ -41,7 +40,7 @@ function parseNonNegInt(s: string): number | null {
  */
 export function validateProductOptionGroups(
   groups: ProductOptionGroup[],
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE,
+  lang: AppLanguageCode,
   opts?: { checkGroupIds?: boolean }
 ): { ok: true } | { ok: false; message: string; code?: OwnerOptionsValidationCode } {
   if (groups.length === 0) return { ok: true };
@@ -213,7 +212,7 @@ export function validateProductOptionGroups(
 /** API 본문의 `options_json` — 배열만 받은 뒤 폼 역변환하여 동일 규칙 검증 */
 export function validateOwnerOptionsJsonPayload(
   raw: unknown,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ):
   | { ok: true; value: unknown[] }
   | { ok: false; error: OwnerOptionsValidationCode; message: string } {

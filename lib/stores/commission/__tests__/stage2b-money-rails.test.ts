@@ -55,7 +55,7 @@ describe("FIN-03 option A — Coin = platform coupon only, gift on its own rail"
   });
 
   it("gift_rail label says it is paid via gift payout (not 'not paid here')", () => {
-    expect(STORE_PAYOUT_CLASS_LABEL.gift_rail.en).toBe("Gift rail payable (net, paid via gift payout)");
+    expect(STORE_PAYOUT_CLASS_LABEL.gift_rail.en).toBe("Gift certificate payable (net, paid via gift certificate payout)");
     expect(STORE_PAYOUT_CLASS_LABEL.gift_rail.ko).not.toContain("여기서 지급 안 함");
   });
 

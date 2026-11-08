@@ -272,7 +272,7 @@ export const storeCouponSsotMessages = {
     gift_certificate_wallet_tab_redeemed: "Redeemed",
     gift_certificate_wallet_empty: "No gift certificates to show.",
     gift_certificate_wallet_login: "Sign in to see your gift certificates.",
-    gift_certificate_mall_title: "Gift mall",
+    gift_certificate_mall_title: "Gift certificate mall",
     gift_certificate_mall_empty: "No gift certificates on sale.",
     gift_certificate_mall_buy: "Buy",
     gift_cert_chat_card_invalid: "Gift certificate details unavailable",

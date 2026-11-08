@@ -1,6 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OrderMoneyChain, OrderMoneyChainEvent } from "@/lib/finance/order-money-chain/types";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
@@ -23,7 +24,6 @@ export function formatOrderMoneyChainEventAmount(ev: Pick<OrderMoneyChainEvent, 
 }
 
 export function OrderMoneyChainView({
-  ko,
   chain,
   filters,
 }: {
@@ -31,6 +31,7 @@ export function OrderMoneyChainView({
   chain: OrderMoneyChain;
   filters?: FinanceFilterState | null;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-4" data-order-money-chain="1">
       <header>
@@ -39,18 +40,18 @@ export function OrderMoneyChainView({
         </h2>
         {/* 주문 완료 시각 — UTC 원문 대신 PHT (실기 A-9 FAIL · 2026-11-03) */}
         <p className="sam-text-helper text-sam-muted">
-          {chain.date ? `${ko ? "완료" : "Completed"} ${formatAdminManilaDateTime(chain.date)} PHT` : "—"}
+          {chain.date ? t("finance_completed_at", { at: formatAdminManilaDateTime(chain.date) }) : "—"}
         </p>
       </header>
 
       <section>
-        <h3 className="mb-2 font-semibold">{ko ? "상품 구성" : "Items"}</h3>
+        <h3 className="mb-2 font-semibold">{t("finance_items_section")}</h3>
         <table className="w-full text-left sam-text-body-secondary">
           <thead className="text-sam-muted">
             <tr>
-              <th className="py-1">{ko ? "상품" : "Item"}</th>
+              <th className="py-1">{t("finance_item_col")}</th>
               <th className="py-1">Qty</th>
-              <th className="py-1">{ko ? "금액" : "Subtotal"}</th>
+              <th className="py-1">{t("finance_subtotal_col")}</th>
             </tr>
           </thead>
           <tbody>
@@ -64,9 +65,7 @@ export function OrderMoneyChainView({
           </tbody>
         </table>
         <p className="mt-2 sam-text-xxs text-sam-muted">
-          {ko
-            ? "품목은 판매 구성만 표시합니다. 수수료·Coin은 주문 단위입니다."
-            : "Items show composition only. Fee and Coin are order-level."}
+          {t("finance_items_composition_note")}
         </p>
       </section>
 
@@ -76,26 +75,26 @@ export function OrderMoneyChainView({
           <dd className="font-semibold">{formatMoneyPhp(chain.financial.gross)}</dd>
         </div>
         <div>
-          <dt className="sam-text-xxs text-sam-muted">{ko ? "수수료율" : "Fee %"}</dt>
+          <dt className="sam-text-xxs text-sam-muted">{t("finance_fee_rate")}</dt>
           <dd className="font-semibold">
             {chain.financial.feeRateSnapshot != null ? `${chain.financial.feeRateSnapshot}%` : "—"}
           </dd>
         </div>
         <div>
           {/* 수수료·Cash 차감·미납 = Cash(센타보) — 소수점 2자리 (정수 반올림 금지 · 실기 O-2 같은 원인 2026-11-03) */}
-          <dt className="sam-text-xxs text-sam-muted">{ko ? "수수료" : "Fee"}</dt>
+          <dt className="sam-text-xxs text-sam-muted">{t("finance_fee")}</dt>
           <dd className="font-semibold">{formatFinanceAmount({ wallet: "CASH", amount: chain.financial.feeDueMinor, isMinor: true })}</dd>
         </div>
         <div>
-          <dt className="sam-text-xxs text-sam-muted">{ko ? "Cash 실제 차감" : "Cash charged"}</dt>
+          <dt className="sam-text-xxs text-sam-muted">{t("finance_cash_charged")}</dt>
           <dd className="font-semibold">{formatFinanceAmount({ wallet: "CASH", amount: chain.financial.cashFeePaidMinor, isMinor: true })}</dd>
         </div>
         <div>
-          <dt className="sam-text-xxs text-sam-muted">{ko ? "미납" : "Outstanding"}</dt>
+          <dt className="sam-text-xxs text-sam-muted">{t("finance_outstanding")}</dt>
           <dd className="font-semibold">{formatFinanceAmount({ wallet: "CASH", amount: chain.financial.outstandingFeeMinor, isMinor: true })}</dd>
         </div>
         <div>
-          <dt className="sam-text-xxs text-sam-muted">{ko ? "Coin 발생" : "Coin earned"}</dt>
+          <dt className="sam-text-xxs text-sam-muted">{t("finance_coin_earned")}</dt>
           <dd className="font-semibold">
             {formatFinanceAmount({ wallet: "COIN", amount: chain.financial.coinEarned })}
           </dd>
@@ -103,7 +102,7 @@ export function OrderMoneyChainView({
       </dl>
 
       <section>
-        <h3 className="mb-2 font-semibold">{ko ? "정산 타임라인" : "Finance timeline"}</h3>
+        <h3 className="mb-2 font-semibold">{t("finance_timeline_title")}</h3>
         <ol className="space-y-2">
           {chain.timeline.map((ev) => {
             const txKey = ev.sourceTable.includes("business_cash")

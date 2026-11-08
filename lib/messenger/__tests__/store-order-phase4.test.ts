@@ -171,12 +171,12 @@ describe("Phase 4 store_order dual surface / preview / badge / notif", () => {
     expect(listed.ok).toBe(true);
     if (!listed.ok) return;
     const item = listed.snapshot.rows[0]!;
-    expect(buildStoreOrderCustomerHeaderModel(item).kind).toBe("buyer_store");
-    expect(buildStoreOrderOwnerHeaderModel(item).kind).toBe("owner_buyer_peer");
-    expect(buildStoreOrderCustomerListViewModel(item).storeName).toBe("맛있는집");
-    expect(buildStoreOrderOwnerListViewModel(item).customerName).toBe("고객A");
+    expect(buildStoreOrderCustomerHeaderModel(item, "ko").kind).toBe("buyer_store");
+    expect(buildStoreOrderOwnerHeaderModel(item, "ko").kind).toBe("owner_buyer_peer");
+    expect(buildStoreOrderCustomerListViewModel(item, "ko").storeName).toBe("맛있는집");
+    expect(buildStoreOrderOwnerListViewModel(item, "ko").customerName).toBe("고객A");
     expect(storeOrderStatusBadgeSeparated(item)).toBe("준비중");
-    expect(buildStoreOrderCustomerListViewModel(item).previewText).toBe("hi");
+    expect(buildStoreOrderCustomerListViewModel(item, "ko").previewText).toBe("hi");
   });
 
   it("preview port rejects metadata mix; badge nav_messenger=0; notification independent", () => {

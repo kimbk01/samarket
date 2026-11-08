@@ -94,7 +94,7 @@ function authCookies(sessionObj, sessionId) {
 }
 
 const ROUTES = [
-  { path: "/admin/gift-certificates?tab=dashboard", name: "dashboard", need: ["대시보드", "Dashboard", "상품권 관리", "Gift Operations"] },
+  { path: "/admin/gift-certificates?tab=dashboard", name: "dashboard", need: ["대시보드", "Dashboard", "상품권 관리", "Gift certificate management"] },
   { path: "/admin/gift-certificates?tab=products&products=products", name: "products", need: ["상품"] },
   { path: "/admin/gift-certificates?tab=products&products=applications", name: "applications", need: ["신청", "Application", "판매"] },
   { path: "/admin/gift-certificates?tab=instances", name: "instances", need: ["발급", "Issued"] },

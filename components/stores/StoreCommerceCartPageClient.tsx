@@ -294,7 +294,7 @@ const StoreCheckoutSubmitConfirmDialog = dynamic(
 );
 
 export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
@@ -628,8 +628,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const storeModeStaticEtaLabel = useMemo(() => {
     if (globalRideTimeSource !== "store") return null;
-    return buildStoreDeliveryEtaLabelWithManualRide(commerce, commerce.deliveryRideDisplayManual);
-  }, [globalRideTimeSource, commerce]);
+    return buildStoreDeliveryEtaLabelWithManualRide(commerce, commerce.deliveryRideDisplayManual, language);
+  }, [globalRideTimeSource, commerce, language]);
 
   const checkoutPaymentOptions = useMemo(() => {
     if (!store) return [];

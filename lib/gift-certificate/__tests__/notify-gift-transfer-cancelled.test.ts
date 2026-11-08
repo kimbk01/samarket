@@ -42,7 +42,7 @@ describe("notifyGiftTransferCancelled", () => {
       expect.objectContaining({
         user_id: "recipient",
         notification_type: "chat",
-        title: "Gift cancelled",
+        title: "Gift certificate cancelled",
         body: "Sender Name cancelled the gift certificate.",
         link_url: "/community-messenger/rooms/room-1?giftTransferId=transfer-1",
         domain: "community_chat",

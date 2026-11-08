@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { financeTxBalanceBefore } from "@/lib/finance/finance-tx-balance-before";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -29,6 +30,7 @@ export function FinanceTransactionDetail({
   tx: FinanceUnifiedTx;
   filters?: FinanceFilterState | null;
 }) {
+  const { t } = useI18n();
   const credit = tx.direction === "credit";
   const backHref = financeTransactionListHref(filters);
 
@@ -59,25 +61,25 @@ export function FinanceTransactionDetail({
           <p className="sam-text-helper text-sam-muted font-mono">{tx.txKey}</p>
         </div>
         <Link href={backHref} className="text-sm font-semibold text-signature hover:underline" data-finance-back="1">
-          {ko ? "목록으로" : "Back to list"}
+          {t("common_to_list")}
         </Link>
       </div>
 
       <dl className="grid grid-cols-2 gap-3 sam-text-body-secondary sm:grid-cols-3">
         <div>
-          <dt className="text-sam-muted">{ko ? "일시 (PHT)" : "When (PHT)"}</dt>
+          <dt className="text-sam-muted">{t("finance_when_pht")}</dt>
           <dd>{formatAdminManilaDateTime(tx.occurredAt)}</dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "자산" : "Wallet"}</dt>
+          <dt className="text-sam-muted">{t("finance_wallet")}</dt>
           <dd>{financeWalletLabel(tx.wallet, ko)}</dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "방향" : "Direction"}</dt>
-          <dd>{credit ? (ko ? "입금" : "Credit") : ko ? "출금" : "Debit"}</dd>
+          <dt className="text-sam-muted">{t("finance_direction")}</dt>
+          <dd>{credit ? t("finance_credit") : t("finance_debit")}</dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "금액" : "Amount"}</dt>
+          <dt className="text-sam-muted">{t("finance_amount")}</dt>
           <dd className="font-semibold tabular-nums">
             {formatFinanceAmount({
               wallet: tx.wallet,
@@ -87,7 +89,7 @@ export function FinanceTransactionDetail({
           </dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "이후 잔액" : "Balance after"}</dt>
+          <dt className="text-sam-muted">{t("finance_balance_after")}</dt>
           <dd className="tabular-nums">
             {tx.wallet === "CASH"
               ? formatFinanceAmount({ wallet: "CASH", amount: tx.balanceAfterMinor, isMinor: true })
@@ -98,7 +100,7 @@ export function FinanceTransactionDetail({
         </div>
         <div>
           {/* Owner 권장안 (2026-11-04) — 예전 매장 패널(연결 0 · 삭제)에 있던 「이전 잔액」「처리 주체」를 거래 상세로 */}
-          <dt className="text-sam-muted">{ko ? "이전 잔액" : "Balance before"}</dt>
+          <dt className="text-sam-muted">{t("finance_balance_before")}</dt>
           <dd className="tabular-nums" data-finance-tx-balance-before="1">
             {(() => {
               const before = financeTxBalanceBefore(tx);
@@ -110,29 +112,27 @@ export function FinanceTransactionDetail({
           </dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "처리 주체" : "Actor"}</dt>
+          <dt className="text-sam-muted">{t("finance_actor")}</dt>
           <dd data-finance-tx-actor="1">
             {tx.ownerId ? (
               <AdminTechId id={tx.ownerId} />
             ) : tx.wallet === "POINT" ? (
               "—"
-            ) : ko ? (
-              "시스템 (자동 처리)"
             ) : (
-              "System (automatic)"
+              t("finance_system_automatic")
             )}
           </dd>
         </div>
         {tx.status ? (
           <div>
-            <dt className="text-sam-muted">{ko ? "상태" : "Status"}</dt>
+            <dt className="text-sam-muted">{t("finance_status")}</dt>
             <dd>{financeStatusLabel(tx.status, ko)}</dd>
           </div>
         ) : null}
         {tx.entryKind === "CONVERT_FROM_STORE_POINTS" || tx.entryKind === "CONVERT_TO_BUSINESS_CASH" ? (
           <>
             <div>
-              <dt className="text-sam-muted">{ko ? "적용 Rate snapshot" : "Applied rate snapshot"}</dt>
+              <dt className="text-sam-muted">{t("finance_applied_rate_snapshot")}</dt>
               <dd>
                 {tx.meta.rate_pesos_per_point != null
                   ? `1:${Number(tx.meta.rate_pesos_per_point)}${
@@ -142,7 +142,7 @@ export function FinanceTransactionDetail({
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Coin Out (meta)" : "Coin out (meta)"}</dt>
+              <dt className="text-sam-muted">{t("finance_coin_out_meta")}</dt>
               <dd>
                 {tx.meta.sp_debited != null
                   ? formatFinanceAmount({ wallet: "COIN", amount: Number(tx.meta.sp_debited) })
@@ -160,7 +160,7 @@ export function FinanceTransactionDetail({
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="order-detail"
           >
-            {ko ? "주문 상세" : "Order detail"}
+            {t("finance_order_detail_cta")}
           </Link>
         ) : null}
         {tx.storeId ? (
@@ -169,7 +169,7 @@ export function FinanceTransactionDetail({
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="store-finance"
           >
-            {ko ? "매장 재무 보기" : "Store finance"}
+            {t("finance_store_finance_cta")}
           </Link>
         ) : null}
         {adHref ? (
@@ -178,7 +178,7 @@ export function FinanceTransactionDetail({
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="ad-detail"
           >
-            {ko ? "광고 상세" : "Ad detail"}
+            {t("finance_ad_detail_cta")}
           </Link>
         ) : adLinkId ? (
           <Link
@@ -186,7 +186,7 @@ export function FinanceTransactionDetail({
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="ad-funding"
           >
-            {ko ? "광고 지출 내역" : "Ad funding list"}
+            {t("finance_ad_funding_list_cta")}
           </Link>
         ) : null}
         {tx.memberId ? (
@@ -195,7 +195,7 @@ export function FinanceTransactionDetail({
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="member-detail"
           >
-            {ko ? "회원 상세" : "Member detail"}
+            {t("finance_member_detail_cta")}
           </Link>
         ) : null}
       </div>

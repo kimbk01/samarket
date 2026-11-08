@@ -233,7 +233,7 @@ async function main() {
   const giftCard = page.locator("[data-owner-gift-revenue-home], [data-owner-gift-home-card]");
   const giftHomeVisible =
     (await giftCard.count()) > 0 ||
-    /상품권 수익|Gift revenue|확정 상품권|전환 가능/i.test(homeText);
+    /상품권 수익|Gift certificate revenue|확정 상품권|전환 가능/i.test(homeText);
   if (!giftHomeVisible) fail("homeGift", "Gift Revenue card not visible");
   const merged = /Business Credit[\s\S]{0,40}상품권 수익[\s\S]{0,40}합산|합산 수익/i.test(homeText);
   if (merged) fail("homeGift", "BC+Gift appear merged");

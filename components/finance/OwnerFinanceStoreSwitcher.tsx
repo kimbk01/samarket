@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
 
 type StoreOpt = { id: string; name: string };
@@ -9,13 +10,13 @@ type StoreOpt = { id: string; name: string };
 export function OwnerFinanceStoreSwitcher({
   storeId,
   section,
-  ko,
 }: {
   storeId: string;
   section: string;
   ko: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [stores, setStores] = useState<StoreOpt[]>([]);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function OwnerFinanceStoreSwitcher({
 
   return (
     <label className="block text-sm" data-owner-finance-store-switcher="1">
-      <span className="text-sam-muted">{ko ? "매장" : "Store"}</span>
+      <span className="text-sam-muted">{t("common_store")}</span>
       <select
         className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
         value={storeId}

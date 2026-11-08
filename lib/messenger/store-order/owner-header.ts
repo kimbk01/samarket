@@ -7,7 +7,7 @@ import { resolveStoreOrderOwnerPresentationFromListItem } from "@/lib/messenger/
 import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 import type { StoreOrderListItem } from "@/lib/messenger/store-order/types";
 import type { StoreOrderOwnerHeaderViewModel } from "@/lib/messenger/store-order/ux-contract";
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { normalizeStoreOrderCancelKind, processStatusLabel } from "@/lib/stores/store-order-process-model";
 
 export function resolveStoreOrderOwnerHeaderKind(input: {
@@ -28,7 +28,7 @@ export function resolveStoreOrderOwnerHeaderKind(input: {
 
 export function buildStoreOrderOwnerHeaderModel(
   item: StoreOrderListItem,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): StoreOrderOwnerHeaderViewModel {
   const kind = resolveStoreOrderOwnerHeaderKind(item);
   if (kind === "buyer_store" || kind === "general_peer" || kind === "trade" || kind === "group") {

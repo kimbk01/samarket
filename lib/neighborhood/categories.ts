@@ -1,5 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 
 export const NEIGHBORHOOD_CATEGORY_SLUGS = [
@@ -49,7 +49,7 @@ export function normalizeNeighborhoodCategory(raw: string | undefined | null): N
 
 export function getNeighborhoodCategoryLabel(
   slug: NeighborhoodCategorySlug,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string {
   return translate(language, NEIGHBORHOOD_CATEGORY_LABEL_KEYS[slug]);
 }

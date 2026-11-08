@@ -1,5 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 import type { PurchaseHistoryRow } from "@/components/mypage/purchases/PurchaseHistoryCard";
 
@@ -48,7 +48,7 @@ export function countBuyerManageTabs<T extends Row>(items: T[], buyerUserId: str
 
 export function getBuyerManageTabLabel(
   id: BuyerManageTabId,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string {
   const tab = BUYER_MANAGE_TABS.find((item) => item.id === id);
   return tab ? translate(language, tab.labelKey) : id;

@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -231,7 +230,7 @@ export function resolveChargedDeliveryFeePhp(
 export function formatStoreBrowseDeliveryFeeLine(
   extras: CommerceExtrasFromHours,
   opts: { deliveryAvailable: boolean },
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string | null {
   if (!opts.deliveryAvailable) return null;
   if (extras.deliveryFeeMode === "courier") {
@@ -282,7 +281,7 @@ export function storeBrowseDeliveryFeeShowsFreeBadge(extras: CommerceExtrasFromH
 export function formatStoreDetailDeliveryFeeValue(
   extras: CommerceExtrasFromHours,
   opts: { deliveryAvailable: boolean },
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   if (!opts.deliveryAvailable) return scT(lang, "store_delivery_no_short");
   if (extras.deliveryFeeMode === "courier") {
@@ -309,7 +308,7 @@ export function formatStoreDetailDeliveryFeeValue(
 export function formatStoreStorefrontDeliveryFeeLine(
   extras: CommerceExtrasFromHours,
   opts: { deliveryAvailable: boolean },
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   if (!opts.deliveryAvailable) return scT(lang, "store_delivery_no_short");
   if (extras.deliveryFeeMode === "courier") {

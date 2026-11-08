@@ -4,6 +4,7 @@
  */
 import { formatCashPhp2, formatCurrencyAmount } from "@/lib/currency/currency-display-contract";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type FinanceWallet = "POINT" | "COIN" | "CASH" | "N_A";
 
@@ -120,19 +121,19 @@ export function financeStatusLabel(status: string, ko: boolean): string {
   return key || "—";
 }
 
-export function financeWalletLabel(wallet: FinanceWallet, ko: boolean): string {
+export function financeWalletLabel(wallet: FinanceWallet, _ko: boolean): string {
   if (wallet === "POINT") return "Point";
   if (wallet === "COIN") return "Coin";
-  if (wallet === "CASH") return ko ? "Cash" : "Cash";
+  if (wallet === "CASH") return "Cash";
   return "N/A";
 }
 
 export function financeFundingRailLabel(
   rail: "MEMBER_POINT" | "STORE_CASH" | "ADMIN_DIRECT" | string,
-  ko: boolean
+  _ko: boolean
 ): string {
-  if (rail === "MEMBER_POINT") return ko ? "Member Point" : "Member Point";
-  if (rail === "STORE_CASH") return ko ? "Store Cash" : "Store Cash";
+  if (rail === "MEMBER_POINT") return "Member Point";
+  if (rail === "STORE_CASH") return "Store Cash";
   if (rail === "ADMIN_DIRECT") return "Admin Direct";
   return rail;
 }
@@ -175,17 +176,17 @@ export function financeRelatedTargetLabel(
   ko: boolean
 ): string {
   if (row.orderId) {
-    return ko ? `주문 · ${row.orderId.slice(0, 8)}…` : `Order · ${row.orderId.slice(0, 8)}…`;
+    return translateBy(ko ? "ko" : "en", "finance_order_ref", { id: row.orderId.slice(0, 8) });
   }
   if (row.adId) {
     const family = String(row.relatedType || "").trim();
-    const prefix = financeRelatedTypeLabel(family, ko) ?? (ko ? "광고" : "Ad");
+    const prefix = financeRelatedTypeLabel(family, ko) ?? translateBy(ko ? "ko" : "en", "finance_ad");
     return `${prefix} · ${row.adId.slice(0, 8)}…`;
   }
   if (row.relatedId) {
     const kind = String(row.relatedType || row.entryKind || "").trim();
     const label =
-      financeRelatedTypeLabel(row.relatedType, ko) ?? (kind ? financeTypeLabel(kind, ko) : ko ? "연결" : "Related");
+      financeRelatedTypeLabel(row.relatedType, ko) ?? (kind ? financeTypeLabel(kind, ko) : translateBy(ko ? "ko" : "en", "finance_related"));
     return `${label} · ${row.relatedId.slice(0, 8)}…`;
   }
   return "—";

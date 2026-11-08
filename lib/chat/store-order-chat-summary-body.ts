@@ -1,3 +1,4 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import {
   buildStoreOrderSummaryBodyI18n,
@@ -47,12 +48,13 @@ export function optionsLineFromItemSnapshotJson(raw: unknown): string | null {
 }
 
 /** 주문 채팅방 첫 시스템 메시지 (배달앱형 주문 카드) */
-export function buildStoreOrderSummaryBody(input: StoreOrderSummaryInput): string {
-  return buildStoreOrderSummaryBodyI18n(input);
+export function buildStoreOrderSummaryBody(input: StoreOrderSummaryInput, lang: AppLanguageCode): string {
+  return buildStoreOrderSummaryBodyI18n(input, lang);
 }
 
+/** 이름대로 한국어 고정 (감사 L2 — 기본값 대신 명시) */
 export function fulfillmentLabelKo(ft: string | null | undefined): string {
-  return fulfillmentLabel(ft);
+  return fulfillmentLabel(ft, "ko");
 }
 
 export function formatBuyerPhoneForSummary(stored09: string | null | undefined): string | null {

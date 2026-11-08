@@ -1,4 +1,6 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { isNotificationOriginUnavailableFallback } from "@/lib/notifications/resolve-notification-inbox-href";
 
 /**
@@ -9,13 +11,14 @@ export function resolveNotificationDestinationHint(
   href: string | null | undefined,
   language: AppLanguageCode
 ): string {
-  const ko = language === "ko";
+  // 원래 동작: "ko" 가 아니면 영어
+  const hint = (key: MessageKey) => translateBy(language, key, undefined, "en");
   const raw = String(href ?? "").trim();
   if (!raw) {
-    return ko ? "원본을 찾을 수 없음" : "Origin unavailable";
+    return hint("notifications_dest_origin_unavailable");
   }
   if (isNotificationOriginUnavailableFallback(raw)) {
-    return ko ? "원본을 찾을 수 없음 · 알림함" : "Origin unavailable · Inbox";
+    return hint("notifications_dest_origin_unavailable_inbox");
   }
 
   let path = raw;
@@ -28,46 +31,46 @@ export function resolveNotificationDestinationHint(
   }
   const p = path.split("?")[0] ?? path;
 
-  if (p.startsWith("/post/")) return ko ? "거래 글로 이동" : "Open trade post";
-  if (p.startsWith("/philife/")) return ko ? "커뮤니티 글로 이동" : "Open community post";
-  if (p.startsWith("/philife")) return ko ? "커뮤니티로 이동" : "Open community";
+  if (p.startsWith("/post/")) return hint("notifications_dest_trade_post");
+  if (p.startsWith("/philife/")) return hint("notifications_dest_community_post");
+  if (p.startsWith("/philife")) return hint("notifications_dest_community");
   if (p.includes("/community-messenger") && path.includes("call-logs")) {
-    return ko ? "부재중 통화 기록으로 이동" : "Open missed-call log";
+    return hint("notifications_dest_missed_call_log");
   }
-  if (p.includes("/community-messenger")) return ko ? "채팅방으로 이동" : "Open chat room";
+  if (p.includes("/community-messenger")) return hint("notifications_dest_chat_room");
   if (p.startsWith("/mypage/store-orders/") || p.startsWith("/my/store-orders/")) {
-    return ko ? "주문 상세로 이동" : "Open order detail";
+    return hint("notifications_dest_order_detail");
   }
   if (p.startsWith("/my/store-orders") || p.startsWith("/mypage/store-orders")) {
-    return ko ? "주문 목록으로 이동" : "Open orders";
+    return hint("notifications_dest_orders");
   }
   if (p === "/orders") {
     return /[?&]expand=[^&]/.test(path)
-      ? ko ? "주문 상세로 이동" : "Open order detail"
-      : ko ? "주문 목록으로 이동" : "Open orders";
+      ? hint("notifications_dest_order_detail")
+      : hint("notifications_dest_orders");
   }
-  if (p.startsWith("/stores/owner/orders")) return ko ? "사장님 주문으로 이동" : "Open owner orders";
+  if (p.startsWith("/stores/owner/orders")) return hint("notifications_dest_owner_orders");
   if (p.startsWith("/mypage/customer-center/notice/")) {
-    return ko ? "공지 원문으로 이동" : "Open notice";
+    return hint("notifications_dest_notice_original");
   }
   if (p.startsWith("/mypage/customer-center/system/")) {
-    return ko ? "시스템 원문으로 이동" : "Open system notice";
+    return hint("notifications_dest_system_notice");
   }
   if (p.startsWith("/mypage/customer-center/marketing/")) {
-    return ko ? "마케팅 원문으로 이동" : "Open marketing";
+    return hint("notifications_dest_marketing");
   }
   if (p.startsWith("/mypage/customer-center/")) {
-    return ko ? "고객센터로 이동" : "Open customer center";
+    return hint("notifications_dest_customer_center");
   }
-  if (p.startsWith("/mypage/notices/")) return ko ? "공지 상세로 이동" : "Open notice";
-  if (p.startsWith("/mypage/notices")) return ko ? "공지 목록으로 이동" : "Open notices";
+  if (p.startsWith("/mypage/notices/")) return hint("notifications_dest_notice_detail");
+  if (p.startsWith("/mypage/notices")) return hint("notifications_dest_notices");
   if (p.startsWith("/mypage/inbox") || p.startsWith("/mypage/inquiries")) {
-    return ko ? "문의로 이동" : "Open inquiry";
+    return hint("notifications_dest_inquiry");
   }
-  if (p.startsWith("/my/offers")) return ko ? "가격 제안으로 이동" : "Open offers";
-  if (p.startsWith("/market")) return ko ? "거래 홈으로 이동" : "Open market";
+  if (p.startsWith("/my/offers")) return hint("notifications_dest_offers");
+  if (p.startsWith("/market")) return hint("notifications_dest_market");
   if (p === "/notifications" || p.startsWith("/notifications")) {
-    return ko ? "원본을 찾을 수 없음 · 알림함" : "Origin unavailable · Inbox";
+    return hint("notifications_dest_origin_unavailable_inbox");
   }
-  return ko ? "원본으로 이동" : "Open origin";
+  return hint("notifications_dest_origin");
 }

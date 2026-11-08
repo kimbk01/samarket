@@ -4,6 +4,8 @@
  * without inventing a unified Ads product table or engine.
  */
 
+import { translateBy } from "@/lib/i18n/translate-by";
+
 export const ADS_CANONICAL_PRODUCTS = {
   community_boost: {
     productKey: "community_boost",
@@ -115,13 +117,13 @@ export function normalizeAdsSourceKindPublic(
     v === "dibay_first_party" ||
     v === "admin"
   ) {
-    return ko ? "Admin 직접 등록" : "Admin direct";
+    return translateBy(ko ? "ko" : "en", "ads_source_admin_direct");
   }
   if (v === "owner" || v === "owner_paid") {
-    return ko ? "매장 신청" : "Store application";
+    return translateBy(ko ? "ko" : "en", "ads_source_store_application");
   }
   if (v === "member" || v === "member_paid") {
-    return ko ? "회원 신청" : "Member application";
+    return translateBy(ko ? "ko" : "en", "ads_source_member_application");
   }
-  return ko ? "—" : "—";
+  return "—";
 }

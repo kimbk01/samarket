@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 
@@ -26,7 +25,7 @@ export type InboxDateSection = {
  */
 export function groupInboxItemsByDateSection(
   items: InboxGroupItem[],
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): InboxDateSection[] {
   if (items.length === 0) return [];
 

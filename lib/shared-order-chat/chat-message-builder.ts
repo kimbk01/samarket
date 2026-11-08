@@ -1,4 +1,4 @@
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import { orderEventMessage } from "@/lib/stores/store-order-process-model";
@@ -12,7 +12,7 @@ export type OrderChatFlow = "delivery" | "pickup";
 export function systemChatLineForOrderStatus(
   status: SharedOrderStatus,
   flow: OrderChatFlow = "pickup",
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string | null {
   const msg = orderEventMessage(status, flow === "delivery" ? "local_delivery" : "pickup");
   if (!msg) return null;

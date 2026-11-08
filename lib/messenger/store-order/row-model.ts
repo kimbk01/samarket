@@ -13,7 +13,7 @@ import type {
   StoreOrderCustomerListViewModel,
   StoreOrderOwnerListViewModel,
 } from "@/lib/messenger/store-order/ux-contract";
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { normalizeStoreOrderCancelKind, processStatusLabel } from "@/lib/stores/store-order-process-model";
 
 /** raw `order_status`(pending 등) → SSOT 한글/영문 라벨. 미인식 값은 그대로 통과. */
@@ -51,7 +51,7 @@ function previewFromItem(item: StoreOrderListItem): string {
 
 export function buildStoreOrderCustomerListViewModel(
   item: StoreOrderListItem,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): StoreOrderCustomerListViewModel {
   const presentation = resolveStoreOrderCustomerPresentationFromListItem(item);
   return {
@@ -74,7 +74,7 @@ export function buildStoreOrderCustomerListViewModel(
 
 export function buildStoreOrderOwnerListViewModel(
   item: StoreOrderListItem,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): StoreOrderOwnerListViewModel {
   const presentation = resolveStoreOrderOwnerPresentationFromListItem(item);
   return {

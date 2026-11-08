@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { commerceMetaKindLabel } from "@/lib/notifications/notification-display-labels";
 import {
   resolveInboxOrderStatusChip,
@@ -179,7 +178,7 @@ function rowMatchesSurfacePriority(row: InboxRowInput, priorityPushKind: InboxPu
  */
 export function buildInboxGroupItems(
   rows: InboxRowInput[],
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE,
+  language: AppLanguageCode,
   priorityPushKind?: InboxPushKindFilter | null
 ): InboxGroupItem[] {
   const sorted = [...rows].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));

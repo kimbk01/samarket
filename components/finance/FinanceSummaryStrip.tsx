@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   financeCashInTodayHref,
   financeCashOutTodayHref,
@@ -38,35 +39,35 @@ function coinOrDash(
 }
 
 export function FinanceSummaryStrip({
-  ko,
   model,
 }: {
   ko: boolean;
   model: FinanceSummaryStripModel | null;
 }) {
+  const { t } = useI18n();
   const loading = model == null;
   const items = [
     {
       key: "cash_in",
-      label: ko ? "오늘 Cash 유입" : "Cash in today",
+      label: t("finance_cash_in_today"),
       value: cashOrDash(model?.todayCashInMinor, { loading }),
       href: financeCashInTodayHref(),
     },
     {
       key: "cash_out",
-      label: ko ? "오늘 Cash 유출" : "Cash out today",
+      label: t("finance_cash_out_today"),
       value: cashOrDash(model?.todayCashOutMinor, { loading }),
       href: financeCashOutTodayHref(),
     },
     {
       key: "coin",
-      label: ko ? "오늘 Coin 적립" : "Coin earned today",
+      label: t("finance_coin_earned_today"),
       value: coinOrDash(model?.todayCoinEarned, { loading }),
       href: financeCoinEarnedTodayHref(),
     },
     {
       key: "outstanding",
-      label: ko ? "미납 수수료" : "Outstanding fees",
+      label: t("finance_outstanding_fees"),
       value: formatFinanceAmount({
         wallet: "CASH",
         amount: model?.outstandingMinor ?? 0,
@@ -76,7 +77,7 @@ export function FinanceSummaryStrip({
     },
     {
       key: "pending",
-      label: ko ? "처리 대기" : "Action required",
+      label: t("finance_action_required"),
       value: String(model?.pendingActions ?? 0),
       href: financeWithdrawalsHref(),
     },

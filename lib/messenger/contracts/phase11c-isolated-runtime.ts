@@ -1,3 +1,4 @@
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 /**
  * Phase 11C — Isolated Runtime Integration (harness only).
  *
@@ -393,8 +394,8 @@ export async function runPhase11cColdIsolatedPipeline(input: {
     const hub = buildStoreOrderHubViewModel(body.rows);
     const listVms =
       role === "customer"
-        ? body.rows.map((row) => buildStoreOrderCustomerListViewModel(row))
-        : body.rows.map((row) => buildStoreOrderOwnerListViewModel(row));
+        ? body.rows.map((row) => buildStoreOrderCustomerListViewModel(row, DEFAULT_APP_LANGUAGE)) /* 감사 L2 — 검증 하네스(화면 아님): 기본값이던 언어를 명시 */ 
+        : body.rows.map((row) => buildStoreOrderOwnerListViewModel(row, DEFAULT_APP_LANGUAGE));
     const unread = buildStoreOrderUnreadContribution({
       viewerUserId: viewer,
       surfaceRole: role,

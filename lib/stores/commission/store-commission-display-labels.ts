@@ -9,6 +9,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { processStatusLabel } from "@/lib/stores/store-order-process-model";
 import { labelCheckoutPaymentMethod } from "@/lib/stores/payment-methods-config";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 배달·픽업 구분을 못 읽은 줄은 배달 기준 표기 (수수료는 배달 주문이 대부분 · 상태 이름 대부분 공통) */
 const DEFAULT_FULFILLMENT = "local_delivery";
@@ -63,9 +64,8 @@ export function commissionOwnerRefundedLabel(
 ): string | null {
   const cash = Number(decision?.cashRefundMinor ?? 0) > 0;
   const cancel = Number(decision?.outstandingCancelMinor ?? 0) > 0;
-  const en = lang === "en";
-  if (cash && cancel) return en ? "Cash refunded · Unpaid cancelled" : "Cash 환급·미납 취소";
-  if (cash) return en ? "Cash refunded" : "Cash 환급";
-  if (cancel) return en ? "Unpaid cancelled" : "미납 취소";
+  if (cash && cancel) return translateBy(lang, "stores_commission_owner_cash_refunded_unpaid_cancelled");
+  if (cash) return translateBy(lang, "stores_commission_owner_cash_refunded");
+  if (cancel) return translateBy(lang, "stores_commission_owner_unpaid_cancelled");
   return null;
 }

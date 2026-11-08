@@ -84,7 +84,7 @@ export const giftCertificateU2Messages = {
     gift_u2_store_section_title: "Store gift certificates",
     gift_u2_store_view_cta: "View gift certificates",
 
-    gift_u2_mall_title: "Gift mall",
+    gift_u2_mall_title: "Gift certificate mall",
     gift_u2_mall_desc:
       "Buy store and DIBAY gift certificates with Point. Validity may vary by product.",
     gift_u2_mall_wallet_cta: "My gifts",
@@ -101,7 +101,7 @@ export const giftCertificateU2Messages = {
     gift_u2_mall_transferable: "Transferable",
     gift_u2_mall_non_transferable: "Non-transferable",
 
-    gift_u2_detail_title: "Gift details",
+    gift_u2_detail_title: "Gift certificate details",
     gift_u2_detail_unit: "Sold per certificate",
     gift_u2_detail_usable_store: "Usable at",
     gift_u2_detail_sales_ends: "Sales end",
@@ -121,7 +121,7 @@ export const giftCertificateU2Messages = {
     gift_u2_success_title: "Gift certificate purchased.",
     gift_u2_success_wallet_cta: "View my gifts",
     gift_u2_success_browse_cta: "Browse more gifts",
-    gift_u2_success_dialog_body: "Point spent {price}\nGift number {number}",
+    gift_u2_success_dialog_body: "Point spent {price}\nGift certificate number {number}",
     gift_u2_success_dialog_body_no_number: "Point spent {price}",
 
     gift_u2_err_insufficient: "Not enough Point.",
@@ -133,9 +133,9 @@ export const giftCertificateU2Messages = {
 
     gift_u2_wallet_empty: "You don’t have any gift certificates yet.",
     gift_u2_wallet_browse_cta: "View gift certificates",
-    gift_u2_wallet_detail_cta: "Gift details",
+    gift_u2_wallet_detail_cta: "Certificate details",
     gift_u2_wallet_remaining: "Balance",
-    gift_u2_public_number_label: "Gift number",
+    gift_u2_public_number_label: "Gift certificate number",
     gift_u2_public_number_copy: "Copy number",
     gift_u2_public_number_copied: "Copied",
 

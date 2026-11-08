@@ -1,5 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { type AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
@@ -88,7 +88,7 @@ export function countSellerManageTabs<T extends Row>(items: T[]): Record<SellerM
 
 export function getSellerManageTabLabel(
   id: SellerManageTabId,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string {
   const tab = SELLER_MANAGE_TABS.find((item) => item.id === id);
   return tab ? translate(language, tab.labelKey) : id;

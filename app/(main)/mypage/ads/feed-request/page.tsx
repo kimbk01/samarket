@@ -198,7 +198,7 @@ export default function MemberFeedAdRequestPage() {
         (Array.isArray(cj.posts) ? cj.posts : [])
           .map((p) => ({
             id: String(p.id ?? ""),
-            title: String(p.title ?? "").trim() || (en ? "(untitled)" : "(제목 없음)"),
+            title: String(p.title ?? "").trim() || t("mypage_ads_untitled"),
             createdAt: String(p.createdAt ?? p.created_at ?? ""),
           }))
           .filter((p) => p.id)
@@ -208,7 +208,7 @@ export default function MemberFeedAdRequestPage() {
           .filter(isTradeListingDestEligible)
           .map((p) => ({
             id: String(p.id),
-            title: String(p.title ?? "").trim() || (en ? "(untitled)" : "(제목 없음)"),
+            title: String(p.title ?? "").trim() || t("mypage_ads_untitled"),
             price: Number(p.price) || 0,
             status: String(p.status ?? "active"),
             sellerListingState: p.sellerListingState,
@@ -218,7 +218,7 @@ export default function MemberFeedAdRequestPage() {
     } finally {
       setOwnLoading(false);
     }
-  }, [en]);
+  }, [t]);
 
   /**
    * 광고하기 창(시안 v3)에서 옴: `?domain=trade&targetPostId=…&productId=…` → 거래 · 내 글 연결 · 그 글 · 고른 기간을 미리 선택.
@@ -296,52 +296,41 @@ export default function MemberFeedAdRequestPage() {
   const selectedCat = cats.find((c) => c.id === categoryId) ?? null;
 
   const placementExplain = useMemo(() => {
-    if (en) {
-      return `Shown in mid-feed ad slots with ${FEED_AD_SLOT_GAP_MIN}–${FEED_AD_SLOT_GAP_MAX} posts between each slot in the selected feed.`;
-    }
-    return `선택한 피드에서 일반 콘텐츠 ${FEED_AD_SLOT_GAP_MIN}~${FEED_AD_SLOT_GAP_MAX}개마다 중간 광고 슬롯에 노출됩니다.`;
-  }, [en]);
+    return t("mypage_ads_placement_explain", { min: FEED_AD_SLOT_GAP_MIN, max: FEED_AD_SLOT_GAP_MAX });
+  }, [t]);
 
   const targetSummary = useMemo(() => {
     if (placement === "COMMUNITY_HOME") {
-      return en ? "Community home feed" : "커뮤니티 홈 피드";
+      return t("mypage_ads_community_home_feed");
     }
     if (placement === "COMMUNITY_TOPIC") {
       const name = selectedTopic
         ? en && selectedTopic.nameEn
           ? selectedTopic.nameEn
           : selectedTopic.name
-        : en
-          ? "(select topic)"
-          : "(주제 선택)";
-      return en ? `${name} topic feed` : `${name} 주제 피드`;
+        : t("mypage_ads_select_topic_paren");
+      return t("mypage_ads_topic_feed", { name });
     }
     if (placement === "TRADE_HOME") {
-      return en ? "Trade home feed" : "거래 홈 피드";
+      return t("mypage_ads_trade_home_feed");
     }
     const name = selectedCat
       ? en && selectedCat.nameEn
         ? selectedCat.nameEn
         : selectedCat.name
-      : en
-        ? "(select category)"
-        : "(카테고리 선택)";
-    return en ? `${name} category feed` : `${name} 카테고리 피드`;
-  }, [placement, selectedTopic, selectedCat, en]);
+      : t("mypage_ads_select_category_paren");
+    return t("mypage_ads_category_feed", { name });
+  }, [placement, selectedTopic, selectedCat, en, t]);
 
   const destSummary = useMemo(() => {
-    if (destMode === "external_url") return destUrl.trim() || (en ? "External URL" : "외부 링크");
-    if (!ownId) return en ? "Own content (select)" : "내 게시글/상품 (선택)";
+    if (destMode === "external_url") return destUrl.trim() || t("mypage_ads_external_url");
+    if (!ownId) return t("mypage_ads_own_content_select");
     const kindLabel =
       ownKind === "community_post"
-        ? en
-          ? "Community post"
-          : "내 커뮤니티 글"
-        : en
-          ? "Trade listing"
-          : "내 거래 상품";
+        ? t("mypage_ads_my_community_post")
+        : t("mypage_ads_my_trade_listing");
     return `${kindLabel} — "${ownTitle || ownId}"`;
-  }, [destMode, destUrl, ownId, ownKind, ownTitle, en]);
+  }, [destMode, destUrl, ownId, ownKind, ownTitle, t]);
 
   const afterBalance =
     balance != null && selected ? Math.max(0, balance - selected.pointCost) : null;
@@ -374,9 +363,7 @@ export default function MemberFeedAdRequestPage() {
       }
       if (check.belowStandard) {
         setImgWarn(
-          en
-            ? `This image is smaller than the recommended size and ad quality may be lower. Recommended: ${pixelLabel}. Current: ${check.width} × ${check.height} px`
-            : `이 이미지는 권장 크기보다 작아 광고 품질이 낮아질 수 있습니다. 권장: ${pixelLabel}. 현재: ${check.width} × ${check.height} px`
+          t("mypage_ads_image_below_standard", { pixel: pixelLabel, width: check.width, height: check.height })
         );
       }
       const fd = new FormData();
@@ -674,7 +661,7 @@ export default function MemberFeedAdRequestPage() {
                 onChange={(e) => setCategoryId(e.target.value)}
                 required
               >
-                <option value="">{en ? "Select category" : "카테고리 선택"}</option>
+                <option value="">{t("mypage_ads_select_category")}</option>
                 {cats.map((c) => (
                   <option key={c.id} value={c.id}>
                     {en && c.nameEn ? c.nameEn : c.name}
@@ -694,7 +681,7 @@ export default function MemberFeedAdRequestPage() {
                 onChange={(e) => setTopicSlug(e.target.value)}
                 required
               >
-                <option value="">{en ? "Select topic" : "주제 선택"}</option>
+                <option value="">{t("mypage_ads_select_topic")}</option>
                 {topics.map((tp) => (
                   <option key={tp.slug} value={tp.slug}>
                     {en && tp.nameEn ? tp.nameEn : tp.name}
@@ -714,18 +701,12 @@ export default function MemberFeedAdRequestPage() {
               className={`sam-text-helper font-medium ${poolRemaining.remaining > 0 ? "text-sam-fg" : "text-sam-danger"}`}
             >
               {poolRemaining.remaining > 0
-                ? en
-                  ? `${poolRemaining.remaining} of ${poolRemaining.capacity} spots left`
-                  : `남은 자리 ${poolRemaining.remaining}개 (전체 ${poolRemaining.capacity}개)`
-                : en
-                  ? "This spot is full. You can apply when a spot opens."
-                  : "이 자리는 지금 가득 찼습니다. 자리가 나면 신청할 수 있습니다."}
+                ? t("mypage_ads_spots_left", { remaining: poolRemaining.remaining, capacity: poolRemaining.capacity })
+                : t("mypage_ads_spot_full_apply_later")}
             </p>
           ) : null}
           <p className="sam-text-helper text-sam-muted" data-testid="feed-ad-pool-refund-note">
-            {en
-              ? "If the spot fills up by approval time, your request stays in review with points on hold. If it is declined, your points are returned."
-              : "승인 때 자리가 차면 신청은 검토 중으로 남고 포인트는 보류됩니다. 반려되면 포인트를 돌려드립니다."}
+            {t("mypage_ads_pool_refund_note")}
           </p>
         </section>
 
@@ -737,7 +718,7 @@ export default function MemberFeedAdRequestPage() {
             {safeT("feed_ad_req_pixel")}
           </p>
           <p className="sam-text-helper text-sam-muted">
-            JPG · PNG · WebP · {en ? "max 2MB each · 2–3 images auto-slide in feed" : "장당 최대 2MB · 2~3장은 피드에서 자동 슬라이드"}
+            JPG · PNG · WebP · {t("mypage_ads_image_limits")}
           </p>
 
           <div className="space-y-2">
@@ -760,7 +741,7 @@ export default function MemberFeedAdRequestPage() {
                   density={density}
                   imageUrl={sample.path}
                   headline={en ? sample.headlineEn : sample.headlineKo}
-                  alt={en ? "Sample banner" : "샘플 배너"}
+                  alt={t("mypage_ads_sample_banner")}
                 />
                 <p className="mt-1 sam-text-helper text-sam-muted">
                   {sample.widthPx} × {sample.heightPx} px
@@ -773,8 +754,9 @@ export default function MemberFeedAdRequestPage() {
             <div key={`creative-slot-${idx}`} className="space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="sam-text-helper font-medium">
-                  {en ? `Image ${idx + 1}` : `이미지 ${idx + 1}`}
-                  {idx === 0 ? (en ? " (required)" : " (필수)") : ""}
+                  {idx === 0
+                    ? t("mypage_ads_image_n_required", { n: idx + 1 })
+                    : t("mypage_ads_image_n", { n: idx + 1 })}
                 </p>
                 {slot.imageUrl && creatives.length > 1 ? (
                   <button
@@ -787,7 +769,7 @@ export default function MemberFeedAdRequestPage() {
                       });
                     }}
                   >
-                    {en ? "Remove" : "삭제"}
+                    {t("mypage_ads_remove")}
                   </button>
                 ) : null}
               </div>
@@ -795,9 +777,7 @@ export default function MemberFeedAdRequestPage() {
                 {uploading && uploadSlot === idx
                   ? t("common_loading")
                   : slot.imageUrl
-                    ? en
-                      ? "Replace image"
-                      : "이미지 바꾸기"
+                    ? t("mypage_ads_replace_image")
                     : safeT("feed_ad_req_pick_image")}
                 <input
                   type="file"
@@ -821,12 +801,12 @@ export default function MemberFeedAdRequestPage() {
                   />
                   {slot.width != null && slot.height != null ? (
                     <p className="sam-text-helper text-sam-muted">
-                      {en ? "Current" : "현재"}: {slot.width} × {slot.height} px
+                      {t("mypage_ads_current")}: {slot.width} × {slot.height} px
                     </p>
                   ) : null}
                   <input
                     className="w-full rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper"
-                    placeholder={en ? "Headline (optional)" : "헤드라인 (선택)"}
+                    placeholder={t("mypage_ads_headline_optional")}
                     value={slot.headline}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -849,7 +829,7 @@ export default function MemberFeedAdRequestPage() {
               onClick={() => setCreatives((prev) => [...prev, { ...EMPTY_CREATIVE }].slice(0, 3))}
               data-testid="feed-ad-add-creative"
             >
-              {en ? `Add image (${creatives.length}/3)` : `이미지 추가 (${creatives.length}/3)`}
+              {t("mypage_ads_add_image", { count: creatives.length })}
             </button>
           ) : null}
         </section>
@@ -861,8 +841,8 @@ export default function MemberFeedAdRequestPage() {
           <div className="flex flex-col gap-2">
             {(
               [
-                ["own_content", en ? "My post / listing" : "내 게시글/상품"],
-                ["external_url", en ? "External link" : "외부 링크"],
+                ["own_content", t("mypage_ads_dest_my_post_listing")],
+                ["external_url", t("mypage_ads_dest_external_link")],
               ] as const
             ).map(([mode, label]) => (
               <label
@@ -912,7 +892,7 @@ export default function MemberFeedAdRequestPage() {
                     setOwnTitle("");
                   }}
                 >
-                  {en ? "Community" : "커뮤니티"}
+                  {t("mypage_ads_community")}
                 </button>
                 <button
                   type="button"
@@ -927,7 +907,7 @@ export default function MemberFeedAdRequestPage() {
                     setOwnTitle("");
                   }}
                 >
-                  {en ? "Trade" : "거래"}
+                  {t("mypage_ads_trade")}
                 </button>
               </div>
               {ownLoading ? (
@@ -935,7 +915,7 @@ export default function MemberFeedAdRequestPage() {
               ) : ownKind === "community_post" ? (
                 ownCommunity.length === 0 ? (
                   <p className="sam-text-helper text-sam-muted">
-                    {en ? "No eligible community posts." : "연결 가능한 커뮤니티 글이 없습니다."}
+                    {t("mypage_ads_no_eligible_community_posts")}
                   </p>
                 ) : (
                   <ul className="max-h-56 space-y-1 overflow-y-auto">
@@ -966,7 +946,7 @@ export default function MemberFeedAdRequestPage() {
                 )
               ) : ownTrade.length === 0 ? (
                 <p className="sam-text-helper text-sam-muted">
-                  {en ? "No eligible trade listings." : "연결 가능한 거래 상품이 없습니다."}
+                  {t("mypage_ads_no_eligible_trade_listings")}
                 </p>
               ) : (
                 <ul className="max-h-56 space-y-1 overflow-y-auto">
@@ -1038,24 +1018,23 @@ export default function MemberFeedAdRequestPage() {
                 >
                   <div className="flex justify-between gap-2">
                     <span className="font-medium text-sam-fg">
-                      {p.durationDays}
-                      {en ? " days" : "일"} · {formatMypagePoint(p.pointCost, { lang: language })}
+                      {t("mypage_ads_days", { n: p.durationDays })} · {formatMypagePoint(p.pointCost, { lang: language })}
                     </span>
                     {unaffordable ? (
                       <span className="sam-text-helper font-medium text-sam-warning">
-                        {en ? "Insufficient points" : "포인트 부족"}
+                        {t("mypage_ads_insufficient_points")}
                       </span>
                     ) : null}
                   </div>
                   {balance != null ? (
                     <p className="sam-text-helper text-sam-muted">
-                      {en ? "Current" : "현재"} {formatMypagePoint(balance, { lang: language })}
+                      {t("mypage_ads_current")} {formatMypagePoint(balance, { lang: language })}
                       {" · "}
-                      {en ? "Required" : "필요"} {formatMypagePoint(p.pointCost, { lang: language })}
+                      {t("mypage_ads_required")} {formatMypagePoint(p.pointCost, { lang: language })}
                       {shortfall != null
-                        ? ` · ${en ? "Short" : "부족"} ${formatMypagePoint(shortfall, { lang: language })}`
+                        ? ` · ${t("mypage_ads_short")} ${formatMypagePoint(shortfall, { lang: language })}`
                         : after != null
-                          ? ` · ${en ? "After" : "신청 후"} ${formatMypagePoint(after, { lang: language })}`
+                          ? ` · ${t("mypage_ads_after")} ${formatMypagePoint(after, { lang: language })}`
                           : ""}
                     </p>
                   ) : null}
@@ -1112,9 +1091,7 @@ export default function MemberFeedAdRequestPage() {
               ))}
               {filledCreatives.length >= 2 ? (
                 <p className="sam-text-helper text-sam-muted">
-                  {en
-                    ? `${filledCreatives.length} images · auto-slide in feed (same campaign)`
-                    : `${filledCreatives.length}장 · 피드에서 같은 캠페인만 자동 슬라이드`}
+                  {t("mypage_ads_images_auto_slide", { count: filledCreatives.length })}
                 </p>
               ) : null}
             </div>
@@ -1136,51 +1113,49 @@ export default function MemberFeedAdRequestPage() {
             data-testid="feed-ad-final-summary"
           >
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Ad area" : "광고 영역"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_ad_area")}</dt>
               <dd className="font-medium">
-                {domain === "trade" ? (en ? "Trade" : "거래") : en ? "Community" : "커뮤니티"}
+                {domain === "trade" ? t("mypage_ads_trade") : t("mypage_ads_community")}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Placement" : "광고 위치"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_placement")}</dt>
               <dd className="max-w-[60%] text-right font-medium">{targetSummary}</dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Images" : "이미지"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_images")}</dt>
               <dd className="font-medium">
                 {filledCreatives.length > 0
-                  ? en
-                    ? `${filledCreatives.length} / 3`
-                    : `${filledCreatives.length}장 / 최대 3장`
+                  ? t("mypage_ads_images_count", { count: filledCreatives.length })
                   : pixelLabel}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Destination" : "연결 대상"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_destination")}</dt>
               <dd className="max-w-[60%] text-right font-medium">{destSummary}</dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Period" : "기간"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_period")}</dt>
               <dd className="font-medium">
                 {selected
-                  ? `${selected.durationDays}${en ? " days" : "일"}`
+                  ? t("mypage_ads_days", { n: selected.durationDays })
                   : "—"}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Use Point" : "사용 포인트"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_use_point")}</dt>
               <dd className="font-medium">
                 {selected ? formatMypagePoint(selected.pointCost, { lang: language }) : "—"}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Current Point" : "현재 포인트"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_current_point")}</dt>
               <dd className="font-medium">
                 {balance == null ? "—" : formatMypagePoint(balance, { lang: language })}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "After submit" : "신청 후"}</dt>
+              <dt className="text-sam-muted">{t("mypage_ads_after_submit")}</dt>
               <dd className="font-medium">
                 {afterBalance == null ? "—" : formatMypagePoint(afterBalance, { lang: language })}
               </dd>

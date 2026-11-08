@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { commerceMetaKindLabel } from "@/lib/notifications/notification-display-labels";
 import type { BellPresentationType } from "@/lib/notifications/inbox-events-merge";
@@ -72,7 +71,7 @@ function surfaceFromBellPresentation(
  */
 export function resolveInboxSurfaceBadge(
   row: InboxSurfaceRowInput,
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode
 ): string {
   // Support Center replies/closures carry the support case route — badge them 「고객센터」, not 「공지」.
   if (row.link_url && toPathname(row.link_url).startsWith("/support/cases/")) {

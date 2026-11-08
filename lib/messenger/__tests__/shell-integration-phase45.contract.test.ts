@@ -375,8 +375,8 @@ describe("Phase 4.5 — required PASS contracts (1–15)", () => {
     expect(orderListed.ok).toBe(true);
     if (!orderListed.ok) return;
     const item = orderListed.snapshot.rows[0]!;
-    expect(buildStoreOrderCustomerHeaderModel(item).kind).toBe("buyer_store");
-    expect(buildStoreOrderOwnerHeaderModel(item).kind).toBe("owner_buyer_peer");
+    expect(buildStoreOrderCustomerHeaderModel(item, "ko").kind).toBe("buyer_store");
+    expect(buildStoreOrderOwnerHeaderModel(item, "ko").kind).toBe("owner_buyer_peer");
   });
 
   it("8 Preview cross-domain 사용 거부", () => {

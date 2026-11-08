@@ -46,7 +46,7 @@ export const giftCertificateU4Messages = {
     gift_u4_summary_gift_line: "Gift certificate",
     gift_u4_order_amount_before_gift: "Amount before gift",
     gift_u4_order_gift_line: "Gift certificate",
-    gift_u4_order_gift_restored: "Gift restored",
+    gift_u4_order_gift_restored: "Gift certificate restored",
     gift_u4_err_wrong_store: "This gift can’t be used at this store.",
     gift_u4_err_gift_locked: "A gift awaiting accept can’t be used.",
     gift_u4_err_not_owner: "You no longer own this gift certificate.",

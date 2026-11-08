@@ -2,33 +2,41 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { normalizeOwnerFinanceSection, ownerFinanceSectionHref } from "@/lib/finance/routes";
 
-const OWNER_FINANCE_NAV = [
-  { key: "transactions", section: "transactions" as const, labelKo: "거래내역", labelEn: "Transactions" },
-  { key: "outstanding", section: "outstanding" as const, labelKo: "수수료/미납", labelEn: "Fees / outstanding" },
-  { key: "coin", section: "coin" as const, labelKo: "Coin", labelEn: "Coin" },
-  { key: "cash", section: "cash" as const, labelKo: "Cash", labelEn: "Cash" },
-  { key: "ads", section: "ads" as const, labelKo: "광고 지출", labelEn: "Ad spend" },
-  { key: "convert", section: "convert" as const, labelKo: "충전·전환", labelEn: "Top up & convert" },
-  { key: "withdraw", section: "withdraw" as const, labelKo: "Coin 출금", labelEn: "Coin withdrawal" },
-] as const;
+/** label = 언어 공통 이름(Coin·Cash), labelKey = 카탈로그 키 */
+const OWNER_FINANCE_NAV: ReadonlyArray<{
+  key: string;
+  section: "transactions" | "outstanding" | "coin" | "cash" | "ads" | "convert" | "withdraw";
+  labelKey?: MessageKey;
+  label?: string;
+}> = [
+  { key: "transactions", section: "transactions", labelKey: "finance_nav_transactions" },
+  { key: "outstanding", section: "outstanding", labelKey: "finance_nav_fees_outstanding" },
+  { key: "coin", section: "coin", label: "Coin" },
+  { key: "cash", section: "cash", label: "Cash" },
+  { key: "ads", section: "ads", labelKey: "finance_nav_ad_spend" },
+  { key: "convert", section: "convert", labelKey: "finance_nav_top_up_convert" },
+  { key: "withdraw", section: "withdraw", labelKey: "finance_coin_withdrawal" },
+];
 
 export function OwnerFinanceNav({
   storeId,
-  ko,
 }: {
   storeId: string;
   ko: boolean;
 }) {
   const sp = useSearchParams();
+  const { t } = useI18n();
   const active = normalizeOwnerFinanceSection(sp.get("section"));
 
   return (
     <nav
       className="flex flex-wrap gap-1.5 border-b border-sam-border pb-2"
       data-owner-finance-nav="1"
-      aria-label={ko ? "매장 재무 메뉴" : "Owner finance navigation"}
+      aria-label={t("finance_owner_nav_aria")}
     >
       {OWNER_FINANCE_NAV.map((item) => {
         const href = ownerFinanceSectionHref(storeId, item.section);
@@ -44,7 +52,7 @@ export function OwnerFinanceNav({
             }`}
             data-owner-finance-nav-item={item.key}
           >
-            {ko ? item.labelKo : item.labelEn}
+            {item.labelKey ? t(item.labelKey) : item.label}
           </Link>
         );
       })}

@@ -1,3 +1,5 @@
+import { translateBy } from "@/lib/i18n/translate-by";
+
 /**
  * IA-22 / FIN-04 — one idempotency key per money form submission.
  *
@@ -17,15 +19,15 @@ export function newOwnerFormRequestKey(prefix: string): string {
 export function ownerCashTopUpMethodLabel(method: string, ko: boolean): string {
   switch (method) {
     case "bank_transfer":
-      return ko ? "은행 이체" : "Bank transfer";
+      return translateBy(ko ? "ko" : "en", "business_topup_method_bank_transfer");
     case "gcash":
       return "GCash";
     case "maya":
       return "Maya";
     case "other":
-      return ko ? "기타" : "Other";
+      return translateBy(ko ? "ko" : "en", "business_topup_method_other");
     case "apple_iap":
-      return ko ? "Apple 결제" : "Apple payment";
+      return translateBy(ko ? "ko" : "en", "business_topup_method_apple");
     default:
       return method;
   }

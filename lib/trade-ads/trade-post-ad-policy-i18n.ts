@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 function tradeAdT(lang: AppLanguageCode, key: MessageKey): string {
@@ -13,7 +12,7 @@ const GUIDE_KEYS = [
   "trade_ad_guide_4",
 ] as const satisfies readonly MessageKey[];
 
-export function tradePaidAdFormatGuide(lang: AppLanguageCode = DEFAULT_APP_LANGUAGE): string[] {
+export function tradePaidAdFormatGuide(lang: AppLanguageCode): string[] {
   return GUIDE_KEYS.map((key) => tradeAdT(lang, key));
 }
 

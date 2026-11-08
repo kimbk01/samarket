@@ -6,7 +6,6 @@
  * - 옵션 추가금 상한은 `owner-product-options-validate.ts` (`OWNER_PRODUCT_OPTION_PRICE_DELTA_MAX`).
  */
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 
 export const OWNER_PRODUCT_TITLE_MAX = 120;
@@ -35,7 +34,7 @@ function fmt(n: number): string {
 /** 넘긴 필드만 검사 (undefined = 미변경). 문자열은 trim 후 길이. */
 export function validateOwnerProductFields(
   fields: OwnerProductFieldsInput,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): { ok: true } | { ok: false; error: OwnerProductFieldLimitError; message: string } {
   if (typeof fields.title === "string" && fields.title.trim().length > OWNER_PRODUCT_TITLE_MAX) {
     return {

@@ -1,5 +1,4 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
 
@@ -14,7 +13,7 @@ function etaT(
 /** 라이딩 분이 없을 때 목록·카드에 쓰는 조리 중심 라벨 */
 export function formatPrepOnlyEtaLabel(
   extras: Pick<CommerceExtrasFromHours, "estPrepLabel">,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string | null {
   const p = extras.estPrepLabel?.trim();
   if (!p) return null;
@@ -28,7 +27,7 @@ export function formatPrepOnlyEtaLabel(
 export function buildStoreDeliveryEtaLabel(
   extras: CommerceExtrasFromHours,
   rideMinutes: number | null,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   if (rideMinutes == null || !Number.isFinite(rideMinutes) || rideMinutes < 0) {
     return formatPrepOnlyEtaLabel(extras, lang) ?? etaT(lang, "store_eta_about_label", { label: extras.estPrepLabel });
@@ -42,7 +41,7 @@ export function buildStoreDeliveryEtaLabel(
 export function buildStoreDeliveryEtaLabelWithManualRide(
   extras: CommerceExtrasFromHours,
   manualRideDisplay: string | null,
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  lang: AppLanguageCode
 ): string {
   const m = manualRideDisplay?.trim() ?? "";
   const prepPart = formatPrepOnlyEtaLabel(extras, lang);
@@ -61,13 +60,13 @@ export function buildStoreDeliveryEtaLabelWithManualRide(
 export function buildBrowseStoreListEtaLabel(
   extras: CommerceExtrasFromHours,
   rideMinutes: number | null,
-  opts?: {
+  opts: {
     deliveryAvailable?: boolean;
     routeContextPresent?: boolean;
     /** 전역 store 모드일 때만 호출부에서 넘김 — 목록 `배달 —` 대체 */
     manualRideDisplay?: string | null;
-  },
-  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  } | undefined,
+  lang: AppLanguageCode
 ): string {
   const prepCore =
     extras.prepMinutes != null && Number.isFinite(extras.prepMinutes) ?

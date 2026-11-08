@@ -35,7 +35,7 @@ describe("P-4 member domain same input", () => {
   it("tab list, group row label and detail use the same domain", () => {
     const tab = classifyInboxRowMemberDomain(row);
     expect(tab).toBe("marketing");
-    const [item] = buildInboxGroupItems([row]);
+    const [item] = buildInboxGroupItems([row], "ko");
     expect(item!.event_kind).toBe("delivery_ad_approved");
     expect(resolveMemberNotificationRowLabelKey(memberNotificationDomainRowFromInbox(item!))).toBe(
       "notif_filter_marketing"

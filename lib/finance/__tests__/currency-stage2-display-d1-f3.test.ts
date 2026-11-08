@@ -119,9 +119,16 @@ describe("D-1·D-3·D-10·D-11·D-15·F-2 배선", () => {
     expect(s).toMatch(/if \(seq !== loadSeqRef\.current\) return;/);
   });
   it("D-15 시각 머리글 (PHT) · 커뮤니티 링크 period=all · 거래 빈 문구 = 적용 기간", () => {
+    /** 언어 SSOT B2: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
     for (const f of [
       "components/finance/FinanceTransactionList.tsx",
       "components/finance/FinanceTransactionDetail.tsx",
+    ]) {
+      expect(src(f)).toContain(`{t("finance_when_pht")}`);
+    }
+    expect(MESSAGES.ko.finance_when_pht).toBe("일시 (PHT)");
+    expect(MESSAGES.en.finance_when_pht).toBe("When (PHT)");
+    for (const f of [
       "components/finance/AdminFinanceAdsView.tsx",
       "components/finance/AdminFinanceConversionsView.tsx",
     ]) {

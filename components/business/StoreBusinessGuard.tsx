@@ -108,7 +108,7 @@ export function StoreBusinessGuard({
    */
   enforce?: boolean;
 }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [phase, setPhase] = useState<Phase>(() => resolvedPhaseFromPeek() ?? { kind: "loading" });
@@ -212,7 +212,6 @@ export function StoreBusinessGuard({
     phase.state.kind === "pending" &&
     isOwnerPathAllowedForApprovalStatus(pathname, phase.state.approval_status)
   ) {
-    const ko = language !== "en";
     const status = phase.state.approval_status;
     if (status === "suspended") {
       return (
@@ -222,9 +221,7 @@ export function StoreBusinessGuard({
             data-owner-store-suspended-orders-only="1"
             className="mx-4 mt-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg"
           >
-            {ko
-              ? "매장 운영이 중지되어 새 주문은 받지 않습니다. 진행 중인 주문만 처리할 수 있습니다."
-              : "Your store is suspended and won't receive new orders. You can still finish orders in progress."}
+            {t("business_guard_suspended_notice")}
           </div>
           {children}
         </div>
@@ -238,9 +235,7 @@ export function StoreBusinessGuard({
             data-owner-store-onboarding-edit="1"
             className="mx-4 mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg"
           >
-            {ko
-              ? "매장 심사가 진행 중입니다. 승인 전에는 매장 정보만 수정할 수 있습니다."
-              : "Your store is under review. Until approval you can only edit store information."}
+            {t("business_guard_onboarding_notice")}
           </div>
           {children}
         </div>
