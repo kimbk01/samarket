@@ -230,6 +230,8 @@ export function isNonMemberMutationPath(pathname: string): boolean {
   if (p.startsWith("/api/cron/")) return true;
   if (p.includes("/webhooks/")) return true;
   if (p.includes("/test-login") || p.includes("/test-logout")) return true;
+  // C8 진입 계측 수집 — 회원 행위 아님, DB 미사용 (app/api/telemetry/entry/route.ts).
+  if (p.startsWith("/api/telemetry/")) return true;
   if (
     p.startsWith("/api/platform-popup/events") ||
     p.startsWith("/api/platform-popup/suppress") ||

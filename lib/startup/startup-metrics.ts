@@ -18,6 +18,7 @@ import {
   noteDestinationShellFrame,
   noteLaunchOsReleased,
 } from "@/lib/launch-intro/os-release-owner";
+import { noteEntryReleased } from "@/lib/telemetry/entry-telemetry.client";
 
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -227,6 +228,8 @@ export function tryDismissNativeSplash(reason: string): void {
   splashDismissAttempted = true;
   noteLaunchOsReleased();
   setMetric("splashDismissReason", reason);
+  // C8 관측 — 해제 동작에 영향 없음 (예외 삼킴·유휴 시점 송신).
+  noteEntryReleased(reason);
   markAppReady(reason);
   // Unblock deferred cold-start network even when auth_shell_fallback skipped markBootMetricsShellReady.
   shellReadyMarked = true;

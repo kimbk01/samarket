@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
 import { isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
+import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -16,6 +17,7 @@ export default function RootError({ error, reset }: ErrorProps) {
 
   useEffect(() => {
     console.error("[RootError]", error);
+    noteEntryFailure("error_boundary");
     // Error UI must not sit under cold-boot intro; dismiss once (idempotent).
     tryDismissNativeSplash("error_boundary");
     /**

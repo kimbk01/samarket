@@ -5,6 +5,8 @@
  * - prod: 배포 직후 예전 HTML/탭이 삭제된 청크를 요청할 때 동일
  */
 
+import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
+
 export const SAMARKET_CHUNK_RELOAD_SESSION_KEY = "samarket:chunk-reload-once";
 
 export function isWebpackChunkLoadError(err: unknown): boolean {
@@ -32,6 +34,8 @@ export function scheduleChunkReloadOnce(): void {
   } catch {
     /* noop */
   }
+  // C8 관측 — 새로고침 직전 즉시 송신, 다음 문서가 회복 여부(after_reload)를 남긴다. 새로고침 동작은 그대로.
+  noteEntryFailure("chunk_reload");
   window.location.reload();
 }
 

@@ -25,6 +25,7 @@ import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-clien
 import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
 import { logAppBuildFingerprintOnce } from "@/lib/build/app-build-fingerprint";
 import { AbandonedR15LocalStatePurge } from "@/components/app/AbandonedR15LocalStatePurge";
+import { startEntryTelemetry } from "@/lib/telemetry/entry-telemetry.client";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -56,6 +57,8 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     logAppBuildFingerprintOnce("AppBootProvider");
+    // C8 관측 시작 (해제 없음 관측·복귀 기록) — 부팅 순서·네트워크에 영향 없음.
+    startEntryTelemetry();
     clearChunkReloadSessionFlag();
     setAppBootShell();
     markBootMetricsReactMounted();
