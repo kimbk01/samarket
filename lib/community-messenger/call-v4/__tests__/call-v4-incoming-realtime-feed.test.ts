@@ -143,3 +143,29 @@ describe("acquireCallV4IncomingRealtimeFeed", () => {
     expect(() => release()).not.toThrow();
   });
 });
+
+describe("원격 종료 신호(onSessionStatus) — T1", () => {
+  it("ringing 이 아닌 내 수신 행 변경은 onSessionStatus 로만 간다(onRinging 아님)", async () => {
+    const { readCallV4IncomingSessionStatusFromPayload } = await import(
+      "@/lib/community-messenger/call-v4/call-v4-incoming-realtime-feed"
+    );
+    expect(readCallV4IncomingSessionStatusFromPayload({ new: { ...ringingInsert.new, status: "cancelled" } }, UID)).toEqual({
+      callId: "call-1",
+      status: "cancelled",
+    });
+    expect(readCallV4IncomingSessionStatusFromPayload(ringingInsert, UID)).toBeNull();
+    expect(
+      readCallV4IncomingSessionStatusFromPayload({ new: { ...ringingInsert.new, status: "missed", recipient_user_id: "x" } }, UID),
+    ).toBeNull();
+
+    const onRinging = vi.fn();
+    const onSessionStatus = vi.fn();
+    acquireCallV4IncomingRealtimeFeed(UID, { onRinging, onSessionStatus });
+    captured.handler?.({ new: { ...ringingInsert.new, status: "missed" } });
+    expect(onSessionStatus).toHaveBeenCalledWith({ callId: "call-1", status: "missed" });
+    expect(onRinging).not.toHaveBeenCalled();
+    captured.handler?.(ringingInsert);
+    expect(onRinging).toHaveBeenCalledTimes(1);
+    expect(onSessionStatus).toHaveBeenCalledTimes(1);
+  });
+});

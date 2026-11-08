@@ -177,6 +177,17 @@ export function startCallV4TerminalRealtimeWatch(userId: string): () => void {
     onHangup: (payload) => {
       const callId = readPayloadCallId(payload);
       if (!callId) return;
+      /**
+       * T3 (docs/audit/call-v4-web-incoming-remote-terminal-root-cause-design-2026-11-08.md): 울리는 중(incoming_ringing)
+       * 통화의 종료 신호는 이 감시(joining/connected 전용)가 무시해 웹 수신 배너가 남았다 → 수신 중 확인 함수로 넘긴다.
+       * 순환 import 방지를 위해 지연 로드. 연결 중 처리는 아래 기존 경로 그대로.
+       */
+      if (readCallV4Phase() === "incoming_ringing" && readCallV4Identity()?.callId === callId) {
+        void import("@/lib/community-messenger/call-v4/call-v4-incoming-remote-terminal").then((m) =>
+          m.confirmCallV4IncomingRemoteTerminal(callId, "realtime_hangup_incoming"),
+        );
+        return;
+      }
       void confirmRemoteTerminalStatus(callId, "realtime");
     },
     onStatus: (status) => {

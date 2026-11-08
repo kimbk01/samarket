@@ -22,6 +22,10 @@ import {
   shouldRunIncomingCallBackupHttpPoll,
 } from "@/lib/layout/incoming-call-backup-poll-policy";
 import { acquireCallV4IncomingRealtimeFeed } from "@/lib/community-messenger/call-v4/call-v4-incoming-realtime-feed";
+import {
+  confirmCallV4IncomingRemoteTerminal,
+  isCurrentCallV4IncomingRinging,
+} from "@/lib/community-messenger/call-v4/call-v4-incoming-remote-terminal";
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
@@ -237,6 +241,18 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     try {
       const sessions = await callV4FetchIncomingSessions();
       consecutiveNetworkFailures = 0;
+      /**
+       * T2 (원격 종료 백업): 이 탭이 울리는 중인 통화가 조회 결과에 없으면 서버 세션을 다시 읽어 확인한다.
+       * 조회 실패도 `[]` 로 오므로(빠짐만으로 판단 금지) 반드시 확인 함수가 서버 상태로 확정한다.
+       */
+      const ringingNowId = readCallV4Identity()?.callId?.trim() ?? "";
+      if (
+        ringingNowId &&
+        isCurrentCallV4IncomingRinging(ringingNowId) &&
+        !sessions.some((s) => s.id?.trim() === ringingNowId)
+      ) {
+        void confirmCallV4IncomingRemoteTerminal(ringingNowId, "poll_incoming_absent");
+      }
       const candidate = pickIncomingRingingCallee(sessions);
       if (!candidate?.id) return;
       const callId = candidate.id.trim();
@@ -284,6 +300,13 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
         if (!firstSignal) return;
         logCallV4("incoming_realtime_signal", { callId });
         void tick("realtime");
+      },
+      /** T1 (원격 종료 주 경로): 내 수신 행이 ringing 이 아니게 됐다 → 서버 확인 후 정리(누가 종료했든 온다). */
+      onSessionStatus: ({ callId, status }) => {
+        if (cancelled) return;
+        if (!isCurrentCallV4IncomingRinging(callId)) return;
+        logCallV4("incoming_realtime_session_status", { callId, status });
+        void confirmCallV4IncomingRemoteTerminal(callId, "realtime_incoming_status");
       },
       onStatus: (status) => {
         if (cancelled) return;

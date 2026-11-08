@@ -11,7 +11,9 @@
  *   Legacy 와 V4 는 `CallIncomingChrome` 에서 배타적으로 마운트된다.
  * - K3 대응: 공용 holder·채널 레지스트리는 「첫 생성자의 핸들러」만 붙인다. 이 모듈은 사용자당 채널 1개에
  *   리스너 목록을 두고 모든 리스너에 나눠 준다(fan-out). Legacy holder 는 바꾸지 않는다.
- * - 종료(UPDATE → cancelled/missed/ended/rejected)는 전달하지 않는다. 종료 처리는 기존 경로만 쓴다.
+ * - ringing 은 `onRinging`(발견 신호), ringing 이 아닌 내 수신 행 변경은 `onSessionStatus`(원격 종료 확인 신호)로 나눠 준다.
+ *   상태 변경은 「신호」일 뿐이다 — 정리는 `confirmCallV4IncomingRemoteTerminal` 이 서버를 다시 읽고 확정할 때만 한다
+ *   (docs/audit/call-v4-web-incoming-remote-terminal-root-cause-design-2026-11-08.md T1).
  */
 
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -25,8 +27,15 @@ export type CallV4IncomingRealtimeRinging = {
   startedAt: string | null;
 };
 
+export type CallV4IncomingRealtimeSessionStatus = {
+  callId: string;
+  status: string;
+};
+
 export type CallV4IncomingRealtimeListener = {
   onRinging: (event: CallV4IncomingRealtimeRinging) => void;
+  /** 내 수신 1:1 세션이 ringing 이 아닌 상태로 바뀌었다(취소·부재중·거절·종료·다른 기기 수락 등). */
+  onSessionStatus?: (event: CallV4IncomingRealtimeSessionStatus) => void;
   onStatus?: (status: string) => void;
 };
 
@@ -59,6 +68,25 @@ export function readCallV4IncomingRingingFromPayload(
   const recipient = typeof r.recipient_user_id === "string" ? normalizeUserId(r.recipient_user_id) : "";
   if (!recipient || recipient !== normalizeUserId(userId)) return null;
   return { callId: id, startedAt: typeof r.started_at === "string" ? r.started_at : null };
+}
+
+/** 순수 함수 — 나에게 온 1:1 세션의 「ringing 이 아닌」 상태 변경만 꺼낸다. */
+export function readCallV4IncomingSessionStatusFromPayload(
+  payload: unknown,
+  userId: string,
+): CallV4IncomingRealtimeSessionStatus | null {
+  if (!payload || typeof payload !== "object") return null;
+  const row = (payload as { new?: unknown }).new;
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id.trim() : "";
+  if (!id) return null;
+  const status = typeof r.status === "string" ? r.status.trim().toLowerCase() : "";
+  if (!status || status === "ringing") return null;
+  if (r.session_mode != null && r.session_mode !== "direct") return null;
+  const recipient = typeof r.recipient_user_id === "string" ? normalizeUserId(r.recipient_user_id) : "";
+  if (!recipient || recipient !== normalizeUserId(userId)) return null;
+  return { callId: id, status };
 }
 
 /**
@@ -105,10 +133,21 @@ export function acquireCallV4IncomingRealtimeFeed(
           },
           (payload) => {
             const ringing = readCallV4IncomingRingingFromPayload(payload, uid);
-            if (!ringing) return;
+            if (ringing) {
+              for (const l of [...created.listeners]) {
+                try {
+                  l.onRinging(ringing);
+                } catch {
+                  /* 리스너 오류 격리 */
+                }
+              }
+              return;
+            }
+            const changed = readCallV4IncomingSessionStatusFromPayload(payload, uid);
+            if (!changed) return;
             for (const l of [...created.listeners]) {
               try {
-                l.onRinging(ringing);
+                l.onSessionStatus?.(changed);
               } catch {
                 /* 리스너 오류 격리 */
               }

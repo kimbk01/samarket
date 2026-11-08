@@ -241,3 +241,45 @@ describe("call-v4 connected terminal watch", () => {
     });
   });
 });
+
+describe("T3 — 울리는 중 hangup 신호 (call-v4-web-incoming-remote-terminal 설계)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mocks.fetchSessionForPoll.mockReset();
+    mocks.subscribeInvite.mockReset();
+    resetCallV4ConnectedTerminalWatchForTests();
+  });
+  afterEach(() => {
+    resetCallV4ConnectedTerminalWatchForTests();
+    vi.useRealTimers();
+  });
+
+  it("수신 울리는 중이면 수신 확인 함수로 넘기고, 연결 중 전용 확인(세션 poll GET)은 하지 않는다", async () => {
+    const confirmIncoming = vi.fn(async () => "finalized");
+    vi.doMock("@/lib/community-messenger/call-v4/call-v4-incoming-remote-terminal", () => ({
+      confirmCallV4IncomingRemoteTerminal: confirmIncoming,
+    }));
+    useCallV4Store.getState().resetToIdle();
+    useCallV4Store.getState().setIdentity({
+      callId: "call-ring",
+      roomId: "room-1",
+      callerUserId: "u-a",
+      calleeUserId: "u-b",
+      direction: "incoming",
+      mediaType: "audio",
+      createdAt: new Date().toISOString(),
+    });
+    useCallV4Store.setState({ phase: "incoming_ringing" });
+    let handlers: { onHangup: (p: Record<string, unknown>) => void } | null = null;
+    mocks.subscribeInvite.mockImplementation((_sb: unknown, _uid: string, h: typeof handlers) => {
+      handlers = h;
+      return {};
+    });
+    startCallV4TerminalRealtimeWatch("u-b");
+    handlers!.onHangup({ sessionId: "call-ring" });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.waitFor(() => expect(confirmIncoming).toHaveBeenCalledWith("call-ring", "realtime_hangup_incoming"));
+    expect(mocks.fetchSessionForPoll).not.toHaveBeenCalled();
+    vi.doUnmock("@/lib/community-messenger/call-v4/call-v4-incoming-remote-terminal");
+  });
+});
