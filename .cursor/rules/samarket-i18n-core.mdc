@@ -1,5 +1,5 @@
 ---
-description: DIBAY i18n core — no key literal in UI, sentence fallbacks, ko/en new keys. When to run i18n commands = samarket-dev-inspection-regulation.
+description: DIBAY i18n core — keys only (no fallback sentences), ko/en new keys, first device language. SSOT docs/i18n-ssot.md. When to run i18n commands = samarket-dev-inspection-regulation.
 alwaysApply: true
 ---
 
@@ -7,11 +7,15 @@ alwaysApply: true
 
 검사 **시점·명령**은 `samarket-dev-inspection-regulation.mdc` 만 따른다. 이 Rule에서 lint/verify/build 명령을 반복하지 않는다.
 
+> **단일 정의: `docs/i18n-ssot.md`** (Owner 2026-11-08). 이 Rule 과 다르면 SSOT 문서가 우선한다.
+
 ## DO (제품 계약)
 
 1. UI(화면·토스트·모달·뱃지·버튼·placeholder·empty·error·loading)에 **i18n key 원문 노출 금지** (`snake_case` key / catalog self-key)
-2. **fallback = 사용자 문장** — key·slug·humanize를 fallback으로 쓰지 않음
-3. **신규 key = ko/en catalog 동시** (`lib/i18n/catalog/*.ts`) + 기본 fallback 문장
+2. **화면 문구는 키로만** — `t("key")`. 신규 key 는 `lib/i18n/catalog/*.ts` 한 파일에 ko·en 동시.
+3. **금지(신규)**: `fallbackKo`/`fallbackEn` 문장, 인라인 `{ ko, en }`, 언어 삼항(`lang === "en" ? …`), `tt("한국어")`, 코드 안 한국어 문자열(함수 반환·서버가 채우는 안내 포함). 서버 문구는 요청 언어(`resolveServerAppLanguage`)로 `translate(lang, key)`.
+4. 언어 결정은 `lib/i18n/app-language-authority.ts` 만 — 기기 **첫 번째 언어**가 한국어면 ko, 그 외 en, 내정보 선택이 우선.
+5. 검사: `npm run check:i18n-quality` (CI 포함) — 파일별 개수가 늘면 실패.
 
 ## UI 출력
 
@@ -26,7 +30,7 @@ alwaysApply: true
 허용 예:
 
 ```ts
-safeT("some_key", { fallbackKo: "준비 중입니다", fallbackEn: "Preparing" })
+t("some_key")
 ```
 
 ## 구현 참조

@@ -32,6 +32,7 @@ export const FILE_RULE_IDS = [
   "non-catalog-bool-lang-ternary",
   "hardcoded-korean",
   "admin-hangul-literal",
+  "user-hangul-literal",
   "jsx-text-korean",
 ] as const;
 export type FileRuleId = (typeof FILE_RULE_IDS)[number];
@@ -325,6 +326,11 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
     put("non-catalog-bool-lang-ternary", countBoolLangTernary(text));
     if (rel.endsWith(".tsx") || rel.endsWith(".ts")) put("hardcoded-korean", countHardcodedKorean(text));
     if (ADMIN_PATH.test(rel)) put("admin-hangul-literal", countAdminHangulLiterals(text));
+    /**
+     * 재감사 2026-11-08 — 어드민 밖 코드의 한국어 문자열(함수가 돌려주는 화면 문구 등). 위 규칙들은 JSX·속성·토스트만 봐서
+     * `return "영상 통화"` 같은 문구가 영어 화면에 나와도 검사를 통과했다. 파일별 개수가 늘면 실패(기존은 기준선).
+     */
+    else put("user-hangul-literal", countAdminHangulLiterals(text));
     if (rel.endsWith(".tsx")) put("jsx-text-korean", countJsxTextKorean(text));
   }
 }

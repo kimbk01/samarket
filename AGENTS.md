@@ -67,6 +67,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **분기 단일화**: `trade` 타입 카테고리 작성은 **`components/write/trade/TradeCategoryWriteForm.tsx`** 만 수정하면 `/write`·거래 시트·상품 수정이 함께 따라간다. 신규 전용 폼·저장소·`discardTradeWriteStashedDraft` 등록 절차는 `.cursor/rules/trade-write-draft-continuity.mdc` 참고.
 
+## 언어 (한국어·영어 SSOT · Owner 2026-11-08)
+
+- 단일 정의 **`docs/i18n-ssot.md`**. 지원 언어는 `ko`·`en` 만. 기기 **첫 번째 언어**가 한국어면 ko, 그 외 en, 내정보 언어 선택이 우선 (`lib/i18n/app-language-authority.ts`).
+- 화면 문구는 **키로만** (`t("key")`, 카탈로그 `lib/i18n/catalog/*.ts` 에 ko·en 동시). 신규 금지: `fallbackKo/fallbackEn` 문장·인라인 `{ko,en}`·언어 삼항·`tt("한국어")`·코드 안 한국어 문자열(서버가 채우는 안내 포함). 서버 문구는 요청 언어로.
+- 영어는 개발자 용어 없이 짧게 (SSOT §4 용어집·길이). 검사 `npm run check:i18n-quality` (CI 포함, 파일별 개수가 늘면 실패).
+
 ## UI 토큰
 
 - 전역 팔레트는 **`app/design-tokens.css`** 의 **`--sam-*`** (DIBAY 그린 브랜드 `--sam-primary` `#0B421A`·앱 배경·서피스·상태색·반경·그림자). 레거시 **`--ui-*`**·`bg-ui-*` 는 동일 값으로 브리지되어 기존 코드가 동작한다.

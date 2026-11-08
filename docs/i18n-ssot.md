@@ -116,6 +116,9 @@
 | `glossary` | 용어집 「쓰지 않는 영어」 | 새 항목 실패 |
 | `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항(문구일 때만 — 언어 코드 정규화·DB 다국어 열 선택·같은 값·속성 이름 고르기 제외)·`tt("…")`·문구 쌍 인자 `pick(lang, "한국어", "English")`(S6 추가) 개수 | 파일별 증가 실패 (인라인은 서버 검증 입력값만 허용 목록 `NON_CATALOG_INLINE_FILE_ALLOW`, 이유 필수) |
 | `length-budget` | 4-3 기준 초과(고객·사장님 키) | 실패 (S4 부터, 기준선 없음) |
+| `hardcoded-korean` · `jsx-text-korean` | 화면 파일의 영어 짝 없는 한국어(JSX 글자·속성·토스트·여러 줄 JSX) | 파일별 증가 실패 |
+| `admin-hangul-literal` | 어드민 경로 코드의 한국어 문자열 | 파일별 증가 실패 |
+| `user-hangul-literal` | **어드민 밖** 코드의 한국어 문자열(함수가 돌려주는 화면 문구·서버가 채우는 안내 등 — 재감사 2026-11-08 추가). 주석·`console`·`throw` 줄, `ko:`·`…Ko:` 표 값은 세지 않는다 | 파일별 증가 실패 — 새 화면 문구는 키로. 데이터(금칙어·시드 등)로 꼭 필요하면 이유를 적어 Owner 확인 후 기준선 갱신 |
 
 - 「고객·사장님 키」 판정(S3 정밀화 — `areaFromUsage`·`libReachAreas`):
   - 고객·사장님 화면 파일(`app`·`components`·`hooks`, 어드민 경로 밖)이 직접 쓰면 고객·사장님 키.
