@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   buildExplicitCommunityLocalFilter,
+  communityLocalFilterLocationKey,
   communityLocalFilterStorageKey,
   formatCommunityLocalFilterLabel,
   resolveCommunityLocalFilterAgainstMaster,
@@ -40,6 +41,7 @@ function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO
     neighborhoodName: null,
     appRegionId: partial.appRegionId ?? "manila",
     appCityId: partial.appCityId ?? "m2",
+    canonicalLguId: partial.canonicalLguId === undefined ? "1380300000" : partial.canonicalLguId,
     useForLife: true,
     useForTrade: true,
     useForDelivery: true,
@@ -55,44 +57,46 @@ function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO
   };
 }
 
-describe("community local filter SSOT (CUT 2)", () => {
-  it("seeds from master taxonomy City — not profiles", () => {
+describe("community local filter SSOT — 시/군 LGU (주소 SSOT 2단계)", () => {
+  it("대표 주소 LGU 로 seed — 「보는 동네」 = 시/군 이름 (Makati City)", () => {
     const seeded = seedCommunityLocalFilterFromMaster(
-      addr({ id: "m1", appRegionId: "manila", appCityId: "m2", cityMunicipality: "Makati" }),
+      addr({ id: "m1", canonicalLguId: "1380300000", cityMunicipality: "Makati City" }),
     );
-    expect(seeded).toMatchObject({
-      source: "seed",
-      regionId: "manila",
-      cityId: "m2",
-      masterAddressId: "m1",
-      barangay: "",
-    });
-    expect(formatCommunityLocalFilterLabel(seeded)).toMatch(/Makati/i);
+    expect(seeded).toEqual({ source: "seed", lguId: "1380300000", masterAddressId: "m1" });
+    expect(formatCommunityLocalFilterLabel(seeded)).toBe("Makati City");
+    expect(communityLocalFilterLocationKey(seeded)).toBe("lgu:1380300000:");
+  });
+
+  it("Quezon City 주소(바랑가이 Diliman)는 Quezon City — 동네 목록 이름(Diliman) 아님", () => {
+    const seeded = seedCommunityLocalFilterFromMaster(
+      addr({ id: "m1", canonicalLguId: "1381300000", cityMunicipality: "Quezon City", barangay: "Diliman" }),
+    );
+    expect(formatCommunityLocalFilterLabel(seeded)).toBe("Quezon City");
+  });
+
+  it("앱 동네 목록 밖 시/군(Caloocan·Bacoor)도 읽는다", () => {
+    expect(formatCommunityLocalFilterLabel(seedCommunityLocalFilterFromMaster(addr({ id: "c", canonicalLguId: "1380100000" })))).toBe(
+      "Caloocan City",
+    );
+    // Bacoor PSGC 0402103000 (data/trade-national-lgu 「City of Bacoor」) — 표기 통일 「Bacoor City」
+    expect(formatCommunityLocalFilterLabel(buildExplicitCommunityLocalFilter("0402103000"))).toBe("Bacoor City");
+  });
+
+  it("LGU 없는 대표 주소는 seed 없음", () => {
+    expect(seedCommunityLocalFilterFromMaster(addr({ id: "x", canonicalLguId: null }))).toBeNull();
   });
 
   it("explicit filter is preserved when master changes (CASE D)", () => {
-    const explicit = buildExplicitCommunityLocalFilter("manila", "m18");
+    const explicit = buildExplicitCommunityLocalFilter("1381500000");
     expect(explicit?.source).toBe("explicit");
-    const next = resolveCommunityLocalFilterAgainstMaster(
-      explicit,
-      addr({ id: "m2", appRegionId: "manila", appCityId: "m20", cityMunicipality: "Pasig" }),
-    );
+    const next = resolveCommunityLocalFilterAgainstMaster(explicit, addr({ id: "m2", canonicalLguId: "1381200000" }));
     expect(next).toEqual(explicit);
   });
 
   it("seed-only filter reseeds when master changes", () => {
-    const seeded = seedCommunityLocalFilterFromMaster(
-      addr({ id: "m1", appRegionId: "manila", appCityId: "m2" }),
-    );
-    const next = resolveCommunityLocalFilterAgainstMaster(
-      seeded,
-      addr({ id: "m9", appRegionId: "manila", appCityId: "m20", cityMunicipality: "Pasig" }),
-    );
-    expect(next).toMatchObject({
-      source: "seed",
-      cityId: "m20",
-      masterAddressId: "m9",
-    });
+    const seeded = seedCommunityLocalFilterFromMaster(addr({ id: "m1", canonicalLguId: "1380300000" }));
+    const next = resolveCommunityLocalFilterAgainstMaster(seeded, addr({ id: "m9", canonicalLguId: "1381200000" }));
+    expect(next).toMatchObject({ source: "seed", lguId: "1381200000", masterAddressId: "m9" });
   });
 
   it("storage key is user-scoped", () => {

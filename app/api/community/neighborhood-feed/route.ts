@@ -27,6 +27,7 @@ import {
 } from "@/lib/community/community-publication-time";
 import { normalizeCommunityHashtagQuery, sanitizeCommunityKeywordQuery } from "@/lib/community-feed/hashtag-discovery";
 
+import { parseLguLocationKey, resolveCommunityLocationIdsForLgu } from "@/lib/neighborhood/lgu-location.server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
   ]);
 
   let locationId: string | null = null;
+  /** 주소 SSOT 2단계: `lgu:<PSGC>:` 키 = 시/군 LGU 피드(예전 동네 행 포함) */
+  let locationIds: string[] | null = null;
   if (!globalFeed) {
     let sb: ReturnType<typeof getSupabaseServer>;
     try {
@@ -78,9 +81,15 @@ export async function GET(req: NextRequest) {
     } catch {
       return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
     }
-    const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
     const tLoc0 = performance.now();
-    locationId = await ensureLocationId(sb, locationKey, coalesced);
+    const lguId = parseLguLocationKey(locationKey);
+    if (lguId) {
+      locationIds = await resolveCommunityLocationIdsForLgu(sb, lguId);
+      locationId = locationIds[0] ?? null;
+    } else {
+      const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
+      locationId = await ensureLocationId(sb, locationKey, coalesced);
+    }
     locationEnsureMs = performance.now() - tLoc0;
   }
 
@@ -153,7 +162,7 @@ export async function GET(req: NextRequest) {
       ].join(":");
       const listResult = await runSingleFlight(listQueryKey, async () =>
         listNeighborhoodFeed({
-          ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
+          ...(globalFeed ? { allLocations: true as const } : { locationId: locationId!, locationIds }),
           category: category ?? undefined,
           authorUserId: authorId,
           offset: feedCursor ? 0 : offset,

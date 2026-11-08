@@ -156,9 +156,10 @@ describe("주소 SSOT — zxzx11 대표 주소가 모든 화면에서 같은 값
     expect(formatPublicAddress(master)).toBe("Manila City");
   });
 
-  it("커뮤니티 동네·거래·하단 지역 = Quiapo (이전: Binondo)", () => {
+  it("거래·하단 지역 = Quiapo (이전: Binondo) · 커뮤니티 보는 동네 = Manila City", () => {
     expect(mapUserAddressToAppLocation(master)).toEqual({ regionId: "manila", cityId: "m5" });
-    expect(formatCommunityLocalFilterLabel(seedCommunityLocalFilterFromMaster(master))).toBe("Quiapo");
+    // 주소 SSOT 2단계: 커뮤니티 「보는 동네」 = 시/군(LGU) — Manila City (거래 지역 ID 는 Quiapo 그대로)
+    expect(formatCommunityLocalFilterLabel(seedCommunityLocalFilterFromMaster(master))).toBe("Manila City");
   });
 
   it("정상 계정 행(Makati, 2026-11-06)은 결과가 그대로", () => {

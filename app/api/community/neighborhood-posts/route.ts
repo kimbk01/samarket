@@ -38,6 +38,8 @@ import {
 import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
 import { resolveMemberRichBody } from "@/lib/community/member-rich-body";
 
+import { ensureLguLocationId, lguPublicName, parseLguLocationKey } from "@/lib/neighborhood/lgu-location.server";
+import type { ResolveNeighborhoodLocationResult } from "@/lib/neighborhood/ensure-location";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -184,9 +186,16 @@ export async function POST(req: NextRequest) {
   });
 
   const philifeSectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
+  /** 주소 SSOT 2단계: `lgu:<PSGC>:` = 시/군 LGU 동네. 글 지역 표시(region_label)도 같은 시/군으로 맞춘다 */
+  const lguIdForPost = parseLguLocationKey(locationKey);
   const [ops, loc, secRes] = await Promise.all([
     getCommunityFeedOps(),
-    resolveNeighborhoodLocationId(sb, locationKey, locInput),
+    lguIdForPost
+      ? ensureLguLocationId(sb, lguIdForPost).then(
+          (locationId): ResolveNeighborhoodLocationResult =>
+            locationId ? { locationId } : { locationId: null, failure: "persist_failed" },
+        )
+      : resolveNeighborhoodLocationId(sb, locationKey, locInput),
     sb.from("community_sections").select("id, slug").eq("slug", philifeSectionSlug).eq("is_active", true).maybeSingle(),
   ]);
 
@@ -383,7 +392,8 @@ export async function POST(req: NextRequest) {
       content,
       ...(richBody.contentBlocks ? { content_blocks: richBody.contentBlocks } : {}),
       summary: summarizeCommunityPostContent(content),
-      region_label: await resolveCommunityPublicRegionLabelForUser(sb, auth.userId),
+      region_label: (lguIdForPost ? lguPublicName(lguIdForPost) : null) ??
+        (await resolveCommunityPublicRegionLabelForUser(sb, auth.userId)),
       location_id: locationId,
       category: categoryForDb,
       images,

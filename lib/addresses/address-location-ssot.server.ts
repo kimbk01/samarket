@@ -122,9 +122,14 @@ export function deriveAddressLocation(input: AddressLocationInput): DerivedAddre
       });
   const taxonomy = fromText ?? fallback;
 
+  /**
+   * LGU: 시/군 + 도로 먼저, 안 되면 시/군만(전국에서 이름이 하나뿐일 때만 확정 — 겹치면 null).
+   * 예전 저장분 도 칸에 지역 이름(Calabarzon 등)이 들어간 행도 같은 시/군으로 확정된다.
+   */
   const canonicalLguId =
     cleanAddressText(input.canonicalLguId) ||
     resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: clean(input.province) }) ||
+    (clean(input.province) ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: null }) : null) ||
     null;
 
   return {

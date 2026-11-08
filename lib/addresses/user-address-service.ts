@@ -521,6 +521,8 @@ export async function createUserAddress(
   const row = payloadToInsertRow(userId, userAddressInsertPayloadWithoutDefaultFlags(pWithNick));
   // 저장 SSOT — 위치값은 서버가 주소로 계산한다(화면이 보낸 지역 ID 는 계산 실패 때만)
   const loc = deriveAddressLocation({ ...pWithNick, canonicalLguId: null } as AddressLocationInput);
+  /** 주소 SSOT 2단계: 시/군 LGU 를 확정하지 못한 주소는 저장하지 않는다 — 모든 화면의 지역 기준이 이 값 하나 */
+  if (!loc.canonicalLguId) throw new Error("address_city_unresolved");
   row.app_region_id = loc.appRegionId;
   row.app_city_id = loc.appCityId;
   row.canonical_lgu_id = loc.canonicalLguId;
@@ -615,6 +617,16 @@ export async function updateUserAddress(
     // 저장 SSOT — 바뀐 주소로 위치값을 다시 계산(예전 지역 ID 가 남지 않게 · 2026-11-09 A6)
     const next = { ...base, ...merged, canonicalLguId: null } as AddressLocationInput;
     const loc = deriveAddressLocation(next);
+    const norm0 = (v: string | null | undefined) => cleanAddressText(v);
+    const cityOrProvinceChanged0 =
+      norm0(next.cityMunicipality) !== norm0(dto.cityMunicipality) || norm0(next.province) !== norm0(dto.province);
+    /**
+     * 주소 SSOT 2단계: 시/군이 바뀌었는데 LGU 를 확정하지 못하면 저장 거부.
+     * 시/군 그대로(핀만 이동 등)면 기존 LGU 유지 — 판정 실패로 지우지 않는다.
+     */
+    if (!loc.canonicalLguId && (cityOrProvinceChanged0 || !cleanAddressText(dto.canonicalLguId))) {
+      throw new Error("address_city_unresolved");
+    }
     patch.app_region_id = loc.appRegionId;
     patch.app_city_id = loc.appCityId;
     const norm = (v: string | null | undefined) => cleanAddressText(v);

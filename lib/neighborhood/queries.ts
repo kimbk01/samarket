@@ -157,6 +157,10 @@ export async function listNeighborhoodFeed(options: {
    * `allLocations` 가 true 이면 지역 필터 없이 전체 글(주제·차단 등만 적용).
    */
   locationId?: string | null;
+  /**
+   * 시/군 LGU 피드(주소 SSOT 2단계) — LGU 행 + 같은 시/군의 예전 동네 행 id 전부. 있으면 `locationId` 대신 사용.
+   */
+  locationIds?: string[] | null;
   allLocations?: boolean;
   /** 피드 주제 slug — 동네 피드 섹션 `community_topics`와 동기. 미지정이면 전체 */
   category?: string | null;
@@ -212,7 +216,10 @@ export async function listNeighborhoodFeed(options: {
   const hashtag = normalizeCommunityHashtagQuery(options.hashtag);
   const keywordQ = sanitizeCommunityKeywordQuery(options.q);
   const allLocations = options.allLocations === true;
-  const lid = options.locationId?.trim() ?? "";
+  const lids = Array.isArray(options.locationIds)
+    ? [...new Set(options.locationIds.map((x) => String(x ?? "").trim()).filter(Boolean))]
+    : [];
+  const lid = options.locationId?.trim() || lids[0] || "";
   if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
 
   const collectPerf = process.env.NODE_ENV === "development";
@@ -367,7 +374,10 @@ export async function listNeighborhoodFeed(options: {
       qq = qq.order(chronologyCol, { ascending: false }).order("id", { ascending: false });
     }
     if (!allLocations) {
-      qq = qq.eq("location_id", lid).not("location_id", "is", null);
+      qq =
+        lids.length > 1
+          ? qq.in("location_id", lids).not("location_id", "is", null)
+          : qq.eq("location_id", lid).not("location_id", "is", null);
     }
     if (filterCat) {
       if (useTopicSlugFilter && cols.includes("topic_slug")) {

@@ -78,7 +78,8 @@ export function resolvePublicCityName(input: { cityLguId?: string | null; cityTe
   const id = clean(input.cityLguId);
   if (id) {
     const byId = resolveTradeListingPublicCityLabel({ tradeLguId: id });
-    if (byId) return byId;
+    /** 전국 데이터 「City of Bacoor」 → 「Bacoor City」 (거래 rollup 「Makati City」와 같은 표기) */
+    if (byId) return byId.replace(/^City of (.+)$/i, "$1 City");
   }
   const text = clean(input.cityText);
   if (!text || PROVINCE_OR_COUNTRY_RE.test(text) || /^(barangay|brgy\.?)\b/i.test(text)) return null;

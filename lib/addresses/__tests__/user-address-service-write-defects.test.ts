@@ -151,11 +151,14 @@ describe("DATA-005 pin-only edit keeps canonical_lgu_id on failed resolve", () =
     expect(rows[0].canonical_lgu_id).toBe("lgu-new");
   });
 
-  it("city change with unresolvable LGU clears the stale id", async () => {
+  /** 주소 SSOT 2단계(2026-11-09): 시/군을 확정 못 하는 변경은 저장 거부 — 예전엔 LGU 를 지우고 저장했다 */
+  it("city change with unresolvable LGU is rejected (address_city_unresolved), row unchanged", async () => {
     const rows = [row({ id: "a1", is_default_master: true })];
     const { sb } = fakeSupabase(rows);
-    await updateUserAddress(sb, "u1", "a1", { cityMunicipality: "Unknown Town" });
-    expect(rows[0].canonical_lgu_id).toBeNull();
+    await expect(updateUserAddress(sb, "u1", "a1", { cityMunicipality: "Unknown Town" })).rejects.toThrow(
+      "address_city_unresolved",
+    );
+    expect(rows[0].canonical_lgu_id).toBe("lgu-qc");
   });
 });
 
@@ -242,7 +245,11 @@ describe("ADDR-DATA-004: 대표 지정은 user_address_set_master 한 번으로"
 });
 
 describe("ADDR-DATA-003: client_request_id 멱등 생성", () => {
-  beforeEach(() => lguMock.resolve.mockReset());
+  beforeEach(() => {
+    lguMock.resolve.mockReset();
+    /** 주소 SSOT 2단계: 새 주소는 시/군 LGU 확정이 필수 */
+    lguMock.resolve.mockReturnValue("lgu-qc");
+  });
 
   it("같은 client_request_id 의 활성 주소가 있으면 새로 만들지 않고 반환", async () => {
     const rows = [row({ id: "a1", client_request_id: "req-1", is_default_master: true })];

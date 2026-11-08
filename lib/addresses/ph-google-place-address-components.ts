@@ -51,15 +51,26 @@ function pickFirstOfTypes(
 /**
  * 레거시 `PlacesService#getDetails` 의 `PlaceResult` 에서 필리핀형 구조 필드를 추출한다.
  */
+/** 필리핀 지역(Region) 이름 — Google aal1. Metro Manila 는 도처럼 그대로 쓴다. */
+const PH_REGION_RE =
+  /^(ilocos( region)?|cagayan valley|central luzon|calabarzon|mimaropa|bicol( region)?|western visayas|central visayas|eastern visayas|zamboanga peninsula|northern mindanao|davao( region)?|soccsksargen|caraga|cordillera administrative region|car|bangsamoro.*|barmm|negros island region|region [ivx0-9]+[ab]?)$/i;
+const PH_NCR_RE = /^(metro\s*manila|ncr|national\s*capital\s*region|kalakhang\s*maynila)$/i;
+
 export function parsePhFromGooglePlaceResult(
   place: google.maps.places.PlaceResult | null | undefined
 ): PhGooglePlaceParsed {
   const ac = place?.address_components;
-  const province = pickLongName(ac, "administrative_area_level_1");
-  const cityMunicipality =
-    pickLongName(ac, "locality") ||
-    pickLongName(ac, "administrative_area_level_2") ||
-    pickLongName(ac, "administrative_area_level_3");
+  /**
+   * 필리핀 Google 구성: aal1 = 지역(Region, 예: Calabarzon·Central Luzon·Metro Manila), aal2 = 도(Province, 예: Cavite).
+   * 도 칸에는 실제 도(aal2)를 넣는다 — 지역 이름이 들어가면 같은 이름 시/군을 LGU 로 확정하지 못한다(2026-11-09 감사: Bacoor·Tagaytay 등).
+   * aal2 가 없거나 「…District」면 aal1(예: Metro Manila).
+   */
+  const aal1 = pickLongName(ac, "administrative_area_level_1");
+  const aal2 = pickLongName(ac, "administrative_area_level_2");
+  const aal2IsProvince = Boolean(aal2?.trim()) && !/\bdistrict\b/i.test(aal2 ?? "") && !PH_NCR_RE.test(aal2 ?? "");
+  const province = aal2IsProvince && aal1 && PH_REGION_RE.test(aal1) ? aal2 : aal1;
+  /** 시/군 = locality, 없으면 aal3(시/군). aal2(도)는 시/군으로 쓰지 않는다(도 이름이 시/군 칸에 들어가던 결함). */
+  const cityMunicipality = pickLongName(ac, "locality") || pickLongName(ac, "administrative_area_level_3");
   const barangay =
     pickFirstOfTypes(ac, [
       "sublocality_level_1",

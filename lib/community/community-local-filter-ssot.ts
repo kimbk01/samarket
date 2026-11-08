@@ -1,53 +1,48 @@
 /**
- * COMMUNITY LOCAL FILTER SSOT (CUT 2)
+ * COMMUNITY LOCAL FILTER SSOT — 시/군 LGU (주소 SSOT 2단계 · Owner 2026-11-09)
  *
- * Seed: user_addresses master → mapUserAddressToAppLocation (City taxonomy)
- * Active filter: independent of primary; explicit user choice persists
- * Primary change: reseed only when source === "seed"; preserve "explicit"
+ * 기준: 회원 대표 주소의 시/군 LGU(PSGC, `canonicalLguId`) 하나. 「보는 동네」 = 시/군 이름(거래 공개 도시와 같은 이름).
+ * 이전: 앱 동네 목록(143개, 4개 도시권) regionId/cityId — 목록 밖 주소(Caloocan·Bacoor 등)는 동네를 못 읽었고,
+ *       Quezon City 주소가 「Diliman」으로 보였다.
+ * Seed: 대표 주소 LGU · Active filter: 사용자가 고른 LGU 는 대표 주소가 바뀌어도 유지(source=explicit)
  *
- * DO NOT: mutate user_addresses / is_default_master
- * DO NOT: use profiles.region_* or RegionContext as Community Local authority
+ * DO NOT: user_addresses / 대표 주소 플래그를 바꾸지 않는다.
+ * DO NOT: profiles.region_* 나 RegionContext 를 기준으로 쓰지 않는다.
  */
 
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
-import { getLocationLabel, getLocationLabelIfValid } from "@/lib/products/form-options";
-import { getRegionCityName, getRegionName } from "@/lib/regions/region-utils";
-import type { UserRegion } from "@/lib/regions/types";
-import {
-  neighborhoodLocationKeyFromRegion,
-  neighborhoodLocationMetaFromRegion,
-} from "@/lib/neighborhood/location-key";
+import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 
 export type CommunityLocalFilterSource = "seed" | "explicit";
 
 export type CommunityLocalFilterState = {
   source: CommunityLocalFilterSource;
-  regionId: string;
-  cityId: string;
-  /** Optional barangay — seed uses empty (City-level Local). */
-  barangay: string;
-  /** When source=seed, track master id for reseed on primary change. */
+  /** 시/군 PSGC (10자리) */
+  lguId: string;
+  /** source=seed 일 때 대표 주소 id — 대표 주소가 바뀌면 다시 seed */
   masterAddressId: string | null;
 };
 
-export const COMMUNITY_LOCAL_FILTER_STORAGE_PREFIX = "samarket:community-local-filter:v1:";
+/** v2 = LGU 기준. v1(앱 동네 목록) 저장값은 읽지 않는다. */
+export const COMMUNITY_LOCAL_FILTER_STORAGE_PREFIX = "samarket:community-local-filter:v2:";
+
+const PSGC_RE = /^\d{10}$/;
 
 export function communityLocalFilterStorageKey(userId: string): string {
   const uid = userId.trim() || "guest";
   return `${COMMUNITY_LOCAL_FILTER_STORAGE_PREFIX}${uid}`;
 }
 
+function isUsableLguId(raw: string | null | undefined): raw is string {
+  const id = (raw ?? "").trim();
+  return PSGC_RE.test(id) && Boolean(resolvePublicCityName({ cityLguId: id, cityText: null }));
+}
+
 function isValidState(raw: unknown): raw is CommunityLocalFilterState {
   if (!raw || typeof raw !== "object") return false;
   const o = raw as Record<string, unknown>;
-  const source = o.source;
-  const regionId = typeof o.regionId === "string" ? o.regionId.trim() : "";
-  const cityId = typeof o.cityId === "string" ? o.cityId.trim() : "";
-  if (source !== "seed" && source !== "explicit") return false;
-  if (!regionId || !cityId) return false;
-  if (!getLocationLabelIfValid(regionId, cityId)) return false;
-  return true;
+  if (o.source !== "seed" && o.source !== "explicit") return false;
+  return typeof o.lguId === "string" && isUsableLguId(o.lguId);
 }
 
 export function readCommunityLocalFilter(userId: string): CommunityLocalFilterState | null {
@@ -61,9 +56,7 @@ export function readCommunityLocalFilter(userId: string): CommunityLocalFilterSt
     if (!isValidState(parsed)) return null;
     return {
       source: parsed.source,
-      regionId: parsed.regionId.trim(),
-      cityId: parsed.cityId.trim(),
-      barangay: typeof parsed.barangay === "string" ? parsed.barangay.trim() : "",
+      lguId: parsed.lguId.trim(),
       masterAddressId:
         typeof parsed.masterAddressId === "string" && parsed.masterAddressId.trim()
           ? parsed.masterAddressId.trim()
@@ -97,41 +90,24 @@ export function clearCommunityLocalFilter(userId: string): void {
   }
 }
 
-/** Master address → City-level Local seed (barangay empty). */
+/** 대표 주소 → 시/군 LGU seed */
 export function seedCommunityLocalFilterFromMaster(
   master: UserAddressDTO | null | undefined,
 ): CommunityLocalFilterState | null {
   if (!master?.id) return null;
-  const loc = mapUserAddressToAppLocation(master);
-  if (!loc) return null;
-  return {
-    source: "seed",
-    regionId: loc.regionId,
-    cityId: loc.cityId,
-    barangay: "",
-    masterAddressId: master.id,
-  };
+  const lguId = (master.canonicalLguId ?? "").trim();
+  if (!isUsableLguId(lguId)) return null;
+  return { source: "seed", lguId, masterAddressId: master.id };
 }
 
-export function buildExplicitCommunityLocalFilter(
-  regionId: string,
-  cityId: string,
-  barangay = "",
-): CommunityLocalFilterState | null {
-  const rid = regionId.trim();
-  const cid = cityId.trim();
-  if (!getLocationLabelIfValid(rid, cid)) return null;
-  return {
-    source: "explicit",
-    regionId: rid,
-    cityId: cid,
-    barangay: barangay.trim(),
-    masterAddressId: null,
-  };
+export function buildExplicitCommunityLocalFilter(lguId: string): CommunityLocalFilterState | null {
+  const id = lguId.trim();
+  if (!isUsableLguId(id)) return null;
+  return { source: "explicit", lguId: id, masterAddressId: null };
 }
 
 /**
- * CASE D: explicit filter preserved; seed-only reseeded from new master.
+ * CASE D: 사용자가 고른 필터는 유지, seed 는 대표 주소가 바뀌면 다시 seed.
  */
 export function resolveCommunityLocalFilterAgainstMaster(
   existing: CommunityLocalFilterState | null,
@@ -143,47 +119,34 @@ export function resolveCommunityLocalFilterAgainstMaster(
   if (
     existing?.source === "seed" &&
     existing.masterAddressId === seeded.masterAddressId &&
-    existing.regionId === seeded.regionId &&
-    existing.cityId === seeded.cityId
+    existing.lguId === seeded.lguId
   ) {
     return existing;
   }
   return seeded;
 }
 
-export function communityLocalFilterToUserRegion(
-  state: CommunityLocalFilterState,
-  userId: string,
-): UserRegion {
-  const label =
-    getLocationLabel(state.regionId, state.cityId) +
-    (state.barangay ? ` ${state.barangay}` : "");
-  return {
-    id: `community-local-filter:${state.regionId}:${state.cityId}`,
-    userId: userId.trim() || "guest",
-    regionId: state.regionId,
-    cityId: state.cityId,
-    barangay: state.barangay,
-    label,
-    isPrimary: false,
-    createdAt: "",
-  };
-}
-
+/** 피드·글쓰기 API 키 — `lgu:<PSGC>:` (서버 `lgu-location.server` 가 해석) */
 export function communityLocalFilterLocationKey(state: CommunityLocalFilterState | null): string {
   if (!state) return "";
-  return neighborhoodLocationKeyFromRegion(communityLocalFilterToUserRegion(state, "local")) ?? "";
+  return `lgu:${state.lguId}:`;
 }
 
-export function communityLocalFilterLocationMeta(state: CommunityLocalFilterState | null) {
+export function communityLocalFilterLocationMeta(state: CommunityLocalFilterState | null): {
+  country: string;
+  city: string;
+  district: string;
+  name: string;
+  label: string;
+} | null {
   if (!state) return null;
-  return neighborhoodLocationMetaFromRegion(communityLocalFilterToUserRegion(state, "local"));
+  const name = formatCommunityLocalFilterLabel(state);
+  if (!name) return null;
+  return { country: "Philippines", city: name, district: "", name, label: name };
 }
 
-/** UI label for active Local filter (taxonomy area name). */
+/** 「보는 동네」 표시 = 시/군 이름 (① 공개 지역) */
 export function formatCommunityLocalFilterLabel(state: CommunityLocalFilterState | null): string {
   if (!state) return "";
-  const city = getRegionCityName(state.regionId, state.cityId).trim();
-  if (city) return city;
-  return getRegionName(state.regionId).trim();
+  return resolvePublicCityName({ cityLguId: state.lguId, cityText: null }) ?? "";
 }

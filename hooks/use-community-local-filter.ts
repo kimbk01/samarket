@@ -32,7 +32,7 @@ export function useCommunityLocalFilter(): {
   locationKey: string;
   locationMeta: ReturnType<typeof communityLocalFilterLocationMeta>;
   filterLabel: string;
-  setExplicitFilter: (regionId: string, cityId: string, barangay?: string) => boolean;
+  setExplicitFilter: (lguId: string) => boolean;
   reseedFromMaster: () => Promise<void>;
 } {
   const userId = useRegionViewerUserId();
@@ -99,9 +99,9 @@ export function useCommunityLocalFilter(): {
   }, [syncFromMaster]);
 
   const setExplicitFilter = useCallback(
-    (regionId: string, cityId: string, barangay = "") => {
+    (lguId: string) => {
       if (!userId || userId === "guest") return false;
-      const next = buildExplicitCommunityLocalFilter(regionId, cityId, barangay);
+      const next = buildExplicitCommunityLocalFilter(lguId);
       if (!next) return false;
       applyResolved(next);
       return true;

@@ -2162,10 +2162,9 @@ export function CommunityFeed({
       <CommunityLocalFilterPickerSheet
         open={localFilterPickerOpen}
         onClose={() => setLocalFilterPickerOpen(false)}
-        initialRegionId={filter?.regionId ?? ""}
-        initialCityId={filter?.cityId ?? ""}
-        onApply={(regionId, cityId) => {
-          setExplicitFilter(regionId, cityId);
+        initialLguId={filter?.lguId ?? ""}
+        onApply={(lguId) => {
+          setExplicitFilter(lguId);
         }}
       />
     </div>

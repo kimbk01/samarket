@@ -21,6 +21,8 @@ export const USER_ADDRESS_API_ERROR_CODES = {
   coordinates_invalid: "coordinates_invalid",
   detail_address_required: "detail_address_required",
   city_required: "city_required",
+  /** 서버가 시/군 LGU 를 확정하지 못함 — 주소 SSOT 2단계(저장 거부) */
+  address_city_unresolved: "address_city_unresolved",
   nickname_required: "nickname_required",
   nickname_reserved_format: "nickname_reserved_format",
   nickname_duplicate: "nickname_duplicate",
@@ -66,6 +68,7 @@ const ERROR_I18N_KEYS: Record<string, MessageKey> = {
   coordinates_invalid: "addr_ui_coords_invalid",
   detail_address_required: "addr_ui_detail_required",
   city_required: "addr_ui_city_required",
+  address_city_unresolved: "addr_ui_city_required",
   nickname_required: "addr_ui_custom_name_required",
   nickname_reserved_format: "addr_ui_name_invalid",
   nickname_duplicate: "addr_ui_api_nickname_duplicate",
