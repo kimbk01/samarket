@@ -58,6 +58,7 @@ import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
 import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerGiftOfferFlow";
+import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
@@ -522,6 +523,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <span className="sam-text-page-title text-sam-meta">›</span>
                 </button>
 
+                {/* 그룹 통화 보류(Owner 2026-11-09) — 계약 플래그 `isCmGroupCallEnabled()` 가 false 인 동안 상태·시작 버튼을 그리지 않는다. */}
+                {isCmGroupCallEnabled() ? (
+                <>
                 <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
                   <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_group_call")}</p>
                   <p className="mt-1 sam-text-body font-semibold text-sam-fg">{vm.groupCallStatusLabel}</p>
@@ -555,6 +559,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     {vm.t("cm_ui_group_video_call")}
                   </button>
                 </div>
+                </>
+                ) : null}
 
                 <p className="mt-5 px-0.5 sam-text-helper font-semibold text-sam-muted">
                   {vm.t("cm_ui_chat_partners_count", { count: vm.snapshot.room.memberCount })}
@@ -1030,7 +1036,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   </div>
 
-                  {vm.isGroupRoom ? (
+                  {vm.isGroupRoom && isCmGroupCallEnabled() ? (
                     <div className="rounded-ui-rect border border-sam-border p-4">
                       <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_call_status")}</p>
                       <div className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
@@ -1704,7 +1710,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
           </div>
         </div>
       ) : null}
-      {groupOutgoingConfirmKind ? (
+      {groupOutgoingConfirmKind && isCmGroupCallEnabled() ? (
         <MessengerOutgoingCallConfirmDialog
           open
           peerLabel={vm.snapshot.room.title?.trim() || ""}

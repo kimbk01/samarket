@@ -161,6 +161,7 @@ import {
   messengerMediaRouteUrlFor,
   withMessengerMediaRouteUrls,
 } from "@/lib/community-messenger/media/messenger-media-ref";
+import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -2621,6 +2622,8 @@ export function useMessengerRoomPhase2Controller() {
 
   const startGroupCall = useCallback(
     async (kind: "voice" | "video") => {
+      /** 그룹 통화 보류(Owner 2026-11-09) — 계약 플래그가 꺼져 있으면 어떤 진입점에서도 시작하지 않는다. */
+      if (!isCmGroupCallEnabled()) return;
       if (!canStartGroupCall) {
         alertOutgoingCallFailure(translateCmUi("cm_ui_group_member_call_forbidden"));
         return;

@@ -138,6 +138,7 @@ import {
 import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { useTradeCounterpartyRole } from "@/lib/community-messenger/room/phase2/use-trade-counterparty-role";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { isCmGroupCallEnabled } from "@/lib/community-messenger/call-phase0-basics";
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
 /** R10 — direct tail 유지·upgrade 측정 상한(전체 measureElement 금지) */
@@ -1234,9 +1235,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const startCallStubRedial = useCallback(
     (kind: "voice" | "video") => {
       if (vm.roomUnavailable) return;
+      /** 그룹 통화 보류(Owner 2026-11-09) — 그룹방 통화 기록 말풍선으로 다시 걸기 없음. 1:1 방은 그대로. */
+      if (vm.isGroupRoom && !isCmGroupCallEnabled()) return;
       setStubRedialConfirmKind(kind);
     },
-    [vm.roomUnavailable]
+    [vm.roomUnavailable, vm.isGroupRoom]
   );
   const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
   const virtualizerMeasuredReadyForLayout =
@@ -1885,7 +1888,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   mode: vm.snapshot.room.myIdentityMode === "alias" ? vm.t("nav_messenger_identity_alias") : vm.t("nav_messenger_identity_real"),
                 })}`
               : ""}
-            {vm.isGroupRoom ? ` · ${vm.groupCallStatusLabel}` : ""}
+            {vm.isGroupRoom && isCmGroupCallEnabled() ? ` · ${vm.groupCallStatusLabel}` : ""}
           </p>
           {vm.tradeListingHeader ? (
             <div className="flex flex-col items-center px-2 pb-1 pt-3 text-center">
