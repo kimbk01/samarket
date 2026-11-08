@@ -52,6 +52,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { resolveAdminSupportDetailPane } from "@/lib/support/admin-support-detail-pane";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
 const SUPPORT_LIST_EXTRAS = [
@@ -84,11 +85,11 @@ type SupportListExtra = (typeof SUPPORT_LIST_EXTRAS)[number];
  */
 
 const TAB_LABEL: Record<AdminSupportTab, { ko: string; en: string }> = {
-  ACTIONABLE: { ko: "답변 필요", en: "Needs reply" },
-  WAITING_USER: { ko: "고객 답변 대기", en: "Waiting customer" },
-  RESOLVED: { ko: "종료", en: "Closed" },
-  ARCHIVED: { ko: "보관", en: "Archived" },
-  ALL: { ko: "전체", en: "All" },
+  ACTIONABLE: catalogPair("admin_needs_reply"),
+  WAITING_USER: catalogPair("admin_waiting_customer"),
+  RESOLVED: catalogPair("admin_stores_inquiries_status_closed"),
+  ARCHIVED: catalogPair("admin_trade_flow_status_archived"),
+  ALL: catalogPair("admin_all"),
 };
 
 const PRIORITIES: readonly SupportCasePriority[] = ["NORMAL", "HIGH", "URGENT"];

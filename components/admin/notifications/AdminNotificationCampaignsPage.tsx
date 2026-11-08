@@ -51,6 +51,7 @@ import {
 import { AdminNotificationCampaignCreatePage } from "@/components/admin/notifications/AdminNotificationCampaignCreatePage";
 import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 import { campaignListKindOf } from "@/lib/admin/notification-campaigns/campaign-list-kind";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type LatestOccurrence = {
   id?: string;
@@ -157,11 +158,11 @@ export function readLinkedPlatformEventId(payload: unknown): string {
 const LIST_TABS: readonly CampaignListTab[] = ["completed", "in_progress", "drafting", "archived"];
 
 const TARGET_LABEL: Record<string, { ko: string; en: string }> = {
-  all: { ko: "전체 회원", en: "All members" },
-  marketing_opt_in: { ko: "광고 수신 동의", en: "Opted-in" },
-  selected_users: { ko: "회원 지정", en: "Specific members" },
-  active_users: { ko: "최근 30일 활동", en: "Active 30d" },
-  region: { ko: "지역", en: "Region" },
+  all: catalogPair("admin_notif_target_all"),
+  marketing_opt_in: catalogPair("admin_opted_in"),
+  selected_users: catalogPair("admin_specific_members"),
+  active_users: catalogPair("admin_active_30d"),
+  region: catalogPair("admin_ops_console_group_region"),
 };
 
 function isArchivable(row: CampaignRow): boolean {

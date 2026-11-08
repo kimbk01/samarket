@@ -17,6 +17,7 @@ import type {
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import { adsOpsStatusLabel, mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /**
  * AD-129 · AD-308: 이력 「상세」= 그 항목 하나를 여는 주소.
@@ -63,37 +64,37 @@ function sortTimeline(events: AdsHistoryTimelineEvent[]): AdsHistoryTimelineEven
 function sourceLabels(kind: AdsHistorySourceKind): { ko: string; en: string } {
   switch (kind) {
     case "member":
-      return { ko: "회원 신청", en: "Member application" };
+      return catalogPair("admin_member_application");
     case "owner":
-      return { ko: "사장님 신청", en: "Store owner application" };
+      return catalogPair("admin_store_owner_application");
     case "admin_direct":
-      return { ko: "운영자 등록", en: "Admin direct" };
+      return catalogPair("admin_admin_direct");
     case "legacy_owner":
-      return { ko: "사장님 신청(이전 방식)", en: "Legacy owner application" };
+      return catalogPair("admin_legacy_owner_application");
     default:
-      return { ko: "출처 미확인", en: "Source unknown" };
+      return catalogPair("admin_source_unknown");
   }
 }
 
 function paymentStateLabels(state: AdsHistoryPaymentState): { ko: string; en: string } {
   switch (state) {
     case "paid":
-      return { ko: "결제 완료", en: "Paid" };
+      return catalogPair("admin_paid_2");
     case "hold":
-      return { ko: "보류", en: "Hold" };
+      return catalogPair("admin_delivery_ads_action_request_changes");
     case "refunded":
-      return { ko: "환불", en: "Refunded" };
+      return catalogPair("admin_ads_payment_status_refunded");
     case "none":
-      return { ko: "결제 없음", en: "No payment" };
+      return catalogPair("admin_no_payment");
     case "not_proven":
-      return { ko: "결제 증거 없음", en: "Payment not proven" };
+      return catalogPair("admin_payment_not_proven");
     default:
-      return { ko: "결제 상태 미확인", en: "Payment unknown" };
+      return catalogPair("admin_payment_unknown");
   }
 }
 
 function lifecycleFromParts(parts: string[]): { ko: string; en: string } {
-  if (parts.length === 0) return { ko: "이력 구간 없음", en: "No lifecycle segments" };
+  if (parts.length === 0) return catalogPair("admin_no_lifecycle_segments");
   return { ko: parts.join(" → "), en: parts.join(" → ") };
 }
 

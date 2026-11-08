@@ -18,28 +18,29 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 서버가 내려주는 영어 링크 이름 → 운영자 문구 (경로 기준). */
 const LINK_LABELS: Record<string, { ko: string; en: string }> = {
-  "/admin/runtime-health": { ko: "런타임 상태", en: "Runtime health" },
-  "/admin/ops-console": { ko: "운영 콘솔", en: "Ops console" },
-  "/admin/delivery-operations": { ko: "배달 운영 현황", en: "Delivery operations" },
-  "/admin/delivery-auto-actions": { ko: "자동 조치 승인", en: "Auto action approval" },
-  "/admin/delivery-alerts": { ko: "배달 경고", en: "Delivery alerts" },
-  "/admin/stores/orders": { ko: "주문 목록", en: "Orders" },
+  "/admin/runtime-health": catalogPair("admin_menu_runtime_health"),
+  "/admin/ops-console": catalogPair("admin_ops_console_page_title"),
+  "/admin/delivery-operations": catalogPair("admin_delivery_operations"),
+  "/admin/delivery-auto-actions": catalogPair("admin_menu_delivery_auto_actions"),
+  "/admin/delivery-alerts": catalogPair("admin_del_alert_page_title"),
+  "/admin/stores/orders": catalogPair("admin_orders"),
 };
 
 const OVERALL_LABELS: Record<string, { ko: string; en: string }> = {
-  READY: { ko: "준비됨", en: "Ready" },
-  WARNING: { ko: "주의", en: "Warning" },
-  BLOCKED: { ko: "차단", en: "Blocked" },
+  READY: catalogPair("admin_rel_readiness_ready"),
+  WARNING: catalogPair("admin_system_health_status_warning"),
+  BLOCKED: catalogPair("admin_ops_tools_runbook_btn_block"),
 };
 
 const STATUS_LABELS: Record<GateStatus, { ko: string; en: string }> = {
-  pass: { ko: "통과", en: "Pass" },
-  warn: { ko: "주의", en: "Warning" },
-  fail: { ko: "차단", en: "Fail" },
-  needs_check: { ko: "확인 필요", en: "Needs check" },
+  pass: catalogPair("admin_pass"),
+  warn: catalogPair("admin_system_health_status_warning"),
+  fail: catalogPair("admin_fail"),
+  needs_check: catalogPair("admin_needs_check"),
 };
 
 function errCode(status: number, j: { error?: unknown } | null, fallback: string): string {

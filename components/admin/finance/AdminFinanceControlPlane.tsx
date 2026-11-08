@@ -30,6 +30,7 @@ import {
   adminOperatorLabel,
   adminStripTechnicalMeta,
 } from "@/lib/admin/operator-ux/operator-labels";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 function Section({
   id,
@@ -49,13 +50,13 @@ function Section({
 
 /** 조회 실패 소스 키 → 화면 이름 (서버는 키만 보낸다 · 원문 오류 노출 금지). */
 const FINANCE_SECTION_LABELS: Record<string, { ko: string; en: string }> = {
-  point: { ko: "포인트 충전 요청", en: "Point charge requests" },
-  cash: { ko: "캐시 충전 요청", en: "Cash charge requests" },
-  coin_withdraw: { ko: "코인 출금 요청", en: "Coin withdrawals" },
-  payable: { ko: "정산 지급", en: "Settlement payables" },
-  obligation: { ko: "수수료 미납", en: "Fee obligations" },
-  coin_ledger: { ko: "코인 원장", en: "Coin ledger" },
-  cash_ledger: { ko: "캐시 원장", en: "Cash ledger" },
+  point: catalogPair("admin_point_charge_requests"),
+  cash: catalogPair("admin_cash_charge_requests"),
+  coin_withdraw: catalogPair("admin_coin_withdrawals"),
+  payable: catalogPair("admin_settlement_payables"),
+  obligation: catalogPair("admin_fee_obligations"),
+  coin_ledger: catalogPair("admin_coin_ledger"),
+  cash_ledger: catalogPair("admin_cash_ledger"),
 };
 
 function financeSectionLabel(key: string, ko: boolean): string {

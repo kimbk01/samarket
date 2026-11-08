@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/status-labels/admin-status-label-registry";
 import { translate } from "@/lib/i18n/messages";
 import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-order-process-model";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 매장 주문 상태 — `STORE_ORDER_STATUS_LIST` (lib/stores/order-status-transitions.ts). */
 export const DELIVERY_STORE_ORDER_STATUS_NAMESPACE = "delivery.storeOrder";
@@ -41,98 +42,98 @@ registerAdminStatusLabels(
 export const DELIVERY_AD_STATUS_NAMESPACE = "delivery.ad";
 
 registerAdminStatusLabels(DELIVERY_AD_STATUS_NAMESPACE, {
-  draft: { ko: "작성 중", en: "Draft", tone: "neutral" },
-  submitted: { ko: "심사 대기", en: "Submitted", tone: "neutral" },
-  under_review: { ko: "심사 중", en: "Under review", tone: "info" },
-  changes_requested: { ko: "수정 요청", en: "Changes requested", tone: "warning" },
-  approved: { ko: "승인", en: "Approved", tone: "info" },
-  scheduled: { ko: "노출 예정", en: "Scheduled", tone: "info" },
-  active: { ko: "노출 중", en: "Active", tone: "success" },
-  paused_owner: { ko: "사장님 일시 중지", en: "Paused by owner", tone: "warning" },
-  paused_admin: { ko: "운영 일시 중지", en: "Paused by admin", tone: "warning" },
-  exhausted: { ko: "예산 소진", en: "Exhausted", tone: "neutral" },
-  rejected: { ko: "반려", en: "Rejected", tone: "danger" },
-  ended: { ko: "종료", en: "Ended", tone: "neutral" },
-  terminated: { ko: "강제 종료", en: "Terminated", tone: "danger" },
-  archived: { ko: "보관", en: "Archived", tone: "neutral" },
+  draft: { ...catalogPair("admin_draft"), tone: "neutral" },
+  submitted: { ...catalogPair("admin_submitted_4"), tone: "neutral" },
+  under_review: { ...catalogPair("admin_under_review_2"), tone: "info" },
+  changes_requested: { ...catalogPair("admin_delivery_ads_lifecycle_changes_requested"), tone: "warning" },
+  approved: { ...catalogPair("admin_approved"), tone: "info" },
+  scheduled: { ...catalogPair("admin_scheduled_2"), tone: "info" },
+  active: { ...catalogPair("admin_active_4"), tone: "success" },
+  paused_owner: { ...catalogPair("admin_paused_by_owner_2"), tone: "warning" },
+  paused_admin: { ...catalogPair("admin_paused_by_admin_2"), tone: "warning" },
+  exhausted: { ...catalogPair("admin_exhausted"), tone: "neutral" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "danger" },
+  ended: { ...catalogPair("admin_ended"), tone: "neutral" },
+  terminated: { ...catalogPair("admin_delivery_ads_lifecycle_terminated"), tone: "danger" },
+  archived: { ...catalogPair("admin_trade_flow_status_archived"), tone: "neutral" },
 });
 
 /** 매장 고객 배달 방식 — 노출 스냅샷 `delivery_fee_mode` (`StoreDeliveryFeeMode`, lib/stores/store-commerce-extras.ts). */
 export const STORE_DISCOVERY_DELIVERY_FEE_MODE_NAMESPACE = "store.discovery.deliveryFeeMode";
 
 registerAdminStatusLabels(STORE_DISCOVERY_DELIVERY_FEE_MODE_NAMESPACE, {
-  self: { ko: "매장 직접 배달", en: "Store delivery", tone: "neutral" },
-  self_free_promo: { ko: "매장 직접 배달 (무료 배달 행사)", en: "Store delivery (free promo)", tone: "info" },
-  courier: { ko: "배달 대행", en: "Courier", tone: "neutral" },
+  self: { ...catalogPair("admin_store_delivery"), tone: "neutral" },
+  self_free_promo: { ...catalogPair("admin_store_delivery_free_promo"), tone: "info" },
+  courier: { ...catalogPair("admin_courier"), tone: "neutral" },
 });
 
 /** 매장 노출 캠페인 종류 — `STORE_DISCOVERY_CAMPAIGN_TYPES` (lib/stores/store-discovery-campaign-authority.ts). */
 export const STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE = "store.discovery.campaignType";
 
 registerAdminStatusLabels(STORE_DISCOVERY_CAMPAIGN_TYPE_NAMESPACE, {
-  event: { ko: "이벤트", en: "Event", tone: "neutral" },
-  promo: { ko: "프로모션", en: "Promotion", tone: "neutral" },
+  event: { ...catalogPair("admin_event_2"), tone: "neutral" },
+  promo: { ...catalogPair("admin_menu_cp_promotion"), tone: "neutral" },
 });
 
 /** 플랫폼 수수료 정책의 배달비 반영 방식 — `store_fee_policies.delivery_fee_mode` (none|percent). */
 export const DELIVERY_FEE_POLICY_DELIVERY_MODE_NAMESPACE = "delivery.feePolicyDeliveryMode";
 
 registerAdminStatusLabels(DELIVERY_FEE_POLICY_DELIVERY_MODE_NAMESPACE, {
-  none: { ko: "배달비 수수료 없음", en: "No delivery-fee commission", tone: "neutral" },
-  percent: { ko: "배달비 비율 수수료", en: "Percent of delivery fee", tone: "neutral" },
+  none: { ...catalogPair("admin_no_delivery_fee_commission"), tone: "neutral" },
+  percent: { ...catalogPair("admin_percent_of_delivery_fee"), tone: "neutral" },
 });
 
 /** 상품권 — 발급 신청 (`gift_certificate_applications.status`). */
 export const GIFT_APPLICATION_STATUS_NAMESPACE = "gift.application";
 
 registerAdminStatusLabels(GIFT_APPLICATION_STATUS_NAMESPACE, {
-  draft: { ko: "작성 중", en: "Draft", tone: "neutral" },
-  submitted: { ko: "신청 접수", en: "Submitted", tone: "neutral" },
-  under_review: { ko: "심사 중", en: "Under review", tone: "info" },
-  approved: { ko: "승인", en: "Approved", tone: "success" },
-  rejected: { ko: "반려", en: "Rejected", tone: "danger" },
-  suspended: { ko: "중지", en: "Suspended", tone: "danger" },
+  draft: { ...catalogPair("admin_draft"), tone: "neutral" },
+  submitted: { ...catalogPair("admin_submitted_2"), tone: "neutral" },
+  under_review: { ...catalogPair("admin_under_review_2"), tone: "info" },
+  approved: { ...catalogPair("admin_approved"), tone: "success" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "danger" },
+  suspended: { ...catalogPair("admin_suspended_3"), tone: "danger" },
 });
 
 /** 상품권 — 발급된 상품권 (`GIFT_INSTANCE_STATUSES`). */
 export const GIFT_INSTANCE_STATUS_NAMESPACE = "gift.instance";
 
 registerAdminStatusLabels(GIFT_INSTANCE_STATUS_NAMESPACE, {
-  active: { ko: "사용 가능", en: "Active", tone: "success" },
-  gift_locked: { ko: "선물 진행 중", en: "Gift pending", tone: "info" },
-  partially_redeemed: { ko: "일부 사용", en: "Partially redeemed", tone: "info" },
-  fully_redeemed: { ko: "사용 완료", en: "Fully redeemed", tone: "neutral" },
-  suspended: { ko: "사용 중지", en: "Suspended", tone: "danger" },
+  active: { ...catalogPair("admin_active_5"), tone: "success" },
+  gift_locked: { ...catalogPair("admin_gift_pending"), tone: "info" },
+  partially_redeemed: { ...catalogPair("admin_partially_redeemed"), tone: "info" },
+  fully_redeemed: { ...catalogPair("admin_fully_redeemed"), tone: "neutral" },
+  suspended: { ...catalogPair("admin_suspended_4"), tone: "danger" },
 });
 
 /** 상품권 — 매장 캐시 회수 의무 (`STORE_CASH_RECOVERY_STATUSES`). */
 export const GIFT_RECOVERY_STATUS_NAMESPACE = "gift.recovery";
 
 registerAdminStatusLabels(GIFT_RECOVERY_STATUS_NAMESPACE, {
-  open: { ko: "회수 대기", en: "Open", tone: "warning" },
-  partially_cleared: { ko: "일부 회수", en: "Partially cleared", tone: "info" },
-  cleared: { ko: "회수 완료", en: "Cleared", tone: "success" },
+  open: { ...catalogPair("admin_open_2"), tone: "warning" },
+  partially_cleared: { ...catalogPair("admin_partially_cleared"), tone: "info" },
+  cleared: { ...catalogPair("admin_cleared"), tone: "success" },
 });
 
 /** 상품권 — 외부 환전 요청 (`GIFT_CASH_OUT_STATUSES`). */
 export const GIFT_CASH_OUT_STATUS_NAMESPACE = "gift.cashOut";
 
 registerAdminStatusLabels(GIFT_CASH_OUT_STATUS_NAMESPACE, {
-  requested: { ko: "요청", en: "Requested", tone: "neutral" },
-  approved: { ko: "승인", en: "Approved", tone: "info" },
-  paid: { ko: "지급 완료", en: "Paid", tone: "success" },
-  rejected: { ko: "반려", en: "Rejected", tone: "danger" },
-  cancelled: { ko: "취소됨", en: "Cancelled", tone: "neutral" },
+  requested: { ...catalogPair("admin_requested"), tone: "neutral" },
+  approved: { ...catalogPair("admin_approved"), tone: "info" },
+  paid: { ...catalogPair("admin_paid_3"), tone: "success" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "danger" },
+  cancelled: { ...catalogPair("admin_cancelled_6"), tone: "neutral" },
 });
 
 /** 상품권 — 과거 매장 캐시 전환 요청 (`gift_certificate_conversion_requests.status`). */
 export const GIFT_CONVERSION_STATUS_NAMESPACE = "gift.conversion";
 
 registerAdminStatusLabels(GIFT_CONVERSION_STATUS_NAMESPACE, {
-  requested: { ko: "요청", en: "Requested", tone: "neutral" },
-  approved: { ko: "승인", en: "Approved", tone: "success" },
-  rejected: { ko: "반려", en: "Rejected", tone: "danger" },
-  cancelled: { ko: "취소됨", en: "Cancelled", tone: "neutral" },
+  requested: { ...catalogPair("admin_requested"), tone: "neutral" },
+  approved: { ...catalogPair("admin_approved"), tone: "success" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "danger" },
+  cancelled: { ...catalogPair("admin_cancelled_6"), tone: "neutral" },
 });
 
 /** 위 namespace 의 화면 라벨 (도메인 namespace 에 없으면 공통 → 「알 수 없는 상태」). */

@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin/prelaunch-reset/selective-scopes";
 import type { PrelaunchResetPlan, PrelaunchResetPreset } from "@/lib/admin/prelaunch-reset/types";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 const PRESET_IDS = Object.keys(PRELAUNCH_RESET_PRESETS) as PrelaunchResetPreset[];
 
@@ -32,12 +33,12 @@ const GROUP_ORDER = [
 ] as const;
 
 const GROUP_LABEL: Record<(typeof GROUP_ORDER)[number], { ko: string; en: string }> = {
-  members_stores: { ko: "회원 / 업체", en: "Members / Stores" },
-  content: { ko: "콘텐츠", en: "Content" },
-  commerce: { ko: "거래 / 주문", en: "Commerce / Orders" },
-  ads: { ko: "광고", en: "Ads" },
-  other: { ko: "기타", en: "Other" },
-  derived: { ko: "Storage / Auth", en: "Storage / Auth" },
+  members_stores: catalogPair("admin_members_stores"),
+  content: catalogPair("admin_content"),
+  commerce: catalogPair("admin_commerce_orders"),
+  ads: catalogPair("admin_ops_tools_routine_cat_ads"),
+  other: catalogPair("admin_menu_bottom_icon_cat_misc"),
+  derived: catalogPair("admin_storage_auth"),
 };
 
 function parseIds(raw: string): string[] {

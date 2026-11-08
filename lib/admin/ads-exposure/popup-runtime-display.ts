@@ -10,6 +10,7 @@ import {
   PLATFORM_POPUP_CONSUMER_SURFACES,
   type PlatformPopupConsumerSurface,
 } from "@/lib/platform-popup/types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type PopupRuntimeDisplayStatus =
   | "live_now"
@@ -121,15 +122,15 @@ export function popupRuntimeDisplayLabel(
   ko: boolean
 ): string {
   const labels: Record<PopupRuntimeDisplayStatus, { ko: string; en: string }> = {
-    live_now: { ko: "현재 노출 중", en: "Live now" },
-    eligible_waiting: { ko: "노출 대기", en: "Eligible · waiting" },
-    scheduled: { ko: "예약", en: "Scheduled" },
-    paused: { ko: "일시중지", en: "Paused" },
-    ended: { ko: "종료", en: "Ended" },
-    pending: { ko: "승인 대기", en: "Pending" },
-    draft: { ko: "임시저장", en: "Saved draft" },
-    rejected: { ko: "반려", en: "Rejected" },
-    incomplete: { ko: "불완전", en: "Incomplete" },
+    live_now: catalogPair("admin_live_now"),
+    eligible_waiting: catalogPair("admin_eligible_waiting"),
+    scheduled: catalogPair("admin_scheduled"),
+    paused: catalogPair("admin_launch_intro_state_paused"),
+    ended: catalogPair("admin_ended"),
+    pending: catalogPair("admin_pending_2"),
+    draft: catalogPair("admin_saved_draft"),
+    rejected: catalogPair("admin_rejected"),
+    incomplete: catalogPair("admin_incomplete"),
   };
   return ko ? labels[status].ko : labels[status].en;
 }

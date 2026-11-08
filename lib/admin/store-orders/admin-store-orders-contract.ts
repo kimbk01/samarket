@@ -19,6 +19,7 @@ import {
   type StoreCommissionPeriod,
 } from "@/lib/stores/commission/store-commission-ledger-query";
 import type { StoreCommissionRowState } from "@/lib/stores/commission/store-commission-contract";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const ADMIN_STORE_ORDERS_PAGE_RPC = "admin_store_orders_page" as const;
 
@@ -44,11 +45,11 @@ export const ADMIN_STORE_ORDERS_TAB_STATUSES: Record<Exclude<AdminStoreOrdersTab
 };
 
 export const ADMIN_STORE_ORDERS_TAB_LABEL: Record<AdminStoreOrdersTab, { ko: string; en: string }> = {
-  all: { ko: "전체 주문", en: "All orders" },
-  in_progress: { ko: "진행 중", en: "In progress" },
-  completed: { ko: "주문 완료", en: "Completed" },
-  cancel: { ko: "취소", en: "Cancelled" },
-  refund: { ko: "환불 관련", en: "Refunds" },
+  all: catalogPair("admin_users_cc_overview_orders_total"),
+  in_progress: catalogPair("admin_deploy_status_running"),
+  completed: catalogPair("admin_completed"),
+  cancel: catalogPair("admin_trade_flow_status_cancelled"),
+  refund: catalogPair("admin_refunds"),
 };
 
 /** Waiting on a decision (owner request / buyer refund request). */
@@ -66,9 +67,9 @@ export const ADMIN_STORE_ORDERS_FULFILLMENT_TYPES = ["local_delivery", "pickup",
 export type AdminStoreOrdersFulfillment = (typeof ADMIN_STORE_ORDERS_FULFILLMENT_TYPES)[number];
 
 export const ADMIN_STORE_ORDERS_FULFILLMENT_LABEL: Record<AdminStoreOrdersFulfillment, { ko: string; en: string }> = {
-  local_delivery: { ko: "배달", en: "Delivery" },
-  pickup: { ko: "픽업", en: "Pickup" },
-  shipping: { ko: "택배", en: "Shipping" },
+  local_delivery: catalogPair("admin_delivery"),
+  pickup: catalogPair("admin_pickup"),
+  shipping: catalogPair("admin_shipping"),
 };
 
 /** `store_orders.payment_status` values (gift-funded orders also use `funded`). */
@@ -76,12 +77,12 @@ export const ADMIN_STORE_ORDERS_PAYMENT_STATUSES = ["pending", "paid", "funded",
 export type AdminStoreOrdersPaymentStatus = (typeof ADMIN_STORE_ORDERS_PAYMENT_STATUSES)[number];
 
 export const ADMIN_STORE_ORDERS_PAYMENT_LABEL: Record<AdminStoreOrdersPaymentStatus, { ko: string; en: string }> = {
-  pending: { ko: "결제 대기", en: "Pending" },
-  paid: { ko: "결제 완료", en: "Paid" },
-  funded: { ko: "상품권 결제", en: "Gift funded" },
-  failed: { ko: "결제 실패", en: "Failed" },
-  cancelled: { ko: "결제 취소", en: "Cancelled" },
-  refunded: { ko: "환불 완료", en: "Refunded" },
+  pending: catalogPair("admin_pending"),
+  paid: catalogPair("admin_paid_2"),
+  funded: catalogPair("admin_gift_funded"),
+  failed: catalogPair("admin_failed"),
+  cancelled: catalogPair("admin_cancelled"),
+  refunded: catalogPair("admin_do_ps_refunded"),
 };
 
 /**
@@ -97,8 +98,8 @@ export const ADMIN_STORE_ORDERS_TERMINAL_PAYMENT: Partial<Record<StoreOrderStatu
 export type AdminStoreOrderIntegrityFlag = "payment_status_mismatch" | "completion_record_missing";
 
 export const ADMIN_STORE_ORDERS_INTEGRITY_LABEL: Record<AdminStoreOrderIntegrityFlag, { ko: string; en: string }> = {
-  payment_status_mismatch: { ko: "결제 상태 불일치", en: "Payment status mismatch" },
-  completion_record_missing: { ko: "완료 기록 없음", en: "No completion record" },
+  payment_status_mismatch: catalogPair("admin_payment_status_mismatch"),
+  completion_record_missing: catalogPair("admin_no_completion_record"),
 };
 
 export function adminStoreOrderIntegrityFlags(row: {

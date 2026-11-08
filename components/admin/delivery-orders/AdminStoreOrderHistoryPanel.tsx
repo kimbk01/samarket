@@ -19,6 +19,7 @@ import {
 import type { StoreCommissionLedgerRow } from "@/lib/stores/commission/load-store-commission-ledger";
 import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-ledger-query";
 import type { StoreOrderDeliveryStatus } from "@/lib/stores/store-order-delivery-status";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type EventRow = {
   id: string;
@@ -46,26 +47,26 @@ type History = {
 };
 
 const ACTOR_LABEL: Record<string, { ko: string; en: string }> = {
-  buyer: { ko: "구매자", en: "Buyer" },
-  owner: { ko: "매장", en: "Store" },
-  admin: { ko: "관리자", en: "Admin" },
-  system: { ko: "시스템", en: "System" },
+  buyer: catalogPair("admin_r4b_chat_role_buyer"),
+  owner: catalogPair("admin_store_3"),
+  admin: catalogPair("admin_admin"),
+  system: catalogPair("admin_system"),
 };
 
 const EVENT_LABEL: Record<string, { ko: string; en: string }> = {
-  cancel_approved: { ko: "취소 요청 승인", en: "Cancel request approved" },
-  cancel_rejected: { ko: "취소 요청 반려", en: "Cancel request rejected" },
-  delivery_status_changed: { ko: "배달 상태 변경", en: "Delivery status changed" },
-  order_payment_failed_buyer: { ko: "결제 실패", en: "Payment failed" },
+  cancel_approved: catalogPair("admin_cancel_request_approved"),
+  cancel_rejected: catalogPair("admin_cancel_request_rejected"),
+  delivery_status_changed: catalogPair("admin_delivery_status_changed"),
+  order_payment_failed_buyer: catalogPair("admin_do_ps_failed"),
 };
 
 const DELIVERY_LABEL: Record<StoreOrderDeliveryStatus, { ko: string; en: string }> = {
-  waiting_rider: { ko: "라이더 대기", en: "Waiting for rider" },
-  rider_assigned: { ko: "라이더 배정", en: "Rider assigned" },
-  pickup_in_progress: { ko: "픽업 중", en: "Picking up" },
-  delivering: { ko: "배달중", en: "Delivering" },
-  delivered: { ko: "배달 완료", en: "Delivered" },
-  delivery_failed: { ko: "배달 실패", en: "Delivery failed" },
+  waiting_rider: catalogPair("admin_waiting_for_rider"),
+  rider_assigned: catalogPair("admin_rider_assigned"),
+  pickup_in_progress: catalogPair("admin_picking_up"),
+  delivering: catalogPair("admin_delivering"),
+  delivered: catalogPair("admin_delivered"),
+  delivery_failed: catalogPair("admin_delivery_failed"),
 };
 
 export function AdminStoreOrderHistoryPanel({

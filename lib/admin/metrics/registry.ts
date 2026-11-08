@@ -29,6 +29,7 @@ import {
 } from "@/lib/admin/metrics/chat-metrics";
 import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 // ── 탭 ──────────────────────────────────────────────────────────────────────
 
@@ -648,12 +649,12 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
   },
 
   // ── 채팅 (chat-metrics.ts 같은 id·같은 href — 채팅 대시보드 /admin/messenger 와 같은 값) ──
-  chatMetric("chat.reports_open.messenger", { ko: "메신저 신고", en: "Msgr reports" }),
-  chatMetric("chat.reports_open.trade_report", { ko: "거래 채팅 신고", en: "Trade chat rpt" }),
-  chatMetric("chat.call_failed_24h", { ko: "통화 실패", en: "Call fails" }),
-  chatMetric("chat.call_stuck_ringing", { ko: "통화 정체", en: "Stuck calls" }),
-  chatMetric("chat.rooms.general_direct.active_7d", { ko: "1:1 활성 방", en: "Active 1:1" }),
-  chatMetric("chat.rooms.group.active_7d", { ko: "그룹 활성 방", en: "Active groups" }),
+  chatMetric("chat.reports_open.messenger", catalogPair("admin_msgr_reports")),
+  chatMetric("chat.reports_open.trade_report", catalogPair("admin_trade_chat_rpt")),
+  chatMetric("chat.call_failed_24h", catalogPair("admin_call_fails")),
+  chatMetric("chat.call_stuck_ringing", catalogPair("admin_stuck_calls")),
+  chatMetric("chat.rooms.general_direct.active_7d", catalogPair("admin_active_1_1")),
+  chatMetric("chat.rooms.group.active_7d", catalogPair("admin_active_groups")),
 
   // ── 알림 발송 (알림 발송 화면 = 캠페인 목록, 같은 질의의 total) ──
   {

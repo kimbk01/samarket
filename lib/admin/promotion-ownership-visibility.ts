@@ -18,6 +18,7 @@ import type { PromotionDistributionRow } from "@/lib/platform-promotion-distribu
 import { isBenefitDialogEligibleForEventSections } from "@/lib/platform-popup/event-benefit-authority";
 import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type OwnershipLabelLang = "ko" | "en";
 
@@ -151,10 +152,10 @@ export function popupApprovalStatusLabel(
  * 이 함수만 쓴다. 선택지는 `PLATFORM_POPUP_FREQUENCY_MODES` 4개뿐(「방문마다」always 없음).
  */
 const POPUP_FREQUENCY_LABEL: Record<string, { ko: string; en: string }> = {
-  once_per_session: { ko: "앱 실행당 1회", en: "Once per app launch" },
-  once_per_day: { ko: "하루 1회", en: "Once per day" },
-  once_campaign: { ko: "캠페인 1회", en: "Once per campaign" },
-  close_only: { ko: "기록 없이 닫기만", en: "Close only (no record)" },
+  once_per_session: catalogPair("admin_once_per_app_launch"),
+  once_per_day: catalogPair("admin_once_per_day"),
+  once_campaign: catalogPair("admin_once_per_campaign"),
+  close_only: catalogPair("admin_close_only_no_record"),
 };
 
 export function popupFrequencyOperatorLabel(

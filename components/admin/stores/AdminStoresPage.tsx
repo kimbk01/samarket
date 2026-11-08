@@ -48,6 +48,7 @@ import { allowedStoreApprovalActions } from "@/lib/admin-business/admin-store-de
 import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { ADMIN_STORES_SORTS } from "@/lib/admin-business/admin-stores-list-query";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type SalesPerm = {
   allowed_to_sell?: boolean;
@@ -95,12 +96,12 @@ function regionText(r: AdminStoreRow): string {
 }
 
 const REVIEW_ACTION_LABEL: Record<string, { ko: string; en: string }> = {
-  "store.start_review": { ko: "심사 시작", en: "Review started" },
-  "store.mark_under_review": { ko: "심사 시작", en: "Review started" },
-  "store.approve_store": { ko: "승인", en: "Approved" },
-  "store.reject_store": { ko: "반려", en: "Rejected" },
-  "store.request_revision": { ko: "보완 요청", en: "Changes requested" },
-  "store.reopen_application": { ko: "재심사 열기", en: "Reopened" },
+  "store.start_review": catalogPair("admin_review_started"),
+  "store.mark_under_review": catalogPair("admin_review_started"),
+  "store.approve_store": catalogPair("admin_approved"),
+  "store.reject_store": catalogPair("admin_rejected"),
+  "store.request_revision": catalogPair("admin_changes_requested"),
+  "store.reopen_application": catalogPair("admin_reopened"),
 };
 
 /** 「매장 운영」 표(`AdminBusinessTable`)와 같은 열 스타일 */

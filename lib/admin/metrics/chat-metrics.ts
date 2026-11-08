@@ -23,6 +23,7 @@ import { CHAT_DOMAINS, type ChatDomain } from "@/lib/chat-domain/chat-domain";
 import { manilaTodayRangeUtc } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminChatLabel, type AdminChatLabelDomain } from "@/lib/admin/status-labels/chat-status-labels";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 라벨은 채팅 상태 레지스트리 단일 기준 (대시보드·목록·상세 같은 문구). */
 function registryLabel(domain: AdminChatLabelDomain, code: string): { ko: string; en: string } {
@@ -220,11 +221,11 @@ const REPORT_LABEL: Record<ChatReportType, { ko: string; en: string; source: Cha
 };
 
 const PUSH_LABEL: Record<ChatPushEventGroup, { ko: string; en: string }> = {
-  general: { ko: "일반 1:1", en: "1:1" },
-  group: { ko: "그룹", en: "Group" },
-  trade: { ko: "거래", en: "Trade" },
-  store_order: { ko: "배달 주문", en: "Store order" },
-  support: { ko: "고객센터", en: "Support" },
+  general: catalogPair("admin_text_5"),
+  group: catalogPair("admin_cm_session_mode_group"),
+  trade: catalogPair("admin_trade"),
+  store_order: catalogPair("admin_store_order"),
+  support: catalogPair("admin_support"),
 };
 
 const CALL_STATUS_LABEL: Record<ChatCallStatus7d, { ko: string; en: string }> = {
@@ -235,7 +236,7 @@ const CALL_STATUS_LABEL: Record<ChatCallStatus7d, { ko: string; en: string }> = 
 };
 
 const ROOM_STATE_LABEL: Record<ChatRoomStateKey, { ko: string; en: string }> = {
-  active_7d: { ko: "활성 (최근 7일)", en: "Active (last 7 days)" },
+  active_7d: catalogPair("admin_active_last_7_days"),
   archived: registryLabel("room_status", "archived"),
   blocked: registryLabel("room_status", "blocked"),
 };

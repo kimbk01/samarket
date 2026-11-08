@@ -5,27 +5,28 @@
  */
 
 import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 광고 도메인 (이력 원장·피드 상품) */
 registerAdminStatusLabels("ads.domain", {
-  all: { ko: "전체", en: "All", tone: "neutral" },
-  community: { ko: "커뮤니티", en: "Community", tone: "neutral" },
-  trade: { ko: "거래", en: "Trade", tone: "neutral" },
-  delivery: { ko: "배달", en: "Delivery", tone: "neutral" },
-  popup: { ko: "팝업", en: "Popup", tone: "neutral" },
+  all: { ...catalogPair("admin_all"), tone: "neutral" },
+  community: { ...catalogPair("admin_community"), tone: "neutral" },
+  trade: { ...catalogPair("admin_trade"), tone: "neutral" },
+  delivery: { ...catalogPair("admin_delivery"), tone: "neutral" },
+  popup: { ...catalogPair("admin_ad_kind_popup_campaign"), tone: "neutral" },
 });
 
 /** 피드 배너 상품 영역 */
 registerAdminStatusLabels("ads.feedDomain", {
-  trade: { ko: "거래 피드", en: "Trade feed", tone: "neutral" },
-  community: { ko: "커뮤니티 피드", en: "Community feed", tone: "neutral" },
+  trade: { ...catalogPair("admin_trade_feed"), tone: "neutral" },
+  community: { ...catalogPair("admin_report_filter_target_community"), tone: "neutral" },
 });
 
 /** 이력 증거 종류 (AdsHistoryEvidenceKind) */
 registerAdminStatusLabels("ads.historyEvidence", {
-  event: { ko: "기록 있음", en: "Recorded", tone: "success" },
-  state_only: { ko: "상태만 있음", en: "State only", tone: "info" },
-  schedule_only: { ko: "일정만 있음", en: "Schedule only", tone: "info" },
-  not_proven: { ko: "확인 불가", en: "Not proven", tone: "warning" },
-  gap: { ko: "기록 없음", en: "No record", tone: "warning" },
+  event: { ...catalogPair("admin_recorded"), tone: "success" },
+  state_only: { ...catalogPair("admin_state_only"), tone: "info" },
+  schedule_only: { ...catalogPair("admin_schedule_only"), tone: "info" },
+  not_proven: { ...catalogPair("admin_not_proven"), tone: "warning" },
+  gap: { ...catalogPair("admin_no_record"), tone: "warning" },
 });

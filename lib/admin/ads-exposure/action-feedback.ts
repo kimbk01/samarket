@@ -4,6 +4,7 @@
 
 import { humanBannerSlideLabel, humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 설계 v4 §6 — 노출 시작 안내도 기기 시간대가 아니라 PHT 달력·시각으로. */
 function manilaFeedbackParts(iso: string): { date: string; month: number; day: number; time: string } {
@@ -15,39 +16,24 @@ function manilaFeedbackParts(iso: string): { date: string; month: number; day: n
 export type AdsActionFeedback = { ko: string; en: string };
 
 export const ADS_FEEDBACK = {
-  saved: { ko: "저장되었습니다.", en: "Saved." },
-  updated: { ko: "변경사항을 저장했습니다.", en: "Changes saved." },
-  approved: { ko: "광고를 승인했습니다.", en: "Ad approved." },
-  rejected: { ko: "광고 신청을 반려했습니다.", en: "Application rejected." },
-  deleted: { ko: "광고를 삭제했습니다.", en: "Ad removed." },
-  deleteConfirm: {
-    ko: "이 광고를 삭제하시겠습니까? 광고 신청 및 결제 이력은 보존됩니다.",
-    en: "Remove this ad from operations? Application and payment history are kept.",
-  },
-  paused: { ko: "광고 노출을 일시중지했습니다.", en: "Ad paused." },
-  resumed: { ko: "광고 노출을 다시 시작했습니다.", en: "Ad resumed." },
-  ended: { ko: "광고 노출을 종료했습니다.", en: "Ad ended." },
-  endBoostConfirm: {
-    ko: "광고 노출을 종료합니다. 이미 사용된 광고 비용은 자동 환불되지 않습니다.",
-    en: "End this ad. Used ad cost will not be refunded automatically.",
-  },
+  saved: catalogPair("admin_store_banner_ads_save_ok"),
+  updated: catalogPair("admin_changes_saved"),
+  approved: catalogPair("admin_ad_approved_2"),
+  rejected: catalogPair("admin_application_rejected"),
+  deleted: catalogPair("admin_ad_removed"),
+  deleteConfirm: catalogPair("admin_remove_this_ad_from_operations_application"),
+  paused: catalogPair("admin_ad_paused"),
+  resumed: catalogPair("admin_ad_resumed"),
+  ended: catalogPair("admin_ad_ended"),
+  endBoostConfirm: catalogPair("admin_end_this_ad_used_ad_cost"),
   /** Internal key may stay `extend`; never expose developer jargon in UI. */
-  extend: { ko: "기간을 연장했습니다.", en: "Period extended." },
-  orderSaved: { ko: "배너 순서를 변경했습니다.", en: "Banner order changed." },
-  applySubmitted: {
-    ko: "광고 신청이 완료되었습니다. 관리자 승인 후 노출됩니다.",
-    en: "Application submitted. It will go live after admin approval.",
-  },
-  saveFailed: { ko: "저장하지 못했습니다.", en: "Could not save." },
-  imageRequired: { ko: "이미지가 필요합니다.", en: "Image is required." },
-  capacityFull: {
-    ko: "선택한 기간에는 이 광고 위치의 예약이 가득 찼습니다.",
-    en: "Reservations for this ad placement are full for the selected period.",
-  },
-  invalidPeriod: {
-    ko: "종료일은 시작일 이후여야 합니다.",
-    en: "End date must be after start date.",
-  },
+  extend: catalogPair("admin_period_extended"),
+  orderSaved: catalogPair("admin_banner_order_changed"),
+  applySubmitted: catalogPair("admin_application_submitted_it_will_go_live"),
+  saveFailed: catalogPair("admin_del_err_save_failed"),
+  imageRequired: catalogPair("admin_image_is_required"),
+  capacityFull: catalogPair("admin_reservations_for_this_ad_placement_are"),
+  invalidPeriod: catalogPair("admin_end_date_must_be_after_start"),
 } as const;
 
 export function feedbackBannerSavedAtSlide(input: {

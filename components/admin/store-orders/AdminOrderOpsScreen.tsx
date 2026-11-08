@@ -80,6 +80,7 @@ import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-l
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type Form = {
   q: string;
@@ -131,12 +132,12 @@ const ADMIN_ORDER_OPS_TITLE_KEY: Record<Screen, MessageKey> = {
 };
 
 const PAYMENT_METHOD_LABEL: Record<AdminOrderOpsPaymentMethod, { ko: string; en: string }> = {
-  cod: { ko: "현장 결제(COD)", en: "COD" },
-  gcash: { ko: "GCash", en: "GCash" },
-  bank_transfer: { ko: "계좌이체", en: "Bank transfer" },
-  cash: { ko: "현금", en: "Cash" },
-  other: { ko: "기타", en: "Other" },
-  none: { ko: "결제수단 미기록", en: "Not recorded" },
+  cod: catalogPair("admin_cod"),
+  gcash: catalogPair("admin_points_payment_gcash"),
+  bank_transfer: catalogPair("admin_points_payment_bank_transfer"),
+  cash: catalogPair("admin_stores_settlements_payout_method_cash"),
+  other: catalogPair("admin_menu_bottom_icon_cat_misc"),
+  none: catalogPair("admin_not_recorded"),
 };
 
 const SUMMARY_OPEN_KEY = "dibay:admin-order-ops:summary-open";

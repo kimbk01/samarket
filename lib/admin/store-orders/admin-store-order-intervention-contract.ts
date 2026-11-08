@@ -9,6 +9,7 @@
  * derived from the ADMIN transition graph — never listed separately.
  */
 import { allowedOrderTransitionsForActor } from "@/lib/stores/order-status-transitions";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminStoreOrderInterventionAction =
   | "cancel_request_approve"
@@ -114,24 +115,12 @@ export const ADMIN_STORE_ORDER_INTERVENTION_LABEL: Record<
 };
 
 export const ADMIN_STORE_ORDER_INTERVENTION_ERROR: Record<string, { ko: string; en: string }> = {
-  reason_required: { ko: "사유를 2자 이상 입력하세요.", en: "Enter a reason (2+ characters)." },
-  reason_too_long: { ko: "사유는 500자 이하로 입력하세요.", en: "Reason must be 500 characters or fewer." },
-  status_changed: {
-    ko: "그 사이 주문 상태가 바뀌었습니다. 최신 상태로 다시 불러옵니다.",
-    en: "The order status changed meanwhile. Reloading the latest state.",
-  },
-  transition_conflict: {
-    ko: "동시에 다른 처리가 반영됐습니다. 최신 상태로 다시 불러옵니다.",
-    en: "Another change landed at the same time. Reloading.",
-  },
-  action_not_allowed_for_status: {
-    ko: "현재 상태에서는 할 수 없는 처리입니다.",
-    en: "Not allowed for the current status.",
-  },
-  refund_restore_status_unknown: {
-    ko: "환불 요청 직전 상태를 확인할 수 없어 반려할 수 없습니다. 강제 취소 또는 환불 처리 기록으로 처리하세요.",
-    en: "The status before the refund request is unknown, so it cannot be rejected.",
-  },
-  cancel_request_not_found: { ko: "대기 중인 취소 요청이 없습니다.", en: "No pending cancel request." },
-  order_not_found: { ko: "주문을 찾을 수 없습니다.", en: "Order not found." },
+  reason_required: catalogPair("admin_enter_a_reason_2_characters_2"),
+  reason_too_long: catalogPair("admin_reason_must_be_500_characters_or"),
+  status_changed: catalogPair("admin_the_order_status_changed_meanwhile_reloading"),
+  transition_conflict: catalogPair("admin_another_change_landed_at_the_same"),
+  action_not_allowed_for_status: catalogPair("admin_not_allowed_for_the_current_status"),
+  refund_restore_status_unknown: catalogPair("admin_the_status_before_the_refund_request"),
+  cancel_request_not_found: catalogPair("admin_no_pending_cancel_request"),
+  order_not_found: catalogPair("admin_do_detail_not_found"),
 };

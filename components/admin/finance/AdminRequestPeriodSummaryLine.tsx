@@ -5,6 +5,7 @@ import type {
   AdminRequestPeriodSummary,
 } from "@/lib/admin/finance/admin-request-period-summary";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /**
  * 관리자 신청 목록 기간 합계 줄 (H-10 · Owner 2026-11-03 「이번 달 출금 얼마?」).
@@ -49,7 +50,7 @@ export function AdminRequestPeriodSummaryLine({
       </dd>
     </div>
   );
-  const approved = approvedLabel ?? { ko: "승인", en: "Approved" };
+  const approved = approvedLabel ?? catalogPair("admin_approved");
   /** R3-i — 칸마다 기간 기준을 적는다. 처리 칸(승인·지급 완료·반려)은 처리 시각 기준. */
   const processed = summary.decidedBasis === "processed";
   const reqTag = ko ? " (신청 기준)" : " (by request)";

@@ -14,6 +14,7 @@ import {
   type AdminListPage,
 } from "@/lib/admin/pagination/parse-admin-list-page";
 import { REPORT_ACTION_TYPE_KEYS } from "@/lib/admin-reports/report-admin-i18n-keys";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export interface AdminSanctionLedgerRow {
   action_id: string;
@@ -53,9 +54,9 @@ export const SANCTION_LEDGER_SOURCES = ["report_actions", "sanctions", "user_mod
 export type SanctionLedgerSource = (typeof SANCTION_LEDGER_SOURCES)[number];
 
 export const SANCTION_LEDGER_SOURCE_LABEL: Record<SanctionLedgerSource, { ko: string; en: string }> = {
-  report_actions: { ko: "신고 처리", en: "Report action" },
-  sanctions: { ko: "기능 제한·경고", en: "Restriction / warning" },
-  user_moderation_events: { ko: "계정 조치", en: "Account action" },
+  report_actions: catalogPair("admin_reports_report_action"),
+  sanctions: catalogPair("admin_reports_restriction_warning"),
+  user_moderation_events: catalogPair("admin_reports_account_action"),
 };
 
 /** sanctions.scope → 그 제한을 처리하는 도메인 화면 (열람 권한 판정 · 행 링크) */

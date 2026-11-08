@@ -10,6 +10,7 @@ import {
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { formatAdsRemaining } from "@/lib/admin/ads-exposure/canonical-location-period";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdsOperatorCta = {
   action: AdminDeliveryAdAction;
@@ -19,16 +20,16 @@ export type AdsOperatorCta = {
 };
 
 const ACTION_LABEL: Record<AdminDeliveryAdAction, { ko: string; en: string }> = {
-  start_review: { ko: "검토 시작", en: "Start review" },
-  request_changes: { ko: "수정 요청", en: "Request changes" },
-  approve: { ko: "승인", en: "Approve" },
-  reject: { ko: "반려", en: "Reject" },
-  pause: { ko: "일시중지", en: "Pause" },
-  resume: { ko: "재개", en: "Resume" },
-  end: { ko: "종료", en: "End" },
-  terminate: { ko: "강제 중단", en: "Force stop" },
-  archive: { ko: "보관", en: "Archive" },
-  delete_safe_draft: { ko: "초안 삭제", en: "Delete draft" },
+  start_review: catalogPair("admin_meeting_reports_action_start_review"),
+  request_changes: catalogPair("admin_request_changes"),
+  approve: catalogPair("admin_meeting_engine_action_approve"),
+  reject: catalogPair("admin_meeting_engine_action_reject"),
+  pause: catalogPair("admin_pause"),
+  resume: catalogPair("admin_resume"),
+  end: catalogPair("admin_end"),
+  terminate: catalogPair("admin_force_stop"),
+  archive: catalogPair("admin_archive"),
+  delete_safe_draft: catalogPair("admin_delivery_ads_action_delete_safe_draft"),
 };
 
 /** Valid Admin CTAs for a canonical lifecycle status. */
@@ -51,20 +52,20 @@ export function adsLifecycleOperatorLabel(
 ): string {
   const s = String(lifecycle ?? "").trim();
   const map: Record<string, { ko: string; en: string }> = {
-    DRAFT: { ko: "임시저장", en: "Draft" },
-    SUBMITTED: { ko: "승인 대기", en: "Pending approval" },
-    UNDER_REVIEW: { ko: "승인 대기", en: "Pending approval" },
-    CHANGES_REQUESTED: { ko: "보류", en: "On hold" },
-    APPROVED: { ko: "승인", en: "Approved" },
-    SCHEDULED: { ko: "예약", en: "Scheduled" },
-    ACTIVE: { ko: "노출 중", en: "Live" },
-    PAUSED_OWNER: { ko: "사장님 일시중지", en: "Paused by owner" },
-    PAUSED_ADMIN: { ko: "관리자 일시중지", en: "Paused by admin" },
-    EXHAUSTED: { ko: "소진", en: "Exhausted" },
-    REJECTED: { ko: "반려", en: "Rejected" },
-    ENDED: { ko: "종료", en: "Ended" },
-    TERMINATED: { ko: "강제 종료", en: "Terminated" },
-    ARCHIVED: { ko: "보관됨", en: "Archived" },
+    DRAFT: catalogPair("admin_notif_status_draft"),
+    SUBMITTED: catalogPair("admin_del_alert_filter_pending_approval"),
+    UNDER_REVIEW: catalogPair("admin_del_alert_filter_pending_approval"),
+    CHANGES_REQUESTED: catalogPair("admin_on_hold"),
+    APPROVED: catalogPair("admin_approved"),
+    SCHEDULED: catalogPair("admin_scheduled"),
+    ACTIVE: catalogPair("admin_live"),
+    PAUSED_OWNER: catalogPair("admin_paused_by_owner"),
+    PAUSED_ADMIN: catalogPair("admin_paused_by_admin"),
+    EXHAUSTED: catalogPair("admin_delivery_ads_lifecycle_exhausted"),
+    REJECTED: catalogPair("admin_rejected"),
+    ENDED: catalogPair("admin_ended"),
+    TERMINATED: catalogPair("admin_delivery_ads_lifecycle_terminated"),
+    ARCHIVED: catalogPair("admin_chat_r1b_status_archived"),
   };
   const hit = map[s];
   if (hit) return ko ? hit.ko : hit.en;

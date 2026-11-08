@@ -5,22 +5,23 @@
  */
 
 import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const PLATFORM_REC_EXECUTION_NS = "platform.recExecution";
 export const PLATFORM_REC_DEPLOYMENT_NS = "platform.recDeployment";
 
 /** 추천 자동화 실행 결과 (`AutomationExecutionStatus`) */
 registerAdminStatusLabels(PLATFORM_REC_EXECUTION_NS, {
-  success: { ko: "성공", en: "Success", tone: "success" },
-  skipped: { ko: "건너뜀", en: "Skipped", tone: "neutral" },
-  failed: { ko: "실패", en: "Failed", tone: "danger" },
+  success: { ...catalogPair("admin_del_alert_th_success"), tone: "success" },
+  skipped: { ...catalogPair("admin_skipped"), tone: "neutral" },
+  failed: { ...catalogPair("admin_meeting_engine_err_generic"), tone: "danger" },
 });
 
 /** 추천 배포 상태 (`DeploymentStatus`) */
 registerAdminStatusLabels(PLATFORM_REC_DEPLOYMENT_NS, {
-  scheduled: { ko: "예약됨", en: "Scheduled", tone: "neutral" },
-  deploying: { ko: "배포 중", en: "Deploying", tone: "info" },
-  success: { ko: "성공", en: "Success", tone: "success" },
-  rolled_back: { ko: "롤백됨", en: "Rolled back", tone: "warning" },
-  failed: { ko: "실패", en: "Failed", tone: "danger" },
+  scheduled: { ...catalogPair("admin_launch_intro_pill_scheduled"), tone: "neutral" },
+  deploying: { ...catalogPair("admin_deploying"), tone: "info" },
+  success: { ...catalogPair("admin_del_alert_th_success"), tone: "success" },
+  rolled_back: { ...catalogPair("admin_rolled_back"), tone: "warning" },
+  failed: { ...catalogPair("admin_meeting_engine_err_generic"), tone: "danger" },
 });

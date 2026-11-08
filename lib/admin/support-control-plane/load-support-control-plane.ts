@@ -13,6 +13,7 @@ import type {
   SupportActionRow,
   SupportControlPlaneModel,
 } from "@/lib/admin/support-control-plane/types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 function isMissing(err: { message?: string } | null | undefined): boolean {
   return !!err && /support_cases|schema cache|does not exist/i.test(String(err.message ?? ""));
@@ -25,8 +26,8 @@ function ageHours(iso: string): number | null {
 }
 
 function ageLabel(hours: number | null): { ko: string; en: string } {
-  if (hours == null) return { ko: "—", en: "—" };
-  if (hours < 1) return { ko: "1시간 미만", en: "<1h" };
+  if (hours == null) return catalogPair("admin_del_common_dash");
+  if (hours < 1) return catalogPair("admin_text_6");
   if (hours < 24) return { ko: `${hours}시간`, en: `${hours}h` };
   const days = Math.floor(hours / 24);
   return { ko: `${days}일`, en: `${days}d` };

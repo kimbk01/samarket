@@ -5,10 +5,11 @@
  */
 
 import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 사용/미사용 토글 — 포인트 플랜 `is_active` · Coin→Cash 전환 정책 `enabled` 등 불리언 상태. */
 export const FINANCE_ACTIVE_STATE_NS = "finance.activeState";
 registerAdminStatusLabels(FINANCE_ACTIVE_STATE_NS, {
-  active: { ko: "사용 중", en: "Active", tone: "success" },
-  inactive: { ko: "사용 안 함", en: "Inactive", tone: "neutral" },
+  active: { ...catalogPair("admin_active"), tone: "success" },
+  inactive: { ...catalogPair("admin_inactive"), tone: "neutral" },
 });

@@ -23,6 +23,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminRequestPeriodSummaryLine";
 import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type WithdrawalRow = {
   id: string;
@@ -236,7 +237,7 @@ export function AdminCoinWithdrawalsPanel() {
         ko={ko}
         summary={periodSummary}
         formatAmount={(n) => formatFinanceAmount({ wallet: "COIN", amount: n })}
-        approvedLabel={{ ko: "지급 완료", en: "Paid" }}
+        approvedLabel={catalogPair("admin_stores_settlements_payout_paid")}
       />
       <p className="sam-text-helper text-sam-muted">
         {ko

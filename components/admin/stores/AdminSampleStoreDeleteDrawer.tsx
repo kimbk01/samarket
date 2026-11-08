@@ -23,6 +23,7 @@ import {
   type SampleStoreDeletePreviewSummary,
   type SampleStoreDeleteResult,
 } from "@/lib/admin-business/sample-store-delete-model";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 function newClientRequestId(): string {
   try {
@@ -33,10 +34,10 @@ function newClientRequestId(): string {
 }
 
 const OUTCOME_LABEL: Record<SampleStoreDeleteResult["outcome"], { ko: string; en: string; tone: "success" | "neutral" | "warning" | "danger" }> = {
-  deleted: { ko: "삭제됨", en: "Deleted", tone: "success" },
-  already_deleted: { ko: "이미 삭제됨", en: "Already deleted", tone: "neutral" },
-  blocked: { ko: "삭제 불가", en: "Not deletable", tone: "warning" },
-  failed: { ko: "실패", en: "Failed", tone: "danger" },
+  deleted: { ...catalogPair("admin_ads_history_filter_deleted"), tone: "success" },
+  already_deleted: { ...catalogPair("admin_already_deleted"), tone: "neutral" },
+  blocked: { ...catalogPair("admin_not_deletable"), tone: "warning" },
+  failed: { ...catalogPair("admin_meeting_engine_err_generic"), tone: "danger" },
 };
 
 export function AdminSampleStoreDeleteDrawer({

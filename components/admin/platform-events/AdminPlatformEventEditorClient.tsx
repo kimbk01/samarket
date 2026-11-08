@@ -44,6 +44,7 @@ import {
   adminManilaInputToIso,
 } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { PLATFORM_EVENT_CATEGORY_MAX } from "@/lib/platform-events/types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type Props = { eventId: string | null };
 
@@ -344,14 +345,8 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                     : "이동할 대상을 설정해 주세요.",
             en: "Please select a destination target.",
           },
-          external_url_required: {
-            ko: "외부 URL을 입력해 주세요.",
-            en: "External URL is required.",
-          },
-          internal_path_required: {
-            ko: "이동할 페이지를 설정해 주세요.",
-            en: "Please set an in-app page path.",
-          },
+          external_url_required: catalogPair("admin_external_url_is_required"),
+          internal_path_required: catalogPair("admin_please_set_an_in_app_page"),
         };
         const mapped = msgByError[cta.error];
         setError(

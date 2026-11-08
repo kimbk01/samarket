@@ -41,6 +41,7 @@ import type {
   AdminDashboardTrendPayload,
   AdminDashboardTrendPoint,
 } from "@/lib/admin/metrics/dashboard-overview-contract";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminDashboardMetricEntry = {
   value: number | null;
@@ -68,7 +69,7 @@ export const ADMIN_DASHBOARD_NOTICES_HREF = "/admin/app/notices";
 
 /** 처리 대기 항목의 세는 단위가 행 수가 아닐 때 (지표와 같은 단위 — 레지스트리 sourceDetail 참고) */
 const PENDING_UNIT_NOTE: Partial<Record<AdminActionQueueCategory, { ko: string; en: string }>> = {
-  community_reports: { ko: "신고 대상 기준 (같은 대상 = 1건)", en: "Per reported target" },
+  community_reports: catalogPair("admin_per_reported_target"),
 };
 
 export type BuildAdminDashboardOverviewInput = {

@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Canonical ops status labels — Admin ↔ Member ↔ Owner presentation.
  * Internal enums stay in domain writers; UI uses these only.
  *
@@ -53,14 +54,14 @@ export type AdsEffectiveLifecycle = {
 };
 
 const LABELS: Record<AdsOpsStatus, { ko: string; en: string }> = {
-  pending: { ko: "승인 대기", en: "Pending approval" },
-  scheduled: { ko: "예약", en: "Scheduled" },
-  live: { ko: "노출 중", en: "Live" },
-  paused: { ko: "일시중지", en: "Paused" },
-  ended: { ko: "종료", en: "Ended" },
-  rejected: { ko: "반려", en: "Rejected" },
-  draft: { ko: "임시저장", en: "Draft" },
-  archived: { ko: "삭제됨", en: "Removed" },
+  pending: catalogPair("admin_del_alert_filter_pending_approval"),
+  scheduled: catalogPair("admin_scheduled"),
+  live: catalogPair("admin_live"),
+  paused: catalogPair("admin_launch_intro_state_paused"),
+  ended: catalogPair("admin_ended"),
+  rejected: catalogPair("admin_rejected"),
+  draft: catalogPair("admin_notif_status_draft"),
+  archived: catalogPair("admin_removed"),
 };
 
 export function adsOpsStatusLabel(status: AdsOpsStatus, ko: boolean): string {

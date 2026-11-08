@@ -60,6 +60,7 @@ import {
   type BrowseSubAdminDraft,
   type BrowseSubAdminToggleField,
 } from "@/lib/stores/product/stores-browse-scope-admin-save";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type PrimaryRow = {
   primarySlug: string;
@@ -198,7 +199,7 @@ function statusBadge(enabled: boolean, ko: boolean) {
         enabled ? "bg-sam-success-soft text-sam-success" : "bg-sam-surface-muted text-sam-muted"
       }`}
     >
-      {enabled ? label(ko, "사용", "On") : label(ko, "비활성", "Off")}
+      {enabled ? translateBy(ko ? "ko" : "en", "admin_boost_prices_on") : translateBy(ko ? "ko" : "en", "admin_off_2")}
     </span>
   );
 }
@@ -548,7 +549,7 @@ export function AdminStoresCategoryPolicyEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: label(ko, "업종 목록 정책을 저장할까요?", "Save the category list policy?"),
+      title: translateBy(ko ? "ko" : "en", "admin_save_the_category_list_policy"),
       description: label(
         ko,
         `${primaryMeta.nameKo} — 1차·2차 업종, 광고/쿠폰/노출 정책을 한 번에 저장하며 고객 화면에 바로 반영됩니다.`,
@@ -632,7 +633,7 @@ export function AdminStoresCategoryPolicyEditor({
       setPreviewReloadToken((n) => n + 1);
       await load();
       /** load() 가 시작 시 saveMsg 를 비우므로 재조회 뒤에 성공 배너를 띄운다. */
-      setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
+      setSaveMsg(translateBy(ko ? "ko" : "en", "admin_store_banner_ads_save_ok"));
       onSaved?.();
     } catch {
       setSaveErr("save_fail");
@@ -668,14 +669,14 @@ export function AdminStoresCategoryPolicyEditor({
 
   const formattedLoadedAt = loadedAt
     ? formatAdminManilaDateTime(loadedAt)
-    : label(ko, "아직 없음", "Not loaded");
+    : translateBy(ko ? "ko" : "en", "admin_not_loaded");
 
   const previewTitle =
     tier === "secondary" && selectedSubMeta && selectedSubDraft
       ? selectedSubDraft.draftTitleKo.trim() ||
         (ko ? selectedSubMeta.nameKo : selectedSubMeta.nameEn)
       : draftPrimary?.draftTitleKo.trim() ||
-        (primaryMeta ? (ko ? primaryMeta.nameKo : primaryMeta.nameEn) : label(ko, "카테고리", "Category"));
+        (primaryMeta ? (ko ? primaryMeta.nameKo : primaryMeta.nameEn) : translateBy(ko ? "ko" : "en", "admin_feed_posts_col_category"));
 
   const previewSubSlug =
     tier === "secondary" && selectedSub ? selectedSub : "all";
@@ -711,22 +712,18 @@ export function AdminStoresCategoryPolicyEditor({
       case "basic":
         return (
           <Panel
-            title={label(ko, "기본 설정", "Basic settings")}
-            desc={label(
-              ko,
-              "고객에게 보이는 제목과 1차 업종 상태를 관리합니다. 중간 리스트는 이 1차(및 선택한 2차) 스코프 매장만 나옵니다 — HOME 선반·다른 업종과 섞이지 않습니다.",
-              "Manage the customer-facing title and primary status. The mid-list shows only this primary (and selected secondary) — not HOME shelves or other industries."
-            )}
+            title={translateBy(ko ? "ko" : "en", "admin_basic_settings")}
+            desc={translateBy(ko ? "ko" : "en", "admin_manage_the_customer_facing_title_and")}
           >
             <div className="grid gap-3 md:grid-cols-2">
-              <FieldLabel labelText={label(ko, "표시명(한국어)", "Display title (Korean)")}>
+              <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_display_title_korean")}>
                 <TextInput
                   value={draftPrimary.draftTitleKo}
                   maxLength={20}
                   onChange={(value) => setDraftPrimary({ ...draftPrimary, draftTitleKo: value })}
                 />
               </FieldLabel>
-              <FieldLabel labelText={label(ko, "표시명(English)", "Display title (English)")}>
+              <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_display_title_english")}>
                 <TextInput
                   value={draftPrimary.draftTitleEn}
                   maxLength={36}
@@ -736,14 +733,14 @@ export function AdminStoresCategoryPolicyEditor({
             </div>
             <div className="mt-3 flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
               <div>
-                <p className="text-[13px] font-bold text-sam-fg">{label(ko, "상태", "Status")}</p>
+                <p className="text-[13px] font-bold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_status_2")}</p>
                 <p className="text-[12px] text-sam-muted">
-                  {label(ko, "OFF면 고객 화면에서 이 1차 업종이 숨겨집니다.", "When off, this primary category is hidden from customers.")}
+                  {translateBy(ko ? "ko" : "en", "admin_when_off_this_primary_category_is")}
                 </p>
               </div>
               <Toggle
                 checked={draftPrimary.enabled}
-                labelText={label(ko, "1차 업종 활성 상태", "Primary enabled")}
+                labelText={translateBy(ko ? "ko" : "en", "admin_primary_enabled")}
                 onChange={(enabled) => setDraftPrimary({ ...draftPrimary, enabled })}
               />
             </div>
@@ -785,7 +782,7 @@ export function AdminStoresCategoryPolicyEditor({
                         <AdminActionButton
                           variant="secondary"
                           size="sm"
-                          aria-label={label(ko, "위로", "Move up")}
+                          aria-label={translateBy(ko ? "ko" : "en", "admin_menu_bottom_move_up")}
                           disabled={!selected || index <= 0}
                           onClick={() => {
                             const next = [...draftPrimary.rankingCriteria];
@@ -800,7 +797,7 @@ export function AdminStoresCategoryPolicyEditor({
                         <AdminActionButton
                           variant="secondary"
                           size="sm"
-                          aria-label={label(ko, "아래로", "Move down")}
+                          aria-label={translateBy(ko ? "ko" : "en", "admin_menu_bottom_move_down")}
                           disabled={!selected || index < 0 || index >= draftPrimary.rankingCriteria.length - 1}
                           onClick={() => {
                             const next = [...draftPrimary.rankingCriteria];
@@ -819,11 +816,7 @@ export function AdminStoresCategoryPolicyEditor({
               </FieldLabel>
               {/* PL-07 · P-06 — 잠긴 Discovery 계약: 페이지 구성은 고정, 정렬은 한 페이지 안에서만 */}
               <p className="mt-2 text-[12px] text-sam-warning" data-admin-browse-sort-page-scope-notice="1">
-                {label(
-                  ko,
-                  "정렬은 현재 페이지 안에서만 적용됩니다. 어떤 매장이 몇 번째 페이지에 들어갈지는 바뀌지 않습니다.",
-                  "Sorting applies only within the current page. It does not change which stores appear on each page."
-                )}
+                {translateBy(ko ? "ko" : "en", "admin_sorting_applies_only_within_the_current")}
               </p>
             </div>
             <div className="mt-3">
@@ -887,9 +880,9 @@ export function AdminStoresCategoryPolicyEditor({
               })()}
             </div>
             <div className="mt-3 rounded-ui-rect bg-sam-surface-muted p-3">
-              <p className="text-[12px] font-bold text-sam-fg">{label(ko, "정책 요약", "Policy summary")}</p>
+              <p className="text-[12px] font-bold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_policy_summary")}</p>
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
-                <dt className="text-sam-muted">{label(ko, "2차 업종", "Secondary")}</dt>
+                <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_stores_category_col_sub")}</dt>
                 <dd className="font-semibold text-sam-fg">{secondaries.length}</dd>
                 <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_enabled")}</dt>
                 <dd className="font-semibold text-sam-fg">
@@ -897,16 +890,16 @@ export function AdminStoresCategoryPolicyEditor({
                     ? t("admin_delivery_ads_home_policy_enabled_on")
                     : t("admin_delivery_ads_home_policy_enabled_off")}
                 </dd>
-                <dt className="text-sam-muted">{label(ko, "쿠폰", "Coupons")}</dt>
+                <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_menu_store_coupons_control")}</dt>
                 <dd className="font-semibold text-sam-fg">{draftPrimary.couponEnabled ? "ON" : "OFF"}</dd>
-                <dt className="text-sam-muted">{label(ko, "네이티브 광고 최대", "Native ad max")}</dt>
+                <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_native_ad_max")}</dt>
                 <dd className="font-semibold text-sam-fg">
                   {draftPrimary.draftMax.trim() === "" ? "—" : draftPrimary.draftMax}
                 </dd>
-                <dt className="text-sam-muted">{label(ko, "네이티브 광고 간격", "Native ad interval")}</dt>
+                <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_native_ad_interval")}</dt>
                 <dd className="font-semibold text-sam-fg">
                   {t("admin_delivery_ads_browse_policy_interval", {
-                    n: draftPrimary.draftInterval.trim() || label(ko, "기본 8", "default 8"),
+                    n: draftPrimary.draftInterval.trim() || translateBy(ko ? "ko" : "en", "admin_default_8"),
                   })}
                 </dd>
               </dl>
@@ -980,11 +973,7 @@ export function AdminStoresCategoryPolicyEditor({
             </div>
             {/* CP-02 — 「현재 1차」 소스는 2차 페이지에서만 선반이 나온다 (1차 전체 목록에 같은 매장이 이미 있어 제외됨). */}
             <p className="mt-2 text-[12px] leading-5 text-sam-muted" data-browse-shelf-current-primary-contract="1">
-              {label(
-                ko,
-                "「현재 1차」 소스 선반은 2차(세부 업종) 페이지에서만 나옵니다. 1차 전체 페이지에는 같은 1차 매장이 이미 목록에 있어 선반이 비게 됩니다.",
-                "A 'current primary' shelf appears only on secondary pages. On the primary 'all' page those stores are already in the list, so the shelf is empty."
-              )}
+              {translateBy(ko ? "ko" : "en", "admin_a_current_primary_shelf_appears_only")}
             </p>
             {draftPrimary.discoveryShelf.enabled &&
             (draftPrimary.discoveryShelf.sourceMode === "current_primary" ||
@@ -995,11 +984,7 @@ export function AdminStoresCategoryPolicyEditor({
                 className="mt-2 rounded-ui-rect bg-sam-warning-soft px-3 py-2 text-[12px] font-semibold text-sam-warning"
                 data-browse-shelf-primary-all-warning="1"
               >
-                {label(
-                  ko,
-                  "1차 전체 페이지에도 선반을 보이려면 「선택한 1차」로 다른 1차 업종을 고르세요. 지금 설정은 2차 페이지에서만 표시됩니다.",
-                  "To show the shelf on the primary 'all' page too, choose 'selected primaries' with a different primary. The current setting shows only on secondary pages."
-                )}
+                {translateBy(ko ? "ko" : "en", "admin_to_show_the_shelf_on_the")}
               </p>
             ) : null}
             {draftPrimary.discoveryShelf.sourceMode === "selected" ? (
@@ -1151,7 +1136,7 @@ export function AdminStoresCategoryPolicyEditor({
       case "ad":
         if (!draftPrimary) return null;
         return (
-          <Panel title={label(ko, "광고 (네이티브 · 배너)", "Ads (native · banner)")}>
+          <Panel title={translateBy(ko ? "ko" : "en", "admin_ads_native_banner")}>
             {selectedPrimary ? (
               <div className="mb-3">
                 <AdminDeliveryAdBrowsePolicyPanel
@@ -1169,36 +1154,28 @@ export function AdminStoresCategoryPolicyEditor({
             ) : null}
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
-                <p className="text-[13px] font-bold">{label(ko, "네이티브 매장 홍보 허용", "Allow native store promotion")}</p>
+                <p className="text-[13px] font-bold">{translateBy(ko ? "ko" : "en", "admin_allow_native_store_promotion")}</p>
                 <p className="text-[12px] text-sam-muted">
-                  {label(
-                    ko,
-                    "목록 카드 삽입(광고 라벨). 간격·최대는 「네이티브 광고 간격·최대」 탭. 배너와 별개입니다.",
-                    "List card insertion with ad label. Interval/max on the native ad tab. Separate from banners."
-                  )}
+                  {translateBy(ko ? "ko" : "en", "admin_list_card_insertion_with_ad_label")}
                 </p>
               </div>
               <Toggle
                 checked={draftPrimary.adEnabled}
-                labelText={label(ko, "네이티브 매장 홍보 허용", "Allow native store promotion")}
+                labelText={translateBy(ko ? "ko" : "en", "admin_allow_native_store_promotion")}
                 onChange={(adEnabled) => setDraftPrimary({ ...draftPrimary, adEnabled })}
               />
             </div>
             <div className="mt-3 space-y-3 rounded-ui-rect border border-dashed border-sam-border px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[13px] font-bold">{label(ko, "업종 상단 배너 허용", "Allow category top banner")}</p>
+                  <p className="text-[13px] font-bold">{translateBy(ko ? "ko" : "en", "admin_allow_category_top_banner")}</p>
                   <p className="text-[12px] text-sam-muted">
-                    {label(
-                      ko,
-                      "이미지 배너 지면(top_context). 네이티브 삽입 플래너와 무관합니다.",
-                      "Image banner slot (top_context). Independent of the native insertion planner."
-                    )}
+                    {translateBy(ko ? "ko" : "en", "admin_image_banner_slot_top_context_independent")}
                   </p>
                 </div>
                 <Toggle
                   checked={draftPrimary.bannerAdsEnabled}
-                  labelText={label(ko, "업종 상단 배너 허용", "Allow category top banner")}
+                  labelText={translateBy(ko ? "ko" : "en", "admin_allow_category_top_banner")}
                   onChange={(bannerAdsEnabled) =>
                     setDraftPrimary({ ...draftPrimary, bannerAdsEnabled })
                   }
@@ -1206,26 +1183,22 @@ export function AdminStoresCategoryPolicyEditor({
               </div>
               {/* 광고 감사 B-3: 업종 상단 배너는 1개 표시·회전 없음 — 효과 없던 용량 입력(1~3) 대신 고정 안내 */}
               <p className="sam-text-helper text-sam-muted" data-browse-banner-capacity-fixed="1">
-                {label(
-                  ko,
-                  "배너는 한 번에 1개 보입니다 — 순서가 가장 앞이고 고객이 볼 수 있는 배너(배달 범위 등)가 나옵니다.",
-                  "One banner shows at a time — the first in order that the customer can see (delivery range, etc.)."
-                )}
+                {translateBy(ko ? "ko" : "en", "admin_one_banner_shows_at_a_time")}
               </p>
             </div>
           </Panel>
         );
       case "coupon":
         return (
-          <Panel title={label(ko, "쿠폰 배지 허용", "Allow coupon badges")}>
+          <Panel title={translateBy(ko ? "ko" : "en", "admin_stores_category_col_coupon")}>
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
-                <p className="text-[13px] font-bold">{label(ko, "이 카테고리에서 유효한 쿠폰 배지 표시 허용", "Allow valid coupon badges in this category")}</p>
-                <p className="text-[12px] text-sam-muted">{label(ko, "캠페인 생성은 「쿠폰」메뉴에서 합니다. 여기는 배지 표면 허용만 설정합니다.", "Create campaigns under Coupons. This toggles badge surface permission only.")}</p>
+                <p className="text-[13px] font-bold">{translateBy(ko ? "ko" : "en", "admin_allow_valid_coupon_badges_in_this")}</p>
+                <p className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_create_campaigns_under_coupons_this_toggles")}</p>
               </div>
               <Toggle
                 checked={draftPrimary.couponEnabled}
-                labelText={label(ko, "쿠폰 배지 허용", "Allow coupon badges")}
+                labelText={translateBy(ko ? "ko" : "en", "admin_stores_category_col_coupon")}
                 onChange={(couponEnabled) => setDraftPrimary({ ...draftPrimary, couponEnabled })}
               />
             </div>
@@ -1234,27 +1207,23 @@ export function AdminStoresCategoryPolicyEditor({
       case "exposure":
         return (
           <Panel
-            title={label(ko, "네이티브 광고 간격·최대", "Native ad interval · max")}
-            desc={label(
-              ko,
-              "목록 카드 사이에 넣는 네이티브 매장 광고에만 적용됩니다. 쿠폰 배지·상단 배너와는 무관합니다.",
-              "Applies only to native store ads inserted between list cards — not coupon badges or the top banner."
-            )}
+            title={translateBy(ko ? "ko" : "en", "admin_native_ad_interval_max")}
+            desc={translateBy(ko ? "ko" : "en", "admin_applies_only_to_native_store_ads")}
           >
             <div className="grid gap-3 md:grid-cols-2">
-              <FieldLabel labelText={label(ko, "네이티브 광고 최대", "Native ad max")}>
+              <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_native_ad_max")}>
                 <NumberInput
                   min={0}
                   value={draftPrimary.draftMax}
-                  placeholder={label(ko, "빈칸 = 제한 없음", "Blank = no limit")}
+                  placeholder={translateBy(ko ? "ko" : "en", "admin_blank_no_limit")}
                   onChange={(draftMax) => setDraftPrimary({ ...draftPrimary, draftMax })}
                 />
               </FieldLabel>
-              <FieldLabel labelText={label(ko, "네이티브 광고 간격", "Native ad interval")}>
+              <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_native_ad_interval")}>
                 <NumberInput
                   min={1}
                   value={draftPrimary.draftInterval}
-                  placeholder={label(ko, "빈칸 = 기본 8", "Blank = default 8")}
+                  placeholder={translateBy(ko ? "ko" : "en", "admin_blank_default_8")}
                   onChange={(draftInterval) => setDraftPrimary({ ...draftPrimary, draftInterval })}
                 />
               </FieldLabel>
@@ -1264,18 +1233,14 @@ export function AdminStoresCategoryPolicyEditor({
       case "hours":
         return (
           <Panel
-            title={label(ko, "업종 노출 기간", "Category exposure period")}
-            desc={label(
-              ko,
-              "이 업종이 고객 화면에 보이는 기간입니다 (매장 영업시간과 무관). 항상 노출은 기간을 비워 저장합니다.",
-              "When this category is visible to customers (unrelated to store hours). Always on saves an empty period."
-            )}
+            title={translateBy(ko ? "ko" : "en", "admin_category_exposure_period")}
+            desc={translateBy(ko ? "ko" : "en", "admin_when_this_category_is_visible_to")}
           >
             <div className="space-y-2">
               {(
                 [
-                  ["always", label(ko, "항상 노출", "Always on")],
-                  ["scheduled", label(ko, "특정 기간", "Specific period")],
+                  ["always", translateBy(ko ? "ko" : "en", "admin_always_on")],
+                  ["scheduled", translateBy(ko ? "ko" : "en", "admin_specific_period")],
                 ] as const
               ).map(([mode, text]) => (
                 <label key={mode} className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] font-semibold">
@@ -1290,7 +1255,7 @@ export function AdminStoresCategoryPolicyEditor({
             </div>
             {draftPrimary.scheduleMode === "scheduled" ? (
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <FieldLabel labelText={label(ko, "시작", "Start")}>
+                <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_start")}>
                   <input
                     type="datetime-local"
                     value={draftPrimary.draftScheduleStart}
@@ -1298,7 +1263,7 @@ export function AdminStoresCategoryPolicyEditor({
                     className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
                   />
                 </FieldLabel>
-                <FieldLabel labelText={label(ko, "종료", "End")}>
+                <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_end")}>
                   <input
                     type="datetime-local"
                     value={draftPrimary.draftScheduleEnd}
@@ -1320,20 +1285,20 @@ export function AdminStoresCategoryPolicyEditor({
         <div className="flex flex-wrap items-end justify-between gap-3">
           {embedded ? (
             <div>
-              <h2 className="text-[16px] font-bold text-sam-fg">{label(ko, "업종 목록 정책", "Category list policy")}</h2>
+              <h2 className="text-[16px] font-bold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_category_list_policy")}</h2>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
+                {translateBy(ko ? "ko" : "en", "admin_save_primary_secondary_inheritance_ads_coupons")}
               </p>
             </div>
           ) : (
             <div>
               <p className="text-[12px] font-semibold text-sam-success">
-                {label(ko, "배달 CMS / 카테고리", "Delivery CMS / Category")}
+                {translateBy(ko ? "ko" : "en", "admin_delivery_cms_category")}
               </p>
               {/* DEF-50: 제목 = 메뉴 라벨 키 (노출 정책) */}
               <AdminPageHeader
                 titleKey="admin_menu_stores_browse_policy"
-                description={label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
+                description={translateBy(ko ? "ko" : "en", "admin_save_primary_secondary_inheritance_ads_coupons")}
               />
             </div>
           )}
@@ -1343,14 +1308,14 @@ export function AdminStoresCategoryPolicyEditor({
               className={Sam.btn.secondary}
               data-admin-delivery-ads-ops-cross-link="1"
             >
-              {label(ko, "광고 운영 보기", "View ads operations")}
+              {translateBy(ko ? "ko" : "en", "admin_view_ads_operations")}
             </Link>
             <Link
               href={placementMapFocusHref("STORES_CATEGORY_FEED")}
               className={Sam.btn.secondary}
               data-admin-category-placement-map-link="1"
             >
-              {label(ko, "앱에서 위치 보기", "View in app map")}
+              {translateBy(ko ? "ko" : "en", "admin_view_in_app_map")}
             </Link>
             <AdminActionButton variant="secondary" onClick={() => void load()} disabled={loading}>
               {adminCta("refresh", ko)}
@@ -1362,21 +1327,17 @@ export function AdminStoresCategoryPolicyEditor({
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning"
           data-admin-category-ads-boundary="1"
         >
-          {label(
-            ko,
-            "카테고리 정책의광고 탭은 슬롯 밀도·허용(게이트)만 다룹니다. 유료 광고 신청·집행·일시중지는 「광고 운영」에서 하세요.",
-            "Category policy Ad tabs control slot density/allowance only. Paid apply/execution/pause lives in Ads ops."
-          )}
+          {translateBy(ko ? "ko" : "en", "admin_category_policy_ad_tabs_control_slot")}
         </p>
 
         {saveMsg ? <p className="rounded-ui-rect bg-sam-success-soft px-3 py-2 text-[13px] font-semibold text-sam-success">{saveMsg}</p> : null}
         {saveErr ? (
           <p className="rounded-ui-rect bg-sam-danger-soft px-3 py-2 text-[13px] font-semibold text-sam-danger">
             {saveErr === "stale_revision"
-              ? label(ko, "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 저장하세요.", "Another change was saved first. Reload and save again.")
+              ? translateBy(ko ? "ko" : "en", "admin_another_change_was_saved_first_reload")
               : saveErr === "selected_source_empty"
                 ? t("admin_stores_browse_discovery_selected_empty")
-              : label(ko, "저장에 실패했습니다.", "Failed to save.")}
+              : translateBy(ko ? "ko" : "en", "admin_stores_category_save_fail")}
           </p>
         ) : null}
         {err ? (
@@ -1390,12 +1351,12 @@ export function AdminStoresCategoryPolicyEditor({
             <aside className="rounded-ui-rect border border-sam-border bg-white">
               <div className="flex items-center justify-between gap-2 border-b border-sam-border px-3 py-3">
                 <div>
-                  <p className="text-[13px] font-black text-sam-fg">{label(ko, "1차 업종", "Primary")}</p>
-                  <p className="text-[12px] text-sam-muted">{label(ko, "플랫폼 taxonomy", "Platform taxonomy")}</p>
+                  <p className="text-[13px] font-black text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_category_col_primary")}</p>
+                  <p className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_platform_taxonomy")}</p>
                 </div>
                 {/* 화면 primary 는 「전체 저장」 1개 — 추가·이동 버튼은 secondary */}
                 <AdminActionButton variant="secondary" size="sm" onClick={() => setPrimaryModalOpen(true)}>
-                  {label(ko, "+ 1차 업종 추가", "+ Add primary")}
+                  {translateBy(ko ? "ko" : "en", "admin_add_primary")}
                 </AdminActionButton>
               </div>
               <ul className="max-h-[76vh] space-y-1 overflow-y-auto p-2">
@@ -1464,7 +1425,7 @@ export function AdminStoresCategoryPolicyEditor({
                           </span>
                         </div>
                         <p className="mt-1 text-[12px] text-sam-muted">
-                          {label(ko, "헤더 미리보기는 가로 스크롤로 고객 칩 노출을 확인합니다.", "Use the horizontal preview to check customer chip exposure.")}
+                          {translateBy(ko ? "ko" : "en", "admin_use_the_horizontal_preview_to_check")}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1472,19 +1433,19 @@ export function AdminStoresCategoryPolicyEditor({
                           variant="secondary"
                           onClick={() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
                         >
-                          {label(ko, "미리보기", "Preview")}
+                          {translateBy(ko ? "ko" : "en", "admin_os_launch_preview")}
                         </AdminActionButton>
                         <AdminActionButton variant="secondary" onClick={() => setHistoryOpen((v) => !v)}>
                           {t("admin_r4c_history_title")}
                         </AdminActionButton>
                         <AdminActionButton variant="secondary" onClick={() => setDraftPrimary({ ...draftPrimary, enabled: false })}>
-                          {label(ko, "비활성화", "Deactivate")}
+                          {translateBy(ko ? "ko" : "en", "admin_store_insertions_coupons_deactivate_btn")}
                         </AdminActionButton>
                         <AdminActionButton variant="secondary" onClick={onCancel} disabled={saving}>
                           {adminCta("cancel", ko)}
                         </AdminActionButton>
                         <AdminActionButton variant="primary" disabled={saving} onClick={() => void onSaveAll()}>
-                          {saving ? label(ko, "저장 중", "Saving") : adminCta("save", ko)}
+                          {saving ? translateBy(ko ? "ko" : "en", "admin_saving") : adminCta("save", ko)}
                         </AdminActionButton>
                       </div>
                     </div>
@@ -1520,7 +1481,7 @@ export function AdminStoresCategoryPolicyEditor({
                     <div className="px-3 pt-2">
                       <AdminTabs
                         tabs={CAT_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }))}
-                        ariaLabel={label(ko, "업종 설정", "Category settings")}
+                        ariaLabel={translateBy(ko ? "ko" : "en", "admin_category_settings")}
                         value={tab}
                         onChange={(id) => setTab(id as CatTab)}
                         syncUrl={false}
@@ -1531,14 +1492,10 @@ export function AdminStoresCategoryPolicyEditor({
                       <div>{renderPrimaryTab()}</div>
                       <aside className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-3">
                         <p className="mb-1 text-center text-[12px] font-black text-sam-fg">
-                          {label(ko, "고객 화면 미리보기", "Customer preview")}
+                          {translateBy(ko ? "ko" : "en", "admin_delivery_ads_first_party_preview")}
                         </p>
                         <p className="mb-2 text-center text-[12px] text-sam-muted">
-                          {label(
-                            ko,
-                            "카테고리=메뉴(업종) 위주. 목록은 선택 1·2차 스코프만.",
-                            "Category is menu/industry-led. List = selected 1st/2nd scope only."
-                          )}
+                          {translateBy(ko ? "ko" : "en", "admin_category_is_menu_industry_led_list")}
                         </p>
                         {selectedPrimary ? (
                           <AdminStoresCategoryBrowseLivePreview
@@ -1566,7 +1523,7 @@ export function AdminStoresCategoryPolicyEditor({
             >
               <div className="flex items-start justify-between gap-2 border-b border-sam-border px-3 py-3">
                 <div>
-                  <p className="text-[13px] font-black text-sam-fg">{label(ko, "2차 업종", "Secondary")}</p>
+                  <p className="text-[13px] font-black text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_category_col_sub")}</p>
                   <p className="text-[12px] text-sam-muted">
                     {label(ko, `전체 ${secondaries.length}개`, `${secondaries.length} total`)}
                   </p>
@@ -1577,7 +1534,7 @@ export function AdminStoresCategoryPolicyEditor({
                   onClick={() => setSecondaryModalOpen(true)}
                   disabled={!selectedPrimary}
                 >
-                  {label(ko, "+ 2차 업종 추가", "+ Add secondary")}
+                  {translateBy(ko ? "ko" : "en", "admin_add_secondary")}
                 </AdminActionButton>
               </div>
 
@@ -1616,7 +1573,7 @@ export function AdminStoresCategoryPolicyEditor({
                                       `${primaryMeta?.nameKo ?? "1차"} 기본값 사용`,
                                       `Uses ${primaryMeta?.nameEn ?? "primary"} defaults`
                                     )
-                                  : label(ko, "별도 설정 있음", "Custom settings")}
+                                  : translateBy(ko ? "ko" : "en", "admin_custom_settings")}
                               </span>
                               {statusBadge(draft?.enabled ?? secondary.resolved.enabled, ko)}
                             </div>
@@ -1624,7 +1581,7 @@ export function AdminStoresCategoryPolicyEditor({
                           <div className="shrink-0 pt-2" data-category-sub-inherit-toggle={secondary.subSlug}>
                             <Toggle
                               checked={inherit}
-                              labelText={label(ko, "상속 사용", "Use inheritance")}
+                              labelText={translateBy(ko ? "ko" : "en", "admin_use_inheritance")}
                               onChange={(nextInherit) => {
                                 setSelectedSub(secondary.subSlug);
                                 updateSubDraft(secondary.subSlug, { mode: nextInherit ? "inherit" : "override" });
@@ -1645,29 +1602,25 @@ export function AdminStoresCategoryPolicyEditor({
                               {ko ? selectedSubMeta.nameKo : selectedSubMeta.nameEn}
                             </p>
                             <p className="text-[12px] text-sam-warning">
-                              {label(
-                                ko,
-                                "별도 설정 편집 중 — 바꾼 값만 저장되고 나머지는 1차를 따릅니다.",
-                                "Editing custom settings — only changed values are saved; the rest follow the primary."
-                              )}
+                              {translateBy(ko ? "ko" : "en", "admin_editing_custom_settings_only_changed_values")}
                             </p>
                           </div>
                           <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
-                            <span className="text-[12px] font-bold">{label(ko, "활성", "Enabled")}</span>
+                            <span className="text-[12px] font-bold">{translateBy(ko ? "ko" : "en", "admin_stores_category_col_enabled")}</span>
                             <Toggle
                               checked={selectedSubDraft.enabled}
-                              labelText={label(ko, "2차 업종 활성", "Secondary enabled")}
+                              labelText={translateBy(ko ? "ko" : "en", "admin_secondary_enabled")}
                               onChange={(enabled) => updateSubDraft(selectedSubMeta.subSlug, { enabled })}
                             />
                           </div>
-                          <FieldLabel labelText={label(ko, "표시명(한국어)", "Display title (Korean)")}>
+                          <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_display_title_korean")}>
                             <TextInput
                               value={selectedSubDraft.draftTitleKo}
                               maxLength={20}
                               onChange={(draftTitleKo) => updateSubDraft(selectedSubMeta.subSlug, { draftTitleKo })}
                             />
                           </FieldLabel>
-                          <FieldLabel labelText={label(ko, "표시명(English)", "Display title (English)")}>
+                          <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_display_title_english")}>
                             <TextInput
                               value={selectedSubDraft.draftTitleEn}
                               maxLength={36}
@@ -1688,51 +1641,51 @@ export function AdminStoresCategoryPolicyEditor({
                             const bannerCapacity = ex.bannerAds
                               ? selectedSubDraft.bannerAdsCapacity
                               : (draftPrimary?.bannerAdsCapacity ?? selectedSubDraft.bannerAdsCapacity);
-                            const inheritNote = label(ko, "1차 상속", "Inherits primary");
+                            const inheritNote = translateBy(ko ? "ko" : "en", "admin_inherits_primary");
                             return (
                               <>
                                 <div className="grid grid-cols-2 gap-2">
                                   <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
                                     <span className="text-[12px] font-bold">
-                                      {label(ko, "네이티브", "Native")}
+                                      {translateBy(ko ? "ko" : "en", "admin_native")}
                                       {!ex.adEnabled ? <span className="block font-normal text-sam-muted">{inheritNote}</span> : null}
                                     </span>
                                     <Toggle
                                       checked={adValue}
-                                      labelText={label(ko, "2차 네이티브 광고", "Secondary native ads")}
+                                      labelText={translateBy(ko ? "ko" : "en", "admin_secondary_native_ads")}
                                       onChange={(adEnabled) => updateSubDraft(sub, { adEnabled }, "adEnabled")}
                                     />
                                   </div>
                                   <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
                                     <span className="text-[12px] font-bold">
-                                      {label(ko, "쿠폰", "Coupons")}
+                                      {translateBy(ko ? "ko" : "en", "admin_menu_store_coupons_control")}
                                       {!ex.couponEnabled ? <span className="block font-normal text-sam-muted">{inheritNote}</span> : null}
                                     </span>
                                     <Toggle
                                       checked={couponValue}
-                                      labelText={label(ko, "2차 쿠폰", "Secondary coupons")}
+                                      labelText={translateBy(ko ? "ko" : "en", "admin_secondary_coupons")}
                                       onChange={(couponEnabled) => updateSubDraft(sub, { couponEnabled }, "couponEnabled")}
                                     />
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between rounded-ui-rect border border-dashed border-sam-border px-2 py-2">
                                   <span className="text-[12px] font-bold">
-                                    {label(ko, "상단 배너", "Top banner")}
+                                    {translateBy(ko ? "ko" : "en", "admin_top_banner")}
                                     {!ex.bannerAds ? <span className="block font-normal text-sam-muted">{inheritNote}</span> : null}
                                   </span>
                                   <Toggle
                                     checked={bannerValue}
-                                    labelText={label(ko, "2차 상단 배너", "Secondary top banner")}
+                                    labelText={translateBy(ko ? "ko" : "en", "admin_secondary_top_banner")}
                                     onChange={(bannerAdsEnabled) =>
                                       updateSubDraft(sub, { bannerAdsEnabled, bannerAdsCapacity: bannerCapacity }, "bannerAds")
                                     }
                                   />
                                 </div>
                                 <p className="sam-text-helper text-sam-muted" data-browse-banner-capacity-fixed="1">
-                                  {label(ko, "배너는 한 번에 1개 보입니다.", "One banner shows at a time.")}
+                                  {translateBy(ko ? "ko" : "en", "admin_one_banner_shows_at_a_time_2")}
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
-                                  <FieldLabel labelText={label(ko, "네이티브 광고 최대", "Native ad max")}>
+                                  <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_native_ad_max")}>
                                     <NumberInput
                                       min={0}
                                       value={selectedSubDraft.draftMax}
@@ -1744,7 +1697,7 @@ export function AdminStoresCategoryPolicyEditor({
                                       onChange={(draftMax) => updateSubDraft(sub, { draftMax })}
                                     />
                                   </FieldLabel>
-                                  <FieldLabel labelText={label(ko, "네이티브 광고 간격", "Native ad interval")}>
+                                  <FieldLabel labelText={translateBy(ko ? "ko" : "en", "admin_native_ad_interval")}>
                                     <NumberInput
                                       min={1}
                                       value={selectedSubDraft.draftInterval}
@@ -1764,17 +1717,17 @@ export function AdminStoresCategoryPolicyEditor({
                         </div>
                       ) : (
                         <div className="rounded-ui-rect bg-sam-surface-muted p-3 text-[12px] text-sam-muted">
-                          {label(ko, "상속 ON 상태입니다. 토글을 끄면 개별 설정 패널이 열립니다.", "Inheritance is on. Turn it off to open the custom settings panel.")}
+                          {translateBy(ko ? "ko" : "en", "admin_inheritance_is_on_turn_it_off")}
                         </div>
                       )
                     ) : (
-                      <p className="text-[12px] text-sam-muted">{label(ko, "2차 업종을 선택하세요.", "Select a secondary category.")}</p>
+                      <p className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_select_a_secondary_category")}</p>
                     )}
                   </div>
 
                   <div className="border-t border-sam-border p-3">
                     <AdminActionButton variant="secondary" className="w-full" onClick={focusSecondary}>
-                      {label(ko, "2차 업종 전체 관리", "Manage all secondary")}
+                      {translateBy(ko ? "ko" : "en", "admin_manage_all_secondary")}
                     </AdminActionButton>
                   </div>
                 </>
@@ -1787,14 +1740,14 @@ export function AdminStoresCategoryPolicyEditor({
           open={primaryModalOpen}
           onClose={() => setPrimaryModalOpen(false)}
           dismissible
-          title={label(ko, "1차 업종 추가", "Add primary")}
-          description={label(ko, "업종 taxonomy는 플랫폼 소유라 새 slug를 만들 수 없습니다. 비활성 1차 업종을 다시 사용할 수 있습니다.", "Taxonomy is platform-owned, so new slugs cannot be created here. You can re-enable inactive primaries.")}
+          title={translateBy(ko ? "ko" : "en", "admin_add_primary_2")}
+          description={translateBy(ko ? "ko" : "en", "admin_taxonomy_is_platform_owned_so_new")}
           zIndexClass={OVERLAY_Z_CLASS.nested}
         >
           <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto">
             {disabledPrimaries.length === 0 ? (
               <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-[13px] text-sam-muted">
-                {label(ko, "다시 사용할 비활성 1차 업종이 없습니다.", "No inactive primaries are available.")}
+                {translateBy(ko ? "ko" : "en", "admin_no_inactive_primaries_are_available")}
               </p>
             ) : (
               disabledPrimaries.map((primary) => (
@@ -1807,14 +1760,14 @@ export function AdminStoresCategoryPolicyEditor({
                     <span className="block text-[13px] font-bold text-sam-fg">{ko ? primary.nameKo : primary.nameEn}</span>
                     <span className="font-mono text-[12px] text-sam-muted">{primary.primarySlug}</span>
                   </span>
-                  <span className="text-[12px] font-bold text-sam-success">{label(ko, "다시 사용", "Re-enable")}</span>
+                  <span className="text-[12px] font-bold text-sam-success">{translateBy(ko ? "ko" : "en", "admin_re_enable")}</span>
                 </AdminListItemButton>
               ))
             )}
           </div>
           <div className="mt-4 flex justify-end">
             <DibayOverlayButton roleTone="secondary" onClick={() => setPrimaryModalOpen(false)}>
-              {label(ko, "닫기", "Close")}
+              {translateBy(ko ? "ko" : "en", "admin_close")}
             </DibayOverlayButton>
           </div>
         </DibayDialog>
@@ -1823,14 +1776,14 @@ export function AdminStoresCategoryPolicyEditor({
           open={secondaryModalOpen}
           onClose={() => setSecondaryModalOpen(false)}
           dismissible
-          title={label(ko, "2차 업종 추가", "Add secondary")}
-          description={label(ko, "2차 taxonomy도 플랫폼 소유입니다. 현재 1차 업종 아래 비활성 2차 업종을 다시 사용할 수 있습니다.", "Secondary taxonomy is also platform-owned. Re-enable inactive secondaries under the current primary.")}
+          title={translateBy(ko ? "ko" : "en", "admin_add_secondary_2")}
+          description={translateBy(ko ? "ko" : "en", "admin_secondary_taxonomy_is_also_platform_owned")}
           zIndexClass={OVERLAY_Z_CLASS.nested}
         >
           <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto">
             {disabledSecondaries.length === 0 ? (
               <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-[13px] text-sam-muted">
-                {label(ko, "다시 사용할 비활성 2차 업종이 없습니다.", "No inactive secondaries are available.")}
+                {translateBy(ko ? "ko" : "en", "admin_no_inactive_secondaries_are_available")}
               </p>
             ) : (
               disabledSecondaries.map((secondary) => (
@@ -1843,14 +1796,14 @@ export function AdminStoresCategoryPolicyEditor({
                     <span className="block text-[13px] font-bold text-sam-fg">{ko ? secondary.nameKo : secondary.nameEn}</span>
                     <span className="font-mono text-[12px] text-sam-muted">{secondary.subSlug}</span>
                   </span>
-                  <span className="text-[12px] font-bold text-sam-success">{label(ko, "다시 사용", "Re-enable")}</span>
+                  <span className="text-[12px] font-bold text-sam-success">{translateBy(ko ? "ko" : "en", "admin_re_enable")}</span>
                 </AdminListItemButton>
               ))
             )}
           </div>
           <div className="mt-4 flex justify-end">
             <DibayOverlayButton roleTone="secondary" onClick={() => setSecondaryModalOpen(false)}>
-              {label(ko, "닫기", "Close")}
+              {translateBy(ko ? "ko" : "en", "admin_close")}
             </DibayOverlayButton>
           </div>
         </DibayDialog>

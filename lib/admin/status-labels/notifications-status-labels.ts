@@ -12,6 +12,7 @@ import {
   type CampaignStatus,
 } from "@/lib/admin/notification-campaigns/campaign-status-machine";
 import type { AdminStatusTone } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const NOTIFICATIONS_CAMPAIGN_STATUS_NS = "notifications.campaign";
 export const NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS = "notifications.push_delivery";
@@ -40,10 +41,10 @@ registerAdminStatusLabels(
 );
 
 registerAdminStatusLabels(NOTIFICATIONS_PUSH_DELIVERY_STATUS_NS, {
-  pending: { ko: "대기", en: "Pending", tone: "neutral" },
-  sent: { ko: "발송 완료", en: "Sent", tone: "success" },
-  skipped: { ko: "건너뜀", en: "Skipped", tone: "warning" },
-  failed: { ko: "실패", en: "Failed", tone: "danger" },
-  opened: { ko: "열어봄", en: "Opened", tone: "success" },
-  dismissed: { ko: "닫음", en: "Dismissed", tone: "neutral" },
+  pending: { ...catalogPair("admin_pending_3"), tone: "neutral" },
+  sent: { ...catalogPair("admin_sent"), tone: "success" },
+  skipped: { ...catalogPair("admin_skipped"), tone: "warning" },
+  failed: { ...catalogPair("admin_meeting_engine_err_generic"), tone: "danger" },
+  opened: { ...catalogPair("admin_opened"), tone: "success" },
+  dismissed: { ...catalogPair("admin_dismissed_2"), tone: "neutral" },
 });

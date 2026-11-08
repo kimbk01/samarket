@@ -43,19 +43,20 @@ import {
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
 
 const ROLE_LABEL: Record<AdminRole, { ko: string; en: string }> = {
-  master: { ko: "최고관리자", en: "Super admin" },
-  manager: { ko: "매니저", en: "Manager" },
-  operator: { ko: "운영자", en: "Operator" },
+  master: catalogPair("admin_super_admin"),
+  manager: catalogPair("admin_manager"),
+  operator: catalogPair("admin_operator"),
 };
 
 const STATUS_OPTIONS = {
-  active: { ko: "사용 중", en: "Active" },
-  revoked: { ko: "해제·정지", en: "Revoked / suspended" },
-  all: { ko: "전체 이력", en: "All history" },
+  active: catalogPair("admin_active"),
+  revoked: catalogPair("admin_revoked_suspended"),
+  all: catalogPair("admin_all_history"),
 } as const;
 
 const pht = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");

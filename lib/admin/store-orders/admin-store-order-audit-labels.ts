@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Store order audit log → operator wording (감사 로그 화면 · 주문 상세 처리 이력).
  * Every `store_order.*` action written in app/lib (24, test-locked) plus the action values found in production
  * `audit_logs` are mapped. Unknown actions are shown as 「기타 기록」 with the raw name — never hidden.
@@ -8,52 +9,52 @@
 export type AdminAuditCategory = "admin" | "owner" | "buyer" | "system" | "qa" | "other";
 
 export const ADMIN_AUDIT_CATEGORY_LABEL: Record<AdminAuditCategory, { ko: string; en: string }> = {
-  admin: { ko: "관리자", en: "Admin" },
-  owner: { ko: "매장", en: "Store" },
-  buyer: { ko: "구매자", en: "Buyer" },
-  system: { ko: "시스템", en: "System" },
-  qa: { ko: "QA 검증 기록", en: "QA record" },
-  other: { ko: "기타", en: "Other" },
+  admin: catalogPair("admin_admin"),
+  owner: catalogPair("admin_store_3"),
+  buyer: catalogPair("admin_r4b_chat_role_buyer"),
+  system: catalogPair("admin_system"),
+  qa: catalogPair("admin_qa_record"),
+  other: catalogPair("admin_menu_bottom_icon_cat_misc"),
 };
 
 type Entry = { ko: string; en: string; category: AdminAuditCategory };
 
 /** Keys are the part after `store_order.`. */
 export const STORE_ORDER_AUDIT_ACTION_LABEL: Record<string, Entry> = {
-  create: { ko: "주문 생성", en: "Order created", category: "buyer" },
-  owner_status: { ko: "매장 상태 변경", en: "Store status change", category: "owner" },
-  owner_cancel: { ko: "매장 주문 취소", en: "Store cancelled order", category: "owner" },
-  owner_cancel_request: { ko: "매장 취소 요청 (3단계 이전 경로)", en: "Store cancel request (legacy)", category: "owner" },
-  owner_decision: { ko: "매장 결정", en: "Store decision", category: "owner" },
-  owner_cancel_request_approve: { ko: "매장 취소요청 승인", en: "Store approved cancel request", category: "owner" },
-  owner_cancel_request_reject: { ko: "매장 취소요청 반려", en: "Store rejected cancel request", category: "owner" },
-  owner_refund_approve: { ko: "매장 환불 승인", en: "Store approved refund", category: "owner" },
-  owner_refund_reject: { ko: "매장 환불 반려", en: "Store rejected refund", category: "owner" },
-  "delivery.owner_patch": { ko: "매장 배달 상태 변경", en: "Store delivery update", category: "owner" },
-  "delivery.admin_patch": { ko: "관리자 배달 상태 변경", en: "Admin delivery update", category: "admin" },
-  mark_paid: { ko: "관리자 결제 확인 처리", en: "Admin marked as paid", category: "admin" },
-  "delivery.admin_release": { ko: "관리자 배정 해제", en: "Admin released rider", category: "admin" },
-  "delivery.admin_reassign": { ko: "관리자 라이더 재배정", en: "Admin reassigned rider", category: "admin" },
-  "delivery.admin_mark_failed": { ko: "관리자 배달 실패 처리", en: "Admin marked delivery failed", category: "admin" },
-  "delivery.rider_patch": { ko: "라이더 배달 상태 변경", en: "Rider delivery update", category: "system" },
-  buyer_cancel: { ko: "구매자 주문 취소", en: "Buyer cancelled order", category: "buyer" },
-  buyer_cancel_request: { ko: "구매자 취소 요청", en: "Buyer cancel request", category: "buyer" },
-  buyer_refund_request: { ko: "구매자 환불 요청 (3단계 이전 경로)", en: "Buyer refund request (legacy)", category: "buyer" },
-  buyer_hide: { ko: "구매자 주문 숨김", en: "Buyer hid order", category: "buyer" },
-  admin_force_cancel: { ko: "관리자 주문 취소", en: "Admin cancelled order", category: "admin" },
-  admin_set_refund_requested: { ko: "관리자 환불 요청 등록", en: "Admin opened refund request", category: "admin" },
-  admin_approve_cancel_request: { ko: "관리자 취소요청 승인", en: "Admin approved cancel request", category: "admin" },
-  admin_reject_cancel_request: { ko: "관리자 취소요청 반려", en: "Admin rejected cancel request", category: "admin" },
-  admin_complete_refund: { ko: "관리자 환불 완료", en: "Admin completed refund", category: "admin" },
-  admin_reject_refund: { ko: "관리자 환불 반려", en: "Admin rejected refund", category: "admin" },
-  admin_patch_meta: { ko: "관리자 메모·잠금 변경", en: "Admin updated note/lock", category: "admin" },
-  admin_intervention: { ko: "관리자 예외 개입", en: "Admin intervention", category: "admin" },
-  cron_auto_complete: { ko: "자동 완료", en: "Auto-completed", category: "system" },
-  cron_accept_timeout_cancel: { ko: "미접수 자동 취소", en: "Auto-cancelled (not accepted)", category: "system" },
-  external_delivery_webhook: { ko: "외부 배달사 상태 반영", en: "External delivery update", category: "system" },
-  delivery_sync_arrived: { ko: "배달 완료 → 주문 도착 반영", en: "Delivered → order arrived", category: "system" },
-  payment_failed_cancel: { ko: "결제 실패 자동 취소", en: "Cancelled after payment failure", category: "system" },
-  stock_restore_failed: { ko: "재고 복원 실패 (시스템 경고)", en: "Stock restore failed (warning)", category: "system" },
+  create: { ...catalogPair("admin_order_created_2"), category: "buyer" },
+  owner_status: { ...catalogPair("admin_store_status_change"), category: "owner" },
+  owner_cancel: { ...catalogPair("admin_store_cancelled_order"), category: "owner" },
+  owner_cancel_request: { ...catalogPair("admin_store_cancel_request_legacy"), category: "owner" },
+  owner_decision: { ...catalogPair("admin_store_decision"), category: "owner" },
+  owner_cancel_request_approve: { ...catalogPair("admin_store_approved_cancel_request"), category: "owner" },
+  owner_cancel_request_reject: { ...catalogPair("admin_store_rejected_cancel_request"), category: "owner" },
+  owner_refund_approve: { ...catalogPair("admin_store_approved_refund"), category: "owner" },
+  owner_refund_reject: { ...catalogPair("admin_store_rejected_refund"), category: "owner" },
+  "delivery.owner_patch": { ...catalogPair("admin_store_delivery_update"), category: "owner" },
+  "delivery.admin_patch": { ...catalogPair("admin_admin_delivery_update"), category: "admin" },
+  mark_paid: { ...catalogPair("admin_admin_marked_as_paid"), category: "admin" },
+  "delivery.admin_release": { ...catalogPair("admin_admin_released_rider"), category: "admin" },
+  "delivery.admin_reassign": { ...catalogPair("admin_admin_reassigned_rider"), category: "admin" },
+  "delivery.admin_mark_failed": { ...catalogPair("admin_admin_marked_delivery_failed"), category: "admin" },
+  "delivery.rider_patch": { ...catalogPair("admin_rider_delivery_update"), category: "system" },
+  buyer_cancel: { ...catalogPair("admin_buyer_cancelled_order"), category: "buyer" },
+  buyer_cancel_request: { ...catalogPair("admin_buyer_cancel_request"), category: "buyer" },
+  buyer_refund_request: { ...catalogPair("admin_buyer_refund_request_legacy"), category: "buyer" },
+  buyer_hide: { ...catalogPair("admin_buyer_hid_order"), category: "buyer" },
+  admin_force_cancel: { ...catalogPair("admin_admin_cancelled_order"), category: "admin" },
+  admin_set_refund_requested: { ...catalogPair("admin_admin_opened_refund_request"), category: "admin" },
+  admin_approve_cancel_request: { ...catalogPair("admin_admin_approved_cancel_request"), category: "admin" },
+  admin_reject_cancel_request: { ...catalogPair("admin_admin_rejected_cancel_request"), category: "admin" },
+  admin_complete_refund: { ...catalogPair("admin_admin_completed_refund"), category: "admin" },
+  admin_reject_refund: { ...catalogPair("admin_admin_rejected_refund"), category: "admin" },
+  admin_patch_meta: { ...catalogPair("admin_admin_updated_note_lock"), category: "admin" },
+  admin_intervention: { ...catalogPair("admin_admin_intervention"), category: "admin" },
+  cron_auto_complete: { ...catalogPair("admin_auto_completed"), category: "system" },
+  cron_accept_timeout_cancel: { ...catalogPair("admin_auto_cancelled_not_accepted"), category: "system" },
+  external_delivery_webhook: { ...catalogPair("admin_external_delivery_update"), category: "system" },
+  delivery_sync_arrived: { ...catalogPair("admin_delivered_order_arrived"), category: "system" },
+  payment_failed_cancel: { ...catalogPair("admin_cancelled_after_payment_failure"), category: "system" },
+  stock_restore_failed: { ...catalogPair("admin_stock_restore_failed_warning"), category: "system" },
 };
 
 /** QA script records found in production (`fin_ssot_*`, `phase_d_*`) — separated, never deleted. */

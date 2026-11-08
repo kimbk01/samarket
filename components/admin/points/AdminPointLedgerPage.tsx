@@ -18,6 +18,7 @@ import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
 import { AdminFinancePeriodSums } from "@/components/finance/AdminFinancePeriodSums";
 import { formatAdminPointBucketLine, type AdminPointBucketSums } from "@/lib/admin/points/admin-point-bucket-line";
 import { adminFinanceRangeText } from "@/lib/finance/admin-finance-period-sums";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 function formatSigned(signed: number): string {
   const abs = formatAdminNumber(Math.abs(signed));
@@ -25,8 +26,8 @@ function formatSigned(signed: number): string {
 }
 
 const LEDGER_FILTER_LABEL: Record<"credit" | "debit", { ko: string; en: string }> = {
-  credit: { ko: "적립", en: "Credit" },
-  debit: { ko: "차감", en: "Debit" },
+  credit: catalogPair("admin_credit"),
+  debit: catalogPair("admin_debit"),
 };
 
 const LEDGER_STATUSES = ["credit", "debit"] as const;

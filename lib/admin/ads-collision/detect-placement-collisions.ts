@@ -7,6 +7,7 @@ import {
   BANNER_DUPLICATE_POLICY,
   bannerPlacementDefaultCapacity,
 } from "@/lib/ads/banner-placement-capacity-ssot";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdsCollisionSeverity = "NONE" | "WARNING" | "BLOCKING";
 
@@ -62,9 +63,9 @@ export type AdsCollisionFinding = {
 };
 
 function severityLabels(s: AdsCollisionSeverity): { ko: string; en: string } {
-  if (s === "BLOCKING") return { ko: "기간 만석", en: "Period full" };
-  if (s === "WARNING") return { ko: "중복 기간", en: "Overlapping period" };
-  return { ko: "정상", en: "OK" };
+  if (s === "BLOCKING") return catalogPair("admin_period_full");
+  if (s === "WARNING") return catalogPair("admin_overlapping_period");
+  return catalogPair("admin_deploy_ops_status_ok");
 }
 
 /** ACTIVE / SCHEDULED count toward exposure overlap; paused/hidden/ended do not (check G). */

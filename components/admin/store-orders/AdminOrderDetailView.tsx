@@ -41,6 +41,7 @@ import { formatManilaDateTime } from "@/lib/stores/commission/store-commission-l
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type Props = {
   orderId: string;
@@ -55,14 +56,14 @@ type Props = {
 };
 
 const SECTION_TITLE: Record<AdminOrderDetailSection, { ko: string; en: string; letter: string }> = {
-  basic: { ko: "기본 정보", en: "Basics", letter: "A" },
-  items: { ko: "주문 상품", en: "Items", letter: "B" },
-  payment: { ko: "결제·환불", en: "Payment & refund", letter: "C" },
-  delivery: { ko: "배달·픽업", en: "Delivery", letter: "D" },
-  requests: { ko: "취소·환불 요청", en: "Cancel / refund requests", letter: "E" },
-  commission: { ko: "수수료", en: "Commission", letter: "F" },
-  admin: { ko: "관리자 작업 (예외 개입)", en: "Admin actions (exceptions)", letter: "G" },
-  history: { ko: "처리 이력", en: "History", letter: "H" },
+  basic: { ...catalogPair("admin_delivery_ads_section_basic"), letter: "A" },
+  items: { ...catalogPair("admin_items"), letter: "B" },
+  payment: { ...catalogPair("admin_payment_refund"), letter: "C" },
+  delivery: { ...catalogPair("admin_delivery_2"), letter: "D" },
+  requests: { ...catalogPair("admin_do_card_cancel_refund_req"), letter: "E" },
+  commission: { ...catalogPair("admin_commission"), letter: "F" },
+  admin: { ...catalogPair("admin_admin_actions_exceptions"), letter: "G" },
+  history: { ...catalogPair("admin_history"), letter: "H" },
 };
 
 /** Sections folded by default (G admin actions stays closed unless the entry screen opens it). */

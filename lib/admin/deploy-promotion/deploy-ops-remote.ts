@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Read-only remote ops probes for Owner deploy admin (TEST surface).
  * Never enables Production promote. Missing tokens → NOT_PROVEN (not PASS).
  */
@@ -101,14 +102,14 @@ function summarizePath(path: string, status: ChangeFileRow["status"]): {
   const verbEn =
     status === "added" ? "Added" : status === "removed" ? "Removed" : status === "renamed" ? "Renamed" : "Changed";
   const area: Record<ChangeFileRow["category"], { ko: string; en: string }> = {
-    web: { ko: "웹 화면·로직", en: "Web UI/logic" },
-    api: { ko: "API", en: "API" },
-    db: { ko: "DB·마이그레이션 (웹 배포와 별도 승인)", en: "DB/migration (separate from web deploy)" },
-    android: { ko: "Android 네이티브", en: "Android native" },
-    ios: { ko: "iOS 네이티브", en: "iOS native" },
-    env: { ko: "환경변수·설정", en: "Env/config" },
-    admin: { ko: "관리자", en: "Admin" },
-    other: { ko: "기타", en: "Other" },
+    web: catalogPair("admin_web_ui_logic"),
+    api: catalogPair("admin_api"),
+    db: catalogPair("admin_db_migration_separate_from_web_deploy"),
+    android: catalogPair("admin_android_native"),
+    ios: catalogPair("admin_ios_native"),
+    env: catalogPair("admin_env_config"),
+    admin: catalogPair("admin_admin"),
+    other: catalogPair("admin_menu_bottom_icon_cat_misc"),
   };
   return {
     ko: `${area[cat].ko} ${verbKo}: ${path}`,

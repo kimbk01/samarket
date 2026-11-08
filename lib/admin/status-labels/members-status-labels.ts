@@ -5,45 +5,46 @@
  */
 
 import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** 신고 상태 — `reports` / `community_reports` 공통 (`ReportStatus`). */
 export const MEMBERS_REPORT_STATUS_NS = "members.report";
 registerAdminStatusLabels(MEMBERS_REPORT_STATUS_NS, {
-  pending: { ko: "대기", en: "Pending", tone: "neutral" },
-  reviewing: { ko: "검토 중", en: "Reviewing", tone: "info" },
-  reviewed: { ko: "검토 완료", en: "Reviewed", tone: "success" },
-  resolved: { ko: "처리 완료", en: "Resolved", tone: "success" },
-  rejected: { ko: "반려", en: "Rejected", tone: "neutral" },
-  sanctioned: { ko: "제재 완료", en: "Sanctioned", tone: "danger" },
+  pending: { ...catalogPair("admin_pending_3"), tone: "neutral" },
+  reviewing: { ...catalogPair("admin_chat_reports_status_reviewing"), tone: "info" },
+  reviewed: { ...catalogPair("admin_reviewed"), tone: "success" },
+  resolved: { ...catalogPair("admin_chat_reports_status_resolved"), tone: "success" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "neutral" },
+  sanctioned: { ...catalogPair("admin_sanctioned"), tone: "danger" },
 });
 
 /** 회원 삭제 요청 — `account_deletion_requests.status`. */
 export const MEMBERS_DELETION_REQUEST_NS = "members.deletionRequest";
 registerAdminStatusLabels(MEMBERS_DELETION_REQUEST_NS, {
-  requested: { ko: "접수", en: "Requested", tone: "neutral" },
-  processing: { ko: "처리 중", en: "Processing", tone: "info" },
-  completed: { ko: "삭제 완료", en: "Completed", tone: "success" },
-  rejected: { ko: "반려", en: "Rejected", tone: "neutral" },
-  cancelled: { ko: "취소됨", en: "Cancelled", tone: "neutral" },
+  requested: { ...catalogPair("admin_requested_3"), tone: "neutral" },
+  processing: { ...catalogPair("admin_processing"), tone: "info" },
+  completed: { ...catalogPair("admin_completed_2"), tone: "success" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "neutral" },
+  cancelled: { ...catalogPair("admin_cancelled_6"), tone: "neutral" },
 });
 
 /** 전화 인증 서비스 상태 — `/api/admin/users/phone-verification/ops` `health`. */
 export const MEMBERS_PHONE_OPS_HEALTH_NS = "members.phoneOpsHealth";
 registerAdminStatusLabels(MEMBERS_PHONE_OPS_HEALTH_NS, {
-  running_ok: { ko: "정상 운영", en: "Running", tone: "success" },
-  admin_stopped: { ko: "관리자 중지", en: "Stopped by admin", tone: "neutral" },
-  config_error: { ko: "설정 오류", en: "Config error", tone: "danger" },
-  low_balance: { ko: "잔액 부족", en: "Low balance", tone: "warning" },
-  provider_down: { ko: "공급자 장애", en: "Provider down", tone: "danger" },
-  send_limited: { ko: "발송 제한", en: "Send limited", tone: "warning" },
-  unverified: { ko: "확인 불가", en: "Unverified", tone: "warning" },
+  running_ok: { ...catalogPair("admin_running"), tone: "success" },
+  admin_stopped: { ...catalogPair("admin_stopped_by_admin"), tone: "neutral" },
+  config_error: { ...catalogPair("admin_config_error"), tone: "danger" },
+  low_balance: { ...catalogPair("admin_low_balance"), tone: "warning" },
+  provider_down: { ...catalogPair("admin_provider_down"), tone: "danger" },
+  send_limited: { ...catalogPair("admin_send_limited"), tone: "warning" },
+  unverified: { ...catalogPair("admin_unverified_2"), tone: "warning" },
 });
 
 /** SMS 발송 결과 — `phone_otp_sms_deliveries.outcome`. */
 export const MEMBERS_SMS_OUTCOME_NS = "members.smsOutcome";
 registerAdminStatusLabels(MEMBERS_SMS_OUTCOME_NS, {
-  success: { ko: "발송 성공", en: "Sent", tone: "success" },
-  failed: { ko: "발송 실패", en: "Failed", tone: "danger" },
+  success: { ...catalogPair("admin_sent_2"), tone: "success" },
+  failed: { ...catalogPair("admin_failed_3"), tone: "danger" },
 });
 
 /**

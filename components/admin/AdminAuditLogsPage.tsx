@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin/audit/admin-audit-log-list-query";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { financeAuditActionLabel, financeAuditTargetLabel } from "@/lib/admin/finance-audit-labels";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type Row = {
   id: string;
@@ -60,10 +61,10 @@ const ACTOR_OPTIONS: { value: AuditLogActorFilter; ko: string; en: string }[] = 
 ];
 
 const ACTOR_TYPE_LABEL: Record<string, { ko: string; en: string }> = {
-  admin: { ko: "관리자", en: "Admin" },
-  user: { ko: "회원", en: "Member" },
-  system: { ko: "자동 작업", en: "Automated" },
-  cron: { ko: "자동 작업", en: "Automated" },
+  admin: catalogPair("admin_admin"),
+  user: catalogPair("admin_users_role_badge_member"),
+  system: catalogPair("admin_automated"),
+  cron: catalogPair("admin_automated"),
 };
 
 const FIELD =

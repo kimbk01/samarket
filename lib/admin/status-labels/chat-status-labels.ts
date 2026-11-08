@@ -5,151 +5,152 @@
  */
 
 import type { AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminChatLabel = { ko: string; en: string; tone: AdminTone };
 type Registry = Record<string, AdminChatLabel>;
 
 /** 방 상태 — CM `room_status` + 레거시 `chat_rooms` 파생값 (`RoomStatus`). */
 const ROOM_STATUS: Registry = {
-  active: { ko: "정상", en: "Active", tone: "success" },
-  blocked: { ko: "정지됨", en: "Suspended", tone: "danger" },
-  archived: { ko: "보관됨", en: "Archived", tone: "neutral" },
-  readonly: { ko: "읽기 전용", en: "Read-only", tone: "warning" },
-  deleted: { ko: "삭제됨", en: "Deleted", tone: "neutral" },
-  closed: { ko: "종료됨", en: "Closed", tone: "neutral" },
+  active: { ...catalogPair("admin_users_lite_status_active"), tone: "success" },
+  blocked: { ...catalogPair("admin_suspended_2"), tone: "danger" },
+  archived: { ...catalogPair("admin_chat_r1b_status_archived"), tone: "neutral" },
+  readonly: { ...catalogPair("admin_chat_r1b_readonly"), tone: "warning" },
+  deleted: { ...catalogPair("admin_ads_history_filter_deleted"), tone: "neutral" },
+  closed: { ...catalogPair("admin_closed"), tone: "neutral" },
 };
 
 /** 채팅 유형 — `community_messenger_rooms.chat_domain`. */
 const CHAT_DOMAIN: Registry = {
-  general_direct: { ko: "일반 1:1", en: "1:1 chat", tone: "neutral" },
-  group: { ko: "그룹", en: "Group", tone: "neutral" },
-  trade: { ko: "거래", en: "Trade", tone: "progress" },
-  store_order: { ko: "배달 주문", en: "Delivery order", tone: "progress" },
+  general_direct: { ...catalogPair("admin_text_7"), tone: "neutral" },
+  group: { ...catalogPair("admin_cm_session_mode_group"), tone: "neutral" },
+  trade: { ...catalogPair("admin_trade"), tone: "progress" },
+  store_order: { ...catalogPair("admin_delivery_order"), tone: "progress" },
 };
 
 /** CM `room_type`. */
 const CM_ROOM_TYPE: Registry = {
-  direct: { ko: "1:1", en: "1:1", tone: "neutral" },
-  private_group: { ko: "비공개 그룹", en: "Private group", tone: "neutral" },
-  open_group: { ko: "공개 그룹", en: "Open group", tone: "neutral" },
+  direct: { ...catalogPair("admin_text_8"), tone: "neutral" },
+  private_group: { ...catalogPair("admin_cm_room_type_private_group"), tone: "neutral" },
+  open_group: { ...catalogPair("admin_cm_room_type_open_group"), tone: "neutral" },
 };
 
 /** 신고 상태 — CM / 레거시 `chat_reports` / `reports` 공통. */
 const REPORT_STATUS: Registry = {
-  received: { ko: "접수", en: "Received", tone: "waiting" },
-  pending: { ko: "접수", en: "Received", tone: "waiting" },
-  open: { ko: "접수", en: "Received", tone: "waiting" },
-  reviewing: { ko: "검토 중", en: "Reviewing", tone: "progress" },
-  triaging: { ko: "분류 중", en: "Triaging", tone: "progress" },
-  escalated: { ko: "상위 검토", en: "Escalated", tone: "warning" },
-  resolved: { ko: "처리 완료", en: "Resolved", tone: "success" },
-  reviewed: { ko: "처리 완료", en: "Resolved", tone: "success" },
-  actioned: { ko: "조치 완료", en: "Actioned", tone: "success" },
-  sanctioned: { ko: "제재 완료", en: "Sanctioned", tone: "success" },
-  rejected: { ko: "기각", en: "Dismissed", tone: "neutral" },
-  dismissed: { ko: "기각", en: "Dismissed", tone: "neutral" },
+  received: { ...catalogPair("admin_chat_reports_status_received"), tone: "waiting" },
+  pending: { ...catalogPair("admin_chat_reports_status_received"), tone: "waiting" },
+  open: { ...catalogPair("admin_chat_reports_status_received"), tone: "waiting" },
+  reviewing: { ...catalogPair("admin_chat_reports_status_reviewing"), tone: "progress" },
+  triaging: { ...catalogPair("admin_triaging"), tone: "progress" },
+  escalated: { ...catalogPair("admin_escalated_2"), tone: "warning" },
+  resolved: { ...catalogPair("admin_chat_reports_status_resolved"), tone: "success" },
+  reviewed: { ...catalogPair("admin_chat_reports_status_resolved"), tone: "success" },
+  actioned: { ...catalogPair("admin_stores_reports_actioned"), tone: "success" },
+  sanctioned: { ...catalogPair("admin_sanctioned"), tone: "success" },
+  rejected: { ...catalogPair("admin_chat_reports_status_dismissed"), tone: "neutral" },
+  dismissed: { ...catalogPair("admin_chat_reports_status_dismissed"), tone: "neutral" },
 };
 
 /** 신고 사유 — CM / chat_reports `reason_type` · reports `reason_code`. */
 const REPORT_REASON: Registry = {
-  abuse: { ko: "욕설·비방", en: "Abuse", tone: "danger" },
-  spam: { ko: "스팸", en: "Spam", tone: "warning" },
-  promo: { ko: "광고·홍보", en: "Promotion", tone: "warning" },
-  scam: { ko: "사기", en: "Scam", tone: "danger" },
-  fraud: { ko: "사기", en: "Fraud", tone: "danger" },
-  sexual: { ko: "성적 콘텐츠", en: "Sexual content", tone: "danger" },
-  hate: { ko: "혐오 표현", en: "Hate speech", tone: "danger" },
-  threat: { ko: "위협", en: "Threat", tone: "danger" },
-  no_show: { ko: "약속 불이행", en: "No-show", tone: "warning" },
-  impersonation: { ko: "사칭", en: "Impersonation", tone: "danger" },
-  off_platform_payment: { ko: "외부 결제 유도", en: "Off-platform payment", tone: "danger" },
-  stalking: { ko: "스토킹", en: "Stalking", tone: "danger" },
-  harassment: { ko: "괴롭힘", en: "Harassment", tone: "danger" },
-  privacy: { ko: "개인정보 노출", en: "Privacy", tone: "danger" },
-  inappropriate: { ko: "부적절한 내용", en: "Inappropriate", tone: "warning" },
-  inappropriate_behavior: { ko: "부적절한 행위", en: "Inappropriate behavior", tone: "warning" },
-  fake_listing: { ko: "허위 게시", en: "Fake listing", tone: "warning" },
-  etc: { ko: "기타", en: "Other", tone: "neutral" },
-  other: { ko: "기타", en: "Other", tone: "neutral" },
+  abuse: { ...catalogPair("admin_abuse"), tone: "danger" },
+  spam: { ...catalogPair("admin_report_reason_spam"), tone: "warning" },
+  promo: { ...catalogPair("admin_promotion"), tone: "warning" },
+  scam: { ...catalogPair("admin_scam"), tone: "danger" },
+  fraud: { ...catalogPair("admin_report_reason_fraud"), tone: "danger" },
+  sexual: { ...catalogPair("admin_sexual_content"), tone: "danger" },
+  hate: { ...catalogPair("admin_hate_speech"), tone: "danger" },
+  threat: { ...catalogPair("admin_threat"), tone: "danger" },
+  no_show: { ...catalogPair("admin_no_show"), tone: "warning" },
+  impersonation: { ...catalogPair("admin_meeting_reports_reason_impersonation"), tone: "danger" },
+  off_platform_payment: { ...catalogPair("admin_off_platform_payment"), tone: "danger" },
+  stalking: { ...catalogPair("admin_stalking"), tone: "danger" },
+  harassment: { ...catalogPair("admin_harassment_2"), tone: "danger" },
+  privacy: { ...catalogPair("admin_privacy"), tone: "danger" },
+  inappropriate: { ...catalogPair("admin_inappropriate"), tone: "warning" },
+  inappropriate_behavior: { ...catalogPair("admin_inappropriate_behavior"), tone: "warning" },
+  fake_listing: { ...catalogPair("admin_report_reason_fake_listing"), tone: "warning" },
+  etc: { ...catalogPair("admin_menu_bottom_icon_cat_misc"), tone: "neutral" },
+  other: { ...catalogPair("admin_menu_bottom_icon_cat_misc"), tone: "neutral" },
 };
 
 /** 신고 대상 — CM `report_type` · chat_reports `report_type` · reports `target_type`. */
 const REPORT_TARGET: Registry = {
-  room: { ko: "채팅방", en: "Room", tone: "neutral" },
-  chat_room: { ko: "채팅방", en: "Room", tone: "neutral" },
-  chat: { ko: "채팅방", en: "Room", tone: "neutral" },
-  message: { ko: "메시지", en: "Message", tone: "neutral" },
-  chat_message: { ko: "메시지", en: "Message", tone: "neutral" },
-  user: { ko: "회원", en: "Member", tone: "neutral" },
+  room: { ...catalogPair("admin_chat_calls_col_room"), tone: "neutral" },
+  chat_room: { ...catalogPair("admin_chat_calls_col_room"), tone: "neutral" },
+  chat: { ...catalogPair("admin_chat_calls_col_room"), tone: "neutral" },
+  message: { ...catalogPair("admin_chat_sheet_message"), tone: "neutral" },
+  chat_message: { ...catalogPair("admin_chat_sheet_message"), tone: "neutral" },
+  user: { ...catalogPair("admin_users_role_badge_member"), tone: "neutral" },
 };
 
 /** 참여자 역할 — CM `role` · store_order_role · 거래 판매자/구매자. */
 const PARTICIPANT_ROLE: Registry = {
-  owner: { ko: "방장", en: "Owner", tone: "neutral" },
-  admin: { ko: "관리자", en: "Admin", tone: "neutral" },
-  member: { ko: "멤버", en: "Member", tone: "neutral" },
-  seller: { ko: "판매자", en: "Seller", tone: "neutral" },
-  buyer: { ko: "구매자", en: "Buyer", tone: "neutral" },
-  customer: { ko: "주문 고객", en: "Customer", tone: "neutral" },
-  store_owner: { ko: "사장님", en: "Store owner", tone: "neutral" },
+  owner: { ...catalogPair("admin_cm_label_owner"), tone: "neutral" },
+  admin: { ...catalogPair("admin_admin"), tone: "neutral" },
+  member: { ...catalogPair("admin_meeting_reports_target_member"), tone: "neutral" },
+  seller: { ...catalogPair("admin_posts_mgmt_th_seller"), tone: "neutral" },
+  buyer: { ...catalogPair("admin_r4b_chat_role_buyer"), tone: "neutral" },
+  customer: { ...catalogPair("admin_customer"), tone: "neutral" },
+  store_owner: { ...catalogPair("admin_store_owner"), tone: "neutral" },
 };
 
 /** 메시지 유형 — CM `message_type` · 레거시 `messageType`. */
 const MESSAGE_TYPE: Registry = {
-  text: { ko: "텍스트", en: "Text", tone: "neutral" },
-  image: { ko: "사진", en: "Image", tone: "neutral" },
-  file: { ko: "파일", en: "File", tone: "neutral" },
-  voice: { ko: "음성 메시지", en: "Voice", tone: "neutral" },
-  system: { ko: "시스템 안내", en: "System", tone: "neutral" },
-  call_stub: { ko: "통화 기록", en: "Call record", tone: "neutral" },
-  sticker: { ko: "스티커", en: "Sticker", tone: "neutral" },
-  price_offer: { ko: "가격 제안", en: "Price offer", tone: "neutral" },
-  notice: { ko: "공지", en: "Notice", tone: "neutral" },
+  text: { ...catalogPair("admin_text_9"), tone: "neutral" },
+  image: { ...catalogPair("admin_image"), tone: "neutral" },
+  file: { ...catalogPair("admin_chat_r1b_kind_file"), tone: "neutral" },
+  voice: { ...catalogPair("admin_voice"), tone: "neutral" },
+  system: { ...catalogPair("admin_system_2"), tone: "neutral" },
+  call_stub: { ...catalogPair("admin_chat_r1b_kind_call_stub"), tone: "neutral" },
+  sticker: { ...catalogPair("admin_sticker"), tone: "neutral" },
+  price_offer: { ...catalogPair("admin_price_offer"), tone: "neutral" },
+  notice: { ...catalogPair("admin_notif_type_notice"), tone: "neutral" },
 };
 
 /** 통화 기록 상태 — `community_messenger_call_logs.status` · 세션 상태. */
 const CALL_STATUS: Registry = {
-  missed: { ko: "부재중", en: "Missed", tone: "warning" },
-  rejected: { ko: "수신 거부", en: "Declined", tone: "neutral" },
-  cancelled: { ko: "취소", en: "Cancelled", tone: "neutral" },
-  ended: { ko: "정상 종료", en: "Ended", tone: "success" },
-  incoming: { ko: "수신 중", en: "Incoming", tone: "progress" },
-  dialing: { ko: "발신 중", en: "Dialing", tone: "progress" },
-  ringing: { ko: "연결 중", en: "Ringing", tone: "progress" },
-  active: { ko: "통화 중", en: "In call", tone: "progress" },
+  missed: { ...catalogPair("admin_missed"), tone: "warning" },
+  rejected: { ...catalogPair("admin_declined"), tone: "neutral" },
+  cancelled: { ...catalogPair("admin_cancelled_3"), tone: "neutral" },
+  ended: { ...catalogPair("admin_ended_2"), tone: "success" },
+  incoming: { ...catalogPair("admin_incoming"), tone: "progress" },
+  dialing: { ...catalogPair("admin_dialing"), tone: "progress" },
+  ringing: { ...catalogPair("admin_ringing"), tone: "progress" },
+  active: { ...catalogPair("admin_in_call"), tone: "progress" },
 };
 
 /** 통화 종료 사유 — `community_messenger_call_sessions.ended_reason` 의 `:` 앞 코드 (운영 DB 실제 값 기준). */
 const CALL_ENDED_REASON: Registry = {
-  ended: { ko: "정상 종료", en: "Ended", tone: "neutral" },
-  ended_by_caller: { ko: "발신자 종료", en: "Ended by caller", tone: "neutral" },
-  ended_by_callee: { ko: "수신자 종료", en: "Ended by callee", tone: "neutral" },
-  canceled: { ko: "발신 취소", en: "Cancelled", tone: "neutral" },
-  cancelled: { ko: "발신 취소", en: "Cancelled", tone: "neutral" },
-  missed: { ko: "응답 없음", en: "No answer", tone: "warning" },
-  missed_timeout: { ko: "응답 없음", en: "No answer", tone: "warning" },
-  declined: { ko: "수신 거부", en: "Declined", tone: "neutral" },
-  rejected: { ko: "수신 거부", en: "Declined", tone: "neutral" },
-  stale_ringing_expired: { ko: "연결 대기 만료", en: "Ringing expired", tone: "warning" },
-  heartbeat_timeout: { ko: "연결 끊김", en: "Connection lost", tone: "danger" },
-  failed_signaling: { ko: "연결 실패 (신호)", en: "Failed (signaling)", tone: "danger" },
-  failed_network: { ko: "연결 실패 (네트워크)", en: "Failed (network)", tone: "danger" },
-  failed_media: { ko: "연결 실패 (미디어)", en: "Failed (media)", tone: "danger" },
-  failed_ice: { ko: "연결 실패 (ICE)", en: "Failed (ICE)", tone: "danger" },
-  failed_permission: { ko: "연결 실패 (권한)", en: "Failed (permission)", tone: "danger" },
-  admin_force_end: { ko: "관리자 강제 종료", en: "Ended by admin", tone: "warning" },
-  redial_replaced: { ko: "재발신으로 대체", en: "Replaced by redial", tone: "neutral" },
-  incoming_policy_superseded: { ko: "다른 통화로 대체", en: "Superseded", tone: "neutral" },
-  qa_cleanup: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
-  cold_start_qa_cleanup: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
-  qa_owner_assist_end: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
-  boundary_a_server_path_preclear: { ko: "점검 정리", en: "QA cleanup", tone: "neutral" },
+  ended: { ...catalogPair("admin_ended_2"), tone: "neutral" },
+  ended_by_caller: { ...catalogPair("admin_ended_by_caller"), tone: "neutral" },
+  ended_by_callee: { ...catalogPair("admin_ended_by_callee"), tone: "neutral" },
+  canceled: { ...catalogPair("admin_cancelled_5"), tone: "neutral" },
+  cancelled: { ...catalogPair("admin_cancelled_5"), tone: "neutral" },
+  missed: { ...catalogPair("admin_no_answer"), tone: "warning" },
+  missed_timeout: { ...catalogPair("admin_no_answer"), tone: "warning" },
+  declined: { ...catalogPair("admin_declined"), tone: "neutral" },
+  rejected: { ...catalogPair("admin_declined"), tone: "neutral" },
+  stale_ringing_expired: { ...catalogPair("admin_ringing_expired"), tone: "warning" },
+  heartbeat_timeout: { ...catalogPair("admin_connection_lost"), tone: "danger" },
+  failed_signaling: { ...catalogPair("admin_failed_signaling"), tone: "danger" },
+  failed_network: { ...catalogPair("admin_failed_network"), tone: "danger" },
+  failed_media: { ...catalogPair("admin_failed_media"), tone: "danger" },
+  failed_ice: { ...catalogPair("admin_failed_ice"), tone: "danger" },
+  failed_permission: { ...catalogPair("admin_failed_permission"), tone: "danger" },
+  admin_force_end: { ...catalogPair("admin_ended_by_admin"), tone: "warning" },
+  redial_replaced: { ...catalogPair("admin_replaced_by_redial"), tone: "neutral" },
+  incoming_policy_superseded: { ...catalogPair("admin_superseded"), tone: "neutral" },
+  qa_cleanup: { ...catalogPair("admin_qa_cleanup"), tone: "neutral" },
+  cold_start_qa_cleanup: { ...catalogPair("admin_qa_cleanup"), tone: "neutral" },
+  qa_owner_assist_end: { ...catalogPair("admin_qa_cleanup"), tone: "neutral" },
+  boundary_a_server_path_preclear: { ...catalogPair("admin_qa_cleanup"), tone: "neutral" },
 };
 
 /** 통화 종류. */
 const CALL_KIND: Registry = {
-  voice: { ko: "음성", en: "Voice", tone: "neutral" },
-  video: { ko: "영상", en: "Video", tone: "neutral" },
+  voice: { ...catalogPair("admin_voice_2"), tone: "neutral" },
+  video: { ...catalogPair("admin_video"), tone: "neutral" },
 };
 
 const REGISTRIES = {

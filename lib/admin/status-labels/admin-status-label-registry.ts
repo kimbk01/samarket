@@ -11,6 +11,7 @@
  */
 
 import type { AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminStatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -76,7 +77,7 @@ export function lookupAdminStatusLabel(
 ): AdminStatusLabelResult {
   const raw = String(code ?? "").trim();
   const key = normCode(raw);
-  if (!key) return { ko: "—", en: "—", tone: "neutral", code: raw, known: false, namespace: null };
+  if (!key) return { ...catalogPair("admin_del_common_dash"), tone: "neutral", code: raw, known: false, namespace: null };
   const ns = namespace.trim() || ADMIN_STATUS_COMMON_NAMESPACE;
   const order =
     opts.fallbackToCommon === false || ns === ADMIN_STATUS_COMMON_NAMESPACE
@@ -86,7 +87,7 @@ export function lookupAdminStatusLabel(
     const hit = registry.get(n)?.get(key);
     if (hit) return { ...hit, code: raw, known: true, namespace: n };
   }
-  return { ko: "알 수 없는 상태", en: "Unknown status", tone: "neutral", code: raw, known: false, namespace: null };
+  return { ...catalogPair("admin_unknown_status"), tone: "neutral", code: raw, known: false, namespace: null };
 }
 
 /** 화면 언어에 맞는 라벨 문자열. */
@@ -102,14 +103,14 @@ export function listAdminStatusCodes(namespace: string): string[] {
 
 /** 공통 상태 — 도메인 전반에서 같은 뜻으로 쓰는 코드만. */
 registerAdminStatusLabels(ADMIN_STATUS_COMMON_NAMESPACE, {
-  pending: { ko: "대기", en: "Pending", tone: "neutral" },
-  in_progress: { ko: "진행 중", en: "In progress", tone: "info" },
-  completed: { ko: "완료", en: "Completed", tone: "success" },
-  failed: { ko: "실패", en: "Failed", tone: "danger" },
-  cancelled: { ko: "취소됨", en: "Cancelled", tone: "neutral" },
-  rejected: { ko: "반려", en: "Rejected", tone: "neutral" },
-  approved: { ko: "승인", en: "Approved", tone: "success" },
-  on_hold: { ko: "보류", en: "On hold", tone: "warning" },
-  active: { ko: "정상", en: "Active", tone: "success" },
-  inactive: { ko: "비활성", en: "Inactive", tone: "neutral" },
+  pending: { ...catalogPair("admin_pending_3"), tone: "neutral" },
+  in_progress: { ...catalogPair("admin_deploy_status_running"), tone: "info" },
+  completed: { ...catalogPair("admin_dev_sprint_sprint_completed"), tone: "success" },
+  failed: { ...catalogPair("admin_meeting_engine_err_generic"), tone: "danger" },
+  cancelled: { ...catalogPair("admin_cancelled_6"), tone: "neutral" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "neutral" },
+  approved: { ...catalogPair("admin_approved"), tone: "success" },
+  on_hold: { ...catalogPair("admin_on_hold"), tone: "warning" },
+  active: { ...catalogPair("admin_users_lite_status_active"), tone: "success" },
+  inactive: { ...catalogPair("admin_ad_products_status_inactive"), tone: "neutral" },
 });

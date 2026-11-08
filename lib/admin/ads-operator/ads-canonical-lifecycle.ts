@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Shared Ads canonical lifecycle labels — Admin ↔ Customer parity presentation.
  * Domain writers stay separate; this is label mapping only.
  */
@@ -19,19 +20,19 @@ export type AdsCanonicalLifecycle =
   | "cancelled";
 
 const LABELS: Record<AdsCanonicalLifecycle, { ko: string; en: string }> = {
-  submitted: { ko: "접수", en: "Submitted" },
-  in_review: { ko: "검토", en: "In review" },
-  changes_requested: { ko: "수정 요청", en: "Changes requested" },
-  on_hold: { ko: "보류", en: "On hold" },
-  approved: { ko: "승인", en: "Approved" },
-  payment: { ko: "결제", en: "Payment" },
-  scheduled: { ko: "예약", en: "Scheduled" },
-  exposing: { ko: "노출 중", en: "Live" },
-  paused: { ko: "일시중지", en: "Paused" },
-  hidden: { ko: "숨김", en: "Hidden" },
-  rejected: { ko: "거절", en: "Rejected" },
-  ended: { ko: "종료", en: "Ended" },
-  cancelled: { ko: "취소", en: "Cancelled" },
+  submitted: catalogPair("admin_submitted_3"),
+  in_review: catalogPair("admin_in_review"),
+  changes_requested: catalogPair("admin_delivery_ads_lifecycle_changes_requested"),
+  on_hold: catalogPair("admin_on_hold"),
+  approved: catalogPair("admin_approved"),
+  payment: catalogPair("admin_payment"),
+  scheduled: catalogPair("admin_scheduled"),
+  exposing: catalogPair("admin_live"),
+  paused: catalogPair("admin_launch_intro_state_paused"),
+  hidden: catalogPair("admin_trade_post_status_hidden"),
+  rejected: catalogPair("admin_rejected_2"),
+  ended: catalogPair("admin_ended"),
+  cancelled: catalogPair("admin_trade_flow_status_cancelled"),
 };
 
 export function adsCanonicalLifecycleLabel(

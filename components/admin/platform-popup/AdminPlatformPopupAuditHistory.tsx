@@ -3,6 +3,7 @@
 import { AdminCard } from "@/components/admin/AdminCard";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** `GET /api/admin/platform-popup-campaigns/[id]/audit` 의 한 행 */
 export type AdminPlatformPopupAuditRow = {
@@ -14,20 +15,20 @@ export type AdminPlatformPopupAuditRow = {
 };
 
 const ACTION_LABEL: Record<string, { ko: string; en: string }> = {
-  "platform_popup.create": { ko: "만듦", en: "Created" },
-  "platform_popup.update": { ko: "설정 저장", en: "Settings saved" },
-  "platform_popup.material_edit_review": { ko: "노출 조건 변경 → 다시 검토", en: "Material edit → back to review" },
-  "platform_popup.transition": { ko: "상태 변경", en: "Status changed" },
-  "platform_popup.copy": { ko: "복사", en: "Copied" },
-  "platform_popup.creative_changed": { ko: "이미지 교체", en: "Image replaced" },
-  "platform_popup.creative_removed": { ko: "이미지 삭제", en: "Image removed" },
-  "platform_popup.delete_draft": { ko: "초안 삭제", en: "Draft deleted" },
+  "platform_popup.create": catalogPair("admin_created"),
+  "platform_popup.update": catalogPair("admin_settings_saved_2"),
+  "platform_popup.material_edit_review": catalogPair("admin_material_edit_back_to_review"),
+  "platform_popup.transition": catalogPair("admin_status_changed"),
+  "platform_popup.copy": catalogPair("admin_copied"),
+  "platform_popup.creative_changed": catalogPair("admin_image_replaced"),
+  "platform_popup.creative_removed": catalogPair("admin_image_removed"),
+  "platform_popup.delete_draft": catalogPair("admin_draft_deleted"),
 };
 
 const ACTOR_LABEL: Record<string, { ko: string; en: string }> = {
-  admin: { ko: "관리자", en: "Admin" },
-  owner: { ko: "사장님", en: "Owner" },
-  system: { ko: "시스템", en: "System" },
+  admin: catalogPair("admin_admin"),
+  owner: catalogPair("admin_r4a_actor_owner"),
+  system: catalogPair("admin_system"),
 };
 
 export function adminPlatformPopupAuditActionLabel(action: string, lang: "ko" | "en"): string {

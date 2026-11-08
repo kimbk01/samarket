@@ -35,6 +35,7 @@ import {
   REPORT_STATUS_LABEL_KEYS,
   REPORT_TARGET_TYPE_LABEL_KEYS,
 } from "@/lib/admin-reports/report-admin-i18n-keys";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type ListState =
   | { status: "loading" }
@@ -50,19 +51,19 @@ type ListState =
 
 /** sanctions·계정 조치 처리 유형 표시 (report_actions 는 기존 라벨 표) */
 const EXTRA_ACTION_LABEL: Record<string, { ko: string; en: string }> = {
-  warning: { ko: "경고", en: "Warning" },
-  trade_restriction: { ko: "거래 활동 제한", en: "Trade restriction" },
-  community_restriction: { ko: "커뮤니티 활동 제한", en: "Community restriction" },
-  chat_ban: { ko: "채팅 금지", en: "Chat ban" },
-  temp_suspend: { ko: "일시 정지", en: "Temporary suspension" },
-  permanent_ban: { ko: "영구 정지", en: "Permanent ban" },
-  warn: { ko: "경고", en: "Warning" },
-  suspend: { ko: "계정 정지", en: "Account suspended" },
-  ban: { ko: "계정 차단", en: "Account banned" },
-  restore: { ko: "계정 복구", en: "Account restored" },
-  soft_delete: { ko: "탈퇴 처리", en: "Soft delete" },
-  hard_delete: { ko: "영구 삭제", en: "Hard delete" },
-  purge: { ko: "데이터 삭제", en: "Purge" },
+  warning: catalogPair("admin_rec_mon_summary_warning"),
+  trade_restriction: catalogPair("admin_trade_restriction"),
+  community_restriction: catalogPair("admin_community_restriction"),
+  chat_ban: catalogPair("admin_chat_ban"),
+  temp_suspend: catalogPair("admin_temporary_suspension"),
+  permanent_ban: catalogPair("admin_report_sanction_btn_ban"),
+  warn: catalogPair("admin_rec_mon_summary_warning"),
+  suspend: catalogPair("admin_account_suspended"),
+  ban: catalogPair("admin_account_banned"),
+  restore: catalogPair("admin_account_restored"),
+  soft_delete: catalogPair("admin_soft_delete"),
+  hard_delete: catalogPair("admin_hard_delete"),
+  purge: catalogPair("admin_purge"),
 };
 
 const EXTRAS = ["action_type"] as const;

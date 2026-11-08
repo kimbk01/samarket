@@ -6,6 +6,7 @@
  */
 
 import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /**
  * 회원 계정 상태 — `profiles.status` · `moderation_status` · 회원 생애주기(ACTIVE/SUSPENDED/BLOCKED/WITHDRAWN/PURGED,
@@ -13,18 +14,18 @@ import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-statu
  */
 export const MEMBERS_ACCOUNT_STATUS_NS = "members.accountStatus";
 registerAdminStatusLabels(MEMBERS_ACCOUNT_STATUS_NS, {
-  active: { ko: "정상", en: "Active", tone: "success" },
-  normal: { ko: "정상", en: "Active", tone: "success" },
-  warned: { ko: "경고", en: "Warned", tone: "warning" },
-  warning: { ko: "경고", en: "Warned", tone: "warning" },
-  needs_review: { ko: "검토 필요", en: "Needs review", tone: "warning" },
-  suspended: { ko: "계정 정지", en: "Suspended", tone: "danger" },
-  blocked: { ko: "계정 차단", en: "Banned", tone: "danger" },
-  banned: { ko: "계정 차단", en: "Banned", tone: "danger" },
-  withdrawn: { ko: "탈퇴", en: "Withdrawn", tone: "neutral" },
-  deleted: { ko: "탈퇴", en: "Withdrawn", tone: "neutral" },
-  deactivated: { ko: "탈퇴", en: "Withdrawn", tone: "neutral" },
-  purged: { ko: "영구 삭제", en: "Purged", tone: "neutral" },
+  active: { ...catalogPair("admin_users_lite_status_active"), tone: "success" },
+  normal: { ...catalogPair("admin_users_lite_status_active"), tone: "success" },
+  warned: { ...catalogPair("admin_users_mod_status_warned"), tone: "warning" },
+  warning: { ...catalogPair("admin_users_mod_status_warned"), tone: "warning" },
+  needs_review: { ...catalogPair("admin_delivery_ads_case_waiting_admin"), tone: "warning" },
+  suspended: { ...catalogPair("admin_suspended"), tone: "danger" },
+  blocked: { ...catalogPair("admin_banned"), tone: "danger" },
+  banned: { ...catalogPair("admin_banned"), tone: "danger" },
+  withdrawn: { ...catalogPair("admin_withdrawn"), tone: "neutral" },
+  deleted: { ...catalogPair("admin_withdrawn"), tone: "neutral" },
+  deactivated: { ...catalogPair("admin_withdrawn"), tone: "neutral" },
+  purged: { ...catalogPair("admin_purged"), tone: "neutral" },
 });
 
 /**
@@ -33,17 +34,17 @@ registerAdminStatusLabels(MEMBERS_ACCOUNT_STATUS_NS, {
  */
 export const FINANCE_PAYMENT_STATUS_NS = "finance.payment";
 registerAdminStatusLabels(FINANCE_PAYMENT_STATUS_NS, {
-  pending: { ko: "결제 대기", en: "Pending", tone: "neutral" },
-  unpaid: { ko: "미결제", en: "Unpaid", tone: "neutral" },
-  unfunded: { ko: "미결제", en: "Unpaid", tone: "neutral" },
-  checking: { ko: "입금 확인 중", en: "Checking", tone: "info" },
-  confirmed: { ko: "입금 확인", en: "Confirmed", tone: "success" },
-  paid: { ko: "결제 완료", en: "Paid", tone: "success" },
-  funded: { ko: "결제 완료", en: "Funded", tone: "success" },
-  failed: { ko: "결제 실패", en: "Failed", tone: "danger" },
-  rejected: { ko: "결제 반려", en: "Rejected", tone: "neutral" },
-  cancelled: { ko: "결제 취소", en: "Cancelled", tone: "neutral" },
-  refund_pending: { ko: "환불 대기", en: "Refund pending", tone: "warning" },
-  partially_refunded: { ko: "부분 환불", en: "Partially refunded", tone: "warning" },
-  refunded: { ko: "환불 완료", en: "Refunded", tone: "neutral" },
+  pending: { ...catalogPair("admin_pending"), tone: "neutral" },
+  unpaid: { ...catalogPair("admin_ads_payment_status_unpaid"), tone: "neutral" },
+  unfunded: { ...catalogPair("admin_ads_payment_status_unpaid"), tone: "neutral" },
+  checking: { ...catalogPair("admin_checking"), tone: "info" },
+  confirmed: { ...catalogPair("admin_confirmed"), tone: "success" },
+  paid: { ...catalogPair("admin_paid_2"), tone: "success" },
+  funded: { ...catalogPair("admin_delivery_ads_funding_funded"), tone: "success" },
+  failed: { ...catalogPair("admin_failed"), tone: "danger" },
+  rejected: { ...catalogPair("admin_rejected_4"), tone: "neutral" },
+  cancelled: { ...catalogPair("admin_cancelled"), tone: "neutral" },
+  refund_pending: { ...catalogPair("admin_refund_pending"), tone: "warning" },
+  partially_refunded: { ...catalogPair("admin_partially_refunded"), tone: "warning" },
+  refunded: { ...catalogPair("admin_do_ps_refunded"), tone: "neutral" },
 });

@@ -31,6 +31,7 @@ import type {
   AdminDomainDashboardModel,
   AdminDomainMetric,
 } from "@/lib/admin/domain-dashboard/types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 function sectionDefs(...sections: ChatMetricSection[]): ChatMetricDefinition[] {
   return CHAT_METRIC_DEFINITIONS.filter((d) => sections.includes(d.section));
@@ -129,8 +130,8 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
     actionRequired: toActionItems(sectionDefs("action"), values),
     domainHealth: toMetrics(sectionDefs("health", "storage"), values),
     issues: toActionItems(sectionDefs("risk"), values),
-    actionCta: { ko: "신고 처리", en: "Handle" },
-    issuesCta: { ko: "기록 보기", en: "View records" },
+    actionCta: catalogPair("admin_handle"),
+    issuesCta: catalogPair("admin_view_records"),
     primaryEntries: [
       {
         id: "reported",

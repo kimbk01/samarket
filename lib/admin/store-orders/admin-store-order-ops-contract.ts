@@ -23,6 +23,7 @@ import {
 import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import type { StoreCommissionRowState } from "@/lib/stores/commission/store-commission-contract";
 import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const ADMIN_ORDER_OPS_PAGE_RPC = "admin_store_order_ops_page" as const;
 export const ADMIN_ORDER_OPS_SUMMARY_RPC = "admin_store_order_ops_summary" as const;
@@ -44,11 +45,11 @@ export const ADMIN_ORDER_OPS_PATH: Record<AdminOrderOpsScreen, string> = {
 export type AdminOrderOpsBasis = "created" | "cancel_requested" | "cancelled" | "refund_requested" | "refunded";
 
 export const ADMIN_ORDER_OPS_BASIS_LABEL: Record<AdminOrderOpsBasis, { ko: string; en: string }> = {
-  created: { ko: "주문 생성 시각", en: "Order created" },
-  cancel_requested: { ko: "취소 요청 시각", en: "Cancel requested" },
-  cancelled: { ko: "취소 처리 시각", en: "Cancelled" },
-  refund_requested: { ko: "환불 요청 시각", en: "Refund requested" },
-  refunded: { ko: "환불 처리 시각", en: "Refunded" },
+  created: catalogPair("admin_order_created"),
+  cancel_requested: catalogPair("admin_cancel_requested"),
+  cancelled: catalogPair("admin_cancelled_2"),
+  refund_requested: catalogPair("admin_refund_requested"),
+  refunded: catalogPair("admin_refunded"),
 };
 
 type TabDef = { key: string; ko: string; en: string; statuses: readonly StoreOrderStatus[]; basis: AdminOrderOpsBasis };
@@ -139,13 +140,13 @@ export const ADMIN_ORDER_OPS_SCREEN: Record<AdminOrderOpsScreen, AdminOrderOpsSc
 export type AdminOrderOpsPeriod = "all" | "today" | "last_7_days" | "last_30_days" | "this_month" | "this_year" | "custom";
 export const ADMIN_ORDER_OPS_PERIODS: readonly AdminOrderOpsPeriod[] = ["today", "last_7_days", "last_30_days", "this_month", "this_year", "custom", "all"];
 export const ADMIN_ORDER_OPS_PERIOD_LABEL: Record<AdminOrderOpsPeriod, { ko: string; en: string }> = {
-  today: { ko: "오늘", en: "Today" },
-  last_7_days: { ko: "최근 7일", en: "Last 7 days" },
-  last_30_days: { ko: "최근 30일", en: "Last 30 days" },
-  this_month: { ko: "이번 달", en: "This month" },
-  this_year: { ko: "올해", en: "This year" },
-  custom: { ko: "기간 지정", en: "Custom" },
-  all: { ko: "전체 기간", en: "All time" },
+  today: catalogPair("admin_today"),
+  last_7_days: catalogPair("admin_last_7_days"),
+  last_30_days: catalogPair("admin_last_30_days"),
+  this_month: catalogPair("admin_this_month"),
+  this_year: catalogPair("admin_this_year"),
+  custom: catalogPair("admin_custom"),
+  all: catalogPair("admin_all_time"),
 };
 
 const MANILA_OFFSET_MS = 8 * 3_600_000;

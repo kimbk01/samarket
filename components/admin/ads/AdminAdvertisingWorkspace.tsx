@@ -89,6 +89,7 @@ import {
   adLocationLabel,
   parseAdLocationFilterValue,
 } from "@/lib/admin/ads-ledger/ad-location-label";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /**
  * PHASE 2 — header CTA by page responsibility.
@@ -194,17 +195,17 @@ function familyTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShell
 }
 
 const ACTION_LABEL: Record<WorkspaceDrawerAction, { ko: string; en: string }> = {
-  approve: { ko: "승인", en: "Approve" },
-  reject: { ko: "반려", en: "Reject" },
-  request_changes: { ko: "보류", en: "Hold" },
-  pause: { ko: "일시중지", en: "Pause" },
-  resume: { ko: "재개", en: "Resume" },
-  end: { ko: "종료", en: "End" },
-  terminate: { ko: "강제 종료", en: "Terminate" },
-  delete_safe_draft: { ko: "삭제", en: "Delete draft" },
-  add_internal_memo: { ko: "내부 메모", en: "Internal memo" },
-  extend_compensation: { ko: "기간 연장", en: "Extend period" },
-  change_period: { ko: "기간 변경", en: "Change period" },
+  approve: catalogPair("admin_meeting_engine_action_approve"),
+  reject: catalogPair("admin_meeting_engine_action_reject"),
+  request_changes: catalogPair("admin_delivery_ads_action_request_changes"),
+  pause: catalogPair("admin_pause"),
+  resume: catalogPair("admin_resume"),
+  end: catalogPair("admin_end"),
+  terminate: catalogPair("admin_delivery_ads_action_terminate"),
+  delete_safe_draft: catalogPair("admin_delete_draft"),
+  add_internal_memo: catalogPair("admin_stores_settlements_ops_memo_ph"),
+  extend_compensation: catalogPair("admin_extend_period"),
+  change_period: catalogPair("admin_change_period"),
 };
 
 function feedbackForAction(action: WorkspaceDrawerAction, ko: boolean): string {

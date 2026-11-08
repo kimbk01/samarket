@@ -8,6 +8,7 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /**
  * G-08 (감사 2026-10-30) — 중앙 고객지원 안의 「매장 문의」 조회 전용 보기.
@@ -31,10 +32,10 @@ type StoreInquiryRow = {
 const PAGE_SIZE = 20 as const;
 
 const STATUS_LABELS: Record<string, { ko: string; en: string; tone: AdminTone }> = {
-  open: { ko: "미답변", en: "Unanswered", tone: "waiting" },
-  answered: { ko: "답변 완료", en: "Answered", tone: "success" },
-  closed: { ko: "종료", en: "Closed", tone: "neutral" },
-  escalated: { ko: "운영팀 이관", en: "Escalated", tone: "warning" },
+  open: { ...catalogPair("admin_unanswered"), tone: "waiting" },
+  answered: { ...catalogPair("admin_platform_inquiry_status_answered"), tone: "success" },
+  closed: { ...catalogPair("admin_stores_inquiries_status_closed"), tone: "neutral" },
+  escalated: { ...catalogPair("admin_escalated"), tone: "warning" },
 };
 
 const TYPE_LABELS: Record<string, [string, string]> = {

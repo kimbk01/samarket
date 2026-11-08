@@ -6,6 +6,7 @@
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { registerAdminStatusLabels } from "@/lib/admin/status-labels/admin-status-label-registry";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminStaffMembershipStatus = "active" | "suspended" | "revoked";
 
@@ -74,7 +75,7 @@ export function adminStaffRevokeMatchText(row: Pick<AdminStaffMembershipRow, "ni
 export const ADMIN_STAFF_MEMBERSHIP_STATUS_NAMESPACE = "admin_membership";
 
 registerAdminStatusLabels(ADMIN_STAFF_MEMBERSHIP_STATUS_NAMESPACE, {
-  active: { ko: "사용 중", en: "Active", tone: "success" },
-  suspended: { ko: "정지", en: "Suspended", tone: "warning" },
-  revoked: { ko: "해제됨", en: "Revoked", tone: "neutral" },
+  active: { ...catalogPair("admin_users_active"), tone: "success" },
+  suspended: { ...catalogPair("admin_users_suspended"), tone: "warning" },
+  revoked: { ...catalogPair("admin_users_revoked"), tone: "neutral" },
 });

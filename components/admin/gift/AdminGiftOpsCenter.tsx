@@ -20,14 +20,15 @@ import { AdminGiftRecoveryPanel } from "@/components/admin/gift/panels/AdminGift
 import { AdminGiftRedemptionsPanel } from "@/components/admin/gift/panels/AdminGiftRedemptionsPanel";
 import { AdminGiftRevenuePanel } from "@/components/admin/gift/panels/AdminGiftRevenuePanel";
 import { AdminGiftSummaryPanel } from "@/components/admin/gift/panels/AdminGiftSummaryPanel";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 const TAB_LABEL: Record<AdminGiftOpsTab, { ko: string; en: string }> = {
-  dashboard: { ko: "대시보드", en: "Dashboard" },
-  products: { ko: "상품 관리", en: "Products" },
-  instances: { ko: "발급 상품권", en: "Issued certificates" },
-  ledger: { ko: "사용·정산", en: "Usage & settlement" },
-  finance: { ko: "환전·복구", en: "Conversion & recovery" },
-  audit: { ko: "감사", en: "Audit" },
+  dashboard: catalogPair("admin_rec_auto_escalation_dashboard"),
+  products: catalogPair("admin_products"),
+  instances: catalogPair("admin_issued_certificates"),
+  ledger: catalogPair("admin_usage_settlement"),
+  finance: catalogPair("admin_conversion_recovery"),
+  audit: catalogPair("admin_audit"),
 };
 
 export function AdminGiftOpsCenter() {

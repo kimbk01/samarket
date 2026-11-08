@@ -5,6 +5,7 @@
  * 클라이언트 안전.
  */
 import { formatAdminManilaDate, manilaDateRangeToUtc } from "@/lib/admin/metrics/manila-period";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const ADMIN_DASHBOARD_PERIODS = ["today", "yesterday", "7d", "30d"] as const;
 export type AdminDashboardPeriod = (typeof ADMIN_DASHBOARD_PERIODS)[number];
@@ -12,10 +13,10 @@ export type AdminDashboardPeriod = (typeof ADMIN_DASHBOARD_PERIODS)[number];
 export const ADMIN_DASHBOARD_DEFAULT_PERIOD: AdminDashboardPeriod = "today";
 
 export const ADMIN_DASHBOARD_PERIOD_LABEL: Readonly<Record<AdminDashboardPeriod, { ko: string; en: string }>> = {
-  today: { ko: "오늘", en: "Today" },
-  yesterday: { ko: "어제", en: "Yesterday" },
-  "7d": { ko: "7일", en: "7 days" },
-  "30d": { ko: "30일", en: "30 days" },
+  today: catalogPair("admin_today"),
+  yesterday: catalogPair("admin_yesterday"),
+  "7d": catalogPair("admin_text_2"),
+  "30d": catalogPair("admin_text_4"),
 };
 
 /** `?period=` → 기간 (모르는 값 = 오늘). */

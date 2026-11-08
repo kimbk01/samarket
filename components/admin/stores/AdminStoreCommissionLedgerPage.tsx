@@ -88,6 +88,8 @@ import {
 } from "@/components/stores/commission/StoreCommissionLedgerTable";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { commissionOrderStatusLine } from "@/lib/stores/commission/store-commission-display-labels";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 기본 페이지 크기 (예전 고정값 100 유지) — 주소 `size` 로 20/50/100 선택, `page` 는 1부터. */
 const DEFAULT_PAGE_SIZE: AdminListPageSize = 100;
@@ -145,24 +147,21 @@ type DecisionModal = {
 };
 
 const ADJUST_ERROR: Record<string, { ko: string; en: string }> = {
-  reason_required: { ko: "처리 사유를 2자 이상 입력하세요.", en: "Enter a reason (2+ characters)." },
-  invalid_amount: { ko: "승인액은 0보다 크고 남은 수수료 이하여야 합니다.", en: "Amount must be > 0 and ≤ remaining fee." },
-  not_in_review: { ko: "이미 처리된 건입니다. 새로고침하세요.", en: "Already decided. Refresh." },
-  order_not_closed: { ko: "주문이 취소/환불 상태가 아닙니다.", en: "Order is not cancelled/refunded." },
-  admin_required: { ko: "관리자 권한이 필요합니다.", en: "Admin permission required." },
-  rpc_missing: { ko: "기능 준비 중입니다. 시스템 관리자에게 문의하세요.", en: "This feature is not ready yet. Contact a system admin." },
+  reason_required: catalogPair("admin_enter_a_reason_2_characters"),
+  invalid_amount: catalogPair("admin_amount_must_be_0_and_remaining"),
+  not_in_review: catalogPair("admin_already_decided_refresh"),
+  order_not_closed: catalogPair("admin_order_is_not_cancelled_refunded"),
+  admin_required: catalogPair("admin_stores_fee_err_forbidden"),
+  rpc_missing: catalogPair("admin_this_feature_is_not_ready_yet"),
 };
 
 const CHECK_LABEL: Record<string, { ko: string; en: string }> = {
-  charged_eq_due_plus_adjustments: { ko: "원부과액 = 잔여 부과 + 승인 환급", en: "Charged = remaining + approved" },
-  cash_ledger_eq_fee_paid: { ko: "캐시 원장 차감액 = 수수료 납부액", en: "Cash ledger = fee paid" },
-  status_matches_amounts: { ko: "상태 = 금액 일치", en: "Status matches amounts" },
-  closed_orders_reviewed: { ko: "취소·환불 주문 수수료 검토 누락 없음", en: "Closed orders reviewed" },
-  balance_eq_ledger_sum: { ko: "캐시 잔액 = 원장 합계", en: "Balance = ledger sum" },
-  sale_coin_le_platform_coupon: {
-    ko: "주문별 판매 Coin ≤ 플랫폼 부담 쿠폰 (변경 전 적립은 보존·제외)",
-    en: "Sale Coin per order ≤ platform coupon (pre-change credits preserved)",
-  },
+  charged_eq_due_plus_adjustments: catalogPair("admin_charged_remaining_approved"),
+  cash_ledger_eq_fee_paid: catalogPair("admin_cash_ledger_fee_paid"),
+  status_matches_amounts: catalogPair("admin_status_matches_amounts"),
+  closed_orders_reviewed: catalogPair("admin_closed_orders_reviewed"),
+  balance_eq_ledger_sum: catalogPair("admin_balance_ledger_sum"),
+  sale_coin_le_platform_coupon: catalogPair("admin_sale_coin_per_order_platform_coupon"),
 };
 
 /** Admin console primary CTA — locked contrast (sam-primary is intentionally washed out under data-admin). */
@@ -176,10 +175,10 @@ type HeadlineLoad = "loading" | "ok" | "error";
 /** 카드 값을 받기 전·실패 때 표시 (0 대신) */
 function headlineNotReadyCopy(status: HeadlineLoad, lang: CommissionLang): { value: string; sub: string } {
   return status === "loading"
-    ? { value: pickCommissionCopy(lang, "불러오는 중…", "Loading…"), sub: "" }
+    ? { value: translateBy(lang, "admin_loading", undefined, "en"), sub: "" }
     : {
-        value: pickCommissionCopy(lang, "불러오지 못했습니다", "Could not load"),
-        sub: pickCommissionCopy(lang, "새로고침해 주세요", "Please refresh"),
+        value: translateBy(lang, "admin_could_not_load", undefined, "en"),
+        sub: translateBy(lang, "admin_please_refresh", undefined, "en"),
       };
 }
 
@@ -475,7 +474,7 @@ export function AdminStoreCommissionLedgerPage() {
       // 신규 주문 일괄 차단 정책 = 긴급 차단과 같은 L3 (동작 표 SSOT)
       level: adminActionLevel("emergencyBlock"),
       ko,
-      title: pickCommissionCopy(lang, "주문 차단 정책 변경", "Change order-block policy"),
+      title: translateBy(lang, "admin_change_order_block_policy", undefined, "en"),
       description: [
         STORE_CASH_ORDER_GATE_LABEL[mode][lang],
         mode === "block_when_not_positive"
@@ -488,10 +487,10 @@ export function AdminStoreCommissionLedgerPage() {
       ]
         .filter(Boolean)
         .join("\n"),
-      confirmLabel: pickCommissionCopy(lang, "적용", "Apply"),
+      confirmLabel: translateBy(lang, "admin_ops_console_btn_apply", undefined, "en"),
       destructive: mode === "block_when_not_positive",
       // 기존 2단계(사유 입력 → 확인)와 같게 — 대상 재입력 단계는 추가하지 않는다.
-      reasonPlaceholder: pickCommissionCopy(lang, "변경 사유 (필수)", "Reason (required)"),
+      reasonPlaceholder: translateBy(lang, "admin_reason_required", undefined, "en"),
     });
     if (!confirmed.ok) return;
     await runOnce(async () => {
@@ -627,7 +626,7 @@ export function AdminStoreCommissionLedgerPage() {
   const decideButton = (r: StoreCommissionLedgerRow) =>
     r.state === "review_required" ? (
       <AdminActionButton variant="ghost" size="sm" disabled={busy || !canDecide} title={decideLockedTitle} onClick={() => openDecision(r)}>
-        {pickCommissionCopy(lang, "수수료 결정", "Decide")}
+        {translateBy(lang, "admin_decide", undefined, "en")}
       </AdminActionButton>
     ) : null;
 
@@ -635,20 +634,12 @@ export function AdminStoreCommissionLedgerPage() {
     <div className="min-w-0 space-y-4" data-commission-admin="1">
       <AdminPageHeader
         titleKey="admin_menu_store_settlements"
-        description={pickCommissionCopy(
-          lang,
-          "고객은 매장에 직접 결제합니다. 주문별 지급은 없고, 수수료는 주문 진행 시 자동 부과됩니다.",
-          "Customers pay the store directly. There is no per-order payout; the fee is charged automatically as the order progresses."
-        )}
+        description={translateBy(lang, "admin_customers_pay_the_store_directly_there", undefined, "en")}
       />
 
       {legacyQueueLink ? (
         <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg" role="status" data-legacy-queue-notice="1">
-          {pickCommissionCopy(
-            lang,
-            "주문별 '정산 검토'·'지급 예정' 큐는 폐지되었습니다. 직접 결제 주문의 과거 '정산 예정' 금액은 매장이 이미 받은 돈이라 지급 대상이 아닙니다. 실제 플랫폼 지급 의무는 아래 [플랫폼 지급 의무]에서 확인하세요.",
-            "The per-order 'settlement review / scheduled payout' queue is retired. Legacy 'scheduled' amounts on direct-pay orders were already collected by stores. See [Platform payable] for what the platform actually owes."
-          )}
+          {translateBy(lang, "admin_the_per_order_settlement_review_scheduled", undefined, "en")}
         </div>
       ) : null}
 
@@ -661,9 +652,9 @@ export function AdminStoreCommissionLedgerPage() {
         </div>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={pickCommissionCopy(lang, "처리할 일", "Work cards")}>
+      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={translateBy(lang, "admin_work_cards", undefined, "en")}>
         <WorkCard
-          title={pickCommissionCopy(lang, "자동 수수료", "Auto commission")}
+          title={translateBy(lang, "admin_auto_commission", undefined, "en")}
           value={
             ledgerReady && headline.summary
               ? formatCashMinor(headline.summary.netCommissionMinor)
@@ -683,7 +674,7 @@ export function AdminStoreCommissionLedgerPage() {
           onClick={() => setUrl({ tab: "ledger" })}
         />
         <WorkCard
-          title={pickCommissionCopy(lang, "미납 관리", "Unpaid")}
+          title={translateBy(lang, "admin_unpaid", undefined, "en")}
           value={ledgerReady ? formatCashMinor(headOutstanding) : headlineNotReadyCopy(headlineStatus.ledger, lang).value}
           sub={
             ledgerReady
@@ -699,7 +690,7 @@ export function AdminStoreCommissionLedgerPage() {
           onClick={() => setUrl({ tab: "cash" })}
         />
         <WorkCard
-          title={pickCommissionCopy(lang, "환불 검토", "Refund review")}
+          title={translateBy(lang, "admin_refund_review", undefined, "en")}
           value={
             ledgerReady
               ? pickCommissionCopy(lang, `${headline.summary?.reviewCount ?? 0}건`, `${headline.summary?.reviewCount ?? 0}`)
@@ -719,7 +710,7 @@ export function AdminStoreCommissionLedgerPage() {
           onClick={() => setUrl({ tab: "review" })}
         />
         <WorkCard
-          title={pickCommissionCopy(lang, "원장 대조", "Ledger check")}
+          title={translateBy(lang, "admin_ledger_check", undefined, "en")}
           value={
             integrityReady && headline.integrity
               ? pickCommissionCopy(lang, `이상 ${integrityViolations + (headline.exceptionOrders ?? 0)}건`, `${integrityViolations + (headline.exceptionOrders ?? 0)} issues`)
@@ -740,7 +731,7 @@ export function AdminStoreCommissionLedgerPage() {
         />
       </section>
 
-      <nav className="flex flex-wrap items-center gap-1.5" aria-label={pickCommissionCopy(lang, "수수료 원장 탭", "Commission ledger tabs")}>
+      <nav className="flex flex-wrap items-center gap-1.5" aria-label={translateBy(lang, "admin_commission_ledger_tabs", undefined, "en")}>
         {TABS.map((t) => (
           <AdminChipButton selected={tab === t} key={t} aria-current={tab === t ? "page" : undefined} onClick={() => setUrl({ tab: t, state: "" })}>
             {COMMISSION_TAB_LABEL[t][lang]}
@@ -749,9 +740,9 @@ export function AdminStoreCommissionLedgerPage() {
         ))}
         {storeId ? (
           <span className="ml-1 inline-flex items-center gap-2 rounded-full bg-sam-surface-muted px-3 py-1 sam-text-xxs text-sam-fg">
-            <span title={storeId}>{storeNames.get(storeId) || pickCommissionCopy(lang, "선택한 매장", "Selected store")}</span>
+            <span title={storeId}>{storeNames.get(storeId) || translateBy(lang, "admin_selected_store", undefined, "en")}</span>
             <AdminActionButton variant="ghost" size="sm" className="!h-auto !px-0" onClick={() => setUrl({ store_id: "" })}>
-              {pickCommissionCopy(lang, "전체 매장", "All stores")}
+              {translateBy(lang, "admin_stores_home_shelves_route_allStores", undefined, "en")}
             </AdminActionButton>
           </span>
         ) : null}
@@ -774,8 +765,8 @@ export function AdminStoreCommissionLedgerPage() {
       {customPeriodState !== "ok" ? (
         <p className="sam-text-helper text-sam-danger" role="status" data-admin-commission-custom={customPeriodState}>
           {customPeriodState === "inverted"
-            ? pickCommissionCopy(lang, "시작일이 종료일보다 늦습니다. 날짜를 다시 골라 주세요.", "Start date is after end date. Pick the dates again.")
-            : pickCommissionCopy(lang, "시작일과 종료일을 모두 고르면 내역을 보여 드립니다.", "Pick both start and end dates to see the history.")}
+            ? translateBy(lang, "admin_start_date_is_after_end_date", undefined, "en")
+            : translateBy(lang, "admin_pick_both_start_and_end_dates", undefined, "en")}
         </p>
       ) : null}
       {error ? <AdminErrorState ko={lang === "ko"} code={error.code} httpStatus={error.status} onRetry={() => void load()} /> : null}
@@ -790,11 +781,7 @@ export function AdminStoreCommissionLedgerPage() {
           ) : null}
           {tab === "review" ? (
             <p className="sam-text-helper text-sam-muted">
-              {pickCommissionCopy(
-                lang,
-                "조리 시작 후 취소·환불된 주문만 표시합니다. 승인 시 미납이 먼저 취소되고 남은 금액만 실제 차감액 한도로 캐시에 환급됩니다.",
-                "Only orders cancelled/refunded after cooking. Approval cancels unpaid first; only the remainder returns to Cash, capped at what was paid."
-              )}
+              {translateBy(lang, "admin_only_orders_cancelled_refunded_after_cooking", undefined, "en")}
             </p>
           ) : null}
           {data?.summary ? <CommissionSummaryGrid summary={data.summary} lang={lang} /> : null}
@@ -825,7 +812,7 @@ export function AdminStoreCommissionLedgerPage() {
             }}
             pending={loading}
             showPeriod={false}
-            searchPlaceholder={pickCommissionCopy(lang, "주문번호", "Order no.")}
+            searchPlaceholder={translateBy(lang, "admin_users_cc_col_order_no", undefined, "en")}
           >
             {tab === "ledger" ? (
               <CommissionFilterChips value={ledgerState} lang={lang} onChange={(st) => setUrl({ state: st, tab: "ledger" })} />
@@ -846,8 +833,8 @@ export function AdminStoreCommissionLedgerPage() {
                 ko={ko}
                 message={
                   tab === "review"
-                    ? pickCommissionCopy(lang, "해당 조건의 취소·환불 건이 없습니다.", "No cancelled/refunded orders for this filter.")
-                    : pickCommissionCopy(lang, "해당하는 수수료 내역이 없습니다.", "No commission rows.")
+                    ? translateBy(lang, "admin_no_cancelled_refunded_orders_for_this", undefined, "en")
+                    : translateBy(lang, "admin_no_commission_rows", undefined, "en")
                 }
                 onReset={listFiltered ? resetListFilters : undefined}
               />
@@ -869,10 +856,10 @@ export function AdminStoreCommissionLedgerPage() {
 
       {tab === "cash" ? (
         <>
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={pickCommissionCopy(lang, "수수료 정책", "Commission policy")}>
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={translateBy(lang, "admin_commission_policy", undefined, "en")}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="sam-text-helper font-medium text-sam-fg">
-                {pickCommissionCopy(lang, "캐시 부족 매장 신규 주문 차단", "Block new orders when Cash is short")}
+                {translateBy(lang, "admin_block_new_orders_when_cash_is", undefined, "en")}
               </span>
               {STORE_CASH_ORDER_GATE_MODES.map((mode) => (
                 <AdminChipButton
@@ -892,14 +879,14 @@ export function AdminStoreCommissionLedgerPage() {
             ) : null}
             {data?.gate?.changedAt ? (
               <p className="mt-1 sam-text-xxs text-sam-muted">
-                {pickCommissionCopy(lang, "최근 변경", "Last change")}: {formatManilaDateTime(data.gate.changedAt)} · {data.gate.reason}
+                {translateBy(lang, "admin_last_change", undefined, "en")}: {formatManilaDateTime(data.gate.changedAt)} · {data.gate.reason}
               </p>
             ) : null}
           </section>
 
           <section className="min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-sam-fg">{pickCommissionCopy(lang, "매장별 캐시 · 미납 · 주문 제한", "Cash, unpaid & order block by store")}</h2>
+              <h2 className="text-sm font-semibold text-sam-fg">{translateBy(lang, "admin_cash_unpaid_order_block_by_store", undefined, "en")}</h2>
               <p className="sam-text-xxs text-sam-muted">
                 {pickCommissionCopy(lang, `마이너스 ${negativeCount}곳 · 주문 차단 ${blockedCount}곳`, `${negativeCount} negative · ${blockedCount} blocked`)}
               </p>
@@ -909,20 +896,20 @@ export function AdminStoreCommissionLedgerPage() {
                 <p className="text-sm font-semibold text-sam-fg">{storeNames.get(selectedPosition.storeId) || storeId}</p>
                 <StoreCashPositionCard position={selectedPosition} lang={lang} />
                 <Link href={businessCcFinancialStatementHref(storeId)} className="inline-block sam-text-helper font-medium text-signature underline">
-                  {pickCommissionCopy(lang, "매장 재무제표 보기", "Store financial statement")}
+                  {translateBy(lang, "admin_store_financial_statement", undefined, "en")}
                 </Link>
               </div>
             ) : (
               <div className="mt-3">
-                <HorizontalScrollRegion label={pickCommissionCopy(lang, "매장별 캐시 표", "Cash by store")} lang={lang}>
+                <HorizontalScrollRegion label={translateBy(lang, "admin_cash_by_store", undefined, "en")} lang={lang}>
                   <table className="w-full min-w-[640px] border-separate border-spacing-0 text-left text-sm">
                     <thead className="sam-text-xxs text-sam-muted">
                       <tr>
-                        <th className="sticky left-0 z-10 border-b border-sam-border-soft bg-sam-app px-3 py-2">{pickCommissionCopy(lang, "매장", "Store")}</th>
-                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-right">{pickCommissionCopy(lang, "캐시 잔액", "Cash")}</th>
-                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-right">{pickCommissionCopy(lang, "미납", "Unpaid")}</th>
-                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-right">{pickCommissionCopy(lang, "순잔액", "Net")}</th>
-                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2">{pickCommissionCopy(lang, "신규 주문", "New orders")}</th>
+                        <th className="sticky left-0 z-10 border-b border-sam-border-soft bg-sam-app px-3 py-2">{translateBy(lang, "admin_store_3", undefined, "en")}</th>
+                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-right">{translateBy(lang, "admin_cash_2", undefined, "en")}</th>
+                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-right">{translateBy(lang, "admin_unpaid_2", undefined, "en")}</th>
+                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-right">{translateBy(lang, "admin_net", undefined, "en")}</th>
+                        <th className="border-b border-sam-border-soft bg-sam-app px-3 py-2">{translateBy(lang, "admin_new_orders", undefined, "en")}</th>
                         <th className="sticky right-0 z-10 border-b border-sam-border-soft bg-sam-app px-3 py-2" />
                       </tr>
                     </thead>
@@ -932,7 +919,7 @@ export function AdminStoreCommissionLedgerPage() {
                         return (
                           <tr key={p.storeId} data-store-net={p.netMinor < 0 ? "negative" : "ok"}>
                             <td className={`sticky left-0 z-10 border-b border-sam-border-soft px-3 py-2 ${bg}`}>
-                              <span className="block max-w-[16rem] break-words">{storeNames.get(p.storeId) || pickCommissionCopy(lang, "이름 없는 매장", "Unnamed store")}</span>
+                              <span className="block max-w-[16rem] break-words">{storeNames.get(p.storeId) || translateBy(lang, "admin_r4d_store_unnamed", undefined, "en")}</span>
                             </td>
                             <td className={`border-b border-sam-border-soft px-3 py-2 text-right tabular-nums ${bg}`}>{formatCashMinor(p.balanceMinor)}</td>
                             <td className={`border-b border-sam-border-soft px-3 py-2 text-right tabular-nums ${bg} ${p.outstandingMinor > 0 ? "text-sam-danger" : ""}`}>
@@ -943,12 +930,12 @@ export function AdminStoreCommissionLedgerPage() {
                             </td>
                             <td className={`border-b border-sam-border-soft px-3 py-2 ${bg}`}>
                               <span className={`sam-text-xxs font-semibold ${p.orderable ? "text-sam-success" : "text-sam-danger"}`}>
-                                {p.orderable ? pickCommissionCopy(lang, "접수 가능", "Open") : pickCommissionCopy(lang, "차단", "Blocked")}
+                                {p.orderable ? translateBy(lang, "admin_open", undefined, "en") : translateBy(lang, "admin_ops_tools_runbook_btn_block", undefined, "en")}
                               </span>
                             </td>
                             <td className={`sticky right-0 z-10 border-b border-sam-border-soft px-3 py-2 text-right ${bg}`}>
                               <AdminActionButton variant="ghost" size="sm" onClick={() => setUrl({ store_id: p.storeId, tab: "ledger" })}>
-                                {pickCommissionCopy(lang, "원장 보기", "Ledger")}
+                                {translateBy(lang, "admin_ledger", undefined, "en")}
                               </AdminActionButton>
                             </td>
                           </tr>
@@ -962,7 +949,7 @@ export function AdminStoreCommissionLedgerPage() {
           </section>
 
           <section className="min-w-0 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4">
-            <h2 className="text-sm font-semibold text-sam-fg">{pickCommissionCopy(lang, "캐시 거래 (충전·차감·환급)", "Cash transactions")}</h2>
+            <h2 className="text-sm font-semibold text-sam-fg">{translateBy(lang, "admin_cash_transactions", undefined, "en")}</h2>
             <CashLedgerKindChips
               value={kinds}
               lang={lang}
@@ -976,14 +963,10 @@ export function AdminStoreCommissionLedgerPage() {
 
       {tab === "exceptions" ? (
         <>
-          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={pickCommissionCopy(lang, "정합성 점검", "Integrity check")}>
-            <h2 className="text-sm font-semibold text-sam-fg">{pickCommissionCopy(lang, "기록 무결성 검사", "Record integrity check")}</h2>
+          <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4" aria-label={translateBy(lang, "admin_integrity_check", undefined, "en")}>
+            <h2 className="text-sm font-semibold text-sam-fg">{translateBy(lang, "admin_record_integrity_check", undefined, "en")}</h2>
             <p className="mt-1 sam-text-xxs text-sam-muted">
-              {pickCommissionCopy(
-                lang,
-                "확인 전용입니다. 근거 없는 금액 정정 기능은 제공하지 않으며, 정정은 OWNER 승인 후 기록 거래로만 수행합니다.",
-                "Read only. No ad-hoc correction; fixes are recorded transactions after OWNER approval."
-              )}
+              {translateBy(lang, "admin_read_only_no_ad_hoc_correction", undefined, "en")}
             </p>
             {headline.integrity?.checks ? (
               <ul className="mt-2 space-y-1 sam-text-helper">
@@ -1019,36 +1002,28 @@ export function AdminStoreCommissionLedgerPage() {
                 {headline.integrity.originalUnknown && headline.integrity.originalUnknown.count > 0 ? (
                   <li className="text-sam-warning">
                     NOT_PROVEN {headline.integrity.originalUnknown.count} ·{" "}
-                    {pickCommissionCopy(lang, "원부과액 증거 없는 레거시 행", "Legacy rows without original fee evidence")}
+                    {translateBy(lang, "admin_legacy_rows_without_original_fee_evidence", undefined, "en")}
                   </li>
                 ) : null}
               </ul>
             ) : (
-              <p className="mt-2 sam-text-helper text-sam-muted">{pickCommissionCopy(lang, "검사 결과 없음", "No result")}</p>
+              <p className="mt-2 sam-text-helper text-sam-muted">{translateBy(lang, "admin_no_result", undefined, "en")}</p>
             )}
             <p className="mt-2 sam-text-xxs text-sam-muted">
-              {pickCommissionCopy(
-                lang,
-                "수수료 부과 실패는 주문 상태 변경 자체가 롤백되므로(주문은 이전 상태 유지) 원장에 미처리 건이 남지 않습니다.",
-                "A failed commission charge rolls back the status change itself, so no half-processed rows remain."
-              )}
+              {translateBy(lang, "admin_a_failed_commission_charge_rolls_back", undefined, "en")}
             </p>
           </section>
 
           <section className="min-w-0 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4">
             <h2 className="text-sm font-semibold text-sam-fg">
-              {pickCommissionCopy(lang, "코인 과다 지급 · 과거 수동 지급 의심", "Coin over-credit · legacy manual payouts")}
+              {translateBy(lang, "admin_coin_over_credit_legacy_manual_payouts", undefined, "en")}
             </h2>
             <p className="sam-text-xxs text-sam-muted">
-              {pickCommissionCopy(
-                lang,
-                "플랫폼 보유분(선물·쿠폰) 중 상품권 레일을 제외한 금액보다 코인이 많이 지급된 주문, 과거 수동 지급 주문입니다. 확인 전용.",
-                "Orders whose Coin exceeds platform-held money not on the gift rail, and legacy manual payouts. Read only."
-              )}
+              {translateBy(lang, "admin_orders_whose_coin_exceeds_platform_held", undefined, "en")}
             </p>
             {exceptionsPage ? (
               exceptionsPage.rows.length === 0 ? (
-                <AdminEmptyState ko={ko} message={pickCommissionCopy(lang, "예외 없음", "No exceptions")} />
+                <AdminEmptyState ko={ko} message={translateBy(lang, "admin_no_exceptions", undefined, "en")} />
               ) : (
                 <PlatformPayableTable page={exceptionsPage} lang={lang} showStore={!storeId} />
               )
@@ -1065,10 +1040,10 @@ export function AdminStoreCommissionLedgerPage() {
           {data?.payableSummary ? <PlatformPayableSummaryGrid summary={data.payableSummary} lang={lang} /> : null}
           <div className="flex flex-wrap gap-1.5">
             <AdminChipButton selected={!payableAll} onClick={() => setUrl({ payable: "" })}>
-              {pickCommissionCopy(lang, "지급 의무만", "Payable only")}
+              {translateBy(lang, "admin_payable_only", undefined, "en")}
             </AdminChipButton>
             <AdminChipButton selected={payableAll} onClick={() => setUrl({ payable: "all" })}>
-              {pickCommissionCopy(lang, "완료 주문 전체", "All completed orders")}
+              {translateBy(lang, "admin_all_completed_orders", undefined, "en")}
             </AdminChipButton>
           </div>
           {payable ? <PlatformPayableTable page={payable} lang={lang} showStore={!storeId} /> : error ? null : <AdminLoadingState ko={ko} />}
@@ -1088,7 +1063,7 @@ export function AdminStoreCommissionLedgerPage() {
             <div className="space-y-2">
               {selected.state === "review_required" ? null : (
                 <p className="sam-text-xxs text-sam-muted">
-                  {pickCommissionCopy(lang, "정상 처리된 주문입니다. 수동 정산·지급 조치가 없습니다.", "Processed automatically — no manual settlement action.")}
+                  {translateBy(lang, "admin_processed_automatically_no_manual_settlement_act", undefined, "en")}
                 </p>
               )}
               <div className="flex items-center gap-2" data-commission-detail-footer="1">
@@ -1103,7 +1078,7 @@ export function AdminStoreCommissionLedgerPage() {
                     title={decideLockedTitle}
                     onClick={() => openDecision(selected)}
                   >
-                    {pickCommissionCopy(lang, "수수료 결정 (승인 · 반려)", "Decide (approve · reject)")}
+                    {translateBy(lang, "admin_decide_approve_reject", undefined, "en")}
                   </AdminActionButton>
                 ) : null}
               </div>
@@ -1116,14 +1091,14 @@ export function AdminStoreCommissionLedgerPage() {
         open={modal != null}
         onClose={() => (busy ? undefined : setModal(null))}
         dismissible={!busy}
-        title={pickCommissionCopy(lang, "취소·환불 주문 수수료 결정", "Commission on cancelled/refunded order")}
+        title={translateBy(lang, "admin_commission_on_cancelled_refunded_order", undefined, "en")}
         description={modal ? `#${modal.row.orderNo} · ${modal.row.storeName} · ${commissionOrderStatusLine(modal.row, lang)}` : undefined}
         actions={
           modal
             ? [
                 {
                   key: "cancel",
-                  label: modal.step === "confirm" ? pickCommissionCopy(lang, "이전", "Back") : pickCommissionCopy(lang, "취소", "Cancel"),
+                  label: modal.step === "confirm" ? translateBy(lang, "admin_ad_delete_back", undefined, "en") : translateBy(lang, "admin_cancel", undefined, "en"),
                   roleTone: "secondary",
                   disabled: busy,
                   onClick: () => (modal.step === "confirm" ? setModal({ ...modal, step: "form" }) : setModal(null)),
@@ -1131,7 +1106,7 @@ export function AdminStoreCommissionLedgerPage() {
                 modal.step === "form"
                   ? {
                       key: "next",
-                      label: pickCommissionCopy(lang, "다음", "Next"),
+                      label: translateBy(lang, "admin_ad_delete_next", undefined, "en"),
                       roleTone: "primary",
                       disabled: busy || !decisionValid,
                       onClick: () => setModal({ ...modal, step: "confirm" }),
@@ -1140,8 +1115,8 @@ export function AdminStoreCommissionLedgerPage() {
                       key: "confirm",
                       label:
                         modal.decision === "approve"
-                          ? pickCommissionCopy(lang, "환급 승인 확정", "Confirm approval")
-                          : pickCommissionCopy(lang, "환급 반려 확정", "Confirm rejection"),
+                          ? translateBy(lang, "admin_confirm_approval", undefined, "en")
+                          : translateBy(lang, "admin_confirm_rejection", undefined, "en"),
                       roleTone: modal.decision === "approve" ? "primary" : "destructive",
                       loading: busy,
                       disabled: busy || !retypeOk,
@@ -1166,9 +1141,9 @@ export function AdminStoreCommissionLedgerPage() {
                   >
                     <input type="radio" name="decision" checked={modal.decision === "approve"} onChange={() => setModal({ ...modal, decision: "approve" })} />
                     <span className="sam-text-helper text-sam-fg">
-                      <b>{pickCommissionCopy(lang, "환급 승인", "Approve refund")}</b>
+                      <b>{translateBy(lang, "admin_approve_refund", undefined, "en")}</b>
                       <br />
-                      {pickCommissionCopy(lang, "미납이 먼저 취소되고, 남은 금액만 실제 차감액 한도로 Cash 에 환급됩니다.", "Unpaid is cancelled first; only the remainder returns to Cash, capped at what was paid.")}
+                      {translateBy(lang, "admin_unpaid_is_cancelled_first_only_the", undefined, "en")}
                     </span>
                   </label>
                   {modal.decision === "approve" ? (
@@ -1182,7 +1157,7 @@ export function AdminStoreCommissionLedgerPage() {
                       )}
                       value={modal.amountPhp}
                       onChange={(e) => setModal({ ...modal, amountPhp: e.target.value })}
-                      aria-label={pickCommissionCopy(lang, "승인 금액", "Approved amount")}
+                      aria-label={translateBy(lang, "admin_approved_amount", undefined, "en")}
                     />
                   ) : null}
                   <label
@@ -1192,19 +1167,19 @@ export function AdminStoreCommissionLedgerPage() {
                   >
                     <input type="radio" name="decision" checked={modal.decision === "reject"} onChange={() => setModal({ ...modal, decision: "reject" })} />
                     <span className="sam-text-helper text-sam-fg">
-                      <b>{pickCommissionCopy(lang, "환급 반려", "Reject refund")}</b>
+                      <b>{translateBy(lang, "admin_reject_refund", undefined, "en")}</b>
                       <br />
-                      {pickCommissionCopy(lang, "매장 귀책 취소 등. 차감액 유지, 미납이 있으면 계속 청구됩니다.", "e.g. store-fault cancel. Charge stays; unpaid remains owed.")}
+                      {translateBy(lang, "admin_e_g_store_fault_cancel_charge", undefined, "en")}
                     </span>
                   </label>
                 </fieldset>
                 <textarea
                   className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
                   rows={3}
-                  placeholder={pickCommissionCopy(lang, "처리 사유 (필수, 매장에도 표시됨)", "Reason (required, visible to the store)")}
+                  placeholder={translateBy(lang, "admin_reason_required_visible_to_the_store", undefined, "en")}
                   value={modal.reason}
                   onChange={(e) => setModal({ ...modal, reason: e.target.value })}
-                  aria-label={pickCommissionCopy(lang, "처리 사유", "Reason")}
+                  aria-label={translateBy(lang, "admin_chat_sheet_reason_label", undefined, "en")}
                 />
               </>
             ) : (
@@ -1213,17 +1188,17 @@ export function AdminStoreCommissionLedgerPage() {
                   modal.decision === "approve" ? "border-sam-success bg-sam-success-soft" : "border-sam-danger bg-sam-danger-soft"
                 }`}
               >
-                <p className="font-semibold">{pickCommissionCopy(lang, "이 결정은 되돌릴 수 없습니다.", "This decision is final.")}</p>
+                <p className="font-semibold">{translateBy(lang, "admin_this_decision_is_final", undefined, "en")}</p>
                 {modal.decision === "approve" && decisionPreview ? (
                   <p>
-                    {pickCommissionCopy(lang, "미납 취소", "Unpaid cancelled")} {formatCashMinor(decisionPreview.outstandingCancelMinor)} ·{" "}
-                    {pickCommissionCopy(lang, "Cash 환급", "Cash refund")} {formatCashMinor(decisionPreview.cashRefundMinor)}
+                    {translateBy(lang, "admin_unpaid_cancelled", undefined, "en")} {formatCashMinor(decisionPreview.outstandingCancelMinor)} ·{" "}
+                    {translateBy(lang, "admin_cash_refund", undefined, "en")} {formatCashMinor(decisionPreview.cashRefundMinor)}
                   </p>
                 ) : (
-                  <p>{pickCommissionCopy(lang, "환급 없음 — 금액 이동 없음", "No refund — no money moves")}</p>
+                  <p>{translateBy(lang, "admin_no_refund_no_money_moves", undefined, "en")}</p>
                 )}
                 <p className="break-words">
-                  {pickCommissionCopy(lang, "사유", "Reason")}: {modal.reason}
+                  {translateBy(lang, "admin_reason_2", undefined, "en")}: {modal.reason}
                 </p>
                 {decisionLevel === "L3" ? (
                   <label className="mt-2 block" data-decision-retype="1">
@@ -1238,7 +1213,7 @@ export function AdminStoreCommissionLedgerPage() {
                       className="mt-1 min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm text-sam-fg"
                       value={modal.retype}
                       onChange={(e) => setModal({ ...modal, retype: e.target.value })}
-                      aria-label={pickCommissionCopy(lang, "주문번호 재입력", "Re-type order number")}
+                      aria-label={translateBy(lang, "admin_re_type_order_number", undefined, "en")}
                       autoComplete="off"
                     />
                   </label>

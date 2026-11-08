@@ -5,6 +5,7 @@
  */
 
 import type { ReportStatus, ReportTargetType } from "@/lib/types/report";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const ADMIN_REPORT_LEDGER_SOURCES = [
   "reports",
@@ -30,12 +31,12 @@ export function isAdminReportReadOnlyLedger(s: string): s is AdminReportReadOnly
 }
 
 export const ADMIN_REPORT_LEDGER_LABEL: Record<AdminReportLedgerSource, { ko: string; en: string }> = {
-  reports: { ko: "거래 · reports", en: "Trade · reports" },
-  community_feed: { ko: "커뮤니티 · community_reports", en: "Community · community_reports" },
-  store_reports: { ko: "배달 매장 · store_reports", en: "Store · store_reports" },
-  meeting_reports: { ko: "모임 · meeting_reports", en: "Meeting · meeting_reports" },
-  community_messenger_reports: { ko: "메신저 · community_messenger_reports", en: "Messenger · community_messenger_reports" },
-  chat_reports: { ko: "거래 채팅(구) · chat_reports", en: "Trade chat (legacy) · chat_reports" },
+  reports: catalogPair("admin_reports_trade_reports"),
+  community_feed: catalogPair("admin_reports_community_community_reports"),
+  store_reports: catalogPair("admin_reports_store_store_reports"),
+  meeting_reports: catalogPair("admin_reports_meeting_meeting_reports"),
+  community_messenger_reports: catalogPair("admin_reports_messenger_community_messenger_reports"),
+  chat_reports: catalogPair("admin_reports_trade_chat_legacy_chat_reports"),
 };
 
 /**

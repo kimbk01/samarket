@@ -12,6 +12,7 @@ import {
   type GiftRailPayoutSummary,
 } from "@/lib/gift-certificate/gift-rail-payout";
 import { Sam } from "@/lib/ui/css-vars";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type PayoutRow = {
   id: string;
@@ -23,21 +24,21 @@ type PayoutRow = {
 };
 
 const ERROR_COPY: Record<string, { ko: string; en: string }> = {
-  invalid_args: { ko: "지급액을 확인하세요.", en: "Check the amount." },
-  payout_exceeds_available: { ko: "지급 가능 금액을 초과했습니다.", en: "Amount exceeds the available gift revenue." },
-  payout_method_required: { ko: "지급 수단을 선택하세요.", en: "Choose a payout method." },
-  payout_reference_required: { ko: "지급 참조번호(이체·거래 번호)를 입력하세요.", en: "Enter the payout reference." },
-  payout_reference_duplicate: { ko: "이미 사용된 참조번호입니다.", en: "This payout reference was already used." },
-  idempotency_key_conflict: { ko: "같은 요청이 다른 값으로 처리되었습니다. 새로고침하세요.", en: "Request conflict. Refresh." },
-  not_admin: { ko: "플랫폼 관리자만 지급할 수 있습니다.", en: "Platform admins only." },
-  rpc_missing: { ko: "기능 준비 중입니다(DB 미적용).", en: "Not available yet (DB not applied)." },
+  invalid_args: catalogPair("admin_check_the_amount"),
+  payout_exceeds_available: catalogPair("admin_amount_exceeds_the_available_gift_revenue"),
+  payout_method_required: catalogPair("admin_choose_a_payout_method"),
+  payout_reference_required: catalogPair("admin_enter_the_payout_reference"),
+  payout_reference_duplicate: catalogPair("admin_this_payout_reference_was_already_used"),
+  idempotency_key_conflict: catalogPair("admin_request_conflict_refresh"),
+  not_admin: catalogPair("admin_platform_admins_only"),
+  rpc_missing: catalogPair("admin_not_available_yet_db_not_applied"),
 };
 
 const METHOD_LABEL: Record<GiftRailPayoutMethod, { ko: string; en: string }> = {
-  bank_transfer: { ko: "은행 이체", en: "Bank transfer" },
-  gcash: { ko: "GCash", en: "GCash" },
-  maya: { ko: "Maya", en: "Maya" },
-  other: { ko: "기타", en: "Other" },
+  bank_transfer: catalogPair("admin_bank_transfer"),
+  gcash: catalogPair("admin_points_payment_gcash"),
+  maya: catalogPair("admin_stores_settlements_payout_method_maya"),
+  other: catalogPair("admin_menu_bottom_icon_cat_misc"),
 };
 
 function newFormKey(): string {

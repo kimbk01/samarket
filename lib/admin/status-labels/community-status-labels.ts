@@ -5,129 +5,130 @@
  */
 
 import type { AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminCommunityLabel = { ko: string; en: string; tone: AdminTone };
 type Registry = Record<string, AdminCommunityLabel>;
 
 /** 게시글·댓글 공개 상태 */
 const CONTENT_STATUS: Registry = {
-  active: { ko: "공개", en: "Public", tone: "success" },
-  hidden: { ko: "관리자 숨김", en: "Hidden by admin", tone: "warning" },
-  deleted: { ko: "삭제됨", en: "Deleted", tone: "danger" },
+  active: { ...catalogPair("admin_chat_room_visibility_public"), tone: "success" },
+  hidden: { ...catalogPair("admin_hidden_by_admin"), tone: "warning" },
+  deleted: { ...catalogPair("admin_ads_history_filter_deleted"), tone: "danger" },
 };
 
 /** 피드 신고 상태 (community_reports) */
 const REPORT_STATUS: Registry = {
-  open: { ko: "접수", en: "Received", tone: "waiting" },
-  reviewing: { ko: "검토 중", en: "Reviewing", tone: "progress" },
-  resolved: { ko: "신고 인정", en: "Upheld", tone: "success" },
-  dismissed: { ko: "신고 기각", en: "Dismissed", tone: "neutral" },
+  open: { ...catalogPair("admin_chat_reports_status_received"), tone: "waiting" },
+  reviewing: { ...catalogPair("admin_chat_reports_status_reviewing"), tone: "progress" },
+  resolved: { ...catalogPair("admin_upheld"), tone: "success" },
+  dismissed: { ...catalogPair("admin_dismissed"), tone: "neutral" },
 };
 
 /** 모임 신고 상태 (meeting_reports) */
 const MEETING_REPORT_STATUS: Registry = {
-  pending: { ko: "접수", en: "Received", tone: "waiting" },
-  reviewing: { ko: "검토 중", en: "Reviewing", tone: "progress" },
-  resolved: { ko: "신고 인정", en: "Upheld", tone: "success" },
-  rejected: { ko: "신고 기각", en: "Dismissed", tone: "neutral" },
+  pending: { ...catalogPair("admin_chat_reports_status_received"), tone: "waiting" },
+  reviewing: { ...catalogPair("admin_chat_reports_status_reviewing"), tone: "progress" },
+  resolved: { ...catalogPair("admin_upheld"), tone: "success" },
+  rejected: { ...catalogPair("admin_dismissed"), tone: "neutral" },
 };
 
 /** 신고 대상 */
 const REPORT_TARGET: Registry = {
-  post: { ko: "게시글", en: "Post", tone: "neutral" },
-  comment: { ko: "댓글", en: "Comment", tone: "neutral" },
-  user: { ko: "회원", en: "Member", tone: "neutral" },
-  meeting: { ko: "모임", en: "Meeting", tone: "neutral" },
-  member: { ko: "모임 회원", en: "Meeting member", tone: "neutral" },
-  feed_post: { ko: "모임 게시글", en: "Meeting post", tone: "neutral" },
-  feed_comment: { ko: "모임 댓글", en: "Meeting comment", tone: "neutral" },
-  chat_message: { ko: "모임 채팅", en: "Meeting chat", tone: "neutral" },
-  album_item: { ko: "모임 앨범", en: "Meeting album", tone: "neutral" },
+  post: { ...catalogPair("admin_trade_post_ads_th_post"), tone: "neutral" },
+  comment: { ...catalogPair("admin_community_comments_col_body"), tone: "neutral" },
+  user: { ...catalogPair("admin_users_role_badge_member"), tone: "neutral" },
+  meeting: { ...catalogPair("admin_meeting_reports_target_meeting"), tone: "neutral" },
+  member: { ...catalogPair("admin_meeting_member"), tone: "neutral" },
+  feed_post: { ...catalogPair("admin_meeting_post"), tone: "neutral" },
+  feed_comment: { ...catalogPair("admin_meeting_comment"), tone: "neutral" },
+  chat_message: { ...catalogPair("admin_meeting_chat"), tone: "neutral" },
+  album_item: { ...catalogPair("admin_meeting_album"), tone: "neutral" },
 };
 
 /** 신고 사유 (lib/reports/report-reason-code.ts 코드) */
 const REPORT_REASON: Registry = {
-  fraud: { ko: "사기", en: "Fraud", tone: "danger" },
-  spam: { ko: "스팸·도배", en: "Spam", tone: "warning" },
-  harassment: { ko: "욕설·비방", en: "Harassment", tone: "danger" },
-  fake_listing: { ko: "허위 내용", en: "False content", tone: "warning" },
-  inappropriate: { ko: "부적절한 내용", en: "Inappropriate", tone: "warning" },
-  privacy: { ko: "개인정보 노출", en: "Privacy", tone: "danger" },
-  promo: { ko: "광고·홍보", en: "Advertising", tone: "warning" },
-  etc: { ko: "기타", en: "Other", tone: "neutral" },
-  other: { ko: "기타", en: "Other", tone: "neutral" },
+  fraud: { ...catalogPair("admin_report_reason_fraud"), tone: "danger" },
+  spam: { ...catalogPair("admin_spam"), tone: "warning" },
+  harassment: { ...catalogPair("admin_harassment"), tone: "danger" },
+  fake_listing: { ...catalogPair("admin_false_content"), tone: "warning" },
+  inappropriate: { ...catalogPair("admin_inappropriate"), tone: "warning" },
+  privacy: { ...catalogPair("admin_privacy"), tone: "danger" },
+  promo: { ...catalogPair("admin_advertising"), tone: "warning" },
+  etc: { ...catalogPair("admin_menu_bottom_icon_cat_misc"), tone: "neutral" },
+  other: { ...catalogPair("admin_menu_bottom_icon_cat_misc"), tone: "neutral" },
 };
 
 /** 제재 종류 (sanctions) */
 const SANCTION_KIND: Registry = {
-  warning: { ko: "경고", en: "Warning", tone: "warning" },
-  community_restriction: { ko: "커뮤니티 활동 제한", en: "Community restriction", tone: "danger" },
-  chat_ban: { ko: "채팅 제한", en: "Chat ban", tone: "danger" },
-  temp_suspend: { ko: "계정 정지", en: "Account suspended", tone: "danger" },
-  permanent_ban: { ko: "계정 차단", en: "Account banned", tone: "danger" },
+  warning: { ...catalogPair("admin_rec_mon_summary_warning"), tone: "warning" },
+  community_restriction: { ...catalogPair("admin_community_restriction"), tone: "danger" },
+  chat_ban: { ...catalogPair("admin_chat_ban_2"), tone: "danger" },
+  temp_suspend: { ...catalogPair("admin_account_suspended"), tone: "danger" },
+  permanent_ban: { ...catalogPair("admin_account_banned"), tone: "danger" },
 };
 
 /** 활동 제한 범위 */
 const RESTRICTION_SCOPE: Registry = {
-  post: { ko: "글쓰기 제한", en: "No posting", tone: "danger" },
-  comment: { ko: "댓글 제한", en: "No commenting", tone: "danger" },
-  all: { ko: "커뮤니티 전체 제한", en: "All community", tone: "danger" },
+  post: { ...catalogPair("admin_no_posting"), tone: "danger" },
+  comment: { ...catalogPair("admin_no_commenting"), tone: "danger" },
+  all: { ...catalogPair("admin_all_community"), tone: "danger" },
 };
 
 /** 활동 제한 진행 상태 (파생값) */
 const RESTRICTION_STATE: Registry = {
-  active: { ko: "제한 중", en: "Active", tone: "danger" },
-  expired: { ko: "기간 만료", en: "Expired", tone: "neutral" },
-  revoked: { ko: "해제됨", en: "Lifted", tone: "success" },
+  active: { ...catalogPair("admin_active_3"), tone: "danger" },
+  expired: { ...catalogPair("admin_expired"), tone: "neutral" },
+  revoked: { ...catalogPair("admin_lifted"), tone: "success" },
 };
 
 /** 계정 상태 (profiles.status) */
 const ACCOUNT_STATUS: Registry = {
-  active: { ko: "정상", en: "Active", tone: "success" },
-  suspended: { ko: "계정 정지", en: "Suspended", tone: "danger" },
-  blocked: { ko: "계정 차단", en: "Banned", tone: "danger" },
-  withdrawn: { ko: "탈퇴", en: "Withdrawn", tone: "neutral" },
+  active: { ...catalogPair("admin_users_lite_status_active"), tone: "success" },
+  suspended: { ...catalogPair("admin_suspended"), tone: "danger" },
+  blocked: { ...catalogPair("admin_banned"), tone: "danger" },
+  withdrawn: { ...catalogPair("admin_withdrawn"), tone: "neutral" },
 };
 
 /** 작성 구분 (community_posts.origin_kind) */
 const ORIGIN_KIND: Registry = {
-  member: { ko: "회원 작성", en: "Member", tone: "neutral" },
-  imported: { ko: "외부 수집", en: "Imported", tone: "progress" },
-  admin: { ko: "운영팀", en: "DIBAY team", tone: "progress" },
+  member: { ...catalogPair("admin_member_2"), tone: "neutral" },
+  imported: { ...catalogPair("admin_imported"), tone: "progress" },
+  admin: { ...catalogPair("admin_dibay_team"), tone: "progress" },
 };
 
 /** 홍보 주문 상태 (point_promotion_orders) */
 const PROMOTION_STATUS: Registry = {
-  active: { ko: "노출 중", en: "Live", tone: "success" },
-  paused: { ko: "노출 중지", en: "Paused", tone: "warning" },
-  ended: { ko: "종료", en: "Ended", tone: "neutral" },
-  expired: { ko: "기간 만료", en: "Expired", tone: "neutral" },
-  rejected: { ko: "반려", en: "Rejected", tone: "neutral" },
-  cancelled: { ko: "취소", en: "Cancelled", tone: "neutral" },
-  pending_review: { ko: "심사 대기(이전 방식)", en: "Pending (legacy)", tone: "waiting" },
+  active: { ...catalogPair("admin_live"), tone: "success" },
+  paused: { ...catalogPair("admin_paused_2"), tone: "warning" },
+  ended: { ...catalogPair("admin_ended"), tone: "neutral" },
+  expired: { ...catalogPair("admin_expired"), tone: "neutral" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "neutral" },
+  cancelled: { ...catalogPair("admin_cancelled_3"), tone: "neutral" },
+  pending_review: { ...catalogPair("admin_pending_legacy"), tone: "waiting" },
 };
 
 /** 홍보 종료 귀책 */
 const PROMOTION_FAULT: Registry = {
-  operator: { ko: "운영 사유 (환급)", en: "Operator (refund)", tone: "progress" },
-  member: { ko: "회원 사유 (환급 없음)", en: "Member (no refund)", tone: "neutral" },
-  none: { ko: "해당 없음", en: "None", tone: "neutral" },
+  operator: { ...catalogPair("admin_operator_refund"), tone: "progress" },
+  member: { ...catalogPair("admin_ads_w3_promotion_fault_member"), tone: "neutral" },
+  none: { ...catalogPair("admin_del_ops_queue_none"), tone: "neutral" },
 };
 
 /** 충전 신청 상태 */
 const CHARGE_STATUS: Registry = {
-  pending: { ko: "승인 대기", en: "Pending", tone: "waiting" },
-  waiting_confirm: { ko: "입금 확인 대기", en: "Awaiting payment", tone: "waiting" },
-  on_hold: { ko: "보류", en: "On hold", tone: "warning" },
-  approved: { ko: "승인", en: "Approved", tone: "success" },
-  rejected: { ko: "반려", en: "Rejected", tone: "neutral" },
-  cancelled: { ko: "회원 취소", en: "Cancelled", tone: "neutral" },
+  pending: { ...catalogPair("admin_pending_2"), tone: "waiting" },
+  waiting_confirm: { ...catalogPair("admin_awaiting_payment"), tone: "waiting" },
+  on_hold: { ...catalogPair("admin_on_hold"), tone: "warning" },
+  approved: { ...catalogPair("admin_approved"), tone: "success" },
+  rejected: { ...catalogPair("admin_rejected"), tone: "neutral" },
+  cancelled: { ...catalogPair("admin_cancelled_4"), tone: "neutral" },
 };
 
 /** 고정 범위 */
 const PIN_SCOPE: Registry = {
-  feed: { ko: "피드 전체 고정", en: "Pinned to feed", tone: "progress" },
-  topic: { ko: "카테고리 고정", en: "Pinned to category", tone: "progress" },
+  feed: { ...catalogPair("admin_pinned_to_feed"), tone: "progress" },
+  topic: { ...catalogPair("admin_pinned_to_category"), tone: "progress" },
 };
 
 const REGISTRIES = {

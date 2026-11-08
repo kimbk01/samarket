@@ -32,6 +32,7 @@ import {
 } from "@/lib/admin/data-reset/ui-capability";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type View = "list" | "detail" | "preview";
 
@@ -138,9 +139,9 @@ type ExecuteOutcome =
   | { kind: "notice"; text: string };
 
 const EXECUTE_OVERALL_LABEL: Record<ExecuteOverall, { ko: string; en: string; tone: AdminTone }> = {
-  SUCCESS: { ko: "성공", en: "Success", tone: "success" },
-  PARTIAL: { ko: "부분 성공", en: "Partial success", tone: "warning" },
-  FAILED: { ko: "실패", en: "Failed", tone: "danger" },
+  SUCCESS: { ...catalogPair("admin_del_alert_th_success"), tone: "success" },
+  PARTIAL: { ...catalogPair("admin_partial_success"), tone: "warning" },
+  FAILED: { ...catalogPair("admin_meeting_engine_err_generic"), tone: "danger" },
 };
 
 function asExecuteOverall(v: unknown): ExecuteOverall | null {

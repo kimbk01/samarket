@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Admin CTA 어휘 SSOT (수정 계획 2-1) — 같은 동작은 같은 단어. 화면 문구는 이 표에서만 가져온다.
  * 표 행 안 = 동사만(「승인」) · 헤더·상세 Drawer = 목적어+동사(「광고 승인」)는 호출부가 붙인다.
  * 금지 단어(`ADMIN_CTA_FORBIDDEN`)는 래칫 테스트가 표준 적용 화면에서 0건을 강제한다.
@@ -6,26 +7,26 @@
  */
 
 export const ADMIN_CTA = {
-  search: { ko: "조회", en: "Search" },
-  reset: { ko: "초기화", en: "Reset" },
-  refresh: { ko: "새로고침", en: "Refresh" },
-  save: { ko: "저장", en: "Save" },
-  cancel: { ko: "취소", en: "Cancel" },
-  create: { ko: "등록", en: "Create" },
-  edit: { ko: "수정", en: "Edit" },
-  approve: { ko: "승인", en: "Approve" },
-  reject: { ko: "반려", en: "Reject" },
-  hold: { ko: "보류", en: "Hold" },
-  sanction: { ko: "제재", en: "Sanction" },
-  liftSanction: { ko: "제재 해제", en: "Lift sanction" },
-  exposeStart: { ko: "노출 시작", en: "Start exposure" },
-  exposeStop: { ko: "노출 중지", en: "Stop exposure" },
-  refund: { ko: "환불", en: "Refund" },
-  payout: { ko: "지급", en: "Pay out" },
-  delete: { ko: "삭제", en: "Delete" },
-  exportCsv: { ko: "CSV 내보내기", en: "Export CSV" },
-  detail: { ko: "상세", en: "Details" },
-  close: { ko: "닫기", en: "Close" },
+  search: catalogPair("admin_r4b_pay_search"),
+  reset: catalogPair("admin_biz_ops_filter_reset"),
+  refresh: catalogPair("admin_dash_v4_refresh"),
+  save: catalogPair("admin_save"),
+  cancel: catalogPair("admin_cancel"),
+  create: catalogPair("admin_banners_submit_register"),
+  edit: catalogPair("admin_banners_overview_edit"),
+  approve: catalogPair("admin_meeting_engine_action_approve"),
+  reject: catalogPair("admin_meeting_engine_action_reject"),
+  hold: catalogPair("admin_delivery_ads_action_request_changes"),
+  sanction: catalogPair("admin_sanction"),
+  liftSanction: catalogPair("admin_lift_sanction"),
+  exposeStart: catalogPair("admin_platform_popup_action_go_live"),
+  exposeStop: catalogPair("admin_platform_popup_action_pause"),
+  refund: catalogPair("admin_ops_console_focus_refund"),
+  payout: catalogPair("admin_pay_out"),
+  delete: catalogPair("admin_ad_delete_confirm"),
+  exportCsv: catalogPair("admin_export_csv"),
+  detail: catalogPair("admin_rel_action_detail"),
+  close: catalogPair("admin_close"),
 } as const;
 
 export type AdminCtaKey = keyof typeof ADMIN_CTA;

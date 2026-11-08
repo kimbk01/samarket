@@ -8,6 +8,7 @@
 
 import { isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type CampaignCreateType = "notice" | "marketing" | "system";
 
@@ -124,48 +125,36 @@ export const CAMPAIGN_APP_SCREEN_PRESETS: readonly { path: string; ko: string; e
 ];
 
 const ERROR_COPY: Record<string, { ko: string; en: string }> = {
-  notice_content_required: { ko: "열릴 화면(목적지)을 고르세요.", en: "Choose where the notification opens." },
-  system_bulletin_content_required: { ko: "시스템 안내는 고객센터 글을 골라야 합니다.", en: "System bulletins need a post." },
-  marketing_source_required: { ko: "열릴 화면(목적지)을 고르세요.", en: "Choose where the notification opens." },
-  campaign_source_required: { ko: "열릴 화면(목적지)을 확인하세요.", en: "Check where the notification opens." },
-  invalid_content_bind: { ko: "고른 글을 다시 선택하세요.", en: "Select the post again." },
-  invalid_link: { ko: "열 수 없는 앱 화면 경로입니다.", en: "That app screen path is not allowed." },
-  content_source_missing: { ko: "고른 고객센터 글을 찾을 수 없습니다.", en: "The post was not found." },
-  content_source_unavailable: {
-    ko: "고른 고객센터 글이 숨김·기간 외·보관 상태입니다. 게시 상태를 확인하세요.",
-    en: "The post is hidden, out of period or archived.",
-  },
-  content_source_lookup_failed: { ko: "글 상태를 확인하지 못했습니다. 잠시 후 다시 발송하세요.", en: "Could not check the post." },
-  event_source_missing: { ko: "고른 이벤트를 찾을 수 없습니다.", en: "The event was not found." },
-  event_source_unpublished: { ko: "이벤트를 먼저 게시해야 발송할 수 있습니다.", en: "Publish the event first." },
-  event_source_unavailable: { ko: "이벤트가 지금 노출 기간이 아닙니다.", en: "The event is not currently available." },
-  segment_unsupported: { ko: "이 대상은 아직 지원되지 않습니다.", en: "This audience is not supported yet." },
-  draft_selected_users_targets_missing: { ko: "받을 회원 ID를 입력하세요.", en: "Enter recipient member IDs." },
-  user_ids_required: { ko: "테스트로 받을 계정이 없습니다.", en: "No test recipient." },
-  scheduled_at_must_be_future: { ko: "예약 시각은 지금 이후여야 합니다.", en: "The scheduled time must be in the future." },
-  invalid_target_type: { ko: "받는 사람 선택이 올바르지 않습니다.", en: "Invalid audience." },
-  push_only_retired: {
-    ko: "「푸시만」 보내기는 없어졌습니다. 「알림함+푸시」로 보내 주세요.",
-    en: "Push-only is retired. Send as inbox + push.",
-  },
-  marketing_opt_in_retired: {
-    ko: "「광고 수신 동의 회원」 대상은 없어졌습니다. 동의는 푸시를 보낼 때 자동으로 확인합니다.",
-    en: "The opt-in audience is retired. Consent is checked when sending push.",
-  },
-  push_preview_failed: {
-    ko: "푸시 받을 인원을 계산하지 못했습니다. 새로고침해 주세요.",
-    en: "Could not count push recipients. Please refresh.",
-  },
-  invalid_fields: { ko: "입력값을 확인하세요.", en: "Check the fields." },
-  occurrence_already_exists: { ko: "이미 발송했거나 발송 중인 알림입니다.", en: "Already sent or sending." },
-  occurrence_already_sending: { ko: "이미 발송 중입니다.", en: "Already sending." },
-  occurrence_not_sendable: { ko: "지금 발송할 수 없는 상태입니다.", en: "Not sendable right now." },
-  illegal_status_transition: { ko: "현재 상태에서는 이 동작을 할 수 없습니다.", en: "Not allowed in the current status." },
-  campaign_archived: { ko: "보관된 알림은 발송할 수 없습니다.", en: "Archived campaigns cannot be sent." },
-  admin_actor_suspended: { ko: "정지된 운영자 계정은 발송할 수 없습니다.", en: "Suspended operators cannot send." },
-  forbidden: { ko: "발송 권한이 없습니다.", en: "No permission to send." },
-  server_misconfigured: { ko: "서버 설정 오류로 처리하지 못했습니다.", en: "Server configuration error." },
-  upload_failed: { ko: "이미지를 올리지 못했습니다. JPG·PNG·WEBP 파일인지 확인하세요.", en: "Image upload failed." },
+  notice_content_required: catalogPair("admin_choose_where_the_notification_opens"),
+  system_bulletin_content_required: catalogPair("admin_system_bulletins_need_a_post"),
+  marketing_source_required: catalogPair("admin_choose_where_the_notification_opens"),
+  campaign_source_required: catalogPair("admin_check_where_the_notification_opens"),
+  invalid_content_bind: catalogPair("admin_select_the_post_again"),
+  invalid_link: catalogPair("admin_that_app_screen_path_is_not"),
+  content_source_missing: catalogPair("admin_the_post_was_not_found"),
+  content_source_unavailable: catalogPair("admin_the_post_is_hidden_out_of"),
+  content_source_lookup_failed: catalogPair("admin_could_not_check_the_post"),
+  event_source_missing: catalogPair("admin_the_event_was_not_found"),
+  event_source_unpublished: catalogPair("admin_publish_the_event_first"),
+  event_source_unavailable: catalogPair("admin_the_event_is_not_currently_available"),
+  segment_unsupported: catalogPair("admin_this_audience_is_not_supported_yet"),
+  draft_selected_users_targets_missing: catalogPair("admin_enter_recipient_member_ids"),
+  user_ids_required: catalogPair("admin_no_test_recipient"),
+  scheduled_at_must_be_future: catalogPair("admin_the_scheduled_time_must_be_in"),
+  invalid_target_type: catalogPair("admin_invalid_audience"),
+  push_only_retired: catalogPair("admin_push_only_is_retired_send_as"),
+  marketing_opt_in_retired: catalogPair("admin_the_opt_in_audience_is_retired"),
+  push_preview_failed: catalogPair("admin_could_not_count_push_recipients_please"),
+  invalid_fields: catalogPair("admin_check_the_fields"),
+  occurrence_already_exists: catalogPair("admin_already_sent_or_sending"),
+  occurrence_already_sending: catalogPair("admin_already_sending"),
+  occurrence_not_sendable: catalogPair("admin_not_sendable_right_now"),
+  illegal_status_transition: catalogPair("admin_not_allowed_in_the_current_status"),
+  campaign_archived: catalogPair("admin_archived_campaigns_cannot_be_sent"),
+  admin_actor_suspended: catalogPair("admin_suspended_operators_cannot_send"),
+  forbidden: catalogPair("admin_no_permission_to_send"),
+  server_misconfigured: catalogPair("admin_server_configuration_error"),
+  upload_failed: catalogPair("admin_image_upload_failed"),
 };
 
 /** 서버 오류 코드 → 화면 문구 (영문 원문·코드 노출 금지). 모르는 코드는 기본 문구 + 코드. */

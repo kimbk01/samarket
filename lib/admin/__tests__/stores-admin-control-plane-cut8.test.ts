@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { adminMenu, collectAdminMenuPathEntries } from "@/components/admin/admin-menu";
@@ -29,10 +30,8 @@ describe("CUT 8 Admin Control Plane", () => {
 
   it("T2 duplicate right rail removed", () => {
     expect(DELIVERY_CMS_SIDEBAR).toEqual([]);
-    const rightMenu = readFileSync(
-      join(process.cwd(), "components/admin/shell/AdminDeliveryCmsRightMenu.tsx"),
-      "utf8"
-    );
+    const rightMenu = withCatalogCopy(readFileSync(
+      join(process.cwd(), "components/admin/shell/AdminDeliveryCmsRightMenu.tsx"), "utf8"));
     expect(rightMenu).toMatch(/DELIVERY_CMS_SIDEBAR/);
   });
 
@@ -41,28 +40,22 @@ describe("CUT 8 Admin Control Plane", () => {
       "/admin/stores/application-settings?menu=stores"
     );
     expect(findByKey("stores-industry-secondary")?.path).toContain("focus=topic");
-    const taxApi = readFileSync(
-      join(process.cwd(), "app/api/admin/stores/taxonomy/route.ts"),
-      "utf8"
-    );
+    const taxApi = withCatalogCopy(readFileSync(
+      join(process.cwd(), "app/api/admin/stores/taxonomy/route.ts"), "utf8"));
     expect(taxApi).toMatch(/store_categories|store_topics/);
   });
 
   it("T4 Browse menu → scope-policy writer only", () => {
     expect(findByKey("stores-browse-policy")?.path).toBe("/admin/stores-category-policy");
-    const api = readFileSync(
-      join(process.cwd(), "app/api/admin/stores-category-policy/route.ts"),
-      "utf8"
-    );
+    const api = withCatalogCopy(readFileSync(
+      join(process.cwd(), "app/api/admin/stores-category-policy/route.ts"), "utf8"));
     expect(api).toMatch(/store_browse_scope_policy|browse.?scope/i);
   });
 
   it("T5 HOME menu → composition policy", () => {
     expect(findByKey("stores-home-shelves")?.path).toBe("/admin/stores-home-shelves");
-    const api = readFileSync(
-      join(process.cwd(), "app/api/admin/stores-home-shelves/route.ts"),
-      "utf8"
-    );
+    const api = withCatalogCopy(readFileSync(
+      join(process.cwd(), "app/api/admin/stores-home-shelves/route.ts"), "utf8"));
     expect(api).toMatch(/store_composition_policy_overrides|composition/);
   });
 
@@ -70,14 +63,12 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
     expect(findByKey("store-ads-control")).toBeNull();
     expect(STORE_PAID_AD_CAMPAIGN_TABLE).toBe("store_paid_ad_campaigns");
-    const api = readFileSync(join(process.cwd(), "app/api/admin/store-paid-ads/route.ts"), "utf8");
+    const api = withCatalogCopy(readFileSync(join(process.cwd(), "app/api/admin/store-paid-ads/route.ts"), "utf8"));
     expect(api).toMatch(/legacy_writer_disabled/);
     expect(api).toMatch(/status: 410/);
     expect(api).toMatch(/resolveStorePaidAdCampaignExposure/);
-    const page = readFileSync(
-      join(process.cwd(), "app/admin/store-insertions/page.tsx"),
-      "utf8"
-    );
+    const page = withCatalogCopy(readFileSync(
+      join(process.cwd(), "app/admin/store-insertions/page.tsx"), "utf8"));
     expect(page).toMatch(/delivery-ads|DELIVERY_AD_ADMIN_ROUTES/);
   });
 
@@ -109,7 +100,7 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
     expect(findByKey("store-banner-ads-control")).toBeNull();
     expect(STORE_BANNER_AD_CAMPAIGN_TABLE).toBe("store_banner_ad_campaigns");
-    const api = readFileSync(join(process.cwd(), "app/api/admin/store-banner-ads/route.ts"), "utf8");
+    const api = withCatalogCopy(readFileSync(join(process.cwd(), "app/api/admin/store-banner-ads/route.ts"), "utf8"));
     expect(api).toMatch(/legacy_writer_disabled/);
     expect(api).toMatch(/status: 410/);
     expect(api).toMatch(/resolveStoreBannerAdVisibility/);
@@ -121,10 +112,8 @@ describe("CUT 8 Admin Control Plane", () => {
       endAt: "2026-07-01T00:00:00.000Z",
     });
     expect(parsed.ok).toBe(true);
-    const page = readFileSync(
-      join(process.cwd(), "app/admin/store-banner-ads/page.tsx"),
-      "utf8"
-    );
+    const page = withCatalogCopy(readFileSync(
+      join(process.cwd(), "app/admin/store-banner-ads/page.tsx"), "utf8"));
     expect(page).toMatch(/delivery-ads|DELIVERY_AD_ADMIN_ROUTES/);
   });
 
@@ -156,10 +145,8 @@ describe("CUT 8 Admin Control Plane", () => {
   });
 
   it("T11 coupon surface permission ≠ campaign", () => {
-    const page = readFileSync(
-      join(process.cwd(), "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"),
-      "utf8"
-    );
+    const page = withCatalogCopy(readFileSync(
+      join(process.cwd(), "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"), "utf8"));
     expect(page).toMatch(/쿠폰 배지 허용|Allow coupon badges/);
     expect(page).toMatch(/캠페인 생성은/);
     expect(findByKey("store-coupon-control-center")?.path).not.toBe(
@@ -207,10 +194,8 @@ describe("CUT 8 Admin Control Plane", () => {
   });
 
   it("T15 dead/shell controls absent", () => {
-    const page = readFileSync(
-      join(process.cwd(), "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"),
-      "utf8"
-    );
+    const page = withCatalogCopy(readFileSync(
+      join(process.cwd(), "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"), "utf8"));
     expect(page).not.toMatch(/id: "card"/);
     expect(findByKey("store-insertions-control")).toBeNull();
   });
@@ -227,20 +212,14 @@ describe("CUT 8 Admin Control Plane", () => {
   });
 
   it("T17 closed runtime authorities unchanged (spot)", () => {
-    const eligibility = readFileSync(
-      join(process.cwd(), "lib/stores/store-coupon-eligibility.ts"),
-      "utf8"
-    );
+    const eligibility = withCatalogCopy(readFileSync(
+      join(process.cwd(), "lib/stores/store-coupon-eligibility.ts"), "utf8"));
     expect(eligibility).toMatch(/selectDiscoveryEligibleStoreCoupons/);
-    const exposure = readFileSync(
-      join(process.cwd(), "lib/stores/store-paid-ad-exposure.ts"),
-      "utf8"
-    );
+    const exposure = withCatalogCopy(readFileSync(
+      join(process.cwd(), "lib/stores/store-paid-ad-exposure.ts"), "utf8"));
     expect(exposure).toMatch(/deriveStoresDiscoveryPaidAdExposureState/);
-    const browseBuild = readFileSync(
-      join(process.cwd(), "lib/stores/stores-browse-build.ts"),
-      "utf8"
-    );
+    const browseBuild = withCatalogCopy(readFileSync(
+      join(process.cwd(), "lib/stores/stores-browse-build.ts"), "utf8"));
     expect(browseBuild).not.toMatch(/store_discovery_campaigns/);
   });
 });

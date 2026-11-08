@@ -28,6 +28,7 @@ import type {
   AdminDomainMetric,
   AdminDomainRecentItem,
 } from "@/lib/admin/domain-dashboard/types";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type CommunityDashboardInput = {
   /** today | 7d | 30d | custom (from,to = 마닐라 YYYY-MM-DD) — 기간 통계에만 적용 */
@@ -158,7 +159,7 @@ export async function loadCommunityDomainDashboard(input: CommunityDashboardInpu
     actionRequired,
     domainHealth: periodStats,
     issues,
-    issuesCta: { ko: "확인하기", en: "Review" },
+    issuesCta: catalogPair("admin_review"),
     primaryEntries: [
       { id: "reports", labelKo: "신고 처리함", labelEn: "Reports", href: `${ARO_IA_001_COMMUNITY_REPORTS_PATH}?tab=pending`, frequency: "DAILY_CRITICAL" },
       { id: "meeting", labelKo: "모임 신고", labelEn: "Meeting reports", href: `${ARO_IA_001_MEETING_REPORTS_PATH}?status=pending`, frequency: "DAILY_CRITICAL" },

@@ -17,6 +17,7 @@ import type { DeliveryAdPackageRow } from "@/lib/stores/advertising/delivery-ad-
 import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export const ADS_PRODUCTS_PLACEMENTS_HREF = "/admin/advertising/placements";
 export const ADS_PRODUCTS_DELIVERY_COMMERCIAL_HREF =
@@ -110,13 +111,13 @@ export type AdsCommercialControlModel = {
 function sellLabel(state: AdsCommercialSellState): { ko: string; en: string } {
   switch (state) {
     case "selling":
-      return { ko: "판매 중", en: "On sale" };
+      return catalogPair("admin_trade_post_status_active");
     case "paused":
-      return { ko: "판매 중지", en: "Paused" };
+      return catalogPair("admin_paused");
     case "admin_only":
-      return { ko: "운영자 전용", en: "Admin only" };
+      return catalogPair("admin_admin_only");
     case "not_released":
-      return { ko: "미출시", en: "Not released" };
+      return catalogPair("admin_not_released");
   }
 }
 

@@ -23,6 +23,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type MembershipRow = {
   id: string;
@@ -145,9 +146,9 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     // v4 UI-11 — 승인·반려·종료는 확인 후 실행
     const ko = lang !== "en";
     const copy = {
-      approve: { ko: "Partner 가입을 승인할까요?", en: "Approve this Partner membership?", cta: ko ? "승인" : "Approve" },
-      reject: { ko: "Partner 가입을 반려할까요?", en: "Reject this Partner membership?", cta: ko ? "반려" : "Reject" },
-      end: { ko: "Partner 멤버십을 종료할까요?", en: "End this Partner membership?", cta: ko ? "종료" : "End" },
+      approve: { ...catalogPair("admin_approve_this_partner_membership"), cta: ko ? "승인" : "Approve" },
+      reject: { ...catalogPair("admin_reject_this_partner_membership"), cta: ko ? "반려" : "Reject" },
+      end: { ...catalogPair("admin_end_this_partner_membership"), cta: ko ? "종료" : "End" },
     }[op];
     // 승인·반려 = 매장 금전 영향(L2 · 사유를 API 로 전송), 종료 = 사용 끄기(L1)
     const confirmed = await confirmAdminAction({

@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Human placement labels for Admin / Member / Owner ops UI.
  * Never expose raw inventory keys as primary copy.
  */
@@ -6,65 +7,29 @@
 export type PlacementLabel = { ko: string; en: string };
 
 const PLACEMENT_LABELS: Record<string, PlacementLabel> = {
-  STORES_HOME_HERO: {
-    ko: "배달 > 홈 > 상단 배너",
-    en: "Delivery > Home > Top banner",
-  },
-  STORES_HOME_FEED: {
-    ko: "배달 > 홈 > 매장 목록",
-    en: "Delivery > Home > Store list",
-  },
-  STORES_CATEGORY_FEED: {
-    ko: "배달 > 업종 > 매장 목록",
-    en: "Delivery > Category > Store list",
-  },
-  STORES_HOME_INLINE_1: {
-    ko: "배달 > 홈 > 중간 배너",
-    en: "Delivery > Home > Inline banner",
-  },
-  STORES_CATEGORY_TOP: {
-    ko: "배달 > 업종 > 상단 배너",
-    en: "Delivery > Category > Top banner",
-  },
-  STORES_SEARCH_TOP: {
-    ko: "배달 > 검색 > 상단 배너",
-    en: "Delivery > Search > Top banner",
-  },
-  TRADE_HOME: {
-    ko: "거래 > 홈 > 피드 배너",
-    en: "Trade > Home > Feed banner",
-  },
-  TRADE_CATEGORY: {
-    ko: "거래 > 카테고리 > 피드 배너",
-    en: "Trade > Category > Feed banner",
-  },
-  COMMUNITY_HOME: {
-    ko: "커뮤니티 > 홈 > 피드 배너",
-    en: "Community > Home > Feed banner",
-  },
-  COMMUNITY_TOPIC: {
-    ko: "커뮤니티 > 주제 > 피드 배너",
-    en: "Community > Topic > Feed banner",
-  },
-  feed_boost: {
-    ko: "거래 > 게시물 상위노출",
-    en: "Trade > Post top exposure",
-  },
-  community_top_pin: {
-    ko: "커뮤니티 > 게시물 상위노출",
-    en: "Community > Post top exposure",
-  },
-  GLOBAL: { ko: "전체 서비스 팝업", en: "All-service popup" },
-  COMMUNITY: { ko: "커뮤니티 팝업", en: "Community popup" },
-  TRADE: { ko: "거래 팝업", en: "Trade popup" },
-  DELIVERY: { ko: "배달 팝업", en: "Delivery popup" },
-  DELIVERY_OWNER: { ko: "배달 사장님 팝업", en: "Delivery owner popup" },
-  ADMIN: { ko: "관리자 팝업", en: "Admin popup" },
-  MYPAGE: { ko: "마이페이지 팝업", en: "My page popup" },
+  STORES_HOME_HERO: catalogPair("admin_delivery_home_top_banner"),
+  STORES_HOME_FEED: catalogPair("admin_delivery_home_store_list"),
+  STORES_CATEGORY_FEED: catalogPair("admin_delivery_category_store_list"),
+  STORES_HOME_INLINE_1: catalogPair("admin_delivery_home_inline_banner"),
+  STORES_CATEGORY_TOP: catalogPair("admin_delivery_category_top_banner"),
+  STORES_SEARCH_TOP: catalogPair("admin_delivery_search_top_banner"),
+  TRADE_HOME: catalogPair("admin_trade_home_feed_banner"),
+  TRADE_CATEGORY: catalogPair("admin_trade_category_feed_banner"),
+  COMMUNITY_HOME: catalogPair("admin_community_home_feed_banner"),
+  COMMUNITY_TOPIC: catalogPair("admin_community_topic_feed_banner"),
+  feed_boost: catalogPair("admin_trade_post_top_exposure"),
+  community_top_pin: catalogPair("admin_community_post_top_exposure"),
+  GLOBAL: catalogPair("admin_all_service_popup"),
+  COMMUNITY: catalogPair("admin_community_popup"),
+  TRADE: catalogPair("admin_trade_popup"),
+  DELIVERY: catalogPair("admin_delivery_popup"),
+  DELIVERY_OWNER: catalogPair("admin_delivery_owner_popup"),
+  ADMIN: catalogPair("admin_admin_popup"),
+  MYPAGE: catalogPair("admin_my_page_popup"),
   /** 재감사 R3 (A-5): 배달 매장 목록 상위홍보 — 신청·실제 위치 이름표가 같은 이름을 쓴다 */
-  STORES_LIST_PROMOTE: { ko: "배달 > 매장 목록 > 상위홍보", en: "Delivery > Store list > Promote" },
-  팝업: { ko: "팝업", en: "Popup" },
-  "기존 거래 광고": { ko: "기존 거래 광고", en: "Legacy trade ad" },
+  STORES_LIST_PROMOTE: catalogPair("admin_delivery_store_list_promote"),
+  팝업: catalogPair("admin_ad_kind_popup_campaign"),
+  "기존 거래 광고": catalogPair("admin_legacy_trade_ad"),
 };
 
 /**
@@ -96,13 +61,13 @@ export function humanPopupSurfaceShortLabel(
 ): string {
   const raw = String(key ?? "GLOBAL").trim().toUpperCase();
   const labels: Record<string, PlacementLabel> = {
-    GLOBAL: { ko: "전체 서비스", en: "All services" },
-    COMMUNITY: { ko: "커뮤니티", en: "Community" },
-    TRADE: { ko: "거래", en: "Trade" },
-    DELIVERY: { ko: "배달", en: "Delivery" },
-    DELIVERY_OWNER: { ko: "배달 사장님", en: "Delivery owner" },
-    ADMIN: { ko: "관리자", en: "Admin" },
-    MYPAGE: { ko: "마이페이지", en: "My page" },
+    GLOBAL: catalogPair("admin_all_services"),
+    COMMUNITY: catalogPair("admin_community"),
+    TRADE: catalogPair("admin_trade"),
+    DELIVERY: catalogPair("admin_delivery"),
+    DELIVERY_OWNER: catalogPair("admin_delivery_owner"),
+    ADMIN: catalogPair("admin_admin"),
+    MYPAGE: catalogPair("admin_my_page"),
   };
   const values = raw.split(",").map((surface) => {
     const hit = labels[surface.trim()];

@@ -171,11 +171,10 @@ function mutatingQuietCtaBlocks(s: string): string[] {
     if (!/\bvariant=\s*\{?\s*["'](?:ghost|quiet)["']/.test(block)) continue;
     if (!/\bonClick=/.test(block)) continue;
     /**
-     * 언어 SSOT S6: `safeT("키", { fallbackKo })` 의 대체 문구가 지워져도 같은 화면 단어로 판정한다
-     * (S6 전과 같은 범위 — `safeT("키")` 만 카탈로그 문구로 푼다. `t("키")` 까지 넓히는 것은 발견 목록 L12).
+     * 언어 SSOT S6: 버튼 글자가 카탈로그로 옮겨져도(translateBy·catalogPair·대체 문구 지운 safeT) 같은 화면 단어로 판정한다.
+     * S6 전과 같은 범위 — `t("키")` 까지 넓히는 것은 발견 목록 L12.
      */
-    const safeTKeys = [...block.matchAll(/\bsafeT\(\s*["']([a-z0-9_]+)["']/g)].map((x) => `"${x[1]}"`).join(" ");
-    const text = `${block}\n${withCatalogCopy(safeTKeys)}`;
+    const text = withCatalogCopy(block);
     if (MUTATING_CTA_KEYS.test(block) || MUTATING_CTA_WORDS.test(text) || /text-sam-danger/.test(block)) {
       out.push(block.slice(0, 60));
     }

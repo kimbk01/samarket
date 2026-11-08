@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Admin store order detail — money / items / request SSOT shared by every order-ops screen
  * (주문 목록 · 주문 액션 · 취소 요청 · 환불 요청 · 감사 로그 · 주문 채팅) through the one detail modal.
  * Design: docs/admin-store-order-ops-ssot.md §2 (amounts verified on all production orders).
@@ -100,13 +101,10 @@ export type AdminOrderMoneyMismatch =
   | "amount_mismatch";
 
 export const ADMIN_ORDER_MONEY_MISMATCH_LABEL: Record<AdminOrderMoneyMismatch, { ko: string; en: string }> = {
-  gift_not_on_order: { ko: "상품권 금액 주문 미기록 (사용 기록 기준 표시)", en: "Gift amount missing on order (redemption record shown)" },
-  gift_not_deducted: { ko: "금액 기록 불일치 — 상품권 미차감", en: "Amount record mismatch — gift not deducted" },
-  gift_reversed_order_open: {
-    ko: "금액 기록 불일치 — 상품권 복원됨, 주문 진행 중",
-    en: "Amount record mismatch — gift reversed while order is open",
-  },
-  amount_mismatch: { ko: "금액 불일치", en: "Amount mismatch" },
+  gift_not_on_order: catalogPair("admin_gift_amount_missing_on_order_redemption"),
+  gift_not_deducted: catalogPair("admin_amount_record_mismatch_gift_not_deducted"),
+  gift_reversed_order_open: catalogPair("admin_amount_record_mismatch_gift_reversed_while"),
+  amount_mismatch: catalogPair("admin_amount_mismatch"),
 };
 
 const CLOSED_ORDER_STATUSES = new Set(["completed", "cancelled", "refunded"]);
@@ -172,16 +170,16 @@ export function buildAdminOrderMoney(
 }
 
 /** `store_orders.buyer_payment_method` — no PG integration (store_payments is empty). */
-export const ADMIN_ORDER_PAYMENT_METHOD_MISSING = { ko: "결제수단 미기록", en: "Payment method not recorded" };
+export const ADMIN_ORDER_PAYMENT_METHOD_MISSING = catalogPair("admin_payment_method_not_recorded");
 
 export type AdminOrderRequester = "buyer" | "owner" | "admin" | "system" | "unknown";
 
 export const ADMIN_ORDER_REQUESTER_LABEL: Record<AdminOrderRequester, { ko: string; en: string }> = {
-  buyer: { ko: "구매자", en: "Buyer" },
-  owner: { ko: "매장", en: "Store" },
-  admin: { ko: "관리자", en: "Admin" },
-  system: { ko: "시스템", en: "System" },
-  unknown: { ko: "기록 없음", en: "Not recorded" },
+  buyer: catalogPair("admin_r4b_chat_role_buyer"),
+  owner: catalogPair("admin_store_3"),
+  admin: catalogPair("admin_admin"),
+  system: catalogPair("admin_system"),
+  unknown: catalogPair("admin_not_recorded_2"),
 };
 
 export function toRequester(v: unknown): AdminOrderRequester {
@@ -206,11 +204,11 @@ export type AdminOrderCancelRequest = {
 };
 
 export const ADMIN_CANCEL_REQUEST_STATUS_LABEL: Record<string, { ko: string; en: string }> = {
-  pending: { ko: "매장 결정 대기", en: "Awaiting store" },
-  approved: { ko: "승인 (취소됨)", en: "Approved" },
-  rejected: { ko: "반려", en: "Rejected" },
-  refunded: { ko: "환불 완료", en: "Refunded" },
-  partial_refunded: { ko: "부분 환불", en: "Partially refunded" },
+  pending: catalogPair("admin_awaiting_store"),
+  approved: catalogPair("admin_approved_2"),
+  rejected: catalogPair("admin_rejected"),
+  refunded: catalogPair("admin_do_ps_refunded"),
+  partial_refunded: catalogPair("admin_partially_refunded"),
 };
 
 /** Detail modal sections (§5) — entry screens open their own section first. */

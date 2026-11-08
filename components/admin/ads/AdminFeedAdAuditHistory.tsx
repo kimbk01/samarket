@@ -3,6 +3,7 @@
 import { AdminCard } from "@/components/admin/AdminCard";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 /** `GET /api/admin/feed-ad-requests/[id]/audit` 의 한 행 */
 export type AdminFeedAdAuditRow = {
@@ -15,27 +16,27 @@ export type AdminFeedAdAuditRow = {
 
 /** 감사 이름 하나 (AD-206 · `feed-ad-admin-actions.ts` FEED_AD_ADMIN_AUDIT_ACTIONS) → 한국어 */
 const ACTION_LABEL: Record<string, { ko: string; en: string }> = {
-  "feed_ad_request.approve": { ko: "승인", en: "Approved" },
-  "feed_ad_request.reject": { ko: "반려", en: "Rejected" },
-  "feed_ad_request.pause": { ko: "운영자 정지", en: "Paused by operator" },
-  "feed_ad_request.resume": { ko: "운영자 재개", en: "Resumed by operator" },
-  "feed_ad_request.end": { ko: "운영자 종료", en: "Ended by operator" },
-  "feed_ad_request.extend_compensation": { ko: "보상 연장", en: "Compensation extension" },
-  "feed_ad_request.update": { ko: "신청 내용 수정", en: "Request edited" },
-  "feed_ad_request.replace_creative": { ko: "이미지 교체", en: "Image replaced" },
+  "feed_ad_request.approve": catalogPair("admin_approved"),
+  "feed_ad_request.reject": catalogPair("admin_rejected"),
+  "feed_ad_request.pause": catalogPair("admin_paused_by_operator"),
+  "feed_ad_request.resume": catalogPair("admin_resumed_by_operator"),
+  "feed_ad_request.end": catalogPair("admin_ended_by_operator"),
+  "feed_ad_request.extend_compensation": catalogPair("admin_compensation_extension"),
+  "feed_ad_request.update": catalogPair("admin_request_edited"),
+  "feed_ad_request.replace_creative": catalogPair("admin_image_replaced"),
 };
 
 const ACTOR_LABEL: Record<string, { ko: string; en: string }> = {
-  admin: { ko: "운영자", en: "Operator" },
-  user: { ko: "회원", en: "Member" },
-  member: { ko: "회원", en: "Member" },
-  system: { ko: "시스템", en: "System" },
+  admin: catalogPair("admin_operator"),
+  user: catalogPair("admin_users_role_badge_member"),
+  member: catalogPair("admin_users_role_badge_member"),
+  system: catalogPair("admin_system"),
 };
 
 const FAULT_LABEL: Record<string, { ko: string; en: string }> = {
-  operator: { ko: "운영 사유", en: "Operator" },
-  member: { ko: "회원 사유", en: "Member" },
-  none: { ko: "해당 없음", en: "None" },
+  operator: catalogPair("admin_operator_2"),
+  member: catalogPair("admin_member"),
+  none: catalogPair("admin_del_ops_queue_none"),
 };
 
 export function adminFeedAdAuditActionLabel(action: string, lang: "ko" | "en"): string {
