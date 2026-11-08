@@ -33,11 +33,13 @@ describe("i18n-quality 규칙", () => {
   });
 
   it("영역 판정 — lib 은 가져다 쓰는 화면을 끝까지 따라가고, admin_ 키는 lib 경유만으로 고객 키가 아니다", () => {
+    /** 가짜 파일 내용 — `@/` 를 조립해 `verify:deploy-imports` 가 실제 import 로 읽지 않게 한다 */
+    const AT = "@/";
     const files = new Map<string, string>([
-      ["components/admin/A.tsx", `import { x } from "@/lib/a/labels";`],
+      ["components/admin/A.tsx", `import { x } from "${AT}lib/a/labels";`],
       ["lib/a/labels.ts", `import { y } from "./deep";`],
       ["lib/a/deep.ts", `export const y = "k";`],
-      ["components/shop/B.tsx", `import { z } from "@/lib/b/shared";`],
+      ["components/shop/B.tsx", `import { z } from "${AT}lib/b/shared";`],
       ["lib/b/shared.ts", `export const z = 1;`],
       ["lib/c/orphan.ts", `export const o = 1;`],
     ]);
