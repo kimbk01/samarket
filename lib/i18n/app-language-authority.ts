@@ -1,6 +1,8 @@
 /**
  * 앱 UI 언어 결정 — 단일 정의 (`docs/i18n-ssot.md` §2). 순수 함수만 둔다(저장소 읽기·쓰기는 `language-preference.ts`).
  *
+ * 기기 언어 = 기기의 **첫 번째 언어**(한국어면 ko, 그 외 en — Owner 2026-11-08 「첫 언어 기준」).
+ *
  * 클라이언트 (매 렌더·동기화마다 같은 함수로 계산):
  * - 로그인: 이 계정의 미전송 선택(pending) → 계정 설정(DB `user_settings.preferred_language`) → 이 기기의 선택 → 기기 언어
  * - 비로그인: 이 기기의 선택 → 기기 언어
@@ -75,6 +77,25 @@ export function decideAccountLanguageSync(input: {
   return { upload: pending, clearPending: false };
 }
 
+/**
+ * `Accept-Language` → 선호 순서 목록 (q 값 높은 순, 같으면 적힌 순). q=0 은 「원하지 않음」이라 뺀다.
+ * 기기 첫 언어 = 이 목록의 첫 항목.
+ */
+export function acceptLanguageCandidates(header: string): string[] {
+  return header
+    .split(",")
+    .map((part, index) => {
+      const [tagRaw, ...params] = part.split(";");
+      const tag = tagRaw?.trim() ?? "";
+      const qParam = params.map((p) => p.trim()).find((p) => p.toLowerCase().startsWith("q="));
+      const q = qParam ? Number(qParam.slice(2)) : 1;
+      return { tag, q: Number.isFinite(q) ? q : 0, index };
+    })
+    .filter((x) => x.tag !== "" && x.q > 0)
+    .sort((a, b) => b.q - a.q || a.index - b.index)
+    .map((x) => x.tag);
+}
+
 /** 서버(SSR·API·알림 외 요청 경로) 언어 — 서버 기본값 ko 를 쓰지 않는다 */
 export function resolveServerAppLanguage(input: {
   account?: unknown;
@@ -87,11 +108,7 @@ export function resolveServerAppLanguage(input: {
   if (cookie) return cookie;
   const header = input.acceptLanguage?.trim();
   if (header) {
-    const candidates = header
-      .split(",")
-      .map((part) => part.split(";")[0]?.trim() ?? "")
-      .filter(Boolean);
-    return resolveLanguageFromCandidates(candidates);
+    return resolveLanguageFromCandidates(acceptLanguageCandidates(header));
   }
   return FALLBACK_APP_LANGUAGE;
 }

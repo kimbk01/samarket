@@ -133,7 +133,7 @@ export function peekExplicitDisplayLanguage(): AppLanguageCode | null {
   return readExplicitLanguageCookie() ?? readDeviceLanguageChoice();
 }
 
-/** 기기/브라우저 언어 (ko 포함 → ko, 그 외 → en) */
+/** 기기/브라우저 언어 (첫 언어가 한국어 → ko, 그 외 → en) */
 export function getDeviceAppLanguage(): AppLanguageCode {
   return resolveLanguageFromCandidates(readDeviceLanguageCandidates());
 }

@@ -12,7 +12,7 @@ const FIL_DEVICE = ["fil-PH", "tl"];
 
 /** `docs/i18n-ssot.md` §2 표 — 행마다 1개 이상 */
 describe("앱 언어 결정 계약", () => {
-  it("비로그인·선택 없음 → 매번 기기 언어 (한국어 포함 → ko, 그 외 → en)", () => {
+  it("비로그인·선택 없음 → 매번 기기 언어 (첫 언어가 한국어 → ko, 그 외 → en)", () => {
     expect(resolveClientAppLanguage({ isLoggedIn: false, deviceLanguages: KO_DEVICE })).toEqual({
       resolved: "ko",
       preference: null,
@@ -21,6 +21,7 @@ describe("앱 언어 결정 계약", () => {
     expect(resolveClientAppLanguage({ isLoggedIn: false, deviceLanguages: EN_DEVICE }).resolved).toBe("en");
     expect(resolveClientAppLanguage({ isLoggedIn: false, deviceLanguages: FIL_DEVICE }).resolved).toBe("en");
     expect(resolveClientAppLanguage({ isLoggedIn: false, deviceLanguages: [] }).resolved).toBe("en");
+    expect(resolveClientAppLanguage({ isLoggedIn: false, deviceLanguages: ["en-US", "ko-KR"] }).resolved).toBe("en");
   });
 
   it("기기 언어를 바꾸면 선택 없는 사용자는 바로 따라간다 (저장된 값 없음)", () => {
@@ -91,7 +92,9 @@ describe("서버 언어 — 계정 → 쿠키 → Accept-Language → en (서버
   it("순서대로 고른다", () => {
     expect(resolveServerAppLanguage({ account: "en", cookie: "ko", acceptLanguage: "ko-KR" })).toBe("en");
     expect(resolveServerAppLanguage({ account: "", cookie: "ko", acceptLanguage: "en-US" })).toBe("ko");
-    expect(resolveServerAppLanguage({ acceptLanguage: "fil-PH,ko;q=0.5" })).toBe("ko");
+    /** 첫 언어 기준 (Owner 2026-11-08) — 뒤 순위 ko 는 보지 않는다 */
+    expect(resolveServerAppLanguage({ acceptLanguage: "fil-PH,ko;q=0.5" })).toBe("en");
+    expect(resolveServerAppLanguage({ acceptLanguage: "ko-KR,en;q=0.5" })).toBe("ko");
     expect(resolveServerAppLanguage({ acceptLanguage: "fil-PH" })).toBe("en");
     expect(resolveServerAppLanguage({})).toBe("en");
   });

@@ -11,7 +11,7 @@ export type AppLanguageCode = (typeof SUPPORTED_APP_LANGUAGES)[number];
  */
 export const DEFAULT_APP_LANGUAGE: AppLanguageCode = "ko";
 
-/** 기기/Accept-Language에 ko가 없을 때 UI fallback (DIBAY: 그 외 영어) */
+/** 기기 첫 언어가 한국어가 아닐 때 UI 언어 (DIBAY: 그 외 영어) */
 export const FALLBACK_APP_LANGUAGE: AppLanguageCode = "en";
 
 /**
@@ -107,23 +107,24 @@ export function normalizeLanguage(input: unknown): AppLanguageCode {
   return normalizeAppLanguage(input);
 }
 
-/**
- * 사용자 선호 순서의 BCP47 목록에서 앱 UI 언어 결정.
- * - 목록에 ko가 있으면 ko (우선순위는 앞쪽 태그부터)
- * - 그 외 en 태그가 있으면 en
- * - 둘 다 없으면 FALLBACK_APP_LANGUAGE (en)
- */
-export function resolveLanguageFromCandidates(candidates: readonly string[]): AppLanguageCode {
-  for (const candidate of candidates) {
-    if (parseExplicitAppLanguage(candidate) === "ko") return "ko";
-  }
-  for (const candidate of candidates) {
-    if (parseExplicitAppLanguage(candidate) === "en") return "en";
-  }
-  return FALLBACK_APP_LANGUAGE;
+/** 언어 태그의 주 언어(`ko-KR`·`ko_KR`·`ko-Kore-KR` → `ko`) */
+function primaryLanguageSubtag(tag: string): string {
+  return tag.trim().toLowerCase().split(/[-_]/)[0] ?? "";
 }
 
-/** 기기/브라우저 언어 (DIBAY: ko → 한국어, 그 외 → 영어) */
+/**
+ * 기기 언어 → 앱 UI 언어 (Owner 2026-11-08 「첫 언어 기준」).
+ * - 기기(브라우저)의 **첫 번째 언어**만 본다: 한국어면 ko, 그 외(영어·필리핀어 등 전부)는 en.
+ * - 뒤쪽 순위에 한국어가 있어도 첫 언어가 한국어가 아니면 en (예: `["en-US","ko-KR"]` → en).
+ * - 목록이 비면 FALLBACK_APP_LANGUAGE (en).
+ */
+export function resolveLanguageFromCandidates(candidates: readonly string[]): AppLanguageCode {
+  const first = candidates.find((c) => typeof c === "string" && c.trim() !== "" && c.trim() !== "*");
+  if (!first) return FALLBACK_APP_LANGUAGE;
+  return primaryLanguageSubtag(first) === "ko" ? "ko" : FALLBACK_APP_LANGUAGE;
+}
+
+/** 기기/브라우저 언어 (DIBAY: 첫 언어가 한국어 → 한국어, 그 외 → 영어) */
 export function getBrowserLanguage(): AppLanguageCode {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return FALLBACK_APP_LANGUAGE;

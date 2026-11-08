@@ -42,9 +42,13 @@ function stubStorage(initial: Record<string, string> = {}, cookie = "") {
 }
 
 describe("resolveLanguageFromCandidates", () => {
-  it("returns ko when Korean appears in preference list", () => {
-    expect(resolveLanguageFromCandidates(["en-US", "ko-KR"])).toBe("ko");
+  it("첫 언어 기준 — 첫 언어가 한국어일 때만 ko (Owner 2026-11-08)", () => {
     expect(resolveLanguageFromCandidates(["ko"])).toBe("ko");
+    expect(resolveLanguageFromCandidates(["ko-KR", "en-US"])).toBe("ko");
+    expect(resolveLanguageFromCandidates(["ko_KR"])).toBe("ko");
+    expect(resolveLanguageFromCandidates(["ko-Kore-KR"])).toBe("ko");
+    expect(resolveLanguageFromCandidates(["en-US", "ko-KR"])).toBe("en");
+    expect(resolveLanguageFromCandidates(["fil-PH", "ko-KR"])).toBe("en");
   });
 
   it("returns en when only English tags are present", () => {
@@ -62,6 +66,12 @@ describe("detectAcceptLanguageAppLanguage", () => {
     expect(detectAcceptLanguageAppLanguage("ko-KR,ko;q=0.9")).toBe("ko");
     expect(detectAcceptLanguageAppLanguage("en-US,en;q=0.9")).toBe("en");
     expect(detectAcceptLanguageAppLanguage("fr-FR,fr;q=0.9")).toBe("en");
+    /** 앱이 영어일 때 보내는 헤더 — 낮은 순위 ko 를 고르지 않는다 (매장 목록 영어 화면 한국어 결함) */
+    expect(detectAcceptLanguageAppLanguage("en-US,en;q=0.9,ko;q=0.3")).toBe("en");
+    expect(detectAcceptLanguageAppLanguage("ko-KR,ko;q=0.9,en;q=0.3")).toBe("ko");
+    /** q 값 순 정렬·q=0 제외 */
+    expect(detectAcceptLanguageAppLanguage("en;q=0.5,ko-KR;q=0.9")).toBe("ko");
+    expect(detectAcceptLanguageAppLanguage("ko;q=0,en-US")).toBe("en");
   });
 });
 
