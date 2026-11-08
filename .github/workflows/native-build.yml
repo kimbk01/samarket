@@ -86,6 +86,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          # 2026-11-08: Gradle 배포판을 GitHub Releases 에서 매번 받다가 504 로 실패 — ~/.gradle(wrapper·caches) 캐시.
+          cache: gradle
       - name: Install dependencies
         run: npm ci
       - name: Capacitor sync (Production server URL)
@@ -95,6 +97,16 @@ jobs:
         env:
           ANDROID_GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_B64 }}
         run: echo "$ANDROID_GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
+      - name: Gradle wrapper download (retry — GitHub Releases 일시 실패 대비)
+        working-directory: android
+        run: |
+          for i in 1 2 3; do
+            if ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" --version > /dev/null; then exit 0; fi
+            echo "::warning::gradle wrapper download failed (attempt $i) — retry"
+            rm -rf "$HOME/.gradle/wrapper/dists"/*/*/*.part "$HOME/.gradle/wrapper/dists"/*/*/*.lck 2>/dev/null || true
+            sleep $((i * 30))
+          done
+          exit 1
       - name: Assemble Debug APK
         working-directory: android
         # gradle.properties 의 org.gradle.java.home(로컬 Mac Android Studio 경로)를 CI JDK 로 덮어쓴다.
@@ -140,6 +152,41 @@ jobs:
           xcodebuild -version
       - name: Capacitor sync iOS (Production server URL)
         run: npm run cap:sync:vercel:ios
+      # 2026-11-08: SwiftPM 이 Capacitor 바이너리(capacitor-swift-pm releases)를 매번 GitHub Releases 에서 익명으로 받다가
+      # 504·「Could not connect to the server」로 실패, 실패 후 재시도는 「already exists in file system」로 실패했다.
+      # → (1) 인증된 다운로드(netrc) (2) 패키지·바이너리 캐시 (3) 해석 단계 분리·재시도(실패 시 남은 반쪽 파일 삭제).
+      - name: Authenticated GitHub downloads for SwiftPM (netrc)
+        env:
+          GH_TOKEN_FOR_SPM: ${{ github.token }}
+        run: |
+          printf 'machine github.com login x-access-token password %s\n' "$GH_TOKEN_FOR_SPM" > "$HOME/.netrc"
+          chmod 600 "$HOME/.netrc"
+      - name: Cache SwiftPM packages and binary artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            ~/spm-packages
+          key: ios-spm-${{ hashFiles('ios/App/CapApp-SPM/Package.swift', 'ios/App/App.xcodeproj/project.pbxproj', 'package-lock.json') }}
+          restore-keys: |
+            ios-spm-
+      - name: Resolve Swift packages (retry)
+        run: |
+          for i in 1 2 3; do
+            if xcodebuild -resolvePackageDependencies \
+                 -project ios/App/App.xcodeproj -scheme App \
+                 -clonedSourcePackagesDirPath "$HOME/spm-packages" > "$RUNNER_TEMP/resolve.log" 2>&1; then
+              echo "resolved (attempt $i)"
+              exit 0
+            fi
+            echo "::warning::Swift package resolution failed (attempt $i)"
+            grep -n -A6 "Could not resolve package dependencies" "$RUNNER_TEMP/resolve.log" | head -20
+            # 반쪽 다운로드가 남으면 다음 시도가 「already exists in file system」로 실패한다 — 바이너리 캐시만 비운다.
+            rm -rf "$HOME/Library/Caches/org.swift.swiftpm/artifacts"
+            sleep $((i * 30))
+          done
+          tail -n 60 "$RUNNER_TEMP/resolve.log"
+          exit 1
       - name: Build for iOS Simulator (no code signing — compile verification)
         run: |
           set +e
@@ -150,6 +197,7 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$HOME/spm-packages" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             build > "$RUNNER_TEMP/xcodebuild.log" 2>&1
           code=$?
