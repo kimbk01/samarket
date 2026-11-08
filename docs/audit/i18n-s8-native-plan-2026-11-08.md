@@ -303,6 +303,97 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 | 배포 | 네이티브 — 새 빌드 설치 전까지 사용자 화면 변화 없음. 빌드 = Owner 일괄 빌드 때 |
 | 실기기 | **NOT_PROVEN** — §8 행렬 × 언어 4조건(특히 잠금 화면 수신·앱 꺼짐 수신·Activity 3개 화면 표시) |
 
+## 15. S8-4 상세 계획 (알림 채널·알림 문구, 2026-11-08 — Owner 「S8-4 계획 보고」) · **계획만, 구현은 승인 후**
+
+> 조사 기준: main `feb95244d` · 운영 DB 읽기 전용(`notification_sound_events`, 17:1x PHT) · Android 공식 문서·AOSP 원본(아래 15-3). 알림 규정(메모: 원본 규칙 전수 대조 + **기기 시스템 덤프로만 판정**) + 통화 채널은 통화 규정.
+
+### 15-0. 앞 계획과 달라진 점
+
+| # | 앞 계획(§3) | 조사 결과 | 이번 계획 |
+|---|---|---|---|
+| 1 | 「같은 채널 id 로 이름만 다시 등록하면 갱신」 | 지금 코드는 채널 생성 9곳 **모두 「채널이 없을 때만」 만든다**(`getNotificationChannel != null → return`). 문구만 바꾸면 **이미 설치된 휴대폰은 계속 한국어** — 새로 설치한 휴대폰만 바뀜 | 기존 채널의 이름·설명을 **다시 붙이는 경로**(15-2)를 새로 둔다 |
+| 2 | S8-4 대상 = `DibayNotificationChannelRegistry` 등 알림 파일 | 통화 채널 7개도 있음 — S8-3 에서 넘긴 6개 문구(수신 통화·부재중 통화·통화 진행) + **사용자 설정 화면에 개발 용어가 보이는 채널 4개**(「DIBAY Native Voice」「Native Voice Runtime incoming — UI/FSI only (ring via RingOwner)」 등) | 알림(비통화) **S8-4a** · 통화 채널 **S8-4b**(통화 단독 커밋) 로 나눔 |
+| 3 | (없음) | 알림음 채널 이름은 서버가 보내는 **한국어 이름만**(`label_ko`) 사용 — `native-notification-sound-channel-sync.ts:80` | 웹이 영어 이름(`label_en`)도 함께 보냄(구 앱은 모르는 값이라 무시) |
+
+### 15-1. 대상 (전수)
+
+사용자가 보는 곳: **휴대폰 설정 > 앱 > DIBAY > 알림**(채널 이름·설명), 알림 본문(앱 아이콘 요약 카드), 메시지 알림의 「나」.
+
+**S8-4a 알림 (비통화)**
+
+| 위치 | 채널 id / 문구 | 한국어 (지금) | 영어 |
+|---|---|---|---|
+| `DibayNotificationChannelRegistry` | `dibay_chat_messages_v1` | 채팅 메시지 · 채팅·메신저 메시지 알림 | Chat messages · Chat and messenger alerts |
+| | `dibay_trade_v1` | 거래 알림 · 거래 채팅·거래 상태 알림 | Trades · Trade chats and status updates |
+| | `dibay_orders_v1` | 주문 알림 · 스토어·주문 알림 | Orders · Store and order updates |
+| | `dibay_delivery_v1` | 배달 알림 · 배달·매장 주문 알림 | Delivery · Delivery and store order updates |
+| | `dibay_community_v1` | 커뮤니티 알림 · 커뮤니티 활동 알림 | Community · Community activity |
+| | `dibay_admin_notice_v1` | 공지 알림 · 공지·마케팅 알림 | Announcements · Announcements and marketing |
+| | `dibay_msg_silent_v1` | 무음 알림 · 알림음·진동을 끈 상태의 알림 | Silent · Alerts with sound and vibration off |
+| | `dibay_msg_novibrate_v1` | 진동 없는 알림 · 진동을 끈 상태의 알림 | No vibration · Alerts with vibration off |
+| | `dibay_messages` (옛 채널) | 채팅 메시지 · 채팅 메시지 알림 **(legacy)** | Chat messages · Chat message alerts (old) — **한국어 설명의 「(legacy)」→「(이전)」 Owner 승인 필요** |
+| | 이름이 없을 때 기본 | DIBAY 알림 · 메시지 알림 | DIBAY notifications · Message alerts |
+| `DibayNotificationSoundChannelStore` | 알림음 채널(이벤트별, 동적 id) | 「{이벤트 이름}」·「{이름} · 진동 없음」 / 설명 「{기본 채널 이름} · DIBAY 알림음」 | 「{event name}」·「{name} · No vibration」 / 「{base channel name} · DIBAY sound」 — 이벤트 이름은 운영 DB `label_en` |
+| `DibayAppIconDeliveryAdapter` | `dibay_app_icon_summary_v1` | 읽지 않은 알림 · **「App Icon delivery — unread summary (not Bell)」(개발 용어)** | Unread notifications · Summary of unread notifications — **한국어 설명 「읽지 않은 알림 개수 요약」 Owner 승인 필요** |
+| | 요약 카드 본문(리소스) | 읽지 않은 알림 %1$d개가 있습니다. 탭하여 확인하세요. | (이미 있음) You have %1$d unread notifications. Tap to review. — 기본 영어·`values-ko` 로 옮기고 `values-en` 폴더 삭제, 앱 언어 적용 |
+| `DibayNotificationPresentation:122` | 메시지 알림의 내 이름 | 나 | Me |
+
+**S8-4b 통화 채널 (통화 단독)** — 채널 id·중요도·소리·진동·잠금 화면 표시는 **바꾸지 않는다**. 이름·설명 글자만.
+
+| 채널 id | 이름 지금 → 한국어 / 영어 | 설명 지금 → 한국어 / 영어 |
+|---|---|---|
+| `dibay_calls_incoming_v7` | 수신 통화 → 수신 통화 / Incoming calls | 「수신 통화 — UI only (ring via RingOwner, alias …)」(개발 용어) → 걸려 오는 통화 알림 / Alerts for incoming calls |
+| `dibay_calls_missed` | 부재중 통화 → 부재중 통화 / Missed calls | 부재중 통화 알림 → 부재중 통화 알림 / Missed call alerts |
+| `dibay_active_call` | 통화 진행 → 통화 진행 / Ongoing calls | 「활성 통화 foreground service」(개발 용어) → 통화 중 상태 표시 / Shows an ongoing call |
+| `dibay_native_voice_incoming_v2` | 「DIBAY Native Voice」 → 음성 통화 수신 / Incoming voice calls | 「Native Voice Runtime incoming — UI/FSI only (ring via RingOwner)」 → 음성 통화가 걸려 올 때 알림 / Alerts for incoming voice calls |
+| `dibay_native_video_incoming_v2` | 「DIBAY Native Video」 → 영상 통화 수신 / Incoming video calls | 「Native Video Runtime incoming — …」 → 영상 통화가 걸려 올 때 알림 / Alerts for incoming video calls |
+| `dibay_native_voice_call_v2` | 「DIBAY Native Voice Call」 → 음성 통화 중 / Voice call in progress | 「Native voice call foreground service (ongoing, silent)」 → 음성 통화 중 상태 표시 / Shows a voice call in progress |
+| `dibay_native_video_call_v2` | 「DIBAY Native Video Call」 → 영상 통화 중 / Video call in progress | 「Native video call foreground service (ongoing, no heads-up)」 → 영상 통화 중 상태 표시 / Shows a video call in progress |
+
+→ 통화 채널 7개 중 6개는 **한국어 화면 글자도 바뀐다**(지금 개발 용어·영어가 보임) — **Owner 승인 필요**. 옛 채널(`*_incoming`·`*_call`·`dibay_incoming_calls` 등)은 지금 코드가 지우거나 쓰지 않으므로 대상 아님.
+
+### 15-2. 방식
+
+| 항목 | 내용 |
+|---|---|
+| 문구 원본 | Android 리소스(기본 영어·`values-ko`). 언어 = S8-3 `DibayNativeLocale`(앱 언어 → 기기 언어) |
+| 새로 만드는 채널 | 지금처럼 「없을 때만」 만들고, 이름·설명만 리소스에서 읽음 |
+| **이미 있는 채널 이름 다시 붙이기** (새 `DibayNotificationChannelLabels.relabel`) | 알려진 채널 id 마다 `getNotificationChannel(id)` 가 있으면(지워진 채널은 null → 되살리지 않음) **그 객체 그대로** `setName`·`setDescription` 만 바꿔 `createNotificationChannel` 로 다시 등록. 이름·설명이 이미 같으면 호출 안 함 |
+| 언제 | ① 앱 시작(`DibayApplication.onCreate`) — 저장된 「마지막으로 붙인 언어·문구 판」과 다를 때만 ② 앱 언어가 바뀔 때(`DibayAppLanguage.set`) |
+| 알림음 채널 | 웹이 `label`(한국어)과 함께 `labelEn` 을 보냄 → 네이티브 기록에 저장, 언어에 맞는 이름으로 생성·다시 붙이기. 서명(`nativeEventSoundEntriesSignature`)에 이름이 없어 **다시 받기(재동기화)가 생기지 않음**. 구 앱은 `labelEn` 무시 |
+| 바뀌지 않는 것 | 채널 id·알림 id·중요도·소리·진동·배지·잠금 화면 표시·채널 고르는 로직(`resolveMessageChannelIdFromFcmData`)·알림음 동기화 판정 |
+
+### 15-3. 원본 규칙 대조 (다시 등록할 때 바뀌는 것)
+
+| 근거 | 내용 |
+|---|---|
+| Android 공식 문서 `NotificationManager.createNotificationChannel` | 「이미 있는 채널의 이름·설명·그룹·중요도를 갱신할 수 있다. 이름·설명은 **기기 언어(로캘)가 바뀔 때** 바꾸라」 — 이번 용도와 같음. 「그 밖의 필드는 이미 있는 채널에서 무시된다」 |
+| AOSP `PreferencesHelper.createNotificationChannel` (기존 채널 분기) | 바뀌는 것: 지워진 채널 되살림(**null 확인으로 막음**) · 이름 · 설명 · 차단 가능 여부(같은 객체라 같음) · 그룹(없을 때만, 우리는 그룹 미사용) · 중요도(**사용자가 손대지 않았고 더 낮을 때만** — 같은 값이라 변화 없음) · 방해 금지 무시(**방해 금지 접근 권한 필요 — 앱에 `ACCESS_NOTIFICATION_POLICY` 없음**). 소리·진동·배지·잠금 화면은 이 분기에서 **바꾸지 않음** |
+| 결론 | 사용자가 바꾼 소리·중요도·진동 설정은 유지된다(원본 규칙상). **판정은 기기 덤프로**: 설치 전·후 `adb shell dumpsys notification` 의 채널별 중요도·소리·진동·`userLockedFields` 가 이름·설명 외 **전부 같음** |
+
+### 15-4. 영향·위험
+
+| 위험 | 대응 |
+|---|---|
+| 다시 등록이 사용자 설정을 덮음 | 15-3 원본 규칙 + 같은 객체 재사용 + 기기 덤프 전후 대조(필수 판정) |
+| 지운 채널(사용자가 아님 — 앱이 지운 옛 채널)이 되살아남 | `getNotificationChannel` null 이면 건너뜀(지워진 채널은 null) |
+| 앱 시작이 느려짐 | 언어·문구 판이 같으면 바로 끝(저장값 비교 1회). 다를 때만 채널 수(≤ 약 20 + 알림음 채널)만큼 호출 |
+| 통화 채널 다시 등록이 통화 수신에 영향 | 채널 소리·중요도 무변경(원본 규칙). 통화 중·수신 중에는 다시 붙이기를 하지 않음(진행 중 통화 확인 후 다음 시작으로 미룸) · 실기기 통화 행렬 필수 |
+| 알림음 이벤트 영어 이름 품질 | 운영 DB 63개 모두 `label_en` 있음. 단 일부는 의미가 줄었거나 내부 표현(예: 「모임 가입·승인·내보내기」→「Meeting」, 「Owner new order」, 「Legacy admin notice」) — 한국어도 「오너 …」 등 내부 표현 → **발견 목록 L20**, 이번 단계는 DB 값 그대로 사용(어드민에서 고치는 값) |
+| iOS | 채널 개념 없음 · 알림 본문은 서버 문구 → S8-6 |
+
+### 15-5. 반영·검증 순서
+
+1. **S8-4a** (알림, 비통화 커밋): 15-1 S8-4a + 다시 붙이기 경로 + 웹 `labelEn` 전달. 로컬: Android 단위 테스트(다시 붙이기 판정·같은 값이면 호출 안 함·null 건너뜀)·`assembleDebug`·vitest(리소스 대칭·코드 한글 허용 목록)·알림 관련 테스트 전부.
+2. **S8-4b** (통화 단독 커밋): 통화 채널 7개 이름·설명 + 다시 붙이기 목록에 추가. 통화 검사 전부.
+3. 빌드 = Owner 일괄 빌드. 실기기: 설치 전 덤프 → 설치·앱 언어 ko/en 전환 → 덤프 대조(이름·설명만 달라짐) · 설정 화면 캡처 · 알림 수신(메시지·거래·주문)·통화 행렬. 측정 전까지 **NOT_PROVEN**.
+
+### 15-6. Owner 승인 필요
+
+1. 15-0 변경(다시 붙이기 경로 추가·a/b 분리·웹 `labelEn` 전달).
+2. 15-1 문구 — 특히 **한국어도 바뀌는 곳**: 통화 채널 6개(개발 용어 → 한국어), 앱 아이콘 요약 채널 설명, 옛 채팅 채널 설명 「(legacy)」→「(이전)」.
+3. 알림음 이벤트 이름은 이번에 DB 값 그대로(L20 은 계획 완료 후).
+
 ## 부록 A — 통화·알림 네이티브 한국어 문자열 114개 (역할)
 
 | 위치 | 문자열 | 역할 |
