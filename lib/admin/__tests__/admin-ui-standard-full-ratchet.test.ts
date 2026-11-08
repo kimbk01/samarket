@@ -13,6 +13,7 @@
  *    — 갱신 diff 에 증가가 있으면 리뷰에서 거부한다.
  */
 import fs from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ADMIN_UI_STANDARD_RULES } from "@/lib/admin/ui-standard/admin-ui-standard-rules";
@@ -169,7 +170,13 @@ function mutatingQuietCtaBlocks(s: string): string[] {
     const block = m[0];
     if (!/\bvariant=\s*\{?\s*["'](?:ghost|quiet)["']/.test(block)) continue;
     if (!/\bonClick=/.test(block)) continue;
-    if (MUTATING_CTA_KEYS.test(block) || MUTATING_CTA_WORDS.test(block) || /text-sam-danger/.test(block)) {
+    /**
+     * 언어 SSOT S6: `safeT("키", { fallbackKo })` 의 대체 문구가 지워져도 같은 화면 단어로 판정한다
+     * (S6 전과 같은 범위 — `safeT("키")` 만 카탈로그 문구로 푼다. `t("키")` 까지 넓히는 것은 발견 목록 L12).
+     */
+    const safeTKeys = [...block.matchAll(/\bsafeT\(\s*["']([a-z0-9_]+)["']/g)].map((x) => `"${x[1]}"`).join(" ");
+    const text = `${block}\n${withCatalogCopy(safeTKeys)}`;
+    if (MUTATING_CTA_KEYS.test(block) || MUTATING_CTA_WORDS.test(text) || /text-sam-danger/.test(block)) {
       out.push(block.slice(0, 60));
     }
   }

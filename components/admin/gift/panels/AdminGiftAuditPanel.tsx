@@ -108,10 +108,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
     <div className="space-y-4" data-admin-gift-audit="1" data-audit-interim={interim ? "1" : "0"}>
       {interim ? (
         <p className="rounded-ui-rect border border-sam-warning/60 bg-sam-warning-soft px-3 py-2 text-xs text-sam-warning">
-          {safeT("gift_ops_audit_interim", {
-            fallbackKo: "감사 이력이 합성 스트림입니다(interim). gift_admin_events 적용 후 정식 소스로 전환됩니다.",
-            fallbackEn: "Audit is an interim synthetic stream until gift_admin_events is live.",
-          })}
+          {safeT("gift_ops_audit_interim")}
         </p>
       ) : null}
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -147,10 +144,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_audit_error", {
-              fallbackKo: "감사 이력을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load audit history.",
-            })}
+            {safeT("gift_ops_audit_error")}
           </p>
           <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
             {adminCta("refresh", language !== "en")}
@@ -159,10 +153,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
       ) : null}
       {state === "empty" ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_audit_empty", {
-            fallbackKo: "감사 이력이 없습니다.",
-            fallbackEn: "No audit events.",
-          })}
+          {safeT("gift_ops_audit_empty")}
         </p>
       ) : null}
 
@@ -196,10 +187,7 @@ export function AdminGiftAuditPanel({ q: initialQ, event: initialEvent }: { q: s
                     className={`${Sam.btn.secondary} mt-2 inline-flex min-h-[36px] items-center px-3 text-xs`}
                     data-audit-entity-link="1"
                   >
-                    {safeT("gift_ops_cta_view_entity", {
-                      fallbackKo: "대상 보기",
-                      fallbackEn: "View entity",
-                    })}
+                    {safeT("gift_ops_cta_view_entity")}
                   </Link>
                 ) : null}
               </li>

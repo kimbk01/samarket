@@ -22,6 +22,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
 import { AdminErrorState } from "@/components/admin/ui/AdminStateViews";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type MembershipRow = {
   id: string;
@@ -207,16 +208,10 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Partner</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_partner_manage_title", {
-              fallbackKo: "Partner 관리",
-              fallbackEn: "Partner management",
-            })}
+            {safeT("admin_delivery_ads_partner_manage_title")}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_partner_manage_desc", {
-              fallbackKo: "광고 Partner 요금과 가입 매장을 관리합니다.",
-              fallbackEn: "Manage Partner fees and enrolled stores.",
-            })}
+            {safeT("admin_delivery_ads_partner_manage_desc")}
           </p>
         </div>
 
@@ -226,24 +221,16 @@ export function AdminDeliveryAdPartnerMembershipsView() {
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning"
           data-partner-payment="NOT_IMPLEMENTED"
         >
-          {safeT("admin_delivery_ads_partner_payment_note", {
-            fallbackKo: "Partner 월 회비 자동 결제는 아직 사용할 수 없습니다.",
-            fallbackEn: "Partner monthly fee auto-payment is not available yet.",
-          })}
+          {safeT("admin_delivery_ads_partner_payment_note")}
         </p>
 
         <AdminCard
           title={
-            lang === "en" ? "Partner operating settings" : "Partner 운영 설정"
+            translateBy(lang, "admin_partner_operating_settings")
           }
         >
           <p className="mb-3 text-[12px] text-sam-muted">
-            {safeT("admin_delivery_ads_commercial_partner_note", {
-              fallbackKo:
-                "광고 패키지 할인용 멤버십입니다. organic ranking과 분리 · 월 회비 자동 결제는 미구현.",
-              fallbackEn:
-                "Membership for ad package discounts. Separate from organic ranking · monthly auto-pay not implemented.",
-            })}
+            {safeT("admin_delivery_ads_commercial_partner_note")}
           </p>
           {partnerCatalog.error && !partnerCatalog.catalog ? (
             <AdminErrorState
@@ -260,10 +247,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
             />
           ) : (
             <p className="text-[13px] text-sam-muted">
-              {safeT("admin_delivery_ads_loading", {
-                fallbackKo: "불러오는 중…",
-                fallbackEn: "Loading…",
-              })}
+              {safeT("admin_delivery_ads_loading")}
             </p>
           )}
           {partnerCatalog.error && partnerCatalog.catalog ? (
@@ -283,7 +267,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
           className="flex flex-wrap gap-2"
           role="group"
           aria-label={
-            lang === "en" ? "Membership status filters" : "멤버십 상태 필터"
+            translateBy(lang, "admin_membership_status_filters")
           }
           data-admin-partner-filters="1"
         >
@@ -308,9 +292,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         {orphanFundings.length > 0 ? (
           <AdminCard
             title={
-              lang === "en"
-                ? "Partner fee without membership (manual check)"
-                : "가입 행 없는 Partner 회비 (수동 확인)"
+              translateBy(lang, "admin_partner_fee_without_membership_manual_check")
             }
           >
             <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-partner-orphan-fundings="1">
@@ -330,7 +312,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         ) : null}
 
         <AdminCard
-          title={lang === "en" ? "Partner memberships" : "Partner 가입 매장"}
+          title={translateBy(lang, "admin_partner_memberships")}
         >
           {loadError ? (
             <AdminErrorState
@@ -341,14 +323,11 @@ export function AdminDeliveryAdPartnerMembershipsView() {
             />
           ) : listLoading && items.length === 0 ? (
             <p className="text-[13px] text-sam-muted" data-admin-partner-loading="1">
-              {safeT("admin_delivery_ads_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+              {safeT("admin_delivery_ads_loading")}
             </p>
           ) : items.length === 0 ? (
             <p className="text-[13px] text-sam-muted" data-admin-partner-empty="1">
-              {safeT("admin_delivery_ads_partner_empty", {
-                fallbackKo: "현재 Partner 가입 매장이 없습니다.",
-                fallbackEn: "No Partner memberships yet.",
-              })}
+              {safeT("admin_delivery_ads_partner_empty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -359,34 +338,19 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                 <thead>
                   <tr className="bg-sam-app text-left text-sam-muted">
                     <th className="border border-sam-border p-2 font-semibold">
-                      {safeT("admin_delivery_ads_partner_col_store", {
-                        fallbackKo: "매장",
-                        fallbackEn: "Store",
-                      })}
+                      {safeT("admin_delivery_ads_partner_col_store")}
                     </th>
                     <th className="border border-sam-border p-2 font-semibold">
-                      {safeT("admin_delivery_ads_partner_col_status", {
-                        fallbackKo: "상태",
-                        fallbackEn: "Status",
-                      })}
+                      {safeT("admin_delivery_ads_partner_col_status")}
                     </th>
                     <th className="border border-sam-border p-2 font-semibold">
-                      {safeT("admin_delivery_ads_partner_col_period", {
-                        fallbackKo: "기간",
-                        fallbackEn: "Period",
-                      })}
+                      {safeT("admin_delivery_ads_partner_col_period")}
                     </th>
                     <th className="border border-sam-border p-2 font-semibold">
-                      {safeT("admin_delivery_ads_partner_col_context", {
-                        fallbackKo: "연결",
-                        fallbackEn: "Links",
-                      })}
+                      {safeT("admin_delivery_ads_partner_col_context")}
                     </th>
                     <th className="border border-sam-border p-2 font-semibold">
-                      {safeT("admin_delivery_ads_queue_col_action", {
-                        fallbackKo: "처리",
-                        fallbackEn: "Action",
-                      })}
+                      {safeT("admin_delivery_ads_queue_col_action")}
                     </th>
                   </tr>
                 </thead>
@@ -411,11 +375,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                         {lang === "en" ? m.statusLabelEn : m.statusLabelKo}
                         {m.advertisingDiscountPercentSnapshot > 0 ? (
                           <p className="mt-1 text-[12px] text-sam-muted">
-                            {safeT("admin_delivery_ads_partner_benefit_hint", {
-                              vars: { percent: m.advertisingDiscountPercentSnapshot },
-                              fallbackKo: `파트너 혜택 적용 · 광고 할인 ${m.advertisingDiscountPercentSnapshot}%`,
-                              fallbackEn: `Partner benefit · ads discount ${m.advertisingDiscountPercentSnapshot}%`,
-                            })}
+                            {safeT("admin_delivery_ads_partner_benefit_hint", { vars: { percent: m.advertisingDiscountPercentSnapshot } })}
                           </p>
                         ) : null}
                       </td>
@@ -425,11 +385,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                           : "—"}
                         {m.feeSnapshotLabel ? (
                           <p className="mt-1 text-[12px]">
-                            {safeT("admin_delivery_ads_partner_fee_cash", {
-                              vars: { label: m.feeSnapshotLabel },
-                              fallbackKo: `Cash 수수료 ${m.feeSnapshotLabel}`,
-                              fallbackEn: `Cash fee ${m.feeSnapshotLabel}`,
-                            })}
+                            {safeT("admin_delivery_ads_partner_fee_cash", { vars: { label: m.feeSnapshotLabel } })}
                           </p>
                         ) : null}
                       </td>
@@ -440,30 +396,21 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                             className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[12px] font-semibold text-sam-fg"
                             data-partner-finance-link="1"
                           >
-                            {safeT("admin_delivery_ads_partner_open_finance", {
-                              fallbackKo: "Finance",
-                              fallbackEn: "Finance",
-                            })}
+                            {safeT("admin_delivery_ads_partner_open_finance")}
                           </Link>
                           <Link
                             href={`${DELIVERY_AD_ADMIN_ROUTES.hub}?storeId=${encodeURIComponent(m.storeId)}`}
                             className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[12px] font-semibold text-sam-fg"
                             data-partner-ads-link="1"
                           >
-                            {safeT("admin_delivery_ads_partner_open_ads", {
-                              fallbackKo: "연결 광고",
-                              fallbackEn: "Related ads",
-                            })}
+                            {safeT("admin_delivery_ads_partner_open_ads")}
                           </Link>
                           <Link
                             href={supportInboxHrefForStore(m.storeId)}
                             className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[12px] font-semibold text-sam-fg"
                             data-partner-support-link="1"
                           >
-                            {safeT("admin_delivery_ads_partner_open_support", {
-                              fallbackKo: "Support",
-                              fallbackEn: "Support",
-                            })}
+                            {safeT("admin_delivery_ads_partner_open_support")}
                           </Link>
                         </div>
                       </td>
@@ -476,20 +423,14 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                                 onClick={() => void act("approve", m.id, m.storeName ?? m.storeId)}
                                 data-partner-approve="1"
                               >
-                                {safeT("admin_delivery_ads_partner_approve", {
-                                  fallbackKo: "승인",
-                                  fallbackEn: "Approve",
-                                })}
+                                {safeT("admin_delivery_ads_partner_approve")}
                               </AdminActionButton>
                               <AdminActionButton variant="ghost" size="sm"
                                 disabled={busy}
                                 onClick={() => void act("reject", m.id, m.storeName ?? m.storeId)}
                                 data-partner-reject="1"
                               >
-                                {safeT("admin_delivery_ads_partner_reject", {
-                                  fallbackKo: "반려",
-                                  fallbackEn: "Reject",
-                                })}
+                                {safeT("admin_delivery_ads_partner_reject")}
                               </AdminActionButton>
                             </>
                           ) : null}
@@ -499,10 +440,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                               onClick={() => void act("end", m.id, m.storeName ?? m.storeId)}
                               data-partner-end="1"
                             >
-                              {safeT("admin_delivery_ads_partner_end", {
-                                fallbackKo: "종료",
-                                fallbackEn: "End",
-                              })}
+                              {safeT("admin_delivery_ads_partner_end")}
                             </AdminActionButton>
                           ) : null}
                         </div>

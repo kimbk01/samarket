@@ -24,6 +24,7 @@ import {
 import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
 import { adminSurfacesSelectionLabel } from "@/lib/platform-popup/admin-surface-target-mode";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type HubTab = "requests" | "campaigns";
 
@@ -103,10 +104,7 @@ export function AdminPlatformPopupHubPage() {
 
   const createErrorMessage = (raw: string | undefined) => {
     if (!raw || raw === "create_failed") {
-      return safeT("admin_platform_popup_create_failed", {
-        fallbackKo: "팝업 광고를 만들지 못했습니다. 권한을 확인한 뒤 다시 시도해 주세요.",
-        fallbackEn: "Could not create the popup ad. Check permissions and try again.",
-      });
+      return safeT("admin_platform_popup_create_failed");
     }
     return raw;
   };
@@ -115,10 +113,7 @@ export function AdminPlatformPopupHubPage() {
     const name = createName.trim();
     if (!name) {
       setError(
-        safeT("admin_platform_popup_name_required", {
-          fallbackKo: "광고 이름을 입력해 주세요.",
-          fallbackEn: "Enter an ad name.",
-        })
+        safeT("admin_platform_popup_name_required")
       );
       return;
     }
@@ -153,46 +148,31 @@ export function AdminPlatformPopupHubPage() {
       onClick={() => void onCreate()}
     >
       {creating
-        ? safeT("admin_platform_popup_creating", {
-            fallbackKo: "등록 중…",
-            fallbackEn: "Creating…",
-          })
-        : safeT("admin_platform_popup_create_cta", {
-            fallbackKo: "팝업 광고 등록",
-            fallbackEn: "Create popup ad",
-          })}
+        ? safeT("admin_platform_popup_creating")
+        : safeT("admin_platform_popup_create_cta")}
     </button>
   );
 
-  const emptyContractLine = safeT("admin_platform_popup_hub_contract_line", {
-    fallbackKo: "소재 1440×1000(36:25) · 하단 팝업 · 노출 위치 선택",
-    fallbackEn: "Creative 1440×1000 (36:25) · bottom popup · choose placement",
-  });
+  const emptyContractLine = safeT("admin_platform_popup_hub_contract_line");
 
   return (
     <div className="space-y-4" data-admin-platform-popup-hub="1">
       <AdminPageHeader
-        title={safeT("admin_platform_popup_hub_title", {
-          fallbackKo: "팝업 광고 기존 hub",
-          fallbackEn: "Legacy Popup Ad Hub",
-        })}
-        description={safeT("admin_platform_popup_hub_desc", {
-          fallbackKo: "팝업 상품별 상세/writer 화면입니다. 통합 신청은 광고 신청, 승인 후 운영은 노출 관리에서 처리합니다.",
-          fallbackEn: "Product-scoped popup detail/writer hub. Use Applications for requests and Operations for approved campaigns.",
-        })}
+        title={safeT("admin_platform_popup_hub_title")}
+        description={safeT("admin_platform_popup_hub_desc")}
       />
       <div className="flex flex-wrap gap-2">
         <Link
           href="/admin/advertising/applications"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm font-semibold text-sam-fg"
         >
-          {lang === "en" ? "Applications" : "광고 신청"}
+          {translateBy(lang, "admin_applications")}
         </Link>
         <Link
           href="/admin/advertising/operations"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm font-semibold text-sam-fg"
         >
-          {lang === "en" ? "Operations" : "노출 관리"}
+          {translateBy(lang, "admin_operations")}
         </Link>
       </div>
 
@@ -200,36 +180,22 @@ export function AdminPlatformPopupHubPage() {
         <div className="space-y-3">
           <div data-admin-popup-primary-create="1" className="flex flex-wrap items-center gap-3">
             <label className="min-w-[240px] flex-1 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_operational_name", {
-                fallbackKo: "운영 광고 이름",
-                fallbackEn: "Operational ad name",
-              })}
+              {safeT("admin_platform_popup_operational_name")}
               <input
                 value={createName}
                 onChange={(event) => setCreateName(event.target.value)}
-                placeholder={safeT("admin_platform_popup_name_placeholder", {
-                  fallbackKo: "예: 9월 배달 신규회원 팝업",
-                  fallbackEn: "e.g. September delivery acquisition",
-                })}
+                placeholder={safeT("admin_platform_popup_name_placeholder")}
                 className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg"
               />
               <span className="mt-1 block">
-                {safeT("admin_platform_popup_name_helper", {
-                  fallbackKo: "목록과 운영 화면에서 캠페인을 구분할 이름입니다.",
-                  fallbackEn: "Used to identify this campaign in operational lists.",
-                })}
+                {safeT("admin_platform_popup_name_helper")}
               </span>
             </label>
             {createCtaButton({ fullWidth: false })}
             <p className="text-xs text-sam-muted">{emptyContractLine}</p>
           </div>
           <p className="text-xs text-sam-muted">
-            {safeT("admin_platform_popup_upload_hint", {
-              fallbackKo:
-                "원본 JPG/PNG/WebP · 권장 1440×1000(36:25) · 서버에서 자동 최적화. 과도한 원본은 최적화 후 저장됩니다.",
-              fallbackEn:
-                "Source JPG/PNG/WebP · recommended 1440×1000 (36:25) · server auto-optimizes before store.",
-            })}
+            {safeT("admin_platform_popup_upload_hint")}
           </p>
           <div className="flex flex-wrap items-center gap-2 border-t border-sam-border pt-3">
             <button
@@ -240,10 +206,7 @@ export function AdminPlatformPopupHubPage() {
               }`}
               onClick={() => setHubTab("requests")}
             >
-              {safeT("admin_platform_popup_tab_requests", {
-                fallbackKo: "검토 대기 · 신청",
-                fallbackEn: "Review · requests",
-              })}
+              {safeT("admin_platform_popup_tab_requests")}
             </button>
             <button
               type="button"
@@ -253,10 +216,7 @@ export function AdminPlatformPopupHubPage() {
               }`}
               onClick={() => setHubTab("campaigns")}
             >
-              {safeT("admin_platform_popup_tab_campaigns", {
-                fallbackKo: "집행 · 예약 · 종료",
-                fallbackEn: "Execution · schedule · ended",
-              })}
+              {safeT("admin_platform_popup_tab_campaigns")}
             </button>
           </div>
         </div>
@@ -278,7 +238,7 @@ export function AdminPlatformPopupHubPage() {
               }`}
               onClick={() => setRequestFilter("open")}
             >
-              {safeT("admin_platform_popup_chip_open", { fallbackKo: "처리 필요", fallbackEn: "Needs action" })}
+              {safeT("admin_platform_popup_chip_open")}
             </button>
             {PLATFORM_POPUP_HUB_REQUEST_CHIPS.map((chip) => (
               <button
@@ -303,10 +263,7 @@ export function AdminPlatformPopupHubPage() {
             ) : requests.length === 0 ? (
               <div className="space-y-3" data-admin-popup-requests-empty="1">
                 <p className="text-sm text-sam-muted">
-                  {safeT("admin_platform_popup_requests_empty", {
-                    fallbackKo: "대기 중인 오너 신청이 없습니다. 상단에서 팝업 광고를 등록하세요.",
-                    fallbackEn: "No open owner requests. Use Create popup ad above.",
-                  })}
+                  {safeT("admin_platform_popup_requests_empty")}
                 </p>
                 <p className="text-xs text-sam-muted">{emptyContractLine}</p>
               </div>
@@ -315,13 +272,13 @@ export function AdminPlatformPopupHubPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b border-sam-border text-sam-muted">
                     <tr>
-                      <th className="px-2 py-2">{lang === "en" ? "Status" : "상태"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Store" : "매장"}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_status")}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_store")}</th>
                       <th className="px-2 py-2">Owner</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Placement" : "노출"}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_placement_3")}</th>
                       <th className="px-2 py-2">CTA</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Cash" : "결제"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Price" : "금액"}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_cash")}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_price")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -379,7 +336,7 @@ export function AdminPlatformPopupHubPage() {
               }`}
               onClick={() => setCampaignFilter("")}
             >
-              {safeT("admin_platform_popup_filter_all", { fallbackKo: "전체", fallbackEn: "All" })}
+              {safeT("admin_platform_popup_filter_all")}
             </button>
             {PLATFORM_POPUP_HUB_OPS_CHIPS.map((chip) => (
               <button
@@ -402,10 +359,7 @@ export function AdminPlatformPopupHubPage() {
             ) : campaigns.length === 0 ? (
               <div className="space-y-3" data-admin-popup-campaigns-empty="1">
                 <p className="text-sm text-sam-muted">
-                  {safeT("admin_platform_popup_empty", {
-                    fallbackKo: "아직 등록된 팝업이 없습니다. 상단에서 등록하세요.",
-                    fallbackEn: "No popup ads yet. Use Create above.",
-                  })}
+                  {safeT("admin_platform_popup_empty")}
                 </p>
                 <p className="text-xs text-sam-muted">{emptyContractLine}</p>
               </div>
@@ -414,11 +368,11 @@ export function AdminPlatformPopupHubPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b border-sam-border text-sam-muted">
                     <tr>
-                      <th className="px-2 py-2">{lang === "en" ? "Creative" : "소재"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Ad" : "광고"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Status" : "상태"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Placement" : "노출"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Schedule" : "기간"}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_creative_2")}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_ads_history_deleted_col_title")}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_status")}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_placement_3")}</th>
+                      <th className="px-2 py-2">{translateBy(lang, "admin_schedule")}</th>
                       <th className="px-2 py-2">Priority</th>
                     </tr>
                   </thead>

@@ -9,6 +9,7 @@ import {
   ADS_WORKSPACE_HREF,
   promotionWorkspacePurposeCopy,
 } from "@/lib/admin/promotion-ownership-visibility";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const ENTRIES = [
   {
@@ -92,10 +93,7 @@ export function AdminPromotionLandingClient() {
             className="mt-1 max-w-2xl text-sm text-sam-muted"
             data-admin-promotion-workspace-purpose="1"
           >
-            {safeT("admin_promotion_landing_desc", {
-              fallbackKo: promotionWorkspacePurposeCopy("ko"),
-              fallbackEn: promotionWorkspacePurposeCopy("en"),
-            })}
+            {safeT("admin_promotion_landing_desc")}
           </p>
         </div>
         <AdminActionLink
@@ -103,10 +101,7 @@ export function AdminPromotionLandingClient() {
           variant="primary"
           data-admin-promotion-create-cta="1"
         >
-          {safeT("admin_platform_events_create", {
-            fallbackKo: "새 이벤트 만들기",
-            fallbackEn: "Create event",
-          })}
+          {safeT("admin_platform_events_create")}
         </AdminActionLink>
       </div>
 
@@ -126,7 +121,7 @@ export function AdminPromotionLandingClient() {
                   {lang === "en" ? entry.descEn : entry.descKo}
                 </p>
                 <p className="mt-2 text-[12px] font-medium text-sam-fg/80">
-                  {lang === "en" ? "Go to management →" : "관리 화면으로 →"}
+                  {translateBy(lang, "admin_go_to_management")}
                 </p>
               </Link>
             </li>
@@ -135,14 +130,9 @@ export function AdminPromotionLandingClient() {
       </ul>
 
       <p className="text-xs text-sam-muted" data-admin-promotion-paid-ads-note="1">
-        {safeT("admin_promotion_paid_ads_note", {
-          fallbackKo:
-            "유료 광고와 광고 노출 위치/재고는 「광고·배너」에서 관리합니다. 인라인 이벤트 배너는 노출 위치 현황에도 표시됩니다.",
-          fallbackEn:
-            "Paid ads and placement inventory live under Ads / Exposure. Inline event banners also appear on Placement status.",
-        })}{" "}
+        {safeT("admin_promotion_paid_ads_note")}{" "}
         <AdminActionLink href={ADS_WORKSPACE_HREF} variant="quiet">
-          {safeT("admin_menu_ads", { fallbackKo: "광고·배너", fallbackEn: "Ads & banners" })}
+          {safeT("admin_menu_ads")}
         </AdminActionLink>
       </p>
     </div>

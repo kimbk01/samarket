@@ -98,10 +98,7 @@ export function AdminDeliveryAdActionQueuePanel() {
     <div data-admin-delivery-ads-action-queue="design-board">
       <AdminCard titleKey="admin_delivery_ads_action_queue_title">
         <p className="mb-2 text-[12px] text-sam-muted">
-          {safeT("admin_delivery_ads_action_queue_subtitle", {
-            fallbackKo: "관리자 조치가 필요한 운영 Case입니다. 읽지 않은 메시지와는 별개입니다.",
-            fallbackEn: "Ops cases that need an admin decision. Separate from unread messages.",
-          })}
+          {safeT("admin_delivery_ads_action_queue_subtitle")}
           {total > 0 ? (
             <span className="ml-2 font-semibold text-sam-fg">
               {t("admin_delivery_ads_action_queue_count", { count: total })}
@@ -116,10 +113,7 @@ export function AdminDeliveryAdActionQueuePanel() {
         ) : items.length === 0 ? (
           <AdminEmptyState
             ko={ko}
-            message={safeT("admin_delivery_ads_action_queue_empty", {
-              fallbackKo: "지금 처리할 운영 Case가 없습니다.",
-              fallbackEn: "No ops cases need action right now.",
-            })}
+            message={safeT("admin_delivery_ads_action_queue_empty")}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -214,14 +208,8 @@ export function AdminDeliveryAdActionQueuePanel() {
                           <span className="ml-1 text-[12px] text-sam-muted">
                             ·{" "}
                             {creativeReady
-                              ? safeT("admin_delivery_ads_creative_status_ready", {
-                                  fallbackKo: "제작 완료",
-                                  fallbackEn: "Ready",
-                                })
-                              : safeT("admin_delivery_ads_creative_status_needs_production", {
-                                  fallbackKo: "제작 필요",
-                                  fallbackEn: "Needs production",
-                                })}
+                              ? safeT("admin_delivery_ads_creative_status_ready")
+                              : safeT("admin_delivery_ads_creative_status_needs_production")}
                           </span>
                         ) : null}
                         <span className="sr-only">{commercialSummary}</span>

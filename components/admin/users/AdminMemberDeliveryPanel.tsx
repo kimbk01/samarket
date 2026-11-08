@@ -71,7 +71,7 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
   if (state.kind === "error") {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+        {safeT("admin_users_cc_load_failed")}
       </div>
     );
   }
@@ -88,7 +88,7 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
           { label: t("admin_users_cc_overview_orders_done"), metric: summary.completed },
           { label: t("admin_users_cc_overview_orders_cancel"), metric: summary.cancelled },
           {
-            label: safeT("admin_users_cc_summary_refunded", { fallbackKo: "환불", fallbackEn: "Refunded" }),
+            label: safeT("admin_users_cc_summary_refunded"),
             metric: summary.refunded,
           },
           {
@@ -100,16 +100,16 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
       />
       <div className="flex justify-end">
         <Link href={memberOrdersByBuyerHref(userId)} className="text-xs font-semibold text-sam-primary">
-          {safeT("admin_users_cc_cta_open_order_admin", { fallbackKo: "Admin 주문관리에서 열기", fallbackEn: "Open in order admin" })}
+          {safeT("admin_users_cc_cta_open_order_admin")}
         </Link>
       </div>
       <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
         <table className="min-w-full border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-sam-border bg-sam-surface-muted text-left text-[12px] font-semibold uppercase text-sam-muted">
-              <th className="px-3 py-2">{safeT("admin_users_cc_col_order_no", { fallbackKo: "주문번호", fallbackEn: "Order no." })}</th>
+              <th className="px-3 py-2">{safeT("admin_users_cc_col_order_no")}</th>
               <th className="px-3 py-2">{t("admin_users_store_col_store_name")}</th>
-              <th className="px-3 py-2">{safeT("admin_users_cc_col_amount", { fallbackKo: "주문금액", fallbackEn: "Amount" })}</th>
+              <th className="px-3 py-2">{safeT("admin_users_cc_col_amount")}</th>
               <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
               <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
               <th className="px-3 py-2">{t("admin_users_col_actions")}</th>
@@ -127,7 +127,7 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
                 <td className="px-3 py-2 tabular-nums text-sam-muted">{fmt(row.createdAt)}</td>
                 <td className="px-3 py-2">
                   <Link href={memberOrderDetailHref(row.id)} className="text-xs font-semibold text-sam-primary">
-                    {safeT("admin_users_cc_cta_order_detail", { fallbackKo: "주문 상세", fallbackEn: "Order detail" })}
+                    {safeT("admin_users_cc_cta_order_detail")}
                   </Link>
                 </td>
               </tr>
@@ -136,7 +136,7 @@ export function AdminMemberDeliveryPanel({ userId }: { userId: string }) {
         </table>
         {orders.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-sam-muted">
-            {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
+            {safeT("admin_users_cc_empty")}
           </p>
         ) : null}
       </div>

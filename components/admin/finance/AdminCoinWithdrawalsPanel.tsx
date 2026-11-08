@@ -118,10 +118,7 @@ export function AdminCoinWithdrawalsPanel() {
   ) => {
     if (action === "mark_paid" && (!payout?.reference.trim() || !payout?.method.trim())) {
       setError(
-        safeT("admin_api_err_payout_reference_required", {
-          fallbackKo: "지급 참조번호를 입력해 주세요.",
-          fallbackEn: "Enter a payout reference.",
-        })
+        safeT("admin_api_err_payout_reference_required")
       );
       return;
     }
@@ -147,18 +144,12 @@ export function AdminCoinWithdrawalsPanel() {
       if (!res.ok || !json.ok) {
         if (json.error === "payout_reference_required") {
           setError(
-            safeT("admin_api_err_payout_reference_required", {
-              fallbackKo: "지급 참조번호를 입력해 주세요.",
-              fallbackEn: "Enter a payout reference.",
-            })
+            safeT("admin_api_err_payout_reference_required")
           );
           return;
         }
         setError(
-          safeT("admin_store_finance_withdrawals_action_failed", {
-            fallbackKo: "Coin 출금 요청 처리에 실패했습니다.",
-            fallbackEn: "Couldn’t process the Coin withdrawal.",
-          })
+          safeT("admin_store_finance_withdrawals_action_failed")
         );
         return;
       }
@@ -167,10 +158,7 @@ export function AdminCoinWithdrawalsPanel() {
       load();
     } catch {
       setError(
-        safeT("common_network_error", {
-          fallbackKo: "네트워크 오류가 발생했습니다.",
-          fallbackEn: "A network error occurred.",
-        })
+        safeT("common_network_error")
       );
     } finally {
       setBusyId(null);
@@ -221,10 +209,7 @@ export function AdminCoinWithdrawalsPanel() {
         <div className="flex items-center gap-2">
           <CurrencyBadge currency="coin" />
           <h2 className="text-[16px] font-semibold text-sam-fg">
-            {safeT("admin_store_finance_withdrawals", {
-              fallbackKo: "Coin 출금 요청",
-              fallbackEn: "Coin withdrawal requests",
-            })}
+            {safeT("admin_store_finance_withdrawals")}
           </h2>
         </div>
       </div>
@@ -280,10 +265,7 @@ export function AdminCoinWithdrawalsPanel() {
         onSizeChange={lq.setSize}
         isFiltered={lq.isFiltered}
         onReset={lq.reset}
-        emptyMessage={safeT("admin_store_finance_withdrawals_empty", {
-          fallbackKo: "해당 상태의 출금 요청이 없습니다.",
-          fallbackEn: "No withdrawal requests for this status.",
-        })}
+        emptyMessage={safeT("admin_store_finance_withdrawals_empty")}
       >
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">

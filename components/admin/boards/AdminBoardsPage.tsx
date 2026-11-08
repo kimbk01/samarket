@@ -80,17 +80,9 @@ export function AdminBoardsPage() {
         className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
         data-testid="admin-legacy-boards-quarantine-banner"
       >
-        {safeT("admin_legacy_boards_quarantine_banner", {
-          fallbackKo:
-            "LEGACY · boards 테이블 표면입니다. Community 운영 SSOT는 주제/게시물입니다.",
-          fallbackEn:
-            "LEGACY · boards table surface. Community ops SSOT is topics/posts.",
-        })}{" "}
+        {safeT("admin_legacy_boards_quarantine_banner")}{" "}
         <Link href="/admin/community/topics" className="font-medium text-signature underline" prefetch={false}>
-          {safeT("admin_legacy_boards_goto_topics", {
-            fallbackKo: "커뮤니티 주제",
-            fallbackEn: "Community topics",
-          })}
+          {safeT("admin_legacy_boards_goto_topics")}
         </Link>
       </p>
 

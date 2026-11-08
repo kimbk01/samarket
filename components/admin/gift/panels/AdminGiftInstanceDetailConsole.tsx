@@ -209,10 +209,7 @@ export function AdminGiftInstanceDetailConsole({
   const runCorrective = async (action: "suspend" | "resume" | "adjust_validity") => {
     if (actionBusy || !reason.trim()) {
       setActionError(
-        safeT("gift_ops_corrective_reason_required", {
-          fallbackKo: "사유를 입력해 주세요.",
-          fallbackEn: "Reason is required.",
-        })
+        safeT("gift_ops_corrective_reason_required")
       );
       return;
     }
@@ -301,10 +298,7 @@ export function AdminGiftInstanceDetailConsole({
   if (state === "loading" && !detail) {
     return (
       <p className="text-sm text-sam-muted" data-admin-gift-instance-detail-loading="1">
-        {safeT("gift_ops_instance_detail_loading", {
-          fallbackKo: "상품권 상세를 불러오는 중…",
-          fallbackEn: "Loading gift instance detail…",
-        })}
+        {safeT("gift_ops_instance_detail_loading")}
       </p>
     );
   }
@@ -313,13 +307,10 @@ export function AdminGiftInstanceDetailConsole({
     return (
       <div className="space-y-3" data-admin-gift-instance-detail-error="1">
         <Link href={backHref} className={`${Sam.btn.secondary} inline-flex min-h-[44px] items-center px-4 text-sm`}>
-          ← {safeT("gift_ops_instance_back_list", { fallbackKo: "발급 상품권", fallbackEn: "Issued gifts" })}
+          ← {safeT("gift_ops_instance_back_list")}
         </Link>
         <p className="text-sm text-sam-danger">
-          {safeT("gift_ops_instance_detail_error", {
-            fallbackKo: "상품권 상세를 불러오지 못했습니다.",
-            fallbackEn: "Couldn’t load gift instance detail.",
-          })}
+          {safeT("gift_ops_instance_detail_error")}
         </p>
         <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
           {adminCta("refresh", language !== "en")}
@@ -335,7 +326,7 @@ export function AdminGiftInstanceDetailConsole({
         className={`${Sam.btn.secondary} inline-flex min-h-[44px] items-center px-4 text-sm`}
         data-admin-gift-instance-back="1"
       >
-        ← {safeT("gift_ops_instance_back_list", { fallbackKo: "발급 상품권", fallbackEn: "Issued gifts" })}
+        ← {safeT("gift_ops_instance_back_list")}
       </Link>
 
       <div
@@ -360,7 +351,7 @@ export function AdminGiftInstanceDetailConsole({
           <p className="text-sm font-semibold">{row.productTitle || "—"}</p>
           <p className="text-sm text-sam-muted">
             {row.giftScope === "PLATFORM"
-              ? safeT("gift_ops_type_platform", { fallbackKo: "DIBAY 상품권", fallbackEn: "DIBAY Gift" })
+              ? safeT("gift_ops_type_platform")
               : row.storeName || "—"}{" "}
             · {row.status}
           </p>
@@ -370,10 +361,7 @@ export function AdminGiftInstanceDetailConsole({
               className="inline-block text-xs font-semibold text-sam-primary"
               data-admin-gift-cta-product-settings="1"
             >
-              {safeT("gift_ops_cta_product_settings", {
-                fallbackKo: "상품 설정 보기",
-                fallbackEn: "View product settings",
-              })}
+              {safeT("gift_ops_cta_product_settings")}
             </Link>
           ) : null}
         </div>
@@ -382,19 +370,19 @@ export function AdminGiftInstanceDetailConsole({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-gift-instance-summary="1">
         {[
           {
-            label: safeT("gift_ops_kpi_face", { fallbackKo: "최초 금액", fallbackEn: "Face value" }),
+            label: safeT("gift_ops_kpi_face"),
             value: formatAdminPhp(row.faceValue),
           },
           {
-            label: safeT("gift_ops_kpi_remaining", { fallbackKo: "현재 잔액", fallbackEn: "Remaining" }),
+            label: safeT("gift_ops_kpi_remaining"),
             value: formatAdminPhp(row.remainingBalance),
           },
           {
-            label: safeT("gift_ops_kpi_redeemed_gross", { fallbackKo: "누적 사용", fallbackEn: "Redeemed" }),
+            label: safeT("gift_ops_kpi_redeemed_gross"),
             value: formatAdminPhp(redeemedGross),
           },
           {
-            label: safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" }),
+            label: safeT("gift_ops_field_validity"),
             value: formatValidity(row.validFrom, row.validUntil),
           },
         ].map((kpi) => (
@@ -410,17 +398,17 @@ export function AdminGiftInstanceDetailConsole({
         data-admin-gift-instance-owner="1"
       >
         <h3 className="font-semibold">
-          {safeT("gift_ops_sec_buyer_owner", { fallbackKo: "구매자 / 현재 소유자", fallbackEn: "Buyer / owner" })}
+          {safeT("gift_ops_sec_buyer_owner")}
         </h3>
         <p>
-          {safeT("gift_ops_field_buyer", { fallbackKo: "구매자", fallbackEn: "Buyer" })}: {row.originalBuyerLabel || "—"}
+          {safeT("gift_ops_field_buyer")}: {row.originalBuyerLabel || "—"}
         </p>
         <p>
-          {safeT("gift_ops_field_owner", { fallbackKo: "현재 소유자", fallbackEn: "Current owner" })}:{" "}
+          {safeT("gift_ops_field_owner")}:{" "}
           {row.currentOwnerLabel || "—"}
         </p>
         <p className="text-xs text-sam-muted">
-          {safeT("gift_ops_field_issued_at", { fallbackKo: "발급일", fallbackEn: "Issued" })}:{" "}
+          {safeT("gift_ops_field_issued_at")}:{" "}
           {dt(row.purchasedAt || row.createdAt)} · ID: {row.id}
         </p>
       </div>
@@ -430,17 +418,11 @@ export function AdminGiftInstanceDetailConsole({
         data-admin-gift-instance-timeline="1"
       >
         <h3 className="font-semibold">
-          {safeT("gift_ops_sec_lifecycle_timeline", {
-            fallbackKo: "생명주기 타임라인",
-            fallbackEn: "Lifecycle timeline",
-          })}
+          {safeT("gift_ops_sec_lifecycle_timeline")}
         </h3>
         {timeline.length === 0 ? (
           <p className="text-sam-muted">
-            {safeT("gift_ops_timeline_empty", {
-              fallbackKo: "타임라인 이벤트가 없습니다.",
-              fallbackEn: "No timeline events.",
-            })}
+            {safeT("gift_ops_timeline_empty")}
           </p>
         ) : (
           <ol className="relative space-y-0 border-l border-sam-border pl-4">
@@ -465,52 +447,46 @@ export function AdminGiftInstanceDetailConsole({
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2 text-sm">
         <h3 className="font-semibold">
-          {safeT("gift_ops_sec_balance", { fallbackKo: "잔액", fallbackEn: "Balance" })}
+          {safeT("gift_ops_sec_balance")}
         </h3>
         <p className="tabular-nums">
-          {safeT("gift_ops_kpi_remaining", { fallbackKo: "현재 잔액", fallbackEn: "Remaining" })}:{" "}
+          {safeT("gift_ops_kpi_remaining")}:{" "}
           {formatAdminPhp(row.remainingBalance)}
         </p>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2 text-sm">
         <h3 className="font-semibold">
-          {safeT("gift_ops_sec_settlement", { fallbackKo: "정산", fallbackEn: "Settlement" })}
+          {safeT("gift_ops_sec_settlement")}
         </h3>
         {!detail.settlement && (detail.recovery ?? []).length === 0 ? (
           <p className="text-sam-muted">
-            {safeT("gift_ops_settlement_empty", { fallbackKo: "정산 데이터가 없습니다.", fallbackEn: "No settlement data." })}
+            {safeT("gift_ops_settlement_empty")}
           </p>
         ) : (
           <>
             {detail.settlement ? (
               <p className="tabular-nums">
-                {safeT("gift_ops_settlement_available", {
-                  fallbackKo: "Available Gift Revenue",
-                  fallbackEn: "Available Gift Revenue",
-                })}
+                {safeT("gift_ops_settlement_available")}
                 : {formatAdminPhp(detail.settlement.availableRevenue)}
               </p>
             ) : null}
             {(detail.settlement?.cashOuts.length ?? 0) === 0 &&
             (detail.settlement?.conversions.length ?? 0) === 0 ? (
               <p className="text-xs text-sam-muted">
-                {safeT("gift_ops_settlement_moves_empty", {
-                  fallbackKo: "환전·전환 내역이 없습니다.",
-                  fallbackEn: "No cash-out or conversion rows.",
-                })}
+                {safeT("gift_ops_settlement_moves_empty")}
               </p>
             ) : (
               <ul className="space-y-1 text-xs">
                 {(detail.settlement?.cashOuts ?? []).map((c) => (
                   <li key={c.id}>
-                    {safeT("gift_ops_cash_out", { fallbackKo: "외부 환전", fallbackEn: "Cash out" })}{" "}
+                    {safeT("gift_ops_cash_out")}{" "}
                     {formatAdminPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
                   </li>
                 ))}
                 {(detail.settlement?.conversions ?? []).map((c) => (
                   <li key={c.id}>
-                    {safeT("gift_ops_store_cash", { fallbackKo: "과거 전환 기록", fallbackEn: "Historical conversion" })}{" "}
+                    {safeT("gift_ops_store_cash")}{" "}
                     {formatAdminPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
                   </li>
                 ))}
@@ -529,10 +505,7 @@ export function AdminGiftInstanceDetailConsole({
               </div>
             ) : (
               <p className="text-xs text-sam-muted">
-                {safeT("gift_ops_recovery_none", {
-                  fallbackKo: "관련 Recovery 없음",
-                  fallbackEn: "No related recovery",
-                })}
+                {safeT("gift_ops_recovery_none")}
               </p>
             )}
           </>
@@ -540,19 +513,13 @@ export function AdminGiftInstanceDetailConsole({
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3 text-sm">
         <h3 className="font-semibold">
-          {safeT("gift_ops_sec_corrective", {
-            fallbackKo: "운영 조치 (전용)",
-            fallbackEn: "Admin corrective actions",
-          })}
+          {safeT("gift_ops_sec_corrective")}
         </h3>
         <p className="text-xs text-sam-muted">
-          {safeT("gift_ops_corrective_note", {
-            fallbackKo: "잔액 필드를 직접 수정하지 않습니다. 사유 필수 · 전용 RPC만 사용합니다.",
-            fallbackEn: "No direct balance field edit. Reason required · dedicated RPC only.",
-          })}
+          {safeT("gift_ops_corrective_note")}
         </p>
         <label className="block space-y-1 text-sm">
-          <span>{safeT("gift_ops_corrective_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}</span>
+          <span>{safeT("gift_ops_corrective_reason")}</span>
           <input
             className={Sam.input.base}
             value={reason}
@@ -562,10 +529,7 @@ export function AdminGiftInstanceDetailConsole({
         </label>
         <label className="block space-y-1 text-sm">
           <span>
-            {safeT("gift_ops_corrective_valid_until", {
-              fallbackKo: "유효기간 종료 (비우면 만료 없음)",
-              fallbackEn: "Valid until (empty = no expiry)",
-            })}
+            {safeT("gift_ops_corrective_valid_until")}
           </span>
           <input
             className={Sam.input.base}
@@ -582,7 +546,7 @@ export function AdminGiftInstanceDetailConsole({
             disabled={actionBusy}
             onClick={() => void runCorrective("suspend")}
           >
-            {safeT("gift_ops_cta_suspend", { fallbackKo: "사용 정지", fallbackEn: "Suspend" })}
+            {safeT("gift_ops_cta_suspend")}
           </AdminActionButton>
           <AdminActionButton
             type="button"
@@ -590,7 +554,7 @@ export function AdminGiftInstanceDetailConsole({
             disabled={actionBusy}
             onClick={() => void runCorrective("resume")}
           >
-            {safeT("gift_ops_cta_resume_instance", { fallbackKo: "사용 재개", fallbackEn: "Resume" })}
+            {safeT("gift_ops_cta_resume_instance")}
           </AdminActionButton>
           <AdminActionButton
             type="button"
@@ -598,10 +562,7 @@ export function AdminGiftInstanceDetailConsole({
             disabled={actionBusy}
             onClick={() => void runCorrective("adjust_validity")}
           >
-            {safeT("gift_ops_cta_adjust_validity", {
-              fallbackKo: "유효기간 조정",
-              fallbackEn: "Adjust validity",
-            })}
+            {safeT("gift_ops_cta_adjust_validity")}
           </AdminActionButton>
         </div>
       </div>

@@ -168,41 +168,21 @@ export function campaignConfirmFactLines(facts: CampaignConfirmFacts, lang: "ko"
   const lines: string[] = [];
   if (facts.title) {
     lines.push(
-      safeTranslate(lang, "admin_campaign_cms_confirm_fact_title", {
-        fallbackKo: `제목: ${facts.title}`,
-        fallbackEn: `Title: ${facts.title}`,
-        vars: { title: facts.title },
-      })
+      safeTranslate(lang, "admin_campaign_cms_confirm_fact_title", { vars: { title: facts.title } })
     );
   }
   const push =
     typeof facts.pushEligibleCount === "number"
-      ? ` ${safeTranslate(lang, "admin_campaign_cms_confirm_fact_push_eligible", {
-          fallbackKo: `(푸시 수신 가능 ${n(facts.pushEligibleCount)}명)`,
-          fallbackEn: `(push-eligible ${n(facts.pushEligibleCount)})`,
-          vars: { count: n(facts.pushEligibleCount) },
-        })}`
+      ? ` ${safeTranslate(lang, "admin_campaign_cms_confirm_fact_push_eligible", { vars: { count: n(facts.pushEligibleCount) } })}`
       : "";
   lines.push(
-    `${safeTranslate(lang, "admin_campaign_cms_confirm_fact_audience", {
-      fallbackKo: `대상: ${n(facts.targetCount)}명`,
-      fallbackEn: `Audience: ${n(facts.targetCount)}`,
-      vars: { count: n(facts.targetCount) },
-    })}${push}`
+    `${safeTranslate(lang, "admin_campaign_cms_confirm_fact_audience", { vars: { count: n(facts.targetCount) } })}${push}`
   );
   lines.push(
-    safeTranslate(lang, "admin_campaign_cms_confirm_fact_channel", {
-      fallbackKo: `채널: ${facts.channelLabel}`,
-      fallbackEn: `Channel: ${facts.channelLabel}`,
-      vars: { channel: facts.channelLabel },
-    })
+    safeTranslate(lang, "admin_campaign_cms_confirm_fact_channel", { vars: { channel: facts.channelLabel } })
   );
   lines.push(
-    safeTranslate(lang, "admin_campaign_cms_confirm_fact_time", {
-      fallbackKo: `시각: ${facts.timeLabel}`,
-      fallbackEn: `Time: ${facts.timeLabel}`,
-      vars: { time: facts.timeLabel },
-    })
+    safeTranslate(lang, "admin_campaign_cms_confirm_fact_time", { vars: { time: facts.timeLabel } })
   );
   return lines;
 }

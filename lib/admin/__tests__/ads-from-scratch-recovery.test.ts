@@ -2,13 +2,14 @@
  * Ads recovery — Approve CTA contrast + Feed→Banner naming + save notice markers.
  */
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isAdsTestFixtureLabel } from "@/lib/admin/ads-operator/ads-operator-presentation";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 import { adminMenu } from "@/components/admin/admin-menu";
 
-const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(process.cwd(), rel), "utf8"));
 
 describe("ads from-scratch recovery contracts", () => {
   it("Approve CTA uses the Admin primary button (not undefined sam-brand)", () => {

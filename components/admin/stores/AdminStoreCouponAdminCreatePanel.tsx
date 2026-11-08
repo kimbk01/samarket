@@ -70,10 +70,7 @@ export function AdminStoreCouponAdminCreatePanel({
         const issuedTitle = title.trim();
         if (!storeId || !startAt || !endAt || !issuedTitle) {
           setErr(
-            safeT("store_coupon_admin_act_fail", {
-              fallbackKo: "처리할 수 없습니다.",
-              fallbackEn: "Could not complete that action.",
-            })
+            safeT("store_coupon_admin_act_fail")
           );
           return;
         }
@@ -114,10 +111,7 @@ export function AdminStoreCouponAdminCreatePanel({
             setErr(
               code
                 ? adminOperatorErrorMessage(code, language !== "en")
-                : safeT("store_coupon_admin_act_fail", {
-                    fallbackKo: "처리할 수 없습니다.",
-                    fallbackEn: "Could not complete that action.",
-                  })
+                : safeT("store_coupon_admin_act_fail")
             );
           }
           return;

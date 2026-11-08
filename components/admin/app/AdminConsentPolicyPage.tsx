@@ -61,10 +61,7 @@ export function AdminConsentPolicyPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {safeT("admin_legal_consent_policy", {
-            fallbackKo: "동의 정책",
-            fallbackEn: "Consent policy",
-          })}
+          {safeT("admin_legal_consent_policy")}
         </h1>
         <Link href="/admin/app/legal" className="sam-text-body text-signature">
           {ko ? "약관 목록" : "Legal list"}

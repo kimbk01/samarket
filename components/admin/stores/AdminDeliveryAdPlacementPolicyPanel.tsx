@@ -231,25 +231,14 @@ export function AdminDeliveryAdHomePolicyPanel({
       ) : null}
       <div className="mt-4 rounded-ui-rect border border-dashed border-sam-border p-3">
         <p className="text-[13px] font-bold text-sam-fg">
-          {safeT("admin_delivery_ads_home_banner_slot_title", {
-            fallbackKo: "매장 목록 위 배너 (HOME 구성)",
-            fallbackEn: "Before-rest banner (HOME composition)",
-          })}
+          {safeT("admin_delivery_ads_home_banner_slot_title")}
         </p>
         <p className="mt-1 text-[12px] text-sam-muted">
-          {safeT("admin_delivery_ads_home_banner_slot_hint", {
-            fallbackKo:
-              "네이티브 매장 홍보(rest_stores 삽입)와 별개입니다. HOME 구성이 물리 지면을 소유합니다.",
-            fallbackEn:
-              "Separate from native store promotion (rest_stores insertion). HOME composition owns this physical slot.",
-          })}
+          {safeT("admin_delivery_ads_home_banner_slot_hint")}
         </p>
         <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
           <span className="font-medium text-sam-fg">
-            {safeT("admin_delivery_ads_home_banner_slot_enable", {
-              fallbackKo: "배너 지면 사용",
-              fallbackEn: "Enable banner slot",
-            })}
+            {safeT("admin_delivery_ads_home_banner_slot_enable")}
           </span>
           <input
             type="checkbox"
@@ -266,42 +255,28 @@ export function AdminDeliveryAdHomePolicyPanel({
           </p>
         ) : null}
         <Link href={bannerHubHref} className="mt-2 inline-block text-[12px] font-semibold text-signature underline">
-          {safeT("admin_delivery_ads_open_banner_campaigns", {
-            fallbackKo: "배너 캠페인 관리",
-            fallbackEn: "Manage banner campaigns",
-          })}
+          {safeT("admin_delivery_ads_open_banner_campaigns")}
         </Link>
       </div>
       <Link href={hubHref} className="mt-3 inline-block text-[13px] font-semibold text-signature underline">
         {t("admin_delivery_ads_open_campaigns")}
       </Link>
       <p className="mt-2 text-[12px] text-sam-muted">
-        {safeT("admin_delivery_ads_home_policy_switch_hint", {
-          fallbackKo:
-            "HOME 네이티브 매장 홍보 켜기/끄기는 「더 많은 매장」 선반의 광고 삽입 설정 하나로 정합니다. 코드 기본값은 끄기입니다.",
-          fallbackEn:
-            "HOME native store promotion is switched only by the remaining-stores shelf ad setting. Code default remains OFF.",
-        })}
+        {safeT("admin_delivery_ads_home_policy_switch_hint")}
       </p>
       <Link
         href="/admin/stores-home-shelves"
         className="mt-1 inline-block text-[12px] font-medium text-signature underline"
         data-admin-home-paid-insertion-switch-link="1"
       >
-        {safeT("admin_delivery_ads_home_policy_open_shelves", {
-          fallbackKo: "홈 선반에서 광고 연동 설정",
-          fallbackEn: "Configure ad integration on home shelves",
-        })}
+        {safeT("admin_delivery_ads_home_policy_open_shelves")}
       </Link>
       <Link
         href="/admin/stores-category-policy"
         className="mt-1 block text-[12px] font-medium text-signature underline"
         data-admin-ads-crossnav-category-policy="1"
       >
-        {safeT("admin_delivery_ads_open_category_policy", {
-          fallbackKo: "업종(BROWSE) 광고 정책",
-          fallbackEn: "BROWSE category ad policy",
-        })}
+        {safeT("admin_delivery_ads_open_category_policy")}
       </Link>
     </div>
   );

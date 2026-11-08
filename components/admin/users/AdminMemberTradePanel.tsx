@@ -60,7 +60,7 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
   if (state.kind === "error") {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+        {safeT("admin_users_cc_load_failed")}
       </div>
     );
   }
@@ -77,11 +77,11 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
           { label: t("admin_users_cc_overview_reserved"), metric: summary.reserved },
           { label: t("admin_users_cc_overview_completed"), metric: summary.completed },
           {
-            label: safeT("admin_users_cc_summary_buyer", { fallbackKo: "구매 참여", fallbackEn: "Buyer chats" }),
+            label: safeT("admin_users_cc_summary_buyer"),
             metric: summary.buyerChats,
           },
           {
-            label: safeT("admin_users_cc_summary_trade_chats", { fallbackKo: "거래 채팅", fallbackEn: "Trade chats" }),
+            label: safeT("admin_users_cc_summary_trade_chats"),
             metric: summary.tradeChats,
           },
           {
@@ -108,10 +108,10 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
             setPage(1);
           }}
         >
-          {safeT("admin_users_cc_summary_buyer", { fallbackKo: "구매 참여", fallbackEn: "Buyer chats" })}
+          {safeT("admin_users_cc_summary_buyer")}
         </AdminChipButton>
         <Link href={memberTradeAdminHref()} className="ml-auto text-xs font-semibold text-sam-primary">
-          {safeT("admin_users_cc_cta_open_trade_admin", { fallbackKo: "Trade Admin에서 열기", fallbackEn: "Open in Trade admin" })}
+          {safeT("admin_users_cc_cta_open_trade_admin")}
         </Link>
       </div>
       <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
@@ -119,8 +119,8 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
           <table className="min-w-full border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-sam-border bg-sam-surface-muted text-left text-[12px] font-semibold uppercase text-sam-muted">
-                <th className="px-3 py-2">{safeT("admin_users_cc_col_title", { fallbackKo: "상품", fallbackEn: "Listing" })}</th>
-                <th className="px-3 py-2">{safeT("admin_users_cc_col_amount", { fallbackKo: "가격", fallbackEn: "Price" })}</th>
+                <th className="px-3 py-2">{safeT("admin_users_cc_col_title")}</th>
+                <th className="px-3 py-2">{safeT("admin_users_cc_col_amount")}</th>
                 <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
                 <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
                 <th className="px-3 py-2">{t("admin_users_col_actions")}</th>
@@ -135,7 +135,7 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
                   <td className="px-3 py-2 tabular-nums text-sam-muted">{fmt(row.createdAt)}</td>
                   <td className="px-3 py-2">
                     <Link href={memberTradePostHref(row.id)} className="text-xs font-semibold text-sam-primary">
-                      {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "원본", fallbackEn: "Open listing" })}
+                      {safeT("admin_users_cc_cta_view_trade_post")}
                     </Link>
                   </td>
                 </tr>
@@ -150,11 +150,11 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
               <div className="flex flex-wrap gap-3 text-xs font-semibold text-sam-primary">
                 {row.postId ? (
                   <Link href={memberTradePostHref(row.postId)}>
-                    {safeT("admin_users_cc_cta_view_trade_post", { fallbackKo: "거래 게시물 보기", fallbackEn: "View listing" })}
+                    {safeT("admin_users_cc_cta_view_trade_post")}
                   </Link>
                 ) : null}
                 <Link href={memberTradeChatAdminHref()}>
-                  {safeT("admin_users_cc_cta_view_trade_chat", { fallbackKo: "Trade 채팅 보기", fallbackEn: "View trade chat" })}
+                  {safeT("admin_users_cc_cta_view_trade_chat")}
                 </Link>
               </div>
             </div>
@@ -162,7 +162,7 @@ export function AdminMemberTradePanel({ userId }: { userId: string }) {
         )}
         {(section === "listings" && state.data.listings.length === 0) || (section === "buyer" && state.data.buyer.length === 0) ? (
           <p className="px-4 py-6 text-center text-sm text-sam-muted">
-            {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
+            {safeT("admin_users_cc_empty")}
           </p>
         ) : null}
       </div>

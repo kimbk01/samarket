@@ -14,6 +14,7 @@ import {
   ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
 } from "@/lib/admin/aro-ia-001-community-common-links";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type AdApplicationDomain = "trade" | "community" | "feed";
 
@@ -105,9 +106,7 @@ export function AdminAdApplicationsPage({
   if (shouldRedirectLegacyCommunity) {
     return (
       <p className="text-sm text-sam-muted">
-        {language === "en"
-          ? "Redirecting to community promotions…"
-          : "커뮤니티 상위노출 큐로 이동 중…"}
+        {translateBy(language, "admin_redirecting_to_community_promotions")}
       </p>
     );
   }
@@ -116,15 +115,8 @@ export function AdminAdApplicationsPage({
     return (
       <div className="space-y-4">
         <AdminPageHeader
-          title={safeT("admin_ad_applications_choose_title", {
-            fallbackKo: "광고 신청 도메인 선택",
-            fallbackEn: "Choose ad request domain",
-          })}
-          description={safeT("admin_ad_applications_choose_desc", {
-            fallbackKo: "승인 전 광고 신청을 상품별로 확인합니다. 승인 뒤 운영은 노출 관리에서 처리합니다.",
-            fallbackEn:
-              "Review pre-approval ad applications by product. Approved campaigns move to operations.",
-          })}
+          title={safeT("admin_ad_applications_choose_title")}
+          description={safeT("admin_ad_applications_choose_desc")}
           backHref={returnTo ?? undefined}
         />
         <div className="grid gap-3 sm:grid-cols-3">
@@ -202,9 +194,7 @@ export function AdminAdApplicationsPage({
         >
           <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
             {/* 광고 감사 P-5: 거래 상위노출은 심사 없이 결제 즉시 노출 — 이 화면은 주문 내역 조회용 */}
-            {language === "en"
-              ? "Order history only — trade boosts go live without approval. Manage them in Trade › Boosts."
-              : "주문 내역 조회 전용입니다 — 거래 상위노출은 승인 없이 바로 노출됩니다. 관리는 거래 › 상위노출에서 합니다."}
+            {translateBy(language, "admin_order_history_only_trade_boosts_go")}
           </p>
           <AdminCommunityPromotionQueue domain="trade" />
         </section>
@@ -217,9 +207,9 @@ export function AdminAdApplicationsPage({
         >
           {/* 설계 v2 §F-1 (C-47): 커뮤니티 승인/반려(레거시)는 410 — 이 화면은 조회만, 처리는 게시글 홍보 화면 */}
           <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
-            {language === "en" ? "View only. " : "조회 전용입니다. "}
+            {translateBy(language, "admin_view_only")}
             <Link href={ARO_IA_001_COMMUNITY_PROMOTIONS_PATH} className="underline" data-community-promo-ops-link="1">
-              {language === "en" ? "Pause / resume / end in Post promotions" : "노출 중지·재개·종료는 게시글 상위노출에서 처리합니다"}
+              {translateBy(language, "admin_pause_resume_end_in_post_promotions")}
             </Link>
           </p>
           <AdminCommunityPromotionQueue domain="community" />
@@ -233,9 +223,7 @@ export function AdminAdApplicationsPage({
         >
           <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
             {/* 광고 감사 P-5: 거래 상위노출은 심사 없이 결제 즉시 노출 — 이 화면은 주문 내역 조회용 */}
-            {language === "en"
-              ? "Order history only — trade boosts go live without approval. Manage them in Trade › Boosts."
-              : "주문 내역 조회 전용입니다 — 거래 상위노출은 승인 없이 바로 노출됩니다. 관리는 거래 › 상위노출에서 합니다."}
+            {translateBy(language, "admin_order_history_only_trade_boosts_go")}
           </p>
           <AdminFeedAdRequestQueue />
         </section>

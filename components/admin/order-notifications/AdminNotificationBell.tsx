@@ -24,14 +24,8 @@ export function AdminNotificationBell() {
   const degraded = queueLoadState === "error" || !queueTotalComplete;
 
   const meaning = degraded
-    ? safeT("admin_ops_bell_degraded", {
-        fallbackKo: "관리자 처리 업무 일부를 불러오지 못했습니다",
-        fallbackEn: "Some admin workload could not be counted",
-      })
-    : `${safeT("admin_ops_bell_meaning", {
-        fallbackKo: "관리자 처리 대기 업무",
-        fallbackEn: "Admin tasks waiting",
-      })}: ${count}`;
+    ? safeT("admin_ops_bell_degraded")
+    : `${safeT("admin_ops_bell_meaning")}: ${count}`;
 
   return (
     <Link

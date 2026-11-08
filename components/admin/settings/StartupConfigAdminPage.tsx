@@ -75,7 +75,7 @@ export function StartupConfigAdminPage() {
 
   const saveInitialTab = useCallback(async () => {
     // 설정 저장 = L1 확인 (표준 확인창)
-    const label = safeT("admin_first_entry_save_tab", { fallbackKo: "시작 탭 저장", fallbackEn: "Save launch tab" });
+    const label = safeT("admin_first_entry_save_tab");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
@@ -101,10 +101,7 @@ export function StartupConfigAdminPage() {
       setDraft(normalizeStartupConfig(json.config));
       setTabResult({
         ok: true,
-        message: safeT("admin_startup_config_save_ok", {
-          fallbackKo: "저장되었습니다.",
-          fallbackEn: "Saved.",
-        }),
+        message: safeT("admin_startup_config_save_ok"),
       });
     } catch {
       setTabResult({ ok: false, code: "network_error" });
@@ -117,24 +114,15 @@ export function StartupConfigAdminPage() {
     <div className="space-y-4">
       <AdminPageHeader
         titleKey="admin_menu_settings_startup_config"
-        description={safeT("admin_startup_config_desc", {
-          fallbackKo: "앱을 열었을 때 기본으로 들어갈 하단 탭을 설정합니다.",
-          fallbackEn: "Choose the default bottom tab when the app opens.",
-        })}
+        description={safeT("admin_startup_config_desc")}
       />
 
       <AdminCard>
         <h2 className="mb-1 sam-text-title font-semibold text-sam-fg">
-          {safeT("admin_startup_config_section_surface", {
-            fallbackKo: "앱 시작 탭",
-            fallbackEn: "Launch tab",
-          })}
+          {safeT("admin_startup_config_section_surface")}
         </h2>
         <p className="mb-4 sam-text-body text-sam-muted">
-          {safeT("admin_startup_config_initial_surface_hint", {
-            fallbackKo: "앱을 열었을 때 기본으로 열릴 하단 탭입니다.",
-            fallbackEn: "Default bottom tab when the app opens.",
-          })}
+          {safeT("admin_startup_config_initial_surface_hint")}
         </p>
         {loading ? (
           <AdminLoadingState ko={ko} />
@@ -144,10 +132,7 @@ export function StartupConfigAdminPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[200px] flex-1">
               <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-                {safeT("admin_startup_config_initial_surface", {
-                  fallbackKo: "시작 탭",
-                  fallbackEn: "Launch tab",
-                })}
+                {safeT("admin_startup_config_initial_surface")}
               </label>
               <select
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
@@ -162,34 +147,19 @@ export function StartupConfigAdminPage() {
                 }
               >
                 <option value="community">
-                  {safeT("admin_startup_config_surface_community", {
-                    fallbackKo: "커뮤니티",
-                    fallbackEn: "Community",
-                  })}
+                  {safeT("admin_startup_config_surface_community")}
                 </option>
                 <option value="trade">
-                  {safeT("admin_startup_config_surface_trade", {
-                    fallbackKo: "거래",
-                    fallbackEn: "Trade",
-                  })}
+                  {safeT("admin_startup_config_surface_trade")}
                 </option>
                 <option value="food">
-                  {safeT("admin_startup_config_surface_food", {
-                    fallbackKo: "배달/푸드",
-                    fallbackEn: "Food / Delivery",
-                  })}
+                  {safeT("admin_startup_config_surface_food")}
                 </option>
                 <option value="chat">
-                  {safeT("admin_startup_config_surface_chat", {
-                    fallbackKo: "채팅",
-                    fallbackEn: "Chat",
-                  })}
+                  {safeT("admin_startup_config_surface_chat")}
                 </option>
                 <option value="my">
-                  {safeT("admin_startup_config_surface_my", {
-                    fallbackKo: "내 정보",
-                    fallbackEn: "My",
-                  })}
+                  {safeT("admin_startup_config_surface_my")}
                 </option>
               </select>
             </div>
@@ -201,11 +171,8 @@ export function StartupConfigAdminPage() {
               onClick={() => void saveInitialTab()}
             >
               {savingTab
-                ? safeT("common_loading", { fallbackKo: "저장 중…", fallbackEn: "Saving…" })
-                : safeT("admin_first_entry_save_tab", {
-                    fallbackKo: "시작 탭 저장",
-                    fallbackEn: "Save launch tab",
-                  })}
+                ? safeT("common_loading")
+                : safeT("admin_first_entry_save_tab")}
             </AdminActionButton>
           </div>
         )}

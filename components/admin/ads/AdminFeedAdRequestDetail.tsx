@@ -280,10 +280,7 @@ export function AdminFeedAdRequestDetail({
           ? ko
             ? "광고 노출을 일시중지할까요? 피드에서 곧바로 빠집니다."
             : "Pause this ad? It leaves the feed shortly."
-          : safeT("admin_feed_req_resume_confirm", {
-              fallbackKo: "광고를 다시 노출할까요?",
-              fallbackEn: "Resume this ad in the feed?",
-            }),
+          : safeT("admin_feed_req_resume_confirm"),
       description: copy.body,
       confirmLabel: copy.confirmLabel,
       splitReason: copy.splitReason,
@@ -384,10 +381,7 @@ export function AdminFeedAdRequestDetail({
         // FA-3 (2026-11-04): 서버가 준 한국어 사유를 보인다 — 코드값(aspect_mismatch 등)은 화면에 보이지 않게
         setErr(
           uj.message?.trim() ||
-            safeT("ads_f_upload_failed_generic", {
-              fallbackKo: "이미지를 올리지 못했습니다. 3:1 비율·1200×400 이상인지 확인해 주세요.",
-              fallbackEn: "Could not upload the image. Check it is 3:1 and at least 1200×400.",
-            })
+            safeT("ads_f_upload_failed_generic")
         );
         return;
       }
@@ -408,10 +402,7 @@ export function AdminFeedAdRequestDetail({
     }
   };
 
-  const title = safeT("admin_feed_req_detail_title", {
-    fallbackKo: "광고 신청 검토",
-    fallbackEn: "Ad application review",
-  });
+  const title = safeT("admin_feed_req_detail_title");
 
   if (loading) {
     return (
@@ -500,7 +491,7 @@ export function AdminFeedAdRequestDetail({
             title={writeDeniedTitle}
             onClick={() => void requestReview("reject")}
           >
-            {safeT("admin_feed_req_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
+            {safeT("admin_feed_req_reject")}
           </AdminActionButton>
           <AdminActionButton
             variant="primary"
@@ -515,7 +506,7 @@ export function AdminFeedAdRequestDetail({
             }
             onClick={() => void requestReview("approve")}
           >
-            {safeT("admin_feed_req_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
+            {safeT("admin_feed_req_approve")}
           </AdminActionButton>
         </>
       ) : null}
@@ -527,7 +518,7 @@ export function AdminFeedAdRequestDetail({
           title={writeDeniedTitle}
           onClick={() => void actOps("pause")}
         >
-          {safeT("admin_feed_req_pause", { fallbackKo: "일시중지", fallbackEn: "Pause" })}
+          {safeT("admin_feed_req_pause")}
         </AdminActionButton>
       ) : null}
       {canResume ? (
@@ -538,7 +529,7 @@ export function AdminFeedAdRequestDetail({
           title={writeDeniedTitle}
           onClick={() => void actOps("resume")}
         >
-          {safeT("admin_feed_req_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
+          {safeT("admin_feed_req_resume")}
         </AdminActionButton>
       ) : null}
       {canEnd && !pending ? (
@@ -549,10 +540,7 @@ export function AdminFeedAdRequestDetail({
           title={writeDeniedTitle}
           onClick={() => void actOps("extend_compensation")}
         >
-          {safeT("admin_feed_req_extend_compensation", {
-            fallbackKo: "보상 연장",
-            fallbackEn: "Compensation extend",
-          })}
+          {safeT("admin_feed_req_extend_compensation")}
         </AdminActionButton>
       ) : null}
       {canEnd && !pending ? (
@@ -563,7 +551,7 @@ export function AdminFeedAdRequestDetail({
           title={writeDeniedTitle}
           onClick={() => void actOps("end")}
         >
-          {safeT("admin_feed_req_end", { fallbackKo: "광고 종료", fallbackEn: "End ad" })}
+          {safeT("admin_feed_req_end")}
         </AdminActionButton>
       ) : null}
       {extendOpen ? (
@@ -572,10 +560,7 @@ export function AdminFeedAdRequestDetail({
           data-admin-feed-extend-form="1"
         >
           <label className="block text-[13px] text-sam-muted">
-            {safeT("admin_feed_req_extend_days_prompt", {
-              fallbackKo: "보상 연장 일수 (1–90)",
-              fallbackEn: "Compensation days (1–90)",
-            })}
+            {safeT("admin_feed_req_extend_days_prompt")}
             <input
               type="number"
               min={1}
@@ -735,10 +720,7 @@ export function AdminFeedAdRequestDetail({
           {ko ? "광고 미리보기" : "Ad preview"}
         </h3>
         <p className="sam-text-helper text-sam-muted">
-          {safeT("admin_feed_req_pixel", {
-            fallbackKo: `표준 배너 크기: ${pixelLabel}`,
-            fallbackEn: `Standard banner size: ${pixelLabel}`,
-          })}
+          {safeT("admin_feed_req_pixel")}
         </p>
         {primary?.imageUrl && !previewBroken && !creativeUnreachable ? (
           <FeedAdFramePreview
@@ -776,10 +758,7 @@ export function AdminFeedAdRequestDetail({
               >
                 {uploading
                   ? t("common_loading")
-                  : safeT("admin_feed_req_replace_image", {
-                      fallbackKo: "PC에서 이미지 불러오기",
-                      fallbackEn: "Load image from PC",
-                    })}
+                  : safeT("admin_feed_req_replace_image")}
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"

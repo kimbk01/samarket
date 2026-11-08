@@ -82,22 +82,13 @@ export function AdminGiftMoneyPanel({
     <div className="space-y-4" data-admin-gift-money="1">
       <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-3 text-sm text-sam-warning">
         <p className="font-semibold">
-          {safeT("gift_ops_legacy_money_archive_title", {
-            fallbackKo: "Gift 정산 과거 기록 보관함",
-            fallbackEn: "Historical Gift settlement archive",
-          })}
+          {safeT("gift_ops_legacy_money_archive_title")}
         </p>
         <p className="mt-1">
-          {safeT("gift_ops_legacy_money_archive_desc", {
-            fallbackKo: "비제품 과거 기록만 제공합니다. 신규 현금화는 Admin 재무의 Coin 출금을 사용하세요.",
-            fallbackEn: "Non-product historical records only. Use Coin withdrawal in Admin Finance for new payouts.",
-          })}
+          {safeT("gift_ops_legacy_money_archive_desc")}
         </p>
         <Link href="/admin/finance#coin-withdrawals" className="mt-2 inline-block font-semibold underline">
-          {safeT("gift_ops_go_coin_withdrawal", {
-            fallbackKo: "Coin 출금으로 이동",
-            fallbackEn: "Go to Coin withdrawal",
-          })}
+          {safeT("gift_ops_go_coin_withdrawal")}
         </Link>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -109,7 +100,7 @@ export function AdminGiftMoneyPanel({
           ].join(" ")}
           data-money-sub="external"
         >
-          {safeT("gift_ops_money_external", { fallbackKo: "외부 환전", fallbackEn: "External cash-out" })}
+          {safeT("gift_ops_money_external")}
         </Link>
         <Link
           href={buildAdminGiftOpsHref({ tab: "finance", money: "store-cash" })}
@@ -119,10 +110,7 @@ export function AdminGiftMoneyPanel({
           ].join(" ")}
           data-money-sub="store-cash"
         >
-          {safeT("gift_ops_money_store_cash", {
-            fallbackKo: "과거 전환 기록",
-            fallbackEn: "Historical conversion records",
-          })}
+          {safeT("gift_ops_money_store_cash")}
         </Link>
       </div>
       {isExternal ? (
@@ -215,10 +203,7 @@ function ExternalCashOuts({
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_cash_error", {
-              fallbackKo: "환전 요청을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load cash-out requests.",
-            })}
+            {safeT("gift_ops_cash_error")}
           </p>
           <AdminActionButton type="button" variant="secondary" onClick={() => void loadList()}>
             {adminCta("refresh", language !== "en")}
@@ -227,10 +212,7 @@ function ExternalCashOuts({
       ) : null}
       {state === "empty" ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_cash_empty", {
-            fallbackKo: "현재 외부 환전 요청이 없습니다.",
-            fallbackEn: "No external cash-out requests.",
-          })}
+          {safeT("gift_ops_cash_empty")}
         </p>
       ) : null}
 
@@ -249,7 +231,7 @@ function ExternalCashOuts({
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
                     <summary>
-                      {safeT("gift_ops_technical", { fallbackKo: "기술 상세", fallbackEn: "Technical details" })}
+                      {safeT("gift_ops_technical")}
                     </summary>
                     <p className="break-all font-mono">{r.id}</p>
                   </details>
@@ -267,7 +249,7 @@ function ExternalCashOuts({
                     )
                   }
                 >
-                  {safeT("gift_ops_cta_review", { fallbackKo: "검토", fallbackEn: "Review" })}
+                  {safeT("gift_ops_cta_review")}
                 </AdminActionButton>
               </div>
             </li>
@@ -285,7 +267,7 @@ function ExternalCashOuts({
               routerPush(buildAdminGiftOpsHref({ tab: "finance", money: "external", extra: { status: status || null } }))
             }
           >
-            ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+            ← {safeT("gift_ops_close_detail")}
           </AdminActionButton>
           <p className="text-[16px] font-semibold tabular-nums">{formatAdminPhp(detail.amount)}</p>
           <p className="text-sm">
@@ -297,10 +279,7 @@ function ExternalCashOuts({
             {detail.bankName ? ` · ${detail.bankName}` : ""} · {detail.accountNumber} · {detail.accountName}
           </p>
           <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-sm text-sam-muted">
-            {safeT("gift_ops_legacy_read_only", {
-              fallbackKo: "읽기 전용 과거 기록입니다.",
-              fallbackEn: "Read-only historical record.",
-            })}
+            {safeT("gift_ops_legacy_read_only")}
           </p>
         </section>
       ) : null}
@@ -364,10 +343,7 @@ function StoreCashConversions({
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_conv_error", {
-              fallbackKo: "과거 전환 요청을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load historical conversions.",
-            })}
+            {safeT("gift_ops_conv_error")}
           </p>
           <AdminActionButton type="button" variant="secondary" onClick={() => void loadList()}>
             {adminCta("refresh", language !== "en")}
@@ -376,10 +352,7 @@ function StoreCashConversions({
       ) : null}
       {state === "empty" ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_conv_empty", {
-            fallbackKo: "현재 과거 전환 요청이 없습니다.",
-            fallbackEn: "No historical conversion requests.",
-          })}
+          {safeT("gift_ops_conv_empty")}
         </p>
       ) : null}
 
@@ -398,7 +371,7 @@ function StoreCashConversions({
                   </p>
                   <details className="mt-1 text-xs text-sam-muted">
                     <summary>
-                      {safeT("gift_ops_technical", { fallbackKo: "기술 상세", fallbackEn: "Technical details" })}
+                      {safeT("gift_ops_technical")}
                     </summary>
                     <p className="break-all font-mono">{r.id}</p>
                   </details>
@@ -416,7 +389,7 @@ function StoreCashConversions({
                     )
                   }
                 >
-                  {safeT("gift_ops_cta_review", { fallbackKo: "검토", fallbackEn: "Review" })}
+                  {safeT("gift_ops_cta_review")}
                 </AdminActionButton>
               </div>
             </li>
@@ -432,7 +405,7 @@ function StoreCashConversions({
             className="!px-0"
             onClick={() => routerPush(buildAdminGiftOpsHref({ tab: "finance", money: "store-cash" }))}
           >
-            ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+            ← {safeT("gift_ops_close_detail")}
           </AdminActionButton>
           <p className="text-[16px] font-semibold tabular-nums">{formatAdminPhp(detail.amount)}</p>
           <p className="text-sm">
@@ -444,10 +417,7 @@ function StoreCashConversions({
             {formatFinanceAmount({ wallet: "CASH", amount: detail.storeCashBalance })}
           </p>
           <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-sm text-sam-muted">
-            {safeT("gift_ops_legacy_read_only", {
-              fallbackKo: "읽기 전용 과거 기록입니다.",
-              fallbackEn: "Read-only historical record.",
-            })}
+            {safeT("gift_ops_legacy_read_only")}
           </p>
         </section>
       ) : null}

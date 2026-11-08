@@ -8,6 +8,7 @@ import { useAdminStorePointPendingCount } from "@/components/admin/store-points/
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { ADMIN_ACTION_QUEUE_REGISTRY_BY_KEY } from "@/lib/admin/admin-action-queue-registry";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * /admin/order-notifications — Admin ops Action Queue surface (URL kept for compatibility).
@@ -36,30 +37,21 @@ export function AdminOrderNotificationsPageClient() {
         descriptionKey="admin_action_queue_page_desc"
       />
       <p className="text-sm text-sam-muted tabular-nums" data-testid="admin-order-notifications-total">
-        {safeT("admin_cp_action_queue_total", { fallbackKo: "대기 항목", fallbackEn: "Pending items" })}{" "}
+        {safeT("admin_cp_action_queue_total")}{" "}
         {loading ? "…" : queueTotalComplete ? formatAdminNumber(adminBellCount) : `${formatAdminNumber(adminBellCount)}+`}
       </p>
       <p className="text-xs text-sam-muted">
-        {safeT("admin_cp_action_queue_meaning", {
-          fallbackKo: "벨 숫자 = 관리자가 지금 처리해야 할 업무 건수입니다 (알림 미읽음 수가 아닙니다).",
-          fallbackEn: "Bell number = admin tasks to handle now (not unread notifications).",
-        })}
+        {safeT("admin_cp_action_queue_meaning")}
       </p>
       {!queueTotalComplete ? (
         <p className="text-sm text-sam-warning" role="status">
-          {safeT("admin_cp_action_queue_incomplete", {
-            fallbackKo: "일부 항목을 불러오지 못해 합계가 불완전합니다.",
-            fallbackEn: "Some categories failed to load, so the total is incomplete.",
-          })}
+          {safeT("admin_cp_action_queue_incomplete")}
         </p>
       ) : null}
       {queueLoadState === "error" ? (
         visibleCards > 0 ? (
           <p className="text-sm text-sam-danger" role="status">
-            {safeT("admin_cp_action_queue_stale", {
-              fallbackKo: "최근 갱신에 실패했습니다. 마지막으로 불러온 값입니다.",
-              fallbackEn: "The latest refresh failed. Showing the last loaded values.",
-            })}
+            {safeT("admin_cp_action_queue_stale")}
           </p>
         ) : (
           <AdminErrorState ko={ko} code="load_failed" onRetry={() => void refresh()} />
@@ -80,7 +72,7 @@ export function AdminOrderNotificationsPageClient() {
       )}
       <p className="text-xs text-sam-muted">
         <Link href="/admin/order-notifications/settings" className="text-signature underline">
-          {language === "en" ? "Notification sound settings" : "알림음 설정"}
+          {translateBy(language, "admin_notification_sound_settings")}
         </Link>
       </p>
     </div>

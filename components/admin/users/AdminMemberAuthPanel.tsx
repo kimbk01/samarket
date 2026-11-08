@@ -104,7 +104,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
   if (state.kind === "error") {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_metric_error", { fallbackKo: "불러오지 못함", fallbackEn: "Load error" })}
+        {safeT("admin_users_cc_metric_error")}
       </div>
     );
   }
@@ -119,13 +119,13 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
 
   return (
     <div className="grid gap-3 lg:grid-cols-2">
-      <Fieldset title={safeT("admin_users_auth_basic", { fallbackKo: "기본정보", fallbackEn: "Identity" })}>
-        <Field label={safeT("admin_users_col_member_id", { fallbackKo: "회원 ID", fallbackEn: "Member ID" })} value={publicIdForDetailUser(user) || empty} />
-        <Field label={safeT("admin_users_label_display_name", { fallbackKo: "표시 이름", fallbackEn: "Display name" })} value={displayNameForDetailUser(user)} />
-        <Field label={safeT("admin_users_label_nickname", { fallbackKo: "닉네임", fallbackEn: "Nickname" })} value={user.nickname?.trim() || empty} />
-        <Field label={safeT("admin_users_label_login_alias", { fallbackKo: "로그인 별칭", fallbackEn: "Login alias" })} value={user.username?.trim() || empty} />
+      <Fieldset title={safeT("admin_users_auth_basic")}>
+        <Field label={safeT("admin_users_col_member_id")} value={publicIdForDetailUser(user) || empty} />
+        <Field label={safeT("admin_users_label_display_name")} value={displayNameForDetailUser(user)} />
+        <Field label={safeT("admin_users_label_nickname")} value={user.nickname?.trim() || empty} />
+        <Field label={safeT("admin_users_label_login_alias")} value={user.username?.trim() || empty} />
       </Fieldset>
-      <Fieldset title={safeT("admin_users_auth_contact", { fallbackKo: "연락처", fallbackEn: "Contact" })}>
+      <Fieldset title={safeT("admin_users_auth_contact")}>
         <Field label={t("admin_users_lite_label_phone")} value={profile?.phone || user.contact_phone || empty} />
         <Field
           label="연락 이메일"
@@ -150,19 +150,19 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         <Field label="인증" value={memberDetailVerificationLabelKo(user.phone_verified)} />
         <Field label="가입 경로" value={memberDetailSignupOriginLabelKo(signupProvider)} />
       </Fieldset>
-      <Fieldset title={safeT("admin_users_auth_verify", { fallbackKo: "인증", fallbackEn: "Verification" })}>
+      <Fieldset title={safeT("admin_users_auth_verify")}>
         <Field
           label={t("admin_users_lite_label_phone_verified")}
           value={user.phone_verified === true ? t("admin_users_lite_verified_done") : t("admin_users_lite_verified_pending")}
         />
-        <Field label={safeT("admin_users_cc_auth_email_confirmed", { fallbackKo: "이메일 확인", fallbackEn: "Email confirmed" })} value={fmt(auth?.emailConfirmedAt)} />
+        <Field label={safeT("admin_users_cc_auth_email_confirmed")} value={fmt(auth?.emailConfirmedAt)} />
         <Field label="내부 로그인 방식" value={internalLoginMethods} />
         {authLoadError ? <p className="mt-2 text-[12px] text-sam-danger">{authLoadError}</p> : null}
       </Fieldset>
-      <Fieldset title={safeT("admin_users_auth_login", { fallbackKo: "로그인", fallbackEn: "Login" })}>
-        <Field label={safeT("admin_users_label_app_last_login", { fallbackKo: "앱 최근 로그인", fallbackEn: "App last login" })} value={fmt(profile?.lastLoginAt || user.last_login_at)} />
-        <Field label={safeT("admin_users_label_auth_last_login", { fallbackKo: "Auth 최근 로그인", fallbackEn: "Auth last sign-in" })} value={fmt(auth?.lastSignInAt)} />
-        <Field label={safeT("admin_users_cc_auth_profile_provider", { fallbackKo: "프로필 provider", fallbackEn: "Profile provider" })} value={profile?.authProvider || profile?.provider || empty} />
+      <Fieldset title={safeT("admin_users_auth_login")}>
+        <Field label={safeT("admin_users_label_app_last_login")} value={fmt(profile?.lastLoginAt || user.last_login_at)} />
+        <Field label={safeT("admin_users_label_auth_last_login")} value={fmt(auth?.lastSignInAt)} />
+        <Field label={safeT("admin_users_cc_auth_profile_provider")} value={profile?.authProvider || profile?.provider || empty} />
       </Fieldset>
       <section className={`${ADMIN_USERS_LITE_CARD} p-3 lg:col-span-2`} data-member-auth-linked-accounts="1">
         <h3 className="mb-1 text-[12px] font-bold uppercase tracking-wide text-sam-muted">연결된 로그인 계정</h3>

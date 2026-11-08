@@ -181,12 +181,7 @@ export function AdminReportListPage() {
         className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
         data-testid="admin-report-domain-ssot-banner"
       >
-        {safeT("admin_report_domain_ssot_banner", {
-          fallbackKo:
-            "신고 원장 6종을 한 목록으로 봅니다. 거래·커뮤니티 신고는 「상세」에서 바로 처리할 수 있습니다 (도메인 화면과 같은 서버 처리). 매장·모임·메신저·구 거래 채팅 신고는 여기서 조회만 하고, 각 행의 「처리 화면」에서 처리합니다. 계정 정지·차단은 회원 상세에서 합니다.",
-          fallbackEn:
-            "All six report ledgers in one list. Trade and community reports can be processed from Detail (same server action as the domain screens). Store, meeting, messenger and legacy trade-chat reports are view-only here — process them via each row’s domain screen. Account suspensions are done in member detail.",
-        })}
+        {safeT("admin_report_domain_ssot_banner")}
       </div>
       {partial ? (
         <div
@@ -208,20 +203,14 @@ export function AdminReportListPage() {
       ) : null}
       {showingBothDomains ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
-          {safeT("admin_report_domain_all_hint", {
-            fallbackKo: "현재 도메인 필터가 전체입니다. 운영 전 Trade 또는 Community로 좁히세요.",
-            fallbackEn: "Domain filter is All. Narrow to Trade or Community before acting.",
-          })}
+          {safeT("admin_report_domain_all_hint")}
         </div>
       ) : null}
       {loadFailure ? (
         <div data-testid="admin-report-load-failed">
           {loaded && !(loadFailure.httpStatus === 403) ? (
             <p className="mb-2 sam-text-helper text-sam-muted">
-              {safeT("admin_report_list_load_failed", {
-                fallbackKo: "일부 신고 목록을 불러오지 못했습니다. 새로고침 후 다시 확인하세요.",
-                fallbackEn: "Some reports could not be loaded. Refresh and check again.",
-              })}
+              {safeT("admin_report_list_load_failed")}
             </p>
           ) : null}
           <AdminErrorState
@@ -235,10 +224,7 @@ export function AdminReportListPage() {
       {targetFromQuery ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
-            {safeT("admin_report_filter_target_chip", {
-              fallbackKo: "대상",
-              fallbackEn: "Target",
-            })}
+            {safeT("admin_report_filter_target_chip")}
             :
           </span>
           <Link
@@ -263,10 +249,7 @@ export function AdminReportListPage() {
             className="sam-text-xxs text-sam-muted hover:underline"
             prefetch={false}
           >
-            {safeT("admin_report_clear_target_filter", {
-              fallbackKo: "필터 해제",
-              fallbackEn: "Clear filter",
-            })}
+            {safeT("admin_report_clear_target_filter")}
           </Link>
         </div>
       ) : null}
@@ -275,10 +258,7 @@ export function AdminReportListPage() {
         data-testid="admin-report-domain-authority-links"
       >
         <span className="text-sam-muted">
-          {safeT("admin_report_domain_entries_label", {
-            fallbackKo: "도메인 진입",
-            fallbackEn: "Domain entry",
-          })}
+          {safeT("admin_report_domain_entries_label")}
           :
         </span>
         <Link href={tradeHref(true)} className="text-signature underline" prefetch={false}>
@@ -297,10 +277,7 @@ export function AdminReportListPage() {
           Messenger
         </Link>
         <Link href="/admin/reports/log" className="text-sam-muted underline" prefetch={false}>
-          {safeT("admin_report_audit_ledger_link", {
-            fallbackKo: "제재 원장",
-            fallbackEn: "Sanction ledger",
-          })}
+          {safeT("admin_report_audit_ledger_link")}
         </Link>
       </div>
       <AdminReportFilterBar

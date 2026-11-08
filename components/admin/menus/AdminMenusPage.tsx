@@ -33,6 +33,7 @@ import {
   SectionHeader,
 } from "@/components/admin/trade-console/trade-console-ui";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type View =
   | { kind: "list" }
@@ -124,10 +125,7 @@ export function AdminMenusPage() {
     const r = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: safeT("admin_menu_trade_unsaved_confirm", {
-        fallbackKo: "저장하지 않은 옵션 변경이 있습니다. 나갈까요?",
-        fallbackEn: "You have unsaved option changes. Leave?",
-      }),
+      title: safeT("admin_menu_trade_unsaved_confirm"),
       confirmLabel: ko ? "나가기" : "Leave",
       destructive: true,
     });
@@ -477,23 +475,12 @@ export function AdminMenusPage() {
   return (
     <div className="space-y-4" data-admin>
       <SectionHeader
-        title={safeT("admin_menu_trade_mgmt_title", {
-          fallbackKo: "거래 메뉴 설정",
-          fallbackEn: "Trade menu settings",
-        })}
-        description={safeT("admin_menu_trade_mgmt_subtitle", {
-          fallbackKo:
-            "주제 → 카테고리 → 등록 옵션 순으로 관리합니다. 옵션은 주제에만 적용됩니다.",
-          fallbackEn:
-            "Manage subjects → categories → listing options. Options apply on the subject only.",
-        })}
+        title={safeT("admin_menu_trade_mgmt_title")}
+        description={safeT("admin_menu_trade_mgmt_subtitle")}
         actions={
           view.kind === "list" ? (
             <ConsoleButton variant="primary" onClick={beginRootCreate}>
-              {safeT("admin_menu_trade_add_root", {
-                fallbackKo: "+ 주제 추가",
-                fallbackEn: "+ Add subject",
-              })}
+              {safeT("admin_menu_trade_add_root")}
             </ConsoleButton>
           ) : (
             <ConsoleButton
@@ -502,10 +489,7 @@ export function AdminMenusPage() {
                 void goList();
               }}
             >
-              {safeT("admin_menu_trade_back_list", {
-                fallbackKo: "← 주제 목록",
-                fallbackEn: "← Subjects",
-              })}
+              {safeT("admin_menu_trade_back_list")}
             </ConsoleButton>
           )
         }
@@ -571,27 +555,19 @@ export function AdminMenusPage() {
                       <p className="sam-text-xxs text-sam-muted">
                         {r.is_active ? t("admin_menu_status_active") : t("admin_menu_status_inactive")}
                         {" · "}
-                        {safeT("admin_menu_trade_option_order", {
-                          fallbackKo: "순서 {n}",
-                          fallbackEn: "Order {n}",
-                          vars: { n: i + 1 },
-                        })}
+                        {safeT("admin_menu_trade_option_order", { vars: { n: i + 1 } })}
                         {" · "}
-                        {safeT("admin_menu_trade_child_count", {
-                          fallbackKo: "카테고리 {n}",
-                          fallbackEn: "Categories {n}",
-                          vars: { n: childrenOf(list, r.id).length },
-                        })}
+                        {safeT("admin_menu_trade_child_count", { vars: { n: childrenOf(list, r.id).length } })}
                       </p>
                     </div>
                     <span className="text-signature">›</span>
                   </AdminActionButton>
                   {/* 행 버튼 2개 이하 — 순서 이동만. 사용/중지는 주제 상세 「기본 정보」에서 */}
                   <div className="flex gap-1 px-3 pb-2">
-                    <AdminActionButton variant="ghost" size="sm" aria-label={language === "en" ? "Move up" : "위로"} onClick={() => void moveRoot(r.id, -1)}>
+                    <AdminActionButton variant="ghost" size="sm" aria-label={translateBy(language, "admin_menu_bottom_move_up")} onClick={() => void moveRoot(r.id, -1)}>
                       ↑
                     </AdminActionButton>
-                    <AdminActionButton variant="ghost" size="sm" aria-label={language === "en" ? "Move down" : "아래로"} onClick={() => void moveRoot(r.id, 1)}>
+                    <AdminActionButton variant="ghost" size="sm" aria-label={translateBy(language, "admin_menu_bottom_move_down")} onClick={() => void moveRoot(r.id, 1)}>
                       ↓
                     </AdminActionButton>
                   </div>
@@ -606,10 +582,7 @@ export function AdminMenusPage() {
       {view.kind === "root-create" ? (
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {safeT("admin_menu_trade_add_root", {
-              fallbackKo: "주제 추가",
-              fallbackEn: "Add subject",
-            })}
+            {safeT("admin_menu_trade_add_root")}
           </h2>
           <RootBasicsFields
             name={rootName}
@@ -702,10 +675,7 @@ export function AdminMenusPage() {
               onClick={() => setPreviewOpen(true)}
               disabled={!previewCategory}
             >
-              {safeT("admin_menu_trade_preview_cta", {
-                fallbackKo: "미리보기",
-                fallbackEn: "Preview",
-              })}
+              {safeT("admin_menu_trade_preview_cta")}
             </ConsoleButton>
             <ConsoleButton variant="primary" disabled={saving || !optionsDirty} onClick={() => void saveOptions()}>
               {t("common_save")}
@@ -799,7 +769,7 @@ function RootBasicsFields({
     <div className="space-y-3">
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          {safeT("admin_menu_trade_label_name", { fallbackKo: "이름", fallbackEn: "Name" })}
+          {safeT("admin_menu_trade_label_name")}
         </label>
         <input
           className={`mt-1 w-full ${Sam.input.base}`}
@@ -810,10 +780,7 @@ function RootBasicsFields({
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          {safeT("admin_menu_trade_label_type", {
-            fallbackKo: "유형",
-            fallbackEn: "Type",
-          })}
+          {safeT("admin_menu_trade_label_type")}
         </label>
         <select
           className={`mt-1 w-full ${Sam.input.select}`}
@@ -829,10 +796,7 @@ function RootBasicsFields({
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          {safeT("admin_menu_trade_label_badge_color", {
-            fallbackKo: "배지 색 (비우면 기본 중립색 · 아이콘 없음)",
-            fallbackEn: "Badge color (empty = neutral · no icon)",
-          })}
+          {safeT("admin_menu_trade_label_badge_color")}
         </label>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <input
@@ -849,7 +813,7 @@ function RootBasicsFields({
             onChange={(e) => setBadgeColor(e.target.value)}
           />
           <AdminActionButton variant="ghost" size="sm" onClick={() => setBadgeColor("")}>
-            {safeT("admin_menu_trade_badge_color_clear", { fallbackKo: "기본색", fallbackEn: "Neutral" })}
+            {safeT("admin_menu_trade_badge_color_clear")}
           </AdminActionButton>
           <TradeTopicBadge label={previewLabel || name || "—"} color={badgeHexValid ? badgeColor.trim() : null} />
         </div>
@@ -864,20 +828,14 @@ function RootBasicsFields({
         </label>
         <label className="flex items-center gap-2 sam-text-body">
           <input type="checkbox" checked={chip} onChange={(e) => setChip(e.target.checked)} />
-          {safeT("admin_menu_trade_label_chip", {
-            fallbackKo: "홈 칩 노출",
-            fallbackEn: "Home chip",
-          })}
+          {safeT("admin_menu_trade_label_chip")}
         </label>
         <label className="flex items-center gap-2 sam-text-body">
           <input type="checkbox" checked={launcher} onChange={(e) => setLauncher(e.target.checked)} />
-          {safeT("admin_menu_trade_label_launcher", {
-            fallbackKo: "글쓰기 런처",
-            fallbackEn: "Write launcher",
-          })}
+          {safeT("admin_menu_trade_label_launcher")}
         </label>
         <label className="flex items-center gap-2 sam-text-body">
-          {safeT("admin_menu_trade_label_sort", { fallbackKo: "순서", fallbackEn: "Order" })}
+          {safeT("admin_menu_trade_label_sort")}
           <input
             type="number"
             className="w-20 rounded border border-sam-border px-2 py-1"
@@ -947,7 +905,7 @@ function RootDetail({
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-section-title font-semibold text-sam-fg">{root.name}</h2>
         <p className="sam-text-body-secondary text-sam-muted">
-          {safeT("admin_menu_trade_basics", { fallbackKo: "기본 정보", fallbackEn: "Basics" })}
+          {safeT("admin_menu_trade_basics")}
         </p>
         <RootBasicsFields
           name={rootName || root.name}
@@ -971,10 +929,7 @@ function RootDetail({
             {t("common_save")}
           </ConsoleButton>
           <ConsoleButton variant="danger" onClick={onDeleteRoot}>
-            {safeT("admin_menu_trade_delete_root", {
-              fallbackKo: "삭제",
-              fallbackEn: "Delete",
-            })}
+            {safeT("admin_menu_trade_delete_root")}
           </ConsoleButton>
         </div>
       </section>
@@ -982,10 +937,7 @@ function RootDetail({
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface">
         <div className="flex items-center justify-between border-b border-sam-border px-3 py-2">
           <h3 className="sam-text-body font-semibold text-sam-fg">
-            {safeT("admin_menu_th_subtopic_list", {
-              fallbackKo: "카테고리",
-              fallbackEn: "Categories",
-            })}
+            {safeT("admin_menu_th_subtopic_list")}
           </h3>
           <ConsoleButton variant="secondary" size="sm" onClick={onAddChild}>
             {t("admin_menu_subtopic_add")}
@@ -993,10 +945,7 @@ function RootDetail({
         </div>
         {childRows.length === 0 ? (
           <p className="px-3 py-6 text-center sam-text-body text-sam-muted">
-            {safeT("admin_menu_trade_child_empty", {
-              fallbackKo: "등록된 카테고리가 없습니다.",
-              fallbackEn: "No categories yet.",
-            })}
+            {safeT("admin_menu_trade_child_empty")}
           </p>
         ) : (
           <ul className="divide-y divide-sam-border-soft">
@@ -1012,10 +961,10 @@ function RootDetail({
                     {c.is_active ? t("admin_menu_status_active") : t("admin_menu_status_inactive")}
                   </span>
                 </AdminActionButton>
-                <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move up" : "위로"} onClick={() => onMoveChild(c.id, -1)}>
+                <AdminActionButton variant="quiet" size="sm" aria-label={translateBy(language, "admin_menu_bottom_move_up")} onClick={() => onMoveChild(c.id, -1)}>
                   ↑
                 </AdminActionButton>
-                <AdminActionButton variant="quiet" size="sm" aria-label={language === "en" ? "Move down" : "아래로"} onClick={() => onMoveChild(c.id, 1)}>
+                <AdminActionButton variant="quiet" size="sm" aria-label={translateBy(language, "admin_menu_bottom_move_down")} onClick={() => onMoveChild(c.id, 1)}>
                   ↓
                 </AdminActionButton>
                 <AdminActionButton variant="ghost" size="sm" onClick={() => onToggleChild(c.id, c.is_active)}>
@@ -1034,10 +983,7 @@ function RootDetail({
         onClick={onOpenOptions}
       >
         <span className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_menu_trade_options_heading", {
-            fallbackKo: "등록 옵션",
-            fallbackEn: "Listing options",
-          })}
+          {safeT("admin_menu_trade_options_heading")}
         </span>
         <span className="text-signature">›</span>
       </AdminActionButton>
@@ -1113,10 +1059,7 @@ function ChildEditor({
         </ConsoleButton>
         {onDelete ? (
           <ConsoleButton variant="danger" onClick={onDelete}>
-            {safeT("admin_menu_trade_delete_child", {
-              fallbackKo: "삭제",
-              fallbackEn: "Delete",
-            })}
+            {safeT("admin_menu_trade_delete_child")}
           </ConsoleButton>
         ) : null}
       </div>

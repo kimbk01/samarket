@@ -26,6 +26,7 @@ import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminServerListFrame } from "@/components/admin/sync-list/AdminServerListFrame";
 import { useAdminServerPage } from "@/components/admin/sync-list/useAdminServerPage";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type GateRow = {
   gateId: string;
@@ -203,16 +204,10 @@ export default function AdminSystemDeployPage() {
 
   const blockReason = useMemo(() => {
     if (!ownerConfigured) {
-      return safeT("admin_deploy_owner_ids_missing", {
-        fallbackKo: "담당자 목록이 설정되지 않아 실행이 막혀 있습니다.",
-        fallbackEn: "Owner list is unset — actions stay blocked.",
-      });
+      return safeT("admin_deploy_owner_ids_missing");
     }
     if (!isOwner) {
-      return safeT("admin_deploy_owner_only_hint", {
-        fallbackKo: "지정된 담당자만 검증·적용을 실행할 수 있습니다.",
-        fallbackEn: "Only the designated Owner can verify or apply.",
-      });
+      return safeT("admin_deploy_owner_only_hint");
     }
     return null;
   }, [ownerConfigured, isOwner, safeT]);
@@ -311,15 +306,12 @@ export default function AdminSystemDeployPage() {
   const resultLabel = useCallback(
     (result: string) => {
       if (result === "pass") {
-        return safeT("admin_deploy_result_pass", { fallbackKo: "완료", fallbackEn: "Done" });
+        return safeT("admin_deploy_result_pass");
       }
       if (result === "fail") {
-        return safeT("admin_deploy_result_fail", { fallbackKo: "실패", fallbackEn: "Failed" });
+        return safeT("admin_deploy_result_fail");
       }
-      return safeT("admin_deploy_result_not_proven", {
-        fallbackKo: "확인되지 않음",
-        fallbackEn: "Not proven",
-      });
+      return safeT("admin_deploy_result_not_proven");
     },
     [safeT]
   );
@@ -400,19 +392,10 @@ export default function AdminSystemDeployPage() {
     const rollbackKind: OwnerStatusKind = rollbackBlocked ? "blocked" : "waiting";
 
     const nextGates = !isOwner
-      ? safeT("admin_deploy_next_owner", {
-          fallbackKo: "지정 담당자로 로그인한 뒤 진행하세요.",
-          fallbackEn: "Sign in as the designated Owner and retry.",
-        })
+      ? safeT("admin_deploy_next_owner")
       : gatesOk
-        ? safeT("admin_deploy_next_verify", {
-            fallbackKo: "필수 점검이 끝났습니다. 「검증 완료」를 눌러 주세요.",
-            fallbackEn: "Checks finished. Tap “Mark verified”.",
-          })
-        : safeT("admin_deploy_next_run_gates", {
-            fallbackKo: "「필수 점검 실행」을 눌러 확인 기록을 만드세요.",
-            fallbackEn: "Tap “Run required checks” to create evidence.",
-          });
+        ? safeT("admin_deploy_next_verify")
+        : safeT("admin_deploy_next_run_gates");
 
     return [
       {
@@ -448,22 +431,11 @@ export default function AdminSystemDeployPage() {
         remaining: verified
           ? "—"
           : gatesOk
-            ? safeT("admin_deploy_mark_verified", {
-                fallbackKo: "검증 완료",
-                fallbackEn: "Mark verified",
-              })
-            : safeT("admin_deploy_task_gates", {
-                fallbackKo: "필수 점검",
-                fallbackEn: "Required checks",
-              }),
+            ? safeT("admin_deploy_mark_verified")
+            : safeT("admin_deploy_task_gates"),
         reason: rec?.error ?? "—",
         next: verified
-          ? safeT("admin_deploy_next_promote_blocked", {
-              fallbackKo:
-                "검증은 끝났지만 실제 운영 적용은 아직 실행할 수 없습니다. Owner 승인(Area B)이 필요합니다.",
-              fallbackEn:
-                "Verified, but production apply is still blocked. Area B Owner approval required.",
-            })
+          ? safeT("admin_deploy_next_promote_blocked")
           : nextGates,
         version: sha,
         evidence: rec?.verifiedBy ? shortSha(rec.verifiedBy) : "—",
@@ -481,9 +453,7 @@ export default function AdminSystemDeployPage() {
           .join(", ") || "—",
         reason: stageFail ? "stage_fail" : "—",
         next:
-          language === "en"
-            ? "Optional: run mock deploy on TEST"
-            : "선택: 테스트에서 모의 배포 실행",
+          translateBy(language, "admin_optional_run_mock_deploy_on_test"),
         version: sha,
         evidence: rec?.pipeline?.mode ?? "—",
       },
@@ -496,10 +466,7 @@ export default function AdminSystemDeployPage() {
         checkedAt: rec?.promotedAt ?? null,
         done: rec?.promotedAt ? formatAt(rec.promotedAt) : "—",
         remaining: promoteBlocked
-          ? safeT("admin_deploy_exec_blocked", {
-              fallbackKo: "실행할 수 없음",
-              fallbackEn: "Cannot run",
-            })
+          ? safeT("admin_deploy_exec_blocked")
           : "—",
         reason: promoteBlocked
           ? language === "en"
@@ -510,12 +477,7 @@ export default function AdminSystemDeployPage() {
               status?.productionExecution.promote.reason ??
               "—"
           : "—",
-        next: safeT("admin_deploy_next_promote_blocked", {
-          fallbackKo:
-            "검증은 끝났지만 실제 운영 적용은 아직 실행할 수 없습니다. Owner 승인(Area B)이 필요합니다.",
-          fallbackEn:
-            "Verified, but production apply is still blocked. Area B Owner approval required.",
-        }),
+        next: safeT("admin_deploy_next_promote_blocked"),
         version: sha,
         evidence: status?.productionExecution.promote.reason ?? "—",
       },
@@ -527,20 +489,12 @@ export default function AdminSystemDeployPage() {
         kind: rollbackKind,
         checkedAt: null,
         done: "—",
-        remaining: safeT("admin_deploy_exec_blocked", {
-          fallbackKo: "실행할 수 없음",
-          fallbackEn: "Cannot run",
-        }),
+        remaining: safeT("admin_deploy_exec_blocked"),
         reason:
           language === "en"
             ? status?.productionExecution.rollback.messageEn ?? "—"
             : status?.productionExecution.rollback.messageKo ?? "—",
-        next: safeT("admin_deploy_promote_disabled_hint", {
-          fallbackKo:
-            "실제 운영 적용·복구는 서버에서도 막혀 있습니다. (Area B — 별도 승인 필요)",
-          fallbackEn:
-            "Production apply/rollback stay server-blocked (Area B — separate approval).",
-        }),
+        next: safeT("admin_deploy_promote_disabled_hint"),
         version: sha,
         evidence: status?.productionExecution.rollback.reason ?? "—",
       },
@@ -586,7 +540,7 @@ export default function AdminSystemDeployPage() {
         }
       }
       setSuccessHint(
-        language === "en" ? "Required checks finished." : "필수 점검을 마쳤습니다."
+        translateBy(language, "admin_required_checks_finished")
       );
       await load();
     } finally {
@@ -620,7 +574,7 @@ export default function AdminSystemDeployPage() {
         setError([json.error ?? `verify_${res.status}`, extra].filter(Boolean).join(" — "));
         return;
       }
-      setSuccessHint(language === "en" ? "Marked verified." : "검증 완료로 표시했습니다.");
+      setSuccessHint(translateBy(language, "admin_marked_verified"));
       await load();
     } finally {
       setBusy(false);
@@ -644,7 +598,7 @@ export default function AdminSystemDeployPage() {
         setError(json.error ?? `cancel_${res.status}`);
         return;
       }
-      setSuccessHint(language === "en" ? "Verified mark cancelled." : "검증 완료를 취소했습니다.");
+      setSuccessHint(translateBy(language, "admin_verified_mark_cancelled"));
       await load();
     } finally {
       setBusy(false);
@@ -668,7 +622,7 @@ export default function AdminSystemDeployPage() {
         setError(json.error ?? `mock_${res.status}`);
         return;
       }
-      setSuccessHint(language === "en" ? "Mock deploy recorded (TEST only)." : "모의 배포를 기록했습니다 (테스트만).");
+      setSuccessHint(translateBy(language, "admin_mock_deploy_recorded_test_only"));
       await load();
     } finally {
       setBusy(false);
@@ -815,28 +769,21 @@ export default function AdminSystemDeployPage() {
     const actionLabel = safeT(meta.actionKey, { fallbackKo: meta.actionKo, fallbackEn: meta.actionEn });
     const targetLabel =
       meta.target === "test"
-        ? safeT("admin_deploy_confirm_target_test", { fallbackKo: "테스트 환경", fallbackEn: "Test environment" })
-        : safeT("admin_deploy_confirm_target_prod", { fallbackKo: "실제 운영", fallbackEn: "Production" });
+        ? safeT("admin_deploy_confirm_target_test")
+        : safeT("admin_deploy_confirm_target_prod");
     const riskLabel =
       meta.target === "test"
-        ? safeT("admin_deploy_confirm_risk_test", {
-            fallbackKo: "테스트 데이터·기록만 바뀝니다. 실제 사용자 서비스는 그대로입니다.",
-            fallbackEn: "Only TEST data/records change. Live users are unaffected.",
-          })
-        : safeT("admin_deploy_confirm_risk_prod_blocked", {
-            fallbackKo:
-              "실제 운영 변경이 시도되지만 서버에서 차단됩니다. Area B 승인 전에는 적용되지 않습니다.",
-            fallbackEn: "A production change is attempted but the server blocks it until Area B approval.",
-          });
+        ? safeT("admin_deploy_confirm_risk_test")
+        : safeT("admin_deploy_confirm_risk_prod_blocked");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: language !== "en",
-      title: safeT("admin_deploy_confirm_title", { fallbackKo: "실행 확인", fallbackEn: "Confirm action" }),
+      title: safeT("admin_deploy_confirm_title"),
       description: [
-        `${safeT("admin_deploy_confirm_action", { fallbackKo: "실행할 작업", fallbackEn: "Action" })}: ${actionLabel}`,
-        `${safeT("admin_deploy_confirm_target", { fallbackKo: "적용 대상", fallbackEn: "Target" })}: ${targetLabel}`,
-        `${safeT("admin_deploy_confirm_version", { fallbackKo: "영향 버전", fallbackEn: "Version affected" })}: ${runtimeSha ?? "—"}`,
-        `${safeT("admin_deploy_confirm_risk", { fallbackKo: "결과 및 위험", fallbackEn: "Outcome & risk" })}: ${safeT(meta.bodyKey, {
+        `${safeT("admin_deploy_confirm_action")}: ${actionLabel}`,
+        `${safeT("admin_deploy_confirm_target")}: ${targetLabel}`,
+        `${safeT("admin_deploy_confirm_version")}: ${runtimeSha ?? "—"}`,
+        `${safeT("admin_deploy_confirm_risk")}: ${safeT(meta.bodyKey, {
           fallbackKo: meta.bodyKo,
           fallbackEn: meta.bodyEn,
         })} ${riskLabel}`,
@@ -897,58 +844,31 @@ export default function AdminSystemDeployPage() {
           {isTestSurface ? (
             <>
               <span className="rounded-full bg-sam-warning px-2.5 py-0.5 text-xs font-semibold text-white">
-                {safeT("admin_deploy_env_badge", {
-                  fallbackKo: "테스트 환경",
-                  fallbackEn: "Test environment",
-                })}
+                {safeT("admin_deploy_env_badge")}
               </span>
               <span className="rounded-full border border-sam-warning bg-sam-warning-soft px-2.5 py-0.5 text-xs font-medium text-sam-fg">
-                {safeT("admin_deploy_env_data_badge", {
-                  fallbackKo: "테스트 데이터",
-                  fallbackEn: "Test data",
-                })}
+                {safeT("admin_deploy_env_data_badge")}
               </span>
             </>
           ) : null}
         </div>
         <AdminPageHeader
           titleKey="admin_menu_system_deploy"
-          description={safeT("admin_deploy_subtitle", {
-            fallbackKo:
-              "정규 웹 배포: 검증 후 main에 반영하면 Vercel이 Production에 자동 배포합니다. TEST·Preview는 선택이며 필수가 아닙니다. DB·앱 스토어는 별도입니다.",
-            fallbackEn:
-              "Regular web ship: after checks, land on main — Vercel auto-deploys Production. TEST/Preview are optional, not required. DB / store apps are separate.",
-          })}
+          description={safeT("admin_deploy_subtitle")}
         />
       </header>
 
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_deploy_regular_path_title", {
-            fallbackKo: "정규 배포 경로",
-            fallbackEn: "Regular deploy path",
-          })}
+          {safeT("admin_deploy_regular_path_title")}
         </h2>
         <p className="text-sm text-sam-muted">
-          {safeT("admin_deploy_regular_path_body", {
-            fallbackKo:
-              "수정 → 검증 → main 반영 → Production 자동 배포 → 운영 확인. TEST 배포·Preview 승인·관리자 Promote는 이 경로의 필수 조건이 아닙니다.",
-            fallbackEn:
-              "Change → verify → land on main → Production auto-deploy → check live. TEST deploy, Preview approval, and admin Promote are not required for this path.",
-          })}
+          {safeT("admin_deploy_regular_path_body")}
         </p>
         <p className="text-xs text-sam-muted">
-          {safeT("admin_deploy_optional_test_title", {
-            fallbackKo: "선택: TEST 환경",
-            fallbackEn: "Optional: TEST environment",
-          })}
+          {safeT("admin_deploy_optional_test_title")}
           {" — "}
-          {safeT("admin_deploy_optional_test_body", {
-            fallbackKo:
-              "TEST 서버·DB·앱은 보존되어 있습니다. Owner가 필요할 때만 사용합니다. 정규 Production 배포가 TEST에 의존하지 않습니다.",
-            fallbackEn:
-              "TEST server/DB/app are preserved for Owner use when needed. Regular Production does not depend on TEST.",
-          })}
+          {safeT("admin_deploy_optional_test_body")}
         </p>
       </section>
 
@@ -981,12 +901,7 @@ export default function AdminSystemDeployPage() {
       {promoteBlocked ? (
         <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
           <p>
-            {safeT("admin_deploy_promote_optional_hint", {
-              fallbackKo:
-                "아래 「실제 운영에 적용」은 TEST→main Promote 보조 기능이며, 정규 main 푸시 경로와 다릅니다. 현재 실행은 차단되어 있습니다.",
-              fallbackEn:
-                "“Apply to production” below is an optional TEST→main Promote helper — not the regular main-push path. Execution stays blocked.",
-            })}
+            {safeT("admin_deploy_promote_optional_hint")}
           </p>
           <p className="mt-1">
             {language === "en"
@@ -994,10 +909,7 @@ export default function AdminSystemDeployPage() {
               : status?.productionExecution.promote.messageKo}
           </p>
           <span className="mt-1 block text-xs text-sam-muted">
-            {safeT("admin_deploy_version_hint", {
-              fallbackKo: "기술 식별자(SHA)",
-              fallbackEn: "Technical id (SHA)",
-            })}
+            {safeT("admin_deploy_version_hint")}
             : {status?.productionExecution.promote.reason}
           </span>
         </div>
@@ -1027,10 +939,7 @@ export default function AdminSystemDeployPage() {
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-sam-fg">
-            {safeT("admin_deploy_runtime", {
-              fallbackKo: "현재 상태 한눈에",
-              fallbackEn: "Status at a glance",
-            })}
+            {safeT("admin_deploy_runtime")}
           </h2>
           <div className="flex flex-wrap gap-2">
             <AdminActionButton
@@ -1041,10 +950,7 @@ export default function AdminSystemDeployPage() {
                 void load();
               }}
             >
-              {safeT("admin_deploy_refresh", {
-                fallbackKo: "검증 결과 새로고침",
-                fallbackEn: "Refresh results",
-              })}
+              {safeT("admin_deploy_refresh")}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
@@ -1054,20 +960,14 @@ export default function AdminSystemDeployPage() {
                 void load();
               }}
             >
-              {safeT("admin_deploy_check_test_deploy", {
-                fallbackKo: "테스트 배포 상태 확인",
-                fallbackEn: "Check TEST deploy status",
-              })}
+              {safeT("admin_deploy_check_test_deploy")}
             </AdminActionButton>
           </div>
         </div>
         <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-sam-muted">
-              {safeT("admin_deploy_version_label", {
-                fallbackKo: "버전 정보",
-                fallbackEn: "Version",
-              })}
+              {safeT("admin_deploy_version_label")}
             </dt>
             <dd className="text-sam-fg">{shortSha(runtimeSha)}</dd>
             <dd className="mt-0.5 break-all font-mono text-[12px] text-sam-muted">
@@ -1076,26 +976,17 @@ export default function AdminSystemDeployPage() {
           </div>
           <div>
             <dt className="text-sam-muted">
-              {safeT("admin_deploy_env_label", { fallbackKo: "환경", fallbackEn: "Environment" })}
+              {safeT("admin_deploy_env_label")}
             </dt>
             <dd className="text-sam-fg">
               {isTestSurface
-                ? safeT("admin_deploy_confirm_target_test", {
-                    fallbackKo: "테스트 환경",
-                    fallbackEn: "Test environment",
-                  })
-                : safeT("admin_deploy_confirm_target_prod", {
-                    fallbackKo: "실제 운영",
-                    fallbackEn: "Production",
-                  })}
+                ? safeT("admin_deploy_confirm_target_test")
+                : safeT("admin_deploy_confirm_target_prod")}
             </dd>
           </div>
           <div>
             <dt className="text-sam-muted">
-              {safeT("admin_deploy_db_label", {
-                fallbackKo: "데이터 위치",
-                fallbackEn: "Data location",
-              })}
+              {safeT("admin_deploy_db_label")}
             </dt>
             <dd className="text-sam-fg">
               {status?.databaseTarget ?? "—"}
@@ -1108,21 +999,12 @@ export default function AdminSystemDeployPage() {
           </div>
           <div>
             <dt className="text-sam-muted">
-              {safeT("admin_deploy_execution", {
-                fallbackKo: "실제 운영 적용",
-                fallbackEn: "Production apply",
-              })}
+              {safeT("admin_deploy_execution")}
             </dt>
             <dd className="text-sam-fg">
               {status?.promoteEnabled
-                ? safeT("admin_deploy_exec_ready", {
-                    fallbackKo: "실행 가능",
-                    fallbackEn: "Runnable",
-                  })
-                : safeT("admin_deploy_exec_blocked", {
-                    fallbackKo: "실행할 수 없음",
-                    fallbackEn: "Cannot run",
-                  })}
+                ? safeT("admin_deploy_exec_ready")
+                : safeT("admin_deploy_exec_blocked")}
             </dd>
           </div>
         </dl>
@@ -1130,10 +1012,7 @@ export default function AdminSystemDeployPage() {
 
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_deploy_status_board", {
-            fallbackKo: "작업 진행 현황",
-            fallbackEn: "Work progress",
-          })}
+          {safeT("admin_deploy_status_board")}
         </h2>
         <ul className="space-y-3">
           {boardRows.map((row) => (
@@ -1155,70 +1034,49 @@ export default function AdminSystemDeployPage() {
               <dl className="mt-2 grid grid-cols-1 gap-1 text-xs text-sam-muted sm:grid-cols-2">
                 <div>
                   <dt className="inline text-sam-muted">
-                    {safeT("admin_deploy_col_checked_at", {
-                      fallbackKo: "마지막 확인",
-                      fallbackEn: "Last checked",
-                    })}
+                    {safeT("admin_deploy_col_checked_at")}
                     :{" "}
                   </dt>
                   <dd className="inline text-sam-fg">{formatAt(row.checkedAt)}</dd>
                 </div>
                 <div>
                   <dt className="inline">
-                    {safeT("admin_deploy_col_version", {
-                      fallbackKo: "관련 버전",
-                      fallbackEn: "Version",
-                    })}
+                    {safeT("admin_deploy_col_version")}
                     :{" "}
                   </dt>
                   <dd className="inline font-mono text-sam-fg">{row.version}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="inline">
-                    {safeT("admin_deploy_col_done", {
-                      fallbackKo: "완료된 내용",
-                      fallbackEn: "Completed",
-                    })}
+                    {safeT("admin_deploy_col_done")}
                     :{" "}
                   </dt>
                   <dd className="inline text-sam-fg">{row.done}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="inline">
-                    {safeT("admin_deploy_col_remaining", {
-                      fallbackKo: "남은 내용",
-                      fallbackEn: "Remaining",
-                    })}
+                    {safeT("admin_deploy_col_remaining")}
                     :{" "}
                   </dt>
                   <dd className="inline text-sam-fg">{row.remaining}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="inline">
-                    {safeT("admin_deploy_col_reason", {
-                      fallbackKo: "실패·차단 이유",
-                      fallbackEn: "Fail / block reason",
-                    })}
+                    {safeT("admin_deploy_col_reason")}
                     :{" "}
                   </dt>
                   <dd className="inline text-sam-fg">{row.reason}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="inline">
-                    {safeT("admin_deploy_col_next", {
-                      fallbackKo: "다음에 할 일",
-                      fallbackEn: "Next step",
-                    })}
+                    {safeT("admin_deploy_col_next")}
                     :{" "}
                   </dt>
                   <dd className="inline text-sam-fg">{row.next}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="inline">
-                    {safeT("admin_deploy_col_evidence", {
-                      fallbackKo: "확인 기록",
-                      fallbackEn: "Evidence",
-                    })}
+                    {safeT("admin_deploy_col_evidence")}
                     :{" "}
                   </dt>
                   <dd className="inline font-mono text-[12px] text-sam-fg">{row.evidence}</dd>
@@ -1232,10 +1090,7 @@ export default function AdminSystemDeployPage() {
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-sam-fg">
-            {safeT("admin_deploy_matrix", {
-              fallbackKo: "필수 점검 결과",
-              fallbackEn: "Required check results",
-            })}
+            {safeT("admin_deploy_matrix")}
           </h2>
           <AdminActionButton
             variant="secondary"
@@ -1243,11 +1098,8 @@ export default function AdminSystemDeployPage() {
             onClick={() => void requestConfirm("gates")}
           >
             {busy
-              ? safeT("admin_deploy_busy", { fallbackKo: "처리 중…", fallbackEn: "Working…" })
-              : safeT("admin_deploy_run_gates", {
-                  fallbackKo: "필수 점검 실행",
-                  fallbackEn: "Run required checks",
-                })}
+              ? safeT("admin_deploy_busy")
+              : safeT("admin_deploy_run_gates")}
           </AdminActionButton>
         </div>
         <ul className="space-y-2 text-sm">
@@ -1283,11 +1135,7 @@ export default function AdminSystemDeployPage() {
           )}
         </ul>
         <p className="text-xs text-sam-muted">
-          {safeT("admin_deploy_matrix_note", {
-            fallbackKo:
-              "* 필수. 완료는 서버 확인 기록만 인정합니다. 손으로 완료 처리하지 않습니다.",
-            fallbackEn: "* Required. Done needs server evidence only. No manual Done.",
-          })}
+          {safeT("admin_deploy_matrix_note")}
         </p>
       </section>
 
@@ -1297,39 +1145,27 @@ export default function AdminSystemDeployPage() {
           disabled={busy || !runtimeSha || !isOwner || !gatesOk || verified}
           onClick={() => void requestConfirm("verify")}
         >
-          {safeT("admin_deploy_mark_verified", {
-            fallbackKo: "검증 완료",
-            fallbackEn: "Mark verified",
-          })}
+          {safeT("admin_deploy_mark_verified")}
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
           disabled={busy || !runtimeSha || !isOwner || !verified}
           onClick={() => void requestConfirm("cancel")}
         >
-          {safeT("admin_deploy_cancel_verified", {
-            fallbackKo: "검증 취소",
-            fallbackEn: "Cancel verified",
-          })}
+          {safeT("admin_deploy_cancel_verified")}
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
           disabled={busy || !runtimeSha || !isOwner}
           onClick={() => void requestConfirm("mock")}
         >
-          {safeT("admin_deploy_mock_pipeline", {
-            fallbackKo: "모의 배포 실행",
-            fallbackEn: "Run mock deploy",
-          })}
+          {safeT("admin_deploy_mock_pipeline")}
         </AdminActionButton>
       </section>
 
       <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_deploy_pipeline", {
-            fallbackKo: "배포 준비 단계",
-            fallbackEn: "Deploy readiness steps",
-          })}
+          {safeT("admin_deploy_pipeline")}
         </h2>
         <ul className="space-y-1 text-sm">
           {STAGE_IDS.map((id) => {
@@ -1359,17 +1195,11 @@ export default function AdminSystemDeployPage() {
 
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_deploy_promote_web", {
-            fallbackKo: "실제 운영에 적용 (Web)",
-            fallbackEn: "Apply to production (Web)",
-          })}
+          {safeT("admin_deploy_promote_web")}
         </h2>
         <label className="block text-sm">
           <span className="text-sam-muted">
-            {safeT("admin_deploy_confirm_sha", {
-              fallbackKo: "버전 정보 재입력 (이중 확인)",
-              fallbackEn: "Re-type version (double confirm)",
-            })}
+            {safeT("admin_deploy_confirm_sha")}
           </span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 font-mono text-sm"
@@ -1380,10 +1210,7 @@ export default function AdminSystemDeployPage() {
         </label>
         <label className="block text-sm">
           <span className="text-sam-muted">
-            {safeT("admin_deploy_reauth", {
-              fallbackKo: "재인증: PROMOTE 입력",
-              fallbackEn: "Re-auth: type PROMOTE",
-            })}
+            {safeT("admin_deploy_reauth")}
           </span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 font-mono text-sm"
@@ -1407,40 +1234,26 @@ export default function AdminSystemDeployPage() {
             }
             onClick={() => void requestConfirm("promote")}
           >
-            {safeT("admin_deploy_apply_cta", {
-              fallbackKo: "실제 운영에 적용",
-              fallbackEn: "Apply to production",
-            })}
+            {safeT("admin_deploy_apply_cta")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
             disabled={busy || rollbackBlocked || !isOwner || !runtimeSha}
             onClick={() => void requestConfirm("rollback")}
           >
-            {safeT("admin_deploy_rollback", {
-              fallbackKo: "이전 정상 버전으로 복구",
-              fallbackEn: "Rollback to last good",
-            })}
+            {safeT("admin_deploy_rollback")}
           </AdminActionButton>
         </div>
         {promoteBlocked ? (
           <p className="text-xs text-sam-muted">
-            {safeT("admin_deploy_promote_disabled_hint", {
-              fallbackKo:
-                "실제 운영 적용·복구는 서버에서도 막혀 있습니다. (Area B — 별도 승인 필요)",
-              fallbackEn:
-                "Production apply/rollback stay server-blocked (Area B — separate approval).",
-            })}
+            {safeT("admin_deploy_promote_disabled_hint")}
           </p>
         ) : null}
       </section>
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_deploy_history", {
-            fallbackKo: "이력 및 오류 상세",
-            fallbackEn: "History & error detail",
-          })}
+          {safeT("admin_deploy_history")}
         </h2>
         <Suspense fallback={null}>
           <DeployHistoryList ko={language !== "en"} refreshSignal={statusVersion} />

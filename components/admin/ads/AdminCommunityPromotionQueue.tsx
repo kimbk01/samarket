@@ -79,10 +79,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
     if (action === "reject") {
       reason =
         (await dibayPrompt({
-          title: safeT("admin_comm_promo_reject_prompt", {
-            fallbackKo: "반려 사유 (필수)",
-            fallbackEn: "Reject reason (required)",
-          }),
+          title: safeT("admin_comm_promo_reject_prompt"),
           defaultValue: "",
           required: true,
         })) ?? "";
@@ -113,24 +110,15 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
         <div>
           <h2 className="sam-text-body font-semibold text-sam-fg">
             {isTrade
-              ? safeT("admin_trade_promo_title", {
-                  fallbackKo: "거래 상위노출 신청",
-                  fallbackEn: "Trade promote requests",
-                })
-              : safeT("admin_comm_promo_title", {
-                  fallbackKo: "게시물 상위노출 신청",
-                  fallbackEn: "Post promotion requests",
-                })}
+              ? safeT("admin_trade_promo_title")
+              : safeT("admin_comm_promo_title")}
           </h2>
           <p className="sam-text-helper text-sam-muted">
             {isTrade
               ? en
                 ? "Trade boosts go live on payment without approval. This list is order history; pause, resume or end them in Trade › Boosts."
                 : "거래 상위노출은 승인 없이 결제 즉시 노출됩니다. 이 목록은 주문 내역 조회용이고, 중지·재개·종료는 거래 › 상위노출에서 합니다."
-              : safeT("admin_comm_promo_hint", {
-                  fallbackKo: "커뮤니티 게시글 상위노출은 승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 상위노출 화면에서 합니다.",
-                  fallbackEn: "Community post promotions go live without approval. Pause, resume or end them in Post promotions.",
-                })}
+              : safeT("admin_comm_promo_hint")}
           </p>
           {!isTrade ? (
             <Link
@@ -168,10 +156,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
         <p className="py-6 text-center sam-text-helper text-sam-muted">…</p>
       ) : rows.length === 0 ? (
         <p className="py-6 text-center sam-text-helper text-sam-muted">
-          {safeT("admin_comm_promo_empty", {
-            fallbackKo: "해당 상태의 신청이 없습니다.",
-            fallbackEn: "No requests in this status.",
-          })}
+          {safeT("admin_comm_promo_empty")}
         </p>
       ) : (
         <ul className="divide-y divide-sam-border-soft">
@@ -225,14 +210,8 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                       className="sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
                     >
                       {isTrade
-                        ? safeT("admin_trade_promo_open_admin_listing", {
-                            fallbackKo: "관리 매물",
-                            fallbackEn: "Admin listing",
-                          })
-                        : safeT("admin_comm_promo_open_admin_post", {
-                            fallbackKo: "관리 게시글",
-                            fallbackEn: "Admin post",
-                          })}
+                        ? safeT("admin_trade_promo_open_admin_listing")
+                        : safeT("admin_comm_promo_open_admin_post")}
                     </Link>
                     {showPublic ? (
                       <a
@@ -242,23 +221,12 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                         className="sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
                       >
                         {isTrade
-                          ? safeT("admin_trade_promo_open_listing", {
-                              fallbackKo: "매물 상세 확인",
-                              fallbackEn: "Open listing",
-                            })
-                          : safeT("admin_comm_promo_open_site_post", {
-                              fallbackKo: "사이트에서 보기",
-                              fallbackEn: "View on site",
-                            })}
+                          ? safeT("admin_trade_promo_open_listing")
+                          : safeT("admin_comm_promo_open_site_post")}
                       </a>
                     ) : isTrade ? (
                       <p className="sam-text-helper text-sam-muted">
-                        {safeT("admin_trade_promo_review_snapshot", {
-                          fallbackKo:
-                            "공개 상세는 숨김/삭제 글을 열 수 없습니다. 위 상태·제목으로 심사하세요.",
-                          fallbackEn:
-                            "Public listing detail may be blocked for hidden/deleted posts. Review status and title here.",
-                        })}
+                        {safeT("admin_trade_promo_review_snapshot")}
                       </p>
                     ) : null}
                   </div>

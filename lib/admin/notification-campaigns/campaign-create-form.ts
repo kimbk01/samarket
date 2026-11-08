@@ -7,6 +7,7 @@
  */
 
 import { isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type CampaignCreateType = "notice" | "marketing" | "system";
 
@@ -172,6 +173,6 @@ export function campaignCreateErrorMessage(code: unknown, lang: "ko" | "en"): st
   const c = typeof code === "string" ? code.trim() : "";
   const hit = ERROR_COPY[c];
   if (hit) return hit[lang];
-  const base = lang === "ko" ? "처리하지 못했습니다." : "Request failed.";
+  const base = translateBy(lang, "admin_request_failed", undefined, "en");
   return /^[a-z][a-z0-9_]{1,63}$/.test(c) ? `${base} (${c})` : base;
 }

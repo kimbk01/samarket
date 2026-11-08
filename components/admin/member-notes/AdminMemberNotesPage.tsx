@@ -58,16 +58,10 @@ function AdminMemberNotesPageInner() {
 
   const pageTitle = useMemo(() => {
     if (kind === "inquiry") {
-      return safeT("admin_menu_cp_member_inquiry", {
-        fallbackKo: "Owner/회원 1:1 문의",
-        fallbackEn: "Owner/Member 1:1 inquiry",
-      });
+      return safeT("admin_menu_cp_member_inquiry");
     }
     if (kind === "inbox") {
-      return safeT("admin_menu_cp_member_inbox", {
-        fallbackKo: "Owner/회원 쪽지 발송",
-        fallbackEn: "Owner/Member inbox notes",
-      });
+      return safeT("admin_menu_cp_member_inbox");
     }
     return t("notif_admin_notes_title");
   }, [kind, safeT, t]);
@@ -220,14 +214,8 @@ function AdminMemberNotesPageInner() {
                     : ""}
                 {" · "}
                 {kindFromStartedBy(th.started_by) === "inbox"
-                  ? safeT("admin_menu_cp_member_inbox", {
-                      fallbackKo: "쪽지",
-                      fallbackEn: "Inbox",
-                    })
-                  : safeT("admin_menu_cp_member_inquiry", {
-                      fallbackKo: "문의",
-                      fallbackEn: "Inquiry",
-                    })}
+                  ? safeT("admin_menu_cp_member_inbox")
+                  : safeT("admin_menu_cp_member_inquiry")}
                 {" · "}
                 {th.status}
                 {" · "}
@@ -260,11 +248,7 @@ function AdminMemberNotesPageInner() {
               meta={
                 listLoading
                   ? "…"
-                  : safeT("admin_console_thread_count", {
-                      fallbackKo: `스레드 ${threads.length}`,
-                      fallbackEn: `${threads.length} threads`,
-                      vars: { count: threads.length },
-                    })
+                  : safeT("admin_console_thread_count", { vars: { count: threads.length } })
               }
             />
           }
@@ -280,10 +264,7 @@ function AdminMemberNotesPageInner() {
                         className="sam-btn sam-btn--outline sam-btn--sm"
                         onClick={() => void loadThreads()}
                       >
-                        {safeT("admin_dashboard_retry", {
-                          fallbackKo: "다시 시도",
-                          fallbackEn: "Retry",
-                        })}
+                        {safeT("admin_dashboard_retry")}
                       </button>
                     }
                   >
@@ -319,10 +300,7 @@ function AdminMemberNotesPageInner() {
                         setReply("");
                       }}
                     >
-                      {safeT("admin_console_back_to_list", {
-                        fallbackKo: "목록",
-                        fallbackEn: "List",
-                      })}
+                      {safeT("admin_console_back_to_list")}
                     </button>
                     <h2 className="min-w-0 truncate text-[14px] font-semibold text-sam-fg">
                       {subject}
@@ -375,10 +353,7 @@ function AdminMemberNotesPageInner() {
                 </div>
               ) : (
                 <AdminConsoleState kind="empty">
-                  {safeT("admin_console_select_thread", {
-                    fallbackKo: "왼쪽에서 문의 스레드를 선택하세요.",
-                    fallbackEn: "Select an inquiry thread from the list.",
-                  })}
+                  {safeT("admin_console_select_thread")}
                 </AdminConsoleState>
               )}
             </AdminConsoleDetailPane>
@@ -397,26 +372,15 @@ function AdminMemberNotesPageInner() {
       {showCreate ? (
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
           <h2 className="text-[14px] font-semibold text-sam-fg">
-            {safeT("admin_member_notes_inbox_create_title", {
-              fallbackKo: "Owner/회원에게 쪽지 발송",
-              fallbackEn: "Send note to Owner/member",
-            })}
+            {safeT("admin_member_notes_inbox_create_title")}
           </h2>
           <p className="mt-1 text-[12px] text-sam-muted">
-            {safeT("admin_member_notes_inbox_create_hint", {
-              fallbackKo:
-                "Store Owner user id 1명을 입력하세요. Owner 고객센터 → 관리자 쪽지에 바로 표시됩니다.",
-              fallbackEn:
-                "Enter one Store Owner user id. It appears in Owner Customer Center → Admin messages.",
-            })}
+            {safeT("admin_member_notes_inbox_create_hint")}
           </p>
           <input
             value={createMemberId}
             onChange={(e) => setCreateMemberId(e.target.value)}
-            placeholder={safeT("admin_member_notes_member_id_ph", {
-              fallbackKo: "회원 user id (UUID)",
-              fallbackEn: "Member user id (UUID)",
-            })}
+            placeholder={safeT("admin_member_notes_member_id_ph")}
             className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
           />
           <input
@@ -440,10 +404,7 @@ function AdminMemberNotesPageInner() {
             onClick={() => void createInbox()}
             className="mt-2 rounded-ui-rect bg-signature px-3 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
           >
-            {safeT("admin_member_notes_inbox_send", {
-              fallbackKo: "쪽지 보내기",
-              fallbackEn: "Send Inbox",
-            })}
+            {safeT("admin_member_notes_inbox_send")}
           </button>
         </section>
       ) : null}
@@ -468,14 +429,8 @@ function AdminMemberNotesPageInner() {
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-sam-muted">
                       {kindFromStartedBy(th.started_by) === "inbox"
-                        ? safeT("admin_menu_cp_member_inbox", {
-                            fallbackKo: "쪽지",
-                            fallbackEn: "Inbox",
-                          })
-                        : safeT("admin_menu_cp_member_inquiry", {
-                            fallbackKo: "문의",
-                            fallbackEn: "Inquiry",
-                          })}
+                        ? safeT("admin_menu_cp_member_inbox")
+                        : safeT("admin_menu_cp_member_inquiry")}
                       {" · "}
                       {th.status}
                       {" · "}

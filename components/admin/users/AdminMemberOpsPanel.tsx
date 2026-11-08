@@ -122,14 +122,11 @@ export function AdminMemberOpsPanel({
     <div className="space-y-4">
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-member-ops-contact="1">
         <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
-          {safeT("admin_users_cc_contact_title", { fallbackKo: "연락", fallbackEn: "Contact" })}
+          {safeT("admin_users_cc_contact_title")}
         </h3>
         <p className="text-xs text-sam-muted">{nickname}</p>
         <p className="text-xs text-sam-muted">
-          {safeT("admin_users_cc_note_support_ssot", {
-            fallbackKo: "회원 쪽지·문의는 Support Center가 단일 경로입니다. 레거시 쪽지 API는 비활성(410)입니다.",
-            fallbackEn: "Member messaging uses Support Center only. Legacy note writer returns 410.",
-          })}
+          {safeT("admin_users_cc_note_support_ssot")}
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -139,13 +136,13 @@ export function AdminMemberOpsPanel({
             data-member-cta-cap="CAP-MSG-SUPPORT"
             data-member-note-support-href="1"
           >
-            {safeT("admin_users_cc_cta_send_note", { fallbackKo: "Support Center에서 쪽지", fallbackEn: "Message via Support Center" })}
+            {safeT("admin_users_cc_cta_send_note")}
           </Link>
           <Link
             href={memberInquiryAdminHref(userId)}
             className="rounded-md border border-sam-border px-3 py-2 text-xs font-semibold text-sam-fg"
           >
-            {safeT("admin_users_cc_cta_inquiry", { fallbackKo: "문의", fallbackEn: "Inquiry" })}
+            {safeT("admin_users_cc_cta_inquiry")}
           </Link>
           <Link
             href={memberMessengerAdminHref(userId)}
@@ -153,14 +150,11 @@ export function AdminMemberOpsPanel({
             data-member-cta="messenger"
             data-member-cta-cap="CAP-MSG-MESSENGER"
           >
-            {safeT("admin_users_cc_cta_messenger_view", { fallbackKo: "메신저 보기", fallbackEn: "View messenger" })}
+            {safeT("admin_users_cc_cta_messenger_view")}
           </Link>
         </div>
         <p className="text-xs text-sam-meta">
-          {safeT("admin_users_cc_cta_notify_unsupported", {
-            fallbackKo: "알림 보내기 — 지원되지 않음",
-            fallbackEn: "Send notification — not supported",
-          })}
+          {safeT("admin_users_cc_cta_notify_unsupported")}
         </p>
       </div>
 
@@ -168,10 +162,7 @@ export function AdminMemberOpsPanel({
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-ops-deletion-readonly="1">
         <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
-          {safeT("admin_users_deletion_section_title", {
-            fallbackKo: "삭제·탈퇴",
-            fallbackEn: "Deletion",
-          })}
+          {safeT("admin_users_deletion_section_title")}
         </h3>
         {deletion.kind === "loading" ? (
           <p className="text-sm text-sam-muted">{t("admin_users_detail_loading")}</p>
@@ -180,10 +171,7 @@ export function AdminMemberOpsPanel({
         ) : deletion.open ? (
           <div className="rounded-md border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 text-[13px] text-sam-danger">
             <p className="font-semibold">
-              {safeT("admin_users_deletion_open_banner", {
-                fallbackKo: "회원 삭제 요청이 대기 중입니다.",
-                fallbackEn: "Member deletion request is pending.",
-              })}
+              {safeT("admin_users_deletion_open_banner")}
             </p>
             <p className="mt-1 text-[12px]">
               요청 시각 {deletion.open.requestedAt}
@@ -202,7 +190,7 @@ export function AdminMemberOpsPanel({
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
         <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
-          {safeT("admin_users_cc_moderation_title", { fallbackKo: "제재", fallbackEn: "Moderation" })}
+          {safeT("admin_users_cc_moderation_title")}
         </h3>
         <p className="text-sm font-semibold text-sam-fg" data-ops-account-state="1">
           {memberDetailAccountStateLabelKo(moderationStatus)}
@@ -214,19 +202,16 @@ export function AdminMemberOpsPanel({
 
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`}>
         <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
-          {safeT("admin_users_cc_ops_title", { fallbackKo: "운영 기록", fallbackEn: "Operations history" })}
+          {safeT("admin_users_cc_ops_title")}
         </h3>
         <p className="text-[12px] text-sam-muted">
-          {safeT("admin_users_cc_ops_legend", {
-            fallbackKo: "각 행: 정확한 시각(로컬·UTC) · 행동 · 관리자 로그인 아이디(UUID)",
-            fallbackEn: "Each row: exact time (local + UTC) · action · admin login ID (UUID)",
-          })}
+          {safeT("admin_users_cc_ops_legend")}
         </p>
         {history.kind === "loading" ? (
           <p className="text-sm text-sam-muted">{t("admin_users_detail_loading")}</p>
         ) : history.kind === "error" ? (
           <p className="text-sm font-semibold text-sam-danger">
-            {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+            {safeT("admin_users_cc_load_failed")}
           </p>
         ) : (
           <>
@@ -235,7 +220,7 @@ export function AdminMemberOpsPanel({
             history.data.sources.trust.ok === false ||
             history.data.sources.deletionRequests.ok === false ? (
               <p className="text-xs text-sam-danger">
-                {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+                {safeT("admin_users_cc_load_failed")}
               </p>
             ) : null}
             <div className="flex flex-wrap gap-1">
@@ -256,10 +241,7 @@ export function AdminMemberOpsPanel({
                       : id === "trust_events"
                         ? t("admin_users_cc_tab_trust")
                         : id === "account_deletion_requests"
-                          ? safeT("admin_users_deletion_section_title", {
-                              fallbackKo: "삭제·탈퇴",
-                              fallbackEn: "Deletion",
-                            })
+                          ? safeT("admin_users_deletion_section_title")
                           : t("admin_users_cc_overview_account")}
                 </AdminChipButton>
               ))}
@@ -282,10 +264,7 @@ export function AdminMemberOpsPanel({
                         <span className="ml-2 font-mono text-[12px] font-normal text-sam-muted">{item.action}</span>
                       </p>
                       <p className="text-[12px] text-sam-fg">
-                        {safeT("admin_users_cc_ops_actor", {
-                          fallbackKo: "관리자",
-                          fallbackEn: "Admin",
-                        })}
+                        {safeT("admin_users_cc_ops_actor")}
                         :{" "}
                         <span className="font-semibold">{actorLogin}</span>
                         {item.actorDisplayName && item.actorDisplayName !== actorLogin ? (
@@ -301,7 +280,7 @@ export function AdminMemberOpsPanel({
             </ul>
             {history.data.items.length === 0 ? (
               <p className="text-sm text-sam-muted">
-                {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
+                {safeT("admin_users_cc_empty")}
               </p>
             ) : null}
             <div className="flex gap-2">
@@ -315,7 +294,7 @@ export function AdminMemberOpsPanel({
                   setCursor(prev);
                 }}
               >
-                {safeT("admin_users_cc_page_prev", { fallbackKo: "이전", fallbackEn: "Prev" })}
+                {safeT("admin_users_cc_page_prev")}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -326,7 +305,7 @@ export function AdminMemberOpsPanel({
                   setCursor(history.data.nextCursor);
                 }}
               >
-                {safeT("admin_users_cc_page_next", { fallbackKo: "다음", fallbackEn: "Next" })}
+                {safeT("admin_users_cc_page_next")}
               </AdminActionButton>
             </div>
           </>

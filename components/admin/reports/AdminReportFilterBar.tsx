@@ -56,10 +56,7 @@ export function AdminReportFilterBar({ filters, onChange, onReset, onSubmit, pen
       }}
     >
       <label className={LABEL}>
-        {safeT("admin_report_filter_domain_aria", {
-          fallbackKo: "신고 도메인",
-          fallbackEn: "Report domain",
-        })}
+        {safeT("admin_report_filter_domain_aria")}
         <select
           value={filters.reportSource}
           onChange={(e) =>
@@ -72,22 +69,13 @@ export function AdminReportFilterBar({ filters, onChange, onReset, onSubmit, pen
           data-testid="admin-report-domain-filter"
         >
           <option value="">
-            {safeT("admin_report_filter_domain_all", {
-              fallbackKo: "도메인: 전체",
-              fallbackEn: "Domain: all",
-            })}
+            {safeT("admin_report_filter_domain_all")}
           </option>
           <option value="reports">
-            {safeT("admin_report_filter_domain_trade", {
-              fallbackKo: "Trade · reports 테이블",
-              fallbackEn: "Trade · reports table",
-            })}
+            {safeT("admin_report_filter_domain_trade")}
           </option>
           <option value="community_feed">
-            {safeT("admin_report_filter_domain_community", {
-              fallbackKo: "Community · community_reports",
-              fallbackEn: "Community · community_reports",
-            })}
+            {safeT("admin_report_filter_domain_community")}
           </option>
         </select>
       </label>

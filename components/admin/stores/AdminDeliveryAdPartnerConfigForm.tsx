@@ -8,6 +8,7 @@ import type { DeliveryAdCommercialCatalogReadModel } from "@/lib/stores/advertis
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { parseDeliveryAdPhpMajorToMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Props = {
   config: DeliveryAdCommercialCatalogReadModel["partnerConfig"];
@@ -43,7 +44,7 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
           disabled={busy}
           onChange={(e) => setEnabled(e.target.checked)}
         />
-        {lang === "en" ? "Partner enabled" : "Partner 활성"}
+        {translateBy(lang, "admin_partner_enabled")}
       </label>
       <label className="flex items-center gap-2 text-[12px]">
         <input
@@ -52,20 +53,20 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
           disabled={busy}
           onChange={(e) => setAccepting(e.target.checked)}
         />
-        {lang === "en" ? "Accept new members" : "신규 가입 접수"}
+        {translateBy(lang, "admin_accept_new_members")}
       </label>
       <label className="text-[12px]">
-        {lang === "en" ? "Monthly fee (PHP)" : "월 회비 (PHP)"}
+        {translateBy(lang, "admin_monthly_fee_php")}
         <input
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1 text-[13px]"
-          placeholder={lang === "en" ? "Not set" : "미설정"}
+          placeholder={translateBy(lang, "admin_not_set")}
           value={fee}
           disabled={busy}
           onChange={(e) => setFee(e.target.value)}
         />
       </label>
       <label className="text-[12px]">
-        {lang === "en" ? "Ad discount %" : "광고 할인 %"}
+        {translateBy(lang, "admin_ad_discount")}
         <input
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1 text-[13px]"
           value={discount}
@@ -107,7 +108,7 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
           });
         }}
       >
-        {busy ? (lang === "en" ? "Saving…" : "저장 중…") : lang === "en" ? "Save Partner config" : "Partner 설정 저장"}
+        {busy ? (translateBy(lang, "common_saving")) : translateBy(lang, "admin_save_partner_config")}
       </AdminActionButton>
       {inputError ? (
         <p className="text-[12px] text-sam-danger sm:col-span-2" role="alert" data-admin-partner-config-input-error="1">

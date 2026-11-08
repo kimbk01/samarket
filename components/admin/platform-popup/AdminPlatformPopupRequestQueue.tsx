@@ -43,10 +43,7 @@ export function AdminPlatformPopupRequestQueue() {
     <AdminCard>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-sam-fg">
-          {safeT("admin_platform_popup_requests_title", {
-            fallbackKo: "오너 팝업 신청",
-            fallbackEn: "Owner popup requests",
-          })}
+          {safeT("admin_platform_popup_requests_title")}
         </h2>
         <button
           type="button"
@@ -65,17 +62,11 @@ export function AdminPlatformPopupRequestQueue() {
 
       {loading ? (
         <p className="text-sm text-sam-muted">
-          {safeT("admin_platform_popup_loading", {
-            fallbackKo: "불러오는 중…",
-            fallbackEn: "Loading…",
-          })}
+          {safeT("admin_platform_popup_loading")}
         </p>
       ) : items.length === 0 ? (
         <p className="text-sm text-sam-muted">
-          {safeT("admin_platform_popup_requests_empty", {
-            fallbackKo: "대기 중인 오너 신청이 없습니다.",
-            fallbackEn: "No open owner requests.",
-          })}
+          {safeT("admin_platform_popup_requests_empty")}
         </p>
       ) : (
         <div className="overflow-x-auto">

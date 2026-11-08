@@ -19,6 +19,7 @@ import { tradeFieldWidgetOperatorLabel } from "@/lib/trade/category-form/field-w
 import { parseTradeFieldCompositionPayload } from "@/lib/trade/category-form/parse-field-composition";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Props = {
   iconKey: string;
@@ -89,53 +90,37 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_menu_trade_options_heading", {
-            fallbackKo: "등록 옵션",
-            fallbackEn: "Listing options",
-          })}
+          {safeT("admin_menu_trade_options_heading")}
         </p>
         <AdminActionButton variant="ghost" size="sm" onClick={() => onChange(null)}>
           {t("admin_cat_composition_reset_seed")}
         </AdminActionButton>
       </div>
       <p className="sam-text-body-secondary text-sam-muted">
-        {safeT("admin_menu_trade_options_hint", {
-          fallbackKo: "필드 라이브러리에서 고른 옵션만 등록·필수·순서를 조정합니다. 선택값(제조사 목록 등)은 별도 관리입니다.",
-          fallbackEn: "Add options from the field library and set required/order. Select enums are managed separately.",
-        })}
+        {safeT("admin_menu_trade_options_hint")}
       </p>
 
       <ul className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border bg-sam-surface">
         {sorted.length === 0 ? (
           <li className="px-3 py-6 text-center sam-text-body text-sam-muted">
-            {safeT("admin_menu_trade_options_empty", {
-              fallbackKo: "등록된 옵션이 없습니다.",
-              fallbackEn: "No options yet.",
-            })}
+            {safeT("admin_menu_trade_options_empty")}
           </li>
         ) : (
           sorted.map((r, index) => {
             const def = TRADE_FIELD_LIBRARY[r.id];
             const widgetLabel = tradeFieldWidgetOperatorLabel(def?.widget, lang);
             const requiredLabel = r.required
-              ? safeT("admin_cat_composition_required", { fallbackKo: "필수", fallbackEn: "Required" })
-              : safeT("admin_menu_trade_option_optional", {
-                  fallbackKo: "선택",
-                  fallbackEn: "Optional",
-                });
+              ? safeT("admin_cat_composition_required")
+              : safeT("admin_menu_trade_option_optional");
             return (
               <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="sam-text-body font-medium text-sam-fg">{tradeFieldAdminLabel(r.id, lang)}</p>
                   <p className="sam-text-xxs text-sam-muted">
                     {widgetLabel} · {requiredLabel} ·{" "}
-                    {safeT("admin_menu_trade_option_order", {
-                      fallbackKo: "순서 {n}",
-                      fallbackEn: "Order {n}",
-                      vars: { n: index + 1 },
-                    })}
+                    {safeT("admin_menu_trade_option_order", { vars: { n: index + 1 } })}
                     {r.active === false
-                      ? ` · ${safeT("admin_menu_status_inactive", { fallbackKo: "비활성", fallbackEn: "Inactive" })}`
+                      ? ` · ${safeT("admin_menu_status_inactive")}`
                       : ""}
                   </p>
                 </div>
@@ -157,17 +142,14 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
                   />
                   {t("admin_cat_composition_required")}
                 </label>
-                <AdminActionButton variant="quiet" size="sm" aria-label={lang === "ko" ? "위로" : "Move up"} onClick={() => move(r.id, -1)}>
+                <AdminActionButton variant="quiet" size="sm" aria-label={translateBy(lang, "admin_menu_bottom_move_up", undefined, "en")} onClick={() => move(r.id, -1)}>
                   ↑
                 </AdminActionButton>
-                <AdminActionButton variant="quiet" size="sm" aria-label={lang === "ko" ? "아래로" : "Move down"} onClick={() => move(r.id, 1)}>
+                <AdminActionButton variant="quiet" size="sm" aria-label={translateBy(lang, "admin_menu_bottom_move_down", undefined, "en")} onClick={() => move(r.id, 1)}>
                   ↓
                 </AdminActionButton>
                 <AdminActionButton variant="ghost" size="sm" className="text-sam-danger" onClick={() => removeField(r.id)}>
-                  {safeT("admin_menu_trade_option_remove", {
-                    fallbackKo: "제거",
-                    fallbackEn: "Remove",
-                  })}
+                  {safeT("admin_menu_trade_option_remove")}
                 </AdminActionButton>
               </li>
             );
@@ -179,18 +161,12 @@ export function CategoryFieldCompositionEditor({ iconKey, slug, value, onChange 
         <div className="space-y-2">
           {!addOpen ? (
             <AdminActionButton variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
-              {safeT("admin_menu_trade_option_add", {
-                fallbackKo: "+ 옵션 추가",
-                fallbackEn: "+ Add option",
-              })}
+              {safeT("admin_menu_trade_option_add")}
             </AdminActionButton>
           ) : (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
               <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
-                {safeT("admin_menu_trade_option_pick", {
-                  fallbackKo: "옵션 선택",
-                  fallbackEn: "Choose option",
-                })}
+                {safeT("admin_menu_trade_option_pick")}
               </p>
               <ul className="max-h-56 space-y-1 overflow-y-auto">
                 {unused.map((id) => {

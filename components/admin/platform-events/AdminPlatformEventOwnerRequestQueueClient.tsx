@@ -18,6 +18,7 @@ import {
   ownerRequestOperatorStatusLabel,
   resolveOwnerRequestOperatorStatus,
 } from "@/lib/admin/promotion-operation-status";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 목록 조건 (주소 보존) — 상태만 (API `status` → `request_status` 일치). 검색어는 API 미지원이라 두지 않는다. */
 const OWNER_REQUEST_LIST_QUERY_CONFIG = { statuses: PLATFORM_EVENT_OWNER_REQUEST_STATUSES };
@@ -85,12 +86,7 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
           {t("admin_menu_promotion_owner_requests")}
         </h1>
         <p className="mt-1 text-sm text-sam-muted" data-admin-owner-request-boundary="1">
-          {safeT("admin_promotion_owner_request_boundary", {
-            fallbackKo:
-              "요청한 채널 ≠ 실제 노출 채널입니다. 승인하면 이벤트 초안만 만들어지며, 게시·배너 활성화·Push 발송은 하지 않습니다.",
-            fallbackEn:
-              "Requested channels ≠ active channels. Approve creates an Event draft only — not publish, banner activate, or Push send.",
-          })}
+          {safeT("admin_promotion_owner_request_boundary")}
         </p>
       </div>
       <AdminFilterBar
@@ -105,9 +101,9 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
-          label: lang === "en" ? "Status" : "상태",
+          label: translateBy(lang, "admin_status"),
           options: [
-            { value: "", label: lang === "en" ? "All statuses" : "모든 상태" },
+            { value: "", label: translateBy(lang, "admin_cm_filter_all_status") },
             ...PLATFORM_EVENT_OWNER_REQUEST_STATUSES.map((s) => ({
               value: s,
               label: ownerRequestOperatorStatusLabel(resolveOwnerRequestOperatorStatus(s), lang),
@@ -125,10 +121,7 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
       ) : items.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={safeT("admin_promotion_owner_request_empty", {
-            fallbackKo: "대기 중인 오너 요청이 없습니다.",
-            fallbackEn: "No owner requests.",
-          })}
+          message={safeT("admin_promotion_owner_request_empty")}
         />
       ) : (
         <>
@@ -136,10 +129,10 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
             <table className="min-w-full border-collapse text-[13px]" data-admin-owner-request-table="1">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
-                  <th className={TH}>{lang === "en" ? "Title" : "제목"}</th>
-                  <th className={TH}>{lang === "en" ? "Requested channels" : "요청 채널"}</th>
-                  <th className={TH}>{lang === "en" ? "Status" : "상태"}</th>
-                  <th className={`${TH} text-right`}>{lang === "en" ? "Actions" : "관리"}</th>
+                  <th className={TH}>{translateBy(lang, "admin_meeting_engine_col_title")}</th>
+                  <th className={TH}>{translateBy(lang, "admin_requested_channels")}</th>
+                  <th className={TH}>{translateBy(lang, "admin_status")}</th>
+                  <th className={`${TH} text-right`}>{translateBy(lang, "admin_posts_col_manage")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,10 +140,10 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
                   const op = resolveOwnerRequestOperatorStatus(item.requestStatus);
                   const ch = item.requestedChannels;
                   const channels = [
-                    ch.popup ? (lang === "en" ? "Popup" : "팝업") : null,
-                    ch.banner ? (lang === "en" ? "Banner" : "배너") : null,
+                    ch.popup ? (translateBy(lang, "admin_ad_kind_popup_campaign")) : null,
+                    ch.banner ? (translateBy(lang, "admin_ads_target_banner")) : null,
                     ch.push ? "Push" : null,
-                    ch.bell ? (lang === "en" ? "Bell" : "알림함") : null,
+                    ch.bell ? (translateBy(lang, "admin_bell")) : null,
                   ]
                     .filter(Boolean)
                     .join(", ");
@@ -158,9 +151,9 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
                     <tr key={item.id} className="border-b border-sam-border last:border-b-0">
                       <td className={`${TD} min-w-[200px] font-medium text-sam-fg`}>{item.title || "—"}</td>
                       <td className={`${TD} text-[12px] text-sam-muted`}>
-                        {channels || (lang === "en" ? "none" : "없음")}
+                        {channels || (translateBy(lang, "admin_stores_fee_ladder_unset"))}
                         <span className="ml-2 text-sam-muted/80">
-                          ({lang === "en" ? "not active yet" : "아직 활성 아님"})
+                          ({translateBy(lang, "admin_not_active_yet")})
                         </span>
                       </td>
                       <td className={`${TD} whitespace-nowrap`}>
@@ -174,10 +167,7 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
                           variant="ghost"
                           size="sm"
                         >
-                          {safeT("admin_promotion_action_review", {
-                            fallbackKo: "검토",
-                            fallbackEn: "Review",
-                          })}
+                          {safeT("admin_promotion_action_review")}
                         </AdminActionLink>
                       </td>
                     </tr>
@@ -198,10 +188,7 @@ export function AdminPlatformEventOwnerRequestQueueClient() {
         </>
       )}
       <Link href="/admin/platform-promotion" className="text-xs text-sam-muted underline">
-        {safeT("admin_menu_promotion", {
-          fallbackKo: "프로모션 / 이벤트",
-          fallbackEn: "Promotion / Events",
-        })}
+        {safeT("admin_menu_promotion")}
       </Link>
     </div>
   );

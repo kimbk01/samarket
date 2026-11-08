@@ -140,10 +140,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_red_error", {
-              fallbackKo: "사용 내역을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load redemptions.",
-            })}
+            {safeT("gift_ops_red_error")}
           </p>
           <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
             {adminCta("refresh", language !== "en")}
@@ -152,10 +149,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
       ) : null}
       {state === "empty" ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_red_empty", {
-            fallbackKo: "사용 내역이 없습니다.",
-            fallbackEn: "No redemptions yet.",
-          })}
+          {safeT("gift_ops_red_empty")}
         </p>
       ) : null}
 
@@ -210,7 +204,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                         })}
                         className={`${Sam.btn.secondary} inline-flex min-h-[36px] items-center px-3 text-xs`}
                       >
-                        {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                        {safeT("gift_ops_cta_detail")}
                       </Link>
                     </td>
                   </tr>
@@ -238,7 +232,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                   })}
                   className={`${Sam.btn.secondary} mt-2 flex min-h-[40px] items-center justify-center`}
                 >
-                  {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                  {safeT("gift_ops_cta_detail")}
                 </Link>
               </li>
             ))}

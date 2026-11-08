@@ -123,6 +123,7 @@ type LinkedContent = {
 };
 
 import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type TFn = (key: MessageKey, params?: Record<string, string | number>) => string;
 
@@ -269,7 +270,7 @@ export function AdminNotificationCampaignDetailPage() {
           } else {
             setLinkedEvent({
               id: eventId,
-              title: language === "en" ? "Source unavailable" : "원본 확인 불가",
+              title: translateBy(language, "admin_campaign_cms_linked_source_unavailable"),
             });
             setLinkedContent(null);
           }
@@ -277,7 +278,7 @@ export function AdminNotificationCampaignDetailPage() {
           if (!cancelled) {
             setLinkedEvent({
               id: eventId,
-              title: language === "en" ? "Source unavailable" : "원본 확인 불가",
+              title: translateBy(language, "admin_campaign_cms_linked_source_unavailable"),
             });
             setLinkedContent(null);
           }
@@ -480,10 +481,10 @@ export function AdminNotificationCampaignDetailPage() {
   const queuedReal = occurrences.find((o) => o.status === "queued" && o.trigger_type !== "test") ?? null;
   const failedReal = occurrences.find((o) => o.status === "failed" && o.trigger_type !== "test") ?? null;
   const can = (a: CampaignAction) => allowedActions.includes(a);
-  const nowLabel = safeT("admin_campaign_cms_time_now", { fallbackKo: "지금", fallbackEn: "Now" });
+  const nowLabel = safeT("admin_campaign_cms_time_now");
   const formatOpenedCounts = (o: OpenedCounts | null | undefined) =>
     o
-      ? safeT("admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${o.push}${o.capped ? "+" : ""} · 인앱 ${o.in_app}${o.capped ? "+" : ""}`, fallbackEn: `Push ${o.push}${o.capped ? "+" : ""} · In-app ${o.in_app}${o.capped ? "+" : ""}`, vars: { push: `${o.push}${o.capped ? "+" : ""}`, in_app: `${o.in_app}${o.capped ? "+" : ""}` } })
+      ? safeT("admin_campaign_cms_push_in_app_counts", { vars: { push: `${o.push}${o.capped ? "+" : ""}`, in_app: `${o.in_app}${o.capped ? "+" : ""}` } })
       : "—";
 
   const confirmSend = async (reason: string | null) => {
@@ -544,16 +545,13 @@ export function AdminNotificationCampaignDetailPage() {
           {/* 1. Linked content */}
           <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <h2 className="text-sm font-semibold text-sam-fg">
-              {safeT("admin_notif_section_linked_content", {
-                fallbackKo: "연결 원본",
-                fallbackEn: "Linked original",
-              })}
+              {safeT("admin_notif_section_linked_content")}
             </h2>
             {linkedEvent ? (
               <div className="space-y-2 rounded-ui-rect border border-sam-success bg-sam-success-soft/50 p-3">
                 <div className="min-w-0 space-y-1">
                   <span className="inline-block rounded-ui-rect bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted">
-                    {language === "en" ? "Event" : "이벤트"}
+                    {translateBy(language, "admin_event")}
                   </span>
                   <p className="break-words text-sm font-semibold text-sam-fg">{linkedEvent.title}</p>
                 </div>
@@ -561,10 +559,7 @@ export function AdminNotificationCampaignDetailPage() {
                   href={`/admin/platform-events/${encodeURIComponent(linkedEvent.id)}`}
                   className="inline-block rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-medium text-signature"
                 >
-                  {safeT("admin_notif_btn_view_original", {
-                    fallbackKo: "원본 보기",
-                    fallbackEn: "View original",
-                  })}
+                  {safeT("admin_notif_btn_view_original")}
                 </Link>
               </div>
             ) : linkedId && linkedContent ? (
@@ -584,10 +579,7 @@ export function AdminNotificationCampaignDetailPage() {
                     </span>
                     <p className="break-words text-sm font-semibold text-sam-fg">{linkedContent.title}</p>
                     <p className="font-mono text-[12px] text-sam-meta">
-                      {safeT("admin_notif_content_id_label", {
-                        fallbackKo: "콘텐츠 ID",
-                        fallbackEn: "Content ID",
-                      })}
+                      {safeT("admin_notif_content_id_label")}
                       : {linkedContent.id}
                     </p>
                   </div>
@@ -596,26 +588,16 @@ export function AdminNotificationCampaignDetailPage() {
                   href={`/admin/app/notices/${encodeURIComponent(linkedContent.id)}`}
                   className="inline-block rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-medium text-signature"
                 >
-                  {safeT("admin_notif_btn_view_original", {
-                    fallbackKo: "원본 보기",
-                    fallbackEn: "View original",
-                  })}
+                  {safeT("admin_notif_btn_view_original")}
                 </Link>
               </div>
             ) : isInboxDetailDestinationPayload(camp?.target_payload) ? (
               <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg" data-admin-notif-destination="inbox_detail">
-                {language === "en"
-                  ? "Destination: notification detail — members open this notification's own detail page."
-                  : "목적지: 알림 내용 보기 — 회원이 알림을 누르면 이 알림의 상세 화면이 열립니다."}
+                {translateBy(language, "admin_destination_notification_detail_members_open_thi")}
               </p>
             ) : (
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-muted/10 px-3 py-2 text-sm text-sam-fg">
-                {safeT("admin_notif_legacy_unbound_box", {
-                  fallbackKo:
-                    "이전 방식 · 원본 연결 없음. 공지/시스템 신규 발송은 원본 연결이 필요합니다. 기존 회원 알림은 읽기 호환만 유지됩니다.",
-                  fallbackEn:
-                    "Legacy · no linked source. Notice/system sends require a source. Existing member notifications remain read-compatible only.",
-                })}
+                {safeT("admin_notif_legacy_unbound_box")}
               </p>
             )}
           </section>
@@ -625,34 +607,25 @@ export function AdminNotificationCampaignDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
                 <p className="text-xs text-sam-muted">
-                  {safeT("admin_notif_label_title", {
-                    fallbackKo: "알림 제목",
-                    fallbackEn: "Notification title",
-                  })}
+                  {safeT("admin_notif_label_title")}
                 </p>
                 <h1 className="text-[16px] font-semibold text-sam-fg">{String(camp.title ?? "")}</h1>
               </div>
               <span className="rounded-ui-rect bg-sam-app px-2 py-1 text-xs text-sam-muted">
                 {campaignStatusLabel(effectiveStatus || String(camp.status ?? ""), lang)}
-                {typeof camp.archived_at === "string" && camp.archived_at ? ` · ${safeT("admin_campaign_cms_archived_badge", { fallbackKo: "보관됨", fallbackEn: "Archived" })}` : null}
+                {typeof camp.archived_at === "string" && camp.archived_at ? ` · ${safeT("admin_campaign_cms_archived_badge")}` : null}
               </span>
             </div>
             <div>
               <p className="text-xs text-sam-muted">
-                {safeT("admin_notif_label_body", {
-                  fallbackKo: "알림 메시지",
-                  fallbackEn: "Notification message",
-                })}
+                {safeT("admin_notif_label_body")}
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{String(camp.body ?? "")}</p>
             </div>
             {(pushImage || inAppImage) && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-sam-muted">
-                  {safeT("admin_notif_detail_delivery_images", {
-                    fallbackKo: "알림 이미지",
-                    fallbackEn: "Delivery images",
-                  })}
+                  {safeT("admin_notif_detail_delivery_images")}
                 </p>
                 <div className="flex flex-wrap gap-4">
                   {pushImage ? (
@@ -685,10 +658,7 @@ export function AdminNotificationCampaignDetailPage() {
           {/* 3. Policy fields */}
           <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <h2 className="text-sm font-semibold text-sam-fg">
-              {safeT("admin_notif_section_send_policy", {
-                fallbackKo: "발송 정책",
-                fallbackEn: "Send policy",
-              })}
+              {safeT("admin_notif_section_send_policy")}
             </h2>
             <div className="grid gap-1 text-sm sm:grid-cols-2">
               <p>
@@ -749,11 +719,11 @@ export function AdminNotificationCampaignDetailPage() {
                 title={sendAction.reason ?? undefined}
                 onClick={() => void openSendConfirm()}
               >
-                {safeT("admin_notif_btn_send_draft", { fallbackKo: "발송하기", fallbackEn: "Send" })}
+                {safeT("admin_notif_btn_send_draft")}
               </AdminActionButton>
               {!sendAction.allowed && sendAction.reason ? (
                 <p className="text-xs text-sam-muted" data-admin-action-denied="1">
-                  {lang === "ko" ? `발송 비활성: ${sendAction.reason}` : `Send disabled: ${sendAction.reason}`}
+                  {translateBy(lang, "admin_send_disabled_reason", { reason: sendAction.reason }, "en")}
                 </p>
               ) : null}
             </section>
@@ -768,7 +738,7 @@ export function AdminNotificationCampaignDetailPage() {
                     targetCount: sendConfirm.audience.totalUsers,
                     pushEligibleCount: sendConfirm.audience.pushEligibleUsers,
                     channelLabel: channelText,
-                    timeLabel: safeT("admin_campaign_cms_time_immediately", { fallbackKo: "즉시 발송", fallbackEn: "Immediately" }),
+                    timeLabel: safeT("admin_campaign_cms_time_immediately"),
                   }
                 : null
             }
@@ -798,7 +768,7 @@ export function AdminNotificationCampaignDetailPage() {
                 href={`/admin/notifications/create?edit=${encodeURIComponent(id)}`}
                 className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-sm text-sam-fg"
               >
-                {safeT("admin_campaign_cms_btn_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
+                {safeT("admin_campaign_cms_btn_edit")}
               </Link>
             ) : null}
             {can("cancel") && String(camp.status ?? "") === "scheduled" ? (
@@ -812,7 +782,7 @@ export function AdminNotificationCampaignDetailPage() {
                   )
                 }
               >
-                {safeT("admin_campaign_cms_btn_cancel_reservation", { fallbackKo: "예약 취소", fallbackEn: "Cancel reservation" })}
+                {safeT("admin_campaign_cms_btn_cancel_reservation")}
               </AdminActionButton>
             ) : null}
             {can("stop_sending") ? (
@@ -820,7 +790,7 @@ export function AdminNotificationCampaignDetailPage() {
                 disabled={busy}
                 onClick={() => openConfirm("stop_sending", factsFor(nowLabel), () => runLifecycleAction("stop_sending"))}
               >
-                {safeT("admin_campaign_cms_btn_stop_sending", { fallbackKo: "발송 중지", fallbackEn: "Stop sending" })}
+                {safeT("admin_campaign_cms_btn_stop_sending")}
               </AdminActionButton>
             ) : null}
             {can("pause") ? (
@@ -834,7 +804,7 @@ export function AdminNotificationCampaignDetailPage() {
                   )
                 }
               >
-                {safeT("admin_campaign_cms_btn_pause", { fallbackKo: "일시정지", fallbackEn: "Pause" })}
+                {safeT("admin_campaign_cms_btn_pause")}
               </AdminActionButton>
             ) : null}
             {can("resume") ? (
@@ -843,7 +813,7 @@ export function AdminNotificationCampaignDetailPage() {
                 title={sendAction.reason ?? undefined}
                 onClick={() => openConfirm("resume", factsFor(nowLabel), () => runLifecycleAction("resume"))}
               >
-                {safeT("admin_campaign_cms_btn_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
+                {safeT("admin_campaign_cms_btn_resume")}
               </AdminActionButton>
             ) : null}
             {can("stop_recurring") ? (
@@ -853,7 +823,7 @@ export function AdminNotificationCampaignDetailPage() {
                   openConfirm("stop_recurring", factsFor(nowLabel), () => runLifecycleAction("stop_recurring"))
                 }
               >
-                {safeT("admin_campaign_cms_btn_stop_series", { fallbackKo: "반복 중지", fallbackEn: "Stop series" })}
+                {safeT("admin_campaign_cms_btn_stop_series")}
               </AdminActionButton>
             ) : null}
             {can("resend") && failedReal ? (
@@ -863,14 +833,14 @@ export function AdminNotificationCampaignDetailPage() {
                   openConfirm(
                     "resend",
                     factsFor(
-                      safeT("admin_campaign_cms_time_immediately_resend", { fallbackKo: "즉시 재발송", fallbackEn: "Immediately" }),
+                      safeT("admin_campaign_cms_time_immediately_resend"),
                       failedReal.target_member_count ?? latestTargetCount
                     ),
                     (reason) => resendFailedMembers(reason)
                   )
                 }
               >
-                {safeT("admin_campaign_cms_btn_resend", { fallbackKo: "재발송", fallbackEn: "Resend" })}
+                {safeT("admin_campaign_cms_btn_resend")}
               </AdminActionButton>
             ) : null}
             {can("duplicate") ? (
@@ -878,7 +848,7 @@ export function AdminNotificationCampaignDetailPage() {
                 disabled={busy}
                 onClick={() => openConfirm("duplicate", factsFor("—"), () => runLifecycleAction("duplicate"))}
               >
-                {safeT("admin_campaign_cms_btn_duplicate", { fallbackKo: "복제", fallbackEn: "Duplicate" })}
+                {safeT("admin_campaign_cms_btn_duplicate")}
               </AdminActionButton>
             ) : null}
             {can("archive") ? (
@@ -892,7 +862,7 @@ export function AdminNotificationCampaignDetailPage() {
                   )
                 }
               >
-                {safeT("admin_campaign_cms_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
+                {safeT("admin_campaign_cms_btn_archive")}
               </AdminActionButton>
             ) : null}
             {can("unarchive") ? (
@@ -900,7 +870,7 @@ export function AdminNotificationCampaignDetailPage() {
                 disabled={busy}
                 onClick={() => openConfirm("unarchive", factsFor("—"), () => runLifecycleAction("unarchive"))}
               >
-                {safeT("admin_campaign_cms_btn_unarchive", { fallbackKo: "보관 해제", fallbackEn: "Unarchive" })}
+                {safeT("admin_campaign_cms_btn_unarchive")}
               </AdminActionButton>
             ) : null}
           </section>
@@ -942,11 +912,11 @@ export function AdminNotificationCampaignDetailPage() {
               </div>
               <div className="grid gap-2 text-sm sm:grid-cols-2" data-admin-notif-delivery-columns="1">
                 <p className="rounded-ui-rect bg-sam-app px-3 py-2">
-                  <span className="text-sam-muted">{safeT("admin_campaign_cms_col_delivered", { fallbackKo: "발송 완료", fallbackEn: "Delivered" })}</span>{" "}
-                  {safeT("admin_campaign_cms_push_in_app_counts", { fallbackKo: `푸시 ${summary.push_sent ?? 0} · 인앱 ${summary.in_app_sent ?? 0}`, fallbackEn: `Push ${summary.push_sent ?? 0} · In-app ${summary.in_app_sent ?? 0}`, vars: { push: `${summary.push_sent ?? 0}`, in_app: `${summary.in_app_sent ?? 0}` } })}
+                  <span className="text-sam-muted">{safeT("admin_campaign_cms_col_delivered")}</span>{" "}
+                  {safeT("admin_campaign_cms_push_in_app_counts", { vars: { push: `${summary.push_sent ?? 0}`, in_app: `${summary.in_app_sent ?? 0}` } })}
                 </p>
                 <p className="rounded-ui-rect bg-sam-app px-3 py-2">
-                  <span className="text-sam-muted">{safeT("admin_campaign_cms_col_opened", { fallbackKo: "열람", fallbackEn: "Opened" })}</span>{" "}
+                  <span className="text-sam-muted">{safeT("admin_campaign_cms_col_opened")}</span>{" "}
                   {formatOpenedCounts(summary.opened)}
                 </p>
               </div>
@@ -959,7 +929,7 @@ export function AdminNotificationCampaignDetailPage() {
 
           {summary && ((summary.push_failed ?? 0) > 0 || (summary.push_skipped ?? 0) > 0) && !isSending ? (
             <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-notif-failures="1">
-              <h2 className="text-sm font-semibold text-sam-fg">{lang === "en" ? "Why some pushes did not arrive" : "푸시가 안 간 이유"}</h2>
+              <h2 className="text-sm font-semibold text-sam-fg">{translateBy(lang, "admin_why_some_pushes_did_not_arrive")}</h2>
               {(summary.push_failed ?? 0) > 0 ? (
                 failures ? (
                   <ul className="space-y-2 text-sm">
@@ -979,9 +949,7 @@ export function AdminNotificationCampaignDetailPage() {
               ) : null}
               {(summary.push_skipped ?? 0) > 0 ? (
                 <p className="rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
-                  {lang === "en"
-                    ? `Skipped ${summary.push_skipped}: members with no active phone or push turned off (they still got it in the inbox).`
-                    : `건너뜀 ${summary.push_skipped}명 — 앱이 설치된 폰이 없거나 푸시를 끈 회원입니다 (알림함에는 들어갔습니다).`}
+                  {translateBy(lang, "admin_skipped_push_skipped_members_with_no", { push_skipped: summary.push_skipped })}
                 </p>
               ) : null}
               {failures && failures.devices.length > 0 ? (
@@ -989,12 +957,12 @@ export function AdminNotificationCampaignDetailPage() {
                   <table className="min-w-full text-left text-xs">
                     <thead className="text-sam-muted">
                       <tr>
-                        <th className="py-1 pr-3">{lang === "en" ? "Reason" : "원인"}</th>
-                        <th className="py-1 pr-3">{lang === "en" ? "Platform" : "기기"}</th>
-                        <th className="py-1 pr-3">{lang === "en" ? "App version" : "앱 버전"}</th>
-                        <th className="py-1 pr-3">{lang === "en" ? "Last seen" : "마지막 접속"}</th>
-                        <th className="py-1 pr-3">{lang === "en" ? "Device now" : "현재 기기 상태"}</th>
-                        <th className="py-1">{lang === "en" ? "Provider response" : "FCM·APNs 응답"}</th>
+                        <th className="py-1 pr-3">{translateBy(lang, "admin_reason")}</th>
+                        <th className="py-1 pr-3">{translateBy(lang, "admin_platform")}</th>
+                        <th className="py-1 pr-3">{translateBy(lang, "admin_push_col_version")}</th>
+                        <th className="py-1 pr-3">{translateBy(lang, "admin_push_col_last_seen")}</th>
+                        <th className="py-1 pr-3">{translateBy(lang, "admin_device_now")}</th>
+                        <th className="py-1">{translateBy(lang, "admin_provider_response")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1006,13 +974,9 @@ export function AdminNotificationCampaignDetailPage() {
                           <td className="py-1 pr-3">{d.last_seen_at ? formatAdminManilaDateTime(d.last_seen_at) : "—"}</td>
                           <td className="py-1 pr-3">
                             {d.is_active === false
-                              ? lang === "en"
-                                ? "Turned off (excluded next time)"
-                                : "꺼짐 (다음 발송부터 제외)"
+                              ? translateBy(lang, "admin_turned_off_excluded_next_time")
                               : d.is_active
-                                ? lang === "en"
-                                  ? "Active"
-                                  : "사용 중"
+                                ? translateBy(lang, "admin_active")
                                 : "—"}
                           </td>
                           <td className="py-1 break-all text-sam-muted">
@@ -1041,9 +1005,9 @@ export function AdminNotificationCampaignDetailPage() {
                       <th className="py-1 pr-3">{t("admin_occurrence_th_trigger")}</th>
                       <th className="py-1 pr-3">{t("admin_notif_label_status")}</th>
                       <th className="py-1 pr-3">{t("admin_notif_detail_scheduled_at")}</th>
-                      <th className="py-1 pr-3">{safeT("admin_campaign_cms_col_delivered", { fallbackKo: "발송 완료", fallbackEn: "Delivered" })}</th>
-                      <th className="py-1 pr-3">{safeT("admin_campaign_cms_col_opened", { fallbackKo: "열람", fallbackEn: "Opened" })}</th>
-                      <th className="py-1 pr-3">{safeT("admin_campaign_cms_col_note", { fallbackKo: "비고", fallbackEn: "Note" })}</th>
+                      <th className="py-1 pr-3">{safeT("admin_campaign_cms_col_delivered")}</th>
+                      <th className="py-1 pr-3">{safeT("admin_campaign_cms_col_opened")}</th>
+                      <th className="py-1 pr-3">{safeT("admin_campaign_cms_col_note")}</th>
                       <th className="py-1">{t("admin_points_th_work")}</th>
                     </tr>
                   </thead>
@@ -1070,9 +1034,7 @@ export function AdminNotificationCampaignDetailPage() {
                         <td className="py-1 pr-3 break-all text-sam-muted">
                           {(row.record_error_count ?? 0) > 0 ? (
                             <span className="mr-1 font-semibold text-sam-danger">
-                              {lang === "ko"
-                                ? `기록 실패 ${row.record_error_count}건`
-                                : `${row.record_error_count} record errors`}
+                              {translateBy(lang, "admin_record_error_count_record_errors", { record_error_count: row.record_error_count }, "en")}
                             </span>
                           ) : null}
                           {row.last_error ?? ((row.record_error_count ?? 0) > 0 ? "" : "—")}
@@ -1109,11 +1071,11 @@ export function AdminNotificationCampaignDetailPage() {
           {/* Audit log (admin_notification_campaign_audit_logs) */}
           <details className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-admin-notif-audit="1">
             <summary className="cursor-pointer text-sm font-medium text-sam-fg">
-              {safeT("admin_campaign_cms_audit_title", { fallbackKo: "변경 이력", fallbackEn: "Change history" })}
+              {safeT("admin_campaign_cms_audit_title")}
             </summary>
             {!auditSupported ? (
               <p className="mt-2 text-xs text-sam-muted">
-                {safeT("admin_campaign_cms_audit_needs_migration", { fallbackKo: "감사 로그 마이그레이션 적용 후 표시됩니다.", fallbackEn: "Available after the audit-log migration is applied." })}
+                {safeT("admin_campaign_cms_audit_needs_migration")}
               </p>
             ) : auditLogs.length === 0 ? (
               <p className="mt-2 text-xs text-sam-muted">—</p>
@@ -1131,15 +1093,11 @@ export function AdminNotificationCampaignDetailPage() {
                     ) : null}
                     {typeof log.target_count === "number" ? (
                       <span className="text-sam-muted">
-                        {safeT("admin_campaign_cms_audit_audience_count", {
-                          fallbackKo: `대상 ${log.target_count}명`,
-                          fallbackEn: `audience ${log.target_count}`,
-                          vars: { count: log.target_count },
-                        })}
+                        {safeT("admin_campaign_cms_audit_audience_count", { vars: { count: log.target_count } })}
                       </span>
                     ) : null}
                     <span className="font-mono text-sam-meta">
-                      {log.actor_id ? <AdminTechId id={log.actor_id} /> : safeT("admin_campaign_cms_audit_actor_system", { fallbackKo: "시스템", fallbackEn: "system" })}
+                      {log.actor_id ? <AdminTechId id={log.actor_id} /> : safeT("admin_campaign_cms_audit_actor_system")}
                     </span>
                   </li>
                 ))}

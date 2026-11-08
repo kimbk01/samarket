@@ -89,8 +89,8 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
       // 등록·수정 저장(임시저장·게시) = L1 확인 (표준 확인창)
       const publishing = (nextStatus ?? status) === "published";
       const label = publishing
-        ? safeT("admin_app_legal_publish", { fallbackKo: "게시", fallbackEn: "Publish" })
-        : safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" });
+        ? safeT("admin_app_legal_publish")
+        : safeT("admin_app_legal_save_draft");
       const confirmed = await confirmAdminAction({
         level: adminActionLevel("save"),
         ko,
@@ -215,26 +215,20 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
           <AdminPageHeader
             title={
               documentId
-                ? safeT("admin_app_business_edit_title", {
-                    fallbackKo: "사업자 정보 수정",
-                    fallbackEn: "Edit business information",
-                  })
-                : safeT("admin_app_business_create_title", {
-                    fallbackKo: "사업자 정보 작성",
-                    fallbackEn: "Create business information",
-                  })
+                ? safeT("admin_app_business_edit_title")
+                : safeT("admin_app_business_create_title")
             }
           />
         </div>
         <Link href="/admin/app/business" className="sam-text-body text-signature">
-          {safeT("admin_app_legal_back", { fallbackKo: "목록", fallbackEn: "Back" })}
+          {safeT("admin_app_legal_back")}
         </Link>
       </div>
       {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_locale", { fallbackKo: "언어", fallbackEn: "Locale" })}
+          {safeT("admin_app_legal_locale")}
         </span>
         <select
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -247,44 +241,35 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
       </label>
 
       {field(
-        safeT("admin_app_business_company", { fallbackKo: "상호", fallbackEn: "Company name" }),
+        safeT("admin_app_business_company"),
         companyName,
         setCompanyName,
       )}
       {field(
-        safeT("admin_app_business_representative", {
-          fallbackKo: "대표자",
-          fallbackEn: "Representative",
-        }),
+        safeT("admin_app_business_representative"),
         representativeName,
         setRepresentativeName,
       )}
       {field(
-        safeT("admin_app_business_reg_no", {
-          fallbackKo: "사업자등록번호",
-          fallbackEn: "Business registration number",
-        }),
+        safeT("admin_app_business_reg_no"),
         registrationNumber,
         setRegistrationNumber,
       )}
       {field(
-        safeT("admin_app_business_mail_order", {
-          fallbackKo: "통신판매업 신고번호",
-          fallbackEn: "Mail-order registration number",
-        }),
+        safeT("admin_app_business_mail_order"),
         mailOrderNumber,
         setMailOrderNumber,
       )}
       {field(
-        safeT("admin_app_business_address", { fallbackKo: "주소", fallbackEn: "Address" }),
+        safeT("admin_app_business_address"),
         address,
         setAddress,
         true,
       )}
-      {field(safeT("admin_app_business_email", { fallbackKo: "이메일", fallbackEn: "Email" }), email, setEmail)}
-      {field(safeT("admin_app_business_phone", { fallbackKo: "전화", fallbackEn: "Phone" }), phone, setPhone)}
+      {field(safeT("admin_app_business_email"), email, setEmail)}
+      {field(safeT("admin_app_business_phone"), phone, setPhone)}
       {field(
-        safeT("admin_app_legal_version", { fallbackKo: "버전", fallbackEn: "Version" }),
+        safeT("admin_app_legal_version"),
         version,
         setVersion,
       )}
@@ -301,7 +286,7 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
           onClick={() => void save("draft")}
           variant="secondary"
         >
-          {safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" })}
+          {safeT("admin_app_legal_save_draft")}
         </AdminActionButton>
         <AdminActionButton
           disabled={saving || !adminAction.allowed}
@@ -309,7 +294,7 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
           onClick={() => void save("published")}
           variant="primary"
         >
-          {safeT("admin_app_legal_publish", { fallbackKo: "게시", fallbackEn: "Publish" })}
+          {safeT("admin_app_legal_publish")}
         </AdminActionButton>
       </div>
     </div>

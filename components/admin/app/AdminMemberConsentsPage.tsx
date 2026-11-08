@@ -97,10 +97,7 @@ export function AdminMemberConsentsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="sam-text-page-title font-semibold text-sam-fg">
-          {safeT("admin_legal_member_consents", {
-            fallbackKo: "회원별 동의 조회",
-            fallbackEn: "Member consents",
-          })}
+          {safeT("admin_legal_member_consents")}
         </h1>
         <Link href="/admin/app/legal" className="sam-text-body text-signature">
           {ko ? "약관 목록" : "Legal list"}

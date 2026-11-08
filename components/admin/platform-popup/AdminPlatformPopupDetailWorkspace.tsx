@@ -84,6 +84,7 @@ import {
   type PlatformPopupAdminForm,
 } from "@/lib/platform-popup/popup-admin-patch";
 import { PLATFORM_POPUP_FREQUENCY_MODES } from "@/lib/platform-popup/presentation-contract";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 광고 감사 G-10: 시작·종료 입력은 캠페인 시간대 벽시계(어드민 PC 시간대 아님) */
 function toLocalInput(iso: string | null, timezone: string): string {
@@ -456,9 +457,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setSaveNotice(
       json.revertedToReview
         ? safeT("admin_popup_review_revert_notice")
-        : language === "en"
-          ? "Saved. List and preview reloaded."
-          : "저장되었습니다. 목록·미리보기를 다시 불러왔습니다."
+        : translateBy(language, "admin_saved_list_and_preview_reloaded")
     );
   };
 
@@ -690,14 +689,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         title={campaign?.name || "…"}
         description={
           isAdminDirect
-            ? safeT("admin_platform_popup_detail_desc_admin_direct", {
-                fallbackKo: "캠페인 편집 · 노출 운영 · 프로덕션 렌더러 미리보기",
-                fallbackEn: "Edit, operate exposure, and preview with production renderer",
-              })
-            : safeT("admin_platform_popup_detail_desc", {
-                fallbackKo: "캠페인 편집 · 승인 · 프로덕션 렌더러 미리보기",
-                fallbackEn: "Edit, approve, and preview with production renderer",
-              })
+            ? safeT("admin_platform_popup_detail_desc_admin_direct")
+            : safeT("admin_platform_popup_detail_desc")
         }
       />
 
@@ -727,28 +720,28 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       >
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           <span data-admin-popup-summary-composition="1">
-            {lang === "en" ? "Form" : "형태"}:{" "}
+            {translateBy(lang, "admin_form")}:{" "}
             {popupCompositionOperatorLabel(operatorComposition, lang)}
           </span>
           <span data-admin-popup-summary-approval="1">
-            {lang === "en" ? "Approval" : "승인"}:{" "}
+            {translateBy(lang, "admin_approval")}:{" "}
             {popupApprovalStatusLabel(campaign?.approvalStatus, lang)}
           </span>
           <span data-admin-popup-summary-exposure="1">
-            {lang === "en" ? "Exposure" : "노출"}:{" "}
+            {translateBy(lang, "admin_exposure")}:{" "}
             {promotionOperatorStatusLabel(exposureOp, lang)}
           </span>
           <span data-admin-popup-summary-period="1">
-            {lang === "en" ? "Period" : "기간"}:{" "}
+            {translateBy(lang, "admin_period")}:{" "}
             {formatPromotionAdminSchedule(campaign?.startAt ?? null, lang)} –{" "}
             {formatPromotionAdminSchedule(campaign?.endAt ?? null, lang)}
           </span>
           <span data-admin-popup-summary-event="1">
-            {lang === "en" ? "Event" : "이벤트"}:{" "}
-            {linkedEventId ? linkedEventId.slice(0, 8) : lang === "en" ? "—" : "없음"}
+            {translateBy(lang, "admin_event")}:{" "}
+            {linkedEventId ? linkedEventId.slice(0, 8) : translateBy(lang, "admin_text_3")}
           </span>
           <span data-admin-popup-summary-destination="1">
-            {lang === "en" ? "Destination" : "목적지"}:{" "}
+            {translateBy(lang, "admin_destination")}:{" "}
             {popupDestinationSummary({
               ctaType,
               ctaTarget,
@@ -763,16 +756,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         <div className="space-y-4">
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_basic", {
-                fallbackKo: "1. 기본 정보",
-                fallbackEn: "1. Basic info",
-              })}
+              {safeT("admin_platform_popup_section_basic")}
             </h2>
             <label className="block text-sm">
-              {safeT("admin_platform_popup_field_name", {
-                fallbackKo: "캠페인 이름",
-                fallbackEn: "Campaign name",
-              })}
+              {safeT("admin_platform_popup_field_name")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={name}
@@ -788,10 +775,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-approval-status="1"
               >
                 <div className="text-xs text-sam-muted">
-                  {safeT("admin_platform_popup_approval_line", {
-                    fallbackKo: "승인 상태",
-                    fallbackEn: "Approval status",
-                  })}
+                  {safeT("admin_platform_popup_approval_line")}
                 </div>
                 <div className="font-medium">
                   {popupApprovalStatusLabel(campaign?.approvalStatus, lang)}
@@ -802,10 +786,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-exposure-status="1"
               >
                 <div className="text-xs text-sam-muted">
-                  {safeT("admin_platform_popup_exposure_line", {
-                    fallbackKo: "노출 상태",
-                    fallbackEn: "Exposure status",
-                  })}
+                  {safeT("admin_platform_popup_exposure_line")}
                 </div>
                 <div className="font-medium">{promotionOperatorStatusLabel(exposureOp, lang)}</div>
               </div>
@@ -820,18 +801,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_presentation", {
-                fallbackKo: "2. 팝업 형태",
-                fallbackEn: "2. Popup form",
-              })}
+              {safeT("admin_platform_popup_section_presentation")}
             </h2>
             <p className="mb-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_presentation_pick_help", {
-                fallbackKo:
-                  "운영자가 고르는 4가지 형태입니다. 미리보기는 프로덕션과 같은 렌더러를 사용합니다.",
-                fallbackEn:
-                  "Four operator-facing forms. Preview uses the same production renderer.",
-              })}
+              {safeT("admin_platform_popup_presentation_pick_help")}
             </p>
             <div className="grid gap-2 sm:grid-cols-2" data-admin-popup-presentation-picker="1">
               {PLATFORM_POPUP_COMPOSITIONS.map((kind) => {
@@ -868,20 +841,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     {kind === "benefit_dialog" && benefitDisabled ? (
                       <div className="mt-1 text-xs text-sam-danger" data-benefit-dialog-reason="1">
                         {benefitHintLabel ||
-                          safeT("admin_platform_popup_benefit_requires_event_benefit", {
-                            fallbackKo:
-                              "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
-                            fallbackEn:
-                              "Benefit dialog requires linked Event Benefit content.",
-                          })}
+                          safeT("admin_platform_popup_benefit_requires_event_benefit")}
                       </div>
                     ) : null}
                     {kind === "benefit_dialog" && eventBenefitLoading ? (
                       <div className="mt-1 text-xs text-sam-muted">
-                        {safeT("admin_platform_popup_benefit_checking", {
-                          fallbackKo: "이벤트 혜택 확인 중…",
-                          fallbackEn: "Checking Event benefit…",
-                        })}
+                        {safeT("admin_platform_popup_benefit_checking")}
                       </div>
                     ) : null}
                   </AdminListItemButton>
@@ -894,19 +859,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-benefit-gate="1"
               >
                 <p className="text-xs text-sam-muted">
-                  {safeT("admin_platform_popup_benefit_contract", {
-                    fallbackKo:
-                      "혜택 다이얼로그는 연결된 이벤트에 혜택 정보가 있을 때 사용할 수 있습니다.",
-                    fallbackEn:
-                      "Benefit dialog is available when the linked Event has Benefit content.",
-                  })}
+                  {safeT("admin_platform_popup_benefit_contract")}
                 </p>
                 {benefitHint === "event_link_needed" ? (
                   <p className="mt-1 text-sm text-sam-danger" data-admin-popup-benefit-next="event">
-                    {safeT("admin_platform_popup_benefit_need_event", {
-                      fallbackKo: "이벤트 연결 필요 — 아래에서 목적지를 이벤트로 선택하세요.",
-                      fallbackEn: "Event link required — set destination to an Event below.",
-                    })}
+                    {safeT("admin_platform_popup_benefit_need_event")}
                   </p>
                 ) : null}
                 {benefitHint === "benefit_info_needed" && linkedEventId ? (
@@ -915,20 +872,14 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                       href={eventEditHref(linkedEventId)}
                       className="font-medium text-sam-fg underline"
                     >
-                      {safeT("admin_platform_popup_benefit_edit_event", {
-                        fallbackKo: "이벤트 혜택 수정",
-                        fallbackEn: "Edit Event Benefit",
-                      })}
+                      {safeT("admin_platform_popup_benefit_edit_event")}
                     </a>
                   </p>
                 ) : null}
               </div>
             ) : null}
             <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_frequency_mode", {
-                fallbackKo: "노출 빈도",
-                fallbackEn: "Frequency",
-              })}
+              {safeT("admin_platform_popup_frequency_mode")}
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={frequencyMode}
@@ -956,24 +907,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_creative", {
-                fallbackKo:
-                  operatorComposition === "artwork_modal"
-                    ? "4. 소재 (아트워크 · 고유 비율 · contain)"
-                    : operatorComposition === "benefit_dialog"
-                      ? "4. 소재 (혜택 · 이벤트 혜택 우선)"
-                      : operatorComposition === "bottom_promotion_sheet"
-                        ? "4. 소재 (하단 시트)"
-                        : "4. 소재 (카드 · 1440×1000 · 36:25)",
-                fallbackEn:
-                  operatorComposition === "artwork_modal"
-                    ? "4. Creative (Artwork · intrinsic · contain)"
-                    : operatorComposition === "benefit_dialog"
-                      ? "4. Creative (Benefit · Event benefit first)"
-                      : operatorComposition === "bottom_promotion_sheet"
-                        ? "4. Creative (Bottom sheet)"
-                        : "4. Creative (Card · 1440×1000 · 36:25)",
-              })}
+              {safeT("admin_platform_popup_section_creative")}
             </h2>
             <div
               className="mb-3 rounded border border-sam-border bg-sam-app/60 px-3 py-2 text-sm"
@@ -985,69 +919,42 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               {operatorComposition === "artwork_modal" ? (
                 <>
                   <p>
-                    {safeT("admin_platform_popup_artwork_spec_geometry", {
-                      fallbackKo: "비율  고유(intrinsic) · 표시  contain · 투명 PNG 권장",
-                      fallbackEn: "Geometry  intrinsic · display  contain · transparent PNG recommended",
-                    })}
+                    {safeT("admin_platform_popup_artwork_spec_geometry")}
                   </p>
                   <p className="text-xs text-sam-muted">
-                    {safeT("admin_platform_popup_artwork_spec_note", {
-                      fallbackKo: "36:25 강제 크롭이 없습니다. 고해상도 원본을 권장합니다.",
-                      fallbackEn: "No forced 36:25 crop. High-resolution source recommended.",
-                    })}
+                    {safeT("admin_platform_popup_artwork_spec_note")}
                   </p>
                 </>
               ) : operatorComposition === "benefit_dialog" ? (
                 <>
                   <p>
-                    {safeT("admin_platform_popup_benefit_spec", {
-                      fallbackKo: "혜택 내용은 연결된 이벤트 혜택 섹션이 권위입니다.",
-                      fallbackEn: "Benefit copy is owned by the linked Event Benefit section.",
-                    })}
+                    {safeT("admin_platform_popup_benefit_spec")}
                   </p>
                   <p className="text-xs text-sam-muted">
-                    {safeT("admin_platform_popup_benefit_spec_image", {
-                      fallbackKo: "이미지는 보조 소재입니다. 이벤트 혜택을 복제하지 않습니다.",
-                      fallbackEn: "Image is supporting creative. Do not clone Event Benefit fields here.",
-                    })}
+                    {safeT("admin_platform_popup_benefit_spec_image")}
                   </p>
                 </>
               ) : operatorComposition === "bottom_promotion_sheet" ? (
                 <>
                   <p>
-                    {safeT("admin_platform_popup_sheet_spec", {
-                      fallbackKo: "하단 노출 · 내용 높이에 맞춤 · 이미지·내용·CTA 구성",
-                      fallbackEn: "Bottom anchored · content-driven height · image + copy + CTA",
-                    })}
+                    {safeT("admin_platform_popup_sheet_spec")}
                   </p>
                   <p className="text-xs text-sam-muted">
-                    {safeT("admin_platform_popup_sheet_spec_safe", {
-                      fallbackKo: "하단 여백은 앱이 자동으로 처리합니다.",
-                      fallbackEn: "Bottom inset is handled automatically by the app.",
-                    })}
+                    {safeT("admin_platform_popup_sheet_spec_safe")}
                   </p>
                 </>
               ) : (
                 <>
                   <p>
-                    {safeT("admin_platform_popup_creative_spec_size", {
-                      fallbackKo: `권장 원본  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
-                      fallbackEn: `Recommended source  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
-                    })}
+                    {safeT("admin_platform_popup_creative_spec_size")}
                   </p>
                   <p>
-                    {safeT("admin_platform_popup_creative_spec_ratio", {
-                      fallbackKo: "비율  36 : 25 · 표시  cover",
-                      fallbackEn: "Aspect  36 : 25 · display  cover",
-                    })}
+                    {safeT("admin_platform_popup_creative_spec_ratio")}
                   </p>
                 </>
               )}
               <p className="text-xs text-sam-muted">
-                {safeT("admin_platform_popup_creative_spec_formats", {
-                  fallbackKo: `지원 형식  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · 원본 최대 ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB`,
-                  fallbackEn: `Formats  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · source max ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB`,
-                })}
+                {safeT("admin_platform_popup_creative_spec_formats")}
               </p>
             </div>
 
@@ -1068,10 +975,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               disabled={writeBlocked}
               onClick={() => fileInputRef.current?.click()}
             >
-              {safeT("admin_platform_popup_load_image", {
-                fallbackKo: "이미지 불러오기",
-                fallbackEn: "Load image",
-              })}
+              {safeT("admin_platform_popup_load_image")}
             </AdminActionButton>
 
             {fileMeta ? (
@@ -1085,9 +989,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     ? fileMeta.ratioOk
                       ? " · 36:25 OK"
                       : " · needs crop"
-                    : lang === "en"
-                      ? " · intrinsic OK"
-                      : " · 고유 비율"}
+                    : translateBy(lang, "admin_intrinsic_ok")}
                 </li>
               </ul>
             ) : null}
@@ -1095,10 +997,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             {requiresCardAspect && needsCrop && pendingCropFile && cropPreviewUrl ? (
               <div className="mt-3 space-y-2 rounded border border-sam-warning/40 bg-sam-warning-soft/80 p-3">
                 <p className="text-xs font-medium text-sam-fg">
-                  {safeT("admin_platform_popup_crop_confirm", {
-                    fallbackKo: "중앙 크롭 결과 (저장될 최종 이미지)",
-                    fallbackEn: "Center-crop result (final asset to save)",
-                  })}
+                  {safeT("admin_platform_popup_crop_confirm")}
                 </p>
                 {/* Admin crop confirm uses blob URL — raw img OK for ephemeral object URL */}
                 <img
@@ -1113,19 +1012,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   disabled={writeBlocked}
                   onClick={() => void uploadCreative(pendingCropFile, true)}
                 >
-                  {safeT("admin_platform_popup_apply_center_crop", {
-                    fallbackKo: "이 결과로 저장",
-                    fallbackEn: "Save this crop",
-                  })}
+                  {safeT("admin_platform_popup_apply_center_crop")}
                 </AdminActionButton>
               </div>
             ) : null}
 
             <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_alt_text", {
-                fallbackKo: "대체 텍스트",
-                fallbackEn: "Alt text",
-              })}
+              {safeT("admin_platform_popup_alt_text")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={altText}
@@ -1139,16 +1032,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_content", {
-                fallbackKo: "5. 내용 / CTA",
-                fallbackEn: "5. Copy / CTA",
-              })}
+              {safeT("admin_platform_popup_section_content")}
             </h2>
             <label className="block text-sm">
-              {safeT("admin_platform_popup_field_title", {
-                fallbackKo: "제목",
-                fallbackEn: "Title",
-              })}
+              {safeT("admin_platform_popup_field_title")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={promoTitle}
@@ -1159,10 +1046,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               />
             </label>
             <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_field_body", {
-                fallbackKo: "본문 (선택)",
-                fallbackEn: "Body (optional)",
-              })}
+              {safeT("admin_platform_popup_field_body")}
               <textarea
                 className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
                 value={promoBody}
@@ -1173,14 +1057,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               />
             </label>
             <label className="mt-3 block text-sm">
-              {safeT("admin_platform_popup_field_cta_label", {
-                fallbackKo: "CTA 버튼 문구",
-                fallbackEn: "CTA button label",
-              })}
+              {safeT("admin_platform_popup_field_cta_label")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={ctaLabel}
-                placeholder={language === "en" ? "e.g. Get benefit" : "예: 혜택 받기"}
+                placeholder={translateBy(language, "admin_e_g_get_benefit")}
                 onChange={(e) => {
                   markDirty();
                   setCtaLabel(e.target.value);
@@ -1188,27 +1069,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               />
             </label>
             <p className="mt-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_content_live_preview_hint", {
-                fallbackKo: "변경은 저장 전에도 오른쪽 미리보기에 즉시 반영됩니다.",
-                fallbackEn: "Changes update the preview immediately, before Save.",
-              })}
+              {safeT("admin_platform_popup_content_live_preview_hint")}
             </p>
           </AdminCard>
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_placement", {
-                fallbackKo: "6. 노출 위치",
-                fallbackEn: "6. Placement",
-              })}
+              {safeT("admin_platform_popup_section_placement")}
             </h2>
             <p className="mb-3 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_placement_system_note", {
-                fallbackKo:
-                  "결제·통화·위험 작업 화면은 시스템이 잠시 가립니다. 노출 위치와는 별개입니다.",
-                fallbackEn:
-                  "Payment, call, and high-risk screens are gated by the system — separate from placement.",
-              })}
+              {safeT("admin_platform_popup_placement_system_note")}
             </p>
             <fieldset className="space-y-2" data-admin-popup-surface-select="1">
               {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => {
@@ -1253,25 +1123,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               })}
             </fieldset>
             <p className="mt-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_placement_current", {
-                fallbackKo: `현재 선택: ${adminSurfacesSelectionLabel(selectedSurfaces, "ko")}`,
-                fallbackEn: `Selected: ${adminSurfacesSelectionLabel(selectedSurfaces, "en")}`,
-              })}
+              {safeT("admin_platform_popup_placement_current")}
               {dirty
-                ? ` · ${safeT("admin_platform_popup_unsaved", {
-                    fallbackKo: "미저장",
-                    fallbackEn: "Unsaved",
-                  })}`
+                ? ` · ${safeT("admin_platform_popup_unsaved")}`
                 : ""}
             </p>
           </AdminCard>
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_cta", {
-                fallbackKo: "3. 연결 콘텐츠 / 목적지",
-                fallbackEn: "3. Linked content / destination",
-              })}
+              {safeT("admin_platform_popup_section_cta")}
             </h2>
             {campaign?.ownerStoreId ? (
               <fieldset className="mb-3 space-y-2" data-admin-popup-cta-product="1">
@@ -1312,10 +1173,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               </fieldset>
             ) : null}
             <label className="block text-sm text-sam-muted">
-              {safeT("admin_platform_popup_cta_advanced", {
-                fallbackKo: "고급 유형 (필요 시)",
-                fallbackEn: "Advanced type (optional)",
-              })}
+              {safeT("admin_platform_popup_cta_advanced")}
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sam-fg"
                 value={ctaType}
@@ -1328,28 +1186,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 {PLATFORM_POPUP_CTA_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t === "store"
-                      ? language === "en"
-                        ? "Store"
-                        : "매장"
+                      ? translateBy(language, "admin_store")
                       : t === "internal_page"
-                        ? language === "en"
-                          ? "Internal page"
-                          : "내부 페이지"
+                        ? translateBy(language, "admin_internal_page")
                         : t === "trade_listing"
-                          ? language === "en"
-                            ? "Trade listing"
-                            : "거래 글"
+                          ? translateBy(language, "admin_trade_listing")
                           : t === "community_post"
-                            ? language === "en"
-                              ? "Community post"
-                              : "커뮤니티 글"
+                            ? translateBy(language, "admin_community_post")
                             : t === "event_detail"
-                              ? language === "en"
-                                ? "Event detail"
-                                : "이벤트 상세"
-                              : language === "en"
-                                ? "External URL"
-                                : "외부 URL"}
+                              ? translateBy(language, "admin_event_detail")
+                              : translateBy(language, "admin_platform_events_field_cta_external_url")}
                   </option>
                 ))}
               </select>
@@ -1368,7 +1214,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               </label>
             ) : (
               <label className="mt-2 block text-sm">
-                {language === "en" ? "Target / path" : "대상 / 경로"}
+                {translateBy(language, "admin_target_path")}
                 <input
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                   value={ctaTarget}
@@ -1380,7 +1226,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               </label>
             )}
             <p className="mt-1 text-xs text-sam-muted">
-              {language === "en" ? "Landing" : "이동 경로"} → {ctaHrefPreview || "(invalid)"}
+              {translateBy(language, "admin_landing")} → {ctaHrefPreview || "(invalid)"}
             </p>
             {ctaHrefPreview ? (
               <AdminDestinationResolvedHint
@@ -1392,22 +1238,14 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_schedule", {
-                fallbackKo: "7. 빈도 / 기간",
-                fallbackEn: "7. Frequency / period",
-              })}
+              {safeT("admin_platform_popup_section_schedule")}
             </h2>
             <p className="mb-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_schedule_help", {
-                fallbackKo:
-                  "기본 시간대 Asia/Manila. 순위는 영역 지정 > 전체, 그다음 우선순위입니다. 같은 순위면 덜 본 팝업, 그다음 시작 시각 순입니다.",
-                fallbackEn:
-                  "Default timezone Asia/Manila. Rank: targeted surface > All, then priority. Within the same rank: least recently shown, then start time.",
-              })}
+              {safeT("admin_platform_popup_schedule_help")}
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="text-sm">
-                {language === "en" ? "Start (campaign timezone)" : "시작 (캠페인 시간대 기준)"}
+                {translateBy(language, "admin_start_campaign_timezone")}
                 <input
                   type="datetime-local"
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -1419,7 +1257,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 />
               </label>
               <label className="text-sm">
-                {language === "en" ? "End (campaign timezone)" : "종료 (캠페인 시간대 기준)"}
+                {translateBy(language, "admin_end_campaign_timezone")}
                 <input
                   type="datetime-local"
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -1431,7 +1269,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 />
               </label>
               <label className="text-sm">
-                {language === "en" ? "Timezone" : "시간대"}
+                {translateBy(language, "admin_timezone")}
                 <input
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                   value={timezone}
@@ -1442,7 +1280,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 />
               </label>
               <label className="text-sm">
-                {language === "en" ? "Priority" : "우선순위"}
+                {translateBy(language, "admin_priority")}
                 <input
                   type="number"
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -1465,14 +1303,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {isAdminDirect
-                ? safeT("admin_platform_popup_section_actions_ops", {
-                    fallbackKo: "8. 승인 / 노출 관리",
-                    fallbackEn: "8. Approval / exposure",
-                  })
-                : safeT("admin_platform_popup_section_actions", {
-                    fallbackKo: "8. 승인 / 노출 관리",
-                    fallbackEn: "8. Approval / exposure",
-                  })}
+                ? safeT("admin_platform_popup_section_actions_ops")
+                : safeT("admin_platform_popup_section_actions")}
             </h2>
             {!adminAction.allowed && adminAction.reason ? (
               <p className="mb-2 text-[12px] text-sam-muted" data-admin-action-denied="1">
@@ -1489,11 +1321,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-save-state={busy ? "saving" : dirty ? "dirty" : "idle"}
               >
                 {busy
-                  ? safeT("admin_platform_popup_saving", {
-                      fallbackKo: "저장 중…",
-                      fallbackEn: "Saving…",
-                    })
-                  : safeT("admin_platform_popup_save", { fallbackKo: "저장", fallbackEn: "Save" })}
+                  ? safeT("admin_platform_popup_saving")
+                  : safeT("admin_platform_popup_save")}
                 {dirty && !busy ? " *" : ""}
               </AdminActionButton>
               {!isAdminDirect ? (
@@ -1509,10 +1338,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     })
                   }
                 >
-                  {safeT("admin_platform_popup_action_submit_review", {
-                    fallbackKo: "검토 요청",
-                    fallbackEn: "Submit for review",
-                  })}
+                  {safeT("admin_platform_popup_action_submit_review")}
                 </AdminActionButton>
               ) : null}
               <AdminActionButton
@@ -1523,14 +1349,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-schedule="1"
               >
                 {isAdminDirect
-                  ? safeT("admin_platform_popup_action_schedule", {
-                      fallbackKo: "예약 노출",
-                      fallbackEn: "Schedule",
-                    })
-                  : safeT("admin_platform_popup_action_approve_schedule", {
-                      fallbackKo: "승인 후 예약 노출",
-                      fallbackEn: "Approve → scheduled",
-                    })}
+                  ? safeT("admin_platform_popup_action_schedule")
+                  : safeT("admin_platform_popup_action_approve_schedule")}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -1540,14 +1360,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 data-admin-popup-go-live="1"
               >
                 {isAdminDirect
-                  ? safeT("admin_platform_popup_action_go_live", {
-                      fallbackKo: "노출 시작",
-                      fallbackEn: "Start exposure",
-                    })
-                  : safeT("admin_platform_popup_action_approve_active", {
-                      fallbackKo: "승인 후 노출 시작",
-                      fallbackEn: "Approve → start exposure",
-                    })}
+                  ? safeT("admin_platform_popup_action_go_live")
+                  : safeT("admin_platform_popup_action_approve_active")}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -1556,10 +1370,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" })}
                 data-admin-popup-pause="1"
               >
-                {safeT("admin_platform_popup_action_pause", {
-                  fallbackKo: "노출 중지",
-                  fallbackEn: "Stop exposure",
-                })}
+                {safeT("admin_platform_popup_action_pause")}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
@@ -1568,10 +1379,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 onClick={() => void transition({ action: "transition", nextStatus: "active" })}
                 data-admin-popup-resume="1"
               >
-                {safeT("admin_platform_popup_action_resume", {
-                  fallbackKo: "다시 노출",
-                  fallbackEn: "Resume",
-                })}
+                {safeT("admin_platform_popup_action_resume")}
               </AdminActionButton>
               <AdminActionButton
                 variant="danger"
@@ -1580,10 +1388,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" })}
                 data-admin-popup-end="1"
               >
-                {safeT("admin_platform_popup_action_end", {
-                  fallbackKo: "종료",
-                  fallbackEn: "End",
-                })}
+                {safeT("admin_platform_popup_action_end")}
               </AdminActionButton>
               {canDeleteDraft && adminAction.allowed ? (
                 /* 재입력 제거(Owner 2026-11-07): 삭제 = 사유만 · 공용 삭제 조치(R2) */
@@ -1602,58 +1407,53 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_reporting", {
-                fallbackKo: "성과",
-                fallbackEn: "Performance",
-              })}
+              {safeT("admin_platform_popup_reporting")}
             </h2>
             {campaign ? (
               <>
               <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
                 <li>
-                  {language === "en" ? "Impressions" : "노출"}: {campaign.eventSummary.impression}
+                  {translateBy(language, "admin_rec_exp_metrics_impressions")}: {campaign.eventSummary.impression}
                 </li>
                 <li>
-                  {language === "en" ? "Clicks" : "클릭"}: {campaign.eventSummary.click}
+                  {translateBy(language, "admin_rec_exp_metrics_clicks")}: {campaign.eventSummary.click}
                 </li>
                 <li>
                   CTR:{" "}
                   {campaign.derived.ctr == null ? "—" : `${(campaign.derived.ctr * 100).toFixed(1)}%`}
                 </li>
                 <li>
-                  {language === "en" ? "Dismiss" : "닫기"}: {campaign.eventSummary.dismiss}
+                  {translateBy(language, "admin_dismiss")}: {campaign.eventSummary.dismiss}
                 </li>
                 <li>
-                  {language === "en" ? "Suppress" : "숨김"}: {campaign.eventSummary.suppress}
+                  {translateBy(language, "admin_suppress")}: {campaign.eventSummary.suppress}
                 </li>
                 <li>
-                  {language === "en" ? "Landing OK" : "랜딩 성공"}:{" "}
+                  {translateBy(language, "admin_landing_ok")}:{" "}
                   {campaign.eventSummary.landing_success}
                 </li>
                 <li>
-                  {language === "en" ? "Landing fail" : "랜딩 실패"}:{" "}
+                  {translateBy(language, "admin_landing_fail")}:{" "}
                   {campaign.eventSummary.landing_failure}
                 </li>
                 <li>
-                  {language === "en" ? "Eligible" : "후보"}: {campaign.eventSummary.eligible}
+                  {translateBy(language, "admin_eligible")}: {campaign.eventSummary.eligible}
                 </li>
               </ul>
               {Object.keys(campaign.eventSummaryBySurface ?? {}).length > 0 ? (
                 <div className="mt-3 space-y-1 text-xs" data-admin-popup-surface-breakdown="1">
                   <p className="font-semibold text-sam-fg">
-                    {language === "en" ? "By surface" : "노출 영역별"}
+                    {translateBy(language, "admin_by_surface")}
                   </p>
                   {Object.entries(campaign.eventSummaryBySurface).map(([surf, counts]) => {
                     const label =
                       surf === "UNKNOWN"
-                        ? language === "en"
-                          ? "Unknown"
-                          : "미상"
+                        ? translateBy(language, "admin_unknown")
                         : adminSurfaceModeLabel(surf as PlatformPopupAdminSurfaceMode, language === "en" ? "en" : "ko");
                     return (
                       <p key={surf} className="text-sam-muted">
-                        {label}: {language === "en" ? "imp" : "노출"} {counts.impression ?? 0} ·{" "}
-                        {language === "en" ? "clk" : "클릭"} {counts.click ?? 0}
+                        {label}: {translateBy(language, "admin_imp")} {counts.impression ?? 0} ·{" "}
+                        {translateBy(language, "admin_clk")} {counts.click ?? 0}
                       </p>
                     );
                   })}
@@ -1669,10 +1469,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         <div className="lg:sticky lg:top-4 lg:self-start" data-admin-popup-preview-sticky="1">
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_preview", {
-                fallbackKo: "9. 미리보기",
-                fallbackEn: "9. Preview",
-              })}
+              {safeT("admin_platform_popup_section_preview")}
             </h2>
             <AdminPlatformPopupPreview source={previewSource} />
           </AdminCard>

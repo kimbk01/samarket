@@ -454,10 +454,7 @@ export function AdminBusinessOpsOverviewGrid({
       </StatCard>
 
       <StatCard
-        title={safeT("admin_biz_ops_card_operation_links", {
-          fallbackKo: "운영 바로가기",
-          fallbackEn: "Operation links",
-        })}
+        title={safeT("admin_biz_ops_card_operation_links")}
         footer={
           <div className="flex flex-wrap gap-2" data-admin-store-ops-hub-links="1">
             <Link
@@ -501,12 +498,7 @@ export function AdminBusinessOpsOverviewGrid({
         }
       >
         <p className="text-[12px] text-sam-muted">
-          {safeT("admin_biz_ops_operation_links_note", {
-            fallbackKo:
-              "코인·캐시·광고·파트너·문의는 각 담당 화면에서 처리합니다. 이 카드는 이 매장으로 필터된 바로가기입니다.",
-            fallbackEn:
-              "Coin / Cash / Ads / Partner / Support are handled on their canonical screens. This card is deep-links only.",
-          })}
+          {safeT("admin_biz_ops_operation_links_note")}
         </p>
       </StatCard>
 

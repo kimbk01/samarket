@@ -172,12 +172,7 @@ export function AdminAuditLogsPage() {
         className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
         data-testid="admin-audit-ownership-banner"
       >
-        {safeT("admin_audit_ownership_banner", {
-          fallbackKo:
-            "COMMON storage convention · audit_logs 테이블입니다. Domain별 전용 ledger(신고/정산/Feed 재무 등)를 모두 담는 통합 원장이 아닙니다. 대상 Domain 화면의 원장을 우선하세요.",
-          fallbackEn:
-            "COMMON storage convention · audit_logs table. Not a unified ledger of every Domain (reports/settlements/Feed finance). Prefer each Domain’s own ledger.",
-        })}
+        {safeT("admin_audit_ownership_banner")}
       </div>
 
       <AdminFilterBar

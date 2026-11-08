@@ -52,6 +52,7 @@ import {
   normalizePlatformPopupFrequencyMode,
 } from "@/lib/platform-popup/presentation-contract";
 import { resolvePlatformPopupComposition } from "@/lib/platform-popup/resolve-presentation-composition";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Props = {
   eventId: string;
@@ -137,13 +138,13 @@ function channelSummaryLabel(
   status: string | undefined,
   lang: "ko" | "en"
 ): string {
-  if (!enabled) return lang === "en" ? "OFF" : "꺼짐";
-  if (status === "active") return lang === "en" ? "Active" : "활성";
+  if (!enabled) return translateBy(lang, "admin_off");
+  if (status === "active") return translateBy(lang, "admin_topics_col_active");
   if (status === "configured" || status === "draft") {
-    return lang === "en" ? "Configured (inactive)" : "설정됨 (비활성)";
+    return translateBy(lang, "admin_configured_inactive");
   }
-  if (status === "disabled") return lang === "en" ? "Disabled" : "중지";
-  return lang === "en" ? "Configured" : "설정됨";
+  if (status === "disabled") return translateBy(lang, "admin_disabled");
+  return translateBy(lang, "admin_auth_secret_configured");
 }
 
 /**
@@ -417,28 +418,19 @@ export function AdminPlatformEventDistributionPanel({
   const save = useCallback(async () => {
     if (toggles.popup && popupChoice === "benefit" && !benefitEligible) {
       setError(
-        safeT("admin_platform_events_popup_benefit_required", {
-          fallbackKo: "혜택 팝업을 쓰려면 이벤트에 혜택 정보를 먼저 입력해 주세요.",
-          fallbackEn: "Add Event Benefit content before selecting Benefit popup.",
-        })
+        safeT("admin_platform_events_popup_benefit_required")
       );
       return;
     }
     if (toggles.banner && !bannerCompatOk) {
       setError(
-        safeT("admin_platform_events_banner_compat_fail", {
-          fallbackKo: "이 배치와 배너 형태 조합은 허용되지 않습니다.",
-          fallbackEn: "This placement + presentation combination is not allowed.",
-        })
+        safeT("admin_platform_events_banner_compat_fail")
       );
       return;
     }
     if (toggles.push && !pushTitle.trim() && !pushBody.trim()) {
       setError(
-        safeT("admin_platform_events_push_copy_required", {
-          fallbackKo: "푸시 제목 또는 본문을 입력해 주세요.",
-          fallbackEn: "Push title or body is required.",
-        })
+        safeT("admin_platform_events_push_copy_required")
       );
       return;
     }
@@ -508,17 +500,11 @@ export function AdminPlatformEventDistributionPanel({
       if (!res.ok || !json.ok) {
         setError(
           json.error ||
-            safeT("admin_platform_events_distribution_partial_fail", {
-              fallbackKo: "일부 채널 저장에 실패했습니다. 채널별 결과를 확인하세요.",
-              fallbackEn: "Some channels failed. Check per-channel results.",
-            })
+            safeT("admin_platform_events_distribution_partial_fail")
         );
         return;
       }
-      const savedMsg = safeT("admin_platform_events_distribution_saved", {
-        fallbackKo: "배포 설정이 저장되었습니다. 푸시는 별도 발송이 필요합니다.",
-        fallbackEn: "Distribution saved. Push still requires an explicit send.",
-      });
+      const savedMsg = safeT("admin_platform_events_distribution_saved");
       // D-06: 팝업 그림·CTA·노출 위치 등 승인 대상 칸이 바뀌면 노출 중 팝업이 재검토로 내려간다 — 알린다
       setInfo(
         popupResult?.ok && popupResult.revertedToReview
@@ -586,16 +572,8 @@ export function AdminPlatformEventDistributionPanel({
           json.error === "event_source_missing" ||
           json.error === "event_source_unavailable"
             ? json.error === "event_source_unpublished"
-              ? safeT("admin_platform_events_push_publish_required", {
-                  fallbackKo: "이벤트 게시 후 Push를 보낼 수 있습니다.",
-                  fallbackEn: "Push can be sent after the event is published.",
-                })
-              : safeT("admin_platform_events_push_source_blocked", {
-                  fallbackKo:
-                    "Push 발송이 소스 계약에 막혔습니다. 알림 캠페인에서 공식 랜딩/콘텐츠를 확인하세요. 검증을 우회하지 않습니다.",
-                  fallbackEn:
-                    "Push send blocked by campaign source contract. Confirm approved landing/content on the notification campaign. Do not bypass validation.",
-                })
+              ? safeT("admin_platform_events_push_publish_required")
+              : safeT("admin_platform_events_push_source_blocked")
             : json.error || "push_send_blocked"
         );
         return;
@@ -604,20 +582,13 @@ export function AdminPlatformEventDistributionPanel({
       if (campaignId) {
         setPushChannelRefId(campaignId);
         setInfo(
-          safeT("admin_platform_events_distribution_push_handoff", {
-            fallbackKo: "알림 캠페인으로 이동합니다. 실제 발송은 캠페인의 Push 보내기에서만 합니다.",
-            fallbackEn:
-              "Opening the notification campaign. Actual dispatch only happens via Send push there.",
-          })
+          safeT("admin_platform_events_distribution_push_handoff")
         );
         router.push(`/admin/notifications/${encodeURIComponent(campaignId)}`);
         return;
       }
       setInfo(
-        safeT("admin_platform_events_distribution_push_handoff", {
-          fallbackKo: `기존 알림 캠페인 발송으로 연결됩니다: ${json.sendPath ?? ""}`,
-          fallbackEn: `Hand off to existing notification campaign send: ${json.sendPath ?? ""}`,
-        })
+        safeT("admin_platform_events_distribution_push_handoff")
       );
     } catch {
       setError("push_send_blocked");
@@ -634,16 +605,10 @@ export function AdminPlatformEventDistributionPanel({
       data-admin-event-distribution="1"
     >
       <h2 className="text-base font-semibold">
-        {safeT("admin_platform_events_distribution_title", {
-          fallbackKo: "이 이벤트를 어디에 알릴까요?",
-          fallbackEn: "Where should we announce this event?",
-        })}
+        {safeT("admin_platform_events_distribution_title")}
       </h2>
       <p className="text-xs text-sam-muted">
-        {safeT("admin_platform_events_distribution_hint", {
-          fallbackKo: "각 채널은 독립입니다. 이벤트 게시만으로 푸시가 나가지 않습니다.",
-          fallbackEn: "Channels are independent. Publishing the event never sends push.",
-        })}
+        {safeT("admin_platform_events_distribution_hint")}
       </p>
 
       <div
@@ -702,10 +667,7 @@ export function AdminPlatformEventDistributionPanel({
             onChange={(e) => setToggles((t) => ({ ...t, popup: e.target.checked }))}
             data-admin-popup-toggle={toggles.popup ? "on" : "off"}
           />
-          {safeT("admin_platform_events_channel_popup", {
-            fallbackKo: "팝업",
-            fallbackEn: "Popup",
-          })}
+          {safeT("admin_platform_events_channel_popup")}
         </label>
         {toggles.popup ? (
           <div className="ml-6 space-y-3" data-admin-popup-config="1">
@@ -715,7 +677,7 @@ export function AdminPlatformEventDistributionPanel({
               data-admin-popup-dist-lifecycle-kind={popupLifecycle.kind}
             >
               <p className="text-xs text-sam-muted">
-                {lang === "en" ? "Configured form" : "설정 형태"}: {popupCompositionLabel}
+                {translateBy(lang, "admin_configured_form")}: {popupCompositionLabel}
               </p>
               <p className="mt-1" data-admin-popup-dist-draft-notice="1">
                 {popupLifecycle.message}
@@ -727,10 +689,7 @@ export function AdminPlatformEventDistributionPanel({
                     className="font-medium underline"
                     data-admin-popup-dist-manage-link="1"
                   >
-                    {safeT("admin_platform_events_popup_manage", {
-                      fallbackKo: "팝업 승인·노출 관리로 이동",
-                      fallbackEn: "Open Popup approval / exposure",
-                    })}
+                    {safeT("admin_platform_events_popup_manage")}
                   </Link>
                 </p>
               ) : null}
@@ -759,10 +718,7 @@ export function AdminPlatformEventDistributionPanel({
                         className="mt-1 text-xs text-sam-danger"
                         data-admin-popup-benefit-disabled-reason="1"
                       >
-                        {safeT("admin_platform_events_popup_benefit_disabled", {
-                          fallbackKo: "혜택 정보가 없어 선택할 수 없습니다.",
-                          fallbackEn: "Unavailable — Event has no Benefit content.",
-                        })}
+                        {safeT("admin_platform_events_popup_benefit_disabled")}
                       </div>
                     ) : null}
                   </AdminListItemButton>
@@ -775,10 +731,7 @@ export function AdminPlatformEventDistributionPanel({
             </p>
 
             <label className="block text-sm">
-              {safeT("admin_platform_events_popup_image", {
-                fallbackKo: "팝업 이미지 URL (없으면 이벤트 히어로 사용)",
-                fallbackEn: "Popup image URL (falls back to Event hero)",
-              })}
+              {safeT("admin_platform_events_popup_image")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={popupImageUrl}
@@ -788,10 +741,7 @@ export function AdminPlatformEventDistributionPanel({
             </label>
 
             <label className="block text-sm">
-              {safeT("admin_platform_events_popup_frequency", {
-                fallbackKo: "노출 빈도",
-                fallbackEn: "Frequency",
-              })}
+              {safeT("admin_platform_events_popup_frequency")}
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={popupFrequency}
@@ -827,10 +777,7 @@ export function AdminPlatformEventDistributionPanel({
             onChange={(e) => setToggles((t) => ({ ...t, banner: e.target.checked }))}
             data-admin-banner-toggle={toggles.banner ? "on" : "off"}
           />
-          {safeT("admin_platform_events_channel_banner", {
-            fallbackKo: "배너",
-            fallbackEn: "Banner",
-          })}
+          {safeT("admin_platform_events_channel_banner")}
         </label>
         {toggles.banner ? (
           <div className="ml-6 space-y-3" data-admin-event-banner-editor="1">
@@ -861,10 +808,7 @@ export function AdminPlatformEventDistributionPanel({
 
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="block text-sm">
-                {safeT("admin_platform_events_banner_placement", {
-                  fallbackKo: "위치",
-                  fallbackEn: "Placement",
-                })}
+                {safeT("admin_platform_events_banner_placement")}
                 <select
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                   value={bannerPlacement}
@@ -883,10 +827,7 @@ export function AdminPlatformEventDistributionPanel({
               </label>
               <div className="block text-sm" data-admin-banner-image-field="1">
                 <label className="block">
-                  {safeT("admin_platform_events_banner_image", {
-                    fallbackKo: "배너 이미지 URL",
-                    fallbackEn: "Banner image URL",
-                  })}
+                  {safeT("admin_platform_events_banner_image")}
                   <input
                     className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                     value={bannerImageUrl}
@@ -918,11 +859,8 @@ export function AdminPlatformEventDistributionPanel({
                   onClick={() => bannerFileRef.current?.click()}
                 >
                   {bannerUploading
-                    ? safeT("ads_f_event_banner_uploading", { fallbackKo: "올리는 중…", fallbackEn: "Uploading…" })
-                    : safeT("ads_f_event_banner_upload", {
-                        fallbackKo: "내 PC에서 이미지 올리기",
-                        fallbackEn: "Upload image from PC",
-                      })}
+                    ? safeT("ads_f_event_banner_uploading")
+                    : safeT("ads_f_event_banner_upload")}
                 </AdminActionButton>
               </div>
             </div>
@@ -933,20 +871,14 @@ export function AdminPlatformEventDistributionPanel({
             ) : null}
             {bannerUploadedFor && bannerUploadedFor !== bannerPresentation ? (
               <p className="text-sm text-sam-danger" data-admin-banner-upload-stale="1">
-                {safeT("ads_f_event_banner_reupload", {
-                  fallbackKo: "배너 형태가 바뀌어 이미지 비율이 맞지 않을 수 있습니다. 이 형태 규격으로 다시 올려 주세요.",
-                  fallbackEn: "The banner type changed, so the image ratio may not fit. Upload again for this type.",
-                })}
+                {safeT("ads_f_event_banner_reupload")}
               </p>
             ) : null}
             <p className="text-xs text-sam-muted" data-admin-banner-image-guidance="1">
               {eventBannerImageGuidance(bannerPresentation, lang)}
             </p>
             <label className="block text-sm">
-              {safeT("admin_platform_events_banner_headline", {
-                fallbackKo: "배너 문구 (선택)",
-                fallbackEn: "Banner headline (optional)",
-              })}
+              {safeT("admin_platform_events_banner_headline")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={bannerHeadline}
@@ -962,18 +894,12 @@ export function AdminPlatformEventDistributionPanel({
             {bannerPresentation === "HERO_BANNER" ? (
               /* EV-2: 히어로는 그림 위에 글자를 쓰지 않는다 — 제목은 대체 텍스트로만 쓰인다 */
               <p className="text-xs text-sam-muted" data-admin-banner-hero-headline-hint="1">
-                {safeT("ads_f_event_hero_headline_hint", {
-                  fallbackKo: "히어로 배너의 문구는 화면에 보이지 않고 대체 텍스트(화면 읽기)로 쓰입니다. 비우면 이벤트 제목을 씁니다.",
-                  fallbackEn: "Hero banner text is not shown on screen; it is used as alt text. If empty, the event title is used.",
-                })}
+                {safeT("ads_f_event_hero_headline_hint")}
               </p>
             ) : null}
             {!bannerCompatOk ? (
               <p className="text-sm text-sam-danger" data-admin-banner-compat-fail="1">
-                {safeT("admin_platform_events_banner_compat_fail", {
-                  fallbackKo: "이 배치와 배너 형태 조합은 허용되지 않습니다.",
-                  fallbackEn: "This placement + presentation combination is not allowed.",
-                })}
+                {safeT("admin_platform_events_banner_compat_fail")}
               </p>
             ) : null}
 
@@ -1004,9 +930,7 @@ export function AdminPlatformEventDistributionPanel({
                 {eventBannerPresentationLabel(bannerPresentation, lang)} ·{" "}
                 {eventBannerPlacementLabel(bannerPlacement, lang)} · preview
                 {bannerPreviewDevice === "tablet_landscape"
-                  ? lang === "en"
-                    ? " · landscape allowed"
-                    : " · 가로에서도 노출"
+                  ? translateBy(lang, "admin_landscape_allowed")
                   : ""}
               </p>
               <div
@@ -1070,10 +994,7 @@ export function AdminPlatformEventDistributionPanel({
           </div>
         ) : (
           <p className="ml-6 text-xs text-sam-muted" data-admin-banner-off="1">
-            {safeT("admin_platform_events_banner_off", {
-              fallbackKo: "배너 꺼짐",
-              fallbackEn: "Banner OFF",
-            })}
+            {safeT("admin_platform_events_banner_off")}
           </p>
         )}
       </div>
@@ -1087,10 +1008,7 @@ export function AdminPlatformEventDistributionPanel({
             onChange={(e) => setToggles((t) => ({ ...t, push: e.target.checked }))}
             data-admin-push-toggle={toggles.push ? "on" : "off"}
           />
-          {safeT("admin_platform_events_channel_push", {
-            fallbackKo: "Push 알림",
-            fallbackEn: "Push notification",
-          })}
+          {safeT("admin_platform_events_channel_push")}
         </label>
         {toggles.push ? (
           <div className="ml-6 grid gap-2" data-admin-push-config="1">
@@ -1115,19 +1033,13 @@ export function AdminPlatformEventDistributionPanel({
                     className="font-medium underline"
                     data-admin-push-dist-manage-link="1"
                   >
-                    {safeT("admin_platform_events_push_manage", {
-                      fallbackKo: "Push 캠페인 관리 · 보내기",
-                      fallbackEn: "Manage Push campaign · Send",
-                    })}
+                    {safeT("admin_platform_events_push_manage")}
                   </Link>
                 </p>
               ) : null}
             </div>
             <label className="block text-sm">
-              {safeT("admin_platform_events_push_title", {
-                fallbackKo: "푸시 제목",
-                fallbackEn: "Push title",
-              })}
+              {safeT("admin_platform_events_push_title")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={pushTitle}
@@ -1135,10 +1047,7 @@ export function AdminPlatformEventDistributionPanel({
               />
             </label>
             <label className="block text-sm">
-              {safeT("admin_platform_events_push_body", {
-                fallbackKo: "푸시 본문",
-                fallbackEn: "Push body",
-              })}
+              {safeT("admin_platform_events_push_body")}
               <textarea
                 className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
                 value={pushBody}
@@ -1153,10 +1062,7 @@ export function AdminPlatformEventDistributionPanel({
               <p className="mt-1 text-sm font-semibold">{pushTitle || "—"}</p>
               <p className="text-xs text-sam-muted">{pushBody || "—"}</p>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {safeT("admin_platform_events_push_preview_note", {
-                  fallbackKo: "미리보기만 · 저장해도 발송되지 않습니다.",
-                  fallbackEn: "Visual only · Save does not dispatch.",
-                })}
+                {safeT("admin_platform_events_push_preview_note")}
               </p>
             </div>
             <AdminActionButton
@@ -1165,17 +1071,11 @@ export function AdminPlatformEventDistributionPanel({
               onClick={() => void requestPushSend()}
               data-admin-push-send="1"
             >
-              {safeT("admin_platform_events_push_send_now", {
-                fallbackKo: "Push 보내기",
-                fallbackEn: "Send Push",
-              })}
+              {safeT("admin_platform_events_push_send_now")}
             </AdminActionButton>
             {pushHasUnsavedChanges ? (
               <p className="text-xs text-sam-muted" data-admin-push-unsaved="1">
-                {safeT("admin_platform_events_push_save_first", {
-                  fallbackKo: "변경 내용을 먼저 저장해야 Push를 보낼 수 있습니다.",
-                  fallbackEn: "Save your changes before sending Push.",
-                })}
+                {safeT("admin_platform_events_push_save_first")}
               </p>
             ) : null}
           </div>
@@ -1195,10 +1095,7 @@ export function AdminPlatformEventDistributionPanel({
             onChange={(e) => setToggles((t) => ({ ...t, bell: e.target.checked }))}
             data-admin-bell-toggle={toggles.bell ? "on" : "off"}
           />
-          {safeT("admin_platform_events_channel_bell", {
-            fallbackKo: "앱 알림함",
-            fallbackEn: "In-app notification inbox",
-          })}
+          {safeT("admin_platform_events_channel_bell")}
         </label>
         {toggles.bell ? (
           <div className="ml-6 grid gap-2" data-admin-bell-config="1">
@@ -1220,19 +1117,13 @@ export function AdminPlatformEventDistributionPanel({
                     className="font-medium underline"
                     data-admin-bell-dist-manage-link="1"
                   >
-                    {safeT("admin_platform_events_bell_manage", {
-                      fallbackKo: "앱 알림함 캠페인 등록/관리",
-                      fallbackEn: "Register / manage inbox campaign",
-                    })}
+                    {safeT("admin_platform_events_bell_manage")}
                   </Link>
                 </p>
               ) : null}
             </div>
             <label className="block text-sm">
-              {safeT("admin_platform_events_bell_title", {
-                fallbackKo: "알림함 제목",
-                fallbackEn: "Inbox title",
-              })}
+              {safeT("admin_platform_events_bell_title")}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={bellTitle}
@@ -1240,10 +1131,7 @@ export function AdminPlatformEventDistributionPanel({
               />
             </label>
             <label className="block text-sm">
-              {safeT("admin_platform_events_bell_body", {
-                fallbackKo: "알림함 본문",
-                fallbackEn: "Inbox body",
-              })}
+              {safeT("admin_platform_events_bell_body")}
               <textarea
                 className="mt-1 h-20 w-full rounded border border-sam-border px-2 py-1.5"
                 value={bellBody}
@@ -1258,11 +1146,7 @@ export function AdminPlatformEventDistributionPanel({
               <p className="mt-1 text-sm font-semibold">{bellTitle || "—"}</p>
               <p className="text-xs text-sam-muted">{bellBody || "—"}</p>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {safeT("admin_platform_events_bell_preview_note", {
-                  fallbackKo: "알림함 행 미리보기 · Push와 독립 · 저장만으로 회원 알림함에 등록되지 않음.",
-                  fallbackEn:
-                    "Inbox row preview · independent of Push · Dist save does not register inbox rows.",
-                })}
+                {safeT("admin_platform_events_bell_preview_note")}
               </p>
             </div>
           </div>
@@ -1281,14 +1165,8 @@ export function AdminPlatformEventDistributionPanel({
         data-admin-dist-save="1"
       >
         {saving
-          ? safeT("admin_platform_events_distribution_saving", {
-              fallbackKo: "저장 중…",
-              fallbackEn: "Saving…",
-            })
-          : safeT("admin_platform_events_distribution_save", {
-              fallbackKo: "노출 설정 저장",
-              fallbackEn: "Save exposure settings",
-            })}
+          ? safeT("admin_platform_events_distribution_saving")
+          : safeT("admin_platform_events_distribution_save")}
       </AdminActionButton>
     </section>
   );

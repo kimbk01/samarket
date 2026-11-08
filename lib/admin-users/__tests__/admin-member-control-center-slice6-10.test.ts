@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { memberModerationActionsForStatus } from "@/lib/admin-users/member-moderation-cta";
 
 function src(rel: string): string {
-  return readFileSync(join(process.cwd(), rel), "utf8");
+  return withCatalogCopy(readFileSync(join(process.cwd(), rel), "utf8"));
 }
 
 describe("admin member Control Center Slice 6–10", () => {

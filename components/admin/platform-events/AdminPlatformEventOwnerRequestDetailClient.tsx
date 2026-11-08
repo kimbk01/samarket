@@ -158,10 +158,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
         }
         if (json.distributionHandoffPath) {
           setInfo(
-            safeT("admin_event_owner_approve_handoff", {
-              fallbackKo: "승인됨 · 이벤트 초안 연결. 배포/푸시는 별도 설정.",
-              fallbackEn: "Approved · Event draft linked. Configure distribution separately.",
-            })
+            safeT("admin_event_owner_approve_handoff")
           );
         }
       } catch {
@@ -187,10 +184,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
         {error ? <p className="text-sm text-sam-danger">{adminOperatorErrorMessage(error, language !== "en")}</p> : null}
         {info ? <p className="text-sm text-sam-muted">{info}</p> : null}
         <p className="text-sm">
-          {safeT("admin_event_owner_requested_channels", {
-            fallbackKo: "희망 채널",
-            fallbackEn: "Requested channels",
-          })}
+          {safeT("admin_event_owner_requested_channels")}
           : popup={String(request.requestedChannels.popup)} banner=
           {String(request.requestedChannels.banner)} push=
           {String(request.requestedChannels.push)} bell=
@@ -201,10 +195,10 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
             {language !== "en" ? "심사 시작" : "Start review"}
           </AdminActionButton>
           <AdminActionButton variant="primary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("approve")}>
-            {safeT("admin_event_owner_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
+            {safeT("admin_event_owner_approve")}
           </AdminActionButton>
           <AdminActionButton variant="secondary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("reject")}>
-            {safeT("admin_event_owner_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
+            {safeT("admin_event_owner_reject")}
           </AdminActionButton>
         </div>
         {request.platformEventId ? (
@@ -212,19 +206,13 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
             href={`/admin/platform-events/${encodeURIComponent(request.platformEventId)}`}
             className="inline-block text-sm font-semibold underline"
           >
-            {safeT("admin_event_owner_open_event", {
-              fallbackKo: "연결된 이벤트 · 배포 설정으로",
-              fallbackEn: "Open linked Event · Distribution",
-            })}
+            {safeT("admin_event_owner_open_event")}
           </Link>
         ) : null}
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-app">
         <div className="border-b border-sam-border px-3 py-2 text-xs font-semibold text-sam-muted">
-          {safeT("admin_event_owner_preview", {
-            fallbackKo: "Event Detail 미리보기",
-            fallbackEn: "Event Detail preview",
-          })}
+          {safeT("admin_event_owner_preview")}
         </div>
         <PlatformEventDetailContent
           event={previewFromRequest(request)}

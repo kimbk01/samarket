@@ -145,10 +145,7 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
         {surfaceLabel ? <span className="text-xs text-sam-muted">{surfaceLabel}</span> : null}
         {source?.unsaved ? (
           <span className="text-xs text-sam-warning">
-            {safeT("admin_platform_popup_preview_unsaved", {
-              fallbackKo: "저장되지 않은 미리보기",
-              fallbackEn: "Unsaved preview",
-            })}
+            {safeT("admin_platform_popup_preview_unsaved")}
           </span>
         ) : null}
       </div>
@@ -176,10 +173,7 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
               className="px-4 text-center text-sm font-medium text-sam-fg"
               data-admin-popup-preview-landscape-deny="1"
             >
-              {safeT("admin_platform_popup_preview_landscape_deny", {
-                fallbackKo: "가로 화면에서는 팝업을 노출하지 않습니다.",
-                fallbackEn: "Popups are not shown in landscape.",
-              })}
+              {safeT("admin_platform_popup_preview_landscape_deny")}
             </p>
           ) : winner ? (
             <div className="w-full max-w-full px-3">
@@ -208,30 +202,17 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           ) : (
             <p className="px-4 text-center text-sm text-sam-muted">
               {source?.presentationType === "benefit_dialog" && source.benefitEligible === false
-                ? safeT("admin_platform_popup_benefit_requires_event", {
-                    fallbackKo: "연결된 이벤트에 혜택 정보가 필요합니다.",
-                    fallbackEn: "Linked event benefit content is required.",
-                  })
-                : safeT("admin_platform_popup_preview_empty", {
-                    fallbackKo: "미리볼 크리에이티브가 없습니다.",
-                    fallbackEn: "No creative to preview.",
-                  })}
+                ? safeT("admin_platform_popup_benefit_requires_event")
+                : safeT("admin_platform_popup_preview_empty")}
             </p>
           )}
         </div>
       </div>
       <p className="text-xs text-sam-muted">
-        {safeT("admin_platform_popup_preview_renderer_note", {
-          fallbackKo: "미리보기는 프로덕션 DibayPopupAd를 그대로 사용합니다.",
-          fallbackEn: "Preview uses the production DibayPopupAd renderer.",
-        })}
+        {safeT("admin_platform_popup_preview_renderer_note")}
       </p>
       <p className="text-xs text-sam-muted" data-admin-popup-preview-safe-note="1">
-        {safeT("admin_platform_popup_preview_safe_simulated", {
-          fallbackKo: `시뮬레이션 safe-bottom: ${frame.safeBottom}px (미리보기 셸)`,
-          fallbackEn: `Simulated safe-bottom: ${frame.safeBottom}px (preview shell)`,
-          vars: { px: frame.safeBottom },
-        })}
+        {safeT("admin_platform_popup_preview_safe_simulated", { vars: { px: frame.safeBottom } })}
       </p>
     </div>
   );

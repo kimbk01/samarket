@@ -26,14 +26,8 @@ export function TradeMenuWritePreviewSheet({ open, category, onClose }: Props) {
       open
       onClose={onClose}
       dismissible
-      title={safeT("admin_menu_trade_preview_title", {
-        fallbackKo: "글쓰기 미리보기",
-        fallbackEn: "Write preview",
-      })}
-      description={safeT("admin_menu_trade_preview_desc", {
-        fallbackKo: "실제 거래 등록 화면입니다. 미리보기에서는 게시물이 저장되지 않습니다.",
-        fallbackEn: "Real trade write UI. Preview does not create a listing.",
-      })}
+      title={safeT("admin_menu_trade_preview_title")}
+      description={safeT("admin_menu_trade_preview_desc")}
       zIndexClass={OVERLAY_Z_CLASS.nested}
     >
       <div className="mt-2 max-h-[min(75vh,720px)] overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-app">
@@ -49,7 +43,7 @@ export function TradeMenuWritePreviewSheet({ open, category, onClose }: Props) {
       </div>
       <div className={`${OverlayUi.actionsRow} pt-3`}>
         <DibayOverlayButton roleTone="secondary" type="button" onClick={onClose}>
-          {safeT("common_cancel", { fallbackKo: "닫기", fallbackEn: "Close" })}
+          {safeT("common_cancel")}
         </DibayOverlayButton>
       </div>
     </DibayDialog>

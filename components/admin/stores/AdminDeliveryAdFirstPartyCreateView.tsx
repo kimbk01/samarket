@@ -34,6 +34,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import { bannerGeometryRejectMessage } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * Admin DIBAY first-party Banner — single-page workspace (no step wizard).
@@ -178,10 +179,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
     if (!canSubmit) {
       if (!scheduleOk) {
         setError(
-          safeT("admin_delivery_ads_fp_schedule_invalid", {
-            fallbackKo: "종료 일시는 시작 일시보다 이후여야 합니다.",
-            fallbackEn: "End must be after start.",
-          })
+          safeT("admin_delivery_ads_fp_schedule_invalid")
         );
       }
       return;
@@ -190,10 +188,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
     const endIso = manilaLocalToIso(endAt);
     if (!startIso || !endIso) {
       setError(
-        safeT("admin_delivery_ads_fp_schedule_invalid", {
-          fallbackKo: "종료 일시는 시작 일시보다 이후여야 합니다.",
-          fallbackEn: "End must be after start.",
-        })
+        safeT("admin_delivery_ads_fp_schedule_invalid")
       );
       return;
     }
@@ -273,24 +268,13 @@ export function AdminDeliveryAdFirstPartyCreateView() {
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › First-party</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_first_party_title", {
-              fallbackKo: "디바이 광고 만들기",
-              fallbackEn: "Create DIBAY ad",
-            })}
+            {safeT("admin_delivery_ads_first_party_title")}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_first_party_single_desc", {
-              fallbackKo:
-                "DIBAY가 직접 운영하는 배너 광고입니다. Owner 결제와 Cash를 사용하지 않습니다.",
-              fallbackEn:
-                "DIBAY-operated banner. No Owner payment and no Cash.",
-            })}
+            {safeT("admin_delivery_ads_first_party_single_desc")}
           </p>
           <p className="mt-2 text-[12px] text-sam-muted" data-store-promotion-fp="NOT_IMPLEMENTED_MODEL_BLOCKED">
-            {safeT("admin_delivery_ads_first_party_store_promo_blocked", {
-              fallbackKo: `매장 홍보 first-party: ${R4_STORE_PROMOTION_FIRST_PARTY.status}`,
-              fallbackEn: `Store promotion first-party: ${R4_STORE_PROMOTION_FIRST_PARTY.status}`,
-            })}
+            {safeT("admin_delivery_ads_first_party_store_promo_blocked")}
           </p>
         </div>
 
@@ -306,10 +290,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           <div className="space-y-4 min-w-0">
             <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <h2 className="text-[14px] font-bold text-sam-fg">
-                {safeT("admin_delivery_ads_first_party_placement", {
-                  fallbackKo: "노출 위치",
-                  fallbackEn: "Placement",
-                })}
+                {safeT("admin_delivery_ads_first_party_placement")}
               </h2>
               <div className="space-y-2">
                 {ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS.map((k) => {
@@ -332,17 +313,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                       </span>
                       <span className="mt-0.5 text-[12px] text-sam-muted">
                         {k === "STORES_HOME_HERO"
-                          ? safeT("admin_fp_home_hero_ops", {
-                              fallbackKo: "슬라이드 배너 · 5초 · 1장 · dots · swipe · loop",
-                              fallbackEn: "Carousel · 5s · 1 visible · dots · swipe · loop",
-                            })
+                          ? safeT("admin_fp_home_hero_ops")
                           : k === "STORES_HOME_INLINE_1"
-                            ? lang === "ko"
-                              ? "홈 「더 많은 매장」 위 · 1장"
-                              : "Above home remaining stores · 1 visible"
-                            : lang === "ko"
-                              ? "업종 목록 상단 · 업종별 지정 · 1장"
-                              : "Top of category list · per category · 1 visible"}{" "}
+                            ? translateBy(lang, "admin_above_home_remaining_stores_1_visible", undefined, "en")
+                            : translateBy(lang, "admin_top_of_category_list_per_category", undefined, "en")}{" "}
                         · {formatBannerPixelGuideLine(g, lang)}
                       </span>
                     </AdminListItemButton>
@@ -356,9 +330,9 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
                 data-admin-fp-browse-target
               >
-                <h2 className="text-[14px] font-bold text-sam-fg">{lang === "ko" ? "대상 업종" : "Target category"}</h2>
+                <h2 className="text-[14px] font-bold text-sam-fg">{translateBy(lang, "admin_target_category", undefined, "en")}</h2>
                 <label className="block text-[12px] text-sam-muted">
-                  {lang === "ko" ? "1차 업종 (비우면 전체 업종)" : "Primary (empty = all categories)"}
+                  {translateBy(lang, "admin_primary_empty_all_categories", undefined, "en")}
                   <select
                     className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
                     value={browsePrimarySlug}
@@ -367,7 +341,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                       setBrowseSecondarySlug("");
                     }}
                   >
-                    <option value="">{lang === "ko" ? "전체 업종" : "All categories"}</option>
+                    <option value="">{translateBy(lang, "admin_all_categories", undefined, "en")}</option>
                     {taxonomy.categories.map((c) => (
                       <option key={c.slug} value={c.slug}>
                         {c.name}
@@ -376,14 +350,14 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                   </select>
                 </label>
                 <label className="block text-[12px] text-sam-muted">
-                  {lang === "ko" ? "2차 업종 (비우면 1차 전체)" : "Secondary (empty = whole primary)"}
+                  {translateBy(lang, "admin_secondary_empty_whole_primary", undefined, "en")}
                   <select
                     disabled={!browsePrimarySlug}
                     className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg disabled:opacity-50"
                     value={browseSecondarySlug}
                     onChange={(e) => setBrowseSecondarySlug(e.target.value)}
                   >
-                    <option value="">{lang === "ko" ? "1차 전체" : "Whole primary"}</option>
+                    <option value="">{translateBy(lang, "admin_whole_primary", undefined, "en")}</option>
                     {secondaryOptions.map((t) => (
                       <option key={t.slug} value={t.slug}>
                         {t.name}
@@ -399,18 +373,16 @@ export function AdminDeliveryAdFirstPartyCreateView() {
               data-admin-fp-destination-store
             >
               <h2 className="text-[14px] font-bold text-sam-fg">
-                {lang === "ko" ? "연결 매장 (선택)" : "Linked store (optional)"}
+                {translateBy(lang, "admin_linked_store_optional", undefined, "en")}
               </h2>
               <p className="text-[12px] text-sam-muted">
-                {lang === "ko"
-                  ? "매장을 연결하면 배너가 그 매장 상세로 이동하고 노출·클릭이 집계됩니다."
-                  : "Linking a store opens its detail page and records impressions and clicks."}
+                {translateBy(lang, "admin_linking_a_store_opens_its_detail", undefined, "en")}
               </p>
               {destinationStore ? (
                 <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]">
                   <span className="truncate text-sam-fg">{destinationStore.name}</span>
                   <AdminActionButton variant="ghost" size="sm" onClick={() => setDestinationStore(null)}>
-                    {lang === "ko" ? "연결 해제" : "Unlink"}
+                    {translateBy(lang, "admin_notif_btn_unlink_original", undefined, "en")}
                   </AdminActionButton>
                 </div>
               ) : (
@@ -419,14 +391,14 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                     <input
                       className="min-w-0 flex-1 rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg"
                       value={storeQuery}
-                      placeholder={lang === "ko" ? "매장명 검색" : "Search store name"}
+                      placeholder={translateBy(lang, "admin_stores_fee_sample_search_ph", undefined, "en")}
                       onChange={(e) => setStoreQuery(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") void searchStores();
                       }}
                     />
                     <AdminActionButton variant="secondary" size="sm" onClick={() => void searchStores()}>
-                      {lang === "ko" ? "조회" : "Search"}
+                      {translateBy(lang, "admin_r4b_pay_search", undefined, "en")}
                     </AdminActionButton>
                   </div>
                   {storeResults.length > 0 ? (
@@ -453,16 +425,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
 
             <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <h2 className="text-[14px] font-bold text-sam-fg">
-                {safeT("admin_delivery_ads_first_party_schedule", {
-                  fallbackKo: "일정",
-                  fallbackEn: "Schedule",
-                })}
+                {safeT("admin_delivery_ads_first_party_schedule")}
               </h2>
               <label className="block text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_first_party_start", {
-                  fallbackKo: "시작",
-                  fallbackEn: "Start",
-                })}
+                {safeT("admin_delivery_ads_first_party_start")}
                 <input
                   type="datetime-local"
                   className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
@@ -471,10 +437,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 />
               </label>
               <label className="block text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_first_party_end", {
-                  fallbackKo: "종료",
-                  fallbackEn: "End",
-                })}
+                {safeT("admin_delivery_ads_first_party_end")}
                 <input
                   type="datetime-local"
                   className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
@@ -484,20 +447,14 @@ export function AdminDeliveryAdFirstPartyCreateView() {
               </label>
               {startAt && endAt && !scheduleOk ? (
                 <p className="text-[12px] text-sam-danger" data-admin-fp-schedule-invalid="1">
-                  {safeT("admin_delivery_ads_fp_schedule_invalid", {
-                    fallbackKo: "종료 일시는 시작 일시보다 이후여야 합니다.",
-                    fallbackEn: "End must be after start.",
-                  })}
+                  {safeT("admin_delivery_ads_fp_schedule_invalid")}
                 </p>
               ) : null}
             </section>
 
             <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <h2 className="text-[14px] font-bold text-sam-fg">
-                {safeT("admin_delivery_ads_first_party_creative", {
-                  fallbackKo: "배너 이미지",
-                  fallbackEn: "Banner image",
-                })}
+                {safeT("admin_delivery_ads_first_party_creative")}
               </h2>
               <p className="text-[12px] text-sam-muted" data-admin-fp-pixel-guide="1">
                 {formatBannerPixelGuideLine(guide, lang)}
@@ -515,10 +472,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                     e.target.value = "";
                   }}
                 />
-                {safeT("admin_delivery_ads_fp_pc_upload", {
-                  fallbackKo: "내 PC에서 이미지 불러오기",
-                  fallbackEn: "Upload from PC",
-                })}
+                {safeT("admin_delivery_ads_fp_pc_upload")}
               </AdminActionLabel>
               {assetPath ? (
                 <div className="space-y-2">
@@ -543,10 +497,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                       setSourceHeight(0);
                     }}
                   >
-                    {safeT("admin_delivery_ads_fp_remove_image", {
-                      fallbackKo: "이미지 삭제",
-                      fallbackEn: "Remove image",
-                    })}
+                    {safeT("admin_delivery_ads_fp_remove_image")}
                   </AdminActionButton>
                 </div>
               ) : null}
@@ -554,16 +505,10 @@ export function AdminDeliveryAdFirstPartyCreateView() {
 
             <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <h2 className="text-[14px] font-bold text-sam-fg">
-                {safeT("admin_delivery_ads_first_party_copy_dest", {
-                  fallbackKo: "배너 문구 / 목적지",
-                  fallbackEn: "Copy / destination",
-                })}
+                {safeT("admin_delivery_ads_first_party_copy_dest")}
               </h2>
               <label className="block text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_first_party_headline", {
-                  fallbackKo: "헤드라인",
-                  fallbackEn: "Headline",
-                })}
+                {safeT("admin_delivery_ads_first_party_headline")}
                 <input
                   className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
                   value={headline}
@@ -571,19 +516,13 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 />
                 {isHero ? (
                   <span className="mt-1 block text-[12px] text-sam-muted" data-admin-delivery-fp-hero-headline-hint="1">
-                    {safeT("ads_f_delivery_hero_headline_hint", {
-                      fallbackKo: "히어로는 글자를 덮지 않고 대체 텍스트로 쓰입니다. (선택)",
-                      fallbackEn: "Hero banners do not overlay text; this is used as alt text. (Optional)",
-                    })}
+                    {safeT("ads_f_delivery_hero_headline_hint")}
                   </span>
                 ) : null}
               </label>
               {isHero ? null : (
                 <label className="block text-[12px] text-sam-muted">
-                  {safeT("admin_delivery_ads_first_party_subcopy", {
-                    fallbackKo: "서브카피",
-                    fallbackEn: "Subcopy",
-                  })}
+                  {safeT("admin_delivery_ads_first_party_subcopy")}
                   <input
                     className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
                     value={subcopy}
@@ -592,10 +531,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                 </label>
               )}
               <label className="block text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_first_party_destination", {
-                  fallbackKo: "이동 경로 (앱 내부)",
-                  fallbackEn: "Destination (in-app path)",
-                })}
+                {safeT("admin_delivery_ads_first_party_destination")}
                 <input
                   className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
                   value={ctaHref}
@@ -609,10 +545,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           <div className="space-y-4 min-w-0 lg:sticky lg:top-4">
             <section className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
               <p className="mb-2 text-[12px] font-semibold text-sam-muted">
-                {safeT("admin_delivery_ads_first_party_preview", {
-                  fallbackKo: "고객 화면 미리보기",
-                  fallbackEn: "Customer preview",
-                })}
+                {safeT("admin_delivery_ads_first_party_preview")}
               </p>
               {assetPath ? (
                 <DeliveryAdBanner
@@ -624,7 +557,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                     alt: headline || null,
                   }}
                   destination={{ href: ctaHref, ctaLabel: null }}
-                  adLabel={lang === "en" ? "Ad" : "광고"}
+                  adLabel={translateBy(lang, "admin_ads_history_deleted_col_title")}
                   renderContext="admin_preview"
                   campaignId="preview"
                 />
@@ -639,7 +572,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           <AdminActionButton variant="secondary"
             onClick={() => router.push(DELIVERY_AD_ADMIN_ROUTES.hub)}
           >
-            {safeT("admin_delivery_ads_fp_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+            {safeT("admin_delivery_ads_fp_cancel")}
           </AdminActionButton>
           <AdminActionButton variant="primary" className="flex-1"
             disabled={!canSubmit}
@@ -650,14 +583,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
               ? "…"
               : /* v4 재감사 UI-15 — 입력은 PHT 벽시계: 기기 시간대가 아니라 PHT 로 해석해 지금과 비교 */
                 Date.parse(manilaLocalToIso(startAt) ?? "") <= Date.now()
-                ? safeT("admin_delivery_ads_first_party_go_live", {
-                    fallbackKo: "즉시 노출",
-                    fallbackEn: "Go live now",
-                  })
-                : safeT("admin_delivery_ads_first_party_schedule_submit", {
-                    fallbackKo: "예약 등록",
-                    fallbackEn: "Schedule registration",
-                  })}
+                ? safeT("admin_delivery_ads_first_party_go_live")
+                : safeT("admin_delivery_ads_first_party_schedule_submit")}
           </AdminActionButton>
         </div>
       </div>

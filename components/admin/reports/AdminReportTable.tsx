@@ -57,14 +57,8 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                     <AdminToneBadge tone="neutral">{ko ? "조회만" : "View only"}</AdminToneBadge>
                   </span>
                 ) : r.reportSource === "community_feed"
-                  ? safeT("admin_report_source_feed", {
-                      fallbackKo: "Community · community_reports",
-                      fallbackEn: "Community · community_reports",
-                    })
-                  : safeT("admin_report_source_db", {
-                      fallbackKo: "Trade · reports",
-                      fallbackEn: "Trade · reports",
-                    })}
+                  ? safeT("admin_report_source_feed")
+                  : safeT("admin_report_source_db")}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {formatAdminManilaDateTime(r.createdAt)}

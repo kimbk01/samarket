@@ -368,11 +368,7 @@ export function AdminNotificationSoundSsotTable() {
       };
       if (known[code]) return known[code];
       if (payload.field) {
-        return safeT("admin_notif_sound_save_failed_field", {
-          fallbackKo: `저장 실패 (${payload.field})`,
-          fallbackEn: `Save failed (${payload.field})`,
-          vars: { field: payload.field },
-        });
+        return safeT("admin_notif_sound_save_failed_field", { vars: { field: payload.field } });
       }
       return code ? adminOperatorErrorMessage(code, ko) : t("admin_settings_notif_save_failed");
     },

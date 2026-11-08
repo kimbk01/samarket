@@ -241,14 +241,14 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
     if (busy) return;
     const amount = Math.trunc(Math.abs(Number(adjustDelta)));
     if (!Number.isFinite(amount) || amount <= 0) {
-      setErr(safeT("point_fin_admin_amount_required", { fallbackKo: "금액을 입력하세요.", fallbackEn: "Enter an amount." }));
+      setErr(safeT("point_fin_admin_amount_required"));
       return;
     }
     setErr("");
     const actionLabel =
       sign === -1
-        ? safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })
-        : safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" });
+        ? safeT("point_fin_admin_debit")
+        : safeT("point_fin_admin_credit");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("payout"),
       ko: language !== "en",
@@ -325,14 +325,14 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           inputMode="numeric"
           value={adjustDelta}
           onChange={(e) => setAdjustDelta(e.target.value)}
-          placeholder={safeT("point_fin_admin_amount_ph", { fallbackKo: "금액", fallbackEn: "Amount" })}
+          placeholder={safeT("point_fin_admin_amount_ph")}
           className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
         />
         <AdminActionButton variant="primary" disabled={busy} onClick={() => void openAdjustConfirm(1)}>
-          {safeT("point_fin_admin_credit", { fallbackKo: "지급", fallbackEn: "Credit" })}
+          {safeT("point_fin_admin_credit")}
         </AdminActionButton>
         <AdminActionButton variant="secondary" disabled={busy} onClick={() => void openAdjustConfirm(-1)}>
-          {safeT("point_fin_admin_debit", { fallbackKo: "차감", fallbackEn: "Debit" })}
+          {safeT("point_fin_admin_debit")}
         </AdminActionButton>
       </div>
 
@@ -377,7 +377,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
         className="mb-3"
         ariaLabel={t("admin_users_points_manage_title")}
         tabs={[
-          { id: "history", label: safeT("point_fin_tab_all", { fallbackKo: "회계 내역", fallbackEn: "Ledger" }) },
+          { id: "history", label: safeT("point_fin_tab_all") },
           {
             id: "charges",
             label: t("admin_users_points_tab_charges", { count: chargePage?.total ?? charges.length }),
@@ -398,10 +398,10 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             ] as const).map(([id, ko]) => (
               <AdminChipButton key={id} selected={filter === id} onClick={() => setFilter(id)}>
                 {id === "all"
-                  ? safeT("point_fin_tab_all", { fallbackKo: ko, fallbackEn: "All" })
+                  ? safeT("point_fin_tab_all")
                   : id === "credit"
-                    ? safeT("point_fin_tab_credit", { fallbackKo: ko, fallbackEn: "Credits" })
-                    : safeT("point_fin_tab_debit", { fallbackKo: ko, fallbackEn: "Debits" })}
+                    ? safeT("point_fin_tab_credit")
+                    : safeT("point_fin_tab_debit")}
               </AdminChipButton>
             ))}
           </div>

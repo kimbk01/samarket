@@ -15,6 +15,7 @@ import {
   DIBAY_PTR_THRESHOLD_PX,
   resolveDibayPtrSlotPx,
 } from "@/lib/ui/ptr/dibay-ptr-ssot";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * 미리보기 기기 — CSS px(뷰포트) 기준.
@@ -102,7 +103,7 @@ export function AdminPtrRevealPreview({ ad, lang }: { ad: PtrRevealAd | null; la
           className="rounded border border-sam-border px-2 py-1"
           value={deviceId}
           onChange={(e) => setDeviceId(e.target.value)}
-          aria-label={lang === "en" ? "Device" : "기기"}
+          aria-label={translateBy(lang, "admin_device")}
         >
           {PTR_PREVIEW_DEVICES.map((d) => (
             <option key={d.id} value={d.id}>
@@ -113,17 +114,17 @@ export function AdminPtrRevealPreview({ ad, lang }: { ad: PtrRevealAd | null; la
         <div className="flex gap-1">
           {[false, true].map((ls) => (
             <AdminChipButton key={String(ls)} selected={landscape === ls} onClick={() => setLandscape(ls)}>
-              {ls ? (lang === "en" ? "Landscape" : "가로") : lang === "en" ? "Portrait" : "세로"}
+              {ls ? (translateBy(lang, "admin_launch_intro_preview_landscape")) : translateBy(lang, "admin_launch_intro_preview_portrait")}
             </AdminChipButton>
           ))}
         </div>
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
-          {lang === "en" ? "Safe zones" : "안전영역 표시"}
+          {translateBy(lang, "admin_safe_zones")}
         </label>
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-          {lang === "en" ? "All devices" : "전체 기기 한눈에"}
+          {translateBy(lang, "admin_all_devices")}
         </label>
       </div>
       <div className="flex flex-wrap gap-1">
@@ -140,14 +141,14 @@ export function AdminPtrRevealPreview({ ad, lang }: { ad: PtrRevealAd | null; la
       </div>
       {guides ?
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-sam-muted" data-admin-ptr-guide-legend="">
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-success bg-sam-success/30 align-middle" />{lang === "en" ? "Key copy (always visible)" : "핵심 문구 (항상 보임)"}</span>
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-danger bg-sam-danger/30 align-middle" />{lang === "en" ? "Spinner & status text" : "스피너·상태 문구"}</span>
-          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-info bg-sam-info/30 align-middle" />{lang === "en" ? "Ad label · logo · button" : "광고 표기·로고·버튼"}</span>
-          <span>{lang === "en" ? "Outside the boxes may be cropped on some devices." : "상자 밖은 기기에 따라 잘릴 수 있습니다."}</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-success bg-sam-success/30 align-middle" />{translateBy(lang, "admin_key_copy_always_visible")}</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-danger bg-sam-danger/30 align-middle" />{translateBy(lang, "admin_spinner_status_text")}</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 border border-dashed border-sam-info bg-sam-info/30 align-middle" />{translateBy(lang, "admin_ad_label_logo_button")}</span>
+          <span>{translateBy(lang, "admin_outside_the_boxes_may_be_cropped")}</span>
         </p>
       : null}
       <label className="flex items-center gap-2 text-xs text-sam-muted">
-        {lang === "en" ? "Release position" : "놓은 위치"}
+        {translateBy(lang, "admin_release_position")}
         <input
           type="range"
           min={DIBAY_PTR_THRESHOLD_PX}
@@ -156,7 +157,7 @@ export function AdminPtrRevealPreview({ ad, lang }: { ad: PtrRevealAd | null; la
           onChange={(e) => setReleasePx(Number(e.target.value))}
         />
         <span className="tabular-nums">
-          {lang === "en" ? "slot" : "슬롯"} {holdPx}px
+          {translateBy(lang, "admin_slot")} {holdPx}px
         </span>
       </label>
 
@@ -223,32 +224,30 @@ function PreviewFrame({
       <div className="flex flex-wrap items-baseline gap-x-3 text-xs">
         <span className="font-semibold">{lang === "en" ? device.en : device.ko}</span>
         <span className="text-sam-muted" data-admin-ptr-preview-css-width="">
-          {lang === "en" ? "CSS width" : "측정 CSS 폭"} {frameW}px
-          {device.measured ? (lang === "en" ? " · measured" : " · 실측") : ""}
+          {translateBy(lang, "admin_css_width")} {frameW}px
+          {device.measured ? (translateBy(lang, "admin_measured")) : ""}
           {" · "}
           {frameW}×{landscape ? device.w : device.h} · {lang === "en" ? spec.labelEn : spec.labelKo}{" "}
           {spec.width}×{spec.height}
         </span>
         <span className="text-sam-muted" data-admin-ptr-preview-crop="">
-          {lang === "en" ? "L/R crop @pull=106" : "좌우 크롭 @pull=106"} ≈{cropPctEach}%
+          {translateBy(lang, "admin_l_r_crop_pull_106")} ≈{cropPctEach}%
           {layoutAtMax.sideFillPx > 0
-            ? ` · ${lang === "en" ? "side fill" : "좌우 여백"} ${Math.round(layoutAtMax.sideFillPx)}px`
+            ? ` · ${translateBy(lang, "admin_side_fill")} ${Math.round(layoutAtMax.sideFillPx)}px`
             : ""}
           {" · "}
           {Math.round(layoutAtMax.imageWidthPx)}×{Math.round(layoutAtMax.imageHeightPx)}
         </span>
         {band ?
           <span className="text-sam-muted">
-            {lang === "en" ? "Visible" : "보이는 영역"} {lang === "en" ? "x" : "가로"} {pct(layout.visible.x0)}–
-            {pct(layout.visible.x1)} · {lang === "en" ? "y" : "세로"} {pct(layout.visible.y0)}–{pct(layout.visible.y1)}
+            {translateBy(lang, "admin_visible")} {translateBy(lang, "admin_x")} {pct(layout.visible.x0)}–
+            {pct(layout.visible.x1)} · {translateBy(lang, "admin_y")} {pct(layout.visible.y0)}–{pct(layout.visible.y1)}
           </span>
         : null}
       </div>
       {missingTablet ?
         <p className="text-xs text-sam-warning">
-          {lang === "en"
-            ? "No tablet band uploaded — this device shows normal pull-to-refresh without an ad."
-            : "태블릿 띠가 없어 이 기기에서는 광고 없이 일반 새로고침만 표시됩니다."}
+          {translateBy(lang, "admin_no_tablet_band_uploaded_this_device")}
         </p>
       : null}
       <div

@@ -159,10 +159,7 @@ export function AdminGiftInstancesPanel({
         onReset={lq.reset}
         pending={loading}
         showPeriod={false}
-        searchPlaceholder={safeT("gift_ops_instance_search", {
-          fallbackKo: "Public Gift Number / Store / 구매자",
-          fallbackEn: "Public Gift Number / Store / buyer",
-        })}
+        searchPlaceholder={safeT("gift_ops_instance_search")}
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
@@ -189,10 +186,7 @@ export function AdminGiftInstancesPanel({
           message={
             lq.isFiltered
               ? undefined
-              : safeT("gift_ops_instances_empty", {
-                  fallbackKo: "조건에 맞는 상품권이 없습니다.",
-                  fallbackEn: "No gift instances match this filter.",
-                })
+              : safeT("gift_ops_instances_empty")
           }
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
@@ -205,15 +199,15 @@ export function AdminGiftInstancesPanel({
               <thead>
                 <tr className="border-b border-sam-border text-xs text-sam-muted">
                   <th className="px-2 py-2">Gift #</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_col_image", { fallbackKo: "이미지", fallbackEn: "Image" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Product" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_field_buyer", { fallbackKo: "구매자", fallbackEn: "Buyer" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_field_owner", { fallbackKo: "현재 소유자", fallbackEn: "Owner" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_kpi_face", { fallbackKo: "최초 금액", fallbackEn: "Face" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_kpi_remaining", { fallbackKo: "현재 잔액", fallbackEn: "Remaining" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_field_issued_at", { fallbackKo: "발급일", fallbackEn: "Issued" })}</th>
-                  <th className="px-2 py-2">{safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" })}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_col_image")}</th>
+                  <th className="px-2 py-2">{safeT("gift_admin_field_title")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_field_store")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_field_buyer")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_field_owner")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_kpi_face")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_kpi_remaining")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_field_issued_at")}</th>
+                  <th className="px-2 py-2">{safeT("gift_ops_field_validity")}</th>
                   <th className="px-2 py-2">Status</th>
                   <th className="px-2 py-2" />
                 </tr>
@@ -247,7 +241,7 @@ export function AdminGiftInstancesPanel({
                         data-admin-gift-instance-detail-open="1"
                         onClick={() => openInstanceDetail(row)}
                       >
-                        {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                        {safeT("gift_ops_cta_detail")}
                       </AdminActionButton>
                     </td>
                   </tr>
@@ -283,7 +277,7 @@ export function AdminGiftInstancesPanel({
                   data-admin-gift-instance-detail-open="1"
                   onClick={() => openInstanceDetail(row)}
                 >
-                  {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                  {safeT("gift_ops_cta_detail")}
                 </AdminActionButton>
               </li>
             ))}

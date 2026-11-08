@@ -44,7 +44,7 @@ export function AdminDestinationResolvedHint({
     return (
       <p className={className} data-admin-destination-kind="invalid">
         <span className="font-medium text-sam-danger">
-          {safeTranslate(lang, "admin_destination_hint_invalid", { fallbackKo: "유효하지 않은 링크", fallbackEn: "Invalid link" })}
+          {safeTranslate(lang, "admin_destination_hint_invalid")}
         </span>{" "}
         {/* D-4: 코드값 대신 이유 문구 (단축 주소 → 「최종 주소를 넣어 주세요」) */}
         <span data-admin-destination-error={d.error ?? ""}>
@@ -64,13 +64,10 @@ export function AdminDestinationResolvedHint({
       {d.href ? <> · <span className="break-all">{d.href}</span></> : null}
       {nonAsciiHost ? (
         <span className="mt-1 block text-sam-warning" data-admin-destination-punycode="">
-          {safeTranslate(lang, "admin_destination_hint_real_address", { fallbackKo: "실제 주소", fallbackEn: "Actual address" })}:{" "}
+          {safeTranslate(lang, "admin_destination_hint_real_address")}:{" "}
           <span className="break-all font-mono">{d.href}</span>
           <span className="block">
-            {safeTranslate(lang, "admin_destination_hint_real_address_note", {
-              fallbackKo: "입력한 도메인에 한글·특수 문자가 있어 실제 주소로 바꿔 보여 줍니다.",
-              fallbackEn: "The domain had non-ASCII characters, so the actual address is shown.",
-            })}
+            {safeTranslate(lang, "admin_destination_hint_real_address_note")}
           </span>
         </span>
       ) : null}

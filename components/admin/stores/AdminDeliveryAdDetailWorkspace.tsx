@@ -85,6 +85,7 @@ import {
   isDeliveryAdLiveEndLifecycle,
   type DeliveryAdEndFault,
 } from "@/lib/stores/advertising/admin-delivery-ad-end";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
   "approve",
@@ -684,9 +685,7 @@ export function AdminDeliveryAdDetailWorkspace({
     const endIso = adminManilaInputToIso(endAt, campaign.endAt);
     if (!startIso || !endIso) {
       setError(
-        lang === "en"
-          ? "Enter both start and end (Philippine time)."
-          : "시작·종료 일시를 모두 입력하세요 (필리핀 시간)."
+        translateBy(lang, "admin_enter_both_start_and_end_philippine")
       );
       return;
     }
@@ -710,9 +709,7 @@ export function AdminDeliveryAdDetailWorkspace({
       if (!res.ok || !json.ok) {
         if (json.error === "use_extension_flow") {
           setError(
-            lang === "en"
-              ? "To extend the end date, use Period extension below (PAID or compensation)."
-              : "종료일 연장은 아래 「기간 연장」에서 유료/보상으로 처리하세요."
+            translateBy(lang, "admin_to_extend_the_end_date_use")
           );
         } else {
           setError(json.error || "update_failed");
@@ -771,9 +768,7 @@ export function AdminDeliveryAdDetailWorkspace({
     if (!quote || quote.daysAdded !== extendDays) {
       setExtendQuote(null);
       setError(
-        lang === "en"
-          ? "Preview the cost again for the current input before applying."
-          : "현재 입력으로 비용 미리보기를 다시 한 뒤 실행하세요."
+        translateBy(lang, "admin_preview_the_cost_again_for_the")
       );
       return;
     }
@@ -1109,17 +1104,12 @@ export function AdminDeliveryAdDetailWorkspace({
             href="/admin/advertising"
             className="text-[12px] text-sam-primary underline-offset-2 hover:underline"
           >
-            ← {lang === "en" ? "Back to ads" : "광고 목록으로"}
+            ← {translateBy(lang, "admin_back_to_ads")}
           </Link>
           <h1 className="mt-1 text-[20px] font-bold text-sam-fg">
             {campaign
-              ? lang === "en"
-                ? "Review ad application"
-                : "광고 신청 검토"
-              : safeT("admin_delivery_ads_detail_title", {
-                  fallbackKo: "광고 상세",
-                  fallbackEn: "Ad detail",
-                })}
+              ? translateBy(lang, "admin_review_ad_application")
+              : safeT("admin_delivery_ads_detail_title")}
           </h1>
           {campaign ? (
             <p className="mt-1 text-[14px] text-sam-muted">
@@ -1132,7 +1122,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     className="text-[12px] font-semibold text-sam-primary underline-offset-2 hover:underline"
                     data-admin-delivery-ads-store-detail-link="1"
                   >
-                    {lang === "en" ? "Store detail" : "매장 상세"}
+                    {translateBy(lang, "admin_store_detail")}
                   </Link>
                 </>
               ) : null}
@@ -1147,10 +1137,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
         {loading ? (
           <p className="text-[13px] text-sam-muted" role="status">
-            {safeT("admin_delivery_ads_loading", {
-              fallbackKo: "불러오는 중…",
-              fallbackEn: "Loading…",
-            })}
+            {safeT("admin_delivery_ads_loading")}
           </p>
         ) : null}
         {error ? (
@@ -1167,28 +1154,22 @@ export function AdminDeliveryAdDetailWorkspace({
           >
             <p className="text-[14px] font-semibold text-sam-fg">
               {reviewSuccessKind === "approve"
-                ? lang === "en"
-                  ? "Ad approved."
-                  : "광고가 승인되었습니다."
+                ? translateBy(lang, "admin_ad_approved")
                 : reviewSuccessKind === "request_changes"
-                  ? lang === "en"
-                    ? "Ad held."
-                    : "광고가 보류되었습니다."
-                  : lang === "en"
-                    ? "Ad rejected."
-                    : "광고가 반려되었습니다."}
+                  ? translateBy(lang, "admin_ad_held")
+                  : translateBy(lang, "admin_ad_rejected")}
             </p>
             {reviewSuccessKind === "approve" ? (
               <div className="mt-2 space-y-1 text-[13px]">
-                <p className="font-semibold">{lang === "en" ? "Approved" : "승인 완료"}</p>
+                <p className="font-semibold">{translateBy(lang, "admin_biz_ops_badge_approved")}</p>
                 <p>
-                  <span className="text-sam-muted">{lang === "en" ? "Placement" : "노출 위치"}: </span>
+                  <span className="text-sam-muted">{translateBy(lang, "admin_delivery_ads_first_party_placement")}: </span>
                   {(campaign.inventoryKeys ?? [])
                     .map((k) => adminDeliveryAdInventoryHumanLabel(k, lang))
                     .join(" · ") || "—"}
                 </p>
                 <p>
-                  <span className="text-sam-muted">{lang === "en" ? "Operating" : "운영 상태"}: </span>
+                  <span className="text-sam-muted">{translateBy(lang, "admin_operating")}: </span>
                   {safeT(
                     `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
                     {
@@ -1202,7 +1183,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   className="mt-2 inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
                   data-admin-delivery-ops-link="1"
                 >
-                  {lang === "en" ? "View in operations" : "노출 관리에서 보기"}
+                  {translateBy(lang, "admin_view_in_operations")}
                 </Link>
               </div>
             ) : null}
@@ -1220,10 +1201,7 @@ export function AdminDeliveryAdDetailWorkspace({
               data-lifecycle={campaign.lifecycleStatus}
             >
               <p className="text-[12px] font-semibold uppercase tracking-wide opacity-80">
-                {safeT("admin_delivery_ads_rd_current_status", {
-                  fallbackKo: "현재 상태",
-                  fallbackEn: "Current status",
-                })}
+                {safeT("admin_delivery_ads_rd_current_status")}
               </p>
               <p className="mt-1 text-[14px] font-semibold text-sam-fg">
                 {safeT(
@@ -1235,19 +1213,13 @@ export function AdminDeliveryAdDetailWorkspace({
                 )}
               </p>
               <p className="mt-3 text-[12px] font-semibold uppercase tracking-wide opacity-80">
-                {safeT("admin_delivery_ads_rd_section", {
-                  fallbackKo: "지금 해야 할 일",
-                  fallbackEn: "What to do now",
-                })}
+                {safeT("admin_delivery_ads_rd_section")}
               </p>
               <p className="mt-1 text-[16px] font-bold">{t(requiredDecision.titleKey)}</p>
               <p className="mt-2 text-[13px] leading-snug">{t(requiredDecision.bodyKey)}</p>
               {campaign.reviewNotes ? (
                 <p className="mt-3 text-[13px] whitespace-pre-wrap break-words">
-                  {safeT("admin_delivery_ads_owner_visible_notes", {
-                    fallbackKo: "Owner 공개 메모",
-                    fallbackEn: "Owner-visible notes",
-                  })}
+                  {safeT("admin_delivery_ads_owner_visible_notes")}
                   : {campaign.reviewNotes}
                 </p>
               ) : null}
@@ -1259,10 +1231,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   className="mt-3"
                   data-admin-delivery-ads-action="produce_banner"
                 >
-                  {safeT("admin_delivery_ads_creative_produce_cta", {
-                    fallbackKo: "배너 제작하기",
-                    fallbackEn: "Produce banner",
-                  })}
+                  {safeT("admin_delivery_ads_creative_produce_cta")}
                 </AdminActionLink>
               ) : null}
               {requiredDecision.decisionRequired &&
@@ -1281,9 +1250,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         writeBlocked
                           ? writeBlockedTitle
                           : approveBlocked
-                          ? lang === "en"
-                            ? "Banner creative is not ready for approval"
-                            : "배너 소재가 준비되지 않아 승인할 수 없습니다"
+                          ? translateBy(lang, "admin_banner_creative_is_not_ready_for")
                           : undefined
                       }
                       data-admin-delivery-ads-action={action}
@@ -1302,9 +1269,7 @@ export function AdminDeliveryAdDetailWorkspace({
               bannerPublishReady?.ok === false &&
               requiredDecision.primaryReviewActions.includes("approve") ? (
                 <p className="mt-2 text-[12px] text-sam-warning">
-                  {lang === "en"
-                    ? "Approve is disabled because banner creative is not ready."
-                    : "승인이 비활성인 이유: 배너 소재가 아직 준비되지 않았습니다."}
+                  {translateBy(lang, "admin_approve_is_disabled_because_banner_creative")}
                 </p>
               ) : null}
             </section>
@@ -1320,10 +1285,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   <dl className="grid gap-2 text-[13px]" data-admin-delivery-ads-detail-section="facts">
                   <div>
                     <dt className="text-sam-muted">
-                      {safeT("admin_delivery_ads_product_label", {
-                        fallbackKo: "상품",
-                        fallbackEn: "Product",
-                      })}
+                      {safeT("admin_delivery_ads_product_label")}
                     </dt>
                     <dd>
                       {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
@@ -1334,22 +1296,19 @@ export function AdminDeliveryAdDetailWorkspace({
                   </div>
                   <div>
                     <dt className="text-sam-muted">
-                      {lang === "en" ? "Store" : "매장"}
+                      {translateBy(lang, "admin_store")}
                     </dt>
                     <dd>{campaign.storeName || "—"}</dd>
                   </div>
                   <div>
                     <dt className="text-sam-muted">
-                      {lang === "en" ? "Owner" : "사장님"}
+                      {translateBy(lang, "admin_r4a_actor_owner")}
                     </dt>
                     <dd>{campaign.ownerDisplayName || "—"}</dd>
                   </div>
                   <div>
                     <dt className="text-sam-muted">
-                      {safeT("admin_delivery_ads_inventory_label", {
-                        fallbackKo: "광고 지면",
-                        fallbackEn: "Placement",
-                      })}
+                      {safeT("admin_delivery_ads_inventory_label")}
                     </dt>
                     <dd>
                       {(campaign.inventoryKeys ?? [])
@@ -1359,7 +1318,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   </div>
                   <div>
                     <dt className="text-sam-muted">
-                      {lang === "en" ? "Status" : "상태"}
+                      {translateBy(lang, "admin_status")}
                     </dt>
                     <dd>
                       {safeT(
@@ -1373,7 +1332,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   </div>
                   <div>
                     <dt className="text-sam-muted">
-                      {lang === "en" ? "Period" : "기간"}
+                      {translateBy(lang, "admin_period")}
                     </dt>
                     <dd className="text-sam-fg">
                       {formatAdminManilaDateTime(campaign.startAt)}
@@ -1383,7 +1342,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   </div>
                   <div>
                     <dt className="text-sam-muted">
-                      {lang === "en" ? "Remaining" : "남은 기간"}
+                      {translateBy(lang, "admin_remaining")}
                     </dt>
                     <dd>
                       {adsRemainingPeriodLabel(campaign.startAt, campaign.endAt, lang !== "en") ||
@@ -1393,7 +1352,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 </dl>
                 <details className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-2 py-1.5">
                   <summary className="cursor-pointer text-[12px] text-sam-muted">
-                    {lang === "en" ? "Technical info" : "기술 정보"}
+                    {translateBy(lang, "admin_technical_info")}
                   </summary>
                   <p className="mt-1 break-all font-mono text-[12px] text-sam-muted">
                     ID {campaign.id}
@@ -1407,10 +1366,7 @@ export function AdminDeliveryAdDetailWorkspace({
               <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={fundingExpanded}
                 onClick={() => setFundingExpanded((v) => !v)}
               >
-                {safeT("admin_delivery_ads_section_funding_title", {
-                  fallbackKo: "결제",
-                  fallbackEn: "Funding",
-                })}
+                {safeT("admin_delivery_ads_section_funding_title")}
                 <span>{fundingExpanded ? "−" : "+"}</span>
               </AdminActionButton>
               {fundingExpanded ? (
@@ -1435,10 +1391,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     {fundedAt ? ` · ${formatAdminManilaDateTime(fundedAt)} PHT` : ""}
                   </p>
                   <p data-admin-business-cash-balance="1">
-                    {safeT("admin_delivery_ads_owner_cash_balance", {
-                      fallbackKo: "매장의 Cash 잔액",
-                      fallbackEn: "Store's Cash balance",
-                    })}
+                    {safeT("admin_delivery_ads_owner_cash_balance")}
                     :{" "}
                     {ownerCashBalanceMinor == null
                       ? "—"
@@ -1455,18 +1408,10 @@ export function AdminDeliveryAdDetailWorkspace({
                     data-admin-ast005-authority="1"
                   >
                     <p className="text-[12px] font-semibold text-sam-fg">
-                      {safeT("admin_delivery_ads_cash_credit_title", {
-                        fallbackKo: "광고 결제 = Cash",
-                        fallbackEn: "Ads payment = Cash",
-                      })}
+                      {safeT("admin_delivery_ads_cash_credit_title")}
                     </p>
                     <p className="mt-1 text-[12px] text-sam-muted">
-                      {safeT("admin_delivery_ads_cash_credit_note", {
-                        fallbackKo:
-                          "광고비는 신청 시 Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다. 결제만으로 ACTIVE 되지 않습니다.",
-                        fallbackEn:
-                          "Ad fees are secured from Cash at submit. Admins cannot edit the amount. Payment alone never goes ACTIVE.",
-                      })}
+                      {safeT("admin_delivery_ads_cash_credit_note")}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {campaign.storeId ? (
@@ -1475,10 +1420,7 @@ export function AdminDeliveryAdDetailWorkspace({
                           className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-[var(--currency-cash-border)] bg-sam-surface px-3 text-[12px] font-semibold text-[var(--currency-cash-accent)]"
                           data-admin-delivery-ads-finance-link="1"
                         >
-                          {safeT("admin_delivery_ads_open_store_finance", {
-                            fallbackKo: "매장의 Cash/Coin 보기",
-                            fallbackEn: "Open the store's Cash/Coin",
-                          })}
+                          {safeT("admin_delivery_ads_open_store_finance")}
                         </Link>
                       ) : null}
                       <Link
@@ -1486,10 +1428,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[12px] font-semibold text-sam-fg"
                         data-admin-delivery-ads-cash-queue-link="1"
                       >
-                        {safeT("admin_delivery_ads_open_cash_queue", {
-                          fallbackKo: "Cash 충전 대기열",
-                          fallbackEn: "Cash top-up queue",
-                        })}
+                        {safeT("admin_delivery_ads_open_cash_queue")}
                       </Link>
                     </div>
                   </div>
@@ -1502,10 +1441,7 @@ export function AdminDeliveryAdDetailWorkspace({
               <div data-admin-delivery-ads-detail-section="preview">
                 <AdminCard titleKey="admin_delivery_ads_section_preview">
                   <DeliveryAdOwnerPhoneFrame
-                    label={safeT("admin_delivery_ads_section_preview", {
-                      fallbackKo: "노출 예시",
-                      fallbackEn: "Exposure example",
-                    })}
+                    label={safeT("admin_delivery_ads_section_preview")}
                   >
                     <DeliveryAdCampaignPlacementPreviews
                       productKind={campaign.productKind}
@@ -1529,14 +1465,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   {bannerPublishReady ? (
                     <p className="mt-2 text-[12px] text-sam-muted">
                       {bannerPublishReady.ok
-                        ? safeT("admin_delivery_ads_publish_ready", {
-                            fallbackKo: "승인 가능: 제작·목적지 준비됨",
-                            fallbackEn: "Approve-ready: creative & destination OK",
-                          })
-                        : safeT("admin_delivery_ads_publish_blocked", {
-                            fallbackKo: `승인 차단: ${bannerPublishReady.reasons.join(", ")}`,
-                            fallbackEn: `Approve blocked: ${bannerPublishReady.reasons.join(", ")}`,
-                          })}
+                        ? safeT("admin_delivery_ads_publish_ready")
+                        : safeT("admin_delivery_ads_publish_blocked")}
                     </p>
                   ) : null}
                 </AdminCard>
@@ -1555,14 +1485,8 @@ export function AdminDeliveryAdDetailWorkspace({
                     data-creative-title="produce"
                   >
                     {isDeliveryBannerCreativeAssetReady(creative?.assetPath || campaign.imageUrl)
-                      ? safeT("admin_delivery_ads_creative_status_ready", {
-                          fallbackKo: "제작 완료",
-                          fallbackEn: "Ready",
-                        })
-                      : safeT("admin_delivery_ads_creative_status_needs_production", {
-                          fallbackKo: "제작 필요",
-                          fallbackEn: "Needs production",
-                        })}
+                      ? safeT("admin_delivery_ads_creative_status_ready")
+                      : safeT("admin_delivery_ads_creative_status_needs_production")}
                   </p>
                   <AdminActionLink
                     href={`${DELIVERY_AD_ADMIN_ROUTES.creative(campaignId)}?product=banner`}
@@ -1570,10 +1494,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     className="mt-3"
                     data-admin-delivery-ads-creative-studio-link="1"
                   >
-                    {safeT("admin_delivery_ads_creative_produce_cta", {
-                      fallbackKo: "배너 제작 스튜디오 열기",
-                      fallbackEn: "Open banner studio",
-                    })}
+                    {safeT("admin_delivery_ads_creative_produce_cta")}
                   </AdminActionLink>
                 </AdminCard>
               </div>
@@ -1584,10 +1505,7 @@ export function AdminDeliveryAdDetailWorkspace({
               <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={decisionActionsExpanded}
                 onClick={() => setDecisionActionsExpanded((v) => !v)}
               >
-                {safeT("admin_delivery_ads_section_decision_actions", {
-                  fallbackKo: "추가 검수 액션",
-                  fallbackEn: "Additional review actions",
-                })}
+                {safeT("admin_delivery_ads_section_decision_actions")}
                 <span>{decisionActionsExpanded ? "−" : "+"}</span>
               </AdminActionButton>
               {decisionActionsExpanded ? (
@@ -1649,18 +1567,10 @@ export function AdminDeliveryAdDetailWorkspace({
               data-admin-delivery-ads-support-ops-split="1"
             >
               <p className="text-[12px] font-semibold text-sam-fg">
-                {safeT("admin_delivery_ads_related_support_title", {
-                  fallbackKo: "관련 문의",
-                  fallbackEn: "Related Support cases",
-                })}
+                {safeT("admin_delivery_ads_related_support_title")}
               </p>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_related_support_note", {
-                  fallbackKo:
-                    "고객지원 문의입니다. 광고 승인·정지는 아래 운영 대화가 아니라 「광고 운영 조치」에서 처리합니다.",
-                  fallbackEn:
-                    "Customer support cases. Approve/pause ads via Ads lifecycle — not this Support inbox.",
-                })}
+                {safeT("admin_delivery_ads_related_support_note")}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
@@ -1668,10 +1578,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[12px] font-semibold text-sam-fg"
                   data-admin-delivery-ads-support-link="1"
                 >
-                  {safeT("admin_delivery_ads_open_related_support", {
-                    fallbackKo: "관련 문의 열기",
-                    fallbackEn: "Open related Support",
-                  })}
+                  {safeT("admin_delivery_ads_open_related_support")}
                 </Link>
                 {campaign.storeId ? (
                   <Link
@@ -1679,10 +1586,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[12px] font-semibold text-sam-fg"
                     data-admin-delivery-ads-store-support-link="1"
                   >
-                    {safeT("admin_delivery_ads_open_store_support", {
-                      fallbackKo: "매장 Support 보기",
-                      fallbackEn: "Store Support inbox",
-                    })}
+                    {safeT("admin_delivery_ads_open_store_support")}
                   </Link>
                 ) : null}
               </div>
@@ -1693,10 +1597,7 @@ export function AdminDeliveryAdDetailWorkspace({
               <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={opsExpanded}
                 onClick={() => setOpsExpanded((v) => !v)}
               >
-                {safeT("admin_delivery_ads_section_operations", {
-                  fallbackKo: "운영 대화 (Ops)",
-                  fallbackEn: "Ops conversation",
-                })}
+                {safeT("admin_delivery_ads_section_operations")}
                 <span>{opsExpanded ? "−" : "+"}</span>
               </AdminActionButton>
               {opsExpanded ? (
@@ -1719,10 +1620,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 {campaign.productKind === "banner" ? (
                   <div className="mb-3 space-y-2">
                     <label className="flex flex-col gap-1 text-[12px]">
-                      {safeT("admin_delivery_ads_inventory_label", {
-                        fallbackKo: "광고 지면",
-                        fallbackEn: "Placement",
-                      })}
+                      {safeT("admin_delivery_ads_inventory_label")}
                       <select
                         className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
                         value={editInventoryKey}
@@ -1743,10 +1641,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       title={writeBlockedTitle}
                       onClick={() => void saveInventory()}
                     >
-                      {safeT("admin_delivery_ads_save_inventory", {
-                        fallbackKo: "지면 저장",
-                        fallbackEn: "Save placement",
-                      })}
+                      {safeT("admin_delivery_ads_save_inventory")}
                     </AdminActionButton>
                   </div>
                 ) : null}
@@ -1772,10 +1667,7 @@ export function AdminDeliveryAdDetailWorkspace({
                             className="text-signature underline underline-offset-2"
                             data-admin-ads-placement-map-link={key}
                           >
-                            {safeT("admin_delivery_ads_view_app_placement", {
-                              fallbackKo: "앱 위치 보기",
-                              fallbackEn: "View app placement",
-                            })}
+                            {safeT("admin_delivery_ads_view_app_placement")}
                           </Link>
                           {href ? (
                             <Link
@@ -1798,7 +1690,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 </div>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <label className="flex flex-1 flex-col gap-1 text-[12px]">
-                    {lang === "en" ? "Start (PHT)" : "시작 (필리핀 시간)"}
+                    {translateBy(lang, "admin_start_pht")}
                     <input
                       type="datetime-local"
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
@@ -1807,7 +1699,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     />
                   </label>
                   <label className="flex flex-1 flex-col gap-1 text-[12px]">
-                    {lang === "en" ? "End (PHT)" : "종료 (필리핀 시간)"}
+                    {translateBy(lang, "admin_end_pht")}
                     <input
                       type="datetime-local"
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
@@ -1821,18 +1713,10 @@ export function AdminDeliveryAdDetailWorkspace({
                   title={writeBlockedTitle}
                   onClick={() => void saveSchedule()}
                 >
-                  {safeT("admin_delivery_ads_save_schedule", {
-                    fallbackKo: "일정 저장",
-                    fallbackEn: "Save schedule",
-                  })}
+                  {safeT("admin_delivery_ads_save_schedule")}
                 </AdminActionButton>
                 <p className="mt-2 text-[12px] text-sam-muted">
-                  {safeT("admin_delivery_ads_schedule_no_silent_extend", {
-                    fallbackKo:
-                      "종료일을 늘리려면 「일정 저장」이 아니라 아래 기간 연장(유료/보상)을 사용하세요. 숨김 CTA는 없습니다 — 일시중지·종료만 지원합니다.",
-                    fallbackEn:
-                      "To lengthen end date, use Period extension (PAID/compensation) below — not Save schedule. No hide CTA — pause and end only.",
-                  })}
+                  {safeT("admin_delivery_ads_schedule_no_silent_extend")}
                 </p>
 
                 <div
@@ -1840,10 +1724,7 @@ export function AdminDeliveryAdDetailWorkspace({
                   data-admin-delivery-ads-extension="1"
                 >
                   <p className="text-[13px] font-semibold text-sam-fg">
-                    {safeT("admin_delivery_ads_extension_title", {
-                      fallbackKo: "기간 연장",
-                      fallbackEn: "Period extension",
-                    })}
+                    {safeT("admin_delivery_ads_extension_title")}
                   </p>
                   <div className="flex flex-wrap gap-2 text-[12px]">
                     <label className="flex items-center gap-1">
@@ -1856,7 +1737,7 @@ export function AdminDeliveryAdDetailWorkspace({
                           setExtendQuote(null);
                         }}
                       />
-                      {lang === "en" ? "Paid" : "유료 연장"}
+                      {translateBy(lang, "admin_paid")}
                     </label>
                     <label className="flex items-center gap-1">
                       <input
@@ -1868,11 +1749,11 @@ export function AdminDeliveryAdDetailWorkspace({
                           setExtendQuote(null);
                         }}
                       />
-                      {lang === "en" ? "Ops compensation" : "운영 보상 연장"}
+                      {translateBy(lang, "admin_ops_compensation")}
                     </label>
                   </div>
                   <label className="flex flex-col gap-1 text-[12px]">
-                    {lang === "en" ? "Days to add" : "추가 일수"}
+                    {translateBy(lang, "admin_days_to_add")}
                     <input
                       type="number"
                       min={1}
@@ -1888,22 +1769,20 @@ export function AdminDeliveryAdDetailWorkspace({
                   {extendQuote ? (
                     <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-delivery-ads-extension-quote="1">
                       <li>
-                        {lang === "en" ? "Current end" : "현재 종료"}:{" "}
+                        {translateBy(lang, "admin_current_end")}:{" "}
                         {formatAdminManilaDateTime(extendQuote.previousEndAt)}
                       </li>
                       <li>
-                        {lang === "en" ? "New end" : "변경 후 종료"}:{" "}
+                        {translateBy(lang, "admin_new_end")}:{" "}
                         {formatAdminManilaDateTime(extendQuote.newEndAt)}
                       </li>
                       <li>
-                        {lang === "en" ? "Days" : "일수"}: {extendQuote.daysAdded}
+                        {translateBy(lang, "admin_days_2")}: {extendQuote.daysAdded}
                       </li>
                       <li>
-                        {lang === "en" ? "Amount" : "추가 비용"}:{" "}
+                        {translateBy(lang, "admin_amount")}:{" "}
                         {extendKind === "ADMIN_FREE_COMPENSATION"
-                          ? lang === "en"
-                            ? "0 (compensation)"
-                            : "0 (보상)"
+                          ? translateBy(lang, "admin_text")
                           : `${(extendQuote.amountMinor / 100).toFixed(2)} ${extendQuote.currency}`}
                       </li>
                     </ul>
@@ -1913,14 +1792,14 @@ export function AdminDeliveryAdDetailWorkspace({
                       disabled={extendBusy}
                       onClick={() => void previewExtendQuote()}
                     >
-                      {lang === "en" ? "Preview cost" : "비용 미리보기"}
+                      {translateBy(lang, "admin_preview_cost")}
                     </AdminActionButton>
                     <AdminActionButton variant="secondary" size="sm"
                       disabled={extendBusy || !extendQuote || writeBlocked}
                       title={writeBlockedTitle}
                       onClick={() => void submitExtend()}
                     >
-                      {lang === "en" ? "Apply extension" : "연장 실행"}
+                      {translateBy(lang, "admin_apply_extension")}
                     </AdminActionButton>
                   </div>
                 </div>
@@ -1933,10 +1812,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 <AdminActionButton variant="secondary" className="w-full !justify-between" aria-expanded={perfExpanded}
                   onClick={() => setPerfExpanded((v) => !v)}
                 >
-                  {safeT("admin_delivery_ads_section_performance", {
-                    fallbackKo: "성과",
-                    fallbackEn: "Performance",
-                  })}
+                  {safeT("admin_delivery_ads_section_performance")}
                   <span>{perfExpanded ? "−" : "+"}</span>
                 </AdminActionButton>
                 {perfExpanded ? (
@@ -1970,14 +1846,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   onClick={() => setAuditExpanded((v) => !v)}
                 >
                   {auditExpanded
-                    ? safeT("admin_delivery_ads_audit_hide", {
-                        fallbackKo: "변경 기록 숨기기",
-                        fallbackEn: "Hide change history",
-                      })
-                    : safeT("admin_delivery_ads_audit_collapsed", {
-                        fallbackKo: "변경 기록 보기",
-                        fallbackEn: "Show change history",
-                      })}
+                    ? safeT("admin_delivery_ads_audit_hide")
+                    : safeT("admin_delivery_ads_audit_collapsed")}
                 </AdminActionButton>
                 {auditExpanded ? (
                   <div className="mt-3">

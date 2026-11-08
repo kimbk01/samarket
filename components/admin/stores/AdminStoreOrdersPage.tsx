@@ -47,6 +47,7 @@ import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/ad
 import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatManilaDateTime, type StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 
 type SearchForm = {
@@ -135,16 +136,14 @@ function Pager({
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 sam-text-helper" data-admin-orders-pager="1">
       <span className="text-sam-muted tabular-nums">
-        {lang === "ko"
-          ? `전체 ${total.toLocaleString()}건 · ${from.toLocaleString()}–${to.toLocaleString()}`
-          : `${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`}
+        {translateBy(lang, "admin_v1_v2_of_v3", { v3: total.toLocaleString(), v1: from.toLocaleString(), v2: to.toLocaleString() }, "en")}
       </span>
       <div className="flex flex-wrap items-center gap-1.5">
         <button type="button" className={PAGER_BTN} disabled={busy || page <= 1} onClick={() => go(1)} aria-label="first page">
           «
         </button>
         <button type="button" className={PAGER_BTN} disabled={busy || page <= 1} onClick={() => go(page - 1)}>
-          {lang === "ko" ? "이전" : "Prev"}
+          {translateBy(lang, "admin_prev", undefined, "en")}
         </button>
         <form
           className="flex items-center gap-1"
@@ -159,12 +158,12 @@ function Pager({
             value={jump}
             onChange={(e) => setJump(e.target.value.replace(/\D/g, ""))}
             disabled={busy || pages <= 1}
-            aria-label={lang === "ko" ? "페이지 번호" : "Page number"}
+            aria-label={translateBy(lang, "admin_page_number", undefined, "en")}
           />
           <span className="tabular-nums text-sam-muted">/ {pages.toLocaleString()}</span>
         </form>
         <button type="button" className={PAGER_BTN} disabled={busy || page >= pages} onClick={() => go(page + 1)}>
-          {lang === "ko" ? "다음" : "Next"}
+          {translateBy(lang, "admin_next", undefined, "en")}
         </button>
         <button type="button" className={PAGER_BTN} disabled={busy || page >= pages} onClick={() => go(pages)} aria-label="last page">
           »

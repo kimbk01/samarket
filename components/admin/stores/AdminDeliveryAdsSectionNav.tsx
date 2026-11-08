@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const NAV_ITEMS = [
   {
@@ -61,10 +62,7 @@ export function AdminDeliveryAdsSectionNav() {
       className="mb-4 flex flex-wrap items-center justify-between gap-2"
       data-admin-delivery-ads-section-nav="1"
       data-admin-delivery-ads-nav-layout="tabs-plus-primary"
-      aria-label={safeT("admin_delivery_ads_section_nav_aria", {
-        fallbackKo: "배달 광고 관리 메뉴",
-        fallbackEn: "Delivery ads admin menu",
-      })}
+      aria-label={safeT("admin_delivery_ads_section_nav_aria")}
     >
       <div className="flex flex-wrap gap-2" data-admin-ads-nav-tabs="1">
         {NAV_ITEMS.map((item) => {
@@ -98,7 +96,7 @@ export function AdminDeliveryAdsSectionNav() {
         data-admin-delivery-ads-first-party-cta="1"
         aria-current={createActive ? "page" : undefined}
       >
-        {lang === "en" ? "+ Create DIBAY ad" : "+ 디바이 광고 만들기"}
+        {translateBy(lang, "admin_create_dibay_ad")}
       </Link>
     </nav>
   );

@@ -60,19 +60,13 @@ export function AdminSanctionPanel({
     setError(null);
     if (TRADE_REPORT_ACCOUNT_ACTIONS_MCC_ONLY.has(actionType)) {
       setError(
-        safeT("admin_report_action_mcc_only", {
-          fallbackKo: "계정 제재는 MCC에서만 실행됩니다.",
-          fallbackEn: "Account sanctions run only in MCC.",
-        })
+        safeT("admin_report_action_mcc_only")
       );
       return;
     }
     if (TRADE_REPORT_LEDGER_ACTIONS.has(actionType) && isChatTarget) {
       setError(
-        safeT("admin_report_action_chat_no_ledger", {
-          fallbackKo: "채팅 신고에는 회원 원장 제재를 넣을 수 없습니다.",
-          fallbackEn: "Chat reports cannot write member ledger sanctions.",
-        })
+        safeT("admin_report_action_chat_no_ledger")
       );
       return;
     }
@@ -140,12 +134,7 @@ export function AdminSanctionPanel({
         className="mb-3 rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
         data-testid="admin-report-authority-banner"
       >
-        {safeT("admin_report_authority_banner", {
-          fallbackKo:
-            "콘텐츠 조치(기각/숨김)=Trade reports writer · 계정 정지·차단=MCC만 집행 · 경고/채팅제한=sanctions 원장(비집행).",
-          fallbackEn:
-            "Content (reject/hide)=Trade reports writer · Account suspend/ban=MCC only · Warn/chat_ban=sanctions ledger (non-enforcing).",
-        })}
+        {safeT("admin_report_authority_banner")}
       </div>
       {error && <p className="mb-2 sam-text-body-secondary text-sam-danger">{error}</p>}
       {targetLabel && (
@@ -155,10 +144,7 @@ export function AdminSanctionPanel({
         </p>
       )}
       <p className="mb-1 sam-text-helper font-medium text-sam-fg">
-        {safeT("admin_report_content_actions_label", {
-          fallbackKo: "콘텐츠 조치",
-          fallbackEn: "Content actions",
-        })}
+        {safeT("admin_report_content_actions_label")}
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
         {CONTENT_OPTIONS.map(({ type, labelKey }) => (
@@ -174,10 +160,7 @@ export function AdminSanctionPanel({
       </div>
 
       <p className="mb-1 sam-text-helper font-medium text-sam-fg">
-        {safeT("admin_report_ledger_actions_label", {
-          fallbackKo: "원장 기록 (비집행)",
-          fallbackEn: "Ledger notes (non-enforcing)",
-        })}
+        {safeT("admin_report_ledger_actions_label")}
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
         {LEDGER_OPTIONS.map(({ type, labelKey }) => (
@@ -188,10 +171,7 @@ export function AdminSanctionPanel({
             onClick={() => void handleAction(type)}
             title={
               isChatTarget
-                ? safeT("admin_report_action_chat_no_ledger", {
-                    fallbackKo: "채팅 신고에는 회원 원장 제재를 넣을 수 없습니다.",
-                    fallbackEn: "Chat reports cannot write member ledger sanctions.",
-                  })
+                ? safeT("admin_report_action_chat_no_ledger")
                 : undefined
             }
           >
@@ -201,10 +181,7 @@ export function AdminSanctionPanel({
       </div>
 
       <p className="mb-1 sam-text-helper font-medium text-sam-fg">
-        {safeT("admin_report_account_actions_label", {
-          fallbackKo: "계정 제재 (MCC)",
-          fallbackEn: "Account sanctions (MCC)",
-        })}
+        {safeT("admin_report_account_actions_label")}
       </p>
       <div className="flex flex-wrap gap-2">
         {mccUserId ? (
@@ -214,17 +191,11 @@ export function AdminSanctionPanel({
             data-testid="admin-report-mcc-sanction-link"
             prefetch={false}
           >
-            {safeT("admin_report_open_mcc_sanction", {
-              fallbackKo: "MCC에서 계정 제재 열기",
-              fallbackEn: "Open account sanction in MCC",
-            })}
+            {safeT("admin_report_open_mcc_sanction")}
           </Link>
         ) : (
           <p className="sam-text-body-secondary text-sam-muted">
-            {safeT("admin_report_mcc_target_missing", {
-              fallbackKo: "계정 제재용 회원 ID가 없습니다. 대상 회원/게시글을 확인하세요.",
-              fallbackEn: "No member id for MCC sanction. Check the target user/listing.",
-            })}
+            {safeT("admin_report_mcc_target_missing")}
           </p>
         )}
       </div>

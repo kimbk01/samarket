@@ -92,19 +92,13 @@ export function AdminAppLegalDocumentsPage() {
             href="/admin/app/legal/policy"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg"
           >
-            {safeT("admin_legal_consent_policy", {
-              fallbackKo: "동의 정책",
-              fallbackEn: "Consent policy",
-            })}
+            {safeT("admin_legal_consent_policy")}
           </Link>
           <Link
             href="/admin/app/legal/member-consents"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-medium text-sam-fg"
           >
-            {safeT("admin_legal_member_consents", {
-              fallbackKo: "회원별 동의 조회",
-              fallbackEn: "Member consents",
-            })}
+            {safeT("admin_legal_member_consents")}
           </Link>
           {action.allowed ? (
             <Link
@@ -131,18 +125,12 @@ export function AdminAppLegalDocumentsPage() {
         <AdminErrorState ko={ko} code={loadError} httpStatus={loadStatus} onRetry={reload} />
       ) : tableMissing ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          {safeT("admin_app_legal_table_missing", {
-            fallbackKo: "app_legal_documents 테이블이 없습니다. 마이그레이션을 적용해 주세요.",
-            fallbackEn: "app_legal_documents table is missing. Apply the migration.",
-          })}
+          {safeT("admin_app_legal_table_missing")}
         </p>
       ) : items.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={safeT("admin_app_legal_empty", {
-            fallbackKo: "등록된 법적 문서가 없습니다.",
-            fallbackEn: "No legal documents yet.",
-          })}
+          message={safeT("admin_app_legal_empty")}
         />
       ) : (
         <>

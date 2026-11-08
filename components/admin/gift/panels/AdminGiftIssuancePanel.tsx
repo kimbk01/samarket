@@ -98,37 +98,25 @@ function productOpsLabels(
   safeT: ReturnType<typeof useI18n>["safeT"]
 ): { sales: string; mall: string; window: string | null; customer: string } {
   const sales = p.archived_at
-    ? safeT("gift_ops_status_archived", { fallbackKo: "보관", fallbackEn: "Archived" })
+    ? safeT("gift_ops_status_archived")
     : p.active
-      ? safeT("gift_ops_status_active", { fallbackKo: "판매중", fallbackEn: "On sale" })
-      : safeT("gift_ops_status_paused", { fallbackKo: "일시중지", fallbackEn: "Paused" });
+      ? safeT("gift_ops_status_active")
+      : safeT("gift_ops_status_paused");
   const mall =
     p.mall_visible === false
-      ? safeT("gift_ops_mall_hidden_badge", { fallbackKo: "Mall 숨김", fallbackEn: "Mall hidden" })
-      : safeT("gift_ops_mall_visible_badge", { fallbackKo: "Mall 노출", fallbackEn: "Mall visible" });
+      ? safeT("gift_ops_mall_hidden_badge")
+      : safeT("gift_ops_mall_visible_badge");
   let window: string | null = null;
   if (p.customer_purchase_reason === "before_sales_start") {
-    window = safeT("gift_ops_sales_before_start", {
-      fallbackKo: "판매기간 전",
-      fallbackEn: "Before sales start",
-    });
+    window = safeT("gift_ops_sales_before_start");
   } else if (p.customer_purchase_reason === "after_sales_end") {
-    window = safeT("gift_ops_sales_after_end", {
-      fallbackKo: "판매기간 종료",
-      fallbackEn: "Sales ended",
-    });
+    window = safeT("gift_ops_sales_after_end");
   } else if (p.customer_purchase_reason === "issuance_cap_reached") {
-    window = safeT("gift_ops_issuance_cap_reached", {
-      fallbackKo: "발급한도 도달",
-      fallbackEn: "Issuance cap reached",
-    });
+    window = safeT("gift_ops_issuance_cap_reached");
   }
   const customer = p.customer_purchasable
-    ? safeT("gift_ops_customer_purchasable", { fallbackKo: "구매 가능", fallbackEn: "Purchasable" })
-    : safeT("gift_ops_customer_not_purchasable", {
-        fallbackKo: "구매 불가",
-        fallbackEn: "Not purchasable",
-      });
+    ? safeT("gift_ops_customer_purchasable")
+    : safeT("gift_ops_customer_not_purchasable");
   return { sales, mall, window, customer };
 }
 
@@ -152,8 +140,8 @@ export function AdminGiftIssuancePanel({
   const { safeT, language } = useI18n();
   const labelScope = (scope: string | undefined) =>
     scope === "PLATFORM"
-      ? safeT("gift_ops_type_platform", { fallbackKo: "DIBAY 상품권", fallbackEn: "DIBAY Gift" })
-      : safeT("gift_ops_type_store", { fallbackKo: "매장 상품권", fallbackEn: "Store Gift" });
+      ? safeT("gift_ops_type_platform")
+      : safeT("gift_ops_type_store");
   const router = useRouter();
   const [apps, setApps] = useState<ApplicationRow[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -256,10 +244,7 @@ export function AdminGiftIssuancePanel({
       } else {
         setDetail(null);
         setError(
-          safeT("gift_ops_app_load_fail", {
-            fallbackKo: "신청을 불러오지 못했습니다.",
-            fallbackEn: "Couldn’t load application.",
-          })
+          safeT("gift_ops_app_load_fail")
         );
       }
     },
@@ -306,14 +291,8 @@ export function AdminGiftIssuancePanel({
         }
         setError(
           json.error === "rejection_reason_required"
-            ? safeT("gift_admin_reject_reason_required", {
-                fallbackKo: "반려 사유를 입력해 주세요.",
-                fallbackEn: "Rejection reason is required.",
-              })
-            : safeT("gift_admin_action_fail", {
-                fallbackKo: "처리에 실패했습니다.",
-                fallbackEn: "Action failed.",
-              })
+            ? safeT("gift_admin_reject_reason_required")
+            : safeT("gift_admin_action_fail")
         );
         return;
       }
@@ -336,20 +315,9 @@ export function AdminGiftIssuancePanel({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: language !== "en",
-      title: safeT("gift_admin_register_confirm_title", {
-        fallbackKo: "상품권을 등록할까요?",
-        fallbackEn: "Register this gift product?",
-      }),
-      description: safeT("gift_admin_register_confirm_body", {
-        fallbackKo:
-          "등록하면 초안 상품이 만들어집니다. 판매는 상품 상세에서 [판매 시작]으로 시작합니다. 취소하면 등록되지 않습니다.",
-        fallbackEn:
-          "Confirm to create a draft product. Selling starts only after [Start selling] on product detail. Cancel leaves it unregistered.",
-      }),
-      confirmLabel: safeT("gift_admin_register_confirm_ok", {
-        fallbackKo: "등록 확정",
-        fallbackEn: "Confirm registration",
-      }),
+      title: safeT("gift_admin_register_confirm_title"),
+      description: safeT("gift_admin_register_confirm_body"),
+      confirmLabel: safeT("gift_admin_register_confirm_ok"),
     });
     if (!confirmed.ok) return;
 
@@ -397,41 +365,23 @@ export function AdminGiftIssuancePanel({
       const json = (await res.json()) as { ok?: boolean; product?: ProductRow; error?: string };
       if (!res.ok || !json.ok || !json.product) {
         setError(
-          safeT("gift_admin_product_fail", {
-            fallbackKo: "상품권 상품을 만들지 못했습니다.",
-            fallbackEn: "Could not create gift product.",
-          })
+          safeT("gift_admin_product_fail")
         );
         return;
       }
       const createdId = String(json.product.id);
       if (opts.applicationId) {
         await dibayAlert({
-          title: safeT("gift_admin_draft_created_title", {
-            fallbackKo: "상품 초안이 생성되었습니다",
-            fallbackEn: "Product draft created",
-          }),
-          description: safeT("gift_admin_draft_created_body", {
-            fallbackKo: "판매 시작 전에 Product Detail에서 최종 설정을 확인하세요.",
-            fallbackEn: "Review Product Detail and start selling when ready.",
-          }),
-          confirmLabel: safeT("gift_admin_draft_created_ok", {
-            fallbackKo: "상품 상세로",
-            fallbackEn: "Open product",
-          }),
+          title: safeT("gift_admin_draft_created_title"),
+          description: safeT("gift_admin_draft_created_body"),
+          confirmLabel: safeT("gift_admin_draft_created_ok"),
         });
         go({ tab: "products", products: "products", extra: { id: createdId } });
         return;
       }
       await dibayAlert({
-        title: safeT("gift_admin_product_success_title", {
-          fallbackKo: "초안 상품이 등록되었습니다. 판매는 상품 상세에서 시작합니다.",
-          fallbackEn: "Draft product registered. Start selling from product detail.",
-        }),
-        confirmLabel: safeT("gift_admin_draft_created_ok", {
-          fallbackKo: "상품 상세로",
-          fallbackEn: "Open product",
-        }),
+        title: safeT("gift_admin_product_success_title"),
+        confirmLabel: safeT("gift_admin_draft_created_ok"),
       });
       go({ tab: "products", products: "products", extra: { id: createdId } });
       return;
@@ -451,10 +401,7 @@ export function AdminGiftIssuancePanel({
             : "border border-sam-border bg-sam-surface",
         ].join(" ")}
       >
-        {safeT("gift_ops_sub_applications", {
-          fallbackKo: "매장 오너 판매 신청",
-          fallbackEn: "Owner sale applications",
-        })}
+        {safeT("gift_ops_sub_applications")}
       </Link>
       <Link
         href={buildAdminGiftOpsHref({ tab: "products", products: "products" })}
@@ -465,69 +412,61 @@ export function AdminGiftIssuancePanel({
             : "border border-sam-border bg-sam-surface",
         ].join(" ")}
       >
-        {safeT("gift_ops_sub_products", {
-          fallbackKo: "상품권 상품",
-          fallbackEn: "Gift products",
-        })}
+        {safeT("gift_ops_sub_products")}
       </Link>
     </div>
   );
 
   const productInstanceNote = (
     <p className="text-xs text-sam-muted">
-      {safeT("gift_ops_product_vs_instance", {
-        fallbackKo:
-          "PRODUCT는 판매 템플릿입니다. INSTANCE는 고객이 구매한 개별 상품권(Public Gift Number)입니다.",
-        fallbackEn:
-          "PRODUCT is the sellable template. INSTANCE is one purchased gift certificate (Public Gift Number).",
-      })}
+      {safeT("gift_ops_product_vs_instance")}
     </p>
   );
 
   const formFields = (
     <>
       <label className="block space-y-1 text-sm">
-        <span>{safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Title" })}</span>
+        <span>{safeT("gift_admin_field_title")}</span>
         <input className={Sam.input.base} value={prodTitle} onChange={(e) => setProdTitle(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
         <span>
-          {safeT("gift_ops_field_face_amount", { fallbackKo: "표시 금액", fallbackEn: "Display amount" })}
+          {safeT("gift_ops_field_face_amount")}
         </span>
         <input className={Sam.input.base} inputMode="numeric" value={prodFace} onChange={(e) => setProdFace(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
-        <span>{safeT("gift_ops_field_purchase", { fallbackKo: "판매가", fallbackEn: "Purchase price" })}</span>
+        <span>{safeT("gift_ops_field_purchase")}</span>
         <input className={Sam.input.base} inputMode="numeric" value={prodPrice} onChange={(e) => setProdPrice(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
         <span>
-          {safeT("gift_ops_field_fee_dibay", { fallbackKo: "DIBAY 수수료 %", fallbackEn: "DIBAY fee %" })}
+          {safeT("gift_ops_field_fee_dibay")}
         </span>
         <input className={Sam.input.base} inputMode="numeric" value={prodFee} onChange={(e) => setProdFee(e.target.value)} />
       </label>
       <GiftSalesDateTimeField
-        label={safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}
+        label={safeT("gift_ops_field_sales_start")}
         value={prodStart}
         onChange={setProdStart}
         allowEmpty={false}
         data-testid="app-create-start"
       />
       <GiftSalesDateTimeField
-        label={safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" })}
+        label={safeT("gift_ops_field_sales_end")}
         value={prodEnd}
         onChange={setProdEnd}
         data-testid="app-create-end"
       />
       <label className="block space-y-1 text-sm">
         <span>
-          {safeT("gift_ops_field_image_upload", { fallbackKo: "상품권 이미지 URL", fallbackEn: "Gift image URL" })}
+          {safeT("gift_ops_field_image_upload")}
         </span>
         <input className={Sam.input.base} value={prodImage} onChange={(e) => setProdImage(e.target.value)} />
       </label>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={prodTransferable} onChange={(e) => setProdTransferable(e.target.checked)} />
-        {safeT("gift_admin_field_transferable", { fallbackKo: "선물 가능", fallbackEn: "Transferable" })}
+        {safeT("gift_admin_field_transferable")}
       </label>
     </>
   );
@@ -537,20 +476,17 @@ export function AdminGiftIssuancePanel({
       <section className="space-y-4" data-admin-gift-issuance-success="1">
         {subTabs}
         <h2 className="text-[16px] font-semibold">
-          {safeT("gift_admin_product_success_title", {
-            fallbackKo: "초안 상품이 등록되었습니다. 판매는 상품 상세에서 시작합니다.",
-            fallbackEn: "Draft product registered. Start selling from product detail.",
-          })}
+          {safeT("gift_admin_product_success_title")}
         </h2>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
           <p>
-            {safeT("gift_ops_field_type", { fallbackKo: "상품권 종류", fallbackEn: "Gift type" })}:{" "}
+            {safeT("gift_ops_field_type")}:{" "}
             {labelScope(prodSuccess.gift_scope)}
           </p>
           <p>
-            {safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}:{" "}
+            {safeT("gift_ops_field_store")}:{" "}
             {prodSuccess.gift_scope === "PLATFORM"
-              ? safeT("gift_ops_store_all_dibay", { fallbackKo: "DIBAY 전체", fallbackEn: "All DIBAY" })
+              ? safeT("gift_ops_store_all_dibay")
               : prodSuccess.store_name || "—"}
           </p>
           <p className="font-semibold">{prodSuccess.title}</p>
@@ -568,7 +504,7 @@ export function AdminGiftIssuancePanel({
             })
           }
         >
-          {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+          {safeT("gift_ops_cta_detail")}
         </AdminActionButton>
       </section>
     );
@@ -625,11 +561,11 @@ export function AdminGiftIssuancePanel({
           {subTabs}
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
             <p>
-              {safeT("gift_ops_field_type", { fallbackKo: "상품권 종류", fallbackEn: "Gift type" })}:{" "}
+              {safeT("gift_ops_field_type")}:{" "}
               {labelScope("STORE")}
             </p>
             <p>
-              {safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}:{" "}
+              {safeT("gift_ops_field_store")}:{" "}
               {detail.store_name}
             </p>
             <p className="font-semibold">{prodTitle}</p>
@@ -653,14 +589,14 @@ export function AdminGiftIssuancePanel({
                 })
               }
             >
-              {safeT("gift_ops_cta_start_sale", { fallbackKo: "판매 시작", fallbackEn: "Start selling" })}
+              {safeT("gift_ops_cta_start_sale")}
             </AdminActionButton>
             <AdminActionButton
               type="button"
               variant="secondary" className="w-full"
               onClick={() => setProdReview(false)}
             >
-              {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
+              {safeT("gift_admin_cta_back")}
             </AdminActionButton>
           </div>
         </section>
@@ -672,10 +608,7 @@ export function AdminGiftIssuancePanel({
       <section className="space-y-4" data-admin-gift-product-create="1">
         {subTabs}
         <h2 className="text-[16px] font-semibold">
-          {safeT("gift_admin_product_create_title", {
-            fallbackKo: "신청 승인 후 상품 만들기",
-            fallbackEn: "Approve & create product",
-          })}
+          {safeT("gift_admin_product_create_title")}
         </h2>
         <p className="text-sm text-sam-muted">
           {detail.store_name} · {detail.owner_label || shortId(detail.owner_user_id)}
@@ -690,17 +623,14 @@ export function AdminGiftIssuancePanel({
             data-admin-gift-app-review="1"
             onClick={() => setProdReview(true)}
           >
-            {safeT("gift_admin_cta_review_product", {
-              fallbackKo: "판매 내용 확인",
-              fallbackEn: "Review product",
-            })}
+            {safeT("gift_admin_cta_review_product")}
           </AdminActionButton>
           <AdminActionButton
             type="button"
             variant="secondary" className="w-full"
             onClick={() => go({ tab: "products", products: "applications", extra: { id } })}
           >
-            {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
+            {safeT("gift_admin_cta_back")}
           </AdminActionButton>
         </div>
       </section>
@@ -712,19 +642,16 @@ export function AdminGiftIssuancePanel({
       <section className="space-y-4" data-admin-gift-application-detail="1">
         {subTabs}
         <h2 className="text-[16px] font-semibold">
-          {safeT("gift_admin_detail_title", {
-            fallbackKo: "상품권 판매 신청 검토",
-            fallbackEn: "Review gift application",
-          })}
+          {safeT("gift_admin_detail_title")}
         </h2>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
           <p className="font-semibold">{detail.title}</p>
           <p>
-            {safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}:{" "}
+            {safeT("gift_ops_field_store")}:{" "}
             {detail.store_name || "—"}
           </p>
           <p>
-            {safeT("gift_ops_field_owner", { fallbackKo: "오너", fallbackEn: "Owner" })}:{" "}
+            {safeT("gift_ops_field_owner")}:{" "}
             {detail.owner_label || shortId(detail.owner_user_id)}
           </p>
           <p className="tabular-nums">Face {formatAdminPhp(detail.requested_face_value)}</p>
@@ -742,10 +669,7 @@ export function AdminGiftIssuancePanel({
               go({ tab: "products", products: "applications", extra: { id, create: "1" } })
             }
           >
-            {safeT("gift_admin_cta_approve_create", {
-              fallbackKo: "승인 후 상품 만들기",
-              fallbackEn: "Approve & create product",
-            })}
+            {safeT("gift_admin_cta_approve_create")}
           </AdminActionButton>
         ) : null}
         {detail.status === "submitted" || detail.status === "under_review" ? (
@@ -756,17 +680,14 @@ export function AdminGiftIssuancePanel({
               disabled={busy}
               onClick={() => void patchStatus("under_review")}
             >
-              {safeT("gift_admin_cta_mark_review", {
-                fallbackKo: "검토 중으로 표시",
-                fallbackEn: "Mark under review",
-              })}
+              {safeT("gift_admin_cta_mark_review")}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
               className="w-full"
               onClick={() => setRejectOpen(true)}
             >
-              {safeT("gift_admin_cta_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
+              {safeT("gift_admin_cta_reject")}
             </AdminActionButton>
           </>
         ) : null}
@@ -783,10 +704,7 @@ export function AdminGiftIssuancePanel({
               disabled={busy || !rejectReason.trim()}
               onClick={() => void patchStatus("rejected", rejectReason.trim())}
             >
-              {safeT("gift_admin_cta_reject_confirm", {
-                fallbackKo: "반려 확정",
-                fallbackEn: "Confirm rejection",
-              })}
+              {safeT("gift_admin_cta_reject_confirm")}
             </AdminActionButton>
           </div>
         ) : null}
@@ -795,7 +713,7 @@ export function AdminGiftIssuancePanel({
           variant="secondary" className="w-full"
           onClick={() => go({ tab: "products", products: "applications" })}
         >
-          {safeT("gift_admin_cta_back_list", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+          {safeT("gift_admin_cta_back_list")}
         </AdminActionButton>
       </section>
     );
@@ -835,10 +753,7 @@ export function AdminGiftIssuancePanel({
 
       {productsSubtab === "applications" ? (
         <p className="text-xs text-sam-muted">
-          {safeT("gift_ops_applications_note", {
-            fallbackKo: "매장 오너 판매 신청만 표시합니다. Admin 직접 발급은 「상품권 상품」에서 합니다.",
-            fallbackEn: "Owner sale requests only. Admin direct issuance is under Gift products.",
-          })}
+          {safeT("gift_ops_applications_note")}
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -847,10 +762,7 @@ export function AdminGiftIssuancePanel({
             variant="primary"
             onClick={() => go({ tab: "products", products: "products", extra: { create: "1" } })}
           >
-            {safeT("gift_ops_cta_new_product", {
-              fallbackKo: "+ 새 상품권 만들기",
-              fallbackEn: "+ Create gift product",
-            })}
+            {safeT("gift_ops_cta_new_product")}
           </AdminActionButton>
           {(["ALL", "STORE", "PLATFORM"] as const).map((sc) => (
             <Link
@@ -868,18 +780,15 @@ export function AdminGiftIssuancePanel({
               ].join(" ")}
             >
               {sc === "ALL"
-                ? safeT("gift_ops_range_all", { fallbackKo: "전체", fallbackEn: "All" })
+                ? safeT("gift_ops_range_all")
                 : sc === "STORE"
-                  ? safeT("gift_ops_type_store", { fallbackKo: "매장", fallbackEn: "Store" })
-                  : safeT("gift_ops_type_platform", { fallbackKo: "DIBAY", fallbackEn: "DIBAY" })}
+                  ? safeT("gift_ops_type_store")
+                  : safeT("gift_ops_type_platform")}
             </Link>
           ))}
           <input
             className={`${Sam.input.base} min-h-[40px] min-w-[140px] flex-1 text-sm`}
-            placeholder={safeT("gift_ops_product_search_ph", {
-              fallbackKo: "상품명·매장명·Product ID",
-              fallbackEn: "Gift name, store, product ID",
-            })}
+            placeholder={safeT("gift_ops_product_search_ph")}
             value={productSearch}
             onChange={(e) => setProductSearch(e.target.value)}
             data-admin-gift-product-search="1"
@@ -892,12 +801,12 @@ export function AdminGiftIssuancePanel({
               onClick={() => setStatusFilter(st)}
             >
               {st === "ALL"
-                ? safeT("gift_ops_status_all", { fallbackKo: "전체 상태", fallbackEn: "All status" })
+                ? safeT("gift_ops_status_all")
                 : st === "ACTIVE"
-                  ? safeT("gift_ops_status_active", { fallbackKo: "판매중", fallbackEn: "Active" })
+                  ? safeT("gift_ops_status_active")
                   : st === "PAUSED"
-                    ? safeT("gift_ops_status_paused", { fallbackKo: "중지", fallbackEn: "Paused" })
-                    : safeT("gift_ops_status_archived", { fallbackKo: "보관", fallbackEn: "Archived" })}
+                    ? safeT("gift_ops_status_paused")
+                    : safeT("gift_ops_status_archived")}
             </AdminChipButton>
           ))}
         </div>
@@ -905,17 +814,14 @@ export function AdminGiftIssuancePanel({
 
       {listState === "loading" ? (
         <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          {safeT("gift_ops_loading")}
         </p>
       ) : null}
 
       {listState === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_list_error", {
-              fallbackKo: "목록을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load the list.",
-            })}
+            {safeT("gift_ops_list_error")}
           </p>
           <AdminActionButton
             type="button"
@@ -930,14 +836,8 @@ export function AdminGiftIssuancePanel({
       {listState === "empty" ? (
         <p className="text-sm text-sam-muted">
           {productsSubtab === "applications"
-            ? safeT("gift_admin_empty_apps", {
-                fallbackKo: "처리할 신청이 없습니다.",
-                fallbackEn: "No applications to review.",
-              })
-            : safeT("gift_admin_empty_products", {
-                fallbackKo: "등록된 상품권이 없습니다. [+ 새 상품권 만들기]로 발급하세요.",
-                fallbackEn: "No gift products yet. Use + Create gift product.",
-              })}
+            ? safeT("gift_admin_empty_apps")
+            : safeT("gift_admin_empty_products")}
         </p>
       ) : null}
 
@@ -970,7 +870,7 @@ export function AdminGiftIssuancePanel({
                         go({ tab: "products", products: "applications", extra: { id: r.id } })
                       }
                     >
-                      {safeT("gift_admin_cta_review", { fallbackKo: "검토", fallbackEn: "Review" })}
+                      {safeT("gift_admin_cta_review")}
                     </AdminActionButton>
                   </td>
                 </tr>
@@ -985,18 +885,18 @@ export function AdminGiftIssuancePanel({
           <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-sam-border text-xs text-sam-muted">
-                <th className="px-2 py-2">{safeT("gift_ops_col_image", { fallbackKo: "이미지", fallbackEn: "Image" })}</th>
-                <th className="px-2 py-2">{safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Title" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_field_face_amount", { fallbackKo: "표시금액", fallbackEn: "Face" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_field_purchase", { fallbackKo: "판매가격", fallbackEn: "Sale price" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_field_fee_dibay", { fallbackKo: "수수료", fallbackEn: "Fee" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_field_sales_window", { fallbackKo: "판매기간", fallbackEn: "Sales window" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_col_ops_state", { fallbackKo: "운영 상태", fallbackEn: "Ops state" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_col_customer_state", { fallbackKo: "고객 상태", fallbackEn: "Customer" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_kpi_issued", { fallbackKo: "발급수", fallbackEn: "Issued" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_kpi_outstanding", { fallbackKo: "미사용 잔액", fallbackEn: "Outstanding" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_col_updated", { fallbackKo: "최근 수정", fallbackEn: "Updated" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_image")}</th>
+                <th className="px-2 py-2">{safeT("gift_admin_field_title")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_store")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_face_amount")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_purchase")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_fee_dibay")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_sales_window")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_ops_state")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_customer_state")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_kpi_issued")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_kpi_outstanding")}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_updated")}</th>
                 <th className="px-2 py-2" />
               </tr>
             </thead>
@@ -1022,10 +922,7 @@ export function AdminGiftIssuancePanel({
                     <td className="px-2 py-2 font-semibold">{p.title}</td>
                     <td className="px-2 py-2">
                       {sc === "PLATFORM"
-                        ? safeT("gift_ops_store_all_dibay", {
-                            fallbackKo: "DIBAY 전체",
-                            fallbackEn: "All DIBAY",
-                          })
+                        ? safeT("gift_ops_store_all_dibay")
                         : p.store_name || "—"}
                     </td>
                     <td className="px-2 py-2 tabular-nums">{formatAdminPhp(p.face_value)}</td>
@@ -1068,7 +965,7 @@ export function AdminGiftIssuancePanel({
                         data-admin-gift-product-open-detail="1"
                         onClick={() => go({ tab: "products", extra: { id: p.id } })}
                       >
-                        {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                        {safeT("gift_ops_cta_detail")}
                       </AdminActionButton>
                     </td>
                   </tr>
@@ -1118,7 +1015,7 @@ export function AdminGiftIssuancePanel({
                   data-admin-gift-product-open-detail="1"
                   onClick={() => go({ tab: "products", extra: { id: p.id } })}
                 >
-                  {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                  {safeT("gift_ops_cta_detail")}
                 </AdminActionButton>
               </li>
             );

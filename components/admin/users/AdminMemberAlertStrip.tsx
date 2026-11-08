@@ -14,36 +14,24 @@ export function AdminMemberAlertStrip({
   const alerts: string[] = [];
   if (user.phone_verified !== true) {
     alerts.push(
-      safeT("admin_users_alert_phone_unverified", {
-        fallbackKo: "전화 인증 미완료",
-        fallbackEn: "Phone not verified",
-      }),
+      safeT("admin_users_alert_phone_unverified"),
     );
   }
   const moderation = String(user.moderation_status ?? "").toLowerCase();
   const status = String(user.status ?? "").toLowerCase();
   if (moderation === "suspended" || status === "suspended") {
     alerts.push(
-      safeT("admin_users_alert_suspended", {
-        fallbackKo: "계정 정지 상태",
-        fallbackEn: "Account suspended",
-      }),
+      safeT("admin_users_alert_suspended"),
     );
   }
   if (moderation === "banned" || status === "banned") {
     alerts.push(
-      safeT("admin_users_alert_banned", {
-        fallbackKo: "계정 차단 상태",
-        fallbackEn: "Account banned",
-      }),
+      safeT("admin_users_alert_banned"),
     );
   }
   if (stores.some((store) => String(store.approval_status ?? "").toLowerCase() === "pending")) {
     alerts.push(
-      safeT("admin_users_alert_store_pending", {
-        fallbackKo: "매장 승인 대기",
-        fallbackEn: "Store approval pending",
-      }),
+      safeT("admin_users_alert_store_pending"),
     );
   }
   if (alerts.length === 0) return null;

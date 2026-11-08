@@ -75,12 +75,7 @@ export function CustomerPlatformDashboardPage() {
       />
 
       <p className="sam-text-body-secondary text-sam-muted">
-        {safeT("admin_cp_dashboard_intro", {
-          fallbackKo:
-            "회원(Member)과 매장(Store) 고객지원·포인트·알림을 한곳에서 운영합니다. 아래 큐에서 즉시 처리하세요.",
-          fallbackEn:
-            "Operate Member and Store support, points, and notifications in one place. Start from the action queue below.",
-        })}
+        {safeT("admin_cp_dashboard_intro")}
       </p>
 
       {loadState === "error" ? (
@@ -95,40 +90,25 @@ export function CustomerPlatformDashboardPage() {
       <section id="action-queue" className="space-y-3 scroll-mt-20">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <h2 className="sam-text-section-title font-semibold text-sam-fg">
-            {safeT("admin_menu_cp_action_queue", {
-              fallbackKo: "Action Queue",
-              fallbackEn: "Action Queue",
-            })}
+            {safeT("admin_menu_cp_action_queue")}
           </h2>
           <p className="sam-text-helper text-sam-muted tabular-nums" data-testid="admin-cp-action-queue-total">
             {queueLoading
               ? "…"
-              : `${safeT("admin_cp_action_queue_total", {
-                  fallbackKo: "대기",
-                  fallbackEn: "Pending",
-                })} ${queueTotalComplete ? adminBellCount : `${adminBellCount}+`}`}
+              : `${safeT("admin_cp_action_queue_total")} ${queueTotalComplete ? adminBellCount : `${adminBellCount}+`}`}
           </p>
         </div>
         <p className="sam-text-helper text-sam-muted">
-          {safeT("admin_cp_action_queue_meaning", {
-            fallbackKo: "벨 숫자 = 관리자가 지금 처리해야 할 업무 건수입니다 (알림 미읽음 수가 아닙니다).",
-            fallbackEn: "Bell number = admin tasks to handle now (not unread notifications).",
-          })}
+          {safeT("admin_cp_action_queue_meaning")}
         </p>
         {!queueTotalComplete ? (
           <p className="sam-text-helper text-sam-warning" role="status">
-            {safeT("admin_cp_action_queue_incomplete", {
-              fallbackKo: "일부 항목을 불러오지 못해 합계가 불완전합니다.",
-              fallbackEn: "Some categories failed to load, so the total is incomplete.",
-            })}
+            {safeT("admin_cp_action_queue_incomplete")}
           </p>
         ) : null}
         {queueLoadState === "error" ? (
           <p className="sam-text-helper text-sam-warning" role="status">
-            {safeT("admin_cp_action_queue_stale", {
-              fallbackKo: "최근 갱신에 실패했습니다. 마지막으로 불러온 값입니다.",
-              fallbackEn: "The latest refresh failed. Showing the last loaded values.",
-            })}
+            {safeT("admin_cp_action_queue_stale")}
           </p>
         ) : null}
         <AdminActionQueueCardGrid categories={queueCategories} loading={queueLoading} />
@@ -136,10 +116,7 @@ export function CustomerPlatformDashboardPage() {
 
       <section id="monitoring" className="space-y-3 scroll-mt-20">
         <h2 className="sam-text-section-title font-semibold text-sam-fg">
-          {safeT("admin_menu_cp_monitoring", {
-            fallbackKo: "Monitoring",
-            fallbackEn: "Monitoring",
-          })}
+          {safeT("admin_menu_cp_monitoring")}
         </h2>
         {loadState === "loading" ? <AdminLoadingState ko={language !== "en"} /> : null}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -148,16 +125,13 @@ export function CustomerPlatformDashboardPage() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 hover:border-signature/40"
           >
             <p className="sam-text-body font-semibold text-sam-fg">
-              {safeT("admin_menu_notices", { fallbackKo: "공지", fallbackEn: "Notices" })}
+              {safeT("admin_menu_notices")}
             </p>
             <p className="mt-2 text-xl font-bold tabular-nums text-sam-fg">
               {monValue(mon?.app_notices_active)}
             </p>
             <p className="sam-text-helper text-sam-muted">
-              {safeT("admin_cp_mon_notices_hint", {
-                fallbackKo: "활성 공지",
-                fallbackEn: "Active notices",
-              })}
+              {safeT("admin_cp_mon_notices_hint")}
             </p>
           </Link>
           <Link
@@ -165,10 +139,7 @@ export function CustomerPlatformDashboardPage() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 hover:border-signature/40"
           >
             <p className="sam-text-body font-semibold text-sam-fg">
-              {safeT("admin_menu_cp_member_inbox", {
-                fallbackKo: "회원 쪽지",
-                fallbackEn: "Member inbox",
-              })}
+              {safeT("admin_menu_cp_member_inbox")}
             </p>
             <p className="mt-2 text-xl font-bold tabular-nums text-sam-fg">
               {monValue(mon?.member_inbox_threads)}
@@ -179,10 +150,7 @@ export function CustomerPlatformDashboardPage() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 hover:border-signature/40"
           >
             <p className="sam-text-body font-semibold text-sam-fg">
-              {safeT("admin_menu_dibay_notification_campaigns", {
-                fallbackKo: "알림 엔진",
-                fallbackEn: "Notification Engine",
-              })}
+              {safeT("admin_menu_dibay_notification_campaigns")}
             </p>
             <p className="mt-2 text-xl font-bold tabular-nums text-sam-fg">
               {monValue(mon?.notification_campaigns)}

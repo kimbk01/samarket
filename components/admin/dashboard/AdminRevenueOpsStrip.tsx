@@ -44,16 +44,10 @@ export function AdminRevenueOpsStrip() {
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {safeT("admin_revenue_ops_title", {
-              fallbackKo: "광고 · 유료노출",
-              fallbackEn: "Ads · paid exposure",
-            })}
+            {safeT("admin_revenue_ops_title")}
           </h2>
           <p className="mt-0.5 sam-text-helper text-sam-muted">
-            {safeT("admin_revenue_ops_hint", {
-              fallbackKo: "광고 노출 워크스페이스와 동일 메뉴입니다. 대시보드에서 바로 들어갑니다.",
-              fallbackEn: "Same as Ad exposure workspace — open from the dashboard.",
-            })}
+            {safeT("admin_revenue_ops_hint")}
           </p>
         </div>
         <Link

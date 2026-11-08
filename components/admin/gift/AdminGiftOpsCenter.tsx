@@ -61,25 +61,16 @@ export function AdminGiftOpsCenter() {
     <div className="mx-auto max-w-6xl space-y-4 p-4" data-admin-gift-ops-center="1">
       <div className="space-y-1">
         <h1 className="text-xl font-semibold text-sam-fg">
-          {safeT("gift_ops_center_title", {
-            fallbackKo: "상품권 관리",
-            fallbackEn: "Gift Operations",
-          })}
+          {safeT("gift_ops_center_title")}
         </h1>
         <p className="text-sm text-sam-muted">
-          {safeT("gift_ops_center_desc", {
-            fallbackKo: "상품·발급·사용·정산·환전·복구를 업무 기준으로 운영합니다.",
-            fallbackEn: "Operate products, issued certificates, usage, settlement, and recovery by workflow.",
-          })}
+          {safeT("gift_ops_center_desc")}
         </p>
       </div>
 
       <nav
         className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
-        aria-label={safeT("gift_ops_tabs_label", {
-          fallbackKo: "상품권 관리 탭",
-          fallbackEn: "Gift operations tabs",
-        })}
+        aria-label={safeT("gift_ops_tabs_label")}
         data-admin-gift-ops-tabs="1"
       >
         {ADMIN_GIFT_OPS_TABS.map((t) => {
@@ -156,7 +147,7 @@ export function AdminGiftOpsCenter() {
               ].join(" ")}
               data-admin-gift-ledger-sub="usage"
             >
-              {safeT("gift_ops_ledger_usage", { fallbackKo: "사용 내역", fallbackEn: "Usage" })}
+              {safeT("gift_ops_ledger_usage")}
             </Link>
             <Link
               href={buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })}
@@ -166,10 +157,7 @@ export function AdminGiftOpsCenter() {
               ].join(" ")}
               data-admin-gift-ledger-sub="settlement"
             >
-              {safeT("gift_ops_ledger_settlement", {
-                fallbackKo: "매장·Platform 정산",
-                fallbackEn: "Settlement",
-              })}
+              {safeT("gift_ops_ledger_settlement")}
             </Link>
           </div>
           {ledgerSub === "usage" ? <AdminGiftRedemptionsPanel filter={filter} q={q} /> : null}

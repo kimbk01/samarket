@@ -544,26 +544,17 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
 
   const emptyCopy =
     loadFailed && rooms.length === 0
-      ? safeT("admin_chat_domain_list_error", {
-          fallbackKo: "목록을 불러오지 못했습니다. 새로고침해 주세요.",
-          fallbackEn: "Could not load the list. Please try again.",
-        })
+      ? safeT("admin_chat_domain_list_error")
       : rooms.length === 0
         ? mode === "trade"
           ? t("admin_chat_empty_trade")
           : mode === "reported"
             ? t("admin_chat_empty_reported")
             : mode === "business" || mode === "community" || mode === "group"
-              ? safeT("admin_chat_hollow_empty", {
-                  fallbackKo: "HOLLOW — Admin 목록 미연결 (데이터 없음이 아님).",
-                  fallbackEn: "HOLLOW — Admin list not wired (not a proven empty dataset).",
-                })
+              ? safeT("admin_chat_hollow_empty")
               : t("admin_chat_empty_all")
         : deepLinkActive && deepLinkedFiltered.length === 0
-          ? safeT("admin_trade_deep_link_no_match", {
-              fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
-              fallbackEn: "No trade in this list matches the deep link.",
-            })
+          ? safeT("admin_trade_deep_link_no_match")
           : filtered.length === 0
             ? t("admin_chat_empty_filtered")
             : t("admin_chat_empty_hidden_only");
@@ -579,10 +570,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       {deepLinkActive && deepLink.postId ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
-            {safeT("admin_chat_filter_post_chip", {
-              fallbackKo: "게시물",
-              fallbackEn: "Listing",
-            })}
+            {safeT("admin_chat_filter_post_chip")}
             :
           </span>
           <Link
@@ -597,10 +585,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             className="sam-text-xxs text-sam-muted hover:underline"
             prefetch={false}
           >
-            {safeT("admin_chat_clear_post_filter", {
-              fallbackKo: "필터 해제",
-              fallbackEn: "Clear filter",
-            })}
+            {safeT("admin_chat_clear_post_filter")}
           </Link>
         </div>
       ) : null}

@@ -481,10 +481,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             className="font-semibold text-signature underline"
             data-admin-order-store-admin-link="1"
           >
-            {safeT("admin_do_admin_store_detail", {
-              fallbackKo: "관리자 매장 보기",
-              fallbackEn: "Open Admin store",
-            })}
+            {safeT("admin_do_admin_store_detail")}
           </Link>
         ) : null}
         {order.storeSlug ? (

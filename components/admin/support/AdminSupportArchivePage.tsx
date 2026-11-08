@@ -146,28 +146,16 @@ export function AdminSupportArchivePage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-admin-support-archive="1">
       <AdminPageHeader
-        title={safeT("admin_menu_cp_support_archive", {
-          fallbackKo: "이전 문의 기록",
-          fallbackEn: "Previous inquiry archive",
-        })}
-        description={safeT("admin_support_archive_desc", {
-          fallbackKo: "레거시 쪽지·1:1·플랫폼 문의 보관. 읽기 전용입니다.",
-          fallbackEn: "Legacy notes and platform inquiries. Read-only archive.",
-        })}
+        title={safeT("admin_menu_cp_support_archive")}
+        description={safeT("admin_support_archive_desc")}
       />
       <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
-        {safeT("admin_support_archive_readonly_hint", {
-          fallbackKo: "신규 문의는 「고객센터」에서 처리합니다. 여기에서는 답변·작성할 수 없습니다.",
-          fallbackEn: "New support is handled in Support Center. This archive cannot reply or compose.",
-        })}
+        {safeT("admin_support_archive_readonly_hint")}
       </p>
       <div className="flex items-center gap-2">
         <AdminTabs
           className="flex-1"
-          ariaLabel={safeT("admin_menu_cp_support_archive", {
-            fallbackKo: "이전 문의 기록",
-            fallbackEn: "Previous inquiry archive",
-          })}
+          ariaLabel={safeT("admin_menu_cp_support_archive")}
           tabs={[
             { id: "notes", label: ko ? "쪽지·1:1" : "Notes / 1:1" },
             { id: "platform", label: ko ? "플랫폼 문의" : "Platform inquiries" },
@@ -181,7 +169,7 @@ export function AdminSupportArchivePage() {
           }}
         />
         <Link href="/admin/support" className="ml-auto text-sm text-sam-primary underline">
-          {safeT("admin_support_title", { fallbackKo: "고객센터", fallbackEn: "Support Center" })}
+          {safeT("admin_support_title")}
         </Link>
       </div>
       <MemberOpsListBody

@@ -60,7 +60,7 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
   if (state.kind === "error") {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_metric_error", { fallbackKo: "불러오지 못함", fallbackEn: "Load error" })}
+        {safeT("admin_users_cc_metric_error")}
       </div>
     );
   }
@@ -83,7 +83,7 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
       </div>
       <div className={`${ADMIN_USERS_LITE_CARD} p-3`}>
         <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">
-          {safeT("admin_users_cc_address_default", { fallbackKo: "기본 주소", fallbackEn: "Default address" })}
+          {safeT("admin_users_cc_address_default")}
         </h3>
         <p className="mt-1 text-[13px] font-medium text-sam-fg">
           {profileAddress.lines.length > 0 ? profileAddress.lines.join(" · ") : empty}
@@ -91,7 +91,7 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
       </div>
       {addresses.length === 0 ? (
         <div className={`${ADMIN_USERS_LITE_CARD} py-6 text-center text-sm text-sam-muted`}>
-          {safeT("admin_users_cc_address_empty", { fallbackKo: "저장된 주소가 없습니다.", fallbackEn: "No saved addresses." })}
+          {safeT("admin_users_cc_address_empty")}
         </div>
       ) : (
         addresses.map((addr) => (
@@ -100,7 +100,7 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
               <p className="text-sm font-bold text-sam-fg">{addr.nickname || addr.labelType}</p>
               {addr.isDefaultMaster ? (
                 <span className="rounded-full border border-sam-success bg-sam-success-soft px-2 py-0.5 text-[12px] font-semibold text-sam-success">
-                  {safeT("admin_users_cc_address_default", { fallbackKo: "기본", fallbackEn: "Default" })}
+                  {safeT("admin_users_cc_address_default")}
                 </span>
               ) : null}
             </div>
@@ -109,7 +109,7 @@ export function AdminMemberAddressPanel({ userId }: { userId: string }) {
               {addr.recipientName || empty} · {addr.phoneNumber || empty}
             </p>
             <p className="mt-1 text-xs text-sam-muted">
-              {safeT("admin_users_lite_label_updated_at", { fallbackKo: "수정", fallbackEn: "Updated" })}: {fmt(addr.updatedAt)}
+              {safeT("admin_users_lite_label_updated_at")}: {fmt(addr.updatedAt)}
             </p>
           </div>
         ))

@@ -128,10 +128,7 @@ function creationSourceLabel(
   safeT: ReturnType<typeof useI18n>["safeT"]
 ): string {
   if (!source) {
-    return safeT("gift_ops_source_legacy", {
-      fallbackKo: "기존 발급 / 기록 없음",
-      fallbackEn: "Legacy issuance / no record",
-    });
+    return safeT("gift_ops_source_legacy");
   }
   const map: Record<string, { key: string; ko: string; en: string }> = {
     OWNER_APPLICATION: { key: "gift_ops_source_owner_application", ko: "매장 신청", en: "Owner application" },
@@ -165,23 +162,14 @@ function formatExpiryPolicyDisplay(
   safeT: ReturnType<typeof useI18n>["safeT"]
 ): string {
   if (policy === "NO_EXPIRY") {
-    return safeT("gift_ops_expiry_no_expiry", {
-      fallbackKo: "만료 없음 (NO_EXPIRY)",
-      fallbackEn: "No expiry (NO_EXPIRY)",
-    });
+    return safeT("gift_ops_expiry_no_expiry");
   }
   if (policy === "FIXED_DAYS") {
     const days = validityDays == null ? "—" : String(validityDays);
-    return safeT("gift_ops_expiry_fixed_days_view", {
-      fallbackKo: `발급 후 ${days}일 (FIXED_DAYS)`,
-      fallbackEn: `${days} days after issue (FIXED_DAYS)`,
-    });
+    return safeT("gift_ops_expiry_fixed_days_view");
   }
   const until = fixedUntil?.trim().slice(0, 10) || "—";
-  return safeT("gift_ops_expiry_fixed_date_view", {
-    fallbackKo: `고정 만료일 ${until} (FIXED_DATE)`,
-    fallbackEn: `Fixed end date ${until} (FIXED_DATE)`,
-  });
+  return safeT("gift_ops_expiry_fixed_date_view");
 }
 
 export function AdminGiftProductDetailConsole({
@@ -366,60 +354,60 @@ export function AdminGiftProductDetailConsole({
       if (from !== to) lines.push(`${label}\n${from} → ${to}`);
     };
     push(
-      safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Title" }),
+      safeT("gift_admin_field_title"),
       product.title,
       editTitle.trim()
     );
     push(
-      safeT("gift_ops_field_image_upload", { fallbackKo: "이미지", fallbackEn: "Image" }),
+      safeT("gift_ops_field_image_upload"),
       product.image_url ?? "—",
       editImage.trim() || "—"
     );
     push(
-      safeT("gift_ops_field_face_amount", { fallbackKo: "표시 금액", fallbackEn: "Face value" }),
+      safeT("gift_ops_field_face_amount"),
       formatAdminPhp(product.face_value),
       formatAdminPhp(Math.trunc(Number(editFace) || 0))
     );
     push(
-      safeT("gift_ops_field_purchase", { fallbackKo: "판매 가격", fallbackEn: "Sale price" }),
+      safeT("gift_ops_field_purchase"),
       formatAdminPhp(product.purchase_price),
       formatAdminPhp(Math.trunc(Number(editPrice) || 0))
     );
     push(
-      safeT("gift_ops_field_fee_dibay", { fallbackKo: "수수료", fallbackEn: "Fee" }),
+      safeT("gift_ops_field_fee_dibay"),
       `${product.platform_fee_rate}%`,
       `${Math.trunc(Number(editFee) || 0)}%`
     );
     push(
-      safeT("gift_ops_field_promo_funding", { fallbackKo: "할인 부담", fallbackEn: "Discount funding" }),
+      safeT("gift_ops_field_promo_funding"),
       product.discount_funding_party ?? "NONE",
       fundingUnits.party
     );
     push(
-      safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" }),
+      safeT("gift_ops_field_sales_start"),
       dt(product.sales_starts_at),
       editStart ? dt(new Date(editStart).toISOString()) : "—"
     );
     push(
-      safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" }),
+      safeT("gift_ops_field_sales_end"),
       dt(product.sales_ends_at),
       editEnd ? dt(new Date(editEnd).toISOString()) : "—"
     );
     const maxCanon = product.max_issuance == null ? "" : String(product.max_issuance);
     push(
-      safeT("gift_ops_field_max_issuance", { fallbackKo: "발급 제한", fallbackEn: "Max issuance" }),
+      safeT("gift_ops_field_max_issuance"),
       maxCanon || "—",
       editMaxIssuance.trim() || "—"
     );
     if (editTransferable !== (product.transferable !== false)) {
       lines.push(
-        `${safeT("gift_admin_field_transferable", { fallbackKo: "선물 가능", fallbackEn: "Transferable" })}\n${
+        `${safeT("gift_admin_field_transferable")}\n${
           product.transferable ? "Yes" : "No"
         } → ${editTransferable ? "Yes" : "No"}`
       );
     }
     push(
-      safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" }),
+      safeT("gift_ops_field_validity"),
       formatExpiryPolicyDisplay(
         canonExpiryPolicy,
         product.validity_days,
@@ -495,10 +483,7 @@ export function AdminGiftProductDetailConsole({
       const json = (await res.json()) as { ok?: boolean; url?: string };
       if (!res.ok || !json.ok || !json.url) {
         setError(
-          safeT("gift_ops_image_upload_fail", {
-            fallbackKo: "이미지 업로드에 실패했습니다.",
-            fallbackEn: "Image upload failed.",
-          })
+          safeT("gift_ops_image_upload_fail")
         );
         return;
       }
@@ -510,8 +495,8 @@ export function AdminGiftProductDetailConsole({
 
   const labelScope =
     scope === "PLATFORM"
-      ? safeT("gift_ops_type_platform", { fallbackKo: "DIBAY 상품권", fallbackEn: "DIBAY Gift" })
-      : safeT("gift_ops_type_store", { fallbackKo: "매장 상품권", fallbackEn: "Store Gift" });
+      ? safeT("gift_ops_type_platform")
+      : safeT("gift_ops_type_store");
 
   const sections = useMemo(
     () =>
@@ -549,13 +534,13 @@ export function AdminGiftProductDetailConsole({
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         if (await handleConflict(json.error)) return;
-        setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
+        setError(safeT("gift_admin_action_fail"));
         return;
       }
       await load({ background: true });
       onChanged();
     } catch {
-      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
+      setError(safeT("gift_admin_action_fail"));
     } finally {
       setBusy(false);
     }
@@ -566,20 +551,11 @@ export function AdminGiftProductDetailConsole({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: language !== "en",
-      title: safeT("gift_admin_save_confirm_title", {
-        fallbackKo: "변경 내용을 저장할까요?",
-        fallbackEn: "Save these changes?",
-      }),
+      title: safeT("gift_admin_save_confirm_title"),
       description:
         editDiffLines.join("\n\n") ||
-        safeT("gift_admin_edit_confirm_body", {
-          fallbackKo: "변경 내용이 저장됩니다.",
-          fallbackEn: "Your edits will be saved.",
-        }),
-      confirmLabel: safeT("gift_admin_save_confirm_ok", {
-        fallbackKo: "변경 저장",
-        fallbackEn: "Save changes",
-      }),
+        safeT("gift_admin_edit_confirm_body"),
+      confirmLabel: safeT("gift_admin_save_confirm_ok"),
     });
     if (!confirmed.ok) return;
 
@@ -613,7 +589,7 @@ export function AdminGiftProductDetailConsole({
       if (!res.ok || !json.ok) {
         if (await handleConflict(json.error)) return;
         setError(
-          safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
+          safeT("gift_admin_action_fail")
         );
         return;
       }
@@ -621,14 +597,11 @@ export function AdminGiftProductDetailConsole({
       onChanged();
       setEditOpen(false);
       await dibayAlert({
-        title: safeT("gift_admin_edit_success_title", {
-          fallbackKo: "수정이 완료되었습니다",
-          fallbackEn: "Changes saved",
-        }),
+        title: safeT("gift_admin_edit_success_title"),
         confirmLabel: adminCta("close", language !== "en"),
       });
     } catch {
-      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
+      setError(safeT("gift_admin_action_fail"));
     } finally {
       setBusy(false);
     }
@@ -640,12 +613,9 @@ export function AdminGiftProductDetailConsole({
       level: adminActionLevel("delete"),
       ko: language !== "en",
       retypeValue: product.title,
-      title: safeT("gift_ops_delete_confirm_title", { fallbackKo: "상품 삭제", fallbackEn: "Delete product" }),
-      description: safeT("gift_ops_delete_confirm_body", {
-        fallbackKo: "이 상품권 상품을 삭제합니다. 발급된 상품권이 없는 경우에만 삭제할 수 있습니다.",
-        fallbackEn: "Delete this gift product. Only allowed when no instances have been issued.",
-      }),
-      confirmLabel: safeT("gift_ops_cta_delete", { fallbackKo: "삭제", fallbackEn: "Delete" }),
+      title: safeT("gift_ops_delete_confirm_title"),
+      description: safeT("gift_ops_delete_confirm_body"),
+      confirmLabel: safeT("gift_ops_cta_delete"),
       destructive: true,
     });
     if (!ok.ok) return;
@@ -663,18 +633,15 @@ export function AdminGiftProductDetailConsole({
         /** 발급 이력 409 만 전용 문구 — 권한·서버 오류를 「발급 이력」으로 오안내하지 않는다. */
         setError(
           json.error === "delete_forbidden_has_instances"
-            ? safeT("gift_ops_delete_forbidden", {
-                fallbackKo: "이미 발급 이력이 있어 삭제할 수 없습니다. 판매 중지 또는 보관을 사용하세요.",
-                fallbackEn: "Cannot delete: instances exist. Pause or archive instead.",
-              })
-            : safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
+            ? safeT("gift_ops_delete_forbidden")
+            : safeT("gift_admin_action_fail")
         );
         return;
       }
       onBack();
       onChanged();
     } catch {
-      setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
+      setError(safeT("gift_admin_action_fail"));
     } finally {
       setBusy(false);
     }
@@ -684,12 +651,9 @@ export function AdminGiftProductDetailConsole({
     const ok = await confirmAdminAction({
       level: adminActionLevel("exposeStop"),
       ko: language !== "en",
-      title: safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause sales" }),
-      description: safeT("gift_ops_pause_confirm", {
-        fallbackKo: "이 상품권 판매를 중지합니다.",
-        fallbackEn: "Pause sales for this gift product.",
-      }),
-      confirmLabel: safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause" }),
+      title: safeT("gift_ops_cta_pause"),
+      description: safeT("gift_ops_pause_confirm"),
+      confirmLabel: safeT("gift_ops_cta_pause"),
     });
     if (ok.ok) await patchAction("pause");
   };
@@ -698,12 +662,9 @@ export function AdminGiftProductDetailConsole({
     const ok = await confirmAdminAction({
       level: adminActionLevel("disable"),
       ko: language !== "en",
-      title: safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
-      description: safeT("gift_ops_archive_confirm", {
-        fallbackKo: "이 상품권을 보관합니다. 신규 판매는 중지됩니다.",
-        fallbackEn: "Archive this product. New sales will stop.",
-      }),
-      confirmLabel: safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
+      title: safeT("gift_ops_cta_archive"),
+      description: safeT("gift_ops_archive_confirm"),
+      confirmLabel: safeT("gift_ops_cta_archive"),
     });
     if (ok.ok) await patchAction("archive");
   };
@@ -711,7 +672,7 @@ export function AdminGiftProductDetailConsole({
   if (state === "loading" && !payload) {
     return (
       <p className="text-sm text-sam-muted">
-        {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        {safeT("gift_ops_loading")}
       </p>
     );
   }
@@ -720,13 +681,10 @@ export function AdminGiftProductDetailConsole({
     return (
       <div className="space-y-3">
         <AdminActionButton type="button" variant="secondary" onClick={onBack}>
-          ← {safeT("gift_admin_cta_back_list", { fallbackKo: "목록", fallbackEn: "List" })}
+          ← {safeT("gift_admin_cta_back_list")}
         </AdminActionButton>
         <p className="text-sm text-sam-danger">
-          {safeT("gift_ops_detail_load_fail", {
-            fallbackKo: "상품 상세를 불러오지 못했습니다.",
-            fallbackEn: "Couldn’t load product detail.",
-          })}
+          {safeT("gift_ops_detail_load_fail")}
         </p>
         <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
           {adminCta("refresh", language !== "en")}
@@ -743,21 +701,18 @@ export function AdminGiftProductDetailConsole({
   return (
     <section className="space-y-4 pb-24" data-admin-gift-product-detail="1">
       <AdminActionButton type="button" variant="secondary" onClick={onBack}>
-        ← {safeT("gift_admin_cta_back_list", { fallbackKo: "목록", fallbackEn: "List" })}
+        ← {safeT("gift_admin_cta_back_list")}
       </AdminActionButton>
 
       {refreshing ? (
         <p className="text-xs text-sam-muted" aria-live="polite">
-          {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          {safeT("gift_ops_loading")}
         </p>
       ) : null}
 
       {product.issued_count > 0 ? (
         <p className="rounded-ui-rect border border-sam-warning/60 bg-sam-warning-soft px-3 py-2 text-xs text-sam-warning">
-          {safeT("gift_ops_edit_issued_note", {
-            fallbackKo: "기존 발급 상품권은 변경되지 않습니다. 신규 발급분부터 적용됩니다.",
-            fallbackEn: "Existing issued certificates are not changed. Changes apply from new issuances.",
-          })}
+          {safeT("gift_ops_edit_issued_note")}
         </p>
       ) : null}
 
@@ -794,16 +749,9 @@ export function AdminGiftProductDetailConsole({
             fixedValidUntil: editOpen
               ? editFixedUntil.trim() || null
               : product.fixed_valid_until ?? null,
-            noExpiryLabel: safeT("gift_portrait_expiry_none", {
-              fallbackKo: "만료 없음",
-              fallbackEn: "No expiry",
-            }),
+            noExpiryLabel: safeT("gift_portrait_expiry_none"),
             daysAfterIssueLabel: (days) =>
-              safeT("gift_portrait_expiry_days_after_issue", {
-                fallbackKo: `발급 후 ${days}일`,
-                fallbackEn: `${days} days after issue`,
-                vars: { days: String(days) },
-              }),
+              safeT("gift_portrait_expiry_days_after_issue", { vars: { days: String(days) } }),
           })}
           showValidity
         />
@@ -813,21 +761,21 @@ export function AdminGiftProductDetailConsole({
             <span className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-xs">{status}</span>
             {!mallVisible ? (
               <span className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-xs text-sam-muted">
-                {safeT("gift_ops_mall_hidden_badge", { fallbackKo: "몰 숨김", fallbackEn: "Hidden from mall" })}
+                {safeT("gift_ops_mall_hidden_badge")}
               </span>
             ) : null}
           </div>
           <h2 className="text-[16px] font-semibold break-words">{editOpen ? editTitle : product.title}</h2>
           <p className="text-xs text-sam-muted break-all">
-            {safeT("gift_ops_product_id", { fallbackKo: "Product ID", fallbackEn: "Product ID" })}: {product.id}
+            {safeT("gift_ops_product_id")}: {product.id}
           </p>
           {scope === "STORE" ? (
             <p className="text-sm">
-              {safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}: {product.store_name || "—"}
+              {safeT("gift_ops_field_store")}: {product.store_name || "—"}
               {product.owner_label ? ` · ${product.owner_label}` : ""}
             </p>
           ) : (
-            <p className="text-sm">{safeT("gift_ops_platform_issuer", { fallbackKo: "발행 주체: DIBAY", fallbackEn: "Issuer: DIBAY" })}</p>
+            <p className="text-sm">{safeT("gift_ops_platform_issuer")}</p>
           )}
 
           {!editOpen ? (
@@ -838,7 +786,7 @@ export function AdminGiftProductDetailConsole({
                 data-admin-gift-product-edit="1"
                 onClick={enterEdit}
               >
-                {safeT("gift_ops_cta_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
+                {safeT("gift_ops_cta_edit")}
               </AdminActionButton>
               {product.active && !product.archived_at ? (
                 <AdminActionButton
@@ -847,7 +795,7 @@ export function AdminGiftProductDetailConsole({
                   disabled={busy}
                   onClick={() => void handlePause()}
                 >
-                  {safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause" })}
+                  {safeT("gift_ops_cta_pause")}
                 </AdminActionButton>
               ) : null}
               {!product.active && !product.archived_at ? (
@@ -858,7 +806,7 @@ export function AdminGiftProductDetailConsole({
                   data-admin-gift-product-activate="1"
                   onClick={() => void patchAction("activate")}
                 >
-                  {safeT("gift_ops_cta_resume", { fallbackKo: "판매 재개", fallbackEn: "Resume" })}
+                  {safeT("gift_ops_cta_resume")}
                 </AdminActionButton>
               ) : null}
               {mallVisible ? (
@@ -869,7 +817,7 @@ export function AdminGiftProductDetailConsole({
                   data-admin-gift-product-hide="1"
                   onClick={() => void patchAction("hide")}
                 >
-                  {safeT("gift_ops_cta_mall_hide", { fallbackKo: "몰 숨김", fallbackEn: "Hide from mall" })}
+                  {safeT("gift_ops_cta_mall_hide")}
                 </AdminActionButton>
               ) : (
                 <AdminActionButton
@@ -879,7 +827,7 @@ export function AdminGiftProductDetailConsole({
                   data-admin-gift-product-show="1"
                   onClick={() => void patchAction("show")}
                 >
-                  {safeT("gift_ops_cta_mall_show", { fallbackKo: "몰 노출", fallbackEn: "Show in mall" })}
+                  {safeT("gift_ops_cta_mall_show")}
                 </AdminActionButton>
               )}
               {product.archived_at ? (
@@ -890,7 +838,7 @@ export function AdminGiftProductDetailConsole({
                   data-admin-gift-product-unarchive="1"
                   onClick={() => void patchAction("unarchive")}
                 >
-                  {safeT("gift_ops_cta_unarchive", { fallbackKo: "보관 해제", fallbackEn: "Unarchive" })}
+                  {safeT("gift_ops_cta_unarchive")}
                 </AdminActionButton>
               ) : (
                 <AdminActionButton
@@ -899,7 +847,7 @@ export function AdminGiftProductDetailConsole({
                   disabled={busy}
                   onClick={() => void handleArchive()}
                 >
-                  {safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
+                  {safeT("gift_ops_cta_archive")}
                 </AdminActionButton>
               )}
               {product.issued_count === 0 ? (
@@ -908,7 +856,7 @@ export function AdminGiftProductDetailConsole({
                   disabled={busy}
                   onClick={() => void confirmDelete()}
                 >
-                  {safeT("gift_ops_cta_delete", { fallbackKo: "삭제", fallbackEn: "Delete" })}
+                  {safeT("gift_ops_cta_delete")}
                 </AdminActionButton>
               ) : null}
             </div>
@@ -918,10 +866,10 @@ export function AdminGiftProductDetailConsole({
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-gift-product-kpis="1">
         {[
-          { label: safeT("gift_ops_kpi_issued", { fallbackKo: "발급 수", fallbackEn: "Issued" }), value: String(payload.stats.issued) },
-          { label: safeT("gift_ops_kpi_outstanding", { fallbackKo: "미사용 잔액", fallbackEn: "Outstanding" }), value: formatAdminPhp(payload.stats.outstanding) },
-          { label: safeT("gift_ops_kpi_redeemed_gross", { fallbackKo: "누적 사용", fallbackEn: "Redeemed" }), value: formatAdminPhp(payload.stats.redeemedGross) },
-          { label: safeT("gift_ops_detail_recognized_net", { fallbackKo: "Merchant net", fallbackEn: "Merchant net" }), value: formatAdminPhp(payload.stats.merchantNet) },
+          { label: safeT("gift_ops_kpi_issued"), value: String(payload.stats.issued) },
+          { label: safeT("gift_ops_kpi_outstanding"), value: formatAdminPhp(payload.stats.outstanding) },
+          { label: safeT("gift_ops_kpi_redeemed_gross"), value: formatAdminPhp(payload.stats.redeemedGross) },
+          { label: safeT("gift_ops_detail_recognized_net"), value: formatAdminPhp(payload.stats.merchantNet) },
         ].map((kpi) => (
           <div key={kpi.label} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
             <p className="text-xs text-sam-muted">{kpi.label}</p>
@@ -949,7 +897,7 @@ export function AdminGiftProductDetailConsole({
           {editOpen ? (
             <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Title" })}</span>
+                <span>{safeT("gift_admin_field_title")}</span>
                 <input className={Sam.input.base} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                 {editTitle.trim() !== product.title ? (
                   <p className="text-xs text-sam-muted">
@@ -958,7 +906,7 @@ export function AdminGiftProductDetailConsole({
                 ) : null}
               </label>
               <div className="space-y-2 text-sm">
-                <span>{safeT("gift_ops_field_image_upload", { fallbackKo: "상품권 이미지", fallbackEn: "Gift image" })}</span>
+                <span>{safeT("gift_ops_field_image_upload")}</span>
                 {editImage ? (
                   <div className="relative h-20 w-20 overflow-hidden rounded-ui-rect border border-sam-border">
                     <SamarketThumbnail src={editImage} alt="" fill className="relative h-full w-full" imageClassName="object-cover" />
@@ -978,15 +926,15 @@ export function AdminGiftProductDetailConsole({
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={editTransferable} onChange={(e) => setEditTransferable(e.target.checked)} />
-                {safeT("gift_admin_field_transferable", { fallbackKo: "선물 가능", fallbackEn: "Transferable" })}
+                {safeT("gift_admin_field_transferable")}
               </label>
               <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_max_issuance", { fallbackKo: "발급 제한", fallbackEn: "Max issuance" })}</span>
+                <span>{safeT("gift_ops_field_max_issuance")}</span>
                 <input
                   className={Sam.input.base}
                   inputMode="numeric"
                   value={editMaxIssuance}
-                  placeholder={safeT("gift_ops_max_issuance_unlimited", { fallbackKo: "제한 없음", fallbackEn: "Unlimited" })}
+                  placeholder={safeT("gift_ops_max_issuance_unlimited")}
                   onChange={(e) => setEditMaxIssuance(e.target.value)}
                 />
               </label>
@@ -995,10 +943,10 @@ export function AdminGiftProductDetailConsole({
           ) : (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-2">
               <p>{product.title}</p>
-              <p>{product.transferable ? safeT("gift_admin_field_transferable", { fallbackKo: "선물 가능", fallbackEn: "Transferable" }) : "—"}</p>
+              <p>{product.transferable ? safeT("gift_admin_field_transferable") : "—"}</p>
               <p>
-                {safeT("gift_ops_field_max_issuance", { fallbackKo: "발급 제한", fallbackEn: "Max issuance" })}:{" "}
-                {product.max_issuance ?? safeT("gift_ops_max_issuance_unlimited", { fallbackKo: "제한 없음", fallbackEn: "Unlimited" })}
+                {safeT("gift_ops_field_max_issuance")}:{" "}
+                {product.max_issuance ?? safeT("gift_ops_max_issuance_unlimited")}
               </p>
               <p className="text-xs text-sam-muted">{creationSourceLabel(product.creation_source, safeT)}</p>
             </div>
@@ -1011,33 +959,33 @@ export function AdminGiftProductDetailConsole({
           {editOpen ? (
             <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
               <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_face_amount", { fallbackKo: "표시 금액", fallbackEn: "Face value" })}</span>
+                <span>{safeT("gift_ops_field_face_amount")}</span>
                 <input className={Sam.input.base} inputMode="numeric" value={editFace} onChange={(e) => setEditFace(e.target.value)} />
               </label>
               <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_purchase", { fallbackKo: "판매 가격", fallbackEn: "Sale price" })}</span>
+                <span>{safeT("gift_ops_field_purchase")}</span>
                 <input className={Sam.input.base} inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
               </label>
               <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_fee_dibay", { fallbackKo: "플랫폼 수수료 %", fallbackEn: "Platform fee %" })}</span>
+                <span>{safeT("gift_ops_field_fee_dibay")}</span>
                 <input className={Sam.input.base} inputMode="numeric" value={editFee} onChange={(e) => setEditFee(e.target.value)} />
               </label>
               <GiftSalesDateTimeField
-                label={safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}
+                label={safeT("gift_ops_field_sales_start")}
                 value={editStart}
                 previousValue={canonStart}
                 onChange={setEditStart}
                 data-testid="edit-start"
               />
               <GiftSalesDateTimeField
-                label={safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" })}
+                label={safeT("gift_ops_field_sales_end")}
                 value={editEnd}
                 previousValue={canonEnd}
                 onChange={setEditEnd}
                 data-testid="edit-end"
               />
               <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_validity", { fallbackKo: "유효기간 정책", fallbackEn: "Expiry policy" })}</span>
+                <span>{safeT("gift_ops_field_validity")}</span>
                 <select
                   className={Sam.input.base}
                   value={editExpiryPolicy}
@@ -1048,28 +996,19 @@ export function AdminGiftProductDetailConsole({
                   }}
                 >
                   <option value="NO_EXPIRY">
-                    {safeT("gift_ops_expiry_no_expiry", {
-                      fallbackKo: "만료 없음 (NO_EXPIRY)",
-                      fallbackEn: "No expiry (NO_EXPIRY)",
-                    })}
+                    {safeT("gift_ops_expiry_no_expiry")}
                   </option>
                   <option value="FIXED_DAYS">
-                    {safeT("gift_ops_expiry_fixed_days", {
-                      fallbackKo: "발급 후 N일 (FIXED_DAYS)",
-                      fallbackEn: "N days after issue (FIXED_DAYS)",
-                    })}
+                    {safeT("gift_ops_expiry_fixed_days")}
                   </option>
                   <option value="FIXED_DATE">
-                    {safeT("gift_ops_expiry_fixed_date", {
-                      fallbackKo: "고정 만료일 (FIXED_DATE)",
-                      fallbackEn: "Fixed end date (FIXED_DATE)",
-                    })}
+                    {safeT("gift_ops_expiry_fixed_date")}
                   </option>
                 </select>
               </label>
               {editExpiryPolicy === "FIXED_DAYS" ? (
                 <label className="block space-y-1 text-sm">
-                  <span>{safeT("gift_ops_field_validity_days", { fallbackKo: "유효 일수", fallbackEn: "Validity days" })}</span>
+                  <span>{safeT("gift_ops_field_validity_days")}</span>
                   <input
                     className={Sam.input.base}
                     inputMode="numeric"
@@ -1081,7 +1020,7 @@ export function AdminGiftProductDetailConsole({
               ) : null}
               {editExpiryPolicy === "FIXED_DATE" ? (
                 <label className="block space-y-1 text-sm">
-                  <span>{safeT("gift_ops_field_fixed_valid_until", { fallbackKo: "만료일", fallbackEn: "Valid until" })}</span>
+                  <span>{safeT("gift_ops_field_fixed_valid_until")}</span>
                   <input
                     type="date"
                     className={Sam.input.base}
@@ -1093,7 +1032,7 @@ export function AdminGiftProductDetailConsole({
               ) : null}
               {Math.max(0, Math.trunc(Number(editFace) || 0) - Math.trunc(Number(editPrice) || 0)) > 0 ? (
                 <label className="block space-y-1 text-sm">
-                  <span>{safeT("gift_ops_field_promo_funding", { fallbackKo: "할인 부담", fallbackEn: "Discount funding" })}</span>
+                  <span>{safeT("gift_ops_field_promo_funding")}</span>
                   <select
                     className={Sam.input.base}
                     value={editFundingParty}
@@ -1104,13 +1043,13 @@ export function AdminGiftProductDetailConsole({
                     }}
                   >
                     <option value="MERCHANT">
-                      {safeT("gift_ops_funding_merchant", { fallbackKo: "매장 부담", fallbackEn: "Merchant funded" })}
+                      {safeT("gift_ops_funding_merchant")}
                     </option>
                     <option value="PLATFORM">
-                      {safeT("gift_ops_funding_platform", { fallbackKo: "DIBAY 부담", fallbackEn: "DIBAY funded" })}
+                      {safeT("gift_ops_funding_platform")}
                     </option>
                     <option value="SHARED">
-                      {safeT("gift_ops_funding_shared", { fallbackKo: "분담 (SHARED)", fallbackEn: "Shared" })}
+                      {safeT("gift_ops_funding_shared")}
                     </option>
                   </select>
                   <p className="text-xs text-sam-muted tabular-nums">
@@ -1119,7 +1058,7 @@ export function AdminGiftProductDetailConsole({
                 </label>
               ) : (
                 <p className="text-xs text-sam-muted">
-                  {safeT("gift_ops_funding_none", { fallbackKo: "할인 없음 (NONE)", fallbackEn: "No discount (NONE)" })}
+                  {safeT("gift_ops_funding_none")}
                 </p>
               )}
             </div>
@@ -1132,7 +1071,7 @@ export function AdminGiftProductDetailConsole({
                 {dt(product.sales_starts_at)} → {dt(product.sales_ends_at)}
               </p>
               <p>
-                {safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" })}:{" "}
+                {safeT("gift_ops_field_validity")}:{" "}
                 {formatExpiryPolicyDisplay(
                   viewExpiryPolicy,
                   product.validity_days,
@@ -1142,13 +1081,13 @@ export function AdminGiftProductDetailConsole({
               </p>
               {(product.discount_funding_party ?? "NONE") !== "NONE" ? (
                 <p className="text-xs text-sam-muted">
-                  {safeT("gift_ops_field_promo_funding", { fallbackKo: "할인 부담", fallbackEn: "Discount funding" })}:{" "}
+                  {safeT("gift_ops_field_promo_funding")}:{" "}
                   {product.discount_funding_party} (P {product.platform_funded_units ?? 0} / M{" "}
                   {product.merchant_funded_units ?? 0})
                 </p>
               ) : (
                 <p className="text-xs text-sam-muted">
-                  {safeT("gift_ops_funding_none", { fallbackKo: "할인 없음 (NONE)", fallbackEn: "No discount (NONE)" })}
+                  {safeT("gift_ops_funding_none")}
                 </p>
               )}
             </div>
@@ -1171,13 +1110,13 @@ export function AdminGiftProductDetailConsole({
                 href={buildAdminGiftOpsHref({ tab: "instances", extra: { id: String(row.id) } })}
                 className="mt-2 inline-block text-xs font-semibold text-sam-primary"
               >
-                {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                {safeT("gift_ops_cta_detail")}
               </Link>
             </div>
           ))}
           {!payload.instances.length ? (
             <p className="text-sm text-sam-muted">
-              {safeT("gift_ops_instances_empty", { fallbackKo: "발급된 상품권이 없습니다.", fallbackEn: "No instances yet." })}
+              {safeT("gift_ops_instances_empty")}
             </p>
           ) : null}
         </div>
@@ -1192,7 +1131,7 @@ export function AdminGiftProductDetailConsole({
                 className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm"
               >
                 <p className="text-xs font-semibold text-sam-muted">
-                  {safeT("gift_ops_activity_transfer", { fallbackKo: "선물", fallbackEn: "Transfer" })}
+                  {safeT("gift_ops_activity_transfer")}
                 </p>
                 <p>
                   {String(item.row.publicGiftNumber)} · {String(item.row.status)}
@@ -1208,11 +1147,11 @@ export function AdminGiftProductDetailConsole({
                 className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm"
               >
                 <p className="text-xs font-semibold text-sam-muted">
-                  {safeT("gift_ops_activity_redemption", { fallbackKo: "사용", fallbackEn: "Redemption" })}
+                  {safeT("gift_ops_activity_redemption")}
                 </p>
                 <p className="font-semibold">{String(item.row.publicGiftNumber)}</p>
                 <p>
-                  {safeT("gift_ops_redeemed_store", { fallbackKo: "사용 매장", fallbackEn: "Redeemed store" })}:{" "}
+                  {safeT("gift_ops_redeemed_store")}:{" "}
                   <span className="font-semibold">
                     {String(item.row.redeemedStoreName || item.row.redeemedStoreId || "—")}
                   </span>
@@ -1227,10 +1166,7 @@ export function AdminGiftProductDetailConsole({
           )}
           {!activityItems.length ? (
             <li className="text-sm text-sam-muted">
-              {safeT("gift_ops_activity_empty", {
-                fallbackKo: "선물·사용 활동이 없습니다.",
-                fallbackEn: "No transfer or redemption activity.",
-              })}
+              {safeT("gift_ops_activity_empty")}
             </li>
           ) : null}
         </ul>
@@ -1240,26 +1176,26 @@ export function AdminGiftProductDetailConsole({
         <div className="space-y-3" data-admin-gift-product-settlement="1">
           <div className="grid grid-cols-2 gap-2 text-sm">
             <p>
-              {safeT("gift_ops_money_pending", { fallbackKo: "확정 대기 Gross", fallbackEn: "Pending gross" })}:{" "}
+              {safeT("gift_ops_money_pending")}:{" "}
               {formatAdminPhp(payload.stats.pendingGross)}
             </p>
             <p>
-              {safeT("gift_ops_money_recognized", { fallbackKo: "확정 Gross", fallbackEn: "Recognized gross" })}:{" "}
+              {safeT("gift_ops_money_recognized")}:{" "}
               {formatAdminPhp(payload.stats.recognizedGross)}
             </p>
             <p>
-              {safeT("gift_ops_kpi_recognized_fee", { fallbackKo: "DIBAY 수수료", fallbackEn: "DIBAY fee" })}:{" "}
+              {safeT("gift_ops_kpi_recognized_fee")}:{" "}
               {formatAdminPhp(payload.stats.platformFee)}
             </p>
             <p>
-              {safeT("gift_ops_detail_recognized_net", { fallbackKo: "Merchant Net", fallbackEn: "Merchant net" })}:{" "}
+              {safeT("gift_ops_detail_recognized_net")}:{" "}
               {formatAdminPhp(payload.stats.merchantNet)}
             </p>
           </div>
           {scope === "PLATFORM" && (product.redemption_by_store?.length ?? 0) > 0 ? (
             <div>
               <p className="mb-2 text-sm font-semibold">
-                {safeT("gift_ops_redeem_by_store", { fallbackKo: "매장별 정산", fallbackEn: "By redeemed store" })}
+                {safeT("gift_ops_redeem_by_store")}
               </p>
               <ul className="space-y-1 text-sm">
                 {product.redemption_by_store!.map((row) => (
@@ -1294,10 +1230,7 @@ export function AdminGiftProductDetailConsole({
           <div className="mx-auto flex max-w-6xl flex-col gap-2">
             {isDirty ? (
               <p className="text-center text-xs text-sam-muted" data-admin-gift-product-dirty-count="1">
-                {safeT("gift_ops_edit_dirty_count", {
-                  fallbackKo: `${editDiffLines.length}개 항목 변경됨`,
-                  fallbackEn: `${editDiffLines.length} fields changed`,
-                })}
+                {safeT("gift_ops_edit_dirty_count")}
               </p>
             ) : null}
             <div className="flex gap-2">
@@ -1308,10 +1241,7 @@ export function AdminGiftProductDetailConsole({
                 data-admin-gift-product-cancel="1"
                 onClick={cancelEdit}
               >
-                {safeT("gift_admin_edit_confirm_cancel", {
-                  fallbackKo: "취소",
-                  fallbackEn: "Cancel",
-                })}
+                {safeT("gift_admin_edit_confirm_cancel")}
               </AdminActionButton>
               <AdminActionButton
                 type="button"
@@ -1320,7 +1250,7 @@ export function AdminGiftProductDetailConsole({
                 data-admin-gift-product-save="1"
                 onClick={() => void saveEdit()}
               >
-                {safeT("gift_ops_cta_save", { fallbackKo: "저장", fallbackEn: "Save" })}
+                {safeT("gift_ops_cta_save")}
               </AdminActionButton>
             </div>
           </div>

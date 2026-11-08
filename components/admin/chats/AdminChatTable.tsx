@@ -64,10 +64,7 @@ export function AdminChatTable({
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_room_id")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {safeT("admin_chat_app_room_th", {
-                fallbackKo: "앱 채팅방",
-                fallbackEn: "App room",
-              })}
+              {safeT("admin_chat_app_room_th")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_product_title")}</th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_chat_seller")}</th>

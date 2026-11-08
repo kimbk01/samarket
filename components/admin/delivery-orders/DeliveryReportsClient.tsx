@@ -66,10 +66,7 @@ export function DeliveryReportsClient() {
         {t("admin_do_reports_intro")}{" "}
         <code className="rounded bg-sam-app px-1">store_reports</code>
         {" · "}
-        {safeT("admin_do_reports_same_authority", {
-          fallbackKo: "동일 authority. 조치 콘솔:",
-          fallbackEn: "Same authority. Action console:",
-        })}{" "}
+        {safeT("admin_do_reports_same_authority")}{" "}
         <Link href="/admin/store-reports" className="font-medium text-signature underline">
           {t("admin_do_reports_console")}
         </Link>

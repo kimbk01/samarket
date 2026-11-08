@@ -321,10 +321,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
   const validateBeforeSave = useCallback((): boolean => {
     if (!draft.title.trim()) {
       setError(
-        safeT("admin_platform_events_error_title_required", {
-          fallbackKo: "이벤트 제목을 입력해 주세요.",
-          fallbackEn: "Event title is required.",
-        })
+        safeT("admin_platform_events_error_title_required")
       );
       return false;
     }
@@ -362,10 +359,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             ? lang === "en"
               ? mapped.en
               : mapped.ko
-            : safeT("admin_platform_events_error_destination", {
-                fallbackKo: "이동 설정을 확인해 주세요.",
-                fallbackEn: "Check destination settings.",
-              })
+            : safeT("admin_platform_events_error_destination")
         );
         return false;
       }
@@ -501,7 +495,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             ? promotionAdminActionLabel("PUBLISH", lang)
             : action === "unpublish"
               ? promotionAdminActionLabel("PAUSE_STOP", lang)
-              : safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" }),
+              : safeT("admin_event_editor_btn_archive"),
         destructive: copy.tone === "danger",
       });
       if (!confirmed.ok) return;
@@ -616,10 +610,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       ) : null}
       <AdminActionButton variant="primary" disabled={actionBlocked} title={adminAction.reason ?? undefined} onClick={() => void save()}>
         {saving
-          ? safeT("admin_platform_events_saving", {
-              fallbackKo: "저장 중…",
-              fallbackEn: "Saving…",
-            })
+          ? safeT("admin_platform_events_saving")
           : promotionAdminActionLabel("SAVE", lang)}
       </AdminActionButton>
       <AdminActionButton
@@ -644,7 +635,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         onClick={() => void requestLifecycle("archive")}
         data-admin-event-action="archive"
       >
-        {safeT("admin_event_editor_btn_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
+        {safeT("admin_event_editor_btn_archive")}
       </AdminActionButton>
     </>
   );
@@ -656,14 +647,8 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           <AdminPageHeader
             title={
               isNew
-                ? safeT("admin_platform_events_create", {
-                    fallbackKo: "새 이벤트",
-                    fallbackEn: "New event",
-                  })
-                : safeT("admin_platform_events_edit", {
-                    fallbackKo: "이벤트 수정",
-                    fallbackEn: "Edit event",
-                  })
+                ? safeT("admin_platform_events_create")
+                : safeT("admin_platform_events_edit")
             }
           />
         </div>
@@ -677,12 +662,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg"
           data-admin-event-owner-handoff="1"
         >
-          {safeT("admin_platform_events_owner_handoff_banner", {
-            fallbackKo:
-              "오너 요청에서 승인된 Event 초안 — 요청 채널 ≠ 최종 채널",
-            fallbackEn:
-              "Event draft approved from an owner request — request channels ≠ final channels",
-          })}
+          {safeT("admin_platform_events_owner_handoff_banner")}
         </div>
       ) : null}
 
@@ -694,20 +674,14 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           {promotionOperatorStatusLabel(operatorStatus, lang)}
         </AdminToneBadge>
         {draft.archivedAt ? (
-          <AdminToneBadge tone="neutral">{safeT("admin_event_editor_archived_badge", { fallbackKo: "보관됨", fallbackEn: "Archived" })}</AdminToneBadge>
+          <AdminToneBadge tone="neutral">{safeT("admin_event_editor_archived_badge")}</AdminToneBadge>
         ) : null}
         <span className="text-xs text-sam-muted">
-          {safeT("admin_promotion_schedule_start", {
-            fallbackKo: "노출 시작",
-            fallbackEn: "Starts",
-          })}
+          {safeT("admin_promotion_schedule_start")}
           : {formatPromotionAdminSchedule(draft.startsAt, lang)}
         </span>
         <span className="text-xs text-sam-muted">
-          {safeT("admin_promotion_schedule_end", {
-            fallbackKo: "노출 종료",
-            fallbackEn: "Ends",
-          })}
+          {safeT("admin_promotion_schedule_end")}
           : {formatPromotionAdminSchedule(draft.endsAt, lang)}
         </span>
         <span className="text-xs text-sam-muted">
@@ -717,16 +691,10 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
       <section className={sectionClass} data-admin-event-section="basic">
         <h2 className={sectionTitleClass}>
-          {safeT("admin_platform_events_section_basic", {
-            fallbackKo: "기본 정보",
-            fallbackEn: "Basic info",
-          })}
+          {safeT("admin_platform_events_section_basic")}
         </h2>
         <label className="block text-sm">
-          {safeT("admin_platform_events_field_title", {
-            fallbackKo: "이벤트 제목",
-            fallbackEn: "Event title",
-          })}
+          {safeT("admin_platform_events_field_title")}
           <input
             className={fieldClass}
             value={draft.title}
@@ -734,10 +702,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           />
         </label>
         <label className="block text-sm">
-          {safeT("admin_platform_events_field_subtitle", {
-            fallbackKo: "부제",
-            fallbackEn: "Subtitle",
-          })}
+          {safeT("admin_platform_events_field_subtitle")}
           <input
             className={fieldClass}
             value={draft.subtitle ?? ""}
@@ -748,18 +713,10 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         </label>
         <div className="space-y-2">
           <span className="block text-sm">
-            {safeT("admin_platform_events_field_hero", {
-              fallbackKo: "히어로 이미지",
-              fallbackEn: "Hero image",
-            })}
+            {safeT("admin_platform_events_field_hero")}
           </span>
           <p className="text-xs text-sam-muted">
-            {safeT("admin_platform_events_hero_guidance", {
-              fallbackKo:
-                "권장 비율 16:9 · 권장 1200×675 · jpeg/png/webp · 최대 5MB · cover crop",
-              fallbackEn:
-                "Recommended 16:9 · 1200×675 · jpeg/png/webp · max 5MB · cover crop",
-            })}
+            {safeT("admin_platform_events_hero_guidance")}
           </p>
           <input
             ref={heroFileRef}
@@ -787,10 +744,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                   disabled={busy}
                   onClick={() => heroFileRef.current?.click()}
                 >
-                  {safeT("admin_platform_events_hero_replace", {
-                    fallbackKo: "이미지 교체",
-                    fallbackEn: "Replace image",
-                  })}
+                  {safeT("admin_platform_events_hero_replace")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="quiet"
@@ -799,42 +753,30 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                     setDraft((d) => ({ ...d, heroImageUrl: null, heroImagePath: null }))
                   }
                 >
-                  {safeT("admin_platform_events_hero_remove", {
-                    fallbackKo: "히어로 이미지 제거",
-                    fallbackEn: "Remove hero image",
-                  })}
+                  {safeT("admin_platform_events_hero_remove")}
                 </AdminActionButton>
               </div>
             </div>
           ) : null}
           {mediaBusy ? (
             <p className="text-xs text-sam-muted">
-              {safeT("admin_platform_events_uploading", {
-                fallbackKo: "업로드 중…",
-                fallbackEn: "Uploading…",
-              })}
+              {safeT("admin_platform_events_uploading")}
             </p>
           ) : null}
         </div>
       </section>
 
       <section className={sectionClass} data-admin-event-section="board">
-        <h2 className={sectionTitleClass}>{safeT("admin_event_editor_board_section", { fallbackKo: "이벤트 게시판 노출", fallbackEn: "Event board" })}</h2>
+        <h2 className={sectionTitleClass}>{safeT("admin_event_editor_board_section")}</h2>
         {!boardColumnsApplied ? (
           <p className="text-xs text-sam-warning" data-admin-event-board-migration-pending="1">
-            {safeT("admin_event_editor_board_migration_pending", {
-              fallbackKo: "게시판 컬럼 마이그레이션 전입니다 — 썸네일·정렬·고정·카테고리·보관은 저장되지 않습니다.",
-              fallbackEn: "Board columns are not migrated yet — thumbnail / order / pin / category / archive are not saved.",
-            })}
+            {safeT("admin_event_editor_board_migration_pending")}
           </p>
         ) : null}
         <div className="space-y-2">
-          <span className="block text-sm">{safeT("admin_event_editor_board_thumbnail", { fallbackKo: "카드 썸네일 (2:1)", fallbackEn: "Card thumbnail (2:1)" })}</span>
+          <span className="block text-sm">{safeT("admin_event_editor_board_thumbnail")}</span>
           <p className="text-xs text-sam-muted">
-            {safeT("admin_event_editor_board_thumbnail_help", {
-              fallbackKo: "권장 1200×600 · https 주소만 · 비우면 히어로 이미지 사용",
-              fallbackEn: "Recommended 1200×600 · https only · empty = hero image",
-            })}
+            {safeT("admin_event_editor_board_thumbnail_help")}
           </p>
           <input
             className={fieldClass}
@@ -865,7 +807,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <label className="block text-sm">
-            {safeT("admin_event_editor_board_category", { fallbackKo: "카테고리", fallbackEn: "Category" })}
+            {safeT("admin_event_editor_board_category")}
             <input
               className={fieldClass}
               maxLength={PLATFORM_EVENT_CATEGORY_MAX}
@@ -874,7 +816,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             />
           </label>
           <label className="block text-sm">
-            {safeT("admin_event_editor_board_sort_order", { fallbackKo: "정렬 순서 (작을수록 위)", fallbackEn: "Sort order (ascending)" })}
+            {safeT("admin_event_editor_board_sort_order")}
             <input
               type="number"
               step={1}
@@ -891,17 +833,14 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
               checked={draft.isPinned === true}
               onChange={(e) => setDraft((d) => ({ ...d, isPinned: e.target.checked }))}
             />
-            {safeT("admin_event_editor_board_pin", { fallbackKo: "상단 고정", fallbackEn: "Pin to top" })}
+            {safeT("admin_event_editor_board_pin")}
           </label>
         </div>
       </section>
 
       <section className={sectionClass} data-admin-event-section="content">
         <h2 className={sectionTitleClass}>
-          {safeT("admin_platform_events_section_content", {
-            fallbackKo: "이벤트 내용",
-            fallbackEn: "Event content",
-          })}
+          {safeT("admin_platform_events_section_content")}
         </h2>
         <input
           ref={sectionFileRef}
@@ -913,7 +852,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         />
         {sections.length === 0 ? (
           <p className="text-sm text-sam-muted">
-            {safeT("admin_event_editor_sections_empty", { fallbackKo: "섹션이 없습니다. 아래에서 추가하세요.", fallbackEn: "No sections yet. Add one below." })}
+            {safeT("admin_event_editor_sections_empty")}
           </p>
         ) : null}
         <ol className="space-y-3" data-admin-event-sections="1">
@@ -934,7 +873,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                       variant="quiet"
                       disabled={busy || index === 0}
                       onClick={() => moveSection(index, -1)}
-                      aria-label={safeT("admin_event_editor_section_move_up", { fallbackKo: "위로", fallbackEn: "Move up" })}
+                      aria-label={safeT("admin_event_editor_section_move_up")}
                     >
                       ↑
                     </AdminActionButton>
@@ -942,12 +881,12 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                       variant="quiet"
                       disabled={busy || index === sections.length - 1}
                       onClick={() => moveSection(index, 1)}
-                      aria-label={safeT("admin_event_editor_section_move_down", { fallbackKo: "아래로", fallbackEn: "Move down" })}
+                      aria-label={safeT("admin_event_editor_section_move_down")}
                     >
                       ↓
                     </AdminActionButton>
                     <AdminActionButton variant="quiet" disabled={busy} onClick={() => removeSection(index)}>
-                      {safeT("admin_event_editor_section_remove", { fallbackKo: "삭제", fallbackEn: "Remove" })}
+                      {safeT("admin_event_editor_section_remove")}
                     </AdminActionButton>
                   </div>
                 </div>
@@ -955,13 +894,13 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                   <>
                     <input
                       className={fieldClass}
-                      placeholder={safeT("admin_event_editor_section_heading_ph", { fallbackKo: "소제목 (선택)", fallbackEn: "Heading (optional)" })}
+                      placeholder={safeT("admin_event_editor_section_heading_ph")}
                       value={sec.title ?? ""}
                       onChange={(e) => updateSection(index, { title: e.target.value })}
                     />
                     <textarea
                       className={`${fieldClass} h-28`}
-                      placeholder={safeT("admin_event_editor_section_body_ph", { fallbackKo: "본문", fallbackEn: "Body" })}
+                      placeholder={safeT("admin_event_editor_section_body_ph")}
                       value={sec.body}
                       onChange={(e) => updateSection(index, { body: e.target.value })}
                     />
@@ -983,14 +922,11 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                           sectionFileRef.current?.click();
                         }}
                       >
-                        {safeT("admin_platform_events_field_section_image", {
-                          fallbackKo: "추가 이미지",
-                          fallbackEn: "Section image",
-                        })}
+                        {safeT("admin_platform_events_field_section_image")}
                       </AdminActionButton>
                       <input
                         className={`${fieldClass} mt-0 flex-1`}
-                        placeholder={safeT("admin_event_editor_section_alt_ph", { fallbackKo: "대체 텍스트 (선택)", fallbackEn: "Alt text (optional)" })}
+                        placeholder={safeT("admin_event_editor_section_alt_ph")}
                         value={sec.alt ?? ""}
                         onChange={(e) => updateSection(index, { alt: e.target.value })}
                       />
@@ -1012,19 +948,13 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                   <>
                     <input
                       className={fieldClass}
-                      placeholder={safeT("admin_platform_events_field_benefit_title", {
-                        fallbackKo: "혜택 제목",
-                        fallbackEn: "Benefit title",
-                      })}
+                      placeholder={safeT("admin_platform_events_field_benefit_title")}
                       value={sec.title}
                       onChange={(e) => updateSection(index, { title: e.target.value })}
                     />
                     <textarea
                       className={`${fieldClass} h-20`}
-                      placeholder={safeT("admin_platform_events_field_benefit_body", {
-                        fallbackKo: "혜택 설명",
-                        fallbackEn: "Benefit detail",
-                      })}
+                      placeholder={safeT("admin_platform_events_field_benefit_body")}
                       value={sec.body ?? ""}
                       onChange={(e) => updateSection(index, { body: e.target.value })}
                     />
@@ -1033,7 +963,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                   <>
                     <input
                       className={fieldClass}
-                      placeholder={safeT("admin_event_editor_section_cta_label_ph", { fallbackKo: "버튼 문구", fallbackEn: "Button label" })}
+                      placeholder={safeT("admin_event_editor_section_cta_label_ph")}
                       value={sec.label}
                       onChange={(e) => updateSection(index, { label: e.target.value })}
                     />
@@ -1058,7 +988,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                     ) : (
                       <input
                         className={fieldClass}
-                        placeholder={safeT("admin_event_editor_section_cta_target_ph", { fallbackKo: "이동 대상 (경로 또는 ID)", fallbackEn: "Target (path or id)" })}
+                        placeholder={safeT("admin_event_editor_section_cta_target_ph")}
                         value={sec.ctaTarget ?? ""}
                         onChange={(e) => updateSection(index, { ctaTarget: e.target.value })}
                       />
@@ -1067,7 +997,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
                 ) : (
                   <textarea
                     className={`${fieldClass} h-20`}
-                    placeholder={safeT("admin_event_editor_section_terms_ph", { fallbackKo: "유의사항", fallbackEn: "Notes" })}
+                    placeholder={safeT("admin_event_editor_section_terms_ph")}
                     value={sec.body}
                     onChange={(e) => updateSection(index, { body: e.target.value })}
                   />
@@ -1081,7 +1011,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             className="rounded border border-sam-border px-2 py-1.5 text-sm"
             value={newSectionKind}
             onChange={(e) => setNewSectionKind(e.target.value as SectionKind)}
-            aria-label={safeT("admin_event_editor_section_type", { fallbackKo: "섹션 유형", fallbackEn: "Section type" })}
+            aria-label={safeT("admin_event_editor_section_type")}
           >
             {SECTION_KIND_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -1095,14 +1025,11 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             onClick={() => setSections((list) => [...list, newSection(newSectionKind)])}
             data-admin-event-section-add="1"
           >
-            {safeT("admin_event_editor_section_add", { fallbackKo: "섹션 추가", fallbackEn: "Add section" })}
+            {safeT("admin_event_editor_section_add")}
           </AdminActionButton>
         </div>
         <label className="block text-sm">
-          {safeT("admin_platform_events_field_terms", {
-            fallbackKo: "이용 약관 / 유의사항",
-            fallbackEn: "Terms",
-          })}
+          {safeT("admin_platform_events_field_terms")}
           <textarea
             className={`${fieldClass} h-24`}
             value={draft.terms ?? ""}
@@ -1115,16 +1042,10 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
       <section className={sectionClass} data-admin-event-section="destination">
         <h2 className={sectionTitleClass}>
-          {safeT("admin_platform_events_section_destination", {
-            fallbackKo: "이동 설정",
-            fallbackEn: "Destination",
-          })}
+          {safeT("admin_platform_events_section_destination")}
         </h2>
         <label className="block text-sm">
-          {safeT("admin_platform_events_field_cta_label", {
-            fallbackKo: "CTA 문구",
-            fallbackEn: "CTA label",
-          })}
+          {safeT("admin_platform_events_field_cta_label")}
           <input
             className={fieldClass}
             value={draft.ctaLabel ?? ""}
@@ -1134,10 +1055,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           />
         </label>
         <label className="block text-sm">
-          {safeT("admin_platform_events_field_cta_type", {
-            fallbackKo: "이동 유형",
-            fallbackEn: "Destination type",
-          })}
+          {safeT("admin_platform_events_field_cta_type")}
           <select
             className={fieldClass}
             value={draft.ctaType ?? "internal_page"}
@@ -1152,10 +1070,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         </label>
         {isExternalCta ? (
           <label className="block text-sm">
-            {safeT("admin_platform_events_field_cta_external_url", {
-              fallbackKo: "외부 URL",
-              fallbackEn: "External URL",
-            })}
+            {safeT("admin_platform_events_field_cta_external_url")}
             <input
               className={fieldClass}
               value={draft.ctaExternalUrl ?? ""}
@@ -1170,10 +1085,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           </label>
         ) : (
           <label className="block text-sm">
-            {safeT("admin_platform_events_field_cta_target", {
-              fallbackKo: "이동 대상",
-              fallbackEn: "Target",
-            })}
+            {safeT("admin_platform_events_field_cta_target")}
             <input
               className={fieldClass}
               value={draft.ctaTarget}
@@ -1198,20 +1110,14 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
 
       <section className={sectionClass} data-admin-event-section="schedule">
         <h2 className={sectionTitleClass}>
-          {safeT("admin_platform_events_section_schedule", {
-            fallbackKo: "노출 기간",
-            fallbackEn: "Schedule",
-          })}
+          {safeT("admin_platform_events_section_schedule")}
         </h2>
         <p className="text-xs text-sam-muted">
-          {safeT("admin_platform_events_schedule_tz_note", {
-            fallbackKo: "표시 기준 시간대: Asia/Manila",
-            fallbackEn: "Display timezone: Asia/Manila",
-          })}
+          {safeT("admin_platform_events_schedule_tz_note")}
         </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <label className="block text-sm">
-            {safeT("ads_f_start_pht", { fallbackKo: "시작 (PHT)", fallbackEn: "Start (PHT)" })}
+            {safeT("ads_f_start_pht")}
             <input
               type="datetime-local"
               className={fieldClass}
@@ -1222,7 +1128,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             />
           </label>
           <label className="block text-sm">
-            {safeT("ads_f_end_pht", { fallbackKo: "종료 (PHT)", fallbackEn: "End (PHT)" })}
+            {safeT("ads_f_end_pht")}
             <input
               type="datetime-local"
               className={fieldClass}
@@ -1242,10 +1148,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         data-admin-event-section="distribution"
       >
         <h2 className={sectionTitleClass}>
-          {safeT("admin_platform_events_section_distribution", {
-            fallbackKo: "노출 설정",
-            fallbackEn: "Exposure settings",
-          })}
+          {safeT("admin_platform_events_section_distribution")}
         </h2>
         {!isNew ? (
           <AdminPlatformEventDistributionPanel
@@ -1260,11 +1163,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           />
         ) : (
           <p className="text-sm text-sam-muted">
-            {safeT("admin_platform_events_distribution_save_first", {
-              fallbackKo: "초안을 먼저 저장하면 노출 설정(팝업·배너·푸시·알림함)을 구성할 수 있습니다.",
-              fallbackEn:
-                "Save the draft first to configure exposure (popup, banner, push, bell).",
-            })}
+            {safeT("admin_platform_events_distribution_save_first")}
           </p>
         )}
       </section>
@@ -1276,10 +1175,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
         data-admin-event-section="preview"
       >
         <h2 className={sectionTitleClass}>
-          {safeT("admin_platform_events_section_preview", {
-            fallbackKo: "미리보기",
-            fallbackEn: "Preview",
-          })}
+          {safeT("admin_platform_events_section_preview")}
         </h2>
         <div className="flex flex-wrap gap-2">
           {(
@@ -1316,21 +1212,11 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
             </div>
           ) : isNew ? (
             <p className="p-4 text-sm text-sam-muted">
-              {safeT("admin_platform_events_preview_dist_after_save", {
-                fallbackKo:
-                  "초안 저장 후 [노출 설정]에서 팝업·배너 미리보기를 확인하세요.",
-                fallbackEn:
-                  "After saving the draft, use Exposure settings for popup/banner previews.",
-              })}
+              {safeT("admin_platform_events_preview_dist_after_save")}
             </p>
           ) : (
             <p className="p-4 text-sm text-sam-muted">
-              {safeT("admin_platform_events_preview_use_dist_panel", {
-                fallbackKo:
-                  "팝업·배너 미리보기는 위 [노출 설정] 패널에서 확인하세요.",
-                fallbackEn:
-                  "Popup and banner previews are available in the Exposure settings panel above.",
-              })}
+              {safeT("admin_platform_events_preview_use_dist_panel")}
             </p>
           )}
         </div>

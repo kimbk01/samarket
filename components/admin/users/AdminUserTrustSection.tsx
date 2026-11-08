@@ -15,6 +15,7 @@ import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import type { AdminTrustHistoryEntry } from "@/lib/trust/admin-trust-history";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Props = {
   userId: string;
@@ -65,10 +66,7 @@ export function AdminUserTrustSection({
       if (!res.ok || !data.ok) {
         setLoadError(
           data.error ||
-            safeT("admin_users_trust_history_load_error", {
-              fallbackKo: "신뢰 이력을 불러오지 못했습니다.",
-              fallbackEn: "Could not load trust history.",
-            }),
+            safeT("admin_users_trust_history_load_error"),
         );
         setHistory([]);
         return;
@@ -79,10 +77,7 @@ export function AdminUserTrustSection({
       setHistory(Array.isArray(data.history) ? data.history : []);
     } catch {
       setLoadError(
-        safeT("admin_users_trust_history_load_error", {
-          fallbackKo: "신뢰 이력을 불러오지 못했습니다.",
-          fallbackEn: "Could not load trust history.",
-        }),
+        safeT("admin_users_trust_history_load_error"),
       );
       setHistory([]);
     } finally {
@@ -100,32 +95,24 @@ export function AdminUserTrustSection({
     }
   }, [initialTrustScore, userId]);
 
-  const deltaPlaceholder = language === "en" ? "Delta (e.g. 2, -1)" : "조정값 (예: 2, -1)";
+  const deltaPlaceholder = translateBy(language, "admin_delta_e_g_2_1");
 
   const handleAdjustTrust = useCallback(async () => {
     const current = trustScore ?? 50;
     const delta = Number(deltaInput.trim());
     if (!deltaInput.trim() || !Number.isFinite(delta) || delta === 0) {
-      await dibayAlert({ title: safeT("admin_users_trust_adjust_invalid", {
-          fallbackKo: "0이 아닌 유효한 delta를 입력해 주세요.",
-          fallbackEn: "Enter a non-zero valid delta.",
-        }), });
+      await dibayAlert({ title: safeT("admin_users_trust_adjust_invalid"), });
       return;
     }
     // R2 — 신뢰 점수 조정 = 제재(L2): 확인 + 사유, 사유는 API 로 보내 감사 기록에 남긴다.
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("sanction"),
       ko: language !== "en",
-      title: safeT("admin_users_trust_adjust", { fallbackKo: "점수 조정", fallbackEn: "Adjust" }),
+      title: safeT("admin_users_trust_adjust"),
       description:
-        language === "en"
-          ? `Current ${current} → delta ${formatDelta(delta)} (absolute overwrite forbidden)`
-          : `현재 점수 ${current} → 조정 ${formatDelta(delta)} (절대값 덮어쓰기 금지)`,
-      confirmLabel: safeT("admin_users_trust_adjust", { fallbackKo: "점수 조정", fallbackEn: "Adjust" }),
-      reasonPlaceholder: safeT("admin_users_trust_adjust_reason", {
-        fallbackKo: "조정 사유 (필수)",
-        fallbackEn: "Reason (required)",
-      }),
+        translateBy(language, "admin_current_current_delta_v2_absolute_overwrite", { current, v2: formatDelta(delta) }),
+      confirmLabel: safeT("admin_users_trust_adjust"),
+      reasonPlaceholder: safeT("admin_users_trust_adjust_reason"),
     });
     if (!confirmed.ok) return;
     const reason = confirmed.reason?.trim() ?? "";
@@ -166,10 +153,7 @@ export function AdminUserTrustSection({
     <div className={`${ADMIN_USERS_LITE_CARD} flex h-full flex-col`}>
       <div className="border-b border-sam-border px-5 py-4">
         <h2 className="text-sm font-bold text-sam-fg">
-          {safeT("admin_users_trust_section_title", {
-            fallbackKo: "신뢰 점수",
-            fallbackEn: "Trust score",
-          })}
+          {safeT("admin_users_trust_section_title")}
         </h2>
       </div>
       <div className="flex-1 space-y-4 p-5">
@@ -177,19 +161,13 @@ export function AdminUserTrustSection({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-sam-muted">
-                {safeT("admin_users_trust_score_label", {
-                  fallbackKo: "신뢰 점수 (trust_score)",
-                  fallbackEn: "Trust score (trust_score)",
-                })}
+                {safeT("admin_users_trust_score_label")}
               </p>
               <p className="mt-1 text-[20px] font-bold tabular-nums text-sam-fg">
                 {trustScore == null ? emptyDash : Math.round(trustScore)}
               </p>
               <p className="mt-1 text-[12px] leading-snug text-sam-meta">
-                {safeT("admin_users_trust_score_hint", {
-                  fallbackKo: "SSOT: profiles.trust_score · 회원 표시와 동일 권위",
-                  fallbackEn: "SSOT: profiles.trust_score · same authority as member UI",
-                })}
+                {safeT("admin_users_trust_score_hint")}
               </p>
             </div>
             {!readOnly ? (
@@ -210,10 +188,7 @@ export function AdminUserTrustSection({
                   disabled={trustBusy || loading}
                   onClick={() => void handleAdjustTrust()}
                 >
-                  {safeT("admin_users_trust_adjust", {
-                    fallbackKo: "점수 조정",
-                    fallbackEn: "Adjust",
-                  })}
+                  {safeT("admin_users_trust_adjust")}
                 </AdminActionButton>
               </div>
             ) : null}
@@ -222,10 +197,7 @@ export function AdminUserTrustSection({
 
         <div>
           <p className="mb-2 text-xs font-semibold text-sam-fg">
-            {safeT("admin_users_trust_history_title", {
-              fallbackKo: "신뢰 이력",
-              fallbackEn: "Trust history",
-            })}
+            {safeT("admin_users_trust_history_title")}
           </p>
           {loading ? (
             <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
@@ -233,10 +205,7 @@ export function AdminUserTrustSection({
             <p className="text-sm text-sam-danger">{loadError}</p>
           ) : history.length === 0 ? (
             <p className="text-sm text-sam-meta">
-              {safeT("admin_users_trust_history_empty", {
-                fallbackKo: "이력이 없습니다.",
-                fallbackEn: "No history yet.",
-              })}
+              {safeT("admin_users_trust_history_empty")}
             </p>
           ) : (
             <ul className="max-h-64 space-y-2 overflow-y-auto">

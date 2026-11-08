@@ -192,7 +192,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       ko,
       title: ko ? "약관 임시저장" : "Save legal document draft",
       description: ko ? "임시저장한 문서는 회원에게 노출되지 않습니다." : "Drafts are not visible to members.",
-      confirmLabel: safeT("admin_app_legal_save_draft", { fallbackKo: "임시저장", fallbackEn: "Save draft" }),
+      confirmLabel: safeT("admin_app_legal_save_draft"),
     });
     if (!confirmed.ok) return;
     const json = await send({ ...draftPayload(), status: "draft" });
@@ -358,19 +358,13 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           <AdminPageHeader
             title={
               documentId
-                ? safeT("admin_app_legal_edit_title", {
-                    fallbackKo: "법적 문서 수정",
-                    fallbackEn: "Edit legal document",
-                  })
-                : safeT("admin_app_legal_create_title", {
-                    fallbackKo: "법적 문서 작성",
-                    fallbackEn: "Create legal document",
-                  })
+                ? safeT("admin_app_legal_edit_title")
+                : safeT("admin_app_legal_create_title")
             }
           />
         </div>
         <Link href="/admin/app/legal" className="sam-text-body text-signature">
-          {safeT("admin_app_legal_back", { fallbackKo: "목록", fallbackEn: "Back" })}
+          {safeT("admin_app_legal_back")}
         </Link>
       </div>
 
@@ -412,7 +406,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_kind", { fallbackKo: "종류", fallbackEn: "Kind" })}
+          {safeT("admin_app_legal_kind")}
         </span>
         <select
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
@@ -437,7 +431,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_locale", { fallbackKo: "언어", fallbackEn: "Locale" })}
+          {safeT("admin_app_legal_locale")}
         </span>
         <select
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
@@ -452,7 +446,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_version", { fallbackKo: "버전", fallbackEn: "Version" })}
+          {safeT("admin_app_legal_version")}
         </span>
         <input
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
@@ -461,21 +455,13 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           onChange={(e) => setVersion(e.target.value)}
         />
         {kind === "marketing" ? null : <p className="text-xs text-sam-meta">
-          {safeT("admin_app_legal_version_reconsent_hint", {
-            fallbackKo:
-              "개정은 새 version 문서로 게시합니다. 게시할 때 「재동의 필요」 또는 「공지만」을 고르며, 게시된 문서의 문구는 바꿀 수 없습니다.",
-            fallbackEn:
-              "Publish a revision as a new version and choose \"Re-consent required\" or \"Notice only\". Published text cannot be edited.",
-          })}
+          {safeT("admin_app_legal_version_reconsent_hint")}
         </p>}
       </label>
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_effective_at", {
-            fallbackKo: "효력 시작",
-            fallbackEn: "Effective at",
-          })}
+          {safeT("admin_app_legal_effective_at")}
         </span>
         <input
           type="datetime-local"
@@ -488,7 +474,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_doc_title", { fallbackKo: "제목", fallbackEn: "Title" })}
+          {safeT("admin_app_legal_doc_title")}
         </span>
         <input
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 disabled:opacity-60"
@@ -500,10 +486,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
       <label className="block space-y-1">
         <span className="text-xs font-medium text-sam-muted">
-          {safeT("admin_app_legal_body", {
-            fallbackKo: "본문 (문단은 빈 줄로 구분)",
-            fallbackEn: "Body (separate paragraphs with a blank line)",
-          })}
+          {safeT("admin_app_legal_body")}
         </span>
         <textarea
           className="min-h-[280px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm disabled:opacity-60"
@@ -611,10 +594,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
               onClick={() => void saveDraft()}
               variant="secondary"
             >
-              {safeT("admin_app_legal_save_draft", {
-                fallbackKo: "임시저장",
-                fallbackEn: "Save draft",
-              })}
+              {safeT("admin_app_legal_save_draft")}
             </AdminActionButton>
             )}
             <AdminActionButton
@@ -628,10 +608,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
               onClick={() => void publish()}
               variant="primary"
             >
-              {safeT("admin_app_legal_publish", {
-                fallbackKo: "게시",
-                fallbackEn: "Publish",
-              })}
+              {safeT("admin_app_legal_publish")}
             </AdminActionButton>
           </>
         )}

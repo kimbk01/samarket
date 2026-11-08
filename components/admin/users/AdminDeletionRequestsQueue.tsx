@@ -90,10 +90,7 @@ export function AdminDeletionRequestsQueue() {
     <section className={`${ADMIN_USERS_LITE_CARD} space-y-2 p-4`}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_users_deletion_queue_title", {
-            fallbackKo: "회원 삭제 요청 대기",
-            fallbackEn: "Pending deletion requests",
-          })}
+          {safeT("admin_users_deletion_queue_title")}
           {list.loaded ? (
             <span className="ml-2 font-normal tabular-nums text-sam-muted" data-admin-deletion-total="1">
               {ko ? `총 ${formatAdminNumber(list.total)}건` : `Total ${formatAdminNumber(list.total)}`}
@@ -121,10 +118,7 @@ export function AdminDeletionRequestsQueue() {
           setPage(1);
         }}
         showTotal={false}
-        emptyMessage={safeT("admin_users_deletion_queue_empty", {
-          fallbackKo: "대기 중인 삭제 요청이 없습니다.",
-          fallbackEn: "No pending deletion requests.",
-        })}
+        emptyMessage={safeT("admin_users_deletion_queue_empty")}
       >
         {/* 표준 표 — 회원 · 요청 일시 · 상태 · 요청 사유 · 처리 (행 안 CTA 2개) */}
         <div className="overflow-x-auto">
@@ -160,10 +154,7 @@ export function AdminDeletionRequestsQueue() {
                         variant="ghost"
                         size="sm"
                       >
-                        {safeT("admin_users_deletion_open_detail", {
-                          fallbackKo: "상세에서 처리",
-                          fallbackEn: "Process in detail",
-                        })}
+                        {safeT("admin_users_deletion_open_detail")}
                       </AdminActionLink>
                       <AdminActionButton
                         variant="secondary"

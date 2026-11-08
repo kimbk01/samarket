@@ -40,6 +40,7 @@ import {
   type MemberDetailOverviewSectionId,
 } from "@/lib/admin-users/member-detail-control-center-ia";
 import Link from "next/link";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type OverviewJumpTab = "community" | "trade" | "delivery" | "chat" | "store";
 
@@ -167,7 +168,7 @@ export function AdminMemberOverviewPanel({
     };
   }, [user.id]);
 
-  const viewLabel = safeT("admin_users_overview_view", { fallbackKo: "보기", fallbackEn: "View" });
+  const viewLabel = safeT("admin_users_overview_view");
   const fmtTime = (value: string | null) => {
     if (!value) return empty;
     return formatAdminLiteDateTime(value, locale, empty);
@@ -203,7 +204,7 @@ export function AdminMemberOverviewPanel({
         <Fact label={t("admin_users_col_region")} value={user.region_name?.trim() || empty} />
         <Fact label={t("admin_users_col_joined")} value={formatAdminLiteDate(user.created_at, locale, empty)} />
         <Fact
-          label={safeT("admin_users_label_app_last_login", { fallbackKo: "최근 로그인", fallbackEn: "Last login" })}
+          label={safeT("admin_users_label_app_last_login")}
           value={formatAdminLiteDateTime(user.last_login_at, locale, empty)}
         />
       </dl>
@@ -286,7 +287,7 @@ export function AdminMemberOverviewPanel({
         ) : null}
         {state.kind === "error" ? (
           <p className="py-6 text-center text-[13px] font-semibold text-sam-danger">
-            {safeT("admin_users_cc_metric_error", { fallbackKo: "불러오지 못함", fallbackEn: "Load error" })}
+            {safeT("admin_users_cc_metric_error")}
           </p>
         ) : null}
         {state.kind === "ok" ? (
@@ -335,7 +336,7 @@ export function AdminMemberOverviewPanel({
     recent_ops: (
       <>
         {ops.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">{safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}</p>
+          <p className="text-[13px] text-sam-muted">{safeT("admin_users_cc_empty")}</p>
         ) : (
           <ul className="space-y-1">
             {ops.slice(0, 4).map((item) => (

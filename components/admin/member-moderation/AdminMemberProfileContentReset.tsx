@@ -30,16 +30,10 @@ export function AdminMemberProfileContentReset({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("sanction"),
       ko,
-      title: safeT("admin_member_profile_reset_confirm", {
-        fallbackKo: "선택한 프로필 항목을 초기화할까요? 되돌릴 수 없습니다.",
-        fallbackEn: "Reset the selected profile fields? This cannot be undone.",
-      }),
+      title: safeT("admin_member_profile_reset_confirm"),
       confirmLabel: adminCta("reset", ko),
       destructive: true,
-      reasonPlaceholder: safeT("admin_member_profile_reset_reason_placeholder", {
-        fallbackKo: "사유 (필수, 감사 기록에 남습니다)",
-        fallbackEn: "Reason (required, kept in the audit log)",
-      }),
+      reasonPlaceholder: safeT("admin_member_profile_reset_reason_placeholder"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -55,10 +49,7 @@ export function AdminMemberProfileContentReset({
       if (!res.ok || json.ok !== true) {
         setMessage({
           tone: "error",
-          text: safeT("admin_member_profile_reset_failed", {
-            fallbackKo: "초기화하지 못했습니다.",
-            fallbackEn: "Could not reset.",
-          }),
+          text: safeT("admin_member_profile_reset_failed"),
         });
         return;
       }
@@ -66,10 +57,7 @@ export function AdminMemberProfileContentReset({
       setBio(false);
       setMessage({
         tone: "ok",
-        text: safeT("admin_member_profile_reset_done", {
-          fallbackKo: "초기화했습니다.",
-          fallbackEn: "Reset complete.",
-        }),
+        text: safeT("admin_member_profile_reset_done"),
       });
       onUpdated?.();
     } finally {
@@ -80,25 +68,16 @@ export function AdminMemberProfileContentReset({
   return (
     <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-member-profile-content-reset="1">
       <h3 className="text-xs font-bold uppercase tracking-wide text-sam-muted">
-        {safeT("admin_member_profile_reset_title", {
-          fallbackKo: "프로필 사진·소개글 제재",
-          fallbackEn: "Profile photo / bio moderation",
-        })}
+        {safeT("admin_member_profile_reset_title")}
       </h3>
       <div className="flex flex-wrap gap-4 text-sm text-sam-fg">
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={avatar} onChange={(e) => setAvatar(e.target.checked)} />
-          {safeT("admin_member_profile_reset_avatar", {
-            fallbackKo: "프로필 사진 초기화",
-            fallbackEn: "Reset profile photo",
-          })}
+          {safeT("admin_member_profile_reset_avatar")}
         </label>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={bio} onChange={(e) => setBio(e.target.checked)} />
-          {safeT("admin_member_profile_reset_bio", {
-            fallbackKo: "소개글 초기화",
-            fallbackEn: "Reset bio",
-          })}
+          {safeT("admin_member_profile_reset_bio")}
         </label>
       </div>
       <div className="flex items-center gap-3">

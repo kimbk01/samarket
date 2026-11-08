@@ -2,6 +2,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { NextRequest, NextResponse } from "next/server";
 import { copyPlatformPopupAdminCampaign } from "@/lib/platform-popup/admin-campaign-writer";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export async function POST(
   const result = await copyPlatformPopupAdminCampaign(sb, {
     campaignId,
     adminUserId: admin.userId,
-    nameSuffix: body.lang === "en" ? " (copy)" : " (복사본)",
+    nameSuffix: translateBy(body.lang, "api_copy"),
   });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: result.httpStatus ?? 400 });

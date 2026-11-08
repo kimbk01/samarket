@@ -18,6 +18,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** Settlement alerts: work state colour + text (light/dark tokens). Read state is shown separately. */
 const WORK_STATE_ROW: Record<AdminNotificationWorkState, string> = {
@@ -225,7 +226,7 @@ function AdminInboxPageInner() {
                         </span>
                       ) : null}
                       <span className="whitespace-nowrap rounded-full bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-muted" data-read-label="1">
-                        {n.readAt ? (language === "en" ? "Read" : "읽음") : language === "en" ? "Unread" : "안 읽음"}
+                        {n.readAt ? (translateBy(language, "admin_read")) : translateBy(language, "admin_unread")}
                       </span>
                     </div>
                   </td>

@@ -40,6 +40,7 @@ import {
 } from "@/lib/admin/promotion-ownership-visibility";
 import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-operator-row-presentation";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type BannerRow = {
   distributionId: string;
@@ -185,36 +186,24 @@ export function AdminPromotionBannerListClient() {
             className="mt-1 max-w-2xl text-sm text-sam-muted"
             data-admin-banner-list-purpose="1"
           >
-            {safeT("admin_promotion_banner_list_desc", {
-              fallbackKo: bannerListPurposeCopy("ko"),
-              fallbackEn: bannerListPurposeCopy("en"),
-            })}
+            {safeT("admin_promotion_banner_list_desc")}
           </p>
           <p
             className="mt-1 max-w-2xl text-xs text-sam-muted"
             data-admin-banner-inline-placement-note="1"
           >
-            {safeT("admin_promotion_banner_inline_placement_note", {
-              fallbackKo: inlineSharesPlacementCopy("ko"),
-              fallbackEn: inlineSharesPlacementCopy("en"),
-            })}{" "}
+            {safeT("admin_promotion_banner_inline_placement_note")}{" "}
             <Link
               href={PLACEMENTS_INVENTORY_HREF}
               className="underline"
               data-admin-banner-placements-link="1"
             >
-              {safeT("admin_promotion_banner_view_placements", {
-                fallbackKo: "노출 위치 현황 보기",
-                fallbackEn: "View placement status",
-              })}
+              {safeT("admin_promotion_banner_view_placements")}
             </Link>
           </p>
         </div>
         <AdminActionLink href="/admin/platform-events" variant="secondary">
-          {safeT("admin_promotion_banner_goto_events", {
-            fallbackKo: "이벤트에서 노출 설정",
-            fallbackEn: "Configure via Events",
-          })}
+          {safeT("admin_promotion_banner_goto_events")}
         </AdminActionLink>
       </div>
 
@@ -229,10 +218,7 @@ export function AdminPromotionBannerListClient() {
         <div data-admin-promotion-banner-empty="1">
           <AdminEmptyState
             ko={ko}
-            message={safeT("admin_promotion_banner_empty", {
-              fallbackKo: "설정된 이벤트 배너가 없습니다. 이벤트 노출 설정에서 추가하세요.",
-              fallbackEn: "No event banners yet. Add them in Event exposure settings.",
-            })}
+            message={safeT("admin_promotion_banner_empty")}
             action={
               // 이벤트 배너는 이벤트를 만든 뒤 노출 설정에서 켠다 — 첫 등록은 이벤트 등록 화면으로 간다.
               createGuard.allowed ? (
@@ -305,20 +291,16 @@ export function AdminPromotionBannerListClient() {
                           {formatPromotionAdminSchedule(row.endsAt, lang)}
                         </span>
                         <span>
-                          {lang === "en" ? "Destination" : "목적지"}:{" "}
+                          {translateBy(lang, "admin_destination")}:{" "}
                           {bannerDestinationSummary(row.href, lang)}
                         </span>
                         {isInline ? (
                           <span data-admin-banner-inline-badge="1">
-                            {lang === "en"
-                              ? "Shares ad placement inventory"
-                              : "광고 노출 위치 공유"}
+                            {translateBy(lang, "admin_shares_ad_placement_inventory")}
                           </span>
                         ) : (
                           <span data-admin-banner-hero-badge="1">
-                            {lang === "en"
-                              ? "Promotion hero (not feed inventory)"
-                              : "히어로 · 피드 재고와 별도"}
+                            {translateBy(lang, "admin_promotion_hero_not_feed_inventory")}
                           </span>
                         )}
                       </div>
@@ -335,7 +317,7 @@ export function AdminPromotionBannerListClient() {
                       data-admin-banner-exposure-cta="1"
                     >
                       {/* 감사 AD-04: 수정 위치(이벤트 노출 설정)는 그대로, 버튼 이름만 「수정」 */}
-                      {lang === "en" ? "Edit" : "수정"}
+                      {translateBy(lang, "admin_banners_overview_edit")}
                     </AdminActionLink>
                     {canDirectPause ? (
                       <AdminActionButton

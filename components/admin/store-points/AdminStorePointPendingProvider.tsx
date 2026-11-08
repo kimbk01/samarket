@@ -334,10 +334,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           ? `${formatAdminNumber(meta.amount)}P`
           : "";
       const label = [
-        safeT("admin_member_point_charge_toast_title", {
-          fallbackKo: "회원 포인트 입금 신청",
-          fallbackEn: "Member point deposit request",
-        }),
+        safeT("admin_member_point_charge_toast_title"),
         amount || null,
       ]
         .filter(Boolean)
@@ -361,10 +358,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           ? `${formatAdminNumber(meta.amount)}P`
           : "";
       const label = [
-        safeT("admin_store_point_charge_toast_title", {
-          fallbackKo: "과거 매장 운영 입금 기록",
-          fallbackEn: "Historical store operations deposit",
-        }),
+        safeT("admin_store_point_charge_toast_title"),
         amount || null,
       ]
         .filter(Boolean)
@@ -385,10 +379,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       if (!id) return;
       const subject = String(meta?.subject ?? "").trim().slice(0, 80);
       const label = [
-        safeT("admin_member_care_inquiry_toast_title", {
-          fallbackKo: "Owner/회원 1:1 문의",
-          fallbackEn: "Owner/Member 1:1 inquiry",
-        }),
+        safeT("admin_member_care_inquiry_toast_title"),
         subject || null,
       ]
         .filter(Boolean)
@@ -411,14 +402,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       const kind = String(meta?.inquiryKind ?? "").trim();
       const title =
         kind === "account_request"
-          ? safeT("admin_platform_inquiry_account_toast_title", {
-              fallbackKo: "매장 입금계좌 문의",
-              fallbackEn: "Store deposit-account inquiry",
-            })
-          : safeT("admin_platform_inquiry_toast_title", {
-              fallbackKo: "매장 플랫폼 문의",
-              fallbackEn: "Store platform inquiry",
-            });
+          ? safeT("admin_platform_inquiry_account_toast_title")
+          : safeT("admin_platform_inquiry_toast_title");
       const label = [title, subject || null].filter(Boolean).join(" · ");
       showAwarenessToast({
         kind: "platform_inquiry",
@@ -437,10 +422,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       showAwarenessToast({
         kind: "trade_report",
         requestId: id,
-        label: safeT("admin_trade_report_toast_title", {
-          fallbackKo: "거래 신고",
-          fallbackEn: "Trade report",
-        }),
+        label: safeT("admin_trade_report_toast_title"),
         href: resolveAdminTradeReportHref(id),
       });
     },
@@ -454,10 +436,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       showAwarenessToast({
         kind: "community_report",
         requestId: id,
-        label: safeT("admin_community_report_toast_title", {
-          fallbackKo: "커뮤니티 신고",
-          fallbackEn: "Community report",
-        }),
+        label: safeT("admin_community_report_toast_title"),
         href: resolveAdminCommunityReportHref(id),
       });
     },
@@ -473,10 +452,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         kind: "store_report",
         requestId: id,
         label: [
-          safeT("admin_store_report_toast_title", {
-            fallbackKo: "매장 신고",
-            fallbackEn: "Store report",
-          }),
+          safeT("admin_store_report_toast_title"),
           storeName || null,
         ]
           .filter(Boolean)
@@ -496,10 +472,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         kind: "store_application",
         requestId: id,
         label: [
-          safeT("admin_store_application_toast_title", {
-            fallbackKo: "매장 등록 신청",
-            fallbackEn: "Store application",
-          }),
+          safeT("admin_store_application_toast_title"),
           storeName || null,
         ]
           .filter(Boolean)
@@ -522,10 +495,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       const domain = meta?.domain ?? "";
       const point = meta?.pointCost != null ? `${formatAdminNumber(meta.pointCost)}P` : "";
       const label = [
-        safeT("admin_feed_ad_toast_title", {
-          fallbackKo: "배너 광고 신청",
-          fallbackEn: "Banner ad request",
-        }),
+        safeT("admin_feed_ad_toast_title"),
         domain || null,
         point || null,
       ]
@@ -576,10 +546,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           audience = row?.audience ?? null;
         }
         const label = [
-          safeT("admin_support_case_toast_title", {
-            fallbackKo: "고객지원 문의",
-            fallbackEn: "Support inquiry",
-          }),
+          safeT("admin_support_case_toast_title"),
           audience ? supportAudienceLabel(audience, ko) : null,
           caseNo || null,
           preview || null,
@@ -1523,14 +1490,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           <span className="block">{awarenessToast.label}</span>
           <span className="mt-1 block sam-text-helper text-sam-primary underline">
             {awarenessToast.kind === "support_case"
-              ? safeT("admin_support_toast_open", {
-                  fallbackKo: "문의 열기",
-                  fallbackEn: "Open inquiry",
-                })
-              : safeT("admin_ops_awareness_toast_open", {
-                  fallbackKo: "신청 상세 보기",
-                  fallbackEn: "Open request",
-                })}
+              ? safeT("admin_support_toast_open")
+              : safeT("admin_ops_awareness_toast_open")}
           </span>
         </Link>
         <AdminActionButton
@@ -1538,7 +1499,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           size="sm"
           onClick={dismissAwarenessToast}
           className="shrink-0 px-1"
-          aria-label={safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}
+          aria-label={safeT("common_close")}
           data-testid="admin-awareness-toast-close"
         >
           ×

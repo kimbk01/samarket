@@ -363,18 +363,10 @@ function AdminPlacementMapPanelInner() {
     >
       <div>
         <h2 className="text-[16px] font-bold text-sam-fg">
-          {safeT("admin_placement_map_title", {
-            fallbackKo: "노출 위치 (지면 점유)",
-            fallbackEn: "Placements (occupancy)",
-          })}
+          {safeT("admin_placement_map_title")}
         </h2>
         <p className="mt-1 text-[12px] text-sam-muted">
-          {safeT("admin_placement_map_desc", {
-            fallbackKo:
-              "서비스·화면별 유료 지면의 용량·사용·빈 자리를 봅니다. 기술 키·레지스트리는 「기술 정보」에만 둡니다. HOME/CATEGORY 유기 설정은 슬롯 허용만 — 광고 집행을 바꾸지 않습니다.",
-            fallbackEn:
-              "Capacity, used, and vacant slots by surface. Registry keys stay under Technical info. HOME/CATEGORY organic config is slot allowance only — it does not mutate paid execution.",
-          })}
+          {safeT("admin_placement_map_desc")}
         </p>
         {occupancyState === "unavailable" ? (
           <div className="mt-2 space-y-2">
@@ -427,10 +419,7 @@ function AdminPlacementMapPanelInner() {
 
       {(executionId || executionSnap || executionError || executionLoading) && (
         <AdminCard
-          title={safeT("admin_placement_map_active_title", {
-            fallbackKo: "ACTIVE 실행 / Eligibility",
-            fallbackEn: "ACTIVE execution / Eligibility",
-          })}
+          title={safeT("admin_placement_map_active_title")}
         >
           <div data-admin-placement-map-active="1" className="space-y-2 text-[12px]">
             {executionLoading ? <AdminLoadingState ko={ko} /> : null}
@@ -505,10 +494,7 @@ function AdminPlacementMapPanelInner() {
                 {executionSnap.creativeAssetPath ? (
                   <div data-admin-placement-map-creative="1">
                     <p className="mb-1 text-[12px] font-medium text-sam-muted">
-                      {safeT("admin_placement_map_thumbnail_only", {
-                        fallbackKo: "맵 썸네일 미리보기 (배치 렌더러 전체 미리보기 아님)",
-                        fallbackEn: "Map thumbnail only (not full placement renderer preview)",
-                      })}
+                      {safeT("admin_placement_map_thumbnail_only")}
                     </p>
                     <SamarketThumbnail
                       src={executionSnap.creativeAssetPath}
@@ -523,12 +509,7 @@ function AdminPlacementMapPanelInner() {
             ) : null}
             {!executionId ? (
               <p className="text-sam-muted">
-                {safeT("admin_placement_map_active_hint", {
-                  fallbackKo:
-                    "광고 detail의「앱 위치 보기」로 들어오면 실행 ID가 연결됩니다.",
-                  fallbackEn:
-                    "Open「View app placement」 from ad detail to attach an execution ID.",
-                })}
+                {safeT("admin_placement_map_active_hint")}
               </p>
             ) : null}
           </div>
@@ -540,10 +521,7 @@ function AdminPlacementMapPanelInner() {
           {rows.length === 0 ? (
             <AdminEmptyState
               ko={ko}
-              message={safeT("admin_placement_map_empty", {
-                fallbackKo: "이 화면에는 광고 지면이 없습니다.",
-                fallbackEn: "No ad placements on this screen.",
-              })}
+              message={safeT("admin_placement_map_empty")}
               onReset={lq.isFiltered ? lq.reset : undefined}
             />
           ) : (
@@ -633,18 +611,12 @@ function AdminPlacementMapPanelInner() {
         </div>
 
         <AdminCard
-          title={safeT("admin_placement_map_detail", {
-            fallbackKo: "지면 상세",
-            fallbackEn: "Placement detail",
-          })}
+          title={safeT("admin_placement_map_detail")}
         >
           <div data-admin-placement-map-detail="1">
             {!selected ? (
               <p className="text-[13px] text-sam-muted">
-                {safeT("admin_placement_map_select_hint", {
-                  fallbackKo: "왼쪽에서 지면을 선택하세요.",
-                  fallbackEn: "Select a placement on the left.",
-                })}
+                {safeT("admin_placement_map_select_hint")}
               </p>
             ) : (
               <div className="space-y-3 text-[12px] text-sam-fg">
@@ -702,28 +674,17 @@ function AdminPlacementMapPanelInner() {
                 </details>
                 {!selected.flags.sellable && selected.flags.runtimeSupported ? (
                   <p className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-1.5 text-[12px] font-semibold text-sam-fg">
-                    {safeT("admin_placement_map_defined_not_sellable", {
-                      fallbackKo:
-                        "이 지면은 정의·앱 연결은 있으나 현재 판매 대상이 아닙니다.",
-                      fallbackEn:
-                        "Defined and app-linked, but not sellable at launch.",
-                    })}
+                    {safeT("admin_placement_map_defined_not_sellable")}
                   </p>
                 ) : null}
                 {!selected.flags.runtimeSupported ? (
                   <p className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[12px] text-sam-muted">
-                    {safeT("admin_placement_map_no_runtime", {
-                      fallbackKo: "앱 연결 없음 또는 미래/차단 지면입니다.",
-                      fallbackEn: "No app consumer, or future/blocked placement.",
-                    })}
+                    {safeT("admin_placement_map_no_runtime")}
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2 pt-1">
                   <AdminActionLink href={selected.opsHref} size="sm" data-placement-cta="ops">
-                    {safeT("admin_placement_map_cta_ops", {
-                      fallbackKo: "광고 운영 보기",
-                      fallbackEn: "Open ads ops",
-                    })}
+                    {safeT("admin_placement_map_cta_ops")}
                   </AdminActionLink>
                   {selected.configHref ? (
                     <AdminActionLink
@@ -731,10 +692,7 @@ function AdminPlacementMapPanelInner() {
                       size="sm"
                       data-placement-cta="config"
                     >
-                      {safeT("admin_placement_map_cta_config", {
-                        fallbackKo: "유기 설정 보기",
-                        fallbackEn: "Open organic config",
-                      })}
+                      {safeT("admin_placement_map_cta_config")}
                     </AdminActionLink>
                   ) : null}
                   <AdminActionLink
@@ -742,10 +700,7 @@ function AdminPlacementMapPanelInner() {
                     size="sm"
                     data-placement-cta="admin"
                   >
-                    {safeT("admin_placement_map_cta_admin", {
-                      fallbackKo: "Admin 허브",
-                      fallbackEn: "Admin hub",
-                    })}
+                    {safeT("admin_placement_map_cta_admin")}
                   </AdminActionLink>
                 </div>
               </div>

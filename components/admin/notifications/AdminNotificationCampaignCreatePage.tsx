@@ -51,6 +51,7 @@ import {
   type CampaignNoticeCategory,
 } from "@/lib/admin/notification-campaigns/campaign-list-kind";
 import { SoundModal, useCategorySoundLabel } from "@/components/admin/notifications/AdminSentNotificationPanels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -298,10 +299,7 @@ export function AdminNotificationCampaignCreatePage({
         setEditStatus(status);
         if (!Array.isArray(j.allowed_actions) || !j.allowed_actions.includes("edit")) {
           setEditBlocked(
-            safeT("admin_campaign_cms_edit_blocked", {
-              fallbackKo: "이 알림은 더 이상 수정할 수 없습니다. 상세 화면에서 「복제」 후 새로 작성하세요.",
-              fallbackEn: "This notification can no longer be edited. Duplicate it from the detail page instead.",
-            })
+            safeT("admin_campaign_cms_edit_blocked")
           );
         }
         const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -762,7 +760,7 @@ export function AdminNotificationCampaignCreatePage({
   };
 
   const sendLabel = editingLive
-    ? safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })
+    ? safeT("admin_campaign_cms_btn_save_changes")
     : sendMode === "scheduled"
       ? t("admin_notif_btn_confirm_schedule")
       : sendMode === "recurring"
@@ -803,7 +801,7 @@ export function AdminNotificationCampaignCreatePage({
           <AdminPageHeader
             title={
               editId
-                ? `${safeT("admin_campaign_cms_edit_title", { fallbackKo: "알림 수정", fallbackEn: "Edit notification" })}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
+                ? `${safeT("admin_campaign_cms_edit_title")}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
                 : tx("알림 보내기", "Send notification")
             }
           />
@@ -1326,14 +1324,14 @@ export function AdminNotificationCampaignCreatePage({
                 </AdminActionLink>
                 {editStatus === "draft" ? (
                   <AdminActionButton variant="secondary" size="sm" disabled={blocked || missingTest.length > 0} onClick={() => void onSaveDraftEdit()}>
-                    {safeT("admin_campaign_cms_btn_save_changes", { fallbackKo: "변경 저장", fallbackEn: "Save changes" })}
+                    {safeT("admin_campaign_cms_btn_save_changes")}
                   </AdminActionButton>
                 ) : null}
               </div>
             ) : null}
             {!sendAction.allowed && sendAction.reason ? (
               <p className="text-xs text-sam-muted" data-admin-action-denied="1">
-                {lang === "ko" ? `발송 비활성: ${sendAction.reason}` : `Send disabled: ${sendAction.reason}`}
+                {translateBy(lang, "admin_send_disabled_reason", { reason: sendAction.reason }, "en")}
               </p>
             ) : null}
           </div>
@@ -1355,7 +1353,7 @@ export function AdminNotificationCampaignCreatePage({
               <input
                 value={pickerQ}
                 onChange={(e) => setPickerQ(e.target.value)}
-                placeholder={safeT("admin_notif_picker_search_ph", { fallbackKo: "제목 또는 ID 검색", fallbackEn: "Search title or ID" })}
+                placeholder={safeT("admin_notif_picker_search_ph")}
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2 text-sm"
               />
               {pickerLoading ? (

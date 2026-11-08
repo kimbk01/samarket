@@ -68,7 +68,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
   if (state.kind === "error") {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+        {safeT("admin_users_cc_load_failed")}
       </div>
     );
   }
@@ -84,12 +84,12 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
           { label: t("admin_users_cc_overview_comments"), metric: summary.comments },
           { label: t("admin_users_cc_overview_reports"), metric: summary.reportsFiled },
           {
-            label: safeT("admin_users_cc_summary_reported_posts", { fallbackKo: "신고된 게시물", fallbackEn: "Reported posts" }),
+            label: safeT("admin_users_cc_summary_reported_posts"),
             metric: summary.reportedPosts,
           },
-          { label: safeT("admin_users_cc_summary_ads", { fallbackKo: "광고 요청", fallbackEn: "Ad requests" }), metric: summary.ads },
+          { label: safeT("admin_users_cc_summary_ads"), metric: summary.ads },
           {
-            label: safeT("admin_users_cc_last_activity", { fallbackKo: "최근 활동", fallbackEn: "Last activity" }),
+            label: safeT("admin_users_cc_last_activity"),
             metric: summary.lastActivityAt,
             format: (value) => fmt(typeof value === "string" ? value : null),
           },
@@ -114,12 +114,12 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                   ? t("admin_users_cc_overview_comments")
                   : id === "reports"
                     ? t("admin_users_cc_overview_reports")
-                    : safeT("admin_users_cc_summary_ads", { fallbackKo: "광고 요청", fallbackEn: "Ad requests" }),
+                    : safeT("admin_users_cc_summary_ads"),
           }))}
           className="min-w-0 flex-1"
         />
         <Link href={memberCommunityPostsAdminHref(userId)} className="ml-auto text-xs font-semibold text-[var(--admin-console-accent)]">
-          {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리에서 열기", fallbackEn: "Open in Community admin" })}
+          {safeT("admin_users_cc_cta_open_community_admin")}
         </Link>
       </div>
 
@@ -129,7 +129,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
             <thead>
               <tr className="border-b border-sam-border bg-sam-surface-muted text-left text-[12px] font-semibold uppercase text-sam-muted">
                 <th className="px-3 py-2">{t("admin_users_lite_col_status")}</th>
-                <th className="px-3 py-2">{safeT("admin_users_cc_col_title", { fallbackKo: "제목", fallbackEn: "Title" })}</th>
+                <th className="px-3 py-2">{safeT("admin_users_cc_col_title")}</th>
                 <th className="px-3 py-2">{t("admin_users_col_region")}</th>
                 <th className="px-3 py-2">{t("admin_users_col_joined")}</th>
                 <th className="px-3 py-2">{t("admin_users_cc_overview_reports")}</th>
@@ -151,10 +151,10 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--admin-console-accent)]">
                       <Link href={memberCommunityPostHref(row.id)}>
-                        {safeT("admin_users_cc_cta_view_post", { fallbackKo: "원문", fallbackEn: "Open" })}
+                        {safeT("admin_users_cc_cta_view_post")}
                       </Link>
                       <Link href={memberCommunityAuthorAdminHref(userId)}>
-                        {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리", fallbackEn: "Community admin" })}
+                        {safeT("admin_users_cc_cta_open_community_admin")}
                       </Link>
                     </div>
                   </td>
@@ -171,7 +171,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                   {row.postTitle || row.postId} · {adminCommunityLabel("content_status", row.status, ko).label} · {fmt(row.createdAt)}
                 </p>
                 <Link href={memberCommunityCommentsAdminHref(userId)} className="text-xs font-semibold text-[var(--admin-console-accent)]">
-                  {safeT("admin_users_cc_cta_open_community_admin", { fallbackKo: "커뮤니티 관리에서 열기", fallbackEn: "Open in Community admin" })}
+                  {safeT("admin_users_cc_cta_open_community_admin")}
                 </Link>
               </div>
             ))
@@ -185,7 +185,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                   {adminCommunityLabel("report_status", row.status, ko).label} · {fmt(row.createdAt)}
                 </p>
                 <Link href={memberCommunityReportsAdminHref(userId)} className="text-xs font-semibold text-[var(--admin-console-accent)]">
-                  {safeT("admin_users_cc_cta_view_reports", { fallbackKo: "신고 내역 보기", fallbackEn: "View reports" })}
+                  {safeT("admin_users_cc_cta_view_reports")}
                 </Link>
               </div>
             ))
@@ -198,7 +198,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                   {row.status} · {row.domain} · {fmt(row.createdAt)}
                 </p>
                 <Link href={memberFeedAdsAdminHref()} className="text-xs font-semibold text-[var(--admin-console-accent)]">
-                  {safeT("admin_users_cc_cta_view_ads", { fallbackKo: "광고 요청 보기", fallbackEn: "View ad requests" })}
+                  {safeT("admin_users_cc_cta_view_ads")}
                 </Link>
               </div>
             ))
@@ -208,7 +208,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
         (section === "reports" && state.data.reports.length === 0) ||
         (section === "ads" && state.data.ads.length === 0) ? (
           <p className="px-4 py-6 text-center text-sm text-sam-muted">
-            {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
+            {safeT("admin_users_cc_empty")}
           </p>
         ) : null}
       </div>

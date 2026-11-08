@@ -141,10 +141,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       const url = await uploadContentImage("hero", file);
       if (!url) {
         setErr(
-          safeT("admin_cc_upload_failed", {
-            fallbackKo: "이미지 업로드에 실패했습니다",
-            fallbackEn: "Image upload failed",
-          })
+          safeT("admin_cc_upload_failed")
         );
         return;
       }
@@ -200,10 +197,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       if (!res.ok || !json.ok) {
         setErr(
           [json.error, json.hint].filter(Boolean).join(" — ") ||
-            safeT("admin_app_notices_empty", {
-              fallbackKo: "저장에 실패했습니다",
-              fallbackEn: "Save failed",
-            })
+            safeT("admin_app_notices_empty")
         );
         return;
       }
@@ -216,10 +210,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       router.push("/admin/app/notices");
     } catch {
       setErr(
-        safeT("admin_app_notices_empty", {
-          fallbackKo: "저장에 실패했습니다",
-          fallbackEn: "Save failed",
-        })
+        safeT("admin_app_notices_empty")
       );
     } finally {
       setBusy(false);
@@ -230,7 +221,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
     return (
       <AdminLoadingState
         ko={ko}
-        label={safeT("admin_dashboard_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        label={safeT("admin_dashboard_loading")}
       />
     );
   }
@@ -264,12 +255,9 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           <AdminPageHeader
             title={`${
               isEdit
-                ? safeT("common_edit", { fallbackKo: "수정", fallbackEn: "Edit" })
-                : safeT("admin_app_add", { fallbackKo: "추가", fallbackEn: "Add" })
-            } — ${safeT("admin_app_notices_title", {
-              fallbackKo: "고객센터 콘텐츠",
-              fallbackEn: "Customer Center content",
-            })}`}
+                ? safeT("common_edit")
+                : safeT("admin_app_add")
+            } — ${safeT("admin_app_notices_title")}`}
           />
         </div>
         <Link
@@ -277,25 +265,20 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           className="sam-text-body text-signature"
         >
           {savedId
-            ? safeT("admin_cc_back_detail", { fallbackKo: "상세로", fallbackEn: "Back to detail" })
-            : safeT("admin_cc_back_list", { fallbackKo: "목록", fallbackEn: "List" })}
+            ? safeT("admin_cc_back_detail")
+            : safeT("admin_cc_back_list")}
         </Link>
       </div>
 
       <p className="sam-text-helper text-sam-muted">
-        {safeT("admin_cc_content_vs_campaign", {
-          fallbackKo:
-            "여기 제목/본문은 게시판 원문입니다. 알림 문구는 [알림 보내기]에서 따로 작성합니다(자동 축약 없음).",
-          fallbackEn:
-            "Title/body here are the board original. Write short notification copy separately via Send notification (no auto-truncate).",
-        })}
+        {safeT("admin_cc_content_vs_campaign")}
       </p>
 
       {err ? <p className="sam-text-body text-sam-danger">{err}</p> : null}
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_board", { fallbackKo: "유형", fallbackEn: "Type" })}
+          {safeT("admin_cc_board")}
         </span>
         <select
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -319,7 +302,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       {form.content_type === "update" ? (
         <label className="block space-y-1" data-admin-cc-app-version>
           <span className="sam-text-helper text-sam-muted">
-            {safeT("admin_cc_app_version", { fallbackKo: "앱 버전 (예: 2.4.0)", fallbackEn: "App version (e.g. 2.4.0)" })}
+            {safeT("admin_cc_app_version")}
           </span>
           <input
             className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -328,17 +311,14 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
             onChange={(e) => setForm((f) => ({ ...f, app_version: e.target.value }))}
           />
           <span className="sam-text-helper text-sam-muted">
-            {safeT("admin_cc_app_version_hint", {
-              fallbackKo: "본문에 새 기능·개선·수정 내용을 적어 주세요. 앱에는 버전과 「지금 업데이트」 버튼이 함께 보입니다.",
-              fallbackEn: "Write what changed in the body. The app shows the version and an 「Update now」 button.",
-            })}
+            {safeT("admin_cc_app_version_hint")}
           </span>
         </label>
       ) : null}
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_board_title", { fallbackKo: "원본 제목", fallbackEn: "Original title" })}
+          {safeT("admin_cc_board_title")}
         </span>
         <input
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -349,7 +329,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
       <div className="space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_board_body", { fallbackKo: "원본 본문", fallbackEn: "Original body" })}
+          {safeT("admin_cc_board_body")}
         </span>
         <AdminCustomerCenterMarkdownToolbar
           value={form.body}
@@ -365,19 +345,13 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
         />
         <p className="text-xs text-sam-meta">
-          {safeT("admin_cc_md_hint", {
-            fallbackKo: "제한된 Markdown(제목·굵게·목록·링크·이미지). HTML은 저장해도 실행되지 않습니다.",
-            fallbackEn: "Limited Markdown (headings, bold, lists, links, images). HTML is not executed.",
-          })}
+          {safeT("admin_cc_md_hint")}
         </p>
       </div>
 
       <div className="space-y-2">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_hero_image", {
-            fallbackKo: "대표 이미지",
-            fallbackEn: "Hero image",
-          })}
+          {safeT("admin_cc_hero_image")}
         </span>
         <input
           ref={heroFileRef}
@@ -405,7 +379,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
               size="sm"
               onClick={() => setForm((f) => ({ ...f, hero_image_url: "" }))}
             >
-              {safeT("admin_cc_hero_clear", { fallbackKo: "대표 이미지 제거", fallbackEn: "Remove hero" })}
+              {safeT("admin_cc_hero_clear")}
             </AdminActionButton>
           </div>
         ) : null}
@@ -413,10 +387,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
 
       <label className="block space-y-1">
         <span className="sam-text-helper text-sam-muted">
-          {safeT("admin_cc_author_label", {
-            fallbackKo: `작성자 표시 (기본: ${defaultAuthor})`,
-            fallbackEn: `Author label (default: ${defaultAuthor})`,
-          })}
+          {safeT("admin_cc_author_label")}
         </span>
         <input
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -433,7 +404,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           onChange={(e) => setForm((f) => ({ ...f, comment_enabled: e.target.checked }))}
         />
         <span className="sam-text-body">
-          {safeT("admin_cc_comments_on", { fallbackKo: "댓글 허용", fallbackEn: "Comments on" })}
+          {safeT("admin_cc_comments_on")}
         </span>
       </label>
 
@@ -444,7 +415,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
         />
         <span className="sam-text-body">
-          {safeT("admin_app_status_visible", { fallbackKo: "게시", fallbackEn: "Published" })}
+          {safeT("admin_app_status_visible")}
         </span>
       </label>
 
@@ -478,10 +449,7 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       {showPreview ? (
         <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-app p-4">
           <p className="text-xs font-semibold text-sam-fg">
-            {safeT("admin_cc_member_preview", {
-              fallbackKo: "회원 화면 미리보기",
-              fallbackEn: "Member preview",
-            })}
+            {safeT("admin_cc_member_preview")}
           </p>
           <article className="space-y-3">
             <header className="space-y-1">
@@ -513,18 +481,15 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           variant="primary"
         >
           {isEdit
-            ? safeT("common_save", { fallbackKo: "저장", fallbackEn: "Save" })
-            : safeT("common_save", { fallbackKo: "게시", fallbackEn: "Publish" })}
+            ? safeT("common_save")
+            : safeT("common_save")}
         </AdminActionButton>
         <AdminActionButton
           disabled={busy}
           onClick={() => setShowPreview((v) => !v)}
           variant="secondary"
         >
-          {safeT("admin_cc_member_preview", {
-            fallbackKo: "회원 화면 미리보기",
-            fallbackEn: "Member preview",
-          })}
+          {safeT("admin_cc_member_preview")}
         </AdminActionButton>
       </div>
     </div>

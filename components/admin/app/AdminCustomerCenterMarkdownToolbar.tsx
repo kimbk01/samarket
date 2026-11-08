@@ -73,10 +73,7 @@ export function AdminCustomerCenterMarkdownToolbar({
     try {
       const url = await uploadBodyImage(file);
       if (!url) {
-        await dibayAlert({ title: safeT("admin_cc_upload_failed", {
-            fallbackKo: "이미지 업로드에 실패했습니다",
-            fallbackEn: "Image upload failed",
-          }) });
+        await dibayAlert({ title: safeT("admin_cc_upload_failed") });
         return;
       }
       apply("image", { url, alt: file.name.replace(/\.[^.]+$/, "") || "이미지" });
@@ -89,10 +86,10 @@ export function AdminCustomerCenterMarkdownToolbar({
   return (
     <div className="flex flex-wrap items-center gap-1 rounded-t-ui-rect border border-b-0 border-sam-border bg-sam-muted/10 px-2 py-1.5">
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => apply("h2")}>
-        {safeT("admin_cc_md_h2", { fallbackKo: "소제목", fallbackEn: "Subheading" })}
+        {safeT("admin_cc_md_h2")}
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => apply("h3")}>
-        {safeT("admin_cc_md_h3", { fallbackKo: "작은 제목", fallbackEn: "Small heading" })}
+        {safeT("admin_cc_md_h3")}
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => apply("bold")}>
         B
@@ -101,19 +98,19 @@ export function AdminCustomerCenterMarkdownToolbar({
         I
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => apply("ul")}>
-        {safeT("admin_cc_md_ul", { fallbackKo: "목록", fallbackEn: "List" })}
+        {safeT("admin_cc_md_ul")}
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => apply("ol")}>
-        {safeT("admin_cc_md_ol", { fallbackKo: "번호", fallbackEn: "Numbered" })}
+        {safeT("admin_cc_md_ol")}
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => apply("quote")}>
-        {safeT("admin_cc_md_quote", { fallbackKo: "인용", fallbackEn: "Quote" })}
+        {safeT("admin_cc_md_quote")}
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={onLink}>
-        {safeT("admin_cc_md_link", { fallbackKo: "링크", fallbackEn: "Link" })}
+        {safeT("admin_cc_md_link")}
       </AdminActionButton>
       <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => fileRef.current?.click()}>
-        {safeT("admin_cc_md_image", { fallbackKo: "이미지", fallbackEn: "Image" })}
+        {safeT("admin_cc_md_image")}
       </AdminActionButton>
       <input
         ref={fileRef}
@@ -128,14 +125,8 @@ export function AdminCustomerCenterMarkdownToolbar({
             type="text"
             autoFocus
             value={linkDraft}
-            aria-label={safeT("admin_cc_md_link_prompt", {
-              fallbackKo: "링크 URL (https://… 또는 /경로)",
-              fallbackEn: "Link URL (https://… or /path)",
-            })}
-            placeholder={safeT("admin_cc_md_link_prompt", {
-              fallbackKo: "링크 URL (https://… 또는 /경로)",
-              fallbackEn: "Link URL (https://… or /path)",
-            })}
+            aria-label={safeT("admin_cc_md_link_prompt")}
+            placeholder={safeT("admin_cc_md_link_prompt")}
             onChange={(e) => setLinkDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -148,10 +139,10 @@ export function AdminCustomerCenterMarkdownToolbar({
             className="min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[13px] text-sam-fg"
           />
           <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={insertLink}>
-            {safeT("admin_cc_md_link", { fallbackKo: "링크", fallbackEn: "Link" })}
+            {safeT("admin_cc_md_link")}
           </AdminActionButton>
           <AdminActionButton variant="quiet" size="sm" onClick={() => setLinkDraft(null)}>
-            {safeT("common_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+            {safeT("common_cancel")}
           </AdminActionButton>
         </div>
       ) : null}

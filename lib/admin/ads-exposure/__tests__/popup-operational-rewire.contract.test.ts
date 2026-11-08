@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { describe, expect, it } from "vitest";
 
-const read = (path: string) => readFileSync(`${process.cwd()}/${path}`, "utf8");
+const read = (path: string) => withCatalogCopy(readFileSync(`${process.cwd()}/${path}`, "utf8"));
 
 describe("popup operational rewire source contracts", () => {
   it("requires a hub name and no longer posts an untitled fallback", () => {

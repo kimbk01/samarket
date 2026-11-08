@@ -156,14 +156,11 @@ export function AdminAppNoticesPage() {
         onReset={lq.reset}
         showPeriod={false}
         pending={loading}
-        searchPlaceholder={safeT("admin_cc_search_ph", {
-          fallbackKo: "제목 / ID",
-          fallbackEn: "Title / ID",
-        })}
+        searchPlaceholder={safeT("admin_cc_search_ph")}
       >
         <div className="flex flex-wrap gap-1 pb-1">
           <AdminChipButton selected={filterType === "all"} onClick={() => lq.setExtra("content_type", "")}>
-            {safeT("admin_cc_filter_all", { fallbackKo: "전체", fallbackEn: "All" })}
+            {safeT("admin_cc_filter_all")}
           </AdminChipButton>
           {CUSTOMER_CENTER_CONTENT_TYPES.map((type) => (
             <AdminChipButton
@@ -189,10 +186,7 @@ export function AdminAppNoticesPage() {
         ) : (
           <AdminEmptyState
             ko={ko}
-            message={safeT("admin_cc_list_empty", {
-              fallbackKo: "등록된 콘텐츠가 없습니다.",
-              fallbackEn: "No content yet.",
-            })}
+            message={safeT("admin_cc_list_empty")}
           />
         )
       ) : (
@@ -203,25 +197,25 @@ export function AdminAppNoticesPage() {
               <tr>
                 <th className="px-3 py-2">ID</th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_col_type", { fallbackKo: "분류", fallbackEn: "Type" })}
+                  {safeT("admin_cc_col_type")}
                 </th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_board_title", { fallbackKo: "원본 제목", fallbackEn: "Title" })}
+                  {safeT("admin_cc_board_title")}
                 </th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_col_status", { fallbackKo: "상태", fallbackEn: "Status" })}
+                  {safeT("admin_cc_col_status")}
                 </th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_col_views", { fallbackKo: "조회", fallbackEn: "Views" })}
+                  {safeT("admin_cc_col_views")}
                 </th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_col_comments", { fallbackKo: "댓글", fallbackEn: "Comments" })}
+                  {safeT("admin_cc_col_comments")}
                 </th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_col_campaign", { fallbackKo: "알림", fallbackEn: "Alert" })}
+                  {safeT("admin_cc_col_campaign")}
                 </th>
                 <th className="px-3 py-2">
-                  {safeT("admin_cc_col_created", { fallbackKo: "작성일", fallbackEn: "Created" })}
+                  {safeT("admin_cc_col_created")}
                 </th>
               </tr>
             </thead>
@@ -257,10 +251,7 @@ export function AdminAppNoticesPage() {
                     <td className="px-3 py-2 text-xs text-sam-muted">
                       {camp
                         ? `${notifStatusLabel(t, camp.status)}${camp.when ? ` · ${camp.when}` : ""}`
-                        : safeT("admin_cc_campaign_none", {
-                            fallbackKo: "미발송",
-                            fallbackEn: "Not sent",
-                          })}
+                        : safeT("admin_cc_campaign_none")}
                     </td>
                     <td className="px-3 py-2 text-xs text-sam-muted">
                       {n.created_at ? String(n.created_at).slice(0, 10) : "—"}

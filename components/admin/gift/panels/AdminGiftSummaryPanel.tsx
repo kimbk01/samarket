@@ -132,9 +132,9 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
             data-admin-gift-range={r}
           >
             {r === "all"
-              ? safeT("gift_ops_range_all", { fallbackKo: "전체", fallbackEn: "All" })
+              ? safeT("gift_ops_range_all")
               : r === "today"
-                ? safeT("gift_ops_range_today", { fallbackKo: "오늘", fallbackEn: "Today" })
+                ? safeT("gift_ops_range_today")
                 : r}
           </Link>
         ))}
@@ -154,28 +154,20 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
       {state === "empty" && data ? (
         <AdminEmptyState
           ko={language !== "en"}
-          message={safeT("gift_ops_summary_empty", {
-            fallbackKo: "아직 상품권 운영 데이터가 없습니다.",
-            fallbackEn: "No gift operations data yet.",
-          })}
+          message={safeT("gift_ops_summary_empty")}
         />
       ) : null}
 
       {data ? (
         <>
           <p className="text-xs text-sam-muted">
-            {safeT("gift_ops_summary_liability_note", {
-              fallbackKo:
-                "Face / Outstanding는 고객 부채(liability)이며 DIBAY 수익이 아닙니다. 플랫폼 수익은 Pending/Recognized Fee를 보세요.",
-              fallbackEn:
-                "Face / outstanding is customer liability, not DIBAY revenue. Platform revenue is pending/recognized fee.",
-            })}
+            {safeT("gift_ops_summary_liability_note")}
           </p>
           {data.storeGift || data.platformGift ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 space-y-2">
                 <p className="text-sm font-semibold">
-                  {safeT("gift_ops_type_store", { fallbackKo: "매장 상품권", fallbackEn: "Store Gift" })}
+                  {safeT("gift_ops_type_store")}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {kpi("Active", fmtCount(data.storeGift?.activeProducts ?? 0), "storeActive")}
@@ -194,10 +186,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
               </div>
               <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 space-y-2">
                 <p className="text-sm font-semibold">
-                  {safeT("gift_ops_type_platform", {
-                    fallbackKo: "DIBAY 상품권",
-                    fallbackEn: "DIBAY Gift",
-                  })}
+                  {safeT("gift_ops_type_platform")}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {kpi("Active", fmtCount(data.platformGift?.activeProducts ?? 0), "platActive")}
@@ -218,10 +207,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {kpi(
-              safeT("gift_ops_kpi_active_products", {
-                fallbackKo: "판매중 상품",
-                fallbackEn: "Active products",
-              }),
+              safeT("gift_ops_kpi_active_products"),
               fmtCount(data.activeProducts),
               "activeProducts",
               buildAdminGiftOpsHref({
@@ -231,82 +217,55 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
               })
             )}
             {kpi(
-              safeT("gift_ops_kpi_issued", {
-                fallbackKo: "발급 상품권",
-                fallbackEn: "Issued certificates",
-              }),
+              safeT("gift_ops_kpi_issued"),
               fmtCount(data.issuedInstances),
               "issuedInstances",
               buildAdminGiftOpsHref({ tab: "instances" })
             )}
             {kpi(
-              safeT("gift_ops_kpi_outstanding", {
-                fallbackKo: "미사용 잔액",
-                fallbackEn: "Outstanding gift value",
-              }),
+              safeT("gift_ops_kpi_outstanding"),
               formatAdminPhp(data.outstandingGiftValue),
               "outstandingGiftValue",
               buildAdminGiftOpsHref({ tab: "instances", extra: { balance: "gt0" } })
             )}
             {kpi(
-              safeT("gift_ops_kpi_locked", {
-                fallbackKo: "Gift Locked",
-                fallbackEn: "Gift locked",
-              }),
+              safeT("gift_ops_kpi_locked"),
               fmtCount(data.giftLockedCount),
               "giftLockedCount",
               buildAdminGiftOpsHref({ tab: "instances", extra: { status: "GIFT_LOCKED" } })
             )}
             {kpi(
-              safeT("gift_ops_kpi_redeemed_gross", {
-                fallbackKo: "사용액",
-                fallbackEn: "Redeemed gross",
-              }),
+              safeT("gift_ops_kpi_redeemed_gross"),
               formatAdminPhp(data.redeemedGross),
               "redeemedGross",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "usage" })
             )}
             {kpi(
-              safeT("gift_ops_kpi_pending_gross", {
-                fallbackKo: "Pending Gross",
-                fallbackEn: "Pending gross",
-              }),
+              safeT("gift_ops_kpi_pending_gross"),
               formatAdminPhp(data.pendingGross),
               "pendingGross",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
             {kpi(
-              safeT("gift_ops_kpi_pending_fee", {
-                fallbackKo: "Pending Fee",
-                fallbackEn: "Pending platform fee",
-              }),
+              safeT("gift_ops_kpi_pending_fee"),
               formatAdminPhp(data.pendingPlatformFee),
               "pendingPlatformFee",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
             {kpi(
-              safeT("gift_ops_kpi_recognized_fee", {
-                fallbackKo: "Platform 수익",
-                fallbackEn: "Recognized platform fee",
-              }),
+              safeT("gift_ops_kpi_recognized_fee"),
               formatAdminPhp(data.recognizedPlatformFee),
               "recognizedPlatformFee",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
             {kpi(
-              safeT("gift_ops_kpi_recognized_net", {
-                fallbackKo: "Merchant Net",
-                fallbackEn: "Recognized merchant net",
-              }),
+              safeT("gift_ops_kpi_recognized_net"),
               formatAdminPhp(data.recognizedMerchantNet),
               "recognizedMerchantNet",
               buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })
             )}
             {kpi(
-              safeT("gift_ops_kpi_cash_out_pending", {
-                fallbackKo: "외부 환전 대기",
-                fallbackEn: "Cash-out pending",
-              }),
+              safeT("gift_ops_kpi_cash_out_pending"),
               fmtCount(data.cashOutPendingCount),
               "cashOutPendingCount",
               buildAdminGiftOpsHref({
@@ -316,10 +275,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
               })
             )}
             {kpi(
-              safeT("gift_ops_kpi_conversion_pending", {
-                fallbackKo: "과거 전환 처리 대기",
-                fallbackEn: "Historical conversion pending",
-              }),
+              safeT("gift_ops_kpi_conversion_pending"),
               fmtCount(data.storeCashConversionPendingCount),
               "storeCashConversionPendingCount",
               buildAdminGiftOpsHref({
@@ -329,10 +285,7 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
               })
             )}
             {kpi(
-              safeT("gift_ops_kpi_recovery_open", {
-                fallbackKo: "회수 기록",
-                fallbackEn: "Open recovery",
-              }),
+              safeT("gift_ops_kpi_recovery_open"),
               fmtCount(data.openRecoveryCount),
               "openRecoveryCount",
               buildAdminGiftOpsHref({ tab: "finance", finance: "recovery" })

@@ -14,6 +14,7 @@ import {
 } from "@/lib/notifications/notification-events";
 import { fetchAdminDeliveryInboxShared } from "@/lib/admin/fetch-admin-list-entry-client";
 import { invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-notifications-deduped";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Row = {
   id: string;
@@ -151,22 +152,20 @@ export function AdminNotificationList() {
     <div className="space-y-4" data-admin-notification-ops="1">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <p className="text-sm font-semibold text-sam-fg">
-          {language === "en" ? "Operational notifications" : "운영 알림"}
+          {translateBy(language, "admin_operational_notifications")}
         </p>
         <p className="mt-1 sam-text-helper text-sam-muted">
-          {language === "en"
-            ? "Work items with exact deeplinks. Settings are separate."
-            : "바로 처리할 알림과 정확한 이동 링크. 알림 설정은 별도입니다."}
+          {translateBy(language, "admin_work_items_with_exact_deeplinks_settings")}
         </p>
         <div className="mt-2 flex flex-wrap gap-3 sam-text-body-secondary">
           <Link href="/admin/order-notifications" className="font-semibold text-signature hover:underline">
-            {language === "en" ? "Ops inbox" : "운영 알림함"}
+            {translateBy(language, "admin_ops_inbox")}
           </Link>
           <Link href="/admin/order-notifications/settings" className="text-signature hover:underline">
-            {language === "en" ? "Notification settings" : "알림 설정"}
+            {translateBy(language, "admin_order_notif_settings_link")}
           </Link>
           <Link href="/admin/notifications" className="text-signature hover:underline">
-            {language === "en" ? "Campaigns (config)" : "캠페인 (설정)"}
+            {translateBy(language, "admin_campaigns_config")}
           </Link>
         </div>
       </div>
@@ -218,7 +217,7 @@ export function AdminNotificationList() {
                       if (!r.is_read) void markRead(r.id);
                     }}
                   >
-                    {language === "en" ? "Handle now" : "바로 처리"}
+                    {translateBy(language, "admin_handle_now")}
                   </Link>
                   {!r.is_read ? (
                     <button

@@ -41,6 +41,7 @@ import {
   countUnsetSellablePackageSlots,
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
@@ -132,7 +133,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
         return;
       }
       setCatalog(j.catalog);
-      setMsg(lang === "en" ? "Saved." : "저장했습니다.");
+      setMsg(translateBy(lang, "admin_saved"));
     } finally {
       setBusy(false);
     }
@@ -181,7 +182,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
         }
         setCatalog(j.catalog);
       }
-      setMsg(lang === "en" ? "Saved." : "저장했습니다.");
+      setMsg(translateBy(lang, "admin_saved"));
     } finally {
       setBusy(false);
     }
@@ -231,10 +232,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Settings</p>
           <AdminPageHeader
             titleKey="admin_menu_delivery_ads_commercial"
-            description={safeT("admin_delivery_ads_commercial_subtitle", {
-              fallbackKo: "기간 패키지 · 가격 · 지면 판매 · Partner (Admin SSOT)",
-              fallbackEn: "Packages · prices · placement sellability · Partner (Admin SSOT)",
-            })}
+            description={safeT("admin_delivery_ads_commercial_subtitle")}
           />
         </div>
 
@@ -244,10 +242,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
             href="/admin/stores-home-shelves"
             className="font-medium text-sam-muted hover:text-sam-primary"
           >
-            {safeT("admin_delivery_ads_exposure_policy_link", {
-              fallbackKo: "노출(max/interval) 정책 — 별도 SSOT",
-              fallbackEn: "Exposure (max/interval) policy — separate SSOT",
-            })}
+            {safeT("admin_delivery_ads_exposure_policy_link")}
           </Link>
         </p>
 
@@ -276,10 +271,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
           ) : (
             <AdminLoadingState
               ko={lang !== "en"}
-              label={safeT("admin_delivery_ads_loading", {
-                fallbackKo: "불러오는 중…",
-                fallbackEn: "Loading…",
-              })}
+              label={safeT("admin_delivery_ads_loading")}
             />
           )
         ) : (
@@ -311,11 +303,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                 role="status"
                 data-commercial-unset-warning-count={unsetMatrixSlotCount}
               >
-                {safeT("admin_delivery_ads_unset_price_summary", {
-                  vars: { count: unsetMatrixSlotCount },
-                  fallbackKo: `확인이 필요한 광고 가격이 ${unsetMatrixSlotCount}개 있습니다.`,
-                  fallbackEn: `${unsetMatrixSlotCount} ad prices need attention.`,
-                })}
+                {safeT("admin_delivery_ads_unset_price_summary", { vars: { count: unsetMatrixSlotCount } })}
               </p>
             ) : null}
 
@@ -323,12 +311,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
             <AdminCard titleKey="admin_delivery_ads_commercial_matrix_title">
               <div data-commercial-matrix="1">
               <p className="mb-3 text-[12px] text-sam-warning">
-                {safeT("admin_delivery_ads_commercial_price_warn", {
-                  fallbackKo:
-                    "가격 변경은 이미 승인된 광고의 commercial snapshot에 소급 적용되지 않습니다. 신규 신청부터 새 가격이 적용됩니다.",
-                  fallbackEn:
-                    "Price changes do not retroactively change approved campaign commercial snapshots. New applications use the new price.",
-                })}
+                {safeT("admin_delivery_ads_commercial_price_warn")}
               </p>
               {R3_COMMERCIAL_MATRIX_PRODUCTS.map((product) => {
                 const placements = DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT[product];
@@ -346,7 +329,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                         <thead>
                           <tr className="bg-sam-surface-muted text-left text-sam-muted">
                             <th className="border border-sam-border p-2 font-semibold">
-                              {lang === "en" ? "Placement" : "지면"}
+                              {translateBy(lang, "admin_delivery_ads_queue_col_placement")}
                             </th>
                             {R3_COMMERCIAL_MATRIX_DURATIONS.map((d) => (
                               <th
@@ -354,7 +337,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                 className="border border-sam-border p-2 font-semibold tabular-nums"
                               >
                                 {d}
-                                {lang === "en" ? "d" : "일"}
+                                {translateBy(lang, "admin_d")}
                               </th>
                             ))}
                             <th className="border border-sam-border p-2 font-semibold">
@@ -381,7 +364,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                 void patchPackages(
                                   `${adminDeliveryAdProductHumanLabel(product, lang)} · ${deliveryAdCommercialPlacementLabel(inv, lang)}`,
                                   changes.map(({ pkg, body }) => ({
-                                    label: `${pkg.durationDays}${lang === "en" ? "d" : "일"}`,
+                                    label: `${pkg.durationDays}${translateBy(lang, "admin_d")}`,
                                     body: {
                                       op: "update_package",
                                       packageId: pkg.id,
@@ -409,10 +392,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
               onClick={() => setAdvancedOpen((v) => !v)}
               data-commercial-advanced-toggle="1"
             >
-              {safeT("admin_delivery_ads_commercial_advanced", {
-                fallbackKo: "고급 설정 (상품·지면·Partner·연장)",
-                fallbackEn: "Advanced (products · placements · Partner · extension)",
-              })}
+              {safeT("admin_delivery_ads_commercial_advanced")}
               <span aria-hidden>{advancedOpen ? "−" : "+"}</span>
             </AdminActionButton>
 
@@ -446,10 +426,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                           })
                         }
                       />
-                      {safeT("admin_delivery_ads_commercial_accepting", {
-                        fallbackKo: "신규 신청 접수",
-                        fallbackEn: "Accept applications",
-                      })}
+                      {safeT("admin_delivery_ads_commercial_accepting")}
                     </label>
                   </div>
                 ))}
@@ -458,12 +435,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
 
             <AdminCard titleKey="admin_delivery_ads_commercial_placements">
               <p className="mb-2 text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_commercial_placement_note", {
-                  fallbackKo:
-                    "판매 여부만 설정합니다. 삽입 간격·최대 개수는 노출 정책에서 관리합니다.",
-                  fallbackEn:
-                    "Controls sellability only. Insertion max/interval stay in exposure policy.",
-                })}
+                {safeT("admin_delivery_ads_commercial_placement_note")}
               </p>
               <ul className="space-y-2">
                 {catalog.placements.map((pl) => (
@@ -494,7 +466,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                           })
                         }
                       />
-                      {lang === "en" ? "Sellable" : "판매"}
+                      {translateBy(lang, "admin_ads_sellable")}
                     </label>
                   </li>
                 ))}
@@ -508,10 +480,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                 aria-expanded={customOpen}
                 onClick={() => setCustomOpen((v) => !v)}
               >
-                {safeT("admin_delivery_ads_commercial_custom_package", {
-                  fallbackKo: "맞춤 패키지 추가",
-                  fallbackEn: "Add custom package",
-                })}
+                {safeT("admin_delivery_ads_commercial_custom_package")}
               </AdminActionButton>
               {customOpen ? (
                 <div className="mt-3 space-y-2">
@@ -577,10 +546,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                 aria-expanded={extensionOpen}
                 onClick={() => setExtensionOpen((v) => !v)}
               >
-                {safeT("admin_delivery_ads_commercial_extension_collapsed", {
-                  fallbackKo: "연장 정책 (고급)",
-                  fallbackEn: "Extension policy (advanced)",
-                })}
+                {safeT("admin_delivery_ads_commercial_extension_collapsed")}
               </AdminActionButton>
               {extensionOpen ? (
                 <div className="mt-3">
@@ -597,11 +563,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                     }
                   />
                   <p className="mt-2 text-[12px] text-sam-muted">
-                    {safeT("admin_delivery_ads_commercial_extension_note", {
-                      fallbackKo: "캠페인별 무료 보상 연장은 운영 workspace에서 처리합니다.",
-                      fallbackEn:
-                        "Per-campaign free compensation extensions are handled in ops workspace.",
-                    })}
+                    {safeT("admin_delivery_ads_commercial_extension_note")}
                   </p>
                 </div>
               ) : null}
@@ -612,21 +574,13 @@ export function AdminDeliveryAdCommercialSettingsView() {
               data-commercial-partner="r4-link"
             >
               <p className="text-[13px] text-sam-fg">
-                {safeT("admin_delivery_ads_commercial_partner_note", {
-                  fallbackKo:
-                    "Partner 멤버십 설정·가입 관리는 Partner 페이지에서 통합 운영합니다. organic ranking과 분리.",
-                  fallbackEn:
-                    "Partner membership config and operations are unified on the Partner page. Separate from organic ranking.",
-                })}
+                {safeT("admin_delivery_ads_commercial_partner_note")}
               </p>
               <Link
                 href={DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}
                 className="mt-2 inline-flex text-[13px] font-semibold text-signature underline"
               >
-                {safeT("admin_delivery_ads_partner_manage_link", {
-                  fallbackKo: "Partner 관리 →",
-                  fallbackEn: "Manage Partner →",
-                })}
+                {safeT("admin_delivery_ads_partner_manage_link")}
               </Link>
             </div>
             </>
@@ -741,15 +695,13 @@ function MatrixCell(props: {
         data-commercial-matrix-cell="missing"
       >
         <p className="text-[12px] font-bold text-sam-warning">
-          {lang === "en" ? "Price unset" : "가격 미설정"}
+          {translateBy(lang, "admin_price_unset")}
         </p>
         <p className="text-[12px] text-sam-warning">
-          {lang === "en" ? "Not for sale" : "판매 불가"}
+          {translateBy(lang, "admin_not_for_sale")}
         </p>
         <p className="text-[12px] leading-snug text-sam-fg">
-          {lang === "en"
-            ? "Set this price so Owners can apply."
-            : "이 가격을 설정해야 Owner가 신청할 수 있습니다"}
+          {translateBy(lang, "admin_set_this_price_so_owners_can")}
         </p>
         <span className="sr-only">{formatAdminDeliveryAdPriceOrUnset(null, lang)}</span>
       </div>
@@ -766,21 +718,19 @@ function MatrixCell(props: {
       {unset ? (
         <div className="mb-1 space-y-0.5" data-commercial-price-unset-guide="1">
           <p className="text-[12px] font-bold text-sam-warning">
-            {lang === "en" ? "Price unset" : "가격 미설정"}
+            {translateBy(lang, "admin_price_unset")}
           </p>
           <p className="text-[12px] text-sam-warning">
-            {lang === "en" ? "Not for sale" : "판매 불가"}
+            {translateBy(lang, "admin_not_for_sale")}
           </p>
           <p className="text-[12px] leading-snug text-sam-fg">
-            {lang === "en"
-              ? "Set this price so Owners can apply."
-              : "이 가격을 설정해야 Owner가 신청할 수 있습니다"}
+            {translateBy(lang, "admin_set_this_price_so_owners_can")}
           </p>
         </div>
       ) : null}
       <input
         className="w-full rounded-ui-rect border border-sam-border px-1.5 py-1 text-[12px]"
-        placeholder={lang === "en" ? "PHP major" : "PHP 금액"}
+        placeholder={translateBy(lang, "admin_php_major")}
         value={price}
         disabled={busy}
         onChange={(e) => onChange({ price: e.target.value })}
@@ -793,7 +743,7 @@ function MatrixCell(props: {
           disabled={busy}
           onChange={(e) => onChange({ enabled: e.target.checked })}
         />
-        {lang === "en" ? "Active" : "활성"}
+        {translateBy(lang, "admin_topics_col_active")}
       </label>
     </div>
   );
@@ -821,21 +771,21 @@ function CreatePackageRow(props: {
       />
       <input
         className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]"
-        placeholder={props.lang === "en" ? "name" : "이름"}
+        placeholder={translateBy(props.lang, "admin_name")}
         value={name}
         disabled={props.busy}
         onChange={(e) => setName(e.target.value)}
       />
       <input
         className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]"
-        placeholder={props.lang === "en" ? "days" : "일수"}
+        placeholder={translateBy(props.lang, "admin_days")}
         value={days}
         disabled={props.busy}
         onChange={(e) => setDays(e.target.value)}
       />
       <input
         className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]"
-        placeholder={props.lang === "en" ? "Not set" : "미설정"}
+        placeholder={translateBy(props.lang, "admin_not_set")}
         value={price}
         disabled={props.busy}
         onChange={(e) => setPrice(e.target.value)}
@@ -899,13 +849,13 @@ function ExtensionForm(props: {
           disabled={props.busy}
           onChange={(e) => setEnabled(e.target.checked)}
         />
-        {props.lang === "en" ? "Extension enabled" : "연장 허용"}
+        {translateBy(props.lang, "admin_extension_enabled")}
       </label>
       <label className="text-[12px]">
-        {props.lang === "en" ? "Price / day (PHP)" : "추가 1일 가격"}
+        {translateBy(props.lang, "admin_price_day_php")}
         <input
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1 text-[13px]"
-          placeholder={props.lang === "en" ? "Not set" : "미설정"}
+          placeholder={translateBy(props.lang, "admin_not_set")}
           value={price}
           disabled={props.busy}
           onChange={(e) => setPrice(e.target.value)}
@@ -945,7 +895,7 @@ function ExtensionForm(props: {
           });
         }}
       >
-        {props.lang === "en" ? "Save extension policy" : "연장 정책 저장"}
+        {translateBy(props.lang, "admin_save_extension_policy")}
       </AdminActionButton>
     </div>
   );

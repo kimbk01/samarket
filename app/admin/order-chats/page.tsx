@@ -73,10 +73,7 @@ function AdminOrderChatsHubInner() {
       </div>
 
       <p className="sam-text-helper leading-relaxed text-sam-muted">
-        {safeT("admin_order_chats_foot_authority", {
-          fallbackKo: "주문 채팅은 주문에 연결된 채팅방이 있을 때만 열립니다. 관리자 화면에서는 채팅방을 새로 만들지 않습니다. 주문번호를 누르면 주문 상세가 열립니다.",
-          fallbackEn: "An order chat opens only when the order already has a chat room. Admin screens never create rooms. Tap an order number to open its detail.",
-        })}
+        {safeT("admin_order_chats_foot_authority")}
       </p>
     </div>
   );

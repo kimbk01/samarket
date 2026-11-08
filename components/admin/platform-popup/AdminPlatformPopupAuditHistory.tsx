@@ -2,6 +2,7 @@
 
 import { AdminCard } from "@/components/admin/AdminCard";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** `GET /api/admin/platform-popup-campaigns/[id]/audit` 의 한 행 */
 export type AdminPlatformPopupAuditRow = {
@@ -32,12 +33,12 @@ const ACTOR_LABEL: Record<string, { ko: string; en: string }> = {
 export function adminPlatformPopupAuditActionLabel(action: string, lang: "ko" | "en"): string {
   const hit = ACTION_LABEL[String(action ?? "").trim()];
   if (hit) return hit[lang];
-  return lang === "en" ? "Other change" : "기타 변경";
+  return translateBy(lang, "admin_other_change");
 }
 
 function actorLabel(actorType: string, lang: "ko" | "en"): string {
   const hit = ACTOR_LABEL[String(actorType ?? "").trim()];
-  return hit ? hit[lang] : lang === "en" ? "Other" : "기타";
+  return hit ? hit[lang] : translateBy(lang, "admin_menu_bottom_icon_cat_misc");
 }
 
 /**
@@ -52,7 +53,7 @@ export function AdminPlatformPopupAuditHistory({
 }) {
   return (
     <AdminCard>
-      <h2 className="mb-2 text-sm font-semibold">{lang === "en" ? "Change history" : "변경 이력"}</h2>
+      <h2 className="mb-2 text-sm font-semibold">{translateBy(lang, "admin_campaign_cms_audit_title")}</h2>
       <ul className="max-h-48 space-y-1 overflow-auto text-xs" data-admin-popup-audit-history="">
         {items.length === 0 ? (
           <li className="text-sam-muted">—</li>

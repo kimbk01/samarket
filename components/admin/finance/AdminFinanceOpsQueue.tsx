@@ -120,18 +120,10 @@ export function AdminFinanceOpsQueue() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-amber-950">
-            {safeT("admin_finance_ops_queue_title", {
-              fallbackKo: "처리 필요",
-              fallbackEn: "Needs action",
-            })}
+            {safeT("admin_finance_ops_queue_title")}
           </h2>
           <p className="mt-1 text-[13px] text-amber-900/80">
-            {safeT("admin_finance_ops_queue_help", {
-              fallbackKo:
-                "Point · Coin · Cash는 서로 다른 자산입니다. 대기 항목만 먼저 처리하세요.",
-              fallbackEn:
-                "Point, Coin, and Cash are separate assets. Handle waiting items first.",
-            })}
+            {safeT("admin_finance_ops_queue_help")}
           </p>
         </div>
         <button
@@ -139,27 +131,21 @@ export function AdminFinanceOpsQueue() {
           onClick={() => void load()}
           className="min-h-[36px] shrink-0 rounded-ui-rect border border-amber-300 bg-sam-surface px-3 text-[12px] font-semibold text-amber-900"
         >
-          {safeT("admin_finance_ops_queue_refresh", { fallbackKo: "새로고침", fallbackEn: "Refresh" })}
+          {safeT("admin_finance_ops_queue_refresh")}
         </button>
       </div>
 
       {!state.loaded ? (
         <p className="mt-3 text-[13px] text-sam-muted">
-          {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          {safeT("common_loading")}
         </p>
       ) : state.error ? (
         <p className="mt-3 text-[13px] text-red-600" role="alert">
-          {safeT("admin_finance_ops_queue_load_failed", {
-            fallbackKo: "처리 대기 목록을 불러오지 못했습니다. 자산 잔액은 변경되지 않았습니다.",
-            fallbackEn: "Couldn’t load the action queue. Balances were not changed.",
-          })}
+          {safeT("admin_finance_ops_queue_load_failed")}
         </p>
       ) : total === 0 ? (
         <p className="mt-3 text-[13px] text-sam-muted" data-admin-finance-ops-queue-empty="1">
-          {safeT("admin_finance_ops_queue_empty", {
-            fallbackKo: "지금 처리할 금융 항목이 없습니다.",
-            fallbackEn: "No finance items need action right now.",
-          })}
+          {safeT("admin_finance_ops_queue_empty")}
         </p>
       ) : (
         <ul className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -171,10 +157,7 @@ export function AdminFinanceOpsQueue() {
             >
               <CurrencyBadge currency="point" />
               <span className="min-w-0 flex-1 text-[13px] font-semibold text-sam-fg">
-                {safeT("admin_finance_ops_point_pending", {
-                  fallbackKo: "Point 충전 대기",
-                  fallbackEn: "Point top-ups waiting",
-                })}
+                {safeT("admin_finance_ops_point_pending")}
               </span>
               <span className="tabular-nums text-[13px] font-bold text-[var(--currency-point-accent)]">
                 {state.pointPending}
@@ -189,10 +172,7 @@ export function AdminFinanceOpsQueue() {
             >
               <CurrencyBadge currency="cash" />
               <span className="min-w-0 flex-1 text-[13px] font-semibold text-sam-fg">
-                {safeT("admin_finance_ops_cash_pending", {
-                  fallbackKo: "Cash 충전 대기",
-                  fallbackEn: "Cash top-ups waiting",
-                })}
+                {safeT("admin_finance_ops_cash_pending")}
               </span>
               <span className="tabular-nums text-[13px] font-bold text-[var(--currency-cash-accent)]">
                 {state.cashPending}
@@ -207,10 +187,7 @@ export function AdminFinanceOpsQueue() {
             >
               <CurrencyBadge currency="coin" />
               <span className="min-w-0 flex-1 text-[13px] font-semibold text-sam-fg">
-                {safeT("admin_finance_ops_coin_withdraw", {
-                  fallbackKo: "Coin 출금 대기",
-                  fallbackEn: "Coin withdrawals open",
-                })}
+                {safeT("admin_finance_ops_coin_withdraw")}
               </span>
               <span className="tabular-nums text-[13px] font-bold text-[var(--currency-coin-accent)]">
                 {state.coinWithdrawOpen}
@@ -221,10 +198,7 @@ export function AdminFinanceOpsQueue() {
       )}
 
       <p className="mt-3 text-[11px] text-sam-muted">
-        {safeT("admin_finance_ops_queue_footnote", {
-          fallbackKo: "금액·매장 상세는 각 대기열에서 확인합니다.",
-          fallbackEn: "Amounts and store context are on each queue.",
-        })}
+        {safeT("admin_finance_ops_queue_footnote")}
       </p>
     </section>
   );

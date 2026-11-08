@@ -280,10 +280,7 @@ export function AdminPrelaunchResetPage() {
       data-aro-rst-cov-001="1"
     >
       <AdminPageHeader
-        title={safeT("admin_page_prelaunch_reset", {
-          fallbackKo: "운영 시작 전 테스트 데이터 정리",
-          fallbackEn: "Pre-launch test data cleanup",
-        })}
+        title={safeT("admin_page_prelaunch_reset")}
       />
 
       <div
@@ -292,34 +289,18 @@ export function AdminPrelaunchResetPage() {
         data-admin-prelaunch-reset-danger="1"
       >
         <p className="font-bold">
-          {safeT("admin_prelaunch_reset_danger_title", {
-            fallbackKo: "위험 · 복구 불가할 수 있음",
-            fallbackEn: "Danger · may be irreversible",
-          })}
+          {safeT("admin_prelaunch_reset_danger_title")}
         </p>
         <p className="mt-1">
-          {safeT("admin_prelaunch_reset_danger_body", {
-            fallbackKo:
-              "Production 실행은 차단됩니다. Undo 없음. TRUNCATE/전체 wipe/auth 전체 삭제는 지원하지 않습니다. 명시 ID + 선택 범위만 적용됩니다.",
-            fallbackEn:
-              "Production execute is blocked. No Undo. No TRUNCATE/full wipe/auth mass delete. Explicit IDs + selected scopes only.",
-          })}
+          {safeT("admin_prelaunch_reset_danger_body")}
         </p>
         <p className="mt-2 font-semibold">
-          {safeT("admin_prelaunch_reset_scope_limit", {
-            fallbackKo:
-              "「전체 선택」= 안전하게 선택 가능한 지원 범위만 (DB 전체·Auth 전체·Storage 버킷 전체 아님). 차단/미지원은 강제 포함되지 않습니다.",
-            fallbackEn:
-              "Select-all = safely selectable supported scopes only (not full DB/Auth/Storage). Blocked/unsupported never force-included.",
-          })}
+          {safeT("admin_prelaunch_reset_scope_limit")}
         </p>
       </div>
 
       <AdminCard
-        title={safeT("admin_prelaunch_reset_step1", {
-          fallbackKo: "1. 범위(Preset) 선택",
-          fallbackEn: "1. Choose preset",
-        })}
+        title={safeT("admin_prelaunch_reset_step1")}
       >
         <div className="flex flex-wrap gap-2">
           {PRESET_IDS.map((id) => {
@@ -424,10 +405,7 @@ export function AdminPrelaunchResetPage() {
       </AdminCard>
 
       <AdminCard
-        title={safeT("admin_prelaunch_reset_step2", {
-          fallbackKo: "2. 명시적 대상 ID",
-          fallbackEn: "2. Explicit target IDs",
-        })}
+        title={safeT("admin_prelaunch_reset_step2")}
       >
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block text-[12px]">
@@ -588,10 +566,7 @@ export function AdminPrelaunchResetPage() {
           onClick={() => void runDryRun()}
           data-admin-prelaunch-reset-dry-run="1"
         >
-          {safeT("admin_prelaunch_reset_analyze", {
-            fallbackKo: "3. 영향 분석 (Dry-run)",
-            fallbackEn: "3. Impact analysis (Dry-run)",
-          })}
+          {safeT("admin_prelaunch_reset_analyze")}
         </button>
       </div>
 
@@ -603,10 +578,7 @@ export function AdminPrelaunchResetPage() {
 
       {plan ? (
         <AdminCard
-          title={safeT("admin_prelaunch_reset_step4", {
-            fallbackKo: "4. 보호 / 차단 / 카운트",
-            fallbackEn: "4. Protect / block / counts",
-          })}
+          title={safeT("admin_prelaunch_reset_step4")}
         >
           <p className="mb-2 text-[12px] font-semibold" data-aro-rst-plan-scopes="1">
             {ko ? "선택된 범위: " : "Selected scopes: "}
@@ -701,16 +673,10 @@ export function AdminPrelaunchResetPage() {
 
       {plan ? (
         <AdminCard
-          title={safeT("admin_prelaunch_reset_step5", {
-            fallbackKo: "5. Typed confirmation",
-            fallbackEn: "5. Typed confirmation",
-          })}
+          title={safeT("admin_prelaunch_reset_step5")}
         >
           <p className="text-[12px] text-sam-muted">
-            {safeT("admin_prelaunch_reset_type_exact", {
-              fallbackKo: "아래 문구를 정확히 입력하세요 (플랜 카운트·해시·선택 범위 결합).",
-              fallbackEn: "Type the exact phrase (bound to plan counts + hash + scopes).",
-            })}
+            {safeT("admin_prelaunch_reset_type_exact")}
           </p>
           <p className="mt-2 rounded-ui-rect bg-sam-app px-3 py-2 font-mono text-[12px] font-bold">
             {plan.typedConfirmationPhrase}
@@ -728,20 +694,14 @@ export function AdminPrelaunchResetPage() {
             onClick={() => void runExecute()}
             data-admin-prelaunch-reset-execute="1"
           >
-            {safeT("admin_prelaunch_reset_execute", {
-              fallbackKo: "6. 실행 (되돌리기 없음)",
-              fallbackEn: "6. Execute (no undo)",
-            })}
+            {safeT("admin_prelaunch_reset_execute")}
           </button>
         </AdminCard>
       ) : null}
 
       {execResult ? (
         <AdminCard
-          title={safeT("admin_prelaunch_reset_result", {
-            fallbackKo: "결과",
-            fallbackEn: "Result",
-          })}
+          title={safeT("admin_prelaunch_reset_result")}
         >
           <p className="text-[14px] font-bold" data-admin-prelaunch-reset-overall={execResult.overall}>
             overall: {execResult.overall}

@@ -15,6 +15,7 @@ import { AdminOrderDetailModal, useAdminOrderDetailParam } from "@/components/ad
 import { ADMIN_STORE_ORDER_STATUS_LABEL_KEYS } from "@/lib/admin/store-orders/admin-store-order-status-labels";
 import type { AdminStoreOrderChatListRow } from "@/lib/admin-delivery-orders/list-admin-store-order-chats";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * P1-1 — Delivery order-chat LIVE (lookup-only).
@@ -99,7 +100,7 @@ export function AdminOrderChatList() {
       <div data-admin-surface="live" data-admin-domain="delivery">
         <AdminLoadingState
           ko={ko}
-          label={safeT("admin_do_chat_list_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          label={safeT("admin_do_chat_list_loading")}
         />
       </div>
     );
@@ -130,7 +131,7 @@ export function AdminOrderChatList() {
               ? ko
                 ? "검색 조건에 맞는 주문 채팅이 없습니다."
                 : "No order chats match this search."
-              : safeT("admin_do_chat_list_empty", { fallbackKo: "주문 채팅이 없습니다.", fallbackEn: "No order chats." })
+              : safeT("admin_do_chat_list_empty")
           }
           action={
             <Link href="/admin/stores/orders" className="font-medium text-sam-fg underline">
@@ -162,19 +163,16 @@ export function AdminOrderChatList() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {safeT("admin_do_chat_col_order", { fallbackKo: "주문", fallbackEn: "Order" })}
+              {safeT("admin_do_chat_col_order")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {safeT("admin_do_chat_col_store", { fallbackKo: "매장", fallbackEn: "Store" })}
+              {safeT("admin_do_chat_col_store")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {safeT("admin_do_chat_col_customer", { fallbackKo: "고객", fallbackEn: "Customer" })}
+              {safeT("admin_do_chat_col_customer")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              {safeT("admin_do_chat_col_last", {
-                fallbackKo: "최근 메시지",
-                fallbackEn: "Last message",
-              })}
+              {safeT("admin_do_chat_col_last")}
             </th>
           </tr>
         </thead>
@@ -186,10 +184,7 @@ export function AdminOrderChatList() {
                   href={withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(row.orderId)}/chat`, returnTo)}
                   className="font-medium text-signature underline"
                 >
-                  {safeT("admin_do_chat_open_room", {
-                    fallbackKo: "주문 채팅 열기",
-                    fallbackEn: "Open order chat",
-                  })}
+                  {safeT("admin_do_chat_open_room")}
                 </Link>
                 <div className="mt-1">
                   <AdminActionButton
@@ -199,7 +194,7 @@ export function AdminOrderChatList() {
                     onClick={() => modal.openOrder(row.orderId, "basic")}
                     data-open-order={row.orderNo || row.orderId}
                   >
-                    {row.orderNo || (language === "en" ? "Open order" : "주문 보기")}
+                    {row.orderNo || (translateBy(language, "admin_open_order"))}
                   </AdminActionButton>
                   <span className="ml-2 sam-text-xxs text-sam-muted">{statusLabel(row.orderStatus)}</span>
                 </div>

@@ -64,10 +64,7 @@ export function PromoteMemberToAdminSheet({
   return (
     <AdminFormSheet
       title={t("admin_users_action_promote_admin")}
-      subtitle={safeT("admin_users_promote_confirm", {
-        fallbackKo: `「${displayName}」에게 관리자 권한을 부여합니다.`,
-        fallbackEn: `Grant admin access to 「${displayName}」.`,
-      })}
+      subtitle={safeT("admin_users_promote_confirm")}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">

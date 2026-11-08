@@ -15,14 +15,14 @@ export function AdminMemberMetricValue({
   if (!metric.ok) {
     return (
       <span className="text-sm font-semibold text-sam-danger">
-        {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+        {safeT("admin_users_cc_load_failed")}
       </span>
     );
   }
   if (metric.value == null || metric.value === "") {
     return (
       <span className="text-sm font-semibold text-sam-meta">
-        {safeT("admin_users_empty_placeholder", { fallbackKo: "—", fallbackEn: "—" })}
+        {safeT("admin_users_empty_placeholder")}
       </span>
     );
   }
@@ -66,7 +66,7 @@ export function AdminMemberPager({
         disabled={page <= 1}
         onClick={onPrev}
       >
-        {safeT("admin_users_cc_page_prev", { fallbackKo: "이전", fallbackEn: "Prev" })}
+        {safeT("admin_users_cc_page_prev")}
       </AdminActionButton>
       <span className="text-xs text-sam-muted">{page}</span>
       <AdminActionButton
@@ -75,7 +75,7 @@ export function AdminMemberPager({
         disabled={!hasNext}
         onClick={onNext}
       >
-        {safeT("admin_users_cc_page_next", { fallbackKo: "다음", fallbackEn: "Next" })}
+        {safeT("admin_users_cc_page_next")}
       </AdminActionButton>
     </div>
   );

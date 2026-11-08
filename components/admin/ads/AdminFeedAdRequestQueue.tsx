@@ -58,10 +58,7 @@ export function AdminFeedAdRequestQueue() {
       setStatusCounts(j.statusCounts ?? {});
       if (j.tableMissing) {
         setErr(
-          safeT("admin_feed_req_table_missing", {
-            fallbackKo: "feed_ad_requests 마이그레이션이 필요합니다.",
-            fallbackEn: "feed_ad_requests migration required.",
-          })
+          safeT("admin_feed_req_table_missing")
         );
       } else {
         setErr("");
@@ -85,16 +82,10 @@ export function AdminFeedAdRequestQueue() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {safeT("admin_feed_req_title", {
-              fallbackKo: "피드 광고 신청",
-              fallbackEn: "Feed ad requests",
-            })}
+            {safeT("admin_feed_req_title")}
           </h2>
           <p className="sam-text-helper text-sam-muted">
-            {safeT("admin_feed_req_hint", {
-              fallbackKo: "상세 시트에서 소재와 연결을 확인한 뒤 승인/보류/반려합니다. 승인 뒤 운영은 노출 관리에서 처리합니다.",
-              fallbackEn: "Review creative and destination, then approve, hold when supported, or reject. Approved campaigns move to operations.",
-            })}
+            {safeT("admin_feed_req_hint")}
           </p>
         </div>
         <select
@@ -121,10 +112,7 @@ export function AdminFeedAdRequestQueue() {
         <p className="py-6 text-center text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
         <p className="py-6 text-center sam-text-helper text-sam-muted">
-          {safeT("admin_feed_req_empty", {
-            fallbackKo: "해당 상태의 신청이 없습니다.",
-            fallbackEn: "No requests in this status.",
-          })}
+          {safeT("admin_feed_req_empty")}
         </p>
       ) : (
         <ul className="space-y-3">
@@ -185,10 +173,7 @@ export function AdminFeedAdRequestQueue() {
                     className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white"
                     onClick={() => setSheetId(r.id)}
                   >
-                    {safeT("admin_feed_req_detail", {
-                      fallbackKo: "상세",
-                      fallbackEn: "Detail",
-                    })}
+                    {safeT("admin_feed_req_detail")}
                   </button>
                 </div>
               </li>

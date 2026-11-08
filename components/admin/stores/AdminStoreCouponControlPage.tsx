@@ -243,10 +243,7 @@ function AdminStoreCouponControlPageInner() {
         setActError(
           code
             ? adminOperatorErrorMessage(code, ko)
-            : safeT("store_coupon_admin_act_fail", {
-                fallbackKo: "처리할 수 없습니다.",
-                fallbackEn: "Could not complete that action.",
-              })
+            : safeT("store_coupon_admin_act_fail")
         );
         if (json.error === "invalid_coupon_transition") await load();
         return;
@@ -311,10 +308,7 @@ function AdminStoreCouponControlPageInner() {
                   {recent.map((row, i) => {
                     const actor =
                       humanAdminStoreName(row.actor_label) ??
-                      safeT("store_coupon_admin_actor_fallback", {
-                        fallbackKo: "운영",
-                        fallbackEn: "Ops",
-                      });
+                      safeT("store_coupon_admin_actor_fallback");
                     const title = row.title.trim();
                     const titleOk = title && !looksLikeRawOperatorToken(title);
                     return (

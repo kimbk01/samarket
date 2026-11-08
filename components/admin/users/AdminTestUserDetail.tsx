@@ -46,6 +46,7 @@ import type { AdminAuthProvider, AdminUser, MemberType } from "@/lib/types/admin
 import type { ModerationStatus } from "@/lib/types/report";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** GET /api/admin/users/:id `user` 페이로드 (profiles SSOT + hasProfile 계약) */
 export type AdminUserDetailPayload = {
@@ -321,11 +322,8 @@ export function AdminMemberDetail({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("purge"),
       ko: language !== "en",
-      title: safeT("admin_users_lite_delete_confirm", {
-        fallbackKo: "이 회원을 탈퇴 처리(개인정보 익명화)하시겠습니까?",
-        fallbackEn: "Withdraw this member and anonymize their personal data?",
-      }),
-      confirmLabel: language === "en" ? "Withdraw" : "탈퇴 처리",
+      title: safeT("admin_users_lite_delete_confirm"),
+      confirmLabel: translateBy(language, "admin_withdraw"),
       destructive: true,
       retypeValue: purgeRetypeValue,
     });
@@ -363,11 +361,8 @@ export function AdminMemberDetail({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("purge"),
       ko: language !== "en",
-      title: safeT("admin_users_purge_confirm", {
-        fallbackKo: "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.",
-        fallbackEn: "Permanently delete this member? This cannot be undone.",
-      }),
-      confirmLabel: language === "en" ? "Delete permanently" : "영구 삭제",
+      title: safeT("admin_users_purge_confirm"),
+      confirmLabel: translateBy(language, "admin_chat_s6_confirm"),
       destructive: true,
       retypeValue: purgeRetypeValue,
     });
@@ -655,20 +650,14 @@ export function AdminMemberDetail({
                 disabled
               />
               <ActionButton
-                label={safeT("admin_users_lite_withdraw_account", {
-                  fallbackKo: "탈퇴 처리(익명화)",
-                  fallbackEn: "Withdraw (anonymize)",
-                })}
+                label={safeT("admin_users_lite_withdraw_account")}
                 icon={<Trash2 className="h-4 w-4" />}
                 tone="danger"
                 disabled={deleting}
                 onClick={() => void handleDelete()}
               />
               <ActionButton
-                label={safeT("admin_users_purge_account", {
-                  fallbackKo: "영구 삭제",
-                  fallbackEn: "Permanent delete",
-                })}
+                label={safeT("admin_users_purge_account")}
                 icon={<Trash2 className="h-4 w-4" />}
                 tone="danger"
                 disabled={deleting}

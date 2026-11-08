@@ -100,7 +100,7 @@ export function AdminStoreCouponControlList({
                   {visible.map((row) => {
                     const storeLabel =
                       humanAdminStoreName(row.store_name) ??
-                      safeT("store_coupon_wallet_store_fallback", { fallbackKo: "매장", fallbackEn: "Store" });
+                      safeT("store_coupon_wallet_store_fallback");
                     const titleRaw = String(row.title ?? "").trim();
                     const title =
                       titleRaw && !looksLikeRawOperatorToken(titleRaw)

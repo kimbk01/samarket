@@ -144,10 +144,7 @@ export function AdminBannerForm({
         </label>
         {/* MY-1: 앱 마이 배너는 작은 썸네일로만 보인다 · 업로드 허용 형식(JPG·PNG·WebP)과 같은 accept */}
         <p className="mb-1 sam-text-helper text-sam-muted" data-admin-mypage-banner-image-hint="1">
-          {safeT("ads_f_mypage_banner_image_hint", {
-            fallbackKo: "앱에서는 48×48 썸네일로 보입니다(정사각형 권장).",
-            fallbackEn: "Shown in the app as a 48×48 thumbnail (square recommended).",
-          })}
+          {safeT("ads_f_mypage_banner_image_hint")}
         </p>
         <input
           type="text"

@@ -142,10 +142,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-sam-danger">
-            {safeT("gift_ops_rev_error", {
-              fallbackKo: "정산·수익을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load revenue settlement.",
-            })}
+            {safeT("gift_ops_rev_error")}
           </p>
           <AdminActionButton type="button" variant="secondary" onClick={() => void load()}>
             {adminCta("refresh", language !== "en")}
@@ -174,16 +171,13 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
               {kpi("Outstanding Gift Value", summary.outstandingGiftValue, "outstanding")}
             </div>
             <p className="text-xs text-sam-muted">
-              {safeT("gift_ops_rev_note", {
-                fallbackKo: "확정 Platform Fee만 DIBAY 수익입니다. Outstanding는 부채이며 매출이 아닙니다.",
-                fallbackEn: "Only recognized Platform Fee is DIBAY revenue. Outstanding is liability, not sales.",
-              })}
+              {safeT("gift_ops_rev_note")}
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="text-base font-semibold">
-              {safeT("gift_ops_rev_rows", { fallbackKo: "수익 상세", fallbackEn: "Revenue detail rows" })}
+              {safeT("gift_ops_rev_rows")}
             </h2>
             {(summary.details ?? []).length === 0 ? (
               <p className="text-sm text-sam-muted">—</p>
@@ -243,14 +237,11 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
 
       <section className="space-y-2">
         <h2 className="text-base font-semibold">
-          {safeT("gift_ops_store_settle", { fallbackKo: "매장 정산", fallbackEn: "Store settlement" })}
+          {safeT("gift_ops_store_settle")}
         </h2>
         {state === "empty" ? (
           <p className="text-sm text-sam-muted">
-            {safeT("gift_ops_store_empty", {
-              fallbackKo: "상품권을 판매 중인 매장이 없습니다.",
-              fallbackEn: "No stores selling gift certificates.",
-            })}
+            {safeT("gift_ops_store_empty")}
           </p>
         ) : null}
         <div className="overflow-x-auto">
@@ -294,7 +285,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                       })}
                       className={`${Sam.btn.secondary} inline-flex min-h-[36px] items-center px-3 text-xs`}
                     >
-                      {safeT("gift_ops_cta_store", { fallbackKo: "매장 상세", fallbackEn: "Store detail" })}
+                      {safeT("gift_ops_cta_store")}
                     </Link>
                   </td>
                 </tr>
@@ -311,19 +302,13 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
               {detail.storeName} · {detail.ownerLabel}
             </h3>
             <Link href={buildAdminGiftOpsHref({ tab: "revenue" })} className={`${Sam.btn.secondary} min-h-[36px] px-3 text-sm`}>
-              {safeT("gift_ops_close_detail", { fallbackKo: "닫기", fallbackEn: "Close" })}
+              {safeT("gift_ops_close_detail")}
             </Link>
           </div>
           <p className={`text-sm font-semibold ${detail.parityOk ? "text-sam-success" : "text-sam-danger"}`}>
             {detail.parityOk
-              ? safeT("gift_ops_parity_ok", {
-                  fallbackKo: "ADMIN == OWNER (동일 canonical 값)",
-                  fallbackEn: "ADMIN == OWNER (same canonical values)",
-                })
-              : safeT("gift_ops_parity_fail", {
-                  fallbackKo: "Parity mismatch — 조사 필요",
-                  fallbackEn: "Parity mismatch — investigate",
-                })}
+              ? safeT("gift_ops_parity_ok")
+              : safeT("gift_ops_parity_fail")}
           </p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
@@ -350,7 +335,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
           <AdminGiftRailPayoutForm storeId={detail.storeId} onPaid={() => void load()} />
           <details className="text-xs text-sam-muted">
             <summary>
-              {safeT("gift_ops_technical", { fallbackKo: "기술 상세", fallbackEn: "Technical details" })}
+              {safeT("gift_ops_technical")}
             </summary>
             <p className="mt-1 break-all font-mono">{detail.storeId}</p>
           </details>

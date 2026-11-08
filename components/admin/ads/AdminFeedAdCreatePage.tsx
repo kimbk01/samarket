@@ -269,23 +269,23 @@ export function AdminFeedAdCreatePage({
     setErr("");
     setSuccessMsg("");
     if (!name.trim()) {
-      setErr(safeT("admin_feed_ads_err_name", { fallbackKo: "광고 이름을 입력하세요.", fallbackEn: "Enter a campaign name." }));
+      setErr(safeT("admin_feed_ads_err_name"));
       return;
     }
     if (filledSlides < 1) {
-      setErr(safeT("admin_feed_ads_err_slides", { fallbackKo: "이미지 1장 이상 필요합니다.", fallbackEn: "At least one image is required." }));
+      setErr(safeT("admin_feed_ads_err_slides"));
       return;
     }
     if (placement === "TRADE_CATEGORY" && !targetCategoryId.trim()) {
-      setErr(safeT("admin_feed_ads_err_category", { fallbackKo: "거래 카테고리를 선택하세요.", fallbackEn: "Select a trade category." }));
+      setErr(safeT("admin_feed_ads_err_category"));
       return;
     }
     if (placement === "COMMUNITY_TOPIC" && !targetTopicSlug.trim()) {
-      setErr(safeT("admin_feed_ads_err_topic", { fallbackKo: "커뮤니티 주제를 선택하세요.", fallbackEn: "Select a community topic." }));
+      setErr(safeT("admin_feed_ads_err_topic"));
       return;
     }
     if (uploading != null) {
-      setErr(safeT("admin_feed_ads_err_upload", { fallbackKo: "이미지 업로드가 끝날 때까지 기다려 주세요.", fallbackEn: "Wait for image upload to finish." }));
+      setErr(safeT("admin_feed_ads_err_upload"));
       return;
     }
     if (remaining <= 0 && status === "active") {
@@ -380,7 +380,7 @@ export function AdminFeedAdCreatePage({
         </h2>
         <label className="block">
           <span className="mb-1 block sam-text-body font-medium">
-            {safeT("admin_feed_ads_col_name", { fallbackKo: "이름", fallbackEn: "Name" })}
+            {safeT("admin_feed_ads_col_name")}
           </span>
           <input
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -389,10 +389,7 @@ export function AdminFeedAdCreatePage({
           />
           {/* FA-1: 이 이름이 거래·커뮤니티 피드 광고 머리줄에 광고주 이름으로 보인다 */}
           <span className="mt-1 block sam-text-helper text-sam-muted" data-admin-feed-name-hint="1">
-            {safeT("ads_f_feed_name_hint", {
-              fallbackKo: "거래·커뮤니티 피드 광고 위쪽에 광고주 이름으로 보입니다.",
-              fallbackEn: "Shown above trade and community feed ads as the advertiser name.",
-            })}
+            {safeT("ads_f_feed_name_hint")}
           </span>
         </label>
       </section>
@@ -401,10 +398,7 @@ export function AdminFeedAdCreatePage({
       {!lockedDomain ? (
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_domain", {
-            fallbackKo: "2. 어디에 보여줄까요?",
-            fallbackEn: "2. Where to show?",
-          })}
+          {safeT("admin_feed_ads_sec_domain")}
         </h2>
         <div className="flex gap-2">
           <AdminChipButton
@@ -487,10 +481,7 @@ export function AdminFeedAdCreatePage({
         {/* FA-2: 커뮤니티 주제 배너는 커뮤니티 전체 피드에도 나온다 */}
         {placement === "COMMUNITY_TOPIC" ? (
           <p className="sam-text-helper text-sam-muted" data-admin-feed-topic-all-hint="1">
-            {safeT("ads_f_feed_topic_also_all_hint", {
-              fallbackKo: "커뮤니티 주제 배너는 커뮤니티 전체 피드에도 나옵니다.",
-              fallbackEn: "Community topic banners also appear in the all-topics community feed.",
-            })}
+            {safeT("ads_f_feed_topic_also_all_hint")}
           </p>
         ) : null}
       </section>
@@ -499,10 +490,7 @@ export function AdminFeedAdCreatePage({
       {surfaceMode === "targeted" ? (
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {safeT("admin_feed_ads_sec_target", {
-              fallbackKo: "4. 누구에게 보여줄까요?",
-              fallbackEn: "4. Who should see it?",
-            })}
+            {safeT("admin_feed_ads_sec_target")}
           </h2>
           {targetsLoading ? (
             <AdminLoadingState ko={ko} label={t("common_loading")} />
@@ -529,10 +517,7 @@ export function AdminFeedAdCreatePage({
           ) : domain === "trade" ? (
             <label className="block">
               <span className="mb-1 block sam-text-body font-medium">
-                {safeT("admin_feed_ads_trade_cat", {
-                  fallbackKo: "거래 카테고리",
-                  fallbackEn: "Trade category",
-                })}
+                {safeT("admin_feed_ads_trade_cat")}
               </span>
               <select
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -540,7 +525,7 @@ export function AdminFeedAdCreatePage({
                 onChange={(e) => setTargetCategoryId(e.target.value)}
               >
                 <option value="">
-                  {safeT("admin_feed_ads_select", { fallbackKo: "선택", fallbackEn: "Select" })}
+                  {safeT("admin_feed_ads_select")}
                 </option>
                 {tradeCategories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -552,10 +537,7 @@ export function AdminFeedAdCreatePage({
           ) : (
             <label className="block">
               <span className="mb-1 block sam-text-body font-medium">
-                {safeT("admin_feed_ads_community_topic", {
-                  fallbackKo: "커뮤니티 주제",
-                  fallbackEn: "Community topic",
-                })}
+                {safeT("admin_feed_ads_community_topic")}
               </span>
               <select
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -563,7 +545,7 @@ export function AdminFeedAdCreatePage({
                 onChange={(e) => setTargetTopicSlug(e.target.value)}
               >
                 <option value="">
-                  {safeT("admin_feed_ads_select", { fallbackKo: "선택", fallbackEn: "Select" })}
+                  {safeT("admin_feed_ads_select")}
                 </option>
                 {communityTopics.map((tp) => (
                   <option key={tp.slug} value={tp.slug}>
@@ -692,10 +674,7 @@ export function AdminFeedAdCreatePage({
       {/* 6 Destination */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_dest", {
-            fallbackKo: "6. 누르면 어디로 이동할까요?",
-            fallbackEn: "6. Destination",
-          })}
+          {safeT("admin_feed_ads_sec_dest")}
         </h2>
         <select
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -708,7 +687,7 @@ export function AdminFeedAdCreatePage({
           <option value="community_post">{langEn ? "Community post" : "커뮤니티 글"}</option>
           <option value="store">{langEn ? "Store" : "매장"}</option>
           <option value="event">
-            {safeT("admin_feed_ad_destination_type_event", { fallbackKo: "이벤트", fallbackEn: "Event" })}
+            {safeT("admin_feed_ad_destination_type_event")}
           </option>
           <option value="external_url">{langEn ? "External URL" : "외부 주소"}</option>
         </select>
@@ -751,15 +730,12 @@ export function AdminFeedAdCreatePage({
       {/* 7 Schedule */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_schedule", {
-            fallbackKo: "7. 언제 보여줄까요?",
-            fallbackEn: "7. Schedule",
-          })}
+          {safeT("admin_feed_ads_sec_schedule")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block sam-text-body font-medium">
-              {safeT("ads_f_start_pht", { fallbackKo: "시작 (PHT)", fallbackEn: "Start (PHT)" })}
+              {safeT("ads_f_start_pht")}
             </span>
             <input
               type="datetime-local"
@@ -770,7 +746,7 @@ export function AdminFeedAdCreatePage({
           </label>
           <label className="block">
             <span className="mb-1 block sam-text-body font-medium">
-              {safeT("ads_f_end_pht", { fallbackKo: "종료 (PHT)", fallbackEn: "End (PHT)" })}
+              {safeT("ads_f_end_pht")}
             </span>
             <input
               type="datetime-local"
@@ -782,7 +758,7 @@ export function AdminFeedAdCreatePage({
         </div>
         <label className="block">
           <span className="mb-1 block sam-text-body font-medium">
-            {safeT("admin_feed_ads_col_status", { fallbackKo: "상태", fallbackEn: "Status" })}
+            {safeT("admin_feed_ads_col_status")}
           </span>
           <select
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -790,10 +766,10 @@ export function AdminFeedAdCreatePage({
             onChange={(e) => setStatus(e.target.value as "draft" | "active")}
           >
             <option value="draft">
-              {safeT("ads_f_status_draft", { fallbackKo: "초안", fallbackEn: "Draft" })}
+              {safeT("ads_f_status_draft")}
             </option>
             <option value="active">
-              {safeT("ads_f_status_active", { fallbackKo: "노출", fallbackEn: "Live" })}
+              {safeT("ads_f_status_active")}
             </option>
           </select>
         </label>
@@ -816,10 +792,7 @@ export function AdminFeedAdCreatePage({
         </p>
         <div className="mx-auto w-full max-w-md space-y-2 rounded-ui-rect border border-dashed border-sam-border bg-sam-app p-2">
           <div className="h-10 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
-            {safeT("admin_feed_ads_preview_row", {
-              fallbackKo: "게시글 행 (예시)",
-              fallbackEn: "Listing row (sample)",
-            })}
+            {safeT("admin_feed_ads_preview_row")}
           </div>
           {(() => {
             const first = slides.find((s) => s.imageUrl || s.previewUrl);
@@ -843,10 +816,7 @@ export function AdminFeedAdCreatePage({
             );
           })()}
           <div className="h-10 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
-            {safeT("admin_feed_ads_preview_row", {
-              fallbackKo: "게시글 행 (예시)",
-              fallbackEn: "Listing row (sample)",
-            })}
+            {safeT("admin_feed_ads_preview_row")}
           </div>
         </div>
       </section>

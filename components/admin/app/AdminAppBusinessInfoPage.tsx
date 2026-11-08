@@ -85,18 +85,12 @@ export function AdminAppBusinessInfoPage() {
         <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={reload} />
       ) : tableMissing ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
-          {safeT("admin_app_business_table_missing", {
-            fallbackKo: "app_platform_business_info 테이블이 없습니다. 마이그레이션을 적용해 주세요.",
-            fallbackEn: "app_platform_business_info table is missing. Apply the migration.",
-          })}
+          {safeT("admin_app_business_table_missing")}
         </p>
       ) : items.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={safeT("admin_app_business_empty", {
-            fallbackKo: "등록된 사업자 정보가 없습니다.",
-            fallbackEn: "No business information yet.",
-          })}
+          message={safeT("admin_app_business_empty")}
         />
       ) : (
         <ul className="space-y-2">

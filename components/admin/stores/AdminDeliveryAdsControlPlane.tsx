@@ -43,6 +43,7 @@ import {
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { adminDisplayApplicantLabel } from "@/lib/admin/operator-ux/operator-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type ProductFilter = "all" | "store_sponsored" | "banner";
 const PRODUCT_FILTERS: readonly ProductFilter[] = ["all", "store_sponsored", "banner"];
@@ -225,33 +226,30 @@ export function AdminDeliveryAdsControlPlane() {
         {/* 1 — Page identity / summary (Control Plane is /admin/delivery-ads only — no dual mount) */}
         <div data-admin-delivery-ads-section="identity">
           <p className="text-[12px] text-sam-muted">
-            {lang === "en" ? "Ads / Exposure › Delivery ads legacy view" : "광고 / 노출 › 배달 광고 기존 화면"}
+            {translateBy(lang, "admin_ads_exposure_delivery_ads_legacy_view")}
           </p>
           <AdminPageHeader
             titleKey="admin_menu_delivery_ads_ops"
-            description={safeT("admin_delivery_ads_subtitle", {
-              fallbackKo: "기존 배달 광고 화면입니다. 통합 신청/운영/위치 관리는 광고 / 노출 authority에서 처리합니다.",
-              fallbackEn: "Legacy delivery ads view. Unified application, operation, and placement work is handled by Ads / Exposure authority.",
-            })}
+            description={safeT("admin_delivery_ads_subtitle")}
           />
           <div className="mt-2 flex flex-wrap gap-2">
             <Link
               href="/admin/advertising/applications"
               className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
             >
-              {lang === "en" ? "Applications" : "광고 신청"}
+              {translateBy(lang, "admin_applications")}
             </Link>
             <Link
               href="/admin/advertising/operations"
               className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
             >
-              {lang === "en" ? "Operations" : "노출 관리"}
+              {translateBy(lang, "admin_operations")}
             </Link>
             <Link
               href="/admin/advertising/placements"
               className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
             >
-              {lang === "en" ? "Placements" : "광고 위치"}
+              {translateBy(lang, "admin_placements")}
             </Link>
           </div>
           <div className="mt-2">
@@ -307,10 +305,7 @@ export function AdminDeliveryAdsControlPlane() {
         {/* 3 — Legacy delivery execution list. Unified operations live under /admin/advertising/operations. */}
         <div data-admin-delivery-ads-section="execution-list" data-admin-delivery-ads-section-legacy="campaign-list">
           <h2 className="mb-2 text-[14px] font-semibold text-sam-fg">
-            {safeT("admin_delivery_ads_execution_list_title", {
-              fallbackKo: "배달 광고 기존 목록",
-              fallbackEn: "Legacy delivery ads list",
-            })}
+            {safeT("admin_delivery_ads_execution_list_title")}
           </h2>
 
           <div
@@ -355,10 +350,7 @@ export function AdminDeliveryAdsControlPlane() {
             <div className="mt-3">
               <AdminLoadingState
                 ko={lang !== "en"}
-                label={safeT("admin_delivery_ads_loading", {
-                  fallbackKo: "불러오는 중…",
-                  fallbackEn: "Loading…",
-                })}
+                label={safeT("admin_delivery_ads_loading")}
               />
             </div>
           ) : null}
@@ -373,10 +365,7 @@ export function AdminDeliveryAdsControlPlane() {
             <div className="mt-3">
               <AdminEmptyState
                 ko={lang !== "en"}
-                message={safeT("admin_delivery_ads_empty", {
-                  fallbackKo: "해당 조건의 광고가 없습니다.",
-                  fallbackEn: "No campaigns for this filter.",
-                })}
+                message={safeT("admin_delivery_ads_empty")}
                 onReset={listFiltered ? lq.reset : undefined}
                 action={
                   createGuard.allowed ? (
@@ -483,25 +472,16 @@ export function AdminDeliveryAdsControlPlane() {
                         </span>
                         {bannerCreativeState === "needed" ? (
                           <span className="text-[12px] font-medium text-sam-warning">
-                            {safeT("admin_delivery_ads_banner_creative_state_needed", {
-                              fallbackKo: "제작 필요",
-                              fallbackEn: "Needs production",
-                            })}
+                            {safeT("admin_delivery_ads_banner_creative_state_needed")}
                           </span>
                         ) : bannerCreativeState === "ready" ? (
                           <span className="text-[12px] text-sam-muted">
-                            {safeT("admin_delivery_ads_banner_creative_state_ready", {
-                              fallbackKo: "제작 완료",
-                              fallbackEn: "Ready",
-                            })}
+                            {safeT("admin_delivery_ads_banner_creative_state_ready")}
                           </span>
                         ) : null}
                         {c.scheduleHint === "ended" && c.lifecycleStatus === "ACTIVE" ? (
                           <span className="text-[12px] text-sam-warning">
-                            {safeT("admin_delivery_ads_schedule_ended_hint", {
-                              fallbackKo: "일정 종료(표시)",
-                              fallbackEn: "Schedule ended (display)",
-                            })}
+                            {safeT("admin_delivery_ads_schedule_ended_hint")}
                           </span>
                         ) : null}
                       </div>
@@ -514,10 +494,7 @@ export function AdminDeliveryAdsControlPlane() {
                         {placement}
                         {c.pricingModel
                           ? ` · ${c.pricingModel}`
-                          : ` · ${safeT("admin_delivery_ads_hub_price_unset", {
-                              fallbackKo: "가격 미설정",
-                              fallbackEn: "Price not set",
-                            })}`}
+                          : ` · ${safeT("admin_delivery_ads_hub_price_unset")}`}
                         {` · ${formatAdminManilaDateTime(c.updatedAt)}`}
                       </p>
                       <div className="mt-2">

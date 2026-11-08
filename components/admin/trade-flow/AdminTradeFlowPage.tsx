@@ -276,20 +276,11 @@ export function AdminTradeFlowPage() {
   return (
     <div className="space-y-3" data-admin>
       <SectionHeader
-        title={safeT("admin_trade_operations_title", {
-          fallbackKo: "거래 운영",
-          fallbackEn: "Trade operations",
-        })}
-        description={safeT("admin_trade_operations_desc", {
-          fallbackKo: "거래 진행 단계·구매자 확인·후기·신뢰 기록을 봅니다.",
-          fallbackEn: "Trade stages, buyer confirmation, reviews and trust records.",
-        })}
+        title={safeT("admin_trade_operations_title")}
+        description={safeT("admin_trade_operations_desc")}
         actions={
           <ConsoleButton variant="secondary" onClick={() => void load()} disabled={loading}>
-            {safeT("admin_posts_mgmt_refresh", {
-              fallbackKo: "새로고침",
-              fallbackEn: "Refresh",
-            })}
+            {safeT("admin_posts_mgmt_refresh")}
           </ConsoleButton>
         }
       />
@@ -298,18 +289,12 @@ export function AdminTradeFlowPage() {
         tabs={[
           {
             id: "flow",
-            label: safeT("admin_trade_ops_tab_flow", {
-              fallbackKo: "거래 세션",
-              fallbackEn: "Sessions",
-            }),
+            label: safeT("admin_trade_ops_tab_flow"),
             count: !data ? null : deepLinkActive ? visibleSessions.length : data.sessionsTotal,
           },
           {
             id: "complete",
-            label: safeT("admin_trade_ops_tab_complete", {
-              fallbackKo: "구매자 확인",
-              fallbackEn: "Buyer confirm",
-            }),
+            label: safeT("admin_trade_ops_tab_complete"),
             count: null,
             disconnected: true,
           },
@@ -347,10 +332,7 @@ export function AdminTradeFlowPage() {
       ) : null}
       {deepLinkActive && data && !loading && !focusedSession ? (
         <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-body text-sam-fg">
-          {safeT("admin_trade_deep_link_no_match", {
-            fallbackKo: "딥링크 조건에 맞는 거래가 목록에 없습니다.",
-            fallbackEn: "No trade in this list matches the deep link.",
-          })}
+          {safeT("admin_trade_deep_link_no_match")}
         </div>
       ) : null}
       {error && (

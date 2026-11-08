@@ -27,6 +27,7 @@ import { adminOperatorRowClassFromPromotionStatus } from "@/lib/admin/admin-oper
 import { AdminManagementTableViewport } from "@/components/admin/management/AdminManagementTableViewport";
 import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
 import { ADMIN_DOMAIN_SCOPE_QUERY_KEY } from "@/lib/admin/list-query/admin-domain-scope";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type ListEventRow = PlatformEventRow & { channelSummary?: string };
 
@@ -101,10 +102,7 @@ export function AdminPlatformEventsListClient() {
             className="mt-1 max-w-2xl text-sm text-sam-muted"
             data-admin-event-architecture-note="1"
           >
-            {safeT("admin_platform_events_list_desc", {
-              fallbackKo: eventIsContentDestinationCopy("ko"),
-              fallbackEn: eventIsContentDestinationCopy("en"),
-            })}
+            {safeT("admin_platform_events_list_desc")}
           </p>
         </div>
         {adminAction.allowed ? (
@@ -149,10 +147,7 @@ export function AdminPlatformEventsListClient() {
       ) : !loaded ? null : events.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={safeT("admin_platform_events_empty", {
-            fallbackKo: "등록된 이벤트가 없습니다.",
-            fallbackEn: "No events yet.",
-          })}
+          message={safeT("admin_platform_events_empty")}
         />
       ) : (
         <>
@@ -160,13 +155,13 @@ export function AdminPlatformEventsListClient() {
           <table className="min-w-full border-collapse text-[13px]" data-admin-event-table="1">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
-                <th className={TH}>{lang === "en" ? "Event" : "이벤트"}</th>
-                <th className={TH}>{lang === "en" ? "Status" : "상태"}</th>
-                <th className={TH}>{lang === "en" ? "Schedule" : "기간"}</th>
-                <th className={TH}>{lang === "en" ? "Channels" : "채널"}</th>
-                <th className={TH}>{lang === "en" ? "Destination" : "목적지"}</th>
-                <th className={TH}>{lang === "en" ? "Updated" : "수정"}</th>
-                <th className={`${TH} text-right`}>{lang === "en" ? "Actions" : "관리"}</th>
+                <th className={TH}>{translateBy(lang, "admin_event")}</th>
+                <th className={TH}>{translateBy(lang, "admin_status")}</th>
+                <th className={TH}>{translateBy(lang, "admin_schedule")}</th>
+                <th className={TH}>{translateBy(lang, "admin_channels")}</th>
+                <th className={TH}>{translateBy(lang, "admin_destination")}</th>
+                <th className={TH}>{translateBy(lang, "admin_ops_doc_log_update")}</th>
+                <th className={`${TH} text-right`}>{translateBy(lang, "admin_posts_col_manage")}</th>
               </tr>
             </thead>
             <tbody>
@@ -196,44 +191,32 @@ export function AdminPlatformEventsListClient() {
                         {ev.archivedAt ? (
                           <span data-admin-event-archived="1">
                             <AdminToneBadge tone="neutral">
-                              {safeT("admin_platform_event_list_archived", {
-                                fallbackKo: "보관됨",
-                                fallbackEn: "Archived",
-                              })}
+                              {safeT("admin_platform_event_list_archived")}
                             </AdminToneBadge>
                           </span>
                         ) : null}
                         {ev.isPinned ? (
                           <span data-admin-event-pinned="1">
                             <AdminToneBadge tone="progress">
-                              {safeT("platform_event_board_pinned", { fallbackKo: "고정", fallbackEn: "Pinned" })}
+                              {safeT("platform_event_board_pinned")}
                             </AdminToneBadge>
                           </span>
                         ) : null}
                         {ev.category ? (
                           <span data-admin-event-category="1">
-                            {safeT("admin_platform_event_list_category", {
-                              fallbackKo: "카테고리",
-                              fallbackEn: "Category",
-                            })}
+                            {safeT("admin_platform_event_list_category")}
                             : {ev.category}
                           </span>
                         ) : null}
                         {typeof ev.sortOrder === "number" && ev.sortOrder !== 0 ? (
                           <span data-admin-event-sort-order="1">
-                            {safeT("admin_platform_event_list_sort_order", {
-                              fallbackKo: "정렬",
-                              fallbackEn: "Order",
-                            })}
+                            {safeT("admin_platform_event_list_sort_order")}
                             : {ev.sortOrder}
                           </span>
                         ) : null}
                         {!ev.thumbnailUrl ? (
                           <span data-admin-event-thumbnail-missing="1">
-                            {safeT("admin_platform_event_list_thumbnail_missing", {
-                              fallbackKo: "게시판 썸네일 없음(대표 이미지 사용)",
-                              fallbackEn: "No board thumbnail (hero image used)",
-                            })}
+                            {safeT("admin_platform_event_list_thumbnail_missing")}
                           </span>
                         ) : null}
                       </div>
@@ -249,10 +232,10 @@ export function AdminPlatformEventsListClient() {
                     </td>
                     <td className={`${TD} text-sam-muted`} data-admin-event-channel-summary="1">
                       {ev.channelSummary ??
-                        (lang === "en" ? "No channels" : "채널 없음")}
+                        (translateBy(lang, "admin_no_channels"))}
                     </td>
                     <td className={`${TD} whitespace-nowrap text-sam-muted`}>
-                      {lang === "en" ? "Event detail" : "이벤트 상세"}
+                      {translateBy(lang, "admin_event_detail")}
                     </td>
                     <td className={`${TD} whitespace-nowrap text-sam-muted`}>
                       {ev.updatedAt ? formatPromotionAdminSchedule(ev.updatedAt, lang) : "—"}

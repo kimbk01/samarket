@@ -295,25 +295,14 @@ export function AdminActionCenter() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="sam-text-section-title font-semibold text-sam-fg">
-              {safeT("admin_action_center_title", {
-                fallbackKo: "처리 필요 (Action Center)",
-                fallbackEn: "Needs action (Action Center)",
-              })}
+              {safeT("admin_action_center_title")}
             </h2>
             <p className="mt-1 sam-text-helper text-sam-muted">
-              {safeT("admin_action_center_desc", {
-                fallbackKo:
-                  "canonical 도메인 대기열로 이동합니다. 0건은 정상일 수 있습니다. Control Plane은 데이터를 복제·수정하지 않습니다.",
-                fallbackEn:
-                  "Opens canonical domain queues. Zero can be healthy. Control Plane does not copy or mutate domain data.",
-              })}
+              {safeT("admin_action_center_desc")}
             </p>
           </div>
           <p className="sam-text-helper tabular-nums text-sam-muted" data-admin-action-center-total="1">
-            {safeT("admin_action_center_total", {
-              fallbackKo: "Bell 합계",
-              fallbackEn: "Bell total",
-            })}{" "}
+            {safeT("admin_action_center_total")}{" "}
             {q.queueTotalComplete ? q.adminBellCount : `${q.adminBellCount}+`}
           </p>
         </div>
@@ -358,49 +347,34 @@ export function AdminActionCenter() {
           className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 font-medium text-sam-fg"
           data-admin-action-center-config="home"
         >
-          {safeT("admin_action_center_home_config", {
-            fallbackKo: "HOME 구성 (설정)",
-            fallbackEn: "HOME config",
-          })}
+          {safeT("admin_action_center_home_config")}
         </Link>
         <Link
           href={withAdminReturnTo("/admin/stores-category-policy", returnTo)}
           className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 font-medium text-sam-fg"
           data-admin-action-center-config="category"
         >
-          {safeT("admin_action_center_category_config", {
-            fallbackKo: "업종 노출 정책 (설정)",
-            fallbackEn: "Category policy",
-          })}
+          {safeT("admin_action_center_category_config")}
         </Link>
         <Link
           href={withAdminReturnTo(placementMapFocusHref("STORES_HOME_HERO"), returnTo)}
           className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 font-medium text-sam-fg"
           data-admin-action-center-placement-map="1"
         >
-          {safeT("admin_action_center_placement_map", {
-            fallbackKo: "앱 노출 위치 맵",
-            fallbackEn: "App placement map",
-          })}
+          {safeT("admin_action_center_placement_map")}
         </Link>
         <Link
           href="/admin/business"
           className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 font-medium text-sam-fg"
           data-admin-action-center-store-hub="1"
         >
-          {safeT("admin_action_center_store_hub", {
-            fallbackKo: "매장 운영 허브",
-            fallbackEn: "Store ops hub",
-          })}
+          {safeT("admin_action_center_store_hub")}
         </Link>
         <Link
           href={supportInboxHrefForStore("")}
           className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 font-medium text-sam-fg"
         >
-          {safeT("admin_action_center_owner_support", {
-            fallbackKo: "Owner Support",
-            fallbackEn: "Owner Support",
-          })}
+          {safeT("admin_action_center_owner_support")}
         </Link>
       </div>
     </section>

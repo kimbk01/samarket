@@ -589,10 +589,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             {t("admin_menu_cp_support_center")}
           </h1>
           <p className="text-xs text-sam-muted">
-            {safeT("admin_support_desc", {
-              fallbackKo: "회원·사장님 문의 처리",
-              fallbackEn: "Member and owner support console",
-            })}
+            {safeT("admin_support_desc")}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -858,12 +855,12 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     </span>
                   ) : null}
                   <span className="text-xs text-sam-muted">
-                    {safeT("admin_support_assignee_label", { fallbackKo: "담당자", fallbackEn: "Assignee" })}:{" "}
+                    {safeT("admin_support_assignee_label")}:{" "}
                     {activeCase.assigned_admin_id
                       ? activeCase.assigned_admin_id === selfAdminId
-                        ? safeT("admin_support_assignee_self", { fallbackKo: "나", fallbackEn: "Me" })
+                        ? safeT("admin_support_assignee_self")
                         : <AdminTechId id={activeCase.assigned_admin_id} />
-                      : safeT("admin_support_unassigned", { fallbackKo: "미배정", fallbackEn: "Unassigned" })}
+                      : safeT("admin_support_unassigned")}
                   </span>
                 </div>
                 <p className="text-sm text-sam-fg">
@@ -880,7 +877,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           disabled={busy}
                           onClick={() => void patchCase({ action: "assign", assigneeAdminId: null })}
                         >
-                          {safeT("admin_support_unassign", { fallbackKo: "배정 해제", fallbackEn: "Unassign" })}
+                          {safeT("admin_support_unassign")}
                         </AdminActionButton>
                       ) : (
                         <AdminActionButton
@@ -890,14 +887,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           data-admin-support-assign-self="1"
                           onClick={() => void patchCase({ action: "assign", assigneeAdminId: selfAdminId })}
                         >
-                          {safeT("admin_support_assign_self", { fallbackKo: "나에게 배정", fallbackEn: "Assign to me" })}
+                          {safeT("admin_support_assign_self")}
                         </AdminActionButton>
                       )}
                       <select
                         value={activeCase.priority}
                         disabled={busy}
                         data-admin-support-priority="1"
-                        aria-label={safeT("admin_support_priority_label", { fallbackKo: "우선순위", fallbackEn: "Priority" })}
+                        aria-label={safeT("admin_support_priority_label")}
                         className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-xs"
                         onChange={(e) => void patchCase({ action: "priority", priority: e.target.value })}
                       >
@@ -927,16 +924,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           void confirmThenPatch(
                             { action: "status", status: "RESOLVED" },
                             {
-                              title: safeT("admin_support_resolve", { fallbackKo: "상담 종료", fallbackEn: "Close case" }),
+                              title: safeT("admin_support_resolve"),
                               description: ko
                                 ? `${activeCase.public_case_no} 상담을 종료합니다. 고객에게 종료 상태로 보입니다.`
                                 : `Closes ${activeCase.public_case_no}. The customer sees it as closed.`,
-                              confirmLabel: safeT("admin_support_resolve", { fallbackKo: "상담 종료", fallbackEn: "Close case" }),
+                              confirmLabel: safeT("admin_support_resolve"),
                             }
                           )
                         }
                       >
-                        {safeT("admin_support_resolve", { fallbackKo: "상담 종료", fallbackEn: "Close case" })}
+                        {safeT("admin_support_resolve")}
                       </AdminActionButton>
                     ) : null}
                     {st === "RESOLVED" ? (
@@ -970,16 +967,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             void confirmThenPatch(
                               { action: "reopen" },
                               {
-                                title: safeT("admin_support_reopen", { fallbackKo: "재오픈", fallbackEn: "Reopen" }),
+                                title: safeT("admin_support_reopen"),
                                 description: ko
                                   ? `${activeCase.public_case_no} 상담을 다시 엽니다.`
                                   : `Reopens ${activeCase.public_case_no}.`,
-                                confirmLabel: safeT("admin_support_reopen", { fallbackKo: "재오픈", fallbackEn: "Reopen" }),
+                                confirmLabel: safeT("admin_support_reopen"),
                               }
                             )
                           }
                         >
-                          {safeT("admin_support_reopen", { fallbackKo: "재오픈", fallbackEn: "Reopen" })}
+                          {safeT("admin_support_reopen")}
                         </AdminActionButton>
                       </>
                     ) : null}
@@ -1122,7 +1119,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     {ko ? "공개 답변" : "Public reply"}
                   </AdminChipButton>
                   <AdminChipButton selected={composerMode === "internal"} onClick={() => setComposerMode("internal")}>
-                    {safeT("admin_support_internal_note", { fallbackKo: "내부 메모", fallbackEn: "Internal note" })}
+                    {safeT("admin_support_internal_note")}
                   </AdminChipButton>
                 </div>
                 {composerMode === "public" && activeClosed ? (
@@ -1166,8 +1163,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       onClick={() => void sendComposer()}
                     >
                       {composerMode === "public"
-                        ? safeT("admin_support_reply", { fallbackKo: "답변", fallbackEn: "Reply" })
-                        : safeT("admin_support_save_note", { fallbackKo: "메모 저장", fallbackEn: "Save note" })}
+                        ? safeT("admin_support_reply")
+                        : safeT("admin_support_save_note")}
                     </AdminActionButton>
                   </div>
                 )}

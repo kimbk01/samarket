@@ -41,10 +41,7 @@ export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDoc
   return (
     <div className="mt-6 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-testid="admin-legal-version-compare">
       <h2 className="font-semibold text-sam-fg">
-        {safeT("admin_legal_version_compare", {
-          fallbackKo: "버전 비교",
-          fallbackEn: "Version compare",
-        })}
+        {safeT("admin_legal_version_compare")}
       </h2>
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1">

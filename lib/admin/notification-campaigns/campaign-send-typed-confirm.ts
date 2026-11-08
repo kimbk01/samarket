@@ -6,6 +6,7 @@ import type {
   CampaignConfirmAction,
   CampaignConfirmFacts,
 } from "@/lib/admin/notification-campaigns/campaign-action-confirm-copy";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const TYPED_COUNT_ACTIONS: ReadonlySet<CampaignConfirmAction> = new Set<CampaignConfirmAction>([
   "send",
@@ -22,7 +23,7 @@ export function campaignSendConfirmMatchText(
   if (typeof facts.targetCount === "number" && Number.isFinite(facts.targetCount)) {
     return String(Math.trunc(facts.targetCount));
   }
-  return lang === "en" ? "SEND" : "발송";
+  return translateBy(lang, "admin_send");
 }
 
 export function campaignSendConfirmMatchLabel(
@@ -32,11 +33,7 @@ export function campaignSendConfirmMatchLabel(
 ): string | undefined {
   if (matchText == null) return undefined;
   if (typeof facts?.targetCount === "number") {
-    return lang === "en"
-      ? `Type the recipient count (${matchText}) to send`
-      : `발송하려면 수신 대상 수 「${matchText}」 를 그대로 입력하세요`;
+    return translateBy(lang, "admin_type_the_recipient_count_matchtext_to", { matchText });
   }
-  return lang === "en"
-    ? `Recipient count unknown — type "${matchText}" to send`
-    : `수신 대상 수를 알 수 없습니다 — 발송하려면 「${matchText}」 를 입력하세요`;
+  return translateBy(lang, "admin_recipient_count_unknown_type_matchtext_to", { matchText });
 }

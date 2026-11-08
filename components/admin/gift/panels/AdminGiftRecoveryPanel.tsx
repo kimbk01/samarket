@@ -96,10 +96,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
       {state === "empty" ? (
         <AdminEmptyState
           ko={ko}
-          message={safeT("gift_u6_recovery_empty", {
-            fallbackKo: "회수 기록이 없습니다.",
-            fallbackEn: "No open recovery obligations.",
-          })}
+          message={safeT("gift_u6_recovery_empty")}
         />
       ) : null}
 
@@ -176,7 +173,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
             className="!px-0"
             onClick={() => router.push(buildAdminGiftOpsHref({ tab: "recovery" }))}
           >
-            ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+            ← {safeT("gift_ops_close_detail")}
           </AdminActionButton>
           <p className="font-semibold">{selected.storeName}</p>
           <p className="text-sm">
@@ -194,7 +191,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
           </p>
           <details className="text-xs text-sam-muted">
             <summary>
-              {safeT("gift_ops_technical", { fallbackKo: "기술 상세", fallbackEn: "Technical details" })}
+              {safeT("gift_ops_technical")}
             </summary>
             <p className="break-all font-mono">{selected.id}</p>
             {selected.orderId ? <p className="break-all font-mono">order_id: {selected.orderId}</p> : null}

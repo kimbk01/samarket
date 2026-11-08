@@ -493,10 +493,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
                   href={`/admin/trade-flow?postId=${encodeURIComponent(room.productId)}`}
                   className="font-medium text-signature hover:underline"
                 >
-                  {safeT("admin_chat_open_trade_flow", {
-                    fallbackKo: "거래 운영",
-                    fallbackEn: "Trade flow",
-                  })}
+                  {safeT("admin_chat_open_trade_flow")}
                 </Link>
               </p>
             ) : null}

@@ -64,6 +64,7 @@ const POPUP_LIST_QUERY_CONFIG = {
 };
 import { platformPopupCampaignStatusLabel } from "@/lib/platform-popup/popup-product-labels";
 import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 표준 관리자 표 셀 (CommunityTable 과 같은 간격) — 목록은 표(선택·이미지·팝업·이벤트·위치·빈도·기간·목적지·상태·관리). */
 const TH = "whitespace-nowrap px-3 py-2 font-semibold";
@@ -136,10 +137,7 @@ export function AdminPlatformPopupListPage() {
     // refreshKey = apiQueryString + 새로고침 횟수
   }, [apiQueryString, refreshKey]);
 
-  const title = safeT("admin_menu_promotion_popup", {
-    fallbackKo: "팝업",
-    fallbackEn: "Popups",
-  });
+  const title = safeT("admin_menu_promotion_popup");
 
   const onCreate = async () => {
     setCreating(true);
@@ -148,10 +146,7 @@ export function AdminPlatformPopupListPage() {
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: safeT("admin_platform_popup_untitled", {
-          fallbackKo: "새 팝업 캠페인",
-          fallbackEn: "New popup campaign",
-        }),
+        name: safeT("admin_platform_popup_untitled"),
         surfaces: ["GLOBAL"],
       }),
     });
@@ -163,7 +158,7 @@ export function AdminPlatformPopupListPage() {
     setCreating(false);
     if (!res.ok || !json.ok || !json.id) {
       setError(
-        lang === "en" ? "Could not create campaign." : "캠페인을 만들지 못했습니다."
+        translateBy(lang, "admin_could_not_create_campaign")
       );
       return;
     }
@@ -189,9 +184,7 @@ export function AdminPlatformPopupListPage() {
         ? lang === "en"
           ? `Delete '${titles[0] || "this draft popup"}'? This cannot be undone.`
           : `'${titles[0] || "팝업 캠페인"}'을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`
-        : lang === "en"
-          ? `Delete ${ids.length} selected popup campaigns? This cannot be undone.`
-          : `선택한 ${ids.length}개 팝업 캠페인을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.`;
+        : translateBy(lang, "admin_delete_length_selected_popup_campaigns_this", { length: ids.length });
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(ids.length > 1 ? "bulk" : "delete"),
       ko,
@@ -224,12 +217,8 @@ export function AdminPlatformPopupListPage() {
         const failedCount = json.failed?.length ?? 0;
         setError(
           deletedCount > 0
-            ? lang === "en"
-              ? `Deleted ${deletedCount}, failed ${failedCount}. Check the list.`
-              : `일부만 삭제했습니다: ${deletedCount}건 삭제, ${failedCount}건 실패. 목록을 확인해 주세요.`
-            : lang === "en"
-              ? `Could not delete: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} None deleted.`
-              : `삭제하지 못했습니다: ${formatPlatformPopupAdminError(json.error || "delete_failed", lang)} 선택된 항목은 삭제되지 않았습니다.`
+            ? translateBy(lang, "admin_deleted_deletedcount_failed_failedcount_check_th", { deletedCount, failedCount })
+            : translateBy(lang, "admin_could_not_delete_v1_none_deleted", { v1: formatPlatformPopupAdminError(json.error || "delete_failed", lang) })
         );
         setSelectedIds(new Set());
         refresh();
@@ -246,12 +235,7 @@ export function AdminPlatformPopupListPage() {
     <div className="space-y-4 p-4" data-admin-platform-popup-list="1">
       <AdminPageHeader
         title={title}
-        description={safeT("admin_platform_popup_list_desc", {
-          fallbackKo:
-            "앱 화면 위에 표시되는 프로모션 팝업을 관리합니다. 형태·이벤트·위치·빈도·상태를 확인하세요.",
-          fallbackEn:
-            "Manage promotion popups over the app. Review form, event, surface, frequency, and status.",
-        })}
+        description={safeT("admin_platform_popup_list_desc")}
       />
 
       <div className="flex items-center justify-end gap-2">
@@ -266,10 +250,7 @@ export function AdminPlatformPopupListPage() {
           title={adminAction.reason ?? undefined}
           onClick={() => void onCreate()}
         >
-          {safeT("admin_platform_popup_create", {
-            fallbackKo: "캠페인 만들기",
-            fallbackEn: "Create campaign",
-          })}
+          {safeT("admin_platform_popup_create")}
         </AdminActionButton>
       </div>
 
@@ -285,10 +266,7 @@ export function AdminPlatformPopupListPage() {
         status={{
           value: status,
           onChange: lq.setStatus,
-          label: safeT("admin_platform_popup_filter_status", {
-            fallbackKo: "운영 상태",
-            fallbackEn: "Status",
-          }),
+          label: safeT("admin_platform_popup_filter_status"),
           options: [
             {
               value: PLATFORM_POPUP_LIVE_STATUS_FILTER,
@@ -302,10 +280,7 @@ export function AdminPlatformPopupListPage() {
         }}
       >
         <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
-          {safeT("admin_platform_popup_filter_composition", {
-            fallbackKo: "팝업 형태",
-            fallbackEn: "Form",
-          })}
+          {safeT("admin_platform_popup_filter_composition")}
           <select
             className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
             value={compositionFilter}
@@ -313,10 +288,7 @@ export function AdminPlatformPopupListPage() {
             data-admin-popup-filter-composition="1"
           >
             <option value="">
-              {safeT("admin_platform_popup_filter_all", {
-                fallbackKo: "전체",
-                fallbackEn: "All",
-              })}
+              {safeT("admin_platform_popup_filter_all")}
             </option>
             {PLATFORM_POPUP_COMPOSITIONS.map((c) => (
               <option key={c} value={c}>
@@ -360,12 +332,10 @@ export function AdminPlatformPopupListPage() {
               onToggle={() =>
                 setSelectedIds((prev) => toggleCurrentPageSelection(prev, deletableIds))
               }
-              aria-label={lang === "en" ? "Select all deletable drafts" : "삭제 가능한 초안 전체 선택"}
+              aria-label={translateBy(lang, "admin_select_all_deletable_drafts")}
             />
             <span className="text-sm text-sam-muted">
-              {lang === "en"
-                ? `${selectedIds.size} selected`
-                : `${selectedIds.size}개 선택`}
+              {translateBy(lang, "admin_size_selected", { size: selectedIds.size })}
             </span>
             <AdminActionButton
               variant="danger"
@@ -378,9 +348,7 @@ export function AdminPlatformPopupListPage() {
               {adminCta("delete", ko)}
             </AdminActionButton>
             <span className="text-[12px] text-sam-muted">
-              {lang === "en"
-                ? "Only Admin Direct drafts can be deleted. Active rows are protected."
-                : "Admin Direct 초안만 삭제 가능. 노출 중 행은 선택되지 않습니다."}
+              {translateBy(lang, "admin_only_admin_direct_drafts_can_be")}
             </span>
           </div>
         ) : null}
@@ -395,20 +363,14 @@ export function AdminPlatformPopupListPage() {
         {loading && !loaded ? (
           <AdminLoadingState
             ko={ko}
-            label={safeT("admin_platform_popup_loading", {
-              fallbackKo: "불러오는 중…",
-              fallbackEn: "Loading…",
-            })}
+            label={safeT("admin_platform_popup_loading")}
           />
         ) : !loaded ? null : items.length === 0 && lq.isFiltered ? (
           <AdminEmptyState
             ko={ko}
             message={
               compositionFilter && !status
-                ? safeT("admin_platform_popup_filter_empty", {
-                    fallbackKo: "선택한 형태에 해당하는 팝업이 없습니다.",
-                    fallbackEn: "No popups match this form filter.",
-                  })
+                ? safeT("admin_platform_popup_filter_empty")
                 : undefined
             }
             onReset={lq.reset}
@@ -416,10 +378,7 @@ export function AdminPlatformPopupListPage() {
         ) : items.length === 0 ? (
           <AdminEmptyState
             ko={ko}
-            message={safeT("admin_platform_popup_empty", {
-              fallbackKo: "등록된 프로모션 팝업이 없습니다.",
-              fallbackEn: "No promotion popups yet.",
-            })}
+            message={safeT("admin_platform_popup_empty")}
             action={
               <AdminActionButton
                 variant="primary"
@@ -440,17 +399,17 @@ export function AdminPlatformPopupListPage() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
                 <th className={TH}>
-                  <span className="sr-only">{lang === "en" ? "Select" : "선택"}</span>
+                  <span className="sr-only">{translateBy(lang, "admin_dev_sprint_select_sprint")}</span>
                 </th>
-                <th className={TH}>{lang === "en" ? "Creative" : "이미지"}</th>
-                <th className={TH}>{lang === "en" ? "Popup" : "팝업"}</th>
-                <th className={TH}>{lang === "en" ? "Event" : "이벤트"}</th>
-                <th className={TH}>{lang === "en" ? "Where" : "위치"}</th>
-                <th className={TH}>{lang === "en" ? "Frequency" : "빈도"}</th>
-                <th className={TH}>{lang === "en" ? "Schedule" : "기간"}</th>
-                <th className={TH}>{lang === "en" ? "Destination" : "목적지"}</th>
-                <th className={TH}>{lang === "en" ? "Status" : "상태"}</th>
-                <th className={`${TH} text-right`}>{lang === "en" ? "Actions" : "관리"}</th>
+                <th className={TH}>{translateBy(lang, "admin_creative")}</th>
+                <th className={TH}>{translateBy(lang, "admin_ad_kind_popup_campaign")}</th>
+                <th className={TH}>{translateBy(lang, "admin_event")}</th>
+                <th className={TH}>{translateBy(lang, "admin_where")}</th>
+                <th className={TH}>{translateBy(lang, "admin_frequency")}</th>
+                <th className={TH}>{translateBy(lang, "admin_schedule")}</th>
+                <th className={TH}>{translateBy(lang, "admin_destination")}</th>
+                <th className={TH}>{translateBy(lang, "admin_status")}</th>
+                <th className={`${TH} text-right`}>{translateBy(lang, "admin_posts_col_manage")}</th>
               </tr>
             </thead>
             <tbody>
@@ -497,7 +456,7 @@ export function AdminPlatformPopupListPage() {
                           setSelectedIds((prev) => toggleRowSelection(prev, item.id));
                         }}
                         aria-label={
-                          lang === "en" ? `Select ${item.name}` : `${item.name} 선택`
+                          translateBy(lang, "admin_select_name", { name: item.name })
                         }
                       />
                     </div>
@@ -534,9 +493,7 @@ export function AdminPlatformPopupListPage() {
                     {item.linkedEventTitle ||
                       (item.linkedEventId
                         ? item.linkedEventId.slice(0, 8)
-                        : lang === "en"
-                          ? "—"
-                          : "없음")}
+                        : translateBy(lang, "admin_text_3"))}
                   </td>
                   <td className={`${TD} text-[12px] text-sam-muted`}>{surfaces || "—"}</td>
                   <td className={`${TD} whitespace-nowrap text-[12px] text-sam-muted`}>
@@ -565,7 +522,7 @@ export function AdminPlatformPopupListPage() {
                         className="whitespace-nowrap rounded border border-sam-border px-1.5 py-0.5 text-[12px] text-sam-muted"
                         data-admin-popup-approval-status="1"
                       >
-                        {lang === "en" ? "Approval" : "승인"}:{" "}
+                        {translateBy(lang, "admin_approval")}:{" "}
                         {popupApprovalStatusLabel(item.approvalStatus, lang)}
                       </span>
                     </div>
@@ -573,16 +530,10 @@ export function AdminPlatformPopupListPage() {
                   <td className={`${TD} text-right`}>
                     <div className="flex flex-wrap justify-end gap-1.5">
                       <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
-                        {safeT("admin_promotion_action_preview", {
-                          fallbackKo: "미리보기",
-                          fallbackEn: "Preview",
-                        })}
+                        {safeT("admin_promotion_action_preview")}
                       </AdminActionLink>
                       <AdminActionLink href={popupEditHref(item.id)} variant="ghost" size="sm">
-                        {safeT("admin_promotion_action_edit", {
-                          fallbackKo: "수정",
-                          fallbackEn: "Edit",
-                        })}
+                        {safeT("admin_promotion_action_edit")}
                       </AdminActionLink>
                     </div>
                   </td>

@@ -27,6 +27,7 @@ import { emitAdminQueueChanged } from "@/lib/admin/admin-queue-events";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export function AdminPlatformPopupRequestDetailWorkspace() {
   const { safeT, language } = useI18n();
@@ -163,10 +164,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
   if (loading) {
     return (
       <p className="text-sm text-sam-muted">
-        {safeT("admin_platform_popup_loading", {
-          fallbackKo: "불러오는 중…",
-          fallbackEn: "Loading…",
-        })}
+        {safeT("admin_platform_popup_loading")}
       </p>
     );
   }
@@ -189,10 +187,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
   return (
     <div className="space-y-4" data-admin-platform-popup-request-detail="1">
       <AdminPageHeader
-        title={safeT("admin_platform_popup_request_detail_title", {
-          fallbackKo: "팝업 광고 신청 검토",
-          fallbackEn: "Popup ad request review",
-        })}
+        title={safeT("admin_platform_popup_request_detail_title")}
         description={`${platformPopupOwnerRequestStatusLabel(status, lang)} · ${
           item.storeName || "—"
         }`}
@@ -228,7 +223,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
       <AdminCard>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Store" : "신청 매장"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_store_2")}</dt>
             <dd className="font-semibold">{item.storeName || "—"}</dd>
           </div>
           <div>
@@ -241,25 +236,22 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Product" : "상품"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_chat_rooms_chip_post")}</dt>
             <dd>
-              {safeT("admin_platform_popup_product_name", {
-                fallbackKo: "팝업 광고",
-                fallbackEn: "Popup Advertisement",
-              })}
+              {safeT("admin_platform_popup_product_name")}
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Placement" : "노출 영역"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_placement_2")}</dt>
             <dd>{adminSurfacesSelectionLabel(selectedSurfaces, lang)}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Schedule" : "노출 기간"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_schedule_2")}</dt>
             <dd className="text-xs">
               {(item.requestedStartAt || "—").replace("T", " ").slice(0, 16)} →{" "}
               {(item.requestedEndAt || "—").replace("T", " ").slice(0, 16)}
               <span className="mt-1 block text-sam-muted">
-                {lang === "en" ? "Timezone: Philippines (Asia/Manila)" : "기준 시역: 필리핀 (Asia/Manila)"}
+                {translateBy(lang, "admin_timezone_philippines_asia_manila")}
               </span>
             </dd>
           </div>
@@ -271,7 +263,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Price" : "가격"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_cat_th_price")}</dt>
             <dd className="tabular-nums">
               {item.priceMinor != null ? formatDeliveryAdPhpMinor(item.priceMinor) : "—"}
             </dd>
@@ -281,43 +273,43 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             <dd>{platformPopupOwnerPaymentStatusLabel(item.paymentStatus, lang)}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Submitted" : "신청 일시"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_submitted")}</dt>
             <dd className="text-xs">{item.submittedAt || item.createdAt}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{lang === "en" ? "Status" : "현재 상태"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "admin_deploy_col_state")}</dt>
             <dd className="font-semibold">
               {platformPopupOwnerRequestStatusLabel(status, lang)}
             </dd>
           </div>
           {item.revisionReason ? (
             <div className="sm:col-span-2">
-              <dt className="text-sam-muted">{lang === "en" ? "Revision note" : "수정 요청 사유"}</dt>
+              <dt className="text-sam-muted">{translateBy(lang, "admin_revision_note")}</dt>
               <dd>{item.revisionReason}</dd>
             </div>
           ) : null}
           {item.rejectionReason ? (
             <div className="sm:col-span-2">
-              <dt className="text-sam-muted">{lang === "en" ? "Rejection note" : "반려 사유"}</dt>
+              <dt className="text-sam-muted">{translateBy(lang, "admin_rejection_note")}</dt>
               <dd>{item.rejectionReason}</dd>
             </div>
           ) : null}
           {item.adminCampaignId ? (
             <div className="sm:col-span-2">
-              <dt className="text-sam-muted">{lang === "en" ? "Linked campaign" : "연결 캠페인"}</dt>
+              <dt className="text-sam-muted">{translateBy(lang, "admin_linked_campaign")}</dt>
               <dd>
                 <Link
                   href={`/admin/platform-popup/${item.adminCampaignId}`}
                   className="text-sam-primary underline"
                 >
-                  {lang === "en" ? "Open campaign" : "캠페인 열기"}
+                  {translateBy(lang, "admin_open_campaign")}
                 </Link>
               </dd>
             </div>
           ) : null}
         </dl>
         <details className="mt-3 text-xs text-sam-muted">
-          <summary>{lang === "en" ? "Technical ids" : "기술 ID (참고)"}</summary>
+          <summary>{translateBy(lang, "admin_technical_ids")}</summary>
           <p className="mt-1 break-all">request: {item.id}</p>
           <p className="break-all">store: {item.storeId}</p>
           <p className="break-all">owner: {item.ownerUserId}</p>
@@ -327,10 +319,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
       {showPendingActions ? (
         <AdminCard>
           <label className="mb-3 block text-sm">
-            {safeT("admin_platform_popup_request_reason", {
-              fallbackKo: "사유",
-              fallbackEn: "Reason",
-            })}
+            {safeT("admin_platform_popup_request_reason")}
             <textarea
               className="mt-1 w-full rounded border border-sam-border bg-sam-surface p-2"
               rows={3}
@@ -351,10 +340,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                 disabled={writeBlocked}
                 onClick={() => void act("start_review")}
               >
-                {safeT("admin_platform_popup_request_start_review", {
-                  fallbackKo: "검토 시작",
-                  fallbackEn: "Start review",
-                })}
+                {safeT("admin_platform_popup_request_start_review")}
               </AdminActionButton>
             ) : null}
             <AdminActionButton
@@ -363,10 +349,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               disabled={writeBlocked}
               onClick={() => void act("revision_required")}
             >
-              {safeT("admin_platform_popup_request_revision", {
-                fallbackKo: "수정 요청",
-                fallbackEn: "Request revision",
-              })}
+              {safeT("admin_platform_popup_request_revision")}
             </AdminActionButton>
             <AdminActionButton
               variant="primary"
@@ -374,10 +357,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               disabled={writeBlocked}
               onClick={() => void act("approve")}
             >
-              {safeT("admin_platform_popup_request_approve", {
-                fallbackKo: "승인",
-                fallbackEn: "Approve",
-              })}
+              {safeT("admin_platform_popup_request_approve")}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
@@ -385,10 +365,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               disabled={writeBlocked}
               onClick={() => void act("approve", { activate: true })}
             >
-              {safeT("admin_platform_popup_request_activate", {
-                fallbackKo: "승인 후 즉시 노출",
-                fallbackEn: "Approve & go live",
-              })}
+              {safeT("admin_platform_popup_request_activate")}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
@@ -396,10 +373,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               disabled={writeBlocked}
               onClick={() => void act("approve", { schedule: true })}
             >
-              {safeT("admin_platform_popup_request_schedule", {
-                fallbackKo: "승인 후 예약",
-                fallbackEn: "Approve & schedule",
-              })}
+              {safeT("admin_platform_popup_request_schedule")}
             </AdminActionButton>
             <AdminActionButton
               variant="secondary"
@@ -407,17 +381,14 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               disabled={writeBlocked}
               onClick={() => void act("reject")}
             >
-              {safeT("admin_platform_popup_request_reject", {
-                fallbackKo: "반려",
-                fallbackEn: "Reject",
-              })}
+              {safeT("admin_platform_popup_request_reject")}
             </AdminActionButton>
           </div>
         </AdminCard>
       ) : null}
 
       <Link href={PLATFORM_POPUP_ADMIN_REQUEST_ROUTES.queue} className="text-sm text-sam-primary underline">
-        {lang === "en" ? "Back to request queue" : "신청 관리로"}
+        {translateBy(lang, "admin_back_to_request_queue")}
       </Link>
     </div>
   );

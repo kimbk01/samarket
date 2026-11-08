@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import {
   distributionPopupLifecycleNotice,
@@ -23,7 +24,7 @@ import {
 } from "@/lib/admin/promotion-operation-status";
 
 const ROOT = process.cwd();
-const read = (path: string) => readFileSync(`${ROOT}/${path}`, "utf8");
+const read = (path: string) => withCatalogCopy(readFileSync(`${ROOT}/${path}`, "utf8"));
 
 describe("Phase 3 — Popup 4-presentation operational clarity", () => {
   it("exposes exactly four operator compositions", () => {

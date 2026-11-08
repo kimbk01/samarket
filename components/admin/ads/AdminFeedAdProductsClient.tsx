@@ -156,18 +156,10 @@ export function AdminFeedAdProductsClient() {
         backHref="/admin/ad-applications"
       />
       <h1 className="sam-text-title font-semibold text-sam-fg">
-        {safeT("admin_feed_ad_products_title", {
-          fallbackKo: "배너 광고 상품 설정",
-          fallbackEn: "Banner ad products",
-        })}
+        {safeT("admin_feed_ad_products_title")}
       </h1>
       <p className="sam-text-helper text-sam-muted">
-        {safeT("admin_feed_ad_products_hint", {
-          fallbackKo:
-            "기간·Point 가격은 새 신청·연장에만 적용됩니다. 이미 접수된 신청 금액은 바뀌지 않습니다.",
-          fallbackEn:
-            "Duration and Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
-        })}
+        {safeT("admin_feed_ad_products_hint")}
       </p>
       <div className="flex justify-end">
         <AdminActionButton variant="secondary" size="sm" disabled={loading} onClick={() => void load()}>

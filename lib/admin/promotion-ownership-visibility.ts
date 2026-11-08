@@ -17,45 +17,34 @@ import {
 import type { PromotionDistributionRow } from "@/lib/platform-promotion-distribution/types";
 import { isBenefitDialogEligibleForEventSections } from "@/lib/platform-popup/event-benefit-authority";
 import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type OwnershipLabelLang = "ko" | "en";
 
 /** Ads workspace purpose — operator-facing. */
 export function adsWorkspacePurposeCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "Manage paid ads and ad placement inventory / exposure."
-    : "유료 광고와 광고 노출 위치/재고를 관리합니다.";
+  return translateBy(lang, "admin_manage_paid_ads_and_ad_placement");
 }
 
 /** Promotion workspace purpose — operator-facing. */
 export function promotionWorkspacePurposeCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "Manage event content and popup, banner, push, and in-app notification exposure."
-    : "이벤트 콘텐츠와 팝업·배너·Push·앱 알림 노출을 관리합니다.";
+  return translateBy(lang, "admin_promotion_landing_desc");
 }
 
 export function placementInventoryPurposeCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "Inspect placements and current usage for paid ads and inline promotions."
-    : "광고와 인라인 프로모션이 실제로 사용하는 노출 위치와 현재 사용 현황을 확인합니다.";
+  return translateBy(lang, "admin_inspect_placements_and_current_usage_for");
 }
 
 export function eventIsContentDestinationCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "An Event is the content and destination. Popup, Banner, Push, and Bell are exposure channels."
-    : "이벤트는 콘텐츠와 목적지입니다. 팝업·배너·Push·앱 알림은 노출 채널입니다.";
+  return translateBy(lang, "admin_platform_events_list_desc");
 }
 
 export function bannerListPurposeCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "Event banners shown inside Community and Trade screens. Edit exposure on the Event page."
-    : "커뮤니티·거래 화면에 노출되는 이벤트 배너를 관리합니다. 수정은 이벤트 노출 설정에서 합니다.";
+  return translateBy(lang, "admin_promotion_banner_list_desc");
 }
 
 export function inlineSharesPlacementCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "Inline banners share existing ad placement inventory and also appear on Placement status."
-    : "인라인 배너는 기존 광고 노출 위치를 함께 사용하며, 노출 위치 현황에서도 확인할 수 있습니다.";
+  return translateBy(lang, "admin_promotion_banner_inline_placement_note");
 }
 
 export type PlacementSourceKind = "paid" | "admin_direct" | "event_promotion";
@@ -65,12 +54,12 @@ export function placementSourceBadgeLabel(
   lang: OwnershipLabelLang
 ): string {
   if (kind === "event_promotion") {
-    return lang === "en" ? "Event promotion" : "이벤트 프로모션";
+    return translateBy(lang, "admin_event_promotion");
   }
   if (kind === "admin_direct") {
-    return lang === "en" ? "Admin direct ad" : "관리자 직접 광고";
+    return translateBy(lang, "admin_admin_direct_ad");
   }
-  return lang === "en" ? "Paid ad" : "유료 광고";
+  return translateBy(lang, "admin_paid_ad");
 }
 
 export function popupCompositionOperatorLabel(
@@ -79,13 +68,13 @@ export function popupCompositionOperatorLabel(
 ): string {
   switch (composition) {
     case "artwork_modal":
-      return lang === "en" ? "Artwork popup" : "아트워크 팝업";
+      return translateBy(lang, "admin_artwork_popup");
     case "promotion_card_modal":
-      return lang === "en" ? "Promotion card" : "프로모션 카드";
+      return translateBy(lang, "admin_promotion_card");
     case "bottom_promotion_sheet":
-      return lang === "en" ? "Bottom promotion sheet" : "하단 프로모션 시트";
+      return translateBy(lang, "admin_bottom_promotion_sheet");
     case "benefit_dialog":
-      return lang === "en" ? "Benefit / coupon dialog" : "혜택/쿠폰 다이얼로그";
+      return translateBy(lang, "admin_benefit_coupon_dialog");
   }
 }
 
@@ -129,10 +118,10 @@ export function popupBenefitHintLabel(
   lang: OwnershipLabelLang
 ): string | null {
   if (hint === "benefit_info_needed") {
-    return lang === "en" ? "Benefit info required" : "혜택 정보 필요";
+    return translateBy(lang, "admin_benefit_info_required");
   }
   if (hint === "event_link_needed") {
-    return lang === "en" ? "Link an Event with benefit" : "혜택이 있는 이벤트 연결 필요";
+    return translateBy(lang, "admin_link_an_event_with_benefit");
   }
   return null;
 }
@@ -176,7 +165,7 @@ export function popupFrequencyOperatorLabel(
   const row = POPUP_FREQUENCY_LABEL[s];
   if (row) return lang === "en" ? row.en : row.ko;
   // 정본 4개 밖의 값(예전 저장값)은 코드값을 보이지 않는다
-  return lang === "en" ? "Unknown" : "알 수 없음";
+  return translateBy(lang, "admin_trade_label_unknown");
 }
 
 /** 빈도별 안내문 정본 — 닫거나 버튼을 눌렀을 때 언제까지 안 나오는지. `kind` 는 close_only 만 팝업·PTR 이 다르다. */
@@ -227,9 +216,7 @@ export function distributionPopupLifecycleNotice(input: {
     return {
       kind: "off",
       message:
-        input.lang === "en"
-          ? "Popup OFF — save will not activate the popup engine."
-          : "팝업 꺼짐 — 저장해도 팝업 엔진이 활성화되지 않습니다.",
+        translateBy(input.lang, "admin_platform_events_popup_off"),
       manageHref: null,
     };
   }
@@ -238,18 +225,14 @@ export function distributionPopupLifecycleNotice(input: {
     return {
       kind: "draft_needs_ops",
       message:
-        input.lang === "en"
-          ? "Popup draft will be created on save — approval and exposure still required."
-          : "저장 시 팝업 초안이 생성됩니다 — 승인/노출 설정이 별도로 필요합니다.",
+        translateBy(input.lang, "admin_popup_draft_will_be_created_on"),
       manageHref: null,
     };
   }
   return {
     kind: "linked",
     message:
-      input.lang === "en"
-        ? "Popup draft linked — approval/exposure still managed in Popup editor (Distribution does not auto-activate)."
-        : "팝업 초안 연결됨 — 승인/노출은 팝업 편집에서 설정합니다 (배포 저장만으로 노출되지 않음).",
+      translateBy(input.lang, "admin_popup_draft_linked_approval_exposure_still"),
     manageHref: popupEditHref(ref),
   };
 }
@@ -296,15 +279,13 @@ export function popupDestinationSummary(input: {
   const t = String(input.ctaType ?? "").trim();
   if (t === "event_detail") {
     const id = String(input.ctaTarget ?? "").trim();
-    return input.lang === "en"
-      ? `Event${id ? ` · ${id.slice(0, 8)}` : ""}`
-      : `이벤트${id ? ` · ${id.slice(0, 8)}` : ""}`;
+    return translateBy(input.lang, "admin_event_v1", { v1: id ? ` · ${id.slice(0, 8)}` : "" });
   }
   if (t === "external_url") {
-    return String(input.externalUrl ?? "").trim() || (input.lang === "en" ? "External URL" : "외부 URL");
+    return String(input.externalUrl ?? "").trim() || (translateBy(input.lang, "admin_platform_events_field_cta_external_url"));
   }
   if (t === "internal_page") {
-    return String(input.ctaTarget ?? "").trim() || (input.lang === "en" ? "Internal page" : "앱 내 페이지");
+    return String(input.ctaTarget ?? "").trim() || (translateBy(input.lang, "admin_internal_page_2"));
   }
   return t || "—";
 }
@@ -321,7 +302,7 @@ export function channelSummaryFromDistributionRows(
   for (const row of rows) {
     if (!row.enabled) continue;
     if (row.channel === "popup") {
-      parts.push(lang === "en" ? "Popup" : "팝업");
+      parts.push(translateBy(lang, "admin_ad_kind_popup_campaign"));
       continue;
     }
     if (row.channel === "banner") {
@@ -336,10 +317,10 @@ export function channelSummaryFromDistributionRows(
       continue;
     }
     if (row.channel === "bell") {
-      parts.push(lang === "en" ? "Bell inbox" : "앱 알림함");
+      parts.push(translateBy(lang, "admin_bell_inbox"));
     }
   }
-  if (parts.length === 0) return lang === "en" ? "No channels" : "채널 없음";
+  if (parts.length === 0) return translateBy(lang, "admin_no_channels");
   return parts.join(" · ");
 }
 
@@ -348,7 +329,7 @@ export function bannerDestinationSummary(
   lang: OwnershipLabelLang
 ): string {
   if (href) {
-    return lang === "en" ? "Event detail" : "이벤트 상세";
+    return translateBy(lang, "admin_event_detail");
   }
   return lang === "en" ? "—" : "—";
 }
@@ -467,25 +448,17 @@ export function distributionPushLifecycleNotice(input: {
   campaignSourceNote: string;
 } {
   const saveDoesNotSend =
-    input.lang === "en"
-      ? "Saving alone does not send Push."
-      : "저장만으로 Push가 발송되지 않습니다.";
+    translateBy(input.lang, "admin_saving_alone_does_not_send_push");
   const eventPublic = isPlatformEventPubliclyAvailable(input.eventPublication ?? null);
   const campaignSourceNote = eventPublic
-    ? input.lang === "en"
-      ? "Published Event is an approved Push source. Actual Send still requires the notification campaign engine — Dist save never dispatches."
-      : "게시된 이벤트는 Push 마케팅 소스입니다. 실제 발송은 알림 캠페인의 Push 보내기에서만 하며, 배포 저장은 발송하지 않습니다."
-    : input.lang === "en"
-      ? "Push can be sent after the event is published."
-      : "이벤트 게시 후 Push를 보낼 수 있습니다.";
+    ? translateBy(input.lang, "admin_published_event_is_an_approved_push")
+    : translateBy(input.lang, "admin_platform_events_push_publish_required");
 
   if (!input.enabled) {
     return {
       kind: "off",
       message:
-        input.lang === "en"
-          ? "Push OFF — save will not create or send a Push campaign."
-          : "Push 꺼짐 — 저장해도 Push 캠페인이 생성·발송되지 않습니다.",
+        translateBy(input.lang, "admin_push_off_save_will_not_create"),
       manageHref: null,
       saveDoesNotSend,
       campaignSourceNote,
@@ -496,9 +469,7 @@ export function distributionPushLifecycleNotice(input: {
     return {
       kind: "will_draft",
       message:
-        input.lang === "en"
-          ? "Push draft will be created on Dist save — Send still requires the notification campaign engine."
-          : "배포 저장 시 Push 초안이 생성됩니다 — 발송은 알림 캠페인에서 Push 보내기로만 합니다.",
+        translateBy(input.lang, "admin_push_draft_will_be_created_on"),
       manageHref: null,
       saveDoesNotSend,
       campaignSourceNote,
@@ -507,9 +478,7 @@ export function distributionPushLifecycleNotice(input: {
   return {
     kind: "draft_linked",
     message:
-      input.lang === "en"
-        ? "Push draft linked — open the campaign to schedule or Send push (Dist save never dispatches)."
-        : "Push 초안 연결됨 — 예약·Push 보내기는 알림 캠페인에서 합니다 (배포 저장은 발송하지 않음).",
+      translateBy(input.lang, "admin_push_draft_linked_open_the_campaign"),
     manageHref: notificationCampaignManageHref(ref),
     saveDoesNotSend,
     campaignSourceNote,
@@ -532,17 +501,13 @@ export function distributionBellLifecycleNotice(input: {
   saveDoesNotCreateInbox: string;
 } {
   const saveDoesNotCreateInbox =
-    input.lang === "en"
-      ? "Dist save does not create member inbox rows. Inbox registration happens when the in-app campaign is sent from the notification engine."
-      : "배포 저장만으로는 회원 알림함 행이 생기지 않습니다. 알림함 등록은 알림 캠페인에서 in-app 발송/등록할 때 이뤄집니다.";
+    translateBy(input.lang, "admin_dist_save_does_not_create_member");
 
   if (!input.enabled) {
     return {
       kind: "off",
       message:
-        input.lang === "en"
-          ? "Bell OFF — save will not create an inbox campaign."
-          : "앱 알림함 꺼짐 — 저장해도 알림함 캠페인이 생성되지 않습니다.",
+        translateBy(input.lang, "admin_bell_off_save_will_not_create"),
       manageHref: null,
       saveDoesNotCreateInbox,
     };
@@ -552,9 +517,7 @@ export function distributionBellLifecycleNotice(input: {
     return {
       kind: "will_draft",
       message:
-        input.lang === "en"
-          ? "Bell campaign draft will be created on Dist save — not yet visible in the member inbox."
-          : "배포 저장 시 앱 알림함 캠페인 초안이 생성됩니다 — 아직 회원 알림함에 보이지 않습니다.",
+        translateBy(input.lang, "admin_bell_campaign_draft_will_be_created"),
       manageHref: null,
       saveDoesNotCreateInbox,
     };
@@ -562,9 +525,7 @@ export function distributionBellLifecycleNotice(input: {
   return {
     kind: "draft_linked",
     message:
-      input.lang === "en"
-        ? "Bell campaign draft linked — register/send from the notification campaign to create inbox rows."
-        : "앱 알림함 캠페인 초안 연결됨 — 회원 알림함 등록은 알림 캠페인에서 진행합니다.",
+      translateBy(input.lang, "admin_bell_campaign_draft_linked_register_send"),
     manageHref: notificationCampaignManageHref(ref),
     saveDoesNotCreateInbox,
   };
@@ -572,9 +533,7 @@ export function distributionBellLifecycleNotice(input: {
 
 /** Admin Action Queue is ops workload — not Push/Bell delivery. */
 export function adminActionQueueIsNotNotificationDeliveryCopy(lang: OwnershipLabelLang): string {
-  return lang === "en"
-    ? "Admin Action Queue is ops pending work — not Push delivery and not the member notification inbox."
-    : "관리자 Action Queue는 운영 대기 작업입니다 — Push 발송·회원 알림함과 다릅니다.";
+  return translateBy(lang, "admin_admin_action_queue_is_ops_pending");
 }
 
 export function eventDistributionHref(eventId: string): string {

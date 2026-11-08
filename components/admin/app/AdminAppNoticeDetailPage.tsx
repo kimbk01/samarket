@@ -79,10 +79,7 @@ export function AdminAppNoticeDetailPage() {
         setErr(
           typeof j.error === "string"
             ? j.error
-            : safeT("admin_app_notices_empty", {
-                fallbackKo: "콘텐츠를 불러오지 못했습니다",
-                fallbackEn: "Could not load content",
-              })
+            : safeT("admin_app_notices_empty")
         );
         return;
       }
@@ -115,10 +112,7 @@ export function AdminAppNoticeDetailPage() {
       }
     } catch {
       setErr(
-        safeT("admin_app_notices_empty", {
-          fallbackKo: "콘텐츠를 불러오지 못했습니다",
-          fallbackEn: "Could not load content",
-        })
+        safeT("admin_app_notices_empty")
       );
     } finally {
       setLoading(false);
@@ -132,7 +126,7 @@ export function AdminAppNoticeDetailPage() {
   if (!id) {
     return (
       <p className="p-4 text-sm text-sam-muted">
-        {safeT("admin_app_notices_empty", { fallbackKo: "잘못된 경로입니다", fallbackEn: "Invalid route" })}
+        {safeT("admin_app_notices_empty")}
       </p>
     );
   }
@@ -140,7 +134,7 @@ export function AdminAppNoticeDetailPage() {
   if (loading) {
     return (
       <p className="p-4 text-sm text-sam-muted">
-        {safeT("admin_dashboard_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        {safeT("admin_dashboard_loading")}
       </p>
     );
   }
@@ -149,7 +143,7 @@ export function AdminAppNoticeDetailPage() {
     return (
       <div className="mx-auto max-w-4xl space-y-3 p-4">
         <Link href="/admin/app/notices" className="text-sm text-signature hover:underline">
-          ← {safeT("admin_cc_back_list", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+          ← {safeT("admin_cc_back_list")}
         </Link>
         <p className="text-sm text-sam-danger">{err ?? "—"}</p>
         <AdminActionButton variant="secondary" size="sm" onClick={() => void load()}>
@@ -175,7 +169,7 @@ export function AdminAppNoticeDetailPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4">
       <Link href="/admin/app/notices" className="text-sm text-signature hover:underline">
-        ← {safeT("admin_cc_back_list", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+        ← {safeT("admin_cc_back_list")}
       </Link>
 
       <article className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -186,17 +180,11 @@ export function AdminAppNoticeDetailPage() {
             {[
               author,
               created,
-              safeT("admin_cc_meta_views", {
-                fallbackKo: `조회 ${Number(notice.view_count ?? 0)}`,
-                fallbackEn: `Views ${Number(notice.view_count ?? 0)}`,
-              }),
-              safeT("admin_cc_meta_comments", {
-                fallbackKo: `댓글 ${Number(notice.comment_count ?? 0)}`,
-                fallbackEn: `Comments ${Number(notice.comment_count ?? 0)}`,
-              }),
+              safeT("admin_cc_meta_views"),
+              safeT("admin_cc_meta_comments"),
               notice.is_active !== false
-                ? safeT("admin_app_status_visible", { fallbackKo: "게시", fallbackEn: "Published" })
-                : safeT("admin_app_status_hidden", { fallbackKo: "숨김", fallbackEn: "Hidden" }),
+                ? safeT("admin_app_status_visible")
+                : safeT("admin_app_status_hidden"),
             ].join(" · ")}
           </p>
           <p className="break-all text-xs text-sam-muted">{canonical}</p>
@@ -224,51 +212,36 @@ export function AdminAppNoticeDetailPage() {
           href={campaignHref}
           className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white"
         >
-          {safeT("admin_cc_send_notification", {
-            fallbackKo: "알림 보내기",
-            fallbackEn: "Send notification",
-          })}
+          {safeT("admin_cc_send_notification")}
         </Link>
         <Link
           href={`/admin/app/notices/${encodeURIComponent(notice.id)}/edit`}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"
         >
-          {safeT("common_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
+          {safeT("common_edit")}
         </Link>
         <Link
           href={canonical}
           target="_blank"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"
         >
-          {safeT("admin_cc_view_member", {
-            fallbackKo: "회원 화면 보기",
-            fallbackEn: "View member page",
-          })}
+          {safeT("admin_cc_view_member")}
         </Link>
         <a
           href="#send-history"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"
         >
-          {safeT("admin_cc_send_history", {
-            fallbackKo: "발송 이력",
-            fallbackEn: "Send history",
-          })}
+          {safeT("admin_cc_send_history")}
         </a>
       </div>
 
       <section id="send-history" className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="text-sm font-semibold text-sam-fg">
-          {safeT("admin_cc_send_history", {
-            fallbackKo: "발송 이력",
-            fallbackEn: "Send history",
-          })}
+          {safeT("admin_cc_send_history")}
         </h2>
         {campaigns.length === 0 ? (
           <p className="text-xs text-sam-muted">
-            {safeT("admin_cc_send_history_empty", {
-              fallbackKo: "연결된 알림 발송 이력이 없습니다.",
-              fallbackEn: "No linked notification campaigns yet.",
-            })}
+            {safeT("admin_cc_send_history_empty")}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -290,10 +263,7 @@ export function AdminAppNoticeDetailPage() {
                   href={`/admin/notifications/${encodeURIComponent(c.id)}`}
                   className="text-xs text-signature hover:underline"
                 >
-                  {safeT("admin_cc_open_campaign", {
-                    fallbackKo: "캠페인 상세",
-                    fallbackEn: "Campaign detail",
-                  })}
+                  {safeT("admin_cc_open_campaign")}
                 </Link>
               </li>
             ))}

@@ -58,7 +58,7 @@ export function AdminStoreCouponControlDetail({
 
   const storeLabel =
     humanAdminStoreName(campaign.store_name) ??
-    safeT("store_coupon_wallet_store_fallback", { fallbackKo: "매장", fallbackEn: "Store" });
+    safeT("store_coupon_wallet_store_fallback");
   const titleRaw = String(campaign.title ?? "").trim();
   const title =
     titleRaw && !looksLikeRawOperatorToken(titleRaw) ? titleRaw : t("store_coupon_field_title");
@@ -274,10 +274,7 @@ export function AdminStoreCouponControlDetail({
             {campaign.orders.map((o) => {
               const orderLabel =
                 humanAdminOrderNo(o.order_no, o.order_id) ??
-                safeT("store_coupon_admin_unnamed_order", {
-                  fallbackKo: "주문",
-                  fallbackEn: "Order",
-                });
+                safeT("store_coupon_admin_unnamed_order");
               const statusRaw = o.order_status
                 ? processStatusLabel(
                     o.order_status,
@@ -318,10 +315,7 @@ export function AdminStoreCouponControlDetail({
             {campaign.audits.map((a, i) => {
               const actor =
                 humanAdminStoreName(a.actor_label) ??
-                safeT("store_coupon_admin_actor_fallback", {
-                  fallbackKo: "운영",
-                  fallbackEn: "Ops",
-                });
+                safeT("store_coupon_admin_actor_fallback");
               return (
                 <li key={`${a.created_at}-${i}`} className="min-w-0 break-words">
                   {formatAdminCouponDay(a.created_at)} · {actor} · {t(adminCouponAuditActionMessageKey(a.action))}

@@ -78,10 +78,7 @@ function AdminPointLedgerPageInner() {
         onSubmit={lq.submit}
         onReset={lq.reset}
         pending={list.loading}
-        searchPlaceholder={safeT("point_fin_admin_user_filter", {
-          fallbackKo: "회원 UUID (선택)",
-          fallbackEn: "Member UUID (optional)",
-        })}
+        searchPlaceholder={safeT("point_fin_admin_user_filter")}
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,

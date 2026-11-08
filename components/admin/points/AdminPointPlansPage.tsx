@@ -224,22 +224,13 @@ export function AdminPointPlansPage() {
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
           <h3 className="sam-text-body font-medium text-sam-fg">
             {creating
-              ? safeT("admin_points_plans_create", {
-                  fallbackKo: "플랜 추가",
-                  fallbackEn: "Add plan",
-                })
-              : safeT("admin_points_plans_edit", {
-                  fallbackKo: "플랜 수정",
-                  fallbackEn: "Edit plan",
-                })}
+              ? safeT("admin_points_plans_create")
+              : safeT("admin_points_plans_edit")}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_name_ko", {
-                  fallbackKo: "이름 (KO)",
-                  fallbackEn: "Name (KO)",
-                })}
+                {safeT("admin_points_plans_label_name_ko")}
               </span>
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -249,10 +240,7 @@ export function AdminPointPlansPage() {
             </label>
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_name_en", {
-                  fallbackKo: "이름 (EN)",
-                  fallbackEn: "Name (EN)",
-                })}
+                {safeT("admin_points_plans_label_name_en")}
               </span>
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -262,10 +250,7 @@ export function AdminPointPlansPage() {
             </label>
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_payment", {
-                  fallbackKo: "결제 금액",
-                  fallbackEn: "Payment amount",
-                })}
+                {safeT("admin_points_plans_label_payment")}
               </span>
               <input
                 type="number"
@@ -279,10 +264,7 @@ export function AdminPointPlansPage() {
             </label>
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_points", {
-                  fallbackKo: "포인트",
-                  fallbackEn: "Points",
-                })}
+                {safeT("admin_points_plans_label_points")}
               </span>
               <input
                 type="number"
@@ -296,10 +278,7 @@ export function AdminPointPlansPage() {
             </label>
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_bonus", {
-                  fallbackKo: "보너스",
-                  fallbackEn: "Bonus",
-                })}
+                {safeT("admin_points_plans_label_bonus")}
               </span>
               <input
                 type="number"
@@ -313,10 +292,7 @@ export function AdminPointPlansPage() {
             </label>
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_currency", {
-                  fallbackKo: "통화",
-                  fallbackEn: "Currency",
-                })}
+                {safeT("admin_points_plans_label_currency")}
               </span>
               <select
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -330,10 +306,7 @@ export function AdminPointPlansPage() {
             </label>
             <label className="block sam-text-helper">
               <span className="text-sam-muted">
-                {safeT("admin_points_plans_label_sort", {
-                  fallbackKo: "정렬",
-                  fallbackEn: "Sort order",
-                })}
+                {safeT("admin_points_plans_label_sort")}
               </span>
               <input
                 type="number"
@@ -350,10 +323,7 @@ export function AdminPointPlansPage() {
                 checked={form.isActive}
                 onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
               />
-              {safeT("admin_points_status_active", {
-                fallbackKo: "활성",
-                fallbackEn: "Active",
-              })}
+              {safeT("admin_points_status_active")}
             </label>
           </div>
           <div className="flex justify-end gap-2">
@@ -379,10 +349,7 @@ export function AdminPointPlansPage() {
       ) : plans.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={safeT("admin_points_plans_empty", {
-            fallbackKo: "플랜이 없습니다.",
-            fallbackEn: "No plans.",
-          })}
+          message={safeT("admin_points_plans_empty")}
         />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
@@ -390,40 +357,22 @@ export function AdminPointPlansPage() {
             <thead className="bg-sam-app text-sam-muted">
               <tr>
                 <th className="px-3 py-2 text-left">
-                  {safeT("admin_points_plans_th_name", {
-                    fallbackKo: "이름",
-                    fallbackEn: "Name",
-                  })}
+                  {safeT("admin_points_plans_th_name")}
                 </th>
                 <th className="px-3 py-2 text-right">
-                  {safeT("admin_points_plans_th_payment", {
-                    fallbackKo: "결제",
-                    fallbackEn: "Payment",
-                  })}
+                  {safeT("admin_points_plans_th_payment")}
                 </th>
                 <th className="px-3 py-2 text-right">
-                  {safeT("admin_points_plans_th_points", {
-                    fallbackKo: "포인트",
-                    fallbackEn: "Points",
-                  })}
+                  {safeT("admin_points_plans_th_points")}
                 </th>
                 <th className="px-3 py-2 text-right">
-                  {safeT("admin_points_plans_th_version", {
-                    fallbackKo: "버전",
-                    fallbackEn: "Version",
-                  })}
+                  {safeT("admin_points_plans_th_version")}
                 </th>
                 <th className="px-3 py-2 text-left">
-                  {safeT("admin_points_th_status", {
-                    fallbackKo: "상태",
-                    fallbackEn: "Status",
-                  })}
+                  {safeT("admin_points_th_status")}
                 </th>
                 <th className="px-3 py-2 text-right">
-                  {safeT("admin_points_th_work", {
-                    fallbackKo: "작업",
-                    fallbackEn: "Actions",
-                  })}
+                  {safeT("admin_points_th_work")}
                 </th>
               </tr>
             </thead>

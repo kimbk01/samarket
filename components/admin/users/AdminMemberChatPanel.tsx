@@ -60,7 +60,7 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
   if (state.kind === "error") {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_load_failed", { fallbackKo: "불러오기 실패", fallbackEn: "Load failed" })}
+        {safeT("admin_users_cc_load_failed")}
       </div>
     );
   }
@@ -86,7 +86,7 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
           { label: t("admin_users_cc_chat_trade"), metric: summary.byDomain.trade },
           { label: t("admin_users_cc_chat_store_order"), metric: summary.byDomain.store_order },
           {
-            label: safeT("admin_users_cc_summary_legacy_group", { fallbackKo: "레거시 그룹", fallbackEn: "Legacy groups" }),
+            label: safeT("admin_users_cc_summary_legacy_group"),
             metric: summary.legacyGroup,
           },
           {
@@ -109,14 +109,14 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
             {id === "all"
               ? t("admin_users_tab_all")
               : id === "legacy_group"
-                ? safeT("admin_users_cc_summary_legacy_group", { fallbackKo: "레거시 그룹", fallbackEn: "Legacy groups" })
+                ? safeT("admin_users_cc_summary_legacy_group")
                 : domainLabel(id)}
           </AdminChipButton>
         ))}
       </div>
       <div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--admin-console-accent)]">
         <Link href={memberMessengerAdminHref(userId)}>
-          {safeT("admin_users_cc_cta_messenger", { fallbackKo: "메신저 운영 화면에서 보기", fallbackEn: "Open messenger admin" })}
+          {safeT("admin_users_cc_cta_messenger")}
         </Link>
         <Link
           href={`${ADMIN_CHAT_REPORT_QUEUE_PATH}?status=all&q=${encodeURIComponent(userId)}&returnTo=${encodeURIComponent(memberHere)}`}
@@ -135,7 +135,7 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
             <div className="flex flex-wrap gap-3 text-xs font-semibold text-[var(--admin-console-accent)]">
               {row.source === "legacy_group_rooms" ? (
                 <Link href={memberGroupAdminHref()}>
-                  {safeT("admin_users_cc_cta_group_admin", { fallbackKo: "그룹 운영 화면에서 보기", fallbackEn: "Open group admin" })}
+                  {safeT("admin_users_cc_cta_group_admin")}
                 </Link>
               ) : (
                 <Link href={adminChatRoomDetailHref(row.id, memberHere)}>{t("admin_chat_member_open_room")}</Link>
@@ -145,7 +145,7 @@ export function AdminMemberChatPanel({ userId }: { userId: string }) {
         ))}
         {rooms.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-sam-muted">
-            {safeT("admin_users_cc_empty", { fallbackKo: "항목이 없습니다.", fallbackEn: "No items." })}
+            {safeT("admin_users_cc_empty")}
           </p>
         ) : null}
       </div>

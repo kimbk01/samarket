@@ -266,11 +266,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         setActionError(
           json.error || res.status === 403
             ? adminOperatorErrorMessage(res.status === 403 ? "forbidden" : String(json.error), ko)
-            : safeT("admin_delivery_ads_cash_charges_action_failed", {
-                fallbackKo: "Cash 충전 처리에 실패했습니다. 잔액·원장은 변경되지 않았을 수 있습니다.",
-                fallbackEn:
-                  "Cash top-up action failed. Balance/ledger may be unchanged.",
-              })
+            : safeT("admin_delivery_ads_cash_charges_action_failed")
         );
         return;
       }
@@ -287,10 +283,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         setSuccessLedgerId(json.ledgerId ?? null);
       } else {
         setSuccess(
-          safeT("admin_delivery_ads_cash_charges_reject_ok", {
-            fallbackKo: "반려 완료. Cash 잔액은 변경되지 않았습니다.",
-            fallbackEn: "Rejected. Cash balance was not changed.",
-          })
+          safeT("admin_delivery_ads_cash_charges_reject_ok")
         );
       }
       await load({ refreshSummary: true });
@@ -361,12 +354,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
             </h1>
           </div>
           <p className="mt-1 text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_cash_charges_help", {
-              fallbackKo:
-                "확인 후 적립하면 Cash 원장에만 반영됩니다. Coin·Point와 분리됩니다. 광고비도 Cash만 사용합니다.",
-              fallbackEn:
-                "Confirmation credits the Cash ledger only — separate from Coin and Point. Ads also spend Cash only.",
-            })}
+            {safeT("admin_delivery_ads_cash_charges_help")}
           </p>
           {storeFilter ? (
             <span
@@ -459,10 +447,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       />
 
       <AdminCard
-        title={safeT("admin_delivery_ads_cash_charges_title", {
-          fallbackKo: "Cash 충전 신청",
-          fallbackEn: "Cash top-up requests",
-        })}
+        title={safeT("admin_delivery_ads_cash_charges_title")}
       >
         {listPending ? (
           <AdminLoadingState ko={ko} />
@@ -483,10 +468,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           ) : (
             <AdminEmptyState
               ko={ko}
-              message={safeT("admin_delivery_ads_cash_charges_empty", {
-                fallbackKo: "대기 중인 Cash 충전 신청이 없습니다.",
-                fallbackEn: "No open Cash top-up requests.",
-              })}
+              message={safeT("admin_delivery_ads_cash_charges_empty")}
             />
           )
         ) : (
@@ -602,10 +584,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     onClick={() => void requestConfirm({ id: r.id, op: "approve" })}
                     data-admin-cash-charge-complete={r.id}
                   >
-                    {safeT("admin_delivery_ads_cash_charges_complete", {
-                      fallbackKo: "입금 확인 · 적립",
-                      fallbackEn: "Confirm · Credit",
-                    })}
+                    {safeT("admin_delivery_ads_cash_charges_complete")}
                   </AdminActionButton>
                   <AdminActionButton variant="secondary" size="sm"
                     disabled={busyId != null || !writeAction.allowed}
@@ -613,10 +592,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     onClick={() => void requestConfirm({ id: r.id, op: "reject" })}
                     data-admin-cash-charge-reject={r.id}
                   >
-                    {safeT("admin_delivery_ads_cash_charges_reject", {
-                      fallbackKo: "반려",
-                      fallbackEn: "Reject",
-                    })}
+                    {safeT("admin_delivery_ads_cash_charges_reject")}
                   </AdminActionButton>
                   </div>
                   ) : (

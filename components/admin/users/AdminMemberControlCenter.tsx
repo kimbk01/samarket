@@ -288,10 +288,7 @@ export function AdminMemberControlCenter({
           <div className="flex flex-wrap items-center gap-2">
             {fromPostId ? (
               <AdminActionLink href={`/admin/products/${fromPostId}`} variant="secondary">
-                {safeT("admin_users_back_to_post", {
-                  fallbackKo: "← 게시물로",
-                  fallbackEn: "← Back to listing",
-                })}
+                {safeT("admin_users_back_to_post")}
               </AdminActionLink>
             ) : null}
             <AdminActionButton variant="secondary" onClick={goBackToList} data-member-detail-back="1">

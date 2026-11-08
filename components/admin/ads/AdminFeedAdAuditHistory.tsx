@@ -2,6 +2,7 @@
 
 import { AdminCard } from "@/components/admin/AdminCard";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** `GET /api/admin/feed-ad-requests/[id]/audit` 의 한 행 */
 export type AdminFeedAdAuditRow = {
@@ -40,7 +41,7 @@ const FAULT_LABEL: Record<string, { ko: string; en: string }> = {
 export function adminFeedAdAuditActionLabel(action: string, lang: "ko" | "en"): string {
   const hit = ACTION_LABEL[String(action ?? "").trim()];
   if (hit) return hit[lang];
-  return lang === "en" ? "Other change" : "기타 변경";
+  return translateBy(lang, "admin_other_change");
 }
 
 function after(row: AdminFeedAdAuditRow): Record<string, unknown> {
@@ -60,7 +61,7 @@ export function AdminFeedAdAuditHistory({
 }) {
   return (
     <AdminCard>
-      <h2 className="mb-2 text-sm font-semibold">{lang === "en" ? "Change history" : "변경 이력"}</h2>
+      <h2 className="mb-2 text-sm font-semibold">{translateBy(lang, "admin_campaign_cms_audit_title")}</h2>
       <ul className="max-h-48 space-y-1 overflow-auto text-xs" data-admin-feed-audit-history="">
         {items.length === 0 ? (
           <li className="text-sam-muted">—</li>
@@ -71,17 +72,17 @@ export function AdminFeedAdAuditHistory({
             const internal = typeof a.reason_internal === "string" ? a.reason_internal : "";
             const fault = typeof a.fault === "string" ? FAULT_LABEL[a.fault]?.[lang] ?? "" : "";
             const refund = typeof a.refund_amount === "number" ? a.refund_amount : null;
-            const actor = ACTOR_LABEL[String(row.actor_type ?? "").trim()]?.[lang] ?? (lang === "en" ? "Other" : "기타");
+            const actor = ACTOR_LABEL[String(row.actor_type ?? "").trim()]?.[lang] ?? (translateBy(lang, "admin_menu_bottom_icon_cat_misc"));
             return (
               <li key={row.id} data-audit-action={row.action}>
                 {formatAdminManilaDateTime(row.created_at)} · {adminFeedAdAuditActionLabel(row.action, lang)} · {actor}
                 {reason || fault || refund != null || internal ? (
                   <span className="block pl-2 text-sam-muted">
                     {[
-                      reason ? (lang === "en" ? `Public reason: ${reason}` : `공개 사유: ${reason}`) : null,
-                      internal ? (lang === "en" ? `Internal memo: ${internal}` : `내부 메모: ${internal}`) : null,
-                      fault ? (lang === "en" ? `Fault: ${fault}` : `귀책: ${fault}`) : null,
-                      refund != null ? (lang === "en" ? `Refund ${refund} P` : `환급 ${refund} P`) : null,
+                      reason ? (translateBy(lang, "admin_public_reason_reason", { reason })) : null,
+                      internal ? (translateBy(lang, "admin_internal_memo_internal", { internal })) : null,
+                      fault ? (translateBy(lang, "admin_fault_fault", { fault })) : null,
+                      refund != null ? (translateBy(lang, "admin_refund_refund_p", { refund })) : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}

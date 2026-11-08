@@ -39,14 +39,8 @@ export function AdminActionQueueCardGrid({
     .filter((c) => !hideZero || c.status === "unavailable" || (c.count ?? 0) > 0)
     .sort((a, b) => Number(b.inTotal) - Number(a.inTotal));
 
-  const unavailableLabel = safeT("admin_queue_card_unavailable", {
-    fallbackKo: "확인 불가",
-    fallbackEn: "Unavailable",
-  });
-  const ownerLabel = safeT("admin_queue_card_owner_monitoring", {
-    fallbackKo: "사장님 처리 · 합계 제외",
-    fallbackEn: "Owner to handle · not in total",
-  });
+  const unavailableLabel = safeT("admin_queue_card_unavailable");
+  const ownerLabel = safeT("admin_queue_card_owner_monitoring");
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="admin-action-queue-cards">

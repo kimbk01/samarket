@@ -20,6 +20,7 @@ import {
 import type { AdminBusinessListOpsRow } from "@/lib/admin-business/load-admin-business-list";
 import { businessCcOwnerMemberHref } from "@/lib/admin-business/business-control-center-links";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function openBadgeClass(kind: BusinessOpsOpenKind): string {
   switch (kind) {
@@ -51,12 +52,12 @@ function formatRelative(iso: string | null, language: string): string {
   if (!Number.isFinite(t)) return "—";
   const diff = Date.now() - t;
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return language === "en" ? "just now" : "방금";
-  if (mins < 60) return language === "en" ? `${mins}m ago` : `${mins}분 전`;
+  if (mins < 1) return translateBy(language, "admin_just_now");
+  if (mins < 60) return translateBy(language, "admin_mins_m_ago", { mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 48) return language === "en" ? `${hours}h ago` : `${hours}시간 전`;
+  if (hours < 48) return translateBy(language, "admin_hours_h_ago", { hours });
   const days = Math.floor(hours / 24);
-  return language === "en" ? `${days}d ago` : `${days}일 전`;
+  return translateBy(language, "admin_days_d_ago", { days });
 }
 
 function StoreThumb({ url }: { url: string | null }) {

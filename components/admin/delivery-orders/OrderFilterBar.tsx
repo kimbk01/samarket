@@ -30,12 +30,7 @@ export function OrderFilterBar({
     <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <p className="text-sm font-semibold text-sam-fg">{t("admin_do_filter_title")}</p>
       <p className="sam-text-helper text-sam-muted">
-        {safeT("admin_do_filter_hollow_note", {
-          fallbackKo:
-            "정산·매장 신고는 이 목록 projection에 연결되지 않습니다. 정산=/admin/store-settlements · 신고=/admin/store-reports",
-          fallbackEn:
-            "Settlement and store reports are not on this order projection. Settlements=/admin/store-settlements · Reports=/admin/store-reports",
-        })}
+        {safeT("admin_do_filter_hollow_note")}
       </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs text-sam-muted">

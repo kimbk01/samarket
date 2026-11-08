@@ -32,6 +32,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Props = {
   campaignId: string;
@@ -163,7 +164,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       setFileInputKey((k) => k + 1);
       await load();
       setSaveNotice(
-        lang === "en" ? "Banner creative saved." : "배너 소재가 저장되었습니다."
+        translateBy(lang, "admin_banner_creative_saved")
       );
     } catch {
       setError("network_error");
@@ -206,7 +207,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       if (!res.ok || !json.ok) setError(json.error || "remove_failed");
       else {
         await load();
-        setSaveNotice(lang === "en" ? "Creative removed." : "소재를 제거했습니다.");
+        setSaveNotice(translateBy(lang, "admin_creative_removed"));
       }
     } catch {
       setError("network_error");
@@ -237,7 +238,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       else {
         await load();
         setSaveNotice(
-          lang === "en" ? "Destination saved." : "이동 대상이 저장되었습니다."
+          translateBy(lang, "admin_destination_saved")
         );
       }
     } catch {
@@ -257,16 +258,10 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         <div>
           <Link href={backHref} className="text-[12px] text-signature underline">
             ←{" "}
-            {safeT("admin_delivery_ads_creative_studio_back", {
-              fallbackKo: "캠페인 workspace",
-              fallbackEn: "Campaign workspace",
-            })}
+            {safeT("admin_delivery_ads_creative_studio_back")}
           </Link>
           <h1 className="mt-1 text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_creative_studio_title", {
-              fallbackKo: "배너 제작 스튜디오",
-              fallbackEn: "Banner creative studio",
-            })}
+            {safeT("admin_delivery_ads_creative_studio_title")}
           </h1>
           {campaign ? (
             <p className="mt-1 text-[13px] text-sam-muted">
@@ -279,7 +274,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         <AdminDeliveryAdsSectionNav />
 
         {loading ? (
-          <p className="text-[13px] text-sam-muted">{safeT("admin_delivery_ads_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}</p>
+          <p className="text-[13px] text-sam-muted">{safeT("admin_delivery_ads_loading")}</p>
         ) : null}
         {error ? (
           <p className="text-[13px] text-sam-danger" role="alert">
@@ -298,28 +293,28 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
 
         {campaign ? (
           <>
-          <AdminCard title={lang === "en" ? "Request summary" : "요청 요약"}>
+          <AdminCard title={translateBy(lang, "admin_request_summary")}>
             <dl className="grid gap-2 text-[13px] sm:grid-cols-2" data-admin-banner-request-summary="1">
               <div>
                 <dt className="text-sam-muted">Owner</dt>
                 <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">{lang === "en" ? "Store" : "매장"}</dt>
+                <dt className="text-sam-muted">{translateBy(lang, "admin_store")}</dt>
                 <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">{lang === "en" ? "Placement" : "요청 위치"}</dt>
+                <dt className="text-sam-muted">{translateBy(lang, "admin_placement")}</dt>
                 <dd>{adminDeliveryAdInventoryHumanLabel(inventoryKey, lang)}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">{lang === "en" ? "Period" : "기간"}</dt>
+                <dt className="text-sam-muted">{translateBy(lang, "admin_period")}</dt>
                 <dd className="text-sam-muted">
                   {formatAdminManilaDateTime(campaign.startAt)} ~ {formatAdminManilaDateTime(campaign.endAt)} PHT
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-sam-muted">{lang === "en" ? "Requested copy" : "요청 문구"}</dt>
+                <dt className="text-sam-muted">{translateBy(lang, "admin_requested_copy")}</dt>
                 <dd className="whitespace-pre-wrap">{campaign.headline || campaign.title || "—"}</dd>
               </div>
             </dl>
@@ -345,14 +340,8 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
               ) : null}
               <p className="mt-2 text-[13px] font-medium">
                 {isDeliveryBannerCreativeAssetReady(creative?.assetPath || campaign.imageUrl)
-                  ? safeT("admin_delivery_ads_creative_status_ready", {
-                      fallbackKo: "제작 완료",
-                      fallbackEn: "Ready",
-                    })
-                  : safeT("admin_delivery_ads_creative_status_needs_production", {
-                      fallbackKo: "제작 필요",
-                      fallbackEn: "Needs production",
-                    })}
+                  ? safeT("admin_delivery_ads_creative_status_ready")
+                  : safeT("admin_delivery_ads_creative_status_needs_production")}
               </p>
               {bannerCreative ? (
                 <div className="relative mt-3 h-[160px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
@@ -365,25 +354,14 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                 </div>
               ) : (
                 <p className="mt-2 text-[13px] text-sam-muted">
-                  {safeT("admin_delivery_ads_creative_placeholder_hint", {
-                    fallbackKo:
-                      "Owner 요청만 있습니다. Admin이 최종 배너 이미지를 업로드해야 합니다.",
-                    fallbackEn:
-                      "Owner request only. Admin must upload the final banner image.",
-                  })}
+                  {safeT("admin_delivery_ads_creative_placeholder_hint")}
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
                 <AdminActionLabel variant="primary" data-admin-banner-pc-upload="1">
                   {bannerCreative
-                    ? safeT("admin_delivery_ads_creative_replace", {
-                        fallbackKo: "이미지 변경",
-                        fallbackEn: "Replace image",
-                      })
-                    : safeT("admin_delivery_ads_creative_pc_load", {
-                        fallbackKo: "내 PC에서 이미지 불러오기",
-                        fallbackEn: "Load image from PC",
-                      })}
+                    ? safeT("admin_delivery_ads_creative_replace")
+                    : safeT("admin_delivery_ads_creative_pc_load")}
                   <input
                     key={fileInputKey}
                     type="file"
@@ -400,18 +378,12 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                   disabled={busy || !bannerCreative}
                   onClick={() => void removeCreative()}
                 >
-                  {safeT("admin_delivery_ads_creative_remove", {
-                    fallbackKo: "이미지 삭제",
-                    fallbackEn: "Remove image",
-                  })}
+                  {safeT("admin_delivery_ads_creative_remove")}
                 </AdminActionButton>
               </div>
               <div className="mt-4 border-t border-sam-border pt-4">
                 <p className="text-[12px] font-semibold text-sam-fg">
-                  {safeT("admin_delivery_ads_section_destination", {
-                    fallbackKo: "이동 위치",
-                    fallbackEn: "Destination",
-                  })}
+                  {safeT("admin_delivery_ads_section_destination")}
                 </p>
                 <select
                   className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
@@ -420,50 +392,32 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                   onChange={(e) => setEditCtaType(e.target.value as DeliveryAdCtaTarget)}
                 >
                   <option value="store_detail">
-                    {safeT("owner_ads_banner_cta_store", {
-                      fallbackKo: "매장 상세",
-                      fallbackEn: "Store detail",
-                    })}
+                    {safeT("owner_ads_banner_cta_store")}
                   </option>
                   <option value="store_menu">
-                    {safeT("owner_ads_banner_cta_menu", {
-                      fallbackKo: "메뉴",
-                      fallbackEn: "Menu",
-                    })}
+                    {safeT("owner_ads_banner_cta_menu")}
                   </option>
                   <option value="store_promotion">
-                    {safeT("owner_ads_banner_cta_promo", {
-                      fallbackKo: "프로모션",
-                      fallbackEn: "Promotion",
-                    })}
+                    {safeT("owner_ads_banner_cta_promo")}
                   </option>
                 </select>
                 <AdminActionButton variant="secondary" size="sm" className="mt-3"
                   disabled={busy}
                   onClick={() => void saveDestination()}
                 >
-                  {safeT("admin_delivery_ads_destination_save", {
-                    fallbackKo: "목적지 확정 저장",
-                    fallbackEn: "Save destination",
-                  })}
+                  {safeT("admin_delivery_ads_destination_save")}
                 </AdminActionButton>
               </div>
               <AdminActionButton variant="secondary" className="mt-4 w-full"
                 onClick={() => router.push(backHref)}
               >
-                {safeT("admin_delivery_ads_creative_studio_back", {
-                  fallbackKo: "workspace로 돌아가기",
-                  fallbackEn: "Back to workspace",
-                })}
+                {safeT("admin_delivery_ads_creative_studio_back")}
               </AdminActionButton>
             </AdminCard>
 
             <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
               <p className="mb-2 text-[12px] font-semibold text-sam-muted">
-                {safeT("admin_delivery_ads_section_preview", {
-                  fallbackKo: "고객 미리보기",
-                  fallbackEn: "Customer preview",
-                })}
+                {safeT("admin_delivery_ads_section_preview")}
               </p>
               <DeliveryAdCampaignPlacementPreviews
                 productKind="banner"
@@ -471,10 +425,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                 renderContext="admin_preview"
                 placementPreview={placementPreview}
                 bannerCreative={bannerCreative}
-                ctaLabel={safeT("owner_ads_banner_cta_store", {
-                  fallbackKo: "매장 보기",
-                  fallbackEn: "View store",
-                })}
+                ctaLabel={safeT("owner_ads_banner_cta_store")}
               />
             </div>
           </div>

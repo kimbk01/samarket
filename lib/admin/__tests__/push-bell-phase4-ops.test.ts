@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync } from "node:fs";
 import {
   adminActionQueueIsNotNotificationDeliveryCopy,
@@ -22,7 +23,7 @@ import {
 import { buildPlatformEventDetailPath } from "@/lib/platform-events/types";
 
 const ROOT = process.cwd();
-const read = (path: string) => readFileSync(`${ROOT}/${path}`, "utf8");
+const read = (path: string) => withCatalogCopy(readFileSync(`${ROOT}/${path}`, "utf8"));
 
 describe("Phase 4 — Push / Bell operational UX", () => {
   it("keeps Push vs Bell as distinct operator channels", () => {

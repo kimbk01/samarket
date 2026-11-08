@@ -80,14 +80,14 @@ export function AdminMemberStorePanel({ stores }: { stores: AdminPersonStoreRow[
             </Link>
             {slug ? (
               <Link href={memberStorePublicHref(slug)}>
-                {safeT("admin_users_cta_store_public", { fallbackKo: "공개 매장", fallbackEn: "Public store" })}
+                {safeT("admin_users_cta_store_public")}
               </Link>
             ) : null}
             <Link href={memberStoreOrdersByStoreHref(canonical.id)}>
-              {safeT("admin_users_cc_cta_store_orders", { fallbackKo: "주문 보기", fallbackEn: "View orders" })}
+              {safeT("admin_users_cc_cta_store_orders")}
             </Link>
             <Link href={memberBusinessCreditHref(canonical.name || slug || undefined)}>
-              {safeT("admin_users_cc_cta_business_credit", { fallbackKo: "Business Credit", fallbackEn: "Business Credit" })}
+              {safeT("admin_users_cc_cta_business_credit")}
             </Link>
           </div>
         </div>
