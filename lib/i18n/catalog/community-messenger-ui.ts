@@ -405,8 +405,6 @@ export const communityMessengerUiMessages = {
     cm_ui_check_meeting_info_before_join: "모임 채팅도 입장 전 정보를 먼저 확인",
     cm_ui_media_auto_save: "미디어 자동 저장",
     cm_ui_open_files_images_with_save_focus: "받은 사진을 사진첩에 자동 저장하고, 파일은 저장 중심으로 열기",
-    cm_ui_link_preview: "링크 미리보기",
-    cm_ui_show_link_chip_in_chat: "대화에서 링크 칩 표시",
     cm_ui_chat_backup: "대화 백업",
     cm_ui_backup_settings_recent_device: "설정과 최근 검색, 장치 선택 백업",
     cm_ui_export: "내보내기",
@@ -1497,8 +1495,6 @@ export const communityMessengerUiMessages = {
       "Check info first before entering meeting chats as well.",
     cm_ui_media_auto_save: "Media auto-save",
     cm_ui_open_files_images_with_save_focus: "Auto-save received photos to your gallery and open files for saving",
-    cm_ui_link_preview: "Link preview",
-    cm_ui_show_link_chip_in_chat: "Show link chips in conversation",
     cm_ui_chat_backup: "Chat backup",
     cm_ui_backup_settings_recent_device:
       "Backup settings, recent searches, and selected devices",

@@ -262,12 +262,6 @@ export function MessengerSettingsSheet({
                   updateLocalSetting("mediaAutoSaveEnabled", next);
                 }}
               />
-              <SettingsToggleRow
-                title={t("cm_ui_link_preview")}
-                description={t("cm_ui_show_link_chip_in_chat")}
-                checked={localSettings.linkPreviewEnabled}
-                onChange={(next) => updateLocalSetting("linkPreviewEnabled", next)}
-              />
               <div className="flex items-center justify-between gap-3 px-3 py-2">
                 <span className="min-w-0">
                   <span className="block text-[length:var(--overlay-body-1-size)] font-medium leading-[1.4] text-[color:var(--overlay-text-primary)]">{t("cm_ui_chat_backup")}</span>

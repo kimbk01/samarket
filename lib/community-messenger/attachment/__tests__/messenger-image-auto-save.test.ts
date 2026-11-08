@@ -271,7 +271,7 @@ describe("messenger image auto-save", () => {
     prefs.writeCommunityMessengerLocalSetting("mediaAutoSaveEnabled", true);
     const base = Date.now() - 5_000;
     mod.syncMessengerImageAutoSaveEnabled(true, base, VIEWER);
-    prefs.writeCommunityMessengerLocalSettings({ linkPreviewEnabled: false });
+    prefs.writeCommunityMessengerLocalSettings({ groupJoinPreviewEnabled: false });
     expect(mod.readMessengerImageAutoSaveEnabledAt(VIEWER)).toBe(base);
   });
 });

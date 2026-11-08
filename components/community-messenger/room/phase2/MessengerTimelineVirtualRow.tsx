@@ -113,7 +113,6 @@ export type MessengerTimelineVirtualRowProps = {
   highlightMentions?: boolean;
   timelineHighlightMessageId: string | null;
   messageActionItemId: string | null;
-  linkPreviewEnabled: boolean;
   mediaAutoSaveEnabled: boolean;
   sendingLabel: string;
   voiceCallLabel: string;
@@ -164,7 +163,6 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.highlightMentions === b.highlightMentions &&
     a.timelineHighlightMessageId === b.timelineHighlightMessageId &&
     a.messageActionItemId === b.messageActionItemId &&
-    a.linkPreviewEnabled === b.linkPreviewEnabled &&
     a.mediaAutoSaveEnabled === b.mediaAutoSaveEnabled &&
     a.sendingLabel === b.sendingLabel &&
     a.voiceCallLabel === b.voiceCallLabel &&
@@ -207,7 +205,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   highlightMentions = false,
   timelineHighlightMessageId,
   messageActionItemId,
-  linkPreviewEnabled,
   mediaAutoSaveEnabled,
   sendingLabel,
   voiceCallLabel,
@@ -257,6 +254,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   // 모바일 WebView 에서 스크롤 제스처가 pointercancel 을 즉시 발생시켜 520ms 타이머가 항상 취소된다.
   // touch-action:none 으로 브라우저 스크롤을 말풍선에서 막고, 이동 거리(8px) 초과 시 직접 취소한다.
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * D3-다 (Owner 「D3 가~바 구현」 2026-11-09): 길게 누르기로 메시지 메뉴가 열린 그 동작에서 손을 떼며 생기는 click 1회를 막는다.
+   * iOS WebKit 은 길게 누른 뒤에도 click 을 보내 말풍선 안 링크·사진·반응 버튼이 함께 실행됐다(2026-11-08 시뮬레이터 실측).
+   * 다음 pointerdown 에서 초기화 — 이어지는 짧은 탭은 그대로 동작.
+   */
+  const longPressFiredRef = useRef(false);
   const [longPressHolding, setLongPressHolding] = useState(false);
   const cancelLongPress = () => {
     if (messageLongPressTimerRef.current) {
@@ -329,6 +332,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             style: messageBubbleTouchStyle,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!e.isPrimary) return;
+              longPressFiredRef.current = false;
+              /**
+               * D3-라: 마우스는 길게 누르기·포인터 캡처를 쓰지 않는다 — 메뉴는 오른쪽 클릭(onContextMenu).
+               * Chromium 은 마우스 포인터를 캡처하면 click 대상이 말풍선(캡처 요소)으로 바뀌어
+               * 말풍선 안 링크·사진·반응 버튼 클릭이 실행되지 않았다(2026-11-08 데스크톱 Chromium 실측 · Windows 앱 WebView2 도 같은 엔진).
+               * 터치는 길게 누르기 그대로(아래 DO NOT 유지).
+               */
+              if (e.pointerType === "mouse") return;
               messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
               setLongPressHolding(true);
@@ -341,6 +352,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               messageLongPressTimerRef.current = window.setTimeout(() => {
                 messageLongPressTimerRef.current = null;
                 longPressOriginRef.current = null;
+                longPressFiredRef.current = true;
                 setLongPressHolding(false);
                 setMessageActionItem({
                   item,
@@ -357,6 +369,12 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             },
             onPointerUp: cancelLongPress,
             onPointerCancel: cancelLongPress,
+            onClickCapture: (e: ReactMouseEvent<HTMLDivElement>) => {
+              if (!longPressFiredRef.current) return;
+              longPressFiredRef.current = false;
+              e.preventDefault();
+              e.stopPropagation();
+            },
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
               const albumIndex = messengerLongPressAlbumIndex(item, e.target);
@@ -418,7 +436,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
 
   const renderBubbleStack = (bubbleChild: ReactNode) => (
     <div
-      className={`inline-flex max-w-full flex-col transition-[transform,box-shadow] duration-150 ease-out ${item.isMine ? "items-end" : "items-start"} ${
+      /* D3-마: min-w-0 — 긴 URL 처럼 끊을 곳 없는 글자도 시간 글자 자리를 남기고 줄어든다(이전: 375px 화면에서 시간 12px 잘림). */
+      className={`inline-flex min-w-0 max-w-full flex-col transition-[transform,box-shadow] duration-150 ease-out ${item.isMine ? "items-end" : "items-start"} ${
         longPressVisualActive
           ? "scale-[0.97] rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
           : ""
@@ -487,7 +506,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     deletedForEveryone && item.messageType !== "call_stub" ? (
       <TimelineViberInnerTextDefault
         item={item}
-        linkPreviewEnabled={false}
         sendingLabel={sendingLabel}
         highlightMentions={false}
       />
@@ -518,7 +536,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     ) : (
       <TimelineViberInnerTextDefault
         item={item}
-        linkPreviewEnabled={entryLightRow ? false : linkPreviewEnabled}
         sendingLabel={sendingLabel}
         highlightMentions={highlightMentions}
       />

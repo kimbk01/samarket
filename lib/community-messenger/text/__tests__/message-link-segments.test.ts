@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitMessageTextLinks } from "@/lib/community-messenger/text/message-link-segments";
+import { resolveMessageLinkTarget, splitMessageTextLinks } from "@/lib/community-messenger/text/message-link-segments";
 
 const links = (s: string) =>
   splitMessageTextLinks(s)
@@ -47,7 +47,7 @@ describe("splitMessageTextLinks", () => {
     expect(links("https://a.com/x.")).toEqual([["https://a.com/x", "https://a.com/x"]]);
     expect(links("링크: https://a.com/x?, 다음")).toEqual([["https://a.com/x", "https://a.com/x"]]);
     expect(links("(https://a.com/x)")).toEqual([["https://a.com/x", "https://a.com/x"]]);
-    expect(links("[http://d.com]")).toEqual([["http://d.com", "http://d.com"]]);
+    expect(links("[https://d.com]")).toEqual([["https://d.com", "https://d.com"]]);
     expect(links("https://en.wikipedia.org/wiki/Foo_(bar)")).toEqual([
       ["https://en.wikipedia.org/wiki/Foo_(bar)", "https://en.wikipedia.org/wiki/Foo_(bar)"],
     ]);
@@ -58,10 +58,16 @@ describe("splitMessageTextLinks", () => {
   });
 
   it("multiple links", () => {
-    expect(links("a https://x.com b http://y.com/z c")).toEqual([
+    expect(links("a https://x.com b www.y.com/z c")).toEqual([
       ["https://x.com", "https://x.com"],
-      ["http://y.com/z", "http://y.com/z"],
+      ["www.y.com/z", "https://www.y.com/z"],
     ]);
+  });
+
+  it("http:// 주소는 링크로 만들지 않는다(열기 계약 https 만) — www 부분도 떼지 않는다", () => {
+    expect(links("a http://y.com/z c")).toEqual([]);
+    expect(links("http://www.y.com/z")).toEqual([]);
+    expect(splitMessageTextLinks("http://www.y.com/z")).toEqual([{ kind: "text", text: "http://www.y.com/z" }]);
   });
 
   it("non-http schemes and mid-word matches are not links", () => {
@@ -75,5 +81,22 @@ describe("splitMessageTextLinks", () => {
 
   it("uppercase scheme accepted", () => {
     expect(links("HTTPS://A.COM")).toEqual([["HTTPS://A.COM", "HTTPS://A.COM"]]);
+  });
+});
+
+describe("resolveMessageLinkTarget", () => {
+  const ORIGIN = "https://samarket.vercel.app";
+  it("같은 주소는 앱 안 경로(쿼리·해시 유지)", () => {
+    expect(resolveMessageLinkTarget("https://samarket.vercel.app/stores/abc?x=1#y", ORIGIN)).toEqual({
+      kind: "internal",
+      path: "/stores/abc?x=1#y",
+    });
+    expect(resolveMessageLinkTarget("https://SAMARKET.vercel.app", ORIGIN)).toEqual({ kind: "internal", path: "/" });
+  });
+  it("다른 주소는 외부", () => {
+    expect(resolveMessageLinkTarget("https://www.openstreetmap.org/?mlat=1", ORIGIN)).toEqual({
+      kind: "external",
+      url: "https://www.openstreetmap.org/?mlat=1",
+    });
   });
 });

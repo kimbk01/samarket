@@ -11,6 +11,17 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
   useI18n: () => ({ t: (k: string) => k }),
 }));
 
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const openDestination = vi.fn(() => true);
+const openExternalUrl = vi.fn(async () => true);
+vi.mock("@/lib/destination/open-destination", () => ({
+  openDestination: (...a: unknown[]) => openDestination(...(a as [])),
+  openExternalUrl: (...a: unknown[]) => openExternalUrl(...(a as [])),
+}));
+
+const linksIn = (el: Element) => [...el.querySelectorAll('[role="link"]')] as HTMLElement[];
+
 describe("말풍선 본문 링크 · 사진 칸 크기", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -25,28 +36,38 @@ describe("말풍선 본문 링크 · 사진 칸 크기", () => {
     host.remove();
   });
 
-  it("본문 URL 은 같은 글자 그대로 누를 수 있는 링크로 그린다", () => {
-    const s = "📍 Location\nhttps://www.openstreetmap.org/?mlat=1&mlon=2 그리고 www.dibay.app.";
+  it("본문 URL 은 같은 글자 그대로 누를 수 있는 링크로 그린다(<a href> 아님)", () => {
+    const s = "📍 Location\nhttps://www.openstreetmap.org/?mlat=1&mlon=2 그리고 www.dibay.app. http://plain.example";
     act(() => root.render(<p>{<MessengerLinkifiedText content={s} />}</p>));
-    const anchors = [...host.querySelectorAll("a")];
-    expect(anchors.map((a) => [a.textContent, a.getAttribute("href"), a.getAttribute("target"), a.getAttribute("rel")])).toEqual([
-      ["https://www.openstreetmap.org/?mlat=1&mlon=2", "https://www.openstreetmap.org/?mlat=1&mlon=2", "_blank", "noopener noreferrer"],
-      ["www.dibay.app", "https://www.dibay.app", "_blank", "noopener noreferrer"],
+    expect(host.querySelectorAll("a").length).toBe(0);
+    expect(linksIn(host).map((a) => [a.textContent, a.tabIndex])).toEqual([
+      ["https://www.openstreetmap.org/?mlat=1&mlon=2", 0],
+      ["www.dibay.app", 0],
     ]);
     expect(host.textContent).toBe(s);
   });
 
+  it("외부 주소는 앱 안 브라우저(openExternalUrl)로 연다 — 같은 주소 판정은 resolveMessageLinkTarget 테스트", () => {
+    openDestination.mockClear();
+    openExternalUrl.mockClear();
+    act(() => root.render(<p>{<MessengerLinkifiedText content={`www.dibay.app 그리고 https://ext.example/a`} />}</p>));
+    const [www, ext] = linksIn(host);
+    act(() => www!.click());
+    act(() => ext!.click());
+    expect(openExternalUrl.mock.calls).toEqual([["https://www.dibay.app/"], ["https://ext.example/a"]]);
+    expect(openDestination).not.toHaveBeenCalled();
+  });
+
   it("URL 없는 본문은 링크 없이 글자 그대로", () => {
     act(() => root.render(<p>{<MessengerLinkifiedText content="안녕 @친구" />}</p>));
-    expect(host.querySelectorAll("a").length).toBe(0);
+    expect(linksIn(host).length).toBe(0);
     expect(host.textContent).toBe("안녕 @친구");
   });
 
   it("그룹방: 멘션 강조는 유지하고 URL 은 링크, 주소 안의 @ 는 멘션으로 보지 않는다", () => {
     const s = "@철수 봐 https://a.com/@user 끝";
     act(() => root.render(<GroupMentionText content={s} isMine={false} />));
-    const anchors = [...host.querySelectorAll("a")];
-    expect(anchors.map((a) => a.textContent)).toEqual(["https://a.com/@user"]);
+    expect(linksIn(host).map((a) => a.textContent)).toEqual(["https://a.com/@user"]);
     const mentions = [...host.querySelectorAll("span.font-semibold")].map((x) => x.textContent);
     expect(mentions).toEqual(["@철수"]);
     expect(host.textContent).toBe(s);

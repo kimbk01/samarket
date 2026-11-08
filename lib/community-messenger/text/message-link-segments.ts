@@ -1,7 +1,8 @@
 /**
  * 메신저 말풍선 본문 → 「글자 / 링크」 조각 (client-safe · 순수 함수).
  *
- * - 인정 형식: `http://`·`https://` 로 시작하거나 `www.` 로 시작하는 주소만. 그 외 스킴(javascript: 등)은 링크로 만들지 않는다.
+ * - 인정 형식: `https://` 로 시작하거나 `www.` 로 시작하는 주소만. 앱 링크 열기 계약(`lib/destination/open-destination.ts`)이
+ *   외부 주소는 https 만 열기 때문에 `http://`·그 외 스킴(javascript: 등)은 링크로 만들지 않는다(열리지 않는 링크를 그리지 않음).
  * - 주소 글자는 URL 에 쓰는 ASCII 글자만 — 바로 뒤에 붙은 한글(「https://a.com에서」)은 링크에서 뺀다.
  * - 끝에 붙은 문장부호(`. , ; : ! ? ' "`)와 짝이 안 맞는 닫는 괄호는 링크에서 뺀다.
  * - `www.` 주소의 href 는 `https://` 를 붙인다. 화면 글자는 원문 그대로.
@@ -11,7 +12,7 @@ export type MessageTextSegment =
   | { kind: "text"; text: string }
   | { kind: "link"; text: string; href: string };
 
-const LINK_START_RE = /(?:https?:\/\/|www\.)[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+/gi;
+const LINK_START_RE = /(?:https:\/\/|www\.)[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+/gi;
 
 const TRAILING_PUNCT = new Set([".", ",", ";", ":", "!", "?", "'", '"']);
 const CLOSE_TO_OPEN: Record<string, string> = { ")": "(", "]": "[" };
@@ -63,6 +64,8 @@ export function splitMessageTextLinks(content: string): MessageTextSegment[] {
     // 단어 중간에서 시작하는 `www.`·`http` 는 주소가 아니다(예: `awww.`, `xhttp://`).
     const before = start > 0 ? text[start - 1]! : "";
     if (before && /[A-Za-z0-9_]/.test(before)) continue;
+    // `http://www.a.com` 의 `www.` 부분만 https 링크로 바꾸지 않는다(원문은 http 주소).
+    if (start >= 2 && text.slice(start - 2, start) === "//") continue;
     const linkText = trimLinkTail(match[0] ?? "");
     const href = linkText ? hrefFor(linkText) : null;
     if (!href) continue;
@@ -72,4 +75,22 @@ export function splitMessageTextLinks(content: string): MessageTextSegment[] {
   }
   pushText(text.slice(cursor));
   return out;
+}
+
+export type MessageLinkTarget = { kind: "internal"; path: string } | { kind: "external"; url: string };
+
+/**
+ * 누른 링크를 어디로 열지 — 앱 링크 열기 계약(`lib/destination/open-destination.ts`)과 같은 구분.
+ * 지금 화면과 같은 주소(origin)면 앱 안 경로(라우터 이동, 다시 불러오기 없음), 아니면 외부 주소(앱 안 브라우저).
+ */
+export function resolveMessageLinkTarget(href: string, currentOrigin: string): MessageLinkTarget {
+  try {
+    const u = new URL(href);
+    if (currentOrigin && u.origin === currentOrigin) {
+      return { kind: "internal", path: `${u.pathname}${u.search}${u.hash}` || "/" };
+    }
+    return { kind: "external", url: u.toString() };
+  } catch {
+    return { kind: "external", url: href };
+  }
 }

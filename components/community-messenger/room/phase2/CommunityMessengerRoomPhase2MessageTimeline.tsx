@@ -2122,11 +2122,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     highlightMentions={vm.isPrivateGroupRoom}
                     timelineHighlightMessageId={vm.timelineHighlightMessageId}
                     messageActionItemId={vm.messageActionItem?.item.id ?? null}
-                    linkPreviewEnabled={
-                      entrySliceActive || virtualizerUpgradeDeferHeavy
-                        ? false
-                        : vm.roomPreferences.linkPreviewEnabled
-                    }
                     mediaAutoSaveEnabled={
                       entrySliceActive || virtualizerUpgradeDeferHeavy
                         ? false

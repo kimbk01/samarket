@@ -118,8 +118,9 @@ function AlbumLayout({
   }
 
   if (n === 3) {
+    /* D3-바: 3장 배치도 4장처럼 정사각 칸을 미리 잡는다 — 비율이 없어 불러오기 전 높이 3px → 불러온 뒤 360px 로 바뀌었다(2026-11-08 운영 실측). */
     return (
-      <div className="grid max-h-[360px] w-full grid-cols-2 grid-rows-2 gap-[3px] overflow-hidden rounded-[16px] bg-transparent">
+      <div className="grid aspect-square max-h-[360px] w-full grid-cols-2 grid-rows-2 gap-[3px] overflow-hidden rounded-[16px] bg-transparent">
         {cell(urls[0]!, 0, "row-span-2 h-full min-h-0")}
         {cell(urls[1]!, 1, "")}
         {cell(urls[2]!, 2, "")}

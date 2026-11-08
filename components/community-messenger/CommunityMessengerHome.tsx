@@ -1124,7 +1124,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     contactAutoAddEnabled: false,
     groupJoinPreviewEnabled: true,
     mediaAutoSaveEnabled: false,
-    linkPreviewEnabled: true,
   });
   const [notificationSettings, setNotificationSettings] = useState<MessengerNotificationSettings>({
     trade_chat_enabled: true,

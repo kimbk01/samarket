@@ -9,15 +9,13 @@ type PreferenceKey =
   | "phoneFriendAdd"
   | "contactAutoAdd"
   | "groupJoinPreview"
-  | "mediaAutoSave"
-  | "linkPreview";
+  | "mediaAutoSave";
 
 export type CommunityMessengerLocalSettings = {
   phoneFriendAddEnabled: boolean;
   contactAutoAddEnabled: boolean;
   groupJoinPreviewEnabled: boolean;
   mediaAutoSaveEnabled: boolean;
-  linkPreviewEnabled: boolean;
 };
 
 const LOCAL_SETTINGS_DEFAULTS: CommunityMessengerLocalSettings = {
@@ -25,7 +23,6 @@ const LOCAL_SETTINGS_DEFAULTS: CommunityMessengerLocalSettings = {
   contactAutoAddEnabled: false,
   groupJoinPreviewEnabled: true,
   mediaAutoSaveEnabled: false,
-  linkPreviewEnabled: true,
 };
 
 function storageKey(key: PreferenceKey): string {
@@ -75,7 +72,6 @@ export function readCommunityMessengerLocalSettings(): CommunityMessengerLocalSe
     contactAutoAddEnabled: readBool("contactAutoAdd", LOCAL_SETTINGS_DEFAULTS.contactAutoAddEnabled),
     groupJoinPreviewEnabled: readBool("groupJoinPreview", LOCAL_SETTINGS_DEFAULTS.groupJoinPreviewEnabled),
     mediaAutoSaveEnabled: readBool("mediaAutoSave", LOCAL_SETTINGS_DEFAULTS.mediaAutoSaveEnabled),
-    linkPreviewEnabled: readBool("linkPreview", LOCAL_SETTINGS_DEFAULTS.linkPreviewEnabled),
   };
 }
 
@@ -88,7 +84,6 @@ export function writeCommunityMessengerLocalSetting(
     contactAutoAddEnabled: "contactAutoAdd",
     groupJoinPreviewEnabled: "groupJoinPreview",
     mediaAutoSaveEnabled: "mediaAutoSave",
-    linkPreviewEnabled: "linkPreview",
   };
   writeBool(mappedKey[key], enabled);
 }
@@ -101,6 +96,5 @@ export function writeCommunityMessengerLocalSettings(
   writeCommunityMessengerLocalSetting("contactAutoAddEnabled", next.contactAutoAddEnabled);
   writeCommunityMessengerLocalSetting("groupJoinPreviewEnabled", next.groupJoinPreviewEnabled);
   writeCommunityMessengerLocalSetting("mediaAutoSaveEnabled", next.mediaAutoSaveEnabled);
-  writeCommunityMessengerLocalSetting("linkPreviewEnabled", next.linkPreviewEnabled);
   return next;
 }

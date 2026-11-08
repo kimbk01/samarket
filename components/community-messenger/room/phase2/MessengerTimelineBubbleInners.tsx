@@ -6,7 +6,6 @@ import type { CommunityMessengerMessage } from "@/lib/community-messenger/types"
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   communityMessengerVoiceAudioSrc,
-  extractHttpUrls,
   formatFileMeta,
   VideoCallIcon,
   VoiceCallIcon,
@@ -249,12 +248,10 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
 
 export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTextDefault({
   item,
-  linkPreviewEnabled,
   sendingLabel,
   highlightMentions = false,
 }: {
   item: TimelineViberBubbleMessage;
-  linkPreviewEnabled: boolean;
   sendingLabel: string;
   highlightMentions?: boolean;
 }) {
@@ -283,27 +280,6 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
           </span>
         ) : null}
       </div>
-      {linkPreviewEnabled && extractHttpUrls(item.content).length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {extractHttpUrls(item.content)
-            .slice(0, 2)
-            .map((url) => (
-              <a
-                key={`${item.id}:${url}`}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 text-[12px] leading-snug ${
-                  mineLight
-                    ? "border-white/35 bg-white/15 text-white"
-                    : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
-                }`}
-              >
-                {url.replace(/^https?:\/\//i, "")}
-              </a>
-            ))}
-        </div>
-      ) : null}
     </div>
   );
 });
