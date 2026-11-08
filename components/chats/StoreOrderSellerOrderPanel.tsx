@@ -307,8 +307,6 @@ export function StoreOrderSellerOrderPanel({
               {t("ui_store_order_my_shop")}
             </p>
             <p className="mb-2 sam-text-helper leading-snug text-muted">
-              <span className="font-mono sam-text-xxs text-muted">/stores/owner</span>
-              <span className="mx-1 text-sam-border">·</span>
               {t("chats_seller_panel_hub_same_menu")}
             </p>
             <Link

@@ -50,7 +50,7 @@ export const copyUiL25JsxMessages = {
     offers_seller_view_all: "전체 보기",
     offers_seller_empty_modal_body: "구매자가 제안을 보내면 여기에 표시됩니다.",
     offers_seller_empty_check_hint:
-      "구매자 쪽에서 모달까지 열어 「제안 보내기」가 성공했는지 확인해 주세요. 보낸 직후에는 새로고침하거나 잠시 후 다시 열어 보세요.",
+      "방금 받은 제안이 보이지 않으면 잠시 후 새로고침해 주세요.",
     offers_seller_buyer_fallback: "구매자",
     offers_seller_original_price: "원가 {price}",
     offers_seller_status_done: "처리됨",
@@ -114,7 +114,7 @@ export const copyUiL25JsxMessages = {
     offers_seller_view_all: "View all",
     offers_seller_empty_modal_body: "Offers from buyers will appear here.",
     offers_seller_empty_check_hint:
-      "Ask the buyer to check that sending the offer went through. If it was just sent, refresh or reopen this in a moment.",
+      "If an offer you just received doesn't appear, refresh in a moment.",
     offers_seller_buyer_fallback: "Buyer",
     offers_seller_original_price: "Original {price}",
     offers_seller_status_done: "(completed)",
