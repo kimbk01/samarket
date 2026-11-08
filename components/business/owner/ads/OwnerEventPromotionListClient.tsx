@@ -95,21 +95,7 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
               >
                 <span className="font-medium">{item.title || "—"}</span>
                 <span className="text-sam-muted">
-                  {safeT(ownerRequestStatusLabelKey(item.requestStatus) as never, {
-                    fallbackKo:
-                      item.requestStatus === "draft"
-                        ? "작성 중"
-                        : item.requestStatus === "approved"
-                          ? "승인"
-                          : item.requestStatus === "rejected"
-                            ? "반려"
-                            : item.requestStatus === "cancelled"
-                              ? "취소"
-                              : item.requestStatus === "revision_required"
-                                ? "수정 요청"
-                                : "검토 중",
-                    fallbackEn: item.requestStatus,
-                  })}
+                  {safeT(ownerRequestStatusLabelKey(item.requestStatus) as never)}
                 </span>
               </Link>
             </li>

@@ -9,6 +9,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   CommunityActionSheet,
   CommunitySummaryCard,
@@ -180,16 +182,17 @@ const PROMOTION_STATUS_KO: Record<string, string> = {
   cancelled: "취소",
 };
 
-const EXTRA_ERROR_KO: Record<string, string> = {
-  title_required: "제목을 입력해 주세요.",
-  invalid_category: "거래 카테고리를 다시 선택해 주세요.",
-  invalid_images: "사진 목록을 다시 확인해 주세요.",
-  empty_patch: "바뀐 내용이 없습니다.",
-  invalid_action: "지금 상태에서는 할 수 없는 조치입니다.",
+const EXTRA_ERROR_KEYS: Record<string, MessageKey> = {
+  title_required: "admin_trade_post_detail_err_title_required",
+  invalid_category: "admin_trade_post_detail_err_invalid_category",
+  invalid_images: "admin_trade_post_detail_err_invalid_images",
+  empty_patch: "admin_trade_post_detail_err_empty_patch",
+  invalid_action: "admin_trade_post_detail_err_invalid_action",
 };
 
 function errorTextOf(code: string, status: number): string {
-  if (EXTRA_ERROR_KO[code]) return EXTRA_ERROR_KO[code];
+  const extra = EXTRA_ERROR_KEYS[code];
+  if (extra) return translate(getRuntimeAppLanguage(), extra);
   if (/[가-힣]/.test(code)) return code;
   if (status >= 500 || status === 0) return tradeErrorText("server_error");
   return tradeErrorText(code);
@@ -249,7 +252,8 @@ function shortMember(id: string): string {
 /* ───────── 사진 ───────── */
 
 function TradeImageGallery({ images, size = 112 }: { images: string[]; size?: number }) {
-  if (images.length === 0) return <p className="text-[13px] text-sam-muted">등록된 사진이 없습니다.</p>;
+  const { t } = useI18n();
+  if (images.length === 0) return <p className="text-[13px] text-sam-muted">{t("admin_trade_post_detail_no_photos")}</p>;
   return (
     <ul className="flex flex-wrap gap-2">
       {images.map((u, i) => {
@@ -258,7 +262,7 @@ function TradeImageGallery({ images, size = 112 }: { images: string[]; size?: nu
         return (
           <li key={`${u}-${i}`} className="relative">
             {href ? (
-              <a href={href} target="_blank" rel="noreferrer" title="원본 보기">
+              <a href={href} target="_blank" rel="noreferrer" title={t("admin_trade_post_detail_view_original")}>
                 {thumb}
               </a>
             ) : (
@@ -279,7 +283,7 @@ function TradeImageGallery({ images, size = 112 }: { images: string[]; size?: nu
 /* ───────── 메인 ───────── */
 
 export function TradePostDetailPage({ postId }: { postId: string }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const id = postId.trim();
   const sp = useSearchParams();
@@ -482,7 +486,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
   const buyerPicker = (required: boolean) => (
     <label className="block">
-      <span className="sam-text-helper font-medium text-sam-fg">구매자{required ? " (선택 필요)" : ""}</span>
+      <span className="sam-text-helper font-medium text-sam-fg">{t(required ? "admin_trade_post_detail_buyer_required" : "admin_trade_post_detail_buyer")}</span>
       <select value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className={`mt-1 ${FIELD}`}>
         <option value="">{required ? "구매자를 선택해 주세요" : "자동 지정 (예약 구매자 또는 채팅 구매자 1명)"}</option>
         {(buyers ?? []).map((b) => (
@@ -491,9 +495,9 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           </option>
         ))}
       </select>
-      {buyers === null ? <span className="mt-1 block sam-text-xxs text-sam-muted">구매자 후보를 불러오는 중…</span> : null}
+      {buyers === null ? <span className="mt-1 block sam-text-xxs text-sam-muted">{t("admin_trade_post_detail_buyers_loading")}</span> : null}
       {buyers !== null && buyers.length === 0 ? (
-        <span className="mt-1 block sam-text-xxs text-sam-muted">거래 채팅을 한 구매자가 없습니다.</span>
+        <span className="mt-1 block sam-text-xxs text-sam-muted">{t("admin_trade_post_detail_no_buyers")}</span>
       ) : null}
     </label>
   );
@@ -582,7 +586,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
       {editing ? (
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-          <h2 className="text-[14px] font-semibold text-sam-fg">내용 수정</h2>
+          <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_trade_post_detail_edit_content")}</h2>
           <label className="block text-[12px] font-medium text-sam-muted">
             제목
             <input value={eTitle} onChange={(e) => setETitle(e.target.value)} maxLength={200} className={`mt-1 ${FIELD}`} />
@@ -612,7 +616,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
             <label className="block min-w-[12rem] text-[12px] font-medium text-sam-muted">
               카테고리
               <select value={eCategory} onChange={(e) => setECategory(e.target.value)} className={`mt-1 ${FIELD}`}>
-                {!eCategory ? <option value="">선택해 주세요</option> : null}
+                {!eCategory ? <option value="">{t("admin_trade_post_detail_select_placeholder")}</option> : null}
                 {eCategory && !categories.some((c) => c.id === eCategory) ? (
                   <option value={eCategory}>{post.category_name ?? "현재 카테고리"}</option>
                 ) : null}
@@ -625,9 +629,9 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
             </label>
           </div>
           <div>
-            <p className="text-[12px] font-medium text-sam-muted">사진 ({eImages.length}장 · 첫 번째가 대표)</p>
+            <p className="text-[12px] font-medium text-sam-muted">{t("admin_trade_post_detail_photos_count", { n: eImages.length })}</p>
             {eImages.length === 0 ? (
-              <p className="mt-1 text-[13px] text-sam-muted">사진이 없습니다.</p>
+              <p className="mt-1 text-[13px] text-sam-muted">{t("admin_trade_post_detail_no_photos_edit")}</p>
             ) : (
               <ul className="mt-1 flex flex-wrap gap-3">
                 {eImages.map((u, i) => (
@@ -716,7 +720,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
       {/* ───── 시트 ───── */}
       {sheet?.kind === "edit" ? (
         <CommunityActionSheet
-          title="수정 내용 저장"
+          title={t("admin_trade_post_detail_save_edit")}
           rows={[
             ...targetRows.slice(0, 1),
             { label: "바뀌는 항목", value: Object.keys(patch).map((k) => FIELD_LABEL[k] ?? k).join(", ") || "—" },
@@ -754,7 +758,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
       {sheet?.kind === "stage" ? (
         <CommunityActionSheet
-          title="판매 단계 정정"
+          title={t("admin_trade_post_detail_fix_stage")}
           rows={targetRows}
           notice="노출 상태는 바뀌지 않습니다."
           reason={REASON}
@@ -771,7 +775,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           onSettled={(k) => onSettled(k, "판매 단계를 정정했습니다.")}
         >
           <fieldset className="space-y-1">
-            <legend className="sam-text-helper font-medium text-sam-fg">바꿀 판매 단계</legend>
+            <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_post_detail_new_stage")}</legend>
             {(
               [
                 ["active", "판매중"],
@@ -788,7 +792,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                   onChange={() => setStage(v)}
                 />
                 {l}
-                {v === stageNow ? <span className="text-sam-muted">(현재)</span> : null}
+                {v === stageNow ? <span className="text-sam-muted">{t("admin_trade_post_detail_current_mark")}</span> : null}
               </label>
             ))}
           </fieldset>
@@ -798,7 +802,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
       {sheet?.kind === "cancel_sale" ? (
         <CommunityActionSheet
-          title="판매 취소"
+          title={t("admin_trade_post_detail_cancel_sale")}
           rows={targetRows}
           notice={
             modState === "visible"
@@ -816,7 +820,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
       {sheet?.kind === "force_complete" ? (
         <CommunityActionSheet
-          title="강제 완료"
+          title={t("admin_trade_post_detail_force_complete")}
           rows={targetRows}
           notice="판매자 완료 절차 없이 거래완료로 바꿉니다. 거래 완료 시각은 기록되지 않습니다."
           reason={REASON}
@@ -879,7 +883,8 @@ function fieldValueText(key: string, v: unknown, categoryName: (id: string) => s
 }
 
 function RevisionsTab({ revisions, categoryName }: { revisions: Revision[]; categoryName: (id: string) => string | null }) {
-  if (revisions.length === 0) return <p className="text-[13px] text-sam-muted">수정 이력이 없습니다.</p>;
+  const { t } = useI18n();
+  if (revisions.length === 0) return <p className="text-[13px] text-sam-muted">{t("admin_trade_post_detail_no_revisions")}</p>;
   return (
     <ol className="space-y-2">
       {revisions.map((r) => {
@@ -889,12 +894,12 @@ function RevisionsTab({ revisions, categoryName }: { revisions: Revision[]; cate
         return (
           <li key={r.id} className="rounded-ui-rect border border-sam-border-soft px-3 py-2 text-[13px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-sam-fg">{keys.map((k) => FIELD_LABEL[k]).join(", ") || "변경 없음"}</span>
+              <span className="font-semibold text-sam-fg">{keys.map((k) => FIELD_LABEL[k]).join(", ") || t("admin_trade_post_detail_no_changes")}</span>
               <span className="text-sam-muted">
                 {pht(r.created_at)} · {r.editor_label ?? "—"}
               </span>
             </div>
-            {r.reason ? <p className="mt-1 whitespace-pre-wrap text-sam-muted">사유: {r.reason}</p> : null}
+            {r.reason ? <p className="mt-1 whitespace-pre-wrap text-sam-muted">{t("admin_trade_post_detail_reason", { reason: r.reason })}</p> : null}
             {keys.length > 0 ? (
               <dl className="mt-2 space-y-1">
                 {keys.map((k) => {
@@ -935,6 +940,7 @@ function RevisionsTab({ revisions, categoryName }: { revisions: Revision[]; cate
 }
 
 function ReportsTab({ postId, reports, selfHref }: { postId: string; reports: Report[]; selfHref: string }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
@@ -943,7 +949,7 @@ function ReportsTab({ postId, reports, selfHref }: { postId: string; reports: Re
         </AdminActionLink>
       </div>
       {reports.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">이 게시물에 대한 신고가 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_trade_post_detail_no_reports")}</p>
       ) : (
         <ul className="space-y-2">
           {reports.map((r) => (
@@ -970,6 +976,7 @@ function ReportsTab({ postId, reports, selfHref }: { postId: string; reports: Re
 }
 
 function RoomsTab({ postId, rooms, selfHref }: { postId: string; rooms: Room[]; selfHref: string }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
@@ -978,7 +985,7 @@ function RoomsTab({ postId, rooms, selfHref }: { postId: string; rooms: Room[]; 
         </AdminActionLink>
       </div>
       {rooms.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">이 게시물의 거래 채팅이 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_trade_post_detail_no_rooms")}</p>
       ) : (
         <ul className="divide-y divide-sam-border-soft text-[13px]">
           {rooms.map((r) => (
@@ -999,6 +1006,7 @@ function RoomsTab({ postId, rooms, selfHref }: { postId: string; rooms: Room[]; 
 }
 
 function PromotionsTab({ postId, promotions }: { postId: string; promotions: Promotion[] }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
@@ -1007,7 +1015,7 @@ function PromotionsTab({ postId, promotions }: { postId: string; promotions: Pro
         </AdminActionLink>
       </div>
       {promotions.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">상위노출 신청 기록이 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_trade_post_detail_no_promotions")}</p>
       ) : (
         <ul className="divide-y divide-sam-border-soft text-[13px]">
           {promotions.map((p) => (

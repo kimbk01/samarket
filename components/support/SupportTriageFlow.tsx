@@ -30,26 +30,20 @@ import {
 import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
 
 function labelForCategory(
-  safeT: (key: MessageKey, opts: { fallbackKo: string; fallbackEn: string }) => string,
+  safeT: (key: MessageKey) => string,
   categoryId: string
 ): string {
   const def = getSupportCategoryDefinition(categoryId);
-  return safeT((def?.labelKey ?? "support_cat_other") as MessageKey, {
-    fallbackKo: "문의 유형",
-    fallbackEn: "Category",
-  });
+  return safeT((def?.labelKey ?? "support_cat_other") as MessageKey);
 }
 
 function labelForIssue(
-  safeT: (key: MessageKey, opts: { fallbackKo: string; fallbackEn: string }) => string,
+  safeT: (key: MessageKey) => string,
   categoryId: string,
   issueId: string
 ): string {
   const issue = listIssueTypesForCategory(categoryId).find((i) => i.id === issueId);
-  return safeT((issue?.labelKey ?? "support_issue_other") as MessageKey, {
-    fallbackKo: "문의 세부 유형",
-    fallbackEn: "Issue type",
-  });
+  return safeT((issue?.labelKey ?? "support_issue_other") as MessageKey);
 }
 
 function TriageListButton({

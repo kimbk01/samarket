@@ -15,13 +15,19 @@ import {
   adminOperatorErrorMessage,
   isAdminUnmappedError,
 } from "@/lib/admin/operator-ux/operator-labels";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 const BOX = "rounded-ui-rect border px-4 py-6 text-center sam-text-body";
 
 export function AdminLoadingState({ ko, label }: { ko: boolean; label?: string }) {
   return (
     <div data-admin-state="loading" className={`${BOX} border-sam-border bg-sam-surface text-sam-muted`} role="status">
-      {label ?? (ko ? "불러오는 중…" : "Loading…")}
+      {label ?? tx(ko, "common_loading")}
     </div>
   );
 }
@@ -41,12 +47,8 @@ export function AdminEmptyState({
   const text =
     message ??
     (onReset
-      ? ko
-        ? "조건에 맞는 항목이 없습니다."
-        : "No items match the filters."
-      : ko
-        ? "표시할 항목이 없습니다."
-        : "Nothing to show.");
+      ? tx(ko, "admin_ui_no_items_match_the_filters")
+      : tx(ko, "admin_ui_nothing_to_show"));
   return (
     <div data-admin-state="empty" className={`${BOX} border-sam-border bg-sam-surface text-sam-muted`}>
       <p>{text}</p>
@@ -95,7 +97,7 @@ export function AdminErrorState({
   }
   return (
     <div data-admin-state="error" role="alert" className={`${BOX} border-sam-danger bg-sam-danger-soft text-sam-fg`}>
-      <p className="font-medium text-sam-danger">{ko ? "불러오지 못했습니다." : "Could not load."}</p>
+      <p className="font-medium text-sam-danger">{tx(ko, "admin_ui_could_not_load")}</p>
       <p className="mt-1 text-[13px]">{adminErrorStateMessage(code, httpStatus, ko)}</p>
       {code || httpStatus ? (
         <AdminTechDetails ko={ko}>
@@ -115,7 +117,7 @@ export function AdminErrorState({
 export function AdminForbiddenState({ ko, code }: { ko: boolean; code?: string | null }) {
   return (
     <div data-admin-state="forbidden" role="alert" className={`${BOX} border-sam-warning bg-sam-warning-soft text-sam-fg`}>
-      <p className="font-medium">{ko ? "접근 권한이 없습니다." : "Access denied."}</p>
+      <p className="font-medium">{tx(ko, "admin_ui_access_denied")}</p>
       <p className="mt-1 text-[13px]">{adminOperatorErrorMessage(code ?? "forbidden", ko)}</p>
     </div>
   );
@@ -156,7 +158,7 @@ export function AdminResultBanner({
 export function AdminTechDetails({ ko, children }: { ko: boolean; children: ReactNode }) {
   return (
     <details data-admin-tech-details="1" className="mt-2 text-[12px] text-sam-muted">
-      <summary className="cursor-pointer select-none">{ko ? "기술 정보" : "Technical details"}</summary>
+      <summary className="cursor-pointer select-none">{tx(ko, "admin_ui_technical_details")}</summary>
       <div className="mt-1 break-all font-mono">{children}</div>
     </details>
   );

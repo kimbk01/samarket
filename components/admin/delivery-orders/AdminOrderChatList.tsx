@@ -42,7 +42,7 @@ export function AdminOrderChatList() {
   const modal = useAdminOrderDetailParam();
   const statusLabel = (s: string) => {
     const key = ADMIN_STORE_ORDER_STATUS_LABEL_KEYS[s as StoreOrderStatus];
-    return key ? t(key) : ko ? "알 수 없는 상태" : "Unknown status";
+    return key ? t(key) : t("admin_delivery_orders_unknown_status");
   };
 
   const apiQuery = lq.apiQueryString;
@@ -90,7 +90,7 @@ export function AdminOrderChatList() {
         onReset={resetSearch}
         pending={loading}
         showPeriod={false}
-        searchPlaceholder={ko ? "주문번호 · 매장 · 고객 닉네임 · 회원 ID" : "Order no · store · customer · member ID"}
+        searchPlaceholder={t("admin_delivery_orders_order_no_store_customer_member")}
       />
     </div>
   );
@@ -128,9 +128,7 @@ export function AdminOrderChatList() {
           onReset={urlQ ? resetSearch : undefined}
           message={
             urlQ
-              ? ko
-                ? "검색 조건에 맞는 주문 채팅이 없습니다."
-                : "No order chats match this search."
+              ? t("admin_delivery_orders_no_order_chats_match_search")
               : safeT("admin_do_chat_list_empty")
           }
           action={

@@ -3,6 +3,7 @@
  * CUT 5-R — Admin creative pixel SSOT + surface radio + single renderer contracts.
  */
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -159,8 +160,11 @@ describe("CUT 5-R file contracts", () => {
   it("Admin preview phone/tablet only; uses DibayPopupAd; no landscape conversion UI", () => {
     const preview = readRepo("components/admin/platform-popup/AdminPlatformPopupPreview.tsx");
     expect(preview).toContain("DibayPopupAd");
-    expect(preview).toContain("휴대폰");
-    expect(preview).toContain("태블릿");
+    /** 기기 칩 이름은 카탈로그 `admin_platform_popup_preview_${mode}` (언어 SSOT B4) */
+    expect(preview).toContain('modeBtn("phone")');
+    expect(preview).toContain('modeBtn("tablet_portrait")');
+    expect(MESSAGES.ko.admin_platform_popup_preview_phone).toBe("휴대폰");
+    expect(MESSAGES.ko.admin_platform_popup_preview_tablet_portrait).toContain("태블릿");
     expect(preview).not.toContain('"landscape"');
     expect(preview).toContain("PLATFORM_POPUP_TABLET_MAX_WIDTH_PX");
   });

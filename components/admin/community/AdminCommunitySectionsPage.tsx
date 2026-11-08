@@ -7,6 +7,7 @@ import Link from "next/link";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
@@ -58,6 +59,7 @@ export function AdminCommunitySectionsPage({
   /** 서버 조회 실패 코드 — 「등록된 섹션 없음」과 구분 */
   loadError?: string | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [sections, setSections] = useState(initial);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(
@@ -233,12 +235,12 @@ export function AdminCommunitySectionsPage({
     <div className="space-y-4">
       <AdminPageHeader
         backHref="/admin/community"
-        title="피드 섹션"
-        description="커뮤니티 피드를 나누는 큰 묶음(섹션)과 앱 동네 피드에 쓸 섹션을 정합니다."
+        title={t("admin_community_sections_title")}
+        description={t("admin_community_sections_desc")}
       />
       <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
 
-      <AdminCard title="앱 동네 피드에 쓸 섹션">
+      <AdminCard title={t("admin_community_sections_philife_card")}>
         <p className="mb-3 text-[13px] text-sam-muted">
           앱 동네 피드의 카테고리 칩·글쓰기 카테고리·모임 만들기는 여기서 고른 섹션의{" "}
           <Link href="/admin/community/topics" className="font-medium text-sam-info hover:underline">
@@ -248,13 +250,13 @@ export function AdminCommunitySectionsPage({
         </p>
         <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 text-[13px]">
           <label className="flex flex-col gap-1">
-            <span className="text-sam-muted">섹션</span>
+            <span className="text-sam-muted">{t("admin_community_sections_field_section")}</span>
             <select
               className={`${INPUT} min-w-[220px]`}
               value={activeMatch?.slug ?? philifeSectionSlug ?? ""}
               onChange={(e) => setPhilifeSectionSlug(e.target.value)}
             >
-              <option value="">— 사용 중인 섹션 선택 —</option>
+              <option value="">{t("admin_community_sections_select_active")}</option>
               {philifeSectionSlug && !activeMatch ? (
                 <option value={philifeSectionSlug}>{philifeSectionSlug} (사용 중지됨 — 다시 지정 필요)</option>
               ) : null}
@@ -268,23 +270,28 @@ export function AdminCommunitySectionsPage({
             </select>
           </label>
           <AdminActionButton type="submit" variant="secondary" disabled={busy || !philifeSectionSlug.trim()}>
-            설정 저장
+            {t("admin_community_sections_save_setting")}
           </AdminActionButton>
         </form>
       </AdminCard>
 
-      <AdminCard title="섹션 추가">
+      <AdminCard title={t("admin_community_sections_add")}>
         <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2 text-[13px]">
           <label className="flex flex-col gap-1">
-            <span className="text-sam-muted">이름</span>
-            <input className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="커뮤니티" />
+            <span className="text-sam-muted">{t("admin_community_sections_col_name")}</span>
+            <input
+              className={INPUT}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("admin_community_sections_name_placeholder")}
+            />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-sam-muted">주소용 이름 (영문, 비우면 이름으로 만듦)</span>
+            <span className="text-sam-muted">{t("admin_community_sections_slug_hint")}</span>
             <input className={INPUT} value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="dongnae" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-sam-muted">순서</span>
+            <span className="text-sam-muted">{t("admin_community_sections_col_order")}</span>
             <input type="number" className={`${INPUT} w-20`} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value) || 0)} />
           </label>
           <label className="flex items-center gap-1.5 pb-1.5">
@@ -292,28 +299,28 @@ export function AdminCommunitySectionsPage({
             사용
           </label>
           <AdminActionButton type="submit" variant="primary" disabled={busy || !name.trim()}>
-            섹션 추가
+            {t("admin_community_sections_add")}
           </AdminActionButton>
         </form>
       </AdminCard>
 
-      <AdminCard title="섹션 목록">
+      <AdminCard title={t("admin_community_sections_list")}>
         {loadErr ? (
           <div className="mb-3">
             <AdminErrorState ko code={loadErr.code} httpStatus={loadErr.status} onRetry={() => void refresh()} />
           </div>
         ) : null}
         {loadErr && sections.length === 0 ? null : sections.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">등록된 섹션이 없습니다. 위에서 섹션을 추가하세요.</p>
+          <p className="text-[13px] text-sam-muted">{t("admin_community_sections_empty")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-sam-border text-[12px] text-sam-muted">
-                  <th className="py-2 pr-2 font-medium">이름</th>
-                  <th className="py-2 pr-2 font-medium">주소용 이름</th>
-                  <th className="py-2 pr-2 font-medium">순서</th>
-                  <th className="py-2 pr-2 font-medium">사용</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_community_sections_col_name")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_community_sections_col_slug")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_community_sections_col_order")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_community_sections_col_active")}</th>
                   <th className="py-2 font-medium" />
                 </tr>
               </thead>

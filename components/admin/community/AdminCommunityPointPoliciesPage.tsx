@@ -105,11 +105,9 @@ export function AdminCommunityPointPoliciesPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
-      title: ko ? "정책 저장" : "Save policy",
-      description: ko
-        ? `「${label}」 포인트 정책을 저장합니다. 저장하면 이후 글·댓글 보상에 바로 적용됩니다.`
-        : `Save the "${label}" point policy. It applies to new rewards immediately.`,
-      confirmLabel: ko ? "정책 저장" : "Save policy",
+      title: t("admin_community_point_policy_save_title"),
+      description: t("admin_community_point_policy_save_desc", { label }),
+      confirmLabel: t("admin_community_point_policy_save_title"),
     });
     if (!c.ok) return false;
     const boardKey = String(values.boardKey ?? fallback?.boardKey ?? "general").toLowerCase();
@@ -138,16 +136,12 @@ export function AdminCommunityPointPoliciesPage() {
         setResult({ ok: false, code: json.error || (res.status === 403 ? "forbidden" : "save_failed") });
         return false;
       }
-      const saved = ko ? `「${label}」 정책을 저장했습니다.` : `Saved "${label}".`;
+      const saved = t("admin_community_point_policy_saved", { label });
       setResult({
         ok: true,
         message:
           json.audit_warning === "audit_failed"
-            ? `${saved} ${
-                ko
-                  ? "단, 작업 기록 저장에 실패했습니다. 시스템 관리자에게 알려 주세요."
-                  : "However, the activity log could not be saved. Tell a system admin."
-              }`
+            ? `${saved} ${t("admin_community_point_policy_audit_failed")}`
             : saved,
       });
       refreshAll();
@@ -189,14 +183,14 @@ export function AdminCommunityPointPoliciesPage() {
 
       {saving ? (
         <p role="status" className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-muted">
-          {ko ? "저장 중…" : "Saving…"}
+          {t("admin_community_point_policy_saving")}
         </p>
       ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       <p className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-muted">
-        {ko ? "지급·회수된 보상 내역은 포인트 내역 화면에서 확인합니다." : "Reward payouts and reclaims are in the point history screen."}
+        {t("admin_community_point_policy_history_note")}
         <AdminActionLink href="/admin/community/points?type=community_reward" variant="ghost">
-          {ko ? "포인트 내역 보기" : "Open point history"}
+          {t("admin_community_point_policy_open_history")}
         </AdminActionLink>
       </p>
 
@@ -215,7 +209,7 @@ export function AdminCommunityPointPoliciesPage() {
 
       {tab === "global" && (policiesLoaded || policies.length > 0) ? (
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2" role="group" aria-label={ko ? "편집할 정책" : "Policy to edit"}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("admin_community_point_policy_edit_group")}>
             <AdminChipButton selected={globalWhich === "global"} onClick={() => setGlobalWhich("global")}>
               {t("admin_community_point_global_title")}
             </AdminChipButton>

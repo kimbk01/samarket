@@ -119,9 +119,7 @@ function AdminInboxPageInner() {
       level: adminActionLevel("save"),
       ko,
       title: t("admin_inbox_mark_all_read"),
-      description: ko
-        ? `안 읽은 알림 ${formatAdminNumber(unread)}건을 읽음으로 표시합니다. 연결된 업무 상태는 바뀌지 않습니다.`
-        : `Marks ${formatAdminNumber(unread)} unread notifications as read. Linked work items do not change.`,
+      description: t("admin_inbox_marks_unread_notifications_as_read", { count: formatAdminNumber(unread) }),
       confirmLabel: t("admin_inbox_mark_all_read"),
     });
     if (!confirmed.ok) return;
@@ -200,9 +198,9 @@ function AdminInboxPageInner() {
           <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pl-3 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "알림" : "Notification"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "일시" : "Time"}</th>
+                <th className="py-2 pl-3 pr-2 font-medium">{t("admin_inbox_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_inbox_notification")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_inbox_time")}</th>
                 <th className="py-2 pr-3 font-medium">{t("admin_inbox_open_work")}</th>
               </tr>
             </thead>

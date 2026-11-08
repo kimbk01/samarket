@@ -3,6 +3,7 @@
 /**
  * 게시글 신고·조치 기록 (설계 §C-0-1 ② 관련 기록). 운영 기록 API 가 아직 없으면(404) 신고 처리함 링크만 보여 준다.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -45,6 +46,7 @@ export function CommunityPostRecordsTab({
   reportCount: number;
   reloadKey: number;
 }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<AuditRow[] | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [err, setErr] = useState<{ code: string; status: number } | null>(null);
@@ -85,13 +87,13 @@ export function CommunityPostRecordsTab({
           신고 처리함에서 보기
         </Link>
       </div>
-      <h3 className="text-[13px] font-semibold text-sam-fg">조치 기록</h3>
+      <h3 className="text-[13px] font-semibold text-sam-fg">{t("admin_community_postrec_title")}</h3>
       {state === "loading" ? <AdminLoadingState ko /> : null}
       {state === "error" && err ? (
         <AdminErrorState ko code={err.code} httpStatus={err.status} onRetry={() => setRetry((n) => n + 1)} />
       ) : null}
       {state === "unavailable" ? (
-        <p className="text-[13px] text-sam-muted">조치 기록을 지금은 불러올 수 없습니다. 아래 요약 카드의 마지막 조치를 확인하세요.</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_community_postrec_unavailable")}</p>
       ) : null}
       {state === "ready" && rows ? (
         <CommunityTimeline

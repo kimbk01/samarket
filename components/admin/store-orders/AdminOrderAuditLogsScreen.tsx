@@ -114,7 +114,7 @@ export function AdminOrderAuditLogsScreen() {
   const isFiltered = applied.category !== "all" || Boolean(applied.q) || applied.period !== "all";
 
   const catLabel = (c: AdminAuditFilterCategory) =>
-    c === "all" ? (ko ? "전체 (QA 제외)" : "All (no QA)") : ko ? ADMIN_AUDIT_CATEGORY_LABEL[c].ko : ADMIN_AUDIT_CATEGORY_LABEL[c].en;
+    c === "all" ? (t("admin_store_orders_all_no_qa")) : ko ? ADMIN_AUDIT_CATEGORY_LABEL[c].ko : ADMIN_AUDIT_CATEGORY_LABEL[c].en;
 
   return (
     <div className="space-y-4 p-4 md:p-6" data-admin-order-audit="1">
@@ -122,9 +122,7 @@ export function AdminOrderAuditLogsScreen() {
       <AdminPageHeader
         titleKey="admin_menu_delivery_logs"
         description={
-          ko
-            ? "매장 주문에 남은 처리 기록입니다. 기록 시각 기준(마닐라)이며 기록은 수정·삭제되지 않습니다. 주문번호를 누르면 주문 상세가 열립니다."
-            : "Records left on store orders, by record time (Manila). Records are never edited or deleted. Tap an order number to open its detail."
+          t("admin_store_orders_records_left_store_orders_record")
         }
       />
       <div className="flex justify-end">
@@ -135,7 +133,7 @@ export function AdminOrderAuditLogsScreen() {
 
       <AdminTabs
         tabs={ADMIN_AUDIT_FILTER_CATEGORIES.map((c) => ({ id: c, label: catLabel(c) }))}
-        ariaLabel={ko ? "구분" : "Category"}
+        ariaLabel={t("admin_store_orders_category")}
         value={applied.category}
         syncUrl={false}
         onChange={(c) => go({ category: c as (typeof ADMIN_AUDIT_FILTER_CATEGORIES)[number] })}
@@ -151,7 +149,7 @@ export function AdminOrderAuditLogsScreen() {
         onReset={onReset}
         pending={loading}
         showPeriod={false}
-        searchPlaceholder={ko ? "주문번호" : "Order number"}
+        searchPlaceholder={t("admin_store_orders_order_number")}
       >
         <OpsPeriodFilter
           period={applied.period}
@@ -188,9 +186,9 @@ export function AdminOrderAuditLogsScreen() {
       </section>
 
       <p className="sam-text-xxs text-sam-meta">
-        {ko ? "주문 외 전체 작업 기록은 " : "All other activity records: "}
+        {t("admin_store_orders_all_other_activity_records")}
         <Link href="/admin/audit-logs" className="text-signature underline">
-          {ko ? "관리자 작업 기록" : "Admin activity log"}
+          {t("admin_store_orders_admin_activity_log")}
         </Link>
       </p>
 

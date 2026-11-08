@@ -1,7 +1,7 @@
 /**
  * Confirm-dialog copy for admin notification campaign mutations (client-safe).
  * Every dialog re-shows 대상 수 · 채널 · 시각 before the action runs.
- * Display text comes from the i18n catalog (`admin_campaign_cms_confirm_*`); KO/EN tables below are the fallbacks.
+ * Display text comes from the i18n catalog (`admin_campaign_cms_confirm_*`) — 언어 SSOT B4: 대체 문구 표 제거.
  */
 
 import { safeTranslate } from "@/lib/i18n/safe-translate";
@@ -44,120 +44,29 @@ export type CampaignConfirmCopy = {
   tone: "primary" | "danger";
 };
 
-const KO: Record<CampaignConfirmAction, CampaignConfirmCopy> = {
-  send: {
-    title: "알림을 발송할까요?",
-    description: "아래 대상에게 지금 발송합니다. 발송이 시작되면 내용을 수정할 수 없고 복제만 가능합니다.",
-    confirmLabel: "발송",
-    tone: "danger",
-  },
-  schedule: {
-    title: "예약할까요?",
-    description: "지정한 시각에 자동 발송됩니다. 발송 전까지 수정·예약 취소가 가능합니다.",
-    confirmLabel: "예약",
-    tone: "primary",
-  },
-  cancel: {
-    title: "예약을 취소할까요?",
-    description: "예약된 발송이 「취소됨」으로 기록되며 다시 발송되지 않습니다. 필요하면 복제해서 새로 예약하세요.",
-    confirmLabel: "예약 취소",
-    tone: "danger",
-  },
-  cancel_occurrence: {
-    title: "이 회차를 취소할까요?",
-    description: "선택한 회차만 「취소됨」으로 기록됩니다. 반복 알림은 다음 회차부터 계속됩니다.",
-    confirmLabel: "회차 취소",
-    tone: "danger",
-  },
-  stop_sending: {
-    title: "발송을 중지할까요?",
-    description: "남은 대상에게는 더 이상 발송하지 않습니다. 이미 발송된 알림은 회수되지 않습니다.",
-    confirmLabel: "발송 중지",
-    tone: "danger",
-  },
-  pause: {
-    title: "반복 발송을 일시정지할까요?",
-    description: "재개할 때까지 다음 회차가 발송되지 않습니다. 진행 중인 회차는 끝까지 발송됩니다.",
-    confirmLabel: "일시정지",
-    tone: "primary",
-  },
-  resume: {
-    title: "반복 발송을 재개할까요?",
-    description: "일시정지 중 지난 회차는 건너뛰고 다음 회차부터 발송합니다.",
-    confirmLabel: "재개",
-    tone: "primary",
-  },
-  stop_recurring: {
-    title: "반복 발송을 종료할까요?",
-    description: "예약된 회차가 취소되고 이후 회차도 만들어지지 않습니다. 종료 후에는 되돌릴 수 없습니다.",
-    confirmLabel: "반복 중지",
-    tone: "danger",
-  },
-  resend: {
-    title: "실패한 회차를 재발송할까요?",
-    description: "실패한 회차를 같은 내용으로 다시 발송합니다. 이미 받은 회원에게는 중복 발송되지 않습니다.",
-    confirmLabel: "재발송",
-    tone: "danger",
-  },
-  archive: {
-    title: "보관할까요?",
-    description: "보관 탭으로 이동하고 다른 목록에서는 숨겨집니다. 보관 해제로 되돌릴 수 있습니다.",
-    confirmLabel: "보관",
-    tone: "primary",
-  },
-  unarchive: {
-    title: "보관을 해제할까요?",
-    description: "원래 상태의 목록 탭으로 돌아갑니다.",
-    confirmLabel: "보관 해제",
-    tone: "primary",
-  },
-  duplicate: {
-    title: "복제할까요?",
-    description: "같은 내용으로 새 「작성 중」 알림을 만듭니다. 대상·일정은 복제본에서 다시 확인하세요.",
-    confirmLabel: "복제",
-    tone: "primary",
-  },
-  save_edit: {
-    title: "변경 내용을 저장할까요?",
-    description: "예약된 발송에는 저장한 내용·대상·시각이 그대로 반영됩니다.",
-    confirmLabel: "저장",
-    tone: "primary",
-  },
-};
-
-const EN: Record<CampaignConfirmAction, CampaignConfirmCopy> = {
-  send: { title: "Send this notification?", description: "Sends now to the audience below. After sending it can only be duplicated.", confirmLabel: "Send", tone: "danger" },
-  schedule: { title: "Schedule?", description: "Sends automatically at the set time. You can edit or cancel until then.", confirmLabel: "Schedule", tone: "primary" },
-  cancel: { title: "Cancel the reservation?", description: "Recorded as Cancelled and never sent. Duplicate it to schedule again.", confirmLabel: "Cancel reservation", tone: "danger" },
-  cancel_occurrence: { title: "Cancel this occurrence?", description: "Only this occurrence is cancelled. The recurring series continues.", confirmLabel: "Cancel occurrence", tone: "danger" },
-  stop_sending: { title: "Stop sending?", description: "Remaining recipients will not receive it. Delivered notifications are not recalled.", confirmLabel: "Stop sending", tone: "danger" },
-  pause: { title: "Pause the recurring series?", description: "No new occurrence is sent until resumed. An in-flight occurrence finishes.", confirmLabel: "Pause", tone: "primary" },
-  resume: { title: "Resume the recurring series?", description: "Occurrences missed while paused are skipped.", confirmLabel: "Resume", tone: "primary" },
-  stop_recurring: { title: "End the recurring series?", description: "Queued occurrences are cancelled and no new ones are created. This cannot be undone.", confirmLabel: "Stop series", tone: "danger" },
-  resend: { title: "Resend the failed occurrence?", description: "Resends with the same content. Members who already received it are not sent again.", confirmLabel: "Resend", tone: "danger" },
-  archive: { title: "Archive?", description: "Moves to the Archived tab and hides it from other tabs.", confirmLabel: "Archive", tone: "primary" },
-  unarchive: { title: "Unarchive?", description: "Returns to its status tab.", confirmLabel: "Unarchive", tone: "primary" },
-  duplicate: { title: "Duplicate?", description: "Creates a new draft with the same content.", confirmLabel: "Duplicate", tone: "primary" },
-  save_edit: { title: "Save changes?", description: "A scheduled send uses the saved content, audience and time.", confirmLabel: "Save", tone: "primary" },
+/** 확인창 색 — 문구는 카탈로그 `admin_campaign_cms_confirm_{action}_{title|desc|confirm}` (13개 동작 × 3, 모두 있음). */
+const TONE: Record<CampaignConfirmAction, CampaignConfirmCopy["tone"]> = {
+  send: "danger",
+  schedule: "primary",
+  cancel: "danger",
+  cancel_occurrence: "danger",
+  stop_sending: "danger",
+  pause: "primary",
+  resume: "primary",
+  stop_recurring: "danger",
+  resend: "danger",
+  archive: "primary",
+  unarchive: "primary",
+  duplicate: "primary",
+  save_edit: "primary",
 };
 
 export function campaignConfirmCopy(action: CampaignConfirmAction, lang: "ko" | "en" = "ko"): CampaignConfirmCopy {
-  const ko = KO[action];
-  const en = EN[action];
   return {
-    title: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_title`, {
-      fallbackKo: ko.title,
-      fallbackEn: en.title,
-    }),
-    description: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_desc`, {
-      fallbackKo: ko.description,
-      fallbackEn: en.description,
-    }),
-    confirmLabel: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_confirm`, {
-      fallbackKo: ko.confirmLabel,
-      fallbackEn: en.confirmLabel,
-    }),
-    tone: (lang === "en" ? en : ko).tone,
+    title: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_title`),
+    description: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_desc`),
+    confirmLabel: safeTranslate(lang, `admin_campaign_cms_confirm_${action}_confirm`),
+    tone: TONE[action],
   };
 }
 

@@ -6,6 +6,7 @@
  * 행 = 거래글이 있는 시·군 (지역 카탈로그 `trade_national_lgu` 범위) — DB 집계 RPC(`admin_trade_region_stats`)가
  * 기간 내 거래글 전체를 지역별로 모아 정렬·페이지(20/50/100)까지 한다 (고정 건수 상한 없음).
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import {
   COMMUNITY_TD,
@@ -37,6 +38,7 @@ type RegionsResponse = { ok?: boolean; error?: string; total?: number; post_tota
 const num = (v: number | null | undefined) => formatAdminNumber(v);
 
 export function TradeRegionsPage() {
+  const { t } = useI18n();
   const q = useCommunityListQuery();
   const params = q.apiParams({ period: true });
   const { state, reload } = useCommunityAdminJson<RegionsResponse>(`/api/admin/trade/regions?${params.toString()}`);
@@ -47,12 +49,12 @@ export function TradeRegionsPage() {
 
   return (
     <CommunityListShell
-      title="지역 현황"
+      title={t("admin_trade_regions_title")}
       description="시·군별 거래글 현황입니다. 지역을 누르면 그 지역 거래글 목록으로 이동합니다."
       filterBar={<CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"} />}
       footer={
         <>
-          {hasUnknown ? <p className="px-1 text-[12px] text-sam-muted">「지역 확인 불가」는 주소 정보가 없는 글입니다.</p> : null}
+          {hasUnknown ? <p className="px-1 text-[12px] text-sam-muted">{t("admin_trade_regions_unknown_note")}</p> : null}
           <CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />
         </>
       }

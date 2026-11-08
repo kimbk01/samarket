@@ -43,7 +43,6 @@ export const MEMBER_LIST_PAGE_DESCRIPTION_KO =
 
 export const MEMBER_LIST_EMPTY_KO = "조건에 맞는 회원이 없습니다.";
 export const MEMBER_LIST_SEARCH_EMPTY_KO = "검색 결과가 없습니다";
-export const MEMBER_LIST_ERROR_KO = "목록을 불러오지 못했습니다";
 export const MEMBER_LIST_STORE_NONE_KO = "매장 없음";
 export const MEMBER_LIST_DETAIL_ACTION_KO = "상세";
 export const MEMBER_LIST_DELETION_REQUESTS_KO = "삭제 요청";

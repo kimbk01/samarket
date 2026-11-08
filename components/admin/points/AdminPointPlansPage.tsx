@@ -46,7 +46,7 @@ const EMPTY_FORM: PlanForm = {
 };
 
 export function AdminPointPlansPage() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const action = useAdminRouteAction("/admin/point-plans");
   const [plans, setPlans] = useState<PointPlan[]>([]);
@@ -116,10 +116,10 @@ export function AdminPointPlansPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: creating ? (ko ? "포인트 플랜 등록" : "Create point plan") : ko ? "포인트 플랜 저장" : "Save point plan",
-      description: ko
-        ? `「${form.nameKo || form.nameEn}」 플랜을 저장합니다. 충전 화면에 바로 반영됩니다.`
-        : `Save the "${form.nameEn || form.nameKo}" plan. It applies to the charge screen right away.`,
+      title: creating ? t("admin_points_create_point_plan") : t("admin_points_save_point_plan"),
+      description: t("admin_points_save_plan_confirm", {
+        name: ko ? form.nameKo || form.nameEn : form.nameEn || form.nameKo,
+      }),
       confirmLabel: creating ? adminCta("create", ko) : adminCta("save", ko),
     });
     if (!c.ok) return;
@@ -157,7 +157,7 @@ export function AdminPointPlansPage() {
         return;
       }
       cancelForm();
-      setResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setResult({ ok: true, message: t("admin_saved") });
       await load();
     } catch {
       setResult({ ok: false, code: "network_error" });
@@ -171,11 +171,9 @@ export function AdminPointPlansPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("disable"),
       ko,
-      title: ko ? "포인트 플랜 비활성" : "Deactivate point plan",
-      description: ko
-        ? `「${plan.name}」 플랜을 비활성으로 바꿉니다. 충전 화면에서 더 이상 보이지 않습니다.`
-        : `Deactivate the "${plan.name}" plan. It will no longer appear on the charge screen.`,
-      confirmLabel: ko ? "비활성" : "Deactivate",
+      title: t("admin_points_deactivate_point_plan"),
+      description: t("admin_points_deactivate_plan_it_will_no_longer", { name: plan.name }),
+      confirmLabel: t("admin_points_plans_deactivate"),
     });
     if (!c.ok) return;
     setBusy(true);
@@ -192,7 +190,7 @@ export function AdminPointPlansPage() {
         setResult({ ok: false, code: json.error ?? "update_failed" });
         return;
       }
-      setResult({ ok: true, message: ko ? "비활성으로 바꿨습니다." : "Deactivated." });
+      setResult({ ok: true, message: t("admin_points_deactivated") });
       await load();
     } catch {
       setResult({ ok: false, code: "network_error" });
@@ -211,12 +209,12 @@ export function AdminPointPlansPage() {
           disabled={!action.allowed}
           onClick={startCreate}
         >
-          {ko ? "플랜 등록" : "Create plan"}
+          {t("admin_points_create_plan")}
         </AdminActionButton>
       </div>
       {!action.allowed && action.reason ? (
         <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `등록·수정 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_points_actions_disabled_4", { reason: action.reason })}
         </p>
       ) : null}
       {result ? <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} /> : null}
@@ -412,7 +410,7 @@ export function AdminPointPlansPage() {
                           disabled={busy || !action.allowed}
                           onClick={() => void deactivate(plan)}
                         >
-                          {ko ? "비활성" : "Deactivate"}
+                          {t("admin_points_plans_deactivate")}
                         </AdminActionButton>
                       ) : null}
                     </div>

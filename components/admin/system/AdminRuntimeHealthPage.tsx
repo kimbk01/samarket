@@ -127,11 +127,11 @@ export function AdminRuntimeHealthPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("runtimeSettingChange"),
       ko,
-      title: ko ? `${label}을(를) ${next ? "켤까요" : "끌까요"}?` : `Turn ${next ? "on" : "off"} ${label}?`,
-      description: ko
-        ? `${SETTING_LABELS[key].descKo} 전체 서비스에 즉시 적용됩니다.`
-        : `${SETTING_LABELS[key].descEn} Applies to the whole service immediately.`,
-      confirmLabel: next ? (ko ? "켜기" : "Turn on") : ko ? "끄기" : "Turn off",
+      title: next ? t("admin_system_setting_turn_on_confirm", { label }) : t("admin_system_setting_turn_off_confirm", { label }),
+      description: t("admin_system_setting_applies_immediately", {
+        desc: ko ? SETTING_LABELS[key].descKo : SETTING_LABELS[key].descEn,
+      }),
+      confirmLabel: next ? t("admin_system_turn_on") : t("admin_system_turn_off"),
       destructive: !next,
     });
     if (!c.ok) return;
@@ -152,7 +152,7 @@ export function AdminRuntimeHealthPage() {
       setData((prev) => ({ ...(prev ?? {}), ...j, ok: true }));
       setResult({
         ok: true,
-        message: ko ? `${label}: ${next ? "켜짐" : "꺼짐"}으로 저장했습니다.` : `${label} saved as ${next ? "on" : "off"}.`,
+        message: next ? t("admin_system_setting_saved_on", { label }) : t("admin_system_setting_saved_off", { label }),
       });
     } catch {
       setResult({ ok: false, code: "network_error" });
@@ -163,11 +163,9 @@ export function AdminRuntimeHealthPage() {
 
   const pgLine = caps?.pg_version
     ? `${caps.pg_version}${caps.pg_version_num ? ` (${caps.pg_version_num})` : ""}`
-    : ko
-      ? "확인 불가"
-      : "unknown";
-  const yesNo = (v: boolean) => (v ? (ko ? "지원" : "supported") : ko ? "미지원" : "no");
-  const onOff = (v: boolean) => (v ? (ko ? "켜짐" : "on") : ko ? "꺼짐" : "off");
+    : t("admin_system_unknown");
+  const yesNo = (v: boolean) => (v ? t("admin_system_supported") : t("admin_system_no"));
+  const onOff = (v: boolean) => (v ? t("admin_system_on") : t("admin_system_off"));
 
   return (
     <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-8`}>
@@ -182,16 +180,16 @@ export function AdminRuntimeHealthPage() {
       </div>
       {!action.allowed && action.reason ? (
         <p className="mt-2 sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `켜기·끄기 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_system_actions_disabled", { reason: action.reason })}
         </p>
       ) : null}
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="text-sm text-sam-muted">{ko ? "데이터베이스 버전" : "Database version"}</div>
+        <div className="text-sm text-sam-muted">{t("admin_system_database_version")}</div>
         <div className="mt-1 text-sam-fg font-medium">{pgLine}</div>
         {caps?.checked_at ? (
           <div className="mt-2 text-xs text-sam-muted">
-            {ko ? "확인 시각" : "Checked at"}: {formatAdminManilaDateTime(caps.checked_at)}
+            {t("admin_system_checked_at")}: {formatAdminManilaDateTime(caps.checked_at)}
           </div>
         ) : null}
       </div>
@@ -226,30 +224,30 @@ export function AdminRuntimeHealthPage() {
       ) : null}
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="font-medium text-sam-fg">{ko ? "데이터베이스 지원 기능" : "Capabilities"}</div>
+        <div className="font-medium text-sam-fg">{t("admin_system_capabilities")}</div>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-sam-muted">{ko ? "예약 작업" : "pg_cron"}</span>{" "}
+            <span className="text-sam-muted">{t("admin_system_pg_cron")}</span>{" "}
             <span className="font-medium text-sam-fg">{yesNo(toBool(caps?.supports_pg_cron))}</span>
           </div>
           <div>
-            <span className="text-sam-muted">{ko ? "실시간 열 필터" : "publication column filter"}</span>{" "}
+            <span className="text-sam-muted">{t("admin_system_publication_column_filter")}</span>{" "}
             <span className="font-medium text-sam-fg">
               {yesNo(toBool(caps?.supports_publication_column_filter))}
             </span>
           </div>
           <div>
-            <span className="text-sam-muted">{ko ? "고급 함수" : "advanced rpc"}</span>{" "}
+            <span className="text-sam-muted">{t("admin_system_advanced_rpc")}</span>{" "}
             <span className="font-medium text-sam-fg">{yesNo(toBool(caps?.supports_advanced_rpc))}</span>
           </div>
           <div>
-            <span className="text-sam-muted">{ko ? "중복 실행 잠금" : "advisory lock"}</span>{" "}
+            <span className="text-sam-muted">{t("admin_system_advisory_lock")}</span>{" "}
             <span className="font-medium text-sam-fg">
               {yesNo(toBool(caps?.supports_advisory_lock))}
             </span>
           </div>
           <div>
-            <span className="text-sam-muted">{ko ? "실시간 최적화" : "realtime optimization"}</span>{" "}
+            <span className="text-sam-muted">{t("admin_system_realtime_optimization")}</span>{" "}
             <span className="font-medium text-sam-fg">
               {yesNo(toBool(caps?.supports_realtime_optimization))}
             </span>
@@ -258,7 +256,7 @@ export function AdminRuntimeHealthPage() {
       </div>
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="font-medium text-sam-fg">{ko ? "런타임 설정 (설정값 → 실제 적용)" : "Runtime settings (desired → effective)"}</div>
+        <div className="font-medium text-sam-fg">{t("admin_system_runtime_settings_desired_effective")}</div>
         <div className="mt-3 space-y-2">
           {rows.map((r) => (
             <div key={r.key} className="flex items-center justify-between gap-3">
@@ -268,8 +266,8 @@ export function AdminRuntimeHealthPage() {
                 </div>
                 <div className="text-xs text-sam-muted">{ko ? SETTING_LABELS[r.key].descKo : SETTING_LABELS[r.key].descEn}</div>
                 <div className="text-xs text-sam-muted">
-                  {ko ? "설정값" : "Desired"}: {onOff(r.desired)} · {ko ? "실제 적용" : "Effective"}: {onOff(r.effective)}
-                  {r.mismatch ? (ko ? " · 지원되지 않아 꺼진 상태로 동작" : " · fallback (unsupported)") : ""}
+                  {t("admin_system_desired")}: {onOff(r.desired)} · {t("admin_system_effective")}: {onOff(r.effective)}
+                  {r.mismatch ? t("admin_system_fallback_unsupported") : ""}
                 </div>
                 <AdminTechDetails ko={ko}>{r.key}</AdminTechDetails>
               </div>
@@ -291,7 +289,7 @@ export function AdminRuntimeHealthPage() {
                   disabled={busy || !r.desired || !action.allowed}
                   onClick={() => void patchSetting(r.key, false)}
                 >
-                  {ko ? "끄기" : "OFF"}
+                  {t("admin_system_off_2")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="secondary"
@@ -299,7 +297,7 @@ export function AdminRuntimeHealthPage() {
                   disabled={busy || r.desired || !action.allowed}
                   onClick={() => void patchSetting(r.key, true)}
                 >
-                  {ko ? "켜기" : "ON"}
+                  {t("admin_system_on_2")}
                 </AdminActionButton>
               </div>
               )}

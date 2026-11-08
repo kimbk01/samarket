@@ -107,8 +107,6 @@ type OwnerStatusKind =
 type BoardRow = {
   id: string;
   taskKey: MessageKey;
-  taskFallbackKo: string;
-  taskFallbackEn: string;
   kind: OwnerStatusKind;
   checkedAt: string | null;
   done: string;
@@ -214,91 +212,62 @@ export default function AdminSystemDeployPage() {
 
   const labelStatus = useCallback(
     (kind: OwnerStatusKind) => {
-      const map: Record<OwnerStatusKind, { ko: string; en: string; key: string }> = {
+      const map: Record<OwnerStatusKind, { key: MessageKey }> = {
         done: {
           key: "admin_deploy_status_done",
-          ko: "완료",
-          en: "Done",
         },
         running: {
           key: "admin_deploy_status_running",
-          ko: "진행 중",
-          en: "In progress",
         },
         waiting: {
           key: "admin_deploy_status_waiting",
-          ko: "확인 대기",
-          en: "Awaiting review",
         },
         incomplete: {
           key: "admin_deploy_status_incomplete",
-          ko: "미완료",
-          en: "Incomplete",
         },
         failed: {
           key: "admin_deploy_status_failed",
-          ko: "실패",
-          en: "Failed",
         },
         blocked: {
           key: "admin_deploy_status_blocked",
-          ko: "실행 차단",
-          en: "Blocked",
         },
       };
-      const m = map[kind];
-      return safeT(m.key as MessageKey, { fallbackKo: m.ko, fallbackEn: m.en });
+      return safeT(map[kind].key);
     },
     [safeT]
   );
 
   const gateLabel = useCallback(
     (gateId: string) => {
-      const fallbacks: Record<string, { key: MessageKey; ko: string; en: string }> = {
+      const gateKeys: Record<string, { key: MessageKey }> = {
         runtime_isolation: {
           key: "admin_deploy_gate_runtime_isolation",
-          ko: "테스트·운영 데이터 분리",
-          en: "TEST / production data isolation",
         },
         auth_login_profile: {
           key: "admin_deploy_gate_auth_login_profile",
-          ko: "로그인·프로필",
-          en: "Login & profile",
         },
         test_allowlist_enforced: {
           key: "admin_deploy_gate_test_allowlist_enforced",
-          ko: "테스트 접근 허용 목록",
-          en: "TEST allowlist",
         },
         messenger_rooms_read: {
           key: "admin_deploy_gate_messenger_rooms_read",
-          ko: "메신저 방 목록",
-          en: "Messenger room list",
         },
         messenger_send_receive: {
           key: "admin_deploy_gate_messenger_send_receive",
-          ko: "메신저 주고받기",
-          en: "Messenger send/receive",
         },
         community_trade_write: {
           key: "admin_deploy_gate_community_trade_write",
-          ko: "커뮤니티·거래 작성",
-          en: "Community / trade write",
         },
         delivery_order_crud: {
           key: "admin_deploy_gate_delivery_order_crud",
-          ko: "배달 주문",
-          en: "Delivery orders",
         },
         call_push_sms: {
           key: "admin_deploy_gate_call_push_sms",
-          ko: "통화·알림·문자",
-          en: "Call / push / SMS",
         },
       };
-      const fb = fallbacks[gateId];
-      if (!fb) return gateId;
-      return safeT(fb.key, { fallbackKo: fb.ko, fallbackEn: fb.en });
+      const gate = gateKeys[gateId];
+      if (!gate) return gateId;
+      return safeT(gate.key);
     },
     [safeT]
   );
@@ -318,31 +287,23 @@ export default function AdminSystemDeployPage() {
 
   const stageLabel = useCallback(
     (id: string) => {
-      const map: Record<string, { key: string; ko: string; en: string }> = {
+      const map: Record<string, { key: MessageKey }> = {
         A_github_main: {
           key: "admin_deploy_stage_a",
-          ko: "버전 준비",
-          en: "Version ready",
         },
         B_vercel_ready: {
           key: "admin_deploy_stage_b",
-          ko: "배포 완료",
-          en: "Deploy finished",
         },
         C_domain_aliased: {
           key: "admin_deploy_stage_c",
-          ko: "운영 연결",
-          en: "Production linked",
         },
         D_prod_smoke: {
           key: "admin_deploy_stage_d",
-          ko: "정상 작동 확인",
-          en: "Smoke OK",
         },
       };
       const m = map[id];
       if (!m) return id;
-      return safeT(m.key as MessageKey, { fallbackKo: m.ko, fallbackEn: m.en });
+      return safeT(m.key);
     },
     [safeT]
   );
@@ -401,8 +362,6 @@ export default function AdminSystemDeployPage() {
       {
         id: "gates",
         taskKey: "admin_deploy_task_gates",
-        taskFallbackKo: "필수 점검",
-        taskFallbackEn: "Required checks",
         kind: gatesKind,
         checkedAt: lastGateAt,
         done: `${requiredPass.length}/${required.length || 3}`,
@@ -423,8 +382,6 @@ export default function AdminSystemDeployPage() {
       {
         id: "verify",
         taskKey: "admin_deploy_task_verify",
-        taskFallbackKo: "검증 완료 표시",
-        taskFallbackEn: "Mark verified",
         kind: verifyKind,
         checkedAt: rec?.verifiedAt ?? rec?.cancelledAt ?? null,
         done: verified ? formatAt(rec?.verifiedAt) : "—",
@@ -443,8 +400,6 @@ export default function AdminSystemDeployPage() {
       {
         id: "pipeline",
         taskKey: "admin_deploy_task_pipeline",
-        taskFallbackKo: "배포 준비 단계",
-        taskFallbackEn: "Deploy readiness steps",
         kind: pipelineKind,
         checkedAt: rec?.updatedAt ?? null,
         done: `${stagePass}/4`,
@@ -460,8 +415,6 @@ export default function AdminSystemDeployPage() {
       {
         id: "promote",
         taskKey: "admin_deploy_task_promote",
-        taskFallbackKo: "실제 운영에 적용",
-        taskFallbackEn: "Apply to production",
         kind: promoteKind,
         checkedAt: rec?.promotedAt ?? null,
         done: rec?.promotedAt ? formatAt(rec.promotedAt) : "—",
@@ -484,8 +437,6 @@ export default function AdminSystemDeployPage() {
       {
         id: "rollback",
         taskKey: "admin_deploy_task_rollback",
-        taskFallbackKo: "이전 정상 버전으로 복구",
-        taskFallbackEn: "Rollback to last good",
         kind: rollbackKind,
         checkedAt: null,
         done: "—",
@@ -699,74 +650,43 @@ export default function AdminSystemDeployPage() {
       ConfirmKind,
       {
         actionKey: MessageKey;
-        actionKo: string;
-        actionEn: string;
         bodyKey: MessageKey;
-        bodyKo: string;
-        bodyEn: string;
         target: "test" | "prod";
       }
     > = {
       gates: {
         actionKey: "admin_deploy_run_gates",
-        actionKo: "필수 점검 실행",
-        actionEn: "Run required checks",
         bodyKey: "admin_deploy_confirm_gates",
-        bodyKo: "필수 점검을 서버에서 다시 실행합니다. 테스트 환경 기록만 갱신됩니다.",
-        bodyEn: "Re-run required checks on the server. Only TEST records update.",
         target: "test",
       },
       verify: {
         actionKey: "admin_deploy_mark_verified",
-        actionKo: "검증 완료",
-        actionEn: "Mark verified",
         bodyKey: "admin_deploy_confirm_verify",
-        bodyKo: "필수 점검이 완료된 것을 확인하고, 이 버전을 검증 완료로 표시합니다.",
-        bodyEn: "Confirm required checks passed and mark this version verified.",
         target: "test",
       },
       cancel: {
         actionKey: "admin_deploy_cancel_verified",
-        actionKo: "검증 취소",
-        actionEn: "Cancel verified",
         bodyKey: "admin_deploy_confirm_cancel",
-        bodyKo: "검증 완료 표시를 취소합니다. 실제 운영에는 영향이 없습니다.",
-        bodyEn: "Clear verified mark. Production is not affected.",
         target: "test",
       },
       mock: {
         actionKey: "admin_deploy_mock_pipeline",
-        actionKo: "모의 배포 실행",
-        actionEn: "Run mock deploy",
         bodyKey: "admin_deploy_confirm_mock",
-        bodyKo:
-          "테스트 환경에서만 배포 준비 단계를 모의로 표시합니다. 실제 운영·main은 변경되지 않습니다.",
-        bodyEn: "Mock readiness steps on TEST only. Production and main are unchanged.",
         target: "test",
       },
       promote: {
         actionKey: "admin_deploy_apply_cta",
-        actionKo: "실제 운영에 적용",
-        actionEn: "Apply to production",
         bodyKey: "admin_deploy_confirm_promote",
-        bodyKo:
-          "이 버전을 실제 운영(main)에 적용하려고 합니다. 현재는 실행이 차단되어 실패할 수 있습니다.",
-        bodyEn: "Try applying this version to production (main). Currently blocked — may fail.",
         target: "prod",
       },
       rollback: {
         actionKey: "admin_deploy_rollback",
-        actionKo: "이전 정상 버전으로 복구",
-        actionEn: "Rollback to last good",
         bodyKey: "admin_deploy_confirm_rollback",
-        bodyKo:
-          "실제 운영을 이전 정상 버전으로 되돌리려고 합니다. 현재는 실행이 차단되어 실패할 수 있습니다.",
-        bodyEn: "Try rolling production back. Currently blocked — may fail.",
         target: "prod",
       },
     };
     const meta = actionMap[kind];
-    const actionLabel = safeT(meta.actionKey, { fallbackKo: meta.actionKo, fallbackEn: meta.actionEn });
+    const actionLabel = safeT(meta.actionKey);
     const targetLabel =
       meta.target === "test"
         ? safeT("admin_deploy_confirm_target_test")
@@ -783,10 +703,7 @@ export default function AdminSystemDeployPage() {
         `${safeT("admin_deploy_confirm_action")}: ${actionLabel}`,
         `${safeT("admin_deploy_confirm_target")}: ${targetLabel}`,
         `${safeT("admin_deploy_confirm_version")}: ${runtimeSha ?? "—"}`,
-        `${safeT("admin_deploy_confirm_risk")}: ${safeT(meta.bodyKey, {
-          fallbackKo: meta.bodyKo,
-          fallbackEn: meta.bodyEn,
-        })} ${riskLabel}`,
+        `${safeT("admin_deploy_confirm_risk")}: ${safeT(meta.bodyKey)} ${riskLabel}`,
       ].join("\n"),
       confirmLabel: actionLabel,
       destructive: meta.target === "prod",
@@ -1022,10 +939,7 @@ export default function AdminSystemDeployPage() {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-medium text-sam-fg">
-                  {safeT(row.taskKey, {
-                    fallbackKo: row.taskFallbackKo,
-                    fallbackEn: row.taskFallbackEn,
-                  })}
+                  {safeT(row.taskKey)}
                 </span>
                 <span className={`text-xs font-semibold ${statusColor(row.kind)}`}>
                   {labelStatus(row.kind)}

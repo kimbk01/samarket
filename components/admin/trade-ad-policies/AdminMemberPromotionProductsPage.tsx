@@ -116,7 +116,7 @@ export function AdminMemberPromotionProductsPage() {
       return;
     }
     const fmt = (c: number, days: number, on: boolean) =>
-      `${formatAdminNumber(c)}P · ${days}${ko ? "일" : "d"}${on ? "" : ` · ${t("admin_boost_prices_off")}`}`;
+      `${formatAdminNumber(c)}P · ${days}${t("admin_d")}${on ? "" : ` · ${t("admin_boost_prices_off")}`}`;
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
@@ -165,7 +165,7 @@ export function AdminMemberPromotionProductsPage() {
 
   const productById = new Map((snap?.products ?? []).map((p) => [p.id, p]));
   const changeText = (v: Record<string, unknown>) =>
-    `${formatAdminNumber(v.point_cost as number)}P · ${String(v.duration_days ?? "—")}${ko ? "일" : "d"} · ${
+    `${formatAdminNumber(v.point_cost as number)}P · ${String(v.duration_days ?? "—")}${t("admin_d")} · ${
       v.is_active === false ? t("admin_boost_prices_off") : t("admin_boost_prices_on")
     }`;
 

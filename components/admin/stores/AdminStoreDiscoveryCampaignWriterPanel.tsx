@@ -17,6 +17,7 @@ import {
   adminManilaInputToIso,
 } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { isAdminConflictErrorCode } from "@/lib/admin/concurrency/admin-expected-updated-at";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function fmtDateTime(iso: string): string {
   const ms = Date.parse(iso);
@@ -216,11 +217,9 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
     const c = await confirmAdminAction({
       level: adminActionLevel("sanction"),
       ko,
-      title: ko ? `캠페인을 비활성화할까요? — ${row.title}` : `Deactivate campaign? — ${row.title}`,
-      description: ko
-        ? "비활성화하면 고객 화면에서 이 캠페인 노출이 바로 중단됩니다."
-        : "The campaign stops showing to customers immediately.",
-      confirmLabel: ko ? "비활성화" : "Deactivate",
+      title: translateBy(ko ? "ko" : "en", "admin_stores_deactivate_campaign", { title: row.title }),
+      description: translateBy(ko ? "ko" : "en", "admin_stores_campaign_stops_showing_to_customers_immediately"),
+      confirmLabel: translateBy(ko ? "ko" : "en", "admin_stores_deactivate"),
       destructive: true,
     });
     if (!c.ok) return;
@@ -285,14 +284,14 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         </select>
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {ko ? "노출 여부" : "Visibility"}
+        {translateBy(ko ? "ko" : "en", "admin_stores_visibility")}
         <select
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
           value={form.isActive ? "true" : "false"}
           onChange={(e) => setForm({ ...form, isActive: e.target.value === "true" })}
         >
-          <option value="true">{ko ? "노출함" : "Visible"}</option>
-          <option value="false">{ko ? "노출 안 함" : "Hidden"}</option>
+          <option value="true">{translateBy(ko ? "ko" : "en", "admin_stores_visible")}</option>
+          <option value="false">{translateBy(ko ? "ko" : "en", "admin_stores_hidden")}</option>
         </select>
       </label>
       <label className="block text-[12px] text-sam-muted sm:col-span-2">
@@ -312,7 +311,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         />
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {ko ? "시작 일시 (필리핀 시간)" : "Start (PHT)"}
+        {translateBy(ko ? "ko" : "en", "admin_stores_start_pht")}
         <input
           type="datetime-local"
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
@@ -321,7 +320,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         />
       </label>
       <label className="block text-[12px] text-sam-muted">
-        {ko ? "종료 일시 (필리핀 시간)" : "End (PHT)"}
+        {translateBy(ko ? "ko" : "en", "admin_stores_end_pht")}
         <input
           type="datetime-local"
           className="mt-1 block w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
@@ -363,7 +362,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
         <AdminLoadingState ko={ko} label={t("admin_store_discovery_campaigns_loading")} />
       ) : campaigns.length === 0 ? (
         error ? null : (
-          <AdminEmptyState ko={ko} message={ko ? "등록된 캠페인이 없습니다." : t("admin_store_discovery_campaigns_empty")} />
+          <AdminEmptyState ko={ko} message={t("admin_stores_no_campaigns")} />
         )
       ) : (
         <div className="overflow-x-auto">
@@ -375,7 +374,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_title")}</th>
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_start")}</th>
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_end")}</th>
-                <th className="px-2 py-1 font-medium">{ko ? "노출 여부" : "Visibility"}</th>
+                <th className="px-2 py-1 font-medium">{translateBy(ko ? "ko" : "en", "admin_stores_visibility")}</th>
                 <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_state")}</th>
                 <th className="px-2 py-1 font-medium" />
               </tr>
@@ -392,7 +391,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
                     <td className="px-2 py-1.5">{c.title}</td>
                     <td className="whitespace-nowrap px-2 py-1.5">{fmtDateTime(c.start_at)}</td>
                     <td className="whitespace-nowrap px-2 py-1.5">{fmtDateTime(c.end_at)}</td>
-                    <td className="px-2 py-1.5">{c.is_active ? (ko ? "노출함" : "Visible") : ko ? "노출 안 함" : "Hidden"}</td>
+                    <td className="px-2 py-1.5">{c.is_active ? translateBy(ko ? "ko" : "en", "admin_stores_visible") : translateBy(ko ? "ko" : "en", "admin_stores_hidden")}</td>
                     <td className="px-2 py-1.5">{stateLabel(c.computed_state)}</td>
                     <td className="whitespace-nowrap px-2 py-1.5">
                       <div className="flex flex-wrap gap-1">

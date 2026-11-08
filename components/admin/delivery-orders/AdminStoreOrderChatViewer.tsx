@@ -282,7 +282,7 @@ export function AdminStoreOrderChatViewer({ orderId }: { orderId: string }) {
                         <AdminCmMessageBody display={m.display} fallbackText={m.content} />
                       )}
                       {m.senderRole !== "system" ? (
-                        <AdminActionButton variant="quiet" size="sm" className="mt-1"
+                        <AdminActionButton variant="secondary"size="sm" className="mt-1"
                           disabled={sheet !== null}
                           onClick={() => setSheet({ kind: "message", message: m })}
                         >

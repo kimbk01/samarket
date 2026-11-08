@@ -6,6 +6,7 @@
  * URL: tab(탭 — 대시보드 딥링크) · q · sellerId · categoryId · tradeType · lguId · from/to(PHT) · (호환) period ·
  *      priceMin · priceMax · sort · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -158,6 +159,7 @@ function useTradeRegionOptions() {
 }
 
 export function TradePostsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const qs = useCommunityQueryState();
@@ -290,8 +292,8 @@ export function TradePostsPage() {
             inputMode="numeric"
             value={minDraft}
             onChange={(e) => setMinDraft(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="최소"
-            aria-label="최소 가격"
+            placeholder={t("admin_trade_posts_min")}
+            aria-label={t("admin_trade_posts_min_price")}
             className={`${FIELD} w-24`}
           />
           <span className="text-sam-muted">~</span>
@@ -299,8 +301,8 @@ export function TradePostsPage() {
             inputMode="numeric"
             value={maxDraft}
             onChange={(e) => setMaxDraft(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="최대"
-            aria-label="최대 가격"
+            placeholder={t("admin_trade_posts_max")}
+            aria-label={t("admin_trade_posts_max_price")}
             className={`${FIELD} w-24`}
           />
         </span>
@@ -345,7 +347,7 @@ export function TradePostsPage() {
             <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
               <input
                 type="checkbox"
-                aria-label="게시물 선택"
+                aria-label={t("admin_trade_posts_select_post")}
                 checked={selected.has(r.id)}
                 onChange={() => toggle(r.id)}
                 className="h-4 w-4"
@@ -364,7 +366,7 @@ export function TradePostsPage() {
               </Link>
               <span className="mt-0.5 flex flex-wrap items-center gap-1 text-sam-muted">
                 {formatTradePrice(r.price, r.is_free_share)}
-                {r.trade_type === "job" ? <AdminToneBadge tone="neutral">알바</AdminToneBadge> : null}
+                {r.trade_type === "job" ? <AdminToneBadge tone="neutral">{t("admin_trade_posts_job_badge")}</AdminToneBadge> : null}
               </span>
             </td>
             <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
@@ -374,7 +376,7 @@ export function TradePostsPage() {
             <td className={COMMUNITY_TD}>
               <span className="flex flex-wrap items-center gap-1">
                 {r.category_name ?? "—"}
-                {r.category_active === false ? <AdminToneBadge tone="neutral">비활성</AdminToneBadge> : null}
+                {r.category_active === false ? <AdminToneBadge tone="neutral">{t("admin_trade_posts_inactive_badge")}</AdminToneBadge> : null}
               </span>
             </td>
             <td className={COMMUNITY_TD}>
@@ -448,7 +450,7 @@ export function TradePostsPage() {
 
   return (
     <CommunityListShell
-      title="거래 게시물"
+      title={t("admin_trade_posts_title")}
       description="중고·알바 거래글의 판매 단계와 노출 상태를 확인하고 조치합니다."
       actions={
         <AdminActionButton variant="secondary" onClick={reload} disabled={loading}>

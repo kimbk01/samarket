@@ -13,28 +13,8 @@ type Props = {
 export function CommunityMessengerChatTypeBadge({ room, className = "" }: Props) {
   const { safeT } = useI18n();
   const badge = chatListRoomTypeBadge(room);
-  const label = safeT(badge.labelKey as MessageKey, {
-    fallbackKo:
-      badge.roomType === "direct_trade"
-        ? "거래"
-        : badge.roomType === "direct_delivery"
-          ? "배달"
-          : badge.roomType === "group_general"
-            ? "그룹"
-            : badge.roomType === "archived"
-              ? "보관"
-              : "일반",
-    fallbackEn:
-      badge.roomType === "direct_trade"
-        ? "Trade"
-        : badge.roomType === "direct_delivery"
-          ? "Delivery"
-          : badge.roomType === "group_general"
-            ? "Group"
-            : badge.roomType === "archived"
-              ? "Archive"
-              : "General",
-  });
+  /** B4: 배지 키는 `chatListRoomTypeBadge` 의 5개뿐이고 모두 카탈로그에 있다 — 대체 문구 없음 */
+  const label = safeT(badge.labelKey as MessageKey);
 
   return (
     <span

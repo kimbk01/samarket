@@ -1,4 +1,11 @@
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Store order audit log → operator wording (감사 로그 화면 · 주문 상세 처리 이력).
  * Every `store_order.*` action written in app/lib (24, test-locked) plus the action values found in production
@@ -87,14 +94,14 @@ export function describeStoreOrderAudit(
   const reason = strOrNull(after.reason) ?? strOrNull(after.rejected_reason) ?? strOrNull(after.cancel_reason);
 
   if (isQaAuditAction(action)) {
-    return { label: ko ? `QA 검증 기록 (${action})` : `QA record (${action})`, category: "qa", known: true, fromStatus, toStatus, reason };
+    return { label: tx(ko, "admin_store_orders_qa_record", { action: String(action) }), category: "qa", known: true, fromStatus, toStatus, reason };
   }
   const key = action.startsWith("store_order.") ? action.slice("store_order.".length) : action;
   const entry = STORE_ORDER_AUDIT_ACTION_LABEL[key];
   if (entry) return { label: ko ? entry.ko : entry.en, category: entry.category, known: true, fromStatus, toStatus, reason };
   // Unmapped actions are always 「기타」 (the actor is not guessed), so the logs page category
   // filter (`storeOrderAuditCategoryActions`) and this label agree.
-  return { label: ko ? `기타 기록 (${action})` : `Other (${action})`, category: "other", known: false, fromStatus, toStatus, reason };
+  return { label: tx(ko, "admin_store_orders_other", { action: String(action) }), category: "other", known: false, fromStatus, toStatus, reason };
 }
 
 /** Full `audit_logs.action` values per category (the logs page filters server-side with these). */

@@ -6,6 +6,7 @@
  */
 
 import type { ReactNode } from "react";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type AdminFilterSelectOption = { value: string; label: string };
 
@@ -40,7 +41,7 @@ export function AdminFilterSelect({
   const opts = options ?? [];
   const withAll = !includeAll || opts.some((o) => o.value === "")
     ? opts
-    : [{ value: "", label: allLabel ?? (ko ? "전체" : "All") }, ...opts];
+    : [{ value: "", label: allLabel ?? translateBy(ko ? "ko" : "en", "admin_all") }, ...opts];
   return (
     <label className={LABEL}>
       {label}

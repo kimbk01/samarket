@@ -18,7 +18,7 @@ import { DeliveryScreensBrowseTab } from "./DeliveryScreensBrowseTab";
 import { DeliveryScreensTaxonomyTab } from "./DeliveryScreensTaxonomyTab";
 
 export function AdminDeliveryScreensHub() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language === "ko";
   const searchParams = useSearchParams();
   const tabs = DELIVERY_SCREENS_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }));
@@ -28,19 +28,17 @@ export function AdminDeliveryScreensHub() {
     <AdminDeliveryCmsChrome>
       <div className="space-y-4" data-admin-delivery-screens-hub="1">
         <div>
-          <p className="text-[12px] text-sam-muted">{ko ? "배달 › 화면 구성" : "Delivery › Screens"}</p>
+          <p className="text-[12px] text-sam-muted">{t("admin_stores_delivery_screens")}</p>
           <AdminPageHeader
             titleKey="admin_menu_delivery_screens"
             description={
-              ko
-                ? "고객 앱에 보이는 순서대로 구역을 나열합니다. 광고 승인·결제·이력은 「광고」 메뉴에서 처리합니다."
-                : "Zones are listed in the order customers see them. Ad approval, billing and history stay in the Ads menu."
+              t("admin_stores_zones_are_listed_in_order_customers")
             }
           />
         </div>
         <AdminTabs
           tabs={tabs}
-          ariaLabel={ko ? "배달 화면 구성" : "Delivery screen layout"}
+          ariaLabel={t("admin_stores_delivery_screen_layout")}
           defaultValue="home"
           resetParams={["page", "primary", "tier", "sub"]}
         />

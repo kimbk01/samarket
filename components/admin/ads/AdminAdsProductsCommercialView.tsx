@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import {
   ADS_PRODUCTS_PLACEMENTS_HREF,
   type AdsCommercialControlModel,
@@ -36,31 +37,31 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
 
       <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-2">
         <div>
-          <dt className="text-[12px] text-sam-muted">{ko ? "신청/등록 주체" : "Applicant"}</dt>
+          <dt className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_applicant")}</dt>
           <dd className="font-medium text-sam-fg">{ko ? card.applicantKo : card.applicantEn}</dd>
         </div>
         <div>
-          <dt className="text-[12px] text-sam-muted">{ko ? "결제" : "Payment"}</dt>
+          <dt className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_payment")}</dt>
           <dd className="font-medium text-sam-fg">{ko ? card.paymentKo : card.paymentEn}</dd>
         </div>
         <div>
-          <dt className="text-[12px] text-sam-muted">{ko ? "승인" : "Approval"}</dt>
+          <dt className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_approval")}</dt>
           <dd className="font-medium text-sam-fg">{ko ? card.approvalKo : card.approvalEn}</dd>
         </div>
         <div>
-          <dt className="text-[12px] text-sam-muted">{ko ? "Admin 직접 등록" : "Admin Direct"}</dt>
+          <dt className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_admin_direct")}</dt>
           <dd className="font-medium text-sam-fg">
             {ko ? card.adminDirectKo : card.adminDirectEn}
           </dd>
         </div>
         <div>
-          <dt className="text-[12px] text-sam-muted">{ko ? "판매 상태" : "Sell status"}</dt>
+          <dt className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_sell_status")}</dt>
           <dd className="font-medium text-sam-fg" data-ads-sell-state={card.sellState}>
             {ko ? card.sellStateKo : card.sellStateEn}
           </dd>
         </div>
         <div>
-          <dt className="text-[12px] text-sam-muted">{ko ? "가격 authority" : "Price authority"}</dt>
+          <dt className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_price_authority")}</dt>
           <dd className="text-[12px] text-sam-muted">
             {ko ? card.priceAuthorityKo : card.priceAuthorityEn}
           </dd>
@@ -73,18 +74,14 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
               <p className="text-[12px] font-semibold text-sam-fg">
                 {card.productKey === "delivery_home_banner"
-                  ? ko
-                    ? "오너 신청"
-                    : "Owner apply"
-                  : ko
-                    ? "회원 신청"
-                    : "Member apply"}
+                  ? translateBy(ko ? "ko" : "en", "admin_ads_owner_apply")
+                  : translateBy(ko ? "ko" : "en", "admin_ads_member_apply")}
               </p>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {ko ? "결제" : "Payment"}: {ko ? card.memberPath.paymentKo : card.memberPath.paymentEn}
+                {translateBy(ko ? "ko" : "en", "admin_ads_payment")}: {ko ? card.memberPath.paymentKo : card.memberPath.paymentEn}
               </p>
               <p className="text-[12px] text-sam-muted">
-                {ko ? "승인" : "Approval"}:{" "}
+                {translateBy(ko ? "ko" : "en", "admin_ads_approval")}:{" "}
                 {ko ? card.memberPath.approvalKo : card.memberPath.approvalEn}
               </p>
             </div>
@@ -92,14 +89,14 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
           {card.adminDirectPath ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
               <p className="text-[12px] font-semibold text-sam-fg">
-                {ko ? "Admin 직접 등록" : "Admin Direct"}
+                {translateBy(ko ? "ko" : "en", "admin_ads_admin_direct")}
               </p>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {ko ? "결제" : "Payment"}:{" "}
+                {translateBy(ko ? "ko" : "en", "admin_ads_payment")}:{" "}
                 {ko ? card.adminDirectPath.paymentKo : card.adminDirectPath.paymentEn}
               </p>
               <p className="text-[12px] text-sam-muted">
-                {ko ? "승인" : "Approval"}:{" "}
+                {translateBy(ko ? "ko" : "en", "admin_ads_approval")}:{" "}
                 {ko ? card.adminDirectPath.approvalKo : card.adminDirectPath.approvalEn}
               </p>
             </div>
@@ -114,7 +111,7 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
       ) : null}
 
       <div className="mt-3">
-        <p className="text-[12px] font-semibold text-sam-muted">{ko ? "노출 위치" : "Placements"}</p>
+        <p className="text-[12px] font-semibold text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_placements")}</p>
         <ul className="mt-1 space-y-0.5 text-[13px] text-sam-fg">
           {card.placements.map((p) => (
             <li key={p.key}>
@@ -127,11 +124,11 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
 
       <div className="mt-3">
         <p className="text-[12px] font-semibold text-sam-muted">
-          {ko ? "현재 판매 가격" : "Current sale prices"}
+          {translateBy(ko ? "ko" : "en", "admin_ads_current_sale_prices")}
         </p>
         {card.priceLines.length === 0 ? (
           <p className="mt-1 text-[13px] text-sam-muted">
-            {ko ? "결제 없음 / 가격 없음" : "No payment / no price"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_no_payment_no_price")}
           </p>
         ) : (
           <ul className="mt-1 space-y-1">
@@ -157,7 +154,7 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
         )}
         {!card.priceEditable ? (
           <p className="mt-2 text-[12px] text-sam-muted" data-ads-price-readonly="1">
-            {ko ? "현재 시스템 설정 · 읽기 전용" : "Current system setting · read-only"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_current_system_setting_read")}
           </p>
         ) : null}
       </div>
@@ -173,7 +170,7 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
       <div className="mt-4 flex flex-wrap gap-2">
         {card.priceEditable && card.editPriceHref ? (
           <AdminActionLink href={card.editPriceHref} variant="secondary" size="sm" data-ads-edit-price="1">
-            {ko ? "가격 설정" : "Set prices"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_set_prices")}
           </AdminActionLink>
         ) : null}
         {card.sellableEditable && card.editSellableHref ? (
@@ -183,7 +180,7 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
             size="sm"
             data-ads-edit-sellable="1"
           >
-            {ko ? "판매 상태 변경" : "Change sell status"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_change_sell_status")}
           </AdminActionLink>
         ) : null}
         <AdminActionLink
@@ -192,11 +189,11 @@ function ProductCard({ card, ko }: { card: AdsCommercialProductCard; ko: boolean
           size="sm"
           data-ads-placements-cta="1"
         >
-          {ko ? "광고 위치 보기" : "View placements"}
+          {translateBy(ko ? "ko" : "en", "admin_ads_view_placements")}
         </AdminActionLink>
         {card.registerHref ? (
           <AdminActionLink href={card.registerHref} variant="secondary" size="sm" data-ads-r2-register="1">
-            {ko ? "Admin 등록" : "Admin register"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_admin_register")}
           </AdminActionLink>
         ) : null}
       </div>
@@ -238,18 +235,16 @@ export function AdminAdsProductsCommercialView() {
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
-            {ko ? "광고·배너" : "Ads & banners"}
+            {t("admin_ads_ads_banners")}
           </Link>
           {" › "}
-          {ko ? "광고 상품 / 가격" : "Products / Pricing"}
+          {t("admin_ads_products_pricing")}
         </p>
         <h1 className="text-[20px] font-semibold text-sam-fg">
           {t("admin_menu_ads_authority_products")}
         </h1>
         <p className="text-[13px] text-sam-muted">
-          {ko
-            ? "현재 판매·운영 상품과 가격 authority를 관리합니다. 과거 결제액은 변경되지 않습니다."
-            : "Manage sellable products and price authority. Historical charges are never rewritten."}
+          {t("admin_ads_manage_sellable_products_price_authority")}
         </p>
       </header>
 
@@ -259,19 +254,19 @@ export function AdminAdsProductsCommercialView() {
           data-ads-commercial-summary="1"
         >
           <div>
-            <p className="text-[12px] text-sam-muted">{ko ? "회원 결제" : "Member payment"}</p>
+            <p className="text-[12px] text-sam-muted">{t("admin_ads_member_payment")}</p>
             <p className="font-semibold text-sam-fg">
               {ko ? model.summary.memberPaymentKo : model.summary.memberPaymentEn}
             </p>
           </div>
           <div>
-            <p className="text-[12px] text-sam-muted">{ko ? "매장 오너 결제" : "Owner payment"}</p>
+            <p className="text-[12px] text-sam-muted">{t("admin_ads_owner_payment")}</p>
             <p className="font-semibold text-sam-fg">
               {ko ? model.summary.ownerPaymentKo : model.summary.ownerPaymentEn}
             </p>
           </div>
           <div>
-            <p className="text-[12px] text-sam-muted">{ko ? "Admin 직접 등록" : "Admin Direct"}</p>
+            <p className="text-[12px] text-sam-muted">{t("admin_ads_admin_direct")}</p>
             <p className="font-semibold text-sam-fg">
               {ko ? model.summary.adminDirectKo : model.summary.adminDirectEn}
             </p>
@@ -305,12 +300,10 @@ export function AdminAdsProductsCommercialView() {
           data-ads-not-sellable="1"
         >
           <h2 className="text-[16px] font-bold text-sam-fg">
-            {ko ? "미출시 위치" : "Not-released placements"}
+            {t("admin_ads_not_released_placements")}
           </h2>
           <p className="mt-1 text-[12px] text-sam-muted">
-            {ko
-              ? "정식 판매 상품이 아닙니다. 구매 CTA 없음."
-              : "Not canonical sellable products. No purchase CTA."}
+            {t("admin_ads_not_canonical_sellable_products_no")}
           </p>
           <ul className="mt-3 space-y-2">
             {model.secondaryNotSellable.map((row) => (

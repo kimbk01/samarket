@@ -13,6 +13,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { adminBannerDisplayStatus, type AdminBannerDisplayStatus } from "@/lib/admin-banners/admin-banner-utils";
 import type { AdminBanner } from "@/lib/types/admin-banner";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** V3-11 — 브라우저 직접 조회 대신 기존 관리자 API(`GET /api/admin/banners`, my_page_banners) 사용. */
 export function AdminMyBannersPage() {
@@ -156,20 +157,18 @@ export function AdminMyBannersView({
   const period = (b: AdminBanner) =>
     b.startAt || b.endAt
       ? `${b.startAt ? formatAdminManilaDateTime(b.startAt) : "—"} – ${b.endAt ? formatAdminManilaDateTime(b.endAt) : "—"}`
-      : ko
-        ? "기간 제한 없음"
-        : "No period limit";
+      : translateBy(ko ? "ko" : "en", "admin_my_no_period_limit");
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader title={title} description={placementNote} />
         {writeDenied ? (
           <AdminActionButton variant="primary" disabled title={writeDeniedReason || undefined}>
-            {ko ? "추가" : "Add"}
+            {translateBy(ko ? "ko" : "en", "admin_my_add")}
           </AdminActionButton>
         ) : (
           <AdminActionLink href="/admin/my/banners/create" variant="primary">
-            {ko ? "추가" : "Add"}
+            {translateBy(ko ? "ko" : "en", "admin_my_add")}
           </AdminActionLink>
         )}
       </div>
@@ -189,7 +188,7 @@ export function AdminMyBannersView({
         ) : (
           <AdminEmptyState
             ko={ko}
-            message={ko ? "등록된 배너가 없습니다." : "No banners yet."}
+            message={translateBy(ko ? "ko" : "en", "admin_my_no_banners_yet")}
             action={
               writeDenied ? (
                 <AdminActionButton
@@ -199,7 +198,7 @@ export function AdminMyBannersView({
                   title={writeDeniedReason || undefined}
                   data-admin-my-banners-empty-create="1"
                 >
-                  {ko ? "등록" : "Create"}
+                  {translateBy(ko ? "ko" : "en", "admin_my_create")}
                 </AdminActionButton>
               ) : (
                 <AdminActionLink
@@ -208,7 +207,7 @@ export function AdminMyBannersView({
                   size="sm"
                   data-admin-my-banners-empty-create="1"
                 >
-                  {ko ? "등록" : "Create"}
+                  {translateBy(ko ? "ko" : "en", "admin_my_create")}
                 </AdminActionLink>
               )
             }
@@ -219,11 +218,11 @@ export function AdminMyBannersView({
           <table className="w-full min-w-[720px] border-collapse sam-text-body" data-admin-my-banners-table="1">
             <thead className="border-b border-sam-border bg-sam-app">
               <tr>
-                <th className={TH}>{ko ? "제목" : "Title"}</th>
-                <th className={TH}>{ko ? "상태" : "Status"}</th>
-                <th className={TH}>{ko ? "순서" : "Order"}</th>
-                <th className={TH}>{ko ? "기간 (PHT)" : "Period (PHT)"}</th>
-                <th className={TH}>{ko ? "관리" : "Manage"}</th>
+                <th className={TH}>{translateBy(ko ? "ko" : "en", "admin_my_title")}</th>
+                <th className={TH}>{translateBy(ko ? "ko" : "en", "admin_my_status")}</th>
+                <th className={TH}>{translateBy(ko ? "ko" : "en", "admin_my_order")}</th>
+                <th className={TH}>{translateBy(ko ? "ko" : "en", "admin_my_period_pht")}</th>
+                <th className={TH}>{translateBy(ko ? "ko" : "en", "admin_my_manage")}</th>
               </tr>
             </thead>
             <tbody>
@@ -238,12 +237,12 @@ export function AdminMyBannersView({
                   <td className={TD}>
                     <div className="flex flex-wrap gap-1.5">
                       <AdminActionLink href={`/admin/my/banners/${b.id}/edit`} variant="secondary" size="sm">
-                        {ko ? "수정" : "Edit"}
+                        {translateBy(ko ? "ko" : "en", "common_edit")}
                       </AdminActionLink>
                       {onRemove ? (
                         writeDenied ? (
                           <AdminActionButton variant="danger" size="sm" disabled title={writeDeniedReason || undefined}>
-                            {ko ? "삭제" : "Delete"}
+                            {translateBy(ko ? "ko" : "en", "common_delete")}
                           </AdminActionButton>
                         ) : (
                           <AdminAdDeleteAction

@@ -91,7 +91,7 @@ function RightNavLink({
 }
 
 export function AdminDeliveryCmsRightMenu() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language === "ko";
   const pathname = usePathname() || "";
   const searchParams = useSearchParams();
@@ -106,14 +106,14 @@ export function AdminDeliveryCmsRightMenu() {
     <aside
       className="admin-platform-shell__right-menu hidden h-full min-h-0 w-[13.5rem] shrink-0 flex-col border-l border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] lg:flex"
       data-admin-right-menu="delivery-cms"
-      aria-label={ko ? "배달 CMS 우측 메뉴" : "Delivery CMS right menu"}
+      aria-label={t("admin_shell_delivery_cms_right_menu")}
     >
       <div className="shrink-0 border-b border-[var(--admin-console-border)] px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--admin-console-muted)]">
-          {ko ? "배달 CMS" : "Delivery CMS"}
+          {t("admin_shell_delivery_cms")}
         </p>
         <p className="mt-0.5 text-[12px] font-semibold text-[var(--admin-console-fg)]">
-          {ko ? "운영 바로가기" : "Ops shortcuts"}
+          {t("admin_shell_ops_shortcuts")}
         </p>
       </div>
 

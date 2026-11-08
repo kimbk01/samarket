@@ -19,6 +19,7 @@ import {
 import type { AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { MemberOpsLoadError } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export function MemberOpsListBody({
   ko,
@@ -62,7 +63,7 @@ export function MemberOpsListBody({
     <div className="space-y-3" data-member-ops-list="1">
       {showTotal && loaded && !forbidden ? (
         <p className="sam-text-body-secondary tabular-nums text-sam-muted" data-admin-list-total="1">
-          {ko ? `총 ${formatAdminNumber(total)}건` : `${formatAdminNumber(total)} total`}
+          {translateBy(ko ? "ko" : "en", "admin_member_ops_total", { adminNumber: formatAdminNumber(total) })}
         </p>
       ) : null}
       {error ? (

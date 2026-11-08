@@ -167,10 +167,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
   return (
     <div className="space-y-4 p-4" data-owner-event-promo-detail="1">
       <h1 className="text-lg font-semibold">
-        {safeT(ownerRequestStatusLabelKey(request.requestStatus) as never, {
-          fallbackKo: "프로모션 신청",
-          fallbackEn: "Promotion request",
-        })}
+        {safeT(ownerRequestStatusLabelKey(request.requestStatus) as never)}
       </h1>
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {request.rejectionReason ? (
@@ -287,12 +284,12 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
         </legend>
         {(
           [
-            ["popup", "팝업", "Popup"],
-            ["banner", "배너", "Banner"],
-            ["push", "푸시 요청", "Push request"],
-            ["bell", "알림함 요청", "Inbox request"],
+            "popup",
+            "banner",
+            "push",
+            "bell",
           ] as const
-        ).map(([key, ko, en]) => (
+        ).map((key) => (
           <label key={key} className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -308,7 +305,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
                 })
               }
             />
-            {safeT(`owner_event_promo_ch_${key}`, { fallbackKo: ko, fallbackEn: en })}
+            {safeT(`owner_event_promo_ch_${key}`)}
           </label>
         ))}
       </fieldset>

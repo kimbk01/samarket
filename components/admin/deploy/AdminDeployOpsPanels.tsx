@@ -245,7 +245,7 @@ function EnvCardView({
 }
 
 export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   if (!ops?.environments && !ops?.changeCompare && !ops?.featureTests) {
     return null;
   }
@@ -299,7 +299,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
               : {semantics.productionApplied ? "Y" : "N (BLOCKED)"}
             </div>
             <div>
-              Android / iOS 실측:{" "}
+              {safeT("admin_deploy_android_ios_device_proven")}{" "}
               {semantics.androidProven ? "Android Y" : "Android N"} /{" "}
               {semantics.iosProven ? "iOS Y" : "iOS N"}
             </div>
@@ -362,11 +362,13 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
             ) : null}
             {compare.hasAndroidNative ? (
               <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">
-                Android 네이티브
+                {safeT("admin_deploy_android_native")}
               </span>
             ) : null}
             {compare.hasIosNative ? (
-              <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">iOS 네이티브</span>
+              <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">
+                {safeT("admin_deploy_ios_native")}
+              </span>
             ) : null}
             {compare.hasEnvHint ? (
               <span className="rounded-full bg-sam-warning-soft px-2 py-0.5 text-sam-warning">
@@ -499,7 +501,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
                 {native.test.appName}: <span className="font-mono">{native.test.appId}</span>
               </p>
               <p className="mt-1 text-sam-muted">
-                아이콘: {native.iconSeparation.android}
+                {t("admin_deploy_icon_value", { value: native.iconSeparation.android })}
               </p>
               <p className="mt-1 break-all text-sam-muted">{native.studioHints.android}</p>
             </div>
@@ -511,7 +513,7 @@ export function AdminDeployOpsPanels({ ops }: { ops: DeployOpsPayload | null }) 
               <p>
                 {native.test.appName}: <span className="font-mono">{native.test.appId}</span>
               </p>
-              <p className="mt-1 text-sam-muted">아이콘: {native.iconSeparation.ios}</p>
+              <p className="mt-1 text-sam-muted">{t("admin_deploy_icon_value", { value: native.iconSeparation.ios })}</p>
               <p className="mt-1 break-all text-sam-muted">{native.studioHints.ios}</p>
             </div>
           </div>

@@ -12,6 +12,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type MenuOption = { id: string; name_ko: string; root_name: string };
 
@@ -56,7 +57,7 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
   }, [load]);
 
   if (unavailable) return null;
-  if (!menus) return <span className="text-[13px] text-sam-muted">{ko ? "불러오는 중" : "Loading"}</span>;
+  if (!menus) return <span className="text-[13px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_stores_loading")}</span>;
 
   const dirty = checked.slice().sort().join(",") !== assigned.slice().sort().join(",");
   const save = async () => {
@@ -73,12 +74,8 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
         await dibayAlert({
           title:
             j.error === "delivery_menu_required"
-              ? ko
-                ? "노출 매장은 메뉴를 1개 이상 골라야 합니다."
-                : "A visible store needs at least one menu."
-              : ko
-                ? `저장하지 못했습니다. (${j.error ?? res.status})`
-                : `Could not save. (${j.error ?? res.status})`,
+              ? translateBy(ko ? "ko" : "en", "admin_stores_visible_store_needs_at_least_one")
+              : translateBy(ko ? "ko" : "en", "admin_stores_could_not_save", { status: j.error ?? res.status }),
         });
       }
       clearStoresTaxonomyClientCache();
@@ -93,12 +90,8 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
       {assigned.length === 0 ?
         <p className="text-[12px] font-semibold text-sam-danger">
           {defaultId
-            ? ko
-              ? "메뉴 미지정 — 업종 기본 메뉴가 미리 선택되어 있습니다. 저장해 주세요."
-              : "No menu yet — the category default is pre-selected. Save it."
-            : ko
-              ? "메뉴 미지정 — 업종 기본 메뉴가 없습니다(업종 미지정 등). 노출 전에 메뉴를 골라 저장해 주세요."
-              : "No menu and no category default. Choose a menu and save before making it visible."}
+            ? translateBy(ko ? "ko" : "en", "admin_stores_no_menu_yet_category_default_is")
+            : translateBy(ko ? "ko" : "en", "admin_stores_no_menu_and_no_category_default")}
         </p>
       : null}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -111,7 +104,7 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
             />
             <span className="text-sam-muted">{m.root_name}·</span>
             {m.name_ko}
-            {m.id === defaultId ? <span className="text-[12px] text-sam-muted">{ko ? "(기본)" : "(default)"}</span> : null}
+            {m.id === defaultId ? <span className="text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_stores_default")}</span> : null}
           </label>
         ))}
       </div>
@@ -120,7 +113,7 @@ export function AdminStoreDeliveryMenusRow({ storeId, ko }: { storeId: string; k
           {adminCta("save", ko)}
         </AdminActionButton>
         <Link href="/admin/delivery-menus" className="text-[12px] text-sam-primary underline">
-          {ko ? "메뉴 관리" : "Delivery menus"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_delivery_menus")}
         </Link>
       </div>
     </div>

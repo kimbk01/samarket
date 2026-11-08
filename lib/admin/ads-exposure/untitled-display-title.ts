@@ -1,3 +1,11 @@
+
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 export const PLATFORM_POPUP_UNTITLED_NAMES = new Set([
   "새 팝업 캠페인",
   "Untitled popup",
@@ -28,6 +36,6 @@ export function popupOperationalDisplayTitle(input: {
     date && Number.isFinite(date.getTime())
       ? `${String(date.getUTCMonth() + 1).padStart(2, "0")}/${String(date.getUTCDate()).padStart(2, "0")}`
       : "--/--";
-  const prefix = input.ko ? "팝업" : "Popup";
+  const prefix = tx(input.ko, "admin_ads_exposure_popup");
   return `${prefix} · ${dateLabel} · ${input.id.slice(0, 8)}`;
 }

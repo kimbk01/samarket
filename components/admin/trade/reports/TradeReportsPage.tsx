@@ -9,6 +9,7 @@
  * URL: tab(탭 — 대시보드 딥링크) · targetType · targetId · reporterId · sellerId · from/to(PHT) · (호환) period ·
  *      reportId(시트) · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import {
@@ -195,6 +196,7 @@ const ACTION_LABEL: Record<string, string> = {
 /* ───────── 목록 ───────── */
 
 export function TradeReportsPage() {
+  const { t } = useI18n();
   /** `tab`·`reportId` 는 조회 조건 밖 키 — [초기화] 후에도 유지 */
   const qs = useCommunityQueryState();
   const lq = useCommunityListQuery({ extras: LIST_EXTRAS });
@@ -216,7 +218,7 @@ export function TradeReportsPage() {
 
   return (
     <CommunityListShell
-      title="거래 신고"
+      title={t("admin_trade_reports_title")}
       description="거래글·회원·거래 채팅 신고를 확인하고 반려하거나 게시물 숨김·경고·거래 활동 제한으로 처리합니다."
       actions={
         <AdminActionButton variant="secondary" onClick={reload}>
@@ -341,6 +343,7 @@ export function TradeReportsPage() {
 }
 
 function ReportTargetCell({ row, returnTo }: { row: ReportRow; returnTo: string }) {
+  const { t } = useI18n();
   if (row.post) {
     return (
       <span className="flex items-start gap-2">
@@ -362,7 +365,7 @@ function ReportTargetCell({ row, returnTo }: { row: ReportRow; returnTo: string 
           <TradeMemberCell userId={row.target_user_id} label={row.target_user_label} returnTo={returnTo} />
         </span>
       ) : row.target_type === "product" || row.target_type === "post" ? (
-        <span className="text-sam-muted">삭제된 거래글</span>
+        <span className="text-sam-muted">{t("admin_trade_reports_deleted_post")}</span>
       ) : null}
     </span>
   );
@@ -417,6 +420,7 @@ function TradeReportDetailSheet({
   onClose: () => void;
   onDecided: (banner: CommunityBanner) => void;
 }) {
+  const { t } = useI18n();
   const { state, reload } = useCommunityAdminJson<DetailResponse>(
     `/api/admin/trade/reports/${encodeURIComponent(reportId)}`
   );
@@ -596,7 +600,7 @@ function TradeReportDetailSheet({
   );
 
   return (
-    <AdminFormSheet title="거래 신고 처리" onClose={onClose} footer={footer} maxWidthClass="max-w-3xl">
+    <AdminFormSheet title={t("admin_trade_reports_sheet_title")} onClose={onClose} footer={footer} maxWidthClass="max-w-3xl">
       <div className="space-y-4" data-trade-report-detail={reportId}>
         <CommunityBannerView banner={sheetBanner} onClose={() => setSheetBanner(null)} />
         {state.status === "loading" && !state.data ? (
@@ -634,20 +638,20 @@ function TradeReportDetailSheet({
               ]}
             />
             {s(report.reason_text) ? (
-              <CommunitySection title="신고 내용">
+              <CommunitySection title={t("admin_trade_reports_section_content")}>
                 <p className="whitespace-pre-wrap rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2 text-[13px] text-sam-fg">
                   {s(report.reason_text)}
                 </p>
               </CommunitySection>
             ) : null}
             {s(report.admin_note) ? (
-              <CommunitySection title="처리 사유">
+              <CommunitySection title={t("admin_trade_reports_section_action_reason")}>
                 <p className="whitespace-pre-wrap text-[13px] text-sam-muted">{s(report.admin_note)}</p>
               </CommunitySection>
             ) : null}
 
             {post ? (
-              <CommunitySection title="대상 거래글">
+              <CommunitySection title={t("admin_trade_reports_section_target_post")}>
                 <div className="flex items-start gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                   <TradePostThumb post={post} size={64} />
                   <div className="min-w-0 space-y-1">
@@ -664,29 +668,29 @@ function TradeReportDetailSheet({
                         ownerState={s(post.owner_state) || null}
                       />
                     </div>
-                    <p className="sam-text-xxs text-sam-muted">등록 {abs(post.created_at)}</p>
+                    <p className="sam-text-xxs text-sam-muted">{t("admin_trade_reports_registered_at", { time: abs(post.created_at) })}</p>
                   </div>
                 </div>
               </CommunitySection>
             ) : report.target_type === "product" || report.target_type === "post" ? (
-              <p className="text-[13px] text-sam-muted">대상 거래글이 삭제되어 확인할 수 없습니다.</p>
+              <p className="text-[13px] text-sam-muted">{t("admin_trade_reports_post_deleted")}</p>
             ) : null}
 
-            <CommunitySection title="대상 회원">
+            <CommunitySection title={t("admin_trade_reports_section_target_member")}>
               {targetUser ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
                   <TradeMemberCell userId={targetUser.id} label={targetUser.label} returnTo={returnTo} />
-                  <span className="text-sam-muted">계정 정지·차단은 회원 상세의 계정 조치에서 합니다.</span>
+                  <span className="text-sam-muted">{t("admin_trade_reports_account_action_hint")}</span>
                 </div>
               ) : (
-                <p className="text-[13px] text-sam-muted">대상 회원을 확인할 수 없습니다.</p>
+                <p className="text-[13px] text-sam-muted">{t("admin_trade_reports_member_unknown")}</p>
               )}
             </CommunitySection>
 
             {post ? (
               <CommunitySection title={`같은 게시물 다른 신고 (${(d?.siblings ?? []).length}건)`}>
                 {(d?.siblings ?? []).length === 0 ? (
-                  <p className="text-[13px] text-sam-muted">다른 신고가 없습니다.</p>
+                  <p className="text-[13px] text-sam-muted">{t("admin_trade_reports_no_other")}</p>
                 ) : (
                   <ul className="space-y-1">
                     {(d?.siblings ?? []).map((x) => (
@@ -714,7 +718,7 @@ function TradeReportDetailSheet({
               </CommunitySection>
             ) : null}
 
-            <CommunitySection title="처리 기록">
+            <CommunitySection title={t("admin_trade_reports_section_history")}>
               <CommunityTimeline
                 emptyText="처리 기록이 없습니다."
                 items={(d?.actions ?? []).map((a) => ({
@@ -728,7 +732,7 @@ function TradeReportDetailSheet({
             </CommunitySection>
 
             {targetUser ? (
-              <CommunitySection title="대상 회원의 기존 조치">
+              <CommunitySection title={t("admin_trade_reports_section_member_prior_actions")}>
                 <CommunityTimeline
                   emptyText="기존 경고·제한이 없습니다."
                   items={(d?.sanctions ?? []).map((x) => {
@@ -750,11 +754,11 @@ function TradeReportDetailSheet({
               </CommunitySection>
             ) : null}
 
-            {!open ? <p className="text-[13px] text-sam-muted">이미 처리된 신고입니다.</p> : null}
+            {!open ? <p className="text-[13px] text-sam-muted">{t("admin_trade_reports_already_handled")}</p> : null}
 
             <AdminTechDetails ko>
-              <div>신고 ID: {reportId}</div>
-              {s(report.target_id) ? <div>대상 ID: {s(report.target_id)}</div> : null}
+              <div>{t("admin_trade_reports_report_id", { id: reportId })}</div>
+              {s(report.target_id) ? <div>{t("admin_trade_reports_target_id", { id: s(report.target_id) })}</div> : null}
             </AdminTechDetails>
           </>
         ) : null}

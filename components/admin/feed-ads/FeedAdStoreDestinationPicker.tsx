@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type StoreOpt = { id: string; slug: string; name: string };
 
@@ -18,6 +19,7 @@ export function FeedAdStoreDestinationPicker({
   onChange: (slug: string) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
   const [options, setOptions] = useState<StoreOpt[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,18 +62,18 @@ export function FeedAdStoreDestinationPicker({
     <div className="space-y-2" data-feed-ad-store-picker="">
       <p className="sam-text-helper text-sam-muted" data-feed-ad-store-picked="">
         {value
-          ? `선택한 매장: ${picked?.name || value} (/stores/${value})`
-          : "아직 매장을 고르지 않았습니다."}
+          ? t("admin_feed_ads_store_picked", { name: picked?.name || value, slug: value })
+          : t("admin_feed_ads_store_not_picked")}
       </p>
       {disabled ? null : (
         <>
           <input
             className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-            placeholder="매장 이름으로 찾기"
+            placeholder={t("admin_feed_ads_store_search_placeholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          {failed ? <p className="sam-text-helper text-sam-danger">매장 목록을 불러오지 못했습니다.</p> : null}
+          {failed ? <p className="sam-text-helper text-sam-danger">{t("admin_feed_ads_store_list_load_failed")}</p> : null}
           <ul className="max-h-48 space-y-1 overflow-y-auto">
             {options.map((s) => (
               <li key={s.id}>
@@ -90,7 +92,7 @@ export function FeedAdStoreDestinationPicker({
               </li>
             ))}
             {!loading && !failed && options.length === 0 ? (
-              <li className="sam-text-helper text-sam-muted">찾는 공개 매장이 없습니다.</li>
+              <li className="sam-text-helper text-sam-muted">{t("admin_feed_ads_store_no_public_match")}</li>
             ) : null}
           </ul>
         </>

@@ -157,12 +157,8 @@ export function AdminPointChargeListPage() {
       {/* summary cards — R3-j: 카드가 센 기간을 적는다 (기간 없음 = 전체 기간) */}
       <p className="sam-text-helper text-sam-muted" data-admin-point-charge-cards-period="1">
         {cardsRange
-          ? ko
-            ? `상태별 건수 · 신청 기준 ${cardsRange} · 현재 상태`
-            : `Counts by status · requested ${cardsRange} · current status`
-          : ko
-            ? "상태별 건수 · 전체 기간 · 현재 상태"
-            : "Counts by status · all time · current status"}
+          ? t("admin_points_counts_status_requested_current_status", { cardsRange })
+          : t("admin_points_counts_status_all_time_current_status")}
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
@@ -217,24 +213,22 @@ export function AdminPointChargeListPage() {
         formatAmount2={(n) => formatAdminPhp(n)}
         note={
           periodNotAppliedToSearch
-            ? ko
-              ? "닉네임·입금자명 검색 결과에는 기간이 적용되지 않습니다 (기간 합계는 위 기간 기준)."
-              : "The period is not applied to nickname/depositor search results (totals above use the period)."
+            ? t("admin_points_period_not_applied_nickname_depositor_search")
             : null
         }
       />
 
       {!action.allowed && action.reason ? (
         <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `처리 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_points_actions_disabled", { reason: action.reason })}
         </p>
       ) : null}
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
         <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 className="sam-text-body font-semibold text-sam-fg">{ko ? "충전 신청 목록" : "Top-up requests"}</h2>
+          <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_points_top_up_requests")}</h2>
           <span className="sam-text-body-secondary tabular-nums text-sam-muted">
-            {ko ? `총 ${formatAdminNumber(total)}건` : `${formatAdminNumber(total)} total`}
+            {t("admin_points_total", { total: formatAdminNumber(total) })}
           </span>
         </div>
         <div className="p-4">

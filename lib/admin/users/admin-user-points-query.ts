@@ -8,6 +8,12 @@
  */
 import { manilaDateKey } from "@/lib/admin/metrics/manila-period";
 import type { StoreCommissionPeriod } from "@/lib/stores/commission/store-commission-ledger-query";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 /** 한 쪽 크기 — 회원 포인트 내역·충전 신청 쪽 크기(20)와 같다. */
 export const ADMIN_USER_POINTS_PAGE_SIZE = 20;
@@ -65,6 +71,6 @@ export function adminUserPointsPeriodRangeLabel(
   const from = manilaDateKey(range.fromIso);
   const toMs = Date.parse(String(range.toIso ?? ""));
   const to = Number.isFinite(toMs) ? manilaDateKey(new Date(toMs - 1).toISOString()) : null;
-  if (!from && !to) return ko ? "전체 기간" : "All time";
+  if (!from && !to) return tx(ko, "admin_users_all_time");
   return `${from ?? "…"} ~ ${to ?? "…"} (PHT)`;
 }

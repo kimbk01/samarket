@@ -7,6 +7,7 @@ import {
   memberDetailAccountStateLabelKo,
 } from "@/lib/admin-users/member-detail-presentation";
 import type { AdminUserDetailPayload } from "@/components/admin/users/AdminTestUserDetail";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
@@ -21,6 +22,7 @@ export function AdminMemberReportsPanel({
   user: AdminUserDetailPayload;
   onOpenOps: () => void;
 }) {
+  const { t } = useI18n();
   const accountState = memberDetailAccountStateLabelKo(user.moderation_status, user.status);
 
   return (
@@ -31,17 +33,17 @@ export function AdminMemberReportsPanel({
         </h3>
         <dl className="space-y-2 text-[13px]">
           <div className="grid grid-cols-[120px_1fr] gap-2">
-            <dt className="text-sam-muted">계정 상태</dt>
+            <dt className="text-sam-muted">{t("admin_users_account_state")}</dt>
             <dd className="font-semibold text-sam-fg" data-reports-account-state="1">
               {accountState}
             </dd>
           </div>
         </dl>
         <p className="text-[12px] text-sam-muted">
-          이용 정지·이용 차단·탈퇴·영구 삭제는 하단 「위험 작업」자격으로 구분되며, 최종 실행은 제재 워크플로에서 처리합니다.
+          {t("admin_users_reports_risk_actions_note")}
         </p>
         <p className="text-[12px] text-sam-muted" data-member-cap="CAP-MSG-SUPPORT" data-member-cap-phase="R8">
-          쪽지/지원 보내기는 지원 메시지 워크플로에서 복원합니다. 레거시 쪽지 작성기는 사용하지 않습니다.
+          {t("admin_users_reports_support_message_note")}
         </p>
         <AdminActionButton variant="ghost" size="sm" onClick={onOpenOps} data-reports-open-ops="1">
           {MEMBER_ADMIN_COPY.ops_history} 보기

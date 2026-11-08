@@ -4,6 +4,7 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useCommunityListQuery, useCommunityQueryState } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { call, type InboxRow, keyOf, type ManagedSource, type TopicOption, importErrorText } from "./external-import/api";
 import { ImportEditorPanel } from "./external-import/ImportEditorPanel";
 import { type InboxFilter, ImportInboxPanel } from "./external-import/ImportInboxPanel";
@@ -38,6 +39,7 @@ export function AdminExternalImportOperatorPage() {
 
 function ExternalImportOperatorInner() {
   // 탭·수집함 필터·페이지는 URL 에 둔다 (새로고침·복귀 시 유지) — 필터 바·페이지네이션은 수집함 패널이 그린다
+  const { t } = useI18n();
   const { get, set } = useCommunityQueryState();
   const lq = useCommunityListQuery({
     defaults: { status: IMPORT_INBOX_DEFAULT_STATUS },
@@ -86,23 +88,25 @@ function ExternalImportOperatorInner() {
     <div className="flex flex-col gap-3 min-h-0 h-[calc(100dvh-6.5rem)] max-w-[100vw] overflow-x-hidden">
       <div className="shrink-0">
         <AdminPageHeader
-          title="커뮤니티 외부 글 수집"
-          description="사이트 등록 → 실제 게시판 선택 → 수집함 → 원문 비교·편집 → 게시/업데이트. 자동 수집은 수집함까지만 하며 자동 게시하지 않습니다."
+          title={t("admin_community_import_title")}
+          description={t("admin_community_import_desc")}
         />
       </div>
       <AdminTabs
         className="shrink-0"
-        ariaLabel="외부 글 수집 화면"
+        ariaLabel={t("admin_community_import_tabs_aria")}
         tabs={[
-          { id: "inbox", label: "수집함" },
-          { id: "sources", label: "출처·게시판" },
-          { id: "rules", label: "일괄 변경 규칙" },
+          { id: "inbox", label: t("admin_community_import_tab_inbox") },
+          { id: "sources", label: t("admin_community_import_tab_sources") },
+          { id: "rules", label: t("admin_community_import_tab_rules") },
         ]}
         value={tab}
         syncUrl={false}
         onChange={(id) => setTab(id as Tab)}
       />
-      {loadError ? <p role="alert" className="text-xs text-sam-danger break-words shrink-0">출처를 불러오지 못했습니다: {loadError}</p> : null}
+      {loadError ? <p role="alert" className="text-xs text-sam-danger break-words shrink-0">
+          {t("admin_community_import_sources_load_failed", { error: loadError })}
+        </p> : null}
 
       {tab === "inbox" ? (
         <div className="grid flex-1 min-h-0 gap-3 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">

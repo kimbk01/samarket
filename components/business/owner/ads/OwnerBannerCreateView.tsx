@@ -781,10 +781,7 @@ export function OwnerBannerCreateView() {
                       value: "store_detail" as const,
                       label: t("owner_ads_banner_cta_store"),
                       help: selectedStore
-                        ? safeT("owner_ads_banner_dest_store_help_named", {
-                            fallbackKo: `고객이 배너를 누르면 ${selectedStore.storeName} 상세로 이동합니다.`,
-                            fallbackEn: `Customers go to ${selectedStore.storeName} detail.`,
-                          })
+                        ? t("owner_ads_banner_dest_store_help_named", { store: selectedStore.storeName })
                         : t("owner_ads_banner_dest_store_help"),
                     },
                     {

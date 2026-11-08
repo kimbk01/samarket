@@ -1656,8 +1656,7 @@ export function LaunchIntroAdminPage() {
                   {t("admin_launch_intro_save")}
                 </AdminActionButton>
                 <AdminActionButton
-                  variant="quiet"
-                  disabled={busy || !dirty}
+                  variant="secondary"disabled={busy || !dirty}
                   onClick={async () => {
                     const confirmed = await confirmAdminAction({
                       level: adminActionLevel("save"),

@@ -18,7 +18,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { FINANCE_ACTIVE_STATE_NS } from "@/lib/admin/status-labels/finance-status-labels";
 
 export function AdminFinanceSettingsView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [policy, setPolicy] = useState<CoinCashConversionPolicy | null>(null);
   const [draft, setDraft] = useState<Partial<CoinCashConversionPolicy>>({});
@@ -75,10 +75,8 @@ export function AdminFinanceSettingsView() {
     const c = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
-      title: ko ? "Coin→Cash 전환 정책을 변경하시겠습니까?" : "Change Coin→Cash conversion policy?",
-      description: ko
-        ? `현재 v${policy?.version ?? "—"} → 새 설정이 이후 전환부터 적용됩니다. 과거 원장에는 소급되지 않습니다.`
-        : `Current v${policy?.version ?? "—"} → new settings apply to future conversions only.`,
+      title: t("admin_finance_change_coin_cash_conversion_policy"),
+      description: t("admin_finance_conversion_policy_change_desc", { version: policy?.version ?? "—" }),
       confirmLabel: adminCta("save", ko),
     });
     if (!c.ok || !c.reason) return;
@@ -106,7 +104,7 @@ export function AdminFinanceSettingsView() {
       }
       setPolicy(json.policy);
       setDraft(json.policy);
-      setResult({ ok: true, message: ko ? "전환 정책을 저장했습니다." : "Conversion policy saved." });
+      setResult({ ok: true, message: t("admin_finance_conversion_policy_saved") });
     } catch {
       setResult({ ok: false, code: "network_error" });
     } finally {
@@ -117,11 +115,9 @@ export function AdminFinanceSettingsView() {
   return (
     <div className="space-y-4" data-admin-finance-settings="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "재무 설정 · Coin→Cash 전환 정책" : "Finance settings · Coin→Cash"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{t("admin_finance_finance_settings_coin_cash")}</h2>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "전환 ≠ 출금. Cash 출금은 없습니다. 변경은 이후 전환부터 적용됩니다."
-          : "Conversion ≠ withdrawal. Cash withdrawal does not exist. Changes apply to future conversions only."}
+        {t("admin_finance_conversion_withdrawal_cash_withdrawal_does_not")}
       </p>
       {loading ? <AdminLoadingState ko={ko} /> : null}
       {error ? <AdminErrorState ko={ko} code={error} onRetry={() => void load()} /> : null}
@@ -132,7 +128,7 @@ export function AdminFinanceSettingsView() {
             className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-4"
             data-finance-policy-current="1"
           >
-            <h3 className="font-semibold">{ko ? "현재 정책" : "Current policy"}</h3>
+            <h3 className="font-semibold">{t("admin_finance_current_policy")}</h3>
             <dl className="space-y-1 sam-text-body-secondary">
               <div className="flex justify-between gap-2">
                 <dt className="text-sam-muted">enabled</dt>
@@ -186,26 +182,26 @@ export function AdminFinanceSettingsView() {
           </div>
 
           <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-finance-policy-edit="1">
-            <h3 className="font-semibold">{ko ? "변경값" : "Draft changes"}</h3>
+            <h3 className="font-semibold">{t("admin_finance_draft_changes")}</h3>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={draft.enabled !== false}
               onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.checked }))}
             />
-            {ko ? "전환 사용" : "Conversion enabled"}
+            {t("admin_finance_conversion_enabled")}
           </label>
           {(
             [
-              ["ratePesosPerPoint", ko ? "비율 (1 Coin = PHP)" : "Rate"],
-              ["minimumCoin", ko ? "최소 Coin" : "Minimum Coin"],
-              ["conversionUnit", ko ? "전환 단위" : "Conversion unit"],
-              ["maximumConversionsPerDay", ko ? "일 횟수 한도" : "Daily count limit"],
-              ["maximumConversionsPerWeek", ko ? "주 횟수 한도" : "Weekly count limit"],
-              ["maximumConversionsPerMonth", ko ? "월 횟수 한도" : "Monthly count limit"],
-              ["minimumIntervalHours", ko ? "최소 간격(시간)" : "Min interval (hours)"],
-              ["dailyLimitCoin", ko ? "일 Coin 한도" : "Daily Coin cap"],
-              ["monthlyLimitCoin", ko ? "월 Coin 한도" : "Monthly Coin cap"],
+              ["ratePesosPerPoint", t("admin_finance_rate")],
+              ["minimumCoin", t("admin_finance_minimum_coin")],
+              ["conversionUnit", t("admin_finance_conversion_unit")],
+              ["maximumConversionsPerDay", t("admin_finance_daily_count_limit")],
+              ["maximumConversionsPerWeek", t("admin_finance_weekly_count_limit")],
+              ["maximumConversionsPerMonth", t("admin_finance_monthly_count_limit")],
+              ["minimumIntervalHours", t("admin_finance_min_interval_hours")],
+              ["dailyLimitCoin", t("admin_finance_daily_coin_cap")],
+              ["monthlyLimitCoin", t("admin_finance_monthly_coin_cap")],
             ] as const
           ).map(([key, label]) => (
             <label key={key} className="block">
@@ -228,7 +224,7 @@ export function AdminFinanceSettingsView() {
               onClick={() => void requestSave()}
               data-finance-cta="save-conversion-policy"
             >
-              {ko ? "전환 정책 저장" : "Save conversion policy"}
+              {t("admin_finance_save_conversion_policy")}
             </AdminActionButton>
           </div>
           </div>

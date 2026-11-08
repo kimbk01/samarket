@@ -29,40 +29,10 @@ export function mapGiftTransferErrorKey(code: string | null | undefined): GiftTr
   return "gift_u3_err_generic";
 }
 
+/** `safeT(key, …)` 두 번째 인자 — 문구는 카탈로그(`gift_u3_err_*`)만 쓴다(B4 대체 문구 제거). */
 export function giftTransferErrorFallbacks(key: GiftTransferErrorCopyKey): {
-  fallbackKo: string;
-  fallbackEn: string;
+  vars?: Record<string, string | number>;
 } {
-  switch (key) {
-    case "gift_u3_err_not_friend":
-      return {
-        fallbackKo: "친구에게만 상품권을 선물할 수 있습니다.",
-        fallbackEn: "You can only send gift certificates to friends.",
-      };
-    case "gift_u3_err_not_owner":
-      return {
-        fallbackKo: "더 이상 보유 중인 상품권이 아닙니다.",
-        fallbackEn: "You no longer own this gift certificate.",
-      };
-    case "gift_u3_err_gift_locked":
-      return {
-        fallbackKo: "이미 수령 대기 중인 상품권입니다.",
-        fallbackEn: "This gift is already awaiting accept.",
-      };
-    case "gift_u3_err_not_transferable":
-      return {
-        fallbackKo: "선물할 수 없는 상품권입니다.",
-        fallbackEn: "This gift certificate can’t be transferred.",
-      };
-    case "gift_u3_err_already_accepted":
-      return {
-        fallbackKo: "이미 수령된 상품권입니다.",
-        fallbackEn: "This gift was already accepted.",
-      };
-    default:
-      return {
-        fallbackKo: "상품권 선물에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-        fallbackEn: "Couldn’t send the gift. Please try again.",
-      };
-  }
+  void key;
+  return {};
 }

@@ -93,54 +93,44 @@ export function AdminStoreCouponControlDetail({
         ? await confirmAdminAction({
             level: adminActionLevel("reject"),
             ko,
-            title: ko ? `쿠폰 반려 · ${title}` : `Reject coupon · ${title}`,
-            description: ko ? "반려 사유는 매장에 전달되고 작업 기록에 남습니다." : "The reason is sent to the store and recorded.",
+            title: t("admin_stores_reject_coupon", { title }),
+            description: t("admin_stores_reason_is_sent_to_store_and"),
             confirmLabel: adminCta("reject", ko),
             destructive: true,
-            reasonPlaceholder: ko ? "반려 사유" : "Rejection reason",
+            reasonPlaceholder: t("admin_stores_prompt_reject_reason"),
           })
         : action === "revoke"
           ? await confirmAdminAction({
               level: adminActionLevel("forceCancel"),
               ko,
-              title: ko ? `쿠폰 강제 회수 · ${title}` : `Force revoke coupon · ${title}`,
-              description: ko
-                ? "발급된 쿠폰이 더 이상 사용되지 않습니다. 되돌릴 수 없습니다."
-                : "Issued coupons can no longer be used. This cannot be undone.",
-              confirmLabel: ko ? "강제 회수" : "Force revoke",
+              title: t("admin_stores_force_revoke_coupon", { title }),
+              description: t("admin_stores_issued_coupons_can_no_longer_be"),
+              confirmLabel: t("admin_stores_force_revoke"),
               destructive: true,
               retypeValue: retypeTarget,
-              reasonPlaceholder: ko ? "회수 사유" : "Revoke reason",
+              reasonPlaceholder: t("admin_stores_revoke_reason"),
             })
           : action === "approve"
             ? await confirmAdminAction({
                 level: adminActionLevel("approve"),
                 ko,
-                title: ko ? `쿠폰 승인 · ${title}` : `Approve coupon · ${title}`,
-                description: ko ? "승인 사유는 작업 기록에 남습니다." : "The reason is recorded.",
-                confirmLabel: ko ? "승인" : "Approve",
-                reasonPlaceholder: ko ? "승인 사유" : "Approval reason",
+                title: t("admin_stores_approve_coupon", { title }),
+                description: t("admin_stores_reason_is_recorded"),
+                confirmLabel: t("admin_stores_approve"),
+                reasonPlaceholder: t("admin_stores_approval_reason"),
               })
             : await confirmAdminAction({
                 level: adminActionLevel(action === "pause" ? "hold" : "resume"),
                 ko,
                 title:
                   action === "pause"
-                    ? ko
-                      ? `쿠폰 일시중지 · ${title}`
-                      : `Pause coupon · ${title}`
-                    : ko
-                      ? `쿠폰 재개 · ${title}`
-                      : `Resume coupon · ${title}`,
+                    ? t("admin_stores_pause_coupon", { title })
+                    : t("admin_stores_resume_coupon", { title }),
                 description:
                   action === "pause"
-                    ? ko
-                      ? "일시중지하는 동안 새 발급·사용이 멈춥니다."
-                      : "New issuing and use stop while paused."
-                    : ko
-                      ? "쿠폰 발급·사용을 다시 시작합니다."
-                      : "Issuing and use resume.",
-                confirmLabel: action === "pause" ? (ko ? "일시중지" : "Pause") : ko ? "재개" : "Resume",
+                    ? t("admin_stores_new_issuing_and_use_stop_while")
+                    : t("admin_stores_issuing_and_use_resume"),
+                confirmLabel: action === "pause" ? t("admin_stores_pause") : t("admin_stores_resume"),
               });
     if (!c.ok) return;
     setBusy(action);
@@ -372,12 +362,10 @@ export function AdminStoreCouponControlDetail({
         {actions.revoke ? (
           <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
             <p className="text-sm text-sam-muted">
-              {ko
-                ? "강제 회수는 사유 입력과 쿠폰 이름 재입력 후 처리됩니다."
-                : "Force revoke asks for a reason and the coupon name typed again."}
+              {t("admin_stores_force_revoke_asks_for_reason_and")}
             </p>
             <AdminActionButton variant="danger" disabled={busy !== null} aria-busy={busy === "revoke"} onClick={() => void runAction("revoke")}>
-              {ko ? "강제 회수" : "Force revoke"}
+              {t("admin_stores_force_revoke")}
             </AdminActionButton>
           </div>
         ) : null}

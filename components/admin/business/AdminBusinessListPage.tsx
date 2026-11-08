@@ -97,6 +97,8 @@ export function AdminBusinessListPage() {
 function AdminBusinessListPageInner() {
   const { t, language } = useI18n();
   const ko = language !== "en";
+  /** 한국어 화면만 천 단위 구분 숫자(기존 표시 그대로) */
+  const countText = (v: number | null | undefined) => (ko ? formatAdminNumber(v) : String(v));
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -295,9 +297,7 @@ function AdminBusinessListPageInner() {
       if (json.truncated) {
         setActionResult({
           ok: true,
-          message: ko
-            ? `결과가 ${formatAdminNumber(json.total)}곳이라 앞의 ${formatAdminNumber(json.max)}곳만 선택했습니다.`
-            : `Only the first ${json.max} of ${json.total} were selected.`,
+          message: t("admin_biz_select_truncated", { total: countText(json.total), max: countText(json.max) }),
         });
       }
     } catch {
@@ -349,12 +349,8 @@ function AdminBusinessListPageInner() {
 
   const selectionScopeLabel =
     selection.scope === "all_results"
-      ? ko
-        ? `전체 결과 선택 (조건 일치 ${formatAdminNumber(selection.allResultsTotal)}곳)`
-        : `All results (${selection.allResultsTotal})`
-      : ko
-        ? "직접 선택 · 페이지를 옮겨도 유지"
-        : "Manual selection · kept across pages";
+      ? t("admin_biz_scope_all_results_n", { n: countText(selection.allResultsTotal) })
+      : t("admin_biz_manual_selection_kept_across_pages");
 
   const showTableScrollChrome = !loading && viewMode === "list" && rows.length > 0;
 
@@ -446,7 +442,7 @@ function AdminBusinessListPageInner() {
       <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
       {writeBlockedReason ? (
         <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
-          {ko ? `매장 작업 비활성: ${writeBlockedReason}` : `Store actions disabled: ${writeBlockedReason}`}
+          {t("admin_biz_store_actions_disabled_reason", { reason: writeBlockedReason })}
         </p>
       ) : null}
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface" data-admin-biz-bulk-host="1">
@@ -472,7 +468,7 @@ function AdminBusinessListPageInner() {
                 onChange={() => setSelection((prev) => togglePageAdminStoreSelection(prev, pageIds))}
                 data-admin-biz-select-page="1"
               />
-              {ko ? `현재 페이지 선택 (${formatAdminNumber(pageIds.length)}곳)` : `Select this page (${pageIds.length})`}
+              {t("admin_biz_select_this_page_n", { n: countText(pageIds.length) })}
             </label>
             <AdminActionButton
               variant="secondary"
@@ -481,13 +477,11 @@ function AdminBusinessListPageInner() {
               onClick={() => void selectAllResults()}
               data-admin-biz-select-all-results="1"
             >
-              {ko ? `전체 결과 선택 (${formatAdminNumber(total)}곳)` : `Select all results (${total})`}
+              {t("admin_biz_select_all_results_n", { n: countText(total) })}
             </AdminActionButton>
             {selection.ids.length > 0 ? (
               <span className="text-[12px] text-sam-muted">
-                {ko
-                  ? `선택 ${formatAdminNumber(selection.ids.length)}곳 · ${selectionScopeLabel}`
-                  : `${selection.ids.length} selected · ${selectionScopeLabel}`}
+                {t("admin_biz_selected_n_scope", { n: countText(selection.ids.length), scope: selectionScopeLabel })}
               </span>
             ) : null}
           </div>

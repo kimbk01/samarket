@@ -168,8 +168,12 @@ describe("planner / execute wiring", () => {
 
   it("Admin preview surfaces SERVER DERIVED + CLIENT INVALIDATION", () => {
     const ui = read("components/admin/system/AdminDataResetPage.tsx");
-    expect(ui).toContain("SERVER DERIVED RESET");
-    expect(ui).toContain("CLIENT INVALIDATION");
+    // B4(언어 SSOT): 화면 문구는 카탈로그 키로 — 같은 영어 문구를 카탈로그에서 확인
+    const catalog = read("lib/i18n/catalog/copy-admin-b4-ops2.ts");
+    expect(ui).toContain('t("admin_system_server_derived_reset")');
+    expect(ui).toContain('t("admin_system_client_invalidation_2")');
+    expect(catalog).toContain('admin_system_server_derived_reset: "SERVER DERIVED RESET"');
+    expect(catalog).toContain('admin_system_client_invalidation_2: "CLIENT INVALIDATION"');
     expect(ui).toContain("derivedStateTargets");
     expect(ui).toContain("clientInvalidation");
     expect(ui).not.toContain("wipeClientSessionState");

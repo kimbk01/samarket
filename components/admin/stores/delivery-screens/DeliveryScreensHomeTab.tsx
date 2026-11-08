@@ -58,7 +58,7 @@ function errOf<T>(r: DeliveryScreensFetchResult<T>): FetchError | null {
  * - 집행 수는 목록 500건이 아니라 서버 페이지 limit=1 응답의 `policyCounts`
  */
 export function DeliveryScreensHomeTab() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language === "ko";
   const [reloadTick, setReloadTick] = useState(0);
   const [status, setStatus] = useState<HomeStatus>({
@@ -119,21 +119,21 @@ export function DeliveryScreensHomeTab() {
       <DeliveryScreensSection
         index={1}
         sectionKey="home_hero"
-        title={ko ? "상단 히어로 배너" : "Top hero banner"}
-        desc={ko ? "홈 맨 위에 넘겨 보는 배너입니다. 순서는 「노출 위치 현황」에서 바꿉니다." : "Swipeable banner at the top of HOME. Change order in placements."}
+        title={t("admin_stores_top_hero_banner")}
+        desc={t("admin_stores_swipeable_banner_at_top_of_home")}
         status={
           <>
-            <DeliveryScreensStat label={ko ? "집행 중" : "Live"} value={countValue(heroUsed)} />
-            <DeliveryScreensStat label={ko ? "용량" : "Capacity"} value={countValue(status.hero?.capacity)} />
+            <DeliveryScreensStat label={t("admin_stores_live")} value={countValue(heroUsed)} />
+            <DeliveryScreensStat label={t("admin_stores_capacity")} value={countValue(status.hero?.capacity)} />
           </>
         }
         actions={
           <>
             <Link href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew} className={Sam.btn.secondary} data-delivery-screens-hero-create="1">
-              {ko ? "배너 등록" : "Create banner"}
+              {t("admin_stores_create_banner")}
             </Link>
             <Link href="/admin/advertising/placements" className={Sam.btn.secondary}>
-              {ko ? "순서 관리" : "Manage order"}
+              {t("admin_stores_manage_order")}
             </Link>
           </>
         }
@@ -144,7 +144,7 @@ export function DeliveryScreensHomeTab() {
               <li key={slot.slideIndex} className="flex items-center gap-2">
                 <span className="w-5 text-[12px] font-semibold text-sam-muted">{slot.slideIndex}</span>
                 <span className={slot.campaignId ? "text-sam-fg" : "text-sam-muted"}>
-                  {slot.campaignId ? slot.campaignLabel ?? (ko ? "제목 없음" : "Untitled") : ko ? "비어 있음" : "Empty"}
+                  {slot.campaignId ? slot.campaignLabel ?? t("admin_stores_untitled") : t("admin_stores_empty")}
                 </span>
                 {slot.scheduleLabel ? <span className="text-[12px] text-sam-muted">{slot.scheduleLabel}</span> : null}
               </li>
@@ -153,15 +153,15 @@ export function DeliveryScreensHomeTab() {
         ) : status.heroError ? (
           <AdminErrorState ko={ko} code={status.heroError.code} httpStatus={status.heroError.status} onRetry={retryStatus} />
         ) : (
-          <p className="text-[12px] text-sam-muted">{ko ? "히어로 현황을 불러오는 중입니다." : "Loading hero status…"}</p>
+          <p className="text-[12px] text-sam-muted">{t("admin_stores_loading_hero_status")}</p>
         )}
       </DeliveryScreensSection>
 
       <DeliveryScreensSection
         index={2}
         sectionKey="home_shelves"
-        title={ko ? "홈 선반" : "HOME shelves"}
-        desc={ko ? "선반 순서·데이터·표현·노출을 편집합니다. 「더 많은 매장」은 항상 마지막입니다." : "Edit shelf order, data, display and exposure. Remaining stores always comes last."}
+        title={t("admin_stores_home_shelves")}
+        desc={t("admin_stores_edit_shelf_order_data_display_and")}
       >
         <AdminStoresHomeShelvesEditor embedded onSaved={onShelvesSaved} onLoaded={onShelvesLoaded} />
       </DeliveryScreensSection>
@@ -169,19 +169,19 @@ export function DeliveryScreensHomeTab() {
       <DeliveryScreensSection
         index={3}
         sectionKey="home_before_rest_banner"
-        title={ko ? "「더 많은 매장」 앞 배너" : "Banner before remaining stores"}
-        desc={ko ? "선반과 「더 많은 매장」 사이 배너 지면입니다. 켜기/끄기는 아래 패널에서 바로 저장됩니다." : "Banner slot between shelves and remaining stores. The toggle below saves immediately."}
+        title={t("admin_stores_banner_before_remaining_stores")}
+        desc={t("admin_stores_banner_slot_between_shelves_and_remaining")}
         status={
           <>
-            <DeliveryScreensStat label={ko ? "집행 중" : "Live"} value={countValue(status.bannerCounts?.exposable_now)} />
-            <DeliveryScreensStat label={ko ? "심사 중" : "In review"} value={countValue(status.bannerCounts?.under_review)} />
+            <DeliveryScreensStat label={t("admin_stores_live")} value={countValue(status.bannerCounts?.exposable_now)} />
+            <DeliveryScreensStat label={t("admin_stores_in_review")} value={countValue(status.bannerCounts?.under_review)} />
             {/* 광고 최종 점검 B-3: 보이는 건 1개, 첫 배너를 볼 수 없거나 이미지가 깨지면 예비 배너가 대신 나온다 */}
             <DeliveryScreensStat
-              label={ko ? "한 번에 보이는 배너" : "Shown at once"}
+              label={t("admin_stores_shown_at_once")}
               value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_HOME_INLINE_1.visibleAtOnce)}
             />
             <DeliveryScreensStat
-              label={ko ? "예비 포함 최대 등록" : "Max incl. spares"}
+              label={t("admin_stores_max_incl_spares")}
               value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_HOME_INLINE_1.registrationMax)}
             />
           </>
@@ -202,7 +202,7 @@ export function DeliveryScreensHomeTab() {
           />
         ) : shelves.error ? (
           <p className="text-[12px] text-sam-danger" role="alert">
-            {ko ? "홈 선반을 불러오지 못해 이 구역을 표시할 수 없습니다. 위 홈 선반에서 다시 불러오세요." : "HOME shelves failed to load, so this section is unavailable. Reload shelves above."}
+            {t("admin_stores_home_shelves_failed_to_load_so")}
           </p>
         ) : null}
       </DeliveryScreensSection>
@@ -210,20 +210,18 @@ export function DeliveryScreensHomeTab() {
       <DeliveryScreensSection
         index={4}
         sectionKey="home_rest_stores"
-        title={ko ? "더 많은 매장" : "Remaining stores"}
+        title={t("admin_stores_remaining_stores")}
         desc={
-          ko
-            ? "광고 삽입 켜기/끄기 기준은 이 값 하나입니다. 바꾸려면 위 홈 선반에서 「더 많은 매장」 › 쿠폰·광고 탭에서 저장하세요."
-            : "This single value switches ad insertion. Change it in HOME shelves › Remaining stores › Coupon · Ad, then save."
+          t("admin_stores_this_single_value_switches_ad_insertion")
         }
         status={
           <>
             <DeliveryScreensStat
-              label={ko ? "광고 삽입" : "Ad insertion"}
-              value={shelves.restLoaded ? (restAdOn ? (ko ? "켜짐" : "On") : ko ? "꺼짐" : "Off") : "-"}
+              label={t("admin_stores_ad_insertion")}
+              value={shelves.restLoaded ? (restAdOn ? t("admin_stores_on_3") : t("admin_stores_off_3")) : "-"}
             />
-            <DeliveryScreensStat label={ko ? "집행 중 광고" : "Live ads"} value={countValue(status.restCounts?.exposable_now)} />
-            <DeliveryScreensStat label={ko ? "심사 중" : "In review"} value={countValue(status.restCounts?.under_review)} />
+            <DeliveryScreensStat label={t("admin_stores_live_ads")} value={countValue(status.restCounts?.exposable_now)} />
+            <DeliveryScreensStat label={t("admin_stores_in_review")} value={countValue(status.restCounts?.under_review)} />
           </>
         }
       >

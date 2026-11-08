@@ -126,7 +126,7 @@ export function AdminMenusPage() {
       level: adminActionLevel("save"),
       ko,
       title: safeT("admin_menu_trade_unsaved_confirm"),
-      confirmLabel: ko ? "나가기" : "Leave",
+      confirmLabel: safeT("admin_menu_trade_unsaved_leave_cta"),
       destructive: true,
     });
     return r.ok;

@@ -65,10 +65,7 @@ export function DeliveryAdOperationsTimeline({
             </div>
             {isSystem ? (
               <p className="mt-1 whitespace-pre-wrap">
-                {safeT(m.messageKey as MessageKey, {
-                  fallbackKo: m.eventType,
-                  fallbackEn: m.eventType,
-                })}
+                {t(m.messageKey as MessageKey)}
               </p>
             ) : (
               <p className="mt-1 whitespace-pre-wrap break-words">{m.body}</p>

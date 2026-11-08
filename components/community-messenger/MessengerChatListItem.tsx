@@ -104,18 +104,8 @@ function swipeActionLabel(
   action: MessengerSwipeActionDef,
   safeT: ReturnType<typeof useI18n>["safeT"]
 ): string {
-  switch (action.labelKey) {
-    case "cm_ui_swipe_mark_read":
-      return safeT(action.labelKey, { fallbackKo: "읽음", fallbackEn: "Read" });
-    case "cm_ui_swipe_restore":
-      return safeT(action.labelKey, { fallbackKo: "복원", fallbackEn: "Restore" });
-    case "cm_ui_archive":
-      return safeT(action.labelKey, { fallbackKo: "보관", fallbackEn: "Archive" });
-    case "cm_ui_leave":
-      return safeT(action.labelKey, { fallbackKo: "나가기", fallbackEn: "Leave" });
-    default:
-      return safeT(action.labelKey, { fallbackKo: "확인", fallbackEn: "Confirm" });
-  }
+  /** B4: `labelKey` 는 MessageKey 타입 — 카탈로그 문구만(대체 문구 없음) */
+  return safeT(action.labelKey);
 }
 
 export type MessengerMenuAnchorRect = {

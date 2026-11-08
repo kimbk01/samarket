@@ -11,7 +11,7 @@ import type { OrderMoneyChain } from "@/lib/finance/order-money-chain/types";
 import { parseFinanceFilters } from "@/lib/finance/routes";
 
 export function AdminFinanceOrderDetailView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const params = useParams();
   const sp = useSearchParams();
@@ -51,10 +51,10 @@ export function AdminFinanceOrderDetailView() {
   return (
     <div className="space-y-4" data-admin-finance-order="1">
       <FinanceAdminNav ko={ko} />
-      {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
+      {loading ? <p className="text-sam-muted">{t("common_loading")}</p> : null}
       {error ? (
         <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2">
-          <p>{ko ? "주문 정산을 불러오지 못했습니다." : "Could not load order finance."}</p>
+          <p>{t("admin_finance_could_not_load_order_finance")}</p>
           <AdminActionButton variant="secondary" size="sm" className="mt-2" onClick={() => void load()}>
             {adminCta("refresh", ko)}
           </AdminActionButton>

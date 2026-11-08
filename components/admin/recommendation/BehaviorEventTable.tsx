@@ -22,7 +22,7 @@ const EVENT_LABELS: Record<BehaviorEventType, string> = {
 };
 
 export function BehaviorEventTable() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   /**
    * 필터 — 주소 보존 (R7): `?status=`(이벤트 유형) · `?q=`(userId) · `?section=`(sectionKey).
@@ -69,7 +69,7 @@ export function BehaviorEventTable() {
         status={{
           value: eventType,
           onChange: lq.setStatus,
-          label: ko ? "이벤트" : "Event",
+          label: t("admin_event"),
           options: (Object.keys(EVENT_LABELS) as BehaviorEventType[]).map((k) => ({ value: k, label: EVENT_LABELS[k] })),
         }}
       >

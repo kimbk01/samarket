@@ -43,14 +43,14 @@ function dt(v: string | null): string {
 }
 
 export function AdminGiftRecoveryPanel({ id }: { id: string }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   const [rows, setRows] = useState<Obligation[]>([]);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
   const [loadErr, setLoadErr] = useState<{ code: string; status?: number } | null>(null);
   const sourceLabel = (r: Obligation) =>
-    r.linkage === "POOL_LEVEL" ? (ko ? "풀 단위" : "Pool level") : ko ? "상품권 사용" : "Redemption";
+    r.linkage === "POOL_LEVEL" ? t("admin_gift_pool_level") : t("admin_gift_redemption");
 
   const load = useCallback(async () => {
     setState("loading");
@@ -85,9 +85,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
     <div className="space-y-4" data-admin-gift-recovery-ops="1">
       {/* DEF-35: 처리 API 는 이전 기록 전용(410) — 조회만 제공 */}
       <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-xs text-sam-muted">
-        {ko
-          ? "이전 기록 조회 전용입니다. 회수 기록은 더 이상 이 화면에서 처리하지 않습니다."
-          : "Historical records — view only. Recovery records are no longer processed here."}
+        {t("admin_gift_historical_records_view_only_recovery_records")}
       </p>
       {state === "loading" ? <AdminLoadingState ko={ko} /> : null}
       {state === "error" ? (
@@ -106,15 +104,15 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
             <table className="w-full min-w-[960px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-sam-border text-xs text-sam-muted">
-                  <th className="px-2 py-2">{ko ? "매장" : "Store"}</th>
-                  <th className="px-2 py-2">{ko ? "금액" : "Amount"}</th>
-                  <th className="px-2 py-2">{ko ? "발생 유형" : "Source"}</th>
-                  <th className="px-2 py-2">{ko ? "상품권 번호" : "Gift #"}</th>
-                  <th className="px-2 py-2">{ko ? "상태" : "Status"}</th>
-                  <th className="px-2 py-2">{ko ? "회수됨" : "Recovered"}</th>
-                  <th className="px-2 py-2">{ko ? "남은 금액" : "Remaining"}</th>
-                  <th className="px-2 py-2">{ko ? "당시 환산 금액" : "Historical converted amount"}</th>
-                  <th className="px-2 py-2">{ko ? "생성 일시" : "Created"}</th>
+                  <th className="px-2 py-2">{t("admin_store")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_amount")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_source")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_gift")}</th>
+                  <th className="px-2 py-2">{t("admin_status")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_recovered")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_remaining")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_historical_converted_amount")}</th>
+                  <th className="px-2 py-2">{t("admin_gift_created")}</th>
                   <th className="px-2 py-2" />
                 </tr>
               </thead>
@@ -137,7 +135,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
                         href={buildAdminGiftOpsHref({ tab: "recovery", extra: { id: r.id } })}
                         className={`${Sam.btn.secondary} inline-flex min-h-[36px] items-center px-3 text-xs`}
                       >
-                        {ko ? "상세 보기" : "View"}
+                        {t("admin_gift_view")}
                       </Link>
                     </td>
                   </tr>
@@ -150,14 +148,14 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
               <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                 <p className="font-semibold">{r.storeName}</p>
                 <p className="text-sm tabular-nums">
-                  {ko ? "남은 금액" : "Remaining"} {formatAdminPhp(r.amountRemaining)} ·{" "}
+                  {t("admin_gift_remaining")} {formatAdminPhp(r.amountRemaining)} ·{" "}
                   {r.linkage === "POOL_LEVEL" ? sourceLabel(r) : r.publicGiftNumber}
                 </p>
                 <Link
                   href={buildAdminGiftOpsHref({ tab: "recovery", extra: { id: r.id } })}
                   className={`${Sam.btn.secondary} mt-2 flex min-h-[40px] items-center justify-center`}
                 >
-                  {ko ? "상세 보기" : "View"}
+                  {t("admin_gift_view")}
                 </Link>
               </li>
             ))}
@@ -179,15 +177,15 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
           <p className="text-sm">
             {selected.linkage === "POOL_LEVEL"
               ? sourceLabel(selected)
-              : `${ko ? "상품권" : "Gift"} ${selected.publicGiftNumber ?? "—"}`}{" "}
+              : `${t("admin_gift_gift_2")} ${selected.publicGiftNumber ?? "—"}`}{" "}
             · {r5DeliveryStatusLabel(GIFT_RECOVERY_STATUS_NAMESPACE, selected.status, ko)}
           </p>
           <p className="text-sm tabular-nums">
-            {ko ? "남은 금액" : "Remaining"} {formatAdminPhp(selected.amountRemaining)} ·{" "}
-            {ko ? "당시 환산 금액" : "Historical converted amount"} {formatFinanceAmount({ wallet: "CASH", amount: selected.storeCashBalance })}
+            {t("admin_gift_remaining")} {formatAdminPhp(selected.amountRemaining)} ·{" "}
+            {t("admin_gift_historical_converted_amount")} {formatFinanceAmount({ wallet: "CASH", amount: selected.storeCashBalance })}
           </p>
           <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-xs text-sam-muted">
-            {ko ? "이전 기록 조회 전용 — 처리할 수 없습니다." : "Historical record — view only."}
+            {t("admin_gift_historical_record_view_only")}
           </p>
           <details className="text-xs text-sam-muted">
             <summary>

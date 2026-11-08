@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 import {
   looksLikeProfileUserId,
   TRADE_REPORT_ACCOUNT_ACTIONS_MCC_ONLY,
@@ -86,8 +87,11 @@ describe("P1-2 report / sanction / ad authority contract", () => {
 
   it("ad applications keep separate writers (no unified ads table)", () => {
     const src = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(src).toContain("point_promotion_orders");
-    expect(src).toContain("feed_ad_requests");
+    /** 큐 안내 문구는 카탈로그 키로 그린다 (언어 SSOT B4) */
+    expect(src).toContain('descKey: "admin_ad_applications_trade_desc"');
+    expect(MESSAGES.ko.admin_ad_applications_trade_desc).toContain("point_promotion_orders");
+    expect(src).toContain('descKey: "admin_ad_applications_feed_desc"');
+    expect(MESSAGES.ko.admin_ad_applications_feed_desc).toContain("feed_ad_requests");
     expect(src).toContain("NOT a unified ads table");
     expect(src).toContain("AdminCommunityPromotionQueue");
     expect(src).toContain("AdminFeedAdRequestQueue");

@@ -81,23 +81,26 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
           setInputError(null);
           const monthlyFeeMinor = fee.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(fee);
           if (fee.trim() !== "" && monthlyFeeMinor == null) {
-            setInputError(ko ? "월 회비를 숫자(PHP)로 입력하세요." : "Enter the monthly fee as a number (PHP).");
+            setInputError(translateBy(ko ? "ko" : "en", "admin_stores_enter_monthly_fee_as_number_php"));
             return;
           }
           const discountNum = Number(discount);
           if (!Number.isFinite(discountNum) || discountNum < 0 || discountNum > 100) {
-            setInputError(ko ? "광고 할인은 0~100 사이 숫자로 입력하세요." : "Enter an ad discount between 0 and 100.");
+            setInputError(translateBy(ko ? "ko" : "en", "admin_stores_enter_ad_discount_between_0_and"));
             return;
           }
           // v4 UI-11 — 요금·할인 변경은 확인 후 저장
           const confirmed = await confirmAdminAction({
             level: adminActionLevel("save"),
             ko,
-            title: ko ? "Partner 설정을 저장할까요?" : "Save Partner settings?",
-            description: ko
-              ? `활성 ${enabled ? "켜짐" : "꺼짐"} · 신규 가입 ${accepting ? "접수" : "중지"} · 월 회비 ${fee.trim() || "미설정"} PHP · 광고 할인 ${discountNum}%`
-              : `Enabled ${enabled ? "on" : "off"} · New members ${accepting ? "open" : "closed"} · Fee ${fee.trim() || "not set"} PHP · Discount ${discountNum}%`,
-            confirmLabel: ko ? "Partner 설정 저장" : "Save Partner config",
+            title: translateBy(ko ? "ko" : "en", "admin_stores_save_partner_settings"),
+            description: translateBy(ko ? "ko" : "en", "admin_stores_partner_save_desc", {
+              enabled: translateBy(ko ? "ko" : "en", enabled ? "admin_stores_partner_state_on" : "admin_stores_partner_state_off"),
+              accepting: translateBy(ko ? "ko" : "en", accepting ? "admin_stores_partner_accepting_open" : "admin_stores_partner_accepting_closed"),
+              fee: fee.trim() || translateBy(ko ? "ko" : "en", "admin_stores_partner_fee_not_set"),
+              discount: discountNum,
+            }),
+            confirmLabel: translateBy(ko ? "ko" : "en", "admin_stores_save_partner_config"),
           });
           if (!confirmed.ok) return;
           onSave({

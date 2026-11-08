@@ -73,6 +73,7 @@ function PromoteMemberPicker({
   onPick: (hit: { id: string; name: string }) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<MemberHit[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,8 +104,8 @@ function PromoteMemberPicker({
 
   return (
     <AdminFormSheet
-      title={ko ? "관리자로 지정할 회원 찾기" : "Find a member to promote"}
-      subtitle={ko ? "닉네임·아이디·회원 ID 로 검색합니다." : "Search by nickname, login ID or member ID."}
+      title={t("admin_staff_find_member_promote")}
+      subtitle={t("admin_staff_search_nickname_login_id_member_id")}
       onClose={onClose}
     >
       <form
@@ -120,14 +121,14 @@ function PromoteMemberPicker({
           onChange={(e) => setQ(e.target.value)}
           maxLength={100}
           className="h-10 flex-1 rounded-ui-rect border border-sam-border px-2.5 text-[16px]"
-          placeholder={ko ? "검색어 입력 후 Enter" : "Type and press Enter"}
+          placeholder={t("admin_staff_type_press_enter")}
         />
         <AdminActionButton type="submit" variant="primary" className="h-10" disabled={busy || !q.trim()}>
-          {ko ? "찾기" : "Search"}
+          {t("admin_staff_search")}
         </AdminActionButton>
       </form>
       {err ? <AdminErrorState ko={ko} code={err} /> : null}
-      {hits && hits.length === 0 && !err ? <AdminEmptyState ko={ko} message={ko ? "일치하는 회원이 없습니다." : "No members found."} /> : null}
+      {hits && hits.length === 0 && !err ? <AdminEmptyState ko={ko} message={t("admin_staff_no_members_found")} /> : null}
       {hits && hits.length > 0 ? (
         <ul className="mt-3 divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border">
           {hits.map((h) => (
@@ -137,7 +138,7 @@ function PromoteMemberPicker({
                 {h.email ? <span className="ml-2 text-[12px] text-sam-muted">{h.email}</span> : null}
               </span>
               <AdminActionButton type="button" onClick={() => onPick({ id: h.id, name: h.nickname || h.email || formatAdminShortId(h.id) })}>
-                {ko ? "선택" : "Select"}
+                {t("admin_staff_select")}
               </AdminActionButton>
             </li>
           ))}
@@ -148,7 +149,7 @@ function PromoteMemberPicker({
 }
 
 export function AdminStaffAccountsPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const lq = useAdminListQuery({
     defaults: { status: "active" },
@@ -215,7 +216,7 @@ export function AdminStaffAccountsPage() {
       setBanner({ ok: false, code: result.error });
       return;
     }
-    setBanner({ ok: true, message: ko ? `「${personLabel(openRow)}」 권한을 저장했습니다.` : `Saved permissions for 「${personLabel(openRow)}」.` });
+    setBanner({ ok: true, message: t("admin_staff_saved_permissions", { name: personLabel(openRow) }) });
     setOpenId(null);
     void load();
   };
@@ -229,7 +230,7 @@ export function AdminStaffAccountsPage() {
       setBanner({ ok: false, code: result.error });
       return;
     }
-    setBanner({ ok: true, message: ko ? `「${personLabel(openRow)}」 관리자 권한을 해제했습니다.` : `Revoked admin access for 「${personLabel(openRow)}」.` });
+    setBanner({ ok: true, message: t("admin_staff_revoked_admin_access", { name: personLabel(openRow) }) });
     setOpenId(null);
     void load();
   };
@@ -240,11 +241,9 @@ export function AdminStaffAccountsPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "권한 변경을 저장할까요?" : "Save permission changes?",
-      description: ko
-        ? `「${personLabel(openRow)}」 · ${roleLabel(editRole)} · 권한 ${editPerms.length}개`
-        : `「${personLabel(openRow)}」 · ${roleLabel(editRole)} · ${editPerms.length} permissions`,
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_staff_save_permission_changes"),
+      description: t("admin_staff_permissions", { name: personLabel(openRow), role: roleLabel(editRole), count: editPerms.length }),
+      confirmLabel: t("admin_save"),
     });
     if (c.ok) await saveChanges();
   };
@@ -255,21 +254,19 @@ export function AdminStaffAccountsPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("delete"),
       ko,
-      title: ko ? "관리자 권한을 해제할까요?" : "Revoke admin access?",
-      description: ko
-        ? "관리자 화면에 더 이상 들어올 수 없습니다. 회원 계정과 데이터는 그대로 남습니다."
-        : "They will lose Admin access. The member account and data stay.",
-      confirmLabel: ko ? "권한 해제" : "Revoke",
+      title: t("admin_staff_revoke_admin_access"),
+      description: t("admin_staff_they_will_lose_admin_access_member"),
+      confirmLabel: t("admin_staff_revoke"),
       destructive: true,
       retypeValue: adminStaffRevokeMatchText(openRow),
-      reasonPlaceholder: ko ? "해제 사유" : "Reason",
+      reasonPlaceholder: t("admin_staff_reason"),
     });
     if (!c.ok || !c.reason) return;
     await revoke(c.reason);
   };
 
   const onCreated = () => {
-    setBanner({ ok: true, message: ko ? "관리자 계정을 만들었습니다." : "Admin account created." });
+    setBanner({ ok: true, message: t("admin_staff_admin_account_created") });
     void load();
   };
 
@@ -280,17 +277,15 @@ export function AdminStaffAccountsPage() {
       <AdminPageHeader
         titleKey="admin_menu_admin_staff"
         description={
-          ko
-            ? "관리자 권한을 가진 계정과 해제 이력입니다. 권한 해제는 회원 계정을 지우지 않습니다."
-            : "Accounts with admin access and their revoke history. Revoking never deletes the member account."
+          t("admin_staff_accounts_admin_access_their_revoke_history")
         }
       />
         <div className="flex flex-wrap gap-2">
           <AdminActionButton type="button" variant="secondary" onClick={() => setCreating(true)}>
-            {ko ? "관리자 계정 만들기" : "Create admin account"}
+            {t("admin_staff_create_admin_account")}
           </AdminActionButton>
           <AdminActionButton type="button" variant="secondary" onClick={() => setPicking(true)}>
-            {ko ? "기존 회원을 관리자로 지정" : "Promote existing member"}
+            {t("admin_staff_promote_existing_member")}
           </AdminActionButton>
         </div>
       </div>
@@ -305,11 +300,11 @@ export function AdminStaffAccountsPage() {
         onSubmit={lq.submit}
         onReset={lq.reset}
         showPeriod={false}
-        searchPlaceholder={ko ? "닉네임·아이디·회원 ID" : "Nickname, login ID or member ID"}
+        searchPlaceholder={t("admin_staff_nickname_login_id_member_id")}
         status={{
           value: query.status,
           onChange: lq.setStatus,
-          label: ko ? "상태" : "Status",
+          label: t("admin_status"),
           options: ADMIN_STAFF_STATUS_FILTERS.map((s) => ({
             value: s === "all" ? "" : s,
             label: ko ? STATUS_OPTIONS[s].ko : STATUS_OPTIONS[s].en,
@@ -336,12 +331,12 @@ export function AdminStaffAccountsPage() {
           <table className="w-full min-w-[820px] border-collapse text-[14px]" data-admin-staff-table="1">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-left text-[13px] text-sam-muted">
-                <th className="px-3 py-2 font-medium">{ko ? "관리자" : "Admin"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "역할" : "Role"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "권한" : "Permissions"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "부여 (PHT)" : "Granted (PHT)"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "해제 (PHT)" : "Revoked (PHT)"}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_admin")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_staff_role")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_status")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_staff_permissions_2")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_staff_granted_pht")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_staff_revoked_pht")}</th>
               </tr>
             </thead>
             <tbody>
@@ -364,9 +359,7 @@ export function AdminStaffAccountsPage() {
                   <td className="max-w-[260px] px-3 py-2 text-[13px] text-sam-muted">
                     <span className="line-clamp-2">
                       {r.uiRole === "master"
-                        ? ko
-                          ? "전체 권한"
-                          : "All permissions"
+                        ? t("admin_staff_all_permissions")
                         : r.permissions.length === 0
                           ? "—"
                           : r.permissions.map(getPermissionLabel).join(", ")}
@@ -398,14 +391,14 @@ export function AdminStaffAccountsPage() {
           editable ? (
             /* 권한 해제는 재지정으로 되돌릴 수 있어 danger 가 아닌 보조 — 확인 단계(L3 사유 + 재입력)는 그대로. */
             <AdminActionButton type="button" variant="secondary" disabled={pending} onClick={() => void askRevoke()}>
-              {ko ? "관리자 권한 해제" : "Revoke admin access"}
+              {t("admin_staff_revoke_admin_access_2")}
             </AdminActionButton>
           ) : null
         }
         primaryActions={
           editable ? (
             <AdminActionButton type="button" variant="primary" disabled={pending || !dirty} onClick={() => void askSave()}>
-              {ko ? "저장" : "Save"}
+              {t("admin_save")}
             </AdminActionButton>
           ) : null
         }
@@ -413,30 +406,30 @@ export function AdminStaffAccountsPage() {
         {openRow ? (
           <div className="space-y-4 text-[14px]">
             <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1.5">
-              <dt className="text-sam-muted">{ko ? "상태" : "Status"}</dt>
+              <dt className="text-sam-muted">{t("admin_status")}</dt>
               <dd>
                 <AdminStatusLabel ko={ko} code={openRow.status} namespace={ADMIN_STAFF_MEMBERSHIP_STATUS_NAMESPACE} />
               </dd>
-              <dt className="text-sam-muted">{ko ? "부여" : "Granted"}</dt>
+              <dt className="text-sam-muted">{t("admin_staff_granted")}</dt>
               <dd>
                 {pht(openRow.grantedAt)}
                 {openRow.grantedByNickname ? ` · ${openRow.grantedByNickname}` : ""}
               </dd>
               {openRow.revokedAt ? (
                 <>
-                  <dt className="text-sam-muted">{ko ? "해제" : "Revoked"}</dt>
+                  <dt className="text-sam-muted">{t("admin_staff_revoked")}</dt>
                   <dd>
                     {pht(openRow.revokedAt)}
                     {openRow.revokedByNickname ? ` · ${openRow.revokedByNickname}` : ""}
                   </dd>
-                  <dt className="text-sam-muted">{ko ? "해제 사유" : "Reason"}</dt>
+                  <dt className="text-sam-muted">{t("admin_staff_reason")}</dt>
                   <dd>{openRow.revokeReason || "—"}</dd>
                 </>
               ) : null}
-              <dt className="text-sam-muted">{ko ? "회원 상세" : "Member"}</dt>
+              <dt className="text-sam-muted">{t("admin_staff_member")}</dt>
               <dd>
                 <Link href={`/admin/users/${openRow.userId}`} className="underline">
-                  {ko ? "회원 화면 열기" : "Open member"}
+                  {t("admin_staff_open_member")}
                 </Link>
               </dd>
             </dl>
@@ -444,7 +437,7 @@ export function AdminStaffAccountsPage() {
             {editable ? (
               <div className="space-y-3 border-t border-sam-border pt-3">
                 <label className="flex flex-col gap-1 text-[12px] font-medium text-sam-muted">
-                  {ko ? "역할" : "Role"}
+                  {t("admin_staff_role")}
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value as AdminRole)}
@@ -466,12 +459,8 @@ export function AdminStaffAccountsPage() {
             ) : (
               <p className="text-[13px] text-sam-muted">
                 {openRow.uiRole === "master"
-                  ? ko
-                    ? "최고관리자 권한은 이 화면에서 바꾸거나 해제할 수 없습니다."
-                    : "Super admin access cannot be changed here."
-                  : ko
-                    ? "해제된 기록입니다. 다시 지정하려면 「기존 회원을 관리자로 지정」을 쓰세요."
-                    : "This is a revoked record. Use 「Promote existing member」 to grant again."}
+                  ? t("admin_staff_super_admin_access_cannot_changed_here")
+                  : t("admin_staff_revoked_record_use_promote_existing_member")}
               </p>
             )}
 
@@ -506,7 +495,7 @@ export function AdminStaffAccountsPage() {
           onSuccess={() => {
             setBanner({
               ok: true,
-              message: ko ? `「${promoteTarget.name}」 을(를) 관리자로 지정했습니다.` : `Promoted 「${promoteTarget.name}」.`,
+              message: t("admin_staff_promoted", { name: promoteTarget.name }),
             });
             void load();
           }}

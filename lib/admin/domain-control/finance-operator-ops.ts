@@ -3,6 +3,13 @@
  * Preserves Point/Coin/Cash separation and mutation owners.
  */
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 export type FinanceOperatorOpKind =
   | "point_charge"
   | "cash_topup"
@@ -26,20 +33,20 @@ export function financeOpIsAdminApproval(kind: FinanceOperatorOpKind): boolean {
 export function financeOpSectionTitle(kind: FinanceOperatorOpKind, ko: boolean): string {
   switch (kind) {
     case "point_charge":
-      return ko ? "Point 충전 요청 (승인 대상)" : "Point top-up (approval)";
+      return tx(ko, "admin_domain_control_point_top_up_approval");
     case "cash_topup":
-      return ko ? "Cash 충전 요청 (승인 대상)" : "Cash top-up (approval)";
+      return tx(ko, "admin_domain_control_cash_top_up_approval");
     case "coin_earn_history":
-      return ko ? "판매 Coin 적립 (조회)" : "Sale Coin earn (history)";
+      return tx(ko, "admin_domain_control_sale_coin_earn_history");
     case "coin_to_cash_history":
-      return ko ? "Coin → Cash 전환 (조회 · 승인 아님)" : "Coin → Cash (history · not approval)";
+      return tx(ko, "admin_domain_control_coin_cash_history_not_approval");
     case "coin_withdrawal":
-      return ko ? "Coin 출금 (승인 대상)" : "Coin withdrawal (approval)";
+      return tx(ko, "admin_domain_control_coin_withdrawal_approval");
     case "settlement":
-      return ko ? "정산 (일자·매장 통제)" : "Settlement (daily / store)";
+      return tx(ko, "admin_domain_control_settlement_daily_store");
     case "fee_obligation":
-      return ko ? "미납 판매수수료" : "Unpaid sale fees";
+      return tx(ko, "admin_domain_control_unpaid_sale_fees");
     case "refund":
-      return ko ? "환불 / 조정" : "Refund / adjustment";
+      return tx(ko, "admin_domain_control_refund_adjustment");
   }
 }

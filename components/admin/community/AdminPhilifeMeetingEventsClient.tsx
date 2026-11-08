@@ -112,7 +112,7 @@ export function AdminPhilifeMeetingEventsClient() {
                   variant="ghost"
                   size="sm"
                   className="h-auto! justify-start! whitespace-normal! px-0! text-left"
-                  title="이 모임 기록만 보기"
+                  title={t("admin_community_meeting_events_filter_this")}
                   onClick={() => lq.setExtra("meetingId", e.meeting_id)}
                 >
                   {e.meeting_title || "이름 없음"}
@@ -192,7 +192,7 @@ export function AdminPhilifeMeetingEventsClient() {
               </AdminActionButton>
             </span>
           ) : (
-            <span className="pb-2.5 text-[12px] text-sam-muted">모임 이름을 누르면 그 모임 기록만 봅니다.</span>
+            <span className="pb-2.5 text-[12px] text-sam-muted">{t("admin_community_meeting_events_click_hint")}</span>
           )}
         </CommunityFilterBar>
       }

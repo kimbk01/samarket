@@ -50,7 +50,7 @@ export function AdminPointExpirePage() {
 
       {!action.allowed && action.reason ? (
         <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `실행 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_points_actions_disabled_2", { reason: action.reason })}
         </p>
       ) : null}
 

@@ -19,6 +19,7 @@ import {
 import { AdminDomainScopeSelect } from "@/components/admin/ui/AdminDomainScopeSelect";
 import { AdminAdsLedgerSurfaceMap } from "@/components/admin/ads/AdminAdsLedgerSurfaceMap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
 import { adsPlacementReorderConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
@@ -45,24 +46,24 @@ function creativeSpecLine(
 ): string {
   const parts = [spec.aspectLabel, spec.pixelLabel];
   if (spec.maxFileLabel) parts.push(spec.maxFileLabel);
-  return ko ? `소재: ${parts.join(" · ")}` : `Creative: ${parts.join(" · ")}`;
+  return translateBy(ko ? "ko" : "en", "admin_ads_creative_join", { join: parts.join(" · ") });
 }
 
 function feedOperatingLabel(raw: string, ko: boolean): string {
   const st = raw.toLowerCase();
-  if (st === "active") return ko ? "운영 중" : "Active";
-  if (st === "scheduled") return ko ? "예약" : "Scheduled";
-  if (st === "paused") return ko ? "일시중지" : "Paused";
-  if (st === "ended") return ko ? "종료" : "Ended";
-  if (st === "draft") return ko ? "초안" : "Draft";
-  return ko ? "알 수 없는 상태" : "Unknown status";
+  if (st === "active") return translateBy(ko ? "ko" : "en", "admin_ads_active");
+  if (st === "scheduled") return translateBy(ko ? "ko" : "en", "admin_ads_scheduled");
+  if (st === "paused") return translateBy(ko ? "ko" : "en", "common_paused");
+  if (st === "ended") return translateBy(ko ? "ko" : "en", "admin_ads_ended");
+  if (st === "draft") return translateBy(ko ? "ko" : "en", "common_draft");
+  return translateBy(ko ? "ko" : "en", "admin_ads_unknown_status");
 }
 
 function feedExposureLabel(hint: string | null, ko: boolean): string {
-  if (hint === "pool_eligible") return ko ? "풀 노출 가능" : "Pool eligible";
-  if (hint === "scheduled") return ko ? "예약" : "Scheduled";
-  if (hint === "paused") return ko ? "비노출" : "Not exposing";
-  return ko ? "—" : "—";
+  if (hint === "pool_eligible") return translateBy(ko ? "ko" : "en", "admin_ads_pool_eligible");
+  if (hint === "scheduled") return translateBy(ko ? "ko" : "en", "admin_ads_scheduled");
+  if (hint === "paused") return translateBy(ko ? "ko" : "en", "admin_ads_not_exposing");
+  return "—";
 }
 
 function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
@@ -82,23 +83,19 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
         </div>
         <div className="text-right text-[12px] text-sam-muted">
           <p>
-            {ko ? "현재 사용" : "In use"}:{" "}
+            {translateBy(ko ? "ko" : "en", "admin_ads_use")}:{" "}
             <span className="font-semibold text-sam-fg">
               {pool.used} / {pool.capacity}
             </span>
           </p>
           <p>
-            {ko ? "추가 가능" : "Available"}: {pool.remaining}
+            {translateBy(ko ? "ko" : "en", "admin_ads_available")}: {pool.remaining}
           </p>
           <p>
-            {ko ? "상태" : "Status"}:{" "}
+            {translateBy(ko ? "ko" : "en", "admin_ads_col_status")}:{" "}
             {pool.status === "available"
-              ? ko
-                ? "등록 가능"
-                : "Open"
-              : ko
-                ? "가득 참"
-                : "Full"}
+              ? translateBy(ko ? "ko" : "en", "admin_ads_open")
+              : translateBy(ko ? "ko" : "en", "admin_ads_full")}
           </p>
         </div>
       </div>
@@ -109,9 +106,10 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
 
       {pool.campaigns.length === 0 ? (
         <p className="mt-3 text-[13px] text-sam-muted">
-          {ko
-            ? `현재 등록된 ${pool.domain === "community" ? "커뮤니티" : "거래"} 배너가 없습니다.`
-            : `No ${pool.domain} banners registered here.`}
+          {translateBy(
+            ko ? "ko" : "en",
+            pool.domain === "community" ? "admin_ads_no_community_banners_registered" : "admin_ads_no_trade_banners_registered"
+          )}
         </p>
       ) : (
         <ul className="mt-3 space-y-2">
@@ -119,24 +117,14 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
             const isEventPromo = c.ownershipKind === "event_promotion";
             const sourceBadge =
               c.ownershipKind === "event_promotion"
-                ? ko
-                  ? "이벤트 프로모션"
-                  : "Event promotion"
+                ? translateBy(ko ? "ko" : "en", "admin_ads_event_promotion")
                 : c.ownershipKind === "admin_direct"
-                  ? ko
-                    ? "관리자 직접 광고"
-                    : "Admin direct ad"
-                  : ko
-                    ? "유료 광고"
-                    : "Paid ad";
+                  ? translateBy(ko ? "ko" : "en", "admin_ads_admin_direct_ad")
+                  : translateBy(ko ? "ko" : "en", "admin_ads_paid_ad");
             const primaryManageHref = isEventPromo && c.manageHref ? c.manageHref : c.operationsHref;
             const primaryManageLabel = isEventPromo
-              ? ko
-                ? "이벤트 노출 설정"
-                : "Event exposure settings"
-              : ko
-                ? "노출 관리에서 보기"
-                : "View in operations";
+              ? translateBy(ko ? "ko" : "en", "admin_ads_event_exposure_settings")
+              : translateBy(ko ? "ko" : "en", "admin_ads_view_operations");
             return (
               <li
                 key={c.id}
@@ -182,7 +170,7 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
                       size="sm"
                       data-placement-preview="1"
                     >
-                      {ko ? "미리보기" : "Preview"}
+                      {translateBy(ko ? "ko" : "en", "admin_ads_preview")}
                     </AdminActionLink>
                   ) : null}
                   <AdminActionLink
@@ -221,9 +209,7 @@ function FeedPoolCard({ pool, ko }: { pool: FeedPoolInventory; ko: boolean }) {
             <p className="text-sam-muted">{blocked.body}</p>
             {pool.used === pool.capacity ? (
               <p className="mt-1 text-sam-muted">
-                {ko
-                  ? `현재 ${pool.used} / ${pool.capacity} 사용 중입니다. 새 배너를 등록하려면 기존 캠페인이 종료되어야 합니다.`
-                  : `Currently ${pool.used} / ${pool.capacity}. End an existing campaign to register a new one.`}
+                {translateBy(ko ? "ko" : "en", "admin_ads_currently_used_capacity_end_existing", { used: String(pool.used), capacity: String(pool.capacity) })}
               </p>
             ) : null}
           </div>
@@ -254,14 +240,10 @@ function PopupSurfaceCard({
           <p className="text-[12px] font-mono text-sam-muted">{row.surfaceKey}</p>
         </div>
         <p className="text-[12px] text-sam-muted">
-          {ko ? "상태" : "Status"}:{" "}
+          {translateBy(ko ? "ko" : "en", "admin_ads_col_status")}:{" "}
           {row.hasCurrentWinner
-            ? ko
-              ? "현재 노출 있음"
-              : "Currently exposing"
-            : ko
-              ? "현재 노출 없음"
-              : "No current exposure"}
+            ? translateBy(ko ? "ko" : "en", "admin_ads_currently_exposing")
+            : translateBy(ko ? "ko" : "en", "admin_ads_no_current_exposure")}
         </p>
       </div>
 
@@ -272,7 +254,7 @@ function PopupSurfaceCard({
       <div className="mt-3 space-y-2 text-[13px]">
         <div>
           <p className="text-[12px] font-semibold text-sam-muted">
-            {ko ? "현재 노출" : "Current"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_current")}
           </p>
           {row.currentWinner ? (
             <div className="mt-1 flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
@@ -299,7 +281,7 @@ function PopupSurfaceCard({
                     variant="ghost"
                     size="sm"
                   >
-                    {ko ? "미리보기" : "Preview"}
+                    {translateBy(ko ? "ko" : "en", "admin_ads_preview")}
                   </AdminActionLink>
                 ) : null}
                 <AdminActionLink
@@ -307,16 +289,16 @@ function PopupSurfaceCard({
                   variant="ghost"
                   size="sm"
                 >
-                  {ko ? "노출 관리에서 보기" : "View in operations"}
+                  {translateBy(ko ? "ko" : "en", "admin_ads_view_operations")}
                 </AdminActionLink>
               </div>
             </div>
           ) : (
-            <p className="text-sam-muted">{ko ? "없음" : "None"}</p>
+            <p className="text-sam-muted">{translateBy(ko ? "ko" : "en", "common_none")}</p>
           )}
         </div>
         <p className="text-[12px] text-sam-muted">
-          {ko ? "대기" : "Waiting"}:{" "}
+          {translateBy(ko ? "ko" : "en", "admin_ads_waiting")}:{" "}
           {ko ? row.waitingSummaryKo : row.waitingSummaryEn}
         </p>
       </div>
@@ -329,7 +311,7 @@ function PopupSurfaceCard({
           data-placement-create="popup"
           data-r2-canonical="1"
         >
-          {ko ? "팝업 등록" : "Register Popup"}
+          {translateBy(ko ? "ko" : "en", "admin_ads_register_popup")}
         </AdminActionLink>
       </div>
     </article>
@@ -469,7 +451,7 @@ function AdminAdsPlacementManagementViewInner() {
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
-            {ko ? "광고·배너" : "Ads & banners"}
+            {t("admin_ads_ads_banners")}
           </Link>
           {" › "}
           {t("admin_menu_ads_authority_placements_inventory")}
@@ -478,9 +460,7 @@ function AdminAdsPlacementManagementViewInner() {
           {t("admin_menu_ads_authority_placements_inventory")}
         </h1>
         <p className="text-[13px] text-sam-muted" data-admin-placements-purpose="1">
-          {ko
-            ? "광고와 인라인 프로모션이 실제로 사용하는 노출 위치와 현재 사용 현황을 확인합니다. 이벤트 배너 편집은 프로모션 / 이벤트에서 합니다."
-            : "Inspect placements and current usage for paid ads and inline promotions. Edit event banners under Promotion / Events."}
+          {t("admin_ads_inspect_placements_current_usage_paid")}
         </p>
       </header>
 
@@ -503,7 +483,7 @@ function AdminAdsPlacementManagementViewInner() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="community"
       >
-        <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "커뮤니티" : "Community"}</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{t("admin_ads_community")}</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {communityPools.map((pool) => (
             <FeedPoolCard key={pool.placementKey} pool={pool} ko={ko} />
@@ -518,7 +498,7 @@ function AdminAdsPlacementManagementViewInner() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="trade"
       >
-        <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "거래" : "Trade"}</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{t("admin_ads_trade")}</h2>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {tradePools.map((pool) => (
             <FeedPoolCard key={pool.placementKey} pool={pool} ko={ko} />
@@ -533,7 +513,7 @@ function AdminAdsPlacementManagementViewInner() {
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         data-placement-domain="delivery"
       >
-        <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "배달" : "Delivery"}</h2>
+        <h2 className="text-[16px] font-bold text-sam-fg">{t("common_delivery")}</h2>
         {hero ? (
           <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -545,14 +525,14 @@ function AdminAdsPlacementManagementViewInner() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[12px] text-sam-muted">
-                  {ko ? "현재 사용" : "In use"}: {orderedIds.length} / {cap}
+                  {t("admin_ads_use")}: {orderedIds.length} / {cap}
                 </p>
                 {/* 슬라이드 행마다 같던 링크 — 행 버튼은 순서 이동 2개만 두고 카드에 한 번만 (R7 버튼 배치). */}
                 <AdminActionLink href="/stores" variant="secondary" size="sm" data-placement-preview="1">
-                  {ko ? "미리보기" : "Preview"}
+                  {t("admin_ads_preview")}
                 </AdminActionLink>
                 <AdminActionLink href={ADS_PLACEMENT_OPS_HREF} variant="secondary" size="sm" data-placement-ops="1">
-                  {ko ? "노출 관리에서 보기" : "View in operations"}
+                  {t("admin_ads_view_operations")}
                 </AdminActionLink>
                 {/* G-16 — 자사(DIBAY) 배너 생성 화면 진입 (빈 슬라이드가 없어도 보이는 카드 단위 진입점) */}
                 <AdminActionLink
@@ -561,7 +541,7 @@ function AdminAdsPlacementManagementViewInner() {
                   size="sm"
                   data-placement-first-party-create="1"
                 >
-                  {ko ? "자사 배너 등록" : "Register DIBAY banner"}
+                  {t("admin_ads_register_dibay_banner")}
                 </AdminActionLink>
               </div>
             </div>
@@ -582,7 +562,7 @@ function AdminAdsPlacementManagementViewInner() {
                     data-hero-slot-empty={empty ? "1" : "0"}
                   >
                     <span className="w-16 shrink-0 text-[12px] font-semibold text-sam-muted">
-                      {ko ? `슬라이드 ${i + 1}` : `Slide ${i + 1}`}
+                      {t("admin_ads_slide_value", { value: i + 1 })}
                     </span>
                     {slot ? (
                       <>
@@ -602,7 +582,7 @@ function AdminAdsPlacementManagementViewInner() {
                           </p>
                           <div className="mt-0.5 text-[12px] text-sam-muted">
                             <span>
-                              {ko ? "운영" : "Lifecycle"}:{" "}
+                              {t("admin_ads_lifecycle")}:{" "}
                               {slot.lifecycleLabel
                                 ? ko
                                   ? slot.lifecycleLabel.ko
@@ -616,7 +596,7 @@ function AdminAdsPlacementManagementViewInner() {
                           <AdminActionButton
                             variant="ghost"
                             size="sm"
-                            aria-label={ko ? "위로 이동" : "Move up"}
+                            aria-label={t("admin_ads_move_up")}
                             disabled={busy || i === 0 || !reorderAction.allowed}
                             onClick={() => move(i, -1)}
                             data-hero-reorder="1"
@@ -626,7 +606,7 @@ function AdminAdsPlacementManagementViewInner() {
                           <AdminActionButton
                             variant="ghost"
                             size="sm"
-                            aria-label={ko ? "아래로 이동" : "Move down"}
+                            aria-label={t("admin_ads_move_down")}
                             disabled={busy || i >= orderedIds.length - 1 || !reorderAction.allowed}
                             onClick={() => move(i, 1)}
                             data-hero-reorder="1"
@@ -638,7 +618,7 @@ function AdminAdsPlacementManagementViewInner() {
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[12px] text-sam-muted">
-                          {ko ? "비어 있음" : "Empty"}
+                          {t("admin_ads_empty")}
                         </span>
                         <AdminActionLink
                           href={`${hero.createBaseHref}?slot=${i + 1}`}
@@ -648,7 +628,7 @@ function AdminAdsPlacementManagementViewInner() {
                           data-r2-canonical="1"
                           data-hero-empty-create={i + 1}
                         >
-                          {ko ? "이 위치에 배너 등록" : "Register banner here"}
+                          {t("admin_ads_register_banner_here")}
                         </AdminActionLink>
                       </div>
                     )}
@@ -676,7 +656,7 @@ function AdminAdsPlacementManagementViewInner() {
                 if (confirmed.ok) void saveOrder();
               }}
             >
-              {ko ? "배너 순서 저장" : "Save banner order"}
+              {t("admin_ads_save_banner_order")}
             </AdminActionButton>
           </div>
         ) : null}

@@ -165,21 +165,23 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
         <Field label={safeT("admin_users_cc_auth_profile_provider")} value={profile?.authProvider || profile?.provider || empty} />
       </Fieldset>
       <section className={`${ADMIN_USERS_LITE_CARD} p-3 lg:col-span-2`} data-member-auth-linked-accounts="1">
-        <h3 className="mb-1 text-[12px] font-bold uppercase tracking-wide text-sam-muted">연결된 로그인 계정</h3>
+        <h3 className="mb-1 text-[12px] font-bold uppercase tracking-wide text-sam-muted">{t("admin_users_auth_linked_login_accounts")}</h3>
         {linked.length === 0 ? (
           <p className="py-1.5 text-[13px] text-sam-muted">
-            {manualLoginId ? `관리자 생성 계정 · 로그인 아이디 ${manualLoginId}` : "연결된 SNS 계정 없음"}
+            {manualLoginId
+              ? t("admin_users_auth_admin_created_login_id", { loginId: manualLoginId })
+              : t("admin_users_auth_no_linked_sns")}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[13px]">
               <thead className="text-[12px] text-sam-muted">
                 <tr>
-                  <th className="py-1.5 pr-3 font-medium">제공자</th>
-                  <th className="py-1.5 pr-3 font-medium">SNS 이름</th>
-                  <th className="py-1.5 pr-3 font-medium">계정 이메일</th>
-                  <th className="py-1.5 pr-3 font-medium">고유번호</th>
-                  <th className="py-1.5 pr-3 font-medium">연결 일시 (PHT)</th>
+                  <th className="py-1.5 pr-3 font-medium">{t("admin_users_auth_col_provider")}</th>
+                  <th className="py-1.5 pr-3 font-medium">{t("admin_users_auth_col_sns_name")}</th>
+                  <th className="py-1.5 pr-3 font-medium">{t("admin_users_auth_col_account_email")}</th>
+                  <th className="py-1.5 pr-3 font-medium">{t("admin_users_auth_col_provider_user_id")}</th>
+                  <th className="py-1.5 pr-3 font-medium">{t("admin_users_auth_col_linked_at_pht")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -187,17 +189,17 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
                   <tr key={`${row.provider}:${row.providerUserId}`} className="border-t border-sam-border-soft">
                     <td className="py-1.5 pr-3 font-medium text-sam-fg">{memberDetailSignupOriginLabelKo(row.provider)}</td>
                     <td className="py-1.5 pr-3 text-sam-fg" data-member-auth-provider-name="1">
-                      {row.providerName ?? (row.provider === "apple" ? "— (Apple 이 이름을 주지 않음)" : empty)}
+                      {row.providerName ?? (row.provider === "apple" ? t("admin_users_auth_apple_no_name") : empty)}
                     </td>
                     <td className="break-all py-1.5 pr-3 text-sam-fg">
                       {row.email
                         ? row.emailIsPrivateRelay
-                          ? `${row.email} (이메일 가리기)`
+                          ? t("admin_users_auth_email_private_relay", { email: row.email })
                           : row.email
                         : row.provider === "kakao"
-                          ? "— (카카오 이메일 미동의)"
+                          ? t("admin_users_auth_kakao_email_not_consented")
                           : row.provider === "apple"
-                            ? "— (Apple 이메일 가리기)"
+                            ? t("admin_users_auth_apple_hide_my_email")
                             : empty}
                     </td>
                     <td className="break-all py-1.5 pr-3 font-mono text-[12px] text-sam-fg">
@@ -205,7 +207,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
                         variant="ghost"
                         size="sm"
                         className="!h-auto !px-0 !py-0 text-left !font-mono !text-[12px] !font-normal"
-                        title="클릭하면 복사"
+                        title={t("admin_users_auth_click_to_copy")}
                         onClick={() => void navigator.clipboard?.writeText(row.providerUserId).catch(() => {})}
                       >
                         {row.providerUserId}

@@ -30,8 +30,7 @@ function countValue(n: number | null | undefined): string {
 }
 
 export function DeliveryScreensBrowseTab() {
-  const { language } = useI18n();
-  const ko = language === "ko";
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const primarySlug = searchParams.get("primary")?.trim().toLowerCase() ?? "";
   const [counts, setCounts] = useState<BrowseCounts | null>(null);
@@ -76,44 +75,42 @@ export function DeliveryScreensBrowseTab() {
 
   const status = counts?.primarySlug === primarySlug ? counts : null;
   const resolved = policy?.primarySlug === primarySlug ? policy.resolved : null;
-  const onOff = (v: boolean | undefined) => (v == null ? "-" : v ? (ko ? "켜짐" : "On") : ko ? "꺼짐" : "Off");
+  const onOff = (v: boolean | undefined) => (v == null ? "-" : v ? t("admin_stores_on_3") : t("admin_stores_off_3"));
 
   return (
     <div className="space-y-4" data-delivery-screens-tab="browse">
       <DeliveryScreensSection
         index={1}
         sectionKey="browse_status"
-        title={ko ? "선택한 1차 업종 구역 현황 (저장된 값)" : "Selected primary — saved zone status"}
+        title={t("admin_stores_selected_primary_saved_zone_status")}
         desc={
-          ko
-            ? "업종 목록 화면 순서: 상단 배너 → 탐색 선반·매장 목록(정렬) → 목록 사이 네이티브 광고 → 쿠폰 배지."
-            : "Screen order: top banner → discovery shelf & list (sort) → native ads in list → coupon badges."
+          t("admin_stores_screen_order_top_banner_discovery_shelf")
         }
         status={
           primarySlug ? (
             <>
-              <DeliveryScreensStat label={ko ? "상단 배너" : "Top banner"} value={onOff(resolved?.bannerAds.enabled)} />
+              <DeliveryScreensStat label={t("admin_stores_top_banner")} value={onOff(resolved?.bannerAds.enabled)} />
               {/* 광고 최종 점검 B-3: 「배너 용량 1」 대신 보이는 수·예비 포함 등록 수용량을 따로 (홈 중간 배너와 같은 표기) */}
               <DeliveryScreensStat
-                label={ko ? "한 번에 보이는 배너" : "Shown at once"}
+                label={t("admin_stores_shown_at_once")}
                 value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_CATEGORY_TOP.visibleAtOnce)}
               />
               <DeliveryScreensStat
-                label={ko ? "예비 포함 최대 등록" : "Max incl. spares"}
+                label={t("admin_stores_max_incl_spares")}
                 value={countValue(STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.STORES_CATEGORY_TOP.registrationMax)}
               />
-              <DeliveryScreensStat label={ko ? "집행 배너" : "Live banners"} value={countValue(status?.bannerCounts?.exposable_now)} />
-              <DeliveryScreensStat label={ko ? "네이티브 광고" : "Native ads"} value={onOff(resolved?.adEnabled)} />
-              <DeliveryScreensStat label={ko ? "집행 네이티브 광고" : "Live native ads"} value={countValue(status?.nativeCounts?.exposable_now)} />
-              <DeliveryScreensStat label={ko ? "쿠폰 배지" : "Coupon badges"} value={onOff(resolved?.couponEnabled)} />
+              <DeliveryScreensStat label={t("admin_stores_live_banners")} value={countValue(status?.bannerCounts?.exposable_now)} />
+              <DeliveryScreensStat label={t("admin_stores_native_ads")} value={onOff(resolved?.adEnabled)} />
+              <DeliveryScreensStat label={t("admin_stores_live_native_ads")} value={countValue(status?.nativeCounts?.exposable_now)} />
+              <DeliveryScreensStat label={t("admin_stores_coupon_badges")} value={onOff(resolved?.couponEnabled)} />
             </>
           ) : (
-            <span className="text-[12px] text-sam-muted">{ko ? "1차 업종을 고르면 현황이 보입니다." : "Pick a primary to see status."}</span>
+            <span className="text-[12px] text-sam-muted">{t("admin_stores_pick_primary_to_see_status")}</span>
           )
         }
         actions={
           <Link href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew} className={Sam.btn.secondary}>
-            {ko ? "배너 등록" : "Create banner"}
+            {t("admin_stores_create_banner")}
           </Link>
         }
       />

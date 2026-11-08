@@ -37,7 +37,7 @@ const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-con
  * 주소의 `page`·`size`(20/50/100) → API `limit`/`offset`, 「전체 N건」 은 서버 total.
  */
 export function AdminFinanceTransactionsView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const sp = useSearchParams();
   const filters = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
@@ -132,12 +132,10 @@ export function AdminFinanceTransactionsView() {
             variant="secondary"
             data-finance-cta="point-credit-panel"
           >
-            {ko ? "Point 지급 / 회수" : "Credit / reclaim Point"}
+            {t("admin_finance_credit_reclaim_point")}
           </AdminActionLink>
           <p className="sam-text-helper self-center text-sam-muted">
-            {ko
-              ? "조정은 기존 Point ledger confirm 계약을 사용합니다."
-              : "Adjustments use the existing Point ledger confirm contract."}
+            {t("admin_finance_adjustments_use_the_existing_point_ledger")}
           </p>
         </div>
       ) : null}
@@ -158,27 +156,27 @@ export function AdminFinanceTransactionsView() {
         showSearch={false}
       >
         <label className={LABEL}>
-          {ko ? "자산" : "Wallet"}
+          {t("finance_wallet")}
           <select
             className={FIELD}
             value={lq.query.extras.wallet}
             onChange={(e) => lq.setExtra("wallet", e.target.value)}
             data-finance-filter-wallet="1"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("admin_biz_ops_filter_all")}</option>
             <option value="POINT">Point</option>
             <option value="COIN">Coin</option>
             <option value="CASH">Cash</option>
           </select>
         </label>
         <label className={LABEL}>
-          {ko ? "유형" : "Type"}
+          {t("finance_filter_type")}
           <select
             className={`${FIELD} max-w-[14rem]`}
             value={lq.query.extras.type}
             onChange={(e) => lq.setExtra("type", e.target.value)}
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("admin_biz_ops_filter_all")}</option>
             {typeOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -187,7 +185,7 @@ export function AdminFinanceTransactionsView() {
           </select>
         </label>
         <label className={LABEL}>
-          {ko ? "매장 ID" : "Store ID"}
+          {t("finance_store_id")}
           <input
             className={`${FIELD} min-w-[10rem]`}
             value={ids.storeId}
@@ -196,7 +194,7 @@ export function AdminFinanceTransactionsView() {
           />
         </label>
         <label className={LABEL}>
-          {ko ? "주문 ID" : "Order ID"}
+          {t("finance_order_id")}
           <input
             className={`${FIELD} min-w-[10rem]`}
             value={ids.orderId}
@@ -209,7 +207,7 @@ export function AdminFinanceTransactionsView() {
         <AdminFinancePeriodSums
           ko={ko}
           range={adminFinanceRangeText(filters, ko)}
-          basis={ko ? "원장 기록 시각 기준 · 자산·유형·매장·주문 조건 적용" : "by ledger time · filters applied"}
+          basis={t("admin_finance_by_ledger_time_filters_applied")}
           cells={unifiedTxSumCells(sums, ko)}
         />
       ) : null}

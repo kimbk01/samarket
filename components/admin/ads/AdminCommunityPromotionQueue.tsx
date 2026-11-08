@@ -41,7 +41,7 @@ type Domain = "community" | "trade";
  * 노출 중지·재개·종료는 `/admin/community/promotions` (게시글 홍보) 에서 처리한다. 거래는 기존 승인/반려 유지.
  */
 export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?: Domain }) {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const en = language === "en";
   const isTrade = domain === "trade";
   const listHref = isTrade
@@ -115,9 +115,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           </h2>
           <p className="sam-text-helper text-sam-muted">
             {isTrade
-              ? en
-                ? "Trade boosts go live on payment without approval. This list is order history; pause, resume or end them in Trade › Boosts."
-                : "거래 상위노출은 승인 없이 결제 즉시 노출됩니다. 이 목록은 주문 내역 조회용이고, 중지·재개·종료는 거래 › 상위노출에서 합니다."
+              ? t("admin_ads_trade_boosts_go_live_payment")
               : safeT("admin_comm_promo_hint")}
           </p>
           {!isTrade ? (
@@ -126,7 +124,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
               data-community-promo-ops-link="1"
               className="sam-text-helper font-semibold text-signature underline-offset-2 hover:underline"
             >
-              {en ? "Open Post promotions" : "게시글 상위노출에서 관리하기"}
+              {t("admin_ads_open_post_promotions")}
             </Link>
           ) : (
             <Link
@@ -134,7 +132,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
               data-trade-promo-ops-link="1"
               className="sam-text-helper font-semibold text-signature underline-offset-2 hover:underline"
             >
-              {en ? "Open Trade › Boosts" : "거래 › 상위노출에서 관리하기"}
+              {t("admin_ads_open_trade_boosts")}
             </Link>
           )}
         </div>
@@ -144,10 +142,10 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           onChange={(e) => setFilter(e.target.value)}
         >
           <option value="pending_review">
-            {isTrade ? (en ? "Pending approval" : "승인 대기") : en ? "Pending (legacy)" : "심사 대기(이전 방식)"}
+            {isTrade ? (t("admin_ads_pending_approval")) : t("admin_ads_pending_legacy")}
           </option>
-          <option value="rejected">{en ? "Rejected" : "반려"}</option>
-          <option value="">{en ? "All" : "전체"}</option>
+          <option value="rejected">{t("admin_ads_summary_rejected")}</option>
+          <option value="">{t("common_all")}</option>
         </select>
       </div>
 
@@ -197,7 +195,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     {effective.storedStatus.toLowerCase() !== effective.effectiveStatus ? (
                       <>
                         {" "}
-                        ({en ? "stored" : "저장"}: {effective.storedStatus})
+                        ({t("admin_ads_stored")}: {effective.storedStatus})
                       </>
                     ) : null}
                     {isTrade && row.listingStatus
@@ -242,7 +240,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                       className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-50"
                       onClick={() => void act(row.id, "approve")}
                     >
-                      {en ? "Approve" : "승인"}
+                      {t("admin_ads_action_approve")}
                     </button>
                     <button
                       type="button"
@@ -250,7 +248,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 sam-text-helper font-semibold text-sam-fg disabled:opacity-50"
                       onClick={() => void act(row.id, "reject")}
                     >
-                      {en ? "Reject" : "반려"}
+                      {t("admin_ads_action_reject")}
                     </button>
                   </div>
                 ) : null}

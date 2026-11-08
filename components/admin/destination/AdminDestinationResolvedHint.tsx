@@ -5,11 +5,11 @@ import { externalUrlHadNonAsciiHost, type DestinationError } from "@/lib/destina
 import type { MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 
-const KIND_LABEL: Record<string, { key: MessageKey; ko: string; en: string }> = {
-  internal_route: { key: "admin_destination_hint_kind_internal_route", ko: "앱 내부 화면", en: "In-app page" },
-  event: { key: "admin_destination_hint_kind_event", ko: "이벤트", en: "Event" },
-  external_url: { key: "admin_destination_hint_kind_external_url", ko: "외부 링크 · 인앱 브라우저", en: "External · in-app browser" },
-  none: { key: "admin_destination_hint_kind_none", ko: "링크 없음", en: "No link" },
+const KIND_LABEL: Record<string, MessageKey> = {
+  internal_route: "admin_destination_hint_kind_internal_route",
+  event: "admin_destination_hint_kind_event",
+  external_url: "admin_destination_hint_kind_external_url",
+  none: "admin_destination_hint_kind_none",
 };
 
 const ERROR_KEY: Record<DestinationError, MessageKey> = {
@@ -48,7 +48,7 @@ export function AdminDestinationResolvedHint({
         </span>{" "}
         {/* D-4: 코드값 대신 이유 문구 (단축 주소 → 「최종 주소를 넣어 주세요」) */}
         <span data-admin-destination-error={d.error ?? ""}>
-          {d.error ? safeTranslate(lang, ERROR_KEY[d.error], { fallbackKo: "링크를 확인해 주세요.", fallbackEn: "Check the link." }) : null}
+          {d.error ? safeTranslate(lang, ERROR_KEY[d.error]) : null}
         </span>
       </p>
     );
@@ -59,7 +59,7 @@ export function AdminDestinationResolvedHint({
   return (
     <p className={className} data-admin-destination-kind={d.kind ?? "none"}>
       <span className="font-medium text-sam-fg">
-        {safeTranslate(lang, label.key, { fallbackKo: label.ko, fallbackEn: label.en })}
+        {safeTranslate(lang, label)}
       </span>
       {d.href ? <> · <span className="break-all">{d.href}</span></> : null}
       {nonAsciiHost ? (

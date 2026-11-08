@@ -1,4 +1,11 @@
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Operator-facing labels for Admin presentation.
  * Canonical enums/tables stay in backend; UI must not dump them as primary copy.
@@ -54,7 +61,7 @@ export function adminRecentTitle(
   }
   if (/^\[QA\]/i.test(title) || /__QA_/i.test(title)) {
     const bare = title.replace(/^\[QA\]\s*/i, "").replace(/^__QA_[^_]+_/i, "");
-    return ko ? `[테스트] ${bare.slice(0, 48)}` : `[Test] ${bare.slice(0, 48)}`;
+    return tx(ko, "admin_operator_ux_test", { title: String(bare.slice(0, 48)) });
   }
   return title;
 }
@@ -146,7 +153,7 @@ export function adminStripTechnicalMeta(meta: string | null | undefined, ko: boo
   const m = String(meta ?? "").trim();
   if (!m) return "";
   if (/applied_rate\s*=\s*NOT_AVAILABLE/i.test(m)) {
-    return ko ? "당시 적용 환율 기록 없음" : "Applied rate not recorded";
+    return tx(ko, "admin_operator_ux_applied_rate_not_recorded");
   }
   if (/^[a-z_]+:[0-9a-f-]{8,}$/i.test(m)) return "";
   return adminOperatorLabel(m, ko);
@@ -158,7 +165,7 @@ export function adminOperatorErrorMessage(
   ko: boolean
 ): string {
   const key = String(raw ?? "").trim();
-  if (!key) return ko ? "처리하지 못했습니다." : "Could not complete the action.";
+  if (!key) return tx(ko, "admin_operator_ux_could_not_complete_the_action");
   const known: Record<string, { ko: string; en: string }> = {
     // 재감사 S-1 (F-3): 피드 배너 풀 수용량(위치별 3)을 서버도 검사
     capacity_full: catalogPair("admin_this_ad_placement_is_full_max"),
@@ -384,27 +391,23 @@ export function adminAdsEligibilityNote(
   const e = String(eligibility ?? "").trim();
   if (!e) return "";
   if (/organic ranking/i.test(e) || /store sponsored/i.test(e)) {
-    return ko
-      ? "일반 노출(광고 아님)과 별개로 검토가 필요합니다."
-      : "Separate from organic ranking — admin review required.";
+    return tx(ko, "admin_operator_ux_separate_from_organic_ranking_admin_review");
   }
   if (/payment\s*!=\s*approval/i.test(e) || /payment≠approval/i.test(e) || /payment != approval/i.test(e)) {
-    return ko
-      ? "결제 완료만으로 승인되지 않습니다. 관리자 심사가 필요합니다."
-      : "Payment alone is not approval — admin review required.";
+    return tx(ko, "admin_operator_ux_payment_alone_is_not_approval_admin");
   }
   if (/requires admin approval/i.test(e) || /WAITING_ADMIN/i.test(e)) {
-    return ko ? "관리자 검토가 필요합니다." : "Admin review required.";
+    return tx(ko, "admin_operator_ux_admin_review_required");
   }
   if (/BANNER product/i.test(e) || /Placement Map/i.test(e)) {
-    return ko ? "배너 소재·노출 위치를 상세에서 확인하세요." : "Check banner creative and placement on detail.";
+    return tx(ko, "admin_operator_ux_check_banner_creative_and_placement_on");
   }
   if (/NOT_ELIGIBLE|not eligible/i.test(e)) {
-    return ko ? "지금은 고객 화면에 노출되지 않습니다." : "Not currently eligible for customer exposure.";
+    return tx(ko, "admin_operator_ux_not_currently_eligible_for_customer_exposure");
   }
   // Avoid dumping long English developer notes
   if (/[=≠>]/.test(e) || /_[A-Z]/.test(e) || e.length > 80) {
-    return ko ? "상세에서 처리 조건을 확인하세요." : "See detail for processing conditions.";
+    return tx(ko, "admin_operator_ux_see_detail_for_processing_conditions");
   }
   return adminOperatorLabel(e, ko);
 }
@@ -415,22 +418,22 @@ export function adminFinancePrimaryCta(
 ): string {
   switch (type) {
     case "point_charge":
-      return ko ? "충전 요청 확인" : "Review Point top-up";
+      return tx(ko, "admin_operator_ux_review_point_top_up");
     case "cash_topup":
-      return ko ? "충전 요청 확인" : "Review Cash top-up";
+      return tx(ko, "admin_operator_ux_review_cash_top_up");
     case "settlement":
-      return ko ? "정산 확인" : "Review settlement";
+      return tx(ko, "admin_operator_ux_review_settlement");
     case "fee_obligation":
-      return ko ? "미납 확인" : "Review unpaid fee";
+      return tx(ko, "admin_operator_ux_review_unpaid_fee");
     case "coin_withdrawal":
-      return ko ? "출금 검토" : "Review withdrawal";
+      return tx(ko, "admin_operator_ux_review_withdrawal");
     case "refund":
-      return ko ? "환불 검토" : "Review refund";
+      return tx(ko, "admin_operator_ux_review_refund");
     default:
-      return ko ? "검토하기" : "Review";
+      return tx(ko, "admin_operator_ux_review");
   }
 }
 
 export function adminDisplayApplicantLabel(label: string, ko: boolean): string {
-  return adminRecentTitle(label, ko ? "광고 신청" : "Ad application", "Ad application", ko);
+  return adminRecentTitle(label, tx(ko, "admin_operator_ux_ad_application"), "Ad application", ko);
 }

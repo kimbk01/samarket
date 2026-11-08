@@ -89,8 +89,8 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "배너 변경 내용을 저장할까요?" : "Save banner changes?",
-      description: ko ? "저장하면 상태·노출 기간 설정대로 앱 노출이 바뀝니다." : "App exposure follows the saved status and period.",
+      title: t("admin_banners_save_banner_changes"),
+      description: t("admin_banners_app_exposure_follows_saved_status"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;

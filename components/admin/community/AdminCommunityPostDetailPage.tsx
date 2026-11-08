@@ -292,10 +292,14 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
             sourceName={post.public_attribution_name}
           />
           {post.origin_kind !== "member" && post.display_author_name ? (
-            <span className="sam-text-xxs text-sam-muted">화면 표시 이름: {post.display_author_name}</span>
+            <span className="sam-text-xxs text-sam-muted">
+              {tr("admin_community_post_detail_display_name", { name: post.display_author_name })}
+            </span>
           ) : null}
           {post.origin_kind === "admin" && post.author_label ? (
-            <span className="sam-text-xxs text-sam-muted">작성 관리자: {post.author_label}</span>
+            <span className="sam-text-xxs text-sam-muted">
+              {tr("admin_community_post_detail_admin_author", { name: post.author_label })}
+            </span>
           ) : null}
         </span>
       ),
@@ -351,7 +355,11 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       value: post.moderated_at ? (
         <span>
           {post.moderated_by_label || "관리자"} · {pht(post.moderated_at)}
-          {post.moderation_reason ? <span className="block text-sam-muted">사유: {post.moderation_reason}</span> : null}
+          {post.moderation_reason ? (
+            <span className="block text-sam-muted">
+              {tr("admin_community_post_detail_reason", { reason: post.moderation_reason })}
+            </span>
+          ) : null}
         </span>
       ) : (
         "없음"
@@ -362,7 +370,11 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       value: post.last_admin_edit_at ? (
         <span>
           {post.last_edited_by_label || "관리자"} · {pht(post.last_admin_edit_at)}
-          {post.last_edit_reason ? <span className="block text-sam-muted">사유: {post.last_edit_reason}</span> : null}
+          {post.last_edit_reason ? (
+            <span className="block text-sam-muted">
+              {tr("admin_community_post_detail_reason", { reason: post.last_edit_reason })}
+            </span>
+          ) : null}
         </span>
       ) : (
         "없음"
@@ -508,11 +520,11 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         </p>
       ) : null}
       <label className="block space-y-1">
-        <span className="text-[12px] font-medium text-sam-muted">제목</span>
+        <span className="text-[12px] font-medium text-sam-muted">{tr("admin_community_post_detail_field_title")}</span>
         <input className={FIELD} value={editTitle} disabled={!canContent} onChange={(e) => setEditTitle(e.target.value)} />
       </label>
       <label className="block space-y-1">
-        <span className="text-[12px] font-medium text-sam-muted">카테고리</span>
+        <span className="text-[12px] font-medium text-sam-muted">{tr("admin_community_post_detail_field_category")}</span>
         <select className={FIELD} value={editTopicId} disabled={!canContent || topics.length === 0} onChange={(e) => setEditTopicId(e.target.value)}>
           {!editableTopics.some((t) => t.id === editTopicId) ? <option value={editTopicId}>{topicNameOf(slug)}</option> : null}
           {editableTopics.map((t) => (
@@ -523,7 +535,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         </select>
       </label>
       <div className="space-y-1">
-        <span className="text-[12px] font-medium text-sam-muted">본문</span>
+        <span className="text-[12px] font-medium text-sam-muted">{tr("admin_community_post_detail_field_body")}</span>
         {blocksMode && editBlocks ? (
           <CommunityPostBlocksEditor blocks={editBlocks} onChange={setEditBlocks} disabled={!canContent} />
         ) : (
@@ -592,8 +604,8 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         <h1 className="sam-text-page-title min-w-0 font-semibold text-sam-fg [overflow-wrap:anywhere]">{title}</h1>
         <span className="flex gap-1">
           <CommunityStatusBadge domain="content_status" value={status} ko={ko} />
-          {post.is_notice ? <AdminToneBadge tone="progress">공지</AdminToneBadge> : null}
-          {pinned ? <AdminToneBadge tone="progress">상단 고정</AdminToneBadge> : null}
+          {post.is_notice ? <AdminToneBadge tone="progress">{tr("admin_community_posts_badge_notice")}</AdminToneBadge> : null}
+          {pinned ? <AdminToneBadge tone="progress">{tr("admin_community_posts_badge_pinned")}</AdminToneBadge> : null}
         </span>
       </header>
       <AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />
@@ -628,11 +640,13 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       </div>
 
       <AdminTechDetails ko={ko}>
-        <div>글 ID: {id}</div>
-        {post.user_id ? <div>작성자 ID: {post.user_id}</div> : null}
-        {post.topic_id ? <div>카테고리 ID: {post.topic_id} ({slug})</div> : null}
-        <div>작성 구분 값: {String(post.origin_kind ?? "")}</div>
-        <div>버전(updated_at): {String(post.updated_at ?? "")}</div>
+        <div>{tr("admin_community_post_detail_tech_post_id", { id })}</div>
+        {post.user_id ? <div>{tr("admin_community_post_detail_tech_author_id", { id: post.user_id })}</div> : null}
+        {post.topic_id ? (
+          <div>{tr("admin_community_post_detail_tech_topic_id", { id: post.topic_id, slug })}</div>
+        ) : null}
+        <div>{tr("admin_community_post_detail_tech_origin", { value: String(post.origin_kind ?? "") })}</div>
+        <div>{tr("admin_community_post_detail_tech_version", { value: String(post.updated_at ?? "") })}</div>
       </AdminTechDetails>
 
       {sheet === "hide" || sheet === "delete" ? (
@@ -675,7 +689,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       ) : null}
       {sheet === "save" ? (
         <CommunityActionSheet
-          title="관리자 수정 저장"
+          title={tr("admin_community_post_detail_save_title")}
           rows={[
             ...sheetRows.slice(0, 1),
             {
@@ -730,12 +744,12 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       ) : null}
       {sheet === "pin" ? (
         <CommunityActionSheet
-          title="상단 고정"
+          title={tr("admin_community_posts_badge_pinned")}
           rows={sheetRows.slice(0, 2)}
-          notice="고정 한도: 피드 전체 3개 · 카테고리별 2개. 작성자에게 고정 알림이 갑니다."
-          reason={{ minLength: 2, placeholder: "예: 유용한 정보 글" }}
+          notice={tr("admin_community_post_detail_pin_notice")}
+          reason={{ minLength: 2, placeholder: tr("admin_community_post_detail_pin_reason_placeholder") }}
           ready={pinScope === "feed" || Boolean(slug)}
-          confirmLabel="상단 고정"
+          confirmLabel={tr("admin_community_posts_badge_pinned")}
           onSubmit={async (reason) => {
             const until = pinUntil ? manilaLocalInputToUtcIso(pinUntil) : null;
             const r = await communityJsonFetch(`/api/admin/community/engine/posts/${encodeURIComponent(id)}/pin`, {
@@ -745,13 +759,13 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
             return toCommunitySheetResult(r);
           }}
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "상단에 고정했습니다.", { keepDraft: true })}
+          onSettled={(k) => settle(k, tr("admin_community_post_detail_pinned_done"), { keepDraft: true })}
         >
           <fieldset className="space-y-1 text-[13px]">
-            <legend className="font-semibold text-sam-fg">고정 범위</legend>
+            <legend className="font-semibold text-sam-fg">{tr("admin_community_post_detail_pin_scope")}</legend>
             <label className="flex items-center gap-2">
               <input type="radio" name="pin-scope" checked={pinScope === "feed"} onChange={() => setPinScope("feed")} />
-              피드 전체
+              {tr("admin_community_post_detail_pin_scope_feed")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -761,22 +775,22 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
                 disabled={!slug}
                 onChange={() => setPinScope("topic")}
               />
-              이 카테고리만 ({topicNameOf(slug)})
+              {tr("admin_community_post_detail_pin_scope_topic", { topic: topicNameOf(slug) })}
             </label>
           </fieldset>
           <label className="block space-y-1 text-[13px]">
-            <span className="font-semibold text-sam-fg">고정 종료 (필리핀 시간, 비우면 기한 없음)</span>
+            <span className="font-semibold text-sam-fg">{tr("admin_community_post_detail_pin_until")}</span>
             <input type="datetime-local" className={FIELD} value={pinUntil} onChange={(e) => setPinUntil(e.target.value)} />
           </label>
         </CommunityActionSheet>
       ) : null}
       {sheet === "unpin" ? (
         <CommunityActionSheet
-          title="고정 해제"
+          title={tr("admin_community_post_detail_unpin")}
           rows={sheetRows.slice(0, 1)}
-          notice="이 글을 상단 고정에서 내립니다. 글은 그대로 남습니다."
+          notice={tr("admin_community_post_detail_unpin_notice")}
           reason={null}
-          confirmLabel="고정 해제"
+          confirmLabel={tr("admin_community_post_detail_unpin")}
           onSubmit={async () => {
             const r = await communityJsonFetch(`/api/admin/community/engine/posts/${encodeURIComponent(id)}/pin`, {
               method: "DELETE",
@@ -785,7 +799,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
             return toCommunitySheetResult(r);
           }}
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "고정을 해제했습니다.", { keepDraft: true })}
+          onSettled={(k) => settle(k, tr("admin_community_post_detail_unpinned_done"), { keepDraft: true })}
         />
       ) : null}
     </div>

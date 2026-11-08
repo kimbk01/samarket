@@ -78,10 +78,8 @@ export function AdminPointExpireRunPanel({
     const c = await confirmAdminAction({
       level: adminActionLevel("expireRun"),
       ko,
-      title: ko ? "포인트 만료 실행" : "Run point expiry",
-      description: ko
-        ? `기준일 ${asOfDate} (PHT) · 회원 ${Object.keys(previewForDate.totalByUser).length}명의 포인트가 실제로 소멸됩니다. 되돌릴 수 없습니다.`
-        : `As of ${asOfDate} (PHT) · points of ${Object.keys(previewForDate.totalByUser).length} members will actually expire. This cannot be undone.`,
+      title: t("admin_points_run_point_expiry"),
+      description: t("admin_points_as_pht_points_members_will_actually", { asOfDate, count: Object.keys(previewForDate.totalByUser).length }),
       confirmLabel: t("admin_points_expire_btn_run"),
       destructive: true,
       retypeValue: String(previewTotal),
@@ -148,9 +146,7 @@ export function AdminPointExpireRunPanel({
           title={
             canRun
               ? undefined
-              : ko
-                ? "같은 기준일 미리보기(시뮬레이션)를 먼저 실행하세요."
-                : "Run the simulation for this date first."
+              : t("admin_points_run_simulation_date_first")
           }
         >
           {t("admin_points_expire_btn_run")}
@@ -158,9 +154,7 @@ export function AdminPointExpireRunPanel({
       </form>
       {!previewForDate ? (
         <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? "만료 실행 전 같은 기준일로 미리보기(시뮬레이션)를 먼저 확인해야 합니다."
-            : "Preview (simulate) the same as-of date before running expiry."}
+          {t("admin_points_preview_simulate_same_as_date_before")}
         </p>
       ) : null}
       {error ? (
@@ -181,9 +175,7 @@ export function AdminPointExpireRunPanel({
             })}
           </p>
           <p className="mt-1 font-medium tabular-nums text-sam-fg">
-            {ko
-              ? `미리보기 총 ${formatAdminNumber(expireSimulationTotal(simResult))}P (회원별 잔액을 넘는 만큼은 차감되지 않음)`
-              : `Preview total ${formatAdminNumber(expireSimulationTotal(simResult))}P (capped by each member's balance)`}
+            {t("admin_points_preview_total_p_capped_each_member", { total: formatAdminNumber(expireSimulationTotal(simResult)) })}
           </p>
           <ul className="mt-2 list-inside list-disc sam-text-body-secondary text-sam-muted">
             {Object.entries(simResult.totalByUser).map(([uid, v]) => (

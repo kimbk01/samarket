@@ -15,8 +15,7 @@ import {
  * 행이 없으면 기본 켜짐(정규화 규칙과 같음). 저장 실패 시 이전 값으로 되돌린다.
  */
 export function AdminOpsSoundPreferenceToggle() {
-  const { language } = useI18n();
-  const ko = language === "ko";
+  const { t } = useI18n();
   const [enabled, setEnabled] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,20 +66,18 @@ export function AdminOpsSoundPreferenceToggle() {
     [enabled]
   );
 
-  const label = ko ? "운영 알림음 (내 계정)" : "Ops alert sound (my account)";
+  const label = t("admin_settings_ops_alert_sound_my_account");
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[14px] font-semibold text-sam-fg">{label}</p>
           <p className="mt-0.5 text-[12px] text-sam-muted">
-            {ko
-              ? "신고·충전·문의 등 처리 대기 알림이 올 때 이 브라우저에서 소리를 냅니다."
-              : "Play a sound in this browser when new action-queue items arrive."}
+            {t("admin_settings_play_sound_in_this_browser_when")}
           </p>
           {failed ? (
             <p role="alert" className="mt-1 text-[12px] text-sam-danger">
-              {ko ? "저장하지 못했습니다. 새로고침 후 다시 저장해 주세요." : "Could not save. Refresh and save again."}
+              {t("admin_settings_could_not_save_refresh_and_save")}
             </p>
           ) : null}
         </div>

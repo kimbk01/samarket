@@ -18,6 +18,12 @@ import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/own
 import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export const ADS_PRODUCTS_PLACEMENTS_HREF = "/admin/advertising/placements";
 export const ADS_PRODUCTS_DELIVERY_COMMERCIAL_HREF =
@@ -130,7 +136,7 @@ export function formatAdsPointPrice(
     currency: "point",
     amount: pointCost,
   });
-  return ko ? `${amount} / ${durationDays}일` : `${amount} / ${durationDays} days`;
+  return tx(ko, "admin_ads_commercial_price_per_days", { amount: String(amount), durationDays: String(durationDays) });
 }
 
 /** Business Cash packages are stored as PHP minor; display money + unit name. */
@@ -140,12 +146,10 @@ export function formatAdsBusinessCashPackagePrice(
   ko: boolean
 ): string {
   if (priceAmountMinor == null || priceAmountMinor <= 0) {
-    return ko ? "가격 미설정" : "Price not configured";
+    return tx(ko, "admin_ads_commercial_price_not_configured");
   }
   const money = formatDeliveryAdPhpMinor(priceAmountMinor);
-  return ko
-    ? `${money} Business Cash / ${durationDays}일 패키지`
-    : `${money} Business Cash / ${durationDays}-day package`;
+  return tx(ko, "admin_ads_commercial_business_cash_day_package", { money: String(money), durationDays: String(durationDays) });
 }
 
 function feedLines(

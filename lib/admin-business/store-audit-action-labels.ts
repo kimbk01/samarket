@@ -3,6 +3,13 @@
  * 클라이언트 안전 (매장 허브 이력 탭·요약 카드 공용).
  */
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 /** DEF-19 — 작업 기록 이름 (audit action `store.<action>` → 운영자 문구). */
 const AUDIT_ACTION_LABELS: Record<string, [string, string]> = {
   start_review: ["심사 시작", "Review started"],
@@ -36,5 +43,5 @@ export function mapAuditAction(action: string, ko: boolean): string {
   const key = action.trim().replace(/^store\./, "");
   const hit = AUDIT_ACTION_LABELS[key];
   if (hit) return ko ? hit[0] : hit[1];
-  return ko ? "매장 정보 변경" : "Store updated";
+  return tx(ko, "admin_business_store_updated");
 }

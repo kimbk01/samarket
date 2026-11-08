@@ -123,7 +123,7 @@ export function AdminPlacementMapPanel() {
 const DEFAULT_MAP_DOMAIN: PlacementMapDomain | "ALL" = "DELIVERY";
 
 function AdminPlacementMapPanelInner() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const allRows = useMemo(() => listAllPlacementMapRows(), []);
   /**
@@ -371,9 +371,7 @@ function AdminPlacementMapPanelInner() {
         {occupancyState === "unavailable" ? (
           <div className="mt-2 space-y-2">
             <p className="text-[12px] font-semibold text-sam-warning">
-              {ko
-                ? "점유 정보를 불러올 수 없습니다. 빈 자리 0으로 간주하지 마세요."
-                : "Occupancy unavailable — do not treat as vacancy 0."}
+              {t("admin_stores_occupancy_unavailable_do_not_treat_as")}
             </p>
             <AdminErrorState
               ko={ko}
@@ -547,16 +545,10 @@ function AdminPlacementMapPanelInner() {
                     <div>
                       <p className="text-[12px] font-semibold text-sam-muted">
                         {row.domain === "DELIVERY"
-                          ? ko
-                            ? "배달"
-                            : "Delivery"
+                          ? t("common_delivery")
                           : row.domain === "FEED"
-                            ? ko
-                              ? "피드"
-                              : "Feed"
-                            : ko
-                              ? "팝업"
-                              : "Popup"}
+                            ? t("admin_stores_feed")
+                            : t("admin_stores_popup")}
                         {" · "}
                         {SCREENS.find((s) => s.id === row.screen)
                           ? ko
@@ -569,23 +561,23 @@ function AdminPlacementMapPanelInner() {
                       </p>
                       {occ ? (
                         <p className="mt-1 text-[12px] text-sam-fg">
-                          {ko ? "사용" : "Used"} {occ.liveCount}/{occ.capacity}
+                          {t("admin_stores_used")} {occ.liveCount}/{occ.capacity}
                           {" · "}
-                          {ko ? "빈 자리" : "Vacant"} {occ.vacant}
+                          {t("admin_stores_vacant")} {occ.vacant}
                           {" · "}
                           {ko ? occ.vacancyLabelKo : occ.vacancyLabelEn}
                         </p>
                       ) : occupancyState === "loading" ? (
                         <p className="mt-1 text-[12px] text-sam-muted" role="status" data-admin-state="loading">
-                          {ko ? "점유 불러오는 중…" : "Loading occupancy…"}
+                          {t("admin_stores_loading_occupancy")}
                         </p>
                       ) : occupancyState === "unavailable" ? (
                         <p className="mt-1 text-[12px] text-sam-warning">
-                          {ko ? "점유 확인 불가" : "Occupancy unavailable"}
+                          {t("admin_stores_occupancy_unavailable")}
                         </p>
                       ) : (
                         <p className="mt-1 text-[12px] text-sam-muted">
-                          {ko ? "일정 기반 점유 없음" : "No schedule occupancy"}
+                          {t("admin_stores_no_schedule_occupancy")}
                         </p>
                       )}
                     </div>
@@ -626,46 +618,46 @@ function AdminPlacementMapPanelInner() {
                   </p>
                   {occupancyByKey[selected.placementId] ? (
                     <p className="mt-1 text-[13px]">
-                      {ko ? "용량" : "Capacity"}{" "}
+                      {t("admin_stores_capacity")}{" "}
                       {occupancyByKey[selected.placementId]!.liveCount}/
                       {occupancyByKey[selected.placementId]!.capacity}
                       {" · "}
-                      {ko ? "예약" : "Reserved"}{" "}
+                      {t("admin_stores_reserved")}{" "}
                       {occupancyByKey[selected.placementId]!.reservedCount}
                       {" · "}
-                      {ko ? "빈 자리" : "Vacant"} {occupancyByKey[selected.placementId]!.vacant}
+                      {t("admin_stores_vacant")} {occupancyByKey[selected.placementId]!.vacant}
                     </p>
                   ) : null}
                 </div>
                 {mini ? (
                   <DeliveryAdPlacementMiniature
                     kind={mini}
-                    adLabel={ko ? "광고" : "Ad"}
+                    adLabel={t("admin_stores_ad")}
                   />
                 ) : null}
                 <ul className="space-y-1">
                   <li>
-                    {ko ? "상품" : "Product"}: {selected.productKind}
+                    {t("admin_stores_products_th_product")}: {selected.productKind}
                   </li>
                   <li>
-                    {ko ? "비율" : "Ratio"}: {selected.aspectRatio}
+                    {t("admin_stores_ratio")}: {selected.aspectRatio}
                   </li>
                   <li>
-                    {ko ? "앱 경로" : "App route"}: {selected.runtimeRouteHint}
+                    {t("admin_stores_app_route")}: {selected.runtimeRouteHint}
                   </li>
                   <li className="text-sam-muted">{selected.notes}</li>
                 </ul>
                 <details className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5">
                   <summary className="cursor-pointer text-[12px] font-semibold text-sam-muted">
-                    {ko ? "기술 정보 보기" : "Technical info"}
+                    {t("admin_stores_technical_info")}
                   </summary>
                   <ul className="mt-2 space-y-1 font-mono text-[12px] text-sam-muted">
                     <li>{selected.placementId}</li>
                     <li>
-                      {ko ? "비율 권한" : "Ratio owner"}: {selected.ratioOwner}
+                      {t("admin_stores_ratio_owner")}: {selected.ratioOwner}
                     </li>
                     <li>
-                      {ko ? "런타임" : "Runtime"}: {selected.runtimeConsumer}
+                      {t("admin_stores_runtime")}: {selected.runtimeConsumer}
                     </li>
                     <li>
                       Preview: {selected.flags.previewSupported ? "Y" : "N"}

@@ -51,6 +51,7 @@ import {
   type StoreStatusAxisRow,
 } from "@/lib/admin-business/build-store-status-control";
 import { AdminTechId, formatAdminShortId, formatAdminShortIdEllipsis } from "@/components/admin/ui/AdminTechId";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function CopyId({ value, labelKey }: { value: string; labelKey: MessageKey }) {
   const { t } = useI18n();
@@ -276,7 +277,7 @@ export function AdminBusinessCcDeliveryCard({
           <dd>
             {yn(t, delivery.isOpen)}{" "}
             <span className="sam-text-helper text-sam-muted">
-              {ko ? "(영업 스위치)" : "(open switch)"}
+              {t("admin_biz_open_switch")}
             </span>
           </dd>
         </div>
@@ -300,7 +301,7 @@ export function AdminBusinessCcDeliveryCard({
           <dd>
             {yn(t, delivery.autoHoursEnabled)}
             {delivery.scheduleEnforced != null
-              ? ` · ${ko ? "영업시간 강제" : "Schedule enforced"}: ${delivery.scheduleEnforced ? t("admin_biz_yn_yes") : t("admin_biz_yn_no")}`
+              ? ` · ${t("admin_biz_schedule_enforced")}: ${delivery.scheduleEnforced ? t("admin_biz_yn_yes") : t("admin_biz_yn_no")}`
               : ""}
           </dd>
         </div>
@@ -490,7 +491,6 @@ export function AdminBusinessCcKpiPanel({
   kpi: BusinessCcKpiSummary;
 }) {
   const { t, language } = useI18n();
-  const ko = language !== "en";
   const oc = kpi.orderStatusCounts;
   const sc = kpi.commissionCounts;
 
@@ -506,9 +506,13 @@ export function AdminBusinessCcKpiPanel({
         <div>
           <dt className="text-sam-muted">{t("admin_biz_kpi_order_status")}</dt>
           <dd className="sam-text-helper">
-            {ko
-              ? `접수 대기 ${oc.pending} · 진행 중 ${oc.inProgress} · 완료 ${oc.completed} · 취소 ${oc.cancelled} · 환불 요청 ${oc.refundRequested}`
-              : `Pending ${oc.pending} · In progress ${oc.inProgress} · Completed ${oc.completed} · Cancelled ${oc.cancelled} · Refund requested ${oc.refundRequested}`}
+            {t("admin_biz_order_status_counts", {
+              pending: oc.pending,
+              inProgress: oc.inProgress,
+              completed: oc.completed,
+              cancelled: oc.cancelled,
+              refundRequested: oc.refundRequested,
+            })}
           </dd>
         </div>
         <div>
@@ -639,14 +643,13 @@ export function AdminBusinessCcLinks({
   stats: { productCount: number; reviewCount: number };
   section?: AdminBusinessCcLinkSection;
 }) {
-  const { t, language } = useI18n();
-  const ko = language !== "en";
+  const { t } = useI18n();
   type L = { href: string; label: string; note?: string };
   const products: L[] = [
     {
       href: businessCcProductsHref(storeId),
       label: t("admin_biz_cta_products"),
-      note: ko ? `${stats.productCount}개` : `${stats.productCount}`,
+      note: t("admin_biz_count_pieces", { n: stats.productCount }),
     },
     { href: businessCcTaxonomyHref(), label: t("admin_biz_cta_taxonomy") },
   ];
@@ -655,24 +658,24 @@ export function AdminBusinessCcLinks({
     { href: businessCcStoreOrdersHref(storeId), label: t("admin_biz_cta_orders_all") },
     { href: businessCcCancellationsHref(storeId), label: t("admin_biz_cta_cancellations") },
     { href: businessCcRefundsHref(storeId), label: t("admin_biz_cta_refunds") },
-    { href: businessCcInquiriesHref(storeId), label: ko ? "매장 문의" : "Store inquiries" },
+    { href: businessCcInquiriesHref(storeId), label: t("admin_biz_store_inquiries") },
   ];
   const points: L[] = [
-    { href: businessCcPointsHref(storeId), label: ko ? "코인 거래" : "Coin transactions" },
-    { href: businessCcCashTransactionsHref(storeId), label: ko ? "캐시 거래" : "Cash transactions" },
-    { href: businessCcCashChargesHref(), label: ko ? "캐시 충전 요청" : "Cash top-up requests" },
-    { href: businessCcAdvertisingHref(storeId), label: ko ? "매장 광고" : "Store ads" },
+    { href: businessCcPointsHref(storeId), label: t("admin_biz_coin_transactions") },
+    { href: businessCcCashTransactionsHref(storeId), label: t("admin_biz_cash_transactions") },
+    { href: businessCcCashChargesHref(), label: t("admin_biz_cash_top_up_requests") },
+    { href: businessCcAdvertisingHref(storeId), label: t("admin_biz_store_ads") },
   ];
   const settlement: L[] = [
     { href: businessCcSettlementsHref(storeId), label: t("admin_biz_cta_settlements") },
-    { href: businessCcFinancialStatementHref(storeId), label: ko ? "매장 재무" : "Store finance" },
+    { href: businessCcFinancialStatementHref(storeId), label: t("admin_biz_store_finance") },
     { href: businessCcFeePoliciesHref(), label: t("admin_biz_cta_fee") },
   ];
   const reviews: L[] = [
     {
       href: businessCcReviewsHref(storeId),
       label: t("admin_biz_cta_reviews"),
-      note: ko ? `${stats.reviewCount}건` : `${stats.reviewCount}`,
+      note: t("admin_count_items", { n: stats.reviewCount }),
     },
     { href: businessCcReportsHref(storeId), label: t("admin_biz_cta_reports") },
   ];
@@ -701,9 +704,7 @@ export function AdminBusinessCcLinks({
   return (
     <div className="space-y-3">
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "이 매장으로 필터된 담당 화면으로 이동합니다. 처리는 각 화면에서 합니다."
-          : "Opens the owning screen filtered to this store. Actions happen there."}
+        {t("admin_biz_opens_the_owning_screen_filtered_to")}
       </p>
       <div className="flex flex-wrap gap-2">
         {links.map((l) => (
@@ -732,9 +733,9 @@ function feeScopeLabel(scope: string, ko: boolean): string {
 }
 
 export function overrideModeLabel(mode: string, ko: boolean): string {
-  if (mode === "inherit") return ko ? "전역 정책 따름" : "Follow global policy";
-  if (mode === "enabled") return ko ? "허용" : "Allowed";
-  if (mode === "disabled") return ko ? "차단" : "Blocked";
+  if (mode === "inherit") return translateBy(ko ? "ko" : "en", "admin_biz_follow_global_policy");
+  if (mode === "enabled") return translateBy(ko ? "ko" : "en", "admin_biz_allowed");
+  if (mode === "disabled") return translateBy(ko ? "ko" : "en", "admin_biz_blocked");
   return mode;
 }
 

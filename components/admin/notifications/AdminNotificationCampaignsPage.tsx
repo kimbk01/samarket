@@ -503,7 +503,7 @@ export function AdminNotificationCampaignsPage() {
       </div>
       {!sendAction.allowed && sendAction.reason ? (
         <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
-          {ko ? `본인 테스트 발송만 가능합니다. 실제 발송 비활성: ${sendAction.reason}` : `Self test-send only. Send disabled: ${sendAction.reason}`}
+          {t("admin_notifications_self_test_send_only_send_disabled", { reason: String(sendAction.reason) })}
         </p>
       ) : null}
 

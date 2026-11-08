@@ -4,6 +4,7 @@
  * 게시글 수정 이력 (설계 §C-6 · §E-3). API 의 각 행은 그 수정 **전** 값이다.
  * 비교: 이력 i 의 「수정 후」 = 바로 다음(더 최근) 이력의 「수정 전」, 가장 최근 이력은 현재 글.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useEffect, useState } from "react";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
@@ -44,20 +45,21 @@ function bodyText(s: { content?: string | null; content_blocks?: unknown }): str
 }
 
 function CompareRow({ label, before, after }: { label: string; before: string; after: string }) {
+  const { t } = useI18n();
   const same = before === after;
   return (
     <div className="space-y-1">
       <p className="text-[12px] font-semibold text-sam-muted">
-        {label} {same ? <span className="font-normal">(변경 없음)</span> : null}
+        {label} {same ? <span className="font-normal">{t("admin_community_postrev_unchanged")}</span> : null}
       </p>
       {same ? null : (
         <div className="grid gap-2 md:grid-cols-2">
           <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft p-2">
-            <p className="mb-1 text-[12px] font-semibold text-sam-danger">수정 전</p>
+            <p className="mb-1 text-[12px] font-semibold text-sam-danger">{t("admin_community_postrev_before")}</p>
             <p className="max-h-60 overflow-auto whitespace-pre-wrap text-[13px] text-sam-fg">{before || "—"}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-success bg-sam-success-soft p-2">
-            <p className="mb-1 text-[12px] font-semibold text-sam-success">수정 후</p>
+            <p className="mb-1 text-[12px] font-semibold text-sam-success">{t("admin_community_postrev_after")}</p>
             <p className="max-h-60 overflow-auto whitespace-pre-wrap text-[13px] text-sam-fg">{after || "—"}</p>
           </div>
         </div>
@@ -77,6 +79,7 @@ export function CommunityPostRevisionsTab({
   topicNameOf: (slug: string) => string;
   reloadKey: number;
 }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Revision[] | null>(null);
   const [err, setErr] = useState<{ code: string; status: number } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -130,7 +133,7 @@ export function CommunityPostRevisionsTab({
                 <span className="flex flex-wrap items-center gap-2">
                   <AdminToneBadge tone={role.tone}>{role.label}</AdminToneBadge>
                   <span className="font-medium text-sam-fg">{rev.editor_label?.trim() || "기록 없음"}</span>
-                  {rev.reason ? <span className="text-sam-muted">사유: {rev.reason}</span> : null}
+                  {rev.reason ? <span className="text-sam-muted">{t("admin_community_kit_reason", { reason: rev.reason })}</span> : null}
                 </span>
                 <span className="text-sam-muted">
                   {formatAdminManilaDateTime(rev.created_at)} PHT · {isOpen ? "접기" : "전후 비교"}

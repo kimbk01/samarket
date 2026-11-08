@@ -15,20 +15,6 @@ const FILTER_LABEL_KEY: Record<MyProductFilterKey, MessageKey> = {
   hidden: "mypage_comp_product_status_hidden",
 };
 
-const FILTER_FALLBACK_KO: Record<MyProductFilterKey, string> = {
-  all: "전체",
-  active: "판매중",
-  sold: "판매완료",
-  hidden: "숨김",
-};
-
-const FILTER_FALLBACK_EN: Record<MyProductFilterKey, string> = {
-  all: "All",
-  active: "For sale",
-  sold: "Sold",
-  hidden: "Hidden",
-};
-
 interface MyProductFilterProps {
   value: MyProductFilterKey;
   onChange: (value: MyProductFilterKey) => void;
@@ -67,10 +53,7 @@ export function MyProductFilter({
       onChange={onChange}
       items={MY_PRODUCT_FILTER_OPTIONS.map((opt) => ({
         id: opt.value,
-        label: safeT(FILTER_LABEL_KEY[opt.value], {
-          fallbackKo: FILTER_FALLBACK_KO[opt.value],
-          fallbackEn: FILTER_FALLBACK_EN[opt.value],
-        }),
+        label: safeT(FILTER_LABEL_KEY[opt.value]),
       }))}
       trailing={
         <button

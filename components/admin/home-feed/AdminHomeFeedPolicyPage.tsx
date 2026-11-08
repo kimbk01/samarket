@@ -77,7 +77,7 @@ export function AdminHomeFeedPolicyPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "홈 피드 정책 저장" : "Save home feed policy",
+      title: t("admin_home_feed_save_home_feed_policy"),
       description: t("admin_feed_policy_unlinked_notice"),
       confirmLabel: adminCta("save", ko),
     });
@@ -91,7 +91,7 @@ export function AdminHomeFeedPolicyPage() {
     });
     if (res.ok) {
       setEditingPolicyId(null);
-      setSaveResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setSaveResult({ ok: true, message: t("admin_saved") });
       void load();
     } else {
       const j = (await res.json().catch(() => ({}))) as { error?: string };

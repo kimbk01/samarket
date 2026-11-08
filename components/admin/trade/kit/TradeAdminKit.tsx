@@ -4,6 +4,9 @@
  * 거래 Admin 화면 공통 부품 (설계 v2 §D). 목록·필터·탭·페이지네이션·조치 시트는 커뮤니티 Admin 키트를 그대로 쓴다
  * (`@/components/admin/community/kit/CommunityAdminKit` — 같은 UI/UX/CTA SSOT). 여기에는 거래 고유 부품만 둔다.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
@@ -83,9 +86,10 @@ export function TradeVisibilityBadges({
   moderationState: string | null | undefined;
   ownerState: string | null | undefined;
 }) {
+  const { t } = useI18n();
   const m = String(moderationState ?? "visible");
   const o = String(ownerState ?? "none");
-  if (m === "visible" && o === "none") return <AdminToneBadge tone="success">노출</AdminToneBadge>;
+  if (m === "visible" && o === "none") return <AdminToneBadge tone="success">{t("admin_trade_kit_visible")}</AdminToneBadge>;
   return (
     <span className="flex flex-wrap gap-1">
       {m !== "visible" ? (
@@ -130,28 +134,28 @@ export function formatTradePoints(n: unknown): string {
   return `${formatAdminNumber(v)} P`;
 }
 
-/** 서버 오류 코드 → 운영자 문구 (개발 용어 노출 금지) */
-const TRADE_ERROR_KO: Record<string, string> = {
-  reason_required: "사유를 2자 이상 입력해 주세요.",
-  stale_state: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 확인해 주세요.",
-  already_processed: "이미 처리된 건입니다.",
-  /** D-6: 같은 노출 조치를 다시 누름 — 「다른 관리자가 먼저 변경」이 아니라 지금 상태를 알려 준다 */
-  already_admin_hidden: "이미 관리자 숨김 상태입니다.",
-  already_admin_deleted: "이미 관리자 삭제 상태입니다.",
-  already_visible: "이미 노출 중입니다.",
-  listing_paused: "글이 숨겨져 멈춘 광고입니다. 글이 다시 보이면 저절로 재개됩니다.",
-  /** 재감사 B-7: 승인 직전 글 상태 확인 */
-  listing_unavailable: "글이 판매완료·삭제돼 승인할 수 없습니다.",
-  not_found: "대상을 찾을 수 없습니다.",
-  forbidden_permission: "권한이 없습니다.",
-  need_sold_buyer: "구매자를 선택해 주세요.",
-  fault_required: "종료 사유의 책임 구분을 선택해 주세요.",
-  insufficient_balance: "회원 포인트가 부족합니다.",
-  category_in_use: "글이나 하위 카테고리가 있어 삭제할 수 없습니다.",
+/** 서버 오류 코드 → 운영자 문구 키 (개발 용어 노출 금지) — 언어 SSOT B4: 문구는 카탈로그 `admin_trade_err_*` */
+const TRADE_ERROR_KEYS: Record<string, MessageKey> = {
+  reason_required: "admin_trade_err_reason_required",
+  stale_state: "admin_trade_err_stale_state",
+  already_processed: "admin_trade_err_already_processed",
+  already_admin_hidden: "admin_trade_err_already_admin_hidden",
+  already_admin_deleted: "admin_trade_err_already_admin_deleted",
+  already_visible: "admin_trade_err_already_visible",
+  listing_paused: "admin_trade_err_listing_paused",
+  listing_unavailable: "admin_trade_err_listing_unavailable",
+  not_found: "admin_trade_err_not_found",
+  forbidden_permission: "admin_trade_err_forbidden_permission",
+  need_sold_buyer: "admin_trade_err_need_sold_buyer",
+  fault_required: "admin_trade_err_fault_required",
+  insufficient_balance: "admin_trade_err_insufficient_balance",
+  category_in_use: "admin_trade_err_category_in_use",
 };
 export function tradeErrorText(code: string | null | undefined): string {
   const c = String(code ?? "");
-  return TRADE_ERROR_KO[c] ?? adminOperatorErrorMessage(c, true);
+  const lang = getRuntimeAppLanguage();
+  const key = TRADE_ERROR_KEYS[c];
+  return key ? translate(lang, key) : adminOperatorErrorMessage(c, lang === "ko");
 }
 
 export function tradeDetailHref(href: string, returnTo: string): string {

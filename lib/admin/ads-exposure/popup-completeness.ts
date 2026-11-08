@@ -3,6 +3,13 @@
  * Does not change resolver eligibility.
  */
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 export type PopupCompletenessClass =
   | "orphan_partial"
   | "incomplete"
@@ -119,9 +126,9 @@ export function classifyPopupCampaignCompleteness(input: {
 export function popupMissingFieldsLabel(missing: PopupMissingField[], ko: boolean): string {
   if (!missing.length) return "";
   const parts = missing.map((m) => {
-    if (m === "creative") return ko ? "이미지 없음" : "No image";
-    if (m === "schedule") return ko ? "노출 기간 없음" : "No schedule";
-    return ko ? "이름 없음" : "No name";
+    if (m === "creative") return tx(ko, "admin_ads_exposure_no_image");
+    if (m === "schedule") return tx(ko, "admin_ads_exposure_no_schedule");
+    return tx(ko, "admin_ads_exposure_no_name");
   });
   return parts.join(ko ? " · " : " · ");
 }
@@ -132,7 +139,7 @@ export function popupWaitingReasonLabel(input: {
   winnerPeriodLabel: string | null;
   ko: boolean;
 }): string {
-  const name = input.winnerDisplayName?.trim() || (input.ko ? "다른 팝업" : "another popup");
+  const name = input.winnerDisplayName?.trim() || tx(input.ko, "admin_ads_exposure_another_popup");
   if (input.ko) {
     const pri =
       input.winnerPriority == null ? "" : `\n우선순위: ${input.winnerPriority}`;

@@ -136,7 +136,7 @@ export function AdminStoreOrderHistoryPanel({
               {adminOperatorErrorMessage(error, ko)}
             </p>
           ) : !data ? (
-            <p className="sam-text-helper text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
+            <p className="sam-text-helper text-sam-muted">{t("common_loading")}</p>
           ) : data.commission_error ? (
             <p role="alert" className="sam-text-helper text-sam-danger">
               {adminOperatorErrorMessage("commission_load_failed", ko)}
@@ -148,9 +148,7 @@ export function AdminStoreOrderHistoryPanel({
             </>
           ) : (
             <p className="sam-text-helper text-sam-muted">
-              {ko
-                ? "이 주문에는 수수료가 부과되지 않았습니다 (조리 시작 전 종료 또는 수수료 정책 이전 주문)."
-                : "No commission was charged for this order."}
+              {t("admin_delivery_orders_no_commission_was_charged_order")}
             </p>
           )}
           <Link href={ledgerHref} className={ROW_ACTION_BTN}>
@@ -160,20 +158,20 @@ export function AdminStoreOrderHistoryPanel({
       </AdminCard>
 
       {data?.delivery ? (
-        <AdminCard title={ko ? "배달 진행" : "Delivery"}>
+        <AdminCard title={t("admin_delivery_orders_delivery")}>
           <dl className="grid gap-2 sam-text-helper sm:grid-cols-2" data-admin-order-delivery="1">
             <div>
-              <dt className="text-sam-muted">{ko ? "배달 상태" : "Status"}</dt>
+              <dt className="text-sam-muted">{t("admin_delivery_orders_status")}</dt>
               <dd className="text-sam-fg">
                 {DELIVERY_LABEL[data.delivery.delivery_status as StoreOrderDeliveryStatus]?.[lang] ?? data.delivery.delivery_status}
               </dd>
             </div>
             {(
               [
-                ["assigned_at", ko ? "라이더 배정" : "Assigned"],
-                ["picked_up_at", ko ? "픽업" : "Picked up"],
-                ["delivered_at", ko ? "배달 완료" : "Delivered"],
-                ["failed_at", ko ? "배달 실패" : "Failed"],
+                ["assigned_at", t("admin_delivery_orders_assigned")],
+                ["picked_up_at", t("admin_delivery_orders_picked_up")],
+                ["delivered_at", t("admin_delivery_orders_delivered")],
+                ["failed_at", t("admin_delivery_orders_failed")],
               ] as const
             ).map(([k, label]) =>
               data.delivery?.[k] ? (
@@ -187,15 +185,15 @@ export function AdminStoreOrderHistoryPanel({
         </AdminCard>
       ) : null}
 
-      <AdminCard title={ko ? "주문 상태 이력" : "Status history"}>
+      <AdminCard title={t("admin_delivery_orders_status_history")}>
         <div className="space-y-2" data-admin-order-events="1">
           <div className="flex justify-end">
             <AdminActionButton variant="secondary" size="sm" onClick={() => void load()} disabled={loading}>
-              {ko ? "이력 새로고침" : "Refresh history"}
+              {t("admin_delivery_orders_refresh_history")}
             </AdminActionButton>
           </div>
           {data && data.events.length === 0 ? (
-            <p className="sam-text-helper text-sam-muted">{ko ? "기록된 이력이 없습니다." : "No history recorded."}</p>
+            <p className="sam-text-helper text-sam-muted">{t("admin_delivery_orders_no_history_recorded")}</p>
           ) : (
             <ol className="space-y-1.5">
               {(data?.events ?? []).map((e) => (

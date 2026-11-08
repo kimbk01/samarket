@@ -253,8 +253,7 @@ export function MainBottomNavFabInlineSection({
                   </td>
                   <td className="px-1 py-0.5 text-right">
                     <AdminActionButton
-                      variant="ghost"
-                      size="sm"
+                      variant="danger"size="sm"
                       type="button"
                       disabled={disabled}
                       onClick={() => removeItem(i)}

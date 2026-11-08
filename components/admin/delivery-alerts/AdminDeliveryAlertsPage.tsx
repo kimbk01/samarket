@@ -458,36 +458,28 @@ function AdminDeliveryAlertsPageInner() {
       }
 
       const sensitive = d.instant !== base.instant || d.is_active !== base.is_active;
-      const name = ru.rule_name || (ko ? "이 규칙" : "this rule");
+      const name = ru.rule_name || (t("admin_delivery_alerts_this_rule"));
       const notes: string[] = [];
       if (d.instant !== base.instant) {
         notes.push(
           d.instant
-            ? ko
-              ? "승인 없이 자동 조치가 바로 실행되도록 바뀝니다."
-              : "Auto actions will run immediately without approval."
-            : ko
-              ? "자동 조치가 승인 후 실행되도록 바뀝니다."
-              : "Auto actions will wait for approval."
+            ? t("admin_delivery_alerts_auto_actions_run_immediately_without")
+            : t("admin_delivery_alerts_auto_actions_wait_approval")
         );
       }
       if (d.is_active !== base.is_active) {
         notes.push(
           d.is_active
-            ? ko
-              ? "규칙이 활성화되어 경고가 다시 생성됩니다."
-              : "The rule will be active and create alerts."
-            : ko
-              ? "규칙이 비활성화되어 경고가 생성되지 않습니다."
-              : "The rule will be inactive and stop creating alerts."
+            ? t("admin_delivery_alerts_rule_active_create_alerts")
+            : t("admin_delivery_alerts_rule_inactive_stop_creating_alerts")
         );
       }
       const c = await confirmAdminAction({
         level: sensitive ? "L2" : "L1",
         ko,
-        title: ko ? `규칙 저장: ${name}` : `Save rule: ${name}`,
-        description: notes.length ? notes.join("\n") : ko ? "변경한 값을 저장합니다." : "Save your changes.",
-        confirmLabel: ko ? "저장" : "Save",
+        title: t("admin_delivery_alerts_save_rule", { name }),
+        description: notes.length ? notes.join("\n") : t("admin_delivery_alerts_save_your_changes"),
+        confirmLabel: t("common_save"),
         destructive: sensitive && (d.instant || !d.is_active),
       });
       if (!c.ok) return;
@@ -509,7 +501,7 @@ function AdminDeliveryAlertsPageInner() {
           return;
         }
         resetDraft(ru.id);
-        setResult({ ok: true, message: ko ? `「${name}」 규칙을 저장했습니다.` : `Saved rule "${name}".` });
+        setResult({ ok: true, message: t("admin_delivery_alerts_saved_rule", { name }) });
         load();
       } catch {
         setResult({ ok: false, code: "network_error" });
@@ -517,7 +509,7 @@ function AdminDeliveryAlertsPageInner() {
         setRuleBusyId(null);
       }
     },
-    [ruleBusyId, ruleDrafts, ko, load, resetDraft]
+    [ruleBusyId, ruleDrafts, ko, load, resetDraft, t]
   );
 
   const openEvent = openEventId ? events.find((e) => e.id === openEventId) ?? null : null;
@@ -527,7 +519,7 @@ function AdminDeliveryAlertsPageInner() {
 
   return (
     <div className="sam-page-stack">
-      <AdminPageHeader title={ko ? "배달 경고" : "Delivery alerts"} description={t("admin_del_alert_page_desc")} />
+      <AdminPageHeader title={t("admin_delivery_alerts_delivery_alerts")} description={t("admin_del_alert_page_desc")} />
 
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
       {loadErr ? (
@@ -561,7 +553,7 @@ function AdminDeliveryAlertsPageInner() {
           showSearch={false}
         >
           <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
-            {ko ? "상태" : "Status"}
+            {t("admin_delivery_alerts_status")}
             <select
               className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg"
               value={filter}
@@ -572,7 +564,7 @@ function AdminDeliveryAlertsPageInner() {
             </select>
           </label>
           <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
-            {ko ? "담당" : "Assignee"}
+            {t("admin_delivery_alerts_assignee")}
             <select
               className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-helper text-sam-fg"
               value={assignment}
@@ -600,9 +592,7 @@ function AdminDeliveryAlertsPageInner() {
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="mb-1 sam-text-body font-medium text-sam-fg">{t("admin_del_alert_section_rules")}</h2>
         <p className="mb-3 sam-text-xxs text-sam-muted">
-          {ko
-            ? "값을 바꾼 뒤 각 규칙의 「저장」을 눌러야 적용됩니다."
-            : "Changes apply only after you press Save on each rule."}
+          {t("admin_delivery_alerts_changes_apply_only_after_you")}
         </p>
         <div className="overflow-x-auto">
           <table className="min-w-[1260px] w-full border-collapse sam-text-body-secondary">
@@ -617,7 +607,7 @@ function AdminDeliveryAlertsPageInner() {
                     {t(key)}
                   </th>
                 ))}
-                <th className="py-2 pr-2 font-medium">{ko ? "저장" : "Save"}</th>
+                <th className="py-2 pr-2 font-medium">{t("common_save")}</th>
               </tr>
             </thead>
             <tbody>
@@ -628,7 +618,7 @@ function AdminDeliveryAlertsPageInner() {
                 return (
                 <tr key={ru.id} className={`border-b border-sam-border/70 ${dirty ? "bg-sam-warning-soft/20" : ""}`}>
                   <td className="py-2 pr-2 text-sam-fg">
-                    <div>{ru.rule_name || (ko ? "이름 없는 규칙" : "Unnamed rule")}</div>
+                    <div>{ru.rule_name || (t("admin_delivery_alerts_unnamed_rule"))}</div>
                     <AdminTechDetails ko={ko}>{ru.rule_key}</AdminTechDetails>
                   </td>
                   <td className="py-2 pr-2">
@@ -801,7 +791,7 @@ function AdminDeliveryAlertsPageInner() {
                     </details>
                   </td>
                   <td className="py-2 pr-2">
-                    <span className="font-medium text-sam-fg">{ev.rule?.rule_name || (ev.rule ? (ko ? "이름 없는 규칙" : "Unnamed rule") : dash)}</span>
+                    <span className="font-medium text-sam-fg">{ev.rule?.rule_name || (ev.rule ? (t("admin_delivery_alerts_unnamed_rule")) : dash)}</span>
                   </td>
                   <td className="py-2 pr-2">
                     {ev.order_id ? (
@@ -809,7 +799,7 @@ function AdminDeliveryAlertsPageInner() {
                         href={`/admin/stores/orders/${encodeURIComponent(ev.order_id)}`}
                         className="text-signature underline sam-text-xxs"
                       >
-                        {ev.order_no || (ko ? "주문 상세" : "Order detail")}
+                        {ev.order_no || (t("admin_delivery_alerts_order_detail"))}
                       </Link>
                     ) : (
                       dash
@@ -842,7 +832,7 @@ function AdminDeliveryAlertsPageInner() {
                     ) : null}
                     {/* 행 버튼 = ghost/sm 1개 — 배정·메모·확인·알림 끄기·해결은 「처리」 Drawer 에서 */}
                     <AdminActionButton type="button" variant="ghost" size="sm" onClick={() => setOpenEventId(ev.id)}>
-                      {ko ? "처리" : "Handle"}
+                      {t("admin_delivery_alerts_handle")}
                     </AdminActionButton>
                   </td>
                 </tr>
@@ -877,7 +867,7 @@ function AdminDeliveryAlertsPageInner() {
         onClose={() => setOpenEventId(null)}
         ko={ko}
         pending={openEvent != null && busyId === openEvent.id}
-        title={openEvent?.rule?.rule_name || (ko ? "배달 경고 처리" : "Handle alert")}
+        title={openEvent?.rule?.rule_name || (t("admin_delivery_alerts_handle_alert"))}
         subtitle={
           openEvent
             ? `${adminStatusLabel("alert_event", openEvent.event_status, ko).label} · ${adminStatusLabel("alert_severity", openEvent.severity, ko).label}`
@@ -925,7 +915,7 @@ function AdminDeliveryAlertsPageInner() {
                 <dd>
                   {ev.order_id ? (
                     <Link href={`/admin/stores/orders/${encodeURIComponent(ev.order_id)}`} className="text-signature underline">
-                      {ev.order_no || (ko ? "주문 상세" : "Order detail")}
+                      {ev.order_no || (t("admin_delivery_alerts_order_detail"))}
                     </Link>
                   ) : (
                     dash
@@ -1063,7 +1053,7 @@ function AdminDeliveryAlertsPageInner() {
                         ko,
                         title: t("admin_r4d_alert_mute_title"),
                         description: t("admin_r4d_alert_mute_desc"),
-                        confirmLabel: ko ? "알림 끄기" : "Mute alerts",
+                        confirmLabel: t("admin_delivery_alerts_mute_alerts"),
                       });
                       if (!c.ok) return;
                       void patchEventJson(
@@ -1073,7 +1063,7 @@ function AdminDeliveryAlertsPageInner() {
                       );
                     }}
                   >
-                    {ko ? "알림 끄기" : "Mute alerts"}
+                    {t("admin_delivery_alerts_mute_alerts")}
                   </AdminActionButton>
                 </div>
               </section>

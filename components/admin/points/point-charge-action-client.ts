@@ -6,6 +6,8 @@
  */
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type PointChargeAction = "approve" | "reject" | "hold";
 
@@ -25,6 +27,7 @@ export async function runPointChargeAction(input: {
   apiBase?: string;
 }): Promise<PointChargeActionResult> {
   const { ko, action } = input;
+  const tr = (key: MessageKey, vars?: Record<string, unknown>) => translateBy(ko ? "ko" : "en", key, vars);
   let verificationNote: string | undefined;
   let rejectReason: string | undefined;
 
@@ -32,12 +35,10 @@ export async function runPointChargeAction(input: {
     const c = await confirmAdminAction({
       level: adminActionLevel("moneyApprove"),
       ko,
-      title: ko ? "입금 확인 후 승인" : "Approve after verifying payment",
-      description: ko
-        ? `${input.summary}\n실제 입금을 확인한 근거(입금 시각·은행 거래 참조번호 등)를 입력하세요. 승인하면 포인트가 바로 지급되고 되돌릴 수 없습니다.`
-        : `${input.summary}\nEnter how you verified the payment (time, bank reference). Points are credited immediately and cannot be reversed.`,
-      confirmLabel: ko ? "입금 확인 후 승인" : "Approve",
-      reasonPlaceholder: ko ? "예: 10/19 14:05 BDO 입금 확인, 참조 123456" : "e.g. 10/19 14:05 BDO ref 123456",
+      title: tr("admin_points_approve_after_verifying_payment"),
+      description: tr("admin_points_approve_charge_confirm", { summary: input.summary }),
+      confirmLabel: tr("admin_points_approve"),
+      reasonPlaceholder: tr("admin_points_10_19_14_05_bdo_ref"),
     });
     if (!c.ok) return { ok: false, cancelled: true };
     verificationNote = c.reason ?? undefined;
@@ -45,13 +46,11 @@ export async function runPointChargeAction(input: {
     const c = await confirmAdminAction({
       level: adminActionLevel("reject"),
       ko,
-      title: ko ? "충전 신청 반려" : "Reject top-up",
-      description: ko
-        ? `${input.summary}\n반려 사유는 회원에게 알림으로 전달됩니다.`
-        : `${input.summary}\nThe reason is sent to the member.`,
-      confirmLabel: ko ? "반려" : "Reject",
+      title: tr("admin_points_reject_top_up"),
+      description: tr("admin_points_reject_charge_confirm", { summary: input.summary }),
+      confirmLabel: tr("admin_points_action_reject"),
       destructive: true,
-      reasonPlaceholder: ko ? "예: 입금 내역을 찾을 수 없습니다" : "e.g. Payment not found",
+      reasonPlaceholder: tr("admin_points_payment_not_found"),
     });
     if (!c.ok) return { ok: false, cancelled: true };
     rejectReason = c.reason ?? undefined;
@@ -59,9 +58,9 @@ export async function runPointChargeAction(input: {
     const c = await confirmAdminAction({
       level: adminActionLevel("hold"),
       ko,
-      title: ko ? "충전 신청 보류" : "Put top-up on hold",
+      title: tr("admin_points_put_top_up_on_hold"),
       description: input.summary,
-      confirmLabel: ko ? "보류" : "Hold",
+      confirmLabel: tr("admin_points_action_hold"),
     });
     if (!c.ok) return { ok: false, cancelled: true };
   }

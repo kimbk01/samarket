@@ -104,7 +104,7 @@ type DashT = ReturnType<typeof useI18n>["t"];
 
 /** 지표 기간 칩 — 현재 / 오늘(고정) / 24시간·최근 7일(채팅 고정 창) / 선택 기간. */
 function periodChipLabel(m: AdminDashboardMetricValue, period: AdminDashboardPeriod, ko: boolean, t: DashT): string {
-  if (m.period === "now") return ko ? "현재" : "Now";
+  if (m.period === "now") return t("admin_dashboard_now");
   if (m.period === "last_24h") return t("admin_dash_chat_period_24h");
   if (m.period === "last_7d") return t("admin_dash_chat_period_7d");
   if (m.period === "today_fixed") return ADMIN_DASHBOARD_PERIOD_LABEL.today[ko ? "ko" : "en"];

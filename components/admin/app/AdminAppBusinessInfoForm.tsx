@@ -94,14 +94,10 @@ export function AdminAppBusinessInfoForm({ documentId }: Props) {
       const confirmed = await confirmAdminAction({
         level: adminActionLevel("save"),
         ko,
-        title: ko ? `사업자 정보 ${label}` : `Business information · ${label}`,
+        title: t("admin_app_business_information", { label: String(label) }),
         description: publishing
-          ? ko
-            ? "입력한 내용을 게시 상태로 저장합니다."
-            : "Save the entered content as published."
-          : ko
-            ? "입력한 내용을 임시저장합니다."
-            : "Save the entered content as a draft.",
+          ? t("admin_app_save_entered_content_as_published")
+          : t("admin_app_save_entered_content_as_draft"),
         confirmLabel: label,
       });
       if (!confirmed.ok) return;

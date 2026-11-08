@@ -64,7 +64,7 @@ function AdminPointLedgerPageInner() {
 
       {!action.allowed && action.reason ? (
         <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `지급·회수 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_points_actions_disabled_3", { reason: action.reason })}
         </p>
       ) : null}
 
@@ -83,7 +83,7 @@ function AdminPointLedgerPageInner() {
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
-          label: ko ? "구분" : "Type",
+          label: t("admin_points_type"),
           options: LEDGER_STATUSES.map((id) => ({ value: id, label: ko ? LEDGER_FILTER_LABEL[id].ko : LEDGER_FILTER_LABEL[id].en })),
         }}
       />
@@ -91,12 +91,12 @@ function AdminPointLedgerPageInner() {
       {bucketSums ? (
         <AdminFinancePeriodSums
           ko={ko}
-          title={ko ? "조건 합계" : "Totals"}
+          title={t("admin_points_totals")}
           range={adminFinanceRangeText({ from: lq.query.from, to: lq.query.to }, ko)}
-          basis={ko ? "원장 기록 시각 기준 · 구분·회원 조건 적용" : "by ledger time · type/member filters applied"}
+          basis={t("admin_points_ledger_time_type_member_filters_applied")}
           cells={null}
           line={`${formatAdminPointBucketLine(bucketSums, formatAdminNumber)} · ${
-            ko ? `${formatAdminNumber(bucketSums.rows)}줄` : `${formatAdminNumber(bucketSums.rows)} rows`
+            t("admin_points_rows", { rows: formatAdminNumber(bucketSums.rows) })
           }`}
         />
       ) : null}
@@ -121,16 +121,16 @@ function AdminPointLedgerPageInner() {
           <table className="w-full min-w-[1080px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
-                <th className="px-3 py-2.5 text-left font-medium">{ko ? "거래 ID" : "Txn ID"}</th>
+                <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_txn_id")}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_th_datetime")}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_th_user")}</th>
                 <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_th_type")}</th>
-                <th className="px-3 py-2.5 text-left font-medium">{ko ? "사용처" : "Usage"}</th>
-                <th className="px-3 py-2.5 text-right font-medium">{ko ? "이전 잔액" : "Before"}</th>
+                <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_usage")}</th>
+                <th className="px-3 py-2.5 text-right font-medium">{t("admin_points_before")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("admin_points_th_amount")}</th>
                 <th className="px-3 py-2.5 text-right font-medium">{t("admin_points_th_balance")}</th>
-                <th className="px-3 py-2.5 text-left font-medium">{ko ? "처리 주체" : "Actor"}</th>
-                <th className="px-3 py-2.5 text-left font-medium">{ko ? "원천 거래" : "Source"}</th>
+                <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_actor")}</th>
+                <th className="px-3 py-2.5 text-left font-medium">{t("admin_points_source")}</th>
               </tr>
             </thead>
             <tbody>
@@ -167,10 +167,10 @@ function AdminPointLedgerPageInner() {
                     <td className="px-3 py-2.5 text-right tabular-nums">{formatAdminNumber(e.balanceAfter)}P</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                       {e.actorType === "admin"
-                        ? ko ? "관리자" : "Admin"
+                        ? t("admin_admin")
                         : e.actorType === "user"
-                          ? ko ? "회원" : "Member"
-                          : ko ? "시스템" : "System"}
+                          ? t("admin_points_member")
+                          : t("admin_system")}
                       {e.actorId ? (
                         <>
                           {" "}

@@ -172,7 +172,8 @@ describe("어드민 문구 A-3 · A-4 · A-5 · P-6", () => {
   });
   it("P-6: 거래 어드민은 「홍보」 대신 「상위노출」", () => {
     const page = read("components/admin/trade/promotions/TradePromotionsPage.tsx");
-    expect(page).toContain('title="거래 상위노출"');
+    expect(page).toContain('title={t("admin_trade_promo_page_title")}');
+    expect(read("lib/i18n/catalog/copy-admin-b4-community.ts")).toContain('admin_trade_promo_page_title: "거래 상위노출"');
     expect(page).not.toMatch(/"[^"]*홍보[^"]*"/);
   });
 });

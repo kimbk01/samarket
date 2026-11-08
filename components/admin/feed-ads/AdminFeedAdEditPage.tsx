@@ -46,7 +46,7 @@ const DEST_TYPES: FeedAdDestinationType[] = [
  */
 export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
   const router = useRouter();
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const [campaign, setCampaign] = useState<FeedAdCampaignView | null>(null);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
@@ -143,9 +143,9 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
     const c = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "피드 배너 수정 저장" : "Save feed banner",
-      description: ko ? "저장하면 고객 화면에 바로 반영됩니다." : "Changes apply to the customer app right away.",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_feed_ads_save_feed_banner"),
+      description: t("admin_feed_ads_changes_apply_customer_app_right"),
+      confirmLabel: t("common_save"),
     });
     if (!c.ok) return;
     setSaving(true);
@@ -182,48 +182,42 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title={ko ? "피드 배너 수정" : "Edit feed banner"}
+        title={t("admin_feed_ads_edit_feed_banner")}
         description={
           ended
-            ? ko
-              ? "종료된 배너는 수정할 수 없습니다 (게시 이력 보존)."
-              : "Ended banners cannot be edited (history preserved)."
+            ? t("admin_feed_ads_ended_banners_cannot_edited_history")
             : memberRequested
-              ? ko
-                ? "회원이 신청한 유료 배너는 소재만 고칠 수 있습니다. 기간은 보상 연장으로 바꿉니다."
-                : "Member-requested paid banners: creative only. Change the period via compensation extension."
+              ? t("admin_feed_ads_member_requested_paid_banners_creative")
               : undefined
         }
         backHref="/admin/advertising/banners"
       />
       {saveError ? (
         <p className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft px-3 py-2 sam-text-body text-sam-danger" role="alert">
-          {ko ? `저장하지 못했습니다. ${saveError}` : `Could not save (${saveError})`}
+          {t("admin_feed_ads_could_not_save_save_error", { saveError })}
         </p>
       ) : null}
       {/* D-25 (2026-11-04): 노출 숫자 = 소재별 노출 합 (이미지를 바꿔 새 소재가 생겨도 합계는 이어진다 · FB-A15) */}
-      <AdminCard title={ko ? "성과" : "Performance"}>
+      <AdminCard title={t("admin_feed_ads_performance")}>
         <p className="sam-text-body text-sam-fg" data-feed-ad-performance="">
-          {ko ? "노출" : "Impressions"}{" "}
+          {t("admin_feed_ads_impressions")}{" "}
           <span className="font-semibold tabular-nums">{formatAdminNumber(campaign.impressionCount ?? 0)}</span>
           {" · "}
-          {ko ? "클릭" : "Clicks"}{" "}
+          {t("admin_feed_ads_clicks")}{" "}
           <span className="font-semibold tabular-nums">{formatAdminNumber(campaign.clickCount ?? 0)}</span>
         </p>
         <p className="mt-1 sam-text-helper text-sam-muted" data-feed-ad-impression-note="">
-          {ko
-            ? "소재별 노출 합 — 이 배너의 모든 소재(이미지를 바꾸기 전 옛 소재 포함) 노출을 더한 값입니다."
-            : "Sum across creatives — includes earlier creatives replaced by a new image."}
+          {t("admin_feed_ads_sum_across_creatives_includes_earlier")}
         </p>
       </AdminCard>
-      <AdminCard title={ko ? "기본 정보" : "Basics"}>
+      <AdminCard title={t("admin_feed_ads_basics")}>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className={LABEL}>{ko ? "이름" : "Name"}</label>
+            <label className={LABEL}>{t("admin_feed_ads_col_name")}</label>
             <input className={INPUT} value={name} disabled={campaignLocked} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label className={LABEL}>{ko ? "후보 우선순위" : "Candidate priority"}</label>
+            <label className={LABEL}>{t("admin_feed_ads_candidate_priority")}</label>
             <input
               type="number"
               className={INPUT}
@@ -234,22 +228,20 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
             {/* 재감사 S-1 (F-2): 실제 동작 그대로 — 노출 순서는 잠금 계약대로 공정 회전(해시·1시간 단위·반복 방지).
                 이 값은 진행 중 후보가 50개를 넘을 때 먼저 남길 순서에만 쓰인다(`listEligibleFeedAdCampaigns`). */}
             <p className="mt-1 sam-text-helper text-sam-muted">
-              {ko
-                ? "화면 노출 순서는 같은 자리의 광고끼리 공정하게 돌아갑니다. 이 값은 후보가 50개를 넘을 때 먼저 남길 순서(작을수록 먼저)에만 쓰입니다."
-                : "Display order rotates fairly among ads in the same slot. This value only decides which candidates are kept first when there are more than 50 (lower first)."}
+              {t("admin_feed_ads_display_order_rotates_fairly_among")}
             </p>
           </div>
           <div />
           <div>
-            <label className={LABEL}>{ko ? "시작 (PHT)" : "Start (PHT)"}</label>
+            <label className={LABEL}>{t("admin_ads_start_pht")}</label>
             <input type="datetime-local" className={INPUT} value={startLocal} disabled={campaignLocked} onChange={(e) => setStartLocal(e.target.value)} />
           </div>
           <div>
-            <label className={LABEL}>{ko ? "종료 (PHT)" : "End (PHT)"}</label>
+            <label className={LABEL}>{t("admin_ads_end_pht")}</label>
             <input type="datetime-local" className={INPUT} value={endLocal} disabled={campaignLocked} onChange={(e) => setEndLocal(e.target.value)} />
           </div>
           <div>
-            <label className={LABEL}>{ko ? "목적지 유형" : "Destination type"}</label>
+            <label className={LABEL}>{t("admin_feed_ads_destination_type")}</label>
             <select
               className={INPUT}
               value={destinationType}
@@ -263,11 +255,11 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
               ))}
             </select>
             <p className="mt-1 sam-text-helper text-sam-muted">
-              {ko ? "목적지는 꼭 넣어야 합니다." : "A destination is required."}
+              {t("admin_feed_ads_destination_required")}
             </p>
           </div>
           <div>
-            <label className={LABEL}>{destinationType === "store" ? (ko ? "매장" : "Store") : ko ? "목적지 ID" : "Destination ID"}</label>
+            <label className={LABEL}>{destinationType === "store" ? (t("common_store")) : t("admin_feed_ads_destination_id")}</label>
             {destinationType === "store" ? (
               /* DS-2: 매장은 선택기로 고르고 slug 로 저장 */
               <FeedAdStoreDestinationPicker value={destinationId} onChange={setDestinationId} disabled={campaignLocked} />
@@ -276,12 +268,12 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
             )}
           </div>
           <div className="sm:col-span-2">
-            <label className={LABEL}>{ko ? "목적지 URL" : "Destination URL"}</label>
+            <label className={LABEL}>{t("admin_feed_ads_destination_url")}</label>
             <input className={INPUT} value={destinationUrl} disabled={campaignLocked} onChange={(e) => setDestinationUrl(e.target.value)} />
           </div>
         </div>
       </AdminCard>
-      <AdminCard title={ko ? "소재 (최대 3장)" : "Creatives (up to 3)"}>
+      <AdminCard title={t("admin_feed_ads_creatives_up_3")}>
         <div className="space-y-4">
           {slides.map((s) => (
             <div key={s.sortOrder} className="grid gap-3 border-b border-sam-border pb-4 last:border-b-0 sm:grid-cols-[120px_1fr]">
@@ -296,7 +288,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
                   className={INPUT}
                   value={s.imageUrl}
                   disabled={ended}
-                  placeholder={ko ? `이미지 URL (${s.sortOrder}번)` : `Image URL (#${s.sortOrder})`}
+                  placeholder={t("admin_feed_ads_image_url_sort_order", { sortOrder: s.sortOrder })}
                   onChange={(e) =>
                     setSlides((list) => list.map((x) => (x.sortOrder === s.sortOrder ? { ...x, imageUrl: e.target.value } : x)))
                   }
@@ -313,14 +305,14 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
                     }}
                   />
                   <span className="inline-flex h-8 items-center rounded-ui-rect border border-[var(--admin-console-border)] px-2.5 text-[13px] font-semibold text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)]">
-                    {uploading === s.sortOrder ? (ko ? "올리는 중…" : "Uploading…") : ko ? "이미지 파일 올리기" : "Upload image"}
+                    {uploading === s.sortOrder ? (t("admin_feed_ads_uploading")) : t("admin_feed_ads_upload_image")}
                   </span>
                 </label>
                 <input
                   className={INPUT}
                   value={s.headline}
                   disabled={ended}
-                  placeholder={ko ? "제목" : "Headline"}
+                  placeholder={t("admin_feed_ads_headline")}
                   onChange={(e) =>
                     setSlides((list) => list.map((x) => (x.sortOrder === s.sortOrder ? { ...x, headline: e.target.value } : x)))
                   }
@@ -329,7 +321,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
                   className={INPUT}
                   value={s.altText}
                   disabled={ended}
-                  placeholder={ko ? "대체 텍스트" : "Alt text"}
+                  placeholder={t("admin_feed_ads_alt_text")}
                   onChange={(e) =>
                     setSlides((list) => list.map((x) => (x.sortOrder === s.sortOrder ? { ...x, altText: e.target.value } : x)))
                   }
@@ -341,7 +333,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
       </AdminCard>
       <div className="flex justify-end gap-2">
         <AdminActionButton variant="secondary" onClick={() => router.push("/admin/advertising/banners")}>
-          {ko ? "취소" : "Cancel"}
+          {t("common_cancel")}
         </AdminActionButton>
         {!feedAdAction.allowed && feedAdAction.reason ? (
           <span className="self-center text-[12px] text-sam-muted" data-admin-action-denied="1">
@@ -354,7 +346,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
           title={feedAdAction.reason ?? undefined}
           onClick={() => void save()}
         >
-          {saving ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
+          {saving ? (t("common_saving")) : t("common_save")}
         </AdminActionButton>
       </div>
     </div>

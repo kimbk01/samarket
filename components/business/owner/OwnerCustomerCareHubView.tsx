@@ -123,44 +123,10 @@ export function OwnerCustomerCareHubView() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold">
-              {safeT(e.titleKey, {
-                fallbackKo:
-                  e.id === "order-chat"
-                    ? "주문 채팅"
-                    : e.id === "store-inquiry"
-                      ? "매장 문의"
-                      : e.id === "reviews"
-                        ? "리뷰"
-                        : "DIBAY 고객센터",
-                fallbackEn:
-                  e.id === "order-chat"
-                    ? "Order chat"
-                    : e.id === "store-inquiry"
-                      ? "Store inquiry"
-                      : e.id === "reviews"
-                        ? "Reviews"
-                        : "DIBAY Support",
-              })}
+              {t(e.titleKey)}
             </span>
             <span className="mt-0.5 block text-xs text-sam-muted">
-              {safeT(e.descKey, {
-                fallbackKo:
-                  e.id === "order-chat"
-                    ? "배달·매장 주문 대화"
-                    : e.id === "store-inquiry"
-                      ? "이 매장으로 온 문의"
-                      : e.id === "reviews"
-                        ? "고객 리뷰 · 답글"
-                        : "DIBAY 고객센터 · 상담 내역",
-                fallbackEn:
-                  e.id === "order-chat"
-                    ? "Delivery and store order conversations"
-                    : e.id === "store-inquiry"
-                      ? "Inquiries sent to this store"
-                      : e.id === "reviews"
-                        ? "Customer reviews and replies"
-                        : "DIBAY Support and history",
-              })}
+              {t(e.descKey)}
             </span>
             {badge > 0 ? (
               <span className="mt-1 block text-xs font-semibold text-sam-danger" data-owner-care-pending={e.id}>

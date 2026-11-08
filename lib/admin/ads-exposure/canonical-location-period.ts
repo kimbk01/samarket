@@ -9,6 +9,12 @@ import {
   humanPlacementLabel,
   humanPopupSurfaceShortLabel,
 } from "@/lib/admin/ads-exposure/human-placement-label";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdsPlacementProductKind =
   | "community_boost"
@@ -50,7 +56,7 @@ export function formatAdsPeriodRange(
   }
   if (!s || !e) {
     return {
-      label: ko ? "기간 정보 오류" : "Period data error",
+      label: tx(ko, "admin_ads_exposure_period_data_error"),
       valid: false,
       error: true,
     };
@@ -101,12 +107,12 @@ function formatDurationParts(ms: number, ko: boolean): string {
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
   if (days > 0 && hours > 0) {
-    return ko ? `${days}일 ${hours}시간` : `${days}d ${hours}h`;
+    return tx(ko, "admin_ads_exposure_duration_days_hours", { days: String(days), hours: String(hours) });
   }
-  if (days > 0) return ko ? `${days}일` : `${days}d`;
-  if (hours > 0) return ko ? `${hours}시간` : `${hours}h`;
+  if (days > 0) return tx(ko, "admin_ads_exposure_duration_days", { days: String(days) });
+  if (hours > 0) return tx(ko, "admin_ads_exposure_duration_hours", { hours: String(hours) });
   const mins = Math.max(1, Math.floor(ms / 60_000));
-  return ko ? `${mins}분` : `${mins}m`;
+  return tx(ko, "admin_ads_exposure_duration_minutes", { mins: String(mins) });
 }
 
 export type AdsRemainingKind = "until_start" | "until_end" | "ended" | "missing" | "error";
@@ -122,31 +128,27 @@ export function formatAdsRemaining(
   if (!s && !e) return { label: ko ? "—" : "—", kind: "missing" };
   if (!s || !e) {
     return {
-      label: ko ? "기간 정보 오류" : "Period data error",
+      label: tx(ko, "admin_ads_exposure_period_data_error"),
       kind: "error",
     };
   }
   if (s.getTime() > nowMs) {
     return {
-      label: ko
-        ? `시작까지 ${formatDurationParts(s.getTime() - nowMs, true)}`
-        : `${formatDurationParts(s.getTime() - nowMs, false)} until start`,
+      label: tx(ko, "admin_ads_exposure_until_start", { duration: formatDurationParts(s.getTime() - nowMs, ko) }),
       kind: "until_start",
     };
   }
   if (nowMs < e.getTime()) {
     return {
-      label: ko
-        ? `종료까지 ${formatDurationParts(e.getTime() - nowMs, true)}`
-        : `${formatDurationParts(e.getTime() - nowMs, false)} until end`,
+      label: tx(ko, "admin_ads_exposure_until_end", { duration: formatDurationParts(e.getTime() - nowMs, ko) }),
       kind: "until_end",
     };
   }
-  return { label: ko ? "종료됨" : "Ended", kind: "ended" };
+  return { label: tx(ko, "admin_ads_exposure_ended_state"), kind: "ended" };
 }
 
 export function formatPreApprovalRuntimeStatus(ko: boolean): string {
-  return ko ? "승인 전" : "Pre-approval";
+  return tx(ko, "admin_ads_exposure_pre_approval");
 }
 
 export function formatRequestedPlacement(input: {
@@ -176,7 +178,7 @@ export function formatRequestedPlacement(input: {
   }
   // popup
   const surface = humanPopupSurfaceShortLabel(input.popupSurface || "GLOBAL", ko);
-  return ko ? `${surface} > 팝업` : `${surface} > Popup`;
+  return tx(ko, "admin_ads_exposure_surface_popup", { surface: String(surface) });
 }
 
 export function formatActualPlacement(input: {
@@ -191,7 +193,7 @@ export function formatActualPlacement(input: {
   if (input.kind === "delivery_banner") {
     const key = String(input.inventoryKey ?? "").trim().split(/\s+/)[0] ?? "";
     if (!key) {
-      return input.ko ? "아직 배정되지 않음" : "Not assigned yet";
+      return tx(input.ko, "admin_ads_exposure_not_assigned_yet");
     }
     const base = humanPlacementLabel(key || "STORES_HOME_HERO", input.ko);
     const slot = input.slotIndex;

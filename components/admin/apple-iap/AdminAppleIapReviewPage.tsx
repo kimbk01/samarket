@@ -258,7 +258,7 @@ export function AdminAppleIapReviewPage() {
           { id: "attention", label: t("apple_iap_admin_filter_attention") },
           { id: "refund", label: t("apple_iap_admin_filter_refund") },
           { id: "all", label: t("apple_iap_admin_filter_all") },
-          { id: "recon", label: ko ? "대사" : "Reconciliation" },
+          { id: "recon", label: t("admin_apple_iap_reconciliation") },
           { id: "sandbox", label: t("apple_iap_admin_filter_sandbox") },
         ]}
       />

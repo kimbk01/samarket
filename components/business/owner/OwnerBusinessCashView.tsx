@@ -250,7 +250,7 @@ export function OwnerBusinessCashView({
       ? financePaymentMethodDisplay("apple_iap")
       : null;
     const methodText = method
-      ? safeT(method.key, { fallbackKo: method.ko, fallbackEn: method.en })
+      ? t(method.key)
       : r.paymentMethod
         ? ownerCashTopUpMethodLabel(r.paymentMethod, ko)
         : "";

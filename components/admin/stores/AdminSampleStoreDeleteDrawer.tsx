@@ -24,6 +24,7 @@ import {
   type SampleStoreDeleteResult,
 } from "@/lib/admin-business/sample-store-delete-model";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function newClientRequestId(): string {
   try {
@@ -112,7 +113,7 @@ export function AdminSampleStoreDeleteDrawer({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("delete"),
       ko,
-      title: ko ? "샘플 매장 삭제" : "Delete sample stores",
+      title: translateBy(ko ? "ko" : "en", "admin_stores_delete_sample_stores"),
       description: ko
         ? [
             `샘플 매장 ${formatAdminNumber(n)}곳과 메뉴 ${formatAdminNumber(summary?.menu_count)}개·이미지 ${formatAdminNumber(
@@ -179,8 +180,8 @@ export function AdminSampleStoreDeleteDrawer({
       onClose={onClose}
       ko={ko}
       pending={executing}
-      title={ko ? "샘플 매장 삭제 — 사전 확인" : "Delete sample stores — preview"}
-      subtitle={ko ? `선택 ${formatAdminNumber(storeIds.length)}곳` : `${storeIds.length} selected`}
+      title={translateBy(ko ? "ko" : "en", "admin_stores_delete_sample_stores_preview")}
+      subtitle={translateBy(ko ? "ko" : "en", "admin_stores_selected_count", { n: formatAdminNumber(storeIds.length) })}
       dangerActions={
         results ? null : (
           <AdminActionButton
@@ -190,7 +191,7 @@ export function AdminSampleStoreDeleteDrawer({
             onClick={() => void execute()}
             data-admin-sample-delete-execute="1"
           >
-            {ko ? `${formatAdminNumber(deletable.length)}곳 ${adminCta("delete", ko)}` : `Delete ${deletable.length}`}
+            {translateBy(ko ? "ko" : "en", "admin_stores_delete_n_stores", { n: formatAdminNumber(deletable.length), action: adminCta("delete", ko) })}
           </AdminActionButton>
         )
       }
@@ -212,11 +213,12 @@ export function AdminSampleStoreDeleteDrawer({
         {resultSummary && results ? (
           <section className="space-y-2" data-admin-sample-delete-results="1">
             <p className="sam-text-body font-semibold text-sam-fg">
-              {ko
-                ? `결과: 삭제 ${formatAdminNumber(resultSummary.deleted)} · 이미 삭제됨 ${formatAdminNumber(
-                    resultSummary.already_deleted
-                  )} · 삭제 불가 ${formatAdminNumber(resultSummary.blocked)} · 실패 ${formatAdminNumber(resultSummary.failed)}`
-                : `Deleted ${resultSummary.deleted} · already ${resultSummary.already_deleted} · blocked ${resultSummary.blocked} · failed ${resultSummary.failed}`}
+              {translateBy(ko ? "ko" : "en", "admin_stores_sample_delete_result", {
+                deleted: formatAdminNumber(resultSummary.deleted),
+                already: formatAdminNumber(resultSummary.already_deleted),
+                blocked: formatAdminNumber(resultSummary.blocked),
+                failed: formatAdminNumber(resultSummary.failed),
+              })}
             </p>
             <ul className="max-h-72 space-y-1 overflow-auto sam-text-helper text-sam-muted">
               {results.map((r) => {
@@ -229,7 +231,7 @@ export function AdminSampleStoreDeleteDrawer({
                     {r.reasons?.length ? <span>{r.reasons.map((c) => sampleStoreDeleteReasonLabel(c, ko)).join(", ")}</span> : null}
                     {r.storage_failed?.length ? (
                       <span className="text-sam-danger">
-                        {ko ? `이미지 삭제 실패 ${formatAdminNumber(r.storage_failed.length)}` : `Image delete failed ${r.storage_failed.length}`}
+                        {translateBy(ko ? "ko" : "en", "admin_stores_image_delete_failed_n", { n: formatAdminNumber(r.storage_failed.length) })}
                       </span>
                     ) : null}
                   </li>
@@ -243,18 +245,18 @@ export function AdminSampleStoreDeleteDrawer({
           <>
             <section className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-sample-delete-summary="1">
               {[
-                [ko ? "삭제 대상 매장" : "Stores to delete", summary.deletable],
-                [ko ? "메뉴" : "Menus", summary.menu_count],
-                [ko ? "옵션" : "Options", summary.option_count],
-                [ko ? "메뉴 카테고리" : "Sections", summary.section_count],
-                [ko ? "이미지" : "Images", summary.image_count],
-                [ko ? "공유 이미지(보존)" : "Shared images (kept)", summary.shared_image_count],
-                [ko ? "찜" : "Favorites", summary.favorite_count],
-                [ko ? "배너 캠페인" : "Banner campaigns", summary.banner_campaign_count],
-                [ko ? "쿠폰" : "Coupons", summary.coupon_count],
-                [ko ? "프로모션" : "Promotions", summary.promotion_count],
-                [ko ? "삭제 불가" : "Not deletable", summary.blocked],
-                [ko ? "이미 없음" : "Missing", summary.missing],
+                [translateBy(ko ? "ko" : "en", "admin_stores_stores_to_delete"), summary.deletable],
+                [translateBy(ko ? "ko" : "en", "admin_stores_menus"), summary.menu_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_options"), summary.option_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_sections"), summary.section_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_section_images"), summary.image_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_shared_images_kept"), summary.shared_image_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_favorites"), summary.favorite_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_banner_campaigns"), summary.banner_campaign_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_coupons"), summary.coupon_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_promotions"), summary.promotion_count],
+                [translateBy(ko ? "ko" : "en", "admin_stores_not_deletable"), summary.blocked],
+                [translateBy(ko ? "ko" : "en", "admin_stores_missing"), summary.missing],
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
                   <p className="sam-text-helper text-sam-muted">{label}</p>
@@ -266,7 +268,7 @@ export function AdminSampleStoreDeleteDrawer({
             {blocked.length > 0 ? (
               <section className="space-y-1" data-admin-sample-delete-blocked="1">
                 <p className="sam-text-body font-semibold text-sam-fg">
-                  {ko ? `삭제 불가 ${formatAdminNumber(blocked.length)}곳` : `Not deletable (${blocked.length})`}
+                  {translateBy(ko ? "ko" : "en", "admin_stores_not_deletable_n", { n: formatAdminNumber(blocked.length) })}
                 </p>
                 <ul className="max-h-48 space-y-1 overflow-auto sam-text-helper text-sam-muted">
                   {blocked.map((p) => (
@@ -287,23 +289,22 @@ export function AdminSampleStoreDeleteDrawer({
 
             {missing.length > 0 ? (
               <p className="sam-text-helper text-sam-muted">
-                {ko
-                  ? `이미 없는 매장 ${formatAdminNumber(missing.length)}곳은 「이미 삭제됨」으로 처리됩니다.`
-                  : `${missing.length} stores are already gone.`}
+                {translateBy(ko ? "ko" : "en", "admin_stores_missing_already_gone", { n: formatAdminNumber(missing.length) })}
               </p>
             ) : null}
 
             <section className="space-y-1">
-              <p className="sam-text-body font-semibold text-sam-fg">{ko ? "삭제 대상" : "To delete"}</p>
+              <p className="sam-text-body font-semibold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_to_delete")}</p>
               <ul className="max-h-48 space-y-1 overflow-auto sam-text-helper text-sam-muted">
                 {deletable.map((p) => (
                   <li key={p.store_id} className="flex flex-wrap items-center gap-2">
                     <span className="text-sam-fg">{(p.store_name ?? "").trim() || "—"}</span>
                     <AdminTechId id={p.store_id} />
                     <span>
-                      {ko
-                        ? `메뉴 ${formatAdminNumber(p.menu_count)} · 이미지 ${formatAdminNumber(p.image_count)}`
-                        : `menus ${p.menu_count} · images ${p.image_count}`}
+                      {translateBy(ko ? "ko" : "en", "admin_stores_menus_images_count", {
+                        menus: formatAdminNumber(p.menu_count),
+                        images: formatAdminNumber(p.image_count),
+                      })}
                     </span>
                   </li>
                 ))}

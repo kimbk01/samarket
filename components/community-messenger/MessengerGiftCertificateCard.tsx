@@ -125,27 +125,10 @@ export function MessengerGiftCertificateCard(props: {
       <div className="border-b border-sam-border/70 bg-[#F0FAF5] px-3 py-2.5">
         <p className="text-sm font-bold text-[#045E3A]" data-gift-card-framing-title="1">
           🎁{" "}
-          {safeT(framing.titleKey, {
-            fallbackKo:
-              framing.role === "sender" ? "상품권을 보냈어요" : "상품권이 도착했어요",
-            fallbackEn:
-              framing.role === "sender"
-                ? "You sent a gift certificate"
-                : "A gift certificate arrived",
-          })}
+          {safeT(framing.titleKey)}
         </p>
         <p className="mt-0.5 text-xs text-sam-muted" data-gift-card-framing-body="1">
-          {safeT(framing.bodyKey, {
-            vars: { name: framingPeerName },
-            fallbackKo:
-              framing.role === "sender"
-                ? `${framingPeerName}님에게 선물했습니다.`
-                : `${framingPeerName}님이 선물했습니다.`,
-            fallbackEn:
-              framing.role === "sender"
-                ? `You sent this gift to ${framingPeerName}.`
-                : `${framingPeerName} sent you a gift.`,
-          })}
+          {safeT(framing.bodyKey, { vars: { name: framingPeerName } })}
         </p>
       </div>
 

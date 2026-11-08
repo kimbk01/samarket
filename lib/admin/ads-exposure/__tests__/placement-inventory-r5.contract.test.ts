@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
 import {
   feedAdPoolCapacity,
   feedAdPoolOccupiesStatus,
@@ -157,10 +158,12 @@ describe("CUT R5 placement inventory", () => {
     expect(view).not.toContain("/admin/delivery-ads");
     expect(view).not.toContain("Feed reorder");
     expect(view).not.toContain("CHANGE_PLACEMENT");
-    expect(view).toContain("이 위치에 배너 등록");
+    expect(view).toContain('t("admin_ads_register_banner_here")');
+    expect(MESSAGES.ko.admin_ads_register_banner_here).toBe("이 위치에 배너 등록");
     expect(inventory).toContain("커뮤니티 배너 등록");
     expect(inventory).toContain("거래 배너 등록");
-    expect(view).toContain("팝업 등록"); // 재감사 S-2 (H-7): 한국어 화면 「Popup」 → 「팝업」
+    expect(view).toContain('"admin_ads_register_popup"'); // 재감사 S-2 (H-7): 한국어 화면 「Popup」 → 「팝업」
+    expect(MESSAGES.ko.admin_ads_register_popup).toBe("팝업 등록");
   });
 
   it("Full pool blocks create CTA copy", () => {

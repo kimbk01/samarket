@@ -31,6 +31,7 @@ import {
   adminStripTechnicalMeta,
 } from "@/lib/admin/operator-ux/operator-labels";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function Section({
   id,
@@ -63,7 +64,7 @@ function financeSectionLabel(key: string, ko: boolean): string {
   const section = key.split(":")[0] ?? "";
   const label = FINANCE_SECTION_LABELS[section];
   if (label) return ko ? label.ko : label.en;
-  return ko ? "기타 소스" : "Other source";
+  return translateBy(ko ? "ko" : "en", "admin_finance_other_source");
 }
 
 function Unavail({ ko }: { ko: boolean }) {
@@ -79,6 +80,7 @@ function RowTable({
   ko: boolean;
   empty: string;
 }) {
+  const { t } = useI18n();
   if (rows.length === 0) {
     return (
       <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-4 text-center sam-text-body-secondary text-sam-muted">
@@ -91,12 +93,12 @@ function RowTable({
       <table className="w-full min-w-[42rem] text-left sam-text-body-secondary">
         <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
           <tr>
-            <th className="px-3 py-2">{ko ? "대상" : "Actor"}</th>
-            <th className="px-3 py-2">{ko ? "유형" : "Type"}</th>
-            <th className="px-3 py-2">{ko ? "금액" : "Amount"}</th>
-            <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
-            <th className="px-3 py-2">{ko ? "시각" : "When"}</th>
-            <th className="px-3 py-2">{ko ? "조치" : "Action"}</th>
+            <th className="px-3 py-2">{t("admin_finance_actor")}</th>
+            <th className="px-3 py-2">{t("admin_finance_type")}</th>
+            <th className="px-3 py-2">{t("admin_finance_amount")}</th>
+            <th className="px-3 py-2">{t("admin_biz_label_status")}</th>
+            <th className="px-3 py-2">{t("admin_finance_when")}</th>
+            <th className="px-3 py-2">{t("admin_finance_action")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-sam-border-soft">
@@ -114,16 +116,16 @@ function RowTable({
               <td className="px-3 py-2">
                 <div className="flex flex-wrap gap-2">
                   <Link href={r.href} className="font-semibold text-signature hover:underline">
-                    {ko ? "검토하기" : "Review"}
+                    {t("admin_finance_review")}
                   </Link>
                   {r.statementHref ? (
                     <Link href={r.statementHref} className="text-signature hover:underline">
-                      {ko ? "재무 내역" : "Finance history"}
+                      {t("admin_finance_finance_history")}
                     </Link>
                   ) : null}
                   {r.memberHref ? (
                     <Link href={r.memberHref} className="text-signature hover:underline">
-                      {ko ? "회원 정보" : "Member"}
+                      {t("admin_finance_member")}
                     </Link>
                   ) : null}
                 </div>
@@ -139,6 +141,7 @@ function RowTable({
 }
 
 function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
+  const { t } = useI18n();
   const badge =
     item.currency === "POINT" ? (
       <CurrencyBadge currency="point" />
@@ -148,19 +151,15 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
       <CurrencyBadge currency="cash" />
     ) : (
       <span className="rounded border border-sam-border px-1.5 py-0.5 sam-text-xxs">
-        {ko ? "정산(PHP)" : "PHP"}
+        {t("admin_finance_php")}
       </span>
     );
   const ageLabel =
     item.ageHours == null
       ? ""
       : item.ageHours < 24
-        ? ko
-          ? `${item.ageHours}시간 전`
-          : `${item.ageHours}h ago`
-        : ko
-          ? `${Math.floor(item.ageHours / 24)}일 전`
-          : `${Math.floor(item.ageHours / 24)}d ago`;
+        ? t("admin_hours_h_ago", { hours: item.ageHours })
+        : t("admin_days_d_ago", { days: Math.floor(item.ageHours / 24) });
 
   return (
     <div
@@ -186,12 +185,12 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
         </AdminActionLink>
         {item.actorKind === "store" && item.statementHref ? (
           <AdminActionLink href={item.statementHref} variant="secondary">
-            {ko ? "매장 재무" : "Store finance"}
+            {t("admin_finance_store_finance")}
           </AdminActionLink>
         ) : null}
         {item.memberHref ? (
           <AdminActionLink href={item.memberHref} variant="secondary">
-            {ko ? "회원 정보" : "Member"}
+            {t("admin_finance_member")}
           </AdminActionLink>
         ) : null}
       </div>
@@ -200,7 +199,7 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
 }
 
 export function AdminFinanceControlPlane() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [model, setModel] = useState<FinanceControlPlaneModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -262,31 +261,29 @@ export function AdminFinanceControlPlane() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "재무" : "Finance"}
+              {t("admin_finance_finance")}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
-              {ko
-                ? "지금 처리할 요청을 확인하고, 회원·매장별로 Point / Coin / Cash / 정산을 조치합니다. 자산은 합산하지 않습니다."
-                : "Review requests and act on Point / Coin / Cash / settlements per member or store. Assets are never merged."}
+              {t("admin_finance_review_requests_and_act_on_point")}
             </p>
           </div>
           <AdminActionButton variant="neutral" onClick={() => void load()}>
-            {ko ? "새로고침" : "Refresh"}
+            {t("admin_finance_ops_queue_refresh")}
           </AdminActionButton>
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-sam-warning">
-            {ko ? "일부 소스 확인 불가" : "Some sources unavailable"}:{" "}
+            {t("admin_finance_some_sources_unavailable")}:{" "}
             {model.sectionErrors.map((key) => financeSectionLabel(key, ko)).join(" · ")}
           </p>
         ) : null}
       </header>
 
-      <Section id="action-required" title={ko ? "지금 처리할 돈" : "Action required"}>
+      <Section id="action-required" title={t("admin_finance_action_required")}>
         {model.actionRequired.length === 0 ? (
           <AdminControlPlaneEmpty
             message={
-              ko ? "지금 처리할 재무 항목이 없습니다." : "No finance items need action right now."
+              t("admin_finance_no_finance_items_need_action_right")
             }
           />
         ) : (
@@ -298,7 +295,7 @@ export function AdminFinanceControlPlane() {
         )}
       </Section>
 
-      <Section id="current-state" title={ko ? "현재 재무 상태 (통화별)" : "Current financial state (by currency)"}>
+      <Section id="current-state" title={t("admin_finance_current_financial_state_by_currency")}>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {model.currentState.map((m) => (
             <Link
@@ -319,125 +316,119 @@ export function AdminFinanceControlPlane() {
         <div className="mt-2 flex flex-wrap gap-3 sam-text-body-secondary">
           {(
             [
-              [ko ? "Point 충전" : "Point", "point", q.point],
-              [ko ? "Cash 충전" : "Cash", "cash", q.cash],
-              [ko ? "Coin 출금" : "Coin withdraw", "coin", q.coinWithdraw],
-              [ko ? "플랫폼 지급 의무" : "Platform payable", "settlement", q.settlement],
-              [ko ? "미납 수수료" : "Fees", "obligation", q.obligationStores],
+              [t("admin_finance_point"), "point", q.point],
+              [t("admin_finance_cash"), "cash", q.cash],
+              [t("admin_finance_coin_withdraw"), "coin", q.coinWithdraw],
+              [t("admin_finance_platform_payable"), "settlement", q.settlement],
+              [t("admin_finance_fees"), "obligation", q.obligationStores],
             ] as const
           ).map(([label, k, s]) => (
             <Link key={k} href={s.href} className="text-signature hover:underline" data-admin-finance-ops={k}>
-              {label}: {s.unavailable ? (ko ? "확인 불가" : "UNAVAILABLE") : s.count ?? 0}
+              {label}: {s.unavailable ? t("admin_finance_unavailable") : s.count ?? 0}
             </Link>
           ))}
         </div>
       </Section>
 
-      <Section id="point" title={ko ? "Point (회원)" : "Point (member)"}>
+      <Section id="point" title={t("admin_finance_point_member")}>
         {model.point.unavailable ? (
           <Unavail ko={ko} />
         ) : (
           <RowTable
             rows={model.point.pendingRows}
             ko={ko}
-            empty={ko ? "대기 Point 충전 없음 (0건)" : "No pending Point charges (0)"}
+            empty={t("admin_finance_no_pending_point_charges_0")}
           />
         )}
         <Link href={model.point.queueHref} className="inline-block sam-text-body font-semibold text-signature hover:underline">
-          {ko ? "Point 충전 큐 열기" : "Open Point charge queue"}
+          {t("admin_finance_open_point_charge_queue")}
         </Link>
       </Section>
 
-      <Section id="coin" title={ko ? "Coin (매장) — 적립·전환·출금 분리" : "Coin (store) — earn / convert / withdraw"}>
+      <Section id="coin" title={t("admin_finance_coin_store_earn_convert_withdraw")}>
         <h3 className="sam-text-helper font-semibold text-sam-muted">
-          {ko ? "판매 Coin 적립 (조회 · 승인 아님)" : "Sale Coin earn (history · not approval)"}
+          {t("admin_finance_sale_coin_earn_history_not_approval")}
         </h3>
         <RowTable
           rows={model.coin.recentCredits}
           ko={ko}
-          empty={ko ? "최근 판매 Coin 없음" : "No recent sale Coin credits"}
+          empty={t("admin_finance_no_recent_sale_coin_credits")}
         />
         <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">
-          {ko ? "Coin → Cash 전환 (조회 · 승인 아님)" : "Coin → Cash (history · not approval)"}
+          {t("admin_finance_coin_cash_history_not_approval")}
         </h3>
         <RowTable
           rows={model.coin.recentConversions}
           ko={ko}
-          empty={ko ? "최근 전환 없음" : "No recent conversions"}
+          empty={t("admin_finance_no_recent_conversions")}
         />
         {/* `#coin-withdrawals` — 처리 대기·대시보드·재무 큐 링크가 여는 위치 */}
         <h3 id="coin-withdrawals" className="mt-3 scroll-mt-16 sam-text-helper font-semibold text-sam-muted">
-          {ko ? "Coin 출금 요청 (승인 대상)" : "Coin withdrawal (requires Admin)"}
+          {t("admin_finance_coin_withdrawal_requires_admin")}
         </h3>
         <RowTable
           rows={model.coin.withdrawRows}
           ko={ko}
-          empty={ko ? "출금 대기 0건" : "0 open withdrawals"}
+          empty={t("admin_finance_0_open_withdrawals")}
         />
       </Section>
 
-      <Section id="cash" title={ko ? "Cash (매장)" : "Cash (store)"}>
+      <Section id="cash" title={t("admin_finance_cash_store")}>
         <h3 className="sam-text-helper font-semibold text-sam-muted">
-          {ko ? "충전 대기" : "Top-up pending"}
+          {t("admin_finance_top_up_pending")}
         </h3>
         <RowTable
           rows={model.cash.pendingTopUps}
           ko={ko}
-          empty={ko ? "Cash 충전 대기 0건" : "0 Cash top-ups pending"}
+          empty={t("admin_finance_0_cash_top_ups_pending")}
         />
         <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">
-          {ko ? "최근 Cash 원장" : "Recent Cash ledger"}
+          {t("admin_finance_recent_cash_ledger")}
         </h3>
         <RowTable
           rows={model.cash.recentLedger}
           ko={ko}
-          empty={ko ? "최근 Cash 이벤트 없음" : "No recent Cash events"}
+          empty={t("admin_finance_no_recent_cash_events")}
         />
       </Section>
 
-      <Section id="obligations" title={ko ? "미납 판매수수료 (Option B)" : "Unpaid sale fee (Option B)"}>
+      <Section id="obligations" title={t("admin_finance_unpaid_sale_fee_option_b")}>
         <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? `미납 매장 ${model.obligations.storeCount ?? "UNAVAILABLE"} · 합계 ${
-                model.obligations.outstandingMinor == null
-                  ? "UNAVAILABLE"
-                  : cashMinorFmt(model.obligations.outstandingMinor)
-              }`
-            : `Stores ${model.obligations.storeCount ?? "UNAVAILABLE"} · outstanding ${
-                model.obligations.outstandingMinor == null
-                  ? "UNAVAILABLE"
-                  : cashMinorFmt(model.obligations.outstandingMinor)
-              }`}
+          {t("admin_finance_obligations_summary", {
+            stores: model.obligations.storeCount ?? "UNAVAILABLE",
+            total:
+              model.obligations.outstandingMinor == null
+                ? "UNAVAILABLE"
+                : cashMinorFmt(model.obligations.outstandingMinor),
+          })}
         </p>
         <RowTable
           rows={model.obligations.rows}
           ko={ko}
-          empty={model.obligations.unavailable ? "UNAVAILABLE" : ko ? "미납 0건" : "0 unpaid"}
+          empty={model.obligations.unavailable ? "UNAVAILABLE" : t("admin_finance_0_unpaid")}
         />
       </Section>
 
-      <Section id="settlements" title={ko ? "플랫폼 지급 의무 (선물·쿠폰 보유분)" : "Platform payable (gift/coupon held)"}>
+      <Section id="settlements" title={t("admin_finance_platform_payable_gift_coupon_held")}>
         <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? "매장 직접 결제 모델: 주문 대금은 매장이 직접 받습니다. 플랫폼이 매장에 지급할 의무는 플랫폼이 보유한 선물·플랫폼 쿠폰 금액 중 상품권 정산 레일과 코인으로 지급되지 않은 부분뿐입니다. 과거 정산 스냅샷(scheduled)은 지급 의무가 아닙니다."
-            : "Direct-pay model: stores collect order money themselves. The platform only owes the gift / platform-coupon money it holds that is not on the gift-certificate rail or already paid as Coin. Legacy scheduled settlement snapshots are not payables."}
+          {t("admin_finance_direct_pay_model_stores_collect_order")}
         </p>
         {!model.settlements.unavailable ? (
           <dl className="grid grid-cols-2 gap-2 sam-text-helper sm:grid-cols-4">
             <div>
-              <dt className="text-sam-muted">{ko ? "지급 의무" : "Payable"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_payable")}</dt>
               <dd className="font-semibold tabular-nums">{formatAdminPhp(model.settlements.payablePhp ?? 0)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "건수" : "Orders"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_orders")}</dt>
               <dd className="font-semibold tabular-nums">{formatAdminNumber(model.settlements.pendingCount ?? 0)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "매장 직접 수령 (지급 대상 아님)" : "Collected by stores (no payout)"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_collected_by_stores_no_payout")}</dt>
               <dd className="tabular-nums">{formatAdminPhp(model.settlements.directCollectedPhp ?? 0)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "과거 정산 스냅샷 (참고·원본 보존)" : "Legacy snapshots (reference)"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_legacy_snapshots_reference")}</dt>
               <dd className="tabular-nums">
                 {formatAdminPhp(model.settlements.legacyOpenSettlementPhp ?? 0)} ·{" "}
                 {formatAdminNumber(model.settlements.legacyOpenSettlementCount ?? 0)}
@@ -451,32 +442,30 @@ export function AdminFinanceControlPlane() {
           empty={
             model.settlements.unavailable
               ? "UNAVAILABLE"
-              : ko
-                ? "플랫폼 지급 의무 0건"
-                : "0 payable orders"
+              : t("admin_finance_0_payable_orders")
           }
         />
         <Link
           href={model.settlements.queueHref}
           className="inline-block sam-text-body font-semibold text-signature hover:underline"
         >
-          {ko ? "지급 의무 상세" : "Open payable detail"}
+          {t("admin_finance_open_payable_detail")}
         </Link>
       </Section>
 
-      <Section id="refunds" title={ko ? "환불 / 조정 (유형 구분)" : "Refunds / adjustments (typed)"}>
+      <Section id="refunds" title={t("admin_finance_refunds_adjustments_typed")}>
         <RowTable
           rows={model.refunds.rows}
           ko={ko}
-          empty={ko ? "최근 환불 이벤트 없음" : "No recent refund events"}
+          empty={t("admin_finance_no_recent_refund_events")}
         />
       </Section>
 
-      <Section id="recent" title={ko ? "최근 재무 활동" : "Recent financial activity"}>
-        <RowTable rows={model.recent} ko={ko} empty={ko ? "최근 활동 없음" : "No recent activity"} />
+      <Section id="recent" title={t("admin_finance_recent_financial_activity")}>
+        <RowTable rows={model.recent} ko={ko} empty={t("admin_finance_no_recent_activity")} />
       </Section>
 
-      <Section id="entries" title={ko ? "빠른 관리" : "Quick management"}>
+      <Section id="entries" title={t("admin_finance_quick_management")}>
         <ul className="flex flex-wrap gap-2">
           {model.primaryEntries.map((e) => (
             <li key={e.id}>

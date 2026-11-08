@@ -14,28 +14,25 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
  * order-chat viewer (never the community messenger admin room screen).
  */
 function AdminOrderChatsHubInner() {
-  const { safeT, t, language } = useI18n();
-  const ko = language !== "en";
+  const { safeT, t } = useI18n();
 
   return (
     <div className="space-y-6 p-4 md:p-6">
       <AdminPageHeader
         titleKey="admin_menu_order_chats"
         description={
-          ko
-            ? "매장 주문에 연결된 채팅을 조회합니다. 거래 채팅·커뮤니티 메신저는 아래 관련 링크에서 엽니다."
-            : "Look up chats linked to store orders. Trade chats and the community messenger open from the related links below."
+          t("admin_order_chats_look_up_chats_linked_store")
         }
       />
 
       {/* R7 — 목록 전체를 서버 페이지네이션으로 넘긴다 (건수 상한 문구 없음 · 전체 건수는 목록 하단). */}
-      <AdminCard title={ko ? "주문 채팅 목록" : "Order chats"}>
+      <AdminCard title={t("admin_order_chats_order_chats")}>
         <AdminOrderChatList />
       </AdminCard>
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="text-sm font-semibold text-sam-fg">{ko ? "매장 주문" : "Store orders"}</h2>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_order_chats_store_orders")}</h2>
           <ul className="mt-2 space-y-2 sam-text-body-secondary text-sam-fg">
             <li>
               <Link className="text-signature underline" href="/admin/store-orders">
@@ -51,21 +48,21 @@ function AdminOrderChatsHubInner() {
         </section>
 
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="text-sm font-semibold text-sam-fg">{ko ? "관련 링크" : "Related links"}</h2>
+          <h2 className="text-sm font-semibold text-sam-fg">{t("admin_order_chats_related_links")}</h2>
           <ul className="mt-2 space-y-2 sam-text-body-secondary text-sam-fg">
             <li>
               <Link className="text-signature underline" href="/admin/chats/trade">
-                {ko ? "거래 채팅" : "Trade chats"}
+                {t("admin_order_chats_trade_chats")}
               </Link>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/chats/messenger">
-                {ko ? "커뮤니티 메신저 운영" : "Community messenger ops"}
+                {t("admin_order_chats_community_messenger_ops")}
               </Link>
             </li>
             <li>
               <Link className="text-signature underline" href="/admin/chats">
-                {ko ? "채팅 전체 목록" : "All chats"}
+                {t("admin_order_chats_link_all")}
               </Link>
             </li>
           </ul>

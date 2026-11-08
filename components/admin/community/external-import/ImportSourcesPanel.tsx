@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { DetectResult } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, BoardKind, SourceEngine } from "@/lib/community-operator-import/types";
 import { labelReasons } from "@/lib/community-operator-import/quality-labels";
@@ -37,6 +38,7 @@ type Props = {
 };
 
 export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: Props) {
+  const { t: tr } = useI18n();
   const [url, setUrl] = useState("");
   const [detect, setDetect] = useState<DetectResult | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -142,15 +144,13 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
     <div className="space-y-4">
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4 space-y-3">
         <div>
-          <h2 className="text-sm font-semibold text-sam-fg">새 사이트 등록</h2>
-          <p className="text-xs text-sam-muted mt-0.5">
-            URL만 입력하면 robots.txt 확인 → 사이트 유형 판별 → 실제 게시판 탐색 → 게시판별 목록·본문 샘플 검증을 서버가 수행합니다. 차단·로그인·캡차는 우회하지 않습니다.
-          </p>
+          <h2 className="text-sm font-semibold text-sam-fg">{tr("admin_community_import_sources_new_site")}</h2>
+          <p className="text-xs text-sam-muted mt-0.5">{tr("admin_community_import_sources_new_site_desc")}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 flex-1 text-sm"
-            placeholder="https://example.com 또는 게시판 주소"
+            placeholder={tr("admin_community_import_sources_url_placeholder")}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => {
@@ -178,14 +178,14 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                 <table className="w-full text-xs">
                   <thead className="text-sam-muted text-left">
                     <tr>
-                      <th className="py-1 pr-2">선택</th>
-                      <th className="py-1 pr-2">게시판</th>
-                      <th className="py-1 pr-2">성격</th>
-                      <th className="py-1 pr-2">검증</th>
-                      <th className="py-1 pr-2">목록/썸네일</th>
-                      <th className="py-1 pr-2">본문 샘플</th>
-                      <th className="py-1 pr-2">최신글</th>
-                      <th className="py-1">상세</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_inbox_select")}</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_sources_col_board")}</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_sources_col_kind")}</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_sources_col_verify")}</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_sources_col_list_thumb")}</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_sources_col_body_sample")}</th>
+                      <th className="py-1 pr-2">{tr("admin_community_import_sources_col_latest")}</th>
+                      <th className="py-1">{tr("admin_community_import_sources_col_detail")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -260,7 +260,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                 </table>
               </div>
             ) : (
-              <p className="text-xs text-sam-muted">발견된 게시판이 없습니다.</p>
+              <p className="text-xs text-sam-muted">{tr("admin_community_import_sources_no_boards")}</p>
             )}
             {probeTarget ? <BoardProbePanel key={`${probeTarget.baseUrl}|${probeTarget.engineKey}`} target={probeTarget} onClose={() => setProbeTarget(null)} /> : null}
             {detect.engine && detect.verdict !== "BLOCKED" ? (
@@ -291,7 +291,9 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-sam-fg px-0.5">등록된 출처 ({sources.length})</h2>
+        <h2 className="text-sm font-semibold text-sam-fg px-0.5">
+          {tr("admin_community_import_sources_registered", { n: sources.length })}
+        </h2>
         {sources.map((s) => {
           const isOpen = open === s.id;
           const collecting = s.boards.filter((b) => b.collectEnabled).length;
@@ -301,7 +303,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                 <VerdictBadge v={s.verification} />
                 <span className="font-semibold text-sm">{s.displayName}</span>
                 <span className="text-[12px] text-sam-muted">{s.engine}</span>
-                {!s.enabled ? <span className="text-[12px] text-sam-danger">비활성</span> : null}
+                {!s.enabled ? <span className="text-[12px] text-sam-danger">{tr("admin_community_import_sources_disabled")}</span> : null}
                 <span className="text-[12px] text-sam-muted ml-auto">
                   게시판 {s.boards.length} · 자동수집 {collecting} · 확인 {fmtDate(s.status.lastCheckedAt) || "없음"}
                 </span>
@@ -311,7 +313,13 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                   <div className="text-[12px] text-sam-muted break-all">
                     {s.baseUrl} · robots {s.status.robotsStatus ?? "미확인"}
                     {s.status.aiBotsBlocked ? " · AI 봇 차단 명시" : ""}
-                    {s.status.lastError ? <span className="block text-sam-danger">최근 오류: {importErrorText({ message: s.status.lastError })}</span> : null}
+                    {s.status.lastError ? (
+                      <span className="block text-sam-danger">
+                        {tr("admin_community_import_sources_recent_error", {
+                          error: importErrorText({ message: s.status.lastError }),
+                        })}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <select
@@ -365,12 +373,12 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                     <table className="w-full text-xs">
                       <thead className="text-left text-sam-muted">
                         <tr>
-                          <th className="py-1 pr-2">게시판</th>
-                          <th className="py-1 pr-2">상태</th>
-                          <th className="py-1 pr-2">DIBAY 주제</th>
-                          <th className="py-1 pr-2">사용</th>
-                          <th className="py-1 pr-2">자동수집</th>
-                          <th className="py-1">작업</th>
+                          <th className="py-1 pr-2">{tr("admin_community_import_sources_col_board")}</th>
+                          <th className="py-1 pr-2">{tr("admin_community_import_sources_col_status")}</th>
+                          <th className="py-1 pr-2">{tr("admin_community_import_dibay_topic")}</th>
+                          <th className="py-1 pr-2">{tr("admin_community_import_sources_col_enabled")}</th>
+                          <th className="py-1 pr-2">{tr("admin_community_import_sources_col_auto_collect")}</th>
+                          <th className="py-1">{tr("admin_community_import_sources_col_actions")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -393,7 +401,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                 value={b.defaultTopicId ?? ""}
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { defaultTopicId: e.target.value || null })}
                               >
-                                <option value="">(게시 시 선택)</option>
+                                <option value="">{tr("admin_community_import_sources_topic_on_publish")}</option>
                                 {topics.map((t) => (
                                   <option key={t.id} value={t.id}>
                                     {t.name}
@@ -409,7 +417,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                 type="checkbox"
                                 aria-label={`${b.displayName} 자동수집`}
                                 checked={b.collectEnabled}
-                                title="검증된 출처의 기사·정보·커뮤니티 게시판만 정기수집할 수 있습니다"
+                                title={tr("admin_community_import_sources_auto_collect_hint")}
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { collectEnabled: e.target.checked })}
                               />
                             </td>
@@ -471,6 +479,7 @@ function KeywordBoardForm({
   onPreview: (engineKey: string, name: string) => void;
   onAdd: (engineKey: string, name: string) => void;
 }) {
+  const { t: tr } = useI18n();
   const feeds = source.boards.filter((b) => !b.engineKey.includes("#"));
   const [feed, setFeed] = useState(feeds[0]?.engineKey ?? "");
   const [keywords, setKeywords] = useState("필리핀,세부,마닐라,클락,보라카이");
@@ -485,7 +494,7 @@ function KeywordBoardForm({
   if (!feeds.length) return null;
   return (
     <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
-      <div className="text-[12px] font-semibold">키워드 게시판 추가 — 이 피드에서 키워드가 들어간 글만 수집</div>
+      <div className="text-[12px] font-semibold">{tr("admin_community_import_sources_keyword_board_title")}</div>
       <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
         <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={feed} onChange={(e) => setFeed(e.target.value)}>
           {feeds.map((b) => (
@@ -494,13 +503,13 @@ function KeywordBoardForm({
             </option>
           ))}
         </select>
-        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="쉼표로 구분: 필리핀,세부" />
-        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder="게시판 이름 (선택)" />
+        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder={tr("admin_community_import_sources_keyword_placeholder")} />
+        <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("admin_community_import_sources_board_name_optional")} />
         <AdminActionButton variant="neutral" disabled={!engineKey} onClick={() => onPreview(engineKey, label)}>
-          샘플 보기
+          {tr("admin_community_import_sources_preview_sample")}
         </AdminActionButton>
         <AdminActionButton variant="secondary" disabled={!engineKey || busy} onClick={() => onAdd(engineKey, label)}>
-          게시판으로 추가
+          {tr("admin_community_import_sources_add_as_board")}
         </AdminActionButton>
       </div>
     </div>
@@ -517,6 +526,7 @@ function RightsForm({
   busy: boolean;
   onSave: (rights: { rightsBasis: RightsBasis; attributionRequired: boolean; note: string }) => void;
 }) {
+  const { t: tr } = useI18n();
   const [basis, setBasis] = useState<RightsBasis>(source.rights.rightsBasis);
   const [attribution, setAttribution] = useState(source.rights.attributionRequired);
   const [note, setNote] = useState(source.rights.note ?? "");
@@ -529,7 +539,7 @@ function RightsForm({
         {source.rights.confirmedAt ? ` (확인 ${fmtDate(source.rights.confirmedAt)})` : ""}
       </div>
       <div className="grid gap-1.5 sm:grid-cols-2">
-        <select aria-label="재게시 권한" className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={basis} onChange={(e) => setBasis(e.target.value as RightsBasis)}>
+        <select aria-label={tr("admin_community_import_sources_rights")} className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={basis} onChange={(e) => setBasis(e.target.value as RightsBasis)}>
           {RIGHTS_BASES.map((b) => (
             <option key={b} value={b}>
               {RIGHTS_LABEL[b]}
@@ -538,12 +548,12 @@ function RightsForm({
         </select>
         <label className="flex items-center gap-1 text-[12px] text-sam-muted">
           <input type="checkbox" checked={ccOrNone || attribution} disabled={ccOrNone} onChange={(e) => setAttribution(e.target.checked)} />
-          출처 표시 의무 있음 (해제 시 글별로 출처 숨김 가능)
+          {tr("admin_community_import_sources_attribution_required")}
         </label>
         <input
-          aria-label="권한 근거"
+          aria-label={tr("admin_community_import_sources_rights_basis")}
           className="sm:col-span-2 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs"
-          placeholder="근거 (예: 2026-10-16 운영자 카톡 허락, 라이선스 URL) — 권한 확인 시 필수"
+          placeholder={tr("admin_community_import_sources_rights_basis_placeholder")}
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
@@ -553,7 +563,7 @@ function RightsForm({
         disabled={busy || !dirty || (basis !== "unverified" && !note.trim())}
         onClick={() => onSave({ rightsBasis: basis, attributionRequired: ccOrNone || attribution, note })}
       >
-        권한 저장
+        {tr("admin_community_import_sources_rights_save")}
       </AdminActionButton>
     </div>
   );
@@ -569,6 +579,7 @@ function AdapterConfigForm({
   busy: boolean;
   onSave: (cfg: AdapterConfig) => void;
 }) {
+  const { t: tr } = useI18n();
   const cfg = source.adapterConfig || {};
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState((cfg.bodySelectors || []).join(", "));
@@ -590,7 +601,7 @@ function AdapterConfigForm({
   }
   return (
     <div className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
-      <div className="text-[12px] font-semibold">수집 설정 — 비워 두면 자동 판별. 저장 후 「샘플 보기」로 결과를 확인하세요.</div>
+      <div className="text-[12px] font-semibold">{tr("admin_community_import_sources_adapter_title")}</div>
       <div className="grid gap-1.5 sm:grid-cols-2">
         <label className="text-[12px] text-sam-muted">
           본문 위치 (CSS 선택자, 쉼표 구분)

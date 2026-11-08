@@ -77,10 +77,7 @@ export function MemberCsNoteListClient({
   const meta = KIND_META[kind];
   const sections: MemberAdminNoteKind[] = listBasePath ? [kind] : ["inquiry", "inbox"];
 
-  const title = safeT(meta.titleKey, {
-    fallbackKo: "이전 문의 기록",
-    fallbackEn: "Previous inquiry archive",
-  });
+  const title = safeT(meta.titleKey);
 
   const sectionList = sections.map((k) => (
     <MemberCsNoteSection
@@ -111,9 +108,9 @@ export function MemberCsNoteListClient({
   );
 }
 
-const SECTION_TITLE: Record<MemberAdminNoteKind, { key: MessageKey; ko: string; en: string }> = {
-  inquiry: { key: "biz_care_tab_1on1", ko: "이전 1:1 문의", en: "Previous 1:1 inquiries" },
-  inbox: { key: "biz_care_tab_admin_messages", ko: "이전 관리자 쪽지", en: "Previous admin messages" },
+const SECTION_TITLE: Record<MemberAdminNoteKind, { key: MessageKey }> = {
+  inquiry: { key: "biz_care_tab_1on1" },
+  inbox: { key: "biz_care_tab_admin_messages" },
 };
 
 function MemberCsNoteSection({
@@ -212,10 +209,7 @@ function MemberCsNoteSection({
     >
       {showTitle ? (
         <h2 className={CC_HEADER_CLASS}>
-          {safeT(SECTION_TITLE[kind].key, {
-            fallbackKo: SECTION_TITLE[kind].ko,
-            fallbackEn: SECTION_TITLE[kind].en,
-          })}
+          {safeT(SECTION_TITLE[kind].key)}
         </h2>
       ) : null}
       {loading ? (

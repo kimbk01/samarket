@@ -49,7 +49,7 @@ function metaNum(meta: Record<string, unknown>, ...keys: string[]): number | nul
  * Uses CONVERT_FROM_STORE_POINTS cash ledger meta only — no invented outstanding/net.
  */
 export function AdminFinanceConversionsView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   const sp = useSearchParams();
@@ -130,11 +130,9 @@ export function AdminFinanceConversionsView() {
   return (
     <div className="space-y-4" data-admin-finance-conversions="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-[16px] font-semibold">{ko ? "전환 · Coin → Cash" : "Conversion · Coin → Cash"}</h2>
+      <h2 className="text-[16px] font-semibold">{t("admin_finance_conversion_coin_cash")}</h2>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "전환 ≠ 출금. 적용 Rate는 원장 meta snapshot입니다. Outstanding Applied / Cash Net은 현재 ledger meta에 없으면 — 입니다."
-          : "Conversion ≠ withdrawal. Rate is ledger meta snapshot. Outstanding Applied / Cash Net show — when not in meta."}
+        {t("admin_finance_conversion_withdrawal_rate_is_ledger_meta")}
       </p>
       <AdminFilterBar
         ko={ko}
@@ -149,7 +147,7 @@ export function AdminFinanceConversionsView() {
         showSearch={false}
       >
         <label className={FILTER_LABEL}>
-          {ko ? "매장 ID" : "Store ID"}
+          {t("finance_store_id")}
           <input
             className={FILTER_FIELD}
             value={storeIdInput}
@@ -162,7 +160,7 @@ export function AdminFinanceConversionsView() {
         <AdminFinancePeriodSums
           ko={ko}
           range={adminFinanceRangeText({ from: filters.from, to: filters.to }, ko)}
-          basis={ko ? "전환 시각 기준 · 매장 조건 적용" : "by conversion time · store filter applied"}
+          basis={t("admin_finance_by_conversion_time_store_filter_applied")}
           cells={conversionSumCells(sums, ko)}
         />
       ) : null}
@@ -173,7 +171,7 @@ export function AdminFinanceConversionsView() {
       ) : rows.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : ko ? "전환 내역이 없습니다." : "No conversions."}
+          message={lq.isFiltered ? undefined : t("admin_finance_no_conversions")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
@@ -182,15 +180,15 @@ export function AdminFinanceConversionsView() {
         <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
-              <th className="px-3 py-2">{ko ? "일시 (PHT)" : "When (PHT)"}</th>
-              <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
-              <th className="px-3 py-2">{ko ? "Coin Out" : "Coin out"}</th>
-              <th className="px-3 py-2">{ko ? "적용 Rate" : "Applied rate"}</th>
-              <th className="px-3 py-2">{ko ? "Cash Gross" : "Cash gross"}</th>
-              <th className="px-3 py-2">{ko ? "Outstanding Applied" : "Outstanding applied"}</th>
-              <th className="px-3 py-2">{ko ? "Cash Net" : "Cash net"}</th>
-              <th className="px-3 py-2">{ko ? "Reference" : "Reference"}</th>
-              <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
+              <th className="px-3 py-2">{t("finance_when_pht")}</th>
+              <th className="px-3 py-2">{t("admin_biz_ops_th_store")}</th>
+              <th className="px-3 py-2">{t("admin_finance_coin_out")}</th>
+              <th className="px-3 py-2">{t("admin_finance_applied_rate")}</th>
+              <th className="px-3 py-2">{t("admin_finance_cash_gross")}</th>
+              <th className="px-3 py-2">{t("admin_finance_outstanding_applied")}</th>
+              <th className="px-3 py-2">{t("admin_finance_cash_net")}</th>
+              <th className="px-3 py-2">{t("admin_finance_reference")}</th>
+              <th className="px-3 py-2">{t("admin_biz_label_status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sam-border-soft">
@@ -257,7 +255,7 @@ export function AdminFinanceConversionsView() {
                     {cashNet == null ? "—" : formatFinanceAmount({ wallet: "CASH", amount: cashNet, isMinor: true })}
                   </td>
                   <td className="px-3 py-2 sam-text-xxs">{financeRelatedTargetLabel(r, ko)}</td>
-                  <td className="px-3 py-2">{r.status || (ko ? "완료" : "Posted")}</td>
+                  <td className="px-3 py-2">{r.status || t("admin_finance_posted")}</td>
                 </tr>
               );
             })}

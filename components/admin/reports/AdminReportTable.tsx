@@ -54,7 +54,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                   <span className="inline-flex items-center gap-1">
                     {ADMIN_REPORT_LEDGER_LABEL[r.ledgerSource as AdminReportLedgerSource]?.[ko ? "ko" : "en"] ??
                       r.ledgerSource}
-                    <AdminToneBadge tone="neutral">{ko ? "조회만" : "View only"}</AdminToneBadge>
+                    <AdminToneBadge tone="neutral">{t("admin_reports_view_only")}</AdminToneBadge>
                   </span>
                 ) : r.reportSource === "community_feed"
                   ? safeT("admin_report_source_feed")
@@ -99,7 +99,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                   href={r.adminDetailHref ?? `/admin/reports/${r.id}`}
                   className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
-                  {r.ledgerReadOnly ? (ko ? "처리 화면" : "Domain screen") : t("admin_report_detail_cta")}
+                  {r.ledgerReadOnly ? (t("admin_reports_domain_screen")) : t("admin_report_detail_cta")}
                 </Link>
               </td>
             </tr>

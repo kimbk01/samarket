@@ -38,7 +38,6 @@ import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
   MEMBER_LIST_DELETION_REQUESTS_KO,
   MEMBER_LIST_EMPTY_KO,
-  MEMBER_LIST_ERROR_KO,
   MEMBER_LIST_OPS_HISTORY_KO,
   MEMBER_LIST_PAGE_DESCRIPTION_KO,
   MEMBER_LIST_SEARCH_EMPTY_KO,
@@ -503,7 +502,7 @@ export function AdminUserListPage() {
 
   const handleCleanup = useCallback(async () => {
     if (!adminUserId) return;
-    const retype = ko ? "테스트 회원 정리" : "cleanup test members";
+    const retype = t("admin_users_cleanup_test_members");
     // R2 — 테스트 회원 일괄 정리 = bulk(L3). 사유는 API 로 보내 감사 기록에 남긴다.
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("bulk"),
@@ -528,7 +527,7 @@ export function AdminUserListPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setCleanupResult({ ok: true, message: ko ? "테스트 회원을 정리했습니다." : "Test members cleaned up." });
+        setCleanupResult({ ok: true, message: t("admin_users_test_members_cleaned_up") });
         refreshMembers();
       } else {
         setCleanupResult({ ok: false, code: membersOperatorErrorCode(data.error) });
@@ -579,7 +578,7 @@ export function AdminUserListPage() {
             data-member-list-phone-otp-ops="1"
             data-member-cta-variant="tertiary"
           >
-            {ko ? "전화번호 인증 관리" : "Phone verification"}
+            {t("admin_users_phone_verification")}
           </AdminActionLink>
           <AdminActionLink
             href="/admin/users/deletion-requests"
@@ -616,7 +615,7 @@ export function AdminUserListPage() {
               className="order-last"
               data-member-list-maintenance="1"
               data-member-cta-variant="tertiary"
-              title={ko ? "테스트 회원 정리 (R9 / OD-05)" : "Clean up test members (R9 / OD-05)"}
+              title={t("admin_users_clean_up_test_members_r9_od")}
             >
               {t("admin_users_cleanup_button")}
             </AdminActionButton>
@@ -682,7 +681,7 @@ export function AdminUserListPage() {
         loading={membersListPending}
       />
       {membersError ? (
-        <div data-member-list-state="error" aria-label={MEMBER_LIST_ERROR_KO}>
+        <div data-member-list-state="error" aria-label={t("admin_users_member_list_load_failed")}>
           <AdminErrorState
             ko={ko}
             code={
@@ -705,7 +704,7 @@ export function AdminUserListPage() {
           <div className="h-10 animate-pulse rounded bg-sam-surface-muted" />
           <div className="h-10 animate-pulse rounded bg-sam-surface-muted" />
           <p className="text-center text-sm font-semibold text-sam-muted">
-            {ko ? "목록을 불러오는 중…" : "Loading list…"}
+            {t("admin_users_loading_list")}
           </p>
         </div>
       ) : users.length === 0 ? (

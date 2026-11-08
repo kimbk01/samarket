@@ -1,7 +1,6 @@
 "use client";
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { scheduleTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
@@ -59,8 +58,8 @@ export function prepareTradeChatRoom(productId: string): void {
  * - 상품이 바뀌면 다른 방(친구 관계와 무관)
  * - POST /api/trade/chat/entry/resolve 단일 계약 → 서버가 item/start + 레거시 product_chats 폴백 처리
  */
-function tClient(key: Parameters<typeof safeTranslate>[1], fallbacks?: { fallbackKo?: string; fallbackEn?: string }): string {
-  return safeTranslate(getRuntimeAppLanguage(), key, fallbacks);
+function tClient(key: Parameters<typeof safeTranslate>[1]): string {
+  return safeTranslate(getRuntimeAppLanguage(), key);
 }
 
 export async function createOrGetChatRoom(
@@ -73,10 +72,7 @@ export async function createOrGetChatRoom(
   if (!hasVerifiedPhone(user)) {
     return {
       ok: false,
-      error: tClient("auth_phone_gate_requirement", {
-        fallbackKo: PHONE_VERIFICATION_REQUIRED_MESSAGE,
-        fallbackEn: PHONE_VERIFICATION_REQUIRED_MESSAGE,
-      }),
+      error: tClient("auth_phone_gate_requirement"),
     };
   }
 

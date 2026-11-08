@@ -23,6 +23,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Row = {
   id: string;
@@ -53,14 +54,14 @@ const REASON_LABELS: Record<string, [string, string]> = {
 
 function reasonLabel(raw: string, ko: boolean): string {
   const hit = REASON_LABELS[String(raw ?? "").trim()];
-  return hit ? (ko ? hit[0] : hit[1]) : ko ? "기타" : "Other";
+  return hit ? (ko ? hit[0] : hit[1]) : translateBy(ko ? "ko" : "en", "admin_stores_settlements_payout_method_other");
 }
 
 /** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
 const LIST_CONFIG = { extras: ["store_id"] as const };
 
 export function AdminStoreReportsPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const lq = useAdminListQuery(LIST_CONFIG);
@@ -151,18 +152,12 @@ export function AdminStoreReportsPage() {
       level: adminActionLevel(actioned ? "approve" : "reject"),
       ko,
       title: actioned
-        ? ko
-          ? "이 신고를 조치 완료로 처리할까요?"
-          : "Mark this report as actioned?"
-        : ko
-          ? "이 신고를 기각할까요?"
-          : "Dismiss this report?",
+        ? t("admin_stores_mark_this_report_as_actioned")
+        : t("admin_stores_dismiss_this_report"),
       description: actioned
-        ? ko
-          ? "신고 처리 상태만 바뀝니다. 매장 운영 중지가 필요하면 「운영 중지 검토」에서 따로 처리하세요."
-          : "Only the report status changes. Suspend the store separately via “Review suspension”."
+        ? t("admin_stores_only_report_status_changes_suspend_store")
         : undefined,
-      confirmLabel: actioned ? (ko ? "조치 완료" : "Actioned") : ko ? "기각" : "Dismiss",
+      confirmLabel: actioned ? t("admin_stores_reports_actioned") : t("admin_stores_reports_dismiss"),
       destructive: !actioned,
     });
     if (!confirmed.ok) return;
@@ -198,12 +193,8 @@ export function AdminStoreReportsPage() {
       setResult({
         ok: true,
         message: actioned
-          ? ko
-            ? "신고를 조치 완료로 처리했습니다."
-            : "Report marked as actioned."
-          : ko
-            ? "신고를 기각했습니다."
-            : "Report dismissed.",
+          ? t("admin_stores_report_marked_as_actioned")
+          : t("admin_stores_report_dismissed"),
       });
       await load();
     } catch {
@@ -215,21 +206,19 @@ export function AdminStoreReportsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={ko ? "매장 신고" : "Store reports"} />
+      <AdminPageHeader title={t("admin_stores_store_reports")} />
       <p className="sam-text-body-secondary text-sam-muted">
-        {ko
-          ? "고객이 접수한 매장·상품 신고를 검토하고 조치 완료 또는 기각으로 처리합니다. 매장 운영 중지는 매장 상세에서 따로 결정합니다."
-          : "Review store and product reports and mark them actioned or dismissed. Store suspension is decided separately on the store detail."}
+        {t("admin_stores_review_store_and_product_reports_and")}
       </p>
       {storeIdFilter ? (
         <p className="sam-text-helper text-sam-muted">
-          {ko ? "특정 매장 신고만 보는 중" : "Filtered to one store"}{" "}
+          {t("admin_stores_filtered_to_one_store_3")}{" "}
           <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
-            {ko ? "매장 상세로" : "Back to store"}
+            {t("admin_stores_back_to_store")}
           </Link>
           {" · "}
           <Link href="/admin/store-reports" className="text-signature hover:underline">
-            {ko ? "전체 신고 보기" : "Show all reports"}
+            {t("admin_stores_show_all_reports")}
           </Link>
         </p>
       ) : null}
@@ -240,19 +229,19 @@ export function AdminStoreReportsPage() {
       {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        loadError ? null : <AdminEmptyState ko={ko} message={ko ? "접수된 신고가 없습니다." : "No reports."} />
+        loadError ? null : <AdminEmptyState ko={ko} message={t("admin_stores_no_reports")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface px-3">
           {/* 표준 표 (§2.8 목록) — 열: 매장·대상·상태·사유·신고자·일시·내용·처리 */}
           <table className="w-full min-w-[64rem] border-collapse text-left sam-text-body-secondary" data-admin-store-reports-table="1">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "매장·대상" : "Store / target"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "신고 사유·신고자" : "Reason / reporter"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "접수 일시" : "Created"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "신고 내용" : "Message"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "처리" : "Action"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_store_target")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_home_shelves_col_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_reason_reporter")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_created")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_message")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -278,19 +267,15 @@ export function AdminStoreReportsPage() {
                     <td className="py-2 pr-2 font-medium text-sam-fg">
                       {r.store_id ? (
                         <Link href={storeHref} className="hover:text-signature hover:underline">
-                          {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                          {r.store_name || t("admin_stores_unnamed_store")}
                         </Link>
                       ) : (
-                        r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                        r.store_name || t("admin_stores_unnamed_store")
                       )}
                       <span className="block text-[12px] font-normal text-sam-muted">
                         {r.target_type === "product"
-                          ? ko
-                            ? `상품 신고${r.product_title ? ` · ${r.product_title}` : ""}`
-                            : `Product report${r.product_title ? ` · ${r.product_title}` : ""}`
-                          : ko
-                            ? "매장 신고"
-                            : "Store report"}
+                          ? t("admin_stores_product_report", { product_title: r.product_title ? ` · ${r.product_title}` : "" })
+                          : t("admin_stores_store_report")}
                       </span>
                       <AdminTechDetails ko={ko}>
                         <div>report_id: {r.id}</div>
@@ -307,7 +292,7 @@ export function AdminStoreReportsPage() {
                     </td>
                     <td className="py-2 pr-2 text-[12px] text-sam-muted">
                       <div>{reasonLabel(r.reason_type, ko)}</div>
-                      <div>{r.reporter_label || (ko ? "이름 확인 불가" : "Name unavailable")}</div>
+                      <div>{r.reporter_label || t("admin_stores_name_unavailable")}</div>
                     </td>
                     <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">
                       {formatAdminDateTime(r.created_at, language)}
@@ -318,27 +303,27 @@ export function AdminStoreReportsPage() {
                     <td className="py-2 pr-2">
                       {r.status !== "open" ? (
                         <p className="text-[12px] text-sam-muted">
-                          {ko ? "처리" : "Handled"}: {r.reviewed_at ? formatAdminDateTime(r.reviewed_at, language) : "—"}
+                          {t("admin_stores_handled")}: {r.reviewed_at ? formatAdminDateTime(r.reviewed_at, language) : "—"}
                           {r.action_memo ? ` · ${r.action_memo}` : ""}
                         </p>
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {/* 표 행 버튼 = ghost/sm 2개 이하 — 화면 primary 는 두지 않는다 */}
                           <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "dismissed")}>
-                            {ko ? "기각" : "Dismiss"}
+                            {t("admin_stores_reports_dismiss")}
                           </AdminActionButton>
                           <AdminActionButton variant="ghost" size="sm" disabled={busyId === r.id} onClick={() => void patchStatus(r, "actioned")}>
-                            {ko ? "조치 완료" : "Actioned"}
+                            {t("admin_stores_reports_actioned")}
                           </AdminActionButton>
                         </div>
                       )}
                       {r.store_id ? (
                         <div className="mt-2 flex flex-wrap gap-3 text-[12px]">
                           <Link href={storeHref} className="text-signature hover:underline">
-                            {ko ? "매장 상세" : "Store detail"}
+                            {t("admin_stores_store_detail")}
                           </Link>
                           <Link href={reviewSuspendHref} className="text-signature hover:underline">
-                            {ko ? "운영 중지 검토" : "Review suspension"}
+                            {t("admin_stores_review_suspension")}
                           </Link>
                         </div>
                       ) : null}

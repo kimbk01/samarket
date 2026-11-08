@@ -127,6 +127,15 @@ import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
 import { copyAdminMessages } from "./catalog/copy-admin";
+import { copyAdminB4StoresMessages } from "./catalog/copy-admin-b4-stores";
+import { copyAdminB4AdsMessages } from "./catalog/copy-admin-b4-ads";
+import { copyAdminB4CommunityMessages } from "./catalog/copy-admin-b4-community";
+import { copyAdminB4CoreMessages } from "./catalog/copy-admin-b4-core";
+import { copyAdminB4OrdersMessages } from "./catalog/copy-admin-b4-orders";
+import { copyAdminB4FinanceMessages } from "./catalog/copy-admin-b4-finance";
+import { copyAdminB4Ops1Messages } from "./catalog/copy-admin-b4-ops1";
+import { copyAdminB4Ops2Messages } from "./catalog/copy-admin-b4-ops2";
+import { copyLibB4Messages } from "./catalog/copy-lib-b4";
 import { copyAuthMessages } from "./catalog/copy-auth";
 import { copyMessengerMessages } from "./catalog/copy-messenger";
 import { copyOwnerMessages } from "./catalog/copy-owner";
@@ -266,6 +275,15 @@ export type MessageKey =
   | KeyOf<typeof copyMessengerMessages.ko>
   | KeyOf<typeof copyAuthMessages.ko>
   | KeyOf<typeof copyAdminMessages.ko>
+  | KeyOf<typeof copyAdminB4StoresMessages.ko>
+  | KeyOf<typeof copyAdminB4AdsMessages.ko>
+  | KeyOf<typeof copyAdminB4CommunityMessages.ko>
+  | KeyOf<typeof copyAdminB4CoreMessages.ko>
+  | KeyOf<typeof copyAdminB4OrdersMessages.ko>
+  | KeyOf<typeof copyAdminB4FinanceMessages.ko>
+  | KeyOf<typeof copyAdminB4Ops1Messages.ko>
+  | KeyOf<typeof copyAdminB4Ops2Messages.ko>
+  | KeyOf<typeof copyLibB4Messages.ko>
   | KeyOf<typeof copyLibMessages.ko>
   | KeyOf<typeof appShellCoreMessages.ko>;
 
@@ -399,6 +417,15 @@ type EnMessageKey =
   | KeyOf<typeof copyMessengerMessages.en>
   | KeyOf<typeof copyAuthMessages.en>
   | KeyOf<typeof copyAdminMessages.en>
+  | KeyOf<typeof copyAdminB4StoresMessages.en>
+  | KeyOf<typeof copyAdminB4AdsMessages.en>
+  | KeyOf<typeof copyAdminB4CommunityMessages.en>
+  | KeyOf<typeof copyAdminB4CoreMessages.en>
+  | KeyOf<typeof copyAdminB4OrdersMessages.en>
+  | KeyOf<typeof copyAdminB4FinanceMessages.en>
+  | KeyOf<typeof copyAdminB4Ops1Messages.en>
+  | KeyOf<typeof copyAdminB4Ops2Messages.en>
+  | KeyOf<typeof copyLibB4Messages.en>
   | KeyOf<typeof copyLibMessages.en>
   | KeyOf<typeof appShellCoreMessages.en>;
 

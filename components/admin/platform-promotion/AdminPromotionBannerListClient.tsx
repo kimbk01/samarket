@@ -228,7 +228,7 @@ export function AdminPromotionBannerListClient() {
                   size="sm"
                   data-admin-promotion-banner-empty-create="1"
                 >
-                  {ko ? "등록" : "Create"}
+                  {t("admin_platform_popup_create_2")}
                 </AdminActionLink>
               ) : (
                 <AdminActionButton
@@ -238,7 +238,7 @@ export function AdminPromotionBannerListClient() {
                   title={createGuard.reason ?? undefined}
                   data-admin-promotion-banner-empty-create="1"
                 >
-                  {ko ? "등록" : "Create"}
+                  {t("admin_platform_popup_create_2")}
                 </AdminActionButton>
               )
             }
@@ -332,10 +332,8 @@ export function AdminPromotionBannerListClient() {
                             const confirmed = await confirmAdminAction({
                               level: adminActionLevel("exposeStop"),
                               ko,
-                              title: ko ? "배너 노출 중지" : "Stop banner exposure",
-                              description: ko
-                                ? `「${row.eventTitle}」 배너 노출을 중지합니다. 이벤트 노출 설정에서 다시 켤 수 있습니다.`
-                                : `Stop showing the "${row.eventTitle}" banner. You can turn it back on in Event exposure settings.`,
+                              title: t("admin_platform_promotion_stop_banner_exposure"),
+                              description: t("admin_platform_promotion_stop_showing_event_title_banner", { eventTitle: row.eventTitle }),
                               confirmLabel: adminCta("exposeStop", ko),
                             });
                             if (!confirmed.ok) return;
@@ -349,7 +347,7 @@ export function AdminPromotionBannerListClient() {
                             }
                             setActionResult({
                               ok: true,
-                              message: ko ? "배너 노출을 중지했습니다." : "Banner exposure stopped.",
+                              message: t("admin_platform_promotion_banner_exposure_stopped"),
                             });
                             refresh();
                           })();

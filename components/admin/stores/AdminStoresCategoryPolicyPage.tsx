@@ -685,19 +685,15 @@ export function AdminStoresCategoryPolicyEditor({
     if (!primaryMeta) return "";
     const primaryName = ko ? primaryMeta.nameKo : primaryMeta.nameEn;
     if (previewSubSlug === "all") {
-      return ko
-        ? `${primaryName} › 전체(1차 혼합) — 다른 1차 업종 매장 미포함`
-        : `${primaryName} › all (primary mix) — other primaries excluded`;
+      return t("admin_stores_all_primary_mix_other_primaries_excluded", { primaryName });
     }
     const subName = selectedSubMeta
       ? ko
         ? selectedSubMeta.nameKo
         : selectedSubMeta.nameEn
       : previewSubSlug;
-    return ko
-      ? `${primaryName} › ${subName} — 해당 2차만 (예: 식당·한식 ≠ 마트)`
-      : `${primaryName} › ${subName} — secondary only (e.g. restaurant·korean ≠ mart)`;
-  }, [primaryMeta, previewSubSlug, selectedSubMeta, ko]);
+    return t("admin_stores_secondary_only_e_g_restaurant_korean", { primaryName, subName });
+  }, [primaryMeta, previewSubSlug, selectedSubMeta, ko, t]);
 
   const previewDraftEnabled =
     tier === "secondary" && selectedSubDraft

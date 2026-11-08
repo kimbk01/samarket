@@ -85,18 +85,12 @@ export function AdminStoreReviewsPage() {
       level: hiding ? "L2" : "L1",
       ko,
       title: hiding
-        ? ko
-          ? "이 리뷰를 숨길까요?"
-          : "Hide this review?"
-        : ko
-          ? "이 리뷰를 다시 보이게 할까요?"
-          : "Restore this review?",
+        ? t("admin_stores_hide_this_review")
+        : t("admin_stores_restore_this_review"),
       description: hiding
-        ? ko
-          ? "고객 앱 매장 리뷰 목록에서 보이지 않습니다."
-          : "It will no longer appear in the store's reviews."
+        ? t("admin_stores_it_will_no_longer_appear_in")
         : undefined,
-      confirmLabel: hiding ? (ko ? "숨김" : "Hide") : ko ? "복구" : "Restore",
+      confirmLabel: hiding ? t("admin_stores_hide") : t("admin_stores_fee_restore"),
       destructive: hiding,
     });
     if (!confirmed.ok) return;
@@ -126,12 +120,8 @@ export function AdminStoreReviewsPage() {
       setResult({
         ok: true,
         message: hiding
-          ? ko
-            ? "리뷰를 숨겼습니다."
-            : "Review hidden."
-          : ko
-            ? "리뷰를 다시 보이게 했습니다."
-            : "Review restored.",
+          ? t("admin_stores_review_hidden")
+          : t("admin_stores_review_restored"),
       });
       await load();
     } catch {
@@ -143,17 +133,17 @@ export function AdminStoreReviewsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={ko ? "매장 리뷰" : "Store reviews"} />
+      <AdminPageHeader title={t("admin_stores_store_reviews")} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_reviews_desc")}</p>
       {storeIdFilter ? (
         <p className="sam-text-helper text-sam-muted">
-          {ko ? "특정 매장 리뷰만 보는 중" : "Filtered to one store"}{" "}
+          {t("admin_stores_filtered_to_one_store_4")}{" "}
           <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
-            {ko ? "매장 상세로" : "Back to store"}
+            {t("admin_stores_back_to_store")}
           </Link>
           {" · "}
           <Link href="/admin/store-reviews" className="text-signature hover:underline">
-            {ko ? "전체 리뷰 보기" : "Show all reviews"}
+            {t("admin_stores_show_all_reviews")}
           </Link>
         </p>
       ) : null}
@@ -171,13 +161,13 @@ export function AdminStoreReviewsPage() {
           <table className="w-full min-w-[60rem] border-collapse text-left sam-text-body-secondary" data-admin-store-reviews-table="1">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "매장" : "Store"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "작성일·작성자" : "Date / buyer"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "평점" : "Rating"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "리뷰" : "Review"}</th>
+                <th className="py-2 pr-2 font-medium">{t("common_store")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_home_shelves_col_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_date_buyer")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_browse_criterion_rating")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_review_2")}</th>
                 <th className="py-2 pr-2 font-medium">{t("admin_stores_reviews_owner_reply")}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "처리" : "Action"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -188,10 +178,10 @@ export function AdminStoreReviewsPage() {
                     <td className="py-2 pr-2 font-medium text-sam-fg">
                       {r.store_id ? (
                         <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
-                          {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                          {r.store_name || t("admin_stores_unnamed_store")}
                         </Link>
                       ) : (
-                        r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                        r.store_name || t("admin_stores_unnamed_store")
                       )}
                       <AdminTechDetails ko={ko}>
                         <div>review_id: {r.id}</div>
@@ -206,7 +196,7 @@ export function AdminStoreReviewsPage() {
                     </td>
                     <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">
                       <div>{formatAdminManilaDate(r.created_at)}</div>
-                      <div>{r.buyer_label || (ko ? "이름 확인 불가" : "Name unavailable")}</div>
+                      <div>{r.buyer_label || t("admin_stores_name_unavailable")}</div>
                     </td>
                     <td className="whitespace-nowrap py-2 pr-2 text-sam-warning">{"★".repeat(r.rating)}</td>
                     <td className="max-w-[20rem] py-2 pr-2">
@@ -230,11 +220,11 @@ export function AdminStoreReviewsPage() {
                       {/* 변경 CTA — 텍스트 링크형이 아닌 표준 버튼 + confirmAdminAction (숨김 L2 · 복구 L1) */}
                       {r.status === "visible" ? (
                         <AdminActionButton variant="secondary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "hidden")}>
-                          {ko ? "숨김" : "Hide"}
+                          {t("admin_stores_hide")}
                         </AdminActionButton>
                       ) : (
                         <AdminActionButton variant="secondary" size="sm" disabled={busyId !== null} onClick={() => void setStatus(r.id, "visible")}>
-                          {ko ? "복구" : "Restore"}
+                          {t("admin_stores_fee_restore")}
                         </AdminActionButton>
                       )}
                     </td>

@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -29,6 +30,7 @@ export function AdminStoreBalanceCorrectionForm({
   ko: boolean;
   onDone?: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [asset, setAsset] = useState<Asset>("cash");
   const [direction, setDirection] = useState<Direction>("credit");
   const [amountText, setAmountText] = useState("");
@@ -53,7 +55,7 @@ export function AdminStoreBalanceCorrectionForm({
     setNotice(null);
     const amount = parsedAmount();
     if (amount <= 0) {
-      setError(ko ? "금액을 입력해 주세요." : "Enter an amount.");
+      setError(t("admin_finance_enter_an_amount"));
       return;
     }
     if (evidenceRef.trim().length < 3) {
@@ -62,29 +64,23 @@ export function AdminStoreBalanceCorrectionForm({
     }
     const amountLabel =
       asset === "cash" ? formatFinanceAmount({ wallet: "CASH", amount, isMinor: true }) : formatFinanceAmount({ wallet: "COIN", amount });
-    const dirLabel = direction === "credit" ? (ko ? "증가" : "credit") : ko ? "차감" : "debit";
+    const dirLabel = direction === "credit" ? t("admin_finance_credit") : t("admin_finance_debit");
     const modeLabel = ledgerOnly
-      ? ko
-        ? "원장 기록만 (잔액 변경 없음)"
-        : "Ledger row only (balance unchanged)"
-      : ko
-        ? "잔액과 원장 함께 정정"
-        : "Balance and ledger";
+      ? t("admin_finance_ledger_row_only_balance_unchanged")
+      : t("admin_finance_balance_and_ledger");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("storeBalanceCorrection"),
       ko,
-      title: ko ? "잔액을 정정하시겠습니까?" : "Apply this balance correction?",
+      title: t("admin_finance_apply_this_balance_correction"),
       description: `${storeName} · ${asset === "cash" ? "Cash" : "Coin"} ${dirLabel} ${amountLabel} · ${modeLabel}\n${
-        ko ? "근거" : "Evidence"
+        t("admin_finance_evidence")
       }: ${evidenceRef.trim()}\n\n${
-        ko
-          ? "입력한 사유는 사장님 정산 내역에 그대로 보입니다. 거래번호·내부 판단은 근거 칸에만 적으세요."
-          : "The reason is shown to the owner in their finance history. Keep tx numbers and internal notes in Evidence."
+        t("admin_finance_the_reason_is_shown_to_the")
       }`,
-      confirmLabel: ko ? "정정 실행" : "Apply correction",
+      confirmLabel: t("admin_finance_apply_correction"),
       destructive: true,
       retypeValue: storeName,
-      reasonPlaceholder: ko ? "사장님에게 보이는 사유 (예: 입금 누락 정정)" : "Reason shown to the owner (e.g. Missed deposit corrected)",
+      reasonPlaceholder: t("admin_finance_reason_shown_to_the_owner_e"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -118,8 +114,8 @@ export function AdminStoreBalanceCorrectionForm({
       }
       const after = Math.trunc(Number(json.balanceAfter) || 0);
       setNotice(
-        `${json.idempotent ? (ko ? "이미 처리된 정정입니다." : "Already applied.") : ko ? "정정 완료." : "Correction applied."} ${
-          ko ? "현재 잔액" : "Balance"
+        `${json.idempotent ? t("admin_finance_already_applied") : t("admin_finance_correction_applied")} ${
+          t("admin_finance_balance")
         }: ${asset === "cash" ? formatFinanceAmount({ wallet: "CASH", amount: after, isMinor: true }) : formatFinanceAmount({ wallet: "COIN", amount: after })}`
       );
       setRequestKey(newOwnerFormRequestKey("admin_adjust"));
@@ -140,19 +136,17 @@ export function AdminStoreBalanceCorrectionForm({
       data-admin-store-balance-correction="1"
     >
       <h2 className="text-base font-semibold text-sam-fg">
-        {ko ? "잔액 정정 (최고 관리자 전용)" : "Balance correction (super admin only)"}
+        {t("admin_finance_balance_correction_super_admin_only")}
       </h2>
       <p className="mt-1 text-[12px] text-sam-muted">
-        {ko
-          ? "새로 확인된 불일치만 근거와 함께 정정합니다. 과거 기록은 정정하지 않습니다. 원장·작업 기록에 남고 되돌릴 수 없습니다."
-          : "Correct newly confirmed mismatches only, with evidence. Past records are not corrected. Recorded in the ledger and activity log; cannot be undone."}
+        {t("admin_finance_correct_newly_confirmed_mismatches_only_with")}
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <select
           className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
           value={asset}
           onChange={(e) => setAsset(e.target.value === "coin" ? "coin" : "cash")}
-          aria-label={ko ? "자산" : "Asset"}
+          aria-label={t("admin_finance_asset")}
         >
           <option value="cash">Cash (₱)</option>
           <option value="coin">Coin</option>
@@ -161,29 +155,29 @@ export function AdminStoreBalanceCorrectionForm({
           className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
           value={direction}
           onChange={(e) => setDirection(e.target.value === "debit" ? "debit" : "credit")}
-          aria-label={ko ? "방향" : "Direction"}
+          aria-label={t("admin_finance_direction")}
         >
-          <option value="credit">{ko ? "증가 (+)" : "Credit (+)"}</option>
-          <option value="debit">{ko ? "차감 (−)" : "Debit (−)"}</option>
+          <option value="credit">{t("admin_finance_credit_2")}</option>
+          <option value="debit">{t("admin_finance_debit_2")}</option>
         </select>
         <input
           className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
           inputMode="decimal"
           value={amountText}
           onChange={(e) => setAmountText(e.target.value)}
-          placeholder={asset === "cash" ? (ko ? "금액 (₱)" : "Amount (₱)") : ko ? "Coin 수량" : "Coin amount"}
+          placeholder={asset === "cash" ? t("admin_finance_amount_2") : t("admin_finance_coin_amount")}
         />
         <input
           className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
           value={evidenceRef}
           maxLength={500}
           onChange={(e) => setEvidenceRef(e.target.value)}
-          placeholder={ko ? "근거 — 관리자만 (거래번호·문의 번호·문서)" : "Evidence — admins only (tx no. / ticket / document)"}
+          placeholder={t("admin_finance_evidence_admins_only_tx_no_ticket")}
         />
       </div>
       <label className="mt-2 flex items-center gap-2 text-[13px] text-sam-fg">
         <input type="checkbox" checked={ledgerOnly} onChange={(e) => setLedgerOnly(e.target.checked)} />
-        {ko ? "원장 기록만 (잔액은 맞고 원장이 빠진 경우)" : "Ledger row only (balance is right, ledger is missing a row)"}
+        {t("admin_finance_ledger_row_only_balance_is_right")}
       </label>
       {error ? (
         <p className="mt-2 text-[13px] text-sam-danger" role="alert">
@@ -197,7 +191,7 @@ export function AdminStoreBalanceCorrectionForm({
       ) : null}
       <div className="mt-3">
         <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void submit()}>
-          {busy ? (ko ? "처리 중…" : "Working…") : ko ? "정정 검토" : "Review correction"}
+          {busy ? t("admin_finance_working") : t("admin_finance_review_correction")}
         </AdminActionButton>
       </div>
     </section>

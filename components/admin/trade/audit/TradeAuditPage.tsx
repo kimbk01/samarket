@@ -5,6 +5,7 @@
  * URL: tab=favorites · targetType · targetId · actorId · userId · postId · action · from/to(PHT) ·
  *      period(호환 프리셋 · 운영 기록은 all=전체 기간, 없으면 최근 30일) · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -194,6 +195,7 @@ function AuditTabs() {
 }
 
 function OpsTab() {
+  const { t } = useI18n();
   const q = useCommunityListQuery({ extras: OPS_EXTRAS });
   const [detail, setDetail] = useState<AuditRow | null>(null);
   const { targetType, targetId, actorId } = q.query.extras;
@@ -206,7 +208,7 @@ function OpsTab() {
 
   return (
     <CommunityListShell
-      title="운영 기록"
+      title={t("admin_trade_audit_title")}
       description="거래에서 관리자가 한 조치를 누가·언제·무엇을·왜 했는지 확인합니다."
       tabs={<AuditTabs />}
       filterBar={
@@ -266,7 +268,7 @@ function OpsTab() {
                       variant="ghost"
                       size="sm"
                       className="!h-auto !px-0 text-left"
-                      title="이 처리자의 기록만 보기"
+                      title={t("admin_trade_audit_filter_actor")}
                       onClick={() => q.setExtra("actorId", r.actor_id ?? "")}
                     >
                       {actor}
@@ -318,7 +320,7 @@ function OpsTab() {
 
       {detail ? (
         <AdminFormSheet
-          title="운영 기록 자세히"
+          title={t("admin_trade_audit_detail_title")}
           onClose={() => setDetail(null)}
           footer={
             <AdminActionButton variant="secondary" className="w-full" onClick={() => setDetail(null)}>
@@ -337,9 +339,9 @@ function OpsTab() {
               ]}
             />
             <AdminTechDetails ko>
-              <p className="mb-1 font-sans font-semibold text-sam-fg">변경 전</p>
+              <p className="mb-1 font-sans font-semibold text-sam-fg">{t("admin_trade_audit_before")}</p>
               <pre className="whitespace-pre-wrap">{JSON.stringify(detail.before_json, null, 2) ?? "—"}</pre>
-              <p className="mb-1 mt-2 font-sans font-semibold text-sam-fg">변경 후</p>
+              <p className="mb-1 mt-2 font-sans font-semibold text-sam-fg">{t("admin_trade_audit_after")}</p>
               <pre className="whitespace-pre-wrap">{JSON.stringify(detail.after_json, null, 2) ?? "—"}</pre>
               <p className="mt-2">
                 {detail.action ?? "—"} · {detail.target_type ?? "—"} / {detail.target_id ?? "—"} · actor {detail.actor_id ?? "—"}
@@ -359,6 +361,7 @@ const FAVORITE_ACTIONS = [
 ];
 
 function FavoritesTab() {
+  const { t } = useI18n();
   const q = useCommunityListQuery({ extras: FAVORITE_EXTRAS });
   const { userId, postId, action } = q.query.extras;
 
@@ -370,7 +373,7 @@ function FavoritesTab() {
 
   return (
     <CommunityListShell
-      title="운영 기록"
+      title={t("admin_trade_audit_title")}
       description="회원이 거래글을 찜하거나 해제한 기록입니다."
       tabs={<AuditTabs />}
       filterBar={
@@ -446,9 +449,9 @@ function FavoritesTab() {
               </td>
               <td className={COMMUNITY_TD}>
                 {r.action === "add" ? (
-                  <AdminToneBadge tone="success">추가</AdminToneBadge>
+                  <AdminToneBadge tone="success">{t("admin_trade_audit_fav_added")}</AdminToneBadge>
                 ) : r.action === "remove" ? (
-                  <AdminToneBadge tone="neutral">해제</AdminToneBadge>
+                  <AdminToneBadge tone="neutral">{t("admin_trade_audit_fav_removed")}</AdminToneBadge>
                 ) : (
                   <span className="font-mono sam-text-xxs text-sam-muted">{r.action || "—"}</span>
                 )}

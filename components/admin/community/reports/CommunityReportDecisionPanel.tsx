@@ -284,7 +284,7 @@ export function CommunityReportDecisionPanel({
           onChange={(e) => setCloseSameTarget(e.target.checked)}
           className="mt-0.5"
         />
-        <span>같은 대상의 다른 신고도 함께 종결 ({pendingSiblings.length}건)</span>
+        <span>{tr("admin_community_rdecision_close_siblings", { n: pendingSiblings.length })}</span>
       </label>
     ) : null;
 
@@ -308,7 +308,7 @@ export function CommunityReportDecisionPanel({
       <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
 
       {/* ① 대상 요약 */}
-      <CommunitySection title="신고 대상">
+      <CommunitySection title={tr("admin_community_rdecision_target_title")}>
         <CommunitySummaryCard
           rows={[
             { label: "유형", value: targetTypeLabel },
@@ -332,7 +332,7 @@ export function CommunityReportDecisionPanel({
                     <span>{row.post_title?.trim() || "—"}</span>
                   )}
                   {displayTarget !== "post" && row.post_title ? (
-                    <span className="sam-text-xxs text-sam-muted">글: {row.post_title}</span>
+                    <span className="sam-text-xxs text-sam-muted">{tr("admin_community_rdecision_post_title", { title: row.post_title })}</span>
                   ) : null}
                 </span>
               ),
@@ -364,7 +364,7 @@ export function CommunityReportDecisionPanel({
                     label: "대상 상태",
                     value:
                       row.target_found === false ? (
-                        <span className="text-sam-danger">찾을 수 없음 (영구 삭제됨)</span>
+                        <span className="text-sam-danger">{tr("admin_community_rdecision_target_gone")}</span>
                       ) : (
                         <CommunityStatusBadge domain="content_status" value={row.target_status} ko={ko} />
                       ),
@@ -437,20 +437,20 @@ export function CommunityReportDecisionPanel({
         </ol>
       </CommunitySection>
 
-      <CommunitySection title="이전 조치">
+      <CommunitySection title={tr("admin_community_rdecision_history_title")}>
         <CommunityTimeline items={timelineItems} />
         {mergedCount > 0 ? (
-          <p className="text-[12px] text-sam-muted">위 처리와 함께 종결된 신고 {mergedCount}건</p>
+          <p className="text-[12px] text-sam-muted">{tr("admin_community_rdecision_merged", { n: mergedCount })}</p>
         ) : null}
       </CommunitySection>
 
       {/* ③ 조치 */}
-      <CommunitySection title="처리">
+      <CommunitySection title={tr("admin_community_rdecision_action_title")}>
         {allowed.length === 0 && !canModerate ? (
-          <p className="text-[13px] text-sam-muted">권한 필요: 신고 처리</p>
+          <p className="text-[13px] text-sam-muted">{tr("admin_community_rdecision_perm_reports")}</p>
         ) : null}
         {allowed.length === 0 && canModerate && (status === "resolved" || status === "dismissed") ? (
-          <p className="text-[13px] text-sam-muted">처리가 끝난 신고입니다. 다시 열기는 최고 관리자만 할 수 있습니다.</p>
+          <p className="text-[13px] text-sam-muted">{tr("admin_community_rdecision_closed_note")}</p>
         ) : null}
         <div className="flex flex-wrap items-center justify-end gap-2" data-admin-report-cta-state={status}>
           {allowed.includes("reopen") ? (
@@ -476,18 +476,18 @@ export function CommunityReportDecisionPanel({
           {authorId ? (
             canUsers ? (
               <AdminActionLink variant="danger" href={`/admin/users/${encodeURIComponent(authorId)}`}>
-                계정 정지로 이동
+                {tr("admin_community_rdecision_go_suspend")}
               </AdminActionLink>
             ) : (
-              <AdminActionButton variant="danger" disabled title="권한 필요: 회원 관리">
-                계정 정지로 이동
+              <AdminActionButton variant="danger" disabled title={tr("admin_community_rdecision_perm_users")}>
+                {tr("admin_community_rdecision_go_suspend")}
               </AdminActionButton>
             )
           ) : null}
         </div>
 
         <label className="block">
-          <span className="text-[12px] font-medium text-sam-muted">관리자 메모 (회원에게 보이지 않음)</span>
+          <span className="text-[12px] font-medium text-sam-muted">{tr("admin_community_rdecision_memo_label")}</span>
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
@@ -510,15 +510,15 @@ export function CommunityReportDecisionPanel({
 
       {/* ④ 기술 정보 */}
       <AdminTechDetails ko={ko}>
-        <div>신고 ID: {row.id}</div>
-        <div>대상: {row.target_type} / {row.target_id}</div>
-        <div>상태 값: {row.status}</div>
-        {row.processed_by ? <div>처리자 ID: {row.processed_by}</div> : null}
+        <div>{tr("admin_community_rdecision_tech_report_id", { id: row.id })}</div>
+        <div>{tr("admin_community_rdecision_tech_target", { type: row.target_type, id: row.target_id })}</div>
+        <div>{tr("admin_community_rdecision_tech_status", { status: row.status })}</div>
+        {row.processed_by ? <div>{tr("admin_community_rdecision_tech_handler", { id: row.processed_by })}</div> : null}
       </AdminTechDetails>
 
       {sheet === "dismiss" ? (
         <CommunityActionSheet
-          title="신고 기각"
+          title={tr("admin_community_rdecision_dismiss_title")}
           rows={sheetRows}
           notice="기각하면 콘텐츠와 회원에게는 아무 변화가 없고, 신고자에게 처리 완료 알림이 갑니다."
           reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "기각 사유 (예: 신고 내용과 다름)" }}
@@ -547,7 +547,7 @@ export function CommunityReportDecisionPanel({
 
       {sheet === "resolve" ? (
         <CommunityActionSheet
-          title="신고 인정"
+          title={tr("admin_community_rdecision_resolve_title")}
           rows={sheetRows}
           notice={
             memberAction === "community_restriction"
@@ -583,7 +583,7 @@ export function CommunityReportDecisionPanel({
           onSettled={(kind) => void settle(kind, () => decisionSummary(lastJson.current, "신고를 인정했습니다."))}
         >
           <fieldset className="space-y-1">
-            <legend className="text-[12px] font-semibold text-sam-fg">콘텐츠 조치</legend>
+            <legend className="text-[12px] font-semibold text-sam-fg">{tr("admin_community_rdecision_content_action")}</legend>
             {(
               [
                 ["none", "조치 없음"],
@@ -609,7 +609,7 @@ export function CommunityReportDecisionPanel({
             ) : null}
           </fieldset>
           <fieldset className="space-y-1">
-            <legend className="text-[12px] font-semibold text-sam-fg">회원 조치</legend>
+            <legend className="text-[12px] font-semibold text-sam-fg">{tr("admin_community_rdecision_member_action")}</legend>
             {(
               [
                 ["none", "조치 없음"],
@@ -637,9 +637,9 @@ export function CommunityReportDecisionPanel({
                     onChange={(e) => setScope(e.target.value as Scope)}
                     className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] text-sam-fg"
                   >
-                    <option value="post">글쓰기</option>
-                    <option value="comment">댓글</option>
-                    <option value="all">커뮤니티 전체</option>
+                    <option value="post">{tr("admin_community_restrict_scope_post")}</option>
+                    <option value="comment">{tr("admin_community_restrict_scope_comment")}</option>
+                    <option value="all">{tr("admin_community_restrict_scope_all")}</option>
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
@@ -654,7 +654,7 @@ export function CommunityReportDecisionPanel({
                         {d}일
                       </option>
                     ))}
-                    <option value="perm">영구</option>
+                    <option value="perm">{tr("admin_community_restrict_permanent")}</option>
                   </select>
                 </label>
               </div>
@@ -664,14 +664,14 @@ export function CommunityReportDecisionPanel({
                 계정 전체 정지가 필요하면{" "}
                 {canUsers ? (
                   <Link href={`/admin/users/${encodeURIComponent(authorId)}`} className="text-sam-info underline">
-                    계정 정지로 이동
+                    {tr("admin_community_rdecision_go_suspend")}
                   </Link>
                 ) : (
-                  <span title="권한 필요: 회원 관리">계정 정지로 이동 (권한 필요: 회원 관리)</span>
+                  <span title={tr("admin_community_rdecision_perm_users")}>{tr("admin_community_rdecision_go_suspend")} ({tr("admin_community_rdecision_perm_users")})</span>
                 )}
               </p>
             ) : (
-              <p className="text-[12px] text-sam-muted">작성자를 확인할 수 없어 회원 조치를 할 수 없습니다.</p>
+              <p className="text-[12px] text-sam-muted">{tr("admin_community_rdecision_no_author")}</p>
             )}
           </fieldset>
           {sameTargetCheckbox}
@@ -680,7 +680,7 @@ export function CommunityReportDecisionPanel({
 
       {sheet === "reopen" ? (
         <CommunityActionSheet
-          title="다시 열기"
+          title={tr("admin_community_rdecision_reopen_title")}
           rows={sheetRows}
           notice="신고를 다시 접수 상태로 돌립니다. 이미 실행한 숨김·제한은 자동으로 되돌리지 않습니다."
           reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "다시 여는 사유" }}

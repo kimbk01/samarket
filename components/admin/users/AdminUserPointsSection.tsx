@@ -311,7 +311,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             <p className="mt-1 sam-text-helper text-sam-info/80">
               {/* 전체 기간 적립/사용 합계는 아래 기간 합계(「전체 기간」 선택)로 대체 — 여기는 마지막 거래 시각만 */}
               {summary.lastOccurredAt
-                ? `${ko ? "마지막 거래" : "Last activity"} ${formatAdminManilaDateTime(summary.lastOccurredAt)}`
+                ? `${t("admin_users_last_activity")} ${formatAdminManilaDateTime(summary.lastOccurredAt)}`
                 : ""}
             </p>
           ) : null}
@@ -363,9 +363,9 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
           <>
             {periodSummary ? (
               <p className="sam-text-helper text-sam-muted" data-admin-user-points-period-range="1">
-                {ko
-                  ? `기간 합계 · ${adminUserPointsPeriodRangeLabel(periodSummary, true)} · 기간 전체 기준 (페이지와 무관)`
-                  : `Period totals · ${adminUserPointsPeriodRangeLabel(periodSummary, false)} · whole period (independent of page)`}
+                {t("admin_users_period_totals_whole_period", {
+                  range: String(adminUserPointsPeriodRangeLabel(periodSummary, ko)),
+                })}
               </p>
             ) : null}
             <PointPeriodSummaryCard summary={periodSummary} error={periodSummaryError} lang={lang} />
@@ -413,11 +413,11 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             <table className="w-full min-w-[640px] border-collapse sam-text-body">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app">
-                  <th className="px-3 py-2 text-left font-medium">일시</th>
-                  <th className="px-3 py-2 text-left font-medium">구분</th>
-                  <th className="px-3 py-2 text-left font-medium">사용처/내용</th>
-                  <th className="px-3 py-2 text-right font-medium">증감</th>
-                  <th className="px-3 py-2 text-right font-medium">잔액</th>
+                  <th className="px-3 py-2 text-left font-medium">{t("admin_users_points_col_date")}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t("admin_users_points_col_type")}</th>
+                  <th className="px-3 py-2 text-left font-medium">{t("admin_users_points_col_details")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t("admin_users_points_col_change")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t("admin_users_points_col_balance")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -491,15 +491,15 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                     +{formatAdminNumber(c.pointAmount)}P
                   </p>
                   <p className="sam-text-xxs text-sam-meta">
-                    {ko ? "신청" : "Requested"} {formatAdminManilaDateTime(c.requestedAt)}
+                    {t("admin_users_requested_2")} {formatAdminManilaDateTime(c.requestedAt)}
                     {c.requestStatus !== "pending" && c.requestStatus !== "waiting_confirm" && (c.processedAt || c.approvedAt)
-                      ? ` · ${ko ? "처리" : "Processed"} ${formatAdminManilaDateTime(c.processedAt || c.approvedAt)}`
+                      ? ` · ${t("admin_users_processed")} ${formatAdminManilaDateTime(c.processedAt || c.approvedAt)}`
                       : ""}
                   </p>
                   {/* R6-g — 반려 사유를 줄에 바로 */}
                   {c.requestStatus === "rejected" ? (
                     <p className="sam-text-xxs text-sam-fg" data-admin-user-point-charge-reject-reason="1">
-                      {ko ? "반려 사유" : "Reject reason"}: {c.rejectReason?.trim() || "—"}
+                      {t("admin_users_reject_reason")}: {c.rejectReason?.trim() || "—"}
                     </p>
                   ) : null}
                 </div>

@@ -112,17 +112,13 @@ export function CommerceHubStoreOwnerEntryCta() {
   const derived = deriveFromLive();
   const ownerEntry = resolveMypageHomeStoreOwnerEntry(derived.gate, derived.firstId);
   const isApproved = derived.gate.kind === "approved";
-  const isEmpty = !derived.gate || derived.gate.kind === "empty";
 
   const prepareStoreEnterNavigation = () => {
     invalidateMeStoresListDedupedCache();
     refreshOwnerLiteStore();
   };
 
-  const title = safeT(ownerEntry.titleKey, {
-    fallbackKo: isEmpty ? "매장 신청" : isApproved ? "매장 진입" : "매장 승인 진행 사항",
-    fallbackEn: isEmpty ? "Apply for store" : isApproved ? "Enter store" : "Store approval progress",
-  });
+  const title = safeT(ownerEntry.titleKey);
 
   return (
     <Link

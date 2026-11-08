@@ -5,6 +5,7 @@
  * ① 요약(이름·계정 상태·거래 수치) ② 탭: 판매글 · 구매 채팅 · 신고 받은 내역 · 거래 제한 · 홍보 주문 · 포인트 원장 · 계정 조치.
  * 모든 조회·조치는 거래 Admin 경로(/api/admin/trade/...)만 쓴다. 연락처는 표시하지 않는다.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -162,6 +163,7 @@ type Sheet =
   | null;
 
 export function TradeMemberDetailPage({ userId }: { userId: string }) {
+  const { t } = useI18n();
   const qs = useCommunityQueryState();
   const sp = useSearchParams();
   const backHref = readAdminReturnToFromSearch(sp) ?? "/admin/trade/members";
@@ -349,7 +351,7 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
       </div>
 
       <AdminTechDetails ko>
-        <div>회원 ID: {userId}</div>
+        <div>{t("admin_trade_member_id", { id: userId })}</div>
       </AdminTechDetails>
 
       {sheet?.kind === "add" ? (
@@ -422,6 +424,7 @@ function TradeSection({
   page: number;
   onPage: (p: number) => void;
 }) {
+  const { t } = useI18n();
   const uid = encodeURIComponent(userId);
   // 탭 전환 직후 이전 구역 응답이 남아 있으면 로딩으로 본다
   const stale = st.data && (st.data as TradeTabResponse & { section?: string }).section !== tab;
@@ -498,7 +501,7 @@ function TradeSection({
                           {r.postTitle || "제목 없음"}
                         </Link>
                       ) : (
-                        <span className="text-sam-muted">삭제된 거래글</span>
+                        <span className="text-sam-muted">{t("admin_trade_member_deleted_post")}</span>
                       )}
                     </td>
                     <td className={COMMUNITY_TD}>{FLOW_LABEL[r.tradeFlowStatus] ?? (r.tradeFlowStatus ? "기타" : "—")}</td>
@@ -595,6 +598,7 @@ function RestrictionsSection({
   onAdd: () => void;
   onRevoke: (row: Rec) => void;
 }) {
+  const { t } = useI18n();
   return (
     <LoadGate st={st} reload={reload}>
       {(d: RowsResponse) => {
@@ -620,7 +624,7 @@ function RestrictionsSection({
                     <td className={COMMUNITY_TD}>
                       <p className="line-clamp-3 max-w-[16rem] whitespace-pre-wrap">{r.reason || "—"}</p>
                       {r.revoked_at ? (
-                        <p className="mt-1 max-w-[16rem] sam-text-xxs text-sam-muted">해제: {r.revoke_reason || "—"}</p>
+                        <p className="mt-1 max-w-[16rem] sam-text-xxs text-sam-muted">{t("admin_trade_member_revoked_reason", { reason: r.revoke_reason || "—" })}</p>
                       ) : null}
                     </td>
                     <td className={COMMUNITY_TD}>
@@ -785,6 +789,7 @@ function AccountSection({
   accountKey: string | null;
   onAction: (a: "warn" | "suspend" | "ban" | "restore") => void;
 }) {
+  const { t } = useI18n();
   const k = accountKey ?? "active";
   const withdrawn = k === "withdrawn";
   // MB-01: 계정 조치 = 중앙 회원 관리(/admin/users)와 같은 `users` 키 — 서버 가드가 최종 판정
@@ -794,11 +799,11 @@ function AccountSection({
   return (
     <div className="space-y-3 p-3" id="account">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">현재 계정 상태</span>
+        <span className="text-[13px] text-sam-muted">{t("admin_trade_member_account_status")}</span>
         {accountKey ? <CommunityStatusBadge domain="account_status" value={accountKey} /> : <AdminUnavailableChip ko />}
       </div>
       {withdrawn ? (
-        <p className="text-[13px] text-sam-muted">탈퇴한 회원은 계정 조치를 할 수 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_trade_member_withdrawn_no_action")}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           <AdminActionButton variant="secondary" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("warn")}>
@@ -826,7 +831,7 @@ function AccountSection({
           계정 조치 비활성: {accountAction.reason}
         </p>
       ) : null}
-      <h3 className="pt-2 text-[13px] font-semibold text-sam-fg">계정 조치 기록</h3>
+      <h3 className="pt-2 text-[13px] font-semibold text-sam-fg">{t("admin_trade_member_account_actions_log")}</h3>
       <LoadGate st={st} reload={reload}>
         {(d: ModerationResponse) => (
           <CommunityTimeline

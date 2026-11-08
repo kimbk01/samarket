@@ -123,7 +123,7 @@ export function OpsDocumentFilterBar({ lq }: OpsDocumentFilterBarProps) {
           </option>
         ))}
       </AdminFilterSelect>
-      <AdminFilterSelect ko={ko} label={ko ? "정렬" : "Sort"} name="sort" value={lq.query.sort} onChange={lq.setSort}>
+      <AdminFilterSelect ko={ko} label={t("common_sort")} name="sort" value={lq.query.sort} onChange={lq.setSort}>
         {sortOptions.map((o) => (
           <option key={o.value} value={o.value}>
             {t(o.labelKey)}

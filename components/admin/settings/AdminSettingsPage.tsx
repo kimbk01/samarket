@@ -86,8 +86,8 @@ export function AdminSettingsPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "설정 저장" : "Save settings",
-      description: ko ? "변경한 설정을 서비스에 반영합니다." : "Applies the changed settings to the service.",
+      title: t("admin_settings_save_settings"),
+      description: t("admin_settings_applies_changed_settings_to_service"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
@@ -95,7 +95,7 @@ export function AdminSettingsPage() {
     setResult(null);
     const r = await persistAppSettingsToServer(toSave);
     setSaving(false);
-    setResult(r.ok ? { ok: true, message: ko ? "저장했습니다." : "Saved." } : { ok: false, code: r.error ?? "save_failed" });
+    setResult(r.ok ? { ok: true, message: t("admin_settings_trade_saved") } : { ok: false, code: r.error ?? "save_failed" });
     if (r.ok) {
       setSettings(getAppSettings());
       setDraft((prev) => {
@@ -105,25 +105,25 @@ export function AdminSettingsPage() {
       });
       setLogRefreshKey((k) => k + 1);
     }
-  }, [sectionKeys, draft, ko]);
+  }, [sectionKeys, draft, ko, t]);
 
   const handleReset = useCallback(async () => {
     // 기본값 초기화 = dataReset(L3: 사유 + 「초기화」 재입력). 사유는 저장 API 본문으로 보내 감사에 남긴다.
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("dataReset"),
       ko,
-      title: ko ? "이 탭 설정 초기화" : "Reset this tab's settings",
-      description: ko ? "이 탭의 설정을 기본값으로 되돌립니다." : "Restores this tab's settings to defaults.",
+      title: t("admin_settings_reset_this_tab_s_settings"),
+      description: t("admin_settings_restores_this_tab_s_settings_to"),
       confirmLabel: adminCta("reset", ko),
       destructive: true,
-      retypeValue: ko ? "초기화" : "reset",
+      retypeValue: t("admin_settings_reset_2"),
     });
     if (!confirmed.ok) return;
     setSaving(true);
     setResult(null);
     const r = await resetAppSettingsSectionOnServer(sectionKeys, confirmed.reason);
     setSaving(false);
-    setResult(r.ok ? { ok: true, message: ko ? "초기화했습니다." : "Reset done." } : { ok: false, code: r.error ?? "save_failed" });
+    setResult(r.ok ? { ok: true, message: t("admin_settings_reset_done_2") } : { ok: false, code: r.error ?? "save_failed" });
     if (r.ok) {
       setSettings(getAppSettings());
       setDraft((prev) => {
@@ -133,7 +133,7 @@ export function AdminSettingsPage() {
       });
       setLogRefreshKey((k) => k + 1);
     }
-  }, [sectionKeys, ko]);
+  }, [sectionKeys, ko, t]);
 
   if (loadState.status !== "ready") {
     return (

@@ -79,7 +79,7 @@ function AdminAdsDirectRegisterHubWithQuery() {
 }
 
 export function AdminAdsDirectRegisterHubView({ selected }: { selected: AdminAdsDirectRegisterDomain | null }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const products = orderAdminAdsDirectProducts(selected);
 
@@ -88,16 +88,16 @@ export function AdminAdsDirectRegisterHubView({ selected }: { selected: AdminAds
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
-            {ko ? "광고·배너" : "Ads & banners"}
+            {t("admin_ads_ads_banners")}
           </Link>
           {" › "}
-          {ko ? "광고 등록" : "Register ad"}
+          {t("admin_ads_register_ad")}
         </p>
         <h1 className="text-[20px] font-semibold text-sam-fg">
-          {ko ? "광고 등록" : "Register ad"}
+          {t("admin_ads_register_ad")}
         </h1>
         <p className="text-[14px] text-sam-fg">
-          {ko ? "어떤 광고를 등록하시겠습니까?" : "Which ad would you like to register?"}
+          {t("admin_ads_which_ad_would_like_register")}
         </p>
       </header>
 
@@ -132,9 +132,7 @@ export function AdminAdsDirectRegisterHubView({ selected }: { selected: AdminAds
         className="text-[12px] text-sam-muted"
         data-admin-direct-store-promote-blocked="1"
       >
-        {ko
-          ? "상위노출·매장 홍보는 운영자 직접 등록으로 만들 수 없습니다(회원·사장님 결제 상품)."
-          : "Boost and Delivery Sponsored cannot be registered via Admin Direct."}
+        {t("admin_ads_boost_delivery_sponsored_cannot_registered")}
       </p>
     </div>
   );

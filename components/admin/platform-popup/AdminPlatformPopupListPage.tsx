@@ -79,7 +79,7 @@ function isPopupDraftDeletable(item: PlatformPopupAdminListItem): boolean {
 }
 
 export function AdminPlatformPopupListPage() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const ko = lang !== "en";
@@ -188,7 +188,7 @@ export function AdminPlatformPopupListPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(ids.length > 1 ? "bulk" : "delete"),
       ko,
-      title: ko ? "팝업 캠페인 삭제" : "Delete popup campaigns",
+      title: t("admin_platform_popup_delete_popup_campaigns"),
       description: msg,
       confirmLabel: adminCta("delete", ko),
       destructive: true,
@@ -388,7 +388,7 @@ export function AdminPlatformPopupListPage() {
                 onClick={() => void onCreate()}
                 data-admin-popup-empty-create="1"
               >
-                {ko ? "등록" : "Create"}
+                {t("admin_platform_popup_create_2")}
               </AdminActionButton>
             }
           />

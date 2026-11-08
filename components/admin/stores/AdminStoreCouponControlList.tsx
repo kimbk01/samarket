@@ -65,7 +65,7 @@ export function AdminStoreCouponControlList({
     t("store_coupon_owner_issued_limit"),
     t("store_coupon_owner_issued_actual"),
     t("store_coupon_owner_held_active"),
-    ko ? "사용" : "Used",
+    t("admin_stores_used"),
     t("store_coupon_ops_remaining"),
     t("store_coupon_ops_gmv"),
     t("store_coupon_ops_discount_total"),
@@ -86,8 +86,8 @@ export function AdminStoreCouponControlList({
                 <thead>
                   <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
                     <th className="py-2 pr-2 font-medium">{t("store_coupon_field_title")}</th>
-                    <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                    <th className="py-2 pr-2 font-medium">{ko ? "혜택" : "Benefit"}</th>
+                    <th className="py-2 pr-2 font-medium">{t("admin_stores_home_shelves_col_status")}</th>
+                    <th className="py-2 pr-2 font-medium">{t("admin_stores_benefit")}</th>
                     {metaLabels.map((label) => (
                       <th key={label} className="py-2 pr-2 font-medium">
                         {label}

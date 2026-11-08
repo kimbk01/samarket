@@ -17,7 +17,7 @@ export function OwnerManageHubLinks({
   row: StoreRow;
   orderAlertsBadge?: number;
 }) {
-  const { safeT } = useI18n();
+  const { t } = useI18n();
   const sections = buildOwnerManageHubSectionsFromRegistry({
     storeId: row.id,
     slug: String(row.slug ?? ""),
@@ -34,10 +34,7 @@ export function OwnerManageHubLinks({
       {sections.map((section) => (
         <section key={section.titleKey} className="space-y-2">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {safeT(section.titleKey, {
-              fallbackKo: section.titleKey,
-              fallbackEn: section.titleKey,
-            })}
+            {t(section.titleKey)}
           </h2>
           <ul className="space-y-2">
             {section.items.map((item) => (
@@ -49,10 +46,7 @@ export function OwnerManageHubLinks({
                 >
                   {/* 이름만 — 설명 줄 없음 (드로어와 같은 규칙 · R2 2026-11-03) */}
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-sam-fg">
-                    {safeT(item.labelKey, {
-                      fallbackKo: item.labelKey,
-                      fallbackEn: item.labelKey,
-                    })}
+                    {t(item.labelKey)}
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
                 </Link>

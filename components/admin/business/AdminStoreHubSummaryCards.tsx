@@ -28,6 +28,7 @@ import {
   businessCcPointsHref,
   businessCcSettlementsHref,
 } from "@/lib/admin-business/business-control-center-links";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type StoreHubSummaryState =
   | { status: "loading" }
@@ -334,7 +335,7 @@ function sanctionLabel(action: string, ko: boolean): string {
     ban: ["이용 차단", "Ban"],
   };
   const hit = map[action];
-  return hit ? (ko ? hit[0] : hit[1]) : ko ? "제재" : "Sanction";
+  return hit ? (ko ? hit[0] : hit[1]) : translateBy(ko ? "ko" : "en", "admin_biz_sanction");
 }
 
 type HubReportRow = {

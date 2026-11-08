@@ -12,6 +12,7 @@
  * - `CommunityListPagination` = `AdminPagination` (20/50/100 · URL `size`).
  * - `CommunityListBody` = 로딩 / 오류(403 구분 · 기존 목록 유지) / 빈 목록(필터 중 [초기화]) / 표.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
@@ -561,16 +562,17 @@ export function CommunityAuthorCell({
   /** 외부 수집 글 출처 사이트명 */
   sourceName?: string | null;
 }) {
+  const { t } = useI18n();
   if (origin === "imported") {
     return (
       <span className="flex flex-col">
-        <span className="font-medium text-sam-fg">외부 수집</span>
-        {sourceName ? <span className="sam-text-xxs text-sam-muted">출처: {sourceName}</span> : null}
+        <span className="font-medium text-sam-fg">{t("admin_community_kit_imported")}</span>
+        {sourceName ? <span className="sam-text-xxs text-sam-muted">{t("admin_community_kit_source", { name: sourceName })}</span> : null}
       </span>
     );
   }
   if (origin === "admin") {
-    return <span className="font-medium text-sam-fg">DIBAY 운영팀</span>;
+    return <span className="font-medium text-sam-fg">{t("admin_community_kit_ops_team")}</span>;
   }
   if (!userId) return <span className="text-sam-muted">—</span>;
   return (
@@ -710,6 +712,7 @@ export function CommunityTimeline({
   items: { id: string; at: string; actor: string; action: string; reason?: string | null }[];
   emptyText?: string;
 }) {
+  const { t } = useI18n();
   if (items.length === 0) return <p className="text-[13px] text-sam-muted">{emptyText}</p>;
   return (
     <ol className="space-y-2">
@@ -719,7 +722,7 @@ export function CommunityTimeline({
             <span className="font-semibold text-sam-fg">{it.action}</span>
             <span className="text-sam-muted">{formatAdminManilaDateTime(it.at)} PHT · {it.actor}</span>
           </div>
-          {it.reason ? <p className="mt-1 whitespace-pre-wrap text-sam-muted">사유: {it.reason}</p> : null}
+          {it.reason ? <p className="mt-1 whitespace-pre-wrap text-sam-muted">{t("admin_community_kit_reason", { reason: it.reason })}</p> : null}
         </li>
       ))}
     </ol>

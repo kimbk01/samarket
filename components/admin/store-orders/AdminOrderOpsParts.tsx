@@ -14,6 +14,8 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const OPS_INPUT =
   "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-2 sam-text-helper text-sam-fg placeholder:text-sam-meta focus:border-signature focus:outline-none";
@@ -34,8 +36,9 @@ export function OpsPeriodFilter({
   ko: boolean;
   onChange: (next: { period: AdminOrderOpsPeriod; fromDay: string; toDay: string }) => void;
 }) {
+  const { t } = useI18n();
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={ko ? "기간" : "Period"}>
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t("admin_store_orders_period")}>
       {ADMIN_ORDER_OPS_PERIODS.map((p) => {
         const active = p === period;
         return (
@@ -46,9 +49,9 @@ export function OpsPeriodFilter({
       })}
       {period === "custom" ? (
         <span className="flex items-center gap-1">
-          <input type="date" className={`${OPS_INPUT} w-auto`} value={fromDay} onChange={(e) => onChange({ period, fromDay: e.target.value, toDay })} aria-label={ko ? "시작일" : "From"} />
+          <input type="date" className={`${OPS_INPUT} w-auto`} value={fromDay} onChange={(e) => onChange({ period, fromDay: e.target.value, toDay })} aria-label={t("admin_store_orders_from_2")} />
           <span className="text-sam-muted">~</span>
-          <input type="date" className={`${OPS_INPUT} w-auto`} value={toDay} onChange={(e) => onChange({ period, fromDay, toDay: e.target.value })} aria-label={ko ? "종료일" : "To"} />
+          <input type="date" className={`${OPS_INPUT} w-auto`} value={toDay} onChange={(e) => onChange({ period, fromDay, toDay: e.target.value })} aria-label={t("admin_store_orders_to")} />
         </span>
       ) : null}
     </div>
@@ -93,6 +96,7 @@ export function OpsSummaryPanel({
   error: string | null;
   ko: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface" data-ops-summary="1">
       <AdminActionButton
@@ -104,7 +108,7 @@ export function OpsSummaryPanel({
         <span className="sam-text-body font-semibold text-sam-fg">
           {title} <span className="ml-1 font-normal sam-text-xxs text-sam-muted">{basisNote}</span>
         </span>
-        <span className="sam-text-xxs text-sam-muted">{open ? (ko ? "접기" : "Hide") : ko ? "펼치기" : "Show"}</span>
+        <span className="sam-text-xxs text-sam-muted">{open ? (t("admin_store_orders_hide")) : t("admin_store_orders_show")}</span>
       </AdminActionButton>
       {open ? (
         <div className="border-t border-sam-border-soft p-3">
@@ -126,7 +130,7 @@ export function OpsSummaryPanel({
                       c.tone === "danger" ? "text-sam-danger" : c.tone === "warning" ? "text-sam-warning" : "text-sam-fg"
                     }`}
                   >
-                    {loading && c.count == null ? "…" : c.count == null ? "—" : `${formatAdminNumber(c.count)}${ko ? "건" : ""}`}
+                    {loading && c.count == null ? "…" : c.count == null ? "—" : t("admin_count_items", { n: formatAdminNumber(c.count) })}
                   </span>
                   {c.amount != null ? (
                     <span className="sam-text-xxs tabular-nums text-sam-fg">
@@ -137,11 +141,9 @@ export function OpsSummaryPanel({
                   {c.secondary ? <span className="sam-text-xxs tabular-nums text-sam-muted">{c.secondary}</span> : null}
                   <span className="mt-0.5 sam-text-xxs text-sam-meta">
                     {c.basis === "current"
-                      ? ko
-                        ? "현재 기준"
-                        : "Current"
-                      : `${ko ? ADMIN_ORDER_OPS_BASIS_LABEL[c.basis].ko : ADMIN_ORDER_OPS_BASIS_LABEL[c.basis].en} ${ko ? "기준" : "basis"}`}
-                    {c.href ? (ko ? " · 이동 →" : " · open →") : ""}
+                      ? t("admin_store_orders_current")
+                      : `${ko ? ADMIN_ORDER_OPS_BASIS_LABEL[c.basis].ko : ADMIN_ORDER_OPS_BASIS_LABEL[c.basis].en} ${t("admin_store_orders_basis")}`}
+                    {c.href ? (t("admin_store_orders_open_2")) : ""}
                   </span>
                 </>
               );
@@ -195,7 +197,8 @@ export function elapsedSince(iso: string | null | undefined, ko: boolean, now: n
   const d = Math.floor(mins / 1440);
   const h = Math.floor((mins % 1440) / 60);
   const m = mins % 60;
-  if (d > 0) return ko ? `${d}일 ${h}시간` : `${d}d ${h}h`;
-  if (h > 0) return ko ? `${h}시간 ${m}분` : `${h}h ${m}m`;
-  return ko ? `${m}분` : `${m}m`;
+  const lang = ko ? "ko" : "en";
+  if (d > 0) return translateBy(lang, "admin_store_orders_d_h", { d, h });
+  if (h > 0) return translateBy(lang, "admin_store_orders_h_m", { h, m });
+  return translateBy(lang, "admin_store_orders_m", { m });
 }

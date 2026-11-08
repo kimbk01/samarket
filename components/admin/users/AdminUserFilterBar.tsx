@@ -81,7 +81,7 @@ export function AdminUserFilterBar({
   onSortChange,
   loading = false,
 }: AdminUserFilterBarProps) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   return (
     <div
@@ -103,14 +103,14 @@ export function AdminUserFilterBar({
         searchPlaceholder={MEMBER_LIST_SEARCH_PLACEHOLDER_KO}
       >
         <label className={labelClass}>
-          {ko ? "계정 상태" : "Account state"}
+          {t("admin_users_account_state")}
           <select
             value={statusFilter}
             onChange={(e) => onStatusFilterChange(e.target.value as AdminUserStatusCategory | "")}
             className={selectClass}
             data-member-list-filter="status"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             <option value="active">{memberListStatusCategoryLabelKo("active")}</option>
             <option value="suspended">{memberListStatusCategoryLabelKo("suspended")}</option>
             <option value="blocked">{memberListStatusCategoryLabelKo("blocked")}</option>
@@ -118,53 +118,53 @@ export function AdminUserFilterBar({
           </select>
         </label>
         <label className={labelClass}>
-          {ko ? "인증" : "Verification"}
+          {t("admin_users_auth_verify")}
           <select
             value={verifyFilter}
             onChange={(e) => onVerifyFilterChange(e.target.value as AdminMemberVerifyFilter | "")}
             className={selectClass}
             data-member-list-filter="verify"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             <option value="verified">{MEMBER_LIST_VERIFY_DONE_KO}</option>
             <option value="unverified">{MEMBER_LIST_VERIFY_INCOMPLETE_KO}</option>
           </select>
         </label>
         <label className={labelClass}>
-          {ko ? "매장" : "Store"}
+          {t("common_store")}
           <select
             value={storeFilter}
             onChange={(e) => onStoreFilterChange(e.target.value as AdminMemberStoreFilter | "")}
             className={selectClass}
             data-member-list-filter="store"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             <option value="has_store">{MEMBER_ADMIN_COPY.store_ops}</option>
             <option value="no_store">{MEMBER_LIST_STORE_NONE_KO}</option>
           </select>
         </label>
         <label className={labelClass}>
-          {ko ? "관리 권한" : "Admin privilege"}
+          {t("admin_users_admin_privilege")}
           <select
             value={privilegeFilter}
             onChange={(e) => onPrivilegeFilterChange(e.target.value as AdminMemberPrivilegeFilter | "")}
             className={selectClass}
             data-member-list-filter="privilege"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             <option value="admin">{MEMBER_ADMIN_COPY.privilege_admin}</option>
             <option value="member">{MEMBER_ADMIN_COPY.privilege_member}</option>
           </select>
         </label>
         <label className={labelClass}>
-          {ko ? "가입 방식" : "Sign-up method"}
+          {t("admin_users_sign_up_method")}
           <select
             value={originFilter}
             onChange={(e) => onOriginFilterChange(e.target.value as AdminMemberOriginFilter | "")}
             className={selectClass}
             data-member-list-filter="origin"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             <option value="email">{memberListOriginFilterLabelKo("email")}</option>
             <option value="manual">{memberListOriginFilterLabelKo("manual")}</option>
             <option value="kakao">{memberListOriginFilterLabelKo("kakao")}</option>
@@ -174,17 +174,17 @@ export function AdminUserFilterBar({
           </select>
         </label>
         <label className={labelClass}>
-          {ko ? "정렬" : "Sort"}
+          {t("common_sort")}
           <select
             value={sort}
             onChange={(e) => onSortChange(e.target.value as MemberListSortId)}
             className={selectClass}
             data-member-list-filter="sort"
           >
-            <option value="created_at_desc">가입일 ↓</option>
-            <option value="created_at_asc">가입일 ↑</option>
-            <option value="last_login_desc">최근 로그인 ↓</option>
-            <option value="last_login_asc">최근 로그인 ↑</option>
+            <option value="created_at_desc">{t("admin_users_filter_sort_joined_desc")}</option>
+            <option value="created_at_asc">{t("admin_users_filter_sort_joined_asc")}</option>
+            <option value="last_login_desc">{t("admin_users_filter_sort_last_login_desc")}</option>
+            <option value="last_login_asc">{t("admin_users_filter_sort_last_login_asc")}</option>
           </select>
         </label>
       </AdminFilterBar>

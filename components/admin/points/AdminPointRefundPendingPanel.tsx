@@ -7,10 +7,13 @@
 import { useEffect, useState } from "react";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type Item = { id: string; userId: string; refundKey: string; note: string; createdAt: string; resolvedLedgerId: string | null };
 
 export function AdminPointRefundPendingPanel({ ko }: { ko: boolean }) {
+  const tr = (key: MessageKey, vars?: Record<string, unknown>) => translateBy(ko ? "ko" : "en", key, vars);
   const [state, setState] = useState<{ status: "loading" | "error" | "ok"; items: Item[]; unresolved: number }>({
     status: "loading",
     items: [],
@@ -34,26 +37,26 @@ export function AdminPointRefundPendingPanel({ ko }: { ko: boolean }) {
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-point-refund-pending={state.status}>
       <h2 className="text-[16px] font-semibold text-sam-fg">
-        {ko ? "포인트 환급 대기" : "Pending Point refunds"}
+        {tr("admin_points_pending_point_refunds")}
         {state.status === "ok" ? (
           <span className={`ml-2 text-sm ${state.unresolved > 0 ? "text-sam-danger" : "text-sam-muted"}`}>
-            {ko ? `미해결 ${state.unresolved}건` : `${state.unresolved} unresolved`}
+            {tr("admin_points_unresolved", { unresolved: state.unresolved })}
           </span>
         ) : null}
       </h2>
-      {state.status === "loading" ? <p className="text-sm text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
+      {state.status === "loading" ? <p className="text-sm text-sam-muted">{tr("admin_loading")}</p> : null}
       {state.status === "error" ? (
-        <p className="text-sm text-sam-danger">{ko ? "환급 대기 기록을 확인할 수 없습니다." : "Could not load pending refunds."}</p>
+        <p className="text-sm text-sam-danger">{tr("admin_points_could_not_load_pending_refunds")}</p>
       ) : null}
       {state.status === "ok" && state.items.length === 0 ? (
-        <p className="text-sm text-sam-muted">{ko ? "환급 대기 기록이 없습니다." : "No pending refunds."}</p>
+        <p className="text-sm text-sam-muted">{tr("admin_points_no_pending_refunds")}</p>
       ) : null}
       {state.items.length > 0 ? (
         <ul className="mt-2 space-y-1 text-sm">
           {state.items.map((i) => (
             <li key={i.id} className="rounded-ui-rect border border-sam-border-soft px-2 py-1">
               <span className={i.resolvedLedgerId ? "text-sam-muted" : "font-semibold text-sam-danger"}>
-                {i.resolvedLedgerId ? (ko ? "해결" : "Resolved") : ko ? "미해결" : "Unresolved"}
+                {i.resolvedLedgerId ? tr("admin_points_resolved") : tr("admin_points_unresolved_2")}
               </span>
               {" · "}
               {formatAdminManilaDateTime(i.createdAt)} · <AdminTechId id={i.userId} /> · {i.refundKey}

@@ -8,6 +8,7 @@
  * 삭제는 공용 `AdminAdDeleteAction`(사유만).
  * URL: tab=active|paused|ended|rejected|all · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -90,6 +91,7 @@ function remainingDays(o: Order): string | null {
 type Sheet = { kind: "pause" | "end"; order: Order } | null;
 
 export function AdminCommunityPromotionsPage() {
+  const { t } = useI18n();
   const q = useCommunityQueryState();
   /** 쓰기(노출 중지·재개·상위노출 종료) — 접근표 action community("promotion"). 서버 가드는 그대로. */
   const action = useAdminRouteAction("/admin/community/promotions");
@@ -140,7 +142,7 @@ export function AdminCommunityPromotionsPage() {
 
   return (
     <CommunityListShell
-      title="커뮤니티 상위노출"
+      title={t("admin_community_promo_title")}
       description="회원이 포인트로 구매한 커뮤니티 게시글 상위노출의 노출을 관리합니다."
       actions={
         <AdminActionLink href="/admin/advertising/boosts" variant="ghost">
@@ -207,7 +209,7 @@ export function AdminCommunityPromotionsPage() {
                       <CommunityStatusBadge domain="content_status" value={o.post.status} />
                     </div>
                   ) : null}
-                  {!o.post && o.targetId ? <div className="text-[12px] text-sam-muted">게시글을 찾을 수 없습니다</div> : null}
+                  {!o.post && o.targetId ? <div className="text-[12px] text-sam-muted">{t("admin_community_promo_post_missing")}</div> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   {o.userId ? (
@@ -302,7 +304,7 @@ export function AdminCommunityPromotionsPage() {
 
       {sheet?.kind === "pause" ? (
         <CommunityActionSheet
-          title="노출 중지"
+          title={t("admin_community_promo_pause_title")}
           rows={orderRows(sheet.order)}
           notice="노출이 멈추고, 다시 재개하면 종료일이 중지한 시간만큼 늘어납니다. 환급은 없습니다."
           reason={{ minLength: 2, placeholder: "중지 사유" }}
@@ -364,6 +366,7 @@ function EndPromotionSheet({
   onClose: () => void;
   onSettled: (k: CommunitySheetSettle, refund: number) => void;
 }) {
+  const { t } = useI18n();
   const [fault, setFault] = useState<"operator" | "member" | null>(null);
   const [preview, setPreview] = useState<{ fault: string; data: Preview } | { fault: string; error: string } | null>(null);
   const lastRefund = useRef(0);
@@ -411,7 +414,7 @@ function EndPromotionSheet({
 
   return (
     <CommunityActionSheet
-      title="상위노출 종료"
+      title={t("admin_community_promo_end_title")}
       rows={[
         ...orderRows(order),
         ...(ready && preview && "data" in preview
@@ -448,28 +451,28 @@ function EndPromotionSheet({
       onSettled={(k) => onSettled(k, lastRefund.current)}
     >
       <fieldset className="space-y-2">
-        <legend className="sam-text-helper font-medium text-sam-fg">귀책 (필수)</legend>
+        <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_community_promo_fault_required")}</legend>
         <label className="flex items-start gap-2 text-[13px]">
           <input type="radio" name="fault" checked={fault === "operator"} onChange={() => setFault("operator")} className="mt-0.5" />
           <span>
-            <span className="font-medium text-sam-fg">운영 사유</span>
-            <span className="block text-sam-muted">시스템 오류·정책 변경 등 — 남은 노출 기간만큼 포인트를 비례 환급합니다.</span>
+            <span className="font-medium text-sam-fg">{t("admin_community_promo_fault_ops")}</span>
+            <span className="block text-sam-muted">{t("admin_community_promo_fault_ops_hint")}</span>
           </span>
         </label>
         <label className="flex items-start gap-2 text-[13px]">
           <input type="radio" name="fault" checked={fault === "member"} onChange={() => setFault("member")} className="mt-0.5" />
           <span>
-            <span className="font-medium text-sam-fg">회원 사유</span>
-            <span className="block text-sam-muted">상위노출 정책 위반 등 — 환급하지 않습니다.</span>
+            <span className="font-medium text-sam-fg">{t("admin_community_promo_fault_member")}</span>
+            <span className="block text-sam-muted">{t("admin_community_promo_fault_member_hint")}</span>
           </span>
         </label>
       </fieldset>
-      {fault && !preview ? <p className="text-[13px] text-sam-muted">환급 예정 포인트를 계산하는 중…</p> : null}
+      {fault && !preview ? <p className="text-[13px] text-sam-muted">{t("admin_community_promo_refund_calculating")}</p> : null}
       {preview && "data" in preview ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] font-semibold text-sam-fg">
           환급 예정 {formatCommunityPoints(preview.data.refundPoints)}
           {!preview.data.hasPaymentRecord ? (
-            <span className="block font-normal text-sam-warning">결제 기록을 찾지 못해 환급할 포인트가 없습니다.</span>
+            <span className="block font-normal text-sam-warning">{t("admin_community_promo_no_payment_record")}</span>
           ) : null}
         </p>
       ) : null}

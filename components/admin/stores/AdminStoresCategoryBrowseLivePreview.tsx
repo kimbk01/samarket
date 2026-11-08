@@ -24,6 +24,7 @@ import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-brow
 import { networkDiscoveryShelfWins } from "@/lib/stores/stores-browse-shelf-snapshot-authority";
 import { buildAdminBrowsePreviewItems } from "@/lib/stores/stores-browse-admin-preview-items";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type AdminCategoryBrowsePreviewProps = {
   primarySlug: string;
@@ -130,7 +131,7 @@ export function AdminStoresCategoryBrowseLivePreview({
         if (!json.ok || !Array.isArray(json.stores)) {
           setState({
             status: "error",
-            message: json.error?.trim() || (ko ? "카테고리 목록을 불러오지 못했습니다." : "Failed to load category browse."),
+            message: json.error?.trim() || translateBy(ko ? "ko" : "en", "admin_stores_failed_to_load_category_browse"),
           });
           return;
         }
@@ -157,7 +158,7 @@ export function AdminStoresCategoryBrowseLivePreview({
         if (cancelled) return;
         setState({
           status: "error",
-          message: e instanceof Error ? e.message : ko ? "browse 오류" : "Browse error",
+          message: e instanceof Error ? e.message : translateBy(ko ? "ko" : "en", "admin_stores_browse_error"),
         });
       }
     })();
@@ -187,7 +188,7 @@ export function AdminStoresCategoryBrowseLivePreview({
     >
       <div className="bg-sam-app px-3 pb-3 pt-2">
         <p className="mb-1 text-center text-[12px] font-bold uppercase tracking-wide text-sam-success">
-          {ko ? "실데이터 · 저장된 앱 응답" : "Live · saved app response"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_live_saved_app_response")}
         </p>
         <p className="mb-1 truncate text-[12px] font-semibold text-sam-muted" title={scopeBreadcrumb}>
           {scopeBreadcrumb}
@@ -200,23 +201,23 @@ export function AdminStoresCategoryBrowseLivePreview({
             {headerTitle}
           </span>
           <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[12px] font-bold text-sam-muted">
-            {subSlug === "all" ? (ko ? "1차 전체(혼합)" : "Primary mix") : ko ? "2차만" : "Secondary only"}
+            {subSlug === "all" ? translateBy(ko ? "ko" : "en", "admin_stores_primary_mix") : translateBy(ko ? "ko" : "en", "admin_stores_secondary_only")}
           </span>
         </div>
 
         {!draftEnabled ? (
           <p className="mb-2 rounded-ui-rect bg-sam-danger-soft px-2 py-2 text-center text-[12px] font-semibold text-sam-danger">
-            {ko ? "초안 OFF — 저장하면 고객 목록이 비워집니다." : "Draft OFF — customer list will be empty after save."}
+            {translateBy(ko ? "ko" : "en", "admin_stores_draft_off_customer_list_will_be")}
           </p>
         ) : null}
 
         {state.status === "loading" || state.status === "idle" ? (
-          <p className="px-2 py-8 text-center text-[12px] text-sam-muted">{ko ? "실데이터 로딩…" : "Loading live…"}</p>
+          <p className="px-2 py-8 text-center text-[12px] text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_stores_loading_live")}</p>
         ) : state.status === "error" ? (
           <p className="px-2 py-6 text-center text-[12px] text-sam-danger">{state.message}</p>
         ) : !readyState || !readyState.scopeEnabled ? (
           <p className="rounded-ui-rect bg-sam-danger-soft px-2 py-6 text-center text-[12px] font-semibold text-sam-danger">
-            {ko ? "저장 정책 OFF — 고객 목록 비움" : "Saved policy OFF — customer list empty"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_saved_policy_off_customer_list_empty")}
           </p>
         ) : (
           <>
@@ -241,9 +242,7 @@ export function AdminStoresCategoryBrowseLivePreview({
             ) : null}
             {readyState.stores.length === 0 ? (
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-white px-2 py-6 text-center text-[12px] text-sam-muted">
-                {ko
-                  ? "이 1·2차 스코프에 매장이 없습니다. (다른 업종 매장은 섞이지 않습니다)"
-                  : "No stores in this primary/secondary scope. (Other industries are not mixed in.)"}
+                {translateBy(ko ? "ko" : "en", "admin_stores_no_stores_in_this_primary_secondary")}
               </p>
             ) : (
               <ul className="space-y-2" data-admin-category-preview-list="1">

@@ -4,6 +4,7 @@
  * 외부 수집 글 본문 블록 편집 (C-08) — 블록 단위로 글자만 고친다. 블록 순서·형식은 유지하고,
  * 이미지 블록은 설명만 고치거나 블록째 뺄 수 있다. 서버가 저장 전에 다시 정리(sanitize)한다.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
 
@@ -57,6 +58,7 @@ export function CommunityPostBlocksEditor({
   onChange: (next: ImportedContentBlock[]) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const update = (i: number, next: ImportedContentBlock | null) => {
     const copy = blocks.slice();
     if (next === null) copy.splice(i, 1);
@@ -65,7 +67,7 @@ export function CommunityPostBlocksEditor({
   };
 
   if (blocks.length === 0) {
-    return <p className="text-[13px] text-sam-muted">본문 블록이 없습니다.</p>;
+    return <p className="text-[13px] text-sam-muted">{t("admin_community_postedit_no_blocks")}</p>;
   }
 
   return (
@@ -102,7 +104,7 @@ export function CommunityPostBlocksEditor({
                 disabled={disabled}
                 onChange={(e) => update(i, { ...b, items: e.target.value.split("\n") })}
               />
-              <span className="sam-text-xxs text-sam-muted">한 줄에 한 항목</span>
+              <span className="sam-text-xxs text-sam-muted">{t("admin_community_postedit_one_per_line")}</span>
             </>
           ) : b.t === "link" ? (
             <>
@@ -112,7 +114,7 @@ export function CommunityPostBlocksEditor({
                 disabled={disabled}
                 onChange={(e) => update(i, { ...b, text: e.target.value })}
               />
-              <span className="sam-text-xxs text-sam-muted [overflow-wrap:anywhere]">연결 주소: {b.href}</span>
+              <span className="sam-text-xxs text-sam-muted [overflow-wrap:anywhere]">{t("admin_community_postedit_link_url", { url: b.href })}</span>
             </>
           ) : b.t === "img" ? (
             <div className="flex gap-2">
@@ -120,7 +122,7 @@ export function CommunityPostBlocksEditor({
               <img src={b.url} alt={b.alt ?? ""} className="h-16 w-16 shrink-0 rounded-ui-rect border border-sam-border object-cover" />
               <input
                 className={INPUT}
-                placeholder="이미지 설명 (선택)"
+                placeholder={t("admin_community_postedit_image_caption")}
                 value={b.caption ?? ""}
                 disabled={disabled}
                 onChange={(e) => update(i, { ...b, caption: e.target.value || null })}

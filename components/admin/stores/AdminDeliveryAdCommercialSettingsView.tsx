@@ -46,7 +46,7 @@ import { translateBy } from "@/lib/i18n/translate-by";
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
 export function AdminDeliveryAdCommercialSettingsView() {
-  const { language, safeT } = useI18n();
+  const { t, language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,27 +89,17 @@ export function AdminDeliveryAdCommercialSettingsView() {
     const op = String(body.op ?? "");
     const title =
       op === "create_package"
-        ? ko
-          ? "맞춤 패키지를 등록할까요?"
-          : "Create this custom package?"
+        ? t("admin_stores_create_this_custom_package")
         : op === "update_extension"
-          ? ko
-            ? "연장 정책을 저장할까요?"
-            : "Save the extension policy?"
+          ? t("admin_stores_save_extension_policy")
           : op === "update_product" || op === "update_placement"
-            ? ko
-              ? "판매 설정을 저장할까요?"
-              : "Save the sales setting?"
-            : ko
-              ? "광고 가격을 저장할까요?"
-              : "Save the ad price?";
+            ? t("admin_stores_save_sales_setting")
+            : t("admin_stores_save_ad_price");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
       title,
-      description: ko
-        ? "신규 신청부터 적용됩니다. 이미 승인된 광고에는 소급되지 않습니다."
-        : "Applies to new applications only. Approved campaigns are not changed.",
+      description: t("admin_stores_applies_to_new_applications_only_approved"),
       confirmLabel: adminCta(op === "create_package" ? "create" : "save", ko),
     });
     if (!confirmed.ok) return;
@@ -151,11 +141,9 @@ export function AdminDeliveryAdCommercialSettingsView() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "광고 가격을 저장할까요?" : "Save the ad price?",
+      title: t("admin_stores_save_ad_price"),
       description: `${targetLabel} · ${bodies.map((b) => b.label).join(", ")} — ${
-        ko
-          ? "신규 신청부터 적용됩니다. 이미 승인된 광고에는 소급되지 않습니다."
-          : "Applies to new applications only. Approved campaigns are not changed."
+        t("admin_stores_applies_to_new_applications_only_approved")
       }`,
       confirmLabel: adminCta("save", ko),
     });

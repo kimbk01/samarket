@@ -49,7 +49,6 @@ import { formatManilaDateTime, type StoreCommissionPeriod } from "@/lib/stores/c
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { translateBy } from "@/lib/i18n/translate-by";
 
-
 type SearchForm = {
   storeName: string;
   orderNo: string;
@@ -206,12 +205,10 @@ export function AdminStoreOrdersPage() {
       if (code === "forbidden") return t("admin_audit_err_no_permission");
       if (code === "network_error") return t("common_network_error");
       if (code === "rpc_missing")
-        return ko
-          ? "주문 조회 함수가 아직 DB에 적용되지 않았습니다. 관리자에게 마이그레이션 적용을 요청하세요."
-          : "The order list function is not deployed to the database yet.";
-      return ko ? `조회에 실패했습니다. (${code})` : `Failed to load. (${code})`;
+        return t("admin_stores_order_list_function_is_not_deployed");
+      return t("admin_stores_failed_to_load", { code });
     },
-    [ko, t]
+    [t]
   );
 
   /** Every read goes to the server (`no-store`); the previous result stays on failure. */
@@ -305,19 +302,19 @@ export function AdminStoreOrdersPage() {
     const out: { key: "storeId" | "orderId" | "buyerUserId" | "adminQueue"; label: string }[] = [];
     if (applied.storeId) {
       const name = rows.find((r) => r.store_id === applied.storeId)?.store_name;
-      out.push({ key: "storeId", label: ko ? `매장: ${name || "지정 매장"}` : `Store: ${name || "selected"}` });
+      out.push({ key: "storeId", label: t("admin_stores_filter_store_chip", { name: name || t("admin_stores_filter_selected_store") }) });
     }
     if (applied.orderId) {
       const no = rows.find((r) => r.id === applied.orderId)?.order_no;
-      out.push({ key: "orderId", label: ko ? `주문: ${no || "지정 주문"}` : `Order: ${no || "selected"}` });
+      out.push({ key: "orderId", label: t("admin_stores_filter_order_chip", { no: no || t("admin_stores_filter_selected_order") }) });
     }
     if (applied.buyerUserId) {
       const b = rows.find((r) => r.buyer_user_id === applied.buyerUserId)?.buyer_label;
-      out.push({ key: "buyerUserId", label: ko ? `구매자: ${b || "지정 구매자"}` : `Buyer: ${b || "selected"}` });
+      out.push({ key: "buyerUserId", label: t("admin_stores_filter_buyer_chip", { name: b || t("admin_stores_filter_selected_buyer") }) });
     }
-    if (applied.adminQueue) out.push({ key: "adminQueue", label: ko ? "관리자 처리 필요 (액션 큐)" : "Admin action queue" });
+    if (applied.adminQueue) out.push({ key: "adminQueue", label: t("admin_stores_admin_action_queue") });
     return out;
-  }, [applied, ko, rows]);
+  }, [applied, rows, t]);
 
   const exportHref = useMemo(() => {
     const p = adminStoreOrdersQueryToParams(applied);
@@ -333,7 +330,7 @@ export function AdminStoreOrdersPage() {
       <AdminPageHeader titleKey="admin_page_store_orders" />
 
       {/* 상단 현황 = 상태 탭 (서버 집계, 목록과 같은 조건) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="tablist" aria-label={ko ? "주문 현황" : "Order status"}>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="tablist" aria-label={t("admin_stores_order_status")}>
         {ADMIN_STORE_ORDERS_TABS.map((tab) => {
           const active = applied.tab === tab;
           const count = result?.tabCounts[tab];
@@ -367,25 +364,25 @@ export function AdminStoreOrdersPage() {
       <form
         onSubmit={onSearch}
         className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4"
-        aria-label={ko ? "주문 검색" : "Search orders"}
+        aria-label={t("admin_stores_search_orders")}
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">{ko ? "매장명" : "Store"}</span>
-            <input className={INPUT} value={form.storeName} onChange={(e) => setForm((f) => ({ ...f, storeName: e.target.value }))} placeholder={ko ? "매장명 일부" : "Store name"} />
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_store")}</span>
+            <input className={INPUT} value={form.storeName} onChange={(e) => setForm((f) => ({ ...f, storeName: e.target.value }))} placeholder={t("admin_stores_store_name")} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">{ko ? "주문번호" : "Order no."}</span>
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_order_no")}</span>
             <input className={INPUT} value={form.orderNo} onChange={(e) => setForm((f) => ({ ...f, orderNo: e.target.value }))} placeholder="SO…" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">{ko ? "구매자" : "Buyer"}</span>
-            <input className={INPUT} value={form.buyer} onChange={(e) => setForm((f) => ({ ...f, buyer: e.target.value }))} placeholder={ko ? "닉네임" : "Nickname"} />
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_buyer")}</span>
+            <input className={INPUT} value={form.buyer} onChange={(e) => setForm((f) => ({ ...f, buyer: e.target.value }))} placeholder={t("admin_stores_nickname")} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">{ko ? "주문 상태" : "Order status"}</span>
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_orders_filter_status")}</span>
             <select className={INPUT} value={form.orderStatus} onChange={(e) => setForm((f) => ({ ...f, orderStatus: e.target.value as SearchForm["orderStatus"] }))}>
-              <option value="">{ko ? "전체" : "All"}</option>
+              <option value="">{t("common_all")}</option>
               {STORE_ORDER_STATUS_LIST.map((s) => (
                 <option key={s} value={s}>
                   {statusLabel(s)}
@@ -394,9 +391,9 @@ export function AdminStoreOrdersPage() {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">{ko ? "배달 / 픽업" : "Fulfillment"}</span>
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_fulfillment")}</span>
             <select className={INPUT} value={form.fulfillment} onChange={(e) => setForm((f) => ({ ...f, fulfillment: e.target.value as SearchForm["fulfillment"] }))}>
-              <option value="">{ko ? "전체" : "All"}</option>
+              <option value="">{t("common_all")}</option>
               {ADMIN_STORE_ORDERS_FULFILLMENT_TYPES.map((v) => (
                 <option key={v} value={v}>
                   {ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[v][lang]}
@@ -405,9 +402,9 @@ export function AdminStoreOrdersPage() {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">{ko ? "결제 상태" : "Payment"}</span>
+            <span className="sam-text-xxs text-sam-muted">{t("admin_stores_payment")}</span>
             <select className={INPUT} value={form.paymentStatus} onChange={(e) => setForm((f) => ({ ...f, paymentStatus: e.target.value as SearchForm["paymentStatus"] }))}>
-              <option value="">{ko ? "전체" : "All"}</option>
+              <option value="">{t("common_all")}</option>
               {ADMIN_STORE_ORDERS_PAYMENT_STATUSES.map((v) => (
                 <option key={v} value={v}>
                   {ADMIN_STORE_ORDERS_PAYMENT_LABEL[v][lang]}
@@ -426,17 +423,17 @@ export function AdminStoreOrdersPage() {
           />
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className={SECONDARY_BTN} onClick={onReset} disabled={loadingAny} data-cta="reset">
-              {ko ? "조건 초기화" : "Reset"}
+              {t("admin_stores_reset")}
             </button>
             <button type="submit" className={PRIMARY_BTN} disabled={loadingAny} data-cta="search">
-              {busy === "query" ? (ko ? "조회 중…" : "Searching…") : ko ? "조회" : "Search"}
+              {busy === "query" ? t("admin_stores_searching") : t("admin_stores_search")}
             </button>
           </div>
         </div>
         {deepLinks.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {deepLinks.map((d) => (
-              <button key={d.key} type="button" className={chipClass(true)} onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
+              <button key={d.key} type="button" className={chipClass(true)} onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={t("admin_stores_clear_2", { label: d.label })}>
                 {d.label} ✕
               </button>
             ))}
@@ -448,19 +445,15 @@ export function AdminStoreOrdersPage() {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
         <span className="sam-text-helper text-sam-muted" data-fetched-at={result?.fetchedAt ?? ""}>
           {result
-            ? ko
-              ? `조회 시각 ${manilaSeconds(result.fetchedAt)}`
-              : `Loaded ${manilaSeconds(result.fetchedAt)}`
-            : ko
-              ? "아직 조회하지 않았습니다"
-              : "Not loaded yet"}
+            ? t("admin_stores_loaded", { fetchedAt: manilaSeconds(result.fetchedAt) })
+            : t("admin_stores_not_loaded_yet")}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <a href={exportHref} className={ROW_ACTION_BTN} download data-cta="csv">
-            {ko ? "CSV 내려받기" : "Download CSV"}
+            {t("admin_stores_orders_csv_export")}
           </a>
           <button type="button" className={ROW_ACTION_BTN} onClick={onRefresh} disabled={loadingAny || !result} data-cta="refresh">
-            {busy === "refresh" ? (ko ? "새로고침 중…" : "Refreshing…") : ko ? "새로고침" : "Refresh"}
+            {busy === "refresh" ? t("admin_stores_refreshing") : t("admin_stores_fee_refresh")}
           </button>
         </div>
       </div>
@@ -468,7 +461,7 @@ export function AdminStoreOrdersPage() {
       {error ? (
         <p role="alert" className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft px-3 py-2 sam-text-helper text-sam-danger" data-state="error">
           {errorText(error)}
-          {result ? (ko ? " · 직전 조회 결과를 표시하고 있습니다." : " · Showing the previous result.") : ""}
+          {result ? t("admin_stores_showing_previous_result") : ""}
         </p>
       ) : null}
 
@@ -478,25 +471,25 @@ export function AdminStoreOrdersPage() {
         <p className="py-8 text-center sam-text-body text-sam-muted" data-state="loading">{t("common_loading")}</p>
       ) : result && rows.length === 0 ? (
         <p className="py-8 text-center sam-text-body text-sam-muted" data-state="empty">
-          {ko ? "조건에 맞는 주문이 없습니다." : "No orders match these filters."}
+          {t("admin_stores_no_orders_match_these_filters")}
         </p>
       ) : result ? (
         <div className={`overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface ${busy ? "opacity-70" : ""}`} aria-busy={busy !== null}>
           <table className="min-w-[1180px] w-full text-left sam-text-helper">
             <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
               <tr>
-                <th className="px-3 py-2 font-medium">{ko ? "주문번호" : "Order no."}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "매장" : "Store"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "주문 상품" : "Items"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "구매자" : "Buyer"}</th>
-                <th className="px-3 py-2 text-right font-medium">{ko ? "주문 금액" : "Amount"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "배달/픽업" : "Type"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "주문 상태" : "Status"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "결제 상태" : "Payment"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "수수료 정산" : "Commission"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "주문 일시" : "Ordered"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "완료 일시" : "Completed"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "상세" : "Detail"}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_order_no")}</th>
+                <th className="px-3 py-2 font-medium">{t("common_store")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_items")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_buyer")}</th>
+                <th className="px-3 py-2 text-right font-medium">{t("admin_stores_amount")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_type")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_status")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_payment")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_commission")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_ordered")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_completed")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_payment_th_detail")}</th>
               </tr>
             </thead>
             <tbody>
@@ -518,9 +511,7 @@ export function AdminStoreOrdersPage() {
                       <span className="line-clamp-2">
                         {r.first_title
                           ? r.line_count > 1
-                            ? ko
-                              ? `${r.first_title} 외 ${r.line_count - 1}건`
-                              : `${r.first_title} +${r.line_count - 1}`
+                            ? t("admin_stores_order_first_item_more", { first_title: r.first_title, line_count: r.line_count - 1 })
                             : r.first_title
                           : "—"}
                       </span>
@@ -532,7 +523,7 @@ export function AdminStoreOrdersPage() {
                       <div className="font-medium text-sam-fg">{formatMoneyPhp(r.total_amount)}</div>
                       {r.payment_amount !== r.total_amount ? (
                         <div className="sam-text-xxs text-sam-muted">
-                          {ko ? "고객 결제 " : "Paid "}
+                          {t("admin_stores_paid")}
                           {formatMoneyPhp(r.payment_amount)}
                         </div>
                       ) : null}
@@ -544,11 +535,11 @@ export function AdminStoreOrdersPage() {
                           {statusLabel(r.order_status)}
                         </span>
                         {r.sla_warning_level ? (
-                          <span className="sam-text-xxs text-sam-warning">{ko ? "지연" : "Delayed"}</span>
+                          <span className="sam-text-xxs text-sam-warning">{t("admin_stores_delayed")}</span>
                         ) : null}
                         {r.order_status === "cancel_requested" || r.order_status === "refund_requested" ? (
                           <Link href={detailHref} className={ROW_ACTION_BTN} data-testid="admin-order-decision-link">
-                            {ko ? "상세에서 처리" : "Decide in detail"}
+                            {t("admin_stores_decide_in_detail")}
                           </Link>
                         ) : null}
                       </div>
@@ -567,14 +558,14 @@ export function AdminStoreOrdersPage() {
                       {r.commission_state ? (
                         <CommissionStateChip state={r.commission_state} lang={lang} />
                       ) : (
-                        <span className="sam-text-xxs text-sam-muted">{ko ? "부과 없음" : "Not charged"}</span>
+                        <span className="sam-text-xxs text-sam-muted">{t("admin_stores_not_charged")}</span>
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-sam-muted">{formatManilaDateTime(r.created_at)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-sam-muted">{r.completed_at ? formatManilaDateTime(r.completed_at) : "—"}</td>
                     <td className="px-3 py-2.5">
                       <Link href={detailHref} className={ROW_ACTION_BTN}>
-                        {ko ? "상세 보기" : "View"}
+                        {t("admin_stores_view")}
                       </Link>
                     </td>
                   </tr>
@@ -588,7 +579,7 @@ export function AdminStoreOrdersPage() {
       {result && rows.length > 0 ? (
         <Pager page={applied.page} pageSize={result.pageSize} total={result.total} busy={loadingAny} onGo={onPage} lang={lang} />
       ) : null}
-      <p className="sam-text-xxs text-sam-muted">{ko ? "시간: 필리핀 시간 (UTC+8)" : "Times: Philippine time (UTC+8)"}</p>
+      <p className="sam-text-xxs text-sam-muted">{t("admin_stores_times_philippine_time_utc_8")}</p>
     </div>
   );
 }

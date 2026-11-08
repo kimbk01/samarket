@@ -12,6 +12,7 @@ import type { StoresHomeDataSourceId } from "@/lib/stores/product/stores-home-da
 import type { StoresHomeShelfAdIntegration } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import type { StoresHomeShelfImageSource } from "@/lib/stores/product/stores-home-shelf-product-config";
 import { NEW_STORE_WINDOW_DAYS } from "@/lib/stores/store-new-store-signal";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type HomeShelfAdminTab = "basic" | "data" | "presentation" | "exposure" | "coupon_ad" | "advanced";
 
@@ -123,36 +124,23 @@ export function syncHomePaidAdInsertionRail<T extends { slot: string; enabled: b
 
 /** HS-08 — 후보 0 일 때 데이터 원인 안내 (코드 결함이 아니라 운영 데이터가 없는 경우). */
 export function homeShelfEmptyCandidateReason(source: StoresHomeDataSourceId, ko: boolean): string {
+  const lang = ko ? "ko" : "en";
   switch (source) {
     case "order_now":
-      return ko
-        ? "지금 영업 중이면서 배달 가능한 매장이 0곳입니다."
-        : "No store is open with delivery available right now.";
+      return translateBy(lang, "stores_home_shelf_empty_order_now");
     case "popular_menu":
-      return ko
-        ? "선택한 인기 기간 안에 완료된 주문이 있는 매장이 0곳입니다."
-        : "No store has completed orders within the selected popularity window.";
+      return translateBy(lang, "stores_home_shelf_empty_popular_menu");
     case "new_store":
-      return ko
-        ? `입점 ${NEW_STORE_WINDOW_DAYS}일 이내 신규 매장이 0곳입니다.`
-        : `No store was listed within the last ${NEW_STORE_WINDOW_DAYS} days.`;
+      return translateBy(lang, "stores_home_shelf_empty_new_store", { days: NEW_STORE_WINDOW_DAYS });
     case "editorial_promo":
-      return ko
-        ? "기획 프로모션에 연결된 매장이 0곳입니다. 「기획 프로모션」에서 매장을 연결하세요."
-        : "No store is linked to an editorial promotion. Link stores under Editorial promotions.";
+      return translateBy(lang, "stores_home_shelf_empty_editorial_promo");
     case "delivery_fee_benefit":
-      return ko
-        ? "배달비 할인(정가 대비 할인된 배달비)을 설정한 매장이 0곳입니다."
-        : "No store has a discounted delivery fee configured.";
+      return translateBy(lang, "stores_home_shelf_empty_delivery_fee_benefit");
     case "high_rating":
-      return ko
-        ? "평점 4.0 이상 · 리뷰 3개 이상인 매장이 0곳입니다."
-        : "No store has rating ≥ 4.0 with at least 3 reviews.";
+      return translateBy(lang, "stores_home_shelf_empty_high_rating");
     case "recommended":
-      return ko
-        ? "추천 매장으로 지정된 매장이 0곳입니다."
-        : "No store is designated as a recommended store.";
+      return translateBy(lang, "stores_home_shelf_empty_recommended");
     case "rest_stores":
-      return ko ? "노출 가능한 매장이 0곳입니다." : "No store is available to show.";
+      return translateBy(lang, "stores_home_shelf_empty_rest_stores");
   }
 }

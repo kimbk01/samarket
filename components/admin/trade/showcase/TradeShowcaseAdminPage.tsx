@@ -67,7 +67,7 @@ const INPUT_CLASS =
  * 사용자 화면: 실제 글이 적을 때 목록 하단 「예시로 둘러보기」에 「샘플 · 거래 불가」 배지로만 노출(검색 제외).
  */
 export function TradeShowcaseAdminPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<{ code: string; httpStatus: number } | null>(null);
@@ -122,14 +122,14 @@ export function TradeShowcaseAdminPage() {
         if (res.ok && data.url) {
           urls.push(data.url);
         } else {
-          await dibayAlert({ title: data.error ?? (ko ? "사진 업로드 실패" : "Upload failed") });
+          await dibayAlert({ title: data.error ?? t("admin_trade_showcase_upload_failed") });
           break;
         }
       }
       setDraft((d) => (d ? { ...d, image_urls: [...d.image_urls, ...urls] } : d));
       setUploading(false);
     },
-    [draft, ko]
+    [draft, t]
   );
 
   const moveImage = (from: number, to: number) => {
@@ -165,7 +165,7 @@ export function TradeShowcaseAdminPage() {
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     setSaving(false);
     if (!res.ok || !data.ok) {
-      await dibayAlert({ title: data.error ?? (ko ? "저장 실패" : "Save failed") });
+      await dibayAlert({ title: data.error ?? t("admin_trade_showcase_save_failed") });
       return;
     }
     setDraft(null);
@@ -176,9 +176,9 @@ export function TradeShowcaseAdminPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("delete"),
       ko,
-      title: ko ? `「${item.title}」 샘플을 삭제할까요?` : `Delete sample “${item.title}”?`,
-      description: ko ? "삭제하면 되돌릴 수 없습니다. 잠시 내리려면 「숨기기」를 쓰세요." : "This cannot be undone. Use “Hide” to take it down temporarily.",
-      confirmLabel: ko ? "삭제" : "Delete",
+      title: t("admin_trade_showcase_delete_confirm_title", { title: item.title }),
+      description: t("admin_trade_showcase_delete_confirm_desc"),
+      confirmLabel: t("admin_trade_showcase_delete_cta"),
       destructive: true,
       retypeValue: item.title,
     });
@@ -190,7 +190,7 @@ export function TradeShowcaseAdminPage() {
       body: JSON.stringify({ reason: confirmed.reason }),
     });
     if (!res.ok) {
-      await dibayAlert({ title: ko ? "삭제 실패" : "Delete failed" });
+      await dibayAlert({ title: t("admin_trade_showcase_delete_failed") });
       return;
     }
     setTick((n) => n + 1);
@@ -203,27 +203,21 @@ export function TradeShowcaseAdminPage() {
       credentials: "include",
       body: JSON.stringify({ ...item, is_active: !item.is_active }),
     });
-    if (!res.ok) await dibayAlert({ title: ko ? "변경 실패" : "Update failed" });
+    if (!res.ok) await dibayAlert({ title: t("admin_trade_showcase_update_failed") });
     setTick((n) => n + 1);
   };
 
   return (
     <div className="flex flex-col gap-4">
       <AdminPageHeader
-        title={ko ? "샘플 상품" : "Sample listings"}
-        description={
-          ko
-            ? "실제 거래 글과 분리된 예시입니다. 실제 글이 적을 때 목록 아래 「예시로 둘러보기」에 「샘플 · 거래 불가」 배지로만 보이며, 검색·찜·채팅·신고 대상이 아닙니다."
-            : "Examples kept apart from real listings. Shown only under “Browse examples” with a “Sample · Not for sale” badge when real listings are few; never in search, favorites, chat or reports."
-        }
+        title={t("admin_trade_showcase_page_title")}
+        description={t("admin_trade_showcase_page_desc")}
       />
 
       {err?.code === "table_missing" ? (
         <AdminCard>
           <p className="text-[14px] text-sam-fg">
-            {ko
-              ? "샘플 상품 테이블이 아직 운영 DB 에 없습니다(마이그레이션 20270703120000 적용 대기)."
-              : "The sample table is not in the production DB yet (migration 20270703120000 pending)."}
+            {t("admin_trade_showcase_table_missing")}
           </p>
         </AdminCard>
       ) : err ? (
@@ -234,21 +228,21 @@ export function TradeShowcaseAdminPage() {
         <>
           <div className="flex justify-end">
             <AdminActionButton variant="primary" onClick={() => setDraft({ ...EMPTY_DRAFT })}>
-              {ko ? "샘플 추가" : "Add sample"}
+              {t("admin_trade_showcase_add_sample")}
             </AdminActionButton>
           </div>
 
           {draft ? (
-            <AdminCard title={draft.id ? (ko ? "샘플 수정" : "Edit sample") : ko ? "샘플 추가" : "Add sample"}>
+            <AdminCard title={draft.id ? t("admin_trade_showcase_edit_sample") : t("admin_trade_showcase_add_sample")}>
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg">
-                  {ko ? "주제" : "Topic"}
+                  {t("admin_trade_showcase_topic")}
                   <select
                     className={INPUT_CLASS}
                     value={draft.trade_category_id}
                     onChange={(e) => setDraft({ ...draft, trade_category_id: e.target.value })}
                   >
-                    <option value="">{ko ? "전체(주제 없음)" : "All (no topic)"}</option>
+                    <option value="">{t("admin_trade_showcase_all_no_topic")}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -257,27 +251,27 @@ export function TradeShowcaseAdminPage() {
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg">
-                  {ko ? "제목 *" : "Title *"}
+                  {t("admin_trade_showcase_field_title")}
                   <input className={INPUT_CLASS} maxLength={80} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
                 </label>
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg">
-                  {ko ? "가격(₱, 비우면 표시 안 함)" : "Price (₱, optional)"}
+                  {t("admin_trade_showcase_field_price")}
                   <input className={INPUT_CLASS} inputMode="decimal" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} />
                 </label>
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg">
-                  {ko ? "가격 보조 문구(예: /월, 시급)" : "Price note (e.g. /month)"}
+                  {t("admin_trade_showcase_field_price_note")}
                   <input className={INPUT_CLASS} maxLength={40} value={draft.price_note} onChange={(e) => setDraft({ ...draft, price_note: e.target.value })} />
                 </label>
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg">
-                  {ko ? "지역 표기(예: Quezon City › Diliman)" : "Region label"}
+                  {t("admin_trade_showcase_field_region")}
                   <input className={INPUT_CLASS} maxLength={60} value={draft.region_label} onChange={(e) => setDraft({ ...draft, region_label: e.target.value })} />
                 </label>
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg">
-                  {ko ? "노출 순서(작을수록 먼저)" : "Order (lower first)"}
+                  {t("admin_trade_showcase_field_order")}
                   <input className={INPUT_CLASS} inputMode="numeric" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: e.target.value })} />
                 </label>
                 <label className="flex flex-col gap-1 text-[13px] font-medium text-sam-fg md:col-span-2">
-                  {ko ? "설명" : "Description"}
+                  {t("admin_trade_showcase_field_desc")}
                   <textarea
                     className="min-h-24 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg outline-none focus:border-sam-primary"
                     maxLength={2000}
@@ -289,7 +283,7 @@ export function TradeShowcaseAdminPage() {
 
               <div className="mt-4 flex flex-col gap-2">
                 <p className="text-[13px] font-medium text-sam-fg">
-                  {ko ? `사진 ${draft.image_urls.length}/${TRADE_SHOWCASE_MAX_IMAGES} · 첫 장이 대표` : `Photos ${draft.image_urls.length}/${TRADE_SHOWCASE_MAX_IMAGES} · first is cover`}
+                  {t("admin_trade_showcase_photos_count_cover", { n: draft.image_urls.length, max: TRADE_SHOWCASE_MAX_IMAGES })}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {draft.image_urls.map((url, i) => (
@@ -298,7 +292,7 @@ export function TradeShowcaseAdminPage() {
                         <SamarketThumbnail src={url} fill roundedClassName="rounded-ui-rect" fallbackSrc="" />
                         {i === 0 ? (
                           <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-primary px-1 text-[12px] font-bold text-sam-on-primary">
-                            {ko ? "대표" : "Cover"}
+                            {t("admin_trade_showcase_cover_badge")}
                           </span>
                         ) : null}
                       </div>
@@ -307,7 +301,7 @@ export function TradeShowcaseAdminPage() {
                           size="sm"
                           variant="ghost"
                           disabled={i === 0}
-                          aria-label={ko ? "앞으로" : "Move earlier"}
+                          aria-label={t("admin_trade_showcase_move_earlier")}
                           onClick={() => moveImage(i, i - 1)}
                         >
                           ◀
@@ -315,7 +309,7 @@ export function TradeShowcaseAdminPage() {
                         <AdminActionButton
                           size="sm"
                           variant="ghost"
-                          aria-label={ko ? "사진 빼기" : "Remove photo"}
+                          aria-label={t("admin_trade_showcase_remove_photo")}
                           onClick={() => setDraft({ ...draft, image_urls: draft.image_urls.filter((_, j) => j !== i) })}
                         >
                           ✕
@@ -324,7 +318,7 @@ export function TradeShowcaseAdminPage() {
                           size="sm"
                           variant="ghost"
                           disabled={i === draft.image_urls.length - 1}
-                          aria-label={ko ? "뒤로" : "Move later"}
+                          aria-label={t("admin_trade_showcase_move_later")}
                           onClick={() => moveImage(i, i + 1)}
                         >
                           ▶
@@ -334,7 +328,7 @@ export function TradeShowcaseAdminPage() {
                   ))}
                   {draft.image_urls.length < TRADE_SHOWCASE_MAX_IMAGES ? (
                     <label className="flex h-24 w-24 cursor-pointer items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[12px] text-sam-muted">
-                      {uploading ? (ko ? "올리는 중…" : "Uploading…") : ko ? "사진 추가" : "Add photo"}
+                      {uploading ? t("admin_trade_showcase_uploading") : t("admin_trade_showcase_add_photo")}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -353,22 +347,22 @@ export function TradeShowcaseAdminPage() {
 
               <label className="mt-3 flex items-center gap-2 text-[14px] text-sam-fg">
                 <input type="checkbox" checked={draft.is_active} onChange={(e) => setDraft({ ...draft, is_active: e.target.checked })} />
-                {ko ? "사용자 화면에 노출" : "Show to users"}
+                {t("admin_trade_showcase_show_to_users")}
               </label>
 
               <div className="mt-4 flex justify-end gap-2">
                 <AdminActionButton variant="secondary" onClick={() => setDraft(null)} disabled={saving}>
-                  {ko ? "취소" : "Cancel"}
+                  {t("admin_trade_showcase_cancel")}
                 </AdminActionButton>
                 <AdminActionButton variant="primary" onClick={() => void save()} disabled={saving || uploading || !draft.title.trim()}>
-                  {saving ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
+                  {saving ? t("admin_trade_showcase_saving") : t("admin_trade_showcase_save")}
                 </AdminActionButton>
               </div>
             </AdminCard>
           ) : null}
 
           {items.length === 0 ? (
-            <AdminEmptyState ko={ko} message={ko ? "등록된 샘플 상품이 없습니다." : "No sample listings yet."} />
+            <AdminEmptyState ko={ko} message={t("admin_trade_showcase_empty")} />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item) => (
@@ -382,26 +376,26 @@ export function TradeShowcaseAdminPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-semibold text-sam-fg">{item.title}</p>
                       <p className="text-[12px] text-sam-muted">
-                        {(item.trade_category_id && categoryName.get(item.trade_category_id)) || (ko ? "전체" : "All")}
+                        {(item.trade_category_id && categoryName.get(item.trade_category_id)) || t("admin_trade_showcase_category_all")}
                         {" · "}
-                        {item.price != null ? formatAdminPhp(item.price) : ko ? "가격 없음" : "No price"}
+                        {item.price != null ? formatAdminPhp(item.price) : t("admin_trade_showcase_no_price")}
                         {" · "}
-                        {ko ? `사진 ${item.image_urls.length}` : `${item.image_urls.length} photos`}
+                        {t("admin_trade_showcase_photos_n", { n: item.image_urls.length })}
                       </p>
                       <p className={`mt-1 text-[12px] font-semibold ${item.is_active ? "text-sam-primary" : "text-sam-muted"}`}>
-                        {item.is_active ? (ko ? "노출 중" : "Visible") : ko ? "숨김" : "Hidden"} · {ko ? `순서 ${item.sort_order}` : `Order ${item.sort_order}`}
+                        {item.is_active ? t("admin_trade_showcase_visible") : t("admin_trade_showcase_hidden")} · {t("admin_trade_showcase_order_n", { n: item.sort_order })}
                       </p>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <AdminActionButton size="sm" variant="secondary" onClick={() => setDraft(toDraft(item))}>
-                      {ko ? "수정" : "Edit"}
+                      {t("admin_trade_showcase_edit")}
                     </AdminActionButton>
                     <AdminActionButton size="sm" variant="neutral" onClick={() => void toggleActive(item)}>
-                      {item.is_active ? (ko ? "숨기기" : "Hide") : ko ? "노출" : "Show"}
+                      {item.is_active ? t("admin_trade_showcase_hide") : t("admin_trade_showcase_show")}
                     </AdminActionButton>
                     <AdminActionButton size="sm" variant="danger" onClick={() => void remove(item)}>
-                      {ko ? "삭제" : "Delete"}
+                      {t("admin_trade_showcase_delete_cta")}
                     </AdminActionButton>
                   </div>
                 </AdminCard>

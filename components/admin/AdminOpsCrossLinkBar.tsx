@@ -3,8 +3,7 @@
 /**
  * ARO-IA-001 — contextual Domain ↔ Common cross-links with returnTo preservation.
  * Not a primary nav leaf; not SSOT migration.
- * Labels use language ternaries (same pattern as Delivery HOME/Ads cross-links)
- * to avoid enlarging MessageKey declaration emit (TS7056 under composite test tsc).
+ * 링크 이름은 링크 표의 labelKo/labelEn, 「이전 화면으로」는 카탈로그 키 (언어 SSOT B4).
  */
 
 import Link from "next/link";
@@ -42,7 +41,7 @@ export function AdminOpsCrossLinkBar({
   noteEn?: string;
   "data-testid"?: string;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language === "ko";
   const pathname = usePathname() || "/admin";
   const searchParams = useSearchParams();
@@ -65,7 +64,7 @@ export function AdminOpsCrossLinkBar({
           data-admin-ops-return-link="1"
           prefetch={false}
         >
-          {ko ? "이전 화면으로" : "Back to previous"}
+          {t("admin_ops_cross_link_back_to_previous")}
         </Link>
       ) : null}
       {links.map((link) => (

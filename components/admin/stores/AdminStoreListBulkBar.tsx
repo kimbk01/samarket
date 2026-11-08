@@ -17,6 +17,7 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import type { AdminStoreBulkAction, AdminStoreBulkResult } from "@/lib/admin-business/admin-store-bulk";
 import { manilaDateInputToIso } from "@/lib/admin-business/admin-store-featured";
 import { adminStoreVisibilityLockConfirmCopy } from "@/lib/admin-business/admin-store-visibility-lock-copy";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const PREVIEW_MAX = 8;
 
@@ -27,13 +28,13 @@ function actionLabel(action: AdminStoreBulkAction, value: unknown, ko: boolean):
     case "set_store_visible":
       return value === true ? adminCta("exposeStart", ko) : adminCta("exposeStop", ko);
     case "set_open":
-      return value === true ? (ko ? "영업 중으로" : "Set open") : ko ? "영업 종료로" : "Set closed";
+      return value === true ? translateBy(ko ? "ko" : "en", "admin_stores_set_open") : translateBy(ko ? "ko" : "en", "admin_stores_set_closed");
     case "set_business_hours":
-      return ko ? "영업시간 복사 적용" : "Copy business hours";
+      return translateBy(ko ? "ko" : "en", "admin_stores_copy_business_hours");
     case "set_delivery_radius":
-      return ko ? "배달 반경 적용" : "Apply delivery radius";
+      return translateBy(ko ? "ko" : "en", "admin_stores_apply_delivery_radius");
     case "set_featured":
-      return value === true ? (ko ? "추천 매장 지정" : "Set featured") : ko ? "추천 매장 해제" : "Unset featured";
+      return value === true ? translateBy(ko ? "ko" : "en", "admin_stores_set_featured") : translateBy(ko ? "ko" : "en", "admin_stores_unset_featured");
   }
 }
 
@@ -79,17 +80,17 @@ export function AdminStoreListBulkBar({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("bulk"),
       ko,
-      title: ko ? `매장 일괄 ${label}` : `Bulk: ${label}`,
+      title: translateBy(ko ? "ko" : "en", "admin_stores_bulk", { label }),
       description: [
-        ko ? `선택한 매장 ${formatAdminNumber(n)}곳에 「${label}」을(를) 실행합니다.` : `Run "${label}" on ${n} stores.`,
-        `${ko ? "대상" : "Targets"}: ${preview}${n > 8 ? (ko ? ` 외 ${formatAdminNumber(n - 8)}곳` : ` +${n - 8}`) : ""}`,
+        translateBy(ko ? "ko" : "en", "admin_stores_bulk_run_desc", { n: formatAdminNumber(n), label }),
+        `${translateBy(ko ? "ko" : "en", "admin_stores_targets")}: ${preview}${n > 8 ? translateBy(ko ? "ko" : "en", "admin_stores_bulk_more_n", { n: formatAdminNumber(n - 8) }) : ""}`,
         // v4 UI-04 — 관리자 숨김 = 오너 재노출 잠금 (O-04)
         action === "set_store_visible" ? adminStoreVisibilityLockConfirmCopy(valueForLabel === true, ko) : null,
       ]
         .filter(Boolean)
         .join("\n"),
       confirmLabel: label,
-      retypeValue: ko ? `${formatAdminNumber(n)}곳 ${label}` : `${n} ${label}`,
+      retypeValue: translateBy(ko ? "ko" : "en", "admin_stores_bulk_retype", { n: formatAdminNumber(n), label }),
     });
     if (!confirmed.ok) return;
     inFlight.current = true;
@@ -116,9 +117,11 @@ export function AdminStoreListBulkBar({
       const s = json.summary ?? { total: list.length, success: 0, failed: 0 };
       setNotice({
         ok: s.failed === 0,
-        text: ko
-          ? `${label}: 성공 ${formatAdminNumber(s.success)} · 실패 ${formatAdminNumber(s.failed)}`
-          : `${label}: ${s.success} done · ${s.failed} failed`,
+        text: translateBy(ko ? "ko" : "en", "admin_stores_bulk_result_notice", {
+          label,
+          success: formatAdminNumber(s.success),
+          failed: formatAdminNumber(s.failed),
+        }),
       });
       onCompleted(list.filter((r) => r.ok).map((r) => r.store_id));
     } catch {
@@ -170,7 +173,7 @@ export function AdminStoreListBulkBar({
   const resultList = results ? (
     <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2" data-admin-store-bulk-results="1">
       <div className="flex items-center justify-between">
-        <p className="text-[12px] font-semibold text-sam-fg">{ko ? "최근 일괄 결과 (매장별)" : "Last bulk result"}</p>
+        <p className="text-[12px] font-semibold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_last_bulk_result")}</p>
         <AdminActionButton variant="quiet" size="sm" onClick={() => setResults(null)}>
           {adminCta("close", ko)}
         </AdminActionButton>
@@ -179,7 +182,7 @@ export function AdminStoreListBulkBar({
         {results.map((r) => (
           <li key={r.store_id} data-admin-store-bulk-result={r.ok ? "ok" : "fail"}>
             {nameOf(r.store_id) || "—"} <AdminTechId id={r.store_id} /> ·{" "}
-            {r.ok ? (ko ? "성공" : "Done") : adminOperatorErrorMessage(r.error ?? "update_failed", ko)}
+            {r.ok ? translateBy(ko ? "ko" : "en", "admin_stores_done") : adminOperatorErrorMessage(r.error ?? "update_failed", ko)}
           </li>
         ))}
       </ul>
@@ -207,7 +210,7 @@ export function AdminStoreListBulkBar({
         data-admin-store-bulk-busy={busy ? "1" : "0"}
       >
         <span className="text-[13px] font-semibold text-sam-fg" data-admin-store-selected-count={selectedIds.length}>
-          {ko ? `선택 ${formatAdminNumber(selectedIds.length)}곳` : `${selectedIds.length} selected`}
+          {translateBy(ko ? "ko" : "en", "admin_stores_selected_count", { n: formatAdminNumber(selectedIds.length) })}
         </span>
         <span className="text-[12px] text-sam-muted">{scopeLabel}</span>
         <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void run("set_store_visible", { enabled: true }, true)}>
@@ -217,10 +220,10 @@ export function AdminStoreListBulkBar({
           {adminCta("exposeStop", ko)}
         </AdminActionButton>
         <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void run("set_open", { is_open: true }, true)}>
-          {ko ? "영업 중으로" : "Set open"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_set_open")}
         </AdminActionButton>
         <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void run("set_open", { is_open: false }, false)}>
-          {ko ? "영업 종료로" : "Set closed"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_set_closed")}
         </AdminActionButton>
         <span className="inline-flex items-center gap-1">
           <input
@@ -230,8 +233,8 @@ export function AdminStoreListBulkBar({
             inputMode="decimal"
             value={radius}
             onChange={(e) => setRadius(e.target.value)}
-            placeholder={ko ? "반경 km" : "Radius km"}
-            aria-label={ko ? "배달 반경 km" : "Delivery radius km"}
+            placeholder={translateBy(ko ? "ko" : "en", "admin_stores_radius_km")}
+            aria-label={translateBy(ko ? "ko" : "en", "admin_stores_delivery_radius_km")}
             className="h-8 w-24 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
           />
           <AdminActionButton
@@ -240,7 +243,7 @@ export function AdminStoreListBulkBar({
             disabled={busy || !radiusValid}
             onClick={() => void run("set_delivery_radius", { delivery_radius_km: radiusNum }, radiusNum)}
           >
-            {ko ? "배달 반경 적용" : "Apply radius"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_apply_radius")}
           </AdminActionButton>
         </span>
         <span className="inline-flex items-center gap-1" data-admin-store-bulk-featured="1">
@@ -248,7 +251,7 @@ export function AdminStoreListBulkBar({
             type="date"
             value={featuredFrom}
             onChange={(e) => setFeaturedFrom(e.target.value)}
-            aria-label={ko ? "추천 시작일" : "Featured from"}
+            aria-label={translateBy(ko ? "ko" : "en", "admin_stores_featured_from")}
             className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
           />
           <span className="text-[12px] text-sam-muted">~</span>
@@ -256,7 +259,7 @@ export function AdminStoreListBulkBar({
             type="date"
             value={featuredTo}
             onChange={(e) => setFeaturedTo(e.target.value)}
-            aria-label={ko ? "추천 종료일" : "Featured to"}
+            aria-label={translateBy(ko ? "ko" : "en", "admin_stores_featured_to")}
             className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
           />
           <AdminActionButton
@@ -275,7 +278,7 @@ export function AdminStoreListBulkBar({
               )
             }
           >
-            {ko ? "추천 매장 지정" : "Set featured"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_set_featured")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
@@ -283,7 +286,7 @@ export function AdminStoreListBulkBar({
             disabled={busy}
             onClick={() => void run("set_featured", { enabled: false }, false)}
           >
-            {ko ? "추천 매장 해제" : "Unset featured"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_unset_featured")}
           </AdminActionButton>
         </span>
         {visibleSelected.length > 0 ? (
@@ -291,10 +294,10 @@ export function AdminStoreListBulkBar({
             <select
               value={hoursSourceId}
               onChange={(e) => setHoursSourceId(e.target.value)}
-              aria-label={ko ? "영업시간 기준 매장" : "Business hours source"}
+              aria-label={translateBy(ko ? "ko" : "en", "admin_stores_business_hours_source")}
               className="h-8 max-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-[13px] text-sam-fg"
             >
-              <option value="">{ko ? "영업시간 기준 매장" : "Hours source"}</option>
+              <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_hours_source")}</option>
               {visibleSelected.map((id) => (
                 <option key={id} value={id}>
                   {nameOf(id) || formatAdminShortId(id)}
@@ -302,15 +305,15 @@ export function AdminStoreListBulkBar({
               ))}
             </select>
             <AdminActionButton variant="secondary" size="sm" disabled={busy || !hoursSourceId} onClick={() => void applyHours()}>
-              {ko ? "영업시간 복사 적용" : "Copy hours"}
+              {translateBy(ko ? "ko" : "en", "admin_stores_copy_hours")}
             </AdminActionButton>
           </span>
         ) : null}
         <AdminActionButton variant="danger" size="sm" disabled={busy} onClick={onOpenDelete} data-admin-store-bulk-delete="1">
-          {ko ? "샘플 삭제" : "Delete samples"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_delete_samples")}
         </AdminActionButton>
         <AdminActionButton variant="quiet" size="sm" disabled={busy} onClick={onClear}>
-          {ko ? "선택 해제" : "Clear selection"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_orders_deselect")}
         </AdminActionButton>
       </div>
       {resultList}

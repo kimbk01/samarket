@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { call, type ImportRule, type ManagedSource, importErrorText } from "./api";
@@ -9,6 +10,7 @@ import { call, type ImportRule, type ManagedSource, importErrorText } from "./ap
 const EMPTY = { scope: "global" as ImportRule["scope"], sourceSite: "", sourceBoard: "", findText: "", replaceText: "", isRegex: false, note: "" };
 
 export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
+  const { t } = useI18n();
   const [rules, setRules] = useState<ImportRule[]>([]);
   const [form, setForm] = useState(EMPTY);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
@@ -70,18 +72,16 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
   return (
     <div className="space-y-4">
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:p-4 space-y-2">
-        <h2 className="text-sm font-semibold">일괄 변경 규칙</h2>
-        <p className="text-xs text-sam-muted">
-          제목·본문의 문구를 일괄 치환합니다 (예: 홍보 문구 제거, 표기 통일). 전체 → 출처 → 게시판 순서로 적용됩니다.
-        </p>
+        <h2 className="text-sm font-semibold">{t("admin_community_import_tab_rules")}</h2>
+        <p className="text-xs text-sam-muted">{t("admin_community_import_rules_desc")}</p>
         <div className="grid gap-2 sm:grid-cols-3">
           <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as ImportRule["scope"] })}>
-            <option value="global">전체 출처</option>
-            <option value="source">특정 출처</option>
-            <option value="board">특정 게시판</option>
+            <option value="global">{t("admin_community_import_rules_scope_global")}</option>
+            <option value="source">{t("admin_community_import_rules_scope_source")}</option>
+            <option value="board">{t("admin_community_import_rules_scope_board")}</option>
           </select>
           <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" disabled={form.scope === "global"} value={form.sourceSite} onChange={(e) => setForm({ ...form, sourceSite: e.target.value, sourceBoard: "" })}>
-            <option value="">출처 선택</option>
+            <option value="">{t("admin_community_import_rules_select_source")}</option>
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.displayName}
@@ -89,29 +89,29 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
             ))}
           </select>
           <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" disabled={form.scope !== "board"} value={form.sourceBoard} onChange={(e) => setForm({ ...form, sourceBoard: e.target.value })}>
-            <option value="">게시판 선택</option>
+            <option value="">{t("admin_community_import_rules_select_board")}</option>
             {boards.map((b) => (
               <option key={b.boardId} value={b.boardId}>
                 {b.displayName}
               </option>
             ))}
           </select>
-          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder="찾을 문구" value={form.findText} onChange={(e) => setForm({ ...form, findText: e.target.value })} />
-          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder="바꿀 문구 (비우면 삭제)" value={form.replaceText} onChange={(e) => setForm({ ...form, replaceText: e.target.value })} />
-          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder="메모" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder={t("admin_community_import_rules_find")} value={form.findText} onChange={(e) => setForm({ ...form, findText: e.target.value })} />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder={t("admin_community_import_rules_replace")} value={form.replaceText} onChange={(e) => setForm({ ...form, replaceText: e.target.value })} />
+          <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-sm" placeholder={t("admin_community_import_rules_note")} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
         </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1 text-xs text-sam-muted">
-            <input type="checkbox" checked={form.isRegex} onChange={(e) => setForm({ ...form, isRegex: e.target.checked })} /> 정규식
+            <input type="checkbox" checked={form.isRegex} onChange={(e) => setForm({ ...form, isRegex: e.target.checked })} /> {t("admin_community_import_rules_regex")}
           </label>
           <AdminActionButton variant="primary" className="ml-auto" disabled={!form.findText} onClick={() => void save()}>
-            규칙 추가
+            {t("admin_community_import_rules_add")}
           </AdminActionButton>
         </div>
         {msg ? <p className={`text-xs break-words ${msg.tone === "err" ? "text-sam-danger" : "text-sam-success"}`}>{msg.text}</p> : null}
       </section>
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface">
-        {rules.length === 0 ? <p className="p-3 text-xs text-sam-muted">등록된 규칙이 없습니다.</p> : null}
+        {rules.length === 0 ? <p className="p-3 text-xs text-sam-muted">{t("admin_community_import_rules_empty")}</p> : null}
         <ul>
           {rules.map((r) => (
             <li key={r.id} className="flex items-center gap-2 px-3 py-2 border-b border-sam-border text-xs">

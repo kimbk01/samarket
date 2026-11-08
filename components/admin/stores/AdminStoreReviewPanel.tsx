@@ -35,6 +35,7 @@ import {
 import { AdminStoreDiscoverySnapshotPanel } from "@/components/admin/stores/AdminStoreDiscoverySnapshotPanel";
 import { isStoreCoreInfoPendingReverification } from "@/lib/stores/store-core-info-reverification";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function embedRelation(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): TaxonomyRelation | null {
   if (v == null) return null;
@@ -198,11 +199,11 @@ export const ADMIN_STORE_ACTION_COPY: Record<string, StoreActionCopy> = {
 /** 처리 성공 문구 — 표에 없는 조치는 일반 문구. */
 export function adminStoreActionSuccessMessage(action: string, ko: boolean, enabled?: boolean): string {
   if (action === "set_store_visible") {
-    return enabled ? (ko ? "노출을 켰습니다." : "Visibility turned on.") : ko ? "노출을 껐습니다." : "Visibility turned off.";
+    return enabled ? translateBy(ko ? "ko" : "en", "admin_stores_visibility_turned_on") : translateBy(ko ? "ko" : "en", "admin_stores_visibility_turned_off");
   }
   const c = ADMIN_STORE_ACTION_COPY[action];
   if (c) return ko ? c.successKo : c.successEn;
-  return ko ? "저장했습니다." : "Saved.";
+  return translateBy(ko ? "ko" : "en", "admin_stores_saved");
 }
 
 /**
@@ -223,7 +224,7 @@ export async function confirmAdminStoreAction(
     description: ko ? c.descKo : c.descEn,
     confirmLabel: ko ? c.ko : c.en,
     destructive: c.destructive,
-    reasonPlaceholder: c.level !== "L1" ? (ko ? "사장님에게 전달될 사유" : "Reason sent to the owner") : undefined,
+    reasonPlaceholder: c.level !== "L1" ? translateBy(ko ? "ko" : "en", "admin_stores_reason_sent_to_owner") : undefined,
   });
   if (!confirmed.ok) return { ok: false };
   return confirmed.reason ? { ok: true, reason: confirmed.reason } : { ok: true };
@@ -395,15 +396,11 @@ export function AdminStoreReviewPanel({
               level: adminActionLevel(next ? "exposeStart" : "exposeStop"),
               ko,
               title: next
-                ? ko
-                  ? "고객 앱에 매장을 노출할까요?"
-                  : "Show this store to customers?"
-                : ko
-                  ? "고객 앱에서 매장을 숨길까요?"
-                  : "Hide this store from customers?",
+                ? t("admin_stores_show_this_store_to_customers")
+                : t("admin_stores_hide_this_store_from_customers"),
               // v4 UI-04 — 관리자 숨김 = 오너 재노출 잠금 (O-04)
               description: adminStoreVisibilityLockConfirmCopy(next, ko),
-              confirmLabel: next ? (ko ? "노출 켜기" : "Turn on") : ko ? "노출 끄기" : "Turn off",
+              confirmLabel: next ? t("admin_stores_turn_on") : t("admin_stores_turn_off"),
               destructive: !next,
             });
             if (!confirmed.ok) return false;
@@ -436,9 +433,9 @@ export function AdminStoreReviewPanel({
 
   return (
     <div>
-      <ReviewBlock title={ko ? "상태" : "Status"}>
+      <ReviewBlock title={t("admin_stores_home_shelves_col_status")}>
         <ReviewRow
-          label={ko ? "심사 상태" : "Review"}
+          label={t("admin_stores_review")}
           value={
             <span className="inline-flex flex-wrap items-center gap-1.5">
               <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
@@ -453,15 +450,15 @@ export function AdminStoreReviewPanel({
         ) : null}
         {sales && store.approval_status === "approved" ? (
           <ReviewRow
-            label={ko ? "판매 상태" : "Sales"}
+            label={t("admin_stores_sales")}
             value={<AdminToneBadge tone={sales.tone}>{sales.label}</AdminToneBadge>}
           />
         ) : null}
-        <ReviewRow label={ko ? "노출 상태" : "Visibility"} value={visibilityValue} />
+        <ReviewRow label={t("admin_stores_visibility_2")} value={visibilityValue} />
         {/* 안전장치 S2 — 노출 메뉴 (승인·노출 전 지정, 미지정이면 업종 기본 메뉴 미리 선택) */}
         {onRunAction && store.approval_status !== "rejected" ? (
           <ReviewRow
-            label={ko ? "노출 메뉴" : "Delivery menus"}
+            label={t("admin_stores_delivery_menus_2")}
             value={<AdminStoreDeliveryMenusRow storeId={store.id} ko={ko} />}
           />
         ) : null}
@@ -471,29 +468,27 @@ export function AdminStoreReviewPanel({
         {detailHref && (store.approval_status === "approved" || store.approval_status === "suspended") ? (
           <div className="py-2">
             <AdminActionLink href={detailHref} variant="secondary">
-              {ko ? "매장 상세" : "Store detail"}
+              {t("admin_stores_store_detail")}
             </AdminActionLink>
           </div>
         ) : null}
       </ReviewBlock>
 
       {coreInfoPending ? (
-        <ReviewBlock title={ko ? "주소·위치 재검증" : "Address re-verification"}>
+        <ReviewBlock title={t("admin_stores_address_re_verification")}>
           <div className="py-2 text-[13px]" data-admin-store-core-info-reverification="1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <AdminToneBadge tone="warning">{ko ? "재검증 필요" : "Needs re-verification"}</AdminToneBadge>
+              <AdminToneBadge tone="warning">{t("admin_stores_needs_re_verification")}</AdminToneBadge>
               {store.core_info_changed_at ? (
                 <span className="text-sam-muted">{formatAdminManilaDateTime(store.core_info_changed_at)}</span>
               ) : null}
             </div>
             <p className="mt-1.5 text-[12px] text-sam-muted">
-              {ko
-                ? "승인 후 사장님이 매장 주소·위치를 바꿨습니다. 변경은 이미 반영되어 영업 중입니다. 아래 신청 정보의 주소와 지도 위치를 확인한 뒤 재검증을 완료하세요."
-                : "The owner changed the store address or location after approval. The change is already live. Check the address and map pin below, then mark it re-verified."}
+              {t("admin_stores_owner_changed_store_address_or_location")}
             </p>
             {store.core_info_changed_fields && store.core_info_changed_fields.length > 0 ? (
               <p className="mt-1 text-[12px] text-sam-muted">
-                {ko ? "변경 항목" : "Changed"}: {store.core_info_changed_fields.join(", ")}
+                {t("admin_stores_changed")}: {store.core_info_changed_fields.join(", ")}
               </p>
             ) : null}
             {onRunAction ? (
@@ -518,38 +513,36 @@ export function AdminStoreReviewPanel({
       ) : null}
 
       {store.approval_status === "approved" ? (
-        <ReviewBlock title={ko ? "영업 개시 체크리스트" : "Go-live checklist"}>
+        <ReviewBlock title={t("admin_stores_go_live_checklist")}>
           <ol className="space-y-1.5 py-2 text-[13px]" data-admin-store-golive-checklist="1">
             <li className="flex items-center gap-2">
               <AdminToneBadge tone="success">✓</AdminToneBadge>
-              <span>{ko ? "1. 입점 승인" : "1. Store approved"}</span>
+              <span>{t("admin_stores_1_store_approved")}</span>
             </li>
             <li className="flex items-center gap-2">
               <AdminToneBadge tone={salesStatus === undefined ? "neutral" : salesApproved ? "success" : "waiting"}>
-                {salesStatus === undefined ? "?" : salesApproved ? "✓" : ko ? "대기" : "To do"}
+                {salesStatus === undefined ? "?" : salesApproved ? "✓" : t("admin_stores_to_do")}
               </AdminToneBadge>
-              <span>{ko ? "2. 판매 승인" : "2. Approve sales"}</span>
+              <span>{t("admin_stores_2_approve_sales")}</span>
             </li>
             <li className="flex items-center gap-2">
               <AdminToneBadge tone={store.is_visible ? "success" : "waiting"}>
-                {store.is_visible ? "✓" : ko ? "대기" : "To do"}
+                {store.is_visible ? "✓" : t("admin_stores_to_do")}
               </AdminToneBadge>
-              <span>{ko ? "3. 노출 켜기" : "3. Turn visibility on"}</span>
+              <span>{t("admin_stores_3_turn_visibility_on")}</span>
             </li>
           </ol>
           <p className="pb-2 text-[12px] text-sam-muted">
-            {ko
-              ? "세 단계가 모두 끝나야 고객 앱에서 매장이 보이고 주문을 받을 수 있습니다."
-              : "All three steps are required before customers can see and order from the store."}
+            {t("admin_stores_all_three_steps_are_required_before")}
           </p>
         </ReviewBlock>
       ) : null}
 
       {onRunAction ? (
-        <ReviewBlock title="운영">
+        <ReviewBlock title={t("admin_stores_review_block_operations")}>
           <div className="py-2">
             <ReviewRow
-              label={ko ? "매장명" : "Store name"}
+              label={t("admin_stores_field_store_name_ph")}
               value={
                 <div className="flex flex-wrap items-center gap-2">
                   <input
@@ -567,9 +560,9 @@ export function AdminStoreReviewPanel({
                       const confirmed = await confirmAdminAction({
                         level: adminActionLevel("save"),
                         ko,
-                        title: ko ? "매장명을 변경할까요?" : "Change the store name?",
+                        title: t("admin_stores_change_store_name"),
                         description: adminStoreName.trim(),
-                        confirmLabel: ko ? "저장" : "Save",
+                        confirmLabel: t("admin_stores_composition_save"),
                       });
                       if (!confirmed.ok) return;
                       await onRunAction("set_store_name", { store_name: adminStoreName.trim() });
@@ -582,7 +575,7 @@ export function AdminStoreReviewPanel({
             />
             {onSetOwnerIdentityEditable ? (
               <ReviewRow
-                label={ko ? "사장님 매장명 수정" : "Owner name edit"}
+                label={t("admin_stores_owner_name_edit")}
                 value={
                   <AdminActionButton
                     variant="secondary"
@@ -595,13 +588,9 @@ export function AdminStoreReviewPanel({
                         level: adminActionLevel("save"),
                         ko,
                         title: next
-                          ? ko
-                            ? "사장님이 매장명을 직접 수정하도록 허용할까요?"
-                            : "Allow the owner to edit the store name?"
-                          : ko
-                            ? "사장님의 매장명 수정을 막을까요?"
-                            : "Block the owner from editing the store name?",
-                        confirmLabel: ko ? "저장" : "Save",
+                          ? t("admin_stores_allow_owner_to_edit_store_name")
+                          : t("admin_stores_block_owner_from_editing_store_name"),
+                        confirmLabel: t("admin_stores_composition_save"),
                       });
                       if (!confirmed.ok) return;
                       onSetOwnerIdentityEditable(next);
@@ -611,12 +600,8 @@ export function AdminStoreReviewPanel({
                     {identityActionBusy
                       ? t("common_processing")
                       : store.owner_can_edit_store_identity
-                        ? ko
-                          ? "허용"
-                          : "Allowed"
-                        : ko
-                          ? "차단"
-                          : "Blocked"}
+                        ? t("admin_stores_allowed")
+                        : t("admin_stores_blocked")}
                   </AdminActionButton>
                 }
               />
@@ -625,9 +610,7 @@ export function AdminStoreReviewPanel({
 
           <div className="border-t border-sam-border-soft/80 py-3">
             <p className="text-[12px] text-sam-muted">
-              {ko
-                ? "입점·운영 결정을 하면 사장님에게 자동으로 알림이 갑니다. 승인·반려·보완·중지는 사유를 입력해야 합니다."
-                : "The owner is notified automatically of store decisions. Approve, reject, changes, and suspend require a reason."}
+              {t("admin_stores_owner_is_notified_automatically_of_store")}
             </p>
             {approvalActions.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2" data-admin-store-approval-actions="1">
@@ -687,14 +670,14 @@ export function AdminStoreReviewPanel({
                     disabled={busy || !noticeTitle.trim() || !noticeBody.trim()}
                     onClick={() => void sendOwnerNotice()}
                   >
-                    {ko ? "알림 보내기" : "Send notice"}
+                    {t("admin_stores_send_notice")}
                   </AdminActionButton>
                 </div>
               </div>
             ) : (
               <div className="mt-2 flex flex-wrap gap-2">
                 <AdminActionButton variant="secondary" disabled={busy} onClick={() => setNoticeOpen(true)}>
-                  {ko ? "사장님에게 알림 보내기" : "Send owner a notice"}
+                  {t("admin_stores_send_owner_notice")}
                 </AdminActionButton>
               </div>
             )}
@@ -718,12 +701,12 @@ export function AdminStoreReviewPanel({
         />
       </ReviewBlock>
 
-      <ReviewBlock title={ko ? "신청 정보" : "Application"}>
-        <ReviewRow label={ko ? "GCash 번호" : "GCash number"} value={gcashNoDisplay} />
-        <ReviewRow label={ko ? "GCash 계정 이름" : "GCash account name"} value={dash(store.website_url)} />
+      <ReviewBlock title={t("admin_stores_application")}>
+        <ReviewRow label={t("admin_stores_gcash_number")} value={gcashNoDisplay} />
+        <ReviewRow label={t("admin_stores_gcash_account_name")} value={dash(store.website_url)} />
         <ReviewRow label={t("admin_stores_field_category_primary")} value={catDb || "—"} />
         <ReviewRow label={t("admin_stores_field_category_secondary")} value={topicDb || "—"} />
-        <ReviewRow label={ko ? "매장 주소" : "Address"} value={<ReviewAddressValue store={store} />} />
+        <ReviewRow label={t("admin_stores_address")} value={<ReviewAddressValue store={store} />} />
         {storeIntro?.trim() ? (
           <ReviewRow
             label={t("admin_stores_section_intro")}

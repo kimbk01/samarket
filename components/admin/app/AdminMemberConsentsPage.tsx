@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type MemberConsentPayload = {
   id: string;
@@ -36,21 +37,21 @@ type EventRow = {
 function ageBasisLabel(basis: MemberConsentPayload["ageGateBasis"], ko: boolean): string {
   switch (basis) {
     case "legacy":
-      return ko ? "기존 정책 인정 (연령 미기록)" : "Existing-policy member (age not recorded)";
+      return translateBy(ko ? "ko" : "en", "admin_app_existing_policy_member_age_not_recorded");
     case "verified":
-      return ko ? "신규 동의 완료 (만 14세 이상)" : "New consent completed (14+)";
+      return translateBy(ko ? "ko" : "en", "admin_app_new_consent_completed_14");
     case "blocked_underage":
-      return ko ? "만 14세 미만 차단" : "Blocked: under 14";
+      return translateBy(ko ? "ko" : "en", "admin_app_blocked_under_14");
     case "missing":
-      return ko ? "연령 확인 필요" : "Age check required";
+      return translateBy(ko ? "ko" : "en", "admin_app_age_check_required");
     default:
-      return ko ? "확인 불가" : "Unknown";
+      return translateBy(ko ? "ko" : "en", "admin_app_unknown");
   }
 }
 
 /** Admin Legal CMS — member consent lookup (Owner mockup admin member screen). */
 export function AdminMemberConsentsPage() {
-  const { language, safeT } = useI18n();
+  const { t, language, safeT } = useI18n();
   const ko = language !== "en";
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -100,7 +101,7 @@ export function AdminMemberConsentsPage() {
           {safeT("admin_legal_member_consents")}
         </h1>
         <Link href="/admin/app/legal" className="sam-text-body text-signature">
-          {ko ? "약관 목록" : "Legal list"}
+          {t("admin_app_legal_list")}
         </Link>
       </div>
 
@@ -115,7 +116,7 @@ export function AdminMemberConsentsPage() {
           />
         </label>
         <AdminActionButton variant="primary" onClick={() => void search()} disabled={loading || !userId.trim()}>
-          {ko ? "조회" : "Search"}
+          {t("admin_app_search")}
         </AdminActionButton>
       </div>
 
@@ -145,9 +146,7 @@ export function AdminMemberConsentsPage() {
               {member.marketingConsentVersion ? ` · ${member.marketingConsentVersion}` : ""}
               {member.marketingConsentSource ? ` · ${member.marketingConsentSource}` : ""}
               {member.marketingConsentSource === "existing_member_default"
-                ? ko
-                  ? " (기존 회원 기본 설정 — 명시 동의 아님 · 광고 발송 안 함)"
-                  : " (existing-member default — not an explicit consent · no promotional sends)"
+                ? ` ${t("admin_app_existing_member_default_not_explicit_consent")}`
                 : ""}
             </li>
           </ul>
@@ -159,12 +158,8 @@ export function AdminMemberConsentsPage() {
           ko={ko}
           message={
             degraded
-              ? ko
-                ? "동의 이력 테이블이 아직 없습니다(마이그레이션 대기)."
-                : "Consent events table is not ready yet."
-              : ko
-                ? "동의 이력이 없습니다."
-                : "No consent events."
+              ? t("admin_app_consent_events_table_is_not_ready")
+              : t("admin_app_no_consent_events")
           }
         />
       ) : null}

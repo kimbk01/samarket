@@ -5,6 +5,7 @@
  * 모든 카드는 같은 조건의 목록으로 이동한다. 값을 확인하지 못한 지표는 「확인 불가」 (0 으로 표시하지 않음).
  * URL: period=today|7d|30d|custom (+from,to)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { useCommunityQueryState, CommunityTimeCell } from "@/components/admin/community/kit/CommunityAdminKit";
@@ -140,6 +141,7 @@ function EmptyBox({ text }: { text: string }) {
 }
 
 export function TradeDashboardPage() {
+  const { t } = useI18n();
   const q = useCommunityQueryState();
   const rawPeriod = q.get("period");
   const period = PERIODS.includes(rawPeriod) ? rawPeriod : "7d";
@@ -178,11 +180,11 @@ export function TradeDashboardPage() {
     <div data-trade-dashboard="1" className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="sam-text-page-title font-semibold text-sam-fg">거래 대시보드</h1>
-          <p className="mt-1 sam-text-body text-sam-muted">처리 대기부터 확인하세요. 기준: 필리핀 시간</p>
+          <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_trade_dash_title")}</h1>
+          <p className="mt-1 sam-text-body text-sam-muted">{t("admin_trade_dash_subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-sam-muted">
-          <span>마지막 갱신 {loadedAt ? `${formatAdminManilaDateTime(loadedAt).slice(11)} PHT` : "—"}</span>
+          <span>{t("admin_trade_dash_last_updated", { time: loadedAt ? `${formatAdminManilaDateTime(loadedAt).slice(11)} PHT` : "—" })}</span>
           <AdminActionButton variant="secondary" disabled={state.status === "loading" || customIncomplete} onClick={reload}>
             {state.status === "loading" ? "새로고침 중…" : "새로고침"}
           </AdminActionButton>
@@ -218,7 +220,7 @@ export function TradeDashboardPage() {
             </div>
           ) : null}
 
-          <Section title="처리 대기" hint="기간과 관계없는 현재 값">
+          <Section title={t("admin_trade_dash_pending")} hint={t("admin_trade_dash_pending_hint")}>
             <div className={GRID}>
               <MetricCard label="처리할 신고" value={n(pending?.openReports)} href="/admin/trade/reports?tab=open" danger />
               <MetricCard
@@ -238,7 +240,7 @@ export function TradeDashboardPage() {
             </div>
           </Section>
 
-          <Section title="현재 상태">
+          <Section title={t("admin_trade_dash_current")}>
             <div className={GRID}>
               {POST_TABS.map((tab) => (
                 <MetricCard
@@ -252,7 +254,7 @@ export function TradeDashboardPage() {
             </div>
           </Section>
 
-          <Section title="기간 통계" hint={rangeText ? `${rangeText} (필리핀 시간)` : undefined}>
+          <Section title={t("admin_trade_dash_period_stats")} hint={rangeText ? t("admin_trade_dash_range_pht", { range: rangeText }) : undefined}>
             <div className={GRID}>
               <MetricCard
                 label="새 거래글"
@@ -314,13 +316,13 @@ export function TradeDashboardPage() {
           </Section>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Section title="카테고리별 거래글 (상위 10)">
+            <Section title={t("admin_trade_dash_by_category")}>
               <TopList
                 rows={data.byCategory ?? null}
                 render={(r) => ({ key: r.id ?? "none", name: r.name, count: r.count })}
               />
             </Section>
-            <Section title="지역별 거래글 (상위 10)" hint={<Link href="/admin/trade/regions" className="underline">지역 현황 전체</Link>}>
+            <Section title={t("admin_trade_dash_by_region")} hint={<Link href="/admin/trade/regions" className="underline">{t("admin_trade_dash_all_regions")}</Link>}>
               <TopList
                 rows={data.byRegion ?? null}
                 render={(r) => ({
@@ -334,10 +336,10 @@ export function TradeDashboardPage() {
           </div>
 
           <Section
-            title="최근 관리자 조치"
+            title={t("admin_trade_dash_recent_actions")}
             hint={
               <span className="flex gap-3">
-                <Link href="/admin/trade/audit" className="underline">운영 기록 전체</Link>
+                <Link href="/admin/trade/audit" className="underline">{t("admin_trade_dash_all_audit")}</Link>
                 <Link href={buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.trade)} className="underline">
                   테스트 거래 데이터 정리
                 </Link>

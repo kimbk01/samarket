@@ -22,7 +22,7 @@ export function PointChargeRequestList({
   requests,
   onCancel,
 }: PointChargeRequestListProps) {
-  const { t, safeT, language } = useI18n();
+  const { t, language } = useI18n();
 
   const handleCancel = (id: string) => {
     onCancel?.(id);
@@ -58,7 +58,7 @@ export function PointChargeRequestList({
             />
           </div>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {method ? safeT(method.key, { fallbackKo: method.ko, fallbackEn: method.en }) : null}
+            {method ? t(method.key) : null}
             {refNo ? (
               <span className="ml-1 tabular-nums text-sam-meta" data-point-charge-ref-no="1">
                 {refNo}

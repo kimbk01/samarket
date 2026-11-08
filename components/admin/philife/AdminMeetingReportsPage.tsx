@@ -104,6 +104,7 @@ function meetingHref(meetingId: string | null): string | null {
 }
 
 function TargetCell({ r, ko }: { r: MeetingReportAdminRow; ko: boolean }) {
+  const { t } = useI18n();
   const type = adminCommunityLabel("report_target", r.target_type, ko).label;
   const mHref = meetingHref(r.meeting_id);
   return (
@@ -117,7 +118,7 @@ function TargetCell({ r, ko }: { r: MeetingReportAdminRow; ko: boolean }) {
           {r.meeting_title?.trim() || "모임 보기"}
         </Link>
       ) : (
-        <span className="text-sam-muted">모임 정보 없음</span>
+        <span className="text-sam-muted">{t("admin_philife_meeting_reports_target_no_meeting")}</span>
       )}
     </span>
   );
@@ -133,7 +134,7 @@ export function AdminMeetingReportsPage({
   pageSize?: number;
 }) {
   const router = useRouter();
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const qs = useCommunityQueryState();
   const lq = useCommunityListQuery({ extras: MEETING_REPORT_EXTRAS, keepOnReset: { status: true } });
@@ -285,7 +286,7 @@ export function AdminMeetingReportsPage({
     <AdminManagementSurfaceRoot wave="w3" proofSurface="meeting-reports">
       <span className="sr-only" data-admin-meeting-reports-owner={ARO_IA_001_OWNERS.meetingReport} />
       <CommunityListShell
-        title="모임 신고"
+        title={t("admin_philife_meeting_reports_title")}
         description="모임·모임 회원·모임 게시물에 대한 신고를 확인하고 인정 또는 기각합니다."
         actions={
           <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => router.refresh()}>
@@ -296,7 +297,7 @@ export function AdminMeetingReportsPage({
           <>
             {!action.allowed && action.reason ? (
               <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-                {ko ? `검토 시작·인정·기각·다시 열기 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+                {t("admin_philife_meeting_reports_list_actions_disabled", { reason: action.reason })}
               </p>
             ) : null}
             <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
@@ -320,7 +321,7 @@ export function AdminMeetingReportsPage({
                 onChange={(v) => lq.setExtra("type", v)}
                 options={[
                   { value: "", label: "전체" },
-                  ...MEETING_REPORT_TARGET_OPTIONS.map((t) => ({ value: t, label: adminCommunityLabel("report_target", t, ko).label })),
+                  ...MEETING_REPORT_TARGET_OPTIONS.map((tg) => ({ value: tg, label: adminCommunityLabel("report_target", tg, ko).label })),
                 ]}
               />
             </CommunityFilterField>
@@ -367,7 +368,7 @@ export function AdminMeetingReportsPage({
 
       {open ? (
         <CommunityDrawer
-          title="모임 신고 처리"
+          title={t("admin_philife_meeting_reports_drawer_title")}
           onClose={() => setOpenId("")}
           footer={
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -380,7 +381,7 @@ export function AdminMeetingReportsPage({
         >
           <div className="space-y-4">
             <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
-            <CommunitySection title="신고 대상">
+            <CommunitySection title={t("admin_philife_meeting_reports_section_target")}>
               <CommunitySummaryCard
                 rows={[
                   {
@@ -410,7 +411,7 @@ export function AdminMeetingReportsPage({
                 ]}
               />
             </CommunitySection>
-            <CommunitySection title="처리 기록">
+            <CommunitySection title={t("admin_philife_meeting_reports_section_history")}>
               <CommunityTimeline
                 items={
                   open.reviewed_at
@@ -427,24 +428,24 @@ export function AdminMeetingReportsPage({
                 }
               />
             </CommunitySection>
-            <CommunitySection title="처리">
+            <CommunitySection title={t("admin_philife_meeting_reports_section_action")}>
               {!canModerate && action.reason ? (
                 <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
-                  {ko ? `처리 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+                  {t("admin_philife_meeting_reports_drawer_actions_disabled", { reason: action.reason })}
                 </p>
               ) : null}
               {canModerate && (open.status === "resolved" || open.status === "rejected") && !isSuperAdmin ? (
-                <p className="text-[13px] text-sam-muted">처리가 끝난 신고입니다. 다시 열기는 최고 관리자만 할 수 있습니다.</p>
+                <p className="text-[13px] text-sam-muted">{t("admin_philife_meeting_reports_closed_reopen_super_only")}</p>
               ) : null}
               {canModerate && (open.status === "pending" || open.status === "reviewing") ? (
-                <p className="text-[13px] text-sam-muted">아래 버튼으로 검토 시작·기각·인정합니다.</p>
+                <p className="text-[13px] text-sam-muted">{t("admin_philife_meeting_reports_action_hint")}</p>
               ) : null}
             </CommunitySection>
             <AdminTechDetails ko={ko}>
-              <div>신고 ID: {open.id}</div>
-              <div>대상: {open.target_type} / {open.target_id}</div>
-              {open.meeting_id ? <div>모임 ID: {open.meeting_id}</div> : null}
-              <div>상태 값: {open.status}</div>
+              <div>{t("admin_philife_meeting_reports_tech_report_id", { id: open.id })}</div>
+              <div>{t("admin_philife_meeting_reports_tech_target", { type: open.target_type, id: open.target_id })}</div>
+              {open.meeting_id ? <div>{t("admin_philife_meeting_reports_tech_meeting_id", { id: open.meeting_id })}</div> : null}
+              <div>{t("admin_philife_meeting_reports_tech_status", { status: open.status })}</div>
             </AdminTechDetails>
           </div>
         </CommunityDrawer>

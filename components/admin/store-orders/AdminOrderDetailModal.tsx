@@ -75,7 +75,7 @@ export function AdminOrderDetailModal({
   onClose: () => void;
   onChanged?: () => void;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language === "ko";
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -93,7 +93,7 @@ export function AdminOrderDetailModal({
       onClose={onClose}
       placement="center"
       zRole="sheet"
-      ariaLabel={ko ? "주문 상세" : "Order detail"}
+      ariaLabel={t("admin_store_orders_order_detail")}
     >
       {orderId ? (
         <div
@@ -101,7 +101,7 @@ export function AdminOrderDetailModal({
           data-admin-order-modal="1"
         >
           <div className="flex items-center justify-between border-b border-sam-border px-4 py-2">
-            <span className="sam-text-body font-semibold text-sam-fg">{ko ? "주문 상세" : "Order detail"}</span>
+            <span className="sam-text-body font-semibold text-sam-fg">{t("admin_store_orders_order_detail")}</span>
             <AdminActionButton variant="quiet" size="sm" onClick={onClose} aria-label={adminCta("close", ko)}>
               ✕
             </AdminActionButton>
@@ -115,7 +115,7 @@ export function AdminOrderDetailModal({
               {adminCta("close", ko)}
             </AdminActionButton>
             <AdminActionLink variant="primary" href={fullPageHref} className="ml-auto" data-cta="open-full">
-              {ko ? "전체 화면으로 보기" : "Open full page"}
+              {t("admin_store_orders_open_full_page")}
             </AdminActionLink>
           </div>
         </div>

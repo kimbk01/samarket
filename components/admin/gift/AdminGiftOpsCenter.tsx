@@ -10,7 +10,6 @@ import {
   parseAdminGiftOpsLedgerSubtab,
   parseAdminGiftOpsProductsSubtab,
   parseAdminGiftOpsTab,
-  type AdminGiftOpsTab,
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { AdminGiftAuditPanel } from "@/components/admin/gift/panels/AdminGiftAuditPanel";
 import { AdminGiftInstancesPanel } from "@/components/admin/gift/panels/AdminGiftInstancesPanel";
@@ -20,16 +19,6 @@ import { AdminGiftRecoveryPanel } from "@/components/admin/gift/panels/AdminGift
 import { AdminGiftRedemptionsPanel } from "@/components/admin/gift/panels/AdminGiftRedemptionsPanel";
 import { AdminGiftRevenuePanel } from "@/components/admin/gift/panels/AdminGiftRevenuePanel";
 import { AdminGiftSummaryPanel } from "@/components/admin/gift/panels/AdminGiftSummaryPanel";
-import { catalogPair } from "@/lib/i18n/catalog-pair";
-
-const TAB_LABEL: Record<AdminGiftOpsTab, { ko: string; en: string }> = {
-  dashboard: catalogPair("admin_rec_auto_escalation_dashboard"),
-  products: catalogPair("admin_products"),
-  instances: catalogPair("admin_issued_certificates"),
-  ledger: catalogPair("admin_usage_settlement"),
-  finance: catalogPair("admin_conversion_recovery"),
-  audit: catalogPair("admin_audit"),
-};
 
 export function AdminGiftOpsCenter() {
   const { safeT } = useI18n();
@@ -105,11 +94,7 @@ export function AdminGiftOpsCenter() {
                     finance: "gift_ops_tab_finance",
                     audit: "gift_ops_tab_audit",
                   } as const
-                )[t],
-                {
-                  fallbackKo: TAB_LABEL[t].ko,
-                  fallbackEn: TAB_LABEL[t].en,
-                }
+                )[t]
               )}
             </Link>
           );

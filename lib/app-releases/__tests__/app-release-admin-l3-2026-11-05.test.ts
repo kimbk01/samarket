@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 
 const h = vi.hoisted(() => ({
   admin: { ok: true as boolean, userId: "admin-1" },
@@ -176,7 +177,8 @@ describe("cron·화면 배선", () => {
     expect(ui).toContain('JSON.stringify({ mode: "collect_only" })');
     expect(ui).toContain("retypeValue: confirmText");
     expect(ui).toContain("reason: confirmed.reason, confirmText");
-    expect(ui).toContain("예상 대상 수: 확인하지 못했습니다");
+    expect(ui).toContain('t("admin_app_estimated_targets_unavailable")');
+    expect(copyAdminB4Ops1Messages.ko.admin_app_estimated_targets_unavailable).toBe("예상 대상 수: 확인하지 못했습니다");
   });
 
   it("관리자 발송 API 는 notify 라우트 하나 — 다른 관리자 라우트가 발송 함수를 부르지 않는다", () => {

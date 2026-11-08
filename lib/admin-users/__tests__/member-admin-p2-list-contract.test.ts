@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -199,11 +200,17 @@ describe("P2 member list — UI contracts", () => {
 
   it("table columns and store href are operator contract", () => {
     const table = src("components/admin/users/AdminUserTable.tsx");
-    expect(table).toContain("@회원 ID");
-    expect(table).toContain("계정 상태");
-    expect(table).toContain("매장");
-    expect(table).toContain("관리 권한");
-    expect(table).toContain("가입 방식");
+    expect(table).toContain('t("admin_users_table_copy_member_id")');
+    expect(copyAdminB4Ops1Messages.ko.admin_users_table_copy_member_id).toContain("@회원 ID");
+    for (const [key, ko] of [
+      ["admin_users_account_state", "계정 상태"],
+      ["admin_users_table_col_store", "매장"],
+      ["admin_users_admin_privilege", "관리 권한"],
+      ["admin_users_sign_up_method", "가입 방식"],
+    ] as const) {
+      expect(table).toContain(`t("${key}")`);
+      expect(copyAdminB4Ops1Messages.ko[key]).toBe(ko);
+    }
     expect(table).toContain("memberListStoreCellLabel");
     expect(table).toContain("MEMBER_LIST_STORE_NONE_KO");
     expect(table).not.toContain("RowMenu");

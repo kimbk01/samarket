@@ -17,7 +17,7 @@ import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-loa
  * Action-required queue is secondary (not a card dashboard).
  */
 export function AdminFinanceHubView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [summary, setSummary] = useState<FinanceSummaryStripModel | null>(null);
   const [rows, setRows] = useState<FinanceUnifiedTx[]>([]);
@@ -134,20 +134,18 @@ export function AdminFinanceHubView() {
       <section className="space-y-2" data-admin-finance-hub-ops-list="1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold text-sam-fg">
-            {ko ? "최근 재무 거래" : "Recent finance transactions"}
+            {t("admin_finance_recent_finance_transactions")}
           </h2>
           <Link
             href={financeTransactionListHref()}
             className="text-sm font-semibold text-signature hover:underline"
             data-finance-cta="open-transactions"
           >
-            {ko ? "전체 거래 열기" : "Open all transactions"}
+            {t("admin_finance_open_all_transactions")}
           </Link>
         </div>
         <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? "매장·유형·금액·원인으로 추적합니다. 행을 누르면 거래 상세로 이동합니다."
-            : "Trace by store, type, amount, and cause. Row opens transaction detail."}
+          {t("admin_finance_trace_by_store_type_amount_and")}
         </p>
         <FinanceTransactionList
           ko={ko}
@@ -160,7 +158,7 @@ export function AdminFinanceHubView() {
 
       <section className="space-y-2 border-t border-sam-border pt-4" data-admin-finance-hub-actions="1">
         <h2 className="text-base font-semibold text-sam-fg">
-          {ko ? "처리 대기" : "Action required"}
+          {t("finance_action_required")}
         </h2>
         <AdminFinanceControlPlane />
       </section>

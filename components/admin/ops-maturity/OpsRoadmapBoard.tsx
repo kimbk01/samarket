@@ -62,7 +62,7 @@ export function OpsRoadmapBoard() {
         showPeriod={false}
         showSearch={false}
       >
-        <AdminFilterSelect ko={ko} label={ko ? "영역" : "Area"} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
+        <AdminFilterSelect ko={ko} label={t("admin_ops_maturity_area")} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
           <option value="">{t("admin_ops_tools_maturity_filter_area")}</option>
           <option value="monitoring">{t("admin_ops_tools_cat_monitoring")}</option>
           <option value="automation">{t("admin_ops_tools_cat_automation")}</option>

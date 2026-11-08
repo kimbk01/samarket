@@ -290,7 +290,8 @@ export function emptyFileRuleCounts(): FileRuleCounts {
   return Object.fromEntries(FILE_RULE_IDS.map((id) => [id, new Map<string, number>()])) as FileRuleCounts;
 }
 
-const ADMIN_PATH = /^(app\/admin\/|components\/admin\/|app\/api\/admin\/|lib\/admin\/)/;
+/** B4: `components/finance/Admin*`(어드민 재무 화면 — AdminFinance*·FinanceAdminNav)도 어드민 */
+const ADMIN_PATH = /^(app\/admin\/|components\/admin\/|app\/api\/admin\/|lib\/admin\/|components\/finance\/(Admin|FinanceAdmin))/;
 
 export function isAdminPath(rel: string): boolean {
   return ADMIN_PATH.test(rel);

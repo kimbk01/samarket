@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { shouldPlayAdminOpsSound } from "@/lib/admin/admin-ops-sound-decision";
@@ -30,8 +31,10 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     const ui = read("components/admin/support/AdminSupportControlPlane.tsx");
     expect(ui).toContain('data-aro-ops-ux-002-b6="1"');
     expect(ui).toContain("action-required");
-    expect(ui).toContain("Member");
-    expect(ui).toContain("Owner");
+    expect(ui).toContain('t("admin_support_member_2")');
+    expect(copyAdminB4Ops1Messages.en.admin_support_member_2).toBe("Member");
+    expect(ui).toContain('t("admin_support_owner")');
+    expect(copyAdminB4Ops1Messages.en.admin_support_owner).toBe("Owner");
     expect(ui).not.toMatch(/쪽지/);
   });
 
@@ -57,7 +60,10 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     expect(svc).toContain("closeAfter");
     expect(svc).toContain('case "ACTIONABLE"');
     const plane = read("components/admin/support/AdminSupportControlPlane.tsx");
-    expect(plane).toContain("Support ≠ Messenger");
+    expect(plane).toContain('t("admin_support_support_messenger_notifications_are_not_support")');
+    expect(copyAdminB4Ops1Messages.en.admin_support_support_messenger_notifications_are_not_support).toContain(
+      "Support ≠ Messenger"
+    );
   });
 
   it("notification RT + deeplinks use existing sound authority", () => {

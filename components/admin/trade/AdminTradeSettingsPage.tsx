@@ -96,8 +96,8 @@ export function AdminTradeSettingsPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "거래 설정 저장" : "Save trade settings",
-      description: ko ? "변경한 거래 설정을 저장합니다." : "Save the changed trade settings.",
+      title: t("admin_trade_settings_save_confirm_title"),
+      description: t("admin_trade_settings_save_confirm_desc"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;

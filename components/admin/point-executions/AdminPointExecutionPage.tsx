@@ -90,8 +90,8 @@ export function AdminPointExecutionPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel(p.isActive ? "disable" : "resume"),
       ko,
-      title: ko ? "회수 정책 상태 변경" : "Change reclaim policy status",
-      description: ko ? `이 회수 정책을 「${nextLabel}」 상태로 바꿉니다.` : `Set this reclaim policy to "${nextLabel}".`,
+      title: t("admin_point_executions_change_reclaim_policy_status"),
+      description: t("admin_point_executions_set_reclaim_policy", { nextLabel }),
       confirmLabel: adminCta("save", ko),
     });
     if (!c.ok) return;
@@ -108,7 +108,7 @@ export function AdminPointExecutionPage() {
         setReclaimResult({ ok: false, code: json.error ?? "update_failed" });
         return;
       }
-      setReclaimResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setReclaimResult({ ok: true, message: t("admin_saved") });
       setRefresh((r) => r + 1);
     } catch {
       setReclaimResult({ ok: false, code: "network_error" });
@@ -133,11 +133,11 @@ export function AdminPointExecutionPage() {
     const userNickname = ((form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? "").trim();
     const userType = ((form.querySelector('[name="userType"]') as HTMLSelectElement)?.value ?? "free") as "free" | "premium";
     if (!userNickname) {
-      setGrantMsg(ko ? "대상 닉네임을 입력하세요." : "Enter the target nickname.");
+      setGrantMsg(t("admin_point_executions_enter_target_nickname"));
       return;
     }
     if (!targetId) {
-      setGrantMsg(ko ? "지급 대상 글/댓글 ID 를 입력하세요." : "Enter the post/comment ID.");
+      setGrantMsg(t("admin_point_executions_enter_post_comment_id"));
       return;
     }
     // 정책 미리보기 (잔액 0 기준 — 무상 한도 적용 전이라 실제 지급액의 상한)
@@ -158,7 +158,7 @@ export function AdminPointExecutionPage() {
     }
     const previewPoint = Math.max(0, Math.trunc(Number(simJson.result?.rewardPoint ?? 0)));
     if (previewPoint < 1) {
-      setGrantMsg(ko ? "현재 정책으로는 지급할 포인트가 없습니다." : "The current policy grants 0 points.");
+      setGrantMsg(t("admin_point_executions_current_policy_grants_0_points"));
       return;
     }
     const pendingGrant: PendingRewardGrant = {
@@ -174,14 +174,12 @@ export function AdminPointExecutionPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("realPointGrant"),
       ko,
-      title: ko ? "포인트 실지급" : "Grant real points",
+      title: t("admin_point_executions_grant_real_points"),
       // V3-07 — 대상 닉네임과 지급액을 그대로 다시 입력해야 실행된다.
       retypeValue: `${userNickname} ${previewPoint}`,
-      description: ko
-        ? `${userNickname} (${userId}) 에게 최대 ${previewPoint}P 가 실제로 지급됩니다.`
-        : `Up to ${previewPoint}P will actually be credited to ${userNickname} (${userId}).`,
+      description: t("admin_point_executions_up_p_will_actually_credited", { userNickname, userId, previewPoint }),
       confirmLabel: adminCta("payout", ko),
-      reasonPlaceholder: ko ? "지급 사유" : "Reason",
+      reasonPlaceholder: t("admin_point_executions_reason"),
     });
     if (!c.ok || !c.reason) return;
     await confirmGrant(pendingGrant, c.reason);
@@ -210,16 +208,10 @@ export function AdminPointExecutionPage() {
       const ex = json.execution;
       setGrantMsg(
         json.outcome === "already_processed"
-          ? ko
-            ? "이미 보상이 처리된 글/댓글입니다 — 이번에는 지급하지 않았습니다."
-            : "Already rewarded for this post/comment — nothing granted this time."
+          ? t("admin_point_executions_already_rewarded_post_comment_nothing_granted")
           : json.outcome === "granted" && ex?.status === "success"
-          ? ko
-            ? `실지급 완료: ${pendingGrant.userNickname} +${ex.finalPoint ?? 0}P`
-            : `Granted: ${pendingGrant.userNickname} +${ex.finalPoint ?? 0}P`
-          : ko
-            ? `지급되지 않음: ${ex?.reason ?? "차단"}`
-            : `Not granted: ${ex?.reason ?? "blocked"}`
+          ? t("admin_point_executions_granted_p", { userNickname: pendingGrant.userNickname, finalPoint: ex.finalPoint ?? 0 })
+          : t("admin_point_executions_not_granted", { reason: ex?.reason ?? t("admin_point_executions_blocked") })
       );
       setRefresh((r) => r + 1);
     } finally {
@@ -233,7 +225,7 @@ export function AdminPointExecutionPage() {
 
       <AdminTabs
         tabs={tabs}
-        ariaLabel={ko ? "포인트 실행 탭" : "Point execution tabs"}
+        ariaLabel={t("admin_point_executions_point_execution_tabs")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         syncUrl={false}
@@ -241,7 +233,7 @@ export function AdminPointExecutionPage() {
 
       {!action.allowed && action.reason ? (
         <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `실행 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_point_executions_actions_disabled", { reason: action.reason })}
         </p>
       ) : null}
 
@@ -300,13 +292,11 @@ export function AdminPointExecutionPage() {
                 </select>
               </div>
               <AdminActionButton type="submit" variant="primary" disabled={grantBusy || !action.allowed}>
-                {ko ? "포인트 지급" : "Grant points"}
+                {t("admin_point_executions_grant_points")}
               </AdminActionButton>
             </form>
             <p className="mt-2 sam-text-helper text-sam-muted">
-              {ko
-                ? "시험용이 아닙니다 — 대상 회원에게 실제 포인트가 지급되고 원장에 기록됩니다."
-                : "Not a dry run — real points are credited to the member and recorded in the ledger."}
+              {t("admin_point_executions_not_dry_run_real_points_credited")}
             </p>
             {grantMsg ? <p className="mt-1 sam-text-body text-sam-fg">{grantMsg}</p> : null}
           </AdminCard>

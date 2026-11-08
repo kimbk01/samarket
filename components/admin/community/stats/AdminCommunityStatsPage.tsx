@@ -4,6 +4,7 @@
  * 운영 통계 (설계 §C-21 · §D-4) — 선택 기간(필리핀 시간) 지표 + 일별 추이 + 카테고리별 활동 + CSV 내려받기.
  * URL: period=today|7d|30d|custom (+from,to) — 기본 최근 7일.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { type ReactNode } from "react";
 import {
@@ -56,6 +57,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 const n = (x: number | null | undefined) => (typeof x === "number" ? formatAdminNumber(x) : "확인 불가");
 
 export function AdminCommunityStatsPage() {
+  const { t } = useI18n();
   const q = useCommunityQueryState();
   const period = q.get("period") || "7d";
   const params = new URLSearchParams({ period });
@@ -79,11 +81,11 @@ export function AdminCommunityStatsPage() {
   return (
     <div className="space-y-4" data-community-stats="1">
       <CommunityListShell
-        title="운영 통계"
+        title={t("admin_community_stats_title")}
         description="선택한 기간의 게시글·댓글·신고·조치·포인트·충전·상위노출 현황입니다. 기준: 필리핀 시간"
         actions={
           <>
-            <span className="text-[13px] text-sam-muted">마지막 갱신 {updated ? `${updated} PHT` : "—"}</span>
+            <span className="text-[13px] text-sam-muted">{t("admin_community_stats_last_updated", { time: updated ? `${updated} PHT` : "—" })}</span>
             <AdminActionButton variant="secondary" onClick={reload} disabled={state.status === "loading"}>
               새로고침
             </AdminActionButton>
@@ -126,7 +128,7 @@ export function AdminCommunityStatsPage() {
           <AdminEmptyState ko message="통계가 없습니다." />
         ) : (
           <div className="space-y-5 p-3">
-            <Group title="게시글">
+            <Group title={t("admin_community_stats_g_posts")}>
               <Tile
                 label="신규 게시글"
                 value={s.posts?.total}
@@ -136,13 +138,13 @@ export function AdminCommunityStatsPage() {
               <Tile label="그중 관리자 숨김" value={s.posts?.hidden_now} />
               <Tile label="그중 삭제됨" value={s.posts?.deleted_now} />
             </Group>
-            <Group title="댓글·작성자">
+            <Group title={t("admin_community_stats_g_comments")}>
               <Tile label="신규 댓글" value={s.comments?.top_level} />
               <Tile label="신규 답글" value={s.comments?.replies} />
               <Tile label="활성 작성자" value={s.authors?.active} sub="외부 수집 계정 제외" />
               <Tile label="신규 작성자" value={s.authors?.new} sub="기간 안에 처음 글·댓글을 쓴 회원" />
             </Group>
-            <Group title="신고·조치">
+            <Group title={t("admin_community_stats_g_reports")}>
               <Tile label="신고 접수" value={s.reports?.received} sub={`모임 신고 ${n(s.reports?.meeting_received)}`} />
               <Tile
                 label="신고 처리"
@@ -151,12 +153,12 @@ export function AdminCommunityStatsPage() {
               />
               <Tile label="관리자 조치" value={s.admin_actions?.total} />
             </Group>
-            <Group title="반응">
+            <Group title={t("admin_community_stats_g_reactions")}>
               <Tile label="게시글 조회" value={s.engagement?.post_views} />
               <Tile label="게시글 좋아요" value={s.engagement?.post_likes} />
               <Tile label="댓글 좋아요" value={s.engagement?.comment_likes} />
             </Group>
-            <Group title="충전·상위노출">
+            <Group title={t("admin_community_stats_g_charges")}>
               <Tile
                 label="충전 승인"
                 value={s.charges?.approved_count}
@@ -168,7 +170,7 @@ export function AdminCommunityStatsPage() {
             </Group>
 
             <section className="space-y-2">
-              <h2 className="text-[14px] font-semibold text-sam-fg">일별 추이</h2>
+              <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_daily")}</h2>
               {(s.daily ?? []).length === 0 ? (
                 <AdminEmptyState ko message="일별 기록이 없습니다." />
               ) : (
@@ -195,7 +197,7 @@ export function AdminCommunityStatsPage() {
 
             <div className="grid gap-4 lg:grid-cols-2">
               <section className="space-y-2">
-                <h2 className="text-[14px] font-semibold text-sam-fg">카테고리별 활동</h2>
+                <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_by_category")}</h2>
                 {(s.topics ?? []).length === 0 ? (
                   <AdminEmptyState ko message="이 기간의 카테고리 활동이 없습니다." />
                 ) : (
@@ -213,7 +215,7 @@ export function AdminCommunityStatsPage() {
                 )}
               </section>
               <section className="space-y-2">
-                <h2 className="text-[14px] font-semibold text-sam-fg">포인트</h2>
+                <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_points")}</h2>
                 {(s.points ?? []).length === 0 ? (
                   <AdminEmptyState ko message="이 기간의 커뮤니티 포인트 내역이 없습니다." />
                 ) : (
@@ -234,7 +236,7 @@ export function AdminCommunityStatsPage() {
 
             {byAction && byAction.size > 0 ? (
               <section className="space-y-2">
-                <h2 className="text-[14px] font-semibold text-sam-fg">조치 유형별</h2>
+                <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_by_action")}</h2>
                 <div className="rounded-ui-rect border border-sam-border">
                   <CommunityTable head={["조치", "건수"]}>
                     {[...byAction.entries()]

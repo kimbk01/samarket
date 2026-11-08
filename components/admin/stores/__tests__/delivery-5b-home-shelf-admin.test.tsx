@@ -6,14 +6,26 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/components/i18n/AppLanguageProvider", () => ({
-  useI18n: () => ({
-    language: "ko",
-    t: (key: string) => key,
-    safeT: (key: string) => key,
-    tt: (text: string) => text,
-  }),
-}));
+/** 언어 SSOT B4: 화면 문구 키(`copy-admin-b4-stores`)는 한국어 값으로, 나머지 키는 키 그대로 그린다(기존 계약 유지). */
+vi.mock("@/components/i18n/AppLanguageProvider", async () => {
+  const { copyAdminB4StoresMessages } = await vi.importActual<typeof import("@/lib/i18n/catalog/copy-admin-b4-stores")>(
+    "@/lib/i18n/catalog/copy-admin-b4-stores"
+  );
+  const ko = copyAdminB4StoresMessages.ko as Record<string, string>;
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    const template = ko[key];
+    if (template === undefined) return key;
+    return Object.entries(vars ?? {}).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)), template);
+  };
+  return {
+    useI18n: () => ({
+      language: "ko",
+      t,
+      safeT: (key: string) => key,
+      tt: (text: string) => text,
+    }),
+  };
+});
 
 import { AdminHomeShelfTabFields, type AdminHomeDraftShelf } from "../AdminHomeShelfTabFields";
 import { resolveHomeShelfProductCatalog } from "@/lib/stores/product/stores-home-shelf-product-resolve";

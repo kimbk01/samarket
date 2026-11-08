@@ -9,6 +9,7 @@
  * C-3 (H-10 · Owner 2026-11-03): 기간 from/to(PHT, 신청 시각) — 목록·탭 건수에 적용하고, 기간 **전체** 합계
  * (`periodSummary` · 서버 계산 · 탭·검색·쪽과 무관)를 `AdminRequestPeriodSummaryLine` 으로 보여 준다.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
@@ -90,6 +91,7 @@ const SCOPE_PATHS: Record<PointChargesScope, { api: string; member: string; supp
 };
 
 export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?: PointChargesScope } = {}) {
+  const { t } = useI18n();
   /** `chargeId`(시트 바로 열기)는 조회 조건 밖 키 */
   const q = useCommunityQueryState();
   const lq = useCommunityListQuery({ statuses: TAB_KEYS, defaults: { status: "pending" }, keepOnReset: { status: true } });
@@ -128,7 +130,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
 
   return (
     <CommunityListShell
-      title="충전 신청"
+      title={t("admin_community_charges_title")}
       description="회원의 포인트 충전 신청을 입금 확인 후 승인하거나 반려합니다."
       banner={
         <div className="space-y-2">
@@ -263,6 +265,7 @@ function ChargeSheet({
   onClose: () => void;
   onDone: (banner: CommunityBannerState) => void;
 }) {
+  const { t } = useI18n();
   const { state, reload } = useCommunityAdminJson<DetailResponse>(`${paths.api}/${encodeURIComponent(id)}`);
   const [busy, setBusy] = useState<PointChargeAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -325,7 +328,7 @@ function ChargeSheet({
   );
 
   return (
-    <AdminFormSheet title="충전 신청 상세" onClose={busy ? () => undefined : onClose} dismissible={!busy} footer={footer}>
+    <AdminFormSheet title={t("admin_community_charges_detail_title")} onClose={busy ? () => undefined : onClose} dismissible={!busy} footer={footer}>
       {state.status === "loading" && !state.data ? (
         <AdminLoadingState ko />
       ) : state.status === "error" ? (
@@ -350,14 +353,14 @@ function ChargeSheet({
             ]}
           />
           <div>
-            <p className="mb-1 text-[13px] font-medium text-sam-fg">입금 증빙</p>
+            <p className="mb-1 text-[13px] font-medium text-sam-fg">{t("admin_community_charges_receipt")}</p>
             {r.receiptImageUrl ? (
               <a href={r.receiptImageUrl} target="_blank" rel="noreferrer" className="block">
                 {/* eslint-disable-next-line @next/next/no-img-element -- 회원이 올린 원본 증빙 (외부 저장소 URL) */}
-                <img src={r.receiptImageUrl} alt="입금 증빙" className="max-h-80 rounded-ui-rect border border-sam-border object-contain" />
+                <img src={r.receiptImageUrl} alt={t("admin_community_charges_receipt")} className="max-h-80 rounded-ui-rect border border-sam-border object-contain" />
               </a>
             ) : (
-              <p className="text-[13px] text-sam-muted">첨부된 증빙이 없습니다.</p>
+              <p className="text-[13px] text-sam-muted">{t("admin_community_charges_no_receipt")}</p>
             )}
           </div>
           <p className="text-[13px]">
@@ -368,7 +371,7 @@ function ChargeSheet({
               이 충전 건 관련 문의 보기
             </Link>
           </p>
-          {!open ? <p className="text-[13px] text-sam-muted">이미 처리된 신청입니다. 정정은 포인트 회수로 처리합니다.</p> : null}
+          {!open ? <p className="text-[13px] text-sam-muted">{t("admin_community_charges_already_processed")}</p> : null}
           <AdminTechDetails ko>
             <div>request: {r.id}</div>
             <div>user: {r.userId}</div>

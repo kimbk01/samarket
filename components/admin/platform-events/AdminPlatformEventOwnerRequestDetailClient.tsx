@@ -10,6 +10,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { ownerRequestStatusLabelKey } from "@/lib/platform-event-owner-requests/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { PlatformEventDetailContent } from "@/components/platform-events/PlatformEventDetailContent";
 import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
 import type { PlatformEventRow } from "@/lib/platform-events/types";
@@ -54,7 +55,7 @@ function previewFromRequest(req: PlatformEventOwnerRequestRow): PlatformEventRow
 }
 
 export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props) {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const [request, setRequest] = useState<PlatformEventOwnerRequestRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -98,28 +99,18 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
         ko,
         title:
           action === "approve"
-            ? ko
-              ? "이벤트 신청을 승인할까요?"
-              : "Approve this event request?"
+            ? t("admin_platform_events_approve_event_request")
             : action === "start_review"
-              ? ko
-                ? "심사를 시작할까요?"
-                : "Start review?"
-              : ko
-                ? "이벤트 신청을 반려할까요?"
-                : "Reject this event request?",
+              ? t("admin_platform_events_start_review")
+              : t("admin_platform_events_reject_event_request"),
         description:
           action === "approve"
-            ? ko
-              ? "승인하면 이벤트 초안이 연결됩니다. 배포·푸시는 별도로 설정합니다."
-              : "Approval links an event draft. Distribution and push are configured separately."
+            ? t("admin_platform_events_approval_links_event_draft_distribution")
             : action === "start_review"
               ? undefined
-              : ko
-                ? "반려 사유는 사장님에게 전달됩니다."
-                : "The reason is sent to the store owner.",
+              : t("admin_platform_events_reason_sent_store_owner"),
         confirmLabel:
-          action === "approve" ? adminCta("approve", ko) : action === "start_review" ? (ko ? "심사 시작" : "Start review") : adminCta("reject", ko),
+          action === "approve" ? adminCta("approve", ko) : action === "start_review" ? (t("admin_platform_events_start_review_2")) : adminCta("reject", ko),
         destructive: action === "reject" || action === "revision_required",
       });
       if (!confirmed.ok) return;
@@ -167,7 +158,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
         setBusy(false);
       }
     },
-    [requestId, safeT, language]
+    [requestId, safeT, language, t]
   );
 
   if (!request) {
@@ -179,7 +170,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
       <div className="space-y-3">
         <h1 className="text-[20px] font-semibold">{request.title}</h1>
         <p className="text-sm text-sam-muted">
-          {safeT(ownerRequestStatusLabelKey(request.requestStatus) as never, { fallbackKo: "알 수 없는 상태", fallbackEn: "Unknown status" })} · store {request.storeId}
+          {safeT((ownerRequestStatusLabelKey(request.requestStatus) ?? "admin_platform_events_unknown_status") as MessageKey)} · store {request.storeId}
         </p>
         {error ? <p className="text-sm text-sam-danger">{adminOperatorErrorMessage(error, language !== "en")}</p> : null}
         {info ? <p className="text-sm text-sam-muted">{info}</p> : null}
@@ -192,7 +183,7 @@ export function AdminPlatformEventOwnerRequestDetailClient({ requestId }: Props)
         </p>
         <div className="flex flex-wrap gap-2">
           <AdminActionButton variant="secondary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("start_review")}>
-            {language !== "en" ? "심사 시작" : "Start review"}
+            {t("admin_platform_events_start_review_2")}
           </AdminActionButton>
           <AdminActionButton variant="primary" disabled={busy || !reviewAction.allowed} title={reviewAction.reason ?? undefined} onClick={() => void act("approve")}>
             {safeT("admin_event_owner_approve")}

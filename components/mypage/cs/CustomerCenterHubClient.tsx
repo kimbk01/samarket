@@ -32,8 +32,6 @@ const BOARD_TABS: {
 
 type HubEntry = {
   href: string;
-  titleKo: string;
-  titleEn: string;
   titleKey: MessageKey;
   icon: ReactNode;
   testId: string;
@@ -94,16 +92,12 @@ export function CustomerCenterHubClient() {
       // D2 (Owner 승인 2026-11-01) — 신고 처리 알림의 목적지 목록
       href: customerCenterChildHref("/mypage/reports"),
       titleKey: "my_reports_title",
-      titleKo: "신고 내역",
-      titleEn: "My reports",
       icon: <Flag className="h-5 w-5" aria-hidden />,
       testId: "cc-hub-row-reports",
     },
     {
       href: customerCenterChildHref("/mypage/support-history"),
       titleKey: "support_history_title",
-      titleKo: "상담 내역",
-      titleEn: "Support history",
       icon: <MessageSquare className="h-5 w-5" aria-hidden />,
       testId: "cc-hub-row-support-history",
       badge: supportUnread,
@@ -111,16 +105,12 @@ export function CustomerCenterHubClient() {
     {
       href: customerCenterChildHref("/mypage/inquiries"),
       titleKey: "support_legacy_archive_title",
-      titleKo: "이전 문의 기록",
-      titleEn: "Previous inquiry archive",
       icon: <History className="h-5 w-5" aria-hidden />,
       testId: "cc-hub-row-archive",
     },
     {
       href: customerCenterChildHref("/mypage/points"),
       titleKey: "mypage_comp_stat_points",
-      titleKo: "포인트",
-      titleEn: "Point",
       icon: <Coins className="h-5 w-5" aria-hidden />,
       testId: "cc-hub-row-points",
       value: points.value,
@@ -129,8 +119,6 @@ export function CustomerCenterHubClient() {
     {
       href: customerCenterChildHref("/mypage/points/charge"),
       titleKey: "points_charge",
-      titleKo: "충전 신청",
-      titleEn: "Top-up request",
       icon: <Wallet className="h-5 w-5" aria-hidden />,
       testId: "cc-hub-row-charge",
     },
@@ -200,10 +188,7 @@ export function CustomerCenterHubClient() {
                   first={index === 0}
                   href={entry.href}
                   testId={entry.testId}
-                  title={safeT(entry.titleKey, {
-                    fallbackKo: entry.titleKo,
-                    fallbackEn: entry.titleEn,
-                  })}
+                  title={safeT(entry.titleKey)}
                   icon={entry.icon}
                   value={entry.value}
                   valueState={entry.valueState}

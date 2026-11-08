@@ -40,7 +40,7 @@ type Props = {
 };
 
 export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "banner" }: Props) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -181,11 +181,9 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       // 다시 올리면 복구되는 노출 중지 성격 — 확인 1회
       level: adminActionLevel("exposeStop"),
       ko,
-      title: ko ? "배너 이미지를 삭제할까요?" : "Remove the banner image?",
-      description: ko
-        ? "삭제하면 이 캠페인은 다시 「제작 필요」 상태가 되고, 새 이미지를 올리기 전까지 고객 화면에 배너가 보이지 않습니다."
-        : "The campaign returns to 'Needs production' and the banner is not shown to customers until a new image is uploaded.",
-      confirmLabel: ko ? "이미지 삭제" : "Remove image",
+      title: t("admin_stores_remove_banner_image"),
+      description: t("admin_stores_campaign_returns_to_needs_production_and"),
+      confirmLabel: t("admin_stores_remove_image"),
       destructive: true,
     });
     if (!confirmed.ok) return;

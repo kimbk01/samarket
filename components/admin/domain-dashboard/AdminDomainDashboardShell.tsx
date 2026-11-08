@@ -13,6 +13,12 @@ import {
   adminOperatorLabel,
   adminRecentTitle,
 } from "@/lib/admin/operator-ux/operator-labels";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 function MetricGrid({
   items,
@@ -101,7 +107,7 @@ function ActionGrid({
             {a.href ? (
               <span className="text-[13px] font-semibold text-sam-primary">{ko ? ctaKo : ctaEn}</span>
             ) : (
-              <span className="text-[13px] text-sam-muted">{ko ? "목록 준비 중" : "List coming soon"}</span>
+              <span className="text-[13px] text-sam-muted">{tx(ko, "admin_domain_dashboard_list_coming_soon")}</span>
             )}
             {a.count == null ? (
               <span className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-0.5 text-[12px] font-bold text-sam-warning">
@@ -180,9 +186,9 @@ export function AdminDomainDashboardShell({
 }: {
   model: AdminDomainDashboardModel;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
-  const unavailableLabel = ko ? "확인 불가" : "UNAVAILABLE";
+  const unavailableLabel = t("admin_dashboard_unavailable");
   const uniqueIssues = dedupeIssuesAgainstActions(model.actionRequired, model.issues);
 
   return (
@@ -206,13 +212,13 @@ export function AdminDomainDashboardShell({
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-warning"
           data-admin-domain-section-errors="1"
         >
-          {ko ? "일부 정보를 불러오지 못했습니다." : "Some sources unavailable"}
+          {t("admin_domain_dashboard_some_sources_unavailable")}
         </div>
       ) : null}
 
       <section className="space-y-2" data-admin-domain-section="action-required">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ko ? "지금 처리할 일" : "Action required"}
+          {t("admin_domain_dashboard_action_required")}
         </h2>
         <ActionGrid
           items={model.actionRequired}
@@ -227,7 +233,7 @@ export function AdminDomainDashboardShell({
 
       <section className="space-y-2" data-admin-domain-section="current-state">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ko ? "현재 운영 상태" : "Current state"}
+          {t("admin_domain_dashboard_current_state")}
         </h2>
         <MetricGrid items={model.currentState} ko={ko} unavailableLabel={unavailableLabel} />
       </section>
@@ -235,7 +241,7 @@ export function AdminDomainDashboardShell({
       {model.domainHealth.length > 0 ? (
         <section className="space-y-2" data-admin-domain-section="domain-health">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "도메인 상태" : "Domain status"}
+            {t("admin_domain_dashboard_domain_status")}
           </h2>
           <MetricGrid items={model.domainHealth} ko={ko} unavailableLabel={unavailableLabel} />
         </section>
@@ -244,7 +250,7 @@ export function AdminDomainDashboardShell({
       {uniqueIssues.length > 0 ? (
         <section className="space-y-2" data-admin-domain-section="issues">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "문제 / 신고" : "Issues / reports"}
+            {t("admin_domain_dashboard_issues_reports")}
           </h2>
           <ActionGrid
             items={uniqueIssues}
@@ -261,13 +267,13 @@ export function AdminDomainDashboardShell({
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-2" data-admin-domain-section="primary-entries">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "빠른 관리" : "Quick management"}
+            {t("admin_domain_dashboard_quick_management")}
           </h2>
           <EntryList items={model.primaryEntries} ko={ko} />
         </section>
         <section className="space-y-2" data-admin-domain-section="context-entries">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "운영 관리 / 설정" : "Ops / settings"}
+            {t("admin_domain_dashboard_ops_settings")}
           </h2>
           <EntryList items={model.contextEntries} ko={ko} />
         </section>
@@ -276,15 +282,15 @@ export function AdminDomainDashboardShell({
       {model.recent.length > 0 ? (
         <section className="space-y-2" data-admin-domain-section="recent">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "최근 활동" : "Recent activity"}
+            {t("admin_domain_dashboard_recent_activity")}
           </h2>
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
             <table className="w-full min-w-[36rem] table-fixed text-left sam-text-body-secondary">
               <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
                 <tr>
-                  <th className="px-3 py-2">{ko ? "항목" : "Item"}</th>
-                  <th className="px-3 py-2">{ko ? "내용" : "Detail"}</th>
-                  <th className="px-3 py-2">{ko ? "시각" : "When"}</th>
+                  <th className="px-3 py-2">{t("admin_domain_dashboard_item")}</th>
+                  <th className="px-3 py-2">{t("admin_domain_dashboard_detail")}</th>
+                  <th className="px-3 py-2">{t("admin_domain_dashboard_when")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sam-border-soft">

@@ -133,15 +133,13 @@ export function launchBannerByInventory(
  */
 export function ownerCategoryPlacementTitle(input: {
   primaryCategoryLabel: string | null | undefined;
-  fallbackKo: string;
-  fallbackEn: string;
   lang: "ko" | "en";
 }): string {
   const label = String(input.primaryCategoryLabel ?? "").trim();
   if (label) {
     return translateBy(input.lang, "stores_label_store_ads", { label });
   }
-  return input.lang === "en" ? input.fallbackEn : input.fallbackKo;
+  return translateBy(input.lang, "stores_category_store_ads");
 }
 
 /** 1st-level browse placement title from store taxonomy. */

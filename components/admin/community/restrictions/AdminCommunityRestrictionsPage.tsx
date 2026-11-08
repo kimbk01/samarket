@@ -101,7 +101,7 @@ function periodText(r: RestrictionRow): string {
 }
 
 export function AdminCommunityRestrictionsPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   /** 탭(`tab`)·강조(`sanctionId`)는 조회 조건 밖 키 — [초기화] 후에도 탭 유지 */
   const qs = useCommunityQueryState();
@@ -197,7 +197,7 @@ export function AdminCommunityRestrictionsPage() {
 
   return (
     <CommunityListShell
-      title="활동 제한 회원"
+      title={t("admin_community_restrict_title")}
       description="커뮤니티 경고·활동 제한을 확인하고 해제하거나 새로 적용합니다. 계정 정지는 회원 관리에서 합니다."
       actions={
         <>
@@ -221,7 +221,7 @@ export function AdminCommunityRestrictionsPage() {
         <>
           {!action.allowed && action.reason ? (
             <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-              {ko ? `활동 제한 추가·제한 해제 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+              {t("admin_community_restrict_actions_disabled", { reason: action.reason })}
             </p>
           ) : null}
           <CommunityBannerView banner={banner} onClose={() => setBanner(null)} />
@@ -238,8 +238,8 @@ export function AdminCommunityRestrictionsPage() {
         <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="회원 닉네임" pending={loading}>
           {userId ? (
             <span className="inline-flex h-10 items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 text-[12px] text-sam-fg">
-              특정 회원만 보기
-              <AdminActionButton variant="quiet" size="sm" aria-label="특정 회원 해제" onClick={() => lq.setExtra("userId", "")} className="h-auto! px-1!">
+              {t("admin_community_restrict_member_only")}
+              <AdminActionButton variant="quiet" size="sm" aria-label={t("admin_community_restrict_member_clear")} onClick={() => lq.setExtra("userId", "")} className="h-auto! px-1!">
                 ×
               </AdminActionButton>
             </span>
@@ -298,12 +298,12 @@ export function AdminCommunityRestrictionsPage() {
                     {r.source_report_kind === "meeting_report" ? "모임 신고 보기" : "신고 보기"}
                   </Link>
                 ) : (
-                  <span className="text-sam-muted">직접 적용</span>
+                  <span className="text-sam-muted">{t("admin_community_restrict_direct")}</span>
                 )}
               </td>
               <td className={COMMUNITY_TD}>
                 {r.kind === "warning" ? (
-                  <AdminToneBadge tone="warning">경고</AdminToneBadge>
+                  <AdminToneBadge tone="warning">{t("admin_community_restrict_warning_badge")}</AdminToneBadge>
                 ) : (
                   <CommunityStatusBadge domain="restriction_state" value={r.status} ko={ko} />
                 )}
@@ -324,8 +324,8 @@ export function AdminCommunityRestrictionsPage() {
                   </AdminActionButton>
                 ) : null}
                 <AdminTechDetails ko={ko}>
-                  <div>제한 ID: {r.id}</div>
-                  <div>회원 ID: {r.user_id}</div>
+                  <div>{t("admin_community_restrict_tech_id", { id: r.id })}</div>
+                  <div>{t("admin_community_restrict_tech_user", { id: r.user_id })}</div>
                 </AdminTechDetails>
               </td>
             </tr>
@@ -335,7 +335,7 @@ export function AdminCommunityRestrictionsPage() {
 
       {revokeRow ? (
         <CommunityActionSheet
-          title="제한 해제"
+          title={t("admin_community_restrict_lift_title")}
           rows={[
             { label: "회원", value: revokeRow.user_nickname?.trim() || revokeRow.user_label },
             { label: "범위", value: adminCommunityLabel("restriction_scope", revokeRow.restriction, ko).label },
@@ -398,6 +398,7 @@ function AddRestrictionSheet({
   onClose: () => void;
   onSettled: (kind: CommunitySheetSettle) => void;
 }) {
+  const { t } = useI18n();
   const [member, setMember] = useState<PickedMember | null>(null);
   const [memberErr, setMemberErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -508,7 +509,7 @@ function AddRestrictionSheet({
       onSettled={onSettled}
     >
       <div className="space-y-2">
-        <span className="text-[12px] font-semibold text-sam-fg">회원</span>
+        <span className="text-[12px] font-semibold text-sam-fg">{t("admin_community_restrict_member_label")}</span>
         {member ? (
           <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
             <CommunityAuthorCell userId={member.id} nickname={member.nickname} handle={member.handle} />
@@ -528,7 +529,7 @@ function AddRestrictionSheet({
                     void runSearch();
                   }
                 }}
-                placeholder="닉네임 또는 DIBAY ID"
+                placeholder={t("admin_community_restrict_member_search")}
                 className={`${select} flex-1`}
               />
               <AdminActionButton variant="secondary" disabled={searching || !search.trim()} onClick={() => void runSearch()}>
@@ -563,7 +564,7 @@ function AddRestrictionSheet({
         {memberErr ? <p className="text-[12px] text-sam-danger">{memberErr}</p> : null}
       </div>
       <fieldset className="space-y-1">
-        <legend className="text-[12px] font-semibold text-sam-fg">종류</legend>
+        <legend className="text-[12px] font-semibold text-sam-fg">{t("admin_community_restrict_kind_label")}</legend>
         <label className="mr-4 inline-flex items-center gap-1.5 text-[13px]">
           <input type="radio" checked={kind === "community_restriction"} onChange={() => setKind("community_restriction")} />
           활동 제한
@@ -578,9 +579,9 @@ function AddRestrictionSheet({
           <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
             범위
             <select value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} className={select}>
-              <option value="post">글쓰기</option>
-              <option value="comment">댓글</option>
-              <option value="all">커뮤니티 전체</option>
+              <option value="post">{t("admin_community_restrict_scope_post")}</option>
+              <option value="comment">{t("admin_community_restrict_scope_comment")}</option>
+              <option value="all">{t("admin_community_restrict_scope_all")}</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
@@ -591,7 +592,7 @@ function AddRestrictionSheet({
                   {d}일
                 </option>
               ))}
-              <option value="perm">영구</option>
+              <option value="perm">{t("admin_community_restrict_permanent")}</option>
             </select>
           </label>
         </div>

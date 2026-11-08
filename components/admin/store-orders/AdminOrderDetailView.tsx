@@ -82,7 +82,8 @@ function Section({
   ko: boolean;
   children: React.ReactNode;
 }) {
-  const t = SECTION_TITLE[id];
+  const { t } = useI18n();
+  const sec = SECTION_TITLE[id];
   return (
     <section className="border-b border-sam-border-soft last:border-b-0" data-order-section={id}>
       <AdminActionButton
@@ -92,10 +93,10 @@ function Section({
         className="!h-auto w-full !justify-between !whitespace-normal !rounded-none px-4 py-3 text-left hover:bg-sam-surface-muted hover:no-underline"
       >
         <span className="sam-text-body font-semibold text-sam-fg">
-          <span className="mr-1.5 text-sam-meta">{t.letter}</span>
-          {ko ? t.ko : t.en}
+          <span className="mr-1.5 text-sam-meta">{sec.letter}</span>
+          {ko ? sec.ko : sec.en}
         </span>
-        <span className="sam-text-xxs text-sam-muted">{open ? (ko ? "접기" : "Hide") : ko ? "펼치기" : "Show"}</span>
+        <span className="sam-text-xxs text-sam-muted">{open ? (t("admin_store_orders_hide")) : t("admin_store_orders_show")}</span>
       </AdminActionButton>
       {open ? <div className="px-4 pb-4">{children}</div> : null}
     </section>
@@ -218,7 +219,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
     return (
       <div className="p-4" data-state="error">
         {error === "order_not_found" ? (
-          <AdminEmptyState ko={ko} message={ko ? "주문을 찾을 수 없습니다." : "Order not found."} />
+          <AdminEmptyState ko={ko} message={t("admin_store_orders_order_not_found")} />
         ) : (
           <AdminErrorState ko={ko} code={error} onRetry={error === "forbidden" ? undefined : () => void load()} />
         )}
@@ -242,36 +243,36 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
   const isRefundFamily = o.orderStatus === "refund_requested" || o.orderStatus === "refunded";
 
   const related: { href: string; label: string; show: boolean }[] = [
-    { href: `/admin/stores/orders/cancellations?q=${q}&order=${o.id}&section=requests`, label: ko ? "취소 요청에서 보기" : "In cancellations", show: isCancelFamily },
-    { href: `/admin/stores/orders/refunds?q=${q}&order=${o.id}&section=payment`, label: ko ? "환불 요청에서 보기" : "In refunds", show: isRefundFamily },
+    { href: `/admin/stores/orders/cancellations?q=${q}&order=${o.id}&section=requests`, label: t("admin_store_orders_cancellations"), show: isCancelFamily },
+    { href: `/admin/stores/orders/refunds?q=${q}&order=${o.id}&section=payment`, label: t("admin_store_orders_refunds"), show: isRefundFamily },
     { href: `/admin/stores/orders/logs?q=${q}`, label: t("admin_menu_delivery_logs"), show: true },
     {
       href: withAdminReturnTo(`/admin/stores/orders/${encodeURIComponent(o.id)}/chat`, currentHref),
-      label: ko ? "주문 채팅" : "Order chat",
+      label: t("admin_store_orders_order_chat"),
       show: o.hasChat,
     },
-    { href: `/admin/store-settlements?order_no=${q}`, label: ko ? "수수료 내역" : "Commission history", show: true },
+    { href: `/admin/store-settlements?order_no=${q}`, label: t("admin_store_orders_commission_history"), show: true },
     {
       href: withAdminReturnTo(`/admin/store-payment-events?order_id=${encodeURIComponent(o.id)}`, currentHref),
-      label: ko ? "결제 수신 기록" : "Payment events",
+      label: t("admin_store_orders_payment_events"),
       show: true,
     },
     {
       href: withAdminReturnTo(`/admin/users/${encodeURIComponent(o.buyerUserId)}`, currentHref),
-      label: ko ? "구매자 회원" : "Buyer member",
+      label: t("admin_store_orders_buyer_member"),
       show: Boolean(o.buyerUserId),
     },
     {
       href: `/admin/stores/orders/by-store/${encodeURIComponent(o.storeId)}`,
-      label: ko ? "매장 주문 목록" : "Store orders",
+      label: t("admin_store_orders_store_orders"),
       show: Boolean(o.storeId),
     },
     {
       href: withAdminReturnTo(`/admin/support?reference_type=STORE_ORDER&reference_id=${encodeURIComponent(o.id)}`, currentHref),
-      label: ko ? "고객 문의" : "Customer inquiries",
+      label: t("admin_store_orders_customer_inquiries"),
       show: true,
     },
-    { href: `/admin/stores/orders/${encodeURIComponent(o.id)}`, label: ko ? "전체 화면으로 열기" : "Open full page", show: !fullPage },
+    { href: `/admin/stores/orders/${encodeURIComponent(o.id)}`, label: t("admin_store_orders_open_full_page_2"), show: !fullPage },
   ];
 
   return (
@@ -281,7 +282,7 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-base font-semibold text-sam-fg">{o.orderNo}</span>
           <AdminActionButton variant="quiet" size="sm" onClick={() => void navigator.clipboard?.writeText(o.orderNo)}>
-            {ko ? "복사" : "Copy"}
+            {t("common_copy")}
           </AdminActionButton>
           <span className="sam-text-helper text-sam-muted">{formatManilaDateTime(o.createdAt)}</span>
         </div>
@@ -291,10 +292,10 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           </span>
           <span className="rounded-full bg-sam-surface-muted px-2.5 py-0.5 sam-text-xxs text-sam-fg">{payLabel}</span>
           {o.adminLocked ? (
-            <span className="rounded-full bg-sam-danger-soft px-2.5 py-0.5 sam-text-xxs font-semibold text-sam-danger">{ko ? "관리자 잠금" : "Locked"}</span>
+            <span className="rounded-full bg-sam-danger-soft px-2.5 py-0.5 sam-text-xxs font-semibold text-sam-danger">{t("admin_store_orders_locked")}</span>
           ) : null}
           {o.needsAdminAttention ? (
-            <span className="rounded-full bg-sam-warning-soft px-2.5 py-0.5 sam-text-xxs font-semibold text-sam-warning">{ko ? "운영 예외" : "Exception"}</span>
+            <span className="rounded-full bg-sam-warning-soft px-2.5 py-0.5 sam-text-xxs font-semibold text-sam-warning">{t("admin_store_orders_exception")}</span>
           ) : null}
           {m.mismatches.map((x) => (
             <span key={x} className="rounded-full bg-sam-danger-soft px-2.5 py-0.5 sam-text-xxs font-semibold text-sam-danger" data-money-mismatch={x}>
@@ -313,45 +314,43 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
         </div>
         {error ? (
           <p role="alert" className="sam-text-xxs text-sam-danger">
-            {ko
-              ? `최신 정보를 다시 불러오지 못했습니다. ${adminOperatorErrorMessage(error, true)}`
-              : `Could not refresh. ${adminOperatorErrorMessage(error, false)}`}
+            {t("admin_store_orders_refresh_failed_detail", { detail: adminOperatorErrorMessage(error, ko) })}
           </p>
         ) : null}
       </div>
 
       <dl className="sam-text-helper">
         <Section id="basic" open={open.has("basic")} onToggle={() => toggle("basic")} ko={ko}>
-          <Row label={ko ? "매장" : "Store"}>
+          <Row label={t("common_store")}>
             <Link href={businessCcBackToStoreHref(o.storeId)} className="underline">
               {o.storeName}
             </Link>
           </Row>
-          <Row label={ko ? "구매자" : "Buyer"}>
+          <Row label={t("admin_store_orders_buyer")}>
             <Link href={memberOrdersByBuyerHref(o.buyerUserId)} className="underline">
               {o.buyerLabel}
             </Link>
           </Row>
-          {o.buyerPhone ? <Row label={ko ? "연락처" : "Phone"}>{o.buyerPhone}</Row> : null}
-          <Row label={ko ? "수령 방식" : "Fulfillment"}>{fulfill}</Row>
-          {o.buyerNote ? <Row label={ko ? "요청사항" : "Note"}>{o.buyerNote}</Row> : null}
+          {o.buyerPhone ? <Row label={t("admin_store_orders_phone")}>{o.buyerPhone}</Row> : null}
+          <Row label={t("admin_store_orders_fulfillment")}>{fulfill}</Row>
+          {o.buyerNote ? <Row label={t("admin_store_orders_note")}>{o.buyerNote}</Row> : null}
         </Section>
 
         <Section id="items" open={open.has("items")} onToggle={() => toggle("items")} ko={ko}>
           {detail.items.length === 0 ? (
             <p className="text-sam-muted" data-items-empty="1">
-              {ko ? "상품 내역 없음 (상품 스냅샷이 기록되지 않은 주문)" : "No item snapshot recorded for this order"}
+              {t("admin_store_orders_no_item_snapshot_recorded_order")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px]">
                 <thead className="text-sam-muted">
                   <tr>
-                    <th className="py-1 text-left font-medium">{ko ? "상품" : "Item"}</th>
-                    <th className="py-1 text-left font-medium">{ko ? "옵션" : "Options"}</th>
-                    <th className="py-1 text-right font-medium">{ko ? "단가 (기본+옵션)" : "Unit (base+opt)"}</th>
-                    <th className="py-1 text-right font-medium">{ko ? "수량" : "Qty"}</th>
-                    <th className="py-1 text-right font-medium">{ko ? "합계" : "Total"}</th>
+                    <th className="py-1 text-left font-medium">{t("admin_store_orders_item")}</th>
+                    <th className="py-1 text-left font-medium">{t("admin_store_orders_options")}</th>
+                    <th className="py-1 text-right font-medium">{t("admin_store_orders_unit_base_opt")}</th>
+                    <th className="py-1 text-right font-medium">{t("admin_store_orders_qty")}</th>
+                    <th className="py-1 text-right font-medium">{t("admin_store_orders_total")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,112 +385,108 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
             </div>
           )}
           <div className="mt-2 border-t border-sam-border-soft pt-2">
-            {m.itemsTotal != null ? <Row label={ko ? "상품 합계" : "Items total"}>{formatMoneyPhp(m.itemsTotal)}</Row> : null}
-            <Row label={ko ? "배달비" : "Delivery fee"}>{formatMoneyPhp(m.deliveryFee)}</Row>
-            <Row label={ko ? "주문금액" : "Order amount"}>
+            {m.itemsTotal != null ? <Row label={t("admin_store_orders_items_total")}>{formatMoneyPhp(m.itemsTotal)}</Row> : null}
+            <Row label={t("admin_store_orders_delivery_fee")}>{formatMoneyPhp(m.deliveryFee)}</Row>
+            <Row label={t("admin_store_orders_order_amount")}>
               <span className="font-semibold">{formatMoneyPhp(m.orderAmount)}</span>
             </Row>
           </div>
         </Section>
 
         <Section id="payment" open={open.has("payment")} onToggle={() => toggle("payment")} ko={ko}>
-          <Row label={ko ? "결제수단" : "Method"}>{methodLabel}</Row>
-          <Row label={ko ? "결제 상태" : "Payment status"}>{payLabel}</Row>
-          <Row label={ko ? "주문금액" : "Order amount"}>{formatMoneyPhp(m.orderAmount)}</Row>
+          <Row label={t("admin_store_orders_method")}>{methodLabel}</Row>
+          <Row label={t("admin_store_orders_payment_status")}>{payLabel}</Row>
+          <Row label={t("admin_store_orders_order_amount")}>{formatMoneyPhp(m.orderAmount)}</Row>
           {m.couponDiscount > 0 ? (
-            <Row label={ko ? "쿠폰 할인" : "Coupon"}>
+            <Row label={t("admin_store_orders_coupon")}>
               −{formatMoneyPhp(m.couponDiscount)}
               <div className="sam-text-xxs text-sam-muted">
-                {ko ? "플랫폼 부담" : "Platform"} {formatMoneyPhp(m.couponPlatformFunded)} · {ko ? "매장 부담" : "Store"}{" "}
+                {t("admin_store_orders_platform")} {formatMoneyPhp(m.couponPlatformFunded)} · {t("admin_store_orders_store")}{" "}
                 {formatMoneyPhp(m.couponStoreFunded)}
                 {m.couponTitle ? ` · ${m.couponTitle}` : ""}
               </div>
             </Row>
           ) : null}
           {m.giftAmount > 0 ? (
-            <Row label={ko ? "상품권" : "Gift certificate"}>
+            <Row label={t("admin_store_orders_gift_certificate")}>
               −{formatMoneyPhp(m.giftAmount)}
               <div className="sam-text-xxs text-sam-muted">
                 {m.giftSource === "ledger" ? t("admin_r4b_gift_source_record") : t("admin_r4b_gift_source_order")}
-                {m.giftReversed ? (ko ? " · 복원됨" : " · reversed") : ""}
+                {m.giftReversed ? (t("admin_store_orders_reversed")) : ""}
               </div>
             </Row>
           ) : null}
-          <Row label={ko ? "고객 결제액" : "Customer paid"}>
+          <Row label={t("admin_store_orders_customer_paid")}>
             <span className="font-semibold">{formatMoneyPhp(m.customerPaid)}</span>
             <div className={`sam-text-xxs ${m.consistent ? "text-sam-success" : "text-sam-danger"}`} data-money-consistent={m.consistent ? "1" : "0"}>
               {m.consistent
-                ? ko
-                  ? "검증: 주문금액 − 할인 − 상품권 = 결제액 일치"
-                  : "Check: amounts reconcile"
-                : ko
-                  ? "검증: 금액 불일치 — 기록된 값을 그대로 표시합니다 (보정하지 않음)"
-                  : "Check: amounts do not reconcile — values shown as recorded"}
+                ? t("admin_store_orders_check_amounts_reconcile")
+                : t("admin_store_orders_check_amounts_do_not_reconcile")}
             </div>
           </Row>
           {o.orderStatus === "refunded" || o.refundedAt ? (
-            <Row label={ko ? "환불" : "Refund"}>
-              {ko ? "전액 환불" : "Full refund"} {formatMoneyPhp(m.customerPaid)}
+            <Row label={t("admin_store_orders_refund")}>
+              {t("admin_store_orders_full_refund")} {formatMoneyPhp(m.customerPaid)}
               {o.refundedAt ? <div className="sam-text-xxs text-sam-muted">{formatManilaDateTime(o.refundedAt)}</div> : null}
             </Row>
           ) : null}
           {o.orderStatus === "cancelled" ? (
-            <Row label={ko ? "취소" : "Cancelled"}>
+            <Row label={t("admin_store_orders_cancelled")}>
               <span className="sam-text-xxs text-sam-muted">
-                {ko ? "고객이 매장에 직접 결제하는 주문 — 플랫폼에는 반환 기록이 없습니다." : "Paid directly to the store — no platform refund record."}
+                {t("admin_store_orders_paid_directly_store_no_platform")}
               </span>
             </Row>
           ) : null}
         </Section>
 
         <Section id="delivery" open={open.has("delivery")} onToggle={() => toggle("delivery")} ko={ko}>
-          <Row label={ko ? "수령 방식" : "Fulfillment"}>{fulfill}</Row>
-          {o.deliveryAddress ? <Row label={ko ? "주소" : "Address"}>{o.deliveryAddress}</Row> : null}
-          {o.deliveryNote ? <Row label={ko ? "배달 요청" : "Delivery note"}>{o.deliveryNote}</Row> : null}
-          {o.acceptedAt ? <Row label={ko ? "접수" : "Accepted"}>{formatManilaDateTime(o.acceptedAt)}</Row> : null}
-          {o.estimatedReadyAt ? <Row label={ko ? "준비 예정" : "Ready by"}>{formatManilaDateTime(o.estimatedReadyAt)}</Row> : null}
+          <Row label={t("admin_store_orders_fulfillment")}>{fulfill}</Row>
+          {o.deliveryAddress ? <Row label={t("admin_store_orders_address")}>{o.deliveryAddress}</Row> : null}
+          {o.deliveryNote ? <Row label={t("admin_store_orders_delivery_note")}>{o.deliveryNote}</Row> : null}
+          {o.acceptedAt ? <Row label={t("admin_store_orders_accepted")}>{formatManilaDateTime(o.acceptedAt)}</Row> : null}
+          {o.estimatedReadyAt ? <Row label={t("admin_store_orders_ready")}>{formatManilaDateTime(o.estimatedReadyAt)}</Row> : null}
           {detail.riderFailureReportedAt ? (
-            <Row label={ko ? "라이더 실패 신고" : "Rider failure report"}>{formatManilaDateTime(detail.riderFailureReportedAt)}</Row>
+            <Row label={t("admin_store_orders_rider_failure_report")}>{formatManilaDateTime(detail.riderFailureReportedAt)}</Row>
           ) : null}
           {detail.checkoutJudgement ? (
             <div className="mt-2 border-t border-sam-border pt-2" data-admin-checkout-judgement>
               <p className="mb-1 sam-text-xxs font-semibold text-sam-fg">
-                {ko ? "주문 당시 판정 (주문 생성 시 저장값)" : "Judgement at order time (stored)"}
+                {t("admin_store_orders_judgement_at_order_time_stored")}
               </p>
               {detail.checkoutJudgement.eligible !== null ? (
-                <Row label={ko ? "배달 가능" : "Deliverable"}>
-                  {detail.checkoutJudgement.eligible ? (ko ? "예" : "Yes") : ko ? "아니오" : "No"}
+                <Row label={t("admin_store_orders_deliverable")}>
+                  {detail.checkoutJudgement.eligible ? (t("admin_store_orders_yes")) : t("admin_store_orders_no")}
                 </Row>
               ) : null}
               {detail.checkoutJudgement.reason ? (
-                <Row label={ko ? "판정 코드" : "Reason code"}>{detail.checkoutJudgement.reason}</Row>
+                <Row label={t("admin_store_orders_reason_code")}>{detail.checkoutJudgement.reason}</Row>
               ) : null}
               {detail.checkoutJudgement.maxKm !== null ? (
-                <Row label={ko ? "배달 반경" : "Max radius"}>{`${detail.checkoutJudgement.maxKm} km`}</Row>
+                <Row label={t("admin_store_orders_max_radius")}>{`${detail.checkoutJudgement.maxKm} km`}</Row>
               ) : null}
               {detail.checkoutJudgement.straightDistanceMeters !== null ? (
-                <Row label={ko ? "직선거리" : "Straight distance"}>
+                <Row label={t("admin_store_orders_straight_distance")}>
                   {`${(detail.checkoutJudgement.straightDistanceMeters / 1000).toFixed(2)} km`}
                 </Row>
               ) : null}
               {detail.checkoutJudgement.storeLatitude !== null && detail.checkoutJudgement.storeLongitude !== null ? (
-                <Row label={ko ? "매장 좌표(당시)" : "Store coords (then)"}>
+                <Row label={t("admin_store_orders_store_coords_then")}>
                   {`${detail.checkoutJudgement.storeLatitude}, ${detail.checkoutJudgement.storeLongitude}`}
                 </Row>
               ) : null}
             </div>
           ) : null}
           <p className="mt-1 sam-text-xxs text-sam-muted">
-            {ko ? "배달 진행 시각은 아래 「처리 이력」의 배달 진행에 있습니다." : "Delivery milestones are in History below."}
+            {t("admin_store_orders_delivery_milestones_history_below")}
           </p>
         </Section>
 
         <Section id="requests" open={open.has("requests")} onToggle={() => toggle("requests")} ko={ko}>
           <p className="mb-2 sam-text-xxs text-sam-muted">
-            {ko ? "취소·환불 요청은 매장이 결정합니다. 관리자는 예외 개입(G)만 합니다." : "The store decides requests; admins only intervene (G)."}
+            {t("admin_store_orders_store_decides_requests_admins_only")}
           </p>
           {detail.cancelRequests.length === 0 ? (
-            <p className="text-sam-muted">{ko ? "취소 요청 기록이 없습니다." : "No cancel request records."}</p>
+            <p className="text-sam-muted">{t("admin_store_orders_no_cancel_request_records")}</p>
           ) : (
             <ul className="space-y-2">
               {detail.cancelRequests.map((r) => {
@@ -500,20 +495,20 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
                   <li key={r.id} className="rounded-ui-rect border border-sam-border-soft p-2" data-cancel-request={r.status}>
                     <div className="flex flex-wrap justify-between gap-2">
                       <span className="font-medium text-sam-fg">
-                        {ko ? "취소 요청" : "Cancel request"} · {ko ? ADMIN_ORDER_REQUESTER_LABEL[r.requester].ko : ADMIN_ORDER_REQUESTER_LABEL[r.requester].en}
+                        {t("admin_store_orders_cancel_request")} · {ko ? ADMIN_ORDER_REQUESTER_LABEL[r.requester].ko : ADMIN_ORDER_REQUESTER_LABEL[r.requester].en}
                       </span>
                       <span className="text-sam-muted">{st ? (ko ? st.ko : st.en) : r.status}</span>
                     </div>
                     <div className="sam-text-xxs text-sam-muted">
-                      {ko ? "요청" : "Requested"} {formatManilaDateTime(r.requestedAt)}
-                      {r.previousStatus ? ` · ${ko ? "요청 직전" : "From"} ${statusLabel(r.previousStatus)}` : ""}
+                      {t("admin_store_orders_requested")} {formatManilaDateTime(r.requestedAt)}
+                      {r.previousStatus ? ` · ${t("admin_store_orders_from")} ${statusLabel(r.previousStatus)}` : ""}
                     </div>
-                    <div className="mt-1 text-sam-fg">{r.reason || (ko ? "사유 없음" : "No reason")}</div>
+                    <div className="mt-1 text-sam-fg">{r.reason || (t("admin_store_orders_no_reason"))}</div>
                     {r.decidedAt ? (
                       <div className="mt-1 sam-text-xxs text-sam-muted">
-                        {ko ? "처리" : "Decided"} {formatManilaDateTime(r.decidedAt)}
+                        {t("admin_store_orders_decided")} {formatManilaDateTime(r.decidedAt)}
                         {r.decidedBy ? ` · ${r.decidedBy}` : ""}
-                        {r.rejectedReason ? ` · ${ko ? "반려 사유" : "Reason"}: ${r.rejectedReason}` : ""}
+                        {r.rejectedReason ? ` · ${t("admin_store_orders_reason_2")}: ${r.rejectedReason}` : ""}
                       </div>
                     ) : null}
                   </li>
@@ -523,19 +518,15 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
           )}
           {o.orderStatus === "refund_requested" || o.orderStatus === "refunded" ? (
             <p className="mt-2 sam-text-xxs text-sam-muted">
-              {ko
-                ? "환불 요청은 별도 기록이 없어 요청자·사유는 아래 처리 이력(감사 로그)에서 확인합니다."
-                : "Refund requests have no separate ledger — see History for requester and reason."}
+              {t("admin_store_orders_refund_requests_have_no_separate")}
             </p>
           ) : null}
         </Section>
 
         <Section id="commission" open={open.has("commission")} onToggle={() => toggle("commission")} ko={ko}>
-          <Row label={ko ? "수수료 부과 기준액" : "Commission base"}>{formatMoneyPhp(m.commissionBase)}</Row>
+          <Row label={t("admin_store_orders_commission_base")}>{formatMoneyPhp(m.commissionBase)}</Row>
           <p className="sam-text-xxs text-sam-muted">
-            {ko
-              ? "기준액 = 고객 결제 + 상품권 + 플랫폼 쿠폰 부담. 부과 수수료와 상태는 아래 처리 이력과 「수수료 내역」에서 확인합니다. 고객은 매장에 직접 결제하므로 주문별 지급은 없습니다."
-              : "Base = paid + gift + platform-funded coupon. Fee and state are under History and Commission history. Customers pay the store directly — there is no per-order payout."}
+            {t("admin_store_orders_base_paid_gift_platform_funded")}
           </p>
         </Section>
 
@@ -621,19 +612,15 @@ function AdminOrderMetaControls({
     const c = await confirmAdminAction({
       level: adminActionLevel(locking ? "hold" : "resume"),
       ko,
-      title: locking ? (ko ? "주문 잠금" : "Lock order") : ko ? "잠금 해제" : "Unlock order",
+      title: locking ? (t("admin_store_orders_lock_order")) : t("admin_store_orders_unlock_order"),
       description: locking
-        ? ko
-          ? "잠그면 매장·구매자의 상태 변경이 막힙니다. 예외 처리 중에만 사용하세요."
-          : "Locking blocks store and buyer status changes."
-        : ko
-          ? "잠금을 풀면 매장·구매자가 다시 상태를 바꿀 수 있습니다."
-          : "Unlocking lets the store and buyer change status again.",
-      confirmLabel: locking ? (ko ? "잠금" : "Lock") : ko ? "해제" : "Unlock",
+        ? t("admin_store_orders_locking_blocks_store_buyer_status")
+        : t("admin_store_orders_unlocking_lets_store_buyer_change"),
+      confirmLabel: locking ? (t("admin_store_orders_lock")) : t("admin_store_orders_unlock"),
       destructive: locking,
     });
     if (!c.ok) return;
-    await patch({ admin_locked: locking }, locking ? (ko ? "잠금했습니다." : "Locked.") : ko ? "잠금을 해제했습니다." : "Unlocked.");
+    await patch({ admin_locked: locking }, locking ? (t("admin_store_orders_locked_2")) : t("admin_store_orders_unlocked"));
   };
 
   const toggleFlag = async () => {
@@ -641,18 +628,14 @@ function AdminOrderMetaControls({
     const c = await confirmAdminAction({
       level: adminActionLevel("hold"),
       ko,
-      title: flagging ? (ko ? "확인 필요 표시" : "Mark for review") : ko ? "확인 필요 표시 해제" : "Clear review mark",
+      title: flagging ? (t("admin_store_orders_mark_review")) : t("admin_store_orders_clear_review_mark"),
       description: flagging
-        ? ko
-          ? "관리자 확인이 필요한 주문으로 표시합니다. 매장·구매자에게는 보이지 않습니다."
-          : "Marks the order as needing admin review. Not visible to the store or buyer."
-        : ko
-          ? "확인 필요 표시를 해제합니다."
-          : "Clears the review mark.",
-      confirmLabel: flagging ? (ko ? "표시" : "Mark") : ko ? "해제" : "Clear",
+        ? t("admin_store_orders_marks_order_as_needing_admin")
+        : t("admin_store_orders_clears_review_mark"),
+      confirmLabel: flagging ? (t("admin_store_orders_mark")) : t("admin_store_orders_clear"),
     });
     if (!c.ok) return;
-    await patch({ admin_flagged: flagging }, ko ? "확인 필요 표시를 변경했습니다." : "Review mark updated.");
+    await patch({ admin_flagged: flagging }, t("admin_store_orders_review_mark_updated"));
   };
 
   /** 처리 필요 주문(운영 예외) 큐에서 내린다 — 서버 PATCH needs_admin_attention=false (CAS·감사). */
@@ -660,16 +643,14 @@ function AdminOrderMetaControls({
     const c = await confirmAdminAction({
       level: adminActionLevel("approve"),
       ko,
-      title: ko ? "운영 예외 해제" : "Resolve order exception",
-      description: ko
-        ? "처리 필요 주문 목록에서 이 주문을 내립니다. 주문 상태는 바뀌지 않으며, 매장·구매자에게는 보이지 않습니다."
-        : "Removes this order from the exceptions queue. Order status does not change; not visible to the store or buyer.",
-      confirmLabel: ko ? "해제" : "Resolve",
+      title: t("admin_store_orders_resolve_order_exception"),
+      description: t("admin_store_orders_removes_order_from_exceptions_queue"),
+      confirmLabel: t("admin_store_orders_resolve"),
     });
     if (!c.ok) return;
     await patch(
       { needs_admin_attention: false, reason: c.reason ?? "" },
-      ko ? "운영 예외를 해제했습니다." : "Exception resolved."
+      t("admin_store_orders_exception_resolved")
     );
   };
 
@@ -678,46 +659,42 @@ function AdminOrderMetaControls({
     const c = await confirmAdminAction({
       level: adminActionLevel("hold"),
       ko,
-      title: urgent ? (ko ? "긴급 표시" : "Mark urgent") : ko ? "긴급 해제" : "Clear urgent",
+      title: urgent ? (t("admin_store_orders_mark_urgent")) : t("admin_store_orders_clear_urgent"),
       description: urgent
-        ? ko
-          ? "이 주문을 긴급 처리 대상으로 표시합니다."
-          : "Marks this order as urgent."
-        : ko
-          ? "긴급 표시를 해제합니다."
-          : "Clears the urgent mark.",
-      confirmLabel: urgent ? (ko ? "표시" : "Mark") : ko ? "해제" : "Clear",
+        ? t("admin_store_orders_marks_order_as_urgent")
+        : t("admin_store_orders_clears_urgent_mark"),
+      confirmLabel: urgent ? (t("admin_store_orders_mark")) : t("admin_store_orders_clear"),
     });
     if (!c.ok) return;
-    await patch({ dispute_status: urgent ? "urgent" : "" }, ko ? "긴급 표시를 변경했습니다." : "Urgent updated.");
+    await patch({ dispute_status: urgent ? "urgent" : "" }, t("admin_store_orders_urgent_updated"));
   };
 
   return (
     <div className="space-y-2" data-admin-order-meta="1">
       <div className="flex flex-wrap gap-2">
         <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void toggleLock()}>
-          {o.adminLocked ? (ko ? "잠금 해제" : "Unlock") : ko ? "주문 잠금" : "Lock order"}
+          {o.adminLocked ? (t("admin_store_orders_unlock_2")) : t("admin_store_orders_lock_order")}
         </AdminActionButton>
         <AdminActionButton variant="secondary" size="sm"
           disabled={busy}
           onClick={() => void toggleFlag()}
         >
-          {o.adminFlagged ? (ko ? "확인 필요 해제" : "Clear review mark") : ko ? "확인 필요 표시" : "Mark for review"}
+          {o.adminFlagged ? (t("admin_store_orders_clear_review_mark_2")) : t("admin_store_orders_mark_review")}
         </AdminActionButton>
         {o.needsAdminAttention ? (
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void clearAttention()}>
-            {ko ? "운영 예외 해제" : "Resolve exception"}
+            {t("admin_store_orders_resolve_exception")}
           </AdminActionButton>
         ) : null}
         <AdminActionButton variant="secondary" size="sm"
           disabled={busy}
           onClick={() => void toggleUrgent()}
         >
-          {o.disputeStatus === "urgent" ? (ko ? "긴급 해제" : "Clear urgent") : ko ? "긴급 표시" : "Mark urgent"}
+          {o.disputeStatus === "urgent" ? (t("admin_store_orders_clear_urgent")) : t("admin_store_orders_mark_urgent")}
         </AdminActionButton>
       </div>
       <label className="block">
-        <span className="sam-text-xxs text-sam-muted">{ko ? "운영 메모 (관리자만 봅니다)" : "Ops note (admins only)"}</span>
+        <span className="sam-text-xxs text-sam-muted">{t("admin_store_orders_ops_note_admins_only")}</span>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -728,9 +705,9 @@ function AdminOrderMetaControls({
       </label>
       <AdminActionButton variant="secondary" size="sm"
         disabled={busy || note === (o.adminNote ?? "")}
-        onClick={() => void patch({ admin_note: note }, ko ? "메모를 저장했습니다." : "Note saved.")}
+        onClick={() => void patch({ admin_note: note }, t("admin_store_orders_note_saved"))}
       >
-        {ko ? "메모 저장" : "Save note"}
+        {t("admin_store_orders_save_note")}
       </AdminActionButton>
       {notice ? (
         <p

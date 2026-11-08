@@ -23,20 +23,12 @@ const DOMAIN_CHOICES: Array<{
   href: string;
   titleKey: MessageKey;
   descKey: MessageKey;
-  fallbackTitleKo: string;
-  fallbackTitleEn: string;
-  fallbackDescKo: string;
-  fallbackDescEn: string;
 }> = [
   {
     domain: "trade",
     href: "/admin/ad-applications?domain=trade",
     titleKey: "admin_ad_applications_trade_title",
     descKey: "admin_ad_applications_trade_desc",
-    fallbackTitleKo: "거래 상위노출 신청",
-    fallbackTitleEn: "Trade promote requests",
-    fallbackDescKo: "point_promotion_orders 중 domain=trade 큐만 심사합니다.",
-    fallbackDescEn: "Review only point_promotion_orders where domain=trade.",
   },
   {
     domain: "community",
@@ -44,20 +36,12 @@ const DOMAIN_CHOICES: Array<{
     href: ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
     titleKey: "admin_ad_applications_community_title",
     descKey: "admin_ad_applications_community_desc",
-    fallbackTitleKo: "커뮤니티 게시글 상위노출",
-    fallbackTitleEn: "Community post promotions",
-    fallbackDescKo: "승인 절차 없이 바로 노출됩니다. 노출 중지·재개·종료는 게시글 상위노출 화면에서 합니다.",
-    fallbackDescEn: "Goes live without approval. Pause, resume or end in Post promotions.",
   },
   {
     domain: "feed",
     href: "/admin/ad-applications?domain=feed",
     titleKey: "admin_ad_applications_feed_title",
     descKey: "admin_ad_applications_feed_desc",
-    fallbackTitleKo: "피드 배너 광고 신청",
-    fallbackTitleEn: "Feed banner ad requests",
-    fallbackDescKo: "feed_ad_requests 큐만 심사합니다. 캠페인 관리는 /admin/feed-ads를 유지합니다.",
-    fallbackDescEn: "Review only feed_ad_requests. Campaign management remains at /admin/feed-ads.",
   },
 ];
 
@@ -127,16 +111,10 @@ export function AdminAdApplicationsPage({
               className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 transition hover:border-sam-primary hover:bg-sam-primary/5"
             >
               <p className="sam-text-body font-semibold text-sam-fg">
-                {safeT(item.titleKey, {
-                  fallbackKo: item.fallbackTitleKo,
-                  fallbackEn: item.fallbackTitleEn,
-                })}
+                {safeT(item.titleKey)}
               </p>
               <p className="mt-1 sam-text-helper text-sam-muted">
-                {safeT(item.descKey, {
-                  fallbackKo: item.fallbackDescKo,
-                  fallbackEn: item.fallbackDescEn,
-                })}
+                {safeT(item.descKey)}
               </p>
             </Link>
           ))}
@@ -160,21 +138,8 @@ export function AdminAdApplicationsPage({
   return (
     <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-promotions">
       <AdminPageHeader
-        title={safeT(choice.titleKey, {
-          fallbackKo: choice.fallbackTitleKo,
-          fallbackEn: choice.fallbackTitleEn,
-        })}
-        description={
-          domain === "community"
-            ? safeT(choice.descKey, {
-                fallbackKo: "커뮤니티 포인트 상위노출은 승인 절차가 없습니다. 노출 관리는 게시글 상위노출 화면에서 합니다.",
-                fallbackEn: "Community Point promotions need no approval. Manage exposure in Post promotions.",
-              })
-            : safeT(choice.descKey, {
-                fallbackKo: choice.fallbackDescKo,
-                fallbackEn: choice.fallbackDescEn,
-              })
-        }
+        title={safeT(choice.titleKey)}
+        description={safeT(choice.descKey)}
         backHref={returnTo ?? (forcedDomain === "community" ? "/admin/community" : undefined)}
       />
       {domain === "community" ? (

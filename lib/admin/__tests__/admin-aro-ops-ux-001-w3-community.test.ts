@@ -75,7 +75,8 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
     expect(posts).not.toContain("admin_community_danger_zone");
     expect(posts).not.toContain("min-w-[1100px]");
     expect(posts).not.toMatch(/<select[\s\S]{0,200}patchCommunityPost/);
-    expect(posts).toMatch(/현재 페이지|current page/);
+    // B4: 「현재 페이지 전체 선택」은 카탈로그 키 admin_community_select_page_all 로 옮김
+    expect(posts).toMatch(/현재 페이지|current page|t\("admin_community_select_page_all"\)/);
     expect(selectionHeaderState(new Set(["a"]), ["a", "b"])).toBe("some");
     expect(COMMUNITY_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
     expect(isBulkActionAllowed(COMMUNITY_POST_ENTITY_ACTION_POLICY, "hard_delete")).toBe(true);

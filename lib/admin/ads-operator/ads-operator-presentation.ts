@@ -7,6 +7,12 @@ import {
   formatAdsPeriodRange,
   formatAdsRemaining,
 } from "@/lib/admin/ads-exposure/canonical-location-period";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdsOperatorExposureState =
   | "not_yet"
@@ -20,20 +26,20 @@ export type AdsOperatorExposureState =
 export function adsOperatorExposureLabel(state: AdsOperatorExposureState, ko: boolean): string {
   switch (state) {
     case "not_yet":
-      return ko ? "아직 노출 안 됨" : "Not exposed yet";
+      return tx(ko, "admin_ads_operator_not_exposed_yet");
     case "scheduled":
-      return ko ? "예약됨" : "Scheduled";
+      return tx(ko, "admin_ads_operator_scheduled");
     case "exposing":
-      return ko ? "노출 중" : "Live now";
+      return tx(ko, "admin_ads_operator_live_now");
     case "paused":
-      return ko ? "일시중지" : "Paused";
+      return tx(ko, "common_paused");
     case "hidden":
       // No product HIDDEN state for Delivery/Feed — do not present as operator verb.
-      return ko ? "노출 불가" : "Not eligible";
+      return tx(ko, "admin_ads_operator_not_eligible");
     case "ineligible":
-      return ko ? "노출 불가" : "Not eligible";
+      return tx(ko, "admin_ads_operator_not_eligible");
     case "ended":
-      return ko ? "종료" : "Ended";
+      return tx(ko, "admin_ads_exposure_ended");
   }
 }
 
@@ -97,10 +103,10 @@ export function isAdsTestFixtureLabel(label: string | null | undefined): boolean
 }
 
 export function adsDisplayTitle(label: string | null | undefined, ko: boolean): string {
-  const raw = String(label ?? "").trim() || (ko ? "(제목 없음)" : "(untitled)");
+  const raw = String(label ?? "").trim() || tx(ko, "admin_ads_operator_untitled");
   if (isAdsTestFixtureLabel(raw)) {
     const cleaned = raw.replace(/^\[QA[^\]]*\]\s*/i, "").trim() || raw;
-    return ko ? `[테스트] ${cleaned}` : `[Test] ${cleaned}`;
+    return tx(ko, "admin_ads_operator_test", { title: String(cleaned) });
   }
   return raw;
 }
@@ -127,7 +133,7 @@ export function adsPlacementBreadcrumb(input: {
     popup: "팝업",
   };
   const d = domainKo[input.domain] ?? input.domain;
-  return input.ko ? `${d} · 노출 위치` : `${input.domain} · placement`;
+  return tx(input.ko, "admin_ads_operator_domain_placement", { domain: input.ko ? d : input.domain });
 }
 
 export type AdsCtaTier = "primary" | "secondary" | "more" | "danger";
@@ -139,18 +145,19 @@ export function adsPaymentStateLabel(
 ): string {
   const s = String(state ?? "").trim().toLowerCase();
   const cur = currency === "POINT" ? (ko ? "Point" : "Point") : currency === "CASH" ? (ko ? "Cash" : "Cash") : "";
-  if (!s || s === "unknown") return ko ? `결제 확인 필요${cur ? ` · ${cur}` : ""}` : `Payment unclear${cur ? ` · ${cur}` : ""}`;
+  const curSuffix = cur ? ` · ${cur}` : "";
+  if (!s || s === "unknown") return tx(ko, "admin_ads_operator_payment_unclear", { cur: curSuffix });
   if (/(paid|captured|complete|settled|success)/.test(s)) {
-    return ko ? `결제 완료${cur ? ` · ${cur}` : ""}` : `Paid${cur ? ` · ${cur}` : ""}`;
+    return tx(ko, "admin_ads_operator_paid", { cur: curSuffix });
   }
   if (/(hold|pending|processing)/.test(s)) {
-    return ko ? `결제 확인 중${cur ? ` · ${cur}` : ""}` : `Payment pending${cur ? ` · ${cur}` : ""}`;
+    return tx(ko, "admin_ads_operator_payment_pending", { cur: curSuffix });
   }
   if (/(unpaid|none|await)/.test(s)) {
-    return ko ? `결제 전${cur ? ` · ${cur}` : ""}` : `Unpaid${cur ? ` · ${cur}` : ""}`;
+    return tx(ko, "admin_ads_operator_unpaid", { cur: curSuffix });
   }
   if (/refund/.test(s)) {
-    return ko ? `환불 관련${cur ? ` · ${cur}` : ""}` : `Refund${cur ? ` · ${cur}` : ""}`;
+    return tx(ko, "admin_ads_operator_refund", { cur: curSuffix });
   }
-  return ko ? `${s}${cur ? ` · ${cur}` : ""}` : `${s}${cur ? ` · ${cur}` : ""}`;
+  return `${s}${curSuffix}`;
 }

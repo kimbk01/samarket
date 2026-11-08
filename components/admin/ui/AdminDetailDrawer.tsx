@@ -22,6 +22,12 @@ import {
 import { createPortal } from "react-dom";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { useOverlayScopeAttrs } from "@/components/ui/dibay-overlay/overlay-scope";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -170,7 +176,7 @@ export function AdminDetailDrawer({
     <div className="fixed inset-0 z-[1200]" data-admin="" data-admin-detail-drawer="1" role="presentation" {...scopeAttrs}>
       <button
         type="button"
-        aria-label={ko ? "닫기" : "Close"}
+        aria-label={tx(ko, "common_close")}
         tabIndex={-1}
         className="absolute inset-0 h-full w-full cursor-default bg-black/30"
         onClick={requestClose}
@@ -199,7 +205,7 @@ export function AdminDetailDrawer({
             type="button"
             onClick={requestClose}
             disabled={pending}
-            aria-label={ko ? "닫기" : "Close"}
+            aria-label={tx(ko, "common_close")}
             data-admin-detail-drawer-close="1"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-[20px] text-[var(--admin-console-muted)] hover:bg-[var(--admin-console-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--admin-console-accent)] disabled:opacity-40"
           >

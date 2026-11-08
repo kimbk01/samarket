@@ -21,6 +21,12 @@ import {
   mapRawToAdsOpsStatus,
   type AdsOpsStatus,
 } from "@/lib/admin/ads-exposure/ops-status";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdsShellStatusTab =
   | "all"
@@ -104,25 +110,25 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
   const d = String(domain ?? "").toLowerCase();
   const p = String(product ?? "").toLowerCase();
   if (d === "community_promote" || (d.includes("community") && p.includes("promote"))) {
-    return ko ? "[커뮤니티] 게시물 상위노출" : "[Community] Post top exposure";
+    return tx(ko, "admin_ads_exposure_community_post_top_exposure");
   }
   if (d === "trade_promote" || (d.includes("trade") && (p.includes("promote") || p.includes("boost")))) {
-    return ko ? "[거래] 게시물 상위노출" : "[Trade] Post top exposure";
+    return tx(ko, "admin_ads_exposure_trade_post_top_exposure");
   }
   if (d === "popup" || p.includes("popup")) {
-    return ko ? "[전체] 팝업" : "[Platform] Popup";
+    return tx(ko, "admin_ads_exposure_platform_popup");
   }
   if (d === "feed" || (p.includes("feed") && p.includes("banner"))) {
     if (p.includes("community") || d.includes("community")) {
-      return ko ? "[커뮤니티] 배너" : "[Community] Banner";
+      return tx(ko, "admin_ads_exposure_community_banner");
     }
     if (p.includes("trade") || d.includes("trade")) {
-      return ko ? "[거래] 배너" : "[Trade] Banner";
+      return tx(ko, "admin_ads_exposure_trade_banner");
     }
-    return ko ? "[커뮤니티/거래] 배너" : "[Feed] Banner";
+    return tx(ko, "admin_ads_exposure_feed_banner");
   }
   if (p.includes("sponsored") || p.includes("store_promote")) {
-    return ko ? "[배달] 매장 상위홍보" : "[Delivery] Store promotion";
+    return tx(ko, "admin_ads_exposure_delivery_store_promotion");
   }
   if (d === "delivery" || p.includes("banner")) {
     return productKindLabel(product || "banner", ko);
@@ -207,15 +213,15 @@ function boostRuntimeLabelFromTab(
   statusTab: Exclude<AdsShellStatusTab, "all">,
   ko: boolean
 ): string | null {
-  if (statusTab === "live") return ko ? "현재 노출" : "Live now";
-  if (statusTab === "waiting") return ko ? "노출 대기" : "Waiting";
-  if (statusTab === "scheduled") return ko ? "예약" : "Scheduled";
-  if (statusTab === "paused") return ko ? "제재 중" : "Sanctioned";
+  if (statusTab === "live") return tx(ko, "admin_ads_exposure_live_now");
+  if (statusTab === "waiting") return tx(ko, "admin_ads_exposure_waiting");
+  if (statusTab === "scheduled") return tx(ko, "admin_ads_exposure_scheduled");
+  if (statusTab === "paused") return tx(ko, "admin_ads_exposure_sanctioned");
   // Legacy pending_review / draft-shaped boosts: not exposing (no approval wait).
   if (statusTab === "pending" || statusTab === "incomplete") {
-    return ko ? "비노출" : "Not exposing";
+    return tx(ko, "admin_ads_exposure_not_exposing");
   }
-  if (statusTab === "ended" || statusTab === "rejected") return ko ? "종료" : "Ended";
+  if (statusTab === "ended" || statusTab === "rejected") return tx(ko, "admin_ads_exposure_ended");
   return null;
 }
 
@@ -298,13 +304,13 @@ export function toAdsShellListRow(
   let runtimeLabel: string;
   if (terminal) {
     runtimeLabel = boostDomain
-      ? boostRuntimeLabelFromTab(statusTab, ko) || (ko ? "종료" : "Ended")
-      : runtimeLabelFromTab(statusTab, ko) || (ko ? "종료" : "Ended");
+      ? boostRuntimeLabelFromTab(statusTab, ko) || tx(ko, "admin_ads_exposure_ended")
+      : runtimeLabelFromTab(statusTab, ko) || tx(ko, "admin_ads_exposure_ended");
   } else if (isApplication) {
     runtimeLabel = formatPreApprovalRuntimeStatus(ko);
   } else if (boostDomain) {
     runtimeLabel =
-      boostRuntimeLabelFromTab(statusTab, ko) || (ko ? "비노출" : "Not exposing");
+      boostRuntimeLabelFromTab(statusTab, ko) || tx(ko, "admin_ads_exposure_not_exposing");
   } else if (runtimeStatus) {
     runtimeLabel = popupRuntimeDisplayLabel(runtimeStatus, ko);
   } else {
@@ -319,7 +325,7 @@ export function toAdsShellListRow(
     isoStart || isoEnd ? { startIso: isoStart, endIso: isoEnd } : splitPeriodHint(item.periodLabel);
   const periodFmt = formatAdsPeriodRange(startIso, endIso, ko);
   const remainingFmt = terminal
-    ? { label: ko ? "종료됨" : "Ended", kind: "ended" as const }
+    ? { label: tx(ko, "admin_ads_exposure_ended_state"), kind: "ended" as const }
     : formatAdsRemaining(startIso, endIso, Date.now(), ko);
   const periodLabel = periodFmt.valid
     ? periodFmt.label
@@ -403,12 +409,12 @@ function splitPeriodHint(periodLabel: string | null | undefined): {
 }
 
 function runtimeLabelFromTab(statusTab: Exclude<AdsShellStatusTab, "all">, ko: boolean): string | null {
-  if (statusTab === "live") return ko ? "현재 노출" : "Live now";
-  if (statusTab === "waiting") return ko ? "노출 대기" : "Waiting";
-  if (statusTab === "scheduled") return ko ? "예약" : "Scheduled";
-  if (statusTab === "paused") return ko ? "일시중지" : "Paused";
-  if (statusTab === "incomplete") return ko ? "비노출" : "Not exposing";
-  if (statusTab === "ended" || statusTab === "rejected") return ko ? "종료" : "Ended";
+  if (statusTab === "live") return tx(ko, "admin_ads_exposure_live_now");
+  if (statusTab === "waiting") return tx(ko, "admin_ads_exposure_waiting");
+  if (statusTab === "scheduled") return tx(ko, "admin_ads_exposure_scheduled");
+  if (statusTab === "paused") return tx(ko, "common_paused");
+  if (statusTab === "incomplete") return tx(ko, "admin_ads_exposure_not_exposing");
+  if (statusTab === "ended" || statusTab === "rejected") return tx(ko, "admin_ads_exposure_ended");
   return null;
 }
 
@@ -418,7 +424,7 @@ export function resolveMemberOrStoreLabel(item: AdsActionItem, ko: boolean): str
     return `매장 ${item.storeId.slice(0, 8)}`;
   }
   if (item.memberId) {
-    return ko ? `회원 ${item.memberId.slice(0, 8)}` : `Member ${item.memberId.slice(0, 8)}`;
+    return tx(ko, "admin_ads_exposure_member_id", { id: String(item.memberId.slice(0, 8)) });
   }
   return ko ? "—" : "—";
 }

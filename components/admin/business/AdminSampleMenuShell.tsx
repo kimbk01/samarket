@@ -53,6 +53,7 @@ function SampleStoreIntroCard({
   ko: boolean;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const apiBase = ADMIN_SAMPLE_CATALOG_ENDPOINTS.apiBase(storeId);
   const [description, setDescription] = useState(info.description ?? "");
   const [imageUrl, setImageUrl] = useState(info.profile_image_url ?? "");
@@ -86,8 +87,8 @@ function SampleStoreIntroCard({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "샘플 매장 소개 저장" : "Save sample store intro",
-      description: ko ? "고객 매장 화면에 바로 반영됩니다." : "Shown on the customer store page.",
+      title: t("admin_biz_save_sample_store_intro"),
+      description: t("admin_biz_shown_on_the_customer_store_page"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
@@ -109,7 +110,7 @@ function SampleStoreIntroCard({
         setResult({ ok: false, code: json?.error ?? "update_failed" });
         return;
       }
-      setResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setResult({ ok: true, message: t("admin_biz_saved") });
       onSaved();
     } catch {
       setResult({ ok: false, code: "network_error" });
@@ -119,11 +120,11 @@ function SampleStoreIntroCard({
   };
 
   return (
-    <AdminCard title={ko ? "매장 소개" : "Store intro"}>
+    <AdminCard title={t("admin_biz_store_intro")}>
       <div className="space-y-3" data-admin-sample-intro="1">
         <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />
         <label className="block space-y-1">
-          <span className="sam-text-helper font-medium text-sam-fg">{ko ? "소개 문구" : "Description"}</span>
+          <span className="sam-text-helper font-medium text-sam-fg">{t("admin_biz_description")}</span>
           <textarea
             className="min-h-[96px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
             value={description}
@@ -137,7 +138,7 @@ function SampleStoreIntroCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={imageUrl} alt="" className="h-16 w-16 rounded-ui-rect border border-sam-border object-cover" />
           ) : (
-            <span className="sam-text-helper text-sam-muted">{ko ? "대표 이미지 없음" : "No profile image"}</span>
+            <span className="sam-text-helper text-sam-muted">{t("admin_biz_no_profile_image")}</span>
           )}
           <input
             ref={fileRef}
@@ -147,7 +148,7 @@ function SampleStoreIntroCard({
             onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
           />
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
-            {ko ? "대표 이미지 변경" : "Change image"}
+            {t("admin_biz_change_image")}
           </AdminActionButton>
         </div>
         <div className="flex justify-end gap-2">
@@ -172,7 +173,7 @@ function SampleStoreIntroCard({
 }
 
 export function AdminSampleMenuShell({ storeId, view }: { storeId: string; view: AdminSampleMenuView }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [info, setInfo] = useState<SampleStoreInfo | null>(null);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
@@ -212,7 +213,7 @@ export function AdminSampleMenuShell({ storeId, view }: { storeId: string; view:
   if (loading && !info) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader title={ko ? "샘플 메뉴 편집" : "Sample menu"} backHref={detailHref} />
+        <AdminPageHeader title={t("admin_biz_sample_menu")} backHref={detailHref} />
         <AdminLoadingState ko={ko} />
       </div>
     );
@@ -220,7 +221,7 @@ export function AdminSampleMenuShell({ storeId, view }: { storeId: string; view:
   if (!info) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader title={ko ? "샘플 메뉴 편집" : "Sample menu"} backHref={detailHref} />
+        <AdminPageHeader title={t("admin_biz_sample_menu")} backHref={detailHref} />
         <AdminErrorState ko={ko} code={loadError?.code ?? "load_failed"} httpStatus={loadError?.status} onRetry={() => void load()} />
       </div>
     );
@@ -230,25 +231,23 @@ export function AdminSampleMenuShell({ storeId, view }: { storeId: string; view:
 
   return (
     <div className="space-y-4" data-admin-sample-menu={view.kind}>
-      <AdminPageHeader title={ko ? "샘플 메뉴 편집" : "Sample menu"} backHref={detailHref} />
+      <AdminPageHeader title={t("admin_biz_sample_menu")} backHref={detailHref} />
       <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <span className="sam-text-body font-semibold text-sam-fg">{(info.store_name ?? "").trim() || "—"}</span>
-        <AdminToneBadge tone="warning">{ko ? "샘플" : "Sample"}</AdminToneBadge>
+        <AdminToneBadge tone="warning">{t("admin_biz_sample")}</AdminToneBadge>
         <span className="sam-text-helper text-sam-muted">
-          {ko
-            ? "샘플 매장만 관리자가 메뉴 전체를 편집합니다 (사장님 메뉴 편집과 같은 저장 기능)."
-            : "Admins edit the full menu for sample stores only (same save logic as owners)."}
+          {t("admin_biz_admins_edit_the_full_menu_for")}
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
           <Link href={hubHref} className={linkBtn}>
-            {ko ? "메뉴 목록" : "Menu list"}
+            {t("admin_biz_menu_list")}
           </Link>
           <Link href={categoriesHref} className={linkBtn}>
-            {ko ? "메뉴 카테고리" : "Menu categories"}
+            {t("admin_biz_menu_categories")}
           </Link>
           {publicHref ? (
             <a href={publicHref} target="_blank" rel="noopener noreferrer" className={linkBtn} data-admin-open-customer-view="1">
-              {ko ? "고객 화면 열기" : "Open customer view"}
+              {t("admin_biz_open_customer_view")}
             </a>
           ) : null}
         </div>

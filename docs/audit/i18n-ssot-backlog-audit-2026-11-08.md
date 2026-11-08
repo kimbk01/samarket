@@ -83,3 +83,26 @@
 **검증**: typecheck 2종 PASS · eslint 변경 파일 오류 0 · vitest 관련 822파일 6,669 테스트 + 상품권·주소·가입 255파일 PASS(수정한 2개 포함) · `check:i18n-quality` 20/20 PASS.
 **범위 밖 발견(보고만)**: `npm run verify:three-currency-product` 실패 — `components/admin/ads/AdminAdvertisingWorkspace.tsx` 에 「Business Cash」 표현. 이번 변경과 무관(파일 미변경), 통화(화폐) 용어 규정 영역.
 **NOT_PROVEN**: 화면 캡처(로컬 로그인 필요 화면) — 반영 후 앱 재시작으로 확인.
+
+### B3·L24·B6 (반영 완료)
+- B3 `cd0996f9c`(설계 문서 §7), 주문 요약 옛 방 462개 채우기 보류(Owner 「지금은 두기」).
+- L24 `f0cabd3b2` — 픽업 주문 완료 줄 판정을 주문 방식 우선으로(대화방·목록 모두), B3 임시 보호 제거.
+- B6 `2c613dc7a` — 알림음 이름 9개 운영 DB(20:23 PHT, 이전 값 일치할 때만) + 코드 기본값 동일.
+
+### B4 어드민·남은 문구 (Owner 「남은 부분은 모두 완료 해라」)
+| 규칙 | 전 | 후 | 남은 것 |
+|---|---|---|---|
+| `non-catalog-bool-lang-ternary` (L22) | 2,912 | **3** | `lib/startup/pre-hydration-guard-script.ts` — React 이전 인라인 스크립트, 진입 안정화(다른 작업) |
+| `hardcoded-korean` (L17) | 486 | **18** | `components/dev/*` 개발 도구 화면 |
+| `non-catalog-fallback-en` (L15) | 162 | **22** | 통화 파일 21(B5 계획) · 쓰는 화면이 없는 `CommunityMessengerFriendStatusBadge` 1 |
+- 9개 묶음 병렬 이관, 새 카탈로그 9개(`copy-admin-b4-*`·`copy-lib-b4`, `messages.ts`·`message-key.ts` 등록), 새 키 약 3,000개. 화면 글자는 ko·en 그대로가 원칙.
+- **화면 글자가 바뀐 곳(보고)**: 매장 배달 설정 저장 완료 영어에 매장 이름 추가 · 매장 대량 작업·샘플 삭제 영어 숫자에 천 단위 쉼표 · 배달 메뉴 4문장 영어에 메뉴 이름·개수 추가(한국어에만 있던 정보) · 어드민 메뉴 「광고·홍보」·「상위홍보」 → 「광고·상위노출」·「상위노출」(L14) · 어드민 용어 표 28개가 지금 화면 글자 그대로의 새 키로.
+- L16 오류 표 3곳(`TRADE_ERROR_KO`·`EXTRA_ERROR_KO`·`MEMBER_LIST_ERROR_KO`)·커뮤니티 주제 오류 → 키(영어 포함). 영어 화면에서 운영자 오류 설명도 영어로(전에는 한국어 고정 `true`).
+- L13 「건」 단위 → 수량 키. L12 래칫이 `t("키")` 버튼 글자도 판정 → 숨은 위반 10건(7파일) 실제 수정(변경 동작 버튼 ghost/quiet → secondary/danger). L9 지금 화면 값 유지.
+- 검사기: `components/finance/Admin*` 를 어드민 화면으로 판정(운영 용어 허용 규칙 적용).
+- 같이 고친 충돌: 묶음끼리 겹친 import 2·빠진 변수 1(타입 검사로 발견).
+
+### L25 새 발견 (보고 — 계획 밖, 승인 후)
+- 검사 규칙이 세지 않는 형태의 한국어 문자열이 어드민 코드에 **4,728개**(303파일 · `components/admin` 3,473 · `lib/admin` 1,188 · `app/admin` 67): `{ko, en}` 짝 표 947(영어 있음) · 속성·필드(`label:`·`description=`·`<option>` 등) 950 · 그 밖 문자열 2,831(로그·데이터 값 포함). 영어 어드민 화면에 한국어가 섞여 보이는 원인. 상위: `lib/admin/metrics/registry.ts` 207 · `AdminSentNotificationPanels.tsx` 173 · `ads-history/project-history-timeline.ts` 136 · 거래 회원·글·신고 상세 각 100+.
+- 처리안: ① 「어드민 한국어 문자열」 검사 규칙 + 현재 수 기준선(늘면 실패) ② 화면 문구만 골라(로그·데이터 값 제외) 묶음별 키 이관 — B4 와 같은 방식. 감사·승인 후.
+- 같이 보고된 기존 결함: `AdminPointAdjustPanel` 이 서버 `messageKo` 를 영어 화면에도 표시 · `admin_ad_applications_community_desc` 한국어 값이 테이블 이름(「point_promotion_orders 중 domain=community」)을 보여 줌 · `AdminMemberBenefitDetailPage` 확인 버튼 「비활성화/활성화」 한국어 고정 · 매장·광고·주문 화면의 `{ko,en}` 짝 표는 규칙 밖이라 그대로(영어 있음).

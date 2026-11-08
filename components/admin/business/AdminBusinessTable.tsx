@@ -85,6 +85,7 @@ function businessDetailHref(storeId: string, returnTo?: string): string {
 
 /** 5-A AB-01·AB-02·HS-07 — 유형·노출·추천 배지 */
 function StoreBadges({ r, ko }: { r: AdminBusinessListOpsRow; ko: boolean }) {
+  const { t } = useI18n();
   const kind = adminStoreKindBadge(r.storeKind, ko);
   const vis = adminStoreVisibilityBadge(r.isVisible, ko);
   return (
@@ -93,13 +94,13 @@ function StoreBadges({ r, ko }: { r: AdminBusinessListOpsRow; ko: boolean }) {
         <AdminToneBadge tone={kind.tone}>{kind.label}</AdminToneBadge>
       ) : null}
       <AdminToneBadge tone={vis.tone}>{vis.label}</AdminToneBadge>
-      {r.isFeatured ? <AdminToneBadge tone="progress">{ko ? "추천" : "Featured"}</AdminToneBadge> : null}
+      {r.isFeatured ? <AdminToneBadge tone="progress">{t("admin_biz_featured")}</AdminToneBadge> : null}
       {r.adminVisibilityLocked ? (
         <span
           data-admin-biz-row-visibility-locked={r.id}
-          title={ko ? "관리자가 숨김 — 사장님이 다시 켤 수 없음" : "Hidden by admin — owner cannot turn it back on"}
+          title={t("admin_biz_hidden_by_admin_owner_cannot_turn")}
         >
-          <AdminToneBadge tone="warning">{ko ? "숨김 잠금" : "Hide locked"}</AdminToneBadge>
+          <AdminToneBadge tone="warning">{t("admin_biz_hide_locked")}</AdminToneBadge>
         </span>
       ) : null}
     </div>
@@ -158,11 +159,12 @@ function RowActions({
   ko: boolean;
   selection?: AdminBusinessTableSelection;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {/* 행 버튼 = ghost/secondary sm (화면 primary 는 필터 바 [조회]) */}
       <AdminActionLink href={detailHref} variant="ghost" size="sm">
-        {ko ? "상세 보기" : "View detail"}
+        {t("admin_biz_view_detail")}
       </AdminActionLink>
       {selection && r.approvalStatus === "approved" ? (
         <AdminActionButton
@@ -212,7 +214,7 @@ export const AdminBusinessTable = forwardRef<
         type="checkbox"
         checked={selection.selectedIds.includes(r.id)}
         onChange={() => selection.onToggleRow(r.id)}
-        aria-label={ko ? `${r.storeName || "매장"} 선택` : `Select ${r.storeName || "store"}`}
+        aria-label={t("admin_biz_select_row_aria", { name: r.storeName || t("admin_biz_store_word_lower") })}
         data-admin-biz-select-row={r.id}
       />
     ) : null;
@@ -290,7 +292,7 @@ export const AdminBusinessTable = forwardRef<
                   type="checkbox"
                   checked={selection.pageFullySelected}
                   onChange={selection.onTogglePage}
-                  aria-label={ko ? "현재 페이지 전체 선택" : "Select this page"}
+                  aria-label={t("admin_biz_select_this_page")}
                   data-admin-biz-select-page-header="1"
                 />
               </th>

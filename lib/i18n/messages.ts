@@ -123,6 +123,15 @@ import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
 import { copyAdminMessages } from "./catalog/copy-admin";
+import { copyAdminB4StoresMessages } from "./catalog/copy-admin-b4-stores";
+import { copyAdminB4AdsMessages } from "./catalog/copy-admin-b4-ads";
+import { copyAdminB4CommunityMessages } from "./catalog/copy-admin-b4-community";
+import { copyAdminB4CoreMessages } from "./catalog/copy-admin-b4-core";
+import { copyAdminB4OrdersMessages } from "./catalog/copy-admin-b4-orders";
+import { copyAdminB4FinanceMessages } from "./catalog/copy-admin-b4-finance";
+import { copyAdminB4Ops1Messages } from "./catalog/copy-admin-b4-ops1";
+import { copyAdminB4Ops2Messages } from "./catalog/copy-admin-b4-ops2";
+import { copyLibB4Messages } from "./catalog/copy-lib-b4";
 import { copyAuthMessages } from "./catalog/copy-auth";
 import { copyMessengerMessages } from "./catalog/copy-messenger";
 import { copyOwnerMessages } from "./catalog/copy-owner";
@@ -239,6 +248,15 @@ const KO_MESSAGES = {
   ...appShellCoreMessages.ko,
   ...copyLibMessages.ko,
   ...copyAdminMessages.ko,
+  ...copyAdminB4StoresMessages.ko,
+  ...copyAdminB4AdsMessages.ko,
+  ...copyAdminB4CommunityMessages.ko,
+  ...copyAdminB4CoreMessages.ko,
+  ...copyAdminB4OrdersMessages.ko,
+  ...copyAdminB4FinanceMessages.ko,
+  ...copyAdminB4Ops1Messages.ko,
+  ...copyAdminB4Ops2Messages.ko,
+  ...copyLibB4Messages.ko,
   ...copyAuthMessages.ko,
   ...copyMessengerMessages.ko,
   ...copyOwnerMessages.ko,
@@ -373,6 +391,15 @@ const EN_MESSAGES = {
   ...appShellCoreMessages.en,
   ...copyLibMessages.en,
   ...copyAdminMessages.en,
+  ...copyAdminB4StoresMessages.en,
+  ...copyAdminB4AdsMessages.en,
+  ...copyAdminB4CommunityMessages.en,
+  ...copyAdminB4CoreMessages.en,
+  ...copyAdminB4OrdersMessages.en,
+  ...copyAdminB4FinanceMessages.en,
+  ...copyAdminB4Ops1Messages.en,
+  ...copyAdminB4Ops2Messages.en,
+  ...copyLibB4Messages.en,
   ...copyAuthMessages.en,
   ...copyMessengerMessages.en,
   ...copyOwnerMessages.en,

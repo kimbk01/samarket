@@ -13,6 +13,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useAdminAccessActor, useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
 import {
@@ -217,7 +218,7 @@ function feedbackForAction(action: WorkspaceDrawerAction, ko: boolean): string {
     return ko ? ADS_FEEDBACK.ended.ko : ADS_FEEDBACK.ended.en;
   }
   if (action === "delete_safe_draft") return ko ? ADS_FEEDBACK.deleted.ko : ADS_FEEDBACK.deleted.en;
-  if (action === "change_period") return ko ? "기간을 저장했습니다." : "Period saved.";
+  if (action === "change_period") return translateBy(ko ? "ko" : "en", "admin_ads_period_saved");
   return ko ? ADS_FEEDBACK.updated.ko : ADS_FEEDBACK.updated.en;
 }
 
@@ -247,28 +248,18 @@ function modeTitleKey(mode: AdvertisingWorkspaceMode): MessageKey {
 
 function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
   if (mode === "operations") {
-    return ko
-      ? "승인 완료·운영자 직접 등록 광고의 실제 노출 위치·운영 상태·노출 상태를 확인하고, 허용된 운영 작업만 합니다."
-      : "Inspect actual placement, operating state, and runtime for approved/Admin Direct ads; mutate only via writer-backed actions.";
+    return translateBy(ko ? "ko" : "en", "admin_ads_inspect_actual_placement_operating_state");
   }
   if (mode === "applications") {
-    return ko
-      ? "사람 승인이 필요한 배너·매장 홍보 신청만 검토합니다. 커뮤니티·거래 상위노출, 운영자 직접 등록, 팝업은 여기 없습니다."
-      : "Human-approval Banner and store promotion only. Boosts, Admin Direct, and Popup are excluded.";
+    return translateBy(ko ? "ko" : "en", "admin_ads_human_approval_banner_store_promotion");
   }
   if (mode === "boosts") {
-    return ko
-      ? "커뮤니티·거래 포인트 상위노출만 봅니다. 승인 없음. 제재 = 노출 일시정지, 다시 켜기 = 재개."
-      : "Community/Trade Point boosts only. No approval. Sanction=pause, resume=resume.";
+    return translateBy(ko ? "ko" : "en", "admin_ads_community_trade_point_boosts_no");
   }
   if (mode === "history") {
-    return ko
-      ? "종료·반려·취소·제재된 광고 이력을 확인합니다."
-      : "Review ended, rejected, cancelled, and sanctioned ad history.";
+    return translateBy(ko ? "ko" : "en", "admin_ads_review_ended_rejected_cancelled_sanctioned");
   }
-  return ko
-    ? "유료 광고와 광고 노출 위치/재고를 관리합니다. 이벤트 프로모션은 「플랫폼 운영」에서 관리합니다."
-    : "Manage paid ads and ad placement inventory. Event promotions live under Promotion / Events.";
+  return translateBy(ko ? "ko" : "en", "admin_ads_manage_paid_ads_ad_placement");
 }
 
 export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: AdvertisingWorkspaceMode }) {
@@ -603,7 +594,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               memberHref: null,
             },
             ko
-          ).placementLabel || "팝업";
+          ).placementLabel || t("admin_ads_popup");
         const cur = byLabel.get(label) ?? { surface: label, live: [], waiting: [], incompleteCount: 0, scheduledCount: 0 };
         cur.live.push(...g.live.map((i) => toAdsShellListRow(i, ko)));
         cur.waiting.push(...g.waiting.map((i) => toAdsShellListRow(i, ko)));
@@ -632,7 +623,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         scheduledCount: rows.filter((r) => r.statusTab === "scheduled").length,
       })
     );
-  }, [model, ko]);
+  }, [model, ko, t]);
 
   const executeDrawerAction = useCallback(
     async (
@@ -644,12 +635,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
     ) => {
       const fam = resolveFamily(rowItem);
       if (!fam) {
-        setActionMsg(ko ? "이 행은 관리 액션이 없습니다." : "No manage actions for this row.");
+        setActionMsg(t("admin_ads_no_manage_actions_row"));
         return;
       }
       if (action === "change_period") {
         if (!periodStart.trim() || !periodEnd.trim()) {
-          setActionMsg(ko ? "시작·종료 일시를 입력하세요." : "Enter start and end.");
+          setActionMsg(t("admin_ads_enter_start_end"));
           return;
         }
       }
@@ -661,7 +652,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       setActionMsg("");
       try {
         if (action === "extend_compensation" && !reason) {
-          setActionMsg(ko ? "연장 사유가 필요합니다." : "Extend reason required.");
+          setActionMsg(t("admin_ads_extend_reason_required"));
           setBusyAction(null);
           return;
         }
@@ -710,17 +701,13 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         if (!res.ok || !j.ok) {
           setActionMsg(
             j.error === "fault_required"
-              ? ko
-                ? "귀책(운영 사유/회원 사유)을 선택해 주세요."
-                : "Choose who is at fault."
+              ? t("admin_ads_choose_who_at_fault")
               : j.error === "capacity_full"
               ? ko
                 ? ADS_FEEDBACK.capacityFull.ko
                 : ADS_FEEDBACK.capacityFull.en
               : j.error === "reason_required"
-                ? ko
-                  ? "사유를 입력해 주세요."
-                  : "Please enter a reason."
+                ? t("admin_ads_please_enter_reason")
                 : j.error
                   ? adminOperatorErrorMessage(res.status === 403 ? "forbidden" : j.error, ko)
                   : ko
@@ -734,26 +721,20 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         const deliveryEnd = action === "end" && (fam === "delivery_banner" || fam === "delivery_sponsored");
         const communityRefund =
           action === "end" && deliveryEnd && typeof j.refundAmount === "number"
-            ? ko
-              ? j.refundAmount > 0
-                ? ` 환급 ${formatAdminDeliveryAdPriceOrUnset(j.refundAmount, "ko")}`
-                : " 환급 없음"
-              : ` Refund ${formatAdminDeliveryAdPriceOrUnset(j.refundAmount, "en")}`
+            ? j.refundAmount > 0 || !ko
+              ? ` ${t("admin_ads_refund_amount", { amount: formatAdminDeliveryAdPriceOrUnset(j.refundAmount, ko ? "ko" : "en") })}`
+              : ` ${t("admin_ads_refund_none")}`
             : action === "end" &&
                 (fam === "boost_community" || fam === "boost_trade" || fam === "feed_banner") &&
                 typeof endRefund === "number"
-              ? ko
-                ? endRefund > 0
-                  ? ` 환급 ${formatAdminNumber(endRefund)} P`
-                  : " 환급 없음"
-                : ` Refund ${formatAdminNumber(endRefund)} P`
+              ? endRefund > 0 || !ko
+                ? ` ${t("admin_ads_refund_points", { points: formatAdminNumber(endRefund) })}`
+                : ` ${t("admin_ads_refund_none")}`
               : "";
         // AL-07: 기간 변경으로 재검토 대기가 되면 결과 문구에 「다시 승인 필요」를 보인다
         const periodReview =
           action === "change_period" && j.revertedToReview
-            ? ko
-              ? " 노출이 멈추고 검토 대기로 돌아갔습니다 — 다시 승인이 필요합니다."
-              : " Moved back to review — approval is required again."
+            ? t("admin_ads_moved_back_review_approval_required")
             : "";
         setActionMsg(
           periodReview
@@ -897,7 +878,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       // AL-08: 목록 행의 「기간 변경」은 입력칸이 있는 상세(드로어)를 연다 — 입력칸 초기값 = 현재 기간.
       if (action === "change_period" && selected?.id !== rowItem.id) {
         setSelected(rowItem);
-        setActionMsg(ko ? "상세에서 시작·종료 일시를 고친 뒤 「기간 변경」을 누르세요." : "Edit the period in the detail panel, then press Change period.");
+        setActionMsg(t("admin_ads_edit_period_detail_panel_then"));
         return;
       }
       const fam = resolveFamily(rowItem);
@@ -934,7 +915,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         await executeDrawerAction(action, rowItem, confirmed.reason ?? undefined, null, confirmed.internalMemo ?? null);
       })();
     },
-    [ko, mode, executeDrawerAction, selected]
+    [ko, mode, executeDrawerAction, selected, t]
   );
 
   const selectedFamily = selected ? resolveFamily(selected) : null;
@@ -994,7 +975,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         >
           {boostFocusState === "matched" && boostFocusMatch ? (
             <>
-              {ko ? "상위노출 주문 선택" : "Boost order focus"}
+              {t("admin_ads_boost_order_focus")}
               {": "}
               <span className="font-mono text-[12px]" data-admin-boost-order-focus-id>
                 {parseWorkspaceEntityId(boostFocusMatch.id)}
@@ -1004,22 +985,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               {" · "}
               <span data-admin-boost-order-focus-domain>
                 {boostFocusMatch.domain === "community_promote"
-                  ? ko
-                    ? "커뮤니티"
-                    : "community"
-                  : ko
-                    ? "거래"
-                    : "trade"}
+                  ? t("admin_ads_community_2")
+                  : t("admin_ads_trade_2")}
               </span>
             </>
           ) : boostFocusState === "invalid" ? (
-            ko
-              ? "잘못된 상위노출 주문 ID입니다. 주문을 선택하지 않았습니다."
-              : "Invalid Boost order id. No order selected."
+            t("admin_ads_invalid_boost_order_id_no")
           ) : (
-            ko
-              ? "해당 상위노출 주문을 찾을 수 없습니다. 주문을 선택하지 않았습니다."
-              : "Boost order not found. No order selected."
+            t("admin_ads_boost_order_not_found_no")
           )}
         </div>
       ) : null}
@@ -1032,18 +1005,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
             {model?.page?.ledger
               ? t("ads_ledger_note_rows")
               : mode === "all"
-              ? ko
-                ? "인트로·당겨서 새로고침 광고·마이 배너·이벤트는 아래 카드에서 바로 이동해 관리합니다."
-                : "Manage intro, pull-to-refresh ads, My page banners and events from the cards below."
-              : ko
-                ? "인트로·당겨서 새로고침 광고·마이 배너·이벤트는 「전체 광고」 화면 카드에서 바로 이동합니다."
-                : "Intro, pull-to-refresh ads, My page banners and events are linked from the All ads cards."}{" "}
+              ? t("admin_ads_manage_intro_pull_refresh_ads")
+              : t("admin_ads_intro_pull_refresh_ads_my")}{" "}
             <AdminActionLink
               href={PROMOTION_WORKSPACE_HREF}
               variant="quiet"
               data-admin-ads-to-promotion-deeplink="1"
             >
-              {ko ? "플랫폼 운영" : "Platform operations"}
+              {t("admin_ads_platform_operations")}
             </AdminActionLink>
           </p>
           {storeFilter ? (
@@ -1052,16 +1021,16 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               data-admin-ads-store-filter-chip="1"
             >
               <span className="truncate" title={storeFilter}>
-                {ko ? "매장 필터" : "Store filter"}: {storeFilterLabel}
+                {t("admin_ads_store_filter")}: {storeFilterLabel}
               </span>
               <AdminActionButton
                 variant="quiet"
                 size="sm"
                 className="shrink-0"
                 onClick={clearStoreFilter}
-                aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
+                aria-label={t("admin_ads_clear_store_filter")}
               >
-                {ko ? "해제" : "Clear"}
+                {t("admin_ads_clear")}
               </AdminActionButton>
             </span>
           ) : null}
@@ -1071,12 +1040,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               data-admin-ads-domain-filter-chip={domainFilter}
             >
               <span className="truncate">
-                {ko
-                  ? `${adsLedgerDomainLabel(domainFilter, true)}만 보는 중`
-                  : `Showing ${adsLedgerDomainLabel(domainFilter, false)} only`}
+                {t("admin_ads_showing_domain_only", { domain: adsLedgerDomainLabel(domainFilter, ko) })}
               </span>
               <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={clearDomainFilter}>
-                {ko ? "전체 보기" : "Show all"}
+                {t("admin_ads_show_all")}
               </AdminActionButton>
             </span>
           ) : null}
@@ -1140,7 +1107,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 className="min-h-12 px-4 font-semibold"
                 data-admin-ads-feed-banner-create="1"
               >
-                {ko ? "피드 배너 등록" : "Register feed banner"}
+                {t("admin_ads_register_feed_banner")}
               </AdminActionLink>
             ) : null}
             {headerCtas.showRegister ? (
@@ -1150,7 +1117,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 className="min-h-12 px-6 text-base font-bold shadow-sm"
                 data-admin-ads-register-cta="1"
               >
-                {ko ? "+ 광고 등록" : "+ Register ad"}
+                {t("admin_ads_register_ad_2")}
               </AdminActionLink>
             ) : null}
             {headerCtas.showPlacementsLink ? (
@@ -1160,7 +1127,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 className="min-h-12 px-4 font-semibold"
                 data-admin-ads-placement-cta="1"
               >
-                {ko ? "광고 위치 관리" : "Ad placements"}
+                {t("admin_ads_ad_placements")}
               </AdminActionLink>
             ) : null}
           </div>
@@ -1172,16 +1139,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" data-shell-summary="1">
         {(
           [
-            ["pending", ko ? "승인 대기" : "Pending", summary.pending],
-            ["live", ko ? "노출 중" : "Live", summary.live],
-            ["waiting", ko ? "노출 대기" : "Waiting", summary.waiting],
-            ["incomplete", ko ? "불완전/임시" : "Incomplete", summary.incomplete],
-            ["scheduled", ko ? "예약" : "Scheduled", summary.scheduled],
+            ["pending", t("admin_ads_pending"), summary.pending],
+            ["live", t("admin_ads_live"), summary.live],
+            ["waiting", t("admin_ads_waiting_exposure"), summary.waiting],
+            ["incomplete", t("admin_ads_incomplete"), summary.incomplete],
+            ["scheduled", t("admin_ads_scheduled"), summary.scheduled],
             [
               "hero",
-              ko
-                ? `홈 배너 ${summary.heroCap - summary.vacant}/${summary.heroCap}`
-                : `Hero ${summary.heroCap - summary.vacant}/${summary.heroCap}`,
+              t("admin_ads_hero_value_hero_cap", { value: summary.heroCap - summary.vacant, heroCap: String(summary.heroCap) }),
               summary.vacant,
             ],
           ] as const
@@ -1214,7 +1179,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
       <div data-shell-status-tabs="1">
         <AdminTabs
-          ariaLabel={ko ? "상태" : "Status"}
+          ariaLabel={t("admin_ads_col_status")}
           param="status"
           syncUrl={false}
           value={statusTab}
@@ -1266,7 +1231,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           data-popup-occupancy-queue="1"
         >
           <h2 className="text-sm font-semibold text-sam-fg">
-            {ko ? "팝업 위치별 점유" : "Popup occupancy by surface"}
+            {t("admin_ads_popup_occupancy_by_surface")}
           </h2>
           {popupQueue.map((q) => (
             <div key={q.surface} className="rounded-ui-rect border border-sam-border bg-sam-app p-2 text-[12px]">
@@ -1274,7 +1239,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               <div className="mt-1 grid gap-1 sm:grid-cols-2">
                 <div>
                   <div className="text-sam-muted">
-                    {ko ? `현재 노출 중 ${q.live.length}건` : `Live ${q.live.length}`}
+                    {t("admin_ads_live_length", { length: String(q.live.length) })}
                   </div>
                   {q.live.map((r) => (
                     <div key={r.id} className="truncate text-sam-fg">
@@ -1285,7 +1250,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 </div>
                 <div>
                   <div className="text-sam-muted">
-                    {ko ? `노출 대기 ${q.waiting.length}건` : `Waiting ${q.waiting.length}`}
+                    {t("admin_ads_waiting_length", { length: String(q.waiting.length) })}
                   </div>
                   {q.waiting.map((r) => (
                     <div key={r.id} className="truncate text-sam-fg">
@@ -1296,12 +1261,12 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 </div>
                 <div>
                   <div className="text-sam-muted">
-                    {ko ? `불완전 ${q.incompleteCount}건` : `Incomplete ${q.incompleteCount}`}
+                    {t("admin_ads_incomplete_incomplete_count", { incompleteCount: String(q.incompleteCount) })}
                   </div>
                 </div>
                 <div>
                   <div className="text-sam-muted">
-                    {ko ? `예약 ${q.scheduledCount}건` : `Scheduled ${q.scheduledCount}`}
+                    {t("admin_ads_scheduled_scheduled_count", { scheduledCount: String(q.scheduledCount) })}
                   </div>
                 </div>
               </div>
@@ -1327,13 +1292,9 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               lq.isFiltered
                 ? undefined
                 : mode === "applications"
-                  ? ko
-                    ? "승인 대기 중인 광고가 없습니다."
-                    : "No applications awaiting approval."
+                  ? t("admin_ads_no_applications_awaiting_approval")
                   : mode === "operations"
-                    ? ko
-                      ? "현재 운영 중인 광고가 없습니다."
-                      : "No ads currently in operations."
+                    ? t("admin_ads_no_ads_currently_operations")
                     : undefined
             }
             onReset={lq.isFiltered ? lq.reset : undefined}
@@ -1347,7 +1308,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     size="sm"
                     data-admin-ads-ops-empty-register="1"
                   >
-                    {ko ? "+ 광고 등록" : "+ Register ad"}
+                    {t("admin_ads_register_ad_2")}
                   </AdminActionLink>
                 ) : (
                   <AdminActionButton
@@ -1357,7 +1318,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     title={registerGuard.reason ?? undefined}
                     data-admin-ads-ops-empty-register="1"
                   >
-                    {ko ? "+ 광고 등록" : "+ Register ad"}
+                    {t("admin_ads_register_ad_2")}
                   </AdminActionButton>
                 )
               ) : undefined
@@ -1368,52 +1329,38 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
           <table className="min-w-full text-left text-[12px]" data-shell-table="1">
             <thead className="bg-sam-app text-sam-muted">
               <tr>
-                <th className="px-2 py-2 font-medium">{ko ? "제품" : "Product"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "대상 / 소재" : "Target"}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_ads_product")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_ads_target")}</th>
                 {opsControlMode ? null : (
                   <>
-                    <th className="px-2 py-2 font-medium">{ko ? "출처/신청자" : "Source"}</th>
-                    <th className="px-2 py-2 font-medium">{ko ? "회원/매장" : "Member/Store"}</th>
+                    <th className="px-2 py-2 font-medium">{t("admin_ads_source_2")}</th>
+                    <th className="px-2 py-2 font-medium">{t("admin_ads_member_store")}</th>
                   </>
                 )}
                 <th className="px-2 py-2 font-medium">
                   {opsControlMode
-                    ? ko
-                      ? "실제 노출 위치"
-                      : "Actual location"
-                    : ko
-                      ? "노출 위치"
-                      : "Placement"}
+                    ? t("admin_ads_actual_location")
+                    : t("admin_ads_label_placement")}
                 </th>
-                <th className="px-2 py-2 font-medium">{ko ? "기간" : "Period"}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_ads_post_col_period")}</th>
                 {opsControlMode ? null : (
-                  <th className="px-2 py-2 font-medium">{ko ? "남은 기간" : "Remaining"}</th>
+                  <th className="px-2 py-2 font-medium">{t("admin_ads_remaining")}</th>
                 )}
                 {opsControlMode ? null : (
-                  <th className="px-2 py-2 font-medium">{ko ? "결제" : "Pay"}</th>
+                  <th className="px-2 py-2 font-medium">{t("admin_ads_pay")}</th>
                 )}
                 <th className="px-2 py-2 font-medium">
                   {mode === "applications"
-                    ? ko
-                      ? "승인 상태"
-                      : "Approval"
-                    : ko
-                      ? "운영 상태"
-                      : "Ops"}
+                    ? t("admin_ads_approval_2")
+                    : t("admin_ads_ops")}
                 </th>
-                <th className="px-2 py-2 font-medium">{ko ? "실제 노출 상태" : "Runtime"}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_ads_runtime")}</th>
                 <th className="px-2 py-2 font-medium">
                   {mode === "applications"
-                    ? ko
-                      ? "검토"
-                      : "Review"
+                    ? t("admin_ads_review")
                     : opsControlMode
-                      ? ko
-                        ? "다음 작업"
-                        : "Next action"
-                      : ko
-                        ? "관리"
-                        : "Manage"}
+                      ? t("admin_ads_next_action")
+                      : t("admin_ads_manage")}
                 </th>
               </tr>
             </thead>
@@ -1478,11 +1425,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                             />
                           ) : creativeMissing ? (
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app px-0.5 text-center text-[12px] leading-tight text-sam-muted">
-                              {ko ? "이미지 없음" : "No image"}
+                              {t("admin_ads_no_image")}
                             </span>
                           ) : (
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-[12px] text-sam-muted">
-                              {ko ? "대상" : "Tgt"}
+                              {t("admin_ads_tgt")}
                             </span>
                           )}
                           <span className="font-medium text-sam-fg" data-admin-ads-ledger-kind={item?.ledger?.kind}>
@@ -1509,9 +1456,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                             {lx
                               ? lx.advertiser
                               : r.sourceKind === "admin_direct"
-                                ? ko
-                                  ? "운영자 등록"
-                                  : "Operator registered"
+                                ? t("admin_ads_operator_registered")
                                 : r.applicantLabel}
                           </td>
                           <td className="px-2 py-2">
@@ -1572,7 +1517,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                         ) : null}
                         {mode !== "applications" && r.winnerOccupantLabel ? (
                           <div className="mt-1 max-w-[180px] text-[12px] text-sam-muted">
-                            {ko ? "현재 점유" : "Occupant"}: {r.winnerOccupantLabel}
+                            {t("admin_ads_occupant")}: {r.winnerOccupantLabel}
                           </div>
                         ) : null}
                       </td>
@@ -1600,7 +1545,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                               data-admin-ads-review-cta="1"
                               data-shell-review="1"
                             >
-                              {ko ? "검토하기" : "Review"}
+                              {t("admin_ads_review_2")}
                             </AdminActionLink>
                             <AdminActionButton
                               variant="quiet"
@@ -1611,7 +1556,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 if (item) setSelected(item);
                               }}
                             >
-                              {ko ? "더보기" : "More"}
+                              {t("admin_ads_more")}
                             </AdminActionButton>
                             {open && item ? (
                               <div
@@ -1622,14 +1567,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                   href={r.href}
                                   className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                 >
-                                  {ko ? "상세" : "Detail"}
+                                  {t("admin_ads_detail")}
                                 </Link>
                                 {r.previewSupported ? (
                                   <Link
                                     href={r.previewHref}
                                     className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                   >
-                                    {ko ? "미리보기" : "Preview"}
+                                    {t("admin_ads_preview")}
                                   </Link>
                                 ) : null}
                               </div>
@@ -1693,7 +1638,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 if (item) setSelected(item);
                               }}
                             >
-                              {ko ? "더보기" : "More"}
+                              {t("admin_ads_more")}
                             </AdminActionButton>
                             {open && item ? (
                               <div
@@ -1704,7 +1649,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                   href={r.href}
                                   className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                 >
-                                  {ko ? "상세" : "Detail"}
+                                  {t("admin_ads_detail")}
                                 </Link>
                                 {r.previewSupported ? (
                                   <Link
@@ -1712,7 +1657,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                     className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                     data-admin-ads-preview-link="1"
                                   >
-                                    {ko ? "미리보기" : "Preview"}
+                                    {t("admin_ads_preview")}
                                   </Link>
                                 ) : null}
                                 {liveLink ? (
@@ -1737,9 +1682,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                     onClick={() => requestDrawerAction(a, item)}
                                   >
                                     {mode === "boosts" && a === "pause"
-                                      ? ko
-                                        ? "제재(노출 중지)"
-                                        : "Sanction (pause)"
+                                      ? t("admin_ads_sanction_pause")
                                       : ko
                                         ? ACTION_LABEL[a].ko
                                         : ACTION_LABEL[a].en}
@@ -1750,7 +1693,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                     href="/admin/advertising/placements"
                                     className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                   >
-                                    {ko ? "순서 변경" : "Reorder"}
+                                    {t("admin_ads_reorder")}
                                   </Link>
                                 ) : null}
                               </div>
@@ -1767,7 +1710,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                 if (item) setSelected(item);
                               }}
                             >
-                              {ko ? "관리 ▼" : "Manage ▼"}
+                              {t("admin_ads_manage_2")}
                             </AdminActionButton>
                             {open && item ? (
                               <div
@@ -1778,14 +1721,14 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                   href={r.href}
                                   className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                 >
-                                  {ko ? "상세" : "Detail"}
+                                  {t("admin_ads_detail")}
                                 </Link>
                                 {r.previewSupported ? (
                                   <Link
                                     href={r.previewHref}
                                     className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                                   >
-                                    {ko ? "미리보기" : "Preview"}
+                                    {t("admin_ads_preview")}
                                   </Link>
                                 ) : null}
                                 {liveLink ? (
@@ -1810,9 +1753,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                                     onClick={() => requestDrawerAction(a, item)}
                                   >
                                     {mode === "boosts" && a === "pause"
-                                      ? ko
-                                        ? "제재(노출 중지)"
-                                        : "Sanction (pause)"
+                                      ? t("admin_ads_sanction_pause")
                                       : ko
                                         ? ACTION_LABEL[a].ko
                                         : ACTION_LABEL[a].en}
@@ -1857,10 +1798,10 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 <p className="text-[12px] font-semibold text-sam-muted">{selectedShell.kindLabel}</p>
                 <h2 className="mt-0.5 font-semibold text-sam-fg">{selectedShell.title}</h2>
                 <p className="mt-1 text-[12px] text-sam-fg">
-                  <span className="text-sam-muted">{ko ? "운영" : "Ops"}: </span>
+                  <span className="text-sam-muted">{t("admin_ads_ops_2")}: </span>
                   {selectedShell.operatingStatusLabel || "—"}
                   {" · "}
-                  <span className="text-sam-muted">{ko ? "실제 노출" : "Runtime"}: </span>
+                  <span className="text-sam-muted">{t("admin_ads_runtime_2")}: </span>
                   {selectedShell.runtimeExposureStatusLabel}
                 </p>
               </div>
@@ -1871,7 +1812,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               ) : (
                 <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
                   <h3 className="text-[12px] font-semibold text-sam-fg">
-                    {ko ? "실제 노출 위치" : "Actual exposure location"}
+                    {t("admin_ads_actual_exposure_location")}
                   </h3>
                   <p className="mt-1 text-[13px] text-sam-fg">{selectedShell.placementLabel}</p>
                 </section>
@@ -1879,20 +1820,20 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
               <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
                 <h3 className="text-[12px] font-semibold text-sam-fg">
-                  {ko ? "노출 기간" : "Exposure period"}
+                  {t("admin_ads_label_exposure_period")}
                 </h3>
                 <dl className="mt-1 space-y-1 text-[12px]">
                   <div className="flex justify-between gap-2">
-                    <dt className="text-sam-muted">{ko ? "기간" : "Period"}</dt>
+                    <dt className="text-sam-muted">{t("admin_ads_post_col_period")}</dt>
                     <dd>{selectedShell.periodLabel}</dd>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <dt className="text-sam-muted">{ko ? "남은 기간" : "Remaining"}</dt>
+                    <dt className="text-sam-muted">{t("admin_ads_remaining")}</dt>
                     <dd>{selectedShell.remainingLabel}</dd>
                   </div>
                   {selectedShell.performanceLabel ? (
                     <div className="flex justify-between gap-2">
-                      <dt className="text-sam-muted">{ko ? "노출 · 클릭" : "Views · clicks"}</dt>
+                      <dt className="text-sam-muted">{t("admin_ads_views_clicks")}</dt>
                       <dd className="tabular-nums">{selectedShell.performanceLabel}</dd>
                     </div>
                   ) : null}
@@ -1901,7 +1842,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
               <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
                 <h3 className="text-[12px] font-semibold text-sam-fg">
-                  {ko ? "광고 미리보기" : "Ad preview"}
+                  {t("admin_ads_ad_preview")}
                 </h3>
                 {selectedShell.creativeImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- operator creative preview
@@ -1914,28 +1855,26 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   <p className="mt-2 text-[12px] text-sam-muted">
                     {selected.domain === "trade_promote" || selected.domain === "community_promote"
                       ? selectedShell.targetLabel || selectedShell.title
-                      : ko
-                        ? "이미지 없음"
-                        : "No image"}
+                      : t("admin_ads_no_image")}
                   </p>
                 )}
               </section>
 
               <dl className="space-y-1 text-[12px]">
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "신청자" : "Applicant"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_label_applicant")}</dt>
                   <dd>{selectedShell.applicantLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "회원/매장" : "Member/Store"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_member_store")}</dt>
                   <dd>{selectedShell.memberOrStore}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_payment")}</dt>
                   <dd>{selectedShell.paymentLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "우선순위" : "Priority"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_priority")}</dt>
                   <dd>{selectedShell.priority ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
@@ -1943,7 +1882,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   <dd>{selectedShell.ctaLabel || "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "이동 대상" : "Destination"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_destination")}</dt>
                   <dd className="max-w-[210px] break-all text-right">
                     {selectedShell.destinationLabel || "—"}
                   </dd>
@@ -1951,7 +1890,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               </dl>
               {selectedShell.missingFieldsLabel ? (
                 <p className="rounded-ui-rect bg-sam-app px-3 py-2 text-[12px] text-sam-muted">
-                  {ko ? "불완전" : "Incomplete"}
+                  {t("admin_ads_incomplete_2")}
                   {" · "}
                   {selectedShell.missingFieldsLabel}
                 </p>
@@ -1966,7 +1905,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               {selectedActions.includes("change_period") ? (
                 <div className="grid gap-2 sm:grid-cols-2">
                   <label className="block text-[12px] text-sam-muted">
-                    {ko ? "시작 (PHT)" : "Start (PHT)"}
+                    {t("admin_ads_start_pht")}
                     <input
                       type="datetime-local"
                       className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
@@ -1975,7 +1914,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     />
                   </label>
                   <label className="block text-[12px] text-sam-muted">
-                    {ko ? "종료 (PHT)" : "End (PHT)"}
+                    {t("admin_ads_end_pht")}
                     <input
                       type="datetime-local"
                       className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
@@ -1987,7 +1926,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               ) : null}
 
               <label className="block text-[12px] text-sam-muted">
-                {ko ? "신청자 메시지 (반려·보류·연장)" : "Applicant-visible message"}
+                {t("admin_ads_applicant_visible_message")}
                 <textarea
                   className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
                   rows={2}
@@ -1997,7 +1936,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               </label>
               {selectedActions.includes("extend_compensation") ? (
                 <label className="block text-[12px] text-sam-muted">
-                  {ko ? "연장 일수" : "Extend days"}
+                  {t("admin_ads_extend_days")}
                   <input
                     type="number"
                     min={1}
@@ -2009,7 +1948,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 </label>
               ) : null}
               <label className="block text-[12px] text-sam-muted">
-                {ko ? "내부 메모" : "Internal memo"}
+                {t("admin_ads_internal_memo")}
                 <textarea
                   className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm"
                   rows={2}
@@ -2046,9 +1985,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     {busyAction === a
                       ? "…"
                       : mode === "boosts" && a === "pause"
-                        ? ko
-                          ? "제재"
-                          : "Sanction"
+                        ? t("admin_ads_sanction")
                         : ko
                           ? ACTION_LABEL[a].ko
                           : ACTION_LABEL[a].en}
@@ -2059,11 +1996,11 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
               <div className="flex flex-col gap-1 text-[13px]">
                 {selectedShell.previewSupported ? (
                   <AdminActionLink href={selectedShell.previewHref}>
-                    {ko ? "미리보기" : "Preview"}
+                    {t("admin_ads_preview")}
                   </AdminActionLink>
                 ) : null}
                 <AdminActionLink href={selectedShell.href}>
-                  {ko ? "상품 상세" : "Product detail"}
+                  {t("admin_ads_placement_product_detail")}
                 </AdminActionLink>
                 {(() => {
                   const detailLive = adsLiveLinkLabel({
@@ -2074,7 +2011,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   if (!detailLive) {
                     return (
                       <span className="text-sam-muted">
-                        {ko ? "실제 노출 링크 없음" : "No live link"}
+                        {t("admin_ads_no_live_link")}
                       </span>
                     );
                   }
@@ -2099,7 +2036,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
 
       <p className="text-[12px] text-sam-muted">
         <Link href="/admin/advertising/products" className="underline">
-          {ko ? "광고 상품 / 가격" : "Products & pricing"}
+          {t("admin_ads_products_pricing_2")}
         </Link>
       </p>
 
@@ -2124,7 +2061,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   setPendingMutation(null);
                 }}
               >
-                {pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
+                {pendingMutation?.copy.cancelLabel ?? (t("common_cancel"))}
               </AdminActionButton>
               <AdminActionButton
                 variant={pendingMutation?.copy.tone === "danger" ? "danger" : "primary"}
@@ -2132,7 +2069,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 onClick={() => {
                   if (!pendingMutation || busyAction != null) return;
                   if (communityEndPending && (!endFault || !endPreview || "error" in endPreview || endPreview.fault !== endFault)) {
-                    setActionMsg(ko ? "귀책을 선택하고 환급 예정 금액을 확인해 주세요." : "Choose fault and check the refund preview.");
+                    setActionMsg(t("admin_ads_choose_fault_check_refund_preview"));
                     return;
                   }
                   const { action, item, copy } = pendingMutation;
@@ -2162,7 +2099,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
         >
           {communityEndPending ? (
             <div className="mt-3 space-y-2 text-[13px]" data-admin-boost-community-end-fault="1">
-              <p className="font-semibold">{ko ? "귀책 (필수)" : "Fault (required)"}</p>
+              <p className="font-semibold">{t("admin_ads_fault_required")}</p>
               <label className="flex items-start gap-2">
                 <input
                   type="radio"
@@ -2174,12 +2111,8 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                 />
                 <span>
                   {endIsDelivery
-                    ? ko
-                      ? "운영 사유 — 남은 기간만큼 비즈니스 캐시 비례 환급"
-                      : "Operator — prorated business cash refund"
-                    : ko
-                      ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급"
-                      : "Operator — prorated refund"}
+                    ? t("admin_ads_operator_prorated_business_cash_refund")
+                    : t("admin_ads_operator_prorated_refund")}
                 </span>
               </label>
               <label className="flex items-start gap-2">
@@ -2192,7 +2125,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                   className="mt-0.5"
                 />
                 <span>
-                  {endIsDelivery ? (ko ? "사장님 사유 — 환급 없음" : "Owner — no refund") : ko ? "회원 사유 — 환급 없음" : "Member — no refund"}
+                  {endIsDelivery ? (t("admin_ads_owner_no_refund")) : t("admin_ads_member_no_refund")}
                 </span>
               </label>
               {endAllowsNoFault ? (
@@ -2205,15 +2138,15 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
                     onChange={() => setEndFault("none")}
                     className="mt-0.5"
                   />
-                  <span>{ko ? "해당 없음 — 환급 없음" : "None — no refund"}</span>
+                  <span>{t("admin_ads_none_no_refund")}</span>
                 </label>
               ) : null}
               {endFault && !endPreview ? (
-                <p className="opacity-70">{ko ? "환급 예정 금액을 계산하는 중…" : "Calculating refund…"}</p>
+                <p className="opacity-70">{t("admin_ads_calculating_refund")}</p>
               ) : null}
               {endPreview && !("error" in endPreview) && endPreview.fault === endFault ? (
                 <p className="font-semibold">
-                  {ko ? "환급 예정" : "Refund"}{" "}
+                  {t("admin_ads_refund")}{" "}
                   {endIsDelivery
                     ? formatAdminDeliveryAdPriceOrUnset(endPreview.refundPoints, ko ? "ko" : "en")
                     : `${formatAdminNumber(endPreview.refundPoints)} P`}

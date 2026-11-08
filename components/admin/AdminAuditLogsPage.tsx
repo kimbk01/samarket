@@ -183,10 +183,10 @@ export function AdminAuditLogsPage() {
         onSubmit={submit}
         onReset={lq.reset}
         pending={pending}
-        searchPlaceholder={ko ? "작업명 일부 (예: revoke)" : "Action contains (e.g. revoke)"}
+        searchPlaceholder={t("admin_audit_logs_action_contains_e_g_revoke")}
       >
         <label className={LABEL}>
-          {ko ? "행위자 구분" : "Actor type"}
+          {t("admin_audit_logs_actor_type")}
           <select
             className={FIELD}
             value={query.extras.actor_type}
@@ -201,7 +201,7 @@ export function AdminAuditLogsPage() {
           </select>
         </label>
         <label className={LABEL}>
-          {ko ? "행위자 (닉네임·ID)" : "Actor (nickname/ID)"}
+          {t("admin_audit_logs_actor_nickname_id")}
           <input
             type="search"
             className={FIELD}
@@ -211,13 +211,13 @@ export function AdminAuditLogsPage() {
           />
         </label>
         <label className={LABEL}>
-          {ko ? "대상 종류" : "Target type"}
+          {t("admin_audit_logs_target_type")}
           <input
             type="search"
             className={FIELD}
             value={draft.targetType}
             onChange={(e) => setTextDraft({ ...draft, targetType: e.target.value })}
-            placeholder={ko ? "예: staff, store_order" : "e.g. staff, store_order"}
+            placeholder={t("admin_audit_logs_e_g_staff_store_order")}
             maxLength={120}
           />
         </label>
@@ -225,9 +225,9 @@ export function AdminAuditLogsPage() {
 
       {query.extras.target_id ? (
         <p className="text-[13px] text-sam-muted">
-          {ko ? "특정 대상만 보는 중" : "Filtered to one target"} ·{" "}
+          {t("admin_audit_logs_filtered_to_one_target")} ·{" "}
           <AdminActionButton variant="quiet" size="sm" onClick={() => lq.setExtra("target_id", "")}>
-            {ko ? "대상 조건 해제" : "Clear target"}
+            {t("admin_audit_logs_clear_target")}
           </AdminActionButton>
         </p>
       ) : null}
@@ -252,10 +252,10 @@ export function AdminAuditLogsPage() {
           <table className="w-full min-w-[760px] border-collapse text-[14px]" data-admin-audit-table="1">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-left text-[13px] text-sam-muted">
-                <th className="px-3 py-2 font-medium">{ko ? "일시 (PHT)" : "Time (PHT)"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "행위자" : "Actor"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "작업" : "Action"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "대상" : "Target"}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_audit_logs_time_pht")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_audit_logs_actor")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_audit_logs_action")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_audit_logs_target")}</th>
               </tr>
             </thead>
             <tbody>
@@ -301,7 +301,7 @@ export function AdminAuditLogsPage() {
         primaryActions={
           openRow ? (
             <Link href={`/admin/audit-logs/${openRow.id}`} className="text-[13px] font-medium underline">
-              {ko ? "상세 화면" : "Open detail page"}
+              {t("admin_audit_logs_open_detail_page")}
             </Link>
           ) : null
         }
@@ -309,13 +309,13 @@ export function AdminAuditLogsPage() {
         {openRow ? (
           <div className="space-y-2 text-[14px]">
             <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1.5">
-              <dt className="text-sam-muted">{ko ? "일시" : "Time"}</dt>
+              <dt className="text-sam-muted">{t("admin_audit_logs_time")}</dt>
               <dd>{pht(openRow.created_at)}</dd>
-              <dt className="text-sam-muted">{ko ? "행위자" : "Actor"}</dt>
+              <dt className="text-sam-muted">{t("admin_audit_logs_actor")}</dt>
               <dd>{actorLabel(openRow, ko)}</dd>
-              <dt className="text-sam-muted">{ko ? "작업" : "Action"}</dt>
+              <dt className="text-sam-muted">{t("admin_audit_logs_action")}</dt>
               <dd>{actionText(openRow, ko)}</dd>
-              <dt className="text-sam-muted">{ko ? "대상 종류" : "Target type"}</dt>
+              <dt className="text-sam-muted">{t("admin_audit_logs_target_type")}</dt>
               <dd>{targetText(openRow, ko)}</dd>
             </dl>
             <AdminTechDetails ko={ko}>

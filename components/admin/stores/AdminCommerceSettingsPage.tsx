@@ -124,7 +124,7 @@ export function AdminCommerceSettingsPage() {
       </p>
       {!action.allowed && action.reason ? (
         <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `저장·기본값 복원 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_stores_actions_disabled", { reason: action.reason })}
         </p>
       ) : null}
       <AdminResultBanner ko={ko} result={result} onClose={() => setResult(null)} />

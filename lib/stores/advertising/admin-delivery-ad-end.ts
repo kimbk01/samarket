@@ -5,6 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const ADMIN_DELIVERY_AD_END_WITH_REFUND_RPC = "admin_delivery_ad_end_with_refund" as const;
 
@@ -29,9 +30,10 @@ export function isDeliveryAdLiveEndLifecycle(status: string | null | undefined):
 
 /** 귀책 라디오 문구 (배달 상세 · 공통 화면 같은 문구). */
 export function deliveryAdEndFaultLabel(fault: DeliveryAdEndFault, ko: boolean): string {
-  if (fault === "operator") return ko ? "운영 사유 — 남은 기간 비례 환급" : "Operator — prorated refund of remaining period";
-  if (fault === "member") return ko ? "사장님 사유 — 환급 없음" : "Owner — no refund";
-  return ko ? "해당 없음 — 환급 없음" : "Not applicable — no refund";
+  const lang = ko ? "ko" : "en";
+  if (fault === "operator") return translateBy(lang, "stores_ad_end_fault_operator");
+  if (fault === "member") return translateBy(lang, "stores_ad_end_fault_member");
+  return translateBy(lang, "stores_ad_end_fault_none");
 }
 
 function httpStatusFor(error: string): number {

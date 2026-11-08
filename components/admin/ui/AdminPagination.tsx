@@ -14,6 +14,12 @@ import {
   formatAdminCount,
 } from "@/lib/admin/pagination/admin-pagination-window";
 import { ADMIN_LIST_PAGE_SIZES, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 const BTN =
   "inline-flex h-9 min-w-9 items-center justify-center rounded-ui-rect border px-2 text-[13px] font-medium leading-5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--admin-console-accent)] disabled:cursor-not-allowed disabled:opacity-40";
@@ -58,7 +64,7 @@ export function AdminPagination({
   return (
     <nav
       data-admin-pagination="1"
-      aria-label={ko ? "페이지 이동" : "Pagination"}
+      aria-label={tx(ko, "admin_ui_pagination")}
       className={`flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 ${className}`.trim()}
     >
       <p className="text-[13px] text-[var(--admin-console-muted)]" data-admin-pagination-summary="1" aria-live="polite">
@@ -70,9 +76,9 @@ export function AdminPagination({
           className={`${BTN} ${BTN_IDLE}`}
           disabled={disabled || current <= 1}
           onClick={() => go(current - 1)}
-          aria-label={ko ? "이전 페이지" : "Previous page"}
+          aria-label={tx(ko, "admin_ui_previous_page")}
         >
-          {ko ? "이전" : "Prev"}
+          {tx(ko, "admin_ui_prev")}
         </button>
         {items.map((it) =>
           typeof it === "number" ? (
@@ -82,7 +88,7 @@ export function AdminPagination({
               className={`${BTN} ${it === current ? BTN_CURRENT : BTN_IDLE}`}
               disabled={disabled && it !== current}
               aria-current={it === current ? "page" : undefined}
-              aria-label={ko ? `${formatAdminCount(it)}쪽` : `Page ${formatAdminCount(it)}`}
+              aria-label={tx(ko, "admin_ui_page", { page: String(formatAdminCount(it)) })}
               onClick={() => go(it)}
             >
               {formatAdminCount(it)}
@@ -98,14 +104,14 @@ export function AdminPagination({
           className={`${BTN} ${BTN_IDLE}`}
           disabled={disabled || current >= pageCount}
           onClick={() => go(current + 1)}
-          aria-label={ko ? "다음 페이지" : "Next page"}
+          aria-label={tx(ko, "admin_ui_next_page")}
         >
-          {ko ? "다음" : "Next"}
+          {tx(ko, "common_next")}
         </button>
       </div>
       {onSizeChange ? (
         <label className="flex items-center gap-1.5 text-[13px] text-[var(--admin-console-muted)]">
-          <span>{ko ? "페이지당" : "Per page"}</span>
+          <span>{tx(ko, "admin_ui_per_page")}</span>
           <select
             value={size}
             disabled={disabled}
@@ -115,7 +121,7 @@ export function AdminPagination({
           >
             {sizes.map((s) => (
               <option key={s} value={s}>
-                {ko ? `${s}건` : String(s)}
+                {tx(ko, "admin_count_items", { n: s })}
               </option>
             ))}
           </select>

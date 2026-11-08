@@ -11,6 +11,9 @@ import { MESSAGES } from "@/lib/i18n/messages";
 
 /** 정상 용어 — 바꾸지 않는다 */
 const NORMAL_TERM_KEYS = new Set([
+  // B4 어드민 광고 안내 — 상품 이름 「매장 홍보」(정상 용어)
+  "admin_ads_boost_delivery_sponsored_cannot_registered",
+  "admin_ads_human_approval_banner_store_promotion",
   // 배달 상품명 「매장 홍보」(정상 용어) — R1 원장 종류 이름
   "ads_ledger_kind_delivery_sponsored",
   "neighborhood_promo",
@@ -18,6 +21,10 @@ const NORMAL_TERM_KEYS = new Set([
   "store_coupon_purpose_new_menu",
   "store_coupon_admin_promo_cta",
   "community_board_promo_badge",
+  // B4 광고 상품 종류 「[배달] 매장 상위홍보」(배달 매장 홍보 상품명 — 정상 용어, 원래 화면 문구 그대로)
+  "admin_ads_exposure_delivery_store_promotion",
+  // B4 외부 글 수집 일괄 변경 규칙 설명 — 「홍보 문구 제거」(스팸성 홍보 문구, 상위노출 아님)
+  "admin_community_import_rules_desc",
   "owner_ads_workspace_store_sponsored_title",
   "owner_ads_create_store_sponsored_cta",
   "owner_ads_pick_placement_first_store",
@@ -54,10 +61,7 @@ const OUT_OF_SCOPE_KEYS = new Set([
   "admin_menu_business_posts",
   "admin_products_drill_promo",
   "admin_menu_ads_section_push",
-  /** S6 2단계에서 드러남(어드민 인라인 표 → 카탈로그) — 「광고·홍보」「상위홍보」 표기, Owner 확인 전 유지(발견 목록 L14) */
-  "admin_advertising",
-  "admin_promotion",
-  "admin_delivery_store_list_promote",
+  /** L14(2026-11-08 Owner 「권장대로 승인」): admin_advertising·admin_promotion·admin_delivery_store_list_promote 는 「상위노출」로 바꿔 목록에서 뺐다 */
 ]);
 
 /** 언어 SSOT S6: 문구가 카탈로그로 옮겨져도 화면 문구로 판정(부정 단언이 빈 확인이 되지 않게) */
@@ -128,8 +132,10 @@ describe("D-15 「홍보」 허용 목록", () => {
     expect(src).toContain("매장 홍보");
   });
 
-  it("terminology: 커뮤니티 PROMOTION fallback = 상위노출", () => {
+  it("terminology: 커뮤니티 PROMOTION 이름 = 상위노출", () => {
     const src = read("lib/admin/management/terminology.ts");
-    expect(src).not.toContain('fallbackKo: "홍보"');
+    /** 언어 SSOT B4: 대체 문구를 지우고 카탈로그 키로 — 키 + 카탈로그 값으로 확인 */
+    expect(src).toContain('i18nKey: "admin_management_term_promotion"');
+    expect(MESSAGES.ko.admin_management_term_promotion).toBe("상위노출");
   });
 });

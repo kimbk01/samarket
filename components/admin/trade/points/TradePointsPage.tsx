@@ -5,6 +5,7 @@
  * 지급·회수: 회원 선택 → 현재 잔액 → 지급/회수·금액·사유 → 2단계 확인. 확인 화면을 열 때 멱등 키를 1회 만들고 재시도에 재사용.
  * URL: type · entryType · userId · from/to(PHT) · period(호환 프리셋 · all=전체 기간, 없으면 최근 30일) · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import {
   COMMUNITY_TD,
@@ -104,6 +105,7 @@ function actorLabel(r: LedgerRow): string {
 }
 
 export function TradePointsPage() {
+  const { t } = useI18n();
   const q = useCommunityListQuery({ extras: LIST_EXTRAS });
   const [adjustOpen, setAdjustOpen] = useState(false);
   // FN-01: 지급·회수 = 중앙과 같은 `point` 키 (접근표 /admin/trade/points action) — 서버 가드가 최종 판정
@@ -120,7 +122,7 @@ export function TradePointsPage() {
 
   return (
     <CommunityListShell
-      title="거래 포인트"
+      title={t("admin_trade_points_title")}
       description="거래 상위노출과 관리자 지급·회수로 오간 포인트 내역입니다. 포인트는 전체 서비스 공통입니다."
       actions={
         <AdminActionButton
@@ -150,7 +152,7 @@ export function TradePointsPage() {
             </p>
           ) : null}
           {state.status === "ok" && state.data.promoOrderIdCapped ? (
-            <p className="text-[12px] text-sam-warning">오래된 상위노출 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
+            <p className="text-[12px] text-sam-warning">{t("admin_trade_points_old_orders_note")}</p>
           ) : null}
         </div>
       }
@@ -245,6 +247,7 @@ function newIdempotencyKey(): string {
 }
 
 function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<Member[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -379,7 +382,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
         {step === 1 ? (
           <>
             <div>
-              <span className="sam-text-helper font-medium text-sam-fg">회원</span>
+              <span className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_points_member")}</span>
               {member ? (
                 <div className="mt-1 flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]">
                   <span className="font-medium text-sam-fg">{member.label || "이름 없음"}</span>
@@ -406,7 +409,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                     <input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="닉네임으로 검색"
+                      placeholder={t("admin_trade_points_search_nickname")}
                       className={`w-full ${OverlayUi.input}`}
                     />
                     <AdminActionButton type="submit" variant="secondary" disabled={searching || !search.trim()}>
@@ -415,7 +418,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                   </form>
                   {results ? (
                     results.length === 0 ? (
-                      <p className="mt-2 text-[13px] text-sam-muted">검색 결과가 없습니다.</p>
+                      <p className="mt-2 text-[13px] text-sam-muted">{t("admin_trade_points_no_results")}</p>
                     ) : (
                       <ul className="mt-2 max-h-56 divide-y divide-sam-border-soft overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface">
                         {results.map((m) => (
@@ -440,17 +443,17 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
               <p className="text-[13px] text-sam-fg">
                 현재 잔액:{" "}
                 {balance === null ? (
-                  <span className="text-sam-muted">확인 중…</span>
+                  <span className="text-sam-muted">{t("admin_trade_points_checking")}</span>
                 ) : "value" in balance ? (
                   <strong>{formatTradePoints(balance.value)}</strong>
                 ) : (
-                  <span className="text-sam-danger">확인하지 못했습니다. 다시 선택해 주세요.</span>
+                  <span className="text-sam-danger">{t("admin_trade_points_balance_failed")}</span>
                 )}
               </p>
             ) : null}
 
             <fieldset className="flex gap-4 text-[13px]">
-              <legend className="sr-only">구분</legend>
+              <legend className="sr-only">{t("admin_trade_points_op_legend")}</legend>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name="op" checked={op === "credit"} onChange={() => setOp("credit")} />
                 지급
@@ -462,27 +465,27 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
             </fieldset>
 
             <label className="block">
-              <span className="sam-text-helper font-medium text-sam-fg">포인트</span>
+              <span className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_points_amount")}</span>
               <input
                 inputMode="numeric"
                 value={amountText}
                 onChange={(e) => setAmountText(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="예: 1000"
+                placeholder={t("admin_trade_points_amount_placeholder")}
                 className={`mt-1 w-full ${OverlayUi.input}`}
               />
               {overDebit ? (
-                <span className="mt-1 block sam-text-xxs text-sam-danger">보유 포인트보다 많이 회수할 수 없습니다.</span>
+                <span className="mt-1 block sam-text-xxs text-sam-danger">{t("admin_trade_points_over_balance")}</span>
               ) : null}
             </label>
 
             <label className="block">
-              <span className="sam-text-helper font-medium text-sam-fg">사유</span>
+              <span className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_points_reason")}</span>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
                 maxLength={500}
-                placeholder="지급·회수 사유 (회원 포인트 내역에 표시됩니다)"
+                placeholder={t("admin_trade_points_reason_placeholder")}
                 className={`mt-1 w-full ${OverlayUi.input}`}
               />
               <span className={`mt-1 block sam-text-xxs ${reasonOk ? "text-sam-muted" : "text-sam-danger"}`}>

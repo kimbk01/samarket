@@ -117,9 +117,7 @@ function AdminPushDevicesPageInner() {
       level: adminActionLevel("save"),
       ko,
       title: t("admin_push_test_send"),
-      description: ko
-        ? "이 회원의 등록 기기로 테스트 푸시를 보냅니다."
-        : "Sends a test push to this member's registered devices.",
+      description: t("admin_push_sends_test_push_to_this_member"),
       confirmLabel: t("admin_push_test_send"),
     });
     if (!confirmed.ok) return;

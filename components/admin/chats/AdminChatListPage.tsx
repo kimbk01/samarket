@@ -506,7 +506,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       title: t("admin_chat_block_confirm", { count: selectedIds.size }),
       confirmLabel: t("admin_chat_close_selected_ops"),
       destructive: true,
-      retypeValue: ko ? `${selectedIds.size}건` : `${selectedIds.size} rooms`,
+      retypeValue: t("admin_chat_bulk_close_retype_rooms", { n: selectedIds.size }),
     });
     if (!confirmed.ok) return;
     const bulkReason = confirmed.reason ?? t("admin_chat_bulk_list_note");

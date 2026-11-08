@@ -4,6 +4,7 @@
  * 운영 기록 (설계 §C-20 · §E-7) — 커뮤니티 대상 관리자 조치: 누가 · 언제 · 무엇 · 대상 · 사유 · 전후 비교.
  * URL: targetType · targetId · actor · action · from/to(PHT) · (호환) period · page · size
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { Fragment, useState } from "react";
@@ -63,6 +64,7 @@ function display(v: unknown): string {
 
 /** 전후 비교 — 알려진 필드만 이름을 붙여 보여 주고, 나머지는 기술 정보로 */
 function Compare({ before, after }: { before: Record<string, unknown> | null; after: Record<string, unknown> | null }) {
+  const { t } = useI18n();
   const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
   const known = keys
     .map((k) => ({ k, label: communityAuditFieldLabel(k) }))
@@ -71,14 +73,14 @@ function Compare({ before, after }: { before: Record<string, unknown> | null; af
   return (
     <div className="space-y-2">
       {known.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">표시할 변경 항목이 없습니다.</p>
+        <p className="text-[13px] text-sam-muted">{t("admin_community_audit_no_changes")}</p>
       ) : (
         <table className="w-full max-w-2xl border-collapse text-[13px]">
           <thead>
             <tr className="text-left text-[12px] text-sam-muted">
-              <th className="py-1 pr-3 font-semibold">항목</th>
-              <th className="py-1 pr-3 font-semibold">변경 전</th>
-              <th className="py-1 font-semibold">변경 후</th>
+              <th className="py-1 pr-3 font-semibold">{t("admin_community_audit_col_field")}</th>
+              <th className="py-1 pr-3 font-semibold">{t("admin_community_audit_col_before")}</th>
+              <th className="py-1 font-semibold">{t("admin_community_audit_col_after")}</th>
             </tr>
           </thead>
           <tbody>
@@ -100,6 +102,7 @@ function Compare({ before, after }: { before: Record<string, unknown> | null; af
 }
 
 export function AdminCommunityAuditPage() {
+  const { t } = useI18n();
   const q = useCommunityListQuery({ extras: AUDIT_EXTRAS });
   const [openId, setOpenId] = useState<string | null>(null);
   const actor = q.query.extras.actor;
@@ -112,7 +115,7 @@ export function AdminCommunityAuditPage() {
 
   return (
     <CommunityListShell
-      title="운영 기록"
+      title={t("admin_community_audit_title")}
       description="커뮤니티에서 관리자가 한 조치를 누가·언제·무엇을·왜 했는지 확인합니다."
       filterBar={
         <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
@@ -171,7 +174,7 @@ export function AdminCommunityAuditPage() {
                         variant="ghost"
                         size="sm"
                         className="h-auto! justify-start! px-0! text-left"
-                        title="이 관리자의 기록만 보기"
+                        title={t("admin_community_audit_filter_actor")}
                         onClick={() => q.setExtra("actor", r.actorId ?? "")}
                       >
                         {r.actorNickname || "관리자"}

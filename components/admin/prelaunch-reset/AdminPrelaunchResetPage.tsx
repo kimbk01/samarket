@@ -20,6 +20,7 @@ import {
 import type { PrelaunchResetPlan, PrelaunchResetPreset } from "@/lib/admin/prelaunch-reset/types";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const PRESET_IDS = Object.keys(PRELAUNCH_RESET_PRESETS) as PrelaunchResetPreset[];
 
@@ -54,34 +55,34 @@ function parseIds(raw: string): string[] {
 
 function supportBadge(
   support: string,
-  ko: boolean
+  t: (key: MessageKey) => string
 ): { text: string; className: string } {
   switch (support) {
     case "SUPPORTED":
       return {
-        text: ko ? "삭제 가능" : "Deletable",
+        text: t("admin_prelaunch_reset_deletable"),
         className: "border-emerald-600 text-emerald-800 bg-emerald-50",
       };
     case "PARTIAL":
       return {
-        text: ko ? "부분 지원" : "Partial",
+        text: t("admin_prelaunch_reset_partial"),
         className: "border-amber-600 text-amber-900 bg-amber-50",
       };
     case "BLOCKED":
       return {
-        text: ko ? "차단" : "Blocked",
+        text: t("admin_prelaunch_reset_blocked"),
         className: "border-red-600 text-red-900 bg-red-50",
       };
     default:
       return {
-        text: ko ? "미지원" : "Unsupported",
+        text: t("admin_prelaunch_reset_unsupported"),
         className: "border-sam-border text-sam-muted bg-sam-app",
       };
   }
 }
 
 export function AdminPrelaunchResetPage() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const [preset, setPreset] = useState<PrelaunchResetPreset>("TEST_CONTENT_ONLY");
@@ -329,10 +330,7 @@ export function AdminPrelaunchResetPage() {
         <ul className="mt-3 list-disc space-y-1 pl-5 text-[12px] text-sam-muted">
           {spec.excludesByDefault.map((x) => (
             <li key={x}>
-              {safeT("admin_prelaunch_reset_exclude", {
-                fallbackKo: `기본 제외: ${x}`,
-                fallbackEn: `Excluded by default: ${x}`,
-              })}
+              {t("admin_prelaunch_reset_exclude", { item: x })}
             </li>
           ))}
         </ul>
@@ -340,7 +338,7 @@ export function AdminPrelaunchResetPage() {
 
       <AdminCard
         title={
-          ko ? "1b. 데이터 유형 선택 (복수 / 전체)" : "1b. Data type selection (multi / select-all)"
+          t("admin_prelaunch_reset_1b_data_type_selection_multi_select")
         }
       >
         <label
@@ -353,7 +351,7 @@ export function AdminPrelaunchResetPage() {
             onChange={(e) => toggleSelectAll(e.target.checked)}
             data-aro-rst-select-all-input="1"
           />
-          {ko ? "전체 선택 (지원 범위만)" : "Select all (supported scopes only)"}
+          {t("admin_prelaunch_reset_select_all_supported_scopes_only")}
         </label>
 
         <div className="space-y-4" data-aro-rst-scope-matrix="1">
@@ -367,7 +365,7 @@ export function AdminPrelaunchResetPage() {
                 </p>
                 <ul className="space-y-2">
                   {rows.map((row) => {
-                    const badge = supportBadge(row.support, ko);
+                    const badge = supportBadge(row.support, t);
                     const enabled = eligible.has(row.key);
                     const checked = selectedScopes.includes(row.key);
                     return (
@@ -582,7 +580,7 @@ export function AdminPrelaunchResetPage() {
           title={safeT("admin_prelaunch_reset_step4")}
         >
           <p className="mb-2 text-[12px] font-semibold" data-aro-rst-plan-scopes="1">
-            {ko ? "선택된 범위: " : "Selected scopes: "}
+            {t("admin_prelaunch_reset_selected_scopes")}
             {plan.selectedScopes.join(", ") || "(none)"}
           </p>
           {(plan.scopeImpact ?? []).length > 0 ? (

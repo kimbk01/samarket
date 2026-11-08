@@ -11,6 +11,7 @@ import {
   type FinanceWallet,
 } from "@/lib/finance/presentation";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type AdminFinanceSumCell = {
   key: string;
@@ -114,9 +115,7 @@ export function unifiedTxSumCells(sums: readonly UnifiedTxKindSum[], ko: boolean
         amount: zeroMarker ? null : signedFinanceAmount(m.wallet, m.signed, m.wallet === "CASH"),
         count: m.count,
         note: zeroMarker
-          ? ko
-            ? "Coin 은 출금 신청 때 차감됨"
-            : "Coin is deducted at request"
+          ? translateBy(ko ? "ko" : "en", "admin_finance_coin_is_deducted_at_request")
           : null,
       };
     });
@@ -136,13 +135,13 @@ export function conversionSumCells(sums: readonly UnifiedTxKindSum[], ko: boolea
   return [
     {
       key: "coin_out",
-      label: ko ? "전환한 Coin" : "Coin converted",
+      label: translateBy(ko ? "ko" : "en", "admin_finance_coin_converted"),
       amount: formatFinanceAmount({ wallet: "COIN", amount: coin }),
       count,
     },
     {
       key: "cash_in",
-      label: ko ? "받은 Cash" : "Cash credited",
+      label: translateBy(ko ? "ko" : "en", "admin_finance_cash_credited"),
       amount: formatFinanceAmount({ wallet: "CASH", amount: cashMinor, isMinor: true }),
       count,
     },
@@ -246,8 +245,8 @@ export function readOutstandingSums(raw: unknown): OutstandingSums | null {
 export function outstandingSumCells(s: OutstandingSums, ko: boolean): AdminFinanceSumCell[] {
   const cash = (minor: number) => formatFinanceAmount({ wallet: "CASH", amount: minor, isMinor: true });
   return [
-    { key: "due", label: ko ? "Fee Due" : "Fee due", amount: cash(s.dueMinor), count: s.count },
-    { key: "paid", label: ko ? "Cash Paid" : "Cash paid", amount: cash(s.paidMinor), count: s.count },
+    { key: "due", label: translateBy(ko ? "ko" : "en", "admin_finance_fee_due"), amount: cash(s.dueMinor), count: s.count },
+    { key: "paid", label: translateBy(ko ? "ko" : "en", "admin_finance_cash_paid"), amount: cash(s.paidMinor), count: s.count },
     { key: "remaining", label: "Remaining", amount: cash(s.outstandingMinor), count: s.count },
   ];
 }
@@ -257,10 +256,10 @@ export function adminFinanceRangeText(
   input: { date?: string | null; from?: string | null; to?: string | null },
   ko: boolean
 ): string {
-  if (String(input.date ?? "").toLowerCase() === "today") return ko ? "오늘" : "Today";
+  if (String(input.date ?? "").toLowerCase() === "today") return translateBy(ko ? "ko" : "en", "finance_today");
   const from = String(input.from ?? "").trim();
   const to = String(input.to ?? "").trim();
   if (from && !to) return from;
   if (from || to) return `${from || "…"} ~ ${to || "…"}`;
-  return ko ? "전체 기간" : "All time";
+  return translateBy(ko ? "ko" : "en", "admin_finance_all_time");
 }

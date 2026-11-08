@@ -432,17 +432,11 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         ok: true,
         message:
           action === "set_delivery_flags"
-            ? ko
-              ? "영업 설정을 저장했습니다."
-              : "Open settings saved."
+            ? t("admin_biz_open_settings_saved")
             : action === "set_store_featured"
               ? body?.enabled === true
-                ? ko
-                  ? "추천 매장으로 지정했습니다."
-                  : "Marked as featured."
-                : ko
-                  ? "추천 매장을 해제했습니다."
-                  : "Featured removed."
+                ? t("admin_biz_marked_as_featured")
+                : t("admin_biz_featured_removed")
             : adminStoreActionSuccessMessage(
                 action,
                 ko,
@@ -481,18 +475,12 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       level: adminActionLevel(closing ? "disable" : "resume"),
       ko,
       title: closing
-        ? ko
-          ? "매장을 임시 휴업으로 바꿀까요?"
-          : "Temporarily close this store?"
-        : ko
-          ? "매장 영업을 다시 시작할까요?"
-          : "Reopen this store?",
+        ? t("admin_biz_temporarily_close_this_store")
+        : t("admin_biz_reopen_this_store"),
       description: closing
-        ? ko
-          ? "새 주문을 받지 않습니다. 사장님 앱의 영업 스위치도 꺼집니다."
-          : "New orders stop. The owner's open switch is turned off."
+        ? t("admin_biz_new_orders_stop_the_owners_open")
         : undefined,
-      confirmLabel: closing ? (ko ? "임시 휴업" : "Close") : ko ? "영업 재개" : "Reopen",
+      confirmLabel: closing ? t("admin_biz_close") : t("admin_biz_reopen"),
       destructive: closing,
     });
     if (!confirmed.ok) return;
@@ -514,7 +502,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         setActionResult({ ok: false, code: j.error ?? "update_failed" });
         return;
       }
-      setActionResult({ ok: true, message: ko ? "관리자 메모를 저장했습니다." : "Admin memo saved." });
+      setActionResult({ ok: true, message: t("admin_biz_admin_memo_saved") });
       refreshDetail();
     } catch {
       setActionResult({ ok: false, code: "network_error" });
@@ -538,10 +526,10 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         {notFound ? (
           <AdminEmptyState
             ko={ko}
-            message={ko ? "매장을 찾을 수 없습니다. 삭제되었거나 주소가 잘못되었습니다." : "Store not found. It may be deleted or the link is wrong."}
+            message={t("admin_biz_store_not_found_it_may_be")}
             action={
               <Link href={backHref} className="text-signature hover:underline">
-                {ko ? "매장 목록으로" : "Back to stores"}
+                {t("admin_biz_back_to_stores")}
               </Link>
             }
           />
@@ -578,7 +566,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
 
       <AdminTabs
         tabs={TABS.map((item) => ({ id: item.id, label: t(item.labelKey) }))}
-        ariaLabel={ko ? "매장 상세 탭" : "Store detail tabs"}
+        ariaLabel={t("admin_biz_store_detail_tabs")}
         value={tab}
         syncUrl={false}
         onChange={(id) => setTab(id as TabId)}
@@ -665,7 +653,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               />
             </AdminStoreReviewTheme>
           </AdminCard>
-          <AdminCard title={ko ? "추천 매장" : "Featured store"}>
+          <AdminCard title={t("admin_biz_featured_store")}>
             <AdminStoreFeaturedEditor
               ko={ko}
               storeName={store.store_name}
@@ -712,7 +700,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
 
       {tab === "hours" ? (
         <div className="space-y-4">
-          <AdminCard title={ko ? "영업시간" : "Business hours"}>
+          <AdminCard title={t("admin_biz_status_axis_hours")}>
             <AdminBusinessCcBusinessHoursEditor
               storeId={store.id}
               businessHoursJson={payload.businessHoursJson}
@@ -720,7 +708,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               onSaved={refreshDetail}
             />
           </AdminCard>
-          <AdminCard title={ko ? "영업·배달·포장 설정" : "Open, delivery and pickup"}>
+          <AdminCard title={t("admin_biz_open_delivery_and_pickup")}>
             <AdminBusinessCcOpsFlagsEditor
               storeId={store.id}
               deliveryAvailable={delivery.deliveryAvailable}
@@ -737,9 +725,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
         <AdminCard titleKey="admin_biz_card_delivery">
           <AdminBusinessCcDeliveryCard delivery={delivery} />
           <p className="mt-3 sam-text-helper text-sam-muted">
-            {ko
-              ? "영업·배달·포장 켜기/끄기는 「영업관리」 탭에서 바꿉니다. 이 탭에서는 배달 반경과 서비스 지역을 관리합니다."
-              : "Open/delivery/pickup switches live on the Hours tab. This tab manages radius and service area."}
+            {t("admin_biz_open_delivery_pickup_switches_live_on")}
           </p>
           <AdminBusinessCcDeliveryOverrideEditor
             storeId={store.id}
@@ -763,53 +749,45 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       ) : null}
 
       {tab === "reports" ? (
-        <AdminCard title={ko ? "신고 / 제재" : "Reports / sanctions"}>
+        <AdminCard title={t("admin_biz_reports_sanctions")}>
           <div className="space-y-3" data-admin-store-reports-tab="1">
             <dl className="grid gap-2 sam-text-body sm:grid-cols-3">
               <div>
-                <dt className="sam-text-helper text-sam-muted">{ko ? "처리 대기 신고" : "Open reports"}</dt>
+                <dt className="sam-text-helper text-sam-muted">{t("admin_biz_open_reports")}</dt>
                 <dd className={kpi.openReportCount > 0 ? "font-semibold text-sam-danger" : "font-semibold"}>
-                  {ko ? `${kpi.openReportCount}건` : kpi.openReportCount}
+                  {t("admin_count_items", { n: kpi.openReportCount })}
                 </dd>
               </div>
               <div>
-                <dt className="sam-text-helper text-sam-muted">{ko ? "전체 신고" : "All reports"}</dt>
-                <dd className="font-semibold">{ko ? `${ops.reportTotalCount}건` : ops.reportTotalCount}</dd>
+                <dt className="sam-text-helper text-sam-muted">{t("admin_biz_all_reports")}</dt>
+                <dd className="font-semibold">{t("admin_count_items", { n: ops.reportTotalCount })}</dd>
               </div>
               <div>
-                <dt className="sam-text-helper text-sam-muted">{ko ? "현재 상태" : "Current status"}</dt>
+                <dt className="sam-text-helper text-sam-muted">{t("admin_biz_current_status")}</dt>
                 <dd className="font-semibold">
                   {store.approval_status === "suspended"
-                    ? ko
-                      ? "운영 중지"
-                      : "Suspended"
+                    ? t("admin_biz_suspended")
                     : salesStatus === "suspended"
-                      ? ko
-                        ? "판매 중지"
-                        : "Sales suspended"
-                      : ko
-                        ? "제재 없음"
-                        : "No sanction"}
+                      ? t("admin_biz_sales_suspended")
+                      : t("admin_biz_ops_sanction_none")}
                 </dd>
               </div>
             </dl>
             {store.suspended_reason?.trim() ? (
               <p className="sam-text-helper text-sam-muted">
-                {ko ? "중지 사유" : "Suspension reason"}: {store.suspended_reason.trim()}
+                {t("admin_biz_suspension_reason")}: {store.suspended_reason.trim()}
               </p>
             ) : null}
             <AdminStoreHubRecentReports storeId={store.id} refreshKey={refresh} />
             <p className="sam-text-helper text-sam-muted">
-              {ko
-                ? "신고 처리(조치 완료·기각)는 매장 신고 화면에서 합니다. 운영 중지·판매 중지는 「기본정보」 탭의 입점/운영 조치에서 사유와 함께 처리합니다."
-                : "Handle reports on the Store reports screen. Suspend store/sales from the Basic tab with a reason."}
+              {t("admin_biz_handle_reports_on_the_store_reports")}
             </p>
             <div className="flex flex-wrap gap-2">
               <Link href={businessCcReportsHref(store.id)} className={linkBtn}>
-                {ko ? "이 매장 신고 보기" : "View this store's reports"}
+                {t("admin_biz_view_this_stores_reports")}
               </Link>
               <AdminActionButton variant="secondary" size="sm" onClick={() => setTab("basic")}>
-                {ko ? "운영 조치로 이동" : "Go to store actions"}
+                {t("admin_biz_go_to_store_actions")}
               </AdminActionButton>
             </div>
           </div>
@@ -817,9 +795,9 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       ) : null}
 
       {tab === "history" ? (
-        <AdminCard title={ko ? "작업 기록" : "Activity log"}>
+        <AdminCard title={t("admin_biz_activity_log")}>
           {logs.length === 0 ? (
-            <AdminEmptyState ko={ko} message={ko ? "작업 기록이 없습니다." : "No activity yet."} />
+            <AdminEmptyState ko={ko} message={t("admin_biz_no_activity_yet")} />
           ) : (
             <ul className="space-y-2" data-admin-store-history="1">
               {logs.map((log) => (
@@ -833,7 +811,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                   </div>
                   {log.reason ? (
                     <p className="mt-0.5 text-sam-muted">
-                      {ko ? "사유" : "Reason"}: {log.reason}
+                      {t("admin_biz_reason")}: {log.reason}
                     </p>
                   ) : null}
                   <AdminTechDetails ko={ko}>
@@ -847,22 +825,20 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           )}
           <div className="mt-3">
             <Link href={businessCcAuditHref(store.id)} className={linkBtn}>
-              {ko ? "전체 작업 기록" : "Full activity log"}
+              {t("admin_biz_full_activity_log")}
             </Link>
           </div>
         </AdminCard>
       ) : null}
 
       {tab === "products" && payload.storeKind === "sample" ? (
-        <AdminCard title={ko ? "샘플 메뉴 편집" : "Sample menu"}>
+        <AdminCard title={t("admin_biz_sample_menu")}>
           <div className="flex flex-wrap items-center gap-2" data-admin-sample-menu-entry="1">
             <p className="w-full sam-text-helper text-sam-muted">
-              {ko
-                ? "샘플 매장은 관리자가 메뉴·카테고리·이미지·소개를 사장님 편집과 같은 기능으로 수정합니다."
-                : "For sample stores, admins edit menus, categories, images and intro with the owner editor."}
+              {t("admin_biz_for_sample_stores_admins_edit_menus")}
             </p>
             <Link href={`/admin/business/${encodeURIComponent(store.id)}/sample-menu`} className={linkBtn}>
-              {ko ? "샘플 메뉴 편집" : "Edit sample menu"}
+              {t("admin_biz_edit_sample_menu")}
             </Link>
             {store.slug ? (
               <a
@@ -871,7 +847,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
                 rel="noopener noreferrer"
                 className={linkBtn}
               >
-                {ko ? "고객 화면 열기" : "Open customer view"}
+                {t("admin_biz_open_customer_view")}
               </a>
             ) : null}
           </div>

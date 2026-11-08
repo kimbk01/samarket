@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 
 const read = (rel: string) => readFileSync(path.join(process.cwd(), rel), "utf8");
 
@@ -63,14 +64,21 @@ describe("R8-g — 목록 실패 시 기간 합계 지움", () => {
 
 describe("R6 — 신청·처리 시각 (연도 포함 PHT)", () => {
   it("Cash·Coin 표 머리글에 (PHT)", () => {
-    for (const rel of [
-      "components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx",
-      "components/admin/finance/AdminCoinWithdrawalsPanel.tsx",
-    ]) {
+    for (const rel of ["components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx"]) {
       const src = read(rel);
-      expect(src).toMatch(/신청 시각 \(PHT\)/);
-      expect(src).toMatch(/처리 시각 \(PHT\)/);
+      /** 언어 SSOT B4: 머리글은 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+      expect(src).toContain('"admin_stores_requested_pht"');
+      expect(src).toContain('"admin_stores_processed_pht"');
     }
+    const storesCatalog = read("lib/i18n/catalog/copy-admin-b4-stores.ts");
+    expect(storesCatalog).toMatch(/admin_stores_requested_pht: "신청 시각 \(PHT\)"/);
+    expect(storesCatalog).toMatch(/admin_stores_processed_pht: "처리 시각 \(PHT\)"/);
+    /** 언어 SSOT B4: Coin 출금 표 머리글은 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    const coin = read("components/admin/finance/AdminCoinWithdrawalsPanel.tsx");
+    expect(coin).toContain(`t("admin_finance_requested_pht")`);
+    expect(coin).toContain(`t("admin_finance_processed_pht")`);
+    expect(MESSAGES.ko.admin_finance_requested_pht).toBe("신청 시각 (PHT)");
+    expect(MESSAGES.ko.admin_finance_processed_pht).toBe("처리 시각 (PHT)");
   });
 
   it("커뮤니티 충전 목록은 상대 시각 대신 절대 시각 + 처리 시각", () => {

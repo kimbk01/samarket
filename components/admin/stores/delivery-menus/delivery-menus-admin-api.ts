@@ -10,6 +10,7 @@ import type {
   DeliveryMenuAdminShortcut,
 } from "@/lib/stores/delivery-menus/delivery-menu-types";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export const DELIVERY_MENUS_ADMIN_API = "/api/admin/stores/delivery-menus";
 const UPLOAD_API = "/api/admin/stores/taxonomy/upload-image";
@@ -163,5 +164,5 @@ export function deliveryMenuAdminErrorText(code: string, ko: boolean): string {
   };
   const hit = map[code];
   if (hit) return ko ? hit[0] : hit[1];
-  return ko ? `저장하지 못했습니다. (${code})` : `Could not save. (${code})`;
+  return translateBy(ko ? "ko" : "en", "admin_stores_could_not_save_2", { code });
 }

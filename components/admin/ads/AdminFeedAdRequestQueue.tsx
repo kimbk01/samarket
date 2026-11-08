@@ -95,15 +95,15 @@ export function AdminFeedAdRequestQueue() {
           data-testid="admin-feed-req-filter"
         >
           <option value="pending_review">
-            {en ? "Pending approval" : "승인 대기"} ({countLabel("pending_review", 0)})
+            {t("admin_ads_pending_approval")} ({countLabel("pending_review", 0)})
           </option>
           <option value="rejected">
-            {en ? "Rejected" : "반려"} ({countLabel("rejected", 0)})
+            {t("admin_ads_summary_rejected")} ({countLabel("rejected", 0)})
           </option>
           <option value="cancelled">
-            {en ? "Cancelled" : "취소"} ({countLabel("cancelled", 0)})
+            {t("admin_ads_app_status_cancelled")} ({countLabel("cancelled", 0)})
           </option>
-          <option value="">{en ? "All" : "전체"}</option>
+          <option value="">{t("common_all")}</option>
         </select>
       </div>
 
@@ -160,10 +160,10 @@ export function AdminFeedAdRequestQueue() {
                     </p>
                     <p className="sam-text-helper text-sam-muted">
                       {r.durationDays}
-                      {en ? "d" : "일"} · {r.pointCost.toLocaleString()}P
+                      {t("admin_ads_d")} · {r.pointCost.toLocaleString()}P
                       {" · "}
                       {r.endAt
-                        ? `${en ? "Ends" : "종료"} ${new Date(r.endAt).toLocaleString()}`
+                        ? `${t("admin_ads_ends")} ${new Date(r.endAt).toLocaleString()}`
                         : new Date(r.createdAt).toLocaleString()}
                     </p>
                   </div>

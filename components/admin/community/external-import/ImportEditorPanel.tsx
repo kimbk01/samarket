@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { allowsFullContent, allowsHiddenAttribution, RIGHTS_LABEL } from "@/lib/community-operator-import/rights";
@@ -73,6 +74,7 @@ type Props = {
 };
 
 export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
+  const { t: tr } = useI18n();
   const [data, setData] = useState<DetailPayload | null>(null);
   const [edit, setEdit] = useState<OperatorDraftEdit | null>(null);
   const [preview, setPreview] = useState<PublishContent | null>(null);
@@ -110,7 +112,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
     [data],
   );
 
-  if (loading) return <div className="p-4 text-xs text-sam-muted">원문 가져오는 중…</div>;
+  if (loading) return <div className="p-4 text-xs text-sam-muted">{tr("admin_community_import_editor_loading")}</div>;
   if (!data || !edit) {
     return (
       <div className="p-4 space-y-2">
@@ -256,10 +258,12 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
 
       {post ? (
         <div data-testid="import-post-manage" className="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-b border-sam-border bg-sam-app text-xs">
-          <span className="font-semibold text-sam-fg">게시된 글</span>
+          <span className="font-semibold text-sam-fg">{tr("admin_community_import_editor_published_post")}</span>
           <span className="rounded-full border border-sam-border px-2 py-0.5">{POST_STATUS[post.status] ?? post.status}</span>
-          <span className="text-sam-muted">주제 {postTopic?.name ?? post.topicSlug}</span>
-          <span className="text-sam-muted">수정 {fmtDate(post.updatedAt)}</span>
+          <span className="text-sam-muted">
+            {tr("admin_community_import_editor_post_topic", { topic: postTopic?.name ?? post.topicSlug })}
+          </span>
+          <span className="text-sam-muted">{tr("admin_community_import_editor_post_updated", { date: fmtDate(post.updatedAt) })}</span>
           <span className="ml-auto flex flex-wrap gap-1.5">
             <AdminActionLink variant="neutral" href={`/philife/${post.id}`} target="_blank" rel="noreferrer">
               커뮤니티에서 보기
@@ -289,7 +293,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       <div className={`flex-1 min-h-0 overflow-auto grid gap-3 p-3 ${view === "compare" ? "lg:grid-cols-2" : ""}`}>
         {view !== "result" ? (
           <section className="space-y-2 min-w-0">
-            <div className="text-[12px] font-semibold text-sam-muted">원문</div>
+            <div className="text-[12px] font-semibold text-sam-muted">{tr("admin_community_import_editor_original")}</div>
             <h3 className="text-base font-semibold break-words">{a.title}</h3>
             <div className="text-[12px] text-sam-muted">
               {a.author || "작성자 없음"} · {fmtDate(a.sourcePublishedDate) || "날짜 없음"} ·{" "}
@@ -303,16 +307,16 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
 
         {view !== "source" ? (
           <section className="space-y-3 min-w-0">
-            <div className="text-[12px] font-semibold text-sam-muted">편집 · 게시 결과</div>
+            <div className="text-[12px] font-semibold text-sam-muted">{tr("admin_community_import_editor_result")}</div>
             <label className="block text-xs text-sam-muted">
-              제목
-              <input aria-label="제목" className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.displayTitle} onChange={(e) => set({ displayTitle: e.target.value })} />
+              {tr("admin_community_import_editor_title")}
+              <input aria-label={tr("admin_community_import_editor_title")} className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.displayTitle} onChange={(e) => set({ displayTitle: e.target.value })} />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="block text-xs text-sam-muted">
-                DIBAY 주제
+                {tr("admin_community_import_dibay_topic")}
                 <select
-                  aria-label="DIBAY 주제"
+                  aria-label={tr("admin_community_import_dibay_topic")}
                   className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5"
                   value={edit.topicId ?? ""}
                   onChange={(e) => {
@@ -320,7 +324,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                     set({ topicId: t?.id ?? null, topicSlug: t?.slug ?? null });
                   }}
                 >
-                  <option value="">주제 선택</option>
+                  <option value="">{tr("admin_community_import_editor_select_topic")}</option>
                   {topics.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -393,7 +397,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
             </div>
             {images.length ? (
               <div>
-                <div className="text-xs text-sam-muted mb-1">이미지 (체크=포함, ★=썸네일)</div>
+                <div className="text-xs text-sam-muted mb-1">{tr("admin_community_import_editor_images_hint")}</div>
                 <div className="flex flex-wrap gap-2">
                   {images.map(({ b, i }) => {
                     const included = edit.imageIncludes[String(i)] !== false;
@@ -408,7 +412,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                             checked={included}
                             onChange={(e) => set({ imageIncludes: { ...edit.imageIncludes, [String(i)]: e.target.checked } })}
                           />
-                          <AdminActionButton variant="quiet" size="sm" aria-label="썸네일로 지정" className="px-1!" disabled={!included} onClick={() => set({ thumbnailImageIndex: i })}>
+                          <AdminActionButton variant="quiet" size="sm" aria-label={tr("admin_community_import_editor_set_thumbnail")} className="px-1!" disabled={!included} onClick={() => set({ thumbnailImageIndex: i })}>
                             {thumb ? "★" : "☆"}
                           </AdminActionButton>
                         </div>
@@ -464,8 +468,12 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
           >
             {busy === "publish" ? "처리 중…" : published ? "게시물 업데이트" : "DIBAY에 게시"}
           </AdminActionButton>
-          {!topic ? <span className="text-[12px] text-sam-muted self-center">주제를 선택해야 게시할 수 있습니다.</span> : null}
-          {q?.verdict === "FAILED" ? <span className="text-[12px] text-sam-danger self-center">품질 「수집 실패」 — 게시 불가</span> : null}
+          {!topic ? (
+            <span className="text-[12px] text-sam-muted self-center">{tr("admin_community_import_editor_need_topic")}</span>
+          ) : null}
+          {q?.verdict === "FAILED" ? (
+            <span className="text-[12px] text-sam-danger self-center">{tr("admin_community_import_editor_failed_quality")}</span>
+          ) : null}
         </div>
         {post ? (
           <p className="text-[12px] text-sam-muted">

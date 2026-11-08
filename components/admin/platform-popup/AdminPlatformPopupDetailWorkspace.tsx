@@ -99,7 +99,7 @@ function fromLocalInput(v: string, timezone: string): string | null {
 type AuditRow = AdminPlatformPopupAuditRow;
 
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
@@ -427,9 +427,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       const ok = await confirmAdminAction({
         level: adminActionLevel("save"),
         ko,
-        title: ko ? "변경 내용 저장" : "Save changes",
+        title: t("admin_platform_popup_save_changes"),
         description: safeT("admin_popup_review_revert_confirm"),
-        confirmLabel: ko ? "저장" : "Save",
+        confirmLabel: t("common_save"),
       });
       if (!ok.ok) {
         setBusy(false);
@@ -478,13 +478,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         level: adminActionLevel(activate ? "exposeStart" : "approve"),
         ko,
         title: activate
-          ? ko
-            ? "팝업 노출 시작"
-            : "Start popup exposure"
-          : ko
-            ? "팝업 승인 (예약 노출)"
-            : "Approve popup (scheduled)",
-        description: ko ? `「${name}」` : `"${name}"`,
+          ? t("admin_platform_popup_start_popup_exposure")
+          : t("admin_platform_popup_approve_popup_scheduled"),
+        description: t("admin_platform_popup_quoted_name", { name }),
         confirmLabel: activate ? adminCta("exposeStart", ko) : adminCta("approve", ko),
       });
     }
@@ -492,8 +488,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       return confirmAdminAction({
         level: adminActionLevel("exposeStart"),
         ko,
-        title: ko ? "팝업 노출 시작" : "Start popup exposure",
-        description: ko ? `「${name}」` : `"${name}"`,
+        title: t("admin_platform_popup_start_popup_exposure"),
+        description: t("admin_platform_popup_quoted_name", { name }),
         confirmLabel: adminCta("exposeStart", ko),
       });
     }
@@ -501,10 +497,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       return confirmAdminAction({
         level: adminActionLevel("pause"),
         ko,
-        title: ko ? "팝업 노출 중지" : "Stop popup exposure",
-        description: ko
-          ? `「${name}」 노출을 중지합니다. 나중에 다시 노출할 수 있습니다.`
-          : `Stop showing "${name}". You can resume it later.`,
+        title: t("admin_platform_popup_stop_popup_exposure"),
+        description: t("admin_platform_popup_stop_showing_name_can_resume", { name: String(name) }),
         confirmLabel: adminCta("exposeStop", ko),
       });
     }
@@ -512,11 +506,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       return confirmAdminAction({
         level: adminActionLevel("forceCancel"),
         ko,
-        title: ko ? "팝업 종료" : "End popup",
-        description: ko
-          ? `「${name}」을(를) 종료합니다. 종료한 팝업은 다시 노출할 수 없습니다.`
-          : `End "${name}". An ended popup cannot be shown again.`,
-        confirmLabel: ko ? "종료" : "End",
+        title: t("admin_platform_popup_end_popup"),
+        description: t("admin_platform_popup_end_name_ended_popup_cannot", { name: String(name) }),
+        confirmLabel: t("admin_platform_popup_action_end"),
         destructive: true,
       });
     }

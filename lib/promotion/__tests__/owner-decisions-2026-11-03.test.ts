@@ -117,7 +117,8 @@ describe("DB 3건 — O-10 · O-6② · O-4", () => {
     const ws = read("components/admin/ads/AdminAdvertisingWorkspace.tsx");
     expect(ws).toContain("domain: domainFilter || undefined,");
     expect(ws).toContain("data-admin-ads-domain-filter-chip={domainFilter}");
-    expect(ws).toContain('"전체 보기"');
+    expect(ws).toContain('t("admin_ads_show_all")');
+    expect(translate("ko", "admin_ads_show_all")).toBe("전체 보기");
   });
   it("O-4: 서버가 키를 만들고 새 행일 때만 숫자 +1 · service_role 만", () => {
     const sql = mig("20271104030000_feed_ad_events_o4.sql");

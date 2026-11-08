@@ -205,9 +205,10 @@ describe("R8-b·R8-c 문구 · 0P 승인 확정 줄", () => {
     }
   });
 
-  it("줄 제목·상세 제목은 번역 키(safeT)", () => {
+  it("줄 제목·상세 제목은 번역 키(t — B4 대체 문구 제거)", () => {
     const src = read("components/points/PointFinancialHistoryList.tsx");
-    expect(src).toContain("safeT(item.titleKey as MessageKey");
+    expect(src).toContain("t(item.titleKey as MessageKey)");
+    expect(src).not.toContain("fallbackTitleKo");
     expect(src).not.toContain('language === "en" ? item.fallbackTitleEn : item.fallbackTitleKo');
   });
 

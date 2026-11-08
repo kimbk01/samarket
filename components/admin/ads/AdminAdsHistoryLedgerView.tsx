@@ -6,6 +6,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type {
   AdsHistoryDomainFilter,
@@ -83,7 +84,7 @@ function LedgerRow({
           {ko ? row.productLabelKo : row.productLabelEn}
           {row.legacy ? (
             <span className="ml-2 rounded-full bg-sam-app px-2 py-0.5 text-[12px] font-bold text-sam-muted">
-              {ko ? "이전 방식" : "Legacy"}
+              {translateBy(ko ? "ko" : "en", "admin_ads_legacy")}
             </span>
           ) : null}
         </td>
@@ -95,9 +96,7 @@ function LedgerRow({
           {ko ? row.sourceLabelKo : row.sourceLabelEn}
           {row.historicalAmountLabel ? ` · ${row.historicalAmountLabel}` : ""}
           {!row.historicalAmountProven && row.paymentCurrency !== "NONE"
-            ? ko
-              ? " · 금액 정보 없음"
-              : " · Amount unknown"
+            ? translateBy(ko ? "ko" : "en", "admin_ads_amount_unknown")
             : ""}
         </td>
         <td className="py-2 pr-2">
@@ -142,28 +141,24 @@ export function RowDetail({
     <div className="space-y-3" data-ads-history-detail="1">
       <dl className="grid gap-2 text-[12px] sm:grid-cols-2">
         <div>
-          <dt className="text-sam-muted">{ko ? "출처" : "Source"}</dt>
+          <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_source")}</dt>
           <dd className="font-medium">{ko ? row.sourceLabelKo : row.sourceLabelEn}</dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "신청자" : "Applicant"}</dt>
+          <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_label_applicant")}</dt>
           <dd className="font-medium">{row.applicantLabel ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
+          <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_payment")}</dt>
           <dd className="font-medium" data-ads-history-amount-proven={row.historicalAmountProven ? "1" : "0"}>
             {row.historicalAmountLabel ??
               (row.paymentCurrency === "NONE"
-                ? ko
-                  ? "결제 없음"
-                  : "No payment"
-                : ko
-                  ? "금액 정보 없음"
-                  : "Amount not stored")}
+                ? translateBy(ko ? "ko" : "en", "admin_ads_no_payment")
+                : translateBy(ko ? "ko" : "en", "admin_ads_amount_not_stored"))}
           </dd>
         </div>
         <div>
-          <dt className="text-sam-muted">{ko ? "노출 위치" : "Placement"}</dt>
+          <dt className="text-sam-muted">{translateBy(ko ? "ko" : "en", "admin_ads_label_placement")}</dt>
           <dd className="font-medium">
             {(ko ? row.placementLabelKo : row.placementLabelEn) ?? "—"}
             <span className="ml-1 text-[12px] text-sam-muted" data-ads-history-placement-evidence={row.placementEvidence}>
@@ -175,7 +170,7 @@ export function RowDetail({
 
       <div data-ads-history-timeline="1">
         <p className="mb-2 text-[12px] font-semibold text-sam-fg">
-          {ko ? "타임라인" : "Timeline"}
+          {translateBy(ko ? "ko" : "en", "admin_ads_timeline")}
         </p>
         <ol className="space-y-2">
           {row.timeline.map((ev, i) => (
@@ -192,11 +187,11 @@ export function RowDetail({
                 <p className="text-[12px] text-sam-muted">{formatAdminManilaDateTime(ev.at)}</p>
               </div>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {ko ? "행위자" : "Actor"}:{" "}
+                {translateBy(ko ? "ko" : "en", "admin_ads_actor")}:{" "}
                 {ev.actorProven ? ev.actorLabel ?? "—" : "—"}
                 {!ev.actorProven ? (
                   <span className="ml-1 text-[12px]">
-                    ({ko ? "기록 없음 · 추정하지 않음" : "no inference / NOT_PROVEN"})
+                    ({translateBy(ko ? "ko" : "en", "admin_ads_no_inference_not_proven")})
                   </span>
                 ) : null}
               </p>
@@ -205,7 +200,7 @@ export function RowDetail({
               ) : null}
               {ev.reason ? (
                 <p className="text-[12px] text-sam-muted">
-                  {ko ? "사유" : "Reason"}: {ev.reason}
+                  {translateBy(ko ? "ko" : "en", "admin_ads_reason")}: {ev.reason}
                 </p>
               ) : null}
               {ev.evidenceNoteKo || ev.evidenceNoteEn ? (
@@ -229,12 +224,12 @@ export function RowDetail({
       <div className="flex flex-wrap gap-3 text-[12px]">
         {row.applicationsHref ? (
           <AdminActionLink href={row.applicationsHref} variant="ghost" size="sm">
-            {ko ? "신청 상세" : "Application details"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_application_details")}
           </AdminActionLink>
         ) : null}
         {row.operationsHref ? (
           <AdminActionLink href={row.operationsHref} variant="ghost" size="sm">
-            {ko ? "노출 관리 상세" : "Operations details"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_operations_details")}
           </AdminActionLink>
         ) : null}
         {detailHref && detailHref !== row.operationsHref ? (
@@ -244,9 +239,7 @@ export function RowDetail({
         ) : null}
       </div>
       <p className="text-[12px] text-sam-muted" data-ads-history-mutation="0">
-        {ko
-          ? "이력 화면에서는 바뀐 내용이 없습니다."
-          : "History has no edit/payment/approval mutations."}
+        {translateBy(ko ? "ko" : "en", "admin_ads_history_has_no_edit_payment")}
       </p>
     </div>
   );
@@ -352,9 +345,7 @@ function AdminAdsHistoryLedgerViewInner() {
       <AdminPageHeader
         titleKey="admin_menu_ads_authority_history"
         description={
-          ko
-            ? "저장된 신청·결제·승인·운영·환불 기록만 시간순으로 표시합니다. 기록이 없는 일은 「기록 없음」으로 둡니다."
-            : "Only stored application/payment/approval/ops/refund evidence in time order. Missing events stay NOT_PROVEN."
+          t("admin_ads_stored_application_payment_approval_ops")
         }
       />
 
@@ -364,7 +355,7 @@ function AdminAdsHistoryLedgerViewInner() {
           data-ads-history-view-option="ledger"
           onClick={() => lq.setExtra("view", "")}
         >
-          {ko ? "전체 이력" : "All history"}
+          {t("admin_ads_all_history")}
         </AdminChipButton>
         <AdminChipButton
           selected={deletedView}
@@ -387,28 +378,28 @@ function AdminAdsHistoryLedgerViewInner() {
         onReset={lq.reset}
         pending={busy}
         showPeriod={false}
-        searchPlaceholder={ko ? "캠페인·신청자·ID" : "Title, applicant, id"}
+        searchPlaceholder={t("admin_ads_title_applicant_id")}
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
           options: [
-            { value: "", label: ko ? "전체 상태" : "All statuses" },
-            { value: "approved", label: ko ? "승인" : "Approved" },
-            { value: "rejected", label: ko ? "반려" : "Rejected" },
-            { value: "ended", label: ko ? "종료" : "Ended" },
-            { value: "refunded", label: ko ? "환불" : "Refunded" },
-            { value: "paused", label: ko ? "제재/중지" : "Paused" },
+            { value: "", label: t("admin_ads_all_statuses") },
+            { value: "approved", label: t("admin_ads_approved") },
+            { value: "rejected", label: t("admin_ads_summary_rejected") },
+            { value: "ended", label: t("admin_ads_ended") },
+            { value: "refunded", label: t("admin_ads_payment_status_refunded") },
+            { value: "paused", label: t("admin_ads_paused") },
           ],
         }}
       >
         <div className="flex flex-wrap gap-2 pb-1" data-ads-history-filters="1">
           {(
             [
-              ["all", ko ? "전체" : "All"],
-              ["community", ko ? "커뮤니티" : "Community"],
-              ["trade", ko ? "거래" : "Trade"],
-              ["delivery", ko ? "배달" : "Delivery"],
-              ["popup", ko ? "팝업" : "Popup"],
+              ["all", t("common_all")],
+              ["community", t("admin_ads_community")],
+              ["trade", t("admin_ads_trade")],
+              ["delivery", t("common_delivery")],
+              ["popup", t("admin_ads_popup")],
             ] as const
           ).map(([id, label]) => (
             <AdminChipButton
@@ -432,9 +423,7 @@ function AdminAdsHistoryLedgerViewInner() {
       {ledger?.sectionErrors?.length ? (
         <div className="text-[12px] text-sam-warning" data-ads-history-section-errors="1">
           <p>
-            {ko
-              ? `일부 영역(${ledger.sectionErrors.length}개)의 이력을 불러오지 못했습니다. 표시된 목록이 전체가 아닐 수 있습니다.`
-              : `History for ${ledger.sectionErrors.length} section(s) failed to load. The list may be incomplete.`}
+            {t("admin_ads_history_length_section_s_failed", { length: String(ledger.sectionErrors.length) })}
           </p>
           <AdminTechDetails ko={ko}>
             <ul>
@@ -448,7 +437,7 @@ function AdminAdsHistoryLedgerViewInner() {
 
       <div className="text-[12px] text-sam-muted" data-ads-history-coverage={productCoverage.size}>
         <AdminTechDetails ko={ko}>
-          {ko ? "로드된 제품군 키" : "Loaded product keys"}: {[...productCoverage].join(", ") || "—"}
+          {t("admin_ads_loaded_product_keys")}: {[...productCoverage].join(", ") || "—"}
         </AdminTechDetails>
       </div>
 
@@ -461,7 +450,7 @@ function AdminAdsHistoryLedgerViewInner() {
         <div data-ads-history-empty="1">
           <AdminEmptyState
             ko={ko}
-            message={lq.isFiltered ? undefined : ko ? "광고 이력이 없습니다." : "No ad history."}
+            message={lq.isFiltered ? undefined : t("admin_ads_no_ad_history")}
             onReset={lq.isFiltered ? lq.reset : undefined}
           />
         </div>
@@ -470,11 +459,11 @@ function AdminAdsHistoryLedgerViewInner() {
           <table className="w-full min-w-[56rem] border-collapse text-left sam-text-body-secondary" data-ads-history-table="1">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "최근 일시" : "Last event"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "영역·상품" : "Domain / product"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "캠페인" : "Campaign"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "출처·금액" : "Source / amount"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "최종 상태·결제" : "Final status / payment"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_ads_last_event")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_ads_domain_product")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_ads_campaign")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_ads_source_amount")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_ads_final_status_payment")}</th>
                 <th className="py-2 pr-2 font-medium">{adminCta("detail", ko)}</th>
               </tr>
             </thead>

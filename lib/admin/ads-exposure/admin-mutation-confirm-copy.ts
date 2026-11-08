@@ -11,6 +11,12 @@ import {
   type AdminActionKind,
 } from "@/lib/admin/operator-ux/admin-action-levels";
 import type { AdminConfirmLevel } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdminMutationConfirmTone = "primary" | "danger";
 
@@ -94,7 +100,7 @@ export function adsWorkspaceMutationConfirmCopy(
   ko: boolean,
   opts?: { boostSanction?: boolean; family?: string | null }
 ): AdminMutationConfirmCopy {
-  const cancelLabel = ko ? "취소" : "Cancel";
+  const cancelLabel = tx(ko, "common_cancel");
   const boostSanction = Boolean(opts?.boostSanction) && action === "pause";
   const kind = adsWorkspaceActionKind(action, opts?.family ?? null, { boostSanction });
   const level = adminActionLevel(kind);
@@ -103,24 +109,16 @@ export function adsWorkspaceMutationConfirmCopy(
   const splitReason = adsWorkspaceActionSplitsReason(action);
   const reasonLabel =
     action === "request_changes"
-      ? ko
-        ? "보류 사유"
-        : "Hold reason"
+      ? tx(ko, "admin_ads_exposure_hold_reason")
       : action === "reject"
-        ? ko
-          ? "반려 사유"
-          : "Rejection reason"
-        : ko
-          ? "사유"
-          : "Reason";
+        ? tx(ko, "admin_ads_exposure_rejection_reason")
+        : tx(ko, "admin_ads_exposure_reason");
 
   if (boostSanction) {
     return {
-      title: ko ? "상위노출을 제재하시겠습니까?" : "Sanction this boost?",
-      body: ko
-        ? "제재 후 해당 상위노출은 실제 노출에서 제외됩니다."
-        : "After sanction, this boost is removed from live exposure.",
-      confirmLabel: ko ? "제재" : "Sanction",
+      title: tx(ko, "admin_ads_exposure_sanction_this_boost"),
+      body: tx(ko, "admin_ads_exposure_after_sanction_this_boost_is_removed"),
+      confirmLabel: tx(ko, "admin_ads_exposure_sanction"),
       cancelLabel,
       tone: "danger",
       reasonRequired,
@@ -135,11 +133,9 @@ export function adsWorkspaceMutationConfirmCopy(
   switch (action) {
     case "approve":
       return {
-        title: ko ? "광고를 승인하시겠습니까?" : "Approve this ad?",
-        body: ko
-          ? "승인 후 노출 조건을 충족하면 광고가 노출될 수 있습니다."
-          : "After approval, the ad may expose when conditions are met.",
-        confirmLabel: ko ? "승인" : "Approve",
+        title: tx(ko, "admin_ads_exposure_approve_this_ad"),
+        body: tx(ko, "admin_ads_exposure_after_approval_the_ad_may_expose"),
+        confirmLabel: tx(ko, "admin_ads_exposure_approve"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -151,11 +147,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "request_changes":
       return {
-        title: ko ? "광고를 보류하시겠습니까?" : "Hold this ad?",
-        body: ko
-          ? "보류된 광고는 승인될 때까지 노출되지 않습니다."
-          : "Held ads stay off exposure until approved.",
-        confirmLabel: ko ? "보류" : "Hold",
+        title: tx(ko, "admin_ads_exposure_hold_this_ad"),
+        body: tx(ko, "admin_ads_exposure_held_ads_stay_off_exposure_until"),
+        confirmLabel: tx(ko, "admin_ads_exposure_hold"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -167,11 +161,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "reject":
       return {
-        title: ko ? "광고를 반려하시겠습니까?" : "Reject this ad?",
-        body: ko
-          ? "반려 후 해당 신청은 노출되지 않습니다."
-          : "After rejection, the application will not expose.",
-        confirmLabel: ko ? "반려" : "Reject",
+        title: tx(ko, "admin_ads_exposure_reject_this_ad"),
+        body: tx(ko, "admin_ads_exposure_after_rejection_the_application_will_not"),
+        confirmLabel: tx(ko, "admin_ads_exposure_reject"),
         cancelLabel,
         tone: "danger",
         reasonRequired,
@@ -183,11 +175,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "pause":
       return {
-        title: ko ? "광고 노출을 일시중지하시겠습니까?" : "Pause this ad?",
-        body: ko
-          ? "일시중지 후 실제 노출에서 제외됩니다."
-          : "After pause, the ad is removed from live exposure.",
-        confirmLabel: ko ? "일시중지" : "Pause",
+        title: tx(ko, "admin_ads_exposure_pause_this_ad"),
+        body: tx(ko, "admin_ads_exposure_after_pause_the_ad_is_removed"),
+        confirmLabel: tx(ko, "admin_ads_exposure_pause"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -199,11 +189,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "resume":
       return {
-        title: ko ? "광고 노출을 재개하시겠습니까?" : "Resume this ad?",
-        body: ko
-          ? "노출 조건을 충족하면 다시 노출됩니다."
-          : "It may expose again when conditions are met.",
-        confirmLabel: ko ? "재개" : "Resume",
+        title: tx(ko, "admin_ads_exposure_resume_this_ad"),
+        body: tx(ko, "admin_ads_exposure_it_may_expose_again_when_conditions"),
+        confirmLabel: tx(ko, "admin_ads_exposure_resume"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -216,11 +204,9 @@ export function adsWorkspaceMutationConfirmCopy(
     case "end":
     case "terminate":
       return {
-        title: ko ? "광고를 종료하시겠습니까?" : "End this ad?",
-        body: ko
-          ? "종료하면 다시 노출할 수 없습니다. 귀책에 따라 남은 기간 비례 환급이 정해집니다."
-          : "After ending, the ad cannot be shown again. Any pro-rated refund depends on who is at fault.",
-        confirmLabel: ko ? "종료" : "End",
+        title: tx(ko, "admin_ads_exposure_end_this_ad"),
+        body: tx(ko, "admin_ads_exposure_after_ending_the_ad_cannot_be"),
+        confirmLabel: tx(ko, "admin_ads_exposure_end"),
         cancelLabel,
         tone: "danger",
         reasonRequired,
@@ -232,11 +218,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "delete_safe_draft":
       return {
-        title: ko ? "광고를 삭제하시겠습니까?" : "Delete this ad?",
-        body: ko
-          ? "사유만 입력하면 바로 삭제됩니다. 이력이 없는 초안은 완전히 지우고, 그 밖에는 목록에서 사라지며 「이력 › 삭제됨」에서 되돌릴 수 있습니다."
-          : "Enter a reason to delete. A draft with no history is removed; otherwise it disappears from lists and can be restored from History › Deleted.",
-        confirmLabel: ko ? "삭제" : "Delete",
+        title: tx(ko, "admin_ads_exposure_delete_this_ad"),
+        body: tx(ko, "admin_ads_exposure_enter_a_reason_to_delete_a"),
+        confirmLabel: tx(ko, "common_delete"),
         cancelLabel,
         tone: "danger",
         reasonRequired,
@@ -248,11 +232,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "extend_compensation":
       return {
-        title: ko ? "기간을 연장하시겠습니까?" : "Extend the period?",
-        body: ko
-          ? "연장이 적용됩니다. 사유를 남겨 주세요."
-          : "Compensation extension will apply. Please provide a reason.",
-        confirmLabel: ko ? "연장" : "Extend",
+        title: tx(ko, "admin_ads_exposure_extend_the_period"),
+        body: tx(ko, "admin_ads_exposure_compensation_extension_will_apply_please_provide"),
+        confirmLabel: tx(ko, "admin_ads_exposure_extend"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -264,11 +246,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     case "change_period":
       return {
-        title: ko ? "기간을 변경하시겠습니까?" : "Change the period?",
-        body: ko
-          ? "입력한 시작·종료 일시로 기간이 저장됩니다."
-          : "The period will be saved with the entered start and end.",
-        confirmLabel: ko ? "저장" : "Save",
+        title: tx(ko, "admin_ads_exposure_change_the_period"),
+        body: tx(ko, "admin_ads_exposure_the_period_will_be_saved_with"),
+        confirmLabel: tx(ko, "common_save"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -281,11 +261,9 @@ export function adsWorkspaceMutationConfirmCopy(
     case "add_internal_memo":
       // Ordinary note save — UI must call writer without confirmation dialog.
       return {
-        title: ko ? "내부 메모를 저장하시겠습니까?" : "Save internal memo?",
-        body: ko
-          ? "관리자 내부 메모가 기록됩니다."
-          : "An internal admin memo will be recorded.",
-        confirmLabel: ko ? "저장" : "Save",
+        title: tx(ko, "admin_ads_exposure_save_internal_memo"),
+        body: tx(ko, "admin_ads_exposure_an_internal_admin_memo_will_be"),
+        confirmLabel: tx(ko, "common_save"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -297,9 +275,9 @@ export function adsWorkspaceMutationConfirmCopy(
       };
     default:
       return {
-        title: ko ? "이 작업을 진행하시겠습니까?" : "Continue with this action?",
-        body: ko ? "확인 후 상태가 변경됩니다." : "Confirming will change the state.",
-        confirmLabel: ko ? "진행" : "Continue",
+        title: tx(ko, "admin_ads_exposure_continue_with_this_action"),
+        body: tx(ko, "admin_ads_exposure_confirming_will_change_the_state"),
+        confirmLabel: tx(ko, "admin_ads_exposure_continue"),
         cancelLabel,
         tone: "primary",
         reasonRequired,
@@ -314,15 +292,13 @@ export function adsWorkspaceMutationConfirmCopy(
 
 export function adsPlacementReorderConfirmCopy(ko: boolean): AdminMutationConfirmCopy {
   return {
-    title: ko ? "배너 순서를 저장하시겠습니까?" : "Save banner order?",
-    body: ko
-      ? "저장 후 배달 홈 상단 배너 노출 순서가 변경됩니다."
-      : "Hero banner order on Delivery home will change after save.",
-    confirmLabel: ko ? "저장" : "Save",
-    cancelLabel: ko ? "취소" : "Cancel",
+    title: tx(ko, "admin_ads_exposure_save_banner_order"),
+    body: tx(ko, "admin_ads_exposure_hero_banner_order_on_delivery_home"),
+    confirmLabel: tx(ko, "common_save"),
+    cancelLabel: tx(ko, "common_cancel"),
     tone: "primary",
     reasonRequired: false,
-    reasonLabel: ko ? "사유" : "Reason",
+    reasonLabel: tx(ko, "admin_ads_exposure_reason"),
     level: adminActionLevel("save"),
   };
 }
@@ -330,15 +306,13 @@ export function adsPlacementReorderConfirmCopy(ko: boolean): AdminMutationConfir
 /** CUT R2 — create registration confirmation (before writer). */
 export function adsCreateConfirmCopy(ko: boolean): AdminMutationConfirmCopy {
   return {
-    title: ko ? "광고를 등록하시겠습니까?" : "Register this ad?",
-    body: ko
-      ? "설정한 노출 위치와 기간을 확인한 후 등록합니다."
-      : "Confirm placement and schedule, then register.",
-    confirmLabel: ko ? "등록" : "Register",
-    cancelLabel: ko ? "취소" : "Cancel",
+    title: tx(ko, "admin_ads_exposure_register_this_ad"),
+    body: tx(ko, "admin_ads_exposure_confirm_placement_and_schedule_then_register"),
+    confirmLabel: tx(ko, "admin_ads_exposure_register"),
+    cancelLabel: tx(ko, "common_cancel"),
     tone: "primary",
     reasonRequired: false,
-    reasonLabel: ko ? "사유" : "Reason",
+    reasonLabel: tx(ko, "admin_ads_exposure_reason"),
     level: adminActionLevel("save"),
   };
 }

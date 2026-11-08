@@ -77,7 +77,7 @@ export function AdminPersonalizedFeedPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "개인화 피드 정책 저장" : "Save personalized feed policy",
+      title: t("admin_personalized_feed_save_personalized_feed_policy"),
       description: t("admin_feed_policy_unlinked_notice"),
       confirmLabel: adminCta("save", ko),
     });
@@ -91,7 +91,7 @@ export function AdminPersonalizedFeedPage() {
     });
     if (res.ok) {
       setEditingPolicyId(null);
-      setSaveResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setSaveResult({ ok: true, message: t("admin_saved") });
       void load();
     } else {
       const j = (await res.json().catch(() => ({}))) as { error?: string };

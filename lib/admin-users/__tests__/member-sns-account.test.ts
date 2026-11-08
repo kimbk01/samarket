@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -83,9 +84,11 @@ describe("어드민 회원 로그인 계정 표시 (설계안 ③④)", () => {
     const auth = src("app/api/admin/users/[id]/auth/route.ts");
     expect(auth).toMatch(/linkedIdentities,/);
     const panel = src("components/admin/users/AdminMemberAuthPanel.tsx");
-    expect(panel).toMatch(/연결된 로그인 계정/);
+    expect(panel).toContain('t("admin_users_auth_linked_login_accounts")');
+    expect(copyAdminB4Ops1Messages.ko.admin_users_auth_linked_login_accounts).toBe("연결된 로그인 계정");
     expect(panel).toMatch(/내부 로그인 방식/);
-    expect(panel).toMatch(/SNS 이름/);
+    expect(panel).toContain('t("admin_users_auth_col_sns_name")');
+    expect(copyAdminB4Ops1Messages.ko.admin_users_auth_col_sns_name).toBe("SNS 이름");
     expect(src("lib/admin-users/admin-users-list-server.ts")).toMatch(/providerName: providerNameFromRawProfile\(row\.raw_profile\)/);
     expect(panel).not.toMatch(/fallbackKo: "연결 provider"/);
     for (const f of ["components/admin/users/AdminMemberMasterHeader.tsx", "components/admin/users/AdminMemberOverviewPanel.tsx"]) {
@@ -105,7 +108,8 @@ describe("어드민 회원 로그인 계정 표시 (설계안 ③④)", () => {
 describe("@ID 변경 시 로그인 아이디 함께 변경 (설계안 ⑧ G3)", () => {
   it("관리자 생성 회원에게만 선택이 보이고, 선택했을 때만 서버에 요청한다", () => {
     const dialog = src("components/admin/users/AdminMemberDibayIdDialog.tsx");
-    expect(dialog).toMatch(/로그인 아이디도 같이 변경/);
+    expect(dialog).toContain('t("admin_users_dibay_id_sync_login_id")');
+    expect(copyAdminB4Ops1Messages.ko.admin_users_dibay_id_sync_login_id).toBe("로그인 아이디도 같이 변경");
     expect(dialog).toMatch(/isAdminCreatedMember && syncLoginId \? \{ syncManualLoginId: true \} : \{\}/);
     expect(src("components/admin/users/AdminMemberMasterHeader.tsx")).toMatch(
       /isAdminCreatedMember=\{user\.signup_provider === "manual"\}/,

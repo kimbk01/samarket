@@ -182,16 +182,16 @@ export function AdminSanctionLedgerPage() {
         onSubmit={lq.submit}
         onReset={lq.reset}
         pending={pending}
-        searchPlaceholder={ko ? "대상 회원 닉네임 또는 ID" : "Target member nickname or ID"}
+        searchPlaceholder={t("admin_reports_target_member_nickname_id")}
       >
         <label className={LABEL}>
-          {ko ? "처리 유형" : "Action"}
+          {t("admin_reports_action")}
           <select
             className={FIELD}
             value={query.extras.action_type}
             onChange={(e) => lq.setExtra("action_type", e.target.value)}
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             {SANCTION_LEDGER_ACTION_TYPES.map((code) => (
               <option key={code} value={code}>
                 {actionLabel(code)}
@@ -206,16 +206,12 @@ export function AdminSanctionLedgerPage() {
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
           data-testid="admin-sanction-ledger-partial"
         >
-          {ko
-            ? `일부 원장 제외됨 — 열람 권한이 없는 원장은 목록과 건수에서 빠졌습니다: ${excludedText("permission")}`
-            : `Some ledgers excluded — not in the list or count: ${excludedText("permission")}`}
+          {t("admin_reports_some_ledgers_excluded_not_list", { ledgers: excludedText("permission") })}
         </div>
       ) : null}
       {excludedText("filter") ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
-          {ko
-            ? `처리 유형 조건은 신고 처리 기록에만 적용됩니다. 제외된 원장: ${excludedText("filter")}`
-            : `The action filter applies to report actions only. Excluded: ${excludedText("filter")}`}
+          {t("admin_reports_action_filter_applies_report_actions", { ledgers: excludedText("filter") })}
         </div>
       ) : null}
 
@@ -235,12 +231,12 @@ export function AdminSanctionLedgerPage() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_sanction_ledger_th_at")} (PHT)</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{ko ? "원장" : "Ledger"}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_reports_ledger")}</th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_sanction_ledger_th_action")}</th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_sanction_ledger_th_target_type")}</th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_sanction_ledger_th_reason")}</th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_sanction_ledger_th_status")}</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{ko ? "처리자" : "By"}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_reports_by")}</th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_sanction_ledger_th_report_id")}</th>
               </tr>
             </thead>
@@ -272,14 +268,14 @@ export function AdminSanctionLedgerPage() {
                     {r.source && r.source !== "report_actions" ? (
                       r.source_href ? (
                         <Link href={r.source_href} className="font-medium text-signature hover:underline">
-                          {ko ? "처리 화면" : "Domain screen"}
+                          {t("admin_reports_domain_screen")}
                         </Link>
                       ) : (
                         "—"
                       )
                     ) : (
                       <Link href={`/admin/reports/${r.report_id}`} className="font-medium text-signature hover:underline">
-                        {ko ? "신고 보기" : "Open report"}
+                        {t("admin_reports_open_report")}
                       </Link>
                     )}
                   </td>
@@ -297,34 +293,32 @@ export function AdminSanctionLedgerPage() {
           data-admin-sanction-ledger-cursor-pagination="1"
         >
           <span>
-            {ko
-              ? `전체 ${formatAdminCount(okState.total)}건 중 ${okState.rows.length ? pageIndex * query.size + 1 : 0}–${pageIndex * query.size + okState.rows.length}`
-              : `${okState.rows.length ? pageIndex * query.size + 1 : 0}–${pageIndex * query.size + okState.rows.length} of ${formatAdminCount(okState.total)}`}
+            {t("admin_reports_of_2", { total: formatAdminCount(okState.total), first: okState.rows.length ? pageIndex * query.size + 1 : 0, last: pageIndex * query.size + okState.rows.length })}
           </span>
           <AdminActionButton
             size="sm"
             onClick={goPrev}
             disabled={pending || trail.length === 0}
           >
-            {ko ? "이전" : "Prev"}
+            {t("admin_reports_prev")}
           </AdminActionButton>
           <AdminActionButton
             size="sm"
             onClick={goNext}
             disabled={pending || !okState.nextCursor}
           >
-            {ko ? "다음" : "Next"}
+            {t("common_next")}
           </AdminActionButton>
           <select
             className="h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sam-fg"
             value={query.size}
             onChange={(e) => lq.setSize(Number(e.target.value) as AdminListPageSize)}
             disabled={pending}
-            aria-label={ko ? "페이지 크기" : "Page size"}
+            aria-label={t("admin_reports_page_size")}
           >
             {ADMIN_LIST_PAGE_SIZES.map((n) => (
               <option key={n} value={n}>
-                {ko ? `${n}개씩` : `${n} / page`}
+                {t("admin_reports_page", { n })}
               </option>
             ))}
           </select>

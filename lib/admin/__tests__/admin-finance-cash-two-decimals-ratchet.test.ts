@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { formatOrderMoneyChainEventAmount } from "@/components/finance/OrderMoneyChainView";
 
 const ROOT = process.cwd();
@@ -70,12 +71,19 @@ describe("R7 — 관리자 재무 Cash 2자리 ratchet", () => {
 
   it("미납 목록: 회계 열 유지 — Outstanding Created/Collected 복원 (F-2 · Owner 관리자 회계 용어 변경 금지)", () => {
     const src = readFileSync(path.join(ROOT, "components/finance/AdminFinanceOutstandingView.tsx"), "utf8");
-    expect(src).toMatch(/"Outstanding Created"/);
-    expect(src).toMatch(/"Outstanding Collected" : "Collected"/);
+    /** 언어 SSOT B4: 열 이름은 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 (화면 글자 그대로) */
+    expect(src).toContain(`t("admin_finance_outstanding_created")`);
+    expect(MESSAGES.ko.admin_finance_outstanding_created).toBe("Outstanding Created");
+    expect(src).toContain(`t("admin_finance_collected")`);
+    expect(MESSAGES.ko.admin_finance_collected).toBe("Outstanding Collected");
+    expect(MESSAGES.en.admin_finance_collected).toBe("Collected");
     expect(src).toMatch(/min-w-\[56rem\]/);
     // 남은 열의 회계 용어는 유지
-    expect(src).toMatch(/Fee Due/);
-    expect(src).toMatch(/Cash Paid/);
-    expect(src).toMatch(/Remaining/);
+    expect(src).toContain(`t("admin_finance_fee_due")`);
+    expect(MESSAGES.ko.admin_finance_fee_due).toBe("Fee Due");
+    expect(src).toContain(`t("admin_finance_cash_paid")`);
+    expect(MESSAGES.ko.admin_finance_cash_paid).toBe("Cash Paid");
+    expect(src).toContain(`t("admin_finance_remaining")`);
+    expect(MESSAGES.ko.admin_finance_remaining).toBe("Remaining");
   });
 });

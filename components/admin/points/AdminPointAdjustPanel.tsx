@@ -31,7 +31,7 @@ export function AdminPointAdjustPanel({
   /** 접근표 쓰기 권한 — false 면 지급·회수 비활성 (서버 가드는 그대로). */
   actionAllowed?: boolean;
 }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
 
   const [userId, setUserId] = useState("");
@@ -49,7 +49,7 @@ export function AdminPointAdjustPanel({
     const uid = userId.trim();
     const amt = Math.trunc(Number(amount) || 0);
     if (!uid || amt < 1) {
-      setError(ko ? "회원과 금액을 입력해 주세요." : "Enter member and amount.");
+      setError(t("admin_points_enter_member_amount"));
       return;
     }
 
@@ -66,15 +66,13 @@ export function AdminPointAdjustPanel({
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(ko ? "회원 Point 잔액을 확인하지 못했습니다." : "Could not load Point balance.");
+        setError(t("admin_points_could_not_load_point_balance"));
         return;
       }
       const balanceBefore = Math.trunc(Number(json.balance) || 0);
       if (op === "debit" && balanceBefore < amt) {
         setError(
-          ko
-            ? "보유 Point보다 많은 금액은 회수할 수 없습니다."
-            : "Cannot reclaim more Point than the member holds."
+          t("admin_points_cannot_reclaim_more_point_than_member")
         );
         return;
       }
@@ -100,30 +98,24 @@ export function AdminPointAdjustPanel({
       ko,
       title:
         target.op === "credit"
-          ? ko
-            ? `${target.memberLabel} 회원에게 ${formatAdminNumber(target.amount)} Point를 지급하시겠습니까?`
-            : `Credit ${formatAdminNumber(target.amount)} Point to ${target.memberLabel}?`
-          : ko
-            ? `${target.memberLabel} 회원의 Point ${formatAdminNumber(target.amount)}를 회수하시겠습니까?`
-            : `Reclaim ${formatAdminNumber(target.amount)} Point from ${target.memberLabel}?`,
+          ? t("admin_points_credit_point", { memberLabel: target.memberLabel, amount: formatAdminNumber(target.amount) })
+          : t("admin_points_reclaim_point_from", { memberLabel: target.memberLabel, amount: formatAdminNumber(target.amount) }),
       description: [
-        ko ? "현재 Point" : "Current Point",
+        t("admin_points_current_point"),
         formatFinanceAmount({ wallet: "POINT", amount: target.balanceBefore }),
-        target.op === "credit" ? (ko ? "지급" : "Credit") : ko ? "회수" : "Reclaim",
+        target.op === "credit" ? t("admin_points_credit") : t("admin_points_reward_log_reclaim"),
         `${target.op === "credit" ? "+" : "-"}${formatFinanceAmount({
           wallet: "POINT",
           amount: target.amount,
         })}`,
-        ko ? (target.op === "credit" ? "지급 후" : "회수 후") : "After",
+        target.op === "credit" ? t("admin_points_after_credit") : t("admin_points_after_reclaim"),
         formatFinanceAmount({ wallet: "POINT", amount: after }),
         "",
-        ko
-          ? "입력한 사유는 회원 Point 내역에 그대로 보입니다. 내부 메모는 적지 마세요."
-          : "The reason is shown to the member in their Point history. Do not enter internal notes.",
+        t("admin_points_reason_shown_member_in_their_point"),
       ].join("\n"),
-      reasonPlaceholder: ko ? "회원에게 보이는 사유" : "Reason shown to the member",
+      reasonPlaceholder: t("admin_points_reason_shown_member"),
       confirmLabel:
-        target.op === "credit" ? (ko ? "Point 지급" : "Credit Point") : ko ? "Point 회수" : "Reclaim Point",
+        target.op === "credit" ? t("admin_points_credit_point_2") : t("admin_points_reclaim_point"),
       destructive: target.op === "debit",
     });
     if (!c.ok || !c.reason) return;
@@ -162,30 +154,22 @@ export function AdminPointAdjustPanel({
         setError(
           json.messageKo ||
             (json.error === "insufficient_balance"
-              ? ko
-                ? "보유 Point보다 많은 금액은 회수할 수 없습니다."
-                : "Cannot reclaim more Point than the member holds."
-              : ko
-                ? "Point 처리를 완료하지 못했습니다."
-                : "Point adjustment failed.")
+              ? t("admin_points_cannot_reclaim_more_point_than_member")
+              : t("admin_points_point_adjustment_failed"))
         );
         return;
       }
       // P1 — 「완료」는 서버가 원장 행·처리 후 잔액을 돌려준 경우만. 같은 요청 재전송은 추가 반영 없음으로 표시.
       if (json.duplicate === true) {
         setNotice(
-          ko
-            ? `이미 처리된 요청입니다 — 추가로 반영하지 않았습니다 (원장 ${formatAdminShortId(String(json.ledgerId ?? ""))}).`
-            : `Already processed — nothing applied again (ledger ${formatAdminShortId(String(json.ledgerId ?? ""))}).`
+          t("admin_points_already_processed_nothing_applied", { ledgerId: formatAdminShortId(String(json.ledgerId ?? "")) })
         );
         onChanged?.();
         return;
       }
       if (!json.ledgerId || json.balanceAfter == null) {
         setError(
-          ko
-            ? "처리 결과(원장 기록)를 확인하지 못했습니다. 원장에서 반영 여부를 확인해 주세요."
-            : "Could not confirm the ledger record. Check the ledger before retrying."
+          t("admin_points_could_not_confirm_ledger_record_check")
         );
         onChanged?.();
         return;
@@ -195,12 +179,8 @@ export function AdminPointAdjustPanel({
       const after = formatFinanceAmount({ wallet: "POINT", amount: Math.trunc(Number(json.balanceAfter)) });
       setNotice(
         confirm.op === "credit"
-          ? ko
-            ? `${amt} Point 지급 완료 · 원장 ${formatAdminShortId(json.ledgerId)} · 잔액 ${before} → ${after}`
-            : `${amt} Point credited · ledger ${formatAdminShortId(json.ledgerId)} · ${before} → ${after}`
-          : ko
-            ? `${amt} Point 회수 완료 · 원장 ${formatAdminShortId(json.ledgerId)} · 잔액 ${before} → ${after}`
-            : `${amt} Point reclaimed · ledger ${formatAdminShortId(json.ledgerId)} · ${before} → ${after}`
+          ? t("admin_points_point_credited_ledger", { amt, ledgerId: formatAdminShortId(json.ledgerId), before, after })
+          : t("admin_points_point_reclaimed_ledger", { amt, ledgerId: formatAdminShortId(json.ledgerId), before, after })
       );
       setAmount("");
       onChanged?.();
@@ -215,7 +195,7 @@ export function AdminPointAdjustPanel({
       data-admin-point-adjust="1"
     >
       <h2 className="text-[16px] font-semibold text-sam-fg">
-        {ko ? "Point 지급 / 회수" : "Point credit / reclaim"}
+        {t("admin_points_point_credit_reclaim")}
       </h2>
       {error ? (
         <p role="alert" className="text-[14px] text-sam-danger">
@@ -229,7 +209,7 @@ export function AdminPointAdjustPanel({
       ) : null}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="text-sam-muted">{ko ? "회원 ID" : "Member ID"}</span>
+          <span className="text-sam-muted">{t("admin_points_member_id")}</span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             value={userId}
@@ -238,7 +218,7 @@ export function AdminPointAdjustPanel({
           />
         </label>
         <label className="block text-sm">
-          <span className="text-sam-muted">{ko ? "회원명 (표시)" : "Member name (display)"}</span>
+          <span className="text-sam-muted">{t("admin_points_member_name_display")}</span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             value={memberLabel}
@@ -246,7 +226,7 @@ export function AdminPointAdjustPanel({
           />
         </label>
         <label className="block text-sm">
-          <span className="text-sam-muted">{ko ? "금액 (Point)" : "Amount (Point)"}</span>
+          <span className="text-sam-muted">{t("admin_points_amount_point")}</span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             inputMode="numeric"
@@ -256,7 +236,7 @@ export function AdminPointAdjustPanel({
           />
         </label>
         <label className="block text-sm sm:col-span-2">
-          <span className="text-sam-muted">{ko ? "내부 메모 (관리자만 · 회원에게 안 보임)" : "Internal memo (admins only · hidden from member)"}</span>
+          <span className="text-sam-muted">{t("admin_points_internal_memo_admins_only_hidden_from")}</span>
           <input
             className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             value={memo}
@@ -271,7 +251,7 @@ export function AdminPointAdjustPanel({
           onClick={() => void openConfirm("credit")}
           data-finance-cta="point-credit"
         >
-          {ko ? "Point 지급" : "Credit Point"}
+          {t("admin_points_credit_point_2")}
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
@@ -279,7 +259,7 @@ export function AdminPointAdjustPanel({
           onClick={() => void openConfirm("debit")}
           data-finance-cta="point-reclaim"
         >
-          {ko ? "Point 회수" : "Reclaim Point"}
+          {t("admin_points_reclaim_point")}
         </AdminActionButton>
       </div>
     </div>

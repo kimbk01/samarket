@@ -170,12 +170,12 @@ export function AdminPhoneVerificationOpsPage() {
       if (!res.ok || !json.ok || !json.ops) {
         setResult({
           ok: false,
-          text: ko ? "공급자 상태를 새로고침하지 못했습니다." : "Could not refresh the provider status.",
+          text: t("admin_users_could_not_refresh_provider_status"),
         });
         return;
       }
       setOps(json.ops);
-      setResult({ ok: true, text: ko ? "공급자 상태를 새로고침했습니다." : "Provider status refreshed." });
+      setResult({ ok: true, text: t("admin_users_provider_status_refreshed") });
     } catch {
       setResult({ ok: false, text: adminOperatorErrorMessage("network_error", ko) });
     } finally {
@@ -189,20 +189,12 @@ export function AdminPhoneVerificationOpsPage() {
       level: adminActionLevel("runtimeSettingChange"),
       ko,
       title: next
-        ? ko
-          ? "전화 인증 서비스 켜기"
-          : "Turn on phone verification"
-        : ko
-          ? "전화 인증 서비스 끄기"
-          : "Turn off phone verification",
+        ? t("admin_users_turn_on_phone_verification")
+        : t("admin_users_turn_off_phone_verification"),
       description: next
-        ? ko
-          ? "회원 전화 인증 발송을 다시 시작합니다. 진행 전 보안 설정을 확인합니다."
-          : "Resumes member phone verification SMS. Security settings are checked first."
-        : ko
-          ? "회원 전화 인증 발송을 멈춥니다. 진행 중인 인증번호는 즉시 무효화됩니다."
-          : "Stops member phone verification SMS. Pending codes are invalidated immediately.",
-      confirmLabel: next ? (ko ? "서비스 켜기" : "Turn on") : ko ? "서비스 끄기" : "Turn off",
+        ? t("admin_users_resumes_member_phone_verification_sms_security")
+        : t("admin_users_stops_member_phone_verification_sms_pending"),
+      confirmLabel: next ? (t("admin_users_turn_on")) : t("admin_users_turn_off"),
       destructive: !next,
     });
     if (!confirmed.ok) return;
@@ -242,12 +234,8 @@ export function AdminPhoneVerificationOpsPage() {
       setResult({
         ok: true,
         text: next
-          ? ko
-            ? "전화 인증 서비스를 켰습니다."
-            : "Phone verification turned on."
-          : ko
-            ? "전화 인증 서비스를 껐습니다."
-            : "Phone verification turned off.",
+          ? t("admin_users_phone_verification_turned_on")
+          : t("admin_users_phone_verification_turned_off"),
       });
       if (json.ops) setOps(json.ops);
       else await load(false);
@@ -267,19 +255,19 @@ export function AdminPhoneVerificationOpsPage() {
           {MEMBER_ADMIN_COPY.member_management}
         </Link>
         <span className="mx-1.5 text-sam-meta">›</span>
-        <span className="text-sam-fg">전화번호 인증 관리</span>
+        <span className="text-sam-fg">{t("admin_users_phone_verification")}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-sam-fg">{t("admin_menu_users_phone_verification")}</h1>
           <p className="mt-1 max-w-2xl text-[13px] text-sam-muted">
-            서비스 ON/OFF·공급자 건강도·잔액·발송 결과를 관리합니다. 회원별 승인·초기화는 회원 상세에서 진행합니다.
+            {t("admin_users_phone_ops_page_description")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <AdminActionButton variant="secondary" disabled={busy || loading} onClick={() => void refreshProvider()}>
-            {ko ? "상태 새로고침" : "Refresh status"}
+            {t("admin_users_refresh_status")}
           </AdminActionButton>
           <a
             href="https://semaphore.co/dashboard"
@@ -288,10 +276,10 @@ export function AdminPhoneVerificationOpsPage() {
             data-admin-action="quiet"
             className="inline-flex h-10 items-center px-3 text-[14px] font-semibold text-sam-muted hover:text-sam-fg hover:underline"
           >
-            {ko ? "Semaphore 대시보드" : "Semaphore dashboard"}
+            {t("admin_users_semaphore_dashboard")}
           </a>
           <AdminActionLink href="/admin/users" variant="quiet">
-            {ko ? "회원 목록" : "Member list"}
+            {t("admin_users_member_list_title")}
           </AdminActionLink>
         </div>
       </div>
@@ -306,7 +294,7 @@ export function AdminPhoneVerificationOpsPage() {
         >
           <span>{result.text}</span>
           <AdminActionButton variant="quiet" size="sm" className="shrink-0" onClick={() => setResult(null)}>
-            {ko ? "닫기" : "Close"}
+            {t("common_close")}
           </AdminActionButton>
         </div>
       ) : null}
@@ -322,14 +310,18 @@ export function AdminPhoneVerificationOpsPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-phone-otp-ops="control">
-            <h2 className="text-sm font-bold text-sam-fg">서비스 제어</h2>
+            <h2 className="text-sm font-bold text-sam-fg">{t("admin_users_phone_ops_service_control")}</h2>
             <div className="flex flex-wrap items-center gap-2">
               <AdminStatusLabel namespace={MEMBERS_PHONE_OPS_HEALTH_NS} code={ops.health} ko={ko} />
-              <span className="text-xs text-sam-muted">설정: {ops.settings.enabled ? "ON" : "OFF"}</span>
+              <span className="text-xs text-sam-muted">
+                {t("admin_users_phone_ops_setting_state", { state: ops.settings.enabled ? "ON" : "OFF" })}
+              </span>
             </div>
             <p className="text-[12px] text-sam-muted">
-              마지막 변경: {pht(ops.settings.updated_at)}
-              {ops.settings.change_reason ? ` · 사유: ${ops.settings.change_reason}` : ""}
+              {t("admin_users_phone_ops_last_changed", { at: pht(ops.settings.updated_at) })}
+              {ops.settings.change_reason
+                ? ` · ${t("admin_users_phone_ops_reason", { reason: ops.settings.change_reason })}`
+                : ""}
             </p>
             <div className="flex flex-wrap gap-2">
               <AdminActionButton
@@ -337,56 +329,62 @@ export function AdminPhoneVerificationOpsPage() {
                 disabled={busy || ops.settings.enabled}
                 onClick={() => void toggleEnabled(true)}
               >
-                {ko ? "서비스 켜기" : "Turn on"}
+                {t("admin_users_turn_on")}
               </AdminActionButton>
               <AdminActionButton
                 variant="secondary"
                 disabled={busy || !ops.settings.enabled}
                 onClick={() => void toggleEnabled(false)}
               >
-                {ko ? "서비스 끄기" : "Turn off"}
+                {t("admin_users_turn_off")}
               </AdminActionButton>
             </div>
             {!ops.canEnable ? (
               <p className="text-[12px] text-sam-warning">
-                ON 불가: {ops.enableBlockers.join(", ") || ops.security.missing.join(", ")}
+                {t("admin_users_phone_ops_cannot_turn_on", {
+                  blockers: ops.enableBlockers.join(", ") || ops.security.missing.join(", "),
+                })}
               </p>
             ) : null}
             <p className="text-[12px] text-sam-muted">
-              TTL {ops.settings.otp_ttl_seconds}s · 재전송 {ops.settings.resend_cooldown_seconds}s · 최대시도{" "}
-              {ops.settings.max_attempts} · provider {ops.settings.provider}
+              {t("admin_users_phone_ops_otp_settings_line", {
+                ttl: ops.settings.otp_ttl_seconds,
+                resend: ops.settings.resend_cooldown_seconds,
+                maxAttempts: ops.settings.max_attempts,
+                provider: ops.settings.provider,
+              })}
             </p>
           </section>
 
           <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-phone-otp-ops="provider">
-            <h2 className="text-sm font-bold text-sam-fg">Semaphore 상태</h2>
+            <h2 className="text-sm font-bold text-sam-fg">{t("admin_users_phone_ops_semaphore_status")}</h2>
             {ops.provider?.ok ? (
               <ul className="space-y-1 text-[13px] text-sam-fg">
-                <li>계정: {ops.provider.accountName ?? "—"}</li>
-                <li>상태: {ops.provider.status ?? "—"}</li>
+                <li>{t("admin_users_phone_ops_account", { v: ops.provider.accountName ?? "—" })}</li>
+                <li>{t("admin_users_phone_ops_status", { v: ops.provider.status ?? "—" })}</li>
                 <li>
-                  잔액(크레딧):{" "}
-                  {ops.provider.creditBalance != null ? formatAdminNumber(ops.provider.creditBalance) : "확인 불가"}
+                  {t("admin_users_phone_ops_credit_balance")}{" "}
+                  {ops.provider.creditBalance != null ? formatAdminNumber(ops.provider.creditBalance) : t("admin_users_phone_ops_unavailable")}
                   {ops.provider.creditBalance != null && ops.provider.creditBalance <= ops.creditLowThreshold
-                    ? " (임계 이하)"
+                    ? ` ${t("admin_users_phone_ops_below_threshold")}`
                     : ""}
                 </li>
-                <li>확인 시각: {pht(ops.provider.checkedAt)}</li>
+                <li>{t("admin_users_phone_ops_checked_at", { at: pht(ops.provider.checkedAt) })}</li>
               </ul>
             ) : (
               <ul className="space-y-1 text-[13px] text-sam-fg">
-                <li>조회: 확인 불가</li>
-                <li>원인: {ops.provider?.kind ?? "not_probed"}</li>
-                <li>상세: {ops.provider?.detail ?? "—"}</li>
+                <li>{t("admin_users_phone_ops_lookup_unavailable")}</li>
+                <li>{t("admin_users_phone_ops_cause", { v: ops.provider?.kind ?? "not_probed" })}</li>
+                <li>{t("admin_users_phone_ops_detail", { v: ops.provider?.detail ?? "—" })}</li>
                 <li>HTTP: {ops.provider?.httpStatus ?? "—"}</li>
-                <li>확인 시각: {pht(ops.provider?.checkedAt)}</li>
+                <li>{t("admin_users_phone_ops_checked_at", { at: pht(ops.provider?.checkedAt) })}</li>
               </ul>
             )}
-            <p className="text-[12px] text-sam-muted">API Key는 화면에 표시하지 않습니다.</p>
+            <p className="text-[12px] text-sam-muted">{t("admin_users_phone_ops_api_key_hidden")}</p>
           </section>
 
           <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-phone-otp-ops="remediation">
-            <h2 className="text-sm font-bold text-sam-fg">장애 원인 · 조치</h2>
+            <h2 className="text-sm font-bold text-sam-fg">{t("admin_users_phone_ops_cause_and_fix")}</h2>
             <p className="text-[13px] font-medium text-sam-fg">{rem?.title}</p>
             <ul className="list-disc space-y-1 pl-5 text-[13px] text-sam-muted">
               {(rem?.steps ?? []).map((s) => (
@@ -394,15 +392,15 @@ export function AdminPhoneVerificationOpsPage() {
               ))}
             </ul>
             {ops.healthReasons.length > 0 ? (
-              <p className="text-[12px] text-sam-muted">근거: {ops.healthReasons.join(", ")}</p>
+              <p className="text-[12px] text-sam-muted">{t("admin_users_phone_ops_evidence", { reasons: ops.healthReasons.join(", ") })}</p>
             ) : null}
           </section>
 
           <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4`} data-phone-otp-ops="deliveries">
-            <h2 className="text-sm font-bold text-sam-fg">최근 SMS 발송</h2>
+            <h2 className="text-sm font-bold text-sam-fg">{t("admin_users_phone_ops_recent_sms")}</h2>
             {ops.recentDeliveries.length === 0 ? (
               <p className="text-[13px] text-sam-muted">
-                내부 발송 기록이 없거나 테이블이 아직 없습니다. (마이그레이션 적용 후 수집)
+                {t("admin_users_phone_ops_no_delivery_records")}
               </p>
             ) : (
               <ul className="max-h-56 space-y-2 overflow-auto text-[12px] text-sam-fg">

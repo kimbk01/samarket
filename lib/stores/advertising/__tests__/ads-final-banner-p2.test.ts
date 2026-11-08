@@ -107,12 +107,16 @@ describe("① 배달 홈 중간 배너 — 예비 배너", () => {
     const browse = read("components/admin/stores/delivery-screens/DeliveryScreensBrowseTab.tsx");
     const home = read("components/admin/stores/delivery-screens/DeliveryScreensHomeTab.tsx");
     expect(browse).not.toContain('"배너 용량"');
+    const storesCatalog = read("lib/i18n/catalog/copy-admin-b4-stores.ts");
+    expect(storesCatalog).toContain('admin_stores_shown_at_once: "한 번에 보이는 배너"');
+    expect(storesCatalog).toContain('admin_stores_max_incl_spares: "예비 포함 최대 등록"');
     for (const [src, key] of [
       [browse, "STORES_CATEGORY_TOP"],
       [home, "STORES_HOME_INLINE_1"],
     ] as const) {
-      expect(src).toContain('"한 번에 보이는 배너"');
-      expect(src).toContain('"예비 포함 최대 등록"');
+      /** 언어 SSOT B4: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+      expect(src).toContain('"admin_stores_shown_at_once"');
+      expect(src).toContain('"admin_stores_max_incl_spares"');
       expect(src).toContain(`STAGE2_SINGLE_BANNER_ADMIN_CAPACITY.${key}.registrationMax`);
     }
   });

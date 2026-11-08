@@ -94,7 +94,8 @@ describe("H-7 어드민 문구", () => {
   });
   it("커뮤니티 어드민 메뉴·화면 = 커뮤니티 상위노출 (P-6 거래와 같게)", () => {
     expect(ko.admin_menu_community_promotions).toBe("커뮤니티 상위노출");
-    expect(read("components/admin/community/promotions/AdminCommunityPromotionsPage.tsx")).toContain('title="커뮤니티 상위노출"');
+    expect(read("components/admin/community/promotions/AdminCommunityPromotionsPage.tsx")).toContain('title={t("admin_community_promo_title")}');
+    expect(ko.admin_community_promo_title).toBe("커뮤니티 상위노출");
   });
   it("광고 이력 상태는 화면에서만 사람 이름으로 (필터는 원래 값)", () => {
     expect(read("components/admin/ads/AdminAdsHistoryLedgerView.tsx")).toContain("historyStatusDisplay(");

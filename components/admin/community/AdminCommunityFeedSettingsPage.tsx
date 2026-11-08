@@ -156,7 +156,7 @@ export function AdminCommunityFeedSettingsPage() {
         ← 커뮤니티
       </Link>
       <h1 className="sam-text-page-title mt-1 font-semibold text-sam-fg">{tr("admin_feed_settings_page_title")}</h1>
-      <p className="mt-1 sam-text-body text-sam-muted">금지어와 글·댓글 작성 제한을 정합니다.</p>
+      <p className="mt-1 sam-text-body text-sam-muted">{tr("admin_community_feed_settings_desc")}</p>
     </header>
   );
 
@@ -210,10 +210,11 @@ export function AdminCommunityFeedSettingsPage() {
                 onChange={(e) => setBannedText(e.target.value)}
                 placeholder={tr("admin_feed_settings_banned_placeholder")}
               />
-              <span className="sam-text-xxs text-sam-muted">한 줄에 한 단어 · 현재 {parseWords(bannedText).length}개</span>
               <span className="sam-text-xxs text-sam-muted">
-                기본 금칙어 {BASELINE_BANNED_TERMS.length}개(욕설·혐오·성착취)는 이 목록과 관계없이 항상 적용됩니다. 이
-                목록은 커뮤니티·모임·거래 글·거래 채팅·배달 리뷰·프로필에 함께 적용되며, 저장 후 최대 1분 뒤 반영됩니다.
+                {tr("admin_community_feed_settings_banned_count", { n: parseWords(bannedText).length })}
+              </span>
+              <span className="sam-text-xxs text-sam-muted">
+                {tr("admin_community_feed_settings_banned_baseline_note", { n: BASELINE_BANNED_TERMS.length })}
               </span>
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -230,7 +231,7 @@ export function AdminCommunityFeedSettingsPage() {
               {num("max_posts_per_day", 0, 500, 0)}
               {num("min_comment_interval_sec", 0, 86400, 0)}
             </div>
-            <p className="sam-text-xxs text-sam-muted">0 이면 제한 없음</p>
+            <p className="sam-text-xxs text-sam-muted">{tr("admin_community_feed_settings_zero_unlimited")}</p>
           </div>
         </AdminCard>
 

@@ -76,7 +76,7 @@ export function financeStoresPeriodLabel(periodKey: string, ko: boolean): string
  * R7 — 활동 매장 전체를 서버 페이지로 (주소 `page`·`size` → API `limit`/`offset`, 「전체 N곳」 = 서버 total).
  */
 export function AdminFinanceStoresIndexView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   /** 기간(`period` = today·7d·30d — API 가 받는 유일한 조건)을 주소에. 기본 30d. */
@@ -142,11 +142,9 @@ export function AdminFinanceStoresIndexView() {
   return (
     <div className="space-y-4" data-admin-finance-stores-index="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "매장별 재무" : "Store finance"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{t("admin_finance_store_finance_3")}</h2>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? `최근 재무 활동 매장 · 기간 ${financeStoresPeriodLabel(periodKey, true)} 집계는 Store Statement와 동일 canonical 소스입니다.`
-          : `Stores with recent finance activity. Period ${financeStoresPeriodLabel(periodKey, false)} aggregates use the same StoreStatement source.`}
+        {t("admin_finance_stores_index_note", { period: financeStoresPeriodLabel(periodKey, ko) })}
       </p>
 
       <AdminFilterBar
@@ -160,16 +158,16 @@ export function AdminFinanceStoresIndexView() {
         showSearch={false}
       >
         <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
-          {ko ? "집계 기간" : "Period"}
+          {t("admin_finance_period")}
           <select
             className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
             value={periodParam}
             onChange={(e) => lq.setExtra("period", e.target.value === "30d" ? "" : e.target.value)}
             data-finance-stores-filter-period="1"
           >
-            <option value="today">{ko ? "오늘" : "Today"}</option>
-            <option value="7d">{ko ? "최근 7일" : "Last 7 days"}</option>
-            <option value="30d">{ko ? "최근 30일" : "Last 30 days"}</option>
+            <option value="today">{t("finance_today")}</option>
+            <option value="7d">{t("finance_last_7_days")}</option>
+            <option value="30d">{t("finance_last_30_days")}</option>
           </select>
         </label>
       </AdminFilterBar>
@@ -181,7 +179,7 @@ export function AdminFinanceStoresIndexView() {
         <AdminEmptyState
           ko={ko}
           message={
-            lq.isFiltered ? undefined : ko ? "최근 거래가 있는 매장이 없습니다." : "No stores with recent finance activity."
+            lq.isFiltered ? undefined : t("admin_finance_no_stores_with_recent_finance_activity")
           }
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
@@ -192,11 +190,11 @@ export function AdminFinanceStoresIndexView() {
           <table className="w-full min-w-[52rem] text-left sam-text-body-secondary" data-finance-stores-ops-list="1">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
-                <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
-                <th className="px-3 py-2">{ko ? "최근 거래" : "Last activity"}</th>
-                <th className="px-3 py-2">{ko ? "최근 유형" : "Recent kinds"}</th>
-                <th className="px-3 py-2 text-right">{ko ? "총 판매" : "Gross"}</th>
-                <th className="px-3 py-2 text-right">{ko ? "수수료" : "Fee"}</th>
+                <th className="px-3 py-2">{t("admin_biz_ops_th_store")}</th>
+                <th className="px-3 py-2">{t("admin_finance_last_activity")}</th>
+                <th className="px-3 py-2">{t("admin_finance_recent_kinds")}</th>
+                <th className="px-3 py-2 text-right">{t("admin_finance_gross")}</th>
+                <th className="px-3 py-2 text-right">{t("finance_fee")}</th>
                 <th className="px-3 py-2 text-right">Coin</th>
                 <th className="px-3 py-2 text-right">Cash</th>
               </tr>
@@ -258,7 +256,7 @@ export function AdminFinanceStoresIndexView() {
 
       <details className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
         <summary className="cursor-pointer sam-text-body-secondary text-sam-muted">
-          {ko ? "Store ID로 직접 열기 (예외)" : "Open by Store ID (exception)"}
+          {t("admin_finance_open_by_store_id_exception")}
         </summary>
         <form
           className="mt-2 flex flex-wrap gap-2"
@@ -286,7 +284,7 @@ export function AdminFinanceStoresIndexView() {
 }
 
 export function AdminFinanceStoreDetailView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const params = useParams();
   const sp = useSearchParams();
@@ -446,12 +444,12 @@ export function AdminFinanceStoreDetailView() {
             <h2 className="text-[16px] font-semibold text-sam-fg">{statement.storeName}</h2>
             <p className="sam-text-helper text-sam-muted font-mono">{statement.storeId}</p>
             <p className="sam-text-helper text-sam-muted" data-admin-finance-store-period="1">
-              {ko ? "기간" : "Period"}: {formatStoreStatementPeriodLabel(periodDays)}
+              {t("admin_finance_period_2")}: {formatStoreStatementPeriodLabel(periodDays)}
             </p>
           </header>
           {statement.discrepancies.length > 0 ? (
             <p role="alert" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-2 py-1 text-sam-fg">
-              {ko ? "불일치 확인 필요" : "Discrepancy"}: {statement.discrepancies.join(", ")}
+              {t("admin_finance_discrepancy")}: {statement.discrepancies.join(", ")}
             </p>
           ) : null}
           <dl
@@ -459,19 +457,19 @@ export function AdminFinanceStoreDetailView() {
             data-admin-finance-store-summary="1"
           >
             <div>
-              <dt className="text-sam-muted">{ko ? "주문" : "Orders"}</dt>
+              <dt className="text-sam-muted">{t("admin_biz_ops_nav_orders")}</dt>
               <dd className="tabular-nums">{formatAdminNumber(statement.sales.orders)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "총 판매" : "Gross"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_gross")}</dt>
               <dd>{formatAdminPhp(statement.sales.gross)}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "부과 수수료" : "Fee due"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_fee_due_2")}</dt>
               <dd>{formatFinanceAmount({ wallet: "CASH", amount: statement.sales.settlementFee })}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Cash 로 낸 수수료" : "Fee paid (Cash)"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_fee_paid_cash")}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -481,11 +479,11 @@ export function AdminFinanceStoreDetailView() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "미납" : "Outstanding"}</dt>
+              <dt className="text-sam-muted">{t("finance_outstanding")}</dt>
               <dd>{formatFinanceAmount({ wallet: "CASH", amount: statement.sales.outstanding })}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "미납 회수" : "Outstanding collected"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_outstanding_collected")}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -495,15 +493,15 @@ export function AdminFinanceStoreDetailView() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Coin 적립" : "Coin earned"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_coin_earned")}</dt>
               <dd>{formatFinanceAmount({ wallet: "COIN", amount: statement.coin.earned })}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Coin 잔액" : "Coin balance"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_coin_balance")}</dt>
               <dd>{formatFinanceAmount({ wallet: "COIN", amount: statement.coin.closing })}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Cash 유입 (충전)" : "Cash in (top-up)"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_cash_in_top_up")}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -513,7 +511,7 @@ export function AdminFinanceStoreDetailView() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Cash 유입 (전환)" : "Cash in (conversion)"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_cash_in_conversion")}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -523,7 +521,7 @@ export function AdminFinanceStoreDetailView() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "Cash 잔액" : "Cash balance"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_cash_balance")}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -533,7 +531,7 @@ export function AdminFinanceStoreDetailView() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">{ko ? "광고 지출 / 환불" : "Ad spend / refund"}</dt>
+              <dt className="text-sam-muted">{t("admin_finance_ad_spend_refund")}</dt>
               <dd>
                 {formatFinanceAmount({
                   wallet: "CASH",
@@ -551,22 +549,22 @@ export function AdminFinanceStoreDetailView() {
           </dl>
           <div className="flex flex-wrap gap-2">
             <Link href={financeOrdersHref(f)} className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold">
-              {ko ? "주문별 보기" : "Orders"}
+              {t("admin_finance_orders_2")}
             </Link>
             <Link href={financeAdsHref(f)} className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold">
-              {ko ? "광고 지출 보기" : "Ad spend"}
+              {t("admin_finance_ad_spend_2")}
             </Link>
             <Link href={financeOutstandingHref(f)} className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold">
-              {ko ? "미납 보기" : "Outstanding"}
+              {t("admin_finance_outstanding_2")}
             </Link>
             <Link href={financeCoinHref(f)} className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold">
-              {ko ? "Coin 거래 보기" : "Coin transactions"}
+              {t("admin_finance_coin_transactions")}
             </Link>
             <Link href={financeCashHref(f)} className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold">
-              {ko ? "Cash 거래 보기" : "Cash transactions"}
+              {t("admin_finance_cash_transactions")}
             </Link>
             <Link href={financeDailyHref(storeId, f)} className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold">
-              {ko ? "일자별 보기" : "Daily statement"}
+              {t("admin_finance_daily_statement")}
             </Link>
           </div>
           {daily.length > 0 ? (
@@ -574,12 +572,12 @@ export function AdminFinanceStoreDetailView() {
               <table className="w-full min-w-[48rem] text-left sam-text-body-secondary">
                 <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
                   <tr>
-                    <th className="px-3 py-2">{ko ? "날짜" : "Date"}</th>
-                    <th className="px-3 py-2">{ko ? "주문" : "Orders"}</th>
-                    <th className="px-3 py-2">{ko ? "총 판매" : "Gross"}</th>
-                    <th className="px-3 py-2">{ko ? "수수료" : "Fee"}</th>
+                    <th className="px-3 py-2">{t("admin_finance_date_2")}</th>
+                    <th className="px-3 py-2">{t("admin_biz_ops_nav_orders")}</th>
+                    <th className="px-3 py-2">{t("admin_finance_gross")}</th>
+                    <th className="px-3 py-2">{t("finance_fee")}</th>
                     <th className="px-3 py-2">Coin</th>
-                    <th className="px-3 py-2">{ko ? "광고" : "Ads"}</th>
+                    <th className="px-3 py-2">{t("admin_finance_ads")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-sam-border-soft">
@@ -633,7 +631,7 @@ export function AdminFinanceStoreDetailView() {
       {storeId ? (
         <section className="space-y-2" data-admin-finance-store-tx-list="1">
           <h3 className="text-base font-semibold">
-            {ko ? "기간 내 거래" : "Transactions in period"}
+            {t("admin_finance_transactions_in_period")}
             {periodDays ? (
               <span className="ml-2 sam-text-helper font-normal text-sam-muted">
                 {formatStoreStatementPeriodLabel(periodDays)}

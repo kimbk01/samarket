@@ -320,7 +320,7 @@ export function AdminMainBottomNavPage() {
       title: t("admin_menu_bottom_reset_confirm"),
       confirmLabel: t("admin_menu_bottom_reset_db"),
       destructive: true,
-      retypeValue: ko ? "초기화" : "reset",
+      retypeValue: t("admin_menu_bottom_reset_retype"),
     });
     if (!confirmed.ok) return;
     setSavingAll(true);
@@ -628,8 +628,7 @@ export function AdminMainBottomNavPage() {
                         {rowDirty || canCancelRow ? (
                           <>
                             <AdminActionButton
-                              variant="ghost"
-                              size="sm"
+                              variant="secondary"size="sm"
                               type="button"
                               disabled={saving || !rowDirty || !adminAction.allowed}
                               title={adminAction.reason ?? undefined}
@@ -638,8 +637,7 @@ export function AdminMainBottomNavPage() {
                               {rowSaving ? t("admin_menu_saving") : t("admin_menu_bottom_row_save")}
                             </AdminActionButton>
                             <AdminActionButton
-                              variant="ghost"
-                              size="sm"
+                              variant="secondary"size="sm"
                               type="button"
                               disabled={saving || !canCancelRow}
                               onClick={() => cancelRow(i)}
@@ -650,8 +648,7 @@ export function AdminMainBottomNavPage() {
                           </>
                         ) : !builtin ? (
                           <AdminActionButton
-                            variant="ghost"
-                            size="sm"
+                            variant="danger"size="sm"
                             type="button"
                             disabled={saving || rows.length <= 1}
                             onClick={() => removeRow(i)}

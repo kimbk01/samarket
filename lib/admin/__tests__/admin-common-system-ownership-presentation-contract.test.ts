@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 import { MESSAGES } from "@/lib/i18n/messages";
 import {
   buildMemberListQueryString,
@@ -58,7 +59,8 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
     expect(page).not.toContain("admin_users_staff_page_title");
     expect(page).not.toContain("관계");
 
-    expect(table).toContain("관리 권한");
+    expect(table).toContain('t("admin_users_admin_privilege")');
+    expect(copyAdminB4Ops1Messages.ko.admin_users_admin_privilege).toBe("관리 권한");
     expect(table).toContain("memberListPrivilegeLabelKo");
 
     // Catalog still keeps staff ownership keys for other surfaces.

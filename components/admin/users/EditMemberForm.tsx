@@ -127,7 +127,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             data-member-profile-field="email"
-            placeholder="연락 이메일"
+            placeholder={t("admin_users_edit_contact_email")}
           />
         </label>
         <label className="block text-[13px]">

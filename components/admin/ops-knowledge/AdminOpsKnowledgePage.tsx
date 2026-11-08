@@ -154,7 +154,7 @@ export function AdminOpsKnowledgePage() {
           >
             <AdminFilterSelect
               ko={ko}
-              label={ko ? "문서 유형" : "Doc type"}
+              label={t("admin_ops_knowledge_doc_type")}
               name="doc_type"
               allLabel={t("admin_ops_tools_kb_filter_all_type")}
               value={lq.query.extras.doc_type}
@@ -163,7 +163,7 @@ export function AdminOpsKnowledgePage() {
             />
             <AdminFilterSelect
               ko={ko}
-              label={ko ? "분류" : "Category"}
+              label={t("admin_ops_knowledge_category")}
               name="category"
               allLabel={t("admin_ops_tools_kb_filter_all_category")}
               value={lq.query.extras.category}

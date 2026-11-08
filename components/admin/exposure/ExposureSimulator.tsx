@@ -5,12 +5,14 @@ import type { ExposureCandidate, ExposureScoreResult, ExposureSurface } from "@/
 import { SURFACE_OPTIONS } from "@/lib/exposure/exposure-policy-utils";
 import { ExposureResultTable } from "./ExposureResultTable";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ExposureSimulatorProps {
   onSimulated?: () => void;
 }
 
 export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
+  const { t } = useI18n();
   const [surface, setSurface] = useState<ExposureSurface>("home");
   const [results, setResults] = useState<{ candidate: ExposureCandidate; result: ExposureScoreResult }[]>([]);
   const [policyName, setPolicyName] = useState("");
@@ -36,7 +38,7 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
         error?: string;
       };
       if (!res.ok || !j.ok) {
-        setErr("시뮬레이션에 실패했습니다.");
+        setErr(t("admin_exposure_simulation_failed"));
         setResults([]);
         return;
       }
@@ -45,7 +47,7 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
       setCandidateCount(Number(j.candidateCount ?? 0));
       onSimulated?.();
     } catch {
-      setErr("시뮬레이션에 실패했습니다.");
+      setErr(t("admin_exposure_simulation_failed"));
     } finally {
       setBusy(false);
     }
@@ -71,12 +73,12 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
           onClick={() => void runSimulation()}
           variant="primary"
         >
-          {busy ? "실행 중…" : "시뮬레이션 실행"}
+          {busy ? t("admin_exposure_running") : t("admin_exposure_kbbeb1f75")}
         </AdminActionButton>
       </div>
       {err ? <p className="sam-text-body text-sam-danger">{err}</p> : null}
       {candidateCount === 0 && results.length === 0 && !busy && !err ? (
-        <p className="sam-text-body text-sam-muted">거래 상품 후보가 없습니다. 시뮬레이션을 실행해 보세요.</p>
+        <p className="sam-text-body text-sam-muted">{t("admin_exposure_no_trade_candidates_run_simulation")}</p>
       ) : null}
       {results.length > 0 && (
         <ExposureResultTable results={results} surface={surface} policyName={policyName || surface} />

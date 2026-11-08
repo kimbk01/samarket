@@ -19,6 +19,12 @@ import {
   type AdminActionQueueCategory,
   type AdminActionQueueCategoryResult,
 } from "@/lib/admin/admin-action-queue-registry";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type DeliveryMetricId =
   | "delivery.store_applications_pending"
@@ -437,6 +443,6 @@ export function resolveDeliveryActionCenterCard(
 
 /** 지표 값 표시 — null 은 「확인 불가」 (0 표시 금지). */
 export function formatDeliveryMetricValue(value: number | null | undefined, ko: boolean): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return ko ? "확인 불가" : "Unavailable";
+  if (typeof value !== "number" || !Number.isFinite(value)) return tx(ko, "admin_metrics_unavailable");
   return formatAdminNumber(Math.round(value));
 }

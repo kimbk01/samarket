@@ -305,7 +305,7 @@ export function AdminCommunityEngineMeetingsClient() {
       confirmLabel: t("admin_meeting_engine_delete_extra_room"),
       destructive: true,
       retypeValue: CHAT_ROOM_HARD_DELETE_CONFIRM_TEXT,
-      reasonPlaceholder: ko ? "삭제 사유 (2자 이상)" : "Reason (2+ characters)",
+      reasonPlaceholder: t("admin_community_meetings_delete_reason_placeholder"),
     });
     if (!confirmed.ok) return;
     await roomRequest(
@@ -382,7 +382,7 @@ export function AdminCommunityEngineMeetingsClient() {
                     {[str(r.category_text), str(r.region_text)].filter(Boolean).join(" · ")}
                     {r.meeting_date ? ` · 모임일 ${formatAdminManilaDateTime(str(r.meeting_date))} PHT` : ""}
                   </span>
-                  {r.is_sample_data === true ? <AdminToneBadge tone="warning">샘플</AdminToneBadge> : null}
+                  {r.is_sample_data === true ? <AdminToneBadge tone="warning">{t("admin_feed_posts_sample_badge")}</AdminToneBadge> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   <CommunityAuthorCell
@@ -474,7 +474,7 @@ export function AdminCommunityEngineMeetingsClient() {
   return (
     <div className="space-y-3">
       <CommunityListShell
-        title="모임"
+        title={t("admin_community_meetings_title")}
         description="모임 승인·반려와 모임 글 노출, 종료·재개를 처리합니다."
         actions={
           <>
@@ -632,7 +632,7 @@ function MeetingInsight({
                   })}
                   {room.last_message_at ? ` · 마지막 메시지 ${formatAdminManilaDateTime(room.last_message_at)} PHT` : ""}
                 </div>
-                <AdminTechDetails ko={ko}>채팅방 ID: {room.room_id}</AdminTechDetails>
+                <AdminTechDetails ko={ko}>{t("admin_community_meetings_chat_room_id", { id: room.room_id })}</AdminTechDetails>
               </div>
               <div className="flex flex-wrap justify-end gap-1">
                 <AdminActionLink href={`/admin/chats/${encodeURIComponent(room.room_id)}`} variant="neutral">

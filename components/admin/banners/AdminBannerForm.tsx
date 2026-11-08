@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminDestinationResolvedHint } from "@/components/admin/destination/AdminDestinationResolvedHint";
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
 import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
@@ -15,13 +16,13 @@ import {
 /** MY-2: 업로드 거부 사유 — 코드값 대신 한국어 문구 (en 화면은 영어) */
 function mypageBannerUploadErrorMessage(code: string | null | undefined, ko: boolean): string {
   const c = String(code ?? "").trim();
-  if (c === "file_too_large") return ko ? "파일 용량이 너무 큽니다. 최대 2MB 까지 올릴 수 있습니다." : "The file is too large (max 2MB).";
-  if (c === "invalid_type") return ko ? "JPG·PNG·WebP 이미지만 올릴 수 있습니다." : "Only JPG, PNG, or WebP images are allowed.";
-  if (c === "file_required") return ko ? "올릴 이미지 파일을 골라 주세요." : "Choose an image file to upload.";
+  if (c === "file_too_large") return translateBy(ko ? "ko" : "en", "admin_banners_file_too_large_max_2mb");
+  if (c === "invalid_type") return translateBy(ko ? "ko" : "en", "admin_ads_jpg_png_web_p_images");
+  if (c === "file_required") return translateBy(ko ? "ko" : "en", "admin_banners_choose_image_file_upload");
   if (c === "forbidden" || c === "unauthorized") {
-    return ko ? "이미지를 올릴 권한이 없습니다." : "You do not have permission to upload images.";
+    return translateBy(ko ? "ko" : "en", "admin_banners_do_not_have_permission_upload");
   }
-  return ko ? "이미지를 올리지 못했습니다. 잠시 후 다시 올려 주세요." : "Could not upload the image. Try again shortly.";
+  return translateBy(ko ? "ko" : "en", "admin_banners_could_not_upload_image_try");
 }
 
 /** MyPage CMS only — 회원 내정보 홈 프로필 아래(MypageHomeCmsBanner → MyTopBanner)에 활성 1건 표시 (placement not selected in UI). */
@@ -165,7 +166,7 @@ export function AdminBannerForm({
             }}
           />
           <span className="inline-flex h-8 items-center rounded-ui-rect border border-[var(--admin-console-border)] px-2.5 text-[13px] font-semibold text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)]">
-            {uploading === "imageUrl" ? t("common_loading") : "이미지 파일 올리기"}
+            {uploading === "imageUrl" ? t("common_loading") : t("admin_banners_upload_image_file")}
           </span>
         </label>
       </div>
@@ -194,7 +195,7 @@ export function AdminBannerForm({
             }}
           />
           <span className="inline-flex h-8 items-center rounded-ui-rect border border-[var(--admin-console-border)] px-2.5 text-[13px] font-semibold text-[var(--admin-console-fg)] hover:bg-[var(--admin-console-hover)]">
-            {uploading === "mobileImageUrl" ? t("common_loading") : "이미지 파일 올리기"}
+            {uploading === "mobileImageUrl" ? t("common_loading") : t("admin_banners_upload_image_file")}
           </span>
         </label>
       </div>
@@ -207,10 +208,10 @@ export function AdminBannerForm({
           value={values.targetUrl}
           onChange={(e) => setValues((v) => ({ ...v, targetUrl: e.target.value }))}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="/events/… 또는 /mypage/…"
+          placeholder={t("admin_banners_target_url_placeholder")}
         />
         {/* DS-7: 마이 배너 링크 = 앱 안 경로·이벤트만 · 필수 */}
-        <p className="mt-1 sam-text-helper text-sam-muted">앱 안 경로(/…) 또는 이벤트(/events/…)만 넣을 수 있습니다. 외부 링크는 쓸 수 없습니다.</p>
+        <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_banners_target_url_hint")}</p>
         <AdminDestinationResolvedHint href={values.targetUrl} />
       </div>
       <div>

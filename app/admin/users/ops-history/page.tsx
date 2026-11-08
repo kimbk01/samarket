@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { MEMBER_LIST_OPS_HISTORY_KO } from "@/lib/admin-users/member-list-presentation";
@@ -6,6 +9,7 @@ import { ADMIN_USERS_LITE_CARD, ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-
 
 /** P2 secondary entry — global ops rebuild is later phase; entry must not dominate member list. */
 export default function AdminMemberOpsHistoryEntryPage() {
+  const { t } = useI18n();
   return (
     <AdminManagementSurfaceRoot proofSurface="users" wave="w2" className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6`}>
       <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
@@ -17,10 +21,10 @@ export default function AdminMemberOpsHistoryEntryPage() {
       </nav>
       <h1 className="text-xl font-bold text-sam-fg">{MEMBER_LIST_OPS_HISTORY_KO}</h1>
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4 text-[13px] text-sam-muted`}>
-        <p>회원별 운영 이력은 회원 상세에서 확인합니다.</p>
+        <p>{t("admin_users_ops_history_see_member_detail")}</p>
         <p>
           <Link href="/admin/users" className="font-semibold text-[var(--admin-console-accent)] hover:underline">
-            회원 목록으로 돌아가기
+            {t("admin_users_ops_history_back_to_list")}
           </Link>
         </p>
       </div>

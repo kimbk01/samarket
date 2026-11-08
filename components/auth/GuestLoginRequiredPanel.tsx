@@ -37,12 +37,9 @@ export function GuestLoginRequiredPanel({
   titleKey = "auth_login_required_title",
   className = "",
 }: GuestLoginRequiredPanelProps) {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const bodyKey = messageKey ?? (`auth_login_required_body_${actionType}` as MessageKey);
-  const body = safeT(bodyKey, {
-    fallbackKo: "이 기능을 사용하려면 로그인이 필요합니다.",
-    fallbackEn: "Please sign in to use this feature.",
-  });
+  const body = t(bodyKey);
 
   const openAuth = useCallback(() => {
     openLoginRequiredSheet({ actionType, next: resolveNext(next) });

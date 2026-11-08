@@ -52,12 +52,12 @@ type PreviewTab = "event" | "popup" | "banner";
 
 type SectionKind = PlatformEventSection["type"];
 
-const SECTION_KIND_OPTIONS: { value: SectionKind; key: MessageKey; ko: string; en: string }[] = [
-  { value: "text", key: "admin_event_editor_section_kind_text", ko: "본문", en: "Text" },
-  { value: "image", key: "admin_event_editor_section_kind_image", ko: "이미지", en: "Image" },
-  { value: "benefit", key: "admin_event_editor_section_kind_benefit", ko: "혜택", en: "Benefit" },
-  { value: "cta", key: "admin_event_editor_section_kind_cta", ko: "버튼(CTA)", en: "Button (CTA)" },
-  { value: "terms", key: "admin_event_editor_section_kind_terms", ko: "유의사항", en: "Terms" },
+const SECTION_KIND_OPTIONS: { value: SectionKind; key: MessageKey }[] = [
+  { value: "text", key: "admin_event_editor_section_kind_text" },
+  { value: "image", key: "admin_event_editor_section_kind_image" },
+  { value: "benefit", key: "admin_event_editor_section_kind_benefit" },
+  { value: "cta", key: "admin_event_editor_section_kind_cta" },
+  { value: "terms", key: "admin_event_editor_section_kind_terms" },
 ];
 
 function newSection(kind: SectionKind): PlatformEventSection {
@@ -80,41 +80,23 @@ const LIFECYCLE_CONFIRM: Record<
   PlatformEventLifecycleAction,
   {
     titleKey: MessageKey;
-    titleKo: string;
-    titleEn: string;
     descKey: MessageKey;
-    descKo: string;
-    descEn: string;
     tone: "primary" | "danger";
   }
 > = {
   publish: {
     titleKey: "admin_event_editor_confirm_publish_title",
     descKey: "admin_event_editor_confirm_publish_desc",
-    titleKo: "이벤트를 게시할까요?",
-    titleEn: "Publish this event?",
-    descKo: "저장 후 게시됩니다. 노출 시작 시각부터 이벤트 게시판과 상세 화면에 표시됩니다.",
-    descEn: "Saves and publishes. It appears on the event board from its start time.",
     tone: "primary",
   },
   unpublish: {
     titleKey: "admin_event_editor_confirm_unpublish_title",
     descKey: "admin_event_editor_confirm_unpublish_desc",
-    titleKo: "이벤트 게시를 중지할까요?",
-    titleEn: "Unpublish this event?",
-    descKo: "회원에게 더 이상 보이지 않으며, 연결된 팝업·배너 노출도 중단됩니다.",
-    descEn: "Members can no longer see it; linked popup/banner exposure stops.",
     tone: "danger",
   },
   archive: {
     titleKey: "admin_event_editor_confirm_archive_title",
     descKey: "admin_event_editor_confirm_archive_desc",
-    titleKo: "이벤트를 보관할까요?",
-    titleEn: "Archive this event?",
-    descKo:
-      "게시가 중지되고 이벤트 게시판(종료 탭 포함)과 상세 화면에서 숨겨집니다. 다시 게시하면 보관이 해제됩니다.",
-    descEn:
-      "Unpublishes and hides it from the board (incl. Ended) and detail. Publishing again unarchives.",
     tone: "danger",
   },
 };
@@ -483,8 +465,8 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       const confirmed = await confirmAdminAction({
         level: adminActionLevel(kind),
         ko: lang !== "en",
-        title: safeT(copy.titleKey, { fallbackKo: copy.titleKo, fallbackEn: copy.titleEn }),
-        description: safeT(copy.descKey, { fallbackKo: copy.descKo, fallbackEn: copy.descEn }),
+        title: safeT(copy.titleKey),
+        description: safeT(copy.descKey),
         confirmLabel:
           action === "publish"
             ? promotionAdminActionLabel("PUBLISH", lang)
@@ -861,7 +843,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-sam-muted">
-                    {index + 1}. {kindLabel ? safeT(kindLabel.key, { fallbackKo: kindLabel.ko, fallbackEn: kindLabel.en }) : sec.type}
+                    {index + 1}. {kindLabel ? safeT(kindLabel.key) : sec.type}
                   </span>
                   <div className="flex gap-1">
                     <AdminActionButton
@@ -1010,7 +992,7 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
           >
             {SECTION_KIND_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {safeT(opt.key, { fallbackKo: opt.ko, fallbackEn: opt.en })}
+                {safeT(opt.key)}
               </option>
             ))}
           </select>

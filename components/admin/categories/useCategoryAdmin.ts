@@ -118,7 +118,7 @@ export function useCategoryAdmin() {
         level: adminActionLevel("delete"),
         ko,
         title: t("admin_cat_confirm_delete"),
-        confirmLabel: ko ? "삭제" : "Delete",
+        confirmLabel: t("admin_cat_confirm_delete_cta"),
         destructive: true,
         retypeValue: target?.name?.trim() || undefined,
       });

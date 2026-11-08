@@ -102,7 +102,7 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
     expect(page).toContain('data-member-list-state="loading"');
     expect(page).toContain('data-member-list-state="error"');
     expect(page).toContain('data-member-list-state={appliedSearch ? "search_empty" : "empty"}');
-    expect(page).toContain("MEMBER_LIST_ERROR_KO");
+    expect(page).toContain('aria-label={t("admin_users_member_list_load_failed")}');
   });
 
   it("M16 tablet geometry helper still valid; frequency entry for members", () => {

@@ -123,17 +123,14 @@ describe("D-1·D-3·D-10·D-11·D-15·F-2 배선", () => {
     for (const f of [
       "components/finance/FinanceTransactionList.tsx",
       "components/finance/FinanceTransactionDetail.tsx",
+      /** 언어 SSOT B4: 관리자 재무 표도 같은 키 */
+      "components/finance/AdminFinanceAdsView.tsx",
+      "components/finance/AdminFinanceConversionsView.tsx",
     ]) {
       expect(src(f)).toContain(`{t("finance_when_pht")}`);
     }
     expect(MESSAGES.ko.finance_when_pht).toBe("일시 (PHT)");
     expect(MESSAGES.en.finance_when_pht).toBe("When (PHT)");
-    for (const f of [
-      "components/finance/AdminFinanceAdsView.tsx",
-      "components/finance/AdminFinanceConversionsView.tsx",
-    ]) {
-      expect(src(f)).toContain(`{ko ? "일시 (PHT)" : "When (PHT)"}`);
-    }
     expect(communityAuditTargetHref("user_points", "u1")).toBe("/admin/community/points?userId=u1&period=all");
     expect(src("components/admin/community/members/AdminCommunityMemberDetailPage.tsx")).toMatch(
       /\/admin\/community\/points\?userId=\$\{encodeURIComponent\(userId\)\}&period=all/

@@ -50,7 +50,7 @@ function ActionCard({
   ko: boolean;
   onOpen?: (caseId: string) => void;
 }) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   return (
     <div
       className="flex min-h-[9rem] flex-col justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
@@ -73,17 +73,17 @@ function ActionCard({
         <p className="sam-text-helper text-sam-muted">
           {supportAdminStatusLabel(item.status, ko)}
           {item.referenceType ? ` · ${supportReferenceLabel(safeT, item.referenceType)}` : ""}
-          {!item.assignedAdminId ? (ko ? " · 미배정" : " · Unassigned") : ""}
+          {!item.assignedAdminId ? (` ${t("admin_support_unassigned_2")}`) : ""}
         </p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {onOpen ? (
           <AdminActionButton variant="primary" onClick={() => onOpen(item.id)}>
-            {ko ? "답변하기" : "Reply"}
+            {t("admin_support_reply_2")}
           </AdminActionButton>
         ) : (
           <AdminActionLink href={item.href} variant="primary">
-            {ko ? "답변하기" : "Reply"}
+            {t("admin_support_reply_2")}
           </AdminActionLink>
         )}
         {item.contextHref ? (
@@ -93,17 +93,17 @@ function ActionCard({
         ) : null}
         {item.statementHref ? (
           <AdminActionLink href={item.statementHref} variant="secondary">
-            {ko ? "재무 내역" : "Finance history"}
+            {t("admin_support_finance_history")}
           </AdminActionLink>
         ) : null}
         {item.financeHref ? (
           <AdminActionLink href={item.financeHref} variant="secondary">
-            {ko ? "재무" : "Finance"}
+            {t("admin_support_finance")}
           </AdminActionLink>
         ) : null}
         {item.adsHref ? (
           <AdminActionLink href={item.adsHref} variant="secondary">
-            {ko ? "광고" : "Ads"}
+            {t("admin_support_ads")}
           </AdminActionLink>
         ) : null}
       </div>
@@ -116,7 +116,7 @@ export function AdminSupportControlPlane({
 }: {
   onOpenCase?: (caseId: string) => void;
 }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [model, setModel] = useState<SupportControlPlaneModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,7 +156,7 @@ export function AdminSupportControlPlane({
   if (loading && !model) {
     return (
       <p className="sam-text-body text-sam-muted" data-admin-support-control-plane="loading">
-        {ko ? "고객지원 관제를 불러오는 중…" : "Loading support control plane…"}
+        {t("admin_support_loading_support_control_plane")}
       </p>
     );
   }
@@ -167,7 +167,7 @@ export function AdminSupportControlPlane({
         className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950"
         data-admin-support-control-plane="error"
       >
-        {ko ? "고객지원 관제를 불러오지 못했습니다." : "Could not load support control plane."} (
+        {t("admin_support_could_not_load_support_control_plane")} (
         {error})
       </p>
     );
@@ -182,29 +182,27 @@ export function AdminSupportControlPlane({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "고객지원 / 알림 관제" : "Support / Notification Control Plane"}
+              {t("admin_support_support_notification_control_plane")}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
-              {ko
-                ? "문의 Case → 답변 → 해결. Messenger와 분리. 답변 ≠ 해결."
-                : "Case → reply → resolve. Separate from Messenger. Reply ≠ resolve."}
+              {t("admin_support_case_reply_resolve_separate_from_messenger")}
             </p>
           </div>
           <AdminActionButton variant="neutral" onClick={() => void load()}>
-            {ko ? "새로고침" : "Refresh"}
+            {t("admin_support_refresh")}
           </AdminActionButton>
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-amber-800">
-            {ko ? "일부 소스 확인 불가" : "Some sources unavailable"}: {model.sectionErrors.join(" · ")}
+            {t("admin_support_some_sources_unavailable")}: {model.sectionErrors.join(" · ")}
           </p>
         ) : null}
       </header>
 
-      <Section id="action-required" title={ko ? "지금 답변할 문의" : "Action required"}>
+      <Section id="action-required" title={t("admin_support_action_required")}>
         {model.actionRequired.length === 0 ? (
           <AdminControlPlaneEmpty
-            message={ko ? "지금 처리할 문의가 없습니다." : "No support cases need action right now."}
+            message={t("admin_support_no_support_cases_need_action_right")}
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -216,14 +214,14 @@ export function AdminSupportControlPlane({
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {(
             [
-              [ko ? "답변 대기" : "Waiting reply", "actionable", q.actionable],
-              [ko ? "처리 중" : "In progress", "in_progress", q.inProgress],
-              [ko ? "장기 미처리" : "Overdue", "overdue", q.overdue],
-              [ko ? "회원 문의" : "Member", "member", q.member],
-              [ko ? "매장 문의" : "Owner", "owner", q.owner],
-              [ko ? "재무 문의" : "Finance", "finance", q.finance],
-              [ko ? "광고 문의" : "Ads", "ads", q.ads],
-              [ko ? "주문 문의" : "Order", "order", q.order],
+              [t("admin_support_waiting_reply"), "actionable", q.actionable],
+              [t("admin_support_in_progress"), "in_progress", q.inProgress],
+              [t("admin_support_overdue"), "overdue", q.overdue],
+              [t("admin_support_member_2"), "member", q.member],
+              [t("admin_support_owner"), "owner", q.owner],
+              [t("admin_support_finance_2"), "finance", q.finance],
+              [t("admin_support_ads_2"), "ads", q.ads],
+              [t("admin_support_order"), "order", q.order],
             ] as const
           ).map(([label, k, s]) => (
             <Link
@@ -241,9 +239,9 @@ export function AdminSupportControlPlane({
         </div>
       </Section>
 
-      <Section id="member-inquiries" title={ko ? "회원 문의" : "Member inquiries"}>
+      <Section id="member-inquiries" title={t("admin_support_member_inquiries")}>
         {model.memberInquiries.length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_support_zero_count")}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {model.memberInquiries.slice(0, 6).map((item) => (
@@ -253,9 +251,9 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="owner-inquiries" title={ko ? "매장 문의" : "Owner inquiries"}>
+      <Section id="owner-inquiries" title={t("admin_support_owner_inquiries")}>
         {model.ownerInquiries.length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_support_zero_count")}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {model.ownerInquiries.slice(0, 6).map((item) => (
@@ -265,9 +263,9 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="finance-inquiries" title={ko ? "재무 문의" : "Finance inquiries"}>
+      <Section id="finance-inquiries" title={t("admin_support_finance_inquiries")}>
         {(model.financeInquiries ?? []).length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_support_zero_count")}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {(model.financeInquiries ?? []).slice(0, 6).map((item) => (
@@ -277,9 +275,9 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="ads-inquiries" title={ko ? "광고 문의" : "Ads inquiries"}>
+      <Section id="ads-inquiries" title={t("admin_support_ads_inquiries")}>
         {(model.adsInquiries ?? []).length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_support_zero_count")}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {(model.adsInquiries ?? []).slice(0, 6).map((item) => (
@@ -289,9 +287,9 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="order-inquiries" title={ko ? "주문 문의" : "Order inquiries"}>
+      <Section id="order-inquiries" title={t("admin_support_order_inquiries")}>
         {(model.orderInquiries ?? []).length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_support_zero_count")}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {(model.orderInquiries ?? []).slice(0, 6).map((item) => (
@@ -301,10 +299,10 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="aging" title={ko ? "장기 미처리 (24h+)" : "Overdue (24h+)"}>
+      <Section id="aging" title={t("admin_support_overdue_24h")}>
         {model.aging.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted">
-            {ko ? "장기 미처리 문의 없음" : "No overdue actionable cases"}
+            {t("admin_support_no_overdue_actionable_cases")}
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -315,7 +313,7 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="entries" title={ko ? "전문 / 연결" : "Entries"}>
+      <Section id="entries" title={t("admin_support_entries")}>
         <ul className="flex flex-wrap gap-2">
           {model.domainEntries.map((e) => (
             <li key={e.id}>
@@ -330,9 +328,7 @@ export function AdminSupportControlPlane({
           ))}
         </ul>
         <p className="sam-text-xxs text-sam-muted">
-          {ko
-            ? "Support ≠ Messenger. 알림은 Support SSOT가 아닙니다."
-            : "Support ≠ Messenger. Notifications are not the Support SSOT."}
+          {t("admin_support_support_messenger_notifications_are_not_support")}
         </p>
       </Section>
     </div>

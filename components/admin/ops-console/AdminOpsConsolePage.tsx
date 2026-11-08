@@ -14,7 +14,6 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -39,6 +38,12 @@ import { getDeliveryMetricDefinition } from "@/lib/admin/metrics/delivery-metric
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 /** API 응답에서 운영자 오류 코드만 추출 (원시 HTTP 상태·메시지 노출 금지). */
 function apiErrorCode(status: number, j: unknown, fallback: string): string {
@@ -277,19 +282,17 @@ function ModalShell(props: { title: string; children: React.ReactNode; onClose: 
 function PrevAdminNote({ ko, prev }: { ko: boolean; prev: PrevNoteState }) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-xs text-sam-muted">
-      <div className="font-medium text-sam-fg">{ko ? "기존 메모" : "Existing note"}</div>
+      <div className="font-medium text-sam-fg">{tx(ko, "admin_ops_console_existing_note")}</div>
       {prev.state === "loading" ? (
         <div className="mt-1">
           <AdminLoadingState ko={ko} />
         </div>
       ) : prev.state === "error" ? (
         <div className="mt-1 text-sam-danger">
-          {ko
-            ? "기존 메모를 불러오지 못했습니다. 메모를 덮어쓰지 않도록 새 메모 저장은 막혀 있습니다."
-            : "Could not load the existing note. Adding a note is disabled so it is not overwritten."}
+          {tx(ko, "admin_ops_console_could_not_load_the_existing_note")}
         </div>
       ) : (
-        <div className="mt-1 whitespace-pre-wrap break-words">{prev.note || (ko ? "없음" : "None")}</div>
+        <div className="mt-1 whitespace-pre-wrap break-words">{prev.note || tx(ko, "common_none")}</div>
       )}
     </div>
   );
@@ -728,7 +731,7 @@ function AdminOpsConsolePageInner() {
         {runtimeWarnings.length ? (
           <div className={`${Sam.card.base} ${Sam.card.pad} border border-sam-warning`}>
             <div className="font-medium text-sam-warning">
-              {ko ? "운영 알림 (설정 불일치)" : t("admin_ops_console_runtime_warning_title")}
+              {t("admin_ops_console_notice_config_mismatch")}
             </div>
             <ul className="mt-2 space-y-1 text-sm text-sam-warning">
               {runtimeWarnings.slice(0, 6).map((w) => (
@@ -925,7 +928,7 @@ function AdminOpsConsolePageInner() {
 
                     const bodyRows = g.rows.map(({ row, pr }, idx) => {
                       const oid = field(row, "order_id", "orderId");
-                      const orderNo = field(row, "order_no", "orderNo") || (ko ? "주문번호 없음" : "No order no.");
+                      const orderNo = field(row, "order_no", "orderNo") || t("admin_ops_console_no_order_no");
                       const storeName = field(row, "store_name", "storeName") || "—";
                       const eventId = field(row, "event_id", "eventId");
                       const settlementId = field(row, "settlement_id", "settlementId");
@@ -966,7 +969,7 @@ function AdminOpsConsolePageInner() {
                                   }
                                   type="button"
                                 >
-                                  {ko ? "주의 표시" : t("admin_ops_console_btn_attention")}
+                                  {t("admin_ops_console_mark_attention_btn")}
                                 </AdminActionButton>
                               ) : null}
                               {oid && tab === "riders" ? (
@@ -978,7 +981,7 @@ function AdminOpsConsolePageInner() {
                                     onClick={() => setModal({ kind: "rider_release", orderId: oid, failureReason: "" })}
                                     type="button"
                                   >
-                                    {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
+                                    {t("admin_ops_console_unassign_btn")}
                                   </AdminActionButton>
                                   <AdminActionButton
                                     variant="ghost"
@@ -998,7 +1001,7 @@ function AdminOpsConsolePageInner() {
                                     }
                                     type="button"
                                   >
-                                    {ko ? "라이더 재배정" : t("admin_ops_console_btn_reassign")}
+                                    {t("admin_ops_console_reassign_rider_btn")}
                                   </AdminActionButton>
                                 </>
                               ) : null}
@@ -1053,7 +1056,7 @@ function AdminOpsConsolePageInner() {
       {modal ? (
         modal.kind === "order_attention" ? (
           <ModalShell
-            title={ko ? "주문 주의 표시" : "Mark order for attention"}
+            title={t("admin_ops_console_mark_order_for_attention")}
             busy={!!actionBusyKey}
             onClose={() => setModal(null)}
           >
@@ -1061,7 +1064,7 @@ function AdminOpsConsolePageInner() {
             <textarea
               className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
               placeholder={
-                ko ? "추가할 관리자 메모 (선택) — 기존 메모 뒤에 덧붙습니다" : "Note to add (optional) — appended to the existing note"
+                t("admin_ops_console_note_to_add_optional_appended_to")
               }
               value={modal.adminNote}
               onChange={(e) => setModal({ ...modal, adminNote: e.target.value })}
@@ -1088,7 +1091,7 @@ function AdminOpsConsolePageInner() {
                 }
                 type="button"
               >
-                {ko ? "주의 표시" : t("admin_ops_console_btn_apply")}
+                {t("admin_ops_console_mark_attention_apply_btn")}
               </AdminActionButton>
             </div>
           </ModalShell>
@@ -1119,12 +1122,12 @@ function AdminOpsConsolePageInner() {
                 }
                 type="button"
               >
-                {ko ? "배정 해제" : t("admin_ops_console_btn_release")}
+                {t("admin_ops_console_unassign_btn")}
               </AdminActionButton>
             </div>
           </ModalShell>
         ) : (
-          <ModalShell title={ko ? "라이더 재배정" : "Reassign rider"} busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell title={t("admin_ops_console_reassign_rider")} busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <div className="space-y-3">
               <div className="text-xs text-sam-muted">
                 {t("admin_ops_console_current_rider")}{" "}
@@ -1169,9 +1172,7 @@ function AdminOpsConsolePageInner() {
               )}
               {riderOptions != null && riderOptionsTotal > riderOptions.length ? (
                 <div className="text-xs text-sam-muted" data-ops-console-rider-pick-partial="1">
-                  {ko
-                    ? `배정 가능 ${fmtInt(riderOptionsTotal)}명 중 ${fmtInt(riderOptions.length)}명 표시 (온라인 우선) — 이름으로 좁혀 주세요`
-                    : `Showing ${fmtInt(riderOptions.length)} of ${fmtInt(riderOptionsTotal)} assignable riders (online first) — narrow by name`}
+                  {t("admin_ops_console_showing_of_assignable_riders_online_first", { total: String(fmtInt(riderOptionsTotal)), shown: String(fmtInt(riderOptions.length)) })}
                 </div>
               ) : null}
               {modal.selectedRiderId && modal.currentRiderId && modal.selectedRiderId === modal.currentRiderId ? (
@@ -1183,7 +1184,7 @@ function AdminOpsConsolePageInner() {
               <PrevAdminNote ko={ko} prev={modal.prev} />
               <textarea
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-                placeholder={ko ? "추가할 배달 메모 (선택) — 기존 메모 뒤에 덧붙습니다" : "Delivery note to add (optional) — appended"}
+                placeholder={t("admin_ops_console_delivery_note_to_add_optional_appended")}
                 value={modal.adminNote}
                 onChange={(e) => setModal({ ...modal, adminNote: e.target.value })}
                 rows={3}
@@ -1225,7 +1226,7 @@ function AdminOpsConsolePageInner() {
                 }}
                 type="button"
               >
-                {ko ? "라이더 재배정" : t("admin_ops_console_btn_reassign")}
+                {t("admin_ops_console_reassign_rider_btn")}
               </AdminActionButton>
             </div>
           </ModalShell>

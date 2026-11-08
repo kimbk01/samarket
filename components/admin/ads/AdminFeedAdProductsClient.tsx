@@ -38,7 +38,7 @@ const PRODUCT_FILTER_EXTRAS = ["domain"] as const;
  * Writer: PATCH /api/admin/feed-ad-products → feed_ad_products (DB SSOT).
  */
 export function AdminFeedAdProductsClient() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const en = language === "en";
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState("");
@@ -104,10 +104,8 @@ export function AdminFeedAdProductsClient() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
-      title: ko ? "배너 광고 상품을 저장할까요?" : "Save this banner ad product?",
-      description: ko
-        ? "기간·Point 가격은 새 신청·연장에만 적용됩니다."
-        : "Duration and Point apply to new requests and renewals only.",
+      title: t("admin_ads_save_banner_ad_product"),
+      description: t("admin_ads_duration_point_apply_new_requests"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
@@ -143,7 +141,7 @@ export function AdminFeedAdProductsClient() {
       }
       // Refetch authority — do not trust local draft alone.
       await load();
-      setResult({ ok: true, message: en ? "Saved." : "저장했습니다." });
+      setResult({ ok: true, message: t("admin_ads_saved") });
     } finally {
       setBusyId(null);
     }
@@ -175,27 +173,27 @@ export function AdminFeedAdProductsClient() {
         onReset={lq.reset}
         pending={loading}
         showPeriod={false}
-        searchPlaceholder={en ? "Product name" : "상품 이름"}
+        searchPlaceholder={t("admin_ads_product_name")}
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
-          label: en ? "Active" : "활성",
+          label: t("common_active"),
           options: [
-            { value: "active", label: en ? "Active" : "활성" },
-            { value: "inactive", label: en ? "Inactive" : "비활성" },
+            { value: "active", label: t("common_active") },
+            { value: "inactive", label: t("admin_ads_inactive") },
           ],
         }}
       >
         <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
-          {en ? "Domain" : "영역"}
+          {t("admin_ads_domain")}
           <select
             className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
             value={lq.query.extras.domain}
             onChange={(e) => lq.setExtra("domain", e.target.value)}
             name="domain"
           >
-            <option value="">{en ? "All" : "전체"}</option>
-            <option value="trade">{en ? "Trade" : "거래"}</option>
+            <option value="">{t("common_all")}</option>
+            <option value="trade">{t("admin_ads_trade")}</option>
             <option value="community">Community</option>
           </select>
         </label>
@@ -211,12 +209,12 @@ export function AdminFeedAdProductsClient() {
         <table className="w-full min-w-[640px] text-left sam-text-helper">
           <thead className="bg-sam-app text-sam-muted">
             <tr>
-              <th className="px-3 py-2">{en ? "Product" : "상품"}</th>
-              <th className="px-3 py-2">{en ? "Domain" : "영역"}</th>
-              <th className="px-3 py-2">{en ? "Days" : "기간"}</th>
+              <th className="px-3 py-2">{t("admin_ads_post_col_product")}</th>
+              <th className="px-3 py-2">{t("admin_ads_domain")}</th>
+              <th className="px-3 py-2">{t("admin_ads_days")}</th>
               <th className="px-3 py-2">Point</th>
-              <th className="px-3 py-2">{en ? "Sort" : "정렬"}</th>
-              <th className="px-3 py-2">{en ? "Active" : "활성"}</th>
+              <th className="px-3 py-2">{t("common_sort")}</th>
+              <th className="px-3 py-2">{t("common_active")}</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>

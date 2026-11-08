@@ -3,6 +3,13 @@
  * No new aggregate table. Fee/amount fields must come from ledger columns (no recalculation).
  */
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 export type SettlementOpsRowLike = {
   id: string;
   store_id: string;
@@ -114,19 +121,19 @@ export function classifySettlementOpsBucket(status: string, holdReason?: string 
 export function settlementOpsBucketLabel(bucket: SettlementOpsBucket, ko: boolean): string {
   switch (bucket) {
     case "problem":
-      return ko ? "문제/보류" : "Problem / hold";
+      return tx(ko, "admin_settlement_control_problem_hold");
     case "needs_action":
-      return ko ? "처리 필요" : "Needs action";
+      return tx(ko, "admin_settlement_control_needs_action");
     case "scheduled":
-      return ko ? "예정" : "Scheduled";
+      return tx(ko, "admin_settlement_control_scheduled");
     case "processing":
-      return ko ? "지급 준비" : "Processing";
+      return tx(ko, "admin_settlement_control_processing");
     case "paid":
-      return ko ? "완료" : "Paid";
+      return tx(ko, "admin_settlement_control_paid");
     case "cancelled":
-      return ko ? "취소" : "Cancelled";
+      return tx(ko, "admin_settlement_control_cancelled");
     default:
-      return ko ? "기타" : "Other";
+      return tx(ko, "admin_settlement_control_other");
   }
 }
 

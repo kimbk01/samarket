@@ -9,6 +9,7 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * G-08 (감사 2026-10-30) — 중앙 고객지원 안의 「매장 문의」 조회 전용 보기.
@@ -91,21 +92,18 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
     <section
       className="flex min-h-0 flex-1 flex-col gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
       data-admin-support-store-inquiries="read-only"
-      aria-label={ko ? "매장 문의 (조회 전용)" : "Store inquiries (view only)"}
+      aria-label={translateBy(ko ? "ko" : "en", "admin_support_store_inquiries_view_only")}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-sam-muted">
-          {ko
-            ? "고객이 매장에 보낸 문의입니다. 답변은 매장 사장님이 하며, 관리자는 조회만 합니다. 고객지원 상담과는 별도 원장입니다."
-            : "Inquiries customers sent to stores. Store owners answer them; admins can only view. Separate from support cases."}
+          {translateBy(ko ? "ko" : "en", "admin_support_inquiries_customers_sent_to_stores_store")}
         </p>
         <Link href="/admin/store-inquiries" className="text-xs font-semibold text-sam-fg underline">
-          {ko ? "매장 문의 전체 화면" : "Open store inquiries"}
+          {translateBy(ko ? "ko" : "en", "admin_support_open_store_inquiries")}
         </Link>
       </div>
       <div className="text-xs font-semibold text-sam-muted">
-        {ko ? "매장 문의" : "Store inquiries"} · {formatAdminNumber(total)}
-        {ko ? "건" : ""}
+        {translateBy(ko ? "ko" : "en", "admin_support_store_inquiries")} · {translateBy(ko ? "ko" : "en", "admin_count_items", { n: formatAdminNumber(total) })}
       </div>
 
       {loadError ? (
@@ -114,7 +112,7 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
       {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        loadError ? null : <AdminEmptyState ko={ko} message={ko ? "매장 문의가 없습니다" : "No store inquiries"} />
+        loadError ? null : <AdminEmptyState ko={ko} message={translateBy(ko ? "ko" : "en", "admin_support_no_store_inquiries")} />
       ) : (
         <ul className="min-h-0 flex-1 divide-y divide-sam-border overflow-y-auto">
           {rows.map((r) => {
@@ -129,13 +127,13 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
                     <AdminToneBadge tone={st?.tone ?? "neutral"}>
-                      {st ? (ko ? st.ko : st.en) : ko ? "알 수 없는 상태" : "Unknown status"}
+                      {st ? (ko ? st.ko : st.en) : translateBy(ko ? "ko" : "en", "admin_support_unknown_status")}
                     </AdminToneBadge>
                     <span className="text-xs font-bold text-sam-fg">
-                      {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                      {r.store_name || (translateBy(ko ? "ko" : "en", "admin_support_unnamed_store"))}
                     </span>
                     <span className="text-[12px] text-sam-muted">
-                      {type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"}
+                      {type ? (ko ? type[0] : type[1]) : translateBy(ko ? "ko" : "en", "admin_support_other")}
                     </span>
                     <span className="ml-auto whitespace-nowrap text-[12px] text-sam-muted">
                       {formatAdminManilaDateTime(r.created_at)}
@@ -143,7 +141,7 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
                   </div>
                   <p className="mt-0.5 truncate text-[13px] text-sam-fg">{r.subject}</p>
                   <p className="text-[12px] text-sam-muted">
-                    {r.from_user_label || (ko ? "이름 확인 불가" : "Name unavailable")}
+                    {r.from_user_label || (translateBy(ko ? "ko" : "en", "admin_support_name_unavailable"))}
                   </p>
                 </Link>
               </li>

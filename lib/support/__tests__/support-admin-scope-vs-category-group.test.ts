@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 
 vi.mock("server-only", () => ({}));
 
@@ -64,7 +65,9 @@ describe("G-07 · G-08 (감사 2026-10-30) — 중앙 고객지원 이의신청�
   it("중앙 화면: 커뮤니티 분야 · 이의신청만 · 매장 문의 조회 전용 보기 (기존 API · 원장 분리)", async () => {
     const { readFileSync } = await import("node:fs");
     const page = readFileSync("components/admin/support/AdminSupportPage.tsx", "utf8");
-    expect(page).toContain('{ id: "COMMUNITY", label: ko ? "커뮤니티" : "Community" }');
+    expect(page).toContain('{ id: "COMMUNITY", label: t("admin_support_community") }');
+    expect(copyAdminB4Ops1Messages.ko.admin_support_community).toBe("커뮤니티");
+    expect(copyAdminB4Ops1Messages.en.admin_support_community).toBe("Community");
     expect(page).toContain('if (appealOnly) qs.set("type", "appeal");');
     expect(page).toContain("<AdminSupportStoreInquiriesPanel ko={ko} />");
     const panel = readFileSync("components/admin/support/AdminSupportStoreInquiriesPanel.tsx", "utf8");

@@ -77,7 +77,7 @@ export function AdminExposurePolicyPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "노출 정책 저장" : "Save exposure policy",
+      title: t("admin_exposure_save_exposure_policy"),
       description: t("admin_feed_policy_unlinked_notice"),
       confirmLabel: adminCta("save", ko),
     });
@@ -112,9 +112,7 @@ export function AdminExposurePolicyPage() {
          * 고객 앱 정렬은 코드 기본값(`getDefaultExposureScorePolicyBySurface`)을 쓴다 → 사이드 메뉴에 올리지 않는다.
          */}
         <span className="mt-1 block" data-admin-exposure-policy-preview-only="1">
-          {ko
-            ? "확인됨: 여기 저장한 값은 고객 앱 정렬에 쓰이지 않습니다(앱은 코드 기본값 사용). 시뮬레이션·미리보기 전용입니다."
-            : "Confirmed: values saved here are not used by the customer app sort (the app uses code defaults). Simulation/preview only."}
+          {t("admin_exposure_confirmed_values_saved_here_not_used")}
         </span>
       </div>
 

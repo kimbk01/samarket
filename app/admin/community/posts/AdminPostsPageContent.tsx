@@ -116,7 +116,7 @@ function isPinnedNow(r: CommunityPostRow): boolean {
 }
 
 export function AdminPostsPageContent() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const { get, set } = useCommunityQueryState();
   const lq = useCommunityListQuery({ extras: POST_EXTRAS });
@@ -425,9 +425,9 @@ export function AdminPostsPageContent() {
                   {title}
                 </Link>
                 <span className="mt-0.5 flex flex-wrap gap-1">
-                  {r.is_notice ? <AdminToneBadge tone="progress">공지</AdminToneBadge> : null}
-                  {isPinnedNow(r) ? <AdminToneBadge tone="progress">상단 고정</AdminToneBadge> : null}
-                  {r.is_sample_data ? <AdminToneBadge tone="warning">샘플</AdminToneBadge> : null}
+                  {r.is_notice ? <AdminToneBadge tone="progress">{t("admin_community_posts_badge_notice")}</AdminToneBadge> : null}
+                  {isPinnedNow(r) ? <AdminToneBadge tone="progress">{t("admin_community_posts_badge_pinned")}</AdminToneBadge> : null}
+                  {r.is_sample_data ? <AdminToneBadge tone="warning">{t("admin_feed_posts_sample_badge")}</AdminToneBadge> : null}
                 </span>
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-sam-muted`}>
@@ -492,16 +492,16 @@ export function AdminPostsPageContent() {
         role="header"
         state={selection.headerState}
         onToggle={selection.toggleAll}
-        aria-label="현재 페이지 전체 선택"
+        aria-label={t("admin_community_select_page_all")}
       />
-      현재 페이지 전체 선택
+      {t("admin_community_select_page_all")}
     </label>
   ) : null;
 
   return (
     <AdminManagementSurfaceRoot wave="w3" proofSurface="community-posts">
       <CommunityListShell
-        title="게시글"
+        title={t("admin_community_posts_title")}
         description="회원·외부 수집·운영팀 글을 찾아보고 숨김·삭제·복구합니다."
         actions={
           <>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import {
   CommunityFilterBar,
@@ -67,6 +68,7 @@ type Props = {
 };
 
 export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpen, refreshToken, onJobDone }: Props) {
+  const { t: tr } = useI18n();
   const [rows, setRows] = useState<InboxRow[]>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -353,13 +355,15 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
             const sourceName = sources.find((s) => s.id === r.sourceSite)?.displayName ?? r.sourceSite;
             return (
               <li key={k} className={`flex gap-2 px-2 py-2 border-b border-sam-border ${active ? "bg-sam-app" : ""}`}>
-                <input type="checkbox" className="mt-1 shrink-0" checked={selected.has(k)} onChange={() => toggle(r)} aria-label="선택" />
+                <input type="checkbox" className="mt-1 shrink-0" checked={selected.has(k)} onChange={() => toggle(r)} aria-label={tr("admin_community_import_inbox_select")} />
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! justify-start! items-start! whitespace-normal! font-normal! px-0! gap-2 text-left min-w-0 flex-1 text-sam-fg" onClick={() => onOpen(r)}>
                   {r.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={r.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-16 h-12 object-cover rounded-ui-rect bg-sam-app shrink-0" />
                   ) : (
-                    <div className="w-16 h-12 rounded-ui-rect bg-sam-app shrink-0 flex items-center justify-center text-[12px] text-sam-muted">썸네일 없음</div>
+                    <div className="w-16 h-12 rounded-ui-rect bg-sam-app shrink-0 flex items-center justify-center text-[12px] text-sam-muted">
+                      {tr("admin_community_import_inbox_no_thumbnail")}
+                    </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium text-sam-fg line-clamp-2 break-words">{r.title || "(제목 없음)"}</div>
@@ -391,7 +395,7 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={bulkTopic} onChange={(e) => setBulkTopic(e.target.value)}>
-                  <option value="">주제: 게시판 기본값 사용</option>
+                  <option value="">{tr("admin_community_import_inbox_topic_board_default")}</option>
                   {topics.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -399,26 +403,26 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
                   ))}
                 </select>
                 <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={bulkPolicy} onChange={(e) => setBulkPolicy(e.target.value as "" | ContentPolicy)}>
-                  <option value="">정책: 출처 기본값</option>
+                  <option value="">{tr("admin_community_import_inbox_policy_source_default")}</option>
                   {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                     <option key={p} value={p}>
                       {POLICY_LABEL[p]}
                     </option>
                   ))}
                 </select>
-                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="출처 표시" value={bulkAttribution} onChange={(e) => setBulkAttribution(e.target.value as "" | "show" | "hide")}>
-                  <option value="">출처: 글별 설정 유지</option>
-                  <option value="show">출처: 표시</option>
-                  <option value="hide">출처: 숨김</option>
+                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label={tr("admin_community_import_inbox_attribution")} value={bulkAttribution} onChange={(e) => setBulkAttribution(e.target.value as "" | "show" | "hide")}>
+                  <option value="">{tr("admin_community_import_inbox_attribution_keep")}</option>
+                  <option value="show">{tr("admin_community_import_inbox_attribution_show")}</option>
+                  <option value="hide">{tr("admin_community_import_inbox_attribution_hide")}</option>
                 </select>
-                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="표시 날짜" value={dateMode} onChange={(e) => setDateMode(e.target.value as DateMode)}>
+                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label={tr("admin_community_import_inbox_display_date")} value={dateMode} onChange={(e) => setDateMode(e.target.value as DateMode)}>
                   {(Object.keys(DATE_MODE_LABEL) as DateMode[]).map((m) => (
                     <option key={m} value={m}>
                       {DATE_MODE_LABEL[m]}
                     </option>
                   ))}
                 </select>
-                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="표시 작성자" value={authorMode} onChange={(e) => setAuthorMode(e.target.value as AuthorMode)}>
+                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label={tr("admin_community_import_inbox_display_author")} value={authorMode} onChange={(e) => setAuthorMode(e.target.value as AuthorMode)}>
                   {(Object.keys(AUTHOR_MODE_LABEL) as AuthorMode[]).map((m) => (
                     <option key={m} value={m}>
                       {AUTHOR_MODE_LABEL[m]}
@@ -426,13 +430,13 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
                   ))}
                 </select>
                 {authorMode === "custom" ? (
-                  <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" placeholder="표시할 작성자 이름" maxLength={60} value={customAuthor} onChange={(e) => setCustomAuthor(e.target.value)} />
+                  <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" placeholder={tr("admin_community_import_inbox_custom_author")} maxLength={60} value={customAuthor} onChange={(e) => setCustomAuthor(e.target.value)} />
                 ) : null}
               </div>
               <div className="grid grid-cols-2 gap-1.5">
-                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label="게시 방식" value={scheduleMode} onChange={(e) => setScheduleMode(e.target.value as "now" | "spread")}>
-                  <option value="now">게시: 지금 바로</option>
-                  <option value="spread">게시: 예약·분산 (간격마다 1건)</option>
+                <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label={tr("admin_community_import_inbox_schedule")} value={scheduleMode} onChange={(e) => setScheduleMode(e.target.value as "now" | "spread")}>
+                  <option value="now">{tr("admin_community_import_inbox_schedule_now")}</option>
+                  <option value="spread">{tr("admin_community_import_inbox_schedule_spread")}</option>
                 </select>
                 <label className="flex items-center gap-1 text-[12px] text-sam-muted">
                   <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
@@ -485,9 +489,15 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
             <div className="text-[12px] text-sam-muted space-y-1">
               <div>
                 작업 {job.kind}: {job.status} · 성공 {job.done} · 실패 {job.failed} · 건너뜀(중복·이미 게시) {job.skipped} / {job.total}
-                {job.nextDueAt ? <span className="block">예약됨 — 다음 게시 {fmtDate(job.nextDueAt)} (서버가 자동으로 이어서 게시)</span> : null}
+                {job.nextDueAt ? (
+                  <span className="block">{tr("admin_community_import_inbox_job_next_due", { date: fmtDate(job.nextDueAt) })}</span>
+                ) : null}
               </div>
-              {job.lastError ? <span className="block text-sam-danger break-words">마지막 오류: {job.lastError}</span> : null}
+              {job.lastError ? (
+                <span className="block text-sam-danger break-words">
+                  {tr("admin_community_import_inbox_job_last_error", { error: job.lastError })}
+                </span>
+              ) : null}
               <div className="flex flex-wrap gap-1">
                 {job.failed > 0 ? (
                   <AdminActionButton variant="secondary" disabled={jobBusy} onClick={() => void jobAction("retry_failed")}>

@@ -48,7 +48,7 @@ const LABEL = "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-con
  * C-1 — 기간(from/to PHT, 주소 공통 키) + 같은 조건 전체의 출처·상태별 합계(쪽과 무관).
  */
 export function AdminFinanceAdsView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const sp = useSearchParams();
   const filters = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
@@ -123,11 +123,9 @@ export function AdminFinanceAdsView() {
   return (
     <div className="space-y-4" data-admin-finance-ads="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "광고 지출" : "Ad spend"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{t("finance_nav_ad_spend")}</h2>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "Finance 관점 자금 추적입니다. Ads 운영 화면 복제품이 아닙니다. ADMIN_DIRECT는 재무 거래가 없습니다."
-          : "Funding trace for Finance — not Ads ops. ADMIN_DIRECT has no financial transaction."}
+        {t("admin_finance_funding_trace_for_finance_not_ads")}
       </p>
       <AdminFilterBar
         ko={ko}
@@ -146,20 +144,20 @@ export function AdminFinanceAdsView() {
         showSearch={false}
       >
         <label className={LABEL}>
-          {ko ? "결제 수단" : "Funding rail"}
+          {t("admin_finance_funding_rail")}
           <select
             className={FIELD}
             value={lq.query.extras.wallet}
             onChange={(e) => lq.setExtra("wallet", e.target.value)}
             data-finance-ads-filter-wallet="1"
           >
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("admin_biz_ops_filter_all")}</option>
             <option value="POINT">{financeFundingRailLabel("MEMBER_POINT", ko)}</option>
             <option value="CASH">{financeFundingRailLabel("STORE_CASH", ko)}</option>
           </select>
         </label>
         <label className={LABEL}>
-          {ko ? "매장 ID" : "Store ID"}
+          {t("finance_store_id")}
           <input
             className={`${FIELD} min-w-[10rem]`}
             value={ids.storeId}
@@ -168,7 +166,7 @@ export function AdminFinanceAdsView() {
           />
         </label>
         <label className={LABEL}>
-          {ko ? "회원 ID" : "Member ID"}
+          {t("admin_finance_member_id")}
           <input
             className={`${FIELD} min-w-[10rem]`}
             value={ids.memberId}
@@ -182,9 +180,7 @@ export function AdminFinanceAdsView() {
           ko={ko}
           range={adminFinanceRangeText({ from: filters.from, to: filters.to }, ko)}
           basis={
-            ko
-              ? "목록 정렬 시각 기준(노출 시작 → 검토 → 신청) · 결제 수단·매장·회원 조건 적용"
-              : "by list time (start → review → created) · filters applied"
+            t("admin_finance_by_list_time_start_review_created")
           }
           cells={adFundingSumCells(sums, ko)}
         />
@@ -194,7 +190,7 @@ export function AdminFinanceAdsView() {
       {!loading && rows.length === 0 && !error ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : ko ? "광고 자금 내역이 없습니다." : "No ad funding rows."}
+          message={lq.isFiltered ? undefined : t("admin_finance_no_ad_funding_rows")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : null}
@@ -203,14 +199,14 @@ export function AdminFinanceAdsView() {
         <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
-              <th className="px-3 py-2">{ko ? "일시 (PHT)" : "When (PHT)"}</th>
-              <th className="px-3 py-2">{ko ? "신청자/매장" : "Applicant / store"}</th>
-              <th className="px-3 py-2">{ko ? "광고 유형" : "Ad product"}</th>
-              <th className="px-3 py-2">{ko ? "Funding Rail" : "Funding rail"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "금액" : "Amount"}</th>
-              <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
-              <th className="px-3 py-2">{ko ? "광고" : "Ad ref"}</th>
-              <th className="px-3 py-2">{ko ? "Finance TX" : "Finance TX"}</th>
+              <th className="px-3 py-2">{t("finance_when_pht")}</th>
+              <th className="px-3 py-2">{t("admin_finance_applicant_store")}</th>
+              <th className="px-3 py-2">{t("admin_finance_ad_product")}</th>
+              <th className="px-3 py-2">{t("admin_finance_funding_rail_2")}</th>
+              <th className="px-3 py-2 text-right">{t("finance_amount")}</th>
+              <th className="px-3 py-2">{t("admin_biz_label_status")}</th>
+              <th className="px-3 py-2">{t("admin_finance_ad_ref")}</th>
+              <th className="px-3 py-2">{t("admin_finance_finance_tx")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sam-border-soft">
@@ -218,9 +214,9 @@ export function AdminFinanceAdsView() {
               const when = r.activeAt || r.approvedAt || null;
               const applicant =
                 r.applicantType === "member" && r.memberId
-                  ? `${ko ? "회원" : "Member"} · ${r.memberId.slice(0, 8)}…`
+                  ? `${t("admin_finance_member_2")} · ${r.memberId.slice(0, 8)}…`
                   : r.storeId
-                    ? `${ko ? "매장" : "Store"} · ${r.storeId.slice(0, 8)}…`
+                    ? `${t("admin_biz_ops_th_store")} · ${r.storeId.slice(0, 8)}…`
                     : r.applicantType === "admin"
                       ? "Admin"
                       : "—";
@@ -265,7 +261,7 @@ export function AdminFinanceAdsView() {
                   <td className="px-3 py-2">
                     {r.adDetailHref ? (
                       <Link href={r.adDetailHref} className="font-semibold text-signature hover:underline">
-                        {ko ? "광고 상세" : "Ad detail"}
+                        {t("finance_ad_detail_cta")}
                       </Link>
                     ) : (
                       <span className="font-mono text-[12px]">{r.adId.slice(0, 8)}…</span>
@@ -278,10 +274,10 @@ export function AdminFinanceAdsView() {
                   </td>
                   <td className="px-3 py-2">
                     {r.fundingRail === "ADMIN_DIRECT" ? (
-                      <span className="text-sam-muted">{ko ? "재무 거래 없음" : "No finance TX"}</span>
+                      <span className="text-sam-muted">{t("admin_finance_no_finance_tx")}</span>
                     ) : financeTxHref ? (
                       <Link href={financeTxHref} className="font-semibold text-signature hover:underline">
-                        {ko ? "결제 내역" : "Payment TX"}
+                        {t("admin_finance_payment_tx")}
                       </Link>
                     ) : r.fundingTransactionId ? (
                       <Link
@@ -292,7 +288,7 @@ export function AdminFinanceAdsView() {
                         }
                         className="font-semibold text-signature hover:underline"
                       >
-                        {ko ? "결제 내역 보기" : "Payment history"}
+                        {t("admin_finance_payment_history")}
                       </Link>
                     ) : (
                       "—"

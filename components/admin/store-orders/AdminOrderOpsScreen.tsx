@@ -215,18 +215,14 @@ export function AdminOrderOpsScreen({
 
   const errorText = useCallback(
     (code: string) => {
-      if (code === "forbidden") return ko ? "이 화면을 볼 권한이 없습니다." : "You do not have permission to view this screen.";
-      if (code === "network_error") return ko ? "네트워크 오류로 불러오지 못했습니다." : "Network error.";
+      if (code === "forbidden") return t("admin_store_orders_you_do_not_have_permission");
+      if (code === "network_error") return t("admin_store_orders_network_error");
       if (code === "rpc_missing")
-        return ko
-          ? "기능 준비 중입니다. 시스템 관리자에게 문의하세요."
-          : "This feature is not ready yet. Contact a system admin.";
-      if (code === "load_failed") return ko ? "목록을 불러오지 못했습니다." : "Failed to load.";
-      return ko
-        ? `목록을 불러오지 못했습니다. ${adminOperatorErrorMessage(code, true)}`
-        : `Failed to load. ${adminOperatorErrorMessage(code, false)}`;
+        return t("admin_store_orders_feature_not_ready_yet_contact");
+      if (code === "load_failed") return t("admin_store_orders_failed_load");
+      return t("admin_store_orders_failed_load_detail", { detail: adminOperatorErrorMessage(code, ko) });
     },
-    [ko]
+    [ko, t]
   );
 
   const loadSummary = useCallback(
@@ -440,26 +436,26 @@ export function AdminOrderOpsScreen({
         const b = src && typeof src[k] === "object" && src[k] ? (src[k] as Record<string, number | string | null>) : null;
         return b;
       };
-      const cohort = ko ? `① ${periodLabel}에 생성된 주문 — 주문 생성일 기준 · 상태는 현재 기준` : `① Orders created in ${periodLabel} — created date · current status`;
-      const work = ko ? `② ${periodLabel}의 요청·처리 실적 — 요청일·처리일 기준` : `② Requests and processing in ${periodLabel} — request / processing date`;
+      const cohort = t("admin_store_orders_orders_created_created_date_current", { periodLabel });
+      const work = t("admin_store_orders_requests_processing_request_processing_date", { periodLabel });
       const cPending = proc("cancel", "pending");
       const cDone = proc("cancel", "done");
       const rPending = proc("refund", "pending");
       const rDone = proc("refund", "done");
       return [
-        { group: cohort, key: "all", label: ko ? "생성 주문" : "Created", count: n(blk("all"), "count"), amount: n(blk("all"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", secondary: blk("all") ? `${ko ? "결제" : "Paid"} ${formatMoneyPhp(n(blk("all"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("all", { orderStatus: null, mismatchOnly: false }), active: tab.key === "all" && !applied.orderStatus && !applied.mismatchOnly },
-        { group: cohort, key: "in_progress", label: ko ? "진행 중" : "In progress", count: n(blk("in_progress"), "count"), amount: n(blk("in_progress"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", basis: "created", onClick: () => onTab("in_progress", { orderStatus: null }), active: tab.key === "in_progress" },
-        { group: cohort, key: "completed", label: ko ? "완료" : "Completed", count: n(blk("completed"), "count"), amount: n(blk("completed"), "order_amount"), amountLabel: ko ? "주문금액" : "Order", secondary: blk("completed") ? `${ko ? "결제" : "Paid"} ${formatMoneyPhp(n(blk("completed"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("completed", { orderStatus: null }), active: tab.key === "completed" },
-        { group: cohort, key: "cancel_requested", label: ko ? "현재 취소 요청 중" : "Now cancel-requested", count: n(blk("cancel_requested"), "count"), amount: n(blk("cancel_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancel_requested" }), active: applied.orderStatus === "cancel_requested" },
-        { group: cohort, key: "cancelled", label: ko ? "현재 취소 상태" : "Now cancelled", count: n(blk("cancelled"), "count"), amount: n(blk("cancelled"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancelled" }), active: applied.orderStatus === "cancelled" },
-        { group: cohort, key: "refund_requested", label: ko ? "현재 환불 요청 중" : "Now refund-requested", count: n(blk("refund_requested"), "count"), amount: n(blk("refund_requested"), "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "created", onClick: () => onTab("refund", { orderStatus: "refund_requested" }), active: applied.orderStatus === "refund_requested" },
-        { group: cohort, key: "refunded", label: ko ? "현재 환불 상태" : "Now refunded", count: n(blk("refunded"), "count"), amount: n(blk("refunded"), "paid"), amountLabel: ko ? "환불액" : "Refunded", basis: "created", onClick: () => onTab("refund", { orderStatus: "refunded" }), active: applied.orderStatus === "refunded" },
-        { group: cohort, key: "commission", label: ko ? "수수료 부과" : "Commission", count: n(fee, "count"), amount: n(fee, "base_php"), amountLabel: ko ? "기준액" : "Base", secondary: fee ? `${ko ? "부과 수수료" : "Fee"} ${formatFinanceAmount({ wallet: "CASH", amount: n(fee, "fee_minor") ?? 0, isMinor: true })}` : null, basis: "created", href: "/admin/store-settlements" },
-        { group: cohort, key: "mismatch", label: ko ? "⚠ 금액 불일치" : "⚠ Amount mismatch", count: s && s.mismatch != null ? Number(s.mismatch) : null, basis: "created", tone: "danger", onClick: () => onTab("all", { mismatchOnly: true, orderStatus: null }), active: applied.mismatchOnly },
-        { group: work, key: "cancel_pending", label: ko ? "취소 요청 대기" : "Cancel requests waiting", count: n(cPending, "count"), amount: n(cPending, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "cancel_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "pending" }) },
-        { group: work, key: "cancel_done", label: ko ? "취소 처리" : "Cancelled (processed)", count: n(cDone, "count"), amount: n(cDone, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "cancelled", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "done" }) },
-        { group: work, key: "refund_pending", label: ko ? "환불 요청 대기" : "Refund requests waiting", count: n(rPending, "count"), amount: n(rPending, "paid"), amountLabel: ko ? "결제액" : "Paid", basis: "refund_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "pending" }) },
-        { group: work, key: "refund_done", label: ko ? "환불 처리" : "Refunded (processed)", count: n(rDone, "count"), amount: n(rDone, "paid"), amountLabel: ko ? "환불액" : "Refunded", basis: "refunded", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "done" }) },
+        { group: cohort, key: "all", label: t("admin_store_orders_created"), count: n(blk("all"), "count"), amount: n(blk("all"), "order_amount"), amountLabel: t("admin_store_orders_order_2"), secondary: blk("all") ? `${t("admin_store_orders_paid")} ${formatMoneyPhp(n(blk("all"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("all", { orderStatus: null, mismatchOnly: false }), active: tab.key === "all" && !applied.orderStatus && !applied.mismatchOnly },
+        { group: cohort, key: "in_progress", label: t("admin_store_orders_progress"), count: n(blk("in_progress"), "count"), amount: n(blk("in_progress"), "order_amount"), amountLabel: t("admin_store_orders_order_2"), basis: "created", onClick: () => onTab("in_progress", { orderStatus: null }), active: tab.key === "in_progress" },
+        { group: cohort, key: "completed", label: t("admin_store_orders_completed"), count: n(blk("completed"), "count"), amount: n(blk("completed"), "order_amount"), amountLabel: t("admin_store_orders_order_2"), secondary: blk("completed") ? `${t("admin_store_orders_paid")} ${formatMoneyPhp(n(blk("completed"), "paid") ?? 0)}` : null, basis: "created", onClick: () => onTab("completed", { orderStatus: null }), active: tab.key === "completed" },
+        { group: cohort, key: "cancel_requested", label: t("admin_store_orders_now_cancel_requested"), count: n(blk("cancel_requested"), "count"), amount: n(blk("cancel_requested"), "paid"), amountLabel: t("admin_store_orders_paid_2"), basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancel_requested" }), active: applied.orderStatus === "cancel_requested" },
+        { group: cohort, key: "cancelled", label: t("admin_store_orders_now_cancelled"), count: n(blk("cancelled"), "count"), amount: n(blk("cancelled"), "paid"), amountLabel: t("admin_store_orders_paid_2"), basis: "created", onClick: () => onTab("cancel", { orderStatus: "cancelled" }), active: applied.orderStatus === "cancelled" },
+        { group: cohort, key: "refund_requested", label: t("admin_store_orders_now_refund_requested"), count: n(blk("refund_requested"), "count"), amount: n(blk("refund_requested"), "paid"), amountLabel: t("admin_store_orders_paid_2"), basis: "created", onClick: () => onTab("refund", { orderStatus: "refund_requested" }), active: applied.orderStatus === "refund_requested" },
+        { group: cohort, key: "refunded", label: t("admin_store_orders_now_refunded"), count: n(blk("refunded"), "count"), amount: n(blk("refunded"), "paid"), amountLabel: t("admin_store_orders_refunded"), basis: "created", onClick: () => onTab("refund", { orderStatus: "refunded" }), active: applied.orderStatus === "refunded" },
+        { group: cohort, key: "commission", label: t("admin_store_orders_commission"), count: n(fee, "count"), amount: n(fee, "base_php"), amountLabel: t("admin_store_orders_base"), secondary: fee ? `${t("admin_store_orders_fee")} ${formatFinanceAmount({ wallet: "CASH", amount: n(fee, "fee_minor") ?? 0, isMinor: true })}` : null, basis: "created", href: "/admin/store-settlements" },
+        { group: cohort, key: "mismatch", label: t("admin_store_orders_amount_mismatch"), count: s && s.mismatch != null ? Number(s.mismatch) : null, basis: "created", tone: "danger", onClick: () => onTab("all", { mismatchOnly: true, orderStatus: null }), active: applied.mismatchOnly },
+        { group: work, key: "cancel_pending", label: t("admin_store_orders_cancel_requests_waiting"), count: n(cPending, "count"), amount: n(cPending, "paid"), amountLabel: t("admin_store_orders_paid_2"), basis: "cancel_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "pending" }) },
+        { group: work, key: "cancel_done", label: t("admin_store_orders_cancelled_processed"), count: n(cDone, "count"), amount: n(cDone, "paid"), amountLabel: t("admin_store_orders_paid_2"), basis: "cancelled", href: linkWith(ADMIN_ORDER_OPS_PATH.cancellations, { tab: "done" }) },
+        { group: work, key: "refund_pending", label: t("admin_store_orders_refund_requests_waiting"), count: n(rPending, "count"), amount: n(rPending, "paid"), amountLabel: t("admin_store_orders_paid_2"), basis: "refund_requested", tone: "warning", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "pending" }) },
+        { group: work, key: "refund_done", label: t("admin_store_orders_refunded_processed"), count: n(rDone, "count"), amount: n(rDone, "paid"), amountLabel: t("admin_store_orders_refunded"), basis: "refunded", href: linkWith(ADMIN_ORDER_OPS_PATH.refunds, { tab: "done" }) },
       ];
     }
     if (cfg.summaryScope === "cancel" || cfg.summaryScope === "refund") {
@@ -467,11 +463,11 @@ export function AdminOrderOpsScreen({
       const done = blk("done");
       const isCancel = cfg.summaryScope === "cancel";
       const out: OpsSummaryCard[] = [
-        { key: "pending", label: ko ? "매장 결정 대기" : "Awaiting store", count: n(pending, "count"), amount: n(pending, "paid"), amountLabel: ko ? "결제액" : "Paid", secondary: pending?.oldest_at ? `${ko ? "가장 오래된 대기" : "Oldest"} ${elapsedSince(String(pending.oldest_at), ko)}` : null, basis: isCancel ? "cancel_requested" : "refund_requested", tone: "warning", onClick: () => onTab("pending"), active: tab.key === "pending" },
-        { key: "done", label: isCancel ? (ko ? "취소 완료" : "Cancelled") : ko ? "환불 완료" : "Refunded", count: n(done, "count"), amount: n(done, "paid"), amountLabel: isCancel ? (ko ? "결제액" : "Paid") : ko ? "환불액" : "Refunded", secondary: !isCancel && done ? `${ko ? "상품권 복원" : "Gift reversed"} ${n(done, "gift_reversed") ?? 0}${ko ? "건" : ""}` : null, basis: isCancel ? "cancelled" : "refunded", onClick: () => onTab("done"), active: tab.key === "done" },
+        { key: "pending", label: t("admin_store_orders_awaiting_store"), count: n(pending, "count"), amount: n(pending, "paid"), amountLabel: t("admin_store_orders_paid_2"), secondary: pending?.oldest_at ? `${t("admin_store_orders_oldest")} ${elapsedSince(String(pending.oldest_at), ko)}` : null, basis: isCancel ? "cancel_requested" : "refund_requested", tone: "warning", onClick: () => onTab("pending"), active: tab.key === "pending" },
+        { key: "done", label: isCancel ? (t("admin_store_orders_cancelled_2")) : t("order_stage_refunded"), count: n(done, "count"), amount: n(done, "paid"), amountLabel: isCancel ? (t("admin_store_orders_paid_2")) : t("admin_store_orders_refunded"), secondary: !isCancel && done ? `${t("admin_store_orders_gift_reversed")} ${t("admin_count_items", { n: n(done, "gift_reversed") ?? 0 })}` : null, basis: isCancel ? "cancelled" : "refunded", onClick: () => onTab("done"), active: tab.key === "done" },
       ];
       if (!isCancel) {
-        out.push({ key: "commission_review", label: ko ? "수수료 검토 대기" : "Commission review", count: s && s.commission_review != null ? Number(s.commission_review) : null, basis: "current", href: "/admin/store-settlements?state=review_required" });
+        out.push({ key: "commission_review", label: t("admin_store_orders_commission_review"), count: s && s.commission_review != null ? Number(s.commission_review) : null, basis: "current", href: "/admin/store-settlements?state=review_required" });
       }
       return out;
     }
@@ -482,27 +478,27 @@ export function AdminOrderOpsScreen({
   const deepLinks: { key: "storeId" | "orderId" | "buyerUserId"; label: string }[] = [];
   if (applied.storeId && !fixed?.storeId) {
     const name = rows.find((r) => r.store_id === applied.storeId)?.store_name;
-    deepLinks.push({ key: "storeId", label: ko ? `매장: ${name || "지정 매장"}` : `Store: ${name || "selected"}` });
+    deepLinks.push({ key: "storeId", label: t("admin_store_orders_deeplink_store", { name: name || t("admin_store_orders_deeplink_store_selected") }) });
   }
   if (applied.orderId) {
     const no = rows.find((r) => r.id === applied.orderId)?.order_no;
-    deepLinks.push({ key: "orderId", label: ko ? `주문: ${no || "지정 주문"}` : `Order: ${no || "selected"}` });
+    deepLinks.push({ key: "orderId", label: t("admin_store_orders_deeplink_order", { no: no || t("admin_store_orders_deeplink_order_selected") }) });
   }
   if (applied.buyerUserId && !fixed?.buyerUserId) {
     const b = rows.find((r) => r.buyer_user_id === applied.buyerUserId)?.buyer_label;
-    deepLinks.push({ key: "buyerUserId", label: ko ? `구매자: ${b || "지정 구매자"}` : `Buyer: ${b || "selected"}` });
+    deepLinks.push({ key: "buyerUserId", label: t("admin_store_orders_deeplink_buyer", { name: b || t("admin_store_orders_deeplink_buyer_selected") }) });
   }
 
   const fixedLabel = fixed?.storeId
-    ? `${ko ? "매장" : "Store"}: ${rows.find((r) => r.store_id === fixed.storeId)?.store_name || fixed.label || fixed.storeId}`
+    ? `${t("common_store")}: ${rows.find((r) => r.store_id === fixed.storeId)?.store_name || fixed.label || fixed.storeId}`
     : fixed?.buyerUserId
-      ? `${ko ? "구매자" : "Buyer"}: ${rows.find((r) => r.buyer_user_id === fixed.buyerUserId)?.buyer_label || fixed.label || fixed.buyerUserId}`
+      ? `${t("admin_store_orders_buyer")}: ${rows.find((r) => r.buyer_user_id === fixed.buyerUserId)?.buyer_label || fixed.label || fixed.buyerUserId}`
       : null;
 
   const open = (r: AdminOrderOpsRow) => modal.openOrder(r.id, cfg.section);
   const pay = (r: AdminOrderOpsRow) => ADMIN_STORE_ORDERS_PAYMENT_LABEL[r.payment_status as AdminStoreOrdersPaymentStatus]?.[lang] ?? r.payment_status;
   const method = (r: AdminOrderOpsRow) =>
-    r.buyer_payment_method ? formatBuyerPaymentDisplay(r.buyer_payment_method, null, lang) : ko ? "결제수단 미기록" : "Not recorded";
+    r.buyer_payment_method ? formatBuyerPaymentDisplay(r.buyer_payment_method, null, lang) : t("admin_store_orders_not_recorded");
   const fulfill = (r: AdminOrderOpsRow) =>
     ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[r.fulfillment_type as AdminStoreOrdersFulfillment]?.[lang] ?? r.fulfillment_type;
   const role = (v: string | null) => {
@@ -534,17 +530,17 @@ export function AdminOrderOpsScreen({
       return (
         <table className="w-full min-w-[1240px] text-left sam-text-helper">
           {header([
-            ko ? "주문번호" : "Order no.",
-            ko ? "주문 일시" : "Ordered",
-            ko ? "매장" : "Store",
-            ko ? "구매자" : "Buyer",
-            ko ? "상품" : "Items",
-            ko ? "방식" : "Type",
-            ko ? "주문금액 / 결제액" : "Order / paid",
-            ko ? "결제" : "Payment",
-            ko ? "주문 상태" : "Status",
-            ko ? "수수료" : "Commission",
-            ko ? "완료 일시" : "Completed",
+            t("admin_store_orders_order_no"),
+            t("admin_store_orders_ordered"),
+            t("common_store"),
+            t("admin_store_orders_buyer"),
+            t("admin_store_orders_items"),
+            t("admin_store_orders_type"),
+            t("admin_store_orders_order_paid"),
+            t("admin_store_orders_payment"),
+            t("admin_store_orders_status_2"),
+            t("admin_store_orders_commission_2"),
+            t("admin_store_orders_completed_2"),
             "",
           ])}
           <tbody>
@@ -569,7 +565,7 @@ export function AdminOrderOpsScreen({
                 <td className={`whitespace-nowrap text-right tabular-nums ${td}`}>
                   <div className="font-medium text-sam-fg">{formatMoneyPhp(r.total_amount)}</div>
                   <div className="sam-text-xxs text-sam-muted">
-                    {ko ? "결제 " : "Paid "}
+                    {t("admin_store_orders_paid_3")}
                     {formatMoneyPhp(r.payment_amount)}
                   </div>
                 </td>
@@ -587,12 +583,12 @@ export function AdminOrderOpsScreen({
                         href={`${r.order_status === "cancel_requested" ? ADMIN_ORDER_OPS_PATH.cancellations : ADMIN_ORDER_OPS_PATH.refunds}?tab=pending&q=${encodeURIComponent(r.order_no)}`}
                         className="whitespace-nowrap rounded-full bg-sam-warning-soft px-2 py-0.5 sam-text-xxs font-semibold text-sam-warning underline"
                       >
-                        {ko ? "매장 결정 대기 →" : "Awaiting store →"}
+                        {t("admin_store_orders_awaiting_store_2")}
                       </Link>
                     ) : null}
                     {r.needs_admin_attention && !["completed", "cancelled", "refunded", "cancel_requested", "refund_requested"].includes(r.order_status) ? (
                       <Link href={`${ADMIN_ORDER_OPS_PATH.exceptions}?order=${r.id}&section=admin`} className="whitespace-nowrap rounded-full bg-sam-danger-soft px-2 py-0.5 sam-text-xxs font-semibold text-sam-danger underline">
-                        {ko ? "운영 예외 →" : "Exception →"}
+                        {t("admin_store_orders_exception_2")}
                       </Link>
                     ) : null}
                     {r.money_mismatch ? (
@@ -602,14 +598,14 @@ export function AdminOrderOpsScreen({
                         onClick={() => modal.openOrder(r.id, "payment")}
                         className="!h-auto !rounded-full bg-sam-danger-soft !px-2 py-0.5 !text-[12px] !text-sam-danger"
                       >
-                        {ko ? "금액 불일치" : "Amount mismatch"}
+                        {t("admin_store_orders_amount_mismatch_2")}
                       </AdminActionButton>
                     ) : null}
-                    {r.sla_warning_level ? <span className="sam-text-xxs text-sam-warning">{ko ? "지연" : "Delayed"}</span> : null}
+                    {r.sla_warning_level ? <span className="sam-text-xxs text-sam-warning">{t("admin_store_orders_delayed")}</span> : null}
                   </div>
                 </td>
                 <td className={td}>
-                  {r.commission_state ? <CommissionStateChip state={r.commission_state} lang={lang} /> : <span className="sam-text-xxs text-sam-muted">{ko ? "부과 없음" : "Not charged"}</span>}
+                  {r.commission_state ? <CommissionStateChip state={r.commission_state} lang={lang} /> : <span className="sam-text-xxs text-sam-muted">{t("admin_store_orders_not_charged")}</span>}
                 </td>
                 <td className={`whitespace-nowrap tabular-nums text-sam-muted ${td}`}>{r.completed_at ? formatManilaDateTime(r.completed_at) : "—"}</td>
                 <td className={td}>
@@ -627,14 +623,14 @@ export function AdminOrderOpsScreen({
       return (
         <table className="w-full min-w-[1040px] text-left sam-text-helper">
           {header([
-            ko ? "주문번호" : "Order no.",
-            ko ? "매장" : "Store",
-            ko ? "예외 사유" : "Reason",
-            ko ? "주문 일시" : "Ordered",
-            ko ? "경과" : "Age",
-            ko ? "주문 상태" : "Status",
-            ko ? "배달 상태" : "Delivery",
-            ko ? "결제액" : "Paid",
+            t("admin_store_orders_order_no"),
+            t("common_store"),
+            t("admin_store_orders_reason_3"),
+            t("admin_store_orders_ordered"),
+            t("admin_store_orders_age"),
+            t("admin_store_orders_status_2"),
+            t("admin_store_orders_delivery"),
+            t("admin_store_orders_paid_2"),
             "",
           ])}
           <tbody>
@@ -658,7 +654,7 @@ export function AdminOrderOpsScreen({
                 <td className={`whitespace-nowrap text-right tabular-nums ${td}`}>{formatMoneyPhp(r.payment_amount)}</td>
                 <td className={td}>
                   <AdminActionButton variant="ghost" size="sm" onClick={() => modal.openOrder(r.id, "admin")}>
-                    {ko ? "처리" : "Handle"}
+                    {t("admin_store_orders_handle")}
                   </AdminActionButton>
                 </td>
               </tr>
@@ -672,16 +668,16 @@ export function AdminOrderOpsScreen({
     return (
       <table className="w-full min-w-[1240px] text-left sam-text-helper">
         {header([
-          ko ? "주문번호" : "Order no.",
-          ko ? "매장" : "Store",
-          ko ? "요청자" : "Requested by",
-          ko ? "요청 사유" : "Reason",
-          ko ? "요청 시각" : "Requested",
-          ko ? "경과" : "Age",
-          isCancel ? (ko ? "결제액" : "Paid") : ko ? "환불(요청) 금액" : "Refund amount",
-          ...(isCancel ? [] : [ko ? "결제수단 · 상품권" : "Method · gift", ko ? "수수료" : "Commission"]),
-          ko ? "결정 주체" : "Decides",
-          ko ? "처리 결과" : "Result",
+          t("admin_store_orders_order_no"),
+          t("common_store"),
+          t("admin_store_orders_requested_2"),
+          t("admin_store_orders_reason_4"),
+          t("admin_store_orders_requested_3"),
+          t("admin_store_orders_age"),
+          isCancel ? (t("admin_store_orders_paid_2")) : t("admin_store_orders_refund_amount"),
+          ...(isCancel ? [] : [t("admin_store_orders_method_gift"), t("admin_store_orders_commission_2")]),
+          t("admin_store_orders_decides"),
+          t("admin_store_orders_result"),
           "",
         ])}
         <tbody>
@@ -692,31 +688,27 @@ export function AdminOrderOpsScreen({
             const pending = r.order_status === (isCancel ? "cancel_requested" : "refund_requested");
             const closedAt = isCancel ? r.cancel_decided_at ?? r.cancelled_at : r.refunded_at;
             const result = pending
-              ? ko
-                ? "매장 결정 대기"
-                : "Awaiting store"
+              ? t("admin_store_orders_awaiting_store")
               : isCancel
                 ? r.cancel_request_status
                   ? (ADMIN_CANCEL_REQUEST_STATUS_LABEL[r.cancel_request_status]?.[lang] ?? r.cancel_request_status)
-                  : ko
-                    ? "즉시 취소 (요청 기록 없음)"
-                    : "Direct cancel (no request)"
+                  : t("admin_store_orders_direct_cancel_no_request")
                 : statusLabel(r.order_status);
             return (
               <tr key={r.id} className="border-b border-sam-border-soft align-top last:border-b-0 hover:bg-sam-app" data-order-row={r.order_no}>
                 <td className={`whitespace-nowrap ${td}`}>
                   <OrderNo r={r} />
                   {isCancel && r.cancel_requested_role === "owner" && pending ? (
-                    <div className="mt-1 sam-text-xxs text-sam-muted">{ko ? "매장 요청 (3단계 이전)" : "Store request (legacy)"}</div>
+                    <div className="mt-1 sam-text-xxs text-sam-muted">{t("admin_store_orders_store_request_legacy")}</div>
                   ) : null}
                 </td>
                 <td className={`max-w-[160px] truncate text-sam-fg ${td}`} title={r.store_name}>
                   {r.store_name || "—"}
                 </td>
-                <td className={`whitespace-nowrap text-sam-fg ${td}`}>{requester ?? (ko ? "기록 없음" : "Not recorded")}</td>
+                <td className={`whitespace-nowrap text-sam-fg ${td}`}>{requester ?? (t("admin_store_orders_not_recorded_2"))}</td>
                 <td className={`max-w-[220px] text-sam-fg ${td}`}>
                   <span className="line-clamp-2" title={reason ?? ""}>
-                    {reason || (ko ? "사유 없음" : "No reason")}
+                    {reason || (t("admin_store_orders_no_reason"))}
                   </span>
                 </td>
                 <td className={`whitespace-nowrap tabular-nums text-sam-muted ${td}`}>{requestedAt ? formatManilaDateTime(requestedAt) : "—"}</td>
@@ -728,21 +720,21 @@ export function AdminOrderOpsScreen({
                       <div className="whitespace-nowrap text-sam-fg">{method(r)}</div>
                       {r.gift_amount > 0 ? (
                         <div className="whitespace-nowrap sam-text-xxs text-sam-muted">
-                          {ko ? "상품권" : "Gift"} {formatMoneyPhp(r.gift_amount)} {r.gift_reversed ? (ko ? "· 복원됨" : "· reversed") : ko ? "· 미복원" : "· not reversed"}
+                          {t("admin_store_orders_gift")} {formatMoneyPhp(r.gift_amount)} {r.gift_reversed ? (t("admin_store_orders_reversed_2")) : t("admin_store_orders_not_reversed")}
                         </div>
                       ) : null}
                     </td>
                     <td className={td}>
-                      {r.commission_state ? <CommissionStateChip state={r.commission_state} lang={lang} /> : <span className="sam-text-xxs text-sam-muted">{ko ? "부과 없음" : "Not charged"}</span>}
+                      {r.commission_state ? <CommissionStateChip state={r.commission_state} lang={lang} /> : <span className="sam-text-xxs text-sam-muted">{t("admin_store_orders_not_charged")}</span>}
                       {r.commission_state === "review_required" ? (
                         <AdminActionLink variant="ghost" size="sm" className="mt-1" href={`/admin/store-settlements?state=review_required&order_no=${encodeURIComponent(r.order_no)}`}>
-                          {ko ? "수수료 검토" : "Review commission"}
+                          {t("admin_store_orders_review_commission")}
                         </AdminActionLink>
                       ) : null}
                     </td>
                   </>
                 )}
-                <td className={`whitespace-nowrap text-sam-fg ${td}`}>{ko ? "매장" : "Store"}</td>
+                <td className={`whitespace-nowrap text-sam-fg ${td}`}>{t("common_store")}</td>
                 <td className={td}>
                   <div className="text-sam-fg">{result}</div>
                   {!pending && closedAt ? (
@@ -753,7 +745,7 @@ export function AdminOrderOpsScreen({
                   ) : null}
                   {isCancel && r.cancel_rejected_reason ? (
                     <div className="sam-text-xxs text-sam-muted">
-                      {ko ? "반려 사유" : "Reason"}: {r.cancel_rejected_reason}
+                      {t("admin_store_orders_reason_2")}: {r.cancel_rejected_reason}
                     </div>
                   ) : null}
                 </td>
@@ -763,7 +755,7 @@ export function AdminOrderOpsScreen({
                       {adminCta("detail", ko)}
                     </AdminActionButton>
                     <AdminActionLink variant="ghost" size="sm" href={`/admin/stores/orders/logs?q=${encodeURIComponent(r.order_no)}`}>
-                      {ko ? "처리 이력" : "History"}
+                      {t("admin_store_orders_history")}
                     </AdminActionLink>
                   </div>
                 </td>
@@ -776,21 +768,13 @@ export function AdminOrderOpsScreen({
   };
 
   const basisNote = cfg.summaryScope === "orders"
-    ? ko
-      ? `${periodLabel} · 마닐라 날짜 · 「전체 기간」은 서비스 시작부터 누적`
-      : `${periodLabel} · Manila dates · "All time" = cumulative since launch`
-    : ko
-      ? `카드마다 기준 시각 표시 · ${periodLabel}`
-      : `Each card states its basis · ${periodLabel}`;
+    ? t("admin_store_orders_manila_dates_all_time_cumulative", { periodLabel })
+    : t("admin_store_orders_each_card_states_its_basis", { periodLabel });
 
   const emptyText =
     screen === "exceptions"
-      ? ko
-        ? "처리할 운영 예외가 없습니다. 일반 취소·환불은 매장이 처리합니다."
-        : "No exceptions to handle. Regular cancel/refund decisions belong to the store."
-      : ko
-        ? "조건에 맞는 주문이 없습니다."
-        : "No orders match these filters.";
+      ? t("admin_store_orders_no_exceptions_handle_regular_cancel")
+      : t("admin_store_orders_no_orders_match_these_filters");
 
   return (
     <div className="space-y-4" data-admin-order-ops={screen}>
@@ -814,13 +798,13 @@ export function AdminOrderOpsScreen({
 
       {screen === "exceptions" ? (
         <p className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
-          {ko ? "일반 취소·환불 결정은 매장 업무입니다 — " : "Regular cancel/refund decisions belong to the store — "}
+          {t("admin_store_orders_regular_cancel_refund_decisions_belong")}
           <Link className="underline" href={`${ADMIN_ORDER_OPS_PATH.cancellations}?tab=pending`}>
-            {ko ? "취소 요청 보기" : "Cancellations"}
+            {t("admin_store_orders_cancellations_2")}
           </Link>
           {" · "}
           <Link className="underline" href={`${ADMIN_ORDER_OPS_PATH.refunds}?tab=pending`}>
-            {ko ? "환불 요청 보기" : "Refunds"}
+            {t("admin_store_orders_refunds_2")}
           </Link>
         </p>
       ) : null}
@@ -828,7 +812,7 @@ export function AdminOrderOpsScreen({
       {/* The summary RPC has no buyer filter, so a by-buyer page would show every buyer's figures — not shown there. */}
       {cfg.summaryScope && !fixed?.buyerUserId ? (
         <OpsSummaryPanel
-          title={ko ? "현황" : "Overview"}
+          title={t("admin_store_orders_overview")}
           basisNote={basisNote}
           cards={cards}
           open={summaryOpen}
@@ -841,7 +825,7 @@ export function AdminOrderOpsScreen({
 
       {cfg.tabs.length > 1 ? (
         <AdminTabs
-          ariaLabel={ko ? "구분" : "Tabs"}
+          ariaLabel={t("admin_store_orders_tabs")}
           syncUrl={false}
           value={tab.key}
           onChange={(id) => onTab(id, { orderStatus: null })}
@@ -862,11 +846,11 @@ export function AdminOrderOpsScreen({
         onReset={onReset}
         pending={loadingAny}
         showPeriod={false}
-        searchPlaceholder={ko ? "주문번호 · 매장 · 구매자 (예: SO179…)" : "Order no. · store · buyer (e.g. SO179…)"}
+        searchPlaceholder={t("admin_store_orders_order_no_store_buyer_e")}
         status={
           screen === "list"
             ? {
-                label: ko ? "주문 상태" : "Order status",
+                label: t("admin_store_orders_order_status"),
                 value: form.orderStatus,
                 onChange: onOrderStatus,
                 options: STORE_ORDER_STATUS_LIST.map((s) => ({ value: s, label: statusLabel(s) })),
@@ -875,9 +859,9 @@ export function AdminOrderOpsScreen({
         }
       >
         <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
-          {ko ? "결제수단" : "Payment method"}
+          {t("admin_store_orders_payment_method")}
           <select className={OPS_INPUT} value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as Form["paymentMethod"] }))}>
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             {ADMIN_ORDER_OPS_PAYMENT_METHODS.map((m) => (
               <option key={m} value={m}>
                 {ko ? PAYMENT_METHOD_LABEL[m].ko : PAYMENT_METHOD_LABEL[m].en}
@@ -886,9 +870,9 @@ export function AdminOrderOpsScreen({
           </select>
         </label>
         <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
-          {ko ? "결제 상태" : "Payment status"}
+          {t("admin_store_orders_payment_status")}
           <select className={OPS_INPUT} value={form.paymentStatus} onChange={(e) => setForm((f) => ({ ...f, paymentStatus: e.target.value as Form["paymentStatus"] }))}>
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             {ADMIN_STORE_ORDERS_PAYMENT_STATUSES.map((v) => (
               <option key={v} value={v}>
                 {ADMIN_STORE_ORDERS_PAYMENT_LABEL[v][lang]}
@@ -897,9 +881,9 @@ export function AdminOrderOpsScreen({
           </select>
         </label>
         <label className="flex flex-col gap-1 sam-text-xxs text-sam-muted">
-          {ko ? "수령 방식" : "Fulfillment"}
+          {t("admin_store_orders_fulfillment")}
           <select className={OPS_INPUT} value={form.fulfillment} onChange={(e) => setForm((f) => ({ ...f, fulfillment: e.target.value as Form["fulfillment"] }))}>
-            <option value="">{ko ? "전체" : "All"}</option>
+            <option value="">{t("common_all")}</option>
             {ADMIN_STORE_ORDERS_FULFILLMENT_TYPES.map((v) => (
               <option key={v} value={v}>
                 {ADMIN_STORE_ORDERS_FULFILLMENT_LABEL[v][lang]}
@@ -909,7 +893,7 @@ export function AdminOrderOpsScreen({
         </label>
         <div className="flex flex-col gap-1">
           <span className="sam-text-xxs text-sam-muted">
-            {ko ? "기간 · 기준: " : "Period · basis: "}
+            {t("admin_store_orders_period_basis")}
             {ko ? ADMIN_ORDER_OPS_BASIS_LABEL[tab.basis].ko : ADMIN_ORDER_OPS_BASIS_LABEL[tab.basis].en}
           </span>
           <OpsPeriodFilter period={form.period} fromDay={form.fromDay} toDay={form.toDay} ko={ko} onChange={(next) => setForm((f) => ({ ...f, ...next }))} />
@@ -917,14 +901,14 @@ export function AdminOrderOpsScreen({
         {screen === "list" ? (
           <label className="flex h-10 items-center gap-1.5 sam-text-helper text-sam-fg">
             <input type="checkbox" checked={form.mismatchOnly} onChange={(e) => setForm((f) => ({ ...f, mismatchOnly: e.target.checked }))} />
-            {ko ? "금액 불일치만" : "Mismatch only"}
+            {t("admin_store_orders_mismatch_only")}
           </label>
         ) : null}
       </AdminFilterBar>
       {deepLinks.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {deepLinks.map((d) => (
-            <AdminChipButton key={d.key} selected onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={ko ? `${d.label} 해제` : `Clear ${d.label}`}>
+            <AdminChipButton key={d.key} selected onClick={() => clearDeepLink(d.key)} disabled={loadingAny} aria-label={t("admin_store_orders_clear_2", { label: d.label })}>
               {d.label} ✕
             </AdminChipButton>
           ))}
@@ -933,16 +917,16 @@ export function AdminOrderOpsScreen({
 
       <div className="flex flex-wrap items-center justify-between gap-2 sam-text-xxs text-sam-muted">
         <span data-fetched-at={result?.fetchedAt ?? ""}>
-          {result ? `${ko ? "조회 시각" : "Loaded"} ${formatManilaDateTime(result.fetchedAt)} (PHT)` : ko ? "아직 조회하지 않았습니다" : "Not loaded yet"}
+          {result ? `${t("admin_store_orders_loaded")} ${formatManilaDateTime(result.fetchedAt)} (PHT)` : t("admin_store_orders_not_loaded_yet")}
         </span>
-        <span>{ko ? "시간: 필리핀 시간 (UTC+8)" : "Times: Philippine time (UTC+8)"}</span>
+        <span>{t("admin_store_orders_times_philippine_time_utc_8")}</span>
       </div>
 
       {error ? (
         <div className="space-y-1" data-state="error">
           <AdminErrorState ko={ko} code={error} httpStatus={error === "forbidden" ? 403 : undefined} onRetry={error === "forbidden" ? undefined : onRefresh} />
           {result && error !== "forbidden" ? (
-            <p className="sam-text-xxs text-sam-muted">{ko ? "직전 조회 결과를 표시하고 있습니다." : "Showing the previous result."}</p>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_store_orders_showing_previous_result")}</p>
           ) : null}
         </div>
       ) : null}

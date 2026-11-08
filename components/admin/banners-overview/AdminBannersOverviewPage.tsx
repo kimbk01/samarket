@@ -187,14 +187,14 @@ export function AdminBannersOverviewPage() {
       ) : failedKinds.length === KINDS.length ? (
         <AdminErrorState ko={ko} code="load_failed" onRetry={() => void load()} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={ko ? "조건에 맞는 배너가 없습니다." : "No banners match."} />
+        <AdminEmptyState ko={ko} message={t("admin_banners_overview_no_banners_match")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[1080px] border-collapse sam-text-body">
             <thead className="border-b border-sam-border bg-sam-app">
               <tr>
                 <th className={TH}>{t("admin_banners_overview_col_kind")}</th>
-                <th className={TH}>{ko ? "제목" : "Title"}</th>
+                <th className={TH}>{t("admin_banners_overview_title_text")}</th>
                 <th className={TH}>{t("admin_banners_overview_col_domain")}</th>
                 <th className={TH}>{t("admin_banners_overview_col_surface")}</th>
                 <th className={TH}>{t("admin_banners_overview_col_status")}</th>

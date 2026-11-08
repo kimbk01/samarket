@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import type { AdminPersonStoreRow } from "@/components/admin/users/AdminTestUserDetail";
 import { memberDetailStoreHref } from "@/lib/admin-users/member-detail-presentation";
@@ -20,6 +21,7 @@ export function AdminMemberStoreRelationDialog({
   stores: AdminPersonStoreRow[];
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const canonical = resolveCanonicalMemberStore(stores);
   const anomaly = memberStoreRelationAnomalyCount(stores) > 1;
 
@@ -87,7 +89,7 @@ export function AdminMemberStoreRelationDialog({
         )}
 
         <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app/40 px-3 py-3">
-          <p className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">허용되지 않는 작업</p>
+          <p className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">{t("admin_users_store_rel_blocked_actions")}</p>
           <div data-member-store-rel-blocked="attach">
             <p className="text-[13px] font-semibold text-sam-fg">{MEMBER_STORE_RELATION_COPY.cannot_attach}</p>
             <p className="text-[12px] text-sam-muted">{MEMBER_STORE_RELATION_COPY.cannot_attach_body}</p>

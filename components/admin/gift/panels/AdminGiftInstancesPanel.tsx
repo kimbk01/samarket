@@ -83,7 +83,7 @@ export function AdminGiftInstancesPanel({
   balance?: string;
   focus?: string;
 }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   const lq = useAdminListQuery(LIST_CONFIG);
@@ -172,7 +172,7 @@ export function AdminGiftInstancesPanel({
             checked={lq.query.extras.balance === "gt0"}
             onChange={(e) => lq.setExtra("balance", e.target.checked ? "gt0" : "")}
           />
-          {ko ? "잔액 있는 것만" : "With balance only"}
+          {t("admin_gift_balance_only")}
         </label>
       </AdminFilterBar>
 

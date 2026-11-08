@@ -68,7 +68,7 @@ const WITHDRAWAL_STATUSES = ["REQUESTED", "PAID", "REJECTED"] as const;
  * R7: 상태 조건은 주소(`?status=`)에 남고, 서버 페이지(limit/offset + 총 건수). 예전 100건 고정 상한 제거.
  */
 export function AdminCoinWithdrawalsPanel() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const focusRequestId = (searchParams.get("coinWithdrawalRequestId") ?? "").trim();
@@ -171,11 +171,9 @@ export function AdminCoinWithdrawalsPanel() {
     const c = await confirmAdminAction({
       level: adminActionLevel("reject"),
       ko,
-      title: ko ? "출금을 반려하시겠습니까?" : "Reject this withdrawal?",
-      description: ko
-        ? `${who}\n${formatAdminNumber(amount)} Coin 출금 요청을 반려합니다. Coin 은 매장에 돌아갑니다.`
-        : `${who}\n${formatAdminNumber(amount)} Coin withdrawal will be rejected. The Coin returns to the store.`,
-      confirmLabel: ko ? "출금 반려" : "Reject withdrawal",
+      title: t("admin_finance_reject_this_withdrawal"),
+      description: t("admin_finance_reject_withdrawal_desc", { who, amount: formatAdminNumber(amount) }),
+      confirmLabel: t("admin_finance_reject_withdrawal"),
       destructive: true,
     });
     if (!c.ok || !c.reason) return;
@@ -191,11 +189,12 @@ export function AdminCoinWithdrawalsPanel() {
     const c = await confirmAdminAction({
       level: adminActionLevel("payout"),
       ko,
-      title: ko ? "출금 지급을 완료 처리하시겠습니까?" : "Mark this withdrawal as paid?",
-      description: ko
-        ? `${formatAdminNumber(target.amount)} Coin 출금 요청을 지급 완료합니다. 참조번호: ${reference.trim()}`
-        : `${formatAdminNumber(target.amount)} Coin withdrawal will be marked paid. Reference: ${reference.trim()}`,
-      confirmLabel: ko ? "출금 지급 완료" : "Mark paid",
+      title: t("admin_finance_mark_this_withdrawal_as_paid"),
+      description: t("admin_finance_mark_paid_desc", {
+        amount: formatAdminNumber(target.amount),
+        reference: reference.trim(),
+      }),
+      confirmLabel: t("admin_finance_mark_paid"),
     });
     if (!c.ok || !c.reason) return;
     await act(target.requestId, "mark_paid", c.reason, {
@@ -227,9 +226,9 @@ export function AdminCoinWithdrawalsPanel() {
           value: lq.query.status,
           onChange: lq.setStatus,
           options: [
-            { value: "REQUESTED", label: ko ? "신청" : "Requested" },
-            { value: "PAID", label: ko ? "지급 완료" : "Paid" },
-            { value: "REJECTED", label: ko ? "반려" : "Rejected" },
+            { value: "REQUESTED", label: t("admin_finance_requested") },
+            { value: "PAID", label: t("admin_finance_paid") },
+            { value: "REJECTED", label: t("admin_biz_log_reject") },
           ],
         }}
       />
@@ -240,9 +239,7 @@ export function AdminCoinWithdrawalsPanel() {
         approvedLabel={catalogPair("admin_stores_settlements_payout_paid")}
       />
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "계좌로 실제 송금한 뒤 「지급 완료」(송금 참조번호 입력), 지급하지 않을 때는 「반려」(사유 입력 · Coin 이 매장에 돌아감)로 처리합니다."
-          : "Send the payout first, then “Mark paid” with the transfer reference. “Reject” (with a reason) returns the Coin to the store."}
+        {t("admin_finance_send_the_payout_first_then_mark")}
       </p>
       {error ? (
         <p
@@ -272,23 +269,23 @@ export function AdminCoinWithdrawalsPanel() {
           <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
-                <th className="px-3 py-2">{ko ? "신청 시각 (PHT)" : "Requested (PHT)"}</th>
-                <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
-                <th className="px-3 py-2">{ko ? "사장님" : "Owner"}</th>
-                <th className="px-3 py-2 text-right">{ko ? "출금 Coin" : "Coin"}</th>
-                <th className="px-3 py-2">{ko ? "지급 계좌" : "Payout account"}</th>
-                <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
-                <th className="px-3 py-2">{ko ? "처리 시각 (PHT)" : "Processed (PHT)"}</th>
-                <th className="px-3 py-2">{ko ? "처리 관리자" : "Processed by"}</th>
-                <th className="px-3 py-2">{ko ? "신청 번호" : "Request ID"}</th>
-                <th className="px-3 py-2">{ko ? "작업" : "Actions"}</th>
+                <th className="px-3 py-2">{t("admin_finance_requested_pht")}</th>
+                <th className="px-3 py-2">{t("admin_biz_ops_th_store")}</th>
+                <th className="px-3 py-2">{t("admin_finance_owner")}</th>
+                <th className="px-3 py-2 text-right">{t("admin_finance_coin")}</th>
+                <th className="px-3 py-2">{t("admin_finance_payout_account")}</th>
+                <th className="px-3 py-2">{t("admin_biz_label_status")}</th>
+                <th className="px-3 py-2">{t("admin_finance_processed_pht")}</th>
+                <th className="px-3 py-2">{t("admin_finance_processed_by")}</th>
+                <th className="px-3 py-2">{t("admin_finance_request_id")}</th>
+                <th className="px-3 py-2">{t("admin_finance_actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
               {rows.map((r) => {
                 // 송금에 필요한 수단·은행·계좌번호·예금주를 모두 표시 (실기 2026-11-03: 계좌번호가 목록에 없었음)
                 const payoutLabel = [
-                  r.destination_type === "gcash" ? "GCash" : r.bank_name || (ko ? "은행 송금" : "Bank transfer"),
+                  r.destination_type === "gcash" ? "GCash" : r.bank_name || t("admin_finance_bank_transfer"),
                   r.account_number || "—",
                   r.account_name,
                 ]
@@ -344,12 +341,12 @@ export function AdminCoinWithdrawalsPanel() {
                       })()}
                       {String(r.status).toUpperCase() === "REJECTED" && r.rejection_reason ? (
                         <span className="block sam-text-xxs text-sam-muted">
-                          {ko ? "사유" : "Reason"}: {r.rejection_reason}
+                          {t("admin_finance_reason")}: {r.rejection_reason}
                         </span>
                       ) : null}
                       {String(r.status).toUpperCase() === "PAID" && r.payout_reference ? (
                         <span className="block sam-text-xxs text-sam-muted">
-                          {ko ? "송금 참조" : "Ref"}: {r.payout_reference}
+                          {t("admin_finance_ref")}: {r.payout_reference}
                         </span>
                       ) : null}
                     </td>
@@ -408,7 +405,7 @@ export function AdminCoinWithdrawalsPanel() {
                             }
                             data-finance-cta="mark-withdrawal-paid"
                           >
-                            {ko ? "지급 완료" : "Mark paid"}
+                            {t("admin_finance_mark_paid_2")}
                           </AdminActionButton>
                         </div>
                       ) : (
@@ -459,17 +456,14 @@ function PayoutReferenceSheet({
   onCancel: () => void;
   onContinue: (reference: string) => void;
 }) {
+  const { t } = useI18n();
   const [reference, setReference] = useState("");
   const ready = reference.trim().length > 0;
-  const methodLabel = payoutMethod === "gcash" ? "GCash" : ko ? "은행 송금" : "Bank transfer";
+  const methodLabel = payoutMethod === "gcash" ? "GCash" : t("admin_finance_bank_transfer");
   return (
     <AdminFormSheet
-      title={ko ? "출금 지급 완료" : "Mark withdrawal paid"}
-      subtitle={
-        ko
-          ? `${payee ? `${payee} · ` : ""}${formatAdminNumber(amount)} Coin 출금 요청을 지급 완료합니다.`
-          : `${payee ? `${payee} · ` : ""}${formatAdminNumber(amount)} Coin withdrawal will be marked paid.`
-      }
+      title={t("admin_finance_mark_withdrawal_paid")}
+      subtitle={`${payee ? `${payee} · ` : ""}${t("admin_finance_mark_paid_sheet_subtitle", { amount: formatAdminNumber(amount) })}`}
       onClose={busy ? () => undefined : onCancel}
       dismissible={!busy}
       maxWidthClass="max-w-md"
@@ -484,22 +478,20 @@ function PayoutReferenceSheet({
             onClick={() => onContinue(reference.trim())}
             data-finance-payout-reference-continue="1"
           >
-            {ko ? "출금 지급 완료" : "Mark paid"}
+            {t("admin_finance_mark_paid")}
           </AdminActionButton>
         </div>
       }
     >
       <label className="block space-y-1 text-[13px] text-sam-fg">
         <span className="font-medium">
-          {ko
-            ? `지급 참조번호 (${methodLabel} 거래번호 등)`
-            : `Payout reference (${methodLabel} transaction id, etc.)`}
+          {t("admin_finance_payout_reference_label", { method: methodLabel })}
         </span>
         <input
           required
           value={reference}
           onChange={(e) => setReference(e.target.value)}
-          placeholder={ko ? "거래번호·송금표시 등" : "Transaction id, transfer note, etc."}
+          placeholder={t("admin_finance_transaction_id_transfer_note_etc")}
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
           data-finance-payout-reference-input="mark_paid"
         />

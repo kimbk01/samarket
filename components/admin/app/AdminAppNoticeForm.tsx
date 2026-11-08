@@ -63,7 +63,7 @@ async function uploadContentImage(kind: "hero" | "body", file: File): Promise<st
 }
 
 export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const router = useRouter();
   const isEdit = Boolean(noticeId?.trim());
   const [form, setForm] = useState<NoticeFormState>(EMPTY_FORM);
@@ -157,8 +157,8 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: isEdit ? (ko ? "고객센터 콘텐츠 수정" : "Save content") : ko ? "고객센터 콘텐츠 등록" : "Create content",
-      description: ko ? "입력한 내용을 저장합니다." : "Save the entered content.",
+      title: isEdit ? (t("admin_app_save_content")) : t("admin_app_create_content"),
+      description: t("admin_app_save_entered_content"),
       confirmLabel: adminCta(isEdit ? "save" : "create", ko),
     });
     if (!confirmed.ok) return;

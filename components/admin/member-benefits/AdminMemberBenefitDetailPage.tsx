@@ -102,7 +102,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "회원 혜택 정책 저장" : "Save member benefit policy",
+      title: t("admin_member_benefits_save_member_benefit_policy"),
       description: policy.title,
       confirmLabel: adminCta("save", ko),
     });
@@ -117,7 +117,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(policy.isActive ? "disable" : "resume"),
       ko,
-      title: ko ? `회원 혜택 정책 ${label}` : policy.isActive ? "Deactivate policy" : "Activate policy",
+      title: t(policy.isActive ? "admin_member_benefits_deactivate_policy" : "admin_member_benefits_activate_policy"),
       description: policy.title,
       confirmLabel: label,
     });

@@ -161,7 +161,7 @@ export function AdminPointChargeDetailPage({
           ) : null}
           {request.verificationNote ? (
             <div data-point-charge-verification-note="1">
-              <dt className="text-sam-muted">{ko ? "확인 기록" : "Verification"}</dt>
+              <dt className="text-sam-muted">{t("admin_points_verification")}</dt>
               <dd className="break-all font-mono text-sam-fg">
                 {request.verificationNote}
                 {request.verificationNote.startsWith("apple:") ? (
@@ -179,7 +179,7 @@ export function AdminPointChargeDetailPage({
           {/* R6-g — 반려 사유 */}
           {request.requestStatus === "rejected" ? (
             <div data-point-charge-reject-reason="1">
-              <dt className="text-sam-muted">{ko ? "반려 사유" : "Reject reason"}</dt>
+              <dt className="text-sam-muted">{t("admin_points_reject_reason")}</dt>
               <dd className="whitespace-pre-wrap text-sam-fg">{request.rejectReason?.trim() || "—"}</dd>
             </div>
           ) : null}
@@ -193,7 +193,7 @@ export function AdminPointChargeDetailPage({
       </AdminCard>
       <AdminCard titleKey="admin_points_admin_memo_card">
         <p className="mb-2 sam-text-helper text-sam-muted">
-          {ko ? "내부 메모 — 회원 화면·회원 API 에 나가지 않습니다." : "Internal memo — never shown to the member or member API."}
+          {t("admin_points_internal_memo_never_shown_member_member")}
         </p>
         {memoErr ? <p className="mb-2 sam-text-helper text-sam-danger">{memoErr}</p> : null}
         <div className="flex gap-2">
@@ -221,7 +221,7 @@ export function AdminPointChargeDetailPage({
           className="mt-2 inline-block sam-text-body-secondary font-semibold text-sam-primary underline"
           data-admin-charge-ledger-link="1"
         >
-          {ko ? "이 회원 포인트 원장 열기" : "Open this member's point ledger"}
+          {t("admin_points_open_member_point_ledger")}
         </a>
         {/* 광고 원장 §2 반대 방향 (2026-11-07): 충전 상세 → 이 광고주(회원)의 광고 */}
         <a href={`/admin/advertising?advertiser=${encodeURIComponent(request.userId)}`} className="mt-2 ml-3 inline-block sam-text-body-secondary font-semibold text-sam-primary underline" data-admin-charge-advertiser-ads="1">{t("ads_ledger_sc_ads_of_advertiser")}</a>

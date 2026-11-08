@@ -324,10 +324,7 @@ export function AdminDeliveryAdsControlPlane() {
                   className={isHistory && hubView !== view ? "opacity-80" : ""}
                   onClick={() => selectHubView(view)}
                 >
-                  {safeT(hubViewLabelKey(view), {
-                    fallbackKo: view,
-                    fallbackEn: view,
-                  })}
+                  {safeT(hubViewLabelKey(view))}
                 </AdminChipButton>
               );
             })}
@@ -339,9 +336,7 @@ export function AdminDeliveryAdsControlPlane() {
                 {safeT(
                   p === "all"
                     ? "admin_delivery_ads_product_all"
-                    : adminDeliveryAdProductLabelKey(p),
-                  { fallbackKo: p, fallbackEn: p }
-                )}
+                    : adminDeliveryAdProductLabelKey(p))}
               </AdminChipButton>
             ))}
           </div>
@@ -444,31 +439,16 @@ export function AdminDeliveryAdsControlPlane() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-fg">
-                          {safeT(adminDeliveryAdProductLabelKey(c.productKind), {
-                            fallbackKo: c.productKind,
-                            fallbackEn: c.productKind,
-                          })}
+                          {safeT(adminDeliveryAdProductLabelKey(c.productKind))}
                         </span>
                         <span
                           className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-medium text-sam-muted"
                           data-campaign-source={c.campaignSource}
                         >
-                          {safeT(adminDeliveryAdCampaignSourceLabelKey(c.campaignSource), {
-                            fallbackKo:
-                              c.campaignSource === "DIBAY_FIRST_PARTY"
-                                ? "디바이 광고"
-                                : "광고주 광고",
-                            fallbackEn:
-                              c.campaignSource === "DIBAY_FIRST_PARTY"
-                                ? "DIBAY ad"
-                                : "Advertiser ad",
-                          })}
+                          {safeT(adminDeliveryAdCampaignSourceLabelKey(c.campaignSource))}
                         </span>
                         <span className="text-[12px] font-medium text-sam-fg">
-                          {safeT(lifecycleLabelKey(c.lifecycleStatus), {
-                            fallbackKo: c.lifecycleStatus,
-                            fallbackEn: c.lifecycleStatus,
-                          })}
+                          {safeT(lifecycleLabelKey(c.lifecycleStatus))}
                         </span>
                         {bannerCreativeState === "needed" ? (
                           <span className="text-[12px] font-medium text-sam-warning">
@@ -505,10 +485,7 @@ export function AdminDeliveryAdsControlPlane() {
                           data-admin-delivery-ads-row-cta="1"
                           data-cta-focus={cta.focus ?? ""}
                         >
-                          {safeT(cta.labelKey, {
-                            fallbackKo: "상세",
-                            fallbackEn: "Detail",
-                          })}
+                          {safeT(cta.labelKey)}
                         </AdminActionLink>
                       </div>
                     </div>

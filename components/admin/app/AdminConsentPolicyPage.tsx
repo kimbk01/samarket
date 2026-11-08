@@ -55,7 +55,7 @@ const ROWS: Array<{
 
 /** Read-only consent role policy board (Owner mockup adminPolicy). */
 export function AdminConsentPolicyPage() {
-  const { language, safeT } = useI18n();
+  const { t, language, safeT } = useI18n();
   const ko = language !== "en";
   return (
     <div className="space-y-4">
@@ -64,23 +64,21 @@ export function AdminConsentPolicyPage() {
           {safeT("admin_legal_consent_policy")}
         </h1>
         <Link href="/admin/app/legal" className="sam-text-body text-signature">
-          {ko ? "약관 목록" : "Legal list"}
+          {t("admin_app_legal_list")}
         </Link>
       </div>
       <p className="rounded-ui-rect bg-sam-surface p-3 sam-text-body text-sam-muted">
-        {ko
-          ? "필수↔선택 변경은 즉시 토글 금지. 법적 근거·사유·승인 후 코드/정책을 갱신합니다. 과거 consent_events 행을 고쳐 현재 동의를 위장하지 않습니다."
-          : "Do not flip required↔optional via a live toggle. Update policy in code after legal review. Never rewrite past consent_events to fake current consent."}
+        {t("admin_app_do_not_flip_required_optional_via")}
       </p>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-sam-surface-muted">
             <tr>
-              <th className="px-3 py-2">{ko ? "항목" : "Item"}</th>
-              <th className="px-3 py-2">{ko ? "유형" : "Role"}</th>
-              <th className="px-3 py-2">{ko ? "가입" : "Signup"}</th>
-              <th className="px-3 py-2">{ko ? "내정보" : "My Info"}</th>
-              <th className="px-3 py-2">{ko ? "재동의" : "Reconsent"}</th>
+              <th className="px-3 py-2">{t("admin_app_item")}</th>
+              <th className="px-3 py-2">{t("admin_app_role")}</th>
+              <th className="px-3 py-2">{t("admin_app_signup")}</th>
+              <th className="px-3 py-2">{t("admin_app_my_info")}</th>
+              <th className="px-3 py-2">{t("admin_app_reconsent")}</th>
             </tr>
           </thead>
           <tbody>

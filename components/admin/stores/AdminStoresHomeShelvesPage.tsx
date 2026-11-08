@@ -250,7 +250,7 @@ export function AdminStoresHomeShelvesEditor({
         if (cancelled) return;
         if (!json.ok || !Array.isArray(json.stores)) {
           setHomeFeedStatus("error");
-          setHomeFeedError(json.error?.trim() || (ko ? "홈 피드를 불러오지 못했습니다." : "Failed to load home feed."));
+          setHomeFeedError(json.error?.trim() || t("admin_stores_failed_to_load_home_feed"));
           return;
         }
         setHomeFeedStores(json.stores);
@@ -264,13 +264,13 @@ export function AdminStoresHomeShelvesEditor({
       } catch (e) {
         if (cancelled) return;
         setHomeFeedStatus("error");
-        setHomeFeedError(e instanceof Error ? e.message : ko ? "홈 피드 오류" : "Home feed error");
+        setHomeFeedError(e instanceof Error ? e.message : t("admin_stores_home_feed_error"));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ko, homeFeedReloadTick]);
+  }, [ko, t, homeFeedReloadTick]);
 
   const editableRows = useMemo(
     () =>
@@ -374,7 +374,7 @@ export function AdminStoresHomeShelvesEditor({
     update(shelfId, { enabled: true });
     selectShelf(shelfId);
     setModalMode(null);
-    setToast(ko ? "선반을 활성 목록에 복구했습니다." : "Shelf restored to the active list.");
+    setToast(t("admin_stores_shelf_restored_to_active_list"));
   };
 
   const openDuplicateModal = (sourceId: string) => {
@@ -421,20 +421,20 @@ export function AdminStoresHomeShelvesEditor({
     );
     selectShelf(duplicateTargetId);
     setModalMode(null);
-    setToast(ko ? "선반 설정을 복제했습니다." : "Shelf settings copied.");
+    setToast(t("admin_stores_shelf_settings_copied"));
   };
 
   const disableSelected = () => {
     if (!selectedEditable) return;
     update(selectedEditable.shelfId, { enabled: false });
     setModalMode(null);
-    setToast(ko ? "선반을 사용안함으로 변경했습니다." : "Shelf disabled.");
+    setToast(t("admin_stores_shelf_disabled"));
   };
 
   const onCancel = () => {
     setRows(cloneRows(baseline));
     setSaveErr(null);
-    setToast(ko ? "변경사항을 취소했습니다." : "Changes reverted.");
+    setToast(t("admin_stores_changes_reverted"));
   };
 
   const onSave = async () => {
@@ -442,10 +442,8 @@ export function AdminStoresHomeShelvesEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "홈 선반 설정을 저장할까요?" : "Save the HOME shelves?",
-      description: ko
-        ? "저장하면 고객 배달 홈의 선반 순서·노출에 바로 반영됩니다."
-        : "Saving applies the shelf order and visibility to the customer delivery home right away.",
+      title: t("admin_stores_save_home_shelves"),
+      description: t("admin_stores_saving_applies_shelf_order_and_visibility"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
@@ -533,14 +531,14 @@ export function AdminStoresHomeShelvesEditor({
         <div className="flex flex-wrap items-end justify-between gap-2">
           {embedded ? (
             <div>
-              <h2 className="text-[16px] font-bold text-sam-fg">{ko ? "홈 선반" : "HOME shelves"}</h2>
+              <h2 className="text-[16px] font-bold text-sam-fg">{t("admin_stores_home_shelves")}</h2>
               <p className="text-[12px] text-sam-muted">
-                {ko ? "히어로 배너 아래 · 「더 많은 매장」 위에 차례로 표시됩니다." : "Shown below the hero banner, above the remaining stores."}
+                {t("admin_stores_shown_below_hero_banner_above_remaining")}
               </p>
             </div>
           ) : (
             <div>
-              <p className="text-[12px] text-sam-muted">{ko ? "배달 › HOME 관리" : "Delivery › HOME management"}</p>
+              <p className="text-[12px] text-sam-muted">{t("admin_stores_delivery_home_management")}</p>
               <AdminPageHeader titleKey="admin_stores_home_shelves_title" />
             </div>
           )}
@@ -550,14 +548,14 @@ export function AdminStoresHomeShelvesEditor({
               className={Sam.btn.secondary}
               data-admin-delivery-ads-ops-cross-link="1"
             >
-              {ko ? "광고 운영 보기" : "View ads operations"}
+              {t("admin_stores_view_ads_operations")}
             </Link>
             <Link
               href={placementMapFocusHref("STORES_HOME_FEED")}
               className={Sam.btn.secondary}
               data-admin-home-placement-map-link="1"
             >
-              {ko ? "앱에서 위치 보기" : "View in app map"}
+              {t("admin_stores_view_in_app_map")}
             </Link>
             <AdminActionButton variant="secondary" onClick={() => void load()} disabled={loading}>
               {t("admin_stores_home_shelves_reload")}
@@ -569,9 +567,7 @@ export function AdminStoresHomeShelvesEditor({
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning"
           data-admin-home-ads-boundary="1"
         >
-          {ko
-            ? "이 화면은 유기(organic) 홈 구성·슬롯 허용만 관리합니다. 유료 광고 승인·일시중지·종료는 「광고 운영」에서 처리하세요. 광고 집행 상태를 여기서 바꾸지 않습니다."
-            : "This screen manages organic HOME composition and slot allowance only. Approve / pause / end paid ads in Ads ops. Do not mutate paid execution here."}
+          {t("admin_stores_this_screen_manages_organic_home_composition")}
         </p>
 
         {toast ? <p className="text-[13px] text-sam-success">{toast}</p> : null}
@@ -593,12 +589,12 @@ export function AdminStoresHomeShelvesEditor({
             <aside className="rounded-ui-rect border border-sam-border bg-white">
               <div className="flex items-center justify-between gap-2 border-b border-sam-border px-3 py-2.5">
                 <div>
-                  <p className="text-[13px] font-bold text-sam-fg">{ko ? "HOME 선반 목록" : "HOME shelf list"}</p>
-                  <p className="text-[12px] text-sam-muted">{ko ? "드래그하여 순서를 변경하세요" : "Drag to change order"}</p>
+                  <p className="text-[13px] font-bold text-sam-fg">{t("admin_stores_home_shelves_list_title")}</p>
+                  <p className="text-[12px] text-sam-muted">{t("admin_stores_drag_to_change_order")}</p>
                 </div>
                 {/* 화면 primary 는 「저장」 1개 — 선반 추가는 secondary */}
                 <AdminActionButton variant="secondary" size="sm" onClick={openAddModal}>
-                  {ko ? "+ 선반 추가" : "+ Add shelf"}
+                  {t("admin_stores_add_shelf")}
                 </AdminActionButton>
               </div>
 
@@ -614,12 +610,12 @@ export function AdminStoresHomeShelvesEditor({
                     diag.hiddenReason === "empty_candidate" ||
                     diag.hiddenReason === "empty_allocated";
                   const statusLine = visibleOnApp
-                    ? `${ko ? "후보" : "cand"} ${candidateCount} · ${ko ? "고객 노출" : "visible"} YES · ${
-                        ko ? "표시" : "shown"
+                    ? `${t("admin_stores_cand")} ${candidateCount} · ${t("admin_stores_visible_2")} YES · ${
+                        t("admin_stores_shown")
                       } ${renderedCount ?? "-"}${
-                        renderedCount === 0 ? (ko ? " (제목·빈 상태)" : " (title + empty state)") : ""
+                        renderedCount === 0 ? t("admin_stores_title_empty_state") : ""
                       }`
-                    : `${ko ? "후보" : "cand"} ${candidateCount} · ${
+                    : `${t("admin_stores_cand")} ${candidateCount} · ${
                         diag.hiddenReason ? t(`admin_stores_home_hidden_${diag.hiddenReason}`) : ""
                       }`;
                   return (
@@ -650,7 +646,7 @@ export function AdminStoresHomeShelvesEditor({
                             {name}
                             {restLocked ? (
                               <span className="ml-1.5 rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[12px] font-semibold text-sam-muted">
-                                {ko ? "항상 마지막" : "Always last"}
+                                {t("admin_stores_always_last")}
                               </span>
                             ) : null}
                           </p>
@@ -662,7 +658,7 @@ export function AdminStoresHomeShelvesEditor({
                           variant="quiet"
                           size="sm"
                           className="px-1.5"
-                          aria-label={ko ? "선반 메뉴" : "Shelf menu"}
+                          aria-label={t("admin_stores_shelf_menu")}
                           onClick={(e) => {
                             e.stopPropagation();
                             setMenuShelfId((prev) => (prev === row.shelfId ? null : row.shelfId));
@@ -679,7 +675,7 @@ export function AdminStoresHomeShelvesEditor({
                             className="w-full justify-start rounded-none"
                             onClick={() => openDuplicateModal(row.shelfId)}
                           >
-                            {ko ? "복제" : "Duplicate"}
+                            {t("admin_stores_duplicate")}
                           </AdminActionButton>
                           <AdminActionButton
                             variant="quiet"
@@ -688,10 +684,10 @@ export function AdminStoresHomeShelvesEditor({
                             onClick={() => {
                               update(row.shelfId, { enabled: false });
                               setMenuShelfId(null);
-                              setToast(ko ? "선반을 사용안함으로 변경했습니다." : "Shelf disabled.");
+                              setToast(t("admin_stores_shelf_disabled"));
                             }}
                           >
-                            {ko ? "사용안함" : "Disable"}
+                            {t("admin_stores_disable")}
                           </AdminActionButton>
                           <AdminActionButton
                             variant="quiet"
@@ -699,7 +695,7 @@ export function AdminStoresHomeShelvesEditor({
                             className="w-full justify-start rounded-none"
                             onClick={() => selectShelf(row.shelfId)}
                           >
-                            {ko ? "선택" : "Select"}
+                            {t("admin_stores_settlements_payout_method_select")}
                           </AdminActionButton>
                         </div>
                       ) : null}
@@ -711,7 +707,7 @@ export function AdminStoresHomeShelvesEditor({
               {unavailableRows.length > 0 ? (
                 <div className="border-t border-sam-border p-3">
                   <p className="mb-2 text-[12px] font-semibold text-sam-muted">
-                    {ko ? "사용 불가 선반 (데이터 authority 없음)" : "Unavailable shelves (missing authority)"}
+                    {t("admin_stores_unavailable_shelves_missing_authority")}
                   </p>
                   <ul className="space-y-1">
                     {unavailableRows.map((row) => (
@@ -747,7 +743,7 @@ export function AdminStoresHomeShelvesEditor({
                             : "bg-sam-surface-muted text-sam-muted"
                         }`}
                       >
-                        {selectedEditable.enabled ? (ko ? "사용 중" : "Active") : ko ? "비활성" : "Off"}
+                        {selectedEditable.enabled ? t("admin_stores_active") : t("admin_stores_off_2")}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2 text-[12px]">
@@ -756,10 +752,10 @@ export function AdminStoresHomeShelvesEditor({
                         size="sm"
                         onClick={() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
                       >
-                        {ko ? "미리보기" : "Preview"}
+                        {t("admin_stores_preview")}
                       </AdminActionButton>
                       <AdminActionButton variant="secondary" size="sm" onClick={() => openDuplicateModal(selectedEditable.shelfId)}>
-                        {ko ? "복제" : "Duplicate"}
+                        {t("admin_stores_duplicate")}
                       </AdminActionButton>
                       <AdminActionButton variant="danger" size="sm" onClick={() => setModalMode("delete")}>
                         {adminCta("delete", ko)}
@@ -770,7 +766,7 @@ export function AdminStoresHomeShelvesEditor({
                   <div className="px-2 pt-2">
                     <AdminTabs
                       tabs={HOME_SHELF_ADMIN_TABS.map((item) => ({ id: item.id, label: ko ? item.labelKo : item.labelEn }))}
-                      ariaLabel={ko ? "선반 설정" : "Shelf settings"}
+                      ariaLabel={t("admin_stores_shelf_settings")}
                       value={tab}
                       onChange={(id) => setTab(id as HomeTab)}
                       syncUrl={false}
@@ -799,9 +795,7 @@ export function AdminStoresHomeShelvesEditor({
                     <div ref={previewRef} className="space-y-3">
                         <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_home_shelves_preview_title")}</p>
                         <p className="text-[12px] text-sam-muted">
-                          {ko
-                            ? "HOME은 선반(composer slot) 위주입니다. 미리보기는 고객 home-feed 실데이터입니다."
-                            : "HOME is shelf-led (composer slots). Preview uses live customer home-feed data."}
+                          {t("admin_stores_home_is_shelf_led_composer_slots")}
                         </p>
                         <AdminStoresHomeShelfLivePreview
                           shelfId={selectedEditable.shelfId}
@@ -836,16 +830,14 @@ export function AdminStoresHomeShelvesEditor({
       <DibayDialog
         open={modalMode === "add"}
         onClose={() => setModalMode(null)}
-        title={ko ? "선반 추가" : "Add shelf"}
+        title={t("admin_stores_add_shelf_2")}
         description={
-          ko
-            ? "사용 가능한 비활성 선반을 복구해 HOME 목록에 추가합니다."
-            : "Restore a disabled available shelf into the HOME list."
+          t("admin_stores_restore_disabled_available_shelf_into_home")
         }
       >
         <div className="mt-4 space-y-4 text-left">
           <div className="space-y-2">
-            <p className="text-[12px] font-semibold text-sam-fg">{ko ? "복구 가능한 선반" : "Recoverable shelves"}</p>
+            <p className="text-[12px] font-semibold text-sam-fg">{t("admin_stores_recoverable_shelves")}</p>
             {disabledAvailableRows.length > 0 ? (
               <div className="space-y-2">
                 {disabledAvailableRows.map((row) => (
@@ -871,13 +863,13 @@ export function AdminStoresHomeShelvesEditor({
               </div>
             ) : (
               <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[12px] text-sam-muted">
-                {ko ? "복구할 수 있는 비활성 선반이 없습니다." : "No disabled available shelves to restore."}
+                {t("admin_stores_no_disabled_available_shelves_to_restore")}
               </p>
             )}
           </div>
           {unavailableRows.length > 0 ? (
             <div className="space-y-2 border-t border-sam-border pt-3">
-              <p className="text-[12px] font-semibold text-sam-fg">{ko ? "사용 불가" : "Unavailable"}</p>
+              <p className="text-[12px] font-semibold text-sam-fg">{t("admin_stores_unavailable")}</p>
               {unavailableRows.map((row) => (
                 <p key={row.shelfId} className="rounded-ui-rect bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-warning">
                   <span className="font-semibold">{ko ? row.titleKo : row.titleEn}</span>
@@ -889,14 +881,14 @@ export function AdminStoresHomeShelvesEditor({
           ) : null}
           <div className="flex gap-2">
             <DibayOverlayButton roleTone="secondary" onClick={() => setModalMode(null)}>
-              {ko ? "취소" : "Cancel"}
+              {t("common_cancel")}
             </DibayOverlayButton>
             <DibayOverlayButton
               roleTone="primary"
               disabled={!addTargetId}
               onClick={() => recoverShelf(addTargetId)}
             >
-              {ko ? "복구" : "Restore"}
+              {t("admin_stores_fee_restore")}
             </DibayOverlayButton>
           </div>
         </div>
@@ -905,18 +897,16 @@ export function AdminStoresHomeShelvesEditor({
       <DibayDialog
         open={modalMode === "duplicate"}
         onClose={() => setModalMode(null)}
-        title={ko ? "선반 복제" : "Duplicate shelf"}
+        title={t("admin_stores_duplicate_shelf")}
         description={
           duplicateSource
-            ? ko
-              ? `${duplicateSource.titleKo} 설정을 대상 선반에 복사합니다.`
-              : `Copy ${duplicateSource.titleEn} settings into another shelf.`
+            ? t("admin_stores_duplicate_shelf_desc", { title: ko ? duplicateSource.titleKo : duplicateSource.titleEn })
             : undefined
         }
       >
         <div className="mt-4 space-y-4 text-left">
           <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "대상 선반" : "Target shelf"}
+            {t("admin_stores_target_shelf")}
             <select
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
               value={duplicateTargetId}
@@ -930,20 +920,18 @@ export function AdminStoresHomeShelvesEditor({
             </select>
           </label>
           <p className="text-[12px] text-sam-muted">
-            {ko
-              ? "제목, 부제목, 표현, 엔티티, 이미지 소스, 전체보기, 쿠폰, 최대 개수, 운영 메모를 복사합니다."
-              : "Copies titles, subtitles, presentation, entity, image source, show-all settings, coupon, max, and memo."}
+            {t("admin_stores_copies_titles_subtitles_presentation_entity_image")}
           </p>
           <div className="flex gap-2">
             <DibayOverlayButton roleTone="secondary" onClick={() => setModalMode(null)}>
-              {ko ? "취소" : "Cancel"}
+              {t("common_cancel")}
             </DibayOverlayButton>
             <DibayOverlayButton
               roleTone="primary"
               disabled={!duplicateTargetId || !duplicateSource}
               onClick={applyDuplicate}
             >
-              {ko ? "복제" : "Duplicate"}
+              {t("admin_stores_duplicate")}
             </DibayOverlayButton>
           </div>
         </div>
@@ -952,19 +940,17 @@ export function AdminStoresHomeShelvesEditor({
       <DibayDialog
         open={modalMode === "delete"}
         onClose={() => setModalMode(null)}
-        title={ko ? "선반 삭제" : "Delete shelf"}
+        title={t("admin_stores_delete_shelf")}
         description={
-          ko
-            ? "카탈로그 항목은 삭제하지 않고 사용안함으로 전환합니다."
-            : "The catalog item remains and will be disabled."
+          t("admin_stores_catalog_item_remains_and_will_be")
         }
       >
         <div className="mt-4 flex gap-2">
           <DibayOverlayButton roleTone="secondary" onClick={() => setModalMode(null)}>
-            {ko ? "취소" : "Cancel"}
+            {t("common_cancel")}
           </DibayOverlayButton>
           <DibayOverlayButton roleTone="destructive" onClick={disableSelected}>
-            {ko ? "삭제" : "Delete"}
+            {t("common_delete")}
           </DibayOverlayButton>
         </div>
       </DibayDialog>

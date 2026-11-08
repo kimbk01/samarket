@@ -1,4 +1,11 @@
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Admin store order detail — money / items / request SSOT shared by every order-ops screen
  * (주문 목록 · 주문 액션 · 취소 요청 · 환불 요청 · 감사 로그 · 주문 채팅) through the one detail modal.
@@ -81,10 +88,10 @@ export function representativeItemLabel(
   lineCount: number,
   ko: boolean
 ): string {
-  if (!first) return ko ? "상품 내역 없음" : "No items";
+  if (!first) return tx(ko, "admin_store_orders_no_items");
   const others = Math.max(0, lineCount - 1);
   if (others === 0) return first;
-  return ko ? `${first} 외 ${others}개` : `${first} +${others} more`;
+  return tx(ko, "admin_store_orders_more", { first: String(first), others: String(others) });
 }
 
 export type AdminOrderGiftLedger = {

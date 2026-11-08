@@ -30,7 +30,7 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { translateBy } from "@/lib/i18n/translate-by";
 
 export function AdminPlatformPopupRequestDetailWorkspace() {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const params = useParams();
@@ -97,28 +97,16 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
         ko,
         title:
           action === "reject"
-            ? ko
-              ? "팝업 신청 반려"
-              : "Reject popup request"
+            ? t("admin_platform_popup_reject_popup_request")
             : opts?.activate
-              ? ko
-                ? "승인 후 즉시 노출"
-                : "Approve & go live"
+              ? t("admin_platform_popup_approve_go_live")
               : opts?.schedule
-                ? ko
-                  ? "승인 후 예약"
-                  : "Approve & schedule"
-                : ko
-                  ? "팝업 신청 승인"
-                  : "Approve popup request",
+                ? t("admin_platform_popup_request_schedule")
+                : t("admin_platform_popup_approve_popup_request"),
         description:
           action === "reject"
-            ? ko
-              ? `「${target}」 신청을 반려합니다. 결제된 금액은 환불되고, 입력한 사유가 신청자에게 반려 사유로 전달됩니다.`
-              : `Reject the request from "${target}". Funding is refunded and the reason is sent to the requester.`
-            : ko
-              ? `「${target}」 신청을 승인합니다.`
-              : `Approve the request from "${target}".`,
+            ? t("admin_platform_popup_reject_request_from_target_funding", { target: String(target) })
+            : t("admin_platform_popup_approve_request_from_target", { target: String(target) }),
         confirmLabel: adminCta(action === "reject" ? "reject" : opts?.activate ? "exposeStart" : "approve", ko),
         destructive: action === "reject",
       });

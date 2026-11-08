@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -52,26 +53,22 @@ const EMPTY_SLIDE: SlideDraft = {
 function humanUploadError(raw: string, ko: boolean): string {
   const s = raw.toLowerCase();
   if (s.includes("too large") || s.includes("too_large") || s.includes("max") || s.includes("2mb") || s.includes("file_size")) {
-    return ko ? "파일 용량이 너무 큽니다.\n최대 2MB" : "File is too large.\nMax 2MB";
+    return translateBy(ko ? "ko" : "en", "admin_ads_file_too_large_max_2mb");
   }
   if (s.includes("invalid_type")) {
-    return ko ? "JPG·PNG·WebP 이미지만 올릴 수 있습니다." : "Only JPG, PNG, or WebP images are allowed.";
+    return translateBy(ko ? "ko" : "en", "admin_ads_jpg_png_web_p_images");
   }
   if (s.includes("decode") || s.includes("invalid_dimensions")) {
-    return ko ? "이미지를 읽지 못했습니다.\nJPG·PNG·WebP 파일을 올려 주세요." : "Could not read this image.\nUse JPG, PNG, or WebP.";
+    return translateBy(ko ? "ko" : "en", "admin_ads_could_not_read_image_use");
   }
   if (s.includes("aspect") || s.includes("ratio") || s.includes("geometry")) {
-    return ko
-      ? "이미지 비율이 맞지 않습니다.\n권장 비율: 3:1"
-      : "Image aspect does not match.\nRecommended: 3:1";
+    return translateBy(ko ? "ko" : "en", "admin_ads_image_aspect_does_not_match");
   }
   if (s.includes("small") || s.includes("below") || s.includes("min") || s.includes("dimension")) {
-    return ko
-      ? "이미지 크기가 너무 작습니다.\n권장 크기: 1200×400 이상"
-      : "Image is too small.\nRecommended: 1200×400 or larger";
+    return translateBy(ko ? "ko" : "en", "admin_ads_image_too_small_recommended_1200");
   }
   // FA-3: 알 수 없는 코드값은 화면에 그대로 내보내지 않는다
-  return ko ? "이미지를 업로드하지 못했습니다." : "Could not upload the image.";
+  return translateBy(ko ? "ko" : "en", "admin_ads_could_not_upload_image");
 }
 
 /**
@@ -200,12 +197,8 @@ export function AdminFeedAdCreatePage({
   const backHref = entry === "ads-direct" ? "/admin/advertising/direct" : "/admin/feed-ads";
   const productTitle =
     domain === "community"
-      ? ko
-        ? "커뮤니티 배너"
-        : "Community banner"
-      : ko
-        ? "거래 배너"
-        : "Trade banner";
+      ? t("admin_ads_community_banner")
+      : t("admin_ads_trade_banner");
 
   const uploadSlide = async (index: number, file: File) => {
     setUploading(index);
@@ -290,9 +283,7 @@ export function AdminFeedAdCreatePage({
     }
     if (remaining <= 0 && status === "active") {
       setErr(
-        ko
-          ? "추가 등록 불가 — 현재 위치가 가득 찼습니다."
-          : "Cannot register more — this placement is full."
+        t("admin_ads_cannot_register_more_placement_full")
       );
       return;
     }
@@ -352,7 +343,7 @@ export function AdminFeedAdCreatePage({
         setErr(ko && j.message ? j.message : adminOperatorErrorMessage(j.error, ko));
         return;
       }
-      setSuccessMsg(ko ? "광고가 등록되었습니다." : "Ad registered.");
+      setSuccessMsg(t("admin_ads_ad_registered"));
       await loadCapacity();
       router.push("/admin/advertising/operations");
       router.refresh();
@@ -430,7 +421,7 @@ export function AdminFeedAdCreatePage({
       {/* 3 Surface */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-feed-placement="1">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ko ? "노출 위치" : "Placement"}
+          {t("admin_ads_label_placement")}
         </h2>
         <div className="flex gap-2">
           <AdminChipButton
@@ -439,12 +430,8 @@ export function AdminFeedAdCreatePage({
             onClick={() => setSurfaceMode("home")}
           >
             {domain === "trade"
-              ? ko
-                ? "거래 홈 피드"
-                : "Trade home feed"
-              : ko
-                ? "커뮤니티 홈 피드"
-                : "Community home feed"}
+              ? t("admin_ads_trade_home_feed")
+              : t("admin_ads_community_home_feed")}
           </AdminChipButton>
           <AdminChipButton
             selected={surfaceMode === "targeted"}
@@ -452,12 +439,8 @@ export function AdminFeedAdCreatePage({
             onClick={() => setSurfaceMode("targeted")}
           >
             {domain === "trade"
-              ? ko
-                ? "거래 카테고리 피드"
-                : "Trade category feed"
-              : ko
-                ? "커뮤니티 주제 피드"
-                : "Community topic feed"}
+              ? t("admin_ads_trade_category_feed")
+              : t("admin_ads_community_topic_feed")}
           </AdminChipButton>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" data-admin-feed-capacity="1">
@@ -466,16 +449,12 @@ export function AdminFeedAdCreatePage({
           </p>
           <p className="text-[12px] text-sam-muted">{placement}</p>
           <p className="mt-1 text-[13px] text-sam-fg">
-            {ko ? `현재 사용: ${used} / ${capacity}` : `In use: ${used} / ${capacity}`}
+            {t("admin_ads_use_used_capacity", { used, capacity: String(capacity) })}
           </p>
           <p className="text-[13px] text-sam-muted">
             {remaining > 0
-              ? ko
-                ? `추가 가능: ${remaining}`
-                : `Available: ${remaining}`
-              : ko
-                ? "상태: 추가 등록 불가"
-                : "Status: cannot add more"}
+              ? t("admin_ads_available_remaining", { remaining })
+              : t("admin_ads_status_cannot_add_more")}
           </p>
         </div>
         {/* FA-2: 커뮤니티 주제 배너는 커뮤니티 전체 피드에도 나온다 */}
@@ -506,12 +485,8 @@ export function AdminFeedAdCreatePage({
               ko={ko}
               message={
                 domain === "trade"
-                  ? ko
-                    ? "선택할 수 있는 거래 카테고리가 없습니다."
-                    : "No trade categories available."
-                  : ko
-                    ? "선택할 수 있는 커뮤니티 주제가 없습니다."
-                    : "No community topics available."
+                  ? t("admin_ads_no_trade_categories_available")
+                  : t("admin_ads_no_community_topics_available")
               }
             />
           ) : domain === "trade" ? (
@@ -561,32 +536,30 @@ export function AdminFeedAdCreatePage({
       {/* 5 Images */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-feed-creative="1">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ko ? "이미지" : "Image"}
+          {t("common_image")}
         </h2>
         <dl
           className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-[13px]"
           data-admin-feed-creative-spec="1"
         >
-          <dt className="text-sam-muted">{ko ? "비율" : "Aspect"}</dt>
+          <dt className="text-sam-muted">{t("admin_ads_aspect")}</dt>
           <dd className="font-semibold text-sam-fg">{FEED_AD_RECOMMENDED_UPLOAD.aspectLabel}</dd>
-          <dt className="text-sam-muted">{ko ? "권장 크기" : "Recommended"}</dt>
+          <dt className="text-sam-muted">{t("admin_ads_recommended")}</dt>
           <dd className="font-semibold text-sam-fg">
             {FEED_AD_RECOMMENDED_UPLOAD.standardWidthPx} × {FEED_AD_RECOMMENDED_UPLOAD.standardHeightPx}px
           </dd>
-          <dt className="text-sam-muted">{ko ? "최대 용량" : "Max size"}</dt>
+          <dt className="text-sam-muted">{t("admin_ads_max_size")}</dt>
           <dd className="font-semibold text-sam-fg">2MB</dd>
-          <dt className="text-sam-muted">{ko ? "노출 형태" : "Runtime"}</dt>
+          <dt className="text-sam-muted">{t("admin_ads_runtime_3")}</dt>
           <dd className="text-sam-fg">
-            {ko
-              ? "피드 배너 배치 3:1 (가로÷3 높이) · object-cover"
-              : "Feed banner placement 3:1 (height = width÷3) · object-cover"}
+            {t("admin_ads_feed_banner_placement_3_1")}
           </dd>
         </dl>
         <div className="grid gap-3 md:grid-cols-3">
           {slides.map((s, i) => (
             <div key={i} className="rounded-ui-rect border border-sam-border-soft p-3">
               <p className="mb-2 font-semibold">
-                {i === 0 ? (ko ? "대표 이미지" : "Primary image") : `Slide ${i + 1}`}
+                {i === 0 ? (t("admin_ads_primary_image")) : `Slide ${i + 1}`}
               </p>
               {s.previewUrl || s.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- admin preview
@@ -601,9 +574,7 @@ export function AdminFeedAdCreatePage({
                 >
                   {uploading === i
                     ? t("common_loading")
-                    : ko
-                      ? "이미지 없음"
-                      : "No image"}
+                    : t("admin_ads_no_image")}
                 </div>
               )}
               {s.fileName ? (
@@ -632,12 +603,8 @@ export function AdminFeedAdCreatePage({
               >
                 <ImageIcon className="h-4 w-4 shrink-0" aria-hidden />
                 {s.imageUrl
-                  ? ko
-                    ? "이미지 교체"
-                    : "Replace image"
-                  : ko
-                    ? "내 PC에서 이미지 선택"
-                    : "Choose image from PC"}
+                  ? t("admin_ads_replace_image")
+                  : t("admin_ads_choose_image_from_pc")}
               </AdminActionButton>
               <input
                 className="mb-2 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 sam-text-helper"
@@ -663,7 +630,7 @@ export function AdminFeedAdCreatePage({
                   })
                 }
               />
-              <AdminActionButton variant="quiet" size="sm" onClick={() => clearSlide(i)}>
+              <AdminActionButton variant="danger"size="sm" onClick={() => clearSlide(i)}>
                 {t("common_delete")}
               </AdminActionButton>
             </div>
@@ -682,17 +649,17 @@ export function AdminFeedAdCreatePage({
           onChange={(e) => setDestinationType(e.target.value)}
         >
           {/* DS-3 · C-1: 「없음」 선택지 없음 — 목적지 필수 */}
-          <option value="internal_page">{langEn ? "App screen" : "앱 화면"}</option>
-          <option value="trade_listing">{langEn ? "Trade listing" : "거래 글"}</option>
-          <option value="community_post">{langEn ? "Community post" : "커뮤니티 글"}</option>
-          <option value="store">{langEn ? "Store" : "매장"}</option>
+          <option value="internal_page">{t("admin_ads_app_screen")}</option>
+          <option value="trade_listing">{t("admin_ads_trade_listing")}</option>
+          <option value="community_post">{t("admin_ads_community_post")}</option>
+          <option value="store">{t("common_store")}</option>
           <option value="event">
             {safeT("admin_feed_ad_destination_type_event")}
           </option>
-          <option value="external_url">{langEn ? "External URL" : "외부 주소"}</option>
+          <option value="external_url">{t("admin_ads_external_url")}</option>
         </select>
         <p className="sam-text-helper text-sam-muted">
-          {langEn ? "A destination is required." : "목적지는 꼭 넣어야 합니다. 목적지가 없는 배너는 만들 수 없습니다."}
+          {t("admin_ads_destination_required")}
         </p>
         {destinationType === "store" ? (
           /* DS-2: 매장은 선택기로 고르고 slug 로 저장 */
@@ -779,12 +746,8 @@ export function AdminFeedAdCreatePage({
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-feed-runtime-preview="1">
         <h2 className="sam-text-body font-semibold text-sam-fg">
           {domain === "community"
-            ? ko
-              ? "커뮤니티 실제 노출 형태 미리보기"
-              : "Community live-style preview"
-            : ko
-              ? "거래 실제 노출 형태 미리보기"
-              : "Trade live-style preview"}
+            ? t("admin_ads_community_live_style_preview")
+            : t("admin_ads_trade_live_style_preview")}
         </h2>
         <p className="sam-text-helper text-sam-muted">
           {humanPlacementLabel(placement, ko)} · {placement}
@@ -799,9 +762,7 @@ export function AdminFeedAdCreatePage({
             if (!first) {
               return (
                 <p className="py-4 text-center sam-text-helper text-sam-muted">
-                  {ko
-                    ? "이미지를 선택하면 실제 노출 높이로 미리보기됩니다."
-                    : "Choose an image to preview at live feed height."}
+                  {t("admin_ads_choose_image_preview_at_live")}
                 </p>
               );
             }
@@ -847,9 +808,7 @@ export function AdminFeedAdCreatePage({
       >
         {busy
           ? t("common_loading")
-          : ko
-            ? "광고 등록"
-            : "Register ad"}
+          : t("admin_ads_register_ad")}
       </AdminActionButton>
 
     </div>

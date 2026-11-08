@@ -5,6 +5,7 @@
  * ③ 조치(경고 보내기 L2 · 활동 제한 L2 · 제한 해제 L2 · 계정 정지로 이동) ④ 기술 정보.
  * 구역 값이 null 이면 「확인 불가」 (빈 목록으로 대체하지 않는다).
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -124,6 +125,7 @@ function CountOr({ v }: { v: number | null | undefined }) {
 }
 
 export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
+  const { t } = useI18n();
   const q = useCommunityQueryState();
   const sp = useSearchParams();
   const backHref = readAdminReturnToFromSearch(sp) ?? "/admin/community/members";
@@ -315,7 +317,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
 
       {sheet?.kind === "warning" ? (
         <CommunityActionSheet
-          title="경고 보내기"
+          title={t("admin_community_mdetail_warn_title")}
           rows={sheetRows}
           notice="회원에게 경고 알림이 갑니다. 활동은 막히지 않습니다."
           reason={{ minLength: 2, placeholder: "경고 사유 (회원에게 전달됩니다)" }}
@@ -335,7 +337,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
 
       {sheet?.kind === "restrict" ? (
         <CommunityActionSheet
-          title="활동 제한"
+          title={t("admin_community_mdetail_restrict_title")}
           rows={sheetRows}
           notice="커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로 쓸 수 있습니다."
           reason={{ minLength: 2, placeholder: "제한 사유 (회원에게 전달됩니다)" }}
@@ -359,7 +361,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
           onSettled={(k) => settle(k, "활동을 제한했습니다.")}
         >
           <fieldset className="space-y-1">
-            <legend className="sam-text-helper font-medium text-sam-fg">제한 범위</legend>
+            <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_community_mdetail_scope")}</legend>
             {(["post", "comment", "all"] as const).map((v) => (
               <label key={v} className="flex items-center gap-2 text-[13px]">
                 <input type="radio" name="restriction" checked={restriction === v} onChange={() => setRestriction(v)} />
@@ -368,7 +370,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
             ))}
           </fieldset>
           <label className="block">
-            <span className="sam-text-helper font-medium text-sam-fg">기간</span>
+            <span className="sam-text-helper font-medium text-sam-fg">{t("admin_community_mdetail_period")}</span>
             <select
               value={days}
               onChange={(e) => setDays(e.target.value)}
@@ -386,7 +388,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
 
       {sheet?.kind === "revoke" ? (
         <CommunityActionSheet
-          title="제한 해제"
+          title={t("admin_community_mdetail_lift_title")}
           rows={[
             ...sheetRows.slice(0, 1),
             {

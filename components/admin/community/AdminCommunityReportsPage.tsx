@@ -148,7 +148,7 @@ export function AdminCommunityReportsPage({
     <AdminManagementSurfaceRoot wave="w3" proofSurface="community-reports">
       <span className="sr-only" data-admin-community-reports-owner={ARO_IA_001_OWNERS.report} />
       <CommunityListShell
-        title="신고 처리함"
+        title={tr("admin_community_reports_inbox_title")}
         description="회원이 신고한 게시글·댓글·회원을 확인하고 인정 또는 기각합니다."
         actions={
           <>
@@ -219,7 +219,7 @@ export function AdminCommunityReportsPage({
             <>
               <CommunityListPagination lq={lq} total={result.total} />
               {result.truncated ? (
-                <p className="px-1 text-[12px] text-sam-muted">최근 신고 5,000건 기준으로 묶었습니다. 기간을 좁혀 확인하세요.</p>
+                <p className="px-1 text-[12px] text-sam-muted">{tr("admin_community_reports_truncated")}</p>
               ) : null}
             </>
           ) : null
@@ -268,10 +268,12 @@ export function AdminCommunityReportsPage({
                         ) : null}
                       </span>
                       {displayTarget !== "post" && t.post_title ? (
-                        <span className="truncate sam-text-xxs text-sam-muted">글: {t.post_title}</span>
+                        <span className="truncate sam-text-xxs text-sam-muted">
+                          {tr("admin_community_reports_post_title", { title: t.post_title })}
+                        </span>
                       ) : null}
                       {t.target_found === false ? (
-                        <span className="sam-text-xxs text-sam-danger">영구 삭제된 대상</span>
+                        <span className="sam-text-xxs text-sam-danger">{tr("admin_community_reports_target_purged")}</span>
                       ) : t.target_status && t.target_status !== "active" ? (
                         <span>
                           <CommunityStatusBadge domain="content_status" value={t.target_status} ko={ko} />
@@ -328,7 +330,7 @@ export function AdminCommunityReportsPage({
 
       {openId ? (
         <CommunityDrawer
-          title="신고 처리"
+          title={tr("admin_community_reports_handle_title")}
           onClose={() => setOpenId("")}
           footer={
             <div className="flex justify-end">

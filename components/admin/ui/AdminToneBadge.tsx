@@ -3,6 +3,12 @@
  */
 
 import type { ReactNode } from "react";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdminTone = "neutral" | "waiting" | "progress" | "success" | "warning" | "danger";
 
@@ -43,7 +49,7 @@ export function AdminToneBadge({
 export function AdminUnavailableChip({ ko }: { ko: boolean }) {
   return (
     <span data-admin-unavailable="1">
-      <AdminToneBadge tone="warning">{ko ? "확인 불가" : "UNAVAILABLE"}</AdminToneBadge>
+      <AdminToneBadge tone="warning">{tx(ko, "admin_dashboard_unavailable")}</AdminToneBadge>
     </span>
   );
 }

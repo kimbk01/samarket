@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 import {
   ADMIN_REQUEST_DECIDED_TIME_COLUMNS,
   CASH_CHARGE_SUMMARY_BUCKETS,
@@ -222,7 +223,10 @@ describe("R3-i — 처리 시각 기준 칸", () => {
       path.join(process.cwd(), "components/admin/finance/AdminRequestPeriodSummaryLine.tsx"),
       "utf8"
     );
-    expect(src).toMatch(/신청 기준/);
-    expect(src).toMatch(/처리 기준/);
+    /** 언어 SSOT B4: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(src).toContain(`t("admin_finance_by_request")`);
+    expect(src).toContain(`t("admin_finance_by_processed")`);
+    expect(MESSAGES.ko.admin_finance_by_request).toMatch(/신청 기준/);
+    expect(MESSAGES.ko.admin_finance_by_processed).toMatch(/처리 기준/);
   });
 });

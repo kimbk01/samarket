@@ -5,6 +5,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
@@ -25,15 +26,15 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
 
 /** 카테고리 API 오류 → 운영자 문구 (원시 오류 노출 금지) */
-function topicErrorText(code: unknown, known: { duplicate: string; hasPosts: string }): string {
+function topicErrorText(code: unknown, tr: (key: MessageKey) => string, ko: boolean): string {
   const c = typeof code === "string" ? code : "";
-  if (c === "slug_duplicate_in_section") return known.duplicate;
-  if (c === "topic_has_posts") return known.hasPosts;
-  if (c === "invalid_name") return "카테고리 이름을 입력해 주세요.";
-  if (c === "invalid_slug") return "카테고리 이름으로 주소용 이름을 만들 수 없습니다. 영문 이름을 함께 입력해 주세요.";
-  if (c === "not_found") return "카테고리를 찾을 수 없습니다. 새로고침 후 다시 확인하세요.";
-  if (c === "forbidden" || c === "forbidden_permission") return "이 작업을 할 권한이 없습니다.";
-  return adminOperatorErrorMessage(c, true);
+  if (c === "slug_duplicate_in_section") return tr("admin_topics_err_slug_duplicate");
+  if (c === "topic_has_posts") return tr("admin_topics_err_has_posts");
+  if (c === "invalid_name") return tr("admin_topics_err_invalid_name");
+  if (c === "invalid_slug") return tr("admin_topics_err_invalid_slug");
+  if (c === "not_found") return tr("admin_topics_err_not_found");
+  if (c === "forbidden" || c === "forbidden_permission") return tr("admin_topics_err_no_permission");
+  return adminOperatorErrorMessage(c, ko);
 }
 
 const ADMIN_TOPIC_SKIN_I18N: Record<CommunityFeedListSkin, `admin_topics_skin_${CommunityFeedListSkin}`> = {
@@ -66,7 +67,7 @@ export function AdminCommunityTopicsPage({
   loadError?: string | null;
 }) {
   const router = useRouter();
-  const { t: tr } = useI18n();
+  const { t: tr, language } = useI18n();
   const [topics, setTopics] = useState(initial);
   const [loadErr, setLoadErr] = useState<{ code: string; status: number } | null>(
     loadError ? { code: loadError, status: 500 } : null
@@ -76,10 +77,7 @@ export function AdminCommunityTopicsPage({
   const fail = (code: unknown) =>
     setBanner({
       ok: false,
-      code: topicErrorText(code, {
-        duplicate: tr("admin_topics_err_slug_duplicate"),
-        hasPosts: tr("admin_topics_err_has_posts"),
-      }),
+      code: topicErrorText(code, tr, language !== "en"),
     });
   const defaultPhilifeSectionId = useMemo(
     () =>

@@ -61,12 +61,10 @@ export function AdminAppMetaPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? `${key} 저장` : `Save ${key}`,
+      title: t("admin_app_save", { key: String(key) }),
       description: toggle
         ? t(value === "true" ? "admin_app_meta_immediate_confirm_on" : "admin_app_meta_immediate_confirm_off")
-        : ko
-          ? `값: ${value === "" ? "(빈 값 — 기본 동작)" : value}`
-          : `Value: ${value === "" ? "(empty — default behavior)" : value}`,
+        : t("admin_app_meta_value", { value: value === "" ? t("admin_app_meta_value_empty_default") : value }),
       confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;

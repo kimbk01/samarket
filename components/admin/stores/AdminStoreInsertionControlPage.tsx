@@ -13,8 +13,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 type ComputedState = "active" | "upcoming" | "expired" | "inactive";
 
 export function AdminStoreInsertionControlPage() {
-  const { t, language } = useI18n();
-  const ko = language === "ko";
+  const { t } = useI18n();
 
   const [paidAdsLoading, setPaidAdsLoading] = useState(true);
   const [paidAdsErr, setPaidAdsErr] = useState<string | null>(null);
@@ -64,7 +63,7 @@ export function AdminStoreInsertionControlPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="text-[12px] text-sam-muted">
-              {ko ? "배달 › 광고 관리" : "Delivery › Ad management"}
+              {t("admin_stores_delivery_ad_management")}
             </p>
             <h1 className="text-[20px] font-bold text-sam-fg">
               {t("admin_store_insertions_title")}

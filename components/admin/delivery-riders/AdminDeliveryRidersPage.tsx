@@ -386,10 +386,10 @@ function AdminDeliveryRidersPageInner() {
     (riderId: string | null | undefined) => {
       if (!riderId) return dash;
       const hit = riders.find((r) => r.id === riderId) ?? assignable.find((r) => r.id === riderId);
-      if (hit) return hit.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider");
-      return `${ko ? "라이더" : "Rider"} ${formatAdminShortId(riderId)}`;
+      if (hit) return hit.display_name?.trim() || (t("admin_delivery_riders_unnamed_rider"));
+      return `${t("admin_delivery_riders_rider")} ${formatAdminShortId(riderId)}`;
     },
-    [riders, assignable, dash, ko]
+    [riders, assignable, dash, t]
   );
 
   const offlineSuffix = t("admin_del_offline_suffix");
@@ -405,7 +405,7 @@ function AdminDeliveryRidersPageInner() {
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xs text-sam-fg"
         >
           <span className="mr-2 inline-block rounded-full bg-sam-app px-2 py-0.5 font-semibold">
-            {ko ? "미운영 (라이더 0)" : "Not operated (0 riders)"}
+            {t("admin_delivery_riders_not_operated_0_riders")}
           </span>
           {riderOpsNotice}
         </div>
@@ -417,9 +417,9 @@ function AdminDeliveryRidersPageInner() {
         </Link>
         <span>|</span>
         <span>
-          {ko ? "정지 라이더" : "Suspended riders"} <strong className="text-sam-fg">{riderCounts.suspended}</strong>
+          {t("admin_delivery_riders_suspended_riders")} <strong className="text-sam-fg">{riderCounts.suspended}</strong>
           {" · "}
-          {ko ? "주의 표시 라이더" : "Flagged riders"} <strong className="text-sam-fg">{riderCounts.flagged}</strong>
+          {t("admin_delivery_riders_flagged_riders")} <strong className="text-sam-fg">{riderCounts.flagged}</strong>
         </span>
         {generatedAt ? (
           <span className="font-mono text-[12px]">{t("admin_del_generated_at", { at: fmtTs(generatedAt) })}</span>
@@ -472,7 +472,7 @@ function AdminDeliveryRidersPageInner() {
               {riders.map((r) => (
                 <tr key={r.id} className="border-b border-sam-border/60 align-top">
                   <td className="py-2 px-2">
-                    <div className="font-medium text-sam-fg">{r.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider")}</div>
+                    <div className="font-medium text-sam-fg">{r.display_name?.trim() || (t("admin_delivery_riders_unnamed_rider"))}</div>
                     <AdminTechDetails ko={ko}>{r.id}</AdminTechDetails>
                   </td>
                   <td className="py-2 px-2">
@@ -504,11 +504,11 @@ function AdminDeliveryRidersPageInner() {
                   <td className="py-2 px-2">
                     {/* 행 버튼 = ghost/sm 1개 — 상태 변경·메모·진행 주문은 「관리」 Drawer 에서 */}
                     <AdminActionButton type="button" variant="ghost" size="sm" onClick={() => setOpenRiderId(r.id)}>
-                      {ko ? "관리" : "Manage"}
+                      {t("admin_delivery_riders_manage")}
                     </AdminActionButton>
                     {(r.active_orders ?? []).length > 0 ? (
                       <div className="mt-1 text-[12px] text-sam-muted">
-                        {ko ? `진행 주문 ${(r.active_orders ?? []).length}건` : `${(r.active_orders ?? []).length} active orders`}
+                        {t("admin_delivery_riders_active_orders", { count: (r.active_orders ?? []).length })}
                       </div>
                     ) : null}
                   </td>
@@ -521,22 +521,18 @@ function AdminDeliveryRidersPageInner() {
       ) : (
         <div className="space-y-2">
         <label className="flex flex-wrap items-center gap-2 sam-text-xxs text-sam-muted" data-admin-rider-assign-filter="1">
-          <span>{ko ? "배정할 라이더 이름으로 좁히기" : "Narrow riders to assign by name"}</span>
+          <span>{t("admin_delivery_riders_narrow_riders_assign_name")}</span>
           <input
             className="sam-input h-8 min-w-[200px] text-[12px]"
             value={assignQ}
             maxLength={100}
             onChange={(e) => setAssignQ(e.target.value)}
-            placeholder={ko ? "닉네임 · 아이디" : "Nickname · username"}
+            placeholder={t("admin_delivery_riders_nickname_username")}
           />
           <span>
             {assignableTotal > assignable.length
-              ? ko
-                ? `배정 가능 ${assignableTotal}명 중 ${assignable.length}명 표시 — 이름으로 좁혀 주세요`
-                : `Showing ${assignable.length} of ${assignableTotal} assignable riders — narrow by name`
-              : ko
-                ? `배정 가능 ${assignableTotal}명`
-                : `${assignableTotal} assignable riders`}
+              ? t("admin_delivery_riders_showing_assignable_riders_narrow_name", { shown: assignable.length, assignableTotal })
+              : t("admin_delivery_riders_assignable_riders", { assignableTotal })}
           </span>
         </label>
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -555,7 +551,7 @@ function AdminDeliveryRidersPageInner() {
                 <tr key={u.order_id} className="border-b border-sam-border/60 align-top">
                   <td className="py-2 px-2">
                     <AdminActionButton variant="ghost" size="sm" className="!px-0" onClick={() => openDetail(u.order_id)}>
-                      {u.order_no || (ko ? "주문 보기" : "View order")}
+                      {u.order_no || (t("admin_delivery_riders_view_order"))}
                     </AdminActionButton>
                   </td>
                   <td className="py-2 px-2">{u.order_status ? adminStatusLabel("store_order", u.order_status, ko).label : dash}</td>
@@ -640,27 +636,27 @@ function AdminDeliveryRidersPageInner() {
             ) : detail ? (
               <dl className="mt-3 space-y-2 sam-text-xxs">
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "배달 상태" : "Delivery status"}</dt>
+                  <dt className="text-sam-muted">{t("admin_delivery_riders_delivery_status")}</dt>
                   <dd className="text-sam-fg">{deliveryStatusText(detail.delivery_status)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "라이더" : "Rider"}</dt>
+                  <dt className="text-sam-muted">{t("admin_delivery_riders_rider")}</dt>
                   <dd className="text-sam-fg">{riderName(detail.rider_id)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "배정 시각" : "Assigned at"}</dt>
+                  <dt className="text-sam-muted">{t("admin_delivery_riders_assigned_at")}</dt>
                   <dd>{fmtTs(detail.assigned_at ?? null)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "픽업 시각" : "Picked up at"}</dt>
+                  <dt className="text-sam-muted">{t("admin_delivery_riders_picked_up_at")}</dt>
                   <dd>{fmtTs(detail.picked_up_at ?? null)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "배달 완료 시각" : "Delivered at"}</dt>
+                  <dt className="text-sam-muted">{t("admin_delivery_riders_delivered_at")}</dt>
                   <dd>{fmtTs(detail.delivered_at ?? null)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "완료 확인 시각" : "Delivery confirmed at"}</dt>
+                  <dt className="text-sam-muted">{t("admin_delivery_riders_delivery_confirmed_at")}</dt>
                   <dd>{fmtTs(detail.delivered_confirmed_at ?? null)}</dd>
                 </div>
                 <div>
@@ -891,7 +887,7 @@ function AdminDeliveryRidersPageInner() {
                 href={`/admin/stores/orders/${encodeURIComponent(detailOrderId)}`}
                 className="ml-auto sam-btn sam-btn--outline sam-btn--sm text-[12px]"
               >
-                {ko ? "주문 상세" : "Order detail"}
+                {t("admin_delivery_riders_order_detail")}
               </Link>
             </div>
           </div>
@@ -903,7 +899,7 @@ function AdminDeliveryRidersPageInner() {
         onClose={() => setOpenRiderId(null)}
         ko={ko}
         pending={openRider != null && busyRider === openRider.id}
-        title={openRider?.display_name?.trim() || (ko ? "이름 없는 라이더" : "Unnamed rider")}
+        title={openRider?.display_name?.trim() || (t("admin_delivery_riders_unnamed_rider"))}
         subtitle={openRider ? (openRider.is_online ? t("admin_del_online") : t("admin_del_offline")) : undefined}
         dangerActions={
           <AdminActionButton
@@ -931,12 +927,8 @@ function AdminDeliveryRidersPageInner() {
                             level: adminActionLevel(r.is_online ? "disable" : "resume"),
                             ko,
                             title: r.is_online
-                              ? ko
-                                ? "이 라이더를 오프라인으로 바꿀까요?"
-                                : "Set this rider offline?"
-                              : ko
-                                ? "이 라이더를 온라인으로 바꿀까요?"
-                                : "Set this rider online?",
+                              ? t("admin_delivery_riders_set_rider_offline")
+                              : t("admin_delivery_riders_set_rider_online"),
                             description: r.display_name ?? undefined,
                             confirmLabel: r.is_online ? t("admin_del_btn_go_offline") : t("admin_del_btn_go_online"),
                           });
@@ -956,17 +948,11 @@ function AdminDeliveryRidersPageInner() {
                             level: r.suspended_at ? "L1" : "L2",
                             ko,
                             title: r.suspended_at
-                              ? ko
-                                ? "이 라이더의 정지를 해제할까요?"
-                                : "Resume this rider?"
-                              : ko
-                                ? "이 라이더를 정지할까요?"
-                                : "Suspend this rider?",
+                              ? t("admin_delivery_riders_resume_rider")
+                              : t("admin_delivery_riders_suspend_rider"),
                             description: r.suspended_at
                               ? (r.display_name ?? undefined)
-                              : ko
-                                ? `${r.display_name ?? ""} — 정지하면 새 배정을 받을 수 없습니다.`.trim()
-                                : `${r.display_name ?? ""} — a suspended rider cannot receive new assignments.`.trim(),
+                              : t("admin_delivery_riders_suspend_desc", { name: r.display_name ?? "" }).trim(),
                             confirmLabel: r.suspended_at ? t("admin_del_btn_resume") : t("admin_del_btn_suspend"),
                             destructive: !r.suspended_at,
                           });
@@ -1016,7 +1002,7 @@ function AdminDeliveryRidersPageInner() {
                             setOpenRiderId(null);
                             openDetail(o.order_id);
                           }}>
-                            {o.order_no || (ko ? "주문" : "Order")} · {deliveryStatusText(o.delivery_status)}
+                            {o.order_no || (t("admin_delivery_riders_order"))} · {deliveryStatusText(o.delivery_status)}
                           </AdminActionButton>
                         </div>
                       ))}

@@ -197,10 +197,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("exposeStart"),
       ko,
-      title: ko ? "자사 배너를 등록할까요?" : "Register this first-party banner?",
-      description: ko
-        ? "지정한 기간(필리핀 시간)에 배달 화면에 노출됩니다."
-        : "It is shown on delivery screens during the period (Manila time).",
+      title: translateBy(ko ? "ko" : "en", "admin_stores_register_this_first_party_banner"),
+      description: translateBy(ko ? "ko" : "en", "admin_stores_it_is_shown_on_delivery_screens"),
       confirmLabel: adminCta("create", ko),
     });
     if (!confirmed.ok) return;

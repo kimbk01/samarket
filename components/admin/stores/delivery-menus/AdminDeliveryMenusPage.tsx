@@ -48,6 +48,7 @@ import {
   type DeliveryMenuAdminStore,
   type DeliveryMenusAdminPayload,
 } from "./delivery-menus-admin-api";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const INPUT =
   "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] text-sam-fg disabled:bg-sam-surface-muted";
@@ -72,7 +73,7 @@ function moveInList<T extends { id: string }>(list: T[], id: string, delta: -1 |
 }
 
 export function AdminDeliveryMenusPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language === "ko";
   const [data, setData] = useState<DeliveryMenusAdminPayload | null>(null);
   const [loadError, setLoadError] = useState<{ code: string; status?: number } | null>(null);
@@ -227,7 +228,7 @@ export function AdminDeliveryMenusPage() {
     return (
       <div className={CARD}>
         <p className="text-[14px] text-sam-fg">
-          {ko ? "메뉴 표가 아직 운영 DB에 적용되지 않았습니다. 고객 화면은 업종 화면 그대로입니다." : "Menu tables are not applied yet."}
+          {t("admin_stores_menu_tables_are_not_applied_yet")}
         </p>
       </div>
     );
@@ -242,15 +243,13 @@ export function AdminDeliveryMenusPage() {
   return (
     <div className="space-y-3" data-admin-delivery-menus>
       <div className={`${CARD} space-y-1`}>
-        <p className="text-[16px] font-semibold text-sam-fg">{ko ? "메뉴 관리" : "Delivery menus"}</p>
+        <p className="text-[16px] font-semibold text-sam-fg">{t("admin_stores_delivery_menus")}</p>
         <p className={HINT}>
-          {ko
-            ? "고객 배달 화면의 상단 탭·아이콘·매장을 배민과 같은 구조로 구성합니다. 왼쪽 미리보기를 누르면 오른쪽에서 바로 수정·삭제, 파란 점선 「+」로 추가합니다. 저장하면 고객 앱에 바로 반영됩니다. 업종·수수료는 바뀌지 않습니다."
-            : "Build the customer delivery top tabs, icons and stores. Tap the preview to edit; dashed + adds."}
+          {t("admin_stores_build_customer_delivery_top_tabs_icons")}
         </p>
         <div className={`${ROW} pt-1`}>
           <AdminChipButton selected={screen.kind === "home"} onClick={() => setScreen({ kind: "home", rootId: screen.rootId })}>
-            {ko ? "배달 홈" : "Delivery home"}
+            {t("admin_stores_delivery_home")}
           </AdminChipButton>
           {roots.map((r) => (
             <AdminChipButton
@@ -258,11 +257,11 @@ export function AdminDeliveryMenusPage() {
               selected={screen.kind === "page" && screen.rootId === r.id}
               onClick={() => setScreen({ kind: "page", rootId: r.id, menuId: null })}
             >
-              {ko ? `${r.name_ko} 페이지` : `${r.name_ko} page`}
+              {t("admin_stores_page", { name_ko: r.name_ko })}
             </AdminChipButton>
           ))}
           <AdminChipButton selected={pick?.kind === "defaults"} onClick={() => setPick({ kind: "defaults" })}>
-            {ko ? "업종 기본 메뉴" : "Category defaults"}
+            {t("admin_stores_category_defaults")}
           </AdminChipButton>
         </div>
       </div>
@@ -271,16 +270,14 @@ export function AdminDeliveryMenusPage() {
         <div className="rounded-ui-rect border border-sam-danger bg-sam-danger-soft p-3" role="alert">
           <div className={ROW}>
             <p className="text-[14px] font-semibold text-sam-danger">
-              {ko ? `메뉴에 없는 노출 매장 ${unassigned.length}곳` : `${unassigned.length} visible stores without a menu`}
+              {t("admin_stores_visible_stores_without_menu", { unassigned: unassigned.length })}
             </p>
             <AdminActionButton size="sm" variant="secondary" onClick={() => setPick({ kind: "unassigned" })}>
-              {ko ? "메뉴 지정" : "Assign menus"}
+              {t("admin_stores_assign_menus")}
             </AdminActionButton>
           </div>
           <p className={HINT}>
-            {ko
-              ? "고객 화면에는 업종 기본 메뉴에 임시로 보입니다. 관리자가 메뉴를 지정해 주세요."
-              : "Customers see them in the category default menu until assigned."}
+            {t("admin_stores_customers_see_them_in_category_default")}
           </p>
         </div>
       : null}
@@ -301,12 +298,12 @@ export function AdminDeliveryMenusPage() {
           {!pick ?
             <div className={CARD}>
               <p className="text-[14px] text-sam-fg">
-                {ko ? "왼쪽 미리보기에서 고칠 곳을 누르세요." : "Tap something in the preview to edit it."}
+                {t("admin_stores_tap_something_in_preview_to_edit")}
               </p>
             </div>
           : null}
           {pick?.kind === "add-root" ?
-            <AddMenuEditor ko={ko} busy={busy} title={ko ? "상단 탭 추가" : "Add top tab"} onCreate={(nameKo, nameEn) =>
+            <AddMenuEditor ko={ko} busy={busy} title={t("admin_stores_add_top_tab")} onCreate={(nameKo, nameEn) =>
               run(async () => {
                 const r = await createDeliveryMenu({ parent_id: null, name_ko: nameKo, name_en: nameEn });
                 if (r.ok && r.value) {
@@ -321,7 +318,12 @@ export function AdminDeliveryMenusPage() {
             <AddMenuEditor
               ko={ko}
               busy={busy}
-              title={ko ? `메뉴 추가 — ${menus.find((m) => m.id === pick.rootId)?.name_ko ?? ""}` : "Add menu"}
+              title={translateBy(ko ? "ko" : "en", "admin_stores_delivery_menu_add_title", {
+                name: (() => {
+                  const root = menus.find((m) => m.id === pick.rootId);
+                  return (ko ? root?.name_ko : root?.name_en || root?.name_ko) ?? "";
+                })(),
+              })}
               onCreate={(nameKo, nameEn) =>
                 run(async () => {
                   const r = await createDeliveryMenu({ parent_id: pick.rootId, name_ko: nameKo, name_en: nameEn });
@@ -350,10 +352,8 @@ export function AdminDeliveryMenusPage() {
                 const c = await confirmAdminAction({
                   level: adminActionLevel("delete"),
                   ko,
-                  title: ko ? `「${pickedMenu.name_ko}」 상단 탭을 삭제할까요?` : `Delete top tab "${pickedMenu.name_ko}"?`,
-                  description: ko
-                    ? `안의 메뉴 ${childrenOf(pickedMenu.id).length}개도 함께 삭제됩니다.${moveTo ? " 매장과 업종 기본 메뉴는 고른 메뉴로 옮깁니다." : ""}`
-                    : "Its menus are deleted too.",
+                  title: t("admin_stores_delete_top_tab", { name_ko: pickedMenu.name_ko }),
+                  description: `${translateBy(ko ? "ko" : "en", "admin_stores_delivery_menu_delete_children", { n: childrenOf(pickedMenu.id).length })}${moveTo ? translateBy(ko ? "ko" : "en", "admin_stores_delivery_menu_delete_move_note") : ""}`,
                   confirmLabel: adminCta("delete", ko),
                   destructive: true,
                 });
@@ -401,10 +401,8 @@ export function AdminDeliveryMenusPage() {
                 const c = await confirmAdminAction({
                   level: adminActionLevel("delete"),
                   ko,
-                  title: ko ? `「${pickedMenu.name_ko}」 메뉴를 삭제할까요?` : `Delete menu "${pickedMenu.name_ko}"?`,
-                  description: ko
-                    ? "매장 지정만 지워지고 매장·업종·수수료는 그대로입니다. 다른 메뉴에 없는 매장은 「옮길 메뉴」로 옮깁니다."
-                    : "Only the menu assignment is removed.",
+                  title: t("admin_stores_delete_menu", { name_ko: pickedMenu.name_ko }),
+                  description: t("admin_stores_only_menu_assignment_is_removed"),
                   confirmLabel: adminCta("delete", ko),
                   destructive: true,
                 });
@@ -448,7 +446,10 @@ export function AdminDeliveryMenusPage() {
               key={pick.rootId}
               ko={ko}
               busy={busy}
-              rootName={menus.find((m) => m.id === pick.rootId)?.name_ko ?? ""}
+              rootName={(() => {
+                const root = menus.find((m) => m.id === pick.rootId);
+                return (ko ? root?.name_ko : root?.name_en || root?.name_ko) ?? "";
+              })()}
               initial={[...data.shortcuts]
                 .filter((s) => s.root_menu_id === pick.rootId)
                 .sort((a, b) => a.sort_order - b.sort_order)
@@ -504,14 +505,14 @@ function AddMenuEditor({
     <div className={`${CARD} space-y-2`}>
       <p className="text-[14px] font-semibold text-sam-fg">{title}</p>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "이름" : "Name"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_name")}</span>
         <input className={`${INPUT} max-w-xs`} value={nameKo} maxLength={60} onChange={(e) => setNameKo(e.target.value)} />
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "영문 이름" : "English name"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_english_name")}</span>
         <input className={`${INPUT} max-w-xs`} value={nameEn} maxLength={60} onChange={(e) => setNameEn(e.target.value)} />
       </div>
-      <p className={HINT}>{ko ? "추가하면 맨 뒤에 생깁니다. 매장 0곳인 메뉴는 고객 화면에서 자동으로 숨깁니다." : "Added at the end."}</p>
+      <p className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_added_at_end")}</p>
       <AdminActionButton variant="primary" disabled={busy || !nameKo.trim()} onClick={() => onCreate(nameKo.trim(), nameEn.trim() || null)}>
         {adminCta("create", ko)}
       </AdminActionButton>
@@ -532,7 +533,7 @@ function MoveSelect({
 }) {
   return (
     <select className={`${INPUT} max-w-xs`} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{ko ? "옮기지 않음 (다른 메뉴에 있는 매장만 있을 때)" : "Do not move"}</option>
+      <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_do_not_move")}</option>
       {options.map((m) => (
         <option key={m.id} value={m.id}>
           {m.name_ko}
@@ -571,60 +572,58 @@ function RootEditor({
   const moveOptions = allMenus.filter((m) => m.parent_id != null && m.parent_id !== root.id && !m.link_target);
   return (
     <div className={`${CARD} space-y-2`} data-admin-delivery-menu-editor="root">
-      <p className="text-[12px] font-semibold text-sam-primary">{ko ? "선택: 상단 탭" : "Selected: top tab"}</p>
+      <p className="text-[12px] font-semibold text-sam-primary">{translateBy(ko ? "ko" : "en", "admin_stores_selected_top_tab")}</p>
       <p className="text-[16px] font-semibold text-sam-fg">{root.name_ko}</p>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "이름" : "Name"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_name")}</span>
         <input className={`${INPUT} max-w-[200px]`} value={nameKo} maxLength={60} onChange={(e) => setNameKo(e.target.value)} />
-        <input className={`${INPUT} max-w-[200px]`} value={nameEn} maxLength={60} placeholder={ko ? "영문" : "English"} onChange={(e) => setNameEn(e.target.value)} />
+        <input className={`${INPUT} max-w-[200px]`} value={nameEn} maxLength={60} placeholder={translateBy(ko ? "ko" : "en", "admin_stores_english")} onChange={(e) => setNameEn(e.target.value)} />
         <AdminActionButton size="sm" variant="primary" disabled={busy || !nameKo.trim()} onClick={() => onSave({ name_ko: nameKo, name_en: nameEn || null })}>
           {adminCta("save", ko)}
         </AdminActionButton>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "순서" : "Order"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_home_shelves_col_order")}</span>
         <AdminActionButton size="sm" disabled={busy || idx <= 0} onClick={() => onMove(-1)}>
-          {ko ? "◀ 왼쪽" : "◀ Left"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_left")}
         </AdminActionButton>
         <AdminActionButton size="sm" disabled={busy || idx >= roots.length - 1} onClick={() => onMove(1)}>
-          {ko ? "오른쪽 ▶" : "Right ▶"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_right")}
         </AdminActionButton>
-        <span className={HINT}>{ko ? `${idx + 1}번째` : `#${idx + 1}`}</span>
+        <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_text_2", { idx: idx + 1 })}</span>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "보이기" : "Visible"}</span>
-        <AdminSwitch checked={root.is_active} disabled={busy} onChange={(v) => onSave({ is_active: v })} label={ko ? "보이기" : "Visible"} />
-        <span className={HINT}>{ko ? "끄면 탭 숨김, 안의 메뉴·매장 지정은 남음" : "Hidden keeps menus"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_visible_3")}</span>
+        <AdminSwitch checked={root.is_active} disabled={busy} onChange={(v) => onSave({ is_active: v })} label={translateBy(ko ? "ko" : "en", "admin_stores_visible_3")} />
+        <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_hidden_keeps_menus")}</span>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "픽업 전용" : "Pickup only"}</span>
-        <AdminSwitch checked={root.pickup_only} disabled={busy} onChange={(v) => onSave({ pickup_only: v })} label={ko ? "픽업 전용" : "Pickup only"} />
-        <span className={HINT}>{ko ? "켜면 「픽업 가능」 매장만 보이고 배달방식 칩 숨김" : "Only pickup stores"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_pickup_only")}</span>
+        <AdminSwitch checked={root.pickup_only} disabled={busy} onChange={(v) => onSave({ pickup_only: v })} label={translateBy(ko ? "ko" : "en", "admin_stores_pickup_only")} />
+        <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_only_pickup_stores")}</span>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "탭 배지" : "Tab badge"}</span>
-        <input className={`${INPUT} max-w-[160px]`} value={badge} maxLength={16} placeholder={ko ? "예: 할인 (비우면 없음)" : "e.g. Deal"} onChange={(e) => setBadge(e.target.value)} />
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_tab_badge")}</span>
+        <input className={`${INPUT} max-w-[160px]`} value={badge} maxLength={16} placeholder={translateBy(ko ? "ko" : "en", "admin_stores_e_g_deal")} onChange={(e) => setBadge(e.target.value)} />
         <AdminActionButton size="sm" disabled={busy} onClick={() => onSave({ badge_text: badge || null })}>
           {adminCta("save", ko)}
         </AdminActionButton>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "대표 카드" : "Feature card"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_feature_card")}</span>
         <AdminActionButton size="sm" disabled={busy} onClick={onFeature}>
-          {ko ? "대표 카드 수정" : "Edit feature card"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_edit_feature_card")}
         </AdminActionButton>
       </div>
       <div className={`${ROW} border-t border-sam-border pt-2`}>
-        <span className={LABEL}>{ko ? "삭제" : "Delete"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "common_delete")}</span>
         <MoveSelect ko={ko} value={moveTo} onChange={setMoveTo} options={moveOptions} />
         <AdminActionButton size="sm" variant="danger" disabled={busy} onClick={() => onDelete(moveTo || null)}>
-          {ko ? "탭 삭제" : "Delete tab"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_delete_tab")}
         </AdminActionButton>
       </div>
       <p className={HINT}>
-        {ko
-          ? "안의 메뉴에만 있는 노출 매장이 있으면 「옮길 메뉴」를 골라야 삭제됩니다 (매장은 메뉴 1개 이상 필수)."
-          : "Choose a menu to move stores that are only in this tab."}
+        {translateBy(ko ? "ko" : "en", "admin_stores_choose_menu_to_move_stores_that")}
       </p>
     </div>
   );
@@ -650,25 +649,25 @@ function FeatureEditor({
   const [link, setLink] = useState(root.feature_link_target ?? "");
   return (
     <div className={`${CARD} space-y-2`} data-admin-delivery-menu-editor="feature">
-      <p className="text-[12px] font-semibold text-sam-primary">{ko ? `선택: 대표 카드 — ${root.name_ko}` : "Selected: feature card"}</p>
+      <p className="text-[12px] font-semibold text-sam-primary">{translateBy(ko ? "ko" : "en", "admin_stores_delivery_menu_selected_feature", { name: (ko ? root.name_ko : root.name_en || root.name_ko) ?? "" })}</p>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "보이기" : "Visible"}</span>
-        <AdminSwitch checked={root.show_feature} disabled={busy} onChange={(v) => onSave({ show_feature: v })} label={ko ? "대표 카드" : "Feature card"} />
-        <span className={HINT}>{ko ? "끄면 아이콘이 왼쪽부터 채움 (음식배달 탭처럼)" : "Off = icons only"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_visible_3")}</span>
+        <AdminSwitch checked={root.show_feature} disabled={busy} onChange={(v) => onSave({ show_feature: v })} label={translateBy(ko ? "ko" : "en", "admin_stores_feature_card")} />
+        <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_off_icons_only")}</span>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "글씨" : "Text"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_text_3")}</span>
         <input className={`${INPUT} max-w-sm`} value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} />
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "강조색" : "Accent"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_accent")}</span>
         <input type="color" className="h-8 w-12 rounded-ui-rect border border-sam-border" value={bg} onChange={(e) => setBg(e.target.value)} />
         <input className={`${INPUT} max-w-[110px]`} value={bg} maxLength={7} onChange={(e) => setBg(e.target.value)} />
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "누르면" : "On tap"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_on_tap")}</span>
         <select className={`${INPUT} max-w-xs`} value={link} onChange={(e) => setLink(e.target.value)}>
-          <option value="">{ko ? "이 탭의 메뉴 페이지" : "This tab's menu page"}</option>
+          <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_this_tab_s_menu_page")}</option>
           {DELIVERY_MENU_LINK_TARGETS.map((t) => (
             <option key={t} value={t}>
               {DELIVERY_MENU_LINK_TARGET_LABEL_KO[t]}
@@ -684,7 +683,7 @@ function FeatureEditor({
         {adminCta("save", ko)}
       </AdminActionButton>
       <div className={`${ROW} border-t border-sam-border pt-2`}>
-        <span className={LABEL}>{ko ? "배경 그림" : "Background"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_background")}</span>
         <input
           type="file"
           accept="image/*"
@@ -698,9 +697,9 @@ function FeatureEditor({
         />
         {root.feature_image_url ?
           <AdminActionButton size="sm" variant="danger" disabled={busy} onClick={onDeleteImage}>
-            {ko ? "그림 삭제" : "Delete image"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_delete_image_2")}
           </AdminActionButton>
-        : <span className={HINT}>{ko ? "없음 — 기본 그림(녹색 바탕 일러스트) 표시. 올리면 카드 배경 사진으로 사용" : "None — built-in art"}</span>}
+        : <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_none_built_in_art")}</span>}
       </div>
     </div>
   );
@@ -749,20 +748,20 @@ function MenuEditor({
   };
   return (
     <div className={`${CARD} space-y-2`} data-admin-delivery-menu-editor="menu">
-      <p className="text-[12px] font-semibold text-sam-primary">{ko ? "선택: 메뉴 (아이콘·페이지 탭)" : "Selected: menu"}</p>
+      <p className="text-[12px] font-semibold text-sam-primary">{translateBy(ko ? "ko" : "en", "admin_stores_selected_menu")}</p>
       <p className="text-[16px] font-semibold text-sam-fg">
         {menu.name_ko} <span className={HINT}>— {roots.find((r) => r.id === menu.parent_id)?.name_ko ?? ""}</span>
       </p>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "이름" : "Name"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_name")}</span>
         <input className={`${INPUT} max-w-[200px]`} value={nameKo} maxLength={60} onChange={(e) => setNameKo(e.target.value)} />
-        <input className={`${INPUT} max-w-[200px]`} value={nameEn} maxLength={60} placeholder={ko ? "영문" : "English"} onChange={(e) => setNameEn(e.target.value)} />
+        <input className={`${INPUT} max-w-[200px]`} value={nameEn} maxLength={60} placeholder={translateBy(ko ? "ko" : "en", "admin_stores_english")} onChange={(e) => setNameEn(e.target.value)} />
         <AdminActionButton size="sm" variant="primary" disabled={busy || !nameKo.trim()} onClick={() => onSave({ name_ko: nameKo, name_en: nameEn || null })}>
           {adminCta("save", ko)}
         </AdminActionButton>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "그림" : "Icon"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_icon")}</span>
         <input
           type="file"
           accept="image/*"
@@ -776,53 +775,53 @@ function MenuEditor({
         />
         {menu.icon_url ?
           <AdminActionButton size="sm" variant="danger" disabled={busy} onClick={onDeleteImage}>
-            {ko ? "그림 삭제" : "Delete icon"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_delete_icon")}
           </AdminActionButton>
-        : <span className={HINT}>{ko ? "없음 — 기본 그림(녹색 바탕) 표시. 올리면 올린 그림 우선, 아무 그림이나 가능" : "None — built-in icon"}</span>}
+        : <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_none_built_in_icon")}</span>}
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "누르면" : "On tap"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_on_tap")}</span>
         <select className={`${INPUT} max-w-xs`} value={menu.link_target ?? ""} disabled={busy} onChange={(e) => onSave({ link_target: e.target.value || null })}>
-          <option value="">{ko ? "매장 목록 (메뉴 페이지)" : "Store list (menu page)"}</option>
+          <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_store_list_menu_page")}</option>
           {DELIVERY_MENU_LINK_TARGETS.map((t) => (
             <option key={t} value={t}>
-              {ko ? `화면 연결: ${DELIVERY_MENU_LINK_TARGET_LABEL_KO[t]}` : t}
+              {translateBy(ko ? "ko" : "en", "admin_stores_screen_link_option", { target: ko ? DELIVERY_MENU_LINK_TARGET_LABEL_KO[t] : t })}
             </option>
           ))}
         </select>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "홈 아이콘에 표시" : "Show on home"}</span>
-        <AdminSwitch checked={menu.show_on_home} disabled={busy} onChange={(v) => onSave({ show_on_home: v })} label={ko ? "홈 아이콘" : "Home icon"} />
-        <span className={LABEL}>{ko ? "페이지 탭에 표시" : "Show as page tab"}</span>
-        <AdminSwitch checked={menu.show_in_page_tab} disabled={busy} onChange={(v) => onSave({ show_in_page_tab: v })} label={ko ? "페이지 탭" : "Page tab"} />
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_show_on_home")}</span>
+        <AdminSwitch checked={menu.show_on_home} disabled={busy} onChange={(v) => onSave({ show_on_home: v })} label={translateBy(ko ? "ko" : "en", "admin_stores_home_icon")} />
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_show_as_page_tab")}</span>
+        <AdminSwitch checked={menu.show_in_page_tab} disabled={busy} onChange={(v) => onSave({ show_in_page_tab: v })} label={translateBy(ko ? "ko" : "en", "admin_stores_page_tab")} />
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "홈 아이콘 순서" : "Home order"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_home_order")}</span>
         <AdminActionButton size="sm" disabled={busy || homeIdx <= 0} onClick={() => reorder("home_order", homeList, -1)}>
           ◀
         </AdminActionButton>
         <AdminActionButton size="sm" disabled={busy || homeIdx >= homeList.length - 1} onClick={() => reorder("home_order", homeList, 1)}>
           ▶
         </AdminActionButton>
-        <span className={HINT}>{ko ? `${homeIdx + 1}번째` : `#${homeIdx + 1}`}</span>
+        <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_text_4", { homeIdx: homeIdx + 1 })}</span>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "페이지 탭 순서" : "Page tab order"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_page_tab_order")}</span>
         <AdminActionButton size="sm" disabled={busy || pageIdx <= 0} onClick={() => reorder("order", pageList, -1)}>
           ◀
         </AdminActionButton>
         <AdminActionButton size="sm" disabled={busy || pageIdx >= pageList.length - 1} onClick={() => reorder("order", pageList, 1)}>
           ▶
         </AdminActionButton>
-        <span className={HINT}>{ko ? `${pageIdx + 1}번째 · 배민처럼 홈 순서와 따로` : `#${pageIdx + 1}`}</span>
+        <span className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_text_5", { pageIdx: pageIdx + 1 })}</span>
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "보이기" : "Visible"}</span>
-        <AdminSwitch checked={menu.is_active} disabled={busy} onChange={(v) => onSave({ is_active: v })} label={ko ? "보이기" : "Visible"} />
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_visible_3")}</span>
+        <AdminSwitch checked={menu.is_active} disabled={busy} onChange={(v) => onSave({ is_active: v })} label={translateBy(ko ? "ko" : "en", "admin_stores_visible_3")} />
       </div>
       <div className={ROW}>
-        <span className={LABEL}>{ko ? "상단 탭 이동" : "Move to tab"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_move_to_tab")}</span>
         <select className={`${INPUT} max-w-xs`} value={menu.parent_id ?? ""} disabled={busy} onChange={(e) => onSave({ parent_id: e.target.value })}>
           {roots.map((r) => (
             <option key={r.id} value={r.id}>
@@ -833,18 +832,18 @@ function MenuEditor({
       </div>
       {!menu.link_target ?
         <div className={ROW}>
-          <span className={LABEL}>{ko ? "매장" : "Stores"}</span>
-          <span className="text-[14px] font-semibold text-sam-fg">{ko ? `${storeCount}곳` : storeCount}</span>
+          <span className={LABEL}>{translateBy(ko ? "ko" : "en", "admin_stores_stores")}</span>
+          <span className="text-[14px] font-semibold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_store_count_n", { n: storeCount })}</span>
           <AdminActionButton size="sm" variant="primary" disabled={busy} onClick={onStores}>
-            {ko ? "매장 지정" : "Assign stores"}
+            {translateBy(ko ? "ko" : "en", "admin_stores_assign_stores")}
           </AdminActionButton>
         </div>
       : null}
       <div className={`${ROW} border-t border-sam-border pt-2`}>
-        <span className={LABEL}>{ko ? "삭제" : "Delete"}</span>
+        <span className={LABEL}>{translateBy(ko ? "ko" : "en", "common_delete")}</span>
         <MoveSelect ko={ko} value={moveTo} onChange={setMoveTo} options={moveOptions} />
         <AdminActionButton size="sm" variant="danger" disabled={busy} onClick={() => onDelete(moveTo || null)}>
-          {ko ? "메뉴 삭제" : "Delete menu"}
+          {translateBy(ko ? "ko" : "en", "admin_stores_delete_menu_2")}
         </AdminActionButton>
       </div>
     </div>
@@ -889,9 +888,9 @@ function StoresEditor({
   return (
     <div className="grid gap-3 xl:grid-cols-2" data-admin-delivery-menu-editor="stores">
       <div className={`${CARD} space-y-2`}>
-        <p className="text-[12px] font-semibold text-sam-primary">{ko ? "이 메뉴에 들어간 매장 (앱 목록)" : "Stores in this menu"}</p>
+        <p className="text-[12px] font-semibold text-sam-primary">{translateBy(ko ? "ko" : "en", "admin_stores_stores_in_this_menu")}</p>
         <p className="text-[16px] font-semibold text-sam-fg">
-          {menu.name_ko} — {ko ? `${ids.length}곳` : ids.length}
+          {menu.name_ko} — {translateBy(ko ? "ko" : "en", "admin_stores_store_count_n", { n: ids.length })}
         </p>
         <ul className="divide-y divide-sam-border">
           {ids.map((id, i) => {
@@ -901,7 +900,7 @@ function StoresEditor({
                 <span className="min-w-0 flex-1 truncate text-[13px] text-sam-fg">
                   {s?.store_name ?? id}
                   <span className="ml-1 text-[12px] text-sam-muted">{s ? label(s) : ""}</span>
-                  {s && !isVisibleStore(s) ? <span className="ml-1 text-[12px] text-sam-danger">{ko ? "숨김 매장" : "hidden"}</span> : null}
+                  {s && !isVisibleStore(s) ? <span className="ml-1 text-[12px] text-sam-danger">{translateBy(ko ? "ko" : "en", "admin_stores_hidden_2")}</span> : null}
                 </span>
                 <AdminActionButton size="sm" variant="quiet" disabled={i === 0} onClick={() => setIds((p) => moveInList(p.map((x) => ({ id: x })), id, -1)?.map((x) => x.id) ?? p)}>
                   ↑
@@ -915,27 +914,25 @@ function StoresEditor({
                   ↓
                 </AdminActionButton>
                 <AdminActionButton size="sm" variant="ghost" onClick={() => setIds((p) => p.filter((x) => x !== id))}>
-                  {ko ? "빼기" : "Remove"}
+                  {translateBy(ko ? "ko" : "en", "admin_stores_remove")}
                 </AdminActionButton>
               </li>
             );
           })}
         </ul>
         <p className={HINT}>
-          {ko
-            ? "순서 = 「기본순」일 때 앱 순서. 빼도 매장·업종·수수료는 그대로. 다른 메뉴에 없는 노출 매장은 뺄 수 없습니다."
-            : "Order = default sort order."}
+          {translateBy(ko ? "ko" : "en", "admin_stores_order_default_sort_order")}
         </p>
         <AdminActionButton variant="primary" disabled={busy || !dirty} onClick={() => onSave(ids)}>
           {adminCta("save", ko)}
         </AdminActionButton>
       </div>
       <div className={`${CARD} space-y-2`}>
-        <p className="text-[12px] font-semibold text-sam-primary">{ko ? "매장 추가 — 모든 매장에서 찾기" : "Add stores"}</p>
+        <p className="text-[12px] font-semibold text-sam-primary">{translateBy(ko ? "ko" : "en", "admin_stores_add_stores")}</p>
         <div className={ROW}>
-          <input className={`${INPUT} max-w-[180px]`} value={q} placeholder={ko ? "매장 이름" : "Store name"} onChange={(e) => setQ(e.target.value)} />
+          <input className={`${INPUT} max-w-[180px]`} value={q} placeholder={translateBy(ko ? "ko" : "en", "admin_stores_store_name_2")} onChange={(e) => setQ(e.target.value)} />
           <select className={`${INPUT} max-w-[140px]`} value={cat} onChange={(e) => setCat(e.target.value)}>
-            <option value="">{ko ? "업종: 전체" : "All categories"}</option>
+            <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_all_categories")}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -943,12 +940,12 @@ function StoresEditor({
             ))}
           </select>
           <select className={`${INPUT} max-w-[120px]`} value={state} onChange={(e) => setState(e.target.value as "all" | "visible" | "hidden")}>
-            <option value="all">{ko ? "상태: 전체" : "All"}</option>
-            <option value="visible">{ko ? "노출 매장" : "Visible"}</option>
-            <option value="hidden">{ko ? "숨김 매장" : "Hidden"}</option>
+            <option value="all">{translateBy(ko ? "ko" : "en", "admin_stores_all")}</option>
+            <option value="visible">{translateBy(ko ? "ko" : "en", "admin_stores_visible_4")}</option>
+            <option value="hidden">{translateBy(ko ? "ko" : "en", "admin_stores_hidden_3")}</option>
           </select>
         </div>
-        <p className={HINT}>{ko ? "업종은 찾기용 필터일 뿐 — 마트·공구 매장도 음식배달 메뉴에 넣을 수 있음. 한 매장을 여러 메뉴에 넣을 수 있음." : "Category is only a search filter."}</p>
+        <p className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_category_is_only_search_filter")}</p>
         <ul className="max-h-[420px] divide-y divide-sam-border overflow-y-auto">
           {candidates.map((s) => {
             const on = ids.includes(s.id);
@@ -963,7 +960,7 @@ function StoresEditor({
                 <span className="min-w-0 flex-1 truncate text-[13px] text-sam-fg">
                   {s.store_name}
                   <span className="ml-1 text-[12px] text-sam-muted">{label(s)}</span>
-                  {!isVisibleStore(s) ? <span className="ml-1 text-[12px] text-sam-danger">{ko ? "숨김 매장" : "hidden"}</span> : null}
+                  {!isVisibleStore(s) ? <span className="ml-1 text-[12px] text-sam-danger">{translateBy(ko ? "ko" : "en", "admin_stores_hidden_2")}</span> : null}
                 </span>
                 <span className="max-w-[45%] truncate text-[12px] text-sam-muted">{(menuNamesByStore.get(s.id) ?? []).join(" · ")}</span>
               </li>
@@ -992,7 +989,7 @@ function StorePicker({
     : [];
   return (
     <div className="space-y-1">
-      <input className={`${INPUT} max-w-xs`} value={q} placeholder={ko ? "매장 이름으로 찾기" : "Find store by name"} onChange={(e) => setQ(e.target.value)} />
+      <input className={`${INPUT} max-w-xs`} value={q} placeholder={translateBy(ko ? "ko" : "en", "admin_stores_find_store_by_name")} onChange={(e) => setQ(e.target.value)} />
       {list.map((s) => (
         <AdminListItemButton key={s.id} onClick={() => onPick(s.id)}>
           <span className="text-[13px] text-sam-fg">{s.store_name}</span>
@@ -1021,7 +1018,7 @@ function ShortcutsEditor({
   const byId = new Map(stores.map((s) => [s.id, s]));
   return (
     <div className={`${CARD} space-y-2`} data-admin-delivery-menu-editor="shortcuts">
-      <p className="text-[12px] font-semibold text-sam-primary">{ko ? `선택: 매장 바로가기 줄 — ${rootName}` : "Selected: store shortcuts"}</p>
+      <p className="text-[12px] font-semibold text-sam-primary">{translateBy(ko ? "ko" : "en", "admin_stores_delivery_menu_selected_shortcuts", { name: rootName })}</p>
       <ul className="divide-y divide-sam-border">
         {list.map((row, i) => (
           <li key={row.store_id} className="flex flex-wrap items-center gap-2 py-1.5">
@@ -1030,7 +1027,7 @@ function ShortcutsEditor({
               className={`${INPUT} max-w-[140px]`}
               value={row.caption ?? ""}
               maxLength={16}
-              placeholder={ko ? "아래 글씨 (선택)" : "Caption"}
+              placeholder={translateBy(ko ? "ko" : "en", "admin_stores_caption")}
               onChange={(e) => setList((p) => p.map((x, j) => (j === i ? { ...x, caption: e.target.value || null } : x)))}
             />
             <AdminActionButton size="sm" variant="quiet" disabled={i === 0} onClick={() => setList((p) => moveInList(p.map((x) => ({ ...x, id: x.store_id })), row.store_id, -1) ?? p)}>
@@ -1046,7 +1043,7 @@ function ShortcutsEditor({
         ))}
       </ul>
       <StorePicker ko={ko} stores={stores} exclude={new Set(list.map((x) => x.store_id))} onPick={(id) => setList((p) => [...p, { store_id: id, caption: null }])} />
-      <p className={HINT}>{ko ? "그림은 매장 로고 자동 · 비우면 줄 숨김 · 누르면 그 매장 화면" : "Logo is automatic. Empty hides the row."}</p>
+      <p className={HINT}>{translateBy(ko ? "ko" : "en", "admin_stores_logo_is_automatic_empty_hides_row")}</p>
       <AdminActionButton variant="primary" disabled={busy} onClick={() => onSave(list.map(({ store_id, caption }) => ({ store_id, caption })))}>
         {adminCta("save", ko)}
       </AdminActionButton>
@@ -1077,16 +1074,14 @@ function DefaultsEditor({
   );
   const options = menus.filter((m) => m.parent_id != null && !m.link_target);
   const rows = categories.flatMap((c) => [
-    { category_id: c.id, topic_id: null as string | null, label: `${c.name} (${ko ? "1차 전체" : "all"})` },
+    { category_id: c.id, topic_id: null as string | null, label: `${c.name} (${translateBy(ko ? "ko" : "en", "admin_stores_all_2")})` },
     ...topics.filter((t) => t.store_category_id === c.id).map((t) => ({ category_id: c.id, topic_id: t.id as string | null, label: `${c.name} · ${t.name}` })),
   ]);
   return (
     <div className={`${CARD} space-y-2`} data-admin-delivery-menu-editor="defaults">
-      <p className="text-[16px] font-semibold text-sam-fg">{ko ? "업종 기본 메뉴" : "Category default menus"}</p>
+      <p className="text-[16px] font-semibold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_category_default_menus")}</p>
       <p className={HINT}>
-        {ko
-          ? "새 매장을 승인하면 이 메뉴가 미리 선택되고, 메뉴 없이 노출된 매장은 이 메뉴에 자동으로 들어갑니다 (2차가 1차보다 우선). 업종·수수료는 그대로."
-          : "Pre-selected on approval and used as the safety fallback."}
+        {translateBy(ko ? "ko" : "en", "admin_stores_pre_selected_on_approval_and_used")}
       </p>
       <ul className="divide-y divide-sam-border">
         {rows.map((r) => (
@@ -1097,7 +1092,7 @@ function DefaultsEditor({
               value={map[key(r.category_id, r.topic_id)] ?? ""}
               onChange={(e) => setMap((p) => ({ ...p, [key(r.category_id, r.topic_id)]: e.target.value }))}
             >
-              <option value="">{ko ? "지정 안 함" : "None"}</option>
+              <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_none")}</option>
               {options.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name_ko}
@@ -1141,13 +1136,13 @@ function UnassignedEditor({
   const options = menus.filter((m) => m.parent_id != null && !m.link_target);
   return (
     <div className={`${CARD} space-y-2`} data-admin-delivery-menu-editor="unassigned">
-      <p className="text-[16px] font-semibold text-sam-fg">{ko ? "메뉴에 없는 노출 매장" : "Visible stores without a menu"}</p>
+      <p className="text-[16px] font-semibold text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_visible_stores_without_menu_2")}</p>
       <ul className="divide-y divide-sam-border">
         {stores.map((s) => (
           <li key={s.id} className="flex items-center gap-2 py-1.5">
             <span className="min-w-0 flex-1 truncate text-[13px] text-sam-fg">{s.store_name}</span>
             <select className={`${INPUT} max-w-[180px]`} value={choice[s.id] ?? ""} onChange={(e) => setChoice((p) => ({ ...p, [s.id]: e.target.value }))}>
-              <option value="">{ko ? "메뉴 고르기" : "Choose menu"}</option>
+              <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_choose_menu")}</option>
               {options.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name_ko}

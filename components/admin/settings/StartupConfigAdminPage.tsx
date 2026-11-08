@@ -27,7 +27,7 @@ import {
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
 
 export function StartupConfigAdminPage() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   const [draft, setDraft] = useState<StartupConfig>(() => ({
     ...BUNDLED_STARTUP_CONFIG,
@@ -80,7 +80,7 @@ export function StartupConfigAdminPage() {
       level: adminActionLevel("save"),
       ko,
       title: label,
-      description: ko ? "앱 첫 진입 시 열릴 탭을 저장합니다." : "Save the tab the app opens first.",
+      description: t("admin_settings_save_tab_app_opens_first"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
@@ -108,7 +108,7 @@ export function StartupConfigAdminPage() {
     } finally {
       setSavingTab(false);
     }
-  }, [draft, ko, safeT]);
+  }, [draft, ko, safeT, t]);
 
   return (
     <div className="space-y-4">

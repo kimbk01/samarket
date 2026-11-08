@@ -33,6 +33,7 @@ import {
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type View = "list" | "detail" | "preview";
 
@@ -150,28 +151,22 @@ function asExecuteOverall(v: unknown): ExecuteOverall | null {
 
 function executeUnavailableMessage(
   plan: DataResetPlan,
-  ko: boolean,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
   scopeBlocked: boolean,
   scopeReason: string
 ): string {
   if (scopeBlocked) return scopeReason;
   if (plan.blockers.length) {
-    return ko
-      ? `현재 실행이 차단되어 있습니다. (${plan.blockedReason ?? plan.blockers.join(", ")})`
-      : `Execute is blocked. (${plan.blockedReason ?? plan.blockers.join(", ")})`;
+    return t("admin_system_execute_is_blocked", { reason: plan.blockedReason ?? plan.blockers.join(", ") });
   }
   if (plan.warnings.includes("production_execute_forbidden")) {
-    return ko
-      ? "Production 실행은 기본 비활성입니다. 운영 옵트인이 있을 때만 실행할 수 있습니다."
-      : "Production execute is off by default. Explicit operational opt-in is required.";
+    return t("admin_system_production_execute_off_default_explicit_operational");
   }
-  return ko
-    ? "실행 불가 (환경 게이트 / blocker / Production)."
-    : "Execute unavailable (env gate / blockers / Production).";
+  return t("admin_system_execute_unavailable_env_gate_blockers_production");
 }
 
 export function AdminDataResetPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const searchParams = useSearchParams();
   const initialDomain = (searchParams.get("domain") || "") as DataResetDomain;
@@ -303,11 +298,12 @@ export function AdminDataResetPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("dataReset"),
       ko,
-      title: ko ? "초기화를 실행할까요? (복구 불가)" : "Execute reset? (irreversible)",
-      description: ko
-        ? `대상: ${domain} · ${selectedScope.scope}${selectedScope.subtype ? ` (${selectedScope.subtype})` : ""}`
-        : `Target: ${domain} · ${selectedScope.scope}${selectedScope.subtype ? ` (${selectedScope.subtype})` : ""}`,
-      confirmLabel: ko ? "초기화 진행" : "Execute",
+      title: t("admin_system_execute_reset_irreversible"),
+      description: t("admin_system_reset_target", {
+        domain,
+        scope: `${selectedScope.scope}${selectedScope.subtype ? ` (${selectedScope.subtype})` : ""}`,
+      }),
+      confirmLabel: t("admin_system_execute"),
       destructive: true,
     });
     if (!confirmed.ok) return;
@@ -359,13 +355,9 @@ export function AdminDataResetPage() {
         clientApplied = applied.applied.length;
       }
       const detail = namespaces.length
-        ? ko
-          ? `클라이언트 무효화 ${clientApplied}/${namespaces.length}`
-          : `client invalidation ${clientApplied}/${namespaces.length}`
+        ? t("admin_system_client_invalidation", { applied: clientApplied, total: namespaces.length })
         : data.clientSessionInvalidationRequired
-          ? ko
-            ? "클라이언트 세션 무효화 필요"
-            : "CLIENT SESSION INVALIDATION REQUIRED"
+          ? t("admin_system_client_session_invalidation_required")
           : "";
       setOutcome({ kind: "result", overall: overall ?? (data.ok ? "SUCCESS" : "PARTIAL"), detail });
       await loadSummary();
@@ -381,9 +373,7 @@ export function AdminDataResetPage() {
       <AdminPageHeader
         titleKey="admin_menu_data_reset"
         description={
-          ko
-            ? "도메인별 SSOT 초기화 · Preview → Execute · Production 실행은 기본 비활성(별도 옵트인)"
-            : "Domain SSOT reset · Preview → Execute · Production execute off by default (opt-in)"
+          t("admin_system_domain_ssot_reset_preview_execute_production")
         }
       />
 
@@ -401,7 +391,7 @@ export function AdminDataResetPage() {
           className="flex flex-wrap items-center gap-2 rounded border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg"
           data-data-reset-result={outcome.overall}
         >
-          <span>{ko ? "실행 결과" : "Result"}</span>
+          <span>{t("admin_system_result")}</span>
           <AdminToneBadge tone={EXECUTE_OVERALL_LABEL[outcome.overall].tone}>
             {ko ? EXECUTE_OVERALL_LABEL[outcome.overall].ko : EXECUTE_OVERALL_LABEL[outcome.overall].en}
           </AdminToneBadge>
@@ -427,10 +417,10 @@ export function AdminDataResetPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
                 <tr>
-                  <th className="px-3 py-2 font-medium">{ko ? "도메인" : "Domain"}</th>
-                  <th className="px-3 py-2 font-medium">{ko ? "상태" : "Status"}</th>
-                  <th className="px-3 py-2 font-medium">{ko ? "데이터 수" : "Count"}</th>
-                  <th className="px-3 py-2 font-medium">{ko ? "작업" : "Action"}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin_system_domain")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin_status")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin_system_count")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin_system_action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -439,16 +429,10 @@ export function AdminDataResetPage() {
                     <td className="px-3 py-2 text-sam-fg">{ko ? r.labelKo : r.labelEn}</td>
                     <td className="px-3 py-2 text-sam-muted">
                       {r.status === "protected"
-                        ? ko
-                          ? "보호됨"
-                          : "Protected"
+                        ? t("admin_system_protected")
                         : r.status === "partial"
-                          ? ko
-                            ? "부분"
-                            : "Partial"
-                          : ko
-                            ? "정상"
-                            : "OK"}
+                          ? t("admin_system_partial")
+                          : t("admin_system_ok")}
                     </td>
                     <td className="px-3 py-2 tabular-nums text-sam-fg">
                       {formatAdminNumber(r.primaryCount)}
@@ -481,7 +465,7 @@ export function AdminDataResetPage() {
 
           <div className="border-t border-sam-border px-3 py-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sam-danger">
-              {ko ? "고위험 작업" : "High-risk"}
+              {t("admin_system_high_risk")}
             </p>
             <AdminActionButton
               variant="secondary"
@@ -492,14 +476,10 @@ export function AdminDataResetPage() {
                 setView("detail");
               }}
             >
-              {ko
-                ? "Full Service Reset (고위험 · 실측 미증명)"
-                : "Full Service Reset (high-risk · not runtime-proven)"}
+              {t("admin_system_full_service_reset_high_risk_not")}
             </AdminActionButton>
             <p className="mt-2 text-xs text-sam-muted">
-              {ko
-                ? "미리보기는 가능합니다. Production 파괴 실행은 기본 비활성이며 운영 실측은 아직 없습니다."
-                : "Preview is available. Production destructive execute stays off by default and is not runtime-proven."}
+              {t("admin_system_preview_available_production_destructive_execute_stays")}
             </p>
           </div>
         </div>
@@ -515,7 +495,7 @@ export function AdminDataResetPage() {
               setPlan(null);
             }}
           >
-            ← {ko ? "목록" : "List"}
+            ← {t("admin_system_list")}
           </AdminActionButton>
           <h2 className="text-base font-semibold text-sam-fg">
             {ko
@@ -535,7 +515,7 @@ export function AdminDataResetPage() {
           ) : null}
 
           <label className="block text-sm text-sam-fg">
-            {ko ? "작업" : "Operation"}
+            {t("admin_system_operation")}
             <select
               className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-1.5"
               value={scopeIdx}
@@ -578,7 +558,7 @@ export function AdminDataResetPage() {
             disabled={busy || (needsEntity && !entityId.trim())}
             onClick={() => void runPreview()}
           >
-            {ko ? "미리보기 (Preview)" : "Preview"}
+            {t("admin_system_preview")}
           </AdminActionButton>
         </div>
       ) : null}
@@ -589,7 +569,7 @@ export function AdminDataResetPage() {
             ← {adminCta("detail", ko)}
           </AdminActionButton>
           <h2 className="text-base font-semibold text-sam-fg">
-            {ko ? "초기화 미리보기" : "Reset Preview"}
+            {t("admin_system_reset_preview")}
           </h2>
           <p className="text-xs text-sam-muted">
             planId=<AdminTechId id={plan.planId} copyable={false} /> · hash={plan.planHash} · risk={plan.riskLevel} ·
@@ -597,7 +577,7 @@ export function AdminDataResetPage() {
           </p>
 
           <section>
-            <h3 className="text-sm font-semibold text-sam-fg">{ko ? "삭제 예정" : "Delete"}</h3>
+            <h3 className="text-sm font-semibold text-sam-fg">{t("admin_system_delete")}</h3>
             <ul className="text-sm text-sam-muted">
               {Object.entries(plan.deleteCounts).map(([k, v]) => (
                 <li key={k}>
@@ -608,7 +588,7 @@ export function AdminDataResetPage() {
             </ul>
           </section>
           <section>
-            <h3 className="text-sm font-semibold text-sam-fg">{ko ? "소프트/연결 해제" : "Soft / Detach"}</h3>
+            <h3 className="text-sm font-semibold text-sam-fg">{t("admin_system_soft_detach")}</h3>
             <ul className="text-sm text-sam-muted">
               {Object.entries({ ...plan.softDeleteCounts, ...plan.detachCounts }).map(
                 ([k, v]) => (
@@ -620,7 +600,7 @@ export function AdminDataResetPage() {
             </ul>
           </section>
           <section>
-            <h3 className="text-sm font-semibold text-sam-fg">{ko ? "보존" : "Preserve"}</h3>
+            <h3 className="text-sm font-semibold text-sam-fg">{t("admin_system_preserve")}</h3>
             <ul className="text-sm text-sam-muted">
               {plan.preserveSummary.map((p) => (
                 <li key={p}>{p}</li>
@@ -629,7 +609,7 @@ export function AdminDataResetPage() {
           </section>
           <section>
             <h3 className="text-sm font-semibold text-sam-fg">
-              {ko ? "서버 Derived Reset" : "SERVER DERIVED RESET"}
+              {t("admin_system_server_derived_reset")}
             </h3>
             <ul className="text-sm text-sam-muted">
               {(plan.derivedStateTargets ?? []).map((t) => (
@@ -643,7 +623,7 @@ export function AdminDataResetPage() {
           </section>
           <section>
             <h3 className="text-sm font-semibold text-sam-fg">
-              {ko ? "클라이언트 Invalidation" : "CLIENT INVALIDATION"}
+              {t("admin_system_client_invalidation_2")}
             </h3>
             <ul className="text-sm text-sam-muted">
               {(plan.clientInvalidation ?? []).map((ns) => (
@@ -654,7 +634,7 @@ export function AdminDataResetPage() {
           </section>
           {plan.blockers.length || scopeExecuteBlocked ? (
             <p className="rounded border border-sam-danger/40 bg-sam-danger-soft px-2 py-1 text-sm text-sam-danger">
-              {ko ? "실행 차단" : "Execute blocked"}
+              {t("admin_system_execute_blocked")}
               {": "}
               {scopeExecuteBlocked
                 ? ko
@@ -668,13 +648,11 @@ export function AdminDataResetPage() {
           ) : null}
 
           <p className="text-xs text-sam-muted">
-            {ko
-              ? "미리보기 성공이 곧 실행 허용을 의미하지 않습니다."
-              : "A successful preview does not mean execute is allowed."}
+            {t("admin_system_successful_preview_does_not_mean_execute")}
           </p>
 
           <label className="block text-sm text-sam-fg">
-            {ko ? "확인 문구 입력" : "Type confirmation phrase"}
+            {t("admin_system_type_confirmation_phrase")}
             <input
               className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-1.5 font-mono text-xs"
               value={typed}
@@ -684,7 +662,7 @@ export function AdminDataResetPage() {
             />
           </label>
           <p className="text-xs text-sam-muted">
-            {ko ? "필요 문구:" : "Required:"}{" "}
+            {t("admin_system_required")}{" "}
             <code className="text-sam-fg">{plan.typedConfirmationPhrase}</code>
           </p>
 
@@ -703,14 +681,14 @@ export function AdminDataResetPage() {
               }
               onClick={() => void runExecute()}
             >
-              {ko ? "초기화 진행" : "Execute"}
+              {t("admin_system_execute")}
             </AdminActionButton>
           </div>
           {scopeExecuteBlocked || !plan.executeAllowed || plan.blockers.length > 0 ? (
             <p className="text-xs text-sam-warning">
               {executeUnavailableMessage(
                 plan,
-                ko,
+                t,
                 scopeExecuteBlocked,
                 (ko ? selectedCapability?.reasonKo : selectedCapability?.reasonEn) ?? ""
               )}

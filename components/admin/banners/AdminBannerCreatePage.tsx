@@ -24,8 +24,8 @@ export function AdminBannerCreatePage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "배너를 등록할까요?" : "Register this banner?",
-      description: ko ? "상태·노출 기간 설정대로 앱에 노출됩니다." : "It is shown in the app per its status and period.",
+      title: t("admin_banners_register_banner"),
+      description: t("admin_banners_shown_app_per_its_status"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;

@@ -7,6 +7,12 @@
  */
 
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdminPaginationItem = number | "ellipsis-start" | "ellipsis-end";
 
@@ -74,7 +80,7 @@ export function adminPaginationRange(page: number, size: number, total: number):
 export function adminPaginationSummary(page: number, size: number, total: number, ko: boolean): string {
   const { start, end } = adminPaginationRange(page, size, total);
   const totalText = formatAdminCount(total);
-  if (end === 0) return ko ? `전체 ${totalText}건` : `${totalText} items`;
+  if (end === 0) return tx(ko, "admin_pagination_items", { totalText: String(totalText) });
   const range = `${formatAdminCount(start)}–${formatAdminCount(end)}`;
-  return ko ? `전체 ${totalText}건 중 ${range}` : `${range} of ${totalText}`;
+  return tx(ko, "admin_pagination_of", { totalText: String(totalText), range: String(range) });
 }

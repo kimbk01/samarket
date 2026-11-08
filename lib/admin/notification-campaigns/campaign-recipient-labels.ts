@@ -2,6 +2,14 @@
  * 받은 사람 창 사유 문구 (Owner 구현 승인 2026-11-02 · 시안 v3) — 서버·화면 공용, 순수 함수.
  * 코드 = `notification_campaign_deliveries.skip_reason` · 실패 상세 = `notification_deliveries.provider_response`.
  */
+
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 const SKIP_LABEL: Record<string, [string, string]> = {
   token_missing: ["등록된 기기 없음", "No registered device"],
   no_active_targets: ["등록된 기기 없음", "No registered device"],
@@ -53,9 +61,9 @@ export function campaignSkipReasonLabel(code: string | null | undefined, ko: boo
 export function pushFailureLabel(providerResponse: unknown, ko: boolean): string {
   const r = providerResponse && typeof providerResponse === "object" ? (providerResponse as Record<string, unknown>) : null;
   const err = String(r?.error ?? r?.reason ?? r?.code ?? "").trim();
-  if (!err) return ko ? "발송 실패" : "Send failed";
+  if (!err) return tx(ko, "admin_notification_campaigns_send_failed");
   if (/NotRegistered|UNREGISTERED|BadDeviceToken|NOT_FOUND/i.test(err)) {
-    return ko ? `${err} — 앱 삭제·토큰 만료 기기` : `${err} — app removed or token expired`;
+    return tx(ko, "admin_notification_campaigns_app_removed_or_token_expired", { err: String(err) });
   }
   return err;
 }

@@ -98,7 +98,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
 
       <div className="flex flex-wrap items-end gap-2">
         <AdminTabs
-          ariaLabel={ko ? "커뮤니티 활동" : "Community activity"}
+          ariaLabel={t("admin_users_community_activity")}
           syncUrl={false}
           value={section}
           onChange={(id) => {

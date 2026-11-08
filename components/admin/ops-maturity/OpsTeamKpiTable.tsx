@@ -75,7 +75,7 @@ export function OpsTeamKpiTable() {
         showPeriod={false}
         showSearch={false}
       >
-        <AdminFilterSelect ko={ko} label={ko ? "기간" : "Period"} name="period" value={periodType} onChange={(v) => lq.setExtra("period", v)}>
+        <AdminFilterSelect ko={ko} label={t("admin_period")} name="period" value={periodType} onChange={(v) => lq.setExtra("period", v)}>
           <option value="weekly">{t("admin_ops_tools_maturity_kpi_weekly")}</option>
           <option value="monthly">{t("admin_ops_tools_maturity_kpi_monthly")}</option>
         </AdminFilterSelect>

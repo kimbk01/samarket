@@ -16,10 +16,7 @@ type SafeT = (key: MessageKey, opts?: { fallbackKo?: string; fallbackEn?: string
 
 export function supportCategoryLabel(safeT: SafeT, categoryId: string | null | undefined): string {
   const def = getSupportCategoryDefinition(String(categoryId ?? "").trim());
-  return safeT((def?.labelKey ?? "support_cat_other") as MessageKey, {
-    fallbackKo: "문의 유형",
-    fallbackEn: "Category",
-  });
+  return safeT((def?.labelKey ?? "support_cat_other") as MessageKey);
 }
 
 /** Null when the case has no issue type (historical / contextual-compat opens). */
@@ -31,10 +28,7 @@ export function supportIssueLabel(
   const id = String(issueId ?? "").trim();
   if (!id) return null;
   const issue = listIssueTypesForCategory(String(categoryId ?? "").trim()).find((i) => i.id === id);
-  return safeT((issue?.labelKey ?? "support_issue_other") as MessageKey, {
-    fallbackKo: "문의 세부 유형",
-    fallbackEn: "Issue type",
-  });
+  return safeT((issue?.labelKey ?? "support_issue_other") as MessageKey);
 }
 
 const REFERENCE_LABEL_KEYS: Record<SupportReferenceType, MessageKey> = {
@@ -62,7 +56,7 @@ const REFERENCE_LABEL_KEYS: Record<SupportReferenceType, MessageKey> = {
 
 export function supportReferenceLabel(safeT: SafeT, referenceType: string | null | undefined): string {
   const key = REFERENCE_LABEL_KEYS[String(referenceType ?? "").trim() as SupportReferenceType];
-  return safeT(key ?? "support_ref_unknown", { fallbackKo: "관련 항목", fallbackEn: "Related item" });
+  return safeT(key ?? "support_ref_unknown");
 }
 
 /** Customer-facing error copy for support API / network error codes. Never returns the code. */

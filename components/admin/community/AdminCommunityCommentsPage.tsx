@@ -479,7 +479,7 @@ export function AdminCommunityCommentsPage() {
   return (
     <AdminManagementSurfaceRoot wave="w3" proofSurface="community-comments">
       <CommunityListShell
-        title="댓글"
+        title={tr("admin_community_comments_page_title")}
         description="게시글에 달린 댓글·답글을 찾아보고 숨김·삭제·복구합니다."
         actions={
           <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
@@ -512,9 +512,9 @@ export function AdminCommunityCommentsPage() {
                   role="header"
                   state={selection.headerState}
                   onToggle={selection.toggleAll}
-                  aria-label="현재 페이지 전체 선택"
+                  aria-label={tr("admin_community_select_page_all")}
                 />
-                현재 페이지 전체 선택
+                {tr("admin_community_select_page_all")}
               </label>
             ) : null}
             {bulkBar}

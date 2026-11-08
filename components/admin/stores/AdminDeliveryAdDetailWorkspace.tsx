@@ -518,10 +518,7 @@ export function AdminDeliveryAdDetailWorkspace({
         ko,
         title: ko ? opsConfirm.titleKo : opsConfirm.titleEn,
         description: [target, ko ? opsConfirm.descKo : opsConfirm.descEn].join("\n"),
-        confirmLabel: safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-          fallbackKo: action,
-          fallbackEn: action,
-        }),
+        confirmLabel: safeT(`admin_delivery_ads_action_${action}` as MessageKey),
         destructive: opsConfirm.destructive,
         splitReason: deliveryOpsSplitsReason(action),
       });
@@ -655,12 +652,12 @@ export function AdminDeliveryAdDetailWorkspace({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("end"),
       ko,
-      title: ko ? "이 광고를 종료할까요?" : "End this ad?",
+      title: t("admin_stores_end_this_ad"),
       description: [
         target,
-        ko ? "광고 노출을 마칩니다. 되돌릴 수 없습니다." : "The ad stops showing. This cannot be undone.",
-        `${ko ? "귀책" : "Responsibility"}: ${deliveryAdEndFaultLabel(endFault, ko)}`,
-        `${ko ? "환급 예정 비즈니스 캐시" : "Business Cash refund"}: ${formatAdminDeliveryAdPriceOrUnset(endPreview.refundAmount, lang)}`,
+        t("admin_stores_ad_stops_showing_this_cannot_be"),
+        `${t("admin_stores_responsibility")}: ${deliveryAdEndFaultLabel(endFault, ko)}`,
+        `${t("admin_stores_business_cash_refund")}: ${formatAdminDeliveryAdPriceOrUnset(endPreview.refundAmount, lang)}`,
       ].join("\n"),
       confirmLabel: safeT("admin_delivery_ads_action_end" as MessageKey),
       destructive: true,
@@ -772,19 +769,15 @@ export function AdminDeliveryAdDetailWorkspace({
     const ko = lang !== "en";
     const amountLabel =
       extendKind === "ADMIN_FREE_COMPENSATION"
-        ? ko
-          ? "0 (보상)"
-          : "0 (compensation)"
+        ? t("admin_stores_0_compensation")
         : `${(quote.amountMinor / 100).toFixed(2)} ${quote.currency}`;
     // AL-06 — 유료·보상 연장 = L2: 확인창에서 사유(필수)를 받아 API 로 보낸다.
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("extend"),
       ko,
-      title: ko ? "광고 기간을 연장할까요?" : "Extend the ad period?",
-      description: ko
-        ? `종료 ${formatAdminManilaDateTime(quote.previousEndAt)} → ${formatAdminManilaDateTime(quote.newEndAt)} (필리핀 시간) · ${quote.daysAdded}일 · 추가 비용 ${amountLabel}`
-        : `End ${formatAdminManilaDateTime(quote.previousEndAt)} → ${formatAdminManilaDateTime(quote.newEndAt)} (PHT) · ${quote.daysAdded} days · Amount ${amountLabel}`,
-      confirmLabel: ko ? "연장 실행" : "Apply extension",
+      title: t("admin_stores_extend_ad_period"),
+      description: t("admin_stores_end_pht_days_amount", { previousEndAt: formatAdminManilaDateTime(quote.previousEndAt), newEndAt: formatAdminManilaDateTime(quote.newEndAt), daysAdded: quote.daysAdded, amountLabel }),
+      confirmLabel: t("admin_stores_apply_extension"),
       splitReason: adsWorkspaceActionSplitsReason("extend_compensation"),
     });
     if (!confirmed.ok) return;
@@ -992,10 +985,7 @@ export function AdminDeliveryAdDetailWorkspace({
               data-admin-delivery-ads-action={action}
               onClick={() => void runAction(action)}
             >
-              {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-                fallbackKo: action === "end" ? "종료" : "보관",
-                fallbackEn: action === "end" ? "End" : "Archive",
-              })}
+              {safeT(`admin_delivery_ads_action_${action}` as MessageKey)}
             </AdminActionButton>
           ))}
           <AdminAdDeleteAction
@@ -1124,10 +1114,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 </>
               ) : null}
               {" · "}
-              {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
-                fallbackKo: campaign.productKind,
-                fallbackEn: campaign.productKind,
-              })}
+              {safeT(adminDeliveryAdProductLabelKey(campaign.productKind))}
             </p>
           ) : null}
         </div>
@@ -1168,12 +1155,7 @@ export function AdminDeliveryAdDetailWorkspace({
                 <p>
                   <span className="text-sam-muted">{translateBy(lang, "admin_operating")}: </span>
                   {safeT(
-                    `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
-                    {
-                      fallbackKo: campaign.lifecycleStatus,
-                      fallbackEn: campaign.lifecycleStatus,
-                    }
-                  )}
+                    `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey)}
                 </p>
                 <Link
                   href="/admin/advertising/operations"
@@ -1202,12 +1184,7 @@ export function AdminDeliveryAdDetailWorkspace({
               </p>
               <p className="mt-1 text-[14px] font-semibold text-sam-fg">
                 {safeT(
-                  `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
-                  {
-                    fallbackKo: campaign.lifecycleStatus,
-                    fallbackEn: campaign.lifecycleStatus,
-                  }
-                )}
+                  `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey)}
               </p>
               <p className="mt-3 text-[12px] font-semibold uppercase tracking-wide opacity-80">
                 {safeT("admin_delivery_ads_rd_section")}
@@ -1253,10 +1230,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       data-admin-delivery-ads-action={action}
                       onClick={() => void runAction(action)}
                     >
-                      {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-                        fallbackKo: action,
-                        fallbackEn: action,
-                      })}
+                      {safeT(`admin_delivery_ads_action_${action}` as MessageKey)}
                     </AdminActionButton>
                     );
                   })}
@@ -1285,10 +1259,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       {safeT("admin_delivery_ads_product_label")}
                     </dt>
                     <dd>
-                      {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
-                        fallbackKo: campaign.productKind,
-                        fallbackEn: campaign.productKind,
-                      })}
+                      {safeT(adminDeliveryAdProductLabelKey(campaign.productKind))}
                     </dd>
                   </div>
                   <div>
@@ -1319,12 +1290,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     </dt>
                     <dd>
                       {safeT(
-                        `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
-                        {
-                          fallbackKo: campaign.lifecycleStatus,
-                          fallbackEn: campaign.lifecycleStatus,
-                        }
-                      )}
+                        `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey)}
                     </dd>
                   </div>
                   <div>
@@ -1525,10 +1491,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       data-admin-delivery-ads-action={action}
                       onClick={() => void runAction(action)}
                     >
-                      {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-                        fallbackKo: action,
-                        fallbackEn: action,
-                      })}
+                      {safeT(`admin_delivery_ads_action_${action}` as MessageKey)}
                     </AdminActionButton>
                   ))}
                 </div>
@@ -1543,10 +1506,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         data-admin-delivery-ads-action={action}
                         onClick={() => void runAction(action)}
                       >
-                        {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-                          fallbackKo: action,
-                          fallbackEn: action,
-                        })}
+                        {safeT(`admin_delivery_ads_action_${action}` as MessageKey)}
                       </AdminActionButton>
                     ))}
                   </div>

@@ -83,8 +83,8 @@ export function AdminBusinessCcTaxonomyEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "업종을 저장할까요?" : "Save category?",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_category"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
     setSaving(true);
@@ -104,7 +104,7 @@ export function AdminBusinessCcTaxonomyEditor({
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
-      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
+      await dibayAlert({ title: t("admin_biz_saved") });
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -189,8 +189,8 @@ export function AdminBusinessCcContactEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "연락처를 저장할까요?" : "Save contact info?",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_contact_info"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
     setSaving(true);
@@ -211,7 +211,7 @@ export function AdminBusinessCcContactEditor({
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
-      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
+      await dibayAlert({ title: t("admin_biz_saved") });
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -299,8 +299,8 @@ export function AdminBusinessCcLocationEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "매장 위치를 저장할까요?" : "Save store location?",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_store_location"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
 
@@ -352,7 +352,7 @@ export function AdminBusinessCcLocationEditor({
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
-      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
+      await dibayAlert({ title: t("admin_biz_saved") });
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -452,8 +452,8 @@ export function AdminBusinessCcFeeOverrideEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "매장 개별 수수료를 저장할까요?" : "Save store fee override?",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_store_fee_override"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
     const feePercent = Number(percent);
@@ -506,7 +506,7 @@ export function AdminBusinessCcFeeOverrideEditor({
           return;
         }
       }
-      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
+      await dibayAlert({ title: t("admin_biz_saved") });
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -520,8 +520,8 @@ export function AdminBusinessCcFeeOverrideEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("disable"),
       ko,
-      title: ko ? "매장 개별 수수료를 해제할까요?" : "Remove store fee override?",
-      confirmLabel: ko ? "해제" : "Remove",
+      title: t("admin_biz_remove_store_fee_override"),
+      confirmLabel: t("admin_biz_remove"),
       destructive: true,
     });
     if (!confirmed.ok) return;
@@ -541,7 +541,7 @@ export function AdminBusinessCcFeeOverrideEditor({
         await reportPatchFailure(j.error);
         return;
       }
-      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
+      await dibayAlert({ title: t("admin_biz_saved") });
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -612,8 +612,8 @@ export function AdminBusinessCcDeliveryOverrideEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "배달 반경·거리 정책을 저장할까요?" : "Save delivery radius and distance policy?",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_delivery_radius_and_distance_policy"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -645,7 +645,7 @@ export function AdminBusinessCcDeliveryOverrideEditor({
         if (code === "status_changed") onSaved();
         return;
       }
-      setResult(ko ? "배달 반경·거리 정책을 저장했습니다." : "Delivery radius and distance policy saved.");
+      setResult(t("admin_biz_delivery_radius_and_distance_policy_saved"));
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -666,9 +666,9 @@ export function AdminBusinessCcDeliveryOverrideEditor({
             disabled={busy}
             onChange={(e) => setMode(e.target.value as DeliveryStoreDistanceMode)}
           >
-            <option value="inherit">{ko ? "전역 정책 따름" : "Follow global policy"}</option>
-            <option value="enabled">{ko ? "허용" : "Allowed"}</option>
-            <option value="disabled">{ko ? "차단" : "Blocked"}</option>
+            <option value="inherit">{t("admin_biz_follow_global_policy")}</option>
+            <option value="enabled">{t("admin_biz_allowed")}</option>
+            <option value="disabled">{t("admin_biz_blocked")}</option>
           </select>
         </label>
         <label className="block space-y-1">
@@ -737,8 +737,8 @@ export function AdminBusinessCcOpsFlagsEditor({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "영업·배달·포장 설정을 저장할까요?" : "Save open, delivery and pickup settings?",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_open_delivery_and_pickup_settings"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
     setSaving(true);
@@ -759,7 +759,7 @@ export function AdminBusinessCcOpsFlagsEditor({
         await dibayAlert({ title: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
-      await dibayAlert({ title: ko ? "저장했습니다." : "Saved." });
+      await dibayAlert({ title: t("admin_biz_saved") });
       onSaved();
     } catch {
       await dibayAlert({ title: adminOperatorErrorMessage("network_error", ko) });
@@ -824,7 +824,7 @@ export function AdminBusinessCcBusinessHoursEditor({
   busy?: boolean;
   onSaved: () => void;
 }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const initial = useMemo(() => {
     const auto = readAutoHoursFormFields(businessHoursJson);
@@ -866,7 +866,7 @@ export function AdminBusinessCcBusinessHoursEditor({
     if (!o || !c || o === c) {
       setResult({
         ok: false,
-        text: ko ? "여는 시간과 닫는 시간을 서로 다르게 입력하세요 (예: 09:00, 22:00)." : "Enter different open and close times (e.g. 09:00, 22:00).",
+        text: t("admin_biz_enter_different_open_and_close_times"),
       });
       return;
     }
@@ -875,18 +875,16 @@ export function AdminBusinessCcBusinessHoursEditor({
     if (breakOn && (!bs || !be || bs === be)) {
       setResult({
         ok: false,
-        text: ko ? "쉬는 시간 시작·종료를 확인하세요." : "Check the break start and end times.",
+        text: t("admin_biz_check_the_break_start_and_end"),
       });
       return;
     }
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "영업시간을 저장할까요?" : "Save business hours?",
-      description: ko
-        ? "저장하면 고객 앱의 영업 표시와 주문 가능 시간에 바로 반영됩니다."
-        : "Customers see the new hours and ordering window immediately.",
-      confirmLabel: ko ? "저장" : "Save",
+      title: t("admin_biz_save_business_hours"),
+      description: t("admin_biz_customers_see_the_new_hours_and"),
+      confirmLabel: t("common_save"),
     });
     if (!confirmed.ok) return;
     const next = coerceBusinessHoursRecord(businessHoursJson);
@@ -915,7 +913,7 @@ export function AdminBusinessCcBusinessHoursEditor({
         setResult({ ok: false, text: adminOperatorErrorMessage(j.error ?? "update_failed", ko) });
         return;
       }
-      setResult({ ok: true, text: ko ? "영업시간을 저장했습니다." : "Business hours saved." });
+      setResult({ ok: true, text: t("admin_biz_business_hours_saved") });
       onSaved();
     } catch {
       setResult({ ok: false, text: adminOperatorErrorMessage("network_error", ko) });
@@ -928,17 +926,15 @@ export function AdminBusinessCcBusinessHoursEditor({
   return (
     <div className="space-y-3" data-admin-business-hours-editor="1">
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "자동 영업시간을 켜면 아래 시간에만 주문을 받습니다. 끄면 사장님의 수동 영업 스위치만 따릅니다."
-          : "With automatic hours on, orders are accepted only within these hours. Off = owner's manual open switch only."}
+        {t("admin_biz_with_automatic_hours_on_orders_are")}
       </p>
       <label className="flex items-center gap-2 sam-text-body">
         <input type="checkbox" checked={enabled} disabled={disabled} onChange={(e) => setEnabled(e.target.checked)} />
-        {ko ? "자동 영업시간 사용" : "Use automatic hours"}
+        {t("admin_biz_use_automatic_hours")}
       </label>
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="block space-y-1">
-          <span className="sam-text-helper text-sam-muted">{ko ? "시간대" : "Time zone"}</span>
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_time_zone")}</span>
           <select className={inputClass} value={tz} disabled={disabled} onChange={(e) => setTz(e.target.value)}>
             {STORE_AUTO_TIMEZONE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -948,26 +944,26 @@ export function AdminBusinessCcBusinessHoursEditor({
           </select>
         </label>
         <label className="block space-y-1">
-          <span className="sam-text-helper text-sam-muted">{ko ? "여는 시간" : "Opens"}</span>
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_opens")}</span>
           <input type="time" className={inputClass} value={open} disabled={disabled} onChange={(e) => setOpen(e.target.value)} />
         </label>
         <label className="block space-y-1">
-          <span className="sam-text-helper text-sam-muted">{ko ? "닫는 시간" : "Closes"}</span>
+          <span className="sam-text-helper text-sam-muted">{t("admin_biz_closes")}</span>
           <input type="time" className={inputClass} value={close} disabled={disabled} onChange={(e) => setClose(e.target.value)} />
         </label>
       </div>
       <label className="flex items-center gap-2 sam-text-body">
         <input type="checkbox" checked={breakOn} disabled={disabled} onChange={(e) => setBreakOn(e.target.checked)} />
-        {ko ? "쉬는 시간 사용" : "Use break time"}
+        {t("admin_biz_use_break_time")}
       </label>
       {breakOn ? (
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="block space-y-1">
-            <span className="sam-text-helper text-sam-muted">{ko ? "쉬는 시간 시작" : "Break starts"}</span>
+            <span className="sam-text-helper text-sam-muted">{t("admin_biz_break_starts")}</span>
             <input type="time" className={inputClass} value={breakStart} disabled={disabled} onChange={(e) => setBreakStart(e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="sam-text-helper text-sam-muted">{ko ? "쉬는 시간 종료" : "Break ends"}</span>
+            <span className="sam-text-helper text-sam-muted">{t("admin_biz_break_ends")}</span>
             <input type="time" className={inputClass} value={breakEnd} disabled={disabled} onChange={(e) => setBreakEnd(e.target.value)} />
           </label>
         </div>
@@ -983,7 +979,7 @@ export function AdminBusinessCcBusinessHoursEditor({
         </p>
       ) : null}
       <AdminActionButton variant="secondary" disabled={disabled} onClick={() => void save()}>
-        {saving ? (ko ? "저장 중…" : "Saving…") : ko ? "저장" : "Save"}
+        {saving ? t("common_saving") : t("common_save")}
       </AdminActionButton>
     </div>
   );

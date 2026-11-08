@@ -188,17 +188,13 @@ export function AdminReportListPage() {
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 sam-text-helper text-sam-fg"
           data-testid="admin-report-ledger-partial"
         >
-          {ko ? "일부 원장 제외됨" : "Some ledgers excluded"} —{" "}
-          {ko
-            ? `열람 권한이 없는 원장은 목록과 건수에서 빠졌습니다: ${permissionExcluded.map((e) => ledgerName(e.source)).join(", ")}`
-            : `Ledgers you cannot view are left out of the list and count: ${permissionExcluded.map((e) => ledgerName(e.source)).join(", ")}`}
+          {t("admin_reports_some_ledgers_excluded")} —{" "}
+          {t("admin_reports_ledgers_you_cannot_view_left", { ledgers: permissionExcluded.map((e) => ledgerName(e.source)).join(", ") })}
         </div>
       ) : null}
       {filterExcluded.length ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
-          {ko
-            ? `사유·대상 조건은 거래·커뮤니티 신고에만 적용됩니다. 제외된 원장: ${filterExcluded.map((e) => ledgerName(e.source)).join(", ")}`
-            : `Reason / target filters apply to trade and community reports only. Excluded: ${filterExcluded.map((e) => ledgerName(e.source)).join(", ")}`}
+          {t("admin_reports_reason_target_filters_apply_trade", { ledgers: filterExcluded.map((e) => ledgerName(e.source)).join(", ") })}
         </div>
       ) : null}
       {showingBothDomains ? (
@@ -304,34 +300,32 @@ export function AdminReportListPage() {
             data-admin-report-cursor-pagination="1"
           >
             <span>
-              {ko
-                ? `전체 ${formatAdminCount(total)}건 중 ${firstRow}–${lastRow}`
-                : `${firstRow}–${lastRow} of ${formatAdminCount(total)}`}
+              {t("admin_reports_of", { firstRow, total: formatAdminCount(total), lastRow })}
             </span>
             <AdminActionButton
               size="sm"
               onClick={goPrev}
               disabled={loading || cursorTrail.length === 0}
             >
-              {ko ? "이전" : "Prev"}
+              {t("admin_reports_prev")}
             </AdminActionButton>
             <AdminActionButton
               size="sm"
               onClick={goNext}
               disabled={loading || !nextCursor}
             >
-              {ko ? "다음" : "Next"}
+              {t("common_next")}
             </AdminActionButton>
             <select
               className="h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sam-fg"
               value={lq.query.size}
               onChange={(e) => lq.setSize(Number(e.target.value) as AdminListPageSize)}
               disabled={loading}
-              aria-label={ko ? "페이지 크기" : "Page size"}
+              aria-label={t("admin_reports_page_size")}
             >
               {ADMIN_LIST_PAGE_SIZES.map((n) => (
                 <option key={n} value={n}>
-                  {ko ? `${n}개씩` : `${n} / page`}
+                  {t("admin_reports_page", { n })}
                 </option>
               ))}
             </select>

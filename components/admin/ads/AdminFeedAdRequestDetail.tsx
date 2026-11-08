@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -83,26 +84,26 @@ function destinationSummary(
 ): { label: string; host?: string } {
   const t = String(r.destinationType || "none").toLowerCase();
   if (t === "none" || !t) {
-    return { label: en ? "No link" : "연결 없음" };
+    return { label: translateBy(en ? "en" : "ko", "admin_ads_no_link") };
   }
   if (t === "external_url") {
     try {
       const host = new URL(r.destinationUrl).hostname;
-      return { label: en ? "External link" : "외부 링크", host };
+      return { label: translateBy(en ? "en" : "ko", "admin_ads_external_link"), host };
     } catch {
-      return { label: en ? "External link" : "외부 링크" };
+      return { label: translateBy(en ? "en" : "ko", "admin_ads_external_link") };
     }
   }
   if (t === "community_post") {
-    return { label: en ? "My post" : "내 게시물" };
+    return { label: translateBy(en ? "en" : "ko", "admin_ads_my_post") };
   }
   if (t === "trade_listing") {
-    return { label: en ? "Trade listing" : "거래 상품" };
+    return { label: translateBy(en ? "en" : "ko", "admin_ads_trade_listing_2") };
   }
   if (t === "store") {
-    return { label: en ? "Store" : "매장" };
+    return { label: translateBy(en ? "en" : "ko", "common_store") };
   }
-  return { label: en ? "Internal link" : "내부 연결" };
+  return { label: translateBy(en ? "en" : "ko", "admin_ads_internal_link") };
 }
 
 export function AdminFeedAdRequestDetail({
@@ -277,9 +278,7 @@ export function AdminFeedAdRequestDetail({
       ko,
       title:
         action === "pause"
-          ? ko
-            ? "광고 노출을 일시중지할까요? 피드에서 곧바로 빠집니다."
-            : "Pause this ad? It leaves the feed shortly."
+          ? t("admin_ads_pause_ad_leaves_feed_shortly")
           : safeT("admin_feed_req_resume_confirm"),
       description: copy.body,
       confirmLabel: copy.confirmLabel,
@@ -357,8 +356,8 @@ export function AdminFeedAdRequestDetail({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("extend"),
       ko,
-      title: ko ? `보상 연장 ${days}일을 적용할까요?` : `Apply a ${days}-day compensation extension?`,
-      confirmLabel: ko ? "연장" : "Extend",
+      title: t("admin_ads_apply_days_day_compensation_extension", { days }),
+      confirmLabel: t("admin_ads_extend"),
       splitReason: true,
     });
     if (!confirmed.ok) return;
@@ -466,17 +465,17 @@ export function AdminFeedAdRequestDetail({
 
   const runtimeAfterDecision = (() => {
     if (productStatus === "active" && data.deliveryDiagnose?.isCurrentPlacementWinner) {
-      return ko ? "현재 노출" : "Live now";
+      return t("admin_ads_live_now");
     }
-    if (productStatus === "scheduled") return ko ? "예약" : "Scheduled";
-    if (productStatus === "active") return ko ? "노출 대기" : "Waiting";
-    if (productStatus === "rejected") return ko ? "비노출" : "Not exposing";
+    if (productStatus === "scheduled") return t("admin_ads_scheduled");
+    if (productStatus === "active") return t("admin_ads_waiting_exposure");
+    if (productStatus === "rejected") return t("admin_ads_not_exposing");
     return statusLabel;
   })();
 
   /** AL-14: 버튼 권한 = 서버 PATCH 와 같은 ads 키 — 권한이 없으면 사유 창 전에 버튼이 꺼진다 */
   const writeDenied = !writeGuard.loading && !writeGuard.allowed;
-  const writeDeniedTitle = writeDenied ? writeGuard.reason ?? (ko ? "이 작업을 할 권한이 없습니다." : "No permission.") : undefined;
+  const writeDeniedTitle = writeDenied ? writeGuard.reason ?? (t("admin_ads_no_permission")) : undefined;
   const endPreviewReady =
     endFault != null && endPreview != null && !("error" in endPreview) && endPreview.fault === endFault;
 
@@ -499,9 +498,7 @@ export function AdminFeedAdRequestDetail({
             disabled={busy || pendingReview != null || approveBlocked || writeDenied}
             title={
               approveBlocked
-                ? ko
-                  ? "광고 이미지를 확인할 수 없어 승인할 수 없습니다"
-                  : "Cannot approve without a viewable creative"
+                ? t("admin_ads_cannot_approve_without_viewable_creative")
                 : writeDeniedTitle
             }
             onClick={() => void requestReview("approve")}
@@ -577,10 +574,10 @@ export function AdminFeedAdRequestDetail({
             disabled={busy || !extendDaysValid}
             onClick={() => void submitExtendCompensation()}
           >
-            {ko ? "연장" : "Extend"}
+            {t("admin_ads_extend")}
           </AdminActionButton>
           <AdminActionButton variant="quiet" disabled={busy} onClick={() => setExtendOpen(false)}>
-            {ko ? "취소" : "Cancel"}
+            {t("common_cancel")}
           </AdminActionButton>
         </div>
       ) : null}
@@ -589,12 +586,12 @@ export function AdminFeedAdRequestDetail({
           className="w-full space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]"
           data-admin-feed-end-form="1"
         >
-          <p className="font-semibold">{ko ? "귀책 (필수)" : "Fault (required)"}</p>
+          <p className="font-semibold">{t("admin_ads_fault_required")}</p>
           {(
             [
-              ["operator", ko ? "운영 사유 — 남은 노출 기간만큼 포인트 비례 환급" : "Operator — prorated refund"],
-              ["member", ko ? "회원 사유 — 환급 없음" : "Member — no refund"],
-              ["none", ko ? "해당 없음 — 환급 없음" : "None — no refund"],
+              ["operator", t("admin_ads_operator_prorated_refund")],
+              ["member", t("admin_ads_member_no_refund")],
+              ["none", t("admin_ads_none_no_refund")],
             ] as const
           ).map(([value, label]) => (
             <label key={value} className="flex items-start gap-2">
@@ -610,11 +607,11 @@ export function AdminFeedAdRequestDetail({
             </label>
           ))}
           {endFault && !endPreview ? (
-            <p className="text-sam-muted">{ko ? "환급 예정 포인트를 계산하는 중…" : "Calculating refund…"}</p>
+            <p className="text-sam-muted">{t("admin_ads_calculating_refund_2")}</p>
           ) : null}
           {endPreviewReady && endPreview && !("error" in endPreview) ? (
             <p className="font-semibold" data-admin-feed-end-preview="1">
-              {ko ? "환급 예정" : "Refund"} {formatAdminNumber(endPreview.refundPoints)} P
+              {t("admin_ads_refund")} {formatAdminNumber(endPreview.refundPoints)} P
             </p>
           ) : null}
           {endPreview && "error" in endPreview ? (
@@ -627,16 +624,16 @@ export function AdminFeedAdRequestDetail({
               disabled={busy || !endPreviewReady}
               onClick={() => void submitEnd()}
             >
-              {ko ? "종료 진행" : "Continue"}
+              {t("admin_ads_continue")}
             </AdminActionButton>
             <AdminActionButton variant="quiet" disabled={busy} onClick={() => setEndOpen(false)}>
-              {ko ? "취소" : "Cancel"}
+              {t("common_cancel")}
             </AdminActionButton>
           </div>
         </div>
       ) : null}
       <AdminActionButton variant="secondary" onClick={close}>
-        {en ? "Close" : "닫기"}
+        {t("common_close")}
       </AdminActionButton>
     </div>
   );
@@ -659,27 +656,23 @@ export function AdminFeedAdRequestDetail({
         >
           <p className="sam-text-body font-semibold text-sam-fg">
             {successKind === "approve"
-              ? ko
-                ? "광고가 승인되었습니다."
-                : "Ad approved."
-              : ko
-                ? "광고가 반려되었습니다."
-                : "Ad rejected."}
+              ? t("admin_ads_ad_approved")
+              : t("admin_ads_ad_rejected")}
           </p>
           {successKind === "approve" ? (
             <>
-              <p className="sam-text-helper font-semibold text-sam-fg">{ko ? "승인 완료" : "Approved"}</p>
+              <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_ads_approved_2")}</p>
               <dl className="grid gap-1 text-[13px]">
                 <div>
-                  <dt className="text-sam-muted">{ko ? "노출 위치" : "Placement"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_label_placement")}</dt>
                   <dd>{placementLabel}</dd>
                 </div>
                 <div>
-                  <dt className="text-sam-muted">{ko ? "운영 상태" : "Operating status"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_operating_status")}</dt>
                   <dd>{statusLabel}</dd>
                 </div>
                 <div>
-                  <dt className="text-sam-muted">{ko ? "실제 노출 상태" : "Runtime"}</dt>
+                  <dt className="text-sam-muted">{t("admin_ads_runtime")}</dt>
                   <dd>{runtimeAfterDecision}</dd>
                 </div>
               </dl>
@@ -689,7 +682,7 @@ export function AdminFeedAdRequestDetail({
                   className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
                   data-admin-feed-ops-link="1"
                 >
-                  {ko ? "노출 관리에서 보기" : "View in operations"}
+                  {t("admin_ads_view_operations")}
                 </Link>
                 {openHref ? (
                   <a
@@ -698,7 +691,7 @@ export function AdminFeedAdRequestDetail({
                     rel="noreferrer"
                     className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
                   >
-                    {ko ? "미리보기" : "Preview"}
+                    {t("admin_ads_preview")}
                   </a>
                 ) : null}
               </div>
@@ -717,7 +710,7 @@ export function AdminFeedAdRequestDetail({
 
       <section className="mb-4 space-y-2" data-admin-feed-review-preview="1">
         <h3 className="sam-text-body font-semibold">
-          {ko ? "광고 미리보기" : "Ad preview"}
+          {t("admin_ads_ad_preview")}
         </h3>
         <p className="sam-text-helper text-sam-muted">
           {safeT("admin_feed_req_pixel")}
@@ -736,7 +729,7 @@ export function AdminFeedAdRequestDetail({
             data-admin-feed-creative-missing="1"
             role="alert"
           >
-            {ko ? "광고 이미지를 확인할 수 없습니다." : "Ad creative cannot be displayed."}
+            {t("admin_ads_ad_creative_cannot_displayed")}
           </p>
         )}
         {/* Hidden probe for broken URL when preview component does not surface onError */}
@@ -778,26 +771,26 @@ export function AdminFeedAdRequestDetail({
       <section className="mb-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3">
         <dl className="grid gap-2 text-[13px]">
           <div>
-            <dt className="text-sam-muted">{ko ? "신청자" : "Applicant"}</dt>
+            <dt className="text-sam-muted">{t("admin_ads_label_applicant")}</dt>
             <dd>{r.memberLabel || formatAdminShortIdEllipsis(r.userId)}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{ko ? "회원/매장" : "Member"}</dt>
-            <dd>{ko ? `회원 ${formatAdminShortId(r.userId)}` : `Member ${formatAdminShortId(r.userId)}`}</dd>
+            <dt className="text-sam-muted">{t("admin_ads_member")}</dt>
+            <dd>{t("admin_ads_member_user_id", { userId: String(formatAdminShortId(r.userId)) })}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
+            <dt className="text-sam-muted">{t("admin_ads_payment")}</dt>
             <dd>
               {formatAdminNumber(r.pointCost)}P · {r.durationDays}
-              {ko ? "일" : "d"}
+              {t("admin_ads_d")}
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{ko ? "요청 노출 위치" : "Requested placement"}</dt>
+            <dt className="text-sam-muted">{t("admin_ads_requested_placement")}</dt>
             <dd>{placementLabel}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{ko ? "신청 기간" : "Period"}</dt>
+            <dt className="text-sam-muted">{t("admin_ads_period")}</dt>
             <dd>
               {data.campaign?.startAt || data.campaign?.endAt
                 ? `${data.campaign?.startAt?.slice(0, 10) ?? "?"} → ${data.campaign?.endAt?.slice(0, 10) ?? "?"}`
@@ -806,18 +799,18 @@ export function AdminFeedAdRequestDetail({
           </div>
           {data.campaign ? (
             <div>
-              <dt className="text-sam-muted">{ko ? "노출 · 클릭" : "Views · clicks"}</dt>
+              <dt className="text-sam-muted">{t("admin_ads_views_clicks")}</dt>
               <dd className="tabular-nums" data-feed-ad-request-counts="1">
                 {formatAdminNumber(data.campaign.impressionCount ?? 0)} · {formatAdminNumber(data.campaign.clickCount ?? 0)}
               </dd>
             </div>
           ) : null}
           <div>
-            <dt className="text-sam-muted">{ko ? "신청일" : "Requested at"}</dt>
+            <dt className="text-sam-muted">{t("admin_ads_requested_at")}</dt>
             <dd>{formatAdminManilaDateTime(r.createdAt)}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">{ko ? "연결" : "Destination"}</dt>
+            <dt className="text-sam-muted">{t("admin_ads_destination_2")}</dt>
             <dd>
               {dest.label}
               {dest.host ? ` · ${dest.host}` : ""}
@@ -831,12 +824,12 @@ export function AdminFeedAdRequestDetail({
             rel="noreferrer"
             className="sam-text-helper text-sam-primary underline"
           >
-            {en ? "Open link" : "연결 확인"}
+            {t("admin_ads_open_link")}
           </a>
         ) : null}
         {r.reviewReason && productStatus === "rejected" ? (
           <p className="sam-text-helper text-sam-warning">
-            {en ? "Reason" : "사유"}: {r.reviewReason}
+            {t("admin_ads_reason")}: {r.reviewReason}
           </p>
         ) : null}
         <AdminTechInfo

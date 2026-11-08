@@ -19,6 +19,12 @@ import { isBenefitDialogEligibleForEventSections } from "@/lib/platform-popup/ev
 import { isPlatformEventPubliclyAvailable } from "@/lib/platform-events/publication";
 import { translateBy } from "@/lib/i18n/translate-by";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type OwnershipLabelLang = "ko" | "en";
 
@@ -179,25 +185,15 @@ export function popupFrequencyOperatorDescription(
   const en = lang === "en";
   switch (s) {
     case "once_per_session":
-      return en
-        ? "Once closed or tapped, it does not show again during this app launch."
-        : "닫거나 버튼을 누르면 이번 앱 실행 동안 다시 나오지 않습니다.";
+      return tx(!en, "admin_promotion_dismiss_session");
     case "once_per_day":
-      return en
-        ? "Once closed or tapped, it does not show again until the end of that day in the campaign time zone (not 24 hours)."
-        : "닫거나 버튼을 누르면 캠페인 시간대 기준 그날 끝까지 다시 나오지 않습니다(24시간이 아님).";
+      return tx(!en, "admin_promotion_dismiss_day");
     case "once_campaign":
-      return en
-        ? "Once closed or tapped, it does not show again until this version (image · destination) changes."
-        : "닫거나 버튼을 누르면 이 판(이미지·목적지)이 바뀌기 전까지 다시 나오지 않습니다.";
+      return tx(!en, "admin_promotion_dismiss_version");
     case "close_only":
       return kind === "ptr"
-        ? en
-          ? "No record is kept. Once closed, it stays hidden only while you are on this screen; it shows again on another screen."
-          : "기록을 남기지 않습니다. 닫으면 지금 화면에 있는 동안만 안 나오고, 다른 화면으로 가면 다시 나옵니다."
-        : en
-          ? "No record is kept on the server. Once closed or tapped, it does not show again only during this app launch."
-          : "서버에 기록을 남기지 않습니다. 닫거나 버튼을 누르면 이번 앱 실행 동안만 다시 나오지 않습니다.";
+        ? tx(!en, "admin_promotion_no_record_screen")
+        : tx(!en, "admin_promotion_no_record_session");
     default:
       return "";
   }

@@ -33,6 +33,7 @@ import { ownerCashTopUpMethodLabel } from "@/lib/business/owner-form-request-key
 import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminRequestPeriodSummaryLine";
 import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
 import { formatCashPhp2 } from "@/lib/currency/currency-display-contract";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** API `status` 값 (business_cash_charge_requests.status CHECK) — 「전체」 = API `all`. */
 const CASH_CHARGE_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
@@ -64,7 +65,7 @@ type ChargeRequest = {
 function cashDecidedReasonLabel(code: string | null | undefined, ko: boolean): string | null {
   const c = String(code ?? "").trim();
   if (!c) return null;
-  if (c === "apple_iap_verified") return ko ? "Apple 결제 자동 확인" : "Apple payment auto-verified";
+  if (c === "apple_iap_verified") return translateBy(ko ? "ko" : "en", "admin_stores_apple_payment_auto_verified");
   return c;
 }
 
@@ -302,37 +303,25 @@ export function AdminDeliveryAdCashChargeQueuePage() {
     const when = row?.created_at ? formatAdminManilaDateTime(String(row.created_at)) : "";
     const evidence = row?.payment_reference
       ? ` · ${row.payment_method ? `${ownerCashTopUpMethodLabel(row.payment_method, ko)} ` : ""}${row.payment_reference}`
-      : ko
-        ? " · 입금 참조번호 없음"
-        : " · No deposit reference";
+      : t("admin_stores_no_deposit_reference");
     const amountLine = row ? `${formatDeliveryAdPhpMinor(row.amount_minor)} · ${when}${evidence}` : "";
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(op === "approve" ? "moneyApprove" : "reject"),
       ko,
       title:
         op === "approve"
-          ? ko
-            ? "이 충전 건을 Cash로 적립하시겠습니까?"
-            : "Credit Cash for this top-up?"
-          : ko
-            ? "이 Cash 충전 신청을 반려하시겠습니까?"
-            : "Reject this Cash top-up?",
+          ? t("admin_stores_credit_cash_for_this_top_up")
+          : t("admin_stores_reject_this_cash_top_up"),
       description:
         op === "reject"
-          ? ko
-            ? `${amountLine} — 반려 사유는 매장 사장님에게 전달되고 작업 기록에 남습니다. 캐시 잔액은 바뀌지 않습니다.`
-            : `${amountLine} — The reason is sent to the store owner and kept in the activity log. Cash balance does not change.`
+          ? t("admin_stores_reason_is_sent_to_store_owner", { amountLine })
           : amountLine || undefined,
-      confirmLabel: op === "approve" ? (ko ? "적립" : "Credit") : ko ? "반려" : "Reject",
+      confirmLabel: op === "approve" ? t("admin_stores_credit") : t("admin_stores_action_reject_store"),
       destructive: op === "reject",
       reasonPlaceholder:
         op === "reject"
-          ? ko
-            ? "예: 입금 내역이 확인되지 않음"
-            : "e.g. Payment not found"
-          : ko
-            ? "예: 입금 내역 확인 완료"
-            : "e.g. Payment confirmed",
+          ? t("admin_stores_e_g_payment_not_found")
+          : t("admin_stores_e_g_payment_confirmed"),
     });
     if (!confirmed.ok) return;
     const reason = confirmed.reason ?? "";
@@ -350,7 +339,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <div className="flex flex-wrap items-center gap-2">
             <CurrencyBadge currency="cash" />
             <h1 className="text-[20px] font-bold text-sam-fg">
-              {ko ? "매장 캐시 충전 승인" : "Cash top-up approval"}
+              {t("admin_stores_cash_top_up_approval")}
             </h1>
           </div>
           <p className="mt-1 text-[13px] text-sam-muted">
@@ -362,13 +351,13 @@ export function AdminDeliveryAdCashChargeQueuePage() {
               data-admin-cash-charge-store-filter-chip="1"
             >
               <span className="truncate" title={storeFilter}>
-                {ko ? "매장 필터" : "Store filter"}: {storeFilterLabel}
+                {t("admin_stores_store_filter")}: {storeFilterLabel}
               </span>
               <AdminActionButton variant="quiet" size="sm" className="shrink-0"
                 onClick={clearStoreFilter}
-                aria-label={ko ? "매장 필터 해제" : "Clear store filter"}
+                aria-label={t("admin_stores_clear_store_filter")}
               >
-                {ko ? "해제" : "Clear"}
+                {t("admin_stores_clear")}
               </AdminActionButton>
             </span>
           ) : null}
@@ -377,7 +366,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           href="/admin/finance"
           className="min-h-[36px] shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
         >
-          {ko ? "재무 홈" : "Finance home"}
+          {t("admin_stores_finance_home")}
         </Link>
       </div>
 
@@ -429,7 +418,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         }}
       >
         <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
-          {ko ? "매장 ID" : "Store ID"}
+          {t("admin_stores_store_id")}
           <input
             className="h-10 min-w-[16rem] rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
             value={storeIdDraft}
@@ -477,13 +466,13 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           <table className="w-full min-w-[56rem] text-left text-[13px]" data-admin-cash-charge-table="1">
             <thead className="border-b border-sam-border text-[12px] text-sam-muted">
               <tr>
-                <th className="px-2 py-2 font-medium">{ko ? "신청 시각 (PHT)" : "Requested (PHT)"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "매장" : "Store"}</th>
-                <th className="px-2 py-2 text-right font-medium">{ko ? "금액" : "Amount"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "입금 확인" : "Deposit"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "처리 시각 (PHT)" : "Processed (PHT)"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "처리" : "Actions"}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_stores_requested_pht")}</th>
+                <th className="px-2 py-2 font-medium">{t("common_store")}</th>
+                <th className="px-2 py-2 text-right font-medium">{t("admin_stores_orders_th_amount")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_stores_deposit")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_stores_home_shelves_col_status")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_stores_processed_pht")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_stores_actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border">
@@ -495,13 +484,13 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                 <td className="px-2 py-3">
                   <p className="text-sam-fg">
                     {r.store_name?.trim() ||
-                      (ko ? "매장 이름 없음 · 기술 정보 참고" : "Unnamed store · see technical details")}
+                      t("admin_stores_unnamed_store_see_technical_details")}
                   </p>
                   <Link
                     href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
                     className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
                   >
-                    {ko ? "매장 재무" : "Store finance"}
+                    {t("admin_stores_store_finance")}
                   </Link>
                   {/* 광고 원장 §2 반대 방향 (2026-11-07): 충전 대기열 → 이 광고주(매장)의 광고 */}
                   <Link href={`/admin/advertising?advertiser=${encodeURIComponent(r.store_id)}`} className="mt-1 ml-2 inline-block text-[12px] font-semibold text-sam-primary hover:underline" data-admin-cash-charge-advertiser-ads="1">{t("ads_ledger_sc_ads_of_advertiser")}</Link>
@@ -544,23 +533,17 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                   ) : r.payment_reference
                     ? `${r.payment_method ? `${ownerCashTopUpMethodLabel(r.payment_method, ko)} · ` : ""}${r.payment_reference}`
                     : r.status === "PENDING"
-                      ? ko
-                        ? "참조번호 없음 — 적립 불가"
-                        : "No reference — cannot credit"
+                      ? t("admin_stores_no_reference_cannot_credit")
                       : r.status === "APPROVED"
-                        ? ko
-                          ? "참조번호 없음 — 근거 없이 적립됨 (확인 필요)"
-                          : "No reference — credited without evidence (review)"
-                        : ko
-                          ? "참조번호 없음"
-                          : "No reference"}
+                        ? t("admin_stores_no_reference_credited_without_evidence_review")
+                        : t("admin_stores_no_reference")}
                 </td>
                 <td className="px-2 py-3">
                   <AdminStatusLabel code={r.status} ko={ko} />
                   {/* R6-g — 반려 사유는 목록 줄에 바로 (접힌 기술 정보 안에 숨기지 않음) */}
                   {r.status === "REJECTED" ? (
                     <p className="mt-1 max-w-[16rem] break-words text-[12px] text-sam-fg" data-admin-cash-charge-reject-reason="1">
-                      {ko ? "반려 사유" : "Reject reason"}: {r.reject_reason?.trim() || r.decided_reason?.trim() || "—"}
+                      {t("admin_stores_reject_reason")}: {r.reject_reason?.trim() || r.decided_reason?.trim() || "—"}
                     </p>
                   ) : null}
                 </td>
@@ -568,7 +551,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                   {r.decided_at ? formatAdminManilaDateTime(String(r.decided_at)) : "—"}
                   {r.decided_at ? (
                     <span className="block text-[12px]" data-admin-cash-charge-processor="1">
-                      {r.admin_name ?? (ko ? "처리자 기록 없음" : "No processor recorded")}
+                      {r.admin_name ?? t("admin_stores_no_processor_recorded")}
                     </span>
                   ) : null}
                   {r.status === "APPROVED" && cashDecidedReasonLabel(r.decided_reason, ko) ? (

@@ -56,10 +56,7 @@ function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
   const statusMeta = supportCaseStatusLabelMeta(c.status);
   const statusLabel = safeT(statusMeta.key);
   const categoryDef = getSupportCategoryDefinition(c.category);
-  const categoryLabel = safeT((categoryDef?.labelKey ?? "support_cat_other") as MessageKey, {
-    fallbackKo: "문의",
-    fallbackEn: "Inquiry",
-  });
+  const categoryLabel = safeT((categoryDef?.labelKey ?? "support_cat_other") as MessageKey);
   const unread = Number(c.requester_unread_count) || 0;
   return (
     <li>

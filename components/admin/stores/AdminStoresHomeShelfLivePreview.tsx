@@ -37,7 +37,7 @@ export function AdminStoresHomeShelfLivePreview({
   preview: AdminHomeShelfDraftPreview | null;
   onReload: () => void;
 }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language === "ko";
   const shelf = preview?.shelves.find((s) => s.shelfId === shelfId) ?? null;
 
@@ -71,17 +71,17 @@ export function AdminStoresHomeShelfLivePreview({
   } else if (!shelf.enabled) {
     body = (
       <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-6 text-center text-[12px] text-sam-muted">
-        {ko ? "선반 OFF — 고객 HOME에 이 선반이 노출되지 않습니다." : "Shelf OFF — not shown on customer HOME."}
+        {t("admin_stores_shelf_off_not_shown_on_customer")}
       </p>
     );
   } else if (!shelf.customerVisible) {
     body = (
       <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-6 text-center text-[12px] text-sam-muted">
-        {ko ? "노출 기간 밖 — 지금 고객 HOME에 노출되지 않습니다." : "Outside schedule — not shown on customer HOME now."}
+        {t("admin_stores_outside_schedule_not_shown_on_customer")}
       </p>
     );
   } else if (feed.status === "loading") {
-    body = <p className="px-2 py-6 text-center text-[12px] text-sam-muted">{ko ? "실데이터 로딩…" : "Loading live data…"}</p>;
+    body = <p className="px-2 py-6 text-center text-[12px] text-sam-muted">{t("admin_stores_loading_live_data")}</p>;
   } else if (feed.status === "error") {
     body = <p className="px-2 py-6 text-center text-[12px] text-sam-danger">{feed.message}</p>;
   } else if (preview && shelf.composerSlot) {
@@ -109,16 +109,14 @@ export function AdminStoresHomeShelfLivePreview({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-sam-success">
-          {ko ? "실데이터 미리보기 · 고객 HOME 과 같은 화면" : "Live preview · same as customer HOME"}
+          {t("admin_stores_live_preview_same_as_customer_home")}
         </p>
         <AdminActionButton variant="ghost" size="sm" onClick={onReload}>
           {adminCta("refresh", ko)}
         </AdminActionButton>
       </div>
       <p className="mb-2 text-[12px] text-sam-muted">
-        {ko
-          ? "관리자 본인 위치 기준 홈 피드 · 저장 전 초안 반영"
-          : "Home feed for the admin's own location · unsaved draft applied"}
+        {t("admin_stores_home_feed_for_admin_s_own")}
       </p>
       {body}
     </div>

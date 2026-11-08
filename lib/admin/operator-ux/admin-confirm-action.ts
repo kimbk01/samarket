@@ -17,6 +17,12 @@ import {
 } from "@/lib/admin/operator-ux/admin-action-levels";
 
 import { ADMIN_PUBLIC_REASON_MAX_LENGTH, ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/operator-ux/admin-reason";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export { ADMIN_REASON_MIN_LENGTH };
 
@@ -64,7 +70,7 @@ export async function confirmAdminAction(
   const plan = resolveAdminConfirmPlan(rawInput);
   const input = { ...rawInput, level: plan.level, retypeValue: plan.retypeValue };
   const split = Boolean(input.splitReason) && input.level !== "L1";
-  const cancelLabel = input.ko ? "취소" : "Cancel";
+  const cancelLabel = tx(input.ko, "common_cancel");
   const hosted = openAdminConfirmHost({
     title: input.title,
     description: [
@@ -72,12 +78,8 @@ export async function confirmAdminAction(
       input.level === "L1"
         ? null
         : split
-          ? input.ko
-            ? `공개 사유는 회원·사장님에게 보입니다 (${ADMIN_REASON_MIN_LENGTH}~${ADMIN_PUBLIC_REASON_MAX_LENGTH}자). 내부 메모는 운영자만 봅니다. 둘 다 작업 기록에 남습니다.`
-            : `The public reason is shown to the member/owner (${ADMIN_REASON_MIN_LENGTH}-${ADMIN_PUBLIC_REASON_MAX_LENGTH} chars). The internal memo is for operators only. Both are recorded.`
-        : input.ko
-          ? `처리 사유를 입력하세요 (${ADMIN_REASON_MIN_LENGTH}자 이상). 작업 기록에 남습니다.`
-          : `Enter a reason (${ADMIN_REASON_MIN_LENGTH}+ characters). It is recorded in the activity log.`,
+          ? tx(input.ko, "admin_operator_ux_the_public_reason_is_shown_to", { min: String(ADMIN_REASON_MIN_LENGTH), max: String(ADMIN_PUBLIC_REASON_MAX_LENGTH) })
+        : tx(input.ko, "admin_operator_ux_enter_a_reason_characters_it_is", { min: String(ADMIN_REASON_MIN_LENGTH) }),
     ]
       .filter(Boolean)
       .join("\n"),
@@ -87,19 +89,13 @@ export async function confirmAdminAction(
     reasonRequired: input.level !== "L1",
     reasonMinLength: ADMIN_REASON_MIN_LENGTH,
     reasonLabel: split
-      ? input.ko
-        ? `공개 사유 (회원·사장님에게 보임 · ${ADMIN_PUBLIC_REASON_MAX_LENGTH}자)`
-        : `Public reason (shown to member/owner · ${ADMIN_PUBLIC_REASON_MAX_LENGTH} chars)`
-      : input.ko
-        ? "처리 사유"
-        : "Reason",
-    reasonPlaceholder: input.reasonPlaceholder ?? (input.ko ? "처리 사유" : "Reason"),
+      ? tx(input.ko, "admin_operator_ux_public_reason_shown_to_member_owner", { max: String(ADMIN_PUBLIC_REASON_MAX_LENGTH) })
+      : tx(input.ko, "admin_operator_ux_reason"),
+    reasonPlaceholder: input.reasonPlaceholder ?? tx(input.ko, "admin_operator_ux_reason"),
     confirmMatchText: input.level === "L3" && input.retypeValue ? input.retypeValue : undefined,
     confirmMatchLabel:
       input.level === "L3" && input.retypeValue
-        ? input.ko
-          ? `계속하려면 「${input.retypeValue}」을(를) 그대로 입력하세요`
-          : `Type "${input.retypeValue}" to continue`
+        ? tx(input.ko, "admin_operator_ux_type_to_continue", { retypeValue: String(input.retypeValue) })
         : undefined,
     ...(split ? { splitReason: true } : {}),
   });
@@ -132,32 +128,26 @@ export async function confirmAdminAction(
     title: input.title,
     description: [
       input.description,
-      input.ko
-        ? "처리 사유를 입력하세요 (2자 이상). 작업 기록에 남습니다."
-        : "Enter a reason (2+ characters). It is recorded in the activity log.",
+      tx(input.ko, "admin_operator_ux_enter_a_reason_2_characters_it"),
     ]
       .filter(Boolean)
       .join("\n"),
-    placeholder: input.reasonPlaceholder ?? (input.ko ? "처리 사유" : "Reason"),
+    placeholder: input.reasonPlaceholder ?? tx(input.ko, "admin_operator_ux_reason"),
     confirmLabel: input.confirmLabel,
     cancelLabel,
     confirmTone,
     required: true,
     // 2자 미만이면 확인 버튼을 막고 안내한다 (예전: 확인 후 아무 안내 없이 취소되던 결함).
     minLength: ADMIN_REASON_MIN_LENGTH,
-    invalidHint: input.ko
-      ? `사유를 ${ADMIN_REASON_MIN_LENGTH}자 이상 입력하세요.`
-      : `Enter at least ${ADMIN_REASON_MIN_LENGTH} characters.`,
+    invalidHint: tx(input.ko, "admin_operator_ux_enter_at_least_characters", { min: String(ADMIN_REASON_MIN_LENGTH) }),
   });
   if (raw === null) return { ok: false };
   const reason = raw.trim();
   if (reason.length < ADMIN_REASON_MIN_LENGTH) return { ok: false };
   if (input.level === "L3" && input.retypeValue) {
     const typed = await dibayPrompt({
-      title: input.ko ? "한 번 더 확인합니다" : "Confirm once more",
-      description: input.ko
-        ? `계속하려면 「${input.retypeValue}」을(를) 그대로 입력하세요.`
-        : `Type "${input.retypeValue}" to continue.`,
+      title: tx(input.ko, "admin_operator_ux_confirm_once_more"),
+      description: tx(input.ko, "admin_operator_ux_type_to_continue_sentence", { retypeValue: String(input.retypeValue) }),
       placeholder: input.retypeValue,
       confirmLabel: input.confirmLabel,
       cancelLabel,
@@ -165,7 +155,7 @@ export async function confirmAdminAction(
       required: true,
       // 일치할 때만 확인 가능 (예전: 불일치 시 안내 없이 취소되던 결함).
       mustEqual: input.retypeValue,
-      invalidHint: input.ko ? "입력값이 일치해야 진행됩니다." : "The value must match to continue.",
+      invalidHint: tx(input.ko, "admin_operator_ux_the_value_must_match_to_continue"),
     });
     if (typed === null || typed.trim() !== input.retypeValue.trim()) return { ok: false };
   }

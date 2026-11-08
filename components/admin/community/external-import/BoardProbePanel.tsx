@@ -3,6 +3,7 @@
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useState } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import type { BoardProbe } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, SourceEngine } from "@/lib/community-operator-import/types";
@@ -26,6 +27,7 @@ type Target = { baseUrl: string; engine: SourceEngine; adapterConfig: AdapterCon
 
 /** Read-only: real list of one board + full extraction of the chosen article, next to a link to the original. */
 export function BoardProbePanel({ target, onClose }: { target: Target; onClose: () => void }) {
+  const { t } = useI18n();
   const [probe, setProbe] = useState<BoardProbe | null>(null);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -59,10 +61,10 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-sam-border">
-        <span className="text-xs font-semibold">샘플 보기 · {target.displayName}</span>
-        <span className="text-[12px] text-sam-muted">저장하지 않는 읽기 전용 확인입니다.</span>
+        <span className="text-xs font-semibold">{t("admin_community_import_probe_title", { name: target.displayName })}</span>
+        <span className="text-[12px] text-sam-muted">{t("admin_community_import_probe_readonly")}</span>
         <AdminActionButton variant="neutral" className="ml-auto" onClick={onClose}>
-          닫기
+          {t("admin_community_import_close")}
         </AdminActionButton>
       </div>
       {error ? (
@@ -75,7 +77,11 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
           <AdminLoadingState ko />
         </div>
       ) : null}
-      {probe?.listError ? <p className="p-3 text-xs text-sam-danger break-words">목록 수집 실패: {probe.listError}</p> : null}
+      {probe?.listError ? (
+        <p className="p-3 text-xs text-sam-danger break-words">
+          {t("admin_community_import_probe_list_failed", { error: probe.listError })}
+        </p>
+      ) : null}
       <div className="grid gap-3 p-3 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
         <ul className="max-h-[520px] overflow-auto border border-sam-border rounded-ui-rect">
           {(probe?.rows ?? []).map((r, i) => (
@@ -90,7 +96,9 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-12 h-9 object-cover rounded bg-sam-app shrink-0" />
                 ) : (
-                  <span className="w-12 h-9 rounded bg-sam-app shrink-0 text-[12px] text-sam-muted flex items-center justify-center">없음</span>
+                  <span className="w-12 h-9 rounded bg-sam-app shrink-0 text-[12px] text-sam-muted flex items-center justify-center">
+                    {t("admin_community_import_none")}
+                  </span>
                 )}
                 <span className="min-w-0">
                   <span className="block text-[12px] line-clamp-2 break-words">{r.title}</span>
@@ -102,21 +110,32 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
         </ul>
         <div className="min-w-0 space-y-2">
           {loading && probe ? <AdminLoadingState ko label="원문 추출 중…" /> : null}
-          {probe?.detailError ? <p className="text-xs text-sam-danger break-words">본문 수집 실패: {probe.detailError}</p> : null}
+          {probe?.detailError ? (
+            <p className="text-xs text-sam-danger break-words">
+              {t("admin_community_import_probe_detail_failed", { error: probe.detailError })}
+            </p>
+          ) : null}
           {a ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
                 {probe?.quality ? <VerdictBadge v={probe.quality.verdict} /> : null}
-                <span>본문 {formatAdminNumber(chars)}자 · 이미지 {imgs}{ex ? ` / 원본 ${ex.sourceImageCount}` : ""}</span>
-                <span>추출: {ex?.bodySource ?? "-"}</span>
+                <span>
+                  {t("admin_community_import_probe_body_stats", { chars: formatAdminNumber(chars), images: imgs })}
+                  {ex ? t("admin_community_import_probe_source_images", { n: ex.sourceImageCount }) : ""}
+                </span>
+                <span>{t("admin_community_import_probe_extraction", { source: ex?.bodySource ?? "-" })}</span>
                 <a className="underline" href={a.canonicalUrl} target="_blank" rel="noreferrer noopener">
-                  원문 열기
+                  {t("admin_community_import_open_original")}
                 </a>
               </div>
               {probe?.quality?.reasons.length ? (
                 <p className="text-[12px] text-sam-warning">{probe.quality.reasons.map((r) => REASON[r] || r).join(" · ")}</p>
               ) : null}
-              {ex?.warnings.length ? <p className="text-[12px] text-sam-muted break-words">경고: {ex.warnings.join(" · ")}</p> : null}
+              {ex?.warnings.length ? (
+                <p className="text-[12px] text-sam-muted break-words">
+                  {t("admin_community_import_probe_warnings", { warnings: ex.warnings.join(" · ") })}
+                </p>
+              ) : null}
               <h3 className="text-sm font-semibold break-words">{a.title}</h3>
               <p className="text-[12px] text-sam-muted">
                 {a.author || "작성자 없음"} · {fmtDate(a.sourcePublishedDate) || "게시일 없음"}

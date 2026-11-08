@@ -18,6 +18,7 @@ import {
   memberListStoreCellLabel,
   memberListVerificationLabelKo,
 } from "@/lib/admin-users/member-list-presentation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminUserListPagination } from "./AdminUserListPagination";
 import { AdminUserProviderIcon } from "./AdminUserProviderIcon";
@@ -76,6 +77,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   onToggleSelect: (id: string) => void;
   onViewDetail: (user: AdminUser) => void;
 }) {
+  const { t } = useI18n();
   const emptyCell = "—";
   const publicId = publicIdForAdminUser(user);
   const display = displayNameForAdminUser(user);
@@ -144,7 +146,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           variant="ghost"
           size="sm"
           className="!px-1 text-left"
-          title="@회원 ID 복사"
+          title={t("admin_users_table_copy_member_id")}
           data-member-list-at-id="1"
           onClick={() => {
             const value = copyId.startsWith("@") ? copyId.slice(1) : copyId;
@@ -224,6 +226,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
   },
   ref,
 ) {
+  const { t } = useI18n();
   const selectableIds = users.map((u) => u.id);
   const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
   const tableMinWidth = computeTableMinWidthPx([
@@ -267,22 +270,22 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
                 role="header"
                 state={selection.headerState}
                 onToggle={selection.toggleAll}
-                aria-label="현재 페이지 전체 선택"
+                aria-label={t("admin_users_table_select_all_on_page")}
               />
             </th>
             <th className="px-3 py-2" style={managementColumnStyle("TITLE")}>
-              회원
+              {t("admin_users_table_col_member")}
             </th>
             <th className="px-3 py-2">{MEMBER_LIST_AT_ID_COLUMN_KO}</th>
-            <th className="px-3 py-2">연락처</th>
-            <th className="px-3 py-2">계정 상태</th>
-            <th className="px-3 py-2">인증</th>
-            <th className="px-3 py-2">매장</th>
-            <th className="px-3 py-2">관리 권한</th>
-            <th className="px-3 py-2">가입 방식</th>
-            <th className="px-3 py-2">최근 로그인 (PHT)</th>
-            <th className="px-3 py-2">가입일 (PHT)</th>
-            <th className="px-3 py-2">작업</th>
+            <th className="px-3 py-2">{t("admin_users_table_col_contact")}</th>
+            <th className="px-3 py-2">{t("admin_users_account_state")}</th>
+            <th className="px-3 py-2">{t("admin_users_table_col_verification")}</th>
+            <th className="px-3 py-2">{t("admin_users_table_col_store")}</th>
+            <th className="px-3 py-2">{t("admin_users_admin_privilege")}</th>
+            <th className="px-3 py-2">{t("admin_users_sign_up_method")}</th>
+            <th className="px-3 py-2">{t("admin_users_table_col_last_login_pht")}</th>
+            <th className="px-3 py-2">{t("admin_users_table_col_joined_pht")}</th>
+            <th className="px-3 py-2">{t("admin_users_table_col_actions")}</th>
           </tr>
         </thead>
         <tbody>

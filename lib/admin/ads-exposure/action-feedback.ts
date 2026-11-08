@@ -5,6 +5,12 @@
 import { humanBannerSlideLabel, humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 /** 설계 v4 §6 — 노출 시작 안내도 기기 시간대가 아니라 PHT 달력·시각으로. */
 function manilaFeedbackParts(iso: string): { date: string; month: number; day: number; time: string } {
@@ -42,13 +48,11 @@ export function feedbackBannerSavedAtSlide(input: {
   ko: boolean;
 }): string {
   const where = humanBannerSlideLabel(input.placementKey, input.slideIndex1Based, input.ko);
-  return input.ko ? `${where}에 저장되었습니다.` : `Saved at ${where}.`;
+  return tx(input.ko, "admin_ads_exposure_saved_at", { where: String(where) });
 }
 
 export function feedbackPopupSaved(input: { targetLabel: string; ko: boolean }): string {
-  return input.ko
-    ? `${input.targetLabel}으로 저장되었습니다.`
-    : `Saved as ${input.targetLabel}.`;
+  return tx(input.ko, "admin_ads_exposure_saved_as", { targetLabel: String(input.targetLabel) });
 }
 
 export function feedbackApprovedWithStart(input: {
@@ -59,10 +63,10 @@ export function feedbackApprovedWithStart(input: {
   const place = humanPlacementLabel(input.placementKey, input.ko);
   if (input.startAt) {
     const p = manilaFeedbackParts(input.startAt);
-    const dateLabel = input.ko ? `${p.month}월 ${p.day}일` : p.date;
-    return input.ko
-      ? `${dateLabel}부터 ${place}에 노출됩니다.`
-      : `Goes live on ${place} from ${dateLabel}.`;
+    const dateLabel = input.ko
+      ? tx(true, "admin_ads_exposure_month_day", { month: String(p.month), day: String(p.day) })
+      : p.date;
+    return tx(input.ko, "admin_ads_exposure_goes_live_on_from", { dateLabel: String(dateLabel), place: String(place) });
   }
   return input.ko ? ADS_FEEDBACK.approved.ko : ADS_FEEDBACK.approved.en;
 }

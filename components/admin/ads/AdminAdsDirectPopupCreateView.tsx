@@ -25,7 +25,7 @@ import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-date
 const SURFACES = ["GLOBAL", "DELIVERY", "TRADE", "COMMUNITY", "MYPAGE"] as const;
 
 export function AdminAdsDirectPopupCreateView() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -122,9 +122,7 @@ export function AdminAdsDirectPopupCreateView() {
       if (!createRes.ok || !created.ok || !created.id) {
         setError(
           created.incomplete && created.id
-            ? ko
-              ? "팝업이 임시 상태로 저장되었습니다. 상세에서 설정을 완료해 주세요."
-              : "Popup saved as incomplete. Finish settings in detail."
+            ? t("admin_ads_popup_saved_as_incomplete_finish")
             : adminOperatorErrorMessage(created.error, ko)
         );
         if (created.id) {
@@ -132,7 +130,7 @@ export function AdminAdsDirectPopupCreateView() {
         }
         return;
       }
-      setSuccessMsg(ko ? "광고가 등록되었습니다." : "Ad registered.");
+      setSuccessMsg(t("admin_ads_ad_registered"));
       router.push(created.detailHref || `/admin/platform-popup/${created.id}`);
     } finally {
       setBusy(false);
@@ -144,21 +142,19 @@ export function AdminAdsDirectPopupCreateView() {
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising/direct" className="underline">
-            {ko ? "광고 등록" : "Register ad"}
+            {t("admin_ads_register_ad")}
           </Link>
           {" › "}
           Popup
         </p>
         <h1 className="text-[20px] font-semibold text-sam-fg">Popup</h1>
         <p className="text-[13px] text-sam-muted">
-          {ko
-            ? "결제·승인 없음 · Admin Direct 전용"
-            : "No payment · no approval · Admin Direct only"}
+          {t("admin_ads_no_payment_no_approval_admin")}
         </p>
       </header>
 
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="text-[14px] font-bold">{ko ? "노출 Surface" : "Surface"}</h2>
+        <h2 className="text-[14px] font-bold">{t("admin_ads_surface")}</h2>
         <select
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
           value={surface}
@@ -174,14 +170,14 @@ export function AdminAdsDirectPopupCreateView() {
       </section>
 
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-popup-creative="1">
-        <h2 className="text-[14px] font-bold">{ko ? "이미지" : "Image"}</h2>
+        <h2 className="text-[14px] font-bold">{t("common_image")}</h2>
         <dl
           className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]"
           data-admin-popup-creative-spec="1"
         >
-          <dt className="text-sam-muted">{ko ? "비율" : "Aspect"}</dt>
+          <dt className="text-sam-muted">{t("admin_ads_aspect")}</dt>
           <dd className="font-semibold">36:25</dd>
-          <dt className="text-sam-muted">{ko ? "권장 크기" : "Recommended"}</dt>
+          <dt className="text-sam-muted">{t("admin_ads_recommended")}</dt>
           <dd className="font-semibold">1440 × 1000px</dd>
         </dl>
         <input
@@ -202,30 +198,26 @@ export function AdminAdsDirectPopupCreateView() {
         >
           <ImageIcon className="h-4 w-4" aria-hidden />
           {file
-            ? ko
-              ? "이미지 교체"
-              : "Replace image"
-            : ko
-              ? "내 PC에서 이미지 선택"
-              : "Choose image from PC"}
+            ? t("admin_ads_replace_image")
+            : t("admin_ads_choose_image_from_pc")}
         </AdminActionButton>
         {file ? <p className="text-[12px] text-sam-muted">{file.name}</p> : null}
       </section>
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-app p-4" data-admin-popup-runtime-preview="1">
         <h2 className="mb-2 text-[14px] font-bold">
-          {ko ? "팝업 실제 노출 형태 미리보기" : "Popup live-style preview"}
+          {t("admin_ads_popup_live_style_preview")}
         </h2>
         {previewSource ? (
           <AdminPlatformPopupPreview source={previewSource} />
         ) : (
-          <p className="text-[13px] text-sam-muted">{ko ? "이미지 없음" : "No image"}</p>
+          <p className="text-[13px] text-sam-muted">{t("admin_ads_no_image")}</p>
         )}
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <label className="block text-[12px] text-sam-muted sm:col-span-2">
-          {ko ? "광고 이름" : "Name"}
+          {t("admin_ads_name")}
           <input className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="block text-[12px] text-sam-muted sm:col-span-2">
@@ -238,18 +230,18 @@ export function AdminAdsDirectPopupCreateView() {
         </label>
         <div className="flex gap-2 sm:col-span-2">
           <AdminChipButton selected={publishMode === "live"} onClick={() => setPublishMode("live")}>
-            {ko ? "즉시 노출" : "Go live"}
+            {t("admin_ads_go_live")}
           </AdminChipButton>
           <AdminChipButton selected={publishMode === "scheduled"} onClick={() => setPublishMode("scheduled")}>
-            {ko ? "예약" : "Schedule"}
+            {t("admin_ads_schedule")}
           </AdminChipButton>
         </div>
         <label className="block text-[12px] text-sam-muted">
-          {ko ? "시작 (PHT)" : "Start (PHT)"}
+          {t("admin_ads_start_pht")}
           <input type="datetime-local" disabled={publishMode === "live"} className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
         </label>
         <label className="block text-[12px] text-sam-muted">
-          {ko ? "종료 (PHT)" : "End (PHT)"}
+          {t("admin_ads_end_pht")}
           <input type="datetime-local" className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm" value={endAt} onChange={(e) => setEndAt(e.target.value)} />
         </label>
       </section>
@@ -280,7 +272,7 @@ export function AdminAdsDirectPopupCreateView() {
           if (confirmed.ok) void submit();
         }}
       >
-        {ko ? "광고 등록" : "Register ad"}
+        {t("admin_ads_register_ad")}
       </AdminActionButton>
 
     </div>

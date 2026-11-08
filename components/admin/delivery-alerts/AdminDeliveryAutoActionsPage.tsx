@@ -212,20 +212,12 @@ function AdminDeliveryAutoActionsPageInner() {
         level: adminActionLevel(nextEnabled ? "resume" : "disable"),
         ko,
         title: nextEnabled
-          ? ko
-            ? "자동 조치를 다시 허용할까요?"
-            : "Allow auto actions again?"
-          : ko
-            ? "자동 조치를 전체 중지할까요?"
-            : "Stop all auto actions?",
+          ? t("admin_delivery_alerts_allow_auto_actions_again")
+          : t("admin_delivery_alerts_stop_all_auto_actions"),
         description: nextEnabled
-          ? ko
-            ? "규칙에 따라 자동 조치가 다시 실행됩니다."
-            : "Auto actions will run again according to rules."
-          : ko
-            ? "모든 규칙의 자동 조치가 실행되지 않습니다. 승인 대기 건도 처리되지 않습니다."
-            : "No rule will run auto actions. Pending approvals will not be processed.",
-        confirmLabel: nextEnabled ? (ko ? "다시 허용" : "Allow") : ko ? "전체 중지" : "Stop all",
+          ? t("admin_delivery_alerts_auto_actions_run_again_according")
+          : t("admin_delivery_alerts_no_rule_run_auto_actions"),
+        confirmLabel: nextEnabled ? (t("admin_delivery_alerts_allow")) : t("admin_delivery_alerts_stop_all"),
         destructive: !nextEnabled,
       });
       if (!c.ok) return;
@@ -247,12 +239,8 @@ function AdminDeliveryAutoActionsPageInner() {
         setResult({
           ok: true,
           message: nextEnabled
-            ? ko
-              ? "자동 조치를 다시 허용했습니다."
-              : "Auto actions allowed."
-            : ko
-              ? "자동 조치를 전체 중지했습니다."
-              : "All auto actions stopped.",
+            ? t("admin_delivery_alerts_auto_actions_allowed")
+            : t("admin_delivery_alerts_all_auto_actions_stopped"),
         });
         loadSettings();
         loadData();
@@ -262,7 +250,7 @@ function AdminDeliveryAutoActionsPageInner() {
         setKillBusy(false);
       }
     },
-    [killBusy, killOn, ko, loadData, loadSettings, settingsLoaded]
+    [killBusy, killOn, ko, loadData, loadSettings, settingsLoaded, t]
   );
 
   /** 자동 조치 일괄 작업 — L3 (사유 + 작업 이름 재입력). 서버: business 권한·사유 필수·감사 기록. */
@@ -307,34 +295,32 @@ function AdminDeliveryAutoActionsPageInner() {
     async (a: ActionRow, path: "approve" | "reject" | "retry") => {
       if (busyId) return;
       const actionId = a.id;
-      const target = a.order_no || a.rule_name || (ko ? "이 자동 조치" : "this auto action");
+      const target = a.order_no || a.rule_name || (t("admin_delivery_alerts_this_auto_action"));
       const typeLabel = a.action_type ? t(AUTO_ACTION_TYPE_KEYS[a.action_type] ?? "admin_del_alert_auto_off") : "";
       const c = await confirmAdminAction(
         path === "approve"
           ? {
               level: adminActionLevel("approve"),
               ko,
-              title: ko ? `자동 조치 승인: ${target}` : `Approve auto action: ${target}`,
-              description: ko
-                ? `승인하면 「${typeLabel}」 조치가 바로 실행됩니다.`
-                : `Approving runs "${typeLabel}" immediately.`,
-              confirmLabel: ko ? "승인하고 실행" : "Approve and run",
+              title: t("admin_delivery_alerts_approve_auto_action", { target }),
+              description: t("admin_delivery_alerts_approving_runs_immediately", { typeLabel }),
+              confirmLabel: t("admin_delivery_alerts_approve_run"),
               destructive: !!a.dangerous_action,
             }
           : path === "reject"
             ? {
                 level: adminActionLevel("reject"),
                 ko,
-                title: ko ? `자동 조치 반려: ${target}` : `Reject auto action: ${target}`,
-                description: ko ? "반려하면 이 조치는 실행되지 않습니다." : "This action will not run.",
-                confirmLabel: ko ? "반려" : "Reject",
+                title: t("admin_delivery_alerts_reject_auto_action", { target }),
+                description: t("admin_delivery_alerts_action_not_run"),
+                confirmLabel: t("admin_delivery_alerts_reject"),
               }
             : {
                 level: adminActionLevel("resume"),
                 ko,
-                title: ko ? `자동 조치 재실행: ${target}` : `Re-run auto action: ${target}`,
-                description: ko ? `「${typeLabel}」 조치를 다시 실행합니다.` : `Runs "${typeLabel}" again.`,
-                confirmLabel: ko ? "재실행" : "Re-run",
+                title: t("admin_delivery_alerts_re_run_auto_action", { target }),
+                description: t("admin_delivery_alerts_runs_again", { typeLabel }),
+                confirmLabel: t("admin_delivery_alerts_re_run"),
               }
       );
       if (!c.ok) return;
@@ -367,16 +353,10 @@ function AdminDeliveryAutoActionsPageInner() {
           ok: true,
           message:
             path === "approve"
-            ? ko
-              ? "승인했습니다."
-              : "Approved."
+            ? t("admin_delivery_alerts_approved")
             : path === "reject"
-              ? ko
-                ? "반려했습니다."
-                : "Rejected."
-              : ko
-                ? "재실행을 요청했습니다."
-                : "Re-run requested.",
+              ? t("admin_delivery_alerts_rejected")
+              : t("admin_delivery_alerts_re_run_requested"),
         });
         loadData();
       } catch {
@@ -443,15 +423,13 @@ function AdminDeliveryAutoActionsPageInner() {
   return (
     <div className="sam-page-stack">
       <AdminPageHeader
-        title={ko ? "자동 조치 승인" : "Auto action approval"}
+        title={t("admin_delivery_alerts_auto_action_approval")}
         description={t("admin_del_alert_auto_page_desc")}
       />
 
       {!dashboard && !loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs text-sam-muted">
-          {ko
-            ? "운영 리포트를 아직 불러올 수 없어 지표가 비어 있습니다. 계속되면 시스템 관리자에게 문의하세요."
-            : "The operations report is not available yet, so metrics are empty. Contact a system admin if this persists."}
+          {t("admin_delivery_alerts_operations_report_not_available_yet")}
         </div>
       ) : null}
 
@@ -531,7 +509,7 @@ function AdminDeliveryAutoActionsPageInner() {
               {ruleStats.map((r) => (
                 <tr key={r.rule_id} className="border-b border-sam-border/60">
                   <td className="py-2 px-2 text-sam-fg">
-                    <div className="font-medium">{r.rule_name || (ko ? "이름 없는 규칙" : "Unnamed rule")}</div>
+                    <div className="font-medium">{r.rule_name || (t("admin_delivery_alerts_unnamed_rule"))}</div>
                     <AdminTechDetails ko={ko}>{r.rule_key}</AdminTechDetails>
                   </td>
                   <td className="py-2 px-2">{r.dangerous ? t("admin_del_alert_yes") : dash}</td>
@@ -565,19 +543,15 @@ function AdminDeliveryAutoActionsPageInner() {
           {t("admin_del_alert_back_to_alerts")}
         </Link>
         <div className="inline-flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-xxs">
-          <span className="text-sam-muted">{ko ? "자동 조치:" : "Auto actions:"}</span>
+          <span className="text-sam-muted">{t("admin_delivery_alerts_auto_actions")}</span>
           <strong className={killOn ? "text-sam-fg" : "text-sam-warning"}>
             {!settingsLoaded
               ? settingsErr
                 ? t("admin_r4d_unavailable")
                 : dash
               : killOn
-                ? ko
-                  ? "실행 허용"
-                  : "Allowed"
-                : ko
-                  ? "전체 중지됨"
-                  : "All stopped"}
+                ? t("admin_delivery_alerts_allowed")
+                : t("admin_delivery_alerts_all_stopped")}
           </strong>
           {/* 다시 허용으로 되돌릴 수 있는 동작 → danger 아님 · 화면 primary 는 필터 바 [조회] (확인 단계는 그대로) */}
           <AdminActionButton
@@ -587,12 +561,8 @@ function AdminDeliveryAutoActionsPageInner() {
             onClick={() => void toggleKill(!killOn)}
           >
             {killOn
-                ? ko
-                  ? "자동 조치 전체 중지"
-                  : "Stop all auto actions"
-                : ko
-                  ? "자동 조치 다시 허용"
-                  : "Allow auto actions"}
+                ? t("admin_delivery_alerts_stop_all_auto_actions_2")
+                : t("admin_delivery_alerts_allow_auto_actions")}
           </AdminActionButton>
         </div>
         <span className="text-sam-muted sam-text-xxs" data-auto-actions-authority="delivery_auto_actions_runtime_settings">
@@ -725,7 +695,7 @@ function AdminDeliveryAutoActionsPageInner() {
                 <td className="py-2 px-2">
                   {a.admin_order_url ? (
                     <Link href={a.admin_order_url} className="text-signature underline">
-                      {a.order_no || (ko ? "주문 상세" : "Order detail")}
+                      {a.order_no || (t("admin_delivery_alerts_order_detail"))}
                     </Link>
                   ) : (
                     dash
@@ -744,7 +714,7 @@ function AdminDeliveryAutoActionsPageInner() {
                       <div className="flex gap-1">
                         <AdminActionButton
                           type="button"
-                          variant="ghost" size="sm"
+                          variant="secondary"size="sm"
                           disabled={busyId !== null}
                           onClick={() => void postAction(a, "approve")}
                         >
@@ -767,7 +737,7 @@ function AdminDeliveryAutoActionsPageInner() {
                       disabled={busyId !== null || (a.retry_count ?? 0) >= (a.max_retries ?? 3)}
                       onClick={() => void postAction(a, "retry")}
                     >
-                      {ko ? "자동 조치 재실행" : "Re-run auto action"}
+                      {t("admin_delivery_alerts_re_run_auto_action_2")}
                     </AdminActionButton>
                   ) : (
                     <span className="text-sam-muted">{dash}</span>

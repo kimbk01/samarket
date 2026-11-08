@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
 /**
@@ -24,18 +25,18 @@ const INTRO_STATE_EN: Record<string, string> = { active: "Live", paused: "Paused
  */
 export function introCardStatusText(intro: Summary["intro"], ko: boolean): string {
   const base = (ko ? INTRO_STATE_KO : INTRO_STATE_EN)[intro.state];
-  if (!base) return ko ? "확인 못 함" : "Unknown";
+  if (!base) return translateBy(ko ? "ko" : "en", "admin_ads_unknown");
   if (intro.state !== "active") return base;
   switch (intro.schedule) {
     case "scheduled":
-      return ko ? "예약됨 · 시작 전이라 안 나옴" : "Scheduled · not shown before start";
+      return translateBy(ko ? "ko" : "en", "admin_ads_scheduled_not_shown_before_start");
     case "ended":
-      return ko ? "끝남 · 기간이 지나 안 나옴" : "Ended · not shown after end";
+      return translateBy(ko ? "ko" : "en", "admin_ads_ended_not_shown_after_end");
     case "always":
     case "running":
       return base;
     default:
-      return ko ? "게시 중 · 기간 확인 못 함" : "Live · period unknown";
+      return translateBy(ko ? "ko" : "en", "admin_ads_live_period_unknown");
   }
 }
 
@@ -58,18 +59,18 @@ export function AdminAdsOtherSurfacesCards({ ko }: { ko: boolean }) {
   }, []);
 
   const liveText = (n: number | null | undefined) =>
-    summary == null ? (failed ? (ko ? "불러오지 못함" : "Unavailable") : "…") : n == null ? (ko ? "확인 못 함" : "Unknown") : ko ? `노출 중 ${n}개` : `${n} live`;
+    summary == null ? (failed ? (translateBy(ko ? "ko" : "en", "admin_ads_unavailable")) : "…") : n == null ? (translateBy(ko ? "ko" : "en", "admin_ads_unknown")) : translateBy(ko ? "ko" : "en", "admin_ads_n_live", { n });
   const cards = [
     {
       key: "intro",
-      title: ko ? "인트로" : "Launch intro",
+      title: translateBy(ko ? "ko" : "en", "admin_ads_launch_intro"),
       statusText:
         summary == null ? liveText(null) : introCardStatusText(summary.intro, ko),
       href: "/admin/platform-promotion/intro",
     },
-    { key: "ptr", title: ko ? "당겨서 새로고침 광고" : "Pull-to-refresh ads", statusText: liveText(summary?.ptrLive), href: "/admin/ptr-reveal-ads" },
-    { key: "mypage", title: ko ? "마이페이지 배너" : "My page banner", statusText: liveText(summary?.mypageBannersLive), href: "/admin/my/banners" },
-    { key: "events", title: ko ? "이벤트" : "Events", statusText: liveText(summary?.eventsLive), href: "/admin/platform-events" },
+    { key: "ptr", title: translateBy(ko ? "ko" : "en", "admin_ads_pull_refresh_ads"), statusText: liveText(summary?.ptrLive), href: "/admin/ptr-reveal-ads" },
+    { key: "mypage", title: translateBy(ko ? "ko" : "en", "admin_ads_my_page_banner"), statusText: liveText(summary?.mypageBannersLive), href: "/admin/my/banners" },
+    { key: "events", title: translateBy(ko ? "ko" : "en", "admin_ads_events"), statusText: liveText(summary?.eventsLive), href: "/admin/platform-events" },
   ];
 
   return (
@@ -85,7 +86,7 @@ export function AdminAdsOtherSurfacesCards({ ko }: { ko: boolean }) {
             <p className="text-[12px] text-sam-muted">{c.statusText}</p>
           </div>
           <AdminActionLink href={c.href} variant="secondary" size="sm">
-            {ko ? "관리" : "Manage"}
+            {translateBy(ko ? "ko" : "en", "admin_ads_manage")}
           </AdminActionLink>
         </div>
       ))}

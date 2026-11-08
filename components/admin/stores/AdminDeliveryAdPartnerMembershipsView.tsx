@@ -54,7 +54,7 @@ type OrphanFundingRow = {
  * Partner 관리 — operational page with clear header nav + filter hierarchy.
  */
 export function AdminDeliveryAdPartnerMembershipsView() {
-  const { language, safeT } = useI18n();
+  const { t, language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const searchParams = useSearchParams();
   const focusMembershipId = (searchParams.get("membershipId") ?? "").trim();
@@ -146,16 +146,16 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     // v4 UI-11 — 승인·반려·종료는 확인 후 실행
     const ko = lang !== "en";
     const copy = {
-      approve: { ...catalogPair("admin_approve_this_partner_membership"), cta: ko ? "승인" : "Approve" },
-      reject: { ...catalogPair("admin_reject_this_partner_membership"), cta: ko ? "반려" : "Reject" },
-      end: { ...catalogPair("admin_end_this_partner_membership"), cta: ko ? "종료" : "End" },
+      approve: { ...catalogPair("admin_approve_this_partner_membership"), cta: t("admin_stores_approve") },
+      reject: { ...catalogPair("admin_reject_this_partner_membership"), cta: t("admin_stores_action_reject_store") },
+      end: { ...catalogPair("admin_end_this_partner_membership"), cta: t("admin_stores_end") },
     }[op];
     // 승인·반려 = 매장 금전 영향(L2 · 사유를 API 로 전송), 종료 = 사용 끄기(L1)
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(op === "approve" ? "approve" : op === "reject" ? "reject" : "disable"),
       ko,
       title: ko ? copy.ko : copy.en,
-      description: `${ko ? "매장" : "Store"}: ${storeLabel}`,
+      description: `${t("common_store")}: ${storeLabel}`,
       confirmLabel: copy.cta,
       destructive: op !== "approve",
     });

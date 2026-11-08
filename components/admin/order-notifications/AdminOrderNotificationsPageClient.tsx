@@ -17,7 +17,7 @@ import { translateBy } from "@/lib/i18n/translate-by";
  * DO NOT read Member me-notifications inbox as Admin ops authority.
  */
 export function AdminOrderNotificationsPageClient() {
-  const { language, safeT } = useI18n();
+  const { language, safeT, t } = useI18n();
   const ko = language !== "en";
   const { adminBellCount, queueCategories, queueTotalComplete, queueLoadState, refresh } =
     useAdminStorePointPendingCount();
@@ -64,7 +64,7 @@ export function AdminOrderNotificationsPageClient() {
         queueLoadState === "error" ? null : (
           <AdminEmptyState
             ko={ko}
-            message={ko ? "지금 처리할 업무가 없습니다." : "Nothing to handle right now."}
+            message={t("admin_order_notifications_nothing_handle_right_now")}
           />
         )
       ) : (

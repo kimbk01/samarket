@@ -13,6 +13,7 @@
  *    — 갱신 diff 에 증가가 있으면 리뷰에서 거부한다.
  */
 import fs from "node:fs";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -164,6 +165,18 @@ const MUTATING_CTA_KEYS =
   /adminCta\(\s*["'](?:save|create|approve|reject|hold|sanction|liftSanction|exposeStart|exposeStop|refund|payout|delete)["']/;
 const MUTATING_CTA_WORDS = /승인|반려|삭제|숨김|복구|저장|노출 중지|노출 시작|일시중지|재개|차단|환불|지급|제재|강제 취소/;
 
+const KO_CATALOG = MESSAGES.ko as unknown as Record<string, string>;
+
+/** 블록 안 `t("키")`·`tr("키")`·`safeT("키")`·`translateBy(lang, "키")` 의 카탈로그 한국어 */
+function koCopyOfDirectKeys(block: string): string {
+  const out: string[] = [];
+  for (const m of block.matchAll(/\b(?:t|tr|safeT)\(\s*["']([a-z0-9_]+)["']|translateBy\([^,]+,\s*["']([a-z0-9_]+)["']/g)) {
+    const k = m[1] ?? m[2];
+    if (k && KO_CATALOG[k]) out.push(KO_CATALOG[k]);
+  }
+  return out.join("\n");
+}
+
 function mutatingQuietCtaBlocks(s: string): string[] {
   const out: string[] = [];
   for (const m of s.matchAll(/<AdminActionButton\b[\s\S]*?<\/AdminActionButton>/g)) {
@@ -172,9 +185,9 @@ function mutatingQuietCtaBlocks(s: string): string[] {
     if (!/\bonClick=/.test(block)) continue;
     /**
      * 언어 SSOT S6: 버튼 글자가 카탈로그로 옮겨져도(translateBy·catalogPair·대체 문구 지운 safeT) 같은 화면 단어로 판정한다.
-     * S6 전과 같은 범위 — `t("키")` 까지 넓히는 것은 발견 목록 L12.
+     * L12(B4, 2026-11-08): `t("키")`·`tr("키")`·`safeT("키")` 버튼 글자도 카탈로그 한국어로 풀어 판정한다.
      */
-    const text = withCatalogCopy(block);
+    const text = withCatalogCopy(block) + "\n" + koCopyOfDirectKeys(block);
     if (MUTATING_CTA_KEYS.test(block) || MUTATING_CTA_WORDS.test(text) || /text-sam-danger/.test(block)) {
       out.push(block.slice(0, 60));
     }

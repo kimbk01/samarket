@@ -5,6 +5,7 @@
  * 「포인트 지급/회수」 = 공통 지급 패널(L3, 확인 화면을 열 때 멱등 키 1회 생성)을 시트로 연다.
  * URL: type · userId · from/to(PHT) · (호환) period · page · size
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminPointBucketLine, type AdminPointBucketSums } from "@/lib/admin/points/admin-point-bucket-line";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
@@ -73,6 +74,7 @@ function actorLabel(r: LedgerRow): string {
 }
 
 export function AdminCommunityPointsPage() {
+  const { t } = useI18n();
   const q = useCommunityListQuery({ extras: POINT_EXTRAS });
   /** 쓰기(포인트 지급/회수) — 접근표 action perm("point"). 서버 가드는 그대로. */
   const action = useAdminRouteAction("/admin/community/points");
@@ -88,7 +90,7 @@ export function AdminCommunityPointsPage() {
 
   return (
     <CommunityListShell
-      title="포인트 내역·지급"
+      title={t("admin_community_ptpage_title")}
       description="커뮤니티 보상·회수·상위노출 차감과 환급, 관리자 지급·회수 내역을 확인합니다. 포인트는 전체 서비스 공통입니다."
       actions={
         <AdminActionButton
@@ -122,7 +124,7 @@ export function AdminCommunityPointsPage() {
                 </p>
               ) : null}
               {state.data.promoOrderIdCapped ? (
-                <p className="text-[12px] text-sam-warning">오래된 상위노출 주문 일부는 이 목록에 포함되지 않을 수 있습니다.</p>
+                <p className="text-[12px] text-sam-warning">{t("admin_community_ptpage_old_orders_note")}</p>
               ) : null}
             </div>
           ) : null}
@@ -211,8 +213,8 @@ export function AdminCommunityPointsPage() {
 
       {adjustOpen && action.allowed ? (
         <AdminFormSheet
-          title="포인트 지급/회수"
-          subtitle="회원 지갑에 바로 반영됩니다. 확인 화면에서 지급 전후 잔액을 확인하세요."
+          title={t("admin_community_ptpage_grant_title")}
+          subtitle={t("admin_community_ptpage_grant_subtitle")}
           onClose={() => setAdjustOpen(false)}
         >
           <AdminPointAdjustPanel onChanged={reload} />

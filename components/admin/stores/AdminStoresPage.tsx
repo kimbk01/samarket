@@ -316,7 +316,7 @@ export function AdminStoresPage() {
         <AdminResultBanner ko={ko} result={actionResult} onClose={() => setActionResult(null)} />
         {writeBlocked && writeAction.reason ? (
           <p className="text-[13px] text-sam-muted" data-admin-action-denied="1">
-            {ko ? `심사 조치 비활성: ${writeAction.reason}` : `Review actions disabled: ${writeAction.reason}`}
+            {t("admin_stores_review_actions_disabled", { reason: writeAction.reason })}
           </p>
         ) : null}
 
@@ -335,9 +335,7 @@ export function AdminStoresPage() {
             <p className="mt-2 text-[13px] text-sam-muted">
               {loading ? t("common_loading") : error ? "—" : t("admin_stores_result_count", { count: total })}
               {" · "}
-              {ko
-                ? "실매장 신청만 표시 (샘플 매장은 「매장 운영」에서 관리)"
-                : "Real store applications only (samples live in Store operations)"}
+              {t("admin_stores_real_store_applications_only_samples_live")}
             </p>
           </div>
 
@@ -357,16 +355,16 @@ export function AdminStoresPage() {
               <table className="w-max min-w-[1280px] border-collapse sam-text-body" data-admin-stores-review-sheet="1">
                 <thead>
                   <tr className="border-b border-sam-border bg-sam-surface-muted">
-                    {sortHeader(ko ? "신청일" : "Applied", "created")}
-                    <th className={TH}>{ko ? "매장명" : "Store"}</th>
-                    <th className={TH}>{ko ? "1차 / 2차 업종" : "Category"}</th>
-                    <th className={TH}>{ko ? "신청자" : "Applicant"}</th>
-                    <th className={TH}>{ko ? "연락처" : "Contact"}</th>
-                    <th className={TH}>{ko ? "지역" : "Area"}</th>
-                    {sortHeader(ko ? "승인 상태" : "Approval", "status")}
-                    <th className={TH}>{ko ? "판매 승인" : "Sales"}</th>
-                    <th className={TH}>{ko ? "처리자 / 처리일" : "Handled by"}</th>
-                    <th className={TH}>{ko ? "작업" : "Actions"}</th>
+                    {sortHeader(t("admin_stores_th_applied_at"), "created")}
+                    <th className={TH}>{t("admin_stores_store")}</th>
+                    <th className={TH}>{t("admin_stores_category")}</th>
+                    <th className={TH}>{t("admin_stores_section_applicant")}</th>
+                    <th className={TH}>{t("admin_stores_check_contact")}</th>
+                    <th className={TH}>{t("admin_stores_area")}</th>
+                    {sortHeader(t("admin_stores_approval"), "status")}
+                    <th className={TH}>{t("admin_stores_sales_2")}</th>
+                    <th className={TH}>{t("admin_stores_handled_by")}</th>
+                    <th className={TH}>{t("admin_stores_app_taxonomy_th_actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -441,7 +439,7 @@ export function AdminStoresPage() {
                           {r.review_decided_at ? (
                             <>
                               <div className="text-sam-fg">
-                                {r.review_decided_by ?? (ko ? "관리자" : "Admin")}
+                                {r.review_decided_by ?? t("admin_stores_admin")}
                                 {decided ? <span className="text-sam-muted"> · {ko ? decided.ko : decided.en}</span> : null}
                               </div>
                               <div className="sam-text-helper tabular-nums text-sam-muted">
@@ -455,7 +453,7 @@ export function AdminStoresPage() {
                         <td className={TD} onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1.5">
                             <AdminActionButton variant="ghost" size="sm" onClick={() => setSheetStore(r)}>
-                              {ko ? "상세" : "Detail"}
+                              {t("admin_stores_payment_th_detail")}
                             </AdminActionButton>
                             {allowed.includes("approve_store") ? (
                               <AdminActionButton
@@ -466,7 +464,7 @@ export function AdminStoresPage() {
                                 onClick={() => void runRowDecision(r, "approve_store")}
                                 data-admin-stores-row-approve={r.id}
                               >
-                                {ko ? "승인" : "Approve"}
+                                {t("admin_stores_approve")}
                               </AdminActionButton>
                             ) : null}
                             {allowed.includes("reject_store") ? (
@@ -478,7 +476,7 @@ export function AdminStoresPage() {
                                 onClick={() => void runRowDecision(r, "reject_store")}
                                 data-admin-stores-row-reject={r.id}
                               >
-                                {ko ? "반려" : "Reject"}
+                                {t("admin_stores_action_reject_store")}
                               </AdminActionButton>
                             ) : null}
                           </div>
@@ -514,7 +512,7 @@ export function AdminStoresPage() {
         ko={ko}
         pending={sheetStore != null && busyId === sheetStore.id}
         title={sheetName}
-        subtitle={ko ? "심사 상세" : "Review detail"}
+        subtitle={t("admin_stores_review_detail")}
       >
         {sheetStore ? (
           <AdminStoreReviewTheme>

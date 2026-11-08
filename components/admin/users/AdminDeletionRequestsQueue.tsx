@@ -31,7 +31,7 @@ type QueueItem = {
 };
 
 export function AdminDeletionRequestsQueue() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const ko = language !== "en";
   /** R7 — 서버 페이지(20/50/100 + 총 건수). 예전 30건 고정 조회(31건째부터 안 보임) 제거. 필터가 없어 쪽·크기만 화면 상태. */
   const [page, setPage] = useState(1);
@@ -51,12 +51,10 @@ export function AdminDeletionRequestsQueue() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("reject"),
       ko,
-      title: ko ? "삭제 요청 반려" : "Reject deletion request",
-      description: ko
-        ? `${item.memberNickname || item.memberLoginId} 회원의 삭제 요청을 반려합니다. 회원 계정은 유지됩니다.`
-        : `Rejects the deletion request of ${item.memberNickname || item.memberLoginId}. The account stays active.`,
+      title: t("admin_users_reject_deletion_request"),
+      description: t("admin_users_rejects_deletion_request_of_account_stays", { v: item.memberNickname || item.memberLoginId }),
       confirmLabel: adminCta("reject", ko),
-      reasonPlaceholder: ko ? "반려 사유" : "Reject reason",
+      reasonPlaceholder: t("admin_users_reject_reason"),
     });
     if (!confirmed.ok) return;
     setBusyId(item.id);
@@ -77,7 +75,7 @@ export function AdminDeletionRequestsQueue() {
         setResult({ ok: false, code: membersOperatorErrorCode(data.error) });
         return;
       }
-      setResult({ ok: true, message: ko ? "삭제 요청을 반려했습니다." : "Deletion request rejected." });
+      setResult({ ok: true, message: t("admin_users_deletion_request_rejected") });
       load();
     } catch {
       setResult({ ok: false, code: "network_error" });
@@ -93,7 +91,7 @@ export function AdminDeletionRequestsQueue() {
           {safeT("admin_users_deletion_queue_title")}
           {list.loaded ? (
             <span className="ml-2 font-normal tabular-nums text-sam-muted" data-admin-deletion-total="1">
-              {ko ? `총 ${formatAdminNumber(list.total)}건` : `Total ${formatAdminNumber(list.total)}`}
+              {t("admin_users_total", { adminNumber: String(formatAdminNumber(list.total)) })}
             </span>
           ) : null}
         </h2>
@@ -125,11 +123,11 @@ export function AdminDeletionRequestsQueue() {
           <table className="w-full min-w-[44rem] border-collapse text-left sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "회원" : "Member"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "요청 일시" : "Requested"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "요청 사유" : "Reason"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "처리" : "Actions"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_users_lite_col_member")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_users_requested")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_users_lite_col_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_users_reason")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_users_actions")}</th>
               </tr>
             </thead>
             <tbody>

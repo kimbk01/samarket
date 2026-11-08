@@ -59,7 +59,7 @@ export function AdminMemberBenefitPage() {
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "회원 혜택 정책 등록" : "Create member benefit policy",
+      title: t("admin_member_benefits_create_member_benefit_policy"),
       description: values.title ? String(values.title) : undefined,
       confirmLabel: adminCta("create", ko),
     });

@@ -260,9 +260,7 @@ export function AdminBusinessOpsFilterBar({
                     className="mt-0.5 text-[12px] tabular-nums text-sam-muted"
                     data-admin-biz-kpi-operational={def.key}
                   >
-                    {ko
-                      ? `샘플·숨김 제외 ${formatAdminNumber(def.operational(kpi))}`
-                      : `Excl. sample/hidden ${formatAdminNumber(def.operational(kpi))}`}
+                    {t("admin_biz_excl_sample_hidden_n", { n: formatAdminNumber(def.operational(kpi)) })}
                   </div>
                 ) : (
                   <div className="mt-0.5 h-[14px]" />
@@ -293,24 +291,24 @@ export function AdminBusinessOpsFilterBar({
                 className={selectClass}
                 value={filters.kind}
                 onChange={(e) => onChange({ ...filters, kind: e.target.value })}
-                aria-label={ko ? "매장 유형" : "Store type"}
+                aria-label={t("admin_biz_store_type")}
                 data-admin-biz-filter-kind="1"
               >
-                <option value="">{ko ? "유형: 전체" : "Type: All"}</option>
-                <option value="real">{ko ? "실매장" : "Real"}</option>
-                <option value="sample">{ko ? "샘플" : "Sample"}</option>
-                <option value="legacy_test">{ko ? "테스트" : "Test"}</option>
+                <option value="">{t("admin_biz_type_all")}</option>
+                <option value="real">{t("admin_biz_real")}</option>
+                <option value="sample">{t("admin_biz_sample")}</option>
+                <option value="legacy_test">{t("admin_biz_test")}</option>
               </select>
               <select
                 className={selectClass}
                 value={filters.visible}
                 onChange={(e) => onChange({ ...filters, visible: e.target.value })}
-                aria-label={ko ? "노출" : "Visibility"}
+                aria-label={t("admin_biz_label_visible")}
                 data-admin-biz-filter-visible="1"
               >
-                <option value="">{ko ? "노출: 전체" : "Visibility: All"}</option>
-                <option value="yes">{ko ? "노출 중" : "Visible"}</option>
-                <option value="no">{ko ? "숨김" : "Hidden"}</option>
+                <option value="">{t("admin_biz_visibility_all")}</option>
+                <option value="yes">{t("admin_biz_visible")}</option>
+                <option value="no">{t("common_hidden")}</option>
               </select>
               <select
                 className={selectClass}

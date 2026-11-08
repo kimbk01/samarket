@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
@@ -29,6 +30,7 @@ export function AdminMemberDibayIdDialog({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const { t } = useI18n();
   const currentDisplay = adminMemberPublicIdAt(currentDibayId) || "—";
   const [nextId, setNextId] = useState(() => normalizeDibayIdInput(currentDibayId));
   /** 변경 사유 — 필수 (서버·DB admin_set_dibay_id 가 같은 트랜잭션에서 감사 기록) */
@@ -172,18 +174,18 @@ export function AdminMemberDibayIdDialog({
           </div>
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-sam-muted">변경 사유 (필수)</span>
+          <span className="mb-1 block text-sam-muted">{t("admin_users_dibay_id_reason_required")}</span>
           <textarea
             className="w-full rounded-md border border-sam-border px-3 py-2"
             rows={2}
             maxLength={DIBAY_ID_REASON_MAX}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="예) 회원 요청 — 오타 정정"
+            placeholder={t("admin_users_dibay_id_reason_placeholder")}
             data-member-dibay-id-reason="1"
           />
           <span className="mt-1 block text-[12px] text-sam-muted">
-            관리자 변경은 회원 본인의 1회 변경권을 사용하지 않습니다. 사유는 관리자 작업 기록에 남습니다.
+            {t("admin_users_dibay_id_admin_change_note")}
           </span>
         </label>
         {isAdminCreatedMember ? (
@@ -195,11 +197,11 @@ export function AdminMemberDibayIdDialog({
               onChange={(e) => setSyncLoginId(e.target.checked)}
             />
             <span>
-              <span className="block font-medium text-sam-fg">로그인 아이디도 같이 변경</span>
+              <span className="block font-medium text-sam-fg">{t("admin_users_dibay_id_sync_login_id")}</span>
               <span className="block text-[12px] text-sam-muted">
                 {syncLoginId
-                  ? `로그인 아이디가 「${normalized || "새 아이디"}」 로 바뀌고, 기존 로그인 아이디로는 로그인할 수 없습니다.`
-                  : "선택하지 않으면 @회원 ID 만 바뀌고 로그인 아이디는 그대로입니다."}
+                  ? t("admin_users_dibay_id_sync_login_id_on", { loginId: normalized || t("admin_users_dibay_id_new_login_id") })
+                  : t("admin_users_dibay_id_sync_login_id_off")}
               </span>
             </span>
           </label>

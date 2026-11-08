@@ -6,6 +6,7 @@
  * - 값을 확인하지 못한 지표는 「확인 불가」 (0 으로 표시하지 않는다). 권한 밖 지표는 서버가 뺀다.
  * - 화면이 보이는 동안 60초마다 서버 값을 다시 읽는다 (Realtime 구독 없음).
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -98,6 +99,7 @@ export function CommunityDashboard({
   model: AdminDomainDashboardModel;
   isSuperAdmin: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const q = useCommunityQueryState();
   const [refreshing, startRefresh] = useTransition();
@@ -125,11 +127,11 @@ export function CommunityDashboard({
     <div data-community-dashboard="1" className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="sam-text-page-title font-semibold text-sam-fg">커뮤니티 대시보드</h1>
-          <p className="mt-1 sam-text-body text-sam-muted">처리 대기부터 확인하세요. 기준: 필리핀 시간</p>
+          <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_community_dash_title")}</h1>
+          <p className="mt-1 sam-text-body text-sam-muted">{t("admin_community_dash_subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-sam-muted">
-          <span data-community-dashboard-updated="1">마지막 갱신 {updated ? `${updated} PHT` : "—"}</span>
+          <span data-community-dashboard-updated="1">{t("admin_community_dash_last_updated", { time: updated ? `${updated} PHT` : "—" })}</span>
           <AdminActionButton variant="secondary" disabled={refreshing} onClick={refresh}>
             {refreshing ? "새로고침 중…" : "새로고침"}
           </AdminActionButton>
@@ -147,7 +149,7 @@ export function CommunityDashboard({
         </div>
       ) : null}
 
-      <Section title="지금 처리할 일" hint="[새로고침]으로 최신 값 확인">
+      <Section title={t("admin_community_dash_todo_title")} hint={t("admin_community_dash_todo_hint")}>
         {pending.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4 text-center text-[13px] text-sam-muted">
             지금 처리할 일이 없습니다.
@@ -161,7 +163,7 @@ export function CommunityDashboard({
         )}
       </Section>
 
-      <Section title="현재 상태">
+      <Section title={t("admin_community_dash_status_title")}>
         <div className={GRID}>
           {model.currentState.map((m) => (
             <MetricCard key={m.id} label={m.labelKo} value={m.value} href={m.href} />
@@ -170,7 +172,7 @@ export function CommunityDashboard({
       </Section>
 
       <Section
-        title="기간 통계"
+        title={t("admin_community_dash_period_title")}
         hint={periodLabel(model.periodRange) ? `${periodLabel(model.periodRange)} (필리핀 시간)` : undefined}
       >
         <div className="flex flex-wrap items-end gap-2">
@@ -214,7 +216,7 @@ export function CommunityDashboard({
       </Section>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="최근 처리" hint={<Link href="/admin/community/audit" className="underline">운영 기록 전체</Link>}>
+        <Section title={t("admin_community_dash_recent_actions")} hint={<Link href="/admin/community/audit" className="underline">{t("admin_community_dash_all_audit")}</Link>}>
           <RecentList
             empty="최근 관리자 조치가 없습니다."
             items={model.recent.map((r) => {
@@ -230,8 +232,8 @@ export function CommunityDashboard({
           />
         </Section>
         <Section
-          title="최근 신고"
-          hint={<Link href="/admin/community/reports?tab=pending" className="underline">신고 처리함</Link>}
+          title={t("admin_community_dash_recent_reports")}
+          hint={<Link href="/admin/community/reports?tab=pending" className="underline">{t("admin_community_dash_report_inbox")}</Link>}
         >
           <RecentList
             empty="최근 신고가 없습니다."
@@ -251,7 +253,7 @@ export function CommunityDashboard({
         </Section>
       </div>
 
-      <Section title="운영 바로가기">
+      <Section title={t("admin_community_dash_shortcuts")}>
         <div className="flex flex-wrap gap-2">
           {entries.map((e) => (
             <AdminActionLink key={e.id} href={e.href} variant="secondary">

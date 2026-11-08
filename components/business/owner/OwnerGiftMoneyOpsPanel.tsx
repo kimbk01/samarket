@@ -289,16 +289,11 @@ export function OwnerGiftMoneyOpsPanel(props: {
   );
 
   if (view === "redemptions") {
-    const filters: { id: OwnerGiftRedemptionFilter; key: MessageKey; ko: string; en: string }[] = [
-      { id: "all", key: "gift_owner_redemption_filter_all", ko: "전체", en: "All" },
-      { id: "pending", key: "gift_owner_redemption_filter_pending", ko: "확정 대기", en: "Pending" },
-      {
-        id: "recognized",
-        key: "gift_owner_redemption_filter_recognized",
-        ko: "확정",
-        en: "Recognized",
-      },
-      { id: "refund", key: "gift_owner_redemption_filter_refund", ko: "환불", en: "Refund" },
+    const filters: { id: OwnerGiftRedemptionFilter; key: MessageKey }[] = [
+      { id: "all", key: "gift_owner_redemption_filter_all" },
+      { id: "pending", key: "gift_owner_redemption_filter_pending" },
+      { id: "recognized", key: "gift_owner_redemption_filter_recognized" },
+      { id: "refund", key: "gift_owner_redemption_filter_refund" },
     ];
     return (
       <OwnerStoreAdminDashSection
@@ -323,7 +318,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
                 setRedemptionFilter(filter.id);
               }}
             >
-              {safeT(filter.key, { fallbackKo: filter.ko, fallbackEn: filter.en })}
+              {safeT(filter.key)}
               {summary ? <span className="ml-0.5 tabular-nums">({summary.counts[filter.id]})</span> : null}
             </button>
           ))}
@@ -348,7 +343,6 @@ export function OwnerGiftMoneyOpsPanel(props: {
           <ul className="space-y-2" data-owner-gift-redemption-list="1">
             {pageRows.map((row) => {
               const open = expandedId === row.id;
-              const pending = !row.reversed && !row.recognized;
               const statusKey = ownerRedemptionStatusLabelKey(row);
               return (
                 <li key={row.id} className={OWNER_ADMIN_LIST_CARD_CLASS} data-redemption-id={row.id}>
@@ -377,10 +371,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-medium">
-                      {safeT(statusKey as MessageKey, {
-                        fallbackKo: row.reversed ? "환불 / 역분개" : pending ? "수익 확정 대기" : "수익 확정",
-                        fallbackEn: row.reversed ? "Refund / reversed" : pending ? "Revenue pending" : "Revenue recognized",
-                      })}
+                      {safeT(statusKey as MessageKey)}
                     </p>
                   </button>
                   {open ? (

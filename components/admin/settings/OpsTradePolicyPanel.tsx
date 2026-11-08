@@ -64,8 +64,8 @@ export function OpsTradePolicyPanel({ saveVariant = "primary" }: { saveVariant?:
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "거래 확정·후기 기한 저장" : "Save trade confirmation policy",
-      description: ko ? "변경한 거래 확정·후기 기한을 저장합니다." : "Save the changed deadlines.",
+      title: t("admin_settings_save_trade_confirmation_policy"),
+      description: t("admin_settings_save_changed_deadlines"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;

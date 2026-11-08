@@ -25,8 +25,7 @@ function lineDiff(a: string, b: string): Array<{ type: "same" | "add" | "del"; t
 
 /** Side-by-side / line compare for two Legal CMS docs (same kind preferred). */
 export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDocumentRow[] }) {
-  const { language, safeT } = useI18n();
-  const ko = language !== "en";
+  const { t, safeT } = useI18n();
   const [leftId, setLeftId] = useState("");
   const [rightId, setRightId] = useState("");
   const [active, setActive] = useState(false);
@@ -45,7 +44,7 @@ export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDoc
       </h2>
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1">
-          <span className="text-xs text-sam-muted">{ko ? "기준(A)" : "Base (A)"}</span>
+          <span className="text-xs text-sam-muted">{t("admin_app_base")}</span>
           <select
             className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             value={leftId}
@@ -54,7 +53,7 @@ export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDoc
               setActive(false);
             }}
           >
-            <option value="">{ko ? "선택" : "Select"}</option>
+            <option value="">{t("admin_app_select")}</option>
             {documents.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.kind}/{d.locale} · {d.version} · {d.status}
@@ -63,7 +62,7 @@ export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDoc
           </select>
         </label>
         <label className="space-y-1">
-          <span className="text-xs text-sam-muted">{ko ? "비교(B)" : "Compare (B)"}</span>
+          <span className="text-xs text-sam-muted">{t("admin_app_compare_b")}</span>
           <select
             className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
             value={rightId}
@@ -72,7 +71,7 @@ export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDoc
               setActive(false);
             }}
           >
-            <option value="">{ko ? "선택" : "Select"}</option>
+            <option value="">{t("admin_app_select")}</option>
             {documents.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.kind}/{d.locale} · {d.version} · {d.status}
@@ -86,7 +85,7 @@ export function AdminLegalVersionCompare({ documents }: { documents: AppLegalDoc
         disabled={!leftId || !rightId || leftId === rightId}
         onClick={() => setActive(true)}
       >
-        {ko ? "비교 실행" : "Compare"}
+        {t("admin_app_compare")}
       </AdminActionButton>
       {active && left && right ? (
         <div className="space-y-2">

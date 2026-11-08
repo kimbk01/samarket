@@ -14,6 +14,12 @@
 import type { FormEvent, ReactNode } from "react";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { AdminListQueryDraft } from "@/lib/admin/list-query/use-admin-list-query";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdminFilterStatusOption = { value: string; label: string };
 
@@ -73,7 +79,7 @@ export function AdminFilterBar({
   const statusOptions = status
     ? status.options.some((o) => o.value === "")
       ? status.options
-      : [{ value: "", label: ko ? "전체" : "All" }, ...status.options]
+      : [{ value: "", label: tx(ko, "common_all") }, ...status.options]
     : [];
 
   return (
@@ -86,7 +92,7 @@ export function AdminFilterBar({
       {showPeriod ? (
         <div className="flex items-end gap-1" data-admin-filter-period="1">
           <label className={LABEL}>
-            {ko ? "시작일" : "From"}
+            {tx(ko, "admin_ui_from")}
             <input
               type="date"
               value={draft.from}
@@ -100,7 +106,7 @@ export function AdminFilterBar({
             ~
           </span>
           <label className={LABEL}>
-            {ko ? "종료일" : "To"}
+            {tx(ko, "admin_ui_to")}
             <input
               type="date"
               value={draft.to}
@@ -114,14 +120,12 @@ export function AdminFilterBar({
       ) : null}
       {periodIncomplete ? (
         <p role="status" className="basis-full text-[12px] text-sam-danger" data-admin-filter-period-incomplete="1">
-          {ko
-            ? "기간은 시작일과 종료일을 모두 고르고, 시작일이 종료일보다 늦지 않아야 합니다. 전체 기간은 두 날짜를 모두 비우세요."
-            : "Pick both start and end dates (start not after end), or leave both empty for all time."}
+          {tx(ko, "admin_ui_pick_both_start_and_end_dates")}
         </p>
       ) : null}
       {status ? (
         <label className={LABEL} data-admin-filter-status="1">
-          {status.label ?? (ko ? "상태" : "Status")}
+          {status.label ?? tx(ko, "admin_ui_status")}
           <select value={status.value} onChange={(e) => status.onChange(e.target.value)} className={FIELD} name="status">
             {statusOptions.map((o) => (
               <option key={o.value || "__all"} value={o.value}>
@@ -138,12 +142,12 @@ export function AdminFilterBar({
       ) : null}
       {showSearch ? (
         <label className={`${LABEL} min-w-[12rem] flex-1`}>
-          {ko ? "검색어" : "Search"}
+          {tx(ko, "admin_ui_search")}
           <input
             type="search"
             value={draft.q}
             onChange={(e) => onDraftChange({ q: e.target.value })}
-            placeholder={searchPlaceholder ?? (ko ? "검색어 입력 후 Enter" : "Type and press Enter")}
+            placeholder={searchPlaceholder ?? tx(ko, "admin_ui_type_and_press_enter")}
             className={FIELD}
             name="q"
             enterKeyHint="search"
@@ -158,10 +162,10 @@ export function AdminFilterBar({
           disabled={pending || periodIncomplete}
           data-admin-filter-submit="1"
         >
-          {ko ? "조회" : "Search"}
+          {tx(ko, "admin_ui_search_btn")}
         </AdminActionButton>
         <AdminActionButton type="button" variant="ghost" className="h-10" disabled={pending} onClick={onReset} data-admin-filter-reset="1">
-          {ko ? "초기화" : "Reset"}
+          {tx(ko, "admin_ui_reset")}
         </AdminActionButton>
       </div>
     </form>

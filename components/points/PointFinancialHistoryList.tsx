@@ -31,12 +31,12 @@ function pointItemSubtitle(item: PointFinancialHistoryItem, lang: AppLanguageCod
   return HANGUL.test(ko) && item.adjustment == null ? "" : ko;
 }
 
-/** 줄 제목 — 번역 키 우선, 없으면 서버 기본 문구 (재감사 R8-b · 「상위노출」 번역 키를 화면이 쓰도록) */
+/** 줄 제목 — 번역 키만 (재감사 R8-b · 키 목록은 `pointFinancialCategoryTitle`·커뮤니티·Apple 환불, 모두 카탈로그에 있음 · B4) */
 function pointItemTitle(
-  item: Pick<PointFinancialHistoryItem, "titleKey" | "fallbackTitleKo" | "fallbackTitleEn">,
-  safeT: (key: MessageKey, fallbacks?: { fallbackKo?: string; fallbackEn?: string }) => string
+  item: Pick<PointFinancialHistoryItem, "titleKey">,
+  t: (key: MessageKey) => string
 ): string {
-  return safeT(item.titleKey as MessageKey, { fallbackKo: item.fallbackTitleKo, fallbackEn: item.fallbackTitleEn });
+  return t(item.titleKey as MessageKey);
 }
 
 function formatRange(startAt: string, endAt: string, lang: AppLanguageCode): string {
@@ -101,7 +101,7 @@ export function PointFinancialHistoryList({
           </h3>
           <ul className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface divide-y divide-sam-border-soft">
             {rows.map((item) => {
-              const title = pointItemTitle(item, safeT);
+              const title = pointItemTitle(item, t);
               const promoLabel =
                 language === "en"
                   ? item.promotion?.productLabelEn
@@ -159,7 +159,7 @@ type SheetProps = {
 export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
   const { language, safeT, t } = useI18n();
   if (!item) return null;
-  const title = pointItemTitle(item, safeT);
+  const title = pointItemTitle(item, t);
   const promoLabel =
     language === "en" ? item.promotion?.productLabelEn : item.promotion?.productLabelKo;
   const subtitle = pointItemSubtitle(item, language);
@@ -167,8 +167,7 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
   const method = item.deposit ? financePaymentMethodDisplay(item.deposit.paymentMethod) : null;
   const chargeStatus = item.deposit ? pointChargeStatusDisplay(item.deposit.requestStatus) : null;
   const chargeRef = item.deposit ? financeRefNo(item.deposit.chargeRequestId) : null;
-  const label = (l: { key: MessageKey; ko: string; en: string }) =>
-    safeT(l.key, { fallbackKo: l.ko, fallbackEn: l.en });
+  const label = (l: { key: MessageKey }) => t(l.key);
 
   return (
     <DibayBottomSheet open={Boolean(item)} onClose={onClose} title={title}>

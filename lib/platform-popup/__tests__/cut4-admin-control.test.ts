@@ -2,6 +2,7 @@
  * @vitest-environment node
  * CUT 4 — Admin Platform Popup Control Center contracts (targeted).
  */
+import { MESSAGES } from "@/lib/i18n/messages";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -205,8 +206,12 @@ describe("CUT4 surfaces + CTA + TODAY semantic", () => {
     );
     expect(detail).toContain("popupFrequencyOperatorDescription(frequencyMode");
     const canon = readRepo("lib/admin/promotion-ownership-visibility.ts");
-    expect(canon).toMatch(/24시간이 아님|not 24 hours/i);
-    expect(canon).toMatch(/그날 끝|end of that day/i);
+    /** 언어 SSOT B4: 안내문은 카탈로그 키 — 키 + 카탈로그 값으로 확인 */
+    expect(canon).toContain('"admin_promotion_dismiss_day"');
+    expect(MESSAGES.ko.admin_promotion_dismiss_day).toMatch(/24시간이 아님/);
+    expect(MESSAGES.ko.admin_promotion_dismiss_day).toMatch(/그날 끝/);
+    expect(MESSAGES.en.admin_promotion_dismiss_day).toMatch(/not 24 hours/i);
+    expect(MESSAGES.en.admin_promotion_dismiss_day).toMatch(/end of that day/i);
   });
 });
 

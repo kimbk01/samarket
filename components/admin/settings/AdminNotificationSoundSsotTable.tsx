@@ -618,7 +618,7 @@ export function AdminNotificationSoundSsotTable() {
       ) : null}
 
       {events.length === 0 ? (
-        <AdminEmptyState ko={ko} message={ko ? "설정할 알림 이벤트가 없습니다." : "No notification events to configure."} />
+        <AdminEmptyState ko={ko} message={t("admin_settings_no_notification_events_to_configure")} />
       ) : null}
 
       {sections.map(([titleKey, domains]) => {

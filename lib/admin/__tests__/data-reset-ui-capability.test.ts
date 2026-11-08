@@ -80,8 +80,12 @@ describe("Data Reset UI capability parity", () => {
     expect(page).toContain("resolveDataResetUiCapability");
     expect(page).toContain("dataResetUiExecuteBlocked");
     expect(page).toContain("scopeExecuteBlocked");
-    expect(page).toContain("미리보기 성공이 곧 실행 허용을 의미하지 않습니다");
-    expect(page).toContain("Production 실행은 기본 비활성");
+    // B4(언어 SSOT): 화면 문구는 카탈로그 키로 — 같은 한국어 문구를 카탈로그에서 확인
+    const catalog = readFileSync(resolve(root, "lib/i18n/catalog/copy-admin-b4-ops2.ts"), "utf8");
+    expect(page).toContain('t("admin_system_successful_preview_does_not_mean_execute")');
+    expect(page).toContain('t("admin_system_production_execute_off_default_explicit_operational")');
+    expect(catalog).toContain("미리보기 성공이 곧 실행 허용을 의미하지 않습니다");
+    expect(catalog).toContain("Production 실행은 기본 비활성");
     expect(page).toContain("운영 실행 불가");
   });
 });

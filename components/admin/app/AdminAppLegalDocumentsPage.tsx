@@ -116,7 +116,7 @@ export function AdminAppLegalDocumentsPage() {
       </div>
       {!action.allowed && action.reason ? (
         <p className="mb-4 sam-text-helper text-sam-muted" data-admin-action-denied="1">
-          {ko ? `추가 버튼 비활성: ${action.reason}` : `Actions disabled: ${action.reason}`}
+          {t("admin_app_actions_disabled", { reason: String(action.reason) })}
         </p>
       ) : null}
       {loading ? (
@@ -146,15 +146,9 @@ export function AdminAppLegalDocumentsPage() {
                     {ko ? APP_LEGAL_KIND_LABEL[d.kind].ko : APP_LEGAL_KIND_LABEL[d.kind].en}/{d.locale} · {d.version} ·{" "}
                     {d.status === "published"
                       ? currentIds.has(d.id)
-                        ? ko
-                          ? "게시 · 현재 적용"
-                          : "published · in effect"
-                        : ko
-                          ? "게시 · 미적용"
-                          : "published · not in effect"
-                      : ko
-                        ? "임시저장"
-                        : "draft"}
+                        ? t("admin_app_published_in_effect_2")
+                        : t("admin_app_published_not_in_effect_2")
+                      : t("admin_app_draft")}
                   </span>
                 </div>
                 <Link href={`/admin/app/legal/${d.id}/edit`} className="sam-text-body text-signature">

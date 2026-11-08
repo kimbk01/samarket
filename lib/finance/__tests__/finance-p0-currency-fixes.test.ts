@@ -253,7 +253,17 @@ describe("P1 — 회원·관리자 포인트 표시", () => {
     expect(panel).toContain("json.duplicate === true");
     expect(panel).toContain("if (!json.ledgerId || json.balanceAfter == null)");
     const ledger = read("components/admin/points/AdminPointLedgerPage.tsx");
-    for (const col of ['"거래 ID"', '"이전 잔액"', '"처리 주체"', '"원천 거래"']) expect(ledger).toContain(col);
+    // B4(언어 SSOT): 열 머리글은 카탈로그 키로 — 같은 한국어 문구를 카탈로그에서 확인
+    const catalog = read("lib/i18n/catalog/copy-admin-b4-ops2.ts");
+    for (const [key, ko] of [
+      ["admin_points_txn_id", "거래 ID"],
+      ["admin_points_before", "이전 잔액"],
+      ["admin_points_actor", "처리 주체"],
+      ["admin_points_source", "원천 거래"],
+    ]) {
+      expect(ledger).toContain(`t("${key}")`);
+      expect(catalog).toContain(`${key}: "${ko}"`);
+    }
   });
 });
 
@@ -364,7 +374,11 @@ describe("실기 결함 2026-11-03 — 회귀 방지", () => {
     const { adminOperatorLabel } = await import("@/lib/admin/operator-ux/operator-labels");
     expect(adminOperatorLabel("APPROVED", true)).toBe("승인");
     expect(adminOperatorLabel("REJECTED", true)).toBe("반려");
-    expect(read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx")).toContain("근거 없이 적립됨");
+    /** 언어 SSOT B4: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx")).toContain(
+      '"admin_stores_no_reference_credited_without_evidence_review"'
+    );
+    expect(read("lib/i18n/catalog/copy-admin-b4-stores.ts")).toContain("근거 없이 적립됨");
   });
 });
 

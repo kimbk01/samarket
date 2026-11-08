@@ -41,7 +41,7 @@ export function AdminAdActionPanel({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(PATCH_ACTION_KIND[action]),
       ko,
-      title: ko ? `「${label}」 처리할까요?` : `${label}?`,
+      title: t("admin_ads_label", { label }),
       description: application.targetTitle || undefined,
       confirmLabel: label,
       destructive: action === "reject",

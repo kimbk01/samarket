@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 
 const read = (path: string) => withCatalogCopy(readFileSync(`${process.cwd()}/${path}`, "utf8"));
 
@@ -32,8 +33,12 @@ describe("popup operational rewire source contracts", () => {
     expect(workspace).toContain("r.previewHref");
     expect(workspace).toContain("selectedShell.previewHref");
     /** Preview CTA ≠ product detail — labels stay separate (not a combined edit/detail). */
-    expect(workspace).toContain('ko ? "미리보기" : "Preview"');
-    expect(workspace).toContain('ko ? "상품 상세" : "Product detail"');
+    expect(workspace).toContain('t("admin_ads_preview")');
+    expect(workspace).toContain('t("admin_ads_placement_product_detail")');
+    expect(MESSAGES.ko.admin_ads_preview).toBe("미리보기");
+    expect(MESSAGES.en.admin_ads_preview).toBe("Preview");
+    expect(MESSAGES.ko.admin_ads_placement_product_detail).toBe("상품 상세");
+    expect(MESSAGES.en.admin_ads_placement_product_detail).toBe("Product detail");
     expect(workspace).not.toContain("수정 / 상세");
   });
 });

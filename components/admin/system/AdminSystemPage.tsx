@@ -79,9 +79,7 @@ export function AdminSystemPage() {
     <div className="space-y-4" data-admin-system-control="1">
       <AdminPageHeader titleKey="admin_menu_dev_system_status" />
       <p className="sam-text-body-secondary text-sam-muted">
-        {ko
-          ? "시스템 통제는 권한·설정·데이터·감사·Danger Zone으로 분리됩니다. 콘텐츠 대시보드가 아닙니다."
-          : "System control separates permissions, settings, data, audit, and Danger Zone. Not a content dashboard."}
+        {t("admin_system_system_control_separates_permissions_settings_data")}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-admin-system-sections="1">
@@ -104,12 +102,10 @@ export function AdminSystemPage() {
       >
         <p className="text-[14px] font-bold text-sam-danger">Danger Zone · Data Reset</p>
         <p className="mt-1 sam-text-body-secondary text-sam-danger">
-          {ko
-            ? "일반 삭제와 분리된 파괴적 초기화입니다. 운영 목록·콘텐츠 관리와 섞지 마세요."
-            : "Destructive reset, separate from normal delete. Keep out of content ops lists."}
+          {t("admin_system_destructive_reset_separate_from_normal_delete")}
         </p>
         <AdminActionLink href="/admin/system/data-reset" variant="secondary" className="mt-3">
-          {ko ? "데이터 초기화 열기" : "Open Data Reset"}
+          {t("admin_system_open_data_reset")}
         </AdminActionLink>
       </div>
 

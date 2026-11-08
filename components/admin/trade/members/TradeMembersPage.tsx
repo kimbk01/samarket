@@ -5,6 +5,7 @@
  * 탭: 전체 / 거래 제한 중 / 계정 정지 (건수) · 닉네임 검색 · 행 → 판매자·구매자 상세.
  * URL: tab(탭 — 대시보드 딥링크 호환) · q · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import {
   COMMUNITY_TD,
@@ -66,6 +67,7 @@ export function tradeAccountStatusKey(raw: string | null | undefined): string {
 }
 
 export function TradeMembersPage() {
+  const { t } = useI18n();
   /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const qs = useCommunityQueryState();
   const lq = useCommunityListQuery();
@@ -81,7 +83,7 @@ export function TradeMembersPage() {
 
   return (
     <CommunityListShell
-      title="판매자·구매자"
+      title={t("admin_trade_members_title")}
       description="거래글을 올렸거나 거래 채팅을 한 회원의 거래 활동·신고·제한을 확인하고 조치합니다."
       tabs={
         <CommunityTabs
@@ -119,7 +121,7 @@ export function TradeMembersPage() {
                 <td className={`${COMMUNITY_TD} text-right tabular-nums`}>{formatAdminNumber(r.buyer_chat_count)}</td>
                 <td className={COMMUNITY_TD}>
                   {r.trade_restrictions.length === 0 ? (
-                    <span className="text-sam-muted">없음</span>
+                    <span className="text-sam-muted">{t("admin_trade_members_none")}</span>
                   ) : (
                     <span className="flex flex-wrap gap-1">
                       {r.trade_restrictions.map((x, i) => (

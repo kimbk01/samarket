@@ -181,10 +181,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                         data-queue-commercial-summary="1"
                       >
                         <span className="font-medium text-sam-primary">
-                          {safeT(presentation.bucketLabelKey, {
-                            fallbackKo: "처리 필요",
-                            fallbackEn: "Needs action",
-                          })}
+                          {safeT(presentation.bucketLabelKey)}
                         </span>
                         <span className="ml-1 text-[12px] text-sam-muted">
                           ·{" "}
@@ -216,12 +213,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                         {item.caseStatus ? (
                           <span className="sr-only">
                             {safeT(
-                              adminDeliveryAdOpsCaseStatusLabelKey(item.caseStatus) as MessageKey,
-                              {
-                                fallbackKo: item.caseStatus,
-                                fallbackEn: item.caseStatus,
-                              }
-                            )}
+                              adminDeliveryAdOpsCaseStatusLabelKey(item.caseStatus) as MessageKey)}
                           </span>
                         ) : null}
                       </td>
@@ -236,10 +228,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                           data-admin-delivery-ads-queue-open="1"
                           data-admin-delivery-ads-queue-cta={presentation.cta}
                         >
-                          {safeT(presentation.ctaLabelKey, {
-                            fallbackKo: "검토하기",
-                            fallbackEn: "Review",
-                          })}
+                          {safeT(presentation.ctaLabelKey)}
                         </AdminActionLink>
                       </td>
                     </tr>

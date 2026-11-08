@@ -123,7 +123,7 @@ export function AdminAdApplicationDetailPage({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "관리자 메모를 저장할까요?" : "Save the admin memo?",
+      title: t("admin_ads_save_admin_memo"),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;

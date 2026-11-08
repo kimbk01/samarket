@@ -118,7 +118,7 @@ export function AdminBoardCreateForm({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: ko ? "게시판 등록" : "Create board",
+      title: t("admin_boards_create_confirm_title"),
       description: name.trim() || undefined,
       confirmLabel: adminCta("create", ko),
     });

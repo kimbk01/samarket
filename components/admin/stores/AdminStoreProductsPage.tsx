@@ -186,28 +186,28 @@ export function AdminStoreProductsPage() {
       <div className="flex flex-wrap gap-2">
         {r.product_status !== "blocked" && (
           <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "block")}>
-            {ko ? "차단" : "Block"}
+            {t("common_block")}
           </AdminActionButton>
         )}
         {/* DEF-36: 「숨김」·「보관(숨김)」 은 같은 동작 → 「숨김」 하나 */}
         {r.product_status !== "hidden" && r.product_status !== "deleted" && r.product_status !== "blocked" && (
           <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "hide")}>
-            {ko ? "숨김" : "Hide"}
+            {t("admin_stores_hide")}
           </AdminActionButton>
         )}
         {(r.product_status === "active" || r.product_status === "hidden") && (
           <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "sold_out")}>
-            {ko ? "품절" : "Sold out"}
+            {t("admin_stores_product_filter_sold_out")}
           </AdminActionButton>
         )}
         {r.product_status !== "active" && r.product_status !== "deleted" && (
           <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "activate")}>
-            {ko ? "판매 활성" : "Activate"}
+            {t("admin_stores_activate")}
           </AdminActionButton>
         )}
         {r.admin_review_status !== "rejected" && (
           <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => void run(r.id, r.title, "reject_review")}>
-            {ko ? "검수 반려" : "Reject"}
+            {t("admin_stores_reject")}
           </AdminActionButton>
         )}
         <AdminActionButton variant="secondary" size="sm" disabled={dis} onClick={() => setEdit({ id: r.id, field: "name", value: r.title })}>
@@ -227,17 +227,17 @@ export function AdminStoreProductsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={ko ? "메뉴·상품 검수" : "Menu & product review"} />
+      <AdminPageHeader title={t("admin_stores_menu_product_review")} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_products_desc")}</p>
       {storeIdFilter ? (
         <p className="sam-text-helper text-sam-muted">
-          {ko ? "특정 매장 상품만 보는 중" : "Filtered to one store"}{" "}
+          {t("admin_stores_filtered_to_one_store_2")}{" "}
           <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
-            {ko ? "매장 상세로" : "Back to store"}
+            {t("admin_stores_back_to_store")}
           </Link>
           {" · "}
           <Link href="/admin/store-products" className="text-signature hover:underline">
-            {ko ? "전체 상품 보기" : "Show all products"}
+            {t("admin_stores_show_all_products")}
           </Link>
         </p>
       ) : null}
@@ -250,7 +250,7 @@ export function AdminStoreProductsPage() {
         onReset={lq.reset}
         pending={loading}
         showPeriod={false}
-        searchPlaceholder={ko ? "상품명" : "Product name"}
+        searchPlaceholder={t("admin_stores_product_name")}
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
@@ -306,7 +306,7 @@ export function AdminStoreProductsPage() {
                     <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">
                       {r.store_id ? (
                         <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
-                          {r.store?.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                          {r.store?.store_name || t("admin_stores_unnamed_store")}
                         </Link>
                       ) : (
                         r.store?.store_name ?? "-"
@@ -380,7 +380,7 @@ export function AdminStoreProductsPage() {
               disabled={busyId === openRow.id}
               onClick={() => void run(openRow.id, openRow.title, "approve_review")}
             >
-              {ko ? "검수 승인" : "Approve"}
+              {t("admin_stores_approve_2")}
             </AdminActionButton>
           ) : null
         }
@@ -418,7 +418,7 @@ export function AdminStoreProductsPage() {
                   />
                 </label>
                 <span className="sam-text-helper text-sam-muted">
-                  {ko ? "현재: " : "Current: "}
+                  {t("admin_stores_current")}
                   {edit.field === "name" ? openRow.title : formatMoneyPhp(openRow.price)}
                 </span>
                 <div className="flex gap-1">

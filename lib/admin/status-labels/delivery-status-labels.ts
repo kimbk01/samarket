@@ -1,4 +1,3 @@
-import { translate } from "@/lib/i18n/messages";
 import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-order-process-model";
 /**
  * 배달 Admin 상태 라벨 레지스트리 (R1 공통 기준) — 원시 상태값을 운영자 한국어/영어로.
@@ -7,6 +6,12 @@ import { ORDER_STATUS_NAME_KEYS_WITHOUT_FULFILLMENT } from "@/lib/stores/store-o
 
 import type { AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdminStatusLabel = { ko: string; en: string; tone: AdminTone };
 
@@ -194,5 +199,5 @@ export function adminStatusLabel(
   const hit = REGISTRIES[domain][key];
   if (hit) return { label: ko ? hit.ko : hit.en, tone: hit.tone, known: true };
   if (!key) return { label: "—", tone: "neutral", known: false };
-  return { label: ko ? "알 수 없는 상태" : "Unknown status", tone: "neutral", known: false };
+  return { label: tx(ko, "admin_status_labels_unknown_status"), tone: "neutral", known: false };
 }

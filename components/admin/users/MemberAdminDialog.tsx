@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
@@ -79,6 +80,7 @@ export function MemberAdminDialog({
   onPrimary,
   onClosed,
 }: MemberAdminDialogProps) {
+  const { t } = useI18n();
   const titleId = useId();
   const bodyId = useId();
   const errorId = useId();
@@ -235,8 +237,8 @@ export function MemberAdminDialog({
             <AdminActionButton
               variant="secondary"
               data-member-admin-dialog-close="1"
-              aria-label="닫기"
-              title="닫기"
+              aria-label={t("common_close")}
+              title={t("common_close")}
               disabled={pending}
               onClick={() => requestClose("x")}
               className={MEMBER_ADMIN_DIALOG_CLOSE_CLASS}

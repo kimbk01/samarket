@@ -52,9 +52,9 @@ function newFormKey(): string {
  * Money authority is SQL `gift_certificate_admin_store_payout`; this form only collects input + confirm.
  */
 export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; onPaid?: () => void }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
-  const t = (c: { ko: string; en: string }) => (ko ? c.ko : c.en);
+  const pick = (c: { ko: string; en: string }) => (ko ? c.ko : c.en);
   const [summary, setSummary] = useState<GiftRailPayoutSummary | null>(null);
   const [rows, setRows] = useState<PayoutRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -122,14 +122,12 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
       const json = (await res.json()) as { ok?: boolean; error?: string; availableAfterPhp?: number };
       if (!res.ok || !json.ok) {
         const code = json.error ?? "payout_failed";
-        setMessage({ tone: "error", text: ERROR_COPY[code] ? t(ERROR_COPY[code]) : code });
+        setMessage({ tone: "error", text: ERROR_COPY[code] ? pick(ERROR_COPY[code]) : code });
         return;
       }
       setMessage({
         tone: "ok",
-        text: ko
-          ? `지급 기록 완료 · 남은 지급 가능 ${formatAdminPhp(json.availableAfterPhp ?? 0)}`
-          : `Payout recorded · available now ${formatAdminPhp(json.availableAfterPhp ?? 0)}`,
+        text: t("admin_gift_payout_recorded_available_now", { amount: formatAdminPhp(json.availableAfterPhp ?? 0) }),
       });
       setAmount("");
       setReference("");
@@ -139,7 +137,7 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
       await load();
       onPaid?.();
     } catch {
-      setMessage({ tone: "error", text: ko ? "네트워크 오류 — 같은 내용으로 다시 지급을 요청하세요." : "Network error — retry with the same values." });
+      setMessage({ tone: "error", text: t("admin_gift_network_error_retry_same_values") });
     } finally {
       setBusy(false);
     }
@@ -147,26 +145,23 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
 
   return (
     <div className="space-y-3 border-t border-sam-border pt-3" data-admin-gift-rail-payout="1">
-      <h4 className="text-sm font-semibold">{ko ? "상품권 정산 지급 (상품권 레일)" : "Gift rail payout"}</h4>
+      <h4 className="text-sm font-semibold">{t("admin_gift_gift_rail_payout")}</h4>
       <p className="text-xs text-sam-muted">
-        {ko
-          ? "상품권 사용 매출(수수료 차감 순액)은 Coin이 아니라 이 지급으로 정산합니다. 실제 이체 후 참조번호와 함께 기록하세요."
-          : "Gift certificate revenue (net of the gift fee) is settled by this payout, not Coin. Record it after the actual transfer, with its reference."}
+        {t("admin_gift_gift_certificate_revenue_net_gift_fee")}
       </p>
       {loadError ? (
-        <p className="text-xs text-sam-danger">{ERROR_COPY[loadError] ? t(ERROR_COPY[loadError]) : loadError}</p>
+        <p className="text-xs text-sam-danger">{ERROR_COPY[loadError] ? pick(ERROR_COPY[loadError]) : loadError}</p>
       ) : null}
       {summary ? (
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-ui-rect border border-sam-border p-2">
-            <p className="text-xs text-sam-muted">{ko ? "지급 가능" : "Available"}</p>
+            <p className="text-xs text-sam-muted">{t("admin_gift_available")}</p>
             <p className="font-semibold tabular-nums">{formatAdminPhp(summary.availablePhp)}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-border p-2">
-            <p className="text-xs text-sam-muted">{ko ? "지급 완료" : "Paid out"}</p>
+            <p className="text-xs text-sam-muted">{t("admin_gift_paid_out")}</p>
             <p className="font-semibold tabular-nums">
-              {formatAdminPhp(summary.paidOutPhp)} · {summary.payoutCount}
-              {ko ? "건" : ""}
+              {formatAdminPhp(summary.paidOutPhp)} · {t("admin_gift_payout_count", { n: summary.payoutCount })}
             </p>
           </div>
         </div>
@@ -174,7 +169,7 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="space-y-1 text-xs">
-          <span className="text-sam-muted">{ko ? "지급액 (PHP)" : "Amount (PHP)"}</span>
+          <span className="text-sam-muted">{t("admin_gift_amount_php")}</span>
           <input
             className={`${Sam.input.base} w-full`}
             inputMode="numeric"
@@ -184,7 +179,7 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
           />
         </label>
         <label className="space-y-1 text-xs">
-          <span className="text-sam-muted">{ko ? "지급 수단" : "Method"}</span>
+          <span className="text-sam-muted">{t("admin_gift_method")}</span>
           <select
             className={`${Sam.input.select} w-full`}
             value={method}
@@ -193,13 +188,13 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
           >
             {GIFT_RAIL_PAYOUT_METHODS.map((m) => (
               <option key={m} value={m}>
-                {t(METHOD_LABEL[m])}
+                {pick(METHOD_LABEL[m])}
               </option>
             ))}
           </select>
         </label>
         <label className="space-y-1 text-xs">
-          <span className="text-sam-muted">{ko ? "참조번호 (필수)" : "Reference (required)"}</span>
+          <span className="text-sam-muted">{t("admin_gift_reference_required")}</span>
           <input
             className={`${Sam.input.base} w-full`}
             value={reference}
@@ -209,7 +204,7 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
           />
         </label>
         <label className="space-y-1 text-xs">
-          <span className="text-sam-muted">{ko ? "메모" : "Note"}</span>
+          <span className="text-sam-muted">{t("admin_gift_note")}</span>
           <input
             className={`${Sam.input.base} w-full`}
             value={note}
@@ -220,28 +215,30 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
         </label>
       </div>
       {!check.ok && amount !== "" && ERROR_COPY[check.error] ? (
-        <p className="text-xs text-sam-danger">{t(ERROR_COPY[check.error])}</p>
+        <p className="text-xs text-sam-danger">{pick(ERROR_COPY[check.error])}</p>
       ) : null}
 
       {confirming ? (
         <div className="space-y-2 rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-3 text-sm">
           <p>
-            {ko
-              ? `${formatAdminPhp(amountPhp)}을 ${t(METHOD_LABEL[method])}(참조 ${reference.trim()})로 지급한 것으로 기록합니다. 되돌릴 수 없습니다.`
-              : `Record a payout of ${formatAdminPhp(amountPhp)} via ${t(METHOD_LABEL[method])} (ref ${reference.trim()}). This cannot be undone.`}
+            {t("admin_gift_record_payout_confirm", {
+              amount: formatAdminPhp(amountPhp),
+              method: pick(METHOD_LABEL[method]),
+              reference: reference.trim(),
+            })}
           </p>
           <div className="flex gap-2">
             <AdminActionButton type="button" variant="primary" disabled={busy || !check.ok} onClick={() => void submit()}>
-              {ko ? "지급 기록 확정" : "Confirm payout"}
+              {t("admin_gift_confirm_payout")}
             </AdminActionButton>
             <AdminActionButton type="button" variant="secondary" disabled={busy} onClick={() => setConfirming(false)}>
-              {ko ? "취소" : "Cancel"}
+              {t("admin_cancel")}
             </AdminActionButton>
           </div>
         </div>
       ) : (
         <AdminActionButton type="button" variant="primary" disabled={!check.ok || busy} onClick={() => setConfirming(true)}>
-          {ko ? "지급 기록" : "Record payout"}
+          {t("admin_gift_record_payout")}
         </AdminActionButton>
       )}
       {message ? (
@@ -255,7 +252,7 @@ export function AdminGiftRailPayoutForm({ storeId, onPaid }: { storeId: string; 
               <span>{formatAdminManilaDateTime(r.createdAt)}</span>
               <span>{formatAdminPhp(r.amountPhp)}</span>
               <span>
-                {isKnownMethod(r.payoutMethod) ? t(METHOD_LABEL[r.payoutMethod]) : r.payoutMethod} · {r.payoutReference}
+                {isKnownMethod(r.payoutMethod) ? pick(METHOD_LABEL[r.payoutMethod]) : r.payoutMethod} · {r.payoutReference}
               </span>
             </li>
           ))}

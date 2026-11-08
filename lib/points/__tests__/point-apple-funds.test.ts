@@ -9,6 +9,7 @@ import {
   mapGiftPurchaseErrorKey,
   readGiftPurchaseErrorAmounts,
 } from "@/lib/gift-certificate/map-gift-purchase-error";
+import { translate } from "@/lib/i18n/messages";
 
 describe("Apple-charged Point restriction (ads/promotion only)", () => {
   it("detects the DB guard error inside a PostgREST message", () => {
@@ -39,9 +40,9 @@ describe("Apple-charged Point restriction (ads/promotion only)", () => {
     const amounts = readGiftPurchaseErrorAmounts({ total_points: 1100, usable_points: 100 });
     expect(amounts).toEqual({ total: 1100, usable: 100 });
     const fb = giftPurchaseErrorFallbacks(key, amounts);
-    expect(fb.fallbackKo).toContain("1,100P");
-    expect(fb.fallbackKo).toContain("100P");
-    expect(fb.fallbackEn).toContain("1,100P");
+    expect(translate("ko", key, fb.vars)).toContain("1,100P");
+    expect(translate("ko", key, fb.vars)).toContain("100P");
+    expect(translate("en", key, fb.vars)).toContain("1,100P");
     expect(fb.vars).toEqual({ total: "1,100", usable: "100" });
     expect(readGiftPurchaseErrorAmounts({ error: "x" })).toBeNull();
   });

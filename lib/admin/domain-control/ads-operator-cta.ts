@@ -11,6 +11,12 @@ import {
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { formatAdsRemaining } from "@/lib/admin/ads-exposure/canonical-location-period";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdsOperatorCta = {
   action: AdminDeliveryAdAction;
@@ -81,17 +87,15 @@ export function adsWhyActionable(
   ko: boolean
 ): string {
   if (input.needsCreative) {
-    return ko ? "배너 소재 제작·확인이 필요합니다." : "Banner creative needs production.";
+    return tx(ko, "admin_domain_control_banner_creative_needs_production");
   }
   if (input.lifecycle === "SUBMITTED" || input.lifecycle === "UNDER_REVIEW") {
-    return ko
-      ? "관리자 심사(승인·수정 요청·반려)가 필요합니다."
-      : "Admin review required (approve / request changes / reject).";
+    return tx(ko, "admin_domain_control_admin_review_required_approve_request_changes");
   }
   if (input.hadChangesRequested) {
-    return ko ? "수정 후 재검토가 필요합니다." : "Re-review after owner changes.";
+    return tx(ko, "admin_domain_control_re_review_after_owner_changes");
   }
-  return ko ? "관리자 조치가 필요합니다." : "Admin action required.";
+  return tx(ko, "admin_domain_control_admin_action_required");
 }
 
 export function adsRemainingPeriodLabel(
@@ -107,13 +111,13 @@ export function adsExposureLabel(
   ko: boolean
 ): string {
   const s = String(lifecycle ?? "");
-  if (s === "ACTIVE") return ko ? "실제 노출 가능(조건 충족 시)" : "May be exposed if eligible";
-  if (s === "SCHEDULED") return ko ? "아직 노출 안 됨(예약)" : "Not exposed yet (scheduled)";
-  if (s.startsWith("PAUSED")) return ko ? "노출 중단(일시중지)" : "Exposure paused";
+  if (s === "ACTIVE") return tx(ko, "admin_domain_control_may_be_exposed_if_eligible");
+  if (s === "SCHEDULED") return tx(ko, "admin_domain_control_not_exposed_yet_scheduled");
+  if (s.startsWith("PAUSED")) return tx(ko, "admin_domain_control_exposure_paused");
   if (s === "ENDED" || s === "TERMINATED" || s === "ARCHIVED" || s === "REJECTED") {
-    return ko ? "노출 종료" : "Not exposed";
+    return tx(ko, "admin_domain_control_not_exposed");
   }
-  return ko ? "아직 노출 안 됨" : "Not exposed yet";
+  return tx(ko, "admin_ads_operator_not_exposed_yet");
 }
 
 export function adsPaymentLabel(
@@ -123,18 +127,18 @@ export function adsPaymentLabel(
 ): string {
   const f = String(fundingStatus ?? "").toUpperCase();
   if (f === "NONE" || f === "ADMIN_DIRECT" || currency === "N_A") {
-    return ko ? "결제 없음" : "No payment";
+    return tx(ko, "admin_domain_control_no_payment");
   }
   if (currency === "POINT") {
-    return ko ? "Point 결제" : "Point billing";
+    return tx(ko, "admin_domain_control_point_billing");
   }
-  if (f === "FUNDED") return ko ? "Business Cash 결제 완료" : "Business Cash funded";
-  if (f === "REFUNDED") return ko ? "환불됨" : "Refunded";
+  if (f === "FUNDED") return tx(ko, "admin_domain_control_business_cash_funded");
+  if (f === "REFUNDED") return tx(ko, "admin_domain_control_refunded");
   if (currency === "CASH") {
-    if (f === "UNFUNDED") return ko ? "Business Cash 결제 대기" : "Business Cash pending";
-    if (!f) return ko ? "Business Cash 결제" : "Business Cash billing";
+    if (f === "UNFUNDED") return tx(ko, "admin_domain_control_business_cash_pending");
+    if (!f) return tx(ko, "admin_domain_control_business_cash_billing");
   }
-  if (f === "UNFUNDED") return ko ? "결제 대기" : "Payment pending";
-  if (!f) return ko ? "결제 정보 없음" : "Payment unavailable";
-  return ko ? `결제: ${f}` : `Payment: ${f}`;
+  if (f === "UNFUNDED") return tx(ko, "admin_domain_control_payment_pending");
+  if (!f) return tx(ko, "admin_domain_control_payment_unavailable");
+  return tx(ko, "admin_domain_control_payment", { state: String(f) });
 }

@@ -126,22 +126,19 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           ? "linear-gradient(180deg,var(--sam-warning-soft) 0%,var(--sam-bg-app) 100%)"
           : "linear-gradient(180deg,var(--sam-bg-app) 0%,var(--sam-bg-surface-muted) 100%)";
 
-  const modeBtn = (mode: DeviceMode, labelKo: string, labelEn: string) => (
+  const modeBtn = (mode: DeviceMode) => (
     <AdminChipButton key={mode} selected={device === mode} onClick={() => setDevice(mode)}>
-      {safeT(`admin_platform_popup_preview_${mode}`, {
-        fallbackKo: labelKo,
-        fallbackEn: labelEn,
-      })}
+      {safeT(`admin_platform_popup_preview_${mode}`)}
     </AdminChipButton>
   );
 
   return (
     <div data-admin-popup-preview="1" className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {modeBtn("phone", "휴대폰", "Phone")}
-        {modeBtn("tablet_portrait", "태블릿 세로", "Tablet portrait")}
-        {modeBtn("tablet_landscape", "태블릿 가로", "Tablet landscape")}
-        {modeBtn("desktop", "데스크톱", "Desktop")}
+        {modeBtn("phone")}
+        {modeBtn("tablet_portrait")}
+        {modeBtn("tablet_landscape")}
+        {modeBtn("desktop")}
         {surfaceLabel ? <span className="text-xs text-sam-muted">{surfaceLabel}</span> : null}
         {source?.unsaved ? (
           <span className="text-xs text-sam-warning">

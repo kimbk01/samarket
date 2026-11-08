@@ -182,7 +182,7 @@ export function OwnerCoinWithdrawalPanel({
         {row.status.toUpperCase() === "PAID" && financePayoutMethodDisplay(row.payout_method)
           ? ` · ${(() => {
               const m = financePayoutMethodDisplay(row.payout_method)!;
-              return safeT(m.key, { fallbackKo: m.ko, fallbackEn: m.en });
+              return t(m.key);
             })()}`
           : ""}
         {row.status.toUpperCase() === "PAID" && row.payout_reference

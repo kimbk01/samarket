@@ -95,17 +95,17 @@ function AdminStoreInquiriesPageInner() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={ko ? "매장 문의" : "Store inquiries"} />
+      <AdminPageHeader title={t("admin_stores_store_inquiries")} />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_inquiries_desc")}</p>
       {storeIdFilter ? (
         <p className="sam-text-helper text-sam-muted">
-          {ko ? "특정 매장 문의만 보는 중" : "Filtered to one store"}{" "}
+          {t("admin_stores_filtered_to_one_store")}{" "}
           <Link href={businessCcBackToStoreHref(storeIdFilter)} className="text-signature hover:underline">
-            {ko ? "매장 상세로" : "Back to store"}
+            {t("admin_stores_back_to_store")}
           </Link>
           {" · "}
           <Link href="/admin/store-inquiries" className="text-signature hover:underline">
-            {ko ? "전체 문의 보기" : "Show all inquiries"}
+            {t("admin_stores_show_all_inquiries")}
           </Link>
         </p>
       ) : null}
@@ -123,11 +123,11 @@ function AdminStoreInquiriesPageInner() {
           <table className="w-full min-w-[60rem] border-collapse text-left sam-text-body-secondary" data-admin-store-inquiries-table="1">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "매장" : "Store"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "유형·문의자" : "Type / from"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "접수 일시" : "Created"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "문의" : "Inquiry"}</th>
+                <th className="py-2 pr-2 font-medium">{t("common_store")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_home_shelves_col_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_type_from")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_created")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_stores_inquiry")}</th>
                 <th className="py-2 pr-2 font-medium">{t("admin_stores_inquiries_store_reply")}</th>
               </tr>
             </thead>
@@ -140,10 +140,10 @@ function AdminStoreInquiriesPageInner() {
                     <td className="py-2 pr-2 font-semibold text-sam-fg">
                       {r.store_id ? (
                         <Link href={businessCcBackToStoreHref(r.store_id)} className="hover:text-signature hover:underline">
-                          {r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")}
+                          {r.store_name || t("admin_stores_unnamed_store")}
                         </Link>
                       ) : (
-                        r.store_name || (ko ? "이름 없는 매장" : "Unnamed store")
+                        r.store_name || t("admin_stores_unnamed_store")
                       )}
                       <AdminTechDetails ko={ko}>
                         <div>inquiry_id: {r.id}</div>
@@ -154,12 +154,12 @@ function AdminStoreInquiriesPageInner() {
                     </td>
                     <td className="py-2 pr-2">
                       <AdminToneBadge tone={st?.tone ?? "neutral"}>
-                        {st ? (ko ? st.ko : st.en) : ko ? "알 수 없는 상태" : "Unknown status"}
+                        {st ? (ko ? st.ko : st.en) : t("admin_stores_unknown_status")}
                       </AdminToneBadge>
                     </td>
                     <td className="py-2 pr-2 text-[12px] text-sam-muted">
-                      <div>{type ? (ko ? type[0] : type[1]) : ko ? "기타 문의" : "Other"}</div>
-                      <div>{r.from_user_label || (ko ? "이름 확인 불가" : "Name unavailable")}</div>
+                      <div>{type ? (ko ? type[0] : type[1]) : t("admin_stores_other")}</div>
+                      <div>{r.from_user_label || t("admin_stores_name_unavailable")}</div>
                     </td>
                     <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">
                       {formatAdminManilaDateTime(r.created_at)}

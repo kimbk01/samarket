@@ -21,11 +21,11 @@ export function AdminDeliveryOrderChatLookupEmpty({ orderId }: Props) {
       <AdminPageHeader titleKey="admin_menu_order_chats" descriptionKey="admin_r4b_chat_desc" backHref="/admin/order-chats" />
       <div className="flex flex-wrap gap-2 sam-text-body-secondary">
         <Link href={`/admin/stores/orders/${encodeURIComponent(orderId)}`} className="text-signature underline">
-          {ko ? "주문 상세 보기" : "Open order detail"}
+          {t("admin_delivery_orders_open_order_detail")}
         </Link>
         <span className="text-sam-muted">·</span>
         <Link href="/admin/store-orders" className="text-sam-muted underline">
-          {ko ? "처리 필요 주문" : "Orders needing action"}
+          {t("admin_delivery_orders_orders_needing_action")}
         </Link>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm text-sam-muted">

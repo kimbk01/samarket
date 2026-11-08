@@ -131,8 +131,7 @@ export function ExperimentTable({
                   {onStatusChange && e.status === "running" && (
                     <>
                       <AdminActionButton
-                        variant="ghost"
-                        size="sm"
+                        variant="secondary"size="sm"
                         type="button"
                         disabled={busy}
                         onClick={() => onStatusChange(e, "paused")}
@@ -152,8 +151,7 @@ export function ExperimentTable({
                   )}
                   {onStatusChange && e.status === "paused" && (
                     <AdminActionButton
-                      variant="ghost"
-                      size="sm"
+                      variant="secondary"size="sm"
                       type="button"
                       disabled={busy}
                       onClick={() => onStatusChange(e, "running")}

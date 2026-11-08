@@ -4,6 +4,7 @@
  * 작성자 조회 (설계 §C-10) — 커뮤니티 활동 기준 회원 목록. 행 → 작성자 상세(조치 포함).
  * URL: q · restricted=1 · account=suspended|active · sort · from/to(PHT) · (호환) period · page · size
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import {
@@ -71,6 +72,7 @@ export function restrictionUntilLabel(endAt: string | null | undefined): string 
 }
 
 export function AdminCommunityMembersPage() {
+  const { t } = useI18n();
   const q = useCommunityListQuery({ extras: MEMBER_EXTRAS, sorts: SORTS, defaults: { sort: "recent" } });
   const restricted = q.query.extras.restricted;
   const account = q.query.extras.account;
@@ -86,7 +88,7 @@ export function AdminCommunityMembersPage() {
 
   return (
     <CommunityListShell
-      title="작성자 조회"
+      title={t("admin_community_members_title")}
       description="커뮤니티에 글·댓글을 쓴 회원의 활동·신고·조치 이력을 확인하고 조치합니다."
       tabs={
         <CommunityTabs
@@ -114,7 +116,7 @@ export function AdminCommunityMembersPage() {
         </CommunityFilterBar>
       }
       banner={
-        hasPeriod ? <p className="text-[12px] text-sam-muted">선택한 기간에 글이나 댓글을 쓴 회원만 표시합니다.</p> : null
+        hasPeriod ? <p className="text-[12px] text-sam-muted">{t("admin_community_members_period_note")}</p> : null
       }
       footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
@@ -152,8 +154,8 @@ export function AdminCommunityMembersPage() {
                         {restrictionUntilLabel(a.end_at)}
                       </AdminToneBadge>
                     ))}
-                    {r.warning_count ? <AdminToneBadge tone="warning">경고 {r.warning_count}회</AdminToneBadge> : null}
-                    {active.length === 0 && !r.warning_count ? <span className="text-sam-muted">없음</span> : null}
+                    {r.warning_count ? <AdminToneBadge tone="warning">{t("admin_community_members_warnings", { n: r.warning_count })}</AdminToneBadge> : null}
+                    {active.length === 0 && !r.warning_count ? <span className="text-sam-muted">{t("common_none")}</span> : null}
                   </div>
                 </td>
                 <td className={COMMUNITY_TD}>

@@ -24,6 +24,12 @@ import { resolveStoreCommissionPeriod } from "@/lib/stores/commission/store-comm
 import type { StoreCommissionRowState } from "@/lib/stores/commission/store-commission-contract";
 import { STORE_ORDER_STATUS_LIST, type StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export const ADMIN_ORDER_OPS_PAGE_RPC = "admin_store_order_ops_page" as const;
 export const ADMIN_ORDER_OPS_SUMMARY_RPC = "admin_store_order_ops_summary" as const;
@@ -368,10 +374,10 @@ export type AdminOrderOpsPageResult = {
 
 /** 주문 액션 예외 사유 (D9) — only from existing records; no new criteria. */
 export function adminOrderExceptionReason(r: AdminOrderOpsRow, ko: boolean): string {
-  if (r.rider_failure_reported_at) return ko ? "라이더 실패 신고" : "Rider failure report";
-  if (r.sla_warning_reason) return ko ? `SLA 경고: ${r.sla_warning_reason}` : `SLA warning: ${r.sla_warning_reason}`;
-  if (r.needs_admin_attention) return ko ? "자동조치·복구 센터 표시" : "Flagged by auto-action / recovery";
-  return ko ? "사유 기록 없음" : "No recorded reason";
+  if (r.rider_failure_reported_at) return tx(ko, "admin_store_orders_rider_failure_report");
+  if (r.sla_warning_reason) return tx(ko, "admin_store_orders_sla_warning", { reason: String(r.sla_warning_reason) });
+  if (r.needs_admin_attention) return tx(ko, "admin_store_orders_flagged_by_auto_action_recovery");
+  return tx(ko, "admin_store_orders_no_recorded_reason");
 }
 
 /** Closed statuses (for row badges / exception copy). */

@@ -13,6 +13,7 @@ import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBo
 import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
 import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type ArchiveTab = "notes" | "platform";
 
@@ -46,19 +47,19 @@ type NoteMessage = {
 function legacyStatusLabel(status: string, ko: boolean): string {
   switch (String(status ?? "").trim()) {
     case "open":
-      return ko ? "답변 대기" : "Awaiting reply";
+      return translateBy(ko ? "ko" : "en", "admin_support_awaiting_reply");
     case "answered":
-      return ko ? "답변 완료" : "Answered";
+      return translateBy(ko ? "ko" : "en", "admin_support_answered");
     case "closed":
-      return ko ? "종료" : "Closed";
+      return translateBy(ko ? "ko" : "en", "admin_support_closed");
     default:
-      return ko ? "확인 필요" : "Unknown";
+      return translateBy(ko ? "ko" : "en", "admin_support_unknown");
   }
 }
 
 function startedByLabel(startedBy: string | undefined, ko: boolean): string {
-  if (startedBy === "admin") return ko ? "관리자 발신" : "Admin-started";
-  if (startedBy === "member") return ko ? "회원·사장님 문의" : "Member-started";
+  if (startedBy === "admin") return translateBy(ko ? "ko" : "en", "admin_support_admin_started");
+  if (startedBy === "member") return translateBy(ko ? "ko" : "en", "admin_support_member_started");
   return "—";
 }
 
@@ -112,7 +113,7 @@ function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) 
           }`}
         >
           <p className="text-xs text-sam-muted">
-            {m.sender_role === "admin" ? (ko ? "관리자" : "Admin") : ko ? "회원·사장님" : "Member"} ·{" "}
+            {m.sender_role === "admin" ? (translateBy(ko ? "ko" : "en", "admin_support_admin")) : translateBy(ko ? "ko" : "en", "admin_support_member")} ·{" "}
             {formatAdminManilaDateTime(m.created_at)}
           </p>
           <p className="whitespace-pre-wrap">{m.body}</p>
@@ -126,7 +127,7 @@ function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) 
  * A2-2 legacy Care + platform inbox — read-only archive (no reply/compose).
  */
 export function AdminSupportArchivePage() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [tab, setTab] = useState<ArchiveTab>("notes");
   const ko = language !== "en";
   const [openId, setOpenId] = useState<string | null>(null);
@@ -157,8 +158,8 @@ export function AdminSupportArchivePage() {
           className="flex-1"
           ariaLabel={safeT("admin_menu_cp_support_archive")}
           tabs={[
-            { id: "notes", label: ko ? "쪽지·1:1" : "Notes / 1:1" },
-            { id: "platform", label: ko ? "플랫폼 문의" : "Platform inquiries" },
+            { id: "notes", label: t("admin_support_notes_1_1") },
+            { id: "platform", label: t("admin_support_platform_inquiries") },
           ]}
           value={tab}
           syncUrl={false}
@@ -194,10 +195,10 @@ export function AdminSupportArchivePage() {
           <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "제목" : "Subject"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "시작" : "Started by"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "최근 일시" : "Last message"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_subject")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_started_by")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_last_message")}</th>
                 <th className="py-2 pr-2 font-medium">{adminCta("detail", ko)}</th>
               </tr>
             </thead>
@@ -239,10 +240,10 @@ export function AdminSupportArchivePage() {
           <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">{ko ? "제목" : "Subject"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "매장" : "Store"}</th>
-                <th className="py-2 pr-2 font-medium">{ko ? "등록 일시" : "Created"}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_subject")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_status")}</th>
+                <th className="py-2 pr-2 font-medium">{t("common_store")}</th>
+                <th className="py-2 pr-2 font-medium">{t("admin_support_created")}</th>
                 <th className="py-2 pr-2 font-medium">{adminCta("detail", ko)}</th>
               </tr>
             </thead>

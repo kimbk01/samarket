@@ -174,14 +174,10 @@ export function AdminDeliveryReleaseGatePage() {
         level: adminActionLevel("save"),
         ko,
         title: checked
-          ? ko
-            ? "수동 점검 확인 처리"
-            : "Mark manual check done"
-          : ko
-            ? "수동 점검 확인 해제"
-            : "Clear manual check",
+          ? t("admin_system_mark_manual_check_done")
+          : t("admin_system_clear_manual_check"),
         description: confirmLabel,
-        confirmLabel: checked ? (ko ? "확인 처리" : "Mark done") : ko ? "확인 해제" : "Clear",
+        confirmLabel: checked ? t("admin_system_mark_done") : t("admin_system_clear"),
       });
       if (!confirmed.ok) return;
     }
@@ -211,10 +207,10 @@ export function AdminDeliveryReleaseGatePage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <AdminActionLink href="/admin/ops-console" variant="secondary">
-            {ko ? "운영 콘솔" : "Ops console"}
+            {t("admin_system_ops_console")}
           </AdminActionLink>
           <AdminActionLink href="/admin/runtime-health" variant="secondary">
-            {ko ? "런타임 상태" : "Runtime health"}
+            {t("admin_system_runtime_health")}
           </AdminActionLink>
           <AdminActionButton variant="secondary" onClick={() => void load()} disabled={!!busyKey}>
             {adminCta("refresh", ko)}
@@ -224,17 +220,17 @@ export function AdminDeliveryReleaseGatePage() {
 
       {!writeAction.allowed && writeAction.reason ? (
         <p data-admin-action-denied="1" className="mt-3 sam-text-helper text-sam-muted">
-          {ko ? `수동 점검 체크 비활성: ${writeAction.reason}` : `Manual checks disabled: ${writeAction.reason}`}
+          {t("admin_system_manual_checks_disabled", { reason: writeAction.reason })}
         </p>
       ) : null}
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="text-sm text-sam-muted">{ko ? "전체 판정" : "Overall"}</div>
+        <div className="text-sm text-sam-muted">{t("admin_system_overall")}</div>
         <div className={`mt-1 text-[20px] font-semibold ${overallClass(overall)}`}>
           {OVERALL_LABELS[overall] ? (ko ? OVERALL_LABELS[overall].ko : OVERALL_LABELS[overall].en) : overall}
         </div>
         <div className="mt-2 text-xs text-sam-muted">
-          {ko ? "확인 시각" : "Generated at"}: {fmtTs(data?.generated_at)}
+          {t("admin_system_generated_at")}: {fmtTs(data?.generated_at)}
         </div>
       </div>
 
@@ -271,7 +267,7 @@ export function AdminDeliveryReleaseGatePage() {
             status={{
               value: statusFilter,
               onChange: (v) => setStatusFilter(v as "" | GateStatus),
-              label: ko ? "판정" : "Status",
+              label: t("admin_system_status"),
               options: (Object.keys(STATUS_LABELS) as GateStatus[]).map((v) => ({
                 value: v,
                 label: ko ? STATUS_LABELS[v].ko : STATUS_LABELS[v].en,
@@ -294,11 +290,11 @@ export function AdminDeliveryReleaseGatePage() {
             <table className="w-full min-w-[48rem] border-collapse text-left sam-text-body-secondary" data-release-gate-auto-table="1">
               <thead>
                 <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                  <th className="py-2 pr-2 font-medium">{ko ? "판정" : "Status"}</th>
-                  <th className="py-2 pr-2 font-medium">{ko ? "항목" : "Check"}</th>
-                  <th className="py-2 pr-2 font-medium">{ko ? "조치 방법" : "How"}</th>
-                  <th className="py-2 pr-2 font-medium">{ko ? "확인 시각" : "Checked at"}</th>
-                  <th className="py-2 pr-2 font-medium">{ko ? "바로가기" : "Links"}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_status")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_check")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_how")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_checked_at")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_links")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -352,9 +348,9 @@ export function AdminDeliveryReleaseGatePage() {
             <table className="w-full min-w-[40rem] border-collapse text-left sam-text-body-secondary" data-release-gate-manual-table="1">
               <thead>
                 <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                  <th className="py-2 pr-2 font-medium">{ko ? "점검 항목" : "Check"}</th>
-                  <th className="py-2 pr-2 font-medium">{ko ? "확인 시각" : "Checked at"}</th>
-                  <th className="py-2 pr-2 font-medium">{ko ? "메모" : "Memo"}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_check_2")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_checked_at")}</th>
+                  <th className="py-2 pr-2 font-medium">{t("admin_system_memo")}</th>
                 </tr>
               </thead>
               <tbody>

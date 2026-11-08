@@ -136,19 +136,19 @@ export function AdminPointChargeInlineActions({
                   {/* R6-g — 반려 사유를 목록 줄에 바로 */}
                   {r.requestStatus === "rejected" ? (
                     <p className="mt-1 max-w-[14rem] break-words sam-text-xxs text-sam-fg" data-point-charge-reject-reason="1">
-                      {ko ? "반려 사유" : "Reject reason"}: {r.rejectReason?.trim() || "—"}
+                      {t("admin_points_reject_reason")}: {r.rejectReason?.trim() || "—"}
                     </p>
                   ) : null}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                   <span className="block" data-point-charge-requested-at="1">
-                    {ko ? "신청 " : "Requested "}
+                    {t("admin_points_requested")}
                     {formatAdminManilaDateTime(r.requestedAt)} PHT
                   </span>
                   {/* H-10 — 처리 시각 (승인·반려·보류 처리 후) */}
                   {r.processedAt || r.approvedAt ? (
                     <span className="block sam-text-xxs" data-point-charge-processed-at="1">
-                      {ko ? "처리 " : "Processed "}
+                      {t("admin_points_processed")}
                       {formatAdminManilaDateTime(r.processedAt || r.approvedAt)} PHT
                     </span>
                   ) : null}
@@ -195,7 +195,7 @@ export function AdminPointChargeInlineActions({
                         className="self-center sam-text-xxs font-medium text-sam-primary hover:underline"
                         data-point-charge-detail-link="1"
                       >
-                        {ko ? "상세" : "Details"}
+                        {t("admin_points_details")}
                       </Link>
                     </div>
                   ) : (
@@ -206,7 +206,7 @@ export function AdminPointChargeInlineActions({
                         className="sam-text-xxs font-medium text-sam-primary hover:underline"
                         data-point-charge-detail-link="1"
                       >
-                        {ko ? "상세" : "Details"}
+                        {t("admin_points_details")}
                       </Link>
                     </div>
                   )}

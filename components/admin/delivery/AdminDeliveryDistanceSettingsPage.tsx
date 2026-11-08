@@ -5,6 +5,7 @@ import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type {
   DeliveryDistancePolicy,
@@ -102,10 +103,10 @@ function normalizeOverrides(raw: unknown): DeliveryStoreDistanceOverrides {
   return { stores };
 }
 
-function distanceModeLabel(ko: boolean, mode: DeliveryStoreDistanceMode): string {
-  if (mode === "enabled") return ko ? "허용" : "Allowed";
-  if (mode === "disabled") return ko ? "차단" : "Blocked";
-  return ko ? "전역 정책 따름" : "Follow global policy";
+function distanceModeLabel(t: (key: MessageKey) => string, mode: DeliveryStoreDistanceMode): string {
+  if (mode === "enabled") return t("admin_delivery_allowed");
+  if (mode === "disabled") return t("admin_delivery_blocked");
+  return t("admin_delivery_follow_global_policy");
 }
 
 function modeOf(o: DeliveryStoreDistanceOverrides, storeId: string): DeliveryStoreDistanceMode {
@@ -300,14 +301,14 @@ function AdminDeliveryDistanceSettingsPageInner() {
         setError(t("admin_biz_delivery_km_invalid"));
         return;
       }
-      const name = store.store_name || store.slug || (ko ? "이 매장" : "this store");
+      const name = store.store_name || store.slug || (t("admin_delivery_this_store"));
       const changes: string[] = [];
-      if (parsed && parsed.ok) changes.push(ko ? `배달 반경 ${parsed.value}km` : `Radius ${parsed.value} km`);
-      if (modeDirty) changes.push(ko ? `거리 제한: ${distanceModeLabel(ko, nextMode)}` : `Distance limit: ${distanceModeLabel(ko, nextMode)}`);
+      if (parsed && parsed.ok) changes.push(t("admin_delivery_radius_km", { km: parsed.value }));
+      if (modeDirty) changes.push(t("admin_delivery_distance_limit", { mode: distanceModeLabel(t, nextMode) }));
       const c = await confirmAdminAction({
         level: adminActionLevel("save"),
         ko,
-        title: ko ? `「${name}」 배달 설정을 저장할까요?` : `Save delivery settings for "${name}"?`,
+        title: t("admin_delivery_save_delivery_settings", { name }),
         description: changes.join(" · "),
         confirmLabel: adminCta("save", ko),
       });
@@ -371,7 +372,7 @@ function AdminDeliveryDistanceSettingsPageInner() {
           );
           setRadiusDrafts((prev) => ({ ...prev, [storeId]: String(parsed.value) }));
         }
-        showMessage(ko ? `「${name}」 배달 설정을 저장했습니다.` : t("admin_delivery_distance_radius_saved"));
+        showMessage(t("admin_delivery_store_settings_saved", { name }));
       } catch {
         setError(t("admin_delivery_distance_error_network"));
       } finally {
@@ -618,11 +619,11 @@ function AdminDeliveryDistanceSettingsPageInner() {
                             })
                           }
                           className="min-w-32 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
-                          aria-label={distanceModeLabel(ko, override.mode)}
+                          aria-label={distanceModeLabel(t, override.mode)}
                         >
-                          <option value="inherit">{distanceModeLabel(ko, "inherit")}</option>
-                          <option value="enabled">{distanceModeLabel(ko, "enabled")}</option>
-                          <option value="disabled">{distanceModeLabel(ko, "disabled")}</option>
+                          <option value="inherit">{distanceModeLabel(t, "inherit")}</option>
+                          <option value="enabled">{distanceModeLabel(t, "enabled")}</option>
+                          <option value="disabled">{distanceModeLabel(t, "disabled")}</option>
                         </select>
                       </td>
                       <td className="px-2 py-2">

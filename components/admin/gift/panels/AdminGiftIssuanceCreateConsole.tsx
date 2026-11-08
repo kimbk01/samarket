@@ -540,7 +540,7 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
                 className={Sam.input.base}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="₱1,000 식사 상품권"
+                placeholder={safeT("admin_gift_title_placeholder")}
               />
             </label>
             <div className="space-y-2 text-sm">

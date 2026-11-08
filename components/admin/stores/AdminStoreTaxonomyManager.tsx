@@ -24,6 +24,7 @@ import {
 import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import { slugifyStoreTaxonomyLoose } from "@/lib/stores/store-taxonomy-slug";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 오류 코드만 운영자 문구로 — 원문 메시지·HTTP 상태는 노출하지 않는다. */
 function taxonomyErrText(code: unknown, ko: boolean, fallback: string): string {
@@ -34,9 +35,7 @@ function taxonomyErrText(code: unknown, ko: boolean, fallback: string): string {
 }
 
 function subtopicsNotReadyText(ko: boolean): string {
-  return ko
-    ? "3차 업종 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요."
-    : "Tier 3 categories are not ready yet. Contact a system admin.";
+  return translateBy(ko ? "ko" : "en", "admin_stores_tier_3_categories_are_not_ready");
 }
 
 export type AdminStoreTaxonomyFocus = "category" | "topic" | null;
@@ -236,7 +235,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                             disabled={isUploading || saving}
                             onClick={() => onDeleteImage(row.id)}
                           >
-                            {ko ? "이미지 삭제" : "Delete image"}
+                            {translateBy(ko ? "ko" : "en", "admin_stores_delete_image")}
                           </AdminActionButton>
                         ) : null}
                       </div>
@@ -298,9 +297,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                               const nextActive = !row.is_active;
                               const label = nextActive
                                 ? t("admin_stores_app_taxonomy_confirm_show")
-                                : ko
-                                  ? "숨김 처리할까요?"
-                                  : "Hide this item?";
+                                : translateBy(ko ? "ko" : "en", "admin_stores_hide_this_item");
                               if (
                                 !(
                                   await confirmAdminAction({
@@ -309,10 +306,8 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                                   title: label,
                                   description: nextActive
                                     ? undefined
-                                    : ko
-                                      ? "고객 매장 목록(/stores)에서 보이지 않게 됩니다. 삭제되지 않으며 「복구」로 다시 노출할 수 있습니다."
-                                      : "It will be hidden from the store list (/stores). It is not deleted and can be restored.",
-                                  confirmLabel: nextActive ? t("admin_stores_app_taxonomy_restore") : ko ? "숨김" : "Hide",
+                                    : translateBy(ko ? "ko" : "en", "admin_stores_it_will_be_hidden_from_store"),
+                                  confirmLabel: nextActive ? t("admin_stores_app_taxonomy_restore") : translateBy(ko ? "ko" : "en", "admin_stores_hide"),
                                   destructive: !nextActive,
                                 })
                                 ).ok
@@ -323,7 +318,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
                             })();
                           }}
                         >
-                          {row.is_active ? (ko ? "숨김" : "Hide") : t("admin_stores_app_taxonomy_restore")}
+                          {row.is_active ? translateBy(ko ? "ko" : "en", "admin_stores_hide") : t("admin_stores_app_taxonomy_restore")}
                         </AdminActionButton>
                       </div>
                     </div>
@@ -590,11 +585,9 @@ export function AdminStoreTaxonomyManager({
           await confirmAdminAction({
             level: adminActionLevel("disable"),
             ko,
-            title: ko ? "이미지를 삭제할까요?" : "Delete this image?",
-            description: ko
-              ? "고객 화면은 이름 첫 글자 타일로 표시됩니다."
-              : "Customers will see a first-letter tile instead.",
-            confirmLabel: ko ? "삭제" : "Delete",
+            title: translateBy(ko ? "ko" : "en", "admin_stores_delete_this_image"),
+            description: translateBy(ko ? "ko" : "en", "admin_stores_customers_will_see_first_letter_tile"),
+            confirmLabel: translateBy(ko ? "ko" : "en", "common_delete"),
             destructive: true,
           })
         ).ok

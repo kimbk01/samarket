@@ -7,6 +7,7 @@
  */
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryFeatureCardArt } from "@/components/stores/home/DeliveryFeatureCardArt";
 import { DELIVERY_MENU_ICON_BG, DeliveryMenuGlyph, DeliveryMenuGlyphOrInitial } from "@/components/stores/home/DeliveryMenuGlyph";
 
@@ -99,6 +100,7 @@ export function DeliveryMenuPreviewPhone({
   onPick: (p: DeliveryMenuPreviewPick) => void;
   onScreen: (s: DeliveryMenuPreviewScreen) => void;
 }) {
+  const { t } = useI18n();
   const roots = items.filter((m) => m.parentId == null).sort((a, b) => a.sortOrder - b.sortOrder);
   const rootId = screen.rootId ?? roots[0]?.id ?? null;
   const root = roots.find((r) => r.id === rootId) ?? null;
@@ -121,7 +123,7 @@ export function DeliveryMenuPreviewPhone({
             <span className="text-[14px]" style={{ color: BROWN }}>🔔 🛒</span>
           </div>
           <div className="mx-3 mb-2 flex h-[38px] items-center justify-between rounded-full border-[1.5px] px-3 text-[12px]" style={{ borderColor: GREEN, color: MUTED }}>
-            매장·메뉴 검색 <span style={{ color: BROWN }}>🔍</span>
+            {t("stores_menu_preview_search")} <span style={{ color: BROWN }}>🔍</span>
           </div>
           <div className="flex items-end gap-[12px] overflow-x-auto border-b px-3 pt-[12px] [scrollbar-width:none]" style={{ borderColor: DIVIDER }}>
             {roots.map((r) => {
@@ -153,7 +155,7 @@ export function DeliveryMenuPreviewPhone({
               style={{ color: SELECT, borderColor: SELECT }}
               onClick={() => onPick({ kind: "add-root" })}
             >
-              + 탭
+              {t("stores_menu_preview_add_tab")}
             </button>
           </div>
           {root ?
@@ -195,11 +197,11 @@ export function DeliveryMenuPreviewPhone({
                       <span className="flex h-[40px] w-[40px] items-center justify-center rounded-[11px]" style={{ background: DELIVERY_MENU_ICON_BG }}>
                         <DeliveryMenuGlyph slug="__more" />
                       </span>
-                      <span className="text-[11px]" style={{ color: BROWN }}>더보기</span>
+                      <span className="text-[11px]" style={{ color: BROWN }}>{t("stores_menu_preview_more")}</span>
                     </span>
                   </button>
                   <button type="button" className={sel(isPicked({ kind: "add-menu", rootId: root.id }))} onClick={() => onPick({ kind: "add-menu", rootId: root.id })}>
-                    <AddTile label="+ 메뉴" />
+                    <AddTile label={t("stores_menu_preview_add_menu")} />
                   </button>
                 </div>
               </div>
@@ -222,15 +224,15 @@ export function DeliveryMenuPreviewPhone({
                   <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] border border-dashed text-[16px]" style={{ borderColor: SELECT }}>
                     +
                   </span>
-                  <span className="text-[9px]">+ 매장</span>
+                  <span className="text-[9px]">{t("stores_menu_preview_add_store")}</span>
                 </span>
               </button>
               <div className="h-2 w-full" style={{ background: BAND }} />
               <div className="mx-3 my-3 flex h-[64px] items-center justify-center rounded-[8px] text-[11px]" style={{ background: BAND, color: MUTED }}>
-                배너 · 선반 (배달 화면 구성)
+                {t("stores_menu_preview_banner_shelf")}
               </div>
             </>
-          : <div className="px-3 py-10 text-center text-[12px]" style={{ color: MUTED }}>상단 탭이 없습니다 — 「+ 탭」</div>}
+          : <div className="px-3 py-10 text-center text-[12px]" style={{ color: MUTED }}>{t("stores_menu_preview_no_tabs")}</div>}
         </div>
       : <PagePreview
           root={root}
@@ -243,11 +245,11 @@ export function DeliveryMenuPreviewPhone({
           onScreen={onScreen}
         />}
       <div className="flex justify-around border-t py-1 text-[9px]" style={{ borderColor: DIVIDER, color: MUTED }}>
-        <span>커뮤니티</span>
-        <span>거래</span>
-        <b style={{ color: GREEN }}>배달</b>
-        <span>채팅</span>
-        <span>내정보</span>
+        <span>{t("stores_menu_preview_nav_community")}</span>
+        <span>{t("stores_menu_preview_nav_trade")}</span>
+        <b style={{ color: GREEN }}>{t("stores_menu_preview_nav_delivery")}</b>
+        <span>{t("stores_menu_preview_nav_chat")}</span>
+        <span>{t("stores_menu_preview_nav_my")}</span>
       </div>
     </div>
   );
@@ -271,6 +273,7 @@ function PagePreview({
   onPick: (p: DeliveryMenuPreviewPick) => void;
   onScreen: (s: DeliveryMenuPreviewScreen) => void;
 }) {
+  const { t } = useI18n();
   if (!root) return <div className="h-[560px]" />;
   const tabs = menus.filter((m) => m.showInPageTab && !m.linkTarget).sort((a, b) => a.sortOrder - b.sortOrder);
   const current = tabs.find((m) => m.id === menuId) ?? null;
@@ -294,7 +297,7 @@ function PagePreview({
           style={{ color: current ? MUTED : BROWN, fontWeight: current ? 400 : 700 }}
           onClick={() => onScreen({ kind: "page", rootId: root.id, menuId: null })}
         >
-          홈
+          {t("stores_menu_preview_home")}
           {!current ? <span className="absolute inset-x-[9px] bottom-0 h-[2px]" style={{ background: GREEN }} /> : null}
         </button>
         {tabs.map((m) => {
@@ -317,7 +320,12 @@ function PagePreview({
         })}
       </div>
       <div className="flex gap-2 overflow-hidden border-b px-3 py-2" style={{ borderColor: DIVIDER }}>
-        {["⇅ 기본순", "⚡ 할인·쿠폰", root.pickupOnly ? null : "배달방식 ⌄", "★ 별점 ⌄"].filter(Boolean).map((c) => (
+        {[
+          t("stores_menu_preview_sort_default"),
+          t("stores_menu_preview_filter_coupon"),
+          root.pickupOnly ? null : t("stores_menu_preview_filter_method"),
+          t("stores_menu_preview_filter_rating"),
+        ].filter(Boolean).map((c) => (
           <span key={c} className="shrink-0 rounded-full border-[1.5px] px-2 py-1 text-[11px]" style={{ borderColor: DIVIDER, color: BROWN }}>
             {c}
           </span>
@@ -332,7 +340,7 @@ function PagePreview({
       >
         {stores.length === 0 ?
           <span className="block px-3 py-8 text-center text-[12px]" style={{ color: MUTED }}>
-            매장 없음 — 고객 화면에서 자동 숨김
+            {t("stores_menu_preview_no_stores")}
           </span>
         : stores.slice(0, 12).map((s) => (
             <span key={s.id} className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: DIVIDER }}>
@@ -342,7 +350,7 @@ function PagePreview({
               <span className="truncate text-[12px] font-bold" style={{ color: BROWN }}>{s.name}</span>
             </span>
           ))}
-        {current ? <span className="block py-2 text-center text-[11px]" style={{ color: SELECT }}>매장 목록을 누르면 매장 지정</span> : null}
+        {current ? <span className="block py-2 text-center text-[11px]" style={{ color: SELECT }}>{t("stores_menu_preview_pick_stores_hint")}</span> : null}
       </button>
     </div>
   );

@@ -36,7 +36,7 @@ type ObligationRow = {
  * Columns map to canonical obligation fields only — no invented aggregates.
  */
 export function AdminFinanceOutstandingView() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const router = useRouter();
   const sp = useSearchParams();
@@ -63,11 +63,9 @@ export function AdminFinanceOutstandingView() {
   return (
     <div className="space-y-4" data-admin-finance-outstanding="1">
       <FinanceAdminNav ko={ko} />
-      <h2 className="text-[16px] font-semibold text-sam-fg">{ko ? "수수료 / 미납" : "Fees / outstanding"}</h2>
+      <h2 className="text-[16px] font-semibold text-sam-fg">{t("admin_finance_fees_outstanding")}</h2>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "행을 누르면 OrderMoneyChain으로 이동합니다. 매장명은 stores 조인입니다."
-          : "Row opens OrderMoneyChain. Store name comes from stores join."}
+        {t("admin_finance_row_opens_ordermoneychain_store_name_comes")}
       </p>
       <AdminFilterBar
         ko={ko}
@@ -80,7 +78,7 @@ export function AdminFinanceOutstandingView() {
         showSearch={false}
       >
         <label className={LABEL}>
-          {ko ? "매장 ID (비우면 미납 전체)" : "Store ID (empty = all open)"}
+          {t("admin_finance_store_id_empty_all_open")}
           <input
             className={`${FIELD} min-w-[14rem]`}
             value={storeInput.value}
@@ -92,16 +90,12 @@ export function AdminFinanceOutstandingView() {
       {sums ? (
         <AdminFinancePeriodSums
           ko={ko}
-          title={ko ? "조건 합계" : "Totals"}
+          title={t("admin_finance_totals")}
           range={null}
           basis={
             filters.storeId
-              ? ko
-                ? "이 매장 전체 상태"
-                : "all statuses of this store"
-              : ko
-                ? "미납(open) 전체 매장"
-                : "all stores · open"
+              ? t("admin_finance_all_statuses_of_this_store")
+              : t("admin_finance_all_stores_open")
           }
           cells={outstandingSumCells(sums, ko)}
         />
@@ -118,21 +112,21 @@ export function AdminFinanceOutstandingView() {
         size={lq.query.size}
         onPageChange={lq.setPage}
         onSizeChange={lq.setSize}
-        emptyMessage={ko ? "미납 수수료가 없습니다." : "No outstanding fees."}
+        emptyMessage={t("admin_finance_no_outstanding_fees")}
       >
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
-              <th className="px-3 py-2">{ko ? "발생일" : "Date"}</th>
-              <th className="px-3 py-2">{ko ? "매장" : "Store"}</th>
-              <th className="px-3 py-2">{ko ? "주문" : "Order"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Fee Due" : "Fee due"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Cash Paid" : "Cash paid"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Outstanding Created" : "Outstanding created"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Outstanding Collected" : "Collected"}</th>
-              <th className="px-3 py-2 text-right">{ko ? "Remaining" : "Remaining"}</th>
-              <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
+              <th className="px-3 py-2">{t("admin_finance_date")}</th>
+              <th className="px-3 py-2">{t("admin_biz_ops_th_store")}</th>
+              <th className="px-3 py-2">{t("finance_order")}</th>
+              <th className="px-3 py-2 text-right">{t("admin_finance_fee_due")}</th>
+              <th className="px-3 py-2 text-right">{t("admin_finance_cash_paid")}</th>
+              <th className="px-3 py-2 text-right">{t("admin_finance_outstanding_created")}</th>
+              <th className="px-3 py-2 text-right">{t("admin_finance_collected")}</th>
+              <th className="px-3 py-2 text-right">{t("admin_finance_remaining")}</th>
+              <th className="px-3 py-2">{t("admin_biz_label_status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sam-border-soft">
@@ -170,7 +164,7 @@ export function AdminFinanceOutstandingView() {
                       className="font-semibold text-signature hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="block">{r.store_name || (ko ? "매장" : "Store")}</span>
+                      <span className="block">{r.store_name || t("admin_biz_ops_th_store")}</span>
                       <span className="block font-mono text-[12px] text-sam-muted">
                         {r.store_id.slice(0, 8)}…
                       </span>

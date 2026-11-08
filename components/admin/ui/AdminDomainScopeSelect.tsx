@@ -11,6 +11,12 @@ import {
   normalizeAdminDomainScope,
   type AdminDomainScope,
 } from "@/lib/admin/list-query/admin-domain-scope";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export function AdminDomainScopeSelect({
   ko,
@@ -33,7 +39,7 @@ export function AdminDomainScopeSelect({
         className ?? "flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]"
       }
     >
-      {ko ? "도메인" : "Domain"}
+      {tx(ko, "admin_ui_domain")}
       <select
         className="h-10 rounded-ui-rect border border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-2.5 text-[16px] text-[var(--admin-console-fg)]"
         value={current}
@@ -44,9 +50,7 @@ export function AdminDomainScopeSelect({
         {ADMIN_DOMAIN_SCOPES.map((d) => (
           <option key={d} value={d}>
             {includesGlobalNote
-              ? ko
-                ? `${adminDomainScopeLabel(d, ko)} (전체 노출 포함)`
-                : `${adminDomainScopeLabel(d, ko)} (incl. all-surface)`
+              ? tx(ko, "admin_ui_incl_all_surface", { scope: String(adminDomainScopeLabel(d, ko)) })
               : adminDomainScopeLabel(d, ko)}
           </option>
         ))}

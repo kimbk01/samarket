@@ -24,7 +24,7 @@ type Row = {
 
 /** 출시 무음 감지 상태 + 수동 동기화·발송 확정 (시안/전체화면 Host 비변경). */
 export function AdminAppReleasesStatus() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [rows, setRows] = useState<Row[] | null>(null);
   const [playKey, setPlayKey] = useState<boolean | null>(null);
@@ -67,20 +67,18 @@ export function AdminAppReleasesStatus() {
         results?: { platform: string; inserted: number; error?: string }[];
       } | null;
       if (!j?.ok) {
-        setMessage(ko ? `동기화 실패: ${errorText(j?.error, r.status)}` : `Sync failed: ${errorText(j?.error, r.status)}`);
+        setMessage(t("admin_app_sync_failed", { errorText: errorText(j?.error, r.status) }));
         return;
       }
       const summary = (j.results ?? [])
         .map((x) => `${x.platform}: +${x.inserted}${x.error ? ` err=${x.error}` : ""}`)
         .join(" · ");
       setMessage(
-        ko
-          ? `동기화 완료(알림은 보내지 않았습니다) — ${summary}`
-          : `Synced (no notifications sent) — ${summary}`
+        t("admin_app_synced_no_notifications_sent", { summary })
       );
       reload();
     } catch {
-      setMessage(ko ? "동기화 요청 실패" : "Sync request failed");
+      setMessage(t("admin_app_sync_request_failed"));
     } finally {
       setBusy(null);
     }
@@ -88,10 +86,10 @@ export function AdminAppReleasesStatus() {
 
   function errorText(code: string | undefined, status: number): string {
     if (code === APP_RELEASE_ADMIN_SCREEN_OUTDATED) {
-      return ko ? "관리자 화면이 예전 버전입니다. 새로고침하세요" : "Admin screen is outdated. Refresh the page";
+      return t("admin_app_admin_screen_is_outdated_refresh_page");
     }
-    if (code === "confirm_text_mismatch") return ko ? "대상 버전 입력이 맞지 않습니다" : "Version text does not match";
-    if (code === "reason_required") return ko ? "사유를 2자 이상 입력하세요" : "Enter a reason (2+ characters)";
+    if (code === "confirm_text_mismatch") return t("admin_app_version_text_does_not_match");
+    if (code === "reason_required") return t("admin_app_enter_reason_2_characters");
     return code ?? String(status);
   }
 
@@ -129,25 +127,19 @@ export function AdminAppReleasesStatus() {
     const preview = await loadNotifyPreview(releaseId);
     setBusy(null);
     if (preview && !preview.eligible) {
-      setMessage(ko ? "이 출시는 발송할 수 없습니다(이미 발송했거나 버전 정보 부족)" : "This release cannot be notified");
+      setMessage(t("admin_app_this_release_cannot_be_notified"));
       return;
     }
     const confirmText = preview?.confirmText ?? appReleaseConfirmText(row);
     const countLine = preview
-      ? ko
-        ? `예상 대상: 구버전 회원 ${preview.targetCount}명 (이미 받은 회원은 건너뜀 · 1회 최대 ${preview.maxPerRun}건)`
-        : `Estimated targets: ${preview.targetCount} outdated users (already-notified skipped · max ${preview.maxPerRun} per run)`
-      : ko
-        ? "예상 대상 수: 확인하지 못했습니다"
-        : "Estimated targets: unavailable";
+      ? t("admin_app_estimated_targets_outdated_users_already_notified", { targetCount: preview.targetCount, maxPerRun: preview.maxPerRun })
+      : t("admin_app_estimated_targets_unavailable");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("appReleaseNotify"),
       ko,
       title: label,
-      description: ko
-        ? `대상 버전: ${confirmText}\n${countLine}\nPlay production 전체 출시가 확인된 경우에만 진행하세요.\n단계적·심사중·비공개 테스트면 취소하세요.\n구버전 회원에게 인앱+푸시 1회를 보냅니다.`
-        : `Target version: ${confirmText}\n${countLine}\nConfirm only if production rollout is fully available.\nCancel for staged/review/closed testing.\nSends 1 inbox+push to outdated users.`,
-      confirmLabel: ko ? "발송 확정" : "Confirm notify",
+      description: t("admin_app_target_version_confirm_only_if_production", { confirmText: String(confirmText), countLine }),
+      confirmLabel: t("admin_app_confirm_notify"),
       retypeValue: confirmText,
     });
     if (!confirmed.ok) return;
@@ -168,17 +160,16 @@ export function AdminAppReleasesStatus() {
         incomplete?: boolean;
       } | null;
       if (!j?.ok) {
-        setMessage(ko ? `발송 실패: ${errorText(j?.error, r.status)}` : `Notify failed: ${errorText(j?.error, r.status)}`);
+        setMessage(t("admin_app_notify_failed", { errorText: errorText(j?.error, r.status) }));
         return;
       }
       setMessage(
-        ko
-          ? `발송 시도 ${j.attempted ?? 0} · 반영 ${j.created ?? 0}${j.incomplete ? " (이어서 다시 실행)" : ""}`
-          : `Attempted ${j.attempted ?? 0} · applied ${j.created ?? 0}${j.incomplete ? " (run again)" : ""}`
+        t("admin_app_notify_result", { attempted: j.attempted ?? 0, created: j.created ?? 0 }) +
+          (j.incomplete ? ` ${t("admin_app_notify_run_again")}` : "")
       );
       reload();
     } catch {
-      setMessage(ko ? "발송 요청 실패" : "Notify request failed");
+      setMessage(t("admin_app_notify_request_failed"));
     } finally {
       setBusy(null);
     }
@@ -187,28 +178,24 @@ export function AdminAppReleasesStatus() {
   return (
     <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm" data-admin-app-releases>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-sam-fg">{ko ? "앱 업데이트 출시 감지" : "App release detect"}</h2>
+        <h2 className="font-semibold text-sam-fg">{t("admin_app_app_release_detect")}</h2>
         <AdminActionButton variant="secondary" disabled={busy != null} onClick={() => void runSync()}>
-          {busy === "sync" ? (ko ? "동기화 중…" : "Syncing…") : ko ? "지금 동기화" : "Sync now"}
+          {busy === "sync" ? (t("admin_app_syncing")) : t("admin_app_sync_now")}
         </AdminActionButton>
       </div>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "6시간마다 Play 프로덕션 트랙을 확인합니다. completed 출시만 자동으로 구버전 회원에게 인앱+푸시 1회를 보냅니다. 「지금 동기화」는 출시 정보만 가져오고 알림은 보내지 않습니다. 직접 보내려면 아래 「발송 확정」(사유·버전 재입력)을 쓰세요. 페이스북형 업데이트 전체화면은 앱 진입 후 기존 그대로입니다."
-          : "Every 6h checks Play production. Only completed rollouts auto-notify outdated users once (inbox+push). “Sync now” only fetches release info and sends nothing. To send, use “Confirm notify” below (reason + version retype). Facebook-style fullscreen UI is unchanged after app open."}
+        {t("admin_app_every_6h_checks_play_production_only")}
       </p>
       {playKey === false ? (
         <p className="sam-text-helper text-sam-warning">
-          {ko
-            ? "Google Play 키가 없어 Android 자동 감지를 할 수 없습니다. 수동 확정만 가능합니다."
-            : "No Google Play key: Android auto-detect disabled. Manual confirm only."}
+          {t("admin_app_no_google_play_key_android_auto")}
         </p>
       ) : null}
       {message ? <p className="sam-text-helper text-sam-fg">{message}</p> : null}
       {failed ? (
-        <p className="sam-text-helper text-sam-danger">{ko ? "불러오지 못했습니다" : "Failed to load"}</p>
+        <p className="sam-text-helper text-sam-danger">{t("admin_app_failed_to_load")}</p>
       ) : rows == null ? null : rows.length === 0 ? (
-        <p className="sam-text-helper text-sam-muted">{ko ? "아직 수집된 기록이 없습니다" : "Nothing collected yet"}</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_app_nothing_collected_yet")}</p>
       ) : (
         <ul className="divide-y divide-sam-border">
           {rows.map((r) => {
@@ -221,7 +208,7 @@ export function AdminAppReleasesStatus() {
                 <span className="sam-text-helper text-sam-muted">{r.rollout_status ?? "—"}</span>
                 <span className="sam-text-helper text-sam-muted">{formatAdminManilaDateTime(r.released_at)}</span>
                 <span className="sam-text-helper text-sam-muted">
-                  {r.notified_at ? (ko ? "알림 완료" : "notified") : ko ? "미발송" : "pending"}
+                  {r.notified_at ? (t("admin_app_notified")) : t("admin_app_pending")}
                 </span>
                 {canConfirm ? (
                   <AdminActionButton
@@ -230,7 +217,7 @@ export function AdminAppReleasesStatus() {
                     disabled={busy != null}
                     onClick={() => void runNotify(r, label)}
                   >
-                    {ko ? "발송 확정" : "Confirm notify"}
+                    {t("admin_app_confirm_notify")}
                   </AdminActionButton>
                 ) : null}
               </li>

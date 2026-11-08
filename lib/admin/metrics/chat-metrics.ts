@@ -24,6 +24,12 @@ import { manilaTodayRangeUtc } from "@/lib/admin/metrics/manila-period";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminChatLabel, type AdminChatLabelDomain } from "@/lib/admin/status-labels/chat-status-labels";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 /** 라벨은 채팅 상태 레지스트리 단일 기준 (대시보드·목록·상세 같은 문구). */
 function registryLabel(domain: AdminChatLabelDomain, code: string): { ko: string; en: string } {
@@ -472,6 +478,6 @@ export function resolveChatActionCenterCard(
 
 /** 지표 값 표시 — null 은 「확인 불가」 (0 표시 금지). */
 export function formatChatMetricValue(value: number | null | undefined, ko: boolean): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return ko ? "확인 불가" : "Unavailable";
+  if (typeof value !== "number" || !Number.isFinite(value)) return tx(ko, "admin_metrics_unavailable");
   return formatAdminNumber(Math.round(value));
 }

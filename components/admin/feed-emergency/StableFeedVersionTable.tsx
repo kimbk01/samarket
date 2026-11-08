@@ -5,14 +5,16 @@ import { getStableFeedVersions } from "@/lib/feed-emergency/feed-emergency-state
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function StableFeedVersionTable() {
+  const { t, language } = useI18n();
   const [refresh] = useState(0);
   const stable = useMemo(() => getStableFeedVersions(), [refresh]);
 
   if (stable.length === 0) {
     return (
-      <AdminEmptyState ko message="안정 버전 후보가 없습니다. Fallback 우선순위 설정 시 여기서 참조됩니다." />
+      <AdminEmptyState ko={language !== "en"} message={t("admin_feed_emergency_priority_empty")} />
     );
   }
 
@@ -22,11 +24,11 @@ export function StableFeedVersionTable() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">surface</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">버전 ID</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">안정도</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">평균 CTR</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">평균 전환율</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">등록</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_feed_emergency_stable_th_version_id")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_feed_emergency_stable_th_stability")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_feed_emergency_k965e97cf")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_feed_emergency_stable_th_avg_conversion")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_feed_emergency_stable_th_created")}</th>
           </tr>
         </thead>
         <tbody>

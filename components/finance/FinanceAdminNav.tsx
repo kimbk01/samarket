@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ADMIN_FINANCE_NAV } from "@/lib/finance/routes";
 
 export function FinanceAdminNav({ ko }: { ko: boolean }) {
+  const { t } = useI18n();
   const pathname = usePathname() || "";
   const sp = useSearchParams();
   const wallet = (sp.get("wallet") || "").toUpperCase();
@@ -13,7 +15,7 @@ export function FinanceAdminNav({ ko }: { ko: boolean }) {
     <nav
       className="flex flex-wrap gap-1.5 border-b border-sam-border pb-2"
       data-finance-admin-nav="1"
-      aria-label={ko ? "재무 메뉴" : "Finance navigation"}
+      aria-label={t("admin_finance_finance_navigation")}
     >
       {ADMIN_FINANCE_NAV.map((item) => {
         const href = item.href();

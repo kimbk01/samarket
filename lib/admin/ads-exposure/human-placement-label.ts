@@ -1,5 +1,12 @@
+import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
-import { catalogPair } from "@/lib/i18n/catalog-pair";/**
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
+/**
  * Human placement labels for Admin / Member / Owner ops UI.
  * Never expose raw inventory keys as primary copy.
  */
@@ -45,7 +52,7 @@ export function humanPlacementLabelOrNull(key: string | null | undefined, ko: bo
 
 export function humanPlacementLabel(key: string | null | undefined, ko: boolean): string {
   const raw = String(key ?? "").trim();
-  if (!raw) return ko ? "위치 미정" : "Placement TBD";
+  if (!raw) return tx(ko, "admin_ads_exposure_placement_tbd");
   const hit = PLACEMENT_LABELS[raw] ?? PLACEMENT_LABELS[raw.toUpperCase()];
   if (hit) return ko ? hit.ko : hit.en;
   // Soften raw keys for ops UI
@@ -88,23 +95,23 @@ export function humanBannerSlideLabel(
 export function productKindLabel(kind: string, ko: boolean): string {
   const k = kind.toLowerCase();
   if (k.includes("legacy") || k.includes("trade_post") || k === "legacy_trade_post_ad") {
-    return ko ? "기존 거래 광고" : "Legacy trade ad";
+    return tx(ko, "admin_ads_exposure_legacy_trade_ad");
   }
   if (k.includes("sponsored") || k === "store_promote") {
-    return ko ? "[배달] 매장 상위홍보" : "[Delivery] Store promotion";
+    return tx(ko, "admin_ads_exposure_delivery_store_promotion");
   }
   if (k.includes("banner") && (k.includes("feed") || k === "feed_ad" || k === "feed_banner")) {
-    return ko ? "[커뮤니티/거래] 배너" : "[Feed] Banner";
+    return tx(ko, "admin_ads_exposure_feed_banner");
   }
   if (k.includes("banner") || k === "delivery_banner" || k === "banner_hero") {
-    return ko ? "[배달] 홈 상단 배너" : "[Delivery] Home top banner";
+    return tx(ko, "admin_ads_exposure_delivery_home_top_banner");
   }
-  if (k.includes("popup")) return ko ? "팝업" : "Popup";
+  if (k.includes("popup")) return tx(ko, "admin_ads_exposure_popup");
   if (k.includes("community") && (k.includes("boost") || k.includes("promo") || k.includes("promote"))) {
-    return ko ? "커뮤니티 상위노출" : "Community top exposure";
+    return tx(ko, "admin_ads_exposure_community_top_exposure");
   }
   if (k.includes("trade") || k.includes("promote") || k === "boost") {
-    return ko ? "거래 상위노출" : "Trade top exposure";
+    return tx(ko, "admin_ads_exposure_trade_top_exposure");
   }
-  return ko ? "광고" : "Ad";
+  return tx(ko, "admin_ads_exposure_ad");
 }

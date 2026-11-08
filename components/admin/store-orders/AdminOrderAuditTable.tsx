@@ -40,11 +40,11 @@ export function AdminOrderAuditTable({
   /** Logs page: order number opens the shared detail modal. */
   onOpenOrder?: (orderId: string) => void;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language === "ko";
 
   if (rows.length === 0) {
-    return <p className="sam-text-helper text-sam-muted">{ko ? "처리 이력이 없습니다." : "No history."}</p>;
+    return <p className="sam-text-helper text-sam-muted">{t("admin_store_orders_no_history")}</p>;
   }
 
   return (
@@ -52,13 +52,13 @@ export function AdminOrderAuditTable({
       <table className={`w-full text-left sam-text-helper ${compact ? "min-w-[560px]" : "min-w-[980px]"}`}>
         <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
           <tr>
-            <th className="px-2 py-2 font-medium">{ko ? "처리 시각" : "Time"}</th>
-            <th className="px-2 py-2 font-medium">{ko ? "담당자" : "By"}</th>
-            {onOpenOrder ? <th className="px-2 py-2 font-medium">{ko ? "주문번호" : "Order"}</th> : null}
-            <th className="px-2 py-2 font-medium">{ko ? "처리 내용" : "Action"}</th>
-            <th className="px-2 py-2 font-medium">{ko ? "상태 변경" : "Status"}</th>
-            <th className="px-2 py-2 font-medium">{ko ? "사유" : "Reason"}</th>
-            <th className="px-2 py-2 font-medium">{ko ? "상세" : "Details"}</th>
+            <th className="px-2 py-2 font-medium">{t("admin_store_orders_time")}</th>
+            <th className="px-2 py-2 font-medium">{t("admin_store_orders_by")}</th>
+            {onOpenOrder ? <th className="px-2 py-2 font-medium">{t("admin_store_orders_order")}</th> : null}
+            <th className="px-2 py-2 font-medium">{t("admin_store_orders_action")}</th>
+            <th className="px-2 py-2 font-medium">{t("admin_store_orders_status")}</th>
+            <th className="px-2 py-2 font-medium">{t("admin_store_orders_reason")}</th>
+            <th className="px-2 py-2 font-medium">{t("admin_store_orders_details")}</th>
           </tr>
         </thead>
         <tbody>
@@ -83,7 +83,7 @@ export function AdminOrderAuditTable({
                         className="!px-0 font-mono"
                         onClick={() => onOpenOrder(r.order_id as string)}
                       >
-                        {r.order_no || (ko ? "주문 보기" : "Open")}
+                        {r.order_no || (t("admin_store_orders_open"))}
                       </AdminActionButton>
                     ) : (
                       <span className="text-sam-muted">—</span>

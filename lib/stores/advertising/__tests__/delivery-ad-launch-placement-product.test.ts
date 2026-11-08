@@ -47,11 +47,10 @@ describe("delivery-ad-launch-placement-product P1", () => {
     expect(
       ownerCategoryPlacementTitle({
         primaryCategoryLabel: "한식",
-        fallbackKo: "업종 매장 광고",
-        fallbackEn: "Category store ads",
         lang: "ko",
       })
     ).toBe("한식 매장 광고");
+    expect(ownerCategoryPlacementTitle({ primaryCategoryLabel: "", lang: "en" })).toBe("Category store ads");
   });
 
   it("action matrix: DRAFT delete yes; cancel after submit no; ACTIVE no delete", () => {

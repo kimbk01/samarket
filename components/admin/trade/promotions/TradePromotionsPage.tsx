@@ -6,6 +6,7 @@
  * 승인도 사유 필수(AD2-01) · 정지·재개·종료는 공개 사유 + 내부 메모 두 칸(D-10) · 삭제는 공용 `AdminAdDeleteAction`(사유만).
  * URL: tab(탭 — 대시보드 딥링크) · userId · postId · from/to(PHT) · (호환) period · page · size(20/50/100)
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { LISTING_END_LABELS, LISTING_PAUSE_LABELS } from "@/lib/admin/trade-admin/trade-promotion-labels";
 import { useEffect, useRef, useState } from "react";
@@ -145,6 +146,7 @@ async function postAction(
 }
 
 export function TradePromotionsPage() {
+  const { t } = useI18n();
   /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const q = useCommunityQueryState();
   const lq = useCommunityListQuery({ extras: LIST_EXTRAS });
@@ -174,13 +176,13 @@ export function TradePromotionsPage() {
 
   return (
     <CommunityListShell
-      title="거래 상위노출"
+      title={t("admin_trade_promo_page_title")}
       description="회원이 포인트로 결제한 거래 글 상위노출(결제 즉시 노출)의 노출을 관리합니다. 화면에는 「광고」로 표시됩니다."
       banner={
         <div className="space-y-1">
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
           {warning ? (
-            <p className="text-[12px] text-sam-warning">처리는 완료되었지만 회원 알림을 보내지 못했습니다.</p>
+            <p className="text-[12px] text-sam-warning">{t("admin_trade_promo_notify_failed")}</p>
           ) : null}
         </div>
       }
@@ -238,7 +240,7 @@ export function TradePromotionsPage() {
                         titleOf(r)
                       )}
                       {!r.post && r.target_id ? (
-                        <div className="text-[12px] text-sam-muted">게시물을 찾을 수 없습니다</div>
+                        <div className="text-[12px] text-sam-muted">{t("admin_trade_promo_post_not_found")}</div>
                       ) : null}
                       {r.target_id && !postId ? (
                         <AdminActionButton
@@ -276,7 +278,7 @@ export function TradePromotionsPage() {
                 <td className={COMMUNITY_TD}>
                   <span className="flex flex-wrap gap-1">
                     <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
-                    {r.overdue ? <AdminToneBadge tone="danger">종료일 지남</AdminToneBadge> : null}
+                    {r.overdue ? <AdminToneBadge tone="danger">{t("admin_trade_promo_overdue_badge")}</AdminToneBadge> : null}
                   </span>
                   {r.order_status === "paused" && r.paused_by && LISTING_PAUSE_LABELS[r.paused_by] ? (
                     <div className="mt-1 text-[12px] text-sam-muted">
@@ -285,13 +287,13 @@ export function TradePromotionsPage() {
                   ) : r.order_status === "paused" ? (
                     // 재감사 R3 (P-7 정정): 일시 중지 동안 기간이 흐르지 않는다 — 재개하면 멈춘 시간만큼 종료일이 뒤로 간다
                     // (운영 `admin_trade_promotion_resume`: end_at += 멈춘 시간). 그래서 「기간 만료」로 표시하지 않는다.
-                    <div className="mt-1 text-[12px] text-sam-muted">재개하면 멈춘 시간만큼 종료일이 뒤로 갑니다.</div>
+                    <div className="mt-1 text-[12px] text-sam-muted">{t("admin_trade_promo_paused_note")}</div>
                   ) : null}
                   {r.end_reason_code && LISTING_END_LABELS[r.end_reason_code] ? (
                     <div className="mt-1 text-[12px] text-sam-muted">{LISTING_END_LABELS[r.end_reason_code]}</div>
                   ) : null}
                   {r.review_reason ? (
-                    <div className="mt-1 max-w-[14rem] text-[12px] text-sam-muted [overflow-wrap:anywhere]">사유: {r.review_reason}</div>
+                    <div className="mt-1 max-w-[14rem] text-[12px] text-sam-muted [overflow-wrap:anywhere]">{t("admin_trade_promo_reason", { reason: r.review_reason })}</div>
                   ) : null}
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
@@ -301,7 +303,7 @@ export function TradePromotionsPage() {
                       ? "없음"
                       : "—"}
                   {r.fault ? <div className="text-[12px] text-sam-muted">{FAULT_LABELS[r.fault] ?? r.fault}</div> : null}
-                  {r.ended_by_label ? <div className="text-[12px] text-sam-muted">처리: {r.ended_by_label}</div> : null}
+                  {r.ended_by_label ? <div className="text-[12px] text-sam-muted">{t("admin_trade_promo_handled_by", { name: r.ended_by_label })}</div> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   <RowActions row={r} onPick={(kind) => { if (writeGuard.guard()) setSheet({ kind, row: r }); }} />
@@ -391,11 +393,12 @@ type SettleFn = (k: CommunitySheetSettle, okMessage: string, sideEffectWarning: 
 
 /** 승인 — 사유 필수 2단계 확인 (AD2-01 · 공통 화면과 같은 L2) */
 function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; onSettled: SettleFn }) {
+  const { t } = useI18n();
   const warn = useRef(false);
   const waiting = useRef(false);
   return (
     <CommunityActionSheet
-      title="상위노출 승인"
+      title={t("admin_trade_promo_approve_title")}
       rows={orderRows(row)}
       notice="승인하면 바로 노출이 시작되고 보류한 포인트가 차감 확정됩니다. 회원에게 알림이 전달됩니다."
       reason={{ minLength: 2, placeholder: "승인 사유 (회원에게 전달됩니다)" }}
@@ -495,6 +498,7 @@ type Preview = { refund: number; paid: number | null; remainingSeconds: number |
 
 /** 종료 — 책임 구분을 고르면 미리보기(변경 없음)로 환급 예정 포인트를 먼저 보여 준다 */
 function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; onSettled: SettleFn }) {
+  const { t } = useI18n();
   const [fault, setFault] = useState<"operator" | "member" | "none" | null>(null);
   const [preview, setPreview] = useState<{ fault: string; data: Preview } | { fault: string; error: string } | null>(null);
   const done = useRef({ refund: 0, warn: false });
@@ -538,7 +542,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
 
   return (
     <CommunityActionSheet
-      title="상위노출 종료"
+      title={t("admin_trade_promo_end_title")}
       rows={[
         ...orderRows(row),
         ...(current && "data" in current
@@ -570,7 +574,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
       }
     >
       <fieldset className="space-y-2">
-        <legend className="sam-text-helper font-medium text-sam-fg">책임 구분 (필수)</legend>
+        <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_promo_fault_legend")}</legend>
         {(
           [
             ["operator", "운영 사유", "남은 기간 비례 환급"],
@@ -587,7 +591,7 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
           </label>
         ))}
       </fieldset>
-      {fault && !current ? <p className="text-[13px] text-sam-muted">환급 예정 포인트를 계산하는 중…</p> : null}
+      {fault && !current ? <p className="text-[13px] text-sam-muted">{t("admin_trade_promo_refund_calculating")}</p> : null}
       {current && "data" in current ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] font-semibold text-sam-fg">
           환급 예정 {formatTradePoints(current.data.refund)}

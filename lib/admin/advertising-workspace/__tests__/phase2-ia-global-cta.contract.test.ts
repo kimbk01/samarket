@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { advertisingWorkspaceHeaderCtas } from "@/components/admin/ads/AdminAdvertisingWorkspace";
 
 function read(rel: string): string {
@@ -29,7 +30,8 @@ describe("PHASE 2 Admin Ads IA / global CTA normalization", () => {
     const workspace = read("components/admin/ads/AdminAdvertisingWorkspace.tsx");
     expect(workspace).toContain('data-shell-status-tabs="1"');
     expect(workspace).toContain('data-shell-family-tabs="1"');
-    expect(workspace).toContain("관리 ▼");
+    expect(workspace).toContain('t("admin_ads_manage_2")');
+    expect(MESSAGES.ko.admin_ads_manage_2).toBe("관리 ▼");
   });
 
   it("header CTA policy: register only on all; placements on all+operations", () => {

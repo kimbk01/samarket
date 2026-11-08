@@ -6,6 +6,12 @@
 
 import type { AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type AdminChatLabel = { ko: string; en: string; tone: AdminTone };
 type Registry = Record<string, AdminChatLabel>;
@@ -178,7 +184,7 @@ export function adminChatLabel(
   const hit = REGISTRIES[domain][key];
   if (hit) return { label: ko ? hit.ko : hit.en, tone: hit.tone, known: true };
   if (!key) return { label: "—", tone: "neutral", known: false };
-  return { label: ko ? "알 수 없음" : "Unknown", tone: "neutral", known: false };
+  return { label: tx(ko, "admin_status_labels_unknown"), tone: "neutral", known: false };
 }
 
 /** 필터 옵션 생성용 — 등록된 코드 목록 (중복 라벨 제거는 호출 측 책임). */

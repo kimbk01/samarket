@@ -7,6 +7,12 @@ import type { AdsShellListRow } from "@/lib/admin/ads-exposure/shell-row";
 import { isBoostShellDomain } from "@/lib/admin/ads-exposure/shell-row";
 import { isAdsDomainRootLiveHref } from "@/lib/admin/ads-exposure/live-route";
 import type { WorkspaceDrawerAction } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type OpsPrimaryCtaKind =
   | "view_live"
@@ -157,5 +163,5 @@ export function resolveOperationsPrimaryCta(
 
 /** Fallback waiting copy when projection has no reason (never invent root cause). */
 export function operationsWaitingFallback(ko: boolean): string {
-  return ko ? "노출 대기 · 상세 상태를 확인하세요." : "Waiting · Check detail status.";
+  return tx(ko, "admin_ads_exposure_waiting_check_detail_status");
 }

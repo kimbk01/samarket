@@ -308,8 +308,7 @@ export function AdminBusinessOpsOverviewGrid({
   kpi: BusinessCcKpiSummary;
   onGoTab: (tab: string) => void;
 }) {
-  const { t, safeT, language } = useI18n();
-  const ko = language !== "en";
+  const { t, safeT } = useI18n();
   const oc = kpi.orderStatusCounts;
   const sc = kpi.commissionCounts;
 
@@ -462,37 +461,37 @@ export function AdminBusinessOpsOverviewGrid({
               className={linkClass}
               data-store-hub-financial-statement="1"
             >
-              {ko ? "매장 재무" : "Store finance"}
+              {t("admin_biz_store_finance")}
             </Link>
             <Link href={businessCcPointsHref(storeId)} className={linkClass} data-store-hub-coin="1">
-              {ko ? "코인 거래" : "Coin transactions"}
+              {t("admin_biz_coin_transactions")}
             </Link>
             <Link href={businessCcCashChargesHref()} className={linkClass} data-store-hub-cash="1">
-              {ko ? "캐시 충전" : "Cash top-ups"}
+              {t("admin_biz_cash_top_ups")}
             </Link>
             <Link
               href={businessCcAdvertisingHref(storeId)}
               className={linkClass}
               data-store-hub-ads="1"
             >
-              {ko ? "매장 광고" : "Store ads"}
+              {t("admin_biz_store_ads")}
             </Link>
             <Link href={businessCcPartnerHref()} className={linkClass} data-store-hub-partner="1">
-              {ko ? "파트너" : "Partner"}
+              {t("admin_biz_partner")}
             </Link>
             <Link
               href={businessCcSupportHref(storeId)}
               className={linkClass}
               data-store-hub-support="1"
             >
-              {ko ? "고객센터 문의" : "Support"}
+              {t("admin_biz_support")}
             </Link>
             <Link
               href={businessCcInquiriesHref(storeId)}
               className={linkClass}
               data-store-hub-inquiries="1"
             >
-              {ko ? "매장 문의" : "Store inquiries"}
+              {t("admin_biz_store_inquiries")}
             </Link>
           </div>
         }
@@ -553,8 +552,7 @@ export function AdminBusinessOpsQuickActions({
   pointsHref: string;
   trend: BusinessCcOpsOverview["trend7d"];
 }) {
-  const { t, language } = useI18n();
-  const ko = language !== "en";
+  const { t } = useI18n();
   return (
     <div className="space-y-3">
       <TrendChart trend={trend} />
@@ -574,7 +572,7 @@ export function AdminBusinessOpsQuickActions({
             </AdminActionButton>
           )}
           <AdminActionButton variant="secondary" className="w-full" disabled={busy} onClick={onSalesLimit}>
-            {ko ? "판매 중지" : "Suspend sales"}
+            {t("admin_biz_suspend_sales")}
           </AdminActionButton>
           <AdminActionLink href={pointsHref} variant="secondary" className="w-full">
             {t("admin_biz_ops_action_points")}

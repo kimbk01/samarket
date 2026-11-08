@@ -194,7 +194,9 @@ describe("E. screen CTA contract (static)", () => {
 
   it("a failed load keeps the previous rows (no setResult(null) on error)", () => {
     expect(ui).not.toContain("setResult(null)");
-    expect(ui).toContain("직전 조회 결과를 표시하고 있습니다");
+    /** 언어 SSOT B4: 문구는 카탈로그 키 — 코드 모양 + 카탈로그 값으로 확인 */
+    expect(ui).toContain('"admin_stores_showing_previous_result"');
+    expect(read("lib/i18n/catalog/copy-admin-b4-stores.ts")).toContain("직전 조회 결과를 표시하고 있습니다");
   });
 
   it("developer surface removed from the list: UUID inputs, bulk delete, checkboxes", () => {

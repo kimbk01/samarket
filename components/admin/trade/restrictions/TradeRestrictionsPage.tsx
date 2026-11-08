@@ -7,6 +7,7 @@
  * 「해제」 2단계 확인 → POST ./restrictions/:id/revoke · 「제한 추가」 → POST ./restrictions.
  * 추가·해제 시트는 판매자·구매자 상세에서도 그대로 쓴다.
  */
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import {
@@ -88,11 +89,12 @@ export function tradeSanctionPeriodText(r: Rec): string {
 }
 
 export function TradeSanctionStateBadge({ row }: { row: Rec }) {
-  if (s(row.sanction_type) === "warning") return <AdminToneBadge tone="warning">경고</AdminToneBadge>;
+  const { t } = useI18n();
+  if (s(row.sanction_type) === "warning") return <AdminToneBadge tone="warning">{t("admin_trade_restrict_badge_warning")}</AdminToneBadge>;
   const st = tradeSanctionStatusOf(row);
-  if (st === "active") return <AdminToneBadge tone="danger">진행 중</AdminToneBadge>;
-  if (st === "revoked") return <AdminToneBadge tone="success">해제</AdminToneBadge>;
-  return <AdminToneBadge tone="neutral">만료</AdminToneBadge>;
+  if (st === "active") return <AdminToneBadge tone="danger">{t("admin_trade_restrict_badge_active")}</AdminToneBadge>;
+  if (st === "revoked") return <AdminToneBadge tone="success">{t("admin_trade_restrict_badge_revoked")}</AdminToneBadge>;
+  return <AdminToneBadge tone="neutral">{t("admin_trade_restrict_badge_expired")}</AdminToneBadge>;
 }
 
 export type TradeRestrictionRow = {
@@ -180,6 +182,7 @@ export function TradeAddRestrictionSheet({
   onClose: () => void;
   onSettled: (banner: CommunityBanner) => void;
 }) {
+  const { t } = useI18n();
   const [member, setMember] = useState<PickedMember | null>(initialMember ?? null);
   const [memberErr, setMemberErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -263,7 +266,7 @@ export function TradeAddRestrictionSheet({
       }
     >
       <div className="space-y-2">
-        <span className="text-[12px] font-semibold text-sam-fg">회원</span>
+        <span className="text-[12px] font-semibold text-sam-fg">{t("admin_trade_restrict_member")}</span>
         {member ? (
           <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
             <span className="font-medium text-sam-fg">{member.label}</span>
@@ -285,7 +288,7 @@ export function TradeAddRestrictionSheet({
                     void runSearch();
                   }
                 }}
-                placeholder="닉네임"
+                placeholder={t("admin_trade_restrict_nickname")}
                 className={`${select} flex-1`}
               />
               <AdminActionButton variant="secondary" disabled={searching || !search.trim()} onClick={() => void runSearch()}>
@@ -294,7 +297,7 @@ export function TradeAddRestrictionSheet({
             </div>
             {results ? (
               results.length === 0 ? (
-                <p className="text-[12px] text-sam-muted">찾는 회원이 없습니다. 거래글을 올렸거나 거래 채팅을 한 회원만 검색됩니다.</p>
+                <p className="text-[12px] text-sam-muted">{t("admin_trade_restrict_no_member")}</p>
               ) : (
                 <ul className="max-h-48 space-y-1 overflow-y-auto">
                   {results.map((m) => (
@@ -317,7 +320,7 @@ export function TradeAddRestrictionSheet({
         {memberErr ? <p className="text-[12px] text-sam-danger">{memberErr}</p> : null}
       </div>
       <fieldset className="space-y-1">
-        <legend className="text-[12px] font-semibold text-sam-fg">종류</legend>
+        <legend className="text-[12px] font-semibold text-sam-fg">{t("admin_trade_restrict_kind_legend")}</legend>
         <label className="mr-4 inline-flex items-center gap-1.5 text-[13px]">
           <input type="radio" checked={kind === "trade_restriction"} onChange={() => setKind("trade_restriction")} />
           거래 활동 제한
@@ -381,6 +384,7 @@ type ListResponse = { ok?: boolean; error?: string; total?: number; rows?: Trade
 const LIST_EXTRAS = ["kind", "userId"] as const;
 
 export function TradeRestrictionsPage() {
+  const { t } = useI18n();
   /** `tab` 은 조회 조건 밖 키 — [초기화] 후에도 유지, 탭을 바꾸면 1쪽으로 */
   const qs = useCommunityQueryState();
   const lq = useCommunityListQuery({ extras: LIST_EXTRAS });
@@ -439,7 +443,7 @@ export function TradeRestrictionsPage() {
 
   return (
     <CommunityListShell
-      title="거래 활동 제한"
+      title={t("admin_trade_restrict_title")}
       description="거래 경고·활동 제한을 확인하고 해제하거나 새로 적용합니다. 계정 정지는 판매자·구매자 상세에서 합니다."
       actions={
         <>
@@ -523,7 +527,7 @@ export function TradeRestrictionsPage() {
                     신고 보기
                   </Link>
                 ) : (
-                  <span className="text-sam-muted">직접 적용</span>
+                  <span className="text-sam-muted">{t("admin_trade_restrict_direct")}</span>
                 )}
               </td>
               <td className={COMMUNITY_TD}>
@@ -536,8 +540,8 @@ export function TradeRestrictionsPage() {
                   </AdminActionButton>
                 ) : null}
                 <AdminTechDetails ko>
-                  <div>제한 ID: {r.id}</div>
-                  <div>회원 ID: {r.user_id}</div>
+                  <div>{t("admin_trade_restrict_id", { id: r.id })}</div>
+                  <div>{t("admin_trade_restrict_member_id", { id: r.user_id })}</div>
                 </AdminTechDetails>
               </td>
             </tr>

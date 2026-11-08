@@ -41,10 +41,8 @@ export function AdminPointExpirePolicyCard({
     const c = await confirmAdminAction({
       level: adminActionLevel("pointPolicySave"),
       ko,
-      title: ko ? "소멸 정책 저장" : "Save expiry policy",
-      description: ko
-        ? `「${policy.policyName}」 소멸 정책을 저장합니다. 이후 소멸 실행에 바로 적용됩니다.`
-        : `Save the "${policy.policyName}" expiry policy. It applies to later expiry runs.`,
+      title: t("admin_points_save_expiry_policy"),
+      description: t("admin_points_save_expiry_policy_it_applies_later", { policyName: policy.policyName }),
       confirmLabel: adminCta("save", ko),
     });
     if (!c.ok || !c.reason) return;
@@ -67,7 +65,7 @@ export function AdminPointExpirePolicyCard({
         setResult({ ok: false, code: j.error ?? "save_failed" });
         return;
       }
-      setResult({ ok: true, message: ko ? "저장했습니다." : "Saved." });
+      setResult({ ok: true, message: t("admin_saved") });
       setEditing(false);
       onSaved?.();
     } catch {
@@ -153,7 +151,7 @@ export function AdminPointExpirePolicyCard({
             <dd>
               {policy.excludeEntryTypes
                 .map((type) =>
-                  type === "bonus" ? (ko ? "보너스" : "Bonus") : pointLedgerTypeLabel(t, type)
+                  type === "bonus" ? t("admin_points_plans_label_bonus") : pointLedgerTypeLabel(t, type)
                 )
                 .join(", ") || "-"}
             </dd>

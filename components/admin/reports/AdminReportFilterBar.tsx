@@ -80,7 +80,7 @@ export function AdminReportFilterBar({ filters, onChange, onReset, onSubmit, pen
         </select>
       </label>
       <label className={LABEL}>
-        {ko ? "대상" : "Target"}
+        {t("admin_reports_target")}
         <select
           value={filters.targetType}
           onChange={(e) => onChange({ ...filters, targetType: e.target.value as ReportTargetType | "" })}
@@ -94,7 +94,7 @@ export function AdminReportFilterBar({ filters, onChange, onReset, onSubmit, pen
         </select>
       </label>
       <label className={LABEL}>
-        {ko ? "사유" : "Reason"}
+        {t("admin_reports_reason")}
         <select
           value={filters.reasonCode}
           onChange={(e) => onChange({ ...filters, reasonCode: e.target.value })}

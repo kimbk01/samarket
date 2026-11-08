@@ -6,6 +6,7 @@
  * 확인 단계: 지정 = 노출 켜기와 같은 L2(사유), 해제 = L1.
  */
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -35,6 +36,7 @@ export function AdminStoreFeaturedEditor({
   busy: boolean;
   onRunAction: (action: string, body: Record<string, unknown>) => Promise<boolean>;
 }) {
+  const { t } = useI18n();
   const [from, setFrom] = useState(() => isoToManilaDateInput(featured.startAt));
   const [to, setTo] = useState(() => isoToManilaDateInput(featured.endAt));
   useEffect(() => {
@@ -44,23 +46,22 @@ export function AdminStoreFeaturedEditor({
 
   const periodLabel =
     featured.startAt || featured.endAt
-      ? `${featured.startAt ? formatAdminManilaDate(featured.startAt) : ko ? "제한 없음" : "Any"} ~ ${
-          featured.endAt ? formatAdminManilaDate(featured.endAt) : ko ? "제한 없음" : "Any"
+      ? `${featured.startAt ? formatAdminManilaDate(featured.startAt) : t("admin_biz_any")} ~ ${
+          featured.endAt ? formatAdminManilaDate(featured.endAt) : t("admin_biz_any")
         }`
-      : ko
-        ? "기간 제한 없음"
-        : "No period";
+      : t("admin_biz_no_period");
 
   const save = async (enable: boolean) => {
-    const label = enable ? (ko ? "추천 매장 지정" : "Set featured") : ko ? "추천 매장 해제" : "Unset featured";
+    const label = enable ? t("admin_biz_set_featured") : t("admin_biz_unset_featured");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(enable ? "exposeStart" : "exposeStop"),
       ko,
       title: `${storeName.trim() || "—"} · ${label}`,
       description: enable
-        ? ko
-          ? `기간: ${from || "제한 없음"} ~ ${to || "제한 없음"} (필리핀 시간)`
-          : `Period: ${from || "any"} ~ ${to || "any"} (PHT)`
+        ? t("admin_biz_featured_period_confirm", {
+            from: from || t("admin_biz_any_lower"),
+            to: to || t("admin_biz_any_lower"),
+          })
         : undefined,
       confirmLabel: label,
     });
@@ -81,13 +82,13 @@ export function AdminStoreFeaturedEditor({
     <div className="space-y-3" data-admin-store-featured-editor="1">
       <div className="flex flex-wrap items-center gap-2">
         <AdminToneBadge tone={featured.isFeatured ? "progress" : "neutral"}>
-          {featured.isFeatured ? (ko ? "추천 매장" : "Featured") : ko ? "추천 아님" : "Not featured"}
+          {featured.isFeatured ? t("admin_biz_featured_2") : t("admin_biz_not_featured")}
         </AdminToneBadge>
         {featured.isFeatured ? <span className="sam-text-helper text-sam-muted">{periodLabel}</span> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label className="inline-flex items-center gap-1 sam-text-helper text-sam-muted">
-          {ko ? "시작일" : "From"}
+          {t("admin_biz_from")}
           <input
             type="date"
             value={from}
@@ -96,7 +97,7 @@ export function AdminStoreFeaturedEditor({
           />
         </label>
         <label className="inline-flex items-center gap-1 sam-text-helper text-sam-muted">
-          {ko ? "종료일" : "To"}
+          {t("admin_biz_to")}
           <input
             type="date"
             value={to}
@@ -105,18 +106,16 @@ export function AdminStoreFeaturedEditor({
           />
         </label>
         <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void save(true)}>
-          {featured.isFeatured ? (ko ? "기간 저장" : "Save period") : ko ? "추천 매장 지정" : "Set featured"}
+          {featured.isFeatured ? t("admin_biz_save_period") : t("admin_biz_set_featured")}
         </AdminActionButton>
         {featured.isFeatured ? (
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void save(false)}>
-            {ko ? "추천 매장 해제" : "Unset featured"}
+            {t("admin_biz_unset_featured")}
           </AdminActionButton>
         ) : null}
       </div>
       <p className="sam-text-helper text-sam-muted">
-        {ko
-          ? "추천 매장은 고객 앱 「추천」 선반 후보가 됩니다. 기간을 정하면 그 기간 안에만 추천으로 노출됩니다(필리핀 시간). 기간이 비어 있으면 해제할 때까지 노출됩니다."
-          : "Featured stores become candidates for the customer app's featured shelf. With a period set, they are featured only within that period (PHT). Without a period, they stay featured until unset."}
+        {t("admin_biz_featured_stores_become_candidates_for_the")}
       </p>
     </div>
   );

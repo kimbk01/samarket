@@ -96,7 +96,7 @@ export function AdminActionCenter() {
   const actionRequiredCount = q.queueCategories.filter(
     (c) => c.listHref && c.status !== "forbidden" && (c.status === "unavailable" || (c.count ?? 0) > 0)
   ).length;
-  const unavailableLabel = ko ? "확인 불가" : "UNAVAILABLE";
+  const unavailableLabel = safeT("admin_dashboard_unavailable");
   const deliveryCard = resolveDeliveryActionCenterCard(q.queueCategories);
   const chatCard = resolveChatActionCenterCard(q.queueCategories);
 
@@ -311,9 +311,7 @@ export function AdminActionCenter() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[13px] text-sam-muted"
             data-aro-ac-action-empty="1"
           >
-            {ko
-              ? "지금 처리할 대기열이 없습니다 (0건 · 정상 가능)."
-              : "No actionable queues right now (0 · may be healthy)."}
+            {safeT("admin_dashboard_no_actionable_queues")}
           </p>
         ) : (
           <AdminActionQueueCardGrid
@@ -328,7 +326,7 @@ export function AdminActionCenter() {
       {/* C. DOMAIN HEALTH */}
       <div data-aro-ac-domain-health="1">
         <h2 className="mb-3 sam-text-section-title font-semibold text-sam-fg">
-          {ko ? "도메인 운영" : "Domain ops"}
+          {safeT("admin_dashboard_domain_ops")}
         </h2>
         <CardGrid cards={domainHealth} ko={ko} unavailableLabel={unavailableLabel} />
       </div>
@@ -336,7 +334,7 @@ export function AdminActionCenter() {
       {/* D. COMMON OPERATIONS */}
       <div data-aro-ac-common-ops="1">
         <h2 className="mb-3 sam-text-section-title font-semibold text-sam-fg">
-          {ko ? "공통 운영" : "Common operations"}
+          {safeT("admin_dashboard_common_operations")}
         </h2>
         <CardGrid cards={commonOps} ko={ko} unavailableLabel={unavailableLabel} />
       </div>

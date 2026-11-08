@@ -135,12 +135,7 @@ export function DeliveryAdPerformancePanel(props: {
                 selected={props.range === r}
                 onClick={() => props.onRangeChange?.(r)}
               >
-                {safeT(RANGE_KEYS[r], {
-                  fallbackKo:
-                    r === "last_7d" ? "7일" : r === "last_30d" ? "30일" : "전체",
-                  fallbackEn:
-                    r === "last_7d" ? "7d" : r === "last_30d" ? "30d" : "All",
-                })}
+                {safeT(RANGE_KEYS[r])}
               </AdminChipButton>
             ))}
           </div>

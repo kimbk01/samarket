@@ -126,7 +126,7 @@ function phtOrDash(iso: string | null | undefined, empty: string): string {
 }
 
 export function AdminCommunityNoticesPage() {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const { get, set, selfHref, page, size } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
@@ -297,8 +297,8 @@ export function AdminCommunityNoticesPage() {
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-sam-muted`}>{topicNameOf(n.topic_slug)}</td>
               <td className={`${COMMUNITY_TD} text-[12px]`}>
-                <div>시작 {phtOrDash(n.notice_starts_at, "바로")}</div>
-                <div>종료 {phtOrDash(n.notice_ends_at, "없음")}</div>
+                <div>{t("admin_community_notices_start_at", { time: phtOrDash(n.notice_starts_at, t("admin_community_notices_start_now")) })}</div>
+                <div>{t("admin_community_notices_end_at", { time: phtOrDash(n.notice_ends_at, t("common_none")) })}</div>
               </td>
               <td className={COMMUNITY_TD}>
                 <CommunityStatusBadge domain="content_status" value={n.status ?? "active"} ko={ko} />
@@ -358,7 +358,7 @@ export function AdminCommunityNoticesPage() {
   const pinnedSection = (
     <section className="space-y-2" data-community-pinned-section="1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[14px] font-semibold text-sam-fg">고정된 글</h2>
+        <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_notices_pinned_title")}</h2>
         <span className="flex flex-wrap gap-2 text-[12px]">
           <AdminToneBadge tone={feedLimit.count >= feedLimit.limit ? "warning" : "neutral"}>
             피드 전체 {feedLimit.count}/{feedLimit.limit}
@@ -369,7 +369,7 @@ export function AdminCommunityNoticesPage() {
             </AdminToneBadge>
           ))}
           {topicCountEntries.length === 0 ? (
-            <span className="text-sam-muted">카테고리별 최대 {topicLimit.limit}개</span>
+            <span className="text-sam-muted">{t("admin_community_notices_pin_limit", { n: topicLimit.limit })}</span>
           ) : null}
         </span>
       </div>
@@ -389,7 +389,7 @@ export function AdminCommunityNoticesPage() {
                   >
                     {String(p.title ?? "").trim() || "제목 없음"}
                   </Link>
-                  {p.is_notice ? <AdminToneBadge tone="progress">공지</AdminToneBadge> : null}
+                  {p.is_notice ? <AdminToneBadge tone="progress">{t("admin_community_notices_notice_badge")}</AdminToneBadge> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   <CommunityStatusBadge domain="pin_scope" value={p.pin_scope} ko={ko} />
@@ -424,7 +424,7 @@ export function AdminCommunityNoticesPage() {
   return (
     <div className="space-y-4" data-community-notices="1">
       <CommunityListShell
-        title="공지·고정"
+        title={t("admin_community_notices_title")}
         description="커뮤니티 피드 상단에 보일 공지를 게시하고, 상단 고정된 글을 관리합니다."
         actions={
           <>
@@ -504,11 +504,11 @@ export function AdminCommunityNoticesPage() {
         >
           <div className="space-y-3 text-[13px]">
             <label className="block space-y-1">
-              <span className="font-semibold text-sam-fg">제목 (필수)</span>
+              <span className="font-semibold text-sam-fg">{t("admin_community_notices_field_title")}</span>
               <input className={FIELD} value={ed.title} onChange={(e) => setEditor({ ...ed, title: e.target.value })} />
             </label>
             <label className="block space-y-1">
-              <span className="font-semibold text-sam-fg">내용 (필수)</span>
+              <span className="font-semibold text-sam-fg">{t("admin_community_notices_field_body")}</span>
               <textarea
                 className={`${FIELD} min-h-[160px]`}
                 value={ed.content}
@@ -516,9 +516,9 @@ export function AdminCommunityNoticesPage() {
               />
             </label>
             <label className="block space-y-1">
-              <span className="font-semibold text-sam-fg">카테고리 (필수)</span>
+              <span className="font-semibold text-sam-fg">{t("admin_community_notices_field_category")}</span>
               <select className={FIELD} value={ed.topicId} onChange={(e) => setEditor({ ...ed, topicId: e.target.value })}>
-                <option value="">카테고리 선택</option>
+                <option value="">{t("admin_community_notices_select_category")}</option>
                 {ed.topicId && !noticeTopics.some((t) => t.id === ed.topicId) ? (
                   <option value={ed.topicId}>{topicNameById(ed.topicId)}</option>
                 ) : null}
@@ -531,27 +531,27 @@ export function AdminCommunityNoticesPage() {
             </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="block space-y-1">
-                <span className="font-semibold text-sam-fg">노출 시작 (필리핀 시간)</span>
+                <span className="font-semibold text-sam-fg">{t("admin_community_notices_field_starts")}</span>
                 <input
                   type="datetime-local"
                   className={FIELD}
                   value={ed.startsAt}
                   onChange={(e) => setEditor({ ...ed, startsAt: e.target.value })}
                 />
-                <span className="sam-text-xxs text-sam-muted">비우면 바로 게시</span>
+                <span className="sam-text-xxs text-sam-muted">{t("admin_community_notices_starts_hint")}</span>
               </label>
               <label className="block space-y-1">
-                <span className="font-semibold text-sam-fg">노출 종료 (필리핀 시간)</span>
+                <span className="font-semibold text-sam-fg">{t("admin_community_notices_field_ends")}</span>
                 <input
                   type="datetime-local"
                   className={FIELD}
                   value={ed.endsAt}
                   onChange={(e) => setEditor({ ...ed, endsAt: e.target.value })}
                 />
-                <span className="sam-text-xxs text-sam-muted">비우면 「공지 종료」 전까지 계속</span>
+                <span className="sam-text-xxs text-sam-muted">{t("admin_community_notices_ends_hint")}</span>
               </label>
             </div>
-            {edWindowBad ? <p className="text-[12px] text-sam-danger">노출 종료는 시작보다 뒤여야 합니다.</p> : null}
+            {edWindowBad ? <p className="text-[12px] text-sam-danger">{t("admin_community_notices_window_invalid")}</p> : null}
             {ed.mode === "create" ? (
               <fieldset className="space-y-1 rounded-ui-rect border border-sam-border p-2">
                 <label className="flex items-center gap-2 font-semibold text-sam-fg">
@@ -580,7 +580,7 @@ export function AdminCommunityNoticesPage() {
                       {edTopic ? `${topicLimit.counts?.[edTopic.id] ?? 0}/${topicLimit.limit}` : `최대 ${topicLimit.limit}`})
                     </label>
                     <label className="block space-y-1">
-                      <span className="text-sam-muted">고정 종료 (필리핀 시간, 비우면 기한 없음)</span>
+                      <span className="text-sam-muted">{t("admin_community_notices_field_pin_ends")}</span>
                       <input
                         type="datetime-local"
                         className={FIELD}
@@ -598,7 +598,7 @@ export function AdminCommunityNoticesPage() {
 
       {ending ? (
         <CommunityActionSheet
-          title="공지 종료"
+          title={t("admin_community_notices_end_title")}
           rows={[
             { label: "공지", value: `「${String(ending.title ?? "").slice(0, 40)}」` },
             { label: "처리", value: alsoHide ? "고정 해제 + 노출 종료 + 글 숨김" : "고정 해제 + 노출 종료 (글은 일반 글로 남음)" },
@@ -635,7 +635,7 @@ export function AdminCommunityNoticesPage() {
 
       {unpinning ? (
         <CommunityActionSheet
-          title="고정 해제"
+          title={t("admin_community_notices_unpin_title")}
           rows={[
             { label: "글", value: `「${String(unpinning.title ?? "").slice(0, 40)}」` },
             { label: "범위", value: adminCommunityLabel("pin_scope", unpinning.pin_scope, ko).label },

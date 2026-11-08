@@ -25,6 +25,7 @@ import { campaignStatusLabel } from "@/lib/admin/notification-campaigns/campaign
 import { adminIsoToManilaInput } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 import { displayNotificationSoundAssetLabel } from "@/lib/notifications/notification-sound-display-filename";
 import { SOUND_MAX_BYTES } from "@/lib/notifications/notification-sound-ssot-admin-validation";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type SentKind = "notice" | "system" | "event" | "marketing";
 
@@ -139,12 +140,12 @@ export function useCategorySoundLabel(kind: SentKind | null, ko: boolean, reload
         const ev = (j.events ?? []).find((e) => e.event_key === key) ?? null;
         const m = (j.mappings ?? []).find((x) => x.event_key === key) ?? null;
         if (m?.use_device_default) {
-          setLabel(ko ? "기기 기본음" : "Device default");
+          setLabel(translateBy(ko ? "ko" : "en", "admin_notifications_device_default"));
           return;
         }
         const assetId = m?.asset_id ?? ev?.default_asset_id ?? null;
         const asset = (j.assets ?? []).find((a) => a.id === assetId);
-        setLabel(displayNotificationSoundAssetLabel(asset, ko ? "기본 알림음" : "Default"));
+        setLabel(displayNotificationSoundAssetLabel(asset, translateBy(ko ? "ko" : "en", "admin_notifications_default")));
       })
       .catch(() => {
         if (!cancelled) setLabel(null);
@@ -1187,9 +1188,9 @@ type ReleaseRecipient = {
 };
 
 function releaseSourceLabel(src: string | null, ko: boolean): string {
-  if (src === "play_api") return ko ? "Google Play 출시 기록" : "Google Play";
-  if (src === "itunes_lookup") return ko ? "App Store 출시일" : "App Store";
-  if (src === "device_seen") return ko ? "처음 확인(기기 보고) — 스토어 출시일 아님" : "First seen on device";
+  if (src === "play_api") return translateBy(ko ? "ko" : "en", "admin_notifications_google_play");
+  if (src === "itunes_lookup") return translateBy(ko ? "ko" : "en", "admin_notifications_app_store");
+  if (src === "device_seen") return translateBy(ko ? "ko" : "en", "admin_notifications_first_seen_on_device");
   return "—";
 }
 

@@ -54,7 +54,7 @@ export function AdminStoreOrderInterventionPanel({
   /** Reload the order + audit log after a decision (or a stale-state rejection). */
   onChanged: () => Promise<void> | void;
 }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const ko = language === "ko";
   const [busy, setBusy] = useState<AdminStoreOrderInterventionAction | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -68,12 +68,8 @@ export function AdminStoreOrderInterventionPanel({
   const run = async (action: AdminStoreOrderInterventionAction) => {
     const label = panelLabel(action);
     const visibility = BUYER_VISIBLE_REASON.has(action)
-      ? ko
-        ? "반려 사유는 매장과 구매자에게 표시됩니다."
-        : "The reason is shown to the store and buyer."
-      : ko
-        ? "사유는 관리자 감사 로그에만 기록됩니다."
-        : "The reason is kept in the admin audit log only.";
+      ? t("admin_delivery_orders_reason_shown_store_buyer")
+      : t("admin_delivery_orders_reason_kept_admin_audit_log");
     const confirmed = await confirmAdminAction({
       level: L3_ACTIONS.has(action) ? "L3" : "L2",
       ko,
@@ -82,9 +78,7 @@ export function AdminStoreOrderInterventionPanel({
       confirmLabel: ko ? label.ko : label.en,
       destructive: label.destructive,
       retypeValue: L3_ACTIONS.has(action) ? orderNo : undefined,
-      reasonPlaceholder: ko
-        ? `사유 (필수, ${ADMIN_INTERVENTION_REASON_MAX}자 이내)`
-        : `Reason (required, max ${ADMIN_INTERVENTION_REASON_MAX})`,
+      reasonPlaceholder: t("admin_delivery_orders_reason_required_max", { max: ADMIN_INTERVENTION_REASON_MAX }),
     });
     if (!confirmed.ok) return;
     const reason = normalizeAdminInterventionReason(confirmed.reason);
@@ -118,29 +112,29 @@ export function AdminStoreOrderInterventionPanel({
       emitAdminQueueChanged("orders_attention");
       setNotice({
         tone: "ok",
-        text: ko
-          ? `${label.ko} 완료 · ${statusLabel(j.from_status ?? orderStatus)} → ${statusLabel(j.order_status ?? "")}`
-          : `${label.en} done · ${statusLabel(j.from_status ?? orderStatus)} → ${statusLabel(j.order_status ?? "")}`,
+        text: t("admin_delivery_orders_intervention_done", {
+          action: ko ? label.ko : label.en,
+          from: statusLabel(j.from_status ?? orderStatus),
+          to: statusLabel(j.order_status ?? ""),
+        }),
       });
       await onChanged();
     } catch {
-      setNotice({ tone: "error", text: ko ? "네트워크 오류로 처리하지 못했습니다." : "Network error." });
+      setNotice({ tone: "error", text: t("admin_delivery_orders_network_error") });
     } finally {
       setBusy(null);
     }
   };
 
   return (
-    <AdminCard title={ko ? "관리자 개입" : "Admin intervention"}>
+    <AdminCard title={t("admin_delivery_orders_admin_intervention")}>
       <div className="space-y-3" data-admin-intervention-panel="1">
         <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? "주문 처리와 취소·환불 결정은 매장이 합니다. 매장 결정을 관리자가 대신하는 예외(분쟁·처리 불능)에만 사용하고, 모든 처리는 사유와 처리자가 기록됩니다."
-            : "The store runs the order. Use only for exceptions; every action records the reason and the admin."}
+          {t("admin_delivery_orders_store_runs_order_use_only")}
         </p>
         {actions.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted" data-intervention-empty="1">
-            {ko ? `현재 상태(${statusLabel(orderStatus)})에서는 개입할 수 있는 처리가 없습니다.` : `No action for the current status (${statusLabel(orderStatus)}).`}
+            {t("admin_delivery_orders_no_action_current_status", { status: statusLabel(orderStatus) })}
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">

@@ -10,6 +10,7 @@ import {
   DEFAULT_SELECT_ALL_SCOPE,
   evaluateTabletTableGeometry,
   getTerminologyEntry,
+  terminologyDisplay,
   isBulkActionAllowed,
   listOperationalFrequencyRegistry,
   listVisibleBulkActions,
@@ -39,7 +40,9 @@ describe("ARO-OPS-UX-001-W1 shared management contract", () => {
   });
 
   it("W1-02 terminology registry typed", () => {
-    expect(getTerminologyEntry("MEMBER").fallbackKo).toBe("회원");
+    /** 언어 SSOT B4: 대체 문구 대신 카탈로그 키 — 화면 이름은 같다 */
+    expect(getTerminologyEntry("MEMBER").i18nKey).toBe("admin_management_term_member");
+    expect(terminologyDisplay("MEMBER", "ko")).toBe("회원");
     expect(getTerminologyEntry("ADVERTISEMENT").doNotUseAs.join(" ")).toMatch(/홍보/);
     expect(getTerminologyEntry("DELETE").doNotUseAs).toContain("숨김");
     expect(getTerminologyEntry("PROMOTION").doNotUseAs.join(" ")).toMatch(/광고/);

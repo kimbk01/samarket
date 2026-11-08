@@ -40,6 +40,7 @@ import {
   type HomeShelfAdminFieldKey,
   type HomeShelfAdminTab,
 } from "@/lib/stores/product/stores-home-shelf-admin-tabs";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type AdminHomeDraftShelf = StoresHomeShelfResolvedConfig & { draftMax: string; draftOrder: string };
 
@@ -58,10 +59,10 @@ const COUPON_OPTIONS: StoresHomeShelfCouponIntegration[] = ["off", "badge_on_ima
 const INPUT_CLASS = "mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px] text-sam-fg";
 
 function couponLabel(value: StoresHomeShelfCouponIntegration, ko: boolean) {
-  if (value === "off") return ko ? "끄기" : "Off";
-  if (value === "badge_on_image") return ko ? "이미지 뱃지" : "Image badge";
-  if (value === "benefit_line") return ko ? "혜택 문구" : "Benefit line";
-  return ko ? "뱃지 + 문구" : "Badge + line";
+  if (value === "off") return translateBy(ko ? "ko" : "en", "admin_stores_off");
+  if (value === "badge_on_image") return translateBy(ko ? "ko" : "en", "admin_stores_image_badge");
+  if (value === "benefit_line") return translateBy(ko ? "ko" : "en", "admin_stores_home_shelves_integration_benefit");
+  return translateBy(ko ? "ko" : "en", "admin_stores_badge_line");
 }
 
 /** H-05 — 어드민 입력·표시 = 필리핀 시간(Asia/Manila), 저장 = ISO instant (launch-intro 와 같은 SSOT). */
@@ -111,7 +112,7 @@ export function AdminHomeShelfTabFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field k="titleKo">
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "제목 (한국어)" : "Title (Korean)"}
+              {t("admin_stores_home_shelves_col_title_ko")}
               <input
                 maxLength={20}
                 className={INPUT_CLASS}
@@ -123,7 +124,7 @@ export function AdminHomeShelfTabFields({
           </Field>
           <Field k="titleEn">
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "제목 (English)" : "Title (English)"}
+              {t("admin_stores_home_shelves_col_title_en")}
               <input
                 maxLength={40}
                 className={INPUT_CLASS}
@@ -134,7 +135,7 @@ export function AdminHomeShelfTabFields({
           </Field>
           <Field k="subtitleKo">
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "부제목 (한국어, 선택)" : "Subtitle (Korean, optional)"}
+              {t("admin_stores_subtitle_korean_optional")}
               <input
                 maxLength={40}
                 className={INPUT_CLASS}
@@ -146,7 +147,7 @@ export function AdminHomeShelfTabFields({
           </Field>
           <Field k="subtitleEn">
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "부제목 (English, 선택)" : "Subtitle (English, optional)"}
+              {t("admin_stores_subtitle_english_optional")}
               <input
                 maxLength={80}
                 className={INPUT_CLASS}
@@ -158,10 +159,10 @@ export function AdminHomeShelfTabFields({
         </div>
         <Field k="enabled">
           <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
-            <span className="text-[13px] font-medium">{ko ? "선반 사용 여부" : "Shelf enabled"}</span>
+            <span className="text-[13px] font-medium">{t("admin_stores_shelf_enabled")}</span>
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-sam-muted">
-                {shelf.enabled ? (ko ? "사용 중" : "On") : ko ? "끄기" : "Off"}
+                {shelf.enabled ? t("admin_stores_on") : t("admin_stores_off")}
               </span>
               <AdminSwitch checked={shelf.enabled} onChange={(value) => onUpdate({ enabled: value })} />
             </div>
@@ -181,7 +182,7 @@ export function AdminHomeShelfTabFields({
         </p>
         <Field k="dataSource">
           <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "데이터 소스" : "Data source"}
+            {t("admin_stores_data_source")}
             <select
               className={INPUT_CLASS}
               value={shelf.dataSource}
@@ -227,11 +228,11 @@ export function AdminHomeShelfTabFields({
                 </select>
               </label>
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
-                <dt className="text-sam-muted">{ko ? "방식" : "Mode"}</dt>
+                <dt className="text-sam-muted">{t("admin_stores_mode")}</dt>
                 <dd>{t("admin_stores_popularity_rolling")}</dd>
                 <dt className="text-sam-muted">Timezone</dt>
                 <dd>{t("admin_stores_popularity_tz")}</dd>
-                <dt className="text-sam-muted">{ko ? "지표" : "Metric"}</dt>
+                <dt className="text-sam-muted">{t("admin_stores_metric")}</dt>
                 <dd>{t("admin_stores_popularity_metric")}</dd>
                 <dt className="text-sam-muted">{t("admin_stores_popularity_range")}</dt>
                 <dd className="break-all">
@@ -244,7 +245,7 @@ export function AdminHomeShelfTabFields({
         </Field>
         <Field k="max">
           <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "최대 노출 개수" : "Max items"}
+            {t("admin_stores_max_items")}
             <input
               type="number"
               min={0}
@@ -257,7 +258,7 @@ export function AdminHomeShelfTabFields({
         <Field k="candidates">
           <div className="rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]" data-home-shelf-candidates="1">
             <p className="font-semibold text-sam-fg">
-              {ko ? "후보" : "Candidates"} {candidateCount ?? "-"} · {ko ? "앱 표시" : "Shown in app"}{" "}
+              {t("admin_stores_candidates")} {candidateCount ?? "-"} · {t("admin_stores_shown_in_app")}{" "}
               {renderedCount ?? "-"}
             </p>
             {candidateCount === 0 ? (
@@ -278,7 +279,7 @@ export function AdminHomeShelfTabFields({
       <div className="space-y-3">
         <Field k="presentation">
           <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "카드 표현 방식" : "Card presentation"}
+            {t("admin_stores_card_presentation")}
             <select
               className={INPUT_CLASS}
               value={presentation}
@@ -294,7 +295,7 @@ export function AdminHomeShelfTabFields({
         </Field>
         <Field k="imageSource">
           <label className="block text-[12px] font-medium text-sam-muted">
-            {ko ? "적용 이미지 소스" : "Image source"}
+            {t("admin_stores_image_source")}
             <select
               className={INPUT_CLASS}
               value={homeShelfAdminImageDisplayValue(shelf.productConfig.imageSource)}
@@ -325,13 +326,11 @@ export function AdminHomeShelfTabFields({
               className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-[13px] text-sam-fg"
               data-home-shelf-order-locked="1"
             >
-              {ko
-                ? "노출 순서: 항상 마지막 — 「더 많은 매장」은 앱에서 모든 선반 아래에 표시됩니다."
-                : "Order: always last — the remaining-stores list renders below every shelf in the app."}
+              {t("admin_stores_order_always_last_remaining_stores_list")}
             </p>
           ) : (
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "노출 순서" : "Order"}
+              {t("admin_stores_order")}
               <input
                 type="number"
                 min={0}
@@ -345,7 +344,7 @@ export function AdminHomeShelfTabFields({
         <Field k="schedule">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "노출 시작" : "Schedule start"}
+              {t("admin_stores_schedule_start")}
               <input
                 type="datetime-local"
                 className={INPUT_CLASS}
@@ -354,7 +353,7 @@ export function AdminHomeShelfTabFields({
               />
             </label>
             <label className="block text-[12px] font-medium text-sam-muted">
-              {ko ? "노출 종료" : "Schedule end"}
+              {t("admin_stores_schedule_end")}
               <input
                 type="datetime-local"
                 className={INPUT_CLASS}
@@ -367,7 +366,7 @@ export function AdminHomeShelfTabFields({
         <Field k="showAll">
           <div className="rounded-ui-rect border border-sam-border p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[13px] font-semibold">{ko ? "전체보기 설정" : "Show all"}</span>
+              <span className="text-[13px] font-semibold">{t("admin_stores_show_all")}</span>
               <AdminSwitch
                 checked={shelf.productConfig.showAllEnabled}
                 onChange={(value) => onUpdateProductConfig({ showAllEnabled: value })}
@@ -375,7 +374,7 @@ export function AdminHomeShelfTabFields({
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="block text-[12px] font-medium text-sam-muted">
-                {ko ? "버튼 문구 (KO)" : "Label (KO)"}
+                {t("admin_stores_label_ko")}
                 <input
                   disabled={!shelf.productConfig.showAllEnabled}
                   className={`${INPUT_CLASS} disabled:opacity-50`}
@@ -384,7 +383,7 @@ export function AdminHomeShelfTabFields({
                 />
               </label>
               <label className="block text-[12px] font-medium text-sam-muted">
-                {ko ? "버튼 문구 (EN)" : "Label (EN)"}
+                {t("admin_stores_label_en")}
                 <input
                   disabled={!shelf.productConfig.showAllEnabled}
                   className={`${INPUT_CLASS} disabled:opacity-50`}
@@ -396,9 +395,7 @@ export function AdminHomeShelfTabFields({
             {/* H-15 — 데이터 소스와 같은 결과를 주는 목록만 선택지로 제공. */}
             {allowedRoutes.length === 0 || !routeValue ? (
               <p className="mt-2 text-[12px] text-sam-muted">
-                {ko
-                  ? "이 데이터 소스와 같은 결과를 보여 주는 목록 화면이 없어 앱에 전체 보기가 표시되지 않습니다."
-                  : "No list screen shows the same result as this data source, so Show all is hidden in the app."}
+                {t("admin_stores_no_list_screen_shows_same_result")}
               </p>
             ) : (
               <select
@@ -451,19 +448,17 @@ export function AdminHomeShelfTabFields({
               <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
                 <div>
                   <p className="text-[13px] font-medium text-sam-fg">
-                    {ko ? "「더 많은 매장」 광고 삽입" : "Ads in remaining stores"}
+                    {t("admin_stores_ads_in_remaining_stores")}
                   </p>
                   <p className="text-[12px] text-sam-muted">
-                    {ko
-                      ? "켜면 집행 중인 매장 광고가 목록 사이에 들어갑니다. 저장해야 앱에 반영됩니다."
-                      : "When on, active store ads are inserted into the list. Save to apply."}
+                    {t("admin_stores_when_on_active_store_ads_are")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-sam-muted">{restAdOn ? (ko ? "켜기" : "On") : ko ? "끄기" : "Off"}</span>
+                  <span className="text-[12px] text-sam-muted">{restAdOn ? t("admin_stores_on_2") : t("admin_stores_off")}</span>
                   <AdminSwitch
                     checked={restAdOn}
-                    label={ko ? "「더 많은 매장」 광고 삽입" : "Ads in remaining stores"}
+                    label={t("admin_stores_ads_in_remaining_stores")}
                     onChange={(on) => onUpdate({ adIntegration: homeRestAdIntegrationFromToggle(on, shelf.adIntegration) })}
                   />
                 </div>
@@ -472,9 +467,7 @@ export function AdminHomeShelfTabFields({
             </div>
           ) : (
             <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[12px] text-sam-muted">
-              {ko
-                ? "이 선반에는 광고가 들어가지 않습니다. 홈 광고는 「더 많은 매장」 선반에서만 켜고 끕니다."
-                : "Ads never appear in this shelf. HOME ads are switched only on the remaining-stores shelf."}
+              {t("admin_stores_ads_never_appear_in_this_shelf")}
             </p>
           )}
         </Field>
@@ -485,7 +478,7 @@ export function AdminHomeShelfTabFields({
   return (
     <Field k="operatorMemo">
       <label className="block text-[12px] font-medium text-sam-muted">
-        {ko ? "운영 메모" : "Operator memo"}
+        {t("admin_stores_operator_memo")}
         <textarea
           maxLength={200}
           rows={7}

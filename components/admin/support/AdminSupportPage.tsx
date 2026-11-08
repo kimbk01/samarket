@@ -53,6 +53,7 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { resolveAdminSupportDetailPane } from "@/lib/support/admin-support-detail-pane";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
 const SUPPORT_LIST_EXTRAS = [
@@ -101,11 +102,11 @@ function waitingAgeLabel(iso: string, ko: boolean): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return "—";
   const minutes = Math.max(0, Math.round((Date.now() - t) / 60000));
-  if (minutes < 60) return ko ? `${Math.max(1, minutes)}분 전` : `${Math.max(1, minutes)}m`;
+  if (minutes < 60) return translateBy(ko ? "ko" : "en", "admin_support_mins_ago", { minutes: Math.max(1, minutes) });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return ko ? `${hours}시간 전` : `${hours}h`;
+  if (hours < 24) return translateBy(ko ? "ko" : "en", "admin_support_hours_ago", { hours });
   const days = Math.floor(hours / 24);
-  return ko ? `${days}일 전` : `${days}d`;
+  return translateBy(ko ? "ko" : "en", "admin_support_days_ago", { days });
 }
 
 function statusTone(status: string): string {
@@ -490,7 +491,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     const role = supportAudienceLabel(c.audience, ko);
     const d = displayFor(c);
     if (c.audience === "OWNER" && c.owner_store_id) {
-      const store = d?.owner_store_name || `${ko ? "매장" : "Store"} ${formatAdminShortId(c.owner_store_id)}`;
+      const store = d?.owner_store_name || `${t("common_store")} ${formatAdminShortId(c.owner_store_id)}`;
       return `${whoName(c)} · ${role} · ${store}`;
     }
     return `${whoName(c)} · ${role}`;
@@ -549,24 +550,20 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   };
 
   const groupOptions = [
-    { id: "ALL", label: ko ? "전체 분야" : "All topics" },
+    { id: "ALL", label: t("admin_support_all_topics") },
     ...SUPPORT_CATEGORY_GROUPS.map((g) => ({ id: g.id, label: ko ? g.labelKo : g.labelEn })),
     // G-08: 커뮤니티 도메인 범위 — API `group=COMMUNITY` → 커뮤니티 문의 화면과 같은 범위 필터(parseSupportCaseScope).
     // (「거래」 TRADE 도 서버에서 같은 방식으로 거래 도메인 범위가 된다.)
-    { id: "COMMUNITY", label: ko ? "커뮤니티" : "Community" },
+    { id: "COMMUNITY", label: t("admin_support_community") },
   ];
 
   const senderLabel = (m: SupportMessageRow) => {
-    if (m.message_type === "INTERNAL_NOTE") return ko ? "관리자 내부 메모" : "Internal note";
-    if (m.sender_type === "SYSTEM") return ko ? "시스템" : "System";
+    if (m.message_type === "INTERNAL_NOTE") return t("admin_support_internal_note_2");
+    if (m.sender_type === "SYSTEM") return t("admin_support_system");
     if (m.sender_type === "ADMIN")
       return m.sender_admin_id && m.sender_admin_id === selfAdminId
-        ? ko
-          ? "나 (관리자)"
-          : "Me (admin)"
-        : ko
-          ? "관리자"
-          : "Admin";
+        ? t("admin_support_me_admin")
+        : t("admin_support_admin");
     return activeCase ? whoName(activeCase) : supportAudienceLabel(m.sender_type, ko);
   };
 
@@ -596,11 +593,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         <div className="flex items-center gap-3">
           {supportReturnTo ? (
             <Link href={supportReturnTo} className="text-xs font-semibold text-sam-fg underline">
-              {ko ? "← 이전 목록으로" : "← Back to list"}
+              {t("admin_support_back_to_list")}
             </Link>
           ) : null}
           <Link href="/admin/support/archive" className="text-xs text-sam-muted underline">
-            {ko ? "이전 문의 기록 (레거시)" : "Legacy archive"}
+            {t("admin_support_legacy_archive")}
           </Link>
         </div>
       </div>
@@ -608,10 +605,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       {/* G-08 — 보기 전환: 고객지원 상담(support_cases) | 매장 문의(store_inquiries, 조회 전용). 원장을 합치지 않는다. */}
       <div className="flex flex-wrap items-center gap-1" role="group" data-admin-support-view={storeInquiriesView ? "store_inquiries" : "cases"}>
         <AdminChipButton selected={!storeInquiriesView} onClick={() => setStoreInquiriesView(false)}>
-          {ko ? "고객지원 문의" : "Support cases"}
+          {t("admin_support_support_cases")}
         </AdminChipButton>
         <AdminChipButton selected={storeInquiriesView} onClick={() => setStoreInquiriesView(true)}>
-          {ko ? "매장 문의 (조회 전용)" : "Store inquiries (view only)"}
+          {t("admin_support_store_inquiries_view_only")}
         </AdminChipButton>
       </div>
 
@@ -651,14 +648,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           onReset={resetFilters}
           pending={listLoading}
           showPeriod={false}
-          searchPlaceholder={ko ? "SC번호 · 이름 · 이메일 · 매장 · 내용" : "Case no · name · email · store · text"}
+          searchPlaceholder={t("admin_support_case_no_name_email_store_text")}
         >
           <Seg<Audience>
             testId="audience"
             value={audience}
             onChange={setAudience}
             options={[
-              { id: "ALL", label: ko ? "전체" : "All" },
+              { id: "ALL", label: t("common_all") },
               { id: "MEMBER", label: supportAudienceLabel("MEMBER", ko) },
               { id: "OWNER", label: supportAudienceLabel("OWNER", ko) },
             ]}
@@ -668,7 +665,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             onChange={(e) => setGroup(e.target.value)}
             className="h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 text-[16px]"
             data-admin-support-group="1"
-            aria-label={ko ? "분야" : "Topic"}
+            aria-label={t("admin_support_topic")}
           >
             {groupOptions.map((g) => (
               <option key={g.id} value={g.id}>
@@ -681,29 +678,29 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             value={assignee}
             onChange={setAssignee}
             options={[
-              { id: "ALL", label: ko ? "담당 전체" : "Any owner" },
-              { id: "ME", label: ko ? "내 담당" : "Mine" },
-              { id: "UNASSIGNED", label: ko ? "미배정" : "Unassigned" },
+              { id: "ALL", label: t("admin_support_any_owner") },
+              { id: "ME", label: t("admin_support_mine") },
+              { id: "UNASSIGNED", label: t("admin_support_filter_unassigned") },
             ]}
           />
           <label className="flex h-10 items-center gap-1 text-[13px] text-sam-fg">
             <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
-            {ko ? "24시간 이상" : "24h+"}
+            {t("admin_support_24h")}
           </label>
           <label className="flex h-10 items-center gap-1 text-[13px] text-sam-fg" data-admin-support-appeal="1">
             <input type="checkbox" checked={appealOnly} onChange={(e) => setAppealOnly(e.target.checked)} />
-            {ko ? "이의신청만" : "Appeals only"}
+            {t("admin_support_appeals_only")}
           </label>
           {scope.referenceId || scope.storeId ? (
             <AdminChipButton
               selected
               onClick={clearScope}
-              title={ko ? "연결 조건 해제" : "Clear linked filter"}
-              aria-label={ko ? "연결 조건 해제" : "Clear linked filter"}
+              title={t("admin_support_clear_linked_filter")}
+              aria-label={t("admin_support_clear_linked_filter")}
             >
               {scope.referenceId
-                ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : ko ? "연결 대상" : "Reference"} · ${formatAdminShortId(scope.referenceId)}`
-                : `${ko ? "매장" : "Store"} · ${formatAdminShortId(scope.storeId)}`}
+                ? `${scope.referenceType ? supportReferenceLabel(safeT, scope.referenceType) : t("admin_support_reference")} · ${formatAdminShortId(scope.referenceId)}`
+                : `${t("common_store")} · ${formatAdminShortId(scope.storeId)}`}
               <span aria-hidden>✕</span>
             </AdminChipButton>
           ) : null}
@@ -725,8 +722,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           data-admin-support-queue="1"
         >
           <div className="shrink-0 border-b border-sam-border px-3 py-2 text-xs font-semibold text-sam-muted">
-            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {formatAdminNumber(listTotal)}
-            {ko ? "건" : ""}
+            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {t("admin_count_items", { n: formatAdminNumber(listTotal) })}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {listError ? (
@@ -746,7 +742,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               listError ? null : (
                 <AdminEmptyState
                   ko={ko}
-                  message={filtersActive ? undefined : ko ? "해당하는 문의가 없습니다" : "No inquiries"}
+                  message={filtersActive ? undefined : t("admin_support_no_inquiries")}
                   onReset={filtersActive ? resetFilters : undefined}
                 />
               )
@@ -789,7 +785,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             </span>
                           ) : null}
                           {!c.assigned_admin_id && c.status !== "RESOLVED" && c.status !== "ARCHIVED" ? (
-                            <span className="text-[12px] text-sam-muted">{ko ? "미배정" : "Unassigned"}</span>
+                            <span className="text-[12px] text-sam-muted">{t("admin_support_filter_unassigned")}</span>
                           ) : null}
                         </div>
                       </SupportQueueRow>
@@ -821,7 +817,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         >
           {detailPane === "empty" ? (
             <p className="m-auto p-6 text-sm text-sam-muted">
-              {ko ? "왼쪽 목록에서 문의를 선택하세요" : "Select an inquiry"}
+              {t("admin_support_select_inquiry")}
             </p>
           ) : detailPane === "loading" ? (
             <AdminLoadingState ko={ko} />
@@ -844,7 +840,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     data-admin-support-back="1"
                     onClick={() => setActiveId(null)}
                   >
-                    ← {ko ? "목록" : "List"}
+                    ← {t("admin_support_list")}
                   </AdminActionButton>
                   <h2 className="text-base font-bold text-sam-fg">{activeCase.public_case_no}</h2>
                   <span className={`rounded border px-1.5 text-[12px] ${statusTone(activeCase.status)}`}>
@@ -901,7 +897,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       >
                         {PRIORITIES.map((p) => (
                           <option key={p} value={p}>
-                            {(ko ? "우선순위 " : "Priority ") + supportPriorityLabel(p, ko)}
+                            {(`${t("admin_support_priority_label")} `) + supportPriorityLabel(p, ko)}
                           </option>
                         ))}
                       </select>
@@ -912,7 +908,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     data-admin-support-info-toggle="1"
                     onClick={() => setShowInfo((v) => !v)}
                   >
-                    {ko ? "문의 정보" : "Details"}
+                    {t("admin_support_details")}
                   </AdminChipButton>
                   <div className="ml-auto flex gap-2">
                     {activeOpen ? (
@@ -926,9 +922,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             { action: "status", status: "RESOLVED" },
                             {
                               title: safeT("admin_support_resolve"),
-                              description: ko
-                                ? `${activeCase.public_case_no} 상담을 종료합니다. 고객에게 종료 상태로 보입니다.`
-                                : `Closes ${activeCase.public_case_no}. The customer sees it as closed.`,
+                              description: t("admin_support_closes_customer_sees_it_as_closed", { public_case_no: String(activeCase.public_case_no) }),
                               confirmLabel: safeT("admin_support_resolve"),
                             }
                           )
@@ -948,16 +942,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             void confirmThenPatch(
                               { action: "archive" },
                               {
-                                title: ko ? "상담 보관" : "Archive case",
-                                description: ko
-                                  ? `${activeCase.public_case_no} 상담을 보관함으로 옮깁니다. 「보관 해제」로 되돌릴 수 있습니다.`
-                                  : `Moves ${activeCase.public_case_no} to the archive. You can unarchive it later.`,
-                                confirmLabel: ko ? "보관" : "Archive",
+                                title: t("admin_support_archive_case"),
+                                description: t("admin_support_moves_to_archive_you_can_unarchive", { public_case_no: String(activeCase.public_case_no) }),
+                                confirmLabel: t("admin_support_archive"),
                               }
                             )
                           }
                         >
-                          {ko ? "보관" : "Archive"}
+                          {t("admin_support_archive")}
                         </AdminActionButton>
                         <AdminActionButton
                           variant="primary"
@@ -969,9 +961,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                               { action: "reopen" },
                               {
                                 title: safeT("admin_support_reopen"),
-                                description: ko
-                                  ? `${activeCase.public_case_no} 상담을 다시 엽니다.`
-                                  : `Reopens ${activeCase.public_case_no}.`,
+                                description: t("admin_support_reopens", { public_case_no: String(activeCase.public_case_no) }),
                                 confirmLabel: safeT("admin_support_reopen"),
                               }
                             )
@@ -991,16 +981,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           void confirmThenPatch(
                             { action: "unarchive" },
                             {
-                              title: ko ? "보관 해제" : "Unarchive",
-                              description: ko
-                                ? `${activeCase.public_case_no} 상담을 보관함에서 꺼냅니다.`
-                                : `Moves ${activeCase.public_case_no} out of the archive.`,
-                              confirmLabel: ko ? "보관 해제" : "Unarchive",
+                              title: t("admin_support_unarchive"),
+                              description: t("admin_support_moves_out_of_archive", { public_case_no: String(activeCase.public_case_no) }),
+                              confirmLabel: t("admin_support_unarchive"),
                             }
                           )
                         }
                       >
-                        {ko ? "보관 해제" : "Unarchive"}
+                        {t("admin_support_unarchive")}
                       </AdminActionButton>
                     ) : null}
                   </div>
@@ -1031,11 +1019,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       <div className={`rounded-ui-rect px-3 py-2 text-sm ${tone}`}>
                         <p className="mb-0.5 text-[12px] text-sam-muted">
                           {senderLabel(m)} · {formatAdminManilaDateTime(m.created_at)}
-                          {m.edited_at && !m.deleted_at ? ` · ${ko ? "수정됨" : "edited"}` : ""}
+                          {m.edited_at && !m.deleted_at ? ` · ${t("admin_support_edited")}` : ""}
                         </p>
                         {m.deleted_at ? (
                           <p className="text-xs italic text-sam-muted">
-                            {ko ? "삭제된 메시지 (고객에게 숨김)" : "Deleted (hidden from customer)"}
+                            {t("admin_support_deleted_hidden_from_customer")}
                             <span className="ml-1 line-through opacity-60">{m.body}</span>
                           </p>
                         ) : editingId === m.id ? (
@@ -1093,13 +1081,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                               void confirmThenPatch(
                                 { action: "delete_message", messageId: m.id },
                                 {
-                                  title: ko ? "메시지 삭제" : "Delete message",
-                                  description: ko
-                                    ? "내가 보낸 이 메시지를 삭제합니다. 고객에게는 「삭제된 메시지」로 보이고 작업 기록에 남습니다."
-                                    : "Deletes your message. The customer sees “Deleted message”; the action is audited.",
+                                  title: t("admin_support_delete_message"),
+                                  description: t("admin_support_deletes_your_message_customer_sees_deleted"),
                                   confirmLabel: adminCta("delete", ko),
                                   destructive: true,
-                                  retypeValue: ko ? "삭제" : "delete",
+                                  retypeValue: t("admin_support_delete"),
                                 },
                                 "delete"
                               )
@@ -1117,7 +1103,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               <div className="shrink-0 border-t border-sam-border p-3" data-admin-support-composer="1">
                 <div className="mb-2 inline-flex gap-1" role="group">
                   <AdminChipButton selected={composerMode === "public"} onClick={() => setComposerMode("public")}>
-                    {ko ? "공개 답변" : "Public reply"}
+                    {t("admin_support_public_reply")}
                   </AdminChipButton>
                   <AdminChipButton selected={composerMode === "internal"} onClick={() => setComposerMode("internal")}>
                     {safeT("admin_support_internal_note")}
@@ -1128,9 +1114,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-xs text-sam-muted"
                     data-admin-support-reply-closed="1"
                   >
-                    {ko
-                      ? "종료된 상담입니다. 답변하려면 위의 「재오픈」을 누르세요. (내부 메모는 작성 가능)"
-                      : "This case is closed. Reopen it to reply. (Internal notes still allowed.)"}
+                    {t("admin_support_this_case_is_closed_reopen_it")}
                   </p>
                 ) : (
                   <div className="flex items-end gap-2">
@@ -1146,12 +1130,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       rows={3}
                       placeholder={
                         composerMode === "public"
-                          ? ko
-                            ? "고객에게 보낼 답변 (Ctrl/⌘+Enter 전송)"
-                            : "Reply to customer (Ctrl/⌘+Enter)"
-                          : ko
-                            ? "관리자끼리만 보는 메모 (고객 비노출)"
-                            : "Internal note (hidden from customer)"
+                          ? t("admin_support_reply_to_customer_ctrl_enter")
+                          : t("admin_support_internal_note_hidden_from_customer")
                       }
                       className={`min-h-[4.5rem] flex-1 rounded-ui-rect border p-2 text-sm ${
                         composerMode === "internal" ? "border-sam-warning bg-sam-warning-soft" : "border-sam-border bg-sam-surface"
@@ -1189,7 +1169,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               {adminCta("close", ko)}
             </AdminActionButton>
             <section>
-              <h3 className="text-xs font-semibold text-sam-muted">{ko ? "고객" : "Customer"}</h3>
+              <h3 className="text-xs font-semibold text-sam-muted">{t("admin_support_customer")}</h3>
               <p className="mt-1 font-medium">{whoName(activeCase)}</p>
               {activeCase.requester_email ? (
                 <p className="text-xs text-sam-muted">{activeCase.requester_email}</p>
@@ -1198,26 +1178,26 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             </section>
             {activeCase.owner_store_id ? (
               <section className="mt-3">
-                <h3 className="text-xs font-semibold text-sam-muted">{ko ? "매장" : "Store"}</h3>
+                <h3 className="text-xs font-semibold text-sam-muted">{t("common_store")}</h3>
                 <p className="mt-1 font-medium">{activeCase.owner_store_name || "—"}</p>
                 <p className="break-all text-[12px] text-sam-muted">{activeCase.owner_store_id}</p>
               </section>
             ) : null}
             <section className="mt-3">
-              <h3 className="text-xs font-semibold text-sam-muted">{ko ? "문의" : "Inquiry"}</h3>
+              <h3 className="text-xs font-semibold text-sam-muted">{t("admin_support_inquiry")}</h3>
               <p className="mt-1">
                 {categoryLabel(activeCase)}
                 {activeCase.issue_type ? ` · ${issueLabel(activeCase)}` : ""}
               </p>
               <p className="mt-1 text-xs text-sam-muted">
-                {ko ? "생성" : "Created"}: {formatAdminManilaDateTime(activeCase.created_at)}
+                {t("admin_support_created_2")}: {formatAdminManilaDateTime(activeCase.created_at)}
               </p>
               <p className="text-xs text-sam-muted">
-                {ko ? "최근" : "Last"}: {formatAdminManilaDateTime(activeCase.last_message_at)}
+                {t("admin_support_last")}: {formatAdminManilaDateTime(activeCase.last_message_at)}
               </p>
             </section>
             <section className="mt-3" data-admin-support-business-ref="1">
-              <h3 className="text-xs font-semibold text-sam-muted">{ko ? "관련 항목" : "Reference"}</h3>
+              <h3 className="text-xs font-semibold text-sam-muted">{t("admin_support_reference_2")}</h3>
               {activeCase.reference_type ? (
                 <p className="mt-1 text-xs">
                   {supportReferenceLabel(safeT, activeCase.reference_type)}
@@ -1228,7 +1208,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
               )}
             </section>
             <section className="mt-3">
-              <h3 className="text-xs font-semibold text-sam-muted">{ko ? "바로가기" : "Shortcuts"}</h3>
+              <h3 className="text-xs font-semibold text-sam-muted">{t("admin_support_shortcuts")}</h3>
               <ul className="mt-1 space-y-1" data-admin-support-context-links="1">
                 {resolveSupportCaseContextLinks({
                   ownerStoreId: activeCase.owner_store_id,
@@ -1247,7 +1227,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       </Link>
                     ) : (
                       <span className="text-xs text-sam-muted" data-admin-support-context-link-locked={link.mutationOwner}>
-                        {ko ? `${link.labelKo} — 권한 필요` : `${link.labelEn} — permission required`}
+                        {t("admin_support_link_permission_required", { label: ko ? link.labelKo : link.labelEn })}
                       </span>
                     )}
                   </li>

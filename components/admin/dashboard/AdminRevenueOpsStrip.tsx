@@ -54,7 +54,7 @@ export function AdminRevenueOpsStrip() {
           href="/admin/ad-applications"
           className="sam-text-helper font-medium text-sam-primary underline-offset-2 hover:underline"
         >
-          {en ? "Open Ad exposure → Ads" : "광고 노출 → 광고 · 유료노출"}
+          {safeT("admin_dashboard_open_ad_exposure_ads")}
         </Link>
       </div>
       <ul className="grid gap-2 sm:grid-cols-3">

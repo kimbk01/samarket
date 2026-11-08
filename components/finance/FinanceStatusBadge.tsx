@@ -20,8 +20,9 @@ export function FinanceStatusBadge({
   /** 표에 없는 상태 — 화면에 키·코드를 쓰지 않도록 호출부가 사람 문구를 준다 */
   fallback?: string;
 }) {
-  const { safeT } = useI18n();
-  const text = label ? safeT(label.key, { fallbackKo: label.ko, fallbackEn: label.en }) : fallback ?? "";
+  const { t } = useI18n();
+  /** label 은 `pointChargeStatusDisplay`·`cashTopUpStatusDisplay`·`coinWithdrawalStatusDisplay` 표에서만 온다 — 키가 모두 카탈로그에 있다 */
+  const text = label ? t(label.key) : fallback ?? "";
   if (!text) return null;
   return (
     <span

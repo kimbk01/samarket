@@ -18,6 +18,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { membersOperatorErrorCode } from "@/lib/admin/status-labels/members-status-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const ACTIONS: { id: MemberManagementActionId; label: string; destructive?: boolean }[] = [
   { id: "suspend", label: "정지", destructive: true },
@@ -33,7 +34,7 @@ function actionLabel(action: MemberManagementActionId): string {
 }
 
 function resultLine(r: MemberManagementActionResult, ko: boolean): string {
-  if (r.ok) return ko ? "성공" : "Done";
+  if (r.ok) return translateBy(ko ? "ko" : "en", "admin_users_done");
   if (r.message) return r.message;
   return adminOperatorErrorMessage(membersOperatorErrorCode(r.error, "action_failed"), ko);
 }
@@ -53,7 +54,7 @@ export function AdminMemberListBulkBar({
   onClear: () => void;
   onCompleted?: () => void;
 }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const ko = language !== "en";
   const [busy, setBusy] = useState(false);
   const [lastResults, setLastResults] = useState<MemberManagementActionResult[] | null>(null);
@@ -81,12 +82,12 @@ export function AdminMemberListBulkBar({
       <div data-member-list-bulk-root="1">
         {noticeBanner}
         <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2" data-member-list-bulk-results="1">
-          <p className="text-[12px] font-semibold text-sam-fg">최근 일괄 결과</p>
+          <p className="text-[12px] font-semibold text-sam-fg">{t("admin_users_bulk_recent_results")}</p>
           <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap text-[12px] text-sam-muted">
             {summarizeBulkResults(lastResults)}
           </pre>
           <AdminActionButton variant="quiet" size="sm" className="mt-1" onClick={() => setLastResults(null)}>
-            결과 닫기
+            {t("admin_users_bulk_close_results")}
           </AdminActionButton>
         </div>
       </div>
@@ -238,12 +239,12 @@ export function AdminMemberListBulkBar({
           </AdminActionButton>
         ))}
         <AdminActionButton variant="quiet" size="sm" disabled={busy} onClick={onClear} data-member-bulk-clear="1">
-          선택 해제
+          {t("admin_users_bulk_clear_selection")}
         </AdminActionButton>
       </div>
       {lastResults ? (
         <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2" data-member-list-bulk-results="1">
-          <p className="text-[12px] font-semibold text-sam-fg">최근 일괄 결과 (회원별)</p>
+          <p className="text-[12px] font-semibold text-sam-fg">{t("admin_users_bulk_recent_results_per_member")}</p>
           <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[12px] text-sam-muted">
             {lastResults.map((r) => (
               <li key={`${r.userId}-${r.action}`} data-member-bulk-result={r.ok ? "ok" : "fail"}>

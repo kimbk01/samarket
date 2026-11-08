@@ -1,6 +1,6 @@
 /**
  * Map gift purchase API/RPC error codes to i18n keys (U2 buyer UX).
- * Never surface raw codes in UI — callers use safeT(key, fallback*).
+ * Never surface raw codes in UI — callers use safeT(key, giftPurchaseErrorFallbacks(key)).
  */
 
 export type GiftPurchaseErrorCopyKey =
@@ -44,39 +44,18 @@ export function readGiftPurchaseErrorAmounts(json: unknown): GiftPurchaseErrorAm
   return { total: Math.trunc(total), usable: Math.max(0, Math.trunc(usable)) };
 }
 
+/**
+ * `safeT(key, …)` 두 번째 인자 — 문구는 카탈로그(`gift_u2_err_*`)만 쓴다(B4 대체 문구 제거).
+ * Apple 충전분 제한 안내만 금액 치환값을 넘긴다.
+ */
 export function giftPurchaseErrorFallbacks(
   key: GiftPurchaseErrorCopyKey,
   amounts?: GiftPurchaseErrorAmounts | null
 ): {
-  fallbackKo: string;
-  fallbackEn: string;
   vars?: Record<string, string | number>;
 } {
-  switch (key) {
-    case "gift_u2_err_insufficient":
-      return { fallbackKo: "Point가 부족합니다.", fallbackEn: "Not enough Point." };
-    case "gift_u2_err_apple_restricted": {
-      const total = (amounts?.total ?? 0).toLocaleString("en-US");
-      const usable = (amounts?.usable ?? 0).toLocaleString("en-US");
-      return {
-        fallbackKo: `보유 Point ${total}P 중 이 결제에 사용할 수 있는 Point는 ${usable}P입니다. Apple 결제로 충전한 Point는 광고·상위노출에만 사용할 수 있습니다.`,
-        fallbackEn: `You have ${total}P, of which ${usable}P can be used for this payment. Point charged through Apple can only be used for ads and promotions.`,
-        vars: { total, usable },
-      };
-    }
-    case "gift_u2_err_unavailable":
-      return {
-        fallbackKo: "현재 구매할 수 없는 상품권입니다.",
-        fallbackEn: "This gift certificate is not available for purchase.",
-      };
-    case "gift_u2_err_not_found":
-      return { fallbackKo: "상품권을 찾을 수 없습니다.", fallbackEn: "Gift certificate not found." };
-    case "gift_u2_err_unauthorized":
-      return { fallbackKo: "로그인이 필요합니다.", fallbackEn: "Sign in required." };
-    default:
-      return {
-        fallbackKo: "구매에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-        fallbackEn: "Purchase failed. Please try again.",
-      };
-  }
+  if (key !== "gift_u2_err_apple_restricted") return {};
+  const total = (amounts?.total ?? 0).toLocaleString("en-US");
+  const usable = (amounts?.usable ?? 0).toLocaleString("en-US");
+  return { vars: { total, usable } };
 }

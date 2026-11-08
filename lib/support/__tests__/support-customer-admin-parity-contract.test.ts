@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { copyAdminB4Ops1Messages } from "@/lib/i18n/catalog/copy-admin-b4-ops1";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -28,7 +29,8 @@ describe("Support Customer ↔ Admin message parity contracts", () => {
     expect(service).toContain('message_type", "PUBLIC"');
     expect(service).toContain("INTERNAL_NOTE");
     const admin = read("components/admin/support/AdminSupportPage.tsx");
-    expect(admin).toContain("관리자 내부 메모");
+    expect(admin).toContain('t("admin_support_internal_note_2")');
+    expect(copyAdminB4Ops1Messages.ko.admin_support_internal_note_2).toBe("관리자 내부 메모");
     expect(admin).toContain("internalNote: true");
   });
 

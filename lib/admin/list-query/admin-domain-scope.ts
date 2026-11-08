@@ -6,6 +6,13 @@
  * `useAdminListQuery` 의 `extras` 로 쓰면 쪽 이동·크기 변경 때 주소에 그대로 남는다.
  */
 
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
+function tx(ko: unknown, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
+
 export const ADMIN_DOMAIN_SCOPE_QUERY_KEY = "domain" as const;
 
 export const ADMIN_DOMAIN_SCOPES = ["delivery", "trade", "community"] as const;
@@ -18,10 +25,10 @@ export function normalizeAdminDomainScope(raw: unknown): AdminDomainScope | "" {
 }
 
 export function adminDomainScopeLabel(scope: AdminDomainScope | "", ko: boolean): string {
-  if (scope === "delivery") return ko ? "배달" : "Delivery";
-  if (scope === "trade") return ko ? "거래" : "Trade";
-  if (scope === "community") return ko ? "커뮤니티" : "Community";
-  return ko ? "전체" : "All";
+  if (scope === "delivery") return tx(ko, "common_delivery");
+  if (scope === "trade") return tx(ko, "admin_list_query_trade");
+  if (scope === "community") return tx(ko, "admin_list_query_community");
+  return tx(ko, "common_all");
 }
 
 /**
