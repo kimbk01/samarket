@@ -45,10 +45,15 @@ export async function POST(
     }
 
     const next = ((row as { view_count?: number | null }).view_count ?? 0) | 0;
-    const now = new Date().toISOString();
+    /**
+     * T3 1단계 (Owner 「T3 1단계 승인」 2026-11-09): 조회수만 바꾸고 `updated_at` 은 건드리지 않는다.
+     * 조회가 글 수정 시각을 바꾸면 판매완료 노출 기간(`sold_at` 없을 때 `updated_at` 대체,
+     * services/trade/trade-related.service.ts:52-54) 이 늘고, 상세 화면 동기화가 다시 돈다.
+     * 원자적 증가·집계 규칙은 2단계(DB 함수, 별도 승인).
+     */
     const { error: updErr } = await sbAny
       .from(POSTS_TABLE_WRITE)
-      .update({ view_count: next + 1, updated_at: now })
+      .update({ view_count: next + 1 })
       .eq("id", id);
 
     if (updErr) {
