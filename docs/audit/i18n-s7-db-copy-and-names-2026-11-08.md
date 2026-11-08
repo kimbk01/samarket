@@ -88,3 +88,14 @@ update store_categories c set name_en = v.en from (values
 | 운영 화면 | **FAIL — 커뮤니티 주제**: 운영 `/api/philife/neighborhood-topic-options` 가 여전히 `name_en: null`(엣지 캐시 MISS 에서도). 원인 = 피드 주제 RPC `philife_list_default_section_topics_for_feed` 가 `name_en` 열을 고르지 않음(원래 영어 이름이 있던 맛집·골프·유머도 같음). 수정 마이그레이션 `20271108160000_philife_topics_for_feed_name_en.sql`(열 1개 추가) — **운영 적용 Owner 승인 필요** |
 | 운영 화면 — 거래 카테고리·매장 업종 | 거래 카테고리 조회는 `name_en` 포함(코드 확인), 매장 업종은 지금 영어 화면 값과 같은 이름이라 화면 변화 없음. 실제 영어 화면 확인은 NOT_PROVEN(이 브라우저는 로그인 계정 언어가 한국어 — 계정 설정은 바꾸지 않음) |
 | 되돌리기 | `update <표> set name_en = (b.row_before->>'name_en') from _i18n_s7_name_en_backup b where b.t='<표>' and <표>.id::text=b.id;` |
+
+## 6. 적용 기록 — 피드 주제 RPC `name_en` (Owner 「적용」, 2026-11-08 16:08 PHT)
+
+| 단계 | 결과 |
+|---|---|
+| 백업 | `public._i18n_s7_fn_backup` — 적용 전 함수 정의 전체(RLS 켬) |
+| 적용 | 마이그레이션 `20271108160000_philife_topics_for_feed_name_en.sql` 그대로(커밋 파일과 md5 동일) |
+| 함수 확인 | `SECURITY DEFINER`·`STABLE`·반환 jsonb 유지, 실행 권한 유지(postgres·service_role). 결과 주제 9개 모두 영어 이름 포함 |
+| 운영 API | `/api/philife/neighborhood-topic-options`(엣지 MISS, 08:08 UTC) — recommended=Recommended, phlifee=Life in the Philippines, travel=Travel tips, dailylife=Daily life, question=Questions, news=Philippines news, food=Food → **데이터 PASS** |
+| 영어 화면(주제 탭) | **NOT_PROVEN** — 이 브라우저는 로그인 계정 언어가 한국어(계정 설정 미변경) |
+| 되돌리기 | `_i18n_s7_fn_backup.def` 를 그대로 실행 |
