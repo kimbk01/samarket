@@ -103,7 +103,7 @@ describe("i18n-quality 규칙", () => {
     addFileRuleCounts(
       c,
       "components/x.tsx",
-      `const a = "参与"; const l = "zh-CN"; t("k", { fallbackEn: "Hi" }); const o = { ko: "가", en: "A" }; lang === "en" ? 1 : 2; tt("저장");`
+      `const a = "参与"; const l = "zh-CN"; t("k", { fallbackEn: "Hi" }); const o = { ko: "가", en: "A" }; lang === "en" ? "Hi" : "안녕"; tt("저장"); pick(lang, "신청", "Requested");`
     );
     expect(c["foreign-script-code"].get("components/x.tsx")).toBe(2);
     expect(c["foreign-locale-code"].get("components/x.tsx")).toBe(1);
@@ -111,6 +111,15 @@ describe("i18n-quality 규칙", () => {
     expect(c["non-catalog-inline-ko-en"].get("components/x.tsx")).toBe(1);
     expect(c["non-catalog-lang-ternary"].get("components/x.tsx")).toBe(1);
     expect(c["non-catalog-tt"].get("components/x.tsx")).toBe(1);
+    expect(c["non-catalog-lang-pair"].get("components/x.tsx")).toBe(1);
+    /** 언어 코드 정규화·DB 다국어 열 선택은 문구가 아니다 */
+    const notCopy = emptyFileRuleCounts();
+    addFileRuleCounts(
+      notCopy,
+      "components/y.tsx",
+      `const l = language === "en" ? "en" : "ko"; const n = lang === "en" ? row.name_en : row.name_ko; const d = lang === "en" ? "—" : "—"; const k = G[lang === "en" ? "noteEn" : "noteKo"];`
+    );
+    expect(notCopy["non-catalog-lang-ternary"].size).toBe(0);
     const allowed = emptyFileRuleCounts();
     addFileRuleCounts(allowed, "lib/community-messenger/call-provider/agora-playback-routing.ts", `/扬声器/`);
     expect(allowed["foreign-script-code"].size).toBe(0);

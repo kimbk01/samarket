@@ -121,6 +121,14 @@ import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import { ownerUiCopyKeysMessages } from "./catalog/owner-ui-copy-keys";
 import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
+import { copyLibMessages } from "./catalog/copy-lib";
+import { copyAdminMessages } from "./catalog/copy-admin";
+import { copyAuthMessages } from "./catalog/copy-auth";
+import { copyMessengerMessages } from "./catalog/copy-messenger";
+import { copyOwnerMessages } from "./catalog/copy-owner";
+import { copyStoreMessages } from "./catalog/copy-store";
+import { copyTradeMessages } from "./catalog/copy-trade";
+import { copyShellMessages } from "./catalog/copy-shell";
 
 import type { MessageKey } from "./message-key";
 export type { MessageKey } from "./message-key";
@@ -229,6 +237,14 @@ const KO_MESSAGES = {
   ...adminTradeSoldWindowMessages.ko,
   ...adminConsoleCoreMessages.ko,
   ...appShellCoreMessages.ko,
+  ...copyLibMessages.ko,
+  ...copyAdminMessages.ko,
+  ...copyAuthMessages.ko,
+  ...copyMessengerMessages.ko,
+  ...copyOwnerMessages.ko,
+  ...copyStoreMessages.ko,
+  ...copyTradeMessages.ko,
+  ...copyShellMessages.ko,
   // 배달 Admin 운영 UX 교정 — ko.json 보다 뒤 (같은 키 교정 우선)
   ...adminDeliveryOpsUxMessages.ko,
   ...adminChatR1CMessages.ko,
@@ -355,6 +371,14 @@ const EN_MESSAGES = {
   ...adminTradeSoldWindowMessages.en,
   ...adminConsoleCoreMessages.en,
   ...appShellCoreMessages.en,
+  ...copyLibMessages.en,
+  ...copyAdminMessages.en,
+  ...copyAuthMessages.en,
+  ...copyMessengerMessages.en,
+  ...copyOwnerMessages.en,
+  ...copyStoreMessages.en,
+  ...copyTradeMessages.en,
+  ...copyShellMessages.en,
   ...adminDeliveryOpsUxMessages.en,
   ...adminChatR1CMessages.en,
   ...adminChatR1BMessages.en,

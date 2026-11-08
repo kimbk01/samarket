@@ -125,6 +125,14 @@ import { adsImpl1107LedgerMessages } from "./catalog/ads-impl-1107-r1";
 import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
 import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
+import { copyLibMessages } from "./catalog/copy-lib";
+import { copyAdminMessages } from "./catalog/copy-admin";
+import { copyAuthMessages } from "./catalog/copy-auth";
+import { copyMessengerMessages } from "./catalog/copy-messenger";
+import { copyOwnerMessages } from "./catalog/copy-owner";
+import { copyStoreMessages } from "./catalog/copy-store";
+import { copyTradeMessages } from "./catalog/copy-trade";
+import { copyShellMessages } from "./catalog/copy-shell";
 
 type KeyOf<T> = keyof T & string;
 
@@ -251,6 +259,14 @@ export type MessageKey =
   | KeyOf<typeof adminBoostPricesMessages.ko>
   | KeyOf<typeof adminTradeSoldWindowMessages.ko>
   | KeyOf<typeof adminConsoleCoreMessages.ko>
+  | KeyOf<typeof copyShellMessages.ko>
+  | KeyOf<typeof copyTradeMessages.ko>
+  | KeyOf<typeof copyStoreMessages.ko>
+  | KeyOf<typeof copyOwnerMessages.ko>
+  | KeyOf<typeof copyMessengerMessages.ko>
+  | KeyOf<typeof copyAuthMessages.ko>
+  | KeyOf<typeof copyAdminMessages.ko>
+  | KeyOf<typeof copyLibMessages.ko>
   | KeyOf<typeof appShellCoreMessages.ko>;
 
 /** EN sources — used only for compile-time KO/EN key parity. */
@@ -376,6 +392,14 @@ type EnMessageKey =
   | KeyOf<typeof adsImpl1107LedgerMessages.en>
   | KeyOf<typeof adsImpl1107DeleteMessages.en>
   | KeyOf<typeof adminConsoleCoreMessages.en>
+  | KeyOf<typeof copyShellMessages.en>
+  | KeyOf<typeof copyTradeMessages.en>
+  | KeyOf<typeof copyStoreMessages.en>
+  | KeyOf<typeof copyOwnerMessages.en>
+  | KeyOf<typeof copyMessengerMessages.en>
+  | KeyOf<typeof copyAuthMessages.en>
+  | KeyOf<typeof copyAdminMessages.en>
+  | KeyOf<typeof copyLibMessages.en>
   | KeyOf<typeof appShellCoreMessages.en>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

@@ -135,7 +135,8 @@ export async function collectI18nQuality(input: {
       for (const a of areas) set.add(a);
       usage.set(m[1], set);
     }
-    if (!rel.startsWith("lib/i18n/")) addFileRuleCounts(fileCounts, rel, text);
+    /** 언어 기반 코드(lib/i18n, Provider)는 문구 규칙에서 뺀다 */
+    if (!rel.startsWith("lib/i18n/") && !rel.startsWith("components/i18n/")) addFileRuleCounts(fileCounts, rel, text);
   }
   const areaOfKey = (key: string) => areaFromUsage(key, usage.get(key));
 

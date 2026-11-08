@@ -41,6 +41,8 @@ const NORMAL_TERM_KEYS = new Set([
   "admin_delivery_ads_first_party_store_promo_blocked",
   "admin_menu_domain_store_promo_requests",
   "admin_ad_kind_delivery_sponsored",
+  /** 언어 SSOT S6: 어드민 광고 상품 이름 「매장 홍보」 — 코드 안 언어 삼항에서 카탈로그로 옮겨 검사에 보이게 됨(화면 문구 변화 없음) */
+  "stores_store_promotion",
 ]);
 
 /** D-15 목록 밖(보고만) — 상위노출 주문과 다른 뜻일 수 있어 Owner 확인 전 유지 */

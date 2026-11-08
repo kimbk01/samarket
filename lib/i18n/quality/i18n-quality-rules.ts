@@ -27,6 +27,7 @@ export const FILE_RULE_IDS = [
   "non-catalog-inline-ko-en",
   "non-catalog-lang-ternary",
   "non-catalog-tt",
+  "non-catalog-lang-pair",
 ] as const;
 export type FileRuleId = (typeof FILE_RULE_IDS)[number];
 
@@ -175,8 +176,31 @@ export type FileRuleCounts = Record<FileRuleId, Map<string, number>>;
 
 const FALLBACK_EN = /\bfallbackEn\s*:/g;
 const INLINE_KO_EN = /\{\s*ko\s*:\s*["'`][^"'`\n]*["'`]\s*,\s*en\s*:\s*["'`]/g;
-const LANG_TERNARY = /\b(lang|language|uiLang|locale|appLang|appLanguage|lng)\s*===\s*["'](en|ko)["']\s*\?/g;
+/**
+ * 언어 삼항 중 **문구를 고르는 것만** — 결과가 문자열·템플릿이고 언어 코드(en·ko 등)가 아닐 때.
+ * `language === "en" ? "en" : "ko"`(언어 코드 정규화)·`lang === "en" ? row.name_en : row.name_ko`(DB 다국어 열 선택)는 문구가 아니다. (S6 정밀화)
+ */
+const LANG_TERNARY =
+  /\b[\w.]*(?:[Ll]ang(?:uage)?|[Ll]ocale|lng)\s*===\s*["'](?:en|ko)["']\s*\?\s*(?!["'`](?:en|ko|en-US|ko-KR|en-PH)["'`])["'`]/g;
+/** `pick(lang, "한국어", "English")` 같은 언어별 문구 쌍 인자 (S6 추가 — S0 검사가 세지 않던 형태) */
+const LANG_PAIR = /\(\s*[\w.]+\s*,\s*"[^"\n]*[가-힣][^"\n]*"\s*,\s*"[^"\n가-힣]*[A-Za-z][^"\n가-힣]*"\s*\)/g;
 const TT_CALL = /\btt\(\s*["'`]|\btranslateText\(/g;
+
+/** 두 갈래가 단순 문자열일 때 — 같은 값(구분 기호 등)·식별자 모양(속성 이름 고르기)은 문구가 아니다 */
+const SIMPLE_BRANCHES = /^\s*(["'`])((?:(?!\1)[^\\\n$])*)\1\s*:\s*(["'`])((?:(?!\3)[^\\\n$])*)\3/;
+const IDENT_LIKE = /^[A-Za-z_$][\w$]*$/;
+function countLangTernary(text: string): number {
+  LANG_TERNARY.lastIndex = 0;
+  let n = 0;
+  let m: RegExpExecArray | null;
+  while ((m = LANG_TERNARY.exec(text))) {
+    const rest = text.slice(m.index + m[0].length - 1, m.index + m[0].length + 400);
+    const b = rest.match(SIMPLE_BRANCHES);
+    if (b && (b[2] === b[4] || (IDENT_LIKE.test(b[2]) && IDENT_LIKE.test(b[4])))) continue;
+    n++;
+  }
+  return n;
+}
 
 function count(re: RegExp, text: string): number {
   re.lastIndex = 0;
@@ -196,8 +220,9 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
   }
   put("non-catalog-fallback-en", count(FALLBACK_EN, text));
   if (!NON_CATALOG_INLINE_FILE_ALLOW[rel]) put("non-catalog-inline-ko-en", count(INLINE_KO_EN, text));
-  put("non-catalog-lang-ternary", count(LANG_TERNARY, text));
+  put("non-catalog-lang-ternary", countLangTernary(text));
   put("non-catalog-tt", count(TT_CALL, text));
+  put("non-catalog-lang-pair", count(LANG_PAIR, text));
 }
 
 export function emptyFileRuleCounts(): FileRuleCounts {

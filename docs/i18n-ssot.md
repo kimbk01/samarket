@@ -38,7 +38,7 @@
 ## 3. 문구 원본
 
 1. **원본 = `lib/i18n/catalog/*.ts` 하나.** 한 키는 한 파일에만 둔다(`duplicate-key` 0 — S5 부터 기준선 없음). `messages/ko.json`·`en.json` 은 S5 에서 `admin-console-core.ts`·`app-shell-core.ts` 로 옮기고 삭제했다.
-2. **화면 문구는 키(`t("key")`)로만 만든다.** 다음은 신규 금지, 기존은 S6 에서 키로 옮긴다:
+2. **화면 문구는 키(`t("key")`)로만 만든다.** `AppLanguageCode` 가 아닌 언어 값(서버 `locale`, 문자열 props)에서는 `translateBy(lang, "key", vars, 기본언어)` (`lib/i18n/translate-by.ts`, 원래 삼항과 같은 동작)를 쓴다. 다음은 신규 금지, 기존은 S6 에서 키로 옮긴다:
    - `fallbackEn` / `fallbackKo` 에 문장 쓰기
    - 인라인 `{ ko: "…", en: "…" }`
    - `lang === "en" ? "…" : "…"` 같은 언어 삼항
@@ -114,7 +114,7 @@
 | `foreign-script-code` / `foreign-locale-code` | 코드에 다른 언어 글자·언어 코드 | 파일별 새 항목 실패(허용 목록 제외) |
 | `jargon-en` / `jargon-ko` | 고객·사장님 키의 개발자 용어 | 새 항목 실패 |
 | `glossary` | 용어집 「쓰지 않는 영어」 | 새 항목 실패 |
-| `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항·`tt("…")` 개수 | 파일별 증가 실패 (인라인은 서버 검증 입력값만 허용 목록 `NON_CATALOG_INLINE_FILE_ALLOW`, 이유 필수) |
+| `non-catalog-text` | 파일별 `fallbackEn`·인라인 `{ko,en}`·언어 삼항(문구일 때만 — 언어 코드 정규화·DB 다국어 열 선택·같은 값·속성 이름 고르기 제외)·`tt("…")`·문구 쌍 인자 `pick(lang, "한국어", "English")`(S6 추가) 개수 | 파일별 증가 실패 (인라인은 서버 검증 입력값만 허용 목록 `NON_CATALOG_INLINE_FILE_ALLOW`, 이유 필수) |
 | `length-budget` | 4-3 기준 초과(고객·사장님 키) | 실패 (S4 부터, 기준선 없음) |
 
 - 「고객·사장님 키」 판정(S3 정밀화 — `areaFromUsage`·`libReachAreas`):
