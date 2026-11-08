@@ -24,22 +24,13 @@ function statusLabel(
   safeT: ReturnType<typeof useI18n>["safeT"]
 ) {
   if (status === "open") {
-    return safeT("mypage_cs_status_awaiting", {
-      fallbackKo: "답변 대기",
-      fallbackEn: "Awaiting reply",
-    });
+    return safeT("mypage_cs_status_awaiting");
   }
   if (status === "answered") {
-    return safeT("mypage_cs_status_answered", {
-      fallbackKo: "답변 완료",
-      fallbackEn: "Answered",
-    });
+    return safeT("mypage_cs_status_answered");
   }
   if (status === "closed") {
-    return safeT("mypage_cs_status_closed", {
-      fallbackKo: "종료",
-      fallbackEn: "Closed",
-    });
+    return safeT("mypage_cs_status_closed");
   }
   return status || "—";
 }
@@ -109,14 +100,8 @@ export function OwnerCareAdminNotesList({
       <OwnerStoreAdminDashSection
         title={
           isInquiry
-            ? safeT("biz_care_inquiry_list_title", {
-                fallbackKo: "이전 1:1 문의",
-                fallbackEn: "Past inquiries",
-              })
-            : safeT("biz_care_admin_message_list_title", {
-                fallbackKo: "이전 관리자 쪽지",
-                fallbackEn: "Past admin messages",
-              })
+            ? safeT("biz_care_inquiry_list_title")
+            : safeT("biz_care_admin_message_list_title")
         }
       >
         {error ? <p className="mb-2 text-sm text-sam-danger">{error}</p> : null}
@@ -124,10 +109,7 @@ export function OwnerCareAdminNotesList({
           <p className="text-sm text-sam-muted">…</p>
         ) : threads.length === 0 ? (
           <p className="text-sm text-sam-muted" data-owner-care-notes-empty="1">
-            {safeT("support_legacy_archive_empty", {
-              fallbackKo: "이전 기록이 없습니다.",
-              fallbackEn: "No archived items.",
-            })}
+            {safeT("support_legacy_archive_empty")}
           </p>
         ) : (
           <ul className="space-y-2">

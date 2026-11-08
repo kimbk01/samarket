@@ -582,19 +582,13 @@ export function OwnerStoreOrderMockCard({
                     <>
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <span className="text-sam-muted">
-                          {safeT("gift_u4_order_amount_before_gift", {
-                            fallbackKo: "상품권 적용 전 금액",
-                            fallbackEn: "Amount before gift",
-                          })}
+                          {safeT("gift_u4_order_amount_before_gift")}
                         </span>
                         <span className="tabular-nums">{formatMoneyPhp(amountBeforeGift)}</span>
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <span className="text-sam-muted">
-                          {safeT("gift_u4_order_gift_line", {
-                            fallbackKo: "상품권 사용",
-                            fallbackEn: "Gift certificate",
-                          })}
+                          {safeT("gift_u4_order_gift_line")}
                         </span>
                         <span className="tabular-nums">-{formatMoneyPhp(giftRedemption)}</span>
                       </div>
@@ -602,19 +596,13 @@ export function OwnerStoreOrderMockCard({
                   ) : null}
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <span className="text-sam-muted">
-                      {safeT("store_order_customer_remaining_payment", {
-                        fallbackKo: "고객 추가 결제",
-                        fallbackEn: "Customer remaining payment",
-                      })}
+                      {safeT("store_order_customer_remaining_payment")}
                     </span>
                     <span className="tabular-nums">{formatMoneyPhp(customerRemainingPayment)}</span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-[var(--biz-card-border)] pt-1.5 font-bold">
                     <span>
-                      {safeT("store_order_merchant_revenue_basis", {
-                        fallbackKo: "매장 귀속 금액",
-                        fallbackEn: "Store revenue basis",
-                      })}
+                      {safeT("store_order_merchant_revenue_basis")}
                     </span>
                     <span className="tabular-nums">{formatMoneyPhp(merchantRevenue)}</span>
                   </div>

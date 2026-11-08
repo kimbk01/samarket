@@ -2,13 +2,14 @@
  * Stage 2 — Owner/Admin product UX source locks (AST-005 funding UI, CTAs).
  */
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ownerAdsDetailPanelsForLifecycle } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
 
 const root = process.cwd();
 function read(rel: string): string {
-  return readFileSync(join(root, rel), "utf8");
+  return withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 }
 
 describe("Stage 2 Owner/Admin Delivery Ads product UX", () => {

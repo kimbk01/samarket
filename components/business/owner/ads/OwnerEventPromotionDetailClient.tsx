@@ -127,10 +127,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       try {
         // IMG-02: 함수 본문 한도 아래로 먼저 축소 · 413(비 JSON)도 코드로 받는다
         const tooLarge = () =>
-          safeT("business_image_upload_too_large", {
-            fallbackKo: "사진 용량이 너무 커서 올릴 수 없습니다. 더 작은 사진으로 다시 시도해 주세요.",
-            fallbackEn: "This photo is too large to upload. Please try a smaller photo.",
-          });
+          safeT("business_image_upload_too_large");
         const prepared = await prepareImageFileForFunctionUpload(file);
         if (!prepared.ok) {
           setError(tooLarge());
@@ -178,16 +175,13 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {request.rejectionReason ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm">
-          {safeT("owner_event_promo_reject_reason", {
-            fallbackKo: "반려 사유",
-            fallbackEn: "Rejection reason",
-          })}
+          {safeT("owner_event_promo_reject_reason")}
           : {request.rejectionReason}
         </p>
       ) : null}
 
       <label className="block text-sm">
-        {safeT("owner_event_promo_field_title", { fallbackKo: "제목", fallbackEn: "Title" })}
+        {safeT("owner_event_promo_field_title")}
         <input
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
@@ -198,10 +192,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
 
       <div className="space-y-2">
         <p className="text-sm font-medium">
-          {safeT("owner_event_promo_field_image", {
-            fallbackKo: "대표 이미지",
-            fallbackEn: "Hero image",
-          })}
+          {safeT("owner_event_promo_field_image")}
         </p>
         {request.heroImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- owner draft preview URL
@@ -213,10 +204,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
         ) : null}
         {editable ? (
           <label className="inline-flex cursor-pointer items-center rounded-ui-rect border border-sam-border px-3 py-2 text-sm">
-            {safeT("owner_event_promo_upload", {
-              fallbackKo: "이미지 업로드",
-              fallbackEn: "Upload image",
-            })}
+            {safeT("owner_event_promo_upload")}
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -233,7 +221,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       </div>
 
       <label className="block text-sm">
-        {safeT("owner_event_promo_field_body", { fallbackKo: "설명", fallbackEn: "Description" })}
+        {safeT("owner_event_promo_field_body")}
         <textarea
           className="mt-1 h-28 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
@@ -243,10 +231,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       </label>
 
       <label className="block text-sm">
-        {safeT("owner_event_promo_field_benefit", {
-          fallbackKo: "혜택 (선택)",
-          fallbackEn: "Benefit (optional)",
-        })}
+        {safeT("owner_event_promo_field_benefit")}
         <input
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
@@ -255,10 +240,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
         />
       </label>
       <label className="block text-sm">
-        {safeT("owner_event_promo_field_benefit_body", {
-          fallbackKo: "혜택 설명 (선택)",
-          fallbackEn: "Benefit details (optional)",
-        })}
+        {safeT("owner_event_promo_field_benefit_body")}
         <textarea
           className="mt-1 h-20 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
           disabled={!editable || busy}
@@ -269,10 +251,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-sm">
-          {safeT("owner_event_promo_field_period_start", {
-            fallbackKo: "희망 시작",
-            fallbackEn: "Requested start",
-          })}
+          {safeT("owner_event_promo_field_period_start")}
           <input
             type="date"
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
@@ -284,10 +263,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           />
         </label>
         <label className="block text-sm">
-          {safeT("owner_event_promo_field_period_end", {
-            fallbackKo: "희망 종료",
-            fallbackEn: "Requested end",
-          })}
+          {safeT("owner_event_promo_field_period_end")}
           <input
             type="date"
             className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5"
@@ -301,19 +277,13 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       </div>
 
       <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-muted">
-        {safeT("owner_event_promo_field_destination", {
-          fallbackKo: "연결 대상 (내 매장)",
-          fallbackEn: "Destination (my store)",
-        })}
+        {safeT("owner_event_promo_field_destination")}
         : {request.storeId}
       </p>
 
       <fieldset className="space-y-2 rounded-ui-rect border border-sam-border p-3">
         <legend className="px-1 text-sm font-medium">
-          {safeT("owner_event_promo_requested_channels", {
-            fallbackKo: "희망 노출 (요청)",
-            fallbackEn: "Requested channels",
-          })}
+          {safeT("owner_event_promo_requested_channels")}
         </legend>
         {(
           [
@@ -351,7 +321,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
             onClick={() => void save()}
           >
-            {safeT("owner_event_promo_save", { fallbackKo: "저장", fallbackEn: "Save" })}
+            {safeT("owner_event_promo_save")}
           </button>
           <button
             type="button"
@@ -359,10 +329,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
             className="rounded-ui-rect bg-sam-fg px-3 py-2 text-sm font-semibold text-sam-app"
             onClick={() => void submit()}
           >
-            {safeT("owner_event_promo_submit", {
-              fallbackKo: "검토 요청",
-              fallbackEn: "Submit for review",
-            })}
+            {safeT("owner_event_promo_submit")}
           </button>
         </div>
       ) : null}

@@ -602,20 +602,11 @@ export function OwnerBannerCreateView() {
             : error === "no_packages"
               ? t("owner_ads_no_sellable_packages")
               : error === "image_required"
-                ? safeT("owner_ads_banner_image_required", {
-                    fallbackKo: "배너 이미지를 업로드해 주세요.",
-                    fallbackEn: "Please upload a banner image.",
-                  })
+                ? safeT("owner_ads_banner_image_required")
                 : error === "image_spec"
-                  ? safeT("owner_ads_banner_image_spec_error", {
-                      fallbackKo: "배너 규격(비율·최소 픽셀)에 맞지 않습니다.",
-                      fallbackEn: "Image does not match the required aspect or minimum pixels.",
-                    })
+                  ? safeT("owner_ads_banner_image_spec_error")
                   : error
-                    ? safeT("owner_ads_error_generic", {
-                        fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-                        fallbackEn: "Something went wrong. Please try again.",
-                      })
+                    ? safeT("owner_ads_error_generic")
                     : null;
 
   const ctaLabel =
@@ -760,26 +751,15 @@ export function OwnerBannerCreateView() {
             </OwnerStoreAdminDashSection>
 
             <OwnerStoreAdminDashSection
-              title={safeT("owner_ads_banner_placement_title", {
-                fallbackKo: "배너 노출 위치",
-                fallbackEn: "Banner placement",
-              })}
+              title={safeT("owner_ads_banner_placement_title")}
             >
               <DeliveryAdOwnerPlacementVisualGrid
                 options={
                   ([
                     {
                       key: "STORES_HOME_HERO" as const,
-                      title: safeT("owner_ads_launch_home_hero_title", {
-                        fallbackKo: "배달 홈 상단 배너",
-                        fallbackEn: "Delivery home top banner",
-                      }),
-                      help: `${safeT("owner_ads_launch_home_hero_help", {
-                        fallbackKo:
-                          "배달 홈 맨 위 큰 배너 영역에 표시됩니다. 여러 광고가 함께 운영되면 5초 간격으로 슬라이드됩니다(스와이프·dots).",
-                        fallbackEn:
-                          "Top of Delivery Home. Multiple ads slide every 5s with swipe and dots.",
-                      })} · ${formatBannerPixelGuideLine(
+                      title: safeT("owner_ads_launch_home_hero_title"),
+                      help: `${safeT("owner_ads_launch_home_hero_help")} · ${formatBannerPixelGuideLine(
                         DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO,
                         lang
                       )}`,
@@ -789,10 +769,7 @@ export function OwnerBannerCreateView() {
                 }
                 selected={inventoryKey}
                 onSelect={onSelectPlacement}
-                adTagLabel={safeT("owner_ads_customer_ad_tag", {
-                  fallbackKo: "광고",
-                  fallbackEn: "Ad",
-                })}
+                adTagLabel={safeT("owner_ads_customer_ad_tag")}
               />
             </OwnerStoreAdminDashSection>
 
@@ -849,10 +826,7 @@ export function OwnerBannerCreateView() {
             <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
               {!inventoryKey ? (
                 <p className="text-[13px] text-sam-muted">
-                  {safeT("owner_ads_pick_placement_first", {
-                    fallbackKo: "먼저 배너 노출 위치를 선택해 주세요.",
-                    fallbackEn: "Select a banner placement first.",
-                  })}
+                  {safeT("owner_ads_pick_placement_first")}
                 </p>
               ) : commercialLoading ? (
                 <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
@@ -879,16 +853,10 @@ export function OwnerBannerCreateView() {
                       data-owner-ads-price-unset="1"
                     >
                       <p className="text-[13px] font-semibold text-sam-fg">
-                        {safeT("owner_ads_price_unset_title", {
-                          fallbackKo: "이 광고 상품은 아직 판매 가격이 설정되지 않았습니다.",
-                          fallbackEn: "This ad product does not have a sell price yet.",
-                        })}
+                        {safeT("owner_ads_price_unset_title")}
                       </p>
                       <p className="mt-1 text-[12px] text-sam-fg">
-                        {safeT("owner_ads_price_unset_body", {
-                          fallbackKo: "가격 설정 후 신청할 수 있습니다.",
-                          fallbackEn: "You can apply after a price is set.",
-                        })}
+                        {safeT("owner_ads_price_unset_body")}
                       </p>
                     </div>
                   ) : null}
@@ -897,16 +865,10 @@ export function OwnerBannerCreateView() {
             </OwnerStoreAdminDashSection>
 
             <OwnerStoreAdminDashSection
-              title={safeT("owner_ads_banner_image_prep_title", {
-                fallbackKo: "배너 이미지 방식",
-                fallbackEn: "Banner image prep",
-              })}
+              title={safeT("owner_ads_banner_image_prep_title")}
             >
               <p className="mb-2 text-[13px] font-medium text-sam-fg">
-                {safeT("owner_ads_banner_image_prep_question", {
-                  fallbackKo: "배너 이미지는 어떻게 준비할까요?",
-                  fallbackEn: "How will the banner image be prepared?",
-                })}
+                {safeT("owner_ads_banner_image_prep_question")}
               </p>
               {pixelGuide ? (
                 <p className="mb-2 text-[12px] text-sam-muted" data-owner-ads-banner-pixel-guide="1">
@@ -932,16 +894,10 @@ export function OwnerBannerCreateView() {
                 >
                   <span className="text-[14px] font-semibold text-sam-fg">
                     {creativeMode === "owner_upload" ? "● " : "○ "}
-                    {safeT("owner_ads_banner_mode_upload", {
-                      fallbackKo: "직접 이미지 올리기",
-                      fallbackEn: "Upload my image",
-                    })}
+                    {safeT("owner_ads_banner_mode_upload")}
                   </span>
                   <span className="mt-0.5 text-[12px] text-sam-muted">
-                    {safeT("owner_ads_banner_mode_upload_help", {
-                      fallbackKo: "규격에 맞춘 이미지를 올리면 Admin이 검수·수정할 수 있습니다.",
-                      fallbackEn: "Upload a spec-compliant image. Admin can review/edit.",
-                    })}
+                    {safeT("owner_ads_banner_mode_upload_help")}
                   </span>
                 </button>
                 <button
@@ -958,16 +914,10 @@ export function OwnerBannerCreateView() {
                 >
                   <span className="text-[14px] font-semibold text-sam-fg">
                     {creativeMode === "admin_produce" ? "● " : "○ "}
-                    {safeT("owner_ads_banner_mode_admin", {
-                      fallbackKo: "관리자에게 제작 요청",
-                      fallbackEn: "Request admin production",
-                    })}
+                    {safeT("owner_ads_banner_mode_admin")}
                   </span>
                   <span className="mt-0.5 text-[12px] text-sam-muted">
-                    {safeT("owner_ads_banner_mode_admin_help", {
-                      fallbackKo: "이미지 없이 요청합니다. Admin이 최종 배너를 제작합니다.",
-                      fallbackEn: "No image required. Admin produces the final banner.",
-                    })}
+                    {safeT("owner_ads_banner_mode_admin_help")}
                   </span>
                 </button>
               </div>
@@ -988,14 +938,8 @@ export function OwnerBannerCreateView() {
                     {uploadBusy
                       ? t("owner_ads_loading")
                       : uploaded
-                        ? safeT("owner_ads_banner_image_change", {
-                            fallbackKo: "이미지 변경",
-                            fallbackEn: "Change image",
-                          })
-                        : safeT("owner_ads_banner_image_pick", {
-                            fallbackKo: "이미지 선택",
-                            fallbackEn: "Choose image",
-                          })}
+                        ? safeT("owner_ads_banner_image_change")
+                        : safeT("owner_ads_banner_image_pick")}
                   </label>
                   {uploaded?.url ? (
                     <div className="space-y-2">
@@ -1018,10 +962,7 @@ export function OwnerBannerCreateView() {
                         data-owner-ads-image-remove="1"
                         onClick={() => setUploaded(null)}
                       >
-                        {safeT("owner_ads_banner_image_remove", {
-                          fallbackKo: "이미지 삭제",
-                          fallbackEn: "Remove image",
-                        })}
+                        {safeT("owner_ads_banner_image_remove")}
                       </button>
                     </div>
                   ) : null}
@@ -1036,10 +977,7 @@ export function OwnerBannerCreateView() {
             <OwnerStoreAdminDashSection title={t("owner_ads_request_memo_label")}>
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
                 <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} htmlFor="owner-banner-memo">
-                  {safeT("owner_ads_request_memo_admin", {
-                    fallbackKo: "관리자 요청 메모",
-                    fallbackEn: "Note for admin",
-                  })}
+                  {safeT("owner_ads_request_memo_admin")}
                 </label>
                 <textarea
                   id="owner-banner-memo"
@@ -1054,10 +992,7 @@ export function OwnerBannerCreateView() {
 
             {inventoryKey ? (
               <OwnerStoreAdminDashSection
-                title={safeT("owner_ads_customer_preview_title", {
-                  fallbackKo: "고객 노출 예시",
-                  fallbackEn: "Customer preview",
-                })}
+                title={safeT("owner_ads_customer_preview_title")}
               >
                 <DeliveryAdOwnerPreviewWorkspace
                   productKind="banner"
@@ -1101,16 +1036,10 @@ export function OwnerBannerCreateView() {
                   data-owner-ads-price-unset="confirm"
                 >
                   <p className="text-[13px] font-semibold text-sam-fg">
-                    {safeT("owner_ads_price_unset_title", {
-                      fallbackKo: "이 광고 상품은 아직 판매 가격이 설정되지 않았습니다.",
-                      fallbackEn: "This ad product does not have a sell price yet.",
-                    })}
+                    {safeT("owner_ads_price_unset_title")}
                   </p>
                   <p className="mt-1 text-[12px] text-sam-fg">
-                    {safeT("owner_ads_price_unset_body", {
-                      fallbackKo: "가격 설정 후 신청할 수 있습니다.",
-                      fallbackEn: "You can apply after a price is set.",
-                    })}
+                    {safeT("owner_ads_price_unset_body")}
                   </p>
                 </div>
               )}
@@ -1123,10 +1052,7 @@ export function OwnerBannerCreateView() {
           </div>
         )}
         <p className="pb-2 text-center text-[11px] text-sam-muted" data-owner-ads-cash-note="1">
-          {safeT("owner_ads_confirm_business_cash_model_b", {
-            fallbackKo: "광고 신청 시 Cash에서 결제됩니다.",
-            fallbackEn: "Cash is charged when you submit the application.",
-          })}
+          {safeT("owner_ads_confirm_business_cash_model_b")}
         </p>
       </div>
 
@@ -1161,10 +1087,7 @@ export function OwnerBannerCreateView() {
                 >
                   {busy
                     ? t("owner_ads_loading")
-                    : safeT("owner_ads_apply_submit_cta", {
-                        fallbackKo: "광고 신청",
-                        fallbackEn: "Submit ad application",
-                      })}
+                    : safeT("owner_ads_apply_submit_cta")}
                 </button>
               )}
             </div>

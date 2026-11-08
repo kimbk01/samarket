@@ -19,6 +19,7 @@ import {
 } from "@/lib/platform-popup/popup-product-labels";
 import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
 import { adminSurfacesSelectionLabel } from "@/lib/platform-popup/admin-surface-target-mode";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export function OwnerPlatformPopupRequestDetailView() {
   const { safeT, language } = useI18n();
@@ -77,10 +78,7 @@ export function OwnerPlatformPopupRequestDetailView() {
   if (loading) {
     return (
       <p className="p-4 text-sm text-sam-muted">
-        {safeT("owner_platform_popup_loading", {
-          fallbackKo: "불러오는 중…",
-          fallbackEn: "Loading…",
-        })}
+        {safeT("owner_platform_popup_loading")}
       </p>
     );
   }
@@ -103,10 +101,7 @@ export function OwnerPlatformPopupRequestDetailView() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-sam-fg">
-            {safeT("owner_platform_popup_detail_title", {
-              fallbackKo: "팝업 광고 신청 상세",
-              fallbackEn: "Popup Ad Request",
-            })}
+            {safeT("owner_platform_popup_detail_title")}
           </h1>
           <p className="mt-1 text-sm text-sam-muted">
             {platformPopupOwnerRequestStatusLabel(item.requestStatus, lang)} ·{" "}
@@ -126,10 +121,7 @@ export function OwnerPlatformPopupRequestDetailView() {
 
       {item.revisionReason ? (
         <OwnerStoreAdminDashSection
-          title={safeT("owner_platform_popup_revision_reason", {
-            fallbackKo: "수정 요청 사유",
-            fallbackEn: "Revision reason",
-          })}
+          title={safeT("owner_platform_popup_revision_reason")}
         >
           <p className="text-sm text-sam-fg">{item.revisionReason}</p>
         </OwnerStoreAdminDashSection>
@@ -137,30 +129,24 @@ export function OwnerPlatformPopupRequestDetailView() {
 
       {item.rejectionReason ? (
         <OwnerStoreAdminDashSection
-          title={safeT("owner_platform_popup_rejection_reason", {
-            fallbackKo: "거절 사유",
-            fallbackEn: "Rejection reason",
-          })}
+          title={safeT("owner_platform_popup_rejection_reason")}
         >
           <p className="text-sm text-sam-fg">{item.rejectionReason}</p>
         </OwnerStoreAdminDashSection>
       ) : null}
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_summary", {
-          fallbackKo: "신청 요약",
-          fallbackEn: "Request summary",
-        })}
+        title={safeT("owner_platform_popup_section_summary")}
       >
         <dl className="grid gap-2 text-sm">
           <div className="flex justify-between gap-2">
-            <dt className="text-sam-muted">{lang === "en" ? "Placement" : "노출 영역"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "business_placement")}</dt>
             <dd>
               {adminSurfacesSelectionLabel(item.requestedSurfaces, lang)}
             </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-sam-muted">{lang === "en" ? "Price" : "금액"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "business_price")}</dt>
             <dd>
               {item.priceMinor != null ? formatDeliveryAdPhpMinor(item.priceMinor) : "—"}
             </dd>
@@ -180,7 +166,7 @@ export function OwnerPlatformPopupRequestDetailView() {
           </div>
           {item.adminCampaignId ? (
             <details className="text-xs text-sam-muted">
-              <summary>{lang === "en" ? "Campaign id" : "캠페인 ID"}</summary>
+              <summary>{translateBy(lang, "business_campaign_id")}</summary>
               <p className="font-mono break-all">{item.adminCampaignId}</p>
             </details>
           ) : null}
@@ -189,10 +175,7 @@ export function OwnerPlatformPopupRequestDetailView() {
 
       {item.creativeAssetUrl ? (
         <OwnerStoreAdminDashSection
-          title={safeT("owner_platform_popup_section_preview", {
-            fallbackKo: "미리보기",
-            fallbackEn: "Preview",
-          })}
+          title={safeT("owner_platform_popup_section_preview")}
         >
           <div className="mx-auto w-full max-w-[360px] rounded-ui-rect border border-sam-border bg-sam-app p-3">
             <DibayPopupAd
@@ -233,10 +216,7 @@ export function OwnerPlatformPopupRequestDetailView() {
             href={`${PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}?requestId=${encodeURIComponent(item.id)}&storeId=${encodeURIComponent(item.storeId)}`}
             className="rounded-ui-rect bg-sam-primary px-4 py-2 text-sm font-semibold text-sam-on-primary"
           >
-            {safeT("owner_platform_popup_resubmit", {
-              fallbackKo: "수정 후 재신청",
-              fallbackEn: "Resubmit after edits",
-            })}
+            {safeT("owner_platform_popup_resubmit")}
           </Link>
         ) : null}
         {item.requestStatus === "draft" ||
@@ -249,10 +229,7 @@ export function OwnerPlatformPopupRequestDetailView() {
             disabled={busy}
             onClick={() => void onCancel()}
           >
-            {safeT("owner_platform_popup_cancel", {
-              fallbackKo: "신청 취소",
-              fallbackEn: "Cancel request",
-            })}
+            {safeT("owner_platform_popup_cancel")}
           </button>
         ) : null}
       </div>

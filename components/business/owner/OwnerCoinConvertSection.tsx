@@ -214,10 +214,7 @@ export function OwnerCoinConvertSection({
       }
       /** OA-18 — 완료는 사장님 공통 토스트 (Cash 충전 신청과 같은 방식) */
       toast.success(
-        safeT("owner_finance_cash_convert_success", {
-          fallbackKo: "Coin이 캐시로 전환되었습니다.",
-          fallbackEn: "Coin converted to Cash.",
-        })
+        safeT("owner_finance_cash_convert_success")
       );
       setPoints("");
       setQuote(null);
@@ -320,7 +317,7 @@ export function OwnerCoinConvertSection({
               >
                 {previewing
                   ? ownerUiCopy(language, "확인 중…", "Checking…")
-                  : safeT("owner_bc_quote", { fallbackKo: "미리보기", fallbackEn: "Preview" })}
+                  : safeT("owner_bc_quote")}
               </button>
             </div>
           </>

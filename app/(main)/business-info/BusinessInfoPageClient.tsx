@@ -44,52 +44,40 @@ export function BusinessInfoPageClient() {
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">
       {loading ? (
         <p className="text-sam-muted">
-          {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+          {safeT("common_loading")}
         </p>
       ) : !doc ? (
         <p className="text-sam-muted">
-          {safeT("business_info_empty", {
-            fallbackKo: "등록된 사업자 정보가 없습니다.",
-            fallbackEn: "Business information is not available yet.",
-          })}
+          {safeT("business_info_empty")}
         </p>
       ) : (
         <div>
           {row(
-            safeT("admin_app_business_company", { fallbackKo: "상호", fallbackEn: "Company name" }),
+            safeT("admin_app_business_company"),
             doc.companyName,
           )}
           {row(
-            safeT("admin_app_business_representative", {
-              fallbackKo: "대표자",
-              fallbackEn: "Representative",
-            }),
+            safeT("admin_app_business_representative"),
             doc.representativeName,
           )}
           {row(
-            safeT("admin_app_business_reg_no", {
-              fallbackKo: "사업자등록번호",
-              fallbackEn: "Business registration number",
-            }),
+            safeT("admin_app_business_reg_no"),
             doc.registrationNumber,
           )}
           {row(
-            safeT("admin_app_business_mail_order", {
-              fallbackKo: "통신판매업 신고번호",
-              fallbackEn: "Mail-order registration number",
-            }),
+            safeT("admin_app_business_mail_order"),
             doc.mailOrderNumber,
           )}
           {row(
-            safeT("admin_app_business_address", { fallbackKo: "주소", fallbackEn: "Address" }),
+            safeT("admin_app_business_address"),
             doc.address,
           )}
           {row(
-            safeT("admin_app_business_email", { fallbackKo: "이메일", fallbackEn: "Email" }),
+            safeT("admin_app_business_email"),
             doc.email,
           )}
           {row(
-            safeT("admin_app_business_phone", { fallbackKo: "전화", fallbackEn: "Phone" }),
+            safeT("admin_app_business_phone"),
             doc.phone,
           )}
         </div>

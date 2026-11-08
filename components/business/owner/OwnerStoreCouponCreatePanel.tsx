@@ -82,10 +82,7 @@ export function OwnerStoreCouponCreatePanel({
   }, [kind, issueLimit, discountValue]);
 
   const failCopy = () =>
-    safeT("store_coupon_admin_act_fail", {
-      fallbackKo: "처리할 수 없습니다.",
-      fallbackEn: "Could not complete that action.",
-    });
+    safeT("store_coupon_admin_act_fail");
 
   const publish = () => {
     void (async () => {

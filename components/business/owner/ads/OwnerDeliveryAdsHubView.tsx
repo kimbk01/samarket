@@ -293,10 +293,7 @@ export function OwnerDeliveryAdsHubView() {
             ]}
             footer={
               <p className="text-[12px] text-sam-muted">
-                {safeT("owner_ads_business_cash_ad_only", {
-                  fallbackKo: "광고·프로모션·배너·파트너 결제에 Cash를 사용합니다.",
-                  fallbackEn: "Cash pays for ads, promotions, banners, and partner products.",
-                })}
+                {safeT("owner_ads_business_cash_ad_only")}
               </p>
             }
           />
@@ -320,10 +317,7 @@ export function OwnerDeliveryAdsHubView() {
                       <p className="text-[11px] text-sam-fg">
                         {c.lifecycleStatus === "CHANGES_REQUESTED"
                           ? t("owner_ads_ra_changes_requested_title")
-                          : safeT("owner_ads_hub_unread_ops", {
-                              fallbackKo: `새 메시지 ${unread}`,
-                              fallbackEn: `${unread} new message(s)`,
-                            })}
+                          : safeT("owner_ads_hub_unread_ops")}
                       </p>
                     </div>
                     <Link
@@ -366,19 +360,13 @@ export function OwnerDeliveryAdsHubView() {
         <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
       ) : error ? (
         <p className="text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic", {
-            fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-            fallbackEn: "Something went wrong. Please try again.",
-          })}
+          {safeT("owner_ads_error_generic")}
         </p>
       ) : (
         <>
           {actionError ? (
             <p className="text-[13px] text-sam-danger" role="alert" data-owner-ads-action-error="1">
-              {safeT("owner_ads_error_generic", {
-                fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-                fallbackEn: "Something went wrong. Please try again.",
-              })}
+              {safeT("owner_ads_error_generic")}
             </p>
           ) : null}
           {sortedCampaigns.length === 0 ? (
@@ -587,16 +575,8 @@ export function OwnerDeliveryAdsHubView() {
             <DeliveryAdOwnerProductSelectCard
               href={withStoreId(PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup, activeStoreId || null)}
               productKind="platform_popup"
-              title={safeT("owner_platform_popup_product_title", {
-                fallbackKo: "글로벌 팝업 광고",
-                fallbackEn: "Global Popup Ad",
-              })}
-              description={safeT("owner_platform_popup_product_desc", {
-                fallbackKo:
-                  "앱 화면 하단 팝업(36:25). 전체·커뮤니티·거래·배달·마이페이지에 노출. Cash 결제 후 관리자 심사 필요 — 결제만으로 즉시 노출되지 않습니다.",
-                fallbackEn:
-                  "Bottom popup (36:25) on All/Community/Trade/Delivery/My Page. Cash + admin review required — payment alone never goes live.",
-              })}
+              title={safeT("owner_platform_popup_product_title")}
+              description={safeT("owner_platform_popup_product_desc")}
               ctaLabel={t("owner_ads_product_select_apply")}
               onNavigate={() => setProductSelectOpen(false)}
             />

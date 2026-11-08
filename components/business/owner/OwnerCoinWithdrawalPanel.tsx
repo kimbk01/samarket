@@ -199,10 +199,7 @@ export function OwnerCoinWithdrawalPanel({
         data-coin-withdrawal-request-id={row.id}
         onClick={() => openWithdrawalSupport(row.id)}
       >
-        {safeT("owner_finance_withdraw_support", {
-          fallbackKo: "문의하기",
-          fallbackEn: "Contact support",
-        })}
+        {safeT("owner_finance_withdraw_support")}
       </button>
     </li>
   );
@@ -237,10 +234,7 @@ export function OwnerCoinWithdrawalPanel({
       (destinationType === "bank" && !bankName.trim())
     ) {
       setError(
-        safeT("owner_finance_withdraw_invalid", {
-          fallbackKo: "출금 금액과 지급 계좌 정보를 확인해 주세요.",
-          fallbackEn: "Check the withdrawal amount and payout account.",
-        })
+        safeT("owner_finance_withdraw_invalid")
       );
       return;
     }
@@ -283,10 +277,7 @@ export function OwnerCoinWithdrawalPanel({
       setAccountName("");
       /** OA-18 — 완료는 사장님 공통 토스트 (Cash 충전 신청과 같은 방식) */
       toast.success(
-        safeT("owner_finance_withdraw_requested", {
-          fallbackKo: "Coin 출금 신청이 접수되었습니다.",
-          fallbackEn: "Coin withdrawal requested.",
-        })
+        safeT("owner_finance_withdraw_requested")
       );
       await Promise.all([loadHistory(), onSubmitted?.()]);
     } catch {
@@ -298,10 +289,7 @@ export function OwnerCoinWithdrawalPanel({
 
   return (
     <OwnerStoreAdminDashSection
-      title={safeT("owner_finance_withdraw_title", {
-        fallbackKo: "Coin 출금 신청",
-        fallbackEn: "Coin withdrawal",
-      })}
+      title={safeT("owner_finance_withdraw_title")}
     >
       <div id="coin-withdraw" className="space-y-3">
         <p className="text-sm" data-owner-withdraw-available="1">
@@ -330,29 +318,20 @@ export function OwnerCoinWithdrawalPanel({
           value={amount}
           disabled={!canWithdraw || busy}
           onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ""))}
-          placeholder={safeT("owner_finance_withdraw_amount", {
-            fallbackKo: "출금할 Coin",
-            fallbackEn: "Coin to withdraw",
-          })}
+          placeholder={safeT("owner_finance_withdraw_amount")}
         />
         <OwnerMethodChoiceChips
           options={[
             { value: "gcash", label: "GCash" },
             {
               value: "bank",
-              label: safeT("owner_finance_withdraw_bank", {
-                fallbackKo: "은행 계좌",
-                fallbackEn: "Bank account",
-              }),
+              label: safeT("owner_finance_withdraw_bank"),
             },
           ]}
           value={destinationType}
           onChange={setDestinationType}
           disabled={!canWithdraw || busy}
-          ariaLabel={safeT("owner_finance_withdraw_destination", {
-            fallbackKo: "출금 수단",
-            fallbackEn: "Payout method",
-          })}
+          ariaLabel={safeT("owner_finance_withdraw_destination")}
           dataAttr="data-owner-coin-withdraw-method"
         />
         {destinationType === "bank" ? (
@@ -360,29 +339,20 @@ export function OwnerCoinWithdrawalPanel({
             className={Sam.input.base}
             value={bankName}
             onChange={(event) => setBankName(event.target.value)}
-            placeholder={safeT("owner_finance_withdraw_bank_name", {
-              fallbackKo: "은행명",
-              fallbackEn: "Bank name",
-            })}
+            placeholder={safeT("owner_finance_withdraw_bank_name")}
           />
         ) : null}
         <input
           className={Sam.input.base}
           value={accountNumber}
           onChange={(event) => setAccountNumber(event.target.value)}
-          placeholder={safeT("owner_finance_withdraw_account_number", {
-            fallbackKo: "계좌번호 또는 GCash 번호",
-            fallbackEn: "Account or GCash number",
-          })}
+          placeholder={safeT("owner_finance_withdraw_account_number")}
         />
         <input
           className={Sam.input.base}
           value={accountName}
           onChange={(event) => setAccountName(event.target.value)}
-          placeholder={safeT("owner_finance_withdraw_account_name", {
-            fallbackKo: "예금주명",
-            fallbackEn: "Account name",
-          })}
+          placeholder={safeT("owner_finance_withdraw_account_name")}
         />
         <button
           type="button"
@@ -392,10 +362,7 @@ export function OwnerCoinWithdrawalPanel({
           data-owner-cta="primary"
           data-owner-coin-withdraw-open-confirm="1"
         >
-          {safeT("owner_finance_withdraw_submit", {
-            fallbackKo: COIN_WITHDRAWAL_LABEL_KO,
-            fallbackEn: "Request Coin withdrawal",
-          })}
+          {safeT("owner_finance_withdraw_submit")}
         </button>
       </div>
 
@@ -417,10 +384,7 @@ export function OwnerCoinWithdrawalPanel({
 
       <div className="mt-4 border-t border-sam-border pt-3">
         <h3 className="text-sm font-semibold text-sam-fg">
-          {safeT("owner_finance_withdraw_history", {
-            fallbackKo: "Coin 출금 신청 내역",
-            fallbackEn: "Coin withdrawal requests",
-          })}
+          {safeT("owner_finance_withdraw_history")}
         </h3>
         {focusRow ? (
           <div ref={focusRef} className="mt-2 space-y-1" data-owner-coin-withdrawal-focus={focusRow.id}>
@@ -438,10 +402,7 @@ export function OwnerCoinWithdrawalPanel({
           <p className="mt-2 text-sm text-sam-muted">{ownerUiCopy(language, "불러오는 중…", "Loading…")}</p>
         ) : rows.length === 0 ? (
           <p className="mt-2 text-sm text-sam-muted">
-            {safeT("owner_finance_withdraw_history_empty", {
-              fallbackKo: "출금 신청 내역이 없습니다.",
-              fallbackEn: "No withdrawal requests yet.",
-            })}
+            {safeT("owner_finance_withdraw_history_empty")}
           </p>
         ) : (
           <ul className="mt-2 space-y-2">{rows.map((row) => renderWithdrawalRow(row, false))}</ul>

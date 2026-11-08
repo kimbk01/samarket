@@ -77,19 +77,13 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
           className="rounded-ui-rect bg-sam-fg px-3 py-2 text-sm font-semibold text-sam-app"
           onClick={() => void createDraft()}
         >
-          {safeT("owner_event_promo_create", {
-            fallbackKo: "새 신청",
-            fallbackEn: "New request",
-          })}
+          {safeT("owner_event_promo_create")}
         </button>
       </div>
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {items.length === 0 ? (
         <p className="text-sm text-sam-muted">
-          {safeT("owner_event_promo_empty", {
-            fallbackKo: "신청 내역이 없습니다.",
-            fallbackEn: "No promotion requests yet.",
-          })}
+          {safeT("owner_event_promo_empty")}
         </p>
       ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">

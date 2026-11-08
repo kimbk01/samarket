@@ -248,10 +248,7 @@ export function OwnerDeliveryAdPartnerView() {
         <OwnerIosCashPurchaseNotice className="mt-3" />
       ) : error ? (
         <p className="mt-3 text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic", {
-            fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-            fallbackEn: "Something went wrong. Please try again.",
-          })}{" "}
+          {safeT("owner_ads_error_generic")}{" "}
           ({error})
         </p>
       ) : null}

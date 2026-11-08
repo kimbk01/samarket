@@ -273,19 +273,13 @@ export function OwnerGiftMoneyOpsPanel(props: {
         }`}
         onClick={() => onGo("money")}
       >
-        {safeT("gift_owner_tab_summary", {
-          fallbackKo: "수익 요약",
-          fallbackEn: "Revenue summary",
-        })}
+        {safeT("gift_owner_tab_summary")}
       </button>
       <Link
         href={`${financeHref}#coin-history`}
         className="flex min-h-[44px] items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-1.5 text-center text-xs font-medium sm:text-sm"
       >
-        {safeT("gift_owner_tab_history", {
-          fallbackKo: "Coin 내역",
-          fallbackEn: "Coin history",
-        })}
+        {safeT("gift_owner_tab_history")}
       </Link>
       <button
         type="button"
@@ -296,10 +290,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
         }`}
         onClick={() => onGo("redemptions")}
       >
-        {safeT("gift_owner_tab_redemptions", {
-          fallbackKo: "사용 내역",
-          fallbackEn: "Usage history",
-        })}
+        {safeT("gift_owner_tab_redemptions")}
       </button>
     </div>
   );
@@ -318,10 +309,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
     ];
     return (
       <OwnerStoreAdminDashSection
-        title={safeT("gift_u5_redemptions_title", {
-          fallbackKo: "상품권 사용 내역",
-          fallbackEn: "Gift redemptions",
-        })}
+        title={safeT("gift_u5_redemptions_title")}
       >
         {tabs}
         {periodBar}
@@ -353,16 +341,10 @@ export function OwnerGiftMoneyOpsPanel(props: {
         ) : (summary?.counts.all ?? 0) === 0 ? (
           <div className="space-y-3">
             <p className="text-sm text-sam-muted">
-              {safeT("gift_u5_redemptions_empty", {
-                fallbackKo: "아직 사용된 상품권이 없습니다.",
-                fallbackEn: "No gift redemptions yet.",
-              })}
+              {safeT("gift_u5_redemptions_empty")}
             </p>
             <button type="button" className={OWNER_ADMIN_PRIMARY_BTN_CLASS} onClick={onBackHome}>
-              {safeT("gift_owner_cta_apply", {
-                fallbackKo: "상품권 판매 신청",
-                fallbackEn: "Apply to sell gift certificates",
-              })}
+              {safeT("gift_owner_cta_apply")}
             </button>
           </div>
         ) : pageRows.length === 0 ? (
@@ -389,18 +371,15 @@ export function OwnerGiftMoneyOpsPanel(props: {
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-3">
                       <span>
-                        {safeT("gift_u5_used", { fallbackKo: "사용 금액", fallbackEn: "Redeemed" })}:{" "}
+                        {safeT("gift_u5_used")}:{" "}
                         <strong>{formatMoneyPhp(row.redeemedAmount)}</strong>
                       </span>
                       <span>
-                        {safeT("gift_u5_fee", { fallbackKo: "DIBAY 수수료", fallbackEn: "DIBAY fee" })}:{" "}
+                        {safeT("gift_u5_fee")}:{" "}
                         <strong>{formatMoneyPhp(row.platformFeeAmount)}</strong>
                       </span>
                       <span>
-                        {safeT("gift_u5_net", {
-                          fallbackKo: "상품권 정산 수익",
-                          fallbackEn: "Gift settlement revenue",
-                        })}
+                        {safeT("gift_u5_net")}
                         : <strong>{formatMoneyPhp(row.merchantNetAmount)}</strong>
                       </span>
                     </div>
@@ -420,10 +399,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
                         href={`${OwnerRoutes.orders(storeId)}${OwnerRoutes.orders(storeId).includes("?") ? "&" : "?"}order_id=${encodeURIComponent(row.orderId)}`}
                         className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} mt-2 inline-flex`}
                       >
-                        {safeT("gift_u5_cta_order", {
-                          fallbackKo: "주문 보기",
-                          fallbackEn: "View order",
-                        })}
+                        {safeT("gift_u5_cta_order")}
                       </Link>
                     </div>
                   ) : null}
@@ -452,10 +428,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
   return (
     <div className="space-y-4" data-owner-gift-money="coin-converged">
       <OwnerStoreAdminDashSection
-        title={safeT("gift_u5_money_title", {
-          fallbackKo: "상품권 수익",
-          fallbackEn: "Gift revenue",
-        })}
+        title={safeT("gift_u5_money_title")}
       >
         {tabs}
         {periodBar}
@@ -468,10 +441,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
               <p className="text-xs text-sam-muted">
-                {safeT("gift_u5_kpi_merchant_net", {
-                  fallbackKo: "확정 상품권 수익",
-                  fallbackEn: "Recognized gift revenue",
-                })}
+                {safeT("gift_u5_kpi_merchant_net")}
               </p>
               <p className="mt-1 font-semibold tabular-nums">
                 {formatMoneyPhp(summary.recognizedMerchantNet)}
@@ -479,10 +449,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
               <p className="text-xs text-sam-muted">
-                {safeT("gift_u5_kpi_pending_merchant", {
-                  fallbackKo: "정산 대기 (주문 완료 전)",
-                  fallbackEn: "Pending (order not completed)",
-                })}
+                {safeT("gift_u5_kpi_pending_merchant")}
               </p>
               <p className="mt-1 font-semibold tabular-nums">
                 {formatMoneyPhp(summary.pendingMerchantNet)}
@@ -492,19 +459,13 @@ export function OwnerGiftMoneyOpsPanel(props: {
               <>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-rail="available">
                   <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_kpi_available", {
-                      fallbackKo: "상품권 정산 지급 가능",
-                      fallbackEn: "Gift payout available",
-                    })}
+                    {safeT("gift_u5_kpi_available")}
                   </p>
                   <p className="mt-1 font-semibold tabular-nums">{formatMoneyPhp(giftRail.availablePhp)}</p>
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-rail="paid-out">
                   <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_rail_paid_out", {
-                      fallbackKo: "상품권 정산 지급 완료",
-                      fallbackEn: "Gift payout paid",
-                    })}
+                    {safeT("gift_u5_rail_paid_out")}
                   </p>
                   <p className="mt-1 font-semibold tabular-nums">{formatMoneyPhp(giftRail.paidOutPhp)}</p>
                 </div>
@@ -513,12 +474,7 @@ export function OwnerGiftMoneyOpsPanel(props: {
           </div>
         )}
         <p className="mt-3 text-xs text-sam-muted" data-owner-gift-rail-notice="1">
-          {safeT("gift_u5_rail_notice", {
-            fallbackKo:
-              "안내: 이제 Coin에는 DIBAY가 부담한 쿠폰 할인 지원금만 적립됩니다. 상품권 사용 매출(DIBAY 수수료 차감 후)은 Coin이 아닌 상품권 정산으로 따로 지급됩니다. 변경 전에 적립된 Coin은 그대로 유지됩니다.",
-            fallbackEn:
-              "Notice: Coin now accrues only DIBAY-funded coupon support. Gift certificate sales (after the DIBAY fee) are settled separately by gift payout, not Coin. Coin credited before this change stays as is.",
-          })}
+          {safeT("gift_u5_rail_notice")}
         </p>
       </OwnerStoreAdminDashSection>
 
@@ -531,32 +487,20 @@ export function OwnerGiftMoneyOpsPanel(props: {
         ]}
         footer={
           <p className="text-sm text-sam-muted">
-            {safeT("gift_owner_action_cash_out_desc", {
-              fallbackKo:
-                "Coin에는 DIBAY 부담 쿠폰 지원금만 적립됩니다. 상품권 수익은 상품권 정산으로 별도 지급됩니다. Coin 출금과 내역은 매장 재무에서 관리합니다.",
-              fallbackEn:
-                "Coin accrues only DIBAY-funded coupon support. Gift revenue is paid separately by gift settlement. Manage Coin withdrawals and history in Store Finance.",
-            })}
+            {safeT("gift_owner_action_cash_out_desc")}
           </p>
         }
       />
 
       <OwnerStoreAdminDashSection
-        title={safeT("gift_u5_panel_economic_title", {
-          fallbackKo: "상품권 경제 손익 (보고용)",
-          fallbackEn: "Gift economic P&L (reporting)",
-        })}
+        title={safeT("gift_u5_panel_economic_title")}
       >
         <p className="text-sm tabular-nums">
-          {safeT("gift_u5_panel_economic_sum", {
-            vars: {
+          {safeT("gift_u5_panel_economic_sum", { vars: {
               merchant: formatMoneyPhp(recognizedMerchantNet),
               promo: formatMoneyPhp(ownerPromo.recognized),
               net: formatMoneyPhp(economicReportingNet),
-            },
-            fallbackKo: `정산 ${formatMoneyPhp(recognizedMerchantNet)} − 프로모션 ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
-            fallbackEn: `Settlement ${formatMoneyPhp(recognizedMerchantNet)} − promo ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
-          })}
+            } })}
         </p>
       </OwnerStoreAdminDashSection>
     </div>

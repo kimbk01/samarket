@@ -448,10 +448,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`} data-owner-ads-detail="r1">
         <p className="text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic", {
-            fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-            fallbackEn: "Something went wrong. Please try again.",
-          })}
+          {safeT("owner_ads_error_generic")}
         </p>
       </div>
     );
@@ -508,10 +505,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                 el?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
             >
-              {safeT("owner_ads_contact_admin_cta", {
-                fallbackKo: "관리자에게 문의",
-                fallbackEn: "Contact admin",
-              })}
+              {safeT("owner_ads_contact_admin_cta")}
             </button>
           ) : null}
         </section>
@@ -525,10 +519,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
       {error && error !== "ios_digital_purchase_unavailable" ? (
         <p className="mt-2 text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic", {
-            fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-            fallbackEn: "Something went wrong. Please try again.",
-          })}
+          {safeT("owner_ads_error_generic")}
         </p>
       ) : null}
 
@@ -569,10 +560,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                   el?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
               >
-                {safeT("owner_ads_contact_admin_cta", {
-                  fallbackKo: "관리자에게 문의",
-                  fallbackEn: "Contact admin",
-                })}
+                {safeT("owner_ads_contact_admin_cta")}
               </button>
             ) : null}
           </div>
@@ -667,29 +655,18 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                         <>
                           <p className="mt-1 text-[12px] font-medium text-sam-danger" data-owner-ads-fund-shortage="1">
                             {t("owner_ads_funding_insufficient")} ·{" "}
-                            {safeT("owner_ads_cash_shortage_amount", {
-                              fallbackKo: "부족 금액",
-                              fallbackEn: "Shortfall",
-                            })}{" "}
+                            {safeT("owner_ads_cash_shortage_amount")}{" "}
                             {formatDeliveryAdPhpMinor(shortage)}
                           </p>
                           <p className="mt-1 text-[12px] text-sam-muted">
-                            {safeT("owner_ads_cash_grant_ask_admin", {
-                              fallbackKo:
-                                "Cash를 충전하거나 Coin을 전환한 뒤 다시 신청하세요.",
-                              fallbackEn:
-                                "Top up Cash or convert Coin, then submit again.",
-                            })}
+                            {safeT("owner_ads_cash_grant_ask_admin")}
                           </p>
                           <Link
                             href={`${OwnerRoutes.finance(campaign.storeId || "")}#cash-manage`}
                             className={`${OWNER_DETAIL_SECONDARY_BTN_CLASS} mt-3 inline-flex items-center justify-center`}
                             data-owner-ads-fund-bc-link="1"
                           >
-                            {safeT("owner_bc_go_finance", {
-                              fallbackKo: "Cash 관리",
-                              fallbackEn: "Manage Cash",
-                            })}
+                            {safeT("owner_bc_go_finance")}
                           </Link>
                           {showContactAdmin ? (
                             <button
@@ -703,19 +680,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                                   ?.scrollIntoView({ behavior: "smooth", block: "start" });
                               }}
                             >
-                              {safeT("owner_ads_contact_admin_cta", {
-                                fallbackKo: "관리자에게 문의",
-                                fallbackEn: "Contact admin",
-                              })}
+                              {safeT("owner_ads_contact_admin_cta")}
                             </button>
                           ) : null}
                         </>
                       ) : (
                         <p className="mt-1 text-[12px] text-sam-muted" data-owner-ads-fund-business-cash="1">
-                          {safeT("owner_ads_business_cash_pays_ads", {
-                            fallbackKo: "광고 결제에는 Cash를 사용합니다.",
-                            fallbackEn: "Ad payments use Cash.",
-                          })}
+                          {safeT("owner_ads_business_cash_pays_ads")}
                         </p>
                       )}
                     </>
@@ -770,10 +741,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                     {h.createdAt.slice(0, 19).replace("T", " ")}
                     {h.reason ? (
                       <div className="mt-0.5 text-sam-fg">
-                        {safeT("owner_ads_history_reason", {
-                          fallbackKo: "사유",
-                          fallbackEn: "Reason",
-                        })}
+                        {safeT("owner_ads_history_reason")}
                         : {h.reason}
                       </div>
                     ) : null}

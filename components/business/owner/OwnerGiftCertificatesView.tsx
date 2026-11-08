@@ -75,30 +75,15 @@ function statusLabel(
 ) {
   switch (status) {
     case "submitted":
-      return safeT("gift_owner_status_submitted", {
-        fallbackKo: "심사 대기",
-        fallbackEn: "Awaiting review",
-      });
+      return safeT("gift_owner_status_submitted");
     case "under_review":
-      return safeT("gift_owner_status_under_review", {
-        fallbackKo: "검토 중",
-        fallbackEn: "Under review",
-      });
+      return safeT("gift_owner_status_under_review");
     case "approved":
-      return safeT("gift_owner_status_approved", {
-        fallbackKo: "승인",
-        fallbackEn: "Approved",
-      });
+      return safeT("gift_owner_status_approved");
     case "rejected":
-      return safeT("gift_owner_status_rejected", {
-        fallbackKo: "반려",
-        fallbackEn: "Rejected",
-      });
+      return safeT("gift_owner_status_rejected");
     case "suspended":
-      return safeT("gift_owner_status_suspended", {
-        fallbackKo: "판매 중지",
-        fallbackEn: "Suspended",
-      });
+      return safeT("gift_owner_status_suspended");
     default:
       return status;
   }
@@ -235,10 +220,7 @@ function OwnerGiftCertificatesInner() {
       const { ok, json } = await postStoreOwnerImageUpload(sid, file);
       if (!ok || !json.url) {
         setError(
-          safeT("gift_owner_upload_fail", {
-            fallbackKo: "이미지를 올리지 못했습니다.",
-            fallbackEn: "Image upload failed.",
-          })
+          safeT("gift_owner_upload_fail")
         );
         return;
       }
@@ -271,10 +253,7 @@ function OwnerGiftCertificatesInner() {
       const json = (await res.json()) as { ok?: boolean; application?: { id?: string }; error?: string };
       if (!res.ok || !json.ok) {
         setError(
-          safeT("gift_owner_submit_fail", {
-            fallbackKo: "신청을 제출하지 못했습니다. 다시 시도해 주세요.",
-            fallbackEn: "Could not submit application. Please try again.",
-          })
+          safeT("gift_owner_submit_fail")
         );
         return;
       }
@@ -297,10 +276,7 @@ function OwnerGiftCertificatesInner() {
       {view === "home" ? (
         <>
           <OwnerStoreAdminDashSection
-            title={safeT("gift_owner_home_title", {
-              fallbackKo: "상품권 사용 · 수익",
-              fallbackEn: "Gift usage & revenue",
-            })}
+            title={safeT("gift_owner_home_title")}
           >
             {!loaded ? (
               <p className="text-sm text-sam-muted">…</p>
@@ -308,18 +284,12 @@ function OwnerGiftCertificatesInner() {
               <>
               {/* 서버 기본 기간 = 이번 달(PHT) — 기간을 바꾸는 곳은 상품권 수익 화면 (Owner 2026-11-03 §6-3) */}
               <p className="mb-2 text-xs text-sam-muted" data-owner-gift-usage-basis="this_month">
-                {safeT("gift_owner_usage_basis_this_month", {
-                  fallbackKo: "이번 달 기준 (필리핀 시간)",
-                  fallbackEn: "This month (Philippine time)",
-                })}
+                {safeT("gift_owner_usage_basis_this_month")}
               </p>
               <div className="grid grid-cols-2 gap-2" data-owner-gift-usage-kpis="1">
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="redeemed">
                   <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_kpi_redeemed", {
-                      fallbackKo: "사용된 상품권 금액",
-                      fallbackEn: "Redeemed gift amount",
-                    })}
+                    {safeT("gift_u5_kpi_redeemed")}
                   </p>
                   <p className="mt-1 text-base font-semibold tabular-nums break-words">
                     {formatMoneyPhp(redeemKpis.redeemedGross)}
@@ -327,10 +297,7 @@ function OwnerGiftCertificatesInner() {
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="pending-merchant">
                   <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_kpi_pending_merchant", {
-                      fallbackKo: "수익 확정 대기",
-                      fallbackEn: "Revenue pending recognition",
-                    })}
+                    {safeT("gift_u5_kpi_pending_merchant")}
                   </p>
                   <p className="mt-1 text-base font-semibold tabular-nums break-words">
                     {formatMoneyPhp(redeemKpis.pendingMerchantNet)}
@@ -338,10 +305,7 @@ function OwnerGiftCertificatesInner() {
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="merchant-net">
                   <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_kpi_merchant_net", {
-                      fallbackKo: "확정 상품권 수익",
-                      fallbackEn: "Recognized gift revenue",
-                    })}
+                    {safeT("gift_u5_kpi_merchant_net")}
                   </p>
                   <p className="mt-1 text-base font-semibold tabular-nums break-words">
                     {formatMoneyPhp(redeemKpis.recognizedMerchantNet)}
@@ -349,10 +313,7 @@ function OwnerGiftCertificatesInner() {
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="coin-authority">
                   <p className="text-xs text-sam-muted">
-                    {safeT("gift_owner_kpi_revenue", {
-                      fallbackKo: "수익 자산",
-                      fallbackEn: "Revenue asset",
-                    })}
+                    {safeT("gift_owner_kpi_revenue")}
                   </p>
                   <p className="mt-1 text-base font-semibold">Coin</p>
                 </div>
@@ -366,33 +327,24 @@ function OwnerGiftCertificatesInner() {
                 onClick={() => router.push(OwnerRoutes.finance(resolvedStoreId))}
                 data-owner-gift-money-cta="1"
               >
-                {safeT("gift_owner_cta_money", {
-                  fallbackKo: "Coin 재무에서 수익 관리",
-                  fallbackEn: "Manage revenue in Coin Finance",
-                })}
+                {safeT("gift_owner_cta_money")}
               </button>
               <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("redemptions")}>
-                {safeT("gift_u5_cta_redemptions", {
-                  fallbackKo: "사용 내역",
-                  fallbackEn: "Usage history",
-                })}
+                {safeT("gift_u5_cta_redemptions")}
               </button>
             </div>
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection
-            title={safeT("gift_owner_product_mgmt_title", {
-              fallbackKo: "상품권 상품 관리",
-              fallbackEn: "Gift product management",
-            })}
+            title={safeT("gift_owner_product_mgmt_title")}
           >
             <div className="mb-3 grid grid-cols-2 gap-2 text-xs text-sam-muted">
               <p>
-                {safeT("gift_owner_kpi_selling", { fallbackKo: "판매 중", fallbackEn: "On sale" })}:{" "}
+                {safeT("gift_owner_kpi_selling")}:{" "}
                 <strong className="tabular-nums text-sam-fg">{activeProducts.length}</strong>
               </p>
               <p>
-                {safeT("gift_owner_kpi_pending", { fallbackKo: "신청 심사 중", fallbackEn: "In review" })}:{" "}
+                {safeT("gift_owner_kpi_pending")}:{" "}
                 <strong className="tabular-nums text-sam-fg">{pendingCount}</strong>
               </p>
             </div>
@@ -405,47 +357,29 @@ function OwnerGiftCertificatesInner() {
                   go("apply");
                 }}
               >
-                {safeT("gift_owner_cta_apply", {
-                  fallbackKo: "상품권 판매 신청",
-                  fallbackEn: "Apply to sell gift certificates",
-                })}
+                {safeT("gift_owner_cta_apply")}
               </button>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("applications")}>
-                  {safeT("gift_owner_cta_history", {
-                    fallbackKo: "신청 내역",
-                    fallbackEn: "Applications",
-                  })}
+                  {safeT("gift_owner_cta_history")}
                 </button>
                 <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("home")}>
-                  {safeT("gift_owner_cta_products", {
-                    fallbackKo: "판매 상품권 보기",
-                    fallbackEn: "View products",
-                  })}
+                  {safeT("gift_owner_cta_products")}
                 </button>
               </div>
             </div>
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection
-            title={safeT("gift_owner_product_list", {
-              fallbackKo: "상품권 상품",
-              fallbackEn: "Gift certificate products",
-            })}
+            title={safeT("gift_owner_product_list")}
           >
             {products.length === 0 ? (
               <div className="space-y-3">
                 <p className="text-sm text-sam-muted">
-                  {safeT("gift_owner_empty_products", {
-                    fallbackKo: "판매 중인 상품권이 없습니다.",
-                    fallbackEn: "No gift products on sale.",
-                  })}
+                  {safeT("gift_owner_empty_products")}
                 </p>
                 <button type="button" className={OWNER_ADMIN_PRIMARY_BTN_CLASS} onClick={() => go("apply")}>
-                  {safeT("gift_owner_cta_apply", {
-                    fallbackKo: "상품권 판매 신청",
-                    fallbackEn: "Apply to sell gift certificates",
-                  })}
+                  {safeT("gift_owner_cta_apply")}
                 </button>
               </div>
             ) : (
@@ -470,29 +404,16 @@ function OwnerGiftCertificatesInner() {
                         expiryPolicy: p.expiry_policy,
                         validityDays: p.validity_days,
                         fixedValidUntil: p.fixed_valid_until,
-                        noExpiryLabel: safeT("gift_portrait_expiry_none", {
-                          fallbackKo: "만료 없음",
-                          fallbackEn: "No expiry",
-                        }),
+                        noExpiryLabel: safeT("gift_portrait_expiry_none"),
                         daysAfterIssueLabel: (days) =>
-                          safeT("gift_portrait_expiry_days_after_issue", {
-                            fallbackKo: `발급 후 ${days}일`,
-                            fallbackEn: `${days} days after issue`,
-                            vars: { days: String(days) },
-                          }),
+                          safeT("gift_portrait_expiry_days_after_issue", { vars: { days: String(days) } }),
                       })}
                       showValidity
                       footer={
                         <p className="text-xs text-sam-muted">
                           {p.active
-                            ? safeT("gift_owner_product_active", {
-                                fallbackKo: "판매중",
-                                fallbackEn: "On sale",
-                              })
-                            : safeT("gift_owner_product_paused", {
-                                fallbackKo: "중지",
-                                fallbackEn: "Paused",
-                              })}
+                            ? safeT("gift_owner_product_active")
+                            : safeT("gift_owner_product_paused")}
                           {typeof p.issued_count === "number"
                             ? ` · ${p.issued_count.toLocaleString()}`
                             : ""}
@@ -511,14 +432,8 @@ function OwnerGiftCertificatesInner() {
         <OwnerStoreAdminDashSection
           title={
             view === "confirm"
-              ? safeT("gift_owner_confirm_title", {
-                  fallbackKo: "신청 내용 확인",
-                  fallbackEn: "Confirm application",
-                })
-              : safeT("gift_owner_apply_title", {
-                  fallbackKo: "상품권 판매 신청",
-                  fallbackEn: "Gift sale application",
-                })
+              ? safeT("gift_owner_confirm_title")
+              : safeT("gift_owner_apply_title")
           }
         >
           {error ? <p className="mb-3 text-sm text-sam-danger">{error}</p> : null}
@@ -526,10 +441,7 @@ function OwnerGiftCertificatesInner() {
             <div className="space-y-3">
               <label className="block text-sm">
                 <span className="mb-1 block text-sam-muted">
-                  {safeT("gift_owner_field_title", {
-                    fallbackKo: "상품권 이름",
-                    fallbackEn: "Gift title",
-                  })}
+                  {safeT("gift_owner_field_title")}
                 </span>
                 <input
                   className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -539,10 +451,7 @@ function OwnerGiftCertificatesInner() {
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block text-sam-muted">
-                  {safeT("gift_owner_field_face", {
-                    fallbackKo: "희망 Face Value",
-                    fallbackEn: "Requested face value",
-                  })}
+                  {safeT("gift_owner_field_face")}
                 </span>
                 <input
                   inputMode="numeric"
@@ -553,10 +462,7 @@ function OwnerGiftCertificatesInner() {
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block text-sam-muted">
-                  {safeT("gift_owner_field_price", {
-                    fallbackKo: "희망 판매가 (Point)",
-                    fallbackEn: "Requested purchase price (Points)",
-                  })}
+                  {safeT("gift_owner_field_price")}
                 </span>
                 <input
                   inputMode="numeric"
@@ -567,10 +473,7 @@ function OwnerGiftCertificatesInner() {
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block text-sam-muted">
-                  {safeT("gift_owner_field_notes", {
-                    fallbackKo: "설명·사용 조건·메모",
-                    fallbackEn: "Description, terms, notes",
-                  })}
+                  {safeT("gift_owner_field_notes")}
                 </span>
                 <textarea
                   className="min-h-[96px] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
@@ -580,10 +483,7 @@ function OwnerGiftCertificatesInner() {
               </label>
               <div>
                 <p className="mb-1 text-sm text-sam-muted">
-                  {safeT("gift_owner_field_image", {
-                    fallbackKo: "디자인 / 이미지",
-                    fallbackEn: "Artwork / image",
-                  })}
+                  {safeT("gift_owner_field_image")}
                 </p>
                 {draft.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -605,13 +505,10 @@ function OwnerGiftCertificatesInner() {
                 disabled={!formValid}
                 onClick={() => go("confirm")}
               >
-                {safeT("gift_owner_cta_review", {
-                  fallbackKo: "신청 내용 확인",
-                  fallbackEn: "Review application",
-                })}
+                {safeT("gift_owner_cta_review")}
               </button>
               <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("home")}>
-                {safeT("gift_owner_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
+                {safeT("gift_owner_cta_back")}
               </button>
             </div>
           ) : (
@@ -636,13 +533,10 @@ function OwnerGiftCertificatesInner() {
               >
                 {busy
                   ? "…"
-                  : safeT("gift_owner_cta_submit_confirm", {
-                      fallbackKo: "이 내용으로 신청",
-                      fallbackEn: "Submit this application",
-                    })}
+                  : safeT("gift_owner_cta_submit_confirm")}
               </button>
               <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("apply")}>
-                {safeT("gift_owner_cta_edit", { fallbackKo: "수정하기", fallbackEn: "Edit" })}
+                {safeT("gift_owner_cta_edit")}
               </button>
             </div>
           )}
@@ -651,37 +545,22 @@ function OwnerGiftCertificatesInner() {
 
       {view === "success" ? (
         <OwnerStoreAdminDashSection
-          title={safeT("gift_owner_success_title", {
-            fallbackKo: "신청 완료",
-            fallbackEn: "Application submitted",
-          })}
+          title={safeT("gift_owner_success_title")}
         >
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-gift-app-success={successId ?? ""}>
             <p className="font-semibold">
-              {safeT("gift_owner_success_body", {
-                fallbackKo: "상품권 판매 신청이 접수되었습니다.",
-                fallbackEn: "Your gift sale application was received.",
-              })}
+              {safeT("gift_owner_success_body")}
             </p>
             <p className="mt-2 text-sm text-sam-muted">
-              {safeT("gift_owner_success_status", {
-                fallbackKo: "상태: 심사 대기",
-                fallbackEn: "Status: awaiting review",
-              })}
+              {safeT("gift_owner_success_status")}
             </p>
           </div>
           <div className="mt-4 flex flex-col gap-2">
             <button type="button" className={`${Sam.btn.primary} min-h-[48px]`} onClick={() => go("applications")}>
-              {safeT("gift_owner_cta_history", {
-                fallbackKo: "신청 내역 보기",
-                fallbackEn: "View applications",
-              })}
+              {safeT("gift_owner_cta_history")}
             </button>
             <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("home")}>
-              {safeT("gift_owner_cta_home", {
-                fallbackKo: "상품권 홈으로",
-                fallbackEn: "Gift home",
-              })}
+              {safeT("gift_owner_cta_home")}
             </button>
           </div>
         </OwnerStoreAdminDashSection>
@@ -689,17 +568,11 @@ function OwnerGiftCertificatesInner() {
 
       {view === "applications" ? (
         <OwnerStoreAdminDashSection
-          title={safeT("gift_owner_history_title", {
-            fallbackKo: "신청 내역",
-            fallbackEn: "Application history",
-          })}
+          title={safeT("gift_owner_history_title")}
         >
           {apps.length === 0 ? (
             <p className="text-sm text-sam-muted">
-              {safeT("gift_owner_empty_apps", {
-                fallbackKo: "신청 내역이 없습니다.",
-                fallbackEn: "No applications yet.",
-              })}
+              {safeT("gift_owner_empty_apps")}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -713,7 +586,7 @@ function OwnerGiftCertificatesInner() {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{a.title}</p>
                       <p className="text-xs text-sam-muted">
-                        {safeT("gift_owner_face_label", { fallbackKo: "액면", fallbackEn: "Face" })}{" "}
+                        {safeT("gift_owner_face_label")}{" "}
                         {Number(a.requested_face_value).toLocaleString()} · {statusLabel(a.status, safeT)}
                       </p>
                       {a.status === "rejected" && a.rejection_reason ? (
@@ -738,10 +611,7 @@ function OwnerGiftCertificatesInner() {
                             go("apply");
                           }}
                         >
-                          {safeT("gift_owner_cta_resubmit", {
-                            fallbackKo: "내용 수정 후 다시 신청",
-                            fallbackEn: "Edit and re-apply",
-                          })}
+                          {safeT("gift_owner_cta_resubmit")}
                         </button>
                       ) : null}
                     </div>
@@ -751,7 +621,7 @@ function OwnerGiftCertificatesInner() {
             </ul>
           )}
           <button type="button" className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} mt-4`} onClick={() => go("home")}>
-            {safeT("gift_owner_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
+            {safeT("gift_owner_cta_back")}
           </button>
         </OwnerStoreAdminDashSection>
       ) : null}

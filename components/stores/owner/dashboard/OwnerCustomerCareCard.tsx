@@ -77,25 +77,25 @@ export function OwnerCustomerCareCard({
     {
       id: "order-chat",
       href: OwnerRoutes.orderChats(storeId),
-      label: safeT("biz_care_order_chat", { fallbackKo: "주문 채팅", fallbackEn: "Order chat" }),
+      label: safeT("biz_care_order_chat"),
       count: orderChatUnread,
     },
     {
       id: "store-inquiry",
       href: OwnerRoutes.inquiries(storeId),
-      label: safeT("biz_care_store_inquiry", { fallbackKo: "매장 문의", fallbackEn: "Store inquiry" }),
+      label: safeT("biz_care_store_inquiry"),
       count: storeOpen,
     },
     {
       id: "reviews",
       href: OwnerRoutes.reviews(storeId),
-      label: safeT("store_owner_dash_care_reviews", { fallbackKo: "리뷰 답글", fallbackEn: "Review replies" }),
+      label: safeT("store_owner_dash_care_reviews"),
       count: reviewsNeedReply,
     },
     {
       id: "customer-center",
       href: customerCenterHref,
-      label: safeT("biz_care_customer_center", { fallbackKo: "문의·상담", fallbackEn: "Help & chat" }),
+      label: safeT("biz_care_customer_center"),
       count: adminUnread,
     },
   ];
@@ -104,10 +104,7 @@ export function OwnerCustomerCareCard({
     <section className={ownerDashCardClass()} aria-labelledby="owner-care-title" data-owner-home-care-card="1">
       <OwnerDashSectionHeader
         id="owner-care-title"
-        title={safeT("biz_title_customer_care", {
-          fallbackKo: "고객 응대",
-          fallbackEn: "Customer care",
-        })}
+        title={safeT("biz_title_customer_care")}
         href={careHubHref}
       />
       <ul className="divide-y divide-[var(--biz-card-border)]">
@@ -126,7 +123,7 @@ export function OwnerCustomerCareCard({
                 </span>
               ) : (
                 <span className={`shrink-0 ${ownerDashTypography.helper}`}>
-                  {safeT("store_owner_dash_care_none", { fallbackKo: "없음", fallbackEn: "None" })}
+                  {safeT("store_owner_dash_care_none")}
                 </span>
               )}
             </Link>

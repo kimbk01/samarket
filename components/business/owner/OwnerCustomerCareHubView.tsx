@@ -218,10 +218,7 @@ export function OwnerCustomerCareHubView() {
       })()}
 
       <OwnerStoreAdminDashSection
-        title={safeT("biz_care_section_store_customer", {
-          fallbackKo: "매장 고객",
-          fallbackEn: "Store customers",
-        })}
+        title={safeT("biz_care_section_store_customer")}
       >
         <ul className="space-y-3">{storeCustomerEntries.map(renderEntry)}</ul>
       </OwnerStoreAdminDashSection>

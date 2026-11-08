@@ -3,6 +3,7 @@
  * Does not apply migrations. Does not claim Production runtime.
  */
 import { existsSync, readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -21,7 +22,7 @@ import { OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET } from "@/lib/stores/advert
 import { ownerAdsDetailPanelsForLifecycle } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
 
 const root = process.cwd();
-const read = (rel: string) => readFileSync(join(root, rel), "utf8");
+const read = (rel: string) => withCatalogCopy(readFileSync(join(root, rel), "utf8"));
 
 const mig220 = () =>
   read("supabase/migrations/20261201220000_delivery_ads_cut3b_operations_timeline.sql");

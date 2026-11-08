@@ -64,10 +64,7 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
       <div className="mb-3 min-w-0">
         <p className="truncate text-base font-semibold text-sam-fg" data-owner-care-thread-subject>
           {thread?.subject ||
-            safeT("support_legacy_archive_title", {
-              fallbackKo: "이전 문의 기록",
-              fallbackEn: "Previous inquiry archive",
-            })}
+            safeT("support_legacy_archive_title")}
         </p>
       </div>
 
@@ -87,14 +84,8 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
             >
               <p className="text-[11px] font-semibold text-sam-muted">
                 {m.sender_role === "admin"
-                  ? safeT("biz_care_sender_admin", {
-                      fallbackKo: "DIBAY 관리자",
-                      fallbackEn: "DIBAY Admin",
-                    })
-                  : safeT("biz_care_sender_me", {
-                      fallbackKo: "나 (매장 오너)",
-                      fallbackEn: "Me (Store owner)",
-                    })}
+                  ? safeT("biz_care_sender_admin")
+                  : safeT("biz_care_sender_me")}
                 {" · "}
                 {new Date(m.created_at).toLocaleString(locale)}
               </p>

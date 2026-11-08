@@ -69,19 +69,13 @@ export function OwnerCustomerCenterView({
     {
       id: "history",
       href: historyHref,
-      label: safeT("support_history_title", {
-        fallbackKo: "상담 내역",
-        fallbackEn: "Support history",
-      }),
+      label: safeT("support_history_title"),
       badge: historyBadge,
     },
     {
       id: "archive",
       href: archiveHref,
-      label: safeT("support_legacy_archive_title", {
-        fallbackKo: "이전 문의 기록",
-        fallbackEn: "Previous inquiry archive",
-      }),
+      label: safeT("support_legacy_archive_title"),
       badge: archiveBadge,
     },
   ];
@@ -91,10 +85,7 @@ export function OwnerCustomerCenterView({
 
       {!storeId ? (
         <p className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
-          {safeT("support_owner_store_required", {
-            fallbackKo: "문의하려면 매장을 선택해 주세요.",
-            fallbackEn: "Select a store before contacting support.",
-          })}
+          {safeT("support_owner_store_required")}
         </p>
       ) : (
         <SupportGenericHubInquireGate
@@ -139,21 +130,13 @@ export function OwnerCustomerCenterView({
           <SupportCasesHistoryList audience="OWNER" storeId={storeId} />
         ) : (
           <p className="text-sm text-sam-muted">
-            {safeT("support_owner_store_required", {
-              fallbackKo: "문의하려면 매장을 선택해 주세요.",
-              fallbackEn: "Select a store before contacting support.",
-            })}
+            {safeT("support_owner_store_required")}
           </p>
         )
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-sam-muted">
-            {safeT("support_legacy_archive_hint", {
-              fallbackKo:
-                "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
-              fallbackEn:
-                "Archive of past notes and 1:1 inquiries. For new help, use Contact us.",
-            })}
+            {safeT("support_legacy_archive_hint")}
           </p>
           <OwnerCareAdminNotesList
             kind="inquiry"

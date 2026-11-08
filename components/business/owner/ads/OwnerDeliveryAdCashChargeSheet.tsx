@@ -27,22 +27,13 @@ export function OwnerDeliveryAdCashChargeSheet({
     <DibayBottomSheet
       open={open}
       onClose={onClose}
-      title={safeT("owner_ads_cash_charge_title", {
-        fallbackKo: "Cash로 광고 결제",
-        fallbackEn: "Ads paid with Cash",
-      })}
-      ariaLabel={safeT("owner_ads_cash_charge_title", {
-        fallbackKo: "Cash로 광고 결제",
-        fallbackEn: "Ads paid with Cash",
-      })}
+      title={safeT("owner_ads_cash_charge_title")}
+      ariaLabel={safeT("owner_ads_cash_charge_title")}
       contentPaddingBottomPx={contentPaddingBottomPx}
     >
       <div className="mt-3 space-y-4" data-owner-ads-cash-charge="sheet">
         <p className={OverlayUi.bodySecondary}>
-          {safeT("owner_ads_cash_charge_help", {
-            fallbackKo: "광고비는 선택한 매장의 Cash에서 결제됩니다. 충전 또는 Coin 전환 후 신청을 이어가세요.",
-            fallbackEn: "Ad fees are paid from the selected store’s Cash. Top up or convert Coin, then continue.",
-          })}
+          {safeT("owner_ads_cash_charge_help")}
         </p>
         <Link
           href={href}
@@ -50,20 +41,14 @@ export function OwnerDeliveryAdCashChargeSheet({
           data-owner-ads-cash-bc-link="1"
           onClick={onClose}
         >
-          {safeT("owner_bc_go_finance", {
-            fallbackKo: "Cash 관리",
-            fallbackEn: "Manage Cash",
-          })}
+          {safeT("owner_bc_go_finance")}
         </Link>
         <button
           type="button"
           className={`${OverlayUi.btn.secondary} w-full`}
           onClick={onClose}
         >
-          {safeT("owner_ads_cash_charge_close", {
-            fallbackKo: "닫기",
-            fallbackEn: "Close",
-          })}
+          {safeT("owner_ads_cash_charge_close")}
         </button>
       </div>
     </DibayBottomSheet>

@@ -56,6 +56,7 @@ import {
 } from "@/lib/platform-popup/client-creative-crop-preview";
 import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
 import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type EligibleStore = {
   id: string;
@@ -384,10 +385,7 @@ export function OwnerPlatformPopupApplyView() {
   if (!loaded) {
     return (
       <p className="p-4 text-sm text-sam-muted">
-        {safeT("owner_platform_popup_loading", {
-          fallbackKo: "불러오는 중…",
-          fallbackEn: "Loading…",
-        })}
+        {safeT("owner_platform_popup_loading")}
       </p>
     );
   }
@@ -404,68 +402,39 @@ export function OwnerPlatformPopupApplyView() {
           data-owner-platform-popup-new-sales="disabled"
         >
           <h1 className="text-lg font-bold text-sam-fg">
-            {safeT("owner_platform_popup_apply_title", {
-              fallbackKo: "팝업 광고 신청",
-              fallbackEn: "Apply for Popup Ad",
-            })}
+            {safeT("owner_platform_popup_apply_title")}
           </h1>
           <p className="mt-2 text-sm text-sam-muted">
-            {safeT("owner_platform_popup_new_sales_disabled", {
-              fallbackKo:
-                "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",
-              fallbackEn:
-                "New Owner Popup applications are closed. Existing requests remain viewable.",
-            })}
+            {safeT("owner_platform_popup_new_sales_disabled")}
           </p>
         </div>
       ) : (
         <>
       <h1 className="text-lg font-bold text-sam-fg">
-        {safeT("owner_platform_popup_apply_title", {
-          fallbackKo: "팝업 광고 신청",
-          fallbackEn: "Apply for Popup Ad",
-        })}
+        {safeT("owner_platform_popup_apply_title")}
       </h1>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_what_title", {
-          fallbackKo: "팝업 광고란?",
-          fallbackEn: "What is Popup Ad?",
-        })}
+        title={safeT("owner_platform_popup_what_title")}
       >
         <ul className="list-disc space-y-1 pl-5 text-[13px] text-sam-muted">
           <li>
-            {safeT("owner_platform_popup_what_1", {
-              fallbackKo: "앱 화면 하단에 36:25 소재가 뜨는 전역 팝업 광고입니다.",
-              fallbackEn: "A bottom-anchored 36:25 popup shown on eligible app screens.",
-            })}
+            {safeT("owner_platform_popup_what_1")}
           </li>
           <li>
-            {safeT("owner_platform_popup_what_2", {
-              fallbackKo: "세로 화면에서만 노출되며, 가로 모드에서는 표시되지 않습니다.",
-              fallbackEn: "Shown in portrait only — landscape suppresses the popup.",
-            })}
+            {safeT("owner_platform_popup_what_2")}
           </li>
           <li>
-            {safeT("owner_platform_popup_what_3", {
-                  fallbackKo: "Cash로 결제되며, 결제만으로 바로 노출되지 않습니다. 관리자 심사가 필요합니다.",
-                  fallbackEn: "Paid with Cash. Payment alone never goes live — admin review is required.",
-            })}
+            {safeT("owner_platform_popup_what_3")}
           </li>
         </ul>
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_preview", {
-          fallbackKo: "실제 노출 미리보기",
-          fallbackEn: "Placement preview",
-        })}
+        title={safeT("owner_platform_popup_section_preview")}
       >
         <p className="mb-2 text-[13px] text-sam-muted">
-          {safeT("owner_platform_popup_preview_hint", {
-            fallbackKo: "휴대폰 기준으로 앱 하단에 표시되는 형태입니다.",
-            fallbackEn: "Phone presentation — bottom of the app screen.",
-          })}
+          {safeT("owner_platform_popup_preview_hint")}
         </p>
         <div className="mx-auto w-full max-w-[360px] rounded-ui-rect border border-sam-border bg-sam-app p-3">
           {previewUrl ? (
@@ -502,10 +471,7 @@ export function OwnerPlatformPopupApplyView() {
               className="flex aspect-[36/25] items-center justify-center rounded-ui-rect border border-dashed border-sam-border text-sm text-sam-muted"
               data-owner-popup-preview-placeholder="1"
             >
-              {safeT("owner_platform_popup_preview_placeholder", {
-                fallbackKo: "소재를 올리면 여기에 미리보기가 표시됩니다",
-                fallbackEn: "Upload a creative to preview here",
-              })}
+              {safeT("owner_platform_popup_preview_placeholder")}
             </div>
           )}
         </div>
@@ -516,16 +482,10 @@ export function OwnerPlatformPopupApplyView() {
           {error === "INSUFFICIENT_BUSINESS_CASH" ? (
             <>
               <p>
-                {safeT("owner_platform_popup_insufficient", {
-                  fallbackKo: "Cash가 부족합니다.",
-                  fallbackEn: "Not enough Cash.",
-                })}
+                {safeT("owner_platform_popup_insufficient")}
               </p>
               <Link href={financeHref} className="mt-2 inline-flex font-semibold underline">
-                {safeT("owner_platform_popup_go_finance", {
-                  fallbackKo: "충전하기",
-                  fallbackEn: "Top up",
-                })}
+                {safeT("owner_platform_popup_go_finance")}
               </Link>
             </>
           ) : (
@@ -535,10 +495,7 @@ export function OwnerPlatformPopupApplyView() {
       ) : null}
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_store", {
-          fallbackKo: "광고할 매장",
-          fallbackEn: "Store",
-        })}
+        title={safeT("owner_platform_popup_section_store")}
       >
         <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
           <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
@@ -560,10 +517,7 @@ export function OwnerPlatformPopupApplyView() {
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_surfaces", {
-          fallbackKo: "노출 영역",
-          fallbackEn: "Placement",
-        })}
+        title={safeT("owner_platform_popup_section_surfaces")}
       >
         <fieldset className="space-y-2" data-owner-popup-surface-select="1">
           {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => {
@@ -607,16 +561,13 @@ export function OwnerPlatformPopupApplyView() {
           })}
         </fieldset>
         <p className="mt-2 text-[12px] text-sam-muted">
-          {lang === "en" ? "Selected" : "현재 선택"}:{" "}
+          {translateBy(lang, "business_selected")}:{" "}
           {adminSurfacesSelectionLabel(selectedSurfaces, lang)}
         </p>
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_cta", {
-          fallbackKo: "클릭 시 이동",
-          fallbackEn: "Click destination",
-        })}
+        title={safeT("owner_platform_popup_section_cta")}
       >
         <fieldset className="space-y-2" data-owner-popup-cta-radio="1">
           {PLATFORM_POPUP_OWNER_CTA_KINDS.map((kind) => (
@@ -637,20 +588,15 @@ export function OwnerPlatformPopupApplyView() {
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_schedule", {
-          fallbackKo: "노출 기간",
-          fallbackEn: "Schedule",
-        })}
+        title={safeT("owner_platform_popup_section_schedule")}
       >
         <p className="mb-2 text-[12px] text-sam-muted">
-          {lang === "en"
-            ? "Dates use Philippines time (Asia/Manila)."
-            : "날짜는 필리핀 시간(Asia/Manila) 기준입니다."}
+          {translateBy(lang, "business_dates_use_philippines_time_asia_manila")}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
             <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
-              {lang === "en" ? "Start" : "시작"}
+              {translateBy(lang, "business_start")}
             </span>
             <input
               type="datetime-local"
@@ -661,7 +607,7 @@ export function OwnerPlatformPopupApplyView() {
           </label>
           <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
             <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
-              {lang === "en" ? "End" : "종료"}
+              {translateBy(lang, "business_end")}
             </span>
             <input
               type="datetime-local"
@@ -674,17 +620,11 @@ export function OwnerPlatformPopupApplyView() {
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_package", {
-          fallbackKo: "요금 · Cash",
-          fallbackEn: "Price · Cash",
-        })}
+        title={safeT("owner_platform_popup_section_package")}
       >
         {packages.length === 0 ? (
           <p className="text-sm text-sam-muted">
-            {safeT("owner_platform_popup_no_package", {
-              fallbackKo: "판매 중인 패키지가 없습니다.",
-              fallbackEn: "No packages available.",
-            })}
+            {safeT("owner_platform_popup_no_package")}
           </p>
         ) : (
           <div className="space-y-2">
@@ -707,17 +647,17 @@ export function OwnerPlatformPopupApplyView() {
         )}
         <dl className="mt-3 grid gap-1 text-[13px]">
           <div className="flex justify-between">
-            <dt className="text-sam-muted">{lang === "en" ? "Ad price" : "광고 금액"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "business_ad_price")}</dt>
             <dd className="tabular-nums font-semibold">
               {selectedPackage ? formatDeliveryAdPhpMinor(selectedPackage.priceMinor) : "—"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sam-muted">{lang === "en" ? "Current Cash" : "현재 Cash"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "business_current_cash")}</dt>
             <dd className="tabular-nums font-semibold">{formatDeliveryAdPhpMinor(cashBalanceMinor)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sam-muted">{lang === "en" ? "After payment" : "결제 후 예상 잔액"}</dt>
+            <dt className="text-sam-muted">{translateBy(lang, "business_after_payment")}</dt>
             <dd className={`tabular-nums font-semibold ${insufficient ? "text-sam-danger" : ""}`}>
               {afterBalance == null ? "—" : formatDeliveryAdPhpMinor(Math.max(0, afterBalance))}
             </dd>
@@ -725,19 +665,13 @@ export function OwnerPlatformPopupApplyView() {
         </dl>
         {insufficient ? (
           <Link href={financeHref} className="mt-2 inline-flex text-sm font-semibold text-sam-primary underline">
-            {safeT("owner_platform_popup_go_finance", {
-              fallbackKo: "충전하기",
-              fallbackEn: "Top up",
-            })}
+            {safeT("owner_platform_popup_go_finance")}
           </Link>
         ) : null}
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_platform_popup_section_creative", {
-          fallbackKo: "크리에이티브",
-          fallbackEn: "Creative",
-        })}
+        title={safeT("owner_platform_popup_section_creative")}
       >
         <p className="mb-2 text-[13px] text-sam-muted">
           {DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × {DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} · 36:25 ·
@@ -763,10 +697,7 @@ export function OwnerPlatformPopupApplyView() {
         {pendingCropFile && cropPreviewUrl ? (
           <div className="mt-3 space-y-2" data-owner-popup-visible-crop="1">
             <p className="text-sm font-medium">
-              {safeT("owner_platform_popup_crop_confirm", {
-                fallbackKo: "중앙 크롭 결과 (저장될 최종 이미지)",
-                fallbackEn: "Center-crop result (final asset to save)",
-              })}
+              {safeT("owner_platform_popup_crop_confirm")}
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -780,10 +711,7 @@ export function OwnerPlatformPopupApplyView() {
               disabled={busy}
               onClick={() => void applyCropAndUpload()}
             >
-              {safeT("owner_platform_popup_apply_crop_save", {
-                fallbackKo: "이 크롭 적용·저장",
-                fallbackEn: "Apply & save this crop",
-              })}
+              {safeT("owner_platform_popup_apply_crop_save")}
             </button>
           </div>
         ) : null}
@@ -805,10 +733,7 @@ export function OwnerPlatformPopupApplyView() {
                 href={DELIVERY_AD_OWNER_ROUTES.hub}
                 className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
               >
-                {safeT("owner_platform_popup_cancel", {
-                  fallbackKo: "취소",
-                  fallbackEn: "Cancel",
-                })}
+                {safeT("owner_platform_popup_cancel")}
               </Link>
               <button
                 type="button"
@@ -816,10 +741,7 @@ export function OwnerPlatformPopupApplyView() {
                 disabled={busy}
                 onClick={() => void saveDraft()}
               >
-                {safeT("owner_platform_popup_save_draft", {
-                  fallbackKo: "임시 저장",
-                  fallbackEn: "Save draft",
-                })}
+                {safeT("owner_platform_popup_save_draft")}
               </button>
               <button
                 type="button"
@@ -833,10 +755,7 @@ export function OwnerPlatformPopupApplyView() {
                   setConfirmOpen(true);
                 }}
               >
-                {safeT("owner_platform_popup_submit", {
-                  fallbackKo: "신청 · Cash 결제",
-                  fallbackEn: "Submit · Pay Cash",
-                })}
+                {safeT("owner_platform_popup_submit")}
               </button>
             </div>
           </div>
@@ -847,15 +766,10 @@ export function OwnerPlatformPopupApplyView() {
       <OwnerStoreAdminConfirmModal
         open={confirmOpen}
         titleId="owner-popup-submit-confirm-title"
-        title={lang === "en" ? "Confirm submission" : "신청 최종 확인"}
-        description={safeT("owner_platform_popup_submit_note", {
-          fallbackKo:
-            "결제 후 관리자 심사를 거쳐 광고가 노출됩니다. 결제만으로 광고가 즉시 노출되지 않습니다.",
-          fallbackEn:
-            "After payment, an admin reviews the ad before it goes live. Payment alone never activates the ad.",
-        })}
-        cancelLabel={lang === "en" ? "Back" : "돌아가기"}
-        confirmLabel={lang === "en" ? "Pay & submit" : "결제하고 신청"}
+        title={translateBy(lang, "business_confirm_submission")}
+        description={safeT("owner_platform_popup_submit_note")}
+        cancelLabel={translateBy(lang, "business_back")}
+        confirmLabel={translateBy(lang, "business_pay_submit")}
         busy={busy}
         confirmTone="primary"
         onCancel={() => setConfirmOpen(false)}
@@ -863,14 +777,14 @@ export function OwnerPlatformPopupApplyView() {
       >
         <ul className="space-y-1 sam-text-body-secondary text-sam-muted" data-owner-popup-submit-confirm="1">
           <li>
-            {lang === "en" ? "Store" : "매장"}: {storeName}
+            {translateBy(lang, "business_store")}: {storeName}
           </li>
           <li>
-            {lang === "en" ? "Placement" : "노출"}: {adminSurfacesSelectionLabel(selectedSurfaces, lang)}
+            {translateBy(lang, "business_placement_2")}: {adminSurfacesSelectionLabel(selectedSurfaces, lang)}
           </li>
           <li>CTA: {platformPopupOwnerCtaKindLabel(ctaKind, lang)}</li>
           <li>
-            {lang === "en" ? "Price" : "금액"}:{" "}
+            {translateBy(lang, "business_price")}:{" "}
             {selectedPackage ? formatDeliveryAdPhpMinor(selectedPackage.priceMinor) : "—"}
           </li>
         </ul>

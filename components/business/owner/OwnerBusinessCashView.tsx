@@ -39,6 +39,7 @@ import {
   financePaymentMethodDisplay,
   financeRefNo,
 } from "@/lib/finance/finance-display-labels";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 type TopUpRow = {
   id: string;
@@ -195,20 +196,14 @@ export function OwnerBusinessCashView({
       const amountMinor = /^\d+(\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw) * 100) : 0;
       if (amountMinor <= 0) {
         setError(
-          safeT("owner_bc_topup_invalid_amount", {
-            fallbackKo: "충전 금액을 입력해 주세요 (예: 500 또는 10.50, 소수점 2자리까지)",
-            fallbackEn: "Enter a top-up amount (e.g. 500 or 10.50, up to 2 decimals)",
-          })
+          safeT("owner_bc_topup_invalid_amount")
         );
         return;
       }
       const reference = topUpReference.trim();
       if (!reference) {
         setError(
-          safeT("owner_bc_topup_reference_required", {
-            fallbackKo: "입금 참조번호(거래번호)를 입력해 주세요. 입금 확인 후에만 충전됩니다.",
-            fallbackEn: "Enter the deposit reference (transaction no.). Cash is credited only after the deposit is confirmed.",
-          })
+          safeT("owner_bc_topup_reference_required")
         );
         return;
       }
@@ -231,10 +226,7 @@ export function OwnerBusinessCashView({
       }
       /** OA-18 — 완료는 사장님 공통 토스트 (안내·경고만 화면 안 문구) */
       toast.success(
-        safeT("owner_finance_cash_topup_pending", {
-          fallbackKo: "Cash 충전 신청이 접수되었습니다. 입금 확인 후 충전됩니다.",
-          fallbackEn: "Cash top-up requested. It is credited once the deposit is confirmed.",
-        })
+        safeT("owner_finance_cash_topup_pending")
       );
       setTopUpAmountPhp("");
       setTopUpReference("");
@@ -279,8 +271,8 @@ export function OwnerBusinessCashView({
         {formatDeliveryAdPhpMinor(r.amountMinor)}
         {/* 날짜 (PHT) — 신청·처리 (Owner 2026-11-03 「날짜 부분이 명확히」) */}
         <span className="block sam-text-xxs tabular-nums text-sam-muted">
-          {language === "en" ? "Requested" : "신청"} {formatManilaDateTime(r.createdAt)}
-          {r.decidedAt ? ` · ${language === "en" ? "Processed" : "처리"} ${formatManilaDateTime(r.decidedAt)}` : ""} PHT
+          {translateBy(language, "business_requested")} {formatManilaDateTime(r.createdAt)}
+          {r.decidedAt ? ` · ${translateBy(language, "business_processed")} ${formatManilaDateTime(r.decidedAt)}` : ""} PHT
         </span>
         <span className="block break-all text-xs text-sam-muted" data-owner-cash-topup-ref="1">
           {topUpReferenceText(r)}
@@ -289,7 +281,7 @@ export function OwnerBusinessCashView({
       <span className="shrink-0 text-right text-sam-muted">
         <FinanceStatusBadge
           label={cashTopUpStatusDisplay(r.status)}
-          fallback={language === "en" ? "Unknown" : "확인 필요"}
+          fallback={translateBy(language, "business_unknown")}
         />
         {/* P1 — 반려 사유를 사장님에게 그대로 표시 */}
         {r.status.toLowerCase() === "rejected" && r.rejectReason ? (
@@ -311,10 +303,7 @@ export function OwnerBusinessCashView({
         <>
           <CurrencyBalanceCard currency="cash" amount={bcBalanceMinor} isMinor />
           <OwnerStoreAdminDashSection
-            title={safeT("owner_finance_coin_balance", {
-              fallbackKo: "Coin 잔액",
-              fallbackEn: "Coin balance",
-            })}
+            title={safeT("owner_finance_coin_balance")}
           >
             <p className="text-xl font-semibold text-sam-fg">
               {spBalance == null ? "—" : `${spBalance.toLocaleString(locale)} Coin`}
@@ -324,30 +313,21 @@ export function OwnerBusinessCashView({
       ) : null}
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_finance_cash_topup_title", {
-          fallbackKo: "Cash 충전",
-          fallbackEn: "Top up Cash",
-        })}
+        title={safeT("owner_finance_cash_topup_title")}
       >
         {iosCashPurchaseBlocked ? (
           <OwnerIosCashPurchaseNotice />
         ) : (
         <>
         <p className="mb-2 text-xs text-sam-muted" data-owner-bc-topup-deposit-rule="1">
-          {safeT("owner_bc_topup_deposit_rule", {
-            fallbackKo: "먼저 입금한 뒤 입금 수단과 참조번호(거래번호)를 입력해 주세요. 관리자가 입금을 확인한 뒤 충전됩니다.",
-            fallbackEn: "Deposit first, then enter the method and reference (transaction no.). Cash is credited after an admin confirms the deposit.",
-          })}
+          {safeT("owner_bc_topup_deposit_rule")}
           {topUpPolicy?.receivingAccountNote ? ` ${topUpPolicy.receivingAccountNote}` : ""}
           {topUpPolicy?.perRequestMaxMinor
-            ? ` · ${safeT("owner_bc_topup_cap_note", {
-                fallbackKo: "1회 최대",
-                fallbackEn: "Max per request",
-              })} ${formatDeliveryAdPhpMinor(topUpPolicy.perRequestMaxMinor)}`
+            ? ` · ${safeT("owner_bc_topup_cap_note")} ${formatDeliveryAdPhpMinor(topUpPolicy.perRequestMaxMinor)}`
             : ""}
         </p>
         <p className="mb-1 text-xs font-medium text-sam-muted">
-          {safeT("owner_bc_topup_method", { fallbackKo: "입금 수단", fallbackEn: "Deposit method" })}
+          {safeT("owner_bc_topup_method")}
         </p>
         <div className="mb-2">
           <OwnerMethodChoiceChips
@@ -358,7 +338,7 @@ export function OwnerBusinessCashView({
             value={topUpMethod}
             onChange={setTopUpMethod}
             disabled={busy}
-            ariaLabel={safeT("owner_bc_topup_method", { fallbackKo: "입금 수단", fallbackEn: "Deposit method" })}
+            ariaLabel={safeT("owner_bc_topup_method")}
             dataAttr="data-owner-bc-topup-method"
           />
         </div>
@@ -368,10 +348,7 @@ export function OwnerBusinessCashView({
             value={topUpReference}
             maxLength={100}
             onChange={(e) => setTopUpReference(e.target.value)}
-            placeholder={safeT("owner_bc_topup_reference_placeholder", {
-              fallbackKo: "입금 참조번호 (거래번호)",
-              fallbackEn: "Deposit reference (transaction no.)",
-            })}
+            placeholder={safeT("owner_bc_topup_reference_placeholder")}
             data-owner-bc-topup-reference="1"
           />
         </div>
@@ -381,10 +358,7 @@ export function OwnerBusinessCashView({
             inputMode="decimal"
             value={topUpAmountPhp}
             onChange={(e) => setTopUpAmountPhp(e.target.value)}
-            placeholder={safeT("owner_bc_topup_placeholder", {
-              fallbackKo: "금액 (₱)",
-              fallbackEn: "Amount (₱)",
-            })}
+            placeholder={safeT("owner_bc_topup_placeholder")}
           />
           <button
             type="button"
@@ -393,10 +367,7 @@ export function OwnerBusinessCashView({
             onClick={() => void submitTopUp()}
             data-owner-cta="primary"
           >
-            {safeT("owner_bc_topup_submit", {
-              fallbackKo: "충전 신청",
-              fallbackEn: "Request top-up",
-            })}
+            {safeT("owner_bc_topup_submit")}
           </button>
         </div>
         </>
@@ -414,20 +385,17 @@ export function OwnerBusinessCashView({
 
       {topUpListError ? (
         <p className="text-sm text-sam-danger" role="alert">
-          {language === "en" ? "Could not load top-up requests." : "충전 신청 목록을 불러오지 못했습니다."}
+          {translateBy(language, "business_could_not_load_top_up_requests")}
         </p>
       ) : null}
       {topUpTotal > 0 || topUps.length > 0 || focusTopUp ? (
         <OwnerStoreAdminDashSection
-          title={safeT("owner_bc_topup_history_title", {
-            fallbackKo: "충전 신청",
-            fallbackEn: "Top-up requests",
-          })}
+          title={safeT("owner_bc_topup_history_title")}
         >
           {focusTopUp ? (
             <div ref={focusRef} className="mb-3 space-y-1" data-owner-cash-topup-focus={focusTopUp.id}>
               <p className="text-xs font-semibold text-sam-primary">
-                {language === "en" ? "Selected top-up request" : "선택한 충전 신청"}
+                {translateBy(language, "business_selected_top_up_request")}
               </p>
               <ul className="text-sm">{renderTopUpRow(focusTopUp, true)}</ul>
             </div>

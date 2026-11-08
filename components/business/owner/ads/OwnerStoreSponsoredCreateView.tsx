@@ -541,10 +541,7 @@ export function OwnerStoreSponsoredCreateView() {
             : error === "no_packages"
               ? t("owner_ads_no_sellable_packages")
               : error
-                ? safeT("owner_ads_error_generic", {
-                    fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-                    fallbackEn: "Something went wrong. Please try again.",
-                  })
+                ? safeT("owner_ads_error_generic")
                 : null;
 
   const canSubmit = Boolean(
@@ -733,20 +730,14 @@ export function OwnerStoreSponsoredCreateView() {
                   }
                   selected={placementChoice}
                   onSelect={onSelectPlacementChoice}
-                  adTagLabel={safeT("owner_ads_customer_ad_tag", {
-                    fallbackKo: "광고",
-                    fallbackEn: "Ad",
-                  })}
+                  adTagLabel={safeT("owner_ads_customer_ad_tag")}
                 />
               </OwnerStoreAdminDashSection>
 
               <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
                 {!inventoryKey ? (
                   <p className="text-[13px] text-sam-muted">
-                    {safeT("owner_ads_pick_placement_first_store", {
-                      fallbackKo: "먼저 홍보 위치를 선택해 주세요.",
-                      fallbackEn: "Select a placement first.",
-                    })}
+                    {safeT("owner_ads_pick_placement_first_store")}
                   </p>
                 ) : commercialLoading ? (
                   <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
@@ -864,10 +855,7 @@ export function OwnerStoreSponsoredCreateView() {
                 >
                   {busy
                     ? t("owner_ads_loading")
-                    : safeT("owner_ads_apply_submit_cta", {
-                        fallbackKo: "광고 신청",
-                        fallbackEn: "Submit ad application",
-                      })}
+                    : safeT("owner_ads_apply_submit_cta")}
                 </button>
               )}
             </div>
