@@ -8,6 +8,7 @@ import { shouldDeferMessengerMonitoringFlush } from "@/lib/community-messenger/r
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { buildThresholdAlert, shouldAlertLatency, shouldAlertPacketLoss } from "./thresholds";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
+import { realtimeSubscriptionRollupMetric } from "./realtime-subscription-rollup-key";
 
 /**
  * U1 전송 상한 (Owner 「U1 승인」 2026-11-08 · docs/audit/supabase-request-surge-design-supplement-2026-11-08.md §7)
@@ -41,6 +42,16 @@ function bumpDropped(category: string, metric: string): void {
     return;
   }
   droppedByKey.set(key, 1);
+}
+
+/** D1: 버린 수도 DB 집계와 같은 세분 키(실시간 구독 결과만)로 센다. 예외 시 원래 metric. */
+function droppedRollupMetric(event: MessengerMonitoringEvent): string {
+  try {
+    const m = realtimeSubscriptionRollupMetric(event.category, event.metric, event.labels);
+    return typeof m === "string" ? m : event.metric;
+  } catch {
+    return event.metric;
+  }
 }
 
 function resolveMonitorPlatform(): "web" | "ios" | "android" {
@@ -102,7 +113,7 @@ export function messengerMonitorRecord(partial: Omit<MessengerMonitoringEvent, "
   if (queue.length < MESSENGER_MONITOR_MAX_EVENTS_PER_FLUSH) {
     queue.push(event);
   } else {
-    bumpDropped(event.category, event.metric);
+    bumpDropped(event.category, droppedRollupMetric(event));
   }
   scheduleFlush();
 }

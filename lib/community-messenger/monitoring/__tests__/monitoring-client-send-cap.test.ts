@@ -120,6 +120,32 @@ describe("메신저 모니터링 전송 상한 (U1)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("D1: 실시간 구독 결과는 버린 수도 채널 종류·상태·단계 키로 센다(ID 없음)", async () => {
+    record(MESSENGER_MONITOR_MAX_EVENTS_PER_FLUSH);
+    for (let i = 0; i < 300; i++) {
+      messengerMonitorRecord({
+        category: "realtime.subscription",
+        metric: "channel_subscribe",
+        value: 1,
+        unit: "count",
+        labels: { scope: "community-messenger:presence-runtime", outcome: "error", status: "CLOSED", attemptPhase: "retry" },
+      });
+    }
+    messengerMonitorRecord({
+      category: "realtime.subscription",
+      metric: "channel_subscribe",
+      value: 1,
+      unit: "count",
+      labels: { scope: "trade-chat-presence:56d2a3c6-6090-4a3b-9986-a8668663fdc2", outcome: "ok", status: "SUBSCRIBED" },
+    });
+    await vi.advanceTimersByTimeAsync(MESSENGER_MONITOR_FLUSH_INTERVAL_MS);
+    const [body] = sentBodies();
+    expect(body.dropped).toEqual([
+      { category: "realtime.subscription", metric: "channel_subscribe.presence.closed.retry", count: 300 },
+      { category: "realtime.subscription", metric: "channel_subscribe.trade_presence.subscribed.initial", count: 1 },
+    ]);
+  });
+
   it("버린 종류가 64개를 넘으면 넘친 종류는 1개 키로 센다", async () => {
     record(MESSENGER_MONITOR_MAX_EVENTS_PER_FLUSH);
     for (let i = 0; i < 70; i++) record(1, `m${i}`);

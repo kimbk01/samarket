@@ -3,7 +3,16 @@
  * 설계: docs/audit/supabase-request-surge-design-supplement-2026-11-08.md §7
  *
  * 저장 키: (category, metric, outcome, platform). ID·본문·자유 라벨은 저장하지 않는다.
+ * D1(2026-11-08): `realtime.subscription/channel_subscribe` 는 metric 을 `channel_subscribe.<종류>.<상태>.<단계>` 로 세분화
+ *   (docs/audit/realtime-subscription-diagnostics-rollup-design-2026-11-08.md).
  */
+
+import {
+  REALTIME_SUBSCRIPTION_CATEGORY,
+  REALTIME_SUBSCRIPTION_METRIC,
+  isAllowedRealtimeSubscriptionRollupMetric,
+  realtimeSubscriptionRollupMetric,
+} from "./realtime-subscription-rollup-key";
 
 export const MONITORING_ROLLUP_PLATFORMS = ["web", "ios", "android"] as const;
 export type MonitoringRollupPlatform = (typeof MONITORING_ROLLUP_PLATFORMS)[number] | "unknown";
@@ -57,6 +66,16 @@ function normalizeOutcome(labels: unknown): "" | "ok" | "error" {
   return o === "ok" || o === "error" ? o : "";
 }
 
+/**
+ * D1 위조 방어: `realtime.subscription` 의 세분 metric(`channel_subscribe.…`)은 허용 표와 정확히 맞을 때만 쓰고,
+ * 아니면 `channel_subscribe` 로 되돌린다 — 임의 문자열로 집계 행을 늘릴 수 없다.
+ */
+function guardRealtimeSubscriptionMetric(category: string, metric: string): string {
+  if (category !== REALTIME_SUBSCRIPTION_CATEGORY) return metric;
+  if (!metric.startsWith(`${REALTIME_SUBSCRIPTION_METRIC}.`)) return metric;
+  return isAllowedRealtimeSubscriptionRollupMetric(metric) ? metric : REALTIME_SUBSCRIPTION_METRIC;
+}
+
 function clampCount(n: unknown): number {
   const v = typeof n === "number" && Number.isFinite(n) ? Math.floor(n) : 0;
   return Math.min(Math.max(v, 0), COUNT_CAP);
@@ -92,8 +111,13 @@ export function buildMonitoringRollupRows(
 
   for (const e of events) {
     const category = normalizeKeyPart(e.category, CATEGORY_RE);
-    const metric = normalizeKeyPart(e.metric, METRIC_RE);
-    if (!category || !metric) continue;
+    const baseMetric = normalizeKeyPart(e.metric, METRIC_RE);
+    if (!category || !baseMetric) continue;
+    // D1: 실시간 구독 결과는 서버가 라벨로 세분 키를 다시 만든다(클라이언트 metric 문자열 불신).
+    const metric = guardRealtimeSubscriptionMetric(
+      category,
+      normalizeKeyPart(realtimeSubscriptionRollupMetric(category, baseMetric, e.labels), METRIC_RE) ?? baseMetric,
+    );
     const row = rowFor(category, metric, normalizeOutcome(e.labels));
     if (!row) continue;
     row.event_count = Math.min(row.event_count + 1, COUNT_CAP);
@@ -106,9 +130,10 @@ export function buildMonitoringRollupRows(
 
   for (const d of dropped) {
     const category = normalizeKeyPart(d.category, CATEGORY_RE);
-    const metric = normalizeKeyPart(d.metric, METRIC_RE);
+    const rawMetric = normalizeKeyPart(d.metric, METRIC_RE);
     const count = clampCount(d.count);
-    if (!category || !metric || count === 0) continue;
+    if (!category || !rawMetric || count === 0) continue;
+    const metric = guardRealtimeSubscriptionMetric(category, rawMetric);
     const row = rowFor(category, metric, "");
     if (!row) continue;
     row.dropped_count = Math.min(row.dropped_count + count, COUNT_CAP);
