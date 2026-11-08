@@ -220,6 +220,18 @@ describe("cm room regression matrix (pre-commit)", () => {
       ).toEqual({ scroll: false, reason: "skip_ack_id_replace" });
     });
 
+    it("D5-R2: 방 진입 후 처음 보는 마지막 메시지(내 것·상대 것) → 스크롤 안 함 (진입 정책이 위치 결정)", () => {
+      for (const mine of [true, false]) {
+        expect(
+          resolveMessengerRoomMessagesAutoScroll({
+            previousTailMessageId: null,
+            currentTailMessageId: "tail-1",
+            currentTailIsMine: mine,
+          })
+        ).toEqual({ scroll: false, reason: "skip_first_observation" });
+      }
+    });
+
     it("상대 append — tail 변경 → peer append candidate (near-bottom은 controller에서 gate)", () => {
       expect(
         resolveMessengerRoomMessagesAutoScroll({

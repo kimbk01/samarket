@@ -665,7 +665,13 @@ export function useMessengerRoomClientPhase1({
   useLayoutEffect(() => {
     const rid = roomId.trim();
     if (!rid) return;
-    setTimelineViewportMounted(false);
+    /**
+     * D5-R1 (Owner 「D5 구현」 2026-11-09): false 로 덮지 않고 「지금 대화 상자가 실제로 붙어 있는지」로 맞춘다.
+     * 하위 대화 상자의 ref(`attachMessagesViewportRef` → true)가 이 상위 layout effect 보다 먼저 실행되어,
+     * false 로 덮으면 다시 true 가 될 계기가 없었다 — 1:1 방·재진입 그룹방에서 진입 위치 결정(entry anchor)이
+     * 한 번도 실행되지 않음(운영 실측: ref 는 화면 요소를 가리키는데 표시 false · 스크롤 엔진 idle).
+     */
+    setTimelineViewportMounted(Boolean(messagesViewportRef.current));
     setTimelineHeavyLive(false);
     setTimelineHeavyBundle(null);
   }, [roomId]);

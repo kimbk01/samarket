@@ -804,25 +804,36 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     };
   }, [applyLayoutPreserve, engine, loadingOlderMessages, messagesViewportRef, tryCompleteEntry]);
 
+  /**
+   * D5-R3 (Owner 「D5 구현」 2026-11-09): 「방을 나갈 때」 정리는 방이 바뀌거나 화면에서 내려갈 때만 한다.
+   * 이전에는 deps 에 roomMessages·persistScrollPosition 이 있어 메시지가 바뀔 때마다(방 안에 있는 동안) 실행돼,
+   * 돌아온 직후 저장 위치를 지우거나 위치 적용 전 값(scrollTop 0)으로 덮어썼다(운영 실측).
+   * 최신 값은 ref 로 읽는다.
+   */
+  const leaveRoomMessagesRef = useRef(roomMessages);
+  leaveRoomMessagesRef.current = roomMessages;
+  const leavePersistRef = useRef(persistScrollPosition);
+  leavePersistRef.current = persistScrollPosition;
   useEffect(() => {
     return () => {
       const rid = roomId.trim();
       if (!rid) return;
+      const leavingMessages = leaveRoomMessagesRef.current;
       /**
        * Leave-at-latest: consume tip + drop mid-unread persist so same-room re-entry
        * lands on latest (gift tip visible). History reading (stick false) keeps persist.
        */
       if (stickToBottomRef.current) {
-        const tip = roomMessages[roomMessages.length - 1]?.id?.trim();
+        const tip = leavingMessages[leavingMessages.length - 1]?.id?.trim();
         if (tip) markMessengerRoomTimelineTipEntryConsumed(rid, tip);
         clearMessengerRoomScrollPosition(rid);
         return;
       }
-      persistScrollPosition();
+      leavePersistRef.current();
       /** D4: 읽던 중 나감 — 돌아오면 같은 메시지가 첫 그림에 있도록 불러와 있던 메시지 보관 */
-      saveMessengerRoomReturnHistory(rid, roomMessages);
+      saveMessengerRoomReturnHistory(rid, leavingMessages);
     };
-  }, [persistScrollPosition, roomId, roomMessages, stickToBottomRef]);
+  }, [roomId, stickToBottomRef]);
 
   return {
     scrollMessengerToBottom,
