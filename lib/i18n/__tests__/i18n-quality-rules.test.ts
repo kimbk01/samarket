@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   addFileRuleCounts,
   areaFromUsage,
+  countBoolLangTernary,
+  countHardcodedKorean,
   collectKeyRuleFindings,
   diffFileRule,
   diffKeyRule,
@@ -157,5 +159,18 @@ describe("i18n-quality 규칙", () => {
       areaOfKey: () => "admin",
     });
     expect([...f["key-echo-en"].keys()]).toEqual(["admin_ops_tools_board_due"]);
+  });
+
+  it("감사 L22 — 불리언 언어 삼항을 센다(한국어 갈래가 있는 것만)", () => {
+    expect(countBoolLangTernary('const a = ko ? "취소 완료" : "Cancelled";')).toBe(1);
+    expect(countBoolLangTernary("{isKo ? '저장' : 'Save'}")).toBe(1);
+    expect(countBoolLangTernary('const b = en ? "Save" : "저장";')).toBe(1);
+    expect(countBoolLangTernary('const c = children ? "a" : "b"; const d = ko ? "en" : "ko";')).toBe(0);
+  });
+
+  it("감사 L17 — 영어 짝 없는 한국어 화면 문구를 센다(주석 제외)", () => {
+    expect(countHardcodedKorean('<span>마지막 갱신</span>\n// <p>주석</p>\n<input placeholder="검색" />')).toBe(2);
+    expect(countHardcodedKorean('toast.error("실패했습니다")')).toBe(1);
+    expect(countHardcodedKorean('<span>{t("key")}</span>')).toBe(0);
   });
 });

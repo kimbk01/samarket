@@ -29,6 +29,8 @@ export const FILE_RULE_IDS = [
   "non-catalog-lang-ternary",
   "non-catalog-tt",
   "non-catalog-lang-pair",
+  "non-catalog-bool-lang-ternary",
+  "hardcoded-korean",
 ] as const;
 export type FileRuleId = (typeof FILE_RULE_IDS)[number];
 
@@ -208,6 +210,38 @@ const LANG_TERNARY =
 /** `pick(lang, "한국어", "English")` 같은 언어별 문구 쌍 인자 (S6 추가 — S0 검사가 세지 않던 형태) */
 const LANG_PAIR = /\(\s*[\w.]+\s*,\s*"[^"\n]*[가-힣][^"\n]*"\s*,\s*"[^"\n가-힣]*[A-Za-z][^"\n가-힣]*"\s*\)/g;
 const TT_CALL = /\btt\(\s*["'`]|\btranslateText\(/g;
+/**
+ * 감사 L22 (2026-11-08) — 불리언 언어 변수로 문구를 고르는 삼항. `non-catalog-lang-ternary` 가 세지 않던 형태.
+ * - `ko ? "한국어…" : "…"` (한국어 갈래가 앞) · `en ? "English" : "한국어"` (반대 방향). 따옴표 3종.
+ */
+const BOOL_KO_TERNARY = /\b(?:ko|isKo|isKorean|korean)\s*\?\s*(["'`])(?:(?!\1)[^\n])*?[가-힣]/g;
+const BOOL_EN_TERNARY =
+  /\b(?:en|isEn|isEnglish|english)\s*\?\s*(["'`])(?:(?!\1)[^\n가-힣])*\1\s*:\s*(["'`])(?:(?!\2)[^\n])*?[가-힣]/g;
+/**
+ * 감사 L17 — 영어 짝 없는 한국어 화면 문구(`scripts/check-hardcoded-korean.mjs` 와 같은 4패턴, 주석 줄 제외).
+ * JSX 텍스트 · placeholder/title/aria-label/alt 속성 · toast · alert/confirm.
+ */
+const HARDCODED_KO_PATTERNS: readonly RegExp[] = [
+  />\s*[^<{]*[\u3131-\u318E\uAC00-\uD7A3][^<]*</g,
+  /(?:placeholder|title|aria-label|alt)\s*=\s*["'`][^"'`]*[\u3131-\u318E\uAC00-\uD7A3]/g,
+  /toast\.(?:success|error|info|warning)\(\s*["'`][^"'`]*[\u3131-\u318E\uAC00-\uD7A3]/g,
+  /\b(?:alert|confirm)\(\s*["'`][^"'`]*[\u3131-\u318E\uAC00-\uD7A3]/g,
+];
+const TEST_FILE = /\.(test|spec)\.tsx?$/;
+
+export function countHardcodedKorean(text: string): number {
+  let n = 0;
+  for (const raw of text.split("\n")) {
+    const t = raw.trimStart();
+    if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) continue;
+    for (const re of HARDCODED_KO_PATTERNS) n += count(re, raw);
+  }
+  return n;
+}
+
+export function countBoolLangTernary(text: string): number {
+  return count(BOOL_KO_TERNARY, text) + count(BOOL_EN_TERNARY, text);
+}
 
 /** 두 갈래가 단순 문자열일 때 — 같은 값(구분 기호 등)·식별자 모양(속성 이름 고르기)은 문구가 아니다 */
 const SIMPLE_BRANCHES = /^\s*(["'`])((?:(?!\1)[^\\\n$])*)\1\s*:\s*(["'`])((?:(?!\3)[^\\\n$])*)\3/;
@@ -246,6 +280,10 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
   put("non-catalog-lang-ternary", countLangTernary(text));
   put("non-catalog-tt", count(TT_CALL, text));
   put("non-catalog-lang-pair", count(LANG_PAIR, text));
+  if (!TEST_FILE.test(rel)) {
+    put("non-catalog-bool-lang-ternary", countBoolLangTernary(text));
+    if (rel.endsWith(".tsx") || rel.endsWith(".ts")) put("hardcoded-korean", countHardcodedKorean(text));
+  }
 }
 
 export function emptyFileRuleCounts(): FileRuleCounts {
