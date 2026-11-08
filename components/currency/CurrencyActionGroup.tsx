@@ -8,6 +8,7 @@ import {
 } from "@/lib/currency/currency-display-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type CurrencyActionSpec = {
   id: CurrencyActionId;
@@ -18,12 +19,12 @@ export type CurrencyActionSpec = {
 };
 
 const ACTION_LABELS: Record<CurrencyActionId, { ko: string; en: string }> = {
-  recharge: { ko: "충전", en: "Top up" },
-  history: { ko: "내역", en: "History" },
-  convert_to_cash: { ko: "Cash로 전환", en: "Convert to Cash" },
-  withdraw: { ko: "외부 출금", en: "Withdraw" },
-  top_up: { ko: "충전", en: "Top up" },
-  convert_from_coin: { ko: "Coin에서 전환", en: "From Coin" },
+  recharge: catalogPair("currency_top_up"),
+  history: catalogPair("currency_history"),
+  convert_to_cash: catalogPair("currency_convert_to_cash"),
+  withdraw: catalogPair("currency_withdraw"),
+  top_up: catalogPair("currency_top_up"),
+  convert_from_coin: catalogPair("currency_from_coin"),
 };
 
 function filterAllowedActions(

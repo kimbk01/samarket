@@ -40,6 +40,7 @@ import {
 import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 type StoreListRow = {
   storeId: string;
@@ -58,9 +59,9 @@ const FINANCE_STORES_PERIODS = ["today", "7d", "30d"] as const;
 
 /** 기간 이름 — 선택 상자와 같은 말 (D-10 · 내부 키 `30d` 를 화면에 내보내지 않는다). */
 const FINANCE_STORES_PERIOD_LABEL: Record<(typeof FINANCE_STORES_PERIODS)[number], { ko: string; en: string }> = {
-  today: { ko: "오늘", en: "Today" },
-  "7d": { ko: "최근 7일", en: "Last 7 days" },
-  "30d": { ko: "최근 30일", en: "Last 30 days" },
+  today: catalogPair("finance_today"),
+  "7d": catalogPair("finance_last_7_days"),
+  "30d": catalogPair("finance_last_30_days"),
 };
 
 export function financeStoresPeriodLabel(periodKey: string, ko: boolean): string {
