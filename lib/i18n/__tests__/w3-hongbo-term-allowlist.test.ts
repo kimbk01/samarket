@@ -4,6 +4,7 @@
  *       + 이번 D-15 목록 밖이라 보고만 한 키(아래 OUT_OF_SCOPE · 새로 넣지 말 것).
  */
 import { readFileSync } from "node:fs";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { MESSAGES } from "@/lib/i18n/messages";
@@ -43,6 +44,9 @@ const NORMAL_TERM_KEYS = new Set([
   "admin_ad_kind_delivery_sponsored",
   /** 언어 SSOT S6: 어드민 광고 상품 이름 「매장 홍보」 — 코드 안 언어 삼항에서 카탈로그로 옮겨 검사에 보이게 됨(화면 문구 변화 없음) */
   "stores_store_promotion",
+  /** S6 2단계: 어드민 인라인 표에서 옮긴 「매장 홍보」 상품 이름(같은 정상 용어) */
+  "admin_store_promotion",
+  "admin_allow_native_store_promotion",
 ]);
 
 /** D-15 목록 밖(보고만) — 상위노출 주문과 다른 뜻일 수 있어 Owner 확인 전 유지 */
@@ -50,9 +54,14 @@ const OUT_OF_SCOPE_KEYS = new Set([
   "admin_menu_business_posts",
   "admin_products_drill_promo",
   "admin_menu_ads_section_push",
+  /** S6 2단계에서 드러남(어드민 인라인 표 → 카탈로그) — 「광고·홍보」「상위홍보」 표기, Owner 확인 전 유지(발견 목록 L14) */
+  "admin_advertising",
+  "admin_promotion",
+  "admin_delivery_store_list_promote",
 ]);
 
-const read = (p: string) => readFileSync(path.join(process.cwd(), p), "utf8");
+/** 언어 SSOT S6: 문구가 카탈로그로 옮겨져도 화면 문구로 판정(부정 단언이 빈 확인이 되지 않게) */
+const read = (p: string) => withCatalogCopy(readFileSync(path.join(process.cwd(), p), "utf8"));
 
 describe("D-15 「홍보」 허용 목록", () => {
   it("한국어 카탈로그(병합 결과)의 「홍보」는 허용 목록 키뿐", () => {
@@ -102,12 +111,19 @@ describe("D-15 「홍보」 허용 목록", () => {
     "components/gift-certificate/BuyerGiftDetailView.tsx",
     "lib/gift-certificate/map-gift-purchase-error.ts",
   ])("%s — 「홍보」 0", (f) => {
-    expect(read(f)).not.toContain("홍보");
+    /** 정상 용어 허용 키(「매장 홍보」 등)의 카탈로그 문구는 빼고 판정 — S6 전에는 대체 문구에 가려 보이지 않던 허용 용어 */
+    const text = read(f)
+      .split("\n")
+      .filter((l) => !/^\/\* i18n ([a-z0-9_.]+):/.test(l) || !NORMAL_TERM_KEYS.has(l.match(/^\/\* i18n ([a-z0-9_.]+):/)![1]))
+      .join("\n");
+    expect(text).not.toContain("홍보");
   });
 
   it("operator-labels: 상위노출 주문 · 배달 「매장 홍보」는 유지", () => {
     const src = read("lib/admin/operator-ux/operator-labels.ts");
-    expect(src).toContain('promotion_order: { ko: "게시물 상위노출 주문"');
+    /** 언어 SSOT S6: 표 값은 카탈로그 키 — 키 + 카탈로그 값으로 확인 */
+    expect(src).toContain('promotion_order: catalogPair("admin_post_promotion_order")');
+    expect(MESSAGES.ko.admin_post_promotion_order).toBe("게시물 상위노출 주문");
     expect(src.match(/홍보/g)?.length).toBe(1);
     expect(src).toContain("매장 홍보");
   });
