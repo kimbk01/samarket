@@ -23,10 +23,7 @@ export function ListingBuyerChatsBlock({
 
   if (!hasRows && !showEmptyHint && !loadFailed) return null;
 
-  const sectionLabel = safeT("marketplace_seller_listing_buyer_section", {
-    fallbackKo: "구매자 문의",
-    fallbackEn: "Buyer inquiries",
-  });
+  const sectionLabel = safeT("marketplace_seller_listing_buyer_section");
 
   return (
     <div className="border-t border-sam-border-soft bg-sam-app/30">
@@ -41,18 +38,12 @@ export function ListingBuyerChatsBlock({
       ))}
       {!hasRows && loadFailed ? (
         <p className="px-3 py-2.5 sam-text-helper text-sam-muted">
-          {safeT("marketplace_seller_listing_buyer_chats_load_failed", {
-            fallbackKo: "구매자 문의를 불러오지 못했어요",
-            fallbackEn: "Could not load buyer messages",
-          })}
+          {safeT("marketplace_seller_listing_buyer_chats_load_failed")}
         </p>
       ) : null}
       {!hasRows && !loadFailed && showEmptyHint ? (
         <p className="px-3 py-2.5 sam-text-helper text-sam-muted">
-          {safeT("marketplace_seller_listing_no_buyer_chats", {
-            fallbackKo: "아직 구매자 문의가 없어요",
-            fallbackEn: "No buyer messages yet",
-          })}
+          {safeT("marketplace_seller_listing_no_buyer_chats")}
         </p>
       ) : null}
     </div>

@@ -421,7 +421,7 @@ function MypagePointsPageInner() {
   const tabs = useMemo(
     () =>
       [
-        { id: "all" as const, label: safeT("point_fin_tab_all", { fallbackKo: "전체", fallbackEn: "All" }) },
+        { id: "all" as const, label: safeT("point_fin_tab_all") },
         { id: "credit" as const, label: t("mypage_oa_points_tab_credit") },
         { id: "debit" as const, label: t("mypage_oa_points_tab_debit") },
         { id: "charges" as const, label: t("mypage_oa_points_tab_charges") },
@@ -467,7 +467,7 @@ function MypagePointsPageInner() {
                   href={withCustomerCenterFrom("/mypage/points/charge", from)}
                   className={`${Sam.btn.primaryCombo} ${Sam.focusRing} flex-1`}
                 >
-                  {safeT("point_fin_cta_charge", { fallbackKo: "충전하기", fallbackEn: "Top up" })}
+                  {safeT("point_fin_cta_charge")}
                 </Link>
                 <Link
                   href={withCustomerCenterFrom("/mypage/points/promotions", from)}
@@ -557,10 +557,7 @@ function MypagePointsPageInner() {
               ) : activeTab === "charges" ? (
                 <div>
                   <p className="mb-3 sam-text-helper text-sam-muted">
-                    {safeT("point_fin_charges_hint", {
-                      fallbackKo: "충전 신청 상태입니다. 포인트는 충전 완료 후 내역에 표시됩니다.",
-                      fallbackEn: "Your top-up requests. Points appear in history once the top-up is complete.",
-                    })}
+                    {safeT("point_fin_charges_hint")}
                   </p>
                   {/* 기간 신청 / 대기 건만 (대기는 기간 무관) */}
                   <div className="mb-3 flex flex-wrap gap-1.5" data-testid="points-charge-status-filter">

@@ -9,10 +9,7 @@ export default function MypageRequiredDibayIdPage() {
   const { safeT } = useI18n();
   return (
     <MyScreen
-      title={safeT("mypage_required_dibay_id", {
-        fallbackKo: "@아이디",
-        fallbackEn: "@ ID",
-      })}
+      title={safeT("mypage_required_dibay_id")}
       template="form"
     >
       <MypageRequiredDibayIdClient />

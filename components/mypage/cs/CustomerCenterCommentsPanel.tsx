@@ -151,10 +151,7 @@ export function CustomerCenterCommentsPanel({
       } catch {
         // 입력 내용은 유지
         showMypageToast(
-          safeT("cc_comments_post_failed", {
-            fallbackKo: "댓글 등록에 실패했습니다",
-            fallbackEn: "Could not post comment",
-          }),
+          safeT("cc_comments_post_failed"),
           "error"
         );
       }
@@ -188,10 +185,7 @@ export function CustomerCenterCommentsPanel({
         kind="error"
         template="list"
         error={{
-          message: safeT("cc_comments_load_failed", {
-            fallbackKo: "댓글을 불러오지 못했습니다",
-            fallbackEn: "Could not load comments",
-          }),
+          message: safeT("cc_comments_load_failed"),
           onRetry: () => void list.reload(),
         }}
       />
@@ -199,7 +193,7 @@ export function CustomerCenterCommentsPanel({
   } else if (list.items.length === 0) {
     content = (
       <p className="py-4 text-[13px] text-sam-muted" data-testid="cc-comments-empty">
-        {safeT("cc_comments_empty", { fallbackKo: "아직 댓글이 없습니다", fallbackEn: "No comments yet" })}
+        {safeT("cc_comments_empty")}
       </p>
     );
   } else {
@@ -260,7 +254,7 @@ export function CustomerCenterCommentsPanel({
       data-testid="cc-comments"
     >
       <h2 className="text-[14px] font-semibold text-sam-fg">
-        {safeT("cc_comments_title", { fallbackKo: "댓글", fallbackEn: "Comments" })}
+        {safeT("cc_comments_title")}
         {` ${count}`}
       </h2>
       {content}
@@ -269,11 +263,8 @@ export function CustomerCenterCommentsPanel({
         onChange={setDraft}
         onSubmit={submit}
         pending={post.pending}
-        placeholder={safeT("cc_comments_placeholder", {
-          fallbackKo: "의견을 남겨 주세요",
-          fallbackEn: "Leave a comment",
-        })}
-        submitLabel={safeT("cc_comments_submit", { fallbackKo: "등록", fallbackEn: "Post" })}
+        placeholder={safeT("cc_comments_placeholder")}
+        submitLabel={safeT("cc_comments_submit")}
       />
       <MobileConfirmBottomSheet
         open={deleteTarget != null}

@@ -75,22 +75,10 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
   const authProvider = resolveProfileAuthProvider(profile);
   const showAuthProviderBadge = loginEmail !== "—";
 
-  const verifiedLabel = safeT("my_phone_status_verified", {
-    fallbackKo: "인증 완료",
-    fallbackEn: "Verified",
-  });
-  const phoneVerificationLabel = safeT("profile_edit_phone_verification_label", {
-    fallbackKo: "전화 번호 인증",
-    fallbackEn: "Phone verification",
-  });
-  const unverifiedLabel = safeT("account_unverified", {
-    fallbackKo: "미인증",
-    fallbackEn: "Not verified",
-  });
-  const pendingLabel = safeT("account_pending", {
-    fallbackKo: "승인 대기",
-    fallbackEn: "Pending",
-  });
+  const verifiedLabel = safeT("my_phone_status_verified");
+  const phoneVerificationLabel = safeT("profile_edit_phone_verification_label");
+  const unverifiedLabel = safeT("account_unverified");
+  const pendingLabel = safeT("account_pending");
 
   const phonePending = !contactVerified && profile.phone_verification_status === "pending";
   const phoneStatus = contactVerified ? verifiedLabel : phonePending ? pendingLabel : unverifiedLabel;

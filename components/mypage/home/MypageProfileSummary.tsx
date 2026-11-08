@@ -56,16 +56,10 @@ export function MypageProfileSummary({
 
   const name =
     projection.displayName ||
-    safeT("mypage_hub_profile_untitled", {
-      fallbackKo: "이름 없음",
-      fallbackEn: "No name",
-    });
+    safeT("mypage_hub_profile_untitled");
   const bio =
     projection.bio ||
-    safeT("mypage_hub_profile_bio_empty", {
-      fallbackKo: "상태를 추가해 보세요",
-      fallbackEn: "Add a status",
-    });
+    safeT("mypage_hub_profile_bio_empty");
 
   // 원값 우선순위: summary(서버 최신) → 전체 프로필 → 세션 lite 스냅샷. 모르면 % 자리 스켈레톤
   // (lite 로 그린 직후 기본값 %가 잠깐 보였다 바뀌는 흔들림 제거).
@@ -82,10 +76,7 @@ export function MypageProfileSummary({
     <section id="mypage-profile" className={`${MYPAGE_HOME_CARD_CLASS} w-full self-start`}>
       <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS}`}>
         <h2 className={`min-w-0 truncate ${MYPAGE_HOME_SECTION_LABEL_CLASS}`}>
-          {safeT("mypage_hub_profile_title", {
-            fallbackKo: "내 프로필",
-            fallbackEn: "My profile",
-          })}
+          {safeT("mypage_hub_profile_title")}
         </h2>
       </div>
 
@@ -107,10 +98,7 @@ export function MypageProfileSummary({
           <span className="mt-1 block truncate text-[13px] leading-snug text-sam-muted">{bio}</span>
         </span>
         <span className="flex shrink-0 items-center gap-1 text-[13px] font-semibold text-sam-primary">
-          {safeT("profile_edit_title", {
-            fallbackKo: "프로필 수정",
-            fallbackEn: "Edit profile",
-          })}
+          {safeT("profile_edit_title")}
           <ChevronRight className="h-4 w-4" aria-hidden />
         </span>
       </button>
@@ -132,10 +120,7 @@ export function MypageProfileSummary({
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-semibold text-sam-fg">
-            {safeT("mypage_trust_title", {
-              fallbackKo: "나의 배터리·신뢰",
-              fallbackEn: "Manner & trust",
-            })}
+            {safeT("mypage_trust_title")}
           </span>
           {trust ? (
             <span

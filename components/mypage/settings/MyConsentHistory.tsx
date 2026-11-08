@@ -64,7 +64,7 @@ export function MyConsentHistory() {
     };
   }, []);
 
-  const notRecorded = safeT("mypage_consent_not_recorded", { fallbackKo: "기록 없음", fallbackEn: "Not recorded" });
+  const notRecorded = safeT("mypage_consent_not_recorded");
   const versionDate = (v: { version: string | null; at: string | null }) =>
     v.at ? (
       <span className="flex flex-col items-end leading-tight">
@@ -78,38 +78,29 @@ export function MyConsentHistory() {
   const ageValue = (age: ConsentSummary["age"]) => {
     if (!age) return notRecorded;
     if (age.state === "legacy") {
-      return safeT("mypage_consent_age_legacy", {
-        fallbackKo: "기존 회원 · 연령 정책 이전 가입",
-        fallbackEn: "Existing member · joined before the age policy",
-      });
+      return safeT("mypage_consent_age_legacy");
     }
     if (age.state === "verified") {
-      const label = safeT("mypage_consent_age_verified", {
-        fallbackKo: "만 14세 이상 확인",
-        fallbackEn: "Confirmed 14+",
-      });
+      const label = safeT("mypage_consent_age_verified");
       return age.attestedAt ? `${label} · ${formatMypageDate(age.attestedAt)}` : label;
     }
     if (age.state === "blocked") {
-      return safeT("mypage_consent_age_blocked", { fallbackKo: "만 14세 미만", fallbackEn: "Under 14" });
+      return safeT("mypage_consent_age_blocked");
     }
-    return safeT("mypage_consent_age_missing", { fallbackKo: "미확인", fallbackEn: "Not confirmed" });
+    return safeT("mypage_consent_age_missing");
   };
 
   const marketingValue = (m: ConsentSummary["marketing"]) => {
     if (!m || m.source == null) return notRecorded;
     if (!m.enabled) {
-      const off = safeT("mypage_consent_marketing_off", { fallbackKo: "받지 않음", fallbackEn: "Off" });
+      const off = safeT("mypage_consent_marketing_off");
       return m.at ? `${off} · ${formatMypageDate(m.at)}` : off;
     }
     // Pre-existing members were switched on by default (2026-11-03) — not an explicit agreement, so not sent.
     if (m.source === "existing_member_default") {
-      return safeT("mypage_consent_marketing_default", {
-        fallbackKo: "받지 않음 · 직접 동의 전",
-        fallbackEn: "Off · not opted in",
-      });
+      return safeT("mypage_consent_marketing_default");
     }
-    const on = safeT("mypage_consent_marketing_on", { fallbackKo: "받음 · 동의", fallbackEn: "On · agreed" });
+    const on = safeT("mypage_consent_marketing_on");
     return m.at ? `${on} · ${formatMypageDate(m.at)}` : on;
   };
 
@@ -120,21 +111,21 @@ export function MyConsentHistory() {
         ? t("auth_consent_privacy_link")
         : kind === "marketing"
           ? t("mypage_marketing_consent_title")
-          : safeT("mypage_consent_kind_age", { fallbackKo: "연령 확인", fallbackEn: "Age check" });
+          : safeT("mypage_consent_kind_age");
   const actionLabel = (action: string) =>
     action === "agree"
-      ? safeT("mypage_consent_action_agree", { fallbackKo: "동의", fallbackEn: "Agreed" })
+      ? safeT("mypage_consent_action_agree")
       : action === "withdraw"
-        ? safeT("mypage_consent_action_withdraw", { fallbackKo: "철회", fallbackEn: "Withdrawn" })
-        : safeT("mypage_consent_action_admin_note", { fallbackKo: "관리자 처리", fallbackEn: "Admin action" });
+        ? safeT("mypage_consent_action_withdraw")
+        : safeT("mypage_consent_action_admin_note");
   const sourceLabel = (source: string) =>
     source === "signup"
-      ? safeT("mypage_consent_source_signup", { fallbackKo: "가입", fallbackEn: "Sign-up" })
+      ? safeT("mypage_consent_source_signup")
       : source === "reconsent"
-        ? safeT("mypage_consent_source_reconsent", { fallbackKo: "재동의", fallbackEn: "Re-consent" })
+        ? safeT("mypage_consent_source_reconsent")
         : source === "admin"
-          ? safeT("mypage_consent_source_admin", { fallbackKo: "고객센터", fallbackEn: "Support" })
-          : safeT("mypage_consent_source_settings", { fallbackKo: "설정", fallbackEn: "Settings" });
+          ? safeT("mypage_consent_source_admin")
+          : safeT("mypage_consent_source_settings");
 
   return (
     <div data-testid="my-consent-history" className="space-y-3">
@@ -167,7 +158,7 @@ export function MyConsentHistory() {
                 className="flex min-h-[52px] items-center justify-between gap-3 border-b border-sam-border bg-sam-surface px-4 py-3"
               >
                 <div className="min-w-0 text-[15px] font-medium text-sam-fg">
-                  {safeT("mypage_consent_kind_age", { fallbackKo: "연령 확인", fallbackEn: "Age check" })}
+                  {safeT("mypage_consent_kind_age")}
                 </div>
                 <div className="shrink-0 text-[12px] text-sam-muted">{ageValue(summary.age)}</div>
               </div>
@@ -182,14 +173,8 @@ export function MyConsentHistory() {
           {events.length === 0 ? (
             <p className="px-1 text-[13px] text-sam-muted">
               {degraded
-                ? safeT("mypage_consent_history_unavailable", {
-                    fallbackKo: "동의 이력 저장소가 아직 준비되지 않았습니다.",
-                    fallbackEn: "Consent history storage is not ready yet.",
-                  })
-                : safeT("mypage_consent_history_empty", {
-                    fallbackKo: "저장된 동의 이력이 없습니다.",
-                    fallbackEn: "No consent history yet.",
-                  })}
+                ? safeT("mypage_consent_history_unavailable")
+                : safeT("mypage_consent_history_empty")}
             </p>
           ) : (
             <MyGroup>

@@ -131,10 +131,7 @@ export function RequiredInfoFlowClient() {
 
   const progressLabel = useMemo(() => {
     if (bundleComplete || !activeStep) {
-      return safeT("mypage_required_progress_complete", {
-        fallbackKo: "완료",
-        fallbackEn: "Complete",
-      });
+      return safeT("mypage_required_progress_complete");
     }
     const index = resolveRequiredInfoStepIndex(activeStep);
     return `${index}/3`;
@@ -144,11 +141,11 @@ export function RequiredInfoFlowClient() {
     (step: RequiredInfoStep) => {
       switch (step) {
         case "dibay-id":
-          return safeT("mypage_required_dibay_id", { fallbackKo: "@아이디", fallbackEn: "@ ID" });
+          return safeT("mypage_required_dibay_id");
         case "phone":
-          return safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" });
+          return safeT("mypage_required_phone");
         case "address":
-          return safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" });
+          return safeT("mypage_required_address");
       }
     },
     [safeT],
@@ -170,20 +167,14 @@ export function RequiredInfoFlowClient() {
         data-step="done"
       >
         <p className="sam-text-body font-semibold text-sam-fg">
-          {safeT("mypage_required_flow_done_title", {
-            fallbackKo: "필수정보 등록이 완료되었습니다",
-            fallbackEn: "Required info is complete",
-          })}
+          {safeT("mypage_required_flow_done_title")}
         </p>
         <button
           type="button"
           className={PROFILE_EDIT_PRIMARY_BTN_CLASS}
           onClick={() => router.replace(MYPAGE_MAIN_HREF)}
         >
-          {safeT("mypage_required_flow_done_confirm", {
-            fallbackKo: "확인",
-            fallbackEn: "OK",
-          })}
+          {safeT("mypage_required_flow_done_confirm")}
         </button>
       </div>
     );

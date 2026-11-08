@@ -93,10 +93,7 @@ export function LinkedLoginProvidersContent({ onLoaded }: { onLoaded?: () => voi
             errorCode: completeJson?.errorCode ?? "link_failed",
           });
           showMypageToast(
-            safeT("auth_provider_link_blocked_toast", {
-              fallbackKo: "보안을 위해 기존 로그인 확인이 필요합니다.",
-              fallbackEn: "Please verify your existing sign-in method for security.",
-            }),
+            safeT("auth_provider_link_blocked_toast"),
             "error",
           );
           return;
@@ -125,15 +122,9 @@ export function LinkedLoginProvidersContent({ onLoaded }: { onLoaded?: () => voi
         if (!res.ok || !json?.ok) {
           showMypageToast(
             json?.errorCode === "last_provider_unlink_blocked"
-              ? safeT("auth_provider_last_unlink_blocked_toast", {
-                  fallbackKo: "최소 1개의 로그인 방법은 유지해야 합니다.",
-                  fallbackEn: "You must keep at least one sign-in method.",
-                })
+              ? safeT("auth_provider_last_unlink_blocked_toast")
               : json?.errorCode === "reauth_required"
-                ? safeT("auth_provider_unlink_reauth_required_toast", {
-                    fallbackKo: "보안을 위해 다시 로그인한 뒤 연결을 해제해 주세요.",
-                    fallbackEn: "For your security, sign in again and then unlink.",
-                  })
+                ? safeT("auth_provider_unlink_reauth_required_toast")
                 : t("mypage_s10_unlink_failed"),
             "error",
           );

@@ -88,7 +88,7 @@ function IaRow({
         <LogoutActionTrigger
           variant="menu_row"
           surface="card"
-          label={safeT("mypage_hub_logout", { fallbackKo: "로그아웃", fallbackEn: "Log out" })}
+          label={safeT("mypage_hub_logout")}
         />
       );
     case "admin":

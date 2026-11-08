@@ -249,10 +249,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
         kind="error"
         template="board"
         error={{
-          message: safeT("settings_notices_load_failed", {
-            fallbackKo: "목록을 불러오지 못했습니다",
-            fallbackEn: "Could not load the list",
-          }),
+          message: safeT("settings_notices_load_failed"),
           onRetry: () => void list.reload(),
         }}
       />
@@ -267,7 +264,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
             ? t("mypage_s61_search_empty", { q: appliedQuery })
             : filter === "unread"
               ? t("cc_list_unread_empty")
-              : safeT("settings_notices_empty", { fallbackKo: "게시글이 없습니다", fallbackEn: "No posts yet" }),
+              : safeT("settings_notices_empty"),
         }}
       />
     );
@@ -356,7 +353,7 @@ export function CustomerCenterBoardListClient({ contentType }: { contentType: Cu
         <button
           type="button"
           className={`sam-header-action flex min-h-11 min-w-11 items-center justify-center text-sam-primary ${Sam.focusRing}`}
-          aria-label={safeT("common_search", { fallbackKo: "검색", fallbackEn: "Search" })}
+          aria-label={safeT("common_search")}
           aria-expanded={searchOpen}
           data-testid="cc-board-search-toggle"
           onClick={toggleSearch}

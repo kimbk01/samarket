@@ -91,20 +91,11 @@ function statusLineFromCta(
   switch (cta.statusKind) {
     case "loading":
     case "checking":
-      return safeT("settings_version_checking_status", {
-        fallbackKo: "업데이트 확인 중…",
-        fallbackEn: "Checking for updates…",
-      });
+      return safeT("settings_version_checking_status");
     case "latest":
-      return safeT("settings_version_status_latest", {
-        fallbackKo: "최신 버전입니다.",
-        fallbackEn: "You are on the latest version.",
-      });
+      return safeT("settings_version_status_latest");
     case "update_available":
-      return safeT("settings_version_status_update_available", {
-        fallbackKo: "새 버전이 있습니다.",
-        fallbackEn: "A newer version is available.",
-      });
+      return safeT("settings_version_status_update_available");
     case "downloading": {
       const downloaded = progress?.bytesDownloaded;
       const total = progress?.totalBytesToDownload;
@@ -116,92 +107,44 @@ function statusLineFromCta(
         Number.isFinite(total)
       ) {
         const pct = Math.min(100, Math.max(0, Math.floor((downloaded / total) * 100)));
-        return safeT("settings_version_download_progress", {
-          fallbackKo: `업데이트 다운로드 중… ${pct}%`,
-          fallbackEn: `Downloading update… ${pct}%`,
-        });
+        return safeT("settings_version_download_progress");
       }
-      return safeT("settings_version_downloading", {
-        fallbackKo: "업데이트 다운로드 중…",
-        fallbackEn: "Downloading update…",
-      });
+      return safeT("settings_version_downloading");
     }
     case "install_ready":
-      return safeT("settings_version_install_ready_status", {
-        fallbackKo: "업데이트를 설치할 준비가 됐습니다.",
-        fallbackEn: "The update is ready to install.",
-      });
+      return safeT("settings_version_install_ready_status");
     case "installing":
-      return safeT("settings_version_installing", {
-        fallbackKo: "업데이트 설치 중…",
-        fallbackEn: "Installing update…",
-      });
+      return safeT("settings_version_installing");
     case "canceled":
-      return safeT("settings_version_canceled", {
-        fallbackKo: "업데이트가 취소되었습니다.",
-        fallbackEn: "The update was canceled.",
-      });
+      return safeT("settings_version_canceled");
     case "check_failed":
-      return safeT("settings_version_status_check_failed", {
-        fallbackKo: "업데이트 정보를 확인하지 못했습니다.",
-        fallbackEn: "Could not load update information.",
-      });
+      return safeT("settings_version_status_check_failed");
     case "unavailable":
-      return safeT("settings_version_status_unavailable", {
-        fallbackKo: "이 환경에서는 앱 업데이트를 사용할 수 없습니다.",
-        fallbackEn: "App updates are not available in this environment.",
-      });
+      return safeT("settings_version_status_unavailable");
     default:
-      return safeT("settings_version_status_unknown", {
-        fallbackKo: "업데이트 가능 여부를 아직 확인하지 못했습니다.",
-        fallbackEn: "Update availability has not been confirmed yet.",
-      });
+      return safeT("settings_version_status_unknown");
   }
 }
 
 function primaryLabelFromCta(cta: VersionScreenCtaModel, safeT: SafeT): string {
   switch (cta.primaryLabelKind) {
     case "update_now":
-      return safeT("settings_version_update_now", {
-        fallbackKo: "지금 업데이트",
-        fallbackEn: "Update now",
-      });
+      return safeT("settings_version_update_now");
     case "install_now":
-      return safeT("settings_version_install_now", {
-        fallbackKo: "지금 설치",
-        fallbackEn: "Install now",
-      });
+      return safeT("settings_version_install_now");
     case "retry_check":
-      return safeT("settings_version_retry_check", {
-        fallbackKo: "다시 확인",
-        fallbackEn: "Check again",
-      });
+      return safeT("settings_version_retry_check");
     case "checking":
-      return safeT("settings_version_checking_status", {
-        fallbackKo: "업데이트 확인 중…",
-        fallbackEn: "Checking for updates…",
-      });
+      return safeT("settings_version_checking_status");
     case "downloading":
-      return safeT("settings_version_downloading", {
-        fallbackKo: "업데이트 다운로드 중…",
-        fallbackEn: "Downloading update…",
-      });
+      return safeT("settings_version_downloading");
     case "installing":
-      return safeT("settings_version_installing", {
-        fallbackKo: "업데이트 설치 중…",
-        fallbackEn: "Installing update…",
-      });
+      return safeT("settings_version_installing");
     case "working":
-      return safeT("settings_version_updating", {
-        fallbackKo: "진행 중…",
-        fallbackEn: "Working…",
-      });
+      return safeT("settings_version_updating");
     case "update":
     default:
-      return safeT("settings_version_update_button", {
-        fallbackKo: "업데이트",
-        fallbackEn: "Update",
-      });
+      return safeT("settings_version_update_button");
   }
 }
 
@@ -247,10 +190,7 @@ export function VersionContent() {
           return;
         }
         setErrorDetail(
-          safeT("settings_version_native_read_failed", {
-            fallbackKo: "설치된 앱 버전을 읽지 못했습니다",
-            fallbackEn: "Could not read the installed app version",
-          })
+          safeT("settings_version_native_read_failed")
         );
         return;
       }
@@ -291,12 +231,7 @@ export function VersionContent() {
         setUpdateInfo(null);
         setFreshness("check_failed");
         setErrorDetail(
-          safeT("settings_version_check_failed_detail", {
-            fallbackKo:
-              "Google Play에서 업데이트 정보를 확인하지 못했습니다. 네트워크와 Play 스토어 설치 여부를 확인해 주세요.",
-            fallbackEn:
-              "Could not get update info from Google Play. Check your network and that the app was installed from Play Store.",
-          })
+          safeT("settings_version_check_failed_detail")
         );
         return;
       }
@@ -325,10 +260,7 @@ export function VersionContent() {
         const completed = await completeAndroidFlexibleUpdate();
         if (!completed.ok) {
           setErrorDetail(
-            safeT("settings_version_install_failed", {
-              fallbackKo: "업데이트 설치를 시작하지 못했습니다",
-              fallbackEn: "Could not start installing the update",
-            })
+            safeT("settings_version_install_failed")
           );
         }
         return;
@@ -344,18 +276,12 @@ export function VersionContent() {
       if (decision.choice === "none") {
         if (decision.reason === "ui_blocked" || updateInfo.callInProgress) {
           setErrorDetail(
-            safeT("settings_version_blocked_by_call", {
-              fallbackKo: "통화 중에는 업데이트를 시작할 수 없습니다",
-              fallbackEn: "Updates cannot start while a call is in progress",
-            })
+            safeT("settings_version_blocked_by_call")
           );
           return;
         }
         setErrorDetail(
-          safeT("settings_version_no_flow", {
-            fallbackKo: "지금은 Play 업데이트를 시작할 수 없습니다",
-            fallbackEn: "Play update cannot be started right now",
-          })
+          safeT("settings_version_no_flow")
         );
         return;
       }
@@ -366,10 +292,7 @@ export function VersionContent() {
           const flex = await startAndroidFlexibleUpdate();
           if (!flex.ok) {
             setErrorDetail(
-              safeT("settings_version_start_failed", {
-                fallbackKo: "업데이트를 시작하지 못했습니다",
-                fallbackEn: "Could not start the update",
-              })
+              safeT("settings_version_start_failed")
             );
           } else if (flex.result.status === "canceled") {
             setUserCanceled(true);
@@ -385,10 +308,7 @@ export function VersionContent() {
           const completed = await completeAndroidFlexibleUpdate();
           if (!completed.ok) {
             setErrorDetail(
-              safeT("settings_version_install_failed", {
-                fallbackKo: "업데이트 설치를 시작하지 못했습니다",
-                fallbackEn: "Could not start installing the update",
-              })
+              safeT("settings_version_install_failed")
             );
           }
           return;
@@ -397,18 +317,12 @@ export function VersionContent() {
         if (!started.ok) {
           if (started.code === "call_in_progress") {
             setErrorDetail(
-              safeT("settings_version_blocked_by_call", {
-                fallbackKo: "통화 중에는 업데이트를 시작할 수 없습니다",
-                fallbackEn: "Updates cannot start while a call is in progress",
-              })
+              safeT("settings_version_blocked_by_call")
             );
             return;
           }
           setErrorDetail(
-            safeT("settings_version_start_failed", {
-              fallbackKo: "업데이트를 시작하지 못했습니다",
-              fallbackEn: "Could not start the update",
-            })
+            safeT("settings_version_start_failed")
           );
         } else if (started.result.status === "canceled") {
           setUserCanceled(true);
@@ -492,10 +406,7 @@ export function VersionContent() {
   const ctaVisual = resolveVersionScreenCtaVisual(cta);
   const displayName =
     formatInstalledVersionLabel(versionName, buildNumber) ??
-    safeT("settings_version_unknown_name", {
-      fallbackKo: "알 수 없음",
-      fallbackEn: "Unknown",
-    });
+    safeT("settings_version_unknown_name");
   /** 웹 화면 코드 배포 버전 — 네이티브 앱 버전과 별개 (웹 변경은 앱 재시작으로 반영) */
   const webDeploySha = (process.env.NEXT_PUBLIC_WEB_DEPLOY_SHA ?? "").trim();
   const showCurrentVersionLabel =
@@ -563,28 +474,19 @@ export function VersionContent() {
           </p>
         ) : showCurrentVersionLabel ? (
           <p className={`${Sam.text.bodyLg} text-sam-fg`}>
-            {safeT("settings_version_current_label", {
-              fallbackKo: "현재 버전",
-              fallbackEn: "Current version",
-            })}{" "}
+            {safeT("settings_version_current_label")}{" "}
             {displayName}
           </p>
         ) : (
           <p className={`${Sam.text.bodyLg} text-sam-fg`}>
-            {safeT("settings_version_label", {
-              fallbackKo: "버전",
-              fallbackEn: "Version",
-            })}{" "}
+            {safeT("settings_version_label")}{" "}
             {displayName}
           </p>
         )}
 
         {webDeploySha ? (
           <p className={`mt-1 ${Sam.text.helper} tabular-nums text-sam-muted`} data-testid="version-web-deploy-sha">
-            {safeT("settings_version_web_deploy_label", {
-              fallbackKo: "웹 배포",
-              fallbackEn: "Web build",
-            })}{" "}
+            {safeT("settings_version_web_deploy_label")}{" "}
             {webDeploySha}
           </p>
         ) : null}
@@ -629,18 +531,9 @@ export function VersionContent() {
         open={confirmStartOpen}
         blocking={false}
         busy={updating}
-        title={safeT("popup_q_update_app", {
-          fallbackKo: "새 버전으로 업데이트할까요?",
-          fallbackEn: "Update to the new version?",
-        })}
-        cancelLabel={safeT("settings_version_install_later", {
-          fallbackKo: "나중에",
-          fallbackEn: "Later",
-        })}
-        confirmLabel={safeT("settings_version_update_now", {
-          fallbackKo: "지금 업데이트",
-          fallbackEn: "Update now",
-        })}
+        title={safeT("popup_q_update_app")}
+        cancelLabel={safeT("settings_version_install_later")}
+        confirmLabel={safeT("settings_version_update_now")}
         onCancel={() => {
           if (updating) return;
           setConfirmStartOpen(false);
@@ -656,22 +549,10 @@ export function VersionContent() {
         open={confirmInstallOpen}
         blocking={false}
         busy={updating}
-        title={safeT("popup_q_install_update", {
-          fallbackKo: "업데이트를 설치할까요?",
-          fallbackEn: "Install the update?",
-        })}
-        description={safeT("settings_version_install_ready_desc", {
-          fallbackKo: "다운로드가 완료되었습니다. 지금 설치하면 앱이 다시 시작됩니다.",
-          fallbackEn: "Download finished. Installing now will restart the app.",
-        })}
-        cancelLabel={safeT("settings_version_install_later", {
-          fallbackKo: "나중에",
-          fallbackEn: "Later",
-        })}
-        confirmLabel={safeT("settings_version_install_now", {
-          fallbackKo: "지금 설치",
-          fallbackEn: "Install now",
-        })}
+        title={safeT("popup_q_install_update")}
+        description={safeT("settings_version_install_ready_desc")}
+        cancelLabel={safeT("settings_version_install_later")}
+        confirmLabel={safeT("settings_version_install_now")}
         onCancel={() => {
           if (updating) return;
           setConfirmInstallOpen(false);

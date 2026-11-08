@@ -87,10 +87,7 @@ export function CustomerCenterHubClient() {
     };
   }, []);
 
-  const greeting = safeT("mypage_cs_hub_greeting", {
-    fallbackKo: "무엇이 궁금하신가요?",
-    fallbackEn: "How can we help?",
-  });
+  const greeting = safeT("mypage_cs_hub_greeting");
 
   const entries: HubEntry[] = [
     {
@@ -142,10 +139,7 @@ export function CustomerCenterHubClient() {
   return (
     <SupportContextProvider value={MEMBER_CC_CONTEXT}>
       <MyScreen
-        title={safeT("mypage_comp_menu_support_cs_title", {
-          fallbackKo: "고객센터",
-          fallbackEn: "Customer support",
-        })}
+        title={safeT("mypage_comp_menu_support_cs_title")}
         backHref="/mypage"
         preferHistoryBack={false}
         template="hub"

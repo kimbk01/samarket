@@ -137,16 +137,10 @@ export function SalesHistoryView({ initialTab }: { initialTab?: string } = {}) {
   if (items.length === 0) {
     return (
       <SellerHubEmptyState
-        message={safeT("marketplace_seller_empty_trades_all", {
-          fallbackKo: "진행 중인 거래가 없어요",
-          fallbackEn: "No trades yet",
-        })}
+        message={safeT("marketplace_seller_empty_trades_all")}
         actions={
           <SellerHubEmptyActionLink href="/mypage/products">
-            {safeT("marketplace_seller_cta_view_listings", {
-              fallbackKo: "등록한 매물 보기",
-              fallbackEn: "View your listings",
-            })}
+            {safeT("marketplace_seller_cta_view_listings")}
           </SellerHubEmptyActionLink>
         }
       />
@@ -154,43 +148,25 @@ export function SalesHistoryView({ initialTab }: { initialTab?: string } = {}) {
   }
 
   const emptyTabMsg: Record<SellerManageTabId, string> = {
-    selling: safeT("marketplace_seller_empty_trades_selling", {
-      fallbackKo: "진행 중인 거래가 없어요",
-      fallbackEn: "No trades in progress",
-    }),
-    completed: safeT("marketplace_seller_empty_trades_completed", {
-      fallbackKo: "완료된 거래가 없어요",
-      fallbackEn: "No completed trades",
-    }),
-    cancelled: safeT("marketplace_seller_empty_trades_cancelled", {
-      fallbackKo: "취소된 거래가 없어요",
-      fallbackEn: "No cancelled trades",
-    }),
+    selling: safeT("marketplace_seller_empty_trades_selling"),
+    completed: safeT("marketplace_seller_empty_trades_completed"),
+    cancelled: safeT("marketplace_seller_empty_trades_cancelled"),
   };
 
   const emptyTabActions: Record<SellerManageTabId, ReactNode> = {
     selling: (
       <SellerHubEmptyActionLink href="/mypage/products">
-        {safeT("marketplace_seller_cta_view_listings", {
-          fallbackKo: "등록한 매물 보기",
-          fallbackEn: "View your listings",
-        })}
+        {safeT("marketplace_seller_cta_view_listings")}
       </SellerHubEmptyActionLink>
     ),
     completed: (
       <SellerHubEmptyActionLink href="/mypage/products" variant="secondary">
-        {safeT("marketplace_seller_cta_view_listings", {
-          fallbackKo: "등록한 매물 보기",
-          fallbackEn: "View your listings",
-        })}
+        {safeT("marketplace_seller_cta_view_listings")}
       </SellerHubEmptyActionLink>
     ),
     cancelled: (
       <SellerHubEmptyActionLink href="/mypage/products" variant="secondary">
-        {safeT("marketplace_seller_cta_view_listings", {
-          fallbackKo: "등록한 매물 보기",
-          fallbackEn: "View your listings",
-        })}
+        {safeT("marketplace_seller_cta_view_listings")}
       </SellerHubEmptyActionLink>
     ),
   };

@@ -27,25 +27,16 @@ export function MypageSelfProfileView({ profile }: { profile: ProfileRow }) {
       ) : null}
       <p className="mt-3 max-w-full truncate text-[14px] leading-relaxed text-sam-muted">
         {bio ||
-          safeT("mypage_profile_bio_empty", {
-            fallbackKo: "상태 메시지가 없습니다",
-            fallbackEn: "No status yet",
-          })}
+          safeT("mypage_profile_bio_empty")}
       </p>
       <div className="mt-8 flex w-full max-w-sm flex-col gap-2">
         {publicHref ? (
           <Link href={publicHref} className={`${Sam.btn.secondary} w-full justify-center`}>
-            {safeT("mypage_view_public_profile", {
-              fallbackKo: "공개 프로필 보기",
-              fallbackEn: "View public profile",
-            })}
+            {safeT("mypage_view_public_profile")}
           </Link>
         ) : null}
         <Link href={MYPAGE_PROFILE_EDIT_SHEET_HREF} className={`${Sam.btn.primary} w-full justify-center`}>
-          {safeT("mypage_settings_profile_edit", {
-            fallbackKo: "프로필 수정",
-            fallbackEn: "Edit profile",
-          })}
+          {safeT("mypage_settings_profile_edit")}
         </Link>
       </div>
     </div>

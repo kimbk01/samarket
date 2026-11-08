@@ -1040,10 +1040,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             0 ? (
               <div className="flex justify-between gap-3 text-sam-fg" data-order-gift-redemption="1">
                 <span>
-                  {safeT("gift_u4_order_gift_line", {
-                    fallbackKo: "상품권 사용",
-                    fallbackEn: "Gift certificate",
-                  })}
+                  {safeT("gift_u4_order_gift_line")}
                 </span>
                 <span className="font-medium text-sam-danger">
                   −
@@ -1063,10 +1060,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               return (
                 <div className="flex justify-between gap-3 text-sam-fg" data-order-gift-restored="1">
                   <span>
-                    {safeT("gift_u4_order_gift_restored", {
-                      fallbackKo: "상품권 복구",
-                      fallbackEn: "Gift restored",
-                    })}
+                    {safeT("gift_u4_order_gift_restored")}
                   </span>
                   <span className="font-medium text-sam-success">+{formatMoneyPhp(giftUsed)}</span>
                 </div>

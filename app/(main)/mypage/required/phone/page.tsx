@@ -9,10 +9,7 @@ export default function MypageRequiredPhonePage() {
   const { safeT } = useI18n();
   return (
     <MyScreen
-      title={safeT("mypage_required_phone", {
-        fallbackKo: "전화번호 인증",
-        fallbackEn: "Phone verification",
-      })}
+      title={safeT("mypage_required_phone")}
       template="form"
     >
       <MypageRequiredPhoneClient />

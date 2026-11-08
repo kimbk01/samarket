@@ -356,27 +356,18 @@ export default function MemberFeedAdRequestPage() {
       if (!check.ok) {
         if (check.error === "file_too_large") {
           setErr(
-            safeT("feed_ad_req_file_too_large", {
-              fallbackKo: "이미지는 최대 2MB까지 업로드할 수 있습니다.",
-              fallbackEn: "Images must be 2MB or smaller.",
-            })
+            safeT("feed_ad_req_file_too_large")
           );
         } else if (check.error === "invalid_type") {
           setErr(
-            safeT("feed_ad_req_invalid_type", {
-              fallbackKo: "JPG · PNG · WebP 만 업로드할 수 있습니다.",
-              fallbackEn: "Only JPG, PNG, or WebP are allowed.",
-            })
+            safeT("feed_ad_req_invalid_type")
           );
         } else if (check.error === "aspect_mismatch" || check.error === "below_min_pixels") {
           // FA-3: 3:1 · 최소 1200×400 — 서버와 같은 거부 문구
           setErr(feedAdUploadRejectMessage(check.error, en ? "en" : "ko"));
         } else {
           setErr(
-            safeT("feed_ad_req_upload_failed", {
-              fallbackKo: "이미지 업로드에 실패했습니다.",
-              fallbackEn: "Image upload failed.",
-            })
+            safeT("feed_ad_req_upload_failed")
           );
         }
         return;
@@ -406,10 +397,7 @@ export default function MemberFeedAdRequestPage() {
         setErr(
           geomCode
             ? feedAdUploadRejectMessage(geomCode, en ? "en" : "ko")
-            : safeT("feed_ad_req_upload_failed", {
-                fallbackKo: "이미지 업로드에 실패했습니다.",
-                fallbackEn: "Image upload failed.",
-              })
+            : safeT("feed_ad_req_upload_failed")
         );
         return;
       }
@@ -442,46 +430,31 @@ export default function MemberFeedAdRequestPage() {
     }
     if (!creatives.some((c) => c.imageUrl.trim())) {
       setErr(
-        safeT("feed_ad_req_need_image", {
-          fallbackKo: "배너 이미지를 최소 1장 올려 주세요.",
-          fallbackEn: "Upload at least one banner image.",
-        })
+        safeT("feed_ad_req_need_image")
       );
       return;
     }
     if (placement === "TRADE_CATEGORY" && !categoryId.trim()) {
       setErr(
-        safeT("feed_ad_req_need_category", {
-          fallbackKo: "광고할 카테고리를 선택하세요.",
-          fallbackEn: "Select a category.",
-        })
+        safeT("feed_ad_req_need_category")
       );
       return;
     }
     if (placement === "COMMUNITY_TOPIC" && !topicSlug.trim()) {
       setErr(
-        safeT("feed_ad_req_need_topic", {
-          fallbackKo: "광고할 주제를 선택하세요.",
-          fallbackEn: "Select a topic.",
-        })
+        safeT("feed_ad_req_need_topic")
       );
       return;
     }
     if (destMode === "external_url" && !/^https?:\/\//i.test(destUrl.trim())) {
       setErr(
-        safeT("feed_ad_req_need_https", {
-          fallbackKo: "외부 링크는 https:// 로 시작해야 합니다.",
-          fallbackEn: "External links must start with https://",
-        })
+        safeT("feed_ad_req_need_https")
       );
       return;
     }
     if (destMode === "own_content" && !ownId.trim()) {
       setErr(
-        safeT("feed_ad_req_need_own", {
-          fallbackKo: "연결할 내 게시글/상품을 선택하세요.",
-          fallbackEn: "Select your post or listing.",
-        })
+        safeT("feed_ad_req_need_own")
       );
       return;
     }
@@ -547,24 +520,15 @@ export default function MemberFeedAdRequestPage() {
           setErr(t("points_ui_insufficient"));
         } else if (code === "invalid_url_scheme" || code === "invalid_url") {
           setErr(
-            safeT("feed_ad_req_invalid_dest", {
-              fallbackKo: "연결 대상이 올바르지 않습니다.",
-              fallbackEn: "Invalid destination.",
-            })
+            safeT("feed_ad_req_invalid_dest")
           );
         } else if (code === "creatives_max_three" || code === "creatives_max_one") {
           setErr(
-            safeT("feed_ad_req_need_image", {
-              fallbackKo: "배너 이미지는 최대 3장까지 등록할 수 있습니다.",
-              fallbackEn: "You can upload up to 3 banner images.",
-            })
+            safeT("feed_ad_req_need_image")
           );
         } else if (code === "current_banner_exists") {
           setErr(
-            safeT("feed_ad_req_current_exists", {
-              fallbackKo: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
-              fallbackEn: "You already have a current banner ad. Manage it from My ads.",
-            })
+            safeT("feed_ad_req_current_exists")
           );
         } else {
           // 서버 오류 코드 원문 노출 금지
@@ -601,27 +565,15 @@ export default function MemberFeedAdRequestPage() {
   if (currentBanner) {
     const statusLabel =
       currentBanner.displayStatus === "pending_review"
-        ? safeT("revenue_hub_status_pending", {
-            fallbackKo: "심사중",
-            fallbackEn: "Under review",
-          })
+        ? safeT("revenue_hub_status_pending")
         : currentBanner.displayStatus === "scheduled"
-          ? safeT("revenue_hub_status_scheduled", {
-              fallbackKo: "예약됨",
-              fallbackEn: "Scheduled",
-            })
-          : safeT("revenue_hub_status_active", {
-              fallbackKo: "광고중",
-              fallbackEn: "Active",
-            });
+          ? safeT("revenue_hub_status_scheduled")
+          : safeT("revenue_hub_status_active");
     return (
-      <MyScreen title={safeT("feed_ad_req_title", { fallbackKo: "배너 광고 만들기", fallbackEn: "Create banner ad" })} backHref={"/mypage/ads"} template="form">
+      <MyScreen title={safeT("feed_ad_req_title")} backHref={"/mypage/ads"} template="form">
       <div className="space-y-4">
           <p className="sam-text-body text-sam-fg">
-            {safeT("feed_ad_req_current_exists", {
-              fallbackKo: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
-              fallbackEn: "You already have a current banner ad. Manage it from My ads.",
-            })}
+            {safeT("feed_ad_req_current_exists")}
           </p>
           <p className="sam-text-helper text-sam-muted" data-testid="feed-ad-current-status">
             {statusLabel}
@@ -630,10 +582,7 @@ export default function MemberFeedAdRequestPage() {
             href="/mypage/ads#feed-ad-status"
             className="block w-full rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-semibold text-white"
           >
-            {safeT("revenue_hub_banner_manage_cta", {
-              fallbackKo: "현재 광고 관리",
-              fallbackEn: "Manage current ad",
-            })}
+            {safeT("revenue_hub_banner_manage_cta")}
           </Link>
         </div>
     </MyScreen>
@@ -648,11 +597,11 @@ export default function MemberFeedAdRequestPage() {
         sourceSurface: "mypage_feed_ad_request",
       })}
     >
-    <MyScreen title={safeT("feed_ad_req_title", { fallbackKo: "배너 광고 만들기", fallbackEn: "Create banner ad" })} backHref={"/mypage/ads"} template="form">
+    <MyScreen title={safeT("feed_ad_req_title")} backHref={"/mypage/ads"} template="form">
       <div className={`space-y-4 ${stickyCtaBodyClearanceClass}`}>
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
-            {safeT("feed_ad_req_domain", { fallbackKo: "1. 광고 영역", fallbackEn: "1. Ad area" })}
+            {safeT("feed_ad_req_domain")}
           </h2>
           <div className="flex gap-2">
             {(["community", "trade"] as const).map((d) => (
@@ -671,11 +620,8 @@ export default function MemberFeedAdRequestPage() {
                 }}
               >
                 {d === "trade"
-                  ? safeT("feed_ad_req_trade", { fallbackKo: "거래", fallbackEn: "Trade" })
-                  : safeT("feed_ad_req_community", {
-                      fallbackKo: "커뮤니티",
-                      fallbackEn: "Community",
-                    })}
+                  ? safeT("feed_ad_req_trade")
+                  : safeT("feed_ad_req_community")}
               </button>
             ))}
           </div>
@@ -683,10 +629,7 @@ export default function MemberFeedAdRequestPage() {
 
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
-            {safeT("feed_ad_req_place", {
-              fallbackKo: "2. 광고 위치 / 대상",
-              fallbackEn: "2. Placement / target",
-            })}
+            {safeT("feed_ad_req_place")}
           </h2>
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2">
@@ -702,14 +645,8 @@ export default function MemberFeedAdRequestPage() {
               />
               <span>
                 {domain === "trade"
-                  ? safeT("feed_ad_req_trade_home", {
-                      fallbackKo: "거래 홈",
-                      fallbackEn: "Trade home",
-                    })
-                  : safeT("feed_ad_req_community_home", {
-                      fallbackKo: "커뮤니티 홈",
-                      fallbackEn: "Community home",
-                    })}
+                  ? safeT("feed_ad_req_trade_home")
+                  : safeT("feed_ad_req_community_home")}
               </span>
             </label>
             <label className="flex items-center gap-2 rounded-ui-rect border border-sam-border px-3 py-2">
@@ -721,24 +658,15 @@ export default function MemberFeedAdRequestPage() {
               />
               <span>
                 {domain === "trade"
-                  ? safeT("feed_ad_req_trade_cat_feed", {
-                      fallbackKo: "카테고리별 피드",
-                      fallbackEn: "Category feed",
-                    })
-                  : safeT("feed_ad_req_community_topic_feed", {
-                      fallbackKo: "주제별 피드",
-                      fallbackEn: "Topic feed",
-                    })}
+                  ? safeT("feed_ad_req_trade_cat_feed")
+                  : safeT("feed_ad_req_community_topic_feed")}
               </span>
             </label>
           </div>
           {surface === "targeted" && domain === "trade" ? (
             <label className="block space-y-1">
               <span className="sam-text-helper font-medium">
-                {safeT("feed_ad_req_pick_category", {
-                  fallbackKo: "광고할 카테고리 *",
-                  fallbackEn: "Category *",
-                })}
+                {safeT("feed_ad_req_pick_category")}
               </span>
               <select
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -758,10 +686,7 @@ export default function MemberFeedAdRequestPage() {
           {surface === "targeted" && domain === "community" ? (
             <label className="block space-y-1">
               <span className="sam-text-helper font-medium">
-                {safeT("feed_ad_req_pick_topic", {
-                  fallbackKo: "광고할 주제 *",
-                  fallbackEn: "Topic *",
-                })}
+                {safeT("feed_ad_req_pick_topic")}
               </span>
               <select
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
@@ -806,16 +731,10 @@ export default function MemberFeedAdRequestPage() {
 
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
-            {safeT("feed_ad_req_images", {
-              fallbackKo: "3. 배너 이미지 (1~3장)",
-              fallbackEn: "3. Banner images (1–3)",
-            })}
+            {safeT("feed_ad_req_images")}
           </h2>
           <p className="sam-text-helper text-sam-muted">
-            {safeT("feed_ad_req_pixel", {
-              fallbackKo: `권장 이미지 크기 ${pixelLabel}`,
-              fallbackEn: `Recommended size ${pixelLabel}`,
-            })}
+            {safeT("feed_ad_req_pixel")}
           </p>
           <p className="sam-text-helper text-sam-muted">
             JPG · PNG · WebP · {en ? "max 2MB each · 2–3 images auto-slide in feed" : "장당 최대 2MB · 2~3장은 피드에서 자동 슬라이드"}
@@ -823,10 +742,7 @@ export default function MemberFeedAdRequestPage() {
 
           <div className="space-y-2">
             <p className="sam-text-helper font-medium">
-              {safeT("feed_ad_req_sample_title", {
-                fallbackKo: "배너 이미지 예시",
-                fallbackEn: "Banner image example",
-              })}
+              {safeT("feed_ad_req_sample_title")}
             </p>
             <button
               type="button"
@@ -834,8 +750,8 @@ export default function MemberFeedAdRequestPage() {
               onClick={() => setShowSample((v) => !v)}
             >
               {showSample
-                ? safeT("feed_ad_req_sample_hide", { fallbackKo: "샘플 숨기기", fallbackEn: "Hide sample" })
-                : safeT("feed_ad_req_sample_show", { fallbackKo: "샘플 보기", fallbackEn: "Show sample" })}
+                ? safeT("feed_ad_req_sample_hide")
+                : safeT("feed_ad_req_sample_show")}
             </button>
             {showSample ? (
               <div data-testid="feed-ad-sample-preview">
@@ -882,10 +798,7 @@ export default function MemberFeedAdRequestPage() {
                     ? en
                       ? "Replace image"
                       : "이미지 바꾸기"
-                    : safeT("feed_ad_req_pick_image", {
-                        fallbackKo: "이미지 불러오기",
-                        fallbackEn: "Choose image",
-                      })}
+                    : safeT("feed_ad_req_pick_image")}
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -943,7 +856,7 @@ export default function MemberFeedAdRequestPage() {
 
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
-            {safeT("feed_ad_req_dest", { fallbackKo: "4. 연결 대상", fallbackEn: "4. Destination" })}
+            {safeT("feed_ad_req_dest")}
           </h2>
           <div className="flex flex-col gap-2">
             {(
@@ -1086,16 +999,10 @@ export default function MemberFeedAdRequestPage() {
 
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
-            {safeT("feed_ad_req_product", {
-              fallbackKo: "5. 기간 / 포인트",
-              fallbackEn: "5. Period / Point",
-            })}
+            {safeT("feed_ad_req_product")}
           </h2>
           <p className="sam-text-body font-medium" data-testid="feed-ad-balance">
-            {safeT("feed_ad_req_my_points", {
-              fallbackKo: "내 포인트",
-              fallbackEn: "My Point",
-            })}
+            {safeT("feed_ad_req_my_points")}
             {": "}
             {balance == null ? "—" : formatMypagePoint(balance, { lang: language })}
           </p>
@@ -1159,20 +1066,14 @@ export default function MemberFeedAdRequestPage() {
           {allUnaffordable || (balance != null && catalog.some((p) => p.pointCost > balance)) ? (
             <div className="space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
               <p className="sam-text-helper text-sam-muted">
-                {safeT("feed_ad_req_need_charge", {
-                  fallbackKo: "포인트가 부족합니다.",
-                  fallbackEn: "Not enough Point.",
-                })}
+                {safeT("feed_ad_req_need_charge")}
               </p>
               <Link
                 href="/mypage/points/charge"
                 className="inline-flex w-full items-center justify-center rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white"
                 data-testid="feed-ad-charge-cta"
               >
-                {safeT("feed_ad_req_charge_cta", {
-                  fallbackKo: "포인트 충전",
-                  fallbackEn: "Charge Point",
-                })}
+                {safeT("feed_ad_req_charge_cta")}
               </Link>
               <button
                 type="button"
@@ -1188,10 +1089,7 @@ export default function MemberFeedAdRequestPage() {
                   );
                 }}
               >
-                {safeT("feed_ad_req_ask_admin", {
-                  fallbackKo: "광고 문의",
-                  fallbackEn: "Ad inquiry",
-                })}
+                {safeT("feed_ad_req_ask_admin")}
               </button>
             </div>
           ) : null}
@@ -1199,10 +1097,7 @@ export default function MemberFeedAdRequestPage() {
 
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
-            {safeT("feed_ad_req_preview", {
-              fallbackKo: "6. 미리보기 + 신청 확인",
-              fallbackEn: "6. Preview + confirm",
-            })}
+            {safeT("feed_ad_req_preview")}
           </h2>
           {filledCreatives.length > 0 ? (
             <div className="space-y-2" data-testid="feed-ad-final-preview">
@@ -1232,10 +1127,7 @@ export default function MemberFeedAdRequestPage() {
             />
           ) : (
             <p className="sam-text-helper text-sam-muted">
-              {safeT("feed_ad_req_preview_empty", {
-                fallbackKo: "이미지를 올리면 피드와 같은 미리보기가 표시됩니다.",
-                fallbackEn: "Upload an image to see a feed-style preview.",
-              })}
+              {safeT("feed_ad_req_preview_empty")}
             </p>
           )}
 
@@ -1299,12 +1191,7 @@ export default function MemberFeedAdRequestPage() {
           </dl>
 
           <p className="sam-text-helper text-sam-muted">
-            {safeT("feed_ad_req_hold_note", {
-              fallbackKo:
-                "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
-              fallbackEn:
-                "Point is held on submit, captured on approval, and returned if rejected.",
-            })}
+            {safeT("feed_ad_req_hold_note")}
           </p>
         </section>
 
@@ -1319,10 +1206,7 @@ export default function MemberFeedAdRequestPage() {
       <MyStickyCta
         dirty={canSubmit}
         primary={{
-          label: safeT("feed_ad_req_submit", {
-            fallbackKo: "광고 신청",
-            fallbackEn: "Submit ad request",
-          }),
+          label: safeT("feed_ad_req_submit"),
           onPress: () => void submitGuard.run(() => submit()),
           loading: busy || submitGuard.pending,
           disabled: busy || submitGuard.pending,

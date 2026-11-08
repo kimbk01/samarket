@@ -207,17 +207,11 @@ export function ProfileDibayIdSection({
         } else if (code === "dibay_id_similar_taken") {
           setAvailable(false);
           setError(
-            safeT("profile_edit_dibay_id_err_similar", {
-              fallbackKo: "비슷한 아이디(점·밑줄만 다름)가 이미 있습니다. 다른 아이디를 입력하세요.",
-              fallbackEn: "A similar ID (differing only by . or _) already exists. Try another ID.",
-            })
+            safeT("profile_edit_dibay_id_err_similar")
           );
         } else if (code === "dibay_id_already_locked" || code === "dibay_id_change_limit") {
           setError(
-            safeT("profile_edit_dibay_id_err_change_limit", {
-              fallbackKo: "아이디는 1회만 변경할 수 있습니다.",
-              fallbackEn: "You can change your ID only once.",
-            })
+            safeT("profile_edit_dibay_id_err_change_limit")
           );
         } else {
           setError(t("profile_edit_dibay_id_err_confirm_failed"));
@@ -247,20 +241,14 @@ export function ProfileDibayIdSection({
       const json = (await res.json().catch(() => null)) as { ok?: boolean; dibay_id?: string; error?: string } | null;
       if (!res.ok || !json?.ok || !json.dibay_id) {
         setError(
-          safeT("profile_edit_dibay_id_err_recover_failed", {
-            fallbackKo: "아이디를 자동으로 복구하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-            fallbackEn: "Could not restore your ID automatically. Please try again.",
-          })
+          safeT("profile_edit_dibay_id_err_recover_failed")
         );
         return;
       }
       await onConfirmed(json.dibay_id);
     } catch {
       setError(
-        safeT("profile_edit_dibay_id_err_recover_failed", {
-          fallbackKo: "아이디를 자동으로 복구하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-          fallbackEn: "Could not restore your ID automatically. Please try again.",
-        })
+        safeT("profile_edit_dibay_id_err_recover_failed")
       );
     } finally {
       setRecovering(false);
@@ -279,10 +267,7 @@ export function ProfileDibayIdSection({
 
   const canConfirm = Boolean(normalized) && available === true && !checking && !submitting;
   const confirmLabel = publicIdView.canChangeOnce
-    ? safeT("profile_edit_dibay_id_change_confirm_btn", {
-        fallbackKo: "1회 변경 확정",
-        fallbackEn: "Confirm change",
-      })
+    ? safeT("profile_edit_dibay_id_change_confirm_btn")
     : t("profile_edit_dibay_id_confirm_btn");
   const showInputError = Boolean(error) || available === false;
 
@@ -346,19 +331,13 @@ export function ProfileDibayIdSection({
             setError(null);
           }}
           onFocus={scrollInputAboveKeyboard}
-          placeholder={safeT("profile_edit_dibay_id_placeholder", {
-            fallbackKo: "아이디 입력",
-            fallbackEn: "Enter ID",
-          })}
+          placeholder={safeT("profile_edit_dibay_id_placeholder")}
           aria-invalid={showInputError}
           className={`${inputClass} text-[16px] ${showInputError ? inputErrorClass : ""}`}
         />
         <p className={`mt-1 ${cls.helper}`}>
           {publicIdView.canChangeOnce
-            ? safeT("profile_edit_dibay_id_change_once_helper", {
-                fallbackKo: "원하는 @아이디로 1회 변경할 수 있습니다.",
-                fallbackEn: "You can change to a custom @ ID once.",
-              })
+            ? safeT("profile_edit_dibay_id_change_once_helper")
             : t("profile_edit_dibay_id_helper")}
         </p>
       </div>
@@ -384,10 +363,7 @@ export function ProfileDibayIdSection({
     return (
       <div className={wrapClass} data-profile-field="dibay_id" data-state="recovery">
         <p className={cls.helper}>
-          {safeT("mypage_required_dibay_id_recover_hint", {
-            fallbackKo: "아이디가 없습니다. 자동으로 아이디를 부여해 주세요.",
-            fallbackEn: "No ID found. Assign an ID automatically.",
-          })}
+          {safeT("mypage_required_dibay_id_recover_hint")}
         </p>
         {error ? (
           <p className={`mt-2 ${cls.danger}`} role="alert">
@@ -406,10 +382,7 @@ export function ProfileDibayIdSection({
         >
           {recovering
             ? t("profile_edit_saving")
-            : safeT("mypage_required_dibay_id_recover_btn", {
-                fallbackKo: "자동 부여",
-                fallbackEn: "Assign automatically",
-              })}
+            : safeT("mypage_required_dibay_id_recover_btn")}
         </button>
       </div>
     );
@@ -425,14 +398,8 @@ export function ProfileDibayIdSection({
         <p className={`mt-1 ${cls.idText}`}>{publicIdView.atDisplay}</p>
         <p className={`mt-1 ${cls.helper}`}>
           {publicIdView.autoAssigned
-            ? safeT("mypage_required_dibay_id_auto_assigned_hint", {
-                fallbackKo: "자동 부여된 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
-                fallbackEn: "This ID was assigned automatically. You can change it once.",
-              })
-            : safeT("mypage_required_dibay_id_change_available_hint", {
-                fallbackKo: "현재 아이디입니다. 원하시면 1회 변경할 수 있습니다.",
-                fallbackEn: "This is your current ID. You can change it once.",
-              })}
+            ? safeT("mypage_required_dibay_id_auto_assigned_hint")
+            : safeT("mypage_required_dibay_id_change_available_hint")}
         </p>
         {!showChangeForm ? (
           <button
@@ -444,10 +411,7 @@ export function ProfileDibayIdSection({
                 : "mt-3 text-[13px] font-semibold text-sam-primary underline underline-offset-2"
             }
           >
-            {safeT("mypage_required_dibay_id_change_once_action", {
-              fallbackKo: "1회 변경",
-              fallbackEn: "Change once",
-            })}
+            {safeT("mypage_required_dibay_id_change_once_action")}
           </button>
         ) : (
           <div className="mt-4">{changeForm}</div>
@@ -462,10 +426,7 @@ export function ProfileDibayIdSection({
         <p className={`mt-1 ${cls.idText}`}>{publicIdView.atDisplay}</p>
         <p className={`mt-1 ${cls.helper}`}>
           {publicIdView.changeComplete
-            ? safeT("mypage_required_dibay_id_change_complete_hint", {
-                fallbackKo: "아이디 변경이 완료되었습니다. 다시 변경할 수 없습니다.",
-                fallbackEn: "Your ID change is complete. It cannot be changed again.",
-              })
+            ? safeT("mypage_required_dibay_id_change_complete_hint")
             : t("profile_edit_dibay_id_locked_hint")}
         </p>
       </div>

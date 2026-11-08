@@ -124,12 +124,7 @@ export function MemberCsNoteThreadClient({
             </ul>
           )}
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-3 text-sm text-sam-muted">
-            {safeT("support_legacy_archive_hint", {
-              fallbackKo:
-                "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
-              fallbackEn:
-                "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
-            })}
+            {safeT("support_legacy_archive_hint")}
           </div>
     </>
   );
@@ -141,10 +136,7 @@ export function MemberCsNoteThreadClient({
         title={loading
           ? ""
           : (thread?.subject ??
-            safeT("support_legacy_archive_title", {
-              fallbackKo: "이전 문의 기록",
-              fallbackEn: "Previous inquiry archive",
-            }))}
+            safeT("support_legacy_archive_title"))}
         backHref={listHref}
         preferHistoryBack={false}
         template="detail"

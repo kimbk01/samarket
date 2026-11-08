@@ -201,7 +201,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
           {n.title}
         </Link>
       ) : (
-        <span className="text-[13px] text-sam-muted">{safeT("cc_detail_no_neighbor", { fallbackKo: "없음", fallbackEn: "None" })}</span>
+        <span className="text-[13px] text-sam-muted">{safeT("cc_detail_no_neighbor")}</span>
       )}
     </div>
   );
@@ -230,10 +230,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         kind="error"
         template="detail"
         error={{
-          message: safeT("settings_notices_load_failed", {
-            fallbackKo: "글을 불러오지 못했습니다",
-            fallbackEn: "Could not load this post",
-          }),
+          message: safeT("settings_notices_load_failed"),
           onRetry: () => setReloadKey((k) => k + 1),
         }}
       />
@@ -250,11 +247,7 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
               notice.authorLabel,
               formatMypageDate(notice.createdAt),
               typeof views === "number"
-                ? safeT("cc_detail_views", {
-                    fallbackKo: `조회 ${views}`,
-                    fallbackEn: `Views ${views}`,
-                    vars: { count: views },
-                  })
+                ? safeT("cc_detail_views", { vars: { count: views } })
                 : null,
             ]
               .filter(Boolean)
@@ -287,19 +280,15 @@ function Inner({ contentType, contentId }: { contentType?: CustomerCenterContent
         )}
         {/* 알림 최종 설계 §5 — 이전/다음 글 + 「○○ 목록」. 실기 2026-11-01: 댓글 아래에 두면 고정 댓글 입력줄·하단 탭에 가려져 본문 바로 아래로 옮김 */}
         <div className="rounded-ui-rect border border-sam-border-soft" data-testid="cc-detail-neighbors">
-          {neighborRow(safeT("cc_detail_prev", { fallbackKo: "이전 글", fallbackEn: "Previous" }), neighbors.prev, "cc-detail-prev")}
-          {neighborRow(safeT("cc_detail_next", { fallbackKo: "다음 글", fallbackEn: "Next" }), neighbors.next, "cc-detail-next")}
+          {neighborRow(safeT("cc_detail_prev"), neighbors.prev, "cc-detail-prev")}
+          {neighborRow(safeT("cc_detail_next"), neighbors.next, "cc-detail-next")}
         </div>
         <Link
           href={listHref}
           className={`${Sam.btn.primaryCombo} ${Sam.focusRing} flex min-h-12 w-full items-center justify-center`}
           data-testid="cc-detail-list-cta"
         >
-          {safeT("cc_detail_to_list", {
-            fallbackKo: `${boardLabel} 목록`,
-            fallbackEn: `${boardLabel} list`,
-            vars: { board: boardLabel },
-          })}
+          {safeT("cc_detail_to_list", { vars: { board: boardLabel } })}
         </Link>
         {!unavailable && notice.commentEnabled !== false ? (
           <CustomerCenterCommentsPanel

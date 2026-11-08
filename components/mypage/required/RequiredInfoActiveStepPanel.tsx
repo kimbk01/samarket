@@ -121,10 +121,7 @@ export function RequiredInfoActiveStepPanel({
   return (
     <div className="flex flex-col gap-4" data-testid="required-info-flow-step" data-step="address">
       <p className="sam-text-body text-sam-muted">
-        {safeT("mypage_required_flow_address_body", {
-          fallbackKo: "대표 주소를 등록해 주세요",
-          fallbackEn: "Add your default address",
-        })}
+        {safeT("mypage_required_flow_address_body")}
       </p>
       {addressMode === "sheet" && onAddressOpen ? (
         <button
@@ -133,10 +130,7 @@ export function RequiredInfoActiveStepPanel({
           data-testid="required-info-flow-address-cta"
           onClick={onAddressOpen}
         >
-          {safeT("mypage_required_flow_address_cta", {
-            fallbackKo: "주소 등록하기",
-            fallbackEn: "Add address",
-          })}
+          {safeT("mypage_required_flow_address_cta")}
         </button>
       ) : (
         <Link
@@ -144,17 +138,11 @@ export function RequiredInfoActiveStepPanel({
           className={`${PROFILE_EDIT_PRIMARY_BTN_CLASS} inline-flex items-center justify-center`}
           data-testid="required-info-flow-address-cta"
         >
-          {safeT("mypage_required_flow_address_cta", {
-            fallbackKo: "주소 등록하기",
-            fallbackEn: "Add address",
-          })}
+          {safeT("mypage_required_flow_address_cta")}
         </Link>
       )}
       <p className="sam-text-helper text-sam-muted">
-        {safeT("mypage_required_flow_address_return_hint", {
-          fallbackKo: "주소 등록 후 이 화면으로 돌아오면 다음 단계가 이어집니다.",
-          fallbackEn: "Return here after adding your address to continue.",
-        })}
+        {safeT("mypage_required_flow_address_return_hint")}
       </p>
     </div>
   );

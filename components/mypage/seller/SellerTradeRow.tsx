@@ -44,10 +44,7 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
 
   if (!hasChat) return null;
 
-  const chatCta = safeT("marketplace_seller_trade_chat_primary", {
-    fallbackKo: "거래 채팅",
-    fallbackEn: "Trade chat",
-  });
+  const chatCta = safeT("marketplace_seller_trade_chat_primary");
 
   return (
     <>

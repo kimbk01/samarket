@@ -196,12 +196,12 @@ function MemberCsNoteSection({
 
   const statusText = (status: string) =>
     status === "open"
-      ? safeT("mypage_cs_status_awaiting", { fallbackKo: "답변 대기", fallbackEn: "Awaiting reply" })
+      ? safeT("mypage_cs_status_awaiting")
       : status === "answered"
-        ? safeT("mypage_cs_status_answered", { fallbackKo: "답변 완료", fallbackEn: "Answered" })
+        ? safeT("mypage_cs_status_answered")
         : status === "closed"
-          ? safeT("mypage_cs_status_closed", { fallbackKo: "종료", fallbackEn: "Closed" })
-          : safeT("support_status_unknown", { fallbackKo: "확인 필요", fallbackEn: "Unknown" });
+          ? safeT("mypage_cs_status_closed")
+          : safeT("support_status_unknown");
 
   return (
     <section
@@ -225,10 +225,7 @@ function MemberCsNoteSection({
         <MyStateView kind="error" template="list" error={{ message: error, onRetry: () => void load() }} />
       ) : threads.length === 0 ? (
         <p className={CC_NOTE_CLASS}>
-          {safeT("mypage_cs_notes_empty", {
-            fallbackKo: "내역이 없습니다",
-            fallbackEn: "No messages yet",
-          })}
+          {safeT("mypage_cs_notes_empty")}
         </p>
       ) : (
         <ul className={CC_CARD_CLASS}>
@@ -263,10 +260,7 @@ function MemberCsNoteSection({
                 onClick={() => setArchiveId(th.id)}
                 className="min-h-11 shrink-0 rounded-ui-rect border border-sam-border-soft px-2.5 text-[11px] text-sam-muted disabled:opacity-50"
               >
-                {safeT("mypage_cs_archive", {
-                  fallbackKo: "보관",
-                  fallbackEn: "Archive",
-                })}
+                {safeT("mypage_cs_archive")}
               </button>
             </li>
           ))}

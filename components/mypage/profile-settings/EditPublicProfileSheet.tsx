@@ -175,10 +175,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
       const fresh = await fetchMeProfileFresh("mypage_profile_edit_verify");
       if (!fresh) {
         setError(
-          safeT("profile_edit_verify_failed", {
-            fallbackKo: "저장 결과를 확인하지 못했습니다. 잠시 후 다시 열어 확인해 주세요.",
-            fallbackEn: "Could not confirm the saved result. Please reopen and check again.",
-          }),
+          safeT("profile_edit_verify_failed"),
         );
         return;
       }
@@ -188,10 +185,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
       applyFreshProfileEverywhere(fresh);
       if (!nicknameOk || !bioOk) {
         setError(
-          safeT("profile_edit_verify_mismatch", {
-            fallbackKo: "저장된 내용이 입력과 다릅니다. 다시 확인해 주세요.",
-            fallbackEn: "The saved value differs from your input. Please check again.",
-          }),
+          safeT("profile_edit_verify_mismatch"),
         );
         return;
       }

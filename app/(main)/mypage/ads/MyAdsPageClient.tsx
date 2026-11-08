@@ -255,14 +255,8 @@ export default function MyAdsPageClient() {
       if (!res.ok || !j.ok) {
         const msg =
           j.error === "not_pending"
-            ? safeT("feed_ad_cancel_not_pending", {
-                fallbackKo: "이미 처리된 신청입니다.",
-                fallbackEn: "This request is no longer pending.",
-              })
-            : safeT("feed_ad_cancel_failed", {
-                fallbackKo: "신청 취소에 실패했습니다.",
-                fallbackEn: "Could not cancel the request.",
-              });
+            ? safeT("feed_ad_cancel_not_pending")
+            : safeT("feed_ad_cancel_failed");
         setActionErr(msg);
         showMypageToast(msg, "error");
         return;
@@ -349,10 +343,7 @@ export default function MyAdsPageClient() {
         /** 응답 없음 — 서버가 처리했는지 모른다. 키를 남겨 두고 다시 누르면 같은 결제로 확인한다. */
         attempts.settleIfFinal(null);
         setActionErr(
-          safeT("feed_ad_renew_result_unknown", {
-            fallbackKo: "연장 결과를 확인하지 못했습니다. 다시 누르면 같은 결제로 확인합니다.",
-            fallbackEn: "We could not confirm the renewal. Tap again to check the same payment.",
-          })
+          safeT("feed_ad_renew_result_unknown")
         );
         return;
       }
@@ -376,19 +367,13 @@ export default function MyAdsPageClient() {
             )
           );
           setActionErr(
-            safeT("feed_ad_renew_price_changed", {
-              fallbackKo: "가격이 바뀌었습니다. 결제되지 않았습니다. 새 가격을 확인하고 다시 눌러 주세요.",
-              fallbackEn: "The price has changed. You were not charged. Check the new price and tap again.",
-            })
+            safeT("feed_ad_renew_price_changed")
           );
           return;
         }
         if (j.error === "idempotency_consumed") {
           setRenewTarget(null);
-          const msg = safeT("feed_ad_renew_already_processed", {
-            fallbackKo: "이미 처리된 연장입니다. 목록을 다시 불러왔습니다.",
-            fallbackEn: "This renewal was already processed. The list has been refreshed.",
-          });
+          const msg = safeT("feed_ad_renew_already_processed");
           setActionErr(msg);
           showMypageToast(msg, "success");
           await load({ silent: true });
@@ -396,10 +381,7 @@ export default function MyAdsPageClient() {
         }
         if (res.status >= 500) {
           setActionErr(
-            safeT("feed_ad_renew_result_unknown", {
-              fallbackKo: "연장 결과를 확인하지 못했습니다. 다시 누르면 같은 결제로 확인합니다.",
-              fallbackEn: "We could not confirm the renewal. Tap again to check the same payment.",
-            })
+            safeT("feed_ad_renew_result_unknown")
           );
           return;
         }
@@ -407,31 +389,19 @@ export default function MyAdsPageClient() {
           setActionErr(t("points_ui_insufficient"));
         } else if (j.error === "admin_paused" || j.error === "admin_ended") {
           setActionErr(
-            safeT("feed_ad_renew_admin_blocked", {
-              fallbackKo: "운영자가 멈추거나 종료한 광고라 연장할 수 없습니다. 고객센터로 문의해 주세요.",
-              fallbackEn: "This ad was paused or ended by the operator and cannot be renewed. Please contact support.",
-            })
+            safeT("feed_ad_renew_admin_blocked")
           );
         } else if (j.error === "capacity_full") {
           setActionErr(
-            safeT("feed_ad_renew_capacity_full", {
-              fallbackKo: "지금 이 자리의 광고가 모두 찼습니다. 연장되지 않았고 포인트는 그대로입니다.",
-              fallbackEn: "This ad spot is full right now. Not renewed; your points are unchanged.",
-            })
+            safeT("feed_ad_renew_capacity_full")
           );
         } else if (j.error === "re_review_required") {
           setActionErr(
-            safeT("feed_ad_renew_rereview", {
-              fallbackKo: "이미지·연결을 바꾸려면 새 광고 신청이 필요합니다.",
-              fallbackEn: "To change creative or destination, submit a new ad request.",
-            })
+            safeT("feed_ad_renew_rereview")
           );
         } else {
           setActionErr(
-            safeT("feed_ad_renew_failed", {
-              fallbackKo: "연장에 실패했습니다.",
-              fallbackEn: "Renewal failed.",
-            })
+            safeT("feed_ad_renew_failed")
           );
         }
         return;
@@ -509,7 +479,7 @@ export default function MyAdsPageClient() {
 
   return (
     <MyScreen
-      title={safeT("revenue_hub_title", { fallbackKo: "내 광고", fallbackEn: "My promotions / ads" })}
+      title={safeT("revenue_hub_title")}
       template="list"
       headerRight={applyButton}
     >
@@ -636,7 +606,7 @@ export default function MyAdsPageClient() {
                             </p>
                           ) : (
                             <p className="sam-text-helper text-sam-muted">
-                              {safeT("revenue_hub_applied_at", { fallbackKo: "신청일", fallbackEn: "Applied" })}
+                              {safeT("revenue_hub_applied_at")}
                               {": "}
                               {fmtDate(a.createdAt) ?? "—"}
                             </p>
@@ -729,14 +699,11 @@ export default function MyAdsPageClient() {
                             className="mt-1 inline-block sam-text-helper font-medium text-sam-primary underline"
                             data-testid="revenue-hub-feed-ad-surface-link"
                           >
-                            {safeT("revenue_hub_feed_surface_cta", {
-                              fallbackKo: "게재 위치 보기",
-                              fallbackEn: "View placement",
-                            })}
+                            {safeT("revenue_hub_feed_surface_cta")}
                           </a>
                         )}
                         <p className="mt-0.5 sam-text-helper text-sam-muted">
-                          {safeT("revenue_hub_applied_at", { fallbackKo: "신청일", fallbackEn: "Applied" })}
+                          {safeT("revenue_hub_applied_at")}
                           {": "}
                           {fmtDate(r.createdAt) ?? "—"}
                           {" · "}
@@ -784,7 +751,7 @@ export default function MyAdsPageClient() {
                         >
                           {cancelBusyId === r.id
                             ? t("common_loading")
-                            : safeT("feed_ad_cancel_cta", { fallbackKo: "신청 취소", fallbackEn: "Cancel request" })}
+                            : safeT("feed_ad_cancel_cta")}
                         </button>
                       ) : null}
                       {(r.status === "rejected" || display === "ended" || display === "cancelled") && canCreateBanner ? (
@@ -793,7 +760,7 @@ export default function MyAdsPageClient() {
                           onClick={() => openApply("/mypage/ads/feed-request")}
                           className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border px-3 sam-text-helper"
                         >
-                          {safeT("feed_ad_recreate_cta", { fallbackKo: "다시 광고 만들기", fallbackEn: "Create again" })}
+                          {safeT("feed_ad_recreate_cta")}
                         </button>
                       ) : null}
                       {display === "active" ? (
@@ -802,7 +769,7 @@ export default function MyAdsPageClient() {
                           data-testid={`feed-ad-view-${r.id}`}
                           className="inline-flex min-h-[36px] items-center rounded-ui-rect bg-signature px-3 sam-text-helper font-medium text-sam-on-primary"
                         >
-                          {safeT("feed_ad_view_cta", { fallbackKo: "광고 보기", fallbackEn: "View ad" })}
+                          {safeT("feed_ad_view_cta")}
                         </Link>
                       ) : null}
                       {canRenew ? (
@@ -812,7 +779,7 @@ export default function MyAdsPageClient() {
                           className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-primary bg-sam-pressed-surface px-3 sam-text-helper font-medium text-sam-primary"
                           onClick={() => void openRenew(r)}
                         >
-                          {safeT("feed_ad_renew_cta", { fallbackKo: "연장하기", fallbackEn: "Renew" })}
+                          {safeT("feed_ad_renew_cta")}
                         </button>
                       ) : null}
                     </div>
@@ -845,10 +812,7 @@ export default function MyAdsPageClient() {
               <span className="flex flex-col items-center gap-0.5" data-testid="my-ads-banner-blocked">
                 <span>{t("mypage_oa_ads_kind_banner_cta")}</span>
                 <span className={OverlayUi.caption}>
-                  {safeT("feed_ad_req_current_exists", {
-                    fallbackKo: "현재 진행 중인 배너 광고가 있습니다. 내 광고에서 관리하세요.",
-                    fallbackEn: "You already have a current banner ad. Manage it from My ads.",
-                  })}
+                  {safeT("feed_ad_req_current_exists")}
                 </span>
               </span>
             ),
@@ -876,21 +840,12 @@ export default function MyAdsPageClient() {
       <DibayBottomSheet
         open={Boolean(renewTarget)}
         onClose={() => setRenewTarget(null)}
-        title={safeT("feed_ad_renew_title", {
-          fallbackKo: "광고 연장",
-          fallbackEn: "Renew ad",
-        })}
-        ariaLabel={safeT("feed_ad_renew_title", {
-          fallbackKo: "광고 연장",
-          fallbackEn: "Renew ad",
-        })}
+        title={safeT("feed_ad_renew_title")}
+        ariaLabel={safeT("feed_ad_renew_title")}
       >
         <div data-testid="feed-ad-renew-sheet">
           <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
-            {safeT("feed_ad_renew_hint", {
-              fallbackKo: "동일 이미지·연결로 기간을 연장합니다. 포인트가 즉시 사용됩니다.",
-              fallbackEn: "Extends the same creative and destination. Point is charged now.",
-            })}
+            {safeT("feed_ad_renew_hint")}
           </p>
           <div className="space-y-2">
             {renewCatalog.map((p) => (

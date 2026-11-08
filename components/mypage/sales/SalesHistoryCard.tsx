@@ -115,10 +115,7 @@ export function SalesHistoryCard({
             {t("mypage_comp_trade_at_line", { datetime: formatTradeListDatetime(tradeAt) })}
           </p>
           <p className="mt-1 sam-text-helper text-sam-fg">
-            {safeT("marketplace_seller_trade_status_label", {
-              fallbackKo: "거래 상태",
-              fallbackEn: "Trade status",
-            })}
+            {safeT("marketplace_seller_trade_status_label")}
             {": "}
             <span className="font-medium">{tradeBadge}</span>
           </p>
@@ -129,10 +126,7 @@ export function SalesHistoryCard({
             onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
             className="mt-2 inline-block sam-text-helper font-medium text-sam-muted underline-offset-2 hover:text-sam-fg hover:underline"
           >
-            {safeT("marketplace_seller_view_product", {
-              fallbackKo: "상품 보기",
-              fallbackEn: "View item",
-            })}
+            {safeT("marketplace_seller_view_product")}
           </Link>
         </div>
         <div className="relative shrink-0 pt-0.5" ref={menuRef}>
@@ -176,10 +170,7 @@ export function SalesHistoryCard({
       {hasChat ? (
         <div className="border-t border-sam-border-soft px-3 pb-3 pt-2">
           <Link href={chatHref} className={`${Sam.btn.primaryCombo} ${Sam.btn.block} py-2.5 text-center`}>
-            {safeT("marketplace_seller_trade_chat_primary", {
-              fallbackKo: "거래 채팅",
-              fallbackEn: "Trade chat",
-            })}
+            {safeT("marketplace_seller_trade_chat_primary")}
           </Link>
         </div>
       ) : null}

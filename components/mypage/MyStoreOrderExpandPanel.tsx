@@ -631,10 +631,7 @@ export function MyStoreOrderExpandPanel({
           0 ? (
             <div className="mt-1 flex justify-between gap-2 text-[color:var(--sol-panel-danger)]" data-order-gift-redemption="1">
               <span>
-                {safeT("gift_u4_order_gift_line", {
-                  fallbackKo: "상품권 사용",
-                  fallbackEn: "Gift certificate",
-                })}
+                {safeT("gift_u4_order_gift_line")}
               </span>
               <span>
                 −
@@ -657,10 +654,7 @@ export function MyStoreOrderExpandPanel({
             return (
               <div className="mt-1 flex justify-between gap-2 text-[color:var(--sol-panel-success)]" data-order-gift-restored="1">
                 <span>
-                  {safeT("gift_u4_order_gift_restored", {
-                    fallbackKo: "상품권 복구",
-                    fallbackEn: "Gift restored",
-                  })}
+                  {safeT("gift_u4_order_gift_restored")}
                 </span>
                 <span>+{formatMoneyPhp(giftUsed)}</span>
               </div>

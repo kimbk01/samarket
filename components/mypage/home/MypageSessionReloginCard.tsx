@@ -30,16 +30,10 @@ export function MypageSessionReloginCard() {
       role="alert"
     >
       <p className="text-[15px] font-semibold text-sam-danger">
-        {safeT("mypage_comp_profile_load_failed_short", {
-          fallbackKo: "프로필을 불러오지 못했어요. 다시 로그인해 주세요.",
-          fallbackEn: "Couldn't load your profile. Please sign in again.",
-        })}
+        {safeT("mypage_comp_profile_load_failed_short")}
       </p>
       <p className="mt-1.5 text-[13px] leading-5 text-sam-muted">
-        {safeT("auth_session_expired_notice", {
-          fallbackKo: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
-          fallbackEn: "Your session has expired. Please sign in again.",
-        })}
+        {safeT("auth_session_expired_notice")}
       </p>
       <button
         type="button"
@@ -48,14 +42,8 @@ export function MypageSessionReloginCard() {
         onClick={() => void onRelogin()}
       >
         {busy
-          ? safeT("common_loading", {
-              fallbackKo: "불러오는 중…",
-              fallbackEn: "Loading…",
-            })
-          : safeT("mypage_comp_session_relogin_cta", {
-              fallbackKo: "다시 로그인",
-              fallbackEn: "Sign in again",
-            })}
+          ? safeT("common_loading")
+          : safeT("mypage_comp_session_relogin_cta")}
       </button>
     </div>
   );

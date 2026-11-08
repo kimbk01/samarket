@@ -159,54 +159,39 @@ export function RequiredInfoList({
   const bundleComplete = completeCount === 3;
 
   const dibayIdBadge = !hasDibayId
-    ? safeT("mypage_required_status_needed", { fallbackKo: "필요", fallbackEn: "Required" })
+    ? safeT("mypage_required_status_needed")
     : publicIdView.autoAssigned && publicIdView.canChangeOnce
-      ? safeT("mypage_required_dibay_id_auto_assigned_badge", {
-          fallbackKo: "자동 부여됨",
-          fallbackEn: "Auto-assigned",
-        })
+      ? safeT("mypage_required_dibay_id_auto_assigned_badge")
       : publicIdView.changeComplete
-        ? safeT("mypage_required_dibay_id_change_complete_badge", {
-            fallbackKo: "변경 완료",
-            fallbackEn: "Change complete",
-          })
-        : safeT("mypage_required_status_done", { fallbackKo: "완료", fallbackEn: "Done" });
+        ? safeT("mypage_required_dibay_id_change_complete_badge")
+        : safeT("mypage_required_status_done");
 
   const dibayIdValue = hasDibayId
     ? publicIdView.atDisplay ?? resolvePublicIdAtDisplay(profile) ?? ""
-    : safeT("mypage_required_dibay_id_recover_hint", {
-        fallbackKo: "아이디가 없습니다. 복구가 필요합니다.",
-        fallbackEn: "No ID found. Recovery is required.",
-      });
+    : safeT("mypage_required_dibay_id_recover_hint");
 
   const addressValueText =
     addressLineState.status === "ready" && addressLineState.line?.trim()
       ? addressLineState.line.trim()
       : "";
 
-  const addressValue = addressValueText || safeT("mypage_comp_address_empty_required", {
-    fallbackKo: "대표 주소를 입력 바랍니다",
-    fallbackEn: "Please enter your primary address",
-  });
+  const addressValue = addressValueText || safeT("mypage_comp_address_empty_required");
 
   const rows: RequiredInfoRow[] = [
     {
       id: "dibay-id",
       icon: "user-round",
-      title: safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" }),
+      title: safeT("mypage_required_dibay_id"),
       state: hasDibayId ? "done" : "incomplete",
       badge: dibayIdBadge,
       value: dibayIdValue,
       ctaLabel: hasDibayId
         ? undefined
-        : safeT("mypage_required_dibay_id_recover_btn", { fallbackKo: "복구", fallbackEn: "Recover" }),
+        : safeT("mypage_required_dibay_id_recover_btn"),
       onCtaClick: hasDibayId ? undefined : () => openSheet("dibay-id"),
       changeLabel:
         hasDibayId && publicIdView.canChangeOnce
-          ? safeT("mypage_required_dibay_id_change_once_action", {
-              fallbackKo: "1회 변경",
-              fallbackEn: "Change once",
-            })
+          ? safeT("mypage_required_dibay_id_change_once_action")
           : undefined,
       onChangeClick:
         hasDibayId && publicIdView.canChangeOnce ? () => openSheet("dibay-id") : undefined,
@@ -214,37 +199,31 @@ export function RequiredInfoList({
     {
       id: "phone",
       icon: "phone",
-      title: safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" }),
+      title: safeT("mypage_required_phone"),
       state: phoneVerified ? "done" : "incomplete",
       badge: phoneVerified
-        ? safeT("mypage_required_status_phone_done", { fallbackKo: "인증 완료", fallbackEn: "Verified" })
-        : safeT("mypage_required_status_phone_needed", { fallbackKo: "인증 필요", fallbackEn: "Verification needed" }),
+        ? safeT("mypage_required_status_phone_done")
+        : safeT("mypage_required_status_phone_needed"),
       value: phoneVerified
         ? resolvePhoneDisplay(profile)
-        : safeT("mypage_required_phone_active_hint", {
-            fallbackKo: "전화번호 인증이 필요합니다.",
-            fallbackEn: "Phone verification is required.",
-          }),
-      ctaLabel: phoneVerified ? undefined : safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" }),
+        : safeT("mypage_required_phone_active_hint"),
+      ctaLabel: phoneVerified ? undefined : safeT("mypage_required_cta_verify"),
       onCtaClick: phoneVerified ? undefined : () => openSheet("phone"),
     },
     {
       id: "address",
       icon: "address-pin",
-      title: safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" }),
+      title: safeT("mypage_required_address"),
       state: hasDefaultAddress ? "done" : "incomplete",
       badge: hasDefaultAddress
-        ? safeT("mypage_required_status_address_done", { fallbackKo: "등록 완료", fallbackEn: "Registered" })
-        : safeT("mypage_required_status_address_needed", { fallbackKo: "등록 필요", fallbackEn: "Address needed" }),
+        ? safeT("mypage_required_status_address_done")
+        : safeT("mypage_required_status_address_needed"),
       value: hasDefaultAddress
         ? addressValue
-        : safeT("mypage_required_address_active_hint", {
-            fallbackKo: "대표 주소를 등록해 주세요.",
-            fallbackEn: "Please add your default address.",
-          }),
-      ctaLabel: hasDefaultAddress ? undefined : safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" }),
+        : safeT("mypage_required_address_active_hint"),
+      ctaLabel: hasDefaultAddress ? undefined : safeT("mypage_required_cta_register"),
       onCtaClick: hasDefaultAddress ? undefined : () => router.push(buildMypageAddressesHref("/mypage")),
-      changeLabel: hasDefaultAddress ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" }) : undefined,
+      changeLabel: hasDefaultAddress ? safeT("mypage_required_change_action") : undefined,
       onChangeClick: hasDefaultAddress ? () => router.push(buildMypageAddressesHref("/mypage")) : undefined,
     },
   ];
@@ -258,26 +237,17 @@ export function RequiredInfoList({
       {bundleComplete ? (
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-1.5`}>
           <p className={`${MYPAGE_HOME_SECTION_LABEL_CLASS} text-sam-primary`} data-testid="mypage-required-info-complete">
-            {safeT("mypage_required_bundle_complete", {
-              fallbackKo: "필수정보 · 완료",
-              fallbackEn: "Required info · Complete",
-            })}
+            {safeT("mypage_required_bundle_complete")}
           </p>
           <p className="text-[13px] leading-snug text-sam-muted">
-            {safeT("mypage_required_complete_desc", {
-              fallbackKo: "필수 정보가 모두 등록되었습니다.",
-              fallbackEn: "All required info has been completed.",
-            })}
+            {safeT("mypage_required_complete_desc")}
           </p>
         </div>
       ) : (
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-2.5`}>
           <div className="flex items-center justify-between gap-3">
             <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>
-              {safeT("mypage_required_section_title", {
-                fallbackKo: "필수 정보",
-                fallbackEn: "Required info",
-              })}
+              {safeT("mypage_required_section_title")}
             </h2>
             <span
               className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
@@ -288,10 +258,7 @@ export function RequiredInfoList({
             </span>
           </div>
           <p className="text-[13px] leading-snug text-sam-muted">
-            {safeT("mypage_required_incomplete_desc", {
-              fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
-              fallbackEn: "Complete the required items below to continue using the service.",
-            })}
+            {safeT("mypage_required_incomplete_desc")}
           </p>
         </div>
       )}
