@@ -1,26 +1,15 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * P0-B — Customer-facing commercial placement labels (Admin/Owner presentation).
  * Maps inventory_key → human copy. Does not own exposure max/interval.
  */
 
 /** Launch human labels (Recovery Audit) — never expose inventory keys as primary copy. */
 export const DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS = {
-  STORES_HOME_FEED: {
-    ko: "배달 홈 매장 광고",
-    en: "Delivery home store ads",
-  },
-  STORES_CATEGORY_FEED: {
-    ko: "업종 매장 광고",
-    en: "Category store ads",
-  },
-  STORES_HOME_HERO: {
-    ko: "배달 홈 상단 배너",
-    en: "Delivery home top banner",
-  },
-  STORES_SEARCH_TOP: {
-    ko: "검색 결과 상단 배너",
-    en: "Search results top banner",
-  },
+  STORES_HOME_FEED: catalogPair("stores_delivery_home_store_ads"),
+  STORES_CATEGORY_FEED: catalogPair("stores_category_store_ads"),
+  STORES_HOME_HERO: catalogPair("stores_delivery_home_top_banner"),
+  STORES_SEARCH_TOP: catalogPair("stores_search_results_top_banner"),
 } as const;
 
 export type DeliveryAdCommercialPlacementKey =

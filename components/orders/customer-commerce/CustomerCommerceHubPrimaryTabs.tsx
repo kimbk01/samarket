@@ -61,11 +61,7 @@ export function CustomerCommerceHubPrimaryTabs() {
                 selected ? "text-signature" : "text-sam-muted"
               }`}
             >
-              {safeT(TAB_KEY[id], {
-                fallbackKo:
-                  id === "orders" ? "주문 내역" : id === "coupons" ? "쿠폰" : "상품권",
-                fallbackEn: id === "orders" ? "Orders" : id === "coupons" ? "Coupons" : "Gifts",
-              })}
+              {safeT(TAB_KEY[id])}
               {selected ? (
                 <span
                   className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-signature sm:inset-x-2"

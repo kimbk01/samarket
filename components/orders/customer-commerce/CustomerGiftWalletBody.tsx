@@ -306,18 +306,7 @@ export function CustomerGiftWalletBody({
         activeId={giftTab}
         hrefFor={(id) => canonicalHubHref("gifts", { giftTab: id, from })}
         labelFor={(id) =>
-          safeT(TAB_KEY[id], {
-            fallbackKo:
-              id === "owned"
-                ? "보유"
-                : id === "received"
-                  ? "받은 선물"
-                  : id === "sent"
-                    ? "보낸 선물"
-                    : "사용 완료",
-            fallbackEn:
-              id === "owned" ? "Owned" : id === "received" ? "Received" : id === "sent" ? "Sent" : "Used",
-          })
+          safeT(TAB_KEY[id])
         }
         countFor={(id) => (ready && data ? counts[id] : null)}
         dataAttr="data-gift-wallet-tab"

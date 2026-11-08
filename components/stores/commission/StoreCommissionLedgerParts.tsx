@@ -180,7 +180,7 @@ export function CommissionSummaryGrid({ summary, lang }: { summary: StoreCommiss
         />
         <Tile
           label={translateBy(lang, "stores_awaiting_review", undefined, "en")}
-          value={`${summary.reviewCount}${pickCommissionCopy(lang, "건", "")}`}
+          value={translateBy(lang, "stores_count_items", { n: summary.reviewCount }, "en")}
           tone={summary.reviewCount > 0 ? "warn" : "default"}
           hint={formatCashMinor(summary.reviewFeeMinor)}
         />

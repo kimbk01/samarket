@@ -22,7 +22,6 @@ import {
 import { translateBy } from "@/lib/i18n/translate-by";
 
 type Lang = "ko" | "en";
-const pick = (lang: Lang, ko: string, en: string) => (lang === "en" ? en : ko);
 
 export function giftHistoryRequestUrl(kind: GiftHistoryKind, period: MePointsPeriodQuery, page: number): string {
   const qs = new URLSearchParams();
@@ -182,7 +181,7 @@ function Row({ label, value, testId, lang }: { label: string; value: GiftAmountT
   return (
     <div className="flex justify-between gap-2" data-testid={testId}>
       <dt className="text-sam-muted">{label}</dt>
-      <dd className="text-right tabular-nums text-sam-fg">{`${formatMypageNumber(value.count, { lang })}${pick(lang, "건", "")} · ${formatMypageMoney(value.amount)}`}</dd>
+      <dd className="text-right tabular-nums text-sam-fg">{`${translateBy(lang, "orders_count_items", { n: formatMypageNumber(value.count, { lang }) })} · ${formatMypageMoney(value.amount)}`}</dd>
     </div>
   );
 }

@@ -93,10 +93,7 @@ export function CustomerCouponWalletBody({
         activeId={couponTab}
         hrefFor={(id) => canonicalHubHref("coupons", { couponTab: id })}
         labelFor={(id) =>
-          safeT(TAB_KEY[id], {
-            fallbackKo: id === "held" ? "보유" : "사용 완료",
-            fallbackEn: id === "held" ? "Held" : "Used",
-          })
+          safeT(TAB_KEY[id])
         }
         countFor={(id) => (ready && data ? counts[COUPON_TAB_MAP[id]] : null)}
         dataAttr="data-wallet-tab"

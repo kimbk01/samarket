@@ -177,10 +177,7 @@ export function DeliveryAdPerformancePanel(props: {
               className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2"
             >
               <p className="text-[12px] text-sam-muted">
-                {safeT(METRIC_KEYS[row.key], {
-                  fallbackKo: row.labelKo,
-                  fallbackEn: row.labelEn,
-                })}
+                {safeT(METRIC_KEYS[row.key])}
               </p>
               <p className="mt-1 text-[14px] font-semibold tabular-nums text-sam-fg">
                 {row.metric ? formatMetric(row.metric, row.kind, labels) : labels.na}
