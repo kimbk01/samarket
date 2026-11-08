@@ -99,6 +99,14 @@ describe("community local filter SSOT — 시/군 LGU (주소 SSOT 2단계)", ()
     expect(next).toMatchObject({ source: "seed", lguId: "1381200000", masterAddressId: "m9" });
   });
 
+  /** 2026-11-09 iPhone: 키보드가 열리면 선택창 위쪽이 잘림 — 거래 검색과 같은 고정 높이 모드여야 한다 */
+  it("지역 선택창 = 공용 시트 heightRatio 고정 높이 모드, 안쪽 vh 고정 높이 없음", () => {
+    const sheet = readFileSync(join(process.cwd(), "components/community/CommunityLocalFilterPickerSheet.tsx"), "utf8");
+    expect(sheet).toMatch(/heightRatio=\{0\.85\}/);
+    expect(sheet).not.toMatch(/h-\[min\(\d+vh/);
+    expect(sheet).toContain("min-h-0 flex-1 flex-col");
+  });
+
   it("storage key is user-scoped", () => {
     expect(communityLocalFilterStorageKey("user-a")).toContain("user-a");
     expect(communityLocalFilterStorageKey("user-a")).not.toBe(

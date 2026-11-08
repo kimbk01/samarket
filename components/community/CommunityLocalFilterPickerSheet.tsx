@@ -26,9 +26,20 @@ export function CommunityLocalFilterPickerSheet({
   if (!open) return null;
 
   return (
-    <DibayBottomSheet open={open} onClose={onClose} title={safeT("community_local_filter_title")}>
-      <div className="flex h-[min(70vh,560px)] min-h-0 flex-col">
-        <p className="px-4 pb-2 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
+    /**
+     * 거래 지역 검색(`TradeBrowseLocationSheet` search 단계)과 같은 틀 — `heightRatio` 고정 높이 모드.
+     * 키보드가 열리면 공용 시트가 보이는 영역(키보드 위)의 85% 로 맞추고 안쪽은 flex 로 채운다.
+     * 이전(2026-11-09 iPhone 결함): 안쪽을 70vh 로 고정 → 키보드가 열려 시트가 줄어도 내용이 넘쳐
+     * 입력칸 자동 스크롤로 제목·손잡이가 상단 상태 표시줄 밑으로 밀려 잘렸다.
+     */
+    <DibayBottomSheet
+      open={open}
+      onClose={onClose}
+      title={safeT("community_local_filter_title")}
+      heightRatio={0.85}
+    >
+      <div className="flex min-h-0 flex-1 flex-col" data-community-local-filter-picker="search">
+        <p className="shrink-0 px-4 pb-2 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
           {safeT("community_local_filter_hint")}
         </p>
         <TradeLocationNationalPicker
