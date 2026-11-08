@@ -77,7 +77,7 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 |---|---|---|---|
 | **S8-1 언어 저장 통로** | 네이티브 플러그인 `DibayAppLanguage.set({ language: "ko" \| "en" \| null })` — iOS `UserDefaults`·Android `SharedPreferences` 에 저장. 웹 `AppLanguageProvider` 가 언어 결정이 바뀔 때·앱 시작 때 호출(`null` = 기기 언어 따름). **구 바이너리는 플러그인이 없으므로 호출 실패를 조용히 무시**(웹 동작 변화 0) | 통화 코드 아님(문구만 영향) | 새 빌드 필요 |
 | **S8-2 Android 기본 리소스 영어화** | `values/strings.xml` = 영어 56/56, `values-ko/strings.xml` = 한국어 56/56 (키 동일). 앱 이름 등 비통화 문구 | 알림 채널 문구 포함 시 알림 규정(원본 규칙 전수 대조·기기 로그 판정) | 새 빌드 |
-| **S8-3 통화 화면 문구 (통화 단독)** | iOS Swift 55·Android `IncomingCallUiCopy`·`CallForegroundService`·`IncomingCallNotificationBuilder`·`MissedCallNotificationHelper`·`IncomingCallActionCoordinator` 문구 → 지역화 리소스. 언어 = S8-1 저장값 → 없으면 기기 언어. CallKit 수신 이름 「○○님의 전화」 → en 「○○ is calling」 형식(접미사 위치가 언어별로 다름 — 리소스에 `%@` 포함 문장으로) | **적용** | 새 빌드 |
+| **S8-3 통화 화면 문구 (통화 단독)** | iOS Swift 55·Android `IncomingCallUiCopy`·`CallForegroundService`·`IncomingCallNotificationBuilder`·`MissedCallNotificationHelper`·`IncomingCallActionCoordinator` 문구 → 지역화 리소스. 언어 = S8-1 저장값 → 없으면 기기 언어. ~~CallKit 수신 이름 「○○님의 전화」 → en 「○○ is calling」~~ → **§13-0 정정: CallKit 은 이름만 표시, 「님의 전화」는 판정용 — 번역 대상 아님**. 상세 = §13 | **적용** | 새 빌드 |
 | **S8-4 알림 채널·부재중 (알림 단독)** | `DibayNotificationChannelRegistry` 20·`DibayNotificationSoundChannelStore` 3·`DibayNotificationPresentation`·`FcmPayloadResolver` — 채널 이름·설명. Android 는 같은 채널 id 로 이름만 다시 등록하면 갱신됨(소리·중요도 설정은 사용자 값 유지 — 새 채널을 만들지 않음) | 알림 규정 적용 | 새 빌드 |
 | **S8-5 웹 통화 23파일 (통화 단독, L11)** | S6 와 같은 방법(화면 값이 바뀌지 않는 변환만) — 대체 문구 삭제·`translateBy`·`catalogPair` | **적용** | 웹만 |
 | **S8-6 서버 푸시 문구 언어 (L3, Owner 결정)** | 안: `user_devices.app_language` 열 추가(S8-1 이 기기별로 기록) → 서버가 **통화가 아닌** 알림 문구를 기기별 앱 언어로 작성. 없으면 계정 설정 → 없으면 en. **통화 푸시 제목·본문은 제외**(§1-6 원칙 2 — 구 앱 판정 의존) | 통화 발송 경로 포함 시 적용 | DB + 웹·서버 |
@@ -171,6 +171,119 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 | 검증 | typecheck 2종·eslint(오류 0)·`check:i18n`·통화 보호 검사 3종(`call-log-no-hard-delete`·`call-messenger-restore-hard-lock`·`ios-call-package-classlist-contract`)·vitest 전체 |
 | 실기기 | **NOT_PROVEN** — 통화 행렬(§8)은 Production 반영 뒤 실기기로. 화면 문구가 바뀌지 않는 변경이라 확인 기준은 「통화 동작·문구가 반영 전과 같음」 |
 
+## 13. S8-3 상세 계획 (통화 화면 문구, 2026-11-08 — Owner 「S8-3 계획 보고」) · **계획만, 구현은 승인 후**
+
+> 조사 기준: main `d7a455e1b`. 근거 = 코드 전수 조사(아래 줄 번호). 통화 변경 규정 §3 문서.
+
+### 13-0. 앞 계획의 잘못 (정정)
+
+| # | 앞 계획 | 사실 (코드 확인) | 정정 |
+|---|---|---|---|
+| 1 | 부록 A: Android `IncomingCallUiCopy.java:81`, iOS `IncomingCallCallerIdentity.swift:84` 「님의 전화」 = **표시** | 둘 다 서버 본문 「○○님의 전화」에서 **이름을 떼어 내는 판정**(접미사 비교·길이 계산). 화면에 나오지 않음 | **동작 판정 — 바꾸지 않음**. 동작 판정 = 13개 / 11줄 (앞: 11개 / 9줄) |
+| 2 | §3: CallKit 수신 이름 「○○님의 전화」 → en 「○○ is calling」 | iOS CallKit 에 넘기는 값은 **이름만**(`displayName`). 「님의 전화」는 화면에 나오지 않음. CallKit 화면의 「DIBAY 오디오…」 등은 OS 가 기기 언어로 표시 | **바꿀 것 없음** — 항목 삭제 |
+| 3 | §3: S8-3 에 `IncomingCallNotificationBuilder`·`MissedCallNotificationHelper`·`CallForegroundService` 전부 | 이 파일들의 **알림 채널 이름·설명 6개**(수신 통화·부재중 통화·통화 진행)는 채널 등록 값 | **S8-4(알림 채널)로** — 채널 규정(같은 id·설정 유지)과 함께 한 번에 |
+| 4 | §1-2: `MainActivity` 2개를 통화·알림 목록에 | 「연결에 실패했습니다…」는 웹 화면 넘김 덮개(`showHandoffCoverLoadError`) — **통화 아님** | 통화 커밋에 섞지 않고 **S8-2b**(비통화, S8-2 와 같은 방식)로 따로 |
+
+### 13-1. 목적·완료 기준
+
+- **목적**: 통화 화면(수신·음성·영상·작은 창·통화 중 알림·부재중 알림·인앱 통화 안내·권한 꺼짐 안내) 문구가 **앱 언어**로 나온다 — 앱에서 고른 언어(S8-1 저장값) → 없으면 기기 언어(한국어 → 한국어, 그 외 → 영어).
+- **완료 기준**: ① 한국어 조건에서 모든 통화 문구가 **지금과 글자 하나까지 같음** ② 영어 조건에서 아래 13-3 의 영어 ③ 통화 동작(연결·종료·거절·취소·재울림 없음·busy·무응답·발신자 이름·영상/음성 판정·통화 기록) 변화 0 ④ §8 실기기 행렬 PASS.
+
+### 13-2. 대상 (전수)
+
+| 플랫폼 | 위치 | 개수 | 처리 |
+|---|---|---|---|
+| Android | `values/strings.xml` 통화 키 45개 (수신 화면 xml 3·음성/영상 화면·작은 창·통화 안내 9 등 — 사용처 18파일) | 45 | 한국어 그대로 `values-ko` 로, `values` = 영어 (S8-2 와 같은 구조). 사용처 없는 4개(`voice_call_calling`·`voice_call_cancel`·`voice_speaker_on/off`)도 대칭 유지 |
+| Android | `CallForegroundService` 299·322·323·333·334·385·404·405·412 | 11 | 리소스 키로 (「%1$s 진행 중 · 탭하여 복귀」처럼 이어 붙이던 문장은 자리표시 포함 한 문장) |
+| Android | `IncomingCallNotificationBuilder:722`(DIBAY 통화) · `MissedCallNotificationHelper:47` · `IncomingCallActionCoordinator:290·291`(「○○님의 부재중 통화」) · `FcmPayloadResolver:94`(이름 없을 때 「수신 통화」) | 5 | 리소스 키로 |
+| Android | `IncomingCallUiCopy:67·69` (context 가 없을 때만 쓰는 대체값, 판정 토큰과 같은 값) | 2 | **바꾸지 않음** — context 없이는 리소스를 못 읽고, 판정 토큰과 같아야 함 |
+| iOS | `NativeVoiceCallUiPresenter` 5 · `NativeVoiceCallViewController` 5 · `NativeVideoCallUiPresenter` 8 · `NativeVideoCallViewController` 13 · `NativeCallInAppNotice` 8 · `DibayVoiceMicrophonePermission` 6 · `CallKitProvider:113` 1 · `IncomingCallCallerIdentity:13` 1 | 47 | 새 `ko.lproj`·`en.lproj/Localizable.strings` 로 |
+| 둘 다 | 동작 판정 13개(§1-6 표 + 13-0 #1) | 13 | **바꾸지 않음** |
+
+### 13-3. 언어를 고르는 방식 (새 코드 — 문자열 외 변경은 이것뿐)
+
+| | Android | iOS |
+|---|---|---|
+| 새 파일 | `DibayNativeLocale.java` — `localized(Context)`: S8-1 저장값(`DibayAppLanguagePlugin.storedLanguage`)이 `ko`/`en` 이면 그 언어로 만든 `createConfigurationContext`, 없으면 받은 Context 그대로(기기 언어 → 기본 영어·`values-ko`) | `DibayNativeCopy.swift` — `text(_ key)`: UserDefaults `dibay_app_language` → 없으면 `Locale.preferredLanguages` 가 `ko` 로 시작하면 ko, 그 외 en → 해당 `.lproj` 번들에서 읽음. 키가 없으면 en 값(빈 문구·키 노출 없음) |
+| 바뀌는 호출 | 통화 Activity 3개(`IncomingCallActivity`·`NativeVoiceCallActivity`·`NativeVideoCallActivity`)에 `attachBaseContext` 1줄씩(xml 화면 문구용) · 나머지 `getString` 은 `DibayNativeLocale.localized(ctx).getString(...)` 로 Context 만 바꿈 | 각 문자열 자리를 `DibayNativeCopy.text("key")` 로 |
+| 읽는 시점 | **표시할 때마다** 저장값을 읽음(캐시 없음) → 앱 언어를 바꾸면 다음 통화부터 반영. 앱이 꺼진 상태 수신도 마지막 저장값 | 같음 |
+| 쓰지 않는 방식 | Android 13 앱별 언어(`AppCompatDelegate.setApplicationLocales`) — 앱 전체 언어를 바꿔 **메인 화면이 다시 만들어져 웹뷰가 새로 고쳐지고**, 웹 언어 계약과 겹침 → 채택 안 함 | 앱 전체 `AppleLanguages` 덮어쓰기 — 재시작 전 반영 안 되고 권한 대화상자 언어까지 바뀜 → 채택 안 함 |
+| 프로젝트 파일 | 없음(리소스 폴더 자동) | `project.pbxproj` 에 새 Swift 1개·`Localizable.strings`(ko·en) 등록 (S8-1 과 같은 방식) |
+
+바뀌지 않는 것: 분기·타이머·채널 id·알림 id·Intent·CallKit 보고 순서·판정 토큰. **diff 리뷰 기준**: 문자열 자리 교체 + 위 표의 줄 외에는 0줄.
+
+### 13-4. 영어 문구 (한국어는 지금 값 그대로)
+
+| 한국어 (지금) | 영어 |
+|---|---|
+| 수락 / 거절 | Accept / Decline |
+| DiBay 음성 통화 / DiBay 영상 통화 | DiBay voice call / DiBay video call |
+| 음성 통화 수신 / 영상 통화 수신 | Incoming voice call / Incoming video call |
+| 음성 통화 수신 중 / 영상 통화 수신 중 (통화 중 알림) | Incoming voice call / Incoming video call |
+| 전화 거는 중 … | Calling… |
+| 연결 중… | Connecting… |
+| 통화 중 / 통화 종료 중 | In call / Ending call… |
+| 종료 / 취소 | End / Cancel |
+| 스피커 / 영상 | Speaker / Video |
+| 스피커 켬 / 스피커 끔 | Speaker on / Speaker off |
+| 음소거 / 음소거 해제 | Mute / Unmute |
+| 카메라 전환 / 카메라 켬 / 카메라 끔 | Flip camera / Camera on / Camera off |
+| 좋음 / 보통 / 나쁨 / 매우 나쁨 (통화 품질) | Good / Fair / Poor / Very poor |
+| 통화로 돌아가기 / 통화 화면 줄이기 | Return to call / Minimize call |
+| DIBAY 통화 | DIBAY call |
+| ○○ · 통화 서비스 유지 중 | ○○ · Keeping the call active |
+| ○○ 진행 중 · 탭하여 복귀 | ○○ in progress · Tap to return |
+| 음성 통화 / 영상 통화 (통화 중 알림 이름) | Voice call / Video call |
+| 부재중 통화 / ○○님의 부재중 통화 | Missed call / Missed call from ○○ |
+| 수신 통화 (이름이 없을 때) | Incoming call |
+| 인앱 통화 안내 9개 | Android `values-en` 에 이미 있는 영어 그대로(웹 카탈로그와 같은 값) |
+| 마이크 권한이 꺼져 있어요 / 카메라 권한이 꺼져 있어요 | Microphone access is off / Camera access is off |
+| 음성·영상 통화를 하려면 설정 > DiBaY에서 마이크를 켜 주세요. | To make calls, turn on Microphone in Settings > DIBAY. |
+| 영상 통화를 하려면 설정 > DiBaY에서 카메라를 켜 주세요. | To make video calls, turn on Camera in Settings > DIBAY. |
+| 나중에 / 설정 | Not now / Settings |
+
+- 한국어 문구 「설정 > **DiBaY**」는 실제 설정 앱 이름(**DIBAY**, `CFBundleDisplayName`)과 다르다 → 이번 단계는 한국어 글자를 바꾸지 않는 원칙이라 **발견 목록 L18** 로 적고 계획 완료 후 처리.
+
+### 13-5. 영향 경로 (통화 규정 §3)
+
+| 경로 | 이 단계의 영향 |
+|---|---|
+| 발신 시작·세션 생성·VoIP/FCM 발송·서버 푸시 문구 | **없음** (서버·웹 코드 무변경) |
+| iOS CallKit 수신 | 이름이 없는 수신의 대체 이름만 「수신 통화」→ 영어 조건 「Incoming call」. 이 값은 상대 id 가 하나도 없을 때 CallKit 연락처 값(`remoteHandle`)으로도 쓰임 — 서버는 `callerId` 를 항상 보냄(`fcm-data-payload-contract.ts:274·322`)이라 실제 영향 없음, 실기기에서 통화 기록으로 확인 |
+| Android 수신 화면·전체화면 알림·통화 중 알림 | 문구만. 알림 id·채널·Intent·버튼 동작 무변경 |
+| 수락·거절·취소·종료·부재중 | 버튼 이름만. 부재중 알림 본문 문장 |
+| 통화 화면(음성·영상·작은 창) | 문구·접근성 이름만. Android Activity 3개의 Context 가 언어 Context 로 바뀜(글꼴 크기·다크 등 나머지 설정은 원래 값 복사) |
+| 인앱 통화 안내 | 문구만 |
+| 통화 기록·상태 폴링·CallKit 종료 신호 | 없음 |
+| **설치된 구 앱** (Android 37·iOS 27 이하) | 영향 없음 — 새 빌드를 설치해야 바뀜. 구 앱은 지금처럼 한국어 |
+
+### 13-6. 회귀 위험·대응
+
+| 위험 | 대응 |
+|---|---|
+| 리소스 키 빠짐 → 빈 문구·키 노출 | 검사 테스트 추가: Android `values`·`values-ko` 통화 키 대칭, iOS ko·en `Localizable.strings` 대칭, 코드가 부르는 키가 모두 있음, 영어 값에 한글 0 |
+| 한국어 문구가 지금과 달라짐 | 검사: 새 `values-ko`·`ko.lproj` 값 = 지금 코드·리소스 값 전수 일치(조사표를 테스트 기대값으로) |
+| 판정 토큰을 실수로 번역 | 검사: 통화 코드의 한글 리터럴은 판정 토큰 13개 + 대체값 2개 + S8-4 채널 이름 6개만 허용(이 목록 외 0) |
+| `attachBaseContext` 변경으로 화면이 안 뜸·잠금 화면 수신 실패 | Activity 3개는 Context 만 감싸고 창 플래그·잠금 화면 설정 코드는 그대로. 실기기 잠금 화면 수신·앱 꺼짐 수신 필수 확인 |
+| iOS 번들 읽기 실패 | 실패 시 en 값 → 그래도 없으면 키가 아닌 한국어 기본(지금 값)을 내장 — 빈 화면 없음 |
+
+### 13-7. 롤백
+
+이전 빌드 재설치(Android 1.2.5 (37)·iOS 1.2 (27)). 서버·웹 변경이 없어 서버 되돌리기 불필요. 저장소는 되돌리기 커밋 1개.
+
+### 13-8. 반영·검증 순서
+
+1. **S8-2b** (비통화, 먼저): `MainActivity` 화면 넘김 덮개 문구 2개 → 리소스(기본 영어·`values-ko`). 단독 커밋.
+2. **S8-3** (통화 단독 커밋·단독 main 반영): 13-2 ~ 13-4 + 검사 테스트. 로컬 검증 = Android 단위 테스트·`assembleDebug`·iOS 시뮬레이터 빌드·vitest·통화 보호 검사 3종.
+3. 빌드 = **Owner 일괄 빌드 때**(네이티브 버전 증가는 그때 1회). 그 전까지 실기기 NOT_PROVEN.
+4. 실기기: §8 행렬 × 언어 4조건, 각 테스트 Production SHA·설치 버전·시각·화면 캡처. **FAIL 이면 즉시 중단**하고 통화 정상화 먼저.
+
+### 13-9. Owner 승인 필요
+
+1. 13-0 정정(판정 13개·CallKit 항목 삭제·채널 이름 S8-4·MainActivity S8-2b) 승인.
+2. 13-3 언어 고르는 방식(통화 문구만 앱 언어, 앱 전체 언어 변경 방식은 쓰지 않음) 승인.
+3. 13-4 영어 문구 승인.
+
 ## 부록 A — 통화·알림 네이티브 한국어 문자열 114개 (역할)
 
 | 위치 | 문자열 | 역할 |
@@ -211,7 +324,7 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 | `android:IncomingCallUiCopy.java:73` | 영상 | **동작 판정 — 바꾸지 않음** |
 | `android:IncomingCallUiCopy.java:74` | 영상 | **동작 판정 — 바꾸지 않음** |
 | `android:IncomingCallUiCopy.java:80` | 님의 전화 | **동작 판정 — 바꾸지 않음** |
-| `android:IncomingCallUiCopy.java:81` | 님의 전화 | 표시 |
+| `android:IncomingCallUiCopy.java:81` | 님의 전화 | **동작 판정 — 바꾸지 않음** (§13-0 정정: 이름을 떼는 길이 계산) |
 | `android:IncomingCallUiCopy.java:92` | 음성 통화 | **동작 판정 — 바꾸지 않음** |
 | `android:IncomingCallUiCopy.java:93` | 영상 통화 | **동작 판정 — 바꾸지 않음** |
 | `android:IncomingCallUiCopy.java:94` | DiBay 음성 통화 | **동작 판정 — 바꾸지 않음** |
@@ -288,4 +401,4 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 | `ios:Push/IncomingCallCallerIdentity.swift:75` | 음성통화 | **동작 판정 — 바꾸지 않음** |
 | `ios:Push/IncomingCallCallerIdentity.swift:76` | 영상 통화 | **동작 판정 — 바꾸지 않음** |
 | `ios:Push/IncomingCallCallerIdentity.swift:76` | 음성 통화 | **동작 판정 — 바꾸지 않음** |
-| `ios:Push/IncomingCallCallerIdentity.swift:84` | 님의 전화 | 표시 |
+| `ios:Push/IncomingCallCallerIdentity.swift:84` | 님의 전화 | **동작 판정 — 바꾸지 않음** (§13-0 정정: 서버 본문에서 이름을 떼는 접미사) |
