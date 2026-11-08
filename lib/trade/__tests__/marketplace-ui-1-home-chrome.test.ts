@@ -17,11 +17,11 @@ describe("Marketplace UI-1 HOME chrome", () => {
     expect(isTradeMarketAllRouteActive("/market", "used-car")).toBe(false);
   });
 
-  it("HOME header uses Marketplace identity, not bottom-nav 거래 title", () => {
+  it("거래 1단 제목 = 「정보교환 · 거래」 전환 탭 (홈 설계안 v11, 2026-11-09 — 예전 「DIBAY MARKET」 자리)", () => {
     expect(tradeMessages.ko.marketplace_home_title).toBe("DIBAY MARKET");
-    expect(tradeMessages.en.marketplace_home_title).toBe("DIBAY MARKET");
     const header = read("components/layout/RegionBarMainHubTier1.tsx");
-    expect(header).toContain('t("marketplace_home_title")');
+    expect(header).toContain("CommunityTradeTitleSwitch");
+    expect(header).not.toContain('t("marketplace_home_title")');
     expect(header).not.toContain("TradeHeaderLocationPinButton");
   });
 

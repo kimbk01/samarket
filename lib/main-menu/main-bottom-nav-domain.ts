@@ -22,13 +22,14 @@ export function resolveMainBottomNavHubDomain(pathname: string | null | undefine
 /** 내장 탭 id → 목적지 허브 도메인 (chat·my 등은 null) */
 export function resolveBuiltinTabHubDomain(tabId: string): MainBottomNavHubDomain | null {
   if (tabId === "community") return "philife";
-  if (tabId === "home") return "trade";
+  /** `home` = 앱 홈(`/home`) — 허브 도메인 아님. 거래는 커뮤니티 탭 안 (홈 설계안 v11) */
   if (tabId === "stores") return "stores";
   return null;
 }
 
 /** 허브 강조 탭 짧은 탭 — 해당 도메인 홈으로 이동(이미 홈이면 스크롤) */
 export function resolveMainBottomNavHubHomeHref(tabId: string): string | null {
+  if (tabId === "home") return "/home";
   const domain = resolveBuiltinTabHubDomain(tabId);
   if (domain === "philife") return "/philife";
   if (domain === "trade") return "/market";
@@ -42,6 +43,8 @@ export function isMainBottomNavHubEmphasisTab(
   currentHubDomain: MainBottomNavHubDomain | null
 ): boolean {
   if (currentHubDomain == null) return false;
+  /** 거래(`/market`…)는 커뮤니티 안의 탭 — 커뮤니티 탭이 강조된다 */
+  if (currentHubDomain === "trade") return tabId === "community";
   return resolveBuiltinTabHubDomain(tabId) === currentHubDomain;
 }
 

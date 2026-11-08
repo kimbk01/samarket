@@ -73,6 +73,8 @@ export type PlatformPopupEventType = (typeof PLATFORM_POPUP_EVENT_TYPES)[number]
 /** Canonical advertising surfaces (Admin/Owner DB SSOT + placement UI). */
 export const PLATFORM_POPUP_TARGET_SURFACES = [
   "GLOBAL",
+  /** 앱 홈 `/`·`/home` (Owner 「구현 시작」 2026-11-09) — DB 허용값 마이그레이션 20271109120100 */
+  "HOME",
   "COMMUNITY",
   "TRADE",
   "DELIVERY",
@@ -87,6 +89,7 @@ export type PlatformPopupTargetSurface = (typeof PLATFORM_POPUP_TARGET_SURFACES)
  * Critical ops are NOT surfaces — they are runtime gates.
  */
 export const PLATFORM_POPUP_CONSUMER_SURFACES = [
+  "HOME",
   "COMMUNITY",
   "TRADE",
   "DELIVERY",
@@ -102,6 +105,8 @@ export type PlatformPopupConsumerSurface = (typeof PLATFORM_POPUP_CONSUMER_SURFA
  * (광고 감사 G-3 · Owner 「권장안대로 진행」 2026-11-03).
  */
 export const PLATFORM_POPUP_GLOBAL_SURFACES = [
+  /** 홈이 생기기 전 `/`·`/home` 은 COMMUNITY 로 판정되어 「전체」에 들어 있었다 — 같은 동작 유지 */
+  "HOME",
   "COMMUNITY",
   "TRADE",
   "DELIVERY",

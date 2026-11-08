@@ -1657,7 +1657,8 @@ export function CommunityFeed({
     if (i < navItems.length - 1) {
       return swipeToNavItem(navItems[i + 1]!);
     }
-    const href = getBottomNavAdjacentHref("community", "next") ?? "/market";
+    /** 정보교환 마지막 주제 다음 = 같은 커뮤니티 탭 안의 「거래」 (2026-11-09) */
+    const href = "/market";
     if (!guardBeforeNavigate()) return false;
     void router.push(href, { scroll: false });
     return true;
@@ -1697,7 +1698,7 @@ export function CommunityFeed({
         .sort((a, b) => a.dist - b.dist)
         .slice(0, 3)
         .map((x) => x.item);
-      const nextBottomHref = getBottomNavAdjacentHref("community", "next");
+      const nextBottomHref = "/market";
       const prevBottomHref = getBottomNavAdjacentHref("community", "prev");
       if (nextBottomHref) void router.prefetch(nextBottomHref);
       if (prevBottomHref) void router.prefetch(prevBottomHref);
@@ -1792,7 +1793,7 @@ export function CommunityFeed({
     if (!navItems.length) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const nextBottomHref = getBottomNavAdjacentHref("community", "next");
+    const nextBottomHref = "/market";
     const prevBottomHref = getBottomNavAdjacentHref("community", "prev");
     if (nextBottomHref) void router.prefetch(nextBottomHref);
     if (prevBottomHref) void router.prefetch(prevBottomHref);

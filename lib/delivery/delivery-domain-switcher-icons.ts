@@ -12,6 +12,5 @@ export function resolveDeliveryDialIconComponent(
   icon: DeliveryDialIconKey
 ): ComponentType<MainBottomNavIconProps> {
   if (icon === "owner_hub") return StoreOpsCenterStrokeIcon;
-  if (icon === "home") return MAIN_BOTTOM_NAV_TAB_ICONS.trade;
   return MAIN_BOTTOM_NAV_TAB_ICONS[icon] ?? MAIN_BOTTOM_NAV_TAB_ICONS.stores;
 }

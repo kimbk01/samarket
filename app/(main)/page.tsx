@@ -1,10 +1,9 @@
-import { CommunityHomeSurface } from "@/components/community/CommunityHomeSurface";
+import { HomeSurface } from "@/components/home-hub/HomeSurface";
 
 /**
- * App home (`/`) — `(main)` 셸 안에서 Community home surface 직접 렌더.
- * CONTRACT: `/` → `/philife` HTTP redirect 금지 (Cold Boot Shell-First).
- * AUTHORITY: `CommunityHomeSurface` only (same as `/philife` · `/community`).
+ * App home (`/`) — 앱 홈 (Owner 「구현 시작」 2026-11-09). 커뮤니티 피드는 `/philife`.
+ * CONTRACT: HTTP redirect 금지 (Cold Boot Shell-First). AUTHORITY: `HomeSurface` only (same as `/home`).
  */
 export default function HomePage() {
-  return <CommunityHomeSurface />;
+  return <HomeSurface />;
 }

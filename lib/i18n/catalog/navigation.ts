@@ -1,6 +1,7 @@
 export const navigationMessages = {
   ko: {
     nav_bottom_trade: "거래",
+    nav_community_switch_info: "정보교환",
     nav_bottom_community: "커뮤니티",
     nav_bottom_delivery: "배달",
     nav_bottom_messenger: "메신저",
@@ -365,6 +366,7 @@ export const navigationMessages = {
   },
   en: {
     nav_bottom_trade: "Trade",
+    nav_community_switch_info: "Community",
     nav_bottom_community: "Community",
     nav_bottom_delivery: "Delivery",
     nav_bottom_messenger: "Messenger",

@@ -134,6 +134,7 @@ const TITLE_SOURCE_BY_LEAF: Readonly<Record<string, string>> = {
   "settings-intro": "components/admin/launch-intro/LaunchIntroAdminPage.tsx",
   "settings-startup-config": "components/admin/settings/StartupConfigAdminPage.tsx",
   "menu-main-bottom-nav": "components/admin/menus/AdminMainBottomNavPage.tsx",
+  "menu-home-layout": "components/admin/home/AdminHomeLayoutPage.tsx",
   "my-banners": "components/admin/my/AdminMyBannersPage.tsx",
   "my-sections": "components/admin/my/AdminMySectionsPage.tsx",
   "my-services": "components/admin/my/AdminMyServicesPage.tsx",

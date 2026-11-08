@@ -296,10 +296,10 @@ export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
 export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
   "pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-sam-md border border-sam-primary bg-sam-primary text-white shadow-sam-elevated transition active:scale-95 [&_svg]:h-7 [&_svg]:w-7";
 
-/** 내장 탭 id → 하단 네비 전용 짧은 dot i18n key (home id 는 거래 탭) */
+/** 내장 탭 id → 하단 네비 전용 짧은 dot i18n key (home id = 앱 홈 `/home`, 2026-11-09 — 거래는 커뮤니티 안 탭) */
 export const BUILTIN_BOTTOM_NAV_LABEL_KEYS: Partial<Record<BottomNavBuiltinTabId, MessageKey>> = {
   community: "nav.community",
-  home: "nav.trade",
+  home: "nav.home",
   stores: "nav.delivery",
   chat: "nav.chat",
   my: "nav.my",
@@ -341,8 +341,9 @@ function isBuiltinBottomNavTabId(id: string): id is BottomNavBuiltinTabId {
  * 표시 순서 = 배열 순서. 항목을 빼거나 바꾸면 탭 구성이 바뀝니다.
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
+  /** 홈 설계안 v11 (Owner 「구현 시작」 2026-11-09): 홈 · 커뮤니티(정보교환·거래) · 배달 · 채팅 · 내정보 */
+  { id: "home", href: "/home", label: "Home", labelKey: "nav.home", icon: "home" },
   { id: "community", href: "/philife", label: "Community", labelKey: "nav.community", icon: "community" },
-  { id: "home", href: "/market", label: "Trade", labelKey: "nav.trade", icon: "trade" },
   { id: "stores", href: "/stores", label: "Food", labelKey: "nav.delivery", icon: "stores" },
   {
     id: "chat",
@@ -363,9 +364,8 @@ export function getBottomNavAdjacentHref(tabId: BottomNavTabId, direction: "next
   return null;
 }
 
-/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */
-export const BOTTOM_NAV_TRADE_TAB_LABEL: string =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "Trade";
+/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — 거래는 하단 탭이 아니라 커뮤니티 안 탭 */
+export const BOTTOM_NAV_TRADE_TAB_LABEL: string = "Trade";
 
 export const BOTTOM_NAV_TRADE_TAB_LABEL_KEY: MessageKey = "nav_bottom_trade";
 

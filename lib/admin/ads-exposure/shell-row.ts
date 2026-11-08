@@ -172,6 +172,7 @@ export function resolveShellPlacementKey(item: Pick<AdsActionItem, "domain" | "p
     const hint = String(item.placementHint ?? item.product ?? "").toUpperCase();
     if (hint.includes("DELIVERY") || hint === "DELIVERY") return "DELIVERY";
     if (hint.includes("TRADE") || hint === "TRADE") return "TRADE";
+    if (hint === "HOME") return "HOME";
     if (hint.includes("COMMUNITY") || hint === "COMMUNITY") return "COMMUNITY";
     if (hint.includes("MYPAGE")) return "MYPAGE";
     if (item.placementHint && String(item.placementHint).trim()) {

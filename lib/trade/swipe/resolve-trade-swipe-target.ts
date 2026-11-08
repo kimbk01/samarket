@@ -5,7 +5,7 @@ export type TradeSwipeDirection = "next" | "prev";
 /**
  * 거래 탭 스와이프의 단일 목적지 결정 규칙.
  * - 탭 내부 이동이 가능하면 인접 탭 href
- * - 경계면 하단 메뉴 인접 탭(`home` 기준 prev/next) fallback
+ * - 경계면: 이전 = 정보교환(`/philife` — 거래는 커뮤니티 안 탭), 다음 = 커뮤니티 다음 하단 탭(배달)
  */
 export function resolveTradeSwipeTarget(
   tabs: Array<{ href: string }>,
@@ -20,6 +20,7 @@ export function resolveTradeSwipeTarget(
       return tabs[activeIndex - 1]?.href ?? null;
     }
   }
-  return getBottomNavAdjacentHref("home", direction);
+  if (direction === "prev") return "/philife";
+  return getBottomNavAdjacentHref("community", "next");
 }
 

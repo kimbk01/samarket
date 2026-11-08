@@ -6,7 +6,7 @@ import {
   resolveMainBottomNavPickTabActiveOptions,
   type MainBottomNavPickContext,
 } from "@/lib/main-menu/main-bottom-nav-pick-context";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath, resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 
 /**
  * `/community-messenger` 셸 — 교차 탭 RSC idle 프리페치 생략 판별용(미사용 preload·현재 화면과 네트워크 경쟁 완화).
@@ -44,8 +44,12 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   if (p === h || p.startsWith(`${h}/`)) return true;
   /** `/my` 는 `/mypage` 와 같은 내정보 셸 — My 탭 활성 (M-03, `resolve-main-surface` 와 동일 별칭) */
   if (h === "/mypage" && (p === "/my" || p.startsWith("/my/"))) return true;
-  /** Cold Boot `/` · `/home` · legacy `/community` → Community tab (`/philife`) */
+  /** 앱 홈 `/` · `/home`(Cold Boot 별칭) → 홈 탭 */
+  if (isHomeSurfacePath(h) && isHomeSurfacePath(p)) return true;
+  /** legacy `/community` → Community tab (`/philife`) */
   if (h === "/philife" && isCommunityHomeSurfacePath(p)) return true;
+  /** 거래(`/market`·상품 상세·쓰기)는 커뮤니티 안의 「거래」 탭 — 하단은 커뮤니티 탭이 켜진다 (홈 설계안 v11) */
+  if (h === "/philife" && resolveMainSurface(p) === "trade") return true;
   return false;
 }
 

@@ -3,6 +3,7 @@
  * Do not invent fetch/API. Wire only existing safe refresh authorities.
  *
  * ELIGIBLE (existing gesture/store already present):
+ * - app home `/`·`/home` — HomePullRefreshHost / home-pull-refresh-store (2026-11-09)
  * - community feed — philife PTR hosts
  * - trade market — TradeMarketPullRefresh*
  * - stores home — StoresHomePullRefreshHost / useStoresHomePullRefresh / stores-home-pull-refresh-store
@@ -19,6 +20,7 @@
  */
 
 export const DIBAY_PTR_ELIGIBLE_FAMILIES = [
+  "home",
   "community",
   "trade",
   "stores_home",

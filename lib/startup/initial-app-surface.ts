@@ -14,6 +14,8 @@
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 
 export const INITIAL_APP_SURFACES = [
+  /** 앱 홈 `/home` (2026-11-09) — 기본값 */
+  "home",
   "community",
   "trade",
   "food",
@@ -23,15 +25,17 @@ export const INITIAL_APP_SURFACES = [
 
 export type InitialAppSurface = (typeof INITIAL_APP_SURFACES)[number];
 
-const SURFACE_TO_TAB_ID: Record<InitialAppSurface, string> = {
+const SURFACE_TO_TAB_ID: Record<InitialAppSurface, string | null> = {
+  home: "home",
   community: "community",
-  trade: "home",
+  /** 거래는 하단 탭이 아니라 커뮤니티 안 탭 — 경로 고정 */
+  trade: null,
   food: "stores",
   chat: "chat",
   my: "my",
 };
 
-export const DEFAULT_INITIAL_APP_SURFACE: InitialAppSurface = "community";
+export const DEFAULT_INITIAL_APP_SURFACE: InitialAppSurface = "home";
 
 export function isInitialAppSurface(value: unknown): value is InitialAppSurface {
   return (
@@ -48,6 +52,7 @@ export function normalizeInitialAppSurface(value: unknown): InitialAppSurface {
 /** Canonical href from BottomNav SSOT — never invent paths. */
 export function pathForInitialAppSurface(surface: InitialAppSurface): string {
   const tabId = SURFACE_TO_TAB_ID[surface];
+  if (tabId == null) return "/market";
   const item = BOTTOM_NAV_ITEMS.find((t) => t.id === tabId);
   if (item?.href) return item.href;
   return "/philife";

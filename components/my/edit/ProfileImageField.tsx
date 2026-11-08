@@ -1,5 +1,6 @@
 "use client";
 
+import { mergeAppBootProfileFull, peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -13,6 +14,12 @@ import { fetchMeProfileFresh, invalidateMeProfileDedupedCache } from "@/lib/prof
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import { PROFILE_CONFLICT_ERROR_CODE } from "@/lib/profile/profile-patch-concurrency";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+
+/** 하단 「내정보」 프로필 사진(앱 부팅 프로필)도 바로 바꾼다 — 홈 설계안 v11 */
+function syncAppBootAvatar(url: string): void {
+  const cur = peekAppBootProfile();
+  if (cur) mergeAppBootProfileFull({ ...cur, avatar_url: url });
+}
 
 export interface ProfileImageFieldProps {
   avatarUrl: string | null;
@@ -107,6 +114,7 @@ export function ProfileImageField({
 
       invalidateMeProfileDedupedCache();
       patchSupabaseProfileCache({ avatar_url: data.url });
+      syncAppBootAvatar(data.url);
       onChangeUrl(data.url);
     } catch {
       setUploadError(t("profile_edit_upload_failed"));
@@ -135,6 +143,7 @@ export function ProfileImageField({
 
         invalidateMeProfileDedupedCache();
         patchSupabaseProfileCache({ avatar_url: SAMARKET_DEFAULT_AVATAR_URL });
+        syncAppBootAvatar(SAMARKET_DEFAULT_AVATAR_URL);
         onChangeUrl(SAMARKET_DEFAULT_AVATAR_URL);
       } catch {
         setUploadError(t("profile_edit_save_failed"));

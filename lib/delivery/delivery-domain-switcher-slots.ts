@@ -7,7 +7,7 @@ import { DELIVERY_DIAL_SLOT_COUNT } from "@/lib/delivery/delivery-domain-switche
 /** 다이얼 슬롯 수 — 비매장주도 6칸(운영센터 자리는 빈 공간) */
 export { DELIVERY_DIAL_SLOT_COUNT as DELIVERY_DOMAIN_SWITCHER_SLOT_COUNT };
 
-/** 배달홈 스위처 — 커뮤니티·거래·배달·메신저 (내정보는 하단 탭만, 다이얼 제외) */
+/** 배달홈 스위처 — 홈·커뮤니티·배달·메신저 (내정보는 하단 탭만, 다이얼 제외) — 하단 탭 SSOT 순서 */
 export const DELIVERY_DOMAIN_SWITCHER_BASE_ITEMS: readonly BottomNavItemConfig[] = BOTTOM_NAV_ITEMS.filter(
   (tab) => tab.id !== "my"
 );
@@ -24,7 +24,6 @@ export type DeliveryDomainSwitcherSlot =
     };
 
 function baseDialIcon(tab: BottomNavItemConfig): DeliveryDialIconKey {
-  if (tab.icon === "home") return "trade";
   return tab.icon;
 }
 

@@ -184,6 +184,7 @@ describe("CUT4 surfaces + CTA + TODAY semantic", () => {
   it("exposes only advertising target surfaces", () => {
     expect([...PLATFORM_POPUP_TARGET_SURFACES]).toEqual([
       "GLOBAL",
+      "HOME",
       "COMMUNITY",
       "TRADE",
       "DELIVERY",

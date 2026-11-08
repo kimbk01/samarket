@@ -1,7 +1,7 @@
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const COMMUNITY_POST_DETAIL_RE = /^\/community\/post\/[^/]+$/;
 const PHILIFE_POST_DETAIL_RE = /^\/philife\/post\/[^/]+$/;
@@ -107,6 +107,8 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
 
   /** 전역 1단과 로컬 `TradePrimaryColumnStickyAppBar` 등이 겹치지 않게 끄는 구간 */
   const suppressMainTier1 =
+    /** 앱 홈은 자체 녹색 헤더(로고·알림·주소·검색)를 그린다 — `HomeSurface` */
+    isHomeSurfacePath(pathNoQuery) ||
     isProfileEditPath(pathNoQuery) ||
     isTradeMeetSpotPick ||
     isTradeBrowseLocation ||

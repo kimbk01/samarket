@@ -7,10 +7,11 @@ import {
 } from "@/lib/startup/initial-app-surface";
 
 describe("initial-app-surface", () => {
-  it("defaults to community → /philife", () => {
-    expect(DEFAULT_INITIAL_APP_SURFACE).toBe("community");
+  it("defaults to home → /home (앱 홈 2026-11-09)", () => {
+    expect(DEFAULT_INITIAL_APP_SURFACE).toBe("home");
+    expect(pathForInitialAppSurface("home")).toBe("/home");
     expect(pathForInitialAppSurface("community")).toBe("/philife");
-    expect(resolveInitialAppSurfacePath({})).toBe("/philife");
+    expect(resolveInitialAppSurfacePath({})).toBe("/home");
   });
 
   it("maps Admin enums to BottomNav hrefs", () => {
@@ -42,8 +43,8 @@ describe("initial-app-surface", () => {
     expect(resolveInitialAppSurfacePath({ adminInitialSurface: "trade" })).toBe("/market");
   });
 
-  it("normalizes invalid admin values to community", () => {
-    expect(normalizeInitialAppSurface("nope")).toBe("community");
-    expect(normalizeInitialAppSurface(null)).toBe("community");
+  it("normalizes invalid admin values to home", () => {
+    expect(normalizeInitialAppSurface("nope")).toBe("home");
+    expect(normalizeInitialAppSurface(null)).toBe("home");
   });
 });

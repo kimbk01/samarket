@@ -2,7 +2,7 @@
  * Platform Popup — central DIBAY surface resolver.
  * Pathname + context flags. CALL is not pathname-only.
  *
- * Advertising surfaces (selectable): COMMUNITY | TRADE | DELIVERY | DELIVERY_OWNER | ADMIN | MYPAGE
+ * Advertising surfaces (selectable): HOME | COMMUNITY | TRADE | DELIVERY | DELIVERY_OWNER | ADMIN | MYPAGE
  * Critical ops are path/flag gates — not "ADMIN always excluded".
  */
 
@@ -69,7 +69,8 @@ export function resolveDibaySurface(
 
   const p = normalizePath(pathname);
 
-  // App home `/` · `/home` render CommunityHomeSurface — same authority as `/philife`.
+  // 앱 홈 `/`·`/home` = 독립 홈 화면 (Owner 「구현 시작」 2026-11-09). 나머지 커뮤니티 홈 경로는 COMMUNITY.
+  if (p === "/" || p === "/home") return "HOME";
   if (isCommunityHomeSurfacePath(p)) return "COMMUNITY";
 
   if (p === "/admin" || p.startsWith("/admin/")) return "ADMIN";

@@ -146,6 +146,9 @@ export function StartupConfigAdminPage() {
                   )
                 }
               >
+                <option value="home">
+                  {safeT("admin_startup_config_surface_home")}
+                </option>
                 <option value="community">
                   {safeT("admin_startup_config_surface_community")}
                 </option>

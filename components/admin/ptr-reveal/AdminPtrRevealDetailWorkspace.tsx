@@ -45,6 +45,7 @@ type Lang = "ko" | "en";
 /** PTR 슬롯이 실제로 있는 화면만 선택지로 노출 (메신저·통화·결제는 정책상 제외) */
 const PTR_SURFACE_OPTIONS = [
   { id: "GLOBAL", ko: "전체 (아래 화면 모두)", en: "All (every screen below)" },
+  { id: "HOME", ko: "홈 (/home)", en: "Home (/home)" },
   { id: "TRADE", ko: "거래 목록 (/market)", en: "Trade list (/market)" },
   { id: "COMMUNITY", ko: "커뮤니티 피드 (/philife)", en: "Community feed (/philife)" },
   { id: "DELIVERY", ko: "배달·매장 홈·목록 (/stores)", en: "Delivery & stores (/stores)" },

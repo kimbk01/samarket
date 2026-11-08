@@ -169,6 +169,8 @@ function tabUnreadFromBreakdown(
 
 /** Legacy feed tabs — BottomNav must not consume notification_events SUM. */
 const LEGACY_BOTTOM_NAV_FEED_TAB_ICONS = new Set<BottomNavIconKey>([
+  /** 앱 홈 탭 (2026-11-09) — 배지 없음 */
+  "home",
   "community",
   "trade",
   "stores",

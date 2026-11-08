@@ -5,13 +5,14 @@ import {
 } from "@/lib/main-menu/resolve-main-bottom-nav";
 
 describe("resolveMainBottomNavDisplayItems", () => {
-  it("빈 값이면 기본 5탭 노출", () => {
+  it("빈 값이면 기본 5탭 노출 — 홈 · 커뮤니티 · 배달 · 채팅 · 내정보 (2026-11-09)", () => {
     const items = resolveMainBottomNavDisplayItems(null);
-    expect(items.map((i) => i.id)).toEqual(["community", "home", "stores", "chat", "my"]);
+    expect(items.map((i) => i.id)).toEqual(["home", "community", "stores", "chat", "my"]);
     expect(items.find((i) => i.id === "home")).toMatchObject({
-      label: "Trade",
-      labelKey: "nav.trade",
-      icon: "trade",
+      href: "/home",
+      label: "Home",
+      labelKey: "nav.home",
+      icon: "home",
     });
     expect(items.find((i) => i.id === "chat")).toMatchObject({
       href: "/community-messenger?section=chats&inbox=unread",
@@ -76,7 +77,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
     );
   });
 
-  it("거래 탭에 예전 icon=home 저장본이면 trade 아이콘으로 승격", () => {
+  it("예전 거래(home) 저장본(TRADE·icon=home)은 앱 홈으로 되돌림 (2026-11-09)", () => {
     const items = resolveMainBottomNavDisplayItems({
       items: [
         { id: "home", visible: true, label: "TRADE", href: "/market", icon: "home" },
@@ -86,10 +87,10 @@ describe("resolveMainBottomNavDisplayItems", () => {
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
       ],
     });
-    expect(items.find((i) => i.id === "home")).toMatchObject({ icon: "trade" });
+    expect(items.find((i) => i.id === "home")).toMatchObject({ icon: "home", href: "/home", label: "Home" });
   });
 
-  it("거래 탭 href=/market 저장본을 유지", () => {
+  it("예전 거래(home) 저장본 href=/market 은 앱 홈 /home 으로 되돌림 — 순서·보이기만 유지 (2026-11-09)", () => {
     const items = resolveMainBottomNavDisplayItems({
       items: [
         { id: "home", visible: true, label: "거래", href: "/market", icon: "trade" },
@@ -99,7 +100,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
         { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
       ],
     });
-    expect(items.find((i) => i.id === "home")?.href).toBe("/market");
+    expect(items.find((i) => i.id === "home")?.href).toBe("/home");
   });
 
   it("저장본에서 내장 탭 행이 빠졌으면 기본값으로 끝에 복구(내정보 등)", () => {

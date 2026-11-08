@@ -69,6 +69,8 @@ export type DibayDomainChromeId = keyof typeof DIBAY_DOMAIN_CHROME;
 
 export function resolveDibayDomainChromeId(surface: MainSurfaceId): DibayDomainChromeId {
   if (surface === "other") return "other";
+  /** 앱 홈은 자체 녹색 헤더를 그린다 — 공통 크롬 색은 커뮤니티 계열을 쓴다 */
+  if (surface === "home") return "community";
   return surface;
 }
 

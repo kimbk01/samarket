@@ -19,7 +19,7 @@ import {
   isDocumentScrollRoot,
   isMainAppScrollBodyOverflowing,
 } from "@/lib/ui/store-detail-scroll-root";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 /** 마지막 스크롤 이후 이 시간이 지나면 (탭이 접혀 있을 때) 다시 펼침 */
 export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
@@ -59,6 +59,8 @@ export function resolveBottomNavScrollHideEnabled(
   headerMessengerFromPhilife: boolean,
   search?: string | null
 ): boolean {
+  /** 앱 홈 — 피드형 긴 화면, 커뮤니티 피드와 같이 스크롤 시 숨김 */
+  if (isHomeSurfacePath(pathNoQuery)) return true;
   if (isCommunityHomeSurfacePath(pathNoQuery)) {
     return !headerMessengerFromPhilife;
   }

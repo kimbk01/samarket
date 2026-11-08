@@ -90,7 +90,8 @@ describe("startup config client cache", () => {
   it("normalizes initialSurface enum", () => {
     expect(normalizeStartupConfig({ initialSurface: "trade" }).initialSurface).toBe("trade");
     expect(normalizeStartupConfig({ initial_surface: "food" }).initialSurface).toBe("food");
-    expect(normalizeStartupConfig({ initialSurface: "nope" }).initialSurface).toBe("community");
+    expect(normalizeStartupConfig({ initialSurface: "nope" }).initialSurface).toBe("home");
+    expect(normalizeStartupConfig({ initialSurface: "community" }).initialSurface).toBe("community");
   });
 
   it("native payload contains only boot authority", () => {

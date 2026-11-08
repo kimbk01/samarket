@@ -17,13 +17,21 @@ describe("isBottomNavTabActive", () => {
     expect(isBottomNavTabActive("/philife", marketHref)).toBe(false);
   });
 
-  it("거래 탭 — /philife href 는 /market 별칭이 아니다", () => {
-    const homeHref = "/philife";
-    expect(isBottomNavTabActive("/market", homeHref)).toBe(false);
-    expect(isBottomNavTabActive("/market/jobs", homeHref)).toBe(false);
-    expect(isBottomNavTabActive("/philife", homeHref)).toBe(true);
-    expect(isBottomNavTabActive("/", homeHref)).toBe(true);
-    expect(isBottomNavTabActive("/community", homeHref)).toBe(true);
+  it("커뮤니티 탭(/philife) — 거래(/market·/post)는 커뮤니티 안 탭이라 커뮤니티가 켜진다 (2026-11-09)", () => {
+    const communityHref = "/philife";
+    expect(isBottomNavTabActive("/market", communityHref)).toBe(true);
+    expect(isBottomNavTabActive("/market/jobs", communityHref)).toBe(true);
+    expect(isBottomNavTabActive("/post/abc", communityHref)).toBe(true);
+    expect(isBottomNavTabActive("/philife", communityHref)).toBe(true);
+    expect(isBottomNavTabActive("/", communityHref)).toBe(false);
+    expect(isBottomNavTabActive("/community", communityHref)).toBe(true);
+  });
+
+  it("홈 탭(/home) — 앱 홈 `/`·`/home` 만", () => {
+    expect(isBottomNavTabActive("/", "/home")).toBe(true);
+    expect(isBottomNavTabActive("/home", "/home")).toBe(true);
+    expect(isBottomNavTabActive("/philife", "/home")).toBe(false);
+    expect(isBottomNavTabActive("/market", "/home")).toBe(false);
   });
 
   it("접두 경로 일치", () => {
@@ -34,9 +42,12 @@ describe("isBottomNavTabActive", () => {
 
 describe("resolveActiveMainBottomNavTabIndex", () => {
   it("admin main-bottom-nav 탭 — 도메인별 활성 인덱스", () => {
+    /** 홈(0) · 커뮤니티(1, 거래 포함) · 배달(2) · 채팅(3) · 내정보(4) — 2026-11-09 */
     const adminTabs = composeMainBottomNavDisplayTabs("/philife", BOTTOM_NAV_ITEMS);
-    expect(resolveActiveMainBottomNavTabIndex("/philife", adminTabs)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/philife/x", adminTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/", adminTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/home", adminTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/philife", adminTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/philife/x", adminTabs)).toBe(1);
     expect(resolveActiveMainBottomNavTabIndex("/community-messenger", adminTabs)).toBe(3);
     expect(resolveActiveMainBottomNavTabIndex("/mypage", adminTabs)).toBe(4);
     expect(resolveActiveMainBottomNavTabIndex("/market", adminTabs)).toBe(1);
@@ -45,7 +56,7 @@ describe("resolveActiveMainBottomNavTabIndex", () => {
     const tradeTabs = composeMainBottomNavDisplayTabs("/market", BOTTOM_NAV_ITEMS);
     expect(resolveActiveMainBottomNavTabIndex("/market", tradeTabs)).toBe(1);
     expect(resolveActiveMainBottomNavTabIndex("/market/jobs", tradeTabs)).toBe(1);
-    expect(resolveActiveMainBottomNavTabIndex("/philife", tradeTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/philife", tradeTabs)).toBe(1);
     expect(resolveActiveMainBottomNavTabIndex("/stores", tradeTabs)).toBe(2);
     /** 하단 chat 슬롯 — trade-chats 는 FAB·레거시 href, 탭 활성 아님(전체 인박스만) */
     expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(-1);
@@ -66,7 +77,7 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     const philifeTabs = composeMainBottomNavDisplayTabs("/philife/x", BOTTOM_NAV_ITEMS);
     const hrefs = pickMainBottomNavPrefetchHrefs("/philife/x", philifeTabs);
     expect(hrefs).not.toContain("/philife");
-    expect(hrefs).toContain("/market");
+    expect(hrefs).toContain("/home");
     expect(hrefs).toContain("/stores");
     expect(hrefs.some((h) => h.startsWith("/community-messenger") && h.includes("section=chats") && h.includes("from=community"))).toBe(
       true

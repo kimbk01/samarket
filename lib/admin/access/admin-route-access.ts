@@ -195,6 +195,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/platform-promotion/os-start", requirement: ANY, action: perm("ads") },
   { path: "/admin/platform-promotion/intro", requirement: ANY, action: perm("ads") },
   { path: "/admin/menus/main-bottom-nav", requirement: ANY, action: perm("settings") },
+  // 홈 구성 (Owner 「구현 시작」 2026-11-09): 조회 전원 · 저장 = settings (API PUT /api/admin/home-layout)
+  { path: "/admin/menus/home-layout", requirement: ANY, action: perm("settings") },
   { path: "/admin/app/business", requirement: ANY, action: perm("settings") },
   { path: "/admin/settings", requirement: ANY },
   { path: "/admin/app/legal/member-consents", requirement: perm("users") },

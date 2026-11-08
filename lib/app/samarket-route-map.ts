@@ -12,6 +12,7 @@ import {
 import { tradeMessengerRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export const SAMARKET_SURFACES = [
+  "home",
   "trade",
   "community",
   "stores",
@@ -23,7 +24,7 @@ export type SamarketSurface = (typeof SAMARKET_SURFACES)[number];
 
 /** 내장 탭 id → 제품 표면 (분석·푸시 카테고리·커스텀 탭 매핑 시 사용) */
 export const BUILTIN_TAB_TO_SURFACE: Record<BottomNavBuiltinTabId, SamarketSurface> = {
-  home: "trade",
+  home: "home",
   community: "community",
   stores: "stores",
   chat: "chat",
@@ -40,6 +41,8 @@ export function surfaceEntryPath(surface: SamarketSurface): string {
     Object.entries(BUILTIN_TAB_TO_SURFACE) as [BottomNavBuiltinTabId, SamarketSurface][]
   ).find(([, s]) => s === surface);
   if (entry) return mainTabHref(entry[0]);
+  /** 거래는 하단 탭이 아니라 커뮤니티 안 탭 (2026-11-09) */
+  if (surface === "trade") return "/market";
   if (surface === "orders") return SAMARKET_ROUTES.orders.hub;
   return "/philife";
 }

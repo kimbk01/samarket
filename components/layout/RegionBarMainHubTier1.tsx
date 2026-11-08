@@ -25,6 +25,7 @@ import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { buildTradeSearchEntryHref } from "@/lib/trade/search/trade-search-paths";
+import { CommunityTradeTitleSwitch } from "@/components/layout/CommunityTradeTitleSwitch";
 
 function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -81,11 +82,13 @@ export function RegionBarMainHubTier1({ pathNoQuery }: { pathNoQuery: string }) 
     return null;
   }
 
-  /** Trade HOME identity is Marketplace. Location lives in the entry chrome under this row. */
+  /**
+   * 커뮤니티·거래 = 한 탭 안의 두 화면 — 제목 자리를 「정보교환 · 거래」 전환 탭으로 (홈 설계안 v11, 2026-11-09).
+   * 예전 거래 제목 「DIBAY MARKET」(시안 v2) 자리. 오른쪽 버튼·거래 본문은 그대로.
+   */
   const title: ReactNode =
-    hub === "trade" ? (
-      /** 거래 상단 시안 v2 (Owner 2026-10-28): 「DIBAY MARKET」은 항상 한 줄(줄바꿈 없음) */
-      <span className="whitespace-nowrap">{t("marketplace_home_title")}</span>
+    hub === "trade" || hub === "community" ? (
+      <CommunityTradeTitleSwitch active={hub} />
     ) : (
       t(hubTitleKey(hub))
     );

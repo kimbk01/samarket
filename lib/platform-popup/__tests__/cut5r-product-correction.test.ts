@@ -57,9 +57,10 @@ describe("CUT 5-R creative pixel SSOT", () => {
 });
 
 describe("CUT 5-R admin surface multi-select mapping", () => {
-  it("exposes GLOBAL + six domains", () => {
+  it("exposes GLOBAL + seven domains (HOME 2026-11-09)", () => {
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.mode)).toEqual([
       "GLOBAL",
+      "HOME",
       "COMMUNITY",
       "TRADE",
       "DELIVERY",
@@ -68,7 +69,8 @@ describe("CUT 5-R admin surface multi-select mapping", () => {
       "MYPAGE",
     ]);
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.labelKo)).toEqual([
-      "전체 — 커뮤니티·거래·배달·내정보",
+      "전체 — 홈·커뮤니티·거래·배달·내정보",
+      "홈",
       "커뮤니티",
       "거래",
       "배달",

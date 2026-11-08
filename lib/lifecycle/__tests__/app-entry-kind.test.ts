@@ -117,7 +117,7 @@ describe("AppEntryKind SSOT §4.3", () => {
     const d = getAppEntryDecision();
     expect(d.kind).toBe("ambiguous");
     expect(d.allowIntro).toBe(false);
-    expect(d.navigateTo).toBe("/philife");
+    expect(d.navigateTo).toBe("/home"); // Safe Entry = 앱 홈 (2026-11-09)
   });
 
   it("legacy Native (epoch only, no hint property) → USER_COLD allowIntro (not Safe Entry)", () => {
@@ -136,7 +136,7 @@ describe("AppEntryKind SSOT §4.3", () => {
     const d = getAppEntryDecision();
     expect(d.kind).toBe("ambiguous");
     expect(d.allowIntro).toBe(false);
-    expect(d.navigateTo).toBe("/philife");
+    expect(d.navigateTo).toBe("/home"); // Safe Entry = 앱 홈 (2026-11-09)
   });
 
   it("UNKNOWN + valid envelope → AMBIGUOUS (not OS_RESTORE)", () => {
@@ -145,7 +145,7 @@ describe("AppEntryKind SSOT §4.3", () => {
     const d = getAppEntryDecision();
     expect(d.kind).toBe("ambiguous");
     expect(d.allowIntro).toBe(false);
-    expect(d.navigateTo).toBe("/philife");
+    expect(d.navigateTo).toBe("/home"); // Safe Entry = 앱 홈 (2026-11-09)
   });
 
   it("DOC_RESET same epoch reload restores path without intro", () => {

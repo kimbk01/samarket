@@ -31,8 +31,9 @@ function baseCandidate(
 }
 
 describe("CUT1 presentation reopen — rotation + home surface", () => {
-  it("home `/` resolves to COMMUNITY", () => {
-    expect(resolveDibaySurface("/")).toBe("COMMUNITY");
+  it("app home `/` resolves to HOME (2026-11-09 — 「전체」에 포함되어 이전과 같이 노출)", () => {
+    expect(resolveDibaySurface("/")).toBe("HOME");
+    expect(resolveDibaySurface("/philife")).toBe("COMMUNITY");
   });
 
   it("G-4: higher priority wins over least-recently-shown (contract §6)", () => {

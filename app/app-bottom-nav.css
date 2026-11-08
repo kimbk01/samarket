@@ -773,3 +773,99 @@ html:has(.app-bottom-nav-shell--delivery) {
     transform: none;
   }
 }
+
+/* ==========================================================================
+ * 네이버형 하단 탭 (홈 설계안 v11 · Owner 「구현 시작」 2026-11-09)
+ * - 바: 흰 반투명 + 옅은 경계선 + 위쪽 그림자 — 크림 페이지 배경과 구분 (예전엔 둘 다 #FFFCFC)
+ * - 아이콘·글자: 검정 계열 / 선택 탭 = 검은 둥근 사각형 안 흰 아이콘 + 굵은 글자
+ * - 「내정보」 = 프로필 사진(선택 시 검은 테두리) / 배지 = 빨간 숫자 강조
+ * 위 예전 규칙(브라운 강조 · Owner 2026-11-03)보다 뒤에 두어 덮어쓴다.
+ * ========================================================================== */
+:root {
+  --app-bottom-nav-surface: rgba(255, 255, 255, 0.96);
+  --app-bottom-nav-accent: #111111;
+  --app-bottom-nav-text-muted: #2b2b2b;
+  --app-bottom-nav-icon-muted: #1e1e1e;
+  --app-bottom-nav-active-bg: transparent;
+  --app-bottom-nav-hover-bg: rgba(0, 0, 0, 0.04);
+  --app-bottom-nav-border: #e1e4e2;
+  --app-bottom-nav-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
+}
+
+.app-bottom-nav-shell {
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  backdrop-filter: saturate(160%) blur(14px);
+}
+
+.app-bottom-nav-item[data-active="true"] {
+  background: transparent;
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) {
+  width: 30px;
+  height: 28px;
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon:not(.app-bottom-nav-inline-icon--avatar) .app-bottom-nav-icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
+  color: #111111;
+  font-weight: 700;
+}
+
+.app-bottom-nav-inline-icon--avatar {
+  width: 28px;
+  height: 28px;
+}
+
+.app-bottom-nav-profile-avatar {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: #eef0ef;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-profile-avatar {
+  box-shadow: 0 0 0 2px #111111;
+}
+
+/* 채팅·허브 배지 — 빨간 숫자 강조 */
+.app-bottom-nav-item .bottom-nav-hub-badge {
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 5px !important;
+  background: #ff3b30 !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 2px 7px rgba(255, 59, 48, 0.5) !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-bottom-nav-item .bottom-nav-hub-badge {
+    animation: app-bottom-nav-badge-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+}
+
+@keyframes app-bottom-nav-badge-pop {
+  0% {
+    transform: translate(18%, -18%) scale(0.4);
+  }
+  100% {
+    transform: translate(18%, -18%) scale(1);
+  }
+}

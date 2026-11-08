@@ -34,9 +34,11 @@ describe("routeTransitionPushAxisForKind", () => {
 
 describe("resolveCanonicalNavIndex", () => {
   it("does not treat community-messenger as /community (philife)", () => {
-    expect(resolveCanonicalNavIndex("/community-messenger")).toBe(3);
-    expect(resolveCanonicalNavIndex("/community-messenger/trade-chats")).toBe(3);
-    expect(resolveCanonicalNavIndex("/community/foo")).toBe(0);
+    /** home(0) · philife(1) · market(2) · delivery(3) · messenger(4) · mypage(5) — 2026-11-09 */
+    expect(resolveCanonicalNavIndex("/community-messenger")).toBe(4);
+    expect(resolveCanonicalNavIndex("/community-messenger/trade-chats")).toBe(4);
+    expect(resolveCanonicalNavIndex("/community/foo")).toBe(1);
+    expect(resolveCanonicalNavIndex("/")).toBe(0);
   });
 });
 

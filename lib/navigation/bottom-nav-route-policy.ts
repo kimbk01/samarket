@@ -1,3 +1,4 @@
+import { isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { isMypageDeepPath } from "@/lib/mypage/mypage-ia";
 import { isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
@@ -92,7 +93,8 @@ export function isBottomNavEligibleRoute(
   options?: BottomNavRouteOptions
 ): boolean {
   const p = normalizeBottomNavPathname(pathname);
-  if (p === "/") return true;
+  /** 앱 홈 `/`·`/home` */
+  if (isHomeSurfacePath(p)) return true;
   if (p === "/my/logout" || p.startsWith("/my/settings") || isProfileEditPath(p)) return false;
   /** 내정보 L2 이하(기능·상세·입력 화면) — 하단 탭 숨김. 홈·분류 화면만 탭 표시 (`lib/mypage/mypage-ia.ts`) */
   if (isMypageDeepPath(p)) return false;

@@ -341,6 +341,8 @@ export const CUT_J_J_AMD_5_PROMOTION_TREE = [
       "settings-intro",
       "settings-startup-config",
       "menu-main-bottom-nav",
+      // 앱 홈 「홈 구성」 (Owner 「구현 시작」 2026-11-09 · 홈 설계안 v11 §7)
+      "menu-home-layout",
       "my-banners",
       // 광고 원장 §5 (2026-11-07): 내정보 › 배너 = 같은 원장 + `?domain=mypage`
       "my-ads-ledger",

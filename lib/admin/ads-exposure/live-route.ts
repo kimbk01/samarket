@@ -88,6 +88,7 @@ export function adsLiveRouteHref(input: {
   if (kind.includes("popup")) {
     if (place.includes("DELIVERY") || place === "DELIVERY") return "/stores";
     if (place.includes("TRADE") || place === "TRADE") return "/market";
+    if (place === "HOME") return "/home";
     if (place.includes("COMMUNITY") || place === "COMMUNITY") return "/philife";
     if (place.includes("MYPAGE")) return "/mypage";
     return "/";

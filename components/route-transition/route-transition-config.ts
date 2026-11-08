@@ -4,18 +4,19 @@
  */
 
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 export { shouldSuppressOwnerStackMainShellSlide } from "@/lib/business/owner-stack-path";
 export { shouldSuppressCommerceConsumerMainShellSlide } from "@/lib/delivery/customer/commerce-child-page-slide";
 
-/** philife(0) → market(1) → delivery(2) → messenger(3) → mypage(4) */
+/** home(0) → philife(1) → market(2) → delivery(3) → messenger(4) → mypage(5) — 2026-11-09 홈 신설 */
 export const CANONICAL_NAV_INDICES = {
-  philife: 0,
-  market: 1,
-  delivery: 2,
-  messenger: 3,
-  mypage: 4,
+  home: 0,
+  philife: 1,
+  market: 2,
+  delivery: 3,
+  messenger: 4,
+  mypage: 5,
 } as const;
 
 export type RouteTransitionEnterKind =
@@ -115,6 +116,7 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
   const p = normalizePathForRouteTransition(pathname);
   if (!p || isExcludedFromMainShellTransition(pathname)) return null;
 
+  if (isHomeSurfacePath(p)) return CANONICAL_NAV_INDICES.home;
   if (isCommunityHomeSurfacePath(p) || p.startsWith("/philife")) return CANONICAL_NAV_INDICES.philife;
   /** `/community-messenger` 는 `/community` 접두와 충돌 — 반드시 먼저 분기 */
   if (p === "/community-messenger" || p.startsWith("/community-messenger/"))

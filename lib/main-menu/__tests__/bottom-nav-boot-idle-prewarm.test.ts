@@ -39,7 +39,8 @@ describe("bottom-nav-boot-idle-prewarm", () => {
   it("collects inactive tab hrefs excluding current philife shell and guest-only tabs", () => {
     const hrefs = collectBottomNavBootPrewarmHrefs("/philife", BOTTOM_NAV_ITEMS);
     expect(hrefs).not.toContain("/philife");
-    expect(hrefs).toContain("/market");
+    /** 하단 탭 = 홈·커뮤니티·배달·채팅·내정보 (2026-11-09) — 거래는 커뮤니티 안 탭 */
+    expect(hrefs).toContain("/home");
     expect(hrefs).toContain("/stores");
     expect(hrefs).not.toContain("/mypage");
     expect(hrefs.some((h) => h.startsWith("/community-messenger"))).toBe(false);
@@ -66,7 +67,7 @@ describe("bottom-nav-boot-idle-prewarm", () => {
     await vi.runAllTimersAsync();
 
     // route (RSC code/shell) prefetch happens for inactive tabs
-    expect(prefetchRoute).toHaveBeenCalledWith("/market");
+    expect(prefetchRoute).toHaveBeenCalledWith("/home");
     expect(prefetchRoute).toHaveBeenCalledWith("/stores");
     // client data prewarm (full API fan-out) must NOT run at boot
     expect(clientDataPrewarmSpy).not.toHaveBeenCalled();

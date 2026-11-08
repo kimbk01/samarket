@@ -51,13 +51,14 @@ describe("resolveDibaySurface — surface SSOT (Admin/Owner selectable)", () => 
     expect(isPlatformPopupAdvertisingSurface("MESSENGER")).toBe(false);
   });
 
-  it("G-3: GLOBAL expands to the four contract consumer surfaces (Owner/Admin by explicit selection only)", () => {
-    expect([...expandPlatformPopupGlobalSurfaces()]).toEqual(["COMMUNITY", "TRADE", "DELIVERY", "MYPAGE"]);
+  it("G-3: GLOBAL expands to the contract consumer surfaces — 홈 추가 2026-11-09 (Owner/Admin by explicit selection only)", () => {
+    expect([...expandPlatformPopupGlobalSurfaces()]).toEqual(["HOME", "COMMUNITY", "TRADE", "DELIVERY", "MYPAGE"]);
   });
 
-  it("Admin/Owner placement exposes GLOBAL + six multi-select domains", () => {
+  it("Admin/Owner placement exposes GLOBAL + seven multi-select domains (HOME 2026-11-09)", () => {
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.mode)).toEqual([
       "GLOBAL",
+      "HOME",
       "COMMUNITY",
       "TRADE",
       "DELIVERY",

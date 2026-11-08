@@ -7,7 +7,8 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 const builtin: Record<string, BottomNavItemConfig> = {
   community: { id: "community", href: "/philife", label: "커뮤니티", icon: "community" },
-  home: { id: "home", href: "/market", label: "거래", icon: "trade" },
+  /** 2026-11-09 — `home` = 앱 홈. 거래(`/market`…)는 커뮤니티 탭 별칭 */
+  home: { id: "home", href: "/home", label: "홈", icon: "home" },
   stores: { id: "stores", href: "/stores", label: "배달", icon: "stores" },
   chat: { id: "chat", href: "/community-messenger?section=chats", label: "메신저", icon: "chat" },
   my: { id: "my", href: "/mypage", label: "내정보", icon: "my" },
@@ -16,13 +17,15 @@ const builtin: Record<string, BottomNavItemConfig> = {
 describe("buildCanonicalNavIndexResolver", () => {
   it("default tab order matches static canonical mapping", () => {
     const resolve = buildCanonicalNavIndexResolver([
-      builtin.community!,
       builtin.home!,
+      builtin.community!,
       builtin.stores!,
       builtin.chat!,
       builtin.my!,
     ]);
-    expect(resolve("/philife")).toBe(0);
+    expect(resolve("/")).toBe(0);
+    expect(resolve("/home")).toBe(0);
+    expect(resolve("/philife")).toBe(1);
     expect(resolve("/market")).toBe(1);
     expect(resolve("/stores")).toBe(2);
     expect(resolve("/community-messenger")).toBe(3);
@@ -40,15 +43,16 @@ describe("buildCanonicalNavIndexResolver", () => {
     ]);
     expect(resolve("/stores")).toBe(0);
     expect(resolve("/philife")).toBe(1);
-    expect(resolve("/market")).toBe(2);
+    expect(resolve("/market")).toBe(1);
+    expect(resolve("/home")).toBe(2);
     expect(resolve("/community-messenger")).toBe(3);
     expect(resolve("/mypage")).toBe(4);
   });
 
-  it("builtin sub-route aliases — /post → home tab, /orders → stores tab", () => {
+  it("builtin sub-route aliases — /post → community tab (거래는 커뮤니티 안), /orders → stores tab", () => {
     const resolve = buildCanonicalNavIndexResolver([
-      builtin.community!,
       builtin.home!,
+      builtin.community!,
       builtin.stores!,
       builtin.chat!,
       builtin.my!,
@@ -57,7 +61,7 @@ describe("buildCanonicalNavIndexResolver", () => {
     expect(resolve("/products/123")).toBe(1);
     expect(resolve("/write/trade")).toBe(1);
     expect(resolve("/orders/abc")).toBe(2);
-    expect(resolve("/community/foo")).toBe(0);
+    expect(resolve("/community/foo")).toBe(1);
     expect(resolve("/chats/abc")).toBe(3);
     expect(resolve("/my/orders")).toBe(4);
   });
@@ -103,7 +107,8 @@ describe("buildCanonicalNavIndexResolver", () => {
     expect(resolve("/event")).toBe(1);
     expect(resolve("/event/promo")).toBe(1);
     expect(resolve("/philife")).toBe(0);
-    expect(resolve("/market")).toBe(2);
+    expect(resolve("/market")).toBe(0);
+    expect(resolve("/home")).toBe(2);
   });
 
   it("empty tabs → always null (provider not mounted yet)", () => {

@@ -4,7 +4,9 @@ import { resolveMainHubPtrDomain } from "@/lib/layout/resolve-main-hub-ptr-domai
 describe("resolveMainHubPtrDomain", () => {
   it("returns single domain per pathname", () => {
     expect(resolveMainHubPtrDomain("/philife")).toBe("philife");
-    expect(resolveMainHubPtrDomain("/")).toBe("philife");
+    /** 앱 홈 (2026-11-09) — 자체 새로고침 도메인 */
+    expect(resolveMainHubPtrDomain("/")).toBe("home");
+    expect(resolveMainHubPtrDomain("/home")).toBe("home");
     expect(resolveMainHubPtrDomain("/market")).toBe("trade");
     expect(resolveMainHubPtrDomain("/stores")).toBe("stores");
     expect(resolveMainHubPtrDomain("/community-messenger")).toBe("messenger");

@@ -1,5 +1,5 @@
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
-import { isCommunityHomeSurfacePath, isCommunityMainSurface } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isCommunityMainSurface, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 /**
  * 거래 셸의 `/market` 접두는 `main-bottom-nav-prefetch-pick` 의 `isBottomNavTabActive` 와 동일하게 둔다.
@@ -22,8 +22,9 @@ export type MainBottomNavPrefetchDomain =
 export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBottomNavPrefetchDomain {
   const raw = (pathname ?? "").split("?")[0]?.trim() ?? "";
   const p = raw.replace(/\/+$/, "") || "/";
-  /** `/` Cold Boot · `/home` alias = Community shell (not a separate "root" prefetch domain) */
-  if (!p || isCommunityHomeSurfacePath(p)) return "philife";
+  /** 앱 홈 `/` · `/home` (Cold Boot 별칭) = 독립 홈 셸 */
+  if (!p || isHomeSurfacePath(p)) return "root";
+  if (isCommunityHomeSurfacePath(p)) return "philife";
   if (p === "/market" || p.startsWith("/market/")) return "trade";
   /**
    * Trade product detail `/post/[id]` — same shell domain as `/market`.

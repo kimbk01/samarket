@@ -32,9 +32,10 @@ export type StartupRouteCache = {
   tabId: string;
 };
 
+/** 하단 탭 SSOT(`BOTTOM_NAV_ITEMS`)와 같은 순서 — 홈 · 커뮤니티 · 배달 · 채팅 · 내정보 (2026-11-09) */
 export const BUNDLED_STARTUP_NAV: readonly StartupNavTabCache[] = [
+  { id: "home", href: "/home", label: "Home", labelKo: "홈", labelEn: "Home" },
   { id: "community", href: "/philife", label: "Community", labelKo: "커뮤니티", labelEn: "Community" },
-  { id: "home", href: "/market", label: "Trade", labelKo: "거래", labelEn: "Trade" },
   { id: "stores", href: "/stores", label: "Food", labelKo: "배달", labelEn: "Food" },
   {
     id: "chat",
@@ -48,7 +49,7 @@ export const BUNDLED_STARTUP_NAV: readonly StartupNavTabCache[] = [
 
 export const BUNDLED_STARTUP_ROUTE: StartupRouteCache = {
   path: "/",
-  tabId: "community",
+  tabId: "home",
 };
 
 function safeParseJson(raw: string | null): unknown {

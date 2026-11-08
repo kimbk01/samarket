@@ -71,6 +71,7 @@ describe("CUT3 Promotion IA navigation", () => {
       "settings-intro",
       "settings-startup-config",
       "menu-main-bottom-nav",
+      "menu-home-layout",
       "my-banners",
       // 광고 원장 §5 (2026-11-07): 내정보 › 배너 = 같은 원장 + `?domain=mypage`
       "my-ads-ledger",

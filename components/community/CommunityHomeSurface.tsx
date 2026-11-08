@@ -1,7 +1,7 @@
 /**
  * Canonical Community home surface — First HTML = Hydration = Warm Tab DOM.
  *
- * AUTHORITY: server route pages (`/`, `/philife`, `/community`) only.
+ * AUTHORITY: server route pages (`/philife`, `/community`) only. (`/`·`/home` = 앱 홈 `HomeSurface`, 2026-11-09)
  * DO NOT: InstantMainTabEnterPanel / KeepAlive host 에서 이 Surface 재생성.
  * DO NOT: `"use client"` 경계를 올려 First HTML shell 을 client-only authority 로 변경.
  * DO NOT: CommunityUiScope 를 PhilifeFeedClientEntry / useEffect 로 추가.

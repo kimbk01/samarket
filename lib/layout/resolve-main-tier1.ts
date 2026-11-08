@@ -9,7 +9,7 @@ import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathnam
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { GLOBAL_SEARCH_NO_ORIGIN_FALLBACK } from "@/lib/search/global/global-search-navigation-ssot";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import {
   buildMypageSectionHref,
   findMypageMobileItem,
@@ -253,6 +253,7 @@ function resolveMainTier1SubpageInner(
   const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;
+  if (isHomeSurfacePath(p)) return null;
   if (isCommunityHomeSurfacePath(p)) return null;
   if (p === "/stores") return null;
 

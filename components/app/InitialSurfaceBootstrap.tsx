@@ -5,12 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { getStartupConfigCached, scheduleStartupConfigRefresh } from "@/lib/startup/startup-config-client";
 import { resolveInitialAppSurfacePath } from "@/lib/startup/initial-app-surface";
 import { getAppEntryDecision } from "@/lib/lifecycle/app-entry-kind";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const APPLIED_KEY = "dibay:startup:initial-surface-applied";
 
+/** 앱 첫 진입 루트 = 앱 홈 `/`·`/home` (2026-11-09 — 예전에는 커뮤니티 홈) */
 function isRootCommunityPath(pathname: string): boolean {
-  return isCommunityHomeSurfacePath(pathname);
+  return isHomeSurfacePath(pathname);
 }
 
 /**
@@ -59,7 +60,7 @@ export function InitialSurfaceBootstrap(): null {
     }
 
     if (targetPath === pathOnly || (isRootCommunityPath(targetPath) && isRootCommunityPath(pathOnly))) {
-      // Already on community (or equivalent). Sync native prefs for next launch.
+      // Already on home (or equivalent). Sync native prefs for next launch.
       try {
         (
           window as unknown as {

@@ -224,7 +224,7 @@ iOS에서 `RESTORE`를 안정적으로 내는 구체 API·실기기 검증: **NO
 | 우선 | 경로 권위 CODE |
 |---|---|
 | 1 | Launch intent path (Push/Deep Link/Call) — 있으면 그것 |
-| 2 | `resolveInitialAppSurfacePath({ adminInitialSurface })` → community 기본 **`/philife`** (`lib/startup/initial-app-surface.ts`) |
+| 2 | `resolveInitialAppSurfacePath({ adminInitialSurface })` → 기본 = 앱 홈 **`/home`** (2026-11-09 홈 신설 · 예전 커뮤니티 `/philife`) (`lib/startup/initial-app-surface.ts`) |
 | 3 | 인증이 로그인 UI를 요구하면 **기존** auth/login·온보딩 라우트 (auth SSOT) — Lifecycle이 새 로그인 화면을 추가하지 않음 |
 
 원칙:

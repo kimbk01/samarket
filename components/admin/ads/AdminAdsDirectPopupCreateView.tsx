@@ -22,7 +22,7 @@ import {
 import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { adminManilaInputToIso } from "@/lib/admin/operator-ux/admin-manila-datetime-input";
 
-const SURFACES = ["GLOBAL", "DELIVERY", "TRADE", "COMMUNITY", "MYPAGE"] as const;
+const SURFACES = ["GLOBAL", "HOME", "DELIVERY", "TRADE", "COMMUNITY", "MYPAGE"] as const;
 
 export function AdminAdsDirectPopupCreateView() {
   const { language, t } = useI18n();

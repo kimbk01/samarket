@@ -140,14 +140,19 @@ function resolveRowFab(tabId: string, raw: MainBottomNavStoredItem): MainBottomN
 }
 
 function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
-  const hrefRaw = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
+  /**
+   * 내장 `home` 은 2026-11-09 부터 앱 홈(`/home`). 예전 저장값(`home`=거래 `/market`·TRADE·거래 아이콘)은
+   * 의미가 바뀌었으므로 경로·라벨·아이콘을 코드 기본값으로 되돌린다(보이기·순서만 저장값 유지).
+   */
+  const legacyTradeHome =
+    base.id === "home" &&
+    (String(raw.href ?? "").split("?")[0]?.trim().startsWith("/market") ||
+      String(raw.label ?? "").trim().toUpperCase() === "TRADE" ||
+      raw.icon === "trade");
+  const hrefRaw = !legacyTradeHome && isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
   const href = normalizeBuiltinMessengerTabHref(base.id, hrefRaw);
-  const label = trimLabel(raw.label, base.label);
-  let icon: BottomNavIconKey = isIconKey(raw.icon) ? raw.icon : base.icon;
-  /* 예전 TRADE 탭이 라벨만 TRADE이고 icon=home(집)으로 저장된 경우 → trade 아이콘으로 통일 */
-  if (base.id === "home" && icon === "home" && label.trim().toUpperCase() === "TRADE") {
-    icon = "trade";
-  }
+  const label = legacyTradeHome ? base.label : trimLabel(raw.label, base.label);
+  const icon: BottomNavIconKey = !legacyTradeHome && isIconKey(raw.icon) ? raw.icon : base.icon;
   return {
     id: base.id,
     href,

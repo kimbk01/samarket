@@ -54,6 +54,7 @@ export const FEED_POOL_PLACEMENTS = [
 ] as const satisfies readonly FeedAdPlacement[];
 
 const SURFACE_PATHNAME: Record<PlatformPopupConsumerSurface, string> = {
+  HOME: "/home",
   COMMUNITY: "/philife",
   TRADE: "/market",
   DELIVERY: "/stores",
@@ -570,11 +571,13 @@ export const LEDGER_SURFACE_BASE: ReadonlyArray<{ group: LedgerSurfaceGroup; loc
   { group: "feed", locationKey: "COMMUNITY_TOPIC" },
   { group: "boost", locationKey: "TRADE_BOOST_TOP" },
   { group: "boost", locationKey: "COMMUNITY_BOOST_TOP" },
+  { group: "popup", locationKey: "POPUP", locationTarget: "HOME" },
   { group: "popup", locationKey: "POPUP", locationTarget: "COMMUNITY" },
   { group: "popup", locationKey: "POPUP", locationTarget: "TRADE" },
   { group: "popup", locationKey: "POPUP", locationTarget: "DELIVERY" },
   { group: "popup", locationKey: "POPUP", locationTarget: "MYPAGE" },
   { group: "popup", locationKey: "POPUP", locationTarget: "GLOBAL" },
+  { group: "ptr", locationKey: "PTR", locationTarget: "HOME" },
   { group: "ptr", locationKey: "PTR", locationTarget: "COMMUNITY" },
   { group: "ptr", locationKey: "PTR", locationTarget: "TRADE" },
   { group: "ptr", locationKey: "PTR", locationTarget: "DELIVERY" },

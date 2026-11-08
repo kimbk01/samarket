@@ -5,15 +5,17 @@
  * MUST use this (or thin wrappers over it). DO NOT re-infer `/` as trade.
  *
  * CONTRACT:
- * - `/`, `/philife`, `/community`, `/home` → community (same Community home surface)
- * - Community home hub roots are decided ONLY by `isCommunityHomeSurfacePath()` /
- *   `COMMUNITY_HOME_SURFACE_PATHS` — no literal `/`·`/philife`·`/community` sets elsewhere
+ * - `/`, `/home` → home (앱 홈 — 독립 화면, Owner 「구현 시작」 2026-11-09). `/home` 은 Cold Boot 직접 렌더 별칭.
+ * - `/philife`, `/community` → community (same Community home surface)
+ * - Home / community hub roots are decided ONLY by `isHomeSurfacePath()` / `isCommunityHomeSurfacePath()`
+ *   (`HOME_SURFACE_PATHS` · `COMMUNITY_HOME_SURFACE_PATHS`) — no literal `/`·`/philife`·`/community` sets elsewhere
  *   (guarded by `community-hub-path-ssot.test.ts`).
+ * - 거래(`/market`…)는 화면 판정상 trade 그대로 — 하단 탭에서는 커뮤니티 탭이 켜진다(`main-bottom-nav-prefetch-pick`).
  * - `/community-messenger` is chat (never match as `/community` prefix)
  */
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 
-export type MainSurfaceId = "community" | "trade" | "delivery" | "chat" | "mypage" | "other";
+export type MainSurfaceId = "home" | "community" | "trade" | "delivery" | "chat" | "mypage" | "other";
 
 function pathOnly(pathname: string | null | undefined): string {
   return normalizeAppPathnameForTier1(pathname);
@@ -25,6 +27,7 @@ function pathOnly(pathname: string | null | undefined): string {
 export function resolveMainSurface(pathname: string | null | undefined): MainSurfaceId {
   const p = pathOnly(pathname);
 
+  if (isHomeSurfacePath(p)) return "home";
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) return "chat";
   if (p === "/chats" || p.startsWith("/chats/") || p === "/chat" || p.startsWith("/chat/")) return "chat";
 
@@ -57,10 +60,20 @@ export function resolveMainSurface(pathname: string | null | undefined): MainSur
 }
 
 /**
- * Community home hub roots — single source. `/home` is the Cold Boot direct-render alias
+ * 앱 홈 — single source. `/home` is the Cold Boot direct-render alias
  * (`app/(main)/home/page.tsx`, no HTTP redirect) and MUST behave exactly like `/`.
  */
-export const COMMUNITY_HOME_SURFACE_PATHS = ["/", "/philife", "/community", "/home"] as const;
+export const HOME_SURFACE_PATHS = ["/", "/home"] as const;
+
+const HOME_SURFACE_PATH_SET: ReadonlySet<string> = new Set(HOME_SURFACE_PATHS);
+
+/** 앱 홈(`/`·`/home`) 여부 — `HomeSurface` 단일 권한 */
+export function isHomeSurfacePath(pathname: string | null | undefined): boolean {
+  return HOME_SURFACE_PATH_SET.has(pathOnly(pathname));
+}
+
+/** Community home hub roots — single source. */
+export const COMMUNITY_HOME_SURFACE_PATHS = ["/philife", "/community"] as const;
 
 const COMMUNITY_HOME_SURFACE_PATH_SET: ReadonlySet<string> = new Set(COMMUNITY_HOME_SURFACE_PATHS);
 
@@ -74,7 +87,7 @@ export function isCommunityHomeSurfacePath(pathname: string | null | undefined):
 }
 
 /** Bottom-tab hub ids kept alive under Main App Shell (exact hubs only — not detail routes). */
-export type MainTabKeepAliveHubId = "community" | "trade" | "delivery" | "chat" | "mypage";
+export type MainTabKeepAliveHubId = "home" | "community" | "trade" | "delivery" | "chat" | "mypage";
 
 /**
  * Exact bottom-tab hub paths that share one keep-alive Surface instance.
@@ -84,6 +97,7 @@ export function resolveMainTabKeepAliveHub(
   pathname: string | null | undefined
 ): MainTabKeepAliveHubId | null {
   const p = pathOnly(pathname);
+  if (isHomeSurfacePath(p)) return "home";
   if (isCommunityHomeSurfacePath(p)) return "community";
   if (p === "/market") return "trade";
   if (p === "/stores") return "delivery";

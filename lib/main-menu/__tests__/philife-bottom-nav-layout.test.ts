@@ -7,8 +7,8 @@ import { composeMainBottomNavDisplayTabs } from "@/lib/main-menu/main-bottom-nav
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 
 describe("isPhilifeConsumerBottomNavSurface", () => {
-  it("/ · /philife · /community", () => {
-    expect(isPhilifeConsumerBottomNavSurface("/")).toBe(true);
+  it("/philife · /community (앱 홈 `/` 은 별도 — 2026-11-09)", () => {
+    expect(isPhilifeConsumerBottomNavSurface("/")).toBe(false);
     expect(isPhilifeConsumerBottomNavSurface("/philife")).toBe(true);
     expect(isPhilifeConsumerBottomNavSurface("/philife/board/x")).toBe(true);
     expect(isPhilifeConsumerBottomNavSurface("/community/post/x")).toBe(true);
@@ -18,7 +18,7 @@ describe("isPhilifeConsumerBottomNavSurface", () => {
 
 describe("isPhilifeHomeHubBottomNavActive", () => {
   it("커뮤니티 루트 접두", () => {
-    expect(isPhilifeHomeHubBottomNavActive("/")).toBe(true);
+    expect(isPhilifeHomeHubBottomNavActive("/")).toBe(false);
     expect(isPhilifeHomeHubBottomNavActive("/philife")).toBe(true);
     expect(isPhilifeHomeHubBottomNavActive("/community")).toBe(true);
     expect(isPhilifeHomeHubBottomNavActive("/market")).toBe(false);

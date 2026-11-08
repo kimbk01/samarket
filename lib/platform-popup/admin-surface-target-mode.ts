@@ -26,19 +26,28 @@ function isConsumerSurface(value: string): value is PlatformPopupConsumerSurface
 
 /**
  * Canonical path examples — must match resolveDibaySurface (+ `popup-critical-path-gates` 제외 경로).
- * P-4 (2026-11-04): 커뮤니티 `/`·`/home` 포함, 글쓰기(/write)·결제·주문·채팅 등 실제로 빠지는 경로를 함께 적는다.
+ * P-4 (2026-11-04) · 홈 분리(2026-11-09): `/`·`/home` = 홈, 글쓰기(/write)·결제·주문·채팅 등 실제로 빠지는 경로를 함께 적는다.
  */
 export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   {
     mode: "GLOBAL",
-    labelKo: "전체 — 커뮤니티·거래·배달·내정보",
-    labelEn: "All — Community, Trade, Delivery, My Page",
+    labelKo: "전체 — 홈·커뮤니티·거래·배달·내정보",
+    labelEn: "All — Home, Community, Trade, Delivery, My Page",
     helpKo:
-      "위 네 영역에 동일 팝업 1개가 노출됩니다. 배달 오너·어드민 화면에는 나오지 않습니다(직접 선택한 경우만). 결제·통화·위험 작업 화면은 시스템이 잠시 가립니다.",
+      "위 다섯 영역에 동일 팝업 1개가 노출됩니다. 배달 오너·어드민 화면에는 나오지 않습니다(직접 선택한 경우만). 결제·통화·위험 작업 화면은 시스템이 잠시 가립니다.",
     helpEn:
-      "One popup on those four areas. Not shown on Delivery Owner or Admin screens unless selected directly. Payment, call, and high-risk screens are gated automatically.",
-    pagesKo: "네 영역 전체",
-    pagesEn: "All four areas",
+      "One popup on those five areas. Not shown on Delivery Owner or Admin screens unless selected directly. Payment, call, and high-risk screens are gated automatically.",
+    pagesKo: "다섯 영역 전체",
+    pagesEn: "All five areas",
+  },
+  {
+    mode: "HOME",
+    labelKo: "홈",
+    labelEn: "Home",
+    helpKo: "앱 홈에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
+    helpEn: "App home. Can be combined with other areas.",
+    pagesKo: "/ · /home",
+    pagesEn: "/ · /home",
   },
   {
     mode: "COMMUNITY",
@@ -46,8 +55,8 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     labelEn: "Community",
     helpKo: "커뮤니티 영역에 노출됩니다. 다른 영역과 함께 선택할 수 있습니다.",
     helpEn: "Community area. Can be combined with other areas.",
-    pagesKo: "/ · /home · /philife · /community",
-    pagesEn: "/ · /home · /philife · /community",
+    pagesKo: "/philife · /community",
+    pagesEn: "/philife · /community",
   },
   {
     mode: "TRADE",

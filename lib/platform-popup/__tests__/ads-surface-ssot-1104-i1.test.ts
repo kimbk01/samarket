@@ -425,10 +425,11 @@ describe("P-3 PTR 낭독 문구 = title 우선 → 띠 대체 텍스트", () => 
 
 describe("P-4 노출 위치 경로 예시 = 실제 판정", () => {
   const byMode = Object.fromEntries(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => [o.mode, o.pagesKo]));
-  it("커뮤니티에 / · /home 포함 (실제 COMMUNITY)", () => {
-    expect(byMode.COMMUNITY).toContain("/home");
-    expect(resolveDibaySurface("/home")).toBe("COMMUNITY");
-    expect(resolveDibaySurface("/")).toBe("COMMUNITY");
+  it("홈에 / · /home (실제 HOME, 2026-11-09) · 커뮤니티는 /philife", () => {
+    expect(byMode.HOME).toContain("/home");
+    expect(byMode.COMMUNITY).toContain("/philife");
+    expect(resolveDibaySurface("/home")).toBe("HOME");
+    expect(resolveDibaySurface("/")).toBe("HOME");
   });
   it("거래 /write 는 제외로 표시 (실제 ORDER_CRITICAL)", () => {
     expect(byMode.TRADE).toContain("/write 제외");

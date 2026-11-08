@@ -240,9 +240,9 @@ describe("dibay chrome title coverage", () => {
     expect(noEvidence).toEqual([]);
   });
 
-  it("/home is the community MAIN HUB (same as `/`), not an extras route", () => {
-    expect(resolveChromeTitleAuthority("/home")).toBe("main_hub");
-    expect(resolveChromeTitleAuthority("/")).toBe("main_hub");
+  it("/home is the app home (same as `/`) — own green header, global tier1 suppressed, not an extras route", () => {
+    expect(resolveChromeTitleAuthority("/home")).toBe("tier1_suppressed_local");
+    expect(resolveChromeTitleAuthority("/")).toBe("tier1_suppressed_local");
     expect(EXTRAS_REQUIRED["/home"]).toBeUndefined();
   });
 

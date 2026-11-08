@@ -75,7 +75,7 @@ import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
 import { SupportInAppNoticeHost } from "@/components/support/SupportInAppNoticeHost";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath, resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -127,9 +127,12 @@ function MarkAppShellReadyOnce({
       BOTTOM_NAV_ITEMS.find((t) => {
         const hrefPath = t.href.split("?")[0] ?? t.href;
         const cur = (pathname ?? "/").split("?")[0] || "/";
-        if (t.id === "community") return isCommunityHomeSurfacePath(cur) || cur.startsWith("/philife/");
+        if (t.id === "home") return isHomeSurfacePath(cur);
+        if (t.id === "community") {
+          return isCommunityHomeSurfacePath(cur) || cur.startsWith("/philife/") || resolveMainSurface(cur) === "trade";
+        }
         return cur === hrefPath || cur.startsWith(`${hrefPath}/`);
-      })?.id ?? "community";
+      })?.id ?? "home";
     const lang =
       typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "ko";
     scheduleStartupShellCachePersist({

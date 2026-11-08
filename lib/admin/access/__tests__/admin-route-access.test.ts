@@ -175,6 +175,8 @@ const ACTION_CONTRACT: { page: string; route: string; method: string }[] = [
   { page: "/admin/platform-promotion/os-start", route: "os-launch/route.ts", method: "PUT" },
   { page: "/admin/platform-promotion/intro", route: "launch-intro/route.ts", method: "PUT" },
   { page: "/admin/menus/main-bottom-nav", route: "main-bottom-nav/route.ts", method: "PUT" },
+  // 홈 구성 (Owner 「구현 시작」 2026-11-09)
+  { page: "/admin/menus/home-layout", route: "home-layout/route.ts", method: "PUT" },
   { page: "/admin/app/business", route: "app-business-info/route.ts", method: "POST" },
   // IA-04 (K-2) · G-18 — 광고·홍보 콘텐츠 쓰기 = ads (사장님 팝업 신청 처리는 business)
   { page: "/admin/feed-ads", route: "feed-ads/route.ts", method: "POST" },

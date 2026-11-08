@@ -1,5 +1,6 @@
 "use client";
 
+import { BottomNavProfileAvatar } from "@/components/layout/BottomNavProfileAvatar";
 import Link from "next/link";
 import {
   memo,
@@ -88,7 +89,7 @@ import {
   resolveMainBottomNavTabTapHref,
   type MainBottomNavTabEmphasisKind,
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
-import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -97,6 +98,7 @@ const BOTTOM_NAV_ITEM_TOUCH_CLASS =
 function shouldPrefetchMainBottomNavHref(href: string, isActive: boolean): boolean {
   if (isActive) return false;
   const path = (href.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "/";
+  if (isHomeSurfacePath(path)) return true;
   if (isCommunityHomeSurfacePath(path)) return true;
   if (path === "/market" || path === "/stores" || path === "/mypage") return true;
   if (path === "/community-messenger") return true;
@@ -204,7 +206,11 @@ function runBottomNavTabClickOrOpenNew(
   commitTabRoute(tab.id, { ...opts, href, tabId: tab.id });
 }
 
+/** 네이버형 하단 탭 (홈 설계안 v11) — 원형 orbit 강조를 그리지 않는다 */
+const BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED = false;
+
 function bottomNavOrbitEmphasisItemClass(emphasisKind: MainBottomNavTabEmphasisKind): string {
+  if (!BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED) return "";
   if (emphasisKind === "domain-hub") return "app-bottom-nav-item--domain-hub";
   if (emphasisKind === "messenger-hub") return "app-bottom-nav-item--messenger-hub";
   return "";
@@ -223,7 +229,21 @@ function BottomNavTabIconContent({
   iconSize: string;
   badgeCount: number;
 }) {
-  if (emphasisKind === "domain-hub" || emphasisKind === "messenger-hub") {
+  /**
+   * 네이버형 하단 탭 (홈 설계안 v11, Owner 「구현 시작」 2026-11-09): 원형 orbit 강조를 그리지 않는다 —
+   * 선택 탭은 검은 둥근 사각형 안 흰 아이콘(CSS), 「내정보」는 프로필 사진. `emphasisKind` 는 탭 이동 주소에만 쓴다.
+   */
+  if (tab.id === "my") {
+    return (
+      <div className="app-bottom-nav-icon-slot">
+        <span className="app-bottom-nav-inline-icon app-bottom-nav-inline-icon--avatar">
+          <BottomNavProfileAvatar />
+          <BottomNavHubBadgeDot count={badgeCount} />
+        </span>
+      </div>
+    );
+  }
+  if (BOTTOM_NAV_ORBIT_EMPHASIS_ENABLED && (emphasisKind === "domain-hub" || emphasisKind === "messenger-hub")) {
     return (
       <>
         <div className="app-bottom-nav-icon-slot" aria-hidden="true">

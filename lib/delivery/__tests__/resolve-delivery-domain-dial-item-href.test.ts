@@ -19,8 +19,8 @@ describe("resolveDeliveryDomainDialItemHref", () => {
     expect(raw.href).toBe("/stores");
   });
 
-  it("거래·커뮤니티·메신저 칩 href", () => {
-    expect(resolveDeliveryDomainDialItemHref(dialActionTab("home"))).toBe("/market");
+  it("홈·커뮤니티·메신저 칩 href (2026-11-09 — home = 앱 홈)", () => {
+    expect(resolveDeliveryDomainDialItemHref(dialActionTab("home"))).toBe("/home");
     expect(resolveDeliveryDomainDialItemHref(dialActionTab("community"))).toBe("/philife");
     expect(resolveDeliveryDomainDialItemHref(dialActionTab("chat"))).toBe(
       "/community-messenger/delivery-chats?from=delivery"

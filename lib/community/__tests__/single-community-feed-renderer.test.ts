@@ -29,10 +29,11 @@ describe("single community feed renderer (attachment 2)", () => {
     expect(feed).toContain('data-community-renderer="canonical-v1"');
   });
 
-  it("/ and /philife layouts share CommunityUiScope", () => {
+  it("/philife · /community layouts share CommunityUiScope (`/` = 앱 홈 HomeSurface, 2026-11-09)", () => {
     expect(read("app/(main)/philife/layout.tsx")).toContain("CommunityUiScope");
     expect(read("app/(main)/community/layout.tsx")).toContain("CommunityUiScope");
-    expect(read("app/(main)/page.tsx")).toContain("CommunityHomeSurface");
+    expect(read("app/(main)/page.tsx")).toContain("HomeSurface");
+    expect(read("app/(main)/page.tsx")).not.toContain("CommunityHomeSurface");
     expect(read("app/(main)/philife/page.tsx")).toContain("CommunityHomeSurface");
   });
 });

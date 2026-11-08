@@ -40,9 +40,11 @@ describe("isMainBottomNavDisplayTabActive (delivery 5탭)", () => {
     expect(isMainBottomNavDisplayTabActive("/orders", my, { secondaryRail: "stores" })).toBe(false);
   });
 
-  it("거래 6탭 레일에서는 delivery 탭 id 미사용", () => {
-    const tradeHome = BOTTOM_NAV_ITEMS.find((t) => t.id === "home")!;
-    expect(isMainBottomNavDisplayTabActive("/market", tradeHome, { secondaryRail: "trade" })).toBe(true);
+  it("거래 레일 — 거래는 커뮤니티 탭이 켜진다(2026-11-09), delivery 탭 id 미사용", () => {
+    const community = BOTTOM_NAV_ITEMS.find((t) => t.id === "community")!;
+    const home = BOTTOM_NAV_ITEMS.find((t) => t.id === "home")!;
+    expect(isMainBottomNavDisplayTabActive("/market", community, { secondaryRail: "trade" })).toBe(true);
+    expect(isMainBottomNavDisplayTabActive("/market", home, { secondaryRail: "trade" })).toBe(false);
     expect(isMainBottomNavDisplayTabActive("/orders", orders, { secondaryRail: "trade" })).toBe(true);
   });
 });

@@ -26,7 +26,7 @@ import {
   isExcludedFromMainShellTransition,
   normalizePathForRouteTransition,
 } from "@/components/route-transition/route-transition-config";
-import { COMMUNITY_HOME_SURFACE_PATHS } from "@/lib/layout/resolve-main-surface";
+import { COMMUNITY_HOME_SURFACE_PATHS, HOME_SURFACE_PATHS } from "@/lib/layout/resolve-main-surface";
 
 const BUILTIN_ID_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
 
@@ -41,9 +41,10 @@ function isBuiltinId(id: BottomNavTabId): id is BottomNavBuiltinTabId {
  * 신규 sub-route 가 생기면 이 표만 갱신한다 (정적 `resolveCanonicalNavIndex` 와 동기 유지).
  */
 export const BUILTIN_TAB_PATH_ALIASES: Record<BottomNavBuiltinTabId, readonly string[]> = {
-  /** `/` Cold Boot home · `/home` alias = Community surface (same as `/philife`) — SSOT resolve-main-surface */
-  community: COMMUNITY_HOME_SURFACE_PATHS,
-  home: ["/market", "/post", "/products", "/write", "/shop"],
+  /** 앱 홈 `/` · `/home`(Cold Boot 별칭) — SSOT resolve-main-surface */
+  home: HOME_SURFACE_PATHS,
+  /** 커뮤니티 = 정보교환(`/philife`) + 거래(`/market`…) — 거래는 커뮤니티 안 탭 (2026-11-09) */
+  community: [...COMMUNITY_HOME_SURFACE_PATHS, "/market", "/post", "/products", "/write", "/shop"],
   stores: ["/stores", "/orders"],
   chat: ["/community-messenger", "/chats", "/chat"],
   my: ["/mypage", "/my"],

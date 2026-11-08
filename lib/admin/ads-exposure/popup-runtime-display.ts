@@ -24,6 +24,7 @@ export type PopupRuntimeDisplayStatus =
   | "incomplete";
 
 const SURFACE_PATHNAME: Record<PlatformPopupConsumerSurface, string> = {
+  HOME: "/home",
   COMMUNITY: "/philife",
   TRADE: "/market",
   DELIVERY: "/stores",
