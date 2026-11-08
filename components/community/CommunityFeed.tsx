@@ -715,10 +715,7 @@ export function CommunityFeed({
         /** Local nav 만 지역 필요 — 다른 nav 는 지역 없이도 진행한다. */
         if (plan.requiresRegion && (!locationKey || !locationMeta)) {
           setErr(
-            safeT("philife_write_err_region_required", {
-              fallbackKo: "동네를 먼저 설정해 주세요.",
-              fallbackEn: "Set your neighborhood first.",
-            })
+            safeT("philife_write_err_region_required")
           );
           setHasMore(false);
           return "error";
@@ -977,10 +974,7 @@ export function CommunityFeed({
       setHasMore(false);
       setLoading(false);
       setErr(
-        safeT("philife_write_err_region_required", {
-          fallbackKo: "동네를 먼저 설정해 주세요.",
-          fallbackEn: "Set your neighborhood first.",
-        })
+        safeT("philife_write_err_region_required")
       );
       postsContentKeyRef.current = feedContentKey;
       setSettledFeedContentKey(feedContentKey);
@@ -1489,8 +1483,8 @@ export function CommunityFeed({
   const allSortOn = navSelection.kind === "all" || navSelection.kind === "home" || navSelection.kind === "popular";
   const allSortLabel =
     displayAllSort === "popular"
-      ? safeT("community_sort_popular", { fallbackKo: "인기순", fallbackEn: "Popular" })
-      : safeT("community_sort_latest", { fallbackKo: "최신순", fallbackEn: "Latest" });
+      ? safeT("community_sort_popular")
+      : safeT("community_sort_latest");
 
   const updateAllSortMenuPos = useCallback(() => {
     const el = allSortButtonRef.current;
@@ -1902,10 +1896,7 @@ export function CommunityFeed({
               ) : null}
               {trailingNavItems.map((item) => {
                 const on = navSelection.kind === "local";
-                const label = safeT("community_feed_mode_local", {
-                  fallbackKo: "동네",
-                  fallbackEn: "Local",
-                });
+                const label = safeT("community_feed_mode_local");
                 return (
                   <button
                     key={item.kind}
@@ -1928,10 +1919,7 @@ export function CommunityFeed({
               <div className={`${PHILIFE_FEED_FILTER_STRIP_CLASS} border-t-0`}>
                 <div className={`flex min-w-0 items-center justify-between gap-2 ${APP_MAIN_HEADER_INNER_CLASS}`}>
                   <p className="min-w-0 truncate sam-text-body-secondary text-sam-muted">
-                    {safeT("community_local_filter_active", {
-                      fallbackKo: "보는 동네",
-                      fallbackEn: "Viewing",
-                    })}
+                    {safeT("community_local_filter_active")}
                     {filterLabel.trim() ? ` · ${filterLabel.trim()}` : ""}
                   </p>
                   <button
@@ -1939,10 +1927,7 @@ export function CommunityFeed({
                     onClick={() => setLocalFilterPickerOpen(true)}
                     className="shrink-0 sam-text-body font-semibold text-sam-primary"
                   >
-                    {safeT("community_local_filter_change", {
-                      fallbackKo: "지역 변경",
-                      fallbackEn: "Change area",
-                    })}
+                    {safeT("community_local_filter_change")}
                   </button>
                 </div>
               </div>
@@ -1965,17 +1950,11 @@ export function CommunityFeed({
                       [
                         {
                           key: "latest" as const,
-                          label: safeT("community_sort_latest", {
-                            fallbackKo: "최신순",
-                            fallbackEn: "Latest",
-                          }),
+                          label: safeT("community_sort_latest"),
                         },
                         {
                           key: "popular" as const,
-                          label: safeT("community_sort_popular", {
-                            fallbackKo: "인기순",
-                            fallbackEn: "Popular",
-                          }),
+                          label: safeT("community_sort_popular"),
                         },
                       ] as const
                     ).map((opt) => {
@@ -2101,10 +2080,7 @@ export function CommunityFeed({
                     onClick={() => setLocalFilterPickerOpen(true)}
                     className="font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
                   >
-                    {safeT("community_local_filter_change", {
-                      fallbackKo: "지역 변경",
-                      fallbackEn: "Change area",
-                    })}
+                    {safeT("community_local_filter_change")}
                   </button>
                 </div>
               ) : null}

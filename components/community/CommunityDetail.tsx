@@ -342,10 +342,7 @@ export function CommunityDetail({
       } else {
         setSavedByViewer(prevSaved);
         setActionToast(
-          safeT("community_engagement_action_failed", {
-            fallbackKo: "잠시 후 다시 시도해 주세요.",
-            fallbackEn: "Please try again in a moment.",
-          })
+          safeT("community_engagement_action_failed")
         );
         window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
       }
@@ -650,20 +647,14 @@ export function CommunityDetail({
           {me?.id && me.id === post.author_id && !isCommunityImportedOrigin(post.origin_kind) && (
             <div className="mt-4 border-t border-[var(--cm-border)] pt-4">
               <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">
-                {safeT("community_my_post_ads", {
-                  fallbackKo: "게시물 상위노출",
-                  fallbackEn: "Promote post",
-                })}
+                {safeT("community_my_post_ads")}
               </p>
               <button
                 type="button"
                 onClick={() => setPromoteOpen(true)}
                 className="w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2.5 sam-text-body-secondary font-semibold text-amber-800 hover:bg-amber-100"
               >
-                {safeT("community_top_pin_cta", {
-                  fallbackKo: "게시물 상위노출하기",
-                  fallbackEn: "Promote this post",
-                })}
+                {safeT("community_top_pin_cta")}
               </button>
               <MemberPostPromoteSheet
                 domain="community"

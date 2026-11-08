@@ -92,9 +92,6 @@ export async function guardBannedWords(input: {
     ok: false,
     status: 400,
     code: CONTENT_FILTER_BLOCKED_CODE,
-    error: safeTranslate(lang, "content_filter_blocked_message", {
-      fallbackKo: "운영정책에 맞지 않는 표현이 포함되어 있어 등록할 수 없어요. 표현을 고친 뒤 다시 시도해 주세요.",
-      fallbackEn: "This contains language that isn't allowed under our community policy. Please edit it and try again.",
-    }),
+    error: safeTranslate(lang, "content_filter_blocked_message"),
   };
 }

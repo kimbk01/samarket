@@ -166,10 +166,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
         return;
       }
       showToast(
-        safeT("community_engagement_action_failed", {
-          fallbackKo: "잠시 후 다시 시도해 주세요.",
-          fallbackEn: "Please try again in a moment.",
-        })
+        safeT("community_engagement_action_failed")
       );
     } finally {
       setBusy(false);

@@ -46,17 +46,11 @@ export function CommunityLocalFilterPickerSheet({
     <DibayBottomSheet
       open={open}
       onClose={onClose}
-      title={safeT("community_local_filter_title", {
-        fallbackKo: "동네 지역 선택",
-        fallbackEn: "Choose Local area",
-      })}
+      title={safeT("community_local_filter_title")}
     >
       <div className="space-y-4 px-4 pb-2">
         <p className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
-          {safeT("community_local_filter_hint", {
-            fallbackKo: "피드에 보일 동네만 바꿉니다. 대표 주소는 변경되지 않습니다.",
-            fallbackEn: "Changes the Local feed area only. Your primary address stays the same.",
-          })}
+          {safeT("community_local_filter_hint")}
         </p>
         <div>
           <label className="mb-1 block text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
@@ -71,10 +65,7 @@ export function CommunityLocalFilterPickerSheet({
             className={`${OverlayUi.input} !mt-0`}
           >
             <option value="">
-              {safeT("community_local_filter_select_region", {
-                fallbackKo: "지역 선택",
-                fallbackEn: "Select region",
-              })}
+              {safeT("community_local_filter_select_region")}
             </option>
             {REGIONS.map((r) => (
               <option key={r.id} value={r.id}>
@@ -85,10 +76,7 @@ export function CommunityLocalFilterPickerSheet({
         </div>
         <div>
           <label className="mb-1 block text-[length:var(--overlay-body-2-size)] font-medium text-[color:var(--overlay-text-primary)]">
-            {safeT("community_local_filter_area_label", {
-              fallbackKo: "동네",
-              fallbackEn: "Area",
-            })}
+            {safeT("community_local_filter_area_label")}
           </label>
           <select
             value={cityId}
@@ -97,10 +85,7 @@ export function CommunityLocalFilterPickerSheet({
             className={`${OverlayUi.input} !mt-0`}
           >
             <option value="">
-              {safeT("community_local_filter_select_area", {
-                fallbackKo: "동네 선택",
-                fallbackEn: "Select area",
-              })}
+              {safeT("community_local_filter_select_area")}
             </option>
             {cities.map((c) => (
               <option key={c.id} value={c.id}>
@@ -119,10 +104,7 @@ export function CommunityLocalFilterPickerSheet({
             },
             {
               key: "apply",
-              label: safeT("community_local_filter_apply", {
-                fallbackKo: "이 동네로 보기",
-                fallbackEn: "View this area",
-              }),
+              label: safeT("community_local_filter_apply"),
               roleTone: "primary",
               disabled: !regionId || !cityId,
               onClick: () => {
