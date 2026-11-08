@@ -397,7 +397,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           e.stopPropagation();
           void focusTimelineMessage(replyQuote.targetMessageId);
         }}
-        aria-label={tt("cm_ui_jump_to_original_message", { label: replyQuote.senderLabel })}
+        aria-label={t("cm_ui_jump_to_original_message", { label: replyQuote.senderLabel })}
       >
         <p
           className={`sam-text-xxs font-bold leading-snug ${mine ? "text-white" : "text-[color:var(--cm-room-primary)]"}`}
@@ -449,7 +449,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                     anchor: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
                   });
                 }}
-                aria-label={tt("cm_ui_reaction_view_aria", { key: r.reactionKey, count: r.count })}
+                aria-label={t("cm_ui_reaction_view_aria", { key: r.reactionKey, count: r.count })}
               >
                 <span className="text-base leading-none">{r.reactionKey}</span>
                 {r.count >= 1 ? <span className="tabular-nums opacity-90">{r.count}</span> : null}
