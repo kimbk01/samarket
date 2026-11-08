@@ -22,15 +22,8 @@ export function PostSellerTradeStrip({
   const pad = variant === "compact" ? "px-3 py-2" : "px-4 py-3";
   const label =
     chatCount === 1
-      ? safeT("marketplace_seller_trade_summary_any", {
-          fallbackKo: "진행 중 거래 있음",
-          fallbackEn: "Active trade(s)",
-        })
-      : safeT("marketplace_seller_trade_summary", {
-          fallbackKo: `진행 중 거래 ${chatCount}건`,
-          fallbackEn: `${chatCount} active trade(s)`,
-          vars: { count: chatCount },
-        });
+      ? safeT("marketplace_seller_trade_summary_any")
+      : safeT("marketplace_seller_trade_summary", { vars: { count: chatCount } });
 
   return (
     <div className={`border-t border-sam-border bg-sam-surface-muted/60 ${pad}`}>

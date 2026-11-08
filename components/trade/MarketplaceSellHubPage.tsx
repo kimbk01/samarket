@@ -100,14 +100,8 @@ function MarketplaceSellHubContent() {
     openTradeWriteSheet("");
   };
 
-  const listingsPill = safeT("marketplace_seller_hub_pill_listings", {
-    fallbackKo: "내 매물",
-    fallbackEn: "My listings",
-  });
-  const messagesPill = safeT("marketplace_seller_hub_pill_messages", {
-    fallbackKo: "받은 메시지",
-    fallbackEn: "Inbox",
-  });
+  const listingsPill = safeT("marketplace_seller_hub_pill_listings");
+  const messagesPill = safeT("marketplace_seller_hub_pill_messages");
 
   return (
     <div className={`min-w-0 pb-24 ${APP_MAIN_GUTTER_X_CLASS}`}>
@@ -121,10 +115,7 @@ function MarketplaceSellHubContent() {
 
       <section className="mt-8" aria-labelledby="seller-hub-overview-heading">
         <h2 id="seller-hub-overview-heading" className="sam-text-body-secondary font-semibold text-sam-fg">
-          {safeT("marketplace_seller_hub_overview", {
-            fallbackKo: "개요",
-            fallbackEn: "Overview",
-          })}
+          {safeT("marketplace_seller_hub_overview")}
         </h2>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button
@@ -133,10 +124,7 @@ function MarketplaceSellHubContent() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left active:bg-sam-surface-muted"
           >
             <p className="sam-text-helper text-sam-muted">
-              {safeT("marketplace_seller_hub_overview_active", {
-                fallbackKo: "판매중",
-                fallbackEn: "For sale",
-              })}
+              {safeT("marketplace_seller_hub_overview_active")}
             </p>
             <p className="mt-1 sam-text-body font-semibold text-sam-fg">
               {activeListingCount === null ? "—" : `${activeListingCount}`}
@@ -148,10 +136,7 @@ function MarketplaceSellHubContent() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left active:bg-sam-surface-muted"
           >
             <p className="sam-text-helper text-sam-muted">
-              {safeT("marketplace_seller_hub_overview_chats", {
-                fallbackKo: "답장할 채팅",
-                fallbackEn: "Chats to reply",
-              })}
+              {safeT("marketplace_seller_hub_overview_chats")}
             </p>
             <p className="mt-1 sam-text-body font-semibold text-sam-fg">
               {openChatCount === null ? "—" : `${openChatCount}`}
@@ -192,10 +177,7 @@ function MarketplaceSellHubContent() {
           onClick={() => go(PRODUCTS_HREF)}
           className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} py-3`}
         >
-          {safeT("marketplace_seller_cta_manage_listings", {
-            fallbackKo: "내 매물 관리",
-            fallbackEn: "Manage my listings",
-          })}
+          {safeT("marketplace_seller_cta_manage_listings")}
         </button>
       </div>
 
@@ -218,18 +200,9 @@ function MarketplaceSellHubPills() {
   const { safeT } = useI18n();
   const pathname = usePathname() ?? "";
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const listingsPill = safeT("marketplace_seller_hub_pill_listings", {
-    fallbackKo: "내 매물",
-    fallbackEn: "My listings",
-  });
-  const messagesPill = safeT("marketplace_seller_hub_pill_messages", {
-    fallbackKo: "받은 메시지",
-    fallbackEn: "Inbox",
-  });
-  const alertsPill = safeT("marketplace_seller_hub_pill_alerts", {
-    fallbackKo: "알림",
-    fallbackEn: "Notifications",
-  });
+  const listingsPill = safeT("marketplace_seller_hub_pill_listings");
+  const messagesPill = safeT("marketplace_seller_hub_pill_messages");
+  const alertsPill = safeT("marketplace_seller_hub_pill_alerts");
   const onListings = pathname.startsWith(PRODUCTS_HREF);
   const onMessages = pathname.startsWith("/community-messenger/trade-chats");
   const onAlerts = pathname.startsWith("/notifications");
@@ -238,10 +211,7 @@ function MarketplaceSellHubPills() {
     <DibaySecondaryTabRow
       bordered
       navRole="secondary"
-      trackAriaLabel={safeT("marketplace_seller_hub_pill_nav", {
-        fallbackKo: "판매 메뉴",
-        fallbackEn: "Selling menu",
-      })}
+      trackAriaLabel={safeT("marketplace_seller_hub_pill_nav")}
     >
       <Link
         href={PRODUCTS_HREF}

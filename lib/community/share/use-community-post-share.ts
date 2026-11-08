@@ -24,10 +24,7 @@ export function useCommunityPostShare(post: NeighborhoodFeedPostDTO, categoryLab
     [post, categoryLabel]
   );
 
-  const shareErrorMessage = safeT("community_share_toast_internal_error", {
-    fallbackKo: "공유에 실패했어요. 다시 시도해 주세요.",
-    fallbackEn: "Couldn't share. Please try again.",
-  });
+  const shareErrorMessage = safeT("community_share_toast_internal_error");
 
   const showToast = useCallback((message: string) => {
     if (toastTimerRef.current != null) {

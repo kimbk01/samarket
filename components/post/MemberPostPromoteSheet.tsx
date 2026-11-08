@@ -117,10 +117,7 @@ export function MemberPostPromoteSheet({
       }
     } catch {
       setErr(
-        safeT("promo_sheet_load_failed", {
-          fallbackKo: "상위노출 정보를 불러오지 못했습니다.",
-          fallbackEn: "Could not load promotion options.",
-        })
+        safeT("promo_sheet_load_failed")
       );
     } finally {
       setLoading(false);
@@ -209,34 +206,22 @@ export function MemberPostPromoteSheet({
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
           setErr(
-            safeT("points_ui_insufficient", {
-              fallbackKo: "포인트가 부족합니다.",
-              fallbackEn: "Not enough Point.",
-            })
+            safeT("points_ui_insufficient")
           );
         } else if (j.error === "price_changed") {
           /** 새 가격을 다시 읽은 뒤 안내 (다시 읽기가 안내를 지우지 않게 순서 고정) */
           void load().then(() =>
             setErr(
-              safeT("promo_price_changed", {
-                fallbackKo: "가격이 바뀌었어요. 새 가격을 확인해 주세요.",
-                fallbackEn: "The price has changed. Please check the new price.",
-              })
+              safeT("promo_price_changed")
             )
           );
         } else if (j.error === "already_active_promotion") {
           setErr(
-            safeT("points_ui_promotion_conflict", {
-              fallbackKo: "이미 광고 중이거나 운영자가 잠시 멈춘 글입니다.",
-              fallbackEn: "This post already has an active or pending promotion.",
-            })
+            safeT("points_ui_promotion_conflict")
           );
         } else {
           setErr(
-            safeT("promo_sheet_purchase_failed", {
-              fallbackKo: "상위노출 결제에 실패했습니다.",
-              fallbackEn: "Promotion purchase failed.",
-            })
+            safeT("promo_sheet_purchase_failed")
           );
         }
         return;
@@ -251,10 +236,7 @@ export function MemberPostPromoteSheet({
       /** 응답을 못 받음 = 결제됐는지 모름 → 키를 유지하고 상태를 다시 불러온다 (다시 누르면 같은 결제로 확인) */
       await load();
       setErr(
-        safeT("promo_purchase_unconfirmed", {
-          fallbackKo: "결제 결과를 확인하지 못했어요. 상태를 다시 불러왔어요. 다시 눌러도 같은 결제로 확인해서 두 번 결제되지 않아요.",
-          fallbackEn: "We could not confirm the payment. Status was reloaded. Tapping again checks the same payment, so you will not be charged twice.",
-        })
+        safeT("promo_purchase_unconfirmed")
       );
     } finally {
       attemptKeys.current.settleIfFinal(status);
@@ -265,14 +247,8 @@ export function MemberPostPromoteSheet({
   const langEn = language === "en";
   const sheetTitle =
     domain === "community"
-      ? safeT("promo_sheet_title_community", {
-          fallbackKo: "Community 상위노출",
-          fallbackEn: "Community top exposure",
-        })
-      : safeT("promo_sheet_title_trade", {
-          fallbackKo: "거래 상위노출",
-          fallbackEn: "Trade top exposure",
-        });
+      ? safeT("promo_sheet_title_community")
+      : safeT("promo_sheet_title_trade");
 
   /** 충전 화면: 고른 상품에 모자란 만큼(`need`) · 돌아올 주소(거래 광고 창과 같은 경로) */
   const chargeHref = (() => {
@@ -299,10 +275,7 @@ export function MemberPostPromoteSheet({
       <div className={OverlayUi.actionsRow}>
         {!selected ? (
           <a href={chargeHref} className={`${OverlayUi.btn.primary} text-center`} data-promo-sheet-charge="1">
-            {safeT("promo_sheet_go_points", {
-              fallbackKo: "포인트 충전",
-              fallbackEn: "Add Point",
-            })}
+            {safeT("promo_sheet_go_points")}
           </a>
         ) : (
           <DibayOverlayButton
@@ -359,44 +332,23 @@ export function MemberPostPromoteSheet({
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingReview
-              ? safeT("promo_sheet_pending_success", {
-                  fallbackKo: "상위노출 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
-                  fallbackEn: "Promotion request submitted. It goes live after admin approval.",
-                })
+              ? safeT("promo_sheet_pending_success")
               : successReplay
-                ? safeT("promo_purchase_already_done", {
-                    fallbackKo: "이미 처리된 결제예요. 추가로 결제되지 않았어요.",
-                    fallbackEn: "This payment was already processed. No extra charge.",
-                  })
+                ? safeT("promo_purchase_already_done")
                 : successExtended
-                ? safeT("promo_sheet_extended_success", {
-                    fallbackKo: "상위노출 기간을 늘렸습니다.",
-                    fallbackEn: "Promotion extended.",
-                  })
-                : safeT("promo_sheet_success", {
-                    fallbackKo: "상위노출이 시작되었습니다.",
-                    fallbackEn: "Promotion started.",
-                  })}
+                ? safeT("promo_sheet_extended_success")
+                : safeT("promo_sheet_success")}
           </p>
           <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
             {pendingReview
-              ? safeT("promo_sheet_pending_period", {
-                  fallbackKo: "승인 시 적용 기간",
-                  fallbackEn: "Period after approval",
-                })
-              : safeT("promo_sheet_ends_at", {
-                  fallbackKo: "종료일",
-                  fallbackEn: "Ends",
-                })}
+              ? safeT("promo_sheet_pending_period")
+              : safeT("promo_sheet_ends_at")}
             {": "}
             {formatPhtDisplayDateTime(successEndAt, langEn ? "en" : "ko")}
           </p>
           {balance != null ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-              {safeT("promo_sheet_balance_after", {
-                fallbackKo: "결제 후 잔액",
-                fallbackEn: "Balance after",
-              })}
+              {safeT("promo_sheet_balance_after")}
               {": "}
               <CurrencyAmount currency="point" amount={balance} compactPoint className="font-medium" />
             </p>
@@ -408,42 +360,27 @@ export function MemberPostPromoteSheet({
         <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-4">
           <p className="text-[length:var(--overlay-body-2-size)] font-semibold text-[color:var(--overlay-text-primary)]">
             {pendingExisting
-              ? safeT("promo_sheet_pending_existing", {
-                  fallbackKo: "심사 중",
-                  fallbackEn: "Under review",
-                })
-              : safeT("promo_sheet_paused_existing", {
-                  fallbackKo: "운영자가 잠시 멈춤",
-                  fallbackEn: "Paused by staff",
-                })}
+              ? safeT("promo_sheet_pending_existing")
+              : safeT("promo_sheet_paused_existing")}
           </p>
           {activeEndAt ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-              {safeT("promo_sheet_ends_at", {
-                fallbackKo: "종료",
-                fallbackEn: "Ends",
-              })}
+              {safeT("promo_sheet_ends_at")}
               {": "}
               {formatPhtDisplayDateTime(activeEndAt, langEn ? "en" : "ko")}
             </p>
           ) : null}
           <p className={`mt-2 ${OverlayUi.caption}`}>
             {pausedExisting
-              ? safeT("promo_sheet_paused_note", {
-                  fallbackKo: "운영자가 다시 시작하면 연장할 수 있어요.",
-                  fallbackEn: "You can extend after staff resumes it.",
-                })
-              : safeT("promo_sheet_no_stack", {
-                  fallbackKo: "광고 기간이 끝나면 다시 결제할 수 있습니다.",
-                  fallbackEn: "You can apply again after the current promotion ends or is decided.",
-                })}
+              ? safeT("promo_sheet_paused_note")
+              : safeT("promo_sheet_no_stack")}
           </p>
         </div>
       ) : (
         <>
           {extending && activeEndAt ? (
             <p className={`mb-2 ${OverlayUi.bodySecondary}`} data-promo-sheet-running="1">
-              {safeT("promo_sheet_already_active", { fallbackKo: "광고 중", fallbackEn: "Promotion active" })}
+              {safeT("promo_sheet_already_active")}
               {" · "}
               {t("trade_ad_ends", { date: formatPhtDisplayDateTime(activeEndAt, langEn ? "en" : "ko") })}
             </p>

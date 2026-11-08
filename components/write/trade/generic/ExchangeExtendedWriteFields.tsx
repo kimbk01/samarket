@@ -88,6 +88,7 @@ import type {
   TradeExtendedWriteController,
   TradeWriteChromeState,
 } from "@/lib/trade/category-form/extended-write-controller";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * Exchange Write — rate card / prep / memo stay shell (derived UX + multi-select).
@@ -742,7 +743,7 @@ export function ExchangeExtendedWriteFields({
       exchangeFieldValues,
       (fieldId) => {
         const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
-        return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+        return translateBy(language, "write_enter_label", { label });
       }
     );
     const EX_COMP_TO_FORM: Record<string, string> = {

@@ -157,7 +157,7 @@ export function TradeShowcaseMoreButton({ onClick }: { onClick: () => void }) {
         onClick={onClick}
         className="min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-6 text-[14px] font-semibold text-sam-fg"
       >
-        {safeT("cm_trade_chat_list_load_more", { fallbackKo: "더보기", fallbackEn: "Load more" })}
+        {safeT("cm_trade_chat_list_load_more")}
       </button>
     </div>
   );

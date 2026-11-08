@@ -2,6 +2,7 @@
  * Operator-facing widget labels for Field Library (no raw widget ids in UI).
  */
 import type { TradeFieldWidget } from "@/lib/trade/category-form/types";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const KO: Partial<Record<TradeFieldWidget, string>> = {
   text: "텍스트",
@@ -35,5 +36,5 @@ export function tradeFieldWidgetOperatorLabel(
 ): string {
   const map = lang === "en" ? EN : KO;
   const key = String(widget ?? "").trim() as TradeFieldWidget;
-  return map[key] ?? (lang === "en" ? "Field" : "입력");
+  return map[key] ?? (translateBy(lang, "trade_field"));
 }

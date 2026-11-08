@@ -3,6 +3,7 @@
  * CUT 5-R — Admin creative pixel SSOT + surface radio + single renderer contracts.
  */
 import { describe, expect, it } from "vitest";
+import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -29,7 +30,7 @@ import { PLATFORM_POPUP_TABLET_MAX_WIDTH_PX } from "@/lib/platform-popup/popup-g
 
 const ROOT = process.cwd();
 function readRepo(rel: string): string {
-  return readFileSync(join(ROOT, rel), "utf8");
+  return withCatalogCopy(readFileSync(join(ROOT, rel), "utf8"));
 }
 
 describe("CUT 5-R creative pixel SSOT", () => {

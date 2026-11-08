@@ -63,19 +63,13 @@ export function MyProductCard({
       ? t("mypage_comp_product_status_admin_hidden")
       : t("mypage_comp_product_status_hidden")
     : isSold
-      ? safeT("marketplace_seller_listing_status_sold", {
-          fallbackKo: "판매완료",
-          fallbackEn: "Sold",
-        })
-      : safeT("marketplace_seller_listing_status_live", {
-          fallbackKo: "판매중",
-          fallbackEn: "For sale",
-        });
+      ? safeT("marketplace_seller_listing_status_sold")
+      : safeT("marketplace_seller_listing_status_live");
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
   /** 시안 v3: 「광고하기」 하나 · 진행 중이면 「광고 중」 (누르면 같은 창에서 진행 상황) */
   const promoteCtaLabel = isPromoted
-    ? safeT("trade_ad_running_chip", { fallbackKo: "광고 중", fallbackEn: "Ad active" })
-    : safeT("trade_ad_cta", { fallbackKo: "광고하기", fallbackEn: "Advertise" });
+    ? safeT("trade_ad_running_chip")
+    : safeT("trade_ad_cta");
 
   const openPromoteSheet = () => setPromoteSheetOpen(true);
 
@@ -133,10 +127,7 @@ export function MyProductCard({
                 onClick={openPromoteSheet}
                 className="mt-1 inline-block w-fit shrink-0 rounded bg-sam-app px-1 py-0.5 text-[10px] font-medium text-sam-muted underline-offset-2 hover:underline"
               >
-                {safeT("trade_promo_badge", {
-                  fallbackKo: "광고",
-                  fallbackEn: "Ad",
-                })}
+                {safeT("trade_promo_badge")}
               </button>
             ) : null}
           </div>

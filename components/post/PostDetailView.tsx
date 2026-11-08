@@ -200,10 +200,7 @@ function PostDetailSellerProfileRow({
 function TradePostDetailInlinePromoteCta({ onTradeAdOpen }: { onTradeAdOpen: () => void }) {
   const { safeT } = useI18n();
   /** 시안 v3: 내 글 상세 = 「광고하기」 → 광고하기 창 */
-  const promoteLabel = safeT("trade_ad_cta", {
-    fallbackKo: "광고하기",
-    fallbackEn: "Advertise",
-  });
+  const promoteLabel = safeT("trade_ad_cta");
   return (
     <button type="button" className={`w-full ${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA}`} onClick={onTradeAdOpen}>
       {promoteLabel}
@@ -783,19 +780,13 @@ export function PostDetailView({
     const result = await shareOrCopyTradeListing({ title: post.title ?? "", url });
     if (result === "copied") {
       await dibayAlert({
-        title: safeT("trade_detail_share_copied", {
-          fallbackKo: "링크를 복사했어요.",
-          fallbackEn: "Link copied.",
-        }),
+        title: safeT("trade_detail_share_copied"),
       });
       return;
     }
     if (result === "failed") {
       await dibayAlert({
-        title: safeT("trade_detail_share_failed", {
-          fallbackKo: "공유하지 못했습니다.",
-          fallbackEn: "Could not share.",
-        }),
+        title: safeT("trade_detail_share_failed"),
       });
     }
   }, [post.id, post.title, safeT]);
@@ -1435,7 +1426,7 @@ export function PostDetailView({
           {postHasTradePromotionOverlay(post) && isPostEligibleForPromotionBoost(post.status, post.seller_listing_state) ? (
             <p className="mb-1.5" data-trade-detail-ad-chip="">
               <span className="inline-flex rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[12px] font-bold text-sam-muted">
-                {safeT("ui_home_feed_ad_label", { fallbackKo: "광고", fallbackEn: "Ad" })}
+                {safeT("ui_home_feed_ad_label")}
               </span>
             </p>
           ) : null}

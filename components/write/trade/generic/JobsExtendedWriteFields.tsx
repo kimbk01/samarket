@@ -111,6 +111,7 @@ import type {
   TradeExtendedWriteController,
   TradeWriteChromeState,
 } from "@/lib/trade/category-form/extended-write-controller";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 interface JobsExtendedWriteFieldsProps {
   category: CategoryWithSettings;
@@ -1037,7 +1038,7 @@ export function JobsExtendedWriteFields({
       jobsFieldValues,
       (fieldId) => {
         const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
-        return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+        return translateBy(language, "write_enter_label", { label });
       }
     );
     if (skipPayAmount) delete compErrs.pay_amount;

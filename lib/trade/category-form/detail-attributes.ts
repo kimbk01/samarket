@@ -6,6 +6,7 @@ import { compositionFieldsForSurface } from "./resolve-composition";
 import { labelForTradeOption } from "./option-catalogs";
 import type { AdaptedCompositionField } from "./behavior-adapters";
 import { USED_CAR_BRANDS } from "@/lib/trade/used-car-form-catalog";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -93,7 +94,7 @@ export function buildCompositionDetailAttributes(input: {
     if (def.widget === "boolean") {
       if (storage.kind === "meta") {
         const b = input.meta[storage.key];
-        if (b === true) value = lang === "en" ? "Yes" : "예";
+        if (b === true) value = translateBy(lang, "trade_yes");
         else if (b === false) value = "";
       }
     }

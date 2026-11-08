@@ -107,7 +107,7 @@ export function PostDetailMoreBottomSheet({
         {shareEnabled ? (
           <button type="button" onClick={handleShare} className={rowClass}>
             <IconShare className="h-5 w-5 shrink-0 text-[color:var(--overlay-text-secondary)]" />
-            {safeT("trade_detail_share", { fallbackKo: "공유하기", fallbackEn: "Share" })}
+            {safeT("trade_detail_share")}
           </button>
         ) : null}
         <button type="button" onClick={handleHideAuthor} className={rowClass}>
@@ -123,7 +123,7 @@ export function PostDetailMoreBottomSheet({
             }}
             className={rowClass}
           >
-            {safeT("support_enter_cta", { fallbackKo: "문의하기", fallbackEn: "Contact support" })}
+            {safeT("support_enter_cta")}
           </button>
         ) : null}
         {reportEnabled ? (

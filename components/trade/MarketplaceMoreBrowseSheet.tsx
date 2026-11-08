@@ -82,21 +82,12 @@ export function MarketplaceMoreBrowseSheet({
 
   const title = (() => {
     if (step === "category") {
-      return safeT("marketplace_more_browse_category_title", {
-        fallbackKo: "카테고리",
-        fallbackEn: "Category",
-      });
+      return safeT("marketplace_more_browse_category_title");
     }
     if (step === "options") {
-      return safeT("marketplace_more_browse_options_title", {
-        fallbackKo: "품목 옵션",
-        fallbackEn: "Item options",
-      });
+      return safeT("marketplace_more_browse_options_title");
     }
-    return safeT("marketplace_more_browse_topic_title", {
-      fallbackKo: "주제",
-      fallbackEn: "Topic",
-    });
+    return safeT("marketplace_more_browse_topic_title");
   })();
 
   const pickTopic = (category: CategoryWithSettings) => {
@@ -184,10 +175,7 @@ export function MarketplaceMoreBrowseSheet({
             data-marketplace-more-browse-apply="true"
             onClick={apply}
           >
-            {safeT("marketplace_more_browse_apply", {
-              fallbackKo: "적용",
-              fallbackEn: "Apply",
-            })}
+            {safeT("marketplace_more_browse_apply")}
           </DibayOverlayButton>
         </div>
       }
@@ -196,10 +184,7 @@ export function MarketplaceMoreBrowseSheet({
         {step !== "topic" ? (
           <div className="mb-2">
             <DibayOverlayButton roleTone="text" onClick={goBack}>
-              {safeT("marketplace_more_browse_back", {
-                fallbackKo: "이전",
-                fallbackEn: "Back",
-              })}
+              {safeT("marketplace_more_browse_back")}
             </DibayOverlayButton>
           </div>
         ) : null}
@@ -226,10 +211,7 @@ export function MarketplaceMoreBrowseSheet({
               className={OverlayUi.actionSheetItem}
               onClick={() => pickChild(null)}
             >
-              {safeT("marketplace_more_browse_all_in_topic", {
-                fallbackKo: "이 주제 전체",
-                fallbackEn: "All in this topic",
-              })}
+              {safeT("marketplace_more_browse_all_in_topic")}
             </button>
             {children.map((category) => (
               <button
@@ -255,10 +237,7 @@ export function MarketplaceMoreBrowseSheet({
             </div>
           ) : (
             <p className={OverlayUi.bodySecondary}>
-              {safeT("marketplace_more_browse_options_empty", {
-                fallbackKo: "이 주제에 고를 품목 옵션이 없습니다. 적용을 누르면 목록을 봅니다.",
-                fallbackEn: "No item options for this topic. Apply to see listings.",
-              })}
+              {safeT("marketplace_more_browse_options_empty")}
             </p>
           )
         ) : null}

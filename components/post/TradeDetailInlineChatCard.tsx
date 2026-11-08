@@ -34,20 +34,11 @@ export function TradeDetailInlineChatCard({
   void _sellerName;
   const { t, safeT } = useI18n();
   const [draft, setDraft] = useState(() =>
-    safeT("trade_detail_inline_chat_default", {
-      fallbackKo: "안녕하세요, 아직 판매 중인가요?",
-      fallbackEn: "Hi, is this still available?",
-    })
+    safeT("trade_detail_inline_chat_default")
   );
 
-  const label = safeT("trade_detail_inline_chat_label", {
-    fallbackKo: "판매자에게 메시지 보내기",
-    fallbackEn: "Send message to seller",
-  });
-  const sendLabel = safeT("trade_detail_inline_chat_send", {
-    fallbackKo: "보내기",
-    fallbackEn: "Send",
-  });
+  const label = safeT("trade_detail_inline_chat_label");
+  const sendLabel = safeT("trade_detail_inline_chat_send");
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -97,10 +88,7 @@ export function TradeDetailInlineChatCard({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               disabled={disabled || busy}
-              placeholder={safeT("trade_detail_inline_chat_placeholder", {
-                fallbackKo: "메시지를 입력하세요",
-                fallbackEn: "Write a message",
-              })}
+              placeholder={safeT("trade_detail_inline_chat_placeholder")}
               className="h-11 min-w-0 flex-1 border-0 bg-transparent px-3 text-[15px] text-sam-fg outline-none placeholder:text-sam-meta disabled:opacity-50"
             />
             <button

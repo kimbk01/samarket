@@ -26,14 +26,8 @@ export function TradeListLoadMoreFooter({
 
   if (!hasMore && !loadingMore) return null;
 
-  const loadMoreLabel = safeT("cm_trade_chat_list_load_more", {
-    fallbackKo: "더보기",
-    fallbackEn: "Load more",
-  });
-  const loadingLabel = safeT("cm_trade_chat_list_loading_more", {
-    fallbackKo: "불러오는 중",
-    fallbackEn: "Loading",
-  });
+  const loadMoreLabel = safeT("cm_trade_chat_list_load_more");
+  const loadingLabel = safeT("cm_trade_chat_list_loading_more");
 
   return (
     <div
@@ -53,11 +47,7 @@ export function TradeListLoadMoreFooter({
         >
           {loadMoreLabel}
           <span className="sr-only">
-            {safeT("cm_trade_chat_list_load_more_count", {
-              fallbackKo: `${visibleCount} / ${totalCount}`,
-              fallbackEn: `${visibleCount} / ${totalCount}`,
-              vars: { visible: visibleCount, total: totalCount },
-            })}
+            {safeT("cm_trade_chat_list_load_more_count", { vars: { visible: visibleCount, total: totalCount } })}
           </span>
         </button>
       )}

@@ -68,7 +68,7 @@ export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?
   const post = ad.feedPost;
   const href = ad.postId ? philifeAppPaths.post(ad.postId) : "#";
   const thumb = (Array.isArray(post.images) ? post.images.find((u) => (u ?? "").trim()) : null) ?? null;
-  const title = post.title?.trim() || safeT("community_no_title", { fallbackKo: "제목 없음", fallbackEn: "Untitled" });
+  const title = post.title?.trim() || safeT("community_no_title");
   const summary = ((post.summary ?? "").trim() || String(post.content ?? "").replace(/\s+/g, " ").trim()).slice(0, 180);
 
   return (
@@ -88,10 +88,7 @@ export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?
                 <span className="text-[var(--cm-text)]">{post.author_name}</span>
                 <span className="mx-1">·</span>
                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
-                  {safeT("community_top_fix_badge", {
-                    fallbackKo: "포인트 노출",
-                    fallbackEn: "Promoted",
-                  })}
+                  {safeT("community_top_fix_badge")}
                 </span>
               </p>
               {summary ? (

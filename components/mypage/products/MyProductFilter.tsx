@@ -49,14 +49,8 @@ export function MyProductFilter({
   onPromotedOnlyChange,
 }: MyProductFilterProps) {
   const { safeT } = useI18n();
-  const promotedLabel = safeT("marketplace_seller_promoted_only", {
-    fallbackKo: "광고 중",
-    fallbackEn: "Ad active",
-  });
-  const promotedAria = safeT("marketplace_seller_promoted_only_aria", {
-    fallbackKo: "목록에 ‘광고’로 노출 중인 매물만 보기",
-    fallbackEn: "Show only listings shown as Ad in lists",
-  });
+  const promotedLabel = safeT("marketplace_seller_promoted_only");
+  const promotedAria = safeT("marketplace_seller_promoted_only_aria");
 
   /**
    * 내정보 공통 탭(`MyTabs`) — 「포인트 홍보」는 거래 J H-2 결정대로 같은 줄 마지막 칸(가려지지 않게 스크롤 칸 안).
@@ -68,7 +62,7 @@ export function MyProductFilter({
     <div className={APP_MAIN_COLUMN_CLASS}>
     <MyTabs
       className="border-b-0 px-1"
-      ariaLabel={safeT("marketplace_seller_products_title", { fallbackKo: "내 매물", fallbackEn: "My listings" })}
+      ariaLabel={safeT("marketplace_seller_products_title")}
       value={value}
       onChange={onChange}
       items={MY_PRODUCT_FILTER_OPTIONS.map((opt) => ({

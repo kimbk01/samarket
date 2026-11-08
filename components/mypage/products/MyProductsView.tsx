@@ -284,36 +284,20 @@ export function MyProductsView({
   const createLabel = t("trade_write_sell_cta");
 
   const renderEmpty = () => {
-    const viewAllLabel = safeT("marketplace_seller_cta_view_all_listings", {
-      fallbackKo: "전체 매물 보기",
-      fallbackEn: "View all listings",
-    });
-    const clearPromoLabel = safeT("marketplace_seller_cta_clear_promoted_only", {
-      fallbackKo: "광고 중 필터 해제",
-      fallbackEn: "Clear ad filter",
-    });
+    const viewAllLabel = safeT("marketplace_seller_cta_view_all_listings");
+    const clearPromoLabel = safeT("marketplace_seller_cta_clear_promoted_only");
 
     /** 숨김 개수 확인 전에는 빈 안내를 그리지 않는다 (B-9 깜빡임) */
     if (filter === "all" && !promotedOnly && hiddenListingCount === null) return null;
     if (filter === "all" && !promotedOnly && hasHiddenListings) {
       return (
         <SellerHubEmptyState
-          message={safeT("marketplace_seller_empty_listings_all_hidden_only", {
-            fallbackKo: "판매 중인 매물이 없어요",
-            fallbackEn: "No listings on sale",
-          })}
-          hint={safeT("marketplace_seller_empty_listings_all_hidden_count", {
-            vars: { count: hiddenListingCount != null && hiddenListingCount >= HIDDEN_COUNT_LIMIT ? `${HIDDEN_COUNT_LIMIT}+` : String(hiddenListingCount ?? 0) },
-            fallbackKo: `숨긴 매물 ${hiddenListingCount ?? 0}개가 있어요. 숨김에서 볼 수 있어요.`,
-            fallbackEn: `You have ${hiddenListingCount ?? 0} hidden listings. See them under Hidden.`,
-          })}
+          message={safeT("marketplace_seller_empty_listings_all_hidden_only")}
+          hint={safeT("marketplace_seller_empty_listings_all_hidden_count", { vars: { count: hiddenListingCount != null && hiddenListingCount >= HIDDEN_COUNT_LIMIT ? `${HIDDEN_COUNT_LIMIT}+` : String(hiddenListingCount ?? 0) } })}
           actions={
             <>
               <SellerHubEmptyActionButton onClick={() => onFilterChange("hidden")}>
-                {safeT("marketplace_seller_cta_view_hidden", {
-                  fallbackKo: "숨긴 매물 보기",
-                  fallbackEn: "View hidden listings",
-                })}
+                {safeT("marketplace_seller_cta_view_hidden")}
               </SellerHubEmptyActionButton>
               <SellerHubEmptyActionButton variant="secondary" onClick={openWrite}>
                 <span className="inline-flex items-center justify-center gap-2"><TradeSellCtaContent /></span>
@@ -327,10 +311,7 @@ export function MyProductsView({
     if (filter === "all" && !promotedOnly) {
       return (
         <SellerHubEmptyState
-          message={safeT("marketplace_seller_empty_listings_all", {
-            fallbackKo: "등록한 매물이 없어요",
-            fallbackEn: "No listings yet",
-          })}
+          message={safeT("marketplace_seller_empty_listings_all")}
           actions={
             <SellerHubEmptyActionButton onClick={openWrite}>
               <span className="inline-flex items-center justify-center gap-2"><TradeSellCtaContent /></span>
@@ -343,14 +324,8 @@ export function MyProductsView({
     if (promotedOnly) {
       return (
         <SellerHubEmptyState
-          message={safeT("marketplace_seller_empty_listings_promoted", {
-            fallbackKo: "광고 중인 매물이 없어요",
-            fallbackEn: "No listings with an active ad",
-          })}
-          hint={safeT("marketplace_seller_empty_listings_promoted_hint", {
-            fallbackKo: "광고 중 필터가 켜져 있어요. 다른 매물을 보려면 필터를 해제해 주세요.",
-            fallbackEn: "Ad active filter is on. Turn it off to see other listings.",
-          })}
+          message={safeT("marketplace_seller_empty_listings_promoted")}
+          hint={safeT("marketplace_seller_empty_listings_promoted_hint")}
           actions={
             <>
               <SellerHubEmptyActionButton onClick={() => onPromotedOnlyChange(false)}>
@@ -370,10 +345,7 @@ export function MyProductsView({
     if (filter === "active") {
       return (
         <SellerHubEmptyState
-          message={safeT("marketplace_seller_empty_listings_active", {
-            fallbackKo: "판매중인 매물이 없어요",
-            fallbackEn: "No listings for sale",
-          })}
+          message={safeT("marketplace_seller_empty_listings_active")}
           actions={
             <>
               <SellerHubEmptyActionButton onClick={openWrite}>
@@ -391,16 +363,10 @@ export function MyProductsView({
     if (filter === "sold") {
       return (
         <SellerHubEmptyState
-          message={safeT("marketplace_seller_empty_listings_sold", {
-            fallbackKo: "판매 완료된 매물이 없어요",
-            fallbackEn: "No sold listings",
-          })}
+          message={safeT("marketplace_seller_empty_listings_sold")}
           actions={
             <SellerHubEmptyActionButton variant="secondary" onClick={() => onFilterChange("active")}>
-              {safeT("marketplace_seller_listing_tab_active", {
-                fallbackKo: "판매중",
-                fallbackEn: "For sale",
-              })}
+              {safeT("marketplace_seller_listing_tab_active")}
             </SellerHubEmptyActionButton>
           }
         />
@@ -410,10 +376,7 @@ export function MyProductsView({
     if (filter === "hidden") {
       return (
         <SellerHubEmptyState
-          message={safeT("marketplace_seller_empty_listings_hidden", {
-            fallbackKo: "숨긴 매물이 없어요",
-            fallbackEn: "No hidden listings",
-          })}
+          message={safeT("marketplace_seller_empty_listings_hidden")}
         />
       );
     }
@@ -423,10 +386,7 @@ export function MyProductsView({
         message={t("mypage_comp_product_empty_filter")}
         actions={
           <SellerHubEmptyActionLink href="/market/sell" variant="secondary">
-            {safeT("marketplace_sell_hub_title", {
-              fallbackKo: "판매",
-              fallbackEn: "Sell",
-            })}
+            {safeT("marketplace_sell_hub_title")}
           </SellerHubEmptyActionLink>
         }
       />

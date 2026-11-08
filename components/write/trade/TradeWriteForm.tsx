@@ -303,6 +303,7 @@ import {
   restoreTradeMeetSpotReturnScrollPosition,
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -1700,7 +1701,7 @@ function TradeMarketplaceWriteFormInner({
         realEstateFieldValues,
         (fieldId) => {
           const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
-          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+          return translateBy(language, "write_enter_label", { label });
         }
       );
       Object.assign(next, compErrs);
@@ -1712,7 +1713,7 @@ function TradeMarketplaceWriteFormInner({
         usedCarFieldValues,
         (fieldId) => {
           const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
-          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+          return translateBy(language, "write_enter_label", { label });
         }
       );
       for (const [id, msg] of Object.entries(compErrs)) {
@@ -1736,7 +1737,7 @@ function TradeMarketplaceWriteFormInner({
         rentCarFieldValues,
         (fieldId) => {
           const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
-          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+          return translateBy(language, "write_enter_label", { label });
         }
       );
       for (const [id, msg] of Object.entries(compErrs)) {
@@ -1752,7 +1753,7 @@ function TradeMarketplaceWriteFormInner({
         generalFieldValues,
         (fieldId) => {
           const label = tradeFieldAdminLabel(fieldId, language === "en" ? "en" : "ko");
-          return language === "en" ? `Enter ${label}` : `${label}을(를) 입력해 주세요`;
+          return translateBy(language, "write_enter_label", { label });
         }
       );
       if (compErrs.title && !next.title) next.title = compErrs.title;

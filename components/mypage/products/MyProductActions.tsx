@@ -88,10 +88,7 @@ export function MyProductActions({
     if (ok) onDelete(product.id);
   };
 
-  const promoteLabel = safeT("trade_ad_cta", {
-    fallbackKo: "광고하기",
-    fallbackEn: "Advertise",
-  });
+  const promoteLabel = safeT("trade_ad_cta");
 
   /** UI-6 ⋮ 항목·순서·문구 그대로 — 표면만 인라인 드롭다운 → `DibayActionSheet`(최종 설계 S20) */
   /** 잠긴 동작은 누르면 확인창 뒤 서버가 거절하던 막다른 길 — 메뉴에서 미리 막고 이유를 안내한다 (F1·B-13) */

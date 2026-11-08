@@ -483,10 +483,7 @@ export const PostCard = memo(function PostCard({
           {/* v5 사진 왼쪽 위 상태 칩 1개 — 광고(판매자 더 알리기) › NEW(작성 24시간) */}
           {topLeftChip === "ad" ? (
             <span data-trade-card-chip="ad" className={TRADE_CARD_CHIP_AD_CLASS}>
-              {safeT("trade_promo_badge", {
-                fallbackKo: "광고",
-                fallbackEn: "Ad",
-              })}
+              {safeT("trade_promo_badge")}
             </span>
           ) : topLeftChip === "new" ? (
             <span data-trade-card-chip="new" className={TRADE_CARD_CHIP_NEW_CLASS}>

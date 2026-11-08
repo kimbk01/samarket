@@ -420,7 +420,7 @@ export function MarketFilterSheet({
   function conditionLabel(c: MarketAppliedCondition): string {
     switch (c.key) {
       case "q":
-        return safeT("marketplace_search_chip", { vars: { q: c.value }, fallbackKo: `검색: ${c.value}`, fallbackEn: `Search: ${c.value}` });
+        return safeT("marketplace_search_chip", { vars: { q: c.value } });
       case "category": {
         const labels = c.categoryIds
           .map((id) => topics.find((tp) => tp.id === id || tp.slug === id))
@@ -433,12 +433,12 @@ export function MarketFilterSheet({
         return priceChipLabel(c.min != null ? String(c.min) : "", c.max != null ? String(c.max) : "") ?? "";
       case "tradeState":
         return c.value === "active"
-          ? safeT("marketplace_filter_trade_state_active", { fallbackKo: "판매중", fallbackEn: "Available" })
-          : safeT("marketplace_filter_trade_state_sold", { fallbackKo: "판매완료", fallbackEn: "Sold" });
+          ? safeT("marketplace_filter_trade_state_active")
+          : safeT("marketplace_filter_trade_state_sold");
       case "sort":
         return c.value === "near"
-          ? safeT("marketplace_filter_sort_distance", { fallbackKo: "가까운순", fallbackEn: "Nearest" })
-          : safeT("marketplace_filter_sort_popular", { fallbackKo: "인기순", fallbackEn: "Popular" });
+          ? safeT("marketplace_filter_sort_distance")
+          : safeT("marketplace_filter_sort_popular");
       default: {
         if (c.key.startsWith("option:") && "fieldId" in c) {
           const catalogId = getTradeFieldDefinition(c.fieldId)?.optionCatalogId;
@@ -563,18 +563,12 @@ export function MarketFilterSheet({
     <DibayBottomSheet
       open={open}
       onClose={onClose}
-      title={safeT("marketplace_filter_sheet_title", {
-        fallbackKo: "필터 및 정렬",
-        fallbackEn: "Filter & Sort",
-      })}
+      title={safeT("marketplace_filter_sheet_title")}
       footer={
         /** SHEET-01: footer 래퍼가 block 이라 버튼 `flex:1` 이 무효 → 글자 폭으로 줄어 본문 위에 떠 보였다. 전폭 행 + 구분선 */
         <div className={`${OverlayUi.actionsRow} !mt-0 border-t border-[color:var(--overlay-border)] pt-3`}>
           <DibayOverlayButton roleTone="primary" onClick={applyResults}>
-            {safeT("marketplace_filter_view_results", {
-              fallbackKo: "결과 보기",
-              fallbackEn: "View results",
-            })}
+            {safeT("marketplace_filter_view_results")}
           </DibayOverlayButton>
         </div>
       }
@@ -583,7 +577,7 @@ export function MarketFilterSheet({
         {appliedConditions.length > 0 ? (
           <div className="flex flex-col gap-2" data-marketplace-applied-conditions="true">
             <span className={FILTER_LABEL_CLASS}>
-              {safeT("marketplace_filter_applied", { fallbackKo: "적용된 조건", fallbackEn: "Applied filters" })}
+              {safeT("marketplace_filter_applied")}
             </span>
             <div className="flex flex-wrap items-center gap-2">
             {appliedConditions.map((c) => {
@@ -596,7 +590,7 @@ export function MarketFilterSheet({
                   data-selected="true"
                   className={OverlayUi.chip}
                   onClick={() => removeAppliedCondition(c)}
-                  aria-label={`${label} ${safeT("common_close", { fallbackKo: "닫기", fallbackEn: "Close" })}`}
+                  aria-label={`${label} ${safeT("common_close")}`}
                 >
                   <span
                     className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--overlay-surface)] px-1 text-[length:var(--overlay-caption-size)] font-semibold leading-none text-[color:var(--overlay-primary)]"
@@ -616,7 +610,7 @@ export function MarketFilterSheet({
               className={`${OverlayUi.chip} ml-auto`}
               onClick={clearDraft}
             >
-              {safeT("marketplace_filter_clear_all", { fallbackKo: "전체 초기화", fallbackEn: "Reset all" })}
+              {safeT("marketplace_filter_clear_all")}
             </button>
             </div>
           </div>
@@ -624,11 +618,11 @@ export function MarketFilterSheet({
 
         {/* Category */}
         <FilterSection
-          label={safeT("marketplace_more_categories_title", { fallbackKo: "카테고리", fallbackEn: "Categories" })}
+          label={safeT("marketplace_more_categories_title")}
         >
           <RadioItem
             checked={state.rootCategoryIds.length === 0}
-            label={safeT("marketplace_filter_category_all", { fallbackKo: "전체", fallbackEn: "All" })}
+            label={safeT("marketplace_filter_category_all")}
             onChange={() => {
               setState((s) => ({
                 ...s,
@@ -701,10 +695,7 @@ export function MarketFilterSheet({
             {(loadingChildren || children.length > 0) ? (
               <div>
                 <p className={FILTER_LABEL_CLASS}>
-                  {safeT("marketplace_more_browse_category_title", {
-                    fallbackKo: "카테고리",
-                    fallbackEn: "Category",
-                  })}
+                  {safeT("marketplace_more_browse_category_title")}
                 </p>
                 {state.rootCategoryIds.length > 1 ? (
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
@@ -731,10 +722,7 @@ export function MarketFilterSheet({
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
                   <RadioItem
                     checked={!editingTopicKey}
-                    label={safeT("marketplace_more_browse_all_in_topic", {
-                      fallbackKo: "이 주제 전체",
-                      fallbackEn: "All in this topic",
-                    })}
+                    label={safeT("marketplace_more_browse_all_in_topic")}
                     onChange={() =>
                       setState((s) => {
                         const rid = s.topicEditRootId ?? s.rootCategoryId;
@@ -749,7 +737,7 @@ export function MarketFilterSheet({
                   />
                   {loadingChildren ? (
                     <div className="text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
-                      {safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+                      {safeT("common_loading")}
                     </div>
                   ) : (
                     children.map((child) => (
@@ -785,7 +773,7 @@ export function MarketFilterSheet({
             {/* Options */}
             {composition && rootCategory && marketplaceMoreBrowseHasFilterOptions(rootCategory) ? (
               <div className="flex flex-col gap-2">
-                <p className={FILTER_LABEL_CLASS}>{safeT("marketplace_more_browse_options_title", { fallbackKo: "품목 옵션", fallbackEn: "Item options" })}</p>
+                <p className={FILTER_LABEL_CLASS}>{safeT("marketplace_more_browse_options_title")}</p>
                 <div className="flex flex-col gap-2">
                   <CompositionAttributeFilterSelects
                     composition={composition}
@@ -799,7 +787,7 @@ export function MarketFilterSheet({
         ) : null}
 
         {/* Sort */}
-        <FilterSection label={safeT("marketplace_filter_sort_label", { fallbackKo: "정렬", fallbackEn: "Sort by" })}>
+        <FilterSection label={safeT("marketplace_filter_sort_label")}>
           {sortOptions.map((opt) => (
             <RadioItem
               key={opt.value}
@@ -811,13 +799,13 @@ export function MarketFilterSheet({
         </FilterSection>
 
         {/* Price */}
-        <FilterSection label={safeT("marketplace_filter_price_label", { fallbackKo: "가격", fallbackEn: "Price" })}>
+        <FilterSection label={safeT("marketplace_filter_price_label")}>
           <div className="flex w-full items-center gap-2">
             <input
               type="number"
               inputMode="numeric"
               min={0}
-              placeholder={safeT("trade_market_price_min", { fallbackKo: "최소 가격", fallbackEn: "Min price" })}
+              placeholder={safeT("trade_market_price_min")}
               value={state.priceMin}
               onChange={(e) => setState((s) => ({ ...s, priceMin: e.target.value }))}
               className={`${OverlayUi.input} !mt-0 placeholder:text-[color:var(--overlay-text-secondary)]`}
@@ -827,7 +815,7 @@ export function MarketFilterSheet({
               type="number"
               inputMode="numeric"
               min={0}
-              placeholder={safeT("trade_market_price_max", { fallbackKo: "최대 가격", fallbackEn: "Max price" })}
+              placeholder={safeT("trade_market_price_max")}
               value={state.priceMax}
               onChange={(e) => setState((s) => ({ ...s, priceMax: e.target.value }))}
               className={`${OverlayUi.input} !mt-0 placeholder:text-[color:var(--overlay-text-secondary)]`}
@@ -836,7 +824,7 @@ export function MarketFilterSheet({
         </FilterSection>
 
         {/* Trade state */}
-        <FilterSection label={safeT("marketplace_filter_trade_state_label", { fallbackKo: "판매 상태", fallbackEn: "Trade status" })}>
+        <FilterSection label={safeT("marketplace_filter_trade_state_label")}>
           {tradeStateOptions.map((opt) => (
             <RadioItem
               key={opt.value}
