@@ -19,8 +19,6 @@ package com.dibay.app;
 public final class DibayStartupFaultPolicy {
   public static final long T_JS_MS = 8_000L;
   public static final long T_RELEASE_MS = 15_000L;
-  /** 해제 요청 후 화면 커밋 콜백(postVisualStateCallback)이 오지 않을 때의 보조 해제 (렌더러 사망·destroy 대비). */
-  public static final long VISUAL_STATE_FALLBACK_MS = 1_500L;
   public static final int MAX_AUTO_RELOADS = 1;
 
   public enum Verdict {
@@ -69,7 +67,11 @@ public final class DibayStartupFaultPolicy {
     return verdict == Verdict.FAULT_NOT_RELEASED ? "WEB_NOT_RELEASED" : "WEB_NOT_READY";
   }
 
-  /** 통화 경로(경로에 call 포함) — 웹 세션 관문과 같은 규칙. */
+  /**
+   * 통화 경로 — 주소의 경로 부분(쿼리·조각 제외)에 call 이 있으면 통화 경로로 본다. 웹 세션 관문
+   * (`isSessionFreshnessGatedApiPath`)·iOS `startupFaultIsCallRoute` 와 같은 규칙(검토 2026-11-08: 플랫폼마다 달랐다).
+   * 넓게 잡는 쪽이 안전하다 — 통화 경로로 잡히면 이번 변경 이전 동작(고장 판정 없음) 그대로다.
+   */
   public static boolean isCallRouteUrl(String url) {
     if (url == null) return false;
     String path = url;
@@ -78,7 +80,12 @@ public final class DibayStartupFaultPolicy {
       int slash = path.indexOf('/', scheme + 3);
       path = slash >= 0 ? path.substring(slash) : "/";
     }
-    return path.toLowerCase(java.util.Locale.ROOT).contains("call");
+    int cut = path.length();
+    int q = path.indexOf('?');
+    int h = path.indexOf('#');
+    if (q >= 0) cut = Math.min(cut, q);
+    if (h >= 0) cut = Math.min(cut, h);
+    return path.substring(0, cut).toLowerCase(java.util.Locale.ROOT).contains("call");
   }
 
   /** SSL 오류가 주 문서 것인지 — 하위 리소스 SSL 오류로 화면 전체를 실패 처리하지 않는다. */

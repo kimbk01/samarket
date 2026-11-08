@@ -115,10 +115,24 @@ describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
     expect(vc).toContain("static let startupFaultJsTimeoutMs = 8_000");
     expect(vc).toContain("static let startupFaultReleaseTimeoutMs = 15_000");
     expect(vc).toContain("startupFaultAutoReloads < 1");
-    expect(vc).toContain("guard UIApplication.shared.applicationState == .active else { return }");
+    expect(vc).toContain("guard UIApplication.shared.applicationState == .active else {");
     expect(vc).toContain("final class DibayNavigationDelegateProxy: NSObject, WKNavigationDelegate");
     expect(vc).toContain("installLaunchContinuationIfNeeded()\n    NSLog(\"[DibayRootBridge] webcontent_terminated_continuation_reinstalled\")");
     expect(vc).not.toMatch(/minimumVisible|startupDisplayTimer/);
+    // 검토 D4·D5 (2026-11-08): 통화 경로는 고장 판정·재덮기 제외, 비활성일 때 타이머 정지
+    expect(vc).toContain("static func startupFaultIsCallRoute(_ url: URL?) -> Bool");
+    expect(vc).toContain('NSLog("[DibayRootBridge] startup_fault_probe_skipped reason=call_route")');
+    expect(vc).toContain("presentedViewController != nil");
+    expect(vc).toContain("pauseStartupFaultProbe(docURL: docURL)");
+  });
+
+  it("Android: no time-based release on the healthy path (D3) · call routes skip the fault probe (D4) · paused while hidden (D5)", () => {
+    const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).not.toContain("visual_state_fallback");
+    expect(main).not.toContain("VISUAL_STATE_FALLBACK_MS");
+    expect(main).toContain('Log.i(WEBVIEW_LOG_TAG, "startup_fault_probe_skipped reason=call_route");');
+    expect(main).toContain("startupFaultPausedRunnable = this;");
+    expect(main).toContain("mainHandler.postDelayed(pausedProbe, STARTUP_FAULT_PROBE_TICK_MS);");
   });
 
   it("Capacitor SplashScreen plugin stays a no-op (no second native owner)", () => {

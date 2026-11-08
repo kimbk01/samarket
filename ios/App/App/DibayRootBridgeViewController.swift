@@ -376,6 +376,14 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   private var startupFaultJsVisibleMs = -1
   private var startupFaultAutoReloads = 0
   private var startupErrorView: UIView?
+  /// 검토 D5: 앱이 비활성일 때 멈춘 관찰(문서 주소)과 재개 관찰자 — 1초마다 깨우지 않는다.
+  private var startupFaultPausedDocURL: String??
+  private var startupFaultResumeObserver: NSObjectProtocol?
+
+  /// 통화 경로 — 주소 경로(쿼리·조각 제외)에 call 포함. Android `DibayStartupFaultPolicy.isCallRouteUrl`·웹 관문과 같은 규칙.
+  static func startupFaultIsCallRoute(_ url: URL?) -> Bool {
+    (url?.path ?? "").lowercased().contains("call")
+  }
 
   /// Capacitor 의 WebViewDelegationHandler 를 감싸 문서 시작·완료·실패·WebContent 종료만 먼저 본다. 나머지는 그대로 전달.
   private func installStartupFaultNavigationProxy() {
@@ -396,7 +404,16 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   func startupFaultDocumentFinished() {
     stopStartupFaultProbe()
     guard launchContinuation != nil else { return } // 이미 해제됨 — 관찰 대상 아님
-    let docURL = webView?.url?.absoluteString
+    // 검토 D4: 통화 경로 문서는 고장 판정·오류 화면 대상에서 뺀다 — 통화 화면 동작은 이번 변경 이전 그대로 (통화 규정).
+    if Self.startupFaultIsCallRoute(webView?.url) {
+      NSLog("[DibayRootBridge] startup_fault_probe_skipped reason=call_route")
+      return
+    }
+    startStartupFaultTimer(docURL: webView?.url?.absoluteString)
+  }
+
+  private func startStartupFaultTimer(docURL: String?) {
+    startupFaultProbe?.invalidate()
     let timer = Timer(timeInterval: Double(Self.startupFaultTickMs) / 1000.0, repeats: true) { [weak self] _ in
       self?.tickStartupFaultProbe(docURL: docURL)
     }
@@ -409,6 +426,31 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     startupFaultProbe = nil
     startupFaultDocVisibleMs = 0
     startupFaultJsVisibleMs = -1
+    startupFaultPausedDocURL = nil
+    if let token = startupFaultResumeObserver {
+      NotificationCenter.default.removeObserver(token)
+      startupFaultResumeObserver = nil
+    }
+  }
+
+  /// D5: 비활성이면 타이머를 멈추고(누적 시간 유지) 다시 활성화될 때 1회 재개한다.
+  private func pauseStartupFaultProbe(docURL: String?) {
+    startupFaultProbe?.invalidate()
+    startupFaultProbe = nil
+    startupFaultPausedDocURL = .some(docURL)
+    guard startupFaultResumeObserver == nil else { return }
+    startupFaultResumeObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      guard let self = self else { return }
+      if let token = self.startupFaultResumeObserver {
+        NotificationCenter.default.removeObserver(token)
+        self.startupFaultResumeObserver = nil
+      }
+      guard let paused = self.startupFaultPausedDocURL, self.launchContinuation != nil else { return }
+      self.startupFaultPausedDocURL = nil
+      self.startStartupFaultTimer(docURL: paused)
+    }
   }
 
   private func tickStartupFaultProbe(docURL: String?) {
@@ -416,7 +458,10 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       stopStartupFaultProbe()
       return
     }
-    guard UIApplication.shared.applicationState == .active else { return }
+    guard UIApplication.shared.applicationState == .active else {
+      pauseStartupFaultProbe(docURL: docURL)
+      return
+    }
     startupFaultDocVisibleMs += Self.startupFaultTickMs
     if startupFaultJsVisibleMs >= 0 { startupFaultJsVisibleMs += Self.startupFaultTickMs }
     guard let wv = webView else {
@@ -437,7 +482,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     guard noJs || notReleased else { return }
     let reason = noJs ? "WEB_NOT_READY" : "WEB_NOT_RELEASED"
     stopStartupFaultProbe()
-    let callRoute = (docURL ?? "").lowercased().contains("call")
+    let callRoute = Self.startupFaultIsCallRoute(docURL.flatMap { URL(string: $0) })
     NSLog(
       "[DibayRootBridge] startup_fault reason=%@ autoReloads=%d callRoute=%@",
       reason, startupFaultAutoReloads, callRoute ? "1" : "0")
@@ -470,6 +515,12 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
   func startupFaultContentProcessTerminated() {
     stopStartupFaultProbe()
     hideStartupErrorView()
+    // 검토 D4: 통화 화면(통화 경로 문서 또는 네이티브 통화 화면이 떠 있음)이면 시작 화면을 다시 덮지 않는다 —
+    // 이번 변경 이전과 같이 Capacitor 재로드만 (통화 규정).
+    if Self.startupFaultIsCallRoute(webView?.url) || presentedViewController != nil {
+      NSLog("[DibayRootBridge] webcontent_terminated_continuation_skipped reason=call_or_presented")
+      return
+    }
     installLaunchContinuationIfNeeded()
     NSLog("[DibayRootBridge] webcontent_terminated_continuation_reinstalled")
   }

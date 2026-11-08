@@ -48,6 +48,9 @@ public class DibayStartupFaultPolicyTest {
     assertTrue(DibayStartupFaultPolicy.isCallRouteUrl("/calls-v4/x"));
     assertFalse(DibayStartupFaultPolicy.isCallRouteUrl("https://samarket.vercel.app/philife"));
     assertFalse(DibayStartupFaultPolicy.isCallRouteUrl(null));
+    // 쿼리·조각은 보지 않는다 (iOS·웹과 같은 규칙)
+    assertFalse(DibayStartupFaultPolicy.isCallRouteUrl("https://samarket.vercel.app/philife?ref=callout"));
+    assertFalse(DibayStartupFaultPolicy.isCallRouteUrl("https://samarket.vercel.app/market#call"));
   }
 
   @Test

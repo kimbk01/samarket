@@ -1361,6 +1361,12 @@ public class MainActivity extends BridgeActivity {
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
     flushPendingWebCallScreenReady();
+    // D5: 백그라운드에서 멈춘 시작 화면 고장 판정을 이어 간다 (같은 문서·누적 시간 유지).
+    Runnable pausedProbe = startupFaultPausedRunnable;
+    startupFaultPausedRunnable = null;
+    if (pausedProbe != null && pausedProbe == startupFaultProbeRunnable && !webSplashDismissRequested) {
+      mainHandler.postDelayed(pausedProbe, STARTUP_FAULT_PROBE_TICK_MS);
+    }
   }
 
   @Override
@@ -1654,15 +1660,9 @@ public class MainActivity extends BridgeActivity {
                   Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
                 }
               });
-          // C1: 콜백이 끝내 오지 않으면(렌더러 사망 등) pending 이 영구 잠금이 된다 — 보조 해제. 정상 경로는 한두 프레임 안에 끝난다.
-          handler.postDelayed(
-              () -> {
-                if (webSplashDismissRequested) return;
-                webSplashDismissRequested = true;
-                webSplashDismissPending = false;
-                Log.w(WEBVIEW_LOG_TAG, "dismissSplash visual_state_fallback requestId=" + requestId);
-              },
-              DibayStartupFaultPolicy.VISUAL_STATE_FALLBACK_MS);
+          // 검토 D3 (2026-11-08): 화면 커밋 콜백을 시간으로 대신하지 않는다 — 살아 있는 WebView 의 첫 그림이 늦을 뿐이면
+          // 그림 전에 시작 화면이 풀려 빈 화면이 보인다(표시 타이머 금지 위반 소지). 콜백이 끝내 오지 않는 고장(렌더러 사망)은
+          // 위 deadWebView 즉시 해제·onRenderProcessGone 의 오류 화면(forceReleaseSplash)·고장 판정(T_release)이 맡는다.
         });
   }
 
@@ -2013,6 +2013,8 @@ public class MainActivity extends BridgeActivity {
   private Runnable startupFaultProbeRunnable = null;
   private long startupFaultDocVisibleMs = 0L;
   private long startupFaultJsVisibleMs = -1L;
+  /** D5: 백그라운드로 가서 멈춘 관찰 — onStart 에서 다시 건다(누적 시간 유지). */
+  private Runnable startupFaultPausedRunnable = null;
   private int startupFaultAutoReloads = 0;
   private volatile int lastMainFrameHttpStatus = 0;
 
@@ -2021,6 +2023,7 @@ public class MainActivity extends BridgeActivity {
       mainHandler.removeCallbacks(startupFaultProbeRunnable);
       startupFaultProbeRunnable = null;
     }
+    startupFaultPausedRunnable = null;
     startupFaultDocVisibleMs = 0L;
     startupFaultJsVisibleMs = -1L;
   }
@@ -2031,7 +2034,14 @@ public class MainActivity extends BridgeActivity {
    */
   private void startStartupFaultProbe(String url) {
     stopStartupFaultProbe();
+    startupFaultPausedRunnable = null;
     if (webSplashDismissRequested) return;
+    // 검토 D4 (2026-11-08): 통화 경로 문서는 고장 판정·오류 화면 대상에서 뺀다 — 통화 화면 동작은 이번 변경 이전 그대로
+    // (통화 규정: 영향 분석·승인 없이 통화 경로 동작을 바꾸지 않는다).
+    if (DibayStartupFaultPolicy.isCallRouteUrl(url)) {
+      Log.i(WEBVIEW_LOG_TAG, "startup_fault_probe_skipped reason=call_route");
+      return;
+    }
     final String docUrl = url;
     startupFaultProbeRunnable =
         new Runnable() {
@@ -2043,7 +2053,8 @@ public class MainActivity extends BridgeActivity {
               return;
             }
             if (!appVisible) {
-              mainHandler.postDelayed(this, STARTUP_FAULT_PROBE_TICK_MS);
+              // 검토 D5: 백그라운드에서는 1초마다 깨우지 않는다 — 멈췄다가 onStart 에서 같은 관찰을 이어 간다(누적 시간 유지).
+              startupFaultPausedRunnable = this;
               return;
             }
             startupFaultDocVisibleMs += STARTUP_FAULT_PROBE_TICK_MS;
