@@ -370,10 +370,7 @@ function SupportActiveConversation({
   const closed =
     supportCase?.status === "RESOLVED" || supportCase?.status === "ARCHIVED";
   const statusMeta = supportCaseStatusLabelMeta(supportCase?.status ?? null);
-  const statusLabel = safeT(statusMeta.key, {
-    fallbackKo: statusMeta.fallbackKo,
-    fallbackEn: statusMeta.fallbackEn,
-  });
+  const statusLabel = safeT(statusMeta.key);
   const statusText = supportCase?.public_case_no
     ? `${supportCase.public_case_no} · ${statusLabel}`
     : statusLabel;

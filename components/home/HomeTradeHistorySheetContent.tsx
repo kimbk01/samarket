@@ -13,12 +13,12 @@ type TradeHistorySheetTab = "sales" | "favorites";
  * 홈 플로팅 「거래내역」시트 — CUT E: sales default (buyer history → Messenger).
  */
 export function HomeTradeHistorySheetContent() {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   const [tab, setTab] = useState<TradeHistorySheetTab>("sales");
 
   const tabs: { id: TradeHistorySheetTab; label: string }[] = [
-    { id: "sales", label: tt("판매 내역") },
-    { id: "favorites", label: tt("찜 목록") },
+    { id: "sales", label: t("nav_trade_hub_sales") },
+    { id: "favorites", label: t("nav_trade_hub_favorites") },
   ];
 
   /** 팝업 SSOT T3 — 시트 안 탭: 높이 48 · 16/600 · 팝업 토큰 · 눌림 = 배경만 */
@@ -33,7 +33,7 @@ export function HomeTradeHistorySheetContent() {
       <div
         className={`shrink-0 overflow-x-hidden border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] ${APP_MAIN_GUTTER_NEG_X_CLASS}`}
       >
-        <nav aria-label={tt("거래 허브 메뉴")} className="w-full">
+        <nav aria-label={t("nav_trade_hub_menu")} className="w-full">
           <ul className="flex w-full">
             {tabs.map((item) => (
               <li key={item.id} className="flex min-w-0 flex-1">
@@ -51,12 +51,12 @@ export function HomeTradeHistorySheetContent() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3">
         {tab === "sales" ? (
-          <TradeHubSectionShell title={tt("판매 내역")}>
+          <TradeHubSectionShell title={t("nav_trade_hub_sales")}>
             <SalesHistoryView />
           </TradeHubSectionShell>
         ) : null}
         {tab === "favorites" ? (
-          <TradeHubSectionShell title={tt("찜 목록")}>
+          <TradeHubSectionShell title={t("nav_trade_hub_favorites")}>
             <FavoriteProductsView embedded />
           </TradeHubSectionShell>
         ) : null}

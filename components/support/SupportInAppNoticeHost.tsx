@@ -71,7 +71,7 @@ export function SupportInAppNoticeHost() {
           <p className={OverlayUi.bannerTitle}>
             {safeT("support_center_brand_title")}
             {" · "}
-            {safeT(headline.key, { fallbackKo: headline.ko, fallbackEn: headline.en })}
+            {safeT(headline.key)}
           </p>
           {notice.preview ? (
             <p className={`${OverlayUi.bannerBody} mt-0.5`}>{notice.preview}</p>

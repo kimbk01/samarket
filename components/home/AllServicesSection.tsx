@@ -1,21 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getGroupedCategories } from "@/lib/categories/getGroupedCategories";
 import type { GroupedCategories } from "@/lib/categories/getGroupedCategories";
 import { ServiceCategoryGrid } from "./ServiceCategoryGrid";
 
-const GROUP_LABELS: Record<keyof Omit<GroupedCategories, "all">, string> = {
-  trade: "동네 거래",
-  service: "동네 서비스",
-  community: "동네 이야기",
-  feature: "금융/혜택",
+/** 언어 SSOT S6: 그룹 이름은 카탈로그 키(이전 tt 역검색이 고르던 키와 같은 값) */
+const GROUP_LABELS: Record<keyof Omit<GroupedCategories, "all">, MessageKey> = {
+  trade: "home_group_trade",
+  service: "home_group_service",
+  community: "home_group_community",
+  feature: "home_group_feature",
 };
 
 export function AllServicesSection() {
   const { t } = useI18n();
-  const { tt } = useI18n();
   const [grouped, setGrouped] = useState<GroupedCategories | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export function AllServicesSection() {
       const data = await getGroupedCategories();
       setGrouped(data);
     } catch (e) {
-      setError((e as Error).message ?? tt("카테고리를 불러올 수 없습니다."));
+      setError((e as Error).message ?? t("my_services_load_failed"));
     } finally {
       setLoading(false);
     }
@@ -40,7 +41,7 @@ export function AllServicesSection() {
   if (loading) {
     return (
       <div className="rounded-ui-rect bg-sam-surface py-12 text-center sam-text-body text-sam-muted shadow-sm">
-        {tt("불러오는 중…")}
+        {t("common_loading")}
       </div>
     );
   }
@@ -56,7 +57,7 @@ export function AllServicesSection() {
   if (!grouped || grouped.all.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface py-12 text-center sam-text-body text-sam-muted shadow-sm">
-        {tt("등록된 카테고리가 없습니다.")}
+        {t("home_categories_empty")}
       </div>
     );
   }
@@ -71,7 +72,7 @@ export function AllServicesSection() {
         return (
           <section key={type}>
             <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">
-              {tt(GROUP_LABELS[type])}
+              {t(GROUP_LABELS[type])}
             </h2>
             <ServiceCategoryGrid categories={list} maxItems={0} />
           </section>

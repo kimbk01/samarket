@@ -120,10 +120,7 @@ export function BuyerGiftMallView() {
                 }`}
                 onClick={() => setScopeFilter(id)}
               >
-                {safeT(labelKey, {
-                  fallbackKo: id === "all" ? "전체" : id === "platform" ? "DIBAY 상품권" : "매장 상품권",
-                  fallbackEn: id === "all" ? "All" : id === "platform" ? "DIBAY gifts" : "Store gifts",
-                })}
+                {safeT(labelKey)}
               </button>
             );
           })}

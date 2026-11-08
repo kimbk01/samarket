@@ -54,10 +54,7 @@ function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
   const { safeT } = useI18n();
   // DEF-08: labels from SSOT (status label module + category registry), never raw enums.
   const statusMeta = supportCaseStatusLabelMeta(c.status);
-  const statusLabel = safeT(statusMeta.key, {
-    fallbackKo: statusMeta.fallbackKo,
-    fallbackEn: statusMeta.fallbackEn,
-  });
+  const statusLabel = safeT(statusMeta.key);
   const categoryDef = getSupportCategoryDefinition(c.category);
   const categoryLabel = safeT((categoryDef?.labelKey ?? "support_cat_other") as MessageKey, {
     fallbackKo: "문의",
