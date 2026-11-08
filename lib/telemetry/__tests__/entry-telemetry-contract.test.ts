@@ -13,6 +13,8 @@ import { resetEntryTelemetryRunLimiterForTests } from "@/lib/telemetry/entry-tel
 import { isNonMemberMutationPath, resolveMemberActionClassForApiMutation } from "@/lib/auth/member-action-policy";
 import { POST } from "@/app/api/telemetry/entry/route";
 
+vi.mock("@/lib/telemetry/entry-failure-store.server", () => ({ persistEntryFailureIfNeeded: vi.fn(async () => undefined) }));
+
 function validEvent(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     v: 1,
@@ -126,9 +128,10 @@ describe("POST /api/telemetry/entry", () => {
     expect(info).toHaveBeenCalledTimes(ENTRY_TELEMETRY_MAX_EVENTS_PER_RUN);
   });
 
-  it("수집 API 는 DB·인증을 쓰지 않는다 (소스 계약)", () => {
+  it("수집 API 는 인증을 쓰지 않고, DB 는 실패 보존 모듈만 거친다 (소스 계약)", () => {
     const src = readFileSync("app/api/telemetry/entry/route.ts", "utf8");
-    expect(src).not.toMatch(/supabase|createClient|requireAuth|cookies\(|headers\(\)/i);
+    expect(src).not.toMatch(/createClient|requireAuth|cookies\(|headers\(\)|from\("/i);
+    expect(src).toContain("persistEntryFailureIfNeeded(event, meta)");
   });
 });
 
