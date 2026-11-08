@@ -32,10 +32,11 @@ channel_subscribe.<채널 종류>.<상태>.<단계>
 
 - 채널 종류는 `labels.scope` 를 **접두어 고정 표**로 바꾼다. 표에 없으면 `other`. 사용자 ID·글 ID·방 ID 는 절대 키에 들어가지 않는다.
 
-| scope 접두어 (운영 코드 전수 17곳) | 채널 종류 |
+| scope 접두어 (운영 코드 전수 18종 — 2026-11-08 정정) | 채널 종류 |
 |---|---|
 | `community-messenger:presence-runtime` | `presence` |
 | `call_v4_incoming` | `call_incoming` |
+| `community-messenger-incoming-call` (`GlobalCommunityMessengerIncomingCall` → 수신 전화 holder 경유) | `call_incoming_legacy` |
 | `community-messenger-call-client:session` | `call_session` |
 | `community-messenger-call-client:hangup-signal` | `call_hangup` |
 | `community-messenger-group-call:session` | `group_call` |
@@ -53,7 +54,7 @@ channel_subscribe.<채널 종류>.<상태>.<단계>
 | `trade-listing-visibility` | `trade_listing_visibility` |
 | (그 외) | `other` |
 
-- 최대 종류 수: 18 × 5 × 2 = 180. 실제로 한 기기 5분 배치에 나오는 조합은 수 개 수준이고, 배치당 행 상한(128)과 DB 함수 상한(128)은 그대로다.
+- 최대 종류 수: 19 × 5 × 2 = 190. 실제로 한 기기 5분 배치에 나오는 조합은 수 개 수준이고, 배치당 행 상한(128)과 DB 함수 상한(128)은 그대로다.
 
 ### 1-2. 버린 이벤트도 같은 세분 키로 센다
 
@@ -73,7 +74,7 @@ channel_subscribe.<채널 종류>.<상태>.<단계>
 | 새 파일 | `lib/community-messenger/monitoring/realtime-subscription-rollup-key.ts` | 순수 함수 1개(scope·status·phase → 세분 metric), 허용 표, 검증 함수. 클라이언트·서버 공용 |
 | 수정 | `lib/community-messenger/monitoring/client.ts` | `bumpDropped` 의 키만 공용 함수로 생성. 전송 형식·주기·상한 무변경 |
 | 수정 | `lib/community-messenger/monitoring/monitoring-rollup.ts` | `realtime.subscription/channel_subscribe` 이벤트·버린 수의 metric 을 공용 함수로 세분화·검증 |
-| 테스트 | `monitoring/__tests__/realtime-subscription-rollup-key.test.ts` 신규, `monitoring-rollup.test.ts`·`monitoring-client-send-cap.test.ts` 보강 | 17개 scope 전수 매핑, ID 미포함, 미등록 → other, 위조 metric 거부, 상한 유지 |
+| 테스트 | `monitoring/__tests__/realtime-subscription-rollup-key.test.ts` 신규, `monitoring-rollup.test.ts`·`monitoring-client-send-cap.test.ts` 보강 | 18개 scope 전수 매핑, ID 미포함, 미등록 → other, 위조 metric 거부, 상한 유지 |
 | **무변경** | `subscribe-with-retry.ts`·모든 실시간 채널·통화 코드(`call-v4/**`·`CommunityMessengerCallClient`)·DB 표·DB 함수·RLS·모니터링 API 라우트·관리자 화면 코드 | 동작·연결·재시도·통화 흐름 그대로 |
 
 DB 변경 없음: 표의 `metric` 검사 `^[a-z0-9_.:-]{1,96}$` 를 세분 키(최장 `channel_subscribe.trade_listing_visibility.channel_error.initial` = 61자)가 통과한다.
@@ -100,7 +101,7 @@ DB 변경 없음: 표의 `metric` 검사 `^[a-z0-9_.:-]{1,96}$` 를 세분 키(�
 | # | 항목 | 방법 | 판정 기준 |
 |---|---|---|---|
 | V1 | 코드 | `typecheck:build` · `typecheck:test` · 관련 vitest · 변경 파일 eslint | 전부 PASS (= 코드 PASS 일 뿐) |
-| V2 | 매핑 정확성 | 단위 테스트: 운영 scope 17종 전수 → 표의 종류, ID 문자열 미포함 | 17/17 |
+| V2 | 매핑 정확성 | 단위 테스트: 운영 scope 18종 전수 → 표의 종류, ID 문자열 미포함 | 18/18 |
 | V3 | 위조 방어 | 단위 테스트: 허용 표 밖 metric 의 버린 수 → `channel_subscribe` 로 되돌림 | 통과 |
 | V4 | 운영 기록 | 배포 후 웹 탭 새로고침 → 5분 뒤 `cm_monitoring_rollup_hourly` 에 `channel_subscribe.<종류>...` 행 생성 | 행 확인(Production SHA·시각 기록) |
 | V5 | 통화 회귀 최소 확인 | Android 실기 ↔ 웹: 음성 수신 벨 표시 → 벨 중 취소 1회. 발신·세션 생성·수신 화면·종료 시각 기록 | 기존과 같음 |
@@ -111,3 +112,7 @@ DB 변경 없음: 표의 `metric` 검사 `^[a-z0-9_.:-]{1,96}$` 를 세분 키(�
 - E2·아이폰 폭주의 **수정**은 하지 않는다. 세분 기록으로 원인이 확정된 뒤 원인별 설계를 따로 올린다.
 - 오류 메시지 본문(예: Presence 한도 초과 사유)은 저장하지 않는다. 상태 4종으로 부족하면 그때 별도 설계.
 - 다른 이벤트 종류의 세분화, 다른 반복 조회(P1~P6)는 범위 밖.
+
+## 7. 정정 기록
+
+- 2026-11-08 23:55 PHT: 처음 구현(`16b3f03fa`)의 표가 17종이었다. 수신 전화 holder(`cm-incoming-call-realtime-holder.ts`)를 거쳐 `subscribeWithRetry` 를 부르는 `community-messenger-incoming-call` 이 빠져 운영에서 `other` 로 집계됨(Android 5건, 23:53 PHT). 표에 `call_incoming_legacy` 로 추가.

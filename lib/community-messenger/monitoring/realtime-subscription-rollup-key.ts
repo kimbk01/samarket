@@ -10,10 +10,14 @@
 export const REALTIME_SUBSCRIPTION_CATEGORY = "realtime.subscription";
 export const REALTIME_SUBSCRIPTION_METRIC = "channel_subscribe";
 
-/** scope 접두어 → 채널 종류. 긴 접두어가 먼저 맞도록 순서대로 검사한다. 운영 코드 scope 17종 전수. */
+/**
+ * scope 접두어 → 채널 종류. 운영 코드 scope 18종 전수(subscribeWithRetry 직접 호출 17 + 수신 전화 holder 경유 1).
+ * 2026-11-08 정정: 처음 표에 `GlobalCommunityMessengerIncomingCall` 의 `community-messenger-incoming-call` 이 빠져 `other` 로 집계됨.
+ */
 export const REALTIME_SUBSCRIPTION_KIND_BY_SCOPE_PREFIX: readonly (readonly [string, string])[] = [
   ["community-messenger:presence-runtime", "presence"],
   ["call_v4_incoming", "call_incoming"],
+  ["community-messenger-incoming-call", "call_incoming_legacy"],
   ["community-messenger-call-client:session", "call_session"],
   ["community-messenger-call-client:hangup-signal", "call_hangup"],
   ["community-messenger-group-call:session", "group_call"],

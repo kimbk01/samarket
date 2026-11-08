@@ -12,10 +12,11 @@ import { buildMonitoringRollupRows } from "../monitoring-rollup";
 const UID = "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc";
 const PID = "56d2a3c6-6090-4a3b-9986-a8668663fdc2";
 
-/** 운영 코드 subscribeWithRetry scope 17종 (실제 값 형태 그대로, ID 포함) */
+/** 운영 코드 subscribeWithRetry scope 18종 (실제 값 형태 그대로, ID 포함) */
 const PROD_SCOPES: Array<[string, string]> = [
   ["community-messenger:presence-runtime", "presence"],
   ["call_v4_incoming", "call_incoming"],
+  ["community-messenger-incoming-call", "call_incoming_legacy"],
   ["community-messenger-call-client:session", "call_session"],
   ["community-messenger-call-client:hangup-signal", "call_hangup"],
   ["community-messenger-group-call:session", "group_call"],
