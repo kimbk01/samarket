@@ -11,26 +11,26 @@ export type ZipLocationHit = { regionId: string; cityId: string };
 
 /** 자주 쓰이는 우편번호 → 앱 내 동네(Area) id (PhilPost·공개 우편 목록 기준) */
 const ZIP_TO_LOCATION_PRIMARY: Record<string, ZipLocationHit> = {
-  // City of Manila
-  "1000": { regionId: "manila", cityId: "m3" },
-  "1001": { regionId: "manila", cityId: "m4" },
-  "1002": { regionId: "manila", cityId: "m5" },
-  "1003": { regionId: "manila", cityId: "m6" },
-  "1004": { regionId: "manila", cityId: "m1" },
-  "1005": { regionId: "manila", cityId: "m13" },
-  "1006": { regionId: "manila", cityId: "m14" },
-  "1007": { regionId: "manila", cityId: "m3" },
-  "1008": { regionId: "manila", cityId: "m15" },
-  "1009": { regionId: "manila", cityId: "m16" },
-  "1010": { regionId: "manila", cityId: "m7" },
-  "1011": { regionId: "manila", cityId: "m8" },
-  "1012": { regionId: "manila", cityId: "m6" },
-  "1013": { regionId: "manila", cityId: "m11" },
-  "1014": { regionId: "manila", cityId: "m12" },
-  "1015": { regionId: "manila", cityId: "m7" },
-  "1016": { regionId: "manila", cityId: "m9" },
-  "1017": { regionId: "manila", cityId: "m10" },
-  "1018": { regionId: "manila", cityId: "m1" },
+  // City of Manila — PhilPost 구역 코드 (2026-11-09 대조: filipiknow Manila 표 · PhlPost 1011 Pandacan · 운영 Google 주소 「Quiapo…1001」「Santa Cruz…1003」)
+  "1000": { regionId: "manila", cityId: "m3" }, // Manila Central P.O. · Ermita
+  "1001": { regionId: "manila", cityId: "m5" }, // Quiapo
+  "1002": { regionId: "manila", cityId: "m6" }, // Intramuros
+  "1003": { regionId: "manila", cityId: "m11" }, // Santa Cruz (South)
+  "1004": { regionId: "manila", cityId: "m1" }, // Malate
+  "1005": { regionId: "manila", cityId: "m12" }, // San Miguel
+  "1006": { regionId: "manila", cityId: "m4" }, // Binondo
+  "1007": { regionId: "manila", cityId: "m13" }, // Paco
+  "1008": { regionId: "manila", cityId: "m7" }, // Sampaloc (East)
+  "1009": { regionId: "manila", cityId: "m15" }, // Santa Ana
+  "1010": { regionId: "manila", cityId: "m10" }, // San Nicolas
+  "1011": { regionId: "manila", cityId: "m14" }, // Pandacan
+  "1012": { regionId: "manila", cityId: "m9" }, // Tondo (South)
+  "1013": { regionId: "manila", cityId: "m9" }, // Tondo (North)
+  "1014": { regionId: "manila", cityId: "m11" }, // Santa Cruz (North)
+  "1015": { regionId: "manila", cityId: "m7" }, // Sampaloc (West)
+  "1016": { regionId: "manila", cityId: "m8" }, // Santa Mesa
+  "1017": { regionId: "manila", cityId: "m17" }, // San Andres Bukid
+  "1018": { regionId: "manila", cityId: "m16" }, // Port Area (South)
   // Makati (12xx 대역 — 이전 오매핑 1226=BGC 등 수정)
   "1200": { regionId: "manila", cityId: "m2" },
   "1210": { regionId: "manila", cityId: "m39" },
@@ -216,6 +216,16 @@ function hitFromRange(n: number): ZipLocationHit | null {
     if (n >= r.from && n <= r.to) return r.hit;
   }
   return null;
+}
+
+/**
+ * 정확 표에만 있는 PhilPost 코드 → 동네. 대역(range) 보조 추정 없음.
+ * 회원 주소 위치값(`mapUserAddressToAppLocation`)은 이것만 쓴다 — 모르는 코드는 추정하지 않고 문장 매칭으로 넘긴다.
+ */
+export function lookupExactLocationByPhilippinesZip(raw: string): ZipLocationHit | null {
+  const code = finalizePhilippinesZipCode(raw);
+  if (!code) return null;
+  return ZIP_TO_LOCATION[code] ?? null;
 }
 
 export function lookupLocationByPhilippinesZip(raw: string): ZipLocationHit | null {

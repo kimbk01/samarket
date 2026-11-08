@@ -48,12 +48,17 @@ function taxonomyCityLeadingLabel(appRegionId: string | null | undefined, appCit
 /**
  * City / Municipality authority for PUBLIC surfaces.
  * 1) `city_municipality` column
- * 2) app_city_id taxonomy leading label
+ * 2) `locationCityMunicipality` (서버 위치값 SSOT)
+ * 3) app_city_id taxonomy leading label
  */
 export function resolvePublicCityMunicipalityLabel(a: UserAddressDTO | null | undefined): string | null {
   if (!a) return null;
   const fromColumn = clean(a.cityMunicipality);
   if (isUsableCityMunicipalityLabel(fromColumn)) return fromColumn;
+
+  /** 서버 조회 SSOT 가 주소 문장에서 공식 LGU 표로 찾은 시/군 (`withDerivedAddressLocation`) */
+  const fromLocation = clean(a.locationCityMunicipality);
+  if (isUsableCityMunicipalityLabel(fromLocation)) return fromLocation;
 
   const fromTaxonomy = clean(taxonomyCityLeadingLabel(a.appRegionId, a.appCityId));
   if (isUsableCityMunicipalityLabel(fromTaxonomy)) return fromTaxonomy;

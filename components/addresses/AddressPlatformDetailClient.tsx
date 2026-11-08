@@ -349,9 +349,10 @@ export function AddressPlatformDetailClient(props: {
     setBusy(true);
     setErr(null);
     try {
+      /** 수정 시 예전 지역 ID 를 넣지 않는다 — 바뀐 주소로 다시 계산(서버도 같은 계산으로 덮어씀 · 주소 SSOT) */
       const taxonomy = mapUserAddressToAppLocation({
-        appRegionId: initial?.appRegionId ?? null,
-        appCityId: initial?.appCityId ?? null,
+        appRegionId: null,
+        appCityId: null,
         buildingName: selectedPlaceName,
         landmark: landmark.trim() || null,
         barangay: draft.barangay,

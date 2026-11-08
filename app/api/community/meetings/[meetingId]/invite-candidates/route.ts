@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadMasterPublicCityLabelsByUserIds } from "@/lib/addresses/master-public-city-labels.server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     sb.from("meeting_member_bans").select("user_id").eq("meeting_id", id).is("released_at", null),
     sb
       .from("profiles")
-      .select("id, nickname, username, region_name")
+      .select("id, nickname, username")
       .or(`nickname.ilike.%${query}%,username.ilike.%${query}%`)
       .limit(8),
     sb
@@ -65,8 +66,13 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       .limit(8),
   ]);
 
-  const [{ data: hostProfile }, { data: neighborRows }] = await Promise.all([
-    sb.from("profiles").select("region_name").eq("id", hostUserId).maybeSingle(),
+  /** 같은 동네 = 대표 주소 공개 시/군 비교 (주소 SSOT · profiles.region_name 미사용) */
+  const regionUserIds = [
+    hostUserId,
+    ...((profiles ?? []) as Array<{ id?: string | null }>).map((row) => String(row.id ?? "").trim()),
+  ].filter(Boolean);
+  const [regionByUser, { data: neighborRows }] = await Promise.all([
+    loadMasterPublicCityLabelsByUserIds(sb, regionUserIds),
     sb
       .from("user_relationships")
       .select("target_user_id")
@@ -80,7 +86,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     ...((members ?? []) as Array<{ user_id?: string | null }>).map((row) => String(row.user_id ?? "").trim()).filter(Boolean),
     ...((bans ?? []) as Array<{ user_id?: string | null }>).map((row) => String(row.user_id ?? "").trim()).filter(Boolean),
   ]);
-  const hostRegion = String((hostProfile as { region_name?: string | null } | null)?.region_name ?? "").trim().toLowerCase();
+  const hostRegion = String(regionByUser.get(hostUserId) ?? "").trim().toLowerCase();
   const neighborFollowIds = new Set(
     ((neighborRows ?? []) as Array<{ target_user_id?: string | null }>)
       .map((row) => String(row.target_user_id ?? "").trim())
@@ -97,13 +103,13 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     score: number;
   }> = [];
 
-  for (const row of (profiles ?? []) as Array<{ id?: string; nickname?: string | null; username?: string | null; region_name?: string | null }>) {
+  for (const row of (profiles ?? []) as Array<{ id?: string; nickname?: string | null; username?: string | null }>) {
     const userId = String(row.id ?? "").trim();
     if (!userId || excluded.has(userId) || seen.has(userId)) continue;
     seen.add(userId);
     const label = String(row.nickname ?? row.username ?? userId).trim() || userId;
     const secondary = String(row.username ?? userId).trim() || userId;
-    const sameRegion = !!hostRegion && String(row.region_name ?? "").trim().toLowerCase() === hostRegion;
+    const sameRegion = !!hostRegion && String(regionByUser.get(userId) ?? "").trim().toLowerCase() === hostRegion;
     const neighborFollow = neighborFollowIds.has(userId);
     const startsWithQuery =
       label.toLowerCase().startsWith(query.toLowerCase()) || secondary.toLowerCase().startsWith(query.toLowerCase());

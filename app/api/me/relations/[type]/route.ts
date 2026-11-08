@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadMasterPublicCityLabelsByUserIds } from "@/lib/addresses/master-public-city-labels.server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -56,12 +57,14 @@ async function fetchProfileMap(
 
   const { data: profiles } = await sb
     .from("profiles")
-    .select(`${MEMBER_IDENTITY_PROFILE_SELECT}, region_name`)
+    .select(MEMBER_IDENTITY_PROFILE_SELECT)
     .in("id", targetIds);
+  /** 지역 = 대표 주소 공개 시/군 (주소 SSOT · profiles.region_name 미사용) */
+  const regionByUser = await loadMasterPublicCityLabelsByUserIds(sb, targetIds);
 
   for (const row of (profiles ?? []) as Record<string, unknown>[]) {
     const id = String(row.id ?? "").trim();
-    if (id) profileMap.set(id, row);
+    if (id) profileMap.set(id, { ...row, master_public_city: regionByUser.get(id) ?? null });
   }
   return profileMap;
 }
@@ -87,7 +90,7 @@ function mapProfilesToRelationItems(
       /** DTO field kept — Member public id = dibay_id */
       username: dibayId,
       avatarUrl: typeof profile?.avatar_url === "string" ? profile.avatar_url : null,
-      regionName: typeof profile?.region_name === "string" ? profile.region_name : null,
+      regionName: typeof profile?.master_public_city === "string" ? profile.master_public_city : null,
     };
   });
 }

@@ -4,7 +4,7 @@
  * 같은 회원의 반복 요청은 짧게 메모리 캐시(목록 첫 페이지·다음 페이지가 같은 값을 쓰도록).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
+import { deriveAddressLocation } from "@/lib/addresses/address-location-ssot.server";
 import type { ListHoodAnchor } from "@/lib/trade/marketplace/list-contract/list-location-blocks";
 
 const TTL_MS = 60_000;
@@ -40,7 +40,7 @@ export async function loadViewerListHood(
     const { data, error } = await sb
       .from("user_addresses")
       .select(
-        "app_region_id,app_city_id,neighborhood_name,full_address,formatted_address,road_address,building_name,landmark,barangay,district,city_municipality,province,street_address"
+        "app_region_id,app_city_id,neighborhood_name,full_address,formatted_address,road_address,building_name,landmark,barangay,district,city_municipality,province,street_address,canonical_lgu_id"
       )
       .eq("user_id", uid)
       .eq("is_active", true)
@@ -49,7 +49,8 @@ export async function loadViewerListHood(
       .maybeSingle();
     if (!error && data) {
       const row = data as MasterRow;
-      const loc = mapUserAddressToAppLocation({
+      /** 주소 SSOT — 저장·조회와 같은 위치값 함수 */
+      const loc = deriveAddressLocation({
         appRegionId: row.app_region_id ?? null,
         appCityId: row.app_city_id ?? null,
         neighborhoodName: row.neighborhood_name ?? null,
@@ -63,8 +64,8 @@ export async function loadViewerListHood(
         cityMunicipality: row.city_municipality ?? null,
         province: row.province ?? null,
         streetAddress: row.street_address ?? null,
-      } as Parameters<typeof mapUserAddressToAppLocation>[0]);
-      if (loc?.regionId && loc.cityId) hood = { regionId: loc.regionId, cityId: loc.cityId };
+      });
+      if (loc.appRegionId && loc.appCityId) hood = { regionId: loc.appRegionId, cityId: loc.appCityId };
     }
   } catch {
     hood = null;

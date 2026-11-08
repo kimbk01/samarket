@@ -12,7 +12,9 @@ import {
   type BusinessApplyProfileSeed,
 } from "@/components/business/BusinessApplyForm";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
+import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { OwnerSupportContextBridge } from "@/components/support/OwnerSupportContextBridge";
 import {
@@ -103,7 +105,12 @@ export default function BusinessApplyRoute() {
         await refreshGate(null);
         return;
       }
-      const loc = decodeProfileAppLocationPair(p.region_code, p.region_name);
+      /** 지역 = 대표 주소(서버 위치값 SSOT) — profiles.region_* 미사용 (2026-11-09 A7) */
+      const snap = await fetchAddressDefaultsSnapshot({ caller: "business_apply_form", reason: "apply_form_seed" });
+      if (cancelled) return;
+      const master = snap?.ok && snap.defaults?.master ? coerceUserAddressDTO(snap.defaults.master) : null;
+      const masterLoc = master ? mapUserAddressToAppLocation(master) : null;
+      const loc = { regionId: masterLoc?.regionId ?? "", cityId: masterLoc?.cityId ?? "" };
       const uname = String(p.username ?? "").trim().replace(/^@+/, "");
       setProfileRow(profileRowForGate(p));
       setProfileSeed({

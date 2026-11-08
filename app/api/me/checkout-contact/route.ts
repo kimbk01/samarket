@@ -7,7 +7,7 @@ import {
   getUserAddressDefaults,
   pickAddressRowForDeliveryRouting,
 } from "@/lib/addresses/user-address-service";
-import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
+import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 
 export const runtime = "nodejs";
@@ -48,11 +48,13 @@ export async function GET() {
   if (testPhone) contact_phone = testPhone;
 
   let default_delivery: CheckoutDeliveryPayload | null = null;
+  let masterAddressFullLine: string | null = null;
   try {
     const defs = await getUserAddressDefaults(sb, uid);
     const masterDeliveryRow = pickAddressRowForDeliveryRouting(defs);
     if (masterDeliveryRow) {
       default_delivery = toCheckoutDeliveryPayload(masterDeliveryRow);
+      masterAddressFullLine = formatUserAddressFull(masterDeliveryRow)?.trim() || null;
       const dp = masterDeliveryRow.phoneNumber?.trim() ?? "";
       if (!contact_phone && dp) contact_phone = dp;
     }
@@ -79,19 +81,8 @@ export async function GET() {
     default_delivery = { ...default_delivery, phone: profilePhoneResolved };
   }
 
-  const { data: prof2 } = await sb
-    .from("profiles")
-    .select("region_name, region_code, address_street_line, address_detail, full_address")
-    .eq("id", uid)
-    .maybeSingle();
-  const fromProfile = resolveProfileLocationAddressOneLine({
-    region_code: prof2?.region_code ?? null,
-    region_name: prof2?.region_name ?? null,
-    address_street_line: prof2?.address_street_line ?? null,
-    address_detail: prof2?.address_detail ?? null,
-    full_address: typeof prof2?.full_address === "string" ? prof2.full_address : null,
-  }).trim();
-  if (fromProfile) contact_address = fromProfile;
+  /** 연락처 주소 = 대표 주소 전체 한 줄 (주소 SSOT · profiles 지역·전체주소 미사용 · 2026-11-09 A7) */
+  if (masterAddressFullLine) contact_address = masterAddressFullLine;
   if (!contact_address && testAddress) contact_address = testAddress;
 
   return NextResponse.json({

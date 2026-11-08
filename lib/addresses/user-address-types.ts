@@ -39,6 +39,11 @@ export type UserAddressDTO = {
    * Optional on DTO for test fixtures / partial clients; null/absent = unresolved.
    */
   canonicalLguId?: string | null;
+  /**
+   * 위치 전용 시/군 — 서버 조회 SSOT(`withDerivedAddressLocation`)가 `cityMunicipality` 가 비었을 때 주소 문장에서
+   * 공식 LGU 표로 찾은 값. 공개 지역 라벨(홈·커뮤니티·내정보)만 쓴다. 주소 표시(FULL/TITLE)에는 쓰지 않는다.
+   */
+  locationCityMunicipality?: string | null;
   useForLife: boolean;
   useForTrade: boolean;
   useForDelivery: boolean;

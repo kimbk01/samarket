@@ -16,7 +16,7 @@ import {
   getLocationLabelIfValid,
   parseLocationLabelToIds,
 } from "@/lib/products/form-options";
-import { lookupLocationByPhilippinesZip } from "@/lib/products/zip-to-location";
+import { lookupExactLocationByPhilippinesZip } from "@/lib/products/zip-to-location";
 
 export type DibayAppLocationIds = {
   regionId: string;
@@ -71,8 +71,28 @@ export function buildTaxonomyMatchLineFromUserAddressFields(input: {
   return uniq.join(", ");
 }
 
+const COUNTRY_SEGMENT_RE = /^(philippines|the philippines|republic of the philippines|필리핀|ph)$/i;
+
+/**
+ * Google 형식 주소의 우편번호만 꺼낸다 — 「…, Manila, 1001 Metro Manila, 필리핀」의 `1001`.
+ * 국가를 뺀 **마지막 쉼표 구간**이 `NNNN 지방명` 또는 `NNNN` 일 때만 우편번호로 본다.
+ * 번지(예: `1226 A Lorenzo St`)·도로 번호는 우편번호로 쓰지 않는다 (2026-11-09 매장 Tondo→Makati 오매핑 원인).
+ */
+export function extractPhilippinesPostalCodeFromAddressLine(line: string): string | null {
+  const segments = line
+    .split(/[,\n]/)
+    .map((x) => x.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((x) => !COUNTRY_SEGMENT_RE.test(x));
+  const last = segments[segments.length - 1];
+  if (!last) return null;
+  const m = last.match(/^(\d{4})(?:\s+\D.*)?$/);
+  return m ? m[1]! : null;
+}
+
 /**
  * Map a member address (or draft fields) to DIBAY region/city taxonomy IDs.
+ * 순서: 저장된 ID → 동네 라벨 → **우편번호(정확 표만)** → 주소 문장 매칭.
  */
 export function mapUserAddressToAppLocation(
   a: Pick<
@@ -104,10 +124,11 @@ export function mapUserAddressToAppLocation(
     }
   }
 
-  const full = a.fullAddress?.trim() ?? a.formattedAddress?.trim() ?? "";
-  const zipMatch = full.match(/\b([0-9]{4})\b/);
-  if (zipMatch) {
-    const hit = lookupLocationByPhilippinesZip(zipMatch[1]!);
+  const postal = extractPhilippinesPostalCodeFromAddressLine(
+    a.formattedAddress?.trim() || a.fullAddress?.trim() || a.roadAddress?.trim() || "",
+  );
+  if (postal) {
+    const hit = lookupExactLocationByPhilippinesZip(postal);
     if (hit) {
       const v = validPair(hit.regionId, hit.cityId);
       if (v) return v;

@@ -24,17 +24,25 @@ import {
   normalizeAddressClientRequestId,
   USER_ADDRESS_CLIENT_REQUEST_UNIQUE_INDEX,
 } from "@/lib/addresses/address-client-request-id";
-import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import {
+  cleanAddressText,
+  deriveAddressLocation,
+  withDerivedAddressLocation,
+  type AddressLocationInput,
+} from "@/lib/addresses/address-location-ssot.server";
 
 const SEL =
   "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,canonical_lgu_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
 
 /**
- * MASTER LGU SSOT — when a row becomes (or remains) active routing master,
- * persist canonical_lgu_id if structured city/province resolve uniquely.
- * Never invent LGU; never clear an existing id on failed resolve.
+ * MASTER LOCATION SSOT — 행이 대표(master)가 될 때마다(대표 지정·첫 주소·대표 승계) 호출.
+ * 1) 그 행의 위치값(앱 지역 ID·LGU)을 `deriveAddressLocation` 으로 다시 계산해 기록한다.
+ *    (2026-11-09: 2026-04 폼으로 시/군 없이 저장된 주소를 대표로 지정해도 값이 비어 있던 결함)
+ *    - LGU 는 비어 있을 때만 채운다(계산 실패 시 기존 값을 지우지 않음). 시/군 칸(표시 필드)은 바꾸지 않는다.
+ *    - 앱 지역 ID 는 주소 문장 계산값이 있으면 그 값으로 맞춘다.
+ * 2) 예전 생활·거래·배달 기본 표시(is_default_life/trade/delivery)를 이 회원 전체에서 끈다 — 기준은 대표 하나뿐.
  */
-async function touchPersistCanonicalLguIfResolvable(
+async function persistMasterAddressLocation(
   sb: SupabaseClient<any>,
   userId: string,
   addressId: string
@@ -43,26 +51,39 @@ async function touchPersistCanonicalLguIfResolvable(
   if (!id) return;
   const { data, error } = await sb
     .from("user_addresses")
-    .select("id,canonical_lgu_id,city_municipality,province")
+    .select(SEL)
     .eq("id", id)
     .eq("user_id", userId)
     .eq("is_active", true)
     .maybeSingle();
-  if (error || !data) return;
-  const row = data as Record<string, unknown>;
-  if (String(row.canonical_lgu_id ?? "").trim()) return;
-  const resolved = resolveCanonicalLguIdForAddressWrite({
-    cityMunicipality: row.city_municipality as string | null,
-    province: row.province as string | null,
-  });
-  if (!resolved) return;
-  const { error: upErr } = await sb
+  if (!error && data) {
+    const dto = rowToUserAddressDTO(data as Record<string, unknown>);
+    const d = deriveAddressLocation(dto);
+    const patch: Record<string, unknown> = {};
+    if (!cleanAddressText(dto.canonicalLguId) && d.canonicalLguId) patch.canonical_lgu_id = d.canonicalLguId;
+    if (d.appRegionId && d.appCityId && (d.appRegionId !== dto.appRegionId || d.appCityId !== dto.appCityId)) {
+      patch.app_region_id = d.appRegionId;
+      patch.app_city_id = d.appCityId;
+    }
+    if (Object.keys(patch).length > 0) {
+      const { error: upErr } = await sb.from("user_addresses").update(patch).eq("id", id).eq("user_id", userId);
+      if (upErr) console.error("[persistMasterAddressLocation]", upErr.message);
+    }
+  }
+  // 표시가 남은 행만 끈다 — 다른 행 updated_at(목록 정렬)을 건드리지 않게
+  const { data: flagged, error: flagSelErr } = await sb
     .from("user_addresses")
-    .update({ canonical_lgu_id: resolved })
-    .eq("id", id)
+    .select("id,is_default_life,is_default_trade,is_default_delivery")
     .eq("user_id", userId);
-  if (upErr) {
-    console.error("[touchPersistCanonicalLguIfResolvable]", upErr.message);
+  if (flagSelErr || !Array.isArray(flagged)) return;
+  for (const r of flagged as Record<string, unknown>[]) {
+    if (r.is_default_life !== true && r.is_default_trade !== true && r.is_default_delivery !== true) continue;
+    const { error: flagErr } = await sb
+      .from("user_addresses")
+      .update({ is_default_life: false, is_default_trade: false, is_default_delivery: false })
+      .eq("id", String(r.id ?? ""))
+      .eq("user_id", userId);
+    if (flagErr) console.error("[persistMasterAddressLocation:legacy_flags]", flagErr.message);
   }
 }
 
@@ -166,7 +187,7 @@ async function repairStoreLinkedMasterWhenGeneralAddressExists(
   });
   const pick = ordered[0];
   await setUserAddressMasterAtomic(sb, userId, pick.id);
-  await touchPersistCanonicalLguIfResolvable(sb, userId, pick.id);
+  await persistMasterAddressLocation(sb, userId, pick.id);
   return true;
 }
 
@@ -188,7 +209,10 @@ export async function listUserAddresses(
     console.error("[listUserAddresses]", error.message);
     throw new Error("load_failed");
   }
-  return sortAddressList((data ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  // 조회 SSOT — 위치값은 `withDerivedAddressLocation` 결과만 내보낸다(DB 쓰기 없음)
+  return sortAddressList(
+    (data ?? []).map((r) => withDerivedAddressLocation(rowToUserAddressDTO(r as Record<string, unknown>))),
+  );
 }
 
 /** POST-WRITE invariant: store-linked row must not remain master when a general address exists. Not GET repair. */
@@ -349,7 +373,7 @@ async function applyDefaultFlagsOnCreate(
 ): Promise<void> {
   if (p.isDefaultMaster) {
     await setUserAddressMasterAtomic(sb, userId, addressId);
-    await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
+    await persistMasterAddressLocation(sb, userId, addressId);
   }
 }
 
@@ -383,7 +407,7 @@ async function ensureSomeoneDefaultIfFirst(
   if (p.isDefaultMaster) return;
   if (await userHasActiveMasterForWrite(sb, userId, "address_create_failed")) return;
   await setUserAddressMasterAtomic(sb, userId, addressId);
-  await touchPersistCanonicalLguIfResolvable(sb, userId, addressId);
+  await persistMasterAddressLocation(sb, userId, addressId);
 }
 
 export async function markUserAddressUsed(
@@ -434,7 +458,7 @@ export async function setUserAddressAsDefault(
   }
   if (next.master) {
     await setUserAddressMasterAtomic(sb, userId, id);
-    await touchPersistCanonicalLguIfResolvable(sb, userId, id);
+    await persistMasterAddressLocation(sb, userId, id);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
   const { data: again, error: eAgain } = await sb
@@ -495,10 +519,11 @@ export async function createUserAddress(
   const displayNick = await assertAddressNicknameUnique(sb, userId, resolved.nickname ?? "");
   const pWithNick: UserAddressWritePayload = { ...resolved, nickname: displayNick };
   const row = payloadToInsertRow(userId, userAddressInsertPayloadWithoutDefaultFlags(pWithNick));
-  row.canonical_lgu_id = resolveCanonicalLguIdForAddressWrite({
-    cityMunicipality: pWithNick.cityMunicipality,
-    province: pWithNick.province,
-  });
+  // 저장 SSOT — 위치값은 서버가 주소로 계산한다(화면이 보낸 지역 ID 는 계산 실패 때만)
+  const loc = deriveAddressLocation({ ...pWithNick, canonicalLguId: null } as AddressLocationInput);
+  row.app_region_id = loc.appRegionId;
+  row.app_city_id = loc.appCityId;
+  row.canonical_lgu_id = loc.canonicalLguId;
   if (clientRequestId) row.client_request_id = clientRequestId;
   const { data, error } = await sb.from("user_addresses").insert(row).select(SEL).single();
   if (error) {
@@ -571,21 +596,6 @@ export async function updateUserAddress(
     "place_id" in patch ||
     "latitude" in patch ||
     "longitude" in patch;
-  if (touchesCityIdentity) {
-    const nextLgu = resolveCanonicalLguIdForAddressWrite({
-      cityMunicipality: resolved.cityMunicipality,
-      province: resolved.province,
-    });
-    const norm = (v: string | null | undefined) => String(v ?? "").trim();
-    const cityOrProvinceChanged =
-      norm(resolved.cityMunicipality) !== norm(dto.cityMunicipality) ||
-      norm(resolved.province) !== norm(dto.province);
-    // MASTER LGU SSOT: never clear an existing id on failed resolve (pin-only / same city edits).
-    if (nextLgu || cityOrProvinceChanged) {
-      patch.canonical_lgu_id = nextLgu;
-    }
-  }
-
   const touchesGeo =
     "place_id" in patch ||
     "latitude" in patch ||
@@ -601,13 +611,28 @@ export async function updateUserAddress(
     if (inv) throw new Error(inv);
   }
 
+  if (touchesCityIdentity || touchesGeo || "app_region_id" in patch || "app_city_id" in patch) {
+    // 저장 SSOT — 바뀐 주소로 위치값을 다시 계산(예전 지역 ID 가 남지 않게 · 2026-11-09 A6)
+    const next = { ...base, ...merged, canonicalLguId: null } as AddressLocationInput;
+    const loc = deriveAddressLocation(next);
+    patch.app_region_id = loc.appRegionId;
+    patch.app_city_id = loc.appCityId;
+    const norm = (v: string | null | undefined) => cleanAddressText(v);
+    const cityOrProvinceChanged =
+      norm(loc.cityMunicipality) !== norm(dto.cityMunicipality) || norm(next.province) !== norm(dto.province);
+    // MASTER LGU SSOT: never clear an existing id on failed resolve (pin-only / same city edits).
+    if (loc.canonicalLguId || cityOrProvinceChanged) {
+      patch.canonical_lgu_id = loc.canonicalLguId;
+    }
+  }
+
   if (Object.keys(patch).length > 0) {
     const { error } = await sb.from("user_addresses").update(patch).eq("id", id).eq("user_id", userId);
     if (error) throwUserAddressWriteError(error, "address_update_failed");
   }
   if (p.isDefaultMaster === true) {
     await setUserAddressMasterAtomic(sb, userId, id);
-    await touchPersistCanonicalLguIfResolvable(sb, userId, id);
+    await persistMasterAddressLocation(sb, userId, id);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
   const { data, error: e2 } = await sb.from("user_addresses").select(SEL).eq("id", id).single();
@@ -663,7 +688,7 @@ export async function deleteUserAddress(
 
   if (wasMaster) {
     await setUserAddressMasterAtomic(sb, userId, nid);
-    await touchPersistCanonicalLguIfResolvable(sb, userId, nid);
+    await persistMasterAddressLocation(sb, userId, nid);
   }
   await repairStoreLinkedMasterAfterWrite(sb, userId);
 }

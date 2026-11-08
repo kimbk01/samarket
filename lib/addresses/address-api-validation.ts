@@ -23,7 +23,11 @@ function optionalText(v: unknown): string | null | undefined {
   if (v === undefined) return undefined;
   if (v === null) return null;
   const s = String(v).trim();
-  return s.length > 0 ? s : null;
+  if (s.length === 0) return null;
+  /** 문자 "null"/"undefined" 를 값으로 저장하지 않는다 (2026-11-09 운영 2건 — province·barangay = "null") */
+  const lower = s.toLowerCase();
+  if (lower === "null" || lower === "undefined") return null;
+  return s;
 }
 
 function first(o: Record<string, unknown>, ...keys: string[]): unknown {
