@@ -28,3 +28,16 @@ export function hasMessengerRoomRealLastMessageHint(lastMessage: string | null |
   if (!text) return false;
   return !isMessengerRoomLastMessageDisplayPlaceholder(text);
 }
+
+const DIRECT_PLACEHOLDERS = new Set(["메시지를 보내 보세요.", "Send a message to start chatting."]);
+
+/**
+ * 언어 SSOT — 서버가 채운 빈 방 안내(저장 언어 고정)를 화면에 그릴 때 보는 사람 언어 키로 바꾼다.
+ * 안내 문구가 아니면 null.
+ */
+export function messengerRoomLastMessagePlaceholderKey(
+  lastMessage: string | null | undefined
+): "cm_svc_last_msg_direct" | "cm_svc_last_msg_group" | null {
+  if (!isMessengerRoomLastMessageDisplayPlaceholder(lastMessage)) return null;
+  return DIRECT_PLACEHOLDERS.has(String(lastMessage).trim()) ? "cm_svc_last_msg_direct" : "cm_svc_last_msg_group";
+}

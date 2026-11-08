@@ -1,6 +1,7 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveCmSystemListPreview } from "@/lib/community-messenger/system-message-i18n";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { messengerRoomLastMessagePlaceholderKey } from "@/lib/community-messenger/room/messenger-room-last-message-placeholder";
 import {
   formatCallStubRoomTipForViewer,
   isCallStubRoomTipToken,
@@ -139,6 +140,9 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
       ? callText
       : translateCmUi("cm_home_preview_call_named", { detail: callText });
   }
+  /** 빈 방 안내(서버가 한 언어로 채움) → 보는 사람 언어 */
+  const placeholderKey = messengerRoomLastMessagePlaceholderKey(lastMessage);
+  if (placeholderKey) return translateCmUi(placeholderKey);
   /** TEXT: show content as-is (including https://…jpg) — no URL→photo heuristic. */
   if (lastMessage && !parseCommunityMessengerRoomContextMeta(lastMessage)) {
     return lastMessage;
@@ -189,6 +193,9 @@ export function guardRawCmListPreviewText(text: string | null | undefined, viewe
   if (!trimmed) return raw;
   if (isCallStubRoomTipToken(trimmed)) {
     return formatCmListPreviewTextForViewer({ lastMessage: trimmed, lastMessageType: "call_stub" }, viewerUserId);
+  }
+  if (messengerRoomLastMessagePlaceholderKey(trimmed)) {
+    return formatCmListPreviewTextForViewer({ lastMessage: trimmed, lastMessageType: "text" }, viewerUserId);
   }
   if (looksLikeRawStickerContent(trimmed)) {
     return formatCmListPreviewTextForViewer({ lastMessage: trimmed, lastMessageType: "sticker" }, viewerUserId);
