@@ -12,6 +12,7 @@ import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-err
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { revalidatePath } from "next/cache";
+import { ADMIN_NAME_EN_REQUIRED_ERROR, adminNameEnViolation } from "@/lib/i18n/admin-name-en-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +59,10 @@ export async function POST(req: NextRequest) {
   const slug = normalizeFeedSlug(body.slug || body.name || "");
   if (!section_id) return NextResponse.json({ ok: false, error: "section_id_required" }, { status: 400 });
   if (!name) return NextResponse.json({ ok: false, error: "name_required" }, { status: 400 });
+  /** 언어 SSOT S7 — 고객 화면 이름은 ko·en 둘 다 필수 */
+  if (adminNameEnViolation({ creating: true, next: { name, nameEn: name_en } })) {
+    return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
+  }
   if (!slug || slug.length < 2) return NextResponse.json({ ok: false, error: "invalid_slug" }, { status: 400 });
   const slugGate = assertAdminTopicSlugNotSortSlot(slug);
   if (!slugGate.ok) {

@@ -216,6 +216,8 @@ export function AdminMenusPage() {
 
   /* ── ROOT create / edit local form state ── */
   const [rootName, setRootName] = useState("");
+  /** 언어 SSOT S7 — 영어 이름(고객 영어 화면) 필수 */
+  const [rootNameEn, setRootNameEn] = useState("");
   const [rootActive, setRootActive] = useState(true);
   const [rootChip, setRootChip] = useState(true);
   const [rootLauncher, setRootLauncher] = useState(true);
@@ -226,6 +228,7 @@ export function AdminMenusPage() {
 
   const beginRootCreate = () => {
     setRootName("");
+    setRootNameEn("");
     setRootActive(true);
     setRootChip(true);
     setRootLauncher(true);
@@ -238,6 +241,7 @@ export function AdminMenusPage() {
 
   const beginRootEditBasics = (root: CategoryWithSettings) => {
     setRootName(root.name);
+    setRootNameEn(root.name_en ?? "");
     setRootActive(root.is_active);
     setRootChip(root.show_in_home_chips !== false);
     setRootLauncher(root.quick_create_enabled);
@@ -261,7 +265,7 @@ export function AdminMenusPage() {
       const res = await createCategory(
         {
           name: rootName.trim(),
-          name_en: null,
+          name_en: rootNameEn.trim() || null,
           slug,
           icon_key: rootSubtype,
           badge_color: rootBadgeColor.trim() || null,
@@ -306,7 +310,7 @@ export function AdminMenusPage() {
         root.id,
         {
           name: rootName.trim(),
-          name_en: root.name_en ?? null,
+          name_en: rootNameEn.trim() || null,
           slug: root.slug,
           icon_key: rootSubtype,
           badge_color: rootBadgeColor.trim() || null,
@@ -335,12 +339,14 @@ export function AdminMenusPage() {
 
   /* ── CHILD form ── */
   const [childName, setChildName] = useState("");
+  const [childNameEn, setChildNameEn] = useState("");
   const [childActive, setChildActive] = useState(true);
   const [childSort, setChildSort] = useState(0);
 
   const beginChildCreate = (root: CategoryWithSettings) => {
     const kids = childrenOf(list, root.id);
     setChildName("");
+    setChildNameEn("");
     setChildActive(true);
     setChildSort(kids.length);
     setFormError(null);
@@ -349,6 +355,7 @@ export function AdminMenusPage() {
 
   const beginChildEdit = (rootId: string, child: CategoryWithSettings) => {
     setChildName(child.name);
+    setChildNameEn(child.name_en ?? "");
     setChildActive(child.is_active);
     setChildSort(child.sort_order);
     setFormError(null);
@@ -365,7 +372,7 @@ export function AdminMenusPage() {
           child.id,
           {
             name: childName.trim(),
-            name_en: child.name_en ?? null,
+            name_en: childNameEn.trim() || null,
             slug: child.slug,
             icon_key: child.icon_key,
             type: child.type,
@@ -392,7 +399,7 @@ export function AdminMenusPage() {
         const res = await createCategory(
           {
             name: childName.trim(),
-            name_en: null,
+            name_en: childNameEn.trim() || null,
             slug,
             icon_key: root.icon_key,
             type: "trade",
@@ -587,6 +594,8 @@ export function AdminMenusPage() {
           <RootBasicsFields
             name={rootName}
             setName={setRootName}
+            nameEn={rootNameEn}
+            setNameEn={setRootNameEn}
             active={rootActive}
             setActive={setRootActive}
             chip={rootChip}
@@ -618,6 +627,8 @@ export function AdminMenusPage() {
           childRows={childrenOf(list, activeRoot.id)}
           rootName={rootName}
           setRootName={setRootName}
+          rootNameEn={rootNameEn}
+          setRootNameEn={setRootNameEn}
           rootActive={rootActive}
           setRootActive={setRootActive}
           rootChip={rootChip}
@@ -700,6 +711,8 @@ export function AdminMenusPage() {
           }
           name={childName}
           setName={setChildName}
+          nameEn={childNameEn}
+          setNameEn={setChildNameEn}
           active={childActive}
           setActive={setChildActive}
           sort={childSort}
@@ -733,6 +746,8 @@ export function AdminMenusPage() {
 function RootBasicsFields({
   name,
   setName,
+  nameEn,
+  setNameEn,
   active,
   setActive,
   chip,
@@ -749,6 +764,8 @@ function RootBasicsFields({
 }: {
   name: string;
   setName: (v: string) => void;
+  nameEn: string;
+  setNameEn: (v: string) => void;
   active: boolean;
   setActive: (v: boolean) => void;
   chip: boolean;
@@ -775,6 +792,17 @@ function RootBasicsFields({
           className={`mt-1 w-full ${Sam.input.base}`}
           value={name}
           onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <label className="block sam-text-body-secondary font-medium text-sam-fg">
+          {t("admin_menu_trade_label_name_en")}
+        </label>
+        <input
+          className={`mt-1 w-full ${Sam.input.base}`}
+          value={nameEn}
+          onChange={(e) => setNameEn(e.target.value)}
           required
         />
       </div>
@@ -853,6 +881,8 @@ function RootDetail({
   childRows,
   rootName,
   setRootName,
+  rootNameEn,
+  setRootNameEn,
   rootActive,
   setRootActive,
   rootChip,
@@ -878,6 +908,8 @@ function RootDetail({
   childRows: CategoryWithSettings[];
   rootName: string;
   setRootName: (v: string) => void;
+  rootNameEn: string;
+  setRootNameEn: (v: string) => void;
   rootActive: boolean;
   setRootActive: (v: boolean) => void;
   rootChip: boolean;
@@ -910,6 +942,8 @@ function RootDetail({
         <RootBasicsFields
           name={rootName || root.name}
           setName={setRootName}
+          nameEn={rootNameEn}
+          setNameEn={setRootNameEn}
           active={rootActive}
           setActive={setRootActive}
           chip={rootChip}
@@ -996,6 +1030,8 @@ function ChildEditor({
   child,
   name,
   setName,
+  nameEn,
+  setNameEn,
   active,
   setActive,
   sort,
@@ -1009,6 +1045,8 @@ function ChildEditor({
   child: CategoryWithSettings | null;
   name: string;
   setName: (v: string) => void;
+  nameEn: string;
+  setNameEn: (v: string) => void;
   active: boolean;
   setActive: (v: boolean) => void;
   sort: number;
@@ -1033,6 +1071,15 @@ function ChildEditor({
           className={`mt-1 w-full ${Sam.input.base}`}
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block sam-text-body-secondary font-medium">{t("admin_menu_trade_label_name_en")}</label>
+        <input
+          className={`mt-1 w-full ${Sam.input.base}`}
+          value={nameEn}
+          onChange={(e) => setNameEn(e.target.value)}
+          required
         />
       </div>
       <div className="flex flex-wrap gap-4">

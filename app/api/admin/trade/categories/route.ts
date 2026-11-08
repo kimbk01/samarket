@@ -9,6 +9,7 @@ import {
   parseTradeFieldCompositionPayload,
   serializeTradeFieldCompositionPayload,
 } from "@/lib/trade/category-form/parse-field-composition";
+import { ADMIN_NAME_EN_REQUIRED_ERROR, adminNameEnViolation, normalizeAdminNameEn } from "@/lib/i18n/admin-name-en-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,6 +117,10 @@ export async function POST(req: NextRequest) {
     if (!String(cat.name ?? "").trim() || !String(cat.slug ?? "").trim()) {
       return NextResponse.json({ ok: false, error: "name_slug_required" }, { status: 400 });
     }
+    /** 언어 SSOT S7 — 고객 화면 이름은 ko·en 둘 다 필수 */
+    if (adminNameEnViolation({ creating: true, next: { name: String(cat.name ?? ""), nameEn: normalizeAdminNameEn(cat.name_en) } })) {
+      return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
+    }
     if (!normalizeBadgeColorField(cat)) {
       return NextResponse.json({ ok: false, error: "invalid_badge_color" }, { status: 400 });
     }
@@ -151,6 +156,22 @@ export async function POST(req: NextRequest) {
     }
     if (cat.parent_id && cat.parent_id === id) {
       return NextResponse.json({ ok: false, error: "invalid_parent" }, { status: 400 });
+    }
+    /** 언어 SSOT S7 — 있던 영어 이름 비우기·영어 이름 없이 한국어 이름 바꾸기 거부 */
+    {
+      const prev = before as { name?: string | null; name_en?: string | null };
+      if (
+        adminNameEnViolation({
+          creating: false,
+          next: {
+            name: "name" in cat ? String(cat.name ?? "") : (prev.name ?? null),
+            nameEn: "name_en" in cat ? normalizeAdminNameEn(cat.name_en) : (prev.name_en ?? null),
+          },
+          prev: { name: prev.name ?? null, nameEn: prev.name_en ?? null },
+        })
+      ) {
+        return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
+      }
     }
     if (Object.keys(cat).length) {
       const { data, error } = await sb

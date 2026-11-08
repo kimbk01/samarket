@@ -10,6 +10,7 @@ import {
 } from "@/lib/stores/admin-store-taxonomy-seed-catalog";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { ADMIN_NAME_EN_REQUIRED_ERROR, adminNameEnViolation } from "@/lib/i18n/admin-name-en-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +87,24 @@ export async function PATCH(req: Request) {
 
   const table =
     kind === "category" ? "store_categories" : kind === "topic" ? "store_topics" : "store_subtopics";
+  /** 언어 SSOT S7 — 있던 영어 이름 비우기·영어 이름 없이 한국어 이름 바꾸기 거부 */
+  if ("name" in safePatch || "name_en" in safePatch) {
+    const { data: prev } = await sb.from(table).select("name, name_en").eq("id", id).maybeSingle();
+    const prevRow = prev as { name: string | null; name_en: string | null } | null;
+    if (
+      prevRow &&
+      adminNameEnViolation({
+        creating: false,
+        next: {
+          name: "name" in safePatch ? String(safePatch.name ?? "") : prevRow.name,
+          nameEn: "name_en" in safePatch ? (safePatch.name_en as string | null) : prevRow.name_en,
+        },
+        prev: { name: prevRow.name, nameEn: prevRow.name_en },
+      })
+    ) {
+      return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
+    }
+  }
   const { data, error } = await sb.from(table).update(safePatch).eq("id", id).select().maybeSingle();
   if (error) return internalErrorResponse("save_failed", "[/api/admin/stores/taxonomy PATCH]", error, 500);
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -151,6 +170,10 @@ export async function POST(req: Request) {
     if (!name || !slug) {
       return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
     }
+    /** 언어 SSOT S7 — 고객 화면 이름은 ko·en 둘 다 필수 */
+    if (adminNameEnViolation({ creating: true, next: { name, nameEn: name_en } })) {
+      return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
+    }
     const { data, error } = await sb
       .from("store_categories")
       .upsert({ name, name_en, slug, sort_order, is_active: true }, { onConflict: "slug" })
@@ -169,6 +192,10 @@ export async function POST(req: Request) {
     const sort_order = Number(body?.sort_order ?? 0) || 0;
     if (!store_category_id || !name || !slug) {
       return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    /** 언어 SSOT S7 — 고객 화면 이름은 ko·en 둘 다 필수 */
+    if (adminNameEnViolation({ creating: true, next: { name, nameEn: name_en } })) {
+      return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
     }
     const { data, error } = await sb
       .from("store_topics")
@@ -191,6 +218,10 @@ export async function POST(req: Request) {
     const sort_order = Number(body?.sort_order ?? 0) || 0;
     if (!store_topic_id || !name || !slug) {
       return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    /** 언어 SSOT S7 — 고객 화면 이름은 ko·en 둘 다 필수 */
+    if (adminNameEnViolation({ creating: true, next: { name, nameEn: name_en } })) {
+      return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
     }
     const { data, error } = await sb
       .from("store_subtopics")
@@ -215,8 +246,10 @@ export async function POST(req: Request) {
 }
 
 async function seedDefaultTaxonomy(sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>) {
+  /** 언어 SSOT S7 — 시드도 ko·en 둘 다 저장(이전: name_en 누락) */
   const categoriesPayload = BROWSE_PRIMARY_INDUSTRIES.map((c) => ({
     name: c.nameKo,
+    name_en: c.nameEn,
     slug: c.slug,
     sort_order: c.sortOrder,
     is_active: true,
@@ -248,6 +281,7 @@ async function seedDefaultTaxonomy(sb: NonNullable<ReturnType<typeof tryGetSupab
   const topicsPayload = BROWSE_SUB_INDUSTRIES.map((t) => ({
     store_category_id: catIdBySlug.get(t.primarySlug) ?? null,
     name: t.nameKo,
+    name_en: t.nameEn,
     slug: t.slug,
     sort_order: t.sortOrder,
     is_active: true,

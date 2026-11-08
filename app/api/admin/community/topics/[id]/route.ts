@@ -12,6 +12,7 @@ import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-err
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { revalidatePath } from "next/cache";
+import { ADMIN_NAME_EN_REQUIRED_ERROR, adminNameEnViolation } from "@/lib/i18n/admin-name-en-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,6 +109,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const sb = getSupabaseServer();
     const { data: before } = await sb.from("community_topics").select("*").eq("id", tid).maybeSingle();
     const beforeRow = (before ?? null) as Record<string, unknown> | null;
+    /** 언어 SSOT S7 — 있던 영어 이름 비우기·영어 이름 없이 한국어 이름 바꾸기 거부 */
+    if (
+      beforeRow &&
+      adminNameEnViolation({
+        creating: false,
+        next: {
+          name: (patch.name as string | undefined) ?? (beforeRow.name as string | null),
+          nameEn: "name_en" in patch ? (patch.name_en as string | null) : (beforeRow.name_en as string | null),
+        },
+        prev: { name: beforeRow.name as string | null, nameEn: beforeRow.name_en as string | null },
+      })
+    ) {
+      return NextResponse.json({ ok: false, error: ADMIN_NAME_EN_REQUIRED_ERROR }, { status: 400 });
+    }
     const beforeAudit = beforeRow
       ? Object.fromEntries(Object.keys(patch).map((k) => [k, beforeRow[k] ?? null]))
       : null;

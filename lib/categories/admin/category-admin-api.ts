@@ -1,5 +1,7 @@
 "use client";
 
+import { translate } from "@/lib/i18n/messages";
+
 /**
  * 카테고리 관리 쓰기 — 서버 API 호출 (거래 Admin 설계 v2 §C-9 · D-05).
  * 예전에는 브라우저에서 categories/category_settings 를 직접 바꿨으나, RLS(profiles.role) 때문에
@@ -13,6 +15,7 @@ const ERROR_KO: Record<string, string> = {
   not_found: "카테고리를 찾을 수 없습니다.",
   invalid_field_composition: "입력 항목 구성이 올바르지 않습니다.",
   name_slug_required: "이름과 주소(slug)를 입력해 주세요.",
+  name_en_required: translate("ko", "admin_name_en_required"),
   forbidden_permission: "권한이 없습니다.",
 };
 
