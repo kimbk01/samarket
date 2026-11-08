@@ -105,6 +105,8 @@ describe("community local filter SSOT — 시/군 LGU (주소 SSOT 2단계)", ()
     expect(sheet).toMatch(/heightRatio=\{0\.85\}/);
     expect(sheet).not.toMatch(/h-\[min\(\d+vh/);
     expect(sheet).toContain("min-h-0 flex-1 flex-col");
+    // 시트 머리 = 제목 + X 닫기(공용 DibaySheetHeader)
+    expect(sheet).toContain("<DibaySheetHeader");
   });
 
   it("storage key is user-scoped", () => {

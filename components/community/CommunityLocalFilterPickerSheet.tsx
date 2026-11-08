@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
+import { DibaySheetHeader } from "@/components/ui/dibay-overlay/DibaySheetParts";
 import { TradeLocationNationalPicker } from "@/components/trade/TradeLocationNationalPicker";
 
 type CommunityLocalFilterPickerSheetProps = {
@@ -22,7 +23,7 @@ export function CommunityLocalFilterPickerSheet({
   initialLguId = "",
   onApply,
 }: CommunityLocalFilterPickerSheetProps) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   if (!open) return null;
 
   return (
@@ -35,10 +36,14 @@ export function CommunityLocalFilterPickerSheet({
     <DibayBottomSheet
       open={open}
       onClose={onClose}
-      title={safeT("community_local_filter_title")}
+      ariaLabel={safeT("community_local_filter_title")}
       heightRatio={0.85}
     >
       <div className="flex min-h-0 flex-1 flex-col" data-community-local-filter-picker="search">
+        {/* 시트 머리 공용 규칙(DibaySheetHeader): 제목 왼쪽 + 오른쪽 X — Owner 2026-11-09 「모달이 올라오면 X 로 꺼지게」 */}
+        <div className="shrink-0">
+          <DibaySheetHeader title={safeT("community_local_filter_title")} onClose={onClose} closeLabel={t("nav_close")} />
+        </div>
         <p className="shrink-0 px-4 pb-2 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-secondary)]">
           {safeT("community_local_filter_hint")}
         </p>
