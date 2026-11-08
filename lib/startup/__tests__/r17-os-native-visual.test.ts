@@ -39,11 +39,27 @@ describe("R17-OS Android TRUE OS splash resources", () => {
     );
   });
 
-  it("Android dismiss logic is unchanged: web signal + visual-state fence, no timer", () => {
+  /**
+   * 2026-11-08 Owner D1 개정 (docs/dibay-app-entry-resume-hard-lock.md H1 · app-entry-resume-stabilization-plan §4 C1):
+   * 해제 권한 = ① 웹 성공 신호(정상, visual-state fence 유지) ② 네이티브 고장 판정. 표시 타이머(최소·최대 표시, 구 8초)는 계속 금지.
+   * 이전 계약(「웹 신호만·타이머 0」)은 웹이 멈추면 녹색 로고가 영원히 남는 결함을 고정하고 있었다.
+   */
+  it("Android: web signal + visual-state fence stay the normal release; fault judgment is the only other release", () => {
     const main = src("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(main).toContain("setKeepOnScreenCondition(() -> !webSplashDismissRequested)");
     expect(main).toContain("postVisualStateCallback");
+    // 표시 타이머 금지 유지
     expect(main).not.toMatch(/SPLASH_MAX_KEEP_MS|minimumVisibleMs/);
+    // 고장 판정 = 문서 완료 후에만 시작, 정책 클래스가 판정
+    expect(main).toContain("startStartupFaultProbe(url);");
+    expect(main).toContain("DibayStartupFaultPolicy.judge(");
+    // 오류 화면은 화면 커밋을 기다리지 않고 즉시 해제 (pending 잠금 해소)
+    const overlay = main.slice(main.indexOf("private void showWebViewLoadErrorOverlay"));
+    expect(overlay.slice(0, overlay.indexOf("\n  }\n"))).toContain('forceReleaseSplash("webview_load_error");');
+    const policy = src("android/app/src/main/java/com/dibay/app/DibayStartupFaultPolicy.java");
+    expect(policy).toContain("T_JS_MS = 8_000L");
+    expect(policy).toContain("T_RELEASE_MS = 15_000L");
+    expect(policy).toContain("MAX_AUTO_RELOADS = 1");
   });
 });
 
@@ -72,7 +88,8 @@ describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
     expect(vc).toContain("\\.isLoading");
     // Normal success release = dismissSplash only; load end releases only when the app never started.
     expect(vc).toContain("typeof window.next === 'object' && window.next !== null");
-    expect(vc).toContain('removeLaunchContinuation(reason: "main_load_stopped_without_app")');
+    // C7 (2026-11-08): 앱이 시작되지 않은 채 로드가 멈추면 빈 화면 대신 오류 안내 + 「다시 시도」.
+    expect(vc).toContain('showStartupErrorView(kind: .network, reason: "main_load_stopped_without_app")');
     expect(vc).not.toContain('removeLaunchContinuation(reason: "main_load_stopped")');
     for (const forbidden of [
       "asyncAfter",
@@ -91,6 +108,17 @@ describe("R17-OS iOS LaunchScreen + same-visual continuation", () => {
       expect(continuationCode.length, "continuation code present").toBeGreaterThan(200);
       expect(continuationCode, forbidden).not.toContain(forbidden);
     }
+  });
+
+  it("iOS fault judgment (C7) lives outside the continuation and mirrors the Android policy", () => {
+    const vc = src("ios/App/App/DibayRootBridgeViewController.swift");
+    expect(vc).toContain("static let startupFaultJsTimeoutMs = 8_000");
+    expect(vc).toContain("static let startupFaultReleaseTimeoutMs = 15_000");
+    expect(vc).toContain("startupFaultAutoReloads < 1");
+    expect(vc).toContain("guard UIApplication.shared.applicationState == .active else { return }");
+    expect(vc).toContain("final class DibayNavigationDelegateProxy: NSObject, WKNavigationDelegate");
+    expect(vc).toContain("installLaunchContinuationIfNeeded()\n    NSLog(\"[DibayRootBridge] webcontent_terminated_continuation_reinstalled\")");
+    expect(vc).not.toMatch(/minimumVisible|startupDisplayTimer/);
   });
 
   it("Capacitor SplashScreen plugin stays a no-op (no second native owner)", () => {

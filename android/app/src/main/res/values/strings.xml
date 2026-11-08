@@ -73,6 +73,10 @@
     <!-- S8-2b: 화면 넘김 덮개 연결 실패 (통화 아님) -->
     <string name="dibay_handoff_error">Couldn\'t connect. Please try again.</string>
     <string name="dibay_handoff_error_with_reason">Couldn\'t connect. %1$s</string>
+    <string name="dibay_webview_offline_title">You\'re offline</string>
+    <string name="dibay_webview_offline_body">Check your internet connection and tap Try again.</string>
+    <string name="dibay_webview_web_fault_title">The app screen didn\'t load</string>
+    <string name="dibay_webview_web_fault_body">Tap Try again to load it again.</string>
 
     <!-- Android Delivery Adapter v1 — App Icon summary (not Bell / not notification_events) -->
     <string name="dibay_app_icon_summary_title">DIBAY</string>

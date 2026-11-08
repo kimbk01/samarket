@@ -38,6 +38,17 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
 
     /** WebView 렌더러 종료 — 이 WebView 는 다시 쓸 수 없다. url = 죽기 전 마지막 주소. */
     void onRenderProcessGone(String url);
+
+    /**
+     * C1: 주 문서 HTTP 오류 상태(400 이상) — 실패 처리(5xx·404)와 별개로 항상 알린다.
+     * 401·403·429 등은 문서가 「완료」되어 로드 제한이 꺼지므로, 시작 화면 고장 판정이 이유를 남기는 데 쓴다.
+     */
+    default void onMainFrameHttpStatus(String url, int status) {}
+
+    /** C1: 현재 주 문서 주소 — SSL 오류가 주 문서 것인지 판정. 모르면 null. */
+    default String currentMainFrameUrl() {
+      return null;
+    }
   }
 
   private final LoadMonitor loadMonitor;
@@ -144,6 +155,9 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
       int status = errorResponse != null ? errorResponse.getStatusCode() : 0;
       String reason = "HTTP_" + status;
       Log.e(TAG, "webview_received_http_error url=" + safeUrl(url) + " status=" + status);
+      if (status >= 400) {
+        loadMonitor.onMainFrameHttpStatus(url, status);
+      }
       if (status >= 500 || status == 404) {
         loadMonitor.onMainFrameLoadFailed(url, reason);
       }
@@ -156,7 +170,20 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
     String url = error != null ? error.getUrl() : view.getUrl();
     String sslDetail = error != null ? String.valueOf(error.getPrimaryError()) : "unknown";
     Log.e(TAG, "webview_ssl_error url=" + safeUrl(url) + " primaryError=" + sslDetail);
-    loadMonitor.onMainFrameLoadFailed(url, "SSL_ERROR_" + sslDetail);
+    // C1: 하위 리소스(이미지·외부 스크립트) SSL 오류로 화면 전체를 실패 처리하지 않는다 — 주 문서 것만 실패.
+    String mainFrame = loadMonitor.currentMainFrameUrl();
+    if (mainFrame == null) {
+      try {
+        mainFrame = view != null ? view.getUrl() : null;
+      } catch (Exception ignored) {
+        mainFrame = null;
+      }
+    }
+    if (mainFrame == null || DibayStartupFaultPolicy.isSameDocumentUrl(url, mainFrame)) {
+      loadMonitor.onMainFrameLoadFailed(url, "SSL_ERROR_" + sslDetail);
+    } else {
+      Log.w(TAG, "webview_subresource_ssl_error url=" + safeUrl(url) + " primaryError=" + sslDetail);
+    }
     super.onReceivedSslError(view, handler, error);
   }
 

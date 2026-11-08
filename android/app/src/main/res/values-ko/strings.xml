@@ -65,4 +65,8 @@
     <string name="dibay_call_notification_title">DIBAY 통화</string>
     <string name="dibay_call_missed_title">부재중 통화</string>
     <string name="dibay_call_missed_from">%1$s님의 부재중 통화</string>
+    <string name="dibay_webview_offline_title">인터넷에 연결되어 있지 않습니다</string>
+    <string name="dibay_webview_offline_body">연결을 확인한 뒤 다시 시도를 눌러 주세요.</string>
+    <string name="dibay_webview_web_fault_title">앱 화면을 불러오지 못했습니다</string>
+    <string name="dibay_webview_web_fault_body">다시 시도를 누르면 다시 불러옵니다.</string>
 </resources>

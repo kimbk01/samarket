@@ -130,6 +130,7 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     super.capacitorDidLoad()
     registerAppTargetPlugins()
     installLaunchEpoch()
+    installStartupFaultNavigationProxy()
   }
 
   /**
@@ -314,7 +315,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       if (result as? Bool) == true {
         NSLog("[DibayRootBridge] launch_continuation_await_dismissSplash (app bundle running)")
       } else {
-        self.removeLaunchContinuation(reason: "main_load_stopped_without_app")
+        // C7: 앱 번들이 시작되지 않은 채 로드가 멈췄다(탐색 실패·평문 오류 문서) — 빈 화면 대신 오류 안내 + 「다시 시도」.
+        self.showStartupErrorView(kind: .network, reason: "main_load_stopped_without_app")
       }
     }
   }
@@ -348,10 +350,259 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     }
     if action == "dismissSplash" {
       removeLaunchContinuation(reason: "web_dismissSplash")
+      stopStartupFaultProbe()
       return
     }
     if action == "homePresentationReady" || action.lowercased().contains("homepresentationready") {
       NSLog("[DibayRootBridge] homePresentationReady (no Intro/System Start authority)")
     }
+  }
+
+  // MARK: - C7 시작 화면 고장 판정 (docs/audit/app-entry-resume-stabilization-plan-2026-11-08.md §4 C7 · Owner D1)
+  //
+  // 해제 권한은 둘뿐: ① 웹 dismissSplash(정상, 그대로) ② 아래 고장 판정. 표시 시간 타이머가 아니다 — 정상 시작은 웹 신호가
+  // 먼저 와서 관찰이 끝난다. 시간은 앱이 활성일 때만 센다. 자동 재로드는 1회, 그다음은 오류 화면의 「다시 시도」만.
+  // 판정 규칙·값은 Android DibayStartupFaultPolicy 와 같다 (T_js 8초 · T_release 15초 · 통화 경로 자동 재로드 금지).
+
+  static let startupFaultJsTimeoutMs = 8_000
+  static let startupFaultReleaseTimeoutMs = 15_000
+  private static let startupFaultTickMs = 1_000
+  private static let startupJsRunningProbe =
+    "(function(){try{var m=window.__dibayBootMetrics;return !!(m&&m.reactMounted!=null);}catch(e){return false;}})()"
+
+  private var startupNavigationProxy: DibayNavigationDelegateProxy?
+  private var startupFaultProbe: Timer?
+  private var startupFaultDocVisibleMs = 0
+  private var startupFaultJsVisibleMs = -1
+  private var startupFaultAutoReloads = 0
+  private var startupErrorView: UIView?
+
+  /// Capacitor 의 WebViewDelegationHandler 를 감싸 문서 시작·완료·실패·WebContent 종료만 먼저 본다. 나머지는 그대로 전달.
+  private func installStartupFaultNavigationProxy() {
+    guard startupNavigationProxy == nil, let wv = webView, let inner = wv.navigationDelegate else {
+      NSLog("[DibayRootBridge] startup_fault_proxy_not_installed")
+      return
+    }
+    let proxy = DibayNavigationDelegateProxy(inner: inner, owner: self)
+    startupNavigationProxy = proxy // navigationDelegate 는 weak — 강하게 붙잡는다
+    wv.navigationDelegate = proxy
+    NSLog("[DibayRootBridge] startup_fault_proxy_installed")
+  }
+
+  func startupFaultDocumentStarted() {
+    stopStartupFaultProbe()
+  }
+
+  func startupFaultDocumentFinished() {
+    stopStartupFaultProbe()
+    guard launchContinuation != nil else { return } // 이미 해제됨 — 관찰 대상 아님
+    let docURL = webView?.url?.absoluteString
+    let timer = Timer(timeInterval: Double(Self.startupFaultTickMs) / 1000.0, repeats: true) { [weak self] _ in
+      self?.tickStartupFaultProbe(docURL: docURL)
+    }
+    RunLoop.main.add(timer, forMode: .common)
+    startupFaultProbe = timer
+  }
+
+  private func stopStartupFaultProbe() {
+    startupFaultProbe?.invalidate()
+    startupFaultProbe = nil
+    startupFaultDocVisibleMs = 0
+    startupFaultJsVisibleMs = -1
+  }
+
+  private func tickStartupFaultProbe(docURL: String?) {
+    guard launchContinuation != nil else {
+      stopStartupFaultProbe()
+      return
+    }
+    guard UIApplication.shared.applicationState == .active else { return }
+    startupFaultDocVisibleMs += Self.startupFaultTickMs
+    if startupFaultJsVisibleMs >= 0 { startupFaultJsVisibleMs += Self.startupFaultTickMs }
+    guard let wv = webView else {
+      decideStartupFault(docURL: docURL)
+      return
+    }
+    wv.evaluateJavaScript(Self.startupJsRunningProbe) { [weak self] result, _ in
+      guard let self = self else { return }
+      if (result as? Bool) == true, self.startupFaultJsVisibleMs < 0 { self.startupFaultJsVisibleMs = 0 }
+      self.decideStartupFault(docURL: docURL)
+    }
+  }
+
+  private func decideStartupFault(docURL: String?) {
+    guard startupFaultProbe != nil, launchContinuation != nil else { return }
+    let noJs = startupFaultJsVisibleMs < 0 && startupFaultDocVisibleMs >= Self.startupFaultJsTimeoutMs
+    let notReleased = startupFaultJsVisibleMs >= Self.startupFaultReleaseTimeoutMs
+    guard noJs || notReleased else { return }
+    let reason = noJs ? "WEB_NOT_READY" : "WEB_NOT_RELEASED"
+    stopStartupFaultProbe()
+    let callRoute = (docURL ?? "").lowercased().contains("call")
+    NSLog(
+      "[DibayRootBridge] startup_fault reason=%@ autoReloads=%d callRoute=%@",
+      reason, startupFaultAutoReloads, callRoute ? "1" : "0")
+    if !callRoute && startupFaultAutoReloads < 1, let wv = webView {
+      startupFaultAutoReloads += 1
+      wv.reload()
+      return
+    }
+    showStartupErrorView(kind: .web, reason: reason)
+  }
+
+  func startupFaultLoadFailed(_ error: Error) {
+    let ns = error as NSError
+    // 정상 흐름의 취소(다른 이동으로 대체)·정책 중단은 실패가 아니다.
+    if ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled { return }
+    if ns.domain == "WebKitErrorDomain" && ns.code == 102 { return }
+    // 앱이 이미 화면을 그리고 있으면(시작 화면 해제 후) 여기서 덮지 않는다.
+    guard launchContinuation != nil || webView?.url == nil else { return }
+    stopStartupFaultProbe()
+    let offlineCodes: Set<Int> = [
+      NSURLErrorNotConnectedToInternet, NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost,
+      NSURLErrorNetworkConnectionLost, NSURLErrorDNSLookupFailed, NSURLErrorDataNotAllowed,
+    ]
+    let offline = ns.domain == NSURLErrorDomain && offlineCodes.contains(ns.code)
+    showStartupErrorView(kind: offline ? .offline : .network, reason: "\(ns.domain)#\(ns.code)")
+  }
+
+  /// WebContent 종료(장시간 백그라운드 등) → Capacitor 가 reload 한다. 그 사이 빈 화면 대신 같은 시작 화면을 다시 덮고,
+  /// 새 문서도 같은 고장 판정을 받는다.
+  func startupFaultContentProcessTerminated() {
+    stopStartupFaultProbe()
+    hideStartupErrorView()
+    installLaunchContinuationIfNeeded()
+    NSLog("[DibayRootBridge] webcontent_terminated_continuation_reinstalled")
+  }
+
+  enum StartupErrorKind { case offline, network, web }
+
+  private func showStartupErrorView(kind: StartupErrorKind, reason: String) {
+    removeLaunchContinuation(reason: "startup_fault_\(reason)")
+    hideStartupErrorView()
+    guard let host = view else { return }
+    let en = (Locale.preferredLanguages.first ?? "ko").lowercased().hasPrefix("en")
+    let title: String
+    let body: String
+    switch kind {
+    case .offline:
+      title = en ? "You're offline" : "인터넷에 연결되어 있지 않습니다"
+      body = en ? "Check your internet connection and tap Try again." : "연결을 확인한 뒤 다시 시도를 눌러 주세요."
+    case .network:
+      title = en ? "Can't connect to the server" : "서버에 연결할 수 없습니다"
+      body = en ? "Check your network connection and try again." : "네트워크 연결을 확인한 뒤 다시 시도해 주세요."
+    case .web:
+      title = en ? "The app screen didn't load" : "앱 화면을 불러오지 못했습니다"
+      body = en ? "Tap Try again to load it again." : "다시 시도를 누르면 다시 불러옵니다."
+    }
+    let container = UIView(frame: host.bounds)
+    container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    container.backgroundColor = UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // #FFFCFC
+    container.accessibilityViewIsModal = true
+
+    let titleLabel = UILabel()
+    titleLabel.text = title
+    titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+    titleLabel.textColor = UIColor(red: 0.212, green: 0.141, blue: 0.082, alpha: 1.0) // #362415
+    titleLabel.textAlignment = .center
+    titleLabel.numberOfLines = 0
+
+    let bodyLabel = UILabel()
+    bodyLabel.text = body
+    bodyLabel.font = .systemFont(ofSize: 14)
+    bodyLabel.textColor = UIColor(red: 0.376, green: 0.298, blue: 0.298, alpha: 1.0) // #604C4C
+    bodyLabel.textAlignment = .center
+    bodyLabel.numberOfLines = 0
+
+    let button = UIButton(type: .system)
+    button.setTitle(en ? "Try again" : "다시 시도", for: .normal)
+    button.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+    button.setTitleColor(UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0), for: .normal)
+    button.backgroundColor = UIColor(red: 0.043, green: 0.259, blue: 0.102, alpha: 1.0) // #0B421A
+    button.layer.cornerRadius = 4
+    button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 24, bottom: 10, right: 24)
+    button.addTarget(self, action: #selector(onStartupErrorRetry), for: .touchUpInside)
+
+    let stack = UIStackView(arrangedSubviews: [titleLabel, bodyLabel, button])
+    stack.axis = .vertical
+    stack.alignment = .center
+    stack.spacing = 12
+    stack.setCustomSpacing(28, after: bodyLabel)
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      stack.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 24),
+      stack.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -24),
+      stack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+    ])
+    host.addSubview(container)
+    startupErrorView = container
+    NSLog("[DibayRootBridge] startup_error_view_shown kind=%@ reason=%@", "\(kind)", reason)
+  }
+
+  private func hideStartupErrorView() {
+    startupErrorView?.removeFromSuperview()
+    startupErrorView = nil
+  }
+
+  /// 「다시 시도」 = 실제 재로드. 불러오는 동안 같은 시작 화면을 덮고, 새 문서는 다시 고장 판정을 받는다(자동 재로드는 이미 썼으면 없음).
+  @objc private func onStartupErrorRetry() {
+    hideStartupErrorView()
+    installLaunchContinuationIfNeeded()
+    guard let wv = webView else { return }
+    if wv.url != nil {
+      wv.reload()
+    } else if let server = bridge?.config.serverURL {
+      _ = wv.load(URLRequest(url: server))
+    }
+    NSLog("[DibayRootBridge] startup_error_retry")
+  }
+}
+
+/// C7 — Capacitor `WebViewDelegationHandler` 를 감싸는 navigation delegate.
+/// `loadView` 가 final 이라 handler 를 바꿀 수 없어, 같은 객체에 모든 호출을 전달하고 4가지 사건만 먼저 본다.
+/// 구현하지 않은 선택자는 `forwardingTarget` 으로 원래 handler 에 그대로 간다 (Capacitor 동작 불변).
+/// 유지 위험: Capacitor 가 navigationDelegate 를 다시 설정하도록 바뀌면 이 프록시가 빠진다 — Capacitor 업그레이드 때 확인.
+final class DibayNavigationDelegateProxy: NSObject, WKNavigationDelegate {
+  private let inner: WKNavigationDelegate
+  private weak var owner: DibayRootBridgeViewController?
+
+  init(inner: WKNavigationDelegate, owner: DibayRootBridgeViewController) {
+    self.inner = inner
+    self.owner = owner
+    super.init()
+  }
+
+  override func responds(to aSelector: Selector!) -> Bool {
+    super.responds(to: aSelector) || inner.responds(to: aSelector)
+  }
+
+  override func forwardingTarget(for aSelector: Selector!) -> Any? {
+    inner.responds(to: aSelector) ? inner : nil
+  }
+
+  func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+    owner?.startupFaultDocumentStarted()
+    inner.webView?(webView, didStartProvisionalNavigation: navigation)
+  }
+
+  func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    inner.webView?(webView, didFinish: navigation)
+    owner?.startupFaultDocumentFinished()
+  }
+
+  func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+    inner.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
+    owner?.startupFaultLoadFailed(error)
+  }
+
+  func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+    inner.webView?(webView, didFail: navigation, withError: error)
+    owner?.startupFaultLoadFailed(error)
+  }
+
+  func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+    owner?.startupFaultContentProcessTerminated()
+    inner.webViewWebContentProcessDidTerminate?(webView)
   }
 }

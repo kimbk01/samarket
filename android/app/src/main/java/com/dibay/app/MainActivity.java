@@ -186,9 +186,12 @@ public class MainActivity extends BridgeActivity {
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   /**
-   * Splash keep until App Ready (JS DibayBootBridge / tryDismissNativeSplash) only.
-   * DO NOT: 3/5/8s display timers — OS splash until App Ready, then HOME.
-   * WebView fatal load failure may still dismiss via requestWebSplashDismiss elsewhere.
+   * Splash release authority = exactly two (Owner D1 · docs/dibay-app-entry-resume-hard-lock.md H1):
+   * (1) web success signal (DibayBootBridge.dismissSplash / tryDismissNativeSplash) — normal path, unchanged;
+   * (2) native fault judgment (DibayStartupFaultPolicy — doc loaded but JS never ran / JS ran but no release,
+   *     load error, renderer gone) → release + error screen with real retry.
+   * DO NOT: display timers (minimum/maximum show time, the removed 8s max-keep) — fault timers never fire on a
+   * healthy start because the web signal arrives first.
    */
   /** Transient DNS/net at cold start — same backoff ladder as ScreenAwakeBridge.apply retry. */
   private static final long[] WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS = {100L, 300L, 700L};
@@ -1585,6 +1588,17 @@ public class MainActivity extends BridgeActivity {
               public void onRenderProcessGone(String url) {
                 MainActivity.this.onWebViewRenderProcessGone(url);
               }
+
+              @Override
+              public void onMainFrameHttpStatus(String url, int status) {
+                // C1: 401·403·429 등 오류 문서도 「완료」되어 로드 제한이 꺼진다 — 고장 판정 이유로 남긴다.
+                lastMainFrameHttpStatus = status;
+              }
+
+              @Override
+              public String currentMainFrameUrl() {
+                return pendingMainFrameUrl;
+              }
             });
     bridge.setWebViewClient(client);
     WebView webView = bridge.getWebView();
@@ -1616,8 +1630,11 @@ public class MainActivity extends BridgeActivity {
           } catch (Exception ignored) {
             webView = null;
           }
-          if (webView == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+          // C1: 렌더러가 죽은(또는 destroy 된) WebView 는 화면 커밋 콜백을 주지 않는다 — 기다리지 않고 해제.
+          boolean deadWebView = act != null && act.webViewRendererGone;
+          if (webView == null || deadWebView || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             webSplashDismissRequested = true;
+            webSplashDismissPending = false;
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
             return;
           }
@@ -1630,13 +1647,35 @@ public class MainActivity extends BridgeActivity {
                 public void onComplete(long callbackRequestId) {
                   if (webSplashDismissRequested) return;
                   webSplashDismissRequested = true;
+                  webSplashDismissPending = false;
                   Log.i(
                       WEBVIEW_LOG_TAG,
                       "dismissSplash visual_state_ready requestId=" + callbackRequestId);
                   Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
                 }
               });
+          // C1: 콜백이 끝내 오지 않으면(렌더러 사망 등) pending 이 영구 잠금이 된다 — 보조 해제. 정상 경로는 한두 프레임 안에 끝난다.
+          handler.postDelayed(
+              () -> {
+                if (webSplashDismissRequested) return;
+                webSplashDismissRequested = true;
+                webSplashDismissPending = false;
+                Log.w(WEBVIEW_LOG_TAG, "dismissSplash visual_state_fallback requestId=" + requestId);
+              },
+              DibayStartupFaultPolicy.VISUAL_STATE_FALLBACK_MS);
         });
+  }
+
+  /**
+   * C1: 고장 경로 전용 즉시 해제 — 화면 커밋을 기다리지 않는다(오류 화면을 그려야 하므로).
+   * 이전에는 오류 화면도 requestWebSplashDismiss 를 불러, 앞선 요청이 pending 이면 무시되어 오류 화면이 시작 화면 뒤에 갇혔다.
+   */
+  static void forceReleaseSplash(String source) {
+    if (webSplashDismissRequested) return;
+    webSplashDismissRequested = true;
+    webSplashDismissPending = false;
+    splashDismissSource = source != null ? source : "fault";
+    Log.w(WEBVIEW_LOG_TAG, "dismissSplash force source=" + splashDismissSource);
   }
 
   /**
@@ -1933,6 +1972,9 @@ public class MainActivity extends BridgeActivity {
           hideWebViewLoadErrorOverlay();
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
+          // C1: 새 문서 — 고장 판정을 처음부터 (HTTP 상태·관찰 시간 초기화).
+          stopStartupFaultProbe();
+          lastMainFrameHttpStatus = 0;
           injectBootMetricField("nativeStart");
           injectBootMetricField("webviewReady");
           Log.i(WEBVIEW_LOG_TAG, "onPageStarted url=" + (url != null ? url : ""));
@@ -1959,7 +2001,112 @@ public class MainActivity extends BridgeActivity {
           hideWebViewLoadErrorOverlay();
           injectBootMetricField("firstHtml");
           maybeReplayPendingV4AcceptRouteAfterWebHydration(url);
+          // C1: 문서는 왔다 — 이제부터 웹 해제 신호가 오지 않는 고장만 판정 (로드 제한은 여기서 꺼졌다).
+          startStartupFaultProbe(url);
         });
+  }
+
+  // ---- C1: OS 시작 화면 고장 판정 (DibayStartupFaultPolicy) ----
+  private static final long STARTUP_FAULT_PROBE_TICK_MS = 1_000L;
+  private static final String STARTUP_JS_RUNNING_PROBE =
+      "(function(){try{var m=window.__dibayBootMetrics;return !!(m&&m.reactMounted!=null);}catch(e){return false;}})()";
+  private Runnable startupFaultProbeRunnable = null;
+  private long startupFaultDocVisibleMs = 0L;
+  private long startupFaultJsVisibleMs = -1L;
+  private int startupFaultAutoReloads = 0;
+  private volatile int lastMainFrameHttpStatus = 0;
+
+  private void stopStartupFaultProbe() {
+    if (startupFaultProbeRunnable != null) {
+      mainHandler.removeCallbacks(startupFaultProbeRunnable);
+      startupFaultProbeRunnable = null;
+    }
+    startupFaultDocVisibleMs = 0L;
+    startupFaultJsVisibleMs = -1L;
+  }
+
+  /**
+   * 시작 화면이 아직 안 풀렸을 때만 관찰한다. 앱이 보이는 동안만 시간을 센다(백그라운드·통화 화면 위 시간 제외).
+   * 정상 시작은 웹 신호가 먼저 와서 DONE 으로 끝난다 — 표시 시간에 영향 없음 (D1).
+   */
+  private void startStartupFaultProbe(String url) {
+    stopStartupFaultProbe();
+    if (webSplashDismissRequested) return;
+    final String docUrl = url;
+    startupFaultProbeRunnable =
+        new Runnable() {
+          @Override
+          public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            if (webSplashDismissRequested) {
+              stopStartupFaultProbe();
+              return;
+            }
+            if (!appVisible) {
+              mainHandler.postDelayed(this, STARTUP_FAULT_PROBE_TICK_MS);
+              return;
+            }
+            startupFaultDocVisibleMs += STARTUP_FAULT_PROBE_TICK_MS;
+            if (startupFaultJsVisibleMs >= 0) startupFaultJsVisibleMs += STARTUP_FAULT_PROBE_TICK_MS;
+            final Runnable self = this;
+            WebView wv = null;
+            try {
+              Bridge b = getBridge();
+              wv = b != null ? b.getWebView() : null;
+            } catch (Exception ignored) {
+              wv = null;
+            }
+            if (wv == null || webViewRendererGone) {
+              decideStartupFault(docUrl, self);
+              return;
+            }
+            try {
+              wv.evaluateJavascript(
+                  STARTUP_JS_RUNNING_PROBE,
+                  value -> {
+                    if ("true".equals(value) && startupFaultJsVisibleMs < 0) startupFaultJsVisibleMs = 0L;
+                    decideStartupFault(docUrl, self);
+                  });
+            } catch (Exception e) {
+              decideStartupFault(docUrl, self);
+            }
+          }
+        };
+    mainHandler.postDelayed(startupFaultProbeRunnable, STARTUP_FAULT_PROBE_TICK_MS);
+  }
+
+  private void decideStartupFault(String docUrl, Runnable probe) {
+    if (startupFaultProbeRunnable != probe) return; // 새 문서가 시작돼 이 관찰은 끝났다
+    DibayStartupFaultPolicy.Verdict verdict =
+        DibayStartupFaultPolicy.judge(webSplashDismissRequested, startupFaultDocVisibleMs, startupFaultJsVisibleMs);
+    if (verdict == DibayStartupFaultPolicy.Verdict.WAIT) {
+      mainHandler.postDelayed(probe, STARTUP_FAULT_PROBE_TICK_MS);
+      return;
+    }
+    stopStartupFaultProbe();
+    if (verdict == DibayStartupFaultPolicy.Verdict.DONE) return;
+    String reason = DibayStartupFaultPolicy.faultReason(verdict, lastMainFrameHttpStatus);
+    boolean callRoute = DibayStartupFaultPolicy.isCallRouteUrl(docUrl);
+    DibayStartupFaultPolicy.FaultAction action =
+        DibayStartupFaultPolicy.onFault(startupFaultAutoReloads, callRoute);
+    Log.e(
+        WEBVIEW_LOG_TAG,
+        "startup_fault verdict="
+            + verdict
+            + " reason="
+            + reason
+            + " action="
+            + action
+            + " autoReloads="
+            + startupFaultAutoReloads
+            + " url="
+            + (docUrl != null ? docUrl : ""));
+    if (action == DibayStartupFaultPolicy.FaultAction.RELOAD_ONCE) {
+      startupFaultAutoReloads++;
+      reloadWebViewMainFrame(docUrl != null ? docUrl : pendingMainFrameUrl);
+      return;
+    }
+    showWebViewLoadErrorOverlay(docUrl, reason);
   }
 
   private void traceV4AcceptHandoffResume() {
@@ -2216,16 +2363,33 @@ public class MainActivity extends BridgeActivity {
     ensureWebViewLoadErrorOverlay();
     if (webViewLoadErrorOverlay == null) return;
     // 렌더러 종료는 네트워크 문제가 아니다 — 이유별로 제목·본문을 매번 다시 넣는다 (§12-1 C-M2).
+    // C1: 오프라인·웹 고장(HTTP 오류 문서·JS 미시작·해제 없음)도 이유에 맞는 문구 — 빈 화면·녹색 화면을 정상처럼 두지 않는다.
     boolean rendererGone = "RENDER_PROCESS_GONE".equals(reason);
+    boolean offline =
+        reason != null
+            && (reason.contains("ERR_INTERNET_DISCONNECTED")
+                || reason.contains("ERR_NAME_NOT_RESOLVED")
+                || reason.contains("ERR_ADDRESS_UNREACHABLE"));
+    boolean webFault = reason != null && (reason.startsWith("WEB_") || reason.startsWith("HTTP_"));
+    int titleRes =
+        rendererGone
+            ? R.string.dibay_webview_renderer_gone_title
+            : offline
+                ? R.string.dibay_webview_offline_title
+                : webFault ? R.string.dibay_webview_web_fault_title : R.string.dibay_webview_error_title;
+    int bodyRes =
+        rendererGone
+            ? R.string.dibay_webview_renderer_gone_body
+            : offline
+                ? R.string.dibay_webview_offline_body
+                : webFault ? R.string.dibay_webview_web_fault_body : R.string.dibay_webview_error_body;
     TextView title = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_title);
     TextView body = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_body);
     if (title != null) {
-      title.setText(
-          rendererGone ? R.string.dibay_webview_renderer_gone_title : R.string.dibay_webview_error_title);
+      title.setText(titleRes);
     }
     if (body != null) {
-      body.setText(
-          rendererGone ? R.string.dibay_webview_renderer_gone_body : R.string.dibay_webview_error_body);
+      body.setText(bodyRes);
     }
     if (webViewLoadErrorDetail != null) {
       String detail = (url != null ? url : "") + "\n" + (reason != null ? reason : "");
@@ -2233,8 +2397,10 @@ public class MainActivity extends BridgeActivity {
       webViewLoadErrorDetail.setVisibility(View.VISIBLE);
     }
     webViewLoadErrorOverlay.setVisibility(View.VISIBLE);
+    stopStartupFaultProbe();
     // Catastrophic path only — not a display timer. Reveal retry UI over splash.
-    requestWebSplashDismiss("webview_load_error");
+    // C1: 화면 커밋을 기다리는 requestWebSplashDismiss 는 앞선 요청이 pending 이면 무시되어 오류 화면이 갇혔다 → 즉시 해제.
+    forceReleaseSplash("webview_load_error");
     Log.e(WEBVIEW_LOG_TAG, "webview_load_error_ui_shown url=" + url + " reason=" + reason);
   }
 
