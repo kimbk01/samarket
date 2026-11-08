@@ -10,6 +10,7 @@ import {
   resolveFeedAdPresentationInputs,
   type FeedAdMemberDisplayStatus,
 } from "@/lib/ads/feed-ad-member-presentation";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type FeedAdOpsProductStatus =
   | "pending_review"
@@ -23,13 +24,13 @@ export type FeedAdOpsProductStatus =
 export type FeedAdOpsStatusLabelLang = "ko" | "en";
 
 const LABELS: Record<FeedAdOpsProductStatus, { ko: string; en: string }> = {
-  pending_review: { ko: "심사중", en: "In review" },
-  scheduled: { ko: "광고 예정", en: "Scheduled" },
-  active: { ko: "광고중", en: "Running" },
-  paused: { ko: "일시중지", en: "Paused" },
-  rejected: { ko: "반려", en: "Rejected" },
-  cancelled: { ko: "취소", en: "Cancelled" },
-  ended: { ko: "종료", en: "Ended" },
+  pending_review: catalogPair("ads_in_review"),
+  scheduled: catalogPair("ads_scheduled"),
+  active: catalogPair("ads_running"),
+  paused: catalogPair("ads_paused"),
+  rejected: catalogPair("ads_rejected"),
+  cancelled: catalogPair("ads_cancelled"),
+  ended: catalogPair("ads_ended_2"),
 };
 
 export function feedAdOpsProductStatusFromDisplay(

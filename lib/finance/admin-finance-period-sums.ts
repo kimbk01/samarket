@@ -10,6 +10,7 @@ import {
   formatFinanceAmount,
   type FinanceWallet,
 } from "@/lib/finance/presentation";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type AdminFinanceSumCell = {
   key: string;
@@ -176,10 +177,10 @@ export function readAdFundingSums(raw: unknown): AdFundingSourceSum[] | null {
 
 /** 출처 → 결제 수단·금액 단위 (load-ad-funding-trace-page 의 행 변환과 같은 대응) */
 const AD_SOURCE_RAIL: Record<string, { rail: string; wallet: FinanceWallet; isMinor: boolean; product: { ko: string; en: string } }> = {
-  delivery_ad_canonical_bc_fundings: { rail: "STORE_CASH", wallet: "CASH", isMinor: true, product: { ko: "매장 광고", en: "Store ads" } },
-  feed_ad_requests: { rail: "MEMBER_POINT", wallet: "POINT", isMinor: false, product: { ko: "피드 광고", en: "Feed ads" } },
-  point_promotion_orders: { rail: "MEMBER_POINT", wallet: "POINT", isMinor: false, product: { ko: "상위노출", en: "Promotion" } },
-  platform_popup_campaigns: { rail: "ADMIN_DIRECT", wallet: "N_A", isMinor: false, product: { ko: "관리자 팝업", en: "Admin popup" } },
+  delivery_ad_canonical_bc_fundings: { rail: "STORE_CASH", wallet: "CASH", isMinor: true, product: catalogPair("finance_store_ads") },
+  feed_ad_requests: { rail: "MEMBER_POINT", wallet: "POINT", isMinor: false, product: catalogPair("finance_feed_ads") },
+  point_promotion_orders: { rail: "MEMBER_POINT", wallet: "POINT", isMinor: false, product: catalogPair("finance_promotion") },
+  platform_popup_campaigns: { rail: "ADMIN_DIRECT", wallet: "N_A", isMinor: false, product: catalogPair("finance_admin_popup") },
 };
 
 const AD_SOURCE_ORDER = Object.keys(AD_SOURCE_RAIL);

@@ -35,7 +35,8 @@ describe("F-3 사장님 「수수료 환급」 칩 = 실제 처리", () => {
   it("사장님 분기에만 쓰고 관리자 이름은 그대로", () => {
     const t = src("components/stores/commission/StoreCommissionLedgerTable.tsx");
     expect(t).toMatch(/if \(audience !== "owner" \|\| r\.state !== "refunded"\) return null;/);
-    expect(src("lib/stores/commission/store-commission-contract.ts")).toMatch(/refunded: \{ ko: "수수료 환급", en: "Fee refunded" \}/);
+    expect(src("lib/stores/commission/store-commission-contract.ts")).toContain('refunded: catalogPair("stores_fee_refunded")');
+    expect([MESSAGES.ko.stores_fee_refunded, MESSAGES.en.stores_fee_refunded]).toEqual(["수수료 환급", "Fee refunded"]);
   });
 });
 

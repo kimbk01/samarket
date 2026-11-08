@@ -1,5 +1,6 @@
 
-import { translateBy } from "@/lib/i18n/translate-by";/**
+import { translateBy } from "@/lib/i18n/translate-by";
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Customer Center Content SSOT — physical table remains `app_notices`.
  * Campaigns = delivery copy; notification_events = Bell/read-state.
  */
@@ -10,18 +11,18 @@ export const CUSTOMER_CENTER_CONTENT_TYPES = ["notice", "system", "marketing", "
 export type CustomerCenterContentType = (typeof CUSTOMER_CENTER_CONTENT_TYPES)[number];
 
 export const DEFAULT_AUTHOR_LABEL: Record<CustomerCenterContentType, { ko: string; en: string }> = {
-  notice: { ko: "DIBAY 운영팀", en: "DIBAY Ops" },
-  system: { ko: "DIBAY 시스템", en: "DIBAY System" },
-  marketing: { ko: "DIBAY", en: "DIBAY" },
-  update: { ko: "DIBAY 운영팀", en: "DIBAY Ops" },
+  notice: catalogPair("notices_dibay_ops"),
+  system: catalogPair("notices_dibay_system"),
+  marketing: catalogPair("notices_dibay"),
+  update: catalogPair("notices_dibay_ops"),
 };
 
 /** 알림 최종 설계 §5 (Owner 승인 2026-11-01) — 어드민·앱 같은 이름(1:1). */
 export const BOARD_LABEL: Record<CustomerCenterContentType, { ko: string; en: string }> = {
-  notice: { ko: "공지사항", en: "Notices" },
-  system: { ko: "시스템 안내", en: "System notices" },
-  marketing: { ko: "혜택·이벤트", en: "Benefits & events" },
-  update: { ko: "업데이트 내역", en: "Update history" },
+  notice: catalogPair("notices_notices"),
+  system: catalogPair("notices_system_notices"),
+  marketing: catalogPair("notices_benefits_events"),
+  update: catalogPair("notices_update_history"),
 };
 
 export function isCustomerCenterContentType(value: unknown): value is CustomerCenterContentType {

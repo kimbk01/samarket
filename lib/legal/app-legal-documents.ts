@@ -1,4 +1,5 @@
-/**
+
+import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Slice 8 Phase 1 — Legal CMS helpers (terms + privacy + marketing).
  * `marketing` = 혜택·이벤트 수신 동의(선택) 문구 — 필수 재동의 게이트와 무관 (2026-11-03).
  * Writer = Admin CMS APIs. Reader = public GET /privacy|/terms.
@@ -41,9 +42,9 @@ export function isAppLegalKind(v: unknown): v is AppLegalKind {
 
 /** 어드민 목록·폼 표시 이름. */
 export const APP_LEGAL_KIND_LABEL: Record<AppLegalKind, { ko: string; en: string }> = {
-  terms: { ko: "이용약관", en: "Terms" },
-  privacy: { ko: "개인정보처리방침", en: "Privacy" },
-  marketing: { ko: "혜택·이벤트 수신 동의(선택)", en: "Benefits & events consent (optional)" },
+  terms: catalogPair("legal_terms"),
+  privacy: catalogPair("legal_privacy"),
+  marketing: catalogPair("legal_benefits_events_consent_optional"),
 };
 
 export function isAppLegalLocale(v: unknown): v is AppLegalLocale {

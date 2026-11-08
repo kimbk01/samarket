@@ -9,6 +9,7 @@ import type {
   PointLedgerRelatedType,
   PointPromotionOrderStatus,
 } from "@/lib/types/point";
+import { catalogPair } from "@/lib/i18n/catalog-pair";
 
 export type PointFinancialDirection = "credit" | "debit";
 
@@ -270,9 +271,9 @@ export function promotionProductDisplayLabel(
     return { ko: `상위노출 ${days}일`, en: `${days}-day top exposure` };
   }
   const id = (productId ?? "").trim();
-  if (id === "trade_promote_7") return { ko: "상위노출 7일", en: "7-day top exposure" };
-  if (id === "trade_promote_14") return { ko: "상위노출 14일", en: "14-day top exposure" };
-  return { ko: "상위노출", en: "Top exposure" };
+  if (id === "trade_promote_7") return catalogPair("points_text");
+  if (id === "trade_promote_14") return catalogPair("points_text_2");
+  return catalogPair("points_top_exposure");
 }
 
 export function encodePointFinancialCursor(c: PointFinancialHistoryCursor): string {
