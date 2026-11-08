@@ -11,8 +11,9 @@ export const REALTIME_SUBSCRIPTION_CATEGORY = "realtime.subscription";
 export const REALTIME_SUBSCRIPTION_METRIC = "channel_subscribe";
 
 /**
- * scope 접두어 → 채널 종류. 운영 코드 scope 18종 전수(subscribeWithRetry 직접 호출 17 + 수신 전화 holder 경유 1).
- * 2026-11-08 정정: 처음 표에 `GlobalCommunityMessengerIncomingCall` 의 `community-messenger-incoming-call` 이 빠져 `other` 로 집계됨.
+ * scope 접두어 → 채널 종류. 운영 코드 scope 19종 전수(저장소 전체 — 누락은 `realtime-subscription-scope-coverage` 테스트가 잡는다).
+ * 2026-11-08 정정 ①: `GlobalCommunityMessengerIncomingCall` 의 `community-messenger-incoming-call` 누락.
+ * 2026-11-09 정정 ②: 최상위 `hooks/useSupabaseNotificationsRealtime.ts` 의 `notifications-rt:` 누락(검색 범위에서 hooks/ 를 빠뜨림).
  */
 export const REALTIME_SUBSCRIPTION_KIND_BY_SCOPE_PREFIX: readonly (readonly [string, string])[] = [
   ["community-messenger:presence-runtime", "presence"],
@@ -33,6 +34,7 @@ export const REALTIME_SUBSCRIPTION_KIND_BY_SCOPE_PREFIX: readonly (readonly [str
   ["trade-chat-presence:", "trade_presence"],
   ["trade-post-listing:", "trade_post_listing"],
   ["trade-listing-visibility", "trade_listing_visibility"],
+  ["notifications-rt:", "notifications"],
 ];
 
 export const REALTIME_SUBSCRIPTION_OTHER_KIND = "other";
