@@ -60,10 +60,53 @@ mustInclude(
   "ringing mid-call tip/stub is Native UI only"
 );
 
-mustInclude(
-  "app/api/community-messenger/rooms/[roomId]/calls/route.ts",
-  "dispatchIncomingCallVoipOnCriticalPath"
-);
+/**
+ * F1 (fb78a4c8b · 재감사 §4-12): the route STARTS the VoIP/FCM send before HTTP 200 via
+ * `startIncomingCallVoipDispatchDetached` (response no longer waits for send completion).
+ * The send must still start on the critical path — never deferred into a post-response hook.
+ */
+{
+  const routeRel = "app/api/community-messenger/rooms/[roomId]/calls/route.ts";
+  const routeSrc = read(routeRel);
+  const startIdx = routeSrc.indexOf("startIncomingCallVoipDispatchDetached(incomingCallPush)");
+  const okResponseIdx = routeSrc.search(/return\s+NextResponse\.json\(\s*\{\s*ok:\s*true/);
+  if (startIdx < 0) {
+    failures.push(`${routeRel} must call startIncomingCallVoipDispatchDetached(incomingCallPush)`);
+  } else if (okResponseIdx < 0 || startIdx > okResponseIdx) {
+    failures.push(`${routeRel} must start incoming VoIP dispatch before the ok:true HTTP response`);
+  }
+  if (/await\s+startIncomingCallVoipDispatchDetached/.test(routeSrc)) {
+    failures.push(`${routeRel} must not await the detached VoIP dispatch (F1)`);
+  }
+
+  const dispatchRel = "lib/community-messenger/incoming-call-voip-dispatch.ts";
+  const dispatchSrc = read(dispatchRel);
+  const fnMatch = dispatchSrc.match(
+    /export function startIncomingCallVoipDispatchDetached\([^)]*\)[^{]*\{([\s\S]*?)\n\}/,
+  );
+  if (!fnMatch) {
+    failures.push(`${dispatchRel} must export startIncomingCallVoipDispatchDetached`);
+  } else {
+    const body = fnMatch[1];
+    const sendIdx = body.search(/const\s+pending\s*=\s*dispatchIncomingCallVoipOnCriticalPath\(/);
+    const afterIdx = body.search(/\bafter\s*\(/);
+    if (sendIdx < 0) {
+      failures.push(
+        `${dispatchRel} startIncomingCallVoipDispatchDetached must start dispatchIncomingCallVoipOnCriticalPath synchronously (const pending = ...)`,
+      );
+    } else if (afterIdx >= 0 && afterIdx < sendIdx) {
+      failures.push(`${dispatchRel} send must start before after() (after only extends lifetime)`);
+    }
+    if (!/after\s*\(\s*\(\)\s*=>\s*pending\s*\)/.test(body)) {
+      failures.push(
+        `${dispatchRel} after() may only extend lifetime of the already-started send: after(() => pending)`,
+      );
+    }
+    if (/after\s*\(\s*async/.test(body)) {
+      failures.push(`${dispatchRel} must not defer the VoIP send into after(async ...)`);
+    }
+  }
+}
 mustNotMatch(
   "app/api/community-messenger/rooms/[roomId]/calls/route.ts",
   /after\s*\(\s*async/,

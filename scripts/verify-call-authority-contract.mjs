@@ -64,9 +64,10 @@ mustContain(
 );
 
 // Room-bound missed is Conversation B only; no parallel notification_event/Bell writer.
+// CUT4/CUT5 (861c1fe5e): comment wording is the current SSOT marker for the room-bound rule.
 mustContain(
   "lib/community-messenger/service.ts",
-  "Room-bound missed is the terminal call_stub Conversation B fact",
+  "Room-bound missed: call_stub = Conversation B unread",
   "room-bound-missed-b-only",
 );
 mustNotContain(
@@ -140,11 +141,35 @@ mustContain(
   "resolveTerminalStubActorUserId",
   "terminal-stub-actor-authority",
 );
-mustContain(
-  "lib/community-messenger/service.ts",
-  "incrementUnread: true",
-  "terminal-stub-atomic-unread",
-);
+// C-N1 (970aed928 · §14-9 Owner 2026-10-25): terminal call_stub increments unread ONLY for missed,
+// still in the same append (atomic) — not via a separate writer.
+{
+  const rel = "lib/community-messenger/service.ts";
+  const text = read(rel);
+  const args = [...text.matchAll(/\bincrementUnread:\s*([^,\n]+),/g)].map((m) => m[1].trim());
+  const missedGated = /^(input\.status|stubStatus)\s*===\s*"missed"$/;
+  if (args.length < 2) {
+    failures.push(
+      `terminal-stub-atomic-unread: expected >=2 terminal stub incrementUnread args in ${rel}, found ${args.length}`,
+    );
+  }
+  for (const a of args) {
+    if (!missedGated.test(a)) {
+      failures.push(`terminal-stub-atomic-unread: incrementUnread must be missed-gated, found ${JSON.stringify(a)} in ${rel}`);
+    }
+  }
+  for (const needle of ['incrementUnread: input.status === "missed"', 'incrementUnread: stubStatus === "missed"']) {
+    if (!text.includes(needle)) failures.push(`terminal-stub-atomic-unread: missing ${JSON.stringify(needle)} in ${rel}`);
+  }
+  // Atomic: the same stub append consumes the flag (unread increment + countsAsUnread on the row).
+  for (const needle of [
+    "const shouldIncrementUnread = input.incrementUnread",
+    "countsAsUnread: shouldIncrementUnread",
+    "if (shouldIncrementUnread) {",
+  ]) {
+    if (!text.includes(needle)) failures.push(`terminal-stub-atomic-unread: missing ${JSON.stringify(needle)} in ${rel}`);
+  }
+}
 mustNotContain(
   "lib/community-messenger/service.ts",
   'peerUserId: mapped.sessionMode === "direct" ? mapped.peerUserId : null',

@@ -254,29 +254,86 @@ if (!callV4Actions.includes("native_outgoing_handoff_start")) {
   pass("Web outgoing native handoff hook is present");
 }
 
-if (!callV4Actions.includes("native_outgoing_failed")) {
-  fail("callV4CreateOutgoing must log native_outgoing_failed on Android native handoff failure (P2-2)");
-} else if (!callV4Actions.includes("native_establishment_unavailable")) {
-  fail("callV4CreateOutgoing must log native_establishment_unavailable when establishment unavailable (P2-2)");
-} else if (!callV4Actions.includes("isAndroidNativeOutgoingShell")) {
-  fail("callV4CreateOutgoing must gate JS Agora fallback with isAndroidNativeOutgoingShell (P2-2)");
-} else {
-  pass("Android native outgoing fail-fast markers present (P2-2)");
+/**
+ * P2-2 — native outgoing fail-fast (current structure: 5473099b8 Android/iOS split, 0f9ed2106 CUT-5C).
+ * Android: bind → on failure log native_outgoing_bind_failed → startNativeOutgoingEstablishment fallback.
+ * iOS: handoff → on failure log native_outgoing_failed.
+ * Neither native branch may route to the Web V4 screen, set outgoing_ringing, PATCH cancel, or join
+ * JS Agora; the only Web presentation is the shared `shouldRouteToWebOutgoingPresentation` gate
+ * after both branches, cleared only on a native-owned success. Empty extraction FAILS.
+ */
+function extractNativeOutgoingBranches(src) {
+  const iosStart = src.indexOf("    } else if (iosNativeShell) {");
+  const androidStart = iosStart < 0 ? -1 : src.lastIndexOf("    if (androidNativeShell) {", iosStart);
+  const routeGate = src.indexOf("    if (shouldRouteToWebOutgoingPresentation) {", iosStart + 1);
+  if (androidStart < 0 || iosStart < 0 || routeGate < 0) return null;
+  return {
+    android: src.slice(androidStart, iosStart),
+    ios: src.slice(iosStart, routeGate),
+    routeGateBlock: src.slice(routeGate, src.indexOf("\n    }", routeGate) + 6),
+    beforeBranches: src.slice(0, androidStart),
+  };
 }
 
-const androidOutgoingFailBlock =
-  callV4Actions.match(/if \(isAndroidNativeOutgoingShell\(\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
-if (!androidOutgoingFailBlock.includes("native_outgoing_failed")) {
-  fail("Android native outgoing fail-fast block must log native_outgoing_failed (P2-2)");
-} else if (androidOutgoingFailBlock.includes("routeToCallV4Screen")) {
-  fail("Android native outgoing fail-fast block must not call routeToCallV4Screen (P2-2)");
-} else if (androidOutgoingFailBlock.includes("outgoing_ringing")) {
-  fail("Android native outgoing fail-fast block must not set outgoing_ringing (P2-2)");
-} else if (androidOutgoingFailBlock.includes("callV4PatchCancel")) {
-  fail("Android native outgoing fail-fast must not PATCH cancel (P2-2 hold)");
-} else {
-  pass("Android native outgoing fail-fast has no JS Agora Web fallback (P2-2)");
+function checkNativeOutgoingFailFast(src, fail, pass) {
+  let ok = true;
+  const bad = (m) => {
+    ok = false;
+    fail(m);
+  };
+  if (!/const androidNativeShell = isAndroidNativeOutgoingShell\(\);/.test(src)) {
+    bad("callV4CreateOutgoing must gate Android native outgoing with const androidNativeShell = isAndroidNativeOutgoingShell() (P2-2)");
+  }
+  const b = extractNativeOutgoingBranches(src);
+  if (!b || !b.android.trim() || !b.ios.trim() || !b.routeGateBlock.trim()) {
+    bad("P2-2 native outgoing branches (androidNativeShell / iosNativeShell / shouldRouteToWebOutgoingPresentation) not found — empty match FAILS (P2-2)");
+    return ok;
+  }
+  if (!/let shouldRouteToWebOutgoingPresentation = true;/.test(b.beforeBranches)) {
+    bad("shouldRouteToWebOutgoingPresentation must be declared (default true) before native branches (P2-2)");
+  }
+  // Android branch
+  if (!b.android.includes('logCallV4("native_outgoing_bind_failed"')) {
+    bad("Android native outgoing fail-fast block must log native_outgoing_bind_failed (P2-2)");
+  }
+  if (!b.android.includes("bindNativeOutgoingEstablishment(") || !b.android.includes("startNativeOutgoingEstablishment(")) {
+    bad("Android native outgoing must bind and fall back to startNativeOutgoingEstablishment (native only) (P2-2)");
+  }
+  const failIdx = b.android.indexOf('logCallV4("native_outgoing_bind_failed"');
+  const fallbackIdx = b.android.indexOf("startNativeOutgoingEstablishment(", failIdx);
+  if (failIdx >= 0 && fallbackIdx < 0) {
+    bad("Android native fallback must run after native_outgoing_bind_failed (P2-2)");
+  }
+  // iOS branch
+  if (!b.ios.includes('logCallV4("native_outgoing_failed"')) {
+    bad("iOS native outgoing fail-fast block must log native_outgoing_failed (P2-2)");
+  }
+  if (!b.ios.includes("startNativeOutgoingEstablishment(")) {
+    bad("iOS native outgoing must hand off via startNativeOutgoingEstablishment (P2-2)");
+  }
+  for (const [name, block] of [["Android", b.android], ["iOS", b.ios]]) {
+    for (const [needle, why] of [
+      ["routeToCallV4Screen", "must not call routeToCallV4Screen"],
+      ['"outgoing_ringing"', "must not set/log outgoing_ringing"],
+      ["callV4PatchCancel", "must not PATCH cancel (P2-2 hold)"],
+      ["joinCallV4Agora", "must not join JS Agora"],
+    ]) {
+      if (block.includes(needle)) bad(`${name} native outgoing fail-fast block ${why} (P2-2)`);
+    }
+    const clears = block.match(/shouldRouteToWebOutgoingPresentation = false;/g) ?? [];
+    const owned = block.match(/\.ok && [A-Za-z]+\.nativeOwned\) \{/g) ?? [];
+    if (clears.length === 0 || clears.length !== owned.length) {
+      bad(`${name} branch must clear shouldRouteToWebOutgoingPresentation only on native-owned success (P2-2)`);
+    }
+  }
+  if (!b.routeGateBlock.includes("routeToCallV4Screen(")) {
+    bad("Web outgoing presentation must only happen behind shouldRouteToWebOutgoingPresentation gate (P2-2)");
+  }
+  if (ok) pass("Android/iOS native outgoing fail-fast has no JS Agora Web fallback (P2-2)");
+  return ok;
 }
+
+checkNativeOutgoingFailFast(callV4Actions, fail, pass);
 
 const callV4Agora = read("lib/community-messenger/call-v4/call-v4-agora.ts");
 if (!callV4Agora.includes("web_agora_establishment_quarantined")) {

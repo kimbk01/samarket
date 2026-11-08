@@ -47,8 +47,34 @@ if (!plugin.includes("requestPermission")) {
 if (!plugin.includes("requestCallMediaPermissions")) {
   failures.push("NativeDevicePermissionsPlugin must expose requestCallMediaPermissions for voice/video calls");
 }
-if (!mainActivity.includes("protected void onStart()")) {
-  failures.push("MainActivity must re-attach WebChromeClient in onStart");
+{
+  // onStart must be `public` (Capacitor BridgeActivity.onStart is public — ecb667a70); match either
+  // visibility and require the WebChromeClient re-attach INSIDE the onStart body.
+  const onStartMatch = mainActivity.match(/(?:public|protected)\s+void\s+onStart\s*\(\s*\)\s*\{/);
+  let onStartBody = "";
+  if (onStartMatch) {
+    let depth = 0;
+    const open = onStartMatch.index + onStartMatch[0].length - 1;
+    for (let i = open; i < mainActivity.length; i++) {
+      const ch = mainActivity[i];
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          onStartBody = mainActivity.slice(open + 1, i);
+          break;
+        }
+      }
+    }
+  }
+  if (!onStartMatch || !onStartBody) {
+    failures.push("MainActivity must override void onStart()");
+  } else if (!/\battachDibayWebChromeClient\s*\(\s*\)\s*;/.test(onStartBody)) {
+    failures.push("MainActivity must re-attach WebChromeClient in onStart (attachDibayWebChromeClient())");
+  }
+  if (!/void\s+attachDibayWebChromeClient\s*\(\s*\)\s*\{/.test(mainActivity)) {
+    failures.push("MainActivity must define attachDibayWebChromeClient()");
+  }
 }
 if (!mainActivity.includes("handleCallMediaPermissionsResult")) {
   failures.push("MainActivity must forward call media permission results to NativeDevicePermissionsPlugin");
