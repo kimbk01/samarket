@@ -1026,34 +1026,34 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       nameStack.bottomAnchor.constraint(equalTo: statusPanel.bottomAnchor),
     ])
 
-    configureActionButton(acceptButton, title: "수락", color: .systemGreen)
-    configureActionButton(declineButton, title: "거절", color: .systemRed)
+    configureActionButton(acceptButton, title: DibayNativeCopy.text("call_accept"), color: .systemGreen)
+    configureActionButton(declineButton, title: DibayNativeCopy.text("call_decline"), color: .systemRed)
     configureMediaButton(
       cameraFlipButton,
       symbolName: "camera.rotate.fill",
       fallbackSymbolName: "camera.fill",
-      accessibilityLabel: "카메라 전환",
+      accessibilityLabel: DibayNativeCopy.text("call_camera_flip"),
       danger: false
     )
     configureMediaButton(
       cameraButton,
       symbolName: "video.fill",
       fallbackSymbolName: "video.fill",
-      accessibilityLabel: "카메라 켬",
+      accessibilityLabel: DibayNativeCopy.text("call_camera_on"),
       danger: false
     )
     configureMediaButton(
       micButton,
       symbolName: "mic.fill",
       fallbackSymbolName: "mic.fill",
-      accessibilityLabel: "음소거",
+      accessibilityLabel: DibayNativeCopy.text("call_control_mute"),
       danger: false
     )
     configureMediaButton(
       endButton,
       symbolName: "phone.down.fill",
       fallbackSymbolName: "phone.down.fill",
-      accessibilityLabel: "종료",
+      accessibilityLabel: DibayNativeCopy.text("call_end"),
       danger: true
     )
 
@@ -1196,7 +1196,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private func installMinimizeButton() {
     minimizeButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
     minimizeButton.tintColor = .white
-    minimizeButton.accessibilityLabel = "통화 화면 줄이기"
+    minimizeButton.accessibilityLabel = DibayNativeCopy.text("call_minimize")
     minimizeButton.isHidden = true
     minimizeButton.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(minimizeButton)
@@ -1321,9 +1321,9 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   private func updateConnectedControlChrome() {
     cameraButton.setImage(UIImage(systemName: cameraEnabled ? "video.fill" : "video.slash.fill"), for: .normal)
-    cameraButton.accessibilityLabel = cameraEnabled ? "카메라 끔" : "카메라 켬"
+    cameraButton.accessibilityLabel = cameraEnabled ? DibayNativeCopy.text("call_camera_off") : DibayNativeCopy.text("call_camera_on")
     micButton.setImage(UIImage(systemName: micMuted ? "mic.slash.fill" : "mic.fill"), for: .normal)
-    micButton.accessibilityLabel = micMuted ? "음소거 해제" : "음소거"
+    micButton.accessibilityLabel = micMuted ? DibayNativeCopy.text("call_control_unmute") : DibayNativeCopy.text("call_control_mute")
   }
 
   // MARK: - R1 보조 PiP 드래그 (Android attachLocalPipDragListener 패리티)
@@ -1696,19 +1696,19 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     switch displayedNetworkTier {
     case .fair:
       activeBars = 3
-      label = "보통"
+      label = DibayNativeCopy.text("call_quality_fair")
       color = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
     case .poor:
       activeBars = 2
-      label = "나쁨"
+      label = DibayNativeCopy.text("call_quality_poor")
       color = UIColor(red: 245 / 255, green: 194 / 255, blue: 107 / 255, alpha: 1)
     case .veryPoor:
       activeBars = 1
-      label = "매우 나쁨"
+      label = DibayNativeCopy.text("call_quality_very_poor")
       color = UIColor(red: 242 / 255, green: 139 / 255, blue: 130 / 255, alpha: 1)
     case .good:
       activeBars = 4
-      label = "좋음"
+      label = DibayNativeCopy.text("call_quality_good")
       color = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
     }
     connectedSignalLabel.text = label

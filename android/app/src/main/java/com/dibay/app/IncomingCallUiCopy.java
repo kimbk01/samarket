@@ -32,28 +32,28 @@ public final class IncomingCallUiCopy {
   public static String statusBrandLabel(Context context, String callType, String title, String body) {
     if (context == null) return brandLabelForCallType(callType, title, body);
     if ("video".equalsIgnoreCase(callType)) {
-      return context.getString(R.string.dibay_incoming_video_brand);
+      return DibayNativeLocale.string(context, R.string.dibay_incoming_video_brand);
     }
     if ("audio".equalsIgnoreCase(callType)
         || "voice".equalsIgnoreCase(callType)
         || containsVideoHint(title, body)) {
       if (containsVideoHint(title, body)) {
-        return context.getString(R.string.dibay_incoming_video_brand);
+        return DibayNativeLocale.string(context, R.string.dibay_incoming_video_brand);
       }
-      return context.getString(R.string.dibay_incoming_voice_brand);
+      return DibayNativeLocale.string(context, R.string.dibay_incoming_voice_brand);
     }
     if (containsVideoHint(title, body)) {
-      return context.getString(R.string.dibay_incoming_video_brand);
+      return DibayNativeLocale.string(context, R.string.dibay_incoming_video_brand);
     }
-    return context.getString(R.string.dibay_incoming_voice_brand);
+    return DibayNativeLocale.string(context, R.string.dibay_incoming_voice_brand);
   }
 
   public static String acceptLabel(Context context) {
-    return context.getString(R.string.dibay_incoming_accept);
+    return DibayNativeLocale.string(context, R.string.dibay_incoming_accept);
   }
 
   public static String rejectLabel(Context context) {
-    return context.getString(R.string.dibay_incoming_reject);
+    return DibayNativeLocale.string(context, R.string.dibay_incoming_reject);
   }
 
   public static String peerInitial(String label) {

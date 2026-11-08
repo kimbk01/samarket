@@ -93,11 +93,11 @@ final class NativeVoiceCallViewController: UIViewController {
       UIImage(systemName: speakerEnabledChrome ? "speaker.wave.2.fill" : "speaker.slash.fill"),
       for: .normal
     )
-    speakerLabel.text = "스피커"
+    speakerLabel.text = DibayNativeCopy.text("call_control_speaker")
 
     applyMediaDisk(button: videoButton, label: videoLabel, active: false, disabled: true, danger: false)
     videoButton.setImage(UIImage(systemName: "video.fill"), for: .normal)
-    videoLabel.text = "영상"
+    videoLabel.text = DibayNativeCopy.text("call_control_video")
     videoButton.isUserInteractionEnabled = false
 
     let micActive = !micMutedChrome
@@ -112,12 +112,12 @@ final class NativeVoiceCallViewController: UIViewController {
       UIImage(systemName: micActive ? "mic.fill" : "mic.slash.fill"),
       for: .normal
     )
-    muteLabel.text = micMutedChrome ? "음소거 해제" : "음소거"
+    muteLabel.text = micMutedChrome ? DibayNativeCopy.text("call_control_unmute") : DibayNativeCopy.text("call_control_mute")
     muteButton.isUserInteractionEnabled = micChromeEnabled
 
     applyMediaDisk(button: endButton, label: endLabel, active: false, disabled: false, danger: true)
     endButton.setImage(UIImage(systemName: "phone.down.fill"), for: .normal)
-    endLabel.text = "종료"
+    endLabel.text = DibayNativeCopy.text("call_end")
     endButton.isUserInteractionEnabled = !endInFlight
   }
 
@@ -220,7 +220,7 @@ final class NativeVoiceCallViewController: UIViewController {
 
     minimizeButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
     minimizeButton.tintColor = .white
-    minimizeButton.accessibilityLabel = "통화 화면 줄이기"
+    minimizeButton.accessibilityLabel = DibayNativeCopy.text("call_minimize")
     minimizeButton.isHidden = true
     minimizeButton.translatesAutoresizingMaskIntoConstraints = false
 

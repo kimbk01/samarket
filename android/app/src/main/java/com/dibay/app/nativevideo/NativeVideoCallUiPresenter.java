@@ -3,6 +3,7 @@ package com.dibay.app.nativevideo;
 import android.content.Context;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 
 /** Maps Native Video Runtime session/state to render-only UI model. */
 public final class NativeVideoCallUiPresenter {
@@ -144,7 +145,7 @@ public final class NativeVideoCallUiPresenter {
 
   private static String safeString(Context app, int resId) {
     try {
-      return app.getString(resId);
+      return DibayNativeLocale.string(app, resId);
     } catch (RuntimeException error) {
       return "";
     }

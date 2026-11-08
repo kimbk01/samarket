@@ -9,6 +9,7 @@ import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.util.Rational;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 import java.util.Collections;
 
 /** Android PiP presentation adapter for Native Video UI. No Runtime ownership. */
@@ -42,7 +43,7 @@ public final class NativeVideoCallPipPresenter {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT | immutableFlag());
     Icon icon = Icon.createWithResource(context, android.R.drawable.ic_menu_close_clear_cancel);
-    String label = context.getString(R.string.dibay_video_call_end);
+    String label = DibayNativeLocale.string(context, R.string.dibay_video_call_end);
     return new RemoteAction(icon, label, label, pendingIntent);
   }
 

@@ -287,8 +287,10 @@ public final class IncomingCallActionCoordinator {
     MainActivity.deliverCallTerminalEvent(app, sid, "missed");
     MissedCallNotificationHelper.show(
         context.getApplicationContext(),
-        "부재중 통화",
-        payload.callerName != null ? payload.callerName + "님의 부재중 통화" : "",
+        DibayNativeLocale.string(app, R.string.dibay_call_missed_title),
+        payload.callerName != null
+            ? DibayNativeLocale.string(app, R.string.dibay_call_missed_from, payload.callerName)
+            : "",
         FcmPayloadResolver.resolveMissedCallRoute(payload.callId, payload.roomId),
         payload.callId,
         payload.roomId,

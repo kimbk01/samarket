@@ -93,10 +93,10 @@ enum NativeVoiceCallUiPresenter {
   }
 
   private enum Copy {
-    static let incoming = "음성 통화 수신"
-    static let dialing = "전화 거는 중 …"
-    static let connecting = "연결 중…"
-    static let connected = "통화 중"
-    static let ending = "통화 종료 중"
+    static var incoming: String { DibayNativeCopy.text("call_voice_incoming") }
+    static var dialing: String { DibayNativeCopy.text("call_dialing") }
+    static var connecting: String { DibayNativeCopy.text("call_connecting") }
+    static var connected: String { DibayNativeCopy.text("call_connected") }
+    static var ending: String { DibayNativeCopy.text("call_ending") }
   }
 }

@@ -10,7 +10,7 @@ struct IncomingCallCallerIdentity {
   let remoteHandle: String
   let hasVideo: Bool
 
-  private static let fallbackDisplayName = "수신 통화"
+  private static var fallbackDisplayName: String { DibayNativeCopy.text("call_incoming_fallback") }
 
   static func resolve(from data: [AnyHashable: Any]) -> IncomingCallCallerIdentity {
     let display = resolveDisplayName(from: data)

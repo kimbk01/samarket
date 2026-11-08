@@ -28,6 +28,8 @@ import androidx.core.content.ContextCompat;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
+import android.content.Context;
 import com.dibay.app.call.NativeCallAppReturn;
 import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -37,6 +39,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Native-only voice call UI. Never hosts WebView. Render-only over NativeVoiceCallRuntime state. */
 public class NativeVoiceCallActivity extends Activity {
+
+  /** 언어 SSOT S8-3: 통화 화면 문구 = 앱 언어(저장값 → 없으면 기기 언어). 기기 언어와 같으면 그대로 */
+  @Override
+  protected void attachBaseContext(Context newBase) {
+    super.attachBaseContext(DibayNativeLocale.wrap(newBase));
+  }
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_UI_MODE = "uiMode";
   public static final String EXTRA_NOTIFICATION_ACCEPT = "notificationAccept";

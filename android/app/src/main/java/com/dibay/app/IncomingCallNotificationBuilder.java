@@ -719,7 +719,10 @@ public final class IncomingCallNotificationBuilder {
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(fsiBridgeOnly ? "DIBAY 통화" : callerName)
+            .setContentTitle(
+                fsiBridgeOnly
+                    ? DibayNativeLocale.string(context, R.string.dibay_call_notification_title)
+                    : callerName)
             .setContentText(fsiBridgeOnly ? callKindLabel : callKindLabel)
             .setPriority(notificationPriority)
             .setCategory(

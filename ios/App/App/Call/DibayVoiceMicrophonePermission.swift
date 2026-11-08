@@ -142,18 +142,18 @@ enum DibayCallPermissionSettingsPrompt {
     let body: String
     switch kind {
     case .microphone:
-      title = "마이크 권한이 꺼져 있어요"
-      body = "음성·영상 통화를 하려면 설정 > DiBaY에서 마이크를 켜 주세요."
+      title = DibayNativeCopy.text("call_perm_mic_off_title")
+      body = DibayNativeCopy.text("call_perm_mic_off_body")
     case .camera:
-      title = "카메라 권한이 꺼져 있어요"
-      body = "영상 통화를 하려면 설정 > DiBaY에서 카메라를 켜 주세요."
+      title = DibayNativeCopy.text("call_perm_camera_off_title")
+      body = DibayNativeCopy.text("call_perm_camera_off_body")
     }
     DibayCallLog.info("ios_call_permission_settings_prompt", sessionId: sessionId, detail: "kind=\(kind)")
     DispatchQueue.main.async {
       if UIApplication.shared.applicationState == .active, let top = topViewController() {
         let alert = UIAlertController(title: title, message: body, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "나중에", style: .cancel))
-        alert.addAction(UIAlertAction(title: "설정", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: DibayNativeCopy.text("call_perm_later"), style: .cancel))
+        alert.addAction(UIAlertAction(title: DibayNativeCopy.text("call_perm_settings"), style: .default) { _ in
           if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
           }

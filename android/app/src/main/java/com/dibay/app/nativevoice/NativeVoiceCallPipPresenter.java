@@ -10,6 +10,7 @@ import android.os.Build;
 import android.util.Rational;
 import androidx.annotation.RequiresApi;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 import java.util.Collections;
 
 /** S2 P2 — Native Voice 통화 화면 PiP 파라미터 (영상 NativeVideoCallPipPresenter 와 같은 구조). No Runtime ownership. */
@@ -40,7 +41,7 @@ public final class NativeVoiceCallPipPresenter {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     Icon icon = Icon.createWithResource(context, android.R.drawable.ic_menu_close_clear_cancel);
-    String label = context.getString(R.string.dibay_voice_call_end);
+    String label = DibayNativeLocale.string(context, R.string.dibay_voice_call_end);
     return new RemoteAction(icon, label, label, pendingIntent);
   }
 }

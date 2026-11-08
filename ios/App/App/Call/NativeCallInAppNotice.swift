@@ -132,21 +132,21 @@ enum NativeCallInAppNotice {
     // Mirrors Web `cm_ui_call_*` / Android `dibay_call_notice_*` (KO product SSOT for Native shell).
     switch event {
     case .peerBusy:
-      return "상대방이 현재 통화중입니다."
+      return DibayNativeCopy.text("call_notice_peer_busy")
     case .peerDeclined:
-      return "상대방이 통화를 거절했습니다"
+      return DibayNativeCopy.text("call_notice_peer_declined")
     case .callFailed:
-      return "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."
+      return DibayNativeCopy.text("call_notice_call_failed")
     case .remoteEnded:
-      return "통화가 종료되었습니다"
+      return DibayNativeCopy.text("call_notice_remote_ended")
     case .missed:
-      return "부재중 알림"
+      return DibayNativeCopy.text("call_notice_missed")
     case .reconnecting:
-      return "다시 연결하는 중…"
+      return DibayNativeCopy.text("call_notice_reconnecting")
     case .networkWarning:
-      return "네트워크 상태를 확인해 주세요."
+      return DibayNativeCopy.text("call_notice_network_warning")
     case .permissionRequired:
-      return "마이크 권한이 필요합니다"
+      return DibayNativeCopy.text("call_notice_permission_required")
     }
   }
 

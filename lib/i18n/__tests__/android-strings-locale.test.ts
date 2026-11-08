@@ -14,8 +14,8 @@ const HANGUL = /[가-힣]/;
 const base = parse(read("android/app/src/main/res/values/strings.xml"));
 const ko = parse(read("android/app/src/main/res/values-ko/strings.xml"));
 
-/** S8-2 시점 기본 values 의 한글 문자열 수(통화 44 + 알림 1 = 45) — 줄기만 한다 */
-const BASE_HANGUL_CEILING = 45;
+/** 기본 values 의 한글 문자열 수 — S8-2 45 → S8-3 통화 44 를 옮겨 1(알림, S8-4) — 줄기만 한다 */
+const BASE_HANGUL_CEILING = 1;
 
 describe("Android strings 언어 계약 (S8-2)", () => {
   it("values-ko 의 키는 기본 values 에 있고, 그 기본값은 영어(한글 없음)", () => {

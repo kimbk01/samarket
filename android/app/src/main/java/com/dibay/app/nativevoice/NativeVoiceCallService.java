@@ -15,6 +15,7 @@ import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.Person;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 
 /** Foreground service for native voice calls. WebView is not involved. */
 public class NativeVoiceCallService extends Service {
@@ -206,13 +207,13 @@ public class NativeVoiceCallService extends Service {
                 "err=" + error.getClass().getSimpleName());
             builder.addAction(
                 new NotificationCompat.Action.Builder(
-                        0, getString(R.string.dibay_voice_call_end), hangUpPi)
+                        0, DibayNativeLocale.string(this, R.string.dibay_voice_call_end), hangUpPi)
                     .build());
           }
         } else {
           builder.addAction(
               new NotificationCompat.Action.Builder(
-                      0, getString(R.string.dibay_voice_call_end), hangUpPi)
+                      0, DibayNativeLocale.string(this, R.string.dibay_voice_call_end), hangUpPi)
                   .build());
         }
       }

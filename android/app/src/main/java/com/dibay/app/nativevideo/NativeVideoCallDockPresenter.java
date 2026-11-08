@@ -6,6 +6,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 import java.util.Locale;
 
 /** Activity-bound dock presentation for Native Video CONNECTED UI. No Runtime ownership. */
@@ -96,7 +97,7 @@ public final class NativeVideoCallDockPresenter {
 
   private static String safeString(Context app, int resId) {
     try {
-      return app.getString(resId);
+      return DibayNativeLocale.string(app, resId);
     } catch (RuntimeException error) {
       return "";
     }

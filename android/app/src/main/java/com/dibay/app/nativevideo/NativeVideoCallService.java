@@ -17,6 +17,7 @@ import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 
 /** Foreground service for native video calls. WebView is not involved. */
 public class NativeVideoCallService extends Service {
@@ -189,7 +190,7 @@ public class NativeVideoCallService extends Service {
       if (hangUpPi != null) {
         builder.addAction(
             new NotificationCompat.Action.Builder(
-                    0, getString(R.string.dibay_video_call_end), hangUpPi)
+                    0, DibayNativeLocale.string(this, R.string.dibay_video_call_end), hangUpPi)
                 .build());
       }
     }

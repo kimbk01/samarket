@@ -44,7 +44,10 @@ public final class MissedCallNotificationHelper {
     int requestCode = notificationId != null ? notificationId.hashCode() : (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
     PendingIntent pi = PendingIntent.getActivity(context, requestCode, launch, flags);
 
-    String safeTitle = title != null && !title.isEmpty() ? title : "부재중 통화";
+    String safeTitle =
+        title != null && !title.isEmpty()
+            ? title
+            : DibayNativeLocale.string(context, R.string.dibay_call_missed_title);
     String safeBody = body != null ? body : "";
 
     NotificationCompat.Builder builder =

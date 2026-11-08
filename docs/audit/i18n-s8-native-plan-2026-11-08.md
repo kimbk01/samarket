@@ -284,6 +284,25 @@ S6 에서 통화 규정 때문에 제외한 **23파일**(`components/**/call*`·
 2. 13-3 언어 고르는 방식(통화 문구만 앱 언어, 앱 전체 언어 변경 방식은 쓰지 않음) 승인.
 3. 13-4 영어 문구 승인.
 
+## 14. S8-2b·S8-3 결과 (2026-11-08 — Owner 「승인, S8-2b·S8-3 진행」)
+
+### 14-1. S8-2b (비통화, 단독 커밋 `3ec3edeed`)
+`MainActivity.showHandoffCoverLoadError` 문구 2개 → `dibay_handoff_error`·`dibay_handoff_error_with_reason`(기본 영어 · `values-ko` = 이전 코드 글자 그대로). 분기 무변경.
+
+### 14-2. S8-3 (통화 단독 커밋)
+
+| 항목 | 결과 |
+|---|---|
+| **계획과 다르게 한 것 (먼저 보고)** | ① `FcmPayloadResolver:94`「수신 통화」는 **바꾸지 않음** — 이 값은 화면 문구가 아니라 수신 데이터(`IncomingCallPayload.callerName`)에 들어가 36곳에서 쓰이고, 이 함수에는 Context 가 없어 바꾸려면 함수 형태를 바꿔야 함 → 통화 동작 위험이 문구 이득보다 큼. 서버가 이름을 안 보낼 때만 쓰이는 값. ② iOS 문구 파일 읽기 실패 대비를 「코드 안 한국어 기본값」 대신 **앱 언어 → 영어 → 한국어 문구 파일 순서**로 함(코드에 한국어를 다시 넣지 않기 위함. 키 대칭은 테스트가 보장) |
+| Android | 리소스 통화 키 44개: 기본 = 영어, `values-ko` = 이전 값 그대로. 코드에서 옮긴 문구 9키(통화 중 알림·부재중·「DIBAY 통화」). `values-en` 의 인앱 통화 안내 9개는 기본 영어와 같아 삭제(앱 아이콘 2개만 남음 — S8-4). 새 `DibayNativeLocale`(저장값이 기기 언어로 고른 리소스와 다를 때만 그 언어 Context, 같으면 받은 Context 그대로) — 통화 Activity 3개 `attachBaseContext`, 나머지 문구 읽기 21곳은 Context 만 교체 |
+| iOS | 새 `ko.lproj`·`en.lproj/Localizable.strings` 37키, 새 `DibayNativeCopy`(저장값 → 없으면 OS 가 고른 지역화 ko/en). Swift 47줄 교체(`static let` → 읽을 때마다 계산하는 `static var`) · `project.pbxproj` 등록(Swift 1·문구 파일 1) |
+| 한국어 글자 대조 | iOS: 바뀐 47줄을 키 → 한국어 값으로 되돌려 이전 줄과 **47/47 같음**(스크립트 대조). Android: `values-ko` 44키 = 이전 기본 값(테스트 고정표), 코드에서 옮긴 9키 = 이전 코드 글자(테스트 고정표) |
+| 바뀌지 않은 것 | 판정 토큰 13개·대체값 2개(`IncomingCallUiCopy:67·69`)·`FcmPayloadResolver:94`·알림 채널 이름 6개(S8-4) — 테스트 `native-call-copy-locale` 이 허용 목록 외 한글 0 을 강제 |
+| 검증 (코드 PASS) | Android 단위 테스트 181개 중 178 PASS + 새 `DibayNativeLocaleTest` 4건 PASS · `assembleDebug` PASS · iOS 시뮬레이터 빌드 PASS(앱 안에 `ko.lproj`·`en.lproj/Localizable.strings` 들어감 확인) · vitest i18n 103 PASS · typecheck:test · eslint · 통화 검사 `call-log-no-hard-delete`·`call-messenger-restore-hard-lock`·`ios-call-package-classlist-contract`·`ios-callkit-caller-identity-contract`·`incoming-call-push-delivery-contract`·`call-v4-structure-lock`·`call-v4-incoming-fsi-fallback-boundary`·`active-call-lifecycle-contract` PASS |
+| 이전부터 실패 (이 변경 무관, 발견 목록 L19) | Android `IncomingCallNotificationOwnerPolicyTest` 3건 — S8-2b 이전 코드에서도 같은 3건 실패. `verify:cm-call-lifecycle-contract`·`call-authority-contract`·`cm-call-engine-lockdown`·`native-voice-runtime-contract`·`native-video-runtime-contract`·`android-device-permissions-contract` — 변경 전 트리에서 같은 실패 내용(대조 결과 동일, lockdown 은 빌드 산출물 `.tsbuild` 1줄만 추가) |
+| 배포 | 네이티브 — 새 빌드 설치 전까지 사용자 화면 변화 없음. 빌드 = Owner 일괄 빌드 때 |
+| 실기기 | **NOT_PROVEN** — §8 행렬 × 언어 4조건(특히 잠금 화면 수신·앱 꺼짐 수신·Activity 3개 화면 표시) |
+
 ## 부록 A — 통화·알림 네이티브 한국어 문자열 114개 (역할)
 
 | 위치 | 문자열 | 역할 |

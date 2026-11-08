@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat;
 import com.dibay.app.DibayCallLog;
 import com.dibay.app.DibayCallPushLog;
 import com.dibay.app.DibayIncomingCallNativeStore;
+import com.dibay.app.DibayNativeLocale;
 import com.dibay.app.IncomingCallBackgroundNotifier;
 import com.dibay.app.IncomingCallIntentHelper;
 import com.dibay.app.IncomingCallNotificationBuilder;
@@ -296,7 +297,12 @@ public class CallForegroundService extends Service {
 
   private Notification buildRingingCallNotification(String callId, String kind, String reason) {
     String sid = callId != null ? callId.trim() : "";
-    String label = "video".equalsIgnoreCase(kind) ? "영상 통화 수신 중" : "음성 통화 수신 중";
+    String label =
+        DibayNativeLocale.string(
+            this,
+            "video".equalsIgnoreCase(kind)
+                ? R.string.dibay_call_fgs_video_ringing
+                : R.string.dibay_call_fgs_voice_ringing);
     boolean carrierOnly = shouldUseCarrierOnlyRingingNotification(sid);
     logRingingNotificationMode(sid, carrierOnly, reason);
     int pendingFlags =
@@ -319,8 +325,9 @@ public class CallForegroundService extends Service {
             pendingFlags);
     NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle("DIBAY 통화")
-        .setContentText(carrierOnly ? label + " · 통화 서비스 유지 중" : label)
+        .setContentTitle(DibayNativeLocale.string(this, R.string.dibay_call_notification_title))
+        .setContentText(
+            carrierOnly ? DibayNativeLocale.string(this, R.string.dibay_call_fgs_keeping_active, label) : label)
         .setOngoing(true)
         .setCategory(carrierOnly ? NotificationCompat.CATEGORY_SERVICE : NotificationCompat.CATEGORY_CALL)
         .setPriority(carrierOnly ? NotificationCompat.PRIORITY_LOW : NotificationCompat.PRIORITY_HIGH)
@@ -330,8 +337,14 @@ public class CallForegroundService extends Service {
       return builder.build();
     }
     return builder
-        .addAction(android.R.drawable.ic_menu_call, "수락", contentIntent)
-        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "거절", endIntent)
+        .addAction(
+            android.R.drawable.ic_menu_call,
+            DibayNativeLocale.string(this, R.string.dibay_incoming_accept),
+            contentIntent)
+        .addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            DibayNativeLocale.string(this, R.string.dibay_incoming_reject),
+            endIntent)
         .build();
   }
 
@@ -382,7 +395,12 @@ public class CallForegroundService extends Service {
 
   private Notification buildOngoingCallNotification(String callId, String kind) {
     String sid = callId != null ? callId.trim() : "";
-    String label = "video".equalsIgnoreCase(kind) ? "영상 통화" : "음성 통화";
+    String label =
+        DibayNativeLocale.string(
+            this,
+            "video".equalsIgnoreCase(kind)
+                ? R.string.dibay_call_fgs_video_label
+                : R.string.dibay_call_fgs_voice_label);
     int pendingFlags =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
             ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -401,15 +419,18 @@ public class CallForegroundService extends Service {
             pendingFlags);
     return new NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle("DIBAY 통화")
-        .setContentText(label + " 진행 중 · 탭하여 복귀")
+        .setContentTitle(DibayNativeLocale.string(this, R.string.dibay_call_notification_title))
+        .setContentText(DibayNativeLocale.string(this, R.string.dibay_call_fgs_ongoing, label))
         .setOngoing(true)
         .setAutoCancel(false)
         .setDeleteIntent(null)
         .setCategory(NotificationCompat.CATEGORY_CALL)
         .setPriority(NotificationCompat.PRIORITY_LOW)
         .setContentIntent(contentIntent)
-        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "종료", endIntent)
+        .addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            DibayNativeLocale.string(this, R.string.dibay_voice_call_end),
+            endIntent)
         .build();
   }
 

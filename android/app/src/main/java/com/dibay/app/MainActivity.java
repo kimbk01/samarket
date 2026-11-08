@@ -2091,7 +2091,9 @@ public class MainActivity extends BridgeActivity {
             | com.dibay.app.nativevideo.NativeVideoCallRuntime.abandonPreparingOnWebGone(this);
     if (preparingClosed) {
       android.widget.Toast.makeText(
-              this, R.string.dibay_call_notice_call_failed, android.widget.Toast.LENGTH_LONG)
+              this,
+              DibayNativeLocale.string(this, R.string.dibay_call_notice_call_failed),
+              android.widget.Toast.LENGTH_LONG)
           .show();
     }
     long now = System.currentTimeMillis();

@@ -111,14 +111,14 @@ enum NativeVideoCallUiPresenter {
   }
 
   private enum Copy {
-    static let incoming = "영상 통화 수신"
-    static let connecting = "연결 중…"
-    static let connected = "통화 중"
-    static let ending = "통화 종료 중"
-    static let end = "종료"
-    static let cancel = "취소"
-    static let cameraOn = "카메라 켬"
-    static let cameraOff = "카메라 끔"
+    static var incoming: String { DibayNativeCopy.text("call_video_incoming") }
+    static var connecting: String { DibayNativeCopy.text("call_connecting") }
+    static var connected: String { DibayNativeCopy.text("call_connected") }
+    static var ending: String { DibayNativeCopy.text("call_ending") }
+    static var end: String { DibayNativeCopy.text("call_end") }
+    static var cancel: String { DibayNativeCopy.text("call_cancel") }
+    static var cameraOn: String { DibayNativeCopy.text("call_camera_on") }
+    static var cameraOff: String { DibayNativeCopy.text("call_camera_off") }
   }
 
   static func cameraLabel(enabled: Bool) -> String {

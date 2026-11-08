@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   언어 SSOT S8-2 (2026-11-08): 기본 values 가 영어인 키의 한국어. 키는 values/strings.xml 과 같아야 한다
-  (lib/i18n/__tests__/android-strings-locale.test.ts 가 검사). 통화·알림 문구는 S8-3·S8-4 에서 옮긴다.
+  (lib/i18n/__tests__/android-strings-locale.test.ts 가 검사). 통화 문구는 S8-3 에서 옮김, 알림 문구는 S8-4.
 -->
 <resources>
     <string name="dibay_webview_error_title">서버에 연결할 수 없습니다</string>
@@ -11,4 +11,58 @@
     <string name="dibay_webview_renderer_gone_body">다시 시도를 누르면 보던 화면으로 돌아갑니다.</string>
     <string name="dibay_handoff_error">연결에 실패했습니다. 다시 시도해 주세요.</string>
     <string name="dibay_handoff_error_with_reason">연결에 실패했습니다. %1$s</string>
+    <!-- 언어 SSOT S8-3: 통화 문구 — S8-3 이전 기본 values·코드의 한국어 그대로 -->
+    <string name="dibay_incoming_accept">수락</string>
+    <string name="dibay_incoming_reject">거절</string>
+    <string name="dibay_incoming_voice_brand">DiBay 음성 통화</string>
+    <string name="dibay_incoming_video_brand">DiBay 영상 통화</string>
+    <string name="dibay_voice_call_incoming">음성 통화 수신</string>
+    <string name="dibay_voice_call_calling">연결 중…</string>
+    <string name="dibay_voice_call_dialing">전화 거는 중 …</string>
+    <string name="dibay_call_control_speaker">스피커</string>
+    <string name="dibay_call_control_video">영상</string>
+    <string name="dibay_call_control_mute">음소거</string>
+    <string name="dibay_call_control_unmute">음소거 해제</string>
+    <string name="dibay_voice_call_connecting">연결 중…</string>
+    <string name="dibay_voice_call_connected">통화 중</string>
+    <string name="dibay_voice_call_ending">통화 종료 중</string>
+    <string name="dibay_voice_call_end">종료</string>
+    <string name="dibay_voice_call_cancel">취소</string>
+    <string name="dibay_voice_speaker_on">스피커 켬</string>
+    <string name="dibay_voice_speaker_off">스피커 끔</string>
+    <string name="dibay_video_call_incoming">영상 통화 수신</string>
+    <string name="dibay_video_call_calling">연결 중…</string>
+    <string name="dibay_video_call_connecting">연결 중…</string>
+    <string name="dibay_video_call_connected">통화 중</string>
+    <string name="dibay_video_call_ending">통화 종료 중</string>
+    <string name="dibay_video_call_end">종료</string>
+    <string name="dibay_video_call_cancel">취소</string>
+    <string name="dibay_video_camera_flip">카메라 전환</string>
+    <string name="dibay_video_camera_on">카메라 켬</string>
+    <string name="dibay_video_camera_off">카메라 끔</string>
+    <string name="dibay_video_network_quality_good">좋음</string>
+    <string name="dibay_video_network_quality_fair">보통</string>
+    <string name="dibay_video_network_quality_poor">나쁨</string>
+    <string name="dibay_video_network_quality_very_poor">매우 나쁨</string>
+    <string name="dibay_call_dock_resume">통화로 돌아가기</string>
+    <string name="dibay_call_minimize">통화 화면 줄이기</string>
+    <string name="incoming_call_connecting">연결 중…</string>
+    <string name="dibay_call_notice_peer_busy">상대방이 현재 통화중입니다.</string>
+    <string name="dibay_call_notice_peer_declined">상대방이 통화를 거절했습니다</string>
+    <string name="dibay_call_notice_call_failed">통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.</string>
+    <string name="dibay_call_notice_remote_ended">통화가 종료되었습니다</string>
+    <string name="dibay_call_notice_missed">부재중 알림</string>
+    <string name="dibay_call_notice_reconnecting">다시 연결하는 중…</string>
+    <string name="dibay_call_notice_network_warning">네트워크 상태를 확인해 주세요.</string>
+    <string name="dibay_call_notice_mic_mute_failed">음소거를 적용하지 못했습니다.</string>
+    <string name="dibay_call_notice_permission_required">마이크 권한이 필요합니다</string>
+    <string name="dibay_call_fgs_voice_ringing">음성 통화 수신 중</string>
+    <string name="dibay_call_fgs_video_ringing">영상 통화 수신 중</string>
+    <string name="dibay_call_fgs_keeping_active">%1$s · 통화 서비스 유지 중</string>
+    <string name="dibay_call_fgs_voice_label">음성 통화</string>
+    <string name="dibay_call_fgs_video_label">영상 통화</string>
+    <string name="dibay_call_fgs_ongoing">%1$s 진행 중 · 탭하여 복귀</string>
+    <string name="dibay_call_notification_title">DIBAY 통화</string>
+    <string name="dibay_call_missed_title">부재중 통화</string>
+    <string name="dibay_call_missed_from">%1$s님의 부재중 통화</string>
 </resources>

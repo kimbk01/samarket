@@ -3,6 +3,7 @@ package com.dibay.app.nativevoice;
 import android.content.Context;
 import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 
 /** Maps Native Voice Runtime session/state to render-only UI model. No ownership of session/Agora/cleanup. */
 public final class NativeVoiceCallUiPresenter {
@@ -114,7 +115,7 @@ public final class NativeVoiceCallUiPresenter {
 
   private static String safeString(Context app, int resId) {
     try {
-      return app.getString(resId);
+      return DibayNativeLocale.string(app, resId);
     } catch (RuntimeException error) {
       return "";
     }

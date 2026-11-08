@@ -110,7 +110,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let sessionId = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
     let displayName = callerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
     let handleValue = remoteHandle.trimmingCharacters(in: .whitespacesAndNewlines)
-    let resolvedDisplayName = displayName.isEmpty ? "수신 통화" : displayName
+    let resolvedDisplayName = displayName.isEmpty ? DibayNativeCopy.text("call_incoming_fallback") : displayName
     let resolvedRemoteHandle = handleValue.isEmpty ? resolvedDisplayName : handleValue
     // I1 (call-termination-authority-audit): 수락 이후·연결 중·연결됨 통화가 있으면 새 수신이 그 통화를 대체하지
     // 않는다(SUPERSEDED → KEEP). 새 수신은 서버 busy 와 같은 결과로 — 울리지 않고(report-then-end, 무음) 거절도 보내지

@@ -19,6 +19,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.dibay.app.R;
+import com.dibay.app.DibayNativeLocale;
 
 /**
  * DIBAY Call in-app notice — Android Native renderer (Voice/Video shared).
@@ -315,7 +316,7 @@ public final class NativeCallInAppNoticeOverlay {
         break;
     }
     try {
-      return activity.getString(res);
+      return DibayNativeLocale.string(activity, res);
     } catch (RuntimeException error) {
       return "";
     }

@@ -23,6 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Lock-screen incoming call UI — accept/reject via web call-route (V3 PATCH owner). */
 public class IncomingCallActivity extends AppCompatActivity {
+
+  /** 언어 SSOT S8-3: 통화 화면 문구 = 앱 언어(저장값 → 없으면 기기 언어). 기기 언어와 같으면 그대로 */
+  @Override
+  protected void attachBaseContext(Context newBase) {
+    super.attachBaseContext(DibayNativeLocale.wrap(newBase));
+  }
   private static final ConcurrentHashMap<String, Long> VISIBLE_CALL_IDS = new ConcurrentHashMap<>();
   private static final java.util.Set<String> ACTIVITY_SHOWN_EMITTED = ConcurrentHashMap.newKeySet();
   private static final ConcurrentHashMap<Integer, java.lang.ref.WeakReference<IncomingCallActivity>>

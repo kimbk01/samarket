@@ -23,3 +23,4 @@
 | L16 | S7 | 어드민 오류 문구가 한국어로 고정된 경로 — 커뮤니티 주제 화면 `topicErrorText`(한국어 문장 + `adminOperatorErrorMessage(c, true)`), 거래 카테고리 `ERROR_KO` 표 | S7 오류 문구 연결 중 | 기록 — S9(어드민 영어) |
 | L17 | S7 | 코드에 한국어만 박힌 화면 문구(영어 짝 없음) — 예: 「(제목 없음)」 2곳, 커뮤니티 주제 오류 문장. `check:i18n-quality` 는 영어 짝이 있는 형태만 셈 | S7 DB 문장 조사 중 | 기록 — 계획 완료 후 감사(`check-hardcoded-korean` 기준선과 연결) |
 | L18 | S8-3 | iOS 권한 꺼짐 안내 한국어 「설정 > **DiBaY**에서 …」 — 실제 설정 앱에 보이는 이름은 **DIBAY**(`CFBundleDisplayName`). 고객이 보는 경로 이름과 다름 | S8-3 계획 조사 | 기록 — S8-3 은 한국어 글자 불변 원칙, 계획 완료 후 처리 |
+| L19 | S8-3 | 이전부터 실패하는 통화 검사 — Android 단위 테스트 `IncomingCallNotificationOwnerPolicyTest` 3건(43·62·78줄), `verify:cm-call-lifecycle-contract`·`call-authority-contract`·`cm-call-engine-lockdown`·`native-voice-runtime-contract`·`native-video-runtime-contract`·`android-device-permissions-contract`. S8 변경 전 트리에서도 같은 실패 | S8-3 검증 중 변경 전후 대조 | 기록 — 통화 영역이라 원인 확인·수정은 통화 규정(증거·계획·승인)으로 별도 |
