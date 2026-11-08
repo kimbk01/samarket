@@ -419,54 +419,75 @@ export function PhoneVerificationBox({
         </div>
       ) : (
         <>
+          {/*
+            국가번호 = 버튼 2개 (Owner 2026-11-09: 드롭다운 대신). 기기 기본 선택 상자를 쓰지 않아 iOS·Android 동일.
+            안내는 버튼 바로 아래 작은 글씨, 오류가 보일 때는 숨긴다(오류 이유와 섞여 보이지 않게).
+          */}
+          <div
+            role="radiogroup"
+            aria-label={t("my_phone_country_code_label")}
+            className="grid min-w-0 gap-2"
+            style={{ gridTemplateColumns: `repeat(${countryOptions.length}, minmax(0, 1fr))` }}
+            data-testid="phone-verify-country-code"
+          >
+            {countryOptions.map((c) => {
+              const selected = c.dialCode === dialCode;
+              return (
+                <button
+                  key={c.iso}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => {
+                    if (selected) return;
+                    setDialCode(c.dialCode);
+                    setPhone("");
+                    setError(null);
+                    setMessage(null);
+                  }}
+                  className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-ui-rect border px-2 text-[14px] ${
+                    selected
+                      ? "border-sam-primary bg-sam-primary-soft font-bold text-sam-primary"
+                      : "border-sam-border bg-sam-surface font-medium text-sam-fg"
+                  }`}
+                  data-testid={`phone-verify-country-${c.iso}`}
+                >
+                  <span aria-hidden>{c.flag}</span>
+                  <span className="truncate">{`${c.dialCode} ${language === "en" ? c.labelEn : c.labelKo}`}</span>
+                </button>
+              );
+            })}
+          </div>
+          {error ? null : (
+            <p className="sam-text-helper text-sam-muted" data-testid="phone-verify-country-notice">
+              {t("my_phone_country_only_notice", { countries: countryNoticeNames })}
+            </p>
+          )}
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            {/* 국가번호 칸 + 번호 칸 분리 (Owner 2026-11-09). autoComplete 로 기기 저장 번호 제안 → 그대로 고칠 수 있음. */}
-            <div className="grid min-w-0 grid-cols-[auto_1fr] gap-2">
-              <select
-                value={dialCode}
-                onChange={(e) => {
-                  setDialCode(e.target.value);
-                  setPhone("");
-                  setError(null);
-                }}
-                aria-label={t("my_phone_country_code_label")}
-                autoComplete="tel-country-code"
-                className={`${inputClass} !w-auto`}
-                data-testid="phone-verify-country-code"
-              >
-                {countryOptions.map((c) => (
-                  <option key={c.iso} value={c.dialCode}>
-                    {`${c.flag} ${c.dialCode}`}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                name="tel"
-                aria-label={t("my_phone_number_label")}
-                value={isKorea ? formatKoreaMobileLocal(phone) : formatPhNationalDisplay(phone)}
-                onChange={(e) =>
-                  setPhone(isKorea ? parseKoreaMobileTyping(e.target.value) : parsePhMobileInput(e.target.value))
-                }
-                placeholder={t("my_phone_number_placeholder")}
-                className={`${inputClass} min-w-0`}
-                data-testid="phone-verify-number"
-              />
-            </div>
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              name="tel"
+              aria-label={t("my_phone_number_label")}
+              value={isKorea ? formatKoreaMobileLocal(phone) : formatPhNationalDisplay(phone)}
+              onChange={(e) =>
+                setPhone(isKorea ? parseKoreaMobileTyping(e.target.value) : parsePhMobileInput(e.target.value))
+              }
+              placeholder={t("my_phone_number_placeholder")}
+              className={`${inputClass} min-w-0`}
+              data-testid="phone-verify-number"
+            />
             <button
               type="button"
               disabled={sending || cooldownLeft > 0}
               onClick={() => void requestOtp()}
               className={otpBtnClass}
+              data-testid="phone-verify-send"
             >
               {sending ? t("my_phone_sending") : t("my_phone_send_otp")}
             </button>
           </div>
-          <p className="sam-text-helper text-sam-muted" data-testid="phone-verify-country-notice">
-            {t("my_phone_country_only_notice", { countries: countryNoticeNames })}
-          </p>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
               type="text"

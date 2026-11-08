@@ -293,7 +293,8 @@ describe("S05 전화 인증 — 무한 로딩 금지 · 재전송 타이머", ()
         onRefreshProfile={async () => undefined}
       />,
     );
-    const sendBtn = Array.from(host!.querySelectorAll("button")).find((b) => !b.disabled);
+    // 국가번호 버튼(+63/+82)이 앞에 있으므로 발송 버튼은 testid 로 찾는다
+    const sendBtn = host!.querySelector<HTMLButtonElement>('[data-testid="phone-verify-send"]');
     click(sendBtn ?? null);
     await flush(6);
     const resendText = () => Array.from(host!.querySelectorAll("button")).map((b) => b.textContent ?? "").join("|");

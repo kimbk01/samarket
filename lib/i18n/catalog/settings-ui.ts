@@ -341,6 +341,8 @@ export const settingsUiMessages = {
     my_phone_sending: "발송 중…",
     my_phone_send_otp: "인증번호 발송",
     my_phone_number_placeholder: "휴대폰 번호를 입력하세요",
+    my_phone_send_otp_failed_provider:
+      "지금 이 번호로 인증 문자를 보낼 수 없습니다. 번호는 맞습니다 — 잠시 후 다시 시도하거나 고객센터에 문의해 주세요.",
     my_phone_rule_invalid_kr: "올바른 한국 휴대폰 번호(010으로 시작)를 입력해 주세요.",
     my_phone_country_only_notice: "{countries} 휴대폰 번호만 인증할 수 있습니다. 다른 나라 번호는 입력하지 마세요.",
     my_phone_country_code_label: "국가번호",
@@ -697,6 +699,8 @@ export const settingsUiMessages = {
     my_phone_sending: "Sending…",
     my_phone_send_otp: "Send code",
     my_phone_number_placeholder: "Enter your mobile number",
+    my_phone_send_otp_failed_provider:
+      "We can't send a code to this number right now. The number is fine — try again later or contact support.",
     my_phone_rule_invalid_kr: "Enter a valid Korean mobile number (starting with 010).",
     my_phone_country_only_notice: "Only {countries} mobile numbers can be verified. Do not enter numbers from other countries.",
     my_phone_country_code_label: "Country code",

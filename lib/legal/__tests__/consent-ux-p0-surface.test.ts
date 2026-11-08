@@ -47,6 +47,10 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     expect(src).toContain('autoComplete="tel"');
     expect(src).toContain('t("my_phone_number_placeholder")');
     expect(src).not.toContain("PH_MOBILE_PLUS63_PLACEHOLDER");
+    // 국가번호 = 버튼(라디오) — 기기 기본 드롭다운 금지(iOS), 안내는 오류 때 숨김
+    expect(src).not.toContain("<select");
+    expect(src).toContain('role="radiogroup"');
+    expect(src).toContain("{error ? null : (");
   });
 
   it("legal-consent PATCH uses atomic RPC (no soft-skip required ledger)", () => {

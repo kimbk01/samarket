@@ -19,7 +19,8 @@ const CODE_TO_KEY: Record<PhoneOtpErrorCode, MessageKey> = {
   otp_required: "my_phone_err_otp_send_first",
   otp_phone_mismatch: "my_phone_err_otp_phone_mismatch",
   otp_rate_limited: "my_phone_err_otp_rate_limited",
-  otp_send_failed: "my_phone_send_otp_failed",
+  // 문자 업체(Semaphore·Solapi)가 거절 — 번호 문제가 아님을 분명히 (Owner 2026-11-09)
+  otp_send_failed: "my_phone_send_otp_failed_provider",
   phone_verify_disabled: "mypage_comp_phone_verify_disabled",
   phone_otp_hash_secret_missing: "mypage_comp_phone_verify_disabled",
   server_error: "my_phone_send_otp_failed",

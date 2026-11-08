@@ -26,6 +26,12 @@ describe("phone-otp-client-errors", () => {
     ).toBe("my_phone_err_otp_invalid");
   });
 
+  it("provider rejection says the number is fine (Owner 2026-11-09)", () => {
+    expect(
+      resolvePhoneOtpUiError({ status: 502, code: "otp_send_failed", message: "인증번호 발송에 실패했습니다." }, t),
+    ).toBe("my_phone_send_otp_failed_provider");
+  });
+
   it("falls back for unknown server errors", () => {
     expect(resolvePhoneOtpUiError({ status: 500, message: "db down" }, t)).toBe(
       "my_phone_send_otp_failed",

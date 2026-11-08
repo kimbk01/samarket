@@ -53,7 +53,9 @@ export async function sendSolapiSms(toKoreaLocal: string, text: string): Promise
     });
     const payload = (await res.json().catch(() => null)) as SolapiSendResponse | null;
     if (!res.ok || !payload) {
-      return { ok: false, error: `${SMS_SEND_FAILED_MESSAGE} (${payload?.errorCode ?? res.status})` };
+      // 어드민 운영 화면 기록용 — Solapi 오류 코드·원문 그대로 (예: Forbidden 사유)
+      const detail = [payload?.errorCode ?? `HTTP ${res.status}`, payload?.errorMessage].filter(Boolean).join(": ");
+      return { ok: false, error: `${SMS_SEND_FAILED_MESSAGE} (Solapi ${detail})`.slice(0, 480) };
     }
     const failed = payload.failedMessageList ?? [];
     if (failed.length > 0) {
