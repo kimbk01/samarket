@@ -6,7 +6,7 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 import android.util.Log;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -26,19 +26,20 @@ public final class DibayNotificationChannelRegistry {
 
   private static final Set<String> MESSAGE_CHANNEL_IDS = new HashSet<>();
   private static final Set<String> CALL_CHANNEL_IDS = new HashSet<>();
-  private static final Map<String, String> CHANNEL_LABELS = new HashMap<>();
+  /** 언어 SSOT S8-4a: 채널 이름·설명 = 리소스(기본 영어·values-ko), 앱 언어로 읽음 — {name 리소스, 설명 리소스} */
+  private static final Map<String, int[]> CHANNEL_LABELS = new LinkedHashMap<>();
 
   static {
-    registerMessageChannel("dibay_chat_messages_v1", "채팅 메시지", "채팅·메신저 메시지 알림");
-    registerMessageChannel("dibay_trade_v1", "거래 알림", "거래 채팅·거래 상태 알림");
-    registerMessageChannel("dibay_orders_v1", "주문 알림", "스토어·주문 알림");
-    registerMessageChannel("dibay_delivery_v1", "배달 알림", "배달·매장 주문 알림");
-    registerMessageChannel("dibay_community_v1", "커뮤니티 알림", "커뮤니티 활동 알림");
-    registerMessageChannel("dibay_admin_notice_v1", "공지 알림", "공지·마케팅 알림");
-    registerMessageChannel(SILENT_MESSAGE_CHANNEL_ID, "무음 알림", "알림음·진동을 끈 상태의 알림");
-    registerMessageChannel(NO_VIBRATE_MESSAGE_CHANNEL_ID, "진동 없는 알림", "진동을 끈 상태의 알림");
+    registerMessageChannel("dibay_chat_messages_v1", R.string.dibay_notif_ch_chat_name, R.string.dibay_notif_ch_chat_desc);
+    registerMessageChannel("dibay_trade_v1", R.string.dibay_notif_ch_trade_name, R.string.dibay_notif_ch_trade_desc);
+    registerMessageChannel("dibay_orders_v1", R.string.dibay_notif_ch_orders_name, R.string.dibay_notif_ch_orders_desc);
+    registerMessageChannel("dibay_delivery_v1", R.string.dibay_notif_ch_delivery_name, R.string.dibay_notif_ch_delivery_desc);
+    registerMessageChannel("dibay_community_v1", R.string.dibay_notif_ch_community_name, R.string.dibay_notif_ch_community_desc);
+    registerMessageChannel("dibay_admin_notice_v1", R.string.dibay_notif_ch_notice_name, R.string.dibay_notif_ch_notice_desc);
+    registerMessageChannel(SILENT_MESSAGE_CHANNEL_ID, R.string.dibay_notif_ch_silent_name, R.string.dibay_notif_ch_silent_desc);
+    registerMessageChannel(NO_VIBRATE_MESSAGE_CHANNEL_ID, R.string.dibay_notif_ch_novibrate_name, R.string.dibay_notif_ch_novibrate_desc);
     // Legacy FCM channel id — ensure only; new posts use SSOT v1 ids.
-    registerMessageChannel("dibay_messages", "채팅 메시지", "채팅 메시지 알림 (legacy)");
+    registerMessageChannel("dibay_messages", R.string.dibay_notif_ch_chat_name, R.string.dibay_notif_ch_legacy_chat_desc);
 
     CALL_CHANNEL_IDS.add("dibay_calls_incoming_v7");
     CALL_CHANNEL_IDS.add("dibay_incoming_calls");
@@ -57,9 +58,24 @@ public final class DibayNotificationChannelRegistry {
 
   private DibayNotificationChannelRegistry() {}
 
-  private static void registerMessageChannel(String id, String name, String description) {
+  private static void registerMessageChannel(String id, int nameRes, int descriptionRes) {
     MESSAGE_CHANNEL_IDS.add(id);
-    CHANNEL_LABELS.put(id, name + "\0" + description);
+    CHANNEL_LABELS.put(id, new int[] {nameRes, descriptionRes});
+  }
+
+  /** 이름·설명을 붙이는 메시지·일반 채널 id (등록 순서). */
+  static Set<String> labelledChannelIds() {
+    return java.util.Collections.unmodifiableSet(CHANNEL_LABELS.keySet());
+  }
+
+  /** {이름, 설명} — 앱 언어(S8-1 저장값 → 기기 언어). 모르는 id 는 기본 이름·설명. */
+  static String[] labelsFor(Context context, String channelId) {
+    int[] res = CHANNEL_LABELS.get(channelId);
+    int nameRes = res != null ? res[0] : R.string.dibay_notif_ch_default_name;
+    int descRes = res != null ? res[1] : R.string.dibay_notif_ch_default_desc;
+    return new String[] {
+      DibayNativeLocale.string(context, nameRes), DibayNativeLocale.string(context, descRes)
+    };
   }
 
   public static boolean isCallChannelId(String channelId) {
@@ -143,14 +159,9 @@ public final class DibayNotificationChannelRegistry {
     if (nm == null) return channelId;
     if (nm.getNotificationChannel(channelId) != null) return channelId;
 
-    String labelPair = CHANNEL_LABELS.get(channelId);
-    String name = "DIBAY 알림";
-    String description = "메시지 알림";
-    if (labelPair != null) {
-      String[] parts = labelPair.split("\0", 2);
-      name = parts[0];
-      if (parts.length > 1) description = parts[1];
-    }
+    String[] labels = labelsFor(app, channelId);
+    String name = labels[0];
+    String description = labels[1];
 
     NotificationChannel channel =
         new NotificationChannel(channelId, name, NotificationManager.IMPORTANCE_HIGH);

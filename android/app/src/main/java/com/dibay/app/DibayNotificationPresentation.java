@@ -111,15 +111,17 @@ final class DibayNotificationPresentation {
     Bitmap image = loadLargeIcon(context);
     if (isMessage()) {
       builder.setCategory(NotificationCompat.CATEGORY_MESSAGE);
-      builder.setStyle(buildMessagingStyle(nm, notificationId, title, body, image));
+      builder.setStyle(buildMessagingStyle(context, nm, notificationId, title, body, image));
       return;
     }
     if (image != null) builder.setLargeIcon(image);
   }
 
   private NotificationCompat.MessagingStyle buildMessagingStyle(
+      Context context,
       NotificationManager nm, int notificationId, String title, String body, Bitmap avatar) {
-    Person me = new Person.Builder().setName("나").build();
+    Person me =
+        new Person.Builder().setName(DibayNativeLocale.string(context, R.string.dibay_notif_self_name)).build();
     String name = !senderName.isEmpty() ? senderName : title;
     Person.Builder sender = new Person.Builder().setName(name).setKey(name);
     if (avatar != null) sender.setIcon(IconCompat.createWithBitmap(avatar));

@@ -70,6 +70,16 @@ describe("W4 native notification sound channel sync", () => {
     }
   });
 
+  it("언어 SSOT S8-4a: 채널 이름 재료로 한국어(label)·영어(labelEn) 이름을 함께 보낸다", async () => {
+    await hydrateAllCustom();
+    const entries = buildNativeEventSoundEntries();
+    expect(entries.some((e) => e.labelEn !== "")).toBe(true);
+    for (const e of entries) {
+      expect(typeof e.labelEn).toBe("string");
+      expect(/[가-힣]/.test(e.labelEn)).toBe(false);
+    }
+  });
+
   it("custom https asset → url+assetId; non-https → empty (base channel default sound)", async () => {
     await hydrateAllCustom();
     for (const e of buildNativeEventSoundEntries()) {

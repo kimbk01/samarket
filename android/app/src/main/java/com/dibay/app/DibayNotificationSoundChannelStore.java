@@ -185,6 +185,8 @@ public final class DibayNotificationSoundChannelStore {
       String assetId = trim(e.optString("assetId", ""));
       String url = trim(e.optString("url", ""));
       String label = trim(e.optString("label", ""));
+      // 언어 SSOT S8-4a: 영어 이름(구 웹은 보내지 않음 → 빈 값이면 한국어 이름 사용)
+      String labelEn = trim(e.optString("labelEn", ""));
       JSONObject prev = records.optJSONObject(eventKey);
 
       if (assetId.isEmpty() || !url.startsWith("https://")) {
@@ -203,6 +205,9 @@ public final class DibayNotificationSoundChannelStore {
           && url.equals(prev.optString("url"))
           && baseChannelId.equals(prev.optString("baseChannelId"))
           && uriReadable(app, prev.optString("uri"))) {
+        // 음원 그대로 — 채널 이름 재료(이름)만 최신으로. 채널 이름은 DibayNotificationChannelLabels 가 붙인다.
+        putQuiet(prev, "label", label);
+        putQuiet(prev, "labelEn", labelEn);
         unchanged++;
         continue;
       }
@@ -221,6 +226,7 @@ public final class DibayNotificationSoundChannelStore {
       putQuiet(next, "uri", uri.toString());
       putQuiet(next, "baseChannelId", baseChannelId);
       putQuiet(next, "label", label);
+      putQuiet(next, "labelEn", labelEn);
       putQuiet(next, "version", version);
       if (prev != null) {
         inheritFromChannel(nm, prev.optString("channelId"), next, prev);
@@ -250,6 +256,12 @@ public final class DibayNotificationSoundChannelStore {
     }
 
     writeRecords(app, records);
+    // 언어 SSOT S8-4a: 받은 이름(한국어·영어)으로 이미 있는 채널 이름을 지금 언어에 맞춤 (같으면 호출 없음)
+    try {
+      relabelChannels(app, nm);
+    } catch (RuntimeException error) {
+      Log.w(TAG, "[sync] relabel_failed", error);
+    }
     putQuiet(summary, "updated", updated);
     putQuiet(summary, "unchanged", unchanged);
     putQuiet(summary, "removed", removed);
@@ -439,11 +451,10 @@ public final class DibayNotificationSoundChannelStore {
             ? rec.optInt("inheritLockscreen")
             : base != null ? base.getLockscreenVisibility() : Notification.VISIBILITY_PUBLIC;
     boolean badge = rec.has("inheritBadge") ? rec.optBoolean("inheritBadge") : base == null || base.canShowBadge();
-    String label = rec.optString("label", "");
-    String baseName = base != null && base.getName() != null ? base.getName().toString() : "DIBAY 알림";
-    String name = (label.isEmpty() ? baseName : label) + (noVibrate ? " · 진동 없음" : "");
-    NotificationChannel ch = new NotificationChannel(channelId, name, importance);
-    ch.setDescription(baseName + " · DIBAY 알림음");
+    Context ctx = appContext;
+    String[] labels = channelLabels(ctx, rec, base, noVibrate);
+    NotificationChannel ch = new NotificationChannel(channelId, labels[0], importance);
+    ch.setDescription(labels[1]);
     ch.enableVibration(vibrate);
     // 사용자/시스템 미지정(NO_OVERRIDE 등)은 그대로 두고, 명시값만 승계한다.
     if (lockscreen == Notification.VISIBILITY_PUBLIC
@@ -459,6 +470,46 @@ public final class DibayNotificationSoundChannelStore {
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build());
     return ch;
+  }
+
+  /**
+   * 언어 SSOT S8-4a — 알림음 채널 {이름, 설명}. 이벤트 이름 = 앱 언어가 영어이고 영어 이름이 있으면 영어, 아니면
+   * 한국어 이름, 둘 다 없으면 기본 채널 이름. 설명 = 「기본 채널 이름 · DIBAY 알림음」.
+   */
+  static String[] channelLabels(Context ctx, JSONObject rec, NotificationChannel base, boolean noVibrate) {
+    String baseName =
+        base != null && base.getName() != null
+            ? base.getName().toString()
+            : DibayNativeLocale.string(ctx, R.string.dibay_notif_ch_default_name);
+    String label = rec.optString("label", "");
+    String labelEn = rec.optString("labelEn", "");
+    String event =
+        "en".equals(DibayNotificationChannelLabels.language(ctx)) && !labelEn.isEmpty() ? labelEn : label;
+    String name = event.isEmpty() ? baseName : event;
+    if (noVibrate) name = DibayNativeLocale.string(ctx, R.string.dibay_notif_sound_no_vibrate_name, name);
+    return new String[] {name, DibayNativeLocale.string(ctx, R.string.dibay_notif_sound_desc, baseName)};
+  }
+
+  /** 언어 SSOT S8-4a — 이미 있는 알림음 채널(기본·진동 없음)에 지금 언어의 이름·설명을 다시 붙인다. */
+  static synchronized int relabelChannels(Context app, NotificationManager nm) {
+    if (app == null || nm == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return 0;
+    if (appContext == null) appContext = app.getApplicationContext();
+    int changed = 0;
+    JSONObject records = readRecords(app);
+    Iterator<String> it = records.keys();
+    while (it.hasNext()) {
+      JSONObject rec = records.optJSONObject(it.next());
+      if (rec == null) continue;
+      String channelId = rec.optString("channelId", "");
+      if (!isEventSoundChannelId(channelId)) continue;
+      NotificationChannel base = nm.getNotificationChannel(rec.optString("baseChannelId"));
+      for (boolean nv : new boolean[] {false, true}) {
+        String id = nv ? noVibrateChannelIdFor(channelId) : channelId;
+        String[] labels = channelLabels(app, rec, base, nv);
+        if (DibayNotificationChannelLabels.applyLabels(nm, id, labels[0], labels[1])) changed++;
+      }
+    }
+    return changed;
   }
 
   private static void putQuiet(JSONObject o, String k, Object v) {

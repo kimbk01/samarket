@@ -80,5 +80,31 @@
 
     <!-- Android Delivery Adapter v1 — App Icon summary (not Bell / not notification_events) -->
     <string name="dibay_app_icon_summary_title">DIBAY</string>
-    <string name="dibay_app_icon_summary_body">읽지 않은 알림 %1$d개가 있습니다. 탭하여 확인하세요.</string>
+    <string name="dibay_app_icon_summary_body">You have %1$d unread notifications. Tap to review.</string>
+
+    <!-- 언어 SSOT S8-4a: 알림 채널 이름·설명(휴대폰 알림 설정에 보임) — 한국어는 values-ko -->
+    <string name="dibay_notif_ch_chat_name">Chat messages</string>
+    <string name="dibay_notif_ch_chat_desc">Chat and messenger alerts</string>
+    <string name="dibay_notif_ch_trade_name">Trades</string>
+    <string name="dibay_notif_ch_trade_desc">Trade chats and status updates</string>
+    <string name="dibay_notif_ch_orders_name">Orders</string>
+    <string name="dibay_notif_ch_orders_desc">Store and order updates</string>
+    <string name="dibay_notif_ch_delivery_name">Delivery</string>
+    <string name="dibay_notif_ch_delivery_desc">Delivery and store order updates</string>
+    <string name="dibay_notif_ch_community_name">Community</string>
+    <string name="dibay_notif_ch_community_desc">Community activity</string>
+    <string name="dibay_notif_ch_notice_name">Announcements</string>
+    <string name="dibay_notif_ch_notice_desc">Announcements and marketing</string>
+    <string name="dibay_notif_ch_silent_name">Silent</string>
+    <string name="dibay_notif_ch_silent_desc">Alerts with sound and vibration off</string>
+    <string name="dibay_notif_ch_novibrate_name">No vibration</string>
+    <string name="dibay_notif_ch_novibrate_desc">Alerts with vibration off</string>
+    <string name="dibay_notif_ch_legacy_chat_desc">Chat message alerts (old)</string>
+    <string name="dibay_notif_ch_default_name">DIBAY notifications</string>
+    <string name="dibay_notif_ch_default_desc">Message alerts</string>
+    <string name="dibay_notif_sound_no_vibrate_name">%1$s · No vibration</string>
+    <string name="dibay_notif_sound_desc">%1$s · DIBAY sound</string>
+    <string name="dibay_notif_ch_app_icon_name">Unread notifications</string>
+    <string name="dibay_notif_ch_app_icon_desc">Summary of unread notifications</string>
+    <string name="dibay_notif_self_name">Me</string>
 </resources>

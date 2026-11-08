@@ -26,6 +26,8 @@ export type NativeEventSoundEntry = {
   url: string;
   baseChannelId: string;
   label: string;
+  /** 언어 SSOT S8-4a — 영어 이름. 네이티브가 앱 언어로 채널 이름을 고른다(구 앱은 무시). */
+  labelEn: string;
 };
 
 type NotificationSoundBridgeSyncPlugin = {
@@ -78,6 +80,7 @@ export function buildNativeEventSoundEntries(
       url,
       baseChannelId,
       label: ev?.label_ko?.trim() || eventKey,
+      labelEn: ev?.label_en?.trim() || "",
     });
   }
   return out;

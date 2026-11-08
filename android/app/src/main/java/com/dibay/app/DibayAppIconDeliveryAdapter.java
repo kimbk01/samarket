@@ -207,7 +207,7 @@ public final class DibayAppIconDeliveryAdapter {
     nm.cancel(SUMMARY_NOTIFICATION_ID);
   }
 
-  private static void ensureSummaryChannel(NotificationManager nm) {
+  private static void ensureSummaryChannel(Context app, NotificationManager nm) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationChannel existing = nm.getNotificationChannel(SUMMARY_CHANNEL_ID);
     if (existing != null) {
@@ -221,9 +221,9 @@ public final class DibayAppIconDeliveryAdapter {
     NotificationChannel channel =
         new NotificationChannel(
             SUMMARY_CHANNEL_ID,
-            "읽지 않은 알림",
+            DibayNativeLocale.string(app, R.string.dibay_notif_ch_app_icon_name),
             NotificationManager.IMPORTANCE_LOW);
-    channel.setDescription("App Icon delivery — unread summary (not Bell)");
+    channel.setDescription(DibayNativeLocale.string(app, R.string.dibay_notif_ch_app_icon_desc));
     channel.setShowBadge(true);
     channel.enableVibration(false);
     channel.setSound(null, null);
@@ -232,7 +232,7 @@ public final class DibayAppIconDeliveryAdapter {
   }
 
   private static void postOrUpdateSummary(Context app, NotificationManager nm, int total, int summaryNumber) {
-    ensureSummaryChannel(nm);
+    ensureSummaryChannel(app, nm);
 
     Intent launch = new Intent(app, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
@@ -246,8 +246,8 @@ public final class DibayAppIconDeliveryAdapter {
     PendingIntent pi =
         PendingIntent.getActivity(app, SUMMARY_NOTIFICATION_ID, launch, flags);
 
-    String title = app.getString(R.string.dibay_app_icon_summary_title);
-    String body = app.getString(R.string.dibay_app_icon_summary_body, total);
+    String title = DibayNativeLocale.string(app, R.string.dibay_app_icon_summary_title);
+    String body = DibayNativeLocale.string(app, R.string.dibay_app_icon_summary_body, total);
 
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(app, SUMMARY_CHANNEL_ID)

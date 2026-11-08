@@ -31,6 +31,8 @@ public class DibayAppLanguagePlugin extends Plugin {
       editor.putString(KEY_LANGUAGE, language);
     }
     editor.apply();
+    // 언어 SSOT S8-4: 앱 언어가 바뀌면 알림 채널 이름·설명도 (같은 언어면 바로 끝)
+    DibayNotificationChannelLabels.relabelIfNeeded(getContext());
     JSObject result = new JSObject();
     result.put("language", language);
     call.resolve(result);
