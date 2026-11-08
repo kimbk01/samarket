@@ -350,3 +350,18 @@ Session / Destination / Completion / Profile 의미 불변.
 - Destination·Completion·Session·Profile 의미는 무변경이다. 웹 OAuth·PC QR·비밀번호 경로는 이미 같은 응답에 쓰므로 무변경이다.
 - **Evidence:** `app/api/auth/native/exchange/__tests__/route-active-session-cookie.test.ts` (성공 200 에 활성 세션 쿠키, 탈퇴 403 에 삭제만). 앱 실기 NOT_PROVEN.
 - **감사:** `docs/audit/post-plan-backlog-audit-2026-11-08.md` B-3
+
+## Amendment 2026-11-08 (6) — `/api` 게이트 갱신 없는 서명 검증 · proxy 만료 임박 캐시 건너뛰기 (Reopen §4 trigger 2: Session 계약 변경 · Owner 「3-1 승인 (조건 2)」)
+
+- **First Break:** 운영 증명 결함 없음 — 최근 3일 auth 로그 갱신 충돌 `refresh_token_already_used` 0건. trigger 3 이 아니라 trigger 2(세션 갱신 소유권 정의, Owner D3 원칙 승인 → 3-1 조건 2 인용 승인)로 재개.
+- **근거(운영·문서):**
+  - 세션 갱신의 64~84% 가 서버에서 발생 (11-05 483/577 · 11-06 208/277 · 최근 24h 287/459, auth 로그 `referer` 로 구분).
+  - Supabase 갱신 한도는 IP 단위 1,800회/시·순간 30회 (`guides/auth/rate-limits`) — 서버 갱신은 공유 Vercel IP 로 몰림.
+  - `/api` 게이트는 쿠키를 쓸 수 없어 갱신 결과를 버렸다 (`setAll` 무동작).
+- **Contract delta:**
+  - `/api` read·mutation 게이트(`resolveApiIdentity`)는 쿠키의 access token 을 `getClaims(token, { allowExpired: true })` 로 **서명만** 검증해 사용자를 식별한다 — 세션 로드·갱신 0. 토큰을 못 읽거나 검증 실패 시 기존 경로로 폴백.
+  - proxy 화면 문서·RSC 경로는 서버 측 유일 갱신자로 유지. 12초 신원 캐시가 적중해도 토큰이 만료 90초 이내면 캐시를 쓰지 않고 갱신한다(RSC 갱신 유실 경로 제거).
+  - Route Handler 의 인증·갱신, 401 계약, Session Lifecycle 소유(`dibay-session-manager`)는 **무변경**.
+- 보안 수준 동일: 기존 `getClaims()` 로컬 검증도 세션 폐기를 확인하지 않았다. 만료 토큰으로 식별한 사용자도 최종 인증은 Route Handler 가 한다. 차단·탈퇴 판정 규칙 무변경.
+- **설계:** `docs/audit/phase3-auth-request-structure-design-2026-11-08.md` §3-1
+- **Evidence:** `lib/auth/__tests__/read-access-token-from-cookies.test.ts`, `lib/auth/__tests__/api-gate-no-refresh.test.ts`. Production: auth 로그 서버 갱신 비중 감소·`already_used` 0 유지로 판정 (배포 후 측정).

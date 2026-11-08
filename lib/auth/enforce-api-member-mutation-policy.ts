@@ -25,6 +25,7 @@ import {
   resolveMemberLifecycleAuthority,
 } from "@/lib/auth/resolve-member-lifecycle-authority";
 import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
+import { readAccessTokenFromCookies } from "@/lib/auth/read-access-token-from-cookies";
 import { resolveMemberConsentClassForApiMutation } from "@/lib/auth/member-consent-mutation-policy";
 import { resolveMemberConsentAuthority } from "@/lib/auth/resolve-member-consent-authority";
 import { loadMemberWriteGateSnapshot } from "@/lib/auth/load-member-write-gate-snapshot";
@@ -67,8 +68,14 @@ export type ApiIdentityResolution = {
 };
 
 /**
- * proxy /api 게이트 공용 identity 해석 — warm cache(12s) 우선, miss 시 getClaims(로컬 JWT)→getUser.
+ * proxy /api 게이트 공용 identity 해석 — warm cache(12s) 우선, miss 시 **갱신 없는 서명 검증**.
  * mutation·read 게이트가 같은 경로를 쓴다. throw 는 호출자가 처리.
+ *
+ * Phase 3-1 (Auth HARD LOCK Amendment 2026-11-08 (6), 재개 조건 2 · Owner 「3-1 승인 (조건 2)」):
+ * 게이트는 쿠키의 access token 을 `getClaims(token, { allowExpired: true })` 로 서명만 검증해 사용자를 식별한다.
+ * 세션을 로드하지 않으므로 만료 토큰이어도 Supabase 갱신을 일으키지 않는다(이 게이트는 쿠키를 쓸 수 없어
+ * 갱신 결과를 버렸다 — 서버 갱신 64~84%·공유 IP 한도 위험). 최종 인증·갱신은 Route Handler 가 지금처럼 한다.
+ * 토큰을 읽지 못하거나 서명 검증이 실패하면 기존 경로(getClaims→getUser)로 그대로 폴백한다.
  */
 export async function resolveApiIdentity(request: NextRequest): Promise<ApiIdentityResolution> {
   const fp = proxyAuthCookieFingerprint(request);
@@ -94,6 +101,24 @@ export async function resolveApiIdentity(request: NextRequest): Promise<ApiIdent
       },
     },
   });
+
+  const cookieToken = await readAccessTokenFromCookies(request.cookies.getAll(), supabaseEnv.url);
+  if (cookieToken) {
+    try {
+      const { data, error } = await supabase.auth.getClaims(cookieToken.accessToken, { allowExpired: true });
+      const sub =
+        !error && data?.claims && typeof data.claims === "object" && "sub" in data.claims
+          ? String((data.claims as { sub?: unknown }).sub ?? "").trim()
+          : "";
+      if (sub) {
+        setProxyAuthSessionCache(fp, sub);
+        return { userId: sub, transientError: false };
+      }
+    } catch {
+      /* 서명 검증 경로 실패 → 기존 경로 */
+    }
+  }
+
   const auth = await resolveProxyAuthFromSupabase(supabase);
   const uid = auth.userId?.trim() || null;
   if (uid) setProxyAuthSessionCache(fp, uid);

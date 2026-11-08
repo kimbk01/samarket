@@ -9,6 +9,10 @@ import {
 } from "@/lib/auth/proxy-auth-session-cache";
 import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
 import {
+  isAccessTokenWithinRefreshMargin,
+  readAccessTokenFromCookies,
+} from "@/lib/auth/read-access-token-from-cookies";
+import {
   shouldAllowUnauthenticatedHtmlRequest,
   shouldBlockUnauthenticatedHtmlRequest,
 } from "@/lib/auth/guest-browse-access-policy";
@@ -242,6 +246,17 @@ export async function proxy(request: NextRequest) {
     const authFp = proxyAuthCookieFingerprint(request);
     let proxyAuthCacheHit = 0;
     let userId = peekProxyAuthSessionCache(authFp);
+    /**
+     * Phase 3-1 (Auth HARD LOCK Amendment 2026-11-08 (6)): 화면 문서·RSC 경로의 proxy 는 서버 측 유일 갱신자다.
+     * 12초 신원 캐시가 적중해도 토큰이 만료 90초 이내(또는 만료)면 캐시를 쓰지 않고 갱신 경로로 보낸다 —
+     * 캐시로 건너뛰면 뒤 RSC 렌더에서 갱신되고 그 쿠키는 브라우저에 쓰이지 못한다(Server Component 쿠키 쓰기 불가).
+     */
+    if (userId) {
+      const cookieToken = await readAccessTokenFromCookies(request.cookies.getAll(), supabaseEnv.url);
+      if (cookieToken && isAccessTokenWithinRefreshMargin(cookieToken.expiresAtSec)) {
+        userId = null;
+      }
+    }
 
     if (userId) {
       proxyAuthCacheHit = 1;
