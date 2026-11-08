@@ -13,6 +13,8 @@ let client: unknown = { from };
 vi.mock("@/lib/supabase/try-supabase-server", () => ({ tryCreateSupabaseServiceClient: () => client }));
 
 import {
+  ENTRY_FAILURE_WRITES_PER_CLIENT_HOUR,
+  ENTRY_FAILURE_WRITES_PER_MINUTE,
   persistEntryFailureIfNeeded,
   resetEntryFailureStoreForTests,
   shouldPersistEntryEvent,
@@ -78,6 +80,36 @@ describe("저장", () => {
     await expect(persistEntryFailureIfNeeded(ev(), META)).resolves.toBeUndefined();
     client = { from: () => { throw new Error("db down"); } };
     await expect(persistEntryFailureIfNeeded(ev(), META)).resolves.toBeUndefined();
+  });
+});
+
+describe("D2 남용 제한", () => {
+  it("같은 요청자는 시간당 상한까지만 저장 (실행 ID 를 바꿔도)", async () => {
+    for (let i = 0; i < ENTRY_FAILURE_WRITES_PER_CLIENT_HOUR + 10; i += 1) {
+      await persistEntryFailureIfNeeded(ev({ run: `r-${i}` }), META, 50_000_000 + i * 61_000, "1.2.3.4");
+    }
+    expect(upsert).toHaveBeenCalledTimes(ENTRY_FAILURE_WRITES_PER_CLIENT_HOUR);
+  });
+
+  it("인스턴스 전체도 분당 상한까지만", async () => {
+    for (let i = 0; i < ENTRY_FAILURE_WRITES_PER_MINUTE + 25; i += 1) {
+      await persistEntryFailureIfNeeded(ev({ run: `m-${i}` }), META, 90_000_000, `10.0.0.${i}`);
+    }
+    expect(upsert).toHaveBeenCalledTimes(ENTRY_FAILURE_WRITES_PER_MINUTE);
+  });
+
+  it("한 시간이 지나면 같은 요청자도 다시 허용", async () => {
+    for (let i = 0; i < ENTRY_FAILURE_WRITES_PER_CLIENT_HOUR; i += 1) {
+      await persistEntryFailureIfNeeded(ev({ run: `h-${i}` }), META, 200_000_000 + i * 61_000, "5.6.7.8");
+    }
+    upsert.mockClear();
+    await persistEntryFailureIfNeeded(ev({ run: "h-next" }), META, 200_000_000 + 3_700_000, "5.6.7.8");
+    expect(upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("요청자 IP 는 저장 행에 들어가지 않는다", async () => {
+    await persistEntryFailureIfNeeded(ev(), META, 300_000_000, "9.9.9.9");
+    expect(JSON.stringify(upsert.mock.calls[0])).not.toContain("9.9.9.9");
   });
 });
 

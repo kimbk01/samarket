@@ -45,7 +45,9 @@ export async function POST(req: Request): Promise<Response> {
         region: (process.env.VERCEL_REGION ?? "").trim() || null,
       })}`
     );
-    await persistEntryFailureIfNeeded(event, meta);
+    // 남용 제한 키 — 첫 번째 전달 IP. 메모리 키로만 쓰고 저장·로그하지 않는다 (D2).
+    const clientKey = (req.headers.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || null;
+    await persistEntryFailureIfNeeded(event, meta, Date.now(), clientKey);
   } catch {
     /* 잘못된 본문 — 기록하지 않음 */
   }

@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ENTRY_TELEMETRY_LOG_TAG,
+  ENTRY_TELEMETRY_MAX_DURATION_MS,
   ENTRY_TELEMETRY_MAX_EVENTS_PER_RUN,
   sanitizeEntryTelemetryEvent,
 } from "@/lib/telemetry/entry-telemetry-contract";
@@ -85,6 +86,17 @@ describe("sanitizeEntryTelemetryEvent", () => {
     expect(sanitizeEntryTelemetryEvent([validEvent()])).toBeNull();
   });
 
+  it("D1: 1시간 넘게 열린 화면·긴 백그라운드도 버리지 않는다 (7일 상한으로 고정)", () => {
+    const fiveHours = 5 * 3_600_000;
+    const out = sanitizeEntryTelemetryEvent(validEvent({ ev: "resume", kind: "resume", ageMs: fiveHours, hiddenMs: 3 * 3_600_000 }));
+    expect(out).not.toBeNull();
+    expect(out!.ageMs).toBe(fiveHours);
+    expect(out!.hiddenMs).toBe(3 * 3_600_000);
+    const capped = sanitizeEntryTelemetryEvent(validEvent({ ageMs: 30 * 86_400_000 }));
+    expect(capped!.ageMs).toBe(ENTRY_TELEMETRY_MAX_DURATION_MS);
+    expect(ENTRY_TELEMETRY_MAX_DURATION_MS).toBeLessThan(2_147_483_647); // DB integer
+  });
+
   it("범위 밖 단계 시각은 버린다", () => {
     const out = sanitizeEntryTelemetryEvent(validEvent({ t: { firstHtml: 99_999_999, release: Number.NaN } }));
     expect(out!.t).toEqual({});
@@ -131,7 +143,7 @@ describe("POST /api/telemetry/entry", () => {
   it("수집 API 는 인증을 쓰지 않고, DB 는 실패 보존 모듈만 거친다 (소스 계약)", () => {
     const src = readFileSync("app/api/telemetry/entry/route.ts", "utf8");
     expect(src).not.toMatch(/createClient|requireAuth|cookies\(|headers\(\)|from\("/i);
-    expect(src).toContain("persistEntryFailureIfNeeded(event, meta)");
+    expect(src).toContain("persistEntryFailureIfNeeded(event, meta, Date.now(), clientKey)");
   });
 });
 

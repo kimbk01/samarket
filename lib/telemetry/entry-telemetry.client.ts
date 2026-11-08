@@ -319,14 +319,15 @@ export function startEntryTelemetry(): void {
     document.addEventListener("visibilitychange", () => {
       try {
         if (document.visibilityState === "hidden") {
-          state.hiddenAt = nowMs();
+          // 숨김 시간은 벽시계로 잰다 — performance.now() 는 기기 잠자기 동안 멈출 수 있다 (검토 D1 보완).
+          state.hiddenAt = Date.now();
           return;
         }
         if (state.hiddenAt == null) return;
-        const hiddenMs = nowMs() - state.hiddenAt;
+        const hiddenMs = Date.now() - state.hiddenAt;
         state.hiddenAt = null;
         if (hiddenMs < ENTRY_RESUME_MIN_HIDDEN_MS) return;
-        const now = nowMs();
+        const now = Date.now();
         if (state.lastResumeSentAt != null && now - state.lastResumeSentAt < ENTRY_RESUME_MIN_GAP_MS) return;
         state.lastResumeSentAt = now;
         sendIdle("resume", "resume", { hiddenMs });

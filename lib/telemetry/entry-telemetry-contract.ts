@@ -75,7 +75,14 @@ export type EntryTelemetryEvent = {
   t: EntryStages;
 };
 
-const MAX_MS = 3_600_000;
+/** 시작 단계 시각(문서 시작 기준) 상한 — 시작 과정은 1시간을 넘지 않는다. 넘는 값은 그 단계만 버린다. */
+const MAX_STAGE_MS = 3_600_000;
+/**
+ * 문서 나이(ageMs)·숨김 시간(hiddenMs) 상한 7일 — 넘으면 버리지 않고 상한값으로 고정한다.
+ * (2026-11-08 검토 D1: 1시간 상한에서 이벤트 전체를 버려, 정작 재려던 장시간 사용·복귀 이벤트가 사라졌다.)
+ * DB 열이 integer(최대 약 24.8일)라 7일로 둔다.
+ */
+export const ENTRY_TELEMETRY_MAX_DURATION_MS = 7 * 24 * 3_600_000;
 const TOKEN_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | null {
@@ -90,8 +97,14 @@ function asToken(value: unknown): string | null {
 
 function asMs(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  if (value < 0 || value > MAX_MS) return null;
+  if (value < 0 || value > MAX_STAGE_MS) return null;
   return Math.round(value);
+}
+
+/** 기간 값 — 음수·숫자 아님은 null, 상한 초과는 상한으로 고정(버리지 않음). */
+function asDurationMs(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  return Math.round(Math.min(value, ENTRY_TELEMETRY_MAX_DURATION_MS));
 }
 
 function asCount(value: unknown, max: number): number | null {
@@ -113,7 +126,7 @@ export function sanitizeEntryTelemetryEvent(raw: unknown): EntryTelemetryEvent |
   const kind = asEnum(r.kind, ENTRY_EVENT_KINDS);
   const ev = asEnum(r.ev, ENTRY_EVENT_TYPES);
   const platform = asEnum(r.platform, ENTRY_PLATFORMS);
-  const ageMs = asMs(r.ageMs);
+  const ageMs = asDurationMs(r.ageMs);
   if (!run || seq == null || !kind || !ev || !platform || ageMs == null) return null;
 
   const t: EntryStages = {};
@@ -143,7 +156,7 @@ export function sanitizeEntryTelemetryEvent(raw: unknown): EntryTelemetryEvent |
     prevFailure: asEnum(r.prevFailure, ENTRY_FAILURE_CLASSES),
     reloads: asCount(r.reloads, 1000) ?? 0,
     ageMs,
-    hiddenMs: asMs(r.hiddenMs),
+    hiddenMs: asDurationMs(r.hiddenMs),
     visible: r.visible === true,
     t,
   };
