@@ -76,6 +76,8 @@
 | 배달 홈·browse·검색 | 셸 본문 (+browse 셸 메모리) | 45초(`lib/dibay/delivery-list-scroll-restore.ts:21-23`) + browse 셸 메모리(`components/delivery/presentation/DeliveryPresentationShell.tsx:258-263`) **이중** | popstate/pending 구분 | 홈은 데이터 안 기다림(`StoresHub.tsx:75`), 24프레임 |
 | 채팅 목록→방→뒤로 | 목록 상자 | **없음** — 목록 다시 그려져 맨 위(모바일) | — | — |
 | 채팅방 | 타임라인 | 방별 메모리 60초 | 계약 문서 따름 | — |
+
+> **정정 2026-11-09 (D4):** 위 「방별 메모리 60초」는 저장만 되고 진입 정책이 읽지 않아 실제로는 뒤로 와도 복원되지 않았다(맨 아래로 열림). D4 로 방을 방문 순서에 기록만 하고, 「뒤로 돌아옴」이면 보던 위치로 진입하도록 고쳤다(보관 30분). `docs/chat-thread-scroll-contract.md` 2026-11-09.
 | 내정보 전체 `/mypage/**` | 셸 본문 | 30분 + 방문 순서(`lib/mypage/mypage-scroll-memory.ts`) | 방문 순서 | 높이 생길 때까지 최대 3초 |
 | 내정보 `/my/**` 별칭 | 셸 본문 | **규칙 없음**(`app/(main)/my/layout.tsx` 에 미장착) | — | — |
 | 알림함 | 셸 본문 | 별도 키(`lib/notifications/notification-center-scroll-restore.ts`) | 별도 | NOT_PROVEN |

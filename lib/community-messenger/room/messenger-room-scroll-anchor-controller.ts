@@ -27,9 +27,14 @@ import {
   clearMessengerRoomScrollPosition,
   peekMessengerRoomScrollPosition,
   resolveScrollTopForAnchorMessage,
+  saveMessengerRoomReturnHistory,
   saveMessengerRoomScrollPosition,
   snapshotScrollFromViewport,
 } from "@/lib/community-messenger/room/messenger-room-scroll-position-store";
+import {
+  clearMessengerRoomReturnEntry,
+  peekMessengerRoomReturnEntry,
+} from "@/lib/community-messenger/room/messenger-room-return-entry";
 import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { messengerRoomTracksScrollPosition } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
@@ -300,20 +305,25 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     (
       reason: CmScrollOwnerReason,
       forceBottom: boolean,
-      planAnchorMessageId?: string | null
+      planAnchorMessageId?: string | null,
+      planAnchorOffsetPx?: number | null
     ) => {
       const vp = messagesViewportRef.current;
       let restoreSnapshot: ChatThreadScrollRestoreSnapshot | null = null;
 
-      /** Unread Enter only — persist scroll restore is not an Enter policy. */
+      /**
+       * Unread Enter(첫 안 읽은 메시지) · D4 돌아옴(보던 메시지 + 화면 안 위치). 목록 누름 재진입은 여기로 오지 않는다.
+       */
       if (reason === "room_entry_restore") {
         const anchorId = planAnchorMessageId?.trim() || "";
         if (anchorId && vp) {
           const anchorTop = resolveScrollTopForAnchorMessage(vp, anchorId);
           if (anchorTop != null) {
+            const offset =
+              typeof planAnchorOffsetPx === "number" && Number.isFinite(planAnchorOffsetPx) ? planAnchorOffsetPx : 0;
             restoreSnapshot = {
               stickToBottom: false,
-              scrollTop: anchorTop,
+              scrollTop: Math.max(0, anchorTop - offset),
               firstVisibleMessageId: anchorId,
             };
             stickToBottomRef.current = false;
@@ -610,8 +620,29 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     );
     const newestPeerGiftCertificate =
       newest?.messageType === "gift_certificate" && newest.isMine !== true;
+    /**
+     * D4 (Owner 「D4 진행」 2026-11-09): 「뒤로 돌아옴」이고 보던 메시지가 지금 그려진 목록에 있으면 그 위치로.
+     * 판정은 방 첫 그림 때 1번(`decideMessengerRoomReturnEntry`) — 여기서 읽고 지운다.
+     */
+    const persistedForReturn = rid ? peekMessengerRoomScrollPosition(rid) : null;
+    const returnAnchorId =
+      persistedForReturn && !persistedForReturn.stickToBottom
+        ? persistedForReturn.firstVisibleMessageId?.trim() || ""
+        : "";
+    const entryViewport = messagesViewportRef.current;
+    const returnRestore =
+      rid &&
+      returnAnchorId &&
+      entryIntentRef.current !== "push" &&
+      peekMessengerRoomReturnEntry(rid) &&
+      entryViewport &&
+      resolveScrollTopForAnchorMessage(entryViewport, returnAnchorId) != null
+        ? { anchorMessageId: returnAnchorId, anchorOffsetPx: persistedForReturn?.anchorOffsetPx ?? null }
+        : null;
+    if (rid) clearMessengerRoomReturnEntry(rid);
     const plan = resolveMessengerRoomEntryScrollPlan({
       intent: entryIntentRef.current,
+      returnRestore,
       hasPersisted,
       unreadCount: effectiveUnread,
       lastReadMessageId,
@@ -623,7 +654,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (plan.forceBottom) stickToBottomRef.current = true;
 
     entryScrollScheduledRef.current = true;
-    notifyEntryFromPlan(plan.reason, plan.forceBottom, plan.anchorMessageId ?? null);
+    notifyEntryFromPlan(plan.reason, plan.forceBottom, plan.anchorMessageId ?? null, plan.anchorOffsetPx ?? null);
     engine.notifyMessagesReady(true);
     engine.notifyLayoutCommitted();
     const source = mapInitialSource(
@@ -788,6 +819,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         return;
       }
       persistScrollPosition();
+      /** D4: 읽던 중 나감 — 돌아오면 같은 메시지가 첫 그림에 있도록 불러와 있던 메시지 보관 */
+      saveMessengerRoomReturnHistory(rid, roomMessages);
     };
   }, [persistScrollPosition, roomId, roomMessages, stickToBottomRef]);
 

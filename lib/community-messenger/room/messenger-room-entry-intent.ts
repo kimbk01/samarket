@@ -12,6 +12,8 @@ export type MessengerRoomEntryScrollPlan = {
   forceBottom: boolean;
   /** unread boundary / last-read — restoreSnapshot firstVisibleMessageId */
   anchorMessageId?: string | null;
+  /** D4 돌아옴 — 보던 메시지 줄이 대화 상자 위쪽 끝에서 떨어져 있던 거리(px). 없으면 줄 맨 위에 맞춘다. */
+  anchorOffsetPx?: number | null;
 };
 
 const PUSH_INTENT_STORAGE_KEY = "samarket:cm:push_entry_intent.v1";
@@ -263,11 +265,18 @@ export type MessengerRoomEntryScrollPlanInput = {
    * Stale unread/first-unread must not win over latest on same-tip re-entry.
    */
   tipEntryConsumed?: boolean;
+  /**
+   * D4 (Owner 「D4 진행」 2026-11-09): 이번 진입이 「뒤로 돌아옴」(방 → 링크·상세 → 뒤로)이고 보던 위치가 있을 때만.
+   * 앱 전체 규칙 P1(상세에서 뒤로 → 이전 위치)과 같다. 목록에서 누름·알림 진입에는 넘기지 않는다.
+   * 보던 메시지가 지금 그려진 목록에 있을 때만 넘긴다(없으면 기존 정책).
+   */
+  returnRestore?: { anchorMessageId: string; anchorOffsetPx?: number | null } | null;
 };
 
 /**
  * Enter = sole scroll policy decision (Telegram benchmark contract):
  * - push → latest above composer
+ * - return (뒤로 돌아옴 · D4 2026-11-09) → 보던 위치 (나가 있는 동안 온 새 메시지는 「아래 새 메시지」 칩)
  * - tip already consumed → latest (ignore stale unread/first-unread)
  * - unconsumed unread + newest peer gift_certificate → latest (gift delivery land)
  * - unread + firstUnread → first-unread boundary (not force bottom, not lastRead itself)
@@ -282,6 +291,18 @@ export function resolveMessengerRoomEntryScrollPlan(
       reason: "push_entry_initial_load",
       clearPersist: true,
       forceBottom: true,
+    };
+  }
+  const ret = input.returnRestore;
+  const retAnchor = ret?.anchorMessageId?.trim() || "";
+  if (retAnchor) {
+    return {
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+      anchorMessageId: retAnchor,
+      anchorOffsetPx:
+        typeof ret?.anchorOffsetPx === "number" && Number.isFinite(ret.anchorOffsetPx) ? ret.anchorOffsetPx : null,
     };
   }
   const unreadRaw = Math.max(0, Number(input.unreadCount) || 0);

@@ -208,6 +208,11 @@ import {
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { mergePrimedTimelineSeedIntoExisting } from "@/lib/community-messenger/room/merge-primed-timeline-seed";
+import {
+  peekMessengerRoomReturnHistory,
+  peekMessengerRoomScrollPosition,
+} from "@/lib/community-messenger/room/messenger-room-scroll-position-store";
+import { decideMessengerRoomReturnEntry } from "@/lib/community-messenger/room/messenger-room-return-entry";
 
 import { MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
 
@@ -412,8 +417,21 @@ export function useMessengerRoomClientPhase1({
   }, [streamRoomId, phase1EntryLightPass]);
 
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>(() => {
-    const base = (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
+    const seedBase = (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
     const rid = roomId.trim();
+    /**
+     * D4 (Owner 「D4 진행」 2026-11-09): 「뒤로 돌아옴」이고 읽던 위치가 있으면, 나갈 때 불러와 있던 메시지를 같이 깐다 —
+     * 읽던 메시지가 최신 분량 밖(위로 불러와 읽던 중)이어도 첫 그림부터 그 메시지가 있어 바로 그 자리로 진입한다.
+     * 네트워크 요청 없음. 판정은 여기서 1번(`decideMessengerRoomReturnEntry`), 스크롤 진입 단계가 같은 값을 읽는다.
+     */
+    let base = seedBase;
+    if (rid && decideMessengerRoomReturnEntry(rid)) {
+      const persisted = peekMessengerRoomScrollPosition(rid);
+      const history = persisted && !persisted.stickToBottom ? peekMessengerRoomReturnHistory(rid) : null;
+      if (history && history.length > 0) {
+        base = mergeRoomMessages(seedBase, history as Array<CommunityMessengerMessage & { pending?: boolean }>);
+      }
+    }
     if (!rid || isCmRoomEntryShellFirstPass()) return base;
     const live = getMessengerRealtimeRoomMessages(rid);
     if (live.length === 0) return base;

@@ -128,36 +128,72 @@ export type AppScrollVisit = "return" | "new" | "top" | "inplace";
  * - `new`: 그 외(링크 push) — 맨 위
  * 기록 길이(`history.length`)를 함께 적어, 바로 전 화면으로 **링크 push** 한 경우를 뒤로와 구분한다(2026-11-02 내정보 규칙 허점 M-2).
  */
-export function noteAppScrollVisit(key: string, historyLength: number, now = Date.now()): AppScrollVisit {
-  const intent = takeIntent(now);
-  const stack = readStack();
+function judgeAppScrollVisit(
+  key: string,
+  historyLength: number,
+  intent: AppScrollNavIntent | null,
+  stack: StackEntry[]
+): { visit: AppScrollVisit; next: StackEntry[] | null } {
   const top = stack[stack.length - 1];
   const prev = stack[stack.length - 2];
 
   if (intent === "tab-reselect") {
-    stack.push({ k: key, h: historyLength });
-    writeStack(stack);
-    return "top";
+    return { visit: "top", next: [...stack, { k: key, h: historyLength }] };
   }
-  if (top?.k === key) return "return";
+  if (top?.k === key) return { visit: "return", next: null };
   if (intent === "tab-switch") {
-    stack.push({ k: key, h: historyLength });
-    writeStack(stack);
-    return "return";
+    return { visit: "return", next: [...stack, { k: key, h: historyLength }] };
   }
   if (prev?.k === key && (intent === "back" || historyLength <= top!.h)) {
-    stack.pop();
-    writeStack(stack);
-    return "return";
+    /**
+     * 돌아온 화면의 기록 길이를 지금 값으로 맞춘다 — 기기 뒤로는 앞으로 가기 기록이 남아 길이가 줄지 않아,
+     * 한 단계 더 뒤로(A → B → 뒤로 A → 뒤로 목록) 갈 때 `historyLength <= top.h` 가 어긋나 「새 진입」이 되던 것을 막는다
+     * (D4 2026-11-09 — 방을 방문 순서에 넣으며 목록 → 방 → 링크 → 뒤로 → 뒤로 에서 드러남).
+     */
+    return { visit: "return", next: [...stack.slice(0, -2), { k: prev.k, h: Math.max(prev.h, historyLength) }] };
   }
   if (top && pathOfKey(top.k) === pathOfKey(key) && historyLength <= top.h) {
-    stack[stack.length - 1] = { k: key, h: historyLength };
-    writeStack(stack);
-    return "inplace";
+    return { visit: "inplace", next: [...stack.slice(0, -1), { k: key, h: historyLength }] };
   }
-  stack.push({ k: key, h: historyLength });
-  writeStack(stack);
-  return "new";
+  return { visit: "new", next: [...stack, { k: key, h: historyLength }] };
+}
+
+/** 마지막으로 판정·기록한 방문 — 자체 위치 계약 화면(메신저 방)이 같은 판정을 읽는다 */
+let lastNotedVisit: { key: string; visit: AppScrollVisit; at: number } | null = null;
+
+export function noteAppScrollVisit(key: string, historyLength: number, now = Date.now()): AppScrollVisit {
+  const intent = takeIntent(now);
+  const { visit, next } = judgeAppScrollVisit(key, historyLength, intent, readStack());
+  if (next) writeStack(next);
+  lastNotedVisit = { key, visit, at: now };
+  return visit;
+}
+
+/**
+ * 판정만 하고 기록·신호 소비는 하지 않는다 — 화면이 `AppScrollMemory` 의 기록보다 먼저 그려질 때(같은 커밋 렌더) 쓴다.
+ */
+export function peekAppScrollVisit(key: string, historyLength: number, now = Date.now()): AppScrollVisit {
+  const i = pendingIntent;
+  const intent = i && now - i.at <= INTENT_TTL_MS ? i.kind : null;
+  return judgeAppScrollVisit(key, historyLength, intent, readStack()).visit;
+}
+
+/**
+ * 이 주소(key)의 이번 방문 판정 — `AppScrollMemory` 가 이미 기록했으면 그 값, 아직이면 같은 규칙으로 미리 판정한다.
+ * D4 (Owner 「D4 진행」 2026-11-09): 메신저 방이 「뒤로 돌아옴」을 알아 보던 위치로 진입하는 데 쓴다.
+ */
+export function resolveAppScrollVisitForKey(key: string, historyLength: number, now = Date.now()): AppScrollVisit {
+  if (lastNotedVisit && lastNotedVisit.key === key) return lastNotedVisit.visit;
+  return peekAppScrollVisit(key, historyLength, now);
+}
+
+/**
+ * 위치는 화면이 스스로 정하지만(제외 목록) 방문 순서에는 넣는 화면 — 뒤로 판정이 이 화면을 건너뛰지 않게.
+ * 메신저 방: 방 → 링크/상세 → 뒤로 를 「돌아옴」으로 판정해야 보던 위치로 진입한다(D4).
+ */
+export function isAppScrollVisitTrackedPath(pathname: string): boolean {
+  const p = pathname || "/";
+  return p.startsWith("/community-messenger/rooms/");
 }
 
 // ─── 위치 저장·복원 ────────────────────────────────────────────────────────
@@ -337,5 +373,6 @@ export function scrollAppToTop(): void {
 }
 
 export function resetAppScrollMemoryForTests(): void {
+  lastNotedVisit = null;
   pendingIntent = null;
 }

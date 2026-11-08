@@ -8,6 +8,7 @@ import {
   ensureAppScrollManualRestoration,
   getAppScrollRoot,
   isAppScrollMemoryPath,
+  isAppScrollVisitTrackedPath,
   noteAppScrollVisit,
   readAppScroll,
   restoreAppScroll,
@@ -33,8 +34,19 @@ export function AppScrollMemory() {
   /** 저장 대상 키 — 이 화면의 위치를 정한 뒤에만 설정 (전환 직후 이전 화면 값으로 덮어쓰지 않게) */
   const activeKeyRef = useRef<string | null>(null);
 
+  const visitTracked = !managed && isAppScrollVisitTrackedPath(pathname);
+
   useLayoutEffect(() => {
     activeKeyRef.current = null;
+    /**
+     * D4 (Owner 「D4 진행」 2026-11-09): 메신저 방은 위치를 스스로 정하지만 방문 순서에는 넣는다 —
+     * 방 → 링크·상세 → 뒤로 가 「돌아옴」으로 판정돼야 방이 보던 위치로 진입한다(`messenger-room-return-entry`).
+     * 스크롤 저장·복원은 하지 않는다.
+     */
+    if (visitTracked) {
+      noteAppScrollVisit(key, window.history.length);
+      return;
+    }
     if (!managed) return;
     ensureAppScrollManualRestoration();
     const visit = noteAppScrollVisit(key, window.history.length);
@@ -50,7 +62,7 @@ export function AppScrollMemory() {
     return () => {
       cancel?.();
     };
-  }, [key, managed]);
+  }, [key, managed, visitTracked]);
 
   useEffect(() => {
     let lastAt = 0;

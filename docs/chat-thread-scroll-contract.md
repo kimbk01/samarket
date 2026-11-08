@@ -32,7 +32,7 @@ Unread 제품 계약은 `docs/dibay-messenger-final-stabilization-contract.md`�
 ## Initial anchor (Telegram / Kakao 계약)
 
 1. room generation 당 **정확히 1회** (`hasAppliedInitialAnchor`)
-2. 우선순위: push latest → unread+**firstUnread**(lastRead 다음) → latest bottom *(persist restore on default re-entry: removed 2026-07-28)*
+2. 우선순위: push latest → **뒤로 돌아옴 = 보던 메시지 + 화면 안 위치**(D4 2026-11-09) → unread+**firstUnread**(lastRead 다음) → latest bottom *(목록에서 누른 재진입의 persist restore 는 계속 없음 — 2026-07-28)*
 3. `useLayoutEffect`에서 paint 전에 적용 — **paint 후 `entry_tail_settle` 금지**
 4. composer height / fingerprint / chrome sync 는 initial anchor 를 **재실행하지 않음**
 5. paint gate: viewport `clientHeight` + rows/virtualizer — **composer height 게이트 금지**
@@ -84,6 +84,7 @@ Unread 제품 계약은 `docs/dibay-messenger-final-stabilization-contract.md`�
 - **2026-07-28**: Enter = sole policy (latest / first-unread). Persist restore on default re-entry removed. Keyboard/chrome use `correctLayoutPreserve` — stick not re-judged from lastGeom; settle-fail no-write path closed when stick already set. Dock no longer re-syncs stick from viewport. `reentry_hydration_restored` must not mark entry scroll settled.
 - **2026-07-28**: Telegram unread UX — entry anchor = first unread after lastRead; unread divider once; bottom-right ↓ FAB badge = unread remaining below viewport; tap uses existing `scrollMessengerToBottom` only.
 - **2026-07-28**: FAB badge authority → `entryUnreadCount` snapshot (survives list optimistic clear). Clear on latest / FAB tap. Keyboard/shell/engine unchanged.
+- **2026-11-09 D4 (Owner 「D4 진행」)**: 방 → 링크·상세 → 뒤로 오면 방이 맨 아래로 열리던 결함(Android 앱·운영 브라우저 실측: 스크롤 960/2400 → 2400). 원인: ① 방은 위치를 저장(`saveMessengerRoomScrollPosition`)하지만 진입 정책이 읽지 않고 지움 ② 앱 전체 규칙 P1(`lib/navigation/app-scroll-memory.ts`, 상세에서 뒤로 → 이전 위치)은 방을 「자체 계약」이라 제외해 방문 순서에도 없음 — 두 계약이 서로 복원한다고 가정 ③ 돌아오면 위로 불러온 지난 메시지가 사라져 보던 메시지가 없음(88줄 → 39줄). 수정: 방 경로는 앱 방문 순서에 **기록만**(`isAppScrollVisitTrackedPath`), 방 첫 그림 때 1번 판정(`decideMessengerRoomReturnEntry` — 기록 전이면 같은 규칙으로 미리 판정 `peekAppScrollVisit`, 주소가 아직 방이 아니면 새 진입). 돌아옴이면 ① 나갈 때 보관한 메시지(`saveMessengerRoomReturnHistory`, 방 3개·1,000개·30분, 네트워크 없음)를 첫 메시지 목록에 합치고 ② 진입 정책 `returnRestore` → `room_entry_restore` + 보던 메시지 줄 + 화면 안 위치(`anchorOffsetPx`). 보던 메시지가 그려진 목록에 없으면 기존 정책. 위치 보관 60초 → 30분(앱 규칙과 동일). 떼어진 화면 값(보던 메시지 없음)은 직전 위치를 덮지 않음. 알림 진입(push)·목록 누름은 그대로 최신/첫 안 읽음. 나가 있는 동안 온 새 메시지는 기존 「아래 새 메시지」 칩.
 - **2026-08-04 Phase 4:** `entryUnreadCount` FAB Authority와 진입 즉시 전체
   mark-read 제거. 실제 visible row까지만 cursor를 전진하고 remaining unread를
   canonical ordering에서 파생한다. FAB는 unread가 남으면 next unread, 없으면
