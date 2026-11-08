@@ -4,6 +4,7 @@
  * Each case failed on main@70cc8918a (see audit design doc §1) and must keep passing.
  */
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -402,11 +403,12 @@ describe("support audit phase 1 — regression lock", () => {
   });
 
   it("DEF-08: customer status label SSOT (no raw enum on customer surfaces)", () => {
-    expect(supportCaseStatusLabelMeta("OPEN").fallbackKo).toBe("답변 대기");
-    expect(supportCaseStatusLabelMeta("WAITING_ADMIN").fallbackKo).toBe("답변 대기");
-    expect(supportCaseStatusLabelMeta("WAITING_USER").fallbackKo).toBe("상담 중");
-    expect(supportCaseStatusLabelMeta("RESOLVED").fallbackKo).toBe("상담 종료");
-    expect(supportCaseStatusLabelMeta("ARCHIVED").fallbackKo).toBe("상담 종료");
+    /** 언어 SSOT S6: 상태 문구는 카탈로그 키 값으로 확인(대체 문구 삭제) */
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("OPEN").key]).toBe("답변 대기");
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("WAITING_ADMIN").key]).toBe("답변 대기");
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("WAITING_USER").key]).toBe("상담 중");
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("RESOLVED").key]).toBe("상담 종료");
+    expect(MESSAGES.ko[supportCaseStatusLabelMeta("ARCHIVED").key]).toBe("상담 종료");
     const hist = readFileSync(join(process.cwd(), "components/support/SupportCasesHistoryList.tsx"), "utf8");
     expect(hist).not.toMatch(/\{c\.status\}/);
     expect(hist).not.toMatch(/\{c\.category\}/);

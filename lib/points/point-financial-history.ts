@@ -268,7 +268,7 @@ export function promotionProductDisplayLabel(
 ): { ko: string; en: string } {
   const days = Math.max(0, Math.trunc(Number(durationDays) || 0));
   if (days > 0) {
-    return { ko: `상위노출 ${days}일`, en: `${days}-day top exposure` };
+    return catalogPair("points_days_day_top_exposure", { days });
   }
   const id = (productId ?? "").trim();
   if (id === "trade_promote_7") return catalogPair("points_text");

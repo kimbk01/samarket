@@ -17,23 +17,19 @@ export type SupportCaseStatusLabelKey =
 
 export function supportCaseStatusLabelMeta(status: SupportCaseStatus | null): {
   key: SupportCaseStatusLabelKey;
-  fallbackKo: string;
-  fallbackEn: string;
 } {
   if (!status) {
-    return { key: "support_status_active", fallbackKo: "상담 중", fallbackEn: "In progress" };
+    return { key: "support_status_active" };
   }
   if (status === "RESOLVED" || status === "ARCHIVED") {
-    return { key: "support_status_resolved", fallbackKo: "상담 종료", fallbackEn: "Closed" };
+    return { key: "support_status_resolved" };
   }
   if (status === "WAITING_ADMIN" || status === "OPEN") {
     return {
       key: "support_status_waiting_admin",
-      fallbackKo: "답변 대기",
-      fallbackEn: "Awaiting reply",
     };
   }
-  return { key: "support_status_active", fallbackKo: "상담 중", fallbackEn: "In progress" };
+  return { key: "support_status_active" };
 }
 
 /**
