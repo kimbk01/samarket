@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
-import { isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
+import { isWebpackChunkLoadError, scheduleChunkReloadOncePerBuild } from "@/lib/next/import-with-chunk-retry";
 import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
 
 interface ErrorProps {
@@ -25,7 +25,7 @@ export default function RootError({ error, reset }: ErrorProps) {
      * 다시 그리기(reset)로는 같은 조각을 또 요청해 계속 실패한다. 최상위 오류 화면(global-error)처럼 한 번 새로 받는다
      * (2026-10-28 실기: Xiaomi 재시작 직후 「앱을 불러오는 중 문제가 발생했어요」 + 다시 시도 무한 실패).
      */
-    if (isWebpackChunkLoadError(error)) scheduleChunkReloadOnce();
+    if (isWebpackChunkLoadError(error)) scheduleChunkReloadOncePerBuild();
   }, [error]);
 
   const retry = () => {

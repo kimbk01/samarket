@@ -14,7 +14,8 @@ describe("RootError ChunkLoadError", () => {
   });
   it("app/error.tsx 가 자동 새로고침·다시 시도 새로고침을 한다", () => {
     const src = readFileSync("app/error.tsx", "utf8");
-    expect(src).toContain("if (isWebpackChunkLoadError(error)) scheduleChunkReloadOnce();");
+    // R2-b (2026-11-08): 빌드당 1회 — 같은 빌드로 반복 새로고침하지 않는다.
+    expect(src).toContain("if (isWebpackChunkLoadError(error)) scheduleChunkReloadOncePerBuild();");
     expect(src).toContain("onClick={retry}");
     expect(src).toContain("window.location.reload();");
   });

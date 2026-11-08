@@ -22,7 +22,11 @@ import {
 import { ensureAppBoot, invalidateAppBootFlight } from "@/lib/app-boot/run-app-boot";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
-import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
+import {
+  clearChunkReloadSessionFlag,
+  isWebpackChunkLoadError,
+  scheduleChunkReloadOncePerBuild,
+} from "@/lib/next/import-with-chunk-retry";
 import { logAppBuildFingerprintOnce } from "@/lib/build/app-build-fingerprint";
 import { AbandonedR15LocalStatePurge } from "@/components/app/AbandonedR15LocalStatePurge";
 import { startEntryTelemetry } from "@/lib/telemetry/entry-telemetry.client";
@@ -87,7 +91,8 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
       const reason = event.reason;
       if (isWebpackChunkLoadError(reason)) {
         event.preventDefault();
-        scheduleChunkReloadOnce();
+        // R2-b: 빌드당 1회 — 마운트마다 지워지는 「1회」 표시로는 반복 새로고침을 막지 못했다 (통화 경계는 무변경).
+        scheduleChunkReloadOncePerBuild();
         return;
       }
       if (reason instanceof TypeError && /NetworkError|Failed to fetch/i.test(reason.message)) {

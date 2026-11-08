@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
+import { isWebpackChunkLoadError, scheduleChunkReloadOncePerBuild } from "@/lib/next/import-with-chunk-retry";
 import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
 import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
 
@@ -22,7 +22,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     // 브리지 직접 호출(동적 import 불필요)·멱등. 새로고침이 이어져도 해제가 먼저라 오류 안내가 보인다.
     tryDismissNativeSplash("global_error");
     if (isWebpackChunkLoadError(error)) {
-      scheduleChunkReloadOnce();
+      scheduleChunkReloadOncePerBuild();
     }
   }, [error]);
 
