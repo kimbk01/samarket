@@ -365,3 +365,17 @@ Session / Destination / Completion / Profile 의미 불변.
 - 보안 수준 동일: 기존 `getClaims()` 로컬 검증도 세션 폐기를 확인하지 않았다. 만료 토큰으로 식별한 사용자도 최종 인증은 Route Handler 가 한다. 차단·탈퇴 판정 규칙 무변경.
 - **설계:** `docs/audit/phase3-auth-request-structure-design-2026-11-08.md` §3-1
 - **Evidence:** `lib/auth/__tests__/read-access-token-from-cookies.test.ts`, `lib/auth/__tests__/api-gate-no-refresh.test.ts`. Production: auth 로그 서버 갱신 비중 감소·`already_used` 0 유지로 판정 (배포 후 측정).
+
+## Amendment 2026-11-08 (7) — `/api` 세션 신선도 관문 (Reopen §4 trigger 2: Session 계약 변경 · Owner 「3-2a 승인 (조건 2)」)
+
+- **First Break:** 운영 증명 결함 없음 (갱신 충돌 0건). trigger 2 로 재개 — 세션 갱신 시점 계약 변경.
+- **근거(코드·운영):**
+  - 앱이 보이게 되면 SDK 는 잠금을 잡고 `_recoverAndRefresh()` 로 만료 임박 세션을 갱신한다 (`@supabase/auth-js GoTrueClient.ts:3230-3261`).
+  - 같은 순간 다른 리스너(복귀 감지 파일 73개)의 `/api` 요청은 갱신 완료를 기다리지 않고 만료 토큰으로 나가 Route Handler 가 서버에서 갱신 → 서버 갱신 64~84%·공유 IP 한도 위험.
+- **Contract delta:**
+  - 같은 출처 `/api/*` 요청은 브라우저 쿠키 토큰이 만료 90초 이내(또는 만료)일 때만 `auth.getSession()`(SDK 잠금 = 갱신 완료 대기, 단일 비행)을 기다린 뒤 나간다. 상한 3초 후·관문 오류 시 그대로 보낸다.
+  - 제외: 통화 경로(`call` 포함, 통화 규정) · `/api/auth/*`(세션 관리자 경로, 잠금 교착 방지) · `/api/telemetry/*` · `/api/app/web-version`.
+  - 설치: `components/app/AppBootProvider.tsx` 모듈 로드 시 1회 (`lib/auth/session-freshness-fetch-gate.client.ts`).
+  - 무변경: 세션 수명 소유(`dibay-session-manager`), Route Handler 인증·갱신, 401 계약, Amendment (6) 게이트.
+- **설계:** `docs/audit/phase3-auth-request-structure-design-2026-11-08.md` §7
+- **Evidence:** `lib/auth/__tests__/session-freshness-fetch-gate.test.ts`. Production: auth 로그 서버 갱신 비중(목표 20% 이하)·`already_used` 0·`/api` 401 불변·C8 해제 시각 악화 없음 (배포 후 측정).
