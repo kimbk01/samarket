@@ -16,6 +16,7 @@ import {
 } from "@/lib/community-messenger/multi-tab-bus";
 import { reconcileCallStubMessageBySession } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 const appliedClientDedupeKeys = new Set<string>();
 
@@ -85,6 +86,7 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
   if (!roomId || !ini || !viewerUserId) return;
 
   const text = getCallMessageText({
+    lang: getRuntimeAppLanguage(),
     callKind: input.callKind,
     eventType: resolved,
     viewerUserId: viewerUserId || ini,
@@ -182,6 +184,7 @@ export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): voi
 
   const status = mapResolvedEventToCallStatus(args.resolvedEvent);
   const text = getCallMessageText({
+    lang: getRuntimeAppLanguage(),
     callKind: args.callKind,
     eventType: args.resolvedEvent,
     viewerUserId,

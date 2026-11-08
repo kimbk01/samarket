@@ -3,6 +3,8 @@
  * 메시지·프로필·presence·통화·trade·reactions·hides 조회 없음.
  */
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type {
@@ -89,6 +91,8 @@ type SilentDeltaParticipantRow = {
 };
 
 function buildSilentDeltaRoomSummary(
+  /** 통화 기록 미리보기 언어 (언어 SSOT 6번) */
+  lang: AppLanguageCode,
   viewerUserId: string,
   room: SilentDeltaRoomRow,
   me: SilentDeltaParticipantRow
@@ -104,7 +108,7 @@ function buildSilentDeltaRoomSummary(
   const roomSummary = trimText(room.summary);
   const contextMeta = parseCommunityMessengerRoomContextMeta(roomSummary);
   const roomAvatar = trimText(room.avatar_url) || null;
-  const roomLastMessage = trimText(resolveRoomLastMessageForViewer(room.last_message, viewerUserId));
+  const roomLastMessage = trimText(resolveRoomLastMessageForViewer(room.last_message, viewerUserId, lang));
   const roomLastMessageTypeRaw = trimText(room.last_message_type);
   const roomLastMessageType: CommunityMessengerMessageType =
     roomLastMessageTypeRaw === "image" ||
@@ -234,7 +238,7 @@ export async function loadCommunityMessengerRoomSilentDeltaSnapshot(
 
   const room = roomData as SilentDeltaRoomRow;
   const me = meData as SilentDeltaParticipantRow;
-  const summary = buildSilentDeltaRoomSummary(uid, room, me);
+  const summary = buildSilentDeltaRoomSummary(await resolveRequestAppLanguageOr("ko"), uid, room, me);
   const description =
     summary.roomType === "direct"
       ? "친구와 1:1로 대화하는 메신저 방"

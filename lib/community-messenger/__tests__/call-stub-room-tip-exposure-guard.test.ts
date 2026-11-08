@@ -65,6 +65,6 @@ describe("call stub room tip — 원문 토큰 비노출 경로 가드", () => {
 
   it("service 요약 빌더는 viewer 기준으로 해석한다", () => {
     const src = readFileSync(join(ROOT, "lib/community-messenger/service.ts"), "utf8");
-    expect(src).toContain("resolveRoomLastMessageForViewer(isDbRoom ? room.last_message : room.lastMessage, userId)");
+    expect(src).toContain("resolveRoomLastMessageForViewer(isDbRoom ? room.last_message : room.lastMessage, userId, lang)");
   });
 });

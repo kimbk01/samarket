@@ -55,8 +55,9 @@ describe("call-chat-projection-authority CUT4", () => {
       ["caller_cancelled", "cancelled_by_caller", "cancelled", "음성 통화 · 취소"],
       ["callee_rejected", "rejected_by_callee", "rejected", "음성 통화 · 거절"],
       ["missed_timeout", "missed", "missed", "부재중 음성 통화"],
-      ["ended_by_caller", "ended", "ended", "음성 통화 · 1m 00s"],
-      ["ended_by_callee", "ended", "ended", "음성 통화 · 1m 00s"],
+      /** 언어 SSOT 6번(C3): 저장 문장 시간 글자도 한국어 — 이전 「1m 00s」는 서버 화면 언어 기본값(en)이 섞인 결함 */
+      ["ended_by_caller", "ended", "ended", "음성 통화 · 1분 00초"],
+      ["ended_by_callee", "ended", "ended", "음성 통화 · 1분 00초"],
       ["disconnected", "disconnected", "ended", "음성 통화 · 연결 끊김"],
       ["failed_setup", "failed", "ended", "음성 통화 · 연결 실패"],
     ] as const;
@@ -125,7 +126,7 @@ describe("call-chat-projection-authority CUT4", () => {
     });
     // stub actor/sender is callee on reject
     expect(
-      getCallStubTimelineStatusLine({
+      getCallStubTimelineStatusLine({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "rejected_by_callee",
         callStatusFallback: "rejected",
@@ -136,7 +137,7 @@ describe("call-chat-projection-authority CUT4", () => {
       }),
     ).toBe("거절");
     expect(
-      getCallStubTimelineStatusLine({
+      getCallStubTimelineStatusLine({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "rejected_by_callee",
         callStatusFallback: "rejected",
@@ -148,7 +149,7 @@ describe("call-chat-projection-authority CUT4", () => {
     ).toBe("거절");
     // in-progress wording is still role-based: sender=callee must not flip caller's role
     expect(
-      getCallStubTimelineStatusLine({
+      getCallStubTimelineStatusLine({ lang: "ko",
         callKind: "voice",
         resolvedEvent: null,
         callStatusFallback: "dialing",
@@ -159,7 +160,7 @@ describe("call-chat-projection-authority CUT4", () => {
       }),
     ).toBe("발신 중");
     expect(
-      getCallStubTimelineStatusLine({
+      getCallStubTimelineStatusLine({ lang: "ko",
         callKind: "voice",
         resolvedEvent: null,
         callStatusFallback: "dialing",

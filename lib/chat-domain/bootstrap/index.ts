@@ -6,6 +6,7 @@
  */
 
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatDomain, StoreOrderRole } from "@/lib/chat-domain/four-domain-freeze";
 import type {
@@ -52,7 +53,7 @@ function mapDomainRows(
       lastMessageAt: typeof row.last_message_at === "string" ? row.last_message_at : null,
       title: typeof row.title === "string" ? row.title : "",
       lastMessagePreview:
-        typeof row.last_message === "string" ? resolveRoomLastMessageForViewer(row.last_message, null) : null,
+        typeof row.last_message === "string" ? resolveRoomLastMessageForViewer(row.last_message, null, getRuntimeAppLanguage()) : null,
     });
   }
   return out;

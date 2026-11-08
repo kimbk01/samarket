@@ -4,7 +4,7 @@ import { getCallMessageText } from "@/lib/community-messenger/call-event-message
 describe("peer_busy call stub text", () => {
   it("shows peer-busy message for caller", () => {
     expect(
-      getCallMessageText({
+      getCallMessageText({ lang: "ko",
         callKind: "voice",
         eventType: "peer_busy",
         viewerUserId: "caller-1",
@@ -15,7 +15,7 @@ describe("peer_busy call stub text", () => {
 
   it("shows self-busy message for dialer already live", () => {
     expect(
-      getCallMessageText({
+      getCallMessageText({ lang: "ko",
         callKind: "voice",
         eventType: "caller_busy",
         viewerUserId: "caller-1",

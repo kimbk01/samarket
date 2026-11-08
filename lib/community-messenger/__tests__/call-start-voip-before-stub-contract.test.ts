@@ -160,13 +160,13 @@ describe("viewer direction labels", () => {
       })
     ).toBe("incoming_received");
 
-    const caller = formatCallEventForViewer({
+    const caller = formatCallEventForViewer({ lang: "ko",
       callKind: kind,
       resolvedEvent: null,
       callStatusFallback: "dialing",
       viewerRole: "caller",
     });
-    const callee = formatCallEventForViewer({
+    const callee = formatCallEventForViewer({ lang: "ko",
       callKind: kind,
       resolvedEvent: null,
       callStatusFallback: "dialing",
@@ -179,7 +179,7 @@ describe("viewer direction labels", () => {
 
     expect(inferResolvedEventFromStoredCallStatus("dialing", "callee")).toBe("incoming_received");
     expect(
-      getCallMessageText({
+      getCallMessageText({ lang: "ko",
         callKind: kind,
         eventType: "incoming_received",
         viewerUserId: "callee",

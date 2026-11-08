@@ -2,6 +2,7 @@
  * FBT1 full bootstrap snapshot assembly — CPU-only from precomputed RPC payload.
  */
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   acceptedPeerIdsFromCommunityFriendRows,
   buildBootstrapCallsFromPreloadedSnapshot,
@@ -325,7 +326,7 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
   });
   const profileById = new Map(members.map((m) => [m.id, m]));
 
-  const mySummaries = summarizeRoomsBatchWithProfileMap(
+  const mySummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     roomRows,
     new Map(),
@@ -516,7 +517,7 @@ export async function assembleFullBootstrapFromSnapshotPayload(
   });
   const profileById = new Map(allProfiles.map((profile) => [profile.id, profile]));
 
-  const mySummaries = summarizeRoomsBatchWithProfileMap(
+  const mySummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     roomRows,
     new Map(),
@@ -549,7 +550,7 @@ export async function assembleFullBootstrapFromSnapshotPayload(
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
-  const discSummaries = summarizeRoomsBatchWithProfileMap(
+  const discSummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     discRoomRows as never,
     new Map(),

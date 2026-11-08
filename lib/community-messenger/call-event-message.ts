@@ -7,6 +7,7 @@ import type {
   CommunityMessengerMessage,
 } from "@/lib/community-messenger/types";
 import { formatCallEventForViewer } from "@/lib/community-messenger/call-event-presentation";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveCanonicalTerminalReason } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 
 export type CallSessionViewerRole = "caller" | "callee";
@@ -158,6 +159,8 @@ export function getCallStubTimelineSecondLine(args: {
   initiatorUserId?: string | null;
   recipientUserId?: string | null;
   durationSeconds?: number | null;
+  /** 화면 언어 (언어 SSOT 6번) */
+  lang: AppLanguageCode;
 }): string {
   const viewerRole = resolveViewerRoleForStub(args);
   const inferred =
@@ -168,6 +171,7 @@ export function getCallStubTimelineSecondLine(args: {
     callStatusFallback: args.callStatusFallback,
     viewerRole,
     durationSeconds: args.durationSeconds,
+    lang: args.lang,
   }).fullLabel;
 }
 
@@ -181,6 +185,8 @@ export function getCallStubTimelineStatusLine(args: {
   initiatorUserId?: string | null;
   recipientUserId?: string | null;
   durationSeconds?: number | null;
+  /** 화면 언어 (언어 SSOT 6번) */
+  lang: AppLanguageCode;
 }): string {
   const viewerRole = resolveViewerRoleForStub(args);
   const inferred =
@@ -191,6 +197,7 @@ export function getCallStubTimelineStatusLine(args: {
     callStatusFallback: args.callStatusFallback,
     viewerRole,
     durationSeconds: args.durationSeconds,
+    lang: args.lang,
   }).resultLabel;
 }
 
@@ -222,6 +229,7 @@ export function getCallMessageText(input: {
   viewerUserId: string;
   initiatorUserId: string | null | undefined;
   durationSeconds?: number | null;
+  lang: AppLanguageCode;
 }): string {
   return getCallStubTimelineSecondLine({
     callKind: input.callKind,
@@ -231,6 +239,7 @@ export function getCallMessageText(input: {
     senderUserId: input.initiatorUserId,
     initiatorUserId: input.initiatorUserId,
     durationSeconds: input.durationSeconds,
+    lang: input.lang,
   });
 }
 

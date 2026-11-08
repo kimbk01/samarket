@@ -2,6 +2,7 @@
  * CMB1 bootstrap snapshot assembly — CPU-only from precomputed RPC payload.
  */
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   buildParticipantsByRoomMap,
   buildProfilesFromKnownRelations,
@@ -266,7 +267,7 @@ export async function assembleLiteBootstrapFromSnapshotPayload(
   });
   const profileById = new Map(allProfiles.map((profile) => [profile.id, profile]));
 
-  const mySummaries = summarizeRoomsBatchWithProfileMap(
+  const mySummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     roomRows,
     new Map(),

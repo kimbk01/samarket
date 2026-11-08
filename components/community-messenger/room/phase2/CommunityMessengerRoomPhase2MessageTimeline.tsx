@@ -137,6 +137,7 @@ import {
 } from "@/lib/community-messenger/room/cm-room-r7-first-row-commit-instrumentation";
 import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { useTradeCounterpartyRole } from "@/lib/community-messenger/room/phase2/use-trade-counterparty-role";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
 /** R10 — direct tail 유지·upgrade 측정 상한(전체 measureElement 금지) */
@@ -541,6 +542,8 @@ function messengerTimelineDayDividerLabel(iso: string): string {
 }
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
+  /** 통화 줄 결과 글자 = 화면 언어 (언어 SSOT 6번) */
+  const { language: callLineLanguage } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const resolveMessageSenderLabel = useDeliveryRoomMessageSenderLabel(vm);
   const hydrationPass = useCmRoomPhase2HydrationPass();
@@ -2139,6 +2142,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                               item.metadata as Record<string, unknown> | null | undefined
                             );
                             return getCallStubTimelineStatusLine({
+                              lang: callLineLanguage,
                               callKind: item.callKind ?? "voice",
                               resolvedEvent:
                                 fromMeta.resolvedEvent ??

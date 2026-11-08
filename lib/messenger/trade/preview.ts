@@ -2,6 +2,7 @@
  * trade PreviewPort — 최신 메시지만. 상품 summary/상태로 preview 대체 금지.
  */
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { formatCmListPreviewTextForViewer } from "@/lib/community-messenger/cm-home-list-copy";
 import type { CommunityMessengerMessageType } from "@/lib/community-messenger/types";
 import type { DomainPreview } from "@/lib/messenger/contracts/ports";
@@ -120,7 +121,7 @@ export function resolveTradeListItemPreview(
     });
   }
   return resolveTradePreview({
-    content: resolveRoomLastMessageForViewer(item.lastMessage, viewerUserId),
+    content: resolveRoomLastMessageForViewer(item.lastMessage, viewerUserId, lang ?? getRuntimeAppLanguage()),
     messageType: type,
     isSystemAllowed: true,
   });

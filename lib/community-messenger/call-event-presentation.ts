@@ -1,12 +1,16 @@
 /**
  * 통화 이벤트 표시 SSOT — raw terminal reason / DB status → canonical → viewer 문구.
  * UI·목록·DB content writer 는 이 모듈만 사용한다 (문자열 substring 판별 금지).
+ * 언어 SSOT 6번 (Owner 2026-11-08 승인): 화면 문구는 `lang` 으로 카탈로그 키에서 만든다. DB 저장 문장
+ * (`formatCallEventSharedListLabel`)만 한국어 고정 — 저장 형식·토큰 무변경.
  */
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallStatus,
 } from "@/lib/community-messenger/types";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import type { CallSessionResolvedEvent, CallSessionViewerRole } from "@/lib/community-messenger/call-event-message";
 
 /** 제품 canonical terminal / in-flight 결과 */
@@ -38,8 +42,16 @@ export type CallEventPresentation = {
   isTerminal: boolean;
 };
 
-function kindLabel(kind: CommunityMessengerCallKind): string {
-  return kind === "video" ? "영상 통화" : "음성 통화";
+function kindLabel(kind: CommunityMessengerCallKind, lang: AppLanguageCode): string {
+  return translate(lang, kind === "video" ? "cm_home_call_video" : "cm_home_call_voice");
+}
+
+function line(lang: AppLanguageCode, kind: string, resultKey: MessageKey): string {
+  return translate(lang, "cm_call_line", { kind, result: translate(lang, resultKey) });
+}
+
+function missedLine(lang: AppLanguageCode, callKind: CommunityMessengerCallKind): string {
+  return translate(lang, callKind === "video" ? "cm_call_missed_video" : "cm_call_missed_voice");
 }
 
 /**
@@ -84,10 +96,13 @@ export function buildCallEventPresentation(input: {
   callKind: CommunityMessengerCallKind;
   canonical: CallEventCanonicalResult;
   durationSeconds?: number | null;
+  lang: AppLanguageCode;
 }): CallEventPresentation {
-  const kind = kindLabel(input.callKind);
+  const lang = input.lang;
+  const kind = kindLabel(input.callKind, lang);
   const dur = Math.max(0, Math.floor(Number(input.durationSeconds ?? 0)));
-  const durationText = dur > 0 ? formatCommunityMessengerCallDurationLabel(dur) : "";
+  const durationText = dur > 0 ? formatCommunityMessengerCallDurationLabel(dur, lang) : "";
+  const r = (key: MessageKey) => translate(lang, key);
 
   let resultLabel: string;
   let listPreview: string;
@@ -96,59 +111,57 @@ export function buildCallEventPresentation(input: {
 
   switch (input.canonical) {
     case "outgoing_started":
-      resultLabel = "발신 중";
-      listPreview = `${kind} · 발신 중`;
+      resultLabel = r("cm_call_result_calling");
+      listPreview = line(lang, kind, "cm_call_result_calling");
       isTerminal = false;
       break;
     case "incoming_received":
-      resultLabel = "수신 중";
-      listPreview = `${kind} · 수신 중`;
+      resultLabel = r("cm_call_result_incoming");
+      listPreview = line(lang, kind, "cm_call_result_incoming");
       isTerminal = false;
       break;
     case "connected_ended":
-      resultLabel = durationText || "통화 종료";
-      listPreview = durationText ? `${kind} · ${durationText}` : `${kind} · 통화 종료`;
+      resultLabel = durationText || r("cm_call_result_ended");
+      listPreview = durationText ?
+          translate(lang, "cm_call_line", { kind, result: durationText })
+        : line(lang, kind, "cm_call_result_ended");
       break;
     case "outgoing_cancelled":
-      resultLabel = "취소";
-      listPreview = `${kind} · 취소`;
+      resultLabel = r("cm_call_result_cancelled");
+      listPreview = line(lang, kind, "cm_call_result_cancelled");
       break;
     case "incoming_missed":
-      resultLabel = "부재중";
-      listPreview = kind === "영상 통화" ? "부재중 영상 통화" : "부재중 음성 통화";
+    case "unanswered":
+      resultLabel = r("cm_call_result_missed");
+      listPreview = missedLine(lang, input.callKind);
       isMissed = true;
       break;
     case "remote_rejected":
     case "local_rejected":
-      resultLabel = "거절";
-      listPreview = `${kind} · 거절`;
+      resultLabel = r("cm_call_result_declined");
+      listPreview = line(lang, kind, "cm_call_result_declined");
       break;
     case "remote_busy":
-      resultLabel = "통화 중";
-      listPreview = `${kind} · 통화 중`;
+      resultLabel = r("cm_call_result_busy");
+      listPreview = line(lang, kind, "cm_call_result_busy");
       break;
     case "self_busy":
-      resultLabel = "다른 통화 중";
-      listPreview = `${kind} · 다른 통화 중`;
-      break;
-    case "unanswered":
-      resultLabel = "부재중";
-      listPreview = kind === "영상 통화" ? "부재중 영상 통화" : "부재중 음성 통화";
-      isMissed = true;
+      resultLabel = r("cm_call_result_self_busy");
+      listPreview = line(lang, kind, "cm_call_result_self_busy");
       break;
     case "failed":
-      resultLabel = "연결 실패";
-      listPreview = `${kind} · 연결 실패`;
+      resultLabel = r("cm_call_result_failed");
+      listPreview = line(lang, kind, "cm_call_result_failed");
       break;
     case "interrupted":
-      resultLabel = "중단됨";
-      listPreview = `${kind} · 중단됨`;
+      resultLabel = r("cm_call_result_interrupted");
+      listPreview = line(lang, kind, "cm_call_result_interrupted");
       break;
     default: {
       const _exhaustive: never = input.canonical;
       void _exhaustive;
-      resultLabel = "상태 확인 중";
-      listPreview = `${kind} · 상태 확인 중`;
+      resultLabel = r("cm_call_result_checking");
+      listPreview = line(lang, kind, "cm_call_result_checking");
       isTerminal = false;
     }
   }
@@ -157,7 +170,7 @@ export function buildCallEventPresentation(input: {
     canonical: input.canonical,
     kindLabel: kind,
     resultLabel,
-    fullLabel: `${kind} · ${resultLabel}`,
+    fullLabel: translate(lang, "cm_call_line", { kind, result: resultLabel }),
     listPreview,
     isMissed,
     isTerminal,
@@ -173,6 +186,7 @@ export function formatCallEventForViewer(input: {
   callStatusFallback?: CommunityMessengerCallStatus | string | null;
   viewerRole: CallSessionViewerRole | null;
   durationSeconds?: number | null;
+  lang: AppLanguageCode;
 }): CallEventPresentation {
   const canonical = resolveCallEventCanonical({
     resolvedEvent: input.resolvedEvent,
@@ -183,6 +197,7 @@ export function formatCallEventForViewer(input: {
     callKind: input.callKind,
     canonical,
     durationSeconds: input.durationSeconds,
+    lang: input.lang,
   });
 }
 
@@ -197,23 +212,23 @@ export function formatCallEventSharedListLabel(
   durationSeconds?: number,
   resolvedEvent?: CallSessionResolvedEvent | null,
 ): string {
-  const kind = kindLabel(callKind);
+  /** DB 저장 문장 — 보는 사람과 무관한 한국어 고정(저장 형식 무변경). 화면은 토큰·metadata 로 다시 그린다. */
+  const lang: AppLanguageCode = "ko";
+  const kind = kindLabel(callKind, lang);
   const dur = Math.max(0, Math.floor(Number(durationSeconds ?? 0)));
-  if (resolvedEvent === "failed") return `${kind} · 연결 실패`;
-  if (resolvedEvent === "disconnected") return `${kind} · 연결 끊김`;
-  if (resolvedEvent === "peer_busy") return `${kind} · 통화 중`;
-  if (resolvedEvent === "caller_busy") return `${kind} · 다른 통화 중`;
+  if (resolvedEvent === "failed") return line(lang, kind, "cm_call_result_failed");
+  if (resolvedEvent === "disconnected") return line(lang, kind, "cm_call_result_disconnected");
+  if (resolvedEvent === "peer_busy") return line(lang, kind, "cm_call_result_busy");
+  if (resolvedEvent === "caller_busy") return line(lang, kind, "cm_call_result_self_busy");
   if ((resolvedEvent === "ended" || status === "ended") && dur > 0) {
-    return `${kind} · ${formatCommunityMessengerCallDurationLabel(dur)}`;
+    return translate(lang, "cm_call_line", { kind, result: formatCommunityMessengerCallDurationLabel(dur, lang) });
   }
-  if (resolvedEvent === "missed" || status === "missed") {
-    return kind === "영상 통화" ? "부재중 영상 통화" : "부재중 음성 통화";
-  }
-  if (resolvedEvent === "rejected_by_callee" || status === "rejected") return `${kind} · 거절`;
-  if (resolvedEvent === "cancelled_by_caller" || status === "cancelled") return `${kind} · 취소`;
-  if (resolvedEvent === "ended" || status === "ended") return `${kind} · 통화 종료`;
-  if (status === "incoming") return `${kind} · 수신 중`;
-  return `${kind} · 발신 중`;
+  if (resolvedEvent === "missed" || status === "missed") return missedLine(lang, callKind);
+  if (resolvedEvent === "rejected_by_callee" || status === "rejected") return line(lang, kind, "cm_call_result_declined");
+  if (resolvedEvent === "cancelled_by_caller" || status === "cancelled") return line(lang, kind, "cm_call_result_cancelled");
+  if (resolvedEvent === "ended" || status === "ended") return line(lang, kind, "cm_call_result_ended");
+  if (status === "incoming") return line(lang, kind, "cm_call_result_incoming");
+  return line(lang, kind, "cm_call_result_calling");
 }
 
 /** ISO 시각만 앞으로 이동 (rollback 금지) */

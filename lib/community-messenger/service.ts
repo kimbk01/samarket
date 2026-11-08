@@ -1,4 +1,5 @@
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { encodeCallStubRoomTip, resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import {
@@ -2619,6 +2620,8 @@ function isActiveMembershipParticipantRow(item: ParticipantRow | DevParticipant)
 }
 
 function buildRoomSummaryFromHydratedMembers(
+  /** 통화 기록 미리보기 언어 (언어 SSOT 6번) — 서버 요청 언어 */
+  lang: AppLanguageCode,
   userId: string,
   room: RoomRow | DevRoom,
   participants: Array<ParticipantRow | DevParticipant>,
@@ -2643,7 +2646,7 @@ function buildRoomSummaryFromHydratedMembers(
   const roomAvatar = trimText(isDbRoom ? room.avatar_url : room.avatarUrl) || null;
   /** 통화 기록 tip 토큰 → viewer(발신/수신)별 문구 — 원문 토큰은 클라이언트로 나가지 않는다. */
   const roomLastMessage = trimText(
-    resolveRoomLastMessageForViewer(isDbRoom ? room.last_message : room.lastMessage, userId)
+    resolveRoomLastMessageForViewer(isDbRoom ? room.last_message : room.lastMessage, userId, lang)
   );
   const roomLastMessageTypeRaw = trimText(isDbRoom ? room.last_message_type : room.lastMessageType);
   const roomLastMessageType =
@@ -2962,6 +2965,8 @@ function callLogPeerUserId(row: CallRow | DevCall): string | null {
 
 /** 이미 hydrateProfiles 로 채운 맵으로 방 요약만 조립 (부트스트랩 단일 하이드레이션용). */
 export function summarizeRoomsBatchWithProfileMap(
+  /** 통화 기록 미리보기 언어 (언어 SSOT 6번) — 서버 요청 언어 */
+  lang: AppLanguageCode,
   userId: string,
   roomRows: Array<RoomRow | DevRoom>,
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>,
@@ -2977,6 +2982,7 @@ export function summarizeRoomsBatchWithProfileMap(
       .map((id) => profileById.get(id))
       .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
     return buildRoomSummaryFromHydratedMembers(
+      lang,
       userId,
       room,
       participants,
@@ -3002,7 +3008,7 @@ async function summarizeRoomsBatch(
   ]);
   const allMemberProfiles = await hydrateProfiles(userId, allMemberIds, { includeSelf: true });
   const profileById = new Map(allMemberProfiles.map((profile) => [profile.id, profile]));
-  return summarizeRoomsBatchWithProfileMap(userId, roomRows, roomProfileMap, participantsByRoom, profileById);
+  return summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), userId, roomRows, roomProfileMap, participantsByRoom, profileById);
 }
 
 type MessengerRoomsPayload = {
@@ -4720,7 +4726,7 @@ export async function listCommunityMessengerCallLogs(
     (await hydrateProfiles(userId, allIds, { includeSelf: true })).map((p) => [p.id, p])
   );
   const roomMetaMap = new Map(
-    summarizeRoomsBatchWithProfileMap(
+    summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
       userId,
       roomPayload.roomRows,
       roomPayload.roomProfileMap,
@@ -4949,7 +4955,7 @@ export async function listCommunityMessengerMyChatsAndGroups(
   }
   const participantUnreadPerf = homeSyncTraceMeterEnabled(options?.trace) ? { participantUnreadCpuMs: 0 } : undefined;
   const tSummarize = performance.now();
-  const mySummaries = summarizeRoomsBatchWithProfileMap(
+  const mySummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     myPayload.roomRows,
     myPayload.roomProfileMap,
@@ -6578,7 +6584,7 @@ export async function getCommunityMessengerBootstrap(
   const hiddenIdSet = new Set(hidden.map((profile) => profile.id));
 
   const tRoomsHydrateLabel = performance.now();
-  const mySummaries = summarizeRoomsBatchWithProfileMap(userId, myPayload.roomRows, myPayload.roomProfileMap, myPayload.byRoomId, profileById);
+  const mySummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), userId, myPayload.roomRows, myPayload.roomProfileMap, myPayload.byRoomId, profileById);
   diagnostics && (diagnostics.roomsQueryRound2RoomsHydrateLabelMs = Math.round(performance.now() - tRoomsHydrateLabel));
   diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCore));
   /**
@@ -6645,7 +6651,7 @@ export async function getCommunityMessengerBootstrap(
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
-  const discSummaries = summarizeRoomsBatchWithProfileMap(
+  const discSummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     discState.roomRows,
     discState.roomProfileMap,
@@ -6721,7 +6727,7 @@ export async function getCommunityMessengerBootstrap(
   for (const s of mySummaries) roomSummaryMap.set(s.id, s);
   diagnostics && (diagnostics.roomsQueryRound2RoomsMergeMapMs = Math.round(performance.now() - tRoomsMergeMap));
   if (extraPayload) {
-    const extraSummaries = summarizeRoomsBatchWithProfileMap(
+    const extraSummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
       userId,
       extraPayload.roomRows,
       extraPayload.roomProfileMap,
@@ -15892,6 +15898,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let tHiDeferAfterMembersMap = 0;
   let tHiDeferAfterMessagesMap = 0;
   const summary = buildRoomSummaryFromHydratedMembers(
+    await resolveRequestAppLanguageOr("ko"),
     userId,
     room,
     participants,

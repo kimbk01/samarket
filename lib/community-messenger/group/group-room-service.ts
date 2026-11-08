@@ -1,4 +1,5 @@
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   cmMgmtMemberInviteMessage,
@@ -558,6 +559,7 @@ export async function listMyGroupRooms(
 
   const rows = await listMyPrivateGroupRooms(sb, uid, limit);
   const rooms: GroupRoomListItem[] = [];
+  const lang = await resolveRequestAppLanguageOr("ko");
   for (const row of rows) {
     const memberCount = await countActiveParticipants(sb, row.id);
     rooms.push({
@@ -565,7 +567,7 @@ export async function listMyGroupRooms(
       roomType: "private_group",
       title: trimText(row.title) || cmServiceT("cm_svc_group_members", { count: memberCount }),
       memberCount,
-      lastMessage: trimText(resolveRoomLastMessageForViewer(row.last_message, uid)),
+      lastMessage: trimText(resolveRoomLastMessageForViewer(row.last_message, uid, lang)),
       lastMessageAt: trimText(row.last_message_at) || new Date(0).toISOString(),
       lastMessageType: (trimText(row.last_message_type) || "text") as GroupRoomListItem["lastMessageType"],
       unreadCount: Math.max(0, Number(row.participant.unread_count ?? 0)),

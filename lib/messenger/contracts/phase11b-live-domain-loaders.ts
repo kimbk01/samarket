@@ -56,6 +56,9 @@ import {
   resolveMessengerChatRoomListUnreadCount,
 } from "@/lib/messenger/contracts/chat-room-unread-from-notification-targets";
 
+/** 방 요약(`roomLastMessageSummary`)은 미리보기 근거가 아니다(`pickAuthoritativeMessagePreview` 가 무시) — 지금과 같은 한국어 유지 (언어 SSOT 6번) */
+const ROOM_SUMMARY_LANG = "ko" as const;
+
 export const PHASE11B_MAX_ROWS = 200 as const;
 
 export type Phase11bLiveLoadMeta = Readonly<{
@@ -395,7 +398,7 @@ export async function fetchGeneralDirectLiveBatch(
             systemMeta: latest.systemMeta,
           }
         : null,
-      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null, ROOM_SUMMARY_LANG) : null,
       roomTitle: room.title ?? null,
     });
   }
@@ -538,7 +541,7 @@ export async function fetchGroupLiveBatch(
             systemMeta: latest.systemMeta,
           }
         : null,
-      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null, ROOM_SUMMARY_LANG) : null,
     });
   }
 
@@ -713,8 +716,8 @@ export async function fetchTradeLiveBatch(
             messageType: latest.messageType,
           }
         : null,
-      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
-      productSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null, ROOM_SUMMARY_LANG) : null,
+      productSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null, ROOM_SUMMARY_LANG) : null,
     });
   }
 
@@ -874,7 +877,7 @@ export async function fetchStoreOrderCustomerLiveBatch(
       orderStatusLabel: o.order_status ?? null,
       fulfillmentType: o.fulfillment_type ?? null,
       cancelKind: o.cancel_kind ?? null,
-      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null, ROOM_SUMMARY_LANG) : null,
     });
   }
 
@@ -1033,7 +1036,7 @@ export async function fetchStoreOrderOwnerLiveBatch(
       orderStatusLabel: o.order_status ?? null,
       fulfillmentType: o.fulfillment_type ?? null,
       cancelKind: o.cancel_kind ?? null,
-      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null) : null,
+      roomLastMessageSummary: room.last_message != null ? resolveRoomLastMessageForViewer(room.last_message, null, ROOM_SUMMARY_LANG) : null,
     });
   }
 

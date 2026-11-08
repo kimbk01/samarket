@@ -10,6 +10,7 @@ import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messe
 import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { getRoomPreviewText } from "@/lib/community-messenger/cm-home-list-copy";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 const CALLER = "719de75f-9b58-4bf4-8ac9-3e37e64e222c";
 const CALLEE = "46a41536-1b60-4e74-b132-2dec17798475";
@@ -33,43 +34,43 @@ function tipFor(meta: Record<string, unknown>, label: string) {
 describe("call stub room tip — 결과 기준 리스트 문구, 발신자·수신자 동일 (F5)", () => {
   it("발신 취소: 발신자·수신자 모두 '취소' (레거시 '취소됨' 원문도 재계산)", () => {
     const tip = tipFor(cancelledMeta, "음성 통화 · 취소됨");
-    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 취소");
-    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("음성 통화 · 취소");
+    expect(formatCallStubRoomTipForViewer(tip, CALLER, "ko")).toBe("음성 통화 · 취소");
+    expect(formatCallStubRoomTipForViewer(tip, CALLEE, "ko")).toBe("음성 통화 · 취소");
   });
   it("거절: 발신자·수신자 모두 '거절' (레거시 '거절됨' 원문도 재계산)", () => {
     const tip = tipFor(
       { ...cancelledMeta, callStatus: "rejected", callResolvedEvent: "rejected_by_callee" },
       "음성 통화 · 거절됨"
     );
-    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("음성 통화 · 거절");
-    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("음성 통화 · 거절");
+    expect(formatCallStubRoomTipForViewer(tip, CALLER, "ko")).toBe("음성 통화 · 거절");
+    expect(formatCallStubRoomTipForViewer(tip, CALLEE, "ko")).toBe("음성 통화 · 거절");
   });
   it("무응답: 발신자·수신자 모두 '부재중'", () => {
     const tip = tipFor({ ...cancelledMeta, callStatus: "missed", callResolvedEvent: "missed" }, "부재중 음성 통화");
-    expect(formatCallStubRoomTipForViewer(tip, CALLER)).toBe("부재중 음성 통화");
-    expect(formatCallStubRoomTipForViewer(tip, CALLEE)).toBe("부재중 음성 통화");
+    expect(formatCallStubRoomTipForViewer(tip, CALLER, "ko")).toBe("부재중 음성 통화");
+    expect(formatCallStubRoomTipForViewer(tip, CALLEE, "ko")).toBe("부재중 음성 통화");
   });
   it("연결 후 종료: 양쪽 통화 시간, 0초면 '통화 종료'(시간 미표시)", () => {
     const tip = tipFor(
       { ...cancelledMeta, callKind: "video", callStatus: "ended", callResolvedEvent: "ended", durationSeconds: 75 },
       "영상 통화 · 01:15"
     );
-    const a = formatCallStubRoomTipForViewer(tip, CALLER);
-    expect(a).toBe(formatCallStubRoomTipForViewer(tip, CALLEE));
+    const a = formatCallStubRoomTipForViewer(tip, CALLER, "ko");
+    expect(a).toBe(formatCallStubRoomTipForViewer(tip, CALLEE, "ko"));
     expect(a.startsWith("영상 통화 · ")).toBe(true);
     expect(a).not.toContain("통화 종료");
     const zero = tipFor(
       { ...cancelledMeta, callStatus: "ended", callResolvedEvent: "ended", durationSeconds: 0 },
       "음성 통화 · 통화 종료"
     );
-    expect(formatCallStubRoomTipForViewer(zero, CALLER)).toBe("음성 통화 · 통화 종료");
+    expect(formatCallStubRoomTipForViewer(zero, CALLER, "ko")).toBe("음성 통화 · 통화 종료");
   });
   it("viewer 미상·제3자·레거시 라벨은 공유 라벨/원문", () => {
     const tip = tipFor(cancelledMeta, "음성 통화 · 취소됨");
-    expect(formatCallStubRoomTipForViewer(tip, null)).toBe("음성 통화 · 취소됨");
-    expect(formatCallStubRoomTipForViewer(tip, "someone-else")).toBe("음성 통화 · 취소됨");
-    expect(resolveRoomLastMessageForViewer("음성 통화 · 취소됨", CALLEE)).toBe("음성 통화 · 취소됨");
-    expect(resolveRoomLastMessageForViewer("hello", CALLEE)).toBe("hello");
+    expect(formatCallStubRoomTipForViewer(tip, null, "ko")).toBe("음성 통화 · 취소됨");
+    expect(formatCallStubRoomTipForViewer(tip, "someone-else", "ko")).toBe("음성 통화 · 취소됨");
+    expect(resolveRoomLastMessageForViewer("음성 통화 · 취소됨", CALLEE, "ko")).toBe("음성 통화 · 취소됨");
+    expect(resolveRoomLastMessageForViewer("hello", CALLEE, "ko")).toBe("hello");
   });
   it("initiator 없는 메타는 토큰을 만들지 않는다(기존 동작)", () => {
     expect(tipFor({ callKind: "voice", callStatus: "cancelled" }, "음성 통화 · 취소됨")).toBe("음성 통화 · 취소됨");
@@ -107,8 +108,13 @@ describe("call stub room tip — 결과 기준 리스트 문구, 발신자·수�
       lastMessageType: "call_stub",
       lastMessageAt: "2026-10-15T06:29:50.715Z",
     } as CommunityMessengerRoomSummary;
+    /** 홈 렌더는 화면 언어(언어 SSOT 6번) — 한국어 화면 */
+    setRuntimeAppLanguage("ko");
     expect(getRoomPreviewText(room, CALLEE)).toBe("음성 통화 · 취소");
     expect(getRoomPreviewText(room, CALLER)).toBe("음성 통화 · 취소");
     expect(getRoomPreviewText(room, CALLER)).not.toContain("cmcall1");
+    /** 영어 화면 */
+    setRuntimeAppLanguage("en");
+    expect(getRoomPreviewText(room, CALLEE)).toBe("Voice call · Cancelled");
   });
 });

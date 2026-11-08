@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-08 23:05 PHT",
+ "generatedAtPht": "2026-11-08 23:34 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -467,7 +467,6 @@
    "lib/community-feed/topic-feed-skin.ts": 5,
    "lib/community-messenger/call-authority/call-missed-notification-authority.ts": 5,
    "lib/community-messenger/call-browser-notification.ts": 3,
-   "lib/community-messenger/call-event-presentation.ts": 42,
    "lib/community-messenger/call-media-stack.ts": 1,
    "lib/community-messenger/call-session-navigation-seed.ts": 12,
    "lib/community-messenger/call-stub-message-label.ts": 6,

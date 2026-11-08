@@ -21,12 +21,12 @@ import type { CommunityMessengerMessage } from "@/lib/community-messenger/types"
 
 describe("call-event-presentation outcome phrases (caller = callee)", () => {
   it("caller cancel → 취소 for both caller and callee", () => {
-    const caller = formatCallEventForViewer({
+    const caller = formatCallEventForViewer({ lang: "ko",
       callKind: "voice",
       resolvedEvent: "cancelled_by_caller",
       viewerRole: "caller",
     });
-    const callee = formatCallEventForViewer({
+    const callee = formatCallEventForViewer({ lang: "ko",
       callKind: "voice",
       resolvedEvent: "cancelled_by_caller",
       viewerRole: "callee",
@@ -41,14 +41,14 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
 
   it("remote reject → 거절 for both caller and callee", () => {
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "video",
         resolvedEvent: "rejected_by_callee",
         viewerRole: "caller",
       }).resultLabel
     ).toBe("거절");
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "video",
         resolvedEvent: "rejected_by_callee",
         viewerRole: "callee",
@@ -58,21 +58,21 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
 
   it("missed → 부재중 for both callee and caller", () => {
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "missed",
         viewerRole: "callee",
       }).listPreview
     ).toBe("부재중 음성 통화");
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "missed",
         viewerRole: "caller",
       }).listPreview
     ).toBe("부재중 음성 통화");
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "missed",
         viewerRole: "caller",
@@ -81,7 +81,7 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
   });
 
   it("connected_ended shows duration", () => {
-    const p = buildCallEventPresentation({
+    const p = buildCallEventPresentation({ lang: "ko",
       callKind: "video",
       canonical: "connected_ended",
       durationSeconds: 222,
@@ -95,21 +95,21 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
       "remote_busy"
     );
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "peer_busy",
         viewerRole: "caller",
       }).resultLabel
     ).toBe("통화 중");
     expect(
-      formatCallEventForViewer({
+      formatCallEventForViewer({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "missed",
         viewerRole: "caller",
       }).resultLabel
     ).toBe("부재중");
     expect(
-      buildCallEventPresentation({ callKind: "voice", canonical: "failed" }).resultLabel
+      buildCallEventPresentation({ lang: "ko", callKind: "voice", canonical: "failed" }).resultLabel
     ).toBe("연결 실패");
   });
 
@@ -122,7 +122,7 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
 
   it("getCallMessageText gives the same outcome text to caller and callee", () => {
     expect(
-      getCallMessageText({
+      getCallMessageText({ lang: "ko",
         callKind: "voice",
         eventType: "cancelled_by_caller",
         viewerUserId: "caller",
@@ -130,7 +130,7 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
       })
     ).toBe("음성 통화 · 취소");
     expect(
-      getCallMessageText({
+      getCallMessageText({ lang: "ko",
         callKind: "voice",
         eventType: "cancelled_by_caller",
         viewerUserId: "callee",
@@ -141,7 +141,7 @@ describe("call-event-presentation outcome phrases (caller = callee)", () => {
 
   it("timeline status line for ended uses duration", () => {
     expect(
-      getCallStubTimelineStatusLine({
+      getCallStubTimelineStatusLine({ lang: "ko",
         callKind: "voice",
         resolvedEvent: "ended",
         callStatusFallback: "ended",

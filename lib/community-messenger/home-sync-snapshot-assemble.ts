@@ -2,6 +2,7 @@
  * Home-sync critical snapshot assembly — CPU-only from precomputed RPC payload.
  * No DB round trips after counter row / unified RPC read.
  */
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   buildParticipantsByRoomMap,
   hydrateProfilesLabelsOnlyWithMap,
@@ -195,7 +196,7 @@ export async function assembleHomeSyncCriticalFromSnapshotPayload(
   const profileById = new Map(members.map((m) => [m.id, m]));
 
   const tSummarize = performance.now();
-  const mySummaries = summarizeRoomsBatchWithProfileMap(
+  const mySummaries = summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
     userId,
     roomRows,
     new Map(),

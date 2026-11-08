@@ -22,6 +22,24 @@ export const cmHomeListMessages = {
 
     cm_home_call_duration_mins: "{mins}분 {secs}초",
 
+    /** 통화 기록 문구 — `call-event-presentation.ts` (언어 SSOT 6번, 2026-11-08) */
+    cm_call_line: "{kind} · {result}",
+    cm_call_missed_voice: "부재중 음성 통화",
+    cm_call_missed_video: "부재중 영상 통화",
+    cm_call_result_calling: "발신 중",
+    cm_call_result_incoming: "수신 중",
+    cm_call_result_ended: "통화 종료",
+    cm_call_result_cancelled: "취소",
+    cm_call_result_missed: "부재중",
+    cm_call_result_declined: "거절",
+    cm_call_result_busy: "통화 중",
+    cm_call_result_self_busy: "다른 통화 중",
+    cm_call_result_failed: "연결 실패",
+    cm_call_result_interrupted: "중단됨",
+    cm_call_result_disconnected: "연결 끊김",
+    cm_call_result_checking: "상태 확인 중",
+
+
     cm_home_badge_open: "오픈",
 
     cm_home_badge_group: "그룹",
@@ -132,6 +150,24 @@ export const cmHomeListMessages = {
     cm_home_call_duration_secs: "{secs}s",
 
     cm_home_call_duration_mins: "{mins}m {secs}s",
+
+    /** 통화 기록 문구 — `call-event-presentation.ts` (언어 SSOT 6번, 2026-11-08) */
+    cm_call_line: "{kind} · {result}",
+    cm_call_missed_voice: "Missed voice call",
+    cm_call_missed_video: "Missed video call",
+    cm_call_result_calling: "Calling…",
+    cm_call_result_incoming: "Incoming…",
+    cm_call_result_ended: "Call ended",
+    cm_call_result_cancelled: "Cancelled",
+    cm_call_result_missed: "Missed",
+    cm_call_result_declined: "Declined",
+    cm_call_result_busy: "Busy",
+    cm_call_result_self_busy: "On another call",
+    cm_call_result_failed: "Call failed",
+    cm_call_result_interrupted: "Interrupted",
+    cm_call_result_disconnected: "Disconnected",
+    cm_call_result_checking: "Checking status",
+
 
     cm_home_badge_open: "Open",
 

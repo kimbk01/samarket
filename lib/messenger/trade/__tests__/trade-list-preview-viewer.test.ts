@@ -16,6 +16,7 @@ import { buildTradeHubViewModel } from "@/lib/messenger/trade/hub";
 import { mapTradeLoaderBatchRows } from "@/lib/messenger/trade/phase11a-db-loader";
 import { buildTradeListSnapshot, buildTradeListViewModel, buildTradeIdentity, TRADE_DOMAIN } from "@/lib/messenger/trade";
 import type { TradeRoomInput } from "@/lib/messenger/trade/types";
+import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 const SELLER = "seller-1";
 const BUYER = "buyer-1";
@@ -61,6 +62,8 @@ function vmFor(viewer: string, room: TradeRoomInput) {
 
 describe("B-3 trade row-model preview — viewer-resolved + real message type", () => {
   it("call_stub token resolves to the same outcome label for caller and callee, never raw token; hub matches row", () => {
+    /** 목록은 화면 언어(언어 SSOT 6번) — 이 기대값은 한국어 화면 */
+    setRuntimeAppLanguage("ko");
     const room = tradeRoom({ lastMessage: CALL_TOKEN, lastMessageType: "call_stub", lastMessageIsSystem: true });
     const seller = vmFor(SELLER, room);
     const buyer = vmFor(BUYER, room);

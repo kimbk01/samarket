@@ -1,4 +1,6 @@
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import { adminServerLanguage } from "@/lib/i18n/admin-server-language";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { updateCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
@@ -444,7 +446,9 @@ async function getRoomsAndParticipants(limit = 200): Promise<{
 function mapRoomSummary(
   room: RoomRow,
   participants: ParticipantRow[],
-  profileMap: Map<string, ProfileRow>
+  profileMap: Map<string, ProfileRow>,
+  /** 통화 기록 미리보기 언어 = 관리자 화면 언어 (언어 SSOT 6번) */
+  adminLang: AppLanguageCode
 ): AdminCommunityMessengerRoomSummary {
   const memberLabels = participants.map((participant) =>
     labelForProfile(profileMap.get(participant.user_id), participant.user_id)
@@ -470,7 +474,7 @@ function mapRoomSummary(
     memberLimit: room.member_limit ?? null,
     isDiscoverable: room.is_discoverable === true,
     requiresPassword: t(room.password_hash).length > 0,
-    lastMessage: t(resolveRoomLastMessageForViewer(room.last_message, null)) || "-",
+    lastMessage: t(resolveRoomLastMessageForViewer(room.last_message, null, adminLang)) || "-",
     lastMessageAt: t(room.last_message_at) || t(room.created_at),
     lastMessageType: t(room.last_message_type) || "system",
     createdAt: t(room.created_at),
@@ -692,8 +696,9 @@ export async function getAdminCommunityMessengerDashboard(): Promise<AdminCommun
   ];
   const profileMap = await getProfileMap(userIds);
 
+  const adminLang = await adminServerLanguage();
   const roomSummaries = rooms.map((room) =>
-    mapRoomSummary(room, participantsByRoom.get(room.id) ?? [], profileMap)
+    mapRoomSummary(room, participantsByRoom.get(room.id) ?? [], profileMap, adminLang)
   );
   const roomMap = new Map(roomSummaries.map((room) => [room.id, room]));
   const sessionMap = new Map(sessionRows.map((session) => [session.id, session]));
@@ -973,7 +978,7 @@ export async function getAdminCommunityMessengerRoomDetail(
     ...auditRows.map((row) => row.actor_id ?? ""),
   ];
   const profileMap = await getProfileMap(profileIds);
-  const summary = mapRoomSummary(room, participants, profileMap);
+  const summary = mapRoomSummary(room, participants, profileMap, await adminServerLanguage());
   const roomMap = new Map([[room.id, summary]]);
   const sessionMap = new Map(sessions.map((session) => [session.id, session]));
   const participantsBySession = new Map<string, CallSessionParticipantRow[]>();
@@ -1357,9 +1362,10 @@ export async function listAdminCommunityMessengerRoomsByDomain(
     byRoom.set(p.room_id, list);
   }
 
+  const adminLang = await adminServerLanguage();
   return roomRows.map((room) => {
     const roomParticipants = byRoom.get(room.id) ?? [];
-    const summary = mapRoomSummary(room, roomParticipants, profileMap);
+    const summary = mapRoomSummary(room, roomParticipants, profileMap, adminLang);
     return {
       ...summary,
       chatDomain: domain,

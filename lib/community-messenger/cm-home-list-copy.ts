@@ -1,4 +1,6 @@
-import type { MessageKey } from "@/lib/i18n/messages";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveCmSystemListPreview } from "@/lib/community-messenger/system-message-i18n";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { messengerRoomLastMessagePlaceholderKey } from "@/lib/community-messenger/room/messenger-room-last-message-placeholder";
@@ -25,12 +27,18 @@ function callKindLabel(callKind: CommunityMessengerCallLog["callKind"]): string 
   return translateCmUi(callKind === "video" ? "cm_home_call_video" : "cm_home_call_voice");
 }
 
-export function formatCmHomeCallDurationLabel(seconds: number): string {
+/**
+ * 통화 시간 글자. `lang` 을 넘기면 그 언어(서버 — 화면 언어 전역값은 서버에서 늘 기본값이라 쓰면 안 됨),
+ * 없으면 화면 언어(클라이언트).
+ */
+export function formatCmHomeCallDurationLabel(seconds: number, lang?: AppLanguageCode): string {
   const s = Math.max(0, Math.floor(Number(seconds) || 0));
   const mins = Math.floor(s / 60);
   const secs = s % 60;
-  if (mins < 1) return translateCmUi("cm_home_call_duration_secs", { secs });
-  return translateCmUi("cm_home_call_duration_mins", {
+  const tr = (key: MessageKey, vars: Record<string, string | number>) =>
+    lang ? translate(lang, key, vars) : translateCmUi(key, vars);
+  if (mins < 1) return tr("cm_home_call_duration_secs", { secs });
+  return tr("cm_home_call_duration_mins", {
     mins,
     secs: secs.toString().padStart(2, "0"),
   });
@@ -135,7 +143,7 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
   if (lastMessageType === "call_stub") {
     if (!lastMessage) return translateCmUi("cm_home_preview_call");
     /** 토큰 tip → viewer(발신/수신) 기준 문구(타임라인과 동일 계약). 레거시 라벨은 그대로. */
-    const callText = formatCallStubRoomTipForViewer(lastMessage, viewerUserId);
+    const callText = formatCallStubRoomTipForViewer(lastMessage, viewerUserId, getRuntimeAppLanguage());
     return LEGACY_CALL_TOKEN.test(callText)
       ? callText
       : translateCmUi("cm_home_preview_call_named", { detail: callText });

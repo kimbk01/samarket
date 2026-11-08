@@ -20,6 +20,7 @@ import type {
   CommunityMessengerRoomType,
 } from "@/lib/community-messenger/types";
 import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 
 function getSupabaseOrNull(): ReturnType<typeof getSupabaseServer> | null {
   try {
@@ -217,6 +218,7 @@ export async function loadCommunityMessengerBootstrapCritical(
 
   const tSummarize0 = performance.now();
   const mySummaries = summarizeRoomsBatchWithProfileMap(
+    await resolveRequestAppLanguageOr("ko"),
     userId,
     myPayload.roomRows,
     myPayload.roomProfileMap,

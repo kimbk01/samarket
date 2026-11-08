@@ -10,6 +10,7 @@
  * - 토큰이 아닌 기존 행(레거시 라벨)은 그대로 표시 — 기존 데이터 호환.
  */
 import { formatCallEventForViewer } from "@/lib/community-messenger/call-event-presentation";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import type { CommunityMessengerCallKind, CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
 
@@ -80,21 +81,38 @@ export function callStubRoomTipSharedText(text: string | null | undefined): stri
  */
 export function formatCallStubRoomTipForViewer(
   text: string | null | undefined,
-  viewerUserId: string | null | undefined
+  viewerUserId: string | null | undefined,
+  lang: AppLanguageCode
 ): string {
   const tip = decodeCallStubRoomTip(text);
   if (!tip) return String(text ?? "");
   const viewer = String(viewerUserId ?? "").trim();
-  if (!viewer) return tip.sharedLabel;
-  const viewerRole =
-    viewer === tip.initiatorUserId ? "caller" : tip.recipientUserId && viewer === tip.recipientUserId ? "callee" : null;
-  if (!viewerRole) return tip.sharedLabel;
+  const viewerRole = !viewer ? null
+    : viewer === tip.initiatorUserId ? "caller"
+    : tip.recipientUserId && viewer === tip.recipientUserId ? "callee"
+    : null;
+  if (!viewerRole) {
+    /**
+     * 보는 사람을 모를 때: 한국어는 저장된 공유 라벨 그대로(지금과 같음). 다른 언어는 토큰의 종류·결과·시간으로
+     * 그 언어 문구를 만든다(종료 결과는 보는 사람과 무관 — 제품 결정 2026-10-16).
+     */
+    if (lang === "ko") return tip.sharedLabel;
+    return formatCallEventForViewer({
+      callKind: tip.callKind,
+      resolvedEvent: tip.resolvedEvent,
+      callStatusFallback: tip.status,
+      viewerRole: null,
+      durationSeconds: tip.durationSeconds,
+      lang,
+    }).listPreview;
+  }
   return formatCallEventForViewer({
     callKind: tip.callKind,
     resolvedEvent: tip.resolvedEvent,
     callStatusFallback: tip.status,
     viewerRole,
     durationSeconds: tip.durationSeconds,
+    lang,
   }).listPreview;
 }
 
@@ -130,9 +148,10 @@ export function callStubRoomTipFromMessage(input: { content?: string | null; met
  */
 export function resolveRoomLastMessageForViewer(
   lastMessage: string | null | undefined,
-  viewerUserId: string | null | undefined
+  viewerUserId: string | null | undefined,
+  lang: AppLanguageCode
 ): string {
   const text = String(lastMessage ?? "");
   if (!isCallStubRoomTipToken(text)) return text;
-  return formatCallStubRoomTipForViewer(text, viewerUserId);
+  return formatCallStubRoomTipForViewer(text, viewerUserId, lang);
 }

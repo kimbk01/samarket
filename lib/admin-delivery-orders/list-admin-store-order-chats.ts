@@ -1,4 +1,6 @@
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
+import { adminServerLanguage } from "@/lib/i18n/admin-server-language";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { storeOrderRoomIdentity } from "@/lib/chat-domain/room-identity";
 import { lookupStoreOrderMessengerRoomReadOnly } from "@/lib/admin-delivery-orders/store-order-room-lookup";
@@ -50,7 +52,7 @@ function trim(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function mapChatPageRow(r: ChatPageRpcRow): AdminStoreOrderChatListRow | null {
+function mapChatPageRow(r: ChatPageRpcRow, adminLang: AppLanguageCode): AdminStoreOrderChatListRow | null {
   const orderId = trim(r.order_id);
   const roomId = trim(r.room_id);
   if (!orderId || !roomId) return null;
@@ -68,7 +70,7 @@ function mapChatPageRow(r: ChatPageRpcRow): AdminStoreOrderChatListRow | null {
       : "-",
     orderStatus: trim(r.order_status) || "-",
     domainIdentityKey: storeOrderRoomIdentity(orderId).identityKey,
-    lastMessage: trim(resolveRoomLastMessageForViewer(r.last_message, null)) || "-",
+    lastMessage: trim(resolveRoomLastMessageForViewer(r.last_message, null, adminLang)) || "-",
     lastMessageAt: trim(r.last_message_at) || trim(r.order_updated_at) || trim(r.order_created_at) || "",
     roomSource: r.room_source === "fallback" ? "fallback" : "linked",
   };
@@ -97,8 +99,9 @@ export async function listAdminStoreOrderChats(
   });
   if (error) throw new Error(String(error.message ?? "admin_store_order_chats_page_failed"));
   const d = data && typeof data === "object" ? (data as { rows?: unknown; total?: unknown }) : {};
+  const adminLang = await adminServerLanguage();
   const rows = (Array.isArray(d.rows) ? (d.rows as ChatPageRpcRow[]) : [])
-    .map(mapChatPageRow)
+    .map((row) => mapChatPageRow(row, adminLang))
     .filter((x): x is AdminStoreOrderChatListRow => x != null);
   const totalNum = Number(d.total);
   return {
