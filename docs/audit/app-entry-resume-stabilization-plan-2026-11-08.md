@@ -223,3 +223,19 @@ REQUIRED DEVICE MATRIX      (Owner 일괄 빌드 후) Android·iOS 각각: 정�
                             느린 망 콜드(오탐 없음) · 장시간 백그라운드 복귀 · iOS WebContent 종료 후 복귀 · 푸시 콜드 진입 · 통화 수신·수락(무변화).
 ROLLBACK BOUNDARY           이번 네이티브 커밋 revert 후 재빌드 (웹은 독립). 구 바이너리(Android 1.2.5(37)·iOS 21~27)는 재설치 전까지 기존 동작.
 ```
+
+## 15. 남은 위험 최종 대조 · Owner 결정 항목 권장안 처리 (2026-11-08 18:40 PHT)
+
+| # | 항목 | 권장안 | 처리 | 근거 |
+|---|---|---|---|---|
+| 1 | D1 하드락 충돌(표시 타이머 금지 vs 무한 대기 금지) | 표시 타이머 금지 유지 + 고장 판정 허용 | **적용** — C1·C7 코드, r17 계약 테스트 개정 | `1212c1fb4` |
+| 2 | LIFECYCLE_SSOT §7.2 인트로 준비 무제한 | 웹 타이머 추가 | **적용 안 함 (권장안 정정)** — 현재 main 에 준비 try/catch(D-16)·백그라운드 중단(D-17) 이미 있음, 준비 시간 제한은 Owner 결정 4(2026-11-04)가 금지하고 테스트로 고정(`launch-intro-no-safety-timer-invalid-row.test.ts`). 준비가 끝나지 않는 경우는 AppBootProvider 의 `reactMounted` 이후 네이티브 고장 판정(T_release 15초)이 처리 | 코드 확인 |
+| 3 | C8 실패 기록 표 | 로그 + 실패만 표 | **코드·마이그레이션 반영, 운영 DB 적용은 권한 거부** — Claude Code 권한 분류기가 운영 DB 적용(apply_migration)을 거부. 적용 전에는 저장만 건너뛴다. Vercel Pro 로그 보존 1일(공식 문서) | `7b6776c0a`, `supabase/migrations/20271108170000_app_entry_failures.sql` |
+| 4 | Skew Protection | 7~30일 활성 | **적용** 7일 · 이전 배포 청크 200 실측 | `94c563a80` |
+| 5 | 인증 구조 | 혼합(Supabase 공식) | **적용** 3-1·3-2a, 효과 측정 예약 2026-11-09 16:45 PHT | `f1b30dfe5`·`a4d44372b` |
+| 6 | 네이티브 C1·C7 | 구현 + Owner 일괄 빌드 | **코드 적용** · 설치용 빌드·실기는 Owner 일괄 | §14 |
+| 7 | 통화 청크 경계 반복 새로고침 | 별도 계획 | **변경하지 않음 (통화 규정 2)** — 「증거 없이 통화 경로를 바꾸지 않는다」. 이 반복이 실제로 일어난 운영·실기 증거 없음(코드 경로만 확인). C8 계측이 새로고침 횟수(`reloads`)를 남기므로, `reloads ≥ 2` 가 통화 화면 실행에서 관측되면 그때 통화 단독 계획(파일·영향·구 바이너리·롤백·실기 행렬)을 올린다 | 통화 규정 1·2·3 |
+| 8 | 배포 빈도(18.6시간 41회) | 배포 창 | **Skew Protection 으로 「켜 둔 앱 깨짐」 위험은 제거됨**(4번). 남은 영향은 빌드 비용(주 $41)·버전 교체 잦음. 배포 창 강제는 AGENTS.md 「개발 프로세스」 1·2번(main 반영 = Production) 자체를 바꾸는 Owner 규칙 변경이라 이 세션이 고치지 않는다 | §8 |
+| 9 | 3-2b 복귀 요청 묶기 | 효율 | 보류 — 결함 아님. 2026-11-09 측정 후 | phase3 §7 |
+| 10 | C9 Realtime 구조 | 범위 밖 | 보고만 (DB 시간 79.7%) | §1 R6 |
+| 11 | iOS CI `Could not resolve package dependencies` (89e88dd69 · 8fb3b0129) | — | **원인 확정 — 외부(GitHub Releases 다운로드 504), 코드 무관.** 진단 출력(`8fb3b0129`) 결과: `failed downloading 'https://github.com/ionic-team/capacitor-swift-pm/releases/download/8.4.0/Cordova.xcframework.zip' (Capacitor 동일) … already exists in file system` (다운로드 실패 후 SPM 재시도 오류). 2026-11-08 09:50Z 로컬 재현: GitHub Releases 주소 3개(gradle 8.14.3 · capacitor-swift-pm 8.3.0·8.4.0) 모두 `github.com` 단계 HTTP 504, 자산은 `state=uploaded`(06-02 이후 무변경). 같은 시간대 Android 작업도 gradle 다운로드 504 로 실패. GitHub 상태 API 에는 11-08 사건 게시 없음. 로컬 빌드 통과는 전역 SPM 캐시(`~/Library/Caches/org.swift.swiftpm/artifacts`)에 바이너리가 있어서였다. 조치: 코드 수정 없음 — GitHub 복구 후 iOS 작업 재실행으로 확인 | CI 로그 · curl |
