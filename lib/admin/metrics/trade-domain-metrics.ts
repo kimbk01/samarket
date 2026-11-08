@@ -9,7 +9,8 @@
  * 클라이언트 안전 — 서버 전용 모듈은 type 으로만 참조한다.
  */
 import type { TradeOverview } from "@/lib/admin/trade-admin/trade-metrics";
-import { TRADE_POST_TAB_LABELS, TRADE_POST_TABS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
+import { TRADE_POST_TAB_LABEL_KEYS, TRADE_POST_TABS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
+import { translate } from "@/lib/i18n/messages";
 
 export type TradeMetricSection = "action" | "risk" | "state" | "period";
 
@@ -23,20 +24,6 @@ export type TradeMetricDefinition = {
   href: string;
   showWhenZero: boolean;
   read: (o: TradeOverview) => number | null;
-};
-
-const TRADE_POST_TAB_LABELS_EN: Record<TradePostTab, string> = {
-  all: "All trade posts",
-  visible: "Visible in app",
-  selling: "Selling",
-  reserved: "Reserved",
-  sold: "Sold",
-  admin_hidden: "Hidden by admin",
-  admin_deleted: "Deleted by admin",
-  owner_hidden: "Hidden by seller",
-  owner_deleted: "Deleted by seller",
-  reported: "Reported",
-  unclassified: "Needs classification",
 };
 
 export function tradePostsListHref(tab: TradePostTab): string {
@@ -97,10 +84,16 @@ export const TRADE_METRIC_DEFINITIONS: readonly TradeMetricDefinition[] = [
   ...TRADE_POST_TABS.map(
     (tab): TradeMetricDefinition => ({
       id: `trade.posts.${tab}`,
-      labelKo: tab === "all" ? "전체 거래글" : `거래글 · ${TRADE_POST_TAB_LABELS[tab]}`,
-      labelEn: tab === "all" ? TRADE_POST_TAB_LABELS_EN.all : `Trade posts · ${TRADE_POST_TAB_LABELS_EN[tab]}`,
+      labelKo:
+        tab === "all"
+          ? translate("ko", "admin_trade_metric_all_posts")
+          : translate("ko", "admin_trade_metric_posts_tab", { tab: translate("ko", TRADE_POST_TAB_LABEL_KEYS[tab]) }),
+      labelEn:
+        tab === "all"
+          ? translate("en", "admin_trade_metric_all_posts")
+          : translate("en", "admin_trade_metric_posts_tab", { tab: translate("en", TRADE_POST_TAB_LABEL_KEYS[tab]) }),
       section: "state",
-      source: `current.${tab} (countTradePosts — 목록 total 과 같은 조건)`,
+      source: `current.${tab} (countTradePosts — same filter as list total)`,
       href: tradePostsListHref(tab),
       showWhenZero: true,
       read: (o) => o.current[tab] ?? null,

@@ -5,6 +5,7 @@
  * 예전의 「신고검토 이동 (placeholder)」·「신뢰도 재계산 (로그만)」 버튼은 실제 처리가 없어 제거했다.
  */
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import type { AdminReview } from "@/lib/types/admin-review";
 import {
@@ -19,6 +20,7 @@ interface AdminReviewActionPanelProps {
 }
 
 export function AdminReviewActionPanel({ review, onActionSuccess }: AdminReviewActionPanelProps) {
+  const { t } = useI18n();
   const [sheet, setSheet] = useState<"hide_review" | "restore_review" | null>(null);
   const hidden = review.reviewStatus === "hidden";
 
@@ -27,11 +29,11 @@ export function AdminReviewActionPanel({ review, onActionSuccess }: AdminReviewA
       <div className="flex flex-wrap gap-2">
         {!hidden ? (
           <AdminActionButton variant="danger" onClick={() => setSheet("hide_review")}>
-            후기 숨김
+            {t("admin_reviews_action_hide")}
           </AdminActionButton>
         ) : (
           <AdminActionButton variant="secondary" onClick={() => setSheet("restore_review")}>
-            후기 복구
+            {t("admin_reviews_action_restore")}
           </AdminActionButton>
         )}
         {review.targetUserId ? (
@@ -39,18 +41,21 @@ export function AdminReviewActionPanel({ review, onActionSuccess }: AdminReviewA
             href={`/admin/trade/members/${encodeURIComponent(review.targetUserId)}`}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
           >
-            대상 회원 보기
+            {t("admin_reviews_action_view_target_member")}
           </Link>
         ) : null}
       </div>
 
       {sheet ? (
         <CommunityActionSheet
-          title={sheet === "hide_review" ? "후기 숨김" : "후기 복구"}
-          rows={[{ label: "후기", value: review.comment || "—" }, { label: "대상 회원", value: review.targetNickname || "—" }]}
-          reason={{ minLength: 2, placeholder: "사유 (2자 이상)" }}
+          title={sheet === "hide_review" ? t("admin_reviews_hide_title") : t("admin_reviews_restore_title")}
+          rows={[
+            { label: t("admin_reviews_row_review"), value: review.comment || "—" },
+            { label: t("admin_reviews_row_target_member"), value: review.targetNickname || "—" },
+          ]}
+          reason={{ minLength: 2, placeholder: t("admin_reviews_reason_placeholder") }}
           destructive={sheet === "hide_review"}
-          confirmLabel={sheet === "hide_review" ? "숨김" : "복구"}
+          confirmLabel={sheet === "hide_review" ? t("admin_reviews_hide_btn") : t("admin_reviews_restore_btn")}
           onSubmit={(reason) =>
             communitySheetFetch(`/api/admin/transaction-reviews/${encodeURIComponent(review.id)}/action`, {
               method: "POST",

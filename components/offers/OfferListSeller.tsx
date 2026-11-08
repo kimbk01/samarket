@@ -13,6 +13,7 @@ import {
 } from "@/lib/offers/normalize-offer-product-id";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { PriceOfferListItem } from "@/lib/offers/types";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Props = {
   productId: string;
@@ -26,16 +27,16 @@ type Props = {
   variant?: "card" | "modal";
 };
 
-function statusLabel(status: PriceOfferListItem["status"]): string {
+function statusLabel(status: PriceOfferListItem["status"], t: (key: MessageKey) => string): string {
   switch (status) {
     case "accepted":
-      return "수락됨";
+      return t("offers_seller_status_accepted");
     case "rejected":
-      return "거절됨";
+      return t("offers_seller_status_rejected");
     case "withdrawn":
-      return "철회됨";
+      return t("offers_seller_status_withdrawn");
     default:
-      return "대기중";
+      return t("offers_seller_status_pending");
   }
 }
 
@@ -113,7 +114,7 @@ export function OfferListSeller({
     if (!pidNorm) {
       setOffers([]);
       setLoading(false);
-      setError("상품 정보가 올바르지 않습니다.");
+      setError(t("offer_err_invalid_target"));
       return;
     }
     let cancelled = false;
@@ -141,14 +142,14 @@ export function OfferListSeller({
             const msg =
               typeof json.error === "string" && json.error.trim()
                 ? json.error.trim()
-                : "가격 제안을 불러오지 못했습니다.";
+                : t("offers_seller_load_failed");
             setError(msg);
           } else {
             setOffers(Array.isArray(json.offers) ? json.offers : []);
           }
         }
       } catch {
-        if (!cancelled) setError("가격 제안 목록을 불러오지 못했습니다.");
+        if (!cancelled) setError(t("offer_err_list_failed"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -156,7 +157,7 @@ export function OfferListSeller({
     return () => {
       cancelled = true;
     };
-  }, [pidNorm, refreshToken, resyncKey, viewerUserId, initialOffers]);
+  }, [pidNorm, refreshToken, resyncKey, viewerUserId, initialOffers, t]);
 
   const submitAccept = useCallback(
     async (offerId: string) => {
@@ -173,7 +174,7 @@ export function OfferListSeller({
           offer?: { productId?: string };
         };
         if (!res.ok || !json?.ok) {
-          setError(typeof json?.error === "string" ? json.error : "제안을 수락하지 못했습니다.");
+          setError(typeof json?.error === "string" ? json.error : t("offers_seller_accept_failed"));
           return;
         }
         if (json.offer?.productId) {
@@ -182,12 +183,12 @@ export function OfferListSeller({
         setResyncKey((k) => k + 1);
         onChanged?.();
       } catch {
-        setError("네트워크 오류가 발생했습니다.");
+        setError(t("common_network_error"));
       } finally {
         setBusyOfferId(null);
       }
     },
-    [onChanged]
+    [onChanged, t]
   );
 
   const submitReject = useCallback(
@@ -205,7 +206,7 @@ export function OfferListSeller({
           offer?: { productId?: string };
         };
         if (!res.ok || !json?.ok) {
-          setError(typeof json?.error === "string" ? json.error : "제안을 거절하지 못했습니다.");
+          setError(typeof json?.error === "string" ? json.error : t("offers_seller_reject_failed"));
           return;
         }
         if (json.offer?.productId) {
@@ -214,12 +215,12 @@ export function OfferListSeller({
         setResyncKey((k) => k + 1);
         onChanged?.();
       } catch {
-        setError("네트워크 오류가 발생했습니다.");
+        setError(t("common_network_error"));
       } finally {
         setBusyOfferId(null);
       }
     },
-    [onChanged]
+    [onChanged, t]
   );
 
   if (!viewerUserId) return null;
@@ -233,7 +234,7 @@ export function OfferListSeller({
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[14px] font-bold text-sam-fg">{t("ui_offer_received_title")}</h3>
         <Link href="/mypage/offers/received" className="text-[12px] font-semibold text-sam-primary">
-          전체 보기
+          {t("offers_seller_view_all")}
         </Link>
       </div>
     );
@@ -257,14 +258,14 @@ export function OfferListSeller({
           <div className="rounded-lg border border-black/[0.06] bg-white px-4 py-10 text-center shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-sam-border dark:bg-sam-surface dark:shadow-none">
             <p className="text-[15px] font-bold text-[#111111] dark:text-sam-fg">{t("ui_offer_empty_title")}</p>
             <p className="mt-2 text-[14px] font-normal leading-[1.65] text-[#222222] dark:text-sam-muted">
-              구매자가 제안을 보내면 여기에 표시됩니다.
+              {t("offers_seller_empty_modal_body")}
             </p>
           </div>
         ) : (
           <div className="mt-3 space-y-1 text-[12px] text-sam-muted">
             <p>{t("ui_offer_empty_body")}</p>
             <p className="text-[11px] leading-snug">
-              구매자 쪽에서 모달까지 열어 「제안 보내기」가 성공했는지 확인해 주세요. 보낸 직후에는 새로고침하거나 잠시 후 다시 열어 보세요.
+              {t("offers_seller_empty_check_hint")}
             </p>
           </div>
         )
@@ -282,7 +283,7 @@ export function OfferListSeller({
       <div className={`${variant === "modal" ? "space-y-2" : "mt-3 space-y-2"}`}>
         {offers.map((offer) => {
           const busy = busyOfferId === offer.id;
-          const buyerLine = offer.buyerNickname?.trim() || "구매자";
+          const buyerLine = offer.buyerNickname?.trim() || t("offers_seller_buyer_fallback");
 
           if (variant === "modal") {
             return (
@@ -302,11 +303,11 @@ export function OfferListSeller({
                   <span
                     className={`shrink-0 rounded-md px-2 py-0.5 sam-text-xxs font-semibold ${modalStatusBadgeClass(offer.status)}`}
                   >
-                    {statusLabel(offer.status)}
+                    {statusLabel(offer.status, t)}
                   </span>
                 </div>
                 <p className="mt-2 text-[12px] leading-[1.4] text-[#999999] dark:text-sam-meta">
-                  원가 {formatPrice(offer.originalPrice, currency)} · {t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}
+                  {t("offers_seller_original_price", { price: formatPrice(offer.originalPrice, currency) })} · {t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}
                 </p>
                 {offer.message?.trim() ? (
                   <div className="mt-2 rounded-md bg-[#F0F2F5] px-3 py-2 dark:bg-sam-surface-muted">
@@ -323,7 +324,7 @@ export function OfferListSeller({
                       onClick={() => void submitAccept(offer.id)}
                       className="flex min-h-[44px] flex-1 items-center justify-center rounded-ui-rect bg-sam-primary text-[14px] font-semibold text-white disabled:opacity-60"
                     >
-                      수락
+                      {t("common_accept")}
                     </button>
                     <button
                       type="button"
@@ -331,13 +332,13 @@ export function OfferListSeller({
                       onClick={() => void submitReject(offer.id)}
                       className="flex min-h-[44px] flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface text-[14px] font-semibold text-sam-fg disabled:opacity-60 dark:bg-sam-surface-muted"
                     >
-                      거절
+                      {t("common_reject")}
                     </button>
                   </div>
                 ) : (
                   <p className="mt-3 border-t border-sam-border-soft pt-3 text-center text-[12px] leading-[1.4] text-[#999999] dark:border-sam-border dark:text-sam-meta">
-                    <span className="font-semibold text-[#111111] dark:text-sam-fg">{statusLabel(offer.status)}</span>{" "}
-                    처리됨
+                    <span className="font-semibold text-[#111111] dark:text-sam-fg">{statusLabel(offer.status, t)}</span>{" "}
+                    {t("offers_seller_status_done")}
                   </p>
                 )}
               </article>
@@ -353,7 +354,7 @@ export function OfferListSeller({
                     <span className="ml-2 text-[12px] font-medium text-sam-muted">({buyerLine})</span>
                   </p>
                   <p className="mt-1 text-[12px] text-sam-muted">
-                    원가 {formatPrice(offer.originalPrice, currency)} · {statusLabel(offer.status)}
+                    {t("offers_seller_original_price", { price: formatPrice(offer.originalPrice, currency) })} · {statusLabel(offer.status, t)}
                   </p>
                   <p className="mt-0.5 text-[11px] text-sam-muted">{t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}</p>
                 </div>
@@ -365,7 +366,7 @@ export function OfferListSeller({
                       onClick={() => void submitAccept(offer.id)}
                       className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
                     >
-                      수락
+                      {t("common_accept")}
                     </button>
                     <button
                       type="button"
@@ -373,7 +374,7 @@ export function OfferListSeller({
                       onClick={() => void submitReject(offer.id)}
                       className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
                     >
-                      거절
+                      {t("common_reject")}
                     </button>
                   </div>
                 ) : null}

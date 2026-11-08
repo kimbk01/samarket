@@ -20,11 +20,13 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 const SURFACE_EXTRAS = ["surface"] as const;
 
 export function FeedSectionOverrideTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   /** 관리 대상 surface — 주소(`?surface=`)에 보존 (R7). */
   const lq = useAdminListQuery({ extras: SURFACE_EXTRAS, extraDefaults: { surface: "home" } });
@@ -72,7 +74,7 @@ export function FeedSectionOverrideTable() {
       ),
       { reason: c.reason }
     ).finally(() => setSaving(false));
-    setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
+    setResult(r.ok ? { ok: true, message: t("admin_feed_emergency_saved_applied") } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
@@ -85,7 +87,7 @@ export function FeedSectionOverrideTable() {
       <AdminResultBanner ko result={result} onClose={() => setResult(null)} />
       {writeAction.reason ? (
         <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
-          변경 불가: {writeAction.reason}
+          {t("admin_feed_emergency_override_write_denied", { reason: writeAction.reason })}
         </p>
       ) : null}
       <AdminFilterBar
@@ -113,16 +115,16 @@ export function FeedSectionOverrideTable() {
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                섹션
+                {t("admin_feed_emergency_override_col_section")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                강제 비활성
+                {t("admin_feed_emergency_override_col_force_disabled")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                사유
+                {t("admin_feed_emergency_override_col_reason")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                조치
+                {t("admin_feed_emergency_override_col_action")}
               </th>
             </tr>
           </thead>
@@ -146,7 +148,7 @@ export function FeedSectionOverrideTable() {
                           : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
-                      {disabled ? "비활성" : "정상"}
+                      {disabled ? t("admin_feed_emergency_disabled_badge") : t("admin_feed_emergency_normal_badge")}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
@@ -159,7 +161,7 @@ export function FeedSectionOverrideTable() {
                       disabled={!writeAction.allowed || saving}
                       onClick={() => void handleToggle(sectionKey, !disabled)}
                     >
-                      {disabled ? "차단 해제" : "긴급 차단"}
+                      {disabled ? t("admin_feed_emergency_unblock_button") : t("admin_feed_emergency_block_button")}
                     </AdminActionButton>
                   </td>
                 </tr>
@@ -170,7 +172,7 @@ export function FeedSectionOverrideTable() {
       </div>
       {overrides.length === 0 && (
         <p className="sam-text-body-secondary text-sam-muted">
-          현재 비활성 오버라이드가 없습니다. 위에서 섹션별 비활성화를 적용할 수 있습니다.
+          {t("admin_feed_emergency_override_empty")}
         </p>
       )}
     </div>

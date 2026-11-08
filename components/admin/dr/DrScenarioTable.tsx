@@ -78,11 +78,11 @@ export function DrScenarioTable() {
       {scenarios.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "해당 조건의 시나리오가 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_dr_no_scenarios")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
-        <AdminTable headers={["제목", "유형", "심각도", "설명", ""]}>
+        <AdminTable headers={[t("admin_dr_th_title"), t("admin_dr_th_type"), t("admin_dr_th_severity"), t("admin_dr_th_description"), ""]}>
           {scenarios.map((s) => (
             <tr key={s.id} className="border-b border-sam-border-soft">
               <td className="px-3 py-2.5 font-medium text-sam-fg">
@@ -112,7 +112,7 @@ export function DrScenarioTable() {
                   href={`/admin/dr/${s.id}`}
                   className="text-signature hover:underline"
                 >
-                  상세
+                  {t("admin_dr_detail_link")}
                 </Link>
               </td>
             </tr>

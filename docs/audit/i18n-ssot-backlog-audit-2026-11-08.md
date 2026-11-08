@@ -106,3 +106,20 @@
 - 검사 규칙이 세지 않는 형태의 한국어 문자열이 어드민 코드에 **4,728개**(303파일 · `components/admin` 3,473 · `lib/admin` 1,188 · `app/admin` 67): `{ko, en}` 짝 표 947(영어 있음) · 속성·필드(`label:`·`description=`·`<option>` 등) 950 · 그 밖 문자열 2,831(로그·데이터 값 포함). 영어 어드민 화면에 한국어가 섞여 보이는 원인. 상위: `lib/admin/metrics/registry.ts` 207 · `AdminSentNotificationPanels.tsx` 173 · `ads-history/project-history-timeline.ts` 136 · 거래 회원·글·신고 상세 각 100+.
 - 처리안: ① 「어드민 한국어 문자열」 검사 규칙 + 현재 수 기준선(늘면 실패) ② 화면 문구만 골라(로그·데이터 값 제외) 묶음별 키 이관 — B4 와 같은 방식. 감사·승인 후.
 - 같이 보고된 기존 결함: `AdminPointAdjustPanel` 이 서버 `messageKo` 를 영어 화면에도 표시 · `admin_ad_applications_community_desc` 한국어 값이 테이블 이름(「point_promotion_orders 중 domain=community」)을 보여 줌 · `AdminMemberBenefitDetailPage` 확인 버튼 「비활성화/활성화」 한국어 고정 · 매장·광고·주문 화면의 `{ko,en}` 짝 표는 규칙 밖이라 그대로(영어 있음).
+
+### B5 통화 (Owner 「B5·L25 모두 승인」) — 반영 `21ca6c967`·`4e368bcdb`·`adbda9fc9` (21:13 PHT, 통화만 단독)
+- B5-1 iOS 「설정 > DiBaY」→「DIBAY」 2줄(새 빌드 필요). B5-2 변경 없음(화면 문구는 이미 사용자 문장).
+- B5-3 통화 웹 대체 문구 23곳 삭제 — 49개 키 모두 카탈로그에 같은 문구(죽은 대체 문구), 화면 글자 변화 0, 통화 검사 14종 전후 동일. 남은 1곳 = 쓰는 곳 없는 `CommunityMessengerCallStatusBadge`.
+- B5-4 이전부터 실패하는 통화 검사 7건 원인 판정(`docs/audit/i18n-b5-4-call-check-causes-2026-11-08.md`): **코드 결함 0**, 모두 의도된 코드 변경을 따라가지 못한 낡은 검사. 검사 갱신은 통화 승인 후. 6개 검사는 CI 에 연결돼 있지 않음.
+- 실기기 통화 행렬: NOT_PROVEN(일괄 빌드 후).
+
+### L25 어드민·남은 한국어 (Owner 「B5·L25 모두 승인」)
+| 규칙(새로 추가) | 전 | 후 | 남은 것 |
+|---|---|---|---|
+| `admin-hangul-literal` (어드민 한국어 문자열, 짝 표·주석·로그 제외) | 4,026 | **138** | 서버로 보내는 값·DB 저장 값·상태 판정 문자열·금지어 목록·모의 데이터(화면 문구 아님) |
+| `jsx-text-korean` (여러 줄 JSX 글자, 고객·어드민 전체) | 548 | **12** | `components/dev/*` 개발 도구 화면 |
+- 7+3+1개 작업자, 새 카탈로그 10개(`copy-admin-l25-*`·`copy-ui-l25-jsx`), 새 키 약 4,500개. 공용 함수에 언어 인자 추가 + 호출처 30여 곳 화면 언어 전달, 한국어 상수는 키 짝을 만들어 화면에서 키로.
+- 어드민 서버 문구: `lib/i18n/admin-server-language.ts` — 화면 언어 쿠키 → Accept-Language → ko(이전 동작). 어드민 API 오류·메시지가 요청 언어를 따름.
+- **화면 글자가 바뀐 곳(보고)**: 영어 화면에 원시 코드 대신 라벨(배달 메뉴 링크 대상·피드 광고 목적지 유형 등) · 영어 확인 문구에 대상·이름·개수 추가(샘플 매장 삭제·다시 보내기·알림음 창) · 영어 확인어 「{n} items」(가져오기 일괄) · `global-error` 화면이 저장된 화면 언어로(첫 그림은 ko).
+- **남긴 결정 1건**: 광고 이력 금액 라벨(`lib/admin/ads-history/project-history-timeline.ts`)은 한 칸만 있어 영어 화면에도 「{n} 포인트」 — 두 언어 칸을 만들려면 타입·화면 변경 필요.
+- **범위 밖 기존 결함(보고만)**: `app/(main)/products/[id]/not-found.tsx` 가 서버 컴포넌트에서 `useI18n()` 사용(05-18부터) · 사장님 주문 패널에 앱 경로 「/stores/owner」 노출 · 고객 「제안」 빈 상태 안내에 「모달」 같은 시험용 표현.

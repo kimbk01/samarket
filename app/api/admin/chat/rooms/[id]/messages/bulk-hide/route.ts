@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { bulkSetTradeMessengerMessagesHidden } from "@/lib/admin-chats/trade-messenger-bulk-hide";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function POST(
 
   const { id: roomId } = await params;
   const rid = roomId?.trim();
-  if (!rid) return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+  if (!rid) return NextResponse.json({ ok: false, error: await adminServerText("admin_api_room_id_required") }, { status: 400 });
 
   let body: { reason?: string };
   try {
@@ -45,7 +46,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
 
   const sbAny = sb as any;
@@ -66,7 +67,7 @@ export async function POST(
     return NextResponse.json({ ok: true, hidden_count: messengerBulk.count, messengerRoomId: messengerBulk.messengerRoomId });
   }
   if (!room) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_chat_room_not_found") }, { status: 404 });
   }
 
   const { data: updated, error } = await sbAny

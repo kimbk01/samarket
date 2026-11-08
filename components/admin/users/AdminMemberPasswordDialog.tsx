@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   ADMIN_SET_PASSWORD_MAX_LENGTH,
@@ -80,17 +80,17 @@ export function AdminMemberPasswordDialog({
             : data.error === "password_min" || data.errorKey === "admin_users_err_password_min"
             ? t("admin_users_err_password_min")
             : data.error === "password_reset_unsupported"
-              ? "이 계정은 비밀번호 관리 대상이 아닙니다."
+              ? t("admin_users_member_pw_reset_unsupported")
               : data.error === "forbidden_admin_target"
-                ? "관리자 계정의 비밀번호는 이 화면에서 변경할 수 없습니다. 최고 관리자 설정에서 처리하세요."
+                ? t("admin_users_member_pw_forbidden_admin")
                 : data.error === "forbidden_super_admin_target"
-                  ? "최고 관리자만 이 계정의 비밀번호를 변경할 수 있습니다."
+                  ? t("admin_users_member_pw_super_admin_only")
                   : data.error === "forbidden_other_super_admin_target"
-                    ? "다른 최고 관리자 비밀번호는 변경할 수 없습니다."
+                    ? t("admin_users_member_pw_other_super_admin")
                     : data.error === "membership_lookup_failed"
-                      ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+                      ? t("admin_users_member_pw_membership_lookup_failed")
                       : data.error === "membership_unavailable"
-                        ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+                        ? t("admin_users_member_pw_membership_unavailable")
                         : data.message && !String(data.message).includes("Auth")
                           ? data.message
                           : t("admin_users_action_failed");
@@ -112,13 +112,13 @@ export function AdminMemberPasswordDialog({
   return (
     <MemberAdminDialog
       open={open}
-      title={MEMBER_ADMIN_COPY.password_temp_set_title}
+      title={t(MEMBER_ADMIN_COPY_KEY.password_temp_set_title)}
       size="small"
-      description={MEMBER_ADMIN_COPY.password_temp_set_body}
+      description={t(MEMBER_ADMIN_COPY_KEY.password_temp_set_body)}
       dirty={dirty}
       pending={pending}
       errorText={errorText}
-      primaryLabel={MEMBER_ADMIN_COPY.password_temp_set_primary}
+      primaryLabel={t(MEMBER_ADMIN_COPY_KEY.password_temp_set_primary)}
       primaryDisabled={!password || !confirm}
       onCancel={handleClose}
       onPrimary={() => void submit()}
@@ -129,7 +129,7 @@ export function AdminMemberPasswordDialog({
           {adminSetPasswordHintKo("member")}
         </p>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.password_new_label}</span>
+          <span className="mb-1 block text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.password_new_label)}</span>
           <input
             type={inputType}
             autoComplete="new-password"
@@ -145,7 +145,7 @@ export function AdminMemberPasswordDialog({
           />
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.password_new_confirm_label}</span>
+          <span className="mb-1 block text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.password_new_confirm_label)}</span>
           <input
             type={inputType}
             autoComplete="new-password"
@@ -161,7 +161,7 @@ export function AdminMemberPasswordDialog({
           />
         </label>
         <AdminChipButton selected={show} onClick={() => setShow((v) => !v)}>
-          {show ? "입력값 숨기기" : "입력값 보기"}
+          {show ? t("admin_users_member_pw_hide_input") : t("admin_users_member_pw_show_input")}
         </AdminChipButton>
       </div>
     </MemberAdminDialog>

@@ -44,6 +44,8 @@ import {
 } from "@/lib/admin/deploy-promotion/deploy-ops-remote";
 import { buildFeatureTestRows } from "@/lib/admin/deploy-promotion/deploy-feature-test-catalog";
 import { parseAdminJsonListPage, sliceAdminJsonList } from "@/lib/admin/pagination/admin-json-list-page";
+import { adminServerLanguage, adminServerText } from "@/lib/i18n/admin-server-language";
+import { translate } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +56,8 @@ type DeployHistoryRow = { key: string; at: string; sha: string; label: string; d
  * 「이력 및 오류 상세」 행 — 감사 이력(프로세스 기록)이 있으면 그것, 없으면 최근 승격 기록 (화면과 같은 규칙).
  * 고정 상한(30·20건) 없이 전체를 최신순으로 — 쪽 자르기는 호출 측.
  */
+const DEPLOY_NOTE_KEYS = ["admin_api_deploy_note_regular_path", "admin_api_deploy_note_vercel_ready", "admin_api_deploy_note_test_vs_prod", "admin_api_deploy_note_mock_vs_real", "admin_api_deploy_note_web_vs_native"] as const;
+
 function deployHistoryRows(): DeployHistoryRow[] {
   const audit = listPromotionHistory(Number.MAX_SAFE_INTEGER);
   const rows: DeployHistoryRow[] =
@@ -187,7 +191,7 @@ export async function GET(req: NextRequest) {
     lastCheckedAt: checkedAt,
     lastError:
       vercelProd.status === "not_proven" && mainRef.status === "ok"
-        ? "Vercel Production 상세(배포 ID)는 DIBAY_VERCEL_TOKEN 필요 — GitHub main SHA만 확인됨"
+        ? await adminServerText("admin_api_deploy_prod_token_required")
         : vercelProd.status === "error"
           ? vercelProd.statusReason
           : mainRef.status === "error"
@@ -223,9 +227,9 @@ export async function GET(req: NextRequest) {
     lastCheckedAt: checkedAt,
     lastError:
       banner.variant === "miswired"
-        ? "미리보기가 운영 DB를 참조하면 쓰기가 차단됩니다"
+        ? await adminServerText("admin_api_deploy_preview_miswired")
         : vercelPreview.status === "not_proven"
-          ? "DIBAY_VERCEL_TOKEN 없으면 Preview 배포 목록 조회 불가"
+          ? await adminServerText("admin_api_deploy_preview_token_required")
           : null,
     canTest: false,
     canPromoteToProduction: false,
@@ -247,7 +251,7 @@ export async function GET(req: NextRequest) {
       });
     }
   }
-  const featureTests = buildFeatureTestRows({ sha, evidenceByGate });
+  const featureTests = buildFeatureTestRows({ sha, evidenceByGate, ko: (await adminServerLanguage()) !== "en" });
 
   const verified = currentRecord?.status === "verified";
   const statusSemantics = {
@@ -261,20 +265,8 @@ export async function GET(req: NextRequest) {
     iosProven: featureTests.some((f) => f.featureId === "ios_app" && f.result === "pass"),
     regularDeployPath:
       "main → Vercel Git Integration → Production (TEST/Preview not required)",
-    notesKo: [
-      "정규 배포: main 반영 → Production 자동 (TEST·Preview 필수 아님)",
-      "Vercel Ready ≠ 앱 기능 정상",
-      "TEST 검증 완료 ≠ Production 적용 완료",
-      "모의 배포 PASS ≠ 실제 배포 PASS",
-      "웹 PASS ≠ Android/iOS·스토어 제출 PASS",
-    ],
-    notesEn: [
-      "Regular ship: land on main → Production auto (TEST/Preview not required)",
-      "Vercel Ready ≠ app features OK",
-      "TEST verified ≠ production applied",
-      "Mock pipeline PASS ≠ real deploy PASS",
-      "Web PASS ≠ Android/iOS / store submit PASS",
-    ],
+    notesKo: DEPLOY_NOTE_KEYS.map((k) => translate("ko", k)),
+    notesEn: DEPLOY_NOTE_KEYS.map((k) => translate("en", k)),
   };
 
   return NextResponse.json({

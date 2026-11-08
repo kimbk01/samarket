@@ -5,7 +5,9 @@
 
 import {
   MEMBER_ADMIN_COPY,
-  memberAdminLifecycleLabelKo,
+  MEMBER_ADMIN_COPY_KEY,
+  memberAdminCopy,
+  memberAdminLifecycleLabel,
 } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
   normalizeMemberAdminLifecycle,
@@ -16,20 +18,35 @@ import {
 } from "@/lib/admin-users/member-admin-action-policy";
 import { memberBusinessDetailHref } from "@/lib/admin-users/member-deep-links";
 import {
-  memberListPrivilegeLabelKo,
-  memberListSignupOriginLabelKo,
+  memberListPrivilegeLabel,
+  memberListSignupOriginLabel,
 } from "@/lib/admin-users/member-list-presentation";
 import type { AdminAuthProvider } from "@/lib/types/admin-user";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 
-export const MEMBER_DETAIL_DANGER_ZONE_TITLE_KO = "위험 작업";
-export const MEMBER_DETAIL_STORE_NONE_KO = "매장 없음";
+/** 문구 키(언어 SSOT L25) — 화면은 `t(MEMBER_DETAIL_*_KEY)`, `_KO` 는 기존 호출부·검사용 한국어 값. */
+export const MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY = "admin_member_detail_danger_zone_title";
+export const MEMBER_DETAIL_STORE_NONE_KEY = "admin_member_detail_store_none";
+export const MEMBER_DETAIL_STORE_OPERATOR_KEY = MEMBER_ADMIN_COPY_KEY.store_operator;
+export const MEMBER_DETAIL_BACK_LIST_KEY = "admin_member_detail_back_list";
+export const MEMBER_DETAIL_PASSWORD_CTA_KEY = MEMBER_ADMIN_COPY_KEY.password_manage;
+export const MEMBER_DETAIL_EDIT_CTA_KEY = MEMBER_ADMIN_COPY_KEY.edit_profile;
+export const MEMBER_DETAIL_SYSTEM_KEY_KEY = MEMBER_ADMIN_COPY_KEY.system_member_key;
+export const MEMBER_DETAIL_VERIFIED_KEY = "admin_member_detail_verified";
+export const MEMBER_DETAIL_UNVERIFIED_KEY = "admin_member_detail_unverified";
+export const MEMBER_DETAIL_ADMIN_BADGE_KEY = MEMBER_ADMIN_COPY_KEY.privilege_admin;
+export const MEMBER_DETAIL_SUPER_ADMIN_BADGE_KEY = MEMBER_ADMIN_COPY_KEY.privilege_super_admin;
+
+export const MEMBER_DETAIL_DANGER_ZONE_TITLE_KO = translate("ko", MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY);
+export const MEMBER_DETAIL_STORE_NONE_KO = translate("ko", MEMBER_DETAIL_STORE_NONE_KEY);
 export const MEMBER_DETAIL_STORE_OPERATOR_KO = MEMBER_ADMIN_COPY.store_operator;
-export const MEMBER_DETAIL_BACK_LIST_KO = "회원 목록";
+export const MEMBER_DETAIL_BACK_LIST_KO = translate("ko", MEMBER_DETAIL_BACK_LIST_KEY);
 export const MEMBER_DETAIL_PASSWORD_CTA_KO = MEMBER_ADMIN_COPY.password_manage;
 export const MEMBER_DETAIL_EDIT_CTA_KO = MEMBER_ADMIN_COPY.edit_profile;
 export const MEMBER_DETAIL_SYSTEM_KEY_KO = MEMBER_ADMIN_COPY.system_member_key;
-export const MEMBER_DETAIL_VERIFIED_KO = "인증 완료";
-export const MEMBER_DETAIL_UNVERIFIED_KO = "인증 미완료";
+export const MEMBER_DETAIL_VERIFIED_KO = translate("ko", MEMBER_DETAIL_VERIFIED_KEY);
+export const MEMBER_DETAIL_UNVERIFIED_KO = translate("ko", MEMBER_DETAIL_UNVERIFIED_KEY);
 export const MEMBER_DETAIL_ADMIN_BADGE_KO = MEMBER_ADMIN_COPY.privilege_admin;
 export const MEMBER_DETAIL_SUPER_ADMIN_BADGE_KO = MEMBER_ADMIN_COPY.privilege_super_admin;
 
@@ -60,42 +77,71 @@ export function memberDetailLifecycleFromModeration(
 }
 
 /** Operator account-state labels — BLOCKED ≠ SUSPENDED. Never collapses verification into account state. */
-export function memberDetailAccountStateLabelKo(
+export function memberDetailAccountStateLabel(
   moderationStatus: string | null | undefined,
-  status?: string | null,
+  status: string | null | undefined,
+  lang: AppLanguageCode,
 ): string {
   const lifecycle = memberDetailLifecycleFromModeration(moderationStatus, status);
   switch (lifecycle) {
     case "ACTIVE":
-      return MEMBER_ADMIN_COPY.status_active;
+      return memberAdminCopy("status_active", lang);
     case "SUSPENDED":
-      return MEMBER_ADMIN_COPY.status_suspended;
+      return memberAdminCopy("status_suspended", lang);
     case "BLOCKED":
-      return MEMBER_ADMIN_COPY.status_blocked;
+      return memberAdminCopy("status_blocked", lang);
     case "WITHDRAWN":
-      return MEMBER_ADMIN_COPY.status_withdrawn;
+      return memberAdminCopy("status_withdrawn", lang);
     case "PURGED":
-      return MEMBER_ADMIN_COPY.status_purged;
+      return memberAdminCopy("status_purged", lang);
     default:
-      return memberAdminLifecycleLabelKo(lifecycle);
+      return memberAdminLifecycleLabel(lifecycle, lang);
   }
 }
 
+export function memberDetailAccountStateLabelKo(
+  moderationStatus: string | null | undefined,
+  status?: string | null,
+): string {
+  return memberDetailAccountStateLabel(moderationStatus, status, "ko");
+}
+
+export function memberDetailVerificationLabel(phoneVerified: boolean | null | undefined, lang: AppLanguageCode): string {
+  return translate(lang, phoneVerified === true ? MEMBER_DETAIL_VERIFIED_KEY : MEMBER_DETAIL_UNVERIFIED_KEY);
+}
+
 export function memberDetailVerificationLabelKo(phoneVerified: boolean | null | undefined): string {
-  return phoneVerified === true ? MEMBER_DETAIL_VERIFIED_KO : MEMBER_DETAIL_UNVERIFIED_KO;
+  return memberDetailVerificationLabel(phoneVerified, "ko");
+}
+
+export function memberDetailPrivilegeLabel(
+  input: {
+    hasAdminMembership: boolean;
+    isSuperAdmin: boolean;
+  },
+  lang: AppLanguageCode,
+): string {
+  return memberListPrivilegeLabel(input, lang);
 }
 
 export function memberDetailPrivilegeLabelKo(input: {
   hasAdminMembership: boolean;
   isSuperAdmin: boolean;
 }): string {
-  return memberListPrivilegeLabelKo(input);
+  return memberDetailPrivilegeLabel(input, "ko");
+}
+
+export function memberDetailSignupOriginLabel(
+  provider: AdminAuthProvider | string | null | undefined,
+  lang: AppLanguageCode,
+): string {
+  return memberListSignupOriginLabel(provider, lang);
 }
 
 export function memberDetailSignupOriginLabelKo(
   provider: AdminAuthProvider | string | null | undefined,
 ): string {
-  return memberListSignupOriginLabelKo(provider);
+  return memberDetailSignupOriginLabel(provider, "ko");
 }
 
 export function memberDetailStoreHref(storeId: string): string {
@@ -161,20 +207,25 @@ export function memberDetailPrimaryActions(
   };
 }
 
-/** Operator tab IA labels (Korean). Existing panels keep their data; labels are presentation only. */
-export const MEMBER_DETAIL_TAB_LABEL_KO = {
-  overview: "개요",
-  account: "계정·인증",
-  store: "매장",
-  community: "활동",
-  trade: "거래",
-  delivery: "배달·주문",
-  chat: "채팅·그룹",
-  reports: "신고·제재",
-  address: "주소",
-  ops: "운영 이력",
-  points: "포인트",
-  trust: "신뢰",
+/** Operator tab IA label keys. Existing panels keep their data; labels are presentation only. */
+export const MEMBER_DETAIL_TAB_LABEL_KEY = {
+  overview: "admin_member_detail_tab_overview",
+  account: "admin_member_detail_tab_account",
+  store: "admin_member_detail_tab_store",
+  community: "admin_member_detail_tab_community",
+  trade: "admin_member_detail_tab_trade",
+  delivery: "admin_member_detail_tab_delivery",
+  chat: "admin_member_detail_tab_chat",
+  reports: "admin_member_detail_tab_reports",
+  address: "admin_member_detail_tab_address",
+  ops: "admin_member_detail_tab_ops",
+  points: "admin_member_detail_tab_points",
+  trust: "admin_member_detail_tab_trust",
 } as const;
 
-export type MemberDetailTabId = keyof typeof MEMBER_DETAIL_TAB_LABEL_KO;
+export type MemberDetailTabId = keyof typeof MEMBER_DETAIL_TAB_LABEL_KEY;
+
+/** 한국어 탭 이름(기존 호출부·검사 호환). */
+export const MEMBER_DETAIL_TAB_LABEL_KO = Object.fromEntries(
+  (Object.keys(MEMBER_DETAIL_TAB_LABEL_KEY) as MemberDetailTabId[]).map((id) => [id, translate("ko", MEMBER_DETAIL_TAB_LABEL_KEY[id])]),
+) as { readonly [K in MemberDetailTabId]: string };

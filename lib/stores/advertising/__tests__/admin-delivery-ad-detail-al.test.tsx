@@ -19,9 +19,11 @@ vi.mock("next/link", () => ({
 vi.mock("@/components/i18n/AppLanguageProvider", async () => {
   /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
   const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+  const { translate } = await import("@/lib/i18n/messages");
   return ({
   useI18n: () => ({
-    t: (k: string) => k,
+    /** 실제 카탈로그(MESSAGES.ko) 값 — 새 키(예: admin_stores_delivery_ad_end_refund_cash)도 화면과 같은 문구로 렌더 */
+    t: (k: string, o?: Record<string, unknown>) => translate("ko", k as never, o as never),
     safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
     language: "ko",
   }),

@@ -1,16 +1,18 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserBehaviorInsight } from "@/lib/types/recommendation";
 import { getUserBehaviorInsights } from "@/lib/recommendation/recommendation-behavior-insight";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function UserBehaviorInsightTable() {
+  const { t } = useI18n();
   const insights = getUserBehaviorInsights();
 
   if (insights.length === 0) {
     return (
-      <AdminEmptyState ko message={"사용자 행동 인사이트가 없습니다."} />
+      <AdminEmptyState ko message={t("admin_rec_no_behavior_insights")} />
     );
   }
 
@@ -20,19 +22,19 @@ export function UserBehaviorInsightTable() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자
+              {t("admin_recommendation_col_user")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              선호 카테고리
+              {t("admin_recommendation_col_preferred_category")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              선호 지역
+              {t("admin_recommendation_col_preferred_region")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              조회/찜/채팅
+              {t("admin_recommendation_col_view_favorite_chat")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              최근 활동
+              {t("admin_recommendation_col_recent_activity")}
             </th>
           </tr>
         </thead>
@@ -50,7 +52,7 @@ export function UserBehaviorInsightTable() {
                 {i.topRegions.slice(0, 2).join(", ") || "-"}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                조회 {i.totalViews} / 찜 {i.totalFavorites} / 채팅 {i.totalChatsStarted}
+                {t("admin_recommendation_view_favorite_chat_line", { views: i.totalViews, favorites: i.totalFavorites, chats: i.totalChatsStarted })}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {formatAdminManilaDateTime(i.lastActiveAt)}

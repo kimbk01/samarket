@@ -6,75 +6,85 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import type { CommunitySheetResult } from "@/components/admin/community/kit/CommunityAdminKit";
 
 export const COMMUNITY_POSTS_LIST_PATH = "/admin/community/posts";
 export const COMMUNITY_NOTICES_PATH = "/admin/community/notices";
 export const COMMUNITY_PAGE_SIZE = 50;
 
-export const COMMUNITY_STALE_MESSAGE = "다른 관리자가 먼저 변경했습니다 — 최신 내용으로 다시 불러왔습니다";
-export const COMMUNITY_GONE_MESSAGE = "대상을 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.";
-export const COMMUNITY_PIN_LIMIT_MESSAGE = "고정 한도(피드 3개·카테고리 2개)를 넘었습니다";
+/** 한국어 문장(기존 호출부 호환). 언어별 문구는 `communityPostErrorText(code, lang)` 를 쓴다. */
+export const COMMUNITY_STALE_MESSAGE = translate("ko", "admin_community_post_stale");
+export const COMMUNITY_GONE_MESSAGE = translate("ko", "admin_community_post_gone");
+export const COMMUNITY_PIN_LIMIT_MESSAGE = translate("ko", "admin_community_post_pin_limit");
 
 export type CommunityBanner = { ok: true; message: string } | { ok: false; code: string } | null;
 
 /** 게시글·공지 API 오류 코드 → 운영자 문구. 모르는 코드는 일반 실패 문구 (원시 코드 노출 금지). */
-const POST_ERROR_KO: Record<string, string> = {
-  conflict: COMMUNITY_STALE_MESSAGE,
-  not_found: COMMUNITY_GONE_MESSAGE,
-  reason_required: "사유를 2자 이상 입력해 주세요.",
-  expected_updated_at_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 처리하세요.",
-  expected_status_required: "화면 정보가 오래되었습니다. 새로고침 후 다시 처리하세요.",
-  promotion_fault_required: "노출 중인 상위노출이 연결된 글입니다. 상세 화면에서 귀책을 선택해 처리하세요.",
-  promotion_end_failed: "상위노출을 종료하지 못해 글을 바꾸지 않았습니다. 잠시 후 새로고침해 다시 처리하세요.",
-  content_blocks_imported_only: "블록 편집은 외부 수집 글에서만 할 수 있습니다.",
-  invalid_content_blocks: "본문 블록 형식이 올바르지 않습니다. 비어 있는 블록이 없는지 확인하세요.",
-  title_required: "제목을 입력해 주세요.",
-  content_required: "본문을 입력해 주세요.",
-  invalid_topic: "선택한 카테고리를 쓸 수 없습니다. 다른 카테고리를 고르세요.",
-  topic_incomplete: "카테고리를 다시 선택해 주세요.",
-  topic_required: "카테고리를 선택해 주세요.",
-  meetup_topic_forbidden: "모임 카테고리에는 공지를 올릴 수 없습니다.",
-  no_updates: "바뀐 내용이 없습니다.",
-  pin_limit: COMMUNITY_PIN_LIMIT_MESSAGE,
-  not_active: "공개 상태인 글만 고정할 수 있습니다.",
-  no_topic: "카테고리가 없는 글은 카테고리 고정을 할 수 없습니다.",
-  invalid_until: "고정 종료 시각이 올바르지 않습니다.",
-  invalid_scope: "고정 범위를 선택해 주세요.",
-  invalid_starts_at: "노출 시작 시각이 올바르지 않습니다.",
-  invalid_ends_at: "노출 종료 시각이 올바르지 않습니다.",
-  invalid_notice_window: "노출 종료는 시작보다 뒤여야 합니다.",
-  not_notice: "공지 글이 아닙니다.",
-  invalid_period: "기간을 다시 선택해 주세요.",
-  invalid_date: "날짜 형식이 올바르지 않습니다.",
-  range_reversed: "시작 날짜가 끝 날짜보다 늦습니다.",
-  range_too_long: "기간은 최대 400일까지 조회할 수 있습니다.",
-  forbidden: "이 작업을 할 권한이 없습니다.",
-  super_admin_only: "최고 관리자만 할 수 있는 작업입니다.",
+const POST_ERROR_KEY: Record<string, MessageKey> = {
+  conflict: "admin_community_post_stale",
+  not_found: "admin_community_post_gone",
+  reason_required: "admin_community_post_err_reason_required",
+  expected_updated_at_required: "admin_community_post_err_stale_screen",
+  expected_status_required: "admin_community_post_err_stale_screen",
+  promotion_fault_required: "admin_community_post_err_promotion_fault_required",
+  promotion_end_failed: "admin_community_post_err_promotion_end_failed",
+  content_blocks_imported_only: "admin_community_post_err_blocks_imported_only",
+  invalid_content_blocks: "admin_community_post_err_invalid_blocks",
+  title_required: "admin_community_post_err_title_required",
+  content_required: "admin_community_post_err_content_required",
+  invalid_topic: "admin_community_post_err_invalid_topic",
+  topic_incomplete: "admin_community_post_err_topic_incomplete",
+  topic_required: "admin_community_post_err_topic_required",
+  meetup_topic_forbidden: "admin_community_post_err_meetup_topic",
+  no_updates: "admin_community_post_err_no_updates",
+  pin_limit: "admin_community_post_pin_limit",
+  not_active: "admin_community_post_err_not_active",
+  no_topic: "admin_community_post_err_no_topic",
+  invalid_until: "admin_community_post_err_invalid_until",
+  invalid_scope: "admin_community_post_err_invalid_scope",
+  invalid_starts_at: "admin_community_post_err_invalid_starts_at",
+  invalid_ends_at: "admin_community_post_err_invalid_ends_at",
+  invalid_notice_window: "admin_community_post_err_invalid_window",
+  not_notice: "admin_community_post_err_not_notice",
+  invalid_period: "admin_community_post_err_invalid_period",
+  invalid_date: "admin_community_post_err_invalid_date",
+  range_reversed: "admin_community_post_err_range_reversed",
+  range_too_long: "admin_community_post_err_range_too_long",
+  forbidden: "admin_community_post_err_forbidden",
+  super_admin_only: "admin_community_post_err_super_admin_only",
 };
 
-export function communityPostErrorText(code: string | null | undefined): string {
+/** `lang` 생략 시 한국어(기존 호출부 동작 유지). */
+export function communityPostErrorText(code: string | null | undefined, lang: string = "ko"): string {
   const k = String(code ?? "").trim();
+  const key = POST_ERROR_KEY[k];
+  if (key) return translateBy(lang, key);
   // 화면 전용 문구가 없는 코드는 공용 오류 맵 (네트워크·HTTP·모르는 코드 원문 차단).
-  return POST_ERROR_KO[k] ?? adminOperatorErrorMessage(k, true);
+  return adminOperatorErrorMessage(k, lang !== "en");
 }
 
-/** 결과 배너용 실패 — AdminResultBanner 는 한글 문장을 그대로 보여 준다 */
-export function communityFailBanner(code: string | null | undefined): CommunityBanner {
-  return { ok: false, code: communityPostErrorText(code) };
+/** 결과 배너용 실패 — AdminResultBanner 는 문장을 그대로 보여 준다 */
+export function communityFailBanner(code: string | null | undefined, lang: string = "ko"): CommunityBanner {
+  return { ok: false, code: communityPostErrorText(code, lang) };
 }
 
 /** 영구 삭제가 막힌 이유 (bulk-delete blocked[].reason) */
-export const COMMUNITY_HARD_DELETE_BLOCK_KO: Record<string, string> = {
-  not_found: "글이 없음",
-  not_deleted: "삭제 상태가 아님",
-  too_recent: "삭제 후 30일이 지나지 않음",
-  open_reports: "처리 안 된 신고 있음",
-  running_promotion: "노출 중·중지 상위노출 있음",
-  has_meeting: "연결된 모임 있음",
-  audit_failed: "기록 저장 실패로 보류",
-  delete_failed: "삭제 실패",
+export const COMMUNITY_HARD_DELETE_BLOCK_KEY: Record<string, MessageKey> = {
+  not_found: "admin_community_post_hard_delete_not_found",
+  not_deleted: "admin_community_post_hard_delete_not_deleted",
+  too_recent: "admin_community_post_hard_delete_too_recent",
+  open_reports: "admin_community_post_hard_delete_open_reports",
+  running_promotion: "admin_community_post_hard_delete_running_promotion",
+  has_meeting: "admin_community_post_hard_delete_has_meeting",
+  audit_failed: "admin_community_post_hard_delete_audit_failed",
+  delete_failed: "admin_community_post_hard_delete_failed",
 };
+/** 한국어 표(기존 호출부 호환). 언어별 문구는 `COMMUNITY_HARD_DELETE_BLOCK_KEY` 를 `t()` 로 그린다. */
+export const COMMUNITY_HARD_DELETE_BLOCK_KO: Record<string, string> = Object.fromEntries(
+  Object.entries(COMMUNITY_HARD_DELETE_BLOCK_KEY).map(([k, key]) => [k, translate("ko", key)])
+);
 
 export type CommunityJsonResult<T> =
   | { ok: true; status: number; json: T }
@@ -104,11 +114,11 @@ export async function communityJsonFetch<T = Record<string, unknown>>(
  * 조치 시트용 결과. 409 `conflict` 만 「다른 관리자가 먼저」(stale) 로 넘기고,
  * 고정 한도·상태 조건 같은 409 는 입력 오류(400)로 바꿔 시트 안에 한글 사유를 보여 준다.
  */
-export function toCommunitySheetResult(r: CommunityJsonResult<unknown>): CommunitySheetResult {
+export function toCommunitySheetResult(r: CommunityJsonResult<unknown>, lang: string = "ko"): CommunitySheetResult {
   if (r.ok) return { ok: true };
   if (r.status === 403 || r.status === 404) return { ok: false, status: r.status, code: r.code };
   if (r.code === "conflict") return { ok: false, status: 409, code: r.code };
-  return { ok: false, status: 400, code: communityPostErrorText(r.code) };
+  return { ok: false, status: 400, code: communityPostErrorText(r.code, lang) };
 }
 
 /* ───────── 카테고리 (토픽) ───────── */

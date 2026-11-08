@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadPhoneOtpOpsSnapshot, setAuthPhoneOtpEnabled } from "@/lib/auth/phone-otp-ops";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export async function PATCH(req: NextRequest) {
 
   if (body.confirm !== true) {
     return NextResponse.json(
-      { ok: false, error: "confirm_required", message: "2중 확인이 필요합니다." },
+      { ok: false, error: "confirm_required", message: await adminServerText("admin_api_users_phone_ops_confirm_required") },
       { status: 400 },
     );
   }

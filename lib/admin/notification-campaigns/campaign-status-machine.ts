@@ -20,6 +20,7 @@ import {
   type CampaignAudienceFilter,
   type CampaignResultFilter,
 } from "@/lib/admin/notification-campaigns/campaign-list-kind";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 export const CAMPAIGN_STATUSES = [
   "draft",
@@ -333,52 +334,42 @@ export function campaignTitleSearchPattern(q: string): string {
 /* Labels                                                              */
 /* ------------------------------------------------------------------ */
 
-const STATUS_LABEL_KO: Record<CampaignStatus, string> = {
-  draft: "작성 중",
-  scheduled: "예약됨",
-  active: "반복 활성",
-  paused: "일시정지",
-  ended: "종료",
-  cancelled: "취소됨",
-  sending: "발송 중",
-  sent: "발송 완료",
-  partially_failed: "부분 실패",
-  failed: "실패",
-};
-
-const STATUS_LABEL_EN: Record<CampaignStatus, string> = {
-  draft: "Draft",
-  scheduled: "Scheduled",
-  active: "Recurring active",
-  paused: "Paused",
-  ended: "Ended",
-  cancelled: "Cancelled",
-  sending: "Sending",
-  sent: "Sent",
-  partially_failed: "Partially failed",
-  failed: "Failed",
+const STATUS_LABEL_KEY: Record<CampaignStatus, MessageKey> = {
+  draft: "admin_notification_campaigns_status_draft",
+  scheduled: "admin_notification_campaigns_status_scheduled",
+  active: "admin_notification_campaigns_status_active",
+  paused: "admin_notification_campaigns_status_paused",
+  ended: "admin_notification_campaigns_status_ended",
+  cancelled: "admin_notification_campaigns_status_cancelled",
+  sending: "admin_notification_campaigns_status_sending",
+  sent: "admin_notification_campaigns_status_sent",
+  partially_failed: "admin_notification_campaigns_status_partially_failed",
+  failed: "admin_notification_campaigns_status_failed",
 };
 
 export function campaignStatusLabel(status: string, lang: "ko" | "en" = "ko"): string {
   if (!isCampaignStatus(status)) return status || "—";
-  return lang === "en" ? STATUS_LABEL_EN[status] : STATUS_LABEL_KO[status];
+  return translate(lang === "en" ? "en" : "ko", STATUS_LABEL_KEY[status]);
 }
 
-export const CAMPAIGN_TAB_LABEL_KO: Record<CampaignListTab, string> = {
-  drafting: "작성 중",
-  in_progress: "발송 중·예약",
-  completed: "보낸 알림",
-  archived: "삭제한 알림",
-  qa: "테스트",
+/** 목록 탭 이름 — 카탈로그 키 */
+export const CAMPAIGN_TAB_LABEL_KEY: Record<CampaignListTab, MessageKey> = {
+  drafting: "admin_notification_campaigns_tab_drafting",
+  in_progress: "admin_notification_campaigns_tab_in_progress",
+  completed: "admin_notification_campaigns_tab_completed",
+  archived: "admin_notification_campaigns_tab_archived",
+  qa: "admin_notification_campaigns_tab_qa",
 };
 
-export const CAMPAIGN_TAB_LABEL_EN: Record<CampaignListTab, string> = {
-  drafting: "Drafts",
-  in_progress: "Sending · scheduled",
-  completed: "Sent",
-  archived: "Deleted",
-  qa: "Tests",
-};
+function tabLabels(lang: "ko" | "en"): Record<CampaignListTab, string> {
+  return Object.fromEntries(
+    Object.entries(CAMPAIGN_TAB_LABEL_KEY).map(([k, v]) => [k, translate(lang, v as MessageKey)])
+  ) as Record<CampaignListTab, string>;
+}
+
+export const CAMPAIGN_TAB_LABEL_KO: Record<CampaignListTab, string> = tabLabels("ko");
+
+export const CAMPAIGN_TAB_LABEL_EN: Record<CampaignListTab, string> = tabLabels("en");
 
 /**
  * Legacy rows (before occurrence cutover) could stay `draft` after their first real occurrence

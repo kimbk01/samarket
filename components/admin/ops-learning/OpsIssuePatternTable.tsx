@@ -64,7 +64,7 @@ export function OpsIssuePatternTable({
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {p.occurrenceCount}회
-                {p.avgResolutionMinutes != null && ` / 약 ${p.avgResolutionMinutes}분`}
+                {p.avgResolutionMinutes != null && t("admin_ops_learning_avg_resolution_suffix", { n: p.avgResolutionMinutes })}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {t(opsToolsLabel(OPS_TOOLS_TREND_KEYS, p.severityTrend))}

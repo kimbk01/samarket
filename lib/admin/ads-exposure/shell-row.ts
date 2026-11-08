@@ -421,7 +421,7 @@ function runtimeLabelFromTab(statusTab: Exclude<AdsShellStatusTab, "all">, ko: b
 export function resolveMemberOrStoreLabel(item: AdsActionItem, ko: boolean): string {
   if (item.sourceKind === "admin_direct") return ko ? "—" : "—";
   if (item.storeId) {
-    return `매장 ${item.storeId.slice(0, 8)}`;
+    return tx(ko, "admin_ads_exposure_store_id", { id: item.storeId.slice(0, 8) });
   }
   if (item.memberId) {
     return tx(ko, "admin_ads_exposure_member_id", { id: String(item.memberId.slice(0, 8)) });

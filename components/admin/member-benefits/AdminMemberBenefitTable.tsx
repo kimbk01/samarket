@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -12,10 +13,11 @@ interface AdminMemberBenefitTableProps {
 export function AdminMemberBenefitTable({
   policies,
 }: AdminMemberBenefitTableProps) {
+  const { t } = useI18n();
   if (policies.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 회원 혜택 정책이 없습니다.
+        {t("admin_member_benefits_policy_empty")}
       </div>
     );
   }
@@ -26,22 +28,22 @@ export function AdminMemberBenefitTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              구분
+              {t("admin_member_benefits_col_type")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              제목
+              {t("admin_member_benefits_col_title")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              노출 우선
+              {t("admin_member_benefits_col_priority_boost")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              포인트/광고
+              {t("admin_member_benefits_col_points_ads")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_member_benefits_col_status")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              수정일
+              {t("admin_member_benefits_col_updated")}
             </th>
           </tr>
         </thead>
@@ -63,10 +65,10 @@ export function AdminMemberBenefitTable({
                 </Link>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                홈 +{p.homePriorityBoost} / 검색 +{p.searchPriorityBoost} / 상점 +{p.shopFeaturedPriorityBoost}
+                {t("admin_member_benefits_priority_boost_line", { home: p.homePriorityBoost, search: p.searchPriorityBoost, shop: p.shopFeaturedPriorityBoost })}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                포인트 {(p.pointRewardBonusRate * 100).toFixed(0)}% / 광고 {(p.adDiscountRate * 100).toFixed(0)}%
+                {t("admin_member_benefits_points_ads_line", { points: (p.pointRewardBonusRate * 100).toFixed(0), ads: (p.adDiscountRate * 100).toFixed(0) })}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -76,7 +78,7 @@ export function AdminMemberBenefitTable({
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {p.isActive ? "활성" : "비활성"}
+                  {t(p.isActive ? "common_active" : "admin_member_benefit_inactive")}
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">

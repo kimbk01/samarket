@@ -4,6 +4,8 @@
  * 게시글 신고·조치 기록 (설계 §C-0-1 ② 관련 기록). 운영 기록 API 가 아직 없으면(404) 신고 처리함 링크만 보여 준다.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,22 +21,23 @@ type AuditRow = {
   reason?: string | null;
 };
 
-const ACTION_KO: Record<string, string> = {
-  "community_post.status_hidden": "숨김",
-  "community_post.status_deleted": "삭제",
-  "community_post.status_active": "다시 공개",
-  "community_post.content_update": "관리자 본문 수정",
-  "community_post.update": "정보 변경",
-  "community_post.pin": "상단 고정",
-  "community_post.unpin": "고정 해제",
-  "community_post.hard_delete": "영구 삭제",
-  "community_notice.create": "공지 게시",
-  "community_notice.end": "공지 종료",
-  "community_notice.update": "공지 수정",
+const ACTION_KEY: Record<string, MessageKey> = {
+  "community_post.status_hidden": "admin_community_postrec_action_hidden",
+  "community_post.status_deleted": "admin_community_postrec_action_deleted",
+  "community_post.status_active": "admin_community_postrec_action_active",
+  "community_post.content_update": "admin_community_postrec_action_content_update",
+  "community_post.update": "admin_community_postrec_action_update",
+  "community_post.pin": "admin_community_postrec_action_pin",
+  "community_post.unpin": "admin_community_postrec_action_unpin",
+  "community_post.hard_delete": "admin_community_postrec_action_hard_delete",
+  "community_notice.create": "admin_community_postrec_action_notice_create",
+  "community_notice.end": "admin_community_postrec_action_notice_end",
+  "community_notice.update": "admin_community_postrec_action_notice_update",
 };
 
-export function communityAuditActionLabel(action: string): string {
-  return ACTION_KO[action] ?? "기타 조치";
+/** `lang` 생략 시 한국어. */
+export function communityAuditActionLabel(action: string, lang: string = "ko"): string {
+  return translateBy(lang, ACTION_KEY[action] ?? "admin_community_postrec_action_other");
 }
 
 export function CommunityPostRecordsTab({
@@ -46,7 +49,7 @@ export function CommunityPostRecordsTab({
   reportCount: number;
   reloadKey: number;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [rows, setRows] = useState<AuditRow[] | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [err, setErr] = useState<{ code: string; status: number } | null>(null);
@@ -78,13 +81,13 @@ export function CommunityPostRecordsTab({
     <div className="space-y-3" data-community-post-records="1">
       <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]">
         <span className="text-sam-fg">
-          받은 신고 <strong>{formatAdminNumber(reportCount)}</strong>건
+          {t("admin_community_postrec_reports_received")} <strong>{t("admin_count_items", { n: formatAdminNumber(reportCount) })}</strong>
         </span>
         <Link
           href={`/admin/community/reports?targetId=${encodeURIComponent(postId)}`}
           className="font-medium text-sam-info hover:underline"
         >
-          신고 처리함에서 보기
+          {t("admin_community_postrec_view_in_reports")}
         </Link>
       </div>
       <h3 className="text-[13px] font-semibold text-sam-fg">{t("admin_community_postrec_title")}</h3>
@@ -100,8 +103,8 @@ export function CommunityPostRecordsTab({
           items={rows.map((r) => ({
             id: String(r.id),
             at: r.createdAt,
-            actor: r.actorNickname?.trim() || "관리자",
-            action: communityAuditActionLabel(r.action),
+            actor: r.actorNickname?.trim() || t("admin_community_postrec_admin"),
+            action: communityAuditActionLabel(r.action, language),
             reason: r.reason ?? null,
           }))}
         />

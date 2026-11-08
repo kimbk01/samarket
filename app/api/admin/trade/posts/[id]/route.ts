@@ -13,6 +13,7 @@ import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
 } from "@/lib/admin-community/member-identity";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,6 +110,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     ...roomRows.map((r) => String(r.buyer_id ?? "")),
   ]);
   const label = (uid: unknown) => (uid ? formatAdminMemberLabel(identities.get(String(uid))) : null);
+  const systemLabel = await adminServerText("admin_api_actor_system");
   const comp = (completion.data ?? null) as { seller_completed_at?: string | null } | null;
 
   return NextResponse.json({
@@ -125,7 +127,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       completed_at: comp?.seller_completed_at ?? null,
     },
     revisions: revRows.map((r) => ({ ...r, editor_label: label(r.editor_id) })),
-    audits: auditRows.map((r) => ({ ...r, actor_label: r.actor_type === "system" ? "시스템" : label(r.actor_id) })),
+    audits: auditRows.map((r) => ({ ...r, actor_label: r.actor_type === "system" ? systemLabel : label(r.actor_id) })),
     reports: repRows.map((r) => ({
       ...r,
       reporter_label: label(r.reporter_id),

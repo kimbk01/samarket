@@ -122,10 +122,8 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
     domain: "messenger",
     titleKo: "채팅 대시보드",
     titleEn: "Chat dashboard",
-    descriptionKo:
-      "지금 처리할 일은 현재 대기 중인 신고·상담입니다. 운영 위험은 최근 24시간의 푸시·통화 실패와 링 타임아웃을 넘긴 통화, 방 상태는 최근 7일 활동 기준이며 90일 이상 미사용 방은 따로 표시합니다. 숫자를 누르면 같은 조건의 목록이 열립니다. 기간 기준: 마닐라 시간.",
-    descriptionEn:
-      "Work to do now = reports and support cases waiting right now. Operational risk covers push and call failures in the last 24 hours and calls stuck ringing. Room state uses the last 7 days of activity; rooms idle 90+ days are shown separately. Each number opens the list with the same filter. Period basis: Manila time.",
+    descriptionKo: catalogPair("admin_domain_dashboard_messenger_description").ko,
+    descriptionEn: catalogPair("admin_domain_dashboard_messenger_description").en,
     currentState: toMetrics(sectionDefs("state"), values),
     actionRequired: toActionItems(sectionDefs("action"), values),
     domainHealth: toMetrics(sectionDefs("health", "storage"), values),

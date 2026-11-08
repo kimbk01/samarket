@@ -90,30 +90,20 @@ export function classifyPopupCampaignCompleteness(input: {
     };
   }
 
-  const opsKo =
+  const opsKey: MessageKey | null =
     status === "active"
-      ? "노출 중"
+      ? "admin_ads_popup_ops_active"
       : status === "scheduled"
-        ? "예약"
+        ? "admin_ads_popup_ops_scheduled"
         : status === "paused"
-          ? "일시중지"
+          ? "admin_ads_popup_ops_paused"
           : status === "ended"
-            ? "종료"
+            ? "admin_ads_popup_ops_ended"
             : status === "rejected"
-              ? "반려"
-              : status;
-  const opsEn =
-    status === "active"
-      ? "Active"
-      : status === "scheduled"
-        ? "Scheduled"
-        : status === "paused"
-          ? "Paused"
-          : status === "ended"
-            ? "Ended"
-            : status === "rejected"
-              ? "Rejected"
-              : status;
+              ? "admin_ads_popup_ops_rejected"
+              : null;
+  const opsKo = opsKey ? tx(true, opsKey) : status;
+  const opsEn = opsKey ? tx(false, opsKey) : status;
 
   return {
     completeness: "operating",
@@ -140,14 +130,12 @@ export function popupWaitingReasonLabel(input: {
   ko: boolean;
 }): string {
   const name = input.winnerDisplayName?.trim() || tx(input.ko, "admin_ads_exposure_another_popup");
-  if (input.ko) {
-    const pri =
-      input.winnerPriority == null ? "" : `\n우선순위: ${input.winnerPriority}`;
-    const period = input.winnerPeriodLabel ? `\n기간: ${input.winnerPeriodLabel}` : "";
-    return `현재 다른 팝업이 우선 노출 중입니다.\n현재 표시 중: ${name}${pri}${period}\n\n같은 위치에 여러 광고가 있는 경우 현재 우선순위 기준에 따라 한 건이 표시됩니다.`;
-  }
   const pri =
-    input.winnerPriority == null ? "" : `\nPriority: ${input.winnerPriority}`;
-  const period = input.winnerPeriodLabel ? `\nPeriod: ${input.winnerPeriodLabel}` : "";
-  return `Another popup is currently showing.\nLive now: ${name}${pri}${period}\n\nWhen multiple ads share a placement, one is shown by the current priority rules.`;
+    input.winnerPriority == null
+      ? ""
+      : `\n${tx(input.ko, "admin_ads_popup_waiting_priority", { priority: input.winnerPriority })}`;
+  const period = input.winnerPeriodLabel
+    ? `\n${tx(input.ko, "admin_ads_popup_waiting_period", { period: input.winnerPeriodLabel })}`
+    : "";
+  return tx(input.ko, "admin_ads_popup_waiting_reason", { name, pri, period });
 }

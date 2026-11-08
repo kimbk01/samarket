@@ -8,6 +8,7 @@ import {
   bannerPlacementDefaultCapacity,
 } from "@/lib/ads/banner-placement-capacity-ssot";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate } from "@/lib/i18n/messages";
 
 export type AdsCollisionSeverity = "NONE" | "WARNING" | "BLOCKING";
 
@@ -158,12 +159,12 @@ export function detectPlacementCollisions(
           severityLabelEn: labels.en,
           reasonKo:
             sev === "BLOCKING"
-              ? `동일 placement 용량(${cap})을 넘는 동시 집행이 있습니다.`
-              : `동일 placement에서 용량(${cap}) 대비 중복 집행이 있습니다. 확인이 필요합니다.`,
+              ? translate("ko", "admin_ads_collision_capacity_exceeded", { cap })
+              : translate("ko", "admin_ads_collision_capacity_overlap", { cap }),
           reasonEn:
             sev === "BLOCKING"
-              ? `Concurrent executions exceed placement capacity (${cap}).`
-              : `Placement has more overlapping executions than capacity (${cap}). Review needed.`,
+              ? translate("en", "admin_ads_collision_capacity_exceeded", { cap })
+              : translate("en", "admin_ads_collision_capacity_overlap", { cap }),
           checkCode: "E_CAPACITY_EXCEEDED",
           peers: overlapping.map((p) => ({
             id: p.id,
@@ -298,7 +299,7 @@ export function detectPlacementCollisions(
       storeName: a.storeName || a.title || a.id.slice(0, 8),
       productKind: String(a.productKind ?? "delivery"),
       placementKey: a.inventoryKeys[0] ?? "creative",
-      placementLabel: "동일 소재 · 복수 placement",
+      placementLabel: translate("ko", "admin_ads_collision_same_creative_label"),
       startAt: a.startAt,
       endAt: a.endAt,
       severity: "WARNING",

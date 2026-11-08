@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { translate } from "@/lib/i18n/messages";
 import { describe, expect, it } from "vitest";
 import { MEMBER_ADMIN_CAPABILITY_CATALOG } from "@/lib/admin-users/member-admin-capability-catalog";
 import { MEMBER_ADMIN_SCREEN_CATALOG as SCREENS } from "@/lib/admin-users/member-admin-screen-catalog";
@@ -209,23 +210,25 @@ describe("R3 Member Detail Control Center IA", () => {
     );
     expect(bodyKeyOrder).toEqual([...MEMBER_DETAIL_OVERVIEW_SECTION_ORDER]);
     expect(overview).toMatch(/memberDetailContactEmail/);
-    expect(overview).toMatch(/로그인 ID/);
+    expect(overview).toMatch(/t\("admin_users_member_login_id"\)/);
+    expect(translate("ko", "admin_users_member_login_id")).toBe("로그인 ID");
     expect(findForbiddenOperatorTerms(overview)).toEqual([]);
   });
 
   it("account/auth suppresses synthetic contact email", () => {
     const auth = src("components/admin/users/AdminMemberAuthPanel.tsx");
     expect(auth).toMatch(/memberDetailContactEmail/);
-    expect(auth).toMatch(/실제 로그인 아이디/);
-    expect(auth).toMatch(/memberDetailAccountStateLabelKo/);
-    expect(auth).toMatch(/memberDetailVerificationLabelKo/);
+    expect(auth).toMatch(/t\("admin_users_member_real_login_id"\)/);
+    expect(translate("ko", "admin_users_member_real_login_id")).toBe("실제 로그인 아이디");
+    expect(auth).toMatch(/memberDetailAccountStateLabel/);
+    expect(auth).toMatch(/memberDetailVerificationLabel/);
   });
 
   it("store panel keeps name + #id + business detail link", () => {
     const store = src("components/admin/users/AdminMemberStorePanel.tsx");
     expect(store).toMatch(/#\{canonical\.id\}|#\{store\.id\}/);
     expect(store).toMatch(/MEMBER_STORE_RELATION_COPY\.view_store|매장 상세 보기/);
-    expect(store).toMatch(/MEMBER_DETAIL_STORE_NONE_KO|매장 없음/);
+    expect(store).toMatch(/MEMBER_DETAIL_STORE_NONE_KEY|매장 없음/);
     expect(store).toMatch(/memberDetailStoreHref/);
     expect(store).toContain("resolveCanonicalMemberStore");
   });

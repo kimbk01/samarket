@@ -12,6 +12,7 @@ import {
   DATA_RESET_PRODUCTION_ENABLE_MATRIX,
 } from "@/lib/admin/data-reset/production-enable-policy";
 import type { DataResetDomain, DataResetScope } from "@/lib/admin/data-reset/types";
+import { translate } from "@/lib/i18n/messages";
 
 export type DataResetUiExecutePosture =
   | "available_when_execute_opt_in"
@@ -101,10 +102,8 @@ export function resolveDataResetUiCapability(input: {
     return {
       ...base,
       executePosture: "blocked",
-      reasonKo:
-        "현재 운영 환경에서는 이 범위의 초기화를 사용할 수 없습니다. 추가 관리자 재인증 기능이 필요합니다.",
-      reasonEn:
-        "This reset scope is unavailable in production. Additional admin re-authentication is required.",
+      reasonKo: translate("ko", "admin_data_reset_reauth_required"),
+      reasonEn: translate("en", "admin_data_reset_reauth_required"),
     };
   }
 
@@ -123,10 +122,8 @@ export function resolveDataResetUiCapability(input: {
     return {
       ...base,
       executePosture: "available_when_execute_opt_in",
-      reasonKo:
-        "Full Reset은 미리보기·고위험 작업입니다. Production 실행은 별도 옵트인이 필요하며, 파괴적 실측은 아직 운영 증명되지 않았습니다.",
-      reasonEn:
-        "Full Reset is preview / high-risk. Production execute needs explicit opt-in; destructive runtime is not operationally proven.",
+      reasonKo: translate("ko", "admin_data_reset_full_reset_high_risk"),
+      reasonEn: translate("en", "admin_data_reset_full_reset_high_risk"),
     };
   }
 
@@ -135,10 +132,8 @@ export function resolveDataResetUiCapability(input: {
     return {
       ...base,
       executePosture: "available_when_execute_opt_in",
-      reasonKo:
-        "전체 범위는 실데이터가 있을 수 있습니다. Production 실행은 별도 옵트인이 필요하며, 안전한 빈 대상이 없으면 실행하지 마세요.",
-      reasonEn:
-        "All-scope may include live data. Production execute needs opt-in; do not run without a safe empty target.",
+      reasonKo: translate("ko", "admin_data_reset_all_scope_live_data"),
+      reasonEn: translate("en", "admin_data_reset_all_scope_live_data"),
     };
   }
 

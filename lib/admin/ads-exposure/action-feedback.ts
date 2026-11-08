@@ -73,8 +73,8 @@ export function feedbackApprovedWithStart(input: {
 
 export function feedbackScheduledStart(input: { startAt: string; ko: boolean }): string {
   const p = manilaFeedbackParts(input.startAt);
-  if (input.ko) {
-    return `${p.month}월 ${p.day}일 ${p.time}부터 노출됩니다.`;
-  }
-  return `Scheduled to go live ${p.date} ${p.time} PHT.`;
+  const dateLabel = input.ko
+    ? tx(true, "admin_ads_exposure_month_day", { month: String(p.month), day: String(p.day) })
+    : p.date;
+  return tx(input.ko, "admin_ads_exposure_scheduled_from", { dateLabel: String(dateLabel), time: String(p.time) });
 }

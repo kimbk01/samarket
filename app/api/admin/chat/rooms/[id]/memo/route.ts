@@ -3,6 +3,7 @@ import { requireTradeChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards"
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function PATCH(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
 
   const { id: paramId } = await params;

@@ -26,7 +26,7 @@ import {
 } from "@/lib/utils/ph-mobile";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { useRouter } from "next/navigation";
 
 const ACCOUNT_TYPE_OPTIONS: {
@@ -285,7 +285,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   return (
     <MemberAdminDialog
       open={dialogOpen}
-      title={MEMBER_ADMIN_COPY.member_create_title}
+      title={t(MEMBER_ADMIN_COPY_KEY.member_create_title)}
       size="large"
       description={t("admin_users_form_create_member_subtitle")}
       dirty={dirty && !submitting && !createdWithAddressWarning}
@@ -294,7 +294,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       primaryLabel={
         createdWithAddressWarning
           ? t("admin_users_go_to_member_detail")
-          : MEMBER_ADMIN_COPY.member_register
+          : t(MEMBER_ADMIN_COPY_KEY.member_register)
       }
       primaryDisabled={submitting}
       onCancel={() => {

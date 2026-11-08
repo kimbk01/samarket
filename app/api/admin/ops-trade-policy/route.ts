@@ -13,6 +13,7 @@ import {
   DEFAULT_BUYER_AUTO_CONFIRM_DAYS,
   DEFAULT_BUYER_REVIEW_DEADLINE_DAYS,
 } from "@/lib/trade/ops-trade-policy";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ export async function PUT(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_json_required") }, { status: 400 });
   }
   const d1 = clampPolicyDays(body.buyerAutoConfirmDays ?? DEFAULT_BUYER_AUTO_CONFIRM_DAYS, DEFAULT_BUYER_AUTO_CONFIRM_DAYS);
   const d2 = clampPolicyDays(
@@ -94,7 +95,7 @@ export async function PUT(req: NextRequest) {
     { onConflict: "id" }
   );
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message ?? "저장 실패" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error.message ?? await adminServerText("admin_api_save_failed") }, { status: 500 });
   }
   const audit = await appendCommunityAdminAudit(sbAny, req, {
     actorId: admin.userId,

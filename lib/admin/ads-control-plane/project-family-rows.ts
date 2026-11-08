@@ -46,6 +46,12 @@ import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-
 import { formatAdsPeriodRange, resolveBoostStoredPeriodBounds } from "@/lib/admin/ads-exposure/canonical-location-period";
 import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import { formatAdminManilaDate } from "@/lib/admin/metrics/manila-period";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/** 이 목록은 한국어 운영 화면 문구로 만든다(상태 문구는 `shell-row` 판정이 읽는다) — 카탈로그 한국어 값 */
+function K(key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate("ko", key, vars);
+}
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -68,11 +74,11 @@ function opsLabel(ops: AdsOpsStatus): string {
 }
 
 function exposureFromOps(ops: AdsOpsStatus): string {
-  if (ops === "live") return "노출 중";
-  if (ops === "scheduled") return "아직 노출 안 됨(예약)";
-  if (ops === "paused") return "노출 중단(일시중지)";
-  if (ops === "ended" || ops === "rejected" || ops === "archived") return "노출 종료";
-  return "아직 노출 안 됨";
+  if (ops === "live") return K("admin_ads_rows_exposure_live");
+  if (ops === "scheduled") return K("admin_ads_rows_exposure_scheduled");
+  if (ops === "paused") return K("admin_ads_rows_exposure_paused");
+  if (ops === "ended" || ops === "rejected" || ops === "archived") return K("admin_ads_rows_exposure_ended");
+  return K("admin_ads_rows_exposure_not_yet");
 }
 
 /** Delivery lifecycle → canonical ops status (Korean label via opsLabel). */
@@ -143,9 +149,9 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
   const product = String(c.productKind ?? "banner");
   const actionable =
     ops === "pending"
-      ? "배달 광고 심사·조치가 필요합니다."
+      ? K("admin_ads_rows_why_delivery_review")
       : ops === "draft"
-        ? "초안·소재 확인이 필요합니다."
+        ? K("admin_ads_rows_why_draft_creative")
         : null;
   const adminDirect = c.campaignSource === "DIBAY_FIRST_PARTY";
   const title =
@@ -173,10 +179,10 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     product,
     entity: isAdsShellExecutionOps(ops) ? "execution" : "application",
     applicantLabel: adminDirect
-      ? "Admin 직접 등록"
+      ? K("admin_ads_rows_admin_direct")
       : String(c.storeName ?? "").trim() ||
         String(c.ownerDisplayName ?? "").trim() ||
-        (storeId ? `매장 ${storeId.slice(0, 8)}` : "Owner"),
+        (storeId ? K("admin_ads_rows_store_id", { id: storeId.slice(0, 8) }) : "Owner"),
     storeId,
     memberId: ownerId,
     creativeHint: c.imageUrl?.trim() || null,
@@ -202,7 +208,7 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     memberHref: ownerId ? memberHref(ownerId) : null,
     title,
     creativeImageUrl: c.imageUrl?.trim() || null,
-    ctaLabel: c.ctaHref ? "이동" : null,
+    ctaLabel: c.ctaHref ? K("admin_ads_rows_cta_go") : null,
     destinationLabel: c.ctaHref?.trim() || null,
     lifecycleStatusLabel: opsLabel(ops),
     operatingStatusLabel: opsLabel(ops),
@@ -302,7 +308,7 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     storeId: null,
     memberId: userId || null,
     creativeHint: r.target_id != null ? String(r.target_id) : null,
-    placementHint: isCommunity ? "커뮤니티 상위노출" : "거래 상위노출",
+    placementHint: isCommunity ? K("admin_ads_rows_community_top_exposure") : K("admin_ads_rows_trade_top_exposure"),
     amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
     currency: "POINT",
     status: opsLabel(ops),
@@ -310,8 +316,8 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     whyActionable:
       ops === "pending"
         ? isCommunity
-          ? "레거시 승인 대기 상위노출(신규 flow는 즉시 Point 결제)."
-          : "레거시 승인 대기 거래 상위노출(신규 flow는 즉시 Point 결제)."
+          ? K("admin_ads_rows_why_legacy_boost_community")
+          : K("admin_ads_rows_why_legacy_boost_trade")
         : null,
     paymentLabel: adsPaymentLabel(null, "POINT", true),
     periodLabel: formatPeriod(periodBounds.startAt, periodBounds.endAt),
@@ -379,7 +385,7 @@ export function projectFeedRequestToActionItem(r: FeedRequestRow): AdsActionItem
     domain: "feed",
     product: isCommunity ? "feed_banner_community" : "feed_banner_trade",
     entity: isAdsShellExecutionOps(ops) ? "execution" : "application",
-    applicantLabel: userId ? `회원 ${userId.slice(0, 8)}` : "Member",
+    applicantLabel: userId ? K("admin_ads_rows_member_id", { id: userId.slice(0, 8) }) : "Member",
     storeId: null,
     memberId: userId || null,
     creativeHint: creativeUrl,
@@ -388,7 +394,7 @@ export function projectFeedRequestToActionItem(r: FeedRequestRow): AdsActionItem
     currency: "POINT",
     status: opsLabel(ops),
     opsStatus: ops,
-    whyActionable: ops === "pending" ? "피드 광고 신청 심사가 필요합니다." : null,
+    whyActionable: ops === "pending" ? K("admin_ads_rows_why_feed_review") : null,
     paymentLabel: adsPaymentLabel(null, "POINT", true),
     periodLabel: formatPeriod(
       typeof r.start_at === "string" ? r.start_at : null,
@@ -449,18 +455,21 @@ export function projectFeedCampaignToActionItem(c: FeedAdCampaignView): AdsActio
     storeId: null,
     memberId: null,
     creativeHint: c.slides?.[0]?.imageUrl ?? null,
-    placementHint: String(c.placement ?? "거래/커뮤니티 피드"),
+    placementHint: String(c.placement ?? K("admin_ads_rows_feed_trade_community")),
     amountLabel: null,
     currency: memberPaid ? "POINT" : "N_A",
     status: opsLabel(ops),
     opsStatus: ops,
-    whyActionable: ops === "pending" || ops === "draft" ? "피드 배너 캠페인 확인이 필요합니다." : null,
+    whyActionable: ops === "pending" || ops === "draft" ? K("admin_ads_rows_why_feed_campaign") : null,
     paymentLabel: memberPaid ? adsPaymentLabel(null, "POINT", true) : adsPaymentLabel("ADMIN_DIRECT", "N_A", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
     performanceLabel:
       c.impressionCount != null || c.clickCount != null
-        ? `노출 ${(c.impressionCount ?? 0).toLocaleString("ko-KR")} · 클릭 ${(c.clickCount ?? 0).toLocaleString("ko-KR")}`
+        ? K("admin_ads_rows_impressions_clicks", {
+            impressions: (c.impressionCount ?? 0).toLocaleString("ko-KR"),
+            clicks: (c.clickCount ?? 0).toLocaleString("ko-KR"),
+          })
         : null,
     exposureLabel: exposureFromOps(ops),
     eligibility: exposureFromOps(ops),
@@ -549,19 +558,19 @@ export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionIt
     product: "platform_popup",
     entity: "application",
     applicantLabel: storeId
-      ? `매장 ${storeId.slice(0, 8)}`
+      ? K("admin_ads_rows_store_id", { id: storeId.slice(0, 8) })
       : ownerId
         ? `Owner ${ownerId.slice(0, 8)}`
-        : "알 수 없음",
+        : K("admin_ads_rows_unknown"),
     storeId,
     memberId: ownerId,
     creativeHint: null,
-    placementHint: "앱 팝업",
+    placementHint: K("admin_ads_rows_app_popup"),
     amountLabel: null,
     currency: "CASH",
     status: opsLabel(ops),
     opsStatus: ops,
-    whyActionable: ops === "pending" ? "팝업 광고 신청 심사가 필요합니다." : null,
+    whyActionable: ops === "pending" ? K("admin_ads_rows_why_popup_review") : null,
     paymentLabel: adsPaymentLabel(null, "CASH", true),
     periodLabel: null,
     remainingLabel: null,
@@ -647,14 +656,14 @@ export function projectPopupCampaignToActionItem(
   });
   const ctaLabel =
     c.ctaType === "internal_page"
-      ? "내부 페이지 이동"
+      ? K("admin_ads_rows_cta_internal_page")
       : c.ctaType === "external_url"
-        ? "외부 링크 이동"
+        ? K("admin_ads_rows_cta_external_url")
         : c.ctaType === "store"
-          ? "매장 이동"
+          ? K("admin_ads_rows_cta_store")
           : c.ctaType === "trade_listing"
-            ? "거래 글 이동"
-            : "커뮤니티 글 이동";
+            ? K("admin_ads_rows_cta_trade_listing")
+            : K("admin_ads_rows_cta_community_post");
   const destinationLabel = c.externalUrl?.trim() || c.ctaTarget?.trim() || null;
   const periodLabel = formatPeriod(c.startAt, c.endAt);
   const missingFieldsLabel = popupMissingFieldsLabel(completeness.missing, true) || null;
@@ -691,9 +700,9 @@ export function projectPopupCampaignToActionItem(
     product: "platform_popup",
     entity,
     applicantLabel: adminDirect
-      ? "Admin 직접 등록"
+      ? K("admin_ads_rows_admin_direct")
       : storeId
-        ? `매장 ${storeId.slice(0, 8)}`
+        ? K("admin_ads_rows_store_id", { id: storeId.slice(0, 8) })
         : "Owner",
     storeId,
     memberId: null,
@@ -705,14 +714,14 @@ export function projectPopupCampaignToActionItem(
     opsStatus: ops,
     whyActionable:
       !adminDirect && completeness.completeness === "pending_review"
-        ? "팝업 광고 신청 심사가 필요합니다."
+        ? K("admin_ads_rows_why_popup_review")
         : completeness.completeness === "orphan_partial" ||
             completeness.completeness === "incomplete"
           ? missingFieldsLabel
-            ? `불완전: ${missingFieldsLabel}`
-            : "필수 정보가 부족합니다."
+            ? K("admin_ads_rows_incomplete_fields", { fields: missingFieldsLabel })
+            : K("admin_ads_rows_why_missing_required")
           : completeness.completeness === "draft_ready"
-            ? "임시저장된 팝업입니다. 등록을 완료하세요."
+            ? K("admin_ads_rows_why_popup_draft")
             : null,
     paymentLabel,
     periodLabel,
@@ -760,7 +769,7 @@ export function projectPopupCampaignToExecutionRow(
     domain: "popup",
     product: "platform_popup",
     label: String(c.name ?? "").trim() || id.slice(0, 8),
-    placement: c.surfaces?.length ? c.surfaces.join(",") : "앱 팝업",
+    placement: c.surfaces?.length ? c.surfaces.join(",") : K("admin_ads_rows_app_popup"),
     status: opsLabel(ops),
     opsStatus: ops,
     eligibility: exposureFromOps(ops),
@@ -875,7 +884,7 @@ export function applyAdsLedgerToItem(
     periodStartAt: ledger.startAt ?? item.periodStartAt ?? null,
     periodEndAt: ledger.endAt ?? item.periodEndAt ?? null,
     // 실기 v6 FAIL 2-6: 일찍 끝난 광고에 「종료까지 N」을 쓰지 않는다
-    remainingLabel: terminal ? "종료됨" : item.remainingLabel,
+    remainingLabel: terminal ? K("admin_ads_rows_ended") : item.remainingLabel,
     applicantLabel: adsLedgerAdvertiserLabel(ledger, true),
     memberId: ledger.advertiserType === "member" ? ledger.advertiserId : item.memberId,
     memberHref:
@@ -897,7 +906,7 @@ export function applyAdsLedgerToItem(
   }
   if (meta.family === "feed_request" && (ledger.startAt || ledger.endAt)) {
     next.periodLabel = formatPeriod(ledger.startAt, ledger.endAt);
-    next.remainingLabel = terminal ? "종료됨" : adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null;
+    next.remainingLabel = terminal ? K("admin_ads_rows_ended") : adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null;
   }
   if (meta.family === "feed_request" && meta.priority != null) next.priority = meta.priority;
   return next;
@@ -940,7 +949,7 @@ export function projectLedgerOnlyItem(meta: AdsLedgerRowMeta, ledger: AdsLedgerF
     periodLabel: formatPeriod(ledger.startAt, ledger.endAt),
     remainingLabel:
       meta.statusTab === "ended" || meta.statusTab === "rejected" || meta.statusTab === "deleted"
-        ? "종료됨"
+        ? K("admin_ads_rows_ended")
         : adsRemainingPeriodLabel(ledger.startAt, ledger.endAt, true) || null,
     performanceLabel:
       ledger.impressions != null || ledger.clicks != null ? adsLedgerPerformanceLabel(ledger, true) : null,

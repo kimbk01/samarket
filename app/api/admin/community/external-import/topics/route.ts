@@ -1,6 +1,7 @@
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { listOperatorImportTopicOptions } from "@/lib/community-operator-import/topics";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export async function GET() {
     const topics = await listOperatorImportTopicOptions();
     return jsonOk({ topics, defaultTopicId: null });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "주제 목록을 불러오지 못했습니다.", 500, {
+    return jsonError(e instanceof Error ? e.message : await adminServerText("admin_api_import_topics_load_failed"), 500, {
       code: "topics_load_failed",
     });
   }

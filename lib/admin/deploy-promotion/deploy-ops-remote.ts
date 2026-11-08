@@ -97,10 +97,17 @@ function summarizePath(path: string, status: ChangeFileRow["status"]): {
   en: string;
 } {
   const cat = categorizePath(path);
-  const verbKo =
-    status === "added" ? "추가" : status === "removed" ? "삭제" : status === "renamed" ? "이름 변경" : "수정";
-  const verbEn =
-    status === "added" ? "Added" : status === "removed" ? "Removed" : status === "renamed" ? "Renamed" : "Changed";
+  const verb = catalogPair(
+    status === "added"
+      ? "admin_deploy_change_added"
+      : status === "removed"
+        ? "admin_deploy_change_removed"
+        : status === "renamed"
+          ? "admin_deploy_change_renamed"
+          : "admin_deploy_change_changed"
+  );
+  const verbKo = verb.ko;
+  const verbEn = verb.en;
   const area: Record<ChangeFileRow["category"], { ko: string; en: string }> = {
     web: catalogPair("admin_web_ui_logic"),
     api: catalogPair("admin_api"),

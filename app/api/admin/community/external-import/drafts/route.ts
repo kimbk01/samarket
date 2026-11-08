@@ -8,6 +8,7 @@ import { buildPublishContent } from "@/lib/community-operator-import/publish-con
 import { loadRules, rulesFor } from "@/lib/community-operator-import/rules";
 import type { OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,18 +23,18 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const parsed = await parseJsonBody<{ article?: OperatorNormalizedArticle; edit?: OperatorDraftEdit; action?: string }>(
     req,
-    "JSON 본문이 필요합니다.",
+    await adminServerText("admin_api_json_body_required"),
   );
   if (!parsed.ok) return parsed.response;
   const article = parsed.value.article;
   if (!article?.sourceArticleKey || !article.sourceSite || !article.sourceBoard) {
-    return jsonError("원문 article이 필요합니다.", 400, { code: "article_required" });
+    return jsonError(await adminServerText("admin_api_import_article_required"), 400, { code: "article_required" });
   }
   const edit = ensureDraftEdit(article, parsed.value.edit);
   try {
     const sb = getSupabaseServer();
     const [source, rules] = await Promise.all([loadManagedSource(sb, article.sourceSite), loadRules(sb)]);
-    if (!source) return jsonError("출처 없음", 404, { code: "source_not_found" });
+    if (!source) return jsonError(await adminServerText("admin_api_import_source_not_found"), 404, { code: "source_not_found" });
     const preview = buildPublishContent({
       article,
       edit,

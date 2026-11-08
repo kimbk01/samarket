@@ -18,6 +18,7 @@ import {
 } from "@/lib/community-operator-import/jobs";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (id) {
     const job = await loadJob(sb, id);
-    return job ? jsonOk(job) : jsonError("작업 없음", 404, { code: "job_not_found" });
+    return job ? jsonOk(job) : jsonError(await adminServerText("admin_api_import_job_not_found"), 404, { code: "job_not_found" });
   }
   return jsonOk({ jobs: await listRecentJobs(sb) });
 }
@@ -55,14 +56,14 @@ export async function POST(req: NextRequest) {
     reason?: unknown;
   }>(
     req,
-    "JSON 본문이 필요합니다.",
+    await adminServerText("admin_api_json_body_required"),
   );
   if (!parsed.ok) return parsed.response;
   const b = parsed.value;
   try {
     const sb = getSupabaseServer();
     if (b.action === "create") {
-      if (!b.kind || !JOB_KINDS.includes(b.kind)) return jsonError("kind 오류", 400, { code: "invalid_job_kind" });
+      if (!b.kind || !JOB_KINDS.includes(b.kind)) return jsonError(await adminServerText("admin_api_import_invalid_kind"), 400, { code: "invalid_job_kind" });
       const reason = parseAdminReason(b.reason);
       if (b.kind !== "reprocess" && !reason) {
         return jsonError(ADMIN_REASON_REQUIRED_CODE, 400, { code: ADMIN_REASON_REQUIRED_CODE });
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
         shuffle: p.shuffle === true,
         schedule: p.schedule?.mode === "spread" ? { mode: "spread", startAt: p.schedule.startAt ?? null, intervalMinutes: p.schedule.intervalMinutes ?? null } : null,
       };
-      if (params.authorMode === "custom" && !params.customAuthor) return jsonError("표시 작성자를 입력하세요.", 400, { code: "custom_author_required" });
+      if (params.authorMode === "custom" && !params.customAuthor) return jsonError(await adminServerText("admin_api_import_custom_author_required"), 400, { code: "custom_author_required" });
       const job = await createJob(sb, { kind: b.kind, items: Array.isArray(b.items) ? b.items : [], params, adminUserId: auth.userId });
       const audit = await appendCommunityAdminAudit(sb, req, {
         actorId: auth.userId,
@@ -99,13 +100,13 @@ export async function POST(req: NextRequest) {
       return jsonOk({ job: after, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
     }
     if (b.action === "run") {
-      if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
+      if (!b.jobId) return jsonError(await adminServerText("admin_api_import_job_id_required"), 400, { code: "job_id_required" });
       return jsonOk({ job: await runJobChunk(sb, b.jobId, { budgetMs: 40_000, adminUserId: auth.userId }) });
     }
     if (b.action === "retry_failed") {
-      if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
+      if (!b.jobId) return jsonError(await adminServerText("admin_api_import_job_id_required"), 400, { code: "job_id_required" });
       const n = await retryFailedItems(sb, b.jobId);
-      if (!n) return jsonError("다시 시도할 실패 항목이 없습니다.", 400, { code: "no_failed_items" });
+      if (!n) return jsonError(await adminServerText("admin_api_import_no_failed_items"), 400, { code: "no_failed_items" });
       const audit = await appendCommunityAdminAudit(sb, req, {
         actorId: auth.userId,
         targetType: "community_import_job",
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
       });
     }
     if (b.action === "cancel") {
-      if (!b.jobId) return jsonError("jobId 필요", 400, { code: "job_id_required" });
+      if (!b.jobId) return jsonError(await adminServerText("admin_api_import_job_id_required"), 400, { code: "job_id_required" });
       const prevJob = await loadJob(sb, b.jobId);
       await cancelJob(sb, b.jobId);
       const cur = await loadJob(sb, b.jobId);
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
       });
       return jsonOk({ job: cur?.job ?? null, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
     }
-    return jsonError("지원 action: create | run | retry_failed | cancel", 400, { code: "unsupported_action" });
+    return jsonError(await adminServerText("admin_api_import_actions_jobs"), 400, { code: "unsupported_action" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "job_failed";
     return jsonError(msg, 400, { code: msg.split(":")[0] || "job_failed" });

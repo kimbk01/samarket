@@ -16,6 +16,7 @@ import {
   bannerGeometryRejectMessage,
   validateBannerCreativeGeometry,
 } from "@/lib/stores/advertising/validate-banner-creative-geometry";
+import { adminServerLanguage, adminServerText } from "@/lib/i18n/admin-server-language";
 
 type UploadPurpose = "feed_ad" | "mypage_banner" | "event_hero_banner";
 
@@ -108,8 +109,8 @@ export async function POST(req: NextRequest) {
             : bannerGeometryRejectMessage({
                 error: geom.error,
                 guide: geom.guide,
-                lang: "ko",
-                placementLabel: "이벤트 히어로 배너",
+                lang: await adminServerLanguage(),
+                placementLabel: await adminServerText("admin_api_feed_ads_event_hero_banner"),
               });
         return NextResponse.json({ ok: false, error: geom.error, message, width, height }, { status: 400 });
       }

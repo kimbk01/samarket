@@ -9,6 +9,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminErrorState, AdminLoadingState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -20,16 +21,16 @@ import { BASELINE_BANNED_TERMS } from "@/lib/community-feed/banned-word-match";
 type Banner = { ok: true; message: string } | { ok: false; code: string } | null;
 type NumKey = Exclude<keyof CommunityFeedOps, "banned_words">;
 
-const FIELD_LABEL: Record<keyof CommunityFeedOps, string> = {
-  banned_words: "금지어",
-  max_title_length: "제목 최대 글자 수",
-  max_content_length: "본문 최대 글자 수",
-  max_comment_length: "댓글 최대 글자 수",
-  max_posts_per_day: "하루 최대 글 수",
-  min_comment_interval_sec: "댓글 최소 간격(초)",
+const FIELD_LABEL: Record<keyof CommunityFeedOps, MessageKey> = {
+  banned_words: "admin_community_settings_field_banned_words",
+  max_title_length: "admin_community_settings_field_max_title_length",
+  max_content_length: "admin_community_settings_field_max_content_length",
+  max_comment_length: "admin_community_settings_field_max_comment_length",
+  max_posts_per_day: "admin_community_settings_field_max_posts_per_day",
+  min_comment_interval_sec: "admin_community_settings_field_min_comment_interval_sec",
 };
 
-const STALE = "다른 관리자가 먼저 변경했습니다 — 최신 내용으로 다시 불러왔습니다";
+const STALE: MessageKey = "admin_community_settings_stale";
 
 function parseWords(text: string): string[] {
   return text
@@ -38,12 +39,12 @@ function parseWords(text: string): string[] {
     .filter(Boolean);
 }
 
-function settingsErrorText(code: string): string {
-  if (code === "no_fields") return "바뀐 항목이 없습니다.";
-  if (code === "admin_settings_table_missing") return "설정 저장소를 쓸 수 없습니다. 시스템 관리자에게 문의하세요.";
-  if (code === "forbidden" || code === "forbidden_permission") return "이 작업을 할 권한이 없습니다.";
+function settingsErrorText(code: string, tr: (key: MessageKey) => string): string {
+  if (code === "no_fields") return tr("admin_community_settings_err_no_fields");
+  if (code === "admin_settings_table_missing") return tr("admin_community_settings_err_store_missing");
+  if (code === "forbidden" || code === "forbidden_permission") return tr("admin_community_settings_err_forbidden");
   if (code === "network_error") return adminOperatorErrorMessage(code, true);
-  return "저장하지 못했습니다. 입력값은 그대로 두었으니 다시 저장해 주세요.";
+  return tr("admin_community_settings_err_save_failed");
 }
 
 export function AdminCommunityFeedSettingsPage() {
@@ -104,16 +105,16 @@ export function AdminCommunityFeedSettingsPage() {
     const summary = changed
       .map((k) =>
         k === "banned_words"
-          ? `금지어 ${saved.banned_words.length}개 → ${words.length}개`
-          : `${FIELD_LABEL[k]}: ${formatAdminDecimal(saved[k as NumKey])} → ${formatAdminDecimal(ops[k as NumKey])}`
+          ? tr("admin_community_settings_banned_change", { from: saved.banned_words.length, to: words.length })
+          : `${tr(FIELD_LABEL[k])}: ${formatAdminDecimal(saved[k as NumKey])} → ${formatAdminDecimal(ops[k as NumKey])}`
       )
       .join("\n");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: true,
-      title: "운영 설정 저장",
-      description: `바뀌는 항목\n${summary}`,
-      confirmLabel: "설정 저장",
+      title: tr("admin_community_settings_confirm_title"),
+      description: tr("admin_community_settings_confirm_desc", { summary }),
+      confirmLabel: tr("admin_community_settings_save_btn"),
     });
     if (!confirmed.ok) return;
     setSaving(true);
@@ -134,17 +135,17 @@ export function AdminCommunityFeedSettingsPage() {
       };
       if (res.status === 409 && j.settings) {
         apply(j.settings, j.updatedAt ?? null);
-        setBanner({ ok: false, code: STALE });
+        setBanner({ ok: false, code: tr(STALE) });
         return;
       }
       if (!res.ok || !j.ok) {
-        setBanner({ ok: false, code: settingsErrorText(j.error ?? "") });
+        setBanner({ ok: false, code: settingsErrorText(j.error ?? "", tr) });
         return;
       }
       if (j.settings) apply(j.settings, j.updatedAt ?? null);
-      setBanner({ ok: true, message: `설정 ${changed.length}개 항목을 저장했습니다.` });
+      setBanner({ ok: true, message: tr("admin_community_settings_saved", { n: changed.length }) });
     } catch {
-      setBanner({ ok: false, code: settingsErrorText("network_error") });
+      setBanner({ ok: false, code: settingsErrorText("network_error", tr) });
     } finally {
       setSaving(false);
     }
@@ -153,7 +154,7 @@ export function AdminCommunityFeedSettingsPage() {
   const header = (
     <header>
       <Link href="/admin/community" className="text-[13px] font-medium text-sam-muted hover:underline">
-        ← 커뮤니티
+        {tr("admin_community_feed_settings_back")}
       </Link>
       <h1 className="sam-text-page-title mt-1 font-semibold text-sam-fg">{tr("admin_feed_settings_page_title")}</h1>
       <p className="mt-1 sam-text-body text-sam-muted">{tr("admin_community_feed_settings_desc")}</p>
@@ -183,7 +184,7 @@ export function AdminCommunityFeedSettingsPage() {
 
   const num = (k: NumKey, min: number, max: number, fallback: number) => (
     <label className="flex flex-col gap-1">
-      <span className="text-sam-muted">{FIELD_LABEL[k]}</span>
+      <span className="text-sam-muted">{tr(FIELD_LABEL[k])}</span>
       <input
         type="number"
         className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg"
@@ -241,13 +242,13 @@ export function AdminCommunityFeedSettingsPage() {
             disabled={saving || changed.length === 0}
             onClick={() => saved && apply(saved, updatedAt)}
           >
-            취소
+            {tr("admin_community_feed_settings_cancel")}
           </AdminActionButton>
           <span className="text-[12px] text-sam-muted">
-            {changed.length > 0 ? `바뀐 항목 ${changed.length}개: ${changed.map((k) => FIELD_LABEL[k]).join(", ")}` : "변경 없음"}
+            {changed.length > 0 ? tr("admin_community_settings_changed_list", { n: changed.length, list: changed.map((k) => tr(FIELD_LABEL[k])).join(", ") }) : tr("admin_community_settings_no_change")}
           </span>
           <AdminActionButton type="submit" variant="primary" disabled={saving || changed.length === 0}>
-            {saving ? "처리 중" : "설정 저장"}
+            {saving ? tr("admin_community_settings_processing") : tr("admin_community_settings_save_btn")}
           </AdminActionButton>
         </div>
       </form>

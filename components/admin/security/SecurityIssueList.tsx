@@ -53,7 +53,7 @@ export function SecurityIssueList() {
       {issues.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "해당 조건의 보안 이슈가 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_security_issues_empty")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (

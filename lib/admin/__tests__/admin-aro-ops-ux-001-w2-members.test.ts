@@ -80,7 +80,7 @@ describe("ARO-OPS-UX-001-W2 members management migration", () => {
 
   it("M11–M13 CTA terminology + semantic columns; no arbitrary 1100 min-width", () => {
     const table = read("components/admin/users/AdminUserTable.tsx");
-    expect(table).toContain("MEMBER_LIST_DETAIL_ACTION_KO");
+    expect(table).toContain("MEMBER_LIST_DETAIL_ACTION_KEY");
     expect(table).toContain("managementColumnStyle");
     expect(table).toContain("computeTableMinWidthPx");
     expect(table).not.toContain("min-w-[1100px]");

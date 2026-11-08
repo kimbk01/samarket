@@ -870,7 +870,7 @@ function AdminStoreFeePoliciesPageInner() {
           <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_immediate_apply_note")}</p>
 
           <AdminTabs
-            ariaLabel={language !== "en" ? "수수료 적용 구분" : "Fee scope"}
+            ariaLabel={t("admin_stores_fee_scope_tabs_aria")}
             syncUrl={false}
             value={tab}
             onChange={(id) => setTab(id as TabId)}

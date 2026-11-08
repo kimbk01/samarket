@@ -46,7 +46,7 @@ export function AdminOpsMaturityPage() {
       <AdminPageHeader titleKey="admin_menu_manage_maturity" />
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="scores"
         resetParams={adminSyncTabResetParams(["domain", "period"])}
         className="mb-4"

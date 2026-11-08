@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { mutateMemberPrivilegeApi } from "@/lib/admin-users/member-admin-privilege-api";
 import {
@@ -9,7 +10,7 @@ import {
   type MemberPrivilegeMutationOp,
   type MemberPrivilegePresentation,
 } from "@/lib/admin-users/member-admin-privilege-ssot";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
@@ -37,6 +38,7 @@ export function AdminMemberPrivilegeDialog({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const { t } = useI18n();
   const [pending, setPending] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -53,12 +55,12 @@ export function AdminMemberPrivilegeDialog({
       ? MEMBER_ADMIN_PRIVILEGE_COPY.promote_title
       : MEMBER_ADMIN_PRIVILEGE_COPY.revoke_title;
   const description = isView
-    ? "이 회원의 현재 관리 권한 상태입니다. 계정 상태·매장 관계·인증과 독립된 축입니다."
+    ? t("admin_users_member_privilege_view_description")
     : op === "promote"
       ? MEMBER_ADMIN_PRIVILEGE_COPY.promote_body
       : MEMBER_ADMIN_PRIVILEGE_COPY.revoke_body;
   const primaryLabel = isView
-    ? MEMBER_ADMIN_COPY.confirm
+    ? t(MEMBER_ADMIN_COPY_KEY.confirm)
     : op === "promote"
       ? MEMBER_ADMIN_PRIVILEGE_COPY.promote_primary
       : MEMBER_ADMIN_PRIVILEGE_COPY.revoke_primary;
@@ -94,7 +96,7 @@ export function AdminMemberPrivilegeDialog({
         confirmLabel: MEMBER_ADMIN_PRIVILEGE_COPY.revoke_primary,
         destructive: true,
         retypeValue: displayName.trim() || publicId?.trim() || userId,
-        reasonPlaceholder: "해제 사유",
+        reasonPlaceholder: t("admin_users_member_privilege_revoke_reason_placeholder"),
       });
       if (!c.ok || !c.reason) return;
       reason = c.reason;

@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function POST(
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_post_id_required") }, { status: 400 });
   }
 
   let body: { action?: string; buyerId?: string; reason?: string | null };
@@ -39,7 +40,7 @@ export async function POST(
   const action = typeof body.action === "string" ? body.action.trim() : "";
   if (!["cancel_sale", "force_complete"].includes(action)) {
     return NextResponse.json(
-      { ok: false, error: "action은 cancel_sale 또는 force_complete 여야 합니다." },
+      { ok: false, error: await adminServerText("admin_api_posts_override_action") },
       { status: 400 }
     );
   }
@@ -118,7 +119,7 @@ export async function POST(
 
   let soldBuyerId = buyerRequested;
   if (soldBuyerId && !UUID_RE.test(soldBuyerId)) {
-    return NextResponse.json({ ok: false, error: "buyerId는 UUID여야 합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_posts_buyer_uuid") }, { status: 400 });
   }
   if (!soldBuyerId) {
     const existing =
@@ -149,7 +150,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          error: "판매 확정 구매자가 없습니다. buyerId를 지정하세요.",
+          error: await adminServerText("admin_api_posts_no_buyer_specify"),
           code: "need_sold_buyer",
         },
         { status: 400 }
@@ -158,7 +159,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          error: `구매자 후보 ${ids.length}명 — buyerId 필요`,
+          error: await adminServerText("admin_api_posts_multi_buyer", { n: ids.length }),
           code: "need_sold_buyer",
           candidates: ids,
         },

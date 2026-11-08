@@ -56,7 +56,7 @@ export function AdminRecommendationAnalyticsPage() {
 
       <AdminTabs
         tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="추천 분석 탭"
+        ariaLabel={t("admin_rec_analytics_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         defaultValue="performance"

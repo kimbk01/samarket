@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   COMMUNITY_TD,
   CommunityFilterBar,
@@ -47,16 +48,16 @@ const STATUS_TONE: Record<string, AdminTone> = {
 };
 
 /** 참조 대상 — 커뮤니티 화면 이름으로 */
-const REFERENCE_LABEL: Record<string, string> = {
-  COMMUNITY_POST: "게시글",
-  COMMUNITY_COMMENT: "댓글",
-  COMMUNITY_REPORT: "신고",
-  COMMUNITY_SANCTION: "활동 제한",
-  POINT_CHARGE_REQUEST: "충전 신청",
-  POINT_PROMOTION_ORDER: "게시글 상위노출",
-  TRADE_POST: "거래글",
-  TRADE_CHAT_ROOM: "거래 채팅",
-  TRADE_SANCTION: "거래 활동 제한",
+const REFERENCE_LABEL: Record<string, MessageKey> = {
+  COMMUNITY_POST: "admin_community_support_ref_post",
+  COMMUNITY_COMMENT: "admin_community_support_ref_comment",
+  COMMUNITY_REPORT: "admin_community_support_ref_report",
+  COMMUNITY_SANCTION: "admin_community_support_ref_sanction",
+  POINT_CHARGE_REQUEST: "admin_community_support_ref_charge",
+  POINT_PROMOTION_ORDER: "admin_community_support_ref_promotion",
+  TRADE_POST: "admin_community_support_ref_trade_post",
+  TRADE_CHAT_ROOM: "admin_community_support_ref_trade_chat",
+  TRADE_SANCTION: "admin_community_support_ref_trade_sanction",
 };
 
 /** 화면 범위 — 커뮤니티(기본) · 거래 (같은 support_cases, 범위 필터만 다름) */
@@ -116,13 +117,19 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
 
   return (
     <CommunityListShell
-      title={appeal ? "이의신청" : trade ? "거래 문의" : "커뮤니티 문의"}
+      title={
+        appeal
+          ? t("admin_community_support_title_appeal")
+          : trade
+            ? t("admin_community_support_title_trade")
+            : t("admin_community_support_title_community")
+      }
       description={
         appeal
-          ? "회원이 숨김·삭제·활동 제한에 이의를 제기한 문의입니다. 답변·처리는 상담 화면에서 합니다."
+          ? t("admin_community_support_desc_appeal")
           : trade
-            ? "거래글·거래 채팅·거래 제한·거래 상위노출 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
-            : "포인트·충전·상위노출·게시물·신고·제재 관련 회원 문의입니다. 답변·담당자 배정은 상담 화면에서 합니다."
+            ? t("admin_community_support_desc_trade")
+            : t("admin_community_support_desc_community")
       }
       tabs={
         <div className="space-y-2">
@@ -130,34 +137,39 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
             value={appeal ? "appeal" : "inquiry"}
             onChange={(v) => tabQ.set({ type: v === "appeal" ? "appeal" : null })}
             tabs={[
-              { value: "inquiry", label: trade ? "거래 문의" : "커뮤니티 문의" },
-              { value: "appeal", label: "이의신청" },
+              {
+                value: "inquiry",
+                label: trade ? t("admin_community_support_title_trade") : t("admin_community_support_title_community"),
+              },
+              { value: "appeal", label: t("admin_community_support_title_appeal") },
             ]}
           />
           <CommunityTabs
             value={status}
             onChange={(v) => q.setStatus(v === "all" ? "" : v)}
             tabs={[
-              { value: "waiting", label: "처리 대기" },
-              { value: "waiting_user", label: "회원 답변 대기" },
-              { value: "resolved", label: "처리 완료" },
-              { value: "all", label: "전체" },
+              { value: "waiting", label: t("admin_community_support_status_waiting") },
+              { value: "waiting_user", label: t("admin_community_support_status_waiting_user") },
+              { value: "resolved", label: t("admin_community_support_status_resolved") },
+              { value: "all", label: t("admin_community_support_status_all") },
             ]}
           />
         </div>
       }
       filterBar={
-        <CommunityFilterBar lq={q} showPeriod={false} searchPlaceholder="접수 번호 · 제목" pending={state.status === "loading"}>
+        <CommunityFilterBar lq={q} showPeriod={false} searchPlaceholder={t("admin_community_support_search_placeholder")} pending={state.status === "loading"}>
           {refType && refId ? (
-            <CommunityFilterField label="참조 대상">
+            <CommunityFilterField label={t("admin_community_support_ref_filter")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {REFERENCE_LABEL[refType] ?? "선택한 대상"} 관련 문의만
+                {t("admin_community_support_ref_only", {
+                  target: REFERENCE_LABEL[refType] ? t(REFERENCE_LABEL[refType]) : t("admin_community_support_ref_selected"),
+                })}
                 <AdminActionButton
                   variant="quiet"
                   size="sm"
                   onClick={() => q.patch({ extras: { reference_type: "", reference_id: "" } })}
                 >
-                  해제
+                  {t("admin_community_support_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -171,12 +183,27 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
         empty={rows.length === 0}
         lq={q}
         onRetry={reload}
-        emptyMessage={appeal ? "이 상태의 이의신청이 없습니다." : trade ? "이 상태의 거래 문의가 없습니다." : "이 상태의 커뮤니티 문의가 없습니다."}
+        emptyMessage={
+          appeal
+            ? t("admin_community_support_empty_appeal")
+            : trade
+              ? t("admin_community_support_empty_trade")
+              : t("admin_community_support_empty_community")
+        }
       >
-        <CommunityTable head={["문의", "회원", "분류", "참조 대상", "담당자", "상태", "마지막 메시지"]}>
+        <CommunityTable head={[
+          t("admin_community_support_col_case"),
+          t("admin_community_support_col_member"),
+          t("admin_community_support_col_category"),
+          t("admin_community_support_ref_filter"),
+          t("admin_community_support_col_assignee"),
+          t("admin_community_support_col_status"),
+          t("admin_community_support_col_last_message"),
+        ]}>
           {rows.map((c) => {
             const refHref = referenceHref(scope, c.reference_type, c.reference_id);
-            const refLabel = c.reference_type ? REFERENCE_LABEL[c.reference_type] ?? "관련 항목" : null;
+            const refKey = c.reference_type ? REFERENCE_LABEL[c.reference_type] : undefined;
+            const refLabel = c.reference_type ? (refKey ? t(refKey) : t("admin_community_support_ref_related")) : null;
             return (
               <tr key={c.id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
@@ -184,11 +211,11 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                     href={communityDetailHref(`/admin/support/${encodeURIComponent(c.id)}`, q.selfHref)}
                     className="font-medium text-sam-primary hover:underline"
                   >
-                    {c.subject || "제목 없음"}
+                    {c.subject || t("admin_community_support_no_subject")}
                   </Link>
                   <div className="text-[12px] text-sam-muted">
                     {c.public_case_no}
-                    {c.admin_unread_count > 0 ? ` · 새 메시지 ${c.admin_unread_count}` : ""}
+                    {c.admin_unread_count > 0 ? t("admin_community_support_new_messages", { n: c.admin_unread_count }) : ""}
                   </div>
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -196,7 +223,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                     href={communityDetailHref(`${trade ? "/admin/trade/members/" : "/admin/community/members/"}${encodeURIComponent(c.requester_user_id)}`, q.selfHref)}
                     className="text-sam-primary hover:underline"
                   >
-                    {c.requester_display_name?.trim() || "이름 없음"}
+                    {c.requester_display_name?.trim() || t("admin_community_support_no_name")}
                   </Link>
                 </td>
                 <td className={COMMUNITY_TD}>{supportCategoryLabel(safeT, c.category)}</td>
@@ -204,7 +231,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                   {refLabel ? (
                     refHref ? (
                       <Link href={communityDetailHref(refHref, q.selfHref)} className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-[12px] font-medium text-sam-primary hover:underline">
-                        {refLabel} 보기
+                        {t("admin_community_support_view_ref", { target: refLabel })}
                       </Link>
                     ) : (
                       <span className="text-[12px] text-sam-muted">{refLabel}</span>

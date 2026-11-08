@@ -67,7 +67,7 @@ export function StoreOrderSellerOrderPanel({
   const titleId = `seller-order-panel-${presentation}-title-${chatRoomId}`;
   const surfaceId =
     presentation === "modal" ? `seller-admin-modal-${chatRoomId}` : `seller-drawer-${chatRoomId}`;
-  const heading = presentation === "modal" ? "관리자 메뉴" : "주문";
+  const heading = presentation === "modal" ? t("chats_admin_menu") : t("chats_seller_panel_order_title");
 
   useEffect(() => {
     setMounted(true);
@@ -113,10 +113,10 @@ export function StoreOrderSellerOrderPanel({
         setItemsSnap([]);
         setLoadErr(
           res.status === 404
-            ? "주문을 찾을 수 없습니다."
+            ? t("chats_store_order_not_found")
             : typeof json?.error === "string"
               ? json.error
-              : "불러오기 실패"
+              : t("chats_store_order_load_failed")
         );
         return;
       }
@@ -150,13 +150,13 @@ export function StoreOrderSellerOrderPanel({
         }))
       );
     } catch {
-      setLoadErr("네트워크 오류");
+      setLoadErr(t("chats_store_order_network_error"));
       setOrderSnap(null);
       setItemsSnap([]);
     } finally {
       setLoading(false);
     }
-  }, [storeId, orderId]);
+  }, [storeId, orderId, t]);
 
   useEffect(() => {
     if (!open) return;
@@ -187,12 +187,12 @@ export function StoreOrderSellerOrderPanel({
     const r = await postChatText(body);
     setSendBusy(false);
     if (r.ok) {
-      setSendToast("채팅으로 전송했습니다.");
+      setSendToast(t("chats_seller_panel_sent_toast"));
       onOpenChange(false);
     } else {
-      setSendToast(r.error?.trim() || "전송에 실패했습니다. 다시 시도해 주세요.");
+      setSendToast(r.error?.trim() || t("chats_seller_panel_send_failed_toast"));
     }
-  }, [orderSnap, itemsSnap, postChatText, sendBusy, sendSummaryDisabled, onOpenChange]);
+  }, [orderSnap, itemsSnap, postChatText, sendBusy, sendSummaryDisabled, onOpenChange, t]);
 
   const onOrderPatched = useCallback(() => {
     void loadOrder();
@@ -258,7 +258,7 @@ export function StoreOrderSellerOrderPanel({
         onClick={() => void handleSendSummary()}
         className={`${OverlayUi.btn.primary} w-full`}
       >
-        {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
+        {sendBusy ? t("ui_store_order_sending") : t("ui_store_order_send_summary")}
       </button>
       {sendSummaryDisabled ? (
         <p className="mt-2 text-center sam-text-helper text-amber-700">{t("ui_store_order_chat_send_blocked")}</p>
@@ -304,19 +304,19 @@ export function StoreOrderSellerOrderPanel({
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="border-b border-sam-border px-3 py-3">
             <p className="mb-1 sam-text-xxs font-semibold uppercase tracking-wide text-muted">
-              내 상점
+              {t("ui_store_order_my_shop")}
             </p>
             <p className="mb-2 sam-text-helper leading-snug text-muted">
               <span className="font-mono sam-text-xxs text-muted">/stores/owner</span>
               <span className="mx-1 text-sam-border">·</span>
-              매장 관리 허브와 동일한 메뉴입니다.
+              {t("chats_seller_panel_hub_same_menu")}
             </p>
             <Link
               href={businessHubHref}
               onClick={() => onOpenChange(false)}
               className="flex w-full items-center justify-center rounded-ui-rect bg-foreground px-4 py-3 sam-text-body font-semibold text-[var(--sub-bg)] hover:bg-black"
             >
-              내 상점 관리로 이동
+              {t("chats_seller_panel_go_my_store_cta")}
             </Link>
             <div className="mt-3">
               <MyBusinessNavList
@@ -328,7 +328,7 @@ export function StoreOrderSellerOrderPanel({
           </div>
           <div className="border-t border-sam-border px-0 pt-1">
             <p className="px-3 pt-3 sam-text-xxs font-semibold uppercase tracking-wide text-muted">
-              이 채팅 · 주문
+              {t("chats_seller_panel_this_chat_order")}
             </p>
             {!stackAboveOwnerChatModal ? deliverySection : null}
             <div className="border-b border-sam-border px-3 py-3">
@@ -338,7 +338,7 @@ export function StoreOrderSellerOrderPanel({
                 onClick={() => void handleSendSummary()}
                 className={`${OverlayUi.btn.primary} w-full`}
               >
-                {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
+                {sendBusy ? t("ui_store_order_sending") : t("ui_store_order_send_summary")}
               </button>
               {sendSummaryDisabled ? (
                 <p className="mt-2 text-center sam-text-helper text-amber-700">

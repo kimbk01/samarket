@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-08 21:12 PHT",
+ "generatedAtPht": "2026-11-08 22:05 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -38,6 +38,49 @@
   },
   "hardcoded-korean": {
    "components/dev/PromotionEventOperationProofClient.tsx": 18
+  },
+  "admin-hangul-literal": {
+   "app/api/admin/banners/[id]/route.ts": 3,
+   "app/api/admin/banners/route.ts": 2,
+   "app/api/admin/chat/rooms/[id]/action/route.ts": 7,
+   "app/api/admin/community/notices/route.ts": 1,
+   "app/api/admin/exposure-policies/[id]/route.ts": 1,
+   "app/api/admin/exposure-policies/simulate/route.ts": 1,
+   "app/api/admin/member-benefits/[id]/route.ts": 2,
+   "app/api/admin/member-benefits/route.ts": 1,
+   "app/api/admin/messenger-call-sounds/upload/route.ts": 2,
+   "app/api/admin/point-expire/run/route.ts": 1,
+   "app/api/admin/point-policies/board/[id]/active/route.ts": 2,
+   "app/api/admin/point-policies/board/route.ts": 2,
+   "app/api/admin/point-policies/event/route.ts": 4,
+   "app/api/admin/point-policies/probability/route.ts": 2,
+   "app/api/admin/users/[id]/route.ts": 2,
+   "components/admin/ads/AdminAdvertisingWorkspace.tsx": 2,
+   "components/admin/app/AdminCustomerCenterMarkdownToolbar.tsx": 1,
+   "components/admin/community/external-import/ImportSourcesPanel.tsx": 1,
+   "components/admin/community/promotions/AdminCommunityPromotionsPage.tsx": 1,
+   "components/admin/feed-emergency/FeedEmergencyPolicyTable.tsx": 1,
+   "components/admin/feed-emergency/FeedSectionOverrideTable.tsx": 2,
+   "components/admin/home-feed/HomeFeedPreview.tsx": 2,
+   "components/admin/personalized-feed/PersonalizedFeedSimulator.tsx": 1,
+   "components/admin/platform-events/AdminPlatformEventOwnerRequestDetailClient.tsx": 1,
+   "components/admin/recommendation-admin-i18n.ts": 6,
+   "components/admin/recommendation-deployments/DeploymentPreparationPanel.tsx": 2,
+   "components/admin/users/EditMemberForm.tsx": 1,
+   "lib/admin/admin-user-deletion.ts": 1,
+   "lib/admin/ads-exposure/human-placement-label.ts": 1,
+   "lib/admin/ads-exposure/ops-status.ts": 11,
+   "lib/admin/ads-exposure/shell-row.ts": 2,
+   "lib/admin/ads-exposure/untitled-display-title.ts": 1,
+   "lib/admin/advertising-workspace/resolve-drawer-actions.ts": 14,
+   "lib/admin/community-admin/community-notice-admin.ts": 1,
+   "lib/admin/community-admin/community-promotion-order-action.ts": 1,
+   "lib/admin/management/terminology.ts": 35,
+   "lib/admin/production-memo.ts": 1,
+   "lib/admin/ui-standard/admin-cta.ts": 16
+  },
+  "jsx-text-korean": {
+   "components/dev/PromotionEventOperationProofClient.tsx": 12
   }
  }
 }

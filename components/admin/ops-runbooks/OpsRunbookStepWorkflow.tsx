@@ -111,9 +111,9 @@ export function OpsRunbookStepWorkflow({
                 <p className="mt-1 sam-text-body-secondary text-sam-muted">{s.description}</p>
                 {(s.assignedAdminNickname || s.startedAt || s.completedAt) && (
                   <p className="mt-2 sam-text-helper text-sam-muted">
-                    {s.assignedAdminNickname && `담당 ${s.assignedAdminNickname}`}
-                    {s.startedAt && ` · 시작 ${formatAdminManilaDateTime(s.startedAt)}`}
-                    {s.completedAt && ` · 완료 ${formatAdminManilaDateTime(s.completedAt)}`}
+                    {s.assignedAdminNickname && t("admin_ops_runbooks_owner_name", { name: s.assignedAdminNickname })}
+                    {s.startedAt && t("admin_ops_runbooks_started_suffix", { time: formatAdminManilaDateTime(s.startedAt) })}
+                    {s.completedAt && t("admin_ops_runbooks_completed_suffix", { time: formatAdminManilaDateTime(s.completedAt) })}
                   </p>
                 )}
                 {s.note && (

@@ -171,7 +171,7 @@ export function MessengerFriendAddSheet({
           {friendAddTab === "contacts" ? (
             <div className="space-y-2">
               <p className="text-[length:var(--overlay-body-2-size)] leading-[1.4]" style={{ color: "var(--overlay-text-secondary)" }}>
-                연락처 동기화는 모바일 앱·지원 브라우저에서 사용할 수 있습니다.
+                {t("cm_ui_contacts_sync_availability")}
               </p>
               <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
                 <SettingsToggleRow
@@ -191,7 +191,7 @@ export function MessengerFriendAddSheet({
                 className="rounded-[length:var(--overlay-radius-md)] border border-dashed border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-3 text-center text-[length:var(--overlay-body-2-size)] leading-[1.4]"
                 style={{ color: "var(--overlay-text-secondary)" }}
               >
-                웹에서는 ID 검색 탭으로 바로 추가할 수 있습니다.
+                {t("cm_ui_web_add_by_id_hint")}
               </p>
             </div>
           ) : null}
@@ -261,14 +261,14 @@ export function MessengerFriendAddSheet({
           {friendAddTab === "invite" ? (
             <div className="space-y-3">
               <p className="text-[length:var(--overlay-body-2-size)] leading-[1.6]" style={{ color: "var(--overlay-text-secondary)" }}>
-                이 링크를 공유하면 상대가 메신저에서 나를 찾을 수 있습니다. QR 스캔은 동일 링크를 사용합니다.
+                {t("cm_ui_invite_link_share_hint")}
               </p>
               <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--sm-color-primary-soft)] px-3 py-2.5">
                 <p
                   className="text-[length:var(--overlay-caption-size)] font-medium uppercase tracking-wide"
                   style={{ color: "var(--overlay-text-secondary)" }}
                 >
-                  초대 URL
+                  {t("cm_ui_invite_url_label")}
                 </p>
                 <p
                   className="mt-1 break-all text-[length:var(--overlay-body-2-size)] leading-snug"

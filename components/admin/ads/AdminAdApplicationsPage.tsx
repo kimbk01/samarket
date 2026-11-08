@@ -69,7 +69,7 @@ export function AdminAdApplicationsPage({
 }: {
   forcedDomain?: AdApplicationDomain;
 }) {
-  const { safeT, language } = useI18n();
+  const { safeT, language, t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryDomain = normalizeDomain(searchParams.get("domain"));
@@ -146,8 +146,8 @@ export function AdminAdApplicationsPage({
         <Suspense fallback={null}>
           <AdminOpsCrossLinkBar
             links={communityCrossLinks}
-            noteKo="커뮤니티 내 포인트 상위노출입니다. Feed Ads·배달 광고 집행과는 별도입니다."
-            noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
+            noteKo={t("admin_ads_community_point_top_exposure_note")}
+            noteEn={t("admin_ads_community_point_top_exposure_note")}
           />
         </Suspense>
       ) : null}

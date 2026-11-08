@@ -6,6 +6,7 @@ import "server-only";
 import type { SharedAdminHandlerGate } from "@/lib/admin/shared-handlers/shared-admin-handler-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { translate } from "@/lib/i18n/messages";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import {
   listOwnerStoresSalesSuspendedBySanction,
@@ -111,20 +112,20 @@ export async function handleAdminMemberModerationPost(
   // P0: withdraw/anonymize is not recoverable via moderation restore.
   if (action === "restore" && isWithdrawnTarget) {
     return NextResponse.json(
-      { ok: false, error: "withdrawn_not_restorable", message: "탈퇴 처리된 회원은 일반 복구할 수 없습니다." },
+      { ok: false, error: "withdrawn_not_restorable", message: translate("ko", "admin_member_moderation_withdrawn_not_restorable") },
       { status: 409 }
     );
   }
   // P0: ban/block must not target already withdrawn accounts (collision with delete path).
   if (action === "ban" && isWithdrawnTarget) {
     return NextResponse.json(
-      { ok: false, error: "already_withdrawn", message: "탈퇴 회원에는 이용 차단을 적용할 수 없습니다." },
+      { ok: false, error: "already_withdrawn", message: translate("ko", "admin_member_moderation_already_withdrawn") },
       { status: 409 }
     );
   }
   if (action === "restore" && fromStatusNorm !== "suspended" && fromStatusNorm !== "blocked") {
     return NextResponse.json(
-      { ok: false, error: "restore_not_applicable", message: "정지 또는 차단 상태에서만 해제할 수 있습니다." },
+      { ok: false, error: "restore_not_applicable", message: translate("ko", "admin_member_moderation_restore_not_applicable") },
       { status: 409 }
     );
   }
@@ -182,7 +183,7 @@ export async function handleAdminMemberModerationPost(
           ok: false,
           error: "auth_block_failed",
           result: "FAILED",
-          message: "이용 차단 Auth 반영에 실패했습니다. 계정 상태는 변경되지 않았습니다.",
+          message: translate("ko", "admin_member_moderation_auth_block_failed"),
           detail,
         },
         { status: 500 }
@@ -216,8 +217,7 @@ export async function handleAdminMemberModerationPost(
               ok: false,
               error: "compensation_failed",
               result: "COMPENSATION_FAILED",
-              message:
-                "이용 차단 프로필 반영에 실패했고 Auth 차단 보정에도 실패했습니다. 운영 확인이 필요합니다.",
+              message: translate("ko", "admin_member_moderation_block_profile_and_compensation_failed"),
               // detail is operator-facing; do not invent success
             },
             { status: 500 }
@@ -233,7 +233,7 @@ export async function handleAdminMemberModerationPost(
             ok: false,
             error: "profile_block_failed",
             result: "FAILED",
-            message: "이용 차단 프로필 반영에 실패했습니다. Auth 차단은 보정되었습니다.",
+            message: translate("ko", "admin_member_moderation_block_profile_failed_compensated"),
             detail: updateErr.message,
           },
           { status: 500 }
@@ -288,7 +288,7 @@ export async function handleAdminMemberModerationPost(
             ok: false,
             error: "profile_unblock_failed",
             result: "FAILED",
-            message: "차단 해제 프로필 반영에 실패했습니다.",
+            message: translate("ko", "admin_member_moderation_unblock_profile_failed"),
             detail: updateErr.message,
           },
           { status: 500 }
@@ -319,8 +319,7 @@ export async function handleAdminMemberModerationPost(
             ok: false,
             error: "compensation_failed",
             result: "COMPENSATION_FAILED",
-            message:
-              "차단 해제 Auth 반영에 실패했고 프로필 롤백에도 실패했습니다. 운영 확인이 필요합니다.",
+            message: translate("ko", "admin_member_moderation_unblock_auth_and_rollback_failed"),
           },
           { status: 500 }
         );
@@ -335,7 +334,7 @@ export async function handleAdminMemberModerationPost(
           ok: false,
           error: "auth_unblock_failed",
           result: "FAILED",
-          message: "차단 해제 Auth 반영에 실패했습니다. 계정 상태는 차단으로 유지됩니다.",
+          message: translate("ko", "admin_member_moderation_unblock_auth_failed"),
           detail,
         },
         { status: 500 }

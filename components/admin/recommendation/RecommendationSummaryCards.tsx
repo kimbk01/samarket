@@ -20,9 +20,9 @@ export function RecommendationSummaryCards({
   }
 
   const surfaceLabels: Record<string, string> = {
-    home: "홈",
-    search: "검색 화면",
-    shop: "상점",
+    home: t("admin_rec_surface_home"),
+    search: t("admin_rec_surface_search_screen"),
+    shop: t("admin_rec_surface_shop"),
   };
 
   const totalImpressions = summaries.reduce((a, s) => a + s.impressionCount, 0);

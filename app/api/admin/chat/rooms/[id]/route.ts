@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,11 +36,11 @@ export async function GET(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
   const { id: roomId } = await params;
   if (!roomId) {
-    return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ error: await adminServerText("admin_api_room_id_required") }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -70,7 +71,7 @@ export async function GET(
       is_locked?: boolean;
     };
     if (roomRow.room_type !== "item_trade") {
-      return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
+      return NextResponse.json({ error: await adminServerText("admin_api_chat_type_removed") }, { status: 404 });
     }
     const [participants, messages, events, reports] = await Promise.all([
       sbAny.from("chat_room_participants").select(CHAT_ROOM_PARTICIPANT_API_SELECT).eq("room_id", roomId),
@@ -104,7 +105,7 @@ export async function GET(
         else if (Array.isArray(imgs) && imgs[0]) productThumbnail = String(imgs[0]);
       }
     }
-    if (!productTitle) productTitle = "거래 채팅";
+    if (!productTitle) productTitle = await adminServerText("admin_api_trade_chat_title");
     const sellerId = (trade ? roomRow.seller_id : roomRow.initiator_id ?? roomRow.seller_id) ?? "";
     const buyerId = (trade ? roomRow.buyer_id : roomRow.peer_id ?? roomRow.buyer_id) ?? "";
     const userIds = [sellerId, buyerId].filter(Boolean);
@@ -153,7 +154,7 @@ export async function GET(
     .maybeSingle()
     .then((r) => r.data);
   if (!pc) {
-    return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ error: await adminServerText("admin_api_chat_room_not_found") }, { status: 404 });
   }
   const pcRow = pc as {
     id: string;

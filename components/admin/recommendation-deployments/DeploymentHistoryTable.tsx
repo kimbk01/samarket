@@ -62,7 +62,7 @@ export function DeploymentHistoryTable() {
         {filterBar}
         <AdminEmptyState
           ko={ko}
-          message={surfaceFilter ? undefined : "배포 이력이 없습니다."}
+          message={surfaceFilter ? undefined : t("admin_rec_deploy_no_history")}
           onReset={surfaceFilter ? lq.reset : undefined}
         />
       </div>
@@ -77,22 +77,22 @@ export function DeploymentHistoryTable() {
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                배포명
+                {t("admin_rec_deployments_col_deployment_name")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                 surface
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                배포 버전
+                {t("admin_rec_deployments_col_deployed_version")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                상태
+                {t("admin_rec_deployments_col_status")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                배포 시각
+                {t("admin_rec_deployments_col_deployed_at")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                담당
+                {t("admin_rec_deployments_col_owner")}
               </th>
             </tr>
           </thead>

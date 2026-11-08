@@ -6,7 +6,7 @@ import type { AdminUser } from "@/lib/types/admin-user";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { memberDetailContactEmail } from "@/lib/admin-users/member-detail-control-center-ia";
 
 interface EditMemberFormProps {
@@ -83,14 +83,14 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             : data.error === "invalid_email"
               ? t("admin_users_err_invalid_email")
               : data.error === "invalid_phone"
-                ? "전화번호 형식을 확인해 주세요."
-                : MEMBER_ADMIN_COPY.mutation_failed,
+                ? t("admin_users_member_verify_invalid_phone")
+                : t(MEMBER_ADMIN_COPY_KEY.mutation_failed),
         );
         return;
       }
       onSuccess();
     } catch {
-      setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
+      setErrorText(t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
     } finally {
       setPending(false);
     }
@@ -99,12 +99,12 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   return (
     <MemberAdminDialog
       open
-      title={MEMBER_ADMIN_COPY.member_edit_title}
+      title={t(MEMBER_ADMIN_COPY_KEY.member_edit_title)}
       size="standard"
       dirty={dirty}
       pending={pending}
       errorText={errorText}
-      primaryLabel={MEMBER_ADMIN_COPY.save_changes}
+      primaryLabel={t(MEMBER_ADMIN_COPY_KEY.save_changes)}
       primaryDisabled={!dirty}
       onCancel={onClose}
       onPrimary={() => void handleSave()}
@@ -145,7 +145,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           </p>
         ) : (
           <AdminActionButton variant="quiet" size="sm" onClick={() => setShowMemberUuid(true)}>
-            {MEMBER_ADMIN_COPY.system_member_key}
+            {t(MEMBER_ADMIN_COPY_KEY.system_member_key)}
           </AdminActionButton>
         )}
       </div>

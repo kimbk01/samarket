@@ -6,13 +6,18 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({
   useI18n: () => ({
     language: "ko",
-    t: (key: string) =>
+    t: (key: string, vars?: Record<string, string | number>) =>
       (
-        ({
-          admin_mock_tool_notice_backup: "모의 화면 — 실제 백업/복구는 수행되지 않습니다",
-          admin_mock_tool_notice_automation: "모의 화면 — 실제 자동 실행은 수행되지 않습니다",
-        }) as Record<string, string>
-      )[key] ?? key,
+        (
+          {
+            admin_mock_tool_notice_backup: "모의 화면 — 실제 백업/복구는 수행되지 않습니다",
+            admin_mock_tool_notice_automation: "모의 화면 — 실제 자동 실행은 수행되지 않습니다",
+            admin_my_row_visible: "노출",
+            admin_my_row_hidden: "숨김",
+            admin_my_row_sort_order: "순서 {n}",
+          } as Record<string, string>
+        )[key] ?? key
+      ).replace(/\{(\w+)\}/g, (_, k: string) => String(vars?.[k] ?? `{${k}}`)),
     tt: (text: string) => text,
   }),
 }));

@@ -70,7 +70,6 @@ import {
   CommissionSummaryGrid,
   formatCashMinor,
   COMMISSION_REVIEW_FILTERS,
-  pickCommissionCopy,
   PlatformPayableSummaryGrid,
   PlatformPayableTable,
   resolveCommissionTab,
@@ -478,11 +477,7 @@ export function AdminStoreCommissionLedgerPage() {
       description: [
         STORE_CASH_ORDER_GATE_LABEL[mode][lang],
         mode === "block_when_not_positive"
-          ? pickCommissionCopy(
-              lang,
-              `적용 즉시 순잔액 0 이하인 매장 ${wouldBlockCount}곳의 신규 주문이 차단됩니다. 이미 받은 주문은 영향 없습니다.`,
-              `${wouldBlockCount} store(s) with net <= 0 stop receiving new orders immediately. Existing orders are unaffected.`
-            )
+          ? translateBy(lang, "admin_store_commission_gate_confirm_block", { n: wouldBlockCount }, "en")
           : null,
       ]
         .filter(Boolean)
@@ -547,11 +542,7 @@ export function AdminStoreCommissionLedgerPage() {
         setModalError(
           (code === "super_admin_only" ? t("admin_r4c_ledger_decide_super_only") : null) ??
             ADJUST_ERROR[code]?.[lang] ??
-            pickCommissionCopy(
-              lang,
-              `처리하지 못했습니다. 입력 내용은 그대로 두었습니다. ${adminOperatorErrorMessage(code, true)}`,
-              `Not saved. Your input is kept — please try again. ${adminOperatorErrorMessage(code, false)}`
-            )
+            translateBy(lang, "admin_store_commission_decide_failed", { error: adminOperatorErrorMessage(code, lang === "ko") }, "en")
         );
         setModal({ ...modal, step: "form" });
         return;
@@ -561,12 +552,12 @@ export function AdminStoreCommissionLedgerPage() {
       setSelected(null);
       setNotice(
         modal.decision === "approve"
-          ? pickCommissionCopy(
-              lang,
-              `#${decidedNo} 환급 승인 완료 — 캐시 환급 ${formatCashMinor(json.cashRefundMinor ?? 0)} · 미납 취소 ${formatCashMinor(json.outstandingCancelMinor ?? 0)}`,
-              `#${decidedNo} refund approved — Cash ${formatCashMinor(json.cashRefundMinor ?? 0)} · unpaid cancelled ${formatCashMinor(json.outstandingCancelMinor ?? 0)}`
-            )
-          : pickCommissionCopy(lang, `#${decidedNo} 환급 반려 완료 — 금액 이동 없음`, `#${decidedNo} refund rejected — no money moved`)
+          ? translateBy(lang, "admin_store_commission_refund_approved", {
+                no: decidedNo,
+                cash: formatCashMinor(json.cashRefundMinor ?? 0),
+                unpaid: formatCashMinor(json.outstandingCancelMinor ?? 0),
+              }, "en")
+          : translateBy(lang, "admin_store_commission_refund_rejected", { no: decidedNo }, "en")
       );
       emitAdminQueueChanged("settlements");
       await Promise.all([load(), loadHeadline()]);
@@ -662,11 +653,7 @@ export function AdminStoreCommissionLedgerPage() {
           }
           sub={
             ledgerReady
-              ? pickCommissionCopy(
-                  lang,
-                  `정상 주문 ${headline.summary?.count ?? 0}건 자동 부과·차감 (전체 기간)`,
-                  `${headline.summary?.count ?? 0} orders auto-charged (all time)`
-                )
+              ? translateBy(lang, "admin_store_commission_head_ledger_sub", { n: headline.summary?.count ?? 0 }, "en")
               : headlineNotReadyCopy(headlineStatus.ledger, lang).sub
           }
           tone="default"
@@ -678,11 +665,7 @@ export function AdminStoreCommissionLedgerPage() {
           value={ledgerReady ? formatCashMinor(headOutstanding) : headlineNotReadyCopy(headlineStatus.ledger, lang).value}
           sub={
             ledgerReady
-              ? pickCommissionCopy(
-                  lang,
-                  `순잔액 마이너스 ${headNegative}곳 · 차단 ${STORE_CASH_ORDER_GATE_LABEL[gateMode][lang]}`,
-                  `${headNegative} negative · block ${STORE_CASH_ORDER_GATE_LABEL[gateMode][lang]}`
-                )
+              ? translateBy(lang, "admin_store_commission_head_unpaid_sub", { n: headNegative, gate: STORE_CASH_ORDER_GATE_LABEL[gateMode][lang] }, "en")
               : headlineNotReadyCopy(headlineStatus.ledger, lang).sub
           }
           tone={!ledgerReady ? "default" : headOutstanding > 0 ? "danger" : "good"}
@@ -693,16 +676,12 @@ export function AdminStoreCommissionLedgerPage() {
           title={translateBy(lang, "admin_refund_review", undefined, "en")}
           value={
             ledgerReady
-              ? pickCommissionCopy(lang, `${headline.summary?.reviewCount ?? 0}건`, `${headline.summary?.reviewCount ?? 0}`)
+              ? translateBy(lang, "admin_store_commission_head_review_count", { n: headline.summary?.reviewCount ?? 0 }, "en")
               : headlineNotReadyCopy(headlineStatus.ledger, lang).value
           }
           sub={
             ledgerReady
-              ? pickCommissionCopy(
-                  lang,
-                  `관리자 결정 필요 · ${formatCashMinor(headline.summary?.reviewFeeMinor ?? 0)}`,
-                  `Needs a decision · ${formatCashMinor(headline.summary?.reviewFeeMinor ?? 0)}`
-                )
+              ? translateBy(lang, "admin_store_commission_head_review_sub", { amount: formatCashMinor(headline.summary?.reviewFeeMinor ?? 0) }, "en")
               : headlineNotReadyCopy(headlineStatus.ledger, lang).sub
           }
           tone={!ledgerReady ? "default" : (headline.summary?.reviewCount ?? 0) > 0 ? "warn" : "good"}
@@ -713,16 +692,12 @@ export function AdminStoreCommissionLedgerPage() {
           title={translateBy(lang, "admin_ledger_check", undefined, "en")}
           value={
             integrityReady && headline.integrity
-              ? pickCommissionCopy(lang, `이상 ${integrityViolations + (headline.exceptionOrders ?? 0)}건`, `${integrityViolations + (headline.exceptionOrders ?? 0)} issues`)
+              ? translateBy(lang, "admin_store_commission_head_check_issues", { n: integrityViolations + (headline.exceptionOrders ?? 0) }, "en")
               : headlineNotReadyCopy(headlineStatus.integrity, lang).value
           }
           sub={
             integrityReady
-              ? pickCommissionCopy(
-                  lang,
-                  `무결성 위반 ${integrityViolations} · 코인·지급 예외 ${headline.exceptionOrders ?? "—"}`,
-                  `${integrityViolations} integrity · ${headline.exceptionOrders ?? "—"} Coin/payout exceptions`
-                )
+              ? translateBy(lang, "admin_store_commission_head_check_sub", { violations: integrityViolations, exceptions: headline.exceptionOrders ?? "—" }, "en")
               : headlineNotReadyCopy(headlineStatus.integrity, lang).sub
           }
           tone={!integrityReady ? "default" : integrityViolations + (headline.exceptionOrders ?? 0) > 0 ? "danger" : "good"}
@@ -888,7 +863,7 @@ export function AdminStoreCommissionLedgerPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-sam-fg">{translateBy(lang, "admin_cash_unpaid_order_block_by_store", undefined, "en")}</h2>
               <p className="sam-text-xxs text-sam-muted">
-                {pickCommissionCopy(lang, `마이너스 ${negativeCount}곳 · 주문 차단 ${blockedCount}곳`, `${negativeCount} negative · ${blockedCount} blocked`)}
+                {translateBy(lang, "admin_store_commission_position_summary", { negative: negativeCount, blocked: blockedCount }, "en")}
               </p>
             </div>
             {selectedPosition ? (
@@ -985,11 +960,7 @@ export function AdminStoreCommissionLedgerPage() {
                     {c.violations === 0 ? "PASS" : `FAIL ${c.violations}`} · {CHECK_LABEL[k]?.[lang] ?? k}
                     {(c.legacyPreserved ?? 0) > 0 ? (
                       <span className="ml-1 sam-text-xxs font-normal" data-integrity-legacy-preserved={c.legacyPreserved}>
-                        {pickCommissionCopy(
-                          lang,
-                          `· 과거 기록 보존 ${c.legacyPreserved}건(정정 안 함·알림 제외)`,
-                          `· ${c.legacyPreserved} legacy preserved (not corrected, not alerted)`
-                        )}
+                        {translateBy(lang, "admin_store_commission_legacy_preserved", { n: c.legacyPreserved }, "en")}
                       </span>
                     ) : null}
                     {c.violations > 0 ? (
@@ -1150,11 +1121,7 @@ export function AdminStoreCommissionLedgerPage() {
                     <input
                       inputMode="decimal"
                       className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
-                      placeholder={pickCommissionCopy(
-                        lang,
-                        `승인 금액(₱) — 비우면 전액 ${formatCashMinor(modal.row.feePaidMinor + modal.row.feeOutstandingMinor)}`,
-                        `Amount (₱) — empty = full ${formatCashMinor(modal.row.feePaidMinor + modal.row.feeOutstandingMinor)}`
-                      )}
+                      placeholder={translateBy(lang, "admin_store_commission_approve_amount_placeholder", { full: formatCashMinor(modal.row.feePaidMinor + modal.row.feeOutstandingMinor) }, "en")}
                       value={modal.amountPhp}
                       onChange={(e) => setModal({ ...modal, amountPhp: e.target.value })}
                       aria-label={translateBy(lang, "admin_approved_amount", undefined, "en")}
@@ -1203,11 +1170,7 @@ export function AdminStoreCommissionLedgerPage() {
                 {decisionLevel === "L3" ? (
                   <label className="mt-2 block" data-decision-retype="1">
                     <span className="block">
-                      {pickCommissionCopy(
-                        lang,
-                        `확인을 위해 주문번호 ${modal.row.orderNo} 를 입력하세요.`,
-                        `Type order number ${modal.row.orderNo} to confirm.`
-                      )}
+                      {translateBy(lang, "admin_store_commission_retype_order_no", { no: modal.row.orderNo }, "en")}
                     </span>
                     <input
                       className="mt-1 min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 font-mono text-sm text-sam-fg"

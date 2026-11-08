@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { withCatalogCopy } from "@/lib/i18n/__tests__/support/source-with-catalog-copy";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -13,11 +14,14 @@ describe("notification source label contract", () => {
     ));
     expect(src).toContain("readLinkedPlatformEventId");
     expect(src).toContain("platform_event_id");
-    expect(src).toContain("원본 확인 불가");
-    expect(src).toContain("이전 방식 · 원본 연결 없음");
+    /** 언어 SSOT L25: 목록 문구는 카탈로그 키(`tx("키")`) — 같은 화면 글자를 키 + 카탈로그 값으로 확인 */
+    expect(src).toContain('tx("admin_notifications_source_unavailable")');
+    expect(src).toContain('tx("admin_notifications_legacy_no_linked_source")');
+    expect(MESSAGES.ko.admin_notifications_source_unavailable).toBe("원본 확인 불가");
+    expect(MESSAGES.ko.admin_notifications_legacy_no_linked_source).toBe("이전 방식 · 원본 연결 없음");
     expect(src).toContain('data-admin-notif-manage="1"');
     // unresolved must not reuse legacy unbound short label
-    expect(src).toMatch(/platform_event_unresolved[\s\S]*원본 확인 불가/);
+    expect(src).toMatch(/platform_event_unresolved[\s\S]*admin_notifications_source_unavailable/);
   });
 
   it("detail distinguishes Event source from legacy unbound", () => {

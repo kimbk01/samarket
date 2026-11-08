@@ -33,6 +33,7 @@ import {
   normalizeAdminDomainScope,
 } from "@/lib/admin/list-query/admin-domain-scope";
 import { loadPlatformEventIdsForDomainScope } from "@/lib/platform-events/admin-event-domain-scope";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 /** 도메인에 해당 이벤트가 없을 때 빈 결과를 내는 자리값 (`in` 빈 배열 금지). */
 const NO_EVENT_ID = "00000000-0000-0000-0000-000000000000";
@@ -99,11 +100,12 @@ export async function GET(req: NextRequest) {
   } catch {
     channelByEventId = {};
   }
+  const noChannel = await adminServerText("admin_api_platform_events_no_channel");
   return NextResponse.json({
     ok: true,
     events: events.map((e) => ({
       ...e,
-      channelSummary: channelByEventId[e.id] ?? "채널 없음",
+      channelSummary: channelByEventId[e.id] ?? noChannel,
     })),
     ...(page
       ? {

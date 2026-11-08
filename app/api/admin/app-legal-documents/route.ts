@@ -22,6 +22,7 @@ import {
   normalizeAppLegalDocumentRow,
   type AppLegalStatus,
 } from "@/lib/legal/app-legal-documents";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,14 +94,14 @@ export async function POST(req: NextRequest) {
   const status: AppLegalStatus = body.status === "published" ? "published" : "draft";
   if (status === "published" && body.confirm !== true) {
     return NextResponse.json(
-      { ok: false, error: "confirm_required", message: "게시 확인이 필요합니다." },
+      { ok: false, error: "confirm_required", message: await adminServerText("admin_api_legal_confirm_required") },
       { status: 400 },
     );
   }
   const needsRequirement = status === "published" && legalPublishNeedsConsentRequirement(body.kind, body.locale);
   if (needsRequirement && !isLegalConsentRequirement(body.consentRequirement)) {
     return NextResponse.json(
-      { ok: false, error: "consent_requirement_required", message: "개정 유형(재동의 필요 / 공지만)을 선택해 주세요." },
+      { ok: false, error: "consent_requirement_required", message: await adminServerText("admin_api_legal_consent_required") },
       { status: 400 },
     );
   }
@@ -134,13 +135,13 @@ export async function POST(req: NextRequest) {
     }
     if (isLegalVersionConflictError(error)) {
       return NextResponse.json(
-        { ok: false, error: "version_conflict", message: "같은 종류·언어에 이미 있는 버전입니다." },
+        { ok: false, error: "version_conflict", message: await adminServerText("admin_api_legal_version_conflict") },
         { status: 409 },
       );
     }
     if (isMissingConsentRequirementColumnError(error)) {
       return NextResponse.json(
-        { ok: false, error: "consent_requirement_unavailable", message: "개정 유형 저장 준비(DB 적용) 전이라 게시할 수 없습니다." },
+        { ok: false, error: "consent_requirement_unavailable", message: await adminServerText("admin_api_legal_consent_unavailable") },
         { status: 503 },
       );
     }

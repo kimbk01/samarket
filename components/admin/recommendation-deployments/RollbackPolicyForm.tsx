@@ -13,7 +13,7 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 export function RollbackPolicyForm() {
   const policies = useMemo(() => getRollbackPolicies(), []);
   const [surface, setSurface] = useState<RecommendationSurface>("home");
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: false; code: string } | null>(null);
@@ -65,7 +65,7 @@ export function RollbackPolicyForm() {
     <div className="space-y-4">
       <AdminResultBanner ko={language !== "en"} result={saveResult} onClose={() => setSaveResult(null)} />
       <p className="sam-text-body-secondary text-sam-muted">
-        자동 롤백 조건은 placeholder입니다. 수동 롤백은 운영 버전 탭에서 이전 버전으로 복원할 수 있습니다.
+        {t("admin_rec_deployments_rollback_policy_hint")}
       </p>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
@@ -101,13 +101,13 @@ export function RollbackPolicyForm() {
           className="rounded border-sam-border"
         />
         <label htmlFor="autoRollback" className="sam-text-body text-sam-fg">
-          자동 롤백 사용 (placeholder)
+          {t("admin_rec_deployments_use_auto_rollback")}
         </label>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            최소 CTR
+            {t("admin_rec_deployments_min_ctr")}
           </label>
           <input
             type="number"
@@ -122,7 +122,7 @@ export function RollbackPolicyForm() {
         </div>
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            최소 전환율
+            {t("admin_rec_deployments_min_conversion_rate")}
           </label>
           <input
             type="number"
@@ -137,7 +137,7 @@ export function RollbackPolicyForm() {
         </div>
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            비교 구간(시간)
+            {t("admin_rec_deployments_compare_window_hours")}
           </label>
           <input
             type="number"
@@ -152,7 +152,7 @@ export function RollbackPolicyForm() {
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          메모
+          {t("admin_rec_deployments_memo")}
         </label>
         <textarea
           value={adminMemo}
@@ -167,7 +167,7 @@ export function RollbackPolicyForm() {
         disabled={busy}
         onClick={() => void handleSave()}
       >
-        {saved ? "저장됨" : "저장"}
+        {saved ? t("admin_rec_deploy_saved") : t("admin_rec_deploy_save")}
       </AdminActionButton>
     </div>
   );

@@ -391,11 +391,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {surface === "history" ? (
         <>
           <div className="mb-3 flex gap-1">
-            {([
-              ["all", "전체"],
-              ["credit", "충전/지급"],
-              ["debit", "사용/차감"],
-            ] as const).map(([id, ko]) => (
+            {(["all", "credit", "debit"] as const).map((id) => (
               <AdminChipButton key={id} selected={filter === id} onClick={() => setFilter(id)}>
                 {id === "all"
                   ? safeT("point_fin_tab_all")

@@ -189,7 +189,7 @@ describe("P2 member list — P1 ActionPolicy consumption", () => {
 describe("P2 member list — UI contracts", () => {
   it("list IA uses operator header and demotes deletion queue", () => {
     const list = src("components/admin/users/AdminUserListPage.tsx");
-    expect(list).toContain("MEMBER_ADMIN_COPY.member_management");
+    expect(list).toContain("MEMBER_ADMIN_COPY_KEY.member_management");
     expect(list).toContain("/admin/users/deletion-requests");
     expect(list).toContain("/admin/users/ops-history");
     expect(list).toContain("/admin/users/phone-verification");
@@ -212,7 +212,7 @@ describe("P2 member list — UI contracts", () => {
       expect(copyAdminB4Ops1Messages.ko[key]).toBe(ko);
     }
     expect(table).toContain("memberListStoreCellLabel");
-    expect(table).toContain("MEMBER_LIST_STORE_NONE_KO");
+    expect(table).toContain("MEMBER_LIST_STORE_NONE_KEY");
     expect(table).not.toContain("RowMenu");
     expect(table).not.toContain("/admin/stores?q=");
   });

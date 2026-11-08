@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { translate } from "@/lib/i18n/messages";
 import {
   canHardDelete,
   COMMUNITY_COMMENT_ENTITY_ACTION_POLICY,
@@ -76,9 +77,10 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
     expect(posts).toContain("data-admin-mgmt-row-soft-delete");
     expect(posts).toContain("data-admin-mgmt-hard-delete");
     expect(posts).toContain("/api/admin/community/engine/posts/bulk-delete");
-    expect(posts).toContain('retypeValue="영구 삭제"');
+    expect(posts).toContain('retypeValue={t("admin_community_posts_hard_delete_btn")}');
+    expect(translate("ko", "admin_community_posts_hard_delete_btn")).toBe("영구 삭제");
     expect(posts).toMatch(/disabled=\{!isSuperAdmin\}/);
-    expect(posts).toContain("COMMUNITY_HARD_DELETE_BLOCK_KO");
+    expect(posts).toContain("COMMUNITY_HARD_DELETE_BLOCK_KEY");
     expect(posts).not.toContain("admin_community_danger_zone");
   });
 

@@ -28,8 +28,6 @@ import { formatAdminManilaDateTime, rebucketUtcHoursToManila } from "@/lib/admin
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
-const HEALTH_NOT_READY_KO = "운영 상태 기능이 아직 준비되지 않았습니다. 시스템 관리자에게 문의하세요.";
-const HEALTH_NOT_READY_EN = "The operations health feature is not ready yet. Contact a system admin.";
 
 type LoadState = "loading" | "ready" | "error";
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
@@ -354,7 +352,7 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          {ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}
+          {t("admin_delivery_ops_health_not_ready")}
           {payload.health_rpc_hint ? <AdminTechDetails ko={ko}>{payload.health_rpc_hint}</AdminTechDetails> : null}
         </div>
       ) : null}
@@ -364,7 +362,7 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          {ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}
+          {t("admin_delivery_ops_health_not_ready")}
           <AdminTechDetails ko={ko}>{payload.health_rpc_error}</AdminTechDetails>
         </div>
       ) : null}
@@ -477,7 +475,7 @@ export function DeliveryOperationsDashboardPage() {
           role="status"
         >
           <p className="font-medium">{t("admin_del_ops_load_failed_title")}</p>
-          <p className="mt-1 text-sam-muted">{ko ? HEALTH_NOT_READY_KO : HEALTH_NOT_READY_EN}</p>
+          <p className="mt-1 text-sam-muted">{t("admin_delivery_ops_health_not_ready")}</p>
         </div>
       ) : loadState === "error" && lastError ? (
         <AdminErrorState ko={ko} code={lastError.code} httpStatus={lastError.status} onRetry={() => load({ showLoading: true })} />

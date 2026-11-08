@@ -10,7 +10,7 @@ import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KO, memberDetailAccountStateLabelKo } from "@/lib/admin-users/member-detail-presentation";
+import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY, memberDetailAccountStateLabel } from "@/lib/admin-users/member-detail-presentation";
 import { AdminMemberProfileContentReset } from "@/components/admin/member-moderation/AdminMemberProfileContentReset";
 
 type DeletionRequestItem = {
@@ -45,7 +45,7 @@ export function AdminMemberOpsPanel({
   moderationStatus: string | null | undefined;
   onUpdated?: () => void;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const { snapshot } = useAdminMe();
   const actorId = snapshot?.userId ?? "";
   const [cursor, setCursor] = useState<string | null>(null);
@@ -174,16 +174,16 @@ export function AdminMemberOpsPanel({
               {safeT("admin_users_deletion_open_banner")}
             </p>
             <p className="mt-1 text-[12px]">
-              요청 시각 {deletion.open.requestedAt}
-              {deletion.open.reason ? ` · 사유 ${deletion.open.reason}` : ""}
+              {t("admin_users_ops_deletion_requested_at", { at: deletion.open.requestedAt })}
+              {deletion.open.reason ? t("admin_users_member_deletion_reason_suffix", { reason: deletion.open.reason }) : ""}
             </p>
             <p className="mt-2 text-[12px]">
-              탈퇴·영구 삭제는 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」에서 정책에 따라 표시되며, 최종 실행은 이후 단계에서 닫습니다.
+              {t("admin_users_ops_deletion_open_note", { zone: t(MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY) })}
             </p>
           </div>
         ) : (
           <p className="text-sm text-sam-muted">
-            대기 중인 회원 삭제 요청이 없습니다. 탈퇴·영구 삭제는 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」에서 확인하세요.
+            {t("admin_users_ops_deletion_none_note", { zone: t(MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY) })}
           </p>
         )}
       </div>
@@ -193,10 +193,10 @@ export function AdminMemberOpsPanel({
           {safeT("admin_users_cc_moderation_title")}
         </h3>
         <p className="text-sm font-semibold text-sam-fg" data-ops-account-state="1">
-          {memberDetailAccountStateLabelKo(moderationStatus)}
+          {memberDetailAccountStateLabel(moderationStatus, undefined, language)}
         </p>
         <p className="text-[12px] text-sam-muted">
-          제재 실행은 하단 「{MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}」 표시와 이후 워크플로에서 처리합니다. 이 탭은 이력 확인용입니다.
+          {t("admin_users_ops_moderation_note", { zone: t(MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY) })}
         </p>
       </div>
 

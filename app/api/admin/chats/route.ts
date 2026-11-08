@@ -7,6 +7,7 @@ import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
 import { ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT, CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { attachTradeMessengerRoomsToLegacyList } from "@/lib/admin-chats/trade-messenger-list";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   if (roomErr) {
     return NextResponse.json(
-      { error: roomErr.message ?? "채팅 목록 조회 실패" },
+      { error: roomErr.message ?? await adminServerText("admin_api_chat_list_failed") },
       { status: 500 }
     );
   }
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const untitledPost = await adminServerText("admin_api_untitled_post");
   const list: AdminChatRoom[] = rooms.map(
     (r: {
       id: string;
@@ -115,7 +117,7 @@ export async function POST(req: NextRequest) {
       return {
         id: r.id,
         productId: r.post_id,
-        productTitle: post?.title ?? "(제목 없음)",
+        productTitle: post?.title ?? untitledPost,
         productThumbnail: "",
         buyerId: r.buyer_id,
         buyerNickname: r.buyer_id.slice(0, 8),

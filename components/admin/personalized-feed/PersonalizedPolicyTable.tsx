@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
 import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
@@ -13,10 +14,11 @@ export function PersonalizedPolicyTable({
   policies,
   onEdit,
 }: PersonalizedPolicyTableProps) {
+  const { t } = useI18n();
   if (policies.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 개인화 정책이 없습니다.
+        {t("admin_personalized_feed_policy_empty")}
       </div>
     );
   }
@@ -27,20 +29,20 @@ export function PersonalizedPolicyTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션
+              {t("admin_personalized_feed_col_section")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              최대
+              {t("admin_personalized_feed_col_max")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              가중치 요약
+              {t("admin_personalized_feed_col_weight_summary")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_personalized_feed_col_status")}
             </th>
             {onEdit && (
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                작업
+                {t("admin_personalized_feed_col_actions")}
               </th>
             )}
           </tr>
@@ -56,7 +58,7 @@ export function PersonalizedPolicyTable({
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{p.maxItems}</td>
               <td className="max-w-[200px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                카테고리 {p.categoryAffinityWeight} / 최근본 {p.recentViewWeight} / 찜 {p.recentFavoriteWeight} / 채팅 {p.recentChatWeight}
+                {t("admin_personalized_feed_weight_line", { category: p.categoryAffinityWeight, recent: p.recentViewWeight, favorite: p.recentFavoriteWeight, chat: p.recentChatWeight })}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -66,13 +68,13 @@ export function PersonalizedPolicyTable({
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {p.isActive ? "활성" : "비활성"}
+                  {p.isActive ? t("admin_personalized_feed_active") : t("admin_personalized_feed_inactive")}
                 </span>
               </td>
               {onEdit && (
                 <td className="px-3 py-2.5">
                   <AdminActionButton variant="ghost" size="sm" onClick={() => onEdit(p)}>
-                    수정
+                    {t("admin_personalized_feed_action_edit")}
                   </AdminActionButton>
                 </td>
               )}

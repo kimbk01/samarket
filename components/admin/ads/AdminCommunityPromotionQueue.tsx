@@ -199,7 +199,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                       </>
                     ) : null}
                     {isTrade && row.listingStatus
-                      ? ` · ${row.listingStatus}${row.listingEligible === false ? " (비공개)" : ""}`
+                      ? ` · ${row.listingStatus}${row.listingEligible === false ? ` (${t("admin_ads_listing_private")})` : ""}`
                       : ""}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">

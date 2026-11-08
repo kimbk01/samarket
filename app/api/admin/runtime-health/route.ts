@@ -4,6 +4,8 @@ import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { adminServerTranslator } from "@/lib/i18n/admin-server-language";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +41,8 @@ function coerceBool(v: unknown): boolean | null {
 
 function computeEffectiveSettings(
   caps: CapabilitiesRow | null,
-  s: RuntimeSettingsRow
+  s: RuntimeSettingsRow,
+  tx: (key: MessageKey) => string
 ): {
   effective: RuntimeSettingsRow;
   warnings: { code: string; message: string }[];
@@ -59,19 +62,19 @@ function computeEffectiveSettings(
   if (s.enable_pg_cron && !supportsPgCron) {
     warnings.push({
       code: "pg_cron_unsupported",
-      message: "pg_cron 미지원: enable_pg_cron은 자동으로 비활성 처리됩니다.",
+      message: tx("admin_api_runtime_pg_cron_off"),
     });
   }
   if (s.enable_delivery_realtime_filtering && !supportsPubCols) {
     warnings.push({
       code: "publication_columns_unsupported",
-      message: "publication 컬럼 필터 미지원(PG15+ 필요): enable_delivery_realtime_filtering은 자동으로 비활성 처리됩니다.",
+      message: tx("admin_api_runtime_pub_cols_off"),
     });
   }
   if (s.enable_realtime_optimization && !supportsRtOpt) {
     warnings.push({
       code: "realtime_optimization_unsupported",
-      message: "Realtime 최적화 기능 미지원: enable_realtime_optimization은 자동으로 비활성 처리됩니다.",
+      message: tx("admin_api_runtime_rt_opt_off"),
     });
   }
 
@@ -113,17 +116,18 @@ async function loadCapabilities(
 function effectiveWithDetect(
   caps: CapabilitiesRow | null,
   settings: RuntimeSettingsRow,
-  detectError: string | null
+  detectError: string | null,
+  tx: (key: MessageKey) => string
 ): { effective: RuntimeSettingsRow; warnings: { code: string; message: string }[] } {
-  if (!detectError) return computeEffectiveSettings(caps, settings);
+  if (!detectError) return computeEffectiveSettings(caps, settings, tx);
   const detectWarning = {
     code: "capabilities_detect_failed",
     message: caps?.checked_at
-      ? "데이터베이스 기능 자동 감지에 실패해 마지막으로 확인된 값으로 표시합니다."
-      : "데이터베이스 기능 자동 감지에 실패했습니다. 지원 여부는 확인되지 않았고 설정값을 그대로 표시합니다.",
+      ? tx("admin_api_runtime_detect_failed_cached")
+      : tx("admin_api_runtime_detect_failed"),
   };
   if (!caps?.checked_at) return { effective: { ...settings }, warnings: [detectWarning] };
-  const r = computeEffectiveSettings(caps, settings);
+  const r = computeEffectiveSettings(caps, settings, tx);
   return { effective: r.effective, warnings: [detectWarning, ...r.warnings] };
 }
 
@@ -187,7 +191,7 @@ export async function GET(req: NextRequest) {
       enable_delivery_realtime_filtering: true,
     } satisfies RuntimeSettingsRow);
 
-  const { effective, warnings } = effectiveWithDetect(capabilities, settings, capLoad.detectError);
+  const { effective, warnings } = effectiveWithDetect(capabilities, settings, capLoad.detectError, await adminServerTranslator());
 
   return NextResponse.json({
     ok: true,
@@ -275,7 +279,8 @@ export async function PATCH(req: NextRequest) {
   const { effective, warnings } = effectiveWithDetect(
     capabilities,
     settings,
-    capLoad.ok ? capLoad.detectError : capLoad.message.slice(0, 200)
+    capLoad.ok ? capLoad.detectError : capLoad.message.slice(0, 200),
+    await adminServerTranslator()
   );
 
   return NextResponse.json({ ok: true, settings, effective, warnings, capabilities });

@@ -47,19 +47,12 @@ export type AdminDetailDrawerCloseConfirmCopy = {
 };
 
 export function adminDetailDrawerCloseConfirmCopy(ko: boolean): AdminDetailDrawerCloseConfirmCopy {
-  return ko
-    ? {
-        title: "저장하지 않은 변경 사항이 있습니다",
-        description: "닫으면 입력한 내용이 사라집니다. 닫을까요?",
-        confirmLabel: "닫기",
-        cancelLabel: "계속 편집",
-      }
-    : {
-        title: "You have unsaved changes",
-        description: "Closing will discard your changes. Close anyway?",
-        confirmLabel: "Discard",
-        cancelLabel: "Keep editing",
-      };
+  return {
+    title: tx(ko, "admin_ui_drawer_unsaved_title"),
+    description: tx(ko, "admin_ui_drawer_unsaved_description"),
+    confirmLabel: tx(ko, "admin_ui_drawer_unsaved_confirm"),
+    cancelLabel: tx(ko, "admin_ui_drawer_unsaved_cancel"),
+  };
 }
 
 export function AdminDetailDrawer({

@@ -13,7 +13,9 @@ describe("Admin Trade vertical relation contract", () => {
     // 거래 Admin 설계 v2 §E: 허브 = TradeDashboardPage, 신고 큐 canonical = /admin/trade/reports
     const hub = read("components/admin/trade/dashboard/TradeDashboardPage.tsx");
     expect(hub).toContain("/admin/trade/reports?tab=open");
-    expect(hub).toContain("처리할 신고");
+    // 문구는 카탈로그 키 (L25) — 화면 글자는 그대로 「처리할 신고」
+    expect(hub).toContain('label={t("admin_trade_regions_th_open_reports")} value={n(pending?.openReports)}');
+    expect(read("lib/i18n/catalog/copy-admin-l25-trade.ts")).toContain('admin_trade_regions_th_open_reports: "처리할 신고"');
   });
 
   it("Trade Flow sessions link Admin listing + Admin trade chat", () => {

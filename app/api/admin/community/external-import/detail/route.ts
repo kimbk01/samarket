@@ -8,6 +8,7 @@ import { buildPublishContent } from "@/lib/community-operator-import/publish-con
 import { QUALITY_REASON_LABELS } from "@/lib/community-operator-import/quality";
 import { loadRules, rulesFor } from "@/lib/community-operator-import/rules";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     sourceArticleKey: String(sp.get("key") || ""),
   };
   if (!key.sourceSite || !key.sourceBoard || !key.sourceArticleKey) {
-    return jsonError("site, board, key 필요", 400, { code: "key_required" });
+    return jsonError(await adminServerText("admin_api_import_site_board_key_required"), 400, { code: "key_required" });
   }
   try {
     const sb = getSupabaseServer();

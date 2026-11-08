@@ -164,7 +164,7 @@ export function AdminCommunityTopicsPage({
         fail(j.error);
         return;
       }
-      setBanner({ ok: true, message: `카테고리 「${name.trim()}」을(를) 추가했습니다.` });
+      setBanner({ ok: true, message: tr("admin_community_topics_added", { name: name.trim() }) });
       setName("");
       setNameEn("");
       setSortOrder(0);
@@ -207,7 +207,7 @@ export function AdminCommunityTopicsPage({
         fail(j.error);
         return;
       }
-      setBanner({ ok: true, message: "카테고리를 저장했습니다." });
+      setBanner({ ok: true, message: tr("admin_community_topics_saved") });
       setEdit(null);
       await refresh();
     } finally {
@@ -220,8 +220,8 @@ export function AdminCommunityTopicsPage({
       level: adminActionLevel("delete"),
       ko: true,
       title: tr("admin_topics_confirm_delete"),
-      description: `「${topic.name}」 카테고리를 삭제합니다. 되돌릴 수 없습니다. 글이 있는 카테고리는 삭제할 수 없습니다. 대신 「사용 중지」를 쓰세요.`,
-      confirmLabel: "삭제",
+      description: tr("admin_community_topics_delete_desc", { name: topic.name }),
+      confirmLabel: tr("admin_community_topics_delete_btn"),
       destructive: true,
       retypeValue: topic.name,
     });
@@ -239,7 +239,7 @@ export function AdminCommunityTopicsPage({
         fail(j.error);
         return;
       }
-      setBanner({ ok: true, message: "카테고리를 삭제했습니다." });
+      setBanner({ ok: true, message: tr("admin_community_topics_deleted") });
       await refresh();
     } finally {
       setBusy(false);
@@ -272,9 +272,9 @@ export function AdminCommunityTopicsPage({
       const confirmed = await confirmAdminAction({
         level: adminActionLevel("disable"),
         ko: true,
-        title: `「${topic.name}」 사용 중지`,
-        description: "이 카테고리에 새 글을 쓸 수 없게 됩니다. 이미 있는 글은 그대로 남습니다.",
-        confirmLabel: "사용 중지",
+        title: tr("admin_community_topics_disable_title", { name: topic.name }),
+        description: tr("admin_community_topics_disable_desc"),
+        confirmLabel: tr("admin_community_topics_disable_btn"),
         destructive: true,
       });
       if (!confirmed.ok) return;
@@ -292,7 +292,7 @@ export function AdminCommunityTopicsPage({
         fail(j.error);
         return;
       }
-      setBanner({ ok: true, message: next ? `「${topic.name}」을(를) 다시 사용합니다.` : `「${topic.name}」 사용을 중지했습니다.` });
+      setBanner({ ok: true, message: next ? tr("admin_community_topics_enabled", { name: topic.name }) : tr("admin_community_topics_disabled", { name: topic.name }) });
       await refresh();
     } finally {
       setBusy(false);
@@ -544,7 +544,7 @@ export function AdminCommunityTopicsPage({
                     <tr className="border-b border-sam-border-soft bg-sam-warning-soft/40">
                       <td colSpan={8} className="py-2">
                         <span className="flex flex-wrap items-center justify-end gap-2 sam-text-xxs text-sam-muted">
-                          글이 없는 카테고리만 삭제할 수 있습니다. 되돌릴 수 없습니다.
+                          {tr("admin_community_topics_delete_hint")}
                           <AdminActionButton variant="danger" size="sm" disabled={busy} onClick={() => void removeRow(topic)}>
                             {tr("admin_topics_btn_delete")}
                           </AdminActionButton>
@@ -626,7 +626,7 @@ export function AdminCommunityTopicsPage({
                             {tr("admin_topics_btn_edit")}
                           </AdminActionButton>
                           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => void toggleActive(topic)}>
-                            {topic.is_active ? "사용 중지" : "다시 사용"}
+                            {topic.is_active ? tr("admin_community_topics_disable_btn") : tr("admin_community_topics_enable_btn")}
                           </AdminActionButton>
                         </span>
                       </td>

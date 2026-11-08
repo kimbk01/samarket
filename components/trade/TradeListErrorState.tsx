@@ -13,7 +13,7 @@ export function TradeListErrorState({ onRetry }: { onRetry: () => void }) {
         onClick={onRetry}
         className="mt-2 text-[14px] font-medium text-signature"
       >
-        다시 시도
+        {t("common_retry")}
       </button>
     </div>
   );

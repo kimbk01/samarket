@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  MEMBER_ADMIN_COPY,
+  MEMBER_ADMIN_COPY_KEY,
 } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
-  memberDetailAccountStateLabelKo,
+  memberDetailAccountStateLabel,
 } from "@/lib/admin-users/member-detail-presentation";
 import type { AdminUserDetailPayload } from "@/components/admin/users/AdminTestUserDetail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -22,14 +22,14 @@ export function AdminMemberReportsPanel({
   user: AdminUserDetailPayload;
   onOpenOps: () => void;
 }) {
-  const { t } = useI18n();
-  const accountState = memberDetailAccountStateLabelKo(user.moderation_status, user.status);
+  const { t, language } = useI18n();
+  const accountState = memberDetailAccountStateLabel(user.moderation_status, user.status, language);
 
   return (
     <div className="space-y-3" data-member-detail-reports="1">
       <section className={`${ADMIN_USERS_LITE_CARD} space-y-2 p-4`}>
         <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">
-          {MEMBER_ADMIN_COPY.moderation}
+          {t(MEMBER_ADMIN_COPY_KEY.moderation)}
         </h3>
         <dl className="space-y-2 text-[13px]">
           <div className="grid grid-cols-[120px_1fr] gap-2">
@@ -46,7 +46,7 @@ export function AdminMemberReportsPanel({
           {t("admin_users_reports_support_message_note")}
         </p>
         <AdminActionButton variant="ghost" size="sm" onClick={onOpenOps} data-reports-open-ops="1">
-          {MEMBER_ADMIN_COPY.ops_history} 보기
+          {t("admin_users_reports_view_ops_history", { label: t(MEMBER_ADMIN_COPY_KEY.ops_history) })}
         </AdminActionButton>
       </section>
     </div>

@@ -3,6 +3,7 @@
  * 클라이언트·서버 공용 (상수만).
  */
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type CommunityAdminArea =
   /** 게시글·댓글·카테고리·섹션·외부 글·공지·고정·모임·운영 설정·문의 */
@@ -24,12 +25,13 @@ export const COMMUNITY_ADMIN_AREA_PERMISSIONS: Record<CommunityAdminArea, readon
   read: ["boards", "reports", "ads", "point"],
 };
 
-export const COMMUNITY_ADMIN_AREA_LABEL_KO: Record<CommunityAdminArea, string> = {
-  content: "게시판 관리",
-  moderation: "신고 처리",
-  promotion: "상위노출",
-  points: "포인트",
-  read: "커뮤니티 조회",
+/** 영역 이름 — 카탈로그 키 (화면에서 `t(key)`) */
+export const COMMUNITY_ADMIN_AREA_LABEL_KEY: Record<CommunityAdminArea, MessageKey> = {
+  content: "admin_community_area_content",
+  moderation: "admin_community_area_moderation",
+  promotion: "admin_community_area_promotion",
+  points: "admin_community_area_points",
+  read: "admin_community_area_read",
 };
 
 export function communityAreaAllowed(

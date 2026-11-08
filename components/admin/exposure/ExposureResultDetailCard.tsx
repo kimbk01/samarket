@@ -24,14 +24,14 @@ export function ExposureResultDetailCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="sam-text-body font-medium text-sam-fg">
-          점수 상세: {candidate.title} ({candidate.id})
+          {t("admin_exposure_result_detail_heading", { title: candidate.title, id: candidate.id })}
         </h3>
         <AdminActionButton
           onClick={onClose}
           variant="quiet"
           size="sm"
         >
-          닫기
+          {t("admin_exposure_result_detail_close")}
         </AdminActionButton>
       </div>
       <dl className="grid grid-cols-1 gap-2 sam-text-body sm:grid-cols-2">

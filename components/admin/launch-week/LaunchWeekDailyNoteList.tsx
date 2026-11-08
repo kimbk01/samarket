@@ -49,11 +49,11 @@ export function LaunchWeekDailyNoteList() {
       </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
-        Day별 summary note. 37단계 운영 보고서 handoff 요약과 연결 가능한 placeholder.
+        {t("admin_launch_week_notes_hint")}
       </p>
 
       {notes.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 Day 메모가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_launch_week_no_daily_notes")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (
@@ -69,21 +69,21 @@ export function LaunchWeekDailyNoteList() {
                 </span>
               </div>
               <p className="mt-2 sam-text-body font-medium text-sam-fg">
-                요약
+                {t("admin_launch_week_notes_summary")}
               </p>
               <p className="mt-1 sam-text-body-secondary text-sam-fg">{n.summary}</p>
               <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">
-                주요 이슈
+                {t("admin_launch_week_notes_issues")}
               </p>
               <p className="mt-1 sam-text-body-secondary text-sam-muted">{n.topIssues}</p>
               <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">
-                주요 성과
+                {t("admin_launch_week_notes_wins")}
               </p>
               <p className="mt-1 sam-text-body-secondary text-sam-muted">{n.topWins}</p>
               {n.handoffNote && (
                 <>
                   <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">
-                    인수인계
+                    {t("admin_launch_week_notes_handoff")}
                   </p>
                   <p className="mt-1 sam-text-body-secondary text-sam-muted">
                     {n.handoffNote}

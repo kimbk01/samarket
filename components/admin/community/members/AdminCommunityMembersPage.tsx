@@ -6,6 +6,8 @@
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import Link from "next/link";
 import {
   COMMUNITY_TD,
@@ -46,12 +48,12 @@ type MemberRow = {
 
 type MembersResponse = { ok?: boolean; error?: string; total?: number; rows?: MemberRow[] };
 
-const SORT_OPTIONS = [
-  { value: "recent", label: "최근 활동 순" },
-  { value: "posts", label: "게시글 많은 순" },
-  { value: "comments", label: "댓글 많은 순" },
-  { value: "joined", label: "최근 가입 순" },
-  { value: "nickname", label: "닉네임 순" },
+const SORT_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "recent", labelKey: "admin_community_members_sort_recent" },
+  { value: "posts", labelKey: "admin_community_members_sort_posts" },
+  { value: "comments", labelKey: "admin_community_members_sort_comments" },
+  { value: "joined", labelKey: "admin_community_members_sort_joined" },
+  { value: "nickname", labelKey: "admin_community_members_sort_nickname" },
 ];
 const SORTS = SORT_OPTIONS.map((o) => o.value);
 const MEMBER_EXTRAS = ["restricted", "account"] as const;
@@ -66,13 +68,15 @@ function num(n: number | null | undefined): string {
   return typeof n === "number" && Number.isFinite(n) ? formatAdminNumber(n) : "—";
 }
 
-export function restrictionUntilLabel(endAt: string | null | undefined): string {
-  if (!endAt) return "커뮤니티 제한 · 영구";
-  return `커뮤니티 제한 ~${formatAdminManilaDateTime(endAt).slice(5, 10)}`;
+/** `lang` 생략 시 한국어(기존 호출부 동작 유지). */
+export function restrictionUntilLabel(endAt: string | null | undefined, lang: string = "ko"): string {
+  if (!endAt) return translateBy(lang, "admin_community_members_restricted_forever");
+  return translateBy(lang, "admin_community_members_restricted_until", { date: formatAdminManilaDateTime(endAt).slice(5, 10) });
 }
 
 export function AdminCommunityMembersPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const sortOptions = SORT_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }));
   const q = useCommunityListQuery({ extras: MEMBER_EXTRAS, sorts: SORTS, defaults: { sort: "recent" } });
   const restricted = q.query.extras.restricted;
   const account = q.query.extras.account;
@@ -89,7 +93,7 @@ export function AdminCommunityMembersPage() {
   return (
     <CommunityListShell
       title={t("admin_community_members_title")}
-      description="커뮤니티에 글·댓글을 쓴 회원의 활동·신고·조치 이력을 확인하고 조치합니다."
+      description={t("admin_community_members_desc")}
       tabs={
         <CommunityTabs
           value={tab}
@@ -102,16 +106,16 @@ export function AdminCommunityMembersPage() {
             })
           }
           tabs={[
-            { value: "all", label: "전체" },
-            { value: "restricted", label: "활동 제한 중" },
-            { value: "suspended", label: "계정 정지 중" },
+            { value: "all", label: t("admin_community_members_tab_all") },
+            { value: "restricted", label: t("admin_community_members_tab_restricted") },
+            { value: "suspended", label: t("admin_community_members_tab_suspended") },
           ]}
         />
       }
       filterBar={
-        <CommunityFilterBar lq={q} searchPlaceholder="닉네임 · 아이디 · DIBAY ID" pending={state.status === "loading"}>
-          <CommunityFilterField label="정렬">
-            <CommunitySelect value={q.query.sort || "recent"} onChange={q.setSort} options={SORT_OPTIONS} />
+        <CommunityFilterBar lq={q} searchPlaceholder={t("admin_community_members_search_placeholder")} pending={state.status === "loading"}>
+          <CommunityFilterField label={t("admin_community_members_sort_label")}>
+            <CommunitySelect value={q.query.sort || "recent"} onChange={q.setSort} options={sortOptions} />
           </CommunityFilterField>
         </CommunityFilterBar>
       }
@@ -125,10 +129,20 @@ export function AdminCommunityMembersPage() {
         empty={rows.length === 0}
         lq={q}
         onRetry={reload}
-        emptyMessage="작성자가 없습니다."
-        filteredEmptyMessage="조건에 맞는 작성자가 없습니다."
+        emptyMessage={t("admin_community_members_empty")}
+        filteredEmptyMessage={t("admin_community_members_filtered_empty")}
       >
-        <CommunityTable head={["회원", "가입일", "게시글", "댓글", "받은 신고", "조치 이력", "계정 상태", "포인트", "최근 활동"]}>
+        <CommunityTable head={[
+          t("admin_community_members_col_member"),
+          t("admin_community_members_col_joined"),
+          t("admin_community_members_col_posts"),
+          t("admin_community_members_col_comments"),
+          t("admin_community_members_col_reports_received"),
+          t("admin_community_members_col_actions"),
+          t("admin_community_members_col_account"),
+          t("admin_community_members_col_points"),
+          t("admin_community_members_col_last_activity"),
+        ]}>
           {rows.map((r) => {
             const href = communityDetailHref(`/admin/community/members/${encodeURIComponent(r.user_id)}`, q.selfHref);
             const handle = r.dibay_id || r.username;
@@ -137,7 +151,7 @@ export function AdminCommunityMembersPage() {
               <tr key={r.user_id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className={COMMUNITY_TD}>
                   <Link href={href} className="font-medium text-sam-info hover:underline">
-                    {r.nickname?.trim() || "이름 없음"}
+                    {r.nickname?.trim() || t("admin_community_members_no_name")}
                   </Link>
                   {handle ? <div className="sam-text-xxs text-sam-muted">@{handle}</div> : null}
                 </td>
@@ -151,7 +165,7 @@ export function AdminCommunityMembersPage() {
                   <div className="flex flex-wrap gap-1">
                     {active.map((a) => (
                       <AdminToneBadge key={a.id} tone="danger">
-                        {restrictionUntilLabel(a.end_at)}
+                        {restrictionUntilLabel(a.end_at, language)}
                       </AdminToneBadge>
                     ))}
                     {r.warning_count ? <AdminToneBadge tone="warning">{t("admin_community_members_warnings", { n: r.warning_count })}</AdminToneBadge> : null}

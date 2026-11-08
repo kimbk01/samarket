@@ -35,74 +35,78 @@ import {
   tradeListApiParams,
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 const OPS_EXTRAS = ["targetType", "targetId", "actorId"] as const;
 const FAVORITE_EXTRAS = ["userId", "postId", "action"] as const;
 
 /* ───────── 라벨 (대시보드 「최근 관리자 조치」와 공용) ───────── */
 
-export const TRADE_AUDIT_TARGET_OPTIONS: { value: string; label: string }[] = [
-  { value: "trade_post", label: "거래글" },
-  { value: "post", label: "거래글 (이전 기록)" },
-  { value: "trade_report", label: "신고" },
-  { value: "trade_restriction", label: "거래 제한" },
-  { value: "trade_promotion_order", label: "상위노출" },
-  { value: "trade_ad_product", label: "광고 상품" },
-  { value: "trade_category", label: "카테고리" },
-  { value: "trade_settings", label: "거래 설정" },
-  { value: "transaction_review", label: "거래 후기" },
-  { value: "product_chat", label: "거래 채팅" },
+export const TRADE_AUDIT_TARGET_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "trade_post", labelKey: "admin_trade_audit_target_post" },
+  { value: "post", labelKey: "admin_trade_audit_target_post_legacy" },
+  { value: "trade_report", labelKey: "common_report" },
+  { value: "trade_restriction", labelKey: "admin_trade_members_th_restriction" },
+  { value: "trade_promotion_order", labelKey: "admin_trade_audit_target_promotion" },
+  { value: "trade_ad_product", labelKey: "admin_trade_audit_target_ad_product" },
+  { value: "trade_category", labelKey: "admin_trade_audit_target_category" },
+  { value: "trade_settings", labelKey: "admin_trade_audit_target_settings" },
+  { value: "transaction_review", labelKey: "admin_trade_audit_target_review" },
+  { value: "product_chat", labelKey: "admin_trade_audit_target_chat" },
 ];
-const TARGET_LABEL: Record<string, string> = Object.fromEntries(TRADE_AUDIT_TARGET_OPTIONS.map((o) => [o.value, o.label]));
+const TARGET_LABEL: Record<string, MessageKey> = Object.fromEntries(TRADE_AUDIT_TARGET_OPTIONS.map((o) => [o.value, o.labelKey]));
 
-export function tradeAuditTargetLabel(targetType: string | null | undefined): string {
-  return TARGET_LABEL[String(targetType ?? "")] ?? "기타";
+export function tradeAuditTargetLabel(t: Translate, targetType: string | null | undefined): string {
+  return t(TARGET_LABEL[String(targetType ?? "")] ?? "admin_trade_audit_target_other");
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  "trade_post.hide": "거래글 숨김",
-  "trade_post.unhide": "거래글 숨김 해제",
-  "trade_post.delete": "거래글 삭제",
-  "trade_post.undelete": "거래글 삭제 복구",
-  "trade_post.confirm_admin_hidden": "관리자 숨김으로 확정",
-  "trade_post.edit": "거래글 수정",
-  "trade_post.hard_delete": "거래글 영구 삭제",
-  "trade_post.force_complete": "거래 완료로 정정",
-  "trade_post.cancel_sale": "판매 취소",
-  "trade_report.reject": "신고 반려",
-  "trade_report.hide": "신고 처리 · 글 숨김",
-  "trade_report.warn": "신고 처리 · 경고",
-  "trade_report.restrict": "신고 처리 · 거래 제한",
-  "trade_restriction.apply_warning": "경고",
-  "trade_restriction.apply_trade_restriction": "거래 제한",
-  "trade_restriction.revoke": "제한 해제",
-  "trade_promotion_order.request_review": "상위노출 신청",
-  "trade_promotion_order.approve": "상위노출 승인",
-  "trade_promotion_order.reject": "상위노출 반려",
-  "trade_promotion_order.pause": "상위노출 일시 중지",
-  "trade_promotion_order.resume": "상위노출 재개",
-  "trade_promotion_order.end": "상위노출 종료",
-  "trade_promotion_order.expire": "상위노출 기간 만료",
-  "trade_category.create": "카테고리 추가",
-  "trade_category.update": "카테고리 수정",
-  "trade_category.delete": "카테고리 삭제",
-  "trade_category.reorder": "카테고리 순서 변경",
-  "trade_settings.update": "거래 설정 변경",
-  "trade_settings.ops_policy_update": "운영 정책 변경",
-  "trade_ad_product.update": "광고 상품 수정",
-  "trade_flow.revert": "거래 단계 되돌리기",
-  "trade_flow.confirm_buyer": "구매자 확정",
-  "transaction_review.hide_review": "후기 숨김",
-  "transaction_review.restore_review": "후기 복구",
+const ACTION_LABEL: Record<string, MessageKey> = {
+  "trade_post.hide": "admin_trade_audit_act_post_hide",
+  "trade_post.unhide": "admin_trade_audit_act_post_unhide",
+  "trade_post.delete": "admin_trade_audit_act_post_delete",
+  "trade_post.undelete": "admin_trade_audit_act_post_undelete",
+  "trade_post.confirm_admin_hidden": "admin_trade_audit_act_post_confirm_hidden",
+  "trade_post.edit": "admin_trade_audit_act_post_edit",
+  "trade_post.hard_delete": "admin_trade_audit_act_post_hard_delete",
+  "trade_post.force_complete": "admin_trade_audit_act_post_force_complete",
+  "trade_post.cancel_sale": "admin_trade_post_detail_cancel_sale",
+  "trade_report.reject": "admin_trade_audit_act_report_reject",
+  "trade_report.hide": "admin_trade_audit_act_report_hide",
+  "trade_report.warn": "admin_trade_audit_act_report_warn",
+  "trade_report.restrict": "admin_trade_audit_act_report_restrict",
+  "trade_restriction.apply_warning": "admin_trade_restrict_badge_warning",
+  "trade_restriction.apply_trade_restriction": "admin_trade_members_th_restriction",
+  "trade_restriction.revoke": "admin_trade_audit_act_restriction_revoke",
+  "trade_promotion_order.request_review": "admin_trade_audit_act_promo_request",
+  "trade_promotion_order.approve": "admin_trade_audit_act_promo_approve",
+  "trade_promotion_order.reject": "admin_trade_audit_act_promo_reject",
+  "trade_promotion_order.pause": "admin_trade_audit_act_promo_pause",
+  "trade_promotion_order.resume": "admin_trade_audit_act_promo_resume",
+  "trade_promotion_order.end": "admin_trade_audit_act_promo_end",
+  "trade_promotion_order.expire": "admin_trade_audit_act_promo_expire",
+  "trade_category.create": "admin_trade_audit_act_category_create",
+  "trade_category.update": "admin_trade_audit_act_category_update",
+  "trade_category.delete": "admin_trade_audit_act_category_delete",
+  "trade_category.reorder": "admin_trade_audit_act_category_reorder",
+  "trade_settings.update": "admin_trade_audit_act_settings_update",
+  "trade_settings.ops_policy_update": "admin_trade_audit_act_ops_policy_update",
+  "trade_ad_product.update": "admin_trade_audit_act_ad_product_update",
+  "trade_flow.revert": "admin_trade_audit_act_flow_revert",
+  "trade_flow.confirm_buyer": "admin_trade_audit_act_flow_confirm_buyer",
+  "transaction_review.hide_review": "admin_trade_audit_act_review_hide",
+  "transaction_review.restore_review": "admin_trade_audit_act_review_restore",
 };
 
-/** 알려진 조치 코드면 한국어, 아니면 null (화면은 원래 값을 작게 표시) */
-export function tradeAuditActionKnown(action: string | null | undefined): string | null {
-  return ACTION_LABEL[String(action ?? "")] ?? null;
+/** 알려진 조치 코드면 문구, 아니면 null (화면은 원래 값을 작게 표시) */
+export function tradeAuditActionKnown(t: Translate, action: string | null | undefined): string | null {
+  const key = ACTION_LABEL[String(action ?? "")];
+  return key ? t(key) : null;
 }
 
-export function tradeAuditActionLabel(action: string | null | undefined): string {
-  return tradeAuditActionKnown(action) ?? "기타 조치";
+export function tradeAuditActionLabel(t: Translate, action: string | null | undefined): string {
+  return tradeAuditActionKnown(t, action) ?? t("admin_trade_audit_act_other");
 }
 
 function targetHref(targetType: string | null, targetId: string | null, after: Record<string, unknown> | null): string | null {
@@ -166,6 +170,7 @@ export function TradeAuditPage() {
 }
 
 function AuditTabs() {
+  const { t } = useI18n();
   const q = useCommunityQueryState();
   const tab = q.get("tab") === "favorites" ? "favorites" : "ops";
   return (
@@ -187,8 +192,8 @@ function AuditTabs() {
         })
       }
       tabs={[
-        { value: "ops", label: "운영 기록" },
-        { value: "favorites", label: "찜 기록" },
+        { value: "ops", label: t("admin_trade_audit_title") },
+        { value: "favorites", label: t("admin_trade_audit_tab_favorites") },
       ]}
     />
   );
@@ -209,34 +214,34 @@ function OpsTab() {
   return (
     <CommunityListShell
       title={t("admin_trade_audit_title")}
-      description="거래에서 관리자가 한 조치를 누가·언제·무엇을·왜 했는지 확인합니다."
+      description={t("admin_trade_audit_ops_desc")}
       tabs={<AuditTabs />}
       filterBar={
         <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
           <TradeDefaultPeriodField lq={q} />
-          <CommunityFilterField label="대상 유형">
+          <CommunityFilterField label={t("admin_trade_audit_target_type")}>
             <CommunitySelect
               value={targetType}
               onChange={(v) => q.patch({ extras: { targetType: v, targetId: "" } })}
-              options={[{ value: "", label: "전체" }, ...TRADE_AUDIT_TARGET_OPTIONS]}
+              options={[{ value: "", label: t("common_all") }, ...TRADE_AUDIT_TARGET_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))]}
             />
           </CommunityFilterField>
           {actorId ? (
-            <CommunityFilterField label="처리자">
+            <CommunityFilterField label={t("admin_trade_audit_actor")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {actorName || "선택한 관리자"}
+                {actorName || t("admin_trade_audit_selected_admin")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("actorId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
           {targetId ? (
-            <CommunityFilterField label="대상">
+            <CommunityFilterField label={t("admin_trade_audit_target")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                한 대상의 기록만
+                {t("admin_trade_audit_one_target_only")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("targetId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -250,13 +255,13 @@ function OpsTab() {
         empty={rows.length === 0}
         lq={q}
         onRetry={reload}
-        emptyMessage="최근 30일 운영 기록이 없습니다."
+        emptyMessage={t("admin_trade_audit_ops_empty")}
       >
-        <CommunityTable head={["시각 (PHT)", "처리자", "대상", "조치", "사유", ""]}>
+        <CommunityTable head={[t("admin_trade_audit_th_time_pht"), t("admin_trade_audit_actor"), t("admin_trade_audit_target"), t("admin_trade_audit_th_action"), t("admin_trade_flow_th_reason"), ""]}>
           {rows.map((r) => {
             const href = targetHref(r.target_type, r.target_id, r.after_json);
-            const known = tradeAuditActionKnown(r.action);
-            const actor = r.actor_label || (r.actor_type === "system" ? "시스템" : "관리자");
+            const known = tradeAuditActionKnown(t, r.action);
+            const actor = r.actor_label || (r.actor_type === "system" ? t("admin_trade_audit_system") : t("admin_trade_confirm_source_admin"));
             return (
               <tr key={r.id} className="border-b border-sam-border-soft">
                 <td className={COMMUNITY_TD}>
@@ -280,10 +285,10 @@ function OpsTab() {
                 <td className={COMMUNITY_TD}>
                   {href ? (
                     <Link href={tradeDetailHref(href, q.selfHref)} className="font-medium text-sam-primary hover:underline">
-                      {tradeAuditTargetLabel(r.target_type)}
+                      {tradeAuditTargetLabel(t, r.target_type)}
                     </Link>
                   ) : (
-                    tradeAuditTargetLabel(r.target_type)
+                    tradeAuditTargetLabel(t, r.target_type)
                   )}
                   {r.target_id && !targetId ? (
                     <AdminActionButton
@@ -292,14 +297,14 @@ function OpsTab() {
                       className="!h-auto !px-0 text-left text-[12px] font-normal"
                       onClick={() => q.patch({ extras: { targetType: r.target_type ?? "", targetId: r.target_id ?? "" } })}
                     >
-                      이 대상 기록만 보기
+                      {t("admin_trade_audit_this_target_only")}
                     </AdminActionButton>
                   ) : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   {known ?? (
                     <>
-                      기타 조치
+                      {t("admin_trade_audit_other_action")}
                       <span className="block font-mono sam-text-xxs text-sam-muted">{r.action || "—"}</span>
                     </>
                   )}
@@ -309,7 +314,7 @@ function OpsTab() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   <AdminActionButton variant="ghost" size="sm" onClick={() => setDetail(r)}>
-                    자세히
+                    {t("admin_trade_audit_details")}
                   </AdminActionButton>
                 </td>
               </tr>
@@ -324,18 +329,18 @@ function OpsTab() {
           onClose={() => setDetail(null)}
           footer={
             <AdminActionButton variant="secondary" className="w-full" onClick={() => setDetail(null)}>
-              닫기
+              {t("admin_trade_close")}
             </AdminActionButton>
           }
         >
           <div className="space-y-3">
             <CommunitySummaryCard
               rows={[
-                { label: "시각", value: `${formatAdminManilaDateTime(detail.created_at)} PHT` },
-                { label: "처리자", value: detail.actor_label || (detail.actor_type === "system" ? "시스템" : "관리자") },
-                { label: "대상", value: tradeAuditTargetLabel(detail.target_type) },
-                { label: "조치", value: tradeAuditActionLabel(detail.action) },
-                { label: "사유", value: reasonOf(detail.after_json) || "—" },
+                { label: t("admin_trade_th_time"), value: `${formatAdminManilaDateTime(detail.created_at)} PHT` },
+                { label: t("admin_trade_audit_actor"), value: detail.actor_label || (detail.actor_type === "system" ? t("admin_trade_audit_system") : t("admin_trade_confirm_source_admin")) },
+                { label: t("admin_trade_audit_target"), value: tradeAuditTargetLabel(t, detail.target_type) },
+                { label: t("admin_trade_audit_th_action"), value: tradeAuditActionLabel(t, detail.action) },
+                { label: t("admin_trade_flow_th_reason"), value: reasonOf(detail.after_json) || "—" },
               ]}
             />
             <AdminTechDetails ko>
@@ -354,10 +359,10 @@ function OpsTab() {
   );
 }
 
-const FAVORITE_ACTIONS = [
-  { value: "", label: "전체" },
-  { value: "add", label: "추가" },
-  { value: "remove", label: "해제" },
+const FAVORITE_ACTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "common_all" },
+  { value: "add", labelKey: "admin_trade_audit_fav_added" },
+  { value: "remove", labelKey: "admin_trade_audit_fav_removed" },
 ];
 
 function FavoritesTab() {
@@ -374,29 +379,29 @@ function FavoritesTab() {
   return (
     <CommunityListShell
       title={t("admin_trade_audit_title")}
-      description="회원이 거래글을 찜하거나 해제한 기록입니다."
+      description={t("admin_trade_audit_fav_desc")}
       tabs={<AuditTabs />}
       filterBar={
         <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
-          <CommunityFilterField label="동작">
-            <CommunitySelect value={action} onChange={(v) => q.setExtra("action", v)} options={FAVORITE_ACTIONS} />
+          <CommunityFilterField label={t("admin_trade_post_ads_th_action")}>
+            <CommunitySelect value={action} onChange={(v) => q.setExtra("action", v)} options={FAVORITE_ACTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
           </CommunityFilterField>
           {userId ? (
-            <CommunityFilterField label="회원">
+            <CommunityFilterField label={t("admin_trade_points_member")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {memberName || "선택한 회원"}
+                {memberName || t("admin_trade_audit_selected_member")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("userId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
           {postId ? (
-            <CommunityFilterField label="게시물">
+            <CommunityFilterField label={t("admin_trade_audit_post")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {postName || "선택한 게시물"}
+                {postName || t("admin_trade_audit_selected_post")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("postId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -405,8 +410,8 @@ function FavoritesTab() {
       }
       footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage="찜 기록이 없습니다.">
-        <CommunityTable head={["시각 (PHT)", "회원", "게시물", "동작"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage={t("admin_trade_audit_fav_empty")}>
+        <CommunityTable head={[t("admin_trade_audit_th_time_pht"), t("admin_trade_points_member"), t("admin_trade_audit_post"), t("admin_trade_post_ads_th_action")]}>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>
@@ -421,7 +426,7 @@ function FavoritesTab() {
                     className="!h-auto !px-0 text-left text-[12px] font-normal"
                     onClick={() => q.setExtra("userId", r.user_id ?? "")}
                   >
-                    이 회원만 보기
+                    {t("admin_trade_this_member_only")}
                   </AdminActionButton>
                 ) : null}
               </td>
@@ -431,7 +436,7 @@ function FavoritesTab() {
                     href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.post_id)}`, q.selfHref)}
                     className="font-medium text-sam-primary hover:underline [overflow-wrap:anywhere]"
                   >
-                    {r.post_title || "삭제되었거나 찾을 수 없는 글"}
+                    {r.post_title || t("admin_trade_audit_post_missing")}
                   </Link>
                 ) : (
                   "—"
@@ -443,7 +448,7 @@ function FavoritesTab() {
                     className="!h-auto !px-0 text-left text-[12px] font-normal"
                     onClick={() => q.setExtra("postId", r.post_id ?? "")}
                   >
-                    이 게시물만 보기
+                    {t("admin_trade_this_post_only")}
                   </AdminActionButton>
                 ) : null}
               </td>

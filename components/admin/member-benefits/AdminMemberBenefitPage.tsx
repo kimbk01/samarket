@@ -72,7 +72,7 @@ export function AdminMemberBenefitPage() {
       body: JSON.stringify(values),
     });
     if (!res.ok) {
-      setErr("정책 저장에 실패했습니다.");
+      setErr(t("admin_member_benefit_policy_save_failed"));
       return;
     }
     setShowForm(false);
@@ -91,7 +91,7 @@ export function AdminMemberBenefitPage() {
             <div key={s.memberType} className="rounded border border-sam-border bg-sam-app px-3 py-2">
               <span className="font-medium text-sam-fg">{MEMBER_TYPE_LABELS[s.memberType]}</span>
               <span className="ml-2 text-sam-muted">
-                활성 정책 {s.activePolicyCount}건 · 로그 {s.totalAppliedLogs}건
+                {t("admin_member_benefits_summary_counts", { policies: s.activePolicyCount, logs: s.totalAppliedLogs })}
               </span>
             </div>
           ))}
@@ -105,7 +105,7 @@ export function AdminMemberBenefitPage() {
             variant="secondary"
             size="sm"
           >
-            정책 추가
+            {t("admin_member_benefits_add_policy")}
           </AdminActionButton>
         </div>
         {showForm && (

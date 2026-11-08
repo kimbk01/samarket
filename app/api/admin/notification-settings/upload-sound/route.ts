@@ -5,6 +5,7 @@ import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audi
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error: "invalid_type",
-        message: "MP3, WAV, OGG, WebM만 업로드할 수 있습니다.",
+        message: await adminServerText("admin_api_sound_formats"),
       },
       { status: 400 }
     );
@@ -125,7 +126,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: "storage_bucket_missing",
           message:
-            "Supabase에 버킷 store-order-sounds가 없거나 공개 읽기가 설정되지 않았습니다.",
+            await adminServerText("admin_api_sound_bucket_missing_public"),
         },
         { status: 503 }
       );

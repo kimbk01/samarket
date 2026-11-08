@@ -560,7 +560,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     if (json.error === "needs_crop") {
       setNeedsCrop(true);
       setPendingCropFile(file);
-      setError(json.message || "36:25 비율의 이미지를 사용해 주세요.");
+      setError(json.message || t("admin_popup_use_36_25_image"));
       return;
     }
     if (!res.ok || !json.ok) {
@@ -591,15 +591,13 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
     if (file.size > POPUP_CREATIVE_SOURCE_MAX_BYTES) {
       const maxMb = Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024));
-      setError(
-        `이미지 용량이 너무 큽니다. 원본은 ${maxMb}MB 이하로 올려 주세요. (서버에서 1440×1000 WebP로 최적화됩니다)`
-      );
+      setError(t("admin_popup_image_too_large", { maxMb }));
       setFileMeta(null);
       return;
     }
     const mime = (file.type || "").toLowerCase();
     if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
-      setError("JPG, PNG, WEBP 이미지만 사용할 수 있습니다.");
+      setError(t("admin_popup_only_jpg_png_webp"));
       setFileMeta(null);
       return;
     }
@@ -616,12 +614,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         setPreviewOverrideUrl(preview.objectUrl);
         setNeedsCrop(true);
         setPendingCropFile(file);
-        setError("36:25 비율이 아닙니다. 아래 크롭 결과를 확인한 뒤 적용해 주세요.");
+        setError(t("admin_popup_not_36_25_check_crop"));
         return;
       }
       await uploadCreative(file, false);
     } catch {
-      setError("이미지를 읽을 수 없습니다.");
+      setError(t("admin_popup_could_not_read_image"));
       setFileMeta(null);
     }
   };
@@ -1130,11 +1128,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <fieldset className="mb-3 space-y-2" data-admin-popup-cta-product="1">
                 {(
                   [
-                    ["store", "매장으로 이동", "Go to store"],
-                    ["menu", "메뉴 섹션으로 이동", "Go to menu section"],
-                    ["promotion", "프로모 섹션으로 이동", "Go to promo section"],
+                    ["store", "admin_popup_cta_go_store"],
+                    ["menu", "admin_popup_cta_go_menu_section"],
+                    ["promotion", "admin_popup_cta_go_promo_section"],
                   ] as const
-                ).map(([kind, ko, en]) => (
+                ).map(([kind, labelKey]) => (
                   <label key={kind} className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
@@ -1159,7 +1157,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                         setExternalUrl("");
                       }}
                     />
-                    <span>{language === "en" ? en : ko}</span>
+                    <span>{t(labelKey)}</span>
                   </label>
                 ))}
               </fieldset>

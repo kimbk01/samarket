@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { ExposureScorePolicy, ExposureSurface } from "@/lib/types/exposure";
 import { SURFACE_OPTIONS } from "@/lib/exposure/exposure-policy-utils";
@@ -30,6 +31,7 @@ export function ExposurePolicyForm({
   onSubmit,
   onCancel,
 }: ExposurePolicyFormProps) {
+  const { t } = useI18n();
   const [surface, setSurface] = useState<ExposureSurface>(
     initial?.surface ?? "home"
   );
@@ -77,7 +79,7 @@ export function ExposurePolicyForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          정책명
+          {t("admin_exposure_form_policy_name")}
         </label>
         <input
           type="text"
@@ -95,7 +97,7 @@ export function ExposurePolicyForm({
           className="rounded border-sam-border"
         />
         <label htmlFor="expActive" className="sam-text-body text-sam-fg">
-          활성
+          {t("admin_exposure_form_active")}
         </label>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -133,7 +135,7 @@ export function ExposurePolicyForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+          {t("admin_exposure_form_admin_memo")}
         </label>
         <textarea
           value={adminMemo}
@@ -147,14 +149,14 @@ export function ExposurePolicyForm({
           type="submit"
           variant="primary"
         >
-          저장
+          {t("admin_exposure_form_save")}
         </AdminActionButton>
         {onCancel && (
           <AdminActionButton
             onClick={onCancel}
             variant="secondary"
           >
-            취소
+            {t("admin_exposure_form_cancel")}
           </AdminActionButton>
         )}
       </div>

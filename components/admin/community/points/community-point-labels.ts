@@ -1,36 +1,43 @@
 /**
- * 커뮤니티 포인트 내역 표시 라벨 (설계 §C-13) — 원장 유형·종류를 한국어로. Client-safe.
+ * 커뮤니티 포인트 내역 표시 라벨 (설계 §C-13) — 원장 유형·종류를 카탈로그 키로. Client-safe.
  */
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 
-export const COMMUNITY_POINT_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "전체 유형" },
-  { value: "community_reward", label: "커뮤니티 보상" },
-  { value: "community_reclaim", label: "보상 회수" },
-  { value: "promotion_order", label: "게시글 상위노출 (차감·환급)" },
-  { value: "admin_manual", label: "관리자 지급·회수" },
+export const COMMUNITY_POINT_TYPE_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_community_point_type_all" },
+  { value: "community_reward", labelKey: "admin_community_point_type_reward" },
+  { value: "community_reclaim", labelKey: "admin_community_point_type_reclaim" },
+  { value: "promotion_order", labelKey: "admin_community_point_type_promotion" },
+  { value: "admin_manual", labelKey: "admin_community_point_type_admin_manual" },
 ];
 
-const RELATED: Record<string, string> = {
-  community_reward: "커뮤니티 보상",
-  community_reclaim: "보상 회수",
-  promotion_order: "게시글 상위노출",
-  admin_manual: "관리자",
+const RELATED: Record<string, MessageKey> = {
+  community_reward: "admin_community_point_type_reward",
+  community_reclaim: "admin_community_point_type_reclaim",
+  promotion_order: "admin_community_point_related_promotion",
+  admin_manual: "admin_community_point_related_admin",
 };
 
-const ENTRY: Record<string, string> = {
-  reward: "지급",
-  reverse: "회수",
-  spend: "차감",
-  refund: "환급",
-  admin_credit: "지급",
-  admin_debit: "회수",
-  admin_adjust: "조정",
-  charge: "충전",
-  expire: "소멸",
+const ENTRY: Record<string, MessageKey> = {
+  reward: "admin_community_point_entry_grant",
+  reverse: "admin_community_point_entry_reclaim",
+  spend: "admin_community_point_entry_spend",
+  refund: "admin_community_point_entry_refund",
+  admin_credit: "admin_community_point_entry_grant",
+  admin_debit: "admin_community_point_entry_reclaim",
+  admin_adjust: "admin_community_point_entry_adjust",
+  charge: "admin_community_point_entry_charge",
+  expire: "admin_community_point_entry_expire",
 };
 
-export function communityPointTypeLabel(relatedType: string | null | undefined, entryType: string | null | undefined): string {
-  const r = RELATED[String(relatedType ?? "")] ?? "기타";
-  const e = ENTRY[String(entryType ?? "")];
-  return e ? `${r} ${e}` : r;
+/** `lang` 생략 시 한국어(기존 호출부 동작 유지). */
+export function communityPointTypeLabel(
+  relatedType: string | null | undefined,
+  entryType: string | null | undefined,
+  lang: string = "ko"
+): string {
+  const r = translateBy(lang, RELATED[String(relatedType ?? "")] ?? "admin_community_point_related_other");
+  const entryKey = ENTRY[String(entryType ?? "")];
+  return entryKey ? `${r} ${translateBy(lang, entryKey)}` : r;
 }

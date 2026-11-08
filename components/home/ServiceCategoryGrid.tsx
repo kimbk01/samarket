@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ServiceCategoryItem } from "./ServiceCategoryItem";
 
@@ -13,12 +14,13 @@ interface ServiceCategoryGridProps {
  * DB 카테고리 기준 서비스 퀵 영역 (가로 스크롤, 첨부 UI 동일)
  */
 export function ServiceCategoryGrid({ categories, maxItems = 12 }: ServiceCategoryGridProps) {
+  const { t } = useI18n();
   const items = maxItems > 0 ? categories.slice(0, maxItems) : categories;
 
   if (items.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface py-8 text-center sam-text-body text-sam-muted shadow-sm">
-        표시할 카테고리가 없습니다.
+        {t("home_services_empty")}
       </div>
     );
   }

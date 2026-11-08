@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -19,10 +20,10 @@ import { HomeFeedGenerationLogList } from "./HomeFeedGenerationLogList";
 
 type TabId = "policy" | "preview" | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "policy", label: "피드 정책" },
-  { id: "preview", label: "결과 미리보기" },
-  { id: "logs", label: "생성 로그" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "policy", labelKey: "admin_home_feed_tab_policy" },
+  { id: "preview", labelKey: "admin_home_feed_tab_preview" },
+  { id: "logs", labelKey: "admin_home_feed_tab_logs" },
 ];
 
 export function AdminHomeFeedPolicyPage() {
@@ -112,8 +113,8 @@ export function AdminHomeFeedPolicyPage() {
       </div>
 
       <AdminTabs
-        tabs={TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
-        ariaLabel="화면 탭"
+        tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel={t("admin_home_feed_screen_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as typeof activeTab)}
         syncUrl={false}

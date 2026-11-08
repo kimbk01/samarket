@@ -43,7 +43,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
 
   if (!scenario) {
     return (
-      <AdminEmptyState ko={ko} message={"시나리오를 찾을 수 없습니다."} />
+      <AdminEmptyState ko={ko} message={t("admin_dr_scenario_not_found")} />
     );
   }
 
@@ -106,16 +106,16 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
                 >
                   {getExecutionStatusLabel(e.executionStatus)}
                 </span>
-                시작 {formatAdminManilaDateTime(e.startedAt)}
+                {t("admin_dr_exec_started", { at: formatAdminManilaDateTime(e.startedAt) })}
                 {e.completedAt &&
-                  ` · 완료 ${formatAdminManilaDateTime(e.completedAt)}`}
-                {e.executedByAdminId && ` · 실행자 ${e.executedByAdminId}`}
+                  t("admin_dr_exec_completed_suffix", { at: formatAdminManilaDateTime(e.completedAt) })}
+                {e.executedByAdminId && t("admin_dr_exec_executor_suffix", { id: e.executedByAdminId })}
               </li>
             ))}
           </ul>
         )}
         <p className="mt-3 sam-text-helper text-sam-muted">
-          리허설 실행 버튼은 mock. 실제 실행 시 워크플로우 기록됩니다.
+          {t("admin_dr_detail_rehearsal_mock_note")}
         </p>
       </div>
     </div>

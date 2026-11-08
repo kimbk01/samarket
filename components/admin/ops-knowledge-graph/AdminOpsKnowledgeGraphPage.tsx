@@ -64,7 +64,7 @@ export function AdminOpsKnowledgeGraphPage() {
       <AdminTabs
         className="mb-4"
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="overview"
         resetParams={adminSyncTabResetParams(["node_type", "edge_type"])}
       />

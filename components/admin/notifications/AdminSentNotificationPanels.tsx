@@ -26,15 +26,16 @@ import { adminIsoToManilaInput } from "@/lib/admin/operator-ux/admin-manila-date
 import { displayNotificationSoundAssetLabel } from "@/lib/notifications/notification-sound-display-filename";
 import { SOUND_MAX_BYTES } from "@/lib/notifications/notification-sound-ssot-admin-validation";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type SentKind = "notice" | "system" | "event" | "marketing";
 
-export const SENT_KIND_LABEL: Record<SentKind | "update", [string, string]> = {
-  notice: ["공지사항", "Notice"],
-  system: ["시스템 안내", "System"],
-  event: ["이벤트", "Event"],
-  marketing: ["마케팅", "Marketing"],
-  update: ["업데이트 내역", "Updates"],
+export const SENT_KIND_LABEL: Record<SentKind | "update", MessageKey> = {
+  notice: "admin_notifications_kind_notice",
+  system: "admin_notifications_kind_system",
+  event: "admin_notifications_kind_event",
+  marketing: "admin_notifications_kind_marketing",
+  update: "admin_notifications_kind_update",
 };
 
 /** 분류 → 알림음 키 (알림 항목 SSOT 의 캠페인 항목과 같은 키). */
@@ -106,14 +107,14 @@ export function SentResultBadge({
   ko: boolean;
 }) {
   const b = campaignResultBadge({ status, sendMode, stats, channel });
-  const tone: Record<Exclude<typeof b, "status">, [string, string, string]> = {
-    pending: ["발송 중 — 결과 집계 중", "Sending — collecting results", "border-sam-info text-sam-info bg-sam-info-soft"],
-    repeating: ["반복 진행 중", "Repeating", "border-sam-info text-sam-info bg-sam-info-soft"],
-    fail: ["실패 있음", "Has failures", "border-sam-danger text-sam-danger bg-sam-danger-soft"],
-    none: ["푸시 없음 있음", "Some without push", "border-sam-border text-sam-fg bg-sam-app"],
-    ok: ["전부 성공", "All delivered", "border-sam-success text-sam-success bg-sam-success-soft"],
-    empty: ["대상 없음", "No recipients", "border-sam-border text-sam-muted bg-sam-app"],
-    inbox_only: ["알림함 전달 · 푸시 해당 없음", "Inbox delivered · no push", "border-sam-success text-sam-success bg-sam-success-soft"],
+  const tone: Record<Exclude<typeof b, "status">, [MessageKey, string]> = {
+    pending: ["admin_notifications_result_pending", "border-sam-info text-sam-info bg-sam-info-soft"],
+    repeating: ["admin_notifications_result_repeating", "border-sam-info text-sam-info bg-sam-info-soft"],
+    fail: ["admin_notifications_result_fail", "border-sam-danger text-sam-danger bg-sam-danger-soft"],
+    none: ["admin_notifications_result_none", "border-sam-border text-sam-fg bg-sam-app"],
+    ok: ["admin_notifications_result_ok", "border-sam-success text-sam-success bg-sam-success-soft"],
+    empty: ["admin_notifications_result_empty", "border-sam-border text-sam-muted bg-sam-app"],
+    inbox_only: ["admin_notifications_result_inbox_only", "border-sam-success text-sam-success bg-sam-success-soft"],
   };
   if (b === "status") {
     return (
@@ -122,8 +123,12 @@ export function SentResultBadge({
       </span>
     );
   }
-  const [k, e, cls] = tone[b];
-  return <span className={`inline-block whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[12px] ${cls}`}>{ko ? k : e}</span>;
+  const [key, cls] = tone[b];
+  return (
+    <span className={`inline-block whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[12px] ${cls}`}>
+      {translateBy(ko ? "ko" : "en", key)}
+    </span>
+  );
 }
 
 /** 분류의 지금 알림음 파일 이름 — 「알림음 설정」과 같은 값(/api/admin/notification-sound-ssot). */
@@ -158,7 +163,7 @@ export function useCategorySoundLabel(kind: SentKind | null, ko: boolean, reload
 }
 
 function useTx(ko: boolean) {
-  return (k: string, e: string) => (ko ? k : e);
+  return (key: MessageKey, vars?: Record<string, unknown>) => translateBy(ko ? "ko" : "en", key, vars);
 }
 
 export function Modal({
@@ -226,15 +231,15 @@ function Seg<T extends string>({
 function StatCards({ stats, ko }: { stats: MemberStats; ko: boolean }) {
   const tx = useTx(ko);
   const cards: Array<[string, number, string]> = [
-    [tx("대상", "Target"), stats.target, ""],
-    [tx("알림함 저장", "Inbox"), stats.inbox, ""],
-    [tx("푸시 성공", "Push OK"), stats.push_ok, "text-sam-success"],
-    [tx("푸시 실패", "Push failed"), stats.push_fail, stats.push_fail ? "text-sam-danger" : ""],
-    [tx("푸시 미동의", "Push opt-out"), stats.push_optout ?? 0, ""],
-    [tx("설정 꺼짐", "Turned off"), stats.push_setting_off ?? 0, ""],
-    [tx("방해금지", "Quiet hours"), stats.push_quiet ?? 0, ""],
-    [tx("푸시 없음", "No push"), stats.push_none, ""],
-    [tx("열람", "Opened"), stats.opened, ""],
+    [tx("admin_notifications_target"), stats.target, ""],
+    [tx("admin_notifications_inbox_2"), stats.inbox, ""],
+    [tx("admin_notifications_push_ok"), stats.push_ok, "text-sam-success"],
+    [tx("admin_notifications_push_failed"), stats.push_fail, stats.push_fail ? "text-sam-danger" : ""],
+    [tx("admin_notifications_push_opt_out"), stats.push_optout ?? 0, ""],
+    [tx("admin_notifications_turned_off"), stats.push_setting_off ?? 0, ""],
+    [tx("admin_notifications_quiet_hours"), stats.push_quiet ?? 0, ""],
+    [tx("admin_notifications_no_push"), stats.push_none, ""],
+    [tx("admin_notifications_opened"), stats.opened, ""],
   ];
   return (
     <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-9">
@@ -363,15 +368,15 @@ export function RecipientsModal({
     return stats.target - stats.opened;
   };
   const filterLabel: Record<Filter, string> = {
-    all: tx("전체", "All"),
-    ok: tx("푸시 성공", "Push OK"),
-    fail: tx("푸시 실패", "Push failed"),
-    optout: tx("푸시 미동의", "Push opt-out"),
-    off: tx("설정 꺼짐", "Turned off"),
-    quiet: tx("방해금지", "Quiet hours"),
-    none: tx("푸시 없음", "No push"),
-    opened: tx("열람", "Opened"),
-    unread: tx("안 읽음", "Unread"),
+    all: tx("admin_notifications_all"),
+    ok: tx("admin_notifications_push_ok"),
+    fail: tx("admin_notifications_push_failed"),
+    optout: tx("admin_notifications_push_opt_out"),
+    off: tx("admin_notifications_turned_off"),
+    quiet: tx("admin_notifications_quiet_hours"),
+    none: tx("admin_notifications_no_push"),
+    opened: tx("admin_notifications_opened"),
+    unread: tx("admin_notifications_unread"),
   };
   const sentAt = data?.occurrence?.completed_at ?? data?.occurrence?.started_at ?? null;
 
@@ -384,7 +389,7 @@ export function RecipientsModal({
       head={
         <>
           <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[12px] font-semibold text-sam-fg">
-            {ko ? SENT_KIND_LABEL[row.kind][0] : SENT_KIND_LABEL[row.kind][1]}
+            {tx(SENT_KIND_LABEL[row.kind])}
           </span>
           <SentResultBadge status={row.status} sendMode={row.sendMode} stats={stats} channel={row.channel ?? null} ko={ko} />
         </>
@@ -392,43 +397,43 @@ export function RecipientsModal({
       footer={
         <>
           <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onRepeat(row)}>
-            {tx("반복 설정", "Repeat")}
+            {tx("admin_notifications_repeat")}
           </AdminActionButton>
           {stats && stats.push_fail > 0 ? (
             <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onResend(row, "failed")}>
-              {tx(`실패한 ${stats.push_fail}명에게 다시`, `Resend to ${stats.push_fail} failed`)}
+              {tx("admin_notifications_resend_to_failed_n", { push_fail: stats.push_fail })}
             </AdminActionButton>
           ) : null}
           {stats && stats.target - stats.opened > 0 ? (
             <AdminActionButton variant="secondary" size="sm" disabled={!canSend} onClick={() => onResend(row, "unread")}>
-              {tx(`안 읽은 ${stats.target - stats.opened}명에게 다시`, `Resend to ${stats.target - stats.opened} unread`)}
+              {tx("admin_notifications_resend_to_unread_n", { v: stats.target - stats.opened })}
             </AdminActionButton>
           ) : null}
           <AdminActionButton variant="primary" size="sm" disabled={!canSend} onClick={() => onResend(row, "same")}>
-            {tx("전체 다시 보내기", "Resend to all")}
+            {tx("admin_notifications_resend_all")}
           </AdminActionButton>
         </>
       }
     >
       {stats ? <StatCards stats={stats} ko={ko} /> : null}
       <dl className="mb-3 grid grid-cols-[120px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-        <dt className="text-sam-muted">{tx("보낸 시각", "Sent")}</dt>
+        <dt className="text-sam-muted">{tx("admin_notifications_sent")}</dt>
         <dd>
           {sentAt ? formatAdminManilaDateTime(sentAt) : row.sentAtLabel}
-          {data?.occurrence ? ` · ${tx(`${data.occurrence.sequence_number}회차`, `#${data.occurrence.sequence_number}`)}` : ""}
+          {data?.occurrence ? ` · ${tx("admin_notifications_sequence_number", { sequence_number: data.occurrence.sequence_number })}` : ""}
         </dd>
-        <dt className="text-sam-muted">{tx("받는 사람", "Audience")}</dt>
+        <dt className="text-sam-muted">{tx("admin_notifications_audience")}</dt>
         <dd>{row.targetLabel}</dd>
-        <dt className="text-sam-muted">{tx("누르면 열리는 화면", "Opens")}</dt>
+        <dt className="text-sam-muted">{tx("admin_notifications_opens")}</dt>
         <dd>{row.destination}</dd>
-        <dt className="text-sam-muted">{tx("알림음", "Sound")}</dt>
+        <dt className="text-sam-muted">{tx("admin_notifications_sound")}</dt>
         <dd className="flex flex-wrap items-center gap-2">
           <span>{soundLabel ?? "—"}</span>
           <AdminActionButton variant="secondary" size="sm" onClick={() => onSound(row.kind)}>
-            {tx("알림음 변경", "Change sound")}
+            {tx("admin_notifications_change_sound")}
           </AdminActionButton>
         </dd>
-        <dt className="text-sam-muted">{tx("회원에게 보이는 모습", "Preview")}</dt>
+        <dt className="text-sam-muted">{tx("admin_notifications_preview")}</dt>
         <dd>
           <div className="flex max-w-md gap-2 rounded-lg border border-sam-border bg-sam-app px-3 py-2">
             <div className="h-7 w-7 flex-none rounded-md bg-sam-primary" />
@@ -441,8 +446,8 @@ export function RecipientsModal({
       </dl>
       {data && data.failure_summary.length > 0 ? (
         <div className="mb-3 rounded-ui-rect border border-dashed border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px] text-sam-fg">
-          {tx("푸시 실패 사유", "Push failures")}:{" "}
-          {data.failure_summary.map((f) => `${pushFailureLabel(f.response, ko)} ${f.count}${tx("건", "")}`).join(" · ")}
+          {tx("admin_notifications_push_failures")}:{" "}
+          {data.failure_summary.map((f) => tx("admin_notifications_failure_reason_count", { reason: pushFailureLabel(f.response, ko), n: f.count })).join(" · ")}
         </div>
       ) : null}
       <div className="mb-2">
@@ -463,64 +468,64 @@ export function RecipientsModal({
       ) : err ? (
         <AdminErrorState ko={ko} code={err} onRetry={() => setReloadTick((n) => n + 1)} />
       ) : data && data.rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={tx("해당 회원이 없습니다.", "No members.")} />
+        <AdminEmptyState ko={ko} message={tx("admin_notifications_no_members")} />
       ) : data ? (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="w-full min-w-[820px] text-left text-[13px]">
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
-                <th className="whitespace-nowrap px-3 py-2">{tx("회원", "Member")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("알림함", "Inbox")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("기기", "Devices")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("푸시 결과", "Push")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("사유", "Reason")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("열람", "Opened")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_member")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_inbox")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_devices")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_push")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_reason")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_opened")}</th>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r) => {
                 const reason =
                   r.push === "fail"
-                    ? countedLabels(r.failures.map((f) => pushFailureLabel(f, ko))) || tx("발송 실패", "Failed")
+                    ? countedLabels(r.failures.map((f) => pushFailureLabel(f, ko))) || tx("admin_notifications_failed_2")
                     : r.skip_reasons.map((s) => campaignSkipReasonLabel(s, ko)).join(" · ") || "—";
                 return (
                   <tr key={r.user_id} className="border-b border-sam-border-soft">
                     <td className="whitespace-nowrap px-3 py-2">
                       <Link href={`/admin/users/${encodeURIComponent(r.user_id)}`} className="text-sam-fg hover:underline">
-                        {r.name ?? tx("(이름 없음)", "(no name)")}
+                        {r.name ?? tx("admin_notifications_no_name")}
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">
                       {r.inbox === "saved"
-                        ? `${tx("저장", "Saved")} ${r.inbox_at ? formatAdminManilaDateTime(r.inbox_at) : ""}`
-                        : tx("저장 안 됨", "Not saved")}
+                        ? `${tx("admin_notifications_saved")} ${r.inbox_at ? formatAdminManilaDateTime(r.inbox_at) : ""}`
+                        : tx("admin_notifications_not_saved")}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.devices}</td>
                     <td className="whitespace-nowrap px-3 py-2">
                       {r.push === "ok" ? (
                         <span className="rounded-sm border border-sam-success/40 bg-sam-success-soft px-1.5 py-0.5 text-[12px] text-sam-success">
-                          {tx(`성공 ${r.push_ok_devices}`, `OK ${r.push_ok_devices}`)}
-                          {r.push_fail_devices ? tx(` · 실패 ${r.push_fail_devices}`, ` · failed ${r.push_fail_devices}`) : ""}
+                          {tx("admin_notifications_ok_devices", { push_ok_devices: r.push_ok_devices })}
+                          {r.push_fail_devices ? ` · ${tx("admin_notifications_failed_devices_inline", { n: r.push_fail_devices })}` : ""}
                         </span>
                       ) : r.push === "fail" ? (
                         <span className="rounded-sm border border-sam-danger/40 bg-sam-danger-soft px-1.5 py-0.5 text-[12px] text-sam-danger">
-                          {tx(`실패 ${r.push_fail_devices}`, `Failed ${r.push_fail_devices}`)}
+                          {tx("admin_notifications_failed_devices", { push_fail_devices: r.push_fail_devices })}
                         </span>
                       ) : (
                         <span className="rounded-sm border border-sam-border bg-sam-app px-1.5 py-0.5 text-[12px] text-sam-fg">
                           {r.push === "optout"
-                            ? tx("푸시 미동의", "Push opt-out")
+                            ? tx("admin_notifications_push_opt_out")
                             : r.push === "off"
-                              ? tx("설정 꺼짐", "Turned off")
+                              ? tx("admin_notifications_turned_off")
                               : r.push === "quiet"
-                                ? tx("방해금지", "Quiet hours")
-                                : tx("푸시 없음", "No push")}
+                                ? tx("admin_notifications_quiet_hours")
+                                : tx("admin_notifications_no_push")}
                         </span>
                       )}
                     </td>
                     <td className="px-3 py-2">{reason}</td>
                     <td className="whitespace-nowrap px-3 py-2">
-                      {r.opened_at ? formatAdminManilaDateTime(r.opened_at) : tx("안 읽음", "Unread")}
+                      {r.opened_at ? formatAdminManilaDateTime(r.opened_at) : tx("admin_notifications_unread")}
                     </td>
                   </tr>
                 );
@@ -619,12 +624,12 @@ export function ResendModal({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: tx("다시 보내기", "Resend"),
-      description: tx(
-        `「${row.title}」을 ${mode === "same" ? row.targetLabel : `${n ?? "?"}명`}에게 ${when === "now" ? "지금" : "예약해"} 보냅니다.`,
-        `Send "${row.title}" to ${mode === "same" ? row.targetLabel : `${n ?? "?"} members`}.`
-      ),
-      confirmLabel: tx("다시 보내기", "Resend"),
+      title: tx("admin_notifications_resend"),
+      description: tx(when === "now" ? "admin_notifications_resend_confirm_now" : "admin_notifications_resend_confirm_scheduled", {
+        title: row.title,
+        audience: mode === "same" ? row.targetLabel : tx("admin_notifications_n_members", { n: n ?? "?" }),
+      }),
+      confirmLabel: tx("admin_notifications_resend"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -650,21 +655,18 @@ export function ResendModal({
         const sent = await sendNow(j.id, j.occurrence_id ?? null, `send:${requestKey}`);
         if (!sent.ok) {
           setErr(
-            `${campaignCreateErrorMessage(sent.error ?? null, ko ? "ko" : "en")} ${tx(
-              "만든 알림은 「초안」에 있습니다. 「다시 보내기」를 다시 누르면 같은 알림을 보냅니다.",
-              "The copy is in Drafts. Press Resend again to send the same copy."
-            )}`
+            `${campaignCreateErrorMessage(sent.error ?? null, ko ? "ko" : "en")} ${tx("admin_notifications_copy_in_drafts_press_resend_again")}`
           );
           return;
         }
       }
       onDone({
-        message: when === "now" ? tx("다시 보냈습니다 — 결과는 받은 사람에서 확인", "Resent") : tx("예약했습니다", "Scheduled"),
+        message: when === "now" ? tx("admin_notifications_resent_2") : tx("admin_notifications_scheduled"),
         id: typeof j.id === "string" ? j.id : null,
         tab: when === "now" ? "completed" : "in_progress",
       });
     } catch {
-      setErr(tx("네트워크 오류", "Network error"));
+      setErr(tx("admin_notifications_network_error"));
     } finally {
       setBusy(false);
     }
@@ -673,11 +675,11 @@ export function ResendModal({
     <Modal
       open
       onClose={onClose}
-      title={tx("다시 보내기", "Resend")}
+      title={tx("admin_notifications_resend")}
       footer={
         <>
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-            {tx("취소", "Cancel")}
+            {tx("admin_notifications_cancel")}
           </AdminActionButton>
           <AdminActionButton
             variant="primary"
@@ -685,34 +687,34 @@ export function ResendModal({
             disabled={busy || (when === "scheduled" && !toIso(at)) || (count(mode) === 0)}
             onClick={() => void submit()}
           >
-            {busy ? tx("보내는 중…", "Sending…") : tx("다시 보내기", "Resend")}
+            {busy ? tx("admin_notifications_sending") : tx("admin_notifications_resend")}
           </AdminActionButton>
         </>
       }
     >
       <p className="mb-3 text-[13px] text-sam-muted">
-        {ko ? SENT_KIND_LABEL[row.kind][0] : SENT_KIND_LABEL[row.kind][1]} · {row.title}
+        {tx(SENT_KIND_LABEL[row.kind])} · {row.title}
       </p>
       <div className="mb-3">
-        <div className="mb-1 text-[12px] text-sam-muted">{tx("받는 사람", "Recipients")}</div>
+        <div className="mb-1 text-[12px] text-sam-muted">{tx("admin_notifications_recipients_2")}</div>
         <Seg
           value={mode}
           onChange={setMode}
           options={[
-            { value: "same", label: tx(`처음과 같은 대상 (${row.targetLabel})`, `Same audience (${row.targetLabel})`) },
-            { value: "failed", label: tx(`푸시 실패한 사람 (${count("failed") ?? 0}명)`, `Push failed (${count("failed") ?? 0})`), disabled: !count("failed") },
-            { value: "unread", label: tx(`안 읽은 사람 (${count("unread") ?? 0}명)`, `Unread (${count("unread") ?? 0})`), disabled: !count("unread") },
+            { value: "same", label: tx("admin_notifications_same_audience", { targetLabel: row.targetLabel }) },
+            { value: "failed", label: tx("admin_notifications_resend_push_failed_n", { n: count("failed") ?? 0 }), disabled: !count("failed") },
+            { value: "unread", label: tx("admin_notifications_resend_unread_n", { n: count("unread") ?? 0 }), disabled: !count("unread") },
           ]}
         />
       </div>
       <div className="mb-3">
-        <div className="mb-1 text-[12px] text-sam-muted">{tx("시점", "When")}</div>
+        <div className="mb-1 text-[12px] text-sam-muted">{tx("admin_notifications_when")}</div>
         <Seg
           value={when}
           onChange={setWhen}
           options={[
-            { value: "now", label: tx("지금", "Now") },
-            { value: "scheduled", label: tx("예약", "Schedule") },
+            { value: "now", label: tx("admin_notifications_now") },
+            { value: "scheduled", label: tx("admin_notifications_schedule") },
           ]}
         />
         {when === "scheduled" ? (
@@ -728,24 +730,21 @@ export function ResendModal({
         ) : null}
       </div>
       <p className="text-[12px] text-sam-muted">
-        {tx(
-          "내용·누르면 열리는 화면·알림음은 처음과 같습니다. 목록에 새 줄로 남고, 결과는 그 줄의 받은 사람에서 봅니다.",
-          "Same content, destination and sound. Appears as a new row."
-        )}
+        {tx("admin_notifications_same_content_destination_and_sound_appears")}
       </p>
       {err ? <p className="mt-2 text-[13px] text-sam-danger" role="alert">{err}</p> : null}
     </Modal>
   );
 }
 
-const WEEKDAYS: Array<[number, string, string]> = [
-  [1, "월", "Mon"],
-  [2, "화", "Tue"],
-  [3, "수", "Wed"],
-  [4, "목", "Thu"],
-  [5, "금", "Fri"],
-  [6, "토", "Sat"],
-  [0, "일", "Sun"],
+const WEEKDAYS: Array<[number, MessageKey]> = [
+  [1, "admin_notifications_weekday_mon"],
+  [2, "admin_notifications_weekday_tue"],
+  [3, "admin_notifications_weekday_wed"],
+  [4, "admin_notifications_weekday_thu"],
+  [5, "admin_notifications_weekday_fri"],
+  [6, "admin_notifications_weekday_sat"],
+  [0, "admin_notifications_weekday_sun"],
 ];
 
 /** 다음 발송 시각 미리보기 — 서버(`/recurrence-preview`)가 반복 발송(cron)과 같은 계산으로 답한다(PHT). */
@@ -840,11 +839,11 @@ export function RepeatModal({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko,
-      title: editing ? tx("반복 설정 저장", "Save repeat") : tx("반복 시작", "Start repeat"),
+      title: editing ? tx("admin_notifications_save_repeat") : tx("admin_notifications_start_repeat"),
       description: editing
-        ? tx(`「${row.title}」 반복을 새 주기로 바꿉니다.`, `Change the repeat of "${row.title}".`)
-        : tx(`「${row.title}」을 ${row.targetLabel}에게 반복해서 보냅니다.`, `Repeat "${row.title}".`),
-      confirmLabel: editing ? tx("저장", "Save") : tx("반복 시작", "Start"),
+        ? tx("admin_notifications_change_repeat_title", { title: row.title })
+        : tx("admin_notifications_repeat_confirm_start", { title: row.title, audience: row.targetLabel }),
+      confirmLabel: editing ? tx("admin_notifications_save") : tx("admin_notifications_start"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -875,13 +874,13 @@ export function RepeatModal({
       }
       onDone({
         message: editing
-          ? tx("반복 설정을 바꿨습니다", "Repeat updated")
-          : tx("반복을 시작했습니다 — 발송 중·예약에 있습니다", "Repeat started"),
+          ? tx("admin_notifications_repeat_updated")
+          : tx("admin_notifications_repeat_started"),
         id: typeof j.id === "string" ? j.id : row.id,
         tab: "in_progress",
       });
     } catch {
-      setErr(tx("네트워크 오류", "Network error"));
+      setErr(tx("admin_notifications_network_error"));
     } finally {
       setBusy(false);
     }
@@ -890,63 +889,60 @@ export function RepeatModal({
     <Modal
       open
       onClose={onClose}
-      title={tx("반복 설정", "Repeat")}
+      title={tx("admin_notifications_repeat")}
       footer={
         <>
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-            {tx("취소", "Cancel")}
+            {tx("admin_notifications_cancel")}
           </AdminActionButton>
           <AdminActionButton variant="primary" size="sm" disabled={busy || !/^\d{2}:\d{2}$/.test(time) || !next} onClick={() => void submit()}>
-            {busy ? tx("저장 중…", "Saving…") : editing ? tx("저장", "Save") : tx("반복 시작", "Start repeat")}
+            {busy ? tx("admin_notifications_saving") : editing ? tx("admin_notifications_save") : tx("admin_notifications_start_repeat")}
           </AdminActionButton>
         </>
       }
     >
       <p className="mb-3 text-[13px] text-sam-muted">
-        {ko ? SENT_KIND_LABEL[row.kind][0] : SENT_KIND_LABEL[row.kind][1]} · {row.title} · {row.targetLabel}
+        {tx(SENT_KIND_LABEL[row.kind])} · {row.title} · {row.targetLabel}
       </p>
       <div className="mb-3">
-        <div className="mb-1 text-[12px] text-sam-muted">{tx("주기", "Every")}</div>
+        <div className="mb-1 text-[12px] text-sam-muted">{tx("admin_notifications_every")}</div>
         <Seg
           value={kind}
           onChange={setKind}
           options={[
-            { value: "daily", label: tx("매일", "Daily") },
-            { value: "weekly", label: tx("매주", "Weekly") },
-            { value: "monthly", label: tx("매월", "Monthly") },
+            { value: "daily", label: tx("admin_notifications_repeat_daily") },
+            { value: "weekly", label: tx("admin_notifications_repeat_weekly") },
+            { value: "monthly", label: tx("admin_notifications_repeat_monthly") },
           ]}
         />
       </div>
       {kind === "weekly" ? (
         <div className="mb-3">
-          <div className="mb-1 text-[12px] text-sam-muted">{tx("요일", "Day")}</div>
+          <div className="mb-1 text-[12px] text-sam-muted">{tx("admin_notifications_day")}</div>
           <Seg
             value={String(weekday)}
             onChange={(v) => setWeekday(Number(v))}
-            options={WEEKDAYS.map(([n, k, e]) => ({ value: String(n), label: ko ? k : e }))}
+            options={WEEKDAYS.map(([n, key]) => ({ value: String(n), label: tx(key) }))}
           />
         </div>
       ) : null}
       <label className="mb-3 block text-[13px]">
-        <span className="mb-1 block text-[12px] text-sam-muted">{tx("시각 (PHT)", "Time (PHT)")}</span>
+        <span className="mb-1 block text-[12px] text-sam-muted">{tx("admin_notifications_time_pht")}</span>
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="rounded-ui-rect border border-sam-border px-2 py-1" />
       </label>
-      <div className="mb-1 text-[12px] text-sam-muted">{tx("기간", "Period")}</div>
+      <div className="mb-1 text-[12px] text-sam-muted">{tx("admin_notifications_period")}</div>
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-ui-rect border border-sam-border px-2 py-1" />
         ~
         <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-ui-rect border border-sam-border px-2 py-1" />
-        <span className="text-[12px] text-sam-muted">{tx("(비우면 오늘부터 · 끝 없음)", "(blank = from today · no end)")}</span>
+        <span className="text-[12px] text-sam-muted">{tx("admin_notifications_blank_from_today_no_end")}</span>
       </div>
       <p className="mt-3 text-[13px] text-sam-fg" data-admin-notif-repeat-next>
         {preview.loading
-          ? tx("다음 발송 시각 계산 중…", "Calculating next send…")
+          ? tx("admin_notifications_calculating_next_send")
           : next
-          ? tx(
-              `다음 발송 ${formatAdminManilaDateTime(next)} PHT. 「발송 중·예약」에서 멈춤·끝내기.`,
-              `Next send ${formatAdminManilaDateTime(next)} PHT. Pause or end it in Sending · Scheduled.`
-            )
-          : tx("이 기간에는 보낼 날이 없습니다. 기간·요일을 확인하세요.", "No send date in this period.")}
+          ? tx("admin_notifications_next_send_pht", { v: formatAdminManilaDateTime(next) })
+          : tx("admin_notifications_no_send_date_in_period")}
       </p>
       {err ? <p className="mt-2 text-[13px] text-sam-danger" role="alert">{err}</p> : null}
     </Modal>
@@ -1024,7 +1020,7 @@ export function SoundModal({
   const upload = async (file: File) => {
     if (!event) return;
     if (file.size > SOUND_MAX_BYTES) {
-      setErr(tx("파일이 너무 큽니다.", "File too large."));
+      setErr(tx("admin_notifications_file_too_large"));
       return;
     }
     setBusy(true);
@@ -1065,7 +1061,7 @@ export function SoundModal({
         setErr(j.error ?? "save_failed");
         return;
       }
-      onDone(tx("알림음을 저장했습니다", "Sound saved"));
+      onDone(tx("admin_notifications_sound_saved"));
     } catch {
       setErr("network_error");
     } finally {
@@ -1077,14 +1073,14 @@ export function SoundModal({
     <Modal
       open
       onClose={onClose}
-      title={tx(`알림음 — ${SENT_KIND_LABEL[kind][0]}`, `Sound — ${SENT_KIND_LABEL[kind][1]}`)}
+      title={tx("admin_notifications_sound_modal_title", { kind: tx(SENT_KIND_LABEL[kind]) })}
       footer={
         <>
           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-            {tx("취소", "Cancel")}
+            {tx("admin_notifications_cancel")}
           </AdminActionButton>
           <AdminActionButton variant="primary" size="sm" disabled={busy || !mapping} onClick={() => void save()}>
-            {tx("저장", "Save")}
+            {tx("admin_notifications_save")}
           </AdminActionButton>
         </>
       }
@@ -1094,7 +1090,7 @@ export function SoundModal({
       ) : (
         <div className="space-y-3 text-[13px]">
           <div>
-            <div className="mb-1 text-[12px] text-sam-muted">{tx("소리", "Source")}</div>
+            <div className="mb-1 text-[12px] text-sam-muted">{tx("admin_notifications_source")}</div>
             <Seg
               value={source}
               onChange={(v) =>
@@ -1109,17 +1105,17 @@ export function SoundModal({
                 )
               }
               options={[
-                { value: "device", label: tx("기기 기본음", "Device default") },
-                { value: "dibay", label: tx("DIBAY 알림음", "DIBAY sound") },
-                { value: "custom", label: tx("업로드한 파일", "Uploaded file") },
+                { value: "device", label: tx("admin_notifications_device_default") },
+                { value: "dibay", label: tx("admin_notifications_dibay_sound") },
+                { value: "custom", label: tx("admin_notifications_uploaded_file") },
               ]}
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{displayNotificationSoundAssetLabel(asset, tx("기본 알림음", "Default"))}</span>
+            <span className="font-medium">{displayNotificationSoundAssetLabel(asset, tx("admin_notifications_default"))}</span>
             <AdminNotificationSoundPreview soundUrl={asset?.file_url ?? asset?.file_path ?? null} volume={mapping.volume} />
             <label className="cursor-pointer rounded-ui-rect border border-sam-border px-2 py-1 text-[12px]">
-              {tx("파일 바꾸기", "Replace file")}
+              {tx("admin_notifications_replace_file")}
               <input
                 type="file"
                 accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/webm"
@@ -1133,7 +1129,7 @@ export function SoundModal({
             </label>
           </div>
           <label className="flex items-center gap-2">
-            <span className="text-[12px] text-sam-muted">{tx("볼륨", "Volume")}</span>
+            <span className="text-[12px] text-sam-muted">{tx("admin_notifications_volume")}</span>
             <input
               type="range"
               min={0}
@@ -1151,13 +1147,10 @@ export function SoundModal({
               checked={mapping.enabled !== false}
               onChange={(e) => setMapping((m) => (m ? { ...m, enabled: e.target.checked } : m))}
             />
-            {tx("소리 켜기", "Sound on")}
+            {tx("admin_notifications_sound_on")}
           </label>
           <p className="text-[12px] text-sam-muted">
-            {tx(
-              `${SENT_KIND_LABEL[kind][0]} 분류의 이후 모든 알림에 적용 · 「알림음 설정」 화면과 같은 값입니다.`,
-              "Applies to later notifications of this kind; same value as Notification sounds."
-            )}
+            {tx("admin_notifications_sound_applies_to_kind", { kind: tx(SENT_KIND_LABEL[kind]) })}
           </p>
           {err ? <p className="text-sam-danger" role="alert">{err}</p> : null}
         </div>
@@ -1249,26 +1242,23 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
   return (
     <div className="space-y-2">
       <p className="text-[13px] text-sam-muted">
-        {tx(
-          "자동 발송 — 앱이 새 버전을 알려 준 회원에게 1번 보냅니다(푸시·소리 없음). 다시 보내기·반복은 없습니다.",
-          "Sent automatically once to members whose app reported a new version (no push or sound)."
-        )}
+        {tx("admin_notifications_sent_automatically_once_members_whose_app")}
       </p>
       {groups.length === 0 ? (
-        <AdminEmptyState ko={ko} message={tx("업데이트 기록이 없습니다.", "No releases.")} />
+        <AdminEmptyState ko={ko} message={tx("admin_notifications_no_releases")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="w-full min-w-[880px] text-left text-sm">
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
-                <th className="whitespace-nowrap px-3 py-2">{tx("버전", "Version")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("출시 기록 시각", "Released")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("첫 안내", "First notice")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("마지막 안내", "Last notice")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("안내 받은 회원", "Notified")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("읽음", "Read")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("푸시", "Push")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("작업", "Actions")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_version")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_released")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_first_notice")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_last_notice")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_notified")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_read")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_push_2")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1283,10 +1273,10 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
                   <td className="whitespace-nowrap px-3 py-3 text-[13px]">{g.last_at ? formatAdminManilaDateTime(g.last_at) : "—"}</td>
                   <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{formatAdminNumber(g.notified)}</td>
                   <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{formatAdminNumber(g.read)}</td>
-                  <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-muted">{tx("없음(자동 안내)", "None (auto)")}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-[13px] text-sam-muted">{tx("admin_notifications_none_auto")}</td>
                   <td className="whitespace-nowrap px-3 py-3">
                     <AdminActionButton variant="secondary" size="sm" onClick={() => setOpen(g)}>
-                      {tx("받은 사람", "Recipients")}
+                      {tx("admin_notifications_recipients")}
                     </AdminActionButton>
                   </td>
                 </tr>
@@ -1298,18 +1288,18 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
       {open ? (
         <Modal open wide onClose={() => setOpen(null)} title={name(open)}>
           <dl className="mb-3 grid grid-cols-[120px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-            <dt className="text-sam-muted">{tx("출시 기록 시각", "Released")}</dt>
+            <dt className="text-sam-muted">{tx("admin_notifications_released")}</dt>
             <dd>
               {open.released_at ? formatAdminManilaDateTime(open.released_at) : "—"} · {releaseSourceLabel(open.release_source, ko)}
             </dd>
-            <dt className="text-sam-muted">{tx("안내 받은 회원", "Notified")}</dt>
-            <dd>{formatAdminNumber(open.notified)} · {tx("읽음", "read")} {formatAdminNumber(open.read)}</dd>
-            <dt className="text-sam-muted">{tx("누르면 열리는 화면", "Opens")}</dt>
-            <dd>{tx("내 정보 › 업데이트 내역 (그 버전 강조)", "My › Update history")}</dd>
+            <dt className="text-sam-muted">{tx("admin_notifications_notified")}</dt>
+            <dd>{formatAdminNumber(open.notified)} · {tx("admin_notifications_read_2")} {formatAdminNumber(open.read)}</dd>
+            <dt className="text-sam-muted">{tx("admin_notifications_opens")}</dt>
+            <dd>{tx("admin_notifications_my_update_history")}</dd>
           </dl>
           {open.platform === "ios" && open.notified === 0 ? (
             <p className="mb-3 rounded-ui-rect border border-dashed border-sam-warning bg-sam-warning-soft px-3 py-2 text-[12px]">
-              {tx("iOS 는 앱 안 업데이트 확인이 없어 안내를 만들지 않습니다(설계).", "iOS has no in-app update check (by design).")}
+              {tx("admin_notifications_ios_has_no_in_app_update")}
             </p>
           ) : null}
           {recipientsErr ? (
@@ -1317,16 +1307,16 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
           ) : !recipients ? (
             <AdminLoadingState ko={ko} />
           ) : recipients.length === 0 ? (
-            <AdminEmptyState ko={ko} message={tx("안내 받은 회원이 없습니다.", "No members.")} />
+            <AdminEmptyState ko={ko} message={tx("admin_notifications_no_members_2")} />
           ) : (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
               <table className="w-full min-w-[720px] text-left text-[13px]">
                 <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
                   <tr>
-                    <th className="px-3 py-2">{tx("회원", "Member")}</th>
-                    <th className="px-3 py-2">{tx("안내 시각", "Notified")}</th>
-                    <th className="px-3 py-2">{tx("읽은 시각", "Read")}</th>
-                    <th className="px-3 py-2">{tx("지금 설치 버전", "Installed now")}</th>
+                    <th className="px-3 py-2">{tx("admin_notifications_member")}</th>
+                    <th className="px-3 py-2">{tx("admin_notifications_notified_2")}</th>
+                    <th className="px-3 py-2">{tx("admin_notifications_read_3")}</th>
+                    <th className="px-3 py-2">{tx("admin_notifications_installed_now")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1334,15 +1324,15 @@ export function AppReleaseNoticesPanel({ ko, onCount }: { ko: boolean; onCount?:
                     <tr key={r.user_id} className="border-b border-sam-border-soft">
                       <td className="px-3 py-2">
                         <Link href={`/admin/users/${encodeURIComponent(r.user_id)}`} className="hover:underline">
-                          {r.name ?? tx("(이름 없음)", "(no name)")}
+                          {r.name ?? tx("admin_notifications_no_name")}
                         </Link>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">{formatAdminManilaDateTime(r.notified_at)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{r.read_at ? formatAdminManilaDateTime(r.read_at) : tx("안 읽음", "Unread")}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{r.read_at ? formatAdminManilaDateTime(r.read_at) : tx("admin_notifications_unread")}</td>
                       <td className="whitespace-nowrap px-3 py-2">
                         {r.installed_version ?? "—"}
                         {r.installed_seen_at ? (
-                          <span className="ml-1 text-[12px] text-sam-muted">({tx("마지막 접속", "seen")} {formatAdminManilaDateTime(r.installed_seen_at)})</span>
+                          <span className="ml-1 text-[12px] text-sam-muted">({tx("admin_notifications_seen")} {formatAdminManilaDateTime(r.installed_seen_at)})</span>
                         ) : null}
                       </td>
                     </tr>
@@ -1403,18 +1393,15 @@ export function OwnerNoticesPanel({ ko }: { ko: boolean }) {
   return (
     <div className="space-y-2">
       <p className="text-[13px] text-sam-muted">
-        {tx(
-          "자동 발송 — 주문·운영·광고·문의 답변 알림이 사장님에게 간 결과입니다(다시 보내기·반복 없음). 알림음은 「알림음 설정」의 사장님 구역에서 바꿉니다.",
-          "Automatic owner notifications (orders, operations, ads, inquiry replies). Change sounds in Notification sounds."
-        )}
+        {tx("admin_notifications_automatic_owner_notifications_orders_operations_ads")}
       </p>
       <Seg
         value={String(days) as "7" | "30" | "90"}
         onChange={(v) => setDays(Number(v) as 7 | 30 | 90)}
         options={[
-          { value: "7", label: tx("최근 7일", "7 days") },
-          { value: "30", label: tx("최근 30일", "30 days") },
-          { value: "90", label: tx("최근 90일", "90 days") },
+          { value: "7", label: tx("admin_notifications_7_days") },
+          { value: "30", label: tx("admin_notifications_30_days") },
+          { value: "90", label: tx("admin_notifications_90_days") },
         ]}
       />
       {err ? (
@@ -1422,22 +1409,22 @@ export function OwnerNoticesPanel({ ko }: { ko: boolean }) {
       ) : !rows ? (
         <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        <AdminEmptyState ko={ko} message={tx("이 기간에 사장님에게 간 알림이 없습니다.", "No owner notifications in this period.")} />
+        <AdminEmptyState ko={ko} message={tx("admin_notifications_no_owner_notifications_in_period")} />
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
               <tr>
-                <th className="whitespace-nowrap px-3 py-2">{tx("알림 종류", "Kind")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("알림", "Sent")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("사장님", "Owners")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("매장", "Stores")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("읽음", "Read")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("안 읽음", "Unread")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 성공(기기)", "Push OK (devices)")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 실패(기기)", "Push failed")}</th>
-                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("푸시 생략(기기)", "Push skipped")}</th>
-                <th className="whitespace-nowrap px-3 py-2">{tx("마지막", "Last")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_kind")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_sent_2")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_owners")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_stores")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_read")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_unread")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_push_ok_devices")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_push_failed_2")}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">{tx("admin_notifications_push_skipped")}</th>
+                <th className="whitespace-nowrap px-3 py-2">{tx("admin_notifications_last")}</th>
               </tr>
             </thead>
             <tbody>

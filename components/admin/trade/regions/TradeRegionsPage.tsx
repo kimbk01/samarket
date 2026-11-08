@@ -50,7 +50,7 @@ export function TradeRegionsPage() {
   return (
     <CommunityListShell
       title={t("admin_trade_regions_title")}
-      description="시·군별 거래글 현황입니다. 지역을 누르면 그 지역 거래글 목록으로 이동합니다."
+      description={t("admin_trade_regions_desc")}
       filterBar={<CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"} />}
       footer={
         <>
@@ -59,8 +59,8 @@ export function TradeRegionsPage() {
         </>
       }
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage="거래글이 없습니다.">
-        <CommunityTable head={["지역", "거래글", "판매중", "예약중", "거래완료", "숨김·삭제", "판매자", "처리할 신고", "상위노출 중인 글"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage={t("admin_trade_regions_empty")}>
+        <CommunityTable head={[t("common_region"), t("admin_trade_regions_th_posts"), t("admin_trade_regions_th_selling"), t("admin_trade_regions_th_reserved"), t("admin_trade_regions_th_sold"), t("admin_trade_regions_th_hidden"), t("admin_trade_th_seller"), t("admin_trade_regions_th_open_reports"), t("admin_trade_regions_th_promoted")]}>
           {rows.map((r) => (
             <tr key={r.lgu_id ?? "unknown"} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>
@@ -73,7 +73,7 @@ export function TradeRegionsPage() {
                     {r.name}
                   </Link>
                 ) : (
-                  <span className="text-sam-muted">{r.name || "지역 확인 불가"}</span>
+                  <span className="text-sam-muted">{r.name || t("admin_trade_regions_unknown")}</span>
                 )}
               </td>
               <td className={`${COMMUNITY_TD} font-semibold`}>{num(r.posts)}</td>

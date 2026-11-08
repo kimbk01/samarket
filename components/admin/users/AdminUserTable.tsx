@@ -9,14 +9,14 @@ import {
   adminMemberLoginAccountLabelKo,
 } from "@/lib/admin-users/member-sns-account";
 import {
-  MEMBER_LIST_AT_ID_COLUMN_KO,
-  MEMBER_LIST_DETAIL_ACTION_KO,
-  MEMBER_LIST_STORE_NONE_KO,
-  memberListAccountStateLabelKo,
-  memberListPrivilegeLabelKo,
-  memberListSignupOriginLabelKo,
+  MEMBER_LIST_AT_ID_COLUMN_KEY,
+  MEMBER_LIST_DETAIL_ACTION_KEY,
+  MEMBER_LIST_STORE_NONE_KEY,
+  memberListAccountStateLabel,
+  memberListPrivilegeLabel,
+  memberListSignupOriginLabel,
   memberListStoreCellLabel,
-  memberListVerificationLabelKo,
+  memberListVerificationLabel,
 } from "@/lib/admin-users/member-list-presentation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -77,19 +77,19 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   onToggleSelect: (id: string) => void;
   onViewDetail: (user: AdminUser) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const emptyCell = "—";
   const publicId = publicIdForAdminUser(user);
   const display = displayNameForAdminUser(user);
   const nick = adminMemberNicknameSecondary(display, user.nickname);
   const status = statusCategoryForAdminUser(user);
-  const statusLabel = memberListAccountStateLabelKo(user);
+  const statusLabel = memberListAccountStateLabel(user, language);
   const handleViewDetail = useCallback(() => onViewDetail(user), [onViewDetail, user]);
   const initial = display.trim().slice(0, 1).toUpperCase() || "?";
   const storeCell = memberListStoreCellLabel(user);
-  const privilege = memberListPrivilegeLabelKo(user);
-  const origin = memberListSignupOriginLabelKo(user.authProvider);
-  const verifyLabel = memberListVerificationLabelKo(user);
+  const privilege = memberListPrivilegeLabel(user, language);
+  const origin = memberListSignupOriginLabel(user.authProvider, language);
+  const verifyLabel = memberListVerificationLabel(user, language);
   const copyId = publicId || user.id;
   const phone = user.phone?.trim() || "";
   const contactEmail = user.email?.trim() || "";
@@ -112,7 +112,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           role="row"
           checked={selected}
           onToggle={() => onToggleSelect(user.id)}
-          aria-label={`${display} 선택`}
+          aria-label={t("admin_users_member_select_row_aria", { name: display })}
         />
       </td>
       <td className="min-w-[180px] px-3 py-2" style={managementColumnStyle("TITLE")}>
@@ -128,7 +128,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
                 variant="ghost"
                 size="sm"
                 className="!h-auto !px-0 !py-0 block max-w-[260px] truncate text-left !text-[12px] !font-normal text-sam-muted"
-                title={accountCopy ? `${accountLabel} — 클릭하면 복사` : accountLabel}
+                title={accountCopy ? t("admin_users_member_account_click_to_copy", { label: accountLabel }) : accountLabel}
                 data-member-list-login-account={user.loginAccount?.provider ?? ""}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -172,7 +172,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="min-w-[140px] px-3 py-2" onClick={stopRowNav} data-member-list-store="1">
         {storeCell.kind === "none" ? (
-          <span className="text-sam-meta">{MEMBER_LIST_STORE_NONE_KO}</span>
+          <span className="text-sam-meta">{t(MEMBER_LIST_STORE_NONE_KEY)}</span>
         ) : (
           <Link href={storeCell.href!} className="block hover:underline" onClick={stopRowNav}>
             <p className="font-medium text-sam-fg">{storeCell.name}</p>
@@ -202,7 +202,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           onClick={handleViewDetail}
           data-member-cta-variant="tertiary"
         >
-          {MEMBER_LIST_DETAIL_ACTION_KO}
+          {t(MEMBER_LIST_DETAIL_ACTION_KEY)}
         </AdminActionButton>
       </td>
     </tr>
@@ -276,7 +276,7 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
             <th className="px-3 py-2" style={managementColumnStyle("TITLE")}>
               {t("admin_users_table_col_member")}
             </th>
-            <th className="px-3 py-2">{MEMBER_LIST_AT_ID_COLUMN_KO}</th>
+            <th className="px-3 py-2">{t(MEMBER_LIST_AT_ID_COLUMN_KEY)}</th>
             <th className="px-3 py-2">{t("admin_users_table_col_contact")}</th>
             <th className="px-3 py-2">{t("admin_users_account_state")}</th>
             <th className="px-3 py-2">{t("admin_users_table_col_verification")}</th>

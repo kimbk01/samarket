@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { copyAdminL25JsxBMessages } from "@/lib/i18n/catalog/copy-admin-l25-jsx-b";
 import { validateAdminCreateMemberForm } from "@/lib/admin-users/admin-create-member-fields";
 import { emptyAdminCreateMemberAddress } from "@/lib/admin-users/admin-create-member-address";
 import { resolveMemberPasswordResetSupported } from "@/lib/admin-users/member-password-eligibility";
@@ -122,6 +123,7 @@ describe("P4 member create / edit / password workflows", () => {
   it("auth panel does not offer inline password mutation", () => {
     const auth = src("components/admin/users/AdminMemberAuthPanel.tsx");
     expect(auth).not.toMatch(/submitPassword/);
-    expect(auth).toMatch(/비밀번호 관리/);
+    expect(auth).toMatch(/admin_users_auth_current_password_hint/);
+    expect(copyAdminL25JsxBMessages.ko.admin_users_auth_current_password_hint).toMatch(/비밀번호 관리/);
   });
 });

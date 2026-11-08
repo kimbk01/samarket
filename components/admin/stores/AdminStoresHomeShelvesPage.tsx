@@ -15,6 +15,8 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { AdminConfigAuditHistoryPanel } from "@/components/admin/delivery/AdminConfigAuditHistoryPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { storesApiAcceptLanguageHeader } from "@/lib/i18n/language-preference";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -58,18 +60,18 @@ type HomeTab = HomeShelfAdminTab;
 type ModalMode = "add" | "duplicate" | "delete" | null;
 
 function presentationShort(pres: string, ko: boolean) {
-  const map: Record<string, [string, string]> = {
-    food_horizontal: ["가로 상품", "Horizontal food"],
-    store_horizontal: ["가로 매장", "Horizontal store"],
-    timesale_vertical: ["세로형", "Vertical"],
-    store_teaser_horizontal: ["티저형", "Teaser"],
-    brand_circular: ["원형 브랜드", "Circular brand"],
-    high_rating_horizontal: ["평점 가로", "High-rating"],
-    editorial_grid: ["그리드", "Grid"],
-    preserved_legacy: ["보존 항목", "Preserved legacy"],
+  const map: Record<string, MessageKey> = {
+    food_horizontal: "admin_stores_home_shelf_pres_food_horizontal",
+    store_horizontal: "admin_stores_home_shelf_pres_store_horizontal",
+    timesale_vertical: "admin_stores_home_shelf_pres_timesale_vertical",
+    store_teaser_horizontal: "admin_stores_home_shelf_pres_store_teaser_horizontal",
+    brand_circular: "admin_stores_home_shelf_pres_brand_circular",
+    high_rating_horizontal: "admin_stores_home_shelf_pres_high_rating_horizontal",
+    editorial_grid: "admin_stores_home_shelf_pres_editorial_grid",
+    preserved_legacy: "admin_stores_home_shelf_pres_preserved_legacy",
   };
   const hit = map[pres];
-  return hit ? (ko ? hit[0] : hit[1]) : pres;
+  return hit ? translateBy(ko ? "ko" : "en", hit) : pres;
 }
 
 function toDraftShelf(shelf: StoresHomeShelfResolvedConfig): DraftShelf {

@@ -22,6 +22,7 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
       "accountType",
       "use_staff_api_for_admin_create",
       403,
-      "관리자 생성은 Staff API를 사용해 주세요."
+      await adminServerText("admin_api_users_use_staff_api")
     );
   }
   const memberType = "normal";
@@ -266,13 +267,13 @@ export async function POST(req: NextRequest) {
         "email",
         "admin_users_err_email_taken",
         409,
-        raw || "이미 사용 중인 로그인 이메일(또는 아이디)입니다."
+        raw || await adminServerText("admin_api_users_email_taken")
       );
     }
     return NextResponse.json(
       {
         ok: false,
-        error: raw || "실제 회원 생성에 실패했습니다.",
+        error: raw || await adminServerText("admin_api_users_create_failed"),
         field: "form",
         errorKey: "admin_users_err_create_failed",
       },

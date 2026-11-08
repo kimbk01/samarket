@@ -5,6 +5,7 @@ import { clientSafeInternalErrorMessage, jsonError, jsonOk } from "@/lib/http/ap
 import { DEFAULT_AUTH_LOGIN_SETTINGS, loadAuthLoginSettings, type AuthLoginSetting, type LoginSettingProvider } from "@/lib/auth/login-settings";
 import { DEFAULT_AUTH_DUPLICATE_LOGIN_POLICY, loadAuthDuplicateLoginPolicy, type AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,7 +52,7 @@ export async function GET() {
     return jsonOk({ settings, sessionPolicy });
   } catch (error) {
     return jsonError(
-      clientSafeInternalErrorMessage(error instanceof Error ? error.message : "Auth 설정을 불러오지 못했습니다."),
+      clientSafeInternalErrorMessage(error instanceof Error ? error.message : await adminServerText("admin_api_auth_settings_load_failed")),
       500
     );
   }
@@ -78,7 +79,7 @@ export async function PUT(req: NextRequest) {
   }
   const input = Array.isArray(body.settings) ? body.settings : null;
   if (!input || input.length === 0) {
-    return jsonError("settings 배열이 필요합니다.", 400);
+    return jsonError(await adminServerText("admin_api_auth_settings_array_required"), 400);
   }
   const now = new Date().toISOString();
   const merged = DEFAULT_AUTH_LOGIN_SETTINGS.map((base) => {
@@ -98,7 +99,7 @@ export async function PUT(req: NextRequest) {
     }
   }
   if (merged.every((item) => item.enabled !== true)) {
-    return jsonError("최소 1개의 로그인 방식은 활성화해야 합니다.", 400);
+    return jsonError(await adminServerText("admin_api_auth_settings_min_one"), 400);
   }
   const currentSessionPolicy = await loadAuthDuplicateLoginPolicy().catch(() => DEFAULT_AUTH_DUPLICATE_LOGIN_POLICY);
   const beforeSettings = await loadAuthLoginSettings().catch(() => null);
@@ -173,7 +174,7 @@ export async function PUT(req: NextRequest) {
     return jsonOk({ settings, sessionPolicy: refreshedSessionPolicy });
   } catch (loadError) {
     return jsonError(
-      clientSafeInternalErrorMessage(loadError instanceof Error ? loadError.message : "Auth 설정을 불러오지 못했습니다."),
+      clientSafeInternalErrorMessage(loadError instanceof Error ? loadError.message : await adminServerText("admin_api_auth_settings_load_failed")),
       500
     );
   }

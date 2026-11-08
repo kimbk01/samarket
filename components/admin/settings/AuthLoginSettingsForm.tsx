@@ -231,7 +231,7 @@ export function AuthLoginSettingsForm() {
         }
         setLegacySettings(policyJson.settings);
       }
-      setProviderStatus((prev) => ({ ...prev, [provider]: "저장되었습니다." }));
+      setProviderStatus((prev) => ({ ...prev, [provider]: t("admin_settings_auth_saved") }));
     } catch {
       setProviderError((prev) => ({
         ...prev,
@@ -319,10 +319,9 @@ export function AuthLoginSettingsForm() {
       ko,
       title:
         target.kind === "provider"
-          ? `${getProviderTitle(target.provider)} 로그인 설정을 저장할까요?`
-          : "로그인 정책을 저장할까요?",
-      description:
-        "로그인 수단 변경은 전체 회원 로그인에 영향을 줍니다. 잘못 저장하면 회원이 로그인하지 못할 수 있으니 값을 다시 확인한 뒤 저장하세요.",
+          ? t("admin_settings_auth_provider_save_confirm_title", { provider: getProviderTitle(target.provider) })
+          : t("admin_settings_auth_policy_save_confirm_title"),
+      description: t("admin_settings_auth_save_confirm_description"),
       confirmLabel: t("common_save"),
       destructive: true,
     });
@@ -580,13 +579,13 @@ export function AuthLoginSettingsForm() {
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 sam-text-body text-sam-fg">
               <p className="font-medium">{t("admin_auth_phone_enabled")}: {phoneSettings.enabled === true ? "ON" : "OFF"}</p>
               <p className="mt-1 sam-text-body-secondary text-sam-muted">
-                ON/OFF·잔액·장애 진단은 회원 관리의 전화번호 인증 관리에서 변경합니다.
+                {t("admin_settings_auth_phone_managed_elsewhere")}
               </p>
               <Link
                 href="/admin/users/phone-verification"
                 className="mt-2 inline-flex text-signature underline"
               >
-                전화번호 인증 관리로 이동
+                {t("admin_settings_auth_go_phone_verification")}
               </Link>
             </div>
             <div className="grid gap-3 md:grid-cols-3">

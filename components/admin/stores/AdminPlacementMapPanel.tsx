@@ -69,14 +69,10 @@ function miniatureKind(placementId: string): PlacementMiniatureKind | null {
 
 function Flag({
   on,
-  labelKo,
-  labelEn,
-  ko,
+  label,
 }: {
   on: boolean;
-  labelKo: string;
-  labelEn: string;
-  ko: boolean;
+  label: string;
 }) {
   return (
     <span
@@ -84,7 +80,7 @@ function Flag({
         on ? "bg-sam-success-soft text-sam-success" : "bg-sam-app text-sam-muted"
       }`}
     >
-      {ko ? labelKo : labelEn}
+      {label}
     </span>
   );
 }
@@ -584,15 +580,11 @@ function AdminPlacementMapPanelInner() {
                     <div className="flex flex-wrap gap-1">
                       <Flag
                         on={row.flags.sellable}
-                        labelKo="판매 가능"
-                        labelEn="Sellable"
-                        ko={ko}
+                        label={t("admin_stores_placement_flag_sellable")}
                       />
                       <Flag
                         on={row.flags.runtimeSupported}
-                        labelKo="앱 연결"
-                        labelEn="App linked"
-                        ko={ko}
+                        label={t("admin_stores_placement_flag_app_linked")}
                       />
                     </div>
                   </div>

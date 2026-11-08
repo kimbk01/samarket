@@ -1,12 +1,14 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { RecommendationAnalyticsSummary } from "@/lib/types/recommendation";
 
-const SURFACE_LABELS: Record<string, string> = {
-  home: "홈",
-  search: "검색 화면",
-  shop: "상점",
+const SURFACE_LABEL_KEYS: Record<string, MessageKey> = {
+  home: "admin_rec_surface_home",
+  search: "admin_rec_surface_search_screen",
+  shop: "admin_rec_surface_shop",
 };
 
 interface RecommendationPerformanceTableProps {
@@ -16,9 +18,10 @@ interface RecommendationPerformanceTableProps {
 export function RecommendationPerformanceTable({
   summaries,
 }: RecommendationPerformanceTableProps) {
+  const { t } = useI18n();
   if (summaries.length === 0) {
     return (
-      <AdminEmptyState ko message={"추천 성과 데이터가 없습니다."} />
+      <AdminEmptyState ko message={t("admin_rec_no_performance")} />
     );
   }
 
@@ -31,25 +34,25 @@ export function RecommendationPerformanceTable({
               surface
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션
+              {t("admin_recommendation_col_section")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              노출
+              {t("admin_recommendation_col_impressions")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              클릭
+              {t("admin_recommendation_col_clicks")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              전환
+              {t("admin_recommendation_col_conversions")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               CTR
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              전환률
+              {t("admin_recommendation_col_conversion_rate")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대표 사유
+              {t("admin_recommendation_col_top_reason")}
             </th>
           </tr>
         </thead>
@@ -60,7 +63,7 @@ export function RecommendationPerformanceTable({
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5 text-sam-fg">
-                {SURFACE_LABELS[s.surface] ?? s.surface}
+                {SURFACE_LABEL_KEYS[s.surface] ? t(SURFACE_LABEL_KEYS[s.surface]) : s.surface}
               </td>
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {s.sectionKey}

@@ -6,6 +6,7 @@ import {
   sanitizeAuthPhoneSettingsInput,
 } from "@/lib/auth/auth-phone-settings";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function PATCH(req: NextRequest) {
       {
         ok: false,
         error: "enabled_via_phone_ops",
-        message: "전화 인증 ON/OFF는 전화번호 인증 관리 화면에서만 변경할 수 있습니다.",
+        message: await adminServerText("admin_api_auth_phone_toggle_elsewhere"),
       },
       { status: 400 },
     );

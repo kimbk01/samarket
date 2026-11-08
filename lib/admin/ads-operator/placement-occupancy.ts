@@ -10,6 +10,7 @@ import {
 import { bannerPlacementDefaultCapacity, BANNER_CAPACITY_FULL_COPY } from "@/lib/ads/banner-placement-capacity-ssot";
 import { HERO_OCCUPYING_LIFECYCLES } from "@/lib/admin/ads-exposure/capacity-gate";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translate } from "@/lib/i18n/messages";
 
 export type PlacementOccupancyInput = AdsCollisionCampaignInput & {
   capacity?: number;
@@ -117,16 +118,16 @@ export function computePlacementOccupancy(
       nextVacancyAt,
       vacancyLabelKo:
         vacant > 0
-          ? "지금 가능"
+          ? translate("ko", "admin_ads_occupancy_available_now")
           : nextVacancyAt
             ? formatAdminManilaDateTime(nextVacancyAt)
-            : "빈 자리 없음",
+            : translate("ko", "admin_ads_occupancy_no_vacancy"),
       vacancyLabelEn:
         vacant > 0
-          ? "Available now"
+          ? translate("en", "admin_ads_occupancy_available_now")
           : nextVacancyAt
             ? formatAdminManilaDateTime(nextVacancyAt)
-            : "No vacancy",
+            : translate("en", "admin_ads_occupancy_no_vacancy"),
     });
   }
   return out.sort((a, b) => a.placementKey.localeCompare(b.placementKey));
@@ -163,10 +164,10 @@ export function countPlacementOverlapInWindow(
     full,
     messageKo: full
       ? BANNER_CAPACITY_FULL_COPY.humanKo
-      : `빈 슬롯 ${vacant}`,
+      : translate("ko", "admin_ads_occupancy_open_slots", { n: vacant }),
     messageEn: full
       ? BANNER_CAPACITY_FULL_COPY.humanEn
-      : `${vacant} open slot(s)`,
+      : translate("en", "admin_ads_occupancy_open_slots", { n: vacant }),
   };
 }
 

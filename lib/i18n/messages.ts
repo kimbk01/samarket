@@ -123,6 +123,16 @@ import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
 import { copyAdminMessages } from "./catalog/copy-admin";
+import { copyAdminL25JsxAMessages } from "./catalog/copy-admin-l25-jsx-a";
+import { copyAdminL25JsxBMessages } from "./catalog/copy-admin-l25-jsx-b";
+import { copyUiL25JsxMessages } from "./catalog/copy-ui-l25-jsx";
+import { copyAdminL25CommunityAMessages } from "./catalog/copy-admin-l25-community-a";
+import { copyAdminL25CommunityBMessages } from "./catalog/copy-admin-l25-community-b";
+import { copyAdminL25TradeMessages } from "./catalog/copy-admin-l25-trade";
+import { copyAdminL25MiscMessages } from "./catalog/copy-admin-l25-misc";
+import { copyAdminL25LibMessages } from "./catalog/copy-admin-l25-lib";
+import { copyAdminL25AdsMessages } from "./catalog/copy-admin-l25-ads";
+import { copyAdminL25OpsMessages } from "./catalog/copy-admin-l25-ops";
 import { copyAdminB4StoresMessages } from "./catalog/copy-admin-b4-stores";
 import { copyAdminB4AdsMessages } from "./catalog/copy-admin-b4-ads";
 import { copyAdminB4CommunityMessages } from "./catalog/copy-admin-b4-community";
@@ -248,6 +258,16 @@ const KO_MESSAGES = {
   ...appShellCoreMessages.ko,
   ...copyLibMessages.ko,
   ...copyAdminMessages.ko,
+  ...copyAdminL25JsxAMessages.ko,
+  ...copyAdminL25JsxBMessages.ko,
+  ...copyUiL25JsxMessages.ko,
+  ...copyAdminL25CommunityAMessages.ko,
+  ...copyAdminL25CommunityBMessages.ko,
+  ...copyAdminL25TradeMessages.ko,
+  ...copyAdminL25MiscMessages.ko,
+  ...copyAdminL25LibMessages.ko,
+  ...copyAdminL25AdsMessages.ko,
+  ...copyAdminL25OpsMessages.ko,
   ...copyAdminB4StoresMessages.ko,
   ...copyAdminB4AdsMessages.ko,
   ...copyAdminB4CommunityMessages.ko,
@@ -391,6 +411,16 @@ const EN_MESSAGES = {
   ...appShellCoreMessages.en,
   ...copyLibMessages.en,
   ...copyAdminMessages.en,
+  ...copyAdminL25JsxAMessages.en,
+  ...copyAdminL25JsxBMessages.en,
+  ...copyUiL25JsxMessages.en,
+  ...copyAdminL25CommunityAMessages.en,
+  ...copyAdminL25CommunityBMessages.en,
+  ...copyAdminL25TradeMessages.en,
+  ...copyAdminL25MiscMessages.en,
+  ...copyAdminL25LibMessages.en,
+  ...copyAdminL25AdsMessages.en,
+  ...copyAdminL25OpsMessages.en,
   ...copyAdminB4StoresMessages.en,
   ...copyAdminB4AdsMessages.en,
   ...copyAdminB4CommunityMessages.en,

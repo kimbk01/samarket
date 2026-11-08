@@ -59,7 +59,7 @@ export function LaunchWeekSummaryCards() {
           </p>
           {summary.blockedChecklistCount > 0 && (
             <p className="mt-1 sam-text-helper text-sam-danger">
-              차단 {summary.blockedChecklistCount}건
+              {t("admin_launch_week_blocked_n", { n: summary.blockedChecklistCount })}
             </p>
           )}
         </div>
@@ -76,31 +76,31 @@ export function LaunchWeekSummaryCards() {
           <p className="sam-text-helper text-sam-muted">{t("admin_qa_link_2")}</p>
           <p className="sam-text-body text-sam-fg">
             <Link href="/admin/recommendation-monitoring" className="text-signature hover:underline">
-              추천 모니터링
+              {t("admin_launch_week_link_rec_monitoring")}
             </Link>
             {" · "}
             <Link href="/admin/feed-emergency" className="text-signature hover:underline">
-              피드 장애대응
+              {t("admin_launch_week_link_feed_emergency")}
             </Link>
             {" · "}
             <Link href="/admin/ops-board" className="text-signature hover:underline">
-              운영 보드
+              {t("admin_launch_week_link_ops_board")}
             </Link>
             {" · "}
             <Link href="/admin/recommendation-reports" className="text-signature hover:underline">
-              운영 보고서
+              {t("admin_launch_week_link_ops_reports")}
             </Link>
           </p>
         </div>
       </div>
 
       <p className="sam-text-helper text-sam-muted">
-        첫 주 go/no-go after launch 판단은 요약·체크리스트 완료 후 placeholder로 기록 가능.
+        {t("admin_launch_week_go_no_go_hint")}
       </p>
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
+          {t("admin_launch_week_last_updated", { at: formatAdminManilaDateTime(summary.latestUpdatedAt) })}
         </p>
       )}
     </div>

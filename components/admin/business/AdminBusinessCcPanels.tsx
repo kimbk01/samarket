@@ -721,15 +721,15 @@ export function AdminBusinessCcLinks({
 }
 
 function feeScopeLabel(scope: string, ko: boolean): string {
-  const map: Record<string, [string, string]> = {
-    store: ["매장 개별", "Store"],
-    topic: ["세부 업종", "Topic"],
-    category: ["업종", "Category"],
-    default: ["플랫폼 기본", "Platform default"],
-    missing_policy: ["정책 없음", "No policy"],
+  const map: Record<string, MessageKey> = {
+    store: "admin_biz_fee_scope_store",
+    topic: "admin_biz_fee_scope_topic",
+    category: "admin_biz_fee_scope_category",
+    default: "admin_biz_fee_scope_default",
+    missing_policy: "admin_biz_fee_scope_missing_policy",
   };
   const hit = map[scope];
-  return hit ? (ko ? hit[0] : hit[1]) : scope;
+  return hit ? translateBy(ko ? "ko" : "en", hit) : scope;
 }
 
 export function overrideModeLabel(mode: string, ko: boolean): string {
@@ -740,12 +740,12 @@ export function overrideModeLabel(mode: string, ko: boolean): string {
 }
 
 function policySourceLabel(source: string, ko: boolean): string {
-  const map: Record<string, [string, string]> = {
-    off: ["사용 안 함", "Off"],
-    global: ["전역 정책", "Global policy"],
-    store: ["매장 개별 설정", "Store override"],
-    store_disabled: ["매장 개별 차단", "Blocked for store"],
+  const map: Record<string, MessageKey> = {
+    off: "admin_biz_policy_source_off",
+    global: "admin_biz_policy_source_global",
+    store: "admin_biz_policy_source_store",
+    store_disabled: "admin_biz_policy_source_store_disabled",
   };
   const hit = map[source];
-  return hit ? (ko ? hit[0] : hit[1]) : source;
+  return hit ? translateBy(ko ? "ko" : "en", hit) : source;
 }

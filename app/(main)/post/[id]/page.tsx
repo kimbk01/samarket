@@ -11,6 +11,7 @@ import { recordTradeRecentView } from "@/lib/mypage/trade-recent-views.server";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
 import { PostDetailRelatedDeferredLoader } from "./post-detail-related-deferred";
 import { TradePostUnavailable } from "@/components/trade/TradePostUnavailable";
+import { RouteLoadingInline } from "@/components/i18n/RouteLoadingInline";
 
 /** 무한 스켈레톤 방지 — 상세 부트스트랩 상한 (운영 DB 지연 시에도 UI가 멈추지 않게) */
 const TRADE_DETAIL_LOAD_BUDGET_MS = 28_000;
@@ -69,7 +70,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
           <Suspense
             fallback={
               <div className="border-t border-sam-border px-4 py-6 sam-text-body-secondary text-sam-muted">
-                관련 상품을 불러오는 중…
+                <RouteLoadingInline messageKey="post_detail_related_loading" />
               </div>
             }
           >

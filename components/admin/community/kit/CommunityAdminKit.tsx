@@ -13,6 +13,7 @@
  * - `CommunityListBody` = 로딩 / 오류(403 구분 · 기존 목록 유지) / 빈 목록(필터 중 [초기화]) / 표.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, type ReactNode } from "react";
@@ -203,7 +204,11 @@ export function useCommunityListQuery<E extends string = string>(
   return { ...lq, submit, reset, isFiltered, selfHref, legacyPeriod, apiParams };
 }
 
-const LEGACY_PERIOD_LABEL: Record<string, string> = { today: "오늘", "7d": "최근 7일", "30d": "최근 30일" };
+const LEGACY_PERIOD_LABEL: Record<string, MessageKey> = {
+  today: "admin_community_period_today",
+  "7d": "admin_community_period_7d",
+  "30d": "admin_community_period_30d",
+};
 
 /**
  * 목록 필터 바 — `AdminFilterBar` 를 커뮤니티 조회 조건에 연결한다.
@@ -230,6 +235,8 @@ export function CommunityFilterBar<E extends string = string>({
   /** 도메인 특수 필터 — `CommunityFilterField` + `CommunitySelect` (즉시 적용은 `lq.setExtra`) */
   children?: ReactNode;
 }) {
+  const { t } = useI18n();
+  const legacyKey = lq.legacyPeriod ? LEGACY_PERIOD_LABEL[lq.legacyPeriod] : undefined;
   return (
     <AdminFilterBar
       ko
@@ -245,16 +252,16 @@ export function CommunityFilterBar<E extends string = string>({
       requireCompletePeriod={requireCompletePeriod}
     >
       {showPeriod && lq.legacyPeriod && !lq.query.from && !lq.query.to ? (
-        <CommunityFilterField label="기간 (필리핀 시간)">
+        <CommunityFilterField label={t("admin_community_period_label_pht")}>
           <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-            {LEGACY_PERIOD_LABEL[lq.legacyPeriod]}
+            {legacyKey ? t(legacyKey) : null}
             <AdminActionButton
               variant="quiet"
               size="sm"
               className="h-auto! px-1!"
               onClick={() => lq.patch({ extras: { period: "" } as Partial<Record<E | "period", string>> })}
             >
-              해제
+              {t("admin_community_kit_filter_clear")}
             </AdminActionButton>
           </span>
         </CommunityFilterField>
@@ -414,10 +421,11 @@ export function CommunityTabs({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <AdminTabs
-      ariaLabel="상태"
-      tabs={tabs.map((t) => ({ id: t.value, label: t.label, count: typeof t.count === "number" ? t.count : null }))}
+      ariaLabel={t("admin_community_kit_status_aria")}
+      tabs={tabs.map((tab) => ({ id: tab.value, label: tab.label, count: typeof tab.count === "number" ? tab.count : null }))}
       value={value}
       syncUrl={false}
       onChange={onChange}
@@ -484,13 +492,13 @@ export function CommunitySelect({
   );
 }
 
-export const COMMUNITY_PERIOD_OPTIONS = [
-  { value: "", label: "전체 기간" },
-  { value: "today", label: "오늘" },
-  { value: "7d", label: "최근 7일" },
-  { value: "30d", label: "최근 30일" },
-  { value: "custom", label: "직접 지정" },
-] as const;
+export const COMMUNITY_PERIOD_OPTIONS: readonly { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_community_period_all" },
+  { value: "today", labelKey: "admin_community_period_today" },
+  { value: "7d", labelKey: "admin_community_period_7d" },
+  { value: "30d", labelKey: "admin_community_period_30d" },
+  { value: "custom", labelKey: "admin_community_period_custom" },
+];
 
 /** 기간 — 필리핀 시간 날짜. 서버가 Asia/Manila [from, to) 로 바꾼다. */
 export function CommunityPeriodFilter({
@@ -504,13 +512,14 @@ export function CommunityPeriodFilter({
   to: string;
   onChange: (v: { period: string; from: string; to: string }) => void;
 }) {
+  const { t } = useI18n();
   return (
-    <CommunityFilterField label="기간 (필리핀 시간)">
+    <CommunityFilterField label={t("admin_community_period_label_pht")}>
       <div className="flex flex-wrap items-center gap-1">
         <CommunitySelect
           value={period}
           onChange={(p) => onChange({ period: p, from: p === "custom" ? from : "", to: p === "custom" ? to : "" })}
-          options={COMMUNITY_PERIOD_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          options={COMMUNITY_PERIOD_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
         />
         {period === "custom" ? (
           <>
@@ -525,9 +534,10 @@ export function CommunityPeriodFilter({
 }
 
 export function CommunityResetFilters({ onReset }: { onReset: () => void }) {
+  const { t } = useI18n();
   return (
     <AdminActionButton variant="quiet" size="sm" onClick={onReset}>
-      필터 {adminCta("reset", true)}
+      {t("admin_community_kit_reset_filters")}
     </AdminActionButton>
   );
 }
@@ -581,7 +591,7 @@ export function CommunityAuthorCell({
         href={`/admin/community/members/${encodeURIComponent(userId)}`}
         className="font-medium text-sam-primary hover:underline"
       >
-        {nickname?.trim() || "이름 없음"}
+        {nickname?.trim() || t("admin_community_kit_no_name")}
       </Link>
       {handle ? <span className="sam-text-xxs text-sam-muted">@{handle}</span> : null}
     </span>
@@ -590,26 +600,27 @@ export function CommunityAuthorCell({
 
 /** 언제 — 상대 시간 + 마우스 올리면 필리핀 절대 시각 */
 export function CommunityTimeCell({ iso, absolute = false }: { iso: string | null | undefined; absolute?: boolean }) {
+  const { t } = useI18n();
   if (!iso) return <span className="text-sam-muted">—</span>;
   const abs = `${formatAdminManilaDateTime(iso)} PHT`;
   if (absolute) return <span className="whitespace-nowrap">{abs}</span>;
   return (
     <time dateTime={iso} title={abs} className="whitespace-nowrap">
-      {relativeKo(iso)}
+      {relativeTime(iso, t)}
     </time>
   );
 }
 
-function relativeKo(iso: string): string {
+function relativeTime(iso: string, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string {
   const ms = Date.now() - Date.parse(iso);
   if (!Number.isFinite(ms)) return "—";
   const m = Math.floor(ms / 60_000);
-  if (m < 1) return "방금";
-  if (m < 60) return `${m}분 전`;
+  if (m < 1) return t("admin_community_kit_just_now");
+  if (m < 60) return t("admin_community_kit_minutes_ago", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
+  if (h < 24) return t("admin_community_kit_hours_ago", { n: h });
   const d = Math.floor(h / 24);
-  if (d < 30) return `${d}일 전`;
+  if (d < 30) return t("admin_community_kit_days_ago", { n: d });
   return formatAdminManilaDateTime(iso).slice(0, 10);
 }
 
@@ -638,6 +649,7 @@ export function CommunityPagination({
   onPageSize?: (size: AdminListPageSize) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   if (total !== null) {
     const isStd = (ADMIN_LIST_PAGE_SIZES as readonly number[]).includes(pageSize);
     return (
@@ -654,13 +666,13 @@ export function CommunityPagination({
   }
   return (
     <div className="flex items-center justify-between gap-2 px-1 text-[13px] text-sam-muted">
-      <span>{`${page}페이지`}</span>
+      <span>{t("admin_community_kit_page_n", { n: page })}</span>
       <div className="flex gap-1">
         <AdminActionButton variant="secondary" size="sm" disabled={disabled || page <= 1} onClick={() => onPage(page - 1)}>
-          이전
+          {t("admin_community_kit_page_prev")}
         </AdminActionButton>
         <AdminActionButton variant="secondary" size="sm" disabled={disabled} onClick={() => onPage(page + 1)}>
-          다음
+          {t("admin_community_kit_page_next")}
         </AdminActionButton>
       </div>
     </div>
@@ -707,13 +719,13 @@ export function CommunitySummaryCard({ rows }: { rows: { label: string; value: R
 /** ② 조치 이력 타임라인 */
 export function CommunityTimeline({
   items,
-  emptyText = "조치 기록이 없습니다.",
+  emptyText,
 }: {
   items: { id: string; at: string; actor: string; action: string; reason?: string | null }[];
   emptyText?: string;
 }) {
   const { t } = useI18n();
-  if (items.length === 0) return <p className="text-[13px] text-sam-muted">{emptyText}</p>;
+  if (items.length === 0) return <p className="text-[13px] text-sam-muted">{emptyText ?? t("admin_community_kit_no_actions")}</p>;
   return (
     <ol className="space-y-2">
       {items.map((it) => (

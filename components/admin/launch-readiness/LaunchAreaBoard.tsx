@@ -52,7 +52,7 @@ export function LaunchAreaBoard() {
       </AdminFilterBar>
 
       {areas.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"영역별 데이터가 없습니다."} />
+        <AdminEmptyState ko={ko} message={t("admin_launch_ready_no_area_data")} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {areas.map((entry) => (

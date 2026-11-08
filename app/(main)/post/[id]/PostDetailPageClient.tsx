@@ -14,6 +14,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { postHasTradePromotionOverlay, TRADE_PROMOTION_PROJECTION } from "@/lib/promotion/trade-promotion-overlay";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { PostDetailView } from "@/components/post/PostDetailView";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostDetailFeedChromeReset } from "@/components/post/PostDetailFeedChromeReset";
 import type { TradeItemDetailPageData } from "@/services/trade/trade-detail.service";
 import { TradePostUnavailable } from "@/components/trade/TradePostUnavailable";
@@ -266,9 +267,10 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
 }
 
 export function PostDetailConfigError() {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen items-center justify-center px-4 text-center sam-text-body text-sam-muted">
-      서버 설정이 필요합니다.
+      {t("post_detail_server_config_required")}
     </div>
   );
 }

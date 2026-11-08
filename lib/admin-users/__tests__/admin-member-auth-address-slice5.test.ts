@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { copyAdminL25JsxAMessages } from "@/lib/i18n/catalog/copy-admin-l25-jsx-a";
 
 describe("admin member auth + address Slice 5", () => {
   it("auth route uses Auth admin getUserById and does not infer verified from email", () => {
@@ -38,8 +39,9 @@ describe("admin member auth + address Slice 5", () => {
     expect(header).toMatch(/resolveMemberDetailActionPolicy/);
     const danger = readFileSync(join(process.cwd(), "components/admin/users/AdminMemberDangerZone.tsx"), "utf8");
     expect(danger).toMatch(/data-member-detail-danger-zone/);
-    expect(danger).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KO/);
-    expect(readFileSync(join(process.cwd(), "lib/admin-users/member-detail-presentation.ts"), "utf8")).toMatch(/위험 작업/);
+    expect(danger).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY/);
+    expect(readFileSync(join(process.cwd(), "lib/admin-users/member-detail-presentation.ts"), "utf8")).toMatch(/admin_member_detail_danger_zone_title/);
+    expect(copyAdminL25JsxAMessages.ko.admin_member_detail_danger_zone_title).toBe("위험 작업");
   });
 
   it("create member form shows when requested without adminUserId gate", () => {

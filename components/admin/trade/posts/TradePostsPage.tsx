@@ -40,10 +40,10 @@ import {
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import {
   TRADE_POST_SORTS,
-  TRADE_POST_SORT_LABELS,
+  TRADE_POST_SORT_LABEL_KEYS,
   TRADE_POST_TABS,
-  TRADE_POST_TAB_LABELS,
-  TRADE_POST_MODERATION_ACTION_LABELS,
+  TRADE_POST_TAB_LABEL_KEYS,
+  TRADE_POST_MODERATION_ACTION_LABEL_KEYS,
   allowedTradePostModerationActions,
   parseTradePostSort,
   parseTradePostTab,
@@ -51,6 +51,7 @@ import {
   type TradePostTab,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { getAdminCategories } from "@/lib/categories/admin/getAdminCategories";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const LIST_EXTRAS = ["sellerId", "categoryId", "tradeType", "lguId", "priceMin", "priceMax"] as const;
 const FIELD =
@@ -92,24 +93,24 @@ type ListResponse = {
   rows?: TradePostListRow[];
 };
 
-const EMPTY_TEXT: Partial<Record<TradePostTab, string>> = {
-  all: "조건에 맞는 거래 게시물이 없습니다.",
-  reported: "처리 대기 중인 신고가 있는 게시물이 없습니다.",
-  unclassified: "분류 확인이 필요한 게시물이 없습니다.",
+const EMPTY_TEXT: Partial<Record<TradePostTab, MessageKey>> = {
+  all: "admin_trade_posts_empty_all",
+  reported: "admin_trade_posts_empty_reported",
+  unclassified: "admin_trade_posts_empty_unclassified",
 };
 
 /** 목록 일괄 조치 (설계 v2 §C-2) — 선택 숨김 · 선택 숨김 해제만. 일괄 삭제는 두지 않는다 (§F-1-4). */
 const BULK_ACTIONS = [
-  { action: "hide", from: "visible", label: "선택 숨김" },
-  { action: "unhide", from: "admin_hidden", label: "선택 숨김 해제" },
+  { action: "hide", from: "visible", labelKey: "admin_trade_posts_bulk_hide" },
+  { action: "unhide", from: "admin_hidden", labelKey: "admin_trade_posts_bulk_unhide" },
 ] as const;
 
 type PostSheet = { action: TradePostModerationAction; targets: TradePostListRow[] };
 
-const TRADE_TYPE_OPTIONS = [
-  { value: "", label: "전체" },
-  { value: "product", label: "중고" },
-  { value: "job", label: "알바" },
+const TRADE_TYPE_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "common_all" },
+  { value: "product", labelKey: "admin_trade_posts_type_product" },
+  { value: "job", labelKey: "admin_trade_posts_job_badge" },
 ];
 
 /** 거래 카테고리 목록 (비활성 포함) — 목록 필터·상세 수정 공용 */
@@ -199,10 +200,10 @@ export function TradePostsPage() {
     setMaxDraft(priceMax);
   }, [priceMin, priceMax]);
 
-  const tabs = TRADE_POST_TABS.map((t) => ({
-    value: t,
-    label: TRADE_POST_TAB_LABELS[t],
-    count: counts ? (counts[t] ?? null) : null,
+  const tabs = TRADE_POST_TABS.map((tab) => ({
+    value: tab,
+    label: t(TRADE_POST_TAB_LABEL_KEYS[tab]),
+    count: counts ? (counts[tab] ?? null) : null,
   }));
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -236,7 +237,8 @@ export function TradePostsPage() {
       else firstFail ??= res;
     }
     if (target.targets.length > 1) {
-      setNotice(`${TRADE_POST_MODERATION_ACTION_LABELS[target.action]} ${done}건 처리${firstFail ? ` · ${target.targets.length - done}건 실패` : ""}`);
+      const doneText = t("admin_trade_posts_bulk_done", { action: t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[target.action]), n: done });
+      setNotice(firstFail ? `${doneText} · ${t("admin_trade_posts_bulk_failed", { n: target.targets.length - done })}` : doneText);
     }
     return firstFail ?? { ok: true as const };
   };
@@ -261,32 +263,32 @@ export function TradePostsPage() {
   );
 
   const filterBar = (
-    <CommunityFilterBar lq={barQuery} searchPlaceholder="제목·본문·글 번호" pending={loading}>
-      <CommunityFilterField label="유형">
-        <CommunitySelect value={tradeType} onChange={(v) => lq.setExtra("tradeType", v)} options={TRADE_TYPE_OPTIONS} />
+    <CommunityFilterBar lq={barQuery} searchPlaceholder={t("admin_trade_posts_search_ph")} pending={loading}>
+      <CommunityFilterField label={t("admin_trade_points_th_type")}>
+        <CommunitySelect value={tradeType} onChange={(v) => lq.setExtra("tradeType", v)} options={TRADE_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
       </CommunityFilterField>
-      <CommunityFilterField label="카테고리">
+      <CommunityFilterField label={t("admin_trade_audit_target_category")}>
         <CommunitySelect
           value={categoryId}
           onChange={(v) => lq.setExtra("categoryId", v)}
           options={[
-            { value: "", label: "전체" },
-            ...categories.map((c) => ({ value: c.id, label: c.active ? c.name : `${c.name} (비활성)` })),
+            { value: "", label: t("common_all") },
+            ...categories.map((c) => ({ value: c.id, label: c.active ? c.name : t("admin_trade_posts_category_inactive", { name: c.name }) })),
           ]}
         />
       </CommunityFilterField>
-      <CommunityFilterField label="지역">
+      <CommunityFilterField label={t("common_region")}>
         <CommunitySelect
           value={lguId}
           onChange={(v) => lq.setExtra("lguId", v)}
           options={[
-            { value: "", label: "전체" },
-            ...(lguId && !regions.some((r) => r.id === lguId) ? [{ value: lguId, label: regionName ?? "선택한 지역" }] : []),
+            { value: "", label: t("common_all") },
+            ...(lguId && !regions.some((r) => r.id === lguId) ? [{ value: lguId, label: regionName ?? t("admin_trade_posts_selected_region") }] : []),
             ...regions.map((r) => ({ value: r.id, label: `${r.name} (${formatAdminNumber(r.posts)})` })),
           ]}
         />
       </CommunityFilterField>
-      <CommunityFilterField label="가격 (₱)">
+      <CommunityFilterField label={t("admin_trade_posts_price_php")}>
         <span className="flex items-center gap-1">
           <input
             inputMode="numeric"
@@ -307,19 +309,19 @@ export function TradePostsPage() {
           />
         </span>
       </CommunityFilterField>
-      <CommunityFilterField label="정렬">
+      <CommunityFilterField label={t("common_sort")}>
         <CommunitySelect
           value={sort}
           onChange={(v) => lq.setSort(v)}
-          options={TRADE_POST_SORTS.map((s) => ({ value: s, label: TRADE_POST_SORT_LABELS[s] }))}
+          options={TRADE_POST_SORTS.map((s) => ({ value: s, label: t(TRADE_POST_SORT_LABEL_KEYS[s]) }))}
         />
       </CommunityFilterField>
       {sellerId ? (
-        <CommunityFilterField label="판매자">
+        <CommunityFilterField label={t("admin_trade_th_seller")}>
           <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-            {sellerLabel ?? "선택한 회원"}
+            {sellerLabel ?? t("admin_trade_audit_selected_member")}
             <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("sellerId", "")}>
-              해제
+              {t("admin_trade_filter_clear")}
             </AdminActionButton>
           </span>
         </CommunityFilterField>
@@ -333,10 +335,24 @@ export function TradePostsPage() {
       empty={rows.length === 0}
       lq={lq}
       onRetry={reload}
-      emptyMessage={EMPTY_TEXT[tab] ?? "해당 상태의 게시물이 없습니다."}
+      emptyMessage={t(EMPTY_TEXT[tab] ?? "admin_trade_posts_empty_status")}
     >
       <CommunityTable
-        head={["선택", "썸네일", "제목·가격", "판매자", "지역", "카테고리", "판매 단계", "노출", "신고", "채팅·찜", "등록", "수정", "조치"]}
+        head={[
+          t("admin_trade_posts_th_select"),
+          t("admin_trade_posts_th_thumb"),
+          t("admin_trade_posts_th_title_price"),
+          t("admin_trade_th_seller"),
+          t("common_region"),
+          t("admin_trade_audit_target_category"),
+          t("admin_trade_posts_th_stage"),
+          t("admin_trade_posts_th_visibility"),
+          t("common_report"),
+          t("admin_trade_posts_th_chats_favs"),
+          t("admin_trade_th_created"),
+          t("admin_trade_posts_th_updated"),
+          t("admin_trade_posts_th_actions"),
+        ]}
       >
         {rows.map((r) => (
           <tr
@@ -362,7 +378,7 @@ export function TradePostsPage() {
                 onClick={(e) => e.stopPropagation()}
                 className="line-clamp-2 font-medium text-sam-fg hover:underline"
               >
-                {r.title?.trim() || "제목 없음"}
+                {r.title?.trim() || t("admin_trade_posts_no_title")}
               </Link>
               <span className="mt-0.5 flex flex-wrap items-center gap-1 text-sam-muted">
                 {formatTradePrice(r.price, r.is_free_share)}
@@ -387,7 +403,7 @@ export function TradePostsPage() {
             </td>
             <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
               {(r.open_report_count ?? 0) > 0 ? (
-                <AdminToneBadge tone="danger">{r.open_report_count}건</AdminToneBadge>
+                <AdminToneBadge tone="danger">{t("admin_trade_count_items", { n: r.open_report_count ?? 0 })}</AdminToneBadge>
               ) : (
                 <span className="text-sam-muted">—</span>
               )}
@@ -406,7 +422,7 @@ export function TradePostsPage() {
               <span className="flex flex-wrap gap-1">
                 {allowedTradePostModerationActions(String(r.moderation_state ?? "")).map((a) => (
                   <AdminActionButton key={a} variant="ghost" size="sm" onClick={() => setSheet({ action: a, targets: [r] })}>
-                    {TRADE_POST_MODERATION_ACTION_LABELS[a]}
+                    {t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[a])}
                   </AdminActionButton>
                 ))}
               </span>
@@ -427,9 +443,9 @@ export function TradePostsPage() {
             onChange={() => setSelected(allOnPage ? new Set() : new Set(rows.map((r) => r.id)))}
             className="h-4 w-4"
           />
-          이 페이지 전체 선택
+          {t("admin_trade_posts_select_all_page")}
         </label>
-        <span className="text-sam-muted">{selectedRows.length}건 선택</span>
+        <span className="text-sam-muted">{t("admin_trade_posts_selected_count", { n: selectedRows.length })}</span>
         {/* 일괄 조치는 행을 선택했을 때만 */}
         {(selectedRows.length > 0 ? BULK_ACTIONS : []).map((b) => {
           const targets = selectedRows.filter((r) => r.moderation_state === b.from);
@@ -440,7 +456,7 @@ export function TradePostsPage() {
               disabled={targets.length === 0}
               onClick={() => setSheet({ action: b.action, targets })}
             >
-              {b.label} ({targets.length})
+              {t(b.labelKey)} ({targets.length})
             </AdminActionButton>
           );
         })}
@@ -451,10 +467,10 @@ export function TradePostsPage() {
   return (
     <CommunityListShell
       title={t("admin_trade_posts_title")}
-      description="중고·알바 거래글의 판매 단계와 노출 상태를 확인하고 조치합니다."
+      description={t("admin_trade_posts_desc")}
       actions={
         <AdminActionButton variant="secondary" onClick={reload} disabled={loading}>
-          {loading ? "불러오는 중…" : "새로고침"}
+          {loading ? t("common_loading") : t("admin_trade_dash_refresh")}
         </AdminActionButton>
       }
       tabs={<CommunityTabs tabs={tabs} value={tab} onChange={(v) => qs.set({ tab: v === "all" ? "" : v })} />}
@@ -465,20 +481,27 @@ export function TradePostsPage() {
       {body}
       {sheet ? (
         <CommunityActionSheet
-          title={`게시물 ${TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}${sheet.targets.length > 1 ? ` (${sheet.targets.length}건)` : ""}`}
+          title={
+            sheet.targets.length > 1
+              ? t("admin_trade_posts_sheet_title_n", { action: t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[sheet.action]), n: sheet.targets.length })
+              : t("admin_trade_posts_sheet_title", { action: t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[sheet.action]) })
+          }
           rows={[
             {
-              label: "대상",
+              label: t("admin_trade_audit_target"),
               value:
                 sheet.targets.length === 1
-                  ? sheet.targets[0].title?.trim() || "제목 없음"
-                  : `${sheet.targets[0].title?.trim() || "제목 없음"} 외 ${sheet.targets.length - 1}건`,
+                  ? sheet.targets[0].title?.trim() || t("admin_trade_posts_no_title")
+                  : t("admin_trade_posts_target_more", {
+                      title: sheet.targets[0].title?.trim() || t("admin_trade_posts_no_title"),
+                      n: sheet.targets.length - 1,
+                    }),
             },
           ]}
-          notice={sheet.action === "hide" || sheet.action === "delete" ? "판매자는 관리자 조치를 해제할 수 없습니다." : undefined}
-          reason={{ minLength: 2, placeholder: "사유 (2자 이상)" }}
+          notice={sheet.action === "hide" || sheet.action === "delete" ? t("admin_trade_posts_seller_cannot_undo") : undefined}
+          reason={{ minLength: 2, placeholder: t("admin_trade_posts_reason_ph") }}
           destructive={sheet.action === "hide" || sheet.action === "delete"}
-          confirmLabel={TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}
+          confirmLabel={t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[sheet.action])}
           onClose={() => {
             setSheet(null);
             reload();

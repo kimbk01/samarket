@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { allowsFullContent, allowsHiddenAttribution, RIGHTS_LABEL } from "@/lib/community-operator-import/rights";
@@ -97,12 +98,12 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         setEdit(d.edit);
         setPreview(d.preview);
       })
-      .catch((e) => alive && setMsg({ tone: "err", text: `원문을 가져오지 못했습니다: ${importErrorText(e)}` }))
+      .catch((e) => alive && setMsg({ tone: "err", text: tr("admin_community_import_editor_load_failed", { error: importErrorText(e) }) }))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, [row.sourceSite, row.sourceBoard, row.sourceArticleKey, reloadToken]);
+  }, [row.sourceSite, row.sourceBoard, row.sourceArticleKey, reloadToken, tr]);
 
   const images = useMemo(
     () =>
@@ -116,12 +117,12 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
   if (!data || !edit) {
     return (
       <div className="p-4 space-y-2">
-        <p className="text-xs text-sam-danger break-words">{msg?.text ?? "원문을 불러올 수 없습니다."}</p>
+        <p className="text-xs text-sam-danger break-words">{msg?.text ?? tr("admin_community_import_editor_cannot_load")}</p>
         <a className="text-xs underline" href={row.canonicalUrl} target="_blank" rel="noreferrer noopener">
-          원문 열기
+          {tr("admin_community_import_editor_open_original")}
         </a>
         <AdminActionButton variant="neutral" onClick={onClose}>
-          닫기
+          {tr("admin_community_import_editor_close")}
         </AdminActionButton>
       </div>
     );
@@ -134,7 +135,12 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
   const set = (patch: Partial<OperatorDraftEdit>) => setEdit({ ...edit, ...patch });
   const topic = topics.find((t) => t.id === edit.topicId);
   const postTopic = post ? topics.find((t) => t.slug === post.topicSlug) : undefined;
-  const POST_STATUS: Record<string, string> = { active: "공개 중", hidden: "숨김", deleted: "삭제됨" };
+  const POST_STATUS: Record<string, MessageKey> = {
+    active: "admin_community_import_editor_post_active",
+    hidden: "admin_community_import_editor_post_hidden",
+    deleted: "admin_community_import_editor_post_deleted",
+  };
+  const postStatusLabel = (s: string) => (POST_STATUS[s] ? tr(POST_STATUS[s]) : s);
 
   const save = async (action: "save" | "preview") => {
     setBusy(action);
@@ -143,7 +149,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       const r = await call<{ preview: PublishContent }>("/drafts", { body: { article: a, edit, action } });
       setPreview(r.preview);
       if (action === "save") {
-        setMsg({ tone: "ok", text: "임시저장했습니다." });
+        setMsg({ tone: "ok", text: tr("admin_community_import_editor_draft_saved") });
         onChanged();
       }
     } catch (e) {
@@ -160,11 +166,15 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
     const c = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: true,
-      title: published ? "게시물을 업데이트할까요?" : "DIBAY에 게시할까요?",
-      description: `주제: ${topic?.name ?? "-"} · 정책: ${POLICY_LABEL[preview?.policy ?? policyNow]} · 제목: ${preview?.title || edit.displayTitle}${
-        post && post.status !== "active" ? ` · 현재 상태 ${POST_STATUS[post.status] ?? post.status}(업데이트해도 상태는 바뀌지 않습니다)` : ""
+      title: published ? tr("admin_community_import_editor_confirm_update_title") : tr("admin_community_import_editor_confirm_publish_title"),
+      description: `${tr("admin_community_import_editor_confirm_desc", {
+        topic: topic?.name ?? "-",
+        policy: tr(POLICY_LABEL[preview?.policy ?? policyNow]),
+        title: preview?.title || edit.displayTitle,
+      })}${
+        post && post.status !== "active" ? ` · ${tr("admin_community_import_editor_confirm_desc_status", { status: postStatusLabel(post.status) })}` : ""
       }`,
-      confirmLabel: published ? "업데이트" : "게시",
+      confirmLabel: published ? tr("admin_community_import_editor_update_btn") : tr("admin_community_import_editor_publish_btn"),
     });
     if (!c.ok) return;
     setBusy("publish");
@@ -176,7 +186,11 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       const tName = topics.find((t) => t.slug === r.topicSlug)?.name ?? r.topicSlug;
       setMsg({
         tone: "ok",
-        text: `${r.mode === "update" ? "업데이트" : "게시"} 완료 · 주제 ${tName} · 이미지 ${r.imageCount}장${r.warnings.length ? ` · 경고: ${r.warnings.join(", ")}` : ""}`,
+        text: `${tr("admin_community_import_editor_publish_done", {
+          mode: r.mode === "update" ? tr("admin_community_import_editor_update_btn") : tr("admin_community_import_editor_publish_btn"),
+          topic: tName,
+          n: r.imageCount,
+        })}${r.warnings.length ? ` · ${tr("admin_community_import_editor_warnings", { list: r.warnings.join(", ") })}` : ""}`,
       });
       onChanged();
       setReloadToken((n) => n + 1);
@@ -196,11 +210,22 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
     const c = await confirmAdminAction({
       level: adminActionLevel(status === "deleted" ? "delete" : status === "hidden" ? "sanction" : "resume"),
       ko: true,
-      title: status === "deleted" ? "게시물을 삭제할까요?" : status === "hidden" ? "게시물을 숨길까요?" : "게시물을 다시 공개할까요?",
-      description: `${post.title ?? ""} — 커뮤니티 피드·상세에 ${
-        status === "active" ? "다시 보입니다." : "더 이상 보이지 않습니다. 수집함 기록과 출처 연결은 남습니다."
-      }`,
-      confirmLabel: status === "deleted" ? "삭제" : status === "hidden" ? "숨김" : "공개",
+      title:
+        status === "deleted"
+          ? tr("admin_community_import_editor_confirm_delete_title")
+          : status === "hidden"
+            ? tr("admin_community_import_editor_confirm_hide_title")
+            : tr("admin_community_import_editor_confirm_reopen_title"),
+      description: tr(
+        status === "active" ? "admin_community_import_editor_status_desc_visible" : "admin_community_import_editor_status_desc_hidden",
+        { title: post.title ?? "" },
+      ),
+      confirmLabel:
+        status === "deleted"
+          ? tr("admin_community_import_editor_delete_btn")
+          : status === "hidden"
+            ? tr("admin_community_import_editor_hide_btn")
+            : tr("admin_community_import_editor_reopen_btn"),
       destructive: status === "deleted",
       retypeValue: status === "deleted" ? postLabel : undefined,
     });
@@ -216,11 +241,11 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) throw new Error(j.error || `HTTP ${res.status}`);
-      setMsg({ tone: "ok", text: `게시물 상태: ${POST_STATUS[status]}` });
+      setMsg({ tone: "ok", text: tr("admin_community_import_editor_status_changed", { status: postStatusLabel(status) }) });
       onChanged();
       setReloadToken((n) => n + 1);
     } catch (e) {
-      setMsg({ tone: "err", text: `상태 변경 실패: ${importErrorText(e)}` });
+      setMsg({ tone: "err", text: tr("admin_community_import_editor_status_failed", { error: importErrorText(e) }) });
     } finally {
       setBusy(null);
     }
@@ -233,17 +258,17 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
     <div className="flex flex-col min-h-0 h-full">
       <div className="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-b border-sam-border">
         <AdminActionButton variant="neutral" onClick={onClose}>
-          ← 목록
+          {tr("admin_community_import_editor_back_list")}
         </AdminActionButton>
         <span className="text-xs text-sam-muted truncate">
           {data.source.displayName} · {data.board.displayName}
         </span>
-        <span className="rounded-full border border-sam-border px-1.5 text-[12px]">{STATUS_LABEL[data.inbox?.status ?? "new"]}</span>
+        <span className="rounded-full border border-sam-border px-1.5 text-[12px]">{tr(STATUS_LABEL[data.inbox?.status ?? "new"])}</span>
         {q ? <VerdictBadge v={q.verdict} /> : null}
         <span className="ml-auto flex gap-1">
           {(["compare", "source", "result"] as const).map((v) => (
             <AdminActionButton key={v} variant={view === v ? "secondary" : "quiet"} aria-pressed={view === v} onClick={() => setView(v)}>
-              {v === "compare" ? "비교" : v === "source" ? "원문" : "게시 결과"}
+              {v === "compare" ? tr("admin_community_import_editor_view_compare") : v === "source" ? tr("admin_community_import_editor_view_source") : tr("admin_community_import_editor_view_result")}
             </AdminActionButton>
           ))}
         </span>
@@ -251,8 +276,8 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
 
       {q && q.reasons.length ? (
         <div className="shrink-0 px-3 py-1.5 text-[12px] bg-sam-warning-soft text-sam-warning border-b border-sam-warning">
-          품질: {q.reasons.map((r) => data.qualityLabels[r] || r).join(" · ")}
-          {ex ? ` (본문 추출: ${ex.bodySource}, 원본 이미지 ${ex.sourceImageCount})` : ""}
+          {tr("admin_community_import_editor_quality", { reasons: q.reasons.map((r) => data.qualityLabels[r] || r).join(" · ") })}
+          {ex ? ` ${tr("admin_community_import_editor_extraction", { source: ex.bodySource, n: ex.sourceImageCount })}` : ""}
         </div>
       ) : null}
 
@@ -266,24 +291,24 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
           <span className="text-sam-muted">{tr("admin_community_import_editor_post_updated", { date: fmtDate(post.updatedAt) })}</span>
           <span className="ml-auto flex flex-wrap gap-1.5">
             <AdminActionLink variant="neutral" href={`/philife/${post.id}`} target="_blank" rel="noreferrer">
-              커뮤니티에서 보기
+              {tr("admin_community_import_editor_view_in_community")}
             </AdminActionLink>
             <AdminActionLink variant="neutral" href={`/admin/community/posts/${post.id}`}>
-              게시글 관리 화면
+              {tr("admin_community_import_editor_post_admin")}
             </AdminActionLink>
             {post.status === "active" ? (
               <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void setPostStatus("hidden")}>
-                숨김
+                {tr("admin_community_import_editor_hide")}
               </AdminActionButton>
             ) : (
               <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void setPostStatus("active")}>
-                다시 공개
+                {tr("admin_community_import_editor_restore")}
               </AdminActionButton>
             )}
             {post.status !== "deleted" ? (
               // 삭제 = 상태 변경(「다시 공개」로 복구 가능) — danger 아님
               <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void setPostStatus("deleted")}>
-                삭제
+                {tr("admin_community_import_editor_delete")}
               </AdminActionButton>
             ) : null}
           </span>
@@ -296,9 +321,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
             <div className="text-[12px] font-semibold text-sam-muted">{tr("admin_community_import_editor_original")}</div>
             <h3 className="text-base font-semibold break-words">{a.title}</h3>
             <div className="text-[12px] text-sam-muted">
-              {a.author || "작성자 없음"} · {fmtDate(a.sourcePublishedDate) || "날짜 없음"} ·{" "}
+              {a.author || tr("admin_community_import_no_author")} · {fmtDate(a.sourcePublishedDate) || tr("admin_community_import_no_date")} ·{" "}
               <a className="underline" href={a.canonicalUrl} target="_blank" rel="noreferrer noopener">
-                원문 열기
+                {tr("admin_community_import_editor_article_open_original")}
               </a>
             </div>
             <Blocks blocks={a.orderedContentBlocks} />
@@ -333,7 +358,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                 </select>
               </label>
               <label className="block text-xs text-sam-muted">
-                게시 정책
+                {tr("admin_community_import_editor_field_policy")}
                 <select
                   className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5"
                   value={policy}
@@ -341,18 +366,18 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                 >
                   {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                     <option key={p} value={p} disabled={p === "full" && !allowsFullContent(data.source.rights)}>
-                      {POLICY_LABEL[p]}
-                      {p === data.source.contentPolicy ? " · 출처 기본값" : ""}
+                      {tr(POLICY_LABEL[p])}
+                      {p === data.source.contentPolicy ? ` · ${tr("admin_community_import_editor_source_default")}` : ""}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="block text-xs text-sam-muted">
-                표시 작성자
+                {tr("admin_community_import_editor_field_display_author")}
                 <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.displayAuthor} onChange={(e) => set({ displayAuthor: e.target.value })} />
               </label>
               <label className="block text-xs text-sam-muted">
-                표시 날짜
+                {tr("admin_community_import_editor_field_display_date")}
                 <input
                   className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5 disabled:opacity-50"
                   value={edit.displayDate}
@@ -362,7 +387,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
               </label>
               <label className="flex items-center gap-1.5 text-xs text-sam-muted">
                 <input type="checkbox" checked={edit.dateMode === "publish"} onChange={(e) => set({ dateMode: e.target.checked ? "publish" : "original" })} />
-                원문 날짜 대신 DIBAY 게시 시각 표시
+                {tr("admin_community_import_editor_use_publish_time")}
               </label>
               <label className="flex items-center gap-1.5 text-xs text-sam-muted">
                 <input
@@ -371,27 +396,27 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
                   disabled={!allowsHiddenAttribution(data.source.rights)}
                   onChange={(e) => set({ showAttribution: e.target.checked })}
                 />
-                출처(사이트 이름·원문 링크) 표시
-                {!allowsHiddenAttribution(data.source.rights) ? " — 이 출처는 표시 의무" : ""}
+                {tr("admin_community_import_editor_show_attribution")}
+                {!allowsHiddenAttribution(data.source.rights) ? ` — ${tr("admin_community_import_editor_attribution_required")}` : ""}
               </label>
               <p className="col-span-2 text-[12px] text-sam-muted">
-                재게시 권한: {RIGHTS_LABEL[data.source.rights.rightsBasis]}
-                {data.preview.cappedByRights ? " · 권한이 없어 요약+링크로 게시됩니다" : ""}
+                {tr("admin_community_import_editor_rights", { rights: RIGHTS_LABEL[data.source.rights.rightsBasis] })}
+                {data.preview.cappedByRights ? ` · ${tr("admin_community_import_editor_capped_by_rights")}` : ""}
               </p>
             </div>
             {policy === "summary_link" ? (
               <label className="block text-xs text-sam-muted">
-                요약 (비우면 원문 요약·첫 문장 사용 — 원문에 없는 내용을 쓰지 마세요)
+                {tr("admin_community_import_editor_field_summary")}
                 <textarea className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5 min-h-[80px]" value={edit.summaryText ?? ""} onChange={(e) => set({ summaryText: e.target.value })} />
               </label>
             ) : null}
             <div className="grid grid-cols-2 gap-2">
               <label className="block text-xs text-sam-muted">
-                바꿀 문구
+                {tr("admin_community_import_editor_field_replace_from")}
                 <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.replaceFrom} onChange={(e) => set({ replaceFrom: e.target.value })} />
               </label>
               <label className="block text-xs text-sam-muted">
-                새 문구
+                {tr("admin_community_import_editor_field_replace_to")}
                 <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={edit.replaceTo} onChange={(e) => set({ replaceTo: e.target.value })} />
               </label>
             </div>
@@ -424,9 +449,9 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
             ) : null}
             <div className="rounded-ui-rect border border-sam-border p-2 space-y-2">
               <div className="flex items-center gap-2 text-[12px] text-sam-muted">
-                게시될 내용 ({POLICY_LABEL[preview?.policy ?? policy]})
+                {tr("admin_community_import_editor_preview_heading", { policy: tr(POLICY_LABEL[preview?.policy ?? policy]) })}
                 <AdminActionButton variant="neutral" className="ml-auto" disabled={!!busy} onClick={() => void save("preview")}>
-                  {busy === "preview" ? "계산 중…" : "미리보기 갱신"}
+                  {busy === "preview" ? tr("admin_community_import_editor_calculating") : tr("admin_community_import_editor_refresh_preview")}
                 </AdminActionButton>
               </div>
               {preview ? (
@@ -454,19 +479,19 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         {q?.verdict === "PARTIAL" ? (
           <label className="flex items-center gap-1 text-[12px] text-sam-muted">
             <input type="checkbox" checked={acceptPartial} onChange={(e) => setAcceptPartial(e.target.checked)} />
-            품질 「일부 수집」 확인함 — 게시 허용
+            {tr("admin_community_import_editor_accept_partial")}
           </label>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <AdminActionButton variant="secondary" disabled={!!busy} onClick={() => void save("save")}>
-            {busy === "save" ? "저장 중…" : "임시저장"}
+            {busy === "save" ? tr("admin_community_import_editor_saving") : tr("admin_community_import_editor_save_draft")}
           </AdminActionButton>
           <AdminActionButton
             variant="primary"
             disabled={!!busy || !topic || q?.verdict === "FAILED" || (q?.verdict === "PARTIAL" && !acceptPartial)}
             onClick={() => void publish()}
           >
-            {busy === "publish" ? "처리 중…" : published ? "게시물 업데이트" : "DIBAY에 게시"}
+            {busy === "publish" ? tr("admin_community_import_editor_processing") : published ? tr("admin_community_import_editor_update_post") : tr("admin_community_import_editor_publish_to_dibay")}
           </AdminActionButton>
           {!topic ? (
             <span className="text-[12px] text-sam-muted self-center">{tr("admin_community_import_editor_need_topic")}</span>
@@ -477,7 +502,7 @@ export function ImportEditorPanel({ row, topics, onClose, onChanged }: Props) {
         </div>
         {post ? (
           <p className="text-[12px] text-sam-muted">
-            「게시물 업데이트」는 이 화면의 내용으로 게시글을 덮어씁니다. 게시글 관리 화면에서 직접 고친 내용도 바뀝니다.
+            {tr("admin_community_import_editor_update_overwrites")}
           </p>
         ) : null}
       </div>

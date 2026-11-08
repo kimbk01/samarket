@@ -16,6 +16,7 @@ import {
   parseAdminTransactionReviewsListParams,
 } from "@/lib/admin-reviews/admin-transaction-reviews-list";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "JSON 본문 필요" }, { status: 400 });
+    return NextResponse.json({ error: await adminServerText("admin_api_json_body_needed") }, { status: 400 });
   }
   const reviewId = typeof body.reviewId === "string" ? body.reviewId.trim() : "";
 

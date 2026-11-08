@@ -24,6 +24,7 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminStatusLabel } from "@/lib/admin/status-labels/delivery-status-labels";
 import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Row = {
   id: string;
@@ -43,18 +44,18 @@ type Row = {
   created_at: string;
 };
 
-const REASON_LABELS: Record<string, [string, string]> = {
-  spam: ["스팸·광고", "Spam"],
-  fraud: ["사기 의심", "Suspected fraud"],
-  illegal: ["불법 상품·영업", "Illegal goods or business"],
-  harassment: ["욕설·괴롭힘", "Harassment"],
-  misleading: ["허위·과장 정보", "Misleading info"],
-  other: ["기타", "Other"],
+const REASON_LABELS: Record<string, MessageKey> = {
+  spam: "admin_stores_report_reason_spam",
+  fraud: "admin_stores_report_reason_fraud",
+  illegal: "admin_stores_report_reason_illegal",
+  harassment: "admin_stores_report_reason_harassment",
+  misleading: "admin_stores_report_reason_misleading",
+  other: "admin_stores_report_reason_other",
 };
 
 function reasonLabel(raw: string, ko: boolean): string {
   const hit = REASON_LABELS[String(raw ?? "").trim()];
-  return hit ? (ko ? hit[0] : hit[1]) : translateBy(ko ? "ko" : "en", "admin_stores_settlements_payout_method_other");
+  return hit ? translateBy(ko ? "ko" : "en", hit) : translateBy(ko ? "ko" : "en", "admin_stores_settlements_payout_method_other");
 }
 
 /** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */

@@ -14,6 +14,7 @@ import {
   normalizeChatAdminReason,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
   const { id: reportId } = await params;
   let body: { action?: string; note?: string; reason?: string };
@@ -41,7 +42,7 @@ export async function POST(
   const adminId = admin.actor.userId;
   const action = body.action?.trim();
   if (!reportId || !action) {
-    return NextResponse.json({ ok: false, error: "reportId, action 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_report_id_action_required") }, { status: 400 });
   }
   const reason = normalizeChatAdminReason(body.reason ?? body.note);
   if (!isChatAdminReasonValid(reason, CHAT_ADMIN_ACTION_REASON_MIN_LENGTH)) {
@@ -51,7 +52,7 @@ export async function POST(
   const sbAny = sb;
   const { data: report } = await sbAny.from("chat_reports").select("id, room_id, message_id, status").eq("id", reportId).maybeSingle();
   if (!report) {
-    return NextResponse.json({ ok: false, error: "신고를 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_report_not_found") }, { status: 404 });
   }
 
   const now = new Date().toISOString();

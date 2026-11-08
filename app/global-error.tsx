@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { isWebpackChunkLoadError, scheduleChunkReloadOncePerBuild } from "@/lib/next/import-with-chunk-retry";
 import { noteEntryFailure } from "@/lib/telemetry/entry-telemetry.client";
 import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
+import { getBrowserLanguage, type AppLanguageCode } from "@/lib/i18n/config";
+import { readDeviceLanguageChoice, readExplicitLanguageCookie } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -15,6 +18,11 @@ interface GlobalErrorProps {
  * 반드시 <html><body>를 포함해야 합니다 (레이아웃을 대체하기 때문).
  */
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
+  // 언어 Provider 밖(루트 레이아웃 대체) — 첫 화면은 이전과 같은 ko, 마운트 뒤 화면 언어 쿠키 → 기기 선택 → 기기 언어 순으로 고른다.
+  const [lang, setLang] = useState<AppLanguageCode>("ko");
+  useEffect(() => {
+    setLang(readExplicitLanguageCookie() ?? readDeviceLanguageChoice() ?? getBrowserLanguage());
+  }, []);
   useEffect(() => {
     console.error("[GlobalError]", error);
     noteEntryFailure("global_error");
@@ -27,7 +35,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   }, [error]);
 
   return (
-    <html lang="ko">
+    <html lang={lang}>
       <body
         style={{
           margin: 0,
@@ -51,7 +59,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               margin: 0,
             }}
           >
-            앱을 불러오는 중 문제가 발생했어요
+            {translate(lang, "app_error_global_title")}
           </p>
           <p
             style={{
@@ -60,7 +68,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               color: "#604C4C",
             }}
           >
-            잠시 후 다시 시도해 주세요.
+            {translate(lang, "app_error_subtitle")}
           </p>
           <button
             type="button"
@@ -77,7 +85,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               cursor: "pointer",
             }}
           >
-            다시 시도
+            {translate(lang, "common_retry")}
           </button>
         </div>
       </body>

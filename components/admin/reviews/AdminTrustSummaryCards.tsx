@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminTrustSummary } from "@/lib/types/admin-review";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { mannerRawToPercent } from "@/lib/trust/manner-battery";
@@ -9,20 +10,21 @@ interface AdminTrustSummaryCardsProps {
 }
 
 export function AdminTrustSummaryCards({ summary }: AdminTrustSummaryCardsProps) {
+  const { t } = useI18n();
   const items = [
-    { label: "후기 수", value: summary.reviewCount },
-    { label: "평균 평점", value: summary.averageRating.toFixed(1) },
+    { label: t("admin_reviews_trust_review_count"), value: summary.reviewCount },
+    { label: t("admin_reviews_trust_avg_rating"), value: summary.averageRating.toFixed(1) },
     {
-      label: "배터리",
+      label: t("admin_reviews_trust_battery"),
       value: `${mannerRawToPercent(summary.mannerScore)}%`,
     },
-    { label: "긍정", value: summary.positiveCount },
-    { label: "부정", value: summary.negativeCount },
-    { label: "숨김 후기", value: summary.hiddenReviewCount },
+    { label: t("admin_reviews_trust_positive"), value: summary.positiveCount },
+    { label: t("admin_reviews_trust_negative"), value: summary.negativeCount },
+    { label: t("admin_reviews_trust_hidden"), value: summary.hiddenReviewCount },
   ];
 
   return (
-    <AdminCard title={`신뢰도 요약: ${summary.nickname} (${summary.userId})`}>
+    <AdminCard title={t("admin_reviews_trust_summary_title", { nickname: summary.nickname, userId: summary.userId })}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {items.map(({ label, value }) => (
           <div key={label} className="rounded border border-sam-border-soft bg-sam-app p-3">

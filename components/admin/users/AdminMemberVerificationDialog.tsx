@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
 
 type PhoneStatus = "unverified" | "pending" | "verified" | "rejected";
@@ -42,6 +43,7 @@ export function AdminMemberVerificationDialog({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const { t } = useI18n();
   const [phoneValue, setPhoneValue] = useState(phone ?? "");
   const [statusValue, setStatusValue] = useState<PhoneStatus>(() =>
     normalizeStatus(phoneVerified, verificationStatus),
@@ -68,8 +70,8 @@ export function AdminMemberVerificationDialog({
 
   const targetLabel = useMemo(() => {
     const id = adminMemberPublicIdAt(publicId);
-    return id || "선택한 회원";
-  }, [publicId]);
+    return id || t("admin_users_member_verify_selected_member");
+  }, [publicId, t]);
 
   const patchPhone = async (): Promise<boolean> => {
     const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
@@ -81,7 +83,7 @@ export function AdminMemberVerificationDialog({
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !data.ok) {
       setErrorText(
-        data.error === "invalid_phone" ? "전화번호 형식을 확인해 주세요." : MEMBER_ADMIN_COPY.mutation_failed,
+        data.error === "invalid_phone" ? t("admin_users_member_verify_invalid_phone") : t(MEMBER_ADMIN_COPY_KEY.mutation_failed),
       );
       return false;
     }
@@ -95,7 +97,7 @@ export function AdminMemberVerificationDialog({
       const ok = await patchPhone();
       if (ok) onSuccess?.();
     } catch {
-      setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
+      setErrorText(t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
     } finally {
       setPending(false);
     }
@@ -104,7 +106,7 @@ export function AdminMemberVerificationDialog({
   const runVerifyAction = async (action: "approve" | "reset" | "set_status") => {
     setErrorText(null);
     if ((action === "approve" || (action === "set_status" && statusValue === "verified")) && !phoneValue.trim()) {
-      setErrorText(MEMBER_ADMIN_COPY.verify_no_phone_for_approve);
+      setErrorText(t(MEMBER_ADMIN_COPY_KEY.verify_no_phone_for_approve));
       setConfirm(null);
       return;
     }
@@ -131,11 +133,11 @@ export function AdminMemberVerificationDialog({
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
         if (res.status === 401 || res.status === 403) {
-          setErrorText("이 작업을 수행할 권한이 없습니다.");
+          setErrorText(t("admin_users_member_no_permission"));
         } else if (data.error === "phone_required") {
-          setErrorText(MEMBER_ADMIN_COPY.verify_no_phone_for_approve);
+          setErrorText(t(MEMBER_ADMIN_COPY_KEY.verify_no_phone_for_approve));
         } else {
-          setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
+          setErrorText(t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
         }
         setConfirm(null);
         return;
@@ -144,7 +146,7 @@ export function AdminMemberVerificationDialog({
       onSuccess?.();
       onClose();
     } catch {
-      setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
+      setErrorText(t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
       setConfirm(null);
     } finally {
       setPending(false);
@@ -156,16 +158,19 @@ export function AdminMemberVerificationDialog({
   if (confirm) {
     const title =
       confirm === "approve"
-        ? MEMBER_ADMIN_COPY.verify_approve_confirm_title
+        ? t(MEMBER_ADMIN_COPY_KEY.verify_approve_confirm_title)
         : confirm === "reset"
-          ? MEMBER_ADMIN_COPY.verify_reset_confirm_title
-          : "전화 인증 상태를 변경할까요?";
+          ? t(MEMBER_ADMIN_COPY_KEY.verify_reset_confirm_title)
+          : t("admin_users_member_verify_set_status_confirm_title");
     const body =
       confirm === "approve"
-        ? `${targetLabel} — ${MEMBER_ADMIN_COPY.verify_approve_confirm_body}`
+        ? `${targetLabel} — ${t(MEMBER_ADMIN_COPY_KEY.verify_approve_confirm_body)}`
         : confirm === "reset"
-          ? `${targetLabel} — ${MEMBER_ADMIN_COPY.verify_reset_confirm_body}`
-          : `${targetLabel} — 상태를 「${STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue}」로 저장합니다.`;
+          ? `${targetLabel} — ${t(MEMBER_ADMIN_COPY_KEY.verify_reset_confirm_body)}`
+          : t("admin_users_member_verify_set_status_confirm_body", {
+              target: targetLabel,
+              status: STATUS_OPTIONS.find((o) => o.value === statusValue)?.labelKo ?? statusValue,
+            });
     return (
       <MemberAdminDialog
         open
@@ -177,10 +182,10 @@ export function AdminMemberVerificationDialog({
         errorText={errorText}
         primaryLabel={
           confirm === "approve"
-            ? MEMBER_ADMIN_COPY.verify_approve
+            ? t(MEMBER_ADMIN_COPY_KEY.verify_approve)
             : confirm === "reset"
-              ? MEMBER_ADMIN_COPY.verify_reset
-              : "상태 저장"
+              ? t(MEMBER_ADMIN_COPY_KEY.verify_reset)
+              : t("admin_users_member_verify_save_status")
         }
         onCancel={() => setConfirm(null)}
         onPrimary={() => void runVerifyAction(confirm)}
@@ -197,12 +202,12 @@ export function AdminMemberVerificationDialog({
   return (
     <MemberAdminDialog
       open={open}
-      title={MEMBER_ADMIN_COPY.verify_manage_title}
+      title={t(MEMBER_ADMIN_COPY_KEY.verify_manage_title)}
       size="standard"
       dirty={phoneDirty || statusDirty}
       pending={pending}
       errorText={errorText}
-      primaryLabel={phoneDirty && !statusDirty ? MEMBER_ADMIN_COPY.verify_save_phone : statusDirty ? "상태 저장" : "닫기"}
+      primaryLabel={phoneDirty && !statusDirty ? t(MEMBER_ADMIN_COPY_KEY.verify_save_phone) : statusDirty ? t("admin_users_member_verify_save_status") : t("admin_users_member_verify_close")}
       primaryDisabled={false}
       onCancel={onClose}
       onPrimary={() => {
@@ -216,7 +221,7 @@ export function AdminMemberVerificationDialog({
     >
       <div className="space-y-4" data-member-verification-dialog="1" data-member-screen="S15">
         <label className="block text-[13px]">
-          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.verify_phone_label}</span>
+          <span className="mb-1 block text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.verify_phone_label)}</span>
           <input
             className="w-full rounded-md border border-sam-border px-3 py-2"
             value={phoneValue}
@@ -225,7 +230,7 @@ export function AdminMemberVerificationDialog({
           />
         </label>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.verify_status_label}</span>
+          <span className="mb-1 block text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.verify_status_label)}</span>
           <select
             className="w-full rounded-md border border-sam-border px-3 py-2"
             value={statusValue}
@@ -248,7 +253,7 @@ export function AdminMemberVerificationDialog({
               disabled={pending}
               onClick={() => setConfirm("approve")}
             >
-              {MEMBER_ADMIN_COPY.verify_approve}
+              {t(MEMBER_ADMIN_COPY_KEY.verify_approve)}
             </AdminActionButton>
           ) : null}
           {canReset ? (
@@ -259,7 +264,7 @@ export function AdminMemberVerificationDialog({
               disabled={pending}
               onClick={() => setConfirm("reset")}
             >
-              {MEMBER_ADMIN_COPY.verify_reset}
+              {t(MEMBER_ADMIN_COPY_KEY.verify_reset)}
             </AdminActionButton>
           ) : null}
         </div>

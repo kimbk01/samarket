@@ -88,7 +88,7 @@ function ActionCard({
         )}
         {item.contextHref ? (
           <AdminActionLink href={item.contextHref} variant="secondary">
-            {ko ? item.contextLabelKo || "관련 기록" : item.contextLabelEn || "Related"}
+            {(ko ? item.contextLabelKo : item.contextLabelEn) || t("admin_support_related_record")}
           </AdminActionLink>
         ) : null}
         {item.statementHref ? (

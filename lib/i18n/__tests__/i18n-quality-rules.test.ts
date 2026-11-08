@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   addFileRuleCounts,
   areaFromUsage,
+  countAdminHangulLiterals,
+  countJsxTextKorean,
   countBoolLangTernary,
   countHardcodedKorean,
   collectKeyRuleFindings,
@@ -172,5 +174,18 @@ describe("i18n-quality 규칙", () => {
     expect(countHardcodedKorean('<span>마지막 갱신</span>\n// <p>주석</p>\n<input placeholder="검색" />')).toBe(2);
     expect(countHardcodedKorean('toast.error("실패했습니다")')).toBe(1);
     expect(countHardcodedKorean('<span>{t("key")}</span>')).toBe(0);
+  });
+
+  it("감사 L25 — 어드민 한국어 문자열(짝 표·주석·로그 제외)", () => {
+    expect(countAdminHangulLiterals('const a = { label: "회원 목록" };')).toBe(1);
+    expect(countAdminHangulLiterals('const b = { ko: "회원", en: "Member" }; const c = { labelKo: "저장" };')).toBe(0);
+    expect(countAdminHangulLiterals('// "주석"\nconsole.warn("로그");\nthrow new Error("오류");')).toBe(0);
+    expect(countAdminHangulLiterals('<option value="a">{"전체"}</option>')).toBe(1);
+  });
+
+  it("L25 후속 — 여러 줄 JSX 한국어 글자", () => {
+    expect(countJsxTextKorean("<th>\n  선호 지역\n</th>")).toBe(1);
+    expect(countJsxTextKorean("<span>\n  {t(\"k\")}\n</span>\n// 주석 한국어")).toBe(0);
+    expect(countJsxTextKorean("<p className=\"x\">마지막 갱신\n  </p>")).toBe(1);
   });
 });

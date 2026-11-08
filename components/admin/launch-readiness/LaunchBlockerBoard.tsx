@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import {
   getBlockedReadinessItems,
@@ -11,6 +12,7 @@ import Link from "next/link";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 export function LaunchBlockerBoard() {
+  const { t, language } = useI18n();
   const blocked = useMemo(() => getBlockedReadinessItems(), []);
   const logsByItem = useMemo(() => {
     const map: Record<string, ReturnType<typeof getLaunchBlockerLogs>> = {};
@@ -22,14 +24,14 @@ export function LaunchBlockerBoard() {
 
   if (blocked.length === 0) {
     return (
-      <AdminEmptyState ko message={"차단(blocker) 항목이 없습니다."} />
+      <AdminEmptyState ko={language !== "en"} message={t("admin_launch_ready_no_blockers")} />
     );
   }
 
   return (
     <div className="space-y-4">
       <p className="sam-text-body-secondary text-sam-muted">
-        blockerReason이 있는 항목만 노출됩니다.
+        {t("admin_launch_ready_blocker_only_note")}
       </p>
       <div className="space-y-4">
         {blocked.map((item) => (
@@ -49,13 +51,13 @@ export function LaunchBlockerBoard() {
             </p>
             {(item.ownerAdminNickname || item.dueDate) && (
               <p className="mt-2 sam-text-helper text-sam-muted">
-                담당 {item.ownerAdminNickname ?? "-"}
-                {item.dueDate && ` · 기한 ${item.dueDate}`}
+                {t("admin_launch_ready_owner", { name: item.ownerAdminNickname ?? "-" })}
+                {item.dueDate && t("admin_launch_ready_due_suffix", { date: item.dueDate })}
               </p>
             )}
             {item.linkedType && item.linkedId && (
               <p className="mt-1 sam-text-helper text-sam-muted">
-                연결: {item.linkedType} ·{" "}
+                {t("admin_launch_ready_linked", { type: item.linkedType })}{" "}
                 {item.linkedType === "action_item" && (
                   <Link
                     href="/admin/ops-board"
@@ -70,7 +72,7 @@ export function LaunchBlockerBoard() {
             {logsByItem[item.id]?.length > 0 && (
               <div className="mt-3 border-t border-sam-danger pt-3">
                 <p className="sam-text-helper font-medium text-sam-muted">
-                  Blocker 로그
+                  {t("admin_launch_ready_blocker_log")}
                 </p>
                 <ul className="mt-1 space-y-1 sam-text-helper text-sam-muted">
                   {logsByItem[item.id].map((log) => (

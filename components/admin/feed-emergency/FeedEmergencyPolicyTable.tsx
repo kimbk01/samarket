@@ -27,11 +27,11 @@ import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 
-const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
-  previous_live_version: "이전 live 버전",
-  safe_default_feed: "안전 기본 피드",
-  local_latest_only: "지역 최신만",
-  static_slots_only: "정적 슬롯만",
+const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, MessageKey> = {
+  previous_live_version: "admin_feed_emergency_mode_previous_live",
+  safe_default_feed: "admin_feed_emergency_mode_safe_default",
+  local_latest_only: "admin_feed_emergency_mode_local_latest",
+  static_slots_only: "admin_feed_emergency_mode_static_slots",
 };
 
 export function FeedEmergencyPolicyTable() {
@@ -53,7 +53,7 @@ export function FeedEmergencyPolicyTable() {
     if (saving) return;
     setSaving(true);
     const r = await commitFeedEmergencyChange(mutate, { reason }).finally(() => setSaving(false));
-    setResult(r.ok ? { ok: true, message: "저장했습니다. 앱 피드에 반영됩니다." } : { ok: false, code: r.error ?? "save_failed" });
+    setResult(r.ok ? { ok: true, message: t("admin_feed_emergency_saved_applied") } : { ok: false, code: r.error ?? "save_failed" });
     setRefresh((x) => x + 1);
   };
 
@@ -102,7 +102,7 @@ export function FeedEmergencyPolicyTable() {
 
   if (policies.length === 0) {
     return (
-      <AdminEmptyState ko message="정책이 없습니다." />
+      <AdminEmptyState ko message={t("admin_feed_emergency_no_policies")} />
     );
   }
 
@@ -111,7 +111,7 @@ export function FeedEmergencyPolicyTable() {
       <AdminResultBanner ko result={result} onClose={() => setResult(null)} />
       {writeAction.reason ? (
         <p className="sam-text-body-secondary text-sam-muted" data-admin-action-denied="1">
-          변경 불가: {writeAction.reason}
+          {t("admin_feed_emergency_policy_write_denied", { reason: writeAction.reason })}
         </p>
       ) : null}
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -122,19 +122,19 @@ export function FeedEmergencyPolicyTable() {
               surface
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              킬스위치
+              {t("admin_feed_emergency_policy_col_kill_switch")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               Fallback
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              Fallback 모드
+              {t("admin_feed_emergency_policy_col_fallback_mode")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              긴급 공지
+              {t("admin_feed_emergency_policy_col_notice")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              자동 비활성(placeholder)
+              {t("admin_feed_emergency_policy_col_auto_disable")}
             </th>
           </tr>
         </thead>
@@ -152,7 +152,7 @@ export function FeedEmergencyPolicyTable() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <AdminToneBadge tone={p.killSwitchEnabled ? "danger" : "neutral"}>
-                      {p.killSwitchEnabled ? "차단 중" : "정상"}
+                      {p.killSwitchEnabled ? t("admin_feed_emergency_blocking_badge") : t("admin_feed_emergency_normal_badge")}
                     </AdminToneBadge>
                     <AdminActionButton
                       size="sm"
@@ -160,7 +160,7 @@ export function FeedEmergencyPolicyTable() {
                       disabled={!writeAction.allowed || saving}
                       onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
                     >
-                      {p.killSwitchEnabled ? "차단 해제" : "긴급 차단"}
+                      {p.killSwitchEnabled ? t("admin_feed_emergency_unblock_button") : t("admin_feed_emergency_block_button")}
                     </AdminActionButton>
                     {mode === "kill_switch" && (
                       <span className="sam-text-helper text-sam-warning">{t("admin_feed_emergency_active_2")}</span>
@@ -170,7 +170,7 @@ export function FeedEmergencyPolicyTable() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <AdminToneBadge tone={mode === "fallback" ? "warning" : "neutral"}>
-                      {mode === "fallback" ? "폴백 중" : "정상"}
+                      {mode === "fallback" ? t("admin_feed_emergency_fallback_on_badge") : t("admin_feed_emergency_normal_badge")}
                     </AdminToneBadge>
                     <AdminActionButton
                       size="sm"
@@ -178,7 +178,7 @@ export function FeedEmergencyPolicyTable() {
                       disabled={!writeAction.allowed || saving}
                       onClick={() => void handleFallback(p.surface, mode !== "fallback")}
                     >
-                      {mode === "fallback" ? "폴백 해제" : "폴백 전환"}
+                      {mode === "fallback" ? t("admin_feed_emergency_fallback_off_button") : t("admin_feed_emergency_fallback_on_button")}
                     </AdminActionButton>
                   </div>
                 </td>
@@ -194,7 +194,7 @@ export function FeedEmergencyPolicyTable() {
                     {(Object.keys(FALLBACK_MODE_LABELS) as FeedFallbackMode[]).map(
                       (m) => (
                         <option key={m} value={m}>
-                          {FALLBACK_MODE_LABELS[m]}
+                          {t(FALLBACK_MODE_LABELS[m])}
                         </option>
                       )
                     )}

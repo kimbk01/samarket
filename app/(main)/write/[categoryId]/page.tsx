@@ -87,7 +87,7 @@ export default function WriteByCategoryPage() {
   if (rawId === "exchang") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-        이동 중…
+        {t("write_redirecting")}
       </div>
     );
   }
@@ -95,7 +95,7 @@ export default function WriteByCategoryPage() {
   if (status === "loading" || status === "redirecting") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-        {status === "redirecting" ? t("ui_write_auth_checking") : "불러오는 중…"}
+        {status === "redirecting" ? t("ui_write_auth_checking") : t("common_loading")}
       </div>
     );
   }
@@ -120,7 +120,7 @@ export default function WriteByCategoryPage() {
           onClick={() => router.push(getCategoryHref(category))}
           className="mt-4 sam-text-body text-signature"
         >
-          카테고리로 돌아가기
+          {t("ui_write_back_to_category")}
         </button>
       </div>
     );
@@ -163,7 +163,7 @@ export default function WriteByCategoryPage() {
     default:
       return (
         <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-          지원하지 않는 카테고리 타입입니다.
+          {t("ui_write_unsupported_type")}
         </div>
       );
   }

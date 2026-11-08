@@ -6,6 +6,7 @@
  * URL: type · userId · from/to(PHT) · (호환) period · page · size
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { formatAdminPointBucketLine, type AdminPointBucketSums } from "@/lib/admin/points/admin-point-bucket-line";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
@@ -66,16 +67,17 @@ type PointsResponse = {
   rows?: LedgerRow[];
 };
 
-function actorLabel(r: LedgerRow): string {
+function actorLabel(r: LedgerRow, t: (key: MessageKey) => string): string {
   if (r.actorNickname) return r.actorNickname;
-  if (r.actorType === "admin" || r.actorId) return "관리자";
-  if (r.actorType === "user") return "회원";
-  return "시스템";
+  if (r.actorType === "admin" || r.actorId) return t("admin_community_ptpage_actor_admin");
+  if (r.actorType === "user") return t("admin_community_ptpage_actor_member");
+  return t("admin_community_ptpage_actor_system");
 }
 
 export function AdminCommunityPointsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const q = useCommunityListQuery({ extras: POINT_EXTRAS });
+  const typeOptions = COMMUNITY_POINT_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }));
   /** 쓰기(포인트 지급/회수) — 접근표 action perm("point"). 서버 가드는 그대로. */
   const action = useAdminRouteAction("/admin/community/points");
   const [adjustOpen, setAdjustOpen] = useState(false);
@@ -91,7 +93,7 @@ export function AdminCommunityPointsPage() {
   return (
     <CommunityListShell
       title={t("admin_community_ptpage_title")}
-      description="커뮤니티 보상·회수·상위노출 차감과 환급, 관리자 지급·회수 내역을 확인합니다. 포인트는 전체 서비스 공통입니다."
+      description={t("admin_community_ptpage_desc")}
       actions={
         <AdminActionButton
           variant="secondary"
@@ -101,26 +103,30 @@ export function AdminCommunityPointsPage() {
             if (action.allowed) setAdjustOpen(true);
           }}
         >
-          포인트 지급/회수
+          {t("admin_community_points_grant_revoke")}
         </AdminActionButton>
       }
       banner={
         <>
           {!action.allowed && action.reason ? (
             <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-              {`포인트 지급/회수 버튼 비활성: ${action.reason}`}
+              {t("admin_community_ptpage_adjust_disabled", { reason: action.reason })}
             </p>
           ) : null}
           {state.status === "ok" ? (
             <div className="space-y-1">
               <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg">
                 {sums
-                  ? `조건 합계: ${formatAdminNumber(sums.count)}건 · 들어온 포인트 +${formatAdminNumber(sums.amountIn)} P · 나간 포인트 -${formatAdminNumber(Math.abs(sums.amountOut))} P`
-                  : "조건 합계: 확인 불가"}
+                  ? t("admin_community_ptpage_sums", {
+                      count: formatAdminNumber(sums.count),
+                      in: formatAdminNumber(sums.amountIn),
+                      out: formatAdminNumber(Math.abs(sums.amountOut)),
+                    })
+                  : t("admin_community_ptpage_sums_unavailable")}
               </p>
               {state.data.buckets ? (
                 <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg" data-admin-point-buckets="1">
-                  {`칸별 합계: ${formatAdminPointBucketLine(state.data.buckets, formatAdminNumber)}`}
+                  {t("admin_community_ptpage_buckets", { line: formatAdminPointBucketLine(state.data.buckets, formatAdminNumber, language !== "en") })}
                 </p>
               ) : null}
               {state.data.promoOrderIdCapped ? (
@@ -132,15 +138,15 @@ export function AdminCommunityPointsPage() {
       }
       filterBar={
         <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
-          <CommunityFilterField label="유형">
-            <CommunitySelect value={type} onChange={(v) => q.setExtra("type", v)} options={COMMUNITY_POINT_TYPE_OPTIONS} />
+          <CommunityFilterField label={t("admin_community_ptpage_filter_type")}>
+            <CommunitySelect value={type} onChange={(v) => q.setExtra("type", v)} options={typeOptions} />
           </CommunityFilterField>
           {userId ? (
-            <CommunityFilterField label="회원">
+            <CommunityFilterField label={t("admin_community_ptpage_filter_member")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {memberName || "선택한 회원"}
+                {memberName || t("admin_community_ptpage_selected_member")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("userId", "")}>
-                  회원 필터 해제
+                  {t("admin_community_points_clear_member_filter")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -154,10 +160,18 @@ export function AdminCommunityPointsPage() {
         empty={rows.length === 0}
         lq={q}
         onRetry={reload}
-        emptyMessage="포인트 내역이 없습니다."
-        filteredEmptyMessage="조건에 맞는 포인트 내역이 없습니다."
+        emptyMessage={t("admin_community_ptpage_empty")}
+        filteredEmptyMessage={t("admin_community_ptpage_filtered_empty")}
       >
-        <CommunityTable head={["시각", "회원", "유형", "포인트", "잔액", "내용", "처리자"]}>
+        <CommunityTable head={[
+          t("admin_community_ptpage_col_time"),
+          t("admin_community_ptpage_col_member"),
+          t("admin_community_ptpage_col_type"),
+          t("admin_community_ptpage_col_points"),
+          t("admin_community_ptpage_col_balance"),
+          t("admin_community_ptpage_col_detail"),
+          t("admin_community_ptpage_col_actor"),
+        ]}>
           {rows.map((r) => {
             const amt = r.amount ?? 0;
             return (
@@ -172,7 +186,7 @@ export function AdminCommunityPointsPage() {
                         href={communityDetailHref(`/admin/community/members/${encodeURIComponent(r.userId)}`, q.selfHref)}
                         className="font-medium text-sam-info hover:underline"
                       >
-                        {r.userNickname?.trim() || "이름 없음"}
+                        {r.userNickname?.trim() || t("admin_community_ptpage_no_name")}
                       </Link>
                       {!userId ? (
                         <AdminActionButton
@@ -181,7 +195,7 @@ export function AdminCommunityPointsPage() {
                           className="h-auto! justify-start! px-0! text-left"
                           onClick={() => q.setExtra("userId", r.userId ?? "")}
                         >
-                          이 회원만 보기
+                          {t("admin_community_points_only_this_member")}
                         </AdminActionButton>
                       ) : null}
                     </span>
@@ -189,7 +203,7 @@ export function AdminCommunityPointsPage() {
                     "—"
                   )}
                 </td>
-                <td className={COMMUNITY_TD}>{communityPointTypeLabel(r.relatedType, r.entryType)}</td>
+                <td className={COMMUNITY_TD}>{communityPointTypeLabel(r.relatedType, r.entryType, language)}</td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap font-semibold ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                   {amt > 0 ? "+" : ""}
                   {formatAdminNumber(amt)} P
@@ -204,7 +218,7 @@ export function AdminCommunityPointsPage() {
                     </div>
                   </AdminTechDetails>
                 </td>
-                <td className={COMMUNITY_TD}>{actorLabel(r)}</td>
+                <td className={COMMUNITY_TD}>{actorLabel(r, t)}</td>
               </tr>
             );
           })}

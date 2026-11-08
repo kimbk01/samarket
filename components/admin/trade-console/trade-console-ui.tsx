@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
@@ -8,13 +10,13 @@ import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 
 export type ListingStatusTone = "active" | "sold" | "hidden" | "deleted" | "reserved" | "blinded";
 
-const STATUS_LABEL: Record<ListingStatusTone, string> = {
-  active: "판매중",
-  sold: "판매완료",
-  hidden: "숨김",
-  deleted: "삭제",
-  reserved: "예약중",
-  blinded: "블라인드",
+const STATUS_LABEL: Record<ListingStatusTone, MessageKey> = {
+  active: "admin_trade_console_status_active",
+  sold: "admin_trade_console_status_sold",
+  hidden: "admin_trade_console_status_hidden",
+  deleted: "admin_trade_console_status_deleted",
+  reserved: "admin_trade_console_status_reserved",
+  blinded: "admin_trade_console_status_blinded",
 };
 
 const STATUS_CLASS: Record<ListingStatusTone, string> = {
@@ -27,30 +29,33 @@ const STATUS_CLASS: Record<ListingStatusTone, string> = {
 };
 
 export function TradeStatusBadge({ status }: { status: string }) {
+  const { t } = useI18n();
   const tone = (STATUS_LABEL[status as ListingStatusTone] ? status : "active") as ListingStatusTone;
   return (
     <span
       className={`inline-flex items-center rounded border px-1.5 py-0.5 sam-text-xxs font-medium ${STATUS_CLASS[tone]}`}
     >
-      {STATUS_LABEL[tone] ?? status}
+      {STATUS_LABEL[tone] ? t(STATUS_LABEL[tone]) : status}
     </span>
   );
 }
 
 export function TradePromoBadge({ active }: { active: boolean }) {
+  const { t } = useI18n();
   if (!active) return <span className="sam-text-xxs text-sam-muted">—</span>;
   return (
     <span className="inline-flex items-center rounded border border-sam-primary-border bg-sam-primary-soft px-1.5 py-0.5 sam-text-xxs font-medium text-sam-primary">
-      상위노출 중
+      {t("admin_trade_console_promoted_badge")}
     </span>
   );
 }
 
 export function DisconnectedValue({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <span className="inline-flex flex-col">
       <span className="font-semibold tabular-nums text-sam-muted">—</span>
-      <span className="sam-text-xxs text-sam-muted">{label ?? "집계 미연결"}</span>
+      <span className="sam-text-xxs text-sam-muted">{label ?? t("admin_trade_console_metric_not_connected")}</span>
     </span>
   );
 }

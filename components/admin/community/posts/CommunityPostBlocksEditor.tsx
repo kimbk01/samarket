@@ -5,25 +5,27 @@
  * 이미지 블록은 설명만 고치거나 블록째 뺄 수 있다. 서버가 저장 전에 다시 정리(sanitize)한다.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
 
-const BLOCK_LABEL: Record<ImportedContentBlock["t"], string> = {
-  p: "문단",
-  h: "소제목",
-  ul: "목록",
-  ol: "번호 목록",
-  quote: "인용",
-  table: "표",
-  img: "이미지",
-  link: "링크",
+const BLOCK_LABEL: Record<ImportedContentBlock["t"], MessageKey> = {
+  p: "admin_community_block_p",
+  h: "admin_community_block_h",
+  ul: "admin_community_block_ul",
+  ol: "admin_community_block_ol",
+  quote: "admin_community_block_quote",
+  table: "admin_community_block_table",
+  img: "admin_community_block_img",
+  link: "admin_community_block_link",
 };
 
 const INPUT =
   "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg outline-none focus:border-sam-primary disabled:opacity-60";
 
-/** 블록 → 비교·미리보기용 글자 */
-export function communityBlocksToText(blocks: unknown): string {
+/** 블록 → 비교·미리보기용 글자. `lang` 생략 시 한국어. */
+export function communityBlocksToText(blocks: unknown, lang: string = "ko"): string {
   if (!Array.isArray(blocks)) return "";
   return (blocks as ImportedContentBlock[])
     .map((b) => {
@@ -38,9 +40,11 @@ export function communityBlocksToText(blocks: unknown): string {
         case "table":
           return b.rows.map((r) => r.join(" | ")).join("\n");
         case "img":
-          return `[이미지${b.caption ? `: ${b.caption}` : ""}]`;
+          return b.caption
+            ? translateBy(lang, "admin_community_block_img_caption_text", { caption: b.caption })
+            : translateBy(lang, "admin_community_block_img_text");
         case "link":
-          return `[링크: ${b.text}]`;
+          return translateBy(lang, "admin_community_block_link_text", { text: b.text });
         default:
           return "";
       }
@@ -76,10 +80,10 @@ export function CommunityPostBlocksEditor({
         <li key={i} className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-2">
           <div className="mb-1 flex items-center justify-between gap-2 text-[12px] text-sam-muted">
             <span>
-              {i + 1}. {BLOCK_LABEL[b.t] ?? "블록"}
+              {i + 1}. {BLOCK_LABEL[b.t] ? t(BLOCK_LABEL[b.t]) : t("admin_community_block_fallback")}
             </span>
             <AdminActionButton variant="ghost" size="sm" disabled={disabled} onClick={() => update(i, null)}>
-              블록 빼기
+              {t("admin_community_blocks_remove")}
             </AdminActionButton>
           </div>
           {b.t === "p" || b.t === "quote" ? (
@@ -130,7 +134,7 @@ export function CommunityPostBlocksEditor({
             </div>
           ) : b.t === "table" ? (
             <p className="text-[12px] text-sam-muted">
-              표 {b.rows.length}줄 — 표 내용은 여기서 고칠 수 없습니다. 필요 없으면 블록을 빼세요.
+              {t("admin_community_blocks_table_note", { n: b.rows.length })}
             </p>
           ) : null}
         </li>

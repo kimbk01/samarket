@@ -10,6 +10,7 @@
  */
 import { allowedOrderTransitionsForActor } from "@/lib/stores/order-status-transitions";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate } from "@/lib/i18n/messages";
 
 export type AdminStoreOrderInterventionAction =
   | "cancel_request_approve"
@@ -71,8 +72,8 @@ export const ADMIN_STORE_ORDER_INTERVENTION_LABEL: Record<
    * store refunded the customer. No platform money moves.
    */
   refund_approve: { ...catalogPair("admin_do_refund_modal_approve_title"), confirmKo:
-      "고객 결제는 매장에서 직접 처리, 플랫폼 자금 이동 없음. 매장이 고객에게 환불한 사실을 기록하고 주문을 환불 완료로 바꾸며 상품권·재고를 복원합니다. 수수료는 수수료 검토로 넘어갑니다.", confirmEn:
-      "The customer pays the store directly — no platform money moves. This records that the store refunded the customer, marks the order refunded and restores gift/stock. The fee goes to commission review.", destructive: true },
+      translate("ko", "admin_store_order_intervention_refund_approve_confirm"), confirmEn:
+      translate("en", "admin_store_order_intervention_refund_approve_confirm"), destructive: true },
   refund_reject: { ...catalogPair("admin_store_order_intervention_refund_reject"), confirmKo: "환불 요청 직전 상태(서버 기록 기준)로 되돌립니다. 플랫폼 자금 이동은 없습니다.", confirmEn: "Restores the status recorded before the refund request. No money moves.", destructive: false },
   force_cancel: { ...catalogPair("admin_store_order_intervention_force_cancel"), confirmKo: "매장 결정 없이 주문을 취소합니다. 예외 상황에서만 사용하세요.", confirmEn: "Cancels the order without the store's decision. Exceptions only.", destructive: true },
   refund_request_create: { ...catalogPair("admin_open_refund_request"), confirmKo: "주문을 환불 요청 상태로 바꿉니다. 승인·반려는 별도로 결정합니다.", confirmEn: "Moves the order to refund requested. Approval is a separate decision.", destructive: false },

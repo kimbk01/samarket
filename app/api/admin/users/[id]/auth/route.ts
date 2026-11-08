@@ -9,6 +9,7 @@ import { loadLinkedIdentitiesMapChunked } from "@/lib/admin-users/admin-users-li
 import { resolveAdminAuthProvider } from "@/lib/admin-users/resolve-admin-auth-provider";
 import { manualLoginIdFromAuthEmail } from "@/lib/admin-users/member-sns-account";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -191,11 +192,11 @@ export async function PATCH(
         error: targetGuard.error,
         message:
           targetGuard.error === "membership_lookup_failed"
-            ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+            ? await adminServerText("admin_api_users_pw_membership_lookup_failed")
             : targetGuard.error === "membership_unavailable"
-              ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+              ? await adminServerText("admin_api_users_pw_membership_unavailable")
               : targetGuard.error === "forbidden_other_super_admin_target"
-                ? "다른 최고 관리자 비밀번호는 변경할 수 없습니다."
+                ? await adminServerText("admin_api_users_pw_other_super_admin")
               : undefined,
       },
       { status: targetGuard.status },
@@ -232,7 +233,7 @@ export async function PATCH(
     })
   ) {
     return NextResponse.json(
-      { ok: false, error: "password_reset_unsupported", message: "이 계정은 비밀번호 관리 대상이 아닙니다." },
+      { ok: false, error: "password_reset_unsupported", message: await adminServerText("admin_api_users_pw_unsupported") },
       { status: 400 },
     );
   }

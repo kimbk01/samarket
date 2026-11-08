@@ -1,15 +1,17 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { ExposurePolicyLog } from "@/lib/types/exposure";
 import { SURFACE_LABELS } from "@/lib/exposure/exposure-score-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
-const ACTION_LABELS: Record<string, string> = {
-  create: "생성",
-  update: "수정",
-  activate: "활성화",
-  deactivate: "비활성화",
-  simulate: "시뮬레이션",
+const ACTION_LABEL_KEYS: Record<string, MessageKey> = {
+  create: "admin_exposure_log_action_create",
+  update: "admin_exposure_log_action_update",
+  activate: "admin_exposure_log_action_activate",
+  deactivate: "admin_exposure_log_action_deactivate",
+  simulate: "admin_exposure_log_action_simulate",
 };
 
 interface ExposurePolicyLogListProps {
@@ -17,10 +19,11 @@ interface ExposurePolicyLogListProps {
 }
 
 export function ExposurePolicyLogList({ logs }: ExposurePolicyLogListProps) {
+  const { t } = useI18n();
   if (logs.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        변경 이력이 없습니다.
+        {t("admin_exposure_log_empty")}
       </div>
     );
   }
@@ -31,22 +34,22 @@ export function ExposurePolicyLogList({ logs }: ExposurePolicyLogListProps) {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              정책 ID
+              {t("admin_exposure_log_col_policy_id")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               surface
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              액션
+              {t("admin_exposure_log_col_action")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              관리자
+              {t("admin_exposure_log_col_admin")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              비고
+              {t("admin_exposure_log_col_note")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              일시
+              {t("admin_exposure_log_col_time")}
             </th>
           </tr>
         </thead>
@@ -61,7 +64,7 @@ export function ExposurePolicyLogList({ logs }: ExposurePolicyLogListProps) {
                 {SURFACE_LABELS[l.surface]}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {ACTION_LABELS[l.actionType] ?? l.actionType}
+                {ACTION_LABEL_KEYS[l.actionType] ? t(ACTION_LABEL_KEYS[l.actionType]) : l.actionType}
               </td>
               <td className="px-3 py-2.5 text-sam-muted">{l.adminNickname}</td>
               <td className="max-w-[200px] truncate px-3 py-2.5 text-sam-muted">

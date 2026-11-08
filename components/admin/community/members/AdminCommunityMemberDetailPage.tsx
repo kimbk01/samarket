@@ -6,6 +6,7 @@
  * 구역 값이 null 이면 「확인 불가」 (빈 목록으로 대체하지 않는다).
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -40,8 +41,6 @@ import {
   splitCommunityReportReason,
 } from "@/lib/admin/status-labels/community-status-labels";
 import {
-  COMMUNITY_GONE_MESSAGE,
-  COMMUNITY_STALE_MESSAGE,
   formatCommunityPoints,
   useCommunityAdminAccess,
   useCommunityAdminJson,
@@ -90,22 +89,22 @@ type DetailResponse = {
   sectionErrors?: string[];
 };
 
-const TABS = [
-  { value: "posts", label: "글" },
-  { value: "comments", label: "댓글" },
-  { value: "received", label: "받은 신고" },
-  { value: "made", label: "낸 신고" },
-  { value: "sanctions", label: "조치" },
-  { value: "points", label: "포인트" },
-  { value: "promotions", label: "상위노출" },
+const TABS: { value: string; labelKey: MessageKey }[] = [
+  { value: "posts", labelKey: "admin_community_mdetail_tab_posts" },
+  { value: "comments", labelKey: "admin_community_mdetail_tab_comments" },
+  { value: "received", labelKey: "admin_community_mdetail_tab_received" },
+  { value: "made", labelKey: "admin_community_mdetail_tab_made" },
+  { value: "sanctions", labelKey: "admin_community_mdetail_tab_sanctions" },
+  { value: "points", labelKey: "admin_community_mdetail_tab_points" },
+  { value: "promotions", labelKey: "admin_community_mdetail_tab_promotions" },
 ];
 
-const DAY_OPTIONS: { value: string; label: string }[] = [
-  { value: "1", label: "1일" },
-  { value: "3", label: "3일" },
-  { value: "7", label: "7일" },
-  { value: "30", label: "30일" },
-  { value: "forever", label: "영구" },
+const DAY_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "1", labelKey: "admin_community_mdetail_days_1" },
+  { value: "3", labelKey: "admin_community_mdetail_days_3" },
+  { value: "7", labelKey: "admin_community_mdetail_days_7" },
+  { value: "30", labelKey: "admin_community_mdetail_days_30" },
+  { value: "forever", labelKey: "admin_community_mdetail_days_forever" },
 ];
 
 type Sheet =
@@ -125,7 +124,7 @@ function CountOr({ v }: { v: number | null | undefined }) {
 }
 
 export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const q = useCommunityQueryState();
   const sp = useSearchParams();
   const backHref = readAdminReturnToFromSearch(sp) ?? "/admin/community/members";
@@ -145,14 +144,14 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
     setSheet(null);
     reload();
     if (kind === "done") setBanner({ ok: true, message: okMessage });
-    else if (kind === "stale") setBanner({ ok: true, message: COMMUNITY_STALE_MESSAGE });
-    else setBanner({ ok: true, message: COMMUNITY_GONE_MESSAGE });
+    else if (kind === "stale") setBanner({ ok: true, message: t("admin_community_post_stale") });
+    else setBanner({ ok: true, message: t("admin_community_list_gone") });
   };
 
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <Link href={backHref} className="text-[13px] font-medium text-sam-muted underline">
-        ← 목록으로
+        {t("admin_community_mdetail_back_to_list")}
       </Link>
     </div>
   );
@@ -170,7 +169,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
       <div className="space-y-3">
         {header}
         {state.httpStatus === 404 ? (
-          <AdminEmptyState ko message="회원을 찾을 수 없습니다." />
+          <AdminEmptyState ko message={t("admin_community_mdetail_not_found")} />
         ) : (
           <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
         )}
@@ -179,21 +178,21 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
   }
   const d = state.data as DetailResponse;
   const p = (d.profile ?? null) as Rec | null;
-  const nickname = s(p?.nickname).trim() || "이름 없음";
+  const nickname = s(p?.nickname).trim() || t("admin_community_kit_no_name");
   const handle = s(p?.dibay_id) || s(p?.username);
   const sum = d.summary ?? {};
   const active = sum.activeRestrictions ?? null;
 
   const sheetRows = [
-    { label: "회원", value: `${nickname}${handle ? ` (@${handle})` : ""}` },
+    { label: t("admin_community_reports_member"), value: `${nickname}${handle ? ` (@${handle})` : ""}` },
     {
-      label: "현재 제한",
+      label: t("admin_community_mdetail_row_current_restriction"),
       value:
         active === null
-          ? "확인 불가"
+          ? t("admin_community_dash_unavailable")
           : active.length === 0
-            ? "없음"
-            : active.map((a) => `${adminCommunityLabel("restriction_scope", a.restriction, true).label} · ${restrictionUntilLabel(a.end_at)}`).join(", "),
+            ? t("admin_community_import_sources_none")
+            : active.map((a) => `${adminCommunityLabel("restriction_scope", a.restriction, language !== "en").label} · ${restrictionUntilLabel(a.end_at, language)}`).join(", "),
     },
   ];
 
@@ -204,7 +203,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
         <div className="min-w-0">
           <h1 className="sam-text-page-title font-semibold text-sam-fg">{nickname}</h1>
           <p className="mt-1 sam-text-body text-sam-muted">
-            {handle ? `@${handle} · ` : ""}커뮤니티 활동과 조치 이력
+            {handle ? `@${handle} · ` : ""}{t("admin_community_mdetail_subtitle")}
           </p>
         </div>
       </header>
@@ -213,56 +212,71 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
 
       {d.isImportPrincipal ? (
         <p className="rounded-ui-rect border border-[var(--admin-console-accent)] bg-[var(--admin-console-active-bg)] px-3 py-2 text-[13px] text-[var(--admin-console-accent)]">
-          외부 수집 글을 게시하는 운영 계정입니다. 회원 조치 대상이 아닙니다.
+          {t("admin_community_mdetail_operator_account_note")}
         </p>
       ) : null}
 
       {/* ① 요약 */}
       <CommunitySummaryCard
         rows={[
-          { label: "닉네임", value: nickname },
+          { label: t("admin_community_mdetail_row_nickname"), value: nickname },
           { label: "DIBAY ID", value: handle ? `@${handle}` : "—" },
-          { label: "가입", value: abs(p?.created_at) },
-          { label: "계정 상태", value: <CommunityStatusBadge domain="account_status" value={s(p?.status) || "active"} /> },
+          { label: t("admin_community_mdetail_row_joined"), value: abs(p?.created_at) },
+          { label: t("admin_community_mdetail_row_account_status"), value: <CommunityStatusBadge domain="account_status" value={s(p?.status) || "active"} /> },
           {
-            label: "커뮤니티 제한",
+            label: t("admin_community_mdetail_row_community_restriction"),
             value:
               active === null ? (
                 <AdminUnavailableChip ko />
               ) : active.length === 0 ? (
-                "없음"
+                t("admin_community_import_sources_none")
               ) : (
                 <span className="flex flex-wrap gap-1">
                   {active.map((a) => (
                     <AdminToneBadge key={a.id} tone="danger">
-                      {adminCommunityLabel("restriction_scope", a.restriction, true).label} · {restrictionUntilLabel(a.end_at)}
+                      {adminCommunityLabel("restriction_scope", a.restriction, language !== "en").label} · {restrictionUntilLabel(a.end_at, language)}
                     </AdminToneBadge>
                   ))}
                 </span>
               ),
           },
-          { label: "경고", value: sum.warningCount === null || sum.warningCount === undefined ? <AdminUnavailableChip ko /> : `${sum.warningCount}회` },
           {
-            label: "게시글",
+            label: t("admin_community_mdetail_row_warnings"),
+            value:
+              sum.warningCount === null || sum.warningCount === undefined ? (
+                <AdminUnavailableChip ko />
+              ) : (
+                t("admin_community_mdetail_times", { n: sum.warningCount })
+              ),
+          },
+          {
+            label: t("admin_community_comments_col_post"),
             value: (
               <span>
-                <CountOr v={sum.posts?.total} /> (공개 {count(sum.posts?.active) ?? "확인 불가"} · 숨김{" "}
-                {count(sum.posts?.hidden) ?? "확인 불가"} · 삭제 {count(sum.posts?.deleted) ?? "확인 불가"})
+                <CountOr v={sum.posts?.total} />{" "}
+                {t("admin_community_mdetail_posts_breakdown", {
+                  active: count(sum.posts?.active) ?? t("admin_community_dash_unavailable"),
+                  hidden: count(sum.posts?.hidden) ?? t("admin_community_dash_unavailable"),
+                  deleted: count(sum.posts?.deleted) ?? t("admin_community_dash_unavailable"),
+                })}
               </span>
             ),
           },
           {
-            label: "댓글",
+            label: t("admin_community_comments_col_comment"),
             value: (
               <span>
-                <CountOr v={sum.comments?.total} /> (숨김 {count(sum.comments?.hidden) ?? "확인 불가"} · 삭제{" "}
-                {count(sum.comments?.deleted) ?? "확인 불가"})
+                <CountOr v={sum.comments?.total} />{" "}
+                {t("admin_community_mdetail_comments_breakdown", {
+                  hidden: count(sum.comments?.hidden) ?? t("admin_community_dash_unavailable"),
+                  deleted: count(sum.comments?.deleted) ?? t("admin_community_dash_unavailable"),
+                })}
               </span>
             ),
           },
-          { label: "받은 신고", value: <CountOr v={sum.reportsReceived} /> },
-          { label: "낸 신고", value: <CountOr v={sum.reportsMade} /> },
-          { label: "포인트", value: formatCommunityPoints(n(p?.points)) },
+          { label: t("admin_community_mdetail_tab_received"), value: <CountOr v={sum.reportsReceived} /> },
+          { label: t("admin_community_mdetail_tab_made"), value: <CountOr v={sum.reportsMade} /> },
+          { label: t("admin_community_mdetail_tab_points"), value: formatCommunityPoints(n(p?.points)) },
         ]}
       />
 
@@ -274,7 +288,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
           title={access.deniedTitle("moderation")}
           onClick={() => setSheet({ kind: "warning" })}
         >
-          경고 보내기
+          {t("admin_community_mdetail_send_warning")}
         </AdminActionButton>
         <AdminActionButton
           variant="danger"
@@ -282,7 +296,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
           title={access.deniedTitle("moderation")}
           onClick={() => setSheet({ kind: "restrict" })}
         >
-          활동 제한
+          {t("admin_community_mdetail_restrict_action")}
         </AdminActionButton>
         {(active ?? []).map((a) => (
           <AdminActionButton
@@ -292,17 +306,17 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
             title={access.deniedTitle("moderation")}
             onClick={() => setSheet({ kind: "revoke", sanction: a })}
           >
-            제한 해제 ({adminCommunityLabel("restriction_scope", a.restriction, true).label})
+            {t("admin_community_mdetail_revoke_scope", { scope: adminCommunityLabel("restriction_scope", a.restriction, language !== "en").label })}
           </AdminActionButton>
         ))}
         <span className="ml-auto" />
         <AdminActionLink href={`/admin/users/${encodeURIComponent(userId)}`} variant="danger">
-          계정 정지로 이동
+          {t("admin_community_mdetail_go_suspend")}
         </AdminActionLink>
       </div>
 
       {/* ② 활동 */}
-      <CommunityTabs tabs={TABS} value={tab} onChange={(v) => q.set({ tab: v === "posts" ? null : v })} />
+      <CommunityTabs tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey) }))} value={tab} onChange={(v) => q.set({ tab: v === "posts" ? null : v })} />
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         <TabBody tab={tab} d={d} selfHref={q.selfHref} userId={userId} />
       </div>
@@ -319,9 +333,9 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
         <CommunityActionSheet
           title={t("admin_community_mdetail_warn_title")}
           rows={sheetRows}
-          notice="회원에게 경고 알림이 갑니다. 활동은 막히지 않습니다."
-          reason={{ minLength: 2, placeholder: "경고 사유 (회원에게 전달됩니다)" }}
-          confirmLabel="경고 보내기"
+          notice={t("admin_community_mdetail_notice_warning")}
+          reason={{ minLength: 2, placeholder: t("admin_community_mdetail_warning_reason_placeholder") }}
+          confirmLabel={t("admin_community_mdetail_send_warning_btn")}
           onSubmit={(reason) =>
             communitySheetFetch("/api/admin/community/restrictions", {
               method: "POST",
@@ -331,7 +345,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
             })
           }
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "경고를 보냈습니다.")}
+          onSettled={(k) => settle(k, t("admin_community_mdetail_warning_sent"))}
         />
       ) : null}
 
@@ -339,10 +353,10 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
         <CommunityActionSheet
           title={t("admin_community_mdetail_restrict_title")}
           rows={sheetRows}
-          notice="커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로 쓸 수 있습니다."
-          reason={{ minLength: 2, placeholder: "제한 사유 (회원에게 전달됩니다)" }}
+          notice={t("admin_community_mdetail_notice_restrict")}
+          reason={{ minLength: 2, placeholder: t("admin_community_mdetail_restrict_reason_placeholder") }}
           destructive
-          confirmLabel="활동 제한"
+          confirmLabel={t("admin_community_mdetail_restrict_btn")}
           onSubmit={(reason) =>
             communitySheetFetch("/api/admin/community/restrictions", {
               method: "POST",
@@ -358,14 +372,14 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
             })
           }
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "활동을 제한했습니다.")}
+          onSettled={(k) => settle(k, t("admin_community_mdetail_restricted"))}
         >
           <fieldset className="space-y-1">
             <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_community_mdetail_scope")}</legend>
             {(["post", "comment", "all"] as const).map((v) => (
               <label key={v} className="flex items-center gap-2 text-[13px]">
                 <input type="radio" name="restriction" checked={restriction === v} onChange={() => setRestriction(v)} />
-                {adminCommunityLabel("restriction_scope", v, true).label}
+                {adminCommunityLabel("restriction_scope", v, language !== "en").label}
               </label>
             ))}
           </fieldset>
@@ -378,7 +392,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
             >
               {DAY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {t(o.labelKey)}
                 </option>
               ))}
             </select>
@@ -392,15 +406,16 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
           rows={[
             ...sheetRows.slice(0, 1),
             {
-              label: "해제할 제한",
-              value: `${adminCommunityLabel("restriction_scope", sheet.sanction.restriction, true).label} · ${restrictionUntilLabel(
-                sheet.sanction.end_at
+              label: t("admin_community_mdetail_row_restriction_to_lift"),
+              value: `${adminCommunityLabel("restriction_scope", sheet.sanction.restriction, language !== "en").label} · ${restrictionUntilLabel(
+                sheet.sanction.end_at,
+                language
               )}`,
             },
-            { label: "제한 사유", value: sheet.sanction.reason || "—" },
+            { label: t("admin_community_mdetail_row_restriction_reason"), value: sheet.sanction.reason || "—" },
           ]}
-          reason={{ minLength: 2, placeholder: "해제 사유" }}
-          confirmLabel="제한 해제"
+          reason={{ minLength: 2, placeholder: t("admin_community_mdetail_lift_reason_placeholder") }}
+          confirmLabel={t("admin_community_mdetail_lift_btn")}
           onSubmit={(reason) =>
             communitySheetFetch(`/api/admin/community/restrictions/${encodeURIComponent(sheet.sanction.id)}/revoke`, {
               method: "POST",
@@ -410,7 +425,7 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
             })
           }
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "제한을 해제했습니다.")}
+          onSettled={(k) => settle(k, t("admin_community_mdetail_lifted"))}
         />
       ) : null}
     </div>
@@ -418,9 +433,10 @@ export function AdminCommunityMemberDetailPage({ userId }: { userId: string }) {
 }
 
 function Unavailable() {
+  const { t } = useI18n();
   return (
     <div className="p-4">
-      <AdminEmptyState ko message="이 항목은 지금 확인할 수 없습니다. 잠시 후 다시 불러오세요." />
+      <AdminEmptyState ko message={t("admin_community_mdetail_tab_unavailable")} />
     </div>
   );
 }
@@ -434,6 +450,7 @@ function Empty({ text }: { text: string }) {
 }
 
 function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse; selfHref: string; userId: string }): ReactNode {
+  const { t, language } = useI18n();
   const link = (href: string, label: string) => (
     <Link href={communityDetailHref(href, selfHref)} className="font-medium text-[var(--admin-console-accent)] hover:underline">
       {label}
@@ -441,12 +458,19 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
   );
   if (tab === "posts") {
     if (d.posts == null) return <Unavailable />;
-    if (d.posts.length === 0) return <Empty text="쓴 글이 없습니다." />;
+    if (d.posts.length === 0) return <Empty text={t("admin_community_mdetail_no_posts")} />;
     return (
-      <CommunityTable head={["제목", "작성 구분", "상태", "댓글", "신고", "게시"]}>
+      <CommunityTable head={[
+          t("admin_community_postd_field_title"),
+          t("admin_community_postd_row_origin"),
+          t("admin_community_comments_col_status"),
+          t("admin_community_comments_col_comment"),
+          t("admin_community_reports_col_reports"),
+          t("admin_community_mdetail_th_published"),
+        ]}>
         {d.posts.map((r) => (
           <tr key={s(r.id)} className="border-b border-sam-border-soft">
-            <td className={COMMUNITY_TD}>{link(`/admin/community/posts/${encodeURIComponent(s(r.id))}`, s(r.title) || "제목 없음")}</td>
+            <td className={COMMUNITY_TD}>{link(`/admin/community/posts/${encodeURIComponent(s(r.id))}`, s(r.title) || t("admin_community_comments_no_title"))}</td>
             <td className={COMMUNITY_TD}>
               <CommunityStatusBadge domain="origin_kind" value={s(r.origin_kind) || "member"} />
             </td>
@@ -465,15 +489,20 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
   }
   if (tab === "comments") {
     if (d.comments == null) return <Unavailable />;
-    if (d.comments.length === 0) return <Empty text="쓴 댓글이 없습니다." />;
+    if (d.comments.length === 0) return <Empty text={t("admin_community_mdetail_no_comments")} />;
     return (
-      <CommunityTable head={["내용", "구분", "상태", "작성"]}>
+      <CommunityTable head={[
+          t("admin_community_comments_row_content"),
+          t("admin_community_mdetail_th_kind"),
+          t("admin_community_comments_col_status"),
+          t("admin_community_mdetail_th_written"),
+        ]}>
         {d.comments.map((r) => (
           <tr key={s(r.id)} className="border-b border-sam-border-soft">
             <td className={`${COMMUNITY_TD} max-w-[28rem]`}>
-              {link(`/admin/community/comments?commentId=${encodeURIComponent(s(r.id))}`, s(r.content).slice(0, 80) || "(내용 없음)")}
+              {link(`/admin/community/comments?commentId=${encodeURIComponent(s(r.id))}`, s(r.content).slice(0, 80) || t("admin_community_mdetail_no_content"))}
             </td>
-            <td className={COMMUNITY_TD}>{r.parent_id ? "답글" : "댓글"}</td>
+            <td className={COMMUNITY_TD}>{r.parent_id ? t("admin_community_mdetail_reply") : t("admin_community_comments_col_comment")}</td>
             <td className={COMMUNITY_TD}>
               <CommunityStatusBadge domain="content_status" value={s(r.status)} />
             </td>
@@ -488,9 +517,14 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
   if (tab === "received" || tab === "made") {
     const list = tab === "received" ? d.reportsReceived : d.reportsMade;
     if (list == null) return <Unavailable />;
-    if (list.length === 0) return <Empty text={tab === "received" ? "받은 신고가 없습니다." : "낸 신고가 없습니다."} />;
+    if (list.length === 0) return <Empty text={tab === "received" ? t("admin_community_mdetail_no_received") : t("admin_community_mdetail_no_made")} />;
     return (
-      <CommunityTable head={["신고 사유", "대상", "상태", "접수"]}>
+      <CommunityTable head={[
+          t("admin_community_mdetail_th_report_reason"),
+          t("admin_community_reports_col_target"),
+          t("admin_community_comments_col_status"),
+          t("admin_community_mdetail_th_received_at"),
+        ]}>
         {list.map((r) => {
           const { code, text } = splitCommunityReportReason(s(r.reason));
           return (
@@ -498,11 +532,11 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
               <td className={`${COMMUNITY_TD} max-w-[28rem]`}>
                 {link(
                   `/admin/community/reports?reportId=${encodeURIComponent(s(r.id))}`,
-                  adminCommunityLabel("report_reason", code, true).label
+                  adminCommunityLabel("report_reason", code, language !== "en").label
                 )}
                 {text ? <div className="text-[12px] text-sam-muted">{text.slice(0, 80)}</div> : null}
               </td>
-              <td className={COMMUNITY_TD}>{adminCommunityLabel("report_target", s(r.target_type) || "post", true).label}</td>
+              <td className={COMMUNITY_TD}>{adminCommunityLabel("report_target", s(r.target_type) || "post", language !== "en").label}</td>
               <td className={COMMUNITY_TD}>
                 <CommunityStatusBadge domain="report_status" value={s(r.status)} />
               </td>
@@ -520,19 +554,21 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
     return (
       <div className="p-3">
         <CommunityTimeline
-          emptyText="조치 기록이 없습니다."
+          emptyText={t("admin_community_kit_no_actions")}
           items={d.sanctions.map((r) => {
             const state = communityRestrictionState(r);
-            const kind = adminCommunityLabel("sanction_kind", r.sanction_type, true).label;
-            const scope = r.restriction ? ` · ${adminCommunityLabel("restriction_scope", r.restriction, true).label}` : "";
-            const until = r.sanction_type === "community_restriction" ? ` · ${restrictionUntilLabel(r.end_at)}` : "";
-            const st = r.sanction_type === "warning" ? "" : ` (${adminCommunityLabel("restriction_state", state, true).label})`;
+            const kind = adminCommunityLabel("sanction_kind", r.sanction_type, language !== "en").label;
+            const scope = r.restriction ? ` · ${adminCommunityLabel("restriction_scope", r.restriction, language !== "en").label}` : "";
+            const until = r.sanction_type === "community_restriction" ? ` · ${restrictionUntilLabel(r.end_at, language)}` : "";
+            const st = r.sanction_type === "warning" ? "" : ` (${adminCommunityLabel("restriction_state", state, language !== "en").label})`;
             return {
               id: r.id,
               at: s(r.created_at) || s(r.start_at),
-              actor: "관리자",
+              actor: t("admin_community_dash_admin_fallback"),
               action: `${kind}${scope}${until}${st}`,
-              reason: r.revoked_at ? `${r.reason ?? ""}\n해제: ${r.revoke_reason ?? "—"}` : r.reason,
+              reason: r.revoked_at
+                ? `${r.reason ?? ""}\n${t("admin_community_mdetail_lifted_reason", { reason: r.revoke_reason ?? "—" })}`
+                : r.reason,
             };
           })}
         />
@@ -541,10 +577,16 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
   }
   if (tab === "points") {
     if (d.points == null) return <Unavailable />;
-    if (d.points.length === 0) return <Empty text="커뮤니티 관련 포인트 내역이 없습니다." />;
+    if (d.points.length === 0) return <Empty text={t("admin_community_mdetail_no_points")} />;
     return (
       <>
-        <CommunityTable head={["시각", "유형", "포인트", "잔액", "내용"]}>
+        <CommunityTable head={[
+            t("admin_community_meeting_events_col_time"),
+            t("admin_community_comments_col_type_kind"),
+            t("admin_community_mdetail_tab_points"),
+            t("admin_community_mdetail_th_balance"),
+            t("admin_community_comments_row_content"),
+          ]}>
           {d.points.map((r) => {
             const amt = n(r.amount) ?? 0;
             return (
@@ -552,7 +594,7 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
                 <td className={COMMUNITY_TD}>
                   <CommunityTimeCell iso={s(r.created_at)} absolute />
                 </td>
-                <td className={COMMUNITY_TD}>{communityPointTypeLabel(s(r.related_type), s(r.entry_type))}</td>
+                <td className={COMMUNITY_TD}>{communityPointTypeLabel(s(r.related_type), s(r.entry_type), language)}</td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                   {amt > 0 ? "+" : ""}
                   {formatAdminNumber(amt)} P
@@ -565,25 +607,31 @@ function TabBody({ tab, d, selfHref, userId }: { tab: string; d: DetailResponse;
         </CommunityTable>
         <div className="border-t border-sam-border-soft px-3 py-2 text-[13px]">
           <Link href={`/admin/community/points?userId=${encodeURIComponent(userId)}&period=all`} className="text-[var(--admin-console-accent)] underline">
-            포인트 내역 전체 보기
+            {t("admin_community_mdetail_points_all")}
           </Link>
         </div>
       </>
     );
   }
   if (d.promotions == null) return <Unavailable />;
-  if (d.promotions.length === 0) return <Empty text="게시글 상위노출 내역이 없습니다." />;
+  if (d.promotions.length === 0) return <Empty text={t("admin_community_mdetail_no_promotions")} />;
   return (
-    <CommunityTable head={["게시글", "기간", "결제 포인트", "상태", "신청"]}>
+    <CommunityTable head={[
+            t("admin_community_comments_col_post"),
+            t("admin_community_mdetail_th_period"),
+            t("admin_community_mdetail_th_paid_points"),
+            t("admin_community_comments_col_status"),
+            t("admin_community_mdetail_th_requested"),
+          ]}>
       {d.promotions.map((r) => (
         <tr key={s(r.id)} className="border-b border-sam-border-soft">
           <td className={COMMUNITY_TD}>
             {s(r.target_id)
-              ? link(`/admin/community/posts/${encodeURIComponent(s(r.target_id))}`, s(r.target_title) || "게시글")
+              ? link(`/admin/community/posts/${encodeURIComponent(s(r.target_id))}`, s(r.target_title) || t("admin_community_comments_col_post"))
               : s(r.target_title) || "—"}
           </td>
           <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
-            {n(r.duration_days) ?? "—"}일 · {r.start_at ? formatAdminManilaDateTime(s(r.start_at)).slice(5, 10) : "—"} ~{" "}
+            {t("admin_community_mdetail_days_n", { n: n(r.duration_days) ?? "—" })} · {r.start_at ? formatAdminManilaDateTime(s(r.start_at)).slice(5, 10) : "—"} ~{" "}
             {r.end_at ? formatAdminManilaDateTime(s(r.end_at)).slice(5, 10) : "—"}
           </td>
           <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatCommunityPoints(n(r.point_cost))}</td>

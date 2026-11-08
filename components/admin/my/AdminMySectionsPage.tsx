@@ -91,6 +91,7 @@ export function AdminMySectionsView({
   items: MyPageSectionRow[];
   ko?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div>
       <div className="mb-4">
@@ -102,7 +103,7 @@ export function AdminMySectionsView({
       ) : error ? (
         <AdminErrorState ko={ko} code={error} httpStatus={httpStatus} onRetry={onRetry} />
       ) : items.length === 0 ? (
-        <AdminEmptyState ko={ko} message="섹션이 없습니다." />
+        <AdminEmptyState ko={ko} message={t("admin_my_no_sections")} />
       ) : (
         <ul className="space-y-2">
           {items.map((s) => (
@@ -110,7 +111,7 @@ export function AdminMySectionsView({
               <div>
                 <span className="font-medium">{s.title}</span>
                 <span className="ml-2 sam-text-body-secondary text-sam-muted">
-                  {s.is_active ? "노출" : "숨김"} · 순서 {s.sort_order}
+                  {t(s.is_active ? "admin_my_row_visible" : "admin_my_row_hidden")} · {t("admin_my_row_sort_order", { n: s.sort_order })}
                 </span>
               </div>
             </li>

@@ -184,10 +184,7 @@ export function ChatProductSummary({
       className={`flex items-stretch overflow-hidden transition-shadow hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)] ${APP_FEED_LIST_CARD_SHELL}`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-2.5 p-3 sm:items-stretch sm:gap-3.5 md:gap-4">
-        {/*
-          피드 PostCard 와 동일하게 썸네일은 고정 정사각 — self-stretch 금지(텍스트 열이 길어질 때 세로로 늘어나 모바일에서 과도한 높이).
-          좁은 화면에서는 88px 로 조금 더 작게.
-        */}
+        {/* 피드 PostCard 와 동일하게 썸네일은 고정 정사각 — self-stretch 금지(텍스트 열이 길어질 때 세로로 늘어나 모바일에서 과도한 높이). 좁은 화면에서는 88px 로 조금 더 작게. */}
         <Link
           href={detailHref}
           className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft transition active:opacity-90 sm:h-[100px] sm:w-[100px]"
@@ -253,7 +250,7 @@ export function ChatProductSummary({
             <Link
               href={detailHref}
               className="block text-left transition active:bg-sam-app/0"
-              aria-label={`${product.title || "상품"} 상세 보기`}
+              aria-label={t("chats_product_detail_aria", { title: product.title || t("chats_compose_fallback_product") })}
             >
               {!isPhilifeCard ? (
                 <TradeListingStatusBadge post={listingPost} size="list" className="mb-1 block max-w-full shrink-0" />

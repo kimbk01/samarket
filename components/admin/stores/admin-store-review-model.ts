@@ -1,4 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import {
   parseStoredAddressBookPresentation,
   type AddressBookCardPresentation,
@@ -99,18 +100,21 @@ export function formatAdminStoreAddressPresentation(
 
 export type AdminStoreDateRow = { label: string; value: string };
 
-/** 신청·승인·최종변경 등 처리 일시 — 행 단위 목록 */
-export function buildAdminStoreDateRows(r: AdminStoreReviewRow): AdminStoreDateRow[] {
+/**
+ * 신청·승인·최종변경 등 처리 일시 — 행 단위 목록.
+ * `lang` 을 넘기지 않는 호출부는 지금처럼 한국어 이름을 받는다 (언어 SSOT L25 — 문구는 카탈로그 키).
+ */
+export function buildAdminStoreDateRows(r: AdminStoreReviewRow, lang: string = "ko"): AdminStoreDateRow[] {
   const rows: AdminStoreDateRow[] = [
-    { label: "신청일", value: formatAdminEnglishDate(r.created_at) },
+    { label: translateBy(lang, "admin_stores_review_date_applied"), value: formatAdminEnglishDate(r.created_at) },
   ];
   if (r.approved_at) {
-    rows.push({ label: "승인일", value: formatAdminEnglishDate(r.approved_at) });
+    rows.push({ label: translateBy(lang, "admin_stores_review_date_approved"), value: formatAdminEnglishDate(r.approved_at) });
   }
   const updated = (r.updated_at ?? "").trim();
   const created = (r.created_at ?? "").trim();
   if (updated && updated !== created) {
-    rows.push({ label: "최종변경", value: formatAdminEnglishDate(updated) });
+    rows.push({ label: translateBy(lang, "admin_stores_review_date_updated"), value: formatAdminEnglishDate(updated) });
   }
   return rows;
 }

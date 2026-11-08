@@ -98,7 +98,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
       </div>
       <AdminTabs
         tabs={TAB_KEYS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         syncUrl={false}

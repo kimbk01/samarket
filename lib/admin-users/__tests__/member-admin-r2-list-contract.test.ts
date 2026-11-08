@@ -81,11 +81,11 @@ describe("R2 member list — columns and identity", () => {
   it("requires @회원 ID / Store / privilege columns and forbids 관계", () => {
     const table = src("components/admin/users/AdminUserTable.tsx");
     const filter = src("components/admin/users/AdminUserFilterBar.tsx");
-    expect(table).toContain("{MEMBER_LIST_AT_ID_COLUMN_KO}");
+    expect(table).toContain("{t(MEMBER_LIST_AT_ID_COLUMN_KEY)}");
     expect(MEMBER_LIST_AT_ID_COLUMN_KO).toBe("@회원 ID");
-    expect(table).toContain("memberListVerificationLabelKo");
+    expect(table).toContain("memberListVerificationLabel");
     expect(table).toContain("memberListStoreCellLabel");
-    expect(table).toContain("memberListPrivilegeLabelKo");
+    expect(table).toContain("memberListPrivilegeLabel");
     expect(table).toContain("AdminActionButton");
     expect(table).not.toContain("관계");
     expect(table).not.toContain("회원 구분");

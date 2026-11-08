@@ -23,19 +23,20 @@ import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { tradeDetailHref } from "@/components/admin/trade/kit/TradeAdminKit";
-import { TRADE_RESTRICTION_SCOPE_LABEL } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
+import { tradeRestrictionScopeLabel } from "@/components/admin/trade/restrictions/TradeRestrictionsPage";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type TabKey = "all" | "restricted" | "suspended";
-const TABS: { value: TabKey; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "restricted", label: "거래 제한 중" },
-  { value: "suspended", label: "계정 정지" },
+const TABS: { value: TabKey; labelKey: MessageKey }[] = [
+  { value: "all", labelKey: "common_all" },
+  { value: "restricted", labelKey: "admin_trade_members_tab_restricted" },
+  { value: "suspended", labelKey: "admin_trade_members_tab_suspended" },
 ];
-const EMPTY_TEXT: Record<TabKey, string> = {
-  all: "조건에 맞는 판매자·구매자가 없습니다.",
-  restricted: "거래 제한 중인 회원이 없습니다.",
-  suspended: "계정 정지된 회원이 없습니다.",
+const EMPTY_TEXT: Record<TabKey, MessageKey> = {
+  all: "admin_trade_members_empty_all",
+  restricted: "admin_trade_members_empty_restricted",
+  suspended: "admin_trade_members_empty_suspended",
 };
 
 type MemberRow = {
@@ -84,34 +85,34 @@ export function TradeMembersPage() {
   return (
     <CommunityListShell
       title={t("admin_trade_members_title")}
-      description="거래글을 올렸거나 거래 채팅을 한 회원의 거래 활동·신고·제한을 확인하고 조치합니다."
+      description={t("admin_trade_members_desc")}
       tabs={
         <CommunityTabs
           value={tab}
           onChange={(v) => qs.set({ tab: v === "all" ? null : v })}
-          tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? null }))}
+          tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey), count: counts[x.value] ?? null }))}
         />
       }
       filterBar={
-        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="닉네임" pending={state.status === "loading"}>
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder={t("admin_trade_restrict_nickname")} pending={state.status === "loading"}>
           {state.data?.capped ? (
             <p className="w-full text-[12px] text-sam-muted">
-              거래 회원이 많아 최근 활동 일부만 집계했습니다. 특정 회원은 닉네임으로 검색하세요.
+              {t("admin_trade_members_partial_aggregate")}
             </p>
           ) : null}
         </CommunityFilterBar>
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={EMPTY_TEXT[tab]}>
-        <CommunityTable head={["회원", "계정 상태", "판매글 수", "구매 채팅 수", "거래 제한", "회원 신고(대기)", "상세"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={t(EMPTY_TEXT[tab])}>
+        <CommunityTable head={[t("admin_trade_points_member"), t("admin_trade_members_th_account_status"), t("admin_trade_members_th_posts"), t("admin_trade_members_th_buyer_chats"), t("admin_trade_members_th_restriction"), t("admin_trade_members_th_open_reports"), t("admin_trade_members_th_detail")]}>
           {rows.map((r) => {
             const href = tradeDetailHref(`/admin/trade/members/${encodeURIComponent(r.user_id)}`, lq.selfHref);
             return (
               <tr key={r.user_id} className="border-b border-sam-border-soft hover:bg-sam-app">
                 <td className={COMMUNITY_TD}>
                   <Link href={href} className="font-medium text-sam-primary hover:underline">
-                    {r.label?.trim() || "이름 없음"}
+                    {r.label?.trim() || t("admin_trade_kit_no_name")}
                   </Link>
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -126,7 +127,7 @@ export function TradeMembersPage() {
                     <span className="flex flex-wrap gap-1">
                       {r.trade_restrictions.map((x, i) => (
                         <AdminToneBadge key={`${x}-${i}`} tone="danger">
-                          {TRADE_RESTRICTION_SCOPE_LABEL[x] ?? "거래 제한"}
+                          {tradeRestrictionScopeLabel(t, x) ?? t("admin_trade_members_th_restriction")}
                         </AdminToneBadge>
                       ))}
                     </span>
@@ -134,14 +135,14 @@ export function TradeMembersPage() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   {r.open_user_reports > 0 ? (
-                    <AdminToneBadge tone="waiting">{formatAdminNumber(r.open_user_reports)}건</AdminToneBadge>
+                    <AdminToneBadge tone="waiting">{t("admin_trade_count_items", { n: formatAdminNumber(r.open_user_reports) })}</AdminToneBadge>
                   ) : (
                     <span className="text-sam-muted">0</span>
                   )}
                 </td>
                 <td className={COMMUNITY_TD}>
                   <AdminActionLink href={href} variant="ghost" size="sm">
-                    상세
+                    {t("admin_trade_members_row_detail")}
                   </AdminActionLink>
                 </td>
               </tr>

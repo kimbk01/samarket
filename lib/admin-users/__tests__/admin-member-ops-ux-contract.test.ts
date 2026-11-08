@@ -75,7 +75,7 @@ describe("admin member ops UX identity contract", () => {
 
   it("P2 member list is operator console with detail-only row action", () => {
     const listPage = src("components/admin/users/AdminUserListPage.tsx");
-    expect(listPage).toMatch(/MEMBER_ADMIN_COPY\.member_management/);
+    expect(listPage).toMatch(/MEMBER_ADMIN_COPY_KEY\.member_management/);
     expect(listPage).not.toMatch(/<AdminStaffTable/);
     expect(listPage).not.toMatch(/onEditPermissions/);
     const table = src("components/admin/users/AdminUserTable.tsx");

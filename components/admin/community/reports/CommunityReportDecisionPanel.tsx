@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommunityReportAdminRow } from "@/lib/community-feed/admin-community-reports";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
 import { COMMUNITY_RESTRICTION_DAY_OPTIONS } from "@/lib/admin/community-admin/community-sanction-input";
@@ -33,7 +34,6 @@ import {
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   CommunitySection,
   communityActionFetch,
@@ -50,11 +50,11 @@ type Scope = "post" | "comment" | "all";
 
 const PHT = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
 
-const ACTION_LABEL: Record<string, string> = {
-  hide: "콘텐츠 숨김",
-  delete: "콘텐츠 삭제",
-  warning: "경고",
-  community_restriction: "커뮤니티 활동 제한",
+const ACTION_LABEL: Record<string, MessageKey> = {
+  hide: "admin_community_rdecision_act_hide",
+  delete: "admin_community_rdecision_act_delete",
+  warning: "admin_community_rdecision_act_warning",
+  community_restriction: "admin_community_rdecision_act_restriction",
 };
 
 function describeActions(actions: unknown[] | null | undefined, ko: boolean): string[] {
@@ -63,12 +63,16 @@ function describeActions(actions: unknown[] | null | undefined, ko: boolean): st
   for (const raw of actions) {
     const a = (raw ?? {}) as { action?: string; skipped?: string; restriction?: string | null; days?: number | null };
     if (!a.action) continue;
-    let label = ACTION_LABEL[a.action] ?? "기타 조치";
+    const lang = ko ? "ko" : "en";
+    let label = translate(lang, ACTION_LABEL[a.action] ?? "admin_community_rdecision_act_other");
     if (a.action === "community_restriction") {
       const scope = adminCommunityLabel("restriction_scope", a.restriction ?? "", ko).label;
-      label += ` (${scope} · ${a.days ? `${a.days}일` : "영구"})`;
+      const period = a.days
+        ? translate(lang, "admin_community_rdecision_act_days", { n: a.days })
+        : translate(lang, "admin_community_rdecision_act_permanent");
+      label += ` (${scope} · ${period})`;
     }
-    if (a.skipped) label += " — 대상이 없어 건너뜀";
+    if (a.skipped) label += translate(lang, "admin_community_rdecision_act_skipped");
     out.push(label);
   }
   return out;
@@ -163,7 +167,7 @@ export function CommunityReportDecisionPanel({
   const displayTarget = row.display_target ?? (row.target_type === "comment" ? "comment" : "post");
   const isUserTarget = row.target_type === "user";
   const targetTypeLabel = isUserTarget
-    ? "회원"
+    ? tr("admin_community_rdecision_member")
     : displayTarget === "reply"
       ? tr("admin_community_target_type_reply")
       : displayTarget === "comment"
@@ -180,7 +184,7 @@ export function CommunityReportDecisionPanel({
     setSheet(null);
     await load();
     onMutated?.();
-    setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+    setBanner({ tone: "warning", text: tr("admin_community_post_stale") });
   };
 
   const settle = async (kind: CommunitySheetSettle, success: () => CommunityBanner) => {
@@ -208,10 +212,10 @@ export function CommunityReportDecisionPanel({
     );
     setReviewBusy(false);
     if (result.ok) {
-      const warn = communityWarningsOf(json);
+      const warn = communityWarningsOf(json, language);
       await load();
       onMutated?.();
-      setBanner({ tone: warn.length ? "warning" : "success", text: "검토를 시작했습니다.", extra: warn });
+      setBanner({ tone: warn.length ? "warning" : "success", text: tr("admin_community_rdecision_review_started"), extra: warn });
       return;
     }
     if (result.status === 409) return finishStale();
@@ -228,9 +232,9 @@ export function CommunityReportDecisionPanel({
     );
     setMemoBusy(false);
     if (result.ok) {
-      const warn = communityWarningsOf(json);
+      const warn = communityWarningsOf(json, language);
       setRow((prev) => (prev ? { ...prev, admin_memo: memo.trim() || null } : prev));
-      setBanner({ tone: warn.length ? "warning" : "success", text: "메모를 저장했습니다.", extra: warn });
+      setBanner({ tone: warn.length ? "warning" : "success", text: tr("admin_community_rdecision_memo_saved"), extra: warn });
       return;
     }
     // 입력한 메모는 그대로 둔다
@@ -253,17 +257,17 @@ export function CommunityReportDecisionPanel({
   const decisionSummary = (json: Record<string, unknown>, verb: string): CommunityBanner => {
     const closed = Array.isArray(json.closedReportIds) ? json.closedReportIds.length : 0;
     const extra: string[] = [];
-    if (closed > 0) extra.push(`같은 대상의 다른 신고 ${closed}건도 함께 종결했습니다.`);
+    if (closed > 0) extra.push(tr("admin_community_rdecision_siblings_closed", { n: closed }));
     const acts = describeActions(Array.isArray(json.actions) ? (json.actions as unknown[]) : [], ko);
-    if (acts.length) extra.push(`실행한 조치: ${acts.join(", ")}`);
-    const warn = communityWarningsOf(json);
+    if (acts.length) extra.push(tr("admin_community_rdecision_actions_run", { actions: acts.join(", ") }));
+    const warn = communityWarningsOf(json, language);
     return { tone: warn.length ? "warning" : "success", text: verb, extra: [...extra, ...warn] };
   };
 
   const sheetRows = [
-    { label: "신고 대상", value: targetTypeLabel },
+    { label: tr("admin_community_rdecision_row_report_target"), value: targetTypeLabel },
     {
-      label: "대상",
+      label: tr("admin_community_rdecision_row_target"),
       value: isUserTarget
         ? row.author_label ?? "—"
         : communityPlainExcerpt(
@@ -271,8 +275,8 @@ export function CommunityReportDecisionPanel({
             80
           ) || "—",
     },
-    { label: "작성자", value: row.author_label ?? "—" },
-    { label: "신고", value: `${siblings.length}건 · 신고자 ${reporterCount}명` },
+    { label: tr("admin_community_rdecision_row_author"), value: row.author_label ?? "—" },
+    { label: tr("admin_community_rdecision_row_reports"), value: tr("admin_community_rdecision_reports_count", { n: siblings.length, reporters: reporterCount }) },
   ];
 
   const sameTargetCheckbox =
@@ -296,7 +300,7 @@ export function CommunityReportDecisionPanel({
       return {
         id: r.id,
         at: r.processed_at as string,
-        actor: r.processed_by_label ?? "관리자",
+        actor: r.processed_by_label ?? tr("admin_community_rdecision_admin"),
         action: acts.length ? `${decision} · ${acts.join(", ")}` : decision,
         reason: r.decision_reason,
       };
@@ -311,9 +315,9 @@ export function CommunityReportDecisionPanel({
       <CommunitySection title={tr("admin_community_rdecision_target_title")}>
         <CommunitySummaryCard
           rows={[
-            { label: "유형", value: targetTypeLabel },
+            { label: tr("admin_community_rdecision_row_type"), value: targetTypeLabel },
             {
-              label: "대상",
+              label: tr("admin_community_rdecision_row_target"),
               value: isUserTarget ? (
                 <CommunityAuthorCell
                   userId={row.target_id}
@@ -326,7 +330,7 @@ export function CommunityReportDecisionPanel({
                     <Link href={row.moderation_href} className="font-medium text-sam-info hover:underline">
                       {displayTarget === "post"
                         ? row.post_title?.trim() || tr("admin_posts_no_title")
-                        : communityPlainExcerpt(row.target_content_preview, 60) || "내용 없음"}
+                        : communityPlainExcerpt(row.target_content_preview, 60) || tr("admin_community_rdecision_no_content")}
                     </Link>
                   ) : (
                     <span>{row.post_title?.trim() || "—"}</span>
@@ -341,16 +345,16 @@ export function CommunityReportDecisionPanel({
               ? []
               : [
                   {
-                    label: "내용 미리보기",
+                    label: tr("admin_community_rdecision_row_preview"),
                     value: (
                       <span className="whitespace-pre-wrap text-sam-fg">
                         {communityPlainExcerpt(row.target_content_preview, 200) || "—"}
                       </span>
                     ),
                   },
-                  { label: "카테고리", value: row.post_topic_name ?? "—" },
+                  { label: tr("admin_community_rdecision_row_category"), value: row.post_topic_name ?? "—" },
                   {
-                    label: "작성자",
+                    label: tr("admin_community_rdecision_row_author"),
                     value: (
                       <CommunityAuthorCell
                         userId={authorId || null}
@@ -359,9 +363,9 @@ export function CommunityReportDecisionPanel({
                       />
                     ),
                   },
-                  { label: "작성 시각", value: PHT(row.target_created_at) },
+                  { label: tr("admin_community_rdecision_row_created"), value: PHT(row.target_created_at) },
                   {
-                    label: "대상 상태",
+                    label: tr("admin_community_rdecision_row_target_status"),
                     value:
                       row.target_found === false ? (
                         <span className="text-sam-danger">{tr("admin_community_rdecision_target_gone")}</span>
@@ -370,14 +374,14 @@ export function CommunityReportDecisionPanel({
                       ),
                   },
                 ]),
-            { label: "신고 상태", value: <CommunityStatusBadge domain="report_status" value={status} ko={ko} /> },
-            { label: "신고", value: `${siblings.length}건 · 신고자 ${reporterCount}명` },
+            { label: tr("admin_community_rdecision_row_report_status"), value: <CommunityStatusBadge domain="report_status" value={status} ko={ko} /> },
+            { label: tr("admin_community_rdecision_row_reports"), value: tr("admin_community_rdecision_reports_count", { n: siblings.length, reporters: reporterCount }) },
           ]}
         />
         <div className="flex flex-wrap gap-3 text-[13px]">
           {row.moderation_href ? (
             <Link href={row.moderation_href} className="text-sam-info hover:underline">
-              {isUserTarget ? "작성자 조회" : tr("admin_community_report_moderate_target")}
+              {isUserTarget ? tr("admin_community_rdecision_view_author") : tr("admin_community_report_moderate_target")}
             </Link>
           ) : null}
           {postId ? (
@@ -395,14 +399,14 @@ export function CommunityReportDecisionPanel({
               href={`/admin/community/reports?status=all&authorId=${encodeURIComponent(authorId)}`}
               className="text-sam-info hover:underline"
             >
-              이 작성자가 받은 신고
+              {tr("admin_community_rdecision_author_reports")}
             </Link>
           ) : null}
         </div>
       </CommunitySection>
 
       {/* ② 관련 기록 */}
-      <CommunitySection title={`이 대상의 신고 ${siblings.length}건`}>
+      <CommunitySection title={tr("admin_community_rdecision_siblings_title", { n: siblings.length })}>
         <ol className="space-y-2">
           {siblings.map((r) => {
             const { code, text } = splitCommunityReportReason(r.reason_text);
@@ -428,7 +432,7 @@ export function CommunityReportDecisionPanel({
                   </span>
                 </div>
                 <p className="mt-1">
-                  <span className="font-semibold text-sam-fg">{reason.known ? reason.label : "기타"}</span>
+                  <span className="font-semibold text-sam-fg">{reason.known ? reason.label : tr("admin_community_rdecision_reason_other")}</span>
                   {text ? <span className="ml-2 whitespace-pre-wrap text-sam-muted">{text}</span> : null}
                 </p>
               </li>
@@ -455,22 +459,22 @@ export function CommunityReportDecisionPanel({
         <div className="flex flex-wrap items-center justify-end gap-2" data-admin-report-cta-state={status}>
           {allowed.includes("reopen") ? (
             <AdminActionButton variant="secondary" onClick={() => setSheet("reopen")}>
-              다시 열기
+              {tr("admin_community_rdecision_reopen")}
             </AdminActionButton>
           ) : null}
           {allowed.includes("review") ? (
             <AdminActionButton variant="secondary" disabled={reviewBusy} onClick={() => void startReview()}>
-              {reviewBusy ? "처리 중" : "검토 시작"}
+              {reviewBusy ? tr("admin_community_rdecision_processing") : tr("admin_community_rdecision_start_review")}
             </AdminActionButton>
           ) : null}
           {allowed.includes("dismiss") ? (
             <AdminActionButton variant="secondary" disabled={reviewBusy} onClick={openDismiss}>
-              신고 기각
+              {tr("admin_community_rdecision_dismiss")}
             </AdminActionButton>
           ) : null}
           {allowed.includes("resolve") ? (
             <AdminActionButton variant="primary" disabled={reviewBusy} onClick={openResolve}>
-              신고 인정
+              {tr("admin_community_rdecision_resolve")}
             </AdminActionButton>
           ) : null}
           {authorId ? (
@@ -503,7 +507,7 @@ export function CommunityReportDecisionPanel({
             disabled={!canModerate || memoBusy || (memo.trim() || null) === (row.admin_memo?.trim() || null)}
             onClick={() => void saveMemo()}
           >
-            {memoBusy ? "처리 중" : "메모 저장"}
+            {memoBusy ? tr("admin_community_rdecision_processing") : tr("admin_community_rdecision_save_memo")}
           </AdminActionButton>
         </div>
       </CommunitySection>
@@ -520,9 +524,9 @@ export function CommunityReportDecisionPanel({
         <CommunityActionSheet
           title={tr("admin_community_rdecision_dismiss_title")}
           rows={sheetRows}
-          notice="기각하면 콘텐츠와 회원에게는 아무 변화가 없고, 신고자에게 처리 완료 알림이 갑니다."
-          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "기각 사유 (예: 신고 내용과 다름)" }}
-          confirmLabel="신고 기각"
+          notice={tr("admin_community_rdecision_dismiss_notice")}
+          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: tr("admin_community_rdecision_dismiss_reason") }}
+          confirmLabel={tr("admin_community_rdecision_dismiss_button")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
             const { result, json } = await communityActionFetch(
@@ -539,7 +543,7 @@ export function CommunityReportDecisionPanel({
             lastJson.current = json;
             return result;
           }}
-          onSettled={(kind) => void settle(kind, () => decisionSummary(lastJson.current, "신고를 기각했습니다."))}
+          onSettled={(kind) => void settle(kind, () => decisionSummary(lastJson.current, tr("admin_community_rdecision_dismissed")))}
         >
           {sameTargetCheckbox}
         </CommunityActionSheet>
@@ -551,12 +555,12 @@ export function CommunityReportDecisionPanel({
           rows={sheetRows}
           notice={
             memberAction === "community_restriction"
-              ? "활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로입니다. 회원에게 알림이 갑니다."
-              : "신고자에게 처리 완료 알림이 가고, 조치를 선택하면 작성자에게도 알림이 갑니다."
+              ? tr("admin_community_rdecision_restrict_notice")
+              : tr("admin_community_rdecision_resolve_notice")
           }
-          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "인정 사유 (회원 알림·운영 기록에 남습니다)" }}
+          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: tr("admin_community_rdecision_resolve_reason") }}
           destructive={targetAction === "delete" || memberAction === "community_restriction"}
-          confirmLabel="신고 인정"
+          confirmLabel={tr("admin_community_rdecision_resolve_button")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
             const sanction =
@@ -580,15 +584,15 @@ export function CommunityReportDecisionPanel({
             lastJson.current = json;
             return result;
           }}
-          onSettled={(kind) => void settle(kind, () => decisionSummary(lastJson.current, "신고를 인정했습니다."))}
+          onSettled={(kind) => void settle(kind, () => decisionSummary(lastJson.current, tr("admin_community_rdecision_resolved")))}
         >
           <fieldset className="space-y-1">
             <legend className="text-[12px] font-semibold text-sam-fg">{tr("admin_community_rdecision_content_action")}</legend>
             {(
               [
-                ["none", "조치 없음"],
-                ["hide", "숨기기 (작성자만 보임)"],
-                ["delete", "삭제 (복구 가능)"],
+                ["none", "admin_community_rdecision_no_action"],
+                ["hide", "admin_community_rdecision_hide_option"],
+                ["delete", "admin_community_rdecision_delete_option"],
               ] as const
             ).map(([v, label]) => (
               <label key={v} className="mr-4 inline-flex items-center gap-1.5 text-[13px] text-sam-fg">
@@ -599,12 +603,14 @@ export function CommunityReportDecisionPanel({
                   disabled={v !== "none" && !contentActionAvailable}
                   onChange={() => setTargetAction(v)}
                 />
-                {label}
+                {tr(label)}
               </label>
             ))}
             {!contentActionAvailable ? (
               <p className="text-[12px] text-sam-muted">
-                {isUserTarget ? "회원 신고에는 콘텐츠 조치가 없습니다." : "대상이 이미 영구 삭제되어 콘텐츠 조치를 할 수 없습니다."}
+                {isUserTarget
+                  ? tr("admin_community_rdecision_no_content_action_user")
+                  : tr("admin_community_rdecision_no_content_action_gone")}
               </p>
             ) : null}
           </fieldset>
@@ -612,9 +618,9 @@ export function CommunityReportDecisionPanel({
             <legend className="text-[12px] font-semibold text-sam-fg">{tr("admin_community_rdecision_member_action")}</legend>
             {(
               [
-                ["none", "조치 없음"],
-                ["warning", "경고"],
-                ["community_restriction", "활동 제한"],
+                ["none", "admin_community_rdecision_no_action"],
+                ["warning", "admin_community_rdecision_act_warning"],
+                ["community_restriction", "admin_community_rdecision_restrict_option"],
               ] as const
             ).map(([v, label]) => (
               <label key={v} className="mr-4 inline-flex items-center gap-1.5 text-[13px] text-sam-fg">
@@ -625,13 +631,13 @@ export function CommunityReportDecisionPanel({
                   disabled={v !== "none" && !authorId}
                   onChange={() => setMemberAction(v)}
                 />
-                {label}
+                {tr(label)}
               </label>
             ))}
             {memberAction === "community_restriction" ? (
               <div className="flex flex-wrap gap-3 pt-1">
                 <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-                  범위
+                  {tr("admin_community_rdecision_field_scope")}
                   <select
                     value={scope}
                     onChange={(e) => setScope(e.target.value as Scope)}
@@ -643,7 +649,7 @@ export function CommunityReportDecisionPanel({
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-                  기간
+                  {tr("admin_community_rdecision_field_period")}
                   <select
                     value={days}
                     onChange={(e) => setDays(e.target.value)}
@@ -651,7 +657,7 @@ export function CommunityReportDecisionPanel({
                   >
                     {COMMUNITY_RESTRICTION_DAY_OPTIONS.map((d) => (
                       <option key={d} value={String(d)}>
-                        {d}일
+                        {tr("admin_community_rdecision_days_n", { n: d })}
                       </option>
                     ))}
                     <option value="perm">{tr("admin_community_restrict_permanent")}</option>
@@ -661,7 +667,7 @@ export function CommunityReportDecisionPanel({
             ) : null}
             {authorId ? (
               <p className="text-[12px] text-sam-muted">
-                계정 전체 정지가 필요하면{" "}
+                {tr("admin_community_rdecision_need_full_suspend")}{" "}
                 {canUsers ? (
                   <Link href={`/admin/users/${encodeURIComponent(authorId)}`} className="text-sam-info underline">
                     {tr("admin_community_rdecision_go_suspend")}
@@ -682,9 +688,9 @@ export function CommunityReportDecisionPanel({
         <CommunityActionSheet
           title={tr("admin_community_rdecision_reopen_title")}
           rows={sheetRows}
-          notice="신고를 다시 접수 상태로 돌립니다. 이미 실행한 숨김·제한은 자동으로 되돌리지 않습니다."
-          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "다시 여는 사유" }}
-          confirmLabel="다시 열기"
+          notice={tr("admin_community_rdecision_reopen_notice")}
+          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: tr("admin_community_rdecision_reopen_reason") }}
+          confirmLabel={tr("admin_community_rdecision_reopen_button")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
             const { result, json } = await communityActionFetch(
@@ -697,8 +703,8 @@ export function CommunityReportDecisionPanel({
           }}
           onSettled={(kind) =>
             void settle(kind, () => {
-              const warn = communityWarningsOf(lastJson.current);
-              return { tone: warn.length ? "warning" : "success", text: "신고를 다시 열었습니다.", extra: warn };
+              const warn = communityWarningsOf(lastJson.current, language);
+              return { tone: warn.length ? "warning" : "success", text: tr("admin_community_rdecision_reopened"), extra: warn };
             })
           }
         />

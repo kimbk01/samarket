@@ -58,19 +58,19 @@ export function LaunchChecklistTable() {
       </AdminFilterBar>
 
       {items.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 단계 점검 항목이 없습니다."} />
+        <AdminEmptyState ko={ko} message={t("admin_launch_ready_no_checklist")} />
       ) : (
         <AdminTable
           headers={[
-            "영역",
-            "제목",
-            "게이트",
-            "상태",
-            "우선순위",
-            "담당",
-            "기한",
-            "차단 사유",
-            "비고",
+            t("admin_launch_ready_th_area"),
+            t("admin_launch_ready_th_title"),
+            t("admin_launch_ready_th_gate"),
+            t("admin_launch_ready_th_status"),
+            t("admin_launch_ready_th_priority"),
+            t("admin_launch_ready_th_owner"),
+            t("admin_launch_ready_th_due"),
+            t("admin_launch_ready_th_blocker_reason"),
+            t("admin_launch_ready_th_remarks"),
           ]}
         >
           {items.map((i) => (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,14 +36,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const id = (await params).id?.trim() ?? "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "id 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_id_required") }, { status: 400 });
   }
 
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 본문이 필요합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_json_body_required") }, { status: 400 });
   }
 
   const sb = admin.sb;

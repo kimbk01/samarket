@@ -16,6 +16,8 @@
  * - Expanding UI "campaign" as cross-domain SSOT name (DB *_campaigns stay)
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export const ADMIN_REAL_OPERATION_CUT_A_LOCK_ID =
   "dibay-admin-real-operation-cut-a-authority-hard-lock" as const;
 
@@ -418,7 +420,7 @@ export const FORBIDDEN_NEW_ADMIN_SHELL_ROUTES = [
 
 export type ScenarioEntryLock = {
   id: string;
-  operation: string;
+  operation: MessageKey;
   currentEntry: string;
   canonicalDomain: string;
   readOwner: string;
@@ -431,7 +433,7 @@ export type ScenarioEntryLock = {
 export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   {
     id: "A",
-    operation: "광고 신청 처리",
+    operation: "admin_cut_a_op_ad_application",
     currentEntry: "/admin/delivery-ads/manage",
     canonicalDomain: "DELIVERY_AD",
     readOwner: "admin-delivery-ad-loader",
@@ -442,7 +444,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "B",
-    operation: "광고 소재 검수",
+    operation: "admin_cut_a_op_ad_creative_review",
     currentEntry: "/admin/delivery-ads/manage (detail + creative)",
     canonicalDomain: "DELIVERY_AD_CREATIVE",
     readOwner: "delivery_ad_creatives",
@@ -453,7 +455,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "C",
-    operation: "승인/보류/거절",
+    operation: "admin_cut_a_op_approve_hold_reject",
     currentEntry: "/admin/delivery-ads detail",
     canonicalDomain: "DELIVERY_AD_LIFECYCLE",
     readOwner: "delivery-ad-lifecycle",
@@ -464,7 +466,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "D",
-    operation: "노출 위치 확인",
+    operation: "admin_cut_a_op_placement_check",
     currentEntry: "placement-preview + /admin/stores-home-shelves|/admin/stores-category-policy",
     canonicalDomain: "DELIVERY_AD_PLACEMENT + HOME/CATEGORY CONFIG",
     readOwner: "delivery-ad-inventory + stores-composition-contract",
@@ -475,7 +477,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "E",
-    operation: "활성 광고 확인",
+    operation: "admin_cut_a_op_active_ads_check",
     currentEntry: "/admin/delivery-ads/manage",
     canonicalDomain: "DELIVERY_AD_EXECUTION",
     readOwner: "admin-delivery-ad-loader",
@@ -486,7 +488,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "F",
-    operation: "중지/종료",
+    operation: "admin_cut_a_op_stop_end",
     currentEntry: "/admin/delivery-ads detail",
     canonicalDomain: "DELIVERY_AD_LIFECYCLE",
     readOwner: "delivery-ad-lifecycle",
@@ -497,7 +499,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "G",
-    operation: "Owner 광고 문의",
+    operation: "admin_cut_a_op_owner_ad_inquiry",
     currentEntry: "/admin/support (+ delivery ops cases)",
     canonicalDomain: "SUPPORT + OPS_THREAD",
     readOwner: "lib/support/*",
@@ -508,7 +510,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "H",
-    operation: "충전 요청 처리",
+    operation: "admin_cut_a_op_charge_request",
     currentEntry: "/admin/finance + /admin/point-charges + business-cash-charges",
     canonicalDomain: "POINT | CASH",
     readOwner: "user-point-ledger / business_cash_*",
@@ -519,7 +521,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "I",
-    operation: "Coin→Cash 전환 확인",
+    operation: "admin_cut_a_op_coin_cash_conversion",
     currentEntry: "/admin/finance",
     canonicalDomain: "COIN→CASH",
     readOwner: "store_economic_point_* + business_cash_*",
@@ -530,7 +532,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "J",
-    operation: "환불/취소 확인",
+    operation: "admin_cut_a_op_refund_cancel_check",
     currentEntry: "delivery-ads reject refund + charge reject",
     canonicalDomain: "CASH refund / Point credit",
     readOwner: "business_cash_ledger / point_ledger",
@@ -541,7 +543,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "K",
-    operation: "매장 전체 상태",
+    operation: "admin_cut_a_op_store_overall_status",
     currentEntry: "/admin/business",
     canonicalDomain: "STORE",
     readOwner: "business/store admin loaders",
@@ -552,7 +554,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "L",
-    operation: "파트너 확인",
+    operation: "admin_cut_a_op_partner_check",
     currentEntry: "/admin/delivery-ads/partner",
     canonicalDomain: "PARTNER_MEMBERSHIP",
     readOwner: "delivery_ad_partner_*",
@@ -563,7 +565,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "M",
-    operation: "회원 문의",
+    operation: "admin_cut_a_op_member_inquiry",
     currentEntry: "/admin/support",
     canonicalDomain: "SUPPORT",
     readOwner: "lib/support/*",
@@ -574,7 +576,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "N",
-    operation: "매장 문의",
+    operation: "admin_cut_a_op_store_inquiry",
     currentEntry: "/admin/support + /admin/store-inquiries",
     canonicalDomain: "SUPPORT (+ store-inquiries PARTIAL)",
     readOwner: "lib/support/*",
@@ -585,7 +587,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "O",
-    operation: "Popup 제작/승인/노출",
+    operation: "admin_cut_a_op_popup_lifecycle",
     currentEntry: "/admin/platform-popup",
     canonicalDomain: "PLATFORM_POPUP",
     readOwner: "lib/platform-popup/*",
@@ -596,7 +598,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "P",
-    operation: "Banner 제작/승인/노출",
+    operation: "admin_cut_a_op_banner_lifecycle",
     currentEntry: "/admin/delivery-ads (+ first-party)",
     canonicalDomain: "DELIVERY_AD banner",
     readOwner: "store_banner_ad_campaigns",
@@ -607,7 +609,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "Q",
-    operation: "앱 실제 화면 미리보기",
+    operation: "admin_cut_a_op_app_preview",
     currentEntry: "DeliveryAdPlacementPreview + AdminStoresHomeShelfLivePreview",
     canonicalDomain: "PLACEMENT_PREVIEW (Delivery/HOME)",
     readOwner: "delivery-ad-placement-preview + composition",
@@ -618,7 +620,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   },
   {
     id: "R",
-    operation: "Pre-launch Reset",
+    operation: "admin_cut_a_op_prelaunch_reset",
     currentEntry: "NONE",
     canonicalDomain: "NONE",
     readOwner: "NONE",

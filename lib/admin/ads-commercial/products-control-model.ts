@@ -160,8 +160,8 @@ function feedLines(
     .filter((p) => p.domain === domain)
     .map((p) => ({
       sku: p.id,
-      labelKo: p.titleKo || `${p.durationDays}일`,
-      labelEn: p.titleEn || `${p.durationDays} days`,
+      labelKo: p.titleKo || tx(true, "admin_ads_duration_days", { days: p.durationDays }),
+      labelEn: p.titleEn || tx(false, "admin_ads_duration_days", { days: p.durationDays }),
       priceTextKo: formatAdsPointPrice(p.pointCost, p.durationDays, true),
       priceTextEn: formatAdsPointPrice(p.pointCost, p.durationDays, false),
       active: p.active,
@@ -180,8 +180,8 @@ function deliveryLines(
     )
     .map((p) => ({
       sku: p.code || p.id,
-      labelKo: p.displayName || `${p.durationDays}일 · ${p.inventoryKey}`,
-      labelEn: p.displayName || `${p.durationDays}d · ${p.inventoryKey}`,
+      labelKo: p.displayName || tx(true, "admin_ads_products_days_inventory", { days: p.durationDays, key: p.inventoryKey }),
+      labelEn: p.displayName || tx(false, "admin_ads_products_days_inventory", { days: p.durationDays, key: p.inventoryKey }),
       priceTextKo: formatAdsBusinessCashPackagePrice(
         p.priceAmountMinor,
         p.durationDays,
@@ -274,8 +274,8 @@ export async function loadAdsCommercialControlModel(
       adminDirectPath: null,
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["결제 즉시 노출 · 운영자 승인 없이 사후 제재만"],
-      notesEn: ["Immediate paid exposure · Admin sanction only after purchase"],
+      notesKo: [tx(true, "admin_ads_products_note_instant_exposure")],
+      notesEn: [tx(false, "admin_ads_products_note_instant_exposure")],
     },
     {
       productKey: "trade_boost",
@@ -322,8 +322,8 @@ export async function loadAdsCommercialControlModel(
       adminDirectPath: null,
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["결제 즉시 노출 · 운영자 승인 없이 사후 제재만"],
-      notesEn: ["Immediate paid exposure · Admin sanction only after purchase"],
+      notesKo: [tx(true, "admin_ads_products_note_instant_exposure")],
+      notesEn: [tx(false, "admin_ads_products_note_instant_exposure")],
     },
     {
       productKey: "delivery_store_sponsored",
@@ -361,8 +361,8 @@ export async function loadAdsCommercialControlModel(
       adminDirectPath: null,
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["현재 판매 가격 · 과거 결제액은 변경되지 않습니다"],
-      notesEn: ["Current sale prices · historical charges are unchanged"],
+      notesKo: [tx(true, "admin_ads_products_note_current_prices")],
+      notesEn: [tx(false, "admin_ads_products_note_current_prices")],
     },
     {
       productKey: "community_banner",
@@ -396,8 +396,8 @@ export async function loadAdsCommercialControlModel(
         },
       ],
       priceLines: feedLines(feedProducts, "community"),
-      priceAuthorityKo: "어드민 「피드 배너 상품」 화면에서 저장",
-      priceAuthorityEn: "어드민 「피드 배너 상품」 화면에서 저장",
+      priceAuthorityKo: tx(true, "admin_ads_products_price_authority_feed"),
+      priceAuthorityEn: tx(false, "admin_ads_products_price_authority_feed"),
       priceEditable: true,
       sellableEditable: true,
       editPriceHref: ADS_PRODUCTS_FEED_PRODUCTS_HREF,
@@ -417,8 +417,8 @@ export async function loadAdsCommercialControlModel(
       },
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["운영자 등록은 회원 상품 0원 표기가 아닙니다"],
-      notesEn: ["Admin Direct is not a zero-price Member SKU"],
+      notesKo: [tx(true, "admin_ads_products_note_admin_direct_not_zero")],
+      notesEn: [tx(false, "admin_ads_products_note_admin_direct_not_zero")],
     },
     {
       productKey: "trade_banner",
@@ -452,8 +452,8 @@ export async function loadAdsCommercialControlModel(
         },
       ],
       priceLines: feedLines(feedProducts, "trade"),
-      priceAuthorityKo: "어드민 「피드 배너 상품」 화면에서 저장",
-      priceAuthorityEn: "어드민 「피드 배너 상품」 화면에서 저장",
+      priceAuthorityKo: tx(true, "admin_ads_products_price_authority_feed"),
+      priceAuthorityEn: tx(false, "admin_ads_products_price_authority_feed"),
       priceEditable: true,
       sellableEditable: true,
       editPriceHref: ADS_PRODUCTS_FEED_PRODUCTS_HREF,
@@ -473,8 +473,8 @@ export async function loadAdsCommercialControlModel(
       },
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["운영자 등록은 회원 상품 0원 표기가 아닙니다"],
-      notesEn: ["Admin Direct is not a zero-price Member SKU"],
+      notesKo: [tx(true, "admin_ads_products_note_admin_direct_not_zero")],
+      notesEn: [tx(false, "admin_ads_products_note_admin_direct_not_zero")],
     },
     {
       productKey: "delivery_home_banner",
@@ -524,8 +524,8 @@ export async function loadAdsCommercialControlModel(
       },
       popupOwnerSalesKo: null,
       popupOwnerSalesEn: null,
-      notesKo: ["현재 판매 가격 · 과거 결제액은 변경되지 않습니다"],
-      notesEn: ["Current sale prices · historical charges are unchanged"],
+      notesKo: [tx(true, "admin_ads_products_note_current_prices")],
+      notesEn: [tx(false, "admin_ads_products_note_current_prices")],
     },
     {
       productKey: "popup",
@@ -568,13 +568,13 @@ export async function loadAdsCommercialControlModel(
         approvalEn: "No approval",
       },
       popupOwnerSalesKo: OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED
-        ? "사장님 신규 판매 활성 (정책 확인 필요)"
-        : "신규 회원·사장님 신청 지원하지 않음 · 사장님 팝업(이전 방식) 신규 판매 중지 · 기존 이력 보존",
+        ? tx(true, "admin_ads_products_popup_owner_sales_on")
+        : tx(true, "admin_ads_products_popup_owner_sales_off"),
       popupOwnerSalesEn: OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED
-        ? "Owner new sales enabled (policy check required)"
-        : "Member/Owner new applications not supported · Legacy Owner Popup new sales stopped · history preserved",
-      notesKo: ["가격 입력·가격 저장 화면 없음"],
-      notesEn: ["No price input / no price writer"],
+        ? tx(false, "admin_ads_products_popup_owner_sales_on")
+        : tx(false, "admin_ads_products_popup_owner_sales_off"),
+      notesKo: [tx(true, "admin_ads_products_note_no_price_writer")],
+      notesEn: [tx(false, "admin_ads_products_note_no_price_writer")],
     },
   ];
 

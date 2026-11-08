@@ -114,17 +114,21 @@ export function AdminSampleStoreDeleteDrawer({
       level: adminActionLevel("delete"),
       ko,
       title: translateBy(ko ? "ko" : "en", "admin_stores_delete_sample_stores"),
-      description: ko
-        ? [
-            `샘플 매장 ${formatAdminNumber(n)}곳과 메뉴 ${formatAdminNumber(summary?.menu_count)}개·이미지 ${formatAdminNumber(
-              (summary?.image_count ?? 0) - (summary?.shared_image_count ?? 0)
-            )}개를 삭제합니다. 되돌릴 수 없습니다.`,
-            blocked.length ? `삭제 불가 ${formatAdminNumber(blocked.length)}곳은 제외됩니다.` : "",
-            "실제·테스트 매장은 서버와 DB 가 다시 막습니다.",
-          ]
-            .filter(Boolean)
-            .join("\n")
-        : `Delete ${n} sample stores. This cannot be undone.`,
+      description: [
+        translateBy(ko ? "ko" : "en", "admin_stores_sample_delete_confirm_body", {
+          n: formatAdminNumber(n),
+          menus: formatAdminNumber(summary?.menu_count),
+          images: formatAdminNumber((summary?.image_count ?? 0) - (summary?.shared_image_count ?? 0)),
+        }),
+        blocked.length
+          ? translateBy(ko ? "ko" : "en", "admin_stores_sample_delete_confirm_blocked", {
+              n: formatAdminNumber(blocked.length),
+            })
+          : "",
+        translateBy(ko ? "ko" : "en", "admin_stores_sample_delete_confirm_guard"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
       confirmLabel: adminCta("delete", ko),
       destructive: true,
       retypeValue: String(n),

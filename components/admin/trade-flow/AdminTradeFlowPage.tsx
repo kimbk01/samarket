@@ -402,7 +402,7 @@ export function AdminTradeFlowPage() {
                         {labelOf(LISTING_STATE_KEYS, s.sellerListingState)}
                       </td>
                       <td className="px-3 py-2">{tradeFlowStatusLabel(s.trade_flow_status)}</td>
-                      <td className="px-3 py-2">{s.hasBuyerReview ? (language !== "en" ? "있음" : "Yes") : (language !== "en" ? "없음" : "No")}</td>
+                      <td className="px-3 py-2">{s.hasBuyerReview ? t("admin_trade_flow_buyer_review_yes") : t("admin_trade_flow_buyer_review_no")}</td>
                       <td className="px-3 py-2">{tradeChatModeLabel(s.chat_mode)}</td>
                       <td className="px-3 py-2 text-sam-muted">
                         {s.seller_completed_at

@@ -8,6 +8,7 @@ import type { ImportRule } from "@/lib/community-operator-import/rules";
 import type { ManagedRights, ManagedSource } from "@/lib/community-operator-import/source-store";
 import type { ContentPolicy, OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 export const API = "/api/admin/community/external-import";
 
@@ -57,20 +58,20 @@ export type { ContentPolicy, ImportRule, InboxKey, InboxRow, InboxStatus, JobSum
 
 export const keyOf = (r: InboxKey) => `${r.sourceSite}|${r.sourceBoard}|${r.sourceArticleKey}`;
 
-export const STATUS_LABEL: Record<string, string> = {
-  new: "신규",
-  draft: "편집중",
-  published: "게시됨",
-  source_updated: "원문 변경",
-  failed: "실패",
-  hidden: "숨김",
-  skipped: "제외",
+export const STATUS_LABEL: Record<string, MessageKey> = {
+  new: "admin_community_import_status_new",
+  draft: "admin_community_import_status_draft",
+  published: "admin_community_import_status_published",
+  source_updated: "admin_community_import_status_source_updated",
+  failed: "admin_community_import_status_failed",
+  hidden: "admin_community_import_status_hidden",
+  skipped: "admin_community_import_status_skipped",
 };
 
-export const POLICY_LABEL: Record<ContentPolicy, string> = {
-  full: "전문 게시 (재게시 권한 확인된 출처만)",
-  summary_link: "요약 + 원문 링크 (기본)",
-  link_only: "제목 + 원문 링크",
+export const POLICY_LABEL: Record<ContentPolicy, MessageKey> = {
+  full: "admin_community_import_policy_full",
+  summary_link: "admin_community_import_policy_summary_link",
+  link_only: "admin_community_import_policy_link_only",
 };
 
 export const VERDICT_TONE: Record<string, string> = {
@@ -84,18 +85,19 @@ export const VERDICT_TONE: Record<string, string> = {
 };
 
 /** 수집 품질 판정 → 한글 배지 */
-export const VERDICT_LABEL: Record<string, string> = {
-  FULL: "전체 수집",
-  VERIFIED: "확인됨",
-  PARTIAL: "일부 수집",
-  NOT_PROVEN: "미검증",
-  BLOCKED: "수집 차단",
-  FAILED: "수집 실패",
-  REJECT: "제외",
+export const VERDICT_LABEL: Record<string, MessageKey> = {
+  FULL: "admin_community_import_verdict_full",
+  VERIFIED: "admin_community_import_verdict_verified",
+  PARTIAL: "admin_community_import_verdict_partial",
+  NOT_PROVEN: "admin_community_import_verdict_not_proven",
+  BLOCKED: "admin_community_import_verdict_blocked",
+  FAILED: "admin_community_import_verdict_failed",
+  REJECT: "admin_community_import_verdict_reject",
 };
 
-export function verdictLabel(v: string | null | undefined): string {
-  return VERDICT_LABEL[String(v || "NOT_PROVEN")] ?? "확인 필요";
+export function verdictLabel(v: string | null | undefined, t: (key: MessageKey) => string): string {
+  const key = VERDICT_LABEL[String(v || "NOT_PROVEN")];
+  return key ? t(key) : t("admin_community_import_verdict_unknown");
 }
 
 /**
@@ -113,7 +115,7 @@ export function importErrorText(e: unknown): string {
   const err = (e ?? {}) as { message?: string; code?: string };
   const msg = String(err.message ?? (typeof e === "string" ? e : ""));
   if (/[가-힣]/.test(msg)) {
-    return msg.replace(/\b(FULL|VERIFIED|PARTIAL|NOT_PROVEN|BLOCKED|FAILED|REJECT)\b/g, (m) => VERDICT_LABEL[m] ?? m);
+    return msg.replace(/\b(FULL|VERIFIED|PARTIAL|NOT_PROVEN|BLOCKED|FAILED|REJECT)\b/g, (m) => (VERDICT_LABEL[m] ? translate("ko", VERDICT_LABEL[m]) : m));
   }
   if (!msg || /^HTTP \d+/.test(msg)) return adminOperatorErrorMessage("server_error", true);
   const code = err.code && /^[a-z][a-z0-9_]*$/.test(err.code) ? err.code : msg;

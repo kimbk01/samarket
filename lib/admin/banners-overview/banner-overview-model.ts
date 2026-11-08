@@ -6,6 +6,11 @@
 import type { PromotionOperatorStatus } from "@/lib/admin/promotion-operation-status";
 import { resolveDistributionOperatorStatus } from "@/lib/admin/promotion-operation-status";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+function tx(ko: boolean, key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(ko ? "ko" : "en", key, vars);
+}
 
 export type BannerOverviewKind = "mypage" | "promotion" | "feed" | "delivery";
 export type BannerOverviewDomain = "common" | "trade" | "community" | "delivery";
@@ -56,7 +61,7 @@ export type MypageBannerInput = {
   updatedAt?: string;
 };
 
-export function mapMypageBanner(b: MypageBannerInput, nowMs: number): BannerOverviewRow {
+export function mapMypageBanner(b: MypageBannerInput, nowMs: number, ko: boolean = true): BannerOverviewRow {
   const startAt = b.startAt || null;
   const endAt = b.endAt || null;
   const status: PromotionOperatorStatus =
@@ -72,12 +77,12 @@ export function mapMypageBanner(b: MypageBannerInput, nowMs: number): BannerOver
     kind: "mypage",
     title: b.title,
     domain: "common",
-    surface: "내정보 홈 · 프로필 아래 1건",
+    surface: tx(ko, "admin_banners_overview_surface_mypage_profile"),
     status,
     startAt,
     endAt,
     thumbUrl: b.mobileImageUrl || b.imageUrl || null,
-    creative: b.targetUrl ? `연결: ${b.targetUrl}` : "연결 없음",
+    creative: b.targetUrl ? tx(ko, "admin_banners_overview_link_to", { target: b.targetUrl }) : tx(ko, "admin_banners_overview_no_link"),
     editHref: `/admin/my/banners/${encodeURIComponent(b.id)}/edit`,
     editable: true,
     customerHref: "/mypage",
@@ -98,14 +103,17 @@ export type PromotionBannerInput = {
   thumbUrl: string | null;
 };
 
-export function mapPromotionBanner(r: PromotionBannerInput, nowMs: number): BannerOverviewRow {
+export function mapPromotionBanner(r: PromotionBannerInput, nowMs: number, ko: boolean = true): BannerOverviewRow {
   const community = r.placement === "COMMUNITY_HOME";
   return {
     key: `promotion:${r.distributionId}`,
     kind: "promotion",
     title: r.eventTitle,
     domain: community ? "community" : "trade",
-    surface: `${community ? "커뮤니티 홈" : "거래 홈"} · ${r.presentation === "HERO_BANNER" ? "히어로" : "인라인"}`,
+    surface: tx(ko, "admin_banners_overview_surface_pair", {
+      surface: tx(ko, community ? "admin_banners_overview_community_home" : "admin_banners_overview_trade_home"),
+      presentation: tx(ko, r.presentation === "HERO_BANNER" ? "admin_banners_overview_hero" : "admin_banners_overview_inline"),
+    }),
     status: resolveDistributionOperatorStatus(
       { status: r.status, enabled: r.enabled, startsAt: r.startsAt, endsAt: r.endsAt },
       nowMs
@@ -113,7 +121,7 @@ export function mapPromotionBanner(r: PromotionBannerInput, nowMs: number): Bann
     startAt: r.startsAt,
     endAt: r.endsAt,
     thumbUrl: r.thumbUrl,
-    creative: "연결: 이벤트 상세",
+    creative: tx(ko, "admin_banners_overview_link_event_detail"),
     editHref: `/admin/platform-events/${encodeURIComponent(r.eventId)}#distribution`,
     editable: true,
     customerHref: community ? "/philife" : "/market",
@@ -121,11 +129,11 @@ export function mapPromotionBanner(r: PromotionBannerInput, nowMs: number): Bann
   };
 }
 
-const FEED_SURFACE: Record<string, string> = {
-  TRADE_HOME: "거래 홈 목록",
-  TRADE_CATEGORY: "거래 카테고리 목록",
-  COMMUNITY_HOME: "커뮤니티 홈 피드",
-  COMMUNITY_TOPIC: "커뮤니티 주제 피드",
+const FEED_SURFACE: Record<string, MessageKey> = {
+  TRADE_HOME: "admin_banners_overview_feed_trade_home",
+  TRADE_CATEGORY: "admin_banners_overview_feed_trade_category",
+  COMMUNITY_HOME: "admin_banners_overview_feed_community_home",
+  COMMUNITY_TOPIC: "admin_banners_overview_feed_community_topic",
 };
 
 export type FeedCampaignInput = {
@@ -143,7 +151,7 @@ export type FeedCampaignInput = {
 };
 
 /** N-01: `active` 인데 종료 시각이 지난 캠페인은 「종료」로 보인다 (고객 노출 규칙과 같음, DB 는 고치지 않음). */
-export function mapFeedCampaign(c: FeedCampaignInput, nowMs: number): BannerOverviewRow {
+export function mapFeedCampaign(c: FeedCampaignInput, nowMs: number, ko: boolean = true): BannerOverviewRow {
   const status: PromotionOperatorStatus =
     c.status === "draft"
       ? "DRAFT"
@@ -154,17 +162,18 @@ export function mapFeedCampaign(c: FeedCampaignInput, nowMs: number): BannerOver
           : windowStatus(c.startAt, c.endAt, nowMs);
   const first = c.slides?.[0];
   const memberRequested = c.source === "MEMBER_REQUESTED";
+  const feedSurfaceKey = FEED_SURFACE[c.placement];
   return {
     key: `feed:${c.id}`,
     kind: "feed",
     title: c.name,
     domain: c.domain === "community" ? "community" : "trade",
-    surface: `${FEED_SURFACE[c.placement] ?? c.placement}${memberRequested ? " · 회원 신청" : ""}`,
+    surface: `${feedSurfaceKey ? tx(ko, feedSurfaceKey) : c.placement}${memberRequested ? tx(ko, "admin_banners_overview_member_requested_suffix") : ""}`,
     status,
     startAt: c.startAt,
     endAt: c.endAt,
     thumbUrl: first?.imageUrl || null,
-    creative: `${c.slides?.length ?? 0}장${first?.headline ? ` · ${first.headline}` : ""}`,
+    creative: `${tx(ko, "admin_banners_overview_slides_count", { n: c.slides?.length ?? 0 })}${first?.headline ? ` · ${first.headline}` : ""}`,
     editHref: `/admin/feed-ads/${encodeURIComponent(c.id)}/edit`,
     // N-01: active 라도 종료 시각이 지난 캠페인은 수정 불가 (PATCH planFeedAdCampaignPatch 409 campaign_ended 와 같은 규칙)
     editable: status !== "ENDED",
@@ -187,7 +196,7 @@ export type DeliveryBannerInput = {
   updatedAt: string;
 };
 
-export function mapDeliveryBanner(d: DeliveryBannerInput, nowMs: number): BannerOverviewRow {
+export function mapDeliveryBanner(d: DeliveryBannerInput, nowMs: number, ko: boolean = true): BannerOverviewRow {
   const b = d.listBucket ?? "";
   const status: PromotionOperatorStatus =
     b === "ended" || b === "rejected"
@@ -205,12 +214,18 @@ export function mapDeliveryBanner(d: DeliveryBannerInput, nowMs: number): Banner
     title: d.title || d.headline || d.storeName || d.id,
     domain: "delivery",
     // 재감사 S-2 (H-7): 코드값 대신 지면 이름 (업종 상단·검색 상단도 「배달 홈」으로 보이던 것)
-    surface: d.inventoryKeys.length ? d.inventoryKeys.map((k) => humanPlacementLabel(k, true)).join(", ") : "배달",
+    surface: d.inventoryKeys.length
+      ? d.inventoryKeys.map((k) => humanPlacementLabel(k, ko)).join(", ")
+      : tx(ko, "admin_banners_overview_delivery"),
     status,
     startAt: d.startAt || null,
     endAt: d.endAt || null,
     thumbUrl: d.imageUrl,
-    creative: d.ctaHref ? `연결: ${d.ctaHref}` : d.storeName ? `매장: ${d.storeName}` : "연결 없음",
+    creative: d.ctaHref
+      ? tx(ko, "admin_banners_overview_link_to", { target: d.ctaHref })
+      : d.storeName
+        ? tx(ko, "admin_banners_overview_store_name", { name: d.storeName })
+        : tx(ko, "admin_banners_overview_no_link"),
     editHref: `/admin/delivery-ads/${encodeURIComponent(d.id)}`,
     editable: status !== "ENDED",
     customerHref: "/stores",

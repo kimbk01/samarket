@@ -160,7 +160,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
           className="mb-2 rounded-md border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-[12px] text-sam-primary"
           data-member-detail-refreshing="1"
         >
-          회원 정보를 갱신하는 중…
+          {t("admin_users_detail_refreshing")}
         </p>
       ) : null}
       {returnTo ? (

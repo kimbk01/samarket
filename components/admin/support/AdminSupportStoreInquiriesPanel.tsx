@@ -9,6 +9,7 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/component
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
@@ -39,11 +40,11 @@ const STATUS_LABELS: Record<string, { ko: string; en: string; tone: AdminTone }>
   escalated: { ...catalogPair("admin_escalated"), tone: "warning" },
 };
 
-const TYPE_LABELS: Record<string, [string, string]> = {
-  product: ["상품 문의", "Product"],
-  order: ["주문 문의", "Order"],
-  store: ["매장 문의", "Store"],
-  complaint: ["불만 접수", "Complaint"],
+const TYPE_LABELS: Record<string, MessageKey> = {
+  product: "admin_support_store_inquiry_type_product",
+  order: "admin_support_store_inquiry_type_order",
+  store: "admin_support_store_inquiry_type_store",
+  complaint: "admin_support_store_inquiry_type_complaint",
 };
 
 export function storeInquiryAdminHref(storeId: string | null | undefined): string {
@@ -133,7 +134,7 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
                       {r.store_name || (translateBy(ko ? "ko" : "en", "admin_support_unnamed_store"))}
                     </span>
                     <span className="text-[12px] text-sam-muted">
-                      {type ? (ko ? type[0] : type[1]) : translateBy(ko ? "ko" : "en", "admin_support_other")}
+                      {type ? translateBy(ko ? "ko" : "en", type) : translateBy(ko ? "ko" : "en", "admin_support_other")}
                     </span>
                     <span className="ml-auto whitespace-nowrap text-[12px] text-sam-muted">
                       {formatAdminManilaDateTime(r.created_at)}

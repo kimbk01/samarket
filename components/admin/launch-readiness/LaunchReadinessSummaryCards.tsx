@@ -13,7 +13,7 @@ import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 const PHASE_OPTIONS: { value: LaunchReadinessPhase | ""; label: string }[] = [
-  { value: "", label: "전체" },
+  { value: "", label: "" },
   { value: "pre_launch", label: "Pre-Launch" },
   { value: "launch_day", label: "Launch Day" },
   { value: "post_launch", label: "Post-Launch" },
@@ -50,7 +50,7 @@ export function LaunchReadinessSummaryCards() {
         >
           {PHASE_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
-              {opt.label}
+              {opt.value === "" ? t("common_all") : opt.label}
             </option>
           ))}
         </select>
@@ -93,7 +93,7 @@ export function LaunchReadinessSummaryCards() {
           </p>
           {summary.blockedCount > 0 && (
             <p className="mt-1 sam-text-helper text-sam-danger">
-              차단 {summary.blockedCount}건
+              {t("admin_launch_ready_blocked_count", { n: summary.blockedCount })}
             </p>
           )}
         </div>
@@ -105,7 +105,7 @@ export function LaunchReadinessSummaryCards() {
           <p className="sam-text-body text-sam-fg">
             {summary.readyAreas.length > 0
               ? summary.readyAreas.map(getAreaLabel).join(", ")
-              : "없음"}
+              : t("common_none")}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -113,7 +113,7 @@ export function LaunchReadinessSummaryCards() {
           <p className="sam-text-body text-sam-fg">
             {summary.notReadyAreas.length > 0
               ? summary.notReadyAreas.map(getAreaLabel).join(", ")
-              : "없음"}
+              : t("common_none")}
           </p>
         </div>
       </div>

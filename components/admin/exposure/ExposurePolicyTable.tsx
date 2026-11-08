@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ExposureScorePolicy } from "@/lib/types/exposure";
 import { SURFACE_LABELS } from "@/lib/exposure/exposure-score-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -15,10 +16,11 @@ export function ExposurePolicyTable({
   policies,
   onEdit,
 }: ExposurePolicyTableProps) {
+  const { t } = useI18n();
   if (policies.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 노출 점수 정책이 없습니다.
+        {t("admin_exposure_policy_empty")}
       </div>
     );
   }
@@ -32,20 +34,20 @@ export function ExposurePolicyTable({
               surface
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              정책명
+              {t("admin_exposure_policy_col_name")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              가중치 요약
+              {t("admin_exposure_policy_col_weights")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_exposure_policy_col_status")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              수정일
+              {t("admin_exposure_policy_col_updated")}
             </th>
             {onEdit && (
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                작업
+                {t("admin_exposure_policy_col_actions")}
               </th>
             )}
           </tr>
@@ -73,7 +75,7 @@ export function ExposurePolicyTable({
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {p.isActive ? "활성" : "비활성"}
+                  {p.isActive ? t("admin_exposure_active") : t("admin_exposure_inactive")}
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
@@ -86,7 +88,7 @@ export function ExposurePolicyTable({
                     variant="ghost"
                     size="sm"
                   >
-                    편집
+                    {t("admin_exposure_policy_edit")}
                   </AdminActionButton>
                 </td>
               )}

@@ -111,7 +111,7 @@ export function AdminSystemPage() {
 
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_system_screen_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as typeof activeTab)}
         syncUrl={false}

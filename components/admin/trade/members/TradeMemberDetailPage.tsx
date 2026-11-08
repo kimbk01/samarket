@@ -32,7 +32,6 @@ import {
 import { AdminToneBadge, AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson, type CommunityAdminLoad } from "@/components/admin/community/members/use-community-admin-data";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   communityActionFetch,
   type CommunityBanner,
@@ -45,7 +44,7 @@ import {
   tradeErrorText,
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import {
-  TRADE_RESTRICTION_SCOPE_LABEL,
+  tradeRestrictionScopeLabel,
   TradeAddRestrictionSheet,
   TradeRevokeRestrictionSheet,
   TradeSanctionStateBadge,
@@ -63,6 +62,9 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 type Rec = Record<string, unknown>;
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
@@ -72,14 +74,14 @@ const LIST_PAGE_SIZE = 20;
 const SIDE_LIMIT = 50;
 const REASON_MIN = 2;
 
-const TABS = [
-  { value: "listings", label: "판매글" },
-  { value: "buyer", label: "구매 채팅" },
-  { value: "reports", label: "신고 받은 내역" },
-  { value: "restrictions", label: "거래 제한" },
-  { value: "promotions", label: "상위노출 주문" },
-  { value: "points", label: "포인트 원장" },
-  { value: "account", label: "계정 조치" },
+const TABS: { value: string; labelKey: MessageKey }[] = [
+  { value: "listings", labelKey: "admin_trade_member_tab_listings" },
+  { value: "buyer", labelKey: "admin_trade_member_tab_buyer" },
+  { value: "reports", labelKey: "admin_trade_member_tab_reports" },
+  { value: "restrictions", labelKey: "admin_trade_members_th_restriction" },
+  { value: "promotions", labelKey: "admin_trade_points_type_promo_order" },
+  { value: "points", labelKey: "admin_trade_member_tab_points" },
+  { value: "account", labelKey: "admin_trade_member_tab_account" },
 ];
 
 type Metric = { ok: true; value: number } | { ok: false; error?: string };
@@ -104,47 +106,47 @@ type TradeTabResponse = {
 type RowsResponse = { ok?: boolean; error?: string; total?: number; rows?: Rec[] };
 type ModerationResponse = { ok?: boolean; error?: string; events?: Rec[] };
 
-const MOD_ACTION_LABEL: Record<string, string> = {
-  warn: "계정 경고",
-  suspend: "계정 정지",
-  ban: "이용 차단",
-  restore: "정지·차단 해제",
+const MOD_ACTION_LABEL: Record<string, MessageKey> = {
+  warn: "admin_trade_member_act_warn",
+  suspend: "admin_trade_member_act_suspend",
+  ban: "admin_trade_member_act_ban",
+  restore: "admin_trade_member_act_restore",
 };
 
-const FLOW_LABEL: Record<string, string> = {
-  chatting: "대화 중",
-  inquiry: "문의",
-  negotiating: "거래 중",
-  reserved: "예약",
-  completed: "거래 완료",
-  sold: "거래 완료",
-  cancelled: "취소",
-  canceled: "취소",
+const FLOW_LABEL: Record<string, MessageKey> = {
+  chatting: "admin_trade_flow_status_chatting",
+  inquiry: "admin_trade_member_flow_inquiry",
+  negotiating: "admin_trade_member_flow_negotiating",
+  reserved: "admin_trade_member_flow_reserved",
+  completed: "admin_trade_listing_completed",
+  sold: "admin_trade_listing_completed",
+  cancelled: "admin_trade_flow_status_cancelled",
+  canceled: "admin_trade_flow_status_cancelled",
 };
 
-const POINT_RELATED: Record<string, string> = {
-  promotion_order: "거래글 상위노출",
-  trade_post_ad: "거래 광고 (이전 방식)",
-  admin_manual: "관리자",
+const POINT_RELATED: Record<string, MessageKey> = {
+  promotion_order: "admin_trade_member_pt_promo",
+  trade_post_ad: "admin_trade_member_pt_legacy_ad",
+  admin_manual: "admin_trade_confirm_source_admin",
 };
-const POINT_ENTRY: Record<string, string> = {
-  spend: "차감",
-  refund: "환급",
-  hold: "보류",
-  capture: "확정",
-  release: "보류 해제",
-  admin_credit: "지급",
-  admin_debit: "회수",
-  admin_adjust: "조정",
-  charge: "충전",
-  reward: "지급",
-  reverse: "회수",
-  expire: "소멸",
+const POINT_ENTRY: Record<string, MessageKey> = {
+  spend: "admin_trade_points_entry_spend",
+  refund: "admin_trade_points_entry_refund",
+  hold: "admin_trade_points_entry_hold",
+  capture: "admin_trade_member_pt_capture",
+  release: "admin_trade_points_entry_hold_release",
+  admin_credit: "admin_trade_points_op_credit",
+  admin_debit: "admin_trade_points_op_debit",
+  admin_adjust: "admin_trade_member_pt_adjust",
+  charge: "admin_trade_member_pt_charge",
+  reward: "admin_trade_points_op_credit",
+  reverse: "admin_trade_points_op_debit",
+  expire: "admin_trade_member_pt_expire",
 };
-function pointTypeLabel(relatedType: string, entryType: string): string {
-  const r = POINT_RELATED[relatedType] ?? "기타";
+function pointTypeLabel(t: Translate, relatedType: string, entryType: string): string {
+  const r = t(POINT_RELATED[relatedType] ?? "admin_trade_audit_target_other");
   const e = POINT_ENTRY[entryType];
-  return e ? `${r} ${e}` : r;
+  return e ? `${r} ${t(e)}` : r;
 }
 
 function metricText(m: Metric | undefined): ReactNode {
@@ -167,7 +169,7 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
   const qs = useCommunityQueryState();
   const sp = useSearchParams();
   const backHref = readAdminReturnToFromSearch(sp) ?? "/admin/trade/members";
-  const tab = TABS.some((t) => t.value === qs.get("tab")) ? qs.get("tab") : "listings";
+  const tab = TABS.some((x) => x.value === qs.get("tab")) ? qs.get("tab") : "listings";
   const listPage = Math.max(1, Number(qs.get("lp") || 1) || 1);
   const uid = encodeURIComponent(userId);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -207,7 +209,7 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
       .filter((r) => s(r.target_user_id) === userId)
       .map((r) => s(r.target_user_label).trim())
       .find(Boolean) ||
-    "회원";
+    t("admin_trade_points_member");
 
   // 계정 상태 — 공용 회원 정보(profiles.status) 우선, 없으면 최근 계정 조치 결과
   const lastStatus = memberRow
@@ -241,10 +243,10 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
     <div data-trade-member-detail="1" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href={backHref} className="text-[13px] font-medium text-sam-muted underline">
-          ← 목록으로
+          {t("admin_trade_back_to_list")}
         </Link>
         <Link href={`/admin/users/${uid}`} className="text-[12px] text-sam-muted underline">
-          회원 전체 정보
+          {t("admin_trade_member_full_info")}
         </Link>
       </div>
 
@@ -253,7 +255,7 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
         {accountKey ? <CommunityStatusBadge domain="account_status" value={accountKey} /> : null}
         {activeRestrictions.map((r) => (
           <AdminToneBadge key={s(r.id)} tone="danger">
-            {TRADE_RESTRICTION_SCOPE_LABEL[s(r.restriction)] ?? "거래"} 제한
+            {t("admin_trade_member_scope_restriction_badge", { scope: tradeRestrictionScopeLabel(t, s(r.restriction)) ?? t("admin_trade") })}
           </AdminToneBadge>
         ))}
       </header>
@@ -262,58 +264,66 @@ export function TradeMemberDetailPage({ userId }: { userId: string }) {
 
       <CommunitySummaryCard
         rows={[
-          { label: "계정 상태", value: accountKey ? <CommunityStatusBadge domain="account_status" value={accountKey} /> : <AdminUnavailableChip ko /> },
+          { label: t("admin_trade_members_th_account_status"), value: accountKey ? <CommunityStatusBadge domain="account_status" value={accountKey} /> : <AdminUnavailableChip ko /> },
           {
-            label: "거래 제한",
+            label: t("admin_trade_members_th_restriction"),
             value:
               restrictionRows === null ? (
                 <AdminUnavailableChip ko />
               ) : activeRestrictions.length === 0 ? (
-                "없음"
+                t("common_none")
               ) : (
                 activeRestrictions
-                  .map((r) => `${TRADE_RESTRICTION_SCOPE_LABEL[s(r.restriction)] ?? "거래"} · ${r.end_at ? `~${formatAdminManilaDateTime(s(r.end_at)).slice(0, 10)}` : "영구"}`)
+                  .map(
+                    (r) =>
+                      `${tradeRestrictionScopeLabel(t, s(r.restriction)) ?? t("admin_trade")} · ${
+                        r.end_at ? `~${formatAdminManilaDateTime(s(r.end_at)).slice(0, 10)}` : t("admin_trade_restrict_days_perm")
+                      }`
+                  )
                   .join(", ")
               ),
           },
-          { label: "판매글", value: metricText(sum.listings) },
+          { label: t("admin_trade_member_tab_listings"), value: metricText(sum.listings) },
           {
-            label: "판매 상태",
+            label: t("admin_trade_member_sale_status"),
             value: (
               <span>
-                판매중 {metricText(sum.selling)} · 예약 {metricText(sum.reserved)} · 완료 {metricText(sum.completed)}
+                {t("admin_trade_member_sale_selling")} {metricText(sum.selling)} · {t("admin_trade_member_sale_reserved")} {metricText(sum.reserved)} · {t("admin_trade_member_sale_completed")} {metricText(sum.completed)}
               </span>
             ),
           },
-          { label: "구매 채팅", value: metricText(sum.buyerChats) },
+          { label: t("admin_trade_member_tab_buyer"), value: metricText(sum.buyerChats) },
           {
-            label: "받은 신고",
+            label: t("admin_trade_member_reports_received"),
             value:
               reportRows === null
                 ? <AdminUnavailableChip ko />
-                : `${formatAdminNumber(reports.state.data?.total ?? reportRows.length)}건 (대기 ${formatAdminNumber(
-                    reportRows.filter((r) => s(r.status) === "pending" || s(r.status) === "reviewing").length
-                  )})`,
+                : t("admin_trade_member_reports_count", {
+                    n: formatAdminNumber(reports.state.data?.total ?? reportRows.length),
+                    pending: formatAdminNumber(
+                      reportRows.filter((r) => s(r.status) === "pending" || s(r.status) === "reviewing").length
+                    ),
+                  }),
           },
         ]}
       />
 
       <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
         <AdminActionButton variant="danger" onClick={() => setSheet({ kind: "add" })}>
-          거래 활동 제한
+          {t("admin_trade_activity_restriction")}
         </AdminActionButton>
         {activeRestrictions.map((r) => (
           <AdminActionButton key={s(r.id)} variant="neutral" onClick={() => setSheet({ kind: "revoke", row: r })}>
-            제한 해제 ({TRADE_RESTRICTION_SCOPE_LABEL[s(r.restriction)] ?? "거래"})
+            {t("admin_trade_member_lift_scope_restriction", { scope: tradeRestrictionScopeLabel(t, s(r.restriction)) ?? t("admin_trade") })}
           </AdminActionButton>
         ))}
         <span className="ml-auto" />
         <AdminActionButton variant="secondary" onClick={() => qs.set({ tab: "account", lp: null })}>
-          계정 조치
+          {t("admin_trade_member_account_action")}
         </AdminActionButton>
       </div>
 
-      <CommunityTabs tabs={TABS} value={tab} onChange={(v) => qs.set({ tab: v === "listings" ? null : v, lp: null })} />
+      <CommunityTabs tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey) }))} value={tab} onChange={(v) => qs.set({ tab: v === "listings" ? null : v, lp: null })} />
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         {tab === "listings" || tab === "buyer" ? (
           <TradeSection
@@ -447,9 +457,9 @@ function TradeSection({
           return (
             <>
               {list.length === 0 ? (
-                <Empty text="올린 거래글이 없습니다." />
+                <Empty text={t("admin_trade_member_listings_empty")} />
               ) : (
-                <CommunityTable head={["제목", "가격", "판매 상태", "등록", "수정"]}>
+                <CommunityTable head={[t("admin_trade_member_th_title"), t("admin_trade_member_th_price"), t("admin_trade_member_sale_status"), t("admin_trade_th_created"), t("admin_trade_posts_th_updated")]}>
                   {list.map((r) => (
                     <tr key={r.id} className="border-b border-sam-border-soft">
                       <td className={COMMUNITY_TD}>
@@ -457,7 +467,7 @@ function TradeSection({
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.id)}`, selfHref)}
                           className="font-medium text-[var(--admin-console-accent)] hover:underline"
                         >
-                          {r.title || "제목 없음"}
+                          {r.title || t("admin_trade_posts_no_title")}
                         </Link>
                       </td>
                       <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatTradePrice(r.price)}</td>
@@ -477,7 +487,7 @@ function TradeSection({
               {pager}
               <FooterLinks>
                 <Link href={tradeDetailHref(`/admin/posts-management?sellerId=${uid}`, selfHref)} className="text-[var(--admin-console-accent)] underline">
-                  거래글 관리에서 이 회원 글 보기
+                  {t("admin_trade_member_view_posts")}
                 </Link>
               </FooterLinks>
             </>
@@ -487,9 +497,9 @@ function TradeSection({
         return (
           <>
             {list.length === 0 ? (
-              <Empty text="구매 문의 채팅이 없습니다." />
+              <Empty text={t("admin_trade_member_buyer_empty")} />
             ) : (
-              <CommunityTable head={["거래글", "진행 상태"]}>
+              <CommunityTable head={[t("admin_trade_audit_target_post"), t("admin_trade_member_th_progress")]}>
                 {list.map((r) => (
                   <tr key={r.id} className="border-b border-sam-border-soft">
                     <td className={COMMUNITY_TD}>
@@ -498,13 +508,13 @@ function TradeSection({
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.postId)}`, selfHref)}
                           className="font-medium text-[var(--admin-console-accent)] hover:underline"
                         >
-                          {r.postTitle || "제목 없음"}
+                          {r.postTitle || t("admin_trade_posts_no_title")}
                         </Link>
                       ) : (
                         <span className="text-sam-muted">{t("admin_trade_member_deleted_post")}</span>
                       )}
                     </td>
-                    <td className={COMMUNITY_TD}>{FLOW_LABEL[r.tradeFlowStatus] ?? (r.tradeFlowStatus ? "기타" : "—")}</td>
+                    <td className={COMMUNITY_TD}>{FLOW_LABEL[r.tradeFlowStatus] ? t(FLOW_LABEL[r.tradeFlowStatus]) : r.tradeFlowStatus ? t("admin_trade_audit_target_other") : "—"}</td>
                   </tr>
                 ))}
               </CommunityTable>
@@ -512,7 +522,7 @@ function TradeSection({
             {pager}
             <FooterLinks>
               <Link href={tradeDetailHref(`/admin/chats?type=trade&buyerId=${uid}`, selfHref)} className="text-[var(--admin-console-accent)] underline">
-                거래 채팅 관리에서 보기
+                {t("admin_trade_member_view_chats")}
               </Link>
             </FooterLinks>
           </>
@@ -533,6 +543,7 @@ function ReportsSection({
   userId: string;
   selfHref: string;
 }) {
+  const { t } = useI18n();
   return (
     <LoadGate st={st} reload={reload}>
       {(d: RowsResponse) => {
@@ -540,27 +551,27 @@ function ReportsSection({
         return (
           <>
             {list.length === 0 ? (
-              <Empty text="받은 신고가 없습니다." />
+              <Empty text={t("admin_trade_member_reports_empty")} />
             ) : (
-              <CommunityTable head={["접수", "대상", "신고 사유", "신고자", "상태"]}>
+              <CommunityTable head={[t("admin_trade_reports_received"), t("admin_trade_audit_target"), t("admin_trade_reports_reason"), t("admin_trade_reports_reporter"), t("admin_trade_th_status")]}>
                 {list.map((r) => (
                   <tr key={s(r.id)} className="border-b border-sam-border-soft">
                     <td className={COMMUNITY_TD}>
                       <CommunityTimeCell iso={s(r.created_at) || null} />
                     </td>
                     <td className={COMMUNITY_TD}>
-                      {(r.post as Rec | null)?.title ? s((r.post as Rec).title) : tradeReportTargetLabel(s(r.target_type))}
+                      {(r.post as Rec | null)?.title ? s((r.post as Rec).title) : tradeReportTargetLabel(t, s(r.target_type))}
                     </td>
                     <td className={COMMUNITY_TD}>
                       <Link
                         href={tradeDetailHref(`/admin/trade/reports?tab=all&reportId=${encodeURIComponent(s(r.id))}`, selfHref)}
                         className="font-medium text-[var(--admin-console-accent)] hover:underline"
                       >
-                        {tradeReportReasonLabel(s(r.reason_code))}
+                        {tradeReportReasonLabel(t, s(r.reason_code))}
                       </Link>
                       {s(r.reason_text) ? <p className="line-clamp-1 sam-text-xxs text-sam-muted">{s(r.reason_text)}</p> : null}
                     </td>
-                    <td className={COMMUNITY_TD}>{s(r.reporter_label) || "회원"}</td>
+                    <td className={COMMUNITY_TD}>{s(r.reporter_label) || t("admin_trade_points_member")}</td>
                     <td className={COMMUNITY_TD}>
                       <TradeReportStatusBadge value={s(r.status)} />
                     </td>
@@ -573,7 +584,7 @@ function ReportsSection({
                 href={tradeDetailHref(`/admin/trade/reports?tab=all&sellerId=${encodeURIComponent(userId)}`, selfHref)}
                 className="text-[var(--admin-console-accent)] underline"
               >
-                거래 신고에서 모두 보기
+                {t("admin_trade_member_view_all_reports")}
               </Link>
             </FooterLinks>
           </>
@@ -607,20 +618,20 @@ function RestrictionsSection({
           <>
             <div className="flex justify-end border-b border-sam-border-soft p-2">
               <AdminActionButton variant="primary" onClick={onAdd}>
-                제한 추가
+                {t("admin_trade_add_restriction")}
               </AdminActionButton>
             </div>
             {list.length === 0 ? (
-              <Empty text="경고·거래 활동 제한 기록이 없습니다." />
+              <Empty text={t("admin_trade_restrict_empty_all")} />
             ) : (
-              <CommunityTable head={["종류", "범위", "기간", "사유", "처리자", "상태", "처리"]}>
+              <CommunityTable head={[t("admin_trade_restrict_kind_legend"), t("admin_trade_restrict_th_scope"), t("admin_trade_post_ads_th_period"), t("admin_trade_flow_th_reason"), t("admin_trade_audit_actor"), t("admin_trade_th_status"), t("admin_trade_restrict_th_handle")]}>
                 {list.map((r) => (
                   <tr key={r.id} className="border-b border-sam-border-soft">
-                    <td className={COMMUNITY_TD}>{tradeSanctionKindLabel(r.sanction_type)}</td>
+                    <td className={COMMUNITY_TD}>{tradeSanctionKindLabel(t, r.sanction_type)}</td>
                     <td className={COMMUNITY_TD}>
-                      {r.sanction_type === "warning" ? "—" : TRADE_RESTRICTION_SCOPE_LABEL[s(r.restriction)] ?? "범위 확인 불가"}
+                      {r.sanction_type === "warning" ? "—" : tradeRestrictionScopeLabel(t, s(r.restriction)) ?? t("admin_trade_restrict_scope_unknown")}
                     </td>
-                    <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{tradeSanctionPeriodText(r)}</td>
+                    <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{tradeSanctionPeriodText(t, r)}</td>
                     <td className={COMMUNITY_TD}>
                       <p className="line-clamp-3 max-w-[16rem] whitespace-pre-wrap">{r.reason || "—"}</p>
                       {r.revoked_at ? (
@@ -629,7 +640,7 @@ function RestrictionsSection({
                     </td>
                     <td className={COMMUNITY_TD}>
                       <span className="flex flex-col">
-                        <span>{r.created_by_label ?? "관리자"}</span>
+                        <span>{r.created_by_label ?? t("admin_trade_confirm_source_admin")}</span>
                         <span className="sam-text-xxs text-sam-muted">
                           <CommunityTimeCell iso={r.created_at} />
                         </span>
@@ -645,7 +656,7 @@ function RestrictionsSection({
                           className="min-h-8 px-2 py-1 text-[12px]"
                           onClick={() => onRevoke(r as unknown as Rec)}
                         >
-                          해제
+                          {t("admin_trade_filter_clear")}
                         </AdminActionButton>
                       ) : null}
                     </td>
@@ -658,7 +669,7 @@ function RestrictionsSection({
                 href={tradeDetailHref(`/admin/trade/restrictions?tab=all&userId=${encodeURIComponent(userId)}`, selfHref)}
                 className="text-[var(--admin-console-accent)] underline"
               >
-                거래 활동 제한에서 보기
+                {t("admin_trade_member_view_restrictions")}
               </Link>
             </FooterLinks>
           </>
@@ -679,6 +690,7 @@ function PromotionsSection({
   userId: string;
   selfHref: string;
 }) {
+  const { t } = useI18n();
   return (
     <LoadGate st={st} reload={reload}>
       {(d: RowsResponse) => {
@@ -686,9 +698,9 @@ function PromotionsSection({
         return (
           <>
             {list.length === 0 ? (
-              <Empty text="거래글 상위노출 주문이 없습니다." />
+              <Empty text={t("admin_trade_member_promos_empty")} />
             ) : (
-              <CommunityTable head={["거래글", "기간", "결제 포인트", "환급", "상태"]}>
+              <CommunityTable head={[t("admin_trade_audit_target_post"), t("admin_trade_post_ads_th_period"), t("admin_trade_member_th_points_paid"), t("admin_trade_points_entry_refund"), t("admin_trade_th_status")]}>
                 {list.map((r) => (
                   <tr key={s(r.id)} className="border-b border-sam-border-soft">
                     <td className={COMMUNITY_TD}>
@@ -697,7 +709,7 @@ function PromotionsSection({
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(s(r.target_id))}`, selfHref)}
                           className="font-medium text-[var(--admin-console-accent)] hover:underline"
                         >
-                          {s(r.target_title) || "거래글"}
+                          {s(r.target_title) || t("admin_trade_audit_target_post")}
                         </Link>
                       ) : (
                         s(r.target_title) || "—"
@@ -723,7 +735,7 @@ function PromotionsSection({
                 href={tradeDetailHref(`/admin/trade/promotions?tab=all&userId=${encodeURIComponent(userId)}`, selfHref)}
                 className="text-[var(--admin-console-accent)] underline"
               >
-                상위노출 주문에서 모두 보기
+                {t("admin_trade_member_view_all_promotions")}
               </Link>
             </FooterLinks>
           </>
@@ -734,6 +746,7 @@ function PromotionsSection({
 }
 
 function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResponse>; reload: () => void; userId: string }) {
+  const { t } = useI18n();
   return (
     <LoadGate st={st} reload={reload}>
       {(d: RowsResponse) => {
@@ -741,9 +754,9 @@ function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResp
         return (
           <>
             {list.length === 0 ? (
-              <Empty text="거래 관련 포인트 내역이 없습니다." />
+              <Empty text={t("admin_trade_member_points_empty")} />
             ) : (
-              <CommunityTable head={["시각", "유형", "포인트", "잔액", "내용"]}>
+              <CommunityTable head={[t("admin_trade_th_time"), t("admin_trade_points_th_type"), t("admin_trade_th_points"), t("admin_trade_points_th_balance"), t("admin_trade_points_th_detail")]}>
                 {list.map((r) => {
                   const amt = n(r.amount) ?? 0;
                   return (
@@ -751,7 +764,7 @@ function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResp
                       <td className={COMMUNITY_TD}>
                         <CommunityTimeCell iso={s(r.createdAt) || null} absolute />
                       </td>
-                      <td className={COMMUNITY_TD}>{pointTypeLabel(s(r.relatedType), s(r.entryType))}</td>
+                      <td className={COMMUNITY_TD}>{pointTypeLabel(t, s(r.relatedType), s(r.entryType))}</td>
                       <td className={`${COMMUNITY_TD} whitespace-nowrap ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                         {amt > 0 ? "+" : ""}
                         {formatAdminNumber(amt)} P
@@ -768,7 +781,7 @@ function PointsSection({ st, reload, userId }: { st: CommunityAdminLoad<RowsResp
                 href={`/admin/trade/points?userId=${encodeURIComponent(userId)}&period=all`}
                 className="text-[var(--admin-console-accent)] underline"
               >
-                포인트 원장에서 모두 보기
+                {t("admin_trade_member_view_all_points")}
               </Link>
             </FooterLinks>
           </>
@@ -807,40 +820,40 @@ function AccountSection({
       ) : (
         <div className="flex flex-wrap gap-2">
           <AdminActionButton variant="secondary" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("warn")}>
-            계정 경고
+            {t("admin_trade_member_account_warning")}
           </AdminActionButton>
           {k === "active" ? (
             <AdminActionButton variant="danger" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("suspend")}>
-              계정 정지
+              {t("admin_trade_member_account_suspend")}
             </AdminActionButton>
           ) : null}
           {k !== "blocked" ? (
             <AdminActionButton variant="danger" disabled={!accountKey || blocked} title={blockedTitle} onClick={() => onAction("ban")}>
-              이용 차단
+              {t("admin_trade_member_account_ban")}
             </AdminActionButton>
           ) : null}
           {k === "suspended" || k === "blocked" ? (
             <AdminActionButton variant="primary" disabled={blocked} title={blockedTitle} onClick={() => onAction("restore")}>
-              정지·차단 해제
+              {t("admin_trade_member_account_restore")}
             </AdminActionButton>
           ) : null}
         </div>
       )}
       {!withdrawn && blocked && accountAction.reason ? (
         <p className="text-[12px] text-sam-muted" data-admin-action-denied="1">
-          계정 조치 비활성: {accountAction.reason}
+          {t("admin_trade_member_account_action_disabled", { reason: accountAction.reason })}
         </p>
       ) : null}
       <h3 className="pt-2 text-[13px] font-semibold text-sam-fg">{t("admin_trade_member_account_actions_log")}</h3>
       <LoadGate st={st} reload={reload}>
         {(d: ModerationResponse) => (
           <CommunityTimeline
-            emptyText="계정 조치 기록이 없습니다."
+            emptyText={t("admin_trade_member_account_empty")}
             items={(d.events ?? []).map((e) => ({
               id: s(e.id),
               at: s(e.created_at),
-              actor: "관리자",
-              action: MOD_ACTION_LABEL[s(e.action)] ?? "계정 조치",
+              actor: t("admin_trade_confirm_source_admin"),
+              action: t(MOD_ACTION_LABEL[s(e.action)] ?? "admin_trade_member_tab_account"),
               reason: s(e.reason).replace(/^\[SUCCESS\]\s*/, "") || null,
             }))}
           />
@@ -852,35 +865,35 @@ function AccountSection({
 
 const ACCOUNT_SHEET: Record<
   "warn" | "suspend" | "ban" | "restore",
-  { title: string; confirm: string; notice: string; destructive: boolean; ok: string }
+  { title: MessageKey; confirm: MessageKey; notice: MessageKey; destructive: boolean; ok: MessageKey }
 > = {
   warn: {
-    title: "계정 경고",
-    confirm: "계정 경고",
-    notice: "계정 조치 기록에 경고를 남깁니다. 이용은 막히지 않습니다.",
+    title: "admin_trade_member_act_warn",
+    confirm: "admin_trade_member_act_warn",
+    notice: "admin_trade_member_warn_notice",
     destructive: false,
-    ok: "계정 경고를 남겼습니다.",
+    ok: "admin_trade_member_warn_ok",
   },
   suspend: {
-    title: "계정 정지",
-    confirm: "계정 정지",
-    notice: "거래뿐 아니라 앱 전체 이용이 정지되고 로그인 중인 기기에서 로그아웃됩니다. 운영하는 매장이 있으면 판매도 멈춥니다.",
+    title: "admin_trade_member_act_suspend",
+    confirm: "admin_trade_member_act_suspend",
+    notice: "admin_trade_member_suspend_notice",
     destructive: true,
-    ok: "계정을 정지했습니다.",
+    ok: "admin_trade_member_suspend_ok",
   },
   ban: {
-    title: "이용 차단",
-    confirm: "이용 차단",
-    notice: "로그인 자체가 막히고 모든 기기에서 로그아웃됩니다. 운영하는 매장이 있으면 판매도 멈춥니다. 해제 전까지 앱을 쓸 수 없습니다.",
+    title: "admin_trade_member_act_ban",
+    confirm: "admin_trade_member_act_ban",
+    notice: "admin_trade_member_ban_notice",
     destructive: true,
-    ok: "이용을 차단했습니다.",
+    ok: "admin_trade_member_ban_ok",
   },
   restore: {
-    title: "정지·차단 해제",
-    confirm: "해제",
-    notice: "다시 앱을 이용할 수 있게 됩니다. 멈춘 매장 판매는 따로 다시 열어야 합니다.",
+    title: "admin_trade_member_act_restore",
+    confirm: "admin_trade_restrict_revoke_btn",
+    notice: "admin_trade_member_restore_notice",
     destructive: false,
-    ok: "정지·차단을 해제했습니다.",
+    ok: "admin_trade_member_restore_ok",
   },
 };
 
@@ -899,18 +912,22 @@ function AccountActionSheet({
   onClose: () => void;
   onSettled: (b: CommunityBanner) => void;
 }) {
+  const { t } = useI18n();
   const cfg = ACCOUNT_SHEET[action];
   return (
     <CommunityActionSheet
-      title={cfg.title}
+      title={t(cfg.title)}
       rows={[
-        { label: "회원", value: label },
-        { label: "현재 상태", value: accountKey ? <CommunityStatusBadge domain="account_status" value={accountKey} /> : "확인 불가" },
+        { label: t("admin_trade_points_member"), value: label },
+        {
+          label: t("admin_trade_dash_current"),
+          value: accountKey ? <CommunityStatusBadge domain="account_status" value={accountKey} /> : t("admin_trade_dash_unavailable"),
+        },
       ]}
-      notice={cfg.notice}
-      reason={{ minLength: REASON_MIN, placeholder: "사유 (운영 기록에 남습니다)" }}
+      notice={t(cfg.notice)}
+      reason={{ minLength: REASON_MIN, placeholder: t("admin_trade_member_reason_ph") }}
       destructive={cfg.destructive}
-      confirmLabel={cfg.confirm}
+      confirmLabel={t(cfg.confirm)}
       onClose={onClose}
       onSubmit={async (reason) => {
         const { result } = await communityActionFetch(
@@ -923,9 +940,9 @@ function AccountActionSheet({
       onSettled={(k: CommunitySheetSettle) =>
         onSettled(
           k === "done"
-            ? { tone: "success", text: cfg.ok }
+            ? { tone: "success", text: t(cfg.ok) }
             : k === "stale"
-              ? { tone: "warning", text: `${COMMUNITY_STALE_TEXT}. 현재 계정 상태에서는 할 수 없는 조치일 수 있습니다.` }
+              ? { tone: "warning", text: `${t("admin_community_post_stale")}. ${t("admin_trade_member_stale_hint")}` }
               : { tone: "error", text: tradeErrorText("not_found") }
         )
       }

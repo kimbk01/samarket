@@ -53,6 +53,7 @@ import {
   parseUsersPatchMemberType,
   type UsersPatchMemberTypeInput,
 } from "@/lib/admin/users-patch-privilege";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,7 +88,7 @@ async function ensureAuthUserFromTestRow(sb: SupabaseClient, userId: string, tu:
       ok: false as const,
       error: "invalid_test_username",
       status: 400,
-      message: "test_users에 로그인 아이디(username)가 없어 정식 회원(Auth·profiles)을 만들 수 없습니다.",
+      message: await adminServerText("admin_api_users_test_username_missing"),
     };
   }
 
@@ -147,7 +148,7 @@ async function ensureAuthUserFromTestRow(sb: SupabaseClient, userId: string, tu:
     ok: false as const,
     error: "auth_create_failed",
     status: 500,
-    message: createErr?.message ?? "Auth 계정 생성에 실패했습니다.",
+    message: createErr?.message ?? await adminServerText("admin_api_users_auth_create_failed"),
   };
 }
 
@@ -188,7 +189,7 @@ async function _ensureProfileRow(
         ok: false,
         error: "no_manual_row",
         status: 404,
-        message: "test_users에 없는 UUID입니다. 관리자「수동 입력」으로 회원을 먼저 등록하세요.",
+        message: await adminServerText("admin_api_users_no_manual_row"),
       };
     }
     const ensured = await ensureAuthUserFromTestRow(sb, userId, tu);
@@ -868,7 +869,7 @@ export async function PATCH(
     });
     if (!isAdminCreated) {
       return NextResponse.json(
-        { ok: false, error: "login_id_sync_not_manual", message: "관리자 생성 회원만 로그인 아이디를 바꿀 수 있습니다." },
+        { ok: false, error: "login_id_sync_not_manual", message: await adminServerText("admin_api_users_login_id_manual_only") },
         { status: 400 },
       );
     }
@@ -881,7 +882,7 @@ export async function PATCH(
       const takenByProfile = Array.isArray(profileOwner.data) && profileOwner.data.length > 0;
       if (takenByAuth || takenByProfile) {
         return NextResponse.json(
-          { ok: false, error: "login_id_taken", message: "같은 로그인 아이디를 쓰는 계정이 이미 있습니다." },
+          { ok: false, error: "login_id_taken", message: await adminServerText("admin_api_users_login_id_taken") },
           { status: 409 },
         );
       }
@@ -921,7 +922,7 @@ export async function PATCH(
           {
             ok: false,
             error: "login_id_update_failed",
-            message: "@회원 ID 는 바뀌었지만 로그인 아이디 변경에 실패했습니다. 다시 시도해 주세요.",
+            message: await adminServerText("admin_api_users_login_id_update_failed"),
           },
           { status: 500 },
         );
@@ -1016,9 +1017,9 @@ export async function PATCH(
           error: targetGuard.error,
           message:
             targetGuard.error === "membership_lookup_failed"
-              ? "회원 권한 정보를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+              ? await adminServerText("admin_api_users_pw_membership_lookup_failed")
               : targetGuard.error === "membership_unavailable"
-                ? "관리자 권한 체계를 확인할 수 없어 비밀번호를 변경할 수 없습니다."
+                ? await adminServerText("admin_api_users_pw_membership_unavailable")
                 : undefined,
         },
         { status: targetGuard.status },

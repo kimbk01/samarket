@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
   AdminManagementSelectionCheckbox,
@@ -47,7 +48,6 @@ import {
 } from "@/lib/admin/community-admin/community-admin-period";
 import {
   COMMUNITY_POSTS_LIST_PATH,
-  COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   communityPostErrorText,
   useCommunityTopicOptions,
@@ -79,11 +79,11 @@ type CommunityCommentRow = {
 type Action = { kind: "hide" | "restore" | "delete"; ids: string[] };
 
 const TABS = [
-  { value: "active", label: "공개" },
-  { value: "hidden", label: "관리자 숨김" },
-  { value: "deleted", label: "삭제됨" },
-  { value: "reported", label: "신고 있음" },
-  { value: "all", label: "전체" },
+  { value: "active", labelKey: "admin_community_comments_tab_active" },
+  { value: "hidden", labelKey: "admin_community_comments_tab_hidden" },
+  { value: "deleted", labelKey: "admin_community_comments_tab_deleted" },
+  { value: "reported", labelKey: "admin_community_comments_tab_reported" },
+  { value: "all", labelKey: "admin_community_comments_tab_all" },
 ] as const;
 
 /** 조회 조건 추가 키 (URL) — 탭(`tab`)과 옛 딥링크 키(`status`·`reported`)는 탭 쪽이 관리 */
@@ -94,7 +94,11 @@ const NEXT_STATUS: Record<Action["kind"], "hidden" | "active" | "deleted"> = {
   restore: "active",
   delete: "deleted",
 };
-const ACTION_LABEL: Record<Action["kind"], string> = { hide: "숨기기", restore: "다시 공개", delete: "삭제" };
+const ACTION_LABEL: Record<Action["kind"], MessageKey> = {
+  hide: "admin_community_comments_action_hide",
+  restore: "admin_community_comments_action_restore",
+  delete: "admin_community_comments_action_delete",
+};
 
 export function AdminCommunityCommentsPage() {
   const { t: tr, language } = useI18n();
@@ -106,7 +110,7 @@ export function AdminCommunityCommentsPage() {
   const pageSize = lq.query.size;
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
-  const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
+  const noPermTitle = canContent ? undefined : tr("admin_community_comments_no_perm");
   const policy = COMMUNITY_COMMENT_ENTITY_ACTION_POLICY;
   const { topics } = useCommunityTopicOptions();
   const topicNameOf = useTopicNameOf(topics);
@@ -224,67 +228,67 @@ export function AdminCommunityCommentsPage() {
         });
         if (res.ok) okCount += 1;
         else if (res.code === "conflict") stale += 1;
-        else fails.push(communityPostErrorText(res.code));
+        else fails.push(communityPostErrorText(res.code, language));
       }
       // 한 건 처리에서 충돌이면 시트가 「다른 관리자가 먼저」로 정리한다
       if (targets.length === 1 && stale === 1) return { ok: false as const, status: 409, code: "conflict" };
-      const label = ACTION_LABEL[a.kind];
+      const label = tr(ACTION_LABEL[a.kind]);
       if (okCount === targets.length) {
-        setBanner({ ok: true, message: `댓글 ${targets.length}건 ${label} 처리했습니다.` });
+        setBanner({ ok: true, message: tr("admin_community_comments_bulk_done", { n: targets.length, label }) });
       } else {
         const parts = [
-          stale ? `${stale}건은 다른 관리자가 먼저 변경` : "",
-          fails.length ? `${fails.length}건 실패 (${[...new Set(fails)].join(", ")})` : "",
+          stale ? tr("admin_community_comments_bulk_stale", { n: stale }) : "",
+          fails.length ? tr("admin_community_comments_bulk_failed", { n: fails.length, list: [...new Set(fails)].join(", ") }) : "",
         ].filter(Boolean);
-        setBanner({ ok: false, code: `${targets.length}건 중 ${okCount}건 ${label} 처리 · ${parts.join(" · ")}` });
+        setBanner({ ok: false, code: tr("admin_community_comments_bulk_partial", { total: targets.length, ok: okCount, label, details: parts.join(" · ") }) });
       }
       selection.clear();
       reload();
       return { ok: true as const };
     },
-    [reload, rows, selection]
+    [language, reload, rows, selection, tr]
   );
 
   const n = selection.selectedCount;
-  const postTitleChip = postId ? String(rows.find((r) => r.post_id === postId)?.post_title ?? "").trim() || "선택한 게시글" : "";
-  const authorChip = userId ? String(rows.find((r) => r.user_id === userId)?.author_label ?? "").trim() || "선택한 작성자" : "";
+  const postTitleChip = postId ? String(rows.find((r) => r.post_id === postId)?.post_title ?? "").trim() || tr("admin_community_comments_selected_post") : "";
+  const authorChip = userId ? String(rows.find((r) => r.user_id === userId)?.author_label ?? "").trim() || tr("admin_community_comments_selected_author") : "";
 
   const chip = (label: string, onClear: () => void) => (
     <span className="flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 py-1 text-[12px] text-sam-fg">
       {label}
       <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={onClear}>
-        해제
+        {tr("admin_community_comments_filter_clear")}
       </AdminActionButton>
     </span>
   );
 
   const filterBar = (
     <CommunityFilterBar lq={lq} searchPlaceholder={tr("admin_community_comments_search_placeholder")} pending={loading}>
-      <CommunityFilterField label="카테고리">
+      <CommunityFilterField label={tr("admin_community_comments_filter_topic")}>
         <CommunitySelect
           value={topicSlug}
           onChange={(v) => lq.setExtra("topicSlug", v)}
           options={[
-            { value: "", label: "전체 카테고리" },
+            { value: "", label: tr("admin_community_comments_all_topics") },
             ...topics.map((t) => ({ value: t.slug, label: t.name })),
             ...(topicSlug && !topics.some((t) => t.slug === topicSlug) ? [{ value: topicSlug, label: topicSlug }] : []),
           ]}
         />
       </CommunityFilterField>
-      <CommunityFilterField label="유형">
+      <CommunityFilterField label={tr("admin_community_comments_filter_kind")}>
         <CommunitySelect
           value={typeFilter}
           onChange={(v) => lq.setExtra("type", v)}
           options={[
-            { value: "", label: "전체" },
+            { value: "", label: tr("admin_community_comments_tab_all") },
             { value: "comment", label: tr("admin_community_target_type_comment") },
             { value: "reply", label: tr("admin_community_target_type_reply") },
           ]}
         />
       </CommunityFilterField>
-      {postId ? chip(`게시글: ${postTitleChip.slice(0, 24)}`, () => lq.setExtra("postId", "")) : null}
-      {userId ? chip(`작성자: ${authorChip}`, () => lq.setExtra("userId", "")) : null}
-      {commentId ? chip("특정 댓글 1건만 보기", () => lq.setExtra("commentId", "")) : null}
+      {postId ? chip(tr("admin_community_comments_chip_post", { title: postTitleChip.slice(0, 24) }), () => lq.setExtra("postId", "")) : null}
+      {userId ? chip(tr("admin_community_comments_chip_author", { name: authorChip }), () => lq.setExtra("userId", "")) : null}
+      {commentId ? chip(tr("admin_community_comments_chip_single"), () => lq.setExtra("commentId", "")) : null}
     </CommunityFilterBar>
   );
 
@@ -300,7 +304,7 @@ export function AdminCommunityCommentsPage() {
             title={noPermTitle}
             onClick={() => setAction({ kind: "hide", ids: [r.id] })}
           >
-            숨기기
+            {tr("admin_community_comments_row_hide")}
           </AdminActionButton>
         ) : (
           <AdminActionButton
@@ -310,7 +314,7 @@ export function AdminCommunityCommentsPage() {
             title={noPermTitle}
             onClick={() => setAction({ kind: "restore", ids: [r.id] })}
           >
-            다시 공개
+            {tr("admin_community_comments_row_restore")}
           </AdminActionButton>
         )}
         {status !== "deleted" ? (
@@ -323,7 +327,7 @@ export function AdminCommunityCommentsPage() {
             onClick={() => setAction({ kind: "delete", ids: [r.id] })}
             data-admin-mgmt-row-soft-delete="1"
           >
-            삭제
+            {tr("admin_community_comments_row_delete")}
           </AdminActionButton>
         ) : null}
       </span>
@@ -341,10 +345,20 @@ export function AdminCommunityCommentsPage() {
       empty={rows.length === 0}
       lq={lq}
       onRetry={reload}
-      emptyMessage="댓글이 없습니다."
-      filteredEmptyMessage="조건에 맞는 댓글이 없습니다."
+      emptyMessage={tr("admin_community_comments_list_empty")}
+      filteredEmptyMessage={tr("admin_community_comments_filtered_empty")}
     >
-      <CommunityTable head={["", "유형", "댓글", "게시글", "작성자", "상태", "신고", "작성 시각", ""]}>
+      <CommunityTable head={[
+          "",
+          tr("admin_community_comments_th_type"),
+          tr("admin_community_comments_col_comment"),
+          tr("admin_community_comments_th_post"),
+          tr("admin_community_comments_col_author"),
+          tr("admin_community_comments_col_status"),
+          tr("admin_community_comments_th_reports"),
+          tr("admin_community_comments_col_created"),
+          "",
+        ]}>
         {rows.map((r) => {
           const id = r.id;
           const pid = String(r.post_id ?? "");
@@ -366,7 +380,7 @@ export function AdminCommunityCommentsPage() {
                   role="row"
                   checked={selection.isSelected(id)}
                   onToggle={() => selection.toggleRow(id)}
-                  aria-label={`선택: ${content.slice(0, 24)}`}
+                  aria-label={tr("admin_community_comments_select_aria", { text: content.slice(0, 24) })}
                 />
               </td>
               <td className={COMMUNITY_TD}>
@@ -377,7 +391,7 @@ export function AdminCommunityCommentsPage() {
               <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
                 {kind === "reply" && r.parent_content_preview ? (
                   <p className="mb-1 line-clamp-1 text-[12px] text-sam-muted" title={r.parent_content_preview}>
-                    ↳ 원댓글: {r.parent_content_preview}
+                    {tr("admin_community_comments_parent_preview", { text: r.parent_content_preview })}
                   </p>
                 ) : null}
                 <p className="line-clamp-3 whitespace-pre-wrap text-sam-fg" title={content}>
@@ -390,7 +404,7 @@ export function AdminCommunityCommentsPage() {
                     href={communityDetailHref(`${COMMUNITY_POSTS_LIST_PATH}/${encodeURIComponent(pid)}`, selfHref)}
                     className="line-clamp-2 font-medium text-sam-info hover:underline"
                   >
-                    {String(r.post_title ?? "").trim() || "제목 없음"}
+                    {String(r.post_title ?? "").trim() || tr("admin_community_comments_no_title")}
                   </Link>
                 ) : (
                   "—"
@@ -429,14 +443,14 @@ export function AdminCommunityCommentsPage() {
   const bulkBar =
     n > 0 ? (
       <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-        <span className="text-[13px] font-semibold text-sam-fg">{n}개 선택됨</span>
+        <span className="text-[13px] font-semibold text-sam-fg">{tr("admin_community_comments_selected_n", { n })}</span>
         <AdminActionButton
           variant="secondary"
           disabled={!canContent}
           title={noPermTitle}
           onClick={() => setAction({ kind: "restore", ids: [...selection.selected] })}
         >
-          다시 공개
+          {tr("admin_community_comments_bulk_restore")}
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
@@ -444,7 +458,7 @@ export function AdminCommunityCommentsPage() {
           title={noPermTitle}
           onClick={() => setAction({ kind: "hide", ids: [...selection.selected] })}
         >
-          숨기기
+          {tr("admin_community_comments_bulk_hide")}
         </AdminActionButton>
         {isBulkActionAllowed(policy, "soft_delete") ? (
           <AdminActionButton
@@ -453,11 +467,11 @@ export function AdminCommunityCommentsPage() {
             title={noPermTitle}
             onClick={() => setAction({ kind: "delete", ids: [...selection.selected] })}
           >
-            삭제
+            {tr("admin_community_comments_bulk_delete")}
           </AdminActionButton>
         ) : null}
         <AdminActionButton variant="quiet" onClick={() => selection.clear()}>
-          선택 해제
+          {tr("admin_community_comments_bulk_clear_selection")}
         </AdminActionButton>
       </div>
     ) : null;
@@ -467,10 +481,18 @@ export function AdminCommunityCommentsPage() {
         const targets = rows.filter((r) => action.ids.includes(r.id));
         const first = targets[0];
         return [
-          { label: "대상", value: targets.length === 1 ? "댓글 1건" : `선택한 댓글 ${targets.length}건` },
-          { label: "내용", value: `「${String(first?.content ?? "").slice(0, 60)}」${targets.length > 1 ? " 외" : ""}` },
+          {
+            label: tr("admin_community_comments_row_target"),
+            value: targets.length === 1 ? tr("admin_community_comments_row_one") : tr("admin_community_comments_row_selected", { n: targets.length }),
+          },
+          {
+            label: tr("admin_community_comments_row_content"),
+            value: tr(targets.length > 1 ? "admin_community_comments_row_quote_more" : "admin_community_comments_row_quote", {
+              text: String(first?.content ?? "").slice(0, 60),
+            }),
+          },
           ...(targets.length === 1 && first
-            ? [{ label: "현재 상태", value: adminCommunityLabel("content_status", first.status, ko).label }]
+            ? [{ label: tr("admin_community_comments_row_status"), value: adminCommunityLabel("content_status", first.status, ko).label }]
             : []),
         ];
       })()
@@ -480,10 +502,10 @@ export function AdminCommunityCommentsPage() {
     <AdminManagementSurfaceRoot wave="w3" proofSurface="community-comments">
       <CommunityListShell
         title={tr("admin_community_comments_page_title")}
-        description="게시글에 달린 댓글·답글을 찾아보고 숨김·삭제·복구합니다."
+        description={tr("admin_community_comments_desc")}
         actions={
           <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
-            새로고침
+            {tr("admin_community_comments_reload")}
           </AdminActionButton>
         }
         banner={
@@ -498,7 +520,7 @@ export function AdminCommunityCommentsPage() {
         }
         tabs={
           <CommunityTabs
-            tabs={TABS.map((t) => ({ ...t, count: t.value === tab && !commentId && !loading && !loadErr ? total : null }))}
+            tabs={TABS.map((t) => ({ value: t.value, label: tr(t.labelKey), count: t.value === tab && !commentId && !loading && !loadErr ? total : null }))}
             value={tab}
             onChange={(v) => set({ tab: v, status: null, reported: null })}
           />
@@ -527,23 +549,23 @@ export function AdminCommunityCommentsPage() {
 
       {action ? (
         <CommunityActionSheet
-          title={`댓글 ${ACTION_LABEL[action.kind]}`}
+          title={tr("admin_community_comments_sheet_title", { action: tr(ACTION_LABEL[action.kind]) })}
           rows={actionRows}
           notice={
             action.kind === "hide"
-              ? "숨긴 댓글은 작성자에게만 보입니다. 작성자에게 알림이 갑니다."
+              ? tr("admin_community_comments_notice_hide")
               : action.kind === "delete"
-                ? "삭제한 댓글은 아무도 볼 수 없습니다(복구 가능). 작성자에게 알림이 갑니다."
-                : "댓글을 다시 모두에게 보이게 합니다."
+                ? tr("admin_community_comments_notice_delete")
+                : tr("admin_community_comments_notice_restore")
           }
-          reason={action.kind === "restore" ? null : { minLength: 2, placeholder: "예: 욕설, 개인정보 노출" }}
+          reason={action.kind === "restore" ? null : { minLength: 2, placeholder: tr("admin_community_comments_reason_placeholder") }}
           destructive={action.kind === "delete"}
-          confirmLabel={ACTION_LABEL[action.kind]}
+          confirmLabel={tr(ACTION_LABEL[action.kind])}
           onSubmit={(reason) => runAction(action, reason)}
           onClose={() => setAction(null)}
           onSettled={(k) => {
             setAction(null);
-            if (k === "stale") setBanner({ ok: false, code: COMMUNITY_STALE_MESSAGE });
+            if (k === "stale") setBanner({ ok: false, code: tr("admin_community_post_stale") });
             reload();
           }}
         />

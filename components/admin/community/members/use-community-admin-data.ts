@@ -8,8 +8,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdminShell } from "@/components/admin/AdminShellContext";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { isSuperAdminFromSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import {
-  COMMUNITY_ADMIN_AREA_LABEL_KO,
   communityAreaAllowed,
   type CommunityAdminArea,
 } from "@/lib/admin/community-admin/community-admin-permissions";
@@ -55,22 +56,32 @@ export function useCommunityAdminJson<T extends { ok?: boolean; error?: string }
  * 보는 관리자의 커뮤니티 권한 영역 — 버튼 비활성·안내(「권한 필요: …」)용.
  * 권한 정보를 아직 못 읽었으면 허용으로 두고 서버 403 을 따른다.
  */
+const COMMUNITY_ADMIN_AREA_LABEL_KEY: Record<CommunityAdminArea, MessageKey> = {
+  content: "admin_community_area_content",
+  moderation: "admin_community_area_moderation",
+  promotion: "admin_community_area_promotion",
+  points: "admin_community_area_points",
+  read: "admin_community_area_read",
+};
+
 export function useCommunityAdminAccess() {
+  const { t } = useI18n();
   // Admin 화면은 모두 AdminShellProvider 안에서 렌더된다 (AdminPlatformShell).
   const snapshot = useAdminShell().adminMe;
   const isSuperAdmin = isSuperAdminFromSnapshot(snapshot);
   const allowed = (area: CommunityAdminArea) =>
     !snapshot ? true : communityAreaAllowed(snapshot.permissions, area, isSuperAdmin);
   const deniedTitle = (area: CommunityAdminArea) =>
-    allowed(area) ? undefined : `권한 필요: ${COMMUNITY_ADMIN_AREA_LABEL_KO[area]}`;
+    allowed(area) ? undefined : t("admin_community_access_denied_title", { area: t(COMMUNITY_ADMIN_AREA_LABEL_KEY[area]) });
   return { isSuperAdmin, allowed, deniedTitle, known: Boolean(snapshot) };
 }
 
 /** 결과 배너 상태 (AdminResultBanner) */
 export type CommunityBannerState = { ok: true; message: string } | { ok: false; code: string } | null;
 
-export const COMMUNITY_STALE_MESSAGE = "다른 관리자가 먼저 변경했습니다 — 최신 내용으로 다시 불러왔습니다";
-export const COMMUNITY_GONE_MESSAGE = "대상이 이미 없어졌습니다 — 목록을 다시 불러왔습니다";
+/** 한국어 문장(기존 호출부 호환). 화면에서는 키 `admin_community_post_stale`·`admin_community_list_gone` 을 `t()` 로 쓴다. */
+export const COMMUNITY_STALE_MESSAGE = translate("ko", "admin_community_post_stale");
+export const COMMUNITY_GONE_MESSAGE = translate("ko", "admin_community_list_gone");
 
 export function formatCommunityPoints(n: number | null | undefined): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "—";

@@ -3,6 +3,8 @@
  * Area A may build UI + matrix; execution stays fail-closed until Owner unlock.
  */
 
+import { translate } from "@/lib/i18n/messages";
+
 export type ProductionExecutionDecision = {
   allowed: boolean;
   reason: string;
@@ -25,20 +27,16 @@ export function evaluateProductionPromoteExecution(
     return {
       allowed: false,
       reason: "promote_not_enabled",
-      messageKo:
-        "운영 적용 실행이 비활성입니다. Owner 권한 분리·토큰 준비 후 DIBAY_PROMOTE_ENABLED를 설정하세요.",
-      messageEn:
-        "Production promote execution is disabled. Set DIBAY_PROMOTE_ENABLED after Owner auth split.",
+      messageKo: translate("ko", "admin_deploy_promote_not_enabled"),
+      messageEn: translate("en", "admin_deploy_promote_not_enabled"),
     };
   }
   if (!unlocked) {
     return {
       allowed: false,
       reason: "production_execution_blocked",
-      messageKo:
-        "운영 적용·Rollback 실행은 권한 분리 실측 전까지 차단됩니다 (BLOCKED).",
-      messageEn:
-        "Production promote/rollback execution stays blocked until auth-split is proven (BLOCKED).",
+      messageKo: translate("ko", "admin_deploy_production_execution_blocked"),
+      messageEn: translate("en", "admin_deploy_production_execution_blocked"),
     };
   }
   return {

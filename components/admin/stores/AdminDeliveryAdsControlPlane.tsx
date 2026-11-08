@@ -263,8 +263,8 @@ export function AdminDeliveryAdsControlPlane() {
                     dataAttr: "ads-hub-to-community-promo",
                   },
                 ]}
-                noteKo="커뮤니티 내 포인트 상위노출입니다. Feed Ads·배달 광고 집행과는 별도입니다."
-                noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
+                noteKo={t("admin_stores_delivery_ads_cross_link_note")}
+                noteEn={t("admin_stores_delivery_ads_cross_link_note")}
               />
             </Suspense>
           </div>
@@ -370,7 +370,7 @@ export function AdminDeliveryAdsControlPlane() {
                       size="sm"
                       data-admin-delivery-ads-empty-create="1"
                     >
-                      {lang !== "en" ? "등록" : "Create"}
+                      {t("admin_stores_delivery_ads_create_btn")}
                     </AdminActionLink>
                   ) : (
                     <AdminActionButton
@@ -380,7 +380,7 @@ export function AdminDeliveryAdsControlPlane() {
                       title={createGuard.reason ?? undefined}
                       data-admin-delivery-ads-empty-create="1"
                     >
-                      {lang !== "en" ? "등록" : "Create"}
+                      {t("admin_stores_delivery_ads_create_btn")}
                     </AdminActionButton>
                   )
                 }

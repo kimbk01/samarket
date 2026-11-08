@@ -4,6 +4,7 @@
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -25,16 +26,17 @@ type TabId =
   | "winners"
   | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "active", label: "운영 버전" },
-  { id: "prepare", label: "배포 준비" },
-  { id: "history", label: "배포 이력" },
-  { id: "rollback", label: "롤백 정책" },
-  { id: "winners", label: "실험 승자" },
-  { id: "logs", label: "배포 로그" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "active", labelKey: "admin_rec_deploy_tab_active" },
+  { id: "prepare", labelKey: "admin_rec_deploy_tab_prepare" },
+  { id: "history", labelKey: "admin_rec_deploy_tab_history" },
+  { id: "rollback", labelKey: "admin_rec_deploy_tab_rollback" },
+  { id: "winners", labelKey: "admin_rec_deploy_tab_winners" },
+  { id: "logs", labelKey: "admin_rec_deploy_tab_logs" },
 ];
 
 export function AdminRecommendationDeploymentPage() {
+  const { t } = useI18n();
   /** 탭은 주소 `?tab=` 보존 — 목록 필터와 함께 새로고침·링크 공유 시 유지 (R7). */
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabId>(() => {
@@ -47,7 +49,7 @@ export function AdminRecommendationDeploymentPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader titleKey="admin_menu_rec_deployments" description="운영 버전·배포·롤백·실험 승자 관리" />
+        <AdminPageHeader titleKey="admin_menu_rec_deployments" description={t("admin_rec_deploy_page_description")} />
         <AdminSyncLoadGate state={loadState} onRetry={reload} />
       </>
     );
@@ -56,11 +58,11 @@ export function AdminRecommendationDeploymentPage() {
   return (
     <>
       <AdminPageHeader titleKey="admin_menu_rec_deployments"
-        description="운영 버전·배포·롤백·실험 승자 관리"
+        description={t("admin_rec_deploy_page_description")}
       />
       <AdminTabs
-        tabs={TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
-        ariaLabel="추천 배포 탭"
+        tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel={t("admin_rec_deploy_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         defaultValue="active"

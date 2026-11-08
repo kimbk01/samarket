@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { ARO_IA_001_OWNERS } from "@/lib/admin/aro-ia-001-community-common-links";
@@ -51,7 +52,6 @@ import {
   type MeetingReportTab,
 } from "@/components/admin/community/reports/meeting-report-contract";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   CommunityDrawer,
   CommunitySection,
@@ -61,34 +61,38 @@ import {
   type CommunityBanner,
 } from "@/components/admin/community/reports/community-report-admin-shared";
 
-const TAB_LABEL: Record<MeetingReportTab, string> = {
-  pending: "처리 대기",
-  reviewing: "검토 중",
-  resolved: "신고 인정",
-  rejected: "신고 기각",
-  all: "전체",
+const TAB_LABEL: Record<MeetingReportTab, MessageKey> = {
+  pending: "admin_philife_meeting_reports_tab_pending",
+  reviewing: "admin_philife_meeting_reports_tab_reviewing",
+  resolved: "admin_philife_meeting_reports_tab_resolved",
+  rejected: "admin_philife_meeting_reports_tab_rejected",
+  all: "admin_philife_meeting_reports_tab_all",
 };
 
-const EMPTY_TEXT: Record<MeetingReportTab, string> = {
-  pending: "처리할 모임 신고가 없습니다.",
-  reviewing: "검토 중인 모임 신고가 없습니다.",
-  resolved: "인정한 모임 신고가 없습니다.",
-  rejected: "기각한 모임 신고가 없습니다.",
-  all: "모임 신고가 없습니다.",
+const EMPTY_TEXT: Record<MeetingReportTab, MessageKey> = {
+  pending: "admin_philife_meeting_reports_empty_pending",
+  reviewing: "admin_philife_meeting_reports_empty_reviewing",
+  resolved: "admin_philife_meeting_reports_empty_resolved",
+  rejected: "admin_philife_meeting_reports_empty_rejected",
+  all: "admin_philife_meeting_reports_empty_all",
 };
 
 /** 조회 조건 추가 키 (URL) — 탭(`status`)은 [초기화] 후에도 유지 */
 const MEETING_REPORT_EXTRAS = ["type"] as const;
 
-const REASON_LABEL: Record<string, string> = {
-  spam: "스팸·도배",
-  abuse: "욕설·비방",
-  sexual: "음란·성적 내용",
-  illegal: "불법 행위",
-  impersonation: "사칭",
-  off_topic: "모임과 무관한 내용",
-  etc: "기타",
+const REASON_LABEL: Record<string, MessageKey> = {
+  spam: "admin_philife_meeting_reports_reason_spam",
+  abuse: "admin_philife_meeting_reports_reason_abuse",
+  sexual: "admin_philife_meeting_reports_reason_sexual",
+  illegal: "admin_philife_meeting_reports_reason_illegal",
+  impersonation: "admin_philife_meeting_reports_reason_impersonation",
+  off_topic: "admin_philife_meeting_reports_reason_off_topic",
+  etc: "admin_philife_meeting_reports_reason_etc",
 };
+
+function reasonKey(type: string): MessageKey {
+  return REASON_LABEL[type] ?? "admin_philife_meeting_reports_reason_etc";
+}
 
 const PHT = (iso: string | null | undefined) => (iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—");
 
@@ -115,7 +119,7 @@ function TargetCell({ r, ko }: { r: MeetingReportAdminRow; ko: boolean }) {
       ) : null}
       {mHref ? (
         <Link href={mHref} onClick={(e) => e.stopPropagation()} className="font-medium text-sam-info hover:underline">
-          {r.meeting_title?.trim() || "모임 보기"}
+          {r.meeting_title?.trim() || t("admin_philife_meeting_reports_view_meeting")}
         </Link>
       ) : (
         <span className="text-sam-muted">{t("admin_philife_meeting_reports_target_no_meeting")}</span>
@@ -170,11 +174,11 @@ export function AdminMeetingReportsPage({
     );
     setBusyId(null);
     if (res.ok) {
-      const warn = communityWarningsOf(json);
-      afterChange({ tone: warn.length ? "warning" : "success", text: "검토를 시작했습니다.", extra: warn });
+      const warn = communityWarningsOf(json, language);
+      afterChange({ tone: warn.length ? "warning" : "success", text: t("admin_philife_meeting_reports_review_started"), extra: warn });
     } else if (res.status === 409) {
       router.refresh();
-      setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+      setBanner({ tone: "warning", text: t("admin_community_post_stale") });
     } else {
       // 실패하면 상태를 바꾸지 않는다 (C-11)
       setBanner({ tone: "error", text: communityAdminErrorText(res.code, ko) });
@@ -185,7 +189,7 @@ export function AdminMeetingReportsPage({
     setSheet(null);
     if (kind === "stale") {
       router.refresh();
-      setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+      setBanner({ tone: "warning", text: t("admin_community_post_stale") });
       return;
     }
     if (kind === "gone") {
@@ -193,7 +197,7 @@ export function AdminMeetingReportsPage({
       setBanner({ tone: "error", text: communityAdminErrorText("not_found", ko) });
       return;
     }
-    const warn = communityWarningsOf(lastJson.current);
+    const warn = communityWarningsOf(lastJson.current, language);
     afterChange({ tone: warn.length ? "warning" : "success", text: okText, extra: warn });
   };
 
@@ -210,11 +214,13 @@ export function AdminMeetingReportsPage({
             title={deniedTitle}
             onClick={() => void startReview(r)}
           >
-            {busyId === r.id ? "처리 중" : "검토 시작"}
+            {busyId === r.id ? t("admin_philife_meeting_reports_processing") : t("admin_philife_meeting_reports_start_review")}
           </AdminActionButton>
         ) : null}
         <AdminActionButton variant="ghost" size="sm" onClick={() => setOpenId(r.id)}>
-          {r.status === "pending" || r.status === "reviewing" ? "처리하기" : "보기"}
+          {r.status === "pending" || r.status === "reviewing"
+            ? t("admin_philife_meeting_reports_handle")
+            : t("admin_philife_meeting_reports_view")}
         </AdminActionButton>
       </div>
     );
@@ -234,7 +240,7 @@ export function AdminMeetingReportsPage({
               if (canModerate) setSheet({ kind: "reopen", row: r });
             }}
           >
-            다시 열기
+            {t("admin_philife_meeting_reports_reopen")}
           </AdminActionButton>
         ) : null}
         {allowed.includes("review") ? (
@@ -244,7 +250,7 @@ export function AdminMeetingReportsPage({
             title={deniedTitle}
             onClick={() => void startReview(r)}
           >
-            {busyId === r.id ? "처리 중" : "검토 시작"}
+            {busyId === r.id ? t("admin_philife_meeting_reports_processing") : t("admin_philife_meeting_reports_start_review")}
           </AdminActionButton>
         ) : null}
         {allowed.includes("reject") ? (
@@ -256,7 +262,7 @@ export function AdminMeetingReportsPage({
               if (canModerate) setSheet({ kind: "reject", row: r });
             }}
           >
-            신고 기각
+            {t("admin_philife_meeting_reports_dismiss")}
           </AdminActionButton>
         ) : null}
         {allowed.includes("resolve") ? (
@@ -268,7 +274,7 @@ export function AdminMeetingReportsPage({
               if (canModerate) setSheet({ kind: "resolve", row: r });
             }}
           >
-            신고 인정
+            {t("admin_philife_meeting_reports_accept")}
           </AdminActionButton>
         ) : null}
       </div>
@@ -276,10 +282,10 @@ export function AdminMeetingReportsPage({
   };
 
   const sheetRows = (r: MeetingReportAdminRow) => [
-    { label: "모임", value: r.meeting_title?.trim() || "—" },
-    { label: "신고 대상", value: adminCommunityLabel("report_target", r.target_type, ko).label },
-    { label: "사유", value: REASON_LABEL[r.reason_type] ?? "기타" },
-    { label: "신고자", value: r.reporter?.nickname?.trim() || "이름 없음" },
+    { label: t("admin_philife_meeting_reports_row_meeting"), value: r.meeting_title?.trim() || "—" },
+    { label: t("admin_philife_meeting_reports_row_report_target"), value: adminCommunityLabel("report_target", r.target_type, ko).label },
+    { label: t("admin_philife_meeting_reports_row_reason"), value: t(reasonKey(r.reason_type)) },
+    { label: t("admin_philife_meeting_reports_row_reporter"), value: r.reporter?.nickname?.trim() || t("admin_philife_meeting_reports_no_name") },
   ];
 
   return (
@@ -287,10 +293,10 @@ export function AdminMeetingReportsPage({
       <span className="sr-only" data-admin-meeting-reports-owner={ARO_IA_001_OWNERS.meetingReport} />
       <CommunityListShell
         title={t("admin_philife_meeting_reports_title")}
-        description="모임·모임 회원·모임 게시물에 대한 신고를 확인하고 인정 또는 기각합니다."
+        description={t("admin_philife_meeting_reports_desc")}
         actions={
           <AdminActionButton variant="secondary" disabled={busyId !== null} onClick={() => router.refresh()}>
-            새로고침
+            {t("admin_philife_meeting_reports_refresh")}
           </AdminActionButton>
         }
         banner={
@@ -310,17 +316,17 @@ export function AdminMeetingReportsPage({
           <CommunityTabs
             value={filters.tab}
             onChange={(v) => qs.set({ status: v })}
-            tabs={MEETING_REPORT_TABS.map((k) => ({ value: k, label: TAB_LABEL[k], count: result.counts?.[k] ?? null }))}
+            tabs={MEETING_REPORT_TABS.map((k) => ({ value: k, label: t(TAB_LABEL[k]), count: result.counts?.[k] ?? null }))}
           />
         }
         filterBar={
-          <CommunityFilterBar lq={lq} searchPlaceholder="모임 이름·신고자 닉네임">
-            <CommunityFilterField label="신고 대상">
+          <CommunityFilterBar lq={lq} searchPlaceholder={t("admin_philife_meeting_reports_search_placeholder")}>
+            <CommunityFilterField label={t("admin_philife_meeting_reports_row_report_target")}>
               <CommunitySelect
                 value={filters.type}
                 onChange={(v) => lq.setExtra("type", v)}
                 options={[
-                  { value: "", label: "전체" },
+                  { value: "", label: t("admin_philife_meeting_reports_tab_all") },
                   ...MEETING_REPORT_TARGET_OPTIONS.map((tg) => ({ value: tg, label: adminCommunityLabel("report_target", tg, ko).label })),
                 ]}
               />
@@ -332,9 +338,16 @@ export function AdminMeetingReportsPage({
         {!result.ok ? (
           <AdminErrorState ko={ko} code="load_failed" onRetry={() => router.refresh()} />
         ) : result.rows.length === 0 ? (
-          <CommunityListEmpty lq={lq} message={EMPTY_TEXT[filters.tab]} />
+          <CommunityListEmpty lq={lq} message={t(EMPTY_TEXT[filters.tab])} />
         ) : (
-          <CommunityTable head={["대상", "사유", "신고자", "접수", "상태", "처리"]}>
+          <CommunityTable head={[
+            t("admin_philife_meeting_reports_col_target"),
+            t("admin_philife_meeting_reports_row_reason"),
+            t("admin_philife_meeting_reports_row_reporter"),
+            t("admin_philife_meeting_reports_col_received"),
+            t("admin_philife_meeting_reports_col_status"),
+            t("admin_philife_meeting_reports_col_action"),
+          ]}>
             {result.rows.map((r) => (
               <tr
                 key={r.id}
@@ -345,7 +358,7 @@ export function AdminMeetingReportsPage({
                   <TargetCell r={r} ko={ko} />
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <span className="font-medium text-sam-fg">{REASON_LABEL[r.reason_type] ?? "기타"}</span>
+                  <span className="font-medium text-sam-fg">{t(reasonKey(r.reason_type))}</span>
                   {r.reason_detail ? <p className="line-clamp-2 max-w-[16rem] sam-text-xxs text-sam-muted">{r.reason_detail}</p> : null}
                 </td>
                 <td className={COMMUNITY_TD} onClick={(e) => e.stopPropagation()}>
@@ -373,7 +386,7 @@ export function AdminMeetingReportsPage({
           footer={
             <div className="flex flex-wrap items-center justify-between gap-2">
               <AdminActionButton variant="neutral" onClick={() => setOpenId("")}>
-                닫기
+                {t("admin_philife_meeting_reports_close")}
               </AdminActionButton>
               {drawerActions(open)}
             </div>
@@ -385,29 +398,29 @@ export function AdminMeetingReportsPage({
               <CommunitySummaryCard
                 rows={[
                   {
-                    label: "모임",
+                    label: t("admin_philife_meeting_reports_row_meeting"),
                     value: meetingHref(open.meeting_id) ? (
                       <Link href={meetingHref(open.meeting_id) as string} className="font-medium text-sam-info hover:underline">
-                        {open.meeting_title?.trim() || "모임 보기"}
+                        {open.meeting_title?.trim() || t("admin_philife_meeting_reports_view_meeting")}
                       </Link>
                     ) : (
                       "—"
                     ),
                   },
-                  { label: "대상", value: <TargetCell r={open} ko={ko} /> },
-                  { label: "사유", value: REASON_LABEL[open.reason_type] ?? "기타" },
+                  { label: t("admin_philife_meeting_reports_col_target"), value: <TargetCell r={open} ko={ko} /> },
+                  { label: t("admin_philife_meeting_reports_row_reason"), value: t(reasonKey(open.reason_type)) },
                   {
-                    label: "신고 내용",
+                    label: t("admin_philife_meeting_reports_row_detail"),
                     value: <span className="whitespace-pre-wrap">{open.reason_detail?.trim() || "—"}</span>,
                   },
                   {
-                    label: "신고자",
+                    label: t("admin_philife_meeting_reports_row_reporter"),
                     value: (
                       <CommunityAuthorCell userId={open.reporter_user_id || null} nickname={open.reporter?.nickname} handle={open.reporter?.handle} />
                     ),
                   },
-                  { label: "접수 시각", value: PHT(open.created_at) },
-                  { label: "신고 상태", value: <CommunityStatusBadge domain="meeting_report_status" value={open.status} ko={ko} /> },
+                  { label: t("admin_philife_meeting_reports_row_received_at"), value: PHT(open.created_at) },
+                  { label: t("admin_philife_meeting_reports_row_report_status"), value: <CommunityStatusBadge domain="meeting_report_status" value={open.status} ko={ko} /> },
                 ]}
               />
             </CommunitySection>
@@ -419,7 +432,7 @@ export function AdminMeetingReportsPage({
                         {
                           id: open.id,
                           at: open.reviewed_at,
-                          actor: open.reviewed_by_label ?? "관리자",
+                          actor: open.reviewed_by_label ?? t("admin_philife_meeting_reports_admin"),
                           action: adminCommunityLabel("meeting_report_status", open.status, ko).label,
                           reason: open.action_result,
                         },
@@ -454,17 +467,29 @@ export function AdminMeetingReportsPage({
       {sheet ? (
         <CommunityActionSheet
           key={`${sheet.kind}:${sheet.row.id}`}
-          title={sheet.kind === "resolve" ? "신고 인정" : sheet.kind === "reject" ? "신고 기각" : "다시 열기"}
+          title={
+            sheet.kind === "resolve"
+              ? t("admin_philife_meeting_reports_accept")
+              : sheet.kind === "reject"
+                ? t("admin_philife_meeting_reports_dismiss")
+                : t("admin_philife_meeting_reports_reopen")
+          }
           rows={sheetRows(sheet.row)}
           notice={
             sheet.kind === "reopen"
-              ? "신고를 다시 접수 상태로 돌립니다."
+              ? t("admin_philife_meeting_reports_reopen_notice")
               : sheet.kind === "resolve"
-                ? "모임 자체의 조치(종료·회원 내보내기)는 모임 화면에서 따로 합니다. 사유는 처리 기록에 남습니다."
-                : "기각하면 모임·회원에게 변화가 없습니다. 사유는 처리 기록에 남습니다."
+                ? t("admin_philife_meeting_reports_resolve_notice")
+                : t("admin_philife_meeting_reports_reject_notice")
           }
-          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "처리 사유" }}
-          confirmLabel={sheet.kind === "resolve" ? "신고 인정" : sheet.kind === "reject" ? "신고 기각" : "다시 열기"}
+          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: t("admin_philife_meeting_reports_reason_placeholder") }}
+          confirmLabel={
+            sheet.kind === "resolve"
+              ? t("admin_philife_meeting_reports_accept")
+              : sheet.kind === "reject"
+                ? t("admin_philife_meeting_reports_dismiss")
+                : t("admin_philife_meeting_reports_reopen")
+          }
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
             if (!canModerate) return { ok: false, status: 403, code: "forbidden" };
@@ -480,7 +505,11 @@ export function AdminMeetingReportsPage({
           onSettled={(kind) =>
             settle(
               kind,
-              sheet.kind === "resolve" ? "신고를 인정했습니다." : sheet.kind === "reject" ? "신고를 기각했습니다." : "신고를 다시 열었습니다."
+              sheet.kind === "resolve"
+                ? t("admin_philife_meeting_reports_resolved")
+                : sheet.kind === "reject"
+                  ? t("admin_philife_meeting_reports_rejected")
+                  : t("admin_philife_meeting_reports_reopened")
             )
           }
         />

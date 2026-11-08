@@ -46,7 +46,7 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
         },
       });
       setForm(EMPTY);
-      setMsg({ tone: "ok", text: "규칙을 저장했습니다. 이후 미리보기·게시·업데이트에 적용됩니다." });
+      setMsg({ tone: "ok", text: t("admin_community_import_rule_saved") });
       await load();
     } catch (e) {
       setMsg({ tone: "err", text: importErrorText(e) });
@@ -57,9 +57,9 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
     const ok = await confirmAdminAction({
       level: adminActionLevel(r.enabled ? "disable" : "resume"),
       ko: true,
-      title: r.enabled ? "규칙 끄기" : "규칙 켜기",
-      description: r.enabled ? "이후 게시·업데이트에 이 규칙을 적용하지 않습니다." : "이후 게시·업데이트에 이 규칙을 적용합니다.",
-      confirmLabel: r.enabled ? "끄기" : "켜기",
+      title: r.enabled ? t("admin_community_import_rule_off_title") : t("admin_community_import_rule_on_title"),
+      description: r.enabled ? t("admin_community_import_rule_off_desc") : t("admin_community_import_rule_on_desc"),
+      confirmLabel: r.enabled ? t("admin_community_import_rule_off_btn") : t("admin_community_import_rule_on_btn"),
     });
     if (!ok.ok) return;
     try {
@@ -116,14 +116,14 @@ export function ImportRulesPanel({ sources }: { sources: ManagedSource[] }) {
           {rules.map((r) => (
             <li key={r.id} className="flex items-center gap-2 px-3 py-2 border-b border-sam-border text-xs">
               <span className="rounded-full border border-sam-border px-1.5 text-[12px]">
-                {r.scope === "global" ? "전체" : r.scope === "source" ? r.sourceSite : `${r.sourceSite}/${r.sourceBoard}`}
+                {r.scope === "global" ? t("admin_community_import_rule_scope_all") : r.scope === "source" ? r.sourceSite : `${r.sourceSite}/${r.sourceBoard}`}
               </span>
               <code className="break-all">{r.findText}</code>
               <span className="text-sam-muted">→</span>
-              <code className="break-all">{r.replaceText || "(삭제)"}</code>
+              <code className="break-all">{r.replaceText || t("admin_community_import_rule_remove")}</code>
               {r.isRegex ? <span className="text-[12px] text-sam-muted">regex</span> : null}
               <AdminActionButton variant="neutral" className="ml-auto" onClick={() => void toggle(r)}>
-                {r.enabled ? "사용 중" : "꺼짐"}
+                {r.enabled ? t("admin_community_import_rule_status_on") : t("admin_community_import_rule_status_off")}
               </AdminActionButton>
             </li>
           ))}

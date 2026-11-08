@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import type {
   CommunityReportGroupList,
@@ -47,7 +48,6 @@ import {
 } from "@/components/admin/community/reports/CommunityReportDecisionPanel";
 import { CommunityReportSourceSwitch } from "@/components/admin/community/reports/CommunityReportSourceSwitch";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   CommunityDrawer,
   communityActionFetch,
@@ -68,23 +68,23 @@ export type AdminCommunityReportsFilters = {
   periodError: string | null;
 };
 
-const TAB_LABEL: Record<CommunityReportInboxTab, string> = {
-  pending: "처리 대기",
-  reviewing: "검토 중",
-  resolved: "신고 인정",
-  dismissed: "신고 기각",
-  all: "전체",
+const TAB_LABEL: Record<CommunityReportInboxTab, MessageKey> = {
+  pending: "admin_community_reports_tab_pending",
+  reviewing: "admin_community_reports_tab_reviewing",
+  resolved: "admin_community_reports_tab_resolved",
+  dismissed: "admin_community_reports_tab_dismissed",
+  all: "admin_community_reports_tab_all",
 };
 
 /** 조회 조건 추가 키 (URL) — 탭(`status`)은 [초기화] 후에도 유지 */
 const REPORT_EXTRAS = ["type", "targetId", "topicSlug", "reporterId", "authorId"] as const;
 
-const EMPTY_TEXT: Record<CommunityReportInboxTab, string> = {
-  pending: "처리할 신고가 없습니다.",
-  reviewing: "검토 중인 신고가 없습니다.",
-  resolved: "인정한 신고가 없습니다.",
-  dismissed: "기각한 신고가 없습니다.",
-  all: "신고가 없습니다.",
+const EMPTY_TEXT: Record<CommunityReportInboxTab, MessageKey> = {
+  pending: "admin_community_reports_empty_pending",
+  reviewing: "admin_community_reports_empty_reviewing",
+  resolved: "admin_community_reports_empty_resolved",
+  dismissed: "admin_community_reports_empty_dismissed",
+  all: "admin_community_reports_empty_all",
 };
 
 export function AdminCommunityReportsPage({
@@ -112,7 +112,7 @@ export function AdminCommunityReportsPage({
   const hasDetailFilter = Boolean(filters.targetId || filters.authorId || filters.reporterId || filters.topicSlug);
 
   const targetLabel = (g: CommunityReportGroupRow) => {
-    if (g.target.target_type === "user") return "회원";
+    if (g.target.target_type === "user") return tr("admin_community_reports_member");
     const displayTarget = g.target.display_target ?? (g.target.target_type === "comment" ? "comment" : "post");
     return displayTarget === "reply"
       ? tr("admin_community_target_type_reply")
@@ -133,10 +133,10 @@ export function AdminCommunityReportsPage({
     setBusyKey(null);
     router.refresh();
     if (r.ok) {
-      const warn = communityWarningsOf(json);
-      setBanner({ tone: warn.length ? "warning" : "success", text: "검토를 시작했습니다.", extra: warn });
+      const warn = communityWarningsOf(json, language);
+      setBanner({ tone: warn.length ? "warning" : "success", text: tr("admin_community_reports_review_started"), extra: warn });
     } else if (r.status === 409) {
-      setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+      setBanner({ tone: "warning", text: tr("admin_community_post_stale") });
     } else {
       setBanner({ tone: "error", text: communityAdminErrorText(r.code, ko) });
     }
@@ -149,14 +149,14 @@ export function AdminCommunityReportsPage({
       <span className="sr-only" data-admin-community-reports-owner={ARO_IA_001_OWNERS.report} />
       <CommunityListShell
         title={tr("admin_community_reports_inbox_title")}
-        description="회원이 신고한 게시글·댓글·회원을 확인하고 인정 또는 기각합니다."
+        description={tr("admin_community_reports_desc")}
         actions={
           <>
             <AdminActionLink href={ARO_IA_001_SUPPORT_PATH} variant="quiet" data-admin-cross-link="community-report-to-support">
-              회원 문의는 고객지원
+              {tr("admin_community_reports_link_support")}
             </AdminActionLink>
             <AdminActionButton variant="secondary" disabled={busyKey !== null} onClick={() => router.refresh()}>
-              새로고침
+              {tr("admin_community_reports_reload")}
             </AdminActionButton>
           </>
         }
@@ -177,38 +177,38 @@ export function AdminCommunityReportsPage({
             onChange={(v) => qs.set({ status: v, pending: null })}
             tabs={(Object.keys(TAB_LABEL) as CommunityReportInboxTab[]).map((k) => ({
               value: k,
-              label: TAB_LABEL[k],
+              label: tr(TAB_LABEL[k]),
               count: result.ok ? result.counts[k] : null,
             }))}
           />
         }
         filterBar={
-          <CommunityFilterBar lq={lq} searchPlaceholder="대상 제목·내용·닉네임">
-            <CommunityFilterField label="신고 대상">
+          <CommunityFilterBar lq={lq} searchPlaceholder={tr("admin_community_reports_search_placeholder")}>
+            <CommunityFilterField label={tr("admin_community_reports_filter_target")}>
               <CommunitySelect
                 value={filters.type}
                 onChange={(v) => lq.setExtra("type", v)}
                 options={[
-                  { value: "", label: "전체" },
+                  { value: "", label: tr("admin_community_reports_tab_all") },
                   { value: "post", label: tr("admin_community_target_type_post") },
                   { value: "comment", label: tr("admin_community_target_type_comment") },
-                  { value: "user", label: "회원" },
+                  { value: "user", label: tr("admin_community_reports_member") },
                 ]}
               />
             </CommunityFilterField>
             {hasDetailFilter ? (
               <div className="flex h-10 flex-wrap items-center gap-1.5 text-[12px]">
                 {filters.targetId ? (
-                  <FilterChip label="특정 대상의 신고" onClear={() => lq.setExtra("targetId", "")} />
+                  <FilterChip label={tr("admin_community_reports_chip_target")} onClear={() => lq.setExtra("targetId", "")} />
                 ) : null}
                 {filters.authorId ? (
-                  <FilterChip label="특정 작성자가 받은 신고" onClear={() => lq.setExtra("authorId", "")} />
+                  <FilterChip label={tr("admin_community_reports_chip_author")} onClear={() => lq.setExtra("authorId", "")} />
                 ) : null}
                 {filters.reporterId ? (
-                  <FilterChip label="특정 회원이 낸 신고" onClear={() => lq.setExtra("reporterId", "")} />
+                  <FilterChip label={tr("admin_community_reports_chip_reporter")} onClear={() => lq.setExtra("reporterId", "")} />
                 ) : null}
                 {filters.topicSlug ? (
-                  <FilterChip label="특정 카테고리" onClear={() => lq.setExtra("topicSlug", "")} />
+                  <FilterChip label={tr("admin_community_reports_chip_topic")} onClear={() => lq.setExtra("topicSlug", "")} />
                 ) : null}
               </div>
             ) : null}
@@ -228,18 +228,26 @@ export function AdminCommunityReportsPage({
         {!result.ok ? (
           <AdminErrorState ko={ko} code="load_failed" onRetry={() => router.refresh()} />
         ) : groups.length === 0 ? (
-          <CommunityListEmpty lq={lq} message={EMPTY_TEXT[filters.tab]} />
+          <CommunityListEmpty lq={lq} message={tr(EMPTY_TEXT[filters.tab])} />
         ) : (
-          <CommunityTable head={["대상", "작성자", "신고", "최근 사유", "최근 신고", "상태", "처리"]}>
+          <CommunityTable head={[
+              tr("admin_community_reports_col_target"),
+              tr("admin_community_reports_col_author"),
+              tr("admin_community_reports_col_reports"),
+              tr("admin_community_reports_col_latest_reason"),
+              tr("admin_community_reports_col_latest_report"),
+              tr("admin_community_reports_col_status"),
+              tr("admin_community_reports_col_action"),
+            ]}>
             {groups.map((g) => {
               const t = g.target;
               const displayTarget = t.display_target ?? (t.target_type === "comment" ? "comment" : "post");
               const title =
                 t.target_type === "user"
-                  ? t.author_label ?? "회원"
+                  ? t.author_label ?? tr("admin_community_reports_member")
                   : displayTarget === "post"
                     ? t.post_title?.trim() || tr("admin_posts_no_title")
-                    : communityPlainExcerpt(t.target_content_preview, 60) || "내용 없음";
+                    : communityPlainExcerpt(t.target_content_preview, 60) || tr("admin_community_reports_no_content");
               const { code, text } = splitCommunityReportReason(g.latest_reason);
               const reason = adminCommunityLabel("report_reason", code, ko);
               const canReview = canModerate && nextReportActions(g.primary_status, isSuperAdmin).includes("review");
@@ -263,7 +271,7 @@ export function AdminCommunityReportsPage({
                             onClick={(e) => e.stopPropagation()}
                             className="shrink-0 sam-text-xxs text-sam-info hover:underline"
                           >
-                            {t.target_type === "user" ? "회원 보기" : "원문 관리"}
+                            {t.target_type === "user" ? tr("admin_community_reports_view_member") : tr("admin_community_reports_manage_original")}
                           </Link>
                         ) : null}
                       </span>
@@ -289,13 +297,13 @@ export function AdminCommunityReportsPage({
                     />
                   </td>
                   <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
-                    <span className="font-semibold text-sam-fg">{g.report_count}건</span>
+                    <span className="font-semibold text-sam-fg">{tr("admin_count_items", { n: g.report_count })}</span>
                     <span className="block sam-text-xxs text-sam-muted">
-                      {tr("admin_feed_reports_col_reporter")} {g.reporter_count}명
+                      {tr("admin_feed_reports_col_reporter")} {tr("admin_community_reports_people_n", { n: g.reporter_count })}
                     </span>
                   </td>
                   <td className={COMMUNITY_TD}>
-                    <span className="font-medium text-sam-fg">{reason.known ? reason.label : "기타"}</span>
+                    <span className="font-medium text-sam-fg">{reason.known ? reason.label : tr("admin_community_reports_reason_other")}</span>
                     {text ? <p className="line-clamp-2 max-w-[16rem] sam-text-xxs text-sam-muted">{text}</p> : null}
                   </td>
                   <td className={COMMUNITY_TD}>
@@ -313,11 +321,11 @@ export function AdminCommunityReportsPage({
                           disabled={busyKey === g.key}
                           onClick={() => void startReview(g)}
                         >
-                          {busyKey === g.key ? "처리 중" : "검토 시작"}
+                          {busyKey === g.key ? tr("admin_community_settings_processing") : tr("admin_community_reports_start_review")}
                         </AdminActionButton>
                       ) : null}
                       <AdminActionButton variant="ghost" size="sm" onClick={open}>
-                        {g.primary_status === "open" || g.primary_status === "reviewing" ? "처리하기" : "보기"}
+                        {g.primary_status === "open" || g.primary_status === "reviewing" ? tr("admin_community_reports_handle") : tr("admin_community_reports_view")}
                       </AdminActionButton>
                     </div>
                   </td>
@@ -338,7 +346,7 @@ export function AdminCommunityReportsPage({
                 href={communityDetailHref(`/admin/reports/${encodeURIComponent(openId)}`, qs.selfHref)}
                 className="text-[13px] font-medium text-sam-info hover:underline"
               >
-                전체 화면으로 보기
+                {tr("admin_community_reports_open_full")}
               </Link>
             </div>
           }
@@ -351,10 +359,11 @@ export function AdminCommunityReportsPage({
 }
 
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  const { t } = useI18n();
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2 py-1 text-sam-fg">
       {label}
-      <AdminActionButton variant="quiet" size="sm" onClick={onClear} aria-label={`${label} 해제`} className="h-auto! px-1!">
+      <AdminActionButton variant="quiet" size="sm" onClick={onClear} aria-label={t("admin_community_reports_chip_clear_aria", { label })} className="h-auto! px-1!">
         ×
       </AdminActionButton>
     </span>

@@ -2,6 +2,7 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getActiveFeedVersions } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { rollbackSurface } from "@/lib/recommendation-deployments/recommendation-deployment-utils";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
@@ -13,12 +14,13 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 
 export function ActiveFeedVersionTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const active = useMemo(() => getActiveFeedVersions(), [refresh]);
 
   if (active.length === 0) {
     return (
-      <AdminEmptyState ko message={"운영 버전이 없습니다."} />
+      <AdminEmptyState ko message={t("admin_rec_deploy_no_active_versions")} />
     );
   }
 
@@ -31,19 +33,19 @@ export function ActiveFeedVersionTable() {
               surface
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              현재 live 버전
+              {t("admin_rec_deployments_col_live_version")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              이전 버전
+              {t("admin_rec_deployments_col_previous_version")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              롤아웃 %
+              {t("admin_rec_deployments_col_rollout_pct")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              갱신
+              {t("admin_rec_deployments_col_updated")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              롤백
+              {t("admin_rec_deployments_col_rollback")}
             </th>
           </tr>
         </thead>
@@ -82,16 +84,18 @@ export function ActiveFeedVersionTable() {
                         const confirmed = await confirmAdminAction({
                           level: adminActionLevel("save"),
                           ko: true,
-                          title: "이전 버전으로 롤백",
-                          description: `${SURFACE_LABELS[a.surface as RecommendationSurface] ?? a.surface} 피드를 이전 버전으로 되돌립니다.`,
-                          confirmLabel: "롤백",
+                          title: t("admin_rec_deploy_rollback_to_previous"),
+                          description: t("admin_rec_deploy_rollback_confirm", {
+                            surface: SURFACE_LABELS[a.surface as RecommendationSurface] ?? a.surface,
+                          }),
+                          confirmLabel: t("admin_rec_deploy_rollback"),
                         });
                         if (!confirmed.ok) return;
                         rollbackSurface(a.surface as RecommendationSurface);
                         setRefresh((r) => r + 1);
                       }}
                     >
-                      이전 버전으로 롤백
+                      {t("admin_rec_deployments_rollback_to_previous")}
                     </AdminActionButton>
                   ) : (
                     "-"

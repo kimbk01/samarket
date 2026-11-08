@@ -609,7 +609,7 @@ function AdminAdvertisingWorkspaceInner({ mode = "all" }: { mode?: AdvertisingWo
       .map((i) => toAdsShellListRow(i, ko));
     const bySurface = new Map<string, AdsShellListRow[]>();
     for (const row of popupRows) {
-      const key = row.placementLabel || "팝업";
+      const key = row.placementLabel || t("admin_ads_popup");
       const list = bySurface.get(key) ?? [];
       list.push(row);
       bySurface.set(key, list);

@@ -74,17 +74,17 @@ export function OpsRoutineExecutionTable() {
         {(executions) => (
         <AdminTable
           headers={[
-            "템플릿",
-            "주기",
+            t("admin_ops_routines_exec_th_template"),
+            t("admin_ops_routines_exec_th_cadence"),
             "periodKey",
-            "예정일",
-            "기한",
-            "상태",
-            "우선순위",
-            "담당",
-            "이월",
-            "연결",
-            "비고",
+            t("admin_ops_routines_exec_th_scheduled"),
+            t("admin_ops_routines_exec_th_due"),
+            t("admin_ops_routines_exec_th_status"),
+            t("admin_ops_routines_exec_th_priority"),
+            t("admin_ops_routines_exec_th_owner"),
+            t("admin_ops_routines_exec_th_carryover"),
+            t("admin_ops_routines_exec_th_link"),
+            t("admin_ops_routines_exec_th_note"),
           ]}
         >
           {executions.map((e) => {

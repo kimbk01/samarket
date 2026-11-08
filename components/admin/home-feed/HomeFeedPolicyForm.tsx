@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type {
   HomeFeedPolicy,
@@ -34,6 +35,7 @@ export function HomeFeedPolicyForm({
   onSubmit,
   onCancel,
 }: HomeFeedPolicyFormProps) {
+  const { t } = useI18n();
   const [sectionLabel, setSectionLabel] = useState(initial.sectionLabel);
   const [isActive, setIsActive] = useState(initial.isActive);
   const [sortMode, setSortMode] = useState(initial.sortMode);
@@ -78,11 +80,11 @@ export function HomeFeedPolicyForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="sam-text-body-secondary text-sam-muted">
-        섹션: {SECTION_LABELS[initial.sectionKey]}
+        {t("admin_home_feed_form_section_value", { section: SECTION_LABELS[initial.sectionKey] })}
       </p>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          섹션 라벨
+          {t("admin_home_feed_form_section_label")}
         </label>
         <input
           type="text"
@@ -100,12 +102,12 @@ export function HomeFeedPolicyForm({
           className="rounded border-sam-border"
         />
         <label htmlFor="hfpActive" className="sam-text-body text-sam-fg">
-          활성
+          {t("admin_home_feed_form_active")}
         </label>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          정렬
+          {t("admin_home_feed_form_sort")}
         </label>
         <select
           value={sortMode}
@@ -121,7 +123,7 @@ export function HomeFeedPolicyForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          최대 노출 수
+          {t("admin_home_feed_form_max_items")}
         </label>
         <input
           type="number"
@@ -134,7 +136,7 @@ export function HomeFeedPolicyForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          지역 범위
+          {t("admin_home_feed_form_region_scope")}
         </label>
         <select
           value={regionScope}
@@ -152,7 +154,7 @@ export function HomeFeedPolicyForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          순서
+          {t("admin_home_feed_form_order")}
         </label>
         <input
           type="number"
@@ -170,7 +172,7 @@ export function HomeFeedPolicyForm({
             onChange={(e) => setAllowSponsoredMix(e.target.checked)}
             className="rounded border-sam-border"
           />
-          광고 혼합
+          {t("admin_home_feed_form_ad_mix")}
         </label>
         <label className="flex items-center gap-2 sam-text-body text-sam-fg">
           <input
@@ -179,7 +181,7 @@ export function HomeFeedPolicyForm({
             onChange={(e) => setAllowPremiumBoost(e.target.checked)}
             className="rounded border-sam-border"
           />
-          프리미엄 부스트
+          {t("admin_home_feed_form_premium_boost")}
         </label>
         <label className="flex items-center gap-2 sam-text-body text-sam-fg">
           <input
@@ -188,7 +190,7 @@ export function HomeFeedPolicyForm({
             onChange={(e) => setAllowBusinessBoost(e.target.checked)}
             className="rounded border-sam-border"
           />
-          상점 부스트
+          {t("admin_home_feed_form_store_boost")}
         </label>
         <label className="flex items-center gap-2 sam-text-body text-sam-fg">
           <input
@@ -197,7 +199,7 @@ export function HomeFeedPolicyForm({
             onChange={(e) => setAllowPointPromotionBoost(e.target.checked)}
             className="rounded border-sam-border"
           />
-          포인트 프로모션
+          {t("admin_home_feed_form_point_promotion")}
         </label>
         <label className="flex items-center gap-2 sam-text-body text-sam-fg">
           <input
@@ -206,12 +208,12 @@ export function HomeFeedPolicyForm({
             onChange={(e) => setDedupeEnabled(e.target.checked)}
             className="rounded border-sam-border"
           />
-          중복 제거
+          {t("admin_home_feed_form_dedupe")}
         </label>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+          {t("admin_home_feed_form_admin_memo")}
         </label>
         <textarea
           value={adminMemo}
@@ -225,14 +227,14 @@ export function HomeFeedPolicyForm({
           type="submit"
           variant="primary"
         >
-          저장
+          {t("admin_home_feed_form_save")}
         </AdminActionButton>
         {onCancel && (
           <AdminActionButton
             onClick={onCancel}
             variant="secondary"
           >
-            취소
+            {t("admin_home_feed_form_cancel")}
           </AdminActionButton>
         )}
       </div>

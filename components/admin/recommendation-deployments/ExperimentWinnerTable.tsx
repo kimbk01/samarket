@@ -14,10 +14,10 @@ import { commitRecommendationExperimentsChange } from "@/lib/recommendation-expe
 import { AdminEmptyState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 
-const WINNING_METRIC_LABELS: Record<WinningMetric, string> = {
-  ctr: "CTR 우선",
-  conversion_rate: "전환율 우선",
-  composite_score: "복합 점수 우선",
+const WINNING_METRIC_LABEL_KEYS: Record<WinningMetric, MessageKey> = {
+  ctr: "admin_rec_deploy_metric_ctr_first",
+  conversion_rate: "admin_rec_deploy_metric_conversion_first",
+  composite_score: "admin_rec_deploy_metric_composite_first",
 };
 
 export function ExperimentWinnerTable() {
@@ -49,7 +49,7 @@ export function ExperimentWinnerTable() {
   };
 
   if (experiments.length === 0 && summaries.length === 0) {
-    return <AdminEmptyState ko={ko} message="종료된 실험이나 승자 요약이 없습니다." />;
+    return <AdminEmptyState ko={ko} message={t("admin_rec_deploy_no_winners")} />;
   }
 
   return (
@@ -57,16 +57,16 @@ export function ExperimentWinnerTable() {
       <AdminResultBanner ko={ko} result={saveResult} onClose={() => setSaveResult(null)} />
       <div className="flex flex-wrap items-center gap-2">
         <label className="sam-text-body font-medium text-sam-fg">
-          승자 선택 기준
+          {t("admin_rec_deployments_winner_criteria")}
         </label>
         <select
           value={metric}
           onChange={(e) => setMetric(e.target.value as WinningMetric)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          {(Object.keys(WINNING_METRIC_LABELS) as WinningMetric[]).map((m) => (
+          {(Object.keys(WINNING_METRIC_LABEL_KEYS) as WinningMetric[]).map((m) => (
             <option key={m} value={m}>
-              {WINNING_METRIC_LABELS[m]}
+              {t(WINNING_METRIC_LABEL_KEYS[m])}
             </option>
           ))}
         </select>
@@ -76,22 +76,22 @@ export function ExperimentWinnerTable() {
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                실험
+                {t("admin_rec_deployments_col_experiment")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                승자 버전
+                {t("admin_rec_deployments_col_winner_version")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                그룹
+                {t("admin_rec_deployments_col_group")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                기준 / 값
+                {t("admin_rec_deployments_col_criteria_value")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                배포 추천
+                {t("admin_rec_deployments_col_deploy_reco")}
               </th>
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                작업
+                {t("admin_rec_deployments_col_actions")}
               </th>
             </tr>
           </thead>
@@ -114,7 +114,7 @@ export function ExperimentWinnerTable() {
                     {ASSIGNED_GROUP_LABELS[s.winningGroup]}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {WINNING_METRIC_LABELS[s.winningMetric]} / {s.winningValue}
+                    {t(WINNING_METRIC_LABEL_KEYS[s.winningMetric])} / {s.winningValue}
                   </td>
                   <td className="px-3 py-2.5">
                     {s.autoDeployRecommended ? (
@@ -149,7 +149,7 @@ export function ExperimentWinnerTable() {
                       onClick={() => void handleChooseWinner(e.id)}
                       disabled={!!choosingId}
                     >
-                      승자 선택
+                      {t("admin_rec_deployments_select_winner")}
                     </AdminActionButton>
                   </td>
                 </tr>

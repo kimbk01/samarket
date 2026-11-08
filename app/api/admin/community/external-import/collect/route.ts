@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { collectBoardToInbox } from "@/lib/community-operator-import/collect";
 import { resolvePreviewPair, tryLockBoard } from "@/lib/community-operator-import/source-store";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,16 +15,16 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
-  const parsed = await parseJsonBody<{ sourceId?: string; boardId?: string; pages?: number }>(req, "JSON 본문이 필요합니다.");
+  const parsed = await parseJsonBody<{ sourceId?: string; boardId?: string; pages?: number }>(req, await adminServerText("admin_api_json_body_required"));
   if (!parsed.ok) return parsed.response;
   const sourceId = String(parsed.value.sourceId || "").trim();
   const boardId = String(parsed.value.boardId || "").trim();
-  if (!sourceId || !boardId) return jsonError("sourceId, boardId 필요", 400, { code: "board_required" });
+  if (!sourceId || !boardId) return jsonError(await adminServerText("admin_api_import_source_board_required"), 400, { code: "board_required" });
   try {
     const sb = getSupabaseServer();
     const { source, board } = await resolvePreviewPair(sb, sourceId, boardId);
     if (!(await tryLockBoard(sb, sourceId, boardId, 90))) {
-      return jsonError("이 게시판은 지금 수집 중입니다. 잠시 후 다시 시도하세요.", 409, { code: "board_locked" });
+      return jsonError(await adminServerText("admin_api_import_board_locked"), 409, { code: "board_locked" });
     }
     const res = await collectBoardToInbox(sb, source, board, { pages: Math.max(1, Math.min(3, Number(parsed.value.pages) || 1)), maxItems: 60 });
     const { rows: _rows, ...summary } = res;

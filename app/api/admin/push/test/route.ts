@@ -14,6 +14,7 @@ import {
 } from "@/lib/push/dispatch/read-fcm-service-account";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,9 +43,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "user_id_required" }, { status: 400 });
   }
 
-  const title = typeof body.title === "string" && body.title.trim() ? body.title.trim().slice(0, 120) : "DIBAY 테스트 푸시";
+  const title = typeof body.title === "string" && body.title.trim() ? body.title.trim().slice(0, 120) : await adminServerText("admin_api_push_test_title");
   const messageBody =
-    typeof body.body === "string" && body.body.trim() ? body.body.trim().slice(0, 500) : "관리자 테스트 알림입니다.";
+    typeof body.body === "string" && body.body.trim() ? body.body.trim().slice(0, 500) : await adminServerText("admin_api_push_test_body");
   const targetDeviceId =
     typeof body.device_id === "string" ? body.device_id.trim().slice(0, 128) : "";
   const idempotencyKey =

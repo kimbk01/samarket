@@ -36,6 +36,7 @@ vi.mock("@/components/ui/dibay-overlay/DibayAppDialogProvider", () => ({
 }));
 
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
+import { translate } from "@/lib/i18n/messages";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { registerAdminConfirmHost, type AdminConfirmHostRequest } from "@/lib/admin/operator-ux/admin-confirm-host";
 
@@ -89,7 +90,9 @@ describe("AdminActionConfirmDialog — D-6 두 칸", () => {
     expect(reason).toBeTruthy();
     expect(memo).toBeTruthy();
     expect(host.textContent).toContain("공개 사유");
-    expect(host.textContent).toContain("내부 메모");
+    /** 문구는 카탈로그 키 — 공급자 없는 렌더는 기본 언어(en). 한국어 문구는 그대로 「내부 메모 …」 */
+    expect(host.textContent).toContain(translate("en", "admin_ui_confirm_internal_memo_label"));
+    expect(translate("ko", "admin_ui_confirm_internal_memo_label")).toContain("내부 메모");
     expect(reason.maxLength).toBe(120);
 
     typeInto(reason, "가".repeat(130));

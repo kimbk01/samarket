@@ -3,6 +3,8 @@
  * Automated evidence may map to a gateId; otherwise remains NOT_PROVEN until human/device proof.
  */
 
+import { translate } from "@/lib/i18n/messages";
+
 export type FeatureTestMethod = "automated_gate" | "manual_device" | "manual_web";
 
 export type FeatureTestCatalogItem = {
@@ -135,8 +137,11 @@ export type FeatureTestRow = {
 
 export function buildFeatureTestRows(input: {
   sha: string | null;
+  /** 표시 언어 — 기본 한국어 */
+  ko?: boolean;
   evidenceByGate: Map<string, { result: string; evidenceId: string | null; executedAt: string | null; detail: string | null }>;
 }): FeatureTestRow[] {
+  const lang = input.ko === false ? "en" : "ko";
   return DEPLOY_FEATURE_TEST_CATALOG.map((item) => {
     const ev = item.gateId ? input.evidenceByGate.get(item.gateId) : undefined;
     const result =
@@ -160,17 +165,22 @@ export function buildFeatureTestRows(input: {
       executedAt: ev?.executedAt ?? null,
       detail:
         item.method !== "automated_gate" && result === "not_proven"
-          ? item.method === "manual_device"
-            ? "실기기 테스트 미실행"
-            : "수동 웹 확인 미실행"
+          ? translate(
+              lang,
+              item.method === "manual_device"
+                ? "admin_deploy_test_device_not_run"
+                : "admin_deploy_test_manual_web_not_run"
+            )
           : ev?.detail ?? null,
       reverifyNeeded: result !== "pass",
-      deviceEnv:
+      deviceEnv: translate(
+        lang,
         item.method === "manual_device"
-          ? "Android Studio / Xcode / 실기기 — 미등록"
+          ? "admin_deploy_test_env_device"
           : item.method === "manual_web"
-            ? "TEST 웹 브라우저"
-            : "서버 자동 점검",
+            ? "admin_deploy_test_env_web"
+            : "admin_deploy_test_env_server"
+      ),
     };
   });
 }

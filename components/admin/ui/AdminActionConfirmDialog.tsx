@@ -7,6 +7,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { AdminMutationConfirmTone } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { canConfirmAdminAction } from "@/lib/admin/operator-ux/admin-typed-confirm";
@@ -62,6 +63,7 @@ export function AdminActionConfirmDialog({
   /** Optional extra body (e.g. fact lines) rendered above the reason field. */
   children?: ReactNode;
 }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState("");
   const [typed, setTyped] = useState("");
   const [internalMemo, setInternalMemo] = useState("");
@@ -94,7 +96,7 @@ export function AdminActionConfirmDialog({
       {children}
       {reasonRequired ? (
         <label className={`mt-3 block ${OverlayUi.caption}`}>
-          {reasonLabel || "사유"}
+          {reasonLabel || t("admin_ui_confirm_reason_label")}
           <textarea
             value={reason}
             onChange={(e) =>
@@ -116,7 +118,7 @@ export function AdminActionConfirmDialog({
       ) : null}
       {reasonRequired && splitReason ? (
         <label className={`mt-3 block ${OverlayUi.caption}`}>
-          {internalMemoLabel || "내부 메모 (운영자만 · 선택)"}
+          {internalMemoLabel || t("admin_ui_confirm_internal_memo_label")}
           <textarea
             value={internalMemo}
             onChange={(e) => setInternalMemo(e.target.value)}
@@ -129,7 +131,7 @@ export function AdminActionConfirmDialog({
       ) : null}
       {confirmMatchText != null ? (
         <label className={`mt-3 block ${OverlayUi.caption}`}>
-          {confirmMatchLabel || `확인을 위해 「${confirmMatchText}」 를 그대로 입력하세요`}
+          {confirmMatchLabel || t("admin_ui_confirm_match_label", { text: confirmMatchText })}
           <input
             type="text"
             value={typed}

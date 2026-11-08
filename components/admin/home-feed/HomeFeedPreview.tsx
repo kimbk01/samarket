@@ -49,7 +49,7 @@ export function HomeFeedPreview({ policies }: HomeFeedPreviewProps) {
   if (totalItems === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        미리보기 결과가 없습니다. 정책을 활성화하거나 후보 데이터를 확인하세요.
+        {t("admin_home_feed_preview_empty")}
       </div>
     );
   }

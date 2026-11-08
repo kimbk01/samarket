@@ -104,7 +104,7 @@ export function useCategoryAdmin() {
         showError(res.error);
         return false;
       }
-      showSuccess("저장되었습니다.");
+      showSuccess(t("admin_categories_saved_toast"));
       load();
       return true;
     },
@@ -146,10 +146,10 @@ export function useCategoryAdmin() {
         showError(res.error);
         return;
       }
-      showSuccess("순서가 변경되었습니다.");
+      showSuccess(t("admin_categories_order_changed_toast"));
       load();
     },
-    [list, load, showError, showSuccess]
+    [list, load, showError, showSuccess, t]
   );
 
   const handleMoveDown = useCallback(

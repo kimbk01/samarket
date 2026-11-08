@@ -9,6 +9,7 @@
  * URL: tab=active|paused|ended|rejected|all · page · size(20/50/100)
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -37,8 +38,6 @@ import { adsWorkspaceActionSplitsReason } from "@/lib/admin/ads-exposure/admin-m
 import { AdsInternalMemoField } from "@/components/admin/community/kit/AdsInternalMemoField";
 import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import {
-  COMMUNITY_GONE_MESSAGE,
-  COMMUNITY_STALE_MESSAGE,
   formatCommunityPoints,
   useCommunityAdminJson,
   type CommunityBannerState,
@@ -79,19 +78,21 @@ function withInternalMemo(body: Record<string, unknown>, memo: string | null | u
 
 const shortDate = (iso: string | null | undefined) => (iso ? formatAdminManilaDateTime(iso).slice(5, 16) : "—");
 
-function remainingDays(o: Order): string | null {
+type Tr = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+function remainingDays(o: Order, t: Tr): string | null {
   if (o.orderStatus !== "active" && o.orderStatus !== "paused") return null;
   const ms = Date.parse(o.endAt) - Date.now();
   if (!Number.isFinite(ms)) return null;
-  if (ms <= 0) return "기간 끝남";
+  if (ms <= 0) return t("admin_community_promo_period_over");
   const d = Math.ceil(ms / 86_400_000);
-  return `${d}일 남음`;
+  return t("admin_community_promo_days_left", { d });
 }
 
 type Sheet = { kind: "pause" | "end"; order: Order } | null;
 
 export function AdminCommunityPromotionsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const q = useCommunityQueryState();
   /** 쓰기(노출 중지·재개·상위노출 종료) — 접근표 action community("promotion"). 서버 가드는 그대로. */
   const action = useAdminRouteAction("/admin/community/promotions");
@@ -112,7 +113,7 @@ export function AdminCommunityPromotionsPage() {
   const settle = (kind: CommunitySheetSettle, okMessage: string) => {
     setSheet(null);
     reload();
-    setBanner({ ok: true, message: kind === "done" ? okMessage : kind === "stale" ? COMMUNITY_STALE_MESSAGE : COMMUNITY_GONE_MESSAGE });
+    setBanner({ ok: true, message: kind === "done" ? okMessage : kind === "stale" ? t("admin_community_post_stale") : t("admin_community_list_gone") });
   };
 
   const resume = async (o: Order) => {
@@ -120,9 +121,9 @@ export function AdminCommunityPromotionsPage() {
     const c = await confirmAdminAction({
       level: adminActionLevel("exposeStart"),
       ko: true,
-      title: "노출 재개",
-      description: `「${o.post?.title || o.targetTitle || "게시글"}」 상위노출을 다시 노출합니다. 종료일은 중지했던 시간만큼 늘어납니다.`,
-      confirmLabel: "노출 재개",
+      title: t("admin_community_promo_resume"),
+      description: t("admin_community_promo_resume_desc", { title: o.post?.title || o.targetTitle || t("admin_community_promo_post_fallback") }),
+      confirmLabel: t("admin_community_promo_resume"),
       splitReason: adsWorkspaceActionSplitsReason("resume"),
     });
     if (!c.ok) return;
@@ -135,25 +136,25 @@ export function AdminCommunityPromotionsPage() {
     });
     setBusyId(null);
     reload();
-    if (r.ok) setBanner({ ok: true, message: "상위노출 노출을 재개했습니다." });
-    else if (r.status === 409) setBanner({ ok: true, message: COMMUNITY_STALE_MESSAGE });
+    if (r.ok) setBanner({ ok: true, message: t("admin_community_promo_resumed") });
+    else if (r.status === 409) setBanner({ ok: true, message: t("admin_community_post_stale") });
     else setBanner({ ok: false, code: r.code });
   };
 
   return (
     <CommunityListShell
       title={t("admin_community_promo_title")}
-      description="회원이 포인트로 구매한 커뮤니티 게시글 상위노출의 노출을 관리합니다."
+      description={t("admin_community_promo_desc")}
       actions={
         <AdminActionLink href="/admin/advertising/boosts" variant="ghost">
-          전체 상위노출(거래 포함) 보기
+          {t("admin_community_promo_view_all")}
         </AdminActionLink>
       }
       banner={
         <>
           {!action.allowed && action.reason ? (
             <p className="sam-text-helper text-sam-muted" data-admin-action-denied="1">
-              {`노출 중지·재개·상위노출 종료 버튼 비활성: ${action.reason}`}
+              {t("admin_community_promo_actions_disabled", { reason: action.reason })}
             </p>
           ) : null}
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
@@ -164,11 +165,11 @@ export function AdminCommunityPromotionsPage() {
           value={tab}
           onChange={(v) => q.set({ tab: v === "active" ? null : v })}
           tabs={[
-            { value: "active", label: "노출 중", count: tab === "active" ? total : null },
-            { value: "paused", label: "노출 중지", count: tab === "paused" ? total : null },
-            { value: "ended", label: "종료", count: tab === "ended" ? total : null },
-            { value: "rejected", label: "반려", count: tab === "rejected" ? total : null },
-            { value: "all", label: "전체", count: tab === "all" ? total : null },
+            { value: "active", label: t("admin_community_promo_tab_active"), count: tab === "active" ? total : null },
+            { value: "paused", label: t("admin_community_promo_tab_paused"), count: tab === "paused" ? total : null },
+            { value: "ended", label: t("admin_community_promo_tab_ended"), count: tab === "ended" ? total : null },
+            { value: "rejected", label: t("admin_community_promo_tab_rejected"), count: tab === "rejected" ? total : null },
+            { value: "all", label: t("admin_community_promo_tab_all"), count: tab === "all" ? total : null },
           ]}
         />
       }
@@ -185,11 +186,19 @@ export function AdminCommunityPromotionsPage() {
         ) : null
       }
     >
-      <CommunityListBody state={state} empty={rows.length === 0} onRetry={reload} emptyMessage="이 상태의 상위노출이 없습니다.">
-        <CommunityTable head={["게시글", "구매자", "기간", "결제 포인트", "상태", "환급", "조치"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} onRetry={reload} emptyMessage={t("admin_community_promo_empty")}>
+        <CommunityTable head={[
+          t("admin_community_promo_col_post"),
+          t("admin_community_promo_col_buyer"),
+          t("admin_community_promo_col_period"),
+          t("admin_community_promo_col_paid"),
+          t("admin_community_promo_col_status"),
+          t("admin_community_promo_col_refund"),
+          t("admin_community_promo_col_action"),
+        ]}>
           {rows.map((o) => {
-            const title = o.post?.title || o.targetTitle || "게시글";
-            const left = remainingDays(o);
+            const title = o.post?.title || o.targetTitle || t("admin_community_promo_post_fallback");
+            const left = remainingDays(o, t);
             const live = o.orderStatus === "active" || o.orderStatus === "paused";
             return (
               <tr key={o.id} className="border-b border-sam-border-soft">
@@ -217,14 +226,14 @@ export function AdminCommunityPromotionsPage() {
                       href={communityDetailHref(`/admin/community/members/${encodeURIComponent(o.userId)}`, q.selfHref)}
                       className="font-medium text-sam-info hover:underline"
                     >
-                      {o.buyerNickname || o.buyerLabel || "이름 없음"}
+                      {o.buyerNickname || o.buyerLabel || t("admin_community_promo_no_name")}
                     </Link>
                   ) : (
                     "—"
                   )}
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
-                  {o.durationDays}일 · {shortDate(o.startAt)} ~ {shortDate(o.endAt)}
+                  {t("admin_community_promo_duration_range", { days: o.durationDays, start: shortDate(o.startAt), end: shortDate(o.endAt) })}
                   {left ? <div className="text-[12px] text-sam-muted">{left}</div> : null}
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatCommunityPoints(o.paidPoints ?? o.pointCost)}</td>
@@ -235,9 +244,9 @@ export function AdminCommunityPromotionsPage() {
                   {o.refundPoints !== null && o.refundPoints > 0
                     ? formatCommunityPoints(o.refundPoints)
                     : o.orderStatus === "ended" && o.fault
-                      ? "없음"
+                      ? t("admin_community_promo_no_refund")
                       : "—"}
-                  {o.fault ? <div className="text-[12px] text-sam-muted">{adminCommunityLabel("promotion_fault", o.fault, true).label}</div> : null}
+                  {o.fault ? <div className="text-[12px] text-sam-muted">{adminCommunityLabel("promotion_fault", o.fault, language !== "en").label}</div> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   {live ? (
@@ -254,7 +263,7 @@ export function AdminCommunityPromotionsPage() {
                             setSheet({ kind: "pause", order: o });
                           }}
                         >
-                          노출 중지
+                          {t("admin_community_promo_pause")}
                         </AdminActionButton>
                       ) : (
                         <AdminActionButton
@@ -264,7 +273,7 @@ export function AdminCommunityPromotionsPage() {
                           title={canAct ? undefined : (action.reason ?? undefined)}
                           onClick={() => void resume(o)}
                         >
-                          {busyId === o.id ? "처리 중" : "노출 재개"}
+                          {busyId === o.id ? t("admin_community_promo_processing") : t("admin_community_promo_resume")}
                         </AdminActionButton>
                       )}
                       <AdminActionButton
@@ -276,7 +285,7 @@ export function AdminCommunityPromotionsPage() {
                           if (canAct) setSheet({ kind: "end", order: o });
                         }}
                       >
-                        상위노출 종료
+                        {t("admin_community_promo_end")}
                       </AdminActionButton>
                     </div>
                   ) : (
@@ -286,7 +295,7 @@ export function AdminCommunityPromotionsPage() {
                     <AdminAdDeleteAction
                       kind="community_promotion"
                       id={o.id}
-                      title={o.post?.title || o.targetTitle || "게시글"}
+                      title={o.post?.title || o.targetTitle || t("admin_community_promo_post_fallback")}
                       size="sm"
                       onDone={() => reload()}
                     />
@@ -305,10 +314,10 @@ export function AdminCommunityPromotionsPage() {
       {sheet?.kind === "pause" ? (
         <CommunityActionSheet
           title={t("admin_community_promo_pause_title")}
-          rows={orderRows(sheet.order)}
-          notice="노출이 멈추고, 다시 재개하면 종료일이 중지한 시간만큼 늘어납니다. 환급은 없습니다."
-          reason={{ minLength: 2, placeholder: "중지 사유" }}
-          confirmLabel="노출 중지"
+          rows={orderRows(sheet.order, t, language !== "en")}
+          notice={t("admin_community_promo_pause_notice")}
+          reason={{ minLength: 2, placeholder: t("admin_community_promo_pause_reason") }}
+          confirmLabel={t("admin_community_promo_pause_button")}
           onSubmit={(reason) =>
             !canAct
               ? Promise.resolve({ ok: false as const, status: 403, code: "forbidden" })
@@ -322,7 +331,7 @@ export function AdminCommunityPromotionsPage() {
             })
           }
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "상위노출 노출을 중지했습니다.")}
+          onSettled={(k) => settle(k, t("admin_community_promo_paused"))}
         >
           {adsWorkspaceActionSplitsReason("pause") ? (
             <AdsInternalMemoField value={pauseMemo} onChange={setPauseMemo} />
@@ -336,7 +345,12 @@ export function AdminCommunityPromotionsPage() {
           canWrite={canAct}
           onClose={() => setSheet(null)}
           onSettled={(k, refund) =>
-            settle(k, refund > 0 ? `상위노출을 종료했습니다. ${formatAdminNumber(refund)} P 를 환급했습니다.` : "상위노출을 종료했습니다. 환급은 없습니다.")
+            settle(
+              k,
+              refund > 0
+                ? t("admin_community_promo_ended_refund", { points: formatAdminNumber(refund) })
+                : t("admin_community_promo_ended_no_refund")
+            )
           }
         />
       ) : null}
@@ -344,13 +358,16 @@ export function AdminCommunityPromotionsPage() {
   );
 }
 
-function orderRows(o: Order) {
+function orderRows(o: Order, t: Tr, ko: boolean) {
   return [
-    { label: "게시글", value: o.post?.title || o.targetTitle || "게시글" },
-    { label: "구매자", value: o.buyerNickname || o.buyerLabel || "—" },
-    { label: "기간", value: `${o.durationDays}일 · ${shortDate(o.startAt)} ~ ${shortDate(o.endAt)} PHT` },
-    { label: "결제 포인트", value: formatCommunityPoints(o.paidPoints ?? o.pointCost) },
-    { label: "상태", value: adminCommunityLabel("promotion_status", o.orderStatus, true).label },
+    { label: t("admin_community_promo_col_post"), value: o.post?.title || o.targetTitle || t("admin_community_promo_post_fallback") },
+    { label: t("admin_community_promo_col_buyer"), value: o.buyerNickname || o.buyerLabel || "—" },
+    {
+      label: t("admin_community_promo_col_period"),
+      value: t("admin_community_promo_period_value", { days: o.durationDays, start: shortDate(o.startAt), end: shortDate(o.endAt) }),
+    },
+    { label: t("admin_community_promo_col_paid"), value: formatCommunityPoints(o.paidPoints ?? o.pointCost) },
+    { label: t("admin_community_promo_col_status"), value: adminCommunityLabel("promotion_status", o.orderStatus, ko).label },
   ];
 }
 
@@ -366,7 +383,7 @@ function EndPromotionSheet({
   onClose: () => void;
   onSettled: (k: CommunitySheetSettle, refund: number) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [fault, setFault] = useState<"operator" | "member" | null>(null);
   const [preview, setPreview] = useState<{ fault: string; data: Preview } | { fault: string; error: string } | null>(null);
   const lastRefund = useRef(0);
@@ -416,16 +433,16 @@ function EndPromotionSheet({
     <CommunityActionSheet
       title={t("admin_community_promo_end_title")}
       rows={[
-        ...orderRows(order),
+        ...orderRows(order, t, language !== "en"),
         ...(ready && preview && "data" in preview
-          ? [{ label: "환급 예정", value: <strong>{formatCommunityPoints(preview.data.refundPoints)}</strong> }]
+          ? [{ label: t("admin_community_promo_refund_expected"), value: <strong>{formatCommunityPoints(preview.data.refundPoints)}</strong> }]
           : []),
       ]}
-      notice="종료하면 다시 노출할 수 없습니다. 회원에게 종료 사유와 환급 포인트가 알림으로 전달됩니다."
-      reason={{ minLength: 2, placeholder: "종료 사유 (회원에게 전달됩니다)" }}
+      notice={t("admin_community_promo_end_notice")}
+      reason={{ minLength: 2, placeholder: t("admin_community_promo_end_reason") }}
       ready={ready && canWrite}
       destructive
-      confirmLabel="상위노출 종료"
+      confirmLabel={t("admin_community_promo_end_button")}
       onSubmit={async (reason) => {
         if (!canWrite) return { ok: false, status: 403, code: "forbidden" };
         try {
@@ -470,7 +487,7 @@ function EndPromotionSheet({
       {fault && !preview ? <p className="text-[13px] text-sam-muted">{t("admin_community_promo_refund_calculating")}</p> : null}
       {preview && "data" in preview ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] font-semibold text-sam-fg">
-          환급 예정 {formatCommunityPoints(preview.data.refundPoints)}
+          {t("admin_community_promo_refund_preview", { points: formatCommunityPoints(preview.data.refundPoints) })}
           {!preview.data.hasPaymentRecord ? (
             <span className="block font-normal text-sam-warning">{t("admin_community_promo_no_payment_record")}</span>
           ) : null}

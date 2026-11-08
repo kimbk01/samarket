@@ -14,17 +14,17 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
-const ROLE_LABELS: Record<string, string> = {
-  product_owner: "PO",
-  ops_owner: "운영",
-  tech_owner: "기술",
-  admin: "관리자",
+const ROLE_LABELS: Record<string, MessageKey> = {
+  product_owner: "admin_launch_ready_role_po",
+  ops_owner: "admin_launch_ready_role_ops",
+  tech_owner: "admin_launch_ready_role_tech",
+  admin: "admin_launch_ready_role_admin",
 };
 
-const DECISION_LABELS: Record<string, string> = {
-  approved: "승인",
-  conditional: "조건부",
-  rejected: "반려",
+const DECISION_LABELS: Record<string, MessageKey> = {
+  approved: "admin_launch_ready_decision_approved",
+  conditional: "admin_launch_ready_decision_conditional",
+  rejected: "admin_launch_ready_decision_rejected",
 };
 
 const PHASE_EXTRAS = ["phase"] as const;
@@ -67,19 +67,18 @@ export function LaunchApprovalTable() {
       </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
-        승인자(approver) placeholder: approverAdminId / approverAdminNickname
-        입력 시 표시됩니다.
+        {t("admin_launch_ready_approver_note")}
       </p>
 
       {approvals.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "해당 단계 승인 내역이 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_launch_ready_no_approvals")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable
-          headers={["단계", "역할", "승인자", "결정", "메모", "일시"]}
+          headers={[t("admin_launch_ready_th_phase"), t("admin_launch_ready_th_role"), t("admin_launch_ready_th_approver"), t("admin_launch_ready_th_decision"), t("admin_launch_ready_th_note"), t("admin_launch_ready_th_time")]}
         >
           {approvals.map((a) => (
             <tr key={a.id} className="border-b border-sam-border-soft">
@@ -87,7 +86,7 @@ export function LaunchApprovalTable() {
                 {getPhaseLabel(a.phase)}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-                {ROLE_LABELS[a.approverRole] ?? a.approverRole}
+                {ROLE_LABELS[a.approverRole] ? t(ROLE_LABELS[a.approverRole]) : a.approverRole}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {a.approverAdminNickname ?? "-"}
@@ -102,7 +101,7 @@ export function LaunchApprovalTable() {
                         : "bg-sam-warning-soft text-sam-warning"
                   }`}
                 >
-                  {DECISION_LABELS[a.decision] ?? a.decision}
+                  {DECISION_LABELS[a.decision] ? t(DECISION_LABELS[a.decision]) : a.decision}
                 </span>
               </td>
               <td className="max-w-[200px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">

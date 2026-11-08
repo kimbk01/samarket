@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
-import { MEMBER_LIST_OPS_HISTORY_KO } from "@/lib/admin-users/member-list-presentation";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_LIST_OPS_HISTORY_KEY } from "@/lib/admin-users/member-list-presentation";
 import { ADMIN_USERS_LITE_CARD, ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
 
 /** P2 secondary entry — global ops rebuild is later phase; entry must not dominate member list. */
@@ -14,12 +14,12 @@ export default function AdminMemberOpsHistoryEntryPage() {
     <AdminManagementSurfaceRoot proofSurface="users" wave="w2" className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6`}>
       <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
         <Link href="/admin/users" className="hover:underline">
-          {MEMBER_ADMIN_COPY.member_management}
+          {t(MEMBER_ADMIN_COPY_KEY.member_management)}
         </Link>
         <span className="mx-1.5 text-sam-muted">›</span>
-        <span className="text-sam-fg">{MEMBER_LIST_OPS_HISTORY_KO}</span>
+        <span className="text-sam-fg">{t(MEMBER_LIST_OPS_HISTORY_KEY)}</span>
       </nav>
-      <h1 className="text-xl font-bold text-sam-fg">{MEMBER_LIST_OPS_HISTORY_KO}</h1>
+      <h1 className="text-xl font-bold text-sam-fg">{t(MEMBER_LIST_OPS_HISTORY_KEY)}</h1>
       <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-4 text-[13px] text-sam-muted`}>
         <p>{t("admin_users_ops_history_see_member_detail")}</p>
         <p>

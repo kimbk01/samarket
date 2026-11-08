@@ -39,7 +39,7 @@ export function QaSuiteTable() {
   }, [suites]);
 
   const domains: { value: QaTestDomain | ""; label: string }[] = [
-    { value: "", label: "전체" },
+    { value: "", label: t("admin_all") },
     { value: "auth", label: "Auth" },
     { value: "product", label: "Product" },
     { value: "feed", label: "Feed" },
@@ -73,10 +73,10 @@ export function QaSuiteTable() {
       </AdminFilterBar>
 
       {suites.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 영역 스위트가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_qa_board_no_area_suites")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
-          headers={["영역", "제목", "설명", "Critical", "통과/전체"]}
+          headers={[t("admin_qa_board_th_area"), t("admin_qa_board_th_title"), t("admin_qa_board_th_description"), "Critical", t("admin_qa_board_th_passed_total")]}
         >
           {suites.map((s) => {
             const stat = casesBySuite[s.id];
@@ -94,7 +94,7 @@ export function QaSuiteTable() {
                 <td className="px-3 py-2.5">
                   {s.isCritical ? (
                     <span className="rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-helper text-sam-danger">
-                      필수
+                      {t("admin_qa_board_required_badge")}
                     </span>
                   ) : (
                     <span className="sam-text-body-secondary text-sam-muted">-</span>

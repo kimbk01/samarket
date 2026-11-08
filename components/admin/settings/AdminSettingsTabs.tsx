@@ -27,7 +27,7 @@ export function AdminSettingsTabs({ active, onChange }: AdminSettingsTabsProps) 
   return (
     <AdminTabs
       tabs={SETTINGS_SECTIONS.map(({ key }) => ({ id: key, label: t(TAB_LABEL_KEYS[key]) }))}
-      ariaLabel="설정 탭"
+      ariaLabel={t("admin_settings_tabs_aria")}
       value={active}
       onChange={(id) => onChange(id as SettingsSectionKey)}
       syncUrl={false}

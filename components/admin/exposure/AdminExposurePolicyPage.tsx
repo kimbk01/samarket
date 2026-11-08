@@ -90,7 +90,7 @@ export function AdminExposurePolicyPage() {
       body: JSON.stringify(values),
     });
     if (!res.ok) {
-      setErr("정책 저장에 실패했습니다.");
+      setErr(t("admin_exposure_policy_save_failed"));
       return;
     }
     setEditingPolicyId(null);
@@ -118,7 +118,7 @@ export function AdminExposurePolicyPage() {
 
       <AdminTabs
         tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_exposure_screen_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         syncUrl={false}

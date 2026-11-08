@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminStatusLabel } from "@/components/admin/ui/AdminStatusLabel";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
@@ -79,44 +80,53 @@ function pht(iso: string | null | undefined): string {
   return iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—";
 }
 
-function remediation(ops: OpsPayload): { title: string; steps: string[] } {
+function remediation(ops: OpsPayload, lang: string): { title: string; steps: string[] } {
+  const tr = (key: Parameters<typeof translateBy>[1], vars?: Record<string, unknown>) => translateBy(lang, key, vars);
   switch (ops.health) {
     case "admin_stopped":
       return {
-        title: "관리자 수동 중지",
-        steps: ["중지 사유를 확인합니다.", "보안·공급자 상태가 정상이면 ON으로 전환합니다."],
+        title: tr("admin_users_member_phone_ops_admin_stopped_title"),
+        steps: [tr("admin_users_member_phone_ops_admin_stopped_step1"), tr("admin_users_member_phone_ops_admin_stopped_step2")],
       };
     case "low_balance":
       return {
-        title: "SMS 잔액 부족(실측)",
-        steps: ["Semaphore 대시보드에서 잔액을 충전합니다.", "상태 새로고침으로 잔액을 재확인합니다."],
+        title: tr("admin_users_member_phone_ops_low_balance_title"),
+        steps: [tr("admin_users_member_phone_ops_low_balance_step1"), tr("admin_users_member_phone_ops_low_balance_step2")],
       };
     case "config_error":
       return {
-        title: "서버 보안·설정 오류",
+        title: tr("admin_users_member_phone_ops_config_error_title"),
         steps: [
-          `누락/충돌: ${ops.security.missing.join(", ") || "—"}`,
-          "서버 환경 변수·키를 조치한 뒤 새로고침합니다.",
-          "필수 설정이 충족되기 전에는 ON이 거부됩니다.",
+          tr("admin_users_member_phone_ops_config_error_missing", { items: ops.security.missing.join(", ") || "—" }),
+          tr("admin_users_member_phone_ops_config_error_step2"),
+          tr("admin_users_member_phone_ops_config_error_step3"),
         ],
       };
     case "provider_down":
       return {
-        title: "공급자 장애",
-        steps: ["오류 코드·시각을 확인합니다.", "공급자 복구 후 상태 새로고침합니다.", "enabled는 자동으로 바꾸지 않습니다."],
+        title: tr("admin_users_member_phone_ops_provider_down_title"),
+        steps: [
+          tr("admin_users_member_phone_ops_provider_down_step1"),
+          tr("admin_users_member_phone_ops_provider_down_step2"),
+          tr("admin_users_member_phone_ops_provider_down_step3"),
+        ],
       };
     case "send_limited":
       return {
-        title: "API 발송/조회 제한",
-        steps: ["잠시 후 상태를 새로고침합니다.", "대시보드에서 한도를 확인합니다."],
+        title: tr("admin_users_member_phone_ops_send_limited_title"),
+        steps: [tr("admin_users_member_phone_ops_send_limited_step1"), tr("admin_users_member_phone_ops_send_limited_step2")],
       };
     case "unverified":
       return {
-        title: "공급자 상태 확인 불가",
-        steps: ["추정 배지를 사용하지 않습니다.", "Semaphore 대시보드에서 직접 확인합니다.", "잠시 후 상태를 새로고침합니다."],
+        title: tr("admin_users_member_phone_ops_unverified_title"),
+        steps: [
+          tr("admin_users_member_phone_ops_unverified_step1"),
+          tr("admin_users_member_phone_ops_unverified_step2"),
+          tr("admin_users_member_phone_ops_send_limited_step1"),
+        ],
       };
     default:
-      return { title: "정상", steps: ["추가 조치가 필요하지 않습니다."] };
+      return { title: tr("admin_users_member_phone_ops_normal_title"), steps: [tr("admin_users_member_phone_ops_normal_step1")] };
   }
 }
 
@@ -246,13 +256,13 @@ export function AdminPhoneVerificationOpsPage() {
     }
   };
 
-  const rem = ops ? remediation(ops) : null;
+  const rem = ops ? remediation(ops, language) : null;
 
   return (
     <AdminManagementSurfaceRoot proofSurface="users" wave="w2" className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6`}>
       <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
         <Link href="/admin/users" className="hover:underline">
-          {MEMBER_ADMIN_COPY.member_management}
+          {t(MEMBER_ADMIN_COPY_KEY.member_management)}
         </Link>
         <span className="mx-1.5 text-sam-meta">›</span>
         <span className="text-sam-fg">{t("admin_users_phone_verification")}</span>

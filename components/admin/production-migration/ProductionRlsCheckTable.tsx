@@ -48,10 +48,10 @@ export function ProductionRlsCheckTable() {
       </AdminFilterBar>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"RLS 점검 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_prod_migration_no_rls_checks")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
-          headers={["테이블", "정책명", "유형", "역할", "상태", "비고"]}
+          headers={[t("admin_prod_migration_th_table"), t("admin_prod_migration_th_policy"), t("admin_prod_migration_th_type"), t("admin_prod_migration_th_role"), t("admin_prod_migration_th_status"), t("admin_prod_migration_th_note")]}
         >
           {checks.map((c) => (
             <tr

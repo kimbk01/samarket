@@ -76,7 +76,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
         {loadErr ? (
           <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.httpStatus} onRetry={() => void load()} />
         ) : (
-          <AdminEmptyState ko={ko} message="정책을 찾을 수 없습니다." />
+          <AdminEmptyState ko={ko} message={t("admin_member_benefit_policy_not_found")} />
         )}
       </div>
     );
@@ -90,7 +90,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      setErr("저장에 실패했습니다.");
+      setErr(t("admin_member_benefit_save_failed"));
       return false;
     }
     await load();
@@ -113,7 +113,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
 
   const handleToggleActive = async () => {
     // 활성화 = 되돌릴 수 있는 변경(L1) · 비활성화 = 사용 끄기(L1)
-    const label = policy.isActive ? "비활성화" : "활성화";
+    const label = t(policy.isActive ? "admin_member_benefit_deactivate" : "admin_member_benefit_activate");
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(policy.isActive ? "disable" : "resume"),
       ko,
@@ -135,7 +135,7 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
           <div>
             <p className="sam-text-body font-semibold text-sam-fg">{policy.title}</p>
             <p className="sam-text-body-secondary text-sam-muted">
-              {MEMBER_TYPE_LABELS[policy.memberType]} · {policy.isActive ? "활성" : "비활성"}
+              {MEMBER_TYPE_LABELS[policy.memberType]} · {t(policy.isActive ? "common_active" : "admin_member_benefit_inactive")}
             </p>
           </div>
           <div className="flex gap-2">
@@ -144,14 +144,14 @@ export function AdminMemberBenefitDetailPage({ policyId }: AdminMemberBenefitDet
               variant="secondary"
               size="sm"
             >
-              {editing ? "취소" : "수정"}
+              {t(editing ? "common_cancel" : "common_edit")}
             </AdminActionButton>
             <AdminActionButton
               onClick={() => void handleToggleActive()}
               variant="secondary"
               size="sm"
             >
-              {policy.isActive ? "비활성화" : "활성화"}
+              {t(policy.isActive ? "admin_member_benefit_deactivate" : "admin_member_benefit_activate")}
             </AdminActionButton>
           </div>
         </div>

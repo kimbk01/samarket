@@ -29,6 +29,7 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   TradeDefaultPeriodField,
   tradeListPeriodText,
@@ -40,35 +41,37 @@ import {
 
 const LIST_EXTRAS = ["type", "entryType", "userId"] as const;
 
-const TYPE_OPTIONS = [
-  { value: "", label: "전체 유형" },
-  { value: "promotion_order", label: "상위노출 주문" },
-  { value: "trade_post_ad", label: "이전 거래 광고" },
-  { value: "admin_manual", label: "관리자 지급·회수" },
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+const TYPE_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_trade_points_type_all" },
+  { value: "promotion_order", labelKey: "admin_trade_points_type_promo_order" },
+  { value: "trade_post_ad", labelKey: "admin_trade_points_type_old_ad" },
+  { value: "admin_manual", labelKey: "admin_trade_points_type_admin_manual" },
 ];
-const TYPE_LABEL: Record<string, string> = {
-  promotion_order: "상위노출 주문",
-  trade_post_ad: "이전 거래 광고",
-  admin_manual: "관리자",
+const TYPE_LABEL: Record<string, MessageKey> = {
+  promotion_order: "admin_trade_points_type_promo_order",
+  trade_post_ad: "admin_trade_points_type_old_ad",
+  admin_manual: "admin_trade_confirm_source_admin",
 };
 
-const ENTRY_OPTIONS = [
-  { value: "", label: "전체 종류" },
-  { value: "ad_hold", label: "보류" },
-  { value: "ad_purchase", label: "차감 확정" },
-  { value: "ad_hold_release", label: "보류 해제" },
-  { value: "spend", label: "차감" },
-  { value: "promotion_extend", label: "연장 차감" },
-  { value: "refund", label: "환급" },
-  { value: "admin_credit", label: "지급" },
-  { value: "admin_debit", label: "회수" },
+const ENTRY_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_trade_restrict_kind_all" },
+  { value: "ad_hold", labelKey: "admin_trade_points_entry_hold" },
+  { value: "ad_purchase", labelKey: "admin_trade_points_entry_purchase" },
+  { value: "ad_hold_release", labelKey: "admin_trade_points_entry_hold_release" },
+  { value: "spend", labelKey: "admin_trade_points_entry_spend" },
+  { value: "promotion_extend", labelKey: "admin_trade_points_entry_extend" },
+  { value: "refund", labelKey: "admin_trade_points_entry_refund" },
+  { value: "admin_credit", labelKey: "admin_trade_points_op_credit" },
+  { value: "admin_debit", labelKey: "admin_trade_points_op_debit" },
 ];
-const ENTRY_LABEL: Record<string, string> = Object.fromEntries(ENTRY_OPTIONS.filter((o) => o.value).map((o) => [o.value, o.label]));
+const ENTRY_LABEL: Record<string, MessageKey> = Object.fromEntries(ENTRY_OPTIONS.filter((o) => o.value).map((o) => [o.value, o.labelKey]));
 
-function pointTypeLabel(relatedType: string | null, entryType: string | null): string {
-  const r = TYPE_LABEL[String(relatedType ?? "")] ?? "기타";
+function pointTypeLabel(t: Translate, relatedType: string | null, entryType: string | null): string {
+  const r = t(TYPE_LABEL[String(relatedType ?? "")] ?? "admin_trade_audit_target_other");
   const e = ENTRY_LABEL[String(entryType ?? "")];
-  return e ? `${r} ${e}` : r;
+  return e ? `${r} ${t(e)}` : r;
 }
 
 type LedgerRow = {
@@ -97,15 +100,15 @@ type PointsResponse = {
   rows?: LedgerRow[];
 };
 
-function actorLabel(r: LedgerRow): string {
+function actorLabel(t: Translate, r: LedgerRow): string {
   if (r.actorNickname) return r.actorNickname;
-  if (r.actorType === "admin") return "관리자";
-  if (r.actorType === "user") return "회원";
-  return "시스템";
+  if (r.actorType === "admin") return t("admin_trade_confirm_source_admin");
+  if (r.actorType === "user") return t("admin_trade_points_member");
+  return t("admin_trade_audit_system");
 }
 
 export function TradePointsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const q = useCommunityListQuery({ extras: LIST_EXTRAS });
   const [adjustOpen, setAdjustOpen] = useState(false);
   // FN-01: 지급·회수 = 중앙과 같은 `point` 키 (접근표 /admin/trade/points action) — 서버 가드가 최종 판정
@@ -123,7 +126,7 @@ export function TradePointsPage() {
   return (
     <CommunityListShell
       title={t("admin_trade_points_title")}
-      description="거래 상위노출과 관리자 지급·회수로 오간 포인트 내역입니다. 포인트는 전체 서비스 공통입니다."
+      description={t("admin_trade_points_desc")}
       actions={
         <AdminActionButton
           variant="secondary"
@@ -131,7 +134,7 @@ export function TradePointsPage() {
           title={adjustAction.reason ?? undefined}
           onClick={() => setAdjustOpen(true)}
         >
-          포인트 지급·회수
+          {t("admin_trade_points_adjust_heading")}
         </AdminActionButton>
       }
       banner={
@@ -140,15 +143,17 @@ export function TradePointsPage() {
           {state.status === "ok" ? (
             <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg">
               {sums
-                ? `조건 합계: ${formatAdminNumber(sums.count)}건 · 들어온 포인트 +${formatAdminNumber(sums.amountIn)} P · 나간 포인트 -${formatAdminNumber(
-                    Math.abs(sums.amountOut)
-                  )} P`
-                : "조건 합계: 확인 불가"}
+                ? t("admin_trade_points_sums", {
+                    count: formatAdminNumber(sums.count),
+                    in: formatAdminNumber(sums.amountIn),
+                    out: formatAdminNumber(Math.abs(sums.amountOut)),
+                  })
+                : t("admin_trade_points_sums_unknown")}
             </p>
           ) : null}
           {state.status === "ok" && state.data.buckets ? (
             <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg" data-admin-point-buckets="1">
-              {`칸별 합계: ${formatAdminPointBucketLine(state.data.buckets, formatAdminNumber)}`}
+              {t("admin_trade_points_buckets", { line: formatAdminPointBucketLine(state.data.buckets, formatAdminNumber, language !== "en") })}
             </p>
           ) : null}
           {state.status === "ok" && state.data.promoOrderIdCapped ? (
@@ -159,18 +164,18 @@ export function TradePointsPage() {
       filterBar={
         <CommunityFilterBar lq={q} showSearch={false} pending={state.status === "loading"}>
           <TradeDefaultPeriodField lq={q} />
-          <CommunityFilterField label="유형">
-            <CommunitySelect value={type} onChange={(v) => q.setExtra("type", v)} options={TYPE_OPTIONS} />
+          <CommunityFilterField label={t("admin_trade_points_th_type")}>
+            <CommunitySelect value={type} onChange={(v) => q.setExtra("type", v)} options={TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
           </CommunityFilterField>
-          <CommunityFilterField label="종류">
-            <CommunitySelect value={entryType} onChange={(v) => q.setExtra("entryType", v)} options={ENTRY_OPTIONS} />
+          <CommunityFilterField label={t("admin_trade_restrict_kind_legend")}>
+            <CommunitySelect value={entryType} onChange={(v) => q.setExtra("entryType", v)} options={ENTRY_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
           </CommunityFilterField>
           {userId ? (
-            <CommunityFilterField label="회원">
+            <CommunityFilterField label={t("admin_trade_points_member")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {memberName || "선택한 회원"}
+                {memberName || t("admin_trade_audit_selected_member")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => q.setExtra("userId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -179,8 +184,8 @@ export function TradePointsPage() {
       }
       footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage={`${tradeListPeriodText(params)} 포인트 내역이 없습니다.`}>
-        <CommunityTable head={["시각", "회원", "유형", "포인트", "잔액", "내용", "처리자"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={q} onRetry={reload} emptyMessage={t("admin_trade_points_empty", { period: tradeListPeriodText(params) })}>
+        <CommunityTable head={[t("admin_trade_th_time"), t("admin_trade_points_member"), t("admin_trade_points_th_type"), t("admin_trade_th_points"), t("admin_trade_points_th_balance"), t("admin_trade_points_th_detail"), t("admin_trade_audit_actor")]}>
           {rows.map((r) => {
             const amt = r.amount ?? 0;
             return (
@@ -197,11 +202,11 @@ export function TradePointsPage() {
                       className="!h-auto !px-0 text-left text-[12px] font-normal"
                       onClick={() => q.setExtra("userId", r.userId ?? "")}
                     >
-                      이 회원만 보기
+                      {t("admin_trade_this_member_only")}
                     </AdminActionButton>
                   ) : null}
                 </td>
-                <td className={COMMUNITY_TD}>{pointTypeLabel(r.relatedType, r.entryType)}</td>
+                <td className={COMMUNITY_TD}>{pointTypeLabel(t, r.relatedType, r.entryType)}</td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap font-semibold ${amt < 0 ? "text-sam-danger" : "text-sam-success"}`}>
                   {amt > 0 ? "+" : ""}
                   {formatAdminNumber(amt)} P
@@ -216,7 +221,7 @@ export function TradePointsPage() {
                     </div>
                   </AdminTechDetails>
                 </td>
-                <td className={COMMUNITY_TD}>{actorLabel(r)}</td>
+                <td className={COMMUNITY_TD}>{actorLabel(t, r)}</td>
               </tr>
             );
           })}
@@ -329,15 +334,17 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; balanceAfter?: number | null };
       setPending(false);
       if (res.ok && j.ok) {
-        const who = member.label || "회원";
+        const who = member.label || t("admin_trade_points_member");
+        const vars = { who, amount: formatAdminNumber(amount) };
+        const done = op === "credit" ? t("admin_trade_points_done_credit", vars) : t("admin_trade_points_done_debit", vars);
         onDone(
-          `${who}님에게 ${formatAdminNumber(amount)} P 를 ${op === "credit" ? "지급" : "회수"}했습니다.${
-            typeof j.balanceAfter === "number" ? ` 현재 잔액 ${formatAdminNumber(j.balanceAfter)} P` : ""
-          }`
+          typeof j.balanceAfter === "number"
+            ? `${done} ${t("admin_trade_points_done_balance", { balance: formatAdminNumber(j.balanceAfter) })}`
+            : done
         );
         return;
       }
-      setError(adjustErrorText(j.error || `http_${res.status}`));
+      setError(adjustErrorText(t, j.error || `http_${res.status}`));
     } catch {
       setPending(false);
       setError(tradeErrorText("network_error"));
@@ -348,16 +355,16 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
     step === 1 ? (
       <div className={OverlayUi.actionsRow}>
         <DibayOverlayButton roleTone="secondary" onClick={onClose}>
-          취소
+          {t("admin_trade_points_wizard_cancel")}
         </DibayOverlayButton>
         <DibayOverlayButton roleTone={op === "debit" ? "destructive" : "primary"} disabled={!canNext} onClick={goConfirm}>
-          다음
+          {t("admin_trade_points_wizard_next")}
         </DibayOverlayButton>
       </div>
     ) : (
       <div className={OverlayUi.actionsRow}>
         <DibayOverlayButton roleTone="secondary" disabled={pending} onClick={() => setStep(1)}>
-          이전
+          {t("admin_trade_points_wizard_prev")}
         </DibayOverlayButton>
         <DibayOverlayButton
           roleTone={op === "debit" ? "destructive" : "primary"}
@@ -365,15 +372,15 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
           loading={pending}
           onClick={() => void run()}
         >
-          {pending ? "처리 중…" : op === "credit" ? "지급" : "회수"}
+          {pending ? t("admin_trade_flow_processing") : op === "credit" ? t("admin_trade_points_op_credit") : t("admin_trade_points_op_debit")}
         </DibayOverlayButton>
       </div>
     );
 
   return (
     <AdminFormSheet
-      title={step === 2 ? "내용을 확인하세요" : "포인트 지급·회수"}
-      subtitle={step === 2 ? "실행하면 회원 포인트에 바로 반영됩니다." : undefined}
+      title={step === 2 ? t("admin_trade_points_confirm_title") : t("admin_trade_points_adjust_title")}
+      subtitle={step === 2 ? t("admin_trade_points_confirm_sub") : undefined}
       onClose={pending ? () => undefined : onClose}
       dismissible={!pending}
       footer={footer}
@@ -385,7 +392,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
               <span className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_points_member")}</span>
               {member ? (
                 <div className="mt-1 flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]">
-                  <span className="font-medium text-sam-fg">{member.label || "이름 없음"}</span>
+                  <span className="font-medium text-sam-fg">{member.label || t("admin_trade_kit_no_name")}</span>
                   <AdminActionButton
                     variant="quiet"
                     size="sm"
@@ -394,7 +401,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                       setBalance(null);
                     }}
                   >
-                    다시 선택
+                    {t("admin_trade_points_reselect")}
                   </AdminActionButton>
                 </div>
               ) : (
@@ -428,7 +435,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                               className="w-full !justify-start rounded-none text-left font-normal text-sam-fg hover:no-underline hover:bg-sam-app"
                               onClick={() => void pick(m)}
                             >
-                              {m.label || "이름 없음"}
+                              {m.label || t("admin_trade_kit_no_name")}
                             </AdminActionButton>
                           </li>
                         ))}
@@ -441,7 +448,7 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
 
             {member ? (
               <p className="text-[13px] text-sam-fg">
-                현재 잔액:{" "}
+                {t("admin_trade_points_current_balance_label")}{" "}
                 {balance === null ? (
                   <span className="text-sam-muted">{t("admin_trade_points_checking")}</span>
                 ) : "value" in balance ? (
@@ -456,11 +463,11 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
               <legend className="sr-only">{t("admin_trade_points_op_legend")}</legend>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name="op" checked={op === "credit"} onChange={() => setOp("credit")} />
-                지급
+                {t("admin_trade_points_op_grant")}
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name="op" checked={op === "debit"} onChange={() => setOp("debit")} />
-                회수
+                {t("admin_trade_points_op_reclaim")}
               </label>
             </fieldset>
 
@@ -489,19 +496,19 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
                 className={`mt-1 w-full ${OverlayUi.input}`}
               />
               <span className={`mt-1 block sam-text-xxs ${reasonOk ? "text-sam-muted" : "text-sam-danger"}`}>
-                2자 이상 입력 ({reason.trim().length}자)
+                {t("admin_trade_points_reason_min_length", { n: reason.trim().length })}
               </span>
             </label>
           </>
         ) : (
           <dl className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body">
             {[
-              ["회원", member?.label || "이름 없음"],
-              ["구분", op === "credit" ? "지급" : "회수"],
-              ["포인트", `${op === "credit" ? "+" : "-"}${formatAdminNumber(amount)} P`],
-              ["현재 잔액", formatTradePoints(balanceValue)],
-              ["처리 후 잔액", formatTradePoints(after)],
-              ["사유", reason.trim()],
+              [t("admin_trade_points_member"), member?.label || t("admin_trade_kit_no_name")],
+              [t("admin_trade_points_op_legend"), op === "credit" ? t("admin_trade_points_op_credit") : t("admin_trade_points_op_debit")],
+              [t("admin_trade_th_points"), `${op === "credit" ? "+" : "-"}${formatAdminNumber(amount)} P`],
+              [t("admin_trade_points_balance_now"), formatTradePoints(balanceValue)],
+              [t("admin_trade_points_balance_after"), formatTradePoints(after)],
+              [t("admin_trade_points_reason"), reason.trim()],
             ].map(([k, v]) => (
               <div key={k} className="grid grid-cols-[7rem_1fr] gap-2">
                 <dt className="text-sam-muted">{k}</dt>
@@ -520,8 +527,8 @@ function AdjustSheet({ onClose, onDone }: { onClose: () => void; onDone: (messag
   );
 }
 
-function adjustErrorText(code: string): string {
-  if (code === "user_not_found") return "회원을 찾을 수 없습니다.";
-  if (code === "invalid_input") return "회원·포인트·사유를 다시 확인해 주세요.";
+function adjustErrorText(t: Translate, code: string): string {
+  if (code === "user_not_found") return t("admin_trade_points_err_user_not_found");
+  if (code === "invalid_input") return t("admin_trade_points_err_invalid_input");
   return tradeErrorText(code);
 }

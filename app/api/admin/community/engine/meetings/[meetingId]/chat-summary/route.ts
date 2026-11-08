@@ -4,6 +4,7 @@
 import { requireCommunityAdmin } from "@/lib/admin/community-admin/community-admin-guards";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -122,7 +123,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ meetingId: str
       room_id: mainId,
       role: "main",
       meeting_chat_room_id: null,
-      title: "전체 채팅",
+      title: await adminServerText("admin_api_meeting_main_chat"),
       is_private: false,
       is_readonly: f?.is_readonly ?? null,
       is_locked: f?.is_locked ?? null,
@@ -143,7 +144,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ meetingId: str
   if (exErr) {
     const msg = String(exErr.message ?? "");
     if ((exErr as { code?: string }).code === "42P01" || msg.includes("does not exist")) {
-      schemaNote = "meeting_chat_rooms 테이블 없음 — 20260331150000 마이그레이션 적용 필요";
+      schemaNote = await adminServerText("admin_api_meeting_chat_rooms_missing");
     }
   } else if (extras?.length) {
     const extraRows = extras as {

@@ -40,16 +40,16 @@ import {
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { useTradeCategoryOptions } from "@/components/admin/trade/posts/TradePostsPage";
 import {
-  MODERATION_STATE_LABELS,
-  SELLER_STAGE_LABELS,
-  TRADE_POST_MODERATION_ACTION_LABELS,
+  MODERATION_STATE_LABEL_KEYS,
+  SELLER_STAGE_LABEL_KEYS,
+  TRADE_POST_MODERATION_ACTION_LABEL_KEYS,
   allowedTradePostModerationActions,
   type TradePostModerationAction,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
-import { ADMIN_DASHBOARD_REPORT_REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
+import { ADMIN_DASHBOARD_REPORT_REASON_LABEL_KEYS } from "@/lib/admin-dashboard/report-reason-labels";
 import { imageSanitizeViewerMediaUrl } from "@/lib/image/image-url";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
 import { tradePromotionListingReasonLabel } from "@/lib/admin/trade-admin/trade-promotion-labels";
@@ -58,7 +58,7 @@ import { isTradeBoostOrderOngoing } from "@/lib/promotion/trade-boost-order-stat
 const LIST_PATH = "/admin/posts-management";
 const FIELD =
   "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg outline-none focus:border-sam-primary disabled:opacity-60";
-const REASON = { minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "처리 사유를 입력해 주세요" };
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 type Post = {
   id: string;
@@ -158,28 +158,28 @@ type Sheet =
 type DetailTab = "revisions" | "reports" | "rooms" | "promotions" | "audits";
 type Notice = { tone: "warn"; text: string } | null;
 
-const AUDIT_ACTION_KO: Record<string, string> = {
-  "trade_post.hide": "숨김",
-  "trade_post.unhide": "숨김 해제",
-  "trade_post.delete": "삭제",
-  "trade_post.undelete": "삭제 취소",
-  "trade_post.confirm_admin_hidden": "관리자 숨김으로 확정",
-  "trade_post.edit": "내용 수정",
-  "trade_post.sale_stage_active": "판매 단계 정정 — 판매중",
-  "trade_post.sale_stage_reserved": "판매 단계 정정 — 예약중",
-  "trade_post.sale_stage_sold": "판매 단계 정정 — 거래완료",
-  "trade_post.cancel_sale": "판매 취소",
-  "trade_post.force_complete": "강제 거래완료",
+const AUDIT_ACTION_KO: Record<string, MessageKey> = {
+  "trade_post.hide": "admin_trade_pd_act_hide",
+  "trade_post.unhide": "admin_trade_pd_act_unhide",
+  "trade_post.delete": "admin_trade_pd_act_delete",
+  "trade_post.undelete": "admin_trade_pd_act_undelete",
+  "trade_post.confirm_admin_hidden": "admin_trade_audit_act_post_confirm_hidden",
+  "trade_post.edit": "admin_trade_post_detail_edit_content",
+  "trade_post.sale_stage_active": "admin_trade_pd_act_stage_active",
+  "trade_post.sale_stage_reserved": "admin_trade_pd_act_stage_reserved",
+  "trade_post.sale_stage_sold": "admin_trade_pd_act_stage_sold",
+  "trade_post.cancel_sale": "admin_trade_post_detail_cancel_sale",
+  "trade_post.force_complete": "admin_trade_pd_act_force_complete",
 };
 
-const PROMOTION_STATUS_KO: Record<string, string> = {
-  pending_review: "검토 대기",
-  active: "진행 중",
-  paused: "일시 중지",
-  ended: "종료",
-  expired: "기간 만료",
-  rejected: "반려",
-  cancelled: "취소",
+const PROMOTION_STATUS_KO: Record<string, MessageKey> = {
+  pending_review: "admin_trade_pd_promo_pending",
+  active: "admin_trade_restrict_badge_active",
+  paused: "admin_trade_promo_st_paused",
+  ended: "admin_trade_promo_st_ended",
+  expired: "admin_trade_promo_st_expired",
+  rejected: "admin_trade_promo_st_rejected",
+  cancelled: "admin_trade_promo_st_cancelled",
 };
 
 const EXTRA_ERROR_KEYS: Record<string, MessageKey> = {
@@ -224,10 +224,10 @@ async function tradeActionFetch(
   }
 }
 
-function warningsOf(json: Record<string, unknown>): string[] {
+function warningsOf(t: Translate, json: Record<string, unknown>): string[] {
   const out: string[] = [];
-  if (json.sideEffectWarning) out.push("알림 발송 실패");
-  if (json.auditWarning) out.push("처리 기록 저장 실패 — 관리자에게 알려 주세요");
+  if (json.sideEffectWarning) out.push(t("admin_trade_pd_warn_notify_failed"));
+  if (json.auditWarning) out.push(t("admin_trade_pd_warn_audit_failed"));
   return out;
 }
 
@@ -245,8 +245,8 @@ function stageGroup(stage: string | null | undefined): "active" | "reserved" | "
   return "active";
 }
 
-function shortMember(id: string): string {
-  return `회원 ${formatAdminShortId(id)}`;
+function shortMember(t: Translate, id: string): string {
+  return t("admin_trade_pd_member_short", { id: formatAdminShortId(id) });
 }
 
 /* ───────── 사진 ───────── */
@@ -270,7 +270,7 @@ function TradeImageGallery({ images, size = 112 }: { images: string[]; size?: nu
             )}
             {i === 0 ? (
               <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-fg/80 px-1.5 py-0.5 text-[12px] font-semibold text-sam-surface">
-                대표
+                {t("admin_trade_post_cover_badge")}
               </span>
             ) : null}
           </li>
@@ -371,8 +371,8 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
     for (const r of data?.rooms ?? []) if (r.buyer_id && r.buyer_label) m.set(r.buyer_id, r.buyer_label);
     if (post?.reserved_buyer_id && post.reserved_buyer_label) m.set(post.reserved_buyer_id, post.reserved_buyer_label);
     if (post?.sold_buyer_id && post.sold_buyer_label) m.set(post.sold_buyer_id, post.sold_buyer_label);
-    return (bid: string) => m.get(bid) ?? shortMember(bid);
-  }, [data?.rooms, post]);
+    return (bid: string) => m.get(bid) ?? shortMember(t, bid);
+  }, [data?.rooms, post, t]);
 
   const openSheet = (s: Sheet) => {
     setBuyerId("");
@@ -391,15 +391,15 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
     if (kind === "done") {
       setBanner({ ok: true, message: okMessage });
       setNotice(null);
-      setWarnings(warningsOf(json));
+      setWarnings(warningsOf(t, json));
       if (opts.closeEdit) setEditing(false);
     } else if (kind === "stale") {
       setBanner(null);
-      setNotice({ tone: "warn", text: "다른 관리자가 먼저 변경했습니다 — 최신 내용으로 다시 불러왔습니다." });
+      setNotice({ tone: "warn", text: t("admin_trade_pd_stale") });
       setEditing(false);
     } else {
       setBanner(null);
-      setNotice({ tone: "warn", text: "대상을 찾을 수 없습니다 — 다시 불러왔습니다." });
+      setNotice({ tone: "warn", text: t("admin_trade_pd_gone") });
     }
     reload();
   };
@@ -410,7 +410,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
     return { result, json };
   };
 
-  if (!id) return <AdminEmptyState ko={ko} message="게시물을 찾을 수 없습니다." />;
+  if (!id) return <AdminEmptyState ko={ko} message={t("admin_trade_pd_not_found")} />;
   if (state.status === "error") {
     return (
       <div className="space-y-3">
@@ -441,54 +441,58 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
   const postApi = `/api/admin/trade/posts/${encodeURIComponent(id)}`;
   const legacyApi = `/api/admin/posts/${encodeURIComponent(id)}`;
   const busy = state.status === "loading";
+  const reasonCfg = { minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: t("admin_trade_pd_reason_ph") };
 
   const summaryRows: { label: string; value: ReactNode }[] = [
-    { label: "가격", value: formatTradePrice(post.price, post.is_free_share) + (post.is_price_offer ? " · 가격 제안 받음" : "") },
-    { label: "판매 단계", value: <TradeStageBadge value={post.seller_listing_state} /> },
-    { label: "노출", value: <TradeVisibilityBadges moderationState={post.moderation_state} ownerState={post.owner_state} /> },
-    { label: "판매자", value: <TradeMemberCell userId={post.user_id} label={post.seller_label} returnTo={selfHref} /> },
-    { label: "유형", value: post.trade_type === "job" ? "알바" : "중고" },
-    { label: "지역", value: post.region_label ?? "—" },
-    { label: "카테고리", value: post.category_name ?? "—" },
-    { label: "조회·찜·채팅", value: `${post.view_count ?? 0} · ${post.favorite_count ?? 0} · ${post.chat_count ?? 0}` },
-    { label: "등록", value: pht(post.created_at) },
-    { label: "수정", value: pht(post.updated_at) },
+    {
+      label: t("admin_trade_member_th_price"),
+      value: formatTradePrice(post.price, post.is_free_share) + (post.is_price_offer ? ` · ${t("admin_trade_pd_price_offer_on")}` : ""),
+    },
+    { label: t("admin_trade_posts_th_stage"), value: <TradeStageBadge value={post.seller_listing_state} /> },
+    { label: t("admin_trade_posts_th_visibility"), value: <TradeVisibilityBadges moderationState={post.moderation_state} ownerState={post.owner_state} /> },
+    { label: t("admin_trade_th_seller"), value: <TradeMemberCell userId={post.user_id} label={post.seller_label} returnTo={selfHref} /> },
+    { label: t("admin_trade_points_th_type"), value: post.trade_type === "job" ? t("admin_trade_posts_job_badge") : t("admin_trade_posts_type_product") },
+    { label: t("common_region"), value: post.region_label ?? "—" },
+    { label: t("admin_trade_audit_target_category"), value: post.category_name ?? "—" },
+    { label: t("admin_trade_pd_views_favs_chats"), value: `${post.view_count ?? 0} · ${post.favorite_count ?? 0} · ${post.chat_count ?? 0}` },
+    { label: t("admin_trade_th_created"), value: pht(post.created_at) },
+    { label: t("admin_trade_posts_th_updated"), value: pht(post.updated_at) },
   ];
   if (post.reserved_buyer_id) {
     summaryRows.push({
-      label: "예약 구매자",
+      label: t("admin_trade_pd_reserved_buyer"),
       value: <TradeMemberCell userId={post.reserved_buyer_id} label={post.reserved_buyer_label} returnTo={selfHref} />,
     });
   }
   if (post.sold_buyer_id || post.seller_listing_state === "completed") {
     summaryRows.push({
-      label: "거래완료 구매자",
+      label: t("admin_trade_pd_sold_buyer"),
       value: post.sold_buyer_id ? (
         <TradeMemberCell userId={post.sold_buyer_id} label={post.sold_buyer_label} returnTo={selfHref} />
       ) : (
         "—"
       ),
     });
-    summaryRows.push({ label: "거래 완료 시각", value: post.completed_at ? pht(post.completed_at) : "완료 시각 기록 없음" });
+    summaryRows.push({ label: t("admin_trade_pd_completed_at"), value: post.completed_at ? pht(post.completed_at) : t("admin_trade_pd_completed_at_none") });
   }
   if (modState !== "visible") {
-    summaryRows.push({ label: "관리자 조치", value: MODERATION_STATE_LABELS[modState] ?? "—" });
-    summaryRows.push({ label: "조치 사유", value: post.moderation_reason?.trim() || "—" });
-    summaryRows.push({ label: "처리자", value: post.moderation_by_label ?? "—" });
-    summaryRows.push({ label: "처리 시각", value: pht(post.moderation_at) });
+    summaryRows.push({ label: t("admin_trade_dash_admin_actions"), value: MODERATION_STATE_LABEL_KEYS[modState] ? t(MODERATION_STATE_LABEL_KEYS[modState]) : "—" });
+    summaryRows.push({ label: t("admin_trade_pd_action_reason"), value: post.moderation_reason?.trim() || "—" });
+    summaryRows.push({ label: t("admin_trade_audit_actor"), value: post.moderation_by_label ?? "—" });
+    summaryRows.push({ label: t("admin_trade_pd_handled_at"), value: pht(post.moderation_at) });
   }
 
   const targetRows = [
-    { label: "게시물", value: post.title?.trim() || "제목 없음" },
-    { label: "판매 단계", value: SELLER_STAGE_LABELS[String(post.seller_listing_state ?? "")] ?? "—" },
-    { label: "노출", value: <TradeVisibilityBadges moderationState={post.moderation_state} ownerState={post.owner_state} /> },
+    { label: t("admin_trade_audit_post"), value: post.title?.trim() || t("admin_trade_posts_no_title") },
+    { label: t("admin_trade_posts_th_stage"), value: SELLER_STAGE_LABEL_KEYS[String(post.seller_listing_state ?? "")] ? t(SELLER_STAGE_LABEL_KEYS[String(post.seller_listing_state ?? "")]) : "—" },
+    { label: t("admin_trade_posts_th_visibility"), value: <TradeVisibilityBadges moderationState={post.moderation_state} ownerState={post.owner_state} /> },
   ];
 
   const buyerPicker = (required: boolean) => (
     <label className="block">
       <span className="sam-text-helper font-medium text-sam-fg">{t(required ? "admin_trade_post_detail_buyer_required" : "admin_trade_post_detail_buyer")}</span>
       <select value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className={`mt-1 ${FIELD}`}>
-        <option value="">{required ? "구매자를 선택해 주세요" : "자동 지정 (예약 구매자 또는 채팅 구매자 1명)"}</option>
+        <option value="">{required ? t("admin_trade_pd_pick_buyer") : t("admin_trade_pd_buyer_auto")}</option>
         {(buyers ?? []).map((b) => (
           <option key={b} value={b}>
             {buyerLabelOf(b)}
@@ -517,12 +521,12 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="sam-text-page-title font-semibold text-sam-fg [overflow-wrap:anywhere]">
-            {post.title?.trim() || "제목 없음"}
+            {post.title?.trim() || t("admin_trade_posts_no_title")}
           </h1>
           <p className="mt-1 sam-text-body text-sam-muted">{formatTradePrice(post.price, post.is_free_share)}</p>
         </div>
         <AdminActionButton variant="secondary" onClick={reload} disabled={busy}>
-          {busy ? "불러오는 중…" : "새로고침"}
+          {busy ? t("common_loading") : t("admin_trade_dash_refresh")}
         </AdminActionButton>
       </header>
 
@@ -550,12 +554,12 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
               setEditing(true);
             }}
           >
-            수정
+            {t("admin_trade_post_edit")}
           </AdminActionButton>
           {modState === "admin_deleted" ? (
             /** D-6: 삭제 글에는 「숨김」이 없다 — 삭제 취소가 곧 관리자 숨김으로 돌리는 것 */
             <p className="w-full text-[13px] text-sam-muted" data-trade-admin-deleted-guide="">
-              관리자 삭제 글은 「삭제 취소 → 숨김 상태로」만 할 수 있습니다. 앱에 다시 보이게 하려면 그다음 「숨김 해제」를 누르세요.
+              {t("admin_trade_post_admin_deleted_hint")}
             </p>
           ) : null}
           {modActions.map((a) => (
@@ -565,20 +569,20 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
               disabled={busy}
               onClick={() => openSheet({ kind: "moderation", action: a })}
             >
-              {TRADE_POST_MODERATION_ACTION_LABELS[a]}
+              {t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[a])}
             </AdminActionButton>
           ))}
           <AdminActionButton variant="secondary" disabled={busy} onClick={() => openSheet({ kind: "stage" })}>
-            판매 단계 정정
+            {t("admin_trade_post_fix_sale_stage")}
           </AdminActionButton>
           {canCancelSale ? (
             <AdminActionButton variant="danger" disabled={busy} onClick={() => openSheet({ kind: "cancel_sale" })}>
-              판매 취소
+              {t("admin_trade_post_cancel_sale")}
             </AdminActionButton>
           ) : null}
           {canForceComplete ? (
             <AdminActionButton variant="secondary" disabled={busy} onClick={() => openSheet({ kind: "force_complete" })}>
-              강제 완료
+              {t("admin_trade_post_force_complete")}
             </AdminActionButton>
           ) : null}
         </div>
@@ -588,16 +592,16 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
         <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
           <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_trade_post_detail_edit_content")}</h2>
           <label className="block text-[12px] font-medium text-sam-muted">
-            제목
+            {t("admin_trade_post_field_title")}
             <input value={eTitle} onChange={(e) => setETitle(e.target.value)} maxLength={200} className={`mt-1 ${FIELD}`} />
           </label>
           <label className="block text-[12px] font-medium text-sam-muted">
-            본문
+            {t("admin_trade_post_field_body")}
             <textarea value={eContent} onChange={(e) => setEContent(e.target.value)} rows={8} className={`mt-1 ${FIELD}`} />
           </label>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block text-[12px] font-medium text-sam-muted">
-              가격 (₱)
+              {t("admin_trade_post_field_price_php")}
               <input
                 inputMode="numeric"
                 value={ePrice}
@@ -607,22 +611,22 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
             </label>
             <label className="flex items-center gap-1.5 text-[13px] text-sam-fg">
               <input type="checkbox" checked={eFree} onChange={(e) => setEFree(e.target.checked)} />
-              나눔
+              {t("admin_trade_post_field_free_share")}
             </label>
             <label className="flex items-center gap-1.5 text-[13px] text-sam-fg">
               <input type="checkbox" checked={eOffer} onChange={(e) => setEOffer(e.target.checked)} />
-              가격 제안 받기
+              {t("admin_trade_post_field_accept_offers")}
             </label>
             <label className="block min-w-[12rem] text-[12px] font-medium text-sam-muted">
-              카테고리
+              {t("admin_trade_post_field_category")}
               <select value={eCategory} onChange={(e) => setECategory(e.target.value)} className={`mt-1 ${FIELD}`}>
                 {!eCategory ? <option value="">{t("admin_trade_post_detail_select_placeholder")}</option> : null}
                 {eCategory && !categories.some((c) => c.id === eCategory) ? (
-                  <option value={eCategory}>{post.category_name ?? "현재 카테고리"}</option>
+                  <option value={eCategory}>{post.category_name ?? t("admin_trade_pd_current_category")}</option>
                 ) : null}
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.active ? c.name : `${c.name} (비활성)`}
+                    {c.active ? c.name : t("admin_trade_posts_category_inactive", { name: c.name })}
                   </option>
                 ))}
               </select>
@@ -640,7 +644,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                       <TradePostThumb post={{ images: [u] }} size={88} />
                       {i === 0 ? (
                         <span className="absolute left-1 top-1 rounded-ui-rect bg-sam-fg/80 px-1.5 py-0.5 text-[12px] font-semibold text-sam-surface">
-                          대표
+                          {t("admin_trade_post_cover_badge")}
                         </span>
                       ) : null}
                     </span>
@@ -651,7 +655,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                           size="sm"
                           onClick={() => setEImages((arr) => [arr[i]!, ...arr.filter((_, j) => j !== i)])}
                         >
-                          대표로
+                          {t("admin_trade_post_make_cover")}
                         </AdminActionButton>
                       ) : null}
                       <AdminActionButton
@@ -659,7 +663,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                         size="sm"
                         onClick={() => setEImages((arr) => arr.filter((_, j) => j !== i))}
                       >
-                        삭제
+                        {t("admin_trade_post_image_delete")}
                       </AdminActionButton>
                     </span>
                   </li>
@@ -675,10 +679,10 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                 setEditing(false);
               }}
             >
-              취소
+              {t("admin_trade_post_edit_cancel")}
             </AdminActionButton>
             <AdminActionButton variant="primary" disabled={!dirty || !editValid || busy} onClick={() => openSheet({ kind: "edit" })}>
-              저장
+              {t("admin_trade_post_edit_save")}
             </AdminActionButton>
           </div>
         </section>
@@ -686,11 +690,11 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
 
       <CommunityTabs
         tabs={[
-          { value: "revisions", label: "수정 이력", count: counts.revisions },
-          { value: "reports", label: "신고", count: counts.reports },
-          { value: "rooms", label: "거래 채팅", count: counts.rooms },
-          { value: "promotions", label: "상위노출", count: counts.promotions },
-          { value: "audits", label: "조치 기록", count: counts.audits },
+          { value: "revisions", label: t("admin_trade_pd_tab_revisions"), count: counts.revisions },
+          { value: "reports", label: t("common_report"), count: counts.reports },
+          { value: "rooms", label: t("admin_trade_audit_target_chat"), count: counts.rooms },
+          { value: "promotions", label: t("admin_trade_audit_target_promotion"), count: counts.promotions },
+          { value: "audits", label: t("admin_trade_pd_tab_audits"), count: counts.audits },
         ]}
         value={tab}
         onChange={(v) => setTab(v as DetailTab)}
@@ -710,7 +714,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
               id: a.id,
               at: a.created_at,
               actor: a.actor_label ?? "—",
-              action: AUDIT_ACTION_KO[a.action] ?? "기타 처리",
+              action: t(AUDIT_ACTION_KO[a.action] ?? "admin_trade_pd_act_other"),
               reason: typeof a.after_json?.reason === "string" ? a.after_json.reason : null,
             }))}
           />
@@ -723,36 +727,36 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           title={t("admin_trade_post_detail_save_edit")}
           rows={[
             ...targetRows.slice(0, 1),
-            { label: "바뀌는 항목", value: Object.keys(patch).map((k) => FIELD_LABEL[k] ?? k).join(", ") || "—" },
+            { label: t("admin_trade_pd_changed_fields"), value: Object.keys(patch).map((k) => (FIELD_LABEL[k] ? t(FIELD_LABEL[k]) : k)).join(", ") || "—" },
           ]}
-          notice="판매자에게 수정 알림이 갑니다."
-          reason={REASON}
+          notice={t("admin_trade_pd_edit_notice")}
+          reason={reasonCfg}
           ready={dirty && editValid}
-          confirmLabel="저장"
+          confirmLabel={t("common_save")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => (await run(postApi, "PATCH", { patch, reason, expectedUpdatedAt: expected })).result}
-          onSettled={(k) => onSettled(k, "수정 내용을 저장했습니다.", { closeEdit: true })}
+          onSettled={(k) => onSettled(k, t("admin_trade_pd_edit_saved"), { closeEdit: true })}
         />
       ) : null}
 
       {sheet?.kind === "moderation" ? (
         <CommunityActionSheet
-          title={`게시물 ${TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}`}
+          title={t("admin_trade_posts_sheet_title", { action: t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[sheet.action]) })}
           rows={targetRows}
           notice={
             /** D-7: 진행 중(노출·일시정지·심사 중) 상위노출이 있으면 삭제 = 광고 종료·환급 없음(트리거 `listing_admin_deleted`) */
             sheet.action === "delete" && promotionRunning
-              ? `${MODERATION_NOTICE.delete} 진행 중인 상위노출이 있으면 종료되고 포인트는 돌려주지 않습니다(심사 중 신청은 취소).`
-              : MODERATION_NOTICE[sheet.action]
+              ? `${t(MODERATION_NOTICE.delete)} ${t("admin_trade_pd_delete_promo_notice")}`
+              : t(MODERATION_NOTICE[sheet.action])
           }
-          reason={REASON}
+          reason={reasonCfg}
           destructive={sheet.action === "delete" || sheet.action === "hide"}
-          confirmLabel={TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]}
+          confirmLabel={t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[sheet.action])}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) =>
             (await run(`${postApi}/moderation`, "POST", { action: sheet.action, reason, expectedUpdatedAt: expected })).result
           }
-          onSettled={(k) => onSettled(k, `${TRADE_POST_MODERATION_ACTION_LABELS[sheet.action]} 처리했습니다.`)}
+          onSettled={(k) => onSettled(k, t("admin_trade_reports_decided", { action: t(TRADE_POST_MODERATION_ACTION_LABEL_KEYS[sheet.action]) }))}
         />
       ) : null}
 
@@ -760,10 +764,10 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
         <CommunityActionSheet
           title={t("admin_trade_post_detail_fix_stage")}
           rows={targetRows}
-          notice="노출 상태는 바뀌지 않습니다."
-          reason={REASON}
+          notice={t("admin_trade_pd_stage_notice")}
+          reason={reasonCfg}
           ready={stage !== stageNow && (!needBuyer || stage !== "sold" || Boolean(buyerId))}
-          confirmLabel="정정"
+          confirmLabel={t("admin_trade_pd_fix_btn")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
             const body: Record<string, unknown> = { status: stage, reason };
@@ -772,15 +776,15 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
             if (!result.ok && json.code === "need_sold_buyer") setNeedBuyer(true);
             return result;
           }}
-          onSettled={(k) => onSettled(k, "판매 단계를 정정했습니다.")}
+          onSettled={(k) => onSettled(k, t("admin_trade_pd_stage_fixed"))}
         >
           <fieldset className="space-y-1">
             <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_post_detail_new_stage")}</legend>
             {(
               [
-                ["active", "판매중"],
-                ["reserved", "예약중"],
-                ["sold", "거래완료"],
+                ["active", "admin_trade_regions_th_selling"],
+                ["reserved", "admin_trade_regions_th_reserved"],
+                ["sold", "admin_trade_regions_th_sold"],
               ] as const
             ).map(([v, l]) => (
               <label key={v} className="flex items-center gap-2 text-[13px] text-sam-fg">
@@ -791,7 +795,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
                   disabled={v === stageNow}
                   onChange={() => setStage(v)}
                 />
-                {l}
+                {t(l)}
                 {v === stageNow ? <span className="text-sam-muted">{t("admin_trade_post_detail_current_mark")}</span> : null}
               </label>
             ))}
@@ -806,15 +810,15 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
           rows={targetRows}
           notice={
             modState === "visible"
-              ? "판매중으로 되돌리고 게시물을 관리자 숨김으로 바꿉니다. 거래 채팅도 판매중 상태로 돌아갑니다."
-              : "판매중으로 되돌립니다. 거래 채팅도 판매중 상태로 돌아갑니다."
+              ? t("admin_trade_pd_cancel_notice_hide")
+              : t("admin_trade_pd_cancel_notice")
           }
-          reason={REASON}
+          reason={reasonCfg}
           destructive
-          confirmLabel="판매 취소"
+          confirmLabel={t("admin_trade_post_detail_cancel_sale")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => (await run(`${legacyApi}/trade-override`, "POST", { action: "cancel_sale", reason })).result}
-          onSettled={(k) => onSettled(k, "판매를 취소했습니다.")}
+          onSettled={(k) => onSettled(k, t("admin_trade_pd_sale_cancelled"))}
         />
       ) : null}
 
@@ -822,10 +826,10 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
         <CommunityActionSheet
           title={t("admin_trade_post_detail_force_complete")}
           rows={targetRows}
-          notice="판매자 완료 절차 없이 거래완료로 바꿉니다. 거래 완료 시각은 기록되지 않습니다."
-          reason={REASON}
+          notice={t("admin_trade_pd_force_notice")}
+          reason={reasonCfg}
           ready={!needBuyer || Boolean(buyerId)}
-          confirmLabel="강제 완료"
+          confirmLabel={t("admin_trade_post_detail_force_complete")}
           onClose={() => setSheet(null)}
           onSubmit={async (reason) => {
             const body: Record<string, unknown> = { action: "force_complete", reason };
@@ -834,7 +838,7 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
             if (!result.ok && json.code === "need_sold_buyer") setNeedBuyer(true);
             return result;
           }}
-          onSettled={(k) => onSettled(k, "거래완료로 처리했습니다.")}
+          onSettled={(k) => onSettled(k, t("admin_trade_pd_force_done"))}
         >
           {buyerPicker(needBuyer)}
         </CommunityActionSheet>
@@ -843,41 +847,42 @@ export function TradePostDetailPage({ postId }: { postId: string }) {
   );
 }
 
-const MODERATION_NOTICE: Record<TradePostModerationAction, string> = {
-  hide: "앱에서 보이지 않게 됩니다. 판매자는 직접 해제할 수 없습니다.",
-  unhide: "앱에 다시 보입니다. 판매 단계는 그대로입니다.",
-  delete: "앱에서 삭제된 글로 처리됩니다. 판매자는 직접 되돌릴 수 없습니다.",
-  undelete: "삭제를 취소하고 관리자 숨김 상태로 돌립니다. 앱에는 계속 보이지 않습니다(보이게 하려면 그다음 「숨김 해제」).",
+const MODERATION_NOTICE: Record<TradePostModerationAction, MessageKey> = {
+  hide: "admin_trade_pd_notice_hide",
+  unhide: "admin_trade_pd_notice_unhide",
+  delete: "admin_trade_pd_notice_delete",
+  undelete: "admin_trade_pd_notice_undelete",
 };
 
-const FIELD_LABEL: Record<string, string> = {
-  title: "제목",
-  content: "본문",
-  price: "가격",
-  trade_category_id: "카테고리",
-  images: "사진",
-  thumbnail_url: "대표 사진",
-  is_price_offer: "가격 제안",
-  is_free_share: "나눔",
+const FIELD_LABEL: Record<string, MessageKey> = {
+  title: "admin_trade_member_th_title",
+  content: "admin_trade_pd_field_content",
+  price: "admin_trade_member_th_price",
+  trade_category_id: "admin_trade_audit_target_category",
+  images: "admin_trade_pd_field_images",
+  thumbnail_url: "admin_trade_pd_field_thumbnail",
+  is_price_offer: "admin_trade_pd_field_price_offer",
+  is_free_share: "admin_trade_kit_free_share",
 };
 
 function BackLink({ href }: { href: string }) {
+  const { t } = useI18n();
   return (
     <Link href={href} className="inline-block text-[13px] font-medium text-sam-muted hover:text-sam-fg">
-      ← 목록으로
+      {t("admin_trade_back_to_list")}
     </Link>
   );
 }
 
 /* ───────── 탭 ───────── */
 
-function fieldValueText(key: string, v: unknown, categoryName: (id: string) => string | null): string {
+function fieldValueText(t: Translate, key: string, v: unknown, categoryName: (id: string) => string | null): string {
   if (v === null || v === undefined || v === "") return "—";
-  if (key === "is_price_offer" || key === "is_free_share") return v === true ? "예" : "아니오";
+  if (key === "is_price_offer" || key === "is_free_share") return v === true ? t("admin_trade_pd_yes") : t("admin_trade_pd_no");
   if (key === "price") return formatTradePrice(v);
-  if (key === "trade_category_id") return categoryName(String(v)) ?? "다른 카테고리";
-  if (key === "images") return `${Array.isArray(v) ? v.length : 0}장`;
-  if (key === "thumbnail_url") return "사진";
+  if (key === "trade_category_id") return categoryName(String(v)) ?? t("admin_trade_pd_other_category");
+  if (key === "images") return t("admin_trade_pd_photo_count", { n: Array.isArray(v) ? v.length : 0 });
+  if (key === "thumbnail_url") return t("admin_trade_pd_field_images");
   const s = String(v);
   return s.length > 300 ? `${s.slice(0, 300)}…` : s;
 }
@@ -894,7 +899,7 @@ function RevisionsTab({ revisions, categoryName }: { revisions: Revision[]; cate
         return (
           <li key={r.id} className="rounded-ui-rect border border-sam-border-soft px-3 py-2 text-[13px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-sam-fg">{keys.map((k) => FIELD_LABEL[k]).join(", ") || t("admin_trade_post_detail_no_changes")}</span>
+              <span className="font-semibold text-sam-fg">{keys.map((k) => t(FIELD_LABEL[k])).join(", ") || t("admin_trade_post_detail_no_changes")}</span>
               <span className="text-sam-muted">
                 {pht(r.created_at)} · {r.editor_label ?? "—"}
               </span>
@@ -911,19 +916,19 @@ function RevisionsTab({ revisions, categoryName }: { revisions: Revision[]; cate
                     (before[k] as unknown[]).length === (after[k] as unknown[]).length;
                   return (
                     <div key={k} className="grid grid-cols-[5rem_1fr] gap-2">
-                      <dt className="text-sam-muted">{FIELD_LABEL[k]}</dt>
+                      <dt className="text-sam-muted">{t(FIELD_LABEL[k])}</dt>
                       <dd className="min-w-0 [overflow-wrap:anywhere]">
                         {k === "thumbnail_url" ? (
-                          "대표 사진 변경"
+                          t("admin_trade_pd_thumb_changed")
                         ) : sameCount ? (
-                          "사진 순서 변경"
+                          t("admin_trade_pd_photo_order_changed")
                         ) : (
                           <>
                             <span className="whitespace-pre-wrap text-sam-muted line-through">
-                              {fieldValueText(k, before[k], categoryName)}
+                              {fieldValueText(t, k, before[k], categoryName)}
                             </span>
                             <span className="mx-1 text-sam-muted">→</span>
-                            <span className="whitespace-pre-wrap text-sam-fg">{fieldValueText(k, after[k], categoryName)}</span>
+                            <span className="whitespace-pre-wrap text-sam-fg">{fieldValueText(t, k, after[k], categoryName)}</span>
                           </>
                         )}
                       </dd>
@@ -945,7 +950,7 @@ function ReportsTab({ postId, reports, selfHref }: { postId: string; reports: Re
     <div className="space-y-2">
       <div className="flex justify-end">
         <AdminActionLink href={`/admin/trade/reports?targetId=${encodeURIComponent(postId)}`} variant="secondary">
-          신고 처리함에서 보기
+          {t("admin_trade_post_view_in_reports")}
         </AdminActionLink>
       </div>
       {reports.length === 0 ? (
@@ -956,9 +961,9 @@ function ReportsTab({ postId, reports, selfHref }: { postId: string; reports: Re
             <li key={r.id} className="rounded-ui-rect border border-sam-border-soft px-3 py-2 text-[13px]">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
-                  <AdminToneBadge tone={r.is_open ? "warning" : "neutral"}>{r.is_open ? "처리 대기" : "처리 완료"}</AdminToneBadge>
+                  <AdminToneBadge tone={r.is_open ? "warning" : "neutral"}>{r.is_open ? t("admin_trade_reports_st_pending") : t("admin_trade_reports_st_done")}</AdminToneBadge>
                   <span className="font-medium text-sam-fg">
-                    {ADMIN_DASHBOARD_REPORT_REASON_LABELS[String(r.reason_code ?? "")] ?? "기타"}
+                    {t(ADMIN_DASHBOARD_REPORT_REASON_LABEL_KEYS[String(r.reason_code ?? "")] ?? "admin_trade_audit_target_other")}
                   </span>
                 </span>
                 <span className="text-sam-muted">
@@ -981,7 +986,7 @@ function RoomsTab({ postId, rooms, selfHref }: { postId: string; rooms: Room[]; 
     <div className="space-y-2">
       <div className="flex justify-end">
         <AdminActionLink href={`/admin/chats?type=trade&postId=${encodeURIComponent(postId)}`} variant="secondary">
-          채팅 관리에서 보기
+          {t("admin_trade_post_view_in_chats")}
         </AdminActionLink>
       </div>
       {rooms.length === 0 ? (
@@ -995,7 +1000,7 @@ function RoomsTab({ postId, rooms, selfHref }: { postId: string; rooms: Room[]; 
                 <TradeStageBadge value={r.trade_status} />
               </span>
               <span className="text-sam-muted">
-                마지막 대화 <CommunityTimeCell iso={r.last_message_at ?? r.created_at} />
+                {t("admin_trade_post_last_message")} <CommunityTimeCell iso={r.last_message_at ?? r.created_at} />
               </span>
             </li>
           ))}
@@ -1006,12 +1011,13 @@ function RoomsTab({ postId, rooms, selfHref }: { postId: string; rooms: Room[]; 
 }
 
 function PromotionsTab({ postId, promotions }: { postId: string; promotions: Promotion[] }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
         <AdminActionLink href={`/admin/trade/promotions?postId=${encodeURIComponent(postId)}`} variant="secondary">
-          상위노출 관리에서 보기
+          {t("admin_trade_post_view_in_promotions")}
         </AdminActionLink>
       </div>
       {promotions.length === 0 ? (
@@ -1022,15 +1028,15 @@ function PromotionsTab({ postId, promotions }: { postId: string; promotions: Pro
             <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="flex items-center gap-2">
                 <AdminToneBadge tone={p.order_status === "active" ? "success" : "neutral"}>
-                  {PROMOTION_STATUS_KO[String(p.order_status ?? "")] ?? "기타"}
+                  {t(PROMOTION_STATUS_KO[String(p.order_status ?? "")] ?? "admin_trade_audit_target_other")}
                 </AdminToneBadge>
                 <span className="text-sam-fg">{formatTradePoints(p.point_cost)}</span>
-                {tradePromotionListingReasonLabel(p) ? (
-                  <span className="text-sam-muted">{tradePromotionListingReasonLabel(p)}</span>
+                {tradePromotionListingReasonLabel(p, ko) ? (
+                  <span className="text-sam-muted">{tradePromotionListingReasonLabel(p, ko)}</span>
                 ) : null}
               </span>
               <span className="text-sam-muted">
-                {p.start_at ? `${pht(p.start_at)} ~ ${p.end_at ? pht(p.end_at) : "—"}` : `신청 ${pht(p.created_at)}`}
+                {p.start_at ? `${pht(p.start_at)} ~ ${p.end_at ? pht(p.end_at) : "—"}` : t("admin_trade_promo_requested_at", { date: pht(p.created_at) })}
               </span>
             </li>
           ))}

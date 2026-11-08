@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  MEMBER_LIST_SEARCH_PLACEHOLDER_KO,
-  MEMBER_LIST_STORE_NONE_KO,
-  MEMBER_LIST_VERIFY_DONE_KO,
-  MEMBER_LIST_VERIFY_INCOMPLETE_KO,
-  memberListOriginFilterLabelKo,
-  memberListStatusCategoryLabelKo,
+  MEMBER_LIST_SEARCH_PLACEHOLDER_KEY,
+  MEMBER_LIST_STORE_NONE_KEY,
+  MEMBER_LIST_VERIFY_DONE_KEY,
+  MEMBER_LIST_VERIFY_INCOMPLETE_KEY,
+  memberListOriginFilterLabel,
+  memberListStatusCategoryLabel,
 } from "@/lib/admin-users/member-list-presentation";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import type {
   AdminMemberOriginFilter,
   AdminMemberPrivilegeFilter,
@@ -100,7 +100,7 @@ export function AdminUserFilterBar({
         onSubmit={onSearchSubmit}
         onReset={onReset ?? (() => undefined)}
         pending={loading}
-        searchPlaceholder={MEMBER_LIST_SEARCH_PLACEHOLDER_KO}
+        searchPlaceholder={t(MEMBER_LIST_SEARCH_PLACEHOLDER_KEY)}
       >
         <label className={labelClass}>
           {t("admin_users_account_state")}
@@ -111,10 +111,10 @@ export function AdminUserFilterBar({
             data-member-list-filter="status"
           >
             <option value="">{t("common_all")}</option>
-            <option value="active">{memberListStatusCategoryLabelKo("active")}</option>
-            <option value="suspended">{memberListStatusCategoryLabelKo("suspended")}</option>
-            <option value="blocked">{memberListStatusCategoryLabelKo("blocked")}</option>
-            <option value="deleted">{memberListStatusCategoryLabelKo("deleted")}</option>
+            <option value="active">{memberListStatusCategoryLabel("active", language)}</option>
+            <option value="suspended">{memberListStatusCategoryLabel("suspended", language)}</option>
+            <option value="blocked">{memberListStatusCategoryLabel("blocked", language)}</option>
+            <option value="deleted">{memberListStatusCategoryLabel("deleted", language)}</option>
           </select>
         </label>
         <label className={labelClass}>
@@ -126,8 +126,8 @@ export function AdminUserFilterBar({
             data-member-list-filter="verify"
           >
             <option value="">{t("common_all")}</option>
-            <option value="verified">{MEMBER_LIST_VERIFY_DONE_KO}</option>
-            <option value="unverified">{MEMBER_LIST_VERIFY_INCOMPLETE_KO}</option>
+            <option value="verified">{t(MEMBER_LIST_VERIFY_DONE_KEY)}</option>
+            <option value="unverified">{t(MEMBER_LIST_VERIFY_INCOMPLETE_KEY)}</option>
           </select>
         </label>
         <label className={labelClass}>
@@ -139,8 +139,8 @@ export function AdminUserFilterBar({
             data-member-list-filter="store"
           >
             <option value="">{t("common_all")}</option>
-            <option value="has_store">{MEMBER_ADMIN_COPY.store_ops}</option>
-            <option value="no_store">{MEMBER_LIST_STORE_NONE_KO}</option>
+            <option value="has_store">{t(MEMBER_ADMIN_COPY_KEY.store_ops)}</option>
+            <option value="no_store">{t(MEMBER_LIST_STORE_NONE_KEY)}</option>
           </select>
         </label>
         <label className={labelClass}>
@@ -152,8 +152,8 @@ export function AdminUserFilterBar({
             data-member-list-filter="privilege"
           >
             <option value="">{t("common_all")}</option>
-            <option value="admin">{MEMBER_ADMIN_COPY.privilege_admin}</option>
-            <option value="member">{MEMBER_ADMIN_COPY.privilege_member}</option>
+            <option value="admin">{t(MEMBER_ADMIN_COPY_KEY.privilege_admin)}</option>
+            <option value="member">{t(MEMBER_ADMIN_COPY_KEY.privilege_member)}</option>
           </select>
         </label>
         <label className={labelClass}>
@@ -165,12 +165,12 @@ export function AdminUserFilterBar({
             data-member-list-filter="origin"
           >
             <option value="">{t("common_all")}</option>
-            <option value="email">{memberListOriginFilterLabelKo("email")}</option>
-            <option value="manual">{memberListOriginFilterLabelKo("manual")}</option>
-            <option value="kakao">{memberListOriginFilterLabelKo("kakao")}</option>
-            <option value="google">{memberListOriginFilterLabelKo("google")}</option>
-            <option value="apple">{memberListOriginFilterLabelKo("apple")}</option>
-            <option value="other">{memberListOriginFilterLabelKo("other")}</option>
+            <option value="email">{memberListOriginFilterLabel("email", language)}</option>
+            <option value="manual">{memberListOriginFilterLabel("manual", language)}</option>
+            <option value="kakao">{memberListOriginFilterLabel("kakao", language)}</option>
+            <option value="google">{memberListOriginFilterLabel("google", language)}</option>
+            <option value="apple">{memberListOriginFilterLabel("apple", language)}</option>
+            <option value="other">{memberListOriginFilterLabel("other", language)}</option>
           </select>
         </label>
         <label className={labelClass}>

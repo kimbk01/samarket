@@ -226,8 +226,8 @@ export function AdminPointPolicyPage() {
               dataAttr: "finance-point-to-community",
             },
           ]}
-          noteKo="커뮤니티 적립/회수 정책입니다. 원장은 공통 Point(board_point_policies)를 사용합니다."
-          noteEn="Community earn/reclaim policies. Ledger uses shared Point (board_point_policies)."
+          noteKo={t("admin_points_policy_cross_link_note")}
+          noteEn={t("admin_points_policy_cross_link_note")}
         />
       </Suspense>
 

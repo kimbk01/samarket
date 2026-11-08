@@ -60,7 +60,7 @@ export function AdminRecommendationAutomationPage() {
       </div>
       <AdminTabs
         tabs={AUTO_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="추천 자동화 탭"
+        ariaLabel={t("admin_rec_automation_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         defaultValue="policy"

@@ -318,7 +318,7 @@ export function AdminStoreReviewPanel({
   const sales = salesStatus === undefined ? null : adminStatusLabel("store_sales", salesStatus, ko);
   const storeNameForCopy = (store.store_name ?? "").trim();
   const { intro: storeIntro } = splitStoreDescriptionAndKakao(store.description, store.kakao_id);
-  const dateRows = buildAdminStoreDateRows(store);
+  const dateRows = buildAdminStoreDateRows(store, language);
 
   const gcashNoDigits = parsePhMobileInput(store.email ?? "");
   const gcashNoDisplay =

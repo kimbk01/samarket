@@ -127,7 +127,7 @@ function ExternalImportOperatorInner() {
               <ImportEditorPanel key={keyOf(active)} row={active} topics={topics} onClose={() => setActive(null)} onChanged={bump} />
             ) : (
               <div className="p-6 text-sm text-sam-muted">
-                왼쪽 수집함에서 글 제목을 누르면 원문과 게시 결과를 나란히 비교하며 편집할 수 있습니다. 체크박스는 일괄 작업용 선택입니다.
+                {t("admin_community_import_operator_empty_hint")}
               </div>
             )}
           </div>

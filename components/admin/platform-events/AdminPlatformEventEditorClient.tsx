@@ -316,17 +316,15 @@ export function AdminPlatformEventEditorClient({ eventId }: Props) {
       });
       if (!cta.ok) {
         const msgByError: Record<string, { ko: string; en: string }> = {
-          destination_id_required: {
-            ko:
-              draft.ctaType === "store"
-                ? "매장을 선택해 주세요."
-                : draft.ctaType === "community_post"
-                  ? "게시물을 선택해 주세요."
-                  : draft.ctaType === "trade_listing"
-                    ? "중고거래 상품을 선택해 주세요."
-                    : "이동할 대상을 설정해 주세요.",
-            en: "Please select a destination target.",
-          },
+          destination_id_required: catalogPair(
+            draft.ctaType === "store"
+              ? "admin_platform_events_select_store"
+              : draft.ctaType === "community_post"
+                ? "admin_platform_events_select_post"
+                : draft.ctaType === "trade_listing"
+                  ? "admin_platform_events_select_trade_listing"
+                  : "admin_platform_events_set_destination"
+          ),
           external_url_required: catalogPair("admin_external_url_is_required"),
           internal_path_required: catalogPair("admin_please_set_an_in_app_page"),
         };

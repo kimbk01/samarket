@@ -31,14 +31,17 @@ import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   communityActionFetch,
   communityWarningsOf,
   type CommunityBanner,
 } from "@/components/admin/community/reports/community-report-admin-shared";
 import { TradeMemberCell, tradeDetailHref, tradeErrorText } from "@/components/admin/trade/kit/TradeAdminKit";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 const REASON_MIN = 2;
 
@@ -47,31 +50,43 @@ const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
 /* ───────── 공용 라벨·부품 (신고·회원 상세에서도 사용) ───────── */
 
-export const TRADE_RESTRICTION_SCOPE_LABEL: Record<string, string> = {
-  post: "글 작성·수정",
-  chat: "거래 채팅",
-  all: "거래 전체",
+const TRADE_RESTRICTION_SCOPE_KEY: Record<string, MessageKey> = {
+  post: "admin_trade_restrict_scope_post",
+  chat: "admin_trade_audit_target_chat",
+  all: "admin_trade_restrict_scope_all",
 };
 
-export const TRADE_RESTRICTION_DAY_SELECT: { value: string; label: string }[] = [
-  { value: "1", label: "1일" },
-  { value: "3", label: "3일" },
-  { value: "7", label: "7일" },
-  { value: "30", label: "30일" },
-  { value: "perm", label: "영구" },
+/** 제한 범위 문구 — 모르는 값이면 null */
+export function tradeRestrictionScopeLabel(t: Translate, scope: string | null | undefined): string | null {
+  const key = TRADE_RESTRICTION_SCOPE_KEY[s(scope)];
+  return key ? t(key) : null;
+}
+
+export const TRADE_RESTRICTION_DAY_SELECT: { value: string; labelKey: MessageKey }[] = [
+  { value: "1", labelKey: "admin_trade_restrict_days_1" },
+  { value: "3", labelKey: "admin_trade_restrict_days_3" },
+  { value: "7", labelKey: "admin_trade_restrict_days_7" },
+  { value: "30", labelKey: "admin_trade_restrict_days_30" },
+  { value: "perm", labelKey: "admin_trade_restrict_days_perm" },
 ];
 
-const SANCTION_KIND_LABEL: Record<string, string> = {
-  warning: "경고",
-  trade_restriction: "거래 활동 제한",
-  community_restriction: "커뮤니티 활동 제한",
-  chat_ban: "채팅 제한",
-  temp_suspend: "계정 정지",
-  permanent_ban: "계정 차단",
+/** 기간 선택값 문구 (「영구」 또는 「N일」) */
+export function tradeRestrictionDaysLabel(t: Translate, days: string): string {
+  const o = TRADE_RESTRICTION_DAY_SELECT.find((x) => x.value === days);
+  return o ? t(o.labelKey) : t("admin_trade_restrict_days_n", { n: days });
+}
+
+const SANCTION_KIND_LABEL: Record<string, MessageKey> = {
+  warning: "admin_trade_restrict_badge_warning",
+  trade_restriction: "admin_trade_restrict_title",
+  community_restriction: "admin_trade_restrict_kind_community",
+  chat_ban: "admin_trade_restrict_kind_chat_ban",
+  temp_suspend: "admin_trade_members_tab_suspended",
+  permanent_ban: "admin_trade_restrict_kind_banned",
 };
 
-export function tradeSanctionKindLabel(kind: string | null | undefined): string {
-  return SANCTION_KIND_LABEL[s(kind)] ?? "기타 조치";
+export function tradeSanctionKindLabel(t: Translate, kind: string | null | undefined): string {
+  return t(SANCTION_KIND_LABEL[s(kind)] ?? "admin_trade_audit_act_other");
 }
 
 export function tradeSanctionStatusOf(r: Rec): "active" | "expired" | "revoked" {
@@ -82,10 +97,10 @@ export function tradeSanctionStatusOf(r: Rec): "active" | "expired" | "revoked" 
   return "active";
 }
 
-export function tradeSanctionPeriodText(r: Rec): string {
+export function tradeSanctionPeriodText(t: Translate, r: Rec): string {
   if (s(r.sanction_type) === "warning") return "—";
   const start = r.start_at ? formatAdminManilaDateTime(s(r.start_at)) : "—";
-  return r.end_at ? `${start} ~ ${formatAdminManilaDateTime(s(r.end_at))} PHT` : `${start} PHT ~ 영구`;
+  return r.end_at ? `${start} ~ ${formatAdminManilaDateTime(s(r.end_at))} PHT` : t("admin_trade_restrict_period_perm", { start });
 }
 
 export function TradeSanctionStateBadge({ row }: { row: Rec }) {
@@ -115,11 +130,11 @@ export type TradeRestrictionRow = {
   status: "active" | "expired" | "revoked";
 };
 
-export function tradeSettleBanner(kind: CommunitySheetSettle, okText: string, json: Rec): CommunityBanner {
-  if (kind === "stale") return { tone: "warning", text: COMMUNITY_STALE_TEXT };
+export function tradeSettleBanner(t: Translate, kind: CommunitySheetSettle, okText: string, json: Rec): CommunityBanner {
+  if (kind === "stale") return { tone: "warning", text: t("admin_community_post_stale") };
   if (kind === "gone") return { tone: "error", text: tradeErrorText("not_found") };
-  const warn = communityWarningsOf(json);
-  if (json.duplicate === true) return { tone: "warning", text: "이미 같은 조치가 적용 중이라 새로 추가하지 않았습니다.", extra: warn };
+  const warn = communityWarningsOf(json, getRuntimeAppLanguage());
+  if (json.duplicate === true) return { tone: "warning", text: t("admin_trade_restrict_duplicate"), extra: warn };
   return { tone: warn.length ? "warning" : "success", text: okText, extra: warn };
 }
 
@@ -133,25 +148,26 @@ export function TradeRevokeRestrictionSheet({
   onClose: () => void;
   onSettled: (banner: CommunityBanner) => void;
 }) {
+  const { t } = useI18n();
   const lastJson = useRef<Rec>({});
   const r = row as Rec;
   return (
     <CommunityActionSheet
-      title={s(r.sanction_type) === "warning" ? "경고 해제" : "거래 활동 제한 해제"}
+      title={s(r.sanction_type) === "warning" ? t("admin_trade_restrict_revoke_warning_title") : t("admin_trade_restrict_revoke_title")}
       rows={[
-        { label: "회원", value: s(r.user_label).trim() || "회원" },
+        { label: t("admin_trade_restrict_member"), value: s(r.user_label).trim() || t("admin_trade_restrict_member") },
         {
-          label: "종류·범위",
-          value: `${tradeSanctionKindLabel(s(r.sanction_type))}${
-            r.restriction ? ` · ${TRADE_RESTRICTION_SCOPE_LABEL[s(r.restriction)] ?? "범위 확인 불가"}` : ""
+          label: t("admin_trade_restrict_kind_scope"),
+          value: `${tradeSanctionKindLabel(t, s(r.sanction_type))}${
+            r.restriction ? ` · ${tradeRestrictionScopeLabel(t, s(r.restriction)) ?? t("admin_trade_restrict_scope_unknown")}` : ""
           }`,
         },
-        { label: "기간", value: tradeSanctionPeriodText(r) },
-        { label: "제한 사유", value: s(r.reason) || "—" },
+        { label: t("admin_trade_post_ads_th_period"), value: tradeSanctionPeriodText(t, r) },
+        { label: t("admin_trade_restrict_reason_label"), value: s(r.reason) || "—" },
       ]}
-      notice="해제하면 바로 거래 활동이 가능해지고, 회원에게 알림이 갑니다."
-      reason={{ minLength: REASON_MIN, placeholder: "해제 사유 (예: 이의신청 인정)" }}
-      confirmLabel="해제"
+      notice={t("admin_trade_restrict_revoke_notice")}
+      reason={{ minLength: REASON_MIN, placeholder: t("admin_trade_restrict_revoke_reason_ph") }}
+      confirmLabel={t("admin_trade_restrict_revoke_btn")}
       onClose={onClose}
       onSubmit={async (reason) => {
         const { result, json } = await communityActionFetch(
@@ -162,7 +178,7 @@ export function TradeRevokeRestrictionSheet({
         lastJson.current = json;
         return result;
       }}
-      onSettled={(kind) => onSettled(tradeSettleBanner(kind, "해제했습니다.", lastJson.current))}
+      onSettled={(kind) => onSettled(tradeSettleBanner(t, kind, t("admin_trade_restrict_revoked_ok"), lastJson.current))}
     />
   );
 }
@@ -210,7 +226,7 @@ export function TradeAddRestrictionSheet({
       };
       if (res.ok && j.ok) {
         setResults(
-          (j.rows ?? []).filter((r) => r.user_id).map((r) => ({ id: String(r.user_id), label: r.label?.trim() || "이름 없음" }))
+          (j.rows ?? []).filter((r) => r.user_id).map((r) => ({ id: String(r.user_id), label: r.label?.trim() || t("admin_trade_kit_no_name") }))
         );
       } else {
         setResults(null);
@@ -227,26 +243,26 @@ export function TradeAddRestrictionSheet({
 
   return (
     <CommunityActionSheet
-      title={kind === "warning" ? "경고 보내기" : "거래 활동 제한"}
+      title={kind === "warning" ? t("admin_trade_restrict_send_warning") : t("admin_trade_restrict_title")}
       rows={[
-        { label: "회원", value: member ? member.label : "선택 필요" },
+        { label: t("admin_trade_restrict_member"), value: member ? member.label : t("admin_trade_restrict_pick_needed") },
         {
-          label: "조치",
+          label: t("admin_trade_audit_th_action"),
           value:
             kind === "warning"
-              ? "경고"
-              : `${TRADE_RESTRICTION_SCOPE_LABEL[scope]} · ${days === "perm" ? "영구" : `${days}일`}`,
+              ? t("admin_trade_restrict_badge_warning")
+              : `${tradeRestrictionScopeLabel(t, scope)} · ${tradeRestrictionDaysLabel(t, days)}`,
         },
       ]}
       notice={
         kind === "warning"
-          ? "경고는 기록과 알림만 남기고 거래 활동을 막지 않습니다."
-          : "선택한 범위의 거래 활동만 막습니다. 커뮤니티·배달·메신저는 그대로입니다. 회원에게 알림이 갑니다."
+          ? t("admin_trade_restrict_warning_notice")
+          : t("admin_trade_restrict_restrict_notice")
       }
-      reason={{ minLength: REASON_MIN, placeholder: "사유 (회원 알림·운영 기록에 남습니다)" }}
+      reason={{ minLength: REASON_MIN, placeholder: t("admin_trade_restrict_reason_ph") }}
       ready={Boolean(member)}
       destructive={kind === "trade_restriction"}
-      confirmLabel={kind === "warning" ? "경고 보내기" : "거래 활동 제한"}
+      confirmLabel={kind === "warning" ? t("admin_trade_restrict_send_warning") : t("admin_trade_restrict_title")}
       onClose={onClose}
       onSubmit={async (reason) => {
         if (!member) return { ok: false, status: 400, code: "invalid_user_id" };
@@ -261,7 +277,7 @@ export function TradeAddRestrictionSheet({
       }}
       onSettled={(k) =>
         onSettled(
-          tradeSettleBanner(k, kind === "warning" ? "경고를 보냈습니다." : "거래 활동을 제한했습니다. 회원에게 알림이 갑니다.", lastJson.current)
+          tradeSettleBanner(t, k, kind === "warning" ? t("admin_trade_restrict_warning_sent") : t("admin_trade_restrict_restricted_ok"), lastJson.current)
         )
       }
     >
@@ -272,7 +288,7 @@ export function TradeAddRestrictionSheet({
             <span className="font-medium text-sam-fg">{member.label}</span>
             {lockMember ? null : (
               <AdminActionButton variant="quiet" size="sm" onClick={() => setMember(null)}>
-                다른 회원 선택
+                {t("admin_trade_restrictions_pick_other_member")}
               </AdminActionButton>
             )}
           </div>
@@ -292,7 +308,7 @@ export function TradeAddRestrictionSheet({
                 className={`${select} flex-1`}
               />
               <AdminActionButton variant="secondary" disabled={searching || !search.trim()} onClick={() => void runSearch()}>
-                {searching ? "찾는 중" : "찾기"}
+                {searching ? t("admin_trade_restrict_searching") : t("admin_trade_restrict_search")}
               </AdminActionButton>
             </div>
             {results ? (
@@ -323,31 +339,31 @@ export function TradeAddRestrictionSheet({
         <legend className="text-[12px] font-semibold text-sam-fg">{t("admin_trade_restrict_kind_legend")}</legend>
         <label className="mr-4 inline-flex items-center gap-1.5 text-[13px]">
           <input type="radio" checked={kind === "trade_restriction"} onChange={() => setKind("trade_restriction")} />
-          거래 활동 제한
+          {t("admin_trade_activity_restriction")}
         </label>
         <label className="inline-flex items-center gap-1.5 text-[13px]">
           <input type="radio" checked={kind === "warning"} onChange={() => setKind("warning")} />
-          경고
+          {t("admin_trade_restrictions_warning")}
         </label>
       </fieldset>
       {kind === "trade_restriction" ? (
         <div className="flex flex-wrap gap-3">
           <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-            범위
+            {t("admin_trade_restrictions_field_scope")}
             <select value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} className={select}>
               {(["post", "chat", "all"] as const).map((v) => (
                 <option key={v} value={v}>
-                  {TRADE_RESTRICTION_SCOPE_LABEL[v]}
+                  {tradeRestrictionScopeLabel(t, v)}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-            기간
+            {t("admin_trade_restrictions_field_period")}
             <select value={days} onChange={(e) => setDays(e.target.value)} className={select}>
               {TRADE_RESTRICTION_DAY_SELECT.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {t(o.labelKey)}
                 </option>
               ))}
             </select>
@@ -361,22 +377,22 @@ export function TradeAddRestrictionSheet({
 /* ───────── 목록 ───────── */
 
 type TabKey = "active" | "expired" | "revoked" | "all";
-const TABS: { value: TabKey; label: string }[] = [
-  { value: "active", label: "진행 중" },
-  { value: "expired", label: "만료" },
-  { value: "revoked", label: "해제" },
-  { value: "all", label: "전체" },
+const TABS: { value: TabKey; labelKey: MessageKey }[] = [
+  { value: "active", labelKey: "admin_trade_restrict_badge_active" },
+  { value: "expired", labelKey: "admin_trade_restrict_badge_expired" },
+  { value: "revoked", labelKey: "admin_trade_restrict_badge_revoked" },
+  { value: "all", labelKey: "common_all" },
 ];
-const EMPTY_TEXT: Record<TabKey, string> = {
-  active: "현재 진행 중인 경고·거래 활동 제한이 없습니다.",
-  expired: "기간이 끝난 제한이 없습니다.",
-  revoked: "해제된 기록이 없습니다.",
-  all: "경고·거래 활동 제한 기록이 없습니다.",
+const EMPTY_TEXT: Record<TabKey, MessageKey> = {
+  active: "admin_trade_restrict_empty_active",
+  expired: "admin_trade_restrict_empty_expired",
+  revoked: "admin_trade_restrict_empty_revoked",
+  all: "admin_trade_restrict_empty_all",
 };
-const KIND_OPTIONS = [
-  { value: "", label: "전체 종류" },
-  { value: "warning", label: "경고" },
-  { value: "trade_restriction", label: "거래 활동 제한" },
+const KIND_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_trade_restrict_kind_all" },
+  { value: "warning", labelKey: "admin_trade_restrict_badge_warning" },
+  { value: "trade_restriction", labelKey: "admin_trade_restrict_title" },
 ];
 
 type ListResponse = { ok?: boolean; error?: string; total?: number; rows?: TradeRestrictionRow[] };
@@ -438,20 +454,20 @@ export function TradeRestrictionsPage() {
   };
 
   const initialMember = userId
-    ? { id: userId, label: rows.find((r) => r.user_id === userId)?.user_label?.trim() || "선택한 회원" }
+    ? { id: userId, label: rows.find((r) => r.user_id === userId)?.user_label?.trim() || t("admin_trade_audit_selected_member") }
     : null;
 
   return (
     <CommunityListShell
       title={t("admin_trade_restrict_title")}
-      description="거래 경고·활동 제한을 확인하고 해제하거나 새로 적용합니다. 계정 정지는 판매자·구매자 상세에서 합니다."
+      description={t("admin_trade_restrict_desc")}
       actions={
         <>
           <AdminActionButton variant="secondary" onClick={reloadAll}>
-            새로고침
+            {t("admin_trade_restrictions_refresh")}
           </AdminActionButton>
           <AdminActionButton variant="secondary" onClick={() => setAdding(true)}>
-            제한 추가
+            {t("admin_trade_add_restriction")}
           </AdminActionButton>
         </>
       }
@@ -460,20 +476,20 @@ export function TradeRestrictionsPage() {
         <CommunityTabs
           value={tab}
           onChange={(v) => qs.set({ tab: v === "active" ? null : v })}
-          tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] }))}
+          tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey), count: counts[x.value] }))}
         />
       }
       filterBar={
-        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="닉네임" pending={state.status === "loading"}>
-          <CommunityFilterField label="종류">
-            <CommunitySelect value={kind} onChange={(v) => lq.setExtra("kind", v)} options={KIND_OPTIONS} />
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder={t("admin_trade_restrict_nickname")} pending={state.status === "loading"}>
+          <CommunityFilterField label={t("admin_trade_restrict_kind_legend")}>
+            <CommunitySelect value={kind} onChange={(v) => lq.setExtra("kind", v)} options={KIND_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
           </CommunityFilterField>
           {userId ? (
-            <CommunityFilterField label="회원">
+            <CommunityFilterField label={t("admin_trade_restrict_member")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                특정 회원만 보기
+                {t("admin_trade_restrictions_member_only")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("userId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -482,34 +498,33 @@ export function TradeRestrictionsPage() {
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={EMPTY_TEXT[tab]}>
-        <CommunityTable head={["회원", "종류", "범위", "기간", "사유", "처리자", "출처 신고", "상태", "처리"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={t(EMPTY_TEXT[tab])}>
+        <CommunityTable head={[t("admin_trade_restrict_member"), t("admin_trade_restrict_kind_legend"), t("admin_trade_restrict_th_scope"), t("admin_trade_post_ads_th_period"), t("admin_trade_flow_th_reason"), t("admin_trade_audit_actor"), t("admin_trade_restrict_th_source_report"), t("admin_trade_th_status"), t("admin_trade_restrict_th_handle")]}>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>
                 <TradeMemberCell userId={r.user_id} label={r.user_label} returnTo={lq.selfHref} />
               </td>
-              <td className={COMMUNITY_TD}>{tradeSanctionKindLabel(r.sanction_type)}</td>
+              <td className={COMMUNITY_TD}>{tradeSanctionKindLabel(t, r.sanction_type)}</td>
               <td className={COMMUNITY_TD}>
                 {r.sanction_type === "warning" ? (
                   <span className="text-sam-muted">—</span>
                 ) : (
-                  TRADE_RESTRICTION_SCOPE_LABEL[s(r.restriction)] ?? "범위 확인 불가"
+                  tradeRestrictionScopeLabel(t, r.restriction) ?? t("admin_trade_restrict_scope_unknown")
                 )}
               </td>
-              <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{tradeSanctionPeriodText(r)}</td>
+              <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{tradeSanctionPeriodText(t, r)}</td>
               <td className={COMMUNITY_TD}>
                 <p className="line-clamp-3 max-w-[16rem] whitespace-pre-wrap">{r.reason || "—"}</p>
                 {r.revoked_at ? (
                   <p className="mt-1 max-w-[16rem] sam-text-xxs text-sam-muted">
-                    해제: {r.revoke_reason || "—"} ({r.revoked_by_label ?? "관리자"} ·{" "}
-                    {`${formatAdminManilaDateTime(r.revoked_at)} PHT`})
+                    {t("admin_trade_restrictions_revoked_line", { reason: r.revoke_reason || "—", by: r.revoked_by_label ?? t("admin_trade_confirm_source_admin"), at: `${formatAdminManilaDateTime(r.revoked_at)} PHT` })}
                   </p>
                 ) : null}
               </td>
               <td className={COMMUNITY_TD}>
                 <span className="flex flex-col">
-                  <span>{r.created_by_label ?? "관리자"}</span>
+                  <span>{r.created_by_label ?? t("admin_trade_confirm_source_admin")}</span>
                   <span className="sam-text-xxs text-sam-muted">
                     <CommunityTimeCell iso={r.created_at} />
                   </span>
@@ -524,7 +539,7 @@ export function TradeRestrictionsPage() {
                     )}
                     className="text-sam-primary hover:underline"
                   >
-                    신고 보기
+                    {t("admin_trade_restrictions_view_report")}
                   </Link>
                 ) : (
                   <span className="text-sam-muted">{t("admin_trade_restrict_direct")}</span>
@@ -536,7 +551,7 @@ export function TradeRestrictionsPage() {
               <td className={COMMUNITY_TD}>
                 {r.status === "active" ? (
                   <AdminActionButton variant="secondary" size="sm" onClick={() => setRevokeRow(r)}>
-                    해제
+                    {t("admin_trade_restrictions_revoke")}
                   </AdminActionButton>
                 ) : null}
                 <AdminTechDetails ko>

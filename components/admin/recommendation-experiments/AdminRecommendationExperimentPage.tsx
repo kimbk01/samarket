@@ -154,7 +154,7 @@ export function AdminRecommendationExperimentPage() {
 
       <AdminTabs
         tabs={EXP_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="추천 실험 탭"
+        ariaLabel={t("admin_rec_experiment_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         defaultValue="experiments"

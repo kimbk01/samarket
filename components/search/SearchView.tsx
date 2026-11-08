@@ -32,7 +32,7 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { splitTradeListingAndCompositionOwnerIds } from "@/lib/trade/category-form";
 
 export function SearchView() {
-  const { safeT } = useI18n();
+  const { safeT, t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -193,7 +193,7 @@ export function SearchView() {
             </div>
             {showResults ? (
               <span className="shrink-0 sam-text-body-secondary font-medium text-[var(--text-muted)]" aria-hidden>
-                필터
+                {t("search_filter_label")}
               </span>
             ) : null}
           </div>
@@ -210,7 +210,7 @@ export function SearchView() {
       ),
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, locGate.lguCityId, safeT]);
+  }, [setMainTier1Extras, keyword, showResults, filters, handleSubmit, locGate.lguCityId, safeT, t]);
 
   return (
     <div className="mx-auto max-w-lg pb-24">

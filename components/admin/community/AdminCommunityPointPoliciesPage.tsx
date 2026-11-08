@@ -175,7 +175,7 @@ export function AdminCommunityPointPoliciesPage() {
               dataAttr: "community-point-to-finance",
             },
           ]}
-          noteKo="커뮤니티 글·댓글 보상 정책입니다. 포인트는 전체 서비스 공통입니다."
+          noteKo={t("admin_community_point_policies_note")}
           noteEn="Community post/comment reward policies. Points are shared across the service."
         />
       </Suspense>

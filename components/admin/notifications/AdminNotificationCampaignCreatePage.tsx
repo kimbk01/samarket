@@ -52,6 +52,7 @@ import {
 } from "@/lib/admin/notification-campaigns/campaign-list-kind";
 import { SoundModal, useCategorySoundLabel } from "@/components/admin/notifications/AdminSentNotificationPanels";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Channel = "push_only" | "in_app_only" | "push_and_in_app" | "test_only";
 type RecurrenceKind = "daily" | "weekly" | "monthly";
@@ -140,12 +141,22 @@ const CATEGORY_NEW_POST_TYPE: Record<CampaignNoticeCategory, "notice" | "system"
   event: "marketing",
   marketing: "marketing",
 };
-const CATEGORY_LABEL: Record<CampaignNoticeCategory, [string, string]> = {
-  notice: ["공지사항", "Notice"],
-  system: ["시스템 안내", "System"],
-  event: ["이벤트", "Event"],
-  marketing: ["마케팅", "Marketing"],
+const CATEGORY_LABEL: Record<CampaignNoticeCategory, MessageKey> = {
+  notice: "admin_notifications_kind_notice",
+  system: "admin_notifications_kind_system",
+  event: "admin_notifications_kind_event",
+  marketing: "admin_notifications_kind_marketing",
 };
+
+const WEEKDAY_KEYS: readonly MessageKey[] = [
+  "admin_notifications_weekday_sun",
+  "admin_notifications_weekday_mon",
+  "admin_notifications_weekday_tue",
+  "admin_notifications_weekday_wed",
+  "admin_notifications_weekday_thu",
+  "admin_notifications_weekday_fri",
+  "admin_notifications_weekday_sat",
+];
 
 export type CampaignComposeDone = { id: string; tab: "completed" | "in_progress"; message: string };
 
@@ -166,7 +177,7 @@ export function AdminNotificationCampaignCreatePage({
   const searchParams = useSearchParams();
   const { adminMe } = useAdminShell();
   const lang = language === "en" ? "en" : "ko";
-  const tx = (ko: string, en: string) => (lang === "ko" ? ko : en);
+  const tx = (key: MessageKey, vars?: Record<string, unknown>) => translateBy(lang, key, vars);
 
   const [category, setCategory] = useState<CampaignNoticeCategory>("notice");
   const [soundOpen, setSoundOpen] = useState(false);
@@ -549,9 +560,9 @@ export function AdminNotificationCampaignCreatePage({
   };
 
   const timeLabel = () => {
-    if (sendMode === "scheduled") return `${formatCampaignTime(toIsoOrNull(scheduledAt))} ${tx("예약", "(scheduled)")}`;
+    if (sendMode === "scheduled") return `${formatCampaignTime(toIsoOrNull(scheduledAt))} ${tx("admin_notifications_scheduled_2")}`;
     if (sendMode === "recurring") return `${t(`admin_notif_recurrence_${recurrenceKind}`)} ${recurrenceTime}`;
-    return tx("즉시 발송", "Immediately");
+    return tx("admin_notifications_immediately");
   };
 
   /** 확인창 이후 실행 — 새 알림: 생성 → (지금이면) 발송 · 수정: 저장 → (초안이면) 발송·예약. */
@@ -601,10 +612,10 @@ export function AdminNotificationCampaignCreatePage({
         tab: sendMode === "immediate" ? "completed" : "in_progress",
         message:
           sendMode === "immediate"
-            ? tx("보냈습니다 — 결과는 받은 사람에서 확인", "Sent — see Recipients for results")
+            ? tx("admin_notifications_sent_see_recipients_for_results")
             : sendMode === "scheduled"
-              ? tx("예약했습니다", "Scheduled")
-              : tx("반복을 시작했습니다 — 발송 중·예약에 있습니다", "Repeat started"),
+              ? tx("admin_notifications_scheduled")
+              : tx("admin_notifications_repeat_started"),
       });
       return;
     }
@@ -626,12 +637,12 @@ export function AdminNotificationCampaignCreatePage({
       level: adminActionLevel("save"),
       ko,
       title: editingLive
-        ? tx("변경 내용을 저장하시겠습니까?", "Save changes?")
+        ? tx("admin_notifications_save_changes")
         : sendMode === "immediate"
-          ? tx("전송하시겠습니까?", "Send now?")
-          : tx("예약하시겠습니까?", "Schedule this?"),
+          ? tx("admin_notifications_send_now")
+          : tx("admin_notifications_schedule_2"),
       description: `${who} · ${timeLabel()}`,
-      confirmLabel: editingLive ? tx("저장", "Save") : sendMode === "immediate" ? tx("전송", "Send") : tx("예약", "Schedule"),
+      confirmLabel: editingLive ? tx("admin_notifications_save") : sendMode === "immediate" ? tx("admin_notifications_send") : tx("admin_notifications_schedule"),
     });
     if (!confirmed.ok) return;
     setBusy(true);
@@ -682,10 +693,7 @@ export function AdminNotificationCampaignCreatePage({
         return;
       }
       setInfo(
-        tx(
-          `테스트 발송 완료 · 발송 ${j.sent ?? 0} · 건너뜀 ${j.skipped ?? 0} · 실패 ${j.failed ?? 0}`,
-          `Test sent · sent ${j.sent ?? 0} · skipped ${j.skipped ?? 0} · failed ${j.failed ?? 0}`
-        )
+        tx("admin_notifications_test_sent_summary", { sent: j.sent ?? 0, skipped: j.skipped ?? 0, failed: j.failed ?? 0 })
       );
     } finally {
       setBusy(false);
@@ -696,11 +704,11 @@ export function AdminNotificationCampaignCreatePage({
     if (!file) return;
     setErr(null);
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setErr(tx("JPG·PNG·WEBP 이미지만 올릴 수 있습니다.", "Only JPG, PNG or WEBP images."));
+      setErr(tx("admin_notifications_only_jpg_png_or_webp_images"));
       return;
     }
     if (file.size > CAMPAIGN_IMAGE_MAX_BYTES) {
-      setErr(tx("이미지는 2MB 이하만 올릴 수 있습니다.", "Images must be 2 MB or smaller."));
+      setErr(tx("admin_notifications_images_must_2_mb_or_smaller"));
       return;
     }
     setBusy(true);
@@ -785,7 +793,7 @@ export function AdminNotificationCampaignCreatePage({
     targetOptions.push({ value: "marketing_opt_in", ko: "광고 수신 동의 회원", en: "Marketing opt-in members" });
   }
   const targetOption = targetOptions.find((o) => o.value === targetType);
-  const weekdays = lang === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weekdays = WEEKDAY_KEYS.map((key) => tx(key));
   const blocked = busy || Boolean(createdUnsentId) || Boolean(editBlocked);
   const q = pickerQ.trim().toLowerCase();
   const pickerPosts = postRows.filter((r) => !q || r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
@@ -802,7 +810,7 @@ export function AdminNotificationCampaignCreatePage({
             title={
               editId
                 ? `${safeT("admin_campaign_cms_edit_title")}${editStatus ? ` · ${campaignStatusLabel(editStatus, lang)}` : ""}`
-                : tx("알림 보내기", "Send notification")
+                : tx("admin_notifications_send_notification")
             }
           />
         </>
@@ -828,52 +836,49 @@ export function AdminNotificationCampaignCreatePage({
         <section className="min-w-0 space-y-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           {/* ⓪ 분류 */}
           <div className="space-y-2" data-admin-notif-category={category}>
-            <h2 className="text-sm font-semibold text-sam-fg">{tx("분류", "Category")}</h2>
+            <h2 className="text-sm font-semibold text-sam-fg">{tx("admin_notifications_category")}</h2>
             <div className="flex flex-wrap gap-2">
               {(["notice", "system", "event", "marketing"] as const).map((c) => (
                 <AdminChipButton key={c} selected={category === c} disabled={editingLive} onClick={() => chooseCategory(c)}>
-                  {lang === "ko" ? CATEGORY_LABEL[c][0] : CATEGORY_LABEL[c][1]}
+                  {tx(CATEGORY_LABEL[c])}
                 </AdminChipButton>
               ))}
             </div>
             <p className="text-xs text-sam-muted">
-              {tx(
-                "보낸 알림의 같은 분류 탭에 쌓입니다. 분류마다 고를 수 있는 「누르면 열 화면」이 다릅니다.",
-                "Appears under the same category tab. Each category allows its own destinations."
-              )}
+              {tx("admin_notifications_appears_under_same_category_tab_each")}
             </p>
           </div>
 
           {/* ① 내용 */}
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-sam-fg">{tx("① 내용", "① Message")}</h2>
+            <h2 className="text-sm font-semibold text-sam-fg">{tx("admin_notifications_message")}</h2>
             <label className="block text-sm">
-              <span className="text-sam-muted">{tx("제목", "Title")}</span>
+              <span className="text-sam-muted">{tx("admin_notifications_title")}</span>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className={fieldClass}
-                placeholder={tx("예) 업데이트 안내", "e.g. Update available")}
+                placeholder={tx("admin_notifications_e_g_update_available")}
               />
               <span className={`mt-1 block text-right text-xs ${title.length > TITLE_GUIDE_MAX ? "text-sam-warning" : "text-sam-meta"}`}>
                 {title.length}/{TITLE_GUIDE_MAX}
               </span>
             </label>
             <label className="block text-sm">
-              <span className="text-sam-muted">{tx("메시지", "Message")}</span>
+              <span className="text-sam-muted">{tx("admin_notifications_message_2")}</span>
               <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} className={fieldClass} />
               <span className={`mt-1 block text-right text-xs ${body.length > BODY_GUIDE_MAX ? "text-sam-warning" : "text-sam-meta"}`}>
                 {body.length}/{BODY_GUIDE_MAX}
               </span>
             </label>
             <div className="space-y-2 text-sm" data-admin-notif-image={imageUrl ? "1" : "0"}>
-              <span className="text-sam-muted">{tx("이미지 (선택)", "Image (optional)")}</span>
+              <span className="text-sam-muted">{tx("admin_notifications_image_optional")}</span>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect border border-dashed border-sam-border bg-sam-app">
                   {imageUrl ? (
                     <SamarketThumbnail src={imageUrl} alt="" className="h-24 w-24 object-cover" size={96} />
                   ) : (
-                    <span className="text-xs text-sam-meta">{tx("없음", "None")}</span>
+                    <span className="text-xs text-sam-meta">{tx("admin_notifications_none")}</span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -888,35 +893,32 @@ export function AdminNotificationCampaignCreatePage({
                         e.target.value = "";
                       }}
                     />
-                    {imageUrl ? tx("다른 이미지 올리기", "Replace image") : tx("이미지 올리기", "Upload image")}
+                    {imageUrl ? tx("admin_notifications_replace_image") : tx("admin_notifications_upload_image")}
                   </AdminActionLabel>
                   {sourceImage && sourceImage !== imageUrl ? (
                     <AdminActionButton variant="secondary" size="sm" disabled={editingLive} onClick={() => applyImage(sourceImage)}>
-                      {destination === "event" ? tx("이벤트 이미지 쓰기", "Use event image") : tx("글 이미지 쓰기", "Use post image")}
+                      {destination === "event" ? tx("admin_notifications_use_event_image") : tx("admin_notifications_use_post_image")}
                     </AdminActionButton>
                   ) : null}
                   {imageUrl ? (
                     <AdminActionButton variant="secondary" size="sm" disabled={editingLive} onClick={() => applyImage("")}>
-                      {tx("이미지 빼기", "Remove image")}
+                      {tx("admin_notifications_remove_image")}
                     </AdminActionButton>
                   ) : null}
                 </div>
               </div>
               <p className="text-xs text-sam-meta">
                 {sourceImage && sourceImage === imageUrl
-                  ? tx("연결한 글·이벤트의 대표 이미지를 쓰는 중입니다. ", "Using the linked post/event image. ")
+                  ? `${tx("admin_notifications_using_linked_post_event_image")} `
                   : ""}
-                {tx(
-                  "JPG·PNG·WEBP, 2MB 이하. Android·iPhone 푸시와 알림함에 함께 보입니다.",
-                  "JPG, PNG or WEBP up to 2 MB. Shown in Android and iPhone push and in the inbox."
-                )}
+                {tx("admin_notifications_jpg_png_or_webp_up_2")}
               </p>
             </div>
           </div>
 
           {/* ② 누르면 열 화면 */}
           <div className="space-y-3" data-admin-notif-destination={destination}>
-            <h2 className="text-sm font-semibold text-sam-fg">{tx("② 누르면 열 화면", "② Opens on tap")}</h2>
+            <h2 className="text-sm font-semibold text-sam-fg">{tx("admin_notifications_opens_on_tap")}</h2>
             <div className="flex flex-wrap gap-2">
               {destinationOptions.filter((o) => allowedDestinations.includes(o.id)).map((o) => (
                 <AdminChipButton
@@ -931,10 +933,7 @@ export function AdminNotificationCampaignCreatePage({
             </div>
             {destination === "inbox" ? (
               <p className="text-xs text-sam-warning" data-admin-notif-inbox-retired>
-                {tx(
-                  "「알림 내용 보기」는 더 이상 쓸 수 없어요. 회원이 고객센터에서 다시 볼 수 있도록 고객센터 글을 고르거나 새 글을 써 주세요.",
-                  "「Notification detail」 is retired. Choose or write a Customer Center post so members can find it again."
-                )}
+                {tx("admin_notifications_notification_detail_retired_choose_or_write")}
               </p>
             ) : null}
             {destination === "post" ? (
@@ -942,12 +941,12 @@ export function AdminNotificationCampaignCreatePage({
                 {post ? (
                   <span className="text-sam-fg">
                     {BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang]} · {post.title}
-                    {post.is_active === false ? <span className="text-sam-warning"> · {tx("숨김", "hidden")}</span> : null}
+                    {post.is_active === false ? <span className="text-sam-warning"> · {tx("admin_notifications_hidden")}</span> : null}
                   </span>
                 ) : null}
                 {!editingLive ? (
                   <AdminActionButton variant="secondary" size="sm" onClick={() => void openPicker("post")}>
-                    {post ? tx("다른 글", "Change") : tx("글 고르기", "Choose post")}
+                    {post ? tx("admin_notifications_change") : tx("admin_notifications_choose_post")}
                   </AdminActionButton>
                 ) : null}
                 {!editingLive ? (
@@ -960,7 +959,7 @@ export function AdminNotificationCampaignCreatePage({
                     }}
                     data-admin-notif-new-post
                   >
-                    {tx("＋ 새 글 쓰기", "+ Write new post")}
+                    {tx("admin_notifications_write_new_post")}
                   </AdminActionButton>
                 ) : null}
               </div>
@@ -968,13 +967,10 @@ export function AdminNotificationCampaignCreatePage({
             {destination === "post" && newPostOpen && !editingLive ? (
               <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface-muted p-3 text-sm" data-admin-notif-new-post-panel>
                 <p className="text-xs text-sam-muted">
-                  {tx(
-                    "위 ① 의 제목·내용·알림함 이미지로 고객센터 글을 만들고 그 글로 보냅니다. 회원은 고객센터 목록에서 언제든 다시 볼 수 있어요.",
-                    "Creates a Customer Center post from ① title, body and in-app image, then sends to that post."
-                  )}
+                  {tx("admin_notifications_creates_customer_center_post_from_title")}
                 </p>
                 <p className="text-xs text-sam-fg">
-                  {tx("만들 게시판", "Board")}: <b>{BOARD_LABEL[newPostType][lang]}</b>
+                  {tx("admin_notifications_board")}: <b>{BOARD_LABEL[newPostType][lang]}</b>
                 </p>
                 {newPostError ? <p className="text-xs text-sam-danger">{newPostError}</p> : null}
                 <AdminActionButton
@@ -1002,7 +998,7 @@ export function AdminNotificationCampaignCreatePage({
                         notice?: PickedPost;
                       };
                       if (!res.ok || !j.ok || !j.notice) {
-                        setNewPostError(tx("글을 만들지 못했어요", "Could not create the post") + (j.error ? ` (${j.error})` : ""));
+                        setNewPostError(tx("admin_notifications_could_not_create_post") + (j.error ? ` (${j.error})` : ""));
                         return;
                       }
                       setPost({
@@ -1018,7 +1014,7 @@ export function AdminNotificationCampaignCreatePage({
                     }
                   }}
                 >
-                  {newPostBusy ? tx("만드는 중…", "Creating…") : tx("글 만들고 이 글로 보내기", "Create post and use it")}
+                  {newPostBusy ? tx("admin_notifications_creating") : tx("admin_notifications_create_post_and_use_it")}
                 </AdminActionButton>
               </div>
             ) : null}
@@ -1028,11 +1024,11 @@ export function AdminNotificationCampaignCreatePage({
                   {event ? <span className="text-sam-fg">{event.title}</span> : null}
                   {!editingLive ? (
                     <AdminActionButton variant="secondary" size="sm" onClick={() => void openPicker("event")}>
-                      {event ? tx("다른 이벤트", "Change") : tx("이벤트 고르기", "Choose event")}
+                      {event ? tx("admin_notifications_change_2") : tx("admin_notifications_choose_event")}
                     </AdminActionButton>
                   ) : null}
                 </div>
-                <p className="text-xs text-sam-muted">{tx("알림함은 전원에게, 푸시는 혜택·이벤트 수신에 동의한 회원에게만 갑니다.", "Inbox: everyone. Push: members who opted in to benefits & events.")}</p>
+                <p className="text-xs text-sam-muted">{tx("admin_notifications_inbox_everyone_push_members_who_opted")}</p>
               </div>
             ) : null}
             {destination === "app" ? (
@@ -1048,7 +1044,7 @@ export function AdminNotificationCampaignCreatePage({
                   value={appPath}
                   onChange={(e) => setAppPath(e.target.value)}
                   disabled={editingLive}
-                  placeholder={tx("또는 앱 경로 직접 입력 (예: /market)", "Or type an in-app path (e.g. /market)")}
+                  placeholder={tx("admin_notifications_or_type_in_app_path_e")}
                   className={fieldClass}
                 />
               </div>
@@ -1058,7 +1054,7 @@ export function AdminNotificationCampaignCreatePage({
           {/* ③ 받는 사람 · ④ 시점 */}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="font-semibold text-sam-fg">{tx("③ 받는 사람", "③ Recipients")}</span>
+              <span className="font-semibold text-sam-fg">{tx("admin_notifications_recipients_3")}</span>
               <select value={targetType} onChange={(e) => setTargetType(e.target.value)} className={fieldClass}>
                 {targetOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -1068,11 +1064,11 @@ export function AdminNotificationCampaignCreatePage({
               </select>
             </label>
             <div className="space-y-1 text-sm">
-              <span className="font-semibold text-sam-fg">{tx("④ 시점", "④ When")}</span>
+              <span className="font-semibold text-sam-fg">{tx("admin_notifications_when_2")}</span>
               <div className="flex flex-wrap gap-2 pt-1">
                 {sendModes.map((mode) => (
                   <AdminChipButton key={mode} selected={sendMode === mode} disabled={!sendModeAllowed(mode)} onClick={() => setSendMode(mode)}>
-                    {mode === "immediate" ? tx("지금", "Now") : mode === "scheduled" ? tx("예약", "Schedule") : tx("반복", "Repeat")}
+                    {mode === "immediate" ? tx("admin_notifications_now") : mode === "scheduled" ? tx("admin_notifications_schedule") : tx("admin_notifications_repeat_2")}
                   </AdminChipButton>
                 ))}
               </div>
@@ -1080,19 +1076,18 @@ export function AdminNotificationCampaignCreatePage({
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sam-fg" data-admin-notif-kind="1">
             <span>
-              {tx("받는 사람", "Recipients")}:{" "}
+              {tx("admin_notifications_recipients_2")}:{" "}
               <b data-admin-notif-audience-count>
                 {audienceCount == null
-                  ? tx("계산 중…", "Counting…")
+                  ? tx("admin_notifications_counting")
                   : audienceCount.pushFailed
-                    ? tx(
-                        `알림함 ${formatAdminNumber(audienceCount.inbox)}명 · 푸시 인원 계산 실패`,
-                        `Inbox ${formatAdminNumber(audienceCount.inbox)} · Push count failed`
-                      )
+                    ? tx("admin_notifications_audience_push_count_failed", { v: formatAdminNumber(audienceCount.inbox) })
                     : tx(
-                      `알림함 ${formatAdminNumber(audienceCount.inbox)}명 · 푸시 ${formatAdminNumber(audienceCount.push)}명${type === "marketing" ? "(수신 동의 회원)" : ""}`,
-                      `Inbox ${formatAdminNumber(audienceCount.inbox)} · Push ${formatAdminNumber(audienceCount.push)}${type === "marketing" ? " (opted in)" : ""}`
-                    )}
+                        type === "marketing"
+                          ? "admin_notifications_audience_inbox_push_opted_in"
+                          : "admin_notifications_audience_inbox_push",
+                        { inbox: formatAdminNumber(audienceCount.inbox), push: formatAdminNumber(audienceCount.push) }
+                      )}
               </b>
               {audienceCount?.pushFailed ? (
                 <AdminActionButton
@@ -1101,30 +1096,27 @@ export function AdminNotificationCampaignCreatePage({
                   className="ml-2"
                   onClick={() => setAudienceRetry((n) => n + 1)}
                 >
-                  {tx("새로고침", "Refresh")}
+                  {tx("admin_notifications_refresh")}
                 </AdminActionButton>
               ) : null}
             </span>
             <span className="flex items-center gap-2" data-admin-notif-sound>
-              {tx("알림음", "Sound")}: <b>{soundLabel ?? "—"}</b>
+              {tx("admin_notifications_sound")}: <b>{soundLabel ?? "—"}</b>
               <AdminActionButton variant="secondary" size="sm" onClick={() => setSoundOpen(true)}>
-                {tx("알림음 변경", "Change sound")}
+                {tx("admin_notifications_change_sound")}
               </AdminActionButton>
             </span>
           </div>
           {type === "marketing" ? (
             <p className="text-xs text-sam-muted">
-              {tx(
-                "혜택·이벤트 알림 — 알림함은 전원, 푸시는 혜택·이벤트 수신 동의 회원만(내정보에서 끈 회원 제외).",
-                "Benefits & events — inbox for everyone, push only for opted-in members."
-              )}
+              {tx("admin_notifications_benefits_events_inbox_for_everyone_push")}
             </p>
           ) : null}
 
           {targetType === "selected_users" ? (
             <label className="block text-sm">
               <span className="text-sam-muted">
-                {tx("회원 ID (줄바꿈·쉼표로 구분)", "Member IDs (newline or comma)")} · {parseCampaignUserIds(selectedIds).length}
+                {tx("admin_notifications_member_ids_newline_or_comma")} · {parseCampaignUserIds(selectedIds).length}
               </span>
               <textarea value={selectedIds} onChange={(e) => setSelectedIds(e.target.value)} rows={3} className={`${fieldClass} font-mono text-xs`} />
             </label>
@@ -1137,7 +1129,7 @@ export function AdminNotificationCampaignCreatePage({
           ) : null}
           {sendMode === "scheduled" ? (
             <label className="block text-sm">
-              <span className="text-sam-muted">{tx("예약 시각 (PHT)", "Scheduled time (PHT)")}</span>
+              <span className="text-sam-muted">{tx("admin_notifications_scheduled_time_pht")}</span>
               <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className={fieldClass} />
             </label>
           ) : null}
@@ -1162,16 +1154,16 @@ export function AdminNotificationCampaignCreatePage({
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block text-sm">
                   <span className="text-sam-muted">
-                    {tx("발송 시각", "Send time")} ({recurrenceTimezone === "Asia/Manila" ? "PHT" : recurrenceTimezone})
+                    {tx("admin_notifications_send_time")} ({recurrenceTimezone === "Asia/Manila" ? "PHT" : recurrenceTimezone})
                   </span>
                   <input type="time" value={recurrenceTime} onChange={(e) => setRecurrenceTime(e.target.value)} className={fieldClass} />
                 </label>
                 <label className="block text-sm">
-                  <span className="text-sam-muted">{tx("시작", "Starts")}</span>
+                  <span className="text-sam-muted">{tx("admin_notifications_starts")}</span>
                   <input type="datetime-local" value={recurrenceStartAt} onChange={(e) => setRecurrenceStartAt(e.target.value)} className={fieldClass} />
                 </label>
                 <label className="block text-sm">
-                  <span className="text-sam-muted">{tx("종료 (비우면 계속)", "Ends (empty = no end)")}</span>
+                  <span className="text-sam-muted">{tx("admin_notifications_ends_empty_no_end")}</span>
                   <input type="datetime-local" value={recurrenceEndAt} onChange={(e) => setRecurrenceEndAt(e.target.value)} className={fieldClass} />
                 </label>
               </div>
@@ -1179,7 +1171,7 @@ export function AdminNotificationCampaignCreatePage({
           ) : null}
 
           <details className="rounded-ui-rect border border-sam-border-soft p-3 text-sm">
-            <summary className="cursor-pointer text-sam-muted">{tx("고급 설정 — 채널 · 테스트 수신자", "Advanced — channel · test recipients")}</summary>
+            <summary className="cursor-pointer text-sam-muted">{tx("admin_notifications_advanced_channel_test_recipients")}</summary>
             <div className="mt-3 space-y-4">
               <div className="space-y-1">
                 <span className="text-sam-muted">{t("admin_notif_label_channel")}</span>
@@ -1196,7 +1188,7 @@ export function AdminNotificationCampaignCreatePage({
                 </div>
               </div>
               <label className="block">
-                <span className="text-sam-muted">{tx("테스트로 함께 받을 회원 ID (내 계정은 자동 포함)", "Extra test recipient IDs (my account included)")}</span>
+                <span className="text-sam-muted">{tx("admin_notifications_extra_test_recipient_ids_my_account")}</span>
                 <textarea value={extraTestIds} onChange={(e) => setExtraTestIds(e.target.value)} rows={2} className={`${fieldClass} font-mono text-xs`} />
               </label>
             </div>
@@ -1206,7 +1198,7 @@ export function AdminNotificationCampaignCreatePage({
         {/* 오른쪽 — 미리보기 · 버튼 */}
         <aside className="space-y-4 lg:sticky lg:top-4">
           <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <p className="text-xs text-sam-muted">{tx("미리보기", "Preview")}</p>
+            <p className="text-xs text-sam-muted">{tx("admin_notifications_preview_2")}</p>
             <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3" data-admin-notif-preview="1">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-sam-fg">{presentation.pushPayload.title}</p>
@@ -1222,19 +1214,19 @@ export function AdminNotificationCampaignCreatePage({
               ) : null}
             </div>
             {/* 알림 최종 설계 §5-6 — 앱 알림 줄 · 고객센터 목록 줄·상세 미리보기 (쓴 그대로 1:1) */}
-            <p className="pt-1 text-xs text-sam-muted">{tx("앱 알림 줄", "App bell row")}</p>
+            <p className="pt-1 text-xs text-sam-muted">{tx("admin_notifications_app_bell_row")}</p>
             <div className="flex gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-2.5" data-admin-notif-preview-row>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-sam-fg">{presentation.pushPayload.title}</p>
                 <p className="truncate text-xs text-sam-muted">{presentation.pushPayload.body}</p>
                 <p className="mt-0.5 text-xs font-semibold text-sam-primary">
                   {destination === "post" && post
-                    ? tx(`${BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")].ko}에서 보기 ›`, "Open in Customer Center ›")
+                    ? tx("admin_notifications_open_in_board", { board: BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang] })
                     : destination === "event"
-                      ? tx("이벤트에서 보기 ›", "Open event ›")
+                      ? tx("admin_notifications_open_event")
                       : destination === "app"
-                        ? tx("앱 화면으로 ›", "Open app screen ›")
-                        : tx("목적지를 골라 주세요", "Choose a destination")}
+                        ? tx("admin_notifications_open_app_screen")
+                        : tx("admin_notifications_choose_destination")}
                 </p>
               </div>
               {(inAppImageOverride ?? imageUrl).trim().startsWith("https://") ? (
@@ -1248,7 +1240,7 @@ export function AdminNotificationCampaignCreatePage({
             </div>
             {destination === "post" && post ? (
               <>
-                <p className="pt-1 text-xs text-sam-muted">{tx("고객센터 목록 줄 · 상세", "Customer Center row · detail")}</p>
+                <p className="pt-1 text-xs text-sam-muted">{tx("admin_notifications_customer_center_row_detail")}</p>
                 <div className="space-y-1.5 rounded-ui-rect border border-sam-border bg-sam-surface p-2.5" data-admin-notif-preview-post>
                   <p className="text-xs font-semibold text-sam-primary">
                     {BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang]}
@@ -1258,8 +1250,8 @@ export function AdminNotificationCampaignCreatePage({
                     <SamarketThumbnail src={post.hero_image_url} alt="" className="h-24 w-full rounded-ui-rect object-cover" size={240} />
                   ) : null}
                   <p className="text-xs text-sam-muted">
-                    {tx("하단 버튼:", "Bottom button:")}{" "}
-                    {tx(`${BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")].ko} 목록`, "Board list")}
+                    {tx("admin_notifications_bottom_button")}{" "}
+                    {tx("admin_notifications_board_list", { board: BOARD_LABEL[parseCustomerCenterContentType(post.content_type, "notice")][lang] })}
                   </p>
                 </div>
               </>
@@ -1289,7 +1281,7 @@ export function AdminNotificationCampaignCreatePage({
             ) : null}
             {createdUnsentId ? (
               <AdminActionLink href={`/admin/notifications/${encodeURIComponent(createdUnsentId)}`} className="w-full">
-                {tx("만든 알림 상세에서 발송 상태 보기", "Open the created notification")}
+                {tx("admin_notifications_open_created_notification")}
               </AdminActionLink>
             ) : null}
 
@@ -1310,7 +1302,7 @@ export function AdminNotificationCampaignCreatePage({
               onClick={() => void onTestSend()}
               data-admin-notif-test="1"
             >
-              {tx("내 폰으로 테스트", "Test on my phone")}
+              {tx("admin_notifications_test_on_my_phone")}
             </AdminActionButton>
             {embedded ? (
               <AdminActionButton variant="ghost" className="w-full" disabled={busy} onClick={embedded.onClose}>
@@ -1343,7 +1335,7 @@ export function AdminNotificationCampaignCreatePage({
           <div className={`${OverlayUi.dialogPanel} !max-w-lg max-h-[80vh] overflow-hidden !p-0`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-2 border-b border-[color:var(--overlay-border)] px-4 py-3">
               <h3 className={`${OverlayUi.title} min-w-0 flex-1 !text-left`}>
-                {picker === "post" ? tx("게시 중인 고객센터 글", "Published posts") : tx("진행 중인 이벤트", "Live events")}
+                {picker === "post" ? tx("admin_notifications_published_posts") : tx("admin_notifications_live_events")}
               </h3>
               <DibayOverlayButton roleTone="text" className="!min-h-9 !w-auto !flex-none !px-2" onClick={() => setPicker(null)}>
                 {t("admin_notif_btn_cancel")}
@@ -1400,8 +1392,8 @@ export function AdminNotificationCampaignCreatePage({
                   {(picker === "post" ? pickerPosts.length : pickerEvents.length) === 0 ? (
                     <li className="py-6 text-center text-xs text-sam-muted">
                       {picker === "post"
-                        ? tx("게시 중인 글이 없습니다. 「알림 내용 보기」로 보내세요.", "No published posts. Use notification detail.")
-                        : tx("진행 중인 이벤트가 없습니다.", "No live events.")}
+                        ? tx("admin_notifications_no_published_posts_use_notification_detail")
+                        : tx("admin_notifications_no_live_events")}
                     </li>
                   ) : null}
                 </ul>

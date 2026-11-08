@@ -10,6 +10,7 @@
  * (`periodSummary` · 서버 계산 · 탭·검색·쪽과 무관)를 `AdminRequestPeriodSummaryLine` 으로 보여 준다.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
@@ -44,7 +45,6 @@ import { AdminRequestPeriodSummaryLine } from "@/components/admin/finance/AdminR
 import type { AdminRequestPeriodSummary } from "@/lib/admin/finance/admin-request-period-summary";
 import { pointChargesListPeriodDates } from "@/lib/admin/community-admin/point-charges-list-period";
 import {
-  COMMUNITY_STALE_MESSAGE,
   formatCommunityPeso,
   formatCommunityPoints,
   useCommunityAdminAccess,
@@ -64,10 +64,10 @@ const TAB_KEYS = Object.keys(TAB_STATUSES);
 
 const OPEN_STATUSES = new Set(["pending", "waiting_confirm", "on_hold"]);
 
-const PAYMENT_METHOD: Record<string, string> = {
-  bank_transfer: "계좌 이체",
-  gcash: "GCash",
-  manual_confirm: "관리자 확인",
+const PAYMENT_METHOD: Record<string, MessageKey> = {
+  bank_transfer: "admin_community_charges_method_bank_transfer",
+  gcash: "admin_community_charges_method_gcash",
+  manual_confirm: "admin_community_charges_method_manual_confirm",
 };
 
 type ListResponse = {
@@ -131,14 +131,14 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
   return (
     <CommunityListShell
       title={t("admin_community_charges_title")}
-      description="회원의 포인트 충전 신청을 입금 확인 후 승인하거나 반려합니다."
+      description={t("admin_community_charges_desc")}
       banner={
         <div className="space-y-2">
           <p
             data-community-charge-scope="all-members"
             className="rounded-ui-rect border border-sam-info bg-sam-info-soft px-3 py-2 text-[13px] font-medium text-sam-fg"
           >
-            포인트는 전체 서비스 공통입니다. 이 목록은 모든 회원의 충전 신청입니다.
+            {t("admin_community_charges_scope_note")}
           </p>
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
         </div>
@@ -148,17 +148,17 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
           value={status}
           onChange={(v) => lq.setStatus(v)}
           tabs={[
-            { value: "pending", label: "승인 대기", count: loaded ? countOf("pending") : null },
-            { value: "on_hold", label: "보류", count: loaded ? countOf("on_hold") : null },
-            { value: "approved", label: "승인", count: loaded ? countOf("approved") : null },
-            { value: "rejected", label: "반려", count: loaded ? countOf("rejected") : null },
-            { value: "all", label: "전체", count: loaded ? countOf("all") : null },
+            { value: "pending", label: t("admin_community_charges_tab_pending"), count: loaded ? countOf("pending") : null },
+            { value: "on_hold", label: t("admin_community_charges_tab_on_hold"), count: loaded ? countOf("on_hold") : null },
+            { value: "approved", label: t("admin_community_charges_tab_approved"), count: loaded ? countOf("approved") : null },
+            { value: "rejected", label: t("admin_community_charges_tab_rejected"), count: loaded ? countOf("rejected") : null },
+            { value: "all", label: t("admin_community_charges_tab_all"), count: loaded ? countOf("all") : null },
           ]}
         />
       }
       filterBar={
         <div className="space-y-2">
-          <CommunityFilterBar lq={lq} searchPlaceholder="닉네임 · 입금자명 · 신청 번호" pending={state.status === "loading"} requireCompletePeriod />
+          <CommunityFilterBar lq={lq} searchPlaceholder={t("admin_community_charges_search_placeholder")} pending={state.status === "loading"} requireCompletePeriod />
           <AdminRequestPeriodSummaryLine
             ko
             summary={periodSummary}
@@ -166,7 +166,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
             formatAmount2={(n) => formatCommunityPeso(n)}
             note={
               periodNotAppliedToSearch
-                ? "닉네임·입금자명 검색 결과에는 기간이 적용되지 않습니다 (기간 합계는 위 기간 기준)."
+                ? t("admin_community_charges_period_not_applied")
                 : null
             }
           />
@@ -179,9 +179,16 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
         empty={pageRows.length === 0}
         lq={lq}
         onRetry={reload}
-        emptyMessage="이 상태의 충전 신청이 없습니다."
+        emptyMessage={t("admin_community_charges_list_empty")}
       >
-        <CommunityTable head={["회원", "요금제 · 포인트", "결제 금액", "상태", "신청 · 처리 (PHT)", ""]}>
+        <CommunityTable head={[
+          t("admin_community_charges_th_member"),
+          t("admin_community_charges_th_plan_points"),
+          t("admin_community_charges_th_payment"),
+          t("admin_community_charges_th_status"),
+          t("admin_community_charges_th_requested_processed"),
+          "",
+        ]}>
           {pageRows.map((r) => (
             <tr key={r.id} className="cursor-pointer border-b border-sam-border-soft hover:bg-sam-app" onClick={() => setOpenId(r.id)}>
               <td className={COMMUNITY_TD}>
@@ -190,7 +197,7 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
                   onClick={(e) => e.stopPropagation()}
                   className="font-medium text-sam-primary hover:underline"
                 >
-                  {r.userNickname?.trim() || "이름 없음"}
+                  {r.userNickname?.trim() || t("admin_community_charges_no_name")}
                 </Link>
               </td>
               <td className={COMMUNITY_TD}>
@@ -203,24 +210,24 @@ export function AdminCommunityPointChargesPage({ scope = "community" }: { scope?
                 {/* R6-g — 반려 사유를 목록 줄에 바로 */}
                 {r.requestStatus === "rejected" ? (
                   <div className="mt-1 max-w-[14rem] break-words text-[12px] text-sam-fg" data-community-charge-reject-reason="1">
-                    반려 사유: {r.rejectReason?.trim() || "—"}
+                    {t("admin_community_charges_reject_reason", { reason: r.rejectReason?.trim() || "—" })}
                   </div>
                 ) : null}
               </td>
               <td className={COMMUNITY_TD}>
                 {/* R6 — 연도 포함 PHT 신청·처리 시각 (상대 시각 「n분 전」 대신) */}
                 <div className="text-[12px]">
-                  신청 <CommunityTimeCell iso={r.requestedAt} absolute />
+                  {t("admin_community_charges_requested_at")} <CommunityTimeCell iso={r.requestedAt} absolute />
                 </div>
                 {r.processedAt || r.approvedAt ? (
                   <div className="text-[12px] text-sam-muted" data-community-charge-processed-at="1">
-                    처리 <CommunityTimeCell iso={r.processedAt ?? r.approvedAt} absolute />
+                    {t("admin_community_charges_processed_at")} <CommunityTimeCell iso={r.processedAt ?? r.approvedAt} absolute />
                   </div>
                 ) : null}
               </td>
               <td className={COMMUNITY_TD}>
                 <AdminActionButton variant="ghost" onClick={() => setOpenId(r.id)}>
-                  자세히
+                  {t("admin_community_charges_details")}
                 </AdminActionButton>
               </td>
             </tr>
@@ -282,14 +289,17 @@ function ChargeSheet({
         action,
         ko: true,
         apiBase: paths.api,
-        summary: `${r.userNickname || "회원"} · ${formatAdminNumber(r.pointAmount)}P · ${formatAdminPhp(r.paymentAmount)} · 입금자 ${
-          r.depositorName || "-"
-        }`,
+        summary: t("admin_community_charges_action_summary", {
+          name: r.userNickname || t("admin_community_charges_member"),
+          points: formatAdminNumber(r.pointAmount),
+          amount: formatAdminPhp(r.paymentAmount),
+          depositor: r.depositorName || "-",
+        }),
       });
       if (!out.ok) {
         if (out.cancelled) return;
         if (out.error === "already_processed" || out.error === "stale_state" || out.error === "conflict") {
-          onDone({ ok: true, message: COMMUNITY_STALE_MESSAGE });
+          onDone({ ok: true, message: t("admin_community_post_stale") });
           return;
         }
         setError(out.error);
@@ -297,7 +307,12 @@ function ChargeSheet({
       }
       onDone({
         ok: true,
-        message: action === "approve" ? "충전을 승인했습니다. 포인트가 지급되었습니다." : action === "reject" ? "충전 신청을 반려했습니다." : "충전 신청을 보류했습니다.",
+        message:
+          action === "approve"
+            ? t("admin_community_charges_approved_msg")
+            : action === "reject"
+              ? t("admin_community_charges_rejected_msg")
+              : t("admin_community_charges_held_msg"),
       });
     } finally {
       setBusy(null);
@@ -307,20 +322,20 @@ function ChargeSheet({
   const footer = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <AdminActionButton variant="neutral" disabled={Boolean(busy)} onClick={onClose}>
-        닫기
+        {t("admin_community_charges_sheet_close")}
       </AdminActionButton>
       {r && open ? (
         <div className="flex flex-wrap gap-2">
           {r.requestStatus !== "on_hold" ? (
             <AdminActionButton variant="secondary" disabled={!canAct || Boolean(busy)} title={deniedTitle} onClick={() => void act("hold")}>
-              {busy === "hold" ? "처리 중" : "보류"}
+              {busy === "hold" ? t("admin_community_settings_processing") : t("admin_community_charges_tab_on_hold")}
             </AdminActionButton>
           ) : null}
           <AdminActionButton variant="danger" disabled={!canAct || Boolean(busy)} title={deniedTitle} onClick={() => void act("reject")}>
-            {busy === "reject" ? "처리 중" : "반려"}
+            {busy === "reject" ? t("admin_community_settings_processing") : t("admin_community_charges_tab_rejected")}
           </AdminActionButton>
           <AdminActionButton variant="primary" disabled={!canAct || Boolean(busy)} title={deniedTitle} onClick={() => void act("approve")}>
-            {busy === "approve" ? "처리 중" : "입금 확인 후 승인"}
+            {busy === "approve" ? t("admin_community_settings_processing") : t("admin_community_charges_approve_btn")}
           </AdminActionButton>
         </div>
       ) : null}
@@ -338,18 +353,21 @@ function ChargeSheet({
           {error ? <AdminResultBanner ko result={{ ok: false, code: error }} onClose={() => setError(null)} /> : null}
           <CommunitySummaryCard
             rows={[
-              { label: "회원", value: r.userNickname || "이름 없음" },
-              { label: "상태", value: <CommunityStatusBadge domain="charge_status" value={r.requestStatus} /> },
-              { label: "요금제", value: r.planName || "—" },
-              { label: "지급 포인트", value: formatCommunityPoints(r.pointAmount) },
-              { label: "결제 금액", value: formatCommunityPeso(r.paymentAmount) },
-              { label: "결제 수단", value: PAYMENT_METHOD[r.paymentMethod] ?? "기타" },
-              { label: "입금자명", value: r.depositorName || "—" },
-              { label: "신청", value: abs(r.requestedAt) },
-              { label: "처리", value: abs(r.processedAt ?? r.approvedAt) },
-              ...(r.requestStatus === "rejected" ? [{ label: "반려 사유", value: r.rejectReason?.trim() || "—" }] : []),
-              { label: "회원 메모", value: r.userMemo || "—" },
-              { label: "관리자 메모", value: r.adminMemo || "—" },
+              { label: t("admin_community_charges_member"), value: r.userNickname || t("admin_community_charges_no_name") },
+              { label: t("admin_community_charges_th_status"), value: <CommunityStatusBadge domain="charge_status" value={r.requestStatus} /> },
+              { label: t("admin_community_charges_row_plan"), value: r.planName || "—" },
+              { label: t("admin_community_charges_row_points"), value: formatCommunityPoints(r.pointAmount) },
+              { label: t("admin_community_charges_th_payment"), value: formatCommunityPeso(r.paymentAmount) },
+              {
+                label: t("admin_community_charges_row_method"),
+                value: PAYMENT_METHOD[r.paymentMethod] ? t(PAYMENT_METHOD[r.paymentMethod]) : t("admin_community_charges_method_other"),
+              },
+              { label: t("admin_community_charges_row_depositor"), value: r.depositorName || "—" },
+              { label: t("admin_community_charges_row_requested"), value: abs(r.requestedAt) },
+              { label: t("admin_community_charges_row_processed"), value: abs(r.processedAt ?? r.approvedAt) },
+              ...(r.requestStatus === "rejected" ? [{ label: t("admin_community_charges_row_reject_reason"), value: r.rejectReason?.trim() || "—" }] : []),
+              { label: t("admin_community_charges_row_user_memo"), value: r.userMemo || "—" },
+              { label: t("admin_community_charges_row_admin_memo"), value: r.adminMemo || "—" },
             ]}
           />
           <div>
@@ -368,7 +386,7 @@ function ChargeSheet({
               href={`${paths.support}?status=all&reference_type=POINT_CHARGE_REQUEST&reference_id=${encodeURIComponent(r.id)}`}
               className="text-sam-primary underline"
             >
-              이 충전 건 관련 문의 보기
+              {t("admin_community_charges_related_inquiries")}
             </Link>
           </p>
           {!open ? <p className="text-[13px] text-sam-muted">{t("admin_community_charges_already_processed")}</p> : null}
@@ -379,7 +397,7 @@ function ChargeSheet({
           </AdminTechDetails>
         </div>
       ) : (
-        <AdminEmptyState ko message="충전 신청을 찾을 수 없습니다." />
+        <AdminEmptyState ko message={t("admin_community_charges_not_found")} />
       )}
     </AdminFormSheet>
   );

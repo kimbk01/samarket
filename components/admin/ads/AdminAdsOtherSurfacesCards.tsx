@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
 /**
@@ -16,16 +17,20 @@ type Summary = {
   eventsLive: number | null;
 };
 
-const INTRO_STATE_KO: Record<string, string> = { active: "게시 중", paused: "일시정지", unpublished: "게시 안 함" };
-const INTRO_STATE_EN: Record<string, string> = { active: "Live", paused: "Paused", unpublished: "Not published" };
+const INTRO_STATE_KEY: Record<string, MessageKey> = {
+  active: "admin_ads_intro_state_live",
+  paused: "admin_ads_intro_state_paused",
+  unpublished: "admin_ads_intro_state_unpublished",
+};
 
 /**
  * IN-N2 (2026-11-04): 인트로 카드 = 상태 + 기간. 게시(active)여도 시작 전이면 「예약됨」, 종료 후면 「끝남」 — 고객 기기에는 안 나온다.
  * 기간을 못 읽었으면 「게시 중」으로 단정하지 않고 「기간 확인 못 함」을 붙인다.
  */
 export function introCardStatusText(intro: Summary["intro"], ko: boolean): string {
-  const base = (ko ? INTRO_STATE_KO : INTRO_STATE_EN)[intro.state];
-  if (!base) return translateBy(ko ? "ko" : "en", "admin_ads_unknown");
+  const stateKey = INTRO_STATE_KEY[intro.state];
+  if (!stateKey) return translateBy(ko ? "ko" : "en", "admin_ads_unknown");
+  const base = translateBy(ko ? "ko" : "en", stateKey);
   if (intro.state !== "active") return base;
   switch (intro.schedule) {
     case "scheduled":

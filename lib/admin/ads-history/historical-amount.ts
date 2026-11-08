@@ -3,7 +3,12 @@
  * NEVER fall back to current catalog / R6 live price.
  */
 
-export function formatHistoricalPointAmount(pointCost: unknown): {
+import { translate } from "@/lib/i18n/messages";
+
+export function formatHistoricalPointAmount(
+  pointCost: unknown,
+  ko: boolean = true
+): {
   label: string | null;
   proven: boolean;
 } {
@@ -14,7 +19,10 @@ export function formatHistoricalPointAmount(pointCost: unknown): {
   if (!Number.isFinite(n) || n < 0) {
     return { label: null, proven: false };
   }
-  return { label: `${Math.floor(n)} 포인트`, proven: true };
+  return {
+    label: translate(ko ? "ko" : "en", "admin_ads_history_points_amount", { n: Math.floor(n) }),
+    proven: true,
+  };
 }
 
 export function formatHistoricalBusinessCashMinor(amountMinor: unknown, currency?: string | null): {

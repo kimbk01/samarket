@@ -14,6 +14,7 @@ import {
   type DeliveryMetricValue,
 } from "@/lib/admin/metrics/delivery-metrics";
 import { loadDeliveryMetrics } from "@/lib/admin/metrics/load-delivery-metrics";
+import { translate } from "@/lib/i18n/messages";
 import type {
   AdminDomainActionItem,
   AdminDomainDashboardModel,
@@ -77,10 +78,8 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
     domain: "delivery",
     titleKo: "배달 대시보드",
     titleEn: "Delivery dashboard",
-    descriptionKo:
-      "지금 처리할 일은 최근 7일 기준입니다. 7일이 지나도 종결되지 않은 주문은 「운영 위험」에 따로 표시합니다. 숫자를 누르면 같은 조건으로 필터된 처리 화면이 열립니다. 기간 기준: 마닐라 시간.",
-    descriptionEn:
-      "Work to do now covers the last 7 days. Orders still open after 7 days are listed separately under operational risk. Each number opens its processing screen with the same filter. Period basis: Manila time.",
+    descriptionKo: translate("ko", "admin_domain_dashboard_delivery_description"),
+    descriptionEn: translate("en", "admin_domain_dashboard_delivery_description"),
     currentState: toMetrics(sectionDefs("state"), values),
     actionRequired: toActionItems(sectionDefs("action"), values),
     domainHealth: toMetrics(sectionDefs("health"), values),

@@ -1,10 +1,11 @@
 "use client";
 
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import {
-  memberListSummaryChipLabelKo,
+  memberListSummaryChipLabel,
   type MemberListSummaryChipId,
 } from "@/lib/admin-users/member-list-presentation";
 import type {
@@ -75,12 +76,13 @@ export function AdminUserListSummaryCards({
   activePrivilege,
   onSelect,
 }: Props) {
+  const { t, language } = useI18n();
   return (
     <div className="flex flex-wrap gap-2" data-member-list-summary-chips="1">
       {CHIPS.map((chip) => {
         const selected = isSelected(chip, activeStatus, activeStore, activePrivilege);
         const count = countFor(chip, summary);
-        const label = memberListSummaryChipLabelKo(chip);
+        const label = memberListSummaryChipLabel(chip, language);
         return (
           <AdminChipButton
             key={chip}
@@ -93,7 +95,7 @@ export function AdminUserListSummaryCards({
           </AdminChipButton>
         );
       })}
-      <span className="sr-only">{MEMBER_ADMIN_COPY.member_management}</span>
+      <span className="sr-only">{t(MEMBER_ADMIN_COPY_KEY.member_management)}</span>
     </div>
   );
 }

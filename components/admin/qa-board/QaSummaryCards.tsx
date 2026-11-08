@@ -67,7 +67,7 @@ export function QaSummaryCards() {
           </p>
           {summary.criticalOpenIssues > 0 && (
             <p className="mt-1 sam-text-helper text-sam-danger">
-              Critical 이슈 {summary.criticalOpenIssues}건
+              {t("admin_qa_board_critical_issue_count", { n: summary.criticalOpenIssues })}
             </p>
           )}
         </div>
@@ -77,22 +77,22 @@ export function QaSummaryCards() {
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-helper text-sam-muted">{t("admin_qa_k692dba38")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
-            {summary.pilotDoneCount} / {summary.pilotTotalCount} 완료
+            {t("admin_qa_board_done_ratio", { done: summary.pilotDoneCount, total: summary.pilotTotalCount })}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-helper text-sam-muted">{t("admin_qa_link_2")}</p>
           <p className="sam-text-body text-sam-fg">
             <Link href="/admin/launch-readiness" className="text-signature hover:underline">
-              런칭 준비
+              {t("admin_qa_board_link_launch_readiness")}
             </Link>
             {" · "}
             <Link href="/admin/production-migration" className="text-signature hover:underline">
-              프로덕션 전환
+              {t("admin_qa_board_link_production_cutover")}
             </Link>
             {" · "}
             <Link href="/admin/ops-board" className="text-signature hover:underline">
-              운영 보드
+              {t("admin_qa_board_link_ops_board")}
             </Link>
           </p>
         </div>
@@ -100,7 +100,7 @@ export function QaSummaryCards() {
 
       {summary.latestUpdatedAt && (
         <p className="sam-text-helper text-sam-muted">
-          최종 갱신: {formatAdminManilaDateTime(summary.latestUpdatedAt)}
+          {t("admin_qa_board_last_updated", { at: formatAdminManilaDateTime(summary.latestUpdatedAt) })}
         </p>
       )}
     </div>

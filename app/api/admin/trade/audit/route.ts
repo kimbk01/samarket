@@ -10,6 +10,7 @@ import {
   formatAdminMemberLabel,
   loadAdminMemberIdentityMap,
 } from "@/lib/admin-community/member-identity";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   const rows = (data ?? []) as Record<string, unknown>[];
   const identities = await loadAdminMemberIdentityMap(sb, rows.map((r) => String(r.actor_id ?? "")));
+  const systemLabel = await adminServerText("admin_api_actor_system");
   return NextResponse.json({
     ok: true,
     total: count ?? rows.length,
@@ -55,7 +57,7 @@ export async function GET(req: NextRequest) {
     rows: rows.map((r) => ({
       ...r,
       actor_label:
-        r.actor_type === "system" ? "시스템" : r.actor_id ? formatAdminMemberLabel(identities.get(String(r.actor_id))) : null,
+        r.actor_type === "system" ? systemLabel : r.actor_id ? formatAdminMemberLabel(identities.get(String(r.actor_id))) : null,
     })),
   });
 }

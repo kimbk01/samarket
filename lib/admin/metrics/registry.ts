@@ -30,6 +30,7 @@ import {
 import type { AdminDashboardPeriodRange } from "@/lib/admin/metrics/dashboard-period";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 // ── 탭 ──────────────────────────────────────────────────────────────────────
 
@@ -140,12 +141,12 @@ export function resolveAdminMetricHref(def: AdminMetricDefinition, params: Admin
   return typeof def.href === "function" ? def.href(params) : def.href;
 }
 
-function queueMetric(category: AdminActionQueueCategory, labelKo?: string, labelEn?: string): AdminMetricDefinition {
+function queueMetric(category: AdminActionQueueCategory, label?: MessageKey): AdminMetricDefinition {
   const q = getAdminActionQueueCategoryDef(category);
   return {
     id: `queue.${category}`,
-    labelKo: labelKo ?? q.titleKo,
-    labelEn: labelEn ?? q.titleEn,
+    labelKo: label ? translate("ko", label) : q.titleKo,
+    labelEn: label ? translate("en", label) : q.titleEn,
     domain: "platform",
     source: "queue",
     sourceDetail: `admin_action_queue.${category} (${q.sources.join(", ")})`,
@@ -184,11 +185,11 @@ function chatMetric(id: ChatMetricId, short?: { ko: string; en: string }): Admin
       ? {
           source: "queue" as const,
           queueCategories: c.source.categories,
-          sourceDetail: `admin_action_queue.${c.source.categories.join("+")} = 채팅 대시보드 「${c.labelKo}」 (chat-metrics ${c.id})`,
+          sourceDetail: `admin_action_queue.${c.source.categories.join("+")} = chat dashboard "${c.labelEn}" (chat-metrics ${c.id})`,
         }
       : {
           source: "chat" as const,
-          sourceDetail: `loadChatMetrics → ${c.source.description} = 채팅 대시보드 「${c.labelKo}」 (chat-metrics ${c.id})`,
+          sourceDetail: `loadChatMetrics → ${c.source.description} = chat dashboard "${c.labelEn}" (chat-metrics ${c.id})`,
         }),
     periodBasis: "pht",
     period,
@@ -230,7 +231,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Members",
     domain: "members",
     source: "members",
-    sourceDetail: "profiles COUNT, 필터 없음 = /api/admin/users summary.totalRows",
+    sourceDetail: "profiles COUNT, no filter = /api/admin/users summary.totalRows",
     periodBasis: "pht",
     period: "now",
     unit: "people",
@@ -244,7 +245,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Active",
     domain: "members",
     source: "members",
-    sourceDetail: "profiles + adminMemberStatusFilterOps(\"active\") = 회원 목록 status=active",
+    sourceDetail: "profiles + adminMemberStatusFilterOps(\"active\") = member list status=active",
     periodBasis: "pht",
     period: "now",
     unit: "people",
@@ -258,7 +259,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "New",
     domain: "members",
     source: "members",
-    sourceDetail: "profiles.created_at ∈ 선택 기간 (adminMemberJoinedRangeOps, PHT) = 회원 목록 joinedFrom·joinedTo",
+    sourceDetail: "profiles.created_at ∈ selected period (adminMemberJoinedRangeOps, PHT) = member list joinedFrom·joinedTo",
     periodBasis: "pht",
     period: "selected",
     unit: "people",
@@ -270,7 +271,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Suspended members",
     domain: "members",
     source: "members",
-    sourceDetail: "profiles + adminMemberStatusFilterOps(\"suspended\") = 회원 목록 status=suspended",
+    sourceDetail: "profiles + adminMemberStatusFilterOps(\"suspended\") = member list status=suspended",
     periodBasis: "pht",
     period: "now",
     unit: "people",
@@ -282,7 +283,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Blocked members",
     domain: "members",
     source: "members",
-    sourceDetail: "profiles + adminMemberStatusFilterOps(\"blocked\") = 회원 목록 status=blocked",
+    sourceDetail: "profiles + adminMemberStatusFilterOps(\"blocked\") = member list status=blocked",
     periodBasis: "pht",
     period: "now",
     unit: "people",
@@ -310,7 +311,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Pending",
     domain: "platform",
     source: "queue",
-    sourceDetail: "admin_action_queue Σ (active · nextActor=admin, 권한 범위) = 전체 현황 「처리 대기」 목록 합계",
+    sourceDetail: "admin_action_queue Σ (active · nextActor=admin, permission scope) = overview \"Action queue\" list total",
     queueCategories: ADMIN_DASHBOARD_ADMIN_QUEUE_CATEGORIES,
     periodBasis: "pht",
     period: "now",
@@ -335,24 +336,24 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
   // 이동 화면 개수와 같은 것만 (감사 2026-10-20: 입점·수수료 검토·고객지원·모임 신고·주문 운영 예외)
   // 대시보드는 이동 화면 함수로 센 값을 처리 대기 항목에도 쓴다 (load-admin-dashboard-sources `alignQueueWithDestinations`).
   {
-    ...queueMetric("store_applications", "입점 심사 대기", "Store applications"),
+    ...queueMetric("store_applications", "admin_metric_queue_store_applications"),
     sourceDetail: "applyStoreApprovalStatusFilter(actionable) = /api/admin/stores?status=actionable total",
   },
   {
-    ...queueMetric("settlements_actionable", "수수료 검토 대기", "Commission reviews"),
-    sourceDetail: "loadStoreCommissionLedgerPage(state=review_required, 기간 전체).total = 수수료 원장 「검토 필요」",
+    ...queueMetric("settlements_actionable", "admin_metric_queue_commission_reviews"),
+    sourceDetail: "loadStoreCommissionLedgerPage(state=review_required, all periods).total = commission ledger \"Review required\"",
   },
   {
-    ...queueMetric("support_actionable", "고객지원 미처리", "Open support cases"),
+    ...queueMetric("support_actionable", "admin_metric_queue_open_support"),
     sourceDetail: "applySupportCaseTabFilter(ACTIONABLE) = /api/admin/support/cases?tab=ACTIONABLE total",
   },
   {
-    ...queueMetric("meeting_reports", "모임 신고 대기", "Meeting reports"),
-    sourceDetail: "applyMeetingReportTabFilter(pending) = 모임 신고 화면 「처리 대기」 total",
+    ...queueMetric("meeting_reports", "admin_metric_queue_meeting_reports"),
+    sourceDetail: "applyMeetingReportTabFilter(pending) = meeting reports screen \"Pending\" total",
   },
   {
-    ...queueMetric("orders_attention", "주문 운영 예외", "Order exceptions"),
-    sourceDetail: "loadAdminOrderOpsPage(exceptions, 링크 기간).total = 처리 필요 주문 화면 total",
+    ...queueMetric("orders_attention", "admin_metric_queue_order_exceptions"),
+    sourceDetail: "loadAdminOrderOpsPage(exceptions, link period).total = orders needing action screen total",
   },
 
   // ── 커뮤니티 (community-metrics.ts 같은 id) ──
@@ -377,7 +378,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     domain: "community",
     source: "community_reports",
     sourceDetail:
-      "listCommunityReportGroupsForAdmin(tab=pending).counts.pending = 신고 처리함 「대기」 — 단위: 신고 대상 묶음(같은 대상 = 1건). 처리 대기 목록 「커뮤니티 신고」도 같은 값",
+      "listCommunityReportGroupsForAdmin(tab=pending).counts.pending = report inbox \"Pending\" — unit: report target group (same target = 1). Action queue \"Community reports\" uses the same value",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -393,7 +394,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Selling",
     domain: "trade",
     source: "trade",
-    sourceDetail: "countTradePosts(selling, parseTradePostsFilter(링크)) = /api/admin/trade/posts tabCounts.selling",
+    sourceDetail: "countTradePosts(selling, parseTradePostsFilter(link)) = /api/admin/trade/posts tabCounts.selling",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -407,7 +408,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Sold",
     domain: "trade",
     source: "trade",
-    sourceDetail: "countTradePosts(sold, parseTradePostsFilter(링크)) = /api/admin/trade/posts tabCounts.sold",
+    sourceDetail: "countTradePosts(sold, parseTradePostsFilter(link)) = /api/admin/trade/posts tabCounts.sold",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -419,7 +420,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Trade posts hidden by admin",
     domain: "trade",
     source: "trade",
-    sourceDetail: "countTradePosts(admin_hidden, parseTradePostsFilter(링크)) = /api/admin/trade/posts tabCounts.admin_hidden",
+    sourceDetail: "countTradePosts(admin_hidden, parseTradePostsFilter(link)) = /api/admin/trade/posts tabCounts.admin_hidden",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -447,7 +448,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Orders",
     domain: "delivery",
     source: "orders",
-    sourceDetail: "admin_store_order_ops_page(list, 선택 기간 custom PHT).tab_counts.all = 주문 목록 「전체」",
+    sourceDetail: "admin_store_order_ops_page(list, selected period custom PHT).tab_counts.all = order list \"All\"",
     periodBasis: "pht",
     period: "selected",
     unit: "count",
@@ -461,7 +462,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Live",
     domain: "delivery",
     source: "orders",
-    sourceDetail: "admin_store_order_ops_page(list, 선택 기간).tab_counts.in_progress = 주문 목록 「진행 중」",
+    sourceDetail: "admin_store_order_ops_page(list, selected period).tab_counts.in_progress = order list \"In progress\"",
     periodBasis: "pht",
     period: "selected",
     unit: "count",
@@ -473,7 +474,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Completed orders",
     domain: "delivery",
     source: "orders",
-    sourceDetail: "admin_store_order_ops_page(list, 선택 기간).tab_counts.completed = 주문 목록 「완료」",
+    sourceDetail: "admin_store_order_ops_page(list, selected period).tab_counts.completed = order list \"Completed\"",
     periodBasis: "pht",
     period: "selected",
     unit: "count",
@@ -485,7 +486,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Cancelled orders (incl. requests)",
     domain: "delivery",
     source: "orders",
-    sourceDetail: "admin_store_order_ops_page(list, 선택 기간).tab_counts.cancel = 주문 목록 「취소」",
+    sourceDetail: "admin_store_order_ops_page(list, selected period).tab_counts.cancel = order list \"Cancelled\"",
     periodBasis: "pht",
     period: "selected",
     unit: "count",
@@ -497,7 +498,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Stores open now",
     domain: "delivery",
     source: "stores",
-    sourceDetail: "loadAdminBusinessListOps(parseAdminBusinessListOpsFilters(링크)).kpi.openNow = 매장 운영 목록 KPI",
+    sourceDetail: "loadAdminBusinessListOps(parseAdminBusinessListOpsFilters(link)).kpi.openNow = store ops list KPI",
     periodBasis: "pht",
     period: "now",
     unit: "stores",
@@ -511,7 +512,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Point top-ups · awaiting deposit",
     domain: "finance",
     source: "points",
-    sourceDetail: "countPointChargesByStatus.waiting_confirm = 포인트 충전 화면 「입금확인대기」 카드 · status 필터 total",
+    sourceDetail: "countPointChargesByStatus.waiting_confirm = point top-up screen \"Awaiting deposit check\" card · status filter total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -523,7 +524,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Point top-ups · pending",
     domain: "finance",
     source: "points",
-    sourceDetail: "countPointChargesByStatus.pending = 포인트 충전 화면 「대기중」 카드 · status 필터 total",
+    sourceDetail: "countPointChargesByStatus.pending = point top-up screen \"Pending\" card · status filter total",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -535,7 +536,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Cash in today",
     domain: "finance",
     source: "finance_today",
-    sourceDetail: "loadFinanceTodaySummary.cashInMinor = 재무 현황 「오늘 Cash 유입」 (화면이 오늘만 보여 준다)",
+    sourceDetail: "loadFinanceTodaySummary.cashInMinor = finance overview \"Cash in today\" (screen shows today only)",
     periodBasis: "pht",
     period: "today_fixed",
     unit: "php_minor",
@@ -549,7 +550,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Unpaid",
     domain: "finance",
     source: "commission",
-    sourceDetail: "sumStoreCashOutstandingMinor(loadStoreCashOverview(loadAdminStoreCashOverviewIds)) = 수수료 원장 「미납 관리」",
+    sourceDetail: "sumStoreCashOutstandingMinor(loadStoreCashOverview(loadAdminStoreCashOverviewIds)) = commission ledger \"Outstanding\"",
     periodBasis: "pht",
     period: "now",
     unit: "php_minor",
@@ -563,7 +564,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Comm.",
     domain: "finance",
     source: "commission",
-    sourceDetail: "store_commission_ledger_page(선택 기간 custom PHT, state=all).summary.netCommissionMinor = 원장 「순 수수료」",
+    sourceDetail: "store_commission_ledger_page(selected period custom PHT, state=all).summary.netCommissionMinor = ledger \"Net commission\"",
     periodBasis: "pht",
     period: "selected",
     unit: "php_minor",
@@ -579,7 +580,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Live",
     domain: "ads",
     source: "ads",
-    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).live = 광고 운영 「노출 중」",
+    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).live = ads ops \"Live\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -593,7 +594,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     shortEn: "Pending",
     domain: "ads",
     source: "ads",
-    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).pending = 광고 운영 「승인 대기」",
+    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).pending = ads ops \"Pending approval\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -605,7 +606,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Ads scheduled",
     domain: "ads",
     source: "ads",
-    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).scheduled = 광고 운영 「예약」",
+    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).scheduled = ads ops \"Scheduled\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -617,7 +618,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Ads waiting",
     domain: "ads",
     source: "ads",
-    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).waiting = 광고 운영 「노출 대기」",
+    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).waiting = ads ops \"Waiting to show\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -629,7 +630,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Ads incomplete",
     domain: "ads",
     source: "ads",
-    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).incomplete = 광고 운영 「불완전/임시」",
+    sourceDetail: "computeAdsWorkspaceSummaryCounts(all).incomplete = ads ops \"Incomplete/draft\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -641,7 +642,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     labelEn: "Home hero slots used",
     domain: "ads",
     source: "ads",
-    sourceDetail: "computeAdsWorkspaceHeroOccupancy.used = 광고 운영 「홈 배너 사용/정원」",
+    sourceDetail: "computeAdsWorkspaceHeroOccupancy.used = ads ops \"Home banner used/capacity\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -666,7 +667,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     domain: "support",
     source: "notifications",
     sourceDetail:
-      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=completed&status=failed)).total = 알림 발송 「완료 · 실패」 (QA·보관 제외)",
+      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=completed&status=failed)).total = notification sends \"Completed · failed\" (excluding QA/archived)",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -679,7 +680,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     domain: "support",
     source: "notifications",
     sourceDetail:
-      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=completed&status=partially_failed)).total = 알림 발송 「완료 · 일부 실패」",
+      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=completed&status=partially_failed)).total = notification sends \"Completed · partially failed\"",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -692,7 +693,7 @@ export const ADMIN_METRIC_DEFINITIONS: readonly AdminMetricDefinition[] = [
     domain: "support",
     source: "notifications",
     sourceDetail:
-      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=in_progress)).total = 알림 발송 「진행 중」 (예약·발송 중·반복·일시정지)",
+      "listAdminNotificationCampaigns(parseCampaignListQuery(tab=in_progress)).total = notification sends \"In progress\" (scheduled/sending/recurring/paused)",
     periodBasis: "pht",
     period: "now",
     unit: "count",
@@ -712,32 +713,32 @@ export function getAdminMetricDefinition(id: string): AdminMetricDefinition {
 
 /** 출처가 없거나 이동 화면에 같은 개수가 없어 넣지 않은 지표 — 임의 집계로 채우지 않는다. */
 export const ADMIN_DASHBOARD_OMITTED_METRICS: readonly { tab: AdminDashboardTabId; labelKo: string; reason: string }[] = [
-  { tab: "ads_ops", labelKo: "광고 환불 실패", reason: "환불 실패가 저장되는 상태·테이블이 없음 (요청 응답 오류로만 존재)" },
-  { tab: "ads_ops", labelKo: "진행 중 이벤트", reason: "운영 중 이벤트 집계 출처 없음" },
+  { tab: "ads_ops", labelKo: "광고 환불 실패", reason: "No status/table stores refund failures (only request response errors)" },
+  { tab: "ads_ops", labelKo: "진행 중 이벤트", reason: "No source for counting running events" },
   {
     tab: "ads_ops",
     labelKo: "집행 중 팝업",
     reason:
-      "이동 화면은 준비됨(팝업 목록 ?status=live · countPlatformPopupAdminCampaigns) — 광고·운영 탭 지표 6칸 고정이라 넣으려면 기존 지표와 교체 필요 (Owner 결정 전 미표시) · 팝업은 광고 운영 「노출 중」에 포함",
+      "Destination is ready (popup list ?status=live · countPlatformPopupAdminCampaigns) — the ads/ops tab is fixed at 6 tiles, so adding it means replacing an existing metric (hidden until Owner decides) · popups are included in ads ops \"Live\"",
   },
-  { tab: "ads_ops", labelKo: "광고 충돌 (차단)", reason: "이동할 충돌 목록 화면 없음 (배달 광고 화면에 충돌 구역 없음) · 원본이 40건에서 잘림" },
-  { tab: "support", labelKo: "SLA 초과", reason: "support_cases 에 SLA 기한 열이 없음" },
+  { tab: "ads_ops", labelKo: "광고 충돌 (차단)", reason: "No collision list screen to link (delivery ads screen has no collision section) · source is cut at 40 rows" },
+  { tab: "support", labelKo: "SLA 초과", reason: "support_cases has no SLA due column" },
   {
     tab: "support",
     labelKo: "알림 기기별 발송 실패",
-    reason: "notification_deliveries 목록 화면 없음 — 캠페인 단위 실패·일부 실패는 「알림 발송 실패」 지표로 표시",
+    reason: "No notification_deliveries list screen — campaign-level failures/partial failures show in the notification send failure metric",
   },
   // 통화 연결 실패·채팅 신고(메신저·거래 채팅방)는 G-04(Owner 승인)로 「채팅」 탭에 넣었다 — 값 = 채팅 대시보드(/admin/messenger)
   // 같은 지표 id(같은 로더), 링크 = 그 지표의 조건 목록. 목록 화면 자체에 총 건수 표시가 없는 점은 채팅 대시보드와 같다.
   {
     tab: "chat",
     labelKo: "채팅 푸시 발송 실패 (24시간)",
-    reason: "같은 조건을 읽는 목록이 없음 (chat-metrics CHAT_PUSH_FAILURE_LIST_PATH 빈 값) — 채팅 대시보드에서 숫자만 표시",
+    reason: "No list reads the same filter (chat-metrics CHAT_PUSH_FAILURE_LIST_PATH empty) — number shown on chat dashboard only",
   },
-  { tab: "support", labelKo: "매장 신고 · 매장 문의", reason: "목록이 모든 상태를 섞어 보여 주고 건수 표시 없음" },
-  { tab: "delivery", labelKo: "배달 경고", reason: "경고 화면에 전체 건수 카드 없음 (담당자별 카드만) · 목록에 음소거 포함" },
-  { tab: "finance", labelKo: "캐시 충전·코인 출금·포인트 충전 합계", reason: "캐시 충전 목록에 건수 없음 · 코인 출금 건수는 40건에서 잘림 · 포인트 화면에 대기 합계(보류 포함) 없음" },
-  { tab: "ads_ops", labelKo: "제휴 가입 심사", reason: "제휴 화면에 건수 없음 · 기본 목록이 심사 외 상태 포함" },
+  { tab: "support", labelKo: "매장 신고 · 매장 문의", reason: "List mixes all statuses and shows no count" },
+  { tab: "delivery", labelKo: "배달 경고", reason: "Alerts screen has no total count card (per-assignee cards only) · list includes muted" },
+  { tab: "finance", labelKo: "캐시 충전·코인 출금·포인트 충전 합계", reason: "Cash top-up list has no count · Coin withdrawal count is cut at 40 · point screen has no pending total (incl. held)" },
+  { tab: "ads_ops", labelKo: "제휴 가입 심사", reason: "Partner screen has no count · default list includes non-review statuses" },
 ];
 
 // ── 요약 띠 8칸 ─────────────────────────────────────────────────────────────
@@ -858,10 +859,8 @@ export type AdminDashboardTrendDef = {
  * profiles.last_login_at 의 PHT 날짜별 회원 수 — 회원마다 마지막 로그인 날 하루에만 센다.
  * 오늘에서 끝나는 7일 막대 합계 = 7일 활성 회원 (last_login_at ≥ PHT 오늘−6일 00:00, 이전 「활성 회원(7일)」과 같은 조건).
  */
-export const ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_KO =
-  "7일 활성 = 최근 7일(PHT) 안에 마지막으로 로그인한 회원 수. 막대 = 그날이 마지막 로그인인 회원 수(회원당 하루), 오늘에서 끝나는 7일 막대 합계가 7일 활성 회원입니다.";
-export const ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_EN =
-  "7-day active = members whose last sign-in (PHT) is within the last 7 days. Each bar = members whose last sign-in was that day (one day per member); the 7 bars ending today sum to 7-day active members.";
+export const ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_KO = translate("ko", "admin_metric_active_7d_definition");
+export const ADMIN_DASHBOARD_ACTIVE_7D_DEFINITION_EN = translate("en", "admin_metric_active_7d_definition");
 
 export const ADMIN_DASHBOARD_TRENDS: Readonly<Record<AdminDashboardTrendId, AdminDashboardTrendDef>> = {
   signups_orders_daily: {

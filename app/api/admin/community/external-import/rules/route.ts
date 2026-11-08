@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { loadRules, type RuleInput, saveRule, setRuleEnabled } from "@/lib/community-operator-import/rules";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
-  const parsed = await parseJsonBody<{ action?: string; rule?: RuleInput; id?: string; enabled?: boolean }>(req, "JSON 본문이 필요합니다.");
+  const parsed = await parseJsonBody<{ action?: string; rule?: RuleInput; id?: string; enabled?: boolean }>(req, await adminServerText("admin_api_json_body_required"));
   if (!parsed.ok) return parsed.response;
   const b = parsed.value;
   try {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       });
       return jsonOk({ rules: await loadRules(sb), ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
     }
-    return jsonError("지원 action: save | toggle", 400, { code: "unsupported_action" });
+    return jsonError(await adminServerText("admin_api_import_actions_rules"), 400, { code: "unsupported_action" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "rule_failed";
     return jsonError(msg, 400, { code: msg });

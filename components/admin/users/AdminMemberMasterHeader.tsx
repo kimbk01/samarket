@@ -6,11 +6,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { adminMemberMessengerHref } from "@/lib/admin-users/admin-member-messenger-link";
 import {
-  MEMBER_DETAIL_EDIT_CTA_KO,
-  MEMBER_DETAIL_PASSWORD_CTA_KO,
-  MEMBER_DETAIL_SYSTEM_KEY_KO,
+  MEMBER_DETAIL_EDIT_CTA_KEY,
+  MEMBER_DETAIL_PASSWORD_CTA_KEY,
+  MEMBER_DETAIL_SYSTEM_KEY_KEY,
   memberDetailPrimaryActions,
-  memberDetailSignupOriginLabelKo,
+  memberDetailSignupOriginLabel,
   memberDetailStoreHref,
   resolveMemberDetailActionPolicy,
 } from "@/lib/admin-users/member-detail-presentation";
@@ -29,7 +29,7 @@ import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { EditMemberForm } from "./EditMemberForm";
 import { EditAdminForm } from "./EditAdminForm";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { AdminMemberPasswordDialog } from "./AdminMemberPasswordDialog";
 import { AdminMemberDibayIdDialog } from "./AdminMemberDibayIdDialog";
 import { AdminMemberStoreRelationDialog } from "./AdminMemberStoreRelationDialog";
@@ -109,7 +109,7 @@ export function AdminMemberMasterHeader({
   const isAdmin = Boolean(adminMembership);
   const membershipRole = adminMembershipRoleFromRow(adminMembership?.role);
   const isSuper = membershipRole === "super_admin" || (isAdmin && isSuperAdmin);
-  const signupOrigin = memberDetailSignupOriginLabelKo(user.signup_provider ?? resolveDetailAuthProvider(user.email));
+  const signupOrigin = memberDetailSignupOriginLabel(user.signup_provider ?? resolveDetailAuthProvider(user.email), language);
   const [showEdit, setShowEdit] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDibayId, setShowDibayId] = useState(false);
@@ -271,20 +271,20 @@ export function AdminMemberMasterHeader({
               ))}
             </div>
             <p className="text-xs text-sam-muted" data-member-signup-origin="1">
-              가입 경로 · {signupOrigin}
+              {t("admin_users_master_signup_origin", { origin: signupOrigin })}
             </p>
             <p className="text-sm text-sam-fg">
               {t("admin_users_lite_label_phone")} {phone}
               {contactEmail ? (
                 <>
                   {" · "}
-                  연락 이메일 {contactEmail}
+                  {t("admin_users_master_contact_email", { email: contactEmail })}
                 </>
               ) : null}
               {loginId ? (
                 <>
                   {" · "}
-                  로그인 ID {loginId}
+                  {t("admin_users_master_login_id", { id: loginId })}
                 </>
               ) : null}
             </p>
@@ -297,7 +297,7 @@ export function AdminMemberMasterHeader({
             </p>
             <p className="flex flex-wrap items-center gap-2 text-xs text-sam-muted">
               <AdminChipButton selected={showSystemKey} onClick={() => setShowSystemKey((v) => !v)}>
-                {MEMBER_DETAIL_SYSTEM_KEY_KO}
+                {t(MEMBER_DETAIL_SYSTEM_KEY_KEY)}
               </AdminChipButton>
               {showSystemKey ? (
                 <>
@@ -325,7 +325,7 @@ export function AdminMemberMasterHeader({
               data-member-cta-variant="primary"
               data-member-cta-cap="CAP-PROFILE-EDIT"
             >
-              {MEMBER_DETAIL_EDIT_CTA_KO}
+              {t(MEMBER_DETAIL_EDIT_CTA_KEY)}
             </AdminActionButton>
           ) : null}
           <AdminActionButton
@@ -345,7 +345,7 @@ export function AdminMemberMasterHeader({
               data-member-cta-variant="secondary"
               data-member-cta-cap="CAP-PASSWORD"
             >
-              {MEMBER_DETAIL_PASSWORD_CTA_KO}
+              {t(MEMBER_DETAIL_PASSWORD_CTA_KEY)}
             </AdminActionButton>
           ) : null}
           {canEditStaff ? (
@@ -367,7 +367,7 @@ export function AdminMemberMasterHeader({
               data-member-cta-variant="tertiary"
               data-member-cta-cap="CAP-DIBAY-ID"
             >
-              {MEMBER_ADMIN_COPY.dibay_id_change}
+              {t(MEMBER_ADMIN_COPY_KEY.dibay_id_change)}
             </AdminActionButton>
           ) : null}
           <AdminActionButton
@@ -377,7 +377,7 @@ export function AdminMemberMasterHeader({
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-VERIFY-VIEW"
           >
-            {MEMBER_ADMIN_COPY.verify_manage}
+            {t(MEMBER_ADMIN_COPY_KEY.verify_manage)}
           </AdminActionButton>
           {primaryStore ? (
             <AdminActionLink
@@ -387,7 +387,7 @@ export function AdminMemberMasterHeader({
               data-member-cta-variant="tertiary"
               data-member-cta-cap="CAP-STORE-VIEW"
             >
-              매장 상세
+              {t("admin_users_master_store_detail")}
             </AdminActionLink>
           ) : null}
           <AdminActionButton
@@ -417,7 +417,7 @@ export function AdminMemberMasterHeader({
             data-member-cta-variant="tertiary"
             data-member-cta-cap="CAP-PRIV-VIEW"
           >
-            관리 권한
+            {t("admin_users_master_admin_role")}
           </AdminActionButton>
         </div>
       </div>

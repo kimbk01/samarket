@@ -9,18 +9,20 @@ import type { BoardProbe } from "@/lib/community-operator-import/detect";
 import type { AdapterConfig, SourceEngine } from "@/lib/community-operator-import/types";
 import { call, fmtDate, VERDICT_TONE, importErrorState, verdictLabel } from "./api";
 import { Blocks } from "./ImportEditorPanel";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 function VerdictBadge({ v }: { v: string }) {
-  return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[12px] font-semibold ${VERDICT_TONE[v] || VERDICT_TONE.NOT_PROVEN}`}>{verdictLabel(v)}</span>;
+  const { t } = useI18n();
+  return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[12px] font-semibold ${VERDICT_TONE[v] || VERDICT_TONE.NOT_PROVEN}`}>{verdictLabel(v, t)}</span>;
 }
 
-const REASON: Record<string, string> = {
-  title_missing: "제목 없음",
-  body_missing: "본문·이미지 모두 없음",
-  images_missing: "원본 이미지 일부 누락",
-  feed_fallback: "원문 페이지를 못 읽어 피드 요약만 사용",
-  entity_leak: "HTML 문자 노출",
-  date_missing: "원본 게시일 없음",
+const REASON: Record<string, MessageKey> = {
+  title_missing: "admin_community_import_reason_title_missing",
+  body_missing: "admin_community_import_reason_body_missing",
+  images_missing: "admin_community_import_reason_images_missing",
+  feed_fallback: "admin_community_import_reason_feed_fallback",
+  entity_leak: "admin_community_import_reason_entity_leak",
+  date_missing: "admin_community_import_reason_date_missing",
 };
 
 type Target = { baseUrl: string; engine: SourceEngine; adapterConfig: AdapterConfig; engineKey: string; displayName: string };
@@ -102,14 +104,14 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
                 )}
                 <span className="min-w-0">
                   <span className="block text-[12px] line-clamp-2 break-words">{r.title}</span>
-                  <span className="block text-[12px] text-sam-muted">{fmtDate(r.sourcePublishedDate) || "날짜 없음"}</span>
+                  <span className="block text-[12px] text-sam-muted">{fmtDate(r.sourcePublishedDate) || t("admin_community_import_no_date")}</span>
                 </span>
               </AdminActionButton>
             </li>
           ))}
         </ul>
         <div className="min-w-0 space-y-2">
-          {loading && probe ? <AdminLoadingState ko label="원문 추출 중…" /> : null}
+          {loading && probe ? <AdminLoadingState ko label={t("admin_community_import_extracting")} /> : null}
           {probe?.detailError ? (
             <p className="text-xs text-sam-danger break-words">
               {t("admin_community_import_probe_detail_failed", { error: probe.detailError })}
@@ -129,7 +131,7 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
                 </a>
               </div>
               {probe?.quality?.reasons.length ? (
-                <p className="text-[12px] text-sam-warning">{probe.quality.reasons.map((r) => REASON[r] || r).join(" · ")}</p>
+                <p className="text-[12px] text-sam-warning">{probe.quality.reasons.map((r) => (REASON[r] ? t(REASON[r]) : r)).join(" · ")}</p>
               ) : null}
               {ex?.warnings.length ? (
                 <p className="text-[12px] text-sam-muted break-words">
@@ -138,7 +140,7 @@ export function BoardProbePanel({ target, onClose }: { target: Target; onClose: 
               ) : null}
               <h3 className="text-sm font-semibold break-words">{a.title}</h3>
               <p className="text-[12px] text-sam-muted">
-                {a.author || "작성자 없음"} · {fmtDate(a.sourcePublishedDate) || "게시일 없음"}
+                {a.author || t("admin_community_import_no_author")} · {fmtDate(a.sourcePublishedDate) || t("admin_community_import_no_published_date")}
               </p>
               <div className="max-h-[440px] overflow-auto border-t border-sam-border pt-2">
                 <Blocks blocks={a.orderedContentBlocks} />

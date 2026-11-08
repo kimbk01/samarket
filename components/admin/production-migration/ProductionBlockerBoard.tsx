@@ -2,6 +2,7 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getBlockedMigrationTables,
   getBlockedLaunchChecks,
@@ -15,6 +16,7 @@ import {
 import Link from "next/link";
 
 export function ProductionBlockerBoard() {
+  const { t } = useI18n();
   const blockedTables = useMemo(() => getBlockedMigrationTables(), []);
   const blockedLaunch = useMemo(() => getBlockedLaunchChecks(), []);
   const infraWithBlocker = useMemo(
@@ -29,7 +31,7 @@ export function ProductionBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <AdminEmptyState ko message={"차단(blocker) 항목이 없습니다."} />
+      <AdminEmptyState ko message={t("admin_prod_migration_no_blockers")} />
     );
   }
 
@@ -38,7 +40,7 @@ export function ProductionBlockerBoard() {
       {blockedTables.length > 0 && (
         <div>
           <h3 className="mb-2 sam-text-body font-medium text-sam-fg">
-            테이블 차단
+            {t("admin_production_migration_blocked_tables")}
           </h3>
           <div className="space-y-3">
             {blockedTables.map((t) => (
@@ -68,7 +70,7 @@ export function ProductionBlockerBoard() {
       {blockedLaunch.length > 0 && (
         <div>
           <h3 className="mb-2 sam-text-body font-medium text-sam-fg">
-            배포 체크리스트 차단
+            {t("admin_production_migration_blocked_checklist")}
           </h3>
           <div className="space-y-3">
             {blockedLaunch.map((c) => (
@@ -86,7 +88,7 @@ export function ProductionBlockerBoard() {
                       href="/admin/ops-board"
                       className="text-signature hover:underline"
                     >
-                      액션아이템 {c.linkedId}
+                      {t("admin_production_migration_action_item", { id: c.linkedId })}
                     </Link>
                   </p>
                 )}
@@ -99,7 +101,7 @@ export function ProductionBlockerBoard() {
       {infraWithBlocker.length > 0 && (
         <div>
           <h3 className="mb-2 sam-text-body font-medium text-sam-fg">
-            인프라 차단
+            {t("admin_production_migration_blocked_infra")}
           </h3>
           <div className="space-y-3">
             {infraWithBlocker.map((c) => (

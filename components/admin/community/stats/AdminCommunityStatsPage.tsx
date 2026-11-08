@@ -54,10 +54,12 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const n = (x: number | null | undefined) => (typeof x === "number" ? formatAdminNumber(x) : "확인 불가");
+const numberOr = (unavailable: string) => (x: number | null | undefined) =>
+  typeof x === "number" ? formatAdminNumber(x) : unavailable;
 
 export function AdminCommunityStatsPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const n = numberOr(t("admin_community_stats_unavailable"));
   const q = useCommunityQueryState();
   const period = q.get("period") || "7d";
   const params = new URLSearchParams({ period });
@@ -74,7 +76,7 @@ export function AdminCommunityStatsPage() {
 
   const byAction = s
     ? Object.entries(s.admin_actions?.by_action ?? {})
-        .map(([action, count]) => ({ label: communityAuditActionLabel(action), count }))
+        .map(([action, count]) => ({ label: communityAuditActionLabel(action, t), count }))
         .reduce<Map<string, number>>((m, x) => m.set(x.label, (m.get(x.label) ?? 0) + Number(x.count ?? 0)), new Map())
     : null;
 
@@ -82,12 +84,12 @@ export function AdminCommunityStatsPage() {
     <div className="space-y-4" data-community-stats="1">
       <CommunityListShell
         title={t("admin_community_stats_title")}
-        description="선택한 기간의 게시글·댓글·신고·조치·포인트·충전·상위노출 현황입니다. 기준: 필리핀 시간"
+        description={t("admin_community_stats_desc")}
         actions={
           <>
             <span className="text-[13px] text-sam-muted">{t("admin_community_stats_last_updated", { time: updated ? `${updated} PHT` : "—" })}</span>
             <AdminActionButton variant="secondary" onClick={reload} disabled={state.status === "loading"}>
-              새로고침
+              {t("admin_community_stats_reload")}
             </AdminActionButton>
             {!customIncomplete ? (
               <a
@@ -96,7 +98,7 @@ export function AdminCommunityStatsPage() {
                 data-admin-action="secondary"
                 className="inline-flex min-h-9 items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] font-semibold text-sam-fg hover:bg-sam-app"
               >
-                CSV 내려받기
+                {t("admin_community_stats_download_csv")}
               </a>
             ) : null}
           </>
@@ -119,63 +121,93 @@ export function AdminCommunityStatsPage() {
         }
       >
         {customIncomplete ? (
-          <AdminEmptyState ko message="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
+          <AdminEmptyState ko message={t("admin_community_stats_custom_incomplete")} />
         ) : state.status === "loading" && !state.data ? (
           <AdminLoadingState ko />
         ) : state.status === "error" ? (
           <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
         ) : !s ? (
-          <AdminEmptyState ko message="통계가 없습니다." />
+          <AdminEmptyState ko message={t("admin_community_stats_empty")} />
         ) : (
           <div className="space-y-5 p-3">
             <Group title={t("admin_community_stats_g_posts")}>
               <Tile
-                label="신규 게시글"
+                label={t("admin_community_stats_new_posts")}
                 value={s.posts?.total}
-                sub={`회원 ${n(s.posts?.member)} · 외부 수집 ${n(s.posts?.imported)} · 운영팀 ${n(s.posts?.admin)}`}
+                sub={t("admin_community_stats_posts_sub", {
+                  member: n(s.posts?.member),
+                  imported: n(s.posts?.imported),
+                  admin: n(s.posts?.admin),
+                })}
               />
-              <Tile label="그중 현재 공개" value={s.posts?.active_now} />
-              <Tile label="그중 관리자 숨김" value={s.posts?.hidden_now} />
-              <Tile label="그중 삭제됨" value={s.posts?.deleted_now} />
+              <Tile label={t("admin_community_stats_active_now")} value={s.posts?.active_now} />
+              <Tile label={t("admin_community_stats_hidden_now")} value={s.posts?.hidden_now} />
+              <Tile label={t("admin_community_stats_deleted_now")} value={s.posts?.deleted_now} />
             </Group>
             <Group title={t("admin_community_stats_g_comments")}>
-              <Tile label="신규 댓글" value={s.comments?.top_level} />
-              <Tile label="신규 답글" value={s.comments?.replies} />
-              <Tile label="활성 작성자" value={s.authors?.active} sub="외부 수집 계정 제외" />
-              <Tile label="신규 작성자" value={s.authors?.new} sub="기간 안에 처음 글·댓글을 쓴 회원" />
+              <Tile label={t("admin_community_stats_new_comments")} value={s.comments?.top_level} />
+              <Tile label={t("admin_community_stats_new_replies")} value={s.comments?.replies} />
+              <Tile label={t("admin_community_stats_active_authors")} value={s.authors?.active} sub={t("admin_community_stats_active_authors_sub")} />
+              <Tile label={t("admin_community_stats_new_authors")} value={s.authors?.new} sub={t("admin_community_stats_new_authors_sub")} />
             </Group>
             <Group title={t("admin_community_stats_g_reports")}>
-              <Tile label="신고 접수" value={s.reports?.received} sub={`모임 신고 ${n(s.reports?.meeting_received)}`} />
               <Tile
-                label="신고 처리"
-                value={s.reports?.processed}
-                sub={`인정 ${n(s.reports?.resolved)} · 기각 ${n(s.reports?.dismissed)} · 모임 ${n(s.reports?.meeting_processed)}`}
+                label={t("admin_community_stats_reports_received")}
+                value={s.reports?.received}
+                sub={t("admin_community_stats_meeting_reports", { n: n(s.reports?.meeting_received) })}
               />
-              <Tile label="관리자 조치" value={s.admin_actions?.total} />
+              <Tile
+                label={t("admin_community_stats_reports_processed")}
+                value={s.reports?.processed}
+                sub={t("admin_community_stats_reports_processed_sub", {
+                  resolved: n(s.reports?.resolved),
+                  dismissed: n(s.reports?.dismissed),
+                  meeting: n(s.reports?.meeting_processed),
+                })}
+              />
+              <Tile label={t("admin_community_stats_admin_actions")} value={s.admin_actions?.total} />
             </Group>
             <Group title={t("admin_community_stats_g_reactions")}>
-              <Tile label="게시글 조회" value={s.engagement?.post_views} />
-              <Tile label="게시글 좋아요" value={s.engagement?.post_likes} />
-              <Tile label="댓글 좋아요" value={s.engagement?.comment_likes} />
+              <Tile label={t("admin_community_stats_post_views")} value={s.engagement?.post_views} />
+              <Tile label={t("admin_community_stats_post_likes")} value={s.engagement?.post_likes} />
+              <Tile label={t("admin_community_stats_comment_likes")} value={s.engagement?.comment_likes} />
             </Group>
             <Group title={t("admin_community_stats_g_charges")}>
               <Tile
-                label="충전 승인"
+                label={t("admin_community_stats_charges_approved")}
                 value={s.charges?.approved_count}
-                sub={`결제 ₱${n(s.charges?.approved_payment_amount)} · 지급 ${n(s.charges?.approved_point_amount)} P`}
+                sub={t("admin_community_stats_charges_approved_sub", {
+                  payment: n(s.charges?.approved_payment_amount),
+                  points: n(s.charges?.approved_point_amount),
+                })}
               />
-              <Tile label="충전 반려" value={s.charges?.rejected_count} />
-              <Tile label="신규 상위노출" value={s.promotions?.new_count} sub={`차감 ${n(s.promotions?.new_point_cost)} P`} />
-              <Tile label="종료된 상위노출" value={s.promotions?.ended_count} />
+              <Tile label={t("admin_community_stats_charges_rejected")} value={s.charges?.rejected_count} />
+              <Tile
+                label={t("admin_community_stats_new_promotions")}
+                value={s.promotions?.new_count}
+                sub={t("admin_community_stats_new_promotions_sub", { points: n(s.promotions?.new_point_cost) })}
+              />
+              <Tile label={t("admin_community_stats_ended_promotions")} value={s.promotions?.ended_count} />
             </Group>
 
             <section className="space-y-2">
               <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_daily")}</h2>
               {(s.daily ?? []).length === 0 ? (
-                <AdminEmptyState ko message="일별 기록이 없습니다." />
+                <AdminEmptyState ko message={t("admin_community_stats_daily_empty")} />
               ) : (
                 <div className="rounded-ui-rect border border-sam-border">
-                  <CommunityTable head={["날짜", "게시글", "회원 글", "외부 수집", "댓글", "활성 작성자", "신고", "관리자 조치", "보상 지급 P", "보상 회수 P"]}>
+                  <CommunityTable head={[
+                      t("admin_community_stats_col_date"),
+                      t("admin_community_stats_col_posts"),
+                      t("admin_community_stats_col_member_posts"),
+                      t("admin_community_stats_col_imported"),
+                      t("admin_community_stats_col_comments"),
+                      t("admin_community_stats_active_authors"),
+                      t("admin_community_stats_col_reports"),
+                      t("admin_community_stats_admin_actions"),
+                      t("admin_community_stats_col_rewarded"),
+                      t("admin_community_stats_col_reclaimed"),
+                    ]}>
                     {s.daily.map((d) => (
                       <tr key={d.date} className="border-b border-sam-border-soft">
                         <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{d.date}</td>
@@ -199,15 +231,18 @@ export function AdminCommunityStatsPage() {
               <section className="space-y-2">
                 <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_by_category")}</h2>
                 {(s.topics ?? []).length === 0 ? (
-                  <AdminEmptyState ko message="이 기간의 카테고리 활동이 없습니다." />
+                  <AdminEmptyState ko message={t("admin_community_stats_topics_empty")} />
                 ) : (
                   <div className="rounded-ui-rect border border-sam-border">
-                    <CommunityTable head={["카테고리", "게시글", "댓글"]}>
-                      {s.topics.map((t, i) => (
-                        <tr key={t.topic_id ?? `none-${i}`} className="border-b border-sam-border-soft">
-                          <td className={COMMUNITY_TD}>{t.name || (t.topic_id ? "이름 없는 카테고리" : "카테고리 없음")}</td>
-                          <td className={COMMUNITY_TD}>{n(t.posts)}</td>
-                          <td className={COMMUNITY_TD}>{n(t.comments)}</td>
+                    <CommunityTable head={[t("admin_community_stats_col_category"), t("admin_community_stats_col_posts"), t("admin_community_stats_col_comments")]}>
+                      {s.topics.map((tp, i) => (
+                        <tr key={tp.topic_id ?? `none-${i}`} className="border-b border-sam-border-soft">
+                          <td className={COMMUNITY_TD}>
+                            {tp.name ||
+                              (tp.topic_id ? t("admin_community_stats_unnamed_category") : t("admin_community_stats_no_category"))}
+                          </td>
+                          <td className={COMMUNITY_TD}>{n(tp.posts)}</td>
+                          <td className={COMMUNITY_TD}>{n(tp.comments)}</td>
                         </tr>
                       ))}
                     </CommunityTable>
@@ -217,13 +252,13 @@ export function AdminCommunityStatsPage() {
               <section className="space-y-2">
                 <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_points")}</h2>
                 {(s.points ?? []).length === 0 ? (
-                  <AdminEmptyState ko message="이 기간의 커뮤니티 포인트 내역이 없습니다." />
+                  <AdminEmptyState ko message={t("admin_community_stats_points_empty")} />
                 ) : (
                   <div className="rounded-ui-rect border border-sam-border">
-                    <CommunityTable head={["유형", "건수", "포인트"]}>
+                    <CommunityTable head={[t("admin_community_stats_col_type"), t("admin_community_stats_col_count"), t("admin_community_stats_col_points")]}>
                       {s.points.map((p) => (
                         <tr key={`${p.related_type}-${p.entry_type}`} className="border-b border-sam-border-soft">
-                          <td className={COMMUNITY_TD}>{communityPointTypeLabel(p.related_type, p.entry_type)}</td>
+                          <td className={COMMUNITY_TD}>{communityPointTypeLabel(p.related_type, p.entry_type, language)}</td>
                           <td className={COMMUNITY_TD}>{n(p.count)}</td>
                           <td className={COMMUNITY_TD}>{n(p.amount)} P</td>
                         </tr>
@@ -238,7 +273,7 @@ export function AdminCommunityStatsPage() {
               <section className="space-y-2">
                 <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_stats_by_action")}</h2>
                 <div className="rounded-ui-rect border border-sam-border">
-                  <CommunityTable head={["조치", "건수"]}>
+                  <CommunityTable head={[t("admin_community_stats_col_action"), t("admin_community_stats_col_count")]}>
                     {[...byAction.entries()]
                       .sort((a, b) => b[1] - a[1])
                       .map(([label, count]) => (

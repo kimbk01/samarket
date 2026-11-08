@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import type { PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
 import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
@@ -22,15 +24,15 @@ const WEIGHT_KEYS = [
   "recencyWeight",
 ] as const;
 
-const WEIGHT_LABELS: Record<(typeof WEIGHT_KEYS)[number], string> = {
-  categoryAffinityWeight: "카테고리 친화도",
-  recentViewWeight: "최근 본",
-  recentFavoriteWeight: "찜",
-  recentChatWeight: "채팅",
-  premiumBoostWeight: "프리미엄 부스트",
-  businessBoostWeight: "상점 부스트",
-  nearbyWeight: "가까운순",
-  recencyWeight: "최신성",
+const WEIGHT_LABEL_KEYS: Record<(typeof WEIGHT_KEYS)[number], MessageKey> = {
+  categoryAffinityWeight: "admin_personalized_feed_weight_category_affinity",
+  recentViewWeight: "admin_personalized_feed_weight_recent_view",
+  recentFavoriteWeight: "admin_personalized_feed_weight_favorite",
+  recentChatWeight: "admin_personalized_feed_weight_chat",
+  premiumBoostWeight: "admin_personalized_feed_weight_premium_boost",
+  businessBoostWeight: "admin_personalized_feed_weight_shop_boost",
+  nearbyWeight: "admin_personalized_feed_weight_nearby",
+  recencyWeight: "admin_personalized_feed_weight_recency",
 };
 
 export function PersonalizedPolicyForm({
@@ -38,6 +40,7 @@ export function PersonalizedPolicyForm({
   onSubmit,
   onCancel,
 }: PersonalizedPolicyFormProps) {
+  const { t } = useI18n();
   const [sectionLabel, setSectionLabel] = useState(initial.sectionLabel);
   const [isActive, setIsActive] = useState(initial.isActive);
   const [maxItems, setMaxItems] = useState(initial.maxItems);
@@ -71,11 +74,11 @@ export function PersonalizedPolicyForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="sam-text-body-secondary text-sam-muted">
-        섹션: {PERSONALIZED_SECTION_LABELS[initial.sectionKey]}
+        {t("admin_personalized_feed_form_section", { section: PERSONALIZED_SECTION_LABELS[initial.sectionKey] })}
       </p>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          섹션 라벨
+          {t("admin_personalized_feed_label_section_label")}
         </label>
         <input
           type="text"
@@ -93,12 +96,12 @@ export function PersonalizedPolicyForm({
           className="rounded border-sam-border"
         />
         <label htmlFor="pfpActive" className="sam-text-body text-sam-fg">
-          활성
+          {t("admin_personalized_feed_label_active")}
         </label>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          최대 노출 수
+          {t("admin_personalized_feed_label_max_items")}
         </label>
         <input
           type="number"
@@ -118,14 +121,14 @@ export function PersonalizedPolicyForm({
           className="rounded border-sam-border"
         />
         <label htmlFor="pfpDedupe" className="sam-text-body text-sam-fg">
-          중복 제거
+          {t("admin_personalized_feed_label_dedupe")}
         </label>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {WEIGHT_KEYS.map((key) => (
           <div key={key}>
             <label className="mb-0.5 block sam-text-helper text-sam-muted">
-              {WEIGHT_LABELS[key]}
+              {t(WEIGHT_LABEL_KEYS[key])}
             </label>
             <input
               type="number"
@@ -142,7 +145,7 @@ export function PersonalizedPolicyForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+          {t("admin_personalized_feed_label_admin_memo")}
         </label>
         <textarea
           value={adminMemo}
@@ -153,11 +156,11 @@ export function PersonalizedPolicyForm({
       </div>
       <div className="flex gap-2">
         <AdminActionButton type="submit" variant="primary">
-          저장
+          {t("admin_personalized_feed_action_save")}
         </AdminActionButton>
         {onCancel && (
           <AdminActionButton variant="secondary" onClick={onCancel}>
-            취소
+            {t("admin_personalized_feed_action_cancel")}
           </AdminActionButton>
         )}
       </div>

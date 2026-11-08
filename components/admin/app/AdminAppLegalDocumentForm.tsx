@@ -367,13 +367,7 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
 
       {identityLocked ? (
         <p className="text-xs text-sam-meta">
-          {ko
-            ? textLocked
-              ? "한 번 게시된 이용약관·개인정보처리방침은 문구를 포함해 바꿀 수 없습니다(회원이 동의한 내용 보존). 개정은 「목록 → 추가」에서 새 버전 문서로 작성해 게시해 주세요."
-              : "게시된 문서의 종류·언어·버전·시행일은 바꿀 수 없습니다. 내용이 바뀌는 개정은 「목록 → 추가」에서 새 버전 문서로 작성해 게시해 주세요."
-            : textLocked
-              ? "Published Terms / Privacy text is fixed (it is what members agreed to). Publish a revision as a new document (List → Add)."
-              : "Kind, locale, version and effective time of a published document are fixed. Publish a revision as a new document (List → Add)."}
+          {t(textLocked ? "admin_legal_doc_text_locked_note" : "admin_legal_doc_identity_locked_note")}
         </p>
       ) : null}
 

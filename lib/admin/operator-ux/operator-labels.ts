@@ -40,7 +40,7 @@ export function adminOperatorLabel(
 
 function humanizeToken(key: string, ko: boolean): string {
   const lower = key.toLowerCase().replace(/[./]/g, " ").replace(/_/g, " ");
-  if (ko) return `${lower} (확인)`;
+  if (ko) return tx(true, "admin_operator_ux_token_check", { token: lower });
   return lower.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -57,7 +57,7 @@ export function adminRecentTitle(
   ko: boolean
 ): string {
   if (isAdminTechnicalId(title) || !title.trim()) {
-    return ko ? metaKo || "최근 활동" : metaEn || "Recent activity";
+    return (ko ? metaKo : metaEn) || tx(ko, "admin_operator_ux_recent_activity");
   }
   if (/^\[QA\]/i.test(title) || /__QA_/i.test(title)) {
     const bare = title.replace(/^\[QA\]\s*/i, "").replace(/^__QA_[^_]+_/i, "");
@@ -120,6 +120,8 @@ const OPERATOR_LABELS: Record<string, { ko: string; en: string }> = {
   SETTLEMENT: catalogPair("admin_ops_console_link_settlement"),
   settlement: catalogPair("admin_settlement_scheduled"),
   FEE_OBLIGATION: catalogPair("admin_unpaid_sale_fee"),
+  /** 재무 통제판 미납 수수료 행 상태 */
+  unpaid: catalogPair("admin_unpaid_2"),
   fee_obligation: catalogPair("admin_unpaid_sale_fee"),
   COIN_WITHDRAWAL: catalogPair("admin_coin_withdrawal"),
   coin_withdrawal: catalogPair("admin_coin_withdrawal"),
@@ -309,11 +311,10 @@ export function adminOperatorErrorMessage(
   if (isAdminOperatorSentence(key)) return key;
   // 그 외(모르는 코드·DB/런타임 원문)는 화면에 그대로 보이지 않는다 — 원문은 AdminTechDetails 로만 (재설계 R3).
   // 성공·부분 성공 결과문은 이 함수에 넣지 않는다 (오류 전용).
-  return ko ? ADMIN_GENERIC_FAILURE_KO : ADMIN_GENERIC_FAILURE_EN;
+  return tx(ko, ADMIN_GENERIC_FAILURE_KEY);
 }
 
-const ADMIN_GENERIC_FAILURE_KO = "처리를 완료하지 못했습니다. 새로고침해 현재 상태를 확인해 주세요.";
-const ADMIN_GENERIC_FAILURE_EN = "Could not complete. Refresh to check the current state.";
+const ADMIN_GENERIC_FAILURE_KEY: MessageKey = "admin_operator_ux_generic_failure";
 
 /** 오류 맵 (수정 계획 2-5) — HTTP 상태별 고정 문구. 코드가 없거나 모르는 코드일 때 상태로 문구를 정한다. */
 const ADMIN_HTTP_STATUS_MESSAGES: Record<number, { ko: string; en: string }> = {
@@ -344,7 +345,7 @@ export function adminHttpStatusErrorMessage(status: number | null | undefined, k
   const n = Number(status);
   const row = ADMIN_HTTP_STATUS_MESSAGES[n] ?? (n >= 500 && n < 600 ? ADMIN_HTTP_STATUS_MESSAGES[500] : null);
   if (row) return ko ? row.ko : row.en;
-  return ko ? ADMIN_GENERIC_FAILURE_KO : ADMIN_GENERIC_FAILURE_EN;
+  return tx(ko, ADMIN_GENERIC_FAILURE_KEY);
 }
 
 /** 브라우저 네트워크 실패 원문 (fetch TypeError 등). */
@@ -366,7 +367,7 @@ export function isAdminOperatorSentence(raw: string | null | undefined): boolean
 export function isAdminUnmappedError(raw: string | null | undefined): boolean {
   const key = String(raw ?? "").trim();
   if (!key) return true;
-  return adminOperatorErrorMessage(key, true) === ADMIN_GENERIC_FAILURE_KO;
+  return adminOperatorErrorMessage(key, true) === tx(true, ADMIN_GENERIC_FAILURE_KEY);
 }
 
 /** 충돌 코드(stale_updated_at / stale_policy) → "stale_reloaded", 그 외는 그대로. 결과 배너처럼 코드만 받는 UI 용. */

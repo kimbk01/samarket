@@ -2,6 +2,7 @@
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getPerformanceMetrics } from "@/lib/performance/performance-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 
@@ -9,6 +10,7 @@ import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 const SLOW_THRESHOLD_MS = 500;
 
 export function SlowApiTable() {
+  const { t } = useI18n();
   const slowItems = useMemo(() => {
     const list = getPerformanceMetrics();
     return list
@@ -20,12 +22,12 @@ export function SlowApiTable() {
   return (
     <div className="space-y-4">
       <p className="sam-text-helper text-sam-muted">
-        API {SLOW_THRESHOLD_MS}ms 이상 또는 로딩 시간이 느린 페이지 (최근 기준)
+        {t("admin_performance_slow_api_hint", { ms: SLOW_THRESHOLD_MS })}
       </p>
       {slowItems.length === 0 ? (
-        <AdminEmptyState ko message={"느린 API가 없습니다."} />
+        <AdminEmptyState ko message={t("admin_performance_no_slow_api")} />
       ) : (
-        <AdminTable headers={["라우트", "로딩(ms)", "API(ms)", "DB(ms)", "측정 시각"]}>
+        <AdminTable headers={[t("admin_performance_th_route"), t("admin_performance_th_load_ms"), "API(ms)", "DB(ms)", t("admin_performance_th_measured_at")]}>
           {slowItems.map((m) => (
             <tr key={m.id} className="border-b border-sam-border-soft">
               <td className="px-3 py-2.5 font-medium text-sam-fg">{m.route}</td>

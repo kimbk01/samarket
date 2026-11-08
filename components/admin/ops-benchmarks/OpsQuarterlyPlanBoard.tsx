@@ -24,23 +24,23 @@ const STATUS_COLUMNS: OpsQuarterlyPlanStatus[] = [
   "dropped",
 ];
 
-const STATUS_LABELS: Record<OpsQuarterlyPlanStatus, string> = {
-  planned: "예정",
-  approved: "승인",
-  in_progress: "진행중",
-  at_risk: "위험",
-  completed: "완료",
-  dropped: "중단",
+const STATUS_LABELS: Record<OpsQuarterlyPlanStatus, MessageKey> = {
+  planned: "admin_ops_bench_plan_status_planned",
+  approved: "admin_ops_bench_plan_status_approved",
+  in_progress: "admin_ops_bench_plan_status_in_progress",
+  at_risk: "admin_ops_bench_plan_status_at_risk",
+  completed: "admin_ops_bench_plan_status_completed",
+  dropped: "admin_ops_bench_plan_status_dropped",
 };
 
-const DOMAIN_OPTIONS: { value: OpsBenchmarkDomain | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "recommendation_quality", label: "추천 품질" },
-  { value: "incident_response", label: "장애 대응" },
-  { value: "automation", label: "자동화" },
-  { value: "documentation", label: "문서화" },
-  { value: "execution", label: "운영 실행력" },
-  { value: "learning", label: "학습/회고" },
+const DOMAIN_OPTIONS: { value: OpsBenchmarkDomain | ""; label: MessageKey }[] = [
+  { value: "", label: "common_all" },
+  { value: "recommendation_quality", label: "admin_ops_bench_plan_domain_recommendation_quality" },
+  { value: "incident_response", label: "admin_ops_bench_plan_domain_incident_response" },
+  { value: "automation", label: "admin_ops_bench_plan_domain_automation" },
+  { value: "documentation", label: "admin_ops_bench_plan_domain_documentation" },
+  { value: "execution", label: "admin_ops_bench_plan_domain_execution" },
+  { value: "learning", label: "admin_ops_bench_plan_domain_learning" },
 ];
 
 const FILTER_EXTRAS = ["domain"] as const;
@@ -85,17 +85,17 @@ export function OpsQuarterlyPlanBoard() {
         <AdminFilterSelect ko={ko} label={t("admin_prod_migration_k48750694")} name="domain" value={lq.query.extras.domain} onChange={(v) => lq.setExtra("domain", v)}>
           {DOMAIN_OPTIONS.map((opt) => (
             <option key={opt.value || "all"} value={opt.value}>
-              {opt.label}
+              {t(opt.label)}
             </option>
           ))}
         </AdminFilterSelect>
       </AdminFilterBar>
-      <p className="sam-text-body-secondary text-sam-muted">{year}년</p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_ops_bench_year", { year })}</p>
 
       {plans.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "분기별 개선 계획이 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_ops_bench_no_quarterly_plans")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
@@ -107,7 +107,7 @@ export function OpsQuarterlyPlanBoard() {
                 className="w-[180px] shrink-0 rounded-ui-rect border border-sam-border bg-sam-app/50 p-3"
               >
                 <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
-                  {STATUS_LABELS[status]} ({byStatus[status].length})
+                  {t(STATUS_LABELS[status])} ({byStatus[status].length})
                 </h3>
                 <div className="space-y-2">
                   {byStatus[status].map((plan) => (

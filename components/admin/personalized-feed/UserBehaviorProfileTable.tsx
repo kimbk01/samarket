@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserBehaviorProfile } from "@/lib/types/personalized-feed";
 
 interface UserBehaviorProfileTableProps {
@@ -7,10 +8,11 @@ interface UserBehaviorProfileTableProps {
 }
 
 export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableProps) {
+  const { t } = useI18n();
   if (profiles.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        사용자 행동 프로필이 없습니다.
+        {t("admin_personalized_feed_profile_empty")}
       </div>
     );
   }
@@ -21,22 +23,22 @@ export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableP
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자
+              {t("admin_personalized_feed_col_user")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              선호 지역
+              {t("admin_personalized_feed_col_preferred_region")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              관심 카테고리
+              {t("admin_personalized_feed_col_interest_categories")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              최근 본
+              {t("admin_personalized_feed_col_recent_viewed")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              찜/채팅
+              {t("admin_personalized_feed_col_favorite_chat")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              갱신
+              {t("admin_personalized_feed_col_updated")}
             </th>
           </tr>
         </thead>
@@ -56,10 +58,10 @@ export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableP
                 {p.favoriteCategories.slice(0, 3).join(", ") || "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {p.recentViewedProductIds.length}건 / {p.recentViewedCategories.slice(0, 2).join(", ") || "-"}
+                {t("admin_personalized_feed_recent_viewed_line", { count: p.recentViewedProductIds.length, categories: p.recentViewedCategories.slice(0, 2).join(", ") || "-" })}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                찜 {p.recentFavoritedProductIds.length} / 채팅 {p.recentChattedProductIds.length}
+                {t("admin_personalized_feed_favorite_chat_line", { favorites: p.recentFavoritedProductIds.length, chats: p.recentChattedProductIds.length })}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(p.updatedAt).toLocaleString("ko-KR")}

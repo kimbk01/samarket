@@ -1635,10 +1635,10 @@ export function ChatDetailView({
         setStoreOrderItems([]);
         setStoreOrderLoadErr(
           status === 404
-            ? "주문을 찾을 수 없습니다."
+            ? t("chats_store_order_not_found")
             : typeof json?.error === "string"
               ? json.error
-              : "불러오기 실패"
+              : t("chats_store_order_load_failed")
         );
         return;
       }
@@ -1660,13 +1660,13 @@ export function ChatDetailView({
       });
       setStoreOrderItems(Array.isArray(json.items) ? json.items : []);
     } catch {
-      setStoreOrderLoadErr("네트워크 오류");
+      setStoreOrderLoadErr(t("chats_store_order_network_error"));
       setStoreOrderTop(null);
       setStoreOrderItems([]);
     } finally {
       setStoreOrderLoading(false);
     }
-  }, [storeOrderId]);
+  }, [storeOrderId, t]);
 
   useEffect(() => {
     if (!isStoreOrderBuyer) {
@@ -1806,7 +1806,7 @@ export function ChatDetailView({
                       }}
                       className={OverlayUi.popoverItem}
                     >
-                      판매중으로 변경
+                      {t("chats_listing_to_selling_menu")}
                     </button>
                     <button
                       type="button"
@@ -1816,7 +1816,7 @@ export function ChatDetailView({
                       }}
                       className={OverlayUi.popoverItem}
                     >
-                      문의중으로 변경
+                      {t("chats_listing_to_negotiating_menu")}
                     </button>
                     <button
                       type="button"
@@ -1826,7 +1826,7 @@ export function ChatDetailView({
                       }}
                       className={OverlayUi.popoverItem}
                     >
-                      예약중으로 변경
+                      {t("chats_listing_to_reserved_menu")}
                     </button>
                     <button
                       type="button"
@@ -1836,7 +1836,7 @@ export function ChatDetailView({
                       }}
                       className={OverlayUi.popoverItem}
                     >
-                      거래완료 (되돌리기 불가)
+                      {t("chats_listing_to_sold_menu")}
                     </button>
                   </>
                 ) : null}
@@ -1846,7 +1846,7 @@ export function ChatDetailView({
                     onClick={() => setMenuOpen(false)}
                     className={OverlayUi.popoverItem}
                   >
-                    게시글 보기
+                    {t("chats_view_post_menu")}
                   </Link>
                 ) : null}
                 <button
@@ -1943,7 +1943,7 @@ export function ChatDetailView({
           onClick={() => setSellerDrawerOpenExclusive(true)}
           className="rounded-full border border-sam-border bg-sam-surface px-3.5 py-1.5 sam-text-body-secondary font-medium leading-tight tracking-[-0.01em] text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
         >
-          주문 패널
+          {t("chats_seller_order_panel_btn")}
         </button>
         <button
           type="button"
@@ -1975,7 +1975,7 @@ export function ChatDetailView({
         }
         placeholder={
           isStoreOrderBuyer
-            ? "메세지를 입력해주세요"
+            ? t("chats_store_order_buyer_composer_placeholder")
             : messengerAlignedTradeComposer
               ? t("nav_trade_chat_composer_placeholder")
               : undefined
@@ -2002,8 +2002,8 @@ export function ChatDetailView({
             backHref={effectiveListHref}
             title={
               storeOrderTop?.store_name
-                ? `${storeOrderTop.store_name} 배달주문`
-                : "매장 배달주문"
+                ? t("chats_store_order_buyer_title_with_store", { store: storeOrderTop.store_name })
+                : t("chats_store_order_buyer_title_fallback")
             }
             orderId={storeOrderId}
             order={storeOrderTop}

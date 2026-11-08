@@ -9,6 +9,7 @@ import {
   type AdminApiActor,
 } from "@/lib/admin/require-admin-permission";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { translate } from "@/lib/i18n/messages";
 
 function parseOwnerIds(env: NodeJS.ProcessEnv = process.env): Set<string> {
   const set = new Set<string>();
@@ -45,8 +46,7 @@ export async function requireDeployOwner(): Promise<
           ok: false,
           error: "deploy_owner_only",
           code: "deploy_owner_only",
-          message:
-            "운영 배포 승인은 지정 Owner만 할 수 있습니다. 일반 super_admin은 불가합니다.",
+          message: translate("ko", "admin_deploy_owner_only"),
         },
         { status: 403 }
       ),

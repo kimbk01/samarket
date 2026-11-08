@@ -37,9 +37,7 @@ import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import type { ImportedContentBlock } from "@/lib/community/imported-content-blocks";
 import {
-  COMMUNITY_GONE_MESSAGE,
   COMMUNITY_POSTS_LIST_PATH,
-  COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   manilaLocalInputToUtcIso,
   toCommunitySheetResult,
@@ -122,7 +120,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   const backHref = readAdminReturnToFromSearch(sp) ?? COMMUNITY_POSTS_LIST_PATH;
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
-  const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
+  const noPermTitle = canContent ? undefined : tr("admin_community_comments_no_perm");
   const { topics } = useCommunityTopicOptions();
   const topicNameOf = useTopicNameOf(topics);
 
@@ -211,14 +209,14 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         if (opts.moderated) invalidateCommunityFeedCachesAfterPostModeration(id);
         void load({ keepDraft: false });
       } else if (kind === "stale") {
-        setBanner({ ok: false, code: COMMUNITY_STALE_MESSAGE });
+        setBanner({ ok: false, code: tr("admin_community_post_stale") });
         void load({ keepDraft: opts.keepDraft });
       } else {
-        setBanner({ ok: false, code: COMMUNITY_GONE_MESSAGE });
+        setBanner({ ok: false, code: tr("admin_community_post_gone") });
         void load();
       }
     },
-    [id, load]
+    [id, load, tr]
   );
 
   const patchPost = useCallback(
@@ -230,15 +228,15 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       if (!r.ok && r.code === "promotion_fault_required") {
         // D-10: 서버가 상위노출 중이라고 알려 오면 이 시트 안에서 귀책을 묻는다 (아래 선택지가 나타남).
         setFaultNeeded(true);
-        return { ok: false, status: 400, code: "상위노출 중인 글입니다. 아래에서 귀책을 선택한 뒤 다시 눌러 주세요." };
+        return { ok: false, status: 400, code: tr("admin_community_postd_promotion_fault_needed") };
       }
       if (!r.ok && r.code === "promotion_end_failed") {
         // 상위노출 종료에 실패하면 서버가 글을 바꾸지 않는다 — 최신 상태(남은 주문)를 다시 읽는다.
         void load({ keepDraft: true });
       }
-      return toCommunitySheetResult(r);
+      return toCommunitySheetResult(r, language);
     },
-    [id, post?.updated_at, load]
+    [id, language, post?.updated_at, load, tr]
   );
 
   if (loading) {
@@ -267,7 +265,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   }
 
   const status = String(post.status ?? "active");
-  const title = String(post.title ?? "").trim() || "제목 없음";
+  const title = String(post.title ?? "").trim() || tr("admin_community_comments_no_title");
   const slug = String(post.topic_slug ?? post.category ?? "").trim();
   const reportCount = Number(post.report_count ?? 0);
   const images = Array.isArray(post.images) ? post.images : [];
@@ -277,11 +275,11 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
 
   const summaryRows: { label: string; value: ReactNode }[] = [
     {
-      label: "작성 구분",
+      label: tr("admin_community_postd_row_origin"),
       value: <CommunityStatusBadge domain="origin_kind" value={post.origin_kind ?? "member"} ko={ko} />,
     },
     {
-      label: "작성자",
+      label: tr("admin_community_comments_col_author"),
       value: (
         <span className="flex flex-col gap-0.5">
           <CommunityAuthorCell
@@ -307,17 +305,17 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
     ...(isImported && post.public_attribution_url
       ? [
           {
-            label: "원문",
+            label: tr("admin_community_postd_row_original"),
             value: (
               <a href={post.public_attribution_url} target="_blank" rel="noreferrer" className="text-sam-info hover:underline">
-                {post.public_attribution_name || "원문 보기"}
+                {post.public_attribution_name || tr("admin_community_postd_view_original")}
               </a>
             ),
           },
         ]
       : []),
     {
-      label: "카테고리",
+      label: tr("admin_community_comments_filter_topic"),
       value: slug ? (
         <Link href={`${COMMUNITY_POSTS_LIST_PATH}?topicSlug=${encodeURIComponent(slug)}`} className="text-sam-info hover:underline">
           {topicNameOf(slug)}
@@ -326,35 +324,35 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         "—"
       ),
     },
-    { label: "상태", value: <CommunityStatusBadge domain="content_status" value={status} ko={ko} /> },
-    { label: "게시 시각", value: pht(post.published_at ?? post.created_at) },
-    { label: "작성 시각", value: pht(post.created_at) },
-    { label: "마지막 수정", value: pht(post.updated_at) },
+    { label: tr("admin_community_comments_col_status"), value: <CommunityStatusBadge domain="content_status" value={status} ko={ko} /> },
+    { label: tr("admin_community_postd_row_published_at"), value: pht(post.published_at ?? post.created_at) },
+    { label: tr("admin_community_comments_col_created"), value: pht(post.created_at) },
+    { label: tr("admin_community_postd_row_updated_at"), value: pht(post.updated_at) },
     {
-      label: "신고",
+      label: tr("admin_community_reports_col_reports"),
       value: (
         <Link href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`} className="text-sam-info hover:underline">
-          {formatAdminNumber(reportCount)}건
+          {tr("admin_count_items", { n: formatAdminNumber(reportCount) })}
         </Link>
       ),
     },
     {
-      label: "반응",
+      label: tr("admin_community_postd_row_reactions"),
       value: (
         <span>
-          좋아요 {formatAdminNumber(post.like_count ?? 0)} ·{" "}
+          {tr("admin_community_post_detail_likes_n", { n: formatAdminNumber(post.like_count ?? 0) })} ·{" "}
           <Link href={`/admin/community/comments?postId=${encodeURIComponent(id)}`} className="text-sam-info hover:underline">
-            댓글 {formatAdminNumber(post.comment_count ?? 0)}
+            {tr("admin_community_post_detail_comments_n", { n: formatAdminNumber(post.comment_count ?? 0) })}
           </Link>{" "}
-          · 조회 {formatAdminNumber(post.view_count ?? 0)}
+          · {tr("admin_community_post_detail_views_n", { n: formatAdminNumber(post.view_count ?? 0) })}
         </span>
       ),
     },
     {
-      label: "마지막 조치",
+      label: tr("admin_community_postd_row_last_action"),
       value: post.moderated_at ? (
         <span>
-          {post.moderated_by_label || "관리자"} · {pht(post.moderated_at)}
+          {post.moderated_by_label || tr("admin_community_dash_admin_fallback")} · {pht(post.moderated_at)}
           {post.moderation_reason ? (
             <span className="block text-sam-muted">
               {tr("admin_community_post_detail_reason", { reason: post.moderation_reason })}
@@ -362,14 +360,14 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           ) : null}
         </span>
       ) : (
-        "없음"
+        tr("admin_community_import_sources_none")
       ),
     },
     {
-      label: "관리자 수정",
+      label: tr("admin_community_postd_row_admin_edit"),
       value: post.last_admin_edit_at ? (
         <span>
-          {post.last_edited_by_label || "관리자"} · {pht(post.last_admin_edit_at)}
+          {post.last_edited_by_label || tr("admin_community_dash_admin_fallback")} · {pht(post.last_admin_edit_at)}
           {post.last_edit_reason ? (
             <span className="block text-sam-muted">
               {tr("admin_community_post_detail_reason", { reason: post.last_edit_reason })}
@@ -377,40 +375,40 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           ) : null}
         </span>
       ) : (
-        "없음"
+        tr("admin_community_import_sources_none")
       ),
     },
     {
-      label: "상단 고정",
+      label: tr("admin_community_postd_row_pin"),
       value: pinned ? (
         <span>
           <AdminToneBadge tone="progress">{adminCommunityLabel("pin_scope", post.pin_scope, ko).label}</AdminToneBadge>{" "}
-          {post.pinned_until ? `~ ${pht(post.pinned_until)}` : "기한 없음"}
+          {post.pinned_until ? `~ ${pht(post.pinned_until)}` : tr("admin_community_postd_no_deadline")}
           <span className="block text-sam-muted">
-            {post.pinned_by_label || "관리자"}
-            {post.pin_reason ? ` · 사유: ${post.pin_reason}` : ""}
+            {post.pinned_by_label || tr("admin_community_dash_admin_fallback")}
+            {post.pin_reason ? ` · ${tr("admin_community_postd_reason_inline", { reason: post.pin_reason })}` : ""}
           </span>
         </span>
       ) : (
-        "고정 안 됨"
+        tr("admin_community_postd_not_pinned")
       ),
     },
     {
-      label: "공지",
+      label: tr("admin_community_postd_row_notice"),
       value: post.is_notice ? (
         <span>
-          공지 · {post.notice_starts_at ? pht(post.notice_starts_at) : "바로"} ~{" "}
-          {post.notice_ends_at ? pht(post.notice_ends_at) : "종료 시각 없음"}{" "}
+          {tr("admin_community_post_detail_notice_label")} · {post.notice_starts_at ? pht(post.notice_starts_at) : tr("admin_community_postd_immediately")} ~{" "}
+          {post.notice_ends_at ? pht(post.notice_ends_at) : tr("admin_community_postd_no_end_time")}{" "}
           <Link href="/admin/community/notices" className="text-sam-info hover:underline">
-            공지·고정 화면
+            {tr("admin_community_post_detail_link_notices")}
           </Link>
         </span>
       ) : (
-        "아님"
+        tr("admin_community_postd_not_notice")
       ),
     },
     {
-      label: "상위노출",
+      label: tr("admin_community_postd_row_promotion"),
       value:
         promotions.length > 0 ? (
           <span className="flex flex-col gap-0.5">
@@ -423,14 +421,14 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
               </span>
             ))}
             <Link href="/admin/community/promotions" className="text-sam-info hover:underline">
-              상위노출 화면에서 보기
+              {tr("admin_community_post_detail_link_promotions_view")}
             </Link>
           </span>
         ) : (
           <span>
-            노출 중인 상위노출 없음 ·{" "}
+            {tr("admin_community_post_detail_no_active_promotion")} ·{" "}
             <Link href="/admin/community/promotions" className="text-sam-info hover:underline">
-              상위노출 화면
+              {tr("admin_community_post_detail_link_promotions")}
             </Link>
           </span>
         ),
@@ -438,9 +436,9 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   ];
 
   const sheetRows = [
-    { label: "게시글", value: `「${title.slice(0, 40)}」` },
-    { label: "작성자", value: post.origin_kind === "member" ? post.author_label || "—" : adminCommunityLabel("origin_kind", post.origin_kind, ko).label },
-    { label: "현재 상태", value: adminCommunityLabel("content_status", status, ko).label },
+    { label: tr("admin_community_comments_col_post"), value: tr("admin_community_comments_row_quote", { text: title.slice(0, 40) }) },
+    { label: tr("admin_community_comments_col_author"), value: post.origin_kind === "member" ? post.author_label || "—" : adminCommunityLabel("origin_kind", post.origin_kind, ko).label },
+    { label: tr("admin_community_comments_row_status"), value: adminCommunityLabel("content_status", status, ko).label },
   ];
 
   const faultPicker = showFault ? (
@@ -457,27 +455,27 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           title={noPermTitle}
           onClick={() => openSheet("hide")}
         >
-          숨기기
+          {tr("admin_community_post_detail_act_hide")}
         </AdminActionButton>
       ) : (
         <AdminActionButton variant="secondary" disabled={!canContent || !!sheet} title={noPermTitle} onClick={() => openSheet("restore")}>
-          {status === "deleted" ? "복구" : "다시 공개"}
+          {status === "deleted" ? tr("admin_community_postd_restore_btn") : tr("admin_community_comments_action_restore")}
         </AdminActionButton>
       )}
       {status === "active" ? (
         pinned ? (
           <AdminActionButton variant="secondary" disabled={!canContent || !!sheet} title={noPermTitle} onClick={() => openSheet("unpin")}>
-            고정 해제
+            {tr("admin_community_post_detail_act_unpin")}
           </AdminActionButton>
         ) : (
           <AdminActionButton variant="secondary" disabled={!canContent || !!sheet} title={noPermTitle} onClick={() => openSheet("pin")}>
-            상단 고정
+            {tr("admin_community_post_detail_act_pin")}
           </AdminActionButton>
         )
       ) : null}
       {status !== "deleted" ? (
         <AdminActionButton variant="danger" disabled={!canContent || !!sheet} title={noPermTitle} onClick={() => openSheet("delete")}>
-          삭제
+          {tr("admin_community_post_detail_act_delete")}
         </AdminActionButton>
       ) : null}
       <a
@@ -507,7 +505,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
     <div className="space-y-3" data-community-post-edit="1">
       {isImported ? (
         <p className="rounded-ui-rect border border-sam-info bg-sam-info-soft px-3 py-2 text-[13px] text-sam-fg">
-          외부 수집 글은 블록 단위로 수정합니다. 원문 출처 표시는 그대로 유지됩니다.
+          {tr("admin_community_post_detail_imported_edit_notice")}
         </p>
       ) : null}
       {!isImported && post?.content_blocks != null ? (
@@ -515,8 +513,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg"
           data-community-post-rich-notice="1"
         >
-          회원이 서식(제목·굵게·목록·표·사진 설명 등)으로 쓴 글입니다. 본문을 고쳐 저장하면 서식이 해제되고 아래 평문으로 저장됩니다.
-          (이전 서식은 수정 이력에 남습니다)
+          {tr("admin_community_post_detail_rich_text_notice")}
         </p>
       ) : null}
       <label className="block space-y-1">
@@ -582,16 +579,16 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         data-community-post-edit-footer="1"
       >
         <AdminActionButton variant="neutral" disabled={!dirty || !!sheet} onClick={() => resetForm(post)}>
-          취소
+          {tr("admin_community_post_detail_edit_cancel")}
         </AdminActionButton>
-        <span className="text-[12px] text-sam-muted">{dirty ? "저장하지 않은 변경이 있습니다" : "변경 없음"}</span>
+        <span className="text-[12px] text-sam-muted">{dirty ? tr("admin_community_postd_unsaved") : tr("admin_community_settings_no_change")}</span>
         <AdminActionButton
           variant="primary"
           disabled={!canContent || !dirty || !editTitle.trim() || !!sheet}
           title={noPermTitle}
           onClick={() => openSheet("save")}
         >
-          수정 저장
+          {tr("admin_community_post_detail_edit_save")}
         </AdminActionButton>
       </div>
     </div>
@@ -614,9 +611,9 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
 
       <CommunityTabs
         tabs={[
-          { value: "edit", label: "본문 편집" },
-          { value: "revisions", label: "수정 이력" },
-          { value: "records", label: "신고·조치 기록" },
+          { value: "edit", label: tr("admin_community_postd_tab_edit") },
+          { value: "revisions", label: tr("admin_community_postd_tab_revisions") },
+          { value: "records", label: tr("admin_community_postd_tab_records") },
         ]}
         value={tab}
         onChange={(v) => setTab(v as DetailTab)}
@@ -651,17 +648,17 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
 
       {sheet === "hide" || sheet === "delete" ? (
         <CommunityActionSheet
-          title={sheet === "hide" ? "게시글 숨기기" : "게시글 삭제"}
+          title={sheet === "hide" ? tr("admin_community_postd_hide_title") : tr("admin_community_postd_delete_title")}
           rows={sheetRows}
           notice={
             sheet === "hide"
-              ? "숨긴 글은 작성자에게만 보이고 안내 문구가 표시됩니다. 작성자에게 알림이 갑니다. 고정·공지는 함께 해제됩니다."
-              : "삭제한 글은 아무도 볼 수 없습니다(복구 가능). 작성자에게 알림이 갑니다. 고정·공지는 함께 해제됩니다."
+              ? tr("admin_community_postd_notice_hide")
+              : tr("admin_community_postd_notice_delete")
           }
-          reason={{ minLength: 2, placeholder: "예: 광고성 게시글, 욕설 포함" }}
+          reason={{ minLength: 2, placeholder: tr("admin_community_postd_reason_placeholder_moderate") }}
           ready={!showFault || fault !== ""}
           destructive={sheet === "delete"}
-          confirmLabel={sheet === "hide" ? "숨기기" : "삭제"}
+          confirmLabel={sheet === "hide" ? tr("admin_community_comments_action_hide") : tr("admin_community_comments_action_delete")}
           onSubmit={(reason) =>
             patchPost({
               status: sheet === "hide" ? "hidden" : "deleted",
@@ -670,21 +667,21 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
             })
           }
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, sheet === "hide" ? "게시글을 숨겼습니다." : "게시글을 삭제했습니다.", { moderated: true, keepDraft: true })}
+          onSettled={(k) => settle(k, sheet === "hide" ? tr("admin_community_postd_hidden_msg") : tr("admin_community_postd_deleted_msg"), { moderated: true, keepDraft: true })}
         >
           {faultPicker}
         </CommunityActionSheet>
       ) : null}
       {sheet === "restore" ? (
         <CommunityActionSheet
-          title={status === "deleted" ? "게시글 복구" : "게시글 다시 공개"}
+          title={status === "deleted" ? tr("admin_community_postd_restore_title") : tr("admin_community_postd_reopen_title")}
           rows={sheetRows}
-          notice="이 글을 다시 모두에게 보이게 합니다."
+          notice={tr("admin_community_postd_notice_restore")}
           reason={null}
-          confirmLabel={status === "deleted" ? "복구" : "다시 공개"}
+          confirmLabel={status === "deleted" ? tr("admin_community_postd_restore_btn") : tr("admin_community_comments_action_restore")}
           onSubmit={() => patchPost({ status: "active" })}
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "게시글을 다시 공개했습니다.", { keepDraft: true })}
+          onSettled={(k) => settle(k, tr("admin_community_postd_reopened_msg"), { keepDraft: true })}
         />
       ) : null}
       {sheet === "save" ? (
@@ -693,18 +690,22 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
           rows={[
             ...sheetRows.slice(0, 1),
             {
-              label: "바뀌는 항목",
-              value: [titleChanged ? "제목" : "", contentChanged || blocksChanged ? "본문" : "", topicChanged ? "카테고리" : ""]
+              label: tr("admin_community_postd_row_changes"),
+              value: [
+                titleChanged ? tr("admin_community_postd_field_title") : "",
+                contentChanged || blocksChanged ? tr("admin_community_postd_field_body") : "",
+                topicChanged ? tr("admin_community_comments_filter_topic") : "",
+              ]
                 .filter(Boolean)
                 .join(", "),
             },
           ]}
-          notice="수정 전 내용은 수정 이력에 남습니다. 작성자에게 관리자 수정 알림이 갑니다."
-          reason={{ minLength: 2, placeholder: "예: 개인정보 노출 부분 삭제" }}
-          confirmLabel="수정 저장"
+          notice={tr("admin_community_postd_notice_save")}
+          reason={{ minLength: 2, placeholder: tr("admin_community_postd_reason_placeholder_edit") }}
+          confirmLabel={tr("admin_community_postd_save_btn")}
           onSubmit={(reason) => patchPost({ ...saveBody(), reason })}
           onClose={() => setSheet(null)}
-          onSettled={(k) => settle(k, "수정 내용을 저장했습니다.", { keepDraft: true })}
+          onSettled={(k) => settle(k, tr("admin_community_postd_saved_msg"), { keepDraft: true })}
         />
       ) : null}
       {sheet === "image_delete" && imageTarget ? (
@@ -730,7 +731,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
               `/api/admin/community/engine/posts/${encodeURIComponent(id)}/images/${encodeURIComponent(imageTarget.id)}`,
               { method: "DELETE", body: { expectedUpdatedAt: post?.updated_at ?? "", reason } }
             );
-            return toCommunitySheetResult(r);
+            return toCommunitySheetResult(r, language);
           }}
           onClose={() => {
             setSheet(null);
@@ -756,7 +757,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
               method: "POST",
               body: { scope: pinScope, until, reason },
             });
-            return toCommunitySheetResult(r);
+            return toCommunitySheetResult(r, language);
           }}
           onClose={() => setSheet(null)}
           onSettled={(k) => settle(k, tr("admin_community_post_detail_pinned_done"), { keepDraft: true })}
@@ -796,7 +797,7 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
               method: "DELETE",
               body: {},
             });
-            return toCommunitySheetResult(r);
+            return toCommunitySheetResult(r, language);
           }}
           onClose={() => setSheet(null)}
           onSettled={(k) => settle(k, tr("admin_community_post_detail_unpinned_done"), { keepDraft: true })}
@@ -807,9 +808,10 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
 }
 
 function BackLink({ href }: { href: string }) {
+  const { t: tr } = useI18n();
   return (
     <Link href={href} className="inline-block text-[13px] font-medium text-sam-muted hover:text-sam-fg hover:underline">
-      ← 목록으로
+      {tr("admin_community_post_detail_back_to_list")}
     </Link>
   );
 }

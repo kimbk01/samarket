@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import {
   getBlockedChecklistItems,
@@ -10,6 +11,7 @@ import { getAreaLabel, getIssueStatusLabel, getPriorityLabel } from "@/lib/launc
 import Link from "next/link";
 
 export function LaunchWeekBlockerBoard() {
+  const { t, language } = useI18n();
   const blockedChecklist = useMemo(() => getBlockedChecklistItems(), []);
   const criticalIssues = useMemo(() => getOpenCriticalIssues(), []);
 
@@ -17,7 +19,7 @@ export function LaunchWeekBlockerBoard() {
 
   if (!hasAny) {
     return (
-      <AdminEmptyState ko message={"차단(blocked) 체크리스트 및 Critical 미해결 이슈가 없습니다."} />
+      <AdminEmptyState ko={language !== "en"} message={t("admin_launch_week_no_blockers")} />
     );
   }
 
@@ -26,7 +28,7 @@ export function LaunchWeekBlockerBoard() {
       {blockedChecklist.length > 0 && (
         <div>
           <h3 className="mb-2 sam-text-body font-medium text-sam-fg">
-            차단 체크리스트
+            {t("admin_launch_week_blocked_checklist")}
           </h3>
           <div className="space-y-3">
             {blockedChecklist.map((c) => (
@@ -47,7 +49,7 @@ export function LaunchWeekBlockerBoard() {
                 </p>
                 {c.ownerAdminNickname && (
                   <p className="mt-2 sam-text-helper text-sam-muted">
-                    담당 {c.ownerAdminNickname}
+                    {t("admin_launch_week_owner", { name: c.ownerAdminNickname })}
                   </p>
                 )}
               </div>
@@ -59,7 +61,7 @@ export function LaunchWeekBlockerBoard() {
       {criticalIssues.length > 0 && (
         <div>
           <h3 className="mb-2 sam-text-body font-medium text-sam-fg">
-            Critical 미해결 이슈
+            {t("admin_launch_week_open_critical_issues")}
           </h3>
           <div className="space-y-3">
             {criticalIssues.map((i) => (
@@ -75,7 +77,7 @@ export function LaunchWeekBlockerBoard() {
                 <p className="mt-2 sam-text-body text-sam-danger">{getIssueStatusLabel(i.status)}</p>
                 {i.linkedType && i.linkedId && (
                   <p className="mt-1 sam-text-helper text-sam-muted">
-                    연결: {i.linkedType}{" "}
+                    {t("admin_launch_week_linked", { type: i.linkedType })}{" "}
                     {i.linkedType === "qa_issue" && (
                       <Link
                         href="/admin/qa-board"

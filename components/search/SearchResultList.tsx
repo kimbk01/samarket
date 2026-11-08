@@ -15,7 +15,7 @@ export function SearchResultList({ products }: SearchResultListProps) {
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <p className="sam-text-body text-sam-muted">{t("trade_025")}</p>
         <p className="mt-1 sam-text-helper text-sam-meta">
-          다른 키워드나 필터를 시도해 보세요.
+          {t("search_try_other_keywords")}
         </p>
       </div>
     );

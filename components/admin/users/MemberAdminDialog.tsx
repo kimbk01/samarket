@@ -19,7 +19,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
   MEMBER_ADMIN_DIALOG_CLOSE_HIT_MIN_PX,
   memberAdminBackdropDismissible,
@@ -73,7 +73,7 @@ export function MemberAdminDialog({
   dirty = false,
   pending = false,
   errorText = null,
-  cancelLabel = MEMBER_ADMIN_COPY.cancel,
+  cancelLabel: cancelLabelProp,
   primaryLabel,
   primaryDisabled = false,
   onCancel,
@@ -81,6 +81,7 @@ export function MemberAdminDialog({
   onClosed,
 }: MemberAdminDialogProps) {
   const { t } = useI18n();
+  const cancelLabel = cancelLabelProp ?? t(MEMBER_ADMIN_COPY_KEY.cancel);
   const titleId = useId();
   const bodyId = useId();
   const errorId = useId();

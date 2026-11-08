@@ -70,19 +70,19 @@ export function QaTestCaseTable() {
       </AdminFilterBar>
 
       {cases.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"테스트 케이스가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_qa_board_no_test_cases")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[
-            "제목",
-            "상태",
-            "우선순위",
+            t("admin_qa_board_th_title"),
+            t("admin_qa_board_th_status"),
+            t("admin_qa_board_th_priority"),
             "Must-Pass",
-            "담당",
-            "실행일시",
-            "환경",
-            "실패/차단 사유",
-            "연결",
+            t("admin_qa_board_th_owner"),
+            t("admin_qa_board_th_run_at"),
+            t("admin_qa_board_th_env"),
+            t("admin_qa_board_th_fail_reason"),
+            t("admin_qa_board_th_link"),
           ]}
         >
           {cases.map((c) => (
@@ -120,7 +120,7 @@ export function QaTestCaseTable() {
               <td className="px-3 py-2.5">
                 {c.isMustPass ? (
                   <span className="rounded bg-sam-danger-soft px-1.5 py-0.5 sam-text-helper text-sam-danger">
-                    필수
+                    {t("admin_qa_board_required_badge")}
                   </span>
                 ) : (
                   "-"

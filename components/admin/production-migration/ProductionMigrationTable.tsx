@@ -36,7 +36,7 @@ export function ProductionMigrationTable() {
   );
 
   const domains: { value: ProductionMigrationDomain | ""; label: string }[] = [
-    { value: "", label: "전체" },
+    { value: "", label: t("admin_all") },
     { value: "auth", label: "Auth" },
     { value: "user", label: "User" },
     { value: "product", label: "Product" },
@@ -71,22 +71,22 @@ export function ProductionMigrationTable() {
       {tables.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "해당 도메인 테이블이 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_prod_migration_no_domain_tables")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable
           headers={[
-            "도메인",
-            "테이블",
-            "상태",
+            t("admin_prod_migration_th_domain"),
+            t("admin_prod_migration_th_table"),
+            t("admin_prod_migration_th_status"),
             "RLS",
-            "인덱스",
-            "트리거",
-            "뷰",
+            t("admin_prod_migration_th_index"),
+            t("admin_prod_migration_th_trigger"),
+            t("admin_prod_migration_th_view"),
             "RPC",
-            "담당",
-            "차단/비고",
+            t("admin_prod_migration_th_owner"),
+            t("admin_prod_migration_th_blocker_note"),
           ]}
         >
           {tables.map((t) => (

@@ -26,6 +26,7 @@ import {
   POLICY_LABEL,
   STATUS_LABEL,
   type TopicOption, importErrorState, importErrorText } from "./api";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /** API 필터 ("" = 전체) — 주소(URL)는 부모의 `useCommunityListQuery` 가 관리 */
 export type InboxFilter = { site: string; board: string; status: string; quality: string; lang: string; q: string };
@@ -36,16 +37,16 @@ const INBOX_WAITING = "new,draft,source_updated,failed";
 type AuthorMode = "keep" | "original" | "source" | "custom";
 type DateMode = "keep" | "original" | "publish";
 
-const AUTHOR_MODE_LABEL: Record<AuthorMode, string> = {
-  keep: "작성자: 글별 설정 유지",
-  original: "작성자: 원작성자",
-  source: "작성자: 출처 이름",
-  custom: "작성자: 직접 입력",
+const AUTHOR_MODE_LABEL: Record<AuthorMode, MessageKey> = {
+  keep: "admin_community_import_inbox_author_keep",
+  original: "admin_community_import_inbox_author_original",
+  source: "admin_community_import_inbox_author_source",
+  custom: "admin_community_import_inbox_author_custom",
 };
-const DATE_MODE_LABEL: Record<DateMode, string> = {
-  keep: "날짜: 글별 설정 유지",
-  original: "날짜: 원문 작성일",
-  publish: "날짜: DIBAY 게시 시각",
+const DATE_MODE_LABEL: Record<DateMode, MessageKey> = {
+  keep: "admin_community_import_inbox_date_keep",
+  original: "admin_community_import_inbox_date_original",
+  publish: "admin_community_import_inbox_date_publish",
 };
 
 /** `datetime-local` value for now (+offset minutes), local clock. */
@@ -168,26 +169,50 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
       ko: true,
       title:
         kind === "publish"
-          ? `${items.length}건을 DIBAY에 게시할까요?`
+          ? tr("admin_community_import_inbox_bulk_publish_title", { n: items.length })
           : kind === "update"
-            ? `게시된 ${items.length}건을 업데이트할까요?`
+            ? tr("admin_community_import_inbox_bulk_update_title", { n: items.length })
             : kind === "hide"
-              ? `게시된 ${items.length}건을 숨길까요?`
+              ? tr("admin_community_import_inbox_bulk_hide_title", { n: items.length })
               : kind === "unhide"
-                ? `숨긴 게시물 ${items.length}건을 다시 공개할까요?`
-                : `${items.length}건의 본문을 다시 수집할까요?`,
+                ? tr("admin_community_import_inbox_bulk_unhide_title", { n: items.length })
+                : tr("admin_community_import_inbox_bulk_reprocess_title", { n: items.length }),
       description: publishing
-        ? `주제: ${topic?.name ?? "각 게시판의 기본 주제"} · 정책: ${bulkPolicy ? POLICY_LABEL[bulkPolicy] : "출처 기본값"} · 출처 ${bulkAttribution === "hide" ? "숨김" : bulkAttribution === "show" ? "표시" : "글별 설정"} · ${AUTHOR_MODE_LABEL[authorMode]} · ${DATE_MODE_LABEL[dateMode]} · 품질 「일부 수집」 ${acceptPartial ? "포함" : "제외"} (「수집 실패」는 항상 제외). ${
+        ? `${tr("admin_community_import_inbox_bulk_desc", {
+            topic: topic?.name ?? tr("admin_community_import_inbox_bulk_default_topic"),
+            policy: bulkPolicy ? tr(POLICY_LABEL[bulkPolicy]) : tr("admin_community_import_inbox_bulk_source_default"),
+            attribution:
+              bulkAttribution === "hide"
+                ? tr("admin_community_import_inbox_bulk_attr_hide")
+                : bulkAttribution === "show"
+                  ? tr("admin_community_import_inbox_bulk_attr_show")
+                  : tr("admin_community_import_inbox_bulk_attr_per_post"),
+            author: tr(AUTHOR_MODE_LABEL[authorMode]),
+            date: tr(DATE_MODE_LABEL[dateMode]),
+            partial: acceptPartial ? tr("admin_community_import_inbox_bulk_include") : tr("admin_community_import_inbox_bulk_exclude"),
+          })} ${
             spread
-              ? `${startAt.replace("T", " ")}부터 ${intervalMin}분마다 1건씩${shuffle ? " 랜덤 순서로" : ""} 게시합니다.`
-              : `공개 커뮤니티에 바로 반영됩니다${kind === "publish" && shuffle ? " (랜덤 순서)" : ""}.`
+              ? tr(shuffle ? "admin_community_import_inbox_bulk_spread_random" : "admin_community_import_inbox_bulk_spread", {
+                  start: startAt.replace("T", " "),
+                  n: intervalMin,
+                })
+              : tr(kind === "publish" && shuffle ? "admin_community_import_inbox_bulk_immediate_random" : "admin_community_import_inbox_bulk_immediate")
           }`
         : kind === "reprocess"
-          ? "원문을 다시 가져와 품질을 다시 판정합니다. 게시물은 바뀌지 않습니다."
-          : "커뮤니티 피드·상세의 노출 상태만 바뀝니다.",
-      confirmLabel: kind === "publish" ? "게시" : kind === "update" ? "업데이트" : kind === "hide" ? "숨김" : kind === "unhide" ? "공개" : "재수집",
+          ? tr("admin_community_import_inbox_bulk_reprocess_desc")
+          : tr("admin_community_import_inbox_bulk_visibility_desc"),
+      confirmLabel:
+        kind === "publish"
+          ? tr("admin_community_import_editor_publish_btn")
+          : kind === "update"
+            ? tr("admin_community_import_editor_update_btn")
+            : kind === "hide"
+              ? tr("admin_community_import_editor_hide_btn")
+              : kind === "unhide"
+                ? tr("admin_community_import_editor_reopen_btn")
+                : tr("admin_community_import_inbox_bulk_reprocess_btn"),
       destructive: kind === "hide",
-      retypeValue: `${items.length}건`,
+      retypeValue: tr("admin_community_import_inbox_bulk_retype", { n: items.length }),
     });
     if (!confirmed.ok) return;
     setJobBusy(true);
@@ -264,53 +289,53 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
   return (
     <div className="flex flex-col min-h-0 h-full">
       <div className="shrink-0 border-b border-sam-border p-2">
-        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="제목 검색" pending={loading}>
-          <CommunityFilterField label="출처">
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder={tr("admin_community_import_inbox_search_title")} pending={loading}>
+          <CommunityFilterField label={tr("admin_community_import_inbox_filter_source")}>
             <CommunitySelect
               value={lq.query.extras.site}
               onChange={(v) => lq.patch({ extras: { site: v, board: "" } })}
-              options={[{ value: "", label: "모든 출처" }, ...sources.map((s) => ({ value: s.id, label: s.displayName }))]}
+              options={[{ value: "", label: tr("admin_community_import_inbox_all_sources") }, ...sources.map((s) => ({ value: s.id, label: s.displayName }))]}
             />
           </CommunityFilterField>
-          <CommunityFilterField label="게시판">
+          <CommunityFilterField label={tr("admin_community_import_inbox_filter_board")}>
             <CommunitySelect
               value={lq.query.extras.board}
               onChange={(v) => lq.setExtra("board", v)}
-              options={[{ value: "", label: "모든 게시판" }, ...boards.map((b) => ({ value: b.boardId, label: b.displayName }))]}
+              options={[{ value: "", label: tr("admin_community_import_inbox_all_boards") }, ...boards.map((b) => ({ value: b.boardId, label: b.displayName }))]}
             />
           </CommunityFilterField>
-          <CommunityFilterField label="처리 상태">
+          <CommunityFilterField label={tr("admin_community_import_inbox_filter_status")}>
             <CommunitySelect
               value={lq.query.status === "all" ? "" : lq.query.status}
               onChange={(v) => lq.setStatus(v)}
               options={[
-                { value: INBOX_WAITING, label: "처리 대기" },
-                { value: "", label: "전체 상태" },
-                ...Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: v })),
+                { value: INBOX_WAITING, label: tr("admin_community_import_inbox_status_waiting") },
+                { value: "", label: tr("admin_community_import_inbox_status_all") },
+                ...Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: tr(v) })),
               ]}
             />
           </CommunityFilterField>
-          <CommunityFilterField label="품질">
+          <CommunityFilterField label={tr("admin_community_import_inbox_filter_quality")}>
             <CommunitySelect
               value={lq.query.extras.quality}
               onChange={(v) => lq.setExtra("quality", v)}
               options={[
-                { value: "", label: "모든 품질" },
-                { value: "FULL", label: "전체 수집" },
-                { value: "PARTIAL", label: "일부 수집" },
-                { value: "FAILED", label: "수집 실패" },
-                { value: "none", label: "미확인" },
+                { value: "", label: tr("admin_community_import_inbox_quality_all") },
+                { value: "FULL", label: tr("admin_community_import_verdict_full") },
+                { value: "PARTIAL", label: tr("admin_community_import_verdict_partial") },
+                { value: "FAILED", label: tr("admin_community_import_verdict_failed") },
+                { value: "none", label: tr("admin_community_import_sources_unchecked") },
               ]}
             />
           </CommunityFilterField>
-          <CommunityFilterField label="언어">
+          <CommunityFilterField label={tr("admin_community_import_inbox_filter_lang")}>
             <CommunitySelect
               value={lq.query.extras.lang || "ko"}
               onChange={(v) => lq.setExtra("lang", v)}
               options={[
-                { value: "ko", label: "한글 글만" },
-                { value: "all", label: "모든 언어" },
-                { value: "other", label: "한글 없는 글" },
+                { value: "ko", label: tr("admin_community_import_inbox_lang_ko") },
+                { value: "all", label: tr("admin_community_import_inbox_lang_all") },
+                { value: "other", label: tr("admin_community_import_inbox_lang_other") },
               ]}
             />
           </CommunityFilterField>
@@ -319,11 +344,11 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
 
       <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-sam-muted border-b border-sam-border shrink-0">
         <label className="flex items-center gap-1">
-          <input type="checkbox" checked={allOnPage} onChange={togglePage} /> 이 페이지 선택
+          <input type="checkbox" checked={allOnPage} onChange={togglePage} /> {tr("admin_community_import_inbox_select_page")}
         </label>
         <span className="ml-auto flex gap-1">
           <AdminActionButton variant="neutral" disabled={loading} onClick={() => void load()}>
-            새로고침
+            {tr("admin_community_import_inbox_reload")}
           </AdminActionButton>
         </span>
       </div>
@@ -344,7 +369,7 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
           <div className="p-2">
             <CommunityListEmpty
               lq={lq}
-              message="수집된 글이 없습니다. 「출처·게시판」에서 게시판의 「지금 수집」을 누르거나 자동수집을 켜세요."
+              message={tr("admin_community_import_inbox_empty")}
             />
           </div>
         ) : null}
@@ -366,9 +391,9 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium text-sam-fg line-clamp-2 break-words">{r.title || "(제목 없음)"}</div>
+                    <div className="text-xs font-medium text-sam-fg line-clamp-2 break-words">{r.title || tr("admin_community_import_inbox_no_title")}</div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[12px] text-sam-muted">
-                      <span className="rounded-full border border-sam-border px-1.5">{STATUS_LABEL[r.status] ?? r.status}</span>
+                      <span className="rounded-full border border-sam-border px-1.5">{STATUS_LABEL[r.status] ? tr(STATUS_LABEL[r.status]) : r.status}</span>
                       {r.quality ? <VerdictBadge v={r.quality} /> : null}
                       <span className="truncate">
                         {sourceName} · {r.sourceBoard}
@@ -391,7 +416,7 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
           {selected.size > 0 ? (
             <>
               <div className="text-xs font-semibold">
-                {selected.size}건 선택 (미게시 {counts.unpublished} · 게시됨 {counts.published})
+                {tr("admin_community_import_inbox_selected_summary", { n: selected.size, unpublished: counts.unpublished, published: counts.published })}
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={bulkTopic} onChange={(e) => setBulkTopic(e.target.value)}>
@@ -406,7 +431,7 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
                   <option value="">{tr("admin_community_import_inbox_policy_source_default")}</option>
                   {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                     <option key={p} value={p}>
-                      {POLICY_LABEL[p]}
+                      {tr(POLICY_LABEL[p])}
                     </option>
                   ))}
                 </select>
@@ -418,14 +443,14 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
                 <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label={tr("admin_community_import_inbox_display_date")} value={dateMode} onChange={(e) => setDateMode(e.target.value as DateMode)}>
                   {(Object.keys(DATE_MODE_LABEL) as DateMode[]).map((m) => (
                     <option key={m} value={m}>
-                      {DATE_MODE_LABEL[m]}
+                      {tr(DATE_MODE_LABEL[m])}
                     </option>
                   ))}
                 </select>
                 <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" aria-label={tr("admin_community_import_inbox_display_author")} value={authorMode} onChange={(e) => setAuthorMode(e.target.value as AuthorMode)}>
                   {(Object.keys(AUTHOR_MODE_LABEL) as AuthorMode[]).map((m) => (
                     <option key={m} value={m}>
-                      {AUTHOR_MODE_LABEL[m]}
+                      {tr(AUTHOR_MODE_LABEL[m])}
                     </option>
                   ))}
                 </select>
@@ -440,16 +465,16 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
                 </select>
                 <label className="flex items-center gap-1 text-[12px] text-sam-muted">
                   <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
-                  랜덤 순서 (같은 출처 연속 방지)
+                  {tr("admin_community_import_inbox_shuffle")}
                 </label>
                 {scheduleMode === "spread" ? (
                   <>
                     <label className="block text-[12px] text-sam-muted">
-                      시작
+                      {tr("admin_community_import_inbox_start_at")}
                       <input type="datetime-local" className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
                     </label>
                     <label className="block text-[12px] text-sam-muted">
-                      간격(분, 5~1440)
+                      {tr("admin_community_import_inbox_interval")}
                       <input type="number" min={5} max={1440} step={5} className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs" value={intervalMin} onChange={(e) => setIntervalMin(Math.max(5, Math.min(1440, Number(e.target.value) || 60)))} />
                     </label>
                   </>
@@ -457,30 +482,30 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
               </div>
               <label className="flex items-center gap-1 text-[12px] text-sam-muted">
                 <input type="checkbox" checked={acceptPartial} onChange={(e) => setAcceptPartial(e.target.checked)} />
-                품질 「일부 수집」도 게시 허용 (「수집 실패」는 항상 제외)
+                {tr("admin_community_import_inbox_accept_partial")}
               </label>
               <div className="flex flex-wrap gap-1">
                 {/* 화면 primary 는 필터 바 [조회] 1개 — 일괄 작업은 secondary (L3 확인 단계 유지) */}
                 <AdminActionButton variant="secondary" disabled={jobBusy || !counts.unpublished} onClick={() => void runJob("publish")}>
-                  일괄 게시 ({counts.unpublished})
+                  {tr("admin_community_import_inbox_bulk_publish", { n: counts.unpublished })}
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => void runJob("update")}>
-                  일괄 업데이트 ({counts.published})
+                  {tr("admin_community_import_inbox_bulk_update", { n: counts.published })}
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => void runJob("hide")}>
-                  게시물 숨김
+                  {tr("admin_community_import_inbox_job_hide")}
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy || !counts.published} onClick={() => void runJob("unhide")}>
-                  숨김 해제
+                  {tr("admin_community_import_inbox_job_unhide")}
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => void runJob("reprocess")}>
-                  본문 재수집
+                  {tr("admin_community_import_inbox_job_reprocess")}
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy || !counts.unpublished} onClick={() => void setStatus("skipped")}>
-                  수집함에서 제외
+                  {tr("admin_community_import_inbox_skip")}
                 </AdminActionButton>
                 <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => setSelected(new Map())}>
-                  선택 해제
+                  {tr("admin_community_import_inbox_clear_selection")}
                 </AdminActionButton>
               </div>
             </>
@@ -488,7 +513,7 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
           {job ? (
             <div className="text-[12px] text-sam-muted space-y-1">
               <div>
-                작업 {job.kind}: {job.status} · 성공 {job.done} · 실패 {job.failed} · 건너뜀(중복·이미 게시) {job.skipped} / {job.total}
+                {tr("admin_community_import_inbox_job_summary", { kind: job.kind, status: job.status, done: job.done, failed: job.failed, skipped: job.skipped, total: job.total })}
                 {job.nextDueAt ? (
                   <span className="block">{tr("admin_community_import_inbox_job_next_due", { date: fmtDate(job.nextDueAt) })}</span>
                 ) : null}
@@ -501,12 +526,12 @@ export function ImportInboxPanel({ sources, topics, filter, lq, activeKey, onOpe
               <div className="flex flex-wrap gap-1">
                 {job.failed > 0 ? (
                   <AdminActionButton variant="secondary" disabled={jobBusy} onClick={() => void jobAction("retry_failed")}>
-                    실패만 다시 실행 ({job.failed})
+                    {tr("admin_community_import_inbox_retry_failed", { n: job.failed })}
                   </AdminActionButton>
                 ) : null}
                 {job.status === "running" || job.status === "queued" ? (
                   <AdminActionButton variant="neutral" disabled={jobBusy} onClick={() => void jobAction("cancel")}>
-                    남은 게시 취소
+                    {tr("admin_community_import_inbox_cancel_remaining")}
                   </AdminActionButton>
                 ) : null}
               </div>

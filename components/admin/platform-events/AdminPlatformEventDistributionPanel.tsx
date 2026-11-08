@@ -617,14 +617,14 @@ export function AdminPlatformEventDistributionPanel({
       >
         {(
           [
-            ["popup", "팝업", "Popup"],
-            ["banner", "배너", "Banner"],
-            ["push", "Push", "Push"],
-            ["bell", "앱 알림함", "Bell inbox"],
+            ["popup", "admin_platform_events_channel_popup"],
+            ["banner", "admin_platform_events_channel_banner"],
+            ["push", "admin_platform_events_summary_push"],
+            ["bell", "admin_platform_events_summary_bell"],
           ] as const
-        ).map(([key, ko, en]) => (
+        ).map(([key, labelKey]) => (
           <div key={key} data-admin-dist-channel-summary-item={key}>
-            <span className="font-semibold">{lang === "en" ? en : ko}</span>
+            <span className="font-semibold">{t(labelKey)}</span>
             {": "}
             {channelSummaryLabel(toggles[key], channelStatuses[key], lang)}
           </div>
@@ -910,19 +910,19 @@ export function AdminPlatformEventDistributionPanel({
               <div className="mb-2 flex flex-wrap gap-2">
                 {(
                   [
-                    ["phone", "휴대폰", "Phone"],
-                    ["tablet_portrait", "태블릿 세로", "Tablet portrait"],
-                    ["tablet_landscape", "태블릿 가로", "Tablet landscape"],
-                    ["desktop", "데스크톱", "Desktop"],
+                    ["phone", "admin_platform_events_preview_phone"],
+                    ["tablet_portrait", "admin_platform_events_preview_tablet_portrait"],
+                    ["tablet_landscape", "admin_platform_events_preview_tablet_landscape"],
+                    ["desktop", "admin_platform_events_preview_desktop"],
                   ] as const
-                ).map(([mode, ko, en]) => (
+                ).map(([mode, labelKey]) => (
                   <AdminChipButton
                     key={mode}
                     selected={bannerPreviewDevice === mode}
                     data-admin-banner-preview-device={mode}
                     onClick={() => setBannerPreviewDevice(mode)}
                   >
-                    {lang === "en" ? en : ko}
+                    {t(labelKey)}
                   </AdminChipButton>
                 ))}
               </div>
@@ -1008,7 +1008,7 @@ export function AdminPlatformEventDistributionPanel({
             onChange={(e) => setToggles((t) => ({ ...t, push: e.target.checked }))}
             data-admin-push-toggle={toggles.push ? "on" : "off"}
           />
-          {safeT("admin_platform_events_channel_push")}
+          {safeT("admin_platform_events_summary_push")}
         </label>
         {toggles.push ? (
           <div className="ml-6 grid gap-2" data-admin-push-config="1">
@@ -1095,7 +1095,7 @@ export function AdminPlatformEventDistributionPanel({
             onChange={(e) => setToggles((t) => ({ ...t, bell: e.target.checked }))}
             data-admin-bell-toggle={toggles.bell ? "on" : "off"}
           />
-          {safeT("admin_platform_events_channel_bell")}
+          {safeT("admin_platform_events_summary_bell")}
         </label>
         {toggles.bell ? (
           <div className="ml-6 grid gap-2" data-admin-bell-config="1">

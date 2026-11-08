@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { countPostsByCategoryServer } from "@/lib/posts/count-posts-by-category-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export async function GET(
   _req: NextRequest,
@@ -20,7 +21,7 @@ export async function GET(
   const { categoryId } = await params;
   const id = typeof categoryId === "string" ? categoryId.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "categoryId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_category_id_required") }, { status: 400 });
   }
 
   try {
@@ -32,7 +33,7 @@ export async function GET(
     return NextResponse.json({ ok: true, count: result.count });
   } catch {
     return NextResponse.json(
-      { ok: false, error: "게시물 수를 확인할 수 없습니다." },
+      { ok: false, error: await adminServerText("admin_api_category_post_count_failed") },
       { status: 500 }
     );
   }

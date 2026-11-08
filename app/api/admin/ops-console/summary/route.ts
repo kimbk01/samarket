@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { manilaLastNDaysRangeUtc } from "@/lib/admin/metrics/manila-period";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { adminServerTranslator } from "@/lib/i18n/admin-server-language";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +33,8 @@ type CapabilitiesRow = {
 
 function computeEffectiveRuntime(
   caps: CapabilitiesRow | null,
-  s: RuntimeSettingsRow
+  s: RuntimeSettingsRow,
+  tx: (key: MessageKey) => string
 ): {
   effective: RuntimeSettingsRow;
   warnings: { code: string; message: string }[];
@@ -49,18 +52,18 @@ function computeEffectiveRuntime(
   };
 
   if (s.enable_pg_cron && !supportsPgCron) {
-    warnings.push({ code: "pg_cron_unsupported", message: "pg_cron 미지원: enable_pg_cron이 runtime에서 OFF로 처리됨" });
+    warnings.push({ code: "pg_cron_unsupported", message: tx("admin_api_ops_console_pg_cron_off") });
   }
   if (s.enable_delivery_realtime_filtering && !supportsPubCols) {
     warnings.push({
       code: "publication_columns_unsupported",
-      message: "publication 컬럼 필터 미지원(PG15+ 필요): enable_delivery_realtime_filtering이 runtime에서 OFF로 처리됨",
+      message: tx("admin_api_ops_console_pub_cols_off"),
     });
   }
   if (s.enable_realtime_optimization && !supportsRtOpt) {
     warnings.push({
       code: "realtime_optimization_unsupported",
-      message: "Realtime 최적화 미지원: enable_realtime_optimization이 runtime에서 OFF로 처리됨",
+      message: tx("admin_api_ops_console_rt_opt_off"),
     });
   }
 
@@ -176,7 +179,7 @@ export async function GET(req: NextRequest) {
       enable_delivery_realtime_filtering: true,
     } satisfies RuntimeSettingsRow);
 
-  const runtime = computeEffectiveRuntime(capabilities, settings);
+  const runtime = computeEffectiveRuntime(capabilities, settings, await adminServerTranslator());
 
   return NextResponse.json({
     ok: true,

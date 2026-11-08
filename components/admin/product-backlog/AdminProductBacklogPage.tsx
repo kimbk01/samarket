@@ -49,7 +49,7 @@ export function AdminProductBacklogPage() {
       <AdminPageHeader titleKey="admin_menu_dev_backlog" />
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="summary"
         resetParams={adminSyncTabResetParams(["category", "source"])}
         className="mb-4"

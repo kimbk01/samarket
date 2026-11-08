@@ -7,6 +7,7 @@ import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { loadDrOpsBundleFromDb, saveDrOpsBundleToDb } from "@/lib/dr/dr-db";
 import type { DrOpsBundleV1 } from "@/lib/dr/dr-state";
 import { createDefaultDrOpsBundle } from "@/lib/dr/dr-state";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET() {
         ok: true,
         bundle: createDefaultDrOpsBundle(),
         source: "default" as const,
-        hint: loaded.message ?? "admin_settings 없음",
+        hint: loaded.message ?? await adminServerText("admin_api_admin_settings_missing"),
       });
     }
     return NextResponse.json(

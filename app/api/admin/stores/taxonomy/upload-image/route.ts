@@ -5,6 +5,7 @@ import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audi
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error: "storage_bucket_missing",
-          message: "Supabase에 버킷 store-taxonomy-images가 없거나 공개 읽기가 설정되지 않았습니다.",
+          message: await adminServerText("admin_api_taxonomy_bucket_missing"),
         },
         { status: 503 }
       );

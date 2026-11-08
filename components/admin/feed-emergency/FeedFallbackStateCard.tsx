@@ -7,11 +7,12 @@ import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const MODE_LABELS: Record<string, string> = {
-  normal: "정상",
-  fallback: "Fallback",
-  kill_switch: "킬스위치",
+const MODE_LABELS: Record<string, MessageKey> = {
+  normal: "admin_feed_emergency_normal_badge",
+  fallback: "admin_feed_emergency_state_fallback",
+  kill_switch: "admin_feed_emergency_state_kill_switch",
 };
 
 export function FeedFallbackStateCard() {
@@ -22,7 +23,7 @@ export function FeedFallbackStateCard() {
 
   if (states.length === 0) {
     return (
-      <AdminEmptyState ko message="상태가 없습니다." />
+      <AdminEmptyState ko message={t("admin_feed_emergency_no_states")} />
     );
   }
 
@@ -52,7 +53,7 @@ export function FeedFallbackStateCard() {
                       : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
-                {MODE_LABELS[mode]}
+                {MODE_LABELS[mode] ? t(MODE_LABELS[mode]) : mode}
               </span>
             </div>
             <dl className="space-y-1 sam-text-body-secondary">

@@ -29,9 +29,9 @@ function MemoList({
           <table className="w-full border-collapse sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="w-16 py-2 pr-2 font-medium">{language !== "en" ? "적용" : "Applied"}</th>
+                <th className="w-16 py-2 pr-2 font-medium">{tr("admin_memo_col_applied")}</th>
                 <th className="w-24 py-2 pr-2 font-medium">ID</th>
-                <th className="py-2 pr-2 font-medium">{language !== "en" ? "내용" : "Item"}</th>
+                <th className="py-2 pr-2 font-medium">{tr("admin_memo_col_item")}</th>
               </tr>
             </thead>
             <tbody>

@@ -8,6 +8,7 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminErrorState, AdminResultBanner } from "@/components/admin/ui/AdminStateViews";
@@ -22,24 +23,24 @@ type Banner = { ok: true; message: string } | { ok: false; code: string } | null
 
 const INPUT = "rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg";
 
-function sectionErrorText(code: unknown): string {
+function sectionErrorText(code: unknown, t: (key: MessageKey) => string): string {
   switch (typeof code === "string" ? code : "") {
     case "slug_duplicate":
-      return "같은 주소용 이름의 섹션이 이미 있습니다.";
+      return t("admin_community_sections_err_slug_duplicate");
     case "section_has_posts":
-      return "이 섹션에 글이 있어 삭제할 수 없습니다. 「사용 중지」를 쓰세요.";
+      return t("admin_community_sections_err_has_posts");
     case "unknown_or_inactive_section":
-      return "사용 중인 섹션만 동네 피드 섹션으로 지정할 수 있습니다.";
+      return t("admin_community_sections_err_inactive");
     case "name_required":
     case "invalid_name":
-      return "섹션 이름을 입력해 주세요.";
+      return t("admin_community_sections_err_name_required");
     case "invalid_slug":
-      return "주소용 이름은 영문·숫자 2자 이상이어야 합니다.";
+      return t("admin_community_sections_err_invalid_slug");
     case "not_found":
-      return "섹션을 찾을 수 없습니다. 새로고침 후 다시 확인하세요.";
+      return t("admin_community_sections_err_not_found");
     case "forbidden":
     case "forbidden_permission":
-      return "이 작업을 할 권한이 없습니다.";
+      return t("admin_community_sections_err_forbidden");
     default:
       return adminOperatorErrorMessage(typeof code === "string" ? code : "", true);
   }
@@ -77,7 +78,7 @@ export function AdminCommunitySectionsPage({
   const [isActive, setIsActive] = useState(true);
   const [edit, setEdit] = useState<CommunitySectionAdminRow | null>(null);
 
-  const fail = (code: unknown) => setBanner({ ok: false, code: sectionErrorText(code) });
+  const fail = (code: unknown) => setBanner({ ok: false, code: sectionErrorText(code, t) });
 
   async function refresh() {
     const res = await fetch("/api/admin/community/sections", { credentials: "include", cache: "no-store" });
@@ -112,9 +113,9 @@ export function AdminCommunitySectionsPage({
       const confirmed = await confirmAdminAction({
         level: adminActionLevel("save"),
         ko: true,
-        title: "동네 피드 섹션 변경",
-        description: `앱 동네 피드·글쓰기 카테고리가 「${philifeSectionSlug}」 섹션 기준으로 바뀝니다.`,
-        confirmLabel: "설정 저장",
+        title: t("admin_community_sections_philife_confirm_title"),
+        description: t("admin_community_sections_philife_confirm_desc", { slug: philifeSectionSlug }),
+        confirmLabel: t("admin_community_settings_save_btn"),
       });
       if (!confirmed.ok) return false;
       const res = await fetch("/api/admin/community/philife-neighborhood-section", {
@@ -128,7 +129,7 @@ export function AdminCommunitySectionsPage({
         fail(j.error);
         return false;
       }
-      setBanner({ ok: true, message: "동네 피드 섹션을 저장했습니다." });
+      setBanner({ ok: true, message: t("admin_community_sections_philife_saved") });
       return true;
     });
   };
@@ -147,7 +148,7 @@ export function AdminCommunitySectionsPage({
         fail(j.error);
         return false;
       }
-      setBanner({ ok: true, message: `섹션 「${name.trim()}」을(를) 추가했습니다.` });
+      setBanner({ ok: true, message: t("admin_community_sections_added", { name: name.trim() }) });
       setName("");
       setSlug("");
       setSortOrder(0);
@@ -175,7 +176,7 @@ export function AdminCommunitySectionsPage({
   const saveEdit = () => {
     if (!edit) return;
     void run(async () => {
-      const ok = await patchSection(edit, "섹션을 저장했습니다.");
+      const ok = await patchSection(edit, t("admin_community_sections_saved"));
       if (ok) setEdit(null);
       return ok;
     });
@@ -187,16 +188,16 @@ export function AdminCommunitySectionsPage({
         const confirmed = await confirmAdminAction({
           level: adminActionLevel("disable"),
           ko: true,
-          title: `「${s.name}」 사용 중지`,
-          description: "이 섹션의 카테고리·글이 피드에서 빠질 수 있습니다. 글은 지워지지 않습니다.",
-          confirmLabel: "사용 중지",
+          title: t("admin_community_topics_disable_title", { name: s.name }),
+          description: t("admin_community_sections_disable_desc"),
+          confirmLabel: t("admin_community_topics_disable_btn"),
           destructive: true,
         });
         if (!confirmed.ok) return false;
       }
       return patchSection(
         { ...s, is_active: !s.is_active },
-        s.is_active ? `「${s.name}」 사용을 중지했습니다.` : `「${s.name}」을(를) 다시 사용합니다.`
+        s.is_active ? t("admin_community_topics_disabled", { name: s.name }) : t("admin_community_topics_enabled", { name: s.name })
       );
     });
 
@@ -205,9 +206,9 @@ export function AdminCommunitySectionsPage({
       const confirmed = await confirmAdminAction({
         level: adminActionLevel("delete"),
         ko: true,
-        title: `「${s.name}」 섹션 삭제`,
-        description: "글이 있는 섹션은 삭제되지 않습니다. 삭제하면 되돌릴 수 없습니다.",
-        confirmLabel: "삭제",
+        title: t("admin_community_sections_delete_title", { name: s.name }),
+        description: t("admin_community_sections_delete_desc"),
+        confirmLabel: t("admin_community_topics_delete_btn"),
         destructive: true,
         retypeValue: s.name,
       });
@@ -223,7 +224,7 @@ export function AdminCommunitySectionsPage({
         fail(j.error);
         return false;
       }
-      setBanner({ ok: true, message: "섹션을 삭제했습니다." });
+      setBanner({ ok: true, message: t("admin_community_sections_deleted") });
       return true;
     });
 
@@ -242,11 +243,11 @@ export function AdminCommunitySectionsPage({
 
       <AdminCard title={t("admin_community_sections_philife_card")}>
         <p className="mb-3 text-[13px] text-sam-muted">
-          앱 동네 피드의 카테고리 칩·글쓰기 카테고리·모임 만들기는 여기서 고른 섹션의{" "}
+          {t("admin_community_sections_philife_intro_before")}{" "}
           <Link href="/admin/community/topics" className="font-medium text-sam-info hover:underline">
-            카테고리
+            {t("admin_community_sections_philife_intro_link")}
           </Link>
-          를 씁니다.
+          {t("admin_community_sections_philife_intro_after")}
         </p>
         <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 text-[13px]">
           <label className="flex flex-col gap-1">
@@ -258,7 +259,7 @@ export function AdminCommunitySectionsPage({
             >
               <option value="">{t("admin_community_sections_select_active")}</option>
               {philifeSectionSlug && !activeMatch ? (
-                <option value={philifeSectionSlug}>{philifeSectionSlug} (사용 중지됨 — 다시 지정 필요)</option>
+                <option value={philifeSectionSlug}>{t("admin_community_sections_philife_inactive_option", { slug: philifeSectionSlug })}</option>
               ) : null}
               {sections
                 .filter((s) => s.is_active)
@@ -296,7 +297,7 @@ export function AdminCommunitySectionsPage({
           </label>
           <label className="flex items-center gap-1.5 pb-1.5">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            사용
+            {t("admin_community_sections_field_active")}
           </label>
           <AdminActionButton type="submit" variant="primary" disabled={busy || !name.trim()}>
             {t("admin_community_sections_add")}
@@ -344,15 +345,15 @@ export function AdminCommunitySectionsPage({
                         />
                       </td>
                       <td className="py-2 pr-2">
-                        <AdminToneBadge tone={edit.is_active ? "success" : "neutral"}>{edit.is_active ? "사용 중" : "사용 중지"}</AdminToneBadge>
+                        <AdminToneBadge tone={edit.is_active ? "success" : "neutral"}>{edit.is_active ? t("admin_community_sections_status_active") : t("admin_community_sections_status_inactive")}</AdminToneBadge>
                       </td>
                       <td className="py-2">
                         <span className="flex flex-wrap gap-1">
                           <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit(null)}>
-                            취소
+                            {t("admin_community_sections_edit_cancel")}
                           </AdminActionButton>
                           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={saveEdit}>
-                            저장
+                            {t("admin_community_sections_edit_save")}
                           </AdminActionButton>
                         </span>
                       </td>
@@ -361,9 +362,9 @@ export function AdminCommunitySectionsPage({
                     <tr className="border-b border-sam-border-soft bg-sam-warning-soft/40">
                       <td colSpan={5} className="py-2">
                         <span className="flex flex-wrap items-center justify-end gap-2 text-[12px] text-sam-muted">
-                          글이 없는 섹션만 삭제할 수 있습니다. 되돌릴 수 없습니다.
+                          {t("admin_community_sections_delete_hint")}
                           <AdminActionButton variant="danger" size="sm" disabled={busy} onClick={() => removeRow(s)}>
-                            섹션 삭제
+                            {t("admin_community_sections_delete_section")}
                           </AdminActionButton>
                         </span>
                       </td>
@@ -375,15 +376,15 @@ export function AdminCommunitySectionsPage({
                       <td className="py-2 pr-2 text-sam-muted">{s.slug}</td>
                       <td className="py-2 pr-2 tabular-nums">{s.sort_order}</td>
                       <td className="py-2 pr-2">
-                        <AdminToneBadge tone={s.is_active ? "success" : "neutral"}>{s.is_active ? "사용 중" : "사용 중지"}</AdminToneBadge>
+                        <AdminToneBadge tone={s.is_active ? "success" : "neutral"}>{s.is_active ? t("admin_community_sections_status_active") : t("admin_community_sections_status_inactive")}</AdminToneBadge>
                       </td>
                       <td className="py-2">
                         <span className="flex flex-wrap gap-1">
                           <AdminActionButton variant="ghost" size="sm" disabled={busy} onClick={() => setEdit({ ...s })}>
-                            수정
+                            {t("admin_community_sections_row_edit")}
                           </AdminActionButton>
                           <AdminActionButton variant="secondary" size="sm" disabled={busy} onClick={() => toggleActive(s)}>
-                            {s.is_active ? "사용 중지" : "다시 사용"}
+                            {s.is_active ? t("admin_community_topics_disable_btn") : t("admin_community_topics_enable_btn")}
                           </AdminActionButton>
                         </span>
                       </td>
@@ -396,10 +397,10 @@ export function AdminCommunitySectionsPage({
         )}
         <p className="mt-4 flex flex-wrap gap-3 text-[13px]">
           <Link href="/admin/community/topics" className="font-medium text-sam-info hover:underline">
-            카테고리 관리 →
+            {t("admin_community_sections_link_topics")}
           </Link>
           <Link href="/admin/community/settings" className="font-medium text-sam-info hover:underline">
-            운영 설정 →
+            {t("admin_community_sections_link_settings")}
           </Link>
         </p>
       </AdminCard>

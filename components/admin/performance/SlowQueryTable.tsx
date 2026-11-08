@@ -30,10 +30,10 @@ export function SlowQueryTable() {
         onPageChange={lq.setPage}
         onSizeChange={lq.setSize}
         onRetry={lq.refresh}
-        emptyMessage="느린 쿼리가 없습니다."
+        emptyMessage={t("admin_performance_no_slow_query")}
       >
         {(queries) => (
-          <AdminTable headers={["쿼리명", "소요(ms)", "라우트", "감지 시각"]}>
+          <AdminTable headers={[t("admin_performance_th_query_name"), t("admin_performance_th_duration_ms"), t("admin_performance_th_route"), t("admin_performance_th_detected_at")]}>
             {queries.map((q) => (
               <tr key={q.id} className="border-b border-sam-border-soft">
                 <td className="px-3 py-2.5 font-medium text-sam-fg">{q.queryName}</td>

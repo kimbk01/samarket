@@ -68,7 +68,7 @@ async function getJson<T>(url: string): Promise<T | null> {
 }
 
 /** 각 원장의 기존 관리자 GET API 만 읽는다 (쓰기 없음). 한 곳이 실패해도 나머지는 보인다. */
-async function loadAllSources(nowMs: number): Promise<SourceResult[]> {
+async function loadAllSources(nowMs: number, ko: boolean): Promise<SourceResult[]> {
   const [my, promo, feed, delivery] = await Promise.all([
     getJson<{ banners?: MypageBannerInput[] }>("/api/admin/banners"),
     getJson<{ items?: PromotionBannerInput[] }>("/api/admin/platform-promotion/banners?limit=100&offset=0"),
@@ -76,10 +76,10 @@ async function loadAllSources(nowMs: number): Promise<SourceResult[]> {
     getJson<{ campaigns?: DeliveryBannerInput[] }>("/api/admin/delivery-ads?product=banner&view=all&limit=100&offset=0"),
   ]);
   return [
-    { kind: "mypage", failed: !my, rows: (my?.banners ?? []).map((b) => mapMypageBanner(b, nowMs)) },
-    { kind: "promotion", failed: !promo, rows: (promo?.items ?? []).map((r) => mapPromotionBanner(r, nowMs)) },
-    { kind: "feed", failed: !feed, rows: (feed?.campaigns ?? []).map((c) => mapFeedCampaign(c, nowMs)) },
-    { kind: "delivery", failed: !delivery, rows: (delivery?.campaigns ?? []).map((d) => mapDeliveryBanner(d, nowMs)) },
+    { kind: "mypage", failed: !my, rows: (my?.banners ?? []).map((b) => mapMypageBanner(b, nowMs, ko)) },
+    { kind: "promotion", failed: !promo, rows: (promo?.items ?? []).map((r) => mapPromotionBanner(r, nowMs, ko)) },
+    { kind: "feed", failed: !feed, rows: (feed?.campaigns ?? []).map((c) => mapFeedCampaign(c, nowMs, ko)) },
+    { kind: "delivery", failed: !delivery, rows: (delivery?.campaigns ?? []).map((d) => mapDeliveryBanner(d, nowMs, ko)) },
   ];
 }
 
@@ -108,8 +108,8 @@ export function AdminBannersOverviewPage() {
 
   const load = useCallback(async () => {
     setSources(null);
-    setSources(await loadAllSources(Date.now()));
-  }, []);
+    setSources(await loadAllSources(Date.now(), ko));
+  }, [ko]);
 
   useEffect(() => {
     void load();

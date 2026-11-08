@@ -17,6 +17,7 @@ import {
 import type { AdapterConfig, ContentPolicy, SourceEngine } from "@/lib/community-operator-import/types";
 import { verifyStoredSource } from "@/lib/community-operator-import/verify";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,7 +70,7 @@ function pickKeys(obj: unknown, keys: string[]): Record<string, unknown> | null 
 export async function POST(req: NextRequest) {
   const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
-  const parsed = await parseJsonBody<Body>(req, "JSON 본문이 필요합니다.");
+  const parsed = await parseJsonBody<Body>(req, await adminServerText("admin_api_json_body_required"));
   if (!parsed.ok) return parsed.response;
   const b = parsed.value;
   const action = String(b.action || "").trim();
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
     if (action === "probe") {
       const engine = b.engine;
       if (!b.baseUrl || !b.engineKey || !engine || !["gnuboard", "wordpress_rest", "rss_atom", "html"].includes(engine)) {
-        return jsonError("baseUrl, engine, engineKey 필요", 400, { code: "probe_input_required" });
+        return jsonError(await adminServerText("admin_api_import_probe_input_required"), 400, { code: "probe_input_required" });
       }
       const probe = await probeBoard({
         baseUrl: b.baseUrl,
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
     if (action === "register") {
       const detect = await detectSource(String(b.url || ""), { sampleBoards: 6, budgetMs: 40_000 });
       if (!detect.engine || detect.verdict === "BLOCKED") {
-        return jsonError(`등록 불가: ${detect.verdict} · ${detect.reason}`, 400, { code: "cannot_register", detect });
+        return jsonError(await adminServerText("admin_api_import_cannot_register", { verdict: detect.verdict, reason: detect.reason }), 400, { code: "cannot_register", detect });
       }
       const source = await saveDetectedSource(sb, {
         detect,
@@ -134,7 +135,7 @@ export async function POST(req: NextRequest) {
       return jsonOk({ source, detect, ...w });
     }
     const sourceId = String(b.sourceId || "").trim();
-    if (!sourceId) return jsonError("sourceId 필요", 400, { code: "source_id_required" });
+    if (!sourceId) return jsonError(await adminServerText("admin_api_import_source_id_required"), 400, { code: "source_id_required" });
     if (action === "update") {
       const patch = b.patch || {};
       const keys = Object.keys(patch);
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
     }
     if (action === "board") {
       const boardId = String(b.boardId || "").trim();
-      if (!boardId) return jsonError("boardId 필요", 400, { code: "board_id_required" });
+      if (!boardId) return jsonError(await adminServerText("admin_api_import_board_id_required"), 400, { code: "board_id_required" });
       const patch = b.patch || {};
       const keys = Object.keys(patch);
       const prevSource = await loadManagedSource(sb, sourceId);
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest) {
       return jsonOk({ board, ...w });
     }
     const source = await loadManagedSource(sb, sourceId);
-    if (!source) return jsonError("출처 없음", 404, { code: "source_not_found" });
+    if (!source) return jsonError(await adminServerText("admin_api_import_source_not_found"), 404, { code: "source_not_found" });
     if (action === "verify") {
       const outcome = await verifyStoredSource(sb, source, { maxBoards: 8, budgetMs: 45_000 });
       const w = await audit("community_import_source", sourceId, "community_import.source_verify", null, {
@@ -193,7 +194,7 @@ export async function POST(req: NextRequest) {
       }, { applied, engine: detect.engine ?? null, verdict: detect.verdict ?? null });
       return jsonOk({ detect, source: await loadManagedSource(sb, sourceId), ...w });
     }
-    return jsonError("지원 action: detect | register | update | board | verify | rescan", 400, { code: "unsupported_action" });
+    return jsonError(await adminServerText("admin_api_import_actions_sources"), 400, { code: "unsupported_action" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "sources_action_failed";
     return jsonError(msg, 400, { code: msg.split(":")[0] || "sources_action_failed" });

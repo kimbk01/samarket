@@ -9,10 +9,10 @@ import { getOpsAdminPerformanceReviews } from "@/lib/ops-benchmarks/ops-benchmar
 import { AdminTable } from "@/components/admin/AdminTable";
 import type { OpsPerformanceReviewStatus } from "@/lib/types/ops-benchmarks";
 
-const STATUS_LABELS: Record<OpsPerformanceReviewStatus, string> = {
-  draft: "초안",
-  published: "공개",
-  archived: "보관",
+const STATUS_LABELS: Record<OpsPerformanceReviewStatus, MessageKey> = {
+  draft: "admin_ops_bench_review_status_draft",
+  published: "admin_ops_bench_review_status_published",
+  archived: "admin_ops_bench_review_status_archived",
 };
 
 export function OpsAdminPerformanceReviewTable() {
@@ -44,26 +44,26 @@ export function OpsAdminPerformanceReviewTable() {
         />
         {teamFilter !== null && (
           <span className="sam-text-body-secondary text-sam-muted">
-            팀 필터 placeholder
+            {t("admin_ops_bench_team_filter_placeholder")}
           </span>
         )}
       </div>
 
       {reviews.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 기간 성과 리뷰가 없습니다."} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_bench_no_reviews")} />
       ) : (
         <AdminTable
           headers={[
-            "관리자",
-            "incident 기여",
-            "체크리스트 완료율",
-            "액션 완료율",
-            "문서 기여",
-            "런북 기여",
-            "학습 기여",
-            "종합",
-            "상태",
-            "메모",
+            t("admin_ops_bench_review_th_admin"),
+            t("admin_ops_bench_review_th_incident"),
+            t("admin_ops_bench_review_th_checklist_rate"),
+            t("admin_ops_bench_review_th_action_rate"),
+            t("admin_ops_bench_review_th_docs"),
+            t("admin_ops_bench_review_th_runbook"),
+            t("admin_ops_bench_review_th_learning"),
+            t("admin_ops_bench_review_th_overall"),
+            t("admin_ops_bench_review_th_status"),
+            t("admin_ops_bench_review_th_note"),
           ]}
         >
           {reviews.map((r) => (
@@ -94,7 +94,7 @@ export function OpsAdminPerformanceReviewTable() {
               </td>
               <td className="px-3 py-2.5">
                 <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-muted">
-                  {STATUS_LABELS[r.status]}
+                  {t(STATUS_LABELS[r.status])}
                 </span>
               </td>
               <td className="max-w-[120px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
@@ -106,7 +106,7 @@ export function OpsAdminPerformanceReviewTable() {
       )}
 
       <p className="sam-text-helper text-sam-muted">
-        성과 리뷰 메모/코멘트는 위 표의 메모 칸에 표시됩니다. (편집 placeholder)
+        {t("admin_ops_benchmarks_review_memo_hint")}
       </p>
     </div>
   );

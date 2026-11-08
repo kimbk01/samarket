@@ -42,7 +42,7 @@ export function AdminReleaseNotesPage() {
       <AdminPageHeader titleKey="admin_menu_dev_release_notes" />
       <AdminTabs
         tabs={TAB_KEYS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="notes"
         resetParams={adminSyncTabResetParams(["release", "phase"])}
         className="mb-4"

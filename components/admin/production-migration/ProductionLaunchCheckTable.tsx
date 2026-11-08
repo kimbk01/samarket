@@ -60,22 +60,22 @@ export function ProductionLaunchCheckTable() {
       </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
-        SQL 적용·view/rpc/trigger 필요 항목은 비고에 placeholder로 정리됩니다.
+        {t("admin_production_migration_launch_check_hint")}
       </p>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 단계 체크 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_prod_migration_no_phase_checks")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[
-            "단계",
-            "제목",
-            "영역",
-            "우선순위",
-            "상태",
-            "담당",
-            "차단/비고",
-            "연결",
+            t("admin_prod_migration_th_phase"),
+            t("admin_prod_migration_th_title"),
+            t("admin_prod_migration_th_area"),
+            t("admin_prod_migration_th_priority"),
+            t("admin_prod_migration_th_status"),
+            t("admin_prod_migration_th_owner"),
+            t("admin_prod_migration_th_blocker_note"),
+            t("admin_prod_migration_th_link"),
           ]}
         >
           {checks.map((c) => (

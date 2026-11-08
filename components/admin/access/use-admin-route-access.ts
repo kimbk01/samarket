@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useAdminShell } from "@/components/admin/AdminShellContext";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import {
   adminAccessActorFromMe,
@@ -35,15 +36,16 @@ export function useAdminRouteAction(pathname: string): AdminRouteActionState {
  */
 export function useAdminWriteGuard(pathname: string): AdminRouteActionState & { guard: () => boolean } {
   const state = useAdminRouteAction(pathname);
+  const { t } = useI18n();
   return useMemo(
     () => ({
       ...state,
       guard: () => {
         if (state.allowed) return true;
-        if (!state.loading) void dibayAlert({ title: state.reason ?? "이 작업을 할 권한이 없습니다." });
+        if (!state.loading) void dibayAlert({ title: state.reason ?? t("admin_access_no_permission_for_action") });
         return false;
       },
     }),
-    [state]
+    [state, t]
   );
 }

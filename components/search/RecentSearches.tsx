@@ -44,7 +44,7 @@ export function RecentSearches({ onSelectKeyword }: RecentSearchesProps) {
           onClick={handleClear}
           className="sam-text-helper text-sam-muted"
         >
-          전체 삭제
+          {t("trade_search_recent_clear")}
         </button>
       </div>
       <ul className="mt-2 flex flex-wrap gap-2">

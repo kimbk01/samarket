@@ -58,7 +58,7 @@ async function OrdersStoreOrderChatPageBody({
   if (!sb) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-center text-sm text-sam-muted">
-        서버 설정이 필요합니다.
+        {translate(lang, "store_server_config_required")}
       </div>
     );
   }
@@ -88,10 +88,10 @@ async function OrdersStoreOrderChatPageBody({
           href={`/orders?expand=${encodeURIComponent(orderId)}`}
           className="text-sm font-medium text-signature underline"
         >
-          주문 상세
+          {translate(lang, "store_order_detail_title")}
         </Link>
         <Link href="/orders" className="text-sm text-sam-muted underline">
-          주문 목록
+          {translate(lang, "store_orders_list_link")}
         </Link>
       </div>
     );

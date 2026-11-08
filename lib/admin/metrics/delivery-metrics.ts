@@ -97,15 +97,14 @@ function queuePermission(keys: readonly AdminActionQueueCategory[]): AdminPermis
 
 function queueMetric(
   id: DeliveryMetricId,
-  labelKo: string,
-  labelEn: string,
+  label: MessageKey,
   section: DeliveryMetricSection,
   category: AdminActionQueueCategory
 ): DeliveryMetricDefinition {
   return {
     id,
-    labelKo,
-    labelEn,
+    labelKo: translate("ko", label),
+    labelEn: translate("en", label),
     section,
     source: { kind: "queue", categories: [category] },
     period: "now",
@@ -118,7 +117,7 @@ function queueMetric(
 export const DELIVERY_METRIC_DEFINITIONS: readonly DeliveryMetricDefinition[] = [
   // ── 지금 처리할 일 (처리 대기 레지스트리 — Bell 과 같은 값) ─────────────────
   // Bell 처리 대기(전 기간) — Action Center 배달 카드 전용. 대시보드는 아래 최근 7일 값을 쓴다.
-  queueMetric("delivery.orders_attention", "처리 필요 주문", "Orders needing action", "global", "orders_attention"),
+  queueMetric("delivery.orders_attention", "admin_delivery_metric_orders_attention", "global", "orders_attention"),
   {
     id: "delivery.orders_attention_recent",
     labelKo: "처리 필요 주문 (최근 7일)",
@@ -132,12 +131,11 @@ export const DELIVERY_METRIC_DEFINITIONS: readonly DeliveryMetricDefinition[] = 
   },
   queueMetric(
     "delivery.store_applications_pending",
-    "입점 심사 대기",
-    "Store applications pending",
+    "admin_delivery_metric_store_applications_pending",
     "action",
     "store_applications"
   ),
-  queueMetric("delivery.alerts_open", "배달 경고 (미처리)", "Open delivery alerts", "action", "delivery_alerts"),
+  queueMetric("delivery.alerts_open", "admin_delivery_metric_alerts_open", "action", "delivery_alerts"),
   {
     id: "delivery.auto_actions_failed",
     labelKo: "자동 조치 실패",
@@ -162,23 +160,21 @@ export const DELIVERY_METRIC_DEFINITIONS: readonly DeliveryMetricDefinition[] = 
   },
   queueMetric(
     "delivery.commission_review_required",
-    "취소·환불 수수료 검토",
-    "Commission review (cancel/refund)",
+    "admin_delivery_metric_commission_review_required",
     "action",
     "settlements_actionable"
   ),
-  queueMetric("delivery.cash_charge_pending", "매장 캐시 충전 승인 대기", "Store Cash top-ups pending", "action", "cash_charges"),
-  queueMetric("delivery.ads_pending", "배달 광고 처리 필요", "Delivery ads need admin", "action", "delivery_ad_ops"),
-  queueMetric("delivery.store_reports_open", "매장 신고 (미처리)", "Open store reports", "action", "store_reports"),
+  queueMetric("delivery.cash_charge_pending", "admin_delivery_metric_cash_charge_pending", "action", "cash_charges"),
+  queueMetric("delivery.ads_pending", "admin_delivery_metric_ads_pending", "action", "delivery_ad_ops"),
+  queueMetric("delivery.store_reports_open", "admin_delivery_metric_store_reports_open", "action", "store_reports"),
   queueMetric(
     "delivery.inquiries_open.support",
-    "고객지원 처리 필요 (전체)",
-    "Support needs attention (all)",
+    "admin_delivery_metric_inquiries_open_support",
     "action",
     "support_actionable"
   ),
   // 매장 문의는 사장님이 답변 — Bell 합계 밖 (관찰용)
-  queueMetric("delivery.inquiries_open.store", "매장 문의 (사장님 답변 대기)", "Store inquiries (owner to answer)", "risk", "store_inquiry_open"),
+  queueMetric("delivery.inquiries_open.store", "admin_delivery_metric_inquiries_open_store", "risk", "store_inquiry_open"),
 
   // ── 현재 운영 상태 (매장) ────────────────────────────────────────────────
   {

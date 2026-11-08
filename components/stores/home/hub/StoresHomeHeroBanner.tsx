@@ -280,8 +280,7 @@ export function StoresHomeHeroBanner({ refreshKey = 0 }: { refreshKey?: number }
                 role="tab"
                 aria-selected={selected}
                 aria-label={t("ui_delivery_banner_slide_aria", { n: i + 1 })}
-                /* 광고 최종 점검: 보이는 점은 8px 그대로, 누르는 자리는 24px (점 중심 = 배너 아래 12px, 전과 같음).
-                   누르는 자리가 겹치지 않게 점 간격은 14px → 24px 로 넓어졌다 */
+                /* 광고 최종 점검: 보이는 점은 8px 그대로, 누르는 자리는 24px (점 중심 = 배너 아래 12px, 전과 같음). 누르는 자리가 겹치지 않게 점 간격은 14px → 24px 로 넓어졌다 */
                 className="pointer-events-auto group flex h-6 w-6 items-center justify-center"
                 data-stores-home-hero-dot-hit="24"
                 onClick={() => goTo(i, i > Math.min(index, slideCount - 1) ? "next" : "prev")}

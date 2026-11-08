@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { HomeFeedGenerationLog } from "@/lib/types/home-feed";
 import { SECTION_LABELS } from "@/lib/home-feed/home-feed-labels";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
@@ -9,10 +10,11 @@ interface HomeFeedGenerationLogListProps {
 }
 
 export function HomeFeedGenerationLogList({ logs }: HomeFeedGenerationLogListProps) {
+  const { t } = useI18n();
   if (logs.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        생성 로그가 없습니다.
+        {t("admin_home_feed_log_empty")}
       </div>
     );
   }
@@ -23,22 +25,22 @@ export function HomeFeedGenerationLogList({ logs }: HomeFeedGenerationLogListPro
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              생성일시
+              {t("admin_home_feed_log_col_generated_at")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자 지역
+              {t("admin_home_feed_log_col_user_region")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션
+              {t("admin_home_feed_log_col_section")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              후보/결과/중복제거
+              {t("admin_home_feed_log_col_counts")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              광고 포함
+              {t("admin_home_feed_log_col_ads")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              비고
+              {t("admin_home_feed_log_col_note")}
             </th>
           </tr>
         </thead>
@@ -58,7 +60,7 @@ export function HomeFeedGenerationLogList({ logs }: HomeFeedGenerationLogListPro
                 {SECTION_LABELS[log.sectionKey]}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {log.candidateCount} → {log.finalCount} (중복제거 {log.dedupedCount})
+                {t("admin_home_feed_log_counts_value", { candidates: log.candidateCount, results: log.finalCount, deduped: log.dedupedCount })}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{log.sponsoredIncluded}</td>
               <td className="max-w-[120px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">

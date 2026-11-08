@@ -26,7 +26,7 @@ export function OpsRunbookSummaryCards() {
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_runbook_summary_avg")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
-          {summary.avgCompletionMinutes != null ? `${summary.avgCompletionMinutes}분` : "-"}
+          {summary.avgCompletionMinutes != null ? t("admin_ops_tools_runbook_minutes", { n: summary.avgCompletionMinutes }) : "-"}
         </p>
         <p className="sam-text-body-secondary text-sam-muted">
           최근 실행 {summary.latestExecutionAt ? formatAdminManilaDateTime(summary.latestExecutionAt) : "-"}

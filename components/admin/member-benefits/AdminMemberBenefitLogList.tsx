@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberBenefitLog } from "@/lib/types/member-benefit";
 import {
   MEMBER_TYPE_LABELS,
@@ -14,10 +15,11 @@ interface AdminMemberBenefitLogListProps {
 export function AdminMemberBenefitLogList({
   logs,
 }: AdminMemberBenefitLogListProps) {
+  const { t } = useI18n();
   if (logs.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        혜택 적용 로그가 없습니다.
+        {t("admin_member_benefits_log_empty")}
       </div>
     );
   }
@@ -28,19 +30,19 @@ export function AdminMemberBenefitLogList({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자
+              {t("admin_member_benefits_col_user")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              구분
+              {t("admin_member_benefits_col_type")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              액션
+              {t("admin_member_benefits_col_action")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              비고
+              {t("admin_member_benefits_col_note")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              일시
+              {t("admin_member_benefits_col_time")}
             </th>
           </tr>
         </thead>

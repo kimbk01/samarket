@@ -78,7 +78,7 @@ export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
               <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.transactionId ? (
                   <Link href={tradeChatNotificationHref(r.transactionId, "product_chat")} className="text-signature hover:underline" target="_blank">
-                    열기
+                    {t("admin_reviews_row_open")}
                   </Link>
                 ) : (
                   "—"

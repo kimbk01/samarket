@@ -2615,10 +2615,7 @@ function TradeMarketplaceWriteFormInner({
           onRequestClose={onCancel}
         />
       ) : null}
-      {/*
-        D2 (Owner 2026-11-03): 글쓰기 시트 안(주제 선택 칸을 넘겨받음)에서는 시트가 이미 좌우 여백을 준다 —
-        폼이 여백을 한 번 더 주면 주제를 고른 순간 화면이 좁아지며 밀린다. 시트 안에서는 여백 없이 같은 폭.
-      */}
+      {/* D2 (Owner 2026-11-03): 글쓰기 시트 안(주제 선택 칸을 넘겨받음)에서는 시트가 이미 좌우 여백을 준다 — 폼이 여백을 한 번 더 주면 주제를 고른 순간 화면이 좁아지며 밀린다. 시트 안에서는 여백 없이 같은 폭. */}
       <form
         id={TRADE_WRITE_FORM_ID}
         onSubmit={handleSubmit}

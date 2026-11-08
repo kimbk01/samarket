@@ -7,6 +7,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { formatAdminMemberLabel, loadAdminMemberIdentityMap } from "@/lib/admin-community/member-identity";
+import { translate } from "@/lib/i18n/messages";
 import {
   applyMeetingReportTabFilter,
   MEETING_REPORT_TAB_KEYS,
@@ -174,7 +175,7 @@ async function toMeetingReportRows(sb: SupabaseClient, raw: Record<string, unkno
       status: (["pending", "reviewing", "resolved", "rejected"].includes(s) ? s : "pending") as MeetingReportStatus,
       action_result: r.action_result != null ? String(r.action_result) : null,
       reviewed_by: reviewer,
-      reviewed_by_label: reviewer ? formatAdminMemberLabel(ids.get(reviewer) ?? null, "관리자") : null,
+      reviewed_by_label: reviewer ? formatAdminMemberLabel(ids.get(reviewer) ?? null, translate("ko", "admin_community_actor_admin")) : null,
       reviewed_at: r.reviewed_at != null ? String(r.reviewed_at) : null,
       created_at: String(r.created_at ?? ""),
     };

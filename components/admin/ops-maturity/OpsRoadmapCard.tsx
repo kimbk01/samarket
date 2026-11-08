@@ -56,8 +56,8 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
       )}
       {(item.ownerAdminNickname || item.dueDate) && (
         <p className="mt-2 sam-text-helper text-sam-muted">
-          {item.ownerAdminNickname && `담당 ${item.ownerAdminNickname}`}
-          {item.dueDate && ` · 기한 ${item.dueDate}`}
+          {item.ownerAdminNickname && t("admin_ops_maturity_owner_name", { name: item.ownerAdminNickname })}
+          {item.dueDate && t("admin_ops_maturity_due_suffix", { date: item.dueDate })}
         </p>
       )}
     </div>

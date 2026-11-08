@@ -38,8 +38,8 @@ export function ProductionInfraCheckTable() {
   );
 
   const categories = [
-    { value: "" as const, label: "전체" },
-    { value: "storage_bucket" as const, label: "스토리지 버킷" },
+    { value: "" as const, label: t("admin_all") },
+    { value: "storage_bucket" as const, label: t("admin_prod_migration_infra_storage_bucket") },
     { value: "env_secret" as const, label: "Env/Secret" },
     { value: "webhook" as const, label: "Webhook" },
     { value: "cron" as const, label: "Cron" },
@@ -69,10 +69,10 @@ export function ProductionInfraCheckTable() {
       </AdminFilterBar>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"인프라 점검 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_prod_migration_no_infra_checks")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
-          headers={["분류", "대상", "상태", "차단 사유", "비고"]}
+          headers={[t("admin_prod_migration_th_category"), t("admin_prod_migration_th_target"), t("admin_prod_migration_th_status"), t("admin_prod_migration_th_blocker_reason"), t("admin_prod_migration_th_note")]}
         >
           {checks.map((c) => (
             <tr

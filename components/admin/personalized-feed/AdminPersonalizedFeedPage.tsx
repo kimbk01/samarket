@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
@@ -19,10 +20,10 @@ import { PersonalizedFeedLogList } from "./PersonalizedFeedLogList";
 
 type TabId = "policy" | "simulate" | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "policy", label: "개인화 정책" },
-  { id: "simulate", label: "추천 시뮬레이션" },
-  { id: "logs", label: "생성 로그" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "policy", labelKey: "admin_personalized_feed_tab_policy" },
+  { id: "simulate", labelKey: "admin_personalized_feed_tab_simulate" },
+  { id: "logs", labelKey: "admin_personalized_feed_tab_logs" },
 ];
 
 export function AdminPersonalizedFeedPage() {
@@ -112,8 +113,8 @@ export function AdminPersonalizedFeedPage() {
       </div>
 
       <AdminTabs
-        tabs={TABS}
-        ariaLabel="개인화 피드 탭"
+        tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
+        ariaLabel={t("admin_personalized_feed_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         syncUrl={false}

@@ -11,6 +11,7 @@ import type {
 } from "@/lib/stores/delivery-menus/delivery-menu-types";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export const DELIVERY_MENUS_ADMIN_API = "/api/admin/stores/delivery-menus";
 const UPLOAD_API = "/api/admin/stores/taxonomy/upload-image";
@@ -139,30 +140,21 @@ export function deleteDeliveryMenuImage(kind: "menu" | "menu_feature", id: strin
 
 /** API 오류 코드 → 어드민 문구 */
 export function deliveryMenuAdminErrorText(code: string, ko: boolean): string {
-  const map: Record<string, [string, string]> = {
-    last_assignment: [
-      "이 매장은 다른 메뉴에 없어 뺄 수 없습니다. 다른 메뉴에 먼저 넣은 뒤 빼 주세요. (노출 매장은 메뉴 1개 이상 필수)",
-      "This store is in no other menu. Add it to another menu first (visible stores need at least one menu).",
-    ],
-    has_stores: [
-      "다른 메뉴에 없는 매장이 남아 있어 삭제할 수 없습니다. 「옮길 메뉴」를 골라 주세요.",
-      "Some stores are only in this menu. Choose a menu to move them to.",
-    ],
-    is_default: [
-      "업종 기본 메뉴로 쓰는 메뉴입니다. 「옮길 메뉴」를 고르면 기본 메뉴도 함께 옮깁니다.",
-      "This menu is a category default. Choose a menu to move the default to.",
-    ],
-    requires_child: ["매장은 상단 탭이 아닌 메뉴(아이콘)에만 넣을 수 있습니다.", "Stores can only be added to menus, not top tabs."],
-    slug_taken: ["같은 주소 이름이 이미 있습니다.", "That URL name is already used."],
-    bad_color: ["색은 #RRGGBB 형식으로 입력해 주세요.", "Use #RRGGBB for the color."],
-    bad_link: ["연결 화면을 다시 골라 주세요.", "Choose the linked screen again."],
-    bad_parent: ["옮길 상단 탭을 다시 골라 주세요.", "Choose the top tab again."],
-    bad_move_target: ["옮길 메뉴는 삭제하는 메뉴 밖에서 골라 주세요.", "Choose a menu outside the one being deleted."],
-    name_required: ["이름을 입력해 주세요.", "Enter a name."],
-    forbidden: ["권한이 없습니다.", "No permission."],
-    network_error: ["네트워크 오류입니다. 새로고침 후 다시 저장해 주세요.", "Network error. Refresh and save again."],
+  const map: Record<string, MessageKey> = {
+    last_assignment: "admin_stores_delivery_menus_err_last_assignment",
+    has_stores: "admin_stores_delivery_menus_err_has_stores",
+    is_default: "admin_stores_delivery_menus_err_is_default",
+    requires_child: "admin_stores_delivery_menus_err_requires_child",
+    slug_taken: "admin_stores_delivery_menus_err_slug_taken",
+    bad_color: "admin_stores_delivery_menus_err_bad_color",
+    bad_link: "admin_stores_delivery_menus_err_bad_link",
+    bad_parent: "admin_stores_delivery_menus_err_bad_parent",
+    bad_move_target: "admin_stores_delivery_menus_err_bad_move_target",
+    name_required: "admin_stores_delivery_menus_err_name_required",
+    forbidden: "admin_stores_delivery_menus_err_forbidden",
+    network_error: "admin_stores_delivery_menus_err_network_error",
   };
   const hit = map[code];
-  if (hit) return ko ? hit[0] : hit[1];
+  if (hit) return translateBy(ko ? "ko" : "en", hit);
   return translateBy(ko ? "ko" : "en", "admin_stores_could_not_save_2", { code });
 }

@@ -75,7 +75,7 @@ export function AdminMemberBenefitForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          회원 구분
+          {t("admin_member_benefits_form_member_type")}
         </label>
         <select
           value={memberType}
@@ -93,7 +93,7 @@ export function AdminMemberBenefitForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          제목
+          {t("admin_member_benefits_form_title")}
         </label>
         <input
           type="text"
@@ -104,7 +104,7 @@ export function AdminMemberBenefitForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          설명
+          {t("admin_member_benefits_form_description")}
         </label>
         <textarea
           value={description}
@@ -122,12 +122,12 @@ export function AdminMemberBenefitForm({
           className="rounded border-sam-border"
         />
         <label htmlFor="benefitActive" className="sam-text-body text-sam-fg">
-          활성
+          {t("admin_member_benefits_form_active")}
         </label>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          프로필 액자
+          {t("admin_member_benefits_form_profile_frame")}
         </label>
         <select
           value={profileFrameType}
@@ -143,7 +143,7 @@ export function AdminMemberBenefitForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          배지 라벨
+          {t("admin_member_benefits_form_badge_label")}
         </label>
         <input
           type="text"
@@ -156,7 +156,7 @@ export function AdminMemberBenefitForm({
       <div className="grid grid-cols-3 gap-2">
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            홈 우선
+            {t("admin_member_benefits_form_home_priority")}
           </label>
           <input
             type="number"
@@ -170,7 +170,7 @@ export function AdminMemberBenefitForm({
         </div>
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            검색 우선
+            {t("admin_member_benefits_form_search_priority")}
           </label>
           <input
             type="number"
@@ -184,7 +184,7 @@ export function AdminMemberBenefitForm({
         </div>
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            상점 featured
+            {t("admin_member_benefits_form_store_featured")}
           </label>
           <input
             type="number"
@@ -200,7 +200,7 @@ export function AdminMemberBenefitForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            포인트 보너스 비율 (0~1)
+            {t("admin_member_benefits_form_point_bonus_rate")}
           </label>
           <input
             type="number"
@@ -216,7 +216,7 @@ export function AdminMemberBenefitForm({
         </div>
         <div>
           <label className="mb-0.5 block sam-text-helper text-sam-muted">
-            광고 할인율 (0~1)
+            {t("admin_member_benefits_form_ad_discount_rate")}
           </label>
           <input
             type="number"
@@ -239,7 +239,7 @@ export function AdminMemberBenefitForm({
             onChange={(e) => setCanOpenBusinessProfile(e.target.checked)}
             className="rounded border-sam-border"
           />
-          상점 개설 가능
+          {t("admin_member_benefits_form_can_open_store")}
         </label>
         <label className="flex items-center gap-1 sam-text-body">
           <input
@@ -248,12 +248,12 @@ export function AdminMemberBenefitForm({
             onChange={(e) => setCanAccessPremiumPromotion(e.target.checked)}
             className="rounded border-sam-border"
           />
-          프리미엄 노출 신청 가능
+          {t("admin_member_benefits_form_can_apply_premium")}
         </label>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+          {t("admin_member_benefits_form_admin_memo")}
         </label>
         <textarea
           value={adminMemo}
@@ -267,14 +267,14 @@ export function AdminMemberBenefitForm({
           type="submit"
           variant="primary"
         >
-          저장
+          {t("admin_member_benefits_form_save")}
         </AdminActionButton>
         {onCancel && (
           <AdminActionButton
             onClick={onCancel}
             variant="secondary"
           >
-            취소
+            {t("admin_member_benefits_form_cancel")}
           </AdminActionButton>
         )}
       </div>

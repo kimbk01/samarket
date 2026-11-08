@@ -10,24 +10,26 @@ import { allowsFullContent, RIGHTS_BASES, RIGHTS_LABEL, type RightsBasis } from 
 import { BoardProbePanel } from "./BoardProbePanel";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { call, type ContentPolicy, fmtDate, type ManagedSource, POLICY_LABEL, type TopicOption, VERDICT_TONE, importErrorText, verdictLabel } from "./api";
 
 export function VerdictBadge({ v }: { v: string | null | undefined }) {
+  const { t } = useI18n();
   const key = String(v || "NOT_PROVEN");
   return (
     <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[12px] font-semibold ${VERDICT_TONE[key] || VERDICT_TONE.NOT_PROVEN}`}>
-      {verdictLabel(key)}
+      {verdictLabel(key, t)}
     </span>
   );
 }
 
-const KIND_LABEL: Record<BoardKind, string> = {
-  editorial: "기사·정보",
-  community: "커뮤니티",
-  member_qa: "회원 Q&A",
-  directory: "업소록",
-  ads: "광고",
-  unknown: "미분류",
+const KIND_LABEL: Record<BoardKind, MessageKey> = {
+  editorial: "admin_community_import_sources_kind_editorial",
+  community: "admin_community_import_sources_kind_community",
+  member_qa: "admin_community_import_sources_kind_member_qa",
+  directory: "admin_community_import_sources_kind_directory",
+  ads: "admin_community_import_sources_kind_ads",
+  unknown: "admin_community_import_sources_kind_unknown",
 };
 
 type Props = {
@@ -80,7 +82,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           .map((b) => b.boardId),
       ),
     );
-    if (r.existingSourceId) setMsg({ tone: "ok", text: `이미 등록된 출처(${r.existingSourceId})입니다. 등록하면 게시판이 갱신됩니다.` });
+    if (r.existingSourceId) setMsg({ tone: "ok", text: tr("admin_community_import_sources_already_registered", { id: r.existingSourceId }) });
   };
 
   const doRegister = async () => {
@@ -91,7 +93,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
       }),
     );
     if (!r) return;
-    setMsg({ tone: "ok", text: `등록됨: ${r.source.displayName} (${r.source.verification}) · 게시판 ${r.source.boards.length}개` });
+    setMsg({ tone: "ok", text: tr("admin_community_import_sources_register_done", { name: r.source.displayName, verification: r.source.verification, n: r.source.boards.length }) });
     setDetect(null);
     setUrl("");
     setOpen(r.source.id);
@@ -111,12 +113,28 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
   ) => {
     const meta =
       kind === "verify"
-        ? { title: `「${source.displayName}」 재검증`, description: "출처 접근 가능 여부와 수집 품질을 다시 확인합니다.", confirmLabel: "재검증" }
+        ? {
+            title: tr("admin_community_import_sources_verify_title", { name: source.displayName }),
+            description: tr("admin_community_import_sources_verify_desc"),
+            confirmLabel: tr("admin_community_import_sources_verify_btn"),
+          }
         : kind === "rescan"
-          ? { title: `「${source.displayName}」 게시판 다시 찾기`, description: "사이트의 게시판 목록을 다시 탐색합니다. 기존 게시판 설정은 유지됩니다.", confirmLabel: "다시 찾기" }
+          ? {
+              title: tr("admin_community_import_sources_rescan_title", { name: source.displayName }),
+              description: tr("admin_community_import_sources_rescan_desc"),
+              confirmLabel: tr("admin_community_import_sources_rescan_btn"),
+            }
           : source.enabled
-            ? { title: `「${source.displayName}」 출처 끄기`, description: "이 출처의 자동·수동 수집이 멈춥니다. 이미 게시한 글은 그대로입니다.", confirmLabel: "출처 끄기" }
-            : { title: `「${source.displayName}」 출처 켜기`, description: "이 출처에서 다시 수집할 수 있게 됩니다.", confirmLabel: "출처 켜기" };
+            ? {
+                title: tr("admin_community_import_sources_off_title", { name: source.displayName }),
+                description: tr("admin_community_import_sources_off_desc"),
+                confirmLabel: tr("admin_community_import_sources_off_btn"),
+              }
+            : {
+                title: tr("admin_community_import_sources_on_title", { name: source.displayName }),
+                description: tr("admin_community_import_sources_on_desc"),
+                confirmLabel: tr("admin_community_import_sources_on_btn"),
+              };
     const level = adminActionLevel(kind !== "toggle" ? "save" : source.enabled ? "disable" : "resume");
     const ok = await confirmAdminAction({ level, ko: true, destructive: kind === "toggle" && source.enabled, ...meta });
     if (!ok.ok) return;
@@ -134,7 +152,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
       call<{ result: { listed: number; inbox: { inserted: number; changed: number } | null } }>("/collect", { body: { sourceId, boardId, pages: 1 } }),
     );
     if (r) {
-      setMsg({ tone: "ok", text: `수집 완료: ${r.result.listed}건 (신규 ${r.result.inbox?.inserted ?? 0}, 변경 ${r.result.inbox?.changed ?? 0})` });
+      setMsg({ tone: "ok", text: tr("admin_community_import_sources_collect_done", { n: r.result.listed, inserted: r.result.inbox?.inserted ?? 0, changed: r.result.inbox?.changed ?? 0 }) });
       onChanged();
       onOpenBoard(sourceId, boardId);
     } else onChanged();
@@ -159,7 +177,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           />
           {/* 화면 주 동작은 「등록」 1개 — 분석은 보조 */}
           <AdminActionButton variant="secondary" disabled={!url.trim() || !!busy} onClick={() => void doDetect()}>
-            {busy === "detect" ? "분석 중… (최대 45초)" : "사이트 분석"}
+            {busy === "detect" ? tr("admin_community_import_sources_detecting") : tr("admin_community_import_sources_detect_btn")}
           </AdminActionButton>
         </div>
 
@@ -167,7 +185,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
           <div className="rounded-ui-rect border border-sam-border p-3 space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <VerdictBadge v={detect.verdict} />
-              <span className="font-semibold">{detect.engine ?? "유형 판별 실패"}</span>
+              <span className="font-semibold">{detect.engine ?? tr("admin_community_import_sources_engine_unknown")}</span>
               <span className="text-sam-muted text-xs break-all">{detect.baseUrl}</span>
               <span className="text-sam-muted text-xs">robots: {detect.robots.status}</span>
               <span className="text-sam-muted text-xs">{Math.round(detect.elapsedMs / 100) / 10}s</span>
@@ -197,7 +215,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                           <td className="py-1.5 pr-2">
                             <input
                               type="checkbox"
-                              aria-label={`${b.displayName} 사용`}
+                              aria-label={tr("admin_community_import_sources_use_aria", { name: b.displayName })}
                               disabled={!usable}
                               checked={selected.has(b.boardId)}
                               onChange={(e) => {
@@ -212,7 +230,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             <div className="font-medium">{b.displayName}</div>
                             <div className="text-[12px] text-sam-muted break-all">{b.engineKey}</div>
                           </td>
-                          <td className="py-1.5 pr-2">{KIND_LABEL[b.boardKind]}</td>
+                          <td className="py-1.5 pr-2">{tr(KIND_LABEL[b.boardKind])}</td>
                           <td className="py-1.5 pr-2">
                             <VerdictBadge v={b.robotsAllowed ? b.sample?.verdict ?? "NOT_PROVEN" : "BLOCKED"} />
                             {b.sample?.reasons.length ? <div className="text-[12px] text-sam-muted mt-0.5">{labelReasons(b.sample.reasons.join(", "))}</div> : null}
@@ -227,7 +245,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                   {b.sample.sampleTitle}
                                 </a>
                                 <div className="text-[12px] text-sam-muted">
-                                  본문 {b.sample.textChars}자 · 이미지 {b.sample.imageCount}
+                                  {tr("admin_community_import_sources_sample_stats", { chars: b.sample.textChars, images: b.sample.imageCount })}
                                 </div>
                               </>
                             ) : (
@@ -249,7 +267,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                   })
                                 }
                               >
-                                샘플 보기
+                                {tr("admin_community_import_sources_row_preview_sample")}
                               </AdminActionButton>
                             ) : null}
                           </td>
@@ -266,22 +284,22 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
             {detect.engine && detect.verdict !== "BLOCKED" ? (
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-end">
                 <label className="text-xs text-sam-muted">
-                  표시 이름
+                  {tr("admin_community_import_sources_field_display_name")}
                   <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                 </label>
                 <label className="text-xs text-sam-muted">
-                  게시 정책
+                  {tr("admin_community_import_sources_field_policy")}
                   <select className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-sm mt-0.5" value={policy} onChange={(e) => setPolicy(e.target.value as ContentPolicy)}>
                     {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                       // A new source has no recorded rights yet: record them on the source card first.
                       <option key={p} value={p} disabled={p === "full"}>
-                        {POLICY_LABEL[p]}
+                        {tr(POLICY_LABEL[p])}
                       </option>
                     ))}
                   </select>
                 </label>
                 <AdminActionButton variant="primary" disabled={!!busy} onClick={() => void doRegister()}>
-                  {busy === "register" ? "재검증 후 등록 중…" : `등록 (게시판 ${selected.size}개 사용)`}
+                  {busy === "register" ? tr("admin_community_import_sources_registering") : tr("admin_community_import_sources_register_btn", { n: selected.size })}
                 </AdminActionButton>
               </div>
             ) : null}
@@ -305,14 +323,14 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                 <span className="text-[12px] text-sam-muted">{s.engine}</span>
                 {!s.enabled ? <span className="text-[12px] text-sam-danger">{tr("admin_community_import_sources_disabled")}</span> : null}
                 <span className="text-[12px] text-sam-muted ml-auto">
-                  게시판 {s.boards.length} · 자동수집 {collecting} · 확인 {fmtDate(s.status.lastCheckedAt) || "없음"}
+                  {tr("admin_community_import_sources_source_stats", { boards: s.boards.length, collecting, checked: fmtDate(s.status.lastCheckedAt) || tr("admin_community_import_sources_none") })}
                 </span>
               </AdminActionButton>
               {isOpen ? (
                 <div className="border-t border-sam-border px-3 py-3 space-y-3">
                   <div className="text-[12px] text-sam-muted break-all">
-                    {s.baseUrl} · robots {s.status.robotsStatus ?? "미확인"}
-                    {s.status.aiBotsBlocked ? " · AI 봇 차단 명시" : ""}
+                    {s.baseUrl} · robots {s.status.robotsStatus ?? tr("admin_community_import_sources_unchecked")}
+                    {s.status.aiBotsBlocked ? ` · ${tr("admin_community_import_sources_ai_bots_blocked")}` : ""}
                     {s.status.lastError ? (
                       <span className="block text-sam-danger">
                         {tr("admin_community_import_sources_recent_error", {
@@ -329,22 +347,22 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                     >
                       {(Object.keys(POLICY_LABEL) as ContentPolicy[]).map((p) => (
                         <option key={p} value={p} disabled={p === "full" && !allowsFullContent(s.rights)}>
-                          {POLICY_LABEL[p]}
+                          {tr(POLICY_LABEL[p])}
                         </option>
                       ))}
                     </select>
                     <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void confirmedSourceAction(s, "verify")}>
-                      {busy === `verify:${s.id}` ? "검증 중…" : "재검증"}
+                      {busy === `verify:${s.id}` ? tr("admin_community_import_sources_verifying") : tr("admin_community_import_sources_verify_btn")}
                     </AdminActionButton>
                     <AdminActionButton variant="neutral" disabled={!!busy} onClick={() => void confirmedSourceAction(s, "rescan")}>
-                      {busy === `rescan:${s.id}` ? "탐색 중…" : "게시판 다시 찾기"}
+                      {busy === `rescan:${s.id}` ? tr("admin_community_import_sources_rescanning") : tr("admin_community_import_sources_rescan_boards_btn")}
                     </AdminActionButton>
                     <AdminActionButton
                       variant="neutral"
                       disabled={!!busy}
                       onClick={() => void confirmedSourceAction(s, "toggle")}
                     >
-                      {s.enabled ? "출처 끄기" : "출처 켜기"}
+                      {s.enabled ? tr("admin_community_import_sources_off_btn") : tr("admin_community_import_sources_on_btn")}
                     </AdminActionButton>
                   </div>
                   <RightsForm
@@ -387,7 +405,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             <td className="py-1.5 pr-2">
                               <div className="font-medium">{b.displayName}</div>
                               <div className="text-[12px] text-sam-muted">
-                                {KIND_LABEL[b.boardKind]} · 최신 {fmtDate(b.status.latestSourceAt) || "—"}
+                                {tr(KIND_LABEL[b.boardKind])} · {tr("admin_community_import_sources_board_latest", { date: fmtDate(b.status.latestSourceAt) || "—" })}
                               </div>
                             </td>
                             <td className="py-1.5 pr-2">
@@ -397,7 +415,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                             <td className="py-1.5 pr-2">
                               <select
                                 className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs"
-                                aria-label={`${b.displayName} DIBAY 주제`}
+                                aria-label={tr("admin_community_import_sources_topic_aria", { name: b.displayName })}
                                 value={b.defaultTopicId ?? ""}
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { defaultTopicId: e.target.value || null })}
                               >
@@ -410,12 +428,12 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                               </select>
                             </td>
                             <td className="py-1.5 pr-2">
-                              <input type="checkbox" aria-label={`${b.displayName} 게시판 사용`} checked={b.enabled} onChange={(e) => void boardPatch(s.id, b.boardId, { enabled: e.target.checked })} />
+                              <input type="checkbox" aria-label={tr("admin_community_import_sources_board_use_aria", { name: b.displayName })} checked={b.enabled} onChange={(e) => void boardPatch(s.id, b.boardId, { enabled: e.target.checked })} />
                             </td>
                             <td className="py-1.5 pr-2">
                               <input
                                 type="checkbox"
-                                aria-label={`${b.displayName} 자동수집`}
+                                aria-label={tr("admin_community_import_sources_auto_collect_aria", { name: b.displayName })}
                                 checked={b.collectEnabled}
                                 title={tr("admin_community_import_sources_auto_collect_hint")}
                                 onChange={(e) => void boardPatch(s.id, b.boardId, { collectEnabled: e.target.checked })}
@@ -428,10 +446,10 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                   disabled={!!busy || !s.enabled}
                                   onClick={() => void collectNow(s.id, b.boardId)}
                                 >
-                                  {busy === `collect:${s.id}:${b.boardId}` ? "수집 중…" : "지금 수집"}
+                                  {busy === `collect:${s.id}:${b.boardId}` ? tr("admin_community_import_sources_collecting") : tr("admin_community_import_sources_collect_now")}
                                 </AdminActionButton>
                                 <AdminActionButton variant="neutral" onClick={() => onOpenBoard(s.id, b.boardId)}>
-                                  수집함
+                                  {tr("admin_community_import_sources_board_inbox")}
                                 </AdminActionButton>
                                 <AdminActionButton
                                   variant="neutral"
@@ -445,7 +463,7 @@ export function ImportSourcesPanel({ sources, topics, onChanged, onOpenBoard }: 
                                     })
                                   }
                                 >
-                                  샘플 보기
+                                  {tr("admin_community_import_sources_board_preview_sample")}
                                 </AdminActionButton>
                               </div>
                             </td>
@@ -535,8 +553,8 @@ function RightsForm({
   return (
     <div data-testid="import-source-rights" className="rounded-ui-rect border border-sam-border p-2 space-y-1.5">
       <div className="text-[12px] font-semibold">
-        재게시 권한 — 현재: {RIGHTS_LABEL[source.rights.rightsBasis]}
-        {source.rights.confirmedAt ? ` (확인 ${fmtDate(source.rights.confirmedAt)})` : ""}
+        {tr("admin_community_import_sources_rights_current", { rights: RIGHTS_LABEL[source.rights.rightsBasis] })}
+        {source.rights.confirmedAt ? ` ${tr("admin_community_import_sources_rights_confirmed", { at: fmtDate(source.rights.confirmedAt) })}` : ""}
       </div>
       <div className="grid gap-1.5 sm:grid-cols-2">
         <select aria-label={tr("admin_community_import_sources_rights")} className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 text-xs" value={basis} onChange={(e) => setBasis(e.target.value as RightsBasis)}>
@@ -594,8 +612,8 @@ function AdapterConfigForm({
   if (!open) {
     return (
       <AdminActionButton variant="neutral" onClick={() => setOpen(true)}>
-        수집 설정 (본문 위치·제거 영역·날짜)
-        {cfg.bodySelectors?.length ? ` · 본문 ${cfg.bodySelectors.join(", ")}` : ""}
+        {tr("admin_community_import_sources_adapter_config")}
+        {cfg.bodySelectors?.length ? ` · ${tr("admin_community_import_sources_body_selectors", { list: cfg.bodySelectors.join(", ") })}` : ""}
       </AdminActionButton>
     );
   }
@@ -604,20 +622,20 @@ function AdapterConfigForm({
       <div className="text-[12px] font-semibold">{tr("admin_community_import_sources_adapter_title")}</div>
       <div className="grid gap-1.5 sm:grid-cols-2">
         <label className="text-[12px] text-sam-muted">
-          본문 위치 (CSS 선택자, 쉼표 구분)
+          {tr("admin_community_import_sources_adapter_body")}
           <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={body} onChange={(e) => setBody(e.target.value)} placeholder="#ct, .article-body" />
         </label>
         <label className="text-[12px] text-sam-muted">
-          본문에서 뺄 영역
+          {tr("admin_community_import_sources_adapter_remove")}
           <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={remove} onChange={(e) => setRemove(e.target.value)} placeholder=".share, .ad" />
         </label>
         <label className="text-[12px] text-sam-muted">
-          게시일 위치
+          {tr("admin_community_import_sources_adapter_date")}
           <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={date} onChange={(e) => setDate(e.target.value)} placeholder=".date" />
         </label>
         {source.engine === "html" ? (
           <label className="text-[12px] text-sam-muted">
-            글 주소 형식
+            {tr("admin_community_import_sources_adapter_url_template")}
             <input className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg min-h-9 w-full text-xs mt-0.5" value={tpl} onChange={(e) => setTpl(e.target.value)} placeholder="/news/article.html?no" />
           </label>
         ) : null}
@@ -636,10 +654,10 @@ function AdapterConfigForm({
             })
           }
         >
-          설정 저장
+          {tr("admin_community_import_sources_adapter_save")}
         </AdminActionButton>
         <AdminActionButton variant="neutral" onClick={() => setOpen(false)}>
-          닫기
+          {tr("admin_community_import_sources_adapter_close")}
         </AdminActionButton>
       </div>
     </div>

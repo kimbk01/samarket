@@ -8,6 +8,8 @@
  * 설계: docs/audit/delivery-baemin-mirror-design-v6-2026-10-30.html
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 /** 아이콘·대표 카드 「누르면」 — 고정 목록 (주소 직접 입력 없음) */
 export const DELIVERY_MENU_LINK_TARGETS = [
   "gift_mall",
@@ -65,6 +67,20 @@ export const DELIVERY_MENU_LINK_TARGET_LABEL_KO: Record<DeliveryMenuLinkTarget, 
   points: "포인트",
   events: "이벤트",
   member_benefits: "회원 혜택",
+};
+
+/** 어드민 「누르면」 선택지 이름 — 화면 언어 키 (위 한국어 표와 같은 순서·같은 뜻) */
+export const DELIVERY_MENU_LINK_TARGET_LABEL_KEYS: Record<DeliveryMenuLinkTarget, MessageKey> = {
+  gift_mall: "admin_stores_delivery_menu_link_gift_mall",
+  gift_platform: "admin_stores_delivery_menu_link_gift_platform",
+  gift_store: "admin_stores_delivery_menu_link_gift_store",
+  gift_owned: "admin_stores_delivery_menu_link_gift_owned",
+  gift_received: "admin_stores_delivery_menu_link_gift_received",
+  gift_sent: "admin_stores_delivery_menu_link_gift_sent",
+  coupons: "admin_stores_delivery_menu_link_coupons",
+  points: "admin_stores_delivery_menu_link_points",
+  events: "admin_stores_delivery_menu_link_events",
+  member_benefits: "admin_stores_delivery_menu_link_member_benefits",
 };
 
 export type DeliveryMenuFeatureCard = {

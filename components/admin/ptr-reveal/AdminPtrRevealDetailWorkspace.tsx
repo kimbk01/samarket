@@ -124,7 +124,6 @@ function readImageSize(file: File): Promise<{ width: number; height: number } | 
 export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { language, t } = useI18n();
   const lang: Lang = language === "en" ? "en" : "ko";
-  const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
 
   const [detail, setDetail] = useState<PlatformPopupAdminDetail | null>(null);
@@ -183,8 +182,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       status: detail.status,
       operatorPopup: !detail.ownerRequestId,
     });
-    const msg = willReview ? t("admin_popup_review_revert_confirm") : L("변경 내용을 저장할까요?", "Save changes?");
-    const saveOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("변경 내용 저장", "Save changes"), description: msg, confirmLabel: L("저장", "Save") });
+    const msg = willReview ? t("admin_popup_review_revert_confirm") : t("admin_ptr_save_changes_confirm");
+    const saveOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: t("admin_ptr_save_changes"), description: msg, confirmLabel: t("admin_ptr_save") });
     if (!saveOk.ok) return;
     setBusy(true);
     setError(null);
@@ -203,20 +202,20 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     }
     await load();
     setNoticeWarn(Boolean(json.revertedToReview));
-    setNotice(json.revertedToReview ? t("admin_popup_review_revert_notice") : L("저장했습니다.", "Saved."));
+    setNotice(json.revertedToReview ? t("admin_popup_review_revert_notice") : t("admin_ptr_saved"));
   };
 
   const cancel = async () => {
     if (!dirty) return;
-    const discardOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("변경 취소", "Discard changes"), description: L("저장하지 않은 변경 내용을 버릴까요?", "Discard unsaved changes?"), confirmLabel: L("버리기", "Discard"), destructive: true });
+    const discardOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: t("admin_ptr_discard_changes"), description: t("admin_ptr_discard_unsaved_changes"), confirmLabel: t("admin_ptr_discard"), destructive: true });
     if (!discardOk.ok) return;
     setForm(saved);
   };
 
-  const transition = async (body: Record<string, unknown>, confirmKo: string, confirmEn: string) => {
+  const transition = async (body: Record<string, unknown>, confirmText: string) => {
     if (!writeGuard.guard()) return;
     if (dirty) {
-      setError(L("먼저 변경 내용을 저장하거나 취소해 주세요.", "Save or cancel your changes first."));
+      setError(t("admin_ptr_save_cancel_changes_first"));
       return;
     }
     const nextStatus = typeof body.nextStatus === "string" ? body.nextStatus : "";
@@ -241,8 +240,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
     const confirmed = await confirmAdminAction({
       level: adminActionLevel(kind),
       ko,
-      title: L("상태 변경", "Change status"),
-      description: L(confirmKo, confirmEn),
+      title: t("admin_ptr_change_status"),
+      description: confirmText,
       confirmLabel:
         kind === "approve"
           ? adminCta("approve", ko)
@@ -253,8 +252,8 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
               : kind === "pause"
                 ? adminCta("exposeStop", ko)
                 : kind === "forceCancel"
-                  ? L("종료", "End")
-                  : L("검토 요청", "Submit for review"),
+                  ? t("admin_ptr_end")
+                  : t("admin_ptr_submit_review"),
       destructive: kind === "reject" || kind === "pause" || kind === "forceCancel",
     });
     if (!confirmed.ok) return;
@@ -278,7 +277,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
   const copy = async () => {
     if (!writeGuard.guard()) return;
-    const copyOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: L("광고 복사", "Copy ad"), description: L("이 광고를 복사해 새 임시저장을 만들까요? (승인·기간은 복사되지 않습니다)", "Copy into a new draft? (Approval and schedule are not copied.)"), confirmLabel: L("복사", "Copy") });
+    const copyOk = await confirmAdminAction({ level: adminActionLevel("save"), ko: lang !== "en", title: t("admin_ptr_copy_ad"), description: t("admin_ptr_copy_into_new_draft_approval"), confirmLabel: t("admin_ptr_copy") });
     if (!copyOk.ok) return;
     setBusy(true);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}/copy`, {
@@ -299,7 +298,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   if (!detail || !form) {
     return (
       <div className="p-4 text-sm text-sam-muted">
-        {error ?? L("불러오는 중…", "Loading…")}
+        {error ?? t("admin_ptr_loading")}
       </div>
     );
   }
@@ -307,9 +306,9 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   if (!isPtr) {
     return (
       <div className="space-y-2 p-4 text-sm">
-        <p>{L("당겨서 새로고침 광고가 아닙니다. 팝업 관리에서 열어 주세요.", "This is not a pull-to-refresh ad. Open it from Popups.")}</p>
+        <p>{t("admin_ptr_not_pull_refresh_ad_open")}</p>
         <Link className="text-sam-primary underline" href={`/admin/platform-popup/${campaignId}`}>
-          {L("팝업 관리로 이동", "Open in Popups")}
+          {t("admin_ptr_open_popups")}
         </Link>
       </div>
     );
@@ -321,18 +320,13 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
   const isAdminDirect = !detail.ownerStoreId && !detail.ownerRequestId;
   const canDeleteDraft = isAdminDirect && (status === "draft" || status === "pending_review");
   // 승인·노출 확인창에 실제 노출 대상을 명시 — 공개(all) 노출을 실수로 켜지 않도록
-  const audienceKo =
-    detail.audienceMode === "allowlist"
+  const audienceNote =
+    " " +
+    (detail.audienceMode === "allowlist"
       ? detail.audienceUserIds.length > 0
-        ? ` 노출 대상: 허용 목록 ${detail.audienceUserIds.length}명만.`
-        : " 노출 대상: 허용 목록이 비어 있어 아무에게도 보이지 않습니다."
-      : " 노출 대상: 전체 사용자(공개 노출)입니다.";
-  const audienceEn =
-    detail.audienceMode === "allowlist"
-      ? detail.audienceUserIds.length > 0
-        ? ` Audience: allowlist only (${detail.audienceUserIds.length} users).`
-        : " Audience: empty allowlist — nobody will see it."
-      : " Audience: EVERYONE (public).";
+        ? t("admin_ptr_audience_allowlist_n", { n: detail.audienceUserIds.length })
+        : t("admin_ptr_audience_allowlist_empty")
+      : t("admin_ptr_audience_everyone_public"));
   const s = detail.eventSummary;
   const ctr = detail.derived.ctr;
 
@@ -341,7 +335,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/admin/ptr-reveal-ads" className="text-xs text-sam-muted underline">
-            ← {L("당겨서 새로고침 광고 목록", "Pull-to-refresh ads")}
+            ← {t("admin_ptr_back_to_list")}
           </Link>
           <h1 className="mt-1 text-[20px] font-semibold text-sam-fg">{detail.name}</h1>
           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -349,12 +343,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
               {platformPopupCampaignStatusLabel(status, lang)}
             </AdminToneBadge>
             <AdminToneBadge tone="neutral">
-              {L("승인", "Approval")}: {adminStatusLabelText(PLATFORM_POPUP_APPROVAL_STATUS_NS, detail.approvalStatus, lang !== "en")}
+              {t("admin_ptr_approval")}: {adminStatusLabelText(PLATFORM_POPUP_APPROVAL_STATUS_NS, detail.approvalStatus, lang !== "en")}
             </AdminToneBadge>
           </div>
         </div>
         <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked} onClick={() => void copy()} data-admin-ptr-copy="">
-          {L("복사", "Copy")}
+          {t("admin_ptr_copy")}
         </AdminActionButton>
       </div>
 
@@ -375,40 +369,37 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-4">
-          <AdminCard title={L("기본 정보", "Basics")}>
+          <AdminCard title={t("admin_ptr_basics")}>
             <div className="grid gap-3 text-sm">
               <label className="grid gap-1">
-                {L("광고 이름 (관리용)", "Ad name (internal)")}
+                {t("admin_ptr_ad_name_internal")}
                 <input className="rounded border border-sam-border px-2 py-1.5" value={form.name} onChange={(e) => patch({ name: e.target.value })} />
               </label>
               <label className="grid gap-1">
-                {L("광고 문구 (화면 낭독·대체 텍스트)", "Ad text (screen reader / alt)")}
+                {t("admin_ptr_ad_text_screen_reader_alt")}
                 <input className="rounded border border-sam-border px-2 py-1.5" value={form.title} maxLength={60} onChange={(e) => patch({ title: e.target.value })} />
               </label>
               <label className="grid gap-1">
-                {L("버튼 문구 (비우면 「자세히 보기」)", "Button label (empty = “Learn more”)")}
+                {t("admin_ptr_button_label_empty_learn_more")}
                 <input className="rounded border border-sam-border px-2 py-1.5" value={form.ctaLabel} maxLength={12} onChange={(e) => patch({ ctaLabel: e.target.value })} />
               </label>
               <label className="grid gap-1">
-                {L("우선순위 (높을수록 먼저)", "Priority (higher first)")}
+                {t("admin_ptr_priority_higher_first")}
                 <input type="number" className="w-28 rounded border border-sam-border px-2 py-1.5" value={form.priority} onChange={(e) => patch({ priority: Number(e.target.value) || 0 })} />
                 <span className="text-xs text-sam-muted" data-admin-ptr-rank-hint="">
-                  {L(
-                    "노출 순서: 영역 지정 > 전체 → 우선순위(높을수록 먼저) → 덜 본 것",
-                    "Order: specific screens > All → priority (higher first) → least seen"
-                  )}
+                  {t("admin_ptr_order_specific_screens_all_priority")}
                 </span>
               </label>
             </div>
           </AdminCard>
 
-          <AdminCard title={L("클릭 후 이동", "After click")}>
+          <AdminCard title={t("admin_ptr_after_click")}>
             <div className="grid gap-2 text-sm">
               <div className="flex gap-3">
-                {(["internal_page", "external_url"] as const).map((t) => (
-                  <label key={t} className="flex items-center gap-1">
-                    <input type="radio" checked={form.ctaType === t} onChange={() => patch({ ctaType: t })} />
-                    {t === "internal_page" ? L("앱 내부 경로", "In-app path") : L("외부 링크 (HTTPS)", "External link (HTTPS)")}
+                {(["internal_page", "external_url"] as const).map((ctaKind) => (
+                  <label key={ctaKind} className="flex items-center gap-1">
+                    <input type="radio" checked={form.ctaType === ctaKind} onChange={() => patch({ ctaType: ctaKind })} />
+                    {ctaKind === "internal_page" ? t("admin_ptr_app_path") : t("admin_ptr_external_link_https")}
                   </label>
                 ))}
               </div>
@@ -418,7 +409,7 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
             </div>
           </AdminCard>
 
-          <AdminCard title={L("노출 화면", "Screens")}>
+          <AdminCard title={t("admin_ptr_screens")}>
             <div className="grid gap-1.5 text-sm">
               {PTR_SURFACE_OPTIONS.map((o) => {
                 const checked = form.surfaces.includes(o.id);
@@ -440,23 +431,23 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 );
               })}
               <p className="text-xs text-sam-muted">
-                {L("메신저·통화·결제·주문 확인 화면에는 표시되지 않습니다. 광고가 없는 화면은 일반 새로고침만 보입니다.", "Never shown on messenger, call, payment or order-confirmation screens. Screens without an ad show normal pull-to-refresh.")}
+                {t("admin_ptr_never_shown_messenger_call_payment")}
               </p>
             </div>
           </AdminCard>
 
-          <AdminCard title={L("기간·빈도", "Schedule & frequency")}>
+          <AdminCard title={t("admin_ptr_schedule_frequency")}>
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <label className="grid gap-1">
-                {L("시작", "Start")}
+                {t("admin_ptr_start")}
                 <input type="datetime-local" className="rounded border border-sam-border px-2 py-1.5" value={form.startLocal} onChange={(e) => patch({ startLocal: e.target.value })} />
               </label>
               <label className="grid gap-1">
-                {L("종료", "End")}
+                {t("admin_ptr_end")}
                 <input type="datetime-local" className="rounded border border-sam-border px-2 py-1.5" value={form.endLocal} onChange={(e) => patch({ endLocal: e.target.value })} />
               </label>
               <label className="grid gap-1 sm:col-span-2">
-                {L("한 사용자에게 보이는 빈도", "Frequency per user")}
+                {t("admin_ptr_frequency_per_user")}
                 <select className="rounded border border-sam-border px-2 py-1.5" value={form.frequencyMode} onChange={(e) => patch({ frequencyMode: e.target.value as PlatformPopupFrequencyMode })}>
                   {PLATFORM_POPUP_FREQUENCY_MODES.map((m) => (
                     <option key={m} value={m}>
@@ -469,12 +460,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                 {popupFrequencyOperatorDescription(form.frequencyMode, lang, "ptr")}
               </p>
               <p className="text-xs text-sam-muted sm:col-span-2">
-                {L(`시간대: ${detail.timezone}. 노출은 이미지가 실제로 보인 새로고침만 1회로 셉니다. 과금 없음.`, `Timezone: ${detail.timezone}. An impression counts only when the image was actually shown during a refresh. No billing.`)}
+                {t("admin_ptr_timezone_impression_note", { timezone: detail.timezone })}
               </p>
             </div>
           </AdminCard>
 
-          <AdminCard title={L("노출 대상 (제한)", "Audience (restricted)")}>
+          <AdminCard title={t("admin_ptr_audience_restricted")}>
             <div className="grid gap-3 text-sm" data-admin-ptr-audience="">
               <div className="flex flex-wrap gap-3">
                 {(["all", "allowlist"] as const).map((mode) => (
@@ -487,14 +478,14 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                       data-admin-ptr-audience-mode={mode}
                     />
                     {mode === "all"
-                      ? L("전체 사용자", "Everyone")
-                      : L("허용 목록만 (fail-closed)", "Allowlist only (fail-closed)")}
+                      ? t("admin_ptr_everyone")
+                      : t("admin_ptr_allowlist_only_fail_closed")}
                   </label>
                 ))}
               </div>
               {form.audienceMode === "allowlist" ?
                 <label className="grid gap-1">
-                  {L("사용자 UUID (한 줄에 하나, 또는 쉼표/공백 구분)", "User UUIDs (one per line, or comma/space separated)")}
+                  {t("admin_ptr_user_uuids_one_per_line")}
                   <textarea
                     className="min-h-[88px] rounded border border-sam-border px-2 py-1.5 font-mono text-xs"
                     value={form.audienceUserIdsText}
@@ -503,24 +494,18 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
                     data-admin-ptr-audience-ids=""
                   />
                   <span className="text-xs text-sam-warning">
-                    {L(
-                      "목록이 비어 있으면 누구에게도 보이지 않습니다. QA·내부 검증 전에는 허용 목록만 쓰세요.",
-                      "An empty allowlist serves nobody. Use allowlist-only until QA/internal verification is done."
-                    )}
+                    {t("admin_ptr_empty_allowlist_serves_nobody_use")}
                   </span>
                 </label>
               : (
                 <p className="text-xs text-sam-warning">
-                  {L(
-                    "전체 사용자 모드는 Production에서 공개 노출입니다. 검증 전에는 허용 목록을 사용하세요.",
-                    "Everyone mode is public exposure on Production. Prefer allowlist until verification is done."
-                  )}
+                  {t("admin_ptr_everyone_mode_public_exposure_production")}
                 </p>
               )}
             </div>
           </AdminCard>
 
-          <AdminCard title={L("이미지 (PC에서 불러오기)", "Images (upload from PC)")}>
+          <AdminCard title={t("admin_ptr_images_upload_pc")}>
             <div className="grid gap-3">
               {(["default", "tablet", "logo"] as const).map((v) => (
                 <PtrBandUploadSlot
@@ -539,41 +524,41 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
         </div>
 
         <div className="space-y-4">
-          <AdminCard title={L("기기별 미리보기", "Device preview")}>
+          <AdminCard title={t("admin_ptr_device_preview")}>
             {previewAd ?
               <AdminPtrRevealPreview ad={previewAd} lang={lang} />
-            : <p className="text-sm text-sam-muted">{L("휴대폰 띠 이미지를 올리면 미리보기가 표시됩니다.", "Upload the phone band to preview.")}</p>}
+            : <p className="text-sm text-sam-muted">{t("admin_ptr_upload_phone_band_preview")}</p>}
           </AdminCard>
 
-          <AdminCard title={L("승인·운영", "Approval & operation")}>
+          <AdminCard title={t("admin_ptr_approval_operation")}>
             <div className="flex flex-wrap gap-2 text-sm">
               <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status !== "draft"}
-                onClick={() => void transition({ action: "transition", nextStatus: "pending_review", nextApproval: "pending_review" }, "검토를 요청할까요?", "Submit for review?")}>
-                {L("검토 요청", "Submit for review")}
+                onClick={() => void transition({ action: "transition", nextStatus: "pending_review", nextApproval: "pending_review" }, t("admin_ptr_submit_review_confirm"))}>
+                {t("admin_ptr_submit_review")}
               </AdminActionButton>
               <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status === "ended" || status === "active"} data-admin-ptr-approve-schedule=""
-                onClick={() => void transition({ action: "approve", schedule: true }, "승인하고 예약 노출로 둘까요? 시작 시각부터 앱에 표시됩니다." + audienceKo, "Approve and schedule? It shows in the app from the start time." + audienceEn)}>
-                {L("승인 후 예약", "Approve → schedule")}
+                onClick={() => void transition({ action: "approve", schedule: true }, t("admin_ptr_approve_schedule_confirm") + audienceNote)}>
+                {t("admin_ptr_approve_schedule")}
               </AdminActionButton>
               <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status === "ended" || status === "active"} data-admin-ptr-approve-activate=""
-                onClick={() => void transition({ action: "approve", activate: true }, "승인하고 바로 노출할까요? 실제 앱의 새로고침 화면에 표시됩니다." + audienceKo, "Approve and go live now? It will show on real app refresh screens." + audienceEn)}>
-                {L("승인 후 노출 시작", "Approve → go live")}
+                onClick={() => void transition({ action: "approve", activate: true }, t("admin_ptr_approve_go_live_confirm") + audienceNote)}>
+                {t("admin_ptr_approve_go_live")}
               </AdminActionButton>
               <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status !== "pending_review"} data-admin-ptr-reject=""
-                onClick={() => void transition({ action: "transition", nextStatus: "rejected", nextApproval: "rejected" }, "반려할까요?", "Reject this ad?")}>
-                {L("반려", "Reject")}
+                onClick={() => void transition({ action: "transition", nextStatus: "rejected", nextApproval: "rejected" }, t("admin_ptr_reject_confirm"))}>
+                {t("admin_ptr_reject")}
               </AdminActionButton>
               <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || (status !== "active" && status !== "scheduled")} data-admin-ptr-pause=""
-                onClick={() => void transition({ action: "transition", nextStatus: "paused" }, "노출을 중지할까요? 앱에서 곧바로 빠집니다.", "Stop exposure? It leaves the app shortly.")}>
-                {L("노출 중지", "Stop")}
+                onClick={() => void transition({ action: "transition", nextStatus: "paused" }, t("admin_ptr_stop_confirm"))}>
+                {t("admin_ptr_stop")}
               </AdminActionButton>
               <AdminActionButton variant="secondary" size="sm" disabled={writeBlocked || status !== "paused"}
-                onClick={() => void transition({ action: "transition", nextStatus: "active" }, "다시 노출할까요?" + audienceKo, "Resume exposure?" + audienceEn)}>
-                {L("다시 노출", "Resume")}
+                onClick={() => void transition({ action: "transition", nextStatus: "active" }, t("admin_ptr_resume_confirm") + audienceNote)}>
+                {t("admin_ptr_resume")}
               </AdminActionButton>
               <AdminActionButton variant="danger" size="sm" disabled={writeBlocked || status === "ended" || status === "draft"}
-                onClick={() => void transition({ action: "transition", nextStatus: "ended" }, "종료할까요? 종료한 광고는 다시 켤 수 없습니다.", "End this ad? Ended ads cannot be restarted.")}>
-                {L("종료", "End")}
+                onClick={() => void transition({ action: "transition", nextStatus: "ended" }, t("admin_ptr_end_confirm"))}>
+                {t("admin_ptr_end")}
               </AdminActionButton>
               {canDeleteDraft && !writeBlocked ?
                 /* 재입력 제거(Owner 2026-11-07): 삭제 = 사유만 · 공용 삭제 조치(R2) */
@@ -589,26 +574,26 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
               : null}
             </div>
             <p className="mt-2 text-xs text-sam-muted">
-              {L("반영까지 최대 5분(앱의 광고 캐시). 광고 조회가 실패해도 새로고침은 그대로 동작합니다.", "Changes reach apps within ~5 minutes (ad cache). Refresh keeps working even if the ad fails.")}
+              {t("admin_ptr_changes_reach_apps_within_5")}
             </p>
           </AdminCard>
 
-          <AdminCard title={L("성과", "Performance")}>
+          <AdminCard title={t("admin_ptr_performance")}>
             <dl className="grid grid-cols-3 gap-2 text-sm" data-admin-ptr-stats="">
-              <Stat label={L("노출", "Impressions")} value={s.impression} />
-              <Stat label={L("클릭", "Clicks")} value={s.click} />
+              <Stat label={t("admin_ptr_impressions")} value={s.impression} />
+              <Stat label={t("admin_ptr_clicks")} value={s.click} />
               <Stat label="CTR" value={ctr == null ? "—" : `${(ctr * 100).toFixed(1)}%`} />
-              <Stat label={L("이동 성공", "Landing ok")} value={s.landing_success} />
-              <Stat label={L("이동 실패", "Landing fail")} value={s.landing_failure} />
-              <Stat label={L("과금", "Billing")} value={L("없음", "None")} />
+              <Stat label={t("admin_ptr_landing_ok")} value={s.landing_success} />
+              <Stat label={t("admin_ptr_landing_fail")} value={s.landing_failure} />
+              <Stat label={t("admin_ptr_billing")} value={t("admin_ptr_none")} />
             </dl>
             {Object.keys(detail.eventSummaryBySurface).length ?
               <table className="mt-3 w-full text-xs">
                 <thead>
                   <tr className="text-left text-sam-muted">
-                    <th className="py-1">{L("화면", "Screen")}</th>
-                    <th>{L("노출", "Impr.")}</th>
-                    <th>{L("클릭", "Clicks")}</th>
+                    <th className="py-1">{t("admin_ptr_screen")}</th>
+                    <th>{t("admin_ptr_impr")}</th>
+                    <th>{t("admin_ptr_clicks")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -630,12 +615,12 @@ export function AdminPtrRevealDetailWorkspace({ campaignId }: { campaignId: stri
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-end gap-2">
-          {dirty ? <span className="mr-auto text-xs text-sam-warning">{L("저장하지 않은 변경이 있습니다", "Unsaved changes")}</span> : null}
+          {dirty ? <span className="mr-auto text-xs text-sam-warning">{t("admin_ptr_unsaved_changes")}</span> : null}
           <AdminActionButton variant="secondary" disabled={busy || !dirty} onClick={() => void cancel()}>
-            {L("취소", "Cancel")}
+            {t("admin_ptr_cancel")}
           </AdminActionButton>
           <AdminActionButton variant="primary" disabled={writeBlocked || !dirty} onClick={() => void save()} data-admin-ptr-save="">
-            {busy ? L("처리 중…", "Working…") : L("저장", "Save")}
+            {busy ? t("admin_ptr_working") : t("admin_ptr_save")}
           </AdminActionButton>
         </div>
       </div>
@@ -669,8 +654,9 @@ function PtrBandUploadSlot({
   disabled: boolean;
   onUploaded: () => Promise<void>;
 }) {
-  const L = (ko: string, en: string) => (lang === "en" ? en : ko);
+  const { t } = useI18n();
   const spec = PTR_BAND_SPECS[variant];
+  const specLabel = lang === "en" ? spec.labelEn : spec.labelKo;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -678,9 +664,9 @@ function PtrBandUploadSlot({
 
   const required = variant === "default";
   const role =
-    variant === "default" ? L(`휴대폰 (폭 ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px 미만) — 필수`, `Phones (< ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px) — required`)
-    : variant === "tablet" ? L(`태블릿 (폭 ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px 이상) — 없으면 태블릿에는 광고 없음`, `Tablets (≥ ${PTR_BAND_TABLET_MIN_VIEWPORT_PX}px) — without it tablets show no ad`)
-    : L("광고주 로고 — 선택, 띠 오른쪽 「광고」 표기 옆 원형", "Advertiser logo — optional, round, next to the “Ad” label on the right");
+    variant === "default" ? t("admin_ptr_band_role_phone", { px: PTR_BAND_TABLET_MIN_VIEWPORT_PX })
+    : variant === "tablet" ? t("admin_ptr_band_role_tablet", { px: PTR_BAND_TABLET_MIN_VIEWPORT_PX })
+    : t("admin_ptr_advertiser_logo_optional_round_next");
 
   /** 재감사 S-2 (H-4): 이미지 올리기·지우기 = ads 키 */
   const slotWriteGuard = useAdminWriteGuard("/admin/ptr-reveal-ads");
@@ -691,12 +677,12 @@ function PtrBandUploadSlot({
     const removeOk = await confirmAdminAction({
       level: adminActionLevel("delete"),
       ko: lang !== "en",
-      title: L("이미지 삭제", "Delete image"),
-      description: L(
-        `${spec.labelKo} 이미지를 삭제할까요? 노출 중이면 다시 검토 상태가 됩니다.${variant === "tablet" ? " 태블릿에는 광고 없이 일반 새로고침만 보입니다." : ""}`,
-        `Delete the ${spec.labelEn}? A live campaign returns to review.${variant === "tablet" ? " Tablets will then show normal refresh without an ad." : ""}`
-      ),
-      confirmLabel: L("삭제", "Delete"),
+      title: t("admin_ptr_delete_image"),
+      description:
+        variant === "tablet"
+          ? t("admin_ptr_delete_band_confirm_tablet", { label: specLabel })
+          : t("admin_ptr_delete_band_confirm", { label: specLabel }),
+      confirmLabel: t("admin_ptr_delete"),
       destructive: true,
     });
     if (!removeOk.ok) return;
@@ -713,7 +699,7 @@ function PtrBandUploadSlot({
       setMsg({ tone: "err", text: formatPlatformPopupAdminError(json.error || "delete_failed", lang) });
       return;
     }
-    setMsg({ tone: "ok", text: json.revertedToReview ? L("삭제했습니다. 다시 검토 상태입니다.", "Deleted. Back in review.") : L("삭제했습니다.", "Deleted.") });
+    setMsg({ tone: "ok", text: json.revertedToReview ? t("admin_ptr_deleted_back_review") : t("admin_ptr_deleted") });
     await onUploaded();
   };
 
@@ -733,7 +719,7 @@ function PtrBandUploadSlot({
       setMsg({ tone: "err", text: json.message || formatPlatformPopupAdminError(json.error || "upload_failed", lang) });
       return;
     }
-    setMsg({ tone: "ok", text: json.revertedToReview ? L("교체했습니다. 다시 검토 상태입니다.", "Replaced. Back in review.") : L("올렸습니다.", "Uploaded.") });
+    setMsg({ tone: "ok", text: json.revertedToReview ? t("admin_ptr_replaced_back_review") : t("admin_ptr_uploaded") });
     await onUploaded();
   };
 
@@ -742,15 +728,15 @@ function PtrBandUploadSlot({
     setMsg(null);
     const size = await readImageSize(file);
     if (!size) {
-      setMsg({ tone: "err", text: L("이미지를 읽을 수 없습니다.", "Could not read the image.") });
+      setMsg({ tone: "err", text: t("admin_ptr_could_not_read_image") });
       return;
     }
     const check = checkPtrBandSource({ variant, mime: file.type, bytes: file.size, width: size.width, height: size.height });
     if (!check.ok) {
       const text =
-        check.error === "type_invalid" ? L("JPG·PNG·WEBP만 사용할 수 있습니다.", "Only JPG, PNG or WEBP.")
-        : check.error === "too_large" ? L(`원본은 ${PTR_BAND_SOURCE_MAX_BYTES / 1024 / 1024}MB 이하여야 합니다.`, `Source must be ≤ ${PTR_BAND_SOURCE_MAX_BYTES / 1024 / 1024}MB.`)
-        : L(`해상도가 낮습니다 (${size.width}×${size.height}). 자른 뒤 최소 ${spec.minSourceWidth}×${spec.minSourceHeight}px 필요.`, `Too small (${size.width}×${size.height}). Needs ≥ ${spec.minSourceWidth}×${spec.minSourceHeight}px after crop.`);
+        check.error === "type_invalid" ? t("admin_ptr_only_jpg_png_webp")
+        : check.error === "too_large" ? t("admin_ptr_source_max_mb", { mb: PTR_BAND_SOURCE_MAX_BYTES / 1024 / 1024 })
+        : t("admin_ptr_resolution_too_low", { width: size.width, height: size.height, minWidth: spec.minSourceWidth, minHeight: spec.minSourceHeight });
       setMsg({ tone: "err", text });
       return;
     }
@@ -758,12 +744,14 @@ function PtrBandUploadSlot({
       const cropOk = await confirmAdminAction({
         level: adminActionLevel("save"),
         ko: lang !== "en",
-        title: L("가운데 자르기", "Center-crop"),
-        description: L(
-          `비율이 ${spec.aspectW}:${spec.aspectH} 이 아닙니다 (${size.width}×${size.height}). 가운데를 잘라 사용할까요?`,
-          `Not ${spec.aspectW}:${spec.aspectH} (${size.width}×${size.height}). Center-crop and use it?`
-        ),
-        confirmLabel: L("잘라서 사용", "Crop and use"),
+        title: t("admin_ptr_center_crop"),
+        description: t("admin_ptr_ratio_crop_confirm", {
+          aspectW: spec.aspectW,
+          aspectH: spec.aspectH,
+          width: size.width,
+          height: size.height,
+        }),
+        confirmLabel: t("admin_ptr_crop_use"),
       });
       if (!cropOk.ok) return;
       await upload(file, true);
@@ -772,11 +760,11 @@ function PtrBandUploadSlot({
     const uploadOk = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: lang !== "en",
-      title: current ? L("이미지 교체", "Replace image") : L("이미지 올리기", "Upload image"),
+      title: current ? t("admin_ptr_replace_image") : t("admin_ptr_upload_image"),
       description: current
-        ? L(`${spec.labelKo} 이미지를 교체할까요? 노출 중이면 다시 검토 상태가 됩니다.`, `Replace the ${spec.labelEn}? A live campaign returns to review.`)
-        : L(`${spec.labelKo} 이미지로 올릴까요?`, `Upload as the ${spec.labelEn}?`),
-      confirmLabel: current ? L("교체", "Replace") : L("올리기", "Upload"),
+        ? t("admin_ptr_replace_band_confirm", { label: specLabel })
+        : t("admin_ptr_upload_band_confirm", { label: specLabel }),
+      confirmLabel: current ? t("admin_ptr_replace") : t("admin_ptr_upload"),
     });
     if (!uploadOk.ok) return;
     await upload(file, false);
@@ -786,11 +774,11 @@ function PtrBandUploadSlot({
     <div className="rounded-ui-rect border border-sam-border p-3" data-admin-ptr-upload={variant}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">
-          {lang === "en" ? spec.labelEn : spec.labelKo}
+          {specLabel}
           {required ? <span className="ml-1 text-sam-danger">*</span> : null}
         </p>
         <p className="text-xs text-sam-muted">
-          {spec.width}×{spec.height} · {spec.aspectW}:{spec.aspectH} · {L("최소", "min")} {spec.minSourceWidth}×{spec.minSourceHeight} ·{" "}
+          {spec.width}×{spec.height} · {spec.aspectW}:{spec.aspectH} · {t("admin_ptr_min")} {spec.minSourceWidth}×{spec.minSourceHeight} ·{" "}
           {PTR_BAND_ALLOWED_MIME.map((m) => m.replace("image/", "").toUpperCase()).join("/")} · ≤{PTR_BAND_SOURCE_MAX_BYTES / 1024 / 1024}MB
         </p>
       </div>
@@ -812,7 +800,7 @@ function PtrBandUploadSlot({
           onClick={() => void remove()}
           data-admin-ptr-delete={variant}
         >
-          {L("이미지 삭제", "Delete image")}
+          {t("admin_ptr_delete_image")}
         </AdminActionButton>
       : null}
       <div
@@ -837,7 +825,7 @@ function PtrBandUploadSlot({
           drag ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"
         } ${disabled || busy ? "cursor-not-allowed opacity-60" : ""}`}
       >
-        {busy ? L("올리는 중…", "Uploading…") : L("PC에서 파일 선택 또는 여기로 끌어다 놓기", "Choose a file from your PC or drop it here")}
+        {busy ? t("admin_ptr_uploading") : t("admin_ptr_choose_file_pc_drop_here")}
       </div>
       <input
         ref={inputRef}

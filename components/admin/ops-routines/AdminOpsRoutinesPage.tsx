@@ -52,7 +52,7 @@ export function AdminOpsRoutinesPage() {
       <AdminPageHeader titleKey="admin_menu_dev_longterm" />
       <AdminTabs
         tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="overview"
         resetParams={adminSyncTabResetParams(["period", "exec_status", "category", "cadence", "month"])}
         className="mb-4"

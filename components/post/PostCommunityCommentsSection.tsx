@@ -106,7 +106,7 @@ export function PostCommunityCommentsSection({
       content: text,
       created_at: new Date().toISOString(),
       parent_id: replyParentId?.trim() || null,
-      authorNickname: "나",
+      authorNickname: t("common_me"),
     };
     try {
       const body: { content: string; parentId?: string } = { content: text };
@@ -129,13 +129,13 @@ export function PostCommunityCommentsSection({
           setError(profileHandled.error);
           return;
         }
-        setError(data.error ?? "등록에 실패했습니다.");
+        setError(data.error ?? t("post_comment_submit_failed"));
         return;
       }
       void load({ silent: true });
     } catch {
       setComments((prev) => prev.filter((comment) => comment.id !== tempId));
-      setError("등록에 실패했습니다.");
+      setError(t("post_comment_submit_failed"));
     } finally {
       setSubmitting((prev) => (prev ? false : prev));
     }
@@ -180,7 +180,7 @@ export function PostCommunityCommentsSection({
 
   const renderCommentRow = (c: CommentRow, opts: { isChild: boolean; allowReply: boolean }) => {
     const uid = c.user_id?.trim() ?? "";
-    const label = c.authorNickname?.trim() || uid.slice(0, 8) || "사용자";
+    const label = c.authorNickname?.trim() || uid.slice(0, 8) || t("post_comment_user_fallback");
     const atUsername = c.authorUsername ? `@${c.authorUsername}` : "";
     const isCommentMine = !!currentUserId && uid === currentUserId;
     const showReportBtn = showCommentReport && !!currentUserId && !isCommentMine;
@@ -264,7 +264,7 @@ export function PostCommunityCommentsSection({
               className="font-medium text-sky-800 underline"
               onClick={() => setReplyParentId((prev) => (prev === null ? prev : null))}
             >
-              취소
+              {t("common_cancel")}
             </button>
           </div>
         ) : null}
@@ -274,9 +274,9 @@ export function PostCommunityCommentsSection({
           placeholder={
             currentUserId
               ? replyParentId
-                ? "답글을 입력하세요"
-                : "댓글을 입력하세요"
-              : "로그인 후 댓글을 작성할 수 있어요"
+                ? t("post_comment_reply_placeholder")
+                : t("post_comment_placeholder")
+              : t("post_comment_login_placeholder")
           }
           disabled={!currentUserId || submitting}
           rows={3}
@@ -290,11 +290,11 @@ export function PostCommunityCommentsSection({
         >
           {currentUserId
             ? submitting
-              ? "등록 중..."
+              ? t("post_comment_submitting_btn")
               : replyParentId
-                ? "답글 등록"
-                : "댓글 등록"
-            : "로그인하고 댓글 쓰기"}
+                ? t("post_comment_reply_submit_btn")
+                : t("post_comment_submit_btn")
+            : t("post_comment_login_cta")}
         </button>
         {error ? <p className={`mt-2 text-red-600 ${Sam.text.bodySecondary}`}>{error}</p> : null}
       </div>

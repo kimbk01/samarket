@@ -7,6 +7,7 @@ import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { loadBackupBundleFromDb, saveBackupBundleToDb } from "@/lib/backup/backup-db";
 import type { BackupBundleV1 } from "@/lib/backup/backup-state";
 import { createDefaultBackupBundle } from "@/lib/backup/backup-state";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET() {
         ok: true,
         bundle: createDefaultBackupBundle(),
         source: "default" as const,
-        hint: loaded.message ?? "admin_settings 없음",
+        hint: loaded.message ?? await adminServerText("admin_api_admin_settings_missing"),
       });
     }
     return NextResponse.json(

@@ -10,6 +10,7 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
   COMMUNITY_TD,
@@ -36,9 +37,7 @@ import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import {
-  COMMUNITY_GONE_MESSAGE,
   COMMUNITY_POSTS_LIST_PATH,
-  COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   communityPostErrorText,
   manilaLocalInputToUtcIso,
@@ -81,11 +80,11 @@ type Payload = {
   pinLimits?: { feed?: { limit: number; count: number }; topic?: { limit: number; counts: Record<string, number> } };
 };
 
-const TABS = [
-  { value: "live", label: "게시 중" },
-  { value: "scheduled", label: "예약" },
-  { value: "ended", label: "종료" },
-] as const;
+const TABS: readonly { value: "live" | "scheduled" | "ended"; labelKey: MessageKey }[] = [
+  { value: "live", labelKey: "admin_community_notices_tab_live" },
+  { value: "scheduled", labelKey: "admin_community_notices_tab_scheduled" },
+  { value: "ended", labelKey: "admin_community_notices_tab_ended" },
+];
 
 const FIELD =
   "w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg outline-none focus:border-sam-primary";
@@ -131,13 +130,13 @@ export function AdminCommunityNoticesPage() {
   const { get, set, selfHref, page, size } = useCommunityQueryState();
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
-  const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
+  const noPermTitle = canContent ? undefined : t("admin_community_notices_no_perm_content");
   const { topics } = useCommunityTopicOptions();
   const topicNameOf = useTopicNameOf(topics);
   const noticeTopics = useMemo(() => topics.filter((t) => t.is_active && !t.allow_meetup), [topics]);
   const topicNameById = useCallback(
-    (topicId: string | null | undefined) => topics.find((t) => t.id === topicId)?.name ?? "카테고리",
-    [topics]
+    (topicId: string | null | undefined) => topics.find((t) => t.id === topicId)?.name ?? t("admin_community_notices_topic_fallback"),
+    [topics, t]
   );
 
   const tabRaw = get("tab");
@@ -180,8 +179,8 @@ export function AdminCommunityNoticesPage() {
 
   const settle = (kind: CommunitySheetSettle, okMessage: string) => {
     if (kind === "done") setBanner({ ok: true, message: okMessage });
-    else if (kind === "stale") setBanner({ ok: false, code: COMMUNITY_STALE_MESSAGE });
-    else setBanner({ ok: false, code: COMMUNITY_GONE_MESSAGE });
+    else if (kind === "stale") setBanner({ ok: false, code: t("admin_community_post_stale") });
+    else setBanner({ ok: false, code: t("admin_community_post_gone") });
     reload();
   };
 
@@ -192,7 +191,7 @@ export function AdminCommunityNoticesPage() {
     );
     setEditorLoading(false);
     if (!r.ok || !r.json.post) {
-      setBanner({ ok: false, code: communityPostErrorText(r.ok ? "not_found" : r.code) });
+      setBanner({ ok: false, code: communityPostErrorText(r.ok ? "not_found" : r.code, language) });
       return;
     }
     const p = r.json.post;
@@ -235,11 +234,11 @@ export function AdminCommunityNoticesPage() {
       if (r.ok && r.json.pin && r.json.pin.ok === false) {
         setBanner({
           ok: false,
-          code: `공지는 게시했지만 상단 고정은 하지 못했습니다 — ${communityPostErrorText(r.json.pin.error)}`,
+          code: t("admin_community_notices_pin_failed", { error: communityPostErrorText(r.json.pin.error, language) }),
         });
         return { ok: true as const };
       }
-      return toCommunitySheetResult(r);
+      return toCommunitySheetResult(r, language);
     }
     const o = ed.original;
     const body: Record<string, unknown> = { expectedUpdatedAt: ed.updatedAt ?? "" };
@@ -255,7 +254,7 @@ export function AdminCommunityNoticesPage() {
       method: "PATCH",
       body,
     });
-    return toCommunitySheetResult(r);
+    return toCommunitySheetResult(r, language);
   };
 
   const notices = data?.notices ?? [];
@@ -272,14 +271,28 @@ export function AdminCommunityNoticesPage() {
     body = (
       <AdminEmptyState
         ko={ko}
-        message={tab === "live" ? "게시 중인 공지가 없습니다." : tab === "scheduled" ? "예약된 공지가 없습니다." : "종료된 공지가 없습니다."}
+        message={
+          tab === "live"
+            ? t("admin_community_notices_empty_live")
+            : tab === "scheduled"
+              ? t("admin_community_notices_empty_scheduled")
+              : t("admin_community_notices_empty_ended")
+        }
       />
     );
   else
     body = (
       <>
       {loadErr ? <AdminErrorState ko={ko} code={loadErr.code} httpStatus={loadErr.status} onRetry={reload} /> : null}
-      <CommunityTable head={["제목", "카테고리", "노출 기간 (PHT)", "상태", "고정", "작성", ""]}>
+      <CommunityTable head={[
+        t("admin_community_notices_col_title"),
+        t("admin_community_notices_col_category"),
+        t("admin_community_notices_col_period"),
+        t("admin_community_notices_col_status"),
+        t("admin_community_notices_col_pin"),
+        t("admin_community_notices_col_created"),
+        "",
+      ]}>
         {notices.map((n) => {
           const pinnedNow = isPinnedNow(n);
           return (
@@ -289,10 +302,10 @@ export function AdminCommunityNoticesPage() {
                   href={communityDetailHref(`${COMMUNITY_POSTS_LIST_PATH}/${encodeURIComponent(n.id)}`, selfHref)}
                   className="line-clamp-2 font-medium text-sam-fg hover:underline"
                 >
-                  {String(n.title ?? "").trim() || "제목 없음"}
+                  {String(n.title ?? "").trim() || t("admin_community_notices_no_title")}
                 </Link>
                 <span className="text-[12px] text-sam-muted">
-                  조회 {formatAdminNumber(n.view_count ?? 0)} · 댓글 {formatAdminNumber(n.comment_count ?? 0)}
+                  {t("admin_community_notices_row_stats", { views: formatAdminNumber(n.view_count ?? 0), comments: formatAdminNumber(n.comment_count ?? 0) })}
                 </span>
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-sam-muted`}>{topicNameOf(n.topic_slug)}</td>
@@ -311,7 +324,7 @@ export function AdminCommunityNoticesPage() {
                 )}
               </td>
               <td className={COMMUNITY_TD}>
-                <span className="block text-[12px] text-sam-fg">{n.author_label || "운영팀"}</span>
+                <span className="block text-[12px] text-sam-fg">{n.author_label || t("admin_community_notices_ops_team")}</span>
                 <CommunityTimeCell iso={n.published_at ?? n.created_at} />
               </td>
               <td className={COMMUNITY_TD}>
@@ -323,7 +336,7 @@ export function AdminCommunityNoticesPage() {
                     title={noPermTitle}
                     onClick={() => void openEdit(n)}
                   >
-                    수정
+                    {t("admin_community_notices_row_edit")}
                   </AdminActionButton>
                   {tab !== "ended" ? (
                     <AdminActionButton
@@ -336,12 +349,12 @@ export function AdminCommunityNoticesPage() {
                         setEnding(n);
                       }}
                     >
-                      공지 종료
+                      {t("admin_community_notices_row_end")}
                     </AdminActionButton>
                   ) : pinnedNow ? (
                     // 행 버튼 2개 이하 — 게시 중·예약 공지의 고정 해제는 아래 「고정된 글」에서
                     <AdminActionButton variant="secondary" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(n)}>
-                      고정 해제
+                      {t("admin_community_notices_row_unpin")}
                     </AdminActionButton>
                   ) : null}
                 </span>
@@ -361,7 +374,7 @@ export function AdminCommunityNoticesPage() {
         <h2 className="text-[14px] font-semibold text-sam-fg">{t("admin_community_notices_pinned_title")}</h2>
         <span className="flex flex-wrap gap-2 text-[12px]">
           <AdminToneBadge tone={feedLimit.count >= feedLimit.limit ? "warning" : "neutral"}>
-            피드 전체 {feedLimit.count}/{feedLimit.limit}
+            {t("admin_community_notices_feed_limit_badge", { count: feedLimit.count, limit: feedLimit.limit })}
           </AdminToneBadge>
           {topicCountEntries.map(([topicId, count]) => (
             <AdminToneBadge key={topicId} tone={count >= topicLimit.limit ? "warning" : "neutral"}>
@@ -377,9 +390,16 @@ export function AdminCommunityNoticesPage() {
         {loading && !data ? (
           <AdminLoadingState ko={ko} />
         ) : loadErr && !data ? null : pinned.length === 0 ? (
-          <AdminEmptyState ko={ko} message="지금 고정된 글이 없습니다. 회원 글은 게시글 상세에서 「상단 고정」할 수 있습니다." />
+          <AdminEmptyState ko={ko} message={t("admin_community_notices_pinned_empty")} />
         ) : (
-          <CommunityTable head={["제목", "범위", "카테고리", "고정 종료", "고정한 관리자 · 사유", ""]}>
+          <CommunityTable head={[
+            t("admin_community_notices_col_title"),
+            t("admin_community_notices_col_scope"),
+            t("admin_community_notices_col_category"),
+            t("admin_community_notices_col_pin_ends"),
+            t("admin_community_notices_col_pinned_by"),
+            "",
+          ]}>
             {pinned.map((p) => (
               <tr key={p.id} className="border-b border-sam-border-soft">
                 <td className={`${COMMUNITY_TD} max-w-[20rem]`}>
@@ -387,7 +407,7 @@ export function AdminCommunityNoticesPage() {
                     href={communityDetailHref(`${COMMUNITY_POSTS_LIST_PATH}/${encodeURIComponent(p.id)}`, selfHref)}
                     className="line-clamp-2 font-medium text-sam-fg hover:underline"
                   >
-                    {String(p.title ?? "").trim() || "제목 없음"}
+                    {String(p.title ?? "").trim() || t("admin_community_notices_no_title")}
                   </Link>
                   {p.is_notice ? <AdminToneBadge tone="progress">{t("admin_community_notices_notice_badge")}</AdminToneBadge> : null}
                 </td>
@@ -395,14 +415,14 @@ export function AdminCommunityNoticesPage() {
                   <CommunityStatusBadge domain="pin_scope" value={p.pin_scope} ko={ko} />
                 </td>
                 <td className={`${COMMUNITY_TD} text-sam-muted`}>{topicNameOf(p.topic_slug)}</td>
-                <td className={`${COMMUNITY_TD} text-[12px]`}>{phtOrDash(p.pinned_until, "기한 없음")}</td>
+                <td className={`${COMMUNITY_TD} text-[12px]`}>{phtOrDash(p.pinned_until, t("admin_community_notices_no_deadline"))}</td>
                 <td className={`${COMMUNITY_TD} text-[12px]`}>
-                  {p.pinned_by_label || "관리자"}
+                  {p.pinned_by_label || t("admin_community_notices_admin")}
                   {p.pin_reason ? <span className="block text-sam-muted">{p.pin_reason}</span> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
                   <AdminActionButton variant="secondary" size="sm" disabled={!canContent} title={noPermTitle} onClick={() => setUnpinning(p)}>
-                    고정 해제
+                    {t("admin_community_notices_pinned_unpin")}
                   </AdminActionButton>
                 </td>
               </tr>
@@ -425,14 +445,14 @@ export function AdminCommunityNoticesPage() {
     <div className="space-y-4" data-community-notices="1">
       <CommunityListShell
         title={t("admin_community_notices_title")}
-        description="커뮤니티 피드 상단에 보일 공지를 게시하고, 상단 고정된 글을 관리합니다."
+        description={t("admin_community_notices_desc")}
         actions={
           <>
             <AdminActionLink href="/admin/app/notices" variant="quiet">
-              앱 전체 공지는 여기서
+              {t("admin_community_notices_link_app_notices")}
             </AdminActionLink>
             <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
-              새로고침
+              {t("admin_community_notices_reload")}
             </AdminActionButton>
             <AdminActionButton
               variant="primary"
@@ -440,14 +460,14 @@ export function AdminCommunityNoticesPage() {
               title={noPermTitle}
               onClick={() => setEditor({ ...EMPTY_EDITOR })}
             >
-              공지 작성
+              {t("admin_community_notices_compose")}
             </AdminActionButton>
           </>
         }
         banner={<AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />}
         tabs={
           <CommunityTabs
-            tabs={TABS.map((t) => ({ ...t, count: t.value === tab && !loading && !loadErr ? total : null }))}
+            tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey), count: x.value === tab && !loading && !loadErr ? total : null }))}
             value={tab}
             onChange={(v) => set({ tab: v === "live" ? null : v })}
           />
@@ -472,34 +492,38 @@ export function AdminCommunityNoticesPage() {
 
       {ed ? (
         <CommunityActionSheet
-          title={ed.mode === "create" ? "공지 작성" : "공지 수정"}
+          title={ed.mode === "create" ? t("admin_community_notices_sheet_create") : t("admin_community_notices_sheet_edit")}
           rows={[
-            { label: "제목", value: ed.title.trim() || "—" },
-            { label: "카테고리", value: edTopic?.name ?? "선택 필요" },
+            { label: t("admin_community_notices_col_title"), value: ed.title.trim() || "—" },
+            { label: t("admin_community_notices_col_category"), value: edTopic?.name ?? t("admin_community_notices_select_required") },
             {
-              label: "노출 기간",
-              value: `${ed.startsAt ? `${ed.startsAt.replace("T", " ")} PHT` : "바로"} ~ ${
-                ed.endsAt ? `${ed.endsAt.replace("T", " ")} PHT` : "종료 시각 없음"
+              label: t("admin_community_notices_row_period"),
+              value: `${ed.startsAt ? `${ed.startsAt.replace("T", " ")} PHT` : t("admin_community_notices_start_immediately")} ~ ${
+                ed.endsAt ? `${ed.endsAt.replace("T", " ")} PHT` : t("admin_community_notices_no_end_time")
               }`,
             },
             ...(ed.mode === "create"
               ? [
                   {
-                    label: "상단 고정",
-                    value: ed.pin ? `${ed.pinScope === "feed" ? "피드 전체" : "이 카테고리"} 고정` : "고정 안 함",
+                    label: t("admin_community_notices_row_pin"),
+                    value: ed.pin
+                      ? ed.pinScope === "feed"
+                        ? t("admin_community_notices_pin_feed")
+                        : t("admin_community_notices_pin_topic")
+                      : t("admin_community_notices_pin_none"),
                   },
                 ]
               : []),
           ]}
-          notice="공지는 「DIBAY 운영팀」 이름으로 피드 전체와 선택한 카테고리 상단에 노출 기간 동안 표시됩니다."
+          notice={t("admin_community_notices_editor_notice")}
           reason={null}
           ready={edReady && !edWindowBad}
-          confirmLabel={ed.mode === "create" ? "공지 게시" : "수정 저장"}
+          confirmLabel={ed.mode === "create" ? t("admin_community_notices_publish_button") : t("admin_community_notices_save_button")}
           onSubmit={() => submitEditor(ed)}
           onClose={() => setEditor(null)}
           onSettled={(k) => {
             setEditor(null);
-            settle(k, ed.mode === "create" ? "공지를 게시했습니다." : "공지를 수정했습니다.");
+            settle(k, ed.mode === "create" ? t("admin_community_notices_published") : t("admin_community_notices_updated"));
           }}
         >
           <div className="space-y-3 text-[13px]">
@@ -556,7 +580,7 @@ export function AdminCommunityNoticesPage() {
               <fieldset className="space-y-1 rounded-ui-rect border border-sam-border p-2">
                 <label className="flex items-center gap-2 font-semibold text-sam-fg">
                   <input type="checkbox" checked={ed.pin} onChange={(e) => setEditor({ ...ed, pin: e.target.checked })} />
-                  상단 고정
+                  {t("admin_community_notices_editor_pin")}
                 </label>
                 {ed.pin ? (
                   <div className="space-y-2 pl-5">
@@ -567,7 +591,7 @@ export function AdminCommunityNoticesPage() {
                         checked={ed.pinScope === "feed"}
                         onChange={() => setEditor({ ...ed, pinScope: "feed" })}
                       />
-                      피드 전체 ({feedLimit.count}/{feedLimit.limit})
+                      {t("admin_community_notices_pin_scope_feed", { count: feedLimit.count, limit: feedLimit.limit })}
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -576,8 +600,9 @@ export function AdminCommunityNoticesPage() {
                         checked={ed.pinScope === "topic"}
                         onChange={() => setEditor({ ...ed, pinScope: "topic" })}
                       />
-                      이 카테고리만 (
-                      {edTopic ? `${topicLimit.counts?.[edTopic.id] ?? 0}/${topicLimit.limit}` : `최대 ${topicLimit.limit}`})
+                      {t("admin_community_notices_pin_scope_topic_only", {
+                        usage: edTopic ? `${topicLimit.counts?.[edTopic.id] ?? 0}/${topicLimit.limit}` : t("admin_community_notices_topic_max", { n: topicLimit.limit }),
+                      })}
                     </label>
                     <label className="block space-y-1">
                       <span className="text-sam-muted">{t("admin_community_notices_field_pin_ends")}</span>
@@ -600,12 +625,15 @@ export function AdminCommunityNoticesPage() {
         <CommunityActionSheet
           title={t("admin_community_notices_end_title")}
           rows={[
-            { label: "공지", value: `「${String(ending.title ?? "").slice(0, 40)}」` },
-            { label: "처리", value: alsoHide ? "고정 해제 + 노출 종료 + 글 숨김" : "고정 해제 + 노출 종료 (글은 일반 글로 남음)" },
+            { label: t("admin_community_notices_row_notice"), value: `「${String(ending.title ?? "").slice(0, 40)}」` },
+            {
+              label: t("admin_community_notices_row_action"),
+              value: alsoHide ? t("admin_community_notices_end_hide") : t("admin_community_notices_end_keep"),
+            },
           ]}
-          notice="공지 표시와 상단 고정이 지금 바로 끝납니다."
-          reason={alsoHide ? { minLength: 2, placeholder: "숨김 사유" } : null}
-          confirmLabel="공지 종료"
+          notice={t("admin_community_notices_end_notice")}
+          reason={alsoHide ? { minLength: 2, placeholder: t("admin_community_notices_hide_reason") } : null}
+          confirmLabel={t("admin_community_notices_end_button")}
           destructive={alsoHide}
           onSubmit={async (reason) =>
             toCommunitySheetResult(
@@ -617,18 +645,19 @@ export function AdminCommunityNoticesPage() {
                   alsoHide,
                   ...(reason ? { reason } : {}),
                 },
-              })
+              }),
+              language
             )
           }
           onClose={() => setEnding(null)}
           onSettled={(k) => {
             setEnding(null);
-            settle(k, "공지를 종료했습니다.");
+            settle(k, t("admin_community_notices_ended"));
           }}
         >
           <label className="flex items-center gap-2 text-[13px]">
             <input type="checkbox" checked={alsoHide} onChange={(e) => setAlsoHide(e.target.checked)} />
-            글도 숨기기 (작성자 화면에서만 보임)
+            {t("admin_community_notices_also_hide_post")}
           </label>
         </CommunityActionSheet>
       ) : null}
@@ -637,24 +666,25 @@ export function AdminCommunityNoticesPage() {
         <CommunityActionSheet
           title={t("admin_community_notices_unpin_title")}
           rows={[
-            { label: "글", value: `「${String(unpinning.title ?? "").slice(0, 40)}」` },
-            { label: "범위", value: adminCommunityLabel("pin_scope", unpinning.pin_scope, ko).label },
+            { label: t("admin_community_notices_row_post"), value: `「${String(unpinning.title ?? "").slice(0, 40)}」` },
+            { label: t("admin_community_notices_col_scope"), value: adminCommunityLabel("pin_scope", unpinning.pin_scope, ko).label },
           ]}
-          notice="상단 고정에서 내립니다. 글과 공지 노출 기간은 그대로입니다."
+          notice={t("admin_community_notices_unpin_notice")}
           reason={null}
-          confirmLabel="고정 해제"
+          confirmLabel={t("admin_community_notices_unpin_button")}
           onSubmit={async () =>
             toCommunitySheetResult(
               await communityJsonFetch(`/api/admin/community/engine/posts/${encodeURIComponent(unpinning.id)}/pin`, {
                 method: "DELETE",
                 body: {},
-              })
+              }),
+              language
             )
           }
           onClose={() => setUnpinning(null)}
           onSettled={(k) => {
             setUnpinning(null);
-            settle(k, "고정을 해제했습니다.");
+            settle(k, t("admin_community_notices_unpinned"));
           }}
         />
       ) : null}

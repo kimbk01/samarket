@@ -124,7 +124,8 @@ export function MypageCommunityPostsList({
           setTotals((prev) => ({ ...prev, [other]: n }));
         }
       })
-      .catch(() => undefined); // 개수 칸만 비움
+      // 개수 칸만 비움
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };

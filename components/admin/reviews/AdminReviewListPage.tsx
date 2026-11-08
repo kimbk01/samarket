@@ -41,7 +41,7 @@ export function AdminReviewListPage() {
   return (
     <CommunityListShell
       title={t("admin_review_kf2bb246c")}
-      description="거래를 마친 회원이 서로 남긴 후기를 확인합니다."
+      description={t("admin_reviews_list_description")}
       filterBar={
         <CommunityFilterBar
           lq={lq}
@@ -50,14 +50,14 @@ export function AdminReviewListPage() {
           pending={state.status === "loading"}
           status={{ options: REVIEW_STATUS_FILTER_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })) }}
         >
-          <CommunityFilterField label="별점">
+          <CommunityFilterField label={t("admin_reviews_filter_rating")}>
             <CommunitySelect
               value={lq.query.extras.rating}
               onChange={(v) => lq.setExtra("rating", v)}
               options={RATING_FILTER_OPTIONS.map((o) => ({ value: String(o.value), label: t(o.labelKey) }))}
             />
           </CommunityFilterField>
-          <CommunityFilterField label="작성 방향">
+          <CommunityFilterField label={t("admin_reviews_filter_direction")}>
             <CommunitySelect
               value={lq.query.extras.role}
               onChange={(v) => lq.setExtra("role", v)}
@@ -68,7 +68,7 @@ export function AdminReviewListPage() {
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={reviews.length === 0} lq={lq} onRetry={reload} emptyMessage="거래 후기가 없습니다.">
+      <CommunityListBody state={state} empty={reviews.length === 0} lq={lq} onRetry={reload} emptyMessage={t("admin_reviews_list_empty")}>
         <AdminReviewTable reviews={reviews} />
       </CommunityListBody>
     </CommunityListShell>

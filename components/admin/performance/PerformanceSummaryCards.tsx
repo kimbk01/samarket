@@ -29,7 +29,7 @@ export function PerformanceSummaryCards() {
                 : "bg-sam-danger-soft text-sam-danger"
           }`}
         >
-          성능 상태: {status === "healthy" ? "양호" : status === "warning" ? "주의" : "위험"}
+          {t("admin_performance_status_line", { status: t(status === "healthy" ? "admin_performance_status_healthy" : status === "warning" ? "admin_performance_status_warning" : "admin_performance_status_critical") })}
         </span>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">

@@ -1011,7 +1011,7 @@ export function AdminDeliveryAdDetailWorkspace({
         data-admin-delivery-ads-end-panel="1"
       >
         <p className="text-[13px] font-semibold text-sam-fg">
-          {koUi ? "종료 귀책을 고르세요" : "Who is responsible for ending?"}
+          {t("admin_stores_delivery_ad_end_fault_prompt")}
         </p>
         <div className="flex flex-col gap-1 text-[12px]" role="radiogroup">
           {DELIVERY_AD_END_FAULTS.map((f) => (
@@ -1030,21 +1030,22 @@ export function AdminDeliveryAdDetailWorkspace({
           ))}
         </div>
         {endPreviewBusy ? (
-          <p className="text-[12px] text-sam-muted">{koUi ? "환급 금액을 계산하는 중…" : "Calculating refund…"}</p>
+          <p className="text-[12px] text-sam-muted">{t("admin_stores_delivery_ad_end_refund_calculating")}</p>
         ) : endPreview ? (
           <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-delivery-ads-end-preview="1">
             <li>
-              {koUi ? "환급 예정 비즈니스 캐시" : "Business Cash refund"}:{" "}
+              {t("admin_stores_delivery_ad_end_refund_cash")}:{" "}
               {formatAdminDeliveryAdPriceOrUnset(endPreview.refundAmount, lang)}
             </li>
             <li>
-              {koUi ? "결제 금액" : "Paid"}: {formatAdminDeliveryAdPriceOrUnset(endPreview.paidAmount, lang)}
+              {t("admin_stores_delivery_ad_end_paid")}: {formatAdminDeliveryAdPriceOrUnset(endPreview.paidAmount, lang)}
             </li>
             <li>
-              {koUi ? "남은 기간" : "Remaining"}:{" "}
-              {koUi
-                ? `${Math.floor(endPreview.remainingSeconds / 86400)}일 ${Math.floor((endPreview.remainingSeconds % 86400) / 3600)}시간`
-                : `${Math.floor(endPreview.remainingSeconds / 86400)}d ${Math.floor((endPreview.remainingSeconds % 86400) / 3600)}h`}
+              {t("admin_stores_delivery_ad_end_remaining")}:{" "}
+              {t("admin_stores_delivery_ad_end_remaining_dh", {
+                d: Math.floor(endPreview.remainingSeconds / 86400),
+                h: Math.floor((endPreview.remainingSeconds % 86400) / 3600),
+              })}
             </li>
           </ul>
         ) : null}
@@ -1057,7 +1058,7 @@ export function AdminDeliveryAdDetailWorkspace({
             data-admin-delivery-ads-end-confirm="1"
             onClick={() => void confirmEnd()}
           >
-            {koUi ? "종료 진행" : "Continue to end"}
+            {t("admin_stores_delivery_ad_end_continue_btn")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
@@ -1069,7 +1070,7 @@ export function AdminDeliveryAdDetailWorkspace({
               setEndPreview(null);
             }}
           >
-            {koUi ? "취소" : "Cancel"}
+            {t("common_cancel")}
           </AdminActionButton>
         </div>
       </div>

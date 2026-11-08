@@ -10,6 +10,7 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
   AdminManagementSelectionCheckbox,
@@ -42,9 +43,8 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { communityAreaAllowed } from "@/lib/admin/community-admin/community-admin-permissions";
 import { communityAdminListPeriodParams } from "@/lib/admin/community-admin/community-admin-period";
 import {
-  COMMUNITY_HARD_DELETE_BLOCK_KO,
+  COMMUNITY_HARD_DELETE_BLOCK_KEY,
   COMMUNITY_POSTS_LIST_PATH,
-  COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   communityPostErrorText,
   useCommunityTopicOptions,
@@ -83,19 +83,19 @@ type CommunityPostRow = {
 type BulkKind = "hide" | "restore" | "soft_delete" | "hard_delete";
 
 const TABS = [
-  { value: "active", label: "공개" },
-  { value: "hidden", label: "관리자 숨김" },
-  { value: "deleted", label: "삭제됨" },
-  { value: "reported", label: "신고 있음" },
-  { value: "all", label: "전체" },
-] as const;
+  { value: "active", labelKey: "admin_community_posts_tab_public" },
+  { value: "hidden", labelKey: "admin_community_posts_tab_admin_hidden" },
+  { value: "deleted", labelKey: "admin_community_posts_tab_deleted" },
+  { value: "reported", labelKey: "admin_community_posts_tab_reported" },
+  { value: "all", labelKey: "common_all" },
+] as const satisfies readonly { value: string; labelKey: MessageKey }[];
 
 const ORIGIN_OPTIONS = [
-  { value: "", label: "전체" },
-  { value: "member", label: "회원" },
-  { value: "imported", label: "외부 수집" },
-  { value: "admin", label: "운영팀" },
-];
+  { value: "", labelKey: "common_all" },
+  { value: "member", labelKey: "admin_community_posts_origin_member" },
+  { value: "imported", labelKey: "admin_community_posts_origin_imported" },
+  { value: "admin", labelKey: "admin_community_posts_origin_admin" },
+] as const satisfies readonly { value: string; labelKey: MessageKey }[];
 
 /** 조회 조건 추가 키 (URL) — `authorId` 는 예전 링크 호환. 탭(`tab`)과 옛 탭 키(`status`·`reportedOnly`·`reported`)는 탭 쪽이 관리 */
 const POST_EXTRAS = ["topicSlug", "origin", "userId", "authorId", "postId"] as const;
@@ -217,11 +217,11 @@ export function AdminPostsPageContent() {
           },
         });
         if (res.ok) okCount += 1;
-        else fails.push({ title: String(r.title ?? "").trim() || "제목 없음", reason: communityPostErrorText(res.code) });
+        else fails.push({ title: String(r.title ?? "").trim() || t("admin_community_posts_untitled"), reason: communityPostErrorText(res.code, language) });
       }
-      const label = status === "hidden" ? "숨김" : status === "deleted" ? "삭제" : "다시 공개";
+      const label = t(status === "hidden" ? "admin_community_posts_action_hidden" : status === "deleted" ? "admin_community_posts_action_deleted" : "admin_community_posts_action_restore");
       if (fails.length === 0) {
-        setBanner({ ok: true, message: `${targets.length}건 모두 ${label} 처리했습니다.` });
+        setBanner({ ok: true, message: t("admin_community_posts_bulk_all_done", { n: targets.length, label }) });
       } else {
         const detail = fails
           .slice(0, 5)
@@ -229,14 +229,14 @@ export function AdminPostsPageContent() {
           .join(" · ");
         setBanner({
           ok: false,
-          code: `${targets.length}건 중 ${okCount}건 ${label} 처리 · ${fails.length}건 실패 — ${detail}${fails.length > 5 ? " 외" : ""}`,
+          code: t("admin_community_posts_bulk_partial", { total: targets.length, ok: okCount, label, failed: fails.length, detail, more: fails.length > 5 ? t("admin_community_posts_list_more") : "" }),
         });
       }
       selection.clear();
       reload();
       return { ok: true } as const;
     },
-    [reload, selectedRows, selection]
+    [language, reload, selectedRows, selection, t]
   );
 
   const runHardDelete = useCallback(
@@ -248,46 +248,49 @@ export function AdminPostsPageContent() {
       }>("/api/admin/community/engine/posts/bulk-delete", { method: "POST", body: { ids, reason } });
       if (!res.ok) {
         if (res.status === 403) return { ok: false as const, status: 403, code: res.code };
-        return { ok: false as const, status: 400, code: communityPostErrorText(res.code) };
+        return { ok: false as const, status: 400, code: communityPostErrorText(res.code, language) };
       }
       const deleted = res.json.deleted ?? [];
       const blocked = res.json.blocked ?? [];
       if (blocked.length === 0) {
-        setBanner({ ok: true, message: `${deleted.length}건을 영구 삭제했습니다. 삭제 전 내용은 운영 기록에 보존됩니다.` });
+        setBanner({ ok: true, message: t("admin_community_posts_hard_deleted", { n: deleted.length }) });
       } else {
         const titleOf = (id: string) =>
-          String(selectedRows.find((r) => r.id === id)?.title ?? "").trim().slice(0, 20) || "제목 없음";
+          String(selectedRows.find((r) => r.id === id)?.title ?? "").trim().slice(0, 20) || t("admin_community_posts_untitled");
         const detail = blocked
           .slice(0, 6)
-          .map((b) => `「${titleOf(b.id)}」 ${COMMUNITY_HARD_DELETE_BLOCK_KO[b.reason] ?? "처리 불가"}`)
+          .map((b) => {
+            const blockKey = COMMUNITY_HARD_DELETE_BLOCK_KEY[b.reason];
+            return `「${titleOf(b.id)}」 ${blockKey ? t(blockKey) : t("admin_community_posts_cannot_process")}`;
+          })
           .join(" · ");
         setBanner({
           ok: false,
-          code: `${ids.length}건 중 ${deleted.length}건 영구 삭제 · ${blocked.length}건 보류 — ${detail}${blocked.length > 6 ? " 외" : ""}`,
+          code: t("admin_community_posts_hard_partial", { total: ids.length, deleted: deleted.length, blocked: blocked.length, detail, more: blocked.length > 6 ? t("admin_community_posts_list_more") : "" }),
         });
       }
       selection.clear();
       reload();
       return { ok: true as const };
     },
-    [reload, selectedRows, selection]
+    [language, reload, selectedRows, selection, t]
   );
 
   const authorChipLabel = userId
-    ? String(rows.find((r) => r.user_id === userId)?.author_label ?? "").trim() || "선택한 작성자"
+    ? String(rows.find((r) => r.user_id === userId)?.author_label ?? "").trim() || t("admin_community_posts_selected_author")
     : "";
   const n = selection.selectedCount;
   const hardAllowed = isBulkActionAllowed(policy, "hard_delete");
 
   const sheetRows = [
-    { label: "대상", value: `선택한 게시글 ${n}건` },
+    { label: t("admin_community_posts_sheet_target"), value: t("admin_community_posts_sheet_selected_n", { n }) },
     {
-      label: "예시",
+      label: t("admin_community_posts_sheet_examples"),
       value:
         selectedRows
           .slice(0, 3)
-          .map((r) => `「${String(r.title ?? "").trim().slice(0, 24) || "제목 없음"}」`)
-          .join(", ") + (n > 3 ? " 외" : ""),
+          .map((r) => `「${String(r.title ?? "").trim().slice(0, 24) || t("admin_community_posts_untitled")}」`)
+          .join(", ") + (n > 3 ? t("admin_community_posts_list_more") : ""),
     },
   ];
 
@@ -297,89 +300,89 @@ export function AdminPostsPageContent() {
         data-community-posts-bulk-bar="1"
         className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
       >
-        <span className="text-[13px] font-semibold text-sam-fg">{n}개 선택됨</span>
+        <span className="text-[13px] font-semibold text-sam-fg">{t("admin_community_posts_n_selected", { n })}</span>
         <AdminActionButton
           variant="secondary"
           disabled={!canContent}
-          title={canContent ? undefined : "권한 필요: 게시판 관리"}
+          title={canContent ? undefined : t("admin_community_posts_perm_board_manage")}
           onClick={() => setSheet("restore")}
           data-community-bulk="restore"
         >
-          다시 공개
+          {t("admin_community_posts_action_restore")}
         </AdminActionButton>
         <AdminActionButton
           variant="secondary"
           disabled={!canContent}
-          title={canContent ? undefined : "권한 필요: 게시판 관리"}
+          title={canContent ? undefined : t("admin_community_posts_perm_board_manage")}
           onClick={() => setSheet("hide")}
           data-community-bulk="hide"
         >
-          숨기기
+          {t("admin_community_posts_hide_btn")}
         </AdminActionButton>
         {/* 삭제 = 상태 변경(「다시 공개」로 복구 가능) — danger 는 영구 삭제만 */}
         <AdminActionButton
           variant="secondary"
           disabled={!canContent}
-          title={canContent ? undefined : "권한 필요: 게시판 관리"}
+          title={canContent ? undefined : t("admin_community_posts_perm_board_manage")}
           onClick={() => setSheet("soft_delete")}
           data-community-bulk="soft_delete"
           data-admin-mgmt-row-soft-delete="1"
         >
-          삭제
+          {t("admin_community_posts_action_deleted")}
         </AdminActionButton>
         {hardAllowed ? (
           <AdminActionButton
             variant="danger"
             className="ring-2 ring-sam-danger/60"
             disabled={!isSuperAdmin}
-            title={isSuperAdmin ? "삭제 상태로 30일이 지난 글만 영구 삭제됩니다" : "최고 관리자만 할 수 있습니다"}
+            title={isSuperAdmin ? t("admin_community_posts_hard_delete_hint") : t("admin_community_posts_super_admin_only")}
             onClick={() => setSheet("hard_delete")}
             data-community-bulk="hard_delete"
             data-admin-mgmt-hard-delete="1"
           >
-            영구 삭제
+            {t("admin_community_posts_hard_delete_btn")}
           </AdminActionButton>
         ) : null}
         <AdminActionButton variant="quiet" onClick={() => selection.clear()}>
-          선택 해제
+          {t("admin_community_posts_clear_selection")}
         </AdminActionButton>
       </div>
     ) : null;
 
   const filterBar = (
-    <CommunityFilterBar lq={lq} searchPlaceholder="제목 또는 본문" pending={loading}>
-      <CommunityFilterField label="카테고리">
+    <CommunityFilterBar lq={lq} searchPlaceholder={t("admin_community_posts_search_placeholder")} pending={loading}>
+      <CommunityFilterField label={t("admin_community_posts_filter_category")}>
         <CommunitySelect
           value={topicSlug}
           onChange={(v) => lq.setExtra("topicSlug", v)}
           options={[
-            { value: "", label: "전체 카테고리" },
-            ...topics.map((t) => ({ value: t.slug, label: t.is_active ? t.name : `${t.name} (사용 중지)` })),
+            { value: "", label: t("common_all_category") },
+            ...topics.map((topic) => ({ value: topic.slug, label: topic.is_active ? topic.name : t("admin_community_posts_topic_inactive", { name: topic.name }) })),
             ...(topicSlug && !topics.some((t) => t.slug === topicSlug) ? [{ value: topicSlug, label: topicSlug }] : []),
           ]}
         />
       </CommunityFilterField>
-      <CommunityFilterField label="작성 구분">
-        <CommunitySelect value={origin} onChange={(v) => lq.setExtra("origin", v)} options={ORIGIN_OPTIONS} />
+      <CommunityFilterField label={t("admin_community_posts_filter_origin")}>
+        <CommunitySelect value={origin} onChange={(v) => lq.setExtra("origin", v)} options={ORIGIN_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
       </CommunityFilterField>
       {userId ? (
         <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
-          작성자: {authorChipLabel}
+          {t("admin_community_posts_author_chip", { author: authorChipLabel })}
           <AdminActionButton
             variant="quiet"
             size="sm"
             className="ml-1 h-auto! px-1!"
             onClick={() => lq.patch({ extras: { userId: "", authorId: "" } })}
           >
-            해제
+            {t("admin_community_posts_clear_filter")}
           </AdminActionButton>
         </span>
       ) : null}
       {postId ? (
         <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
-          특정 글 1건만 보기
+          {t("admin_community_posts_single_post_only")}
           <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => lq.setExtra("postId", "")}>
-            해제
+            {t("admin_community_posts_clear_filter")}
           </AdminActionButton>
         </span>
       ) : null}
@@ -400,13 +403,13 @@ export function AdminPostsPageContent() {
         empty={rows.length === 0}
         lq={lq}
         onRetry={reload}
-        emptyMessage="게시글이 없습니다."
-        filteredEmptyMessage="조건에 맞는 게시글이 없습니다."
+        emptyMessage={t("admin_community_posts_empty")}
+        filteredEmptyMessage={t("admin_community_posts_empty_filtered")}
       >
-      <CommunityTable head={["", "제목", "카테고리", "작성자", "상태", "신고", "반응", "게시 시각", ""]}>
+      <CommunityTable head={["", t("admin_community_posts_col_title"), t("admin_community_posts_filter_category"), t("admin_community_posts_col_author"), t("admin_community_posts_col_status"), t("admin_community_posts_col_reports"), t("admin_community_posts_col_reactions"), t("admin_community_posts_col_published_at"), ""]}>
         {rows.map((r) => {
           const id = r.id;
-          const title = String(r.title ?? "").trim() || "제목 없음";
+          const title = String(r.title ?? "").trim() || t("admin_community_posts_untitled");
           const slug = String(r.topicSlug ?? r.topic_slug ?? r.category ?? "").trim();
           const reportCount = Number(r.report_count ?? 0);
           const detailHref = communityDetailHref(`${COMMUNITY_POSTS_LIST_PATH}/${encodeURIComponent(id)}`, selfHref);
@@ -417,7 +420,7 @@ export function AdminPostsPageContent() {
                   role="row"
                   checked={selection.isSelected(id)}
                   onToggle={() => selection.toggleRow(id)}
-                  aria-label={`선택: ${title.slice(0, 24)}`}
+                  aria-label={t("admin_community_posts_select_row_aria", { title: title.slice(0, 24) })}
                 />
               </td>
               <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
@@ -464,18 +467,18 @@ export function AdminPostsPageContent() {
                 )}
               </td>
               <td className={`${COMMUNITY_TD} whitespace-nowrap text-[12px] text-sam-muted`}>
-                좋아요 {formatAdminNumber(r.like_count ?? 0)} ·{" "}
+                {t("admin_community_posts_likes_n", { n: formatAdminNumber(r.like_count ?? 0) })} ·{" "}
                 <Link href={`/admin/community/comments?postId=${encodeURIComponent(id)}`} className="hover:underline">
-                  댓글 {formatAdminNumber(r.comment_count ?? 0)}
+                  {t("admin_community_posts_comments_n", { n: formatAdminNumber(r.comment_count ?? 0) })}
                 </Link>{" "}
-                · 조회 {formatAdminNumber(r.view_count ?? 0)}
+                · {t("admin_community_posts_views_n", { n: formatAdminNumber(r.view_count ?? 0) })}
               </td>
               <td className={COMMUNITY_TD}>
                 <CommunityTimeCell iso={r.published_at ?? r.created_at} />
               </td>
               <td className={COMMUNITY_TD}>
                 <AdminActionLink href={detailHref} variant="ghost" size="sm">
-                  상세
+                  {t("admin_community_posts_detail_btn")}
                 </AdminActionLink>
               </td>
             </tr>
@@ -502,21 +505,21 @@ export function AdminPostsPageContent() {
     <AdminManagementSurfaceRoot wave="w3" proofSurface="community-posts">
       <CommunityListShell
         title={t("admin_community_posts_title")}
-        description="회원·외부 수집·운영팀 글을 찾아보고 숨김·삭제·복구합니다."
+        description={t("admin_community_posts_description")}
         actions={
           <>
             <AdminActionLink href="/admin/community/notices" variant="neutral">
-              공지·고정
+              {t("admin_community_posts_notices_pins_btn")}
             </AdminActionLink>
             <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
-              새로고침
+              {t("admin_community_posts_refresh_btn")}
             </AdminActionButton>
           </>
         }
         banner={<AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />}
         tabs={
           <CommunityTabs
-            tabs={TABS.map((t) => ({ ...t, count: t.value === tab && !loading ? total : null }))}
+            tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey), count: x.value === tab && !loading ? total : null }))}
             value={tab}
             onChange={(v) => set({ tab: v, status: null, reportedOnly: null, reported: null })}
           />
@@ -535,32 +538,32 @@ export function AdminPostsPageContent() {
 
       {sheet === "hide" || sheet === "soft_delete" ? (
         <CommunityActionSheet
-          title={sheet === "hide" ? `게시글 ${n}건 숨기기` : `게시글 ${n}건 삭제`}
+          title={sheet === "hide" ? t("admin_community_posts_sheet_hide_title", { n }) : t("admin_community_posts_sheet_delete_title", { n })}
           rows={sheetRows}
           notice={
             sheet === "hide"
-              ? "숨긴 글은 작성자에게만 보이고 안내 문구가 표시됩니다. 작성자에게 알림이 갑니다. 「다시 공개」로 되돌릴 수 있습니다."
-              : "삭제한 글은 아무도 볼 수 없습니다. 작성자에게 알림이 갑니다. 「다시 공개」로 복구할 수 있습니다."
+              ? t("admin_community_posts_sheet_hide_notice")
+              : t("admin_community_posts_sheet_delete_notice")
           }
-          reason={{ minLength: 2, placeholder: "예: 광고성 게시글, 욕설 포함" }}
+          reason={{ minLength: 2, placeholder: t("admin_community_posts_reason_placeholder") }}
           destructive={sheet === "soft_delete"}
-          confirmLabel={sheet === "hide" ? "숨기기" : "삭제"}
+          confirmLabel={sheet === "hide" ? t("admin_community_posts_hide_btn") : t("admin_community_posts_action_deleted")}
           onSubmit={(reason) => runStatusBulk(sheet === "hide" ? "hidden" : "deleted", reason)}
           onClose={() => setSheet(null)}
           onSettled={(kind) => {
             setSheet(null);
-            if (kind === "stale") setBanner({ ok: false, code: COMMUNITY_STALE_MESSAGE });
+            if (kind === "stale") setBanner({ ok: false, code: t("admin_community_post_stale") });
             reload();
           }}
         />
       ) : null}
       {sheet === "restore" ? (
         <CommunityActionSheet
-          title={`게시글 ${n}건 다시 공개`}
+          title={t("admin_community_posts_sheet_restore_title", { n })}
           rows={sheetRows}
-          notice="선택한 글을 다시 모두에게 보이게 합니다."
+          notice={t("admin_community_posts_sheet_restore_notice")}
           reason={null}
-          confirmLabel="다시 공개"
+          confirmLabel={t("admin_community_posts_action_restore")}
           onSubmit={() => runStatusBulk("active", "")}
           onClose={() => setSheet(null)}
           onSettled={() => {
@@ -571,13 +574,13 @@ export function AdminPostsPageContent() {
       ) : null}
       {sheet === "hard_delete" ? (
         <CommunityActionSheet
-          title={`게시글 ${n}건 영구 삭제`}
+          title={t("admin_community_posts_sheet_hard_title", { n })}
           rows={sheetRows}
-          notice="되돌릴 수 없습니다. 삭제 상태로 30일이 지났고, 처리 안 된 신고·상위노출·연결된 모임이 없는 글만 지워집니다. 조건에 맞지 않는 글은 건너뛰고 이유를 알려 드립니다. 지우기 전 내용은 운영 기록에 보존됩니다."
-          reason={{ minLength: 2, placeholder: "영구 삭제 사유" }}
-          retypeValue="영구 삭제"
+          notice={t("admin_community_posts_sheet_hard_notice")}
+          reason={{ minLength: 2, placeholder: t("admin_community_posts_hard_reason_placeholder") }}
+          retypeValue={t("admin_community_posts_hard_delete_btn")}
           destructive
-          confirmLabel="영구 삭제"
+          confirmLabel={t("admin_community_posts_hard_delete_btn")}
           onSubmit={(reason) => runHardDelete(reason)}
           onClose={() => setSheet(null)}
           onSettled={() => {

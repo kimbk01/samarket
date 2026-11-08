@@ -5,6 +5,7 @@ import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { callTradeAdminRpc, tradeAuditMetaArgs } from "@/lib/admin/trade-admin/trade-admin-rpc";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ async function resolveSoldBuyerId(
 ): Promise<{ buyerId: string | null; error?: string }> {
   if (requested) {
     if (!UUID_RE.test(requested)) {
-      return { buyerId: null, error: "soldBuyerId는 UUID여야 합니다." };
+      return { buyerId: null, error: await adminServerText("admin_api_posts_sold_buyer_uuid") };
     }
     return { buyerId: requested };
   }
@@ -58,12 +59,12 @@ async function resolveSoldBuyerId(
     return {
       buyerId: null,
       error:
-        "판매 확정 구매자가 없습니다. 거래 채팅 구매자를 지정하거나 reserved/sold buyer가 필요합니다.",
+        await adminServerText("admin_api_posts_no_sold_buyer"),
     };
   }
   return {
     buyerId: null,
-    error: `구매자 후보가 ${ids.length}명입니다. soldBuyerId를 지정하세요.`,
+    error: await adminServerText("admin_api_posts_multi_buyer_sold", { n: ids.length }),
   };
 }
 
@@ -153,7 +154,7 @@ export async function POST(
     );
     if (!resolved.buyerId) {
       return NextResponse.json(
-        { ok: false, error: resolved.error ?? "구매자를 선택하세요.", code: "need_sold_buyer" },
+        { ok: false, error: resolved.error ?? await adminServerText("admin_api_posts_choose_buyer"), code: "need_sold_buyer" },
         { status: 400 }
       );
     }

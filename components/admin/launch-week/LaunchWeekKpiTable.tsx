@@ -54,25 +54,25 @@ export function LaunchWeekKpiTable() {
       </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
-        시간대별 운영 타임라인은 placeholder로 확장 가능합니다.
+        {t("admin_launch_week_kpi_timeline_hint")}
       </p>
 
       {kpis.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 일자 KPI가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_launch_week_no_kpis")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[
-            "일자",
-            "가입",
-            "상품등록",
-            "채팅시작",
-            "거래완료",
-            "신고",
-            "장애",
+            t("admin_launch_week_kpi_date"),
+            t("admin_launch_week_kpi_signups"),
+            t("admin_launch_week_kpi_listings"),
+            t("admin_launch_week_kpi_chats_started"),
+            t("admin_launch_week_kpi_trades_done"),
+            t("admin_launch_week_kpi_reports"),
+            t("admin_launch_week_kpi_incidents"),
             "Fallback",
             "Kill Switch",
-            "포인트충전",
-            "광고신청",
+            t("admin_launch_week_kpi_point_charges"),
+            t("admin_launch_week_kpi_ad_requests"),
           ]}
         >
           {kpis.map((k) => (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { HomeFeedPolicy } from "@/lib/types/home-feed";
 import {
   SECTION_LABELS,
@@ -17,10 +18,11 @@ export function HomeFeedPolicyTable({
   policies,
   onEdit,
 }: HomeFeedPolicyTableProps) {
+  const { t } = useI18n();
   if (policies.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 홈 피드 정책이 없습니다.
+        {t("admin_home_feed_policy_empty")}
       </div>
     );
   }
@@ -31,26 +33,26 @@ export function HomeFeedPolicyTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션
+              {t("admin_home_feed_policy_col_section")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              정렬
+              {t("admin_home_feed_policy_col_sort")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              최대
+              {t("admin_home_feed_policy_col_max")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              지역범위
+              {t("admin_home_feed_policy_col_region_scope")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_home_feed_policy_col_status")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              순서
+              {t("admin_home_feed_policy_col_order")}
             </th>
             {onEdit && (
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                작업
+                {t("admin_home_feed_policy_col_actions")}
               </th>
             )}
           </tr>
@@ -79,7 +81,7 @@ export function HomeFeedPolicyTable({
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {p.isActive ? "활성" : "비활성"}
+                  {p.isActive ? t("admin_home_feed_active") : t("admin_home_feed_inactive")}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{p.priorityOrder}</td>
@@ -90,7 +92,7 @@ export function HomeFeedPolicyTable({
                     variant="ghost"
                     size="sm"
                   >
-                    편집
+                    {t("admin_home_feed_policy_edit")}
                   </AdminActionButton>
                 </td>
               )}

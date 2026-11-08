@@ -14,6 +14,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 import { resolveTradeMessengerRoomForAdmin } from "@/lib/admin-chats/trade-messenger-room";
 import { runCmRoomActionCas } from "@/lib/admin-community-messenger/admin-chat-moderation-cas";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,18 +57,18 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
   const { id: paramId } = await params;
   if (!paramId?.trim()) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_room_id_required") }, { status: 400 });
   }
 
   let body: { action?: string; note?: string; reason?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON body 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_json_body_short") }, { status: 400 });
   }
   const action = (body.action ?? "").trim() as BodyAction;
   const note = normalizeChatAdminReason(body.reason ?? body.note);
@@ -82,7 +83,7 @@ export async function POST(
     "warn",
   ];
   if (!allowed.includes(action)) {
-    return NextResponse.json({ ok: false, error: "지원하지 않는 action" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_unsupported_action") }, { status: 400 });
   }
   if (!isChatAdminReasonValid(note, CHAT_ADMIN_ACTION_REASON_MIN_LENGTH)) {
     return chatAdminReasonRequired(CHAT_ADMIN_ACTION_REASON_MIN_LENGTH);
@@ -121,7 +122,7 @@ export async function POST(
   }
   if (!roomId) {
     return NextResponse.json(
-      { ok: false, error: "chat_rooms 채팅을 찾을 수 없습니다. (마이그레이션·연결 room 확인)" },
+      { ok: false, error: await adminServerText("admin_api_chat_rooms_not_found") },
       { status: 404 }
     );
   }
@@ -219,7 +220,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "DB에 is_readonly 컬럼이 없을 수 있습니다. 일반채팅 확장 마이그레이션( related_* / is_readonly )을 적용해 주세요.",
+            await adminServerText("admin_api_chat_readonly_column_missing"),
         },
         { status: 500 }
       );

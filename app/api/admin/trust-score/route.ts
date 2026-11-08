@@ -12,6 +12,7 @@ import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { recordTrustEvent, recomputeMemberTrustSnapshot } from "@/lib/trust/trust-event-ledger";
 import { buildManualAdjustmentIdempotencyKey } from "@/lib/trust/manner-battery-policy-v1";
 import { randomUUID } from "node:crypto";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,12 +31,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_json_required") }, { status: 400 });
   }
 
   const targetUserId = typeof body.targetUserId === "string" ? body.targetUserId.trim() : "";
   if (!targetUserId) {
-    return NextResponse.json({ ok: false, error: "targetUserId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_trust_target_required") }, { status: 400 });
   }
 
   if (body.newScore != null) {
@@ -49,11 +50,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.delta == null || !Number.isFinite(Number(body.delta))) {
-    return NextResponse.json({ ok: false, error: "delta 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_trust_delta_required") }, { status: 400 });
   }
   const adjustment = Math.round(Number(body.delta) * 100) / 100;
   if (adjustment === 0) {
-    return NextResponse.json({ ok: true, message: "변경 없음", appliedDelta: 0 });
+    return NextResponse.json({ ok: true, message: await adminServerText("admin_api_trust_no_change"), appliedDelta: 0 });
   }
 
   /** R2 — 신뢰 점수 조정 = 제재(L2): 화면 확인창과 같은 최소 길이 사유를 받아 감사 `after.reason` 에 남긴다. */
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   const sb = getTradeServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "서비스 롤 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_service_role_required") }, { status: 500 });
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;

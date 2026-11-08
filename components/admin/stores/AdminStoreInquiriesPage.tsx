@@ -16,6 +16,7 @@ import {
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
 import { catalogPair } from "@/lib/i18n/catalog-pair";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Row = {
   id: string;
@@ -39,11 +40,11 @@ const STATUS_LABELS: Record<string, { ko: string; en: string; tone: AdminTone }>
   escalated: { ...catalogPair("admin_escalated"), tone: "warning" },
 };
 
-const TYPE_LABELS: Record<string, [string, string]> = {
-  product: ["상품 문의", "Product"],
-  order: ["주문 문의", "Order"],
-  store: ["매장 문의", "Store"],
-  complaint: ["불만 접수", "Complaint"],
+const TYPE_LABELS: Record<string, MessageKey> = {
+  product: "admin_stores_inquiry_type_product",
+  order: "admin_stores_inquiry_type_order",
+  store: "admin_stores_inquiry_type_store",
+  complaint: "admin_stores_inquiry_type_complaint",
 };
 
 /** 목록 조건 = 주소 (`store_id` 딥링크 · `page` · `size`). 필터 UI 는 없다 (매장 딥링크만). */
@@ -158,7 +159,7 @@ function AdminStoreInquiriesPageInner() {
                       </AdminToneBadge>
                     </td>
                     <td className="py-2 pr-2 text-[12px] text-sam-muted">
-                      <div>{type ? (ko ? type[0] : type[1]) : t("admin_stores_other")}</div>
+                      <div>{type ? t(type) : t("admin_stores_other")}</div>
                       <div>{r.from_user_label || t("admin_stores_name_unavailable")}</div>
                     </td>
                     <td className="whitespace-nowrap py-2 pr-2 text-[12px] text-sam-muted">

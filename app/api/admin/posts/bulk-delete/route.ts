@@ -23,6 +23,7 @@ import {
   evaluateTradePostHardDeleteEligibility,
   type TradePostHardDeleteBlocker,
 } from "@/lib/admin-posts/trade-post-hard-delete-eligibility";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 const MAX_BATCH = 50;
 
@@ -65,11 +66,11 @@ export async function POST(req: NextRequest) {
 
   const ids = parseIds(json);
   if (!ids) {
-    return NextResponse.json({ ok: false, error: "ids: uuid[] 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_posts_ids_required") }, { status: 400 });
   }
   if (ids.length > MAX_BATCH) {
     return NextResponse.json(
-      { ok: false, error: `한 번에 최대 ${MAX_BATCH}개까지 삭제할 수 있습니다.` },
+      { ok: false, error: await adminServerText("admin_api_posts_max_batch", { n: MAX_BATCH }) },
       { status: 400 }
     );
   }

@@ -18,19 +18,21 @@ import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labe
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { membersOperatorErrorCode } from "@/lib/admin/status-labels/members-status-labels";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { translateBy } from "@/lib/i18n/translate-by";
 
-const ACTIONS: { id: MemberManagementActionId; label: string; destructive?: boolean }[] = [
-  { id: "suspend", label: "정지", destructive: true },
-  { id: "block", label: "차단", destructive: true },
-  { id: "unsuspend", label: "제재 해제" },
-  { id: "unblock", label: "차단 해제" },
-  { id: "withdraw", label: "탈퇴 처리", destructive: true },
-  { id: "purge", label: "영구 삭제", destructive: true },
+const ACTIONS: { id: MemberManagementActionId; labelKey: MessageKey; destructive?: boolean }[] = [
+  { id: "suspend", labelKey: "admin_users_member_bulk_suspend", destructive: true },
+  { id: "block", labelKey: "admin_users_member_bulk_block", destructive: true },
+  { id: "unsuspend", labelKey: "admin_users_member_bulk_unsuspend" },
+  { id: "unblock", labelKey: "admin_users_member_bulk_unblock" },
+  { id: "withdraw", labelKey: "admin_users_member_bulk_withdraw", destructive: true },
+  { id: "purge", labelKey: "admin_users_member_bulk_purge", destructive: true },
 ];
 
-function actionLabel(action: MemberManagementActionId): string {
-  return ACTIONS.find((a) => a.id === action)?.label ?? action;
+function actionLabel(t: (key: MessageKey) => string, action: MemberManagementActionId): string {
+  const key = ACTIONS.find((a) => a.id === action)?.labelKey;
+  return key ? t(key) : action;
 }
 
 function resultLine(r: MemberManagementActionResult, ko: boolean): string {
@@ -101,7 +103,8 @@ export function AdminMemberListBulkBar({
     .slice(0, 8)
     .map((u) => `${displayNameForAdminUser(u)} (${publicIdForAdminUser(u) || formatAdminShortId(u.id)})`)
     .join(", ");
-  const more = selectedUsers.length > 8 ? ` 외 ${formatAdminNumber(selectedUsers.length - 8)}명` : "";
+  const more =
+    selectedUsers.length > 8 ? t("admin_users_member_bulk_more_members", { n: formatAdminNumber(selectedUsers.length - 8) }) : "";
 
   const run = async (action: MemberManagementActionId) => {
     if (inFlight.current || busy) return;
@@ -110,13 +113,13 @@ export function AdminMemberListBulkBar({
     if (actionable.length === 0) {
       setNotice({
         ok: false,
-        text: "선택한 회원 중 실행 가능한 대상이 없습니다. 관리자·최고관리자는 보호됩니다.",
+        text: t("admin_users_member_bulk_no_actionable"),
       });
       return;
     }
 
-    const label = meta?.label ?? action;
-    const retype = `${formatAdminNumber(actionable.length)}명 ${label}`;
+    const label = meta ? t(meta.labelKey) : action;
+    const retype = t("admin_users_member_bulk_retype", { n: formatAdminNumber(actionable.length), label });
     let descriptionLines: string[];
     if (action === "purge") {
       const impactLines: string[] = [];
@@ -134,29 +137,29 @@ export function AdminMemberListBulkBar({
           };
           const name = displayNameForAdminUser(u);
           if (!res.ok || !data.ok) {
-            impactLines.push(`${name}: 영향 조회 실패`);
+            impactLines.push(t("admin_users_member_bulk_impact_lookup_failed", { name }));
           } else if (data.protectedTarget) {
-            impactLines.push(`${name}: 보호 대상`);
+            impactLines.push(t("admin_users_member_bulk_impact_protected", { name }));
           } else if (!data.purgeAllowed) {
-            impactLines.push(`${name}: 차단 ${(data.blockers ?? []).join(",") || "unknown"}`);
+            impactLines.push(t("admin_users_member_bulk_impact_blocked", { name, blockers: (data.blockers ?? []).join(",") || "unknown" }));
           } else {
-            impactLines.push(`${name}: 삭제 가능`);
+            impactLines.push(t("admin_users_member_bulk_impact_deletable", { name }));
           }
         } catch {
-          impactLines.push(`${displayNameForAdminUser(u)}: 영향 조회 오류`);
+          impactLines.push(t("admin_users_member_bulk_impact_lookup_error", { name: displayNameForAdminUser(u) }));
         }
       }
       descriptionLines = [
-        `선택한 ${formatAdminNumber(actionable.length)}명을 영구 삭제합니다. 되돌릴 수 없습니다.`,
-        protectedSelected.length ? `보호로 제외 ${formatAdminNumber(protectedSelected.length)}명` : "",
-        "영향 미리보기:",
+        t("admin_users_member_bulk_purge_description", { n: formatAdminNumber(actionable.length) }),
+        protectedSelected.length ? t("admin_users_member_bulk_protected_excluded", { n: formatAdminNumber(protectedSelected.length) }) : "",
+        t("admin_users_member_bulk_impact_preview"),
         ...impactLines,
       ];
     } else {
       descriptionLines = [
-        `선택한 ${formatAdminNumber(actionable.length)}명에 「${label}」을(를) 실행합니다.`,
-        protectedSelected.length ? `보호로 제외 ${formatAdminNumber(protectedSelected.length)}명` : "",
-        `대상: ${preview}${more}`,
+        t("admin_users_member_bulk_action_description", { n: formatAdminNumber(actionable.length), label }),
+        protectedSelected.length ? t("admin_users_member_bulk_protected_excluded", { n: formatAdminNumber(protectedSelected.length) }) : "",
+        t("admin_users_member_bulk_targets", { preview, more }),
       ];
     }
 
@@ -164,7 +167,7 @@ export function AdminMemberListBulkBar({
     const confirmed = await confirmAdminAction({
       level: adminActionLevel("bulk"),
       ko,
-      title: `회원 일괄 ${label}`,
+      title: t("admin_users_member_bulk_confirm_title", { label }),
       description: descriptionLines.filter(Boolean).join("\n"),
       confirmLabel: label,
       destructive: Boolean(meta?.destructive),
@@ -182,7 +185,7 @@ export function AdminMemberListBulkBar({
         action,
         ok: false,
         error: "protected_admin_target",
-        message: "관리자·최고관리자 보호로 제외",
+        message: t("admin_users_member_bulk_protected_skipped"),
       }));
       const bulk = await executeMemberManagementActionsBulk({
         userIds: actionable.map((u) => u.id),
@@ -235,7 +238,7 @@ export function AdminMemberListBulkBar({
             className={a.destructive && a.id !== "purge" ? "text-sam-danger" : undefined}
             data-member-bulk-action={a.id}
           >
-            {a.label}
+            {t(a.labelKey)}
           </AdminActionButton>
         ))}
         <AdminActionButton variant="quiet" size="sm" disabled={busy} onClick={onClear} data-member-bulk-clear="1">
@@ -248,7 +251,7 @@ export function AdminMemberListBulkBar({
           <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[12px] text-sam-muted">
             {lastResults.map((r) => (
               <li key={`${r.userId}-${r.action}`} data-member-bulk-result={r.ok ? "ok" : "fail"}>
-                <AdminTechId id={r.userId} /> · {actionLabel(r.action)} · {resultLine(r, ko)}
+                <AdminTechId id={r.userId} /> · {actionLabel(t, r.action)} · {resultLine(r, ko)}
               </li>
             ))}
           </ul>

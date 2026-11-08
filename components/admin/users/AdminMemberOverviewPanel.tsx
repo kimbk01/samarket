@@ -21,15 +21,15 @@ import type {
   AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
-  MEMBER_DETAIL_STORE_NONE_KO,
-  MEMBER_DETAIL_STORE_OPERATOR_KO,
-  memberDetailAccountStateLabelKo,
-  memberDetailPrivilegeLabelKo,
-  memberDetailSignupOriginLabelKo,
+  MEMBER_DETAIL_STORE_NONE_KEY,
+  MEMBER_DETAIL_STORE_OPERATOR_KEY,
+  memberDetailAccountStateLabel,
+  memberDetailPrivilegeLabel,
+  memberDetailSignupOriginLabel,
   memberDetailStoreHref,
-  memberDetailVerificationLabelKo,
+  memberDetailVerificationLabel,
 } from "@/lib/admin-users/member-detail-presentation";
 import { MEMBER_STORE_RELATION_COPY, resolveCanonicalMemberStore } from "@/lib/admin-users/member-store-relation-ssot";
 import {
@@ -195,12 +195,12 @@ export function AdminMemberOverviewPanel({
   const sectionBody: Record<MemberDetailOverviewSectionId, ReactNode> = {
     basic: (
       <dl>
-        <Fact label="표시 이름" value={displayName} />
-        {nicknameDistinct ? <Fact label="닉네임" value={nicknameDistinct} /> : null}
-        <Fact label="@회원 ID" value={publicIdForDetailUser(user) || empty} />
-        <Fact label="로그인 ID" value={loginId || empty} />
+        <Fact label={t("admin_users_member_display_name")} value={displayName} />
+        {nicknameDistinct ? <Fact label={t("admin_users_member_nickname")} value={nicknameDistinct} /> : null}
+        <Fact label={t("admin_users_member_public_id")} value={publicIdForDetailUser(user) || empty} />
+        <Fact label={t("admin_users_member_login_id")} value={loginId || empty} />
         <Fact label={t("admin_users_lite_label_phone")} value={user.contact_phone?.trim() || empty} />
-        {contactEmail ? <Fact label="연락 이메일" value={contactEmail} /> : null}
+        {contactEmail ? <Fact label={t("admin_users_member_contact_email")} value={contactEmail} /> : null}
         <Fact label={t("admin_users_col_region")} value={user.region_name?.trim() || empty} />
         <Fact label={t("admin_users_col_joined")} value={formatAdminLiteDate(user.created_at, locale, empty)} />
         <Fact
@@ -212,13 +212,13 @@ export function AdminMemberOverviewPanel({
     account_auth: (
       <dl>
         <Fact
-          label="계정 상태"
-          value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)}
+          label={t("admin_users_member_account_state")}
+          value={memberDetailAccountStateLabel(user.moderation_status, user.status, language)}
         />
-        <Fact label="인증" value={memberDetailVerificationLabelKo(user.phone_verified)} />
+        <Fact label={t("admin_users_member_verification")} value={memberDetailVerificationLabel(user.phone_verified, language)} />
         <Fact
-          label="가입 경로"
-          value={memberDetailSignupOriginLabelKo(user.signup_provider ?? resolveDetailAuthProvider(user.email))}
+          label={t("admin_users_member_signup_origin")}
+          value={memberDetailSignupOriginLabel(user.signup_provider ?? resolveDetailAuthProvider(user.email), language)}
         />
       </dl>
     ),
@@ -227,10 +227,10 @@ export function AdminMemberOverviewPanel({
       return (
       <dl>
         <Fact
-          label="매장"
+          label={t("admin_users_member_store")}
           value={
             !canonical
-              ? MEMBER_DETAIL_STORE_NONE_KO
+              ? t(MEMBER_DETAIL_STORE_NONE_KEY)
               : `${canonical.name} (#${canonical.id})`
           }
         />
@@ -252,11 +252,11 @@ export function AdminMemberOverviewPanel({
     privilege: (
       <dl>
         <Fact
-          label={MEMBER_ADMIN_COPY.admin_privilege}
-          value={memberDetailPrivilegeLabelKo({
+          label={t(MEMBER_ADMIN_COPY_KEY.admin_privilege)}
+          value={memberDetailPrivilegeLabel({
             hasAdminMembership: Boolean(adminMembership),
             isSuperAdmin: adminMembershipRoleFromRow(adminMembership?.role) === "super_admin",
-          })}
+          }, language)}
         />
         <Fact
           label={t("admin_users_cc_tab_points")}
@@ -322,7 +322,7 @@ export function AdminMemberOverviewPanel({
                 (() => {
                   const canonical = resolveCanonicalMemberStore(stores);
                   return !canonical
-                    ? MEMBER_DETAIL_STORE_NONE_KO
+                    ? t(MEMBER_DETAIL_STORE_NONE_KEY)
                     : `${MEMBER_STORE_RELATION_COPY.relationship_operator} · ${canonical.name}`;
                 })()
               }

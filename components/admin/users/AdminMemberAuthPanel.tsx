@@ -12,9 +12,9 @@ import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { memberDetailContactEmail, memberDetailLoginIdLabel } from "@/lib/admin-users/member-detail-control-center-ia";
 import {
-  memberDetailAccountStateLabelKo,
-  memberDetailSignupOriginLabelKo,
-  memberDetailVerificationLabelKo,
+  memberDetailAccountStateLabel,
+  memberDetailSignupOriginLabel,
+  memberDetailVerificationLabel,
 } from "@/lib/admin-users/member-detail-presentation";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { AdminAuthProvider } from "@/lib/types/admin-user";
@@ -61,7 +61,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: AuthPayload }>({
     kind: "loading",
   });
@@ -128,7 +128,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
       <Fieldset title={safeT("admin_users_auth_contact")}>
         <Field label={t("admin_users_lite_label_phone")} value={profile?.phone || user.contact_phone || empty} />
         <Field
-          label="연락 이메일"
+          label={t("admin_users_member_contact_email")}
           value={
             memberDetailContactEmail(profile?.email) ||
             memberDetailContactEmail(auth?.email) ||
@@ -137,18 +137,18 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
           }
         />
         <Field
-          label="실제 로그인 아이디"
+          label={t("admin_users_member_real_login_id")}
           value={
             manualLoginId
               ? manualLoginId
               : linked.length > 0
-                ? "SNS 로그인 (아이디 없음)"
+                ? t("admin_users_member_sns_login_no_id")
                 : memberDetailLoginIdLabel(user.username) || empty
           }
         />
-        <Field label="계정 상태" value={memberDetailAccountStateLabelKo(user.moderation_status, user.status)} />
-        <Field label="인증" value={memberDetailVerificationLabelKo(user.phone_verified)} />
-        <Field label="가입 경로" value={memberDetailSignupOriginLabelKo(signupProvider)} />
+        <Field label={t("admin_users_member_account_state")} value={memberDetailAccountStateLabel(user.moderation_status, user.status, language)} />
+        <Field label={t("admin_users_member_verification")} value={memberDetailVerificationLabel(user.phone_verified, language)} />
+        <Field label={t("admin_users_member_signup_origin")} value={memberDetailSignupOriginLabel(signupProvider, language)} />
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_verify")}>
         <Field
@@ -156,7 +156,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
           value={user.phone_verified === true ? t("admin_users_lite_verified_done") : t("admin_users_lite_verified_pending")}
         />
         <Field label={safeT("admin_users_cc_auth_email_confirmed")} value={fmt(auth?.emailConfirmedAt)} />
-        <Field label="내부 로그인 방식" value={internalLoginMethods} />
+        <Field label={t("admin_users_member_internal_login_methods")} value={internalLoginMethods} />
         {authLoadError ? <p className="mt-2 text-[12px] text-sam-danger">{authLoadError}</p> : null}
       </Fieldset>
       <Fieldset title={safeT("admin_users_auth_login")}>
@@ -187,7 +187,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
               <tbody>
                 {linked.map((row) => (
                   <tr key={`${row.provider}:${row.providerUserId}`} className="border-t border-sam-border-soft">
-                    <td className="py-1.5 pr-3 font-medium text-sam-fg">{memberDetailSignupOriginLabelKo(row.provider)}</td>
+                    <td className="py-1.5 pr-3 font-medium text-sam-fg">{memberDetailSignupOriginLabel(row.provider, language)}</td>
                     <td className="py-1.5 pr-3 text-sam-fg" data-member-auth-provider-name="1">
                       {row.providerName ?? (row.provider === "apple" ? t("admin_users_auth_apple_no_name") : empty)}
                     </td>
@@ -224,7 +224,7 @@ export function AdminMemberAuthPanel({ user }: { user: AdminUserDetailPayload })
             <section className={`${ADMIN_USERS_LITE_CARD} space-y-3 p-3 lg:col-span-2`} data-member-auth-password-note="1">
         <h3 className="text-[12px] font-bold uppercase tracking-wide text-sam-muted">{t("admin_users_auth_password_section")}</h3>
         <p className="text-[13px] text-sam-fg">
-          현재 비밀번호는 확인할 수 없습니다. 새 임시 비밀번호 설정은 상단 「비밀번호 관리」에서 처리합니다.
+          {t("admin_users_auth_current_password_hint")}
         </p>
         {!canChangePassword ? (
           <p className="text-[13px] font-medium text-sam-danger">{t("admin_users_auth_password_no_auth")}</p>

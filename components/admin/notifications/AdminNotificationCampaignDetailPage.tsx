@@ -150,22 +150,23 @@ function readLinkedPlatformEventId(payload: unknown): string {
 
 /** 푸시 실패 원인 문구 — 근거는 FCM·APNs 응답 (`campaign-push-failure-breakdown`). */
 function pushFailureReasonLabel(reason: PushFailureReason, lang: "ko" | "en"): string {
-  const ko = { expired_token: "만료된 기기", invalid_token: "잘못된 기기 토큰", temporary: "일시적 전송 오류", other: "기타 오류" };
-  const en = { expired_token: "Expired device", invalid_token: "Invalid device token", temporary: "Temporary send error", other: "Other error" };
-  return (lang === "en" ? en : ko)[reason];
+  const keys: Record<PushFailureReason, MessageKey> = {
+    expired_token: "admin_notifications_push_fail_expired_token",
+    invalid_token: "admin_notifications_push_fail_invalid_token",
+    temporary: "admin_notifications_push_fail_temporary",
+    other: "admin_notifications_push_fail_other",
+  };
+  return translateBy(lang, keys[reason]);
 }
 
 function pushFailureReasonHelp(reason: PushFailureReason, lang: "ko" | "en"): string {
-  if (lang === "en") {
-    if (reason === "expired_token") return "The app was deleted or reinstalled on that phone, so Google/Apple rejected the old token. The device was turned off automatically and is excluded from the next send.";
-    if (reason === "invalid_token") return "The stored token is malformed. The device was turned off; the member gets a new token when they open the app.";
-    if (reason === "temporary") return "Network or provider hiccup. Resending usually works.";
-    return "See the provider response below.";
-  }
-  if (reason === "expired_token") return "그 폰에서 앱을 지웠거나 다시 설치해 Google·Apple 이 예전 토큰을 거부했습니다. 해당 기기는 자동으로 꺼져 다음 발송부터 제외됩니다.";
-  if (reason === "invalid_token") return "저장된 기기 토큰 형식이 잘못됐습니다. 기기는 꺼졌고, 회원이 앱을 열면 새 토큰이 등록됩니다.";
-  if (reason === "temporary") return "네트워크·서버 일시 오류입니다. 다시 보내면 대부분 전송됩니다.";
-  return "아래 FCM·APNs 응답을 확인하세요.";
+  const keys: Record<PushFailureReason, MessageKey> = {
+    expired_token: "admin_notifications_push_fail_expired_token_help",
+    invalid_token: "admin_notifications_push_fail_invalid_token_help",
+    temporary: "admin_notifications_push_fail_temporary_help",
+    other: "admin_notifications_push_fail_other_help",
+  };
+  return translateBy(lang, keys[reason]);
 }
 
 export function AdminNotificationCampaignDetailPage() {

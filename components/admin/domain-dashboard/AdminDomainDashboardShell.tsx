@@ -75,23 +75,19 @@ function ActionGrid({
   items,
   ko,
   unavailableLabel,
-  emptyKo,
-  emptyEn,
-  ctaKo,
-  ctaEn,
+  emptyLabel,
+  ctaLabel,
 }: {
   items: AdminDomainDashboardModel["actionRequired"];
   ko: boolean;
   unavailableLabel: string;
-  emptyKo: string;
-  emptyEn: string;
-  ctaKo: string;
-  ctaEn: string;
+  emptyLabel: string;
+  ctaLabel: string;
 }) {
   if (!items.length) {
     return (
       <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted">
-        {ko ? emptyKo : emptyEn}
+        {emptyLabel}
       </p>
     );
   }
@@ -105,7 +101,7 @@ function ActionGrid({
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
             {a.href ? (
-              <span className="text-[13px] font-semibold text-sam-primary">{ko ? ctaKo : ctaEn}</span>
+              <span className="text-[13px] font-semibold text-sam-primary">{ctaLabel}</span>
             ) : (
               <span className="text-[13px] text-sam-muted">{tx(ko, "admin_domain_dashboard_list_coming_soon")}</span>
             )}
@@ -224,10 +220,8 @@ export function AdminDomainDashboardShell({
           items={model.actionRequired}
           ko={ko}
           unavailableLabel={unavailableLabel}
-          emptyKo="지금 처리할 대기 항목이 없습니다."
-          emptyEn="No actionable items right now."
-          ctaKo={model.actionCta?.ko ?? "검토하기"}
-          ctaEn={model.actionCta?.en ?? "Review"}
+          emptyLabel={t("admin_domain_dashboard_no_action_items")}
+          ctaLabel={model.actionCta ? (ko ? model.actionCta.ko : model.actionCta.en) : t("admin_domain_dashboard_cta_review")}
         />
       </section>
 
@@ -256,10 +250,8 @@ export function AdminDomainDashboardShell({
             items={uniqueIssues}
             ko={ko}
             unavailableLabel={unavailableLabel}
-            emptyKo="이슈 없음"
-            emptyEn="No issues"
-            ctaKo={model.issuesCta?.ko ?? "신고 검토"}
-            ctaEn={model.issuesCta?.en ?? "Review report"}
+            emptyLabel={t("admin_domain_dashboard_no_issues")}
+            ctaLabel={model.issuesCta ? (ko ? model.issuesCta.ko : model.issuesCta.en) : t("admin_domain_dashboard_cta_review_report")}
           />
         </section>
       ) : null}
@@ -297,7 +289,7 @@ export function AdminDomainDashboardShell({
                 {model.recent.map((r) => {
                   const title = adminRecentTitle(
                     r.title,
-                    ko ? (r.metaKo || "최근 활동") : (r.metaEn || "Recent activity"),
+                    (ko ? r.metaKo : r.metaEn) || t("admin_domain_dashboard_recent_activity_fallback"),
                     r.metaEn || "Recent activity",
                     ko
                   );

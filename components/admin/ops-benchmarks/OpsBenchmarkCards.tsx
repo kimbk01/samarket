@@ -11,24 +11,24 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
-const SCOPE_LABELS: Record<OpsBenchmarkScope, string> = {
-  quarterly: "분기",
-  yearly: "연간",
+const SCOPE_LABELS: Record<OpsBenchmarkScope, MessageKey> = {
+  quarterly: "admin_ops_bench_scope_quarterly",
+  yearly: "admin_ops_bench_scope_yearly",
 };
 
-const DOMAIN_LABELS: Record<OpsBenchmarkDomain, string> = {
-  recommendation_quality: "추천 품질",
-  incident_response: "장애 대응",
-  automation: "자동화 수준",
-  documentation: "문서 최신화",
-  execution: "운영 실행력",
-  learning: "학습/회고 성숙도",
+const DOMAIN_LABELS: Record<OpsBenchmarkDomain, MessageKey> = {
+  recommendation_quality: "admin_ops_bench_domain_recommendation_quality",
+  incident_response: "admin_ops_bench_domain_incident_response",
+  automation: "admin_ops_bench_domain_automation",
+  documentation: "admin_ops_bench_domain_documentation",
+  execution: "admin_ops_bench_domain_execution",
+  learning: "admin_ops_bench_domain_learning",
 };
 
-const TREND_LABELS: Record<string, string> = {
-  improving: "상승",
-  stable: "유지",
-  declining: "하락",
+const TREND_LABELS: Record<string, MessageKey> = {
+  improving: "admin_ops_bench_trend_improving",
+  stable: "admin_ops_bench_trend_stable",
+  declining: "admin_ops_bench_trend_declining",
 };
 
 const SCOPE_EXTRAS = ["scope"] as const;
@@ -62,11 +62,11 @@ export function OpsBenchmarkCards() {
           includeAll={false}
           value={scope}
           onChange={(v) => lq.setExtra("scope", v)}
-          options={(["quarterly", "yearly"] as const).map((s) => ({ value: s, label: SCOPE_LABELS[s] }))}
+          options={(["quarterly", "yearly"] as const).map((s) => ({ value: s, label: t(SCOPE_LABELS[s]) }))}
         />
       </AdminFilterBar>
       {benchmarks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 기간 벤치마크 데이터가 없습니다."} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_bench_no_benchmarks")} />
       ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {benchmarks.map((b) => (
@@ -81,7 +81,7 @@ export function OpsBenchmarkCards() {
             }`}
           >
             <p className="sam-text-helper text-sam-muted">
-              {DOMAIN_LABELS[b.domain]}
+              {t(DOMAIN_LABELS[b.domain])}
             </p>
             <div className="mt-2 flex flex-wrap items-baseline gap-2 sam-text-body">
               <span className="font-medium text-sam-fg">
@@ -105,7 +105,7 @@ export function OpsBenchmarkCards() {
                 갭 {b.gapScore > 0 ? `+${b.gapScore}` : b.gapScore}
               </span>
               <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-muted">
-                {TREND_LABELS[b.trend]}
+                {t(TREND_LABELS[b.trend])}
               </span>
             </div>
           </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -19,12 +20,12 @@ import { feedAdErrorMessageKo } from "@/lib/ads/feed-ad-error-copy";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { FeedAdStoreDestinationPicker } from "@/components/admin/feed-ads/FeedAdStoreDestinationPicker";
 
-const DEST_TYPE_LABEL_KO: Record<FeedAdDestinationType, string> = {
-  internal_page: "앱 화면",
-  trade_listing: "거래 글",
-  community_post: "커뮤니티 글",
-  store: "매장",
-  external_url: "외부 주소",
+const DEST_TYPE_LABEL_KEY: Record<FeedAdDestinationType, MessageKey> = {
+  internal_page: "admin_feed_ads_dest_internal_page",
+  trade_listing: "admin_feed_ads_dest_trade_listing",
+  community_post: "admin_feed_ads_dest_community_post",
+  store: "admin_feed_ads_dest_store",
+  external_url: "admin_feed_ads_dest_external_url",
 };
 
 type SlideDraft = { sortOrder: number; imageUrl: string; altText: string; headline: string };
@@ -250,7 +251,7 @@ export function AdminFeedAdEditPage({ campaignId }: { campaignId: string }) {
             >
               {DEST_TYPES.map((d) => (
                 <option key={d} value={d}>
-                  {ko ? DEST_TYPE_LABEL_KO[d] : d}
+                  {t(DEST_TYPE_LABEL_KEY[d])}
                 </option>
               ))}
             </select>

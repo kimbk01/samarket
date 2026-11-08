@@ -23,11 +23,11 @@ export function HomeServicesBlock() {
       const list = await getActiveCategories();
       setCategories(list);
     } catch (e) {
-      setError((e as Error).message ?? "카테고리를 불러올 수 없습니다.");
+      setError((e as Error).message ?? t("home_services_load_failed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -36,7 +36,7 @@ export function HomeServicesBlock() {
   if (loading) {
     return (
       <div className="rounded-ui-rect bg-sam-surface py-8 text-center sam-text-body text-sam-muted shadow-sm">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -54,7 +54,7 @@ export function HomeServicesBlock() {
       <div className="flex items-center justify-between px-0">
         <h2 className="sam-text-body font-semibold text-sam-fg">{t("trade_074")}</h2>
         <Link href="/services" className="sam-text-body font-medium text-sam-fg hover:text-signature">
-          전체 서비스
+          {t("home_services_all_link")}
         </Link>
       </div>
       <div className="-mx-4 overflow-x-auto px-4 scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none]">

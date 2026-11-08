@@ -4,6 +4,7 @@ import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { adminServerTranslator } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,6 +86,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
   }
   const sbAny = sb as any;
+  const tx = await adminServerTranslator();
 
   // ─── Auto checks (best-effort, no full scan) ──────────────────────────────
   const items: GateItem[] = [];
@@ -107,9 +109,9 @@ export async function GET() {
   items.push({
     key: "pg_version",
     status: pgVersionNum ? "pass" : "warn",
-    title: "PG version 확인",
-    description: pgVersionNum ? `server_version_num=${pgVersionNum}` : "capability 감지 결과가 없습니다.",
-    howTo: "runtime-health에서 PG version 표시 확인",
+    title: tx("admin_api_delivery_gate_pg_version_title"),
+    description: pgVersionNum ? `server_version_num=${pgVersionNum}` : tx("admin_api_delivery_gate_no_capability"),
+    howTo: tx("admin_api_delivery_gate_pg_version_how"),
     links: [
       { label: "Runtime Health", href: "/admin/runtime-health" },
       { label: "Ops Console", href: "/admin/ops-console" },
@@ -121,8 +123,8 @@ export async function GET() {
     key: "pg_cron_status",
     status: supportsPgCron ? "pass" : "warn",
     title: "pg_cron extension",
-    description: supportsPgCron ? "pg_cron detected" : "pg_cron 미지원 또는 미설치(운영 잡은 fallback 필요)",
-    howTo: "Supabase DB extensions에서 pg_cron 설치 여부 확인",
+    description: supportsPgCron ? "pg_cron detected" : tx("admin_api_delivery_gate_pg_cron_missing"),
+    howTo: tx("admin_api_delivery_gate_pg_cron_how"),
     links: [{ label: "Delivery Operations", href: "/admin/delivery-operations" }],
     checked_at: capsCheckedAt,
   });
@@ -130,9 +132,9 @@ export async function GET() {
   items.push({
     key: "publication_column_filter_support",
     status: supportsPubCols ? "pass" : "warn",
-    title: "publication 컬럼 필터 지원(PG15+)",
-    description: supportsPubCols ? "supported" : "미지원: Realtime payload 최소화 하드닝 제한",
-    howTo: "PG15+ 여부 확인",
+    title: tx("admin_api_delivery_gate_pub_cols_title"),
+    description: supportsPubCols ? "supported" : tx("admin_api_delivery_gate_pub_cols_unsupported"),
+    howTo: tx("admin_api_delivery_gate_pub_cols_how"),
     links: [{ label: "Runtime Health", href: "/admin/runtime-health" }],
     checked_at: capsCheckedAt,
   });
@@ -145,9 +147,9 @@ export async function GET() {
         key: "delivery_proofs_bucket_private",
         status: "warn",
         title: "delivery-proofs bucket private",
-        description: `bucket 조회 실패: ${String(error.message ?? "").slice(0, 120)}`,
-        howTo: "Supabase Storage buckets에서 delivery-proofs의 public=false 확인",
-        links: [{ label: "주문 목록", href: "/admin/stores/orders" }],
+        description: tx("admin_api_delivery_gate_bucket_lookup_failed", { message: String(error.message ?? "").slice(0, 120) }),
+        howTo: tx("admin_api_delivery_gate_bucket_how"),
+        links: [{ label: tx("admin_api_delivery_gate_orders_link"), href: "/admin/stores/orders" }],
       });
     } else {
       const isPublic = data?.public === true;
@@ -156,7 +158,7 @@ export async function GET() {
         status: isPublic ? "fail" : "pass",
         title: "delivery-proofs bucket private",
         description: isPublic ? "public=true (BLOCKED)" : "public=false",
-        howTo: "migrations 적용(20260520120000) 또는 storage.buckets 업데이트",
+        howTo: tx("admin_api_delivery_gate_bucket_fix_how"),
         links: [{ label: "Ops Console", href: "/admin/ops-console" }],
         checked_at: typeof data?.updated_at === "string" ? data.updated_at : null,
       });
@@ -169,9 +171,9 @@ export async function GET() {
     items.push({
       key: "rpc_admin_delivery_operations_health",
       status: error ? "fail" : "pass",
-      title: "배달 운영 상태 조회 기능",
-      description: error ? "배달 운영 상태를 조회할 수 없습니다." : "정상",
-      howTo: error ? "개발 담당에게 배달 운영 복구 기능 적용 여부 확인을 요청하세요." : "—",
+      title: tx("admin_api_delivery_gate_ops_health_title"),
+      description: error ? tx("admin_api_delivery_gate_ops_health_failed") : tx("admin_api_delivery_gate_ok"),
+      howTo: error ? tx("admin_api_delivery_gate_ops_health_how") : "—",
       tech: [
         "rpc admin_delivery_operations_health",
         "migration 20260516120000_delivery_operations_recovery_center",
@@ -195,9 +197,9 @@ export async function GET() {
       items.push({
         key: "auto_actions_kill_switch",
         status: "warn",
-        title: "자동 액션 kill switch",
-        description: `설정 조회 실패: ${String(error.message ?? "").slice(0, 140)}`,
-        howTo: "delivery_auto_actions_runtime_settings 마이그레이션 적용 후 /admin/delivery-auto-actions 에서 확인",
+        title: tx("admin_api_delivery_gate_kill_switch_title"),
+        description: tx("admin_api_delivery_gate_settings_lookup_failed", { message: String(error.message ?? "").slice(0, 140) }),
+        howTo: tx("admin_api_delivery_gate_kill_switch_migrate_how"),
         links: [{ label: "Auto Actions", href: "/admin/delivery-auto-actions" }],
       });
     } else {
@@ -205,9 +207,9 @@ export async function GET() {
       items.push({
         key: "auto_actions_kill_switch",
         status: enabled ? "pass" : "warn",
-        title: "자동 액션 kill switch",
-        description: enabled ? "enabled" : "disabled (운영 의도면 ok, 미의도면 WARNING)",
-        howTo: "/admin/delivery-auto-actions 설정에서 ON/OFF 확인",
+        title: tx("admin_api_delivery_gate_kill_switch_title"),
+        description: enabled ? "enabled" : tx("admin_api_delivery_gate_kill_switch_disabled"),
+        howTo: tx("admin_api_delivery_gate_kill_switch_how"),
         links: [{ label: "Auto Actions", href: "/admin/delivery-auto-actions" }],
         checked_at: typeof data?.updated_at === "string" ? data.updated_at : null,
       });
@@ -230,10 +232,10 @@ export async function GET() {
     items.push({
       key: "auto_action_backlog",
       status: failed != null && failed > 0 ? "warn" : "pass",
-      title: "자동 액션 backlog",
+      title: tx("admin_api_delivery_gate_backlog_title"),
       description:
-        failed == null || pending == null ? "count 실패(권한/스키마 확인 필요)" : `failed=${failed}, pending_approval=${pending}`,
-      howTo: "Auto Actions 페이지에서 실패/승인대기 처리",
+        failed == null || pending == null ? tx("admin_api_delivery_gate_count_failed_check") : `failed=${failed}, pending_approval=${pending}`,
+      howTo: tx("admin_api_delivery_gate_backlog_how"),
       links: [{ label: "Auto Actions", href: "/admin/delivery-auto-actions" }],
     });
   }
@@ -249,9 +251,9 @@ export async function GET() {
     items.push({
       key: "unresolved_alerts",
       status: unresolved != null && unresolved > 0 ? "warn" : "pass",
-      title: "미해결 운영 알림(open/ack)",
-      description: unresolved == null ? "count 실패" : `unresolved=${unresolved}`,
-      howTo: "Delivery Alerts에서 ack/resolve 처리",
+      title: tx("admin_api_delivery_gate_unresolved_title"),
+      description: unresolved == null ? tx("admin_api_delivery_gate_count_failed") : `unresolved=${unresolved}`,
+      howTo: tx("admin_api_delivery_gate_unresolved_how"),
       links: [{ label: "Delivery Alerts", href: "/admin/delivery-alerts" }],
     });
   }
@@ -261,9 +263,9 @@ export async function GET() {
   items.push({
     key: "ws_payload_no_proof_media",
     status: "needs_check",
-    title: "WS payload 증빙 미노출",
-    description: "구매자/오너 세션에서 store_order_deliveries WS payload에 proof path/url 키가 없는지 확인 필요",
-    howTo: "브라우저 DevTools → WS → postgres_changes payload에서 proof 4필드 검색",
+    title: tx("admin_api_delivery_gate_ws_title"),
+    description: tx("admin_api_delivery_gate_ws_desc"),
+    howTo: tx("admin_api_delivery_gate_ws_how"),
     links: [{ label: "Ops Console", href: "/admin/ops-console" }],
   });
 
@@ -274,8 +276,8 @@ export async function GET() {
       key: `manual:${m.key}`,
       status: m.checked ? "pass" : "needs_check",
       title: m.label,
-      description: m.note ? `note: ${m.note}` : "수동 확인 필요",
-      howTo: "체크박스 후 저장",
+      description: m.note ? `note: ${m.note}` : tx("admin_api_delivery_gate_manual_needed"),
+      howTo: tx("admin_api_delivery_gate_manual_how"),
       links: [{ label: "Ops Console", href: "/admin/ops-console" }],
       checked_at: m.checked_at,
     })) ?? [];

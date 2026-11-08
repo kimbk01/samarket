@@ -9,7 +9,7 @@ import {
   memberStorePublicHref,
 } from "@/lib/admin-users/member-deep-links";
 import {
-  MEMBER_DETAIL_STORE_NONE_KO,
+  MEMBER_DETAIL_STORE_NONE_KEY,
   memberDetailStoreHref,
 } from "@/lib/admin-users/member-detail-presentation";
 import {
@@ -34,7 +34,7 @@ export function AdminMemberStorePanel({ stores }: { stores: AdminPersonStoreRow[
   if (!canonical) {
     return (
       <div className={`${ADMIN_USERS_LITE_CARD} px-4 py-8 text-center`} data-member-detail-store="none">
-        <p className="text-sm font-semibold text-sam-muted">{MEMBER_DETAIL_STORE_NONE_KO}</p>
+        <p className="text-sm font-semibold text-sam-muted">{t(MEMBER_DETAIL_STORE_NONE_KEY)}</p>
         <p className="mt-1 text-[12px] text-sam-meta">{MEMBER_STORE_RELATION_COPY.none_body}</p>
       </div>
     );

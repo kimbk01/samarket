@@ -11,6 +11,7 @@ import {
 } from "@/lib/stores/order-match-alert-sound";
 import { isValidStoreDeliverySoundUrlInput } from "@/lib/stores/store-delivery-alert-sound";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error: "invalid_type",
-        message: "MP3, WAV, OGG, WebM만 업로드할 수 있습니다.",
+        message: await adminServerText("admin_api_sound_formats"),
       },
       { status: 400 }
     );
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: "storage_bucket_missing",
           message:
-            "Supabase에 버킷 store-order-sounds가 없습니다. 마이그레이션(매장 알림음)을 적용해 주세요.",
+            await adminServerText("admin_api_sound_bucket_missing_migrate"),
         },
         { status: 503 }
       );

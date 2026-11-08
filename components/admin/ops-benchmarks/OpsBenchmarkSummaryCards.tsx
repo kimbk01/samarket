@@ -26,47 +26,40 @@ export function OpsBenchmarkSummaryCards() {
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_summary_3")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
-          현재 평균 {benchmarkSummary.averageCurrentScore} / 목표 평균{" "}
-          {benchmarkSummary.averageTargetScore}
+          {t("admin_ops_benchmarks_avg_current_target", { current: benchmarkSummary.averageCurrentScore, target: benchmarkSummary.averageTargetScore })}
         </p>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">
-          갭 큰 영역 {benchmarkSummary.highGapDomainCount} · 상승{" "}
-          {benchmarkSummary.improvingDomainCount} · 하락{" "}
-          {benchmarkSummary.decliningDomainCount}
+          {t("admin_ops_benchmarks_gap_trend_line", { highGap: benchmarkSummary.highGapDomainCount, up: benchmarkSummary.improvingDomainCount, down: benchmarkSummary.decliningDomainCount })}
         </p>
         {benchmarkSummary.latestBenchmarkDate && (
           <p className="mt-1 sam-text-helper text-sam-muted">
-            기준일 {benchmarkSummary.latestBenchmarkDate}
+            {t("admin_ops_benchmarks_base_date", { date: benchmarkSummary.latestBenchmarkDate })}
           </p>
         )}
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_summary_4")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
-          총 {planSummary.totalPlans}건 · 완료 {planSummary.completedCount}
+          {t("admin_ops_benchmarks_plan_total_done", { total: planSummary.totalPlans, done: planSummary.completedCount })}
         </p>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">
-          예정 {planSummary.plannedCount} · 진행 {planSummary.inProgressCount}{" "}
-          · 위험 {planSummary.atRiskCount} · 긴급 미해결{" "}
-          {planSummary.criticalOpenCount}
+          {t("admin_ops_benchmarks_plan_status_line", { planned: planSummary.plannedCount, inProgress: planSummary.inProgressCount, atRisk: planSummary.atRiskCount, critical: planSummary.criticalOpenCount })}
         </p>
         <p className="mt-1 sam-text-helper text-sam-muted">
-          현재 분기 {planSummary.currentQuarter}
+          {t("admin_ops_benchmarks_current_quarter", { quarter: planSummary.currentQuarter })}
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_summary_5")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
-          리뷰 {reviewSummary.totalReviewedAdmins}명 · 평균 점수{" "}
-          {reviewSummary.averageOverallPerformanceScore}
+          {t("admin_ops_benchmarks_review_count_avg", { count: reviewSummary.totalReviewedAdmins, avg: reviewSummary.averageOverallPerformanceScore })}
         </p>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">
-          우수 {reviewSummary.highPerformersCount} · 관심 필요{" "}
-          {reviewSummary.needsAttentionCount}
+          {t("admin_ops_benchmarks_review_high_attention", { high: reviewSummary.highPerformersCount, attention: reviewSummary.needsAttentionCount })}
         </p>
         {reviewSummary.latestReviewPeriod && (
           <p className="mt-1 sam-text-helper text-sam-muted">
-            기간 {reviewSummary.latestReviewPeriod}
+            {t("admin_ops_benchmarks_review_period", { period: reviewSummary.latestReviewPeriod })}
           </p>
         )}
       </div>
@@ -74,15 +67,15 @@ export function OpsBenchmarkSummaryCards() {
         <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_k0448a340")}</p>
         <p className="mt-1 sam-text-body text-sam-fg">
           <Link href="/admin/ops-maturity" className="text-signature hover:underline">
-            운영 성숙도
+            {t("admin_ops_benchmarks_link_maturity")}
           </Link>
           {" · "}
           <Link href="/admin/ops-board" className="text-signature hover:underline">
-            운영 보드
+            {t("admin_ops_benchmarks_link_board")}
           </Link>
           {" · "}
           <Link href="/admin/ops-learning" className="text-signature hover:underline">
-            운영 학습
+            {t("admin_ops_benchmarks_link_learning")}
           </Link>
         </p>
       </div>

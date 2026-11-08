@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { translate } from "@/lib/i18n/messages";
 import { summarizeAdminSettingsBundleForAudit } from "@/lib/admin/audit/admin-settings-bundle-audit";
 import { maskAuthProviderForAudit } from "@/lib/auth/auth-provider-audit";
 import {
@@ -194,7 +195,8 @@ describe("V3-09 auth settings — settings permission + masked audit", () => {
   it("settings UI confirms before saving login methods", () => {
     const src = read("components/admin/settings/AuthLoginSettingsForm.tsx");
     expect(src).toContain("confirmAdminAction(");
-    expect(src).toContain("전체 회원 로그인에 영향");
+    expect(src).toContain('t("admin_settings_auth_save_confirm_description")');
+    expect(translate("ko", "admin_settings_auth_save_confirm_description")).toContain("전체 회원 로그인에 영향");
     expect(src).not.toMatch(/onClick=\{\(\) => void saveProvider\(/);
     expect(src).not.toMatch(/onClick=\{\(\) => void savePolicy\(/);
   });

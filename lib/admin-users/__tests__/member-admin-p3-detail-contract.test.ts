@@ -52,7 +52,7 @@ describe("P3 member detail control center contract", () => {
     const storePanel = src("components/admin/users/AdminMemberStorePanel.tsx");
     expect(storePanel).toMatch(/memberDetailStoreHref/);
     expect(storePanel).toMatch(/MEMBER_STORE_RELATION_COPY\.view_store|매장 상세 보기/);
-    expect(storePanel).toMatch(/MEMBER_DETAIL_STORE_NONE_KO|매장 없음/);
+    expect(storePanel).toMatch(/MEMBER_DETAIL_STORE_NONE_KEY|매장 없음/);
     expect(storePanel).not.toMatch(/\/admin\/stores\?q=/);
   });
 
@@ -63,7 +63,7 @@ describe("P3 member detail control center contract", () => {
     expect(MEMBER_DETAIL_TAB_LABEL_KO.reports).toBe("신고·제재");
     expect(MEMBER_DETAIL_TAB_LABEL_KO.ops).toBe("운영 이력");
     const cc = src("components/admin/users/AdminMemberControlCenter.tsx");
-    expect(cc).toMatch(/MEMBER_DETAIL_TAB_LABEL_KO/);
+    expect(cc).toMatch(/MEMBER_DETAIL_TAB_LABEL_KEY/);
     expect(cc).toMatch(/"reports"/);
     expect(cc).toMatch(/AdminMemberDangerZone/);
     expect(cc).toMatch(/router\.back/);
@@ -100,15 +100,16 @@ describe("P3 member detail control center contract", () => {
     expect(blockedDanger.some((d) => d.id === "suspend" && d.visible)).toBe(false);
 
     const dz = src("components/admin/users/AdminMemberDangerZone.tsx");
-    expect(dz).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KO/);
+    expect(dz).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY/);
     expect(dz).toMatch(/data-member-detail-danger-zone/);
-    expect(src("lib/admin-users/member-detail-presentation.ts")).toContain(MEMBER_DETAIL_DANGER_ZONE_TITLE_KO);
+    expect(src("lib/admin-users/member-detail-presentation.ts")).toContain("MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY");
+    expect(MEMBER_DETAIL_DANGER_ZONE_TITLE_KO).toBe("위험 작업");
   });
 
   it("demotes destructive CTAs out of MasterHeader primary actions", () => {
     const header = src("components/admin/users/AdminMemberMasterHeader.tsx");
     expect(header).toMatch(/resolveMemberDetailActionPolicy/);
-    expect(header).toMatch(/resolveMemberDetailHeaderBadges|memberDetailAccountStateLabelKo/);
+    expect(header).toMatch(/resolveMemberDetailHeaderBadges|memberDetailAccountStateLabel/);
     expect(header).not.toMatch(/runPurge/);
     expect(header).not.toMatch(/runWithdraw/);
     expect(header).not.toMatch(/runModeration/);
@@ -132,11 +133,11 @@ describe("P3 member detail control center contract", () => {
 
   it("overview and reports avoid raw moderation schema and developer terms", () => {
     const overview = src("components/admin/users/AdminMemberOverviewPanel.tsx");
-    expect(overview).toMatch(/memberDetailAccountStateLabelKo/);
+    expect(overview).toMatch(/memberDetailAccountStateLabel/);
     expect(overview).not.toMatch(/String\(user\.moderation_status/);
-    expect(overview).toMatch(/MEMBER_DETAIL_STORE_NONE_KO|매장 없음/);
+    expect(overview).toMatch(/MEMBER_DETAIL_STORE_NONE_KEY|매장 없음/);
     const reports = src("components/admin/users/AdminMemberReportsPanel.tsx");
-    expect(reports).toMatch(/memberDetailAccountStateLabelKo/);
+    expect(reports).toMatch(/memberDetailAccountStateLabel/);
     expect(reports).not.toMatch(/toUpperCase\(\)/);
     for (const text of [overview, reports, src("components/admin/users/AdminMemberDangerZone.tsx")]) {
       expect(findForbiddenOperatorTerms(text)).toEqual([]);
@@ -147,6 +148,6 @@ describe("P3 member detail control center contract", () => {
     const ops = src("components/admin/users/AdminMemberOpsPanel.tsx");
     expect(ops).not.toMatch(/runMemberDelete/);
     expect(ops).not.toMatch(/runModeration/);
-    expect(ops).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KO|위험 작업/);
+    expect(ops).toMatch(/MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY|위험 작업/);
   });
 });

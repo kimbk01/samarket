@@ -56,20 +56,19 @@ export function DeploymentPreparationPanel() {
       <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
         <p className="sam-text-body font-medium text-sam-fg">{t("admin_rec_deploy_deploy_8")}</p>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">
-          선택한 버전이 해당 surface의 live 버전으로 설정됩니다. 현재 live:{" "}
-          {active?.liveVersionId ?? "-"}
+          {t("admin_rec_deployments_set_live_hint", { live: active?.liveVersionId ?? "-" })}
         </p>
       </div>
       {winnerSummaries.length > 0 && (
         <div className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-4">
           <p className="sam-text-body font-medium text-sam-warning">
-            실험 승자 추천 (자동 배포 추천)
+            {t("admin_rec_deployments_winner_reco_heading")}
           </p>
           <ul className="mt-2 space-y-1 sam-text-body-secondary text-sam-warning">
             {winnerSummaries.slice(0, 3).map((s) => (
               <li key={s.experimentId}>
-                실험 {s.experimentId} → 버전 {s.winningVersionId} (
-                {s.winningMetric}) {s.autoDeployRecommended ? "· 배포 추천" : ""}
+                {t("admin_rec_deployments_winner_line", { experiment: s.experimentId, version: s.winningVersionId, metric: s.winningMetric })}{" "}
+                {s.autoDeployRecommended ? `· ${t("admin_rec_deploy_recommended")}` : ""}
               </li>
             ))}
           </ul>
@@ -110,11 +109,11 @@ export function DeploymentPreparationPanel() {
           onClick={handleDeploy}
           disabled={!versionId || deploying}
         >
-          배포 실행
+          {t("admin_rec_deployments_run_deploy")}
         </AdminActionButton>
       </div>
       <p className="sam-text-helper text-sam-muted">
-        배포 예약은 placeholder입니다. 실행 시 즉시 live 반영됩니다.
+        {t("admin_rec_deployments_schedule_hint")}
       </p>
     </div>
   );

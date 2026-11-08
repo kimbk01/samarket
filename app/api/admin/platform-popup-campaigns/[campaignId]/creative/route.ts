@@ -19,6 +19,7 @@ import {
   normalizePtrBandVariant,
   PTR_BAND_SPECS,
 } from "@/lib/platform-popup/ptr-reveal-contract";
+import { adminServerLanguage, adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,10 +70,10 @@ export async function POST(
         error: validated.error,
         message:
           validated.error === "invalid_type"
-            ? "JPG, PNG, WEBP 이미지만 사용할 수 있습니다."
+            ? await adminServerText("admin_api_popup_creative_invalid_type")
             : validated.error === "file_too_large"
-              ? `이미지 용량이 너무 큽니다. 원본은 ${maxMb}MB 이하로 올려 주세요. (서버에서 1440×1000 WebP로 최적화됩니다)`
-              : "이미지 파일을 확인해 주세요.",
+              ? await adminServerText("admin_api_popup_creative_too_large", { maxMb })
+              : await adminServerText("admin_api_popup_creative_check_file"),
       },
       { status: 400 }
     );
@@ -94,13 +95,13 @@ export async function POST(
     height = meta.height ?? 0;
   } catch {
     return NextResponse.json(
-      { ok: false, error: "image_decode_failed", message: "이미지를 읽을 수 없습니다." },
+      { ok: false, error: "image_decode_failed", message: await adminServerText("admin_api_popup_creative_decode_failed") },
       { status: 400 }
     );
   }
   if (!(width > 0) || !(height > 0)) {
     return NextResponse.json(
-      { ok: false, error: "invalid_dimensions", message: "이미지 크기를 확인할 수 없습니다." },
+      { ok: false, error: "invalid_dimensions", message: await adminServerText("admin_api_popup_creative_invalid_dimensions") },
       { status: 400 }
     );
   }
@@ -124,7 +125,7 @@ export async function POST(
           minHeight: spec.minSourceHeight,
           width,
           height,
-          message: `해상도가 낮습니다. ${spec.labelKo}는 자른 뒤 최소 ${spec.minSourceWidth}×${spec.minSourceHeight}px 이 필요합니다.`,
+          message: await adminServerText("admin_api_popup_creative_ptr_too_small", { label: spec[(await adminServerLanguage()) === "en" ? "labelEn" : "labelKo"], w: spec.minSourceWidth, h: spec.minSourceHeight }),
         },
         { status: 400 }
       );
@@ -155,7 +156,7 @@ export async function POST(
           height,
           ratio: width / height,
           proposedCrop: processed.proposedCrop,
-          message: `${spec.labelKo} 비율(${spec.aspectW}:${spec.aspectH})이 아닙니다. 가운데 자르기 결과를 확인한 뒤 적용해 주세요.`,
+          message: await adminServerText("admin_api_popup_creative_ptr_needs_crop", { label: spec[(await adminServerLanguage()) === "en" ? "labelEn" : "labelKo"], aw: spec.aspectW, ah: spec.aspectH }),
         },
         { status: 400 }
       );
@@ -172,13 +173,13 @@ export async function POST(
           height,
           ratio: width / height,
           proposedCrop: processed.proposedCrop,
-          message: "36:25 비율이 아닙니다. 크롭 결과를 확인한 뒤 적용해 주세요.",
+          message: await adminServerText("admin_api_popup_creative_needs_crop"),
         },
         { status: 400 }
       );
     }
     return NextResponse.json(
-      { ok: false, error: "crop_failed", message: "크롭에 실패했습니다. 다른 이미지를 시도해 주세요." },
+      { ok: false, error: "crop_failed", message: await adminServerText("admin_api_popup_creative_crop_failed") },
       { status: 400 }
     );
   }

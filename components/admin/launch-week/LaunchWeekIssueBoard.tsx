@@ -71,21 +71,21 @@ export function LaunchWeekIssueBoard() {
       {issues.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "긴급 이슈가 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_launch_week_no_urgent_issues")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
         <AdminTable
           headers={[
             "Day",
-            "제목",
-            "영역",
-            "심각도",
-            "상태",
-            "담당",
-            "오픈/해결",
-            "연결",
-            "비고",
+            t("admin_launch_week_th_title"),
+            t("admin_launch_week_th_area"),
+            t("admin_launch_week_th_severity"),
+            t("admin_launch_week_th_status"),
+            t("admin_launch_week_th_owner"),
+            t("admin_launch_week_th_opened_resolved"),
+            t("admin_launch_week_th_linked"),
+            t("admin_launch_week_th_remarks"),
           ]}
         >
           {issues.map((i) => (

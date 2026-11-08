@@ -16,7 +16,7 @@ import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import { AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { buildAdminPrelaunchResetHref, DOMAIN_RESET_SCOPE_PRESETS } from "@/lib/admin/prelaunch-reset/domain-reset-entry";
-import { TRADE_POST_TAB_LABELS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
+import { TRADE_POST_TAB_LABEL_KEYS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { formatTradePoints } from "@/components/admin/trade/kit/TradeAdminKit";
 import { tradeAuditActionLabel, tradeAuditTargetLabel } from "@/components/admin/trade/audit/TradeAuditPage";
 import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
@@ -186,7 +186,7 @@ export function TradeDashboardPage() {
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-sam-muted">
           <span>{t("admin_trade_dash_last_updated", { time: loadedAt ? `${formatAdminManilaDateTime(loadedAt).slice(11)} PHT` : "—" })}</span>
           <AdminActionButton variant="secondary" disabled={state.status === "loading" || customIncomplete} onClick={reload}>
-            {state.status === "loading" ? "새로고침 중…" : "새로고침"}
+            {state.status === "loading" ? t("admin_trade_dash_refreshing") : t("admin_trade_dash_refresh")}
           </AdminActionButton>
         </div>
       </header>
@@ -202,7 +202,7 @@ export function TradeDashboardPage() {
       </div>
 
       {customIncomplete ? (
-        <EmptyBox text="직접 지정 기간의 시작일과 종료일을 모두 선택하세요." />
+        <EmptyBox text={t("admin_trade_dash_custom_incomplete")} />
       ) : state.status === "error" ? (
         <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
       ) : !data ? (
@@ -211,7 +211,7 @@ export function TradeDashboardPage() {
         <>
           {errors.length > 0 ? (
             <div role="status" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-fg">
-              일부 지표를 불러오지 못했습니다. 해당 지표는 「확인 불가」로 표시됩니다.
+              {t("admin_trade_dashboard_partial_metrics_failed")}
               <AdminTechDetails ko>
                 {errors.map((e) => (
                   <div key={e}>{e}</div>
@@ -222,17 +222,17 @@ export function TradeDashboardPage() {
 
           <Section title={t("admin_trade_dash_pending")} hint={t("admin_trade_dash_pending_hint")}>
             <div className={GRID}>
-              <MetricCard label="처리할 신고" value={n(pending?.openReports)} href="/admin/trade/reports?tab=open" danger />
+              <MetricCard label={t("admin_trade_regions_th_open_reports")} value={n(pending?.openReports)} href="/admin/trade/reports?tab=open" danger />
               <MetricCard
-                label="상위노출 승인 대기"
+                label={t("admin_trade_dash_promo_review")}
                 value={n(pending?.promotionReview)}
                 href="/admin/trade/promotions?tab=pending_review"
                 danger
               />
-              <MetricCard label="답변 대기 문의" value={n(pending?.openSupport)} href="/admin/trade/support" danger />
-              <MetricCard label="진행 중인 거래 제한" value={n(pending?.activeRestrictions)} href="/admin/trade/restrictions" />
+              <MetricCard label={t("admin_trade_dash_open_support")} value={n(pending?.openSupport)} href="/admin/trade/support" danger />
+              <MetricCard label={t("admin_trade_dash_active_restrictions")} value={n(pending?.activeRestrictions)} href="/admin/trade/restrictions" />
               <MetricCard
-                label="종료일 지난 상위노출"
+                label={t("admin_trade_dash_overdue_promos")}
                 value={n(pending?.overduePromotions)}
                 href="/admin/trade/promotions?tab=active"
                 danger
@@ -245,70 +245,70 @@ export function TradeDashboardPage() {
               {POST_TABS.map((tab) => (
                 <MetricCard
                   key={tab}
-                  label={tab === "all" ? "전체 거래글" : TRADE_POST_TAB_LABELS[tab]}
+                  label={tab === "all" ? t("admin_trade_dash_all_posts") : t(TRADE_POST_TAB_LABEL_KEYS[tab])}
                   value={n(current?.[tab])}
                   href={postsHref(tab)}
                 />
               ))}
-              <MetricCard label="상위노출 중인 글" value={n(current?.activePromotions)} href="/admin/trade/promotions?tab=active" />
+              <MetricCard label={t("admin_trade_regions_th_promoted")} value={n(current?.activePromotions)} href="/admin/trade/promotions?tab=active" />
             </div>
           </Section>
 
           <Section title={t("admin_trade_dash_period_stats")} hint={rangeText ? t("admin_trade_dash_range_pht", { range: rangeText }) : undefined}>
             <div className={GRID}>
               <MetricCard
-                label="새 거래글"
+                label={t("admin_trade_dash_new_posts")}
                 value={n(inPeriod?.newPosts)}
                 href={`/admin/posts-management?tab=all&${periodSuffix}`}
               />
               <MetricCard
-                label="거래 완료"
+                label={t("admin_trade_listing_completed")}
                 value={n(inPeriod?.completed)}
                 href={postsHref("sold")}
                 sub={
                   adminCompletedNoTime === null
-                    ? "완료 시각 없는 관리자 완료 정정: 확인 불가"
+                    ? t("admin_trade_dash_admin_completed_unknown")
                     : adminCompletedNoTime > 0
-                      ? `완료 시각 없는 관리자 완료 정정 ${formatAdminNumber(adminCompletedNoTime)}건 (별도)`
+                      ? t("admin_trade_dash_admin_completed_n", { n: formatAdminNumber(adminCompletedNoTime) })
                       : undefined
                 }
               />
               <MetricCard
-                label="접수된 신고"
+                label={t("admin_trade_dash_reports_received")}
                 value={n(inPeriod?.reportsReceived)}
                 href={`/admin/trade/reports?tab=all&${periodSuffix}`}
               />
               <MetricCard
-                label="처리한 신고"
+                label={t("admin_trade_dash_reports_processed")}
                 value={n(inPeriod?.reportsProcessed)}
                 href={`/admin/trade/reports?tab=all&${periodSuffix}`}
               />
-              <MetricCard label="시작된 거래 채팅" value={n(inPeriod?.chatsStarted)} />
+              <MetricCard label={t("admin_trade_dash_chats_started")} value={n(inPeriod?.chatsStarted)} />
               <MetricCard
-                label="시작된 상위노출"
+                label={t("admin_trade_dash_promos_started")}
                 value={n(inPeriod?.promotionsStarted)}
                 href={`/admin/trade/promotions?tab=all&${periodSuffix}`}
               />
               <MetricCard
-                label="종료된 상위노출"
+                label={t("admin_trade_dash_promos_ended")}
                 value={n(inPeriod?.promotionsEnded)}
                 href={`/admin/trade/promotions?tab=ended&${periodSuffix}`}
               />
               <MetricCard
-                label="상위노출 사용 포인트"
+                label={t("admin_trade_dash_promo_points_used")}
                 value={n(inPeriod?.promotionPointsUsed)}
                 points
                 href={`/admin/trade/points?type=promotion_order&${periodSuffix}`}
               />
               <MetricCard
-                label="상위노출 환급 포인트"
+                label={t("admin_trade_dash_promo_points_refunded")}
                 value={n(inPeriod?.promotionPointsRefunded)}
                 points
                 href={`/admin/trade/points?type=promotion_order&${periodSuffix}`}
               />
-              <MetricCard label="접수된 문의" value={n(inPeriod?.supportReceived)} href="/admin/trade/support" />
+              <MetricCard label={t("admin_trade_dash_support_received")} value={n(inPeriod?.supportReceived)} href="/admin/trade/support" />
               <MetricCard
-                label="관리자 조치"
+                label={t("admin_trade_dash_admin_actions")}
                 value={n(inPeriod?.adminActions)}
                 href={`/admin/trade/audit?${periodSuffix}`}
               />
@@ -341,15 +341,15 @@ export function TradeDashboardPage() {
               <span className="flex gap-3">
                 <Link href="/admin/trade/audit" className="underline">{t("admin_trade_dash_all_audit")}</Link>
                 <Link href={buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.trade)} className="underline">
-                  테스트 거래 데이터 정리
+                  {t("admin_trade_dashboard_cleanup_test_data")}
                 </Link>
               </span>
             }
           >
             {data.recentActions === null || data.recentActions === undefined ? (
-              <EmptyBox text="최근 조치를 확인할 수 없습니다." />
+              <EmptyBox text={t("admin_trade_dash_recent_unavailable")} />
             ) : data.recentActions.length === 0 ? (
-              <EmptyBox text="최근 관리자 조치가 없습니다." />
+              <EmptyBox text={t("admin_trade_dash_recent_empty")} />
             ) : (
               <ul className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border bg-sam-surface">
                 {data.recentActions.map((r) => (
@@ -360,8 +360,8 @@ export function TradeDashboardPage() {
                       className="flex items-start justify-between gap-3 px-3 py-2 text-[13px] hover:bg-sam-app"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-sam-fg">{tradeAuditActionLabel(r.action)}</span>
-                        <span className="block text-[12px] text-sam-muted">{tradeAuditTargetLabel(r.targetType)}</span>
+                        <span className="block truncate font-medium text-sam-fg">{tradeAuditActionLabel(t, r.action)}</span>
+                        <span className="block text-[12px] text-sam-muted">{tradeAuditTargetLabel(t, r.targetType)}</span>
                       </span>
                       <span className="shrink-0 text-[12px] text-sam-muted">
                         <CommunityTimeCell iso={r.at} />
@@ -385,8 +385,9 @@ function TopList<T>({
   rows: T[] | null;
   render: (r: T) => { key: string; name: string; count: number; href?: string };
 }) {
-  if (rows === null) return <EmptyBox text="확인 불가" />;
-  if (rows.length === 0) return <EmptyBox text="표시할 항목이 없습니다." />;
+  const { t } = useI18n();
+  if (rows === null) return <EmptyBox text={t("admin_trade_dash_unavailable")} />;
+  if (rows.length === 0) return <EmptyBox text={t("admin_trade_dash_no_items")} />;
   return (
     <ul className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border bg-sam-surface">
       {rows.map((raw) => {

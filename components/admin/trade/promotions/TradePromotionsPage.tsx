@@ -8,7 +8,7 @@
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { LISTING_END_LABELS, LISTING_PAUSE_LABELS } from "@/lib/admin/trade-admin/trade-promotion-labels";
+import { LISTING_END_LABEL_KEYS, LISTING_PAUSE_LABEL_KEYS } from "@/lib/admin/trade-admin/trade-promotion-labels";
 import { useEffect, useRef, useState } from "react";
 import {
   COMMUNITY_TD,
@@ -26,8 +26,6 @@ import {
   type CommunitySheetSettle,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import {
-  COMMUNITY_GONE_MESSAGE,
-  COMMUNITY_STALE_MESSAGE,
   useCommunityAdminJson,
   type CommunityBannerState,
 } from "@/components/admin/community/members/use-community-admin-data";
@@ -48,6 +46,9 @@ import { adsWorkspaceActionSplitsReason } from "@/lib/admin/ads-exposure/admin-m
 import { AdsInternalMemoField } from "@/components/admin/community/kit/AdsInternalMemoField";
 import { AdminAdDeleteAction } from "@/components/admin/ads/AdminAdDeleteAction";
 import { useAdminWriteGuard } from "@/components/admin/access/use-admin-route-access";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 /** D-10 — 내부 메모가 있으면 `internalReason` 으로 보낸다(회원 응답·알림에 나가지 않음). */
 function withInternalMemo(body: Record<string, unknown>, memo: string): Record<string, unknown> {
@@ -57,26 +58,30 @@ function withInternalMemo(body: Record<string, unknown>, memo: string): Record<s
 
 const LIST_EXTRAS = ["userId", "postId"] as const;
 const TABS = ["pending_review", "active", "paused", "ended", "rejected", "all"] as const;
-const TAB_LABELS: Record<string, string> = {
-  pending_review: "승인 대기",
-  active: "노출 중",
-  paused: "일시 중지",
-  ended: "종료",
-  rejected: "반려·취소",
-  all: "전체",
+const TAB_LABELS: Record<string, MessageKey> = {
+  pending_review: "admin_trade_promo_st_pending",
+  active: "admin_trade_promo_st_active",
+  paused: "admin_trade_promo_st_paused",
+  ended: "admin_trade_promo_st_ended",
+  rejected: "admin_trade_promo_tab_rejected",
+  all: "common_all",
 };
 
-const STATUS: Record<string, { label: string; tone: AdminTone }> = {
-  pending_review: { label: "승인 대기", tone: "waiting" },
-  active: { label: "노출 중", tone: "success" },
-  paused: { label: "일시 중지", tone: "warning" },
-  ended: { label: "종료", tone: "neutral" },
-  expired: { label: "기간 만료", tone: "neutral" },
-  rejected: { label: "반려", tone: "danger" },
-  cancelled: { label: "취소", tone: "neutral" },
+const STATUS: Record<string, { labelKey: MessageKey; tone: AdminTone }> = {
+  pending_review: { labelKey: "admin_trade_promo_st_pending", tone: "waiting" },
+  active: { labelKey: "admin_trade_promo_st_active", tone: "success" },
+  paused: { labelKey: "admin_trade_promo_st_paused", tone: "warning" },
+  ended: { labelKey: "admin_trade_promo_st_ended", tone: "neutral" },
+  expired: { labelKey: "admin_trade_promo_st_expired", tone: "neutral" },
+  rejected: { labelKey: "admin_trade_promo_st_rejected", tone: "danger" },
+  cancelled: { labelKey: "admin_trade_promo_st_cancelled", tone: "neutral" },
 };
 
-const FAULT_LABELS: Record<string, string> = { operator: "운영 사유", member: "회원 사유", none: "해당 없음" };
+const FAULT_LABELS: Record<string, MessageKey> = {
+  operator: "admin_trade_promo_fault_operator",
+  member: "admin_trade_promo_fault_member",
+  none: "admin_trade_promo_fault_none",
+};
 
 type Row = {
   id: string;
@@ -114,7 +119,7 @@ type ActionKind = "approve" | "reject" | "pause" | "resume" | "end";
 type Sheet = { kind: ActionKind; row: Row } | null;
 
 const shortDate = (iso: string | null | undefined) => (iso ? formatAdminManilaDateTime(iso).slice(5, 16) : "—");
-const titleOf = (r: Row) => r.post?.title || r.target_title || "거래글";
+const titleOf = (t: Translate, r: Row) => r.post?.title || r.target_title || t("admin_trade_audit_target_post");
 
 /** POST 실행 — sideEffectWarning·환급 포인트를 함께 돌려받는다 */
 async function postAction(
@@ -171,13 +176,13 @@ export function TradePromotionsPage() {
     setSheet(null);
     reload();
     setWarning(k === "done" && sideEffectWarning);
-    setBanner({ ok: true, message: k === "done" ? okMessage : k === "stale" ? COMMUNITY_STALE_MESSAGE : COMMUNITY_GONE_MESSAGE });
+    setBanner({ ok: true, message: k === "done" ? okMessage : k === "stale" ? t("admin_community_post_stale") : t("admin_community_list_gone") });
   };
 
   return (
     <CommunityListShell
       title={t("admin_trade_promo_page_title")}
-      description="회원이 포인트로 결제한 거래 글 상위노출(결제 즉시 노출)의 노출을 관리합니다. 화면에는 「광고」로 표시됩니다."
+      description={t("admin_trade_promo_desc")}
       banner={
         <div className="space-y-1">
           <AdminResultBanner ko result={banner} onClose={() => setBanner(null)} />
@@ -190,27 +195,27 @@ export function TradePromotionsPage() {
         <CommunityTabs
           value={tab}
           onChange={(v) => q.set({ tab: v === "pending_review" ? null : v })}
-          tabs={TABS.map((t) => ({ value: t, label: TAB_LABELS[t], count: counts[t] ?? null }))}
+          tabs={TABS.map((x) => ({ value: x, label: t(TAB_LABELS[x]), count: counts[x] ?? null }))}
         />
       }
       filterBar={
         <CommunityFilterBar lq={lq} showSearch={false} pending={state.status === "loading"}>
           {userId ? (
-            <CommunityFilterField label="신청자">
+            <CommunityFilterField label={t("admin_trade_promo_applicant")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {memberName || "선택한 회원"}
+                {memberName || t("admin_trade_audit_selected_member")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("userId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
           {postId ? (
-            <CommunityFilterField label="게시물">
+            <CommunityFilterField label={t("admin_trade_audit_post")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                {postName ? titleOf(postName) : "선택한 게시물"}
+                {postName ? titleOf(t, postName) : t("admin_trade_audit_selected_post")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("postId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -219,10 +224,10 @@ export function TradePromotionsPage() {
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage="이 상태의 상위노출이 없습니다.">
-        <CommunityTable head={["게시물", "신청자", "기간", "포인트", "상태", "환급", "처리"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={t("admin_trade_promo_empty")}>
+        <CommunityTable head={[t("admin_trade_audit_post"), t("admin_trade_promo_applicant"), t("admin_trade_post_ads_th_period"), t("admin_trade_th_points"), t("admin_trade_th_status"), t("admin_trade_points_entry_refund"), t("admin_trade_restrict_th_handle")]}>
           {rows.map((r) => {
-            const st = STATUS[r.order_status] ?? { label: "확인 필요", tone: "neutral" as AdminTone };
+            const st = STATUS[r.order_status] ?? { labelKey: "common_need_check" as MessageKey, tone: "neutral" as AdminTone };
             return (
               <tr key={r.id} className="border-b border-sam-border-soft">
                 <td className={`${COMMUNITY_TD} max-w-[22rem]`}>
@@ -234,10 +239,10 @@ export function TradePromotionsPage() {
                           href={tradeDetailHref(`/admin/products/${encodeURIComponent(r.target_id)}`, lq.selfHref)}
                           className="font-medium text-sam-primary hover:underline [overflow-wrap:anywhere]"
                         >
-                          {titleOf(r)}
+                          {titleOf(t, r)}
                         </Link>
                       ) : (
-                        titleOf(r)
+                        titleOf(t, r)
                       )}
                       {!r.post && r.target_id ? (
                         <div className="text-[12px] text-sam-muted">{t("admin_trade_promo_post_not_found")}</div>
@@ -249,7 +254,7 @@ export function TradePromotionsPage() {
                           className="!h-auto !px-0 text-left text-[12px] font-normal"
                           onClick={() => lq.setExtra("postId", r.target_id ?? "")}
                         >
-                          이 게시물만 보기
+                          {t("admin_trade_this_post_only")}
                         </AdminActionButton>
                       ) : null}
                     </div>
@@ -264,33 +269,33 @@ export function TradePromotionsPage() {
                       className="!h-auto !px-0 text-left text-[12px] font-normal"
                       onClick={() => lq.setExtra("userId", r.user_id ?? "")}
                     >
-                      이 회원만 보기
+                      {t("admin_trade_this_member_only")}
                     </AdminActionButton>
                   ) : null}
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>
-                  {r.duration_days ?? "—"}일
+                  {t("admin_trade_promo_duration_days", { n: r.duration_days ?? "—" })}
                   <div className="text-[12px] text-sam-muted">
-                    {r.start_at ? `${shortDate(r.start_at)} ~ ${shortDate(r.end_at)}` : `신청 ${shortDate(r.created_at)}`}
+                    {r.start_at ? `${shortDate(r.start_at)} ~ ${shortDate(r.end_at)}` : t("admin_trade_promo_requested_at", { date: shortDate(r.created_at) })}
                   </div>
                 </td>
                 <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{formatTradePoints(r.point_cost)}</td>
                 <td className={COMMUNITY_TD}>
                   <span className="flex flex-wrap gap-1">
-                    <AdminToneBadge tone={st.tone}>{st.label}</AdminToneBadge>
+                    <AdminToneBadge tone={st.tone}>{t(st.labelKey)}</AdminToneBadge>
                     {r.overdue ? <AdminToneBadge tone="danger">{t("admin_trade_promo_overdue_badge")}</AdminToneBadge> : null}
                   </span>
-                  {r.order_status === "paused" && r.paused_by && LISTING_PAUSE_LABELS[r.paused_by] ? (
+                  {r.order_status === "paused" && r.paused_by && LISTING_PAUSE_LABEL_KEYS[r.paused_by] ? (
                     <div className="mt-1 text-[12px] text-sam-muted">
-                      {LISTING_PAUSE_LABELS[r.paused_by]} · 글이 다시 보이면 저절로 재개되고 멈춘 시간만큼 종료일이 뒤로 갑니다.
+                      {t(LISTING_PAUSE_LABEL_KEYS[r.paused_by])} · {t("admin_trade_promo_paused_auto_resume_hint")}
                     </div>
                   ) : r.order_status === "paused" ? (
                     // 재감사 R3 (P-7 정정): 일시 중지 동안 기간이 흐르지 않는다 — 재개하면 멈춘 시간만큼 종료일이 뒤로 간다
                     // (운영 `admin_trade_promotion_resume`: end_at += 멈춘 시간). 그래서 「기간 만료」로 표시하지 않는다.
                     <div className="mt-1 text-[12px] text-sam-muted">{t("admin_trade_promo_paused_note")}</div>
                   ) : null}
-                  {r.end_reason_code && LISTING_END_LABELS[r.end_reason_code] ? (
-                    <div className="mt-1 text-[12px] text-sam-muted">{LISTING_END_LABELS[r.end_reason_code]}</div>
+                  {r.end_reason_code && LISTING_END_LABEL_KEYS[r.end_reason_code] ? (
+                    <div className="mt-1 text-[12px] text-sam-muted">{t(LISTING_END_LABEL_KEYS[r.end_reason_code])}</div>
                   ) : null}
                   {r.review_reason ? (
                     <div className="mt-1 max-w-[14rem] text-[12px] text-sam-muted [overflow-wrap:anywhere]">{t("admin_trade_promo_reason", { reason: r.review_reason })}</div>
@@ -300,9 +305,9 @@ export function TradePromotionsPage() {
                   {typeof r.refund_points === "number" && r.refund_points > 0
                     ? formatTradePoints(r.refund_points)
                     : r.order_status === "ended" && r.fault
-                      ? "없음"
+                      ? t("common_none")
                       : "—"}
-                  {r.fault ? <div className="text-[12px] text-sam-muted">{FAULT_LABELS[r.fault] ?? r.fault}</div> : null}
+                  {r.fault ? <div className="text-[12px] text-sam-muted">{FAULT_LABELS[r.fault] ? t(FAULT_LABELS[r.fault]) : r.fault}</div> : null}
                   {r.ended_by_label ? <div className="text-[12px] text-sam-muted">{t("admin_trade_promo_handled_by", { name: r.ended_by_label })}</div> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -311,7 +316,7 @@ export function TradePromotionsPage() {
                     <AdminAdDeleteAction
                       kind="trade_promotion"
                       id={r.id}
-                      title={titleOf(r)}
+                      title={titleOf(t, r)}
                       size="sm"
                       onDone={() => {
                         emitAdminQueueChanged("trade_promo_pending");
@@ -343,14 +348,15 @@ export function TradePromotionsPage() {
 
 /** 행 버튼 — ghost/sm 2개 이하 (각 조치는 확인 시트에서 2단계 확인) */
 function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void }) {
+  const { t } = useI18n();
   if (row.order_status === "pending_review") {
     return (
       <div className="flex flex-wrap gap-1">
         <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("approve")}>
-          승인
+          {t("admin_trade_promotions_approve")}
         </AdminActionButton>
         <AdminActionButton variant="danger" size="sm" onClick={() => onPick("reject")}>
-          반려
+          {t("admin_trade_promotions_reject")}
         </AdminActionButton>
       </div>
     );
@@ -360,15 +366,15 @@ function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void
       <div className="flex flex-wrap gap-1">
         {row.order_status === "active" ? (
           <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("pause")}>
-            일시 중지
+            {t("admin_trade_promotions_pause")}
           </AdminActionButton>
         ) : String(row.paused_by ?? "").startsWith("listing_") ? null : (
           <AdminActionButton variant="secondary" size="sm" onClick={() => onPick("resume")}>
-            재개
+            {t("admin_trade_promotions_resume")}
           </AdminActionButton>
         )}
         <AdminActionButton variant="danger" size="sm" onClick={() => onPick("end")}>
-          종료
+          {t("admin_trade_promotions_end")}
         </AdminActionButton>
       </div>
     );
@@ -376,16 +382,19 @@ function RowActions({ row, onPick }: { row: Row; onPick: (k: ActionKind) => void
   return <span className="text-sam-muted">—</span>;
 }
 
-function orderRows(r: Row) {
+function orderRows(t: Translate, r: Row) {
+  const days = r.duration_days ?? "—";
   return [
-    { label: "게시물", value: titleOf(r) },
-    { label: "신청자", value: r.user_label || "—" },
+    { label: t("admin_trade_audit_post"), value: titleOf(t, r) },
+    { label: t("admin_trade_promo_applicant"), value: r.user_label || "—" },
     {
-      label: "기간",
-      value: r.start_at ? `${r.duration_days ?? "—"}일 · ${shortDate(r.start_at)} ~ ${shortDate(r.end_at)} PHT` : `${r.duration_days ?? "—"}일`,
+      label: t("admin_trade_post_ads_th_period"),
+      value: r.start_at
+        ? t("admin_trade_promo_period_range", { days, start: shortDate(r.start_at), end: shortDate(r.end_at) })
+        : t("admin_trade_restrict_days_n", { n: days }),
     },
-    { label: "포인트", value: formatTradePoints(r.point_cost) },
-    { label: "상태", value: (STATUS[r.order_status] ?? { label: "확인 필요" }).label },
+    { label: t("admin_trade_th_points"), value: formatTradePoints(r.point_cost) },
+    { label: t("admin_trade_th_status"), value: t(STATUS[r.order_status]?.labelKey ?? "common_need_check") },
   ];
 }
 
@@ -399,10 +408,10 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
   return (
     <CommunityActionSheet
       title={t("admin_trade_promo_approve_title")}
-      rows={orderRows(row)}
-      notice="승인하면 바로 노출이 시작되고 보류한 포인트가 차감 확정됩니다. 회원에게 알림이 전달됩니다."
-      reason={{ minLength: 2, placeholder: "승인 사유 (회원에게 전달됩니다)" }}
-      confirmLabel="승인"
+      rows={orderRows(t, row)}
+      notice={t("admin_trade_promo_approve_notice")}
+      reason={{ minLength: 2, placeholder: t("admin_trade_promo_approve_reason_ph") }}
+      confirmLabel={t("admin_trade_promo_approve_btn")}
       onSubmit={async (reason) => {
         const { result, json } = await postAction(row.id, { action: "approve", reason });
         warn.current = json.sideEffectWarning === true;
@@ -414,8 +423,8 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
         onSettled(
           k,
           waiting.current
-            ? "승인했습니다. 글이 숨겨져 있어 글이 다시 보이면 노출이 시작됩니다(기간도 그때부터)."
-            : "상위노출을 승인했습니다.",
+            ? t("admin_trade_promo_approved_waiting")
+            : t("admin_trade_promo_approved"),
           warn.current
         )
       }
@@ -423,25 +432,31 @@ function ApproveSheet({ row, onClose, onSettled }: { row: Row; onClose: () => vo
   );
 }
 
-const REASON_ACTION: Record<"reject" | "pause" | "resume", { title: string; notice: string; ok: string; placeholder: string; destructive?: boolean }> = {
+const REASON_ACTION: Record<
+  "reject" | "pause" | "resume",
+  { title: MessageKey; confirm: MessageKey; notice: MessageKey; ok: MessageKey; placeholder: MessageKey; destructive?: boolean }
+> = {
   reject: {
-    title: "상위노출 반려",
-    notice: "반려하면 보류한 포인트가 회원에게 돌아갑니다. 회원에게 반려 사유가 알림으로 전달됩니다.",
-    ok: "상위노출을 반려했습니다.",
-    placeholder: "반려 사유 (회원에게 전달됩니다)",
+    title: "admin_trade_audit_act_promo_reject",
+    confirm: "admin_trade_promo_st_rejected_btn",
+    notice: "admin_trade_promo_reject_notice",
+    ok: "admin_trade_promo_rejected_ok",
+    placeholder: "admin_trade_promo_reject_reason_ph",
     destructive: true,
   },
   pause: {
-    title: "상위노출 일시 중지",
-    notice: "노출이 멈춥니다. 다시 재개하면 종료일이 중지한 시간만큼 늘어납니다. 환급은 없습니다.",
-    ok: "상위노출을 일시 중지했습니다.",
-    placeholder: "중지 사유",
+    title: "admin_trade_audit_act_promo_pause",
+    confirm: "admin_trade_promo_pause_btn",
+    notice: "admin_trade_promo_pause_notice",
+    ok: "admin_trade_promo_paused_ok",
+    placeholder: "admin_trade_promo_pause_reason_ph",
   },
   resume: {
-    title: "상위노출 재개",
-    notice: "노출을 다시 시작합니다. 종료일은 중지했던 시간만큼 늘어납니다.",
-    ok: "상위노출을 재개했습니다.",
-    placeholder: "재개 사유",
+    title: "admin_trade_audit_act_promo_resume",
+    confirm: "admin_trade_promo_resume_btn",
+    notice: "admin_trade_promo_resume_notice",
+    ok: "admin_trade_promo_resumed_ok",
+    placeholder: "admin_trade_promo_resume_reason_ph",
   },
 };
 
@@ -456,6 +471,7 @@ function ReasonActionSheet({
   onClose: () => void;
   onSettled: SettleFn;
 }) {
+  const { t } = useI18n();
   const cfg = REASON_ACTION[kind];
   const warn = useRef(false);
   const [memo, setMemo] = useState("");
@@ -464,12 +480,12 @@ function ReasonActionSheet({
   const outcome = useRef<"waiting" | "ended" | null>(null);
   return (
     <CommunityActionSheet
-      title={cfg.title}
-      rows={orderRows(row)}
-      notice={cfg.notice}
-      reason={{ minLength: 2, placeholder: cfg.placeholder }}
+      title={t(cfg.title)}
+      rows={orderRows(t, row)}
+      notice={t(cfg.notice)}
+      reason={{ minLength: 2, placeholder: t(cfg.placeholder) }}
       destructive={cfg.destructive}
-      confirmLabel={cfg.title.replace("상위노출 ", "")}
+      confirmLabel={t(cfg.confirm)}
       onSubmit={async (reason) => {
         const { result, json } = await postAction(row.id, withInternalMemo({ action: kind, reason }, split ? memo : ""));
         warn.current = json.sideEffectWarning === true;
@@ -481,10 +497,10 @@ function ReasonActionSheet({
         onSettled(
           k,
           outcome.current === "waiting"
-            ? "글이 숨겨져 있어 바로 재개하지 않았습니다. 글이 다시 보이면 저절로 재개됩니다."
+            ? t("admin_trade_promo_resume_waiting")
             : outcome.current === "ended"
-              ? "글이 판매완료·삭제돼 광고를 종료했습니다(환급 없음)."
-              : cfg.ok,
+              ? t("admin_trade_promo_resume_ended")
+              : t(cfg.ok),
           warn.current
         )
       }
@@ -544,16 +560,16 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
     <CommunityActionSheet
       title={t("admin_trade_promo_end_title")}
       rows={[
-        ...orderRows(row),
+        ...orderRows(t, row),
         ...(current && "data" in current
-          ? [{ label: "환급 예정", value: <strong>{formatTradePoints(current.data.refund)}</strong> }]
+          ? [{ label: t("admin_trade_promo_refund_expected"), value: <strong>{formatTradePoints(current.data.refund)}</strong> }]
           : []),
       ]}
-      notice="종료하면 다시 노출할 수 없습니다. 회원에게 종료 사유와 환급 포인트가 알림으로 전달됩니다."
-      reason={{ minLength: 2, placeholder: "종료 사유 (회원에게 전달됩니다)" }}
+      notice={t("admin_trade_promo_end_notice")}
+      reason={{ minLength: 2, placeholder: t("admin_trade_promo_end_reason_ph") }}
       ready={ready}
       destructive
-      confirmLabel="종료"
+      confirmLabel={t("admin_trade_post_ads_end")}
       onSubmit={async (reason) => {
         const { result, json } = await postAction(
           row.id,
@@ -567,8 +583,8 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
         onSettled(
           k,
           done.current.refund > 0
-            ? `상위노출을 종료했습니다. ${formatAdminNumber(done.current.refund)} P 를 환급했습니다.`
-            : "상위노출을 종료했습니다. 환급은 없습니다.",
+            ? t("admin_trade_promo_ended_refund", { n: formatAdminNumber(done.current.refund) })
+            : t("admin_trade_promo_ended_no_refund"),
           done.current.warn
         )
       }
@@ -577,16 +593,16 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
         <legend className="sam-text-helper font-medium text-sam-fg">{t("admin_trade_promo_fault_legend")}</legend>
         {(
           [
-            ["operator", "운영 사유", "남은 기간 비례 환급"],
-            ["member", "회원 사유", "환급하지 않습니다"],
-            ["none", "해당 없음", "환급하지 않습니다"],
+            ["operator", "admin_trade_promo_fault_operator", "admin_trade_promo_fault_operator_hint"],
+            ["member", "admin_trade_promo_fault_member", "admin_trade_promo_no_refund_hint"],
+            ["none", "admin_trade_promo_fault_none", "admin_trade_promo_no_refund_hint"],
           ] as const
-        ).map(([v, label, hint]) => (
+        ).map(([v, labelKey, hintKey]) => (
           <label key={v} className="flex items-start gap-2 text-[13px]">
             <input type="radio" name="fault" checked={fault === v} onChange={() => setFault(v)} className="mt-0.5" />
             <span>
-              <span className="font-medium text-sam-fg">{label}</span>
-              <span className="block text-sam-muted">{hint}</span>
+              <span className="font-medium text-sam-fg">{t(labelKey)}</span>
+              <span className="block text-sam-muted">{t(hintKey)}</span>
             </span>
           </label>
         ))}
@@ -594,12 +610,12 @@ function EndSheet({ row, onClose, onSettled }: { row: Row; onClose: () => void; 
       {fault && !current ? <p className="text-[13px] text-sam-muted">{t("admin_trade_promo_refund_calculating")}</p> : null}
       {current && "data" in current ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] font-semibold text-sam-fg">
-          환급 예정 {formatTradePoints(current.data.refund)}
+          {t("admin_trade_promo_refund_expected_amount", { amount: formatTradePoints(current.data.refund) })}
           {current.data.paid !== null || remainDays !== null ? (
             <span className="block font-normal text-sam-muted">
-              {current.data.paid !== null ? `결제 ${formatTradePoints(current.data.paid)}` : ""}
+              {current.data.paid !== null ? t("admin_trade_promo_paid", { points: formatTradePoints(current.data.paid) }) : ""}
               {current.data.paid !== null && remainDays !== null ? " · " : ""}
-              {remainDays !== null ? `남은 기간 약 ${remainDays}일` : ""}
+              {remainDays !== null ? t("admin_trade_promo_remaining_days", { n: remainDays }) : ""}
             </span>
           ) : null}
         </p>

@@ -18,6 +18,7 @@ import {
   normalizeCommunityAdminReason,
 } from "@/lib/admin/community-admin/community-admin-reason";
 import { lookupChatRoomEvidence } from "@/lib/admin/chat-admin/chat-room-evidence-lookup";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ async function deleteLinkedChatRoom(
 
   const { error: crErr } = await db.from("chat_rooms").delete().eq("id", roomId);
   if (crErr) {
-    return { ok: false, error: crErr.message ?? "chat_rooms 삭제 실패" };
+    return { ok: false, error: crErr.message ?? await adminServerText("admin_api_chat_rooms_delete_failed") };
   }
   return { ok: true };
 }

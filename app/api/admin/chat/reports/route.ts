@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireChatAdmin } from "@/lib/admin/chat-admin/chat-admin-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { CHAT_REPORTS_ADMIN_SELECT } from "@/lib/chat/chat-sql-selects";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
   const sbAny = sb;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import type { PersonalizedFeedLog } from "@/lib/types/personalized-feed";
 import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
@@ -9,10 +10,11 @@ interface PersonalizedFeedLogListProps {
 }
 
 export function PersonalizedFeedLogList({ logs }: PersonalizedFeedLogListProps) {
+  const { t } = useI18n();
   if (logs.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        생성 로그가 없습니다.
+        {t("admin_personalized_feed_log_empty")}
       </div>
     );
   }
@@ -23,22 +25,22 @@ export function PersonalizedFeedLogList({ logs }: PersonalizedFeedLogListProps) 
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              생성일시
+              {t("admin_personalized_feed_col_created_at")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자
+              {t("admin_personalized_feed_col_user")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션
+              {t("admin_personalized_feed_col_section")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              후보/결과/중복제거
+              {t("admin_personalized_feed_col_candidate_result_dedup")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대표 사유
+              {t("admin_personalized_feed_col_top_reason")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              비고
+              {t("admin_personalized_feed_col_note")}
             </th>
           </tr>
         </thead>
@@ -56,7 +58,7 @@ export function PersonalizedFeedLogList({ logs }: PersonalizedFeedLogListProps) 
                 {PERSONALIZED_SECTION_LABELS[log.sectionKey]}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {log.candidateCount} → {log.finalCount} (중복제거 {log.dedupedCount})
+                {t("admin_personalized_feed_log_counts", { candidates: log.candidateCount, final: log.finalCount, deduped: log.dedupedCount })}
               </td>
               <td className="max-w-[160px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {log.topReason}

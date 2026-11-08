@@ -42,7 +42,6 @@ import {
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   CommunitySection,
   communityActionFetch,
@@ -58,10 +57,13 @@ import {
   tradeErrorText,
 } from "@/components/admin/trade/kit/TradeAdminKit";
 import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   TRADE_RESTRICTION_DAY_SELECT,
-  TRADE_RESTRICTION_SCOPE_LABEL,
+  tradeRestrictionDaysLabel,
+  tradeRestrictionScopeLabel,
   tradeSanctionKindLabel,
   tradeSanctionPeriodText,
   tradeSanctionStatusOf,
@@ -71,27 +73,28 @@ const LIST_EXTRAS = ["targetType", "targetId", "reporterId", "sellerId"] as cons
 const REASON_MIN = 2;
 
 type Rec = Record<string, unknown>;
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
 type TabKey = "open" | "sanctioned" | "rejected" | "all";
-const TABS: { value: TabKey; label: string }[] = [
-  { value: "open", label: "처리 대기" },
-  { value: "sanctioned", label: "처리 완료" },
-  { value: "rejected", label: "반려" },
-  { value: "all", label: "전체" },
+const TABS: { value: TabKey; labelKey: MessageKey }[] = [
+  { value: "open", labelKey: "admin_trade_reports_st_pending" },
+  { value: "sanctioned", labelKey: "admin_trade_reports_st_done" },
+  { value: "rejected", labelKey: "admin_trade_promo_st_rejected" },
+  { value: "all", labelKey: "common_all" },
 ];
-const EMPTY_TEXT: Record<TabKey, string> = {
-  open: "처리할 신고가 없습니다.",
-  sanctioned: "처리 완료한 신고가 없습니다.",
-  rejected: "반려한 신고가 없습니다.",
-  all: "신고가 없습니다.",
+const EMPTY_TEXT: Record<TabKey, MessageKey> = {
+  open: "admin_trade_reports_empty_open",
+  sanctioned: "admin_trade_reports_empty_done",
+  rejected: "admin_trade_reports_empty_rejected",
+  all: "admin_trade_reports_empty_all",
 };
 
-const TARGET_OPTIONS = [
-  { value: "", label: "전체 대상" },
-  { value: "product", label: "거래글" },
-  { value: "user", label: "회원" },
-  { value: "chat_room", label: "채팅방" },
+const TARGET_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_trade_reports_target_all" },
+  { value: "product", labelKey: "admin_trade_audit_target_post" },
+  { value: "user", labelKey: "admin_trade_points_member" },
+  { value: "chat_room", labelKey: "admin_trade_reports_target_chat_room" },
 ];
 
 type ReportPost = {
@@ -133,64 +136,65 @@ type ListResponse = {
 
 /* ───────── 라벨 (다른 거래 화면에서도 사용) ───────── */
 
-const STATUS_LABEL: Record<string, { label: string; tone: AdminTone }> = {
-  pending: { label: "처리 대기", tone: "waiting" },
-  reviewing: { label: "검토 중", tone: "progress" },
-  sanctioned: { label: "처리 완료", tone: "success" },
-  resolved: { label: "처리 완료", tone: "success" },
-  reviewed: { label: "처리 완료", tone: "success" },
-  rejected: { label: "반려", tone: "neutral" },
+const STATUS_LABEL: Record<string, { labelKey: MessageKey; tone: AdminTone }> = {
+  pending: { labelKey: "admin_trade_reports_st_pending", tone: "waiting" },
+  reviewing: { labelKey: "admin_trade_reports_st_reviewing", tone: "progress" },
+  sanctioned: { labelKey: "admin_trade_reports_st_done", tone: "success" },
+  resolved: { labelKey: "admin_trade_reports_st_done", tone: "success" },
+  reviewed: { labelKey: "admin_trade_reports_st_done", tone: "success" },
+  rejected: { labelKey: "admin_trade_promo_st_rejected", tone: "neutral" },
 };
 
 export function TradeReportStatusBadge({ value }: { value: string | null | undefined }) {
+  const { t } = useI18n();
   const hit = STATUS_LABEL[s(value)];
-  return <AdminToneBadge tone={hit?.tone ?? "neutral"}>{hit?.label ?? "알 수 없음"}</AdminToneBadge>;
+  return <AdminToneBadge tone={hit?.tone ?? "neutral"}>{t(hit?.labelKey ?? "admin_trade_label_unknown")}</AdminToneBadge>;
 }
 
 export function isTradeReportOpen(status: string | null | undefined): boolean {
   return status === "pending" || status === "reviewing";
 }
 
-const EXTRA_REASON: Record<string, string> = {
-  abusive_language: "욕설·비방",
-  inappropriate_item: "판매 금지 물품",
+const EXTRA_REASON: Record<string, MessageKey> = {
+  abusive_language: "admin_trade_reports_reason_abusive",
+  inappropriate_item: "admin_trade_reports_reason_banned_item",
 };
 
-/** 신고 사유 코드 → 한국어 (모르는 코드는 「기타」) */
-export function tradeReportReasonLabel(code: string | null | undefined): string {
+/** 신고 사유 코드 → 문구 (모르는 코드는 「기타」) */
+export function tradeReportReasonLabel(t: Translate, code: string | null | undefined): string {
   const c = s(code).trim().toLowerCase();
-  if (!c) return "사유 없음";
-  if (EXTRA_REASON[c]) return EXTRA_REASON[c];
-  const l = adminChatLabel("report_reason", c, true);
-  return l.known ? l.label : "기타";
+  if (!c) return t("admin_trade_reports_reason_none");
+  if (EXTRA_REASON[c]) return t(EXTRA_REASON[c]);
+  const l = adminChatLabel("report_reason", c, getRuntimeAppLanguage() !== "en");
+  return l.known ? l.label : t("admin_trade_audit_target_other");
 }
 
-export function tradeReportTargetLabel(t: string | null | undefined): string {
-  switch (s(t)) {
+export function tradeReportTargetLabel(t: Translate, targetType: string | null | undefined): string {
+  switch (s(targetType)) {
     case "product":
     case "post":
-      return "거래글";
+      return t("admin_trade_audit_target_post");
     case "user":
-      return "회원";
+      return t("admin_trade_points_member");
     case "chat_room":
     case "chat":
-      return "채팅방";
+      return t("admin_trade_reports_target_chat_room");
     case "chat_message":
-      return "채팅 메시지";
+      return t("admin_trade_reports_target_chat_message");
     case "comment":
-      return "댓글";
+      return t("admin_trade_reports_target_comment");
     default:
-      return "기타";
+      return t("admin_trade_audit_target_other");
   }
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  reject: "반려",
-  resolve: "처리 완료 (제재 없음)",
-  product_hide: "게시물 숨김",
-  warn: "경고",
-  trade_restriction: "거래 활동 제한",
-  chat_ban: "채팅 금지 (이전 방식)",
+const ACTION_LABEL: Record<string, MessageKey> = {
+  reject: "admin_trade_promo_st_rejected",
+  resolve: "admin_trade_reports_act_resolve",
+  product_hide: "admin_trade_reports_act_hide_post",
+  warn: "admin_trade_restrict_badge_warning",
+  trade_restriction: "admin_trade_restrict_title",
+  chat_ban: "admin_trade_reports_act_chat_ban_legacy",
 };
 
 /* ───────── 목록 ───────── */
@@ -219,10 +223,10 @@ export function TradeReportsPage() {
   return (
     <CommunityListShell
       title={t("admin_trade_reports_title")}
-      description="거래글·회원·거래 채팅 신고를 확인하고 반려하거나 게시물 숨김·경고·거래 활동 제한으로 처리합니다."
+      description={t("admin_trade_reports_desc")}
       actions={
         <AdminActionButton variant="secondary" onClick={reload}>
-          새로고침
+          {t("admin_trade_reports_refresh")}
         </AdminActionButton>
       }
       banner={<CommunityBannerView banner={banner} onClose={() => setBanner(null)} />}
@@ -230,40 +234,40 @@ export function TradeReportsPage() {
         <CommunityTabs
           value={tab}
           onChange={(v) => qs.set({ tab: v === "open" ? null : v })}
-          tabs={TABS.map((t) => ({ value: t.value, label: t.label, count: counts[t.value] ?? null }))}
+          tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey), count: counts[x.value] ?? null }))}
         />
       }
       filterBar={
         <CommunityFilterBar lq={lq} showSearch={false} pending={state.status === "loading"}>
-          <CommunityFilterField label="대상 유형">
-            <CommunitySelect value={targetType} onChange={(v) => lq.setExtra("targetType", v)} options={TARGET_OPTIONS} />
+          <CommunityFilterField label={t("admin_trade_audit_target_type")}>
+            <CommunitySelect value={targetType} onChange={(v) => lq.setExtra("targetType", v)} options={TARGET_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))} />
           </CommunityFilterField>
           {targetId ? (
-            <CommunityFilterField label="대상">
+            <CommunityFilterField label={t("admin_trade_audit_target")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                특정 대상만 보기
+                {t("admin_trade_reports_target_only")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("targetId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
           {sellerId ? (
-            <CommunityFilterField label="회원">
+            <CommunityFilterField label={t("admin_trade_points_member")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                특정 회원(본인·판매글) 신고만 보기
+                {t("admin_trade_reports_member_only")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("sellerId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
           ) : null}
           {reporterId ? (
-            <CommunityFilterField label="신고자">
+            <CommunityFilterField label={t("admin_trade_reports_reporter")}>
               <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-                특정 신고자만 보기
+                {t("admin_trade_reports_reporter_only")}
                 <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => lq.setExtra("reporterId", "")}>
-                  해제
+                  {t("admin_trade_filter_clear")}
                 </AdminActionButton>
               </span>
             </CommunityFilterField>
@@ -272,8 +276,8 @@ export function TradeReportsPage() {
       }
       footer={<CommunityListPagination lq={lq} total={total} disabled={state.status === "loading"} />}
     >
-      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={EMPTY_TEXT[tab]}>
-        <CommunityTable head={["접수", "대상", "신고 사유", "신고자", "상태", "처리자·처리 시각", "처리"]}>
+      <CommunityListBody state={state} empty={rows.length === 0} lq={lq} onRetry={reload} emptyMessage={t(EMPTY_TEXT[tab])}>
+        <CommunityTable head={[t("admin_trade_reports_received"), t("admin_trade_audit_target"), t("admin_trade_reports_reason"), t("admin_trade_reports_reporter"), t("admin_trade_th_status"), t("admin_trade_reports_th_handled"), t("admin_trade_restrict_th_handle")]}>
           {rows.map((r) => (
             <tr
               key={r.id}
@@ -287,7 +291,7 @@ export function TradeReportsPage() {
                 <ReportTargetCell row={r} returnTo={lq.selfHref} />
               </td>
               <td className={COMMUNITY_TD}>
-                <span className="font-medium text-sam-fg">{tradeReportReasonLabel(r.reason_code)}</span>
+                <span className="font-medium text-sam-fg">{tradeReportReasonLabel(t, r.reason_code)}</span>
                 {r.reason_text ? (
                   <p className="line-clamp-2 max-w-[16rem] sam-text-xxs text-sam-muted">{r.reason_text}</p>
                 ) : null}
@@ -301,7 +305,7 @@ export function TradeReportsPage() {
               <td className={COMMUNITY_TD}>
                 {r.resolved_at ? (
                   <span className="flex flex-col">
-                    <span>{r.resolved_by_label ?? "관리자"}</span>
+                    <span>{r.resolved_by_label ?? t("admin_trade_confirm_source_admin")}</span>
                     <span className="sam-text-xxs text-sam-muted">
                       <CommunityTimeCell iso={r.resolved_at} />
                     </span>
@@ -319,7 +323,7 @@ export function TradeReportsPage() {
                     openDetail(r.id);
                   }}
                 >
-                  {isTradeReportOpen(r.status) ? "처리" : "보기"}
+                  {isTradeReportOpen(r.status) ? t("admin_trade_restrict_th_handle") : t("admin_trade_reports_view")}
                 </AdminActionButton>
               </td>
             </tr>
@@ -349,9 +353,9 @@ function ReportTargetCell({ row, returnTo }: { row: ReportRow; returnTo: string 
       <span className="flex items-start gap-2">
         <TradePostThumb post={row.post} size={40} />
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="line-clamp-2 max-w-[14rem] font-medium text-sam-fg">{row.post.title?.trim() || "제목 없음"}</span>
+          <span className="line-clamp-2 max-w-[14rem] font-medium text-sam-fg">{row.post.title?.trim() || t("admin_trade_posts_no_title")}</span>
           <span className="sam-text-xxs text-sam-muted" onClick={(e) => e.stopPropagation()}>
-            판매자 <TradeMemberCell userId={row.target_user_id} label={row.target_user_label} returnTo={returnTo} />
+            {t("admin_trade_reports_seller_label")} <TradeMemberCell userId={row.target_user_id} label={row.target_user_label} returnTo={returnTo} />
           </span>
         </span>
       </span>
@@ -359,7 +363,7 @@ function ReportTargetCell({ row, returnTo }: { row: ReportRow; returnTo: string 
   }
   return (
     <span className="flex flex-col gap-0.5">
-      <span className="sam-text-xxs text-sam-muted">{tradeReportTargetLabel(row.target_type)}</span>
+      <span className="sam-text-xxs text-sam-muted">{tradeReportTargetLabel(t, row.target_type)}</span>
       {row.target_user_id ? (
         <span onClick={(e) => e.stopPropagation()}>
           <TradeMemberCell userId={row.target_user_id} label={row.target_user_label} returnTo={returnTo} />
@@ -386,26 +390,26 @@ type DetailResponse = {
 
 type Decision = "reject" | "hide" | "warn" | "restrict";
 
-const DECISION_TEXT: Record<Decision, { title: string; confirm: string; notice: string }> = {
+const DECISION_TEXT: Record<Decision, { title: MessageKey; confirm: MessageKey; notice: MessageKey }> = {
   reject: {
-    title: "신고 반려",
-    confirm: "반려",
-    notice: "조치 없이 신고를 닫습니다. 신고자에게 처리 완료 알림이 갑니다.",
+    title: "admin_trade_audit_act_report_reject",
+    confirm: "admin_trade_promo_st_rejected_btn",
+    notice: "admin_trade_reports_reject_notice",
   },
   hide: {
-    title: "게시물 숨김",
-    confirm: "게시물 숨김",
-    notice: "거래글이 목록·검색에서 숨겨지고 판매자에게 알림이 갑니다. 같은 게시물의 다른 대기 신고도 함께 처리됩니다.",
+    title: "admin_trade_reports_act_hide_post",
+    confirm: "admin_trade_reports_act_hide_post",
+    notice: "admin_trade_reports_hide_notice",
   },
   warn: {
-    title: "경고",
-    confirm: "경고 보내기",
-    notice: "회원에게 경고 알림이 갑니다. 거래 활동은 막히지 않습니다.",
+    title: "admin_trade_restrict_badge_warning",
+    confirm: "admin_trade_restrict_send_warning",
+    notice: "admin_trade_reports_warn_notice",
   },
   restrict: {
-    title: "거래 활동 제한",
-    confirm: "거래 활동 제한",
-    notice: "선택한 범위의 거래 활동이 기간 동안 막히고 회원에게 알림이 갑니다. 커뮤니티·배달은 그대로입니다.",
+    title: "admin_trade_restrict_title",
+    confirm: "admin_trade_restrict_title",
+    notice: "admin_trade_reports_restrict_notice",
   },
 };
 
@@ -420,7 +424,7 @@ function TradeReportDetailSheet({
   onClose: () => void;
   onDecided: (banner: CommunityBanner) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { state, reload } = useCommunityAdminJson<DetailResponse>(
     `/api/admin/trade/reports/${encodeURIComponent(reportId)}`
   );
@@ -442,17 +446,17 @@ function TradeReportDetailSheet({
     setDecision(null);
     reload();
     let b: CommunityBanner;
-    if (kind === "stale") b = { tone: "warning", text: COMMUNITY_STALE_TEXT };
+    if (kind === "stale") b = { tone: "warning", text: t("admin_community_post_stale") };
     else if (kind === "gone") b = { tone: "error", text: tradeErrorText("not_found") };
     else {
       const json = lastJson.current;
-      const extra = communityWarningsOf(json);
+      const extra = communityWarningsOf(json, language);
       const closed = Number(json.closedSiblings ?? 0);
-      if (closed > 0) extra.unshift(`같은 게시물 신고 ${formatAdminNumber(closed)}건 함께 처리했습니다.`);
-      if (json.postHidden === true && chosen !== "hide") extra.unshift("게시물도 숨겼습니다.");
+      if (closed > 0) extra.unshift(t("admin_trade_reports_siblings_closed", { n: formatAdminNumber(closed) }));
+      if (json.postHidden === true && chosen !== "hide") extra.unshift(t("admin_trade_reports_post_also_hidden"));
       b = {
-        tone: communityWarningsOf(json).length ? "warning" : "success",
-        text: chosen ? `${DECISION_TEXT[chosen].title} 처리했습니다.` : "처리했습니다.",
+        tone: communityWarningsOf(json, language).length ? "warning" : "success",
+        text: chosen ? t("admin_trade_reports_decided", { action: t(DECISION_TEXT[chosen].title) }) : t("admin_trade_reports_done"),
         extra,
       };
     }
@@ -463,27 +467,27 @@ function TradeReportDetailSheet({
   // 조치 확인 시트를 띄우는 동안 처리 시트는 잠시 내린다 (시트 겹침 방지)
   if (decision && report) {
     const rows = [
-      { label: "신고 사유", value: tradeReportReasonLabel(s(report.reason_code)) },
-      { label: "대상", value: post ? s(post.title) || "제목 없음" : tradeReportTargetLabel(s(report.target_type)) },
-      { label: "대상 회원", value: targetUser?.label?.trim() || (targetUser ? "이름 없음" : "—") },
+      { label: t("admin_trade_reports_reason"), value: tradeReportReasonLabel(t, s(report.reason_code)) },
+      { label: t("admin_trade_audit_target"), value: post ? s(post.title) || t("admin_trade_posts_no_title") : tradeReportTargetLabel(t, s(report.target_type)) },
+      { label: t("admin_trade_reports_section_target_member"), value: targetUser?.label?.trim() || (targetUser ? t("admin_trade_kit_no_name") : "—") },
     ];
     if (decision === "restrict") {
       rows.push({
-        label: "제한",
-        value: `${TRADE_RESTRICTION_SCOPE_LABEL[scope]} · ${days === "perm" ? "영구" : `${days}일`}${hidePost ? " · 게시물도 숨김" : ""}`,
+        label: t("admin_trade_reports_restriction"),
+        value: `${tradeRestrictionScopeLabel(t, scope)} · ${tradeRestrictionDaysLabel(t, days)}${hidePost ? ` · ${t("admin_trade_reports_also_hide_post")}` : ""}`,
       });
     } else if (decision === "warn" && hidePost) {
-      rows.push({ label: "함께 처리", value: "게시물도 숨김" });
+      rows.push({ label: t("admin_trade_reports_also_handle"), value: t("admin_trade_reports_also_hide_post") });
     }
     return (
       <CommunityActionSheet
-        title={DECISION_TEXT[decision].title}
+        title={t(DECISION_TEXT[decision].title)}
         rows={rows}
-        notice={DECISION_TEXT[decision].notice}
-        reason={{ minLength: REASON_MIN, placeholder: "처리 사유 (운영 기록·회원 알림에 남습니다)" }}
+        notice={t(DECISION_TEXT[decision].notice)}
+        reason={{ minLength: REASON_MIN, placeholder: t("admin_trade_reports_reason_ph") }}
         ready={decision === "reject" || decision === "hide" || Boolean(targetUser)}
         destructive={decision === "hide" || decision === "restrict"}
-        confirmLabel={DECISION_TEXT[decision].confirm}
+        confirmLabel={t(DECISION_TEXT[decision].confirm)}
         onClose={() => setDecision(null)}
         onSubmit={async (reason) => {
           const body: Rec = { decision, reason };
@@ -508,7 +512,7 @@ function TradeReportDetailSheet({
         {decision === "restrict" ? (
           <div className="flex flex-wrap gap-3">
             <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-              범위
+              {t("admin_trade_reports_field_scope")}
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value as typeof scope)}
@@ -516,13 +520,13 @@ function TradeReportDetailSheet({
               >
                 {(["post", "chat", "all"] as const).map((v) => (
                   <option key={v} value={v}>
-                    {TRADE_RESTRICTION_SCOPE_LABEL[v]}
+                    {tradeRestrictionScopeLabel(t, v)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-              기간
+              {t("admin_trade_reports_field_period")}
               <select
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
@@ -530,7 +534,7 @@ function TradeReportDetailSheet({
               >
                 {TRADE_RESTRICTION_DAY_SELECT.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}
+                    {t(o.labelKey)}
                   </option>
                 ))}
               </select>
@@ -540,7 +544,7 @@ function TradeReportDetailSheet({
         {(decision === "warn" || decision === "restrict") && post ? (
           <label className="flex items-center gap-2 text-[13px] text-sam-fg">
             <input type="checkbox" checked={hidePost} onChange={(e) => setHidePost(e.target.checked)} />
-            게시물도 숨김
+            {t("admin_trade_reports_also_hide_listing")}
           </label>
         ) : null}
       </CommunityActionSheet>
@@ -551,7 +555,7 @@ function TradeReportDetailSheet({
   const footer = (
     <div className="flex flex-wrap items-center gap-2">
       <AdminActionButton variant="secondary" onClick={onClose}>
-        닫기
+        {t("admin_trade_close")}
       </AdminActionButton>
       {report && open ? (
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -560,19 +564,19 @@ function TradeReportDetailSheet({
               href={tradeDetailHref(`/admin/trade/members/${encodeURIComponent(targetUser.id)}?tab=account`, returnTo)}
               className="self-center text-[13px] font-medium text-sam-primary underline"
             >
-              계정 정지는 회원 화면에서
+              {t("admin_trade_reports_suspend_in_member")}
             </Link>
           ) : null}
           <AdminActionButton variant="secondary" onClick={() => setDecision("reject")}>
-            반려
+            {t("admin_trade_reports_dismiss")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
             disabled={!post}
-            title={post ? undefined : "거래글 신고에서만 할 수 있습니다"}
+            title={post ? undefined : t("admin_trade_reports_post_only")}
             onClick={() => setDecision("hide")}
           >
-            게시물 숨김
+            {t("admin_trade_reports_hide_listing")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
@@ -582,7 +586,7 @@ function TradeReportDetailSheet({
               setDecision("warn");
             }}
           >
-            경고
+            {t("admin_trade_reports_warn")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
@@ -592,7 +596,7 @@ function TradeReportDetailSheet({
               setDecision("restrict");
             }}
           >
-            거래 활동 제한
+            {t("admin_trade_activity_restriction")}
           </AdminActionButton>
         </div>
       ) : null}
@@ -607,7 +611,7 @@ function TradeReportDetailSheet({
           <AdminLoadingState ko />
         ) : state.status === "error" ? (
           state.httpStatus === 404 ? (
-            <AdminEmptyState ko message="신고를 찾을 수 없습니다." />
+            <AdminEmptyState ko message={t("admin_trade_reports_not_found")} />
           ) : (
             <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />
           )
@@ -615,12 +619,12 @@ function TradeReportDetailSheet({
           <>
             <CommunitySummaryCard
               rows={[
-                { label: "접수", value: abs(report.created_at) },
-                { label: "상태", value: <TradeReportStatusBadge value={s(report.status)} /> },
-                { label: "대상 유형", value: tradeReportTargetLabel(s(report.target_type)) },
-                { label: "신고 사유", value: tradeReportReasonLabel(s(report.reason_code)) },
+                { label: t("admin_trade_reports_received"), value: abs(report.created_at) },
+                { label: t("admin_trade_th_status"), value: <TradeReportStatusBadge value={s(report.status)} /> },
+                { label: t("admin_trade_audit_target_type"), value: tradeReportTargetLabel(t, s(report.target_type)) },
+                { label: t("admin_trade_reports_reason"), value: tradeReportReasonLabel(t, s(report.reason_code)) },
                 {
-                  label: "신고자",
+                  label: t("admin_trade_reports_reporter"),
                   value: (
                     <TradeMemberCell
                       userId={s(report.reporter_id) || null}
@@ -630,9 +634,9 @@ function TradeReportDetailSheet({
                   ),
                 },
                 {
-                  label: "처리",
+                  label: t("admin_trade_restrict_th_handle"),
                   value: report.resolved_at
-                    ? `${s(report.resolved_by_label) || "관리자"} · ${abs(report.resolved_at)}`
+                    ? `${s(report.resolved_by_label) || t("admin_trade_confirm_source_admin")} · ${abs(report.resolved_at)}`
                     : "—",
                 },
               ]}
@@ -659,7 +663,7 @@ function TradeReportDetailSheet({
                       href={`/admin/products/${encodeURIComponent(s(post.id))}`}
                       className="font-semibold text-sam-primary hover:underline"
                     >
-                      {s(post.title) || "제목 없음"}
+                      {s(post.title) || t("admin_trade_posts_no_title")}
                     </Link>
                     <div className="flex flex-wrap gap-1">
                       <TradeStageBadge value={s(post.seller_listing_state)} />
@@ -688,7 +692,7 @@ function TradeReportDetailSheet({
             </CommunitySection>
 
             {post ? (
-              <CommunitySection title={`같은 게시물 다른 신고 (${(d?.siblings ?? []).length}건)`}>
+              <CommunitySection title={t("admin_trade_reports_siblings_title", { n: (d?.siblings ?? []).length })}>
                 {(d?.siblings ?? []).length === 0 ? (
                   <p className="text-[13px] text-sam-muted">{t("admin_trade_reports_no_other")}</p>
                 ) : (
@@ -699,8 +703,8 @@ function TradeReportDetailSheet({
                         className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-1.5 text-[13px]"
                       >
                         <span className="min-w-0">
-                          <span className="font-medium">{tradeReportReasonLabel(s(x.reason_code))}</span>
-                          <span className="ml-2 text-sam-muted">{s(x.reporter_label) || "회원"}</span>
+                          <span className="font-medium">{tradeReportReasonLabel(t, s(x.reason_code))}</span>
+                          <span className="ml-2 text-sam-muted">{s(x.reporter_label) || t("admin_trade_points_member")}</span>
                           {s(x.reason_text) ? (
                             <span className="block line-clamp-1 sam-text-xxs text-sam-muted">{s(x.reason_text)}</span>
                           ) : null}
@@ -720,12 +724,12 @@ function TradeReportDetailSheet({
 
             <CommunitySection title={t("admin_trade_reports_section_history")}>
               <CommunityTimeline
-                emptyText="처리 기록이 없습니다."
+                emptyText={t("admin_trade_reports_history_empty")}
                 items={(d?.actions ?? []).map((a) => ({
                   id: s(a.id),
                   at: s(a.created_at),
-                  actor: s(a.actor_label) || "관리자",
-                  action: ACTION_LABEL[s(a.action_type)] ?? "처리",
+                  actor: s(a.actor_label) || t("admin_trade_confirm_source_admin"),
+                  action: t(ACTION_LABEL[s(a.action_type)] ?? "admin_trade_restrict_th_handle"),
                   reason: s(a.action_note) || null,
                 }))}
               />
@@ -734,19 +738,27 @@ function TradeReportDetailSheet({
             {targetUser ? (
               <CommunitySection title={t("admin_trade_reports_section_member_prior_actions")}>
                 <CommunityTimeline
-                  emptyText="기존 경고·제한이 없습니다."
+                  emptyText={t("admin_trade_reports_prior_empty")}
                   items={(d?.sanctions ?? []).map((x) => {
                     const st = tradeSanctionStatusOf(x);
-                    const scopeText = x.restriction ? ` · ${TRADE_RESTRICTION_SCOPE_LABEL[s(x.restriction)] ?? "범위 확인 불가"}` : "";
-                    const domain = s(x.scope) === "trade" ? "거래" : s(x.scope) === "community" ? "커뮤니티" : "";
-                    const period = s(x.sanction_type) === "warning" ? "" : ` · ${tradeSanctionPeriodText(x)}`;
-                    const stText =
-                      s(x.sanction_type) === "warning" ? "" : st === "active" ? " (진행 중)" : st === "revoked" ? " (해제)" : " (만료)";
+                    const scopeText = x.restriction
+                      ? ` · ${tradeRestrictionScopeLabel(t, s(x.restriction)) ?? t("admin_trade_restrict_scope_unknown")}`
+                      : "";
+                    const domain =
+                      s(x.scope) === "trade" ? t("admin_trade") : s(x.scope) === "community" ? t("admin_trade_reports_domain_community") : "";
+                    const period = s(x.sanction_type) === "warning" ? "" : ` · ${tradeSanctionPeriodText(t, x)}`;
+                    const stKey: MessageKey =
+                      st === "active"
+                        ? "admin_trade_restrict_badge_active"
+                        : st === "revoked"
+                          ? "admin_trade_restrict_badge_revoked"
+                          : "admin_trade_restrict_badge_expired";
+                    const stText = s(x.sanction_type) === "warning" ? "" : ` (${t(stKey)})`;
                     return {
                       id: s(x.id),
                       at: s(x.created_at) || s(x.start_at),
-                      actor: domain || "관리자",
-                      action: `${tradeSanctionKindLabel(s(x.sanction_type))}${scopeText}${period}${stText}`,
+                      actor: domain || t("admin_trade_confirm_source_admin"),
+                      action: `${tradeSanctionKindLabel(t, s(x.sanction_type))}${scopeText}${period}${stText}`,
                       reason: s(x.reason) || null,
                     };
                   })}

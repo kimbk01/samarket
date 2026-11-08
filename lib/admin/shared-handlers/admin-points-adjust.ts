@@ -6,6 +6,7 @@ import "server-only";
 import type { SharedAdminHandlerGate } from "@/lib/admin/shared-handlers/shared-admin-handler-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { sumUserPointLedger } from "@/lib/points/user-point-ledger";
+import { translate } from "@/lib/i18n/messages";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
 
 
@@ -94,7 +95,7 @@ export async function handleAdminPointsAdjustPost(
         code,
         balance: res.balance,
         messageKo:
-          code === "insufficient_balance" ? "보유 Point보다 많은 금액은 회수할 수 없습니다." : undefined,
+          code === "insufficient_balance" ? translate("ko", "admin_points_adjust_insufficient_balance") : undefined,
       },
       { status }
     );

@@ -138,19 +138,14 @@ export function popupApprovalStatusLabel(
   lang: OwnershipLabelLang
 ): string {
   const s = String(approvalStatus ?? "").trim().toLowerCase();
-  const ko: Record<string, string> = {
-    not_submitted: "작성 중",
-    pending_review: "승인 대기",
-    approved: "승인 완료",
-    rejected: "반려",
+  const keys: Record<string, MessageKey> = {
+    not_submitted: "admin_ownership_popup_approval_not_submitted",
+    pending_review: "admin_ownership_popup_approval_pending_review",
+    approved: "admin_ownership_popup_approval_approved",
+    rejected: "admin_ownership_popup_approval_rejected",
   };
-  const en: Record<string, string> = {
-    not_submitted: "In progress",
-    pending_review: "Pending approval",
-    approved: "Approved",
-    rejected: "Rejected",
-  };
-  return (lang === "en" ? en[s] : ko[s]) ?? (approvalStatus || "—");
+  const key = keys[s];
+  return key ? translateBy(lang, key, undefined, "ko") : (approvalStatus || "—");
 }
 
 /**
@@ -246,25 +241,17 @@ export function popupSurfaceOperatorLabel(
   lang: OwnershipLabelLang
 ): string {
   const s = String(surface ?? "").trim().toUpperCase();
-  const ko: Record<string, string> = {
-    GLOBAL: "전역",
-    COMMUNITY: "커뮤니티",
-    TRADE: "거래",
-    DELIVERY: "배달",
-    DELIVERY_OWNER: "배달 오너",
-    ADMIN: "관리자",
-    MYPAGE: "마이페이지",
+  const keys: Record<string, MessageKey> = {
+    GLOBAL: "admin_ownership_popup_surface_global",
+    COMMUNITY: "admin_ownership_popup_surface_community",
+    TRADE: "admin_ownership_popup_surface_trade",
+    DELIVERY: "admin_ownership_popup_surface_delivery",
+    DELIVERY_OWNER: "admin_ownership_popup_surface_delivery_owner",
+    ADMIN: "admin_ownership_popup_surface_admin",
+    MYPAGE: "admin_ownership_popup_surface_mypage",
   };
-  const en: Record<string, string> = {
-    GLOBAL: "Global",
-    COMMUNITY: "Community",
-    TRADE: "Trade",
-    DELIVERY: "Delivery",
-    DELIVERY_OWNER: "Delivery owner",
-    ADMIN: "Admin",
-    MYPAGE: "My page",
-  };
-  return (lang === "en" ? en[s] : ko[s]) ?? surface;
+  const key = keys[s];
+  return key ? translateBy(lang, key, undefined, "ko") : surface;
 }
 
 export function popupDestinationSummary(input: {
@@ -377,31 +364,20 @@ export function notificationCampaignStatusOperatorLabel(
   lang: OwnershipLabelLang
 ): string {
   const s = String(status ?? "").trim().toLowerCase();
-  const ko: Record<string, string> = {
-    draft: "초안",
-    scheduled: "예약",
-    sending: "발송 중",
-    sent: "발송 완료",
-    partially_failed: "일부 실패",
-    failed: "발송 실패",
-    cancelled: "취소",
-    configured: "설정됨 (미발송)",
-    disabled: "꺼짐",
-    active: "활성",
+  const keys: Record<string, MessageKey> = {
+    draft: "admin_ownership_notification_status_draft",
+    scheduled: "admin_ownership_notification_status_scheduled",
+    sending: "admin_ownership_notification_status_sending",
+    sent: "admin_ownership_notification_status_sent",
+    partially_failed: "admin_ownership_notification_status_partially_failed",
+    failed: "admin_ownership_notification_status_failed",
+    cancelled: "admin_ownership_notification_status_cancelled",
+    configured: "admin_ownership_notification_status_configured",
+    disabled: "admin_ownership_notification_status_disabled",
+    active: "admin_ownership_notification_status_active",
   };
-  const en: Record<string, string> = {
-    draft: "Draft",
-    scheduled: "Scheduled",
-    sending: "Sending",
-    sent: "Sent",
-    partially_failed: "Partially failed",
-    failed: "Failed",
-    cancelled: "Cancelled",
-    configured: "Configured (not sent)",
-    disabled: "Off",
-    active: "Active",
-  };
-  return (lang === "en" ? en[s] : ko[s]) ?? (status || "—");
+  const key = keys[s];
+  return key ? translateBy(lang, key, undefined, "ko") : (status || "—");
 }
 
 export function notificationAudienceOperatorLabel(
@@ -409,21 +385,15 @@ export function notificationAudienceOperatorLabel(
   lang: OwnershipLabelLang
 ): string {
   const s = String(targetType ?? "").trim().toLowerCase();
-  const ko: Record<string, string> = {
-    all: "전체",
-    selected_users: "선택 회원",
-    marketing_opt_in: "마케팅 수신 동의",
-    active_users: "활성 회원",
-    region: "지역 대상",
+  const keys: Record<string, MessageKey> = {
+    all: "admin_ownership_notification_audience_all",
+    selected_users: "admin_ownership_notification_audience_selected_users",
+    marketing_opt_in: "admin_ownership_notification_audience_marketing_opt_in",
+    active_users: "admin_ownership_notification_audience_active_users",
+    region: "admin_ownership_notification_audience_region",
   };
-  const en: Record<string, string> = {
-    all: "Everyone",
-    selected_users: "Selected members",
-    marketing_opt_in: "Marketing opt-in",
-    active_users: "Active members",
-    region: "Region",
-  };
-  return (lang === "en" ? en[s] : ko[s]) ?? (targetType || "—");
+  const key = keys[s];
+  return key ? translateBy(lang, key, undefined, "ko") : (targetType || "—");
 }
 
 /**

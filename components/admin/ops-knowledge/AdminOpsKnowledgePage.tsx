@@ -136,7 +136,7 @@ export function AdminOpsKnowledgePage() {
       <AdminTabs
         className="mb-4"
         tabs={TAB_DEFS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="search"
         resetParams={adminSyncTabResetParams(EXTRAS)}
       />
@@ -226,7 +226,7 @@ export function AdminOpsKnowledgePage() {
             <OpsKnowledgeRecommendationPanel
               sourceType={recommendSourceType}
               sourceId={recommendSourceId.trim() || null}
-              title={`${recommendSourceType} 기준 관련 문서`}
+              title={t("admin_ops_knowledge_related_docs_by_source", { source: recommendSourceType })}
               compact={false}
             />
           </AdminCard>

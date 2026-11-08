@@ -126,14 +126,15 @@ export function adsPlacementBreadcrumb(input: {
   const hit = humanPlacementLabelOrNull(key, input.ko);
   if (hit) return hit;
   if (input.placementHint) return input.placementHint;
-  const domainKo: Record<string, string> = {
-    delivery: "배달",
-    trade: "거래",
-    community: "커뮤니티",
-    popup: "팝업",
+  const domainKey: Record<string, MessageKey> = {
+    delivery: "admin_ads_operator_domain_delivery",
+    trade: "admin_ads_operator_domain_trade",
+    community: "admin_ads_operator_domain_community",
+    popup: "admin_ads_operator_domain_popup",
   };
-  const d = domainKo[input.domain] ?? input.domain;
-  return tx(input.ko, "admin_ads_operator_domain_placement", { domain: input.ko ? d : input.domain });
+  const dk = domainKey[input.domain];
+  const d = dk ? tx(input.ko, dk) : input.domain;
+  return tx(input.ko, "admin_ads_operator_domain_placement", { domain: d });
 }
 
 export type AdsCtaTier = "primary" | "secondary" | "more" | "danger";

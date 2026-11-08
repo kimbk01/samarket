@@ -6,39 +6,40 @@
  */
 import { useCallback, type ReactNode } from "react";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminDetailDrawer } from "@/components/admin/ui/AdminDetailDrawer";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import type { CommunitySheetResult } from "@/components/admin/community/kit/CommunityAdminKit";
 
-export const COMMUNITY_STALE_TEXT = "다른 관리자가 먼저 변경했습니다 — 최신 내용으로 다시 불러왔습니다";
-export const COMMUNITY_AUDIT_WARNING_TEXT =
-  "처리는 완료됐지만 운영 기록 저장에 실패했습니다. 시스템 관리자에게 알려 주세요.";
-export const COMMUNITY_SIDE_EFFECT_WARNING_TEXT =
-  "처리는 완료됐지만 알림 발송 또는 포인트 회수 일부가 실패했습니다. 회원 화면에서 확인해 주세요.";
+/** 한국어 문장(기존 호출부 호환). 화면에서는 키(`admin_community_post_stale` 등)를 `t()` 로 쓴다. */
+export const COMMUNITY_STALE_TEXT = translate("ko", "admin_community_post_stale");
+export const COMMUNITY_AUDIT_WARNING_TEXT = translate("ko", "admin_community_report_audit_warning");
+export const COMMUNITY_SIDE_EFFECT_WARNING_TEXT = translate("ko", "admin_community_report_side_effect_warning");
 
-const COMMUNITY_ERROR_TEXT: Record<string, string> = {
-  use_decision_endpoint: "신고 인정·기각은 「신고 인정」/「신고 기각」 버튼으로 처리해 주세요.",
-  status_conflict: COMMUNITY_STALE_TEXT,
-  conflict: COMMUNITY_STALE_TEXT,
-  reopen_super_admin_only: "다시 열기는 최고 관리자만 할 수 있습니다.",
-  invalid_transition: "현재 신고 상태에서는 할 수 없는 처리입니다.",
-  invalid_decision: "처리 결과를 다시 선택해 주세요.",
-  invalid_target_action: "콘텐츠 조치를 다시 선택해 주세요.",
-  invalid_kind: "회원 조치 종류를 다시 선택해 주세요.",
-  invalid_restriction: "제한 범위를 선택해 주세요.",
-  invalid_days: "제한 기간을 다시 선택해 주세요.",
-  invalid_sanction: "회원 조치를 다시 선택해 주세요.",
-  dismiss_with_action: "신고 기각에는 콘텐츠·회원 조치를 함께 할 수 없습니다.",
-  invalid_user_id: "회원을 다시 선택해 주세요.",
-  user_not_found: "회원을 찾을 수 없습니다.",
-  not_active: "이미 해제되었거나 기간이 끝난 제한입니다.",
-  invalid_status: "선택한 상태 값이 올바르지 않습니다.",
-  invalid_period: "기간을 다시 선택해 주세요.",
-  invalid_date: "날짜를 다시 확인해 주세요.",
-  range_reversed: "시작일이 종료일보다 늦습니다.",
-  range_too_long: "기간이 너무 깁니다. 400일 이내로 지정해 주세요.",
-  nothing_to_update: "바뀐 내용이 없습니다.",
+const COMMUNITY_ERROR_KEY: Record<string, MessageKey> = {
+  use_decision_endpoint: "admin_community_report_err_use_decision",
+  status_conflict: "admin_community_post_stale",
+  conflict: "admin_community_post_stale",
+  reopen_super_admin_only: "admin_community_report_err_reopen_super_admin",
+  invalid_transition: "admin_community_report_err_invalid_transition",
+  invalid_decision: "admin_community_report_err_invalid_decision",
+  invalid_target_action: "admin_community_report_err_invalid_target_action",
+  invalid_kind: "admin_community_report_err_invalid_kind",
+  invalid_restriction: "admin_community_report_err_invalid_restriction",
+  invalid_days: "admin_community_report_err_invalid_days",
+  invalid_sanction: "admin_community_report_err_invalid_sanction",
+  dismiss_with_action: "admin_community_report_err_dismiss_with_action",
+  invalid_user_id: "admin_community_report_err_invalid_user",
+  user_not_found: "admin_community_report_err_user_not_found",
+  not_active: "admin_community_report_err_not_active",
+  invalid_status: "admin_community_report_err_invalid_status",
+  invalid_period: "admin_community_report_err_invalid_period",
+  invalid_date: "admin_community_report_err_invalid_date",
+  range_reversed: "admin_community_report_err_range_reversed",
+  range_too_long: "admin_community_report_err_range_too_long",
+  nothing_to_update: "admin_community_report_err_nothing_to_update",
 };
 
 /** DB 메시지 같은 원시 문자열은 일반 코드로 바꾼다 */
@@ -49,7 +50,8 @@ export function communitySafeCode(code: string | null | undefined): string {
 
 export function communityAdminErrorText(code: string | null | undefined, ko = true): string {
   const c = communitySafeCode(code);
-  return COMMUNITY_ERROR_TEXT[c] ?? adminOperatorErrorMessage(c, ko);
+  const key = COMMUNITY_ERROR_KEY[c];
+  return key ? translate(ko ? "ko" : "en", key) : adminOperatorErrorMessage(c, ko);
 }
 
 export type CommunityBanner = { tone: "success" | "warning" | "error"; text: string; extra?: string[] } | null;
@@ -83,11 +85,11 @@ export function CommunityBannerView({ banner, onClose }: { banner: CommunityBann
   );
 }
 
-/** 결과에서 경고 문구 모으기 (auditWarning / sideEffectWarning) */
-export function communityWarningsOf(json: Record<string, unknown> | null | undefined): string[] {
+/** 결과에서 경고 문구 모으기 (auditWarning / sideEffectWarning). `lang` 생략 시 한국어. */
+export function communityWarningsOf(json: Record<string, unknown> | null | undefined, lang: string = "ko"): string[] {
   const out: string[] = [];
-  if (json?.auditWarning) out.push(COMMUNITY_AUDIT_WARNING_TEXT);
-  if (json?.sideEffectWarning) out.push(COMMUNITY_SIDE_EFFECT_WARNING_TEXT);
+  if (json?.auditWarning) out.push(translateBy(lang, "admin_community_report_audit_warning"));
+  if (json?.sideEffectWarning) out.push(translateBy(lang, "admin_community_report_side_effect_warning"));
   return out;
 }
 

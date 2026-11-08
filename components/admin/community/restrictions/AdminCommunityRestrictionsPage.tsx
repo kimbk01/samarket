@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminRouteAction } from "@/components/admin/access/use-admin-route-access";
 import { COMMUNITY_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/community-admin/community-admin-reason";
 import { COMMUNITY_RESTRICTION_DAY_OPTIONS } from "@/lib/admin/community-admin/community-sanction-input";
@@ -36,7 +37,6 @@ import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import {
-  COMMUNITY_STALE_TEXT,
   CommunityBannerView,
   communityActionFetch,
   communityAdminErrorText,
@@ -48,20 +48,20 @@ const RESTRICTION_EXTRAS = ["userId"] as const;
 
 type TabKey = "active" | "expired" | "revoked" | "warnings" | "all";
 
-const TABS: { key: TabKey; label: string; status: string; kind: string }[] = [
-  { key: "active", label: "제한 중", status: "active", kind: "community_restriction" },
-  { key: "expired", label: "기간 만료", status: "expired", kind: "community_restriction" },
-  { key: "revoked", label: "해제됨", status: "revoked", kind: "community_restriction" },
-  { key: "warnings", label: "경고 기록", status: "all", kind: "warning" },
-  { key: "all", label: "전체", status: "all", kind: "" },
+const TABS: { key: TabKey; labelKey: MessageKey; status: string; kind: string }[] = [
+  { key: "active", labelKey: "admin_community_restrict_tab_active", status: "active", kind: "community_restriction" },
+  { key: "expired", labelKey: "admin_community_restrict_tab_expired", status: "expired", kind: "community_restriction" },
+  { key: "revoked", labelKey: "admin_community_restrict_tab_revoked", status: "revoked", kind: "community_restriction" },
+  { key: "warnings", labelKey: "admin_community_restrict_tab_warnings", status: "all", kind: "warning" },
+  { key: "all", labelKey: "admin_community_restrict_tab_all", status: "all", kind: "" },
 ];
 
-const EMPTY_TEXT: Record<TabKey, string> = {
-  active: "현재 활동 제한 중인 회원이 없습니다.",
-  expired: "기간이 끝난 제한이 없습니다.",
-  revoked: "해제된 제한이 없습니다.",
-  warnings: "경고 기록이 없습니다.",
-  all: "경고·활동 제한 기록이 없습니다.",
+const EMPTY_TEXT: Record<TabKey, MessageKey> = {
+  active: "admin_community_restrict_empty_active",
+  expired: "admin_community_restrict_empty_expired",
+  revoked: "admin_community_restrict_empty_revoked",
+  warnings: "admin_community_restrict_empty_warnings",
+  all: "admin_community_restrict_empty_all",
 };
 
 type RestrictionRow = {
@@ -94,10 +94,10 @@ function resolveTab(raw: string): TabKey {
   return (TABS.find((t) => t.key === raw)?.key ?? "active") as TabKey;
 }
 
-function periodText(r: RestrictionRow): string {
+function periodText(r: RestrictionRow, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string {
   if (r.kind === "warning") return "—";
   const start = r.start_at ? formatAdminManilaDateTime(r.start_at) : "—";
-  return r.end_at ? `${start} ~ ${formatAdminManilaDateTime(r.end_at)} PHT` : `${start} PHT ~ 영구`;
+  return r.end_at ? `${start} ~ ${formatAdminManilaDateTime(r.end_at)} PHT` : t("admin_community_restrict_period_permanent", { start });
 }
 
 export function AdminCommunityRestrictionsPage() {
@@ -190,7 +190,7 @@ export function AdminCommunityRestrictionsPage() {
     setRevokeRow(null);
     setAdding(false);
     await load();
-    if (kind === "stale") setBanner({ tone: "warning", text: COMMUNITY_STALE_TEXT });
+    if (kind === "stale") setBanner({ tone: "warning", text: t("admin_community_post_stale") });
     else if (kind === "gone") setBanner({ tone: "error", text: communityAdminErrorText("not_found", ko) });
     else setBanner(okText(lastJson.current));
   };
@@ -198,11 +198,11 @@ export function AdminCommunityRestrictionsPage() {
   return (
     <CommunityListShell
       title={t("admin_community_restrict_title")}
-      description="커뮤니티 경고·활동 제한을 확인하고 해제하거나 새로 적용합니다. 계정 정지는 회원 관리에서 합니다."
+      description={t("admin_community_restrict_desc")}
       actions={
         <>
           <AdminActionButton variant="secondary" disabled={loading} onClick={() => void load()}>
-            새로고침
+            {t("admin_community_restrict_reload")}
           </AdminActionButton>
           <AdminActionButton
             variant="secondary"
@@ -213,7 +213,7 @@ export function AdminCommunityRestrictionsPage() {
               setAdding(true);
             }}
           >
-            활동 제한 추가
+            {t("admin_community_restrict_add")}
           </AdminActionButton>
         </>
       }
@@ -231,11 +231,11 @@ export function AdminCommunityRestrictionsPage() {
         <CommunityTabs
           value={tab}
           onChange={(v) => qs.set({ tab: v === "active" ? null : v, sanctionId: null })}
-          tabs={TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] ?? null }))}
+          tabs={TABS.map((x) => ({ value: x.key, label: t(x.labelKey), count: counts[x.key] ?? null }))}
         />
       }
       filterBar={
-        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder="회원 닉네임" pending={loading}>
+        <CommunityFilterBar lq={lq} showPeriod={false} searchPlaceholder={t("admin_community_restrict_search_placeholder")} pending={loading}>
           {userId ? (
             <span className="inline-flex h-10 items-center gap-1 self-end rounded-full border border-sam-border bg-sam-app px-2 text-[12px] text-sam-fg">
               {t("admin_community_restrict_member_only")}
@@ -253,9 +253,18 @@ export function AdminCommunityRestrictionsPage() {
         empty={!rows || rows.length === 0}
         lq={lq}
         onRetry={() => void load()}
-        emptyMessage={EMPTY_TEXT[tab]}
+        emptyMessage={t(EMPTY_TEXT[tab])}
       >
-        <CommunityTable head={["회원", "종류·범위", "기간", "사유", "처리자", "원인 신고", "상태", "처리"]}>
+        <CommunityTable head={[
+          t("admin_community_restrict_col_member"),
+          t("admin_community_restrict_col_kind"),
+          t("admin_community_restrict_col_period"),
+          t("admin_community_restrict_col_reason"),
+          t("admin_community_restrict_col_actor"),
+          t("admin_community_restrict_col_source"),
+          t("admin_community_restrict_col_status"),
+          t("admin_community_restrict_col_action"),
+        ]}>
           {(rows ?? []).map((r) => (
             <tr
               key={r.id}
@@ -275,18 +284,18 @@ export function AdminCommunityRestrictionsPage() {
                   ) : null}
                 </span>
               </td>
-              <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{periodText(r)}</td>
+              <td className={`${COMMUNITY_TD} whitespace-nowrap`}>{periodText(r, t)}</td>
               <td className={COMMUNITY_TD}>
                 <p className="line-clamp-3 max-w-[16rem] whitespace-pre-wrap">{r.reason || "—"}</p>
                 {r.revoked_at ? (
                   <p className="mt-1 max-w-[16rem] sam-text-xxs text-sam-muted">
-                    해제: {r.revoke_reason || "—"} ({r.revoked_by_label ?? "관리자"} · {PHT(r.revoked_at)})
+                    {t("admin_community_restrict_revoked_line", { reason: r.revoke_reason || "—", by: r.revoked_by_label ?? t("admin_community_restrict_admin"), at: PHT(r.revoked_at) })}
                   </p>
                 ) : null}
               </td>
               <td className={COMMUNITY_TD}>
                 <span className="flex flex-col">
-                  <span>{r.created_by_label ?? "관리자"}</span>
+                  <span>{r.created_by_label ?? t("admin_community_restrict_admin")}</span>
                   <span className="sam-text-xxs text-sam-muted">
                     <CommunityTimeCell iso={r.created_at} />
                   </span>
@@ -295,7 +304,9 @@ export function AdminCommunityRestrictionsPage() {
               <td className={COMMUNITY_TD}>
                 {r.source_report_href ? (
                   <Link href={communityDetailHref(r.source_report_href, qs.selfHref)} className="text-sam-info hover:underline">
-                    {r.source_report_kind === "meeting_report" ? "모임 신고 보기" : "신고 보기"}
+                    {r.source_report_kind === "meeting_report"
+                      ? t("admin_community_restrict_view_meeting_report")
+                      : t("admin_community_restrict_view_report")}
                   </Link>
                 ) : (
                   <span className="text-sam-muted">{t("admin_community_restrict_direct")}</span>
@@ -320,7 +331,7 @@ export function AdminCommunityRestrictionsPage() {
                       setRevokeRow(r);
                     }}
                   >
-                    제한 해제
+                    {t("admin_community_restrict_lift")}
                   </AdminActionButton>
                 ) : null}
                 <AdminTechDetails ko={ko}>
@@ -337,14 +348,14 @@ export function AdminCommunityRestrictionsPage() {
         <CommunityActionSheet
           title={t("admin_community_restrict_lift_title")}
           rows={[
-            { label: "회원", value: revokeRow.user_nickname?.trim() || revokeRow.user_label },
-            { label: "범위", value: adminCommunityLabel("restriction_scope", revokeRow.restriction, ko).label },
-            { label: "기간", value: periodText(revokeRow) },
-            { label: "제한 사유", value: revokeRow.reason || "—" },
+            { label: t("admin_community_restrict_col_member"), value: revokeRow.user_nickname?.trim() || revokeRow.user_label },
+            { label: t("admin_community_restrict_row_scope"), value: adminCommunityLabel("restriction_scope", revokeRow.restriction, ko).label },
+            { label: t("admin_community_restrict_col_period"), value: periodText(revokeRow, t) },
+            { label: t("admin_community_restrict_row_reason"), value: revokeRow.reason || "—" },
           ]}
-          notice="해제하면 바로 커뮤니티 활동이 가능해지고, 회원에게 알림이 갑니다."
-          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "해제 사유 (예: 이의신청 인정)" }}
-          confirmLabel="제한 해제"
+          notice={t("admin_community_restrict_lift_notice")}
+          reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: t("admin_community_restrict_lift_reason") }}
+          confirmLabel={t("admin_community_restrict_lift_button")}
           onClose={() => setRevokeRow(null)}
           onSubmit={async (reason) => {
             if (!canModerate) return { ok: false, status: 403, code: "forbidden" };
@@ -358,8 +369,8 @@ export function AdminCommunityRestrictionsPage() {
           }}
           onSettled={(kind) =>
             void onSettled(kind, (json) => {
-              const warn = communityWarningsOf(json);
-              return { tone: warn.length ? "warning" : "success", text: "제한을 해제했습니다.", extra: warn };
+              const warn = communityWarningsOf(json, language);
+              return { tone: warn.length ? "warning" : "success", text: t("admin_community_restrict_lifted"), extra: warn };
             })
           }
         />
@@ -373,9 +384,9 @@ export function AdminCommunityRestrictionsPage() {
           onClose={() => setAdding(false)}
           onSettled={(kind) =>
             void onSettled(kind, (json) => {
-              const warn = communityWarningsOf(json);
-              if (json.duplicate) return { tone: "warning", text: "이미 같은 조치가 적용 중이라 새로 추가하지 않았습니다.", extra: warn };
-              return { tone: warn.length ? "warning" : "success", text: "적용했습니다. 회원에게 알림이 갑니다.", extra: warn };
+              const warn = communityWarningsOf(json, language);
+              if (json.duplicate) return { tone: "warning", text: t("admin_community_restrict_duplicate"), extra: warn };
+              return { tone: warn.length ? "warning" : "success", text: t("admin_community_restrict_applied"), extra: warn };
             })
           }
         />
@@ -398,7 +409,8 @@ function AddRestrictionSheet({
   onClose: () => void;
   onSettled: (kind: CommunitySheetSettle) => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const [member, setMember] = useState<PickedMember | null>(null);
   const [memberErr, setMemberErr] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -473,26 +485,31 @@ function AddRestrictionSheet({
 
   return (
     <CommunityActionSheet
-      title={kind === "warning" ? "경고 보내기" : "활동 제한"}
+      title={kind === "warning" ? t("admin_community_restrict_send_warning") : t("admin_community_restrict_restrict")}
       rows={[
-        { label: "회원", value: member ? member.nickname?.trim() || "이름 없음" : "선택 필요" },
         {
-          label: "조치",
+          label: t("admin_community_restrict_col_member"),
+          value: member ? member.nickname?.trim() || t("admin_community_restrict_no_name") : t("admin_community_restrict_select_required"),
+        },
+        {
+          label: t("admin_community_restrict_row_action"),
           value:
             kind === "warning"
-              ? "경고"
-              : `${adminCommunityLabel("restriction_scope", scope, true).label} · ${days === "perm" ? "영구" : `${days}일`}`,
+              ? t("admin_community_restrict_warning")
+              : `${adminCommunityLabel("restriction_scope", scope, ko).label} · ${
+                  days === "perm" ? t("admin_community_restrict_permanent_short") : t("admin_community_restrict_days", { n: days })
+                }`,
         },
       ]}
       notice={
         kind === "warning"
-          ? "경고는 기록과 알림만 남기고 활동을 막지 않습니다."
-          : "활동 제한은 커뮤니티 글·댓글·신고·모임만 막습니다. 거래·배달·메신저는 그대로입니다. 회원에게 알림이 갑니다."
+          ? t("admin_community_restrict_warning_notice")
+          : t("admin_community_restrict_restrict_notice")
       }
-      reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: "사유 (회원 알림·운영 기록에 남습니다)" }}
+      reason={{ minLength: COMMUNITY_ADMIN_REASON_MIN_LENGTH, placeholder: t("admin_community_restrict_reason_placeholder") }}
       ready={Boolean(member) && canWrite}
       destructive={kind === "community_restriction"}
-      confirmLabel={kind === "warning" ? "경고 보내기" : "활동 제한"}
+      confirmLabel={kind === "warning" ? t("admin_community_restrict_send_warning") : t("admin_community_restrict_restrict")}
       onClose={onClose}
       onSubmit={async (reason) => {
         if (!canWrite) return { ok: false, status: 403, code: "forbidden" };
@@ -514,7 +531,7 @@ function AddRestrictionSheet({
           <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
             <CommunityAuthorCell userId={member.id} nickname={member.nickname} handle={member.handle} />
             <AdminActionButton variant="quiet" size="sm" className="h-auto! px-1!" onClick={() => setMember(null)}>
-              다른 회원 선택
+              {t("admin_community_restrict_change_member")}
             </AdminActionButton>
           </div>
         ) : (
@@ -533,13 +550,13 @@ function AddRestrictionSheet({
                 className={`${select} flex-1`}
               />
               <AdminActionButton variant="secondary" disabled={searching || !search.trim()} onClick={() => void runSearch()}>
-                {searching ? "찾는 중" : "찾기"}
+                {searching ? t("admin_community_restrict_searching") : t("admin_community_restrict_search_button")}
               </AdminActionButton>
             </div>
             {results ? (
               results.length === 0 ? (
                 <p className="text-[12px] text-sam-muted">
-                  찾는 회원이 없습니다. 커뮤니티에 글·댓글을 쓴 회원만 검색됩니다 — 그 밖의 회원은 회원 화면에서 진입하세요.
+                  {t("admin_community_restrict_member_not_found")}
                 </p>
               ) : (
                 <ul className="max-h-48 space-y-1 overflow-y-auto">
@@ -551,7 +568,7 @@ function AddRestrictionSheet({
                         onClick={() => setMember(m)}
                         className="w-full justify-start! font-normal! text-left"
                       >
-                        {m.nickname?.trim() || "이름 없음"}
+                        {m.nickname?.trim() || t("admin_community_restrict_no_name")}
                         {m.handle ? <span className="ml-2 sam-text-xxs text-sam-muted">@{m.handle}</span> : null}
                       </AdminActionButton>
                     </li>
@@ -567,17 +584,17 @@ function AddRestrictionSheet({
         <legend className="text-[12px] font-semibold text-sam-fg">{t("admin_community_restrict_kind_label")}</legend>
         <label className="mr-4 inline-flex items-center gap-1.5 text-[13px]">
           <input type="radio" checked={kind === "community_restriction"} onChange={() => setKind("community_restriction")} />
-          활동 제한
+          {t("admin_community_restrict_kind_restriction")}
         </label>
         <label className="inline-flex items-center gap-1.5 text-[13px]">
           <input type="radio" checked={kind === "warning"} onChange={() => setKind("warning")} />
-          경고
+          {t("admin_community_restrict_kind_warning")}
         </label>
       </fieldset>
       {kind === "community_restriction" ? (
         <div className="flex flex-wrap gap-3">
           <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-            범위
+            {t("admin_community_restrict_field_scope")}
             <select value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} className={select}>
               <option value="post">{t("admin_community_restrict_scope_post")}</option>
               <option value="comment">{t("admin_community_restrict_scope_comment")}</option>
@@ -585,11 +602,11 @@ function AddRestrictionSheet({
             </select>
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-sam-muted">
-            기간
+            {t("admin_community_restrict_field_period")}
             <select value={days} onChange={(e) => setDays(e.target.value)} className={select}>
               {COMMUNITY_RESTRICTION_DAY_OPTIONS.map((d) => (
                 <option key={d} value={String(d)}>
-                  {d}일
+                  {t("admin_community_restrict_days_n", { n: d })}
                 </option>
               ))}
               <option value="perm">{t("admin_community_restrict_permanent")}</option>

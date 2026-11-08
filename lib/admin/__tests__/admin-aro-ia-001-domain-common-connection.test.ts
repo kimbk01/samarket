@@ -138,7 +138,9 @@ describe("ARO-IA-001 Community Domain ↔ Common connection", () => {
     expect(MESSAGES.ko.admin_menu_community_section_promo_point).toBe("포인트·충전");
     const promoPage = read("components/admin/ads/AdminAdApplicationsPage.tsx");
     // 2026-11-07 (W3→R1): 「홍보」 → 「상위노출」 정본 문구
-    expect(promoPage).toMatch(/포인트 상위노출/);
+    // L25: 문구는 카탈로그 키로 — 화면 문구(한국어)는 그대로 「포인트 상위노출」
+    expect(promoPage).toContain('t("admin_ads_community_point_top_exposure_note")');
+    expect(MESSAGES.ko.admin_ads_community_point_top_exposure_note).toMatch(/포인트 상위노출/);
   });
 
   it("menu still exposes primary Community leaves (KEEP)", () => {

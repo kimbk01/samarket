@@ -1,31 +1,33 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { OpsQuarterlyPlan } from "@/lib/types/ops-benchmarks";
 
-const STATUS_LABELS: Record<string, string> = {
-  planned: "예정",
-  approved: "승인",
-  in_progress: "진행중",
-  at_risk: "위험",
-  completed: "완료",
-  dropped: "중단",
+const STATUS_LABELS: Record<string, MessageKey> = {
+  planned: "admin_ops_bench_plan_status_planned",
+  approved: "admin_ops_bench_plan_status_approved",
+  in_progress: "admin_ops_bench_plan_status_in_progress",
+  at_risk: "admin_ops_bench_plan_status_at_risk",
+  completed: "admin_ops_bench_plan_status_completed",
+  dropped: "admin_ops_bench_plan_status_dropped",
 };
 
-const PRIORITY_LABELS: Record<string, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
+const PRIORITY_LABELS: Record<string, MessageKey> = {
+  low: "admin_ops_bench_plan_priority_low",
+  medium: "admin_ops_bench_plan_priority_medium",
+  high: "admin_ops_bench_plan_priority_high",
+  critical: "admin_ops_bench_plan_priority_critical",
 };
 
-const DOMAIN_LABELS: Record<string, string> = {
-  recommendation_quality: "추천 품질",
-  incident_response: "장애 대응",
-  automation: "자동화",
-  documentation: "문서화",
-  execution: "운영 실행력",
-  learning: "학습/회고",
+const DOMAIN_LABELS: Record<string, MessageKey> = {
+  recommendation_quality: "admin_ops_bench_plan_domain_recommendation_quality",
+  incident_response: "admin_ops_bench_plan_domain_incident_response",
+  automation: "admin_ops_bench_plan_domain_automation",
+  documentation: "admin_ops_bench_plan_domain_documentation",
+  execution: "admin_ops_bench_plan_domain_execution",
+  learning: "admin_ops_bench_plan_domain_learning",
 };
 
 interface OpsQuarterlyPlanCardProps {
@@ -33,6 +35,7 @@ interface OpsQuarterlyPlanCardProps {
 }
 
 export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
+  const { t } = useI18n();
   const isAtRisk = plan.status === "at_risk";
   const isCompleted = plan.status === "completed";
   const isDropped = plan.status === "dropped";
@@ -50,12 +53,12 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
       }`}
     >
       <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
-        <span>{DOMAIN_LABELS[plan.domain]}</span>
+        <span>{t(DOMAIN_LABELS[plan.domain])}</span>
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
-          {PRIORITY_LABELS[plan.priority]}
+          {t(PRIORITY_LABELS[plan.priority])}
         </span>
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
-          {STATUS_LABELS[plan.status]}
+          {t(STATUS_LABELS[plan.status])}
         </span>
         <span>
           {plan.year} {plan.quarter}
@@ -67,17 +70,17 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
       </p>
       {(plan.targetMetric || plan.targetValue) && (
         <p className="mt-2 sam-text-helper text-sam-muted">
-          목표: {plan.targetMetric} = {plan.targetValue}
+          {t("admin_ops_bench_plan_target", { metric: plan.targetMetric, value: plan.targetValue })}
         </p>
       )}
       {plan.milestone && (
         <p className="mt-1 sam-text-helper text-sam-muted">
-          마일스톤: {plan.milestone}
+          {t("admin_ops_bench_plan_milestone", { milestone: plan.milestone })}
         </p>
       )}
       {plan.relatedRoadmapItemId && (
         <p className="mt-1 sam-text-helper text-sam-muted">
-          로드맵:{" "}
+          {t("admin_ops_bench_plan_roadmap")}{" "}
           <Link
             href="/admin/ops-maturity"
             className="text-signature hover:underline"
@@ -88,8 +91,8 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
       )}
       {(plan.ownerAdminNickname || plan.dueDate) && (
         <p className="mt-2 sam-text-helper text-sam-muted">
-          {plan.ownerAdminNickname && `담당 ${plan.ownerAdminNickname}`}
-          {plan.dueDate && ` · 기한 ${plan.dueDate}`}
+          {plan.ownerAdminNickname && t("admin_ops_bench_plan_owner", { name: plan.ownerAdminNickname })}
+          {plan.dueDate && t("admin_ops_bench_plan_due_suffix", { date: plan.dueDate })}
         </p>
       )}
     </div>

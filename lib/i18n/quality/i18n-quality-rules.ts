@@ -31,6 +31,8 @@ export const FILE_RULE_IDS = [
   "non-catalog-lang-pair",
   "non-catalog-bool-lang-ternary",
   "hardcoded-korean",
+  "admin-hangul-literal",
+  "jsx-text-korean",
 ] as const;
 export type FileRuleId = (typeof FILE_RULE_IDS)[number];
 
@@ -239,6 +241,45 @@ export function countHardcodedKorean(text: string): number {
   return n;
 }
 
+/**
+ * 감사 L25 (2026-11-08) — 어드민 코드의 한국어 문자열 리터럴(위 규칙들이 세지 않던 `label:`·`description=`·`<option>`·일반 문자열).
+ * 영어 짝이 있는 `ko: "…"`·`labelKo: "…"` 표 값과 주석·`console.*`·`throw` 줄은 세지 않는다.
+ */
+const ADMIN_HANGUL_LITERAL = /(["'`])((?:(?!\1)[^\\\n]|\\.)*[가-힣](?:(?!\1)[^\\\n]|\\.)*)\1/g;
+export function countAdminHangulLiterals(text: string): number {
+  let n = 0;
+  for (const raw of text.split("\n")) {
+    const t = raw.trimStart();
+    if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) continue;
+    if (/\bconsole\.|\bthrow\b/.test(raw)) continue;
+    ADMIN_HANGUL_LITERAL.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = ADMIN_HANGUL_LITERAL.exec(raw))) {
+      const before = raw.slice(0, m.index);
+      if (/\b(?:ko|[A-Za-z]+Ko)\s*:\s*$/.test(before)) continue;
+      n++;
+    }
+  }
+  return n;
+}
+
+/**
+ * L25 후속 (2026-11-08) — 여러 줄 JSX 글자(태그 사이 줄에 한국어만 있는 경우·`>글자` 줄 끝·`글자<` 줄 시작).
+ * `hardcoded-korean` 은 한 줄 안의 `>글자<` 만 센다. `.tsx` 만, 주석 줄 제외.
+ */
+const JSX_TEXT_LINE = /^[^<>{}"'`=;()/*]*[가-힣][^<>{}"'`=;]*$/;
+const JSX_TEXT_OPEN = />\s*[^<>{}"'`]*[가-힣][^<>{}"'`]*\s*$/;
+const JSX_TEXT_CLOSE = /^\s*[^<>{}"'`]*[가-힣][^<>{}"'`]*</;
+export function countJsxTextKorean(text: string): number {
+  let n = 0;
+  for (const raw of text.split("\n")) {
+    const t = raw.trim();
+    if (!t || t.startsWith("//") || t.startsWith("*") || t.startsWith("/*") || t.startsWith("{/*")) continue;
+    if (JSX_TEXT_LINE.test(t) || JSX_TEXT_OPEN.test(t) || JSX_TEXT_CLOSE.test(t)) n++;
+  }
+  return n;
+}
+
 export function countBoolLangTernary(text: string): number {
   return count(BOOL_KO_TERNARY, text) + count(BOOL_EN_TERNARY, text);
 }
@@ -283,6 +324,8 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
   if (!TEST_FILE.test(rel)) {
     put("non-catalog-bool-lang-ternary", countBoolLangTernary(text));
     if (rel.endsWith(".tsx") || rel.endsWith(".ts")) put("hardcoded-korean", countHardcodedKorean(text));
+    if (ADMIN_PATH.test(rel)) put("admin-hangul-literal", countAdminHangulLiterals(text));
+    if (rel.endsWith(".tsx")) put("jsx-text-korean", countJsxTextKorean(text));
   }
 }
 

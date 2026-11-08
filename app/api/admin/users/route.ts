@@ -48,6 +48,7 @@ import {
 } from "@/lib/admin-users/admin-member-list-query";
 import { resolveDisplayName } from "@/lib/users/user-label";
 import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -314,7 +315,7 @@ export async function GET(req: NextRequest) {
   if (!supabaseEnv.serviceKey) {
     return NextResponse.json(
       {
-        error: "SUPABASE_SERVICE_ROLE_KEY가 없어 관리자 회원 목록을 조회할 수 없습니다.",
+        error: await adminServerText("admin_api_users_list_service_key_missing"),
         code: "supabase_service_unconfigured",
       },
       { status: 503 }
@@ -728,7 +729,7 @@ export async function GET(req: NextRequest) {
     const message = err instanceof Error ? err.message : "admin_users_list_failed";
     return NextResponse.json(
       {
-        error: "회원 목록을 구성하는 중 오류가 발생했습니다.",
+        error: await adminServerText("admin_api_users_list_build_failed"),
         code: "admin_users_list_failed",
         detail: message,
       },

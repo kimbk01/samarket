@@ -125,10 +125,6 @@ export const CATEGORY_POLICY_CHIP_TABS: ReadonlyArray<{ tab: CatTab; labelKo: st
   { tab: "exposure", labelKo: "노출 간격", labelEn: "Interval" },
 ];
 
-function label(ko: boolean, koText: string, enText: string) {
-  return ko ? koText : enText;
-}
-
 function asTier(raw: string | null): TierFocus {
   return raw === "secondary" ? "secondary" : "primary";
 }
@@ -550,11 +546,9 @@ export function AdminStoresCategoryPolicyEditor({
       level: adminActionLevel("save"),
       ko,
       title: translateBy(ko ? "ko" : "en", "admin_save_the_category_list_policy"),
-      description: label(
-        ko,
-        `${primaryMeta.nameKo} — 1차·2차 업종, 광고/쿠폰/노출 정책을 한 번에 저장하며 고객 화면에 바로 반영됩니다.`,
-        `${primaryMeta.nameEn} — saves primary, secondary, ads, coupons and exposure together; customers see it right away.`
-      ),
+      description: translateBy(ko ? "ko" : "en", "admin_stores_category_save_confirm_desc", {
+        name: ko ? primaryMeta.nameKo : primaryMeta.nameEn,
+      }),
       confirmLabel: adminCta("save", ko),
     });
     if (!confirmed.ok) return;
@@ -1375,7 +1369,7 @@ export function AdminStoresCategoryPolicyEditor({
                         </div>
                         {active ? (
                           <p className="mt-1 text-[12px] font-semibold text-sam-success">
-                            {label(ko, `2차 ${secondaries.length}개`, `${secondaries.length} secondary`)}
+                            {translateBy(ko ? "ko" : "en", "admin_stores_category_secondary_count", { n: secondaries.length })}
                           </p>
                         ) : null}
                       </AdminListItemButton>
@@ -1521,7 +1515,7 @@ export function AdminStoresCategoryPolicyEditor({
                 <div>
                   <p className="text-[13px] font-black text-sam-fg">{translateBy(ko ? "ko" : "en", "admin_stores_category_col_sub")}</p>
                   <p className="text-[12px] text-sam-muted">
-                    {label(ko, `전체 ${secondaries.length}개`, `${secondaries.length} total`)}
+                    {translateBy(ko ? "ko" : "en", "admin_stores_category_total_count", { n: secondaries.length })}
                   </p>
                 </div>
                 <AdminActionButton
@@ -1564,11 +1558,11 @@ export function AdminStoresCategoryPolicyEditor({
                                 }`}
                               >
                                 {inherit
-                                  ? label(
-                                      ko,
-                                      `${primaryMeta?.nameKo ?? "1차"} 기본값 사용`,
-                                      `Uses ${primaryMeta?.nameEn ?? "primary"} defaults`
-                                    )
+                                  ? primaryMeta
+                                    ? translateBy(ko ? "ko" : "en", "admin_stores_category_uses_defaults_of", {
+                                        name: ko ? primaryMeta.nameKo : primaryMeta.nameEn,
+                                      })
+                                    : translateBy(ko ? "ko" : "en", "admin_stores_category_uses_primary_defaults")
                                   : translateBy(ko ? "ko" : "en", "admin_custom_settings")}
                               </span>
                               {statusBadge(draft?.enabled ?? secondary.resolved.enabled, ko)}
@@ -1685,11 +1679,11 @@ export function AdminStoresCategoryPolicyEditor({
                                     <NumberInput
                                       min={0}
                                       value={selectedSubDraft.draftMax}
-                                      placeholder={label(
-                                        ko,
-                                        `1차 상속 (${draftPrimary?.draftMax.trim() || "제한 없음"})`,
-                                        `Primary (${draftPrimary?.draftMax.trim() || "no limit"})`
-                                      )}
+                                      placeholder={translateBy(ko ? "ko" : "en", "admin_stores_category_inherit_primary", {
+                                        value:
+                                          draftPrimary?.draftMax.trim() ||
+                                          translateBy(ko ? "ko" : "en", "admin_stores_category_no_limit"),
+                                      })}
                                       onChange={(draftMax) => updateSubDraft(sub, { draftMax })}
                                     />
                                   </FieldLabel>
@@ -1697,11 +1691,9 @@ export function AdminStoresCategoryPolicyEditor({
                                     <NumberInput
                                       min={1}
                                       value={selectedSubDraft.draftInterval}
-                                      placeholder={label(
-                                        ko,
-                                        `1차 상속 (${draftPrimary?.draftInterval.trim() || "8"})`,
-                                        `Primary (${draftPrimary?.draftInterval.trim() || "8"})`
-                                      )}
+                                      placeholder={translateBy(ko ? "ko" : "en", "admin_stores_category_inherit_primary", {
+                                        value: draftPrimary?.draftInterval.trim() || "8",
+                                      })}
                                       onChange={(draftInterval) => updateSubDraft(sub, { draftInterval })}
                                     />
                                   </FieldLabel>

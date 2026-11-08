@@ -16,6 +16,7 @@ import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-h
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,11 +32,11 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_json_required") }, { status: 400 });
   }
   const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_room_id_required") }, { status: 400 });
   }
   const reason = parseTradeFlowAdminReason(body.reason);
   if (!reason) {
@@ -60,13 +61,13 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (pcErr || !pc) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_chat_room_not_found") }, { status: 404 });
   }
 
   const flow = String((pc as { trade_flow_status?: string }).trade_flow_status ?? "chatting");
   if (flow !== "seller_marked_done") {
     return NextResponse.json(
-      { ok: false, error: "구매자 확인 대기(seller_marked_done) 단계만 처리할 수 있습니다." },
+      { ok: false, error: await adminServerText("admin_api_trade_flow_only_seller_done") },
       { status: 409 }
     );
   }
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
     .select("id");
 
   if (updErr) {
-    return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: updErr.message ?? await adminServerText("admin_api_save_failed") }, { status: 500 });
   }
   if (!Array.isArray(updRows) || updRows.length === 0) {
     return NextResponse.json({ ok: false, error: "conflict" }, { status: 409 });

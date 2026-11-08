@@ -21,6 +21,7 @@ import { suspendOwnerStoreSalesOnMemberSanction } from "@/lib/admin-business/sus
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
 import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,8 +105,8 @@ export async function POST(
           blockers: blockers.blockers,
           message:
             blockers.blockers.length > 0
-              ? `DB 영구 삭제를 막는 연결 데이터가 있습니다: ${blockers.blockers.join(", ")}`
-              : "DB 영구 삭제 사전 검사에 실패했습니다.",
+              ? await adminServerText("admin_api_users_purge_blocked", { list: blockers.blockers.join(", ") })
+              : await adminServerText("admin_api_users_purge_precheck_failed"),
         },
         { status: 409 }
       );

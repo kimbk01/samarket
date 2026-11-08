@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
@@ -40,8 +41,6 @@ import {
 } from "@/components/admin/community/kit/CommunityPromotionFaultPicker";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import {
-  COMMUNITY_GONE_MESSAGE,
-  COMMUNITY_STALE_MESSAGE,
   communityJsonFetch,
   toCommunitySheetResult,
   type CommunityBanner,
@@ -77,33 +76,34 @@ type ChatSummaryPayload = {
 type MeetingAction = "approve" | "reject" | "hide" | "show" | "close" | "reopen";
 
 const TABS = [
-  { value: "pending", label: "승인 대기" },
-  { value: "open", label: "진행 중" },
-  { value: "ended", label: "종료" },
-  { value: "rejected", label: "반려" },
-  { value: "all", label: "전체" },
+  { value: "pending", labelKey: "admin_community_meetings_lbl_pending" },
+  { value: "open", labelKey: "admin_community_meetings_lbl_open" },
+  { value: "ended", labelKey: "admin_community_meetings_lbl_ended" },
+  { value: "rejected", labelKey: "admin_community_meetings_lbl_rejected" },
+  { value: "all", labelKey: "admin_community_meetings_lbl_all" },
 ] as const;
 
-const MEETING_STATUS: Record<string, { label: string; tone: AdminTone }> = {
-  open: { label: "진행 중", tone: "success" },
-  closed: { label: "모집 마감", tone: "neutral" },
-  ended: { label: "종료", tone: "neutral" },
-  cancelled: { label: "취소", tone: "neutral" },
+const MEETING_STATUS: Record<string, { labelKey: MessageKey; tone: AdminTone }> = {
+  open: { labelKey: "admin_community_meetings_lbl_open", tone: "success" },
+  closed: { labelKey: "admin_community_meetings_lbl_closed", tone: "neutral" },
+  ended: { labelKey: "admin_community_meetings_lbl_ended", tone: "neutral" },
+  cancelled: { labelKey: "admin_community_meetings_lbl_cancelled", tone: "neutral" },
 };
-const APPROVAL: Record<string, { label: string; tone: AdminTone }> = {
-  pending_approval: { label: "승인 대기", tone: "waiting" },
-  approved: { label: "승인", tone: "success" },
-  rejected: { label: "반려", tone: "danger" },
+const STATUS_UNKNOWN: { labelKey: MessageKey; tone: AdminTone } = { labelKey: "admin_community_meetings_lbl_unknown", tone: "neutral" };
+const APPROVAL: Record<string, { labelKey: MessageKey; tone: AdminTone }> = {
+  pending_approval: { labelKey: "admin_community_meetings_lbl_pending", tone: "waiting" },
+  approved: { labelKey: "admin_community_meetings_lbl_approved", tone: "success" },
+  rejected: { labelKey: "admin_community_meetings_lbl_rejected", tone: "danger" },
 };
 
 /** 모임 조치 → 동작 종류(단계 SSOT). L2 이상은 시트에서 사유를 받아 API 본문 `reason` → 감사 기록. */
-const ACTION_META: Record<MeetingAction, { label: string; kind: AdminActionKind; destructive?: boolean; notice: string }> = {
-  approve: { label: "승인", kind: "approve", notice: "모임을 승인하고 모임 글을 공개합니다." },
-  reject: { label: "반려", kind: "reject", destructive: true, notice: "모임을 반려하고 모임 글을 숨깁니다. 개설자에게 사유와 함께 알림이 갑니다." },
-  hide: { label: "숨김", kind: "sanction", notice: "모임 글을 숨깁니다. 모임 자체 상태는 바뀌지 않습니다." },
-  show: { label: "다시 공개", kind: "resume", notice: "숨긴 모임 글을 다시 보이게 합니다." },
-  close: { label: "모임 종료", kind: "sanction", destructive: true, notice: "모임을 종료합니다. 개설자에게 사유와 함께 알림이 갑니다." },
-  reopen: { label: "재개", kind: "resume", notice: "종료된 모임을 다시 진행 중으로 바꿉니다." },
+const ACTION_META: Record<MeetingAction, { labelKey: MessageKey; kind: AdminActionKind; destructive?: boolean; noticeKey: MessageKey }> = {
+  approve: { labelKey: "admin_community_meetings_lbl_approved", kind: "approve", noticeKey: "admin_community_meetings_notice_approve" },
+  reject: { labelKey: "admin_community_meetings_lbl_rejected", kind: "reject", destructive: true, noticeKey: "admin_community_meetings_notice_reject" },
+  hide: { labelKey: "admin_community_meetings_act_hide", kind: "sanction", noticeKey: "admin_community_meetings_notice_hide" },
+  show: { labelKey: "admin_community_meetings_act_show", kind: "resume", noticeKey: "admin_community_meetings_notice_show" },
+  close: { labelKey: "admin_community_meetings_act_close", kind: "sanction", destructive: true, noticeKey: "admin_community_meetings_notice_close" },
+  reopen: { labelKey: "admin_community_meetings_act_reopen", kind: "resume", noticeKey: "admin_community_meetings_notice_reopen" },
 };
 
 const CLOSED = new Set(["closed", "ended", "cancelled"]);
@@ -159,7 +159,7 @@ export function AdminCommunityEngineMeetingsClient() {
   const pageSize = lq.query.size;
   const { isSuperAdmin, permissions, loading: meLoading } = useAdminMe();
   const canContent = meLoading || communityAreaAllowed(permissions, "content", isSuperAdmin);
-  const noPermTitle = canContent ? undefined : "권한 필요: 게시판 관리";
+  const noPermTitle = canContent ? undefined : t("admin_community_comments_no_perm");
 
   const tabRaw = get("tab");
   const tab = TABS.some((x) => x.value === tabRaw) ? tabRaw : "all";
@@ -348,7 +348,7 @@ export function AdminCommunityEngineMeetingsClient() {
         setPending({ action: a, row: r });
       }}
     >
-      {ACTION_META[a].label}
+      {t(ACTION_META[a].labelKey)}
     </AdminActionButton>
   );
   const body: ReactNode = (
@@ -357,15 +357,24 @@ export function AdminCommunityEngineMeetingsClient() {
       empty={visible.length === 0}
       lq={lq}
       onRetry={reload}
-      emptyMessage="해당하는 모임이 없습니다."
+      emptyMessage={t("admin_community_meetings_list_empty")}
       filteredEmptyMessage={
         focusId ? t("admin_community_meetings_focus_missing") : t("admin_community_meetings_empty_search")
       }
     >
-      <CommunityTable head={["모임", "개설자", "상태", "모임 글", "정원", "신고", "개설", ""]}>
+      <CommunityTable head={[
+          t("admin_community_meetings_th_meeting"),
+          t("admin_community_meetings_th_host"),
+          t("admin_community_meetings_th_status"),
+          t("admin_community_meetings_th_post"),
+          t("admin_community_meetings_th_capacity"),
+          t("admin_community_meetings_th_reports"),
+          t("admin_community_meetings_th_created"),
+          "",
+        ]}>
         {visible.map((r) => {
           const id = str(r.id);
-          const status = MEETING_STATUS[str(r.status)] ?? { label: "확인 필요", tone: "neutral" as AdminTone };
+          const status = MEETING_STATUS[str(r.status)] ?? STATUS_UNKNOWN;
           const approval = APPROVAL[str(r.platform_approval_status) || "pending_approval"] ?? APPROVAL.pending_approval;
           const hidden = str(r.post_status) === "hidden" || r.post_hidden === true;
           const reportCount = Number(r.meeting_report_count ?? 0) + Number(r.post_report_count ?? 0);
@@ -377,10 +386,10 @@ export function AdminCommunityEngineMeetingsClient() {
                 data-meeting-id={id}
               >
                 <td className={`${COMMUNITY_TD} max-w-[16rem]`}>
-                  <span className="line-clamp-2 font-medium text-sam-fg">{str(r.title) || "이름 없음"}</span>
+                  <span className="line-clamp-2 font-medium text-sam-fg">{str(r.title) || t("admin_community_meetings_no_name")}</span>
                   <span className="text-[12px] text-sam-muted">
                     {[str(r.category_text), str(r.region_text)].filter(Boolean).join(" · ")}
-                    {r.meeting_date ? ` · 모임일 ${formatAdminManilaDateTime(str(r.meeting_date))} PHT` : ""}
+                    {r.meeting_date ? ` · ${t("admin_community_meetings_meeting_date", { at: formatAdminManilaDateTime(str(r.meeting_date)) })}` : ""}
                   </span>
                   {r.is_sample_data === true ? <AdminToneBadge tone="warning">{t("admin_feed_posts_sample_badge")}</AdminToneBadge> : null}
                 </td>
@@ -393,8 +402,8 @@ export function AdminCommunityEngineMeetingsClient() {
                 </td>
                 <td className={COMMUNITY_TD}>
                   <span className="flex flex-col items-start gap-1">
-                    <AdminToneBadge tone={status.tone}>{status.label}</AdminToneBadge>
-                    <AdminToneBadge tone={approval.tone}>{approval.label}</AdminToneBadge>
+                    <AdminToneBadge tone={status.tone}>{t(status.labelKey)}</AdminToneBadge>
+                    <AdminToneBadge tone={approval.tone}>{t(approval.labelKey)}</AdminToneBadge>
                   </span>
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -403,7 +412,7 @@ export function AdminCommunityEngineMeetingsClient() {
                       href={`/admin/community/posts/${encodeURIComponent(str(r.post_id))}`}
                       className="text-sam-info hover:underline"
                     >
-                      {hidden ? "숨김" : "공개"}
+                      {hidden ? t("admin_community_meetings_post_hidden") : t("admin_community_meetings_post_public")}
                     </Link>
                   ) : (
                     <span className="text-sam-muted">—</span>
@@ -429,7 +438,7 @@ export function AdminCommunityEngineMeetingsClient() {
                       return first ? actionButton(r, first, "ghost") : null;
                     })()}
                     <AdminActionButton variant="ghost" size="sm" disabled={insightLoading && !isOpen} onClick={() => toggleInsight(id)} aria-expanded={isOpen}>
-                      {isOpen ? "접기" : "자세히"}
+                      {isOpen ? t("admin_community_audit_collapse") : t("admin_community_meetings_details")}
                     </AdminActionButton>
                   </span>
                 </td>
@@ -440,7 +449,7 @@ export function AdminCommunityEngineMeetingsClient() {
                     <div className="mb-3 flex flex-wrap items-center gap-2" data-meeting-detail-actions={id}>
                       {actionsFor(r).map((a) => actionButton(r, a, "secondary"))}
                       <AdminActionLink href={`/admin/philife/meeting-events?meetingId=${encodeURIComponent(id)}`} variant="quiet">
-                        운영 로그
+                        {t("admin_community_meetings_row_ops_log")}
                       </AdminActionLink>
                     </div>
                     <p className="mb-2 font-semibold">{t("admin_meeting_engine_insight_open")}</p>
@@ -475,24 +484,24 @@ export function AdminCommunityEngineMeetingsClient() {
     <div className="space-y-3">
       <CommunityListShell
         title={t("admin_community_meetings_title")}
-        description="모임 승인·반려와 모임 글 노출, 종료·재개를 처리합니다."
+        description={t("admin_community_meetings_desc")}
         actions={
           <>
             <AdminActionLink href="/admin/philife/meeting-events" variant="neutral">
-              모임 운영 로그
+              {t("admin_community_meetings_link_ops_log")}
             </AdminActionLink>
             <AdminActionLink href="/admin/philife/meeting-reports" variant="neutral">
-              모임 신고
+              {t("admin_community_meetings_link_reports")}
             </AdminActionLink>
             <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
-              새로고침
+              {t("admin_community_meetings_reload")}
             </AdminActionButton>
           </>
         }
         banner={<AdminResultBanner ko={ko} result={banner} onClose={() => setBanner(null)} />}
         tabs={
           <CommunityTabs
-            tabs={TABS.map((x) => ({ ...x, count: x.value === tab && !focusId && !loading && !loadErr ? total : null }))}
+            tabs={TABS.map((x) => ({ value: x.value, label: t(x.labelKey), count: x.value === tab && !focusId && !loading && !loadErr ? total : null }))}
             value={tab}
             onChange={(v) => set({ tab: v === "all" ? null : v })}
           />
@@ -506,9 +515,9 @@ export function AdminCommunityEngineMeetingsClient() {
           >
             {focusId ? (
               <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
-                특정 모임 1건만 보기
+                {t("admin_community_meetings_single_filter")}
                 <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => lq.setExtra("meetingId", "")}>
-                  해제
+                  {t("admin_community_meetings_single_filter_clear")}
                 </AdminActionButton>
               </span>
             ) : null}
@@ -521,24 +530,31 @@ export function AdminCommunityEngineMeetingsClient() {
 
       {pending && meta ? (
         <CommunityActionSheet
-          title={`모임 ${meta.label}`}
+          title={t("admin_community_meetings_sheet_title", { action: t(meta.labelKey) })}
           rows={[
-            { label: "모임", value: `「${str(pending.row.title).slice(0, 40) || "이름 없음"}」` },
             {
-              label: "현재 상태",
-              value: `${(MEETING_STATUS[str(pending.row.status)] ?? { label: "확인 필요" }).label} · ${
-                (APPROVAL[str(pending.row.platform_approval_status) || "pending_approval"] ?? APPROVAL.pending_approval).label
-              }`,
+              label: t("admin_community_meetings_th_meeting"),
+              value: t("admin_community_comments_row_quote", { text: str(pending.row.title).slice(0, 40) || t("admin_community_meetings_no_name") }),
+            },
+            {
+              label: t("admin_community_comments_row_status"),
+              value: `${t((MEETING_STATUS[str(pending.row.status)] ?? STATUS_UNKNOWN).labelKey)} · ${t(
+                (APPROVAL[str(pending.row.platform_approval_status) || "pending_approval"] ?? APPROVAL.pending_approval).labelKey
+              )}`,
             },
           ]}
-          notice={meta.notice}
+          notice={t(meta.noticeKey)}
           reason={
             adminActionLevel(meta.kind) !== "L1"
-              ? { minLength: 2, placeholder: pending.action === "reject" || pending.action === "close" ? "개설자에게 전달될 사유" : "처리 사유" }
+              ? { minLength: 2, placeholder:
+                    pending.action === "reject" || pending.action === "close"
+                      ? t("admin_community_meetings_reason_to_host")
+                      : t("admin_community_meetings_reason_action"),
+                }
               : null
           }
           destructive={meta.destructive}
-          confirmLabel={meta.label}
+          confirmLabel={t(meta.labelKey)}
           ready={!meetingFaultNeeded || meetingFault !== ""}
           onSubmit={async (reason) => {
             const r = await communityJsonFetch(
@@ -550,17 +566,17 @@ export function AdminCommunityEngineMeetingsClient() {
             );
             if (!r.ok && r.code === "promotion_fault_required") {
               setMeetingFaultNeeded(true);
-              return { ok: false, status: 400, code: "상위노출 중인 모임 글입니다. 아래에서 귀책을 선택한 뒤 다시 눌러 주세요." };
+              return { ok: false, status: 400, code: t("admin_community_meetings_promotion_fault_needed") };
             }
-            return toCommunitySheetResult(r);
+            return toCommunitySheetResult(r, language);
           }}
           onClose={() => setPending(null)}
           onSettled={(k) => {
-            const label = meta.label;
+            const label = t(meta.labelKey);
             setPending(null);
-            if (k === "done") setBanner({ ok: true, message: `모임을 ${label} 처리했습니다.` });
-            else if (k === "stale") setBanner({ ok: false, code: COMMUNITY_STALE_MESSAGE });
-            else setBanner({ ok: false, code: COMMUNITY_GONE_MESSAGE });
+            if (k === "done") setBanner({ ok: true, message: t("admin_community_meetings_action_done", { label }) });
+            else if (k === "stale") setBanner({ ok: false, code: t("admin_community_post_stale") });
+            else setBanner({ ok: false, code: t("admin_community_post_gone") });
             reload();
           }}
         >
@@ -630,7 +646,7 @@ function MeetingInsight({
                     hidden: room.hidden_message_count,
                     reports: room.report_count,
                   })}
-                  {room.last_message_at ? ` · 마지막 메시지 ${formatAdminManilaDateTime(room.last_message_at)} PHT` : ""}
+                  {room.last_message_at ? ` · ${t("admin_community_meetings_last_message", { at: formatAdminManilaDateTime(room.last_message_at) })}` : ""}
                 </div>
                 <AdminTechDetails ko={ko}>{t("admin_community_meetings_chat_room_id", { id: room.room_id })}</AdminTechDetails>
               </div>

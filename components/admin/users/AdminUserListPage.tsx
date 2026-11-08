@@ -34,13 +34,13 @@ import type {
   AdminMemberStoreFilter,
   AdminMemberVerifyFilter,
 } from "@/lib/admin-users/admin-member-list-query";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import {
-  MEMBER_LIST_DELETION_REQUESTS_KO,
-  MEMBER_LIST_EMPTY_KO,
-  MEMBER_LIST_OPS_HISTORY_KO,
-  MEMBER_LIST_PAGE_DESCRIPTION_KO,
-  MEMBER_LIST_SEARCH_EMPTY_KO,
+  MEMBER_LIST_DELETION_REQUESTS_KEY,
+  MEMBER_LIST_EMPTY_KEY,
+  MEMBER_LIST_OPS_HISTORY_KEY,
+  MEMBER_LIST_PAGE_DESCRIPTION_KEY,
+  MEMBER_LIST_SEARCH_EMPTY_KEY,
   buildMemberListQueryString,
   memberListDetailHref,
   parseMemberListQueryState,
@@ -552,7 +552,7 @@ export function AdminUserListPage() {
   );
 
   const queryScopeKey = [membersQueryParams, String(membersKey)].join("|");
-  const emptyMessage = appliedSearch ? MEMBER_LIST_SEARCH_EMPTY_KO : MEMBER_LIST_EMPTY_KO;
+  const emptyMessage = appliedSearch ? t(MEMBER_LIST_SEARCH_EMPTY_KEY) : t(MEMBER_LIST_EMPTY_KEY);
 
   return (
     <AdminManagementSurfaceRoot
@@ -561,14 +561,14 @@ export function AdminUserListPage() {
       className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}
     >
       <nav className="text-xs font-medium text-sam-muted" aria-label="Breadcrumb">
-        <span>{MEMBER_ADMIN_COPY.member_management}</span>
+        <span>{t(MEMBER_ADMIN_COPY_KEY.member_management)}</span>
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-sam-fg">{t("admin_menu_users")}</h1>
           <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-sam-muted">
-            {MEMBER_LIST_PAGE_DESCRIPTION_KO}
+            {t(MEMBER_LIST_PAGE_DESCRIPTION_KEY)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -586,7 +586,7 @@ export function AdminUserListPage() {
             data-member-list-deletion-entry="1"
             data-member-cta-variant="tertiary"
           >
-            {MEMBER_LIST_DELETION_REQUESTS_KO}
+            {t(MEMBER_LIST_DELETION_REQUESTS_KEY)}
             {deletionOpenCount != null && deletionOpenCount > 0 ? ` ${formatAdminNumber(deletionOpenCount)}` : ""}
           </AdminActionLink>
           <AdminActionLink
@@ -595,7 +595,7 @@ export function AdminUserListPage() {
             data-member-list-ops-entry="1"
             data-member-cta-variant="secondary"
           >
-            {MEMBER_LIST_OPS_HISTORY_KO}
+            {t(MEMBER_LIST_OPS_HISTORY_KEY)}
           </AdminActionLink>
           {canManageUsers ? (
             <AdminActionButton
@@ -604,7 +604,7 @@ export function AdminUserListPage() {
               data-member-list-register-cta="1"
               data-member-cta-variant="secondary"
             >
-              {MEMBER_ADMIN_COPY.member_register}
+              {t(MEMBER_ADMIN_COPY_KEY.member_register)}
             </AdminActionButton>
           ) : null}
           {isMaster ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
@@ -45,9 +45,8 @@ const TD = "px-3 py-2 align-top";
  * R7: 서버 페이지(`limit`/`offset` → `total`) · 상태·검색은 서버 필터. 목록은 표(이미지·이름·위치·기간·상태·관리).
  */
 export function AdminPtrRevealListPage() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const lang = language === "en" ? "en" : "ko";
-  const L = useCallback((ko: string, en: string) => (lang === "en" ? en : ko), [lang]);
   const router = useRouter();
   // 폼 대화상자 — 새 광고 이름 입력(prompt)만. 확인은 confirmAdminAction (R2).
   const { prompt: askInput, dialog: confirmDialog } = useAdminConfirmDialog();
@@ -104,11 +103,11 @@ export function AdminPtrRevealListPage() {
   const create = async () => {
     if (!writeGuard.guard()) return;
     const name = await askInput({
-      title: L("새 당겨서 새로고침 광고", "New pull-to-refresh ad"),
-      description: L("광고 이름을 입력하세요. 나머지 설정은 다음 화면에서 합니다.", "Enter a name. You set the rest on the next screen."),
-      inputLabel: L("광고 이름", "Ad name"),
-      confirmLabel: L("만들기", "Create"),
-      cancelLabel: L("취소", "Cancel"),
+      title: t("admin_ptr_new_pull_refresh_ad"),
+      description: t("admin_ptr_enter_name_set_rest_next"),
+      inputLabel: t("admin_ptr_ad_name"),
+      confirmLabel: t("admin_ptr_create"),
+      cancelLabel: t("admin_ptr_cancel"),
     });
     if (!name) return;
     setBusy(true);
@@ -132,9 +131,9 @@ export function AdminPtrRevealListPage() {
     const copyOk = await confirmAdminAction({
       level: adminActionLevel("save"),
       ko: ko,
-      title: L("광고 복사", "Copy ad"),
-      description: L(`「${item.name}」을 복사할까요? (승인·기간 제외)`, `Copy “${item.name}”? (approval and schedule excluded)`),
-      confirmLabel: L("복사", "Copy"),
+      title: t("admin_ptr_copy_ad"),
+      description: t("admin_ptr_copy_named_confirm", { name: item.name }),
+      confirmLabel: t("admin_ptr_copy"),
     });
     if (!copyOk.ok) return;
     setBusy(true);
@@ -158,16 +157,13 @@ export function AdminPtrRevealListPage() {
       {confirmDialog}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[16px] font-semibold text-sam-fg">{L("당겨서 새로고침 광고", "Pull-to-refresh ads")}</h1>
+          <h1 className="text-[16px] font-semibold text-sam-fg">{t("admin_ptr_pull_refresh_ads")}</h1>
           <p className="mt-1 max-w-2xl text-sm text-sam-muted">
-            {L(
-              "목록을 아래로 당겨 새로고침할 때 스피너 뒤에 드러나는 띠 광고입니다. 팝업과 별도로 운영되며 승인·기간·통계 규칙은 팝업과 같습니다.",
-              "A band ad revealed behind the spinner when a list is pulled to refresh. Operated separately from popups, with the same approval, schedule and stats rules."
-            )}
+            {t("admin_ptr_band_ad_revealed_behind_spinner")}
           </p>
         </div>
         <AdminActionButton variant="secondary" disabled={busy || !writeGuard.allowed} onClick={() => void create()} data-admin-ptr-create="">
-          {L("새 광고 만들기", "New ad")}
+          {t("admin_ptr_new_ad")}
         </AdminActionButton>
       </div>
 
@@ -179,13 +175,13 @@ export function AdminPtrRevealListPage() {
         onReset={lq.reset}
         showPeriod={false}
         pending={loading}
-        searchPlaceholder={L("이름·문구·이동 경로 검색", "Search name, text or link")}
+        searchPlaceholder={t("admin_ptr_search_name_text_link")}
         status={{
           value: lq.query.status,
           onChange: lq.setStatus,
-          label: L("상태", "Status"),
+          label: t("admin_ptr_status"),
           options: [
-            { value: "", label: L("모든 상태", "All statuses") },
+            { value: "", label: t("admin_ptr_all_statuses") },
             { value: PLATFORM_POPUP_LIVE_STATUS_FILTER, label: platformPopupLiveStatusFilterLabel(lang) },
             ...PLATFORM_POPUP_CAMPAIGN_STATUSES.map((s) => ({ value: s, label: platformPopupCampaignStatusLabel(s, lang) })),
           ],
@@ -214,7 +210,7 @@ export function AdminPtrRevealListPage() {
           <AdminEmptyState ko={ko} onReset={lq.reset} />
         : <AdminEmptyState
             ko={ko}
-            message={L("등록된 당겨서 새로고침 광고가 없습니다.", "No pull-to-refresh ads yet.")}
+            message={t("admin_ptr_no_pull_refresh_ads")}
             action={
               <AdminActionButton
                 variant="primary"
@@ -224,7 +220,7 @@ export function AdminPtrRevealListPage() {
                 onClick={() => void create()}
                 data-admin-ptr-empty-create=""
               >
-                {L("등록", "Create")}
+                {t("admin_ptr_register")}
               </AdminActionButton>
             }
           />
@@ -233,12 +229,12 @@ export function AdminPtrRevealListPage() {
           <table className="min-w-full border-collapse text-[13px]" data-admin-ptr-table="">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-left text-[12px] text-sam-muted">
-                <th className={TH}>{L("광고 이미지", "Creative")}</th>
-                <th className={TH}>{L("이름", "Name")}</th>
-                <th className={TH}>{L("위치", "Where")}</th>
-                <th className={TH}>{L("기간", "Schedule")}</th>
-                <th className={TH}>{L("상태", "Status")}</th>
-                <th className={`${TH} text-right`}>{L("관리", "Actions")}</th>
+                <th className={TH}>{t("admin_ptr_creative")}</th>
+                <th className={TH}>{t("admin_ptr_name")}</th>
+                <th className={TH}>{t("admin_ptr_where")}</th>
+                <th className={TH}>{t("admin_ptr_schedule")}</th>
+                <th className={TH}>{t("admin_ptr_status")}</th>
+                <th className={`${TH} text-right`}>{t("admin_ptr_actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -261,8 +257,8 @@ export function AdminPtrRevealListPage() {
                     {item.surfaces.map((sf) => popupSurfaceOperatorLabel(sf, lang)).join(", ") || "—"}
                   </td>
                   <td className={`${TD} whitespace-nowrap text-[12px] text-sam-muted`}>
-                    {item.startAt ? formatAdminManilaDateTime(item.startAt) : L("시작 즉시", "Immediate")} ~{" "}
-                    {item.endAt ? formatAdminManilaDateTime(item.endAt) : L("종료일 없음", "No end")}
+                    {item.startAt ? formatAdminManilaDateTime(item.startAt) : t("admin_ptr_immediate")} ~{" "}
+                    {item.endAt ? formatAdminManilaDateTime(item.endAt) : t("admin_ptr_no_end")}
                   </td>
                   <td className={`${TD} whitespace-nowrap`}>
                     <AdminToneBadge tone={item.status === "active" ? "success" : item.status === "rejected" || item.status === "ended" ? "danger" : "neutral"}>
@@ -272,7 +268,7 @@ export function AdminPtrRevealListPage() {
                   <td className={`${TD} text-right`}>
                     <div className="flex flex-wrap justify-end gap-1.5">
                       <AdminActionButton variant="ghost" size="sm" disabled={busy || !writeGuard.allowed} onClick={() => void copy(item)}>
-                        {L("복사", "Copy")}
+                        {t("admin_ptr_copy")}
                       </AdminActionButton>
                       <AdminActionLink href={`/admin/ptr-reveal-ads/${item.id}`} variant="ghost" size="sm">
                         {adminCta("edit", ko)}

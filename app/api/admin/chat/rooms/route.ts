@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: await adminServerText("admin_api_server_config_required") }, { status: 500 });
   }
 
   const sbAny = sb;
@@ -141,6 +142,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const tradeChatTitle = await adminServerText("admin_api_trade_chat_title");
   let roomsWithMeta = list.map((r) => {
     const trade = r.room_type === "item_trade";
     const leftId = (trade ? r.seller_id : r.initiator_id) ?? "";
@@ -148,7 +150,7 @@ export async function GET(req: NextRequest) {
     let productTitle = "";
     if (r.item_id) productTitle = titleByPostId[r.item_id] ?? "";
     else if (r.related_post_id) productTitle = titleByPostId[r.related_post_id] ?? "";
-    if (!productTitle && r.room_type === "item_trade") productTitle = "거래 채팅";
+    if (!productTitle && r.room_type === "item_trade") productTitle = tradeChatTitle;
     return {
       ...r,
       productTitle,

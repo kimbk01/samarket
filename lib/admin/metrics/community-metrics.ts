@@ -19,6 +19,7 @@ import {
   communityAreaAllowed,
   type CommunityAdminArea,
 } from "@/lib/admin/community-admin/community-admin-permissions";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 export type CommunityMetricSection = "action" | "risk" | "state" | "period";
 
@@ -83,8 +84,7 @@ export const COMMUNITY_ADMIN_PAGE_FILTERS: Readonly<Record<string, Readonly<Reco
 
 function queueMetric(
   id: string,
-  labelKo: string,
-  labelEn: string,
+  label: MessageKey,
   category: AdminActionQueueCategory,
   area: CommunityAdminArea,
   href: string
@@ -94,8 +94,8 @@ function queueMetric(
   return {
     id,
     labelKey: `admin_community_metric.${id.replace(/^community\./, "")}`,
-    labelKo,
-    labelEn,
+    labelKo: translate("ko", label),
+    labelEn: translate("en", label),
     section: "action",
     source: { kind: "queue", categories: [category] },
     area,
@@ -106,8 +106,7 @@ function queueMetric(
 
 function direct(
   id: string,
-  labelKo: string,
-  labelEn: string,
+  label: MessageKey,
   section: CommunityMetricSection,
   area: CommunityAdminArea,
   href: string,
@@ -117,8 +116,8 @@ function direct(
   return {
     id,
     labelKey: `admin_community_metric.${id.replace(/^community\./, "")}`,
-    labelKo,
-    labelEn,
+    labelKo: translate("ko", label),
+    labelEn: translate("en", label),
     section,
     source: { kind: "direct", description },
     area,
@@ -127,12 +126,12 @@ function direct(
   };
 }
 
-function period(id: string, labelKo: string, labelEn: string, path: string, href: string): CommunityMetricDefinition {
+function period(id: string, label: MessageKey, path: string, href: string): CommunityMetricDefinition {
   return {
     id,
     labelKey: `admin_community_metric.${id.replace(/^community\./, "")}`,
-    labelKo,
-    labelEn,
+    labelKo: translate("ko", label),
+    labelEn: translate("en", label),
     section: "period",
     source: { kind: "period_stats", path },
     area: "read",
@@ -145,27 +144,24 @@ const STATS = "/admin/community/stats";
 
 export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] = [
   // ── D-2 처리 대기 (현재 시점) ───────────────────────────────────────────
-  queueMetric("community.reports_pending", "신고 처리 대기", "Reports pending", "community_reports", "moderation", "/admin/community/reports?tab=pending"),
+  queueMetric("community.reports_pending", "admin_community_metric_reports_pending", "community_reports", "moderation", "/admin/community/reports?tab=pending"),
   queueMetric(
     "community.meeting_reports_pending",
-    "모임 신고 대기",
-    "Meeting reports pending",
+    "admin_community_metric_meeting_reports_pending",
     "meeting_reports",
     "moderation",
     "/admin/philife/meeting-reports?status=pending"
   ),
   queueMetric(
     "community.point_charges_pending",
-    "충전 승인 대기",
-    "Point top-ups pending",
+    "admin_community_metric_point_charges_pending",
     "user_charges",
     "points",
     "/admin/community/point-charges?status=pending"
   ),
   direct(
     "community.support_waiting",
-    "커뮤니티 문의 대기",
-    "Community inquiries waiting",
+    "admin_community_metric_support_waiting",
     "action",
     "content",
     "/admin/community/support?status=waiting",
@@ -173,8 +169,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.appeals_waiting",
-    "이의신청 대기",
-    "Appeals waiting",
+    "admin_community_metric_appeals_waiting",
     "action",
     "moderation",
     "/admin/community/support?status=waiting&type=appeal",
@@ -182,8 +177,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.meetings_pending_approval",
-    "모임 승인 대기",
-    "Meetings pending approval",
+    "admin_community_metric_meetings_pending_approval",
     "action",
     "content",
     "/admin/community/meetings?status=pending",
@@ -191,8 +185,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.import_failures_7d",
-    "외부 수집 실패 (최근 7일)",
-    "Import failures (last 7 days)",
+    "admin_community_metric_import_failures_7d",
     "action",
     "content",
     "/admin/community/external-import?tab=jobs&status=failed",
@@ -202,8 +195,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   // ── 위험 ────────────────────────────────────────────────────────────────
   direct(
     "community.reports_stale_24h",
-    "24시간 넘은 신고",
-    "Reports older than 24h",
+    "admin_community_metric_reports_stale_24h",
     "risk",
     "moderation",
     "/admin/community/reports?tab=pending&stale=24h",
@@ -213,8 +205,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   // ── D-3 현재 상태 ───────────────────────────────────────────────────────
   direct(
     "community.posts_active.member",
-    "공개 게시글 · 회원 작성",
-    "Public posts · members",
+    "admin_community_metric_posts_active_member",
     "state",
     "content",
     "/admin/community/posts?tab=active&origin=member",
@@ -222,28 +213,25 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.posts_active.imported",
-    "공개 게시글 · 외부 수집",
-    "Public posts · imported",
+    "admin_community_metric_posts_active_imported",
     "state",
     "content",
     "/admin/community/posts?tab=active&origin=imported",
     "community_posts status=active, origin_kind=imported"
   ),
-  direct("community.posts_hidden", "관리자 숨김 게시글", "Hidden posts", "state", "content", "/admin/community/posts?tab=hidden", "community_posts status=hidden"),
+  direct("community.posts_hidden", "admin_community_metric_posts_hidden", "state", "content", "/admin/community/posts?tab=hidden", "community_posts status=hidden"),
   direct(
     "community.comments_hidden",
-    "관리자 숨김 댓글",
-    "Hidden comments",
+    "admin_community_metric_comments_hidden",
     "state",
     "content",
     "/admin/community/comments?tab=hidden",
     "community_comments status=hidden"
   ),
-  direct("community.posts_deleted", "삭제된 게시글", "Deleted posts", "state", "content", "/admin/community/posts?tab=deleted", "community_posts status=deleted"),
+  direct("community.posts_deleted", "admin_community_metric_posts_deleted", "state", "content", "/admin/community/posts?tab=deleted", "community_posts status=deleted"),
   direct(
     "community.comments_deleted",
-    "삭제된 댓글",
-    "Deleted comments",
+    "admin_community_metric_comments_deleted",
     "state",
     "content",
     "/admin/community/comments?tab=deleted",
@@ -251,8 +239,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.restrictions_active",
-    "활동 제한 중 회원",
-    "Members under restriction",
+    "admin_community_metric_restrictions_active",
     "state",
     "moderation",
     "/admin/community/restrictions?tab=active",
@@ -260,8 +247,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.suspended_authors",
-    "계정 정지 중 작성자",
-    "Suspended authors",
+    "admin_community_metric_suspended_authors",
     "state",
     "moderation",
     "/admin/community/members?account=suspended",
@@ -269,8 +255,7 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
   direct(
     "community.promotions_running",
-    "노출 중 상위노출",
-    "Running promotions",
+    "admin_community_metric_promotions_running",
     "state",
     "promotion",
     "/admin/community/promotions?tab=active",
@@ -278,21 +263,21 @@ export const COMMUNITY_METRIC_DEFINITIONS: readonly CommunityMetricDefinition[] 
   ),
 
   // ── D-4 기간 통계 (선택 기간 · 마닐라) ─────────────────────────────────────
-  period("community.period.posts_total", "신규 게시글", "New posts", "posts.total", STATS),
-  period("community.period.posts_member", "신규 게시글 · 회원", "New posts · members", "posts.member", STATS),
-  period("community.period.posts_imported", "신규 게시글 · 외부 수집", "New posts · imported", "posts.imported", STATS),
-  period("community.period.posts_active_now", "신규 게시글 중 현재 공개", "New posts still public", "posts.active_now", STATS),
-  period("community.period.comments", "신규 댓글", "New comments", "comments.top_level", STATS),
-  period("community.period.replies", "신규 답글", "New replies", "comments.replies", STATS),
-  period("community.period.active_authors", "활성 작성자", "Active authors", "authors.active", STATS),
-  period("community.period.new_authors", "신규 작성자", "New authors", "authors.new", STATS),
-  period("community.period.reports_received", "신고 접수", "Reports received", "reports.received", STATS),
-  period("community.period.reports_processed", "신고 처리", "Reports processed", "reports.processed", STATS),
-  period("community.period.admin_actions", "관리자 조치", "Admin actions", "admin_actions.total", "/admin/community/audit"),
-  period("community.period.charges_approved", "충전 승인", "Top-ups approved", "charges.approved_count", STATS),
-  period("community.period.charges_rejected", "충전 반려", "Top-ups rejected", "charges.rejected_count", STATS),
-  period("community.period.promotions_new", "신규 상위노출", "New promotions", "promotions.new_count", STATS),
-  period("community.period.promotions_ended", "종료된 상위노출", "Promotions ended", "promotions.ended_count", STATS),
+  period("community.period.posts_total", "admin_community_metric_period_posts_total", "posts.total", STATS),
+  period("community.period.posts_member", "admin_community_metric_period_posts_member", "posts.member", STATS),
+  period("community.period.posts_imported", "admin_community_metric_period_posts_imported", "posts.imported", STATS),
+  period("community.period.posts_active_now", "admin_community_metric_period_posts_active_now", "posts.active_now", STATS),
+  period("community.period.comments", "admin_community_metric_period_comments", "comments.top_level", STATS),
+  period("community.period.replies", "admin_community_metric_period_replies", "comments.replies", STATS),
+  period("community.period.active_authors", "admin_community_metric_period_active_authors", "authors.active", STATS),
+  period("community.period.new_authors", "admin_community_metric_period_new_authors", "authors.new", STATS),
+  period("community.period.reports_received", "admin_community_metric_period_reports_received", "reports.received", STATS),
+  period("community.period.reports_processed", "admin_community_metric_period_reports_processed", "reports.processed", STATS),
+  period("community.period.admin_actions", "admin_community_metric_period_admin_actions", "admin_actions.total", "/admin/community/audit"),
+  period("community.period.charges_approved", "admin_community_metric_period_charges_approved", "charges.approved_count", STATS),
+  period("community.period.charges_rejected", "admin_community_metric_period_charges_rejected", "charges.rejected_count", STATS),
+  period("community.period.promotions_new", "admin_community_metric_period_promotions_new", "promotions.new_count", STATS),
+  period("community.period.promotions_ended", "admin_community_metric_period_promotions_ended", "promotions.ended_count", STATS),
 ];
 
 export type CommunityMetricId = (typeof COMMUNITY_METRIC_DEFINITIONS)[number]["id"];

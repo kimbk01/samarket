@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,11 +39,11 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_json_required") }, { status: 400 });
   }
   const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_room_id_required") }, { status: 400 });
   }
   const reason = parseTradeFlowAdminReason(body.reason);
   if (!reason) {
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (pcErr || !pc) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_chat_room_not_found") }, { status: 404 });
   }
 
   const row = pc as {
@@ -79,10 +80,10 @@ export async function POST(req: NextRequest) {
   };
   const flow = String(row.trade_flow_status ?? "chatting");
   if (flow === "chatting") {
-    return NextResponse.json({ ok: false, error: "이미 판매중(채팅) 단계입니다." }, { status: 409 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_trade_flow_already_selling") }, { status: 409 });
   }
   if (!REVERTABLE.has(flow)) {
-    return NextResponse.json({ ok: false, error: "되돌릴 수 없는 거래 단계입니다." }, { status: 409 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_trade_flow_cannot_revert") }, { status: 409 });
   }
 
   const postId = row.post_id;
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: "판매가 확정된 구매자와의 채팅방에서만 전체 되돌리기를 할 수 있습니다.",
+        error: await adminServerText("admin_api_trade_flow_revert_only_sold_buyer"),
       },
       { status: 409 }
     );

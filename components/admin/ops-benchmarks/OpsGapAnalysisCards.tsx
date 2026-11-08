@@ -11,18 +11,18 @@ import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { AdminFilterSelect } from "@/components/admin/sync-list/AdminFilterSelect";
 
-const SCOPE_LABELS: Record<OpsBenchmarkScope, string> = {
-  quarterly: "분기",
-  yearly: "연간",
+const SCOPE_LABELS: Record<OpsBenchmarkScope, MessageKey> = {
+  quarterly: "admin_ops_bench_scope_quarterly",
+  yearly: "admin_ops_bench_scope_yearly",
 };
 
-const DOMAIN_LABELS: Record<OpsBenchmarkDomain, string> = {
-  recommendation_quality: "추천 품질",
-  incident_response: "장애 대응",
-  automation: "자동화 수준",
-  documentation: "문서 최신화",
-  execution: "운영 실행력",
-  learning: "학습/회고 성숙도",
+const DOMAIN_LABELS: Record<OpsBenchmarkDomain, MessageKey> = {
+  recommendation_quality: "admin_ops_bench_domain_recommendation_quality",
+  incident_response: "admin_ops_bench_domain_incident_response",
+  automation: "admin_ops_bench_domain_automation",
+  documentation: "admin_ops_bench_domain_documentation",
+  execution: "admin_ops_bench_domain_execution",
+  learning: "admin_ops_bench_domain_learning",
 };
 
 const SCOPE_EXTRAS = ["scope"] as const;
@@ -52,17 +52,17 @@ export function OpsGapAnalysisCards() {
           includeAll={false}
           value={scope}
           onChange={(v) => lq.setExtra("scope", v)}
-          options={(["quarterly", "yearly"] as const).map((s) => ({ value: s, label: SCOPE_LABELS[s] }))}
+          options={(["quarterly", "yearly"] as const).map((s) => ({ value: s, label: t(SCOPE_LABELS[s]) }))}
         />
       </AdminFilterBar>
 
       {highGap.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"목표 대비 갭이 큰 영역이 없습니다."} />
+        <AdminEmptyState ko={ko} message={t("admin_ops_bench_no_gaps")} />
       ) : (
         <>
           <div>
             <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
-              갭 분석 (목표 미달 영역 강조)
+              {t("admin_ops_benchmarks_gap_heading")}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {highGap.map(({ domain, gapScore }) => (
@@ -71,13 +71,13 @@ export function OpsGapAnalysisCards() {
                   className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft p-4"
                 >
                   <p className="sam-text-helper text-sam-muted">
-                    {DOMAIN_LABELS[domain]}
+                    {t(DOMAIN_LABELS[domain])}
                   </p>
                   <p className="mt-1 sam-text-page-title font-semibold text-sam-warning">
-                    갭 +{gapScore}
+                    {t("admin_ops_benchmarks_gap_score", { score: gapScore })}
                   </p>
                   <p className="mt-1 sam-text-helper text-sam-muted">
-                    개선 우선순위 추천
+                    {t("admin_ops_benchmarks_priority_reco")}
                   </p>
                 </div>
               ))}
@@ -85,10 +85,10 @@ export function OpsGapAnalysisCards() {
           </div>
           <div>
             <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
-              개선 우선순위 추천
+              {t("admin_ops_benchmarks_priority_reco")}
             </h3>
             <p className="sam-text-body-secondary text-sam-muted">
-              위 갭이 큰 영역 순으로 분기 계획·로드맵에 반영을 권장합니다.
+              {t("admin_ops_benchmarks_priority_reco_desc")}
             </p>
           </div>
         </>

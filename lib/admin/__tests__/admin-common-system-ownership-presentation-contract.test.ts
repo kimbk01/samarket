@@ -61,7 +61,7 @@ describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
 
     expect(table).toContain('t("admin_users_admin_privilege")');
     expect(copyAdminB4Ops1Messages.ko.admin_users_admin_privilege).toBe("관리 권한");
-    expect(table).toContain("memberListPrivilegeLabelKo");
+    expect(table).toContain("memberListPrivilegeLabel");
 
     // Catalog still keeps staff ownership keys for other surfaces.
     const catalog = read("lib/i18n/catalog/admin.ts");

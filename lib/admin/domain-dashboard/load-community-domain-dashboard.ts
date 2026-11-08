@@ -125,12 +125,13 @@ export async function loadCommunityDomainDashboard(input: CommunityDashboardInpu
       }
     }
     for (const row of (auditRes.data ?? []) as Record<string, string | null>[]) {
-      const who = (row.actor_id && names.get(row.actor_id)) || "관리자";
+      const actorName = row.actor_id && names.get(row.actor_id);
+      const admin = catalogPair("admin_community_actor_admin");
       recent.push({
         id: String(row.id),
         title: String(row.action ?? ""),
-        metaKo: `${who} · ${row.target_type ?? ""}`,
-        metaEn: `${who} · ${row.target_type ?? ""}`,
+        metaKo: `${actorName || admin.ko} · ${row.target_type ?? ""}`,
+        metaEn: `${actorName || admin.en} · ${row.target_type ?? ""}`,
         href: `/admin/community/audit?targetType=${encodeURIComponent(String(row.target_type ?? ""))}&targetId=${encodeURIComponent(String(row.target_id ?? ""))}`,
         at: row.created_at ?? null,
       });

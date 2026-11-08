@@ -36,14 +36,14 @@ export function QaPilotCheckTable() {
   );
 
   const categories = [
-    { value: "" as const, label: "전체" },
-    { value: "onboarding" as const, label: "온보딩" },
-    { value: "browsing" as const, label: "둘러보기" },
+    { value: "" as const, labelKey: "admin_all" as const },
+    { value: "onboarding" as const, labelKey: "admin_qa_board_pilot_onboarding" as const },
+    { value: "browsing" as const, labelKey: "admin_qa_board_pilot_browsing" as const },
     { value: "posting" as const, labelKey: "admin_feed_emergency_posting" as const },
     { value: "chat" as const, labelKey: "admin_review_chat_2" as const },
-    { value: "reporting" as const, label: "신고" },
-    { value: "points" as const, label: "포인트" },
-    { value: "admin_response" as const, label: "관리자 응답" },
+    { value: "reporting" as const, labelKey: "admin_qa_board_pilot_reporting" as const },
+    { value: "points" as const, labelKey: "admin_qa_board_pilot_points" as const },
+    { value: "admin_response" as const, labelKey: "admin_qa_board_pilot_admin_response" as const },
   ];
 
   return (
@@ -60,21 +60,21 @@ export function QaPilotCheckTable() {
         <AdminFilterSelect ko={ko} label={t("admin_qa_category")} name="category" value={lq.query.extras.category} onChange={(v) => lq.setExtra("category", v)}>
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
-              {c.label}
+              {t(c.labelKey)}
             </option>
           ))}
         </AdminFilterSelect>
       </AdminFilterBar>
 
       <p className="sam-text-helper text-sam-muted">
-        파일럿 사용자 피드백 목록은 별도 placeholder로 확장 가능합니다.
+        {t("admin_qa_board_pilot_feedback_hint")}
       </p>
 
       {checks.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"파일럿 체크 항목이 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_qa_board_no_pilot_checks")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
-          headers={["제목", "분류", "상태", "담당", "비고"]}
+          headers={[t("admin_qa_board_th_title"), t("admin_qa_board_th_category"), t("admin_qa_board_th_status"), t("admin_qa_board_th_owner"), t("admin_qa_board_th_note")]}
         >
           {checks.map((c) => (
             <tr

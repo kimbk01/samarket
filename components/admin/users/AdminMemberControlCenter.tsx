@@ -34,8 +34,8 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { AdminUserPointsSection } from "@/components/admin/users/AdminUserPointsSection";
 import { AdminUserTrustSection } from "@/components/admin/users/AdminUserTrustSection";
 import {
-  MEMBER_DETAIL_BACK_LIST_KO,
-  MEMBER_DETAIL_TAB_LABEL_KO,
+  MEMBER_DETAIL_BACK_LIST_KEY,
+  MEMBER_DETAIL_TAB_LABEL_KEY,
   memberDetailDangerActions,
   memberDetailListHrefFallback,
   memberDetailShouldUseHistoryBack,
@@ -172,24 +172,24 @@ export function AdminMemberControlCenter({
       if (dangerBusy) return;
       const label =
         actionId === "purge"
-          ? "영구 삭제"
+          ? t("admin_users_member_action_purge")
           : actionId === "withdraw"
-            ? "탈퇴 처리"
+            ? t("admin_users_member_action_withdraw")
             : actionId === "suspend"
-              ? "이용 정지"
+              ? t("admin_users_member_action_suspend")
               : actionId === "block"
-                ? "이용 차단"
+                ? t("admin_users_member_action_block")
                 : actionId === "unsuspend"
-                  ? "정지 해제"
+                  ? t("admin_users_member_action_unsuspend")
                   : actionId === "unblock"
-                    ? "차단 해제"
+                    ? t("admin_users_member_action_unblock")
                     : actionId === "warn"
-                      ? "경고"
+                      ? t("admin_users_member_action_warn")
                       : actionId;
       let confirmTitle =
         actionId === "purge"
-          ? "이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다."
-          : `${label}을(를) 실행할까요?`;
+          ? t("admin_users_member_purge_confirm_title")
+          : t("admin_users_member_action_confirm_title", { label });
       if (actionId === "purge") {
         try {
           const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/purge-preview`, {
@@ -204,21 +204,20 @@ export function AdminMemberControlCenter({
           };
           if (res.ok && data.ok) {
             if (data.protectedTarget) {
-              await dibayAlert({ title: "관리자·최고관리자 계정은 영구 삭제할 수 없습니다." });
+              await dibayAlert({ title: t("admin_users_member_purge_protected_admin") });
               return;
             }
             if (!data.purgeAllowed) {
               await dibayAlert({
-                title: `영구 삭제가 차단되었습니다.\n${(data.blockers ?? []).join("\n") || "unknown"}`,
+                title: t("admin_users_member_purge_blocked", { blockers: (data.blockers ?? []).join("\n") || "unknown" }),
               });
               return;
             }
-            confirmTitle = `이 회원을 영구 삭제하시겠습니까? 되돌릴 수 없습니다.\n영향 검사: 통과`;
+            confirmTitle = t("admin_users_member_purge_confirm_title_checked");
           }
         } catch {
           /* preview failure does not auto-allow; still confirm with warning */
-          confirmTitle =
-            "영향 미리보기에 실패했습니다. 그래도 영구 삭제를 시도할까요? (서버가 다시 검증합니다)";
+          confirmTitle = t("admin_users_member_purge_preview_failed_confirm");
         }
       }
       // R2 — 영구 삭제·탈퇴 = purge(L3: 사유 + 대상 재입력) · 정지·차단·경고 = sanction(L2) · 해제 = liftSanction(L2).
@@ -252,7 +251,7 @@ export function AdminMemberControlCenter({
           const extra =
             result.blockers && result.blockers.length > 0 ? `\n${result.blockers.join(", ")}` : "";
           await dibayAlert({
-            title: `${result.message ?? result.error ?? "작업에 실패했습니다."}${extra}`,
+            title: `${result.message ?? result.error ?? t("admin_users_member_action_failed")}${extra}`,
           });
           return;
         }
@@ -262,14 +261,14 @@ export function AdminMemberControlCenter({
         }
         // 회원 제재 ↔ 사장님 매장 판매 연동 경고 (DEF-68)
         if (result.message) {
-          await dibayAlert({ title: "처리되었습니다", description: result.message });
+          await dibayAlert({ title: t("admin_users_member_action_done"), description: result.message });
         }
         onUpdated?.();
       } finally {
         setDangerBusy(false);
       }
     },
-    [dangerBusy, onUpdated, user.id, user.nickname, user.display_name, user.username],
+    [dangerBusy, onUpdated, user.id, user.nickname, user.display_name, user.username, t],
   );
 
   return (
@@ -280,7 +279,7 @@ export function AdminMemberControlCenter({
             <span>{t("admin_users_lite_breadcrumb_members")}</span>
             <span className="mx-1.5 text-sam-meta">›</span>
             <AdminActionButton variant="quiet" size="sm" className="!h-auto !px-0 text-xs" onClick={goBackToList}>
-              {MEMBER_DETAIL_BACK_LIST_KO}
+              {t(MEMBER_DETAIL_BACK_LIST_KEY)}
             </AdminActionButton>
             <span className="mx-1.5 text-sam-meta">›</span>
             <span className="text-sam-fg">{t("admin_users_detail_title")}</span>
@@ -307,7 +306,7 @@ export function AdminMemberControlCenter({
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-1" data-member-detail-tabs="1">
           <AdminTabs
             ariaLabel={t("admin_users_detail_title")}
-            tabs={ADMIN_MEMBER_CC_TABS.map((id) => ({ id, label: MEMBER_DETAIL_TAB_LABEL_KO[id] }))}
+            tabs={ADMIN_MEMBER_CC_TABS.map((id) => ({ id, label: t(MEMBER_DETAIL_TAB_LABEL_KEY[id]) }))}
             value={tab}
             syncUrl={false}
             onChange={(id) => selectTab(id as AdminMemberCcTab)}

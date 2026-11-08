@@ -59,7 +59,7 @@ export function OpsTeamKpiTable() {
       const lowerIsBetter = key === "incidentAvgResolutionMinutes" || key === "fallbackRate";
       const isRate = key.includes("Rate") || key.includes("Change");
       const fmt = (v: number) =>
-        key === "incidentAvgResolutionMinutes" ? `${v}분` : isRate ? `${(v * 100).toFixed(2)}%` : v.toFixed(2);
+        key === "incidentAvgResolutionMinutes" ? t("admin_ops_tools_runbook_minutes", { n: v }) : isRate ? `${(v * 100).toFixed(2)}%` : v.toFixed(2);
       return { key, label: t(opsToolsLabel(OPS_TOOLS_KPI_KEYS, key)), current: curr, previous: prev, fmt, lowerIsBetter };
     });
   }, [currKpi, prevKpi]);

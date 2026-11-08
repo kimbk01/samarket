@@ -19,9 +19,9 @@ import { communityAdminListPeriodParams } from "@/lib/admin/community-admin/comm
 import { imageSanitizeViewerMediaUrl } from "@/lib/image/image-url";
 import { loadTradeFeedThumbnailFetchUrl } from "@/lib/image/image-loader";
 import {
-  MODERATION_STATE_LABELS,
-  OWNER_STATE_LABELS,
-  SELLER_STAGE_LABELS,
+  MODERATION_STATE_LABEL_KEYS,
+  OWNER_STATE_LABEL_KEYS,
+  SELLER_STAGE_LABEL_KEYS,
 } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { withAdminReturnTo } from "@/lib/admin/admin-operation-return-context";
 import { formatAdminNumber, formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
@@ -74,8 +74,10 @@ const STAGE_TONE: Record<string, AdminTone> = {
 
 /** 판매 단계 (판매 상태) */
 export function TradeStageBadge({ value }: { value: string | null | undefined }) {
+  const { t } = useI18n();
   const v = String(value ?? "");
-  return <AdminToneBadge tone={STAGE_TONE[v] ?? "neutral"}>{SELLER_STAGE_LABELS[v] ?? "—"}</AdminToneBadge>;
+  const stageKey = SELLER_STAGE_LABEL_KEYS[v];
+  return <AdminToneBadge tone={STAGE_TONE[v] ?? "neutral"}>{stageKey ? t(stageKey) : "—"}</AdminToneBadge>;
 }
 
 /** 노출 상태 — 관리자 노출과 판매자 노출을 따로 보여 준다 (섞지 않음) */
@@ -94,10 +96,10 @@ export function TradeVisibilityBadges({
     <span className="flex flex-wrap gap-1">
       {m !== "visible" ? (
         <AdminToneBadge tone={m === "admin_deleted" ? "danger" : "warning"}>
-          {MODERATION_STATE_LABELS[m] ?? m}
+          {MODERATION_STATE_LABEL_KEYS[m] ? t(MODERATION_STATE_LABEL_KEYS[m]) : m}
         </AdminToneBadge>
       ) : null}
-      {o !== "none" ? <AdminToneBadge tone="neutral">{OWNER_STATE_LABELS[o] ?? o}</AdminToneBadge> : null}
+      {o !== "none" ? <AdminToneBadge tone="neutral">{OWNER_STATE_LABEL_KEYS[o] ? t(OWNER_STATE_LABEL_KEYS[o]) : o}</AdminToneBadge> : null}
     </span>
   );
 }
@@ -112,17 +114,18 @@ export function TradeMemberCell({
   label: string | null | undefined;
   returnTo?: string;
 }) {
+  const { t } = useI18n();
   if (!userId) return <span className="text-sam-muted">—</span>;
   const href = `/admin/trade/members/${encodeURIComponent(userId)}`;
   return (
     <Link href={returnTo ? withAdminReturnTo(href, returnTo) : href} className="font-medium text-sam-primary hover:underline">
-      {label?.trim() || "이름 없음"}
+      {label?.trim() || t("admin_trade_kit_no_name")}
     </Link>
   );
 }
 
 export function formatTradePrice(price: unknown, freeShare?: unknown): string {
-  if (freeShare === true) return "나눔";
+  if (freeShare === true) return translate(getRuntimeAppLanguage(), "admin_trade_kit_free_share");
   const n = typeof price === "number" ? price : Number(price);
   if (!Number.isFinite(n)) return "—";
   return formatAdminPhp(n);
@@ -192,15 +195,16 @@ export function tradeListApiParams<E extends string>(
  */
 export function tradeListPeriodText(params: URLSearchParams): string {
   const period = params.get("period") ?? "all";
-  if (period === "today") return "오늘";
-  if (period === "7d") return "최근 7일";
-  if (period === "30d") return "최근 30일";
+  const lang = getRuntimeAppLanguage();
+  if (period === "today") return translate(lang, "admin_trade_kit_period_today");
+  if (period === "7d") return translate(lang, "admin_trade_kit_period_7d");
+  if (period === "30d") return translate(lang, "admin_trade_kit_period_30d");
   if (period === "custom") {
     const from = params.get("from") ?? "";
     const to = params.get("to") ?? from;
     return from === to ? from : `${from} ~ ${to}`;
   }
-  return "전체 기간";
+  return translate(lang, "admin_trade_kit_period_all");
 }
 
 /**
@@ -208,19 +212,20 @@ export function tradeListPeriodText(params: URLSearchParams): string {
  * 날짜나 옛 프리셋이 걸려 있으면 표시하지 않는다 (필터 바가 직접 보여 준다).
  */
 export function TradeDefaultPeriodField<E extends string>({ lq }: { lq: CommunityListQuery<E> }) {
+  const { t } = useI18n();
   if (lq.query.from || lq.query.to || lq.legacyPeriod) return null;
   const all = String(lq.query.extras["period" as E | "period"] ?? "").trim() === "all";
   return (
-    <CommunityFilterField label="기간 (필리핀 시간)">
+    <CommunityFilterField label={t("admin_trade_kit_period_pht")}>
       <span className="flex h-10 items-center gap-2 text-[13px] text-sam-fg">
-        {all ? "전체 기간" : "최근 30일 (기본)"}
+        {all ? t("admin_trade_kit_period_all") : t("admin_trade_kit_period_30d_default")}
         <AdminActionButton
           variant="quiet"
           size="sm"
           className="h-auto! px-1!"
           onClick={() => lq.patch({ extras: { period: all ? "" : "all" } as Partial<Record<E | "period", string>> })}
         >
-          {all ? "최근 30일로" : "전체 기간 보기"}
+          {all ? t("admin_trade_kit_period_to_30d") : t("admin_trade_kit_period_show_all")}
         </AdminActionButton>
       </span>
     </CommunityFilterField>

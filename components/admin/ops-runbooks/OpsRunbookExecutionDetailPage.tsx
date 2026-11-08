@@ -104,7 +104,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
       </div>
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         syncUrl={false}
@@ -143,8 +143,8 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
             <div className="border-t border-sam-border-soft pt-3 sam-text-body-secondary text-sam-muted">
               시작 {formatAdminManilaDateTime(exec.startedAt)} ·{" "}
               {exec.completedAt
-                ? `완료 ${formatAdminManilaDateTime(exec.completedAt)}`
-                : "진행 중"}
+                ? t("admin_ops_runbooks_completed_at", { time: formatAdminManilaDateTime(exec.completedAt) })
+                : t("admin_ops_runbooks_in_progress")}
               {" · "}
               담당 {exec.startedByAdminNickname}
             </div>

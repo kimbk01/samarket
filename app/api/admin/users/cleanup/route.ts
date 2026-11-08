@@ -4,6 +4,7 @@ import { requireSuperAdmin } from "@/lib/admin/require-admin-permission";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,5 +47,5 @@ export async function POST(req: NextRequest) {
     after: { kept: "role=admin", reason },
   });
 
-  return NextResponse.json({ ok: true, message: "관리자(role=admin) 계정만 남겼습니다." });
+  return NextResponse.json({ ok: true, message: await adminServerText("admin_api_users_cleanup_done") });
 }

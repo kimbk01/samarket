@@ -42,7 +42,7 @@ export function AdminSecurityPage() {
       <AdminPageHeader titleKey="admin_menu_dev_security" />
       <AdminTabs
         tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_security_screen_tabs_aria")}
         defaultValue="summary"
         resetParams={adminSyncTabResetParams(["type", "issue_status"])}
         className="mb-4"

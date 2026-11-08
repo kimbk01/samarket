@@ -66,7 +66,7 @@ export function FeedEmergencyLogList() {
         onSizeChange={lq.setSize}
         onRetry={lq.refresh}
         onReset={lq.isFiltered ? lq.reset : undefined}
-        emptyMessage="긴급 조치 로그가 없습니다."
+        emptyMessage={t("admin_feed_emergency_logs_empty")}
       >
         {(logs) => (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -74,22 +74,22 @@ export function FeedEmergencyLogList() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  일시
+                  {t("admin_feed_emergency_log_col_time")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   surface
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  액션
+                  {t("admin_feed_emergency_log_col_action")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  섹션
+                  {t("admin_feed_emergency_log_col_section")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  담당
+                  {t("admin_feed_emergency_log_col_actor")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  비고
+                  {t("admin_feed_emergency_log_col_note")}
                 </th>
               </tr>
             </thead>

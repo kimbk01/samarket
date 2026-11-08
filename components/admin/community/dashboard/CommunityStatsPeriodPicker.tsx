@@ -7,12 +7,14 @@
 import { useState } from "react";
 import { CommunityFilterField, CommunitySelect } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const OPTIONS = [
-  { value: "today", label: "오늘" },
-  { value: "7d", label: "최근 7일" },
-  { value: "30d", label: "최근 30일" },
-  { value: "custom", label: "직접 지정" },
+const OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "today", labelKey: "admin_community_period_today" },
+  { value: "7d", labelKey: "admin_community_period_7d" },
+  { value: "30d", labelKey: "admin_community_period_30d" },
+  { value: "custom", labelKey: "admin_community_period_custom" },
 ];
 
 const FIELD =
@@ -29,12 +31,13 @@ export function CommunityStatsPeriodPicker({
   to: string;
   onChange: (v: { period: string; from: string; to: string }) => void;
 }) {
+  const { t } = useI18n();
   const [draftFrom, setDraftFrom] = useState(from);
   const [draftTo, setDraftTo] = useState(to);
   const [custom, setCustom] = useState(period === "custom");
   const value = custom ? "custom" : period || "7d";
   return (
-    <CommunityFilterField label="기간 (필리핀 시간)">
+    <CommunityFilterField label={t("admin_community_period_label_pht")}>
       <div className="flex flex-wrap items-center gap-1">
         <CommunitySelect
           value={value}
@@ -46,7 +49,7 @@ export function CommunityStatsPeriodPicker({
             setCustom(false);
             onChange({ period: p, from: "", to: "" });
           }}
-          options={OPTIONS}
+          options={OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
         />
         {value === "custom" ? (
           <>
@@ -58,7 +61,7 @@ export function CommunityStatsPeriodPicker({
               disabled={!draftFrom || !draftTo || draftFrom > draftTo}
               onClick={() => onChange({ period: "custom", from: draftFrom, to: draftTo })}
             >
-              적용
+              {t("admin_community_stats_period_apply")}
             </AdminActionButton>
           </>
         ) : null}

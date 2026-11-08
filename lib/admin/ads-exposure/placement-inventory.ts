@@ -12,6 +12,7 @@ import {
   feedAdPoolOccupiesCampaign,
   feedAdPoolTargetKey,
 } from "@/lib/ads/feed-ad-pool-capacity";
+import { translate } from "@/lib/i18n/messages";
 import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
 import type { FeedAdCampaignView, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
@@ -277,10 +278,14 @@ export function projectFeedPoolInventories(
       remaining,
       status: remaining > 0 ? ("available" as const) : ("full" as const),
       createHref,
-      createLabelKo:
-        meta.domain === "community" ? "커뮤니티 배너 등록" : "거래 배너 등록",
-      createLabelEn:
-        meta.domain === "community" ? "Register Community banner" : "Register Trade banner",
+      createLabelKo: translate(
+        "ko",
+        meta.domain === "community" ? "admin_ads_placement_register_community_banner" : "admin_ads_placement_register_trade_banner"
+      ),
+      createLabelEn: translate(
+        "en",
+        meta.domain === "community" ? "admin_ads_placement_register_community_banner" : "admin_ads_placement_register_trade_banner"
+      ),
       campaigns: rows.map((c) => {
         const thumb = c.slides[0]?.imageUrl?.trim() || null;
         const previewHref = adsLiveRouteHref({
@@ -365,10 +370,12 @@ export function projectPopupSurfaceInventory(input: {
     waitingCount,
     waitingSummaryKo:
       waitingCount === 0
-        ? "대기 없음"
-        : `대기 ${waitingCount}건`,
+        ? translate("ko", "admin_ads_placement_none_waiting")
+        : translate("ko", "admin_ads_placement_n_waiting", { n: waitingCount }),
     waitingSummaryEn:
-      waitingCount === 0 ? "None waiting" : `${waitingCount} waiting`,
+      waitingCount === 0
+        ? translate("en", "admin_ads_placement_none_waiting")
+        : translate("en", "admin_ads_placement_n_waiting", { n: waitingCount }),
     createHref: "/admin/advertising/direct/popup",
     creativeSpec: popupCreativeSpec(),
   };
@@ -510,15 +517,11 @@ export async function loadPlacementInventory(
 }
 
 export function feedPoolCreateBlockedCopy(ko: boolean): { title: string; body: string } {
-  return ko
-    ? {
-        title: "등록 불가",
-        body: "현재 이 위치에 등록 가능한 캠페인 수를 모두 사용 중입니다.",
-      }
-    : {
-        title: "Registration unavailable",
-        body: "This placement has reached its campaign capacity.",
-      };
+  const lang = ko ? "ko" : "en";
+  return {
+    title: translate(lang, "admin_ads_placement_register_blocked_title"),
+    body: translate(lang, "admin_ads_placement_register_blocked_body"),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

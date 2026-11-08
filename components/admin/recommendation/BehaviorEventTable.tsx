@@ -5,20 +5,21 @@ import { AdminEmptyState } from "@/components/admin/ui/AdminStateViews";
 import { AdminFilterBar } from "@/components/admin/ui/AdminFilterBar";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState, useMemo } from "react";
 import type { UserBehaviorEvent, BehaviorEventType } from "@/lib/types/recommendation";
 import { getBehaviorEvents } from "@/lib/recommendation/recommendation-behavior-state";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
-const EVENT_LABELS: Record<BehaviorEventType, string> = {
-  product_view: "상품 조회",
-  favorite_add: "찜 추가",
-  favorite_remove: "찜 해제",
-  chat_start: "채팅 시작",
-  search_submit: "검색 실행",
-  home_section_click: "홈 섹션 클릭",
-  recommendation_click: "추천 상품 클릭",
-  shop_view: "상점 조회",
+const EVENT_LABEL_KEYS: Record<BehaviorEventType, MessageKey> = {
+  product_view: "admin_rec_event_product_view",
+  favorite_add: "admin_rec_event_favorite_add",
+  favorite_remove: "admin_rec_event_favorite_remove",
+  chat_start: "admin_rec_event_chat_start",
+  search_submit: "admin_rec_event_search_submit",
+  home_section_click: "admin_rec_event_home_section_click",
+  recommendation_click: "admin_rec_event_recommendation_click",
+  shop_view: "admin_rec_event_shop_view",
 };
 
 export function BehaviorEventTable() {
@@ -29,7 +30,7 @@ export function BehaviorEventTable() {
    * 유형은 즉시 적용, userId·sectionKey 는 [조회]/Enter 로 적용.
    */
   const lq = useAdminListQuery<"section">({
-    statuses: Object.keys(EVENT_LABELS),
+    statuses: Object.keys(EVENT_LABEL_KEYS),
     extras: ["section"],
   });
   const eventType = lq.query.status as BehaviorEventType | "";
@@ -70,7 +71,7 @@ export function BehaviorEventTable() {
           value: eventType,
           onChange: lq.setStatus,
           label: t("admin_event"),
-          options: (Object.keys(EVENT_LABELS) as BehaviorEventType[]).map((k) => ({ value: k, label: EVENT_LABELS[k] })),
+          options: (Object.keys(EVENT_LABEL_KEYS) as BehaviorEventType[]).map((k) => ({ value: k, label: t(EVENT_LABEL_KEYS[k]) })),
         }}
       >
         <label className="flex flex-col gap-1 text-[12px] font-medium text-[var(--admin-console-muted)]">
@@ -87,7 +88,7 @@ export function BehaviorEventTable() {
       {events.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={eventType || userIdFilter || sectionKeyFilter ? undefined : "이벤트가 없습니다."}
+          message={eventType || userIdFilter || sectionKeyFilter ? undefined : t("admin_rec_no_events")}
           onReset={eventType || userIdFilter || sectionKeyFilter ? lq.reset : undefined}
         />
       ) : (
@@ -96,13 +97,13 @@ export function BehaviorEventTable() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  일시
+                  {t("admin_recommendation_col_time")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  사용자
+                  {t("admin_recommendation_col_user")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  이벤트
+                  {t("admin_recommendation_col_event")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
                   productId
@@ -126,7 +127,7 @@ export function BehaviorEventTable() {
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">{e.userId}</td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {EVENT_LABELS[e.eventType]}
+                    {t(EVENT_LABEL_KEYS[e.eventType])}
                   </td>
                   <td className="px-3 py-2.5 text-sam-muted">{e.productId ?? "-"}</td>
                   <td className="px-3 py-2.5 text-sam-muted">{e.sectionKey ?? "-"}</td>

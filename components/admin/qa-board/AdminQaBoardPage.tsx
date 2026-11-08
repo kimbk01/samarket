@@ -50,7 +50,7 @@ export function AdminQaBoardPage() {
       <AdminPageHeader titleKey="admin_menu_dev_qa" />
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="overview"
         resetParams={adminSyncTabResetParams(["severity", "category", "domain", "case_status", "env"])}
         className="mb-4"

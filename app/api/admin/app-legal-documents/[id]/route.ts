@@ -20,6 +20,7 @@ import {
   isMissingAppLegalDocumentsTableError,
   normalizeAppLegalDocumentRow,
 } from "@/lib/legal/app-legal-documents";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,19 +124,19 @@ export async function PATCH(
     }
     if (isLegalVersionConflictError(error)) {
       return NextResponse.json(
-        { ok: false, error: "version_conflict", message: "같은 종류·언어에 이미 있는 버전입니다." },
+        { ok: false, error: "version_conflict", message: await adminServerText("admin_api_legal_version_conflict") },
         { status: 409 },
       );
     }
     if (isPublishedLegalImmutableError(error)) {
       return NextResponse.json(
-        { ok: false, error: "published_text_immutable", message: "한 번 게시된 이용약관·개인정보처리방침은 바꿀 수 없습니다." },
+        { ok: false, error: "published_text_immutable", message: await adminServerText("admin_api_legal_published_immutable") },
         { status: 409 },
       );
     }
     if (isMissingConsentRequirementColumnError(error)) {
       return NextResponse.json(
-        { ok: false, error: "consent_requirement_unavailable", message: "개정 유형 저장 준비(DB 적용) 전이라 게시할 수 없습니다." },
+        { ok: false, error: "consent_requirement_unavailable", message: await adminServerText("admin_api_legal_consent_unavailable") },
         { status: 503 },
       );
     }
@@ -144,7 +145,7 @@ export async function PATCH(
   if (!data) {
     // updated_at compare-and-set lost: someone else changed the document meanwhile.
     return NextResponse.json(
-      { ok: false, error: "stale_document", message: "다른 관리자가 먼저 수정했습니다. 새로고침 후 다시 시도해 주세요." },
+      { ok: false, error: "stale_document", message: await adminServerText("admin_api_legal_stale") },
       { status: 409 },
     );
   }

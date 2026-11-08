@@ -83,7 +83,7 @@ export function AdminPhilifeMeetingEventsClient() {
     };
   }, [buildQuery, page, pageSize, reloadKey, lq.refreshKey]);
 
-  const meetingTitle = meetingId ? events.find((e) => e.meeting_id === meetingId)?.meeting_title?.trim() || "선택한 모임" : "";
+  const meetingTitle = meetingId ? events.find((e) => e.meeting_id === meetingId)?.meeting_title?.trim() || t("admin_community_meeting_events_selected_meeting") : "";
 
   const hasData = total !== null || events.length > 0;
   const listState: CommunityListLoadState = loadErr
@@ -99,9 +99,9 @@ export function AdminPhilifeMeetingEventsClient() {
       onRetry={reload}
       emptyMessage={t("admin_meeting_events_empty")}
     >
-      <CommunityTable head={["시각", "모임", "행위자", "대상 회원", "유형", "내용"]}>
+      <CommunityTable head={[t("admin_community_meeting_events_col_time"), t("admin_community_meeting_events_col_meeting"), t("admin_community_meeting_events_col_actor"), t("admin_community_meeting_events_col_target"), t("admin_community_meeting_events_col_type"), t("admin_community_meeting_events_col_detail")]}>
         {events.map((e) => {
-          const typeLabel = isMeetingEventType(e.event_type) ? t(MEETING_EVENT_TYPE_LABEL_KEYS[e.event_type]) : "기타";
+          const typeLabel = isMeetingEventType(e.event_type) ? t(MEETING_EVENT_TYPE_LABEL_KEYS[e.event_type]) : t("admin_community_meeting_events_type_other");
           return (
             <tr key={e.id} className="border-b border-sam-border-soft">
               <td className={COMMUNITY_TD}>
@@ -115,14 +115,14 @@ export function AdminPhilifeMeetingEventsClient() {
                   title={t("admin_community_meeting_events_filter_this")}
                   onClick={() => lq.setExtra("meetingId", e.meeting_id)}
                 >
-                  {e.meeting_title || "이름 없음"}
+                  {e.meeting_title || t("admin_community_meeting_events_no_name")}
                 </AdminActionButton>
                 <span className="flex flex-wrap gap-2 text-[12px]">
                   <Link
                     href={`/admin/community/meetings?meetingId=${encodeURIComponent(e.meeting_id)}`}
                     className="text-sam-info hover:underline"
                   >
-                    Admin 모임 화면
+                    {t("admin_community_meeting_events_admin_meeting_screen")}
                   </Link>
                   <Link href={philifeAppPaths.meeting(e.meeting_id)} target="_blank" rel="noreferrer" className="text-sam-info hover:underline">
                     {t("admin_meeting_events_meeting_detail")}
@@ -133,7 +133,7 @@ export function AdminPhilifeMeetingEventsClient() {
                 {e.actor_user_id ? (
                   <CommunityAuthorCell userId={e.actor_user_id} nickname={e.actor_name} />
                 ) : (
-                  <span className="text-sam-muted">{e.actor_name || "시스템"}</span>
+                  <span className="text-sam-muted">{e.actor_name || t("admin_community_meeting_events_system")}</span>
                 )}
               </td>
               <td className={COMMUNITY_TD}>
@@ -155,11 +155,11 @@ export function AdminPhilifeMeetingEventsClient() {
   return (
     <CommunityListShell
       title={t("admin_meeting_events_page_title")}
-      description="모임 안에서 일어난 가입·강퇴·설정 변경 등 운영 기록을 확인합니다."
+      description={t("admin_community_meeting_events_desc")}
       actions={
         <>
           <AdminActionLink href="/admin/community/meetings" variant="neutral">
-            모임 목록
+            {t("admin_community_meeting_events_link_meetings")}
           </AdminActionLink>
           <AdminActionButton
             variant="neutral"
@@ -168,7 +168,7 @@ export function AdminPhilifeMeetingEventsClient() {
             {t("admin_meeting_events_csv")}
           </AdminActionButton>
           <AdminActionButton variant="neutral" onClick={reload} disabled={loading}>
-            새로고침
+            {t("admin_community_meeting_events_reload")}
           </AdminActionButton>
         </>
       }
@@ -179,16 +179,16 @@ export function AdminPhilifeMeetingEventsClient() {
               value={typeFilter}
               onChange={(v) => lq.setExtra("type", v)}
               options={[
-                { value: "", label: "전체 유형" },
+                { value: "", label: t("admin_community_meeting_events_all_types") },
                 ...MEETING_EVENT_TYPES.map((ev) => ({ value: ev, label: t(MEETING_EVENT_TYPE_LABEL_KEYS[ev]) })),
               ]}
             />
           </CommunityFilterField>
           {meetingId ? (
             <span className="flex h-10 items-center gap-1 rounded-full border border-sam-border bg-sam-app px-2.5 text-[12px] text-sam-fg">
-              모임: {meetingTitle}
+              {t("admin_community_meeting_events_meeting_filter", { title: meetingTitle })}
               <AdminActionButton variant="quiet" size="sm" className="ml-1 h-auto! px-1!" onClick={() => lq.setExtra("meetingId", "")}>
-                해제
+                {t("admin_community_meeting_events_filter_clear")}
               </AdminActionButton>
             </span>
           ) : (

@@ -4,6 +4,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { isMissingRelation } from "@/lib/admin-users/member-tab-query";
 import { applyAccountDeletionRequestStatusFilter } from "@/lib/admin/metrics/admin-metric-filters";
 import { memberOpsListRange, parseMemberOpsListPage } from "@/lib/admin/member-ops-list/member-ops-list-page";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error: "use_member_delete_for_withdraw_or_purge",
-        message: "거절만 가능합니다. 탈퇴·영구삭제는 회원 상세의 삭제 API를 사용하세요.",
+        message: await adminServerText("admin_api_deletion_reject_only"),
       },
       { status: 400 }
     );

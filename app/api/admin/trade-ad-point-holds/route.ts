@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export async function GET(): Promise<NextResponse> {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "Supabase 서비스 클라이언트가 없습니다." }, { status: 503 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_service_client_missing") }, { status: 503 });
   }
 
   const { data, error } = await sb

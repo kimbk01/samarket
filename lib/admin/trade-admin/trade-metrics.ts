@@ -12,6 +12,7 @@ import {
   parseTradePostsFilter,
 } from "@/lib/admin/trade-admin/trade-posts-query";
 import { applyTradeReportTabFilter } from "@/lib/admin/metrics/admin-metric-filters";
+import { translate } from "@/lib/i18n/messages";
 import { TRADE_POST_TABS, type TradePostTab } from "@/lib/admin/trade-admin/trade-post-tabs";
 import { SUPPORT_TRADE_CATEGORY, SUPPORT_TRADE_REFERENCE_TYPES } from "@/lib/support/support-community-filter";
 
@@ -229,7 +230,9 @@ export async function loadTradeOverview(
       }[];
       byCategory = rows.map((r) => ({
         id: r.id ?? null,
-        name: r.id ? (r.name ?? "알 수 없는 카테고리") : "카테고리 없음",
+        name: r.id
+          ? (r.name ?? translate("ko", "admin_trade_metrics_unknown_category"))
+          : translate("ko", "admin_trade_metrics_no_category"),
         count: Number(r.count) || 0,
       }));
     }

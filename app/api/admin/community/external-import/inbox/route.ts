@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { INBOX_STATUSES, INBOX_TABLE, type InboxKey, type InboxStatus, listInbox, setInboxStatus } from "@/lib/community-operator-import/inbox-store";
 import type { QualityVerdict } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,13 +42,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireCommunityAdmin("content");
   if (!auth.ok) return auth.response;
-  const parsed = await parseJsonBody<{ action?: string; keys?: InboxKey[]; status?: InboxStatus }>(req, "JSON 본문이 필요합니다.");
+  const parsed = await parseJsonBody<{ action?: string; keys?: InboxKey[]; status?: InboxStatus }>(req, await adminServerText("admin_api_json_body_required"));
   if (!parsed.ok) return parsed.response;
   const { action, keys, status } = parsed.value;
-  if (action !== "status") return jsonError("지원 action: status", 400, { code: "unsupported_action" });
+  if (action !== "status") return jsonError(await adminServerText("admin_api_import_actions_status"), 400, { code: "unsupported_action" });
   if (!status || !["hidden", "skipped", "new"].includes(status)) return jsonError("status: hidden | skipped | new", 400, { code: "invalid_status" });
   const list = (Array.isArray(keys) ? keys : []).slice(0, 200);
-  if (!list.length) return jsonError("keys 필요", 400, { code: "keys_required" });
+  if (!list.length) return jsonError(await adminServerText("admin_api_import_keys_required"), 400, { code: "keys_required" });
   try {
     const sb = getSupabaseServer();
     const articleKeys = [...new Set(list.map((k) => String(k?.sourceArticleKey ?? "")).filter(Boolean))];

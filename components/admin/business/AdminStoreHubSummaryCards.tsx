@@ -29,6 +29,7 @@ import {
   businessCcSettlementsHref,
 } from "@/lib/admin-business/business-control-center-links";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type StoreHubSummaryState =
   | { status: "loading" }
@@ -329,13 +330,13 @@ export function AdminStoreHubSummaryCards({
 }
 
 function sanctionLabel(action: string, ko: boolean): string {
-  const map: Record<string, [string, string]> = {
-    warn: ["경고", "Warning"],
-    suspend: ["이용 정지", "Suspension"],
-    ban: ["이용 차단", "Ban"],
+  const map: Record<string, MessageKey> = {
+    warn: "admin_biz_sanction_warn",
+    suspend: "admin_biz_sanction_suspend",
+    ban: "admin_biz_sanction_ban",
   };
   const hit = map[action];
-  return hit ? (ko ? hit[0] : hit[1]) : translateBy(ko ? "ko" : "en", "admin_biz_sanction");
+  return hit ? translateBy(ko ? "ko" : "en", hit) : translateBy(ko ? "ko" : "en", "admin_biz_sanction");
 }
 
 type HubReportRow = {

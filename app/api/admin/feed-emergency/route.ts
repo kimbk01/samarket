@@ -13,6 +13,7 @@ import {
   sliceAdminJsonList,
   sortAdminJsonListNewestFirst,
 } from "@/lib/admin/pagination/admin-json-list-page";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
         ok: true,
         bundle: createDefaultFeedEmergencyBundle(),
         source: "default" as const,
-        hint: loaded.message ?? "admin_settings 없음",
+        hint: loaded.message ?? await adminServerText("admin_api_admin_settings_missing"),
       });
     }
     return NextResponse.json(

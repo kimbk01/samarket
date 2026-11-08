@@ -3,6 +3,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { reorderDeliveryHeroBannerSlides } from "@/lib/admin/ads-exposure/reorder-hero-banners";
+import { translate } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,8 +36,8 @@ export async function POST(req: NextRequest) {
         ok: false,
         error: res.error,
         detail: res.detail,
-        message: "배너 순서를 저장하지 못했습니다.",
-        messageEn: "Could not save banner order.",
+        message: translate("ko", "admin_api_hero_banner_order_save_failed"),
+        messageEn: translate("en", "admin_api_hero_banner_order_save_failed"),
       },
       { status: 400 }
     );
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     orderedIds: res.orderedIds,
-    message: "배너 순서를 변경했습니다.",
-    messageEn: "Banner order updated.",
+    message: translate("ko", "admin_api_hero_banner_order_updated"),
+    messageEn: translate("en", "admin_api_hero_banner_order_updated"),
   });
 }

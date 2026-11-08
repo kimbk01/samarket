@@ -95,7 +95,7 @@ function AdminPointLedgerPageInner() {
           range={adminFinanceRangeText({ from: lq.query.from, to: lq.query.to }, ko)}
           basis={t("admin_points_ledger_time_type_member_filters_applied")}
           cells={null}
-          line={`${formatAdminPointBucketLine(bucketSums, formatAdminNumber)} · ${
+          line={`${formatAdminPointBucketLine(bucketSums, formatAdminNumber, ko)} · ${
             t("admin_points_rows", { rows: formatAdminNumber(bucketSums.rows) })
           }`}
         />

@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { CustomerCommerceHubPage } from "@/components/orders/customer-commerce/CustomerCommerceHubPage";
 import { parseRoomId } from "@/lib/validate-params";
+import { RouteLoadingInline } from "@/components/i18n/RouteLoadingInline";
 
 function OrdersHubFallback() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center bg-background text-sm text-sam-muted">
-      불러오는 중…
+      <RouteLoadingInline />
     </div>
   );
 }

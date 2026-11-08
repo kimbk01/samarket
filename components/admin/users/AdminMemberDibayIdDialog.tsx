@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberAdminDialog } from "@/components/admin/users/MemberAdminDialog";
-import { MEMBER_ADMIN_COPY } from "@/lib/admin-users/member-admin-copy-ssot";
+import { MEMBER_ADMIN_COPY_KEY } from "@/lib/admin-users/member-admin-copy-ssot";
 import { adminMemberPublicIdAt } from "@/lib/admin-users/admin-member-identity";
 import {
   dibayIdErrorMessageKo,
@@ -55,16 +55,16 @@ export function AdminMemberDibayIdDialog({
 
   const clientError = useMemo(() => {
     if (!dirty) return null;
-    if (!normalized) return "새 @회원 ID를 입력해 주세요.";
+    if (!normalized) return t("admin_users_member_dibay_id_required");
     if (!isValidDibayIdFormat(normalized)) {
       return isSystemReservedDibayIdPrefix(normalized)
         ? (dibayIdErrorMessageKo("dibay_id_reserved_prefix") as string)
-        : "사용할 수 없는 @회원 ID 형식입니다. 영문 소문자·숫자·._ 조합(3–20자)만 가능합니다.";
+        : t("admin_users_member_dibay_id_invalid_format_detail");
     }
-    if (!trimmedReason) return "변경 사유를 입력해 주세요.";
-    if (trimmedReason.length > DIBAY_ID_REASON_MAX) return `변경 사유는 ${DIBAY_ID_REASON_MAX}자 이내로 입력해 주세요.`;
+    if (!trimmedReason) return t("admin_users_member_dibay_id_reason_required");
+    if (trimmedReason.length > DIBAY_ID_REASON_MAX) return t("admin_users_member_dibay_id_reason_too_long", { max: DIBAY_ID_REASON_MAX });
     return null;
-  }, [dirty, normalized, trimmedReason]);
+  }, [dirty, normalized, trimmedReason, t]);
 
   const handleChange = async () => {
     setErrorText(null);
@@ -96,19 +96,19 @@ export function AdminMemberDibayIdDialog({
           return;
         }
         if (data.error === "dibay_id_similar_taken" || data.error === "dibay_id_reserved_prefix") {
-          setErrorText(dibayIdErrorMessageKo(data.error) ?? MEMBER_ADMIN_COPY.mutation_failed);
+          setErrorText(dibayIdErrorMessageKo(data.error) ?? t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
           return;
         }
         if (res.status === 409 || data.error === "dibay_id_taken") {
-          setErrorText("이미 사용 중인 @회원 ID입니다.");
+          setErrorText(t("admin_users_member_dibay_id_taken"));
           return;
         }
         if (data.error === "dibay_id_reason_required" || data.error === "reason_required") {
-          setErrorText("변경 사유를 입력해 주세요.");
+          setErrorText(t("admin_users_member_dibay_id_reason_required"));
           return;
         }
         if (data.error === "dibay_id_reason_too_long" || data.error === "reason_too_long") {
-          setErrorText(`변경 사유는 ${DIBAY_ID_REASON_MAX}자 이내로 입력해 주세요.`);
+          setErrorText(t("admin_users_member_dibay_id_reason_too_long", { max: DIBAY_ID_REASON_MAX }));
           return;
         }
         if (
@@ -117,20 +117,20 @@ export function AdminMemberDibayIdDialog({
           data.error === "dibay_id_reserved" ||
           data.error === "dibay_id_reserved_pattern"
         ) {
-          setErrorText("사용할 수 없는 @회원 ID 형식입니다.");
+          setErrorText(t("admin_users_member_dibay_id_invalid_format"));
           return;
         }
         if (res.status === 401 || res.status === 403) {
-          setErrorText("이 작업을 수행할 권한이 없습니다.");
+          setErrorText(t("admin_users_member_no_permission"));
           return;
         }
-        setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
+        setErrorText(t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
         return;
       }
       onSuccess?.();
       onClose();
     } catch {
-      setErrorText(MEMBER_ADMIN_COPY.mutation_failed);
+      setErrorText(t(MEMBER_ADMIN_COPY_KEY.mutation_failed));
     } finally {
       setPending(false);
     }
@@ -141,26 +141,26 @@ export function AdminMemberDibayIdDialog({
   return (
     <MemberAdminDialog
       open={open}
-      title={MEMBER_ADMIN_COPY.dibay_id_change_title}
-      description={MEMBER_ADMIN_COPY.dibay_id_change_body}
+      title={t(MEMBER_ADMIN_COPY_KEY.dibay_id_change_title)}
+      description={t(MEMBER_ADMIN_COPY_KEY.dibay_id_change_body)}
       size="small"
       dirty={dirty}
       pending={pending}
       errorText={errorText}
-      primaryLabel={MEMBER_ADMIN_COPY.dibay_id_change_primary}
+      primaryLabel={t(MEMBER_ADMIN_COPY_KEY.dibay_id_change_primary)}
       primaryDisabled={!dirty || Boolean(clientError)}
       onCancel={onClose}
       onPrimary={() => void handleChange()}
     >
       <div className="space-y-3" data-member-dibay-id-dialog="1" data-member-screen="S14">
         <div>
-          <p className="mb-1 text-[13px] text-sam-muted">{MEMBER_ADMIN_COPY.dibay_id_current_label}</p>
+          <p className="mb-1 text-[13px] text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.dibay_id_current_label)}</p>
           <p className="font-mono text-sm text-sam-fg" data-member-dibay-id-current="1">
             {currentDisplay}
           </p>
         </div>
         <label className="block text-[13px]">
-          <span className="mb-1 block text-sam-muted">{MEMBER_ADMIN_COPY.dibay_id_new_label}</span>
+          <span className="mb-1 block text-sam-muted">{t(MEMBER_ADMIN_COPY_KEY.dibay_id_new_label)}</span>
           <div className="flex items-center gap-1">
             <span className="text-sam-muted">@</span>
             <input

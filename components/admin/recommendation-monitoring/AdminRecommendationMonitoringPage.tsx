@@ -59,7 +59,7 @@ export function AdminRecommendationMonitoringPage() {
       />
       <AdminTabs
         tabs={MONITORING_TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }))}
-        ariaLabel="추천 모니터링 탭"
+        ariaLabel={t("admin_rec_monitoring_tabs_aria")}
         value={activeTab}
         onChange={(id) => setActiveTab(id as TabId)}
         defaultValue="dashboard"

@@ -5,6 +5,7 @@
  */
 
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 export const PROMOTION_OPERATOR_STATUSES = [
   "DRAFT",
@@ -22,21 +23,14 @@ export function promotionOperatorStatusLabel(
   status: PromotionOperatorStatus,
   lang: PromotionOperatorStatusLabelLang = "ko"
 ): string {
-  const ko: Record<PromotionOperatorStatus, string> = {
-    DRAFT: "초안",
-    SCHEDULED: "예약",
-    ACTIVE: "노출 중",
-    PAUSED: "중지",
-    ENDED: "종료",
+  const keys: Record<PromotionOperatorStatus, MessageKey> = {
+    DRAFT: "admin_promotion_status_draft",
+    SCHEDULED: "admin_promotion_status_scheduled",
+    ACTIVE: "admin_promotion_status_active",
+    PAUSED: "admin_promotion_status_paused",
+    ENDED: "admin_promotion_status_ended",
   };
-  const en: Record<PromotionOperatorStatus, string> = {
-    DRAFT: "Draft",
-    SCHEDULED: "Scheduled",
-    ACTIVE: "Active",
-    PAUSED: "Paused",
-    ENDED: "Ended",
-  };
-  return lang === "en" ? en[status] : ko[status];
+  return translate(lang === "en" ? "en" : "ko", keys[status]);
 }
 
 export type PromotionOperatorStatusTone =
@@ -197,21 +191,14 @@ export function notificationDeliveryLabel(
   delivery: Extract<NotificationOperatorView, { kind: "delivery" }>["delivery"],
   lang: PromotionOperatorStatusLabelLang = "ko"
 ): string {
-  const ko = {
-    draft: "초안",
-    scheduled: "발송 예약",
-    sent: "발송됨",
-    cancelled: "취소",
-    failed: "실패",
-  } as const;
-  const en = {
-    draft: "Draft",
-    scheduled: "Scheduled send",
-    sent: "Sent",
-    cancelled: "Cancelled",
-    failed: "Failed",
-  } as const;
-  return lang === "en" ? en[delivery] : ko[delivery];
+  const keys: Record<Extract<NotificationOperatorView, { kind: "delivery" }>["delivery"], MessageKey> = {
+    draft: "admin_promotion_notification_delivery_draft",
+    scheduled: "admin_promotion_notification_delivery_scheduled",
+    sent: "admin_promotion_notification_delivery_sent",
+    cancelled: "admin_promotion_notification_delivery_cancelled",
+    failed: "admin_promotion_notification_delivery_failed",
+  };
+  return translate(lang === "en" ? "en" : "ko", keys[delivery]);
 }
 
 /**
@@ -255,25 +242,16 @@ export function ownerRequestOperatorStatusLabel(
   status: OwnerRequestOperatorStatus,
   lang: PromotionOperatorStatusLabelLang = "ko"
 ): string {
-  const ko: Record<OwnerRequestOperatorStatus, string> = {
-    DRAFT: "초안",
-    SUBMITTED: "제출",
-    UNDER_REVIEW: "검토 중",
-    REVISION_REQUIRED: "수정 요청",
-    APPROVED: "승인",
-    REJECTED: "반려",
-    CANCELLED: "취소",
+  const keys: Record<OwnerRequestOperatorStatus, MessageKey> = {
+    DRAFT: "admin_promotion_owner_request_draft",
+    SUBMITTED: "admin_promotion_owner_request_submitted",
+    UNDER_REVIEW: "admin_promotion_owner_request_under_review",
+    REVISION_REQUIRED: "admin_promotion_owner_request_revision_required",
+    APPROVED: "admin_promotion_owner_request_approved",
+    REJECTED: "admin_promotion_owner_request_rejected",
+    CANCELLED: "admin_promotion_owner_request_cancelled",
   };
-  const en: Record<OwnerRequestOperatorStatus, string> = {
-    DRAFT: "Draft",
-    SUBMITTED: "Submitted",
-    UNDER_REVIEW: "Under review",
-    REVISION_REQUIRED: "Revision required",
-    APPROVED: "Approved",
-    REJECTED: "Rejected",
-    CANCELLED: "Cancelled",
-  };
-  return lang === "en" ? en[status] : ko[status];
+  return translate(lang === "en" ? "en" : "ko", keys[status]);
 }
 
 /** Canonical schedule display timezone for Admin Promotion surfaces. */

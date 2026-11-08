@@ -7,13 +7,13 @@ export default function ProductNotFound() {
     <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
       <p className="sam-text-body font-medium text-sam-fg">{t("trade_073")}</p>
       <p className="mt-1 sam-text-body-secondary text-sam-muted">
-        삭제되었거나 존재하지 않는 상품이에요.
+        {t("products_not_found_body")}
       </p>
       <Link
         href="/philife"
         className="mt-6 rounded-ui-rect bg-signature px-6 py-2.5 sam-text-body font-medium text-white"
       >
-        홈으로
+        {t("products_not_found_go_home_btn")}
       </Link>
     </div>
   );

@@ -99,7 +99,7 @@ export function CommunityDashboard({
   model: AdminDomainDashboardModel;
   isSuperAdmin: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const q = useCommunityQueryState();
   const [refreshing, startRefresh] = useTransition();
@@ -117,7 +117,7 @@ export function CommunityDashboard({
   const otherPeriod = periodStats.filter((m) => m.id !== "community.period.posts_total" && !POST_PARTS.includes(m.id));
   const part = (id: string) => {
     const v = byId.get(id)?.value;
-    return v === null || v === undefined ? "확인 불가" : formatAdminNumber(v);
+    return v === null || v === undefined ? t("admin_community_dash_unavailable") : formatAdminNumber(v);
   };
 
   const entries = [...model.primaryEntries, ...model.contextEntries].filter((e) => e.id !== "reset");
@@ -133,14 +133,14 @@ export function CommunityDashboard({
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-sam-muted">
           <span data-community-dashboard-updated="1">{t("admin_community_dash_last_updated", { time: updated ? `${updated} PHT` : "—" })}</span>
           <AdminActionButton variant="secondary" disabled={refreshing} onClick={refresh}>
-            {refreshing ? "새로고침 중…" : "새로고침"}
+            {refreshing ? t("admin_community_dash_refreshing") : t("admin_community_dash_refresh")}
           </AdminActionButton>
         </div>
       </header>
 
       {model.sectionErrors.length > 0 ? (
         <div role="status" className="rounded-ui-rect border border-sam-warning bg-sam-warning-soft px-3 py-2 text-[13px] text-sam-warning">
-          일부 지표를 확인하지 못했습니다. 해당 지표는 「확인 불가」로 표시됩니다.
+          {t("admin_community_dashboard_partial_metrics")}
           <AdminTechDetails ko>
             {model.sectionErrors.map((e) => (
               <div key={e}>{e}</div>
@@ -152,7 +152,7 @@ export function CommunityDashboard({
       <Section title={t("admin_community_dash_todo_title")} hint={t("admin_community_dash_todo_hint")}>
         {pending.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4 text-center text-[13px] text-sam-muted">
-            지금 처리할 일이 없습니다.
+            {t("admin_community_dashboard_no_tasks")}
           </p>
         ) : (
           <div className={GRID}>
@@ -173,7 +173,7 @@ export function CommunityDashboard({
 
       <Section
         title={t("admin_community_dash_period_title")}
-        hint={periodLabel(model.periodRange) ? `${periodLabel(model.periodRange)} (필리핀 시간)` : undefined}
+        hint={periodLabel(model.periodRange) ? t("admin_community_dash_period_pht", { period: periodLabel(model.periodRange) }) : undefined}
       >
         <div className="flex flex-wrap items-end gap-2">
           <CommunityStatsPeriodPicker
@@ -195,7 +195,7 @@ export function CommunityDashboard({
             ).toString()}`}
             variant="ghost"
           >
-            운영 통계 자세히 보기
+            {t("admin_community_dashboard_stats_details")}
           </AdminActionLink>
         </div>
         <div className={GRID}>
@@ -204,9 +204,11 @@ export function CommunityDashboard({
               label={postsTotal.labelKo}
               value={postsTotal.value}
               href={postsTotal.href}
-              sub={`회원 ${part("community.period.posts_member")} · 외부 수집 ${part(
-                "community.period.posts_imported"
-              )} · 현재 공개 ${part("community.period.posts_active_now")}`}
+              sub={t("admin_community_dashboard_posts_breakdown", {
+                member: part("community.period.posts_member"),
+                imported: part("community.period.posts_imported"),
+                active: part("community.period.posts_active_now"),
+              })}
             />
           ) : null}
           {otherPeriod.map((m) => (
@@ -218,13 +220,13 @@ export function CommunityDashboard({
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title={t("admin_community_dash_recent_actions")} hint={<Link href="/admin/community/audit" className="underline">{t("admin_community_dash_all_audit")}</Link>}>
           <RecentList
-            empty="최근 관리자 조치가 없습니다."
+            empty={t("admin_community_dash_no_recent_actions")}
             items={model.recent.map((r) => {
               const [who, targetType] = String(r.metaKo ?? "").split(" · ");
               return {
                 id: r.id,
-                title: communityAuditActionLabel(r.title),
-                meta: `${who || "관리자"} · ${communityAuditTargetLabel(targetType)}`,
+                title: communityAuditActionLabel(r.title, t),
+                meta: `${who || t("admin_community_dash_admin_fallback")} · ${communityAuditTargetLabel(targetType, t)}`,
                 href: r.href,
                 at: r.at ?? null,
               };
@@ -236,15 +238,15 @@ export function CommunityDashboard({
           hint={<Link href="/admin/community/reports?tab=pending" className="underline">{t("admin_community_dash_report_inbox")}</Link>}
         >
           <RecentList
-            empty="최근 신고가 없습니다."
+            empty={t("admin_community_dash_no_recent_reports")}
             items={(model.recentReports ?? []).map((r) => {
               const { code, text } = splitCommunityReportReason(r.title);
               const [target, status] = String(r.metaKo ?? "").split(" · ");
               return {
                 id: r.id,
-                title: `${adminCommunityLabel("report_reason", code, true).label}${text ? ` · ${text.slice(0, 40)}` : ""}`,
-                meta: adminCommunityLabel("report_target", target, true).label,
-                badge: adminCommunityLabel("report_status", status, true),
+                title: `${adminCommunityLabel("report_reason", code, language !== "en").label}${text ? ` · ${text.slice(0, 40)}` : ""}`,
+                meta: adminCommunityLabel("report_target", target, language !== "en").label,
+                badge: adminCommunityLabel("report_status", status, language !== "en"),
                 href: r.href,
                 at: r.at ?? null,
               };
@@ -263,7 +265,7 @@ export function CommunityDashboard({
         </div>
         {isSuperAdmin && reset ? (
           <p className="pt-2 text-[12px] text-sam-muted">
-            최고 관리자 전용 ·{" "}
+            {t("admin_community_dashboard_super_admin_only")} ·{" "}
             <Link href={reset.href} prefetch={false} className="underline">
               {reset.labelKo}
             </Link>

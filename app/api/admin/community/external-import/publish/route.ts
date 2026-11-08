@@ -8,6 +8,7 @@ import { publishImportedArticle, type PublishMode } from "@/lib/community-operat
 import { loadRules } from "@/lib/community-operator-import/rules";
 import type { OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,11 +27,11 @@ export async function POST(req: NextRequest) {
     edit?: OperatorDraftEdit;
     mode?: PublishMode;
     acceptPartial?: boolean;
-  }>(req, "JSON 본문이 필요합니다.");
+  }>(req, await adminServerText("admin_api_json_body_required"));
   if (!parsed.ok) return parsed.response;
   const clientArticle = parsed.value.article;
   if (!clientArticle?.sourceArticleKey || !clientArticle.sourceSite || !clientArticle.sourceBoard) {
-    return jsonError("원문 article이 필요합니다.", 400, { code: "article_required" });
+    return jsonError(await adminServerText("admin_api_import_article_required"), 400, { code: "article_required" });
   }
   const mode: PublishMode = parsed.value.mode === "update" ? "update" : "create";
   try {
@@ -70,6 +71,6 @@ export async function POST(req: NextRequest) {
     });
     return jsonOk({ ...result, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "게시에 실패했습니다.", 500, { code: "publish_failed" });
+    return jsonError(e instanceof Error ? e.message : await adminServerText("admin_api_import_publish_failed"), 500, { code: "publish_failed" });
   }
 }

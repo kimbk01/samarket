@@ -1,7 +1,8 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberAdminActionDecision } from "@/lib/admin-users/member-admin-action-policy";
-import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KO } from "@/lib/admin-users/member-detail-presentation";
+import { MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY } from "@/lib/admin-users/member-detail-presentation";
 import {
   MEMBER_DETAIL_DANGER_EXECUTION_DEFERRED_KO,
   MEMBER_DETAIL_DANGER_GROUP_LABEL_KO,
@@ -26,6 +27,7 @@ export function AdminMemberDangerZone({
   onAction?: (id: MemberAdminActionDecision["id"]) => void;
   busy?: boolean;
 }) {
+  const { t } = useI18n();
   if (actions.length === 0) return null;
 
   const grouped = groupMemberDetailDangerActions(actions);
@@ -38,10 +40,10 @@ export function AdminMemberDangerZone({
     >
       <div>
         <h2 id="member-danger-zone-title" className="text-sm font-bold text-sam-danger">
-          {MEMBER_DETAIL_DANGER_ZONE_TITLE_KO}
+          {t(MEMBER_DETAIL_DANGER_ZONE_TITLE_KEY)}
         </h2>
         <p className="mt-1 text-xs text-sam-muted">
-          계정 이용을 제한하거나 종료하는 작업입니다. 일반 정보 수정과 분리되어 있습니다.
+          {t("admin_users_danger_zone_desc")}
         </p>
       </div>
       {MEMBER_DETAIL_DANGER_GROUP_ORDER.map((groupId) => {
@@ -82,13 +84,13 @@ export function AdminMemberDangerZone({
                       <p className="text-sm font-semibold text-sam-danger">{action.labelKo}</p>
                       {!action.enabled ? (
                         <p className="text-xs text-sam-danger">
-                          {action.disabledReasonKo || "이 대상에는 실행할 수 없습니다."}
+                          {action.disabledReasonKo || t("admin_users_member_danger_not_runnable")}
                         </p>
                       ) : (
                         <p className="text-xs text-sam-danger">
                           {canRun
-                            ? "실행 전 확인이 필요합니다."
-                            : "헤더 기본 작업이 아닙니다. 최종 실행은 제재 워크플로에서 처리합니다."}
+                            ? t("admin_users_member_danger_confirm_required")
+                            : t("admin_users_member_danger_not_header_action")}
                         </p>
                       )}
                     </div>
@@ -113,7 +115,7 @@ export function AdminMemberDangerZone({
                         className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-xs font-semibold text-sam-muted"
                         data-danger-status="blocked"
                       >
-                        실행 불가
+                        {t("admin_users_danger_zone_unavailable")}
                       </span>
                     )}
                   </li>

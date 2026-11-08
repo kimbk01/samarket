@@ -5,6 +5,7 @@
  * 비교: 이력 i 의 「수정 후」 = 바로 다음(더 최근) 이력의 「수정 전」, 가장 최근 이력은 현재 글.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminListItemButton } from "@/components/admin/ui/AdminListItemButton";
 import { useEffect, useState } from "react";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
@@ -32,15 +33,15 @@ export type RevisionSnapshot = {
   topic_slug: string;
 };
 
-const ROLE: Record<string, { label: string; tone: "neutral" | "progress" | "warning" }> = {
-  admin: { label: "관리자 수정", tone: "warning" },
-  author: { label: "작성자 수정", tone: "neutral" },
-  member: { label: "작성자 수정", tone: "neutral" },
-  system: { label: "자동 처리", tone: "progress" },
+const ROLE: Record<string, { labelKey: MessageKey; tone: "neutral" | "progress" | "warning" }> = {
+  admin: { labelKey: "admin_community_postrev_role_admin", tone: "warning" },
+  author: { labelKey: "admin_community_postrev_role_author", tone: "neutral" },
+  member: { labelKey: "admin_community_postrev_role_author", tone: "neutral" },
+  system: { labelKey: "admin_community_postrev_role_system", tone: "progress" },
 };
 
-function bodyText(s: { content?: string | null; content_blocks?: unknown }): string {
-  const blocks = communityBlocksToText(s.content_blocks);
+function bodyText(s: { content?: string | null; content_blocks?: unknown }, lang: string): string {
+  const blocks = communityBlocksToText(s.content_blocks, lang);
   return blocks || String(s.content ?? "");
 }
 
@@ -79,7 +80,7 @@ export function CommunityPostRevisionsTab({
   topicNameOf: (slug: string) => string;
   reloadKey: number;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [rows, setRows] = useState<Revision[] | null>(null);
   const [err, setErr] = useState<{ code: string; status: number } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -104,7 +105,7 @@ export function CommunityPostRevisionsTab({
 
   if (err) return <AdminErrorState ko code={err.code} httpStatus={err.status} onRetry={() => setRetry((n) => n + 1)} />;
   if (!rows) return <AdminLoadingState ko />;
-  if (rows.length === 0) return <AdminEmptyState ko message="수정 이력이 없습니다. 처음 게시된 그대로입니다." />;
+  if (rows.length === 0) return <AdminEmptyState ko message={t("admin_community_postrev_empty")} />;
 
   return (
     <ol className="space-y-2" data-community-post-revisions="1">
@@ -131,24 +132,28 @@ export function CommunityPostRevisionsTab({
             >
               <span className="flex w-full flex-wrap items-center justify-between gap-2">
                 <span className="flex flex-wrap items-center gap-2">
-                  <AdminToneBadge tone={role.tone}>{role.label}</AdminToneBadge>
-                  <span className="font-medium text-sam-fg">{rev.editor_label?.trim() || "기록 없음"}</span>
+                  <AdminToneBadge tone={role.tone}>{t(role.labelKey)}</AdminToneBadge>
+                  <span className="font-medium text-sam-fg">{rev.editor_label?.trim() || t("admin_community_postrev_no_record")}</span>
                   {rev.reason ? <span className="text-sam-muted">{t("admin_community_kit_reason", { reason: rev.reason })}</span> : null}
                 </span>
                 <span className="text-sam-muted">
-                  {formatAdminManilaDateTime(rev.created_at)} PHT · {isOpen ? "접기" : "전후 비교"}
+                  {formatAdminManilaDateTime(rev.created_at)} PHT · {isOpen ? t("admin_community_postrev_collapse") : t("admin_community_postrev_compare")}
                 </span>
               </span>
             </AdminListItemButton>
             {isOpen ? (
               <div className="space-y-3 border-t border-sam-border-soft px-3 py-3">
-                <CompareRow label="제목" before={String(rev.title ?? "")} after={after.title} />
+                <CompareRow label={t("admin_community_postrev_field_title")} before={String(rev.title ?? "")} after={after.title} />
                 <CompareRow
-                  label="카테고리"
+                  label={t("admin_community_postrev_field_category")}
                   before={topicNameOf(String(rev.topic_slug ?? ""))}
                   after={topicNameOf(after.topic_slug)}
                 />
-                <CompareRow label="본문" before={bodyText(rev)} after={bodyText(after)} />
+                <CompareRow
+                  label={t("admin_community_postrev_field_body")}
+                  before={bodyText(rev, language)}
+                  after={bodyText(after, language)}
+                />
               </div>
             ) : null}
           </li>

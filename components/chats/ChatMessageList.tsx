@@ -431,7 +431,7 @@ export function ChatMessageList({
                           <span
                             className={`sam-text-xxs font-normal ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
                           >
-                            읽음
+                            {t("chats_message_read")}
                           </span>
                         )}
                         <span

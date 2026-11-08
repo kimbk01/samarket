@@ -67,11 +67,18 @@ export function SecurityCheckTable() {
       {checks.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={lq.isFiltered ? undefined : "해당 조건의 점검 항목이 없습니다."}
+          message={lq.isFiltered ? undefined : t("admin_security_checks_empty")}
           onReset={lq.isFiltered ? lq.reset : undefined}
         />
       ) : (
-        <AdminTable headers={["유형", "대상", "상태", "설명", "점검일", ""]}>
+        <AdminTable headers={[
+            t("admin_security_th_type"),
+            t("admin_security_th_target"),
+            t("admin_security_th_status"),
+            t("admin_security_th_description"),
+            t("admin_security_th_checked_at"),
+            "",
+          ]}>
           {checks.map((c) => (
             <tr
               key={c.id}
@@ -109,7 +116,7 @@ export function SecurityCheckTable() {
                   href={`/admin/security?checkId=${c.id}`}
                   className="text-signature hover:underline"
                 >
-                  이슈
+                  {t("admin_security_check_issue_link")}
                 </Link>
               </td>
             </tr>

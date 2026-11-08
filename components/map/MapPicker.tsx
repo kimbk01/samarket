@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useRef } from "react";
 import {
   ADDRESS_MAP_GOOGLE_PIN_ELEMENT,
@@ -87,6 +88,10 @@ export function MapPicker({
   /** 비동기 고급 마커 마운트 완료 시점에 최신 좌표를 쓰기 위함 */
   const markerRefForMount = useRef(marker);
   markerRefForMount.current = marker;
+  const { t } = useI18n();
+  /** 비동기 마커 마운트 시점의 현재 언어 문구 — 언어가 바뀌어도 지도를 다시 만들지 않는다 */
+  const markerTitleRef = useRef(t("map_picker_marker_title"));
+  markerTitleRef.current = t("map_picker_marker_title");
 
   useEffect(() => {
     onMoveRef.current = onMarkerPositionChange;
@@ -169,7 +174,7 @@ export function MapPicker({
         position: pos,
         content: pin.element,
         gmpDraggable: true,
-        title: "선택 위치",
+        title: markerTitleRef.current,
       });
       markerHandleRef.current = { kind: "advanced", el: adv };
       dragListenerRef.current = adv.addListener("dragend", () => {
@@ -336,7 +341,7 @@ export function MapPicker({
           <div className="relative flex flex-col items-center">
             {centerChrome === "hint" ? (
               <span className="mb-0.5 rounded-full bg-ui-fg px-2.5 py-1 sam-text-helper font-medium text-white shadow-md">
-                여기로 선택
+                {t("map_picker_select_here")}
               </span>
             ) : null}
             <svg width="40" height="48" viewBox="0 0 40 48" className={`${ADDRESS_MAP_PIN_TEXT_CLASS} drop-shadow-md`} aria-hidden>

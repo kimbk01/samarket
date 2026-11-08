@@ -34,6 +34,7 @@ vi.mock("@/components/admin/ads/AdminAdDeleteAction", () => ({
 }));
 
 import { TradePromotionEndSheet } from "@/components/admin/trade/promotions/TradePromotionsPage";
+import { translate } from "@/lib/i18n/messages";
 
 let root: Root;
 const fetchMock = vi.fn();
@@ -96,7 +97,10 @@ describe("거래 상위노출 종료 — 대상 재입력 없음 · 내부 메�
     const operator = document.querySelector('input[type="radio"]') as HTMLInputElement;
     await act(async () => operator.click());
     await flush();
-    const reason = document.querySelector('textarea[placeholder="종료 사유 (회원에게 전달됩니다)"]') as HTMLTextAreaElement;
+    // 문구는 카탈로그 키 (t 모의 = 키 그대로) — 한국어 값은 그대로 유지
+    expect(translate("ko", "admin_trade_promo_end_reason_ph")).toBe("종료 사유 (회원에게 전달됩니다)");
+    expect(translate("ko", "admin_trade_post_ads_end")).toBe("종료");
+    const reason = document.querySelector('textarea[placeholder="admin_trade_promo_end_reason_ph"]') as HTMLTextAreaElement;
     const memo = document.querySelector("[data-admin-ads-internal-memo] textarea") as HTMLTextAreaElement;
     expect(memo).toBeTruthy();
     await act(async () => setValue(reason, "운영 사유로 종료"));
@@ -107,7 +111,7 @@ describe("거래 상위노출 종료 — 대상 재입력 없음 · 내부 메�
 
     expect(document.body.textContent).not.toContain("admin_chat_sheet_retype_label");
     expect(document.querySelector("[data-admin-chat-sheet-step='2'] input")).toBeNull();
-    const run = btn("종료");
+    const run = btn("admin_trade_post_ads_end");
     expect(run.disabled).toBe(false);
     await act(async () => run.click());
     await flush();

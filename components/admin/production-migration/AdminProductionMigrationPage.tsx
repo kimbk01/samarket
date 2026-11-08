@@ -2,6 +2,7 @@
 
 import { useAdminSyncLoad } from "@/components/admin/useAdminSyncLoad";
 import { AdminSyncLoadGate } from "@/components/admin/AdminSyncLoadGate";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -28,13 +29,14 @@ export function AdminProductionMigrationPage() {
   const { state: loadState, reload } = useAdminSyncLoad(loadProductionMigrationFromServer);
   const hydrated = loadState.status === "ready";
 
+  const { t } = useI18n();
   const tabs: { id: TabId; label: string }[] = [
-    { id: "overview", label: "Migration 개요" },
-    { id: "table", label: "테이블 상태" },
-    { id: "rls", label: "RLS 점검" },
-    { id: "infra", label: "인프라 점검" },
-    { id: "launch", label: "Cutover 체크리스트" },
-    { id: "blocker", label: "Blocker 보드" },
+    { id: "overview", label: t("admin_prod_migration_tab_overview") },
+    { id: "table", label: t("admin_prod_migration_tab_tables") },
+    { id: "rls", label: t("admin_prod_migration_tab_rls") },
+    { id: "infra", label: t("admin_prod_migration_tab_infra") },
+    { id: "launch", label: t("admin_prod_migration_tab_cutover") },
+    { id: "blocker", label: t("admin_prod_migration_tab_blockers") },
   ];
 
   if (!hydrated) {
@@ -51,7 +53,7 @@ export function AdminProductionMigrationPage() {
       <AdminPageHeader titleKey="admin_menu_dev_production" />
       <AdminTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
-        ariaLabel="화면 탭"
+        ariaLabel={t("admin_screen_tabs_aria")}
         defaultValue="overview"
         resetParams={adminSyncTabResetParams(["category", "domain", "phase"])}
         className="mb-4"

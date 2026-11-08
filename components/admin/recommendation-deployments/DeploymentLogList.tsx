@@ -12,13 +12,13 @@ import { getRecommendationDeploymentLogs } from "@/lib/recommendation-experiment
 import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
-const ACTION_LABELS: Record<string, string> = {
-  create: "생성",
-  schedule: "예약",
-  deploy: "배포",
-  rollback: "롤백",
-  archive: "아카이브",
-  choose_winner: "승자 선택",
+const ACTION_LABEL_KEYS: Record<string, MessageKey> = {
+  create: "admin_rec_deploy_log_action_create",
+  schedule: "admin_rec_deploy_log_action_schedule",
+  deploy: "admin_rec_deploy_log_action_deploy",
+  rollback: "admin_rec_deploy_log_action_rollback",
+  archive: "admin_rec_deploy_log_action_archive",
+  choose_winner: "admin_rec_deploy_log_action_choose_winner",
 };
 
 export function DeploymentLogList() {
@@ -57,7 +57,7 @@ export function DeploymentLogList() {
       {logs.length === 0 ? (
         <AdminEmptyState
           ko={ko}
-          message={deploymentId ? undefined : "로그가 없습니다."}
+          message={deploymentId ? undefined : t("admin_rec_deploy_no_logs")}
           onReset={deploymentId ? lq.reset : undefined}
         />
       ) : (
@@ -66,19 +66,19 @@ export function DeploymentLogList() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  일시
+                  {t("admin_rec_deployments_col_time")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  배포 ID
+                  {t("admin_rec_deployments_col_deployment_id")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  액션
+                  {t("admin_rec_deployments_col_action")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  담당
+                  {t("admin_rec_deployments_col_owner")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  비고
+                  {t("admin_rec_deployments_col_note")}
                 </th>
               </tr>
             </thead>
@@ -93,7 +93,7 @@ export function DeploymentLogList() {
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">{l.deploymentId}</td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {ACTION_LABELS[l.actionType] ?? l.actionType}
+                    {ACTION_LABEL_KEYS[l.actionType] ? t(ACTION_LABEL_KEYS[l.actionType]) : l.actionType}
                   </td>
                   <td className="px-3 py-2.5 text-sam-muted">
                     {l.actorNickname} ({l.actorType})

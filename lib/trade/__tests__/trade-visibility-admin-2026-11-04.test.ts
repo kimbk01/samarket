@@ -141,7 +141,8 @@ describe("D-1·D-2·D-3·D-5·D-6·D-7", () => {
   });
 
   it("D-6 삭제 글 안내 · 같은 조치 반복 = 「이미 {상태}」", () => {
-    expect(src("lib/admin/trade-admin/trade-post-tabs.ts")).toContain('undelete: "삭제 취소 → 숨김 상태로"');
+    expect(src("lib/admin/trade-admin/trade-post-tabs.ts")).toContain('undelete: "admin_trade_post_action_undelete"');
+    expect(src("lib/i18n/catalog/copy-admin-l25-lib.ts")).toContain('admin_trade_post_action_undelete: "삭제 취소 → 숨김 상태로"');
     expect(src("app/api/admin/trade/posts/[id]/moderation/route.ts")).toContain("already_${state}");
     expect(src("components/admin/trade/kit/TradeAdminKit.tsx")).toContain('already_admin_deleted: "admin_trade_err_already_admin_deleted"');
     expect(src("lib/i18n/catalog/copy-admin-b4-community.ts")).toContain('admin_trade_err_already_admin_deleted: "이미 관리자 삭제 상태입니다."');

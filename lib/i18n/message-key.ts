@@ -127,6 +127,16 @@ import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
 import { copyAdminMessages } from "./catalog/copy-admin";
+import { copyAdminL25JsxAMessages } from "./catalog/copy-admin-l25-jsx-a";
+import { copyAdminL25JsxBMessages } from "./catalog/copy-admin-l25-jsx-b";
+import { copyUiL25JsxMessages } from "./catalog/copy-ui-l25-jsx";
+import { copyAdminL25CommunityAMessages } from "./catalog/copy-admin-l25-community-a";
+import { copyAdminL25CommunityBMessages } from "./catalog/copy-admin-l25-community-b";
+import { copyAdminL25TradeMessages } from "./catalog/copy-admin-l25-trade";
+import { copyAdminL25MiscMessages } from "./catalog/copy-admin-l25-misc";
+import { copyAdminL25LibMessages } from "./catalog/copy-admin-l25-lib";
+import { copyAdminL25AdsMessages } from "./catalog/copy-admin-l25-ads";
+import { copyAdminL25OpsMessages } from "./catalog/copy-admin-l25-ops";
 import { copyAdminB4StoresMessages } from "./catalog/copy-admin-b4-stores";
 import { copyAdminB4AdsMessages } from "./catalog/copy-admin-b4-ads";
 import { copyAdminB4CommunityMessages } from "./catalog/copy-admin-b4-community";
@@ -275,6 +285,16 @@ export type MessageKey =
   | KeyOf<typeof copyMessengerMessages.ko>
   | KeyOf<typeof copyAuthMessages.ko>
   | KeyOf<typeof copyAdminMessages.ko>
+  | KeyOf<typeof copyAdminL25JsxAMessages.ko>
+  | KeyOf<typeof copyAdminL25JsxBMessages.ko>
+  | KeyOf<typeof copyUiL25JsxMessages.ko>
+  | KeyOf<typeof copyAdminL25CommunityAMessages.ko>
+  | KeyOf<typeof copyAdminL25CommunityBMessages.ko>
+  | KeyOf<typeof copyAdminL25TradeMessages.ko>
+  | KeyOf<typeof copyAdminL25MiscMessages.ko>
+  | KeyOf<typeof copyAdminL25LibMessages.ko>
+  | KeyOf<typeof copyAdminL25AdsMessages.ko>
+  | KeyOf<typeof copyAdminL25OpsMessages.ko>
   | KeyOf<typeof copyAdminB4StoresMessages.ko>
   | KeyOf<typeof copyAdminB4AdsMessages.ko>
   | KeyOf<typeof copyAdminB4CommunityMessages.ko>
@@ -417,6 +437,16 @@ type EnMessageKey =
   | KeyOf<typeof copyMessengerMessages.en>
   | KeyOf<typeof copyAuthMessages.en>
   | KeyOf<typeof copyAdminMessages.en>
+  | KeyOf<typeof copyAdminL25JsxAMessages.en>
+  | KeyOf<typeof copyAdminL25JsxBMessages.en>
+  | KeyOf<typeof copyUiL25JsxMessages.en>
+  | KeyOf<typeof copyAdminL25CommunityAMessages.en>
+  | KeyOf<typeof copyAdminL25CommunityBMessages.en>
+  | KeyOf<typeof copyAdminL25TradeMessages.en>
+  | KeyOf<typeof copyAdminL25MiscMessages.en>
+  | KeyOf<typeof copyAdminL25LibMessages.en>
+  | KeyOf<typeof copyAdminL25AdsMessages.en>
+  | KeyOf<typeof copyAdminL25OpsMessages.en>
   | KeyOf<typeof copyAdminB4StoresMessages.en>
   | KeyOf<typeof copyAdminB4AdsMessages.en>
   | KeyOf<typeof copyAdminB4CommunityMessages.en>

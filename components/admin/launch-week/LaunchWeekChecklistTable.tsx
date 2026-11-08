@@ -68,18 +68,18 @@ export function LaunchWeekChecklistTable() {
       </AdminFilterBar>
 
       {items.length === 0 ? (
-        <AdminEmptyState ko={ko} message={"해당 조건 체크리스트가 없습니다."} onReset={lq.isFiltered ? lq.reset : undefined} />
+        <AdminEmptyState ko={ko} message={t("admin_launch_week_no_checklist")} onReset={lq.isFiltered ? lq.reset : undefined} />
       ) : (
         <AdminTable
           headers={[
             "Day",
-            "영역",
-            "제목",
-            "상태",
-            "우선순위",
-            "담당",
-            "차단/비고",
-            "확인일시",
+            t("admin_launch_week_th_area"),
+            t("admin_launch_week_th_title"),
+            t("admin_launch_week_th_status"),
+            t("admin_launch_week_th_priority"),
+            t("admin_launch_week_th_owner"),
+            t("admin_launch_week_th_blocker_remarks"),
+            t("admin_launch_week_th_checked_at"),
           ]}
         >
           {items.map((i) => (

@@ -21,7 +21,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import { computeDeliveryMenuStoreIds } from "@/lib/stores/delivery-menus/delivery-menu-compute";
 import {
-  DELIVERY_MENU_LINK_TARGET_LABEL_KO,
+  DELIVERY_MENU_LINK_TARGET_LABEL_KEYS,
   DELIVERY_MENU_LINK_TARGETS,
   type DeliveryMenuAdminRow,
 } from "@/lib/stores/delivery-menus/delivery-menu-types";
@@ -670,7 +670,7 @@ function FeatureEditor({
           <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_this_tab_s_menu_page")}</option>
           {DELIVERY_MENU_LINK_TARGETS.map((t) => (
             <option key={t} value={t}>
-              {DELIVERY_MENU_LINK_TARGET_LABEL_KO[t]}
+              {translateBy(ko ? "ko" : "en", DELIVERY_MENU_LINK_TARGET_LABEL_KEYS[t])}
             </option>
           ))}
         </select>
@@ -785,7 +785,7 @@ function MenuEditor({
           <option value="">{translateBy(ko ? "ko" : "en", "admin_stores_store_list_menu_page")}</option>
           {DELIVERY_MENU_LINK_TARGETS.map((t) => (
             <option key={t} value={t}>
-              {translateBy(ko ? "ko" : "en", "admin_stores_screen_link_option", { target: ko ? DELIVERY_MENU_LINK_TARGET_LABEL_KO[t] : t })}
+              {translateBy(ko ? "ko" : "en", "admin_stores_screen_link_option", { target: translateBy(ko ? "ko" : "en", DELIVERY_MENU_LINK_TARGET_LABEL_KEYS[t]) })}
             </option>
           ))}
         </select>

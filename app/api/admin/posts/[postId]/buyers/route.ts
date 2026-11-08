@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET(
   const { postId: raw } = await params;
   const postId = typeof raw === "string" ? raw.trim() : "";
   if (!postId) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: await adminServerText("admin_api_post_id_required") }, { status: 400 });
   }
 
   const sb = admin.sb;
