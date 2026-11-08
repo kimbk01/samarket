@@ -152,6 +152,8 @@ const HOME_DISCOVERY_SELECT = `
   detail_address,
   address_line1,
   address_line2,
+  barangay,
+  canonical_lgu_id,
   lat,
   lng,
   delivery_radius_km,

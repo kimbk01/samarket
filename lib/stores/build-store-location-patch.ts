@@ -4,6 +4,7 @@
  * `refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged` when lat/lng change.
  */
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
+import { computeStoreLocationColumns } from "@/lib/stores/store-location-columns.server";
 import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
 import {
   parseFiniteLatitude,
@@ -142,6 +143,21 @@ export function buildStoreLocationPatchFields(
     patch.address_line1 = norm.address1;
     patch.address_line2 = norm.address2;
     patch.district = norm.address1;
+  }
+
+  if (addressTouched || hasOwn(input, "formatted_address")) {
+    /** 주소 SSOT 3단계: 매장 바랑가이·시/군 PSGC 를 같은 저장에서 서버가 결정 */
+    const pick = (k: string) =>
+      (patch[k] !== undefined ? patch[k] : (current as Record<string, unknown>)[k]) as string | null | undefined;
+    const cols = computeStoreLocationColumns({
+      region: pick("region"),
+      city: pick("city"),
+      district: pick("district"),
+      address_line1: pick("address_line1"),
+      formatted_address: pick("formatted_address"),
+    });
+    patch.barangay = cols.barangay;
+    patch.canonical_lgu_id = cols.canonical_lgu_id;
   }
 
   if (Object.keys(patch).length === 0) {

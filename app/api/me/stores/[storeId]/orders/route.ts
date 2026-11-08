@@ -67,6 +67,8 @@ function pickupLinesFromStoreRow(storeAddr: Record<string, unknown> | null | und
     district: storeAddr.district as string | null | undefined,
     address_line1: storeAddr.address_line1 as string | null | undefined,
     address_line2: storeAddr.address_line2 as string | null | undefined,
+    barangay: storeAddr.barangay as string | null | undefined,
+    canonical_lgu_id: storeAddr.canonical_lgu_id as string | null | undefined,
   });
 }
 
@@ -230,7 +232,7 @@ export async function GET(
       }),
       sb
         .from("stores")
-        .select("region, city, district, address_line1, address_line2")
+        .select("region, city, district, address_line1, address_line2, barangay, canonical_lgu_id")
         .eq("id", id)
         .maybeSingle(),
     ]);

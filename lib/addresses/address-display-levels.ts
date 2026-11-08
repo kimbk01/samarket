@@ -174,6 +174,9 @@ export function addressDisplayPartsFromUserAddress(a: UserAddressDTO | null | un
 }
 
 type StoreLocationRow = {
+  /** 주소 SSOT 3단계 칸 — 있으면 이 값이 기준 */
+  barangay?: string | null;
+  canonical_lgu_id?: string | null;
   region?: string | null;
   city?: string | null;
   district?: string | null;
@@ -237,6 +240,15 @@ export function addressDisplayPartsFromStoreRow(row: StoreLocationRow | null | u
     const fromText = barangayBeforeCity(formatted, cityText) ?? barangayBeforeCity(`${line1}, ${cityText}`, cityText);
     if (fromText) barangay = fromText;
   }
+
+  /** 저장된 위치 칸(3단계)이 있으면 그것이 기준 — 글자 해석은 예전 매장 행에만 */
+  const storedLgu = clean(row.canonical_lgu_id);
+  const storedBrgy = clean(row.barangay);
+  if (storedLgu) {
+    cityLguId = storedLgu;
+    cityText = resolvePublicCityName({ cityLguId: storedLgu, cityText: cityText }) ?? cityText;
+  }
+  if (storedBrgy) barangay = storedBrgy;
 
   const street = line1
     .split(",")

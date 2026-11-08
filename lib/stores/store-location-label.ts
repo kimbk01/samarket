@@ -6,6 +6,9 @@ import {
 } from "@/lib/addresses/address-display-levels";
 
 type StoreLocationParts = {
+  /** 주소 SSOT 3단계 칸 — 있으면 기준 */
+  barangay?: string | null;
+  canonical_lgu_id?: string | null;
   district?: string | null;
   city?: string | null;
   region?: string | null;

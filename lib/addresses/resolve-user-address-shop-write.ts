@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { computeStoreLocationColumns } from "@/lib/stores/store-location-columns.server";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
@@ -159,6 +160,14 @@ async function syncApprovedStoreAddressFromAddressPayload(
     address_line2: detail || null,
     region: p.province?.trim() || str(storeRow.region),
     city: p.cityMunicipality?.trim() || str(storeRow.city),
+    /** 주소 SSOT 3단계: 매장 바랑가이·시/군 PSGC (회원 주소와 같은 기준) */
+    ...computeStoreLocationColumns({
+      region: p.province?.trim() || str(storeRow.region),
+      city: p.cityMunicipality?.trim() || str(storeRow.city),
+      address_line1: road || null,
+      formatted_address: formatted,
+      barangayHint: p.barangay ?? null,
+    }),
   };
 
   /** Owner/Admin PATCH 와 같은 Policy A 검사 — place_id 는 formatted + 범위 내 lat/lng 동반. */

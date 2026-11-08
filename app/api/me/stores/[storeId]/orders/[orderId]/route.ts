@@ -207,7 +207,7 @@ export async function GET(
 
   const { data: storeRow } = await sb
     .from("stores")
-    .select("store_name, slug, region, city, district, address_line1, address_line2")
+    .select("store_name, slug, region, city, district, address_line1, address_line2, barangay, canonical_lgu_id")
     .eq("id", sid)
     .maybeSingle();
   const store_pickup_address_lines = storeRow
@@ -217,6 +217,8 @@ export async function GET(
         district: storeRow.district as string | null | undefined,
         address_line1: storeRow.address_line1 as string | null | undefined,
         address_line2: storeRow.address_line2 as string | null | undefined,
+        barangay: storeRow.barangay as string | null | undefined,
+        canonical_lgu_id: storeRow.canonical_lgu_id as string | null | undefined,
       })
     : [];
 
