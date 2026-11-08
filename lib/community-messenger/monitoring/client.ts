@@ -7,12 +7,64 @@ import { cmProdParityModeEnabled } from "@/lib/community-messenger/dev/cm-event-
 import { shouldDeferMessengerMonitoringFlush } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { buildThresholdAlert, shouldAlertLatency, shouldAlertPacketLoss } from "./thresholds";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
-const FLUSH_BATCH = 24;
-const FLUSH_INTERVAL_MS = 25_000;
+/**
+ * U1 전송 상한 (Owner 「U1 승인」 2026-11-08 · docs/audit/supabase-request-surge-design-supplement-2026-11-08.md §7)
+ * - 탭당 전송은 5분에 1회 + 페이지를 떠날 때(`pagehide`) 1회. 숨김 탭에서는 보내지 않는다.
+ * - 한 번에 보내는 이벤트는 최대 64개(서버 MAX_BATCH 와 같음). 넘친 이벤트는 버리고 종류별 버린 수를 함께 보낸다.
+ * 이전(2026-11-08 폭주): 24개마다 즉시 전송·상한 없음 → 분당 약 225회.
+ */
+export const MESSENGER_MONITOR_FLUSH_INTERVAL_MS = 5 * 60_000;
+export const MESSENGER_MONITOR_MAX_EVENTS_PER_FLUSH = 64;
+/** 버린 수를 세는 종류(category:metric) 상한 — 넘치면 `monitoring:dropped_key_overflow` 1종으로 센다. */
+export const MESSENGER_MONITOR_MAX_DROPPED_KEYS = 64;
+const DROPPED_OVERFLOW_KEY = "monitoring\u0000dropped_key_overflow";
 
 let queue: MessengerMonitoringEvent[] = [];
+let droppedByKey = new Map<string, number>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+let lastFlushAt = 0;
+let pagehideFlushUsed = false;
+let waitingForVisible = false;
+let lifecycleListenersInstalled = false;
+
+function bumpDropped(category: string, metric: string): void {
+  const key = `${category}\u0000${metric}`;
+  const existing = droppedByKey.get(key);
+  if (existing != null) {
+    droppedByKey.set(key, existing + 1);
+    return;
+  }
+  if (droppedByKey.size >= MESSENGER_MONITOR_MAX_DROPPED_KEYS) {
+    droppedByKey.set(DROPPED_OVERFLOW_KEY, (droppedByKey.get(DROPPED_OVERFLOW_KEY) ?? 0) + 1);
+    return;
+  }
+  droppedByKey.set(key, 1);
+}
+
+function resolveMonitorPlatform(): "web" | "ios" | "android" {
+  if (!isCapacitorNativePlatform()) return "web";
+  return resolveCapacitorShellPlatform() ?? "web";
+}
+
+function isDocumentHidden(): boolean {
+  return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+
+function installLifecycleListeners(): void {
+  if (lifecycleListenersInstalled || typeof window === "undefined" || typeof document === "undefined") return;
+  lifecycleListenersInstalled = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && waitingForVisible) {
+      waitingForVisible = false;
+      scheduleFlush();
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    void flushMessengerMonitorQueue({ trigger: "pagehide" });
+  });
+}
 
 function roomSuffix(roomId: string): string {
   const t = roomId.trim();
@@ -46,45 +98,96 @@ export function messengerMonitorRecord(partial: Omit<MessengerMonitoringEvent, "
       });
     }
   }
-  queue.push(event);
-  if (queue.length >= FLUSH_BATCH) {
-    void flushMessengerMonitorQueue();
+  installLifecycleListeners();
+  if (queue.length < MESSENGER_MONITOR_MAX_EVENTS_PER_FLUSH) {
+    queue.push(event);
   } else {
-    scheduleFlush();
+    bumpDropped(event.category, event.metric);
   }
+  scheduleFlush();
 }
 
+/** 다음 전송은 마지막 전송 후 5분이 지나야 한다(첫 전송은 첫 기록 후 5분). */
 function scheduleFlush() {
   if (flushTimer !== null) return;
+  const now = Date.now();
+  const delay = lastFlushAt > 0
+    ? Math.max(1_000, lastFlushAt + MESSENGER_MONITOR_FLUSH_INTERVAL_MS - now)
+    : MESSENGER_MONITOR_FLUSH_INTERVAL_MS;
   flushTimer = setTimeout(() => {
     flushTimer = null;
-    void flushMessengerMonitorQueue();
-  }, FLUSH_INTERVAL_MS);
+    void flushMessengerMonitorQueue({ trigger: "timer" });
+  }, delay);
 }
 
-export async function flushMessengerMonitorQueue(): Promise<void> {
+export type MessengerMonitorFlushTrigger = "timer" | "pagehide" | "manual";
+
+/**
+ * 큐 전송. 상한을 지키지 못하는 시점(5분 안·숨김 탭·방 진입 우선 구간)이면 보내지 않고 다음 기회로 미룬다.
+ * `pagehide` 는 페이지 수명 동안 1회만 5분 간격을 건너뛸 수 있다.
+ */
+export async function flushMessengerMonitorQueue(
+  opts: { trigger?: MessengerMonitorFlushTrigger } = {},
+): Promise<void> {
+  const trigger = opts.trigger ?? "manual";
   if (isDevSafeMode() || cmProdParityModeEnabled()) {
     queue = [];
+    droppedByKey = new Map();
     return;
   }
-  if (shouldDeferMessengerMonitoringFlush()) {
-    scheduleFlush();
-    return;
+  if (typeof window === "undefined") return;
+  if (queue.length === 0 && droppedByKey.size === 0) return;
+
+  const now = Date.now();
+  if (trigger === "pagehide") {
+    if (pagehideFlushUsed) return;
+    pagehideFlushUsed = true;
+  } else {
+    if (lastFlushAt > 0 && now - lastFlushAt < MESSENGER_MONITOR_FLUSH_INTERVAL_MS) {
+      scheduleFlush();
+      return;
+    }
+    if (isDocumentHidden()) {
+      waitingForVisible = true;
+      return;
+    }
+    if (shouldDeferMessengerMonitoringFlush()) {
+      scheduleFlush();
+      return;
+    }
   }
-  if (queue.length === 0 || typeof window === "undefined") return;
+
   const batch = queue;
+  const dropped = [...droppedByKey.entries()].map(([key, count]) => {
+    const [category, metric] = key.split("\u0000");
+    return { category, metric, count };
+  });
   queue = [];
+  droppedByKey = new Map();
+  lastFlushAt = now;
   try {
     await fetch("/api/community-messenger/monitoring/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ events: batch }),
+      body: JSON.stringify({ events: batch, dropped, platform: resolveMonitorPlatform() }),
       keepalive: true,
     });
   } catch {
-    /* ignore — best effort */
+    /* ignore — best effort (실패한 배치는 다시 보내지 않는다: 재시도 폭주 금지) */
   }
+}
+
+/** 테스트 전용 — 모듈 상태 초기화 */
+export function __resetMessengerMonitorClientForTests(): void {
+  queue = [];
+  droppedByKey = new Map();
+  if (flushTimer !== null) clearTimeout(flushTimer);
+  flushTimer = null;
+  lastFlushAt = 0;
+  pagehideFlushUsed = false;
+  waitingForVisible = false;
+  lifecycleListenersInstalled = false;
 }
 
 /** 방 진입: fetch 부트스트랩 완료까지 (`silent` 는 콘솔 노이즈만 줄이고 전송 큐에는 동일 기록) */

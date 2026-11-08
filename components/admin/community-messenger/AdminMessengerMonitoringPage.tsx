@@ -18,13 +18,37 @@ import {
 } from "@/lib/community-messenger/monitoring/thresholds";
 import { useCmAdminLabels } from "./useCmAdminLabels";
 
-type SummaryResponse = { ok?: boolean; summary?: MessengerMonitoringSummary; error?: string };
+/** U1 — `lib/community-messenger/monitoring/monitoring-rollup-read.ts` 응답 형태(서버 전용 모듈이라 타입만 여기 둔다) */
+type DurableRollup =
+  | {
+      ok: true;
+      windowHours: number;
+      rows: Array<{
+        category: string;
+        metric: string;
+        outcome: string;
+        platform: string;
+        eventCount: number;
+        valueAvg: number | null;
+        valueMax: number | null;
+        droppedCount: number;
+      }>;
+    }
+  | { ok: false; error: string };
+
+type SummaryResponse = {
+  ok?: boolean;
+  summary?: MessengerMonitoringSummary;
+  durable?: DurableRollup;
+  error?: string;
+};
 
 export function AdminMessengerMonitoringPage() {
   const { t, formatDateTime } = useCmAdminLabels();
   const { language } = useI18n();
   const ko = language !== "en";
   const [summary, setSummary] = useState<MessengerMonitoringSummary | null>(null);
+  const [durable, setDurable] = useState<DurableRollup | null>(null);
   const [loading, setLoading] = useState(true);
   /** 화면 상태 (R7 · 수정 계획 2-5) — 오류 코드 + HTTP 상태. 실패해도 이전 표본은 지우지 않는다. */
   const [error, setError] = useState<{ code: string; httpStatus?: number } | null>(null);
@@ -37,6 +61,7 @@ export function AdminMessengerMonitoringPage() {
       const json = (await res.json().catch(() => ({}))) as SummaryResponse;
       if (res.ok && json.ok && json.summary) {
         setSummary(json.summary);
+        setDurable(json.durable ?? null);
       } else {
         setError({ code: json.error || "load_failed", httpStatus: res.status });
       }
@@ -248,6 +273,56 @@ export function AdminMessengerMonitoringPage() {
               </li>
             ))}
           </ul>
+        )}
+      </AdminCard>
+
+      {/* U1 (Owner 「U1 승인」 2026-11-08): 인스턴스 메모리가 아닌 DB 집계 — 모든 인스턴스 합계 */}
+      <AdminCard titleKey="admin_cm_card_durable_rollup">
+        <p className="mb-3 sam-text-helper text-sam-muted">{t("admin_cm_durable_rollup_desc")}</p>
+        {!durable || !durable.ok ? (
+          <p className="sam-text-body text-sam-muted" data-admin-durable-rollup="unavailable">
+            {t("admin_cm_durable_rollup_unavailable")}
+          </p>
+        ) : durable.rows.length === 0 ? (
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_durable_rollup_empty")}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-left sam-text-helper">
+              <thead>
+                <tr className="border-b border-sam-border">
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_metric")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_outcome")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_platform")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_events")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_avg")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_max")}</th>
+                  <th className="py-2 font-semibold text-sam-fg">{t("admin_cm_th_dropped")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {durable.rows.map((r) => (
+                  <tr
+                    key={`${r.category}:${r.metric}:${r.outcome}:${r.platform}`}
+                    className="border-b border-sam-border/60"
+                  >
+                    <td className="py-2 pr-2 font-mono sam-text-xxs text-sam-muted">
+                      {r.category}:{r.metric}
+                    </td>
+                    <td className="py-2 pr-2 text-sam-fg">{r.outcome || t("admin_cm_common_dash")}</td>
+                    <td className="py-2 pr-2 text-sam-fg">{r.platform}</td>
+                    <td className="py-2 pr-2 text-sam-fg">{r.eventCount}</td>
+                    <td className="py-2 pr-2 font-mono sam-text-xxs text-sam-fg">
+                      {r.valueAvg == null ? t("admin_cm_common_dash") : r.valueAvg.toFixed(1)}
+                    </td>
+                    <td className="py-2 pr-2 font-mono sam-text-xxs text-sam-fg">
+                      {r.valueMax == null ? t("admin_cm_common_dash") : r.valueMax.toFixed(1)}
+                    </td>
+                    <td className="py-2 text-sam-fg">{r.droppedCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </AdminCard>
 
