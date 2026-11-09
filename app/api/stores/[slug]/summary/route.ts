@@ -115,7 +115,7 @@ export async function GET(
     let shared: StoreSummaryPublicShared | null = payload.shared;
     let ownerHiddenPreview = false;
     if (!shared && status === 404) {
-      /** 사장님 본인 숨김 매장 — 본인 전용 결과라 캐시·single-flight 밖에서 만든다 (Owner 「본인 열람으로 수정」 2026-11-03) */
+      /** 사장님 본인 숨김 매장·관리자 미리보기 — 보는 사람 전용 결과라 캐시·single-flight 밖에서 만든다 (Owner 「본인 열람으로 수정」 2026-11-03 · 설계 v3.2 §3-4-3 2026-11-10) */
       const preview = await fetchStoreSummaryOwnerHiddenPreview(sb, decoded, await viewerIdP);
       if (preview) {
         shared = preview.shared;

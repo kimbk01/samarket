@@ -11,6 +11,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
   composeStoreMenusCatalogForViewer,
   fetchStoreMenusCatalog,
+  fetchStoreMenusCatalogAdminPreview,
   fetchStoreMenusCatalogOwnerHiddenPreview,
   type StoreMenusCatalogBody,
 } from "@/lib/stores/fetch-store-menus-catalog";
@@ -212,6 +213,17 @@ export async function GET(
         viewerId
       );
       return NextResponse.json(ownerBody, {
+        status: 200,
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
+    /**
+     * 관리자 미리보기 (설계 v3.2 §3-4-3 · 2026-11-10) — 활성 관리자 확인 뒤에만 사장님 미리보기와 같은 SQL 분기를 읽는다.
+     * 찜 여부는 덮어쓴 false 그대로(사장님 기준 값을 내보내지 않음) — 보는 사람 찜 합성 안 함.
+     */
+    const adminPreview = await fetchStoreMenusCatalogAdminPreview(gateSb, decoded, viewerId);
+    if (adminPreview) {
+      return NextResponse.json(adminPreview, {
         status: 200,
         headers: { "Cache-Control": "private, no-store" },
       });

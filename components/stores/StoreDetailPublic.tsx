@@ -250,6 +250,32 @@ function readOwnerHiddenPreviewMeta(json: unknown): boolean {
   return !!meta && typeof meta === "object" && (meta as { owner_hidden_preview?: unknown }).owner_hidden_preview === true;
 }
 
+/** 관리자 미리보기 상태 (설계 v3.2 §3-4-3 · 2026-11-10) — null = 관리자 미리보기 아님 */
+type AdminPreviewState = { publicVisible: boolean; menuUnavailable: boolean } | null;
+
+/** summary·legacy·menus 응답 meta 에서 관리자 미리보기 상태를 읽는다 */
+function readAdminPreviewMeta(meta: unknown): AdminPreviewState {
+  if (!meta || typeof meta !== "object") return null;
+  const m = meta as {
+    admin_preview?: unknown;
+    admin_preview_public_visible?: unknown;
+    admin_preview_menu_unavailable?: unknown;
+  };
+  if (m.admin_preview !== true) return null;
+  return {
+    publicVisible: m.admin_preview_public_visible === true,
+    menuUnavailable: m.admin_preview_menu_unavailable === true,
+  };
+}
+
+/** 같은 값이면 이전 객체를 유지하는 setState 갱신 함수 (불필요한 다시 그리기 방지) */
+function keepSameAdminPreview(next: AdminPreviewState) {
+  return (prev: AdminPreviewState): AdminPreviewState => {
+    if (prev === null || next === null) return next;
+    return prev.publicVisible === next.publicVisible && prev.menuUnavailable === next.menuUnavailable ? prev : next;
+  };
+}
+
 export function StoreDetailPublic({
   slug,
   initialApiResponse,
@@ -374,6 +400,9 @@ export function StoreDetailPublic({
   const [ownerHiddenPreview, setOwnerHiddenPreview] = useState(false);
   /** 본인 미리보기 중 입점 승인 전(심사 중) — 띠 문구만 다르다 (Owner 2026-11-10) */
   const [ownerPreviewPending, setOwnerPreviewPending] = useState(false);
+  /** 관리자 미리보기 — 서버 meta `admin_preview` (설계 v3.2 §3-4-3 · 2026-11-10). 주문은 막는다. */
+  const [adminPreviewState, setAdminPreviewState] = useState<AdminPreviewState>(null);
+  const adminPreview = adminPreviewState !== null;
   /** 서버 summary 가 보는 사람(사장님·관리자) 판정을 준 매장 slug — 매장 모집 중 남의 매장 진입 차단 판정용 */
   const [viewerResolvedSlug, setViewerResolvedSlug] = useState<string | null>(null);
   const launchState = useDeliveryLaunchState();
@@ -387,6 +416,7 @@ export function StoreDetailPublic({
   const recruitingBlocksViewer =
     recruitingViewerDecided &&
     !ownerHiddenPreview &&
+    !adminPreview &&
     !storeOrderability.viewerIsOwner &&
     !storeOrderability.viewerIsAdmin;
   useEffect(() => {
@@ -655,6 +685,11 @@ export function StoreDetailPublic({
     const h = hydrateStorePublicFromApiJson(json);
     setDbOff(h.dbOff);
     setOwnerHiddenPreview(readOwnerHiddenPreviewMeta(json));
+    setAdminPreviewState(
+      keepSameAdminPreview(
+        readAdminPreviewMeta(json && typeof json === "object" ? (json as { meta?: unknown }).meta : null)
+      )
+    );
     if (h.dbOff) {
       setStore(null);
       setProducts([]);
@@ -747,6 +782,7 @@ export function StoreDetailPublic({
     setIsSampleStore(sumParsed.meta?.isSampleStore === true);
     setOwnerHiddenPreview(sumParsed.meta?.owner_hidden_preview === true);
     setOwnerPreviewPending(sumParsed.meta?.owner_preview_pending === true);
+    setAdminPreviewState(keepSameAdminPreview(readAdminPreviewMeta(sumParsed.meta)));
     setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
     setDbOff(false);
   }, [decodedSlug]);
@@ -1605,6 +1641,11 @@ export function StoreDetailPublic({
         showStoreDetailToast(store.id, t("store_err_own_store_block"));
         return true;
       }
+      /** 관리자 미리보기 — 담기·주문 막음 (설계 v3.2 §3-4-3) */
+      if (adminPreview) {
+        showStoreDetailToast(store.id, t("store_detail_admin_preview_order_blocked"));
+        return true;
+      }
       if (commerce ? !commerce.isOpenForCommerce : false) return false;
       const soldOut =
         p.product_status === "sold_out" || (p.track_inventory && p.stock_qty <= 0);
@@ -1683,7 +1724,7 @@ export function StoreDetailPublic({
       showStoreDetailToast(store.id, t("store_added_to_cart_toast", { title: p.title }));
       return true;
     },
-    [commerceCartActions, store, commerce, storeOrderability, t, fulfillmentMode, distanceOutOfRange]
+    [commerceCartActions, store, commerce, storeOrderability, adminPreview, t, fulfillmentMode, distanceOutOfRange]
   );
 
   const onMenuSearchFocus = useCallback(() => {
@@ -2090,11 +2131,15 @@ export function StoreDetailPublic({
     fulfillmentMode,
     distanceOutOfRange,
   });
-  const menuSelectBlocked = ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
+  /** 관리자 미리보기 — 메뉴는 보이되 선택·담기·주문은 막는다 (설계 v3.2 §3-4-3) */
+  const menuSelectBlocked =
+    ownerOrderBlocked || adminPreview || (commerce ? !commerce.isOpenForCommerce : false);
   const menuSelectHint =
     ownerOrderBlocked
       ? ownerOrderBlockedMessage
-      : commerce && !commerce.isOpenForCommerce
+      : adminPreview
+        ? t("store_detail_admin_preview_order_blocked")
+        : commerce && !commerce.isOpenForCommerce
         ? commerce.inBreak
           ? t("store_menu_blocked_break", { range: commerce.breakRangeLabel })
           : t("store_menu_blocked_hours")
@@ -2110,6 +2155,27 @@ export function StoreDetailPublic({
       <p className="text-[13px] font-medium leading-snug text-sam-fg">
         {t(ownerPreviewPending ? "store_detail_owner_preview_pending" : "store_detail_owner_hidden_preview")}
       </p>
+    </div>
+  ) : null;
+  const adminPreviewBanner = adminPreviewState ? (
+    <div
+      className="border-b border-sam-border bg-sam-surface-muted px-4 py-3"
+      data-store-admin-preview
+      data-store-admin-preview-public-visible={adminPreviewState.publicVisible ? "yes" : "no"}
+      role="status"
+    >
+      <p className="text-[13px] font-semibold leading-snug text-sam-fg">
+        {t(
+          adminPreviewState.publicVisible
+            ? "store_detail_admin_preview_visible_yes"
+            : "store_detail_admin_preview_visible_no"
+        )}
+      </p>
+      {adminPreviewState.menuUnavailable ? (
+        <p className="mt-1 text-[12px] leading-snug text-sam-meta" data-store-admin-preview-menu-unavailable>
+          {t("store_detail_admin_preview_menu_unavailable")}
+        </p>
+      ) : null}
     </div>
   ) : null;
   const deliveryOrderingBanner = deliveryOrderingBlocked ? (
@@ -2299,7 +2365,7 @@ export function StoreDetailPublic({
         popularSpyActive={popularSpyActive}
         storeReviewCount={Math.max(0, Math.floor(Number(detailStore.review_count) || 0))}
         storeSlug={detailStore.slug}
-        canSell={menuOpen || ownerHiddenPreview}
+        canSell={menuOpen || ownerHiddenPreview || adminPreview}
         menuQueryActive={menuQuery.trim().length > 0}
         menusLoadFailed={menusLoadFailed}
         onRetryMenus={onRetryMenus}
@@ -2312,8 +2378,9 @@ export function StoreDetailPublic({
         onMenuFirstVisible={onMenuFirstVisible}
         commerceCartStoreId={isStoreDetailListSeedId(detailStore.id) ? undefined : detailStore.id}
         menuTopSlot={
-          ownerHiddenPreviewBanner || deliveryOrderingBanner ? (
+          adminPreviewBanner || ownerHiddenPreviewBanner || deliveryOrderingBanner ? (
             <>
+              {adminPreviewBanner}
               {ownerHiddenPreviewBanner}
               {deliveryOrderingBanner}
               {menuTopSlot}

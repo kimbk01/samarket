@@ -104,8 +104,12 @@ export async function GET(
         ...orderability,
         ...(storeRes.ownerHiddenPreview ? { owner_hidden_preview: true } : {}),
         ...(storeRes.ok && storeRes.ownerPreviewPending ? { owner_preview_pending: true } : {}),
+        /** 관리자 미리보기 (설계 v3.2 §3-4-3 · 2026-11-10) — 보는 사람 전용 */
+        ...(storeRes.adminPreview
+          ? { admin_preview: true, admin_preview_public_visible: storeRes.publiclyVisible === true }
+          : {}),
       },
-    }, storeRes.ownerHiddenPreview ? { headers: { "Cache-Control": "private, no-store" } } : undefined);
+    }, storeRes.ownerHiddenPreview || storeRes.adminPreview ? { headers: { "Cache-Control": "private, no-store" } } : undefined);
   } catch (e) {
     console.error("[api/stores/slug]", e);
     return NextResponse.json(

@@ -23,6 +23,12 @@ export type StoreSummaryCommerceMeta = {
   owner_hidden_preview?: boolean;
   /** 본인 미리보기 + 입점 승인 전(대기·심사·보완) — Owner 2026-11-10 */
   owner_preview_pending?: boolean;
+  /** 관리자 미리보기 — 활성 관리자가 고객에게 안 보이는 매장을 상태 무관으로 열람 (설계 v3.2 §3-4-3 · 2026-11-10) */
+  admin_preview?: boolean;
+  /** 관리자 미리보기 중 이 매장이 지금 고객에게 보이는지 */
+  admin_preview_public_visible?: boolean;
+  /** 관리자 미리보기 + 반려·중지 — 메뉴를 불러올 수 없는 상태 */
+  admin_preview_menu_unavailable?: boolean;
 };
 
 export type StoreSummaryPayload = {

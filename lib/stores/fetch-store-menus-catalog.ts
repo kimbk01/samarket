@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeliveryMenusApiPhaseMarks } from "@/lib/stores/delivery-menus-api-breakdown";
 import {
   getApprovedStoreBySlug,
+  getStoreBySlugForViewer,
   STORE_SELECT_MENUS_STORE,
 } from "@/lib/stores/get-approved-store-by-slug";
 import {
@@ -143,6 +144,65 @@ export async function fetchStoreMenusCatalogOwnerHiddenPreview(
   return {
     ...body,
     meta: { ...body.meta, owner_hidden_preview: true } as StoreMenusCatalogBody["meta"],
+  };
+}
+
+/** 관리자 미리보기 매장 판정 컬럼 — 메뉴 store 블록 + 사장님 id(DB 함수 인자) */
+const STORE_SELECT_MENUS_ADMIN_PREVIEW = `${STORE_SELECT_MENUS_STORE}, owner_user_id`;
+
+/**
+ * 관리자 미리보기 메뉴 (설계 v3.2 §3-4-3 「어드민에서는 매장을 볼 수 있는 기능」 2026-11-10).
+ * 공용 판정이 404 이고 사장님 본인 미리보기도 아닐 때만 호출. 보는 사람 전용이라 route 메모리 캐시·counter row 에 넣지 않는다.
+ *
+ * - 관리자 판정은 `getStoreBySlugForViewer`(활성 관리자 + 정지 운영자 제외) 를 **먼저** 끝낸다. 관리자가 아니면 null.
+ * - DB 함수 시그니처는 바꾸지 않는다(운영 DB 변경 금지). 대신 관리자 확인이 끝난 이 서버 코드에서만
+ *   `get_store_menus_snapshot(p_user_id = 그 매장 owner_user_id)` 로 불러 사장님 미리보기와 **같은 SQL 분기**(숨김·임시 상품 포함)를 읽는다.
+ *   관리자가 사장님으로 행세해 쓰기를 하는 것이 아니라 읽기 전용 스냅샷을 같은 조건으로 읽기만 한다.
+ *   그 결과의 `viewer_favorited` 는 사장님 기준 값이라 false 로 덮어쓴다.
+ * - 반려·중지 매장은 DB 함수가 열지 않는다 → 빈 메뉴 + `admin_preview_menu_unavailable` (화면 안내).
+ * null = 관리자 아님·매장 없음.
+ */
+export async function fetchStoreMenusCatalogAdminPreview(
+  sb: SupabaseClient,
+  decodedSlug: string,
+  viewerId: string | null
+): Promise<StoreMenusCatalogBody | null> {
+  const viewer = viewerId?.trim() || "";
+  if (!viewer) return null;
+  const gate = await getStoreBySlugForViewer(sb, decodedSlug, STORE_SELECT_MENUS_ADMIN_PREVIEW, viewer);
+  if (gate.ok === false || gate.adminPreview !== true) return null;
+  const ownerUserId = String(gate.store.owner_user_id ?? "").trim();
+  const adminMeta = {
+    admin_preview: true,
+    admin_preview_public_visible: gate.publiclyVisible === true,
+    viewer_favorited: false,
+  };
+  const unavailable = (): StoreMenusCatalogBody => ({
+    ...EMPTY_NOT_FOUND,
+    store: {
+      id: String(gate.store.id ?? ""),
+      slug: String(gate.store.slug ?? ""),
+      store_name: String(gate.store.store_name ?? ""),
+      menu_sold_out_bottom: gate.store.menu_sold_out_bottom === true,
+    },
+    meta: { ...EMPTY_NOT_FOUND.meta, ...adminMeta, admin_preview_menu_unavailable: true },
+  });
+  if (!ownerUserId) return unavailable();
+  const { data, error } = await sb.rpc(STORE_MENUS_SNAPSHOT_RPC, {
+    p_store_slug: decodedSlug.trim(),
+    p_user_id: ownerUserId,
+    p_menu_version: STORE_MENUS_SNAPSHOT_MENU_VERSION,
+  });
+  if (error) {
+    console.error("[fetchStoreMenusCatalogAdminPreview] rpc", error.message);
+    return unavailable();
+  }
+  const payload = parseStoreMenusSnapshotRpcData(data);
+  const body = payload?.store ? parseStoreMenusSnapshotPayload(payload) : null;
+  if (!body) return unavailable();
+  return {
+    ...body,
+    meta: { ...body.meta, ...adminMeta },
   };
 }
 
