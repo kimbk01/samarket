@@ -3,6 +3,7 @@
  */
 import type { StoreMenusCatalogBody } from "@/lib/stores/store-menus-catalog-assemble";
 import { isClientProdPerfLogEnabled } from "@/lib/performance/prod-same-region-perf";
+import { replacePerformanceMark } from "@/lib/performance/performance-mark-replace";
 
 export type MenusColdFillSnapshotVia = "counter_row" | "unified_rpc" | "route_memory_hit" | "unknown";
 
@@ -108,7 +109,7 @@ function perfNow(): number {
 function safeMark(name: string): void {
   if (typeof performance === "undefined" || typeof performance.mark !== "function") return;
   try {
-    performance.mark(name);
+    replacePerformanceMark(name);
   } catch {
     /* duplicate mark */
   }
@@ -117,6 +118,8 @@ function safeMark(name: string): void {
 function safeMeasure(name: string, start: string, end: string): number | null {
   if (typeof performance === "undefined" || typeof performance.measure !== "function") return null;
   try {
+    // 같은 이름 measure 는 마지막 1개만 유지 (앱 수명 내 누적 방지).
+    if (typeof performance.clearMeasures === "function") performance.clearMeasures(name);
     performance.measure(name, start, end);
     const entries = performance.getEntriesByName(name, "measure");
     const last = entries[entries.length - 1];

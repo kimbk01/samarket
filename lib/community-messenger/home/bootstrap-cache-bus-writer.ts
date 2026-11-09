@@ -14,6 +14,7 @@ import {
   type MessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
+import { addBounded } from "@/lib/collections/bounded-collections";
 
 export const BOOTSTRAP_CACHE_SYNC_HOST_WRITER_ID = "community-messenger-bootstrap-cache-sync-host";
 
@@ -31,6 +32,12 @@ export type BootstrapCacheWriteResult = {
 };
 
 let activeViewerUserId: string | null = null;
+/**
+ * 실시간 이벤트 중복 처리 방지 — 재전송·재구독으로 같은 이벤트가 다시 오는 창은 수 초~수 분이다.
+ * 상한 없이 며칠 쌓이던 것을 최근 2,000건으로 제한. 같은 이벤트의 중복 수신(여러 채널·재구독)은 수 초 안에 온다 —
+ * 2,000건 뒤에 같은 ID 가 다시 오는 경로는 확인되지 않았다(타일 투영은 projection-authority 의 별도 상한 dedupe 도 거친다).
+ */
+const PROCESSED_EVENT_IDS_MAX = 2_000;
 const processedEventIds = new Set<string>();
 let cacheWriteCountForTests = 0;
 
@@ -187,7 +194,7 @@ export function applyBootstrapCacheBusEvent(
   if (patch.kind === "sender_local_echo") {
     const preview = patch.preview;
     if (!preview?.lastMessageAt || !preview.lastMessage) {
-      processedEventIds.add(eventId);
+      addBounded(processedEventIds, eventId, PROCESSED_EVENT_IDS_MAX);
       return { ...baseResult, cacheWriteSkipReason: "patch_noop" };
     }
     const tipEventId =
@@ -199,7 +206,7 @@ export function applyBootstrapCacheBusEvent(
         ev.messageId?.trim() &&
         wasRoomActivityEventProjected(ev.messageId.trim()))
     ) {
-      processedEventIds.add(eventId);
+      addBounded(processedEventIds, eventId, PROCESSED_EVENT_IDS_MAX);
       return { ...baseResult, cacheWriteSkipReason: "projection_already_applied" };
     }
     const projected = projectRoomActivityToHomeList({
@@ -213,7 +220,7 @@ export function applyBootstrapCacheBusEvent(
       source: "local_send_ack",
       viewerUserId: me,
     });
-    processedEventIds.add(eventId);
+    addBounded(processedEventIds, eventId, PROCESSED_EVENT_IDS_MAX);
     if (!projected.accepted) {
       const skip =
         projected.reason === "call_stub_guard"
@@ -239,7 +246,7 @@ export function applyBootstrapCacheBusEvent(
   if (patch.kind === "call_stub_preview") {
     const tipEventId = `bus_call:${roomId}:${patch.preview.lastMessageAt}:${patch.preview.lastMessage}`;
     if (wasRoomActivityEventProjected(tipEventId)) {
-      processedEventIds.add(eventId);
+      addBounded(processedEventIds, eventId, PROCESSED_EVENT_IDS_MAX);
       return { ...baseResult, cacheWriteSkipReason: "projection_already_applied" };
     }
     const projected = projectRoomActivityToHomeList({
@@ -254,7 +261,7 @@ export function applyBootstrapCacheBusEvent(
       viewerUserId: me,
       revision: patch.preview.lastMessage,
     });
-    processedEventIds.add(eventId);
+    addBounded(processedEventIds, eventId, PROCESSED_EVENT_IDS_MAX);
     if (!projected.accepted) {
       const skip =
         projected.reason === "call_stub_guard"
@@ -296,7 +303,7 @@ export function applyBootstrapCacheBusEvent(
   }
 
   const after = previewFields(next, roomId);
-  processedEventIds.add(eventId);
+  addBounded(processedEventIds, eventId, PROCESSED_EVENT_IDS_MAX);
   primeBootstrapCache(next);
   cacheWriteCountForTests += 1;
 

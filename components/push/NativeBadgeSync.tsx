@@ -218,22 +218,32 @@ export function NativeBadgeSync() {
     const unsubProj = subscribeProjectionAuthorityState(() => apply("projection_state"));
 
     let appStateHandle: { remove: () => void } | null = null;
+    /**
+     * 이 effect 는 배지 숫자(`total`)가 바뀔 때마다 다시 돈다. 리스너 등록은 비동기라 정리(cleanup)가 먼저 오면
+     * 핸들이 아직 없어 지우지 못하고 리스너가 하나씩 쌓였다(장시간 실행 감사 2026-11-09 C) → 정리 뒤 도착한 핸들은 즉시 제거.
+     */
+    let disposed = false;
     if (Capacitor.getPlatform() === "android") {
       void import("@capacitor/app").then(({ App }) =>
         App.addListener("appStateChange", ({ isActive }) => {
           if (isActive) return;
           apply("android_background_reaffirm", { forceReaffirm: true });
         }).then((handle) => {
+          if (disposed) {
+            void handle.remove();
+            return;
+          }
           appStateHandle = handle;
         })
       );
     }
 
     return () => {
+      disposed = true;
       window.removeEventListener("pageshow", onPageShow);
       unsubPhase();
       unsubProj();
-      appStateHandle?.remove();
+      void appStateHandle?.remove();
     };
   }, [total, projectionState]);
 

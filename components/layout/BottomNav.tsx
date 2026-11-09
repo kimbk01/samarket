@@ -89,21 +89,11 @@ import {
   resolveMainBottomNavTabTapHref,
   type MainBottomNavTabEmphasisKind,
 } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
-import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
+import { shouldPrefetchMainBottomNavHref } from "@/lib/main-menu/main-bottom-nav-link-prefetch-eligibility";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
 
-/** Inactive MAIN hub roots — Next RSC prefetch so first bottom-nav enter is not cold. */
-function shouldPrefetchMainBottomNavHref(href: string, isActive: boolean): boolean {
-  if (isActive) return false;
-  const path = (href.split("?")[0] ?? "").trim().replace(/\/+$/, "") || "/";
-  if (isHomeSurfacePath(path)) return true;
-  if (isCommunityHomeSurfacePath(path)) return true;
-  if (path === "/market" || path === "/stores" || path === "/mypage") return true;
-  if (path === "/community-messenger") return true;
-  return false;
-}
 
 /**
  * 하단 탭 배지 — 링 색 1개(하단 바 바탕색). 공용 배지의 `ring-white` 와 다른 링 클래스가 함께 붙어

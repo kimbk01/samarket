@@ -1,5 +1,8 @@
 "use client";
 
+import { pushBounded } from "@/lib/collections/bounded-collections";
+import { replacePerformanceMark } from "@/lib/performance/performance-mark-replace";
+
 /** `/stores` 홈 — idle·백그라운드 prewarm/portal 최소 지연 (체감 우선) */
 export const STORES_HOME_IDLE_DEFER_MS = 5000;
 
@@ -22,7 +25,7 @@ export function markStoresHomePerf(stage: StoresHomePerfStage): void {
   if (typeof performance === "undefined") return;
   const name = `stores-home:${stage}`;
   try {
-    performance.mark(name);
+    replacePerformanceMark(name);
   } catch {
     /* duplicate mark — ignore */
   }
@@ -31,6 +34,9 @@ export function markStoresHomePerf(stage: StoresHomePerfStage): void {
     window.__storesHomePerf = { ...window.__storesHomePerf, [stage]: t };
   }
 }
+
+/** longtask 기록 상한 — 최근 200건(성능 QA 가 보는 구간은 매장 홈 진입 직후). */
+const STORES_PERF_LONG_TASKS_MAX = 200;
 
 export function installStoresHomePerfObservers(): void {
   if (typeof window === "undefined") return;
@@ -56,7 +62,8 @@ export function installStoresHomePerfObservers(): void {
       const ltObs = new PerformanceObserver((list) => {
         for (const e of list.getEntries()) {
           if (e.duration < 50) continue;
-          window.__storesPerfLongTasks!.push({ start: e.startTime, duration: e.duration });
+          // 매장 홈을 한 번 연 뒤 앱 전체 수명 동안 관찰이 계속된다 → 최근 기록만 유지 (읽는 곳: 성능 QA 콘솔).
+          pushBounded(window.__storesPerfLongTasks!, { start: e.startTime, duration: e.duration }, STORES_PERF_LONG_TASKS_MAX);
         }
       });
       ltObs.observe({ type: "longtask", buffered: true } as PerformanceObserverInit);

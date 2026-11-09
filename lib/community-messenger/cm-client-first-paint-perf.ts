@@ -19,6 +19,7 @@ export type CmClientFirstPaintMark =
   | "list_interactive";
 
 export type { CmClientFirstPaintPassFail } from "@/lib/community-messenger/cm-client-first-paint-lock";
+import { replacePerformanceMark } from "@/lib/performance/performance-mark-replace";
 import type { CmClientFirstPaintPassFail } from "@/lib/community-messenger/cm-client-first-paint-lock";
 
 export type CmClientFirstPaintSession = {
@@ -67,7 +68,7 @@ function logLine(payload: Record<string, unknown>): void {
 function perfMark(name: string): void {
   if (typeof performance === "undefined" || typeof performance.mark !== "function") return;
   try {
-    performance.mark(`cm-client-first-paint:${name}`);
+    replacePerformanceMark(`cm-client-first-paint:${name}`);
   } catch {
     /* ignore */
   }

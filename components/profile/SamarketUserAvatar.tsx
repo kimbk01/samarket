@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { addBounded } from "@/lib/collections/bounded-collections";
 
 type Props = {
   avatarUrl?: string | null;
@@ -20,6 +21,8 @@ type Props = {
  * 로드 실패한 사진 src — 같은 화면 세션에서 재시도하지 않는다(홈 카드 실패 → 수정 시트도 바로 기본 아바타).
  * 새 사진(다른 src)은 다시 시도.
  */
+/** 실패 URL 상한 — 넘으면 오래된 것부터 잊고, 잊은 URL 은 한 번 더 로드를 시도할 뿐(실패 시 다시 기록). */
+const FAILED_AVATAR_SRCS_MAX = 200;
 const failedAvatarSrcs = new Set<string>();
 
 /**
@@ -57,7 +60,7 @@ export function SamarketUserAvatar({
             sizes={`${sizePx}px`}
             unoptimized
             onError={() => {
-              failedAvatarSrcs.add(customSrc!);
+              addBounded(failedAvatarSrcs, customSrc!, FAILED_AVATAR_SRCS_MAX);
               setFailedSrc(customSrc);
             }}
           />

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { setBounded } from "@/lib/collections/bounded-collections";
 
 export function isWeakTradeChatListTitle(
   value: string | null | undefined,
@@ -11,6 +12,11 @@ export function isWeakTradeChatListTitle(
   return !s || s === weakTitleLabel;
 }
 
+/**
+ * 거래 글 미리보기 캐시 상한 — 거래 채팅 목록 몇 화면 분량. 넘으면 오래된 글부터 잊고, 잊은 글은 목록에 다시 보일 때
+ * 미리보기 API 를 1회 다시 부른다. (만료 시간은 기존 동작대로 두었다 — 가격 변경 반영 주기는 별도 판단 사항)
+ */
+const PREVIEW_CACHE_MAX = 300;
 const previewCache = new Map<string, { title: string; priceLabel: string | null }>();
 
 async function loadTradePostListPreview(
@@ -35,7 +41,7 @@ async function loadTradePostListPreview(
     const notFound = res.status === 404 || j.error === "not_found";
     if (notFound) {
       const deleted = { title: deletedTitleLabel, priceLabel: null as string | null };
-      previewCache.set(postId, deleted);
+      setBounded(previewCache, postId, deleted, PREVIEW_CACHE_MAX);
       return deleted;
     }
     return { title: weakTitleLabel, priceLabel: null };
@@ -44,7 +50,7 @@ async function loadTradePostListPreview(
     title: String(j.title ?? "").trim() || weakTitleLabel,
     priceLabel: j.priceLabel ?? null,
   };
-  previewCache.set(postId, out);
+  setBounded(previewCache, postId, out, PREVIEW_CACHE_MAX);
   return out;
 }
 

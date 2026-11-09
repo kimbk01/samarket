@@ -220,10 +220,86 @@ export function primeMessengerBootstrapFull(
   memoryFullCache = { data: tiered, at, viewerId: gate.viewerId };
   if (options?.networkConfirmed) noteBootstrapNetworkConfirmed(gate.viewerId);
   if (typeof window === "undefined") return;
+  scheduleFullSessionWrite(options?.networkConfirmed === true);
+}
+
+/**
+ * full 목록의 sessionStorage 쓰기 병합 (장시간 실행 감사 2026-11-09 C).
+ *
+ * 문제: 실시간 이벤트(메시지·읽음) 1건마다 방 목록 전체를 `JSON.stringify` 해 동기로 저장 → 메인 스레드 점유.
+ * 계약:
+ * - 메모리 캐시는 항상 즉시 갱신(같은 문서 안의 모든 읽기는 메모리 우선 — `peekMessengerBootstrapFull`).
+ * - 저장은 「앞 1회 즉시 + 창 안의 나머지는 창 끝에 마지막 값 1회」(최대 지연 `FULL_SESSION_WRITE_WINDOW_MS`).
+ *   숨김 때만 저장하는 방식이 아니다 — 창이 끝나면 화면이 보이든 아니든 저장한다.
+ * - 서버 응답을 그대로 기록(`networkConfirmed`)하면 즉시 저장.
+ * - 화면 숨김·`pagehide`(새로고침·문서 교체 직전) 에는 남은 쓰기를 즉시 저장.
+ * - 캐시 비우기(로그아웃·계정 전환)는 남은 쓰기를 취소 — 이전 사용자 목록이 늦게 다시 저장되지 않는다.
+ * - sessionStorage 는 같은 WebView 문서 교체(새로고침)용 복원 자료다. 프로세스·렌더러가 죽으면 원래 남지 않는다
+ *   (그 경우 복원은 서버 bootstrap). 따라서 병합 창(최대 1초) 동안 잃을 수 있는 것은 「같은 문서 새로고침 직전
+ *   1초 안의 로컬 패치」뿐이며, 그 경우도 `pagehide` 최종 저장이 막는다.
+ */
+const FULL_SESSION_WRITE_WINDOW_MS = 1_000;
+let fullSessionWriteTimer: ReturnType<typeof setTimeout> | null = null;
+let fullSessionWritePending = false;
+let fullSessionFlushListenersInstalled = false;
+
+function writeFullSessionNow(): void {
+  fullSessionWritePending = false;
+  const entry = memoryFullCache;
+  if (!entry) return;
   try {
-    sessionStorage.setItem(SS_KEY_FULL, JSON.stringify({ at, data: tiered, viewerId: gate.viewerId }));
+    sessionStorage.setItem(
+      SS_KEY_FULL,
+      JSON.stringify({ at: entry.at, data: entry.data, viewerId: entry.viewerId })
+    );
   } catch {
     // ignore quota / private mode
+  }
+}
+
+function installFullSessionFlushListeners(): void {
+  if (fullSessionFlushListenersInstalled || typeof window === "undefined") return;
+  fullSessionFlushListenersInstalled = true;
+  try {
+    const flush = () => {
+      if (fullSessionWritePending) writeFullSessionNow();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flush();
+    });
+  } catch {
+    /* listener 설치 실패 → 창 끝 저장만 */
+  }
+}
+
+function scheduleFullSessionWrite(immediate: boolean): void {
+  installFullSessionFlushListeners();
+  if (immediate || fullSessionWriteTimer === null) {
+    // 앞 1회(또는 서버 확인 값)는 즉시 저장하고 병합 창을 연다.
+    writeFullSessionNow();
+    if (fullSessionWriteTimer === null) {
+      fullSessionWriteTimer = setTimeout(onFullSessionWriteWindowEnd, FULL_SESSION_WRITE_WINDOW_MS);
+    }
+    return;
+  }
+  fullSessionWritePending = true;
+}
+
+function onFullSessionWriteWindowEnd(): void {
+  fullSessionWriteTimer = null;
+  if (fullSessionWritePending) {
+    writeFullSessionNow();
+    // 창 안에 쓰기가 있었으면 다음 창을 연다(연속 이벤트도 창당 최대 1회 저장).
+    fullSessionWriteTimer = setTimeout(onFullSessionWriteWindowEnd, FULL_SESSION_WRITE_WINDOW_MS);
+  }
+}
+
+function cancelPendingFullSessionWrite(): void {
+  fullSessionWritePending = false;
+  if (fullSessionWriteTimer !== null) {
+    clearTimeout(fullSessionWriteTimer);
+    fullSessionWriteTimer = null;
   }
 }
 
@@ -271,6 +347,7 @@ export function primeBootstrapCache(data: CommunityMessengerBootstrap, options?:
  */
 export function clearBootstrapCache(options?: { authExit?: boolean }) {
   if (options?.authExit) bumpMessengerBootstrapCacheAuthEpoch();
+  cancelPendingFullSessionWrite();
   memoryFullCache = null;
   memoryCriticalCache = null;
   memoryMinimalCache = null;

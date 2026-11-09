@@ -10,6 +10,7 @@
  */
 
 import { peekTradeListPresentationSession } from "@/lib/trade/marketplace/trade-list-presentation-session";
+import { addBounded, setBounded } from "@/lib/collections/bounded-collections";
 
 export type TradeMarketCompositionRect = {
   x: number;
@@ -68,6 +69,8 @@ const TTL_MS = 8_000;
 let memory: TradeMarketProductCompositionSession | null = null;
 let generationSeq = 0;
 const listeners = new Set<() => void>();
+/** 목록→상세로 들어간 상품의 목록 슬롯 기억 상한 — 돌아오기 연출용. 넘으면 오래된 상품부터 잊는다(잊으면 연출 없이 일반 표시). */
+const LAST_LIST_BY_ID_MAX = 100;
 const lastListById = new Map<
   string,
   {
@@ -180,6 +183,8 @@ export function canAcquireTradeMarketCompositionPerceptualOwnership(input: {
   return input.mediaPaintReady;
 }
 
+/** 데운 이미지 URL 상한 — 넘으면 오래된 것부터 잊는다(잊은 URL 은 다음에 브라우저 캐시로 한 번 더 데울 뿐). */
+const WARMED_MEDIA_URLS_MAX = 300;
 const warmedMediaUrls = new Set<string>();
 
 /** Warm browser image cache while detail/list still owns the screen (pre-handoff). */
@@ -188,7 +193,7 @@ export function warmTradeMarketCompositionMedia(url: string | null | undefined):
   if (!src) return;
   if (typeof Image === "undefined") return;
   if (warmedMediaUrls.has(src)) return;
-  warmedMediaUrls.add(src);
+  addBounded(warmedMediaUrls, src, WARMED_MEDIA_URLS_MAX);
   try {
     const img = new Image();
     img.decoding = "async";
@@ -748,13 +753,18 @@ export function armTradeMarketProductCompositionForward(input: {
 
   if (session.media?.url) warmTradeMarketCompositionMedia(session.media.url);
 
-  lastListById.set(listingId, {
-    media: session.media,
-    price: session.price,
-    title: session.title,
-    meta: session.meta,
-    listRouteKey: session.listRouteKey,
-  });
+  setBounded(
+    lastListById,
+    listingId,
+    {
+      media: session.media,
+      price: session.price,
+      title: session.title,
+      meta: session.meta,
+      listRouteKey: session.listRouteKey,
+    },
+    LAST_LIST_BY_ID_MAX
+  );
   setSession(session);
   return session;
 }

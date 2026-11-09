@@ -6,6 +6,7 @@ import {
   CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
   CM_ROOM_PREFETCH_COOLDOWN_MS,
 } from "@/lib/community-messenger/room/cm-bootstrap-constants";
+import { replacePerformanceMark } from "@/lib/performance/performance-mark-replace";
 
 export { CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS, CM_ROOM_PREFETCH_COOLDOWN_MS };
 
@@ -132,8 +133,8 @@ export function recordCmBootstrapTriggerChain(input: CmBootstrapTriggerChainInpu
   lastTriggerAtByRoom.set(id, now);
 
   if (typeof performance !== "undefined") {
-    performance.mark(`cm-bootstrap-trigger:${id.slice(-8)}`);
-    performance.mark(`cm-bootstrap-schedule:${id.slice(-8)}`);
+    replacePerformanceMark(`cm-bootstrap-trigger:${id.slice(-8)}`);
+    replacePerformanceMark(`cm-bootstrap-schedule:${id.slice(-8)}`);
     scheduleMarkAtByRoom.set(id, performance.now());
   }
 
@@ -160,7 +161,7 @@ export function recordCmBootstrapTriggerChain(input: CmBootstrapTriggerChainInpu
 export function markCmBootstrapFetchScheduled(roomId: string, scheduledDelayMs: number): void {
   const id = roomId.trim();
   if (typeof performance === "undefined") return;
-  performance.mark(`cm-bootstrap-fetch-start:${id.slice(-8)}`);
+  replacePerformanceMark(`cm-bootstrap-fetch-start:${id.slice(-8)}`);
   const schedAt = scheduleMarkAtByRoom.get(id);
   const now = performance.now();
   fetchStartMarkAtByRoom.set(id, now);
@@ -184,7 +185,7 @@ export function markCmBootstrapFetchScheduled(roomId: string, scheduledDelayMs: 
 export function markCmBootstrapFetchResolve(roomId: string): void {
   const id = roomId.trim();
   if (typeof performance === "undefined") return;
-  performance.mark(`cm-bootstrap-fetch-resolve:${id.slice(-8)}`);
+  replacePerformanceMark(`cm-bootstrap-fetch-resolve:${id.slice(-8)}`);
 }
 
 const strictEffectRuns = new Map<string, number[]>();

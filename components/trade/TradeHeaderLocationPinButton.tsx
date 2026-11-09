@@ -23,6 +23,7 @@ import {
   TRADE_LOCATION_SHEET_OPEN_EVENT,
   TRADE_LOCATION_SHEET_QUERY_PARAM,
 } from "@/lib/trade/location/trade-location-sheet-event";
+import { replacePerformanceMark } from "@/lib/performance/performance-mark-replace";
 
 async function fetchNationalLguLabel(canonicalId: string): Promise<string | null> {
   const cached = peekTradeLguDisplayLabel(canonicalId);
@@ -177,9 +178,7 @@ export function TradeHeaderLocationPinButton({
   }, [loadMyRegion]);
 
   const onPinClick = useCallback(() => {
-    if (typeof performance !== "undefined" && performance.mark) {
-      performance.mark("trade_browse_loc_pin_tap");
-    }
+    replacePerformanceMark("trade_browse_loc_pin_tap");
     setSheetOpen(true);
   }, []);
 
