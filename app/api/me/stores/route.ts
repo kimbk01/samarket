@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { computeStoreLocationColumns } from "@/lib/stores/store-location-columns.server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadMeStoresListForUser, invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
@@ -323,6 +324,14 @@ export async function POST(req: NextRequest) {
       lng: placeLng,
       ...(placeId ? { place_id: placeId } : {}),
       ...(formattedAddress ? { formatted_address: formattedAddress } : {}),
+      /** 주소 SSOT 4단계: 매장 바랑가이·시/군 PSGC — 수정 경로(build-store-location-patch)와 같은 함수로 같은 저장에서 결정 */
+      ...computeStoreLocationColumns({
+        region: normAddr.region,
+        city: normAddr.city,
+        district: street,
+        address_line1: street,
+        formatted_address: formattedAddress || null,
+      }),
     };
   }
 

@@ -11,8 +11,6 @@ import {
 } from "@/lib/community-feed/community-ops-settings";
 import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
-import { resolveNeighborhoodLocationId } from "@/lib/neighborhood/ensure-location";
-import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-topics";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
@@ -38,7 +36,7 @@ import {
 import { resolveMemberPostImages } from "@/lib/philife/post-body-images";
 import { resolveMemberRichBody } from "@/lib/community/member-rich-body";
 
-import { ensureLguLocationId, lguPublicName, parseLguLocationKey } from "@/lib/neighborhood/lgu-location.server";
+import { ensureLguLocationId, legacyLocationRowToLguId, lguPublicName, parseLguLocationKey } from "@/lib/neighborhood/lgu-location.server";
 import type { ResolveNeighborhoodLocationResult } from "@/lib/neighborhood/ensure-location";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -179,15 +177,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "region_label_invalid" }, { status: 400 });
   }
 
-  const locInput = coalesceNeighborhoodLocationInput(locationKey, {
-    city,
-    district,
-    name: locationName,
-  });
-
   const philifeSectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
-  /** 주소 SSOT 2단계: `lgu:<PSGC>:` = 시/군 LGU 동네. 글 지역 표시(region_label)도 같은 시/군으로 맞춘다 */
-  const lguIdForPost = parseLguLocationKey(locationKey);
+  /**
+   * 주소 SSOT: 글 동네 = 시/군 LGU 하나 (`lgu:<PSGC>:`). 글 지역 표시(region_label)도 서버가 같은 시/군 이름으로 정한다.
+   * 4단계 (2026-11-09): 예전 앱 동네 키(`regionId:cityId:`)는 같은 시/군 LGU 로 바꿔 저장하고,
+   * 공식 시/군으로 확정되지 않는 키는 거부한다(이전: 화면이 보낸 예전 키·지역 글자로 새 동네 행을 만들어 저장).
+   * 동네는 화면의 커뮤니티 동네 필터(대표 주소 기본값 또는 직접 고른 시/군) — 대표 주소와 같을 필요는 없다(기존 설계).
+   */
+  const lguFromKey = parseLguLocationKey(locationKey);
+  const lguIdForPost = lguFromKey
+    ? (lguPublicName(lguFromKey) ? lguFromKey : null)
+    : (() => {
+        const [regionPart, cityPart] = locationKey.split(":").map((x) => x.trim());
+        return legacyLocationRowToLguId(regionPart, cityPart);
+      })();
   const [ops, loc, secRes] = await Promise.all([
     getCommunityFeedOps(),
     lguIdForPost
@@ -195,7 +198,7 @@ export async function POST(req: NextRequest) {
           (locationId): ResolveNeighborhoodLocationResult =>
             locationId ? { locationId } : { locationId: null, failure: "persist_failed" },
         )
-      : resolveNeighborhoodLocationId(sb, locationKey, locInput),
+      : Promise.resolve<ResolveNeighborhoodLocationResult>({ locationId: null, failure: "invalid_key" }),
     sb.from("community_sections").select("id, slug").eq("slug", philifeSectionSlug).eq("is_active", true).maybeSingle(),
   ]);
 

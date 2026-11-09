@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { ensureLocationId } from "@/lib/neighborhood/ensure-location";
+import { findNeighborhoodLocationIdReadOnly } from "@/lib/neighborhood/ensure-location";
 import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";
 import {
   isPhilifeFeedCategorySlugAllowedByTopics,
@@ -88,7 +88,8 @@ export async function GET(req: NextRequest) {
       locationId = locationIds[0] ?? null;
     } else {
       const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
-      locationId = await ensureLocationId(sb, locationKey, coalesced);
+      /** M3: 조회는 읽기만 — 없는 동네 행을 만들지 않는다 */
+      locationId = await findNeighborhoodLocationIdReadOnly(sb, locationKey, coalesced);
     }
     locationEnsureMs = performance.now() - tLoc0;
   }

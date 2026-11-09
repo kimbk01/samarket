@@ -98,7 +98,11 @@ function isPermissionError(error: { message?: string }): boolean {
 export async function resolveNeighborhoodLocationId(
   sb: SupabaseClient<any>,
   locationKey: string,
-  input: EnsureLocationInput
+  input: EnsureLocationInput,
+  opts?: {
+    /** 조회 경로 — 행이 없으면 만들지 않고 null (M3 2026-11-09: 피드 조회만으로 locations 행이 생기던 결함) */
+    readOnly?: boolean;
+  }
 ): Promise<ResolveNeighborhoodLocationResult> {
   const rawKey = locationKey.trim();
   if (!rawKey || !isValidNeighborhoodLocationKey(rawKey)) {
@@ -128,6 +132,8 @@ export async function resolveNeighborhoodLocationId(
 
   const byTriple = await findLocationIdByCityDistrictName(sb, city, district, name);
   if (byTriple) return { locationId: byTriple };
+
+  if (opts?.readOnly) return { locationId: null };
 
   const { error: upErr } = await sb.from("locations").upsert(
     {
@@ -171,6 +177,16 @@ export async function resolveNeighborhoodLocationId(
       ? "DB 쓰기 권한이 없습니다. Supabase에서 service role 키와 RLS를 확인하세요."
       : upErr.message,
   };
+}
+
+/** 조회 전용 — 있는 행 id 만 돌려준다(없으면 null, DB 쓰기 없음) */
+export async function findNeighborhoodLocationIdReadOnly(
+  sb: SupabaseClient<any>,
+  locationKey: string,
+  input: EnsureLocationInput
+): Promise<string | null> {
+  const r = await resolveNeighborhoodLocationId(sb, locationKey, input, { readOnly: true });
+  return r.locationId;
 }
 
 /** @deprecated 선호: resolveNeighborhoodLocationId (실패 원인 구분 가능) */

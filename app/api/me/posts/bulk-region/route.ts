@@ -5,6 +5,10 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { resolveTradePostLocationForUser } from "@/lib/trade/location/resolve-trade-post-location.server";
+import { deriveTradeLifecycleStatus, type TradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
+
+/** 일괄 변경 대상 = 아직 끝나지 않은 판매 글만 (L1 2026-11-09 — 이전: 판매 완료·숨김·취소 글까지 모두 변경) */
+const BULK_REGION_EXCLUDED: ReadonlySet<TradeLifecycleStatus> = new Set(["completed", "hidden", "cancelled"]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,14 +41,39 @@ export async function POST() {
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await sb.from(POSTS_TABLE_WRITE).update(patch).eq("user_id", auth.userId).select("id");
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message ?? "bulk_region_update_failed" }, { status: 500 });
+  const { data: rows, error: readErr } = await sb
+    .from(POSTS_TABLE_WRITE)
+    .select("id, status, seller_listing_state, meta")
+    .eq("user_id", auth.userId);
+  if (readErr) {
+    return NextResponse.json({ ok: false, error: readErr.message ?? "bulk_region_update_failed" }, { status: 500 });
+  }
+  const targetIds = (Array.isArray(rows) ? rows : [])
+    .filter(
+      (r: { status?: string | null; seller_listing_state?: string | null; meta?: Record<string, unknown> | null }) =>
+        !BULK_REGION_EXCLUDED.has(deriveTradeLifecycleStatus(r)),
+    )
+    .map((r: { id?: string }) => String(r.id ?? ""))
+    .filter(Boolean);
+
+  /** id 목록은 200개씩 나눠 보낸다(요청 길이 제한) */
+  let updatedCount = 0;
+  for (let i = 0; i < targetIds.length; i += 200) {
+    const upd = await sb
+      .from(POSTS_TABLE_WRITE)
+      .update(patch)
+      .eq("user_id", auth.userId)
+      .in("id", targetIds.slice(i, i + 200))
+      .select("id");
+    if (upd.error) {
+      return NextResponse.json({ ok: false, error: upd.error.message ?? "bulk_region_update_failed" }, { status: 500 });
+    }
+    updatedCount += Array.isArray(upd.data) ? upd.data.length : 0;
   }
 
   return NextResponse.json({
     ok: true,
-    updatedCount: Array.isArray(data) ? data.length : 0,
+    updatedCount,
     location: {
       regionId: location.region ?? "",
       cityId: location.city ?? "",

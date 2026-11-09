@@ -40,7 +40,13 @@ export function legacyLocationRowToLguId(regionName: string | null | undefined, 
   return appLocationIdsToCanonicalLguId(region.id, city.id);
 }
 
-/** 시/군 LGU 의 `locations` 행 id (결정적 uuid — 같은 LGU 면 같은 id). 없으면 만든다. */
+/** 시/군 LGU 의 `locations` 행 id — 결정적 uuid(같은 LGU 면 같은 id). DB 조회·쓰기 없음. */
+export function lguLocationRowId(lguId: string): string | null {
+  if (!lguPublicName(lguId)) return null;
+  return deterministicUuid("samarket_neighborhood_location", lguLocationKey(lguId));
+}
+
+/** 시/군 LGU 의 `locations` 행 id. 없으면 만든다 — **글쓰기 경로 전용**(조회에서 부르지 않는다 · M3). */
 export async function ensureLguLocationId(sb: SupabaseClient<any>, lguId: string): Promise<string | null> {
   const name = lguPublicName(lguId);
   if (!name) return null;
@@ -80,12 +86,16 @@ async function loadLegacyLocationIdsByLgu(sb: SupabaseClient<any>): Promise<Map<
   return byLgu;
 }
 
-/** 시/군 LGU 피드가 읽을 `locations.id` 전부 = LGU 행 + 같은 시/군의 예전 동네 행 */
+/**
+ * 시/군 LGU 피드가 읽을 `locations.id` 전부 = LGU 행 + 같은 시/군의 예전 동네 행.
+ * M3 (2026-11-09): 조회는 읽기만 — LGU 행 id 는 계산값을 쓰고 행을 만들지 않는다
+ * (행이 아직 없으면 그 id 의 글도 없으므로 결과 같음. 이전: 비로그인 조회만으로 locations 행 생성).
+ */
 export async function resolveCommunityLocationIdsForLgu(
   sb: SupabaseClient<any>,
   lguId: string,
 ): Promise<string[]> {
-  const own = await ensureLguLocationId(sb, lguId);
+  const own = lguLocationRowId(lguId);
   const legacy = (await loadLegacyLocationIdsByLgu(sb)).get(lguId) ?? [];
   return [...new Set([...(own ? [own] : []), ...legacy])];
 }
