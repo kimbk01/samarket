@@ -145,4 +145,48 @@ describe("push-ack device match (R3)", () => {
     expect(json).toMatchObject({ ok: true, matched: true });
     expect(db.updates[0].id).toBe("d-tablet");
   });
+
+  it("R4: stage=presented 는 nativePresentation 에만 기록 — 기존 수신 확인(nativeAck) 보존", async () => {
+    const prev = db.tables.notification_deliveries[0];
+    prev.provider_response = { provider: "fcm", nativeAck: { receivedAt: 5, deviceId: "phone" } };
+    const res = await POST(
+      ackRequest({
+        deviceId: "phone",
+        stage: "presented",
+        surface: "activity",
+        platform: "android",
+        mediaChannelImportance: 4,
+        screenInteractive: true,
+      }),
+      params,
+    );
+    const json = (await res.json()) as { ok: boolean; matched: boolean };
+    expect(json).toMatchObject({ ok: true, matched: true });
+    expect(db.updates[0].id).toBe("d-phone");
+    const pr = db.updates[0].patch.provider_response as Record<string, Record<string, unknown>>;
+    expect(pr.nativeAck).toEqual({ receivedAt: 5, deviceId: "phone" });
+    expect(pr.nativePresentation).toMatchObject({
+      stage: "presented",
+      surface: "activity",
+      platform: "android",
+      mediaChannelImportance: 4,
+      screenInteractive: true,
+      deviceMatched: true,
+    });
+  });
+
+  it("R4: stage=suppressed + reason 기록", async () => {
+    await POST(ackRequest({ deviceId: "tablet", stage: "suppressed", reason: "busy_or_terminal" }), params);
+    const pr = db.updates[0].patch.provider_response as Record<string, Record<string, unknown>>;
+    expect(db.updates[0].id).toBe("d-tablet");
+    expect(pr.nativePresentation).toMatchObject({ stage: "suppressed", reason: "busy_or_terminal" });
+    expect(pr.nativeAck).toBeUndefined();
+  });
+
+  it("R4: 모르는 stage 는 기존 수신 확인으로 처리 (호환)", async () => {
+    await POST(ackRequest({ deviceId: "phone", stage: "weird", receivedAt: 9 }), params);
+    const pr = db.updates[0].patch.provider_response as Record<string, Record<string, unknown>>;
+    expect(pr.nativeAck.receivedAt).toBe(9);
+    expect(pr.nativePresentation).toBeUndefined();
+  });
 });

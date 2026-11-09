@@ -38,6 +38,8 @@ public final class IncomingCallPushDelivery {
           "incoming_blocked_guest_ineligible",
           callId,
           "reason=" + present.reason);
+      IncomingCallPushAckHelper.sendPresentationAsync(
+          app, callId, payload.callType, "suppressed", "auth_ineligible:" + present.reason, null);
       return;
     }
 
@@ -60,6 +62,13 @@ public final class IncomingCallPushDelivery {
               + notifGate.notificationsEnabled
               + " incomingChannelEnabled="
               + notifGate.incomingCallChannelEnabled);
+      IncomingCallPushAckHelper.sendPresentationAsync(
+          app,
+          callId,
+          payload.callType,
+          "suppressed",
+          "notification_gate:" + (notifGate.blockReason != null ? notifGate.blockReason : "unknown"),
+          null);
       return;
     }
 
@@ -73,24 +82,28 @@ public final class IncomingCallPushDelivery {
     }
 
     if (NativeVoiceCallLane.shouldHandleIncoming(app, payload.callType)) {
-      NativeVoiceCallRuntime.handleIncoming(
-          app,
-          callId,
-          payload.roomId,
-          payload.callerId,
-          payload.callerName,
-          payload.callType);
+      boolean presented =
+          NativeVoiceCallRuntime.handleIncoming(
+              app,
+              callId,
+              payload.roomId,
+              payload.callerId,
+              payload.callerName,
+              payload.callType);
+      reportRuntimePresentation(app, payload, presented);
       return;
     }
 
     if (NativeVideoCallLane.shouldHandleIncoming(app, payload.callType)) {
-      NativeVideoCallRuntime.handleIncoming(
-          app,
-          callId,
-          payload.roomId,
-          payload.callerId,
-          payload.callerName,
-          payload.callType);
+      boolean presented =
+          NativeVideoCallRuntime.handleIncoming(
+              app,
+              callId,
+              payload.roomId,
+              payload.callerId,
+              payload.callerName,
+              payload.callType);
+      reportRuntimePresentation(app, payload, presented);
       return;
     }
 
@@ -105,5 +118,26 @@ public final class IncomingCallPushDelivery {
         "legacy_web_pending_route_detached",
         callId,
         "mediaType=" + payload.callType + " reason=native_runtime_ssot");
+    IncomingCallPushAckHelper.sendPresentationAsync(
+        app, callId, payload.callType, "suppressed", "no_native_lane", null);
+  }
+
+  /**
+   * R4 (2026-11-09) — 런타임이 벨·수신 화면을 시작했는지(true) 사후 보고. 수신 동작에는 관여하지 않는다.
+   * false = 이미 종료된 통화·통화 중(busy)·다른 소유자 선점 — 런타임 로그(incoming_*)에 세부 사유.
+   */
+  private static void reportRuntimePresentation(
+      Context app, IncomingCallPayload payload, boolean presented) {
+    String surface =
+        DibayKeyguardHelper.isKeyguardLocked(app) || !DibayKeyguardHelper.isInteractive(app)
+            ? "lock_screen"
+            : "unlocked";
+    IncomingCallPushAckHelper.sendPresentationAsync(
+        app,
+        payload.callId,
+        payload.callType,
+        presented ? "presented" : "suppressed",
+        presented ? null : "runtime_declined",
+        surface);
   }
 }

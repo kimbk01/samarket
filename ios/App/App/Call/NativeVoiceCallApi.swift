@@ -96,6 +96,51 @@ enum NativeVoiceCallApi {
     )
   }
 
+  /**
+   * R4 (2026-11-09) — 수신 화면(CallKit) 표시 결과 사후 보고. 수신 동작에 관여하지 않는다:
+   * 응답을 읽지 않음, 실패해도 무시. 서버 `push-ack` 는 stage 가 있으면 `nativePresentation` 에만 기록.
+   * - stage: "presented" | "suppressed"
+   */
+  static func reportIncomingPresentationAsync(callId: String, stage: String, reason: String?, hasVideo: Bool) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty,
+      let origin = resolveServerOrigin(),
+      let url = URL(string: "\(origin)/api/community-messenger/calls/\(urlEncode(sid))/push-ack")
+    else { return }
+    resolveCookieHeader(origin: origin) { cookieHeader in
+      DibayCanonicalDeviceIdStore.resolve { deviceId in
+        var request = URLRequest(url: url, timeoutInterval: timeoutSeconds)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let cookieHeader, !cookieHeader.isEmpty {
+          request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+        var bodyObj: [String: Any] = [
+          "stage": stage,
+          "platform": "ios",
+          "surface": hasVideo ? "callkit_video" : "callkit_voice",
+          "receivedAt": Int64(Date().timeIntervalSince1970 * 1000),
+        ]
+        if let reason, !reason.isEmpty {
+          bodyObj["reason"] = reason
+        }
+        if let deviceId, !deviceId.isEmpty {
+          bodyObj["deviceId"] = deviceId
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
+        session.dataTask(with: request) { _, response, error in
+          let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+          DibayCallLog.infoCall(
+            "ios_incoming_presentation_ack",
+            callId: sid,
+            detail: "stage=\(stage) status=\(status) err=\(error.map { ($0 as NSError).domain } ?? "")"
+          )
+        }.resume()
+      }
+    }
+  }
+
   static func startCallerJoinAsync(
     callId: String,
     roomId: String,

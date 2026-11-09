@@ -1,5 +1,7 @@
 package com.dibay.app;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 import android.provider.Settings;
@@ -12,11 +14,25 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
+import com.dibay.app.nativevideo.NativeVideoCallLane;
+import com.dibay.app.nativevideo.NativeVideoCallNotification;
+import com.dibay.app.nativevoice.NativeVoiceCallNotification;
 
 /** Best-effort server ack for native FCM receive diagnostics. Never blocks incoming UI. */
 public final class IncomingCallPushAckHelper {
   private IncomingCallPushAckHelper() {}
+
+  /**
+   * R4 (2026-11-09): 수신 확인(received) 전송 완료 신호 — 표시 결과(presented/suppressed)는 이 전송이 끝난 뒤 보낸다.
+   * 서버가 같은 발송 행을 읽고-고쳐-쓰므로 동시에 가면 한쪽 기록이 사라진다.
+   */
+  private static final ConcurrentHashMap<String, CountDownLatch> RECEIVE_ACK_DONE = new ConcurrentHashMap<>();
+  private static final long PRESENTATION_WAIT_MS = 9_000L;
+  private static final int MAX_PENDING_LATCHES = 64;
 
   public static void sendAsync(
       Context context,
@@ -25,7 +41,125 @@ public final class IncomingCallPushAckHelper {
       long receivedAtMs) {
     if (context == null || payload == null || !payload.isValid()) return;
     Context app = context.getApplicationContext();
-    new Thread(() -> send(app, payload, expiry, receivedAtMs)).start();
+    if (RECEIVE_ACK_DONE.size() > MAX_PENDING_LATCHES) RECEIVE_ACK_DONE.clear();
+    CountDownLatch done = new CountDownLatch(1);
+    RECEIVE_ACK_DONE.put(payload.callId, done);
+    new Thread(
+            () -> {
+              try {
+                send(app, payload, expiry, receivedAtMs);
+              } finally {
+                done.countDown();
+              }
+            })
+        .start();
+  }
+
+  /**
+   * R4 — 수신 화면 표시 결과 사후 보고. 수신 동작(벨·화면·종료 처리)에 관여하지 않는다:
+   * 별도 스레드, 응답 본문을 읽지 않음(종료 상태 처리 없음), 실패해도 무시.
+   *
+   * @param stage "presented" | "suppressed"
+   */
+  public static void sendPresentationAsync(
+      Context context,
+      String callId,
+      String callType,
+      String stage,
+      String reason,
+      String surface) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    new Thread(
+            () -> {
+              CountDownLatch done = RECEIVE_ACK_DONE.remove(sid);
+              if (done != null) {
+                try {
+                  done.await(PRESENTATION_WAIT_MS, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {
+                  Thread.currentThread().interrupt();
+                }
+              }
+              sendPresentation(app, sid, callType, stage, reason, surface);
+            })
+        .start();
+  }
+
+  private static void sendPresentation(
+      Context context, String callId, String callType, String stage, String reason, String surface) {
+    String origin = DibayServerOrigin.resolve(context);
+    if (origin == null || origin.isEmpty()) {
+      DibayCallPushLog.warn("push_presentation_ack_failed", callId, "reason=no_server_origin");
+      return;
+    }
+    HttpURLConnection conn = null;
+    try {
+      URL url =
+          new URL(
+              origin
+                  + "/api/community-messenger/calls/"
+                  + URLEncoder.encode(callId, "UTF-8")
+                  + "/push-ack");
+      conn = (HttpURLConnection) url.openConnection();
+      conn.setRequestMethod("POST");
+      conn.setConnectTimeout(4_000);
+      conn.setReadTimeout(4_000);
+      conn.setDoOutput(true);
+      conn.setRequestProperty("Content-Type", "application/json");
+      conn.setRequestProperty("Accept", "application/json");
+      String cookie = CookieManager.getInstance().getCookie(origin);
+      if (cookie != null && !cookie.isEmpty()) {
+        conn.setRequestProperty("Cookie", cookie);
+      }
+      String json =
+          "{"
+              + "\"stage\":\""
+              + escape(stage)
+              + "\",\"reason\":\""
+              + escape(reason)
+              + "\",\"surface\":\""
+              + escape(surface)
+              + "\",\"platform\":\"android\""
+              + ",\"deviceId\":\""
+              + escape(resolveDeviceId(context))
+              + "\",\"screenInteractive\":"
+              + DibayKeyguardHelper.isInteractive(context)
+              + ",\"keyguardLocked\":"
+              + DibayKeyguardHelper.isKeyguardLocked(context)
+              + ",\"mediaChannelImportance\":"
+              + mediaChannelImportance(context, callType)
+              + "}";
+      byte[] body = json.getBytes(StandardCharsets.UTF_8);
+      conn.setFixedLengthStreamingMode(body.length);
+      try (OutputStream os = conn.getOutputStream()) {
+        os.write(body);
+      }
+      int status = conn.getResponseCode();
+      DibayCallPushLog.info(
+          "push_presentation_ack_sent", callId, "status=" + status + " stage=" + stage + " reason=" + reason);
+    } catch (Exception error) {
+      DibayCallPushLog.warn(
+          "push_presentation_ack_failed", callId, "err=" + error.getClass().getSimpleName());
+    } finally {
+      if (conn != null) conn.disconnect();
+    }
+  }
+
+  /** 통화 종류별 실제 수신 채널 중요도. 채널이 아직 없으면 -1000(IMPORTANCE_UNSPECIFIED). */
+  static int mediaChannelImportance(Context context, String callType) {
+    if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return -1;
+    String channelId =
+        NativeVideoCallLane.isVideoMediaType(callType)
+            ? NativeVideoCallNotification.CHANNEL_ID
+            : NativeVoiceCallNotification.CHANNEL_ID;
+    try {
+      NotificationManager nm = context.getSystemService(NotificationManager.class);
+      NotificationChannel channel = nm != null ? nm.getNotificationChannel(channelId) : null;
+      return channel != null ? channel.getImportance() : NotificationManager.IMPORTANCE_UNSPECIFIED;
+    } catch (Exception ignored) {
+      return NotificationManager.IMPORTANCE_UNSPECIFIED;
+    }
   }
 
   private static void send(
@@ -77,6 +211,8 @@ public final class IncomingCallPushAckHelper {
               + IncomingCallNotificationBuilder.canPostFullScreenIntent(context)
               + ",\"dozeDelayMs\":"
               + (expiry != null ? expiry.deliveryDelayMs : -1L)
+              + ",\"mediaChannelImportance\":"
+              + mediaChannelImportance(context, payload.callType)
               + "}";
       byte[] body = json.getBytes(StandardCharsets.UTF_8);
       conn.setFixedLengthStreamingMode(body.length);

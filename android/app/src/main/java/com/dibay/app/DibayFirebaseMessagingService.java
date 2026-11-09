@@ -199,6 +199,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (DibayCallConsumedStore.isConsumed(this, callId)) {
       Log.i(TAG, "[DIBAY_CALL] incoming_ignored_consumed callId=" + callId);
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+      IncomingCallPushAckHelper.sendPresentationAsync(
+          this, callId, payload.callType, "suppressed", "already_consumed", null);
       return;
     }
 
@@ -216,6 +218,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
               + " receivedAt="
               + receivedAtMs);
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+      IncomingCallPushAckHelper.sendPresentationAsync(
+          this, callId, payload.callType, "suppressed", "expired", null);
       return;
     }
     // Wave-1 R5/M2 MERGE: H1 delay-gated probe + KEEP terminal presentation deny.
@@ -240,6 +244,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       String kind =
           "active".equalsIgnoreCase(serverStatus) ? "call_answered_elsewhere" : serverStatus;
       IncomingCallTerminalHandler.handle(this, callId, kind, "incoming_status_probe");
+      IncomingCallPushAckHelper.sendPresentationAsync(
+          this, callId, payload.callType, "suppressed", "server_terminal:" + serverStatus, null);
       return;
     }
     if (!IncomingCallSessionStatusProbe.shouldAllowIncomingPresentation(
@@ -255,6 +261,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
               + serverRingWindowExpired);
       DibayCallConsumedStore.mark(this, callId, "stale_incoming_blocked");
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+      IncomingCallPushAckHelper.sendPresentationAsync(
+          this, callId, payload.callType, "suppressed", "stale_presentation", null);
       return;
     }
     if (expiry.effectiveExpiresAtMs > 0L) {

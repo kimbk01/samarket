@@ -1,6 +1,6 @@
 # 통화 잔여 위험 원인별 설계안 (2026-11-09)
 
-상태: **설계안 승인 · R1 구현(`6036a7282`) · R3 구현(`b36438350`) · R2 원안 폐기(정정) · R4·R5 미구현**. 선행: `docs/audit/call-outgoing-peer-name-design-2026-11-09.md` (`c89e0e37c`, Production 15:41 PHT 반영).
+상태: **설계안 승인 · R1 구현(`6036a7282`) · R3 구현(`b36438350`) · R2 원안 폐기(정정) · R4 구현(Owner 「R4 구현」 2026-11-09, 앱 빌드 필요) · R5 미구현**. 선행: `docs/audit/call-outgoing-peer-name-design-2026-11-09.md` (`c89e0e37c`, Production 15:41 PHT 반영).
 기준 코드: `origin/main` `5b5b203fc`. 시간 PHT. 운영 DB·Vercel 로그는 읽기 전용 조회.
 
 ## 0. Owner 지시

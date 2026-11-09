@@ -15,7 +15,25 @@ type AckBody = {
   channelImportance?: number;
   fsiAllowed?: boolean;
   dozeDelayMs?: number;
+  /**
+   * R4 (2026-11-09): 수신 화면 표시 결과. 없으면 "received"(기존 수신 확인 — 구 앱 호환).
+   * presented = 벨·수신 화면을 띄움 / suppressed = 띄우지 않고 끝냄(+reason).
+   */
+  stage?: string;
+  reason?: string;
+  platform?: string;
+  /** 실제 수신 채널(통화 종류별) 중요도 — 기존 channelImportance 는 쓰지 않는 예전 채널 값 */
+  mediaChannelImportance?: number;
+  surface?: string;
 };
+
+const PRESENTATION_STAGES = new Set(["presented", "suppressed"]);
+
+function trimmedField(raw: unknown, max = 80): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim();
+  return v ? v.slice(0, max) : null;
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
   const auth = await requireAuthenticatedUserIdStrict();
@@ -115,6 +133,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     latest.provider_response && typeof latest.provider_response === "object"
       ? (latest.provider_response as Record<string, unknown>)
       : {};
+
+  const stage = trimmedField(body.stage, 20);
+  if (stage && PRESENTATION_STAGES.has(stage)) {
+    /** 표시 결과는 nativePresentation 에만 — 기존 수신 확인(nativeAck) 값은 건드리지 않는다. */
+    const presentation = {
+      stage,
+      reason: trimmedField(body.reason),
+      surface: trimmedField(body.surface, 40),
+      platform: trimmedField(body.platform, 20),
+      deviceId: typeof body.deviceId === "string" ? body.deviceId : null,
+      deviceMatched,
+      receivedAt: typeof body.receivedAt === "number" ? body.receivedAt : null,
+      screenInteractive: typeof body.screenInteractive === "boolean" ? body.screenInteractive : null,
+      keyguardLocked: typeof body.keyguardLocked === "boolean" ? body.keyguardLocked : null,
+      mediaChannelImportance:
+        typeof body.mediaChannelImportance === "number" ? body.mediaChannelImportance : null,
+      at: new Date().toISOString(),
+    };
+    const { error: presentationError } = await svc
+      .from("notification_deliveries")
+      .update({ provider_response: { ...existing, nativePresentation: presentation } })
+      .eq("id", latest.id);
+    if (presentationError) {
+      return NextResponse.json({ ok: false, error: presentationError.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, matched: true, sessionStatus });
+  }
+
   const ack = {
     receivedAt: typeof body.receivedAt === "number" ? body.receivedAt : Date.now(),
     deviceId: typeof body.deviceId === "string" ? body.deviceId : null,
@@ -125,6 +171,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     channelImportance: typeof body.channelImportance === "number" ? body.channelImportance : null,
     fsiAllowed: Boolean(body.fsiAllowed),
     dozeDelayMs: typeof body.dozeDelayMs === "number" ? body.dozeDelayMs : null,
+    mediaChannelImportance:
+      typeof body.mediaChannelImportance === "number" ? body.mediaChannelImportance : null,
   };
 
   const { error: updateError } = await svc

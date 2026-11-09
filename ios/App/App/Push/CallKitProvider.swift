@@ -16,6 +16,8 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
    * DO NOT invent a random CallKit UUID for orphan terminals (ae486 ghost redial).
    */
   private var terminalSuppressedSessionIds: Set<String> = []
+  /** R4 — 표시 결과 보고용 억제 사유 (동작에는 쓰지 않음) */
+  private var terminalSuppressedReasonBySessionId: [String: String] = [:]
   /**
    * Idempotent CallKit terminal gate — provider.reportCall(ended:) / CXEnd fulfill once per session.
    * Prevents double end from local CXEnd + remote reportCallEnded + mediaFailed races.
@@ -207,6 +209,30 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         completion(error)
         return
       }
+      // R4 — 수신 화면 표시 결과 사후 보고 (동작 무관 · 실패 무시)
+      if terminalAlreadySeen {
+        let suppressReason = self.terminalSuppressedReasonBySessionId[sessionId] ?? "terminal_suppressed"
+        NativeVoiceCallApi.reportIncomingPresentationAsync(
+          callId: sessionId,
+          stage: "suppressed",
+          reason: "terminal_suppressed:\(suppressReason)",
+          hasVideo: hasVideo
+        )
+      } else if let error {
+        NativeVoiceCallApi.reportIncomingPresentationAsync(
+          callId: sessionId,
+          stage: "suppressed",
+          reason: "callkit_error:\((error as NSError).code)",
+          hasVideo: hasVideo
+        )
+      } else {
+        NativeVoiceCallApi.reportIncomingPresentationAsync(
+          callId: sessionId,
+          stage: "presented",
+          reason: nil,
+          hasVideo: hasVideo
+        )
+      }
       if let error {
         DibayCallLog.infoCall(
           "[callkit] report failed",
@@ -303,6 +329,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
     terminalSuppressedSessionIds.insert(sid)
+    terminalSuppressedReasonBySessionId[sid] = reason
     if let callKitEndReason {
       pendingCallKitEndReasonBySessionId[sid] = callKitEndReason
     }
