@@ -29,6 +29,8 @@ export type BusinessAdminNavItemId =
   | "ads"
   | "notifications"
   | "notification_settings"
+  /** 배달 오픈 4단계 — 어드민 → 사장님 운영 공지 (매장 공지 `notices` 와 다름) */
+  | "announcements"
   /** 4단계 12그룹 IA — 드로어 비노출(제목·활성·뒤로가기 파생 전용) */
   | "store_manage"
   | "product_edit"

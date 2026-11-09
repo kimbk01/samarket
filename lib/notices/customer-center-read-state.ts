@@ -14,6 +14,7 @@ import {
   type CustomerCenterContentType,
 } from "@/lib/notices/customer-center-content";
 import { patchInboxNotificationIdsRead } from "@/lib/notifications/inbox-read-bridge";
+import { APP_NOTICE_MEMBER_AUDIENCE } from "@/lib/notices/app-notice-audience";
 import { customerCenterViewDay } from "@/lib/notices/customer-center-content-views-write";
 
 /** D3 — 새 글 표시 기간 */
@@ -81,6 +82,8 @@ async function loadLiveContents(
   let q = sb
     .from("app_notices")
     .select("id, content_type, published_at, created_at, is_active, starts_at, ends_at, archived_at, deleted_at")
+    // 배달 오픈 4단계 — 안 읽은 수·「모두 읽음」은 회원 대상 글만 (사장님 전용 운영 공지 제외)
+    .eq("audience", APP_NOTICE_MEMBER_AUDIENCE)
     .eq("is_active", true)
     .is("deleted_at", null)
     .is("archived_at", null)

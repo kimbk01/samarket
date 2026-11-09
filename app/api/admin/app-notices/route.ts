@@ -12,6 +12,12 @@ import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-cente
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 import {
+  APP_NOTICE_MEMBER_AUDIENCE,
+  isAppNoticeAudience,
+  isOwnerAnnouncementAudience,
+  parseAppNoticeAudience,
+} from "@/lib/notices/app-notice-audience";
+import {
   escapeAdminIlike,
   isAdminListUuid,
   sanitizeAdminListSearch,
@@ -34,8 +40,9 @@ function noticeAuditSnapshot(row: Record<string, unknown> | null | undefined): R
 /**
  * GET /api/admin/app-notices — list Customer Center contents
  * - `limit`(20/50/100)·`offset` 이 있으면 서버 페이지 + `total`(count exact) — 고객센터 콘텐츠 목록 화면.
- *   필터: `content_type` · `q`(제목 검색, UUID 면 id 일치).
+ *   필터: `content_type` · `audience`(보는 사람) · `q`(제목 검색, UUID 면 id 일치).
  * - 없으면 기존 응답(최근 200건) — 알림 캠페인 화면·캠페인 작성 화면의 콘텐츠 선택 호출자 호환.
+ *   배달 오픈 4단계: 이 경로는 회원 캠페인 원문 선택용이라 전체 회원 대상(all) 글만 준다.
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -65,6 +72,12 @@ export async function GET(req: NextRequest) {
         .limit(200);
   if (isCustomerCenterContentType(typeRaw)) {
     q = q.eq("content_type", typeRaw);
+  }
+  const audienceRaw = params.get("audience");
+  if (!page) {
+    q = q.eq("audience", APP_NOTICE_MEMBER_AUDIENCE);
+  } else if (isAppNoticeAudience(audienceRaw)) {
+    q = q.eq("audience", audienceRaw);
   }
   if (page) {
     const term = sanitizeAdminListSearch(params.get("q"));
@@ -121,6 +134,8 @@ export async function POST(req: NextRequest) {
     is_active?: boolean;
     starts_at?: string | null;
     ends_at?: string | null;
+    audience?: string;
+    is_pinned?: boolean;
   };
   const title = String(body.title ?? "").trim().slice(0, 200);
   const text = String(body.body ?? "").trim().slice(0, 20000);
@@ -131,6 +146,10 @@ export async function POST(req: NextRequest) {
   const contentType = parseCustomerCenterContentType(body.content_type, "notice");
   const hero = normalizeCustomerCenterHeroImageUrl(body.hero_image_url);
   const authorOverride = typeof body.author_label === "string" ? body.author_label.trim() : "";
+  if (body.audience !== undefined && !isAppNoticeAudience(body.audience)) {
+    return NextResponse.json({ ok: false, error: "invalid_audience" }, { status: 400 });
+  }
+  const audience = parseAppNoticeAudience(body.audience, "all");
   const now = new Date().toISOString();
   const { data, error } = await sb
     .from("app_notices")
@@ -145,6 +164,9 @@ export async function POST(req: NextRequest) {
           ? body.app_version.trim().slice(0, 32)
           : null,
       author_label: authorOverride || null,
+      // 배달 오픈 4단계 — 보는 사람 · 고정(사장님 운영 공지에만 의미)
+      audience,
+      is_pinned: isOwnerAnnouncementAudience(audience) && body.is_pinned === true,
       comment_enabled: body.comment_enabled !== false,
       is_active: body.is_active !== false,
       starts_at: body.starts_at?.trim() || null,

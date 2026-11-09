@@ -118,6 +118,11 @@ export const OwnerRoutes = {
   /** Owner store notification inbox (canonical; slug path remains compatibility). */
   notifications: (storeId?: string | null) =>
     withStoreId(`${OWNER_ROUTES_BASE}/notifications`, storeId),
+  /** 운영 공지 — 어드민 → 사장님 전용 공지(app_notices audience≠all). 매장 공지(`notices`, 고객용)와 다름. */
+  announcements: (storeId?: string | null) =>
+    withStoreId(`${OWNER_ROUTES_BASE}/announcements`, storeId),
+  announcementDetail: (noticeId: string, storeId?: string | null) =>
+    withStoreId(`${OWNER_ROUTES_BASE}/announcements/${encodeURIComponent(noticeId.trim())}`, storeId),
   /** Owner order/store sound · vibration preferences. */
   notificationSettings: (storeId?: string | null) =>
     withStoreId(`${OWNER_ROUTES_BASE}/notification-settings`, storeId),

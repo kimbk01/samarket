@@ -5,6 +5,7 @@ import {
   APP_NOTICES_CONTENT_SELECT,
   isCustomerCenterContentPublishedNow,
 } from "@/lib/notices/customer-center-content";
+import { isAppNoticeVisibleToMembers } from "@/lib/notices/app-notice-audience";
 import {
   CC_COMMENTS_PAGE_DEFAULT,
   isCcMissingTableError,
@@ -115,7 +116,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .eq("id", contentId)
     .maybeSingle();
 
-  if (contentErr || !content) {
+  // 배달 오픈 4단계 — 사장님 전용 운영 공지에는 회원 댓글을 달 수 없다(회원에게 없는 글)
+  if (contentErr || !content || !isAppNoticeVisibleToMembers(content)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
   if (!isCustomerCenterContentPublishedNow(content) || content.comment_enabled === false) {

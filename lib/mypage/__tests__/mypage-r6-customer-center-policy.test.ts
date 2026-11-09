@@ -74,6 +74,8 @@ function noticeRow(i: number, extra: Record<string, unknown> = {}) {
   return {
     id: `n-${String(i).padStart(3, "0")}`,
     content_type: "notice",
+    // 배달 오픈 4단계 — 회원 게시판은 audience=all 만 읽는다(DB 기본값)
+    audience: "all",
     title: `공지 ${i}`,
     body: "본문",
     hero_image_url: null,

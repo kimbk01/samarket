@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isCustomerCenterContentPublishedNow } from "@/lib/notices/customer-center-content";
 import { markNotificationsReadForContents } from "@/lib/notices/customer-center-read-state";
+import { isAppNoticeVisibleToMembers } from "@/lib/notices/app-notice-audience";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,11 +28,12 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 
   const { data: row } = await sb
     .from("app_notices")
-    .select("id, is_active, starts_at, ends_at, archived_at, deleted_at, view_count")
+    .select("id, is_active, starts_at, ends_at, archived_at, deleted_at, view_count, audience")
     .eq("id", contentId)
     .maybeSingle();
 
-  if (!row || !isCustomerCenterContentPublishedNow(row)) {
+  // 배달 오픈 4단계 — 사장님 전용 운영 공지는 회원 열람 경로로 기록하지 않는다(사장님 경로가 따로 기록)
+  if (!row || !isAppNoticeVisibleToMembers(row) || !isCustomerCenterContentPublishedNow(row)) {
     return NextResponse.json({ ok: true, recorded: false, viewCount: Number(row?.view_count) || 0 });
   }
 

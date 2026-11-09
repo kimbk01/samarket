@@ -67,7 +67,7 @@ describe("drain content lookup (U7)", () => {
       "@/lib/admin/notification-campaigns/claim-scheduled-campaign"
     );
     await drainNotificationCampaignSendBatches(ok.svc, "occ-1");
-    expect(ok.noticeSelect).toHaveBeenCalledWith("is_active, starts_at, ends_at, archived_at, deleted_at");
+    expect(ok.noticeSelect).toHaveBeenCalledWith("is_active, starts_at, ends_at, archived_at, deleted_at, audience");
     expect(ok.noticeEq).toHaveBeenCalledWith("id", "n-1");
 
     const bad = makeSvc({ data: null, error: { message: "db down" } });

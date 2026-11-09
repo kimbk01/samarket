@@ -11,6 +11,7 @@ import { adminPlatformPromotionNotificationsMessages } from "./catalog/admin-pla
 import { adminDeployMessages } from "./catalog/admin-deploy";
 import { adminBoostPricesMessages } from "./catalog/admin-boost-prices";
 import { adminTradeSoldWindowMessages } from "./catalog/admin-trade-sold-window";
+import { ownerAnnouncementsMessages } from "./catalog/owner-announcements";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -281,6 +282,7 @@ export type MessageKey =
   | KeyOf<typeof adminDeployMessages.ko>
   | KeyOf<typeof adminBoostPricesMessages.ko>
   | KeyOf<typeof adminTradeSoldWindowMessages.ko>
+  | KeyOf<typeof ownerAnnouncementsMessages.ko>
   | KeyOf<typeof adminConsoleCoreMessages.ko>
   | KeyOf<typeof copyShellMessages.ko>
   | KeyOf<typeof copyTradeMessages.ko>
@@ -407,6 +409,7 @@ type EnMessageKey =
   | KeyOf<typeof adminDeployMessages.en>
   | KeyOf<typeof adminBoostPricesMessages.en>
   | KeyOf<typeof adminTradeSoldWindowMessages.en>
+  | KeyOf<typeof ownerAnnouncementsMessages.en>
   | KeyOf<typeof adminDeliveryOpsUxMessages.en>
   | KeyOf<typeof adminChatR1CMessages.en>
   | KeyOf<typeof adminChatR1BMessages.en>

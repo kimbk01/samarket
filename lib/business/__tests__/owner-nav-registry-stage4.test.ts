@@ -117,6 +117,9 @@ const CANONICAL_ROWS: ReadonlyArray<
   [44, "/my/business/store-order-chat/o1", "order_chats", "/stores/owner/order-chats?storeId=s1"],
   [44, "/mypage/business/orders", "delivery_orders", "/stores/owner?storeId=s1"],
   [44, "/mypage/business/settlements", "settlements", "/stores/owner?storeId=s1"],
+  // 배달 오픈 4단계 (Owner 2026-11-10) — 어드민 → 사장님 운영 공지 목록·상세
+  [45, "/stores/owner/announcements", "announcements", "/stores/owner?storeId=s1"],
+  [45, "/stores/owner/announcements/a1", "announcements", "/stores/owner/announcements?storeId=s1"],
 ];
 
 function entryOf(id: BusinessAdminNavItemId): OwnerNavEntryDef {
@@ -191,8 +194,8 @@ describe("§4-5 44행 경로 표 — 제목·드로어 라벨·활성·뒤로가
   const approvedDrawer = buildOwnerDrawerSectionsFromRegistry(ctx("approved")).flatMap((s) => s.items);
   const lang = getRuntimeAppLanguage();
 
-  it("covers all 44 rows", () => {
-    expect(new Set(CANONICAL_ROWS.map((r) => r[0])).size).toBe(44);
+  it("covers all 44 rows + 45 운영 공지 (배달 오픈 4단계)", () => {
+    expect(new Set(CANONICAL_ROWS.map((r) => r[0])).size).toBe(45);
   });
 
   it.each(CANONICAL_ROWS)("row %i %s → %s", (_row, url, id, back) => {
@@ -316,6 +319,8 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "customer_center",
       // 심사 중에도 본인 매장 미리보기 (Owner 「신청한 오너는 본인 매장 진입」 2026-11-10)
       "public_store",
+      // 운영 공지 — 심사 중 포함 모든 사장님 (배달 오픈 4단계 · Owner 2026-11-10)
+      "announcements",
     ],
     revision_requested: [
       "dashboard",
@@ -326,6 +331,8 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "notification_settings",
       "customer_center",
       "public_store",
+      // 운영 공지 — 심사 중 포함 모든 사장님 (배달 오픈 4단계 · Owner 2026-11-10)
+      "announcements",
     ],
     approved: drawerEntries.map((e) => e.id),
     suspended: [
@@ -336,6 +343,7 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "notifications",
       "notification_settings",
       "customer_center",
+      "announcements",
     ],
   };
 

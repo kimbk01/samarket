@@ -12,6 +12,7 @@ import {
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
+import { APP_NOTICE_MEMBER_AUDIENCE } from "@/lib/notices/app-notice-audience";
 import {
   CC_BOARD_PAGE_DEFAULT,
   ccBoardIlikePattern,
@@ -73,6 +74,8 @@ export async function GET(req: NextRequest) {
   let q = sb
     .from("app_notices")
     .select(APP_NOTICES_CONTENT_SELECT)
+    // 배달 오픈 4단계 — 회원 게시판은 전체 회원 대상 글만 (사장님 전용 운영 공지 제외)
+    .eq("audience", APP_NOTICE_MEMBER_AUDIENCE)
     .eq("is_active", true)
     .is("deleted_at", null)
     .is("archived_at", null);

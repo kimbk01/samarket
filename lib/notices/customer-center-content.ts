@@ -62,6 +62,10 @@ export type CustomerCenterContentRow = {
   /** 업데이트 소식 글의 앱 버전 (S7) */
   app_version?: string | null;
   view_count: number;
+  /** 보는 사람 — all(회원) | store_owners | store_owners_approved (`app-notice-audience.ts`) */
+  audience?: string | null;
+  /** 사장님 운영 공지 목록 상단 고정 */
+  is_pinned?: boolean | null;
   comment_enabled: boolean;
   comment_count: number;
   archived_at: string | null;
@@ -72,7 +76,7 @@ export type CustomerCenterContentRow = {
 };
 
 export const APP_NOTICES_CONTENT_SELECT =
-  "id, content_type, title, body, hero_image_url, author_label, is_active, starts_at, ends_at, published_at, app_version, view_count, comment_count, comment_enabled, archived_at, deleted_at, created_by, created_at, updated_at";
+  "id, content_type, title, body, hero_image_url, author_label, is_active, starts_at, ends_at, published_at, app_version, audience, is_pinned, view_count, comment_count, comment_enabled, archived_at, deleted_at, created_by, created_at, updated_at";
 
 export function isCustomerCenterContentPublishedNow(row: {
   is_active?: boolean | null;

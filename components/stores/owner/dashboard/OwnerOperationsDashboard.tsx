@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { OwnerAnnouncementLatestCard } from "@/components/business/owner/OwnerAnnouncementLatestCard";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import {
   EMPTY_OWNER_STORE_OPS_SNAPSHOT,
@@ -67,6 +68,8 @@ export function OwnerOperationsDashboard({
         ) : (
           <>
             {/* STORE OS hierarchy: status → urgent orders → problems → today → customer → finance */}
+            {/* 배달 오픈 4단계 — 운영 공지 최신 1건(없으면 안 보임) */}
+            <OwnerAnnouncementLatestCard storeId={row.id} />
             <OwnerHomeStoreStatusCard row={row} />
             <OwnerUrgentOrdersCard
               storeId={row.id}
