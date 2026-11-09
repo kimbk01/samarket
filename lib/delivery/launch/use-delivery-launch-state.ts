@@ -31,6 +31,7 @@ function parseState(raw: unknown): DeliveryLaunchPublicState | null {
     freePromoActive: o.freePromoActive === true,
     fabEnabled: o.fabEnabled !== false,
     content: normalizeDeliveryLaunchContent(o.content),
+    viewerBypass: o.viewerBypass === true,
   };
 }
 
@@ -104,6 +105,12 @@ export function useDeliveryLaunchState(enabled = true): DeliveryLaunchPublicStat
   return state;
 }
 
+/** 이 사람 화면에 매장 모집(배너·흐림·FAB·경로 막기)을 적용하는가 — 확인용 계정·관리자는 false */
 export function isDeliveryRecruiting(state: DeliveryLaunchPublicState | null): boolean {
-  return state?.mode === "recruiting";
+  return state?.mode === "recruiting" && state.viewerBypass !== true;
+}
+
+/** 매장 모집 중인데 보는 사람이 확인용 계정·관리자 — 화면은 정식 운영처럼, 주문만 막는다 */
+export function isDeliveryRecruitingReviewer(state: DeliveryLaunchPublicState | null): boolean {
+  return state?.mode === "recruiting" && state.viewerBypass === true;
 }

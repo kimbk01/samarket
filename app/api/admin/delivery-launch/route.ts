@@ -8,6 +8,7 @@ import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-
 import {
   DELIVERY_LAUNCH_SERVER_CACHE_TAG,
   listDeliveryLaunchLogs,
+  listDeliveryLaunchReviewers,
   readDeliveryLaunchSettings,
   saveDeliveryLaunchSettingsCas,
 } from "@/lib/delivery/launch/delivery-launch-settings.server";
@@ -30,8 +31,9 @@ export async function GET() {
   try {
     const r = await readDeliveryLaunchSettings(sb);
     if (!r.ok) return internalErrorResponse("load_failed", "[/api/admin/delivery-launch GET]", r.error, 500);
-    const [logs, visibleRes, realRes, pendingRes] = await Promise.all([
+    const [logs, reviewers, visibleRes, realRes, pendingRes] = await Promise.all([
       r.tableMissing ? Promise.resolve([]) : listDeliveryLaunchLogs(sb, 20),
+      listDeliveryLaunchReviewers(sb),
       sb.from("stores").select("id", { count: "exact", head: true }).eq("approval_status", "approved").eq("is_visible", true),
       sb
         .from("stores")
@@ -49,6 +51,7 @@ export async function GET() {
       settings: r.settings,
       migrationApplied: !r.tableMissing,
       logs,
+      reviewers,
       counts: {
         visibleStores: visibleRes.count ?? null,
         visibleRealStores: realRes.count ?? null,

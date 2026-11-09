@@ -1,23 +1,32 @@
 "use client";
 
 /**
- * 「배달 화면 구성 › 배달 오픈 관리」 (Owner 「배달 on/off·매장 모집 배너」 2026-11-10 · 설계 v2 §6-1).
- * 정식 운영 / 매장 모집 전환, 기기별 배너 이미지(폰 4:3 · 와이드 2:1), 언어별 문구, 모집 팝업·고객센터 FAB,
- * 오픈 기념 무료 종료일, 기기별 미리보기, 변경 이력. 저장 = 최고관리자, 읽은 revision 으로만(409 시 덮어쓰지 않음).
- * 광고 배너·광고 팝업과 별개 저장소(`delivery_launch_settings`).
+ * 「배달 화면 구성 › 배달 오픈 관리」 (Owner 「배달 on/off·매장 모집 배너」 2026-11-10 · 설계 v3.2 §3-1·3-2·3-4-3·§5).
+ * - 정식 운영 / 매장 모집 전환
+ * - 모집 배너: 폰 4:3 · 와이드 2:1 사진, 문구(아직 저장한 문구가 없으면 설계 시안 문구로 채워 보여줌), 주 버튼 1개
+ * - 기존 고객센터 FAB 켜기 (배너에는 문의 버튼 없음)
+ * - 오픈 기념 무료 종료일
+ * - 매장 확인 허용 계정 (매장 모집 중에도 정식 운영 화면으로 매장 확인 · 주문은 막힘)
+ * - 기기별 미리보기: 고객 화면과 같은 레이아웃을 실제 폭으로 그린 뒤 칸에 맞게 축소(넘침·잘림 없음)
+ * 저장 = 최고관리자, 읽은 revision 으로만(409 면 덮어쓰지 않음). 광고 배너·광고 팝업과 별개 저장소.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChipButton } from "@/components/admin/ui/AdminChipButton";
 import { formatAdminShortId } from "@/components/admin/ui/AdminTechId";
-import { DeliveryRecruitingHeroLayout } from "@/components/delivery/launch/DeliveryRecruitingHeroLayout";
+import {
+  DeliveryRecruitingHeroLayout,
+  DELIVERY_RECRUITING_PRIMARY_CLASS,
+} from "@/components/delivery/launch/DeliveryRecruitingHeroLayout";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   DELIVERY_LAUNCH_IMAGE_SPECS,
   DELIVERY_LAUNCH_LOCALES,
   isDeliveryFreePromoActive,
+  resolveDeliveryLaunchTexts,
+  withDesignDefaultTexts,
   type DeliveryLaunchContent,
   type DeliveryLaunchImageKind,
   type DeliveryLaunchLocale,
@@ -26,6 +35,7 @@ import {
   type DeliveryLaunchSettings,
   type DeliveryLaunchTexts,
 } from "@/lib/delivery/launch/delivery-launch-contract";
+import { prepareLaunchImageForUpload } from "@/lib/delivery/launch/prepare-launch-image-client";
 
 type LogRow = {
   revision: number;
@@ -35,12 +45,15 @@ type LogRow = {
   createdAt: string;
 };
 
+type Reviewer = { userId: string; note: string; addedAt: string; username: string | null; nickname: string | null };
+
 type LoadResponse = {
   ok: boolean;
   error?: string;
   settings?: DeliveryLaunchSettings;
   migrationApplied?: boolean;
   logs?: LogRow[];
+  reviewers?: Reviewer[];
   counts?: { visibleStores: number | null; visibleRealStores: number | null; pendingApplications: number | null };
 };
 
@@ -52,7 +65,7 @@ type Draft = {
 };
 
 function draftFrom(s: DeliveryLaunchSettings): Draft {
-  return { mode: s.mode, freeUntil: s.freeUntil ?? "", fabEnabled: s.fabEnabled, content: s.content };
+  return { mode: s.mode, freeUntil: s.freeUntil ?? "", fabEnabled: s.fabEnabled, content: withDesignDefaultTexts(s.content) };
 }
 
 /** UTC 저장값 → 표시만 필리핀 시각 */
@@ -68,7 +81,6 @@ const TEXT_FIELDS: { key: keyof DeliveryLaunchTexts; label: MessageKey; multilin
   { key: "body", label: "admin_dl_field_body", multiline: true },
   { key: "schedule", label: "admin_dl_field_schedule" },
   { key: "applyLabel", label: "admin_dl_field_apply" },
-  { key: "inquiryLabel", label: "admin_dl_field_inquiry" },
 ];
 
 const IMAGE_FIELD: Record<DeliveryLaunchImageKind, "mobileImageUrl" | "wideImageUrl"> = {
@@ -91,22 +103,51 @@ const ERROR_KEY: Record<string, MessageKey> = {
   image_ratio_mismatch: "admin_dl_err_image_ratio",
   file_too_large: "admin_dl_err_file_large",
   invalid_type: "admin_dl_err_file_type",
+  not_found: "admin_dl_err_not_found",
+  ambiguous: "admin_dl_err_ambiguous",
 };
 
 function localeLabelKey(l: DeliveryLaunchLocale): MessageKey {
   return l === "en" ? "admin_dl_locale_en" : "admin_dl_locale_ko";
 }
 
-function PreviewHero({ state }: { state: DeliveryLaunchPublicState }) {
+/** 실제 화면 폭(design)으로 그린 뒤 칸 폭에 맞게 줄여 보여준다 — 기기별 배치를 그대로, 넘침·잘림 없이 */
+function ScaledPreview({ design, children }: { design: number; children: ReactNode }) {
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const apply = () => {
+      const s = Math.min(1, outer.clientWidth / design);
+      setScale(s);
+      setHeight(Math.ceil(inner.offsetHeight * s));
+    };
+    apply();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(apply);
+    ro.observe(outer);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [design]);
+  return (
+    <div ref={outerRef} className="w-full overflow-hidden" style={{ height }}>
+      <div ref={innerRef} style={{ width: design, transform: `scale(${scale})`, transformOrigin: "top left" }} inert>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PreviewHero({ state, locale }: { state: DeliveryLaunchPublicState; locale: DeliveryLaunchLocale }) {
+  const texts = resolveDeliveryLaunchTexts(state.content, locale);
   return (
     <DeliveryRecruitingHeroLayout
       state={state}
-      renderActions={({ applyLabel, inquiryLabel, applyClassName, inquiryClassName }) => (
-        <>
-          <span className={applyClassName}>{applyLabel}</span>
-          <span className={inquiryClassName}>{inquiryLabel}</span>
-        </>
-      )}
+      primaryAction={<span className={DELIVERY_RECRUITING_PRIMARY_CLASS}>{texts.applyLabel}</span>}
     />
   );
 }
@@ -120,6 +161,13 @@ export function DeliveryScreensLaunchTab() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<DeliveryLaunchImageKind | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  /** 이미지 칸마다 결과 — 그 칸 바로 아래에 보여준다 */
+  const [uploadNote, setUploadNote] = useState<Partial<Record<DeliveryLaunchImageKind, { tone: "ok" | "error"; text: string }>>>({});
+  const [reviewers, setReviewers] = useState<Reviewer[]>([]);
+  const [reviewerQuery, setReviewerQuery] = useState("");
+  const [reviewerMemo, setReviewerMemo] = useState("");
+  const [reviewerBusy, setReviewerBusy] = useState(false);
+  const [reviewerNote, setReviewerNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   const errText = useCallback(
     (code: string | undefined) => {
@@ -139,6 +187,7 @@ export function DeliveryScreensLaunchTab() {
         setDraft(draftFrom(json.settings));
         setRevision(json.settings.revision);
       }
+      setReviewers(json.reviewers ?? []);
     } catch {
       setLoaded({ ok: false, error: "network" });
     }
@@ -150,32 +199,44 @@ export function DeliveryScreensLaunchTab() {
 
   const setText = (key: keyof DeliveryLaunchTexts, value: string) =>
     setDraft((d) =>
-      d
-        ? {
-            ...d,
-            content: { ...d.content, texts: { ...d.content.texts, [locale]: { ...d.content.texts[locale], [key]: value } } },
-          }
-        : d
+      d ? { ...d, content: { ...d.content, texts: { ...d.content.texts, [locale]: { ...d.content.texts[locale], [key]: value } } } } : d
     );
 
-  const upload = async (kind: DeliveryLaunchImageKind, file: File) => {
+  const upload = async (kind: DeliveryLaunchImageKind, original: File) => {
     setUploading(kind);
-    setMessage(null);
+    setUploadNote((n) => ({ ...n, [kind]: undefined }));
     try {
+      let prepared: Awaited<ReturnType<typeof prepareLaunchImageForUpload>>;
+      try {
+        prepared = await prepareLaunchImageForUpload(original);
+      } catch {
+        setUploadNote((n) => ({ ...n, [kind]: { tone: "error", text: t("admin_dl_err_decode") } }));
+        return;
+      }
       const fd = new FormData();
       fd.set("kind", kind);
-      fd.set("file", file);
+      fd.set("file", prepared.file);
       const res = await fetch("/api/admin/delivery-launch/upload-image", { method: "POST", body: fd });
-      const json = (await res.json()) as { ok?: boolean; url?: string; error?: string; width?: number; height?: number };
+      let json: { ok?: boolean; url?: string; error?: string; width?: number; height?: number } = {};
+      try {
+        json = (await res.json()) as typeof json;
+      } catch {
+        json = { ok: false, error: `http_${res.status}` };
+      }
       if (!json.ok || !json.url) {
-        const size = json.width && json.height ? ` (${json.width}×${json.height})` : "";
-        setMessage({ tone: "error", text: `${errText(json.error)}${size}` });
+        const w = json.width ?? prepared.width;
+        const h = json.height ?? prepared.height;
+        setUploadNote((n) => ({ ...n, [kind]: { tone: "error", text: `${errText(json.error)} (${w}×${h})` } }));
         return;
       }
       const url = json.url;
       setDraft((d) => (d ? { ...d, content: { ...d.content, [IMAGE_FIELD[kind]]: url } } : d));
+      setUploadNote((n) => ({
+        ...n,
+        [kind]: { tone: "ok", text: t("admin_dl_upload_done", { w: json.width ?? prepared.width, h: json.height ?? prepared.height }) },
+      }));
     } catch {
-      setMessage({ tone: "error", text: errText("network") });
+      setUploadNote((n) => ({ ...n, [kind]: { tone: "error", text: errText("network") } }));
     } finally {
       setUploading(null);
     }
@@ -211,6 +272,49 @@ export function DeliveryScreensLaunchTab() {
     }
   };
 
+  const addReviewer = async () => {
+    if (!reviewerQuery.trim()) return;
+    setReviewerBusy(true);
+    setReviewerNote(null);
+    try {
+      const res = await fetch("/api/admin/delivery-launch/reviewers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: reviewerQuery, note: reviewerMemo }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string; reviewers?: Reviewer[] };
+      if (!json.ok) {
+        setReviewerNote({ tone: "error", text: errText(json.error) });
+        return;
+      }
+      setReviewers(json.reviewers ?? []);
+      setReviewerQuery("");
+      setReviewerMemo("");
+    } catch {
+      setReviewerNote({ tone: "error", text: errText("network") });
+    } finally {
+      setReviewerBusy(false);
+    }
+  };
+
+  const removeReviewer = async (userId: string) => {
+    setReviewerBusy(true);
+    setReviewerNote(null);
+    try {
+      const res = await fetch(`/api/admin/delivery-launch/reviewers?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+      const json = (await res.json()) as { ok?: boolean; error?: string; reviewers?: Reviewer[] };
+      if (!json.ok) {
+        setReviewerNote({ tone: "error", text: errText(json.error) });
+        return;
+      }
+      setReviewers(json.reviewers ?? []);
+    } catch {
+      setReviewerNote({ tone: "error", text: errText("network") });
+    } finally {
+      setReviewerBusy(false);
+    }
+  };
+
   const previewState = useMemo<DeliveryLaunchPublicState | null>(
     () =>
       draft
@@ -218,8 +322,9 @@ export function DeliveryScreensLaunchTab() {
             mode: "recruiting",
             freeUntil: draft.freeUntil || null,
             freePromoActive: isDeliveryFreePromoActive(draft.freeUntil || null),
-              fabEnabled: draft.fabEnabled,
+            fabEnabled: draft.fabEnabled,
             content: draft.content,
+            viewerBypass: false,
           }
         : null,
     [draft]
@@ -242,10 +347,11 @@ export function DeliveryScreensLaunchTab() {
   const settings = loaded.settings;
   const texts = draft.content.texts[locale];
   const card = "grid gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4";
+  const inputCls = "rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2 text-[13px] text-sam-fg";
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" data-admin-delivery-launch="1">
-      <div className="grid content-start gap-4">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]" data-admin-delivery-launch="1">
+      <div className="grid min-w-0 content-start gap-4">
         {loaded.migrationApplied === false ? (
           <p className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft px-3 py-2 text-[12px]">
             {t("admin_dl_migration_missing")}
@@ -274,10 +380,11 @@ export function DeliveryScreensLaunchTab() {
           {(["mobile", "wide"] as const).map((kind) => {
             const spec = DELIVERY_LAUNCH_IMAGE_SPECS[kind];
             const url = draft.content[IMAGE_FIELD[kind]];
+            const note = uploadNote[kind];
             return (
-              <div key={kind} className="flex min-w-0 items-center gap-3 rounded-ui-rect border border-dashed border-sam-border p-2.5">
+              <div key={kind} className="flex min-w-0 items-start gap-3 rounded-ui-rect border border-dashed border-sam-border p-2.5">
                 <div
-                  className="h-[54px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+                  className="h-[64px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
                   style={{ aspectRatio: `${spec.ratioW} / ${spec.ratioH}` }}
                 >
                   {url ? (
@@ -296,7 +403,7 @@ export function DeliveryScreensLaunchTab() {
                       mh: spec.minHeight,
                     })}
                   </p>
-                  <div className="mt-1 flex items-center gap-3">
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
                     <label className="cursor-pointer text-[13px] text-[var(--admin-console-accent)] underline">
                       {uploading === kind ? t("admin_dl_uploading") : url ? t("admin_dl_replace") : t("admin_dl_upload")}
                       <input
@@ -315,13 +422,22 @@ export function DeliveryScreensLaunchTab() {
                     {url ? (
                       <AdminActionButton
                         size="sm"
-                        variant="quiet"
+                        variant="secondary"
                         onClick={() => setDraft({ ...draft, content: { ...draft.content, [IMAGE_FIELD[kind]]: "" } })}
                       >
                         {t("admin_dl_remove")}
                       </AdminActionButton>
                     ) : null}
                   </div>
+                  {note ? (
+                    <p
+                      role="status"
+                      className={`mt-1 text-[12px] ${note.tone === "ok" ? "text-sam-primary" : "font-semibold text-sam-danger"}`}
+                      data-delivery-launch-upload-note={kind}
+                    >
+                      {note.text}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             );
@@ -350,14 +466,14 @@ export function DeliveryScreensLaunchTab() {
                   rows={2}
                   value={texts[f.key]}
                   onChange={(e) => setText(f.key, e.target.value)}
-                  className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2 text-[13px] text-sam-fg"
+                  className={inputCls}
                 />
               ) : (
                 <input
                   id={`delivery-launch-${locale}-${f.key}`}
                   value={texts[f.key]}
                   onChange={(e) => setText(f.key, e.target.value)}
-                  className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2 text-[13px] text-sam-fg"
+                  className={inputCls}
                 />
               )}
             </label>
@@ -386,7 +502,7 @@ export function DeliveryScreensLaunchTab() {
               type="date"
               value={draft.freeUntil}
               onChange={(e) => setDraft({ ...draft, freeUntil: e.target.value })}
-              className="w-fit rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2 text-[13px] text-sam-fg"
+              className={`w-fit ${inputCls}`}
             />
           </label>
           <p className="text-[12px] text-sam-muted">{t("admin_dl_free_note")}</p>
@@ -418,26 +534,73 @@ export function DeliveryScreensLaunchTab() {
             ? t("admin_dl_revision_line_saved", { rev: revision, at: fmtPht(settings.updatedAt) })
             : t("admin_dl_revision_line", { rev: revision })}
         </p>
+
+        <section className={card} data-delivery-launch-reviewers>
+          <h3 className="text-[14px] font-bold">{t("admin_dl_reviewers_title")}</h3>
+          <p className="text-[12px] text-sam-muted">{t("admin_dl_reviewers_desc")}</p>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <input
+              id="delivery-launch-reviewer-query"
+              value={reviewerQuery}
+              onChange={(e) => setReviewerQuery(e.target.value)}
+              placeholder={t("admin_dl_reviewers_query")}
+              className={inputCls}
+            />
+            <input
+              id="delivery-launch-reviewer-memo"
+              value={reviewerMemo}
+              onChange={(e) => setReviewerMemo(e.target.value)}
+              placeholder={t("admin_dl_reviewers_note")}
+              className={inputCls}
+            />
+            <AdminActionButton onClick={() => void addReviewer()} disabled={reviewerBusy || !reviewerQuery.trim()}>
+              {t("admin_dl_reviewers_add")}
+            </AdminActionButton>
+          </div>
+          {reviewerNote ? (
+            <p role="status" className="text-[12px] font-semibold text-sam-danger">
+              {reviewerNote.text}
+            </p>
+          ) : null}
+          {reviewers.length === 0 ? (
+            <p className="text-[12px] text-sam-muted">{t("admin_dl_reviewers_empty")}</p>
+          ) : (
+            <ul className="grid gap-1.5">
+              {reviewers.map((r) => (
+                <li key={r.userId} className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-sam-border pb-1.5 text-[13px]">
+                  <span className="min-w-0">
+                    <b>{r.username ? `@${r.username}` : formatAdminShortId(r.userId)}</b>
+                    {r.nickname ? ` · ${r.nickname}` : ""}
+                    {r.note ? <span className="text-sam-muted"> · {r.note}</span> : null}
+                  </span>
+                  <AdminActionButton size="sm" variant="secondary" disabled={reviewerBusy} onClick={() => void removeReviewer(r.userId)}>
+                    {t("admin_dl_reviewers_remove")}
+                  </AdminActionButton>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
-      <div className="grid content-start gap-4">
+      <div className="grid min-w-0 content-start gap-4">
         <section className={card}>
           <h3 className="text-[14px] font-bold">{t("admin_dl_preview_title")}</h3>
           {previewState ? (
-            <div className="grid gap-3 overflow-x-auto">
-              <div>
+            <div className="grid gap-3">
+              <div className="max-w-[343px]">
                 <p className="mb-1 text-[12px] text-sam-muted">{t("admin_dl_preview_phone")}</p>
-                <div className="w-[343px] max-w-full" inert>
-                  <PreviewHero state={previewState} />
-                </div>
+                <ScaledPreview design={343}>
+                  <PreviewHero state={previewState} locale={locale} />
+                </ScaledPreview>
               </div>
               <div>
                 <p className="mb-1 text-[12px] text-sam-muted">
                   {t(draft.content.wideImageUrl ? "admin_dl_preview_wide" : "admin_dl_preview_wide_cropped")}
                 </p>
-                <div className="w-[736px]" inert>
-                  <PreviewHero state={previewState} />
-                </div>
+                <ScaledPreview design={736}>
+                  <PreviewHero state={previewState} locale={locale} />
+                </ScaledPreview>
               </div>
             </div>
           ) : null}

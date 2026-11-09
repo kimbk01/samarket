@@ -57,6 +57,34 @@ describe("배달 오픈 관리 — 설정 계약", () => {
   });
 });
 
+describe("배달 오픈 관리 — v3.2 배너·FAB·확인용 계정", () => {
+  it("배너는 주 버튼 1개(문의 버튼 없음) · 마이페이지 매장 진입과 같은 판정", () => {
+    const surface = read("components/delivery/launch/DeliveryRecruitingSurface.tsx");
+    expect(surface).toContain("useDeliveryStoreOwnerEntry");
+    expect(surface).not.toContain("inquiry");
+    expect(read("lib/delivery/launch/use-delivery-store-owner-entry.ts")).toContain("resolveMypageHomeStoreOwnerEntry");
+  });
+  it("FAB 유형 — 매장 없음 STORE_PARTNERSHIP · 매장 있음 STORE_APPROVAL", () => {
+    const surface = read("components/delivery/launch/DeliveryRecruitingSurface.tsx");
+    expect(surface).toContain('category: "STORE_PARTNERSHIP"');
+    expect(surface).toContain('category: "STORE_APPROVAL"');
+  });
+  it("확인용 계정·관리자 — 매장 모집 화면 미적용, 주문은 막음, 서버 판정", () => {
+    const api = read("app/api/stores/launch-state/route.ts");
+    expect(api).toContain("isDeliveryLaunchViewerBypass");
+    const sql = read("supabase/migrations/20271110160000_delivery_launch_reviewers.sql");
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.delivery_launch_reviewers");
+    expect(read("components/stores/StoreDetailPublic.tsx")).toContain("delivery_recruiting_reviewer_no_order");
+  });
+  it("어드민 탭 — 시안 문구 채움·칸 아래 업로드 결과·축소 미리보기·확인 계정 칸", () => {
+    const tab = read("components/admin/stores/delivery-screens/DeliveryScreensLaunchTab.tsx");
+    expect(tab).toContain("withDesignDefaultTexts(s.content)");
+    expect(tab).toContain("data-delivery-launch-upload-note");
+    expect(tab).toContain("function ScaledPreview");
+    expect(tab).toContain("data-delivery-launch-reviewers");
+  });
+});
+
 describe("배달 오픈 관리 — 매장 모집 중 고객 경로", () => {
   it("업종·검색·장바구니·결제·주문은 배달 첫 화면으로, 매장 상세·사장님·상품권몰은 그대로", () => {
     for (const p of ["/stores/browse/food", "/stores/search", "/stores/cart", "/stores/abc/cart", "/stores/abc/checkout", "/stores/abc/order/1"]) {

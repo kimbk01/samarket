@@ -9,7 +9,7 @@ import {
 } from "@/lib/delivery/launch/delivery-launch-contract";
 
 /**
- * 배달 매장 모집 배너 — 기기별 배치 (Owner 2026-11-10 · 설계 v2 §4-2).
+ * 배달 매장 모집 배너 — 기기별 배치 (Owner 2026-11-10 · 설계 v3.2 §3-1).
  * 폰: 4:3 사진 + 사진 아래쪽에 겹친 단색(브랜드 그린) 안내 판 / 본문 600px 이상: 2:1 사진 + 단색 안내 판 2단.
  * 안내 문구는 항상 단색 배경 위 — 어떤 사진이 와도 글자가 묻히지 않는다 (Owner 「텍스트 배경이 있는 형태」 2026-11-10).
  */
@@ -53,23 +53,21 @@ function BannerImage({ src, wide }: { src: string; wide: boolean }) {
   );
 }
 
-export type DeliveryRecruitingHeroActionsArgs = {
-  applyLabel: string;
-  inquiryLabel: string;
-  applyClassName: string;
-  inquiryClassName: string;
-};
+/** 배너 주 버튼 모양 — 고객 화면(Link)·어드민 미리보기(표시만)가 같은 모양을 쓴다 */
+export const DELIVERY_RECRUITING_PRIMARY_CLASS =
+  "flex w-full items-center justify-center gap-1.5 rounded-ui-rect bg-white px-3 py-2.5 text-center text-[14px] font-extrabold text-sam-primary active:opacity-80";
 
 /**
  * 모집 배너 레이아웃 (기기별) — 고객 화면(`DeliveryRecruitingHero`)과 어드민 미리보기가 같은 레이아웃을 쓴다.
- * 버튼은 호출하는 쪽이 그린다(고객 = 실제 이동·문의, 어드민 = 표시만).
+ * 버튼은 1개(매장 상태별 주 버튼 · 설계 v3.2 §3-3). 문의는 기존 고객센터 FAB 로만 받는다(배너 문의 버튼 없음).
  */
 export function DeliveryRecruitingHeroLayout({
   state,
-  renderActions,
+  primaryAction,
 }: {
   state: DeliveryLaunchPublicState;
-  renderActions: (args: DeliveryRecruitingHeroActionsArgs) => ReactNode;
+  /** 주 버튼 — 호출하는 쪽이 그린다. `DELIVERY_RECRUITING_PRIMARY_CLASS` 사용 */
+  primaryAction: ReactNode;
 }) {
   const { t, language } = useI18n();
   const rootRef = useRef<HTMLElement | null>(null);
@@ -78,8 +76,6 @@ export function DeliveryRecruitingHeroLayout({
   const imageSrc = wide ? state.content.wideImageUrl || state.content.mobileImageUrl : state.content.mobileImageUrl;
   const badge = texts.badge;
   const title = texts.title || t("delivery_recruiting_default_title");
-  const applyLabel = texts.applyLabel || t("delivery_recruiting_apply");
-  const inquiryLabel = texts.inquiryLabel || t("delivery_recruiting_inquiry");
 
   const textBlock = (
     <div
@@ -98,16 +94,7 @@ export function DeliveryRecruitingHeroLayout({
       {texts.schedule ? (
         <p className="rounded-ui-rect bg-white/10 px-2.5 py-1.5 text-[12px] font-medium">{texts.schedule}</p>
       ) : null}
-      <div className="mt-1 grid grid-cols-[1.4fr_1fr] gap-2">
-        {renderActions({
-          applyLabel,
-          inquiryLabel,
-          applyClassName:
-            "rounded-ui-rect bg-white px-3 py-2.5 text-center text-[14px] font-extrabold text-sam-primary active:opacity-80",
-          inquiryClassName:
-            "rounded-ui-rect border border-white/60 px-3 py-2.5 text-center text-[14px] font-bold text-white active:opacity-80",
-        })}
-      </div>
+      <div className="mt-1">{primaryAction}</div>
     </div>
   );
 

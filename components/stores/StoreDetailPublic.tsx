@@ -1,5 +1,9 @@
 "use client";
-import { isDeliveryRecruiting, useDeliveryLaunchState } from "@/lib/delivery/launch/use-delivery-launch-state";
+import {
+  isDeliveryRecruiting,
+  isDeliveryRecruitingReviewer,
+  useDeliveryLaunchState,
+} from "@/lib/delivery/launch/use-delivery-launch-state";
 import { shouldReleaseStoreMenuFocusEntry } from "@/lib/stores/store-menu-focus-entry-release";
 import { resolveStoreSalesBlockedReason } from "@/lib/stores/store-detail-order-gate";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
@@ -2090,9 +2094,14 @@ export function StoreDetailPublic({
     fulfillmentMode,
     distanceOutOfRange,
   });
-  const menuSelectBlocked = ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
+  /** 매장 확인 허용 계정·관리자 — 매장 모집 중 확인용이라 주문만 막는다 (설계 v3.2 §3-4-3) */
+  const recruitingReviewer = isDeliveryRecruitingReviewer(launchState);
+  const menuSelectBlocked =
+    recruitingReviewer || ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
   const menuSelectHint =
-    ownerOrderBlocked
+    recruitingReviewer
+      ? t("delivery_recruiting_reviewer_no_order")
+      : ownerOrderBlocked
       ? ownerOrderBlockedMessage
       : commerce && !commerce.isOpenForCommerce
         ? commerce.inBreak

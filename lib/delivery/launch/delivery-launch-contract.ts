@@ -10,6 +10,9 @@
  * 이 파일은 클라이언트·서버 공용 (서버 전용 모듈 import 금지).
  */
 
+import { storeCommerceUiMessages } from "@/lib/i18n/catalog/store-commerce-ui";
+import { mypageHubMessages } from "@/lib/i18n/catalog/mypage-hub";
+
 export type DeliveryLaunchMode = "open" | "recruiting";
 
 export const DELIVERY_LAUNCH_LOCALES = ["ko", "en"] as const;
@@ -23,7 +26,6 @@ export type DeliveryLaunchTexts = {
   /** 오픈 일정 문구 (예: 「오픈 예정 · 2027년 1월」) — 빈 문자열이면 줄을 그리지 않음 */
   schedule: string;
   applyLabel: string;
-  inquiryLabel: string;
 };
 
 export type DeliveryLaunchContent = {
@@ -53,6 +55,11 @@ export type DeliveryLaunchPublicState = {
   freePromoActive: boolean;
   fabEnabled: boolean;
   content: DeliveryLaunchContent;
+  /**
+   * 보는 사람이 매장 확인 허용 계정 또는 활성 관리자 — 매장 모집 중에도 정식 운영 화면으로 본다(주문은 막힘).
+   * 서버가 로그인 계정으로 판정 (설계 v3.2 §3-4-3).
+   */
+  viewerBypass: boolean;
 };
 
 export const EMPTY_DELIVERY_LAUNCH_TEXTS: DeliveryLaunchTexts = {
@@ -61,8 +68,38 @@ export const EMPTY_DELIVERY_LAUNCH_TEXTS: DeliveryLaunchTexts = {
   body: "",
   schedule: "",
   applyLabel: "",
-  inquiryLabel: "",
 };
+
+/**
+ * 설계 시안 기본 문구 (Owner 지시 「매장을 신청하세요 · 오픈 기념 배달앱 수수료 무료」) — 문구 단일 정의는 i18n 카탈로그.
+ * 어드민에서 아직 저장한 문구가 없으면 이 값으로 채워 보여준다(오픈 일정은 Owner 입력이라 비움).
+ */
+export function deliveryLaunchDesignTexts(locale: DeliveryLaunchLocale): DeliveryLaunchTexts {
+  const m = locale === "en" ? storeCommerceUiMessages.en : storeCommerceUiMessages.ko;
+  const hub = locale === "en" ? mypageHubMessages.en : mypageHubMessages.ko;
+  return {
+    badge: m.delivery_recruiting_default_badge,
+    title: m.delivery_recruiting_default_title,
+    body: m.delivery_recruiting_default_body,
+    schedule: "",
+    applyLabel: hub.mypage_hub_store_apply,
+  };
+}
+
+/** 비어 있는 문구 칸만 설계 기본 문구로 채운다 (저장한 값은 그대로) */
+export function withDesignDefaultTexts(content: DeliveryLaunchContent): DeliveryLaunchContent {
+  const fill = (cur: DeliveryLaunchTexts, def: DeliveryLaunchTexts): DeliveryLaunchTexts => {
+    const out = { ...cur };
+    (Object.keys(def) as (keyof DeliveryLaunchTexts)[]).forEach((k) => {
+      if (!out[k]) out[k] = def[k];
+    });
+    return out;
+  };
+  return {
+    ...content,
+    texts: { ko: fill(content.texts.ko, deliveryLaunchDesignTexts("ko")), en: fill(content.texts.en, deliveryLaunchDesignTexts("en")) },
+  };
+}
 
 export const DEFAULT_DELIVERY_LAUNCH_CONTENT: DeliveryLaunchContent = {
   mobileImageUrl: "",
@@ -98,7 +135,6 @@ const TEXT_MAX: Record<keyof DeliveryLaunchTexts, number> = {
   body: 300,
   schedule: 80,
   applyLabel: 24,
-  inquiryLabel: 24,
 };
 
 export function isDeliveryLaunchImageKind(v: unknown): v is DeliveryLaunchImageKind {
@@ -200,6 +236,7 @@ export function toDeliveryLaunchPublicState(s: DeliveryLaunchSettings, now: Date
     freePromoActive: isDeliveryFreePromoActive(s.freeUntil, now),
     fabEnabled: s.fabEnabled,
     content: s.content,
+    viewerBypass: false,
   };
 }
 

@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { isUserPlatformAdminDb } from "@/lib/admin/platform-admin-db";
 import {
   DEFAULT_DELIVERY_LAUNCH_SETTINGS,
   deliveryLaunchSettingsFromRow,
@@ -140,4 +141,80 @@ export async function listDeliveryLaunchLogs(sb: SupabaseClient, limit = 20): Pr
       createdAt: String(row.created_at ?? ""),
     };
   });
+}
+
+/* ───────────── 매장 확인 허용 계정 (설계 v3.2 §3-4-3) ───────────── */
+
+export type DeliveryLaunchReviewer = {
+  userId: string;
+  note: string;
+  addedAt: string;
+  username: string | null;
+  nickname: string | null;
+};
+
+function isMissingReviewersTable(message: string | undefined): boolean {
+  const m = String(message ?? "");
+  return /delivery_launch_reviewers/.test(m) && /(does not exist|schema cache|not find)/i.test(m);
+}
+
+export async function listDeliveryLaunchReviewers(sb: SupabaseClient): Promise<DeliveryLaunchReviewer[]> {
+  const { data, error } = await sb
+    .from("delivery_launch_reviewers")
+    .select("user_id, note, added_at")
+    .order("added_at", { ascending: true })
+    .limit(200);
+  if (error || !Array.isArray(data) || data.length === 0) return [];
+  const ids = data.map((r) => String((r as { user_id: string }).user_id));
+  const { data: profs } = await sb.from("profiles").select("id, username, nickname").in("id", ids);
+  const byId = new Map(
+    (profs ?? []).map((p) => {
+      const row = p as { id: string; username?: string | null; nickname?: string | null };
+      return [row.id, row] as const;
+    })
+  );
+  return data.map((r) => {
+    const row = r as { user_id: string; note: string | null; added_at: string };
+    const p = byId.get(row.user_id);
+    return {
+      userId: row.user_id,
+      note: row.note ?? "",
+      addedAt: row.added_at,
+      username: p?.username ?? null,
+      nickname: p?.nickname ?? null,
+    };
+  });
+}
+
+/** 「@아이디」·아이디·닉네임(정확히 일치) 로 회원 1명 찾기 — 여러 명이면 `ambiguous` */
+export async function findDeliveryLaunchReviewerCandidate(
+  sb: SupabaseClient,
+  query: string
+): Promise<{ ok: true; userId: string } | { ok: false; error: "not_found" | "ambiguous" | "invalid_query" }> {
+  const q = query.trim().replace(/^@/, "");
+  if (!q || q.length > 60) return { ok: false, error: "invalid_query" };
+  const byUsername = await sb.from("profiles").select("id").ilike("username", q).limit(2);
+  const rows = byUsername.data ?? [];
+  if (rows.length === 1) return { ok: true, userId: String((rows[0] as { id: string }).id) };
+  if (rows.length > 1) return { ok: false, error: "ambiguous" };
+  const byNick = await sb.from("profiles").select("id").eq("nickname", q).limit(2);
+  const nick = byNick.data ?? [];
+  if (nick.length === 1) return { ok: true, userId: String((nick[0] as { id: string }).id) };
+  if (nick.length > 1) return { ok: false, error: "ambiguous" };
+  return { ok: false, error: "not_found" };
+}
+
+/**
+ * 보는 사람이 매장 모집 중에도 정식 운영 화면을 보는가 — 지정 계정 또는 활성 관리자.
+ * 표가 아직 없으면(운영 미적용) 관리자만.
+ */
+export async function isDeliveryLaunchViewerBypass(sb: SupabaseClient, userId: string | null): Promise<boolean> {
+  const uid = userId?.trim() || "";
+  if (!uid) return false;
+  const { data, error } = await sb.from("delivery_launch_reviewers").select("user_id").eq("user_id", uid).maybeSingle();
+  if (!error && data) return true;
+  if (error && !isMissingReviewersTable(error.message)) {
+    console.warn("[delivery-launch] reviewer lookup failed", error.message);
+  }
+  return isUserPlatformAdminDb(sb, uid);
 }
