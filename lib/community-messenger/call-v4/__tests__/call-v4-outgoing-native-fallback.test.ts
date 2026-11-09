@@ -173,6 +173,62 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(useCallV4Store.getState().identity?.peerLabel).toBe("q테스트1");
   });
 
+  it("2026-11-09 이름: 진입 화면이 이름을 모르면 iOS 발신(CallKit)·통화 화면 이름은 서버 세션 이름", async () => {
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(true);
+    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+
+    expect(result.ok).toBe(true);
+    const arg = (bridgeMocks.startNativeOutgoingEstablishment.mock.calls[0] as unknown[])[0] as { peerName?: string };
+    expect(arg.peerName).toBe("Peer");
+    expect(useCallV4Store.getState().identity?.peerLabel).toBe("Peer");
+  });
+
+  it("2026-11-09 이름: 진입 화면이 이름을 모르면 Android bind·fallback 이름은 서버 세션 이름", async () => {
+    bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(true);
+    bridgeMocks.bindNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
+    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+
+    expect(result.ok).toBe(true);
+    const bindArg = (bridgeMocks.bindNativeOutgoingEstablishment.mock.calls[0] as unknown[])[0] as { peerName?: string };
+    const fallbackArg = (bridgeMocks.startNativeOutgoingEstablishment.mock.calls[0] as unknown[])[0] as {
+      peerName?: string;
+    };
+    expect(bindArg.peerName).toBe("Peer");
+    expect(fallbackArg.peerName).toBe("Peer");
+    expect(useCallV4Store.getState().identity?.peerLabel).toBe("Peer");
+  });
+
+  it("2026-11-09 이름: 진입 화면이 넘긴 실제 이름은 서버 이름보다 우선 (매장 주문방 등 유지)", async () => {
+    bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(true);
+    bridgeMocks.bindNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      peerLabel: "동네 김밥",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+
+    expect(result.ok).toBe(true);
+    const prepArg = (bridgeMocks.startNativeOutgoingPreparing.mock.calls[0] as unknown[])[0] as { peerName?: string };
+    const bindArg = (bridgeMocks.bindNativeOutgoingEstablishment.mock.calls[0] as unknown[])[0] as { peerName?: string };
+    expect(prepArg.peerName).toBe("동네 김밥");
+    expect(bindArg.peerName).toBe("동네 김밥");
+    expect(useCallV4Store.getState().identity?.peerLabel).toBe("동네 김밥");
+  });
+
   it("iOS native video shell: handoff success does not create Web outgoing presentation screen", async () => {
     bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(true);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });

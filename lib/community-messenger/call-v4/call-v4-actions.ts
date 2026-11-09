@@ -324,6 +324,22 @@ export function abandonCallV4OutgoingPreparingFromUi(attemptId?: string | null):
   return abandoned;
 }
 
+/**
+ * 발신 화면 상대 이름 (단일 규칙) — 진입 화면이 넘긴 실제 이름 우선, 없으면 서버 세션 이름(상대 프로필 닉네임).
+ * 진입 화면 이름을 먼저 쓰는 것은 매장 주문방·통화 탭 다시 걸기(N-2) 등 진입 화면이 정한 이름을 유지하기 위함.
+ * 진입 화면이 이름을 모르면 빈 값을 넘기고(대체 문구 금지) 여기서 서버 이름으로 채운다 — 웹 화면·Android bind·iOS CallKit 공통.
+ */
+export function resolveCallV4OutgoingDialPeerName(
+  clientPeerLabel: string | null | undefined,
+  session: Pick<CommunityMessengerCallSession, "peerLabel">
+): string | null {
+  return (
+    incomingCallPeerNicknameLabel(clientPeerLabel) ||
+    incomingCallPeerNicknameLabel(session.peerLabel) ||
+    null
+  );
+}
+
 function buildOutgoingIdentity(
   session: CommunityMessengerCallSession,
   peerLabel?: string | null
@@ -796,7 +812,9 @@ export async function callV4CreateOutgoing(rawInput: {
       return { ok: false as const, userMessage: "" };
     }
 
-    const identity = buildOutgoingIdentity(created.session, input.peerLabel);
+    /** 생성 응답 이후 발신 이름 — 진입 화면 이름이 없으면 서버 세션 이름 (웹·Android bind·iOS 공통) */
+    const dialPeerName = resolveCallV4OutgoingDialPeerName(input.peerLabel, created.session);
+    const identity = buildOutgoingIdentity(created.session, dialPeerName);
     useCallV4Store.getState().setIdentity(identity);
     useCallV4Store.getState().setPhase("outgoing_ringing");
     let shouldRouteToWebOutgoingPresentation = true;
@@ -855,7 +873,7 @@ export async function callV4CreateOutgoing(rawInput: {
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
-        peerName: input.peerLabel,
+        peerName: dialPeerName,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallCorr("LATENCY_HANDOFF", {
@@ -891,7 +909,7 @@ export async function callV4CreateOutgoing(rawInput: {
           roomId: roomResolved.roomId,
           mediaType: input.mediaType,
           peerUserId: input.peerUserId,
-          peerName: input.peerLabel,
+          peerName: dialPeerName,
         });
         if (fallback.ok && fallback.nativeOwned) {
           clearCallV4MissedTimer();
@@ -911,7 +929,7 @@ export async function callV4CreateOutgoing(rawInput: {
         roomId: roomResolved.roomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
-        peerName: input.peerLabel,
+        peerName: dialPeerName,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
         logCallV4("native_outgoing_handoff_done", {

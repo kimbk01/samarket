@@ -736,7 +736,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
   const [homeOutgoingConfirm, setHomeOutgoingConfirm] = useState<null | {
     peerUserId: string;
+    /** 확인창 표시용 — 실제 이름을 모를 때만 「대화 상대」 */
     peerLabel: string;
+    /** 발신 화면용 실제 이름 — 모르면 "" (대체 문구 금지, 발신 엔진이 서버 세션 이름으로 채움) */
+    dialPeerLabel: string;
     kind: "voice" | "video";
   }>(null);
   /** F-7 — 차단 확인 모달(해제는 확인 없이 toggleBlock) */
@@ -2524,25 +2527,38 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
   }, [publicGroupFindOpen, data?.me?.id, data?.discoverableGroups, openGroupSearch, setData]);
 
-  const startFriendDirectCall = useCallback(
-    (peerUserId: string, kind: "voice" | "video") => {
+  /**
+   * 홈 1:1 발신 상대의 실제 이름 — 진입 화면이 가진 이름 → 친구 목록 → 기존 1:1 방 제목.
+   * 모르면 "" — 「대화 상대」 같은 대체 문구를 발신 이름으로 넘기지 않는다 (발신 엔진이 서버 세션 이름으로 채움).
+   */
+  const resolveHomeDialPeerLabel = useCallback(
+    (peerUserId: string, peerLabelOverride?: string | null): string => {
       const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
       const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
-      const peerLabel = fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
-      startDirectCall(peerUserId, kind, peerLabel);
+      return peerLabelOverride?.trim() || fromFriend || room?.title?.trim() || "";
     },
-    [data?.chats, sortedFriends, startDirectCall, t]
+    [data?.chats, sortedFriends]
+  );
+
+  const startFriendDirectCall = useCallback(
+    (peerUserId: string, kind: "voice" | "video", dialPeerLabel?: string | null) => {
+      const peerLabel = dialPeerLabel?.trim() || resolveHomeDialPeerLabel(peerUserId);
+      startDirectCall(peerUserId, kind, peerLabel || null);
+    },
+    [resolveHomeDialPeerLabel, startDirectCall]
   );
 
   const openHomeOutgoingConfirm = useCallback(
     (peerUserId: string, kind: "voice" | "video", peerLabelOverride?: string | null) => {
-      const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
-      const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
-      const peerLabel =
-        peerLabelOverride?.trim() || fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
-      setHomeOutgoingConfirm({ peerUserId, peerLabel, kind });
+      const dialPeerLabel = resolveHomeDialPeerLabel(peerUserId, peerLabelOverride);
+      setHomeOutgoingConfirm({
+        peerUserId,
+        peerLabel: dialPeerLabel || t("cm_ui_chat_peer_fallback"),
+        dialPeerLabel,
+        kind,
+      });
     },
-    [data?.chats, sortedFriends, t]
+    [resolveHomeDialPeerLabel, t]
   );
 
   const onFriendRowVoiceCallStable = useCallback(
@@ -4208,7 +4224,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             const next = homeOutgoingConfirm;
             setHomeOutgoingConfirm(null);
             setFriendSheet(null);
-            void startFriendDirectCall(next.peerUserId, next.kind);
+            void startFriendDirectCall(next.peerUserId, next.kind, next.dialPeerLabel);
           }}
         />
       ) : null}
