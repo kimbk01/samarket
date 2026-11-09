@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { requireSolapiSmsEnv } from "@/lib/env/solapi-sms";
+import { checkSideEffectAllowed } from "@/lib/security/side-effect-gate";
 
 /** 발송 기록(error_summary) 전용 — 회원 화면 문구는 phone-otp-client-errors 카탈로그 */
 const SMS_SEND_FAILED_MESSAGE = "SMS send failed";
@@ -36,6 +37,11 @@ type SolapiSendResponse = {
 export async function sendSolapiSms(toKoreaLocal: string, text: string): Promise<SendSolapiSmsResult> {
   const env = requireSolapiSmsEnv();
   if (!env.ok) return { ok: false, error: SMS_SEND_FAILED_MESSAGE };
+  // P0-A: 외부 호출 직전 서버 판정 — 비운영 환경에서 운영 문자 계정으로 실제 문자 발송 금지.
+  const sideEffectGate = checkSideEffectAllowed("sms_solapi");
+  if (!sideEffectGate.allowed) {
+    return { ok: false, error: `${SMS_SEND_FAILED_MESSAGE} (side_effect_blocked: ${sideEffectGate.reason})`.slice(0, 480) };
+  }
   const to = String(toKoreaLocal ?? "").replace(/\D/g, "");
   if (!/^01[016789]\d{7,8}$/.test(to)) return { ok: false, error: SMS_SEND_FAILED_MESSAGE };
 

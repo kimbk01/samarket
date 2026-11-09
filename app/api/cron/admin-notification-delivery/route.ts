@@ -3,6 +3,7 @@ import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { runAdminNotificationDeliveryWorker } from "@/lib/admin/notifications/admin-notification-service";
 import { ADMIN_NOTIFICATION_RETENTION_DAYS } from "@/lib/admin/notifications/admin-notification-kinds";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,8 @@ async function runAdminNotificationDelivery(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

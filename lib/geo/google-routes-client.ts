@@ -1,5 +1,6 @@
 import { haversineKm } from "@/lib/geo/haversine-km";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
+import { checkSideEffectAllowed } from "@/lib/security/side-effect-gate";
 
 const ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes";
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -234,6 +235,8 @@ function minutesCeil(sec: number): number {
 }
 
 export function isGoogleRoutesApiGloballyDisabled(): boolean {
+  // P0-A: 유료 외부 API — 운영(배포·DB 확인)이 아니면 비활성과 같은 경로(기존 대체 계산)로 간다.
+  if (!checkSideEffectAllowed("google_routes").allowed) return true;
   const raw = process.env.GOOGLE_ROUTES_API_DISABLED?.trim();
   if (raw === "0") return false;
   if (raw === "1") return true;

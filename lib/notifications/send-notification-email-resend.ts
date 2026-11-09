@@ -4,6 +4,7 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { checkSideEffectAllowed } from "@/lib/security/side-effect-gate";
 
 const FETCH_MS = 12_000;
 const BRAND_PRIMARY_HEX = "#0B421A";
@@ -129,6 +130,8 @@ export async function trySendNotificationEmailResend(
   if (process.env.NOTIFICATION_EMAIL_ENABLED !== "1") return;
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return;
+  // P0-A: 외부 호출 직전 서버 판정 — 운영(배포·DB 확인)이 아니면 실제 메일을 보내지 않는다.
+  if (!checkSideEffectAllowed("email_resend").allowed) return;
   if (!passesTypeFilter(out.notification_type)) return;
   if (!passesKindFilter(out.meta)) return;
 

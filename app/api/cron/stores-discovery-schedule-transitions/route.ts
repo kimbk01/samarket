@@ -5,6 +5,7 @@ import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { runDiscoveryScheduleTransitionBatch } from "@/lib/stores/discovery/persist-discovery-schedule-projection";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ async function runScheduleTransitionJob(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

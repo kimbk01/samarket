@@ -6,6 +6,7 @@ import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { STORE_ORDER_AUTOMATION_FROM_ISO } from "@/lib/stores/store-order-lifecycle-automation";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ async function runStoreOrdersAutoComplete(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

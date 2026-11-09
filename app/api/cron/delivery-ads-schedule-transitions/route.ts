@@ -7,6 +7,7 @@ import { runDeliveryAdSchedulePromoterBatch } from "@/lib/stores/advertising/del
 import { runPartnerMembershipExpiryBatch } from "@/lib/stores/advertising/delivery-ad-partner-membership-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { runStoreCouponAutoEndBatch } from "@/lib/stores/store-coupon-auto-end";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,8 @@ async function runSchedulePromoterJob(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

@@ -5,6 +5,7 @@ import { STORE_ORDER_AUTOMATION_FROM_ISO } from "@/lib/stores/store-order-lifecy
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { notifyStoreOwnerAcceptReminder } from "@/lib/notifications/notify-store-commerce";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ async function runReminders(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });

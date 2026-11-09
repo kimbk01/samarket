@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ async function runTradePromotionExpire(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });

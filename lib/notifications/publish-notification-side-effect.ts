@@ -14,6 +14,7 @@ import { abortSignalForTimeout } from "@/lib/http/abort-signal-timeout";
 import { trySendNotificationEmailResend } from "@/lib/notifications/send-notification-email-resend";
 import { trySendPushForNotification } from "@/lib/push/try-web-push-notification-side-effect";
 import { parseSafeWebhookUrl } from "@/lib/security/safe-webhook-url";
+import { checkSideEffectAllowed } from "@/lib/security/side-effect-gate";
 
 export type NotificationSideEffectPayload = {
   user_id: string;
@@ -71,6 +72,8 @@ function formatExternalLine(p: NotificationSideEffectPayloadOut): string {
 }
 
 async function postJson(url: string, body: unknown, headers: Record<string, string>): Promise<void> {
+  // P0-A: 외부 웹훅(일반·Slack·Discord) 호출 직전 서버 판정 — 운영이 아니면 보내지 않는다.
+  if (!checkSideEffectAllowed("webhook").allowed) return;
   const signal = abortSignalForTimeout(FETCH_MS);
   const res = await fetch(url, {
     method: "POST",

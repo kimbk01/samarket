@@ -7,6 +7,7 @@ import {
 } from "@/lib/notifications/commerce-notification-push-handoff";
 import { reconcileCommerceNotificationIntentsFromStoreOrderEvents } from "@/lib/notifications/commerce-notification-reconcile";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ async function runCommerceNotificationPushHandoff(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

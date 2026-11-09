@@ -7,6 +7,7 @@ import {
   findCommunityImageGcCandidates,
   removeCommunityPostImageOriginals,
 } from "@/lib/community/community-post-image-gc.server";
+import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,8 @@ async function run(req: Request) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const cronSideEffectsBlocked = rejectCronIfSideEffectsBlocked();
+  if (cronSideEffectsBlocked) return cronSideEffectsBlocked;
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();

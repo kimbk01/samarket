@@ -1,4 +1,5 @@
 import { requireSemaphoreSmsEnv } from "@/lib/env/semaphore-sms";
+import { checkSideEffectAllowed } from "@/lib/security/side-effect-gate";
 
 const SMS_SEND_FAILED_MESSAGE = "인증번호 발송에 실패했습니다.";
 
@@ -36,6 +37,11 @@ export function toSemaphoreApiNumber(input: string): string {
 export async function sendSemaphoreSms(number: string, message: string): Promise<SendSemaphoreSmsResult> {
   const env = requireSemaphoreSmsEnv();
   if (!env.ok) return { ok: false, error: env.error };
+  // P0-A: 외부 호출 직전 서버 판정 — 비운영 환경에서 운영 문자 계정으로 실제 문자 발송 금지.
+  const sideEffectGate = checkSideEffectAllowed("sms_semaphore");
+  if (!sideEffectGate.allowed) {
+    return { ok: false, error: `${SMS_SEND_FAILED_MESSAGE} (side_effect_blocked: ${sideEffectGate.reason})` };
+  }
 
   const apiNumber = toSemaphoreApiNumber(number);
   if (!/^639\d{9}$/.test(apiNumber)) {
