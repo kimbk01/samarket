@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -1122,10 +1123,17 @@ export function AdminNotificationCampaignCreatePage({
             </label>
           ) : null}
           {targetType === "region" ? (
-            <label className="block text-sm">
+            /**
+             * 지역 대상 = 대표 주소의 시/군 LGU(PSGC) — 주소 SSOT (2026-11-09).
+             * 이전 「region_code」 글자 입력(profiles 예전 값과 일치 비교)을 전국 시/군 검색으로 대체.
+             */
+            <div className="block text-sm">
               <span className="text-sam-muted">{t("admin_notif_label_region_code")}</span>
-              <input value={regionCode} onChange={(e) => setRegionCode(e.target.value)} className={fieldClass} />
-            </label>
+              <p className="mt-1 font-medium text-sam-fg" data-admin-campaign-region-selected={regionCode || ""}>
+                {regionCode ? resolvePublicCityName({ cityLguId: regionCode, cityText: null }) ?? regionCode : "—"}
+              </p>
+              <AdminCampaignRegionLguSelect value={regionCode} onChange={setRegionCode} fieldClass={fieldClass} />
+            </div>
           ) : null}
           {sendMode === "scheduled" ? (
             <label className="block text-sm">
@@ -1412,6 +1420,83 @@ export function AdminNotificationCampaignCreatePage({
           setInfo(m);
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * 캠페인 지역 대상 선택 — 전국 시/군 LGU 검색(주소 SSOT, 2026-11-09). 관리자 표준: 검색칸 + 선택 목록(select).
+ * 값 = 시/군 PSGC(대표 주소 user_addresses.canonical_lgu_id 와 같은 기준).
+ */
+function AdminCampaignRegionLguSelect({
+  value,
+  onChange,
+  fieldClass,
+}: {
+  value: string;
+  onChange: (lguId: string) => void;
+  fieldClass: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<Array<{ canonicalId: string; label: string }>>([]);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setHits([]);
+      return;
+    }
+    let cancelled = false;
+    const tmr = window.setTimeout(() => {
+      void fetch(`/api/trade/national-lgu?${new URLSearchParams({ q, limit: "30" }).toString()}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { results?: Array<{ canonicalId?: string; displayName?: string; provinceName?: string | null; regionName?: string }> } | null) => {
+          if (cancelled || !j) return;
+          setHits(
+            (j.results ?? [])
+              .filter((r) => typeof r.canonicalId === "string" && typeof r.displayName === "string")
+              .map((r) => ({
+                canonicalId: r.canonicalId as string,
+                label: [r.displayName, r.provinceName || r.regionName].filter(Boolean).join(" · "),
+              })),
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setHits([]);
+        });
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tmr);
+    };
+  }, [query]);
+  return (
+    <div className="mt-2 space-y-2">
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Quezon City · Bacoor …"
+        className={fieldClass}
+        data-admin-campaign-region-search=""
+      />
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={fieldClass}
+        data-admin-campaign-region-select=""
+      >
+        <option value="">—</option>
+        {value && !hits.some((h) => h.canonicalId === value) ? (
+          <option value={value}>{resolvePublicCityName({ cityLguId: value, cityText: null }) ?? value}</option>
+        ) : null}
+        {hits.map((h) => (
+          <option key={h.canonicalId} value={h.canonicalId}>
+            {h.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

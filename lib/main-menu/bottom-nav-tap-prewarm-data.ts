@@ -55,23 +55,9 @@ export function prewarmBottomNavTapTargetClientCache(
   }
 
   if (isCommunityHomeSurfacePath(path)) {
-    void Promise.all([
-      import("@/lib/main-menu/bottom-nav-tap-prewarm-philife"),
-      import("@/lib/app-boot/app-boot-store"),
-      import("@/lib/regions/profile-to-user-region"),
-    ]).then(([philife, boot, regionMod]) => {
-      const profile = boot.peekAppBootProfile();
-      const region = profile
-        ? regionMod.userRegionFromProfileSlice({
-            region_code: typeof profile.region_code === "string" ? profile.region_code : null,
-            region_name: typeof profile.region_name === "string" ? profile.region_name : null,
-            full_address:
-              typeof (profile as { full_address?: unknown }).full_address === "string"
-                ? (profile as { full_address: string }).full_address
-                : null,
-          })
-        : null;
-      philife.prewarmBottomNavPhilifeTab(region);
+    /** 주소 SSOT (2026-11-09): profiles.region_* 로 지역을 추정하지 않는다 — 지역 없는 기본 피드만 미리 받는다 */
+    void import("@/lib/main-menu/bottom-nav-tap-prewarm-philife").then((philife) => {
+      philife.prewarmBottomNavPhilifeTab(null);
     });
     return;
   }

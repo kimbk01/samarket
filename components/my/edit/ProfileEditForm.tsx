@@ -13,11 +13,6 @@ import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileBasicFields } from "./ProfileBasicFields";
 import { ProfileMapLocationBlock } from "./ProfileMapLocationBlock";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
-import {
-  buildProfileRegionNameForStorage,
-  encodeProfileAppLocationStorage,
-} from "@/lib/profile/profile-location";
-import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
 import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchMeAddressesListSingleFlight, invalidateMeAddressesListClientCache } from "@/lib/addresses/address-list-client-cache";
@@ -471,14 +466,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     const expected = { ...diff.expected };
 
     if (hasMap) {
-      const matched = matchRegionCityFromFullAddress(fa);
-      const regionCode = matched ? encodeProfileAppLocationStorage(matched.regionId, matched.cityId) : null;
-      const regionName = matched ? buildProfileRegionNameForStorage(matched.regionId, matched.cityId) : null;
+      /** 주소 SSOT: 지역은 대표 주소(user_addresses)만 — profiles.region_* 는 더 쓰지 않는다 (2026-11-09) */
       payload.latitude = mapLat;
       payload.longitude = mapLng;
       payload.full_address = fa;
-      payload.region_code = regionCode;
-      payload.region_name = regionName;
       payload.address_street_line = addressStreetLine.trim() || null;
       payload.address_detail = addressDetail.trim() || null;
     }

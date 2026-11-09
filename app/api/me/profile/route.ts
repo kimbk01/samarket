@@ -376,8 +376,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   };
 
   optText("bio", true);
-  optText("region_code", true);
-  optText("region_name", true);
+  /** 주소 SSOT: profiles.region_code/region_name 은 받지 않는다 — 지역 기준은 대표 주소(user_addresses) (2026-11-09) */
   optText("address_street_line", true);
   optText("address_detail", true);
   if ("full_address" in b) {

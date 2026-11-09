@@ -24,7 +24,6 @@ import {
 import { peekAppBootProfileFetchCached, isAppBootProfileFetchGuestSkipCached } from "@/lib/app-boot/fetch-app-boot-profile";
 import { isRecoverableGuestAuthEstablished } from "@/lib/auth/guest-auth-state";
 import { getRegionName } from "@/lib/regions/region-utils";
-import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import {
   MASTER_ADDRESS_REGION_ID,
   PROFILE_LOCATION_REGION_ID,
@@ -51,12 +50,9 @@ export function storeHomeFeedRegionOnlySuffix(primaryRegion: UserRegion | null):
   return `?${q.toString()}`;
 }
 
-function regionFromProfileRow(boot: ProfileRow | Record<string, unknown>): UserRegion | null {
-  return userRegionFromProfileSlice({
-    region_code: typeof boot.region_code === "string" ? boot.region_code : null,
-    region_name: typeof boot.region_name === "string" ? boot.region_name : null,
-    full_address: typeof boot.full_address === "string" ? boot.full_address : null,
-  });
+/** 주소 SSOT (2026-11-09): profiles.region_* 로 지역을 추정하지 않는다 — 대표 주소가 정해질 때까지 지역 없음 */
+function regionFromProfileRow(_boot: ProfileRow | Record<string, unknown>): UserRegion | null {
+  return null;
 }
 
 function regionFromBootProfile(): UserRegion | null {

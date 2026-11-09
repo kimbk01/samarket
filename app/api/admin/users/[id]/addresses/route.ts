@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { withDerivedAddressLocation } from "@/lib/addresses/address-location-ssot.server";
+import { formatPublicAddress } from "@/lib/addresses/user-address-format";
+import { formatUserAddressFull } from "@/lib/addresses/user-address-display-ssot";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-query";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
@@ -54,15 +57,17 @@ export async function GET(
   });
 
   const addresses = (rows ?? [])
-    .map((row) => rowToUserAddressDTO(row as Record<string, unknown>))
+    .map((row) => withDerivedAddressLocation(rowToUserAddressDTO(row as Record<string, unknown>)))
     .filter((dto) => dto.userId);
+  /** 회원 지역 = 대표 주소(주소 SSOT, 2026-11-09). profiles.region_* 는 대표 주소와 동기되지 않는 예전 값이라 지역으로 쓰지 않는다 */
+  const master = addresses.find((a) => a.isDefaultMaster) ?? null;
 
   return NextResponse.json({
     ok: true,
     profileAddress: {
-      regionCode: prof.region_code ?? null,
-      regionName: prof.region_name ?? null,
-      lines: profileLines,
+      regionCode: master?.canonicalLguId ?? null,
+      regionName: master ? formatPublicAddress(master) : null,
+      lines: master ? [formatUserAddressFull(master)].filter((x): x is string => Boolean(x)) : profileLines,
     },
     addresses,
   });

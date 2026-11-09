@@ -101,8 +101,12 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
   );
 
   /** 대표 주소가 확정되면 프로필 폴백보다 항상 우선 */
-  const profileSourcedRegion: UserRegion | null =
-    masterRegion !== undefined ? masterRegion : profileFallbackRegion;
+  /**
+   * 주소 SSOT (2026-11-09): 지역은 대표 주소만 — profiles.region_* 첫 화면 대체값을 쓰지 않는다
+   * (대표 주소와 동기되지 않는 예전 값이라 다른 지역이 잠깐 보였다). 대표 주소 확정 전에는 지역 없음.
+   */
+  const profileSourcedRegion: UserRegion | null = masterRegion !== undefined ? masterRegion : null;
+  void profileFallbackRegion;
 
   const refreshUserRegions = useCallback(() => {
     setUserRegions(getUserRegions(userId));

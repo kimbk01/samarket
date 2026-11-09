@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadMasterPublicCityLabelsByUserIds } from "@/lib/addresses/master-public-city-labels.server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadWarnedUserIdSet } from "@/lib/admin/admin-user-server";
@@ -521,6 +522,10 @@ export async function GET(req: NextRequest) {
     const linkedIdentitiesMap = await loadLinkedIdentitiesMapChunked(supabase, profileIds).catch(
       () => new Map<string, AdminLinkedIdentity[]>(),
     );
+    /** 회원 지역 = 대표 주소 시/군 (주소 SSOT · profiles.region_name 미사용, 2026-11-09) */
+    const masterCityByUser = await loadMasterPublicCityLabelsByUserIds(supabase, profileIds).catch(
+      () => new Map<string, string | null>(),
+    );
 
     const runStatusCount = async (
       includeAuthLoginEmail: boolean,
@@ -635,7 +640,7 @@ export async function GET(req: NextRequest) {
       const store = storeAgg.get(r.id) ?? { count: 0, hasApproved: false, stores: [] };
       const hasAdminMembership = adminMemberIds.has(r.id);
       return mapProfileRowToAdminUser({
-        row: r,
+        row: { ...r, region_name: masterCityByUser.get(r.id) ?? null },
         warnedUserIds,
         storeCount: store.count,
         hasApprovedStore: store.hasApproved,

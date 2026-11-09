@@ -48,11 +48,34 @@ export async function fetchCampaignProfileScanSlice(
     return [];
   }
 
+  if (tt === "region") {
+    /**
+     * 지역 대상 = 대표 주소의 시/군 LGU(PSGC) — 주소 SSOT (Owner 2026-11-09).
+     * 이전: profiles.region_code(대표 주소와 동기되지 않는 예전 값) 글자 일치. 지역 캠페인 운영 0건이라 기존 캠페인 영향 없음.
+     */
+    const lgu = campaign.segment_region_code?.trim() ?? "";
+    if (!lgu) return [];
+    let rq = svc
+      .from("user_addresses")
+      .select("user_id")
+      .eq("is_active", true)
+      .eq("is_default_master", true)
+      .eq("canonical_lgu_id", lgu)
+      .order("user_id", { ascending: true })
+      .limit(limit);
+    if (afterId) rq = rq.gt("user_id", afterId);
+    const { data: rows, error: rErr } = await rq;
+    if (rErr) {
+      console.error("[campaign scan region]", rErr.message);
+      if (opts?.throwOnError) throw new Error(`target_scan_failed:${rErr.message}`);
+      return [];
+    }
+    return (rows ?? []).map((r) => String((r as { user_id: string }).user_id)).filter(Boolean);
+  }
+
   let q = svc.from("profiles").select("id").order("id", { ascending: true }).limit(limit);
   if (afterId) q = q.gt("id", afterId);
-  if (tt === "region" && campaign.segment_region_code?.trim()) {
-    q = q.eq("region_code", campaign.segment_region_code.trim());
-  } else if (tt === "active_users") {
+  if (tt === "active_users") {
     q = q.gte("updated_at", opts?.activeSince || campaignActiveUsersSince());
   }
 
@@ -114,9 +137,19 @@ export async function countCampaignTargetMembers(
     return error ? null : count ?? 0;
   }
   if (tt !== "all" && tt !== "region" && tt !== "active_users") return null;
+  if (tt === "region") {
+    const lgu = campaign.segment_region_code?.trim() ?? "";
+    if (!lgu) return 0;
+    const { count: rc, error: rErr } = await svc
+      .from("user_addresses")
+      .select("user_id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .eq("is_default_master", true)
+      .eq("canonical_lgu_id", lgu);
+    return rErr ? null : rc ?? 0;
+  }
   let q = svc.from("profiles").select("id", { count: "exact", head: true });
-  if (tt === "region" && campaign.segment_region_code?.trim()) q = q.eq("region_code", campaign.segment_region_code.trim());
-  else if (tt === "active_users") q = q.gte("updated_at", opts?.activeSince || campaignActiveUsersSince());
+  if (tt === "active_users") q = q.gte("updated_at", opts?.activeSince || campaignActiveUsersSince());
   const { count, error } = await q;
   return error ? null : count ?? 0;
 }

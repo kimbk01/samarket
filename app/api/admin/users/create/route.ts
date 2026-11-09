@@ -15,7 +15,6 @@ import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-con
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   buildProfileRegionNameForStorage,
-  encodeProfileAppLocationStorage,
 } from "@/lib/profile/profile-location";
 import { REGIONS } from "@/lib/products/form-options";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
@@ -209,8 +208,6 @@ export async function POST(req: NextRequest) {
     if (inferred?.[1]) cityId = inferred[1];
   }
 
-  const region_code =
-    profileGeo?.region_code ?? encodeProfileAppLocationStorage(regionId, cityId);
   const region_name =
     profileGeo?.region_name ?? buildProfileRegionNameForStorage(regionId, cityId);
   const address_street_line = profileGeo?.address_street_line ?? (streetIn || null);
@@ -311,8 +308,7 @@ export async function POST(req: NextRequest) {
     auth_provider: "admin_manual",
     created_by_admin: admin.userId,
     last_login_at: nowIso,
-    region_code,
-    region_name,
+    /** 주소 SSOT: profiles.region_* 는 쓰지 않는다 — 지역은 아래 대표 주소(createUserAddress) 하나 (2026-11-09) */
     address_street_line,
     address_detail,
     latitude,

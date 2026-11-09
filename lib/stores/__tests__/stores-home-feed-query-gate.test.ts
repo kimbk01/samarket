@@ -137,7 +137,8 @@ describe("resolveStoresHomeFeedQueryGate", () => {
     expect(resolveStoresHomeFeedQueryGate(null)).toEqual({ ready: false, querySuffix: "" });
   });
 
-  it("CUT-B: profile-lite 200 with region opens region feed before boot ready", () => {
+  /** 주소 SSOT (2026-11-09): profiles.region_* 로 지역을 추정하지 않는다 — 대표 주소가 정해질 때까지 지역 없음 */
+  it("CUT-B: profile-lite 200 의 예전 지역값으로 지역 피드를 열지 않는다", () => {
     boot.status = "hydrating";
     profileLite.cached = {
       status: 200,
@@ -146,10 +147,7 @@ describe("resolveStoresHomeFeedQueryGate", () => {
         profile: { region_code: "ncr:manila", region_name: "Manila", address_detail: "x" },
       },
     };
-    expect(resolveStoresHomeFeedQueryGate(null)).toEqual({
-      ready: true,
-      querySuffix: "?region=Manila",
-    });
+    expect(resolveStoresHomeFeedQueryGate(null)).toEqual({ ready: false, querySuffix: "" });
   });
 
   it("CUT-B: profile-lite 200 without region does not early-open (avoid root-then-region fan-out)", () => {
@@ -167,7 +165,7 @@ describe("resolveStoresHomeFeedQueryGate", () => {
     expect(resolveStoresHomeFeedQueryGate(null)).toEqual({ ready: true, querySuffix: "" });
   });
 
-  it("prefers boot profile region and ignores district in key", () => {
+  it("boot 프로필의 예전 지역값은 키에 쓰지 않는다 (대표 주소 없으면 root)", () => {
     boot.ready = true;
     boot.status = "ready";
     boot.profile = {
@@ -175,10 +173,7 @@ describe("resolveStoresHomeFeedQueryGate", () => {
       region_name: "Manila",
       address_detail: "1234",
     };
-    expect(resolveStoresHomeFeedQueryGate(null)).toEqual({
-      ready: true,
-      querySuffix: "?region=Manila",
-    });
+    expect(resolveStoresHomeFeedQueryGate(null)).toEqual({ ready: true, querySuffix: "" });
   });
 
   it("ADDR-SSOT-002: master-sourced primaryRegion wins over stale boot profile", () => {

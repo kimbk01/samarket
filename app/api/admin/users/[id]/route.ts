@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { loadMasterPublicCityLabelsByUserIds } from "@/lib/addresses/master-public-city-labels.server";
 import { checkAdminSetPassword, mapSupabaseWeakPasswordError } from "@/lib/auth/admin-set-password-policy";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { resolvePhoneVerificationDisplayStatus } from "@/lib/profile/admin-phone-verification-sync";
@@ -548,7 +549,8 @@ export async function GET(
       verified_member_at: prof.verified_member_at ?? null,
       created_at: prof.created_at ?? null,
       last_login_at: prof.last_login_at ?? null,
-      region_name: prof.region_name ?? null,
+      /** 회원 지역 = 대표 주소 시/군 (주소 SSOT · profiles.region_name 미사용, 2026-11-09) */
+      region_name: (await loadMasterPublicCityLabelsByUserIds(supabase, [rawId]).catch(() => new Map<string, string | null>())).get(rawId) ?? null,
       hasProfile: true,
       trust_score:
         prof.trust_score != null && Number.isFinite(Number(prof.trust_score))

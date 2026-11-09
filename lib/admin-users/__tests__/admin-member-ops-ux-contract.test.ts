@@ -61,7 +61,9 @@ describe("admin member ops UX identity contract", () => {
   it("detail API does not alias username to dibay_id", () => {
     const detail = src("app/api/admin/users/[id]/route.ts");
     expect(detail).toMatch(/username: prof\.username \?\? null/);
-    expect(detail).toMatch(/region_name: prof\.region_name/);
+    // 주소 SSOT (2026-11-09): 회원 지역 = 대표 주소 시/군 (profiles.region_name 미사용)
+    expect(detail).toContain("loadMasterPublicCityLabelsByUserIds");
+    expect(detail).not.toMatch(/region_name: prof\.region_name/);
     expect(detail).not.toMatch(/username: prof\.username \?\? prof\.dibay_id/);
   });
 
