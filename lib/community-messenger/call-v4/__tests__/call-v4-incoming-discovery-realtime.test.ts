@@ -138,15 +138,23 @@ describe("V4 웹 수신 — Realtime 신호", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("채팅 화면 밖(/philife)에서는 신호가 와도 조회하지 않는다(기존 화면 범위 유지)", async () => {
+  it("F2: 채팅 화면 밖(/philife)에서도 울림 신호 1회 → 조회 1회(측정은 그대로), /admin 은 0", async () => {
     window.history.pushState({}, "", "/philife");
     stop = startCallV4IncomingDiscovery("user-b");
     await flush(0);
     const before = fetchMock.mock.calls.length;
+    expect(before).toBe(0);
     feed.listener?.onRinging({ callId: "call-9", startedAt: null });
     await flush(0);
-    expect(fetchMock.mock.calls.length).toBe(before);
+    expect(fetchMock.mock.calls.length).toBe(1);
     expect(metrics.map((m) => m.metric)).toContain("incoming_realtime_outside_surface_visible");
+    stop();
+    window.history.pushState({}, "", "/admin/x");
+    stop = startCallV4IncomingDiscovery("user-b");
+    await flush(0);
+    feed.listener?.onRinging({ callId: "call-10", startedAt: null });
+    await flush(0);
+    expect(fetchMock.mock.calls.length).toBe(1);
   });
 
   it("iOS·Android 앱 셸(Capacitor)에서는 Realtime 피드를 붙이지 않는다", async () => {

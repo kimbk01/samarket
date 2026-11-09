@@ -25,6 +25,7 @@ import { readCallV4Identity, readCallV4Phase } from "@/lib/community-messenger/c
 import {
   INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS,
   shouldRunIncomingCallBackupHttpPoll,
+  shouldRunIncomingCallRealtimeSignalFetch,
 } from "@/lib/layout/incoming-call-backup-poll-policy";
 import { acquireCallV4IncomingRealtimeFeed } from "@/lib/community-messenger/call-v4/call-v4-incoming-realtime-feed";
 import {
@@ -107,6 +108,16 @@ export function shouldRunCallV4IncomingDiscoveryHttpPoll(): boolean {
     readCallV4IncomingDiscoveryPathname(),
     hasCallV4IncomingDiscoveryRingingCallee(),
   );
+}
+
+/**
+ * F2 — Realtime 울림 신호로 시작한 조회 1회의 관문.
+ * 기존 표면 관문(메신저·채팅·울리는 중)을 그대로 통과하면 허용하고, 그 밖은 `/login*`·`/admin*` 을 뺀 경로에서 허용한다.
+ * (우회는 관문을 넓히기만 한다 — 기존에 허용되던 조회를 막지 않는다.)
+ */
+export function shouldRunCallV4IncomingRealtimeSignalFetch(): boolean {
+  if (shouldRunCallV4IncomingDiscoveryHttpPoll()) return true;
+  return shouldRunIncomingCallRealtimeSignalFetch(readCallV4IncomingDiscoveryPathname());
 }
 
 /**
@@ -235,6 +246,11 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
   let pollTimer: number | null = null;
   /** Realtime 신호가 조회 중에 오면 끝난 뒤 1회만 다시 조회한다(신호 유실 방지). */
   let pendingRealtimeTick = false;
+  /**
+   * F2: 밀린 출처 중 「울림 신호」(경로 관문 우회)가 있었는가.
+   * resync(복귀·online·재연결) 출처만 밀렸으면 false — 끝난 뒤 재조회도 기존 경로 관문을 탄다.
+   */
+  let pendingRealtimeBypass = false;
   /** U2: 브라우저·PWA 에서만 Realtime 신호를 병행한다(아래 acquire). */
   const realtimeFeedActive = !isCapacitorNativePlatform();
   let releaseRealtimeFeed: () => void = () => {};
@@ -349,14 +365,21 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     }, delayMs);
   };
 
-  const tick = async (source: IncomingTickSource) => {
+  const tick = async (source: IncomingTickSource, opts?: { bypassSurfaceGate?: boolean }) => {
     if (cancelled) return;
     if (inFlight) {
-      if (source !== "poll") pendingRealtimeTick = true;
+      if (source !== "poll") {
+        pendingRealtimeTick = true;
+        if (opts?.bypassSurfaceGate) pendingRealtimeBypass = true;
+      }
       return;
     }
     syncCallV4NativeAcceptingSurfaceFromWindowLocation();
-    if (!shouldRunCallV4IncomingDiscoveryHttpPoll()) return;
+    /** F2: 울림 신호만 경로 관문을 넓힌다(`/login*`·`/admin*` 제외). 정기·resync 는 기존 관문. */
+    const allowed = opts?.bypassSurfaceGate
+      ? shouldRunCallV4IncomingRealtimeSignalFetch()
+      : shouldRunCallV4IncomingDiscoveryHttpPoll();
+    if (!allowed) return;
     /** F1: 429 대기 중 — 서버가 거부하는 구간. 신호·resync 조회도 해제 시각 예약 1회로 합친다(scheduleNextPoll). */
     if (rateLimitRemainingMs(Date.now()) > 0) return;
 
@@ -421,8 +444,10 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       inFlight = false;
       if (pendingRealtimeTick && !cancelled) {
         pendingRealtimeTick = false;
+        const bypassSurfaceGate = pendingRealtimeBypass;
+        pendingRealtimeBypass = false;
         /** 밀린 신호 조회가 울림을 발견하면 간격이 바뀌므로(→2초) 끝난 뒤 다시 예약한다. */
-        void tick("realtime").finally(scheduleNextPoll);
+        void tick("realtime", { bypassSurfaceGate }).finally(scheduleNextPoll);
       }
     }
   };
@@ -460,7 +485,8 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
         lastRingingSignalAtMs = Date.now();
         logCallV4("incoming_realtime_signal", { callId });
         /** S4: 울림이 시작되면 다음 예약(10초일 수 있음)을 버리고 울림 중 2초 주기로 다시 잡는다. */
-        void tick("realtime").finally(scheduleNextPoll);
+        /** F2: 울림 신호는 화면(경로)과 무관하게 1회 조회(`/login*`·`/admin*` 제외) — 통화당 1회 dedupe 는 위에서 적용 */
+        void tick("realtime", { bypassSurfaceGate: true }).finally(scheduleNextPoll);
       },
       /** T1 (원격 종료 주 경로): 내 수신 행이 ringing 이 아니게 됐다 → 서버 확인 후 정리(누가 종료했든 온다). */
       onSessionStatus: ({ callId, status }) => {

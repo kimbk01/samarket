@@ -42,3 +42,23 @@ export function shouldRunIncomingCallBackupHttpPoll(
   if (!normalized || normalized === "/login" || normalized.startsWith("/login/")) return false;
   return isIncomingCallBackupPollSurface(normalized);
 }
+
+function isIncomingCallRealtimeSignalFetchExcluded(pathname: string): boolean {
+  if (pathname === "/login" || pathname.startsWith("/login/")) return true;
+  /** F2 Owner 지시: 어드민 화면과 그 하위는 제외(우회 없음) */
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
+  return false;
+}
+
+/**
+ * F2 (docs/audit/f1-f2-call-incoming-design-2026-11-09.md §3-3 · Owner 승인 2026-11-09) —
+ * V4 웹 수신: **Realtime 울림 신호 1회**에 한해 위 표면 관문과 무관하게 수신 조회 1회를 허용한다.
+ *
+ * - 홈·커뮤니티(필라이프)·거래·배달/매장·마이페이지 등 일반 화면에서도 전역 수신 시트가 뜰 수 있게 한다.
+ * - `/login*`·`/admin*`·dev safe mode 는 제외.
+ * - 정기 조회·탭 복귀·online·재연결 resync 에는 쓰지 않는다(그 경로는 `shouldRunIncomingCallBackupHttpPoll` 그대로).
+ */
+export function shouldRunIncomingCallRealtimeSignalFetch(pathname: string | null): boolean {
+  if (isDevSafeMode()) return false;
+  return !isIncomingCallRealtimeSignalFetchExcluded(normalizePathname(pathname));
+}
