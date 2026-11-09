@@ -12,6 +12,7 @@ import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
+import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 
 /** post_type: 요청형(request/service_request 등) vs 글쓰기형(post/normal 등) */
 function isRequestType(postType: string | undefined): boolean {
@@ -52,6 +53,8 @@ export function ServiceWriteForm({
     setCity(cid);
   }, []);
   const [images, setImages] = useState<ImageUploadItem[]>([]);
+  /** P0-D: 사진 URL 주인 = 이 폼(ImageUploader 는 해제하지 않음). */
+  useReleaseDroppedBlobUrls(images.map((i) => i.url));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 

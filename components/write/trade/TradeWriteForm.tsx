@@ -304,6 +304,7 @@ import {
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { useReleaseDroppedBlobUrls, revokeBlobUrlsExcept } from "@/lib/media/use-release-dropped-blob-urls";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -425,6 +426,17 @@ function TradeMarketplaceWriteFormInner({
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
   const [images, setImages] = useState<ImageUploadItem[]>(() => listingChromeSeed?.images ?? []);
+  /**
+   * P0-D Blob URL 주인 = 이 폼의 `images`. 부모 시트(WriteSheetFlowInner)가 넘긴 시드 사진 URL 은 「빌린 것」 —
+   * 카테고리 전환으로 이 폼이 다시 마운트돼도 같은 시드를 쓰므로 여기서 해제하지 않는다(부모가 해제).
+   */
+  const [borrowedSeedBlobUrls] = useState<ReadonlySet<string>>(
+    () => new Set((listingChromeSeed?.images ?? []).map((i) => i.url).filter((u) => u.startsWith("blob:")))
+  );
+  useReleaseDroppedBlobUrls(
+    images.map((i) => i.url),
+    borrowedSeedBlobUrls
+  );
   /** 기기 보관 사진(`localId`) — 보관이 끝난 시점의 최신 목록 확인용 */
   const imagesRef = useRef<ImageUploadItem[]>(images);
   useLayoutEffect(() => {
@@ -914,7 +926,11 @@ function TradeMarketplaceWriteFormInner({
       /** 기기 보관 사진을 불러온 뒤 원래 순서로 한 번에 적용 — 사라진 사진은 건너뜀 */
       photoRestoreInFlightRef.current = true;
       void loadTradeWriteDraftImageItems(d.categoryId, refs).then((next) => {
-        if (restoreToken !== photoRestoreTokenRef.current) return;
+        if (restoreToken !== photoRestoreTokenRef.current) {
+          // P0-D: 버려지는 복원 결과의 URL 은 여기서 해제(목록에 들어가지 않으므로 주인 훅이 모른다).
+          revokeBlobUrlsExcept(next.map((i) => i.url));
+          return;
+        }
         photoRestoreInFlightRef.current = false;
         setImages(next);
       });

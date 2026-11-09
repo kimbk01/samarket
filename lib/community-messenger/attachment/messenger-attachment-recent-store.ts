@@ -36,23 +36,35 @@ export function rememberMessengerAttachmentRecent(files: File[]): MessengerAttac
     const previewUrl = URL.createObjectURL(file);
     const item: MessengerAttachmentRecentItem = { id, file, previewUrl, createdAt: now };
     added.push(item);
-    recentItems = [
-      item,
-      ...recentItems.filter(
-        (r) =>
-          !(
-            r.file.name === file.name &&
-            r.file.size === file.size &&
-            r.file.lastModified === file.lastModified
-          )
-      ),
-    ];
+    const isSameFile = (r: MessengerAttachmentRecentItem) =>
+      r.file.name === file.name && r.file.size === file.size && r.file.lastModified === file.lastModified;
+    // P0-D: 같은 파일을 다시 넣으면 이전 항목 URL 은 이 보관소가 해제(주인 = 보관소).
+    for (const r of recentItems) if (isSameFile(r)) revokeQuietly(r.previewUrl);
+    recentItems = [item, ...recentItems.filter((r) => !isSameFile(r))];
   }
   while (recentItems.length > MESSENGER_ATTACHMENT_RECENT_MAX) {
     const drop = recentItems.pop();
-    if (drop) URL.revokeObjectURL(drop.previewUrl);
+    if (drop) revokeQuietly(drop.previewUrl);
   }
   return added;
+}
+
+function revokeQuietly(url: string): void {
+  try {
+    URL.revokeObjectURL(url);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * P0-D: 로그아웃·계정 전환 — 이전 계정의 최근 사진(File·URL) 폐기.
+ * 이 보관소의 URL 은 보관소만 해제한다. 전송 경로는 보관소 URL 을 빌려 쓰지 않고 새 URL 을 만든다
+ * (`CommunityMessengerAttachmentSheet` onSendSelected).
+ */
+export function clearMessengerAttachmentRecent(): void {
+  for (const r of recentItems) revokeQuietly(r.previewUrl);
+  recentItems = [];
 }
 
 export function messengerAttachmentDeviceLibrarySupported(): boolean {

@@ -262,7 +262,11 @@ export function CommunityMessengerAttachmentSheet({
       if (!item) continue;
       if (item.kind === "session") {
         files.push(item.file);
-        previewUrls.push(item.previewUrl);
+        /**
+         * P0-D: 보관소 URL 을 넘기면 전송 컨트롤러가 60초 뒤·실패 시 해제해 「최근 사진」 썸네일이 깨졌다.
+         * 전송용 URL 을 새로 만든다 — 그 URL 의 주인은 전송 컨트롤러(기존 해제 경로 그대로).
+         */
+        previewUrls.push(URL.createObjectURL(item.file));
       } else {
         nativeIds.push(item.nativeId);
       }

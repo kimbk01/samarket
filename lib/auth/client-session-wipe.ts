@@ -72,6 +72,7 @@ import { resetOwnerHubBadgeStoreForAuthEpoch } from "@/lib/chats/owner-hub-badge
 import { resetAdminClientStateForAuthChange } from "@/lib/admin-auth/admin-me-context";
 import { writeOwnerActiveStoreIdToSession } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { resetMessengerBottomChatUnreadForAuthEpoch } from "@/lib/notifications/messenger-bottom-chat-unread-projection";
+import { clearMessengerAttachmentRecent } from "@/lib/community-messenger/attachment/messenger-attachment-recent-store";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -168,6 +169,8 @@ function resetInMemoryClientStores(): void {
   resetAdminClientStateForAuthChange();
   /** 이전 회원의 활성 매장 선택(sessionStorage + 쿠키) — 다음 회원에게 남기지 않는다 */
   writeOwnerActiveStoreIdToSession(null);
+  /** P0-D — 이전 계정의 메신저 최근 사진(File·blob URL) 폐기 */
+  clearMessengerAttachmentRecent();
 }
 
 function resetAddressClientCaches(): void {

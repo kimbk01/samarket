@@ -68,8 +68,7 @@ export function ImageUploader({
   const removeAt = useCallback(
     (index: number) => {
       if (disabled) return;
-      const item = value[index];
-      if (item?.url?.startsWith("blob:")) URL.revokeObjectURL(item.url);
+      // P0-D: URL 해제는 목록 주인(useReleaseDroppedBlobUrls)이 한다 — 빌린 URL 을 여기서 해제해 부모 미리보기가 깨지던 문제 방지.
       onChange(value.filter((_, i) => i !== index));
     },
     [disabled, value, onChange]
@@ -78,8 +77,7 @@ export function ImageUploader({
   const replaceAt = useCallback(
     (index: number, file: File) => {
       if (disabled) return;
-      const old = value[index];
-      if (old?.url?.startsWith("blob:")) URL.revokeObjectURL(old.url);
+      // P0-D: 이전 URL 해제는 목록 주인이 한다(목록에서 빠지면 해제).
       const url = URL.createObjectURL(file);
       const next = [...value];
       next[index] = { file, url };

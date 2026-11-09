@@ -89,6 +89,7 @@ import type {
   TradeWriteChromeState,
 } from "@/lib/trade/category-form/extended-write-controller";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { revokeBlobUrlsExcept } from "@/lib/media/use-release-dropped-blob-urls";
 
 /**
  * Exchange Write — rate card / prep / memo stay shell (derived UX + multi-select).
@@ -261,7 +262,11 @@ export function ExchangeExtendedWriteFields({
     if (refs.some((r) => "localId" in r)) {
       photoRestoreInFlightRef.current = true;
       void loadTradeWriteDraftImageItems(category.id, refs).then((items) => {
-        if (restoreToken !== photoRestoreTokenRef.current) return;
+        if (restoreToken !== photoRestoreTokenRef.current) {
+          // P0-D: 버려지는 복원 결과 URL 해제(목록 주인은 TradeWriteForm images — 들어가지 않은 URL 은 모른다).
+          revokeBlobUrlsExcept(items.map((i) => i.url));
+          return;
+        }
         photoRestoreInFlightRef.current = false;
         setImages(items);
       });

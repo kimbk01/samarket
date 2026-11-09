@@ -32,6 +32,7 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { KARROT_PILL_ACTIVE, KARROT_PILL_IDLE } from "@/components/write/trade/trade-karrot-classes";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 
 export type WriteSheetFlowMode = "page" | "tradeSheet";
 
@@ -82,6 +83,8 @@ export function WriteSheetFlowInner({
     "idle" | "redirecting" | "loading" | "found" | "not_found" | "no_write"
   >("idle");
   const [pendingImages, setPendingImages] = useState<ImageUploadItem[]>([]);
+  /** P0-D: 시트 단계 사진 URL 주인 = 이 컴포넌트(자식 폼에는 시드로 빌려준다 — 자식은 해제하지 않음). */
+  useReleaseDroppedBlobUrls(pendingImages.map((i) => i.url));
   const [pendingTitle, setPendingTitle] = useState("");
   const [pendingDescription, setPendingDescription] = useState("");
   const [pendingPrice, setPendingPrice] = useState("");

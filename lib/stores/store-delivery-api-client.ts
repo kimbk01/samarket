@@ -6,6 +6,7 @@ import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { BoundedMap, ExpiringBoundedMap } from "@/lib/http/expiring-bounded-map";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   deliveryCustomerOrderDetailCacheKey,
@@ -32,27 +33,45 @@ import {
 } from "@/lib/stores/store-delivery-client-cache-ttl";
 import { parseStoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 
+/**
+ * P0-D 캐시 상한 (Owner 4단계 D 2026-11-09). TTL 값은 그대로 — 실제 크기를 묶는 것은 쓰기 시점 만료 정리이고,
+ * 상한은 「TTL(12~45초) 안에 그 수를 넘게 새로 방문하는 탐색 경로가 없는」 안전장치다(데이터 유형별):
+ * - 매장 slug 단위 응답(공개·요약·메뉴·리뷰·리뷰 요약·배너·공지): 50 — 메뉴 JSON 이 커서 가장 보수적으로.
+ * - 상품 단위: 100 — 한 매장 안에서 상품 상세를 연속 탐색.
+ * - 매장 탐색 검색·필터 조합: 50.
+ * - 배송지 ETA·내 주문 상세·이벤트(개인): 50.
+ * - 분류(언어별): 8. 허브 요약(사용자 범위 키, SWR): 4.
+ * 실제 기기 메모리 영향은 측정 전(NOT_PROVEN) — 반복 측정 계획은 SSOT 메모리 계약 §4.
+ */
+const DELIVERY_STORE_SLUG_CACHE_MAX = 50;
+const DELIVERY_PRODUCT_CACHE_MAX = 100;
+const DELIVERY_BROWSE_CACHE_MAX = 50;
+const DELIVERY_ETA_CACHE_MAX = 50;
+const DELIVERY_ORDER_CACHE_MAX = 50;
+const DELIVERY_TAXONOMY_CACHE_MAX = 8;
+const DELIVERY_HUB_SUMMARY_CACHE_MAX = 4;
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
-const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storePublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
 const STORE_PRODUCT_PUBLIC_CACHE_TTL_MS = 15_000;
-const storeProductPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storeProductPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_PRODUCT_CACHE_MAX);
 const STORE_REVIEWS_PUBLIC_CACHE_TTL_MS = 15_000;
-const storeReviewsPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const storeSummaryPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const storeMenusPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storeReviewsPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
+const storeSummaryPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
+const storeMenusPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
 const STORE_REVIEWS_SUMMARY_CACHE_TTL_MS = 30_000;
-const storeReviewsSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storeReviewsSummaryCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
 const STORE_HUB_SUMMARY_CACHE_TTL_MS = 12_000;
-const storeHubSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const storeBannersPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+/** 만료 값도 SWR 로 읽는다(`readMeStoreOrdersHubSummaryCache` isFresh) → 만료 정리 없이 크기 상한만. */
+const storeHubSummaryCache = new BoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_HUB_SUMMARY_CACHE_MAX);
+const storeBannersPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
 const STORE_NOTICES_PUBLIC_CACHE_TTL_MS = 12_000;
-const storeNoticesPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storeNoticesPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_STORE_SLUG_CACHE_MAX);
 /** v4 W3 PERF-03 — `GET /api/stores/:slug/delivery-eta` (slug+배송지) 짧은 TTL */
 const STORE_DELIVERY_ETA_CLIENT_CACHE_TTL_MS = 30_000;
-const storeDeliveryEtaCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storeDeliveryEtaCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_ETA_CACHE_MAX);
 /** 공개 taxonomy(마스터) — 어드민 `/api/admin/...` 와 별도. 재진입·다중 컴포넌트 마운트 왕복 억제 */
 const STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
-const storeTaxonomyPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const storeTaxonomyPublicCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_TAXONOMY_CACHE_MAX);
 
 function storesTaxonomyPublicCacheKey(language?: string): string {
   return `taxonomy:${resolveStoresHomePrewarmLanguage(language)}`;
@@ -675,11 +694,11 @@ export async function fetchStoresTaxonomyDeduped(
 }
 
 const STORES_BROWSE_CLIENT_CACHE_TTL_MS = 30_000;
-const storesBrowseClientCache = new Map<
+const storesBrowseClientCache = new ExpiringBoundedMap<
   string,
   { expiresAt: number; value: StoreApiJsonResponse }
->();
-const storesBrowseLastNetworkAt = new Map<string, number>();
+>(DELIVERY_BROWSE_CACHE_MAX);
+const storesBrowseLastNetworkAt = new BoundedMap<string, number>(DELIVERY_BROWSE_CACHE_MAX);
 
 function browseQueryBypassesCache(qs: string): boolean {
   try {
@@ -897,8 +916,8 @@ export async function fetchStoreFavoriteMutation(
 
 /** GET /api/me/store-orders/:orderId — 주문 상세·완료 화면·채팅 등 동시 진입 합류 */
 const ME_STORE_ORDER_DETAIL_CACHE_TTL_MS = 45_000;
-const meStoreOrderDetailCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
-const meStoreOrderEventsCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const meStoreOrderDetailCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_ORDER_CACHE_MAX);
+const meStoreOrderEventsCache = new ExpiringBoundedMap<string, { expiresAt: number; value: StoreApiJsonResponse }>(DELIVERY_ORDER_CACHE_MAX);
 
 function peekMeStoreOrderResponseCache(
   map: Map<string, { expiresAt: number; value: StoreApiJsonResponse }>,
