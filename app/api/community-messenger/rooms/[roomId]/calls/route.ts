@@ -10,6 +10,10 @@ import { startIncomingCallVoipDispatchDetached } from "@/lib/community-messenger
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
+  ensurePeerDirectRoomForCall,
+  PEER_DIRECT_CALL_ROOM_SEGMENT,
+} from "@/lib/community-messenger/server/ensure-peer-direct-room-for-call";
+import {
   CALL_ATTEMPT_CANCELLED_ERROR,
   CALL_ATTEMPT_ENDED_ERROR,
 } from "@/lib/community-messenger/call-attempt-identity";
@@ -36,7 +40,13 @@ export async function POST(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  let body: { callKind?: "voice" | "video"; dialIntent?: "fresh" | "recover"; clientAttemptId?: string };
+  let body: {
+    callKind?: "voice" | "video";
+    dialIntent?: "fresh" | "recover";
+    clientAttemptId?: string;
+    /** R5 — 경로 roomId 가 `by-peer` 일 때만: 방이 없는 상대에게 방 확보 + 통화 생성 1회 요청 */
+    peerUserId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -48,10 +58,19 @@ export async function POST(
   }
 
   const { roomId: rawRoomId } = await params;
-  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  let roomIdForCall = String(rawRoomId ?? "").trim();
+  /** R5: 상대 ID 로 1:1 방 확보 — `/rooms` POST 와 같은 검사·함수. 응답에 roomId 를 함께 싣는다. */
+  const peerResolved = roomIdForCall === PEER_DIRECT_CALL_ROOM_SEGMENT;
+  if (peerResolved) {
+    const ensured = await ensurePeerDirectRoomForCall(req, auth.userId, body.peerUserId);
+    if (!ensured.ok) return ensured.response;
+    roomIdForCall = ensured.roomId;
+  }
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, roomIdForCall);
   if (!canon.ok) {
     return canon.response;
   }
+  const roomIdExtra = peerResolved ? { roomId: canon.canonicalRoomId } : {};
   await reconcileUserLiveCallSessions(auth.userId, "room_call_route");
   const result = await startCommunityMessengerCallSession({
     userId: auth.userId,
@@ -67,11 +86,11 @@ export async function POST(
     const callDenied =
       err.startsWith("call_denied_") || err === "blocked_target" || err === "call_denied_permission";
     const attemptGone = err === CALL_ATTEMPT_CANCELLED_ERROR || err === CALL_ATTEMPT_ENDED_ERROR;
-    return NextResponse.json(result, { status: callDenied ? 403 : attemptGone ? 409 : 400 });
+    return NextResponse.json({ ...result, ...roomIdExtra }, { status: callDenied ? 403 : attemptGone ? 409 : 400 });
   }
   const session = result.session;
   if (!session?.id) {
-    return NextResponse.json({ ok: false, error: "session_missing" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "session_missing", ...roomIdExtra }, { status: 500 });
   }
   /**
    * CONTRACT: VoIP/FCM send STARTS right after session insert, before HTTP 200 (never deferred
@@ -93,6 +112,7 @@ export async function POST(
       status: session.status,
       session,
       ...(result._callStartTimingsMs ? { _callStartTimingsMs: result._callStartTimingsMs } : {}),
+      ...roomIdExtra,
     },
     { status: 200 },
   );

@@ -229,6 +229,80 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(useCallV4Store.getState().identity?.peerLabel).toBe("동네 김밥");
   });
 
+  it("R5: 방이 없는 상대 → 방 확보 요청 없이 by-peer 한 요청으로 생성, 서버가 준 roomId 로 진행", async () => {
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(true);
+    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+    apiMocks.createSession.mockResolvedValueOnce({
+      ok: true,
+      roomId: "room-new",
+      session: {
+        id: "call-peer",
+        roomId: "room-new",
+        sessionMode: "direct",
+        initiatorUserId: "user-a",
+        recipientUserId: "user-b",
+        peerUserId: "user-b",
+        peerLabel: "Peer",
+        callKind: "voice",
+        status: "ringing",
+        startedAt: new Date().toISOString(),
+        answeredAt: null,
+        endedAt: null,
+        isMineInitiator: true,
+        participants: [],
+      } as CommunityMessengerCallSession,
+    } as never);
+
+    const result = await callV4CreateOutgoing({
+      peerUserId: "user-b",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(apiMocks.resolveRoom).not.toHaveBeenCalled();
+    const createArg = (apiMocks.createSession.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
+    expect(createArg).toMatchObject({ roomId: "by-peer", peerUserId: "user-b" });
+    const estArg = (bridgeMocks.startNativeOutgoingEstablishment.mock.calls[0] as unknown[])[0] as {
+      roomId?: string;
+    };
+    expect(estArg.roomId).toBe("room-new");
+    expect(result.ok && result.roomId).toBe("room-new");
+  });
+
+  it("R5: by-peer 방 확보 실패 → 방 없음 안내, 네이티브 발신 없음", async () => {
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(true);
+    apiMocks.createSession.mockResolvedValueOnce({
+      ok: false,
+      error: "cannot_start_chat",
+      roomError: true,
+      httpStatus: 403,
+    } as never);
+
+    const result = await callV4CreateOutgoing({
+      peerUserId: "user-b",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(bridgeMocks.startNativeOutgoingEstablishment).not.toHaveBeenCalled();
+    expect(useCallV4Store.getState().phase).toBe("idle");
+  });
+
+  it("R5: 방 ID 가 있으면 기존 그대로 (by-peer 아님)", async () => {
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      peerUserId: "user-b",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace: vi.fn() },
+    });
+    expect(result.ok).toBe(true);
+    const createArg = (apiMocks.createSession.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
+    expect(createArg.roomId).toBe("room-1");
+    expect(createArg.peerUserId).toBeUndefined();
+  });
+
   it("iOS native video shell: handoff success does not create Web outgoing presentation screen", async () => {
     bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(true);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });

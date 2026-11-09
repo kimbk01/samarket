@@ -147,7 +147,9 @@ export async function postCommunityMessengerCallHangupSignal(input: {
 }
 
 export async function startCommunityMessengerRoomCall(input: {
+  /** 방 ID. 방이 없는 상대는 `PEER_DIRECT_CALL_ROOM_SEGMENT` + `peerUserId` (R5 — 방 확보·통화 생성 1회 요청) */
   roomId: string;
+  peerUserId?: string | null;
   callKind: "voice" | "video";
   /** §15-4 발신 시도 ID(UUID) — 서버가 통화와 묶어 시도 취소·재시도 멱등에 쓴다. */
   clientAttemptId?: string | null;
@@ -155,6 +157,10 @@ export async function startCommunityMessengerRoomCall(input: {
   ok: boolean;
   session?: CommunityMessengerCallSession;
   error?: string;
+  /** R5 — `by-peer` 요청에서 서버가 확보한 1:1 방 ID (통화 생성 실패여도 방이 확보됐으면 포함) */
+  roomId?: string;
+  /** R5 — `by-peer` 요청에서 방 확보 자체가 실패 */
+  roomError?: boolean;
   /** E-C1 — API `error` stays `peer_busy`; distinguishes peer vs dialer live */
   busyKind?: "peer" | "caller";
   busyRecord?: { sessionId?: string; callLogId?: string | null };
@@ -169,12 +175,15 @@ export async function startCommunityMessengerRoomCall(input: {
       callKind: input.callKind,
       dialIntent: "fresh",
       ...(input.clientAttemptId ? { clientAttemptId: input.clientAttemptId } : {}),
+      ...(input.peerUserId?.trim() ? { peerUserId: input.peerUserId.trim() } : {}),
     }),
   });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     session?: CommunityMessengerCallSession;
     error?: string;
+    roomId?: string;
+    roomError?: boolean;
     busyKind?: "peer" | "caller";
     busyRecord?: { sessionId?: string; callLogId?: string | null };
   };

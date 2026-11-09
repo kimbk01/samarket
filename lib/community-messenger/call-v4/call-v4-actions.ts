@@ -29,7 +29,6 @@ import {
   callV4PatchEnd,
   callV4PatchMissed,
   callV4PatchReject,
-  callV4ResolveOutgoingRoomId,
 } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { joinCallV4Agora, leaveCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
 import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
@@ -112,6 +111,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { PEER_DIRECT_CALL_ROOM_SEGMENT } from "@/lib/community-messenger/peer-direct-call-room-segment";
 
 const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "connected"]);
 const REMOTE_TERMINAL_ALLOWED_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
@@ -654,13 +654,14 @@ export async function callV4CreateOutgoing(rawInput: {
       });
     }
 
-    const roomResolved = await callV4ResolveOutgoingRoomId({
-      roomId: input.roomId,
-      peerUserId: input.peerUserId,
-      // Never abort create pipeline on PREPARING cancel — signal unused for create.
-      signal: undefined,
-    });
-    if (!roomResolved.ok) {
+    /**
+     * R5 (2026-11-09): 방이 없는 상대(친구 찾기 첫 발신 등)는 방 확보 + 통화 생성을 한 요청으로
+     * (`POST /rooms/by-peer/calls`). 이전: `POST /rooms` 완료 후 `POST /rooms/{id}/calls` 순차 2회.
+     */
+    const existingRoomId = input.roomId?.trim() ?? "";
+    const peerOnlyUserId = existingRoomId ? "" : input.peerUserId?.trim() ?? "";
+    let resolvedRoomId = existingRoomId;
+    if (!existingRoomId && !peerOnlyUserId) {
       failCallV4OutgoingAttempt(attempt.attemptId);
       void finishNativeOutgoingPreparing(attempt.attemptId);
       clearCallV4OutgoingAttemptIf(attempt.attemptId);
@@ -669,14 +670,15 @@ export async function callV4CreateOutgoing(rawInput: {
     }
     logCallCorr("LATENCY_ROOM", {
       callId: null,
-      roomId: roomResolved.roomId,
+      roomId: resolvedRoomId || null,
+      peerOnly: Boolean(peerOnlyUserId),
       elapsed_ms: Date.now() - t0,
       attemptId: attempt.attemptId,
     });
 
     logCallV4("outgoing_create_session_attempt", {
       mediaType: input.mediaType,
-      roomId: roomResolved.roomId,
+      roomId: resolvedRoomId || undefined,
       peerUserId: input.peerUserId?.trim() || undefined,
       attemptId: attempt.attemptId,
     });
@@ -684,7 +686,7 @@ export async function callV4CreateOutgoing(rawInput: {
     logCallCorr("A1", {
       callId: null,
       stage: "create_session_request",
-      roomId: roomResolved.roomId,
+      roomId: resolvedRoomId || null,
       mediaType: input.mediaType,
       attemptId: attempt.attemptId,
     });
@@ -693,16 +695,37 @@ export async function callV4CreateOutgoing(rawInput: {
     recordCallAttemptJournal(attempt.attemptId);
     let created: Awaited<ReturnType<typeof callV4CreateSession>>;
     try {
-      created = await callV4CreateSession({
-        roomId: roomResolved.roomId,
-        mediaType: input.mediaType,
-        clientAttemptId: attempt.attemptId,
-      });
+      created = await callV4CreateSession(
+        peerOnlyUserId
+          ? {
+              roomId: PEER_DIRECT_CALL_ROOM_SEGMENT,
+              peerUserId: peerOnlyUserId,
+              mediaType: input.mediaType,
+              clientAttemptId: attempt.attemptId,
+            }
+          : {
+              roomId: resolvedRoomId,
+              mediaType: input.mediaType,
+              clientAttemptId: attempt.attemptId,
+            },
+      );
     } catch (createErr) {
       // 응답을 못 받음 — 서버가 통화를 만들었을 수 있다. 시도를 취소해 상대 벨을 남기지 않는다.
       clearCallAttemptJournal(attempt.attemptId);
       void callV4CancelAttempt(attempt.attemptId, "create_no_response");
       throw createErr;
+    }
+    if (peerOnlyUserId) {
+      resolvedRoomId = created.roomId?.trim() || created.session?.roomId?.trim() || "";
+      if (created.roomError || (!created.ok && !resolvedRoomId && (created.httpStatus ?? 0) < 500)) {
+        // 방 확보 실패 — 서버가 통화를 만들기 전 단계(이전 `POST /rooms` 실패와 같은 결과·안내).
+        clearCallAttemptJournal(attempt.attemptId);
+        failCallV4OutgoingAttempt(attempt.attemptId);
+        void finishNativeOutgoingPreparing(attempt.attemptId);
+        clearCallV4OutgoingAttemptIf(attempt.attemptId);
+        useCallV4Store.getState().resetToIdle();
+        return { ok: false as const, userMessage: outgoingMissingRoomMessage() };
+      }
     }
     clearCallAttemptJournal(attempt.attemptId);
     if (!created.ok && !created.session?.id && (created.httpStatus ?? 0) >= 500) {
@@ -741,7 +764,7 @@ export async function callV4CreateOutgoing(rawInput: {
       const err = String(created.error ?? "").trim();
       logCallV4("outgoing_create_session_failed", {
         mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
         error: err || "unknown",
         attemptId: attempt.attemptId,
         busyKind: created.busyKind,
@@ -759,9 +782,9 @@ export async function callV4CreateOutgoing(rawInput: {
           "@/lib/community-messenger/stores/call-in-app-notice-store"
         );
         const viewerId = getSyncViewerUserIdForClient()?.trim();
-        if (roomResolved.roomId && viewerId) {
+        if (resolvedRoomId && viewerId) {
           appendLocalCallChatMessageForPeerBusy({
-            roomId: roomResolved.roomId,
+            roomId: resolvedRoomId,
             initiatorUserId: viewerId,
             peerUserId: input.peerUserId,
             callKind: input.mediaType === "video" ? "video" : "voice",
@@ -789,14 +812,14 @@ export async function callV4CreateOutgoing(rawInput: {
       stage: "create_session_response",
       create_wall_ms: createWallMs,
       elapsed_from_tap_ms: Date.now() - t0,
-      roomId: roomResolved.roomId,
+      roomId: resolvedRoomId,
       attemptId: attempt.attemptId,
     });
     logCallV4("outgoing_create_session_done", {
       callId: created.session.id,
       mediaType: input.mediaType,
       callKind: created.session.callKind,
-      roomId: roomResolved.roomId,
+      roomId: resolvedRoomId,
       attemptId: attempt.attemptId,
     });
 
@@ -837,12 +860,12 @@ export async function callV4CreateOutgoing(rawInput: {
         callId: created.session.id,
         attemptId: attempt.attemptId,
         mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
       });
       logCallV4("MARKER_C", {
         callId: created.session.id,
         mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
         attemptId: attempt.attemptId,
       });
       const handoffStartedAt = Date.now();
@@ -870,7 +893,7 @@ export async function callV4CreateOutgoing(rawInput: {
       const nativeHandoff = await bindNativeOutgoingEstablishment({
         attemptId: attempt.attemptId,
         callId: created.session.id,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
         peerName: dialPeerName,
@@ -887,7 +910,7 @@ export async function callV4CreateOutgoing(rawInput: {
         logCallV4("native_outgoing_bind_done", {
           callId: created.session.id,
           mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
+          roomId: resolvedRoomId,
           attemptId: attempt.attemptId,
         });
         clearCallV4MissedTimer();
@@ -898,7 +921,7 @@ export async function callV4CreateOutgoing(rawInput: {
         logCallV4("native_outgoing_bind_failed", {
           callId: created.session.id,
           mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
+          roomId: resolvedRoomId,
           ok: nativeHandoff.ok,
           nativeOwned: nativeHandoff.nativeOwned,
           attemptId: attempt.attemptId,
@@ -906,7 +929,7 @@ export async function callV4CreateOutgoing(rawInput: {
         // Fall through to legacy establishment if bind failed with preparing gone.
         const fallback = await startNativeOutgoingEstablishment({
           callId: created.session.id,
-          roomId: roomResolved.roomId,
+          roomId: resolvedRoomId,
           mediaType: input.mediaType,
           peerUserId: input.peerUserId,
           peerName: dialPeerName,
@@ -922,11 +945,11 @@ export async function callV4CreateOutgoing(rawInput: {
       logCallV4("native_outgoing_handoff_start", {
         callId: created.session.id,
         mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
       });
       const nativeHandoff = await startNativeOutgoingEstablishment({
         callId: created.session.id,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
         mediaType: input.mediaType,
         peerUserId: input.peerUserId,
         peerName: dialPeerName,
@@ -935,7 +958,7 @@ export async function callV4CreateOutgoing(rawInput: {
         logCallV4("native_outgoing_handoff_done", {
           callId: created.session.id,
           mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
+          roomId: resolvedRoomId,
         });
         clearCallV4MissedTimer();
         startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
@@ -945,7 +968,7 @@ export async function callV4CreateOutgoing(rawInput: {
         logCallV4("native_outgoing_failed", {
           callId: created.session.id,
           mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
+          roomId: resolvedRoomId,
           ok: nativeHandoff.ok,
           nativeOwned: nativeHandoff.nativeOwned,
         });
@@ -955,12 +978,12 @@ export async function callV4CreateOutgoing(rawInput: {
     if (shouldRouteToWebOutgoingPresentation) {
       logCallV4("call_route_enter", {
         callId: created.session.id,
-        roomId: roomResolved.roomId,
+        roomId: resolvedRoomId,
         wall_ms: Date.now(),
         mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
       });
       routeToCallV4Screen(input.router, created.session.id, "outgoing");
-      logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
+      logCallV4("outgoing_ringing", { callId: created.session.id, roomId: resolvedRoomId });
     }
 
     logCallV4("native_create_resolved", {
@@ -971,7 +994,7 @@ export async function callV4CreateOutgoing(rawInput: {
       attemptId: attempt.attemptId,
     });
 
-    return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
+    return { ok: true as const, session: created.session, roomId: resolvedRoomId };
   })();
 
   outgoingCreateInFlight = flight;

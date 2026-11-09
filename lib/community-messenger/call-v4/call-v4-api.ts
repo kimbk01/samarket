@@ -25,39 +25,6 @@ export async function callV4ReconcileBeforeCreate(): Promise<void> {
   }).catch(() => undefined);
 }
 
-export async function callV4ResolveOutgoingRoomId(input: {
-  roomId?: string | null;
-  peerUserId?: string | null;
-  signal?: AbortSignal;
-}): Promise<{ ok: true; roomId: string } | { ok: false; error: string }> {
-  const existingRoomId = input.roomId?.trim() ?? "";
-  if (existingRoomId) {
-    return { ok: true, roomId: existingRoomId };
-  }
-
-  const peerUserId = input.peerUserId?.trim() ?? "";
-  if (!peerUserId) {
-    return { ok: false, error: "missing_room" };
-  }
-
-  const res = await fetch("/api/community-messenger/rooms", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ roomType: "direct", peerUserId }),
-    signal: input.signal,
-  });
-  const json = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    roomId?: string;
-    error?: string;
-  };
-  if (!res.ok || !json.ok || !json.roomId) {
-    return { ok: false, error: String(json.error ?? "ensure_room_failed") };
-  }
-  return { ok: true, roomId: String(json.roomId) };
-}
-
 export type CallV4CallerPollFetchResult = {
   session: CommunityMessengerCallSession | null;
   httpStatus: number;
@@ -101,6 +68,8 @@ export async function callV4FetchSessionForCallerPoll(
 
 export async function callV4CreateSession(input: {
   roomId: string;
+  /** R5 — roomId 가 `PEER_DIRECT_CALL_ROOM_SEGMENT` 일 때 서버가 이 상대와의 1:1 방을 확보 */
+  peerUserId?: string | null;
   mediaType: CallV4MediaType;
   /** §15-4 발신 시도 ID */
   clientAttemptId?: string | null;
@@ -108,6 +77,10 @@ export async function callV4CreateSession(input: {
   ok: boolean;
   session?: CommunityMessengerCallSession;
   error?: string;
+  /** R5 — 서버가 확보한 방 ID(by-peer) */
+  roomId?: string;
+  /** R5 — 방 확보 자체 실패(by-peer) */
+  roomError?: boolean;
   busyKind?: "peer" | "caller";
   busyRecord?: { sessionId?: string; callLogId?: string | null };
   httpStatus?: number;
@@ -116,6 +89,7 @@ export async function callV4CreateSession(input: {
   logCallV4("create_start", { roomId: input.roomId, mediaType: input.mediaType });
   const result = await startCommunityMessengerRoomCall({
     roomId: input.roomId,
+    peerUserId: input.peerUserId ?? null,
     callKind,
     clientAttemptId: input.clientAttemptId ?? null,
   });
