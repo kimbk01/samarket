@@ -1,5 +1,6 @@
 "use client";
 
+import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -2620,7 +2621,7 @@ function TradeMarketplaceWriteFormInner({
         primaryLabel={t("popup_btn_resume")}
         onPrimary={handleResumePersistedDraft}
         primaryTone="primary"
-        zIndexClass="z-[72]"
+        zIndexClass={OVERLAY_Z_CLASS.nested}
         ariaLabel={t("trade_write_draft_resume_aria")}
         interactionMode="blocking"
       />

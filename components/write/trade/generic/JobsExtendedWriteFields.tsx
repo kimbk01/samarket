@@ -7,6 +7,7 @@
  * The marketplace shell owns page chrome, chrome widget placement, and submit;
  * this body keeps Jobs-specific hire/seek extras, validation, and staging.
  */
+import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { usePathname } from "next/navigation";
 import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1360,7 +1361,7 @@ export function JobsExtendedWriteFields({
         primaryLabel={t("popup_btn_resume")}
         onPrimary={handleResumeJobsPersistedDraft}
         primaryTone="primary"
-        zIndexClass="z-[72]"
+        zIndexClass={OVERLAY_Z_CLASS.nested}
         ariaLabel={t("jobs_write_draft_aria")}
         interactionMode="blocking"
       />

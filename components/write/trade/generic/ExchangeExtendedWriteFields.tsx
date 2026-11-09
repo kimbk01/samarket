@@ -6,6 +6,7 @@
  * The marketplace shell owns page chrome, chrome widget placement, and submit;
  * this body keeps exchange-specific rate/prep extras, draft staging, and validation.
  */
+import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
@@ -893,7 +894,7 @@ export function ExchangeExtendedWriteFields({
         primaryLabel={t("popup_btn_resume")}
         onPrimary={handleResumeExchangePersistedDraft}
         primaryTone="primary"
-        zIndexClass="z-[72]"
+        zIndexClass={OVERLAY_Z_CLASS.nested}
         ariaLabel={t("exchange_write_draft_aria")}
         interactionMode="blocking"
       />
