@@ -290,6 +290,26 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(useCallV4Store.getState().phase).toBe("idle");
   });
 
+  it("F1: by-peer 통화 단계 실패(전화 인증 403·속도 제한 429)는 「방 없음」이 아닌 기존 통화 실패 처리", async () => {
+    const { safeTranslate } = await import("@/lib/i18n/safe-translate");
+    const { getRuntimeAppLanguage } = await import("@/lib/i18n/runtime-app-language");
+    const missingRoom = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_outgoing_missing_room");
+    for (const failure of [
+      { ok: false, error: "PHONE_VERIFICATION_REQUIRED", httpStatus: 403 },
+      { ok: false, error: "community_messenger_room_call_start_rate_limited", httpStatus: 429 },
+    ]) {
+      apiMocks.createSession.mockResolvedValueOnce(failure as never);
+      const result = await callV4CreateOutgoing({
+        peerUserId: "user-b",
+        mediaType: "audio",
+        router: { push: vi.fn(), replace: vi.fn() },
+      });
+      expect(result.ok).toBe(false);
+      expect(result.ok ? "" : result.userMessage).not.toBe(missingRoom);
+      useCallV4Store.getState().resetToIdle();
+    }
+  });
+
   it("R5: 방 ID 가 있으면 기존 그대로 (by-peer 아님)", async () => {
     const result = await callV4CreateOutgoing({
       roomId: "room-1",

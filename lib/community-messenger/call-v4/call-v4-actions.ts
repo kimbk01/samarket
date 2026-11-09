@@ -717,8 +717,9 @@ export async function callV4CreateOutgoing(rawInput: {
     }
     if (peerOnlyUserId) {
       resolvedRoomId = created.roomId?.trim() || created.session?.roomId?.trim() || "";
-      if (created.roomError || (!created.ok && !resolvedRoomId && (created.httpStatus ?? 0) < 500)) {
-        // 방 확보 실패 — 서버가 통화를 만들기 전 단계(이전 `POST /rooms` 실패와 같은 결과·안내).
+      if (created.roomError === true) {
+        // 방 확보 실패(서버가 방 단계 실패에만 roomError 표시) — 이전 `POST /rooms` 실패와 같은 결과·안내.
+        // F1: 통화 단계 실패(전화 인증·속도 제한·통화 생성 오류)는 아래 기존 통화 실패 처리로 — 실제 사유 안내.
         clearCallAttemptJournal(attempt.attemptId);
         failCallV4OutgoingAttempt(attempt.attemptId);
         void finishNativeOutgoingPreparing(attempt.attemptId);
