@@ -153,6 +153,7 @@ function PreviewHero({ state, locale }: { state: DeliveryLaunchPublicState; loca
   return (
     <DeliveryRecruitingHeroLayout
       state={state}
+      locale={locale}
       primaryAction={<span className={DELIVERY_RECRUITING_PRIMARY_CLASS}>{texts.applyLabel}</span>}
     />
   );

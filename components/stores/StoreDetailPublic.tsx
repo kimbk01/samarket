@@ -2280,6 +2280,12 @@ export function StoreDetailPublic({
       }
       distanceOutOfRange={distanceOutOfRange}
       salesBlockedReason={salesBlockedReason}
+      viewerOrderBlockedText={
+        /* 매장 모집 예외 화면만(확인 계정·관리자 미리보기·사장님 비공개 매장 미리보기) — 정식 운영 공개 매장은 기존 그대로 */
+        recruitingReviewer || adminPreview || (ownerHiddenPreview && ownerOrderBlocked)
+          ? (menuSelectHint ?? null)
+          : null
+      }
     >
       <div
         data-store-focus-entry-surface={readyToReveal ? "ready" : "boot"}

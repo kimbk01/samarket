@@ -56,6 +56,7 @@ export function StoreDetailBottomStrip({
   closedDetail,
   distanceOutOfRange = false,
   salesBlockedReason = null,
+  viewerOrderBlockedText = null,
   onCartPreviewOpen,
 }: {
   slug: string;
@@ -73,6 +74,8 @@ export function StoreDetailBottomStrip({
   distanceOutOfRange?: boolean;
   /** S-02·C-07 — 판매 미승인(샘플 포함)이면 「주문 가능」 문구·활성 주문 CTA 금지 */
   salesBlockedReason?: StoreSalesBlockedReason | null;
+  /** 보는 사람 때문에 주문이 막힘(본인 매장·관리자 미리보기·매장 확인 계정) — 「주문 가능」 문구·활성 주문 CTA 금지 */
+  viewerOrderBlockedText?: string | null;
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
@@ -97,10 +100,14 @@ export function StoreDetailBottomStrip({
   }, [deliveryAvailable, deliveryBlockedByDistance, fulfillmentMode, t]);
 
   /** C-07 — 카트 유무와 무관하게 상세와 같은 판정(판매 불가 → 영업 외 시간) */
-  const checkoutGate = resolveStoreDetailCheckoutGate({ isOpen, salesBlockedReason });
-  const salesBlockedText = salesBlockedReason
-    ? t(storeSalesBlockedMessageKey(salesBlockedReason))
-    : null;
+  const viewerBlocked = Boolean(viewerOrderBlockedText);
+  const gateBySales = resolveStoreDetailCheckoutGate({ isOpen, salesBlockedReason });
+  const checkoutGate = viewerBlocked ? ({ canCheckout: false, blockedBy: "sales" } as const) : gateBySales;
+  const salesBlockedText = viewerBlocked
+    ? viewerOrderBlockedText
+    : salesBlockedReason
+      ? t(storeSalesBlockedMessageKey(salesBlockedReason))
+      : null;
   const closedText = useMemo(() => {
     const detail = closedDetail?.trim();
     return detail ? t("store_bottom_status_break", { detail }) : t("store_bottom_status_closed");

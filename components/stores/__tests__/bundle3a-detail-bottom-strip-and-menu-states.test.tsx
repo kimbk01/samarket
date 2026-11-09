@@ -95,6 +95,18 @@ describe("C-07·S-02 — 상세 하단 바", () => {
     expect(el.textContent).not.toContain(t("store_bottom_status_delivery_open"));
     expect(el.textContent).toContain(t("store_sales_not_open_order_blocked"));
   });
+  it("보는 사람 때문에 주문 막힘(관리자 미리보기·확인 계정) → 「주문 가능」 대신 그 안내 + CTA 비활성", () => {
+    const hint = t("store_detail_admin_preview_order_blocked");
+    const idle = renderToBody(
+      <StoreDetailBottomStrip {...stripBase} cartQtyTotal={0} cartTotalPhp={0} isOpen viewerOrderBlockedText={hint} />
+    );
+    expect(idle.textContent).not.toContain(t("store_bottom_status_delivery_open"));
+    expect(idle.textContent).toContain(hint);
+    const el = renderToBody(<StoreDetailBottomStrip {...stripBase} isOpen viewerOrderBlockedText={hint} />);
+    expect(el.textContent).not.toContain(t("store_bottom_status_delivery_open"));
+    const btn = el.querySelector("[data-store-checkout-blocked]") as HTMLButtonElement | null;
+    expect(btn?.disabled).toBe(true);
+  });
 });
 
 describe("C-04 — 메뉴판 빈·오류 상태 분리", () => {

@@ -29,6 +29,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   closedDetail,
   distanceOutOfRange,
   salesBlockedReason,
+  viewerOrderBlockedText,
 }: {
   storeId: string;
   slug: string;
@@ -43,6 +44,8 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
   closedDetail?: string | null;
   distanceOutOfRange?: boolean;
   salesBlockedReason?: StoreSalesBlockedReason | null;
+  /** 보는 사람 때문에 주문이 막힘(본인 매장·관리자 미리보기·매장 확인 계정) — 하단 막대 「주문 가능」 대신 이 문구 */
+  viewerOrderBlockedText?: string | null;
 }) {
   const sheetOpen = useStoreProductSheetUIStore(selectStoreProductSheetIsOpen);
 
@@ -66,6 +69,7 @@ const StoreDetailBottomStripSheetGate = memo(function StoreDetailBottomStripShee
       closedDetail={closedDetail}
       distanceOutOfRange={distanceOutOfRange}
       salesBlockedReason={salesBlockedReason ?? null}
+      viewerOrderBlockedText={viewerOrderBlockedText ?? null}
       onCartPreviewOpen={() => openStoreCartPreview({ storeId, storeSlug: slug })}
     />
   );
@@ -81,6 +85,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   closedDetail,
   distanceOutOfRange = false,
   salesBlockedReason = null,
+  viewerOrderBlockedText = null,
   children,
 }: {
   storeId: string;
@@ -93,6 +98,8 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
   distanceOutOfRange?: boolean;
   /** S-02·C-07 — 판매 미승인(샘플 포함) 사유 */
   salesBlockedReason?: StoreSalesBlockedReason | null;
+  /** 보는 사람 때문에 주문이 막힘(본인 매장·관리자 미리보기·매장 확인 계정) — 하단 막대 「주문 가능」 대신 이 문구 */
+  viewerOrderBlockedText?: string | null;
   children: React.ReactNode;
 }) {
   const { subtotalPhp, listSubtotalPhp, totalQty, itemCount } = useStoreCommerceCartBucketStats(storeId);
@@ -123,6 +130,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
         closedDetail={closedDetail}
         distanceOutOfRange={distanceOutOfRange}
         salesBlockedReason={salesBlockedReason}
+        viewerOrderBlockedText={viewerOrderBlockedText}
       />
     </div>
   );

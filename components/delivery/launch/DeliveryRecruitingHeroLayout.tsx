@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   DELIVERY_LAUNCH_WIDE_MIN_CONTENT_PX,
   resolveDeliveryLaunchTexts,
+  type DeliveryLaunchLocale,
   type DeliveryLaunchPublicState,
 } from "@/lib/delivery/launch/delivery-launch-contract";
 
@@ -67,15 +68,18 @@ export const DELIVERY_RECRUITING_PRIMARY_CLASS =
 export function DeliveryRecruitingHeroLayout({
   state,
   primaryAction,
+  locale,
 }: {
   state: DeliveryLaunchPublicState;
   /** 주 버튼 — 호출하는 쪽이 그린다. `DELIVERY_RECRUITING_PRIMARY_CLASS` 사용 */
   primaryAction: ReactNode;
+  /** 문구 언어 — 없으면 앱 언어. 어드민 미리보기는 고르고 있는 문구 탭(한국어/English)을 넘긴다 */
+  locale?: DeliveryLaunchLocale;
 }) {
   const { t, language } = useI18n();
   const rootRef = useRef<HTMLElement | null>(null);
   const wide = useWideLayout(rootRef);
-  const texts = resolveDeliveryLaunchTexts(state.content, language);
+  const texts = resolveDeliveryLaunchTexts(state.content, locale ?? language);
   const imageSrc = wide ? state.content.wideImageUrl || state.content.mobileImageUrl : state.content.mobileImageUrl;
   const badge = texts.badge;
   const title = texts.title || t("delivery_recruiting_default_title");
