@@ -1,6 +1,6 @@
 # 통화 잔여 위험 원인별 설계안 (2026-11-09)
 
-상태: **설계안 승인 · R1 구현(`6036a7282`) · R3 구현(Owner 「R3 구현」 2026-11-09) · R2·R4·R5 미구현**. 선행: `docs/audit/call-outgoing-peer-name-design-2026-11-09.md` (`c89e0e37c`, Production 15:41 PHT 반영).
+상태: **설계안 승인 · R1 구현(`6036a7282`) · R3 구현(`b36438350`) · R2 원안 폐기(정정) · R4·R5 미구현**. 선행: `docs/audit/call-outgoing-peer-name-design-2026-11-09.md` (`c89e0e37c`, Production 15:41 PHT 반영).
 기준 코드: `origin/main` `5b5b203fc`. 시간 PHT. 운영 DB·Vercel 로그는 읽기 전용 조회.
 
 ## 0. Owner 지시
@@ -12,7 +12,7 @@
 | # | 결함 | 분류 | 증거 | 영향 |
 |---|---|---|---|---|
 | R1 | 통화 확인창 이름 ≠ 실제 발신 이름 (남은 3곳) | 누락 | 코드 | 매장 주문 구매자: 확인창 「매장명」 → 발신 화면 **사장님 개인 닉네임** 노출. 거래 채팅: 확인창 「상대방」 고정, 발신 화면 이름 없음 |
-| R2 | 앱 「통화 알림 점검」이 통화 수신 채널 꺼짐을 감지 못함 | 누락 | 코드 + 기기 dumpsys | 사용자가 통화 알림 채널을 꺼도 「정상」으로 안내 |
+| R2 | 앱 「통화 알림 점검」이 통화 수신 채널 꺼짐을 감지 못함 | 누락 | 코드 + 기기 dumpsys | 사용자가 통화 알림 채널을 꺼도 「정상」으로 안내 — **원안 폐기(§2 R2 정정): 판정을 바꾸면 푸시 전체가 끊김. 별도 안내는 Owner 결정 필요** |
 | R3 | 수신 확인(push-ack)이 다른 기기의 발송 행에 기록됨 | 오기록 | 운영 DB **22건/30일** | 다기기 사용자의 수신 여부를 잘못 판정 |
 | R4 | 수신 화면 표시 결과가 서버에 없음 (Android 표시 결과·iOS 수신 자체) | 누락 | 운영 DB: iOS 수신 확인 **0/97건**, Android 수신 확인값 채널 중요도 **전부 -1000** | 「발신 안 됨」 같은 신고를 판정할 수 없음 (14:55 건이 이 이유로 미판정) |
 | R5 | 친구 찾기 첫 발신이 방 생성 → 통화 생성 순차 왕복 | 병목 | Vercel 로그 | 방 없는 상대에게 첫 발신 시 약 0.85초 추가 대기 |
@@ -46,13 +46,15 @@
 - 판정식 `anyIncomingChannelEnabled = !legacyBlocked || !voiceBlocked || !videoBlocked` (`NotificationReceiveGate.java` 81행, 웹 `android-native.adapter.ts` 46~50행 동일).
 - `legacy` 채널 `dibay_calls_incoming_v7` 는 현재 수신 경로에서 만들지 않음 — 연결 기기 dumpsys: Xiaomi `8b37179f7d94` 에 `dibay_native_voice_incoming_v2`(중요도 4)만 있고 v7 없음. 없는 채널은 「꺼짐 아님」으로 판정 → **OR 식이 항상 참** → 실제 음성·영상 채널을 꺼도 「정상」.
 
-**수정 (웹만)**
-- `lib/permissions/permission-manager/adapters/android-native.adapter.ts`: 통화 채널 판정을 `!nativeVoiceChannelBlocked && !nativeVideoChannelBlocked` 로 (네이티브가 2026-06-29 `2a377f1cd` 부터 두 값을 넘김 → 설치된 모든 빌드 호환). 네이티브 합산값 `incomingCallChannelEnabled`·legacy 값은 판정에 쓰지 않음.
-- 아직 만들어지지 않은 채널(첫 수신 전)은 「꺼짐 아님」 — 첫 수신 때 HIGH 로 생성되므로 기존과 같음.
+**정정 (2026-11-09 16:26 PHT · R2 구현 착수 중 발견 · 작업자 설계 오류)**
+- 위 판정 결과는 안내 화면만이 아니라 **푸시 등록 조건**이다: `receiveReady=false` + `SYSTEM_DISABLED` 이면
+  `lib/push/native/register-native-push-client.ts` 341~358행이 등록을 중단하고 `deactivateNativePushForPermissionDenied` →
+  `POST /api/me/devices/deactivate` 로 **그 기기의 푸시를 서버에서 비활성화**, `components/push/NativePushRegistration.tsx` 152~162행도 등록 중단.
+- 따라서 원안(웹 판정식을 음성·영상 채널 기준으로)대로 하면 **영상 통화 채널 하나만 꺼도 메시지·알림·통화 푸시가 전부 끊긴다.** 원안 폐기, 코드 무변경.
+- 현재 상태(OR 식이 항상 참)는 우연히 이 차단을 막고 있으므로 그대로 둔다.
+- 통화 채널 꺼짐을 사용자에게 알리려면 `receiveReady`·푸시 등록과 **분리된 통화 채널 전용 안내**가 필요하다. 지금 이 값(`incomingCallChannelEnabled`)을 표시하는 화면은 없음(전수 검색) → 새 화면·문구 = 계약·지시에 없는 기능 → **Owner 결정 필요** (설계 규정 1번).
 
-**하지 않는 것 (회귀 방지)**: 네이티브 `NotificationReceiveGate` 는 바꾸지 않음. 이 값이 거짓이면 `IncomingCallPushDelivery.java` 44~63행이 **수신 화면 자체를 띄우지 않고 종료**하므로, 판정만 엄격하게 바꾸면 지금 울리는 전화가 안 울리게 됨.
-
-**영향**: 웹 1파일. 바뀌는 동작 = 통화 채널을 끈 사용자에게만 「통화 알림 꺼짐」 안내 노출.
+**영향**: 없음 (구현 안 함).
 
 ### R3. 수신 확인이 다른 기기 행에 기록 (서버 · 1커밋)
 
@@ -89,7 +91,7 @@
 |---|---|---|---|
 | 1 | R1 확인창=발신 이름 | 웹 통화 단독 커밋 → main 1회 | 불필요 |
 | 2 | R3 수신 확인 기기 매칭 | 서버 단독 커밋 → main 1회 | 불필요 |
-| 3 | R2 통화 알림 점검 판정 | 웹 권한 단독 커밋 → main 1회 | 불필요 |
+| 3 | R2 — 원안 폐기 (정정 참조), 별도 안내는 Owner 결정 후 | — | — |
 | 4 | R4 수신 표시 결과 보고 | 서버(호환 필드) 먼저 → 네이티브 Android·iOS 커밋 | **필요** (Owner 일괄 빌드) |
 | 5 | R5 첫 발신 단일 왕복 | 서버+웹 통화 단독 커밋 | 불필요 |
 
@@ -100,7 +102,6 @@
 
 ## 5. 검증 (실기기 · Production SHA 매회 기록 · 서버 시각 운영 DB 대조)
 - R1: 매장 주문 구매자 음성 → 발신 화면 = 매장명 / 판매자 → 구매자 닉네임 / 거래 채팅 음성·영상 → 확인창·발신 화면 = 상대 닉네임 / 1:1 방 헤더·점 메뉴 이름 불변.
-- R2: 시험 기기에서 음성 통화 채널 끄기 → 앱 점검 「꺼짐」 안내, 켜면 정상 (기기 설정 변경은 시험 후 원복).
 - R3: 기기 2대 로그인 계정 수신 → 기기별 행에 각자 ack.
 - R4: Android 화면 켜짐·잠김·앱 종료 / iPhone 잠김·앱 종료 수신 → `presented` 기록, 만료 푸시 → `suppressed:expired`.
 - R5: 방 없는 상대 첫 발신 → `POST /rooms` 요청 0회, 세션 생성까지 시간 측정 비교.
