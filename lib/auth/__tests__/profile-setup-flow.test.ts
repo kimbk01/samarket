@@ -6,6 +6,7 @@ import {
   isProfileSetupGateExcludedPath,
   isProfileSetupMode,
   isProfileSetupPending,
+  PROFILE_SETUP_GATE_TARGET_HREF,
 } from "@/lib/auth/profile-setup-flow";
 
 describe("profile-setup-flow", () => {
@@ -17,6 +18,11 @@ describe("profile-setup-flow", () => {
     expect(buildProfileSetupHref({ next: "https://evil.example" })).toBe(
       "/mypage/section/account/profile/edit?setup=1",
     );
+  });
+
+  it("gate target is mypage home (Owner 2026-11-09)", () => {
+    expect(PROFILE_SETUP_GATE_TARGET_HREF).toBe("/mypage");
+    expect(isProfileSetupGateExcludedPath(PROFILE_SETUP_GATE_TARGET_HREF)).toBe(false);
   });
 
   it("isProfileSetupMode detects setup=1", () => {

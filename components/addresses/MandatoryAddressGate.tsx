@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildProfileSetupHref, isProfileSetupGateExcludedPath } from "@/lib/auth/profile-setup-flow";
+import { isProfileSetupGateExcludedPath, PROFILE_SETUP_GATE_TARGET_HREF } from "@/lib/auth/profile-setup-flow";
 import { isProfileSetupDeferredForSession, clearProfileSetupDeferForSession } from "@/lib/auth/profile-setup-defer.client";
 import { runNowOrScheduleOnStoreOwnerAdmin, OWNER_HUB_SECONDARY_AFTER_MS } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
@@ -44,8 +44,8 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
 }
 
 /**
- * 로그인 상태에서 대표 주소(`isDefaultMaster`)가 없으면 setup 으로 보냅니다.
- * 내정보 홈(`/mypage`)은 CTA 로 유도 — 강제 redirect 제외.
+ * 로그인 상태에서 대표 주소·전화 인증이 끝나지 않았으면 내정보 홈(`/mypage`)으로 보냅니다
+ * (Owner 2026-11-09 — 프로필 수정 `?setup=1` 화면 대신 내정보 필수정보 카드에서 완료).
  * 주소·프로필 수정 플로우 경로는 제외합니다.
  */
 export function MandatoryAddressGate() {
@@ -67,11 +67,16 @@ export function MandatoryAddressGate() {
       if (!needsBlock || deferOverlayForStoresLcp) return;
       if (isProfileSetupDeferredForSession()) return;
       const p = pathRef.current;
-      /** 내정보 홈 — 대표 주소·아이디 CTA 로 유도, setup 강제 이동 금지 */
-      if (p === "/mypage" || p === "/my") return;
+      /**
+       * 내정보 홈 = 강제 이동 목적지 — 필수정보 카드(전화 시트·대표 주소)로 완료.
+       * 도착하면 중복 방지 표식을 지워, 미완료 상태로 다른 화면에 가면 다시 내정보로 보낸다.
+       */
+      if (p === "/mypage" || p === "/my") {
+        redirectTargetRef.current = null;
+        return;
+      }
       if (isGateExcludedPath(p)) return;
-      const search = typeof window !== "undefined" ? window.location.search : "";
-      const target = buildProfileSetupHref({ next: `${p.split("?")[0]}${search}` });
+      const target = PROFILE_SETUP_GATE_TARGET_HREF;
       if (redirectTargetRef.current === target) return;
       redirectTargetRef.current = target;
       router.replace(target);

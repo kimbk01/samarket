@@ -15,7 +15,13 @@ export type ProfileSetupHrefOptions = {
 };
 
 /**
- * 로그인 직후·주소 게이트 — 프로필 수정 setup 화면 URL.
+ * 로그인 직후 필수정보(대표 주소·전화 인증) 미완료 회원의 강제 이동 목적지 = 내정보 홈.
+ * 내정보 필수정보 카드에서 전화(시트)·대표 주소(`/mypage/addresses`)를 완료한다 (Owner 2026-11-09).
+ */
+export const PROFILE_SETUP_GATE_TARGET_HREF = "/mypage" as const;
+
+/**
+ * 프로필 수정 setup 화면 URL (`?setup=1` 페이지 유지 — v3 X1). 자동 강제 이동에는 쓰지 않는다.
  * `next` 는 setup 완료 후 돌아갈 내부 경로(검증 통과 시만 부착).
  */
 export function buildProfileSetupHref(opts?: ProfileSetupHrefOptions): string {
