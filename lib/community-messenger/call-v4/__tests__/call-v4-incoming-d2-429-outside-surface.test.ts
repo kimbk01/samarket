@@ -231,6 +231,21 @@ describe("D2 ③ 경계 — 요청 폭주·우회 누수 없음", () => {
     expect(inRing).toBeLessThanOrEqual(1 + Math.ceil(30_000 / 8_000));
   });
 
+  it("재감사: Retry-After 가 30초보다 짧아도 30초 기준은 처음 울림 신호 시각 — 우회 조회가 다시 429 여도 끝난다", async () => {
+    await startOn("/philife");
+    const RATE_10: Reply = { status: 429, body: { ok: false }, headers: { "Retry-After": "10" } };
+    nextReply = RATE_10;
+    serverRowChange({ id: "c6", status: "ringing" });
+    await flush(0);
+    const firstAt = incomingCallTimes[0]!;
+    await flush(40_000);
+    const after40 = incomingCalls();
+    await flush(160_000);
+    expect(incomingCalls()).toBe(after40); // 처음 신호 + 30초 이후 더 요청하지 않음
+    const last = incomingCallTimes[incomingCallTimes.length - 1]!;
+    expect(last - firstAt).toBeLessThan(30_000 + 8_000);
+  });
+
   it("/admin — 429 대기 중 울림 신호가 와도 조회 0 (제외 그대로)", async () => {
     await startOn("/admin");
     serverRowChange({ id: "c5", status: "ringing" });

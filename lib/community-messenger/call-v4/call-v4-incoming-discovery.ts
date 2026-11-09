@@ -374,15 +374,22 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     pollTimer = window.setTimeout(() => {
       pollTimer = null;
       /** D2: 미뤄 둔 울림 신호가 있으면 이번 1회는 우회 조회(소진). 없으면 기존 정기 조회. */
-      const bypass =
-        deferredRealtimeBypassAtMs != null &&
-        Date.now() - deferredRealtimeBypassAtMs < CALL_V4_INCOMING_RING_WINDOW_MS;
+      const signalAtMs = deferredRealtimeBypassAtMs;
+      const bypass = signalAtMs != null && Date.now() - signalAtMs < CALL_V4_INCOMING_RING_WINDOW_MS;
       deferredRealtimeBypassAtMs = null;
-      void (bypass ? tick("realtime", { bypassSurfaceGate: true }) : tick("poll")).finally(scheduleNextPoll);
+      /** 재감사 D2 보완(2026-11-10): 처음 울림 신호 시각을 넘겨, 이 조회가 다시 429 여도 30초 기준을 새로 시작하지 않는다. */
+      void (bypass
+        ? tick("realtime", { bypassSurfaceGate: true, signalAtMs: signalAtMs ?? undefined })
+        : tick("poll")
+      ).finally(scheduleNextPoll);
     }, delayMs);
   };
 
-  const tick = async (source: IncomingTickSource, opts?: { bypassSurfaceGate?: boolean }) => {
+  const tick = async (
+    source: IncomingTickSource,
+    /** signalAtMs: 미뤄 둔 울림 신호를 처음 받은 시각 — 우회 재조회가 429 를 받아도 이 시각을 유지(D2 30초 기준 고정) */
+    opts?: { bypassSurfaceGate?: boolean; signalAtMs?: number },
+  ) => {
     if (cancelled) return;
     if (inFlight) {
       if (source !== "poll") {
@@ -400,7 +407,9 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     /** F1: 429 대기 중 — 서버가 거부하는 구간. 신호·resync 조회도 해제 시각 예약 1회로 합친다(scheduleNextPoll). */
     if (rateLimitRemainingMs(Date.now()) > 0) {
       /** D2: 울림 신호는 버리지 않고 기억 — 대기가 끝나면 경로와 무관하게 1회 조회(메신저 밖 화면 누락 방지). */
-      if (opts?.bypassSurfaceGate && deferredRealtimeBypassAtMs == null) deferredRealtimeBypassAtMs = Date.now();
+      if (opts?.bypassSurfaceGate && deferredRealtimeBypassAtMs == null) {
+        deferredRealtimeBypassAtMs = opts.signalAtMs ?? Date.now();
+      }
       return;
     }
 
@@ -418,7 +427,7 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
         noteHttpFailure(outcome);
         /** D2: 울림 신호 조회 자체가 429 면 신호를 기억 — 같은 통화 신호는 dedupe 로 다시 오지 않는다. */
         if (outcome.kind === "rate_limited" && opts?.bypassSurfaceGate && deferredRealtimeBypassAtMs == null) {
-          deferredRealtimeBypassAtMs = Date.now();
+          deferredRealtimeBypassAtMs = opts.signalAtMs ?? Date.now();
         }
         return;
       }
