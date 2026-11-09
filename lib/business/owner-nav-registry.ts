@@ -487,6 +487,22 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "any",
     surfaces: ["drawer", "manage_hub"],
   },
+  /**
+   * 배달 오픈 4단계 (Owner 승인 설계 2026-11-10) — 어드민이 쓰는 사장님 전용 운영 공지(app_notices audience≠all).
+   * 심사 중 포함 모든 사장님(`any`) — 승인 매장 전용 글은 API 가 걸러 준다.
+   */
+  {
+    id: "announcements",
+    group: "notifications",
+    parentId: "dashboard",
+    titleKey: "owner_announcements_title",
+    descriptionKey: "owner_announcements_desc",
+    href: (storeId) => OwnerRoutes.announcements(storeId),
+    activePrefixes: ["/announcements"],
+    bottomTab: "manage",
+    access: "any",
+    surfaces: ["drawer", "manage_hub"],
+  },
   // 09 지원 (메뉴에 안 나옴 — 제목·뒤로가기 전용)
   {
     id: "apply",

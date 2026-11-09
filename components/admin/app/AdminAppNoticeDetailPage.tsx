@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -16,6 +16,15 @@ import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-cente
 import { notifStatusLabel } from "@/components/admin/points/admin-points-notifications-i18n";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
+import { useAdminMe } from "@/hooks/useAdminMe";
+import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
+import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
+import {
+  APP_NOTICE_AUDIENCE_LABEL_KEY,
+  isOwnerAnnouncementAudience,
+  parseAppNoticeAudience,
+} from "@/lib/notices/app-notice-audience";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 type NoticeRow = {
   id: string;
@@ -31,6 +40,9 @@ type NoticeRow = {
   created_at?: string;
   updated_at?: string;
   published_at?: string | null;
+  /** 배달 오픈 4단계 — 보는 사람 · 고정 */
+  audience?: string | null;
+  is_pinned?: boolean | null;
 };
 
 type RelatedCampaign = {
@@ -59,6 +71,22 @@ export function AdminAppNoticeDetailPage() {
   const [campaigns, setCampaigns] = useState<RelatedCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const { isSuperAdmin } = useAdminMe();
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  /** 사장님 알림 결과 — 작성 화면에서 저장+발송 후 `?notified=대상.성공.실패` 로 넘어오거나 이 화면 버튼 */
+  const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
+  useEffect(() => {
+    const failCode = (searchParams?.get("notify_error") ?? "").trim().slice(0, 60);
+    if (failCode) {
+      setNotifyMsg(t("admin_app_notice_notify_owners_failed", { code: failCode }));
+      return;
+    }
+    const raw = searchParams?.get("notified") ?? "";
+    const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(raw);
+    if (!m) return;
+    setNotifyMsg(t("admin_app_notice_notify_owners_result", { recipients: m[1], sent: m[2], failed: m[3] }));
+  }, [searchParams, t]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -154,11 +182,54 @@ export function AdminAppNoticeDetailPage() {
   }
 
   const contentType = parseCustomerCenterContentType(notice.content_type, "notice");
+  const audience = parseAppNoticeAudience(notice.audience, "all");
+  const ownerAudience = isOwnerAnnouncementAudience(audience);
+  const onNotifyOwners = async () => {
+    const confirmed = await confirmAdminAction({
+      level: adminActionLevel("save"),
+      ko: language !== "en",
+      title: t("admin_app_notice_notify_owners_confirm_title"),
+      description: t("admin_app_notice_notify_owners_hint"),
+      confirmLabel: t("admin_app_notice_notify_owners_confirm_title"),
+    });
+    if (!confirmed.ok) return;
+    setNotifyBusy(true);
+    setNotifyMsg(null);
+    try {
+      const res = await fetch(`/api/admin/app-notices/${encodeURIComponent(notice.id)}/notify-owners`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        recipients?: number;
+        sent?: number;
+        failed?: number;
+      };
+      setNotifyMsg(
+        res.ok && j.ok
+          ? t("admin_app_notice_notify_owners_result", {
+              recipients: String(j.recipients ?? 0),
+              sent: String(j.sent ?? 0),
+              failed: String(j.failed ?? 0),
+            })
+          : t("admin_app_notice_notify_owners_failed", { code: j.error ?? String(res.status) })
+      );
+    } catch {
+      setNotifyMsg(t("admin_app_notice_notify_owners_failed", { code: "network_error" }));
+    } finally {
+      setNotifyBusy(false);
+    }
+  };
   const boardLabel = BOARD_LABEL[contentType][language === "en" ? "en" : "ko"];
   const author =
     (notice.author_label && notice.author_label.trim()) ||
     DEFAULT_AUTHOR_LABEL[contentType][language === "en" ? "en" : "ko"];
-  const canonical = buildCustomerCenterBoardDetailPath(contentType, notice.id);
+  // 사장님 전용 공지는 회원 고객센터에 없다 — 사장님 운영 공지 상세 경로를 보여 준다
+  const canonical = ownerAudience
+    ? OwnerRoutes.announcementDetail(notice.id)
+    : buildCustomerCenterBoardDetailPath(contentType, notice.id);
   const created = notice.created_at ? String(notice.created_at).slice(0, 16).replace("T", " ") : "—";
   const campaignHref = `/admin/notifications/create?${new URLSearchParams({
     type: contentType,
@@ -178,6 +249,8 @@ export function AdminAppNoticeDetailPage() {
           <h1 className="text-xl font-semibold break-words text-sam-fg">{notice.title}</h1>
           <p className="text-xs text-sam-meta">
             {[
+              t(APP_NOTICE_AUDIENCE_LABEL_KEY[audience]),
+              ...(ownerAudience && notice.is_pinned ? [t("owner_announcements_pinned")] : []),
               author,
               created,
               safeT("admin_cc_meta_views"),
@@ -207,26 +280,39 @@ export function AdminAppNoticeDetailPage() {
         <CustomerCenterSafeMarkdownBody body={notice.body || ""} />
       </article>
 
+      {notifyMsg ? <p className="text-sm text-sam-fg">{notifyMsg}</p> : null}
+
       <div className="flex flex-wrap gap-2">
-        <Link
-          href={campaignHref}
-          className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white"
-        >
-          {safeT("admin_cc_send_notification")}
-        </Link>
+        {ownerAudience ? (
+          // 사장님 전용 공지 — 회원 캠페인 대신 사장님 알림(슈퍼 관리자만 · 서버도 같은 판정)
+          isSuperAdmin ? (
+            <AdminActionButton variant="primary" disabled={notifyBusy} onClick={() => void onNotifyOwners()}>
+              {t("admin_app_notice_notify_owners_confirm_title")}
+            </AdminActionButton>
+          ) : null
+        ) : (
+          <Link
+            href={campaignHref}
+            className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white"
+          >
+            {safeT("admin_cc_send_notification")}
+          </Link>
+        )}
         <Link
           href={`/admin/app/notices/${encodeURIComponent(notice.id)}/edit`}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"
         >
           {safeT("common_edit")}
         </Link>
-        <Link
-          href={canonical}
-          target="_blank"
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"
-        >
-          {safeT("admin_cc_view_member")}
-        </Link>
+        {ownerAudience ? null : (
+          <Link
+            href={canonical}
+            target="_blank"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"
+          >
+            {safeT("admin_cc_view_member")}
+          </Link>
+        )}
         <a
           href="#send-history"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium"

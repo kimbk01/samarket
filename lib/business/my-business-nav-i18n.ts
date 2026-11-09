@@ -36,6 +36,7 @@ const ICON_BY_NAV_ID: Partial<Record<BusinessAdminNavItemId, MyBusinessNavIcon>>
   notices: "menu_board",
   ads: "promo",
   notifications: "settings",
+  announcements: "menu_board",
 };
 
 /**

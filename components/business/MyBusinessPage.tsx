@@ -43,6 +43,7 @@ import {
   type OwnerHubPageLoadState,
 } from "@/lib/business/build-owner-hub-load-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OwnerAnnouncementLatestCard } from "@/components/business/owner/OwnerAnnouncementLatestCard";
 import {
   getOwnerLiteStoreSnapshot,
   subscribeOwnerLiteStore,
@@ -312,10 +313,16 @@ export function MyBusinessPage({
   const { row, profile, products, dashboard } = state;
   const canSell = storeRowCanSell(row);
   const managementQuery = `storeId=${encodeURIComponent(row.id)}`;
+  /**
+   * 배달 오픈 4단계 (Owner 2026-11-10) — 운영 공지 최신 1건(없으면 안 보임).
+   * 승인 매장 대시보드는 `OwnerOperationsDashboard` 첫 줄에서 같은 카드를 그린다(스크롤 영역 안).
+   */
+  const announcementCard = <OwnerAnnouncementLatestCard storeId={row.id} />;
 
   if (row.approval_status === "revision_requested") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
+        {announcementCard}
         <BusinessOperationalChecklistRevision storeId={row.id} />
         <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4">
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
@@ -344,6 +351,7 @@ export function MyBusinessPage({
   if (profile.status === "pending") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
+        {announcementCard}
         <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
         <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
@@ -364,27 +372,33 @@ export function MyBusinessPage({
 
   if (profile.status === "rejected") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
-        <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
-        {profile.adminMemo ? (
-          <p className="sam-text-body-secondary text-sam-fg">{t("business_phase7_136", { v1: profile.adminMemo })}</p>
-        ) : null}
-        <span className="inline-block rounded-ui-rect bg-sam-danger-soft px-2 py-1 sam-text-body-secondary text-sam-danger">
-          {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
-        </span>
+      <div className={OWNER_STORE_STACK_Y_CLASS}>
+        {announcementCard}
+        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
+          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
+          <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
+          {profile.adminMemo ? (
+            <p className="sam-text-body-secondary text-sam-fg">{t("business_phase7_136", { v1: profile.adminMemo })}</p>
+          ) : null}
+          <span className="inline-block rounded-ui-rect bg-sam-danger-soft px-2 py-1 sam-text-body-secondary text-sam-danger">
+            {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
+          </span>
+        </div>
       </div>
     );
   }
 
   if (profile.status === "paused") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
-        <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_227")}</p>
-        <span className="inline-block rounded-ui-rect bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
-          {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
-        </span>
+      <div className={OWNER_STORE_STACK_Y_CLASS}>
+        {announcementCard}
+        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
+          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
+          <p className="sam-text-body text-sam-muted">{t("business_phase7_227")}</p>
+          <span className="inline-block rounded-ui-rect bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
+            {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
+          </span>
+        </div>
       </div>
     );
   }

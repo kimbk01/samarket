@@ -12,6 +12,7 @@ import {
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
+import { APP_NOTICE_MEMBER_AUDIENCE, isAppNoticeVisibleToMembers } from "@/lib/notices/app-notice-audience";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +50,8 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  if (!row) {
+  // 배달 오픈 4단계 — 사장님 전용 운영 공지는 회원 상세에서 없는 글로 본다(제목도 노출하지 않음)
+  if (!row || !isAppNoticeVisibleToMembers(row)) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
@@ -91,6 +93,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       .from("app_notices")
       .select(neighborSelect)
       .eq("content_type", contentType)
+      .eq("audience", APP_NOTICE_MEMBER_AUDIENCE)
       .eq("is_active", true)
       .is("deleted_at", null)
       .is("archived_at", null)
@@ -101,6 +104,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       .from("app_notices")
       .select(neighborSelect)
       .eq("content_type", contentType)
+      .eq("audience", APP_NOTICE_MEMBER_AUDIENCE)
       .eq("is_active", true)
       .is("deleted_at", null)
       .is("archived_at", null)

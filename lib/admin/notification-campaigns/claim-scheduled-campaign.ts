@@ -138,7 +138,7 @@ export async function drainNotificationCampaignSendBatches(
     async (contentId) => {
       const { data, error } = await svc
         .from("app_notices")
-        .select("is_active, starts_at, ends_at, archived_at, deleted_at")
+        .select("is_active, starts_at, ends_at, archived_at, deleted_at, audience")
         .eq("id", contentId)
         .maybeSingle();
       if (error) throw new Error(error.message);

@@ -401,6 +401,8 @@ export type PlatformEventSendLookup = (
 ) => Promise<PlatformEventPublicationInput | null>;
 
 export type CustomerCenterContentSendRow = {
+  /** 배달 오픈 4단계 — 회원 캠페인은 전체 회원 대상(all) 글만 묶을 수 있다 */
+  audience?: string | null;
   is_active?: boolean | null;
   starts_at?: string | null;
   ends_at?: string | null;
@@ -458,6 +460,10 @@ export async function evaluateOfficialCampaignSendEligibility(
     }
     if (!content) return { ok: false, error: "content_source_missing" };
     if (!isCustomerCenterContentPublishedNow(content)) {
+      return { ok: false, error: "content_source_unavailable" };
+    }
+    // 배달 오픈 4단계 — 사장님 전용 운영 공지는 회원 캠페인 원문이 될 수 없다(회원 상세에서 없는 글)
+    if (content.audience != null && content.audience !== "all") {
       return { ok: false, error: "content_source_unavailable" };
     }
     return structural;

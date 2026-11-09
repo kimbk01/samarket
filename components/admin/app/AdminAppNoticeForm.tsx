@@ -21,6 +21,14 @@ import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action
 import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { adminSafeErrorCode, type AdminLoadFailure } from "@/lib/admin/admin-load-failure";
+import { useAdminMe } from "@/hooks/useAdminMe";
+import {
+  APP_NOTICE_AUDIENCES,
+  APP_NOTICE_AUDIENCE_LABEL_KEY,
+  isOwnerAnnouncementAudience,
+  parseAppNoticeAudience,
+  type AppNoticeAudience,
+} from "@/lib/notices/app-notice-audience";
 
 type NoticeFormState = {
   content_type: CustomerCenterContentType;
@@ -34,6 +42,9 @@ type NoticeFormState = {
   is_active: boolean;
   starts_at: string;
   ends_at: string;
+  /** 배달 오픈 4단계 — 보는 사람 · 사장님 운영 공지 고정 */
+  audience: AppNoticeAudience;
+  is_pinned: boolean;
 };
 
 const EMPTY_FORM: NoticeFormState = {
@@ -47,6 +58,8 @@ const EMPTY_FORM: NoticeFormState = {
   is_active: true,
   starts_at: "",
   ends_at: "",
+  audience: "all",
+  is_pinned: false,
 };
 
 async function uploadContentImage(kind: "hero" | "body", file: File): Promise<string | null> {
@@ -78,6 +91,10 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
   const [showPreview, setShowPreview] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const heroFileRef = useRef<HTMLInputElement>(null);
+  /** 저장 후 사장님 알림 — 슈퍼 관리자·사장님 전용 공지일 때만 (서버도 슈퍼 관리자만 허용) */
+  const { isSuperAdmin } = useAdminMe();
+  const [notifyOwners, setNotifyOwners] = useState(false);
+  const ownerAudience = isOwnerAnnouncementAudience(form.audience);
 
   useEffect(() => {
     if (!isEdit || !noticeId) return;
@@ -114,6 +131,8 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
           is_active: n.is_active !== false,
           starts_at: n.starts_at ? String(n.starts_at).slice(0, 16) : "",
           ends_at: n.ends_at ? String(n.ends_at).slice(0, 16) : "",
+          audience: parseAppNoticeAudience(n.audience, "all"),
+          is_pinned: n.is_pinned === true,
         });
       } catch {
         if (!cancelled) setLoadErr({ code: "network_error" });
@@ -158,7 +177,10 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       level: adminActionLevel("save"),
       ko,
       title: isEdit ? (t("admin_app_save_content")) : t("admin_app_create_content"),
-      description: t("admin_app_save_entered_content"),
+      description:
+        notifyOwners && ownerAudience && isSuperAdmin
+          ? `${t("admin_app_save_entered_content")}\n${t("admin_app_notice_notify_owners_confirm_desc")}`
+          : t("admin_app_save_entered_content"),
       confirmLabel: adminCta(isEdit ? "save" : "create", ko),
     });
     if (!confirmed.ok) return;
@@ -175,6 +197,8 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       is_active: form.is_active,
       starts_at: toIsoOrNull(form.starts_at),
       ends_at: toIsoOrNull(form.ends_at),
+      audience: form.audience,
+      is_pinned: ownerAudience && form.is_pinned,
     };
     try {
       const res = await fetch(
@@ -203,6 +227,32 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
       }
       const id = String(json.notice?.id ?? noticeId ?? "").trim();
       setSavedId(id || null);
+      // 배달 오픈 4단계 — 저장 성공 뒤 사장님 알림(슈퍼 관리자만). 실패해도 저장은 유지하고 결과를 보여 준다.
+      if (id && notifyOwners && ownerAudience && isSuperAdmin) {
+        const nr = await fetch(`/api/admin/app-notices/${encodeURIComponent(id)}/notify-owners`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const nj = (await nr.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          recipients?: number;
+          sent?: number;
+          failed?: number;
+        };
+        if (!nr.ok || !nj.ok) {
+          // 저장은 끝났다 — 작성 화면에 남으면 다시 저장 시 글이 하나 더 생기므로 상세로 보내 실패를 보여 준다
+          router.push(
+            `/admin/app/notices/${encodeURIComponent(id)}?notify_error=${encodeURIComponent(nj.error ?? String(nr.status))}`
+          );
+          return;
+        }
+        // 결과는 상세 화면에서 보여 준다(`?notified=대상.성공.실패`)
+        router.push(
+          `/admin/app/notices/${encodeURIComponent(id)}?notified=${nj.recipients ?? 0}.${nj.sent ?? 0}.${nj.failed ?? 0}`
+        );
+        return;
+      }
       if (id) {
         router.push(`/admin/app/notices/${encodeURIComponent(id)}`);
         return;
@@ -314,6 +364,53 @@ export function AdminAppNoticeForm({ noticeId }: { noticeId?: string }) {
             {safeT("admin_cc_app_version_hint")}
           </span>
         </label>
+      ) : null}
+
+      <label className="block space-y-1" data-admin-notice-audience>
+        <span className="sam-text-helper text-sam-muted">{t("admin_app_notice_audience_label")}</span>
+        <select
+          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          value={form.audience}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, audience: parseAppNoticeAudience(e.target.value, "all") }))
+          }
+        >
+          {APP_NOTICE_AUDIENCES.map((a) => (
+            <option key={a} value={a}>
+              {t(APP_NOTICE_AUDIENCE_LABEL_KEY[a])}
+            </option>
+          ))}
+        </select>
+        {ownerAudience ? (
+          <span className="block sam-text-helper text-sam-muted">{t("admin_app_notice_audience_owner_hint")}</span>
+        ) : null}
+      </label>
+
+      {ownerAudience ? (
+        <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.is_pinned}
+              onChange={(e) => setForm((f) => ({ ...f, is_pinned: e.target.checked }))}
+            />
+            <span className="sam-text-body">{t("admin_app_notice_pinned")}</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={notifyOwners && isSuperAdmin}
+              disabled={!isSuperAdmin}
+              onChange={(e) => setNotifyOwners(e.target.checked)}
+            />
+            <span className="sam-text-body">{t("admin_app_notice_notify_owners")}</span>
+          </label>
+          <p className="sam-text-helper text-sam-muted">
+            {isSuperAdmin
+              ? t("admin_app_notice_notify_owners_hint")
+              : t("admin_app_notice_notify_owners_super_only")}
+          </p>
+        </div>
       ) : null}
 
       <label className="block space-y-1">

@@ -11,6 +11,7 @@ import {
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
+import { isAppNoticeAudience, isOwnerAnnouncementAudience } from "@/lib/notices/app-notice-audience";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +87,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     ends_at?: string | null;
     archived?: boolean;
     soft_delete?: boolean;
+    audience?: string;
+    is_pinned?: boolean;
   };
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -106,6 +109,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         ? body.author_label.trim().slice(0, 80)
         : null;
   }
+  if (body.audience !== undefined) {
+    if (!isAppNoticeAudience(body.audience)) {
+      return NextResponse.json({ ok: false, error: "invalid_audience" }, { status: 400 });
+    }
+    patch.audience = body.audience;
+    // 고정은 사장님 운영 공지에만 — 전체 회원 글로 바꾸면 고정 해제
+    if (!isOwnerAnnouncementAudience(body.audience)) patch.is_pinned = false;
+  }
+  if (typeof body.is_pinned === "boolean" && patch.is_pinned === undefined) patch.is_pinned = body.is_pinned;
   if (typeof body.comment_enabled === "boolean") patch.comment_enabled = body.comment_enabled;
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
   if (body.starts_at !== undefined) patch.starts_at = body.starts_at?.trim() || null;
