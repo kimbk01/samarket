@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
      * V4 웹(F1)은 5xx 를 서버 오류로 분류해 4→8초 백오프·T2 생략. 발생 건수 집계용 로그(개인정보 없음).
      */
     console.warn("[incoming-calls] unavailable", { reason: result.reason, directOnly });
-    return jsonError("수신 통화 목록을 잠시 불러올 수 없습니다.", {
+    /** 화면에 쓰지 않는 응답(V4 는 상태 코드로만 판단) — 사용자 문구 리터럴을 두지 않는다(i18n user-hangul-literal). */
+    return jsonError("incoming_calls_unavailable", {
       status: 503,
       code: "community_messenger_incoming_calls_unavailable",
     });
