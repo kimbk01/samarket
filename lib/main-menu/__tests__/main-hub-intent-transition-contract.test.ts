@@ -34,6 +34,21 @@ describe("main hub intent transition contract", () => {
     expect(art).not.toContain("beginHubNewOnlyRtlEnter");
   });
 
+  it("D-1: tap keeps the current surface on screen; slide starts only at pathname settle", () => {
+    const art = read("components/route-transition/AppRouteTransition.tsx");
+    const start = art.indexOf("function applyMainHubPendingExit(");
+    const pendingExit = art.slice(start, art.indexOf("\n}\n", start));
+    /** 탭 순간 from-*(translate 100%) 금지 — RSC 대기 동안 헤더+본문이 화면 밖(흰 화면)이 되던 결함 */
+    expect(pendingExit).not.toContain("classList.add(");
+    expect(pendingExit).not.toContain("mainShellPushFromClassForAxis");
+    expect(pendingExit).toContain("markMainHubTransitionFirstFrame(session.generation)");
+    /** 경로 확정 때 같은 surface 에서 from → reflow → enter */
+    const enterStart = art.indexOf("function applyMainHubEnter(");
+    const enter = art.slice(enterStart, art.indexOf("\n}\n", enterStart));
+    expect(enter).toMatch(/if \(!el\.classList\.contains\(fromClass\)\) \{[\s\S]*el\.classList\.add\(fromClass\);[\s\S]*void el\.offsetWidth;/);
+    expect(enter).toContain("el.classList.add(enterClass)");
+  });
+
   it("does not dual-panel push when hub header shares ONE transform surface", () => {
     const art = read("components/route-transition/AppRouteTransition.tsx");
     expect(art).toContain("hubChromeHeader");

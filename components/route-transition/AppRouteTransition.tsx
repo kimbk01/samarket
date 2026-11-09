@@ -290,8 +290,13 @@ function ensureMainHubEnterCleanup(el: HTMLDivElement, generation: number | null
 }
 
 /**
- * Intent-first: park surface at from-* immediately (transition_first_frame).
- * Destination children may still be old — off-screen until pathname settle → enter.
+ * Intent-first: arm the session at tap (transition_first_frame) but **keep the current surface on screen**.
+ *
+ * D-1 (Owner 승인 2026-11-10): 예전에는 여기서 from-* (translate 100%, transition 없음)을 붙여 헤더+본문 surface 를
+ * 경로 확정까지 화면 밖에 두었다 → 새 경로 RSC 를 기다리는 동안 하단 탭만 남은 흰 화면
+ * (Samsung 평소 0.3~0.7초, 배포 직후 문서 이동까지 약 2.5초 — 2026-11-10 실측·브라우저 프레임 계측).
+ * 이제 이전 화면을 그대로 두고, 경로 확정(useLayoutEffect, 그리기 전) 때 `applyMainHubEnter` 가
+ * from-* → reflow → enter 로 같은 슬라이드를 시작한다.
  */
 function applyMainHubPendingExit(
   el: HTMLDivElement,
@@ -302,10 +307,8 @@ function applyMainHubPendingExit(
     finalizeMainHubTransition(session.generation);
     return;
   }
-  const fromClass = mainShellPushFromClassForAxis(session.axis);
   forceMainHubSurfaceCleanup(el);
   setMypageStackMotionOnSurface(el, null);
-  el.classList.add(fromClass);
   el.dataset.routeTransitionKind = MAIN_HUB_TRANSITION_KIND;
   el.dataset.routePushAxis = session.axis;
   el.dataset.mainHubTransitionGeneration = String(session.generation);
