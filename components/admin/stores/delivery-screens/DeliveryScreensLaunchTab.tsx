@@ -134,8 +134,14 @@ function ScaledPreview({ design, children }: { design: number; children: ReactNo
     return () => ro.disconnect();
   }, [design]);
   return (
-    <div ref={outerRef} className="w-full overflow-hidden" style={{ height }}>
-      <div ref={innerRef} style={{ width: design, transform: `scale(${scale})`, transformOrigin: "top left" }} inert>
+    <div ref={outerRef} className="relative w-full min-w-0 overflow-hidden" style={{ height }}>
+      {/* 안쪽은 absolute — 실제 폭(design)이 바깥 칸 폭을 늘리지 않게 (칸 폭 기준으로 축소) */}
+      <div
+        ref={innerRef}
+        className="absolute left-0 top-0"
+        style={{ width: design, transform: `scale(${scale})`, transformOrigin: "top left" }}
+        inert
+      >
         {children}
       </div>
     </div>
@@ -363,15 +369,12 @@ export function DeliveryScreensLaunchTab() {
           <div className="grid grid-cols-2 gap-2" role="radiogroup">
             {(["open", "recruiting"] as const).map((m) => (
               <AdminChipButton key={m} selected={draft.mode === m} onClick={() => setDraft({ ...draft, mode: m })}>
-                <span className="grid gap-0.5 py-1 text-left" data-delivery-launch-mode={m}>
-                  <b className="text-[13px]">{t(m === "open" ? "admin_dl_mode_open" : "admin_dl_mode_recruiting")}</b>
-                  <span className="text-[12px] font-normal">
-                    {t(m === "open" ? "admin_dl_mode_open_desc" : "admin_dl_mode_recruiting_desc")}
-                  </span>
-                </span>
+                <span data-delivery-launch-mode={m}>{t(m === "open" ? "admin_dl_mode_open" : "admin_dl_mode_recruiting")}</span>
               </AdminChipButton>
             ))}
           </div>
+          {/* 고른 상태의 설명 — 칩 안에 넣지 않는다(칩 밖으로 넘침 방지) */}
+          <p className="text-[13px]">{t(draft.mode === "open" ? "admin_dl_mode_open_desc" : "admin_dl_mode_recruiting_desc")}</p>
           <p className="text-[12px] text-sam-muted">{t("admin_dl_mode_note")}</p>
         </section>
 
@@ -588,13 +591,13 @@ export function DeliveryScreensLaunchTab() {
           <h3 className="text-[14px] font-bold">{t("admin_dl_preview_title")}</h3>
           {previewState ? (
             <div className="grid gap-3">
-              <div className="max-w-[343px]">
+              <div className="min-w-0 max-w-[343px]">
                 <p className="mb-1 text-[12px] text-sam-muted">{t("admin_dl_preview_phone")}</p>
                 <ScaledPreview design={343}>
                   <PreviewHero state={previewState} locale={locale} />
                 </ScaledPreview>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="mb-1 text-[12px] text-sam-muted">
                   {t(draft.content.wideImageUrl ? "admin_dl_preview_wide" : "admin_dl_preview_wide_cropped")}
                 </p>

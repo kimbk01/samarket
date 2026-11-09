@@ -128,3 +128,31 @@ describe("배달 오픈 관리 — 매장 모집 중 고객 경로", () => {
     expect(sql).toContain("mode text NOT NULL DEFAULT 'open'");
   });
 });
+
+/**
+ * Owner 2026-11-10: 「이 부분은 예외 프로세스 — 정식 운영으로 돌리면 기존 계약으로 원복」.
+ * 정식 운영(open)이면 매장 모집 장치가 하나도 작동하지 않아야 한다.
+ */
+describe("배달 오픈 관리 — 정식 운영이면 기존 동작 그대로 (예외 프로세스 원복)", () => {
+  it("판정 함수 — open 이면 모집·확인용 예외 모두 false", async () => {
+    const { isDeliveryRecruiting, isDeliveryRecruitingReviewer } = await import("@/lib/delivery/launch/use-delivery-launch-state");
+    const base = { freeUntil: null, freePromoActive: false, fabEnabled: true, content: normalizeDeliveryLaunchContent({}) };
+    expect(isDeliveryRecruiting({ ...base, mode: "open", viewerBypass: false })).toBe(false);
+    expect(isDeliveryRecruitingReviewer({ ...base, mode: "open", viewerBypass: true })).toBe(false);
+    expect(isDeliveryRecruiting({ ...base, mode: "recruiting", viewerBypass: true })).toBe(false);
+    expect(isDeliveryRecruitingReviewer({ ...base, mode: "recruiting", viewerBypass: true })).toBe(true);
+  });
+  it("배달 첫 화면 — 모집 아니면 감싸지 않음(DOM 그대로)·광고 히어로 그대로", () => {
+    const hub = read("components/stores/home/hub/StoresHomeHub.tsx");
+    expect(hub).toContain("if (!active) return <>{children}</>;");
+    expect(hub).toContain(": <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />}");
+    expect(hub).toContain("{recruiting && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}");
+  });
+  it("서버 — 주문 거부·확인용 예외 판정은 recruiting 일 때만", () => {
+    expect(read("app/api/me/store-orders/route.ts")).toContain('if (launch.mode === "recruiting") {');
+    expect(read("app/api/stores/launch-state/route.ts")).toContain('if (state.mode === "recruiting" && viewerId) {');
+  });
+  it("광고 팝업은 모드와 무관 (원래 코드)", () => {
+    expect(read("components/platform-popup/GlobalPopupHost.tsx")).not.toContain("delivery-launch");
+  });
+});

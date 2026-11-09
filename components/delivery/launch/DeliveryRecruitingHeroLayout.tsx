@@ -20,7 +20,8 @@ function useWideLayout(ref: RefObject<HTMLElement | null>): boolean {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const apply = () => setWide(el.getBoundingClientRect().width >= DELIVERY_LAUNCH_WIDE_MIN_CONTENT_PX);
+    // offsetWidth = 레이아웃 폭(축소 transform 영향 없음) — 어드민 축소 미리보기에서도 실제 기기 폭으로 판정
+    const apply = () => setWide(el.offsetWidth >= DELIVERY_LAUNCH_WIDE_MIN_CONTENT_PX);
     apply();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(apply);
@@ -44,6 +45,8 @@ function BannerImage({ src, wide }: { src: string; wide: boolean }) {
           src={src}
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
+          /* 전역 img{height:auto} 가 h-full 을 덮지 않게 — 칸을 끝까지 채운다(와이드 2단에서 아래 띠 방지) */
+          style={{ width: "100%", height: "100%", maxWidth: "none" }}
           decoding="async"
           fetchPriority="high"
           onError={() => setFailed(true)}
