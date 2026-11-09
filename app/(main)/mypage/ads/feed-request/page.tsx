@@ -99,7 +99,7 @@ export default function MemberFeedAdRequestPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [creatives, setCreatives] = useState<CreativeState[]>([{ ...EMPTY_CREATIVE }]);
   /** P0-D: 소재 미리보기 URL 주인 = 이 화면 — 교체·삭제·언마운트 시 빠진 URL 해제. */
-  useReleaseDroppedBlobUrls(creatives.map((c) => c.previewUrl));
+  const isCreativePreviewOwnerMounted = useReleaseDroppedBlobUrls(creatives.map((c) => c.previewUrl));
   const [uploadSlot, setUploadSlot] = useState(0);
   const [showSample, setShowSample] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<{
@@ -391,6 +391,8 @@ export default function MemberFeedAdRequestPage() {
         );
         return;
       }
+      // P0-D: 업로드 응답 전에 화면이 닫혔으면 미리보기 URL 을 만들지 않는다 — 목록에 못 들어가 주인 훅이 해제하지 못한다.
+      if (!isCreativePreviewOwnerMounted()) return;
       const preview = URL.createObjectURL(file);
       setCreatives((prev) => {
         const next = [...prev];

@@ -52,7 +52,7 @@
 ### B. 복귀 조정자
 - `lib/app-resume/app-resume-coordinator.ts`(순수 코어) · `.client.ts`(DOM·Capacitor 연결).
 - 신호 3종(visibility·pageshow persisted·appStateChange) → 복귀 1회. 숨김 시간 측정.
-- 레인: `auth`(세션 신선도 대기 후 병렬) · `background`(+idle, 통화 중 생략). 세션 대기는 3-2a 관문과 **같은 단일 비행**을 쓰는 `waitForSessionFreshnessIfNeeded` 추가(export 만, 동작 불변) — RSC 프리페치가 만료 토큰으로 나가 프록시가 갱신하는 것을 막는다.
+- 레인: `auth`(세션 신선도 대기 후 병렬) · `background`(+idle, 통화 중 생략). 세션 대기는 3-2a 관문과 **같은 단일 비행**을 쓰는 `waitForSessionFreshnessIfNeeded` 추가(export 만, 동작 불변) — RSC 프리페치가 만료 토큰으로 나가 프록시가 갱신하는 것을 막는다. (2026-11-10 재감사: `waitForSessionFreshnessIfNeeded` 는 호출처 0 → 삭제. 복귀 조정자의 세션 판정은 `resolveSessionFreshnessOutcome`(P0-C).)
 - 취소: 다시 숨김 · SIGNED_OUT · 사용자 ID 변경. 오프라인이면 online 까지 대기.
 - **기존 13 핸들러 미이관** — §5 충돌 2.
 

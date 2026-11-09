@@ -305,7 +305,11 @@ import {
   scrollTradeMeetSpotAnchorIntoView,
 } from "@/lib/posts/trade-meet-spot-anchor-scroll";
 import { translateBy } from "@/lib/i18n/translate-by";
-import { useReleaseDroppedBlobUrls, revokeBlobUrlsExcept } from "@/lib/media/use-release-dropped-blob-urls";
+import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
+import {
+  settleTradeWriteDraftPhotoRestore,
+  useTradeWriteDraftPhotoRestoreGuard,
+} from "@/lib/posts/use-trade-write-draft-photo-restore-guard";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -459,7 +463,7 @@ function TradeMarketplaceWriteFormInner({
   const photoStashInFlightUrlsRef = useRef(new Set<string>());
   /** 초안 사진을 기기에서 불러오는 중 — 그동안 사진 없는 상태로 초안을 덮어쓰지 않는다 */
   const photoRestoreInFlightRef = useRef(false);
-  const photoRestoreTokenRef = useRef(0);
+  const photoRestoreGuard = useTradeWriteDraftPhotoRestoreGuard();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   /** 당근형 — 자주 쓰는 문구 바텀시트 */
@@ -927,7 +931,7 @@ function TradeMarketplaceWriteFormInner({
     setPrice(d.price ?? "");
     setRegion(d.region ?? "");
     setCity(d.city ?? "");
-    const restoreToken = ++photoRestoreTokenRef.current;
+    const isPhotoRestoreCurrent = photoRestoreGuard.begin();
     const refs =
       isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "buy" ? [] : readTradeWriteDraftImageRefs(d);
     const localIds = refs.flatMap((r) => ("localId" in r ? [r.localId] : []));
@@ -938,13 +942,11 @@ function TradeMarketplaceWriteFormInner({
       /** 기기 보관 사진을 불러온 뒤 원래 순서로 한 번에 적용 — 사라진 사진은 건너뜀 */
       photoRestoreInFlightRef.current = true;
       void loadTradeWriteDraftImageItems(d.categoryId, refs).then((next) => {
-        if (restoreToken !== photoRestoreTokenRef.current) {
-          // P0-D: 버려지는 복원 결과의 URL 은 여기서 해제(목록에 들어가지 않으므로 주인 훅이 모른다).
-          revokeBlobUrlsExcept(next.map((i) => i.url));
-          return;
-        }
-        photoRestoreInFlightRef.current = false;
-        setImages(next);
+        // P0-D: 버려지는 결과(새 복원·초기화·화면 닫힘)의 URL 은 가드가 해제 — 목록에 안 들어가 주인 훅이 모른다.
+        settleTradeWriteDraftPhotoRestore(isPhotoRestoreCurrent, next, (restored) => {
+          photoRestoreInFlightRef.current = false;
+          setImages(restored);
+        });
       });
     }
     setIsFreeShare(d.isFreeShare === true);
@@ -1004,7 +1006,7 @@ function TradeMarketplaceWriteFormInner({
     setTradeChatCallPolicy(normalizeTradeChatCallPolicy(d.tradeChatCallPolicy));
     setDescriptionAppend(d.descriptionAppend ?? "");
     setTradeMeetSpot(tradeMeetSpotFromClientFields(d.tradeMeetSpot));
-  }, []);
+  }, [photoRestoreGuard]);
 
   /** 주소 관리·지도 복귀 시 즉시 복원 · 진짜 이탈 초안만 이어쓰기 확인 */
   useLayoutEffect(() => {
@@ -1311,7 +1313,7 @@ function TradeMarketplaceWriteFormInner({
     setTitle(mountSeed.title);
     setDescription(mountSeed.description);
     setPrice(mountSeed.price);
-    photoRestoreTokenRef.current += 1;
+    photoRestoreGuard.invalidate();
     photoRestoreInFlightRef.current = false;
     setImages(mountSeed.images);
     setErrors({});
@@ -1364,7 +1366,7 @@ function TradeMarketplaceWriteFormInner({
         setIsDirectDeal(true);
       }
     }
-  }, [category.id, editPostId, hasDirectDeal, hasFreeShare, isUsedCarSkin, mountSeed]);
+  }, [category.id, editPostId, hasDirectDeal, hasFreeShare, isUsedCarSkin, mountSeed, photoRestoreGuard]);
 
   useEffect(() => {
     const handler = (e: Event) => {

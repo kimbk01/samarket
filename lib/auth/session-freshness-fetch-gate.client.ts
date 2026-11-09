@@ -115,20 +115,6 @@ function waitForFreshSession(capMs: number): Promise<void> {
 }
 
 /**
- * 요청 전에 세션 신선도만 기다린다 (fetch 를 거치지 않는 요청용 — 예: 복귀 조정자가 내는 RSC 프리페치).
- * 동작은 fetch 관문과 동일: 토큰이 만료 90초 이내일 때만 같은 단일 비행(`inflight`)을 기다리고, 상한 후 그대로 진행.
- * 새 갱신을 일으키지 않는다(만료면 `getSession()` 이 SDK 규칙대로 1회 갱신 — fetch 관문과 공유).
- */
-export async function waitForSessionFreshnessIfNeeded(capMs = SESSION_FRESHNESS_WAIT_CAP_MS): Promise<void> {
-  try {
-    if (typeof window === "undefined") return;
-    if (await tokenNeedsFreshness(Date.now())) await waitForFreshSession(capMs);
-  } catch {
-    /* 관문 실패 → 그대로 진행 */
-  }
-}
-
-/**
  * P0-C (Owner 4단계 C 2026-11-09) — 복귀 조정자 전용 「결과 기반」 세션 판정.
  *
  * 위 fetch 관문(Amendment 7: 3초 후 그대로 진행)은 바꾸지 않는다. 이 함수는 결과를 돌려줄 뿐 요청을 막지 않으며,

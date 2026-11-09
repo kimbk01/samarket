@@ -103,4 +103,58 @@ describe("useReleaseDroppedBlobUrls — Blob URL 주인 계약", () => {
     unmount();
     expect(live.has(a)).toBe(false);
   });
+
+  /**
+   * 업로드 응답 뒤 미리보기 URL 을 만드는 화면(광고 소재 등)의 순서 그대로:
+   * 응답 대기 → `isOwnerMounted()` 확인 → 살아 있으면 create 후 목록에 넣고, 사라졌으면 만들지 않는다.
+   */
+  function UploadOwner({ onReady }: { onReady: (api: { finishUpload: () => void }) => void }) {
+    const [urls, setUrls] = React.useState<string[]>([]);
+    const isOwnerMounted = useReleaseDroppedBlobUrls(urls);
+    React.useEffect(() => {
+      onReady({
+        finishUpload: () => {
+          if (!isOwnerMounted()) return;
+          const u = create();
+          setUrls((prev) => [...prev, u]);
+        },
+      });
+    }, [isOwnerMounted, onReady]);
+    return null;
+  }
+
+  it("업로드 중 화면을 닫으면 응답 뒤 미리보기 URL 을 만들지 않는다 — live 0", () => {
+    let api: { finishUpload: () => void } | null = null;
+    render(<UploadOwner onReady={(a) => (api = a)} />);
+    unmount();
+    act(() => api!.finishUpload());
+    act(() => {
+      vi.runAllTimers();
+    });
+    expect(live.size).toBe(0);
+  });
+
+  it("화면이 살아 있으면 응답 뒤 만든 URL 은 목록에 들어가고, 언마운트 때 해제된다", () => {
+    let api: { finishUpload: () => void } | null = null;
+    render(<UploadOwner onReady={(a) => (api = a)} />);
+    act(() => api!.finishUpload());
+    expect(live.size).toBe(1);
+    unmount();
+    expect(live.size).toBe(0);
+  });
+
+  it("StrictMode 가짜 언마운트 뒤에도 주인은 살아 있는 것으로 본다", () => {
+    let api: { finishUpload: () => void } | null = null;
+    act(() =>
+      root.render(
+        <StrictMode>
+          <UploadOwner onReady={(a) => (api = a)} />
+        </StrictMode>
+      )
+    );
+    act(() => api!.finishUpload());
+    expect(live.size).toBe(1);
+    unmount();
+    expect(live.size).toBe(0);
+  });
 });

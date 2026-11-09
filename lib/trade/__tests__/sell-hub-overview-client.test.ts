@@ -10,12 +10,13 @@ vi.mock("@/lib/mypage/trade-history-client", () => ({
   fetchTradeHistorySalesBySession: () => salesMock(),
 }));
 vi.mock("@/lib/mypage/seller-listings-with-trades", () => ({
-  countActiveListingProducts: (posts: unknown[]) => posts.length,
   countOpenSellerChatRows: (rows: unknown[]) => rows.length,
 }));
 
 import {
+  SELL_HUB_OVERVIEW_SNAPSHOT_TTL_MS,
   __resetSellHubOverviewForTests,
+  clearSellHubOverview,
   getSellHubOverviewState,
   loadSellHubOverview,
   seedSellHubOverview,
@@ -33,7 +34,16 @@ function mockFetch(opts: { perfOk?: boolean; postsOk?: boolean } = {}) {
           ? json({ ok: false }, false)
           : json({ ok: true, views: 5, favorites: 2, reports: 0 });
       if (url.includes("/api/my/posts"))
-        return opts.postsOk === false ? json({}, false) : json({ posts: [{}, {}, {}] });
+        return opts.postsOk === false
+          ? json({}, false)
+          : json({
+              posts: [
+                { id: "p1", status: "active" },
+                { id: "p2", status: "active" },
+                { id: "p3", status: "active" },
+                { id: "p4", status: "sold" },
+              ],
+            });
       return json({});
     })
   );
@@ -50,7 +60,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("판매 허브 개요 첫 그림", () => {
   it("스냅샷이 없으면 loading — 값 null(0 아님)", () => {
     const s = seedSellHubOverview("u1");
-    expect(s).toEqual({ viewerId: "u1", values: null, loading: true });
+    expect(s).toEqual({ viewerId: "u1", values: null, fetchedAt: 0, loading: true });
   });
 
   it("조회 성공 → 값 채움 + 스냅샷 저장, 다음 시드는 스냅샷으로 바로 값", async () => {
@@ -71,7 +81,7 @@ describe("판매 허브 개요 첫 그림", () => {
     mockFetch();
     await loadSellHubOverview("u1");
     __resetSellHubOverviewForTests();
-    expect(seedSellHubOverview("u2")).toEqual({ viewerId: "u2", values: null, loading: true });
+    expect(seedSellHubOverview("u2")).toEqual({ viewerId: "u2", values: null, fetchedAt: 0, loading: true });
   });
 
   it("실패한 칸만 null(「—」), 0 으로 채우지 않음", async () => {
@@ -91,6 +101,39 @@ describe("판매 허브 개요 첫 그림", () => {
     await loadSellHubOverview("u1");
     expect(getSellHubOverviewState()?.values?.activeListingCount).toBe(3);
     expect(getSellHubOverviewState()?.values?.performance?.views).toBe(5);
+  });
+});
+
+describe("재감사 보완 (2026-11-10)", () => {
+  it("판매중 = /mypage/products 판매중 탭 규칙(판매완료 제외)", async () => {
+    mockFetch();
+    await loadSellHubOverview("u1");
+    expect(getSellHubOverviewState()?.values?.activeListingCount).toBe(3);
+  });
+
+  it("메모리 값도 10분이 지나면 버린다", async () => {
+    mockFetch();
+    await loadSellHubOverview("u1");
+    const at = getSellHubOverviewState()!.fetchedAt;
+    sessionStorage.clear();
+    const seeded = seedSellHubOverview("u1", at + SELL_HUB_OVERVIEW_SNAPSHOT_TTL_MS + 1);
+    expect(seeded).toEqual({ viewerId: "u1", values: null, fetchedAt: 0, loading: true });
+  });
+
+  it("로그아웃·계정 전환 정리 = 메모리와 sessionStorage 전부(다른 계정 키 포함)", async () => {
+    mockFetch();
+    await loadSellHubOverview("u1");
+    sessionStorage.setItem("dibay.sell-hub-overview.v1:u0", "{}");
+    sessionStorage.setItem("other-key", "x");
+    clearSellHubOverview();
+    expect(getSellHubOverviewState()).toBeNull();
+    expect(sessionStorage.getItem("dibay.sell-hub-overview.v1:u1")).toBeNull();
+    expect(sessionStorage.getItem("dibay.sell-hub-overview.v1:u0")).toBeNull();
+    expect(sessionStorage.getItem("other-key")).toBe("x");
+  });
+
+  it("빈 viewer 는 시드하지 않는다(비회원 화면은 컴포넌트가 빈 칸 처리)", () => {
+    expect(seedSellHubOverview("")).toBeNull();
   });
 });
 

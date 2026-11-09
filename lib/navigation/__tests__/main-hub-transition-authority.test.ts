@@ -65,4 +65,13 @@ describe("main-hub-transition-authority", () => {
     finalizeMainHubTransition(b.generation);
     expect(peekMainHubTransition()).toBeNull();
   });
+
+  it("재감사: 경로 불일치(mismatch)는 세션을 끝내지 않는다 → 호출자(AppRouteTransition)가 finalize 해야 다음 이동이 정상", () => {
+    const s = beginMainHubTransitionFromIntent({ intentId: 1, axis: "rtl", targetPath: "/stores" });
+    expect(settleMainHubTransitionOnPathname(s.generation, "/philife")).toBe("mismatch");
+    expect(isMainHubTransitionGenerationActive(s.generation)).toBe(true);
+    finalizeMainHubTransition(s.generation);
+    expect(isMainHubTransitionGenerationActive(s.generation)).toBe(false);
+    expect(peekMainHubTransition()).toBeNull();
+  });
 });

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import {
-  countActiveListingProducts,
   countOpenSellerChatRows,
   groupSalesRowsByPostId,
 } from "@/lib/mypage/seller-listings-with-trades";
@@ -35,18 +34,6 @@ describe("groupSalesRowsByPostId", () => {
     ]);
     expect(map.get("p1")?.map((r) => r.chatId)).toEqual(["b", "a"]);
     expect(map.has("p2")).toBe(false);
-  });
-});
-
-describe("countActiveListingProducts", () => {
-  it("counts non-sold non-hidden listings", () => {
-    expect(
-      countActiveListingProducts([
-        { status: "active" },
-        { status: "sold" },
-        { status: "hidden" },
-      ])
-    ).toBe(1);
   });
 });
 

@@ -7,6 +7,7 @@ import {
   CM_ROOM_PREFETCH_COOLDOWN_MS,
 } from "@/lib/community-messenger/room/cm-bootstrap-constants";
 import { replacePerformanceMark } from "@/lib/performance/performance-mark-replace";
+import { setBounded } from "@/lib/collections/bounded-collections";
 
 export { CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS, CM_ROOM_PREFETCH_COOLDOWN_MS };
 
@@ -41,6 +42,16 @@ export function normalizeCmBootstrapTriggerSource(reason?: string | null): CmBoo
   return "unknown";
 }
 
+/**
+ * 방별 기록 상한 — 오래 켜 둔 앱에서 방을 계속 드나들어도 아래 Map 이 끝없이 커지지 않게(`bounded-collections`, c06164361).
+ * 근거: 메신저 홈·부트스트랩이 한 번에 싣는 최대 방 수 `COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP`(= 500, `service.ts` —
+ * 서버 전용 모듈이라 import 하지 않고 값만 맞춘다). 목록에 실리는 방 전부의 기록을 유지할 수 있는 크기다.
+ * 넘으면 가장 오래 안 쓴 방부터 잊는다(LRU) — 잊은 방은 다음 진입 때 「직전 기록 없음」으로 다시 시작할 뿐
+ * (프리페치 쿨다운·트리거 간격 진단·스케줄 간격 진단이 1회 초기화), 진행 중 잠금은 쓸 때마다 맨 뒤로 가므로
+ * 같은 시간에 500개 방 부트스트랩이 겹치지 않는 한 버려지지 않는다.
+ */
+export const CM_BOOTSTRAP_ROOM_RECORDS_MAX = 500;
+
 const lastTriggerAtByRoom = new Map<string, number>();
 const scheduleMarkAtByRoom = new Map<string, number>();
 const fetchStartMarkAtByRoom = new Map<string, number>();
@@ -70,7 +81,7 @@ export function markRoomPrefetchAttempt(roomId: string): boolean {
   const last = lastPrefetchAttemptAtByRoom.get(id) ?? 0;
   if (Date.now() - last < CM_ROOM_PREFETCH_COOLDOWN_MS) return false;
   if (wasRoomPrefetchRecentlySuccessful(id)) return false;
-  lastPrefetchAttemptAtByRoom.set(id, Date.now());
+  setBounded(lastPrefetchAttemptAtByRoom, id, Date.now(), CM_BOOTSTRAP_ROOM_RECORDS_MAX);
   prefetchInflightRooms.add(id);
   return true;
 }
@@ -78,7 +89,7 @@ export function markRoomPrefetchAttempt(roomId: string): boolean {
 export function markRoomPrefetchComplete(roomId: string, ok: boolean): void {
   const id = roomId.trim();
   prefetchInflightRooms.delete(id);
-  if (ok) lastPrefetchSuccessAtByRoom.set(id, Date.now());
+  if (ok) setBounded(lastPrefetchSuccessAtByRoom, id, Date.now(), CM_BOOTSTRAP_ROOM_RECORDS_MAX);
 }
 
 export function tryAcquireCmBootstrapRoomLock(roomId: string, highPriority: boolean): {
@@ -94,11 +105,11 @@ export function tryAcquireCmBootstrapRoomLock(roomId: string, highPriority: bool
   const st = lockByRoom.get(id) ?? { inflight: false, droppedWhileInflight: 0 };
   if (st.inflight) {
     st.droppedWhileInflight += 1;
-    lockByRoom.set(id, st);
+    setBounded(lockByRoom, id, st, CM_BOOTSTRAP_ROOM_RECORDS_MAX);
     return { acquired: false, dropped: true, inflight_existing: true };
   }
   st.inflight = true;
-  lockByRoom.set(id, st);
+  setBounded(lockByRoom, id, st, CM_BOOTSTRAP_ROOM_RECORDS_MAX);
   return { acquired: true, dropped: false, inflight_existing: false };
 }
 
@@ -107,7 +118,7 @@ export function releaseCmBootstrapRoomLock(roomId: string): void {
   const st = lockByRoom.get(id);
   if (!st) return;
   st.inflight = false;
-  lockByRoom.set(id, st);
+  setBounded(lockByRoom, id, st, CM_BOOTSTRAP_ROOM_RECORDS_MAX);
 }
 
 export type CmBootstrapTriggerChainInput = {
@@ -130,12 +141,12 @@ export function recordCmBootstrapTriggerChain(input: CmBootstrapTriggerChainInpu
   const now = Date.now();
   const prev = lastTriggerAtByRoom.get(id);
   const sinceLast = prev != null ? now - prev : null;
-  lastTriggerAtByRoom.set(id, now);
+  setBounded(lastTriggerAtByRoom, id, now, CM_BOOTSTRAP_ROOM_RECORDS_MAX);
 
   if (typeof performance !== "undefined") {
     replacePerformanceMark(`cm-bootstrap-trigger:${id.slice(-8)}`);
     replacePerformanceMark(`cm-bootstrap-schedule:${id.slice(-8)}`);
-    scheduleMarkAtByRoom.set(id, performance.now());
+    setBounded(scheduleMarkAtByRoom, id, performance.now(), CM_BOOTSTRAP_ROOM_RECORDS_MAX);
   }
 
   // eslint-disable-next-line no-console -- bootstrap scheduling diagnostics
@@ -164,7 +175,7 @@ export function markCmBootstrapFetchScheduled(roomId: string, scheduledDelayMs: 
   replacePerformanceMark(`cm-bootstrap-fetch-start:${id.slice(-8)}`);
   const schedAt = scheduleMarkAtByRoom.get(id);
   const now = performance.now();
-  fetchStartMarkAtByRoom.set(id, now);
+  setBounded(fetchStartMarkAtByRoom, id, now, CM_BOOTSTRAP_ROOM_RECORDS_MAX);
   const scheduleGapMs = schedAt != null ? Math.round(now - schedAt) : 0;
   const triggerEntries = performance.getEntriesByName(`cm-bootstrap-trigger:${id.slice(-8)}`, "mark");
   const triggerAt = triggerEntries[triggerEntries.length - 1]?.startTime;
@@ -198,7 +209,7 @@ export function cmStrictEffectRunProbe(effectName: string, roomId?: string | nul
   const prev = strictEffectRuns.get(key) ?? [];
   const recent = prev.filter((t) => now - t < 120);
   recent.push(now);
-  strictEffectRuns.set(key, recent);
+  setBounded(strictEffectRuns, key, recent, CM_BOOTSTRAP_ROOM_RECORDS_MAX);
   if (recent.length >= 2) {
     const duplicateWithinMs = recent[recent.length - 1]! - recent[recent.length - 2]!;
     if (duplicateWithinMs < 80) {
@@ -210,4 +221,18 @@ export function cmStrictEffectRunProbe(effectName: string, roomId?: string | nul
       });
     }
   }
+}
+
+/** 진단·회귀 테스트용 — 방별 기록 Map 크기(상한 `CM_BOOTSTRAP_ROOM_RECORDS_MAX` 이하여야 한다). */
+export function readCmBootstrapRoomRecordSizes(): Record<string, number> {
+  return {
+    lastTriggerAtByRoom: lastTriggerAtByRoom.size,
+    scheduleMarkAtByRoom: scheduleMarkAtByRoom.size,
+    fetchStartMarkAtByRoom: fetchStartMarkAtByRoom.size,
+    lockByRoom: lockByRoom.size,
+    prefetchInflightRooms: prefetchInflightRooms.size,
+    lastPrefetchAttemptAtByRoom: lastPrefetchAttemptAtByRoom.size,
+    lastPrefetchSuccessAtByRoom: lastPrefetchSuccessAtByRoom.size,
+    strictEffectRuns: strictEffectRuns.size,
+  };
 }

@@ -76,6 +76,10 @@ import {
   TRADE_WRITE_DRAFT_AUTOSAVE_DEBOUNCE_MS,
   tradeWriteImagesToDraftRefs,
 } from "@/lib/posts/trade-write-form-session-draft";
+import {
+  settleTradeWriteDraftPhotoRestore,
+  useTradeWriteDraftPhotoRestoreGuard,
+} from "@/lib/posts/use-trade-write-draft-photo-restore-guard";
 import { loadTradeWriteDraftImageItems } from "@/lib/posts/trade-write-draft-photo-store";
 import { resolveTradeCompositionForCategory } from "@/lib/trade/category-form/resolve-for-category";
 import { applyTradeBehaviorAdapter } from "@/lib/trade/category-form/behavior-adapters";
@@ -90,7 +94,6 @@ import type {
   TradeWriteChromeState,
 } from "@/lib/trade/category-form/extended-write-controller";
 import { translateBy } from "@/lib/i18n/translate-by";
-import { revokeBlobUrlsExcept } from "@/lib/media/use-release-dropped-blob-urls";
 
 /**
  * Exchange Write — rate card / prep / memo stay shell (derived UX + multi-select).
@@ -212,7 +215,7 @@ export function ExchangeExtendedWriteFields({
   const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
   /** D11 — 기기 보관 사진을 불러오는 중이면 자동 저장을 멈춘다 (사진 없는 상태로 덮어쓰기 방지) */
   const photoRestoreInFlightRef = useRef(false);
-  const photoRestoreTokenRef = useRef(0);
+  const photoRestoreGuard = useTradeWriteDraftPhotoRestoreGuard();
   /** 등록 성공 뒤 — 자동 저장·백그라운드 저장이 지운 스테이징을 다시 쓰지 않게 */
   const stagingSucceededRef = useRef(false);
   /** 이어쓰기 판정은 마운트·시트 열기마다 1회 — 경로만 바뀐 재실행에서 자동 저장본으로 질문이 다시 뜨지 않게 */
@@ -259,23 +262,21 @@ export function ExchangeExtendedWriteFields({
     setTradeTopicChildId(staged.tradeTopicChildId);
     /** 기기 보관 사진은 불러온 뒤 같은 순서로 한 번에 적용 (D11) */
     const refs = readDraftImageRefsFromFields(staged);
-    const restoreToken = ++photoRestoreTokenRef.current;
+    const isPhotoRestoreCurrent = photoRestoreGuard.begin();
     if (refs.some((r) => "localId" in r)) {
       photoRestoreInFlightRef.current = true;
       void loadTradeWriteDraftImageItems(category.id, refs).then((items) => {
-        if (restoreToken !== photoRestoreTokenRef.current) {
-          // P0-D: 버려지는 복원 결과 URL 해제(목록 주인은 TradeWriteForm images — 들어가지 않은 URL 은 모른다).
-          revokeBlobUrlsExcept(items.map((i) => i.url));
-          return;
-        }
-        photoRestoreInFlightRef.current = false;
-        setImages(items);
+        // P0-D: 버려지는 결과(새 복원·초기화·화면 닫힘)의 URL 은 가드가 해제 — 목록에 안 들어가 주인 훅이 모른다.
+        settleTradeWriteDraftPhotoRestore(isPhotoRestoreCurrent, items, (restored) => {
+          photoRestoreInFlightRef.current = false;
+          setImages(restored);
+        });
       });
     } else {
       photoRestoreInFlightRef.current = false;
       setImages(refs.flatMap((r) => ("url" in r ? [{ url: r.url }] : [])));
     }
-  }, [category.id]);
+  }, [category.id, photoRestoreGuard]);
 
   useLayoutEffect(() => {
     if (editPostId) return;
@@ -506,7 +507,7 @@ export function ExchangeExtendedWriteFields({
     discardTradeWriteStashedDraft(category.id);
     /** 폐기 이벤트가 막은 자동 저장을 다시 켠다 — 이후 새 입력은 저장 */
     stagingDiscardedRef.current = false;
-    photoRestoreTokenRef.current += 1;
+    photoRestoreGuard.invalidate();
     photoRestoreInFlightRef.current = false;
     setDraftResumeGate("ready");
     setDirection("sell");
@@ -524,7 +525,7 @@ export function ExchangeExtendedWriteFields({
     setImages([]);
     setTradeMeetSpot(null);
     setErrors({});
-  }, [category.id, editPostId]);
+  }, [category.id, editPostId, photoRestoreGuard]);
 
   const meaningfulTradeDraftForSheet = useMemo(
     () =>

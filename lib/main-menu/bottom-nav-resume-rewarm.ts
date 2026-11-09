@@ -20,6 +20,8 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { collectBottomNavBootPrewarmHrefs } from "@/lib/main-menu/bottom-nav-boot-idle-prewarm";
 import { shouldPrefetchMainBottomNavHref } from "@/lib/main-menu/main-bottom-nav-link-prefetch-eligibility";
 import type { MainBottomNavPickContext } from "@/lib/main-menu/main-bottom-nav-pick-context";
+import type { AppResumeTask } from "@/lib/app-resume/app-resume-coordinator";
+import { ROUTER_PREFETCH_REWARM_MIN_HIDDEN_MS } from "@/lib/performance/router-cache-policy";
 
 export type BottomNavResumeRewarmInput = {
   pathname: string | null;
@@ -34,15 +36,18 @@ export function collectBottomNavResumeRewarmHrefs(input: BottomNavResumeRewarmIn
   );
 }
 
+/**
+ * 대상 탭을 한 번씩 요청한다. 취소 판정은 복귀 조정자가 실행 **전에** 한다(다시 숨김·로그아웃·계정 전환 →
+ * epoch abort → `runOne` 이 실행하지 않음, background 레인은 idle 대기 뒤에도 다시 확인). 이 반복은 동기라
+ * 도중에 abort 가 끼어들 수 없어 반복문 안 검사는 두지 않는다.
+ */
 export function runBottomNavResumeRewarm(
   input: BottomNavResumeRewarmInput,
-  prefetchFull: (href: string) => void,
-  signal: AbortSignal
+  prefetchFull: (href: string) => void
 ): string[] {
   const hrefs = collectBottomNavResumeRewarmHrefs(input);
   const issued: string[] = [];
   for (const href of hrefs) {
-    if (signal.aborted) break;
     try {
       prefetchFull(href);
       issued.push(href);
@@ -51,4 +56,24 @@ export function runBottomNavResumeRewarm(
     }
   }
   return issued;
+}
+
+/**
+ * 복귀 조정자에 등록하는 작업(단일 정의 — `BottomNavBootIdlePrewarmHost` 가 등록, 테스트가 같은 작업으로 취소 경로 검증).
+ * - `background` 레인(idle 뒤·통화 중 생략) · `auth: "optional"`(회원 탭 RSC 는 로그인 쿠키로 나간다 → 세션 미확정이면
+ *   보류, 무효면 취소, 비회원은 공개 탭만) · 숨김 ≥ 라우터 캐시 dynamic 만료일 때만.
+ */
+export function createBottomNavResumeRewarmTask(
+  readLatest: () => BottomNavResumeRewarmInput,
+  prefetchFull: (href: string) => void
+): AppResumeTask {
+  return {
+    id: "bottom-nav-resume-rewarm",
+    lane: "background",
+    auth: "optional",
+    minHiddenMs: ROUTER_PREFETCH_REWARM_MIN_HIDDEN_MS,
+    run: () => {
+      runBottomNavResumeRewarm(readLatest(), prefetchFull);
+    },
+  };
 }

@@ -7,15 +7,15 @@
  * - 숫자를 모르면 0 으로 채우지 않는다. 「—」는 조회 실패일 때만 (`docs/mypage-v2/dibay-mypage-v2-integrated-design.md` §158 과 같은 규칙).
  * - 조회는 viewer 당 단일 비행. 실패하면 직전 스냅샷 값은 유지한다.
  * - 스냅샷 키에 viewerId 를 넣어 다른 계정 값은 읽지 않는다.
+ * - 재감사 보완(2026-11-10): 메모리 값도 10분 제한 · 로그아웃·계정 전환 때 메모리와 sessionStorage 전부 폐기 ·
+ *   「판매중」 = `/mypage/products` 판매중 탭·내정보 요약과 같은 규칙(`filterMyProductsByListingAxis(...,"active")`).
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
 import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { fetchTradeHistorySalesBySession } from "@/lib/mypage/trade-history-client";
-import {
-  countActiveListingProducts,
-  countOpenSellerChatRows,
-} from "@/lib/mypage/seller-listings-with-trades";
+import { countOpenSellerChatRows } from "@/lib/mypage/seller-listings-with-trades";
+import { filterMyProductsByListingAxis } from "@/lib/products/my-product-listing-filter";
 
 export type SellHubTradePerformance = { views: number; favorites: number; reports: number };
 
@@ -29,6 +29,8 @@ export type SellHubOverviewState = {
   viewerId: string;
   /** null = 아직 값이 한 번도 없음(스냅샷도 없음) */
   values: SellHubOverviewValues | null;
+  /** values 를 받은 시각(ms) — 0 = 값 없음 */
+  fetchedAt: number;
   loading: boolean;
 };
 
@@ -51,7 +53,7 @@ export function getSellHubOverviewState(): SellHubOverviewState | null {
   return state;
 }
 
-function readSnapshot(viewerId: string, now: number): SellHubOverviewValues | null {
+function readSnapshot(viewerId: string, now: number): { values: SellHubOverviewValues; at: number } | null {
   try {
     const raw = window.sessionStorage.getItem(SESSION_PREFIX + viewerId);
     if (!raw) return null;
@@ -62,18 +64,15 @@ function readSnapshot(viewerId: string, now: number): SellHubOverviewValues | nu
       window.sessionStorage.removeItem(SESSION_PREFIX + viewerId);
       return null;
     }
-    return parsed.values;
+    return { values: parsed.values, at };
   } catch {
     return null;
   }
 }
 
-function writeSnapshot(viewerId: string, values: SellHubOverviewValues): void {
+function writeSnapshot(viewerId: string, values: SellHubOverviewValues, at: number): void {
   try {
-    window.sessionStorage.setItem(
-      SESSION_PREFIX + viewerId,
-      JSON.stringify({ viewerId, at: Date.now(), values })
-    );
+    window.sessionStorage.setItem(SESSION_PREFIX + viewerId, JSON.stringify({ viewerId, at, values }));
   } catch {
     /* quota/private */
   }
@@ -83,9 +82,14 @@ function writeSnapshot(viewerId: string, values: SellHubOverviewValues): void {
 export function seedSellHubOverview(viewerId: string, now = Date.now()): SellHubOverviewState | null {
   const uid = viewerId.trim();
   if (!uid || typeof window === "undefined") return null;
-  if (state?.viewerId === uid) return state;
+  /** 같은 viewer 라도 메모리 값이 10분을 넘으면 버린다(sessionStorage 와 같은 제한). */
+  if (state?.viewerId === uid && (state.values === null || now - state.fetchedAt <= SELL_HUB_OVERVIEW_SNAPSHOT_TTL_MS)) {
+    return state;
+  }
   const snap = readSnapshot(uid, now);
-  state = { viewerId: uid, values: snap, loading: snap === null };
+  state = snap
+    ? { viewerId: uid, values: snap.values, fetchedAt: snap.at, loading: false }
+    : { viewerId: uid, values: null, fetchedAt: 0, loading: true };
   return state;
 }
 
@@ -109,7 +113,7 @@ async function requestActiveListingCount(): Promise<number | null> {
     const res = await fetch("/api/my/posts");
     if (!res.ok) return null;
     const data = (await res.json()) as { posts?: Product[] };
-    return countActiveListingProducts(data.posts ?? []);
+    return filterMyProductsByListingAxis(data.posts ?? [], "active").length;
   } catch {
     return null;
   }
@@ -143,17 +147,32 @@ export async function loadSellHubOverview(viewerId: string): Promise<void> {
       openChatCount: openChatCount ?? prev?.openChatCount ?? null,
       performance: performance ?? prev?.performance ?? null,
     };
-    state = { viewerId: uid, values, loading: false };
-    if (activeListingCount !== null || openChatCount !== null || performance !== null) {
-      writeSnapshot(uid, values);
-    }
+    const anyFresh = activeListingCount !== null || openChatCount !== null || performance !== null;
+    const fetchedAt = anyFresh ? Date.now() : state.fetchedAt;
+    state = { viewerId: uid, values, fetchedAt, loading: false };
+    if (anyFresh) writeSnapshot(uid, values, fetchedAt);
     emit();
   });
 }
 
-/** 로그아웃·계정 전환 */
+function removeAllSnapshots(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const k = window.sessionStorage.key(i);
+      if (k && k.startsWith(SESSION_PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => window.sessionStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 로그아웃·계정 전환 — 메모리·sessionStorage 전부 폐기 */
 export function clearSellHubOverview(): void {
   state = null;
+  removeAllSnapshots();
   emit();
 }
 
