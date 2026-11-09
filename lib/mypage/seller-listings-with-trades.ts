@@ -28,20 +28,6 @@ export function groupSalesRowsByPostId(rows: SalesHistoryRow[]): Map<string, Sal
   return map;
 }
 
-/** Overview: active listing count from raw posts status (client-side). */
-export function countActiveListingProducts(
-  products: { status?: string | null; sellerListingState?: string | null }[]
-): number {
-  let n = 0;
-  for (const p of products) {
-    const st = String(p.status ?? "").toLowerCase();
-    if (st === "hidden" || st === "blinded" || st === "deleted") continue;
-    if (st === "sold") continue;
-    n += 1;
-  }
-  return n;
-}
-
 /** Overview: buyer chat rows in chatting-like flow (for hub chip). */
 export function countOpenSellerChatRows(rows: SalesHistoryRow[]): number {
   let n = 0;

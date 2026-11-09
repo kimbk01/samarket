@@ -11,6 +11,7 @@ import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import {
   clearSellHubOverview,
   getSellHubOverviewState,
@@ -33,7 +34,17 @@ const MESSAGES_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 const ALERTS_HREF = "/notifications?tab=trade";
 
 /** 숫자 칸 — 로딩 중 스켈레톤(내정보 값 자리와 같은 모양), 실패면 「—」, 값이면 숫자 */
-function SellHubOverviewValue({ loading, value }: { loading: boolean; value: number | null }) {
+export function SellHubOverviewValue({
+  loading,
+  value,
+  empty = false,
+}: {
+  loading: boolean;
+  value: number | null;
+  /** 비회원 — 셀 숫자 없음: 빈 칸 */
+  empty?: boolean;
+}) {
+  if (empty) return null;
   if (loading) {
     return (
       <span
@@ -59,7 +70,9 @@ function MarketplaceSellHubContent() {
   if (viewerId) seedSellHubOverview(viewerId);
   const overview = useSyncExternalStore(subscribeSellHubOverview, getSellHubOverviewState, () => null);
   const current = overview && overview.viewerId === viewerId ? overview : null;
-  const loading = !current || (current.loading && current.values === null);
+  /** 비회원 확정 — 셀 수 있는 숫자가 없다: 스켈레톤·0 없이 칸을 비운다(재감사 2026-11-10). */
+  const isGuest = !viewerId && membership.status === "guest";
+  const loading = !isGuest && (!current || (current.loading && current.values === null));
   const activeListingCount = current?.values?.activeListingCount ?? null;
   const openChatCount = current?.values?.openChatCount ?? null;
   const performance = current?.values?.performance ?? null;
@@ -70,6 +83,15 @@ function MarketplaceSellHubContent() {
     if (s && s.viewerId !== viewerId) clearSellHubOverview();
     void loadSellHubOverview(viewerId);
   }, [viewerId]);
+
+  /** 로그아웃 — 이전 계정 숫자(메모리·sessionStorage) 폐기. 내정보 요약 훅과 같은 규칙. */
+  useEffect(
+    () =>
+      subscribeDibayAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") clearSellHubOverview();
+      }),
+    [],
+  );
 
   const go = (href: string) => {
     if (!guardBeforeNavigate(href)) return;
@@ -109,7 +131,7 @@ function MarketplaceSellHubContent() {
               {safeT("marketplace_seller_hub_overview_active")}
             </p>
             <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-              <SellHubOverviewValue loading={loading} value={activeListingCount} />
+              <SellHubOverviewValue loading={loading} empty={isGuest} value={activeListingCount} />
             </p>
           </button>
           <button
@@ -121,7 +143,7 @@ function MarketplaceSellHubContent() {
               {safeT("marketplace_seller_hub_overview_chats")}
             </p>
             <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-              <SellHubOverviewValue loading={loading} value={openChatCount} />
+              <SellHubOverviewValue loading={loading} empty={isGuest} value={openChatCount} />
             </p>
           </button>
         </div>
@@ -146,7 +168,7 @@ function MarketplaceSellHubContent() {
             >
               <p className="sam-text-helper text-sam-muted">{label}</p>
               <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-                <SellHubOverviewValue loading={loading} value={performance === null ? null : performance[key]} />
+                <SellHubOverviewValue loading={loading} empty={isGuest} value={performance === null ? null : performance[key]} />
               </p>
             </div>
           ))}

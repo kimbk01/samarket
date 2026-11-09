@@ -21,7 +21,7 @@ export type MainHubTransitionSession = {
   targetPath: string;
   startedAt: number;
   phase: MainHubTransitionPhase;
-  /** performance.now when from-rtl first applied (transition_first_frame) */
+  /** performance.now when the tap armed the surface (transition_first_frame) — D-1 이후 from-* 는 경로 확정 때 붙는다 */
   firstFrameAt: number | null;
   /** performance.now when matching pathname committed */
   pathnameCommitAt: number | null;

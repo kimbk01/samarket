@@ -49,6 +49,16 @@ describe("main hub intent transition contract", () => {
     expect(enter).toContain("el.classList.add(enterClass)");
   });
 
+  it("재감사: settle 이 mismatch 면 세션을 끝내고(finalize) 표식을 정리한다", () => {
+    const art = read("components/route-transition/AppRouteTransition.tsx");
+    const i = art.indexOf('if (settle === "mismatch") {');
+    expect(i).toBeGreaterThan(-1);
+    const block = art.slice(i, art.indexOf('} else if (settle === "stale")', i));
+    expect(block).toContain("forceMainHubSurfaceCleanup(el);");
+    expect(block).toContain("finalizeMainHubTransition(activeHub.generation);");
+    expect(block).not.toContain("return undefined");
+  });
+
   it("does not dual-panel push when hub header shares ONE transform surface", () => {
     const art = read("components/route-transition/AppRouteTransition.tsx");
     expect(art).toContain("hubChromeHeader");

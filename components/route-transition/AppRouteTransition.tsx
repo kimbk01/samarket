@@ -692,7 +692,15 @@ export function AppRouteTransition({
               applyMainHubEnter(el, activeHub.axis, activeHub.generation);
               return undefined;
             }
-            if (settle === "stale" || settle === "mismatch") {
+            if (settle === "mismatch") {
+              /**
+               * 재감사(2026-11-10): 누른 탭과 다른 경로로 확정(탭 직후 뒤로가기·다른 링크) — 이 세션은 여기서 끝낸다.
+               * 예전에는 return 만 해 세션이 종료되지 않아, 다음 하단 탭을 누를 때까지 뒤로/앞으로 허브 슬라이드가
+               * 생략되고 표식(data-route-transition-kind 등)이 남았다. 끝낸 뒤 아래 비의도 허브 이동 경로로 처리한다.
+               */
+              forceMainHubSurfaceCleanup(el);
+              finalizeMainHubTransition(activeHub.generation);
+            } else if (settle === "stale") {
               return undefined;
             }
           }

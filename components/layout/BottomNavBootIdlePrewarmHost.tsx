@@ -4,9 +4,8 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { PrefetchOptions } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { scheduleBottomNavBootIdlePrewarm } from "@/lib/main-menu/bottom-nav-boot-idle-prewarm";
-import { runBottomNavResumeRewarm } from "@/lib/main-menu/bottom-nav-resume-rewarm";
+import { createBottomNavResumeRewarmTask } from "@/lib/main-menu/bottom-nav-resume-rewarm";
 import { registerAppResumeTask } from "@/lib/app-resume/app-resume-coordinator.client";
-import { ROUTER_PREFETCH_REWARM_MIN_HIDDEN_MS } from "@/lib/performance/router-cache-policy";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { useRegion } from "@/contexts/RegionContext";
 import { shouldRunApkBottomNavRoutePrefetch } from "@/lib/platform/apk-remote-webview-perf";
@@ -55,21 +54,15 @@ export function BottomNavBootIdlePrewarmHost() {
   }, [pathname, primaryRegion, router, searchParams, tabs]);
 
   useEffect(() => {
-    return registerAppResumeTask({
-      id: "bottom-nav-resume-rewarm",
-      lane: "background",
-      // 회원 탭 RSC 는 로그인 쿠키로 나간다 → 세션 미확정(pending·error)이면 보류, 무효면 취소, 비회원은 공개 탭만 실행.
-      auth: "optional",
-      minHiddenMs: ROUTER_PREFETCH_REWARM_MIN_HIDDEN_MS,
-      run: ({ signal }) => {
-        const cur = latestRef.current;
-        runBottomNavResumeRewarm(
-          { pathname: cur.pathname ?? null, tabs: cur.tabs, ctx: { searchParams: cur.searchParams } },
-          (href) => cur.router.prefetch(href, PREFETCH_FULL),
-          signal
-        );
-      },
-    });
+    return registerAppResumeTask(
+      createBottomNavResumeRewarmTask(
+        () => {
+          const cur = latestRef.current;
+          return { pathname: cur.pathname ?? null, tabs: cur.tabs, ctx: { searchParams: cur.searchParams } };
+        },
+        (href) => latestRef.current.router.prefetch(href, PREFETCH_FULL)
+      )
+    );
   }, []);
 
   return null;

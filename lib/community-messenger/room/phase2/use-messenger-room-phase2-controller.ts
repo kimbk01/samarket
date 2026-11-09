@@ -225,6 +225,30 @@ export function playMessengerMessageSentFeedbackOnce(
   return true;
 }
 
+/**
+ * 사진 전송 미리보기 URL 소유권 — 호출자(첨부 시트·사진 선택·첨부 확인)는 전송용으로 **새로 만든** blob URL 만 넘기고
+ * 해제 책임을 전송 컨트롤러에 넘긴다(「최근 사진」 보관소 URL 은 넘기지 않음 — 시트 P0-D).
+ * 전송에 쓰지 않는 URL(전송 불가·개수 불일치·상한 초과분)은 여기서 즉시 해제한다 — 쓰는 URL 은 기존 해제 경로
+ * (성공 60초 뒤·definitive 실패·실패 행 폐기)가 해제한다.
+ * @returns 전송할 파일·미리보기 쌍. 보낼 수 없으면 null(넘겨받은 URL 은 모두 해제됨).
+ */
+export function claimMessengerImageSendPreviews(
+  files: File[],
+  optimisticPreviewUrls: string[],
+  canSend: boolean,
+  max: number = MESSENGER_IMAGE_ALBUM_PICK_MAX,
+  revoke: (url: string) => void = (url) => URL.revokeObjectURL(url)
+): { files: File[]; previews: string[] } | null {
+  const list = files.slice(0, max);
+  const previews = optimisticPreviewUrls.slice(0, max);
+  if (!canSend || list.length === 0 || list.length !== previews.length) {
+    for (const u of optimisticPreviewUrls) revoke(u);
+    return null;
+  }
+  for (const u of optimisticPreviewUrls.slice(max)) revoke(u);
+  return { files: list, previews };
+}
+
 export function useMessengerRoomPhase2Controller() {
   const phase1 = useMessengerRoomClientPhase1Context();
   const {
@@ -1631,10 +1655,13 @@ export function useMessengerRoomPhase2Controller() {
       optimisticPreviewUrls: string[],
       opts?: { suppressErrorSnackbar?: boolean }
     ): Promise<boolean> => {
-      if (!snapshot || roomUnavailable) return false;
-      const list = files.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
-      const previews = optimisticPreviewUrls.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
-      if (list.length === 0 || list.length !== previews.length) return false;
+      const claimed = claimMessengerImageSendPreviews(
+        files,
+        optimisticPreviewUrls,
+        Boolean(snapshot) && !roomUnavailable
+      );
+      if (!claimed || !snapshot) return false;
+      const { files: list, previews } = claimed;
       // C-2: 텍스트와 동일 — 낙관 행 생성 전에 cid 1개를 만들고 행·요청 본문에 같은 값을 싣는다.
       const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
@@ -1702,6 +1729,8 @@ export function useMessengerRoomPhase2Controller() {
   const sendImageFilesIndividually = useCallback(
     async (files: File[], previewUrls: string[]) => {
       const pairs = files.map((file, i) => ({ file, previewUrl: previewUrls[i]! })).filter((p) => Boolean(p.previewUrl));
+      /** 짝 파일이 없는 URL 은 전송에 쓰이지 않는다 — 넘겨받은 소유권대로 즉시 해제 */
+      for (const u of previewUrls.slice(files.length)) URL.revokeObjectURL(u);
       const { sent, failed } = await runMessengerSequentialSends(pairs, (p) =>
         sendImageFiles([p.file], [p.previewUrl], { suppressErrorSnackbar: true })
       );
