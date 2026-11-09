@@ -176,7 +176,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
                 {item.nickname?.trim() || item.targetId}
               </p>
               {item.username ? (
-                <p data-copyable="" className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                <p data-copyable={profileHref ? undefined : ""} className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
                   @{item.username}
                 </p>
               ) : null}

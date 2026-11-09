@@ -346,6 +346,13 @@ svg {
     -webkit-user-select: text;
     user-select: text;
   }
+
+  /* 관리자 셸이 떠 있으면 body 전체 허용 — 셸 밖(body)에 그려지는 관리자 팝업·공용 시트도 복사 가능.
+     `data-admin-console="v2"` 는 AdminPlatformShell 루트에만 있다(사장님 화면은 해당 없음). */
+  body:has([data-admin-console="v2"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 a,

@@ -390,7 +390,7 @@ export function OwnerStoreOrderMockCard({
                   </span>
                 ) : null}
               </div>
-              <p data-copyable="" className="mt-2 text-[12px] font-semibold leading-[1.35] text-sam-muted">{order.order_no}</p>
+              <p className="mt-2 text-[12px] font-semibold leading-[1.35] text-sam-muted">{order.order_no}</p>
               <p className="mt-1 truncate text-[15px] font-bold leading-[1.35] text-[var(--biz-text)]">
                 {buyerLabel}
               </p>
@@ -610,7 +610,7 @@ export function OwnerStoreOrderMockCard({
                 <div className="grid grid-cols-2 gap-2 text-[12px] leading-[1.35]">
                   <InfoPill label={t("store_owner_payment_method_label")} value={formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)} />
                   <InfoPill label={t("store_owner_label_review_short")} value={reviewStatusLabel(order.review_status, language)} />
-                  <InfoPill label={t("store_owner_label_receipt")} value={order.order_no} />
+                  <InfoPill label={t("store_owner_label_receipt")} value={order.order_no} copyable />
                 </div>
               </div>
             </OwnerOpsSection>
@@ -793,11 +793,12 @@ function OwnerOpsSection({ title, children }: { title: string; children: ReactNo
   );
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
+/** `copyable` — 주문번호처럼 길게 눌러 복사할 값(globals.css `[data-copyable]`). */
+function InfoPill({ label, value, copyable = false }: { label: string; value: string; copyable?: boolean }) {
   return (
     <div className="rounded-ui-rect bg-sam-surface-muted p-2">
       <p className="text-[11px] font-semibold text-sam-muted">{label}</p>
-      <p className="mt-0.5 truncate text-[12px] font-bold text-[var(--biz-text)]">{value}</p>
+      <p data-copyable={copyable ? "" : undefined} className="mt-0.5 truncate text-[12px] font-bold text-[var(--biz-text)]">{value}</p>
     </div>
   );
 }
