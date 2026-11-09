@@ -7,7 +7,7 @@
 import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-policy-campaign-counts";
 import type { PlacementInventoryModel } from "@/lib/admin/ads-exposure/placement-inventory";
 
-export type DeliveryScreensTab = "home" | "browse" | "taxonomy";
+export type DeliveryScreensTab = "home" | "browse" | "taxonomy" | "launch";
 
 /**
  * 고객 메뉴(상단 탭·아이콘·매장 지정)는 별도 화면 「배달·매장 › 메뉴 관리」(`/admin/delivery-menus`) —
@@ -17,6 +17,8 @@ export const DELIVERY_SCREENS_TABS: readonly { id: DeliveryScreensTab; labelKo: 
   { id: "home", labelKo: "홈 화면", labelEn: "Home screen" },
   { id: "browse", labelKo: "업종 목록 화면", labelEn: "Category list screen" },
   { id: "taxonomy", labelKo: "업종 분류", labelEn: "Category taxonomy" },
+  /** 배달 오픈 관리 — 정식 운영 / 매장 모집 (Owner 2026-11-10) */
+  { id: "launch", labelKo: "배달 오픈 관리", labelEn: "Delivery launch" },
 ];
 
 export const DELIVERY_SCREENS_ROUTE = "/admin/delivery-screens";

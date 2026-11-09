@@ -31,6 +31,8 @@ export const SUPPORT_FAB_ENABLED_VIEW_FILES = [
   "components/mypage/MyStoreOrderDetailView.tsx",
   // FLW-05 — 정식 주문 허브(`/orders?expand=`) 펼침 패널도 같은 주문 단위 문의 컨텍스트
   "components/mypage/MyStoreOrderExpandPanel.tsx",
+  // 배달 오픈 관리 — 매장 모집 중 배달 첫 화면에서만 켠다(입점 문의 · Owner 2026-11-10). 정식 운영이면 enabled=false
+  "components/delivery/launch/DeliveryRecruitingSurface.tsx",
 ] as const;
 
 export const SUPPORT_FAB_FORBIDDEN_ROUTE_FILES = [

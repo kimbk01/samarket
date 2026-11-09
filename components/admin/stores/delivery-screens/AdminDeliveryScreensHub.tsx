@@ -16,6 +16,7 @@ import { DELIVERY_SCREENS_TABS, type DeliveryScreensTab } from "./delivery-scree
 import { DeliveryScreensHomeTab } from "./DeliveryScreensHomeTab";
 import { DeliveryScreensBrowseTab } from "./DeliveryScreensBrowseTab";
 import { DeliveryScreensTaxonomyTab } from "./DeliveryScreensTaxonomyTab";
+import { DeliveryScreensLaunchTab } from "./DeliveryScreensLaunchTab";
 
 export function AdminDeliveryScreensHub() {
   const { t, language } = useI18n();
@@ -45,6 +46,7 @@ export function AdminDeliveryScreensHub() {
         {tab === "home" ? <DeliveryScreensHomeTab /> : null}
         {tab === "browse" ? <DeliveryScreensBrowseTab /> : null}
         {tab === "taxonomy" ? <DeliveryScreensTaxonomyTab /> : null}
+        {tab === "launch" ? <DeliveryScreensLaunchTab /> : null}
       </div>
     </AdminDeliveryCmsChrome>
   );

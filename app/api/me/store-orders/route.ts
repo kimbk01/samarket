@@ -1,4 +1,6 @@
 import { randomBytes } from "crypto";
+import { loadDeliveryLaunchSettingsCached } from "@/lib/delivery/launch/delivery-launch-settings.server";
+import { DELIVERY_RECRUITING_ORDER_ERROR } from "@/lib/delivery/launch/delivery-launch-contract";
 import {
   addressDisplayPartsFromUserAddress,
   formatAddressPublicArea,
@@ -262,6 +264,12 @@ export async function POST(req: NextRequest) {
     "delivery_order"
   );
   if (!profileGate.ok) return profileGate.response;
+
+  /** 배달 오픈 관리 — 매장 모집 중에는 고객 주문을 받지 않는다 (화면만 막지 않고 서버에서 거부 · Owner 2026-11-10) */
+  const launch = await loadDeliveryLaunchSettingsCached();
+  if (launch.mode === "recruiting") {
+    return NextResponse.json({ ok: false, error: DELIVERY_RECRUITING_ORDER_ERROR }, { status: 403 });
+  }
 
   let body: PostBody;
   try {

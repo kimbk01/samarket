@@ -11,6 +11,7 @@ import { DeliveryViewerGuestGate } from "@/components/delivery/viewer-gate/Deliv
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import { OverlayScopeProvider } from "@/components/ui/dibay-overlay/overlay-scope";
 import { deliveryScopeAttrs } from "@/lib/ui/delivery-scope";
+import { DeliveryRecruitingRouteGuard } from "@/components/delivery/launch/DeliveryRecruitingRouteGuard";
 
 const CONSUMER_SCOPE = deliveryScopeAttrs("consumer");
 
@@ -39,6 +40,7 @@ export function StoresDeliveryLayoutShell({
       data-delivery-consumer-surface={isConsumerSurface ? "" : undefined}
       data-delivery-scope={isConsumerSurface ? "consumer" : undefined}
     >
+      {isConsumerSurface ? <DeliveryRecruitingRouteGuard /> : null}
       <OverlayScopeProvider attrs={isConsumerSurface ? CONSUMER_SCOPE : null}>
         {/* S-07 — 비로그인 배달 열람 게이트: parked browse·soft 상세까지 함께 막도록 프레젠테이션 셸 바깥 */}
         <DeliveryViewerGuestGate>

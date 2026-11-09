@@ -2,7 +2,7 @@
 
 import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, useSyncExternalStore, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
@@ -74,6 +74,12 @@ import {
   peekFreshAddressDefaultsSnapshot,
 } from "@/lib/addresses/fetch-address-defaults-client";
 import { prewarmStoresHomeBanners } from "@/lib/stores/stores-home-banners-client";
+import { isDeliveryRecruiting, useDeliveryLaunchState } from "@/lib/delivery/launch/use-delivery-launch-state";
+import {
+  DeliveryRecruitingHero,
+  DeliveryRecruitingOverlays,
+  DeliveryRecruitingRibbon,
+} from "@/components/delivery/launch/DeliveryRecruitingSurface";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -93,6 +99,9 @@ export function StoresHomeHub({
 }) {
   const { t, language } = useI18n();
   const membership = useClientMembershipState("stores-home-hub");
+  /** 배달 오픈 관리 — 매장 모집이면 큰 배너 + 목록 흐림·터치 막음 + 팝업·FAB (Owner 2026-11-10) */
+  const launchState = useDeliveryLaunchState();
+  const recruiting = isDeliveryRecruiting(launchState);
   /**
    * 묶음4 R-2 — 첫 페인트 게이트 예측. 서버 `meta.viewer_gate` 가 오기 전에 이미 클라에 있는
    * 로그인 상태·주소 스냅샷(헤더와 같은 single-flight·TTL 캐시)으로 주소 안내를 바로 그린다.
@@ -549,6 +558,12 @@ export function StoresHomeHub({
       data-app-boot-status={bootStatus}
     >
       <StoresHomePerfBoot />
+      {recruiting && launchState ?
+        <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} px-[var(--delivery-page-x)] pt-2`}>
+          <DeliveryRecruitingHero state={launchState} />
+        </div>
+      : null}
+      <StoresHomeRecruitingDim active={recruiting}>
       <StoresHomeQuickCategories />
       {/* 배민 미러링 — 상단 탭 · 아이콘 판 · 바로가기 줄 (본문과 함께 스크롤) */}
       <DeliveryHomeMenuBoard />
@@ -558,6 +573,8 @@ export function StoresHomeHub({
       <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
         {blockedViewerGate ?
           <DeliveryViewerGatePanel gate={blockedViewerGate} />
+        : recruiting ?
+          null
         : <StoresHomeHeroBanner refreshKey={bannerRefreshKey} />}
 
         {blockedViewerGate ?
@@ -612,6 +629,24 @@ export function StoresHomeHub({
             : null}
           </>
         }
+      </div>
+      </StoresHomeRecruitingDim>
+      {recruiting && launchState ? <DeliveryRecruitingOverlays state={launchState} /> : null}
+    </div>
+  );
+}
+
+/**
+ * 매장 모집 중 — 지금 화면(업종판·선반·목록)을 그대로 그리되 흐리게 + 터치·키보드 막음(inert).
+ * 정식 운영이면 감싸지 않아 DOM·레이아웃이 지금과 같다.
+ */
+function StoresHomeRecruitingDim({ active, children }: { active: boolean; children: ReactNode }) {
+  if (!active) return <>{children}</>;
+  return (
+    <div className="relative" data-delivery-recruiting-dim="1">
+      <DeliveryRecruitingRibbon />
+      <div className="pointer-events-none select-none opacity-40 grayscale-[60%] blur-[1px]" inert aria-hidden="true">
+        {children}
       </div>
     </div>
   );

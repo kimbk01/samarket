@@ -1,4 +1,5 @@
 "use client";
+import { isDeliveryRecruiting, useDeliveryLaunchState } from "@/lib/delivery/launch/use-delivery-launch-state";
 import { shouldReleaseStoreMenuFocusEntry } from "@/lib/stores/store-menu-focus-entry-release";
 import { resolveStoreSalesBlockedReason } from "@/lib/stores/store-detail-order-gate";
 import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
@@ -373,6 +374,24 @@ export function StoreDetailPublic({
   const [ownerHiddenPreview, setOwnerHiddenPreview] = useState(false);
   /** 본인 미리보기 중 입점 승인 전(심사 중) — 띠 문구만 다르다 (Owner 2026-11-10) */
   const [ownerPreviewPending, setOwnerPreviewPending] = useState(false);
+  /** 서버 summary 가 보는 사람(사장님·관리자) 판정을 준 매장 slug — 매장 모집 중 남의 매장 진입 차단 판정용 */
+  const [viewerResolvedSlug, setViewerResolvedSlug] = useState<string | null>(null);
+  const launchState = useDeliveryLaunchState();
+  /**
+   * 배달 오픈 관리 — 매장 모집 중에는 남의 매장 상세에 들어오지 않는다(배달 첫 화면으로).
+   * 사장님 본인(미리보기 포함)·관리자는 그대로 (Owner 「신청한 오너는 본인 매장 진입」 2026-11-10).
+   * 서버 summary 의 보는 사람 판정이 온 뒤에만 판단한다.
+   */
+  const recruitingViewerDecided =
+    isDeliveryRecruiting(launchState) && viewerResolvedSlug === decodedSlug;
+  const recruitingBlocksViewer =
+    recruitingViewerDecided &&
+    !ownerHiddenPreview &&
+    !storeOrderability.viewerIsOwner &&
+    !storeOrderability.viewerIsAdmin;
+  useEffect(() => {
+    if (recruitingBlocksViewer) router.replace("/stores");
+  }, [recruitingBlocksViewer, router]);
   /** DSC-06 · S3-04 — summary·legacy 모두 네트워크/서버 오류(5xx·0)면 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
   const [detailLoadFailed, setDetailLoadFailed] = useState(false);
   /** C-04 — 메뉴(스냅샷·legacy 폴백) 로드 실패 = 빈 메뉴와 구분해 오류+재시도 */
@@ -713,6 +732,7 @@ export function StoreDetailPublic({
       favoriteCount: Number(sumParsed.meta?.favorite_count) || 0,
     });
     if (sumParsed.meta) {
+      setViewerResolvedSlug(decodedSlug);
       setStoreOrderability({
         viewerIsOwner: !!sumParsed.meta.viewer_is_owner,
         viewerIsAdmin: !!sumParsed.meta.viewer_is_admin,
