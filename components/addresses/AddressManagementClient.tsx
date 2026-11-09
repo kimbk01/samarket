@@ -575,6 +575,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           inlineChrome
           registerMainTier1={false}
           titleKey={isDeliveryPurpose ? "addr_v3_delivery_title" : "addr_ui_settings_title"}
+          titleOverridesIa={isDeliveryPurpose}
           backHref={
             resolveMemberAddressExitHrefFromContext(peekMemberAddressCallerContext()) ||
             returnTo ||

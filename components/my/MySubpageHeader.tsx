@@ -57,6 +57,11 @@ export type MySubpageHeaderProps = {
    * `registerMainTier1` 은 보통 false 로 함께 쓴다.
    */
   inlineChrome?: boolean;
+  /**
+   * 화면이 넘긴 제목을 내정보 분류(IA) 제목보다 우선 — 같은 경로가 목적에 따라 제목이 다를 때만
+   * (예: `/mypage/addresses` 배달 진입 = 「배달 주소」, 주소 입력 시안 2026-11-09).
+   */
+  titleOverridesIa?: boolean;
 };
 
 export function MySubpageHeader({
@@ -77,6 +82,7 @@ export function MySubpageHeader({
   registerMainTier1 = true,
   inlineChrome = false,
   leftSlot,
+  titleOverridesIa = false,
 }: MySubpageHeaderProps) {
   const { t, tt } = useI18n();
   const pathname = usePathname();
@@ -96,7 +102,16 @@ export function MySubpageHeader({
   const setMainTier1Extras = tier1Provider?.setMainTier1Extras ?? null;
   /** 내정보 하위 화면 뒤로 = 분류·부모 화면 — 이름은 경로 표와 같은 「이전 화면」 (분류 설계 2026-11-02) */
   const resolvedAriaLabel = tt(ariaLabel ?? (isMypageSub ? t("tier1_back") : t("common_back_to_mypage")));
-  const resolvedTitle = iaTitleKey ? t(iaTitleKey) : titleKey ? t(titleKey) : title;
+  const resolvedTitle =
+    titleOverridesIa && (titleKey || title != null)
+      ? titleKey
+        ? t(titleKey)
+        : title
+      : iaTitleKey
+        ? t(iaTitleKey)
+        : titleKey
+          ? t(titleKey)
+          : title;
   const translatedTitle = typeof resolvedTitle === "string" ? tt(resolvedTitle) : resolvedTitle;
   /** 내정보 하위 화면은 부제 없음 — 헤더 52px 고정 (설계서 v3 §12). 다른 도메인은 기존대로 부제 표시. */
   const translatedSubtitle = subtitle && !isMypageSubpageHeaderPath(pathname) ? tt(subtitle) : undefined;

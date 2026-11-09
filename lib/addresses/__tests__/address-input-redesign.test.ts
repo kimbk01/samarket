@@ -123,3 +123,17 @@ describe("진동", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("실기 결함 수정 (2026-11-09 「2건 수정」)", () => {
+  it("배달 진입 제목 「배달 주소」가 내정보 분류 제목보다 우선", () => {
+    expect(read("components/addresses/AddressManagementClient.tsx")).toContain("titleOverridesIa={isDeliveryPurpose}");
+    const header = read("components/my/MySubpageHeader.tsx");
+    expect(header).toContain("titleOverridesIa && (titleKey || title != null)");
+  });
+  it("검색 → 지도는 교체 이동 — 저장 후 뒤로가 검색 화면을 다시 거치지 않음", () => {
+    const src = read("components/addresses/AddressPlatformSearchClient.tsx");
+    expect(src).toContain("router.replace(buildMypageAddressMapHref(");
+    expect(src).not.toContain("router.push(buildMypageAddressMapHref(");
+    expect(read("components/addresses/AddressMapConfirmClient.tsx")).toContain("router.replace(buildMypageAddressEditHref(");
+  });
+});

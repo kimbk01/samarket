@@ -127,9 +127,12 @@ function AddressPlatformSearchInner() {
     count: predictions.length,
   });
 
-  /** 시안 3번: 검색·현재 위치로 고른 주소는 지도에서 핀을 확인한 뒤 저장 화면으로 (뒤로 = 검색으로 돌아옴) */
+  /**
+   * 시안 3번: 검색·현재 위치로 고른 주소는 지도에서 핀을 확인한 뒤 저장 화면으로.
+   * 교체 이동 — 저장 후 목록에서 뒤로 갈 때 검색 화면이 다시 나오지 않게(2026-11-09 실기 결함: 쌓기 이동으로 기록 잔존).
+   */
   const goDetail = useCallback(() => {
-    router.push(buildMypageAddressMapHref({ returnTo, id: editId || undefined, purpose }));
+    router.replace(buildMypageAddressMapHref({ returnTo, id: editId || undefined, purpose }));
   }, [editId, purpose, returnTo, router]);
 
   /**
