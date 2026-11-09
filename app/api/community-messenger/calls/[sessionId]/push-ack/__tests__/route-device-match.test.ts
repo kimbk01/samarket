@@ -10,6 +10,7 @@ type Row = Record<string, unknown>;
 const db = vi.hoisted(() => ({
   tables: {} as Record<string, Row[]>,
   updates: [] as Array<{ table: string; id: unknown; patch: Row }>,
+  failTable: null as string | null,
 }));
 
 function makeQuery(table: string) {
@@ -55,7 +56,10 @@ function makeQuery(table: string) {
       return q;
     },
     maybeSingle: () => Promise.resolve({ data: run()[0] ?? null, error: null }),
-    then: (resolve: (v: { data: Row[]; error: null }) => unknown) => resolve({ data: run(), error: null }),
+    then: (resolve: (v: { data: Row[] | null; error: { message: string } | null }) => unknown) =>
+      db.failTable === table
+        ? resolve({ data: null, error: { message: "boom" } })
+        : resolve({ data: run(), error: null }),
   };
   return q;
 }
@@ -81,6 +85,7 @@ const params = { params: Promise.resolve({ sessionId: "call-1" }) };
 
 beforeEach(() => {
   db.updates = [];
+  db.failTable = null;
   db.tables = {
     community_messenger_call_sessions: [
       { id: "call-1", status: "ringing", initiator_user_id: "user-a", recipient_user_id: "user-b" },
@@ -188,5 +193,14 @@ describe("push-ack device match (R3)", () => {
     const pr = db.updates[0].patch.provider_response as Record<string, Record<string, unknown>>;
     expect(pr.nativeAck.receivedAt).toBe(9);
     expect(pr.nativePresentation).toBeUndefined();
+  });
+
+  it("F5: 기기 조회가 실패해도 수신 확인을 버리지 않고 최근 행에 기록 (deviceMatched false)", async () => {
+    db.failTable = "user_devices";
+    const res = await POST(ackRequest({ deviceId: "phone", receivedAt: 1 }), params);
+    expect(res.status).toBe(200);
+    expect(db.updates[0].id).toBe("d-tablet");
+    const pr = db.updates[0].patch.provider_response as Record<string, Record<string, unknown>>;
+    expect(pr.nativeAck.deviceMatched).toBe(false);
   });
 });

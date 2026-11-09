@@ -85,9 +85,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
       .eq("user_id", auth.userId)
       .eq("device_id", ackDeviceId);
     if (deviceError) {
-      return NextResponse.json({ ok: false, error: deviceError.message }, { status: 500 });
+      /**
+       * F5 (2026-11-09 감사): 기기 조회 실패로 수신 확인을 버리지 않는다 — R3 이전처럼 최근 발송 행에 기록
+       * (deviceMatched:false 로 구분). 이전 코드는 이 조회가 없어 항상 기록했다.
+       */
+      console.warn("[DIBAY_CALL_PUSH] push_ack_device_lookup_failed", { callId, error: deviceError.message });
     }
-    deviceRowIds = ((deviceRows ?? []) as Array<{ id?: string | null }>)
+    deviceRowIds = ((deviceError ? [] : deviceRows ?? []) as Array<{ id?: string | null }>)
       .map((r) => (typeof r.id === "string" ? r.id : ""))
       .filter(Boolean);
   }
