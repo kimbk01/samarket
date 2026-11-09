@@ -13,7 +13,7 @@ import { StoresConsumerHeaderActions } from "@/components/stores/home/hub/Stores
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import {
   findDeliveryMenuRoot,
@@ -124,7 +124,7 @@ export function StoresBrowseHeaderChrome() {
                 aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
                 onClick={() =>
                   router.push(
-                    buildMypageAddressesHrefFromPath(
+                    buildDeliveryAddressesHrefFromPath(
                       pathname,
                       searchParams?.toString() ? `?${searchParams.toString()}` : "",
                     ),

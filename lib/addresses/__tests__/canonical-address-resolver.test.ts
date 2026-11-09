@@ -199,7 +199,8 @@ describe("CURRENT PIN SSOT — pin move never keeps old search identity", () => 
   });
 
   it("Detail/Select wire CURRENT PIN resolver, not KEEP/USE", () => {
-    const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
+    /** 주소 입력 시안: 핀 이동은 지도 위치 확인 단계(AddressMapConfirmClient) */
+    const detail = read("components/addresses/AddressMapConfirmClient.tsx");
     const select = read("components/map/AddressSelectClient.tsx");
     expect(detail).toContain("resolveCurrentPinCanonicalAddress");
     expect(select).toContain("resolveCurrentPinCanonicalAddress");

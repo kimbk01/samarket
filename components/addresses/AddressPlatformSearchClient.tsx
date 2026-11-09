@@ -15,8 +15,9 @@ import {
   writeAddressPlatformV2Draft,
 } from "@/lib/addresses/canonical-address-draft-storage";
 import {
-  buildMypageAddressEditHref,
   buildMypageAddressesHref,
+  buildMypageAddressMapHref,
+  parseAddressFlowPurpose,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
@@ -59,7 +60,9 @@ function AddressPlatformSearchInner() {
   const returnTo = parseSafeInternalReturnTo(sp.get("returnTo"));
   /** 편집 중 재검색(UX-002) — 결과를 같은 주소 편집으로 */
   const editId = (sp.get("id") ?? "").trim();
-  const listHref = buildMypageAddressesHref(returnTo);
+  /** 주소 입력 시안: 배달 진입이면 「배달 받을 주소…」, 그 밖은 「주소를 검색해 주세요」 */
+  const purpose = parseAddressFlowPurpose(sp.get("purpose"));
+  const listHref = buildMypageAddressesHref(returnTo, { purpose });
   const [search, setSearchState] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
@@ -124,9 +127,10 @@ function AddressPlatformSearchInner() {
     count: predictions.length,
   });
 
+  /** 시안 3번: 검색·현재 위치로 고른 주소는 지도에서 핀을 확인한 뒤 저장 화면으로 (뒤로 = 검색으로 돌아옴) */
   const goDetail = useCallback(() => {
-    router.replace(buildMypageAddressEditHref({ returnTo, id: editId || undefined }));
-  }, [editId, returnTo, router]);
+    router.push(buildMypageAddressMapHref({ returnTo, id: editId || undefined, purpose }));
+  }, [editId, purpose, returnTo, router]);
 
   /**
    * 화면 단일 비행 (CTA-002) — 결과 행·현재 위치 중 하나라도 해석 중이면 다른 선택을 막고,
@@ -228,7 +232,9 @@ function AddressPlatformSearchInner() {
       />
       <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS}>
         <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS}>
-          <p className="mb-3 text-[18px] font-bold leading-snug text-sam-fg">{t("addr_v2_search_lead")}</p>
+          <h2 className="mb-3 text-[20px] font-bold leading-snug text-sam-fg">
+            {purpose === "delivery" ? t("addr_v2_search_lead") : t("addr_v3_search_lead_general")}
+          </h2>
           <AddressEditorLocationSearch
             search={search}
             searching={searching}
@@ -238,7 +244,7 @@ function AddressPlatformSearchInner() {
             onSearchChange={setSearch}
             onSearchFocus={() => undefined}
             onSelectPrediction={(p) => void onSelectPrediction(p)}
-            placeholder={t("addr_v2_search_placeholder")}
+            placeholder={t("addr_v3_search_ph")}
           />
           {err ? (
             <p className="mt-2 sam-text-body-secondary font-medium text-sam-danger" role="alert">
@@ -276,7 +282,7 @@ function AddressPlatformSearchInner() {
           ) : null}
           <button
             type="button"
-            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} mt-6 disabled:opacity-45`}
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} sam-press mt-6 disabled:opacity-45`}
             disabled={selectionBusy}
             onClick={() => void onCurrentLocation()}
           >

@@ -32,6 +32,13 @@ export function AddressRowCard(props: {
   containerClassName?: string;
   /** 승인 매장 id → `store_name` (Store Address 뱃지·헤더 `매장 · …` 에 사용) */
   approvedStoresById?: ReadonlyMap<string, string>;
+  /**
+   * 라디오 선택 표시 (주소 입력 시안 1·5번) — 왼쪽 동그라미. `checked` = 지금 선택(대표/배달 선택)된 행.
+   * 생략하면 기존 카드 모양.
+   */
+  radio?: { checked: boolean; disabled?: boolean };
+  /** 행 아래 주의 표시 (예: 배달 「세부 주소를 입력해야 배달돼요」) */
+  notice?: string | null;
 }) {
   const {
     row,
@@ -42,6 +49,8 @@ export function AddressRowCard(props: {
     busyId: globalBusy,
     containerClassName,
     approvedStoresById,
+    radio,
+    notice,
   } = props;
   const { t } = useI18n();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -75,11 +84,31 @@ export function AddressRowCard(props: {
     (onPrimaryTap ? "" : " cursor-default");
 
   const primaryInner = (
-    <AddressListRowBody
-      row={row}
-      approvedStoresById={approvedStoresById}
-      badgeStyle="starbucks"
-    />
+    <span className="flex min-w-0 items-start gap-3">
+      {radio ? (
+        <span
+          aria-hidden
+          className={`mt-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 bg-sam-surface ${
+            radio.checked ? "border-sam-primary" : radio.disabled ? "border-sam-border-soft" : "border-sam-border"
+          }`}
+        >
+          <span
+            className={`h-[10px] w-[10px] rounded-full transition-transform duration-150 motion-reduce:transition-none ${
+              radio.checked ? "scale-100 bg-sam-primary" : "scale-0 bg-transparent"
+            }`}
+          />
+        </span>
+      ) : null}
+      <span className="block min-w-0 flex-1">
+        <AddressListRowBody row={row} approvedStoresById={approvedStoresById} badgeStyle="starbucks" />
+        {notice ? (
+          <span className="mt-2 inline-flex items-center gap-1 rounded-ui-rect bg-sam-danger-soft px-2 py-1 sam-text-helper font-semibold text-sam-danger">
+            <span aria-hidden>!</span>
+            {notice}
+          </span>
+        ) : null}
+      </span>
+    </span>
   );
 
   const rowSurface = resolveAddressListRowSurface(row);
@@ -107,8 +136,9 @@ export function AddressRowCard(props: {
           type="button"
           disabled={rowBusy}
           onClick={() => onPrimaryTap()}
-          className={`${primaryClass} transition-colors active:bg-sam-pressed-surface disabled:opacity-50 ${Sam.focusRing}`}
+          className={`${primaryClass} sam-press-row disabled:opacity-50 ${Sam.focusRing}`}
           aria-label={ariaPrimary}
+          {...(radio ? { role: "radio", "aria-checked": radio.checked } : {})}
         >
           {primaryInner}
         </button>

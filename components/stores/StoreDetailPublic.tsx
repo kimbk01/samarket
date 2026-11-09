@@ -34,7 +34,7 @@ import {
   isDeliveryDistanceOrderBlocked,
 } from "@/lib/stores/fetch-store-delivery-serviceability-client";
 import { isDeliveryOrderingBlockedByServiceability } from "@/lib/stores/delivery-ordering-eligibility";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
 import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
@@ -2097,7 +2097,7 @@ export function StoreDetailPublic({
       <button
         type="button"
         onClick={() =>
-          router.push(buildMypageAddressesHrefFromPath(pathname || storeRootPath, ""))
+          router.push(buildDeliveryAddressesHrefFromPath(pathname || storeRootPath, ""))
         }
         className="mt-2 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-white px-2.5 py-1.5 text-[12px] font-bold text-[color:var(--delivery-primary)]"
       >

@@ -15,6 +15,11 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import {
+  MY_STICKY_CTA_BAR_SURFACE_CLASS,
+  MY_STICKY_CTA_PRIMARY_BUTTON_CLASS,
+  MY_STICKY_CTA_ROW_CLASS,
+} from "@/components/mypage/ds/MyStickyCta";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
@@ -43,7 +48,9 @@ import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samar
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import {
   buildMypageAddressEditHref,
+  buildMypageAddressMapHref,
   buildMypageAddressSearchHref,
+  parseAddressFlowPurpose,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
@@ -68,6 +75,7 @@ import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to
 import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
 import { broadcastUserAddressesChanged } from "@/lib/addresses/user-addresses-sync";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { tapHaptic } from "@/lib/ui/tap-haptic";
 import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
 import {
   STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS,
@@ -94,6 +102,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
+  /** 주소 입력 시안: 배달 화면 진입(`purpose=delivery`) = 배달 주소 선택(5번), 그 밖 = 주소 관리(1번) */
+  const purpose = useMemo(() => parseAddressFlowPurpose(sp?.get("purpose")), [sp]);
+  const isDeliveryPurpose = purpose === "delivery" && !embedded && !storesGreenHeader;
+  /** 배달 주소 선택 — 화면 안 선택(아래 버튼으로 확정). 기본값 = 대표 주소 */
+  const [deliveryPickId, setDeliveryPickId] = useState<string | null>(null);
 
   useEffect(() => {
     if (embedded) return;
@@ -208,11 +221,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }
 
   function openCreate() {
-    router.push(buildMypageAddressSearchHref({ returnTo }));
+    router.push(buildMypageAddressSearchHref({ returnTo, purpose }));
   }
 
   function openEdit(row: UserAddressDTO) {
-    router.push(buildMypageAddressEditHref({ returnTo, id: row.id }));
+    router.push(buildMypageAddressEditHref({ returnTo, id: row.id, purpose }));
   }
 
   function closeAfterRepresentativePick() {
@@ -282,23 +295,25 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         return;
       }
       writeAddressPlatformV2Draft({ draft, source: "current_location" });
-      router.push(buildMypageAddressEditHref({ returnTo }));
+      /** 시안 3번: 현재 위치도 지도에서 핀을 확인한 뒤 저장 화면으로 */
+      router.push(buildMypageAddressMapHref({ returnTo, purpose }));
     } finally {
       setBusyId(null);
     }
   }
 
-  async function setAsRepresentative(id: string) {
+  async function setAsRepresentative(id: string, opts?: { close?: boolean }): Promise<boolean> {
+    const close = opts?.close !== false;
     const row = list.find((a) => a.id === id);
-    if (!row) return;
-    if (confirmTradeRegionPick(id)) return;
+    if (!row) return false;
+    if (close && confirmTradeRegionPick(id)) return true;
     if (row.isDefaultMaster) {
-      closeAfterRepresentativePick();
-      return;
+      if (close) closeAfterRepresentativePick();
+      return true;
     }
     if (isLinkedSamarketStoreAddressRow(row)) {
       showMypageToast(t("addr_ui_store_not_master"), "error");
-      return;
+      return false;
     }
     setBusyId(id);
     try {
@@ -312,8 +327,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
+        tapHaptic("error");
         showMypageToast(translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed"), "error");
-        return;
+        return false;
       }
       const rows = await commitUserAddressListAfterMutation();
       if (rows) {
@@ -325,33 +341,60 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
       invalidateMypageSummary();
       showMypageToast(t("mypage_s06_set_master_toast"), "success");
-      closeAfterRepresentativePick();
+      if (close) closeAfterRepresentativePick();
+      return true;
     } catch {
+      tapHaptic("error");
       showMypageToast(t("addr_ui_set_default_failed"), "error");
+      return false;
     } finally {
       setBusyId(null);
     }
   }
 
-  /** 호출 컨텍스트(거래 글쓰기 지역·주소 선택 흐름 등)가 있으면 행 탭 = 그 주소 선택, 없으면 수정 (S06) */
-  const selectMode = Boolean(returnTo);
+  /** 배달 세부 주소(호수·층)가 없는 주소 — 주문 서버 검사(`delivery_detail_address_required`)와 같은 기준 */
+  function needsDeliveryDetail(row: UserAddressDTO): boolean {
+    return !(row.detailAddress ?? "").trim() && !(row.unitFloorRoom ?? "").trim();
+  }
+
+  const deliveryPickRow =
+    list.find((r) => r.id === deliveryPickId) ?? list.find((r) => r.isDefaultMaster) ?? null;
+
+  /** 시안 5번 하단 버튼 — 고른 주소를 대표(배달 기준)로 정하고, 세부 주소가 없으면 배달 정보 입력(6번)으로 */
+  async function confirmDeliveryPick() {
+    const row = deliveryPickRow;
+    if (!row) return;
+    const ok = await setAsRepresentative(row.id, { close: false });
+    if (!ok) return;
+    if (needsDeliveryDetail(row)) {
+      router.push(buildMypageAddressEditHref({ returnTo, id: row.id, purpose: "delivery" }));
+      return;
+    }
+    tapHaptic("success");
+    closeAfterRepresentativePick();
+    if (!returnTo) runHistoryBackWithFallback(router, "/stores");
+  }
+
 
   const addressListBody = (
     <>
       <div className="space-y-3">
+        {isDeliveryPurpose ? (
+          <h2 className="px-1 pt-1 text-[20px] font-bold leading-snug text-sam-fg">{t("addr_v2_search_lead")}</h2>
+        ) : null}
         <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3">
           <button
             type="button"
             onClick={openCreate}
             disabled={listLocked}
             data-testid="address-search-entry"
-            className={`flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 text-left transition-colors active:bg-sam-pressed-surface disabled:opacity-45 ${Sam.focusRing}`}
+            className={`sam-press flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 text-left disabled:opacity-45 ${Sam.focusRing}`}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-icon-surface text-sam-primary">
               <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block sam-text-body font-semibold text-sam-fg">{t("addr_v2_book_search_placeholder")}</span>
+              <span className="block sam-text-body font-semibold text-sam-fg">{t("addr_v3_search_ph")}</span>
             </span>
             <span className="text-sam-muted" aria-hidden>
               ›
@@ -361,7 +404,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             type="button"
             onClick={() => void openCurrentLocation()}
             disabled={listLocked}
-            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} mt-2 gap-2 disabled:opacity-45`}
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} ${Sam.focusRing} sam-press mt-2 gap-2 disabled:opacity-45`}
           >
             <MapPin className="h-4 w-4" aria-hidden />
             {busyId === "current" ? t("addr_ui_locating") : t("addr_ui_find_current")}
@@ -415,22 +458,51 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                 </button>
               </div>
             ) : null}
-            <ul className="space-y-2">
+            <p className="px-1 pt-1 sam-text-helper font-semibold text-sam-muted">
+              {isDeliveryPurpose ? t("addr_v3_saved_pick_title") : t("addr_v3_list_hint")}
+            </p>
+            <ul className="space-y-2" role="radiogroup" aria-label={isDeliveryPurpose ? t("addr_v3_saved_pick_title") : t("addr_v3_list_hint")}>
               {list.map((row) => {
                 const storeLinked = row.labelType === "shop" && Boolean(row.linkedStoreId?.trim() ?? "");
+                if (isDeliveryPurpose) {
+                  const picked = deliveryPickRow?.id === row.id;
+                  return (
+                    <AddressRowCard
+                      key={row.id}
+                      row={row}
+                      busyId={busyId}
+                      approvedStoresById={approvedStoresById}
+                      radio={{ checked: picked, disabled: storeLinked }}
+                      notice={!storeLinked && needsDeliveryDetail(row) ? t("addr_v3_need_detail") : null}
+                      onSetAsRepresentative={storeLinked ? undefined : () => void setAsRepresentative(row.id, { close: false })}
+                      onPrimaryTap={
+                        storeLinked
+                          ? undefined
+                          : () => {
+                              if (!picked) tapHaptic("select");
+                              setDeliveryPickId(row.id);
+                            }
+                      }
+                      onEdit={() => openEdit(row)}
+                      onDelete={() => void removeRow(row.id)}
+                    />
+                  );
+                }
                 return (
                   <AddressRowCard
                     key={row.id}
                     row={row}
                     busyId={busyId}
                     approvedStoresById={approvedStoresById}
+                    radio={{ checked: row.isDefaultMaster === true, disabled: storeLinked }}
                     onSetAsRepresentative={storeLinked ? undefined : () => void setAsRepresentative(row.id)}
                     onPrimaryTap={
-                      selectMode
-                        ? storeLinked
-                          ? undefined
-                          : () => void setAsRepresentative(row.id)
-                        : () => openEdit(row)
+                      storeLinked
+                        ? () => openEdit(row)
+                        : () => {
+                            if (!row.isDefaultMaster) tapHaptic("select");
+                            void setAsRepresentative(row.id);
+                          }
                     }
                     onEdit={() => openEdit(row)}
                     onDelete={() => void removeRow(row.id)}
@@ -463,6 +535,22 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           {addressListBody}
         </div>
       </div>
+      {isDeliveryPurpose && deliveryPickRow ? (
+        /** 시안 5번 하단 버튼 — 고른 주소의 세부 주소 여부로 문구가 바뀐다 */
+        <div className={`shrink-0 ${MY_STICKY_CTA_BAR_SURFACE_CLASS}`}>
+          <div className={MY_STICKY_CTA_ROW_CLASS}>
+            <button
+              type="button"
+              disabled={listLocked}
+              onClick={() => void confirmDeliveryPick()}
+              data-testid="address-delivery-confirm"
+              className={`${MY_STICKY_CTA_PRIMARY_BUTTON_CLASS} sam-press`}
+            >
+              {needsDeliveryDetail(deliveryPickRow) ? t("addr_v3_cta_add_detail") : t("addr_v3_cta_deliver_here")}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -486,7 +574,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <MySubpageHeader
           inlineChrome
           registerMainTier1={false}
-          titleKey="addr_ui_settings_title"
+          titleKey={isDeliveryPurpose ? "addr_v3_delivery_title" : "addr_ui_settings_title"}
           backHref={
             resolveMemberAddressExitHrefFromContext(peekMemberAddressCallerContext()) ||
             returnTo ||

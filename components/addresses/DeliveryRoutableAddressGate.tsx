@@ -7,7 +7,7 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
@@ -122,7 +122,7 @@ export function DeliveryRoutableAddressGate({ children }: { children: ReactNode 
     );
   }
 
-  const repairHref = buildMypageAddressesHrefFromPath(pathname, "");
+  const repairHref = buildDeliveryAddressesHrefFromPath(pathname, "");
 
   return (
     <div className={`min-h-[50vh] bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>

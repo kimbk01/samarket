@@ -71,6 +71,7 @@ const CS_BOARD_TITLE = { notice: "공지사항", system: "시스템 안내", mar
 const MYPAGE_EXACT_TITLES: Readonly<Record<string, MypageTitleRow>> = {
   "/mypage/account": { titleText: "account_title" },
   "/mypage/addresses/search": { titleText: "addr_v2_search_title", backHref: "/mypage/addresses" },
+  "/mypage/addresses/map": { titleText: "addr_v3_map_title", backHref: "/mypage/addresses/search" },
   "/mypage/ads": { titleText: "revenue_hub_title", subtitle: "revenue_hub_subtitle" },
   "/mypage/ads/apply": {
     titleText: "mypage_ads_apply_title",

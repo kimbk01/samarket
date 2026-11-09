@@ -98,8 +98,17 @@ export function AddressEditorLocationSearch(props: {
                 onClick={() => onSelectPrediction(p)}
                 disabled={rowsLocked}
                 aria-busy={resolvingPlaceId === p.placeId || undefined}
-                className={`flex min-h-[44px] w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-sam-surface active:bg-sam-primary-soft/25 disabled:opacity-60 ${Sam.focusRing}`}
+                className={`sam-press-row flex min-h-[64px] w-full items-start gap-3 px-3 py-3 text-left hover:bg-sam-surface disabled:opacity-60 ${Sam.focusRing}`}
               >
+                <svg className="mt-0.5 h-5 w-5 shrink-0 text-sam-muted" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="2" />
+                </svg>
                 <span className="min-w-0 flex-1">
                   <span className="block sam-text-body font-semibold text-sam-fg">{p.mainText}</span>
                   <span className="mt-0.5 block sam-text-helper text-sam-muted">

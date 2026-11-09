@@ -30,7 +30,7 @@ import {
   buildDeliveryStoreCartHref,
   navigateToDeliveryStoreCart,
 } from "@/lib/navigation/navigate-to-delivery-store-cart";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   resolveStoreDetailCheckoutGate,
   storeSalesBlockedMessageKey,
@@ -81,7 +81,7 @@ export function StoreDetailBottomStrip({
 
   const deliveryBlockedByDistance =
     distanceOutOfRange && fulfillmentMode === "local_delivery";
-  const addressChangeHref = buildMypageAddressesHrefFromPath(
+  const addressChangeHref = buildDeliveryAddressesHrefFromPath(
     pathname || `/stores/${encodeURIComponent(slug)}`,
     "",
   );

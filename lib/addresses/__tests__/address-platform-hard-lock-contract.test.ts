@@ -179,7 +179,7 @@ describe("ADDRESS BOOK COMPACT FLOW SSOT", () => {
       ["MyPageItemScreen", myPageItem],
       ["StoreTab", storeTab],
     ] as const) {
-      expect(src, name).toMatch(/buildMypageAddressesHref|\/mypage\/addresses/);
+      expect(src, name).toMatch(/buildMypageAddressesHref|buildDeliveryAddressesHref|\/mypage\/addresses/);
       expect(src, name).not.toContain("openSheet(\"address\")");
       expect(src, name).not.toContain("AddressManagementClient embedded");
       expect(src, name).not.toContain("StoresHomeAddressSheet");
@@ -413,7 +413,8 @@ describe("ADDR-013 Address Platform V2", () => {
   });
 
   it("Detail pin drag re-resolves CURRENT PIN and never KEEP old search identity", () => {
-    const detail = read("components/addresses/AddressPlatformDetailClient.tsx");
+    /** 핀 이동은 지도 위치 확인 단계(3번)에서 — 저장 화면은 그 결과만 받는다 */
+    const detail = read("components/addresses/AddressMapConfirmClient.tsx");
     const draft = read("lib/addresses/canonical-address-draft.ts");
     const currentPin = read("lib/addresses/resolve-current-pin-canonical-address.ts");
     expect(detail).toContain("resolveCurrentPinCanonicalAddress");

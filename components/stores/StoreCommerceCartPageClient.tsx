@@ -188,7 +188,7 @@ import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   markCartHydrationExpensiveEffectsDone,
   markCartHydrationStage,
@@ -2410,7 +2410,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onDismiss={() => setDeliveryUnavailableDialogOpen(false)}
         onChangeAddress={() => {
           setDeliveryUnavailableDialogOpen(false);
-          router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""));
+          router.push(buildDeliveryAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""));
         }}
       />
 
@@ -2608,7 +2608,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     <button
                       type="button"
                       onClick={() =>
-                        router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                        router.push(buildDeliveryAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
                       }
                       className="font-semibold text-signature underline"
                     >
@@ -2627,7 +2627,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     <button
                       type="button"
                       onClick={() =>
-                        router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                        router.push(buildDeliveryAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
                       }
                       className="font-semibold text-signature underline"
                     >
@@ -2733,7 +2733,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <button
                 type="button"
                 onClick={() =>
-                  router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                  router.push(buildDeliveryAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
                 }
                 className="inline-flex items-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-3 py-2 sam-text-body-secondary font-bold text-[color:var(--delivery-primary)] shadow-sm"
               >
@@ -2753,7 +2753,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <button
                   type="button"
                   onClick={() =>
-                    router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                    router.push(buildDeliveryAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
                   }
                   className="font-semibold underline"
                 >
@@ -2834,7 +2834,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <button
                 type="button"
                 onClick={() =>
-                  router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                  router.push(buildDeliveryAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
                 }
                 className={`${DELIVERY_TOUCH_TEXT_LINK_CLASS} rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-2.5 py-1.5 sam-text-xxs font-bold text-[color:var(--delivery-primary)]`}
               >

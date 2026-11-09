@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import type { DeliveryViewerGate } from "@/lib/stores/delivery-viewer-gate";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -45,7 +45,7 @@ export function DeliveryViewerGatePanel({
         {t("store_delivery_address_required_body")}
       </p>
       <Link
-        href={buildMypageAddressesHrefFromPath(pathname, "")}
+        href={buildDeliveryAddressesHrefFromPath(pathname, "")}
         prefetch={false}
         className={`${Sam.btn.primary} mt-5 inline-flex min-h-11 w-full max-w-xs items-center justify-center px-6`}
       >

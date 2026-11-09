@@ -793,6 +793,43 @@
   }
 
   /* -------------------------------------------------------------------------- */
+  /* 눌림 손맛 — 주소 입력 시안 (Owner 2026-11-09): 누르는 동안 진해짐 + 0.98 축소, 120ms */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-press {
+    transition:
+      transform 120ms ease,
+      filter 120ms ease,
+      background-color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .sam-press:not(:disabled):active {
+    transform: scale(0.98);
+    filter: brightness(0.95);
+  }
+
+  .sam-press-row {
+    transition: background-color 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .sam-press-row:not(:disabled):active {
+    background-color: var(--sam-pressed-surface);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sam-press,
+    .sam-press-row {
+      transition: none;
+    }
+
+    .sam-press:not(:disabled):active {
+      transform: none;
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
   /* 칩 · 필터 */
   /* -------------------------------------------------------------------------- */
 

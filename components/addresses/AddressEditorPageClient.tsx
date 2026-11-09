@@ -24,8 +24,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   buildMypageAddressEditHref,
+  buildMypageAddressMapHref,
   buildMypageAddressSearchHref,
   buildMypageAddressesHref,
+  parseAddressFlowPurpose,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
@@ -34,6 +36,7 @@ import {
   clearMypageAddressSearchQuery,
   readAddressPlatformV2Draft,
   shouldRedirectCreateDetailToSearch,
+  writeAddressPlatformV2Draft,
 } from "@/lib/addresses/canonical-address-draft-storage";
 import { draftFromSavedRow, resolveCanonicalAddressFromLatLng } from "@/lib/addresses/canonical-address-resolver";
 import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
@@ -83,10 +86,15 @@ function AddressEditorPageInner() {
   const idFromUrl = (sp.get("id") ?? "").trim();
   const mapBootstrapUrl = sp.get("map") === "1";
   const returnTo = parseSafeInternalReturnTo(sp.get("returnTo"));
-  const addressesListHref = buildMypageAddressesHref(returnTo);
-  const headerTitleKey: MessageKey = idFromUrl ? "addr_ui_edit_title" : "addr_ui_add_title";
+  /** 주소 입력 시안: 배달 진입 = 배달 정보(6번), 그 밖 = 주소 저장(4번) */
+  const purpose = parseAddressFlowPurpose(sp.get("purpose"));
+  const addressesListHref = buildMypageAddressesHref(returnTo, { purpose });
+  const headerTitleKey: MessageKey =
+    purpose === "delivery" ? "addr_v3_delivery_info_title" : idFromUrl ? "addr_ui_edit_title" : "addr_v3_save_title";
 
   const [list, setList] = useState<UserAddressDTO[]>([]);
+  /** 주소 목록을 받아 왔는지 — 받기 전 대표 토글 판정 금지 (A4) */
+  const [listReady, setListReady] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [loadErrMigrationHint, setLoadErrMigrationHint] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
@@ -149,6 +157,7 @@ function AddressEditorPageInner() {
       }
       const rows = result.rows;
       setList(rows);
+      setListReady(true);
 
       let replaceId = idFromUrl;
 
@@ -187,9 +196,10 @@ function AddressEditorPageInner() {
           setMode(row ? "edit" : "create");
           /** 좌표 없는 저장 행 — 재검색(UX-002)으로 받은 handoff draft 사용 */
           if (row) {
+            /** 이 주소의 지도 확인(위치 변경)·재검색 결과가 있으면 그것이 우선 — 없으면 저장된 위치 */
             const handoff = readAddressPlatformV2Draft();
             setPlatformDraft(
-              draftFromSavedRow(row) ?? (handoff?.addressId === row.id ? handoff.draft : null),
+              handoff?.addressId === row.id ? handoff.draft : draftFromSavedRow(row),
             );
           }
         } else {
@@ -249,7 +259,14 @@ function AddressEditorPageInner() {
     <AddressEditorPageChrome titleKey={headerTitleKey} backHref={addressesListHref} onBack={requestLeave}>
       <AddressPlatformDetailClient
         draftUserId={draftUserId}
-        researchHref={buildMypageAddressSearchHref({ returnTo, id: mode === "edit" ? editTarget?.id : null })}
+        researchHref={buildMypageAddressSearchHref({ returnTo, id: mode === "edit" ? editTarget?.id : null, purpose })}
+        purpose={purpose}
+        listReady={listReady}
+        onChangeLocation={(current) => {
+          const id = mode === "edit" ? editTarget?.id ?? null : null;
+          writeAddressPlatformV2Draft({ draft: current, source: "pin", addressId: id });
+          router.replace(buildMypageAddressMapHref({ returnTo, id: id ?? undefined, purpose }));
+        }}
         mode={mode}
         initial={editTarget}
         draft={platformDraft}

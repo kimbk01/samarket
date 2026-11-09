@@ -21,6 +21,7 @@ import {
   isMypageAddressEditPath,
   isMypageAddressListPath,
   isMypageAddressSearchPath,
+  isMypageAddressMapPath,
 } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   isMarketplaceSellerHubPath,
@@ -66,11 +67,17 @@ function isProfileEditRoute(path: string | null | undefined): boolean {
 }
 
 function isAddressPlatformRoute(path: string | null | undefined): boolean {
-  return isMypageAddressListPath(path) || isMypageAddressSearchPath(path) || isMypageAddressEditPath(path);
+  return (
+    isMypageAddressListPath(path) ||
+    isMypageAddressSearchPath(path) ||
+    isMypageAddressMapPath(path) ||
+    isMypageAddressEditPath(path)
+  );
 }
 
 function addressPlatformDepth(path: string | null | undefined): number {
-  if (isMypageAddressEditPath(path)) return 2;
+  if (isMypageAddressEditPath(path)) return 3;
+  if (isMypageAddressMapPath(path)) return 2;
   if (isMypageAddressSearchPath(path)) return 1;
   if (isMypageAddressListPath(path)) return 0;
   return -1;

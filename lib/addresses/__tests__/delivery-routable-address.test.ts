@@ -104,7 +104,8 @@ describe("CUT 5 DELIVERY_ROUTABLE", () => {
       join(process.cwd(), "components/addresses/DeliveryRoutableAddressGate.tsx"),
       "utf8",
     );
-    expect(gate).toContain("buildMypageAddressesHrefFromPath");
+    /** 배달 진입 = 배달 주소 흐름(`purpose=delivery`) */
+    expect(gate).toContain("buildDeliveryAddressesHrefFromPath");
     expect(gate).toContain("isDeliveryRoutableMasterAddress");
     expect(gate).not.toContain("tryBrowserGeolocation");
     expect(gate).not.toContain("profiles.latitude");

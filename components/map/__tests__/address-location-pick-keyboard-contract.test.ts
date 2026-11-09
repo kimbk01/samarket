@@ -27,8 +27,11 @@ describe("address location pick keyboard / CTA contract", () => {
 
   it("Address Platform Detail saves with footer CTA and does not host FineTune sheet", () => {
     const src = read("components/addresses/AddressPlatformDetailClient.tsx");
-    expect(src).toContain("addr_ui_save_address");
+    /** 주소 입력 시안(2026-11-09): 일반 = 본문 안 [저장], 배달 = 키보드 위 [저장하고 배달 받기] */
+    expect(src).toContain("addr_v3_save");
+    expect(src).toContain("addr_v3_save_and_deliver");
     expect(src).toContain("useFormKeyboardViewport");
+    expect(src).toContain('data-form-keyboard-footer="1"');
     expect(src).not.toContain("AddressFineTuneSheet");
     expect(src).not.toContain("new google.maps.places.Autocomplete");
   });
@@ -42,7 +45,9 @@ describe("address location pick keyboard / CTA contract", () => {
 
   it("Address Platform Detail is a page surface, not a nested FineTune modal", () => {
     const src = read("components/addresses/AddressPlatformDetailClient.tsx");
-    expect(src).toContain("AddressFineTuneMapLazy");
+    /** 지도는 저장 화면이 아니라 지도 위치 확인 단계(3번)에 있다 */
+    expect(src).not.toContain("AddressFineTuneMapLazy");
+    expect(read("components/addresses/AddressMapConfirmClient.tsx")).toContain("AddressCenterPinMapLazy");
     expect(src).not.toContain("AddressFineTuneSheet");
     expect(src).not.toMatch(/fixed inset-0 z-\[80\]/);
   });

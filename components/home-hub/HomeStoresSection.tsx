@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -177,7 +178,7 @@ export function HomeStoresSection({
           {login ? <span className="mt-1 block text-[13px] text-[#767676]">{t("home_stores_login_body")}</span> : null}
           <button
             type="button"
-            onClick={() => router.push(login ? buildLoginHref("/home") : "/mypage/addresses")}
+            onClick={() => router.push(login ? buildLoginHref("/home") : buildMypageAddressesHref(null, { purpose: "delivery" }))}
             className="mt-3 inline-flex h-9 items-center rounded-full bg-sam-primary px-5 text-[14px] font-semibold text-white active:brightness-90"
           >
             {login ? t("home_sign_in") : t("home_stores_address_cta")}

@@ -9,7 +9,7 @@ import {
 } from "@/components/stores/home/hub/StoresConsumerHeaderActions";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildDeliveryAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { openGlobalSearchFromHere } from "@/lib/search/global/global-search-navigation-ssot";
 import { STORES_HOME_HEADER_ACTIONS_CLUSTER } from "@/lib/design/stores-home-header-chrome";
 import { MIRROR_HEADER_SHELL_CLASS } from "@/lib/design/delivery-baemin-mirror";
@@ -64,7 +64,7 @@ export function StoresHomeHeaderChrome() {
               tabIndex={collapsed ? -1 : 0}
               onClick={() =>
                 router.push(
-                  buildMypageAddressesHrefFromPath(
+                  buildDeliveryAddressesHrefFromPath(
                     pathname,
                     searchParams?.toString() ? `?${searchParams.toString()}` : "",
                   ),
