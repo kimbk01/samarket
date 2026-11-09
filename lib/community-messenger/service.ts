@@ -1,5 +1,6 @@
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
+import { resolveServerDeployTier } from "@/lib/config/test-production-isolation";
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { encodeCallStubRoomTip, resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import {
@@ -22523,13 +22524,34 @@ export async function listCommunityMessengerCallSignals(
     }));
 }
 
+/**
+ * D1 (Owner 승인 2026-11-09 · docs/audit/call-incoming-defects-d1-d2-plan-2026-11-09.md) —
+ * 수신 목록 조회 결과. DB 조회 오류를 「빈 목록」과 구분한다(라우트가 503 으로 응답).
+ */
+export type IncomingCallSessionsListResult =
+  | { ok: true; sessions: CommunityMessengerCallSession[] }
+  | { ok: false; reason: "direct_query_failed" | "group_query_failed" | "db_unavailable" };
+
+/** 기존 호출 계약(배열) 유지 — 오류면 빈 배열. 새 호출처는 `listIncomingCommunityMessengerCallSessionsResult` 를 쓴다. */
 export async function listIncomingCommunityMessengerCallSessions(
   userId: string,
   options?: { directOnly?: boolean }
 ): Promise<CommunityMessengerCallSession[]> {
+  const result = await listIncomingCommunityMessengerCallSessionsResult(userId, options);
+  return result.ok ? result.sessions : [];
+}
+
+export async function listIncomingCommunityMessengerCallSessionsResult(
+  userId: string,
+  options?: { directOnly?: boolean }
+): Promise<IncomingCallSessionsListResult> {
   const policy = await getMessengerCallAdminPolicyCached();
   await reconcileUserLiveCallSessions(userId, "incoming_api");
   const sb = getSupabaseOrNull();
+  /** D1: 운영 배포에서 DB 클라이언트가 없으면 개발용 메모리 상태로 떨어지지 않고 오류로 알린다. */
+  if (!sb && resolveServerDeployTier(process.env) === "production") {
+    return { ok: false, reason: "db_unavailable" };
+  }
   if (sb) {
     await terminalStaleRingingDirectSessionsForUser(sb, userId, policy).catch(() => 0);
     if (options?.directOnly) {
@@ -22543,13 +22565,15 @@ export async function listIncomingCommunityMessengerCallSessions(
         .eq("status", "ringing")
         .order("created_at", { ascending: false })
         .limit(10);
-      if (!directError && (directRows ?? []).length) {
+      /** D1: 조회 오류를 「수신 없음」으로 숨기지 않는다. */
+      if (directError) return { ok: false, reason: "direct_query_failed" };
+      if ((directRows ?? []).length) {
         const filtered = await filterDirectIncomingRowsForPolicy(sb, userId, (directRows ?? []) as CallSessionRow[], policy);
         if (filtered.length) {
-          return mapIncomingCallSessionsBatch(userId, filtered);
+          return { ok: true, sessions: await mapIncomingCallSessionsBatch(userId, filtered) };
         }
       }
-      return [];
+      return { ok: true, sessions: [] };
     }
 
     const [{ data: directRows, error: directError }, { data: groupParticipantRows, error: groupError }] =
@@ -22578,9 +22602,13 @@ export async function listIncomingCommunityMessengerCallSessions(
         .filter((value): value is string => typeof value === "string" && value.length > 0)
     );
 
+    /** D1: direct·group 중 하나라도 오류면 부분 결과로 「없음」을 판정하지 않는다. */
+    if (directError) return { ok: false, reason: "direct_query_failed" };
+    if (groupError) return { ok: false, reason: "group_query_failed" };
+
     let groupRows: CallSessionRow[] = [];
     if (groupSessionIds.length) {
-      const { data } = await (sb as any)
+      const { data, error: groupRowsError } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
           "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
@@ -22589,17 +22617,18 @@ export async function listIncomingCommunityMessengerCallSessions(
         .eq("session_mode", "group")
         .in("status", ["ringing", "active"])
         .order("created_at", { ascending: false });
+      if (groupRowsError) return { ok: false, reason: "group_query_failed" };
       groupRows = (data ?? []) as CallSessionRow[];
     }
 
-    if ((!directError || !groupError) && ((directRows ?? []).length || groupRows.length)) {
+    if ((directRows ?? []).length || groupRows.length) {
       const directFiltered = (directRows ?? []).length
         ? await filterDirectIncomingRowsForPolicy(sb, userId, (directRows ?? []) as CallSessionRow[], policy)
         : [];
       const merged = [...directFiltered, ...groupRows]
         .sort((a, b) => (trimText(b.created_at) || "").localeCompare(trimText(a.created_at) || ""))
         .slice(0, 10);
-      return mapIncomingCallSessionsBatch(userId, merged);
+      return { ok: true, sessions: await mapIncomingCallSessionsBatch(userId, merged) };
     }
   }
 
@@ -22614,7 +22643,7 @@ export async function listIncomingCommunityMessengerCallSessions(
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 10);
-  return Promise.all(sessions.map((row) => mapCallSession(userId, row)));
+  return { ok: true, sessions: await Promise.all(sessions.map((row) => mapCallSession(userId, row))) };
 }
 
 export async function createCommunityMessengerCallSignal(input: {
