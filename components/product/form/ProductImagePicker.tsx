@@ -36,8 +36,7 @@ export function ProductImagePicker({
 
   const removeAt = useCallback(
     (index: number) => {
-      const item = value[index];
-      if (item?.url?.startsWith("blob:")) URL.revokeObjectURL(item.url);
+      // P0-D: URL 해제는 목록 주인(ProductForm useReleaseDroppedBlobUrls)이 한다.
       onChange(value.filter((_, i) => i !== index));
     },
     [value, onChange]

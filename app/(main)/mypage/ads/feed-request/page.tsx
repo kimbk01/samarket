@@ -36,6 +36,7 @@ import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import { useMypageSubmitGuard } from "@/lib/mypage/use-mypage-submit-guard";
 import { formatMypageDate, formatMypageMoney, formatMypagePoint } from "@/lib/mypage/format-mypage-date";
+import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 
 type Cat = { id: string; name: string; nameEn: string | null };
 type Topic = { id: string; slug: string; name: string; nameEn: string | null };
@@ -97,6 +98,8 @@ export default function MemberFeedAdRequestPage() {
   const [catalog, setCatalog] = useState<FeedAdProduct[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
   const [creatives, setCreatives] = useState<CreativeState[]>([{ ...EMPTY_CREATIVE }]);
+  /** P0-D: 소재 미리보기 URL 주인 = 이 화면 — 교체·삭제·언마운트 시 빠진 URL 해제. */
+  useReleaseDroppedBlobUrls(creatives.map((c) => c.previewUrl));
   const [uploadSlot, setUploadSlot] = useState(0);
   const [showSample, setShowSample] = useState(false);
   const [currentBanner, setCurrentBanner] = useState<{

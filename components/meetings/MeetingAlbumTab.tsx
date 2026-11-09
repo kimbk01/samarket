@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MeetingAlbumItemDTO } from "@/lib/neighborhood/types";
+import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 
 interface MeetingAlbumTabProps {
   albumItems: MeetingAlbumItemDTO[];
@@ -28,6 +29,8 @@ export function MeetingAlbumTab({
 
   const [localItems, setLocalItems] = useState<MeetingAlbumItemDTO[]>(albumItems);
   const [preview, setPreview] = useState<{ url: string; file: File } | null>(null);
+  /** P0-D: 미리보기 URL 주인 = 이 탭 — 재선택·취소·업로드 완료·언마운트 시 빠진 URL 해제(수동 revoke 대신). */
+  useReleaseDroppedBlobUrls([preview?.url]);
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState("");
@@ -66,7 +69,6 @@ export function MeetingAlbumTab({
   };
 
   const onCancel = () => {
-    if (preview) URL.revokeObjectURL(preview.url);
     setPreview(null);
     setCaption("");
     setErr("");
@@ -95,7 +97,8 @@ export function MeetingAlbumTab({
         // 로컬 상태에 추가 + 미리보기 URL을 실제 URL로 교체
         const newItem: MeetingAlbumItemDTO = {
           ...j.item,
-          image_url: j.item.image_url ?? preview.url,
+          // P0-D: 서버 URL 이 없을 때 곧 해제될 blob 을 쓰지 않는다 — 빈 값이면 아래 새로고침이 채운다.
+          image_url: j.item.image_url ?? "",
         };
         setLocalItems((prev) => [newItem, ...prev]);
       }

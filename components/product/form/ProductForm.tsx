@@ -15,6 +15,7 @@ import { ProductPriceField } from "./ProductPriceField";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS, APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
 
 const defaultCondition: ProductCondition = "good";
 
@@ -42,9 +43,11 @@ export function ProductForm({
   const { t } = useI18n();
   const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
   useFormKeyboardFocusVisibility({ effectiveViewportBottom });
+  /** P0-D: 사진 URL 주인 = 이 폼(ProductImagePicker 는 해제하지 않음) — 아래 useReleaseDroppedBlobUrls. */
   const [images, setImages] = useState<ImagePreviewItem[]>(() =>
     initialValues?.images?.length ? toPreviewItems(initialValues.images) : []
   );
+  useReleaseDroppedBlobUrls(images.map((i) => i.url));
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [price, setPrice] = useState(initialValues?.price ?? "");
