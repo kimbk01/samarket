@@ -52,19 +52,58 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
       ? String((sessionRow as { status?: string | null }).status ?? "").trim() || null
       : null;
 
-  const { data: latest, error: loadError } = await svc
-    .from("notification_deliveries")
-    .select("id, provider_response")
-    .eq("user_id", auth.userId)
-    .eq("target_type", "call_session")
-    .eq("target_id", callId)
-    .eq("event_type", "call_ringing")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  /**
+   * R3 (2026-11-09): 수신 확인은 **보낸 기기의 발송 행**에 기록한다.
+   * 이전에는 사용자의 가장 최근 발송 행 1개에 기록해, 기기 2대 이상이면 다른 기기 행을 덮어썼다(운영 30일 22건).
+   * 요청 `deviceId` = `user_devices.device_id` (한 기기에 행 여러 개 가능) → 그 행들의 발송 중 최신.
+   * 일치 행이 없을 때만 기존 방식(최근 발송 행) + `deviceMatched: false` 기록.
+   */
+  const ackDeviceId = typeof body.deviceId === "string" ? body.deviceId.trim() : "";
+  let deviceRowIds: string[] = [];
+  if (ackDeviceId) {
+    const { data: deviceRows, error: deviceError } = await svc
+      .from("user_devices")
+      .select("id")
+      .eq("user_id", auth.userId)
+      .eq("device_id", ackDeviceId);
+    if (deviceError) {
+      return NextResponse.json({ ok: false, error: deviceError.message }, { status: 500 });
+    }
+    deviceRowIds = ((deviceRows ?? []) as Array<{ id?: string | null }>)
+      .map((r) => (typeof r.id === "string" ? r.id : ""))
+      .filter(Boolean);
+  }
 
-  if (loadError) {
-    return NextResponse.json({ ok: false, error: loadError.message }, { status: 500 });
+  const loadLatestRinging = async (rowIds: string[] | null) => {
+    let q = svc
+      .from("notification_deliveries")
+      .select("id, provider_response")
+      .eq("user_id", auth.userId)
+      .eq("target_type", "call_session")
+      .eq("target_id", callId)
+      .eq("event_type", "call_ringing");
+    if (rowIds) q = q.in("device_id", rowIds);
+    return q.order("created_at", { ascending: false }).limit(1).maybeSingle();
+  };
+
+  let deviceMatched = false;
+  let latest: { id?: string | null; provider_response?: unknown } | null = null;
+  if (deviceRowIds.length > 0) {
+    const byDevice = await loadLatestRinging(deviceRowIds);
+    if (byDevice.error) {
+      return NextResponse.json({ ok: false, error: byDevice.error.message }, { status: 500 });
+    }
+    if (byDevice.data?.id) {
+      latest = byDevice.data;
+      deviceMatched = true;
+    }
+  }
+  if (!latest) {
+    const anyRow = await loadLatestRinging(null);
+    if (anyRow.error) {
+      return NextResponse.json({ ok: false, error: anyRow.error.message }, { status: 500 });
+    }
+    latest = anyRow.data ?? null;
   }
 
   if (!latest?.id) {
@@ -93,7 +132,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     .update({
       provider_response: {
         ...existing,
-        nativeAck: ack,
+        nativeAck: { ...ack, deviceMatched },
         nativeAckReceivedAt: new Date().toISOString(),
       },
     })
