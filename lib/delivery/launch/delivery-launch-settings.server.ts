@@ -61,9 +61,16 @@ const loadCached = unstable_cache(loadForCache, ["delivery-launch:server:v1"], {
   tags: [DELIVERY_LAUNCH_SERVER_CACHE_TAG],
 });
 
-/** 공개 화면용 (60초 캐시 · 어드민 저장 시 태그 무효화) */
+/**
+ * 공개 화면·주문 거부 판정용 (60초 캐시 · 어드민 저장 시 태그 무효화).
+ * Next 캐시 계층이 없는 실행 환경(단위 테스트·스크립트)에서는 원본 1회 읽기로 대신한다.
+ */
 export async function loadDeliveryLaunchSettingsCached(): Promise<DeliveryLaunchSettings> {
-  return loadCached();
+  try {
+    return await loadCached();
+  } catch {
+    return loadForCache();
+  }
 }
 
 export type SaveDeliveryLaunchInput = {

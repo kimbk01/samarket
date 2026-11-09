@@ -17,6 +17,8 @@ function makeSb() {
         select: () => b,
         eq: () => b,
         in: () => b,
+        /** 입점 약관 게시본 조회(app_legal_documents · 5단계) — 게시본 없음 = 서약 없이 기존 흐름 */
+        order: () => b,
         limit: async () => ({ data: [], error: null }),
         insert: (row: Row) => {
           inserting = true;
