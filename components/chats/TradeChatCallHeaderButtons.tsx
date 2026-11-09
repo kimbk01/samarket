@@ -36,10 +36,16 @@ export function TradeChatCallHeaderButtons(props: {
   productChatRoomId: string;
   /** 서버가 이미 연결한 메신저 직통방이면 브리지 왕복 생략 */
   communityMessengerRoomId?: string | null;
+  /**
+   * 거래 상대 닉네임(화면 헤더와 같은 값) — 발신 확인창·발신 화면 이름.
+   * 없으면 확인창은 「상대방」, 발신 화면은 서버 세션 닉네임 (대체 문구를 발신 이름으로 넘기지 않음).
+   */
+  peerDisplayName?: string | null;
   onErrorMessage: (message: string) => void;
 }) {
   const { t } = useI18n();
   const { policy, productChatRoomId, communityMessengerRoomId, onErrorMessage } = props;
+  const dialPeerLabel = props.peerDisplayName?.trim() || "";
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [busy, setBusy] = useState(false);
@@ -105,7 +111,10 @@ export function TradeChatCallHeaderButtons(props: {
           callKind: kind,
           role: "initiator",
         });
-        const result = await launchOutgoingDirectCall({ kind, roomId: messengerRoomId }, router);
+        const result = await launchOutgoingDirectCall(
+          { kind, roomId: messengerRoomId, peerLabel: dialPeerLabel || undefined },
+          router
+        );
         if (!result.ok) {
           if (isOutgoingCallPhoneVerificationRequired(result)) return;
           onErrorMessage(result.userMessage);
@@ -116,7 +125,7 @@ export function TradeChatCallHeaderButtons(props: {
         setBusy(false);
       }
     },
-    [busy, communityMessengerRoomId, onErrorMessage, outgoingBlocked, pathname, productChatRoomId, router]
+    [busy, communityMessengerRoomId, dialPeerLabel, onErrorMessage, outgoingBlocked, pathname, productChatRoomId, router]
   );
 
   if (!tradeChatCallPolicyAllowsVoice(policy)) return null;
@@ -158,7 +167,7 @@ export function TradeChatCallHeaderButtons(props: {
       {outgoingConfirmKind ? (
         <MessengerOutgoingCallConfirmDialog
           open
-          peerLabel={t("common_partner")}
+          peerLabel={dialPeerLabel || t("common_partner")}
           kind={outgoingConfirmKind}
           busy={busy}
           onCancel={() => {

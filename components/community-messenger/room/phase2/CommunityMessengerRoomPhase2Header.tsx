@@ -619,7 +619,8 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         onCancel={() => setHeaderVoiceConfirmOpen(false)}
         onConfirm={() => {
           setHeaderVoiceConfirmOpen(false);
-          void vm.startManagedDirectCall("voice");
+          /** 확인창에 보인 이름 그대로 발신 (매장 주문 구매자 = 매장명) */
+          void vm.startManagedDirectCall("voice", voiceConfirmPeerLabel);
         }}
       />
     ) : null}

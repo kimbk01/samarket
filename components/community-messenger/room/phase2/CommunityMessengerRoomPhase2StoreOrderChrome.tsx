@@ -210,7 +210,8 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         onCancel={() => setBuyerVoiceOutgoingConfirmOpen(false)}
         onConfirm={() => {
           setBuyerVoiceOutgoingConfirmOpen(false);
-          void vm.startManagedDirectCall("voice");
+          /** 확인창에 보인 매장명 그대로 발신 — 사장님 개인 닉네임(room.title) 금지 */
+          void vm.startManagedDirectCall("voice", buyerVoicePeerLabel);
         }}
       />
     ) : null;

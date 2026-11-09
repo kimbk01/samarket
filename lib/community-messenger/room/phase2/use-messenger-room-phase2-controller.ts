@@ -682,9 +682,13 @@ export function useMessengerRoomPhase2Controller() {
     [router]
   );
 
-  /** 발신 — roomManaged. preflight 후 `/calls/outgoing` 으로 이동 */
+  /**
+   * 발신 — roomManaged. preflight 후 `/calls/outgoing` 으로 이동.
+   * `dialPeerLabel` — 발신 확인창에 보여 준 이름(매장 주문 구매자 = 매장명 등). 확인창 이름 = 발신 화면 이름.
+   * 없으면 기존처럼 방 제목(1:1 = 상대 프로필 이름).
+   */
   const startManagedDirectCall = useCallback(
-    (kind: "voice" | "video"): boolean => {
+    (kind: "voice" | "video", dialPeerLabel?: string | null): boolean => {
       if (roomUnavailable || isGroupRoom) return false;
       if (outgoingDialSyncGuardRef.current) return false;
       const rid = roomId.trim();
@@ -735,7 +739,7 @@ export function useMessengerRoomPhase2Controller() {
         return true;
       }
 
-      const peerLabel = snapshot?.room.title?.trim();
+      const peerLabel = dialPeerLabel?.trim() || snapshot?.room.title?.trim();
       cmCallLatencyMarkClick({
         surface: "room_managed",
         roomId: rid,
