@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ProfileRow } from "@/lib/profile/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { loadStoreRecentOrderCount90dCached } from "@/lib/stores/store-recent-order-count-cache";
 import { ownerStoreProfileWriteBlock } from "@/lib/stores/owner-product-gate";
+import { loadPrivilegedAdminMembership } from "@/lib/admin/admin-membership";
+import { isSuspendedNonSuperAdminActor } from "@/lib/admin/require-admin-api";
 
 /** 90일 최근 주문 건수 집계용 — `/api/stores/[slug]` 와 동일 */
 export const RECENT_ORDER_STATUSES = [
@@ -109,6 +112,13 @@ export type StoreBySlugForViewerResult =
       ownerHiddenPreview: boolean;
       /** 본인 미리보기인데 아직 입점 승인 전(대기·심사·보완) — Owner 「신청한 오너는 본인 매장 진입」 2026-11-10 */
       ownerPreviewPending?: boolean;
+      /**
+       * 관리자 미리보기 — 사장님 본인이 아니고 활성 관리자일 때 상태 무관(반려·중지 포함)으로 연다
+       * (Owner 승인 설계 v3.2 §3-4-3 「어드민에서는 매장을 볼 수 있는 기능」 2026-11-10). 이때 `ownerHiddenPreview` 는 false.
+       */
+      adminPreview?: boolean;
+      /** 관리자 미리보기 중 이 매장이 지금 고객에게 보이는지 (`approved` 이고 `is_visible`) */
+      publiclyVisible?: boolean;
     }
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "db_error"; message: string };
@@ -134,11 +144,32 @@ const ownerHiddenPreviewCache = new Map<
 >();
 
 /**
+ * 보는 사람이 활성 관리자인가 — 관리자 API 가드(`isRouteAdmin`·`requireAdminApiUser`)와 같은 판정식을 재사용한다.
+ * - 활성 `admin_memberships`(admin·super_admin) = `loadPrivilegedAdminMembership` (판정 전용 15초/60초 캐시 공유)
+ * - 정지 회원 운영자(최고관리자 제외) 거부 = `isSuspendedNonSuperAdminActor` (AD-07)
+ * 조회 오류는 관리자 아님(닫힘).
+ */
+async function isActiveAdminViewer(sb: SupabaseClient, viewerUserId: string): Promise<boolean> {
+  try {
+    const membership = await loadPrivilegedAdminMembership(sb, viewerUserId);
+    if (!membership) return false;
+    const { data, error } = await sb.from("profiles").select("status").eq("id", viewerUserId).maybeSingle();
+    if (error) return false;
+    const profile = (data as Pick<ProfileRow, "status"> | null) ?? null;
+    return !(await isSuspendedNonSuperAdminActor(viewerUserId, profile, membership));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 매장 화면 공개 판정 + 사장님 본인 숨김 매장 열람 (Owner 「본인 열람으로 수정」 2026-11-03) — 함수 하나.
  * - 승인·노출 매장 = `getApprovedStoreBySlug` 결과 그대로 (공용 30s 캐시).
  * - 그 밖: 로그인 사용자가 **그 매장 사장님**이고 승인 또는 심사 중(대기·심사·보완) 매장이면 숨김이어도 연다
  *   (`ownerHiddenPreview: true`, 승인 전이면 `ownerPreviewPending: true` · Owner 2026-11-10). 반려·중지는 닫는다.
  *   본인 판정 결과는 slug·컬럼·보는 사람 키로만 15초 보관(다른 사람과 공유 안 함). 다른 사람·미승인은 not_found.
+ * - 사장님 본인 미리보기가 아니고 보는 사람이 **활성 관리자**면 상태 무관(반려·중지 포함)으로 연다
+ *   (`adminPreview: true`, `publiclyVisible` · 설계 v3.2 §3-4-3). 결과는 본인 판정과 같은 보는 사람별 캐시에만 둔다.
  * - `publicResult` — 뷰어 확인과 병렬로 이미 돌린 공용 조회 결과(있으면 다시 조회하지 않음).
  */
 export async function getStoreBySlugForViewer(
@@ -165,15 +196,27 @@ export async function getStoreBySlugForViewer(
   if (error) return { ok: false, reason: "db_error", message: error.message };
   const row = data as Record<string, unknown> | null;
   const approval = String(row?.approval_status ?? "").trim();
-  const result: StoreBySlugForViewerResult =
-    !row || ownerStoreProfileWriteBlock(approval) !== null || String(row.owner_user_id ?? "").trim() !== viewer
-      ? { ok: false, reason: "not_found" }
-      : {
-          ok: true,
-          store: row,
-          ownerHiddenPreview: row.is_visible !== true || approval !== "approved",
-          ownerPreviewPending: approval !== "approved",
-        };
+  let result: StoreBySlugForViewerResult;
+  if (!row) {
+    result = { ok: false, reason: "not_found" };
+  } else if (ownerStoreProfileWriteBlock(approval) === null && String(row.owner_user_id ?? "").trim() === viewer) {
+    result = {
+      ok: true,
+      store: row,
+      ownerHiddenPreview: row.is_visible !== true || approval !== "approved",
+      ownerPreviewPending: approval !== "approved",
+    };
+  } else if (await isActiveAdminViewer(sb, viewer)) {
+    result = {
+      ok: true,
+      store: row,
+      ownerHiddenPreview: false,
+      adminPreview: true,
+      publiclyVisible: approval === "approved" && row.is_visible === true,
+    };
+  } else {
+    result = { ok: false, reason: "not_found" };
+  }
   ownerHiddenPreviewCache.set(cacheKey, {
     expiresAt: Date.now() + OWNER_HIDDEN_PREVIEW_CACHE_TTL_MS,
     result,

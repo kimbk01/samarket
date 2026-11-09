@@ -328,6 +328,9 @@ export function AdminStoreReviewPanel({
   const storeNameForCopy = (store.store_name ?? "").trim();
   const { intro: storeIntro } = splitStoreDescriptionAndKakao(store.description, store.kakao_id);
   const dateRows = buildAdminStoreDateRows(store, language);
+  /** 「고객 화면으로 보기」 — 고객 매장 화면 주소. slug 없으면 버튼 비활성 */
+  const customerSlug = String(store.slug ?? "").trim();
+  const customerPreviewHref = customerSlug ? `/stores/${encodeURIComponent(customerSlug)}` : "";
 
   const gcashNoDigits = parsePhMobileInput(store.email ?? "");
   const gcashNoDisplay =
@@ -490,6 +493,24 @@ export function AdminStoreReviewPanel({
             </AdminActionLink>
           </div>
         ) : null}
+        {/* 관리자 미리보기 (설계 v3.2 §3-4-3 「어드민에서는 매장을 볼 수 있는 기능」 2026-11-10) — 상태 무관 · 새 탭 · 주문 막힘 */}
+        <div className="py-2" data-admin-store-view-as-customer>
+          {customerPreviewHref ? (
+            <AdminActionLink
+              href={customerPreviewHref}
+              variant="secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t("admin_stores_view_as_customer")}
+            </AdminActionLink>
+          ) : (
+            <AdminActionButton type="button" variant="secondary" disabled>
+              {t("admin_stores_view_as_customer")}
+            </AdminActionButton>
+          )}
+          <p className="mt-1 text-[12px] text-sam-muted">{t("admin_stores_view_as_customer_hint")}</p>
+        </div>
       </ReviewBlock>
 
       {/* 매장 입점 계약 (설계 v2 §4-5) — 실매장 심사·운영 화면 */}

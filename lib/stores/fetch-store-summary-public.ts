@@ -6,6 +6,7 @@ import {
   STORE_SELECT_SUMMARY,
   type StoreCommerceMeta,
 } from "@/lib/stores/get-approved-store-by-slug";
+import { ownerStoreProfileWriteBlock } from "@/lib/stores/owner-product-gate";
 import { isSampleStoreKind, loadStorePublicMenuOpen } from "@/lib/stores/store-public-menu-open";
 import { peekStoreCommerceMetaCached, resolveStoreOrderabilityCached } from "@/lib/stores/load-store-commerce-meta-cached";
 
@@ -71,7 +72,7 @@ export async function fetchStoreSummaryPublicShared(
     };
   }
 
-  const built = await buildStoreSummaryShared(sb, storeRes.store, false);
+  const built = await buildStoreSummaryShared(sb, storeRes.store, null);
   queryCount += built.queryCount;
   return {
     shared: built.shared,
@@ -83,9 +84,10 @@ export async function fetchStoreSummaryPublicShared(
 }
 
 /**
- * 사장님 본인 숨김 매장 summary (Owner 「본인 열람으로 수정」 2026-11-03).
- * 공용 결과가 404 일 때만 호출 — 결과는 **본인 전용**이라 slug 캐시·single-flight 에 넣지 않는다.
- * null = 본인 매장 아님·미승인 (공용 404 유지).
+ * 사장님 본인 숨김 매장 summary (Owner 「본인 열람으로 수정」 2026-11-03)
+ * + 관리자 미리보기 summary (설계 v3.2 §3-4-3 · 2026-11-10 — `getStoreBySlugForViewer` 의 `adminPreview`).
+ * 공용 결과가 404 일 때만 호출 — 결과는 **보는 사람 전용**이라 slug 캐시·single-flight 에 넣지 않는다.
+ * null = 본인 매장 아님·관리자 아님·미승인 (공용 404 유지).
  */
 export async function fetchStoreSummaryOwnerHiddenPreview(
   sb: SupabaseClient,
@@ -94,18 +96,29 @@ export async function fetchStoreSummaryOwnerHiddenPreview(
 ): Promise<{ shared: StoreSummaryPublicShared; queryCount: number } | null> {
   if (!viewerId?.trim()) return null;
   const storeRes = await getStoreBySlugForViewer(sb, decodedSlug, STORE_SELECT_SUMMARY, viewerId);
-  if (storeRes.ok === false || !storeRes.ownerHiddenPreview) return null;
-  const built = await buildStoreSummaryShared(sb, storeRes.store, true);
+  if (storeRes.ok === false) return null;
+  const preview: SummaryPreviewKind | null = storeRes.ownerHiddenPreview
+    ? { kind: "owner" }
+    : storeRes.adminPreview
+      ? { kind: "admin", publiclyVisible: storeRes.publiclyVisible === true }
+      : null;
+  if (!preview) return null;
+  const built = await buildStoreSummaryShared(sb, storeRes.store, preview);
   return { shared: built.shared, queryCount: built.queryCount + 1 };
 }
+
+/** summary 를 보는 사람 전용 미리보기로 만들 때의 종류 — null = 공용 */
+type SummaryPreviewKind = { kind: "owner" } | { kind: "admin"; publiclyVisible: boolean };
 
 async function buildStoreSummaryShared(
   sb: SupabaseClient,
   store: Record<string, unknown>,
-  ownerHiddenPreview: boolean
+  preview: SummaryPreviewKind | null
 ): Promise<{ shared: StoreSummaryPublicShared; queryCount: number }> {
   const storeId = String(store.id ?? "");
   const ownerUserId = String(store.owner_user_id ?? "").trim();
+  const ownerHiddenPreview = preview?.kind === "owner";
+  const approval = String(store.approval_status ?? "").trim();
 
   /**
    * S-01 — canSell(판매 승인) = 주문 CTA 전용 · menuOpen = DB `store_public_menu_open`(판매 승인 OR 샘플).
@@ -137,8 +150,14 @@ async function buildStoreSummaryShared(
       isSampleStore,
       source: "supabase",
       ...(ownerHiddenPreview ? { owner_hidden_preview: true } : {}),
-      ...(ownerHiddenPreview && String(store.approval_status ?? "").trim() !== "approved"
-        ? { owner_preview_pending: true }
+      ...(ownerHiddenPreview && approval !== "approved" ? { owner_preview_pending: true } : {}),
+      ...(preview?.kind === "admin"
+        ? {
+            admin_preview: true,
+            admin_preview_public_visible: preview.publiclyVisible,
+            /** 반려·중지 — 메뉴 DB 함수가 열지 않아 메뉴를 불러올 수 없는 상태 (화면 안내용) */
+            ...(ownerStoreProfileWriteBlock(approval) !== null ? { admin_preview_menu_unavailable: true } : {}),
+          }
         : {}),
     },
   };

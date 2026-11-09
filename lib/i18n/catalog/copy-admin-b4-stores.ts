@@ -242,6 +242,9 @@ export const copyAdminB4StoresMessages = {
     admin_stores_store_report: "매장 신고",
     admin_stores_handled: "처리",
     admin_stores_store_detail: "매장 상세",
+    /** 관리자 미리보기 (설계 v3.2 §3-4-3 · 2026-11-10) */
+    admin_stores_view_as_customer: "고객 화면으로 보기",
+    admin_stores_view_as_customer_hint: "매장 상태와 상관없이 고객 화면을 새 탭으로 엽니다. 주문은 막혀 있습니다.",
     admin_stores_review_suspension: "운영 중지 검토",
     admin_stores_visibility_turned_on: "노출을 켰습니다.",
     admin_stores_visibility_turned_off: "노출을 껐습니다.",
@@ -736,6 +739,8 @@ export const copyAdminB4StoresMessages = {
     admin_stores_store_report: "Store report",
     admin_stores_handled: "Handled",
     admin_stores_store_detail: "Store detail",
+    admin_stores_view_as_customer: "View as customer",
+    admin_stores_view_as_customer_hint: "Opens the customer screen in a new tab regardless of store status. Ordering is blocked.",
     admin_stores_review_suspension: "Review suspension",
     admin_stores_visibility_turned_on: "Visibility turned on.",
     admin_stores_visibility_turned_off: "Visibility turned off.",

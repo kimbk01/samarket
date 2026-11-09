@@ -10,6 +10,8 @@ const h = vi.hoisted(() => ({
   publicVisible: false,
   snapshotCalls: 0,
   rpcArgs: [] as Array<Record<string, unknown>>,
+  /** 관리자 미리보기 판정 결과 (설계 v3.2 §3-4-3) — null = 관리자 아님 */
+  adminViewer: null as string | null,
 }));
 
 vi.mock("@/lib/auth/get-route-user-id", () => ({ getRouteUserId: async () => h.viewer }));
@@ -21,6 +23,17 @@ vi.mock("@/lib/stores/get-approved-store-by-slug", () => ({
   getApprovedStoreBySlug: async () =>
     h.publicVisible
       ? { ok: true, store: { id: "s1", slug: "hidden-shop", store_name: "Hidden" } }
+      : { ok: false, reason: "not_found" },
+  /** 관리자 미리보기 판정 — 활성 관리자만 열림(사장님 id 를 함께 준다) */
+  getStoreBySlugForViewer: async (_sb: unknown, _slug: string, _cols: string, viewer: string | null) =>
+    viewer && viewer === h.adminViewer
+      ? {
+          ok: true,
+          store: { id: "s1", slug: "hidden-shop", store_name: "Hidden", owner_user_id: OWNER },
+          ownerHiddenPreview: false,
+          adminPreview: true,
+          publiclyVisible: false,
+        }
       : { ok: false, reason: "not_found" },
 }));
 
@@ -102,6 +115,7 @@ describe("menus — 숨김 매장 메뉴 사본 차단 · 사장님 본인만 �
     h.publicVisible = false;
     h.snapshotCalls = 0;
     h.rpcArgs = [];
+    h.adminViewer = null;
     resetStoreMenusPublicServerCacheForTests();
   });
 
@@ -122,6 +136,22 @@ describe("menus — 숨김 매장 메뉴 사본 차단 · 사장님 본인만 �
     expect(h.rpcArgs).toEqual([
       { p_store_slug: "hidden-shop", p_user_id: OWNER, p_menu_version: "default" },
     ]);
+    expect(h.snapshotCalls).toBe(0);
+    expect(r.cacheControl).toBe("private, no-store");
+  });
+
+  it("관리자 미리보기: 관리자 확인 뒤 DB 함수(p_user_id = 사장님)로 200 · 찜 false · 공용 캐시 안 씀", async () => {
+    h.viewer = "admin-uid";
+    h.adminViewer = "admin-uid";
+    const r = await call();
+    expect(r.status).toBe(200);
+    const meta = r.json.meta as Record<string, unknown>;
+    expect(meta.admin_preview).toBe(true);
+    expect(meta.admin_preview_public_visible).toBe(false);
+    expect(meta.viewer_favorited).toBe(false);
+    expect(meta.owner_hidden_preview).toBeUndefined();
+    // 첫 호출 = 본인 미리보기 시도(p_user_id = 관리자 → 빈 결과), 둘째 = 관리자 확인 뒤 사장님 id
+    expect(h.rpcArgs.map((a) => a.p_user_id)).toEqual(["admin-uid", OWNER]);
     expect(h.snapshotCalls).toBe(0);
     expect(r.cacheControl).toBe("private, no-store");
   });
