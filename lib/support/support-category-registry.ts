@@ -217,6 +217,26 @@ export const SUPPORT_CATEGORY_REGISTRY: readonly SupportCategoryDefinition[] = [
     guidanceEligible: "yes",
   },
   {
+    /**
+     * 매장 입점 문의 — 매장이 없는 일반 회원이 매장 신청 전에 묻는 유형 (Owner 2026-11-10).
+     * 매장이 있는 사장님의 심사 문의는 OWNER `STORE_APPROVAL`.
+     */
+    id: "STORE_PARTNERSHIP",
+    audiences: ["MEMBER"],
+    labelKey: "support_cat_store_partnership",
+    adminLabelKey: "support_cat_store_partnership",
+    adminGroup: "store",
+    selectable: true,
+    issueTypes: issues([
+      ["FEE", "support_issue_store_partnership_fee"],
+      ["HOW_TO_APPLY", "support_issue_store_partnership_how_to_apply"],
+      ["OTHER", "support_issue_other", "none"],
+    ]),
+    allowedReferenceTypes: [],
+    allowedSourceSurfaces: "*",
+    guidanceEligible: "yes",
+  },
+  {
     id: "TECHNICAL",
     audiences: ["MEMBER", "OWNER"],
     labelKey: "support_cat_technical",
@@ -454,6 +474,7 @@ export const MEMBER_SUPPORT_CATEGORIES = [
   "REPORT",
   "TRADE",
   "AD",
+  "STORE_PARTNERSHIP",
   "TECHNICAL",
   "OTHER",
 ] as const;
