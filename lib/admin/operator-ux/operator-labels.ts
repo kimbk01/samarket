@@ -215,6 +215,12 @@ export function adminOperatorErrorMessage(
     featured_period_invalid: catalogPair("admin_the_featured_period_date_is_invalid"),
     featured_period_order: catalogPair("admin_the_featured_end_date_must_be"),
     sample_store_cannot_sell: catalogPair("admin_sample_stores_cannot_be_approved_for"),
+    // 매장 입점 계약 (2026-11-10)
+    partner_agreement_required: catalogPair("admin_partner_approve_needs_agreement"),
+    launch_free_policy_failed: catalogPair("admin_partner_err_launch_free_failed"),
+    launch_free_until_invalid: catalogPair("admin_partner_err_free_until_invalid"),
+    launch_free_until_past: catalogPair("admin_partner_err_free_until_past"),
+    partner_agreement_not_real_store: catalogPair("admin_partner_err_not_real_store"),
     not_sample_store: catalogPair("admin_only_sample_stores_can_be_processed"),
     preview_changed: catalogPair("admin_data_changed_after_the_preview_run"),
     bulk_action_not_allowed: catalogPair("admin_this_field_cannot_be_changed_in"),

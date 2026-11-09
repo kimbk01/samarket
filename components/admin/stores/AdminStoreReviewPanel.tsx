@@ -36,6 +36,10 @@ import { AdminStoreDiscoverySnapshotPanel } from "@/components/admin/stores/Admi
 import { isStoreCoreInfoPendingReverification } from "@/lib/stores/store-core-info-reverification";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { translateBy } from "@/lib/i18n/translate-by";
+import {
+  AdminStorePartnerAgreementBlock,
+  type AdminStorePartnerSummary,
+} from "@/components/admin/stores/AdminStorePartnerAgreementBlock";
 
 function embedRelation(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): TaxonomyRelation | null {
   if (v == null) return null;
@@ -212,16 +216,19 @@ export function adminStoreActionSuccessMessage(action: string, ko: boolean, enab
 export async function confirmAdminStoreAction(
   action: string,
   ko: boolean,
-  storeName?: string | null
+  storeName?: string | null,
+  /** 확인창 설명 앞에 붙는 안내 (입점 승인: 입점 계약 상태·오픈 기념 무료 정책) */
+  extraDescription?: string | null
 ): Promise<{ ok: true; reason?: string } | { ok: false }> {
   const c = ADMIN_STORE_ACTION_COPY[action];
   if (!c) return { ok: false };
   const name = (storeName ?? "").trim();
+  const baseDescription = ko ? c.descKo : c.descEn;
   const confirmed = await confirmAdminAction({
     level: c.level,
     ko,
     title: name ? `${ko ? c.titleKo : c.titleEn} · ${name}` : ko ? c.titleKo : c.titleEn,
-    description: ko ? c.descKo : c.descEn,
+    description: [extraDescription?.trim() || null, baseDescription ?? null].filter(Boolean).join("\n") || undefined,
     confirmLabel: ko ? c.ko : c.en,
     destructive: c.destructive,
     reasonPlaceholder: c.level !== "L1" ? translateBy(ko ? "ko" : "en", "admin_stores_reason_sent_to_owner") : undefined,
@@ -301,6 +308,8 @@ export function AdminStoreReviewPanel({
   const [notifyResult, setNotifyResult] = useState<
     { ok: true; message: string } | { ok: false; code: string } | null
   >(null);
+  /** 입점 계약 요약 — 입점 승인 확인창 안내 (계약 없음 · 오픈 기념 무료 정책 생성) */
+  const [partnerSummary, setPartnerSummary] = useState<AdminStorePartnerSummary | null>(null);
 
   useEffect(() => {
     setAdminStoreName(store?.store_name ?? "");
@@ -369,7 +378,16 @@ export function AdminStoreReviewPanel({
   /** 모든 결정은 확인 팝업(동작 표 단계)을 거친다. L2·L3 사유는 API `reason` 으로 전송. */
   const runConfirmedAction = async (action: string, extra?: Record<string, unknown>): Promise<void> => {
     if (!ADMIN_STORE_ACTION_COPY[action] || !onRunAction) return;
-    const confirmed = await confirmAdminStoreAction(action, ko, storeNameForCopy);
+    const lang = ko ? "ko" : "en";
+    const partnerNote =
+      action === "approve_store" && partnerSummary
+        ? partnerSummary.approvalBlocked
+          ? translateBy(lang, "admin_partner_approve_needs_agreement")
+          : partnerSummary.launchFreeUntil
+            ? translateBy(lang, "admin_partner_approve_free_note", { date: partnerSummary.launchFreeUntil })
+            : null
+        : null;
+    const confirmed = await confirmAdminStoreAction(action, ko, storeNameForCopy, partnerNote);
     if (!confirmed.ok) return;
     const payload = { ...(extra ?? {}), ...(confirmed.reason ? { reason: confirmed.reason } : {}) };
     await onRunAction(action, Object.keys(payload).length > 0 ? payload : undefined);
@@ -473,6 +491,20 @@ export function AdminStoreReviewPanel({
           </div>
         ) : null}
       </ReviewBlock>
+
+      {/* 매장 입점 계약 (설계 v2 §4-5) — 실매장 심사·운영 화면 */}
+      {store.store_kind == null || store.store_kind === "real" ? (
+        <AdminStorePartnerAgreementBlock
+          storeId={store.id}
+          approvalStatus={String(store.approval_status ?? "")}
+          storeTopicId={store.store_topic_id ?? null}
+          topicLabel={topicDb}
+          categoryLabel={catDb}
+          onRunAction={onRunAction}
+          busy={busy}
+          onSummary={setPartnerSummary}
+        />
+      ) : null}
 
       {coreInfoPending ? (
         <ReviewBlock title={t("admin_stores_address_re_verification")}>

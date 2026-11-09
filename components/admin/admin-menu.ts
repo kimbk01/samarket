@@ -291,6 +291,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-menus": "admin_menu_delivery_menus",
   "delivery-section-home-layout": "admin_menu_delivery_section_home_layout",
   "stores-commerce": "admin_menu_store_review_queue",
+  "store-partner-agreements": "admin_menu_store_partner_agreements",
   "store-discovery-control": "admin_menu_store_discovery_control",
   "store-insertions-control": "admin_menu_store_insertions_control",
   "store-ads-control": "admin_menu_store_ads_control",
@@ -573,6 +574,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         children: [
           { key: "stores-commerce", title: "", path: "/admin/stores", status: "done" },
+          // 매장 입점·수수료 계약 목록 (설계 v2 §4-5, 2026-11-10)
+          { key: "store-partner-agreements", title: "", path: "/admin/stores/partner-agreements", status: "done" },
           { key: "business-shops", title: "", path: "/admin/business", status: "done" },
           {
             key: "store-products-admin",

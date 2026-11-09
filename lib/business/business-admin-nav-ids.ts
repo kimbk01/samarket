@@ -25,6 +25,8 @@ export type BusinessAdminNavItemId =
   | "public_store"
   | "sales"
   | "settlements"
+  /** 매장 입점·수수료 계약 (2026-11-10) — 상태 무관 열람·재동의 */
+  | "partner_agreement"
   | "finance"
   | "ads"
   | "notifications"

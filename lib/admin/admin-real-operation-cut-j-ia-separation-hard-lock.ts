@@ -72,6 +72,8 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
     key: "delivery-section-stores",
     children: [
       "stores-commerce",
+      // 매장 입점 계약 목록 (설계 v2 §4-5, 2026-11-10)
+      "store-partner-agreements",
       "business-shops",
       "store-products-admin",
       "store-inquiries-admin",

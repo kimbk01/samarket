@@ -11,12 +11,17 @@ type Props = {
   open: boolean;
   kind: AppLegalKind | null;
   onClose: () => void;
+  /**
+   * 이미 받은 원문(특정 버전) — 있으면 지금 게시본을 다시 불러오지 않고 이 글을 보여 준다
+   * (매장 입점 계약: 동의한 버전 원문·서명할 버전 원문).
+   */
+  document?: { title: string; body: string; version: string } | null;
 };
 
 /**
  * In-app legal document sheet (Owner mockup) — closing preserves parent checkbox state.
  */
-export function ConsentLegalDocSheet({ open, kind, onClose }: Props) {
+export function ConsentLegalDocSheet({ open, kind, onClose, document: preloaded = null }: Props) {
   const { t, language, safeT } = useI18n();
   const locale = language === "en" ? "en" : "ko";
   const [title, setTitle] = useState("");
@@ -26,7 +31,16 @@ export function ConsentLegalDocSheet({ open, kind, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !kind) return;
+    if (!open) return;
+    if (preloaded) {
+      setLoading(false);
+      setError(null);
+      setTitle(preloaded.title);
+      setParagraphs(splitLegalBodyParagraphs(preloaded.body));
+      setVersion(preloaded.version || null);
+      return;
+    }
+    if (!kind) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -65,7 +79,7 @@ export function ConsentLegalDocSheet({ open, kind, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open, kind, locale, safeT]);
+  }, [open, kind, locale, safeT, preloaded]);
 
   return (
     <DibayBottomSheet

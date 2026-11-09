@@ -218,6 +218,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/store-orders", requirement: perm("business") },
   { path: "/admin/stores/orders", requirement: perm("business") },
   // IA-07/AD-06: 조회는 전원, 쓰기(입점 심사·매장 PATCH·일괄·광고 조치) = business 키
+  // 매장 입점 계약 목록 (2026-11-10) — `/admin/stores` 와 같은 키 (조회 전원 · 무료 종료일 수정 = 매장 PATCH business)
+  { path: "/admin/stores/partner-agreements", requirement: ANY, action: perm("business") },
   { path: "/admin/stores", requirement: ANY, action: perm("business") },
   { path: "/admin/business", requirement: ANY, action: perm("business") },
   // AD2-09 (2026-11-07): 비즈니스 캐시 충전 대기열 — 화면 = 조회 API(`business-cash-charges` GET = business) 같은 키

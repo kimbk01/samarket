@@ -81,6 +81,8 @@ export default function BusinessApplyRoute() {
   const [computedStoreSlug, setComputedStoreSlug] = useState<string>("");
   const [gateLoading, setGateLoading] = useState(true);
   const [gateMissing, setGateMissing] = useState<ProfileRequirementField[] | null>(null);
+  /** 약관 버전이 바뀌었다고 서버가 알리면 서약 섹션을 다시 불러온다 */
+  const [partnerRefreshKey, setPartnerRefreshKey] = useState(0);
 
   const refreshGate = useCallback(async (profile: Profile | null) => {
     if (!profile) {
@@ -219,6 +221,7 @@ export default function BusinessApplyRoute() {
           categoryPrimarySlug: values.categoryPrimarySlug,
           categorySubSlug: values.categorySubSlug,
           categoryLabelLine,
+          ...(values.partnerAgreement ? { partner_agreement: values.partnerAgreement } : {}),
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -252,6 +255,15 @@ export default function BusinessApplyRoute() {
         return;
       }
       if (!json?.ok) {
+        if (json?.error === "partner_agreement_required") {
+          setSubmitError(t("partner_err_required"));
+          return;
+        }
+        if (json?.error === "partner_terms_version_mismatch") {
+          setSubmitError(t("partner_err_version_mismatch"));
+          setPartnerRefreshKey((n) => n + 1);
+          return;
+        }
         if (json?.error === "category_slugs_required") {
           setSubmitError(t("business_phase7_688"));
         } else if (json?.error === "applicant_nickname_required") {
@@ -368,6 +380,7 @@ export default function BusinessApplyRoute() {
           <BusinessApplyForm
             profileSeed={profileSeed}
             computedStoreSlug={computedStoreSlug}
+            partnerRefreshKey={partnerRefreshKey}
             onSubmit={(v) => void handleSubmit(v)}
             submitLabel={submitting ? t("business_phase7_678") : t("business_phase7_679")}
             disabled={submitting}

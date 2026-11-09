@@ -26,6 +26,7 @@ const ICON_BY_NAV_ID: Partial<Record<BusinessAdminNavItemId, MyBusinessNavIcon>>
   customer_center: "inquiry",
   reviews: "review",
   settlements: "settlement",
+  partner_agreement: "settlement",
   finance: "settlement",
   products: "product",
   product_new: "product",

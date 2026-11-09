@@ -12,6 +12,7 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     writes: ["stores.approval_status"],
     table: "stores",
   },
+  /** 게시된 매장 입점 약관이 있으면 동의 기록 필수 · 무료 종료일이 남았으면 승인 전에 0% 매장 정책 생성 */
   approve_store: {
     writes: [
       "stores.approval_status",
@@ -109,6 +110,14 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
   set_store_delivery_distance: {
     writes: ["stores.delivery_radius_km", "admin_settings.delivery_store_distance_overrides.stores[store_id]"],
     table: "stores",
+  },
+  /**
+   * 매장 입점 계약 (2026-11-10) — 「이 매장 무료 종료일」 (사유 필수). 계약 기록은 수정 금지라 별도 표에 저장하고,
+   * 승인된 매장이면 오픈 기념 무료 정책(store_fee_policies memo 'launch_free') 종료일도 SQL 함수로 바꾼다.
+   */
+  set_launch_free_until: {
+    writes: ["store_launch_free_overrides.*", "store_fee_policies[memo=launch_free].ends_at"],
+    table: "store_launch_free_overrides",
   },
   approve_sales: {
     writes: ["store_sales_permissions.*"],

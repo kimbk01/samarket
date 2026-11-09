@@ -55,6 +55,11 @@ import {
   resolveStoreTaxonomyTopicDisplayName,
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
 import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import {
+  BusinessApplyPartnerSection,
+  type BusinessApplyPartnerState,
+} from "@/components/business/BusinessApplyPartnerSection";
+import type { StorePartnerAgreementInput } from "@/lib/stores/partner/store-partner-agreement-contract";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
@@ -88,6 +93,11 @@ export interface BusinessApplyFormValues {
   categoryPrimarySlug: string;
   /** 2차 업종 슬러그 — DB `store_topics.slug` (해당 1차 하위) */
   categorySubSlug: string;
+  /**
+   * 매장 입점·수수료 서약 (제출 때만 채움 — 임시저장 초안에는 넣지 않는다).
+   * null = 게시된 약관 없음(서약 없이 신청).
+   */
+  partnerAgreement?: StorePartnerAgreementInput | null;
 }
 
 /** 입점 신청 — 매장 어드민(기본 정보)과 동일한 14px 라벨 톤 */
@@ -146,6 +156,8 @@ interface BusinessApplyFormProps {
   profileSeed?: BusinessApplyProfileSeed | null;
   /** 서버 규칙(@아이디-번호)로 계산된 매장 ID (읽기전용 표시) */
   computedStoreSlug?: string;
+  /** 서버가 약관 버전 불일치를 알리면 늘려서 서약 섹션을 다시 불러온다 */
+  partnerRefreshKey?: number;
 }
 
 export function BusinessApplyForm({
@@ -154,6 +166,7 @@ export function BusinessApplyForm({
   disabled = false,
   profileSeed = null,
   computedStoreSlug = "",
+  partnerRefreshKey = 0,
 }: BusinessApplyFormProps) {
   const { t, language } = useI18n();
   const router = useRouter();
@@ -367,11 +380,17 @@ export function BusinessApplyForm({
     });
   }, [values, regionId, cityId, router]);
 
+  /** 입점·수수료 서약 — 게시된 약관이 있으면 체크 2개 필수 (서버가 다시 검사) */
+  const [partner, setPartner] = useState<BusinessApplyPartnerState>({ required: false, input: null });
+  const partnerPledgePending =
+    partner.required && !(partner.input?.agreeTerms === true && partner.input?.agreeFee === true);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (disabled) return;
+    if (partnerPledgePending) return;
     clearBusinessApplySessionDraft();
-    onSubmit(values);
+    onSubmit({ ...values, partnerAgreement: partner.required ? partner.input : null });
   };
 
   /** 제출 불가 사유 1줄 — 첫 번째 누락 필수 항목 (제출 중 `disabled` 는 사유 없음) */
@@ -379,7 +398,17 @@ export function BusinessApplyForm({
     storeSlug: computedStoreSlug,
     addressId: addressDefault?.id ?? null,
     applicantName: values.applicantNickname,
+    partnerPledgePending,
   });
+
+  const selectedPrimary = primaries.find((p) => p.slug === values.categoryPrimarySlug) ?? null;
+  const selectedSub = subOptions.find((sub) => sub.slug === values.categorySubSlug) ?? null;
+  const primaryLabel = selectedPrimary
+    ? resolveStoreTaxonomyPrimaryDisplayName(language, selectedPrimary.slug, selectedPrimary.nameKo, selectedPrimary.nameEn)
+    : "";
+  const subLabel = selectedSub
+    ? resolveStoreTaxonomyTopicDisplayName(language, selectedSub.slug, selectedSub.nameKo, selectedSub.nameEn)
+    : "";
   const submitDisabled = disabled || submitBlockedReason != null;
 
   return (
@@ -580,6 +609,15 @@ export function BusinessApplyForm({
             </div>
           </div>
         </OwnerStoreAdminDashSection>
+
+        <BusinessApplyPartnerSection
+          categoryPrimarySlug={values.categoryPrimarySlug}
+          categorySubSlug={values.categorySubSlug}
+          primaryLabel={primaryLabel}
+          subLabel={subLabel}
+          refreshKey={partnerRefreshKey}
+          onStateChange={setPartner}
+        />
       </form>
 
       <BodyPortal>

@@ -7,10 +7,12 @@ const root = process.cwd();
 
 describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
   it("legal kinds include optional marketing; required gate stays terms+privacy+age", () => {
-    expect(APP_LEGAL_KINDS).toEqual(["terms", "privacy", "marketing"]);
+    // store_partner_terms = 매장 입점·수수료 약관 (2026-11-10) — 회원 동의 게이트와 무관 (아래 resolve 검사)
+    expect(APP_LEGAL_KINDS).toEqual(["terms", "privacy", "marketing", "store_partner_terms"]);
     expect(isAppLegalKind("marketing")).toBe(true);
     const resolve = readFileSync(path.join(root, "lib/legal/resolve-required-consent-versions.ts"), "utf8");
     expect(resolve).not.toMatch(/marketing/);
+    expect(resolve).not.toMatch(/store_partner/);
     const gate = readFileSync(path.join(root, "lib/legal/has-required-member-consents.ts"), "utf8");
     expect(gate).toContain("hasAgeGateConsent");
   });

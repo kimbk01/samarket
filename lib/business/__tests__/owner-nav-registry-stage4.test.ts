@@ -321,6 +321,8 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "public_store",
       // 운영 공지 — 심사 중 포함 모든 사장님 (배달 오픈 4단계 · Owner 2026-11-10)
       "announcements",
+      // 입점 계약 — 상태 무관 열람·재동의 (설계 v2 §4-5, 2026-11-10)
+      "partner_agreement",
     ],
     revision_requested: [
       "dashboard",
@@ -333,6 +335,7 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "public_store",
       // 운영 공지 — 심사 중 포함 모든 사장님 (배달 오픈 4단계 · Owner 2026-11-10)
       "announcements",
+      "partner_agreement",
     ],
     approved: drawerEntries.map((e) => e.id),
     suspended: [
@@ -344,6 +347,7 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "notification_settings",
       "customer_center",
       "announcements",
+      "partner_agreement",
     ],
   };
 
@@ -378,6 +382,19 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
         `${status}/${entry.id} guard`
       ).toBe(visible);
     }
+  });
+
+  it("partner_agreement (입점 계약) — 모든 상태에서 메뉴·경로 열림, 정산 그룹·관리 탭", () => {
+    const entry = entryOf("partner_agreement");
+    expect(entry.access).toBe("any");
+    expect(entry.group).toBe("settlement");
+    expect(entry.surfaces).toEqual(expect.arrayContaining(["drawer", "manage_hub"]));
+    expect(entry.href(SID)).toBe("/stores/owner/partner-agreement?storeId=s1");
+    for (const st of [...STATUSES, "rejected", "under_review"]) {
+      expect(isOwnerPathAllowedForApprovalStatus("/stores/owner/partner-agreement", st)).toBe(true);
+    }
+    expect(resolveOwnerNavMatch("/stores/owner/partner-agreement")?.entry.id).toBe("partner_agreement");
+    expect(resolveOwnerStackBackHref("/stores/owner/partner-agreement", SID)).toBe("/stores/owner?storeId=s1");
   });
 
   it("ads (formerly no approval check) is now hidden for non-approved stores", () => {

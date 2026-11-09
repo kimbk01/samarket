@@ -34,6 +34,7 @@ import {
 } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminDashboard } from "@/components/business/admin/dashboard/BusinessAdminDashboard";
+import { OwnerPartnerAgreementHubCard } from "@/components/business/owner/OwnerPartnerAgreementHubCard";
 import type { MyBusinessServerInitial } from "@/lib/business/load-my-business-server";
 import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
 import {
@@ -323,6 +324,7 @@ export function MyBusinessPage({
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         {announcementCard}
+        <OwnerPartnerAgreementHubCard storeId={row.id} />
         <BusinessOperationalChecklistRevision storeId={row.id} />
         <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4">
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
@@ -352,6 +354,7 @@ export function MyBusinessPage({
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         {announcementCard}
+        <OwnerPartnerAgreementHubCard storeId={row.id} />
         <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
         <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
@@ -404,14 +407,18 @@ export function MyBusinessPage({
   }
 
   return (
-    <BusinessAdminDashboard
-      row={row}
-      profile={profile}
-      products={products}
-      canSell={canSell}
-      orderAlertsBadge={orderAlertsBadge}
-      initialDashboard={dashboard}
-      loadRemote={loadRemote}
-    />
+    <>
+      {/* 입점 계약 새 버전 미동의일 때만 카드 1개 (안내만 · 2026-11-10) */}
+      <OwnerPartnerAgreementHubCard storeId={row.id} />
+      <BusinessAdminDashboard
+        row={row}
+        profile={profile}
+        products={products}
+        canSell={canSell}
+        orderAlertsBadge={orderAlertsBadge}
+        initialDashboard={dashboard}
+        loadRemote={loadRemote}
+      />
+    </>
   );
 }

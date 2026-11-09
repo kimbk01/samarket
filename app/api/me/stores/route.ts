@@ -17,6 +17,17 @@ import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { classifyStoresInsertUniqueViolation } from "@/lib/stores/classify-stores-insert-unique-violation";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { loadDeliveryLaunchSettingsCached } from "@/lib/delivery/launch/delivery-launch-settings.server";
+import {
+  activeFreeUntilOrNull,
+  checkStorePartnerAgreementInput,
+  parseStorePartnerAgreementInput,
+} from "@/lib/stores/partner/store-partner-agreement-contract";
+import {
+  loadCurrentStorePartnerTerms,
+  recordStorePartnerAgreement,
+  resolveStorePartnerFeeAfter,
+} from "@/lib/stores/partner/store-partner-agreement.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +91,11 @@ type ApplyBody = {
   lng?: number | null;
   placeId?: string | null;
   formattedAddress?: string | null;
+  /**
+   * 매장 입점·수수료 서약 (2026-11-10) — 게시된 store_partner_terms 가 있으면 필수.
+   * `{ documentId, version, locale, agreeTerms: true, agreeFee: true }`
+   */
+  partner_agreement?: unknown;
 };
 
 /** 매장 등록 신청 (1건 제한: 진행중·승인 매장이 있으면 409) */
@@ -295,6 +311,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "master_address_required" }, { status: 400 });
   }
 
+  /**
+   * 매장 입점·수수료 서약 — 게시된 약관이 있으면 필수. 기록 값(무료 종료일·업종·요율·본문 해시)은
+   * 화면 값이 아니라 서버가 다시 계산한다. 읽기 실패는 서약 없이 통과시키지 않는다(fail-closed).
+   */
+  const partnerInput = parseStorePartnerAgreementInput(body.partner_agreement);
+  const partnerTerms = await loadCurrentStorePartnerTerms(supabase, partnerInput?.locale ?? "ko");
+  if (!partnerTerms.ok) {
+    return internalErrorResponse("save_failed", "[/api/me/stores POST] partner terms", partnerTerms.error, 500);
+  }
+  const partnerCheck = checkStorePartnerAgreementInput(partnerTerms.terms, partnerInput);
+  if (!partnerCheck.ok) {
+    return NextResponse.json({ ok: false, error: partnerCheck.error }, { status: 400 });
+  }
+  let partnerFreeUntil: string | null = null;
+  let partnerFeePercentAfter: number | null = null;
+  if (partnerCheck.required) {
+    const launch = await loadDeliveryLaunchSettingsCached();
+    partnerFreeUntil = activeFreeUntilOrNull(launch.freeUntil);
+    const fee = await resolveStorePartnerFeeAfter(supabase, {
+      categoryId: store_category_id,
+      topicId: store_topic_id,
+    });
+    if (!fee.ok) {
+      return internalErrorResponse("save_failed", "[/api/me/stores POST] partner fee rate", "fee_rate_read_failed", 500);
+    }
+    partnerFeePercentAfter = fee.feePercent;
+  }
+
   /** business_hours_json 은 DB 기본 `{}` — 승인 후 매장 설정에서 영업·공지 등과 동일 스키마로 채움 */
   let insertPayload: Record<string, unknown> = {
     owner_user_id: userId,
@@ -409,6 +453,33 @@ export async function POST(req: NextRequest) {
       { ok: false, error: uniqueBiz ?? "slug_collision" },
       { status: 409 }
     );
+  }
+
+  if (partnerCheck.required) {
+    const insertedId = String(inserted.id ?? "");
+    const recorded = await recordStorePartnerAgreement(supabase, {
+      storeId: insertedId,
+      ownerUserId: userId,
+      terms: partnerCheck.terms,
+      freeUntil: partnerFreeUntil,
+      storeCategoryId: store_category_id,
+      storeTopicId: store_topic_id,
+      feePercentAfter: partnerFeePercentAfter,
+      source: "application",
+    });
+    if (!recorded.ok) {
+      // 반쪽 상태 금지 — 서약 기록 없이 신청 매장만 남지 않게 방금 만든 매장 행을 지운다.
+      const { error: rollbackErr } = await supabase
+        .from("stores")
+        .delete()
+        .eq("id", insertedId)
+        .eq("owner_user_id", userId);
+      if (rollbackErr) {
+        console.error("[POST /api/me/stores] partner agreement rollback failed", insertedId, rollbackErr.message);
+      }
+      invalidateMeStoresListServerCache(userId);
+      return internalErrorResponse("save_failed", "[/api/me/stores POST] partner agreement", recorded.error, 500);
+    }
   }
 
   invalidateMeStoresListServerCache(userId);
