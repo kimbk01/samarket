@@ -172,6 +172,16 @@ function runStoreGetWithDeadline<T>(
 let deliveryPrivateCacheEpoch = 0;
 
 export const DELIVERY_PRIVATE_SCOPE_CHANGED_STATUS = 409;
+export const DELIVERY_PRIVATE_SCOPE_CHANGED_ERROR = "auth_scope_changed";
+
+/**
+ * 이전 계정 범위에서 시작된 요청의 늦은 응답인지 — 호출부는 이 응답으로 화면 상태를 바꾸지 않는다
+ * (오류 문구·원시 코드 표시 금지, 기존 상태 비우기 금지). 새 범위의 요청이 화면을 채운다.
+ */
+export function isDeliveryPrivateScopeChangedResponse(res: { status: number; json: unknown }): boolean {
+  const err = (res.json as { error?: unknown } | null)?.error;
+  return res.status === DELIVERY_PRIVATE_SCOPE_CHANGED_STATUS && err === DELIVERY_PRIVATE_SCOPE_CHANGED_ERROR;
+}
 
 function deliveryPrivateScope(): string {
   return `${getBoundAuthUserId() ?? "anon"}#${deliveryPrivateCacheEpoch}`;
@@ -182,7 +192,10 @@ function scopedPrivateKey(scope: string, key: string): string {
 }
 
 function deliveryPrivateScopeChangedResponse(): StoreApiJsonResponse {
-  return { status: DELIVERY_PRIVATE_SCOPE_CHANGED_STATUS, json: { ok: false, error: "auth_scope_changed" } };
+  return {
+    status: DELIVERY_PRIVATE_SCOPE_CHANGED_STATUS,
+    json: { ok: false, error: DELIVERY_PRIVATE_SCOPE_CHANGED_ERROR },
+  };
 }
 
 function readStoreHubSummaryCache(cacheKey: string): StoreHubSummaryCacheSnapshot {

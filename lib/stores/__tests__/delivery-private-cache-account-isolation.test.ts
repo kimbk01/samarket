@@ -173,3 +173,19 @@ describe("배선 계약 — 로그아웃·계정 전환·세션 없음 공통 �
     expect(src).toContain("wipeDeliveryPrivateClientCaches();");
   });
 });
+
+describe("409 소비처 — 원시 코드 노출 금지(G3 결함 수정)", () => {
+  it("isDeliveryPrivateScopeChangedResponse 는 범위 변경 응답만 참", async () => {
+    const api = await import("@/lib/stores/store-delivery-api-client");
+    expect(api.isDeliveryPrivateScopeChangedResponse({ status: 409, json: { ok: false, error: "auth_scope_changed" } })).toBe(true);
+    expect(api.isDeliveryPrivateScopeChangedResponse({ status: 409, json: { ok: false, error: "other" } })).toBe(false);
+    expect(api.isDeliveryPrivateScopeChangedResponse({ status: 401, json: { ok: false, error: "auth_scope_changed" } })).toBe(false);
+  });
+  it("채팅 상단(ChatDetailView)·메신저 주문 시트 스냅샷 훅은 범위 변경 응답으로 상태·오류를 바꾸지 않는다", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["components/chats/ChatDetailView.tsx", "lib/store-order-chat/use-store-order-room-snapshot.ts"]) {
+      const src = readFileSync(f, "utf8");
+      expect(src).toContain("if (isDeliveryPrivateScopeChangedResponse(detailRes)) return;");
+    }
+  });
+});

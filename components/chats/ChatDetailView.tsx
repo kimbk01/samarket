@@ -38,7 +38,7 @@ import {
 import { StoreOrderSellerHamburger } from "@/components/chats/StoreOrderSellerHamburger";
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
-import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import { fetchMeStoreOrderDetailDeduped, isDeliveryPrivateScopeChangedResponse, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import {
   MESSENGER_CHAT_HEADER_ROW_CLASS,
@@ -1623,7 +1623,10 @@ export function ChatDetailView({
     setStoreOrderLoading(true);
     setStoreOrderLoadErr(null);
     try {
-      const { status, json: raw } = await fetchMeStoreOrderDetailDeduped(storeOrderId);
+      const detailRes = await fetchMeStoreOrderDetailDeduped(storeOrderId);
+      // P0-B: 이전 계정 범위의 늦은 응답 — 화면 상태·오류 문구를 바꾸지 않는다(원시 코드 노출 방지).
+      if (isDeliveryPrivateScopeChangedResponse(detailRes)) return;
+      const { status, json: raw } = detailRes;
       const json = raw as {
         ok?: boolean;
         error?: string;

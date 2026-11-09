@@ -8,7 +8,7 @@ import type {
   StoreOrderBuyerOrderPayload,
 } from "@/components/chats/StoreOrderBuyerChatTop";
 import type { OwnerDeliveryOrderRef } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
-import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
+import { fetchMeStoreOrderDetailDeduped, isDeliveryPrivateScopeChangedResponse } from "@/lib/stores/store-delivery-api-client";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import {
   buildStoreOrderChatCardView,
@@ -157,10 +157,13 @@ export function useStoreOrderRoomSnapshot(input: {
           return;
         }
       }
-      const [{ status, json: raw }, events] = await Promise.all([
+      const [detailRes, events] = await Promise.all([
         fetchMeStoreOrderDetailDeduped(orderId),
         fetchOrderEvents(orderId),
       ]);
+      // P0-B: 이전 계정 범위의 늦은 응답 — 스냅샷·오류를 바꾸지 않는다(원시 코드 노출 방지).
+      if (isDeliveryPrivateScopeChangedResponse(detailRes)) return;
+      const { status, json: raw } = detailRes;
       const json = raw as {
         ok?: boolean;
         error?: string;
