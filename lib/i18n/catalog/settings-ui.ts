@@ -343,7 +343,10 @@ export const settingsUiMessages = {
     my_phone_number_placeholder: "휴대폰 번호를 입력하세요",
     my_phone_send_otp_failed_provider:
       "지금 이 번호로 인증 문자를 보낼 수 없습니다. 번호는 맞습니다 — 잠시 후 다시 시도하거나 고객센터에 문의해 주세요.",
-    my_phone_rule_invalid_kr: "올바른 한국 휴대폰 번호(010으로 시작)를 입력해 주세요.",
+    my_phone_err_format: "형식에 맞지 않습니다.",
+    my_phone_err_duplicate_short: "중복된 번호입니다.",
+    my_phone_btn_get_code: "인증번호 받기",
+    my_phone_btn_confirm: "확인",
     my_phone_country_name_PH: "필리핀",
     my_phone_country_name_KR: "한국",
     my_phone_country_code_label: "국가번호",
@@ -702,7 +705,10 @@ export const settingsUiMessages = {
     my_phone_number_placeholder: "Enter your mobile number",
     my_phone_send_otp_failed_provider:
       "We can't send a code to this number right now. The number is fine — try again later or contact support.",
-    my_phone_rule_invalid_kr: "Enter a valid Korean mobile number (starting with 010).",
+    my_phone_err_format: "Not a valid number format.",
+    my_phone_err_duplicate_short: "This number is already in use.",
+    my_phone_btn_get_code: "Get code",
+    my_phone_btn_confirm: "Verify",
     my_phone_country_name_PH: "Philippines",
     my_phone_country_name_KR: "Korea",
     my_phone_country_code_label: "Country code",

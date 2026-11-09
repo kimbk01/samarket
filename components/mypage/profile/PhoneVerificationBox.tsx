@@ -98,6 +98,7 @@ export function PhoneVerificationBox({
   const [otp, setOtp] = useState("");
   /** 인증번호를 이번 화면에서 보냈는가 — 인증번호 칸은 보낸 뒤에만 보인다. */
   const [codeSent, setCodeSent] = useState(false);
+  const [phoneBlurred, setPhoneBlurred] = useState(false);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [allowEdit, setAllowEdit] = useState(!snapshot.phone_verified);
@@ -176,7 +177,11 @@ export function PhoneVerificationBox({
     return e164;
   }, [phone, normalizedPhone, isKorea, koreaLocal]);
   const validPhone = isKorea ? koreaLocal != null : isValidPhilippinesMobilePhone(normalizedPhone);
-  const invalidPhoneMessage = () => (isKorea ? t("my_phone_rule_invalid_kr") : t("my_phone_rule_invalid"));
+  const invalidPhoneMessage = () => t("my_phone_err_format");
+  /** 입력하는 동안 바로 판정 — 10자리 이상 쳤거나 칸을 벗어났는데 형식이 틀리면 「형식에 맞지 않습니다」. */
+  const phoneDigitCount = phone.replace(/\D/g, "").length;
+  const showFormatError = phone.trim().length > 0 && !validPhone && (phoneBlurred || phoneDigitCount >= 10);
+  const codeReady = isValidPhoneOtpCodeInput(otp);
 
   const requestOtp = async () => {
     setError(null);
@@ -326,7 +331,7 @@ export function PhoneVerificationBox({
   const shellClass = compact
     ? `space-y-3${setupShellClass ? ` ${setupShellClass}` : ""}`
     : ov
-      ? `space-y-3 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`
+      ? `space-y-3${setupShellClass ? ` ${setupShellClass}` : ""}`
       : `space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`;
   const showFieldIncomplete = fieldIncomplete && !verified;
   const inputClass = compact
@@ -363,7 +368,10 @@ export function PhoneVerificationBox({
         </p>
       ) : (
         <div>
-          <p className={ov ? ovCls.title : "sam-text-body font-semibold text-sam-fg"}>{t("my_phone_verify_title")}</p>
+          {/* Sheet already shows the title — no second title inside it (Owner 2026-11-09). */}
+          {ov ? null : (
+            <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
+          )}
           <p className={ov ? ovCls.desc : "mt-1 sam-text-body-secondary text-sam-muted"}>
             {settings.guide_text || t("my_phone_intro_required")}
           </p>
@@ -468,16 +476,22 @@ export function PhoneVerificationBox({
               name="tel"
               aria-label={t("my_phone_number_label")}
               value={phone}
-              onChange={(e) => setPhone(sanitizePhoneTyping(e.target.value))}
+              onChange={(e) => {
+                setPhone(sanitizePhoneTyping(e.target.value));
+                setPhoneBlurred(false);
+                setError(null);
+              }}
+              onBlur={() => setPhoneBlurred(true)}
+              aria-invalid={showFormatError}
               placeholder={t("my_phone_number_placeholder")}
               className={`${inputClass} min-w-0 flex-1`}
               data-testid="phone-verify-number"
             />
             <button
               type="button"
-              disabled={sending || cooldownLeft > 0}
+              disabled={sending || cooldownLeft > 0 || !validPhone}
               onClick={() => void requestOtp()}
-              className={`${otpBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4`}
+              className={`${codeSent ? otpBtnClass : verifyBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4 disabled:opacity-40`}
               data-testid="phone-verify-send"
             >
               {sending
@@ -486,9 +500,14 @@ export function PhoneVerificationBox({
                   ? t("mypage_comp_phone_resend_in_seconds", { seconds: cooldownLeft })
                   : codeSent
                     ? t("mypage_comp_phone_resend")
-                    : t("my_phone_send_otp")}
+                    : t("my_phone_btn_get_code")}
             </button>
           </div>
+          {showFormatError && !error ? (
+            <p className="text-[13px] text-sam-danger" role="alert" data-testid="phone-verify-format-error">
+              {t("my_phone_err_format")}
+            </p>
+          ) : null}
           {codeSent || snapshot.phone_verification_status === "pending" ? (
             <div className="flex min-w-0 items-stretch gap-2">
               <input
@@ -506,12 +525,12 @@ export function PhoneVerificationBox({
               {stickyVerify ? null : (
                 <button
                   type="button"
-                  disabled={verifying}
+                  disabled={verifying || !codeReady}
                   onClick={() => void verifyOtp()}
-                  className={`${verifyBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4`}
+                  className={`${verifyBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4 disabled:opacity-40`}
                   data-testid="phone-verify-submit"
                 >
-                  {verifying ? t("my_phone_verifying") : t("my_phone_verify_submit")}
+                  {verifying ? t("my_phone_verifying") : t("my_phone_btn_confirm")}
                 </button>
               )}
             </div>

@@ -8,7 +8,7 @@ describe("phone-otp-client-errors", () => {
   it("maps phone_duplicate code to i18n key", () => {
     expect(
       resolvePhoneOtpUiError({ status: 409, code: "phone_duplicate", message: "legacy" }, t),
-    ).toBe("my_phone_err_duplicate");
+    ).toBe("my_phone_err_duplicate_short");
   });
 
   it("maps legacy duplicate message when code missing", () => {
@@ -17,7 +17,7 @@ describe("phone-otp-client-errors", () => {
         { status: 409, message: "이미 다른 계정에서 사용 중인 전화번호입니다." },
         t,
       ),
-    ).toBe("my_phone_err_duplicate");
+    ).toBe("my_phone_err_duplicate_short");
   });
 
   it("maps otp_invalid code", () => {

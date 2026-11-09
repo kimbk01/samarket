@@ -12,8 +12,8 @@ export type PhoneOtpUiErrorContext = "send" | "verify";
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 const CODE_TO_KEY: Record<PhoneOtpErrorCode, MessageKey> = {
-  phone_duplicate: "my_phone_err_duplicate",
-  phone_invalid: "my_phone_rule_invalid",
+  phone_duplicate: "my_phone_err_duplicate_short",
+  phone_invalid: "my_phone_err_format",
   otp_invalid: "my_phone_err_otp_invalid",
   otp_expired: "my_phone_err_otp_expired",
   otp_required: "my_phone_err_otp_send_first",

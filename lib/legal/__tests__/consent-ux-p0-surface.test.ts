@@ -54,6 +54,11 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     expect(src).not.toContain("phone-verify-country-notice");
     expect(src).toContain("sanitizePhoneTyping");
     expect(src).toContain("codeSent || snapshot.phone_verification_status");
+    // 입력 즉시 형식 판정 · 형식 맞을 때만 받기 버튼 · 6자리일 때만 확인 · 시트 안 중복 제목 없음
+    expect(src).toContain('data-testid="phone-verify-format-error"');
+    expect(src).toContain("disabled={sending || cooldownLeft > 0 || !validPhone}");
+    expect(src).toContain("disabled={verifying || !codeReady}");
+    expect(src).toContain("{ov ? null : (");
   });
 
   it("legal-consent PATCH uses atomic RPC (no soft-skip required ledger)", () => {
