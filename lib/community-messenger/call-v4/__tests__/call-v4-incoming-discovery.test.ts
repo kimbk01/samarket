@@ -6,9 +6,17 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-flag", () => ({
   isCallV4TelegramLaneEnabled: vi.fn(() => true),
 }));
 
-vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
-  callV4FetchIncomingSessions: vi.fn(),
-}));
+vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => {
+  const callV4FetchIncomingSessions = vi.fn();
+  return {
+    callV4FetchIncomingSessions,
+    /** F1: 수신 조회 루프는 Outcome 을 쓴다 — 이 파일의 목록 mock 을 「200 ok」로 감싼다(예외는 그대로 throw). */
+    callV4FetchIncomingSessionsOutcome: vi.fn(async () => ({
+      kind: "ok" as const,
+      sessions: await callV4FetchIncomingSessions(),
+    })),
+  };
+});
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-actions", () => ({
   callV4IncomingDiscovered: vi.fn(),

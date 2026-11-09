@@ -134,17 +134,82 @@ export async function callV4FetchSession(
   return fetchCommunityMessengerCallSessionByIdClient(callId);
 }
 
-export async function callV4FetchIncomingSessions(): Promise<CommunityMessengerCallSession[]> {
+/**
+ * F1 (docs/audit/f1-f2-call-incoming-design-2026-11-09.md §F1-6) — 수신 목록 조회 결과.
+ * HTTP 오류·본문 오류를 「수신 없음(빈 목록)」과 구분한다. 네트워크 예외(fetch 거부)는 그대로 throw.
+ * - ok: 200 + `{ ok: true, sessions }` (sessions 없으면 [] — 기존과 동일)
+ * - auth: 401 (로그인 필요)
+ * - forbidden: 403 (proxy 차단·탈퇴 회원 읽기 거부 등)
+ * - rate_limited: 429 — `Retry-After`(초 또는 HTTP 날짜)를 ms 로. 없거나 읽을 수 없으면 null
+ * - server: 5xx
+ * - bad_response: 그 밖의 비정상 상태(4xx 등) · 200 본문 JSON 실패 · `ok:false` · sessions 가 배열이 아님
+ */
+export type CallV4IncomingFetchOutcome =
+  | { kind: "ok"; sessions: CommunityMessengerCallSession[] }
+  | { kind: "auth"; status: number }
+  | { kind: "forbidden"; status: number }
+  | { kind: "rate_limited"; status: number; retryAfterMs: number | null }
+  | { kind: "server"; status: number }
+  | {
+      kind: "bad_response";
+      status: number;
+      reason: "http_status" | "ok_false" | "invalid_json" | "invalid_sessions";
+    };
+
+/** `Retry-After` — delta-seconds 또는 HTTP-date (RFC 9110 §10.2.3). 읽을 수 없으면 null. */
+export function parseCallV4RetryAfterMs(
+  value: string | null | undefined,
+  nowMs: number = Date.now(),
+): number | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) {
+    const sec = Number(raw);
+    return Number.isFinite(sec) ? sec * 1000 : null;
+  }
+  /** HTTP-date 는 요일·월 이름(영문)을 포함한다 — 「-5」 같은 값은 Date.parse 가 연도로 읽으므로 거부 */
+  if (!/[a-z]/i.test(raw)) return null;
+  const at = Date.parse(raw);
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, at - nowMs);
+}
+
+export async function callV4FetchIncomingSessionsOutcome(): Promise<CallV4IncomingFetchOutcome> {
   const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
     credentials: "include",
     cache: "no-store",
   });
-  if (!res.ok) return [];
-  const json = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    sessions?: CommunityMessengerCallSession[];
-  };
-  return json.ok ? (json.sessions ?? []) : [];
+  if (res.status === 401) return { kind: "auth", status: res.status };
+  if (res.status === 403) return { kind: "forbidden", status: res.status };
+  if (res.status === 429) {
+    return {
+      kind: "rate_limited",
+      status: res.status,
+      retryAfterMs: parseCallV4RetryAfterMs(res.headers?.get?.("Retry-After") ?? null),
+    };
+  }
+  if (res.status >= 500) return { kind: "server", status: res.status };
+  if (!res.ok) return { kind: "bad_response", status: res.status, reason: "http_status" };
+  let json: { ok?: unknown; sessions?: unknown } | null;
+  try {
+    json = (await res.json()) as { ok?: unknown; sessions?: unknown } | null;
+  } catch {
+    return { kind: "bad_response", status: res.status, reason: "invalid_json" };
+  }
+  if (!json || typeof json !== "object" || json.ok !== true) {
+    return { kind: "bad_response", status: res.status, reason: "ok_false" };
+  }
+  const sessions = json.sessions ?? [];
+  if (!Array.isArray(sessions)) {
+    return { kind: "bad_response", status: res.status, reason: "invalid_sessions" };
+  }
+  return { kind: "ok", sessions: sessions as CommunityMessengerCallSession[] };
+}
+
+/** 목록만 필요한 호출자용(오류 = 빈 목록). 수신 조회 루프는 `callV4FetchIncomingSessionsOutcome` 을 쓴다. */
+export async function callV4FetchIncomingSessions(): Promise<CommunityMessengerCallSession[]> {
+  const out = await callV4FetchIncomingSessionsOutcome();
+  return out.kind === "ok" ? out.sessions : [];
 }
 
 export function isCallV4AcceptPatchJoinableStatus(status: string | null | undefined): boolean {
