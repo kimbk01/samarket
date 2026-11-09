@@ -71,10 +71,10 @@ describe("startup metrics App Ready", () => {
       "utf8"
     );
 
-    /** 세그먼트 loading 은 하위(상세·글쓰기·내 활동)까지 덮으므로 피드 스켈레톤 금지 — 중립 null */
+    /** 세그먼트 loading 은 하위(상세·글쓰기·내 활동)까지 덮으므로 피드 스켈레톤 금지 — R-0: 탭 첫 화면만 중립 블록, 하위는 null */
     expect(loading).not.toContain("MainFeedRouteLoading");
     expect(loading).not.toContain("CommunityFeedSkeleton");
-    expect(loading).toMatch(/return null;/);
+    expect(loading).toContain('<MainTabSegmentLoading tabRootPath="/philife" />');
     /** 피드 스켈레톤 단일 소유자 = 피드 페이지(CommunityFeed) */
     expect(feed).toContain("loading && postsForList.length === 0 && !err ? (");
     expect(feed).toContain("<CommunityFeedSkeleton rows={5} />");
