@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
@@ -38,11 +39,12 @@ function noticeAuditSnapshot(row: Record<string, unknown> | null | undefined): R
 }
 
 /**
- * GET /api/admin/app-notices — list Customer Center contents
+ * GET /api/admin/app-notices — list Customer Center contents (회원 공지 전용)
  * - `limit`(20/50/100)·`offset` 이 있으면 서버 페이지 + `total`(count exact) — 고객센터 콘텐츠 목록 화면.
- *   필터: `content_type` · `audience`(보는 사람) · `q`(제목 검색, UUID 면 id 일치).
+ *   필터: `content_type` · `q`(제목 검색, UUID 면 id 일치).
  * - 없으면 기존 응답(최근 200건) — 알림 캠페인 화면·캠페인 작성 화면의 콘텐츠 선택 호출자 호환.
- *   배달 오픈 4단계: 이 경로는 회원 캠페인 원문 선택용이라 전체 회원 대상(all) 글만 준다.
+ * - 두 경우 모두 전체 회원 대상(all) 글만 준다. 사장님 전용 공지(audience ≠ all)는 어드민 「매장 공지」
+ *   (`GET /api/admin/stores/owner-notices`) 에서만 본다 (설계 v3.2 §3-4 · Owner 2026-11-10).
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -73,12 +75,7 @@ export async function GET(req: NextRequest) {
   if (isCustomerCenterContentType(typeRaw)) {
     q = q.eq("content_type", typeRaw);
   }
-  const audienceRaw = params.get("audience");
-  if (!page) {
-    q = q.eq("audience", APP_NOTICE_MEMBER_AUDIENCE);
-  } else if (isAppNoticeAudience(audienceRaw)) {
-    q = q.eq("audience", audienceRaw);
-  }
+  q = q.eq("audience", APP_NOTICE_MEMBER_AUDIENCE);
   if (page) {
     const term = sanitizeAdminListSearch(params.get("q"));
     if (term) {
@@ -150,6 +147,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_audience" }, { status: 400 });
   }
   const audience = parseAppNoticeAudience(body.audience, "all");
+  // 사장님 전용 공지(어드민 「매장 공지」) 작성 = `/admin/stores` 쓰기와 같은 business 키 (접근표 action)
+  if (isOwnerAnnouncementAudience(audience)) {
+    const writer = await requireAdminPermission("business");
+    if (!writer.ok) return writer.response;
+  }
   const now = new Date().toISOString();
   const { data, error } = await sb
     .from("app_notices")

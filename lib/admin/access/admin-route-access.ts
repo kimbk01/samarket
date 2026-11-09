@@ -219,6 +219,8 @@ export const ADMIN_ROUTE_ACCESS_RULES: readonly AdminRouteAccessRule[] = [
   { path: "/admin/stores/orders", requirement: perm("business") },
   // IA-07/AD-06: 조회는 전원, 쓰기(입점 심사·매장 PATCH·일괄·광고 조치) = business 키
   // 매장 입점 계약 목록 `/admin/stores/partner-agreements` (2026-11-10) 은 아래 `/admin/stores` 규칙을 그대로 따른다
+  // 매장 공지 `/admin/stores/owner-notices` (설계 v3.2 §3-4, 2026-11-10) 도 아래 `/admin/stores` 규칙 그대로
+  // (조회 전원 = GET /api/admin/stores/owner-notices · 작성/수정 = `/api/admin/app-notices` 사장님 대상 business 키 · 알림 = 최고관리자)
   // (조회 전원 · 무료 종료일 수정 = 매장 PATCH business — 목록 화면에는 쓰기 버튼 없음)
   { path: "/admin/stores", requirement: ANY, action: perm("business") },
   { path: "/admin/business", requirement: ANY, action: perm("business") },
