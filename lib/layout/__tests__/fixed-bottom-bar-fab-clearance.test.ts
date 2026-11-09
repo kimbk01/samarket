@@ -101,10 +101,22 @@ describe("/stores/owner/apply disabled submit", () => {
     expect(form).toContain('data-testid="business-apply-submit-blocked-reason"');
   });
 
-  it("reason follows the existing submit gate order", () => {
-    expect(resolveBusinessApplySubmitBlockedReason({ storeSlug: "", addressId: null, applicantName: "" })).toBe("store_id");
-    expect(resolveBusinessApplySubmitBlockedReason({ storeSlug: "a-1", addressId: null, applicantName: " " })).toBe("name");
-    expect(resolveBusinessApplySubmitBlockedReason({ storeSlug: "a-1", addressId: null, applicantName: "Kim" })).toBe("address");
-    expect(resolveBusinessApplySubmitBlockedReason({ storeSlug: "a-1", addressId: "ad1", applicantName: "Kim" })).toBeNull();
+  it("reason follows the form order (매장 신청 v2)", () => {
+    const ok = {
+      applicantName: "Kim",
+      shopName: "Mandoo",
+      categoryPrimarySlug: "food",
+      categorySubSlug: "korean",
+      hasStorePhone: true,
+      hasLocation: true,
+    };
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, applicantName: " " })).toBe("name");
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, shopName: "M" })).toBe("shop_name");
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, branchRequiredMissing: true })).toBe("branch");
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, categorySubSlug: "" })).toBe("category");
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, hasStorePhone: false })).toBe("phone");
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, hasLocation: false })).toBe("location");
+    expect(resolveBusinessApplySubmitBlockedReason({ ...ok, partnerLoading: true })).toBe("partner_loading");
+    expect(resolveBusinessApplySubmitBlockedReason(ok)).toBeNull();
   });
 });

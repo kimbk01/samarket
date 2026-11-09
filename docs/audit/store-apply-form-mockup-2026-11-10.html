@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>매장 입점 신청 시안 v2</title>
+<style>
+:root{--g:#0B421A;--g-s:#E7F0EA;--bg:#F6F5F2;--sf:#fff;--bd:#E4E1DA;--mu:#6B6B6B;--fg:#1C1C1C;--warn:#B25E00;--warn-s:#FFF4E5;--dan:#C62828;--dan-s:#FDECEC;--ok:#1B7F3B;--ok-s:#E8F5EC;--dis:#D9D7D2}
+*{box-sizing:border-box}
+body{margin:0;background:#E9E7E1;font:14px/1.45 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:var(--fg);padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+.sub{color:var(--mu);margin:0 0 16px;font-size:13px;max-width:1180px}
+.row{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.cap{font-weight:700;margin:0 0 6px;font-size:13px}
+.phone{width:360px;max-width:100%;background:var(--bg);border:1px solid #cfccc4;border-radius:18px;overflow:hidden;position:relative}
+.hdr{height:48px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--sf);border-bottom:1px solid var(--bd);font-size:17px;font-weight:700}
+.body{padding:8px;display:flex;flex-direction:column;gap:8px;padding-bottom:110px}
+.sec{background:var(--sf);border:1px solid var(--bd);border-radius:4px}
+.sec h2{margin:0;padding:11px 12px;font-size:16px;font-weight:700;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+.sec .in{padding:12px;display:flex;flex-direction:column;gap:12px}
+label{font-size:14px;font-weight:600;display:block;margin-bottom:6px}
+.req{color:var(--dan);font-weight:700}
+.opt{color:var(--mu);font-weight:400;font-size:13px}
+.inp{border:1px solid var(--bd);border-radius:4px;min-height:48px;padding:12px;font-size:15px;color:#9a9a9a;background:#fff}
+.inp.v{color:var(--fg);font-size:16px}
+.help{color:var(--mu);font-size:13px;margin-top:6px}
+.okt{color:var(--ok);font-size:13px;font-weight:500;margin-top:6px}
+.wrt{color:var(--warn);font-size:13px;font-weight:500;margin-top:6px}
+.ro{font-size:15px;font-weight:600}
+.ro small{color:var(--mu);font-weight:400;font-size:13px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border-radius:4px;padding:0 14px;font-size:15px;font-weight:700;border:1px solid var(--bd);background:#fff;color:var(--fg);cursor:pointer;transition:transform .1s,filter .1s;user-select:none}
+.btn:active{transform:scale(.985);filter:brightness(.95)}
+.btn.p{background:var(--g);color:#fff;border-color:var(--g)}
+.btn.off{background:var(--dis);color:#8a8a8a;border-color:var(--dis);pointer-events:none}
+.btn.w{width:100%}
+.foot{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--bd)}
+.foot .hint{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:500;color:var(--fg);padding:8px 12px;border-bottom:1px solid var(--bd)}
+.foot .hint .btn{min-height:36px;font-size:13px;padding:0 10px}
+.foot .acts{display:grid;grid-template-columns:1fr 2fr;gap:8px;padding:8px 12px 14px}
+.foot .acts .btn{min-height:52px;font-size:16px}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{min-height:44px;border:1px solid var(--bd);border-radius:4px;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:15px;background:#fff;cursor:pointer;transition:transform .1s}
+.chip:active{transform:scale(.985)}
+.chip.on{border:2px solid var(--g);background:var(--g-s);font-weight:700}
+.chips2{display:flex;flex-wrap:wrap;gap:8px}
+.chips2 .chip{min-height:40px}
+.chk{display:flex;gap:10px;align-items:flex-start;min-height:44px;font-size:14px}
+.box{width:22px;height:22px;border:2px solid var(--g);border-radius:4px;flex:none}
+.badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700}
+.b-ok{background:var(--ok-s);color:var(--ok)}
+.b-w{background:var(--warn-s);color:var(--warn)}
+.b-d{background:var(--dan-s);color:var(--dan)}
+/* 진행 막대 */
+.prog{background:#fff;border:1px solid var(--bd);border-radius:4px;padding:12px}
+.prog ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.prog li{text-align:center;font-size:11px;color:var(--mu)}
+.prog li i{display:block;height:6px;border-radius:3px;background:#E6E3DC;margin-bottom:6px}
+.prog li.done i{background:var(--g)} .prog li.done{color:var(--g)}
+.prog li.cur i{background:var(--g);opacity:.45} .prog li.cur{color:var(--fg);font-weight:700}
+.prog li.warn i{background:var(--warn)} .prog li.warn{color:var(--warn);font-weight:700}
+.prog li.bad i{background:var(--dan)} .prog li.bad{color:var(--dan);font-weight:700}
+.stepcard{margin-top:10px;font-size:14px}
+.stepcard b{font-size:15px}
+.time{color:var(--mu);font-size:12px}
+.note{background:#fff;border-left:4px solid var(--g);padding:10px 12px;margin:16px 0;max-width:1180px;font-size:13px}
+.admin{width:560px;max-width:100%;background:#fff;border:1px solid #cfccc4;border-radius:6px}
+.admin table{width:100%;border-collapse:collapse;font-size:13px}
+.admin td{border-top:1px solid var(--bd);padding:7px 12px;vertical-align:top}
+.admin td:first-child{width:150px;color:var(--mu)}
+.admin .bh{padding:10px 12px;font-weight:700;background:#F7F6F2;border-top:1px solid var(--bd)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:16px}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.otp{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:12px 0}
+.otp span{height:48px;border:1px solid var(--bd);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700}
+.typo td{padding:4px 10px;border-top:1px solid var(--bd)}
+</style>
+</head>
+<body>
+<h1>매장 입점 신청 시안 v2 (2026-11-10)</h1>
+<p class="sub">문서 <code>docs/audit/store-apply-redesign-v2-2026-11-10.md</code> 그림. ① 진행 막대 ② 매장 전용 전화 인증 ③ 매장 ID 삭제·실제 매장 위치 ④ 이름 중복·업종 칩·글자 비율·눌림. 버튼·칩은 눌러 보면 눌림 효과가 보입니다.</p>
+
+<div class="row">
+  <!-- A. 신청 폼 -->
+  <div>
+    <p class="cap">A. 신청 폼</p>
+    <div class="phone">
+      <div class="hdr">‹ 매장 입점 신청</div>
+      <div class="body">
+        <div class="prog"><ol><li class="cur"><i></i>신청</li><li><i></i>접수</li><li><i></i>심사</li><li><i></i>입점 승인</li><li><i></i>판매 승인</li><li><i></i>영업 시작</li></ol></div>
+
+        <div class="sec"><h2>신청자</h2><div class="in">
+          <div><label>실명 <span class="req">*</span></label><div class="inp">2~20자</div><div class="help">심사에만 쓰이고 고객에게 보이지 않습니다.</div></div>
+          <div class="ro"><small>회원 아이디</small> @kim_bk</div>
+        </div></div>
+
+        <div class="sec"><h2>매장 정보</h2><div class="in">
+          <div><label>매장 이름 <span class="req">*</span></label><div class="inp v">Mandoo House</div><div class="okt">✓ 사용할 수 있는 이름입니다</div></div>
+          <div><label>업종 <span class="req">*</span></label>
+            <div class="chips">
+              <div class="chip on">🍽 식당 ✓</div><div class="chip">🛒 마트</div>
+              <div class="chip">🔧 공구류</div><div class="chip">🐾 펫샵</div>
+              <div class="chip">☕ 카페</div><div class="chip">💇 미용</div>
+              <div class="chip">📚 학원</div><div class="chip">🧰 서비스</div>
+            </div>
+            <div class="help">세부 업종</div>
+            <div class="chips2"><div class="chip on">한식 ✓</div><div class="chip">중식</div><div class="chip">양식</div><div class="chip">분식</div><div class="chip">치킨·고기</div></div>
+          </div>
+          <div><label>매장 소개 <span class="opt">선택</span></label><div class="inp" style="min-height:72px">손님에게 보이는 한두 줄 소개</div><div class="help" style="text-align:right">0/300</div></div>
+        </div></div>
+
+        <div class="sec"><h2>매장 연락처</h2><div class="in">
+          <div><label>매장 전화번호 <span class="req">*</span></label>
+            <div style="display:flex;gap:8px;align-items:center"><div class="inp v" style="flex:1">+63 917 000 0000</div><span class="badge b-ok">✓ 인증됨</span></div>
+            <div class="help">회원 번호와 같아도 됩니다. 매장 전용으로 따로 인증합니다. <u>번호 변경</u></div></div>
+          <div><label>카카오톡 ID <span class="opt">선택</span></label><div class="inp">연락 가능한 카카오 ID</div></div>
+        </div></div>
+
+        <div class="sec"><h2>매장 위치 <span class="req">*</span></h2><div class="in">
+          <div style="font-size:13px;color:var(--mu)">고객·배달 기사가 찾아오는 실제 영업장</div>
+          <div style="border:1px solid var(--bd);border-radius:4px;padding:10px">
+            <div style="font-weight:600">G/F Unit 3, Seaside Blvd, Pasay City</div>
+            <div class="help" style="margin-top:2px">📍 지도 위치 지정됨</div>
+          </div>
+          <span class="btn w">주소록에서 고르기 / 새 주소 추가</span>
+        </div></div>
+
+        <div class="sec"><h2>요청 사항 <span class="opt">선택</span></h2><div class="in"><div class="inp" style="min-height:72px">운영 시작 희망일 등</div><div class="help" style="text-align:right">0/1000</div></div></div>
+
+        <div class="sec"><h2>입점·수수료 서약 <span class="req">필수</span></h2><div class="in">
+          <div class="help" style="margin:0">약관이 게시된 때만 보이는 칸</div>
+          <label class="chk" style="font-weight:400"><span class="box"></span><span>입점 약관(v1.0)에 동의합니다 <u>전문 보기</u></span></label>
+          <label class="chk" style="font-weight:400"><span class="box"></span><span>무료 기간 이후 식당 수수료 N%에 동의합니다</span></label>
+        </div></div>
+      </div>
+      <div class="foot">
+        <div class="hint"><span>입점 약관 2개에 동의하면 신청할 수 있습니다.</span><span class="btn">동의하러 가기</span></div>
+        <div class="acts"><span class="btn">취소</span><span class="btn off">신청하기</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B. 매장 전화 인증 시트 -->
+  <div>
+    <p class="cap">B. 매장 전화 인증 (바텀시트 · 회원 인증과 같은 형태)</p>
+    <div class="phone" style="height:640px">
+      <div class="hdr">‹ 매장 입점 신청</div>
+      <div class="dim"></div>
+      <div class="sheet">
+        <div style="font-size:16px;font-weight:700">매장 전화번호 인증</div>
+        <div class="help" style="margin-top:4px">+63 917 000 0000 으로 보낸 6자리를 입력하세요. <u>번호 변경</u></div>
+        <div class="otp"><span>4</span><span>8</span><span>1</span><span></span><span></span><span></span></div>
+        <div class="help">다시 보내기 0:42</div>
+        <div class="help" style="margin-top:10px">6번째 숫자를 넣으면 자동으로 확인합니다. 회원 전화번호는 바뀌지 않습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C. 진행 상태들 -->
+  <div>
+    <p class="cap">C. 운영 홈 진행 막대 (상태별)</p>
+    <div class="phone">
+      <div class="hdr">매장 운영</div>
+      <div class="body" style="padding-bottom:12px">
+        <div class="prog"><div class="time" style="margin-bottom:8px">검토중</div><ol><li class="done"><i></i>신청</li><li class="done"><i></i>접수</li><li class="cur"><i></i>심사</li><li><i></i>입점 승인</li><li><i></i>판매 승인</li><li><i></i>영업 시작</li></ol>
+          <div class="stepcard"><b>관리자가 신청서를 보고 있습니다</b><div class="time">접수 11-10 13:02 · 심사 시작 14:20 PHT</div><span class="btn p w" style="margin-top:10px">매장 프로필·메뉴 미리 준비</span></div></div>
+
+        <div class="prog"><div class="time" style="margin-bottom:8px">보완 요청</div><ol><li class="done"><i></i>신청</li><li class="done"><i></i>접수</li><li class="warn"><i></i>보완</li><li><i></i>입점 승인</li><li><i></i>판매 승인</li><li><i></i>영업 시작</li></ol>
+          <div class="stepcard"><b>보완이 필요합니다</b><div style="background:var(--warn-s);padding:8px;border-radius:4px;margin-top:6px">「매장 이름을 간판과 같게 고쳐 주세요.」</div><div class="time">요청 11-10 15:10 PHT</div><span class="btn p w" style="margin-top:10px">신청서 보완하고 제출</span></div></div>
+
+        <div class="prog"><div class="time" style="margin-bottom:8px">반려</div><ol><li class="done"><i></i>신청</li><li class="done"><i></i>접수</li><li class="bad"><i></i>반려</li><li><i></i>입점 승인</li><li><i></i>판매 승인</li><li><i></i>영업 시작</li></ol>
+          <div class="stepcard"><b>신청이 반려되었습니다</b><div style="background:var(--dan-s);padding:8px;border-radius:4px;margin-top:6px">사유: 영업 허가 확인 불가</div><span class="btn p w" style="margin-top:10px">고객센터에 재심사 문의</span></div></div>
+
+        <div class="prog"><div class="time" style="margin-bottom:8px">입점 승인 · 판매 승인 대기</div><ol><li class="done"><i></i>신청</li><li class="done"><i></i>접수</li><li class="done"><i></i>심사</li><li class="done"><i></i>입점 승인</li><li class="cur"><i></i>판매 승인</li><li><i></i>영업 시작</li></ol>
+          <div class="stepcard"><b>입점이 승인되었습니다</b><div class="help">판매 승인 후 노출을 켜면 고객에게 보입니다.</div><span class="btn p w" style="margin-top:10px">메뉴 등록하기</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="note"><b>단계 판정 (DB 1:1)</b> — 접수 <code>pending</code> · 심사 <code>under_review</code> · 보완 <code>revision_requested</code> · 반려 <code>rejected</code> · 입점 승인 <code>approved</code> · 판매 승인 <code>store_sales_permissions.sales_status=approved</code> · 영업 시작 <code>is_visible=true</code>. 단계별 시각은 새 표 <code>store_application_events</code>. 매장 ID(slug)는 화면에서 없애고 서버가 자동 생성 — 승인 후 「매장 링크 복사」로만 사용.</div>
+
+<div class="row">
+  <div>
+    <p class="cap">D. 어드민 입점 심사 패널</p>
+    <div class="admin">
+      <div class="bh">진행 <span class="badge b-w" style="margin-left:6px">검토중</span></div>
+      <table>
+        <tr><td>처리 이력</td><td>11-10 13:02 접수 · 14:20 심사 시작(관리자 A) · — </td></tr>
+      </table>
+      <div class="bh">신청자</div>
+      <table>
+        <tr><td>실명</td><td>Kim Byungkyu</td></tr>
+        <tr><td>회원 아이디</td><td>@kim_bk</td></tr>
+        <tr><td>회원 전화(프로필)</td><td>+82 10 0000 0000</td></tr>
+        <tr><td>신청자 대표 주소(회원)</td><td>Pasay City … <span style="color:var(--mu)">매장 위치 아님</span></td></tr>
+      </table>
+      <div class="bh">매장</div>
+      <table>
+        <tr><td>매장 이름</td><td>Mandoo House <span class="badge b-w">이름 중복 1</span> <u>같은 이름 매장 보기</u></td></tr>
+        <tr><td>업종</td><td>식당 · 한식</td></tr>
+        <tr><td>매장 전화</td><td>+63 917 000 0000 <span class="badge b-ok">인증됨 11-10 13:00 PHT</span></td></tr>
+        <tr><td>카카오톡 ID</td><td>mandoo_ph</td></tr>
+        <tr><td>매장 위치(영업장)</td><td>G/F Unit 3, Seaside Blvd, Pasay City · 📍 지도</td></tr>
+        <tr><td>소개 · 요청 사항</td><td>… · 12월 1일 오픈 희망</td></tr>
+        <tr><td>서약</td><td>v1.0 동의 · 11-10 PHT</td></tr>
+      </table>
+      <div class="bh">결정</div>
+      <div style="padding:10px 12px;display:flex;gap:6px;flex-wrap:wrap"><span class="btn p">입점 승인</span><span class="btn">보완 요청</span><span class="btn">입점 반려</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="cap">E. 글자 비율 (토큰 기준)</p>
+    <table class="typo" style="background:#fff;border:1px solid var(--bd);border-collapse:collapse;font-size:13px">
+      <tr><td>머리글</td><td style="font-size:17px;font-weight:700">17 / 700</td><td>지금 17/600</td></tr>
+      <tr><td>섹션 제목</td><td style="font-size:16px;font-weight:700">16 / 700</td><td>지금 15/700</td></tr>
+      <tr><td>입력 글자</td><td style="font-size:16px">16 / 400</td><td>지금 14/400 (iOS 확대 위험)</td></tr>
+      <tr><td>자리 표시</td><td style="font-size:15px;color:#9a9a9a">15 / 400</td><td>지금 14</td></tr>
+      <tr><td>읽기 전용 값</td><td style="font-size:15px;font-weight:600">15 / 600</td><td>지금 18/700 (섹션보다 큼)</td></tr>
+      <tr><td>라벨</td><td style="font-size:14px;font-weight:600">14 / 600</td><td>유지</td></tr>
+      <tr><td>도움말·오류</td><td style="font-size:13px">13 / 400·500</td><td>막힘 사유 지금 12</td></tr>
+      <tr><td>하단 버튼</td><td style="font-size:16px;font-weight:700">16 / 700 · 52px</td><td>지금 14/500 · 60px</td></tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>

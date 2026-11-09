@@ -15,6 +15,8 @@ export type BusinessApplyPartnerState = {
   required: boolean;
   /** 제출 본문 `partner_agreement` (서약이 필요 없으면 null) */
   input: StorePartnerAgreementInput | null;
+  /** 약관 불러오는 중·실패 — 게시 여부를 모르므로 제출을 막는다 (1차 감사 A-6) */
+  loading?: boolean;
 };
 
 type Load =
@@ -94,9 +96,14 @@ export function BusinessApplyPartnerSection({
   }, [termsId, termsVersion]);
 
   const terms = load.kind === "ready" ? load.offer.terms : null;
+  const loadPending = load.kind !== "ready";
   useEffect(() => {
+    if (loadPending) {
+      onStateChange({ required: false, input: null, loading: true });
+      return;
+    }
     if (!terms) {
-      onStateChange({ required: false, input: null });
+      onStateChange({ required: false, input: null, loading: false });
       return;
     }
     onStateChange({
@@ -108,14 +115,18 @@ export function BusinessApplyPartnerSection({
         agreeTerms: agree.agreeTerms,
         agreeFee: agree.agreeFee,
       },
+      loading: false,
     });
-  }, [terms, agree, onStateChange]);
+  }, [terms, agree, onStateChange, loadPending]);
 
   const onRetry = useCallback(() => setRetry((n) => n + 1), []);
 
   /** 요율이 걸린 단계 이름 — 세부업종 정책이면 세부업종, 그 밖에는 1차 업종 */
   const categoryLabel =
     load.kind === "ready" && load.offer.feeScope === "topic" ? subLabel || primaryLabel : primaryLabel || subLabel;
+
+  /** 게시된 약관이 없으면 칸 전체를 숨긴다 — 「(필수)」 제목과 「서약 없이 신청 가능」 본문이 함께 보이던 모순 제거 (1차 감사 A-5) */
+  if (load.kind === "ready" && !load.offer.terms) return null;
 
   return (
     <OwnerStoreAdminDashSection title={t("partner_apply_section_title")}>

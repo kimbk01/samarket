@@ -5,7 +5,7 @@ import {
   allowedStoreApprovalActions,
   isAdminStoreApprovalAction,
   isAdminStoreTransitionAllowed,
-  ownerEditReturnsStoreToPending,
+  OWNER_RESUBMIT_FROM_STATUS,
 } from "@/lib/admin-business/admin-store-decision-rules";
 
 describe("admin store decision rules", () => {
@@ -23,15 +23,8 @@ describe("admin store decision rules", () => {
     expect(ADMIN_STORE_ACTIONS_REQUIRING_REASON.has("approve_store")).toBe(false);
   });
 
-  it("C-6 / DEF-16 — owner content edit on revision_requested returns to pending", () => {
-    expect(ownerEditReturnsStoreToPending("revision_requested", ["description"])).toBe(true);
-    expect(ownerEditReturnsStoreToPending("revision_requested", ["lat", "lng"])).toBe(true);
-    // 영업 스위치·메신저 설정만 저장 = 재제출 아님
-    expect(ownerEditReturnsStoreToPending("revision_requested", ["is_open", "messenger_voice_calls_enabled"])).toBe(
-      false
-    );
-    expect(ownerEditReturnsStoreToPending("approved", ["description"])).toBe(false);
-    expect(ownerEditReturnsStoreToPending("pending", ["description"])).toBe(false);
+  it("매장 신청 v2 — 재제출은 보완 요청 상태에서 「보완 내용 제출」로만", () => {
+    expect(OWNER_RESUBMIT_FROM_STATUS).toBe("revision_requested");
   });
 });
 
@@ -65,9 +58,7 @@ describe("ACC-04 — reopen rejected application (재심사 열기)", () => {
     expect(isAdminStoreApprovalAction("confirm_core_info_reverified")).toBe(false);
   });
 
-  it("reopened application follows the existing resubmit path (revision_requested → pending on content edit)", () => {
-    expect(
-      ownerEditReturnsStoreToPending(ADMIN_STORE_ACTION_TARGET_STATUS.reopen_application, ["address_line1"])
-    ).toBe(true);
+  it("reopened application lands on the resubmit status (보완 내용 제출 가능)", () => {
+    expect(ADMIN_STORE_ACTION_TARGET_STATUS.reopen_application).toBe(OWNER_RESUBMIT_FROM_STATUS);
   });
 });

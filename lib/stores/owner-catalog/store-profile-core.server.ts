@@ -45,10 +45,8 @@ import {
   withoutUnchangedStoreCoords,
 } from "@/lib/stores/store-location-move-guard";
 
-import { ownerEditReturnsStoreToPending } from "@/lib/admin-business/admin-store-decision-rules";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
-import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { bumpStorePublicSharedCacheGeneration } from "@/lib/stores/store-public-shared-cache-generation";
 import {
   buildOwnerStoreUpdateAuditDiff,
@@ -63,6 +61,11 @@ import {
   type StoreCoreLocationField,
 } from "@/lib/stores/store-core-info-reverification";
 import { createAdminNotification } from "@/lib/admin/notifications/admin-notification-service";
+import {
+  consumeStorePhoneVerification,
+  isStorePhoneUsedByOtherStore,
+  releaseStorePhoneVerification,
+} from "@/lib/stores/store-phone-otp-service";
 
 import { cleanupReplacedStoreProfileImages } from "@/lib/stores/owner-catalog/store-profile-image-cleanup.server";
 import type { StoreGateRow } from "@/lib/stores/owner-product-gate";
@@ -75,6 +78,8 @@ export type StoreProfilePatchBody = {
   store_name?: string;
   description?: string | null;
   phone?: string | null;
+  /** 매장 전화를 바꿀 때 — `/api/me/store-phone-verification/verify` (purpose store_phone_change) 결과 id */
+  phone_verification_id?: string | null;
   kakao_id?: string | null;
   /** 관리자 허용 시에만 적용 */
   business_type?: string | null;
@@ -211,16 +216,31 @@ export async function patchStoreProfileCore(input: {
   if (body.description !== undefined) {
     patch.description = body.description === null ? null : trimOrNull(body.description);
   }
+  /**
+   * 매장 신청 v2 S2 (Owner 2026-11-10) — 사장님이 매장 전화를 바꾸려면 매장 전화 전용 인증
+   * (`store_phone_change`) 기록 id 가 필요하다. 같은 번호 재저장은 바꾸지 않음. 사용 처리는 UPDATE 직전에.
+   */
+  let pendingOwnerPhoneChange: { phoneDb09: string; verificationId: string } | null = null;
   if (body.phone !== undefined) {
     const pt = trimOrNull(body.phone);
-    if (pt === null) {
-      patch.phone = null;
-    } else {
-      const norm = normalizePhMobileDb(pt);
-      if (!norm) {
-        return NextResponse.json({ ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO }, { status: 400 });
+    const norm = pt === null ? null : normalizePhMobileDb(pt);
+    if (pt !== null && !norm) {
+      return NextResponse.json({ ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO }, { status: 400 });
+    }
+    const currentPhone = trimOrNull((currentRow as { phone?: unknown }).phone);
+    if ((norm ?? null) !== (currentPhone ?? null)) {
+      if (actor.kind === "owner") {
+        if (!norm) return NextResponse.json({ ok: false, error: "store_phone_required" }, { status: 400 });
+        const vid = String(body.phone_verification_id ?? "").trim();
+        if (!vid) {
+          return NextResponse.json({ ok: false, error: "store_phone_verification_required" }, { status: 400 });
+        }
+        pendingOwnerPhoneChange = { phoneDb09: norm, verificationId: vid };
+      } else {
+        patch.phone = norm;
+        patch.phone_verified_at = null;
+        patch.phone_verification_id = null;
       }
-      patch.phone = norm;
     }
   }
   if (body.kakao_id !== undefined) patch.kakao_id = trimOrNull(body.kakao_id);
@@ -439,6 +459,33 @@ export async function patchStoreProfileCore(input: {
     patch.store_topic_id = null;
   }
 
+  if (pendingOwnerPhoneChange) {
+    const consumed = await consumeStorePhoneVerification(sb, {
+      userId: actor.userId,
+      verificationId: pendingOwnerPhoneChange.verificationId,
+      purpose: "store_phone_change",
+      storeId: sid,
+    });
+    if (!consumed.ok) {
+      return NextResponse.json({ ok: false, error: consumed.code }, { status: consumed.status });
+    }
+    if (consumed.data.phoneDb09 !== pendingOwnerPhoneChange.phoneDb09) {
+      await releaseStorePhoneVerification(sb, consumed.data.verificationId);
+      return NextResponse.json({ ok: false, error: "store_phone_verification_mismatch" }, { status: 400 });
+    }
+    const dupPhone = await isStorePhoneUsedByOtherStore(sb, consumed.data.phoneDb09, sid);
+    if (!dupPhone.ok || dupPhone.data) {
+      await releaseStorePhoneVerification(sb, consumed.data.verificationId);
+      return NextResponse.json(
+        { ok: false, error: dupPhone.ok ? "store_phone_already_registered" : "store_phone_check_failed" },
+        { status: dupPhone.ok ? 409 : 500 }
+      );
+    }
+    patch.phone = consumed.data.phoneDb09;
+    patch.phone_verified_at = consumed.data.verifiedAt;
+    patch.phone_verification_id = consumed.data.verificationId;
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "no_fields" }, { status: 400 });
   }
@@ -492,6 +539,11 @@ export async function patchStoreProfileCore(input: {
     ({ data: updated, error: upErr } = await runStoreUpdate(patch));
   }
 
+  if ((upErr || !updated) && pendingOwnerPhoneChange && typeof patch.phone_verification_id === "string") {
+    // 저장 실패 — 매장 전화 인증 사용 처리 되돌림 (다시 저장할 수 있게)
+    await releaseStorePhoneVerification(sb, patch.phone_verification_id);
+  }
+
   if (upErr) {
     console.error("[PATCH /api/me/stores/storeId]", upErr);
     // LOC-005 — DB guard (stores_guard_delivery_requires_geo) uses the same code as the API check.
@@ -514,34 +566,8 @@ export async function patchStoreProfileCore(input: {
     return NextResponse.json({ ok: false, error: "update_no_row" }, { status: 500 });
   }
 
-  // C-6 / DEF-16 — 보완 요청 매장의 신청 내용 수정 = 재제출 → 심사 대기 복귀 (상태 조건부).
-  if (ownerEditReturnsStoreToPending(gateStore.approval_status, Object.keys(patch))) {
-    const { data: resubmitted, error: resubmitErr } = await sb
-      .from("stores")
-      .update({ approval_status: "pending" })
-      .eq("id", sid)
-      .eq("approval_status", "revision_requested")
-      .select("id, approval_status")
-      .maybeSingle();
-    if (resubmitErr) {
-      console.error("[PATCH /api/me/stores/storeId] resubmit", resubmitErr);
-    } else if (resubmitted) {
-      (updated as unknown as { approval_status?: string }).approval_status = "pending";
-      if (actor.kind === "owner") invalidateMeStoresListServerCache(actor.userId);
-      const rm = getAuditRequestMeta(req);
-      await appendAuditLog(sb, {
-        actor_type: actor.kind === "owner" ? "user" : "admin",
-        actor_id: actor.userId,
-        target_type: "store",
-        target_id: sid,
-        action: "store.owner_resubmit",
-        before_json: { approval_status: "revision_requested" },
-        after_json: { approval_status: "pending", fields: Object.keys(patch) },
-        ip: rm.ip,
-        user_agent: rm.userAgent,
-      }).catch((e: unknown) => console.error("[PATCH /api/me/stores/storeId] resubmit audit", e));
-    }
-  }
+  // 매장 신청 v2 (Owner 2026-11-10) — 보완 재제출은 「보완 내용 제출」(`POST /api/me/stores/[storeId]/resubmit`)로만.
+  // 프로필 일반 저장은 승인 상태를 바꾸지 않는다 (예전 C-6 자동 재제출 제거).
 
   // ACC-06 — 오너 매장 정보 변경 감사 (실제로 바뀐 키만 before/after). 감사 실패는 로그만, 저장 결과는 유지.
   const auditDiff = buildOwnerStoreUpdateAuditDiff(currentRecord, patch);

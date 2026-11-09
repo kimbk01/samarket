@@ -730,6 +730,15 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
     samples: [{ eventType: "store_core_info_changed", receiverRole: "admin_ops" }],
   }),
   item({
+    key: "admin_store_application_submitted",
+    labelKo: "매장 입점 신청·보완 제출",
+    labelEn: "Store application submitted",
+    audience: "admin",
+    match: { eventTypes: ["store_application_submitted"], receiverRoles: ["admin_ops"] },
+    soundEventKey: null,
+    samples: [{ eventType: "store_application_submitted", receiverRole: "admin_ops" }],
+  }),
+  item({
     key: "admin_settlement_exception",
     labelKo: "정산 예외·수수료 검토",
     labelEn: "Settlement exception",

@@ -421,7 +421,14 @@ export function AdminStoresPage() {
                           </div>
                           <div className="sam-text-helper text-sam-muted">{handle || "—"}</div>
                         </td>
-                        <td className={`${TD} tabular-nums`}>{displayAdminPhone(r.phone)}</td>
+                        <td className={`${TD} tabular-nums`}>
+                          {displayAdminPhone(r.phone)}
+                          {r.phone ? (
+                            <div className={`sam-text-helper ${r.phone_verified_at ? "text-sam-success" : "text-sam-muted"}`}>
+                              {r.phone_verified_at ? t("admin_store_app_phone_verified_short") : t("admin_store_app_phone_no_record")}
+                            </div>
+                          ) : null}
+                        </td>
                         <td className={TD}>
                           <div className="max-w-[180px] truncate">{regionText(r)}</div>
                         </td>

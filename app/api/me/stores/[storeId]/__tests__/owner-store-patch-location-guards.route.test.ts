@@ -60,6 +60,15 @@ vi.mock("@/lib/stores/sync-store-orders-checkout-geo", () => ({
   refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged: (...a: unknown[]) => refreshGeo(...(a as [])),
 }));
 vi.mock("@/lib/me/load-me-stores-for-user", () => ({ invalidateMeStoresListServerCache: vi.fn() }));
+/** 매장 신청 v2 S2 — 사장님 매장 전화 변경은 매장 전용 인증 기록 필요 (테스트: 기록 id = 인증된 번호) */
+vi.mock("@/lib/stores/store-phone-otp-service", () => ({
+  consumeStorePhoneVerification: async (_sb: unknown, i: { verificationId: string }) => ({
+    ok: true,
+    data: { verificationId: i.verificationId, phoneDb09: i.verificationId, verifiedAt: "2026-11-10T05:00:00Z" },
+  }),
+  releaseStorePhoneVerification: vi.fn(),
+  isStorePhoneUsedByOtherStore: async () => ({ ok: true, data: false }),
+}));
 vi.mock("@/lib/delivery/service-area/candidate-discovery", () => ({
   resolveStoreHomeLguId: (input: unknown) => homeLgu(input),
 }));
@@ -109,7 +118,7 @@ describe("owner store PATCH — LOC-013 / LOC-007 / LOC-005", () => {
   });
 
   it("LOC-013: phone change + same coords re-sent (7 dp) → no checkout-geo refresh, discovery patch without coords", async () => {
-    const res = await PATCH(req({ phone: "09990000000", lat: 14.65000012, lng: 121.05000008 }), ctx);
+    const res = await PATCH(req({ phone: "09990000000", phone_verification_id: "09990000000", lat: 14.65000012, lng: 121.05000008 }), ctx);
     expect(res.status).toBe(200);
     expect(refreshGeo).not.toHaveBeenCalled();
     expect(afterWrite).toHaveBeenCalledTimes(1);
@@ -166,7 +175,7 @@ describe("owner store PATCH — LOC-013 / LOC-007 / LOC-005", () => {
 
   it("LOC-005: DB guard violation maps to 400 store_delivery_requires_canonical_geo", async () => {
     updateErrors = [{ message: "store_delivery_requires_canonical_geo" }];
-    const res = await PATCH(req({ phone: "09990000001" }), ctx);
+    const res = await PATCH(req({ phone: "09990000001", phone_verification_id: "09990000001" }), ctx);
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("store_delivery_requires_canonical_geo");
   });

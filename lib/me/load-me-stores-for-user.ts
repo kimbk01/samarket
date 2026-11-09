@@ -8,7 +8,7 @@ const ME_STORE_SELECT =
   [
     "id, owner_user_id, store_name, slug, business_type, owner_can_edit_store_identity",
     "store_category_id, store_topic_id",
-    "description, kakao_id, phone, email, website_url",
+    "description, kakao_id, phone, phone_verified_at, branch_name, email, website_url",
     "region, city, district, address_line1, address_line2, lat, lng",
     "place_id, formatted_address, detail_address",
     "profile_image_url, business_hours_json, gallery_images_json, is_open",
@@ -70,6 +70,16 @@ export async function loadMeStoresListForUser(
       .order("created_at", { ascending: false });
     data = r.data as unknown[] | null;
     error = (r.error as any) ?? null;
+    // 배포 순서 보호 (매장 신청 v2 · 20271110180000): 컬럼 적용 전이면 두 컬럼 없이 읽는다.
+    if (error && /phone_verified_at|branch_name/i.test(String(error.message ?? "")) && /does not exist/i.test(String(error.message ?? ""))) {
+      const r2 = await supabase
+        .from("stores")
+        .select(ME_STORE_SELECT.replace(", phone_verified_at, branch_name", ""))
+        .eq("owner_user_id", userId)
+        .order("created_at", { ascending: false });
+      data = r2.data as unknown[] | null;
+      error = (r2.error as any) ?? null;
+    }
     if (error && /menu_sold_out_bottom/i.test(String(error.message ?? "")) && /does not exist/i.test(String(error.message ?? ""))) {
       const legacySelect = ME_STORE_SELECT.replace(/,\s*menu_sold_out_bottom\s*(?=,)/, "");
       const r3 = await supabase

@@ -78,10 +78,10 @@ describe("R2 메뉴 9그룹 — 드로어·PC 사이드바", () => {
 });
 
 describe("R1 승인 매장 — 신청·심사 잔재", () => {
-  it("신청 화면은 승인 매장이 있으면 운영 홈으로 보냄", () => {
+  it("신청 화면은 매장이 있으면(상태 무관) 운영 홈으로 보냄 — 보완 제출 모드만 예외 (매장 신청 v2)", () => {
     const src = read("app/(main)/stores/owner/apply/page.tsx");
-    expect(src).toMatch(/approval_status\) === "approved"/);
-    expect(src).toContain("router.replace(OwnerRoutes.hub(approved.id))");
+    expect(src).toContain("router.replace(OwnerRoutes.hub((mine ?? stores[0])!.id))");
+    expect(src).toContain('String(mine.approval_status) === "revision_requested"');
   });
 
   it("내정보 매장 관리 주소는 운영 홈으로 (운영 홈이 매장 없음·심사 중·승인을 나눔)", () => {

@@ -56,6 +56,15 @@ vi.mock("@/lib/stores/sync-store-orders-checkout-geo", () => ({
   refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/me/load-me-stores-for-user", () => ({ invalidateMeStoresListServerCache: vi.fn() }));
+/** 매장 신청 v2 S2 — 사장님 매장 전화 변경은 매장 전용 인증 기록 필요 (테스트: 기록 id = 인증된 번호) */
+vi.mock("@/lib/stores/store-phone-otp-service", () => ({
+  consumeStorePhoneVerification: async (_sb: unknown, i: { verificationId: string }) => ({
+    ok: true,
+    data: { verificationId: i.verificationId, phoneDb09: i.verificationId, verifiedAt: "2026-11-10T05:00:00Z" },
+  }),
+  releaseStorePhoneVerification: vi.fn(),
+  isStorePhoneUsedByOtherStore: async () => ({ ok: true, data: false }),
+}));
 
 import { PATCH } from "@/app/api/me/stores/[storeId]/route";
 
@@ -174,7 +183,7 @@ describe("owner store PATCH — audit · re-verification · cache bump", () => {
     appendAuditLog.mockImplementationOnce(async () => {
       throw new Error("audit down");
     });
-    const res = await PATCH(req({ phone: "09990000000" }), ctx);
+    const res = await PATCH(req({ phone: "09990000000", phone_verification_id: "09990000000" }), ctx);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean };
     expect(json.ok).toBe(true);

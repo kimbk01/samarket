@@ -74,8 +74,9 @@ describe("L1 — 일괄 지역 변경은 끝난 글을 바꾸지 않는다", () 
 });
 
 describe("매장 새로 만들기 — 위치 칸을 같은 저장에서 결정", () => {
-  it("POST /api/me/stores 가 computeStoreLocationColumns 를 쓴다", () => {
-    expect(read("app/api/me/stores/route.ts")).toContain("...computeStoreLocationColumns({");
+  it("POST /api/me/stores(신청 입력 공용 검사)가 computeStoreLocationColumns 를 쓴다", () => {
+    expect(read("app/api/me/stores/route.ts")).toContain("parseStoreApplicationInput");
+    expect(read("lib/stores/store-application-input.server.ts")).toContain("...computeStoreLocationColumns({");
   });
   it("Google 형식 매장 주소 → LGU·바랑가이", () => {
     const c = computeStoreLocationColumns({

@@ -66,6 +66,9 @@ export type StoreRow = {
   is_visible?: boolean;
   rejected_reason: string | null;
   revision_note?: string | null;
+  /** 매장 신청 v2 — 매장 전용 전화 인증 시각 */
+  phone_verified_at?: string | null;
+  branch_name?: string | null;
   admin_internal_memo?: string | null;
   /** GET /api/me/stores 에서만 채워짐 */
   sales_permission?: { allowed_to_sell: boolean; sales_status: string } | null;

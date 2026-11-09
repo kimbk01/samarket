@@ -1,624 +1,678 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
-import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
-import {
-  listBrowsePrimaryIndustries,
-  listBrowseSubIndustries,
-} from "@/lib/stores/browse-taxonomy-seed-queries";
-import { REGIONS } from "@/lib/products/form-options";
+import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
-import {
-  OWNER_STORE_FORM_GRID_2_CLASS,
-  OWNER_STORE_PROFILE_CONTROL_CLASS,
-  OWNER_STORE_PROFILE_SELECT_CLASS,
-  OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS,
-  OWNER_STORE_STACK_Y_CLASS,
-} from "@/lib/business/owner-store-stack";
+import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_HINT_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
 import {
+  BUSINESS_APPLY_SUBMIT_BLOCKED_FIX_KEY,
   BUSINESS_APPLY_SUBMIT_BLOCKED_MESSAGE_KEY,
   resolveBusinessApplySubmitBlockedReason,
+  type BusinessApplySubmitBlockedReason,
 } from "@/lib/business/business-apply-submit-gate";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
-
-/** 하단 바 위 비활성 사유 줄(py-1.5 + leading-4 + border) — 본문 여백에 더해 마지막 입력이 가리지 않게 */
-const BUSINESS_APPLY_BLOCKED_REASON_LINE_PX = 30;
-/** 이 화면은 고객센터 버튼을 켠다 — 버튼(44) + 바 위 간격(10) 만큼 더 스크롤되어 마지막 입력이 버튼에 가리지 않게 */
-const BUSINESS_APPLY_SUPPORT_FAB_CLEARANCE_PX = 56;
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
-import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
-import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { openMemberAddressBook } from "@/lib/addresses/member-address-caller-context";
-import {
-  clearBusinessApplySessionDraft,
-  peekBusinessApplySessionDraft,
-  writeBusinessApplySessionDraft,
-} from "@/lib/business/business-apply-form-session-draft";
-import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   resolveStoreTaxonomyPrimaryDisplayName,
   resolveStoreTaxonomyTopicDisplayName,
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
 import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { formatPhMobileDisplayPlus63 } from "@/lib/utils/ph-mobile";
 import {
   BusinessApplyPartnerSection,
   type BusinessApplyPartnerState,
 } from "@/components/business/BusinessApplyPartnerSection";
 import type { StorePartnerAgreementInput } from "@/lib/stores/partner/store-partner-agreement-contract";
-import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+import { StorePhoneVerifySheet, type StorePhoneVerified } from "@/components/business/apply/StorePhoneVerifySheet";
+import { StoreLocationPickSheet, type StoreApplyLocation } from "@/components/business/apply/StoreLocationPickSheet";
+import { StoreApplicationProgressBar } from "@/components/business/apply/StoreApplicationProgress";
+import { STORE_APPLICATION_STEP_KEYS } from "@/lib/stores/store-application-step";
+import { STORE_APPLY_LIMITS, normalizeStoreApplyName } from "@/lib/stores/store-application-limits";
 
-/** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
+/** 신청 화면 프로필 씨앗 — @아이디 표시용 (매장 ID 는 서버 자동 생성 · 화면 미표시) */
 export type BusinessApplyProfileSeed = {
-  applicantNickname: string;
-  phoneDigits: string;
-  regionId: string;
-  cityId: string;
-  addressStreetLine: string;
-  addressDetail: string;
-  /** 상점 소개 초안으로 쓸 프로필 한 줄(비어 있으면 폼 기본 유지) */
-  profileBio: string;
-  /** 신청자 @아이디(매장 ID 생성용) */
   username: string;
 };
 
-export interface BusinessApplyFormValues {
-  /** 신청자 실명 — 어드민 `applicant_nickname` 으로 저장 */
+/** 보완 제출 모드 — 이미 저장된 신청 내용 */
+export type BusinessApplyInitial = {
   applicantNickname: string;
   shopName: string;
+  branchName: string;
   description: string;
-  /** 관리자 검토용 요청 사항 */
   requestNote: string;
-  phone: string;
   kakaoId: string;
-  region: string;
-  city: string;
-  addressStreetLine: string;
-  addressDetail: string;
-  /** 1차 업종 슬러그 — `/stores` 둘러보기·DB `store_categories.slug` 와 동일 */
   categoryPrimarySlug: string;
-  /** 2차 업종 슬러그 — DB `store_topics.slug` (해당 1차 하위) */
   categorySubSlug: string;
-  /**
-   * 매장 입점·수수료 서약 (제출 때만 채움 — 임시저장 초안에는 넣지 않는다).
-   * null = 게시된 약관 없음(서약 없이 신청).
-   */
+  /** 저장된 매장 전화(`09…`) · 인증 시각 */
+  phone: string;
+  phoneVerifiedAt: string | null;
+  location: StoreApplyLocation | null;
+  /** 관리자 보완 요청 사유 */
+  revisionNote: string;
+};
+
+export interface BusinessApplyFormValues {
+  applicantNickname: string;
+  shopName: string;
+  branchName: string;
+  description: string;
+  requestNote: string;
+  kakaoId: string;
+  categoryPrimarySlug: string;
+  categorySubSlug: string;
+  /** 새 매장 전화 인증 기록 (보완 제출에서 번호를 안 바꾸면 null) */
+  phoneVerification: StorePhoneVerified | null;
+  location: StoreApplyLocation | null;
+  /** 매장 입점·수수료 서약 — null = 게시된 약관 없음 */
   partnerAgreement?: StorePartnerAgreementInput | null;
 }
 
-/** 입점 신청 — 매장 어드민(기본 정보)과 동일한 14px 라벨 톤 */
-const APPLY_FIELD_LABEL_CLASS = "mb-1 block sam-text-body font-semibold text-sam-fg";
+type FormState = Omit<BusinessApplyFormValues, "partnerAgreement">;
 
-/** 프로필·매장 ID 등 표시 전용 — 입력 박스 없음, 입력 글자(+2px)보다 2pt 크고 굵게 */
-const APPLY_DISPLAY_VALUE_CLASS =
-  "block min-w-0 pt-0.5 text-[length:calc(var(--sm-font-input)+2px)] font-bold leading-snug text-sam-fg";
+/** 글자 비율 (Owner 2026-11-10): 섹션 16/700 · 라벨 14/600 · 입력 16/400 · 자리표시 15 · 도움말 13 */
+const LABEL = "mb-1.5 block text-[14px] font-semibold leading-snug text-sam-fg";
+const INPUT =
+  "sam-input w-full min-w-0 bg-sam-surface text-[16px] font-normal text-sam-fg placeholder:text-[15px] placeholder:text-sam-muted owner-store-profile-field-edge";
+const TEXTAREA = `${INPUT} min-h-[5rem] resize-y py-2.5`;
+const HELP = "mt-1.5 text-[13px] leading-snug text-sam-muted";
+const COUNT = "mt-1 text-right text-[13px] tabular-nums text-sam-muted";
+const OPTIONAL = "ml-1 text-[13px] font-normal text-sam-muted";
+const OUTLINE_BTN = `inline-flex min-h-[44px] items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[15px] font-semibold text-sam-fg ${FORM_INTERACTIVE_PRESS_CLASS}`;
+const CHIP_BASE = `inline-flex min-h-[44px] items-center gap-1.5 rounded-ui-rect border px-3 text-[15px] text-sam-fg ${FORM_INTERACTIVE_PRESS_CLASS}`;
+const CHIP_ON = "border-2 border-sam-primary bg-sam-primary-soft font-bold";
+const CHIP_OFF = "border-sam-border bg-sam-surface";
+const SECTION_HEAD_FIX =
+  "[&_.owner-store-admin-dash-section__header_h2]:text-[16px] [&_.owner-store-admin-dash-section__header_h2]:font-bold";
+/** 하단 막힘 사유 줄 높이(사유 + 해결 버튼) — 마지막 입력이 바에 가리지 않게 */
+const BLOCKED_REASON_LINE_PX = 44;
+/** 이 화면은 고객센터 버튼을 켠다 — 버튼(44) + 바 위 간격(10) */
+const SUPPORT_FAB_CLEARANCE_PX = 56;
 
-const APPLY_DISPLAY_VALUE_MONO_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} font-mono`;
-
-/** 전화번호 — 인증 프로필 읽기 전용 */
-const APPLY_PHONE_VALUE_CLASS = APPLY_DISPLAY_VALUE_CLASS;
-
-/** 1·2차 업종 select — 우측 ▼ (native appearance-none 보조) */
-const APPLY_SELECT_WRAP_CLASS = "relative min-w-0 w-full";
-const APPLY_SELECT_CHEVRON_CLASS =
-  "pointer-events-none absolute inset-y-0 right-[18px] flex items-center sam-text-body-secondary text-sam-muted";
-/** en 라벨 2줄 시에도 select 상단·높이를 맞춤 */
-const APPLY_CATEGORY_GRID_CLASS = `${OWNER_STORE_FORM_GRID_2_CLASS} items-start`;
-const APPLY_CATEGORY_COL_CLASS = "flex min-w-0 flex-col";
-const APPLY_CATEGORY_LABEL_CLASS = `${APPLY_FIELD_LABEL_CLASS} mb-1 min-h-[2.75rem] leading-snug`;
-const APPLY_CATEGORY_SELECT_CLASS = `${OWNER_STORE_PROFILE_SELECT_CLASS} block w-full min-h-[var(--sam-input-min-height)]`;
-
-const DEFAULT_VALUES: Omit<
-  BusinessApplyFormValues,
-  "categoryPrimarySlug" | "categorySubSlug"
-> = {
+const EMPTY: FormState = {
   applicantNickname: "",
   shopName: "",
+  branchName: "",
   description: "",
   requestNote: "",
-  phone: "",
   kakaoId: "",
-  region: "",
-  city: "",
-  addressStreetLine: "",
-  addressDetail: "",
+  categoryPrimarySlug: "",
+  categorySubSlug: "",
+  phoneVerification: null,
+  location: null,
 };
 
-function initialCategorySlugs(): Pick<
-  BusinessApplyFormValues,
-  "categoryPrimarySlug" | "categorySubSlug"
-> {
-  const prim = listBrowsePrimaryIndustries();
-  const ps = prim[0]?.slug ?? "";
-  const subs = listBrowseSubIndustries(ps);
-  return { categoryPrimarySlug: ps, categorySubSlug: subs[0]?.slug ?? "" };
+/** 신청 화면 진행 막대 — 「신청」 단계가 현재 */
+const DRAFT_STEPS = STORE_APPLICATION_STEP_KEYS.map((key, i) => ({
+  key,
+  state: i === 0 ? ("current" as const) : ("todo" as const),
+}));
+
+function press(e: MouseEvent) {
+  triggerInteractionFeedback("light", { pointerType: (e.nativeEvent as PointerEvent).pointerType });
 }
 
-interface BusinessApplyFormProps {
-  onSubmit: (values: BusinessApplyFormValues) => void;
-  submitLabel?: string;
-  disabled?: boolean;
-  /** 로드되면 폼에 한 번만 반영(이후 사용자 수정 유지). 프로필 미로그인 시 null */
-  profileSeed?: BusinessApplyProfileSeed | null;
-  /** 서버 규칙(@아이디-번호)로 계산된 매장 ID (읽기전용 표시) */
-  computedStoreSlug?: string;
-  /** 서버가 약관 버전 불일치를 알리면 늘려서 서약 섹션을 다시 불러온다 */
-  partnerRefreshKey?: number;
+function Req() {
+  return (
+    <span className="ml-0.5 font-bold text-sam-danger" aria-hidden>
+      *
+    </span>
+  );
 }
 
+/**
+ * 매장 입점 신청서 (매장 신청 v2 · Owner 「권장안으로 승인」 2026-11-10).
+ * 신청자 → 매장 정보(이름·중복 확인·지점명·업종 칩·소개) → 매장 연락처(매장 전용 전화 인증) →
+ * 매장 위치(실제 영업장 · 지도) → 요청 사항 → 입점·수수료 서약(약관 게시 때만).
+ * `mode="revise"` = 보완 요청 매장의 「보완 내용 제출」 (같은 폼 · 저장된 값으로 시작).
+ */
 export function BusinessApplyForm({
+  mode = "apply",
+  storeId = null,
+  initial = null,
+  profileSeed = null,
+  partnerRefreshKey = 0,
   onSubmit,
   submitLabel,
   disabled = false,
-  profileSeed = null,
-  computedStoreSlug = "",
-  partnerRefreshKey = 0,
-}: BusinessApplyFormProps) {
+}: {
+  mode?: "apply" | "revise";
+  storeId?: string | null;
+  initial?: BusinessApplyInitial | null;
+  profileSeed?: BusinessApplyProfileSeed | null;
+  partnerRefreshKey?: number;
+  onSubmit: (values: BusinessApplyFormValues) => void;
+  submitLabel?: string;
+  disabled?: boolean;
+}) {
   const { t, language } = useI18n();
   const router = useRouter();
-  const {
-    keyboardOpen,
-    formPadStyle,
-    footerPadStyle,
-    footerFixedClassName,
-  } = useOwnerAdminFormKeyboard();
-  const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
-  const [taxonomy, setTaxonomy] = useState<{
-    categories: StoreTaxonomyCategory[];
-    topics: StoreTaxonomyTopic[];
-  } | null>(null);
+  const { keyboardOpen, formPadStyle, footerPadStyle, footerFixedClassName } = useOwnerAdminFormKeyboard();
 
+  const [values, setValues] = useState<FormState>(() =>
+    initial
+      ? {
+          applicantNickname: initial.applicantNickname,
+          shopName: initial.shopName,
+          branchName: initial.branchName,
+          description: initial.description,
+          requestNote: initial.requestNote,
+          kakaoId: initial.kakaoId,
+          categoryPrimarySlug: initial.categoryPrimarySlug,
+          categorySubSlug: initial.categorySubSlug,
+          phoneVerification: null,
+          location: initial.location,
+        }
+      : EMPTY
+  );
+  const set = useCallback(<K extends keyof FormState>(k: K, v: FormState[K]) => {
+    setValues((p) => ({ ...p, [k]: v }));
+  }, []);
+
+  /* ── 업종 (DB 업종 관리와 같은 이름·순서 · 칩 — 기기 드롭다운 아님) ── */
+  const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(null);
+  const [taxonomyError, setTaxonomyError] = useState(false);
+  const [taxonomyRetry, setTaxonomyRetry] = useState(0);
   useEffect(() => {
     let cancelled = false;
+    setTaxonomyError(false);
     void (async () => {
       try {
-        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
-        const j = jRaw as { ok?: boolean; categories?: unknown; topics?: unknown };
+        const { json } = await fetchStoresTaxonomyDeduped();
+        const j = json as { ok?: boolean; categories?: unknown; topics?: unknown };
         if (cancelled) return;
         if (j?.ok && Array.isArray(j.categories) && Array.isArray(j.topics)) {
-          setTaxonomy({
-            categories: j.categories as StoreTaxonomyCategory[],
-            topics: j.topics as StoreTaxonomyTopic[],
-          });
-        } else {
-          setTaxonomy(null);
-        }
+          setTaxonomy({ categories: j.categories as StoreTaxonomyCategory[], topics: j.topics as StoreTaxonomyTopic[] });
+        } else setTaxonomyError(true);
       } catch {
-        if (!cancelled) setTaxonomy(null);
+        if (!cancelled) setTaxonomyError(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const primaries = useMemo(() => {
-    const fallback = listBrowsePrimaryIndustries();
-    const bySlug = new Map(fallback.map((p) => [p.slug, p]));
-    if (!taxonomy || taxonomy.categories.length === 0) return fallback;
-    return taxonomy.categories.map((c) => {
-      const fb = bySlug.get(c.slug);
-      return {
-        id: c.id,
-        slug: c.slug,
-        nameKo: c.name,
-        nameEn: c.name_en ?? fb?.nameEn ?? null,
-        sortOrder: c.sort_order,
-        symbol: fb?.symbol ?? "🏷️",
-      };
-    });
-  }, [taxonomy]);
-
-  const draftRestoredRef = useRef(false);
-  const bootDraftRef = useRef(
-    typeof window !== "undefined" ? peekBusinessApplySessionDraft() : null
+  }, [taxonomyRetry]);
+  const symbolBySlug = useMemo(() => new Map(listBrowsePrimaryIndustries().map((p) => [p.slug, p.symbol])), []);
+  const primaries = useMemo(
+    () => [...(taxonomy?.categories ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [taxonomy]
   );
-  if (bootDraftRef.current?.values) {
-    draftRestoredRef.current = true;
-  }
-  const [values, setValues] = useState<BusinessApplyFormValues>(() => {
-    const draft = bootDraftRef.current;
-    if (draft?.values) {
-      return { ...DEFAULT_VALUES, ...initialCategorySlugs(), ...draft.values };
-    }
-    return {
-      ...DEFAULT_VALUES,
-      ...initialCategorySlugs(),
-    };
-  });
-  const [regionId, setRegionId] = useState(() => bootDraftRef.current?.regionId ?? "");
-  const [cityId, setCityId] = useState(() => bootDraftRef.current?.cityId ?? "");
-  const [addressDefault, setAddressDefault] = useState<UserAddressDTO | null>(null);
-  const [addressReady, setAddressReady] = useState(false);
-  const profileHydratedRef = useRef(false);
-  const addressLoadSeqRef = useRef(0);
+  const selectedCategory = primaries.find((c) => c.slug === values.categoryPrimarySlug) ?? null;
+  const topics = useMemo(
+    () =>
+      selectedCategory
+        ? (taxonomy?.topics ?? [])
+            .filter((tp) => tp.store_category_id === selectedCategory.id)
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        : [],
+    [taxonomy, selectedCategory]
+  );
+  const selectedTopic = topics.find((tp) => tp.slug === values.categorySubSlug) ?? null;
+  const primaryLabel = selectedCategory
+    ? resolveStoreTaxonomyPrimaryDisplayName(language, selectedCategory.slug, selectedCategory.name, selectedCategory.name_en)
+    : "";
+  const subLabel = selectedTopic
+    ? resolveStoreTaxonomyTopicDisplayName(language, selectedTopic.slug, selectedTopic.name, selectedTopic.name_en)
+    : "";
 
-  const ownerHandle = useMemo(() => {
-    const u = String(profileSeed?.username ?? "").trim().replace(/^@+/, "");
-    return u ? `@${u}` : "";
-  }, [profileSeed?.username]);
-
+  /* ── 매장 이름 중복 확인 (입력 멈춘 뒤 0.5초 · 서버가 신청 때 다시 확인) ── */
+  const [nameCheck, setNameCheck] = useState<{ name: string; dup: number } | null>(null);
+  const [nameChecking, setNameChecking] = useState(false);
+  const shopNameNorm = normalizeStoreApplyName(values.shopName);
   useEffect(() => {
-    if (!profileSeed || profileHydratedRef.current) return;
-    profileHydratedRef.current = true;
-    if (draftRestoredRef.current) {
-      /* 주소록 복귀 초안이 있으면 프로필로 덮지 않음 */
+    if (shopNameNorm.length < STORE_APPLY_LIMITS.shopNameMin) {
+      setNameCheck(null);
+      setNameChecking(false);
       return;
     }
-    const r = REGIONS.find((x) => x.id === profileSeed.regionId);
-    const c = r?.cities.find((x) => x.id === profileSeed.cityId);
-    setRegionId(profileSeed.regionId);
-    setCityId(profileSeed.cityId);
-    setValues((v) => ({
-      ...v,
-      /* 실명은 신청자가 직접 입력 — 프로필 닉네임으로 채우지 않음 */
-      phone: profileSeed.phoneDigits || v.phone,
-      region: r?.name ?? "",
-      city: c?.name ?? "",
-      addressStreetLine: profileSeed.addressStreetLine || v.addressStreetLine,
-      addressDetail: profileSeed.addressDetail || v.addressDetail,
-      description: profileSeed.profileBio.trim()
-        ? profileSeed.profileBio.trim()
-        : v.description,
-    }));
-  }, [profileSeed]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async (opts?: { force?: boolean }) => {
-      const seq = ++addressLoadSeqRef.current;
-      setAddressReady(false);
-      try {
-        const snap = await fetchAddressDefaultsSnapshot({
-          timeoutMs: 8_000,
-          force: Boolean(opts?.force),
-          caller: "business_apply_form",
-          reason: opts?.force ? "force_addresses_updated" : "apply_form_seed",
+    setNameChecking(true);
+    const ctl = new AbortController();
+    const timer = window.setTimeout(() => {
+      const qs = new URLSearchParams({ name: shopNameNorm });
+      if (storeId) qs.set("excludeStoreId", storeId);
+      void fetch(`/api/me/stores/name-check?${qs.toString()}`, { credentials: "include", signal: ctl.signal })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; duplicateCount?: number }) => {
+          setNameCheck({ name: shopNameNorm, dup: j?.ok ? Number(j.duplicateCount ?? 0) : 0 });
+          setNameChecking(false);
+        })
+        .catch(() => {
+          if (!ctl.signal.aborted) setNameChecking(false);
         });
-        if (cancelled || seq !== addressLoadSeqRef.current) return;
-        const master = (snap?.ok && snap.defaults ? (snap.defaults.master as any) : null) as UserAddressDTO | null;
-        if (!master?.id) {
-          setAddressDefault(null);
-          return;
-        }
-        setAddressDefault(master);
-      } catch {
-        if (!cancelled && seq === addressLoadSeqRef.current) setAddressDefault(null);
-      } finally {
-        if (!cancelled && seq === addressLoadSeqRef.current) setAddressReady(true);
-      }
-    };
-
-    void load({ force: true });
-
-    const onFocus = () => void load({ force: true });
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") void load({ force: true });
-    };
-    const onAddressUpdated = () => void load({ force: true });
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressUpdated);
+    }, 500);
     return () => {
-      cancelled = true;
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressUpdated);
+      ctl.abort();
+      window.clearTimeout(timer);
     };
-  }, []);
+  }, [shopNameNorm, storeId]);
+  const nameDup = nameCheck && nameCheck.name === shopNameNorm ? nameCheck.dup : 0;
+  const branchNorm = normalizeStoreApplyName(values.branchName);
+  const branchRequiredMissing = nameDup > 0 && !branchNorm;
 
-  const subOptions = useMemo(() => {
-    const fallbackSubs = listBrowseSubIndustries(values.categoryPrimarySlug);
-    const fallbackBySlug = new Map(fallbackSubs.map((s) => [s.slug, s]));
-    if (!taxonomy || taxonomy.categories.length === 0) return fallbackSubs;
-    const cat = taxonomy.categories.find((c) => c.slug === values.categoryPrimarySlug);
-    if (!cat) return [];
-    return taxonomy.topics
-      .filter((topic) => topic.store_category_id === cat.id)
-      .map((topic) => {
-        const fb = fallbackBySlug.get(topic.slug);
-        return {
-          id: topic.id,
-          slug: topic.slug,
-          nameKo: topic.name,
-          nameEn: topic.name_en ?? fb?.nameEn ?? null,
-          primarySlug: values.categoryPrimarySlug,
-          sortOrder: topic.sort_order,
-        };
-      });
-  }, [values.categoryPrimarySlug, taxonomy]);
+  /* ── 매장 전화 · 위치 시트 ── */
+  const [phoneSheet, setPhoneSheet] = useState(false);
+  const [locationSheet, setLocationSheet] = useState(false);
+  const shownPhone = values.phoneVerification?.phone ?? initial?.phone ?? "";
+  const phoneVerifiedNow = Boolean(values.phoneVerification);
+  const hasStorePhone = phoneVerifiedNow || (mode === "revise" && Boolean(initial?.phone));
 
-  useEffect(() => {
-    const prim = primaries;
-    if (prim.length === 0) return;
-    setValues((v) => {
-      const pOk = prim.some((p) => p.slug === v.categoryPrimarySlug);
-      const primarySlug = pOk ? v.categoryPrimarySlug : prim[0]!.slug;
-      const subs =
-        taxonomy && taxonomy.categories.length > 0
-          ? (() => {
-              const cat = taxonomy.categories.find((c) => c.slug === primarySlug);
-              if (!cat) return [];
-              return taxonomy.topics
-                .filter((topic) => topic.store_category_id === cat.id)
-                .map((topic) => ({ slug: topic.slug }));
-            })()
-          : listBrowseSubIndustries(primarySlug);
-      const sOk = subs.some((s) => s.slug === v.categorySubSlug);
-      const subSlug = sOk ? v.categorySubSlug : subs[0]?.slug ?? "";
-      if (primarySlug === v.categoryPrimarySlug && subSlug === v.categorySubSlug) return v;
-      return { ...v, categoryPrimarySlug: primarySlug, categorySubSlug: subSlug };
-    });
-  }, [primaries, taxonomy]);
-
-  const handleOpenAddressBook = useCallback(() => {
-    writeBusinessApplySessionDraft({
-      values,
-      regionId,
-      cityId,
-    });
-    openMemberAddressBook(router, {
-      caller: "owner",
-      mode: "select",
-      purpose: "store_owner_apply_master",
-      apply: { kind: "set_default_master" },
-      restore: { kind: "href", href: "/stores/owner/apply" },
-    });
-  }, [values, regionId, cityId, router]);
-
-  /** 입점·수수료 서약 — 게시된 약관이 있으면 체크 2개 필수 (서버가 다시 검사) */
-  const [partner, setPartner] = useState<BusinessApplyPartnerState>({ required: false, input: null });
+  /* ── 서약 (신청 때만 · 보완은 운영 홈 카드) ── */
+  const [partner, setPartner] = useState<BusinessApplyPartnerState>({
+    required: false,
+    input: null,
+    loading: mode === "apply",
+  });
   const partnerPledgePending =
     partner.required && !(partner.input?.agreeTerms === true && partner.input?.agreeFee === true);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (disabled) return;
-    if (partnerPledgePending) return;
-    clearBusinessApplySessionDraft();
-    onSubmit({ ...values, partnerAgreement: partner.required ? partner.input : null });
+  const blocked = resolveBusinessApplySubmitBlockedReason({
+    applicantName: values.applicantNickname,
+    shopName: values.shopName,
+    branchRequiredMissing,
+    categoryPrimarySlug: values.categoryPrimarySlug,
+    categorySubSlug: values.categorySubSlug,
+    hasStorePhone,
+    hasLocation: Boolean(values.location),
+    partnerLoading: mode === "apply" && partner.loading === true,
+    partnerPledgePending: mode === "apply" && partnerPledgePending,
+  });
+  const submitDisabled = disabled || blocked != null || nameChecking;
+
+  /* ── 막힘 사유 → 해당 칸으로 ── */
+  const fieldRefs = useRef<Partial<Record<BusinessApplySubmitBlockedReason, HTMLElement | null>>>({});
+  const reg = (k: BusinessApplySubmitBlockedReason) => (el: HTMLElement | null) => {
+    fieldRefs.current[k] = el;
+  };
+  const fixBlocked = () => {
+    if (!blocked) return;
+    if (blocked === "phone") {
+      setPhoneSheet(true);
+      return;
+    }
+    if (blocked === "location") {
+      setLocationSheet(true);
+      return;
+    }
+    const el = fieldRefs.current[blocked];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const focusable = el.querySelector<HTMLElement>("input,textarea,button");
+    focusable?.focus({ preventScroll: true });
   };
 
-  /** 제출 불가 사유 1줄 — 첫 번째 누락 필수 항목 (제출 중 `disabled` 는 사유 없음) */
-  const submitBlockedReason = resolveBusinessApplySubmitBlockedReason({
-    storeSlug: computedStoreSlug,
-    addressId: addressDefault?.id ?? null,
-    applicantName: values.applicantNickname,
-    partnerPledgePending,
-  });
-
-  const selectedPrimary = primaries.find((p) => p.slug === values.categoryPrimarySlug) ?? null;
-  const selectedSub = subOptions.find((sub) => sub.slug === values.categorySubSlug) ?? null;
-  const primaryLabel = selectedPrimary
-    ? resolveStoreTaxonomyPrimaryDisplayName(language, selectedPrimary.slug, selectedPrimary.nameKo, selectedPrimary.nameEn)
-    : "";
-  const subLabel = selectedSub
-    ? resolveStoreTaxonomyTopicDisplayName(language, selectedSub.slug, selectedSub.nameKo, selectedSub.nameEn)
-    : "";
-  const submitDisabled = disabled || submitBlockedReason != null;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitDisabled) return;
+    onSubmit({ ...values, partnerAgreement: mode === "apply" && partner.required ? partner.input : null });
+  };
 
   return (
     <>
       <form
         id="business-apply-form"
         onSubmit={handleSubmit}
-        className={`${OWNER_STORE_STACK_Y_CLASS} [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
+        noValidate
+        className={`${OWNER_STORE_STACK_Y_CLASS} ${SECTION_HEAD_FIX}`}
         style={{
           paddingBottom: `calc(${formPadStyle.paddingBottom} + ${
-            !disabled && submitBlockedReason ? BUSINESS_APPLY_BLOCKED_REASON_LINE_PX : 0
-          }px + ${BUSINESS_APPLY_SUPPORT_FAB_CLEARANCE_PX}px)`,
+            !disabled && blocked ? BLOCKED_REASON_LINE_PX : 0
+          }px + ${SUPPORT_FAB_CLEARANCE_PX}px)`,
         }}
+        data-apply-mode={mode}
       >
-        <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
-          <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
-            <div className="min-w-0">
-              <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_087")}</label>
-              <p className={APPLY_DISPLAY_VALUE_MONO_CLASS}>{ownerHandle || "—"}</p>
-            </div>
-            <div className="min-w-0">
-              <label className={APPLY_FIELD_LABEL_CLASS} htmlFor="business-apply-legal-name">
-                {t("business_phase7_180")}
-              </label>
-              <input
-                id="business-apply-legal-name"
-                type="text"
-                value={values.applicantNickname}
-                onChange={(e) =>
-                  setValues((v) => ({
-                    ...v,
-                    applicantNickname: e.target.value.slice(0, 20),
-                  }))
-                }
-                required
-                maxLength={20}
-                autoComplete="name"
-                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-                placeholder={t("business_phase7_701")}
-              />
-            </div>
+        {mode === "apply" ? (
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+            <StoreApplicationProgressBar steps={DRAFT_STEPS} />
           </div>
+        ) : initial?.revisionNote ? (
+          <div className="rounded-ui-rect border border-sam-warning/40 bg-sam-warning-soft p-3 text-[14px] text-sam-fg" role="note">
+            <p className="font-bold">{t("store_apply_revise_note_title")}</p>
+            <p className="mt-1 whitespace-pre-wrap">{initial.revisionNote}</p>
+          </div>
+        ) : null}
+
+        {/* 신청자 */}
+        <OwnerStoreAdminDashSection title={t("store_apply_section_applicant")}>
+          <div ref={reg("name")}>
+            <label className={LABEL} htmlFor="apply-legal-name">
+              {t("business_phase7_180")}
+              <Req />
+            </label>
+            <input
+              id="apply-legal-name"
+              type="text"
+              value={values.applicantNickname}
+              onChange={(e) => set("applicantNickname", e.target.value.slice(0, STORE_APPLY_LIMITS.applicantMax))}
+              maxLength={STORE_APPLY_LIMITS.applicantMax}
+              autoComplete="name"
+              aria-required
+              className={INPUT}
+              placeholder={t("store_apply_applicant_placeholder")}
+            />
+            <p className={HELP}>{t("store_apply_applicant_help")}</p>
+          </div>
+          {profileSeed?.username ? (
+            <p className="text-[15px] font-semibold text-sam-fg">
+              <span className="mr-2 text-[13px] font-normal text-sam-muted">{t("store_apply_member_id")}</span>@
+              {profileSeed.username}
+            </p>
+          ) : null}
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_144")}>
-          <div>
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_142")}</label>
+        {/* 매장 정보 */}
+        <OwnerStoreAdminDashSection title={t("store_apply_section_store")}>
+          <div ref={reg("shop_name")}>
+            <label className={LABEL} htmlFor="apply-shop-name">
+              {t("store_apply_shop_name")}
+              <Req />
+            </label>
             <input
+              id="apply-shop-name"
               type="text"
               value={values.shopName}
-              onChange={(e) => setValues((v) => ({ ...v, shopName: e.target.value }))}
-              required
-              className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-              placeholder={t("business_phase7_143")}
+              onChange={(e) => set("shopName", e.target.value.slice(0, STORE_APPLY_LIMITS.shopNameMax))}
+              maxLength={STORE_APPLY_LIMITS.shopNameMax}
+              aria-required
+              className={INPUT}
+              placeholder={t("store_apply_shop_name_placeholder")}
             />
+            {shopNameNorm.length < STORE_APPLY_LIMITS.shopNameMin ? (
+              <p className={HELP}>{t("store_apply_shop_name_help")}</p>
+            ) : nameChecking ? (
+              <p className={HELP}>{t("store_apply_name_checking")}</p>
+            ) : nameDup > 0 ? (
+              <p className="mt-1.5 text-[13px] font-medium text-sam-warning" role="status">
+                {t("store_apply_name_dup")}
+              </p>
+            ) : nameCheck ? (
+              <p className="mt-1.5 text-[13px] font-medium text-sam-success" role="status">
+                {t("store_apply_name_ok")}
+              </p>
+            ) : null}
           </div>
-          <div>
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_141")}</label>
-            <textarea
-              value={values.description}
-              onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
-              rows={3}
-              className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
-              placeholder={t("business_phase7_145")}
-            />
-          </div>
-        </OwnerStoreAdminDashSection>
+          {nameDup > 0 || branchNorm ? (
+            <div ref={reg("branch")}>
+              <label className={LABEL} htmlFor="apply-branch">
+                {t("store_apply_branch")}
+                {nameDup > 0 ? <Req /> : <span className={OPTIONAL}>{t("store_apply_optional")}</span>}
+              </label>
+              <input
+                id="apply-branch"
+                type="text"
+                value={values.branchName}
+                onChange={(e) => set("branchName", e.target.value.slice(0, STORE_APPLY_LIMITS.branchMax))}
+                maxLength={STORE_APPLY_LIMITS.branchMax}
+                className={INPUT}
+                placeholder={t("store_apply_branch_placeholder")}
+              />
+              <p className={HELP}>
+                {branchNorm
+                  ? t("store_apply_branch_preview", { name: `${shopNameNorm} ${branchNorm}` })
+                  : t("store_apply_branch_help")}
+              </p>
+            </div>
+          ) : null}
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_693")}>
-          <div>
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_694")}</label>
-            <textarea
-              value={values.requestNote}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, requestNote: e.target.value.slice(0, 1000) }))
-              }
-              rows={4}
-              className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
-              placeholder={t("business_phase7_695")}
-            />
-            <p className="mt-1.5 sam-text-helper text-sam-muted">
-              {values.requestNote.trim().length}/1000
+          <div ref={reg("category")}>
+            <p className={LABEL}>
+              {t("store_apply_category")}
+              <Req />
             </p>
-          </div>
-        </OwnerStoreAdminDashSection>
-
-        <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
-          <div>
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
-            {/* 번호가 없으면 예시 번호를 값처럼 보이거나 「인증된 번호」라고 하지 않는다 (Production 점검) */}
-            {values.phone.trim() ? (
-              <>
-                <p className={APPLY_PHONE_VALUE_CLASS}>{formatPhMobileDisplayPlus63(values.phone)}</p>
-                <p className="mt-1 sam-text-helper text-sam-muted">{t("business_phase7_709")}</p>
-              </>
+            {taxonomyError ? (
+              <div className="space-y-2">
+                <p className="text-[13px] text-sam-danger" role="alert">
+                  {t("store_apply_category_load_failed")}
+                </p>
+                <button
+                  type="button"
+                  className={OUTLINE_BTN}
+                  onClick={(e) => {
+                    press(e);
+                    setTaxonomyRetry((n) => n + 1);
+                  }}
+                >
+                  {t("partner_retry_btn")}
+                </button>
+              </div>
+            ) : !taxonomy ? (
+              <p className={HELP}>{t("common_loading")}</p>
             ) : (
               <>
-                <p className={`${APPLY_PHONE_VALUE_CLASS} text-sam-muted`}>{t("business_apply_phone_none")}</p>
-                <Link
-                  href={buildPhoneVerificationHref("/stores/owner/apply")}
-                  className="mt-1 inline-flex min-h-[44px] items-center sam-text-helper font-medium text-sam-primary underline"
-                >
-                  {t("business_apply_phone_register_link")}
-                </Link>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("store_apply_category")}>
+                  {primaries.map((c) => {
+                    const on = c.slug === values.categoryPrimarySlug;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={(e) => {
+                          press(e);
+                          if (!on) setValues((p) => ({ ...p, categoryPrimarySlug: c.slug, categorySubSlug: "" }));
+                        }}
+                        className={`${CHIP_BASE} ${on ? CHIP_ON : CHIP_OFF}`}
+                        data-category={c.slug}
+                      >
+                        <span aria-hidden>{symbolBySlug.get(c.slug) ?? "🏷️"}</span>
+                        <span className="min-w-0 truncate">
+                          {resolveStoreTaxonomyPrimaryDisplayName(language, c.slug, c.name, c.name_en)}
+                        </span>
+                        {on ? (
+                          <span className="ml-auto text-sam-primary" aria-hidden>
+                            ✓
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedCategory ? (
+                  <>
+                    <p className="mb-1.5 mt-3 text-[13px] font-semibold text-sam-muted">{t("store_apply_category_sub")}</p>
+                    {topics.length === 0 ? (
+                      <p className={HELP}>{t("store_apply_category_sub_empty")}</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("store_apply_category_sub")}>
+                        {topics.map((tp) => {
+                          const on = tp.slug === values.categorySubSlug;
+                          return (
+                            <button
+                              key={tp.id}
+                              type="button"
+                              role="radio"
+                              aria-checked={on}
+                              onClick={(e) => {
+                                press(e);
+                                set("categorySubSlug", tp.slug);
+                              }}
+                              className={`${CHIP_BASE} ${on ? CHIP_ON : CHIP_OFF}`}
+                              data-topic={tp.slug}
+                            >
+                              {resolveStoreTaxonomyTopicDisplayName(language, tp.slug, tp.name, tp.name_en)}
+                              {on ? (
+                                <span className="text-sam-primary" aria-hidden>
+                                  ✓
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className={HELP}>{t("store_apply_category_pick_first")}</p>
+                )}
               </>
             )}
           </div>
+
           <div>
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
+            <label className={LABEL} htmlFor="apply-description">
+              {t("store_apply_description")}
+              <span className={OPTIONAL}>{t("store_apply_optional")}</span>
+            </label>
+            <textarea
+              id="apply-description"
+              value={values.description}
+              onChange={(e) => set("description", e.target.value.slice(0, STORE_APPLY_LIMITS.descriptionMax))}
+              rows={3}
+              className={TEXTAREA}
+              placeholder={t("store_apply_description_placeholder")}
+            />
+            <p className={COUNT}>{`${values.description.trim().length}/${STORE_APPLY_LIMITS.descriptionMax}`}</p>
+          </div>
+        </OwnerStoreAdminDashSection>
+
+        {/* 매장 연락처 — 매장 전용 전화 인증 (회원 전화와 분리) */}
+        <OwnerStoreAdminDashSection title={t("store_apply_section_contact")}>
+          <div ref={reg("phone")}>
+            <p className={LABEL}>
+              {t("store_apply_phone_label")}
+              <Req />
+            </p>
+            {shownPhone ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[16px] font-semibold tabular-nums text-sam-fg">
+                  {formatPhMobileDisplayPlus63(shownPhone)}
+                </span>
+                {phoneVerifiedNow || initial?.phoneVerifiedAt ? (
+                  <span className="rounded-full bg-sam-success-soft px-2.5 py-0.5 text-[12px] font-bold text-sam-success">
+                    {t("store_apply_phone_verified")}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-sam-surface-muted px-2.5 py-0.5 text-[12px] font-bold text-sam-muted">
+                    {t("store_apply_phone_no_record")}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={`${OUTLINE_BTN} ml-auto`}
+                  onClick={(e) => {
+                    press(e);
+                    setPhoneSheet(true);
+                  }}
+                >
+                  {t("store_apply_phone_change")}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`${OUTLINE_BTN} w-full`}
+                onClick={(e) => {
+                  press(e);
+                  setPhoneSheet(true);
+                }}
+                data-testid="business-apply-phone-verify"
+              >
+                {t("store_apply_phone_verify_btn")}
+              </button>
+            )}
+            <p className={HELP}>{t("store_apply_phone_help")}</p>
+          </div>
+          <div>
+            <label className={LABEL} htmlFor="apply-kakao">
+              {t("store_apply_kakao")}
+              <span className={OPTIONAL}>{t("store_apply_optional")}</span>
+            </label>
             <input
+              id="apply-kakao"
               type="text"
               value={values.kakaoId}
-              onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
-              className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+              onChange={(e) => set("kakaoId", e.target.value.slice(0, STORE_APPLY_LIMITS.kakaoMax))}
+              className={INPUT}
               placeholder={t("business_phase7_193")}
             />
           </div>
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_323")}>
-          <OwnerAddressBookSnapshotCard
-            bare
-            snapshotMode="representative"
-            returnToPath="/stores/owner/apply"
-            addressReady={addressReady}
-            addressDefault={addressDefault}
-            onOpenAddressBook={handleOpenAddressBook}
-          />
-        </OwnerStoreAdminDashSection>
-
-        <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
-          <div className={APPLY_CATEGORY_GRID_CLASS}>
-            <div className={APPLY_CATEGORY_COL_CLASS}>
-              <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_005")}</label>
-              <div className={APPLY_SELECT_WRAP_CLASS}>
-                <select
-                  value={values.categoryPrimarySlug}
-                  onChange={(e) => {
-                    const slug = e.target.value;
-                    const subs =
-                      taxonomy && taxonomy.categories.length > 0
-                        ? (() => {
-                            const cat = taxonomy.categories.find((c) => c.slug === slug);
-                            if (!cat) return [];
-                            return taxonomy.topics
-                              .filter((topic) => topic.store_category_id === cat.id)
-                              .map((topic) => ({ slug: topic.slug }));
-                          })()
-                        : listBrowseSubIndustries(slug);
-                    setValues((v) => ({
-                      ...v,
-                      categoryPrimarySlug: slug,
-                      categorySubSlug: subs[0]?.slug ?? "",
-                    }));
-                  }}
-                  required
-                  className={APPLY_CATEGORY_SELECT_CLASS}
-                >
-                  {primaries.length === 0 ? (
-                    <option value="">{t("business_phase7_093")}</option>
-                  ) : (
-                    primaries.map((p) => (
-                      <option key={p.id} value={p.slug}>
-                        {resolveStoreTaxonomyPrimaryDisplayName(language, p.slug, p.nameKo, p.nameEn)}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
-                  ▼
-                </span>
+        {/* 매장 위치 (실제 영업장 · 지도) — 회원 주소록과 구분 */}
+        <OwnerStoreAdminDashSection title={t("store_apply_section_location")}>
+          <div ref={reg("location")}>
+            <p className="text-[13px] leading-snug text-sam-muted">{t("store_apply_location_help")}</p>
+            {values.location ? (
+              <div className="mt-2 rounded-ui-rect border border-sam-border px-3 py-2.5">
+                <p className="text-[15px] font-semibold text-sam-fg">{values.location.formattedAddress}</p>
+                {values.location.detail ? <p className="mt-0.5 text-[14px] text-sam-fg">{values.location.detail}</p> : null}
+                <p className="mt-1 text-[12px] text-sam-muted">{t("store_apply_location_pinned")}</p>
               </div>
-            </div>
-            <div className={APPLY_CATEGORY_COL_CLASS}>
-              <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_006")}</label>
-              <div className={APPLY_SELECT_WRAP_CLASS}>
-                <select
-                  value={values.categorySubSlug}
-                  onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
-                  required
-                  disabled={subOptions.length === 0}
-                  className={APPLY_CATEGORY_SELECT_CLASS}
-                >
-                  {subOptions.length === 0 ? (
-                    <option value="">{t("business_phase7_089")}</option>
-                  ) : (
-                    subOptions.map((s) => (
-                      <option key={s.id} value={s.slug}>
-                        {resolveStoreTaxonomyTopicDisplayName(language, s.slug, s.nameKo, s.nameEn)}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
-                  ▼
-                </span>
-              </div>
-            </div>
+            ) : null}
+            <button
+              type="button"
+              className={`${OUTLINE_BTN} mt-2 w-full`}
+              onClick={(e) => {
+                press(e);
+                setLocationSheet(true);
+              }}
+              data-testid="business-apply-location-pick"
+            >
+              {values.location ? t("store_apply_location_change") : t("store_apply_location_pick")}
+            </button>
           </div>
         </OwnerStoreAdminDashSection>
 
-        <BusinessApplyPartnerSection
-          categoryPrimarySlug={values.categoryPrimarySlug}
-          categorySubSlug={values.categorySubSlug}
-          primaryLabel={primaryLabel}
-          subLabel={subLabel}
-          refreshKey={partnerRefreshKey}
-          onStateChange={setPartner}
-        />
+        {/* 요청 사항 */}
+        <OwnerStoreAdminDashSection title={t("business_phase7_693")}>
+          <div>
+            <label className={LABEL} htmlFor="apply-request-note">
+              {t("store_apply_request_note")}
+              <span className={OPTIONAL}>{t("store_apply_optional")}</span>
+            </label>
+            <textarea
+              id="apply-request-note"
+              value={values.requestNote}
+              onChange={(e) => set("requestNote", e.target.value.slice(0, STORE_APPLY_LIMITS.requestNoteMax))}
+              rows={4}
+              className={TEXTAREA}
+              placeholder={t("business_phase7_695")}
+            />
+            <p className={COUNT}>{`${values.requestNote.trim().length}/${STORE_APPLY_LIMITS.requestNoteMax}`}</p>
+          </div>
+        </OwnerStoreAdminDashSection>
+
+        {mode === "apply" ? (
+          <div ref={reg("partner")}>
+            <BusinessApplyPartnerSection
+              categoryPrimarySlug={values.categoryPrimarySlug}
+              categorySubSlug={values.categorySubSlug}
+              primaryLabel={primaryLabel}
+              subLabel={subLabel}
+              refreshKey={partnerRefreshKey}
+              onStateChange={setPartner}
+            />
+          </div>
+        ) : null}
       </form>
+
+      <StorePhoneVerifySheet
+        open={phoneSheet}
+        onClose={() => setPhoneSheet(false)}
+        purpose="store_apply"
+        storeId={storeId}
+        initialPhone={shownPhone}
+        onVerified={(v) => set("phoneVerification", v)}
+      />
+      <StoreLocationPickSheet
+        open={locationSheet}
+        onClose={() => setLocationSheet(false)}
+        initial={values.location}
+        onConfirm={(loc) => set("location", loc)}
+      />
 
       <BodyPortal>
         <footer
@@ -630,27 +684,38 @@ export function BusinessApplyForm({
           style={footerPadStyle}
         >
           <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
-            {!disabled && submitBlockedReason ? (
-              <p
-                className={OWNER_STORE_ADMIN_FOOTER_HINT_CLASS}
-                role="status"
-                data-testid="business-apply-submit-blocked-reason"
-              >
-                {t(BUSINESS_APPLY_SUBMIT_BLOCKED_MESSAGE_KEY[submitBlockedReason])}
-              </p>
+            {!disabled && blocked ? (
+              <div className="flex items-center justify-between gap-2 border-b border-sam-border px-3 py-1.5">
+                <p
+                  className="min-w-0 truncate text-[13px] font-medium leading-5 text-sam-fg"
+                  role="status"
+                  data-testid="business-apply-submit-blocked-reason"
+                >
+                  {t(BUSINESS_APPLY_SUBMIT_BLOCKED_MESSAGE_KEY[blocked])}
+                </p>
+                {BUSINESS_APPLY_SUBMIT_BLOCKED_FIX_KEY[blocked] ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      press(e);
+                      fixBlocked();
+                    }}
+                    className={`inline-flex min-h-[32px] shrink-0 items-center rounded-ui-rect border border-sam-primary px-2.5 text-[13px] font-bold text-sam-primary ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                  >
+                    {t(BUSINESS_APPLY_SUBMIT_BLOCKED_FIX_KEY[blocked]!)}
+                  </button>
+                ) : null}
+              </div>
             ) : null}
             <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => {
-                  clearBusinessApplySessionDraft();
-                  router.push("/mypage");
-                }}
+                onClick={() => runHistoryBackWithFallback(router, "/mypage")}
                 onPointerDown={(e) => {
                   if (!disabled) triggerInteractionFeedback("light", e);
                 }}
-                className={`${OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                className={`${OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} text-[16px]`}
               >
                 {t("common_cancel")}
               </button>
@@ -661,9 +726,9 @@ export function BusinessApplyForm({
                 onPointerDown={(e) => {
                   if (!submitDisabled) triggerInteractionFeedback("light", e);
                 }}
-                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} ${OWNER_STORE_ADMIN_FOOTER_PRIMARY_DISABLED_TOKEN_CLASS} ${FORM_INTERACTIVE_PRESS_CLASS} text-[16px] font-bold`}
               >
-                {resolvedSubmitLabel}
+                {submitLabel ?? (mode === "revise" ? t("store_apply_revise_submit") : t("business_phase7_679"))}
               </button>
             </div>
           </div>

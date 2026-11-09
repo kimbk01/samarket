@@ -30,6 +30,10 @@ export type AdminStoreReviewRow = {
   application_address_book?: AddressBookCardPresentation | null;
   kakao_id: string | null;
   phone: string | null;
+  /** 매장 신청 v2 — 매장 전용 전화 인증 시각 (null = 인증 기록 없음) */
+  phone_verified_at?: string | null;
+  /** 매장 신청 v2 — 같은 이름 매장 구분용 지점명 */
+  branch_name?: string | null;
   email: string | null;
   website_url: string | null;
   region: string | null;

@@ -325,11 +325,14 @@ export async function recordPhoneOtpDeliveryEvent(
     providerCode?: string | null;
     providerMessageId?: string | null;
     errorSummary?: string | null;
+    /** 기본 member(회원 인증) · 매장 전화 인증은 store_apply / store_phone_change */
+    purpose?: "member" | "store_apply" | "store_phone_change";
   },
 ): Promise<void> {
   try {
     await sb.from("phone_otp_delivery_events").insert({
       user_id: input.userId,
+      ...(input.purpose && input.purpose !== "member" ? { purpose: input.purpose } : {}),
       outcome: input.outcome,
       provider_code: input.providerCode ?? null,
       provider_message_id: input.providerMessageId ?? null,

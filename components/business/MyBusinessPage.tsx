@@ -4,11 +4,9 @@ import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
-import { BUSINESS_PROFILE_STATUS_KEYS } from "@/lib/business/business-owner-ui-labels";
-import {
-  BusinessOperationalChecklistPending,
-  BusinessOperationalChecklistRevision,
-} from "./BusinessOperationalChecklist";
+import { StoreApplicationProgressCard } from "@/components/business/apply/StoreApplicationProgress";
+import { resolveStoreApplicationPhase } from "@/lib/stores/store-application-step";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import {
@@ -320,94 +318,68 @@ export function MyBusinessPage({
    */
   const announcementCard = <OwnerAnnouncementLatestCard storeId={row.id} />;
 
-  if (row.approval_status === "revision_requested") {
+  /**
+   * 매장 신청 v2 (Owner 2026-11-10) — 입점 진행 카드: DB 상태와 1:1 진행 막대 + 현재 단계 · 사유 · 주 버튼 1개.
+   * 대기·검토중·보완·반려·정지는 이 카드가 화면의 주인공. 승인 후 영업 시작 전(판매 승인·노출 대기)은 대시보드 위에 같은 카드.
+   */
+  const appliedFlag = searchParams.get("applied");
+  const appliedBanner =
+    appliedFlag === "submitted" || appliedFlag === "resubmitted" ? (
+      <div
+        className="rounded-ui-rect border border-sam-success/30 bg-sam-success-soft p-3 text-[14px] font-semibold text-sam-fg"
+        role="status"
+        data-testid="owner-hub-applied-banner"
+      >
+        {t(appliedFlag === "resubmitted" ? "store_apply_resubmitted_banner" : "store_apply_submitted_banner")}
+      </div>
+    ) : null;
+  const phase = resolveStoreApplicationPhase({
+    approval_status: row.approval_status,
+    sales_status: row.sales_permission?.sales_status ?? null,
+    is_visible: row.is_visible ?? null,
+  });
+  const progressAction =
+    phase === "revision_requested"
+      ? { href: `${OwnerRoutes.apply()}?mode=revise&storeId=${encodeURIComponent(row.id)}`, label: t("store_apply_action_revise") }
+      : phase === "rejected" || phase === "suspended"
+        ? { href: OwnerRoutes.customerCareCenter(row.id), label: t("store_apply_action_support") }
+        : phase === "received" || phase === "under_review"
+          ? { href: `/stores/owner/profile?${managementQuery}`, label: t("store_apply_action_prepare") }
+          : phase === "approved_wait_sales"
+            ? { href: OwnerRoutes.products(row.id), label: t("store_apply_action_menu") }
+            : null;
+  const progressCard = (
+    <StoreApplicationProgressCard
+      row={{
+        id: row.id,
+        approval_status: row.approval_status,
+        is_visible: row.is_visible ?? null,
+        sales_permission: row.sales_permission ?? null,
+        rejected_reason: row.rejected_reason,
+        revision_note: row.revision_note ?? null,
+      }}
+      action={progressAction}
+    />
+  );
+
+  if (phase !== "approved_wait_sales" && phase !== "sales_wait_visible" && phase !== "live") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
+        {appliedBanner}
+        {progressCard}
         {announcementCard}
-        <OwnerPartnerAgreementHubCard storeId={row.id} />
-        <BusinessOperationalChecklistRevision storeId={row.id} />
-        <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-4">
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="mt-2 sam-text-body text-sam-fg">{t("business_phase7_033")}</p>
-          {profile.adminMemo ? (
-            <p className="mt-2 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{profile.adminMemo}</p>
-          ) : null}
-          <Link
-            href={`/stores/owner/profile?${managementQuery}`}
-            className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-medium text-sam-on-primary"
-          >
-            {t("business_phase7_609")}
-          </Link>
-        </div>
-        <button
-          type="button"
-          onClick={() => void loadRemote()}
-          className="sam-text-body text-signature underline"
-        >
+        {phase === "rejected" ? null : <OwnerPartnerAgreementHubCard storeId={row.id} />}
+        <button type="button" onClick={() => void loadRemote()} className="min-h-[44px] text-[14px] font-medium text-sam-primary underline">
           {t("store_owner_refresh")}
         </button>
       </div>
     );
   }
 
-  if (profile.status === "pending") {
-    return (
-      <div className={OWNER_STORE_STACK_Y_CLASS}>
-        {announcementCard}
-        <OwnerPartnerAgreementHubCard storeId={row.id} />
-        <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
-        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="sam-text-body text-sam-muted">{t("business_phase7_181")}</p>
-          <span className="mt-2 inline-block rounded-ui-rect bg-sam-warning-soft px-2 py-1 sam-text-body-secondary text-sam-warning">
-            {t(BUSINESS_PROFILE_STATUS_KEYS.pending)}
-          </span>
-          <Link
-            href={`/stores/owner/profile?${managementQuery}`}
-            className="mt-3 inline-block rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg"
-          >
-            {t("business_phase7_610")}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (profile.status === "rejected") {
-    return (
-      <div className={OWNER_STORE_STACK_Y_CLASS}>
-        {announcementCard}
-        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
-          {profile.adminMemo ? (
-            <p className="sam-text-body-secondary text-sam-fg">{t("business_phase7_136", { v1: profile.adminMemo })}</p>
-          ) : null}
-          <span className="inline-block rounded-ui-rect bg-sam-danger-soft px-2 py-1 sam-text-body-secondary text-sam-danger">
-            {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (profile.status === "paused") {
-    return (
-      <div className={OWNER_STORE_STACK_Y_CLASS}>
-        {announcementCard}
-        <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="sam-text-body text-sam-muted">{t("business_phase7_227")}</p>
-          <span className="inline-block rounded-ui-rect bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
-            {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
+      {appliedBanner}
+      {phase === "live" ? null : <div className="mb-3">{progressCard}</div>}
       {/* 입점 계약 새 버전 미동의일 때만 카드 1개 (안내만 · 2026-11-10) */}
       <OwnerPartnerAgreementHubCard storeId={row.id} />
       <BusinessAdminDashboard

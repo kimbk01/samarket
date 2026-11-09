@@ -19,6 +19,7 @@ export {
 } from "@/lib/admin-business/admin-store-decision-rules";
 
 type DecisionKey =
+  | "under_review"
   | "approved"
   | "rejected"
   | "revision_requested"
@@ -29,6 +30,9 @@ type DecisionKey =
   | "sales_suspended";
 
 const DECISION_BY_ACTION: Partial<Record<string, DecisionKey>> = {
+  // 매장 신청 v2 (2026-11-10) — 심사 시작도 사장님에게 알린다 (진행 막대 ③ 심사).
+  start_review: "under_review",
+  mark_under_review: "under_review",
   approve_store: "approved",
   reject_store: "rejected",
   request_revision: "revision_requested",

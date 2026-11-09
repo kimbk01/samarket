@@ -25,6 +25,8 @@ import {
 import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/derive-store-address-from-user-address-master";
 import { pickUserAddressLinkedToStore } from "@/lib/business/pick-user-address-linked-to-store";
 import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
+import { StorePhoneVerifySheet, type StorePhoneVerified } from "@/components/business/apply/StorePhoneVerifySheet";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
@@ -303,6 +305,9 @@ export function OwnerStoreBasicInfoForm({
   const identityEditable = row.owner_can_edit_store_identity === true;
 
   const [values, setValues] = useState<BasicValues>(() => rowToBasicValues(row));
+  /** 매장 전화 변경 인증 기록 (저장 때 phone_verification_id 로 보냄) */
+  const [phoneVerification, setPhoneVerification] = useState<StorePhoneVerified | null>(null);
+  const [phoneSheetOpen, setPhoneSheetOpen] = useState(false);
   const [regionId, setRegionId] = useState("");
   const [cityId, setCityId] = useState("");
   const [taxonomy, setTaxonomy] = useState<{
@@ -747,6 +752,9 @@ export function OwnerStoreBasicInfoForm({
       const basicInfoPatch: Record<string, unknown> = {
         description: values.description.trim() || null,
         phone: phoneDb,
+        ...(phoneVerification && phoneDb === phoneVerification.phone
+          ? { phone_verification_id: phoneVerification.verificationId }
+          : {}),
         kakao_id: values.kakaoId.trim() || null,
         ...(addressTouched
           ? {
@@ -988,15 +996,38 @@ export function OwnerStoreBasicInfoForm({
               <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
                 <div className="min-w-0">
                   <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_245")}</label>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    value={formatPhMobileDisplayPlus63(values.phone)}
-                    onChange={(e) => setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))}
-                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-                    placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
-                    title={t("phone_rule")}
+                  {/* 매장 신청 v2 S2 (Owner 2026-11-10) — 매장 전화 변경 = 매장 전용 인증 후 저장 (회원 전화와 분리) */}
+                  <div className="flex min-h-[44px] flex-wrap items-center gap-2">
+                    <span className="text-[16px] font-semibold tabular-nums text-sam-fg">
+                      {values.phone ? formatPhMobileDisplayPlus63(values.phone) : t("business_apply_phone_none")}
+                    </span>
+                    {phoneVerification || (row as { phone_verified_at?: string | null }).phone_verified_at ? (
+                      <span className="rounded-full bg-sam-success-soft px-2.5 py-0.5 text-[12px] font-bold text-sam-success">
+                        {t("store_apply_phone_verified")}
+                      </span>
+                    ) : values.phone ? (
+                      <span className="rounded-full bg-sam-surface-muted px-2.5 py-0.5 text-[12px] font-bold text-sam-muted">
+                        {t("store_apply_phone_no_record")}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setPhoneSheetOpen(true)}
+                      className={`ml-auto inline-flex min-h-[44px] items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[14px] font-semibold text-sam-fg ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                    >
+                      {t("store_apply_phone_change")}
+                    </button>
+                  </div>
+                  <StorePhoneVerifySheet
+                    open={phoneSheetOpen}
+                    onClose={() => setPhoneSheetOpen(false)}
+                    purpose="store_phone_change"
+                    storeId={storeId}
+                    initialPhone={values.phone}
+                    onVerified={(v) => {
+                      setPhoneVerification(v);
+                      setValues((prev) => ({ ...prev, phone: parsePhMobileInput(v.phone) }));
+                    }}
                   />
                 </div>
                 <div className="min-w-0">

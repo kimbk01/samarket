@@ -185,7 +185,14 @@ describe("서약 입력 검사 (신청·재동의 공용)", () => {
   });
 
   it("신청서 제출 버튼 — 서약 미완료면 마지막 사유 partner", () => {
-    const base = { storeSlug: "abc", addressId: "a1", applicantName: "Kim" };
+    const base = {
+      applicantName: "Kim",
+      shopName: "Mandoo",
+      categoryPrimarySlug: "food",
+      categorySubSlug: "korean",
+      hasStorePhone: true,
+      hasLocation: true,
+    };
     expect(resolveBusinessApplySubmitBlockedReason({ ...base, partnerPledgePending: true })).toBe("partner");
     expect(resolveBusinessApplySubmitBlockedReason({ ...base, partnerPledgePending: false })).toBeNull();
     expect(resolveBusinessApplySubmitBlockedReason({ ...base, applicantName: "", partnerPledgePending: true })).toBe("name");

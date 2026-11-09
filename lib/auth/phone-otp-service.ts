@@ -10,11 +10,9 @@ import { loadAuthPhoneSettings, type AuthPhoneSettings } from "@/lib/auth/auth-p
 import { resolvePhoneOtpHashSecret } from "@/lib/auth/phone-otp-hash-secret";
 import { isValidPhoneOtpCodeInput } from "@/lib/auth/phone-otp-contract";
 import { findPhoneDuplicateOnOtherProfile } from "@/lib/auth/phone-otp-duplicate-check";
-import { resolveVerifyPhone, type ResolvedVerifyPhone, type VerifyPhoneProvider } from "@/lib/phone/verify-phone-number";
-import { isSolapiSmsConfigured } from "@/lib/env/solapi-sms";
-import { sendSolapiSms } from "@/lib/auth/solapi-sms";
+import { resolveVerifyPhone, type VerifyPhoneProvider } from "@/lib/phone/verify-phone-number";
 import { recordPhoneOtpDeliveryEvent } from "@/lib/auth/phone-otp-ops";
-import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
+import { resolveVerifyTarget, sendVerifySms } from "@/lib/auth/phone-verify-sms";
 
 export type PhoneOtpErrorCode =
   | "phone_duplicate"
@@ -55,25 +53,6 @@ function invalidPhoneResult(): ServiceResult<never> {
     "phone_invalid",
     "필리핀(+63)·한국(+82) 휴대폰 번호만 인증할 수 있습니다. 번호를 확인해 주세요.",
   );
-}
-
-/**
- * 입력 번호 → 인증 대상 (필리핀 +63 = Semaphore · 한국 +82 = Solapi, Owner 2026-11-09).
- * 한국은 Solapi 설정(키·발신번호)이 있을 때만 받는다. 그 외 나라는 거절.
- */
-function resolveVerifyTarget(inputPhone: string): ResolvedVerifyPhone | null {
-  const resolved = resolveVerifyPhone(inputPhone);
-  if (!resolved) return null;
-  if (resolved.country === "KR" && !isSolapiSmsConfigured()) return null;
-  return resolved;
-}
-
-/** 발송 업체 분기 — 문자 문구는 나라별 (Solapi 한국 SMS 90byte 이내). */
-async function sendVerifySms(target: ResolvedVerifyPhone, otpCode: string) {
-  if (target.country === "KR") {
-    return sendSolapiSms(`0${target.storage.phone_number}`, `[DIBAY] Verification code: ${otpCode}`);
-  }
-  return sendSemaphoreSms(target.e164, `[DIBAY] Verification code: ${otpCode}`);
 }
 
 function phoneDuplicateResult(): ServiceResult<never> {

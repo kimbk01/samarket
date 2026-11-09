@@ -1,21 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR } from "@/lib/stores/stores-applicant-nickname-db";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   BusinessApplyForm,
   type BusinessApplyFormValues,
+  type BusinessApplyInitial,
   type BusinessApplyProfileSeed,
 } from "@/components/business/BusinessApplyForm";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
-import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
-import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
-import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { OwnerSupportContextBridge } from "@/components/support/OwnerSupportContextBridge";
 import {
   StoresOwnerApplyHeaderChrome,
@@ -23,18 +19,8 @@ import {
 } from "@/components/stores/home/hub/StoresOwnerApplyHeaderChrome";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-import {
-  getBrowsePrimaryBySlug,
-  getBrowseSubIndustry,
-} from "@/lib/stores/browse-taxonomy-seed-queries";
 import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
-import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
-import {
-  fetchMeStoresListDeduped,
-  parseStoreRowsFromMeStoresJson,
-} from "@/lib/me/fetch-me-stores-deduped";
-import { resolveOwnerActiveStoreRowFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
+import { fetchMeStoresListDeduped, parseStoreRowsFromMeStoresJson } from "@/lib/me/fetch-me-stores-deduped";
 import {
   evaluateClientProfileRequirements,
   requireProfileCompletionClient,
@@ -44,9 +30,10 @@ import type { ProfileRequirementField } from "@/lib/profile/profile-requirements
 import type { Profile } from "@/lib/types/profile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { openMemberAddressBook } from "@/lib/addresses/member-address-caller-context";
-import { translateBy } from "@/lib/i18n/translate-by";
+import { storeApplicationErrorKey } from "@/lib/stores/store-application-errors";
+import { storeBaseNameWithoutBranch } from "@/lib/stores/store-application-limits";
+import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
 
-const HAS_ANY_STORE = true;
 const APPLY_PATH = "/stores/owner/apply";
 
 function profileRowForGate(p: ProfileRow): Profile {
@@ -68,17 +55,83 @@ function profileRowForGate(p: ProfileRow): Profile {
   };
 }
 
-export default function BusinessApplyRoute() {
-  const { t, language } = useI18n();
+type AppStoreRow = {
+  id: string;
+  store_name?: string | null;
+  branch_name?: string | null;
+  applicant_nickname?: string | null;
+  description?: string | null;
+  application_request_note?: string | null;
+  kakao_id?: string | null;
+  phone?: string | null;
+  phone_verified_at?: string | null;
+  region?: string | null;
+  city?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  formatted_address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  place_id?: string | null;
+  approval_status?: string | null;
+  revision_note?: string | null;
+  store_categories?: { slug?: string | null } | { slug?: string | null }[] | null;
+  store_topics?: { slug?: string | null } | { slug?: string | null }[] | null;
+};
+
+function embedSlug(v: AppStoreRow["store_categories"]): string {
+  const r = Array.isArray(v) ? v[0] : v;
+  return String(r?.slug ?? "");
+}
+
+function toInitial(s: AppStoreRow): BusinessApplyInitial {
+  const lat = typeof s.lat === "number" ? s.lat : null;
+  const lng = typeof s.lng === "number" ? s.lng : null;
+  return {
+    applicantNickname: String(s.applicant_nickname ?? ""),
+    shopName: storeBaseNameWithoutBranch(String(s.store_name ?? ""), s.branch_name),
+    branchName: String(s.branch_name ?? ""),
+    description: String(s.description ?? ""),
+    requestNote: String(s.application_request_note ?? ""),
+    kakaoId: String(s.kakao_id ?? ""),
+    categoryPrimarySlug: embedSlug(s.store_categories),
+    categorySubSlug: embedSlug(s.store_topics),
+    phone: String(s.phone ?? ""),
+    phoneVerifiedAt: s.phone_verified_at ?? null,
+    location:
+      lat != null && lng != null && String(s.formatted_address ?? "").trim()
+        ? {
+            lat,
+            lng,
+            formattedAddress: String(s.formatted_address ?? ""),
+            placeId: s.place_id ?? null,
+            region: String(s.region ?? ""),
+            city: String(s.city ?? ""),
+            street: String(s.address_line1 ?? ""),
+            detail: String(s.address_line2 ?? ""),
+          }
+        : null,
+    revisionNote: String(s.revision_note ?? ""),
+  };
+}
+
+/**
+ * 매장 입점 신청 · 보완 제출 (매장 신청 v2 · Owner 2026-11-10).
+ * - 매장이 없으면 신청서. 매장이 있으면(상태 무관) 운영 홈으로 — 상태 안내는 운영 홈 한 곳(1차 감사 A-8).
+ * - `?mode=revise&storeId=` + 보완 요청 상태면 같은 신청서로 「보완 내용 제출」.
+ */
+function BusinessApplyRouteInner() {
+  const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pathname = usePathname() ?? APPLY_PATH;
+  const reviseStoreId = searchParams.get("mode") === "revise" ? (searchParams.get("storeId") ?? "").trim() : "";
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [profileSeed, setProfileSeed] = useState<BusinessApplyProfileSeed | null>(null);
   const [profileRow, setProfileRow] = useState<Profile | null>(null);
-  const [existingStore, setExistingStore] = useState<any | null>(null);
-  const [existingLoading, setExistingLoading] = useState(true);
-  const [computedStoreSlug, setComputedStoreSlug] = useState<string>("");
+  const [storesLoading, setStoresLoading] = useState(true);
+  const [reviseInitial, setReviseInitial] = useState<BusinessApplyInitial | null>(null);
   const [gateLoading, setGateLoading] = useState(true);
   const [gateMissing, setGateMissing] = useState<ProfileRequirementField[] | null>(null);
   /** 약관 버전이 바뀌었다고 서버가 알리면 서약 섹션을 다시 불러온다 */
@@ -107,24 +160,8 @@ export default function BusinessApplyRoute() {
         await refreshGate(null);
         return;
       }
-      /** 지역 = 대표 주소(서버 위치값 SSOT) — profiles.region_* 미사용 (2026-11-09 A7) */
-      const snap = await fetchAddressDefaultsSnapshot({ caller: "business_apply_form", reason: "apply_form_seed" });
-      if (cancelled) return;
-      const master = snap?.ok && snap.defaults?.master ? coerceUserAddressDTO(snap.defaults.master) : null;
-      const masterLoc = master ? mapUserAddressToAppLocation(master) : null;
-      const loc = { regionId: masterLoc?.regionId ?? "", cityId: masterLoc?.cityId ?? "" };
-      const uname = String(p.username ?? "").trim().replace(/^@+/, "");
       setProfileRow(profileRowForGate(p));
-      setProfileSeed({
-        applicantNickname: "",
-        phoneDigits: parsePhMobileInput(p.phone ?? ""),
-        regionId: loc.regionId,
-        cityId: loc.cityId,
-        addressStreetLine: "",
-        addressDetail: "",
-        profileBio: (p.bio ?? "").trim(),
-        username: uname,
-      });
+      setProfileSeed({ username: String(p.username ?? "").trim().replace(/^@+/, "") });
       await refreshGate(profileRowForGate(p));
     })();
     return () => {
@@ -134,164 +171,99 @@ export default function BusinessApplyRoute() {
 
   useEffect(() => {
     let cancelled = false;
-    setExistingLoading(true);
     let redirecting = false;
+    setStoresLoading(true);
     void (async () => {
       try {
         const { status, json } = await fetchMeStoresListDeduped();
         if (cancelled) return;
         const stores = status === 200 ? parseStoreRowsFromMeStoresJson(json) ?? [] : [];
-        /** 승인 매장이 있으면 신청 화면 대신 운영 홈 (「승인됨 + 신청중입니다」 카드 방지 · R1 2026-11-03) */
-        const approved = stores.find((s) => String(s.approval_status) === "approved");
-        if (approved) {
-          redirecting = true;
-          router.replace(OwnerRoutes.hub(approved.id));
-          return;
+        const mine = reviseStoreId ? stores.find((s) => s.id === reviseStoreId) : stores[0];
+        if (reviseStoreId && mine && String(mine.approval_status) === "revision_requested") {
+          const res = await fetch(`/api/me/stores/${encodeURIComponent(mine.id)}/application`, {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const j = (await res.json().catch(() => ({}))) as { ok?: boolean; store?: AppStoreRow };
+          if (cancelled) return;
+          if (j?.ok && j.store) {
+            setReviseInitial(toInitial(j.store));
+            return;
+          }
         }
-        const existing =
-          HAS_ANY_STORE && stores.length > 0
-            ? resolveOwnerActiveStoreRowFromOwnedList(stores, null)
-            : null;
-        setExistingStore(existing);
-        const uname = String(profileSeed?.username ?? "").trim().replace(/^@+/, "");
-        const base = uname
-          .toLowerCase()
-          .replace(/[^a-z0-9-]/g, "")
-          .replace(/-+/g, "-")
-          .replace(/^-+|-+$/g, "");
-        setComputedStoreSlug(base || "");
+        if (mine || stores.length > 0) {
+          redirecting = true;
+          router.replace(OwnerRoutes.hub((mine ?? stores[0])!.id));
+        }
       } catch {
-        if (!cancelled) setExistingStore(null);
+        /* 목록 실패 — 신청서는 보여 주되 서버가 계정당 1개를 다시 막는다 */
       } finally {
-        if (!cancelled && !redirecting) setExistingLoading(false);
+        if (!cancelled && !redirecting) setStoresLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [profileSeed?.username, router]);
+  }, [reviseStoreId, router]);
 
   const handleSubmit = async (values: BusinessApplyFormValues) => {
     const gated = await requireAuthAction("owner_dashboard", async () => {}, { next: pathname });
     if (!gated) return;
-
-    if (profileRow) {
-      const profileOk = await requireProfileCompletionClient(profileRow, "owner_store_register", {
-        next: pathname,
-      });
+    if (profileRow && !reviseInitial) {
+      const profileOk = await requireProfileCompletionClient(profileRow, "owner_store_register", { next: pathname });
       if (!profileOk) {
         await refreshGate(profileRow);
         return;
       }
     }
-
     setSubmitError(null);
-    const nick = values.applicantNickname.trim();
-    if (!nick || nick.length > 20) {
-      setSubmitError(t("business_phase7_689"));
-      return;
-    }
-    const phoneRes = normalizeOptionalPhMobileDb(values.phone);
-    if (!phoneRes.ok || !phoneRes.value) {
-      setSubmitError(t("phone_rule"));
-      return;
-    }
-    const primaryMeta = getBrowsePrimaryBySlug(values.categoryPrimarySlug);
-    const subMeta = getBrowseSubIndustry(
-      values.categoryPrimarySlug,
-      values.categorySubSlug
-    );
-    const categoryLabelLine =
-      primaryMeta && subMeta ? `${primaryMeta.nameKo} · ${subMeta.nameKo}` : "";
-
     setSubmitting(true);
     try {
-      const res = await fetch("/api/me/stores", {
+      const body = {
+        applicantNickname: values.applicantNickname,
+        shopName: values.shopName,
+        branchName: values.branchName,
+        description: values.description,
+        requestNote: values.requestNote,
+        kakaoId: values.kakaoId,
+        categoryPrimarySlug: values.categoryPrimarySlug,
+        categorySubSlug: values.categorySubSlug,
+        phoneVerificationId: values.phoneVerification?.verificationId ?? null,
+        location: values.location,
+        ...(values.partnerAgreement ? { partner_agreement: values.partnerAgreement } : {}),
+      };
+      const url = reviseInitial
+        ? `/api/me/stores/${encodeURIComponent(reviseStoreId)}/resubmit`
+        : "/api/me/stores";
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          applicantNickname: nick,
-          storeSlug: computedStoreSlug,
-          shopName: values.shopName,
-          description: values.description,
-          requestNote: values.requestNote,
-          phone: phoneRes.value,
-          kakaoId: values.kakaoId,
-          categoryPrimarySlug: values.categoryPrimarySlug,
-          categorySubSlug: values.categorySubSlug,
-          categoryLabelLine,
-          ...(values.partnerAgreement ? { partner_agreement: values.partnerAgreement } : {}),
-        }),
+        body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setSubmitError(t("business_phase7_681"));
-        return;
-      }
-      if (res.status === 503) {
-        if (json?.error === "supabase_unconfigured") {
-          setSubmitError(t("business_phase7_682"));
-        } else if (json?.error === STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR) {
-          // v4 UI-05 — 신청자 닉네임 저장 실패 전용 안내 (신청은 저장되지 않음)
-          setSubmitError(
-            translateBy(language, "owner_apply_nickname_save_failed")
-          );
-        } else {
-          setSubmitError(t("business_phase7_683"));
-        }
-        return;
-      }
-      if (res.status === 409) {
-        if (json?.error === "already_has_active_application") {
-          setSubmitError(t("business_phase7_684"));
-        } else if (json?.error === "store_phone_already_registered") {
-          setSubmitError(t("business_phase7_685"));
-        } else if (json?.error === "store_slug_reserved") {
-          setSubmitError(t("business_phase7_686"));
-        } else {
-          setSubmitError(t("business_phase7_687"));
-        }
-        return;
-      }
-      if (!json?.ok) {
-        if (json?.error === "partner_agreement_required") {
-          setSubmitError(t("partner_err_required"));
-          return;
-        }
-        if (json?.error === "partner_terms_version_mismatch") {
-          setSubmitError(t("partner_err_version_mismatch"));
-          setPartnerRefreshKey((n) => n + 1);
-          return;
-        }
-        if (json?.error === "category_slugs_required") {
-          setSubmitError(t("business_phase7_688"));
-        } else if (json?.error === "applicant_nickname_required") {
-          setSubmitError(t("business_phase7_689"));
-        } else if (json?.error === "store_slug_required") {
-          setSubmitError(t("business_phase7_690"));
-        } else if (json?.error === "request_note_too_long") {
-          setSubmitError(t("business_phase7_696"));
-        } else if (json?.error === "master_address_required") {
-          setSubmitError(t("business_phase7_671"));
-          await refreshGate(profileRow);
-        } else if (json?.error === "owner_not_in_auth_users") {
-          setSubmitError(t("business_phase7_691"));
-        } else {
-          setSubmitError(typeof json?.error === "string" ? json.error : t("business_phase7_692"));
-        }
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; storeId?: string; store?: { id?: string } };
+      if (!res.ok || !json?.ok) {
+        const code = String(json?.error ?? (res.status === 401 ? "unauthorized" : ""));
+        setSubmitError(t(storeApplicationErrorKey(code)));
+        if (code === "partner_terms_version_mismatch") setPartnerRefreshKey((n) => n + 1);
+        if (code === "master_address_required") await refreshGate(profileRow);
+        if (code === "already_has_active_application" && json.storeId) router.replace(OwnerRoutes.hub(json.storeId));
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
       refreshOwnerLiteStore();
-      router.push("/stores/owner");
+      const id = String(json.store?.id ?? reviseStoreId ?? "");
+      const base = OwnerRoutes.hub(id || null);
+      router.replace(`${base}${base.includes("?") ? "&" : "?"}applied=${reviseInitial ? "resubmitted" : "submitted"}`);
     } catch {
       setSubmitError(t("common_network_error"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const gateBlocked = !gateLoading && gateMissing != null && gateMissing.length > 0;
+  const gateBlocked = !reviseInitial && !gateLoading && gateMissing != null && gateMissing.length > 0;
   const needPhone = gateMissing?.includes("phone_verified") ?? false;
   const needName = gateMissing?.includes("display_name") ?? false;
   const needAddress = gateMissing?.includes("default_address") ?? false;
@@ -306,94 +278,86 @@ export default function BusinessApplyRoute() {
     });
   };
 
+  const loading = storesLoading || (gateLoading && !reviseInitial);
+
   return (
-    <OwnerSupportContextBridge
-      enabled
-      category="STORE_APPROVAL"
-      sourceSurface="owner_store_apply"
-    >
-    <div className="min-w-0 w-full max-w-full bg-[var(--biz-app-bg)]">
-      <StoresOwnerApplyHeaderChrome />
-      <div
-        className={`mx-auto max-w-[42rem] px-2 pb-0 sm:px-2 ${STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS} ${OWNER_STORE_STACK_Y_CLASS}`}
-      >
-        {existingLoading || gateLoading ? (
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sam-text-body text-sam-muted shadow-sm sm:p-4">
-            {t("business_phase7_676")}
-          </div>
-        ) : existingStore ? (
-          <div className="rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft p-3 shadow-sm sm:p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-sam-on-primary">
-                {formatStoreApprovalStatusI18n(existingStore.approval_status, t)}
-              </span>
-              <span className="sam-text-body font-semibold text-sam-fg">{t("owner_apply_pending")}</span>
+    <OwnerSupportContextBridge enabled category="STORE_APPROVAL" sourceSurface="owner_store_apply">
+      <div className="min-w-0 w-full max-w-full bg-[var(--biz-app-bg)]">
+        <StoresOwnerApplyHeaderChrome />
+        <div
+          className={`mx-auto max-w-[42rem] px-2 pb-0 sm:px-2 ${STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS} ${OWNER_STORE_STACK_Y_CLASS}`}
+        >
+          {loading ? (
+            <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-[14px] text-sam-muted shadow-sm">
+              {t("business_phase7_676")}
             </div>
-            <p className="mt-2 sam-text-body text-sam-fg">
-              {String(existingStore.store_name ?? "").trim() || t("store_fallback_name")}
-            </p>
-          </div>
-        ) : gateBlocked ? (
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-            <p className="sam-text-body font-semibold text-sam-fg">{t("business_phase7_702")}</p>
-            <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("business_phase7_703")}</p>
-            <ul className="mt-3 list-disc space-y-1 pl-5 sam-text-body text-sam-fg">
-              {needPhone ? <li>{t("business_phase7_704")}</li> : null}
-              {needName ? <li>{t("business_phase7_705")}</li> : null}
-              {needAddress ? <li>{t("business_phase7_706")}</li> : null}
-            </ul>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              {needPhone || needName ? (
-                <Link
-                  href={buildProfileEditHref({
-                    returnTo: APPLY_PATH,
-                    required: [
-                      ...(needPhone ? (["phone_verified"] as const) : []),
-                      ...(needName ? (["display_name"] as const) : []),
-                    ],
-                  })}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-sam-on-primary"
-                >
-                  {t("business_phase7_707")}
-                </Link>
-              ) : null}
-              {needAddress ? (
-                <button
-                  type="button"
-                  onClick={openAddressForGate}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 sam-text-body font-semibold text-sam-fg"
-                >
-                  {t("business_phase7_708")}
-                </button>
-              ) : null}
+          ) : gateBlocked ? (
+            <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+              <p className="text-[16px] font-bold text-sam-fg">{t("business_phase7_702")}</p>
+              <p className="mt-2 text-[14px] text-sam-muted">{t("business_phase7_703")}</p>
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-[14px] text-sam-fg">
+                {needPhone ? <li>{t("business_phase7_704")}</li> : null}
+                {needName ? <li>{t("business_phase7_705")}</li> : null}
+                {needAddress ? <li>{t("business_phase7_706")}</li> : null}
+              </ul>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                {needPhone || needName ? (
+                  <Link
+                    href={buildProfileEditHref({
+                      returnTo: APPLY_PATH,
+                      required: [
+                        ...(needPhone ? (["phone_verified"] as const) : []),
+                        ...(needName ? (["display_name"] as const) : []),
+                      ],
+                    })}
+                    className={`inline-flex min-h-[48px] items-center justify-center rounded-ui-rect bg-sam-primary px-4 text-[16px] font-bold text-sam-on-primary ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                  >
+                    {t("business_phase7_707")}
+                  </Link>
+                ) : null}
+                {needAddress ? (
+                  <button
+                    type="button"
+                    onClick={openAddressForGate}
+                    className={`inline-flex min-h-[48px] items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[16px] font-semibold text-sam-fg ${FORM_INTERACTIVE_PRESS_CLASS}`}
+                  >
+                    {t("business_phase7_708")}
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ) : null}
-
-        {submitError ? (
-          <div className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft p-3 sam-text-body text-sam-danger shadow-sm sm:p-4">
-            {submitError}
-          </div>
-        ) : null}
-
-        {!existingStore && !gateLoading && !gateBlocked ? (
-          <BusinessApplyForm
-            profileSeed={profileSeed}
-            computedStoreSlug={computedStoreSlug}
-            partnerRefreshKey={partnerRefreshKey}
-            onSubmit={(v) => void handleSubmit(v)}
-            submitLabel={submitting ? t("business_phase7_678") : t("business_phase7_679")}
-            disabled={submitting}
-          />
-        ) : null}
-
-        {existingStore && !existingLoading ? (
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sam-text-body text-sam-muted shadow-sm sm:p-4">
-            {t("business_phase7_677")}
-          </div>
-        ) : null}
+          ) : (
+            <>
+              {submitError ? (
+                <div
+                  className="rounded-ui-rect border border-sam-danger/30 bg-sam-danger-soft p-3 text-[14px] font-medium text-sam-danger shadow-sm"
+                  role="alert"
+                >
+                  {submitError}
+                </div>
+              ) : null}
+              <BusinessApplyForm
+                mode={reviseInitial ? "revise" : "apply"}
+                storeId={reviseInitial ? reviseStoreId : null}
+                initial={reviseInitial}
+                profileSeed={profileSeed}
+                partnerRefreshKey={partnerRefreshKey}
+                onSubmit={(v) => void handleSubmit(v)}
+                submitLabel={submitting ? t("business_phase7_678") : undefined}
+                disabled={submitting}
+              />
+            </>
+          )}
+        </div>
       </div>
-    </div>
     </OwnerSupportContextBridge>
+  );
+}
+
+export default function BusinessApplyRoute() {
+  return (
+    <Suspense fallback={null}>
+      <BusinessApplyRouteInner />
+    </Suspense>
   );
 }

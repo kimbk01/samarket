@@ -23,7 +23,6 @@ import {
   type TaxonomyRelation,
 } from "@/components/admin/stores/admin-store-review-model";
 import {
-  ReviewAddressValue,
   ReviewBlock,
   ReviewRow,
 } from "@/components/admin/stores/admin-store-review-ui";
@@ -33,6 +32,7 @@ import {
   resolveStoreTaxonomyTopicDisplayName,
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
 import { AdminStoreDiscoverySnapshotPanel } from "@/components/admin/stores/AdminStoreDiscoverySnapshotPanel";
+import { AdminStoreApplicationBlocks } from "@/components/admin/stores/AdminStoreApplicationBlocks";
 import { isStoreCoreInfoPendingReverification } from "@/lib/stores/store-core-info-reverification";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { translateBy } from "@/lib/i18n/translate-by";
@@ -743,64 +743,15 @@ export function AdminStoreReviewPanel({
         </ReviewBlock>
       ) : null}
 
-      <ReviewBlock title={t("admin_stores_section_applicant")}>
-        <ReviewRow
-          label={t("admin_stores_field_nickname")}
-          value={dash(store.applicant_nickname)}
-        />
-        <ReviewRow
-          label={t("admin_stores_field_owner_handle")}
-          value={dash(store.owner_handle || store.owner_username)}
-        />
-      </ReviewBlock>
-
-      <ReviewBlock title={t("admin_stores_application")}>
-        <ReviewRow label={t("admin_stores_gcash_number")} value={gcashNoDisplay} />
-        <ReviewRow label={t("admin_stores_gcash_account_name")} value={dash(store.website_url)} />
-        <ReviewRow label={t("admin_stores_field_category_primary")} value={catDb || "—"} />
-        <ReviewRow label={t("admin_stores_field_category_secondary")} value={topicDb || "—"} />
-        <ReviewRow label={t("admin_stores_address")} value={<ReviewAddressValue store={store} />} />
-        {storeIntro?.trim() ? (
-          <ReviewRow
-            label={t("admin_stores_section_intro")}
-            value={<span className="whitespace-pre-wrap">{storeIntro.trim()}</span>}
-          />
-        ) : null}
-        {store.application_request_note?.trim() ? (
-          <ReviewRow
-            label={t("admin_stores_section_request_note")}
-            value={<span className="whitespace-pre-wrap">{store.application_request_note.trim()}</span>}
-          />
-        ) : null}
-        {store.revision_note?.trim() ? (
-          <ReviewRow
-            label={t("admin_stores_section_revision")}
-            value={<span className="whitespace-pre-wrap text-sam-warning">{store.revision_note.trim()}</span>}
-          />
-        ) : null}
-        {store.rejected_reason?.trim() ? (
-          <ReviewRow
-            label={t("admin_stores_section_reject_reason")}
-            value={<span className="whitespace-pre-wrap text-sam-danger">{store.rejected_reason.trim()}</span>}
-          />
-        ) : null}
-        {store.suspended_reason?.trim() ? (
-          <ReviewRow
-            label={t("admin_stores_section_suspend_reason")}
-            value={<span className="whitespace-pre-wrap">{store.suspended_reason.trim()}</span>}
-          />
-        ) : null}
-        {profileUrl ? (
-          <ReviewRow
-            label={t("admin_stores_image_profile")}
-            value={
-              <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="block max-w-xs overflow-hidden rounded-sm border border-sam-border">
-                <img src={profileUrl} alt="" className="max-h-40 w-full object-cover" />
-              </a>
-            }
-          />
-        ) : null}
-      </ReviewBlock>
+      {/* 매장 신청 v2 (2026-11-10) — 신청자 · 매장(신청 내용) · 처리 이력 · 운영 정보 */}
+      <AdminStoreApplicationBlocks
+        store={store}
+        catDb={catDb}
+        topicDb={topicDb}
+        storeIntro={storeIntro}
+        gcashNoDisplay={gcashNoDisplay}
+        profileUrl={profileUrl}
+      />
 
       <AdminStoreDiscoverySnapshotPanel storeId={store.id} />
 

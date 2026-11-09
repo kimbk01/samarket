@@ -58,6 +58,15 @@ export async function GET(req: Request) {
   // FD2: Production has no stores.applicant_nickname — never select it.
   // Nickname comes from profiles join below (same as /api/me/stores).
   const selectAttempts = [
+    // 매장 신청 v2 (2026-11-10) — 매장 전화 인증 시각·지점명·실제 영업장 주소
+    [
+      "id, store_name, branch_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
+      "store_category_id, store_topic_id, owner_can_edit_store_identity",
+      "description, application_request_note, application_address_book, kakao_id, phone, phone_verified_at, email, website_url, region, city, district",
+      "address_line1, address_line2, formatted_address, place_id, lat, lng, delivery_radius_km, profile_image_url",
+      "created_at, updated_at, approved_at, rejected_reason, revision_note, suspended_reason",
+      "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
+    ].join(", "),
     [
       "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type, store_kind",
       "store_category_id, store_topic_id, owner_can_edit_store_identity",

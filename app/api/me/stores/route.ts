@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { computeStoreLocationColumns } from "@/lib/stores/store-location-columns.server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadMeStoresListForUser, invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
-import { makeStoreSlug } from "@/lib/stores/make-store-slug";
 import {
   isMissingStoresApplicantNicknameColumnError,
   STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR,
 } from "@/lib/stores/stores-applicant-nickname-db";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
-import { assertStoreLocationPatchConsistent } from "@/lib/stores/store-location-patch-consistency";
-import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
-import { RESERVED_STORE_SLUGS } from "@/lib/business/owner-routes";
 import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { classifyStoresInsertUniqueViolation } from "@/lib/stores/classify-stores-insert-unique-violation";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import {
+  makeStoreApplicationSlug,
+  parseStoreApplicationInput,
+  type StoreApplicationBody,
+} from "@/lib/stores/store-application-input.server";
+import {
+  consumeStorePhoneVerification,
+  isStorePhoneUsedByOtherStore,
+  linkStorePhoneVerificationToStore,
+  releaseStorePhoneVerification,
+} from "@/lib/stores/store-phone-otp-service";
+import { appendStoreApplicationEvent } from "@/lib/stores/store-application-events.server";
+import { notifyAdminsStoreApplicationSubmitted } from "@/lib/stores/store-application-admin-notify.server";
 import { loadDeliveryLaunchSettingsCached } from "@/lib/delivery/launch/delivery-launch-settings.server";
 import {
   activeFreeUntilOrNull,
@@ -31,15 +37,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** 심사·운영 중 매장 — 동일 계정 2건 신청 방지·전화번호 중복 방지에 공통 사용 */
-const STORE_ACTIVE_PIPELINE_STATUSES = [
-  "pending",
-  "under_review",
-  "revision_requested",
-  "approved",
-  "suspended",
-] as const;
 
 /** 내 매장 목록 */
 export async function GET() {
@@ -64,33 +61,7 @@ export async function GET() {
   });
 }
 
-type ApplyBody = {
-  /** 신청자 닉네임 — 프로필과 별도로 수정 가능 */
-  applicantNickname?: string;
-  /** 매장 ID(슬러그). URL `/stores/{slug}` 로 노출되며 중복 불가 */
-  storeSlug?: string;
-  shopName?: string;
-  description?: string;
-  /** 관리자 검토용 요청 사항 */
-  requestNote?: string;
-  phone?: string;
-  kakaoId?: string;
-  region?: string;
-  city?: string;
-  addressStreetLine?: string;
-  addressDetail?: string;
-  /** @deprecated — street 로만 매핑 */
-  addressLabel?: string;
-  /** `/stores`·어드민 업종과 동일 슬러그 */
-  categoryPrimarySlug?: string;
-  categorySubSlug?: string;
-  /** DB에 taxonomy 행이 없을 때 표시용 (클라 병합 목록 기준) */
-  categoryLabelLine?: string;
-  /** Optional store pin — address identity requires finite lat+lng together */
-  lat?: number | null;
-  lng?: number | null;
-  placeId?: string | null;
-  formattedAddress?: string | null;
+type ApplyBody = StoreApplicationBody & {
   /**
    * 매장 입점·수수료 서약 (2026-11-10) — 게시된 store_partner_terms 가 있으면 필수.
    * `{ documentId, version, locale, agreeTerms: true, agreeFee: true }`
@@ -98,7 +69,12 @@ type ApplyBody = {
   partner_agreement?: unknown;
 };
 
-/** 매장 등록 신청 (1건 제한: 진행중·승인 매장이 있으면 409) */
+/**
+ * 매장 등록 신청 (계정당 1건 — DB 유일 인덱스 `stores_one_owner_one_store_uidx`).
+ * 매장 신청 v2 (Owner 2026-11-10): 매장 ID(slug)는 서버가 자동 생성(화면 미표시) · 매장 전화는
+ * 매장 전용 인증 기록 id 로만 받음 · 실제 영업장 위치(지도 좌표) 필수 · 매장 이름 중복은 지점명으로 구분 ·
+ * 상태 기록(store_application_events) · 관리자 알림.
+ */
 export async function POST(req: NextRequest) {
   const userId = await getRouteUserId();
   if (!userId) {
@@ -116,189 +92,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const applicantNickname = String(body.applicantNickname ?? "").trim();
-  if (!applicantNickname || applicantNickname.length > 20) {
-    return NextResponse.json(
-      { ok: false, error: "applicant_nickname_required" },
-      { status: 400 }
-    );
-  }
-
-  const shopName = String(body.shopName ?? "").trim();
-  if (shopName.length < 2) {
-    return NextResponse.json({ ok: false, error: "shopName_required" }, { status: 400 });
-  }
-
-  const storeSlugRaw = String(body.storeSlug ?? "").trim().toLowerCase();
-  const storeSlug =
-    storeSlugRaw && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(storeSlugRaw) && storeSlugRaw.length >= 3 && storeSlugRaw.length <= 40
-      ? storeSlugRaw
-      : "";
-  if (!storeSlug) {
-    return NextResponse.json({ ok: false, error: "store_slug_required" }, { status: 400 });
-  }
-  /**
-   * 시스템 예약 슬러그(예: `owner` — `/stores/owner` 매장 운영 캐노니컬과 충돌) 거부.
-   * 정적 라우트가 동적 `[slug]` 보다 우선 매칭되어 사용자의 매장 페이지가 가려지는 것을 막는다.
-   */
-  if (RESERVED_STORE_SLUGS.has(storeSlug)) {
-    return NextResponse.json(
-      { ok: false, error: "store_slug_reserved" },
-      { status: 409 }
-    );
-  }
-
-  // 정책: 매장 신청은 계정당 1회만 허용 (상태와 무관)
-  // 이미 여러 건이 존재하는 환경이 있을 수 있으나, 신규 추가는 항상 차단한다.
+  // 계정당 매장 1개 (상태 무관) — 이미 있으면 신청 화면 대신 운영 홈에서 상태를 본다.
   const { data: blockers, error: blockErr } = await supabase
     .from("stores")
     .select("id")
     .eq("owner_user_id", userId)
     .limit(1);
-
   if (blockErr) {
-    console.error("[POST /api/me/stores] block check", blockErr);
-    return internalErrorResponse("save_failed", "[/api/me/stores POST]", blockErr, 500);
+    return internalErrorResponse("save_failed", "[/api/me/stores POST] block check", blockErr, 500);
   }
   if (blockers && blockers.length > 0) {
     return NextResponse.json(
-      { ok: false, error: "already_has_active_application" },
+      { ok: false, error: "already_has_active_application", storeId: String(blockers[0]?.id ?? "") },
       { status: 409 }
     );
   }
 
-  const description = String(body.description ?? "").trim() || null;
-  const requestNoteRaw = String(body.requestNote ?? "").trim();
-  if (requestNoteRaw.length > 1000) {
-    return NextResponse.json({ ok: false, error: "request_note_too_long" }, { status: 400 });
+  const parsed = await parseStoreApplicationInput(supabase, body, { excludeStoreId: null });
+  if (!parsed.ok) {
+    return NextResponse.json({ ok: false, error: parsed.error }, { status: parsed.status });
   }
-  const applicationRequestNote = requestNoteRaw || null;
-  const kakaoId = String(body.kakaoId ?? "").trim() || null;
+  const fields = parsed.fields;
 
-  const primarySlug = String(body.categoryPrimarySlug ?? "").trim().toLowerCase();
-  const subSlug = String(body.categorySubSlug ?? "").trim().toLowerCase();
-  if (!primarySlug || !subSlug) {
-    return NextResponse.json(
-      { ok: false, error: "category_slugs_required" },
-      { status: 400 }
-    );
-  }
-
-  let store_category_id: string | null = null;
-  let store_topic_id: string | null = null;
-  let taxonomyBusinessType: string | null = null;
-
-  const { data: catRow, error: catErr } = await supabase
-    .from("store_categories")
-    .select("id, name, slug")
-    .eq("slug", primarySlug)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (catErr) {
-    console.error("[POST /api/me/stores] category lookup", catErr);
-  } else if (catRow?.id) {
-    const { data: topicRow, error: topicErr } = await supabase
-      .from("store_topics")
-      .select("id, name, slug")
-      .eq("slug", subSlug)
-      .eq("store_category_id", catRow.id)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (topicErr) {
-      console.error("[POST /api/me/stores] topic lookup", topicErr);
-    } else if (topicRow?.id) {
-      store_category_id = catRow.id as string;
-      store_topic_id = topicRow.id as string;
-      taxonomyBusinessType = `${String(catRow.name)} · ${String(topicRow.name)}`;
-    }
-  }
-
-  const labelFallback = String(body.categoryLabelLine ?? "").trim();
-  const business_type =
-    taxonomyBusinessType ||
-    labelFallback ||
-    `${primarySlug} · ${subSlug}`;
-
-  const phoneNorm = normalizeOptionalPhMobileDb(String(body.phone ?? "").trim());
-  if (!phoneNorm.ok) {
-    return NextResponse.json({ ok: false, error: phoneNorm.error }, { status: 400 });
-  }
-
-  if (phoneNorm.value) {
-    const { data: phoneDup, error: phoneDupErr } = await supabase
-      .from("stores")
-      .select("id")
-      .eq("phone", phoneNorm.value)
-      .in("approval_status", [...STORE_ACTIVE_PIPELINE_STATUSES])
-      .limit(1);
-
-    if (phoneDupErr) {
-      console.error("[POST /api/me/stores] phone duplicate check", phoneDupErr);
-      return NextResponse.json({ ok: false, error: "store_phone_check_failed" }, { status: 500 });
-    }
-    if (phoneDup && phoneDup.length > 0) {
-      return NextResponse.json(
-        { ok: false, error: "store_phone_already_registered" },
-        { status: 409 }
-      );
-    }
-  }
-
-  /**
-   * STORE LOCATION CONTRACT:
-   * Member master is gate/evidence only (`application_address_book`) — NEVER seeds stores.lat/lng.
-   * Do not write address identity (region/city/street) without finite lat/lng in the same insert
-   * (FIRST BREAK: text-only store rows → Admin "좌표 없음").
-   * Physical store location is set after approval via owner basic-info / shop address sync.
-   */
-  /** 범위 검증 포함 (-90~90 / -180~180) — 값이 왔는데 범위 밖·비숫자면 거부. */
-  const placeLat = parseFiniteLatitude(body.lat);
-  const placeLng = parseFiniteLongitude(body.lng);
-  if (body.lat != null && String(body.lat).trim() !== "" && placeLat == null) {
-    return NextResponse.json({ ok: false, error: "invalid_lat" }, { status: 400 });
-  }
-  if (body.lng != null && String(body.lng).trim() !== "" && placeLng == null) {
-    return NextResponse.json({ ok: false, error: "invalid_lng" }, { status: 400 });
-  }
-  const placeId = String(body.placeId ?? "").trim() || null;
-  const formattedAddress = String(body.formattedAddress ?? "").trim() || null;
-
-  const regionRaw = String(body.region ?? "").trim();
-  const cityRaw = String(body.city ?? "").trim();
-  const streetRaw = String(body.addressStreetLine ?? body.addressLabel ?? "").trim();
-  const detailRaw = String(body.addressDetail ?? "").trim();
-  const normAddr = normalizeStoreAddressPh({
-    region: regionRaw || null,
-    city: cityRaw || null,
-    address1: streetRaw || null,
-    address2: detailRaw || null,
-  });
-  const street = normAddr.address1;
-  const detail = normAddr.address2;
-  const hasAddressIdentity = !!(street || formattedAddress || placeId);
-  const hasCoords = placeLat != null && placeLng != null;
-  if (hasAddressIdentity && !hasCoords) {
-    return NextResponse.json({ ok: false, error: "store_location_coords_required" }, { status: 400 });
-  }
-  if (hasCoords) {
-    /** Policy A — place_id 는 formatted_address + lat/lng 동반 (Owner/Admin PATCH 와 같은 검사). */
-    const locCheck = assertStoreLocationPatchConsistent(
-      {},
-      {
-        ...(placeId ? { place_id: placeId } : {}),
-        ...(formattedAddress ? { formatted_address: formattedAddress } : {}),
-        ...(street ? { address_line1: street } : {}),
-        lat: placeLat,
-        lng: placeLng,
-      }
-    );
-    if (locCheck !== "ok") {
-      return NextResponse.json({ ok: false, error: locCheck }, { status: 400 });
-    }
-  }
-
+  // 신청자 대표 주소 — 회원 게이트 증빙 스냅숏(어드민 「신청자」 블록 전용 · 매장 위치 아님)
   let applicationAddressBook: ReturnType<typeof formatAddressBookCardPresentation> = null;
   try {
     const addressDefaults = await getUserAddressDefaults(supabase, userId);
@@ -330,8 +146,8 @@ export async function POST(req: NextRequest) {
     const launch = await loadDeliveryLaunchSettingsCached();
     partnerFreeUntil = activeFreeUntilOrNull(launch.freeUntil);
     const fee = await resolveStorePartnerFeeAfter(supabase, {
-      categoryId: store_category_id,
-      topicId: store_topic_id,
+      categoryId: fields.store_category_id,
+      topicId: fields.store_topic_id,
     });
     if (!fee.ok) {
       return internalErrorResponse("save_failed", "[/api/me/stores POST] partner fee rate", "fee_rate_read_failed", 500);
@@ -339,131 +155,87 @@ export async function POST(req: NextRequest) {
     partnerFeePercentAfter = fee.feePercent;
   }
 
+  // 매장 전화 — 매장 전용 인증 기록으로만 (마지막에 사용 처리: 앞 단계 실패로 인증이 소모되지 않게)
+  const phone = await consumeStorePhoneVerification(supabase, {
+    userId,
+    verificationId: String(body.phoneVerificationId ?? ""),
+    purpose: "store_apply",
+    storeId: null,
+  });
+  if (!phone.ok) {
+    return NextResponse.json({ ok: false, error: phone.code }, { status: phone.status });
+  }
+  const dupPhone = await isStorePhoneUsedByOtherStore(supabase, phone.data.phoneDb09, null);
+  if (!dupPhone.ok || dupPhone.data) {
+    await releaseStorePhoneVerification(supabase, phone.data.verificationId);
+    if (!dupPhone.ok) return NextResponse.json({ ok: false, error: "store_phone_check_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "store_phone_already_registered" }, { status: 409 });
+  }
+
   /** business_hours_json 은 DB 기본 `{}` — 승인 후 매장 설정에서 영업·공지 등과 동일 스키마로 채움 */
-  let insertPayload: Record<string, unknown> = {
+  const insertPayload: Record<string, unknown> = {
     owner_user_id: userId,
-    applicant_nickname: applicantNickname,
-    store_name: shopName,
-    business_type,
-    application_request_note: applicationRequestNote,
+    applicant_nickname: fields.applicant_nickname,
+    store_name: fields.store_name,
+    branch_name: fields.branch_name,
+    business_type: fields.business_type,
+    application_request_note: fields.application_request_note,
     application_address_book: applicationAddressBook,
-    store_category_id,
-    store_topic_id,
-    description,
-    kakao_id: kakaoId,
-    phone: phoneNorm.value,
+    store_category_id: fields.store_category_id,
+    store_topic_id: fields.store_topic_id,
+    description: fields.description,
+    kakao_id: fields.kakao_id,
+    phone: phone.data.phoneDb09,
+    phone_verified_at: phone.data.verifiedAt,
+    phone_verification_id: phone.data.verificationId,
     approval_status: "pending",
     is_visible: false,
+    ...fields.location,
   };
-
-  if (hasCoords) {
-    insertPayload = {
-      ...insertPayload,
-      region: normAddr.region,
-      city: normAddr.city,
-      district: street,
-      address_line1: street,
-      address_line2: detail,
-      lat: placeLat,
-      lng: placeLng,
-      ...(placeId ? { place_id: placeId } : {}),
-      ...(formattedAddress ? { formatted_address: formattedAddress } : {}),
-      /** 주소 SSOT 4단계: 매장 바랑가이·시/군 PSGC — 수정 경로(build-store-location-patch)와 같은 함수로 같은 저장에서 결정 */
-      ...computeStoreLocationColumns({
-        region: normAddr.region,
-        city: normAddr.city,
-        district: street,
-        address_line1: street,
-        formatted_address: formattedAddress || null,
-      }),
-    };
-  }
 
   const postInsertSelect =
     "id, owner_user_id, store_name, slug, business_type, description, kakao_id, phone, region, city, district, address_line1, address_line2, approval_status, rejected_reason, created_at, updated_at, approved_at, profile_image_url";
 
   let inserted: Record<string, unknown> | null = null;
   let insErr: { code?: string; message: string } | null = null;
-
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const slug = storeSlug;
+  // slug 는 사장님에게 보이지 않는 내부 값 — 겹치면 짧은 코드를 붙여 다시 만든다.
+  for (let attempt = 0; attempt < 5; attempt++) {
     const result = await supabase
       .from("stores")
-      .insert({ ...insertPayload, slug })
+      .insert({ ...insertPayload, slug: makeStoreApplicationSlug(fields.store_name, attempt) })
       .select(postInsertSelect)
       .maybeSingle();
-
-    // O-01 / DB-3 — 신청자 닉네임은 필수 수집값: 컬럼이 없으면 빼고 성공 응답하지 않고 실패를 알린다
-    // (컬럼은 마이그레이션 20270708140100 으로 적용 — 앱 배포 전에 적용).
     if (result.error && isMissingStoresApplicantNicknameColumnError(result.error.message ?? "")) {
-      console.error("[POST /api/me/stores] applicant_nickname column missing", result.error.message);
-      return NextResponse.json(
-        { ok: false, error: STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR },
-        { status: 503 }
-      );
+      await releaseStorePhoneVerification(supabase, phone.data.verificationId);
+      return NextResponse.json({ ok: false, error: STORES_APPLICANT_NICKNAME_SAVE_FAILED_ERROR }, { status: 503 });
     }
-
-    if (
-      result.error &&
-      /application_request_note|schema cache|column/i.test(result.error.message ?? "") &&
-      "application_request_note" in insertPayload
-    ) {
-      const { application_request_note: _drop, ...rest } = insertPayload;
-      insertPayload = rest;
-      continue;
-    }
-
-    if (
-      result.error &&
-      /application_address_book|schema cache|column/i.test(result.error.message ?? "") &&
-      "application_address_book" in insertPayload
-    ) {
-      console.warn(
-        "[POST /api/me/stores] application_address_book column missing — insert without address snapshot"
-      );
-      const { application_address_book: _drop, ...rest } = insertPayload;
-      insertPayload = rest;
-      continue;
-    }
-
     insErr = result.error;
     inserted = result.data as Record<string, unknown> | null;
     if (!insErr) break;
-    if (insErr.code === "23503") {
-      return NextResponse.json(
-        { ok: false, error: "owner_not_in_auth_users" },
-        { status: 400 }
-      );
-    }
     const uniqueBiz = classifyStoresInsertUniqueViolation(insErr);
-    if (uniqueBiz) {
-      return NextResponse.json({ ok: false, error: uniqueBiz }, { status: 409 });
+    if (uniqueBiz === "slug_collision") continue;
+    await releaseStorePhoneVerification(supabase, phone.data.verificationId);
+    if (insErr.code === "23503") {
+      return NextResponse.json({ ok: false, error: "owner_not_in_auth_users" }, { status: 400 });
     }
-    if (insErr.code !== "23505") {
-      console.error("[POST /api/me/stores]", insErr);
-      return internalErrorResponse("save_failed", "[/api/me/stores POST]", insErr, 500);
-    }
-
-    break;
+    if (uniqueBiz) return NextResponse.json({ ok: false, error: uniqueBiz }, { status: 409 });
+    return internalErrorResponse("save_failed", "[/api/me/stores POST]", insErr, 500);
   }
-
   if (insErr || !inserted) {
-    const uniqueBiz = classifyStoresInsertUniqueViolation(insErr ?? {});
-    return NextResponse.json(
-      { ok: false, error: uniqueBiz ?? "slug_collision" },
-      { status: 409 }
-    );
+    await releaseStorePhoneVerification(supabase, phone.data.verificationId);
+    return internalErrorResponse("save_failed", "[/api/me/stores POST] slug", insErr ?? "insert_failed", 500);
   }
+  const insertedId = String(inserted.id ?? "");
+  await linkStorePhoneVerificationToStore(supabase, phone.data.verificationId, insertedId);
 
   if (partnerCheck.required) {
-    const insertedId = String(inserted.id ?? "");
     const recorded = await recordStorePartnerAgreement(supabase, {
       storeId: insertedId,
       ownerUserId: userId,
       terms: partnerCheck.terms,
       freeUntil: partnerFreeUntil,
-      storeCategoryId: store_category_id,
-      storeTopicId: store_topic_id,
+      storeCategoryId: fields.store_category_id,
+      storeTopicId: fields.store_topic_id,
       feePercentAfter: partnerFeePercentAfter,
       source: "application",
     });
@@ -477,10 +249,26 @@ export async function POST(req: NextRequest) {
       if (rollbackErr) {
         console.error("[POST /api/me/stores] partner agreement rollback failed", insertedId, rollbackErr.message);
       }
+      await releaseStorePhoneVerification(supabase, phone.data.verificationId);
       invalidateMeStoresListServerCache(userId);
       return internalErrorResponse("save_failed", "[/api/me/stores POST] partner agreement", recorded.error, 500);
     }
   }
+
+  await appendStoreApplicationEvent(supabase, {
+    storeId: insertedId,
+    fromStatus: null,
+    toStatus: "pending",
+    action: "submit",
+    actorType: "owner",
+    actorId: userId,
+  });
+  await notifyAdminsStoreApplicationSubmitted(supabase, {
+    storeId: insertedId,
+    storeName: fields.store_name,
+    kind: "submit",
+    actorUserId: userId,
+  });
 
   invalidateMeStoresListServerCache(userId);
   return NextResponse.json({ ok: true, store: inserted });

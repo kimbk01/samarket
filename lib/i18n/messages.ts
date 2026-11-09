@@ -8,6 +8,7 @@ import { adminDeployMessages } from "./catalog/admin-deploy";
 import { adminBoostPricesMessages } from "./catalog/admin-boost-prices";
 import { adminTradeSoldWindowMessages } from "./catalog/admin-trade-sold-window";
 import { ownerAnnouncementsMessages } from "./catalog/owner-announcements";
+import { storeApplyV2Messages } from "./catalog/store-apply-v2";
 import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { mypageHubMessages } from "./catalog/mypage-hub";
@@ -266,6 +267,7 @@ const KO_MESSAGES = {
   ...adminBoostPricesMessages.ko,
   ...adminTradeSoldWindowMessages.ko,
   ...ownerAnnouncementsMessages.ko,
+  ...storeApplyV2Messages.ko,
   ...adminConsoleCoreMessages.ko,
   ...appShellCoreMessages.ko,
   ...copyLibMessages.ko,
@@ -425,6 +427,7 @@ const EN_MESSAGES = {
   ...adminBoostPricesMessages.en,
   ...adminTradeSoldWindowMessages.en,
   ...ownerAnnouncementsMessages.en,
+  ...storeApplyV2Messages.en,
   ...adminConsoleCoreMessages.en,
   ...appShellCoreMessages.en,
   ...copyLibMessages.en,

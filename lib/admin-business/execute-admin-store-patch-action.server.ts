@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { checkStoreDeliveryMenuBeforeExpose } from "@/lib/stores/delivery-menus/store-delivery-menu-guard.server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { appendStoreApplicationEvent } from "@/lib/stores/store-application-events.server";
 import {
   ADMIN_STORE_ACTIONS_REQUIRING_REASON,
   ADMIN_STORE_REASON_MIN_LENGTH,
@@ -323,6 +324,16 @@ export async function executeAdminStorePatchAction(input: {
     if (ownerUserId) {
       invalidateMeStoresListServerCache(ownerUserId);
     }
+    // 매장 신청 v2 S1 — 진행 막대·처리 이력 시각 (같은 요청 안에서 기록)
+    await appendStoreApplicationEvent(sb, {
+      storeId: id,
+      fromStatus: String(store.approval_status ?? "") || null,
+      toStatus: String(patch.approval_status ?? ""),
+      action,
+      reason,
+      actorType: "admin",
+      actorId,
+    });
     await safeNotifyOwnerStoreDecision(sb, {
       action,
       storeId: id,
