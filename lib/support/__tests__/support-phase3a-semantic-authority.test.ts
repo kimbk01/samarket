@@ -55,6 +55,9 @@ describe("PHASE 3-A support semantic authority", () => {
     expect(owner).not.toContain("RECHARGE");
     expect(owner).not.toContain("BANK_ACCOUNT");
     expect(owner).not.toContain("CAMPAIGN");
+    // 매장 입점 문의 = 매장 없는 일반 회원 전용 (Owner 2026-11-10)
+    expect(member).toContain("STORE_PARTNERSHIP");
+    expect(owner).not.toContain("STORE_PARTNERSHIP");
   });
 
   it("T3 current→canonical compatibility mapping", () => {

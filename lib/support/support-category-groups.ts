@@ -23,7 +23,7 @@ export const SUPPORT_CATEGORY_GROUPS = [
     id: "STORE",
     labelKo: "매장 운영",
     labelEn: "Store ops",
-    categories: ["STORE", "STORE_APPROVAL", "PRODUCT_MENU"],
+    categories: ["STORE", "STORE_APPROVAL", "STORE_PARTNERSHIP", "PRODUCT_MENU"],
   },
   {
     id: "BENEFIT",
