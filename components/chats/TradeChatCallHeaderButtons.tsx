@@ -37,8 +37,9 @@ export function TradeChatCallHeaderButtons(props: {
   /** 서버가 이미 연결한 메신저 직통방이면 브리지 왕복 생략 */
   communityMessengerRoomId?: string | null;
   /**
-   * 거래 상대 닉네임(화면 헤더와 같은 값) — 발신 확인창·발신 화면 이름.
-   * 없으면 확인창은 「상대방」, 발신 화면은 서버 세션 닉네임 (대체 문구를 발신 이름으로 넘기지 않음).
+   * 거래 상대 실제 닉네임(`room.partnerDisplayName` — 프로필에서 온 값) — 발신 확인창·발신 화면 이름.
+   * F2 (2026-11-09 감사): `partnerNickname` 은 프로필이 없으면 회원 ID 앞 8자리라 쓰지 않는다.
+   * 없으면 확인창은 「상대방」, 발신 화면은 서버 세션 닉네임 (대체 문구·ID 조각을 발신 이름으로 넘기지 않음).
    */
   peerDisplayName?: string | null;
   onErrorMessage: (message: string) => void;

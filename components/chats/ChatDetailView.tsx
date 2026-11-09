@@ -2112,7 +2112,7 @@ export function ChatDetailView({
                     policy={tradeChatCallPolicyNormalized}
                     productChatRoomId={effectiveProductChatId}
                     communityMessengerRoomId={room.communityMessengerRoomId ?? null}
-                    peerDisplayName={room.partnerNickname ?? null}
+                    peerDisplayName={room.partnerDisplayName ?? null}
                     onErrorMessage={notifyMessengerTradeToast}
                   />
                 ) : null}

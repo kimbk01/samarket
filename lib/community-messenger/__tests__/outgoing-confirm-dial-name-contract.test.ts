@@ -34,6 +34,8 @@ describe("outgoing confirm dialog name = dial name", () => {
     expect(t).toContain('peerLabel={dialPeerLabel || t("common_partner")}');
     expect(t).toContain("peerLabel: dialPeerLabel || undefined");
     const v = src("components/chats/ChatDetailView.tsx");
-    expect(v).toContain("peerDisplayName={room.partnerNickname ?? null}");
+    expect(v).toContain("peerDisplayName={room.partnerDisplayName ?? null}");
+    /** F2: 프로필 없을 때 ID 조각(partnerNickname 대체값)을 발신 이름으로 쓰지 않는다 */
+    expect(v).not.toContain("peerDisplayName={room.partnerNickname");
   });
 });
