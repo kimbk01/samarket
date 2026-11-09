@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { startNativeConnectedSync } from "@/lib/call/native/native-connected-sync";
 import { startNativeTerminalSync } from "@/lib/call/native/native-terminal-sync";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { subscribeCallV4ProviderUserIdFill } from "@/lib/community-messenger/call-v4/call-v4-provider-user-id-fill";
 import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
 import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
 import {
@@ -353,15 +354,35 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     isLegacyWebCallEstablishmentRemoved() ||
     (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios");
 
+  /** D3: 인증 이벤트 처리기가 최신 값을 읽도록 */
+  const userIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
   useEffect(() => {
     if (!shouldMountCallV4Companion()) return;
     let cancelled = false;
     void getCurrentUserIdForDb().then((id) => {
-      if (!cancelled) setUserId(id);
+      /** D3: 로그인 이벤트로 먼저 채워졌으면 늦게 온 마운트 결과(null 포함)로 덮지 않는다. */
+      if (!cancelled) setUserId((prev) => prev ?? id);
     });
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  /**
+   * D3 (Owner 승인 2026-11-09): 로그인 완료가 새로고침 없이(router.replace) 이동해도 사용자 ID 를 채워
+   * 수신 탐지·종료 감시를 시작한다. 비어 있을 때만 1회 — 기존 ID 변경·해제 없음(진행 중 통화 보호, 헬퍼 주석 참조).
+   */
+  useEffect(() => {
+    if (!shouldMountCallV4Companion()) return;
+    return subscribeCallV4ProviderUserIdFill({
+      readCurrent: () => userIdRef.current,
+      resolveUserId: getCurrentUserIdForDb,
+      apply: (id) => setUserId((prev) => prev ?? id),
+    });
   }, []);
 
   useEffect(() => {
