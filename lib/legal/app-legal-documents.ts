@@ -6,9 +6,11 @@ import { catalogPair } from "@/lib/i18n/catalog-pair";/**
  * Consent required versions resolve from published ko CMS `version`
  * (see resolve-required-consent-versions); STORE_* is fallback only.
  * New CMS version string publish ⇒ member re-consent; same-version body edit does not.
+ * `store_partner_terms` = 매장 입점·수수료 약관 (사장님 서약, 2026-11-10) — 회원 동의·재동의 게이트와 무관.
+ *   회원 재동의(`required_consent_versions`)·회원가입 동의·내정보 정책 화면은 terms·privacy(·marketing) 만 다룬다.
  */
 
-export const APP_LEGAL_KINDS = ["terms", "privacy", "marketing"] as const;
+export const APP_LEGAL_KINDS = ["terms", "privacy", "marketing", "store_partner_terms"] as const;
 export type AppLegalKind = (typeof APP_LEGAL_KINDS)[number];
 
 export const APP_LEGAL_LOCALES = ["ko", "en"] as const;
@@ -37,7 +39,7 @@ export type AppLegalDocumentRow = {
 };
 
 export function isAppLegalKind(v: unknown): v is AppLegalKind {
-  return v === "terms" || v === "privacy" || v === "marketing";
+  return v === "terms" || v === "privacy" || v === "marketing" || v === "store_partner_terms";
 }
 
 /** 어드민 목록·폼 표시 이름. */
@@ -45,6 +47,7 @@ export const APP_LEGAL_KIND_LABEL: Record<AppLegalKind, { ko: string; en: string
   terms: catalogPair("legal_terms"),
   privacy: catalogPair("legal_privacy"),
   marketing: catalogPair("legal_benefits_events_consent_optional"),
+  store_partner_terms: catalogPair("store_partner_terms_kind_label"),
 };
 
 export function isAppLegalLocale(v: unknown): v is AppLegalLocale {

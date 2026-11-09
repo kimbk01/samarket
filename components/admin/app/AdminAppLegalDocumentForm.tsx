@@ -18,6 +18,7 @@ import {
   type AppLegalStatus,
 } from "@/lib/legal/app-legal-documents";
 import {
+  isPublishedTextFixedLegalKind,
   isRequiredConsentLegalKind,
   legalPublishNeedsConsentRequirement,
   type LegalConsentRequirement,
@@ -76,8 +77,8 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
   const [consentRequirement, setConsentRequirement] = useState<LegalConsentRequirement | "">("");
 
   const isPublished = loaded?.status === "published";
-  /** terms/privacy once published = a consent record: text and identity are fixed (republish only). */
-  const textLocked = Boolean(loaded?.published_at) && isRequiredConsentLegalKind(loaded?.kind);
+  /** terms/privacy·매장 입점 약관 once published = a signed record: text and identity are fixed (republish only). */
+  const textLocked = Boolean(loaded?.published_at) && isPublishedTextFixedLegalKind(loaded?.kind);
   const needsRequirement = !loaded?.published_at && legalPublishNeedsConsentRequirement(kind, locale);
 
   const loadAll = useCallback(async () => {
@@ -210,6 +211,8 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
     const consentLine =
       kind === "marketing"
         ? t("admin_app_optional_consent_signup_and_my_info")
+        : kind === "store_partner_terms"
+        ? t("admin_app_store_partner_terms_publish_line")
         : locale === "ko"
         ? reconsent
           ? t("admin_app_reconsent_required_line", {
@@ -291,6 +294,8 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
       description: isCurrent
         ? kind === "marketing"
           ? t("admin_app_this_is_benefits_events_consent_text")
+          : kind === "store_partner_terms"
+          ? t("admin_app_store_partner_terms_unpublish_current")
           : t("admin_app_this_is_document_currently_applied_to")
         : t("admin_app_removes_this_document_from_member_surface"),
       confirmLabel: t("admin_app_unpublish"),
@@ -391,6 +396,10 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           <p className="text-xs text-sam-meta" data-admin-legal-marketing-hint>
             {t("admin_app_title_optional_checkbox_on_signup_consent")}
           </p>
+        ) : kind === "store_partner_terms" ? (
+          <p className="text-xs text-sam-meta" data-admin-legal-store-partner-hint>
+            {t("admin_app_store_partner_terms_hint")}
+          </p>
         ) : null}
       </label>
 
@@ -419,7 +428,9 @@ export function AdminAppLegalDocumentForm({ documentId }: Props) {
           disabled={identityLocked}
           onChange={(e) => setVersion(e.target.value)}
         />
-        {kind === "marketing" ? null : <p className="text-xs text-sam-meta">
+        {kind === "marketing" ? null : kind === "store_partner_terms" ? (
+          <p className="text-xs text-sam-meta">{t("admin_app_store_partner_terms_version_hint")}</p>
+        ) : <p className="text-xs text-sam-meta">
           {safeT("admin_app_legal_version_reconsent_hint")}
         </p>}
       </label>

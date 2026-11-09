@@ -72,6 +72,8 @@ export const OwnerRoutes = {
   /** 매출 — 일별·월별 완료 매출 (PHT · 누적 없음, Owner 2026-11-03 §6-3) */
   sales: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/sales`, storeId),
   settlements: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/settlements`, storeId),
+  /** 매장 입점·수수료 계약 — 동의한 계약 목록·새 버전 재동의 (2026-11-10) */
+  partnerAgreement: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/partner-agreement`, storeId),
   products: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products`, storeId),
   productNew: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products/new`, storeId),
   productEdit: (productId: string, storeId?: string | null) =>

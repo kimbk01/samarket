@@ -19,6 +19,8 @@ export type AdminStoreReviewRow = {
   business_type: string | null;
   store_category_id?: string | null;
   store_topic_id?: string | null;
+  /** `stores.store_kind` (real · sample · legacy_test) — 입점 계약 칸은 실매장만 */
+  store_kind?: string | null;
   owner_can_edit_store_identity?: boolean;
   store_categories?: TaxonomyRelation | TaxonomyRelation[] | null;
   store_topics?: TaxonomyRelation | TaxonomyRelation[] | null;

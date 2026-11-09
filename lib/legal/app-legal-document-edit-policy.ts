@@ -10,6 +10,8 @@
  * - terms/privacy rows once published (published or unpublished later): kind / locale / version /
  *   title / body / effective_at / revision type are fixed — what members agreed to never changes.
  *   Only unpublish / republish. DB trigger `app_legal_documents_published_immutable` enforces the same.
+ * - store_partner_terms (매장 입점·수수료 약관, 2026-11-10): same as terms/privacy once published — owners
+ *   signed this exact text (`store_partner_agreements.body_sha256`). No member consent / revision type.
  * - marketing (optional consent): kind / locale / version / effective_at fixed once published;
  *   title/body edit under the same version only with explicit "no re-consent" confirmation
  *   (audit-logged with body hashes).
@@ -49,6 +51,14 @@ export function isLegalConsentRequirement(v: unknown): v is LegalConsentRequirem
 /** terms/privacy text is a consent record once published — never edited in place. */
 export function isRequiredConsentLegalKind(kind: string | null | undefined): boolean {
   return kind === "terms" || kind === "privacy";
+}
+
+/**
+ * Published text is a signed record — terms/privacy (member consent) and store_partner_terms (store owner pledge).
+ * Same kinds as the DB trigger `app_legal_documents_published_immutable`.
+ */
+export function isPublishedTextFixedLegalKind(kind: string | null | undefined): boolean {
+  return isRequiredConsentLegalKind(kind) || kind === "store_partner_terms";
 }
 
 /** The consent gate follows ko versions only — ko terms/privacy publishes choose a revision type. */
@@ -132,11 +142,11 @@ export function evaluateLegalDocumentPatch(
     if (nextTitle === current.title && nextBody === current.body) {
       return deny(400, "no_change", "변경된 내용이 없습니다.");
     }
-    if (isRequiredConsentLegalKind(current.kind)) {
+    if (isPublishedTextFixedLegalKind(current.kind)) {
       return deny(
         409,
         "published_text_immutable",
-        "게시된 이용약관·개인정보처리방침의 문구는 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.",
+        "게시된 약관의 문구는 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.",
       );
     }
     if (input.confirmNoReconsent !== true) {
@@ -156,8 +166,8 @@ export function evaluateLegalDocumentPatch(
   // draft
   if (input.action === "unpublish") return deny(409, "not_published", "게시 중인 문서가 아닙니다.");
 
-  // Unpublished terms/privacy that members may have agreed to: republish only, nothing else changes.
-  if (current.published_at && isRequiredConsentLegalKind(current.kind)) {
+  // Unpublished terms/privacy/store_partner_terms that someone may have agreed to: republish only, nothing else changes.
+  if (current.published_at && isPublishedTextFixedLegalKind(current.kind)) {
     const changed =
       (input.kind != null && input.kind !== current.kind) ||
       (input.locale != null && input.locale !== current.locale) ||
@@ -170,7 +180,7 @@ export function evaluateLegalDocumentPatch(
       return deny(
         409,
         "published_text_immutable",
-        "한 번 게시된 이용약관·개인정보처리방침은 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.",
+        "한 번 게시된 약관은 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.",
       );
     }
     if (input.status !== "published") return deny(400, "no_change", "변경된 내용이 없습니다.");

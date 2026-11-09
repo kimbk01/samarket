@@ -529,6 +529,8 @@ export function AdminStoresPage() {
                   ...(payload?.expected_core_info_changed_at !== undefined
                     ? { expected_core_info_changed_at: payload.expected_core_info_changed_at }
                     : {}),
+                  // 입점 계약 — 이 매장 무료 종료일 (set_launch_free_until)
+                  ...(payload?.free_until !== undefined ? { free_until: payload.free_until } : {}),
                 })
               }
               actionBusy={busyId === sheetStore.id || writeBlocked}

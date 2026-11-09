@@ -15,6 +15,20 @@ import {
 } from "@/lib/admin-business/admin-store-decision";
 import { ADMIN_REASON_REQUIRED_CODE } from "@/lib/admin/operator-ux/admin-reason";
 import { isAdminStorePatchAction } from "@/lib/admin-business/admin-store-patch-commands";
+import {
+  loadStoreKindForPartnerGate,
+  loadStoreLaunchFreeOverride,
+  runApproveStorePartnerGate,
+  upsertStoreLaunchFreePolicy,
+  type ApprovePartnerGateMeta,
+} from "@/lib/stores/partner/store-partner-agreement.server";
+import {
+  LAUNCH_FREE_POLICY_FAILED_ERROR,
+  LAUNCH_FREE_UNTIL_INVALID_ERROR,
+  LAUNCH_FREE_UNTIL_PAST_ERROR,
+  PARTNER_AGREEMENT_NOT_REAL_STORE_ERROR,
+} from "@/lib/stores/partner/store-partner-agreement-contract";
+import { manilaTodayYmd, normalizeFreeUntil } from "@/lib/delivery/launch/delivery-launch-contract";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
 import { normalizeStoreBusinessHoursJsonForWrite } from "@/lib/stores/owner-store-patch-fields";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -99,6 +113,8 @@ export type AdminStorePatchBody = {
   /** set_store_featured — 추천 기간 (ISO · null = 제한 없음). `enabled` 와 함께 보낸다. */
   featured_start_at?: string | null;
   featured_end_at?: string | null;
+  /** set_launch_free_until — 이 매장 무료 종료일 (YYYY-MM-DD, 필리핀 날짜 · 오늘 이후) */
+  free_until?: string | null;
 };
 
 /** DB 트리거 `store_sales_permissions_block_sample_approval` 예외 메시지 = 응답 오류 코드. */
@@ -128,6 +144,7 @@ export async function executeAdminStorePatchAction(input: {
     ADMIN_STORE_ACTIONS_REQUIRING_REASON.has(action) ||
     action === "approve_store" ||
     action === "approve_sales" ||
+    action === "set_launch_free_until" ||
     (action === "set_store_visible" && body.enabled === true);
   if (reasonRequired && (reason ?? "").length < ADMIN_STORE_REASON_MIN_LENGTH) {
     return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
@@ -153,7 +170,8 @@ export async function executeAdminStorePatchAction(input: {
 
   const auditOk = async (
     before: Record<string, unknown> | null,
-    after: Record<string, unknown>
+    after: Record<string, unknown>,
+    responseExtra?: Record<string, unknown>
   ) => {
     await appendAuditLog(sb, {
       actor_type: "admin",
@@ -177,7 +195,7 @@ export async function executeAdminStorePatchAction(input: {
     }
     // DEF-64 — 다른 서버리스 인스턴스의 매장 공개 캐시도 무효화 (Next cache tag 세대).
     bumpStorePublicSharedCacheGeneration(`admin_store.${action}`);
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...(responseExtra ?? {}) });
   };
 
   if (
@@ -259,6 +277,24 @@ export async function executeAdminStorePatchAction(input: {
       if (!menuCheck.ok) return NextResponse.json({ ok: false, error: menuCheck.error }, { status: 409 });
     }
 
+    /**
+     * 매장 입점 계약 게이트 (2026-11-10) — 승인 상태 변경 **전에**:
+     * 게시된 약관이 있으면 동의 기록 필수(409 partner_agreement_required), 무료 종료일이 남았으면
+     * 0% 매장 정책 생성 — 실패하면 승인하지 않는다(500 launch_free_policy_failed). 결과는 감사 after·응답 meta.
+     */
+    let partnerGate: ApprovePartnerGateMeta | null = null;
+    if (action === "approve_store") {
+      const gate = await runApproveStorePartnerGate(sb, {
+        storeId: id,
+        storeKind: await loadStoreKindForPartnerGate(sb, id),
+        actorId,
+      });
+      if (!gate.ok) {
+        return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+      }
+      partnerGate = gate.meta;
+    }
+
     // 상태 조건부 업데이트 — 동시 처리 시 다른 관리자의 결정을 덮어쓰지 않는다.
     const runTransitionUpdate = (rowPatch: Record<string, unknown>) =>
       sb
@@ -295,7 +331,71 @@ export async function executeAdminStorePatchAction(input: {
       reason,
       adminActorId: actorId,
     });
+    if (partnerGate) {
+      return auditOk(before, { ...patch, partner_gate: partnerGate }, { meta: { partner_gate: partnerGate } });
+    }
     return auditOk(before, patch);
+  }
+
+  if (action === "set_launch_free_until") {
+    if ((await loadStoreKindForPartnerGate(sb, id)) !== "real") {
+      return NextResponse.json({ ok: false, error: PARTNER_AGREEMENT_NOT_REAL_STORE_ERROR }, { status: 409 });
+    }
+    const freeUntil = normalizeFreeUntil(body.free_until);
+    if (!freeUntil) {
+      return NextResponse.json({ ok: false, error: LAUNCH_FREE_UNTIL_INVALID_ERROR }, { status: 400 });
+    }
+    // 지난 날짜는 정책 종료일에 반영되지 않는다(SQL skipped) — 화면 값과 정책이 어긋나지 않게 거부.
+    if (freeUntil < manilaTodayYmd()) {
+      return NextResponse.json({ ok: false, error: LAUNCH_FREE_UNTIL_PAST_ERROR }, { status: 400 });
+    }
+    const prev = await loadStoreLaunchFreeOverride(sb, id);
+    if (!prev.ok) return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    const { error: ovErr } = await sb.from("store_launch_free_overrides").upsert(
+      {
+        store_id: id,
+        free_until: freeUntil,
+        reason,
+        updated_by: actorId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "store_id" }
+    );
+    if (ovErr) {
+      console.error("[admin/stores PATCH set_launch_free_until]", ovErr.message);
+      if (/store_launch_free_overrides/.test(ovErr.message) && /does not exist|schema cache/i.test(ovErr.message)) {
+        return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
+      }
+      return NextResponse.json({ ok: false, error: "update_failed" }, { status: 500 });
+    }
+    const approved = String(store.approval_status ?? "") === "approved" || String(store.approval_status ?? "") === "suspended";
+    let policy: Awaited<ReturnType<typeof upsertStoreLaunchFreePolicy>> | null = null;
+    if (approved) {
+      policy = await upsertStoreLaunchFreePolicy(sb, { storeId: id, freeUntil, actorId });
+      if (!policy.ok) {
+        // 반쪽 상태 금지 — 정책 반영 실패면 저장한 무료 종료일을 이전 값으로 되돌린다.
+        const restore = prev.override
+          ? sb.from("store_launch_free_overrides").upsert(
+              {
+                store_id: id,
+                free_until: prev.override.freeUntil,
+                reason: prev.override.reason,
+                updated_by: prev.override.updatedBy,
+                updated_at: prev.override.updatedAt || new Date().toISOString(),
+              },
+              { onConflict: "store_id" }
+            )
+          : sb.from("store_launch_free_overrides").delete().eq("store_id", id);
+        const { error: restoreErr } = await restore;
+        if (restoreErr) console.error("[admin/stores PATCH set_launch_free_until] restore failed", restoreErr.message);
+        return NextResponse.json({ ok: false, error: LAUNCH_FREE_POLICY_FAILED_ERROR }, { status: 500 });
+      }
+    }
+    return auditOk(
+      { launch_free_until: prev.override?.freeUntil ?? null },
+      { launch_free_until: freeUntil, launch_free_policy: policy, applied_now: approved },
+      { meta: { launch_free_policy: policy, applied_now: approved } }
+    );
   }
 
   if (action === "confirm_core_info_reverified") {

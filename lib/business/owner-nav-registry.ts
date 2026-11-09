@@ -462,6 +462,19 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     access: "approved",
     surfaces: ["drawer", "manage_hub"],
   },
+  // 매장 입점·수수료 계약 (2026-11-10) — 심사 중·정지 매장도 열람·재동의 (상태 무관)
+  {
+    id: "partner_agreement",
+    group: "settlement",
+    parentId: "dashboard",
+    titleKey: "owner_partner_title",
+    descriptionKey: "owner_partner_desc",
+    href: (storeId) => OwnerRoutes.partnerAgreement(storeId),
+    activePrefixes: ["/partner-agreement"],
+    bottomTab: "manage",
+    access: "any",
+    surfaces: ["drawer", "manage_hub"],
+  },
   // 08 알림
   {
     id: "notifications",

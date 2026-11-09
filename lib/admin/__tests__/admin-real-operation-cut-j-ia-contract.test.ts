@@ -414,11 +414,12 @@ describe("CUT J IA separation hard lock", () => {
     // + 광고 원장 §5 (Owner 「설계안대로 진행」 2026-11-07): 공통 「충전·문의」 1 + 도메인 원장 별칭 5(배달·거래·커뮤니티·플랫폼 운영·내정보)
     //   + 배달 숨김 화면 별칭 3(운영 목록·Cash 충전 대기열·상품 가격) + Cash 충전 대기열 원래 leaf 1(숨김) = 250.
     // + 앱 홈 「홈 구성」 `/admin/menus/home-layout` (Owner 「구현 시작」 2026-11-09) = 251.
-    expect(leaves).toHaveLength(251);
+    // + 배달 매장 「입점 계약」 `/admin/stores/partner-agreements` (설계 v2 §4-5, 2026-11-10) = 252.
+    expect(leaves).toHaveLength(252);
     // 원래 메뉴 leaf = 203 − (`?from=` 진입점 3개[프로모션·마이페이지 배너, 배달 광고]가 별칭으로 바뀜) + 고객지원 보기 2개 = 202
     // + Apple 결제 검토 = 203 · + 광고 「충전·문의」·Cash 충전 대기열(숨김)(2026-11-07) = 205
-    // + 홈 구성 = 206
-    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(206);
+    // + 홈 구성 = 206 · + 입점 계약 = 207
+    expect(leaves.filter((l) => !l.entryAlias)).toHaveLength(207);
   });
 
   it("J21–J34 operational findability primary paths", () => {

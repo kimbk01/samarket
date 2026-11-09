@@ -47,7 +47,8 @@ describe("R2 메뉴 9그룹 — 드로어·PC 사이드바", () => {
     expect(ids("products").at(-1)).toBe("public_store");
     expect(ids("customers")).toEqual(["customer_care", "inquiries", "reviews", "customer_center"]);
     // 매출(일별·월별)이 정산 묶음 첫 줄 (Owner 2026-11-03 §6-3)
-    expect(ids("settlement")).toEqual(["sales", "settlements", "finance"]);
+    // 입점 계약(2026-11-10)은 정산 묶음 끝
+    expect(ids("settlement")).toEqual(["sales", "settlements", "finance", "partner_agreement"]);
   });
 
   it("관리 탭 메뉴(manage_hub)에도 이벤트 프로모션", () => {
