@@ -95,7 +95,8 @@ export function decideTradeWriteSheetReopen(
   if (cameFromGate) return "reopen";
   if (decision.kind !== "os_restore" && decision.kind !== "doc_reset") return "discard";
   if (!decision.envelope) return "discard";
-  if (marker.path !== decision.envelope.path) return "discard";
+  /** 복원 기록 경로에는 허용 쿼리(cm_list)가 붙을 수 있다 — 경로만 비교 */
+  if (marker.path !== (decision.envelope.path.split("?")[0] || decision.envelope.path)) return "discard";
   return "reopen";
 }
 

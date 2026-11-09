@@ -84,13 +84,14 @@ export function LifecycleRouteEffects(): null {
     const d = getAppEntryDecision();
     // Persist for next OS_RESTORE / DOC_RESET after we have a real surface
     if (d.kind === "user_cold" || d.kind === "os_restore" || d.kind === "doc_reset" || d.kind === "ambiguous") {
-      writeRestoreEnvelope(path, readLifecycleAccountKey());
+      /** 허용 쿼리(cm_list)만 함께 저장 — `buildRestoreEnvelopePath` */
+      writeRestoreEnvelope(`${path}${window.location.search}`, readLifecycleAccountKey());
     }
     const onVis = () => {
       if (document.visibilityState !== "hidden") return;
       const p = window.location.pathname.split("?")[0] || "/";
       if (p === "/" || p.startsWith("/auth") || p.startsWith("/login")) return;
-      writeRestoreEnvelope(p, readLifecycleAccountKey());
+      writeRestoreEnvelope(`${p}${window.location.search}`, readLifecycleAccountKey());
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);

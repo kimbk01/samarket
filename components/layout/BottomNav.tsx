@@ -149,6 +149,8 @@ export type BottomNavTabCommitOpts = {
     options?: BeginMenuNavigationOptions
   ) => void;
   onNavigationIntent: (tabId: string) => void;
+  /** 이동이 나가지 못했을 때 선택 표시 되돌리기 */
+  onNavigationBlocked?: () => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
   router: Pick<ReturnType<typeof useRouter>, "prefetch" | "push" | "replace">;
   onPrewarm?: () => void;
@@ -165,6 +167,7 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
     prefetchWhenInactive: !opts.isActive,
     beginMenuNavigation: opts.beginMenuNavigation,
     onNavigationIntent: opts.onNavigationIntent,
+    onNavigationBlocked: opts.onNavigationBlocked,
     guardBeforeNavigate: opts.guardBeforeNavigate,
     push: (href) => opts.router.push(href),
     replace: (href) => opts.router.replace(href),
@@ -778,17 +781,22 @@ export function BottomNav({
     }
   }, []);
 
+  /**
+   * 재감사(2026-11-10, Owner 승인): 선택 표시는 **이동이 끝날 때(pathname 변경) 또는 이동이 나가지 못할 때까지** 유지한다.
+   * 예전 1.5초 고정 되돌림은 이동이 느릴 때(RSC 대기·배포 직후 문서 이동 수 초 — D-1 로 이전 화면 유지) 탭을 누른 표시가
+   * 사라져 「무반응」처럼 보였다(Xiaomi 실측 11-10 06:48). 문서 이동이면 새 문서가 표시를 새로 그린다.
+   */
   const markBottomNavIntent = useCallback(
     (tabId: string) => {
       setPendingActiveTabId((prev) => (prev === tabId ? prev : tabId));
       clearPendingActiveReset();
-      pendingActiveResetTimerRef.current = window.setTimeout(() => {
-        pendingActiveResetTimerRef.current = null;
-        setPendingActiveTabId(null);
-      }, 1500);
     },
     [clearPendingActiveReset]
   );
+  const clearBottomNavIntent = useCallback(() => {
+    clearPendingActiveReset();
+    setPendingActiveTabId(null);
+  }, [clearPendingActiveReset]);
   /** 탭 클릭 인텐트 — 본문 슬라이드는 `route-transition-config` pathname 단일 소스 (`mainShellTabSlide` 미사용) */
   const beginBottomNavNavigation = useCallback(
     (href: string, source?: MenuNavigationSource, options?: BeginMenuNavigationOptions) => {
@@ -836,7 +844,7 @@ export function BottomNav({
       return;
     }
     const run = () => {
-      commitBottomNavTabRoute(commitOpts);
+      commitBottomNavTabRoute({ ...commitOpts, onNavigationBlocked: clearBottomNavIntent });
     };
     if (commitOpts.href.includes("/community-messenger")) {
       const boot = peekAppBootProfile();
@@ -856,7 +864,18 @@ export function BottomNav({
       return;
     }
     run();
-  }, []);
+  }, [clearBottomNavIntent]);
+
+  /** 이동 대기 0.3초 초과 시 하단 탭 위쪽 얇은 진행 표시 — 누른 뒤 이전 화면이 남아 있어도 반응을 보인다(재감사 2026-11-10). */
+  const [showPendingProgress, setShowPendingProgress] = useState(false);
+  useEffect(() => {
+    if (pendingActiveTabId == null) {
+      setShowPendingProgress(false);
+      return;
+    }
+    const id = window.setTimeout(() => setShowPendingProgress(true), 300);
+    return () => window.clearTimeout(id);
+  }, [pendingActiveTabId]);
 
   const effectiveOuterExtra = extraOuterClassName;
 
@@ -971,6 +990,9 @@ export function BottomNav({
       inert={inert || undefined}
     >
       <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
+        {showPendingProgress ? (
+          <div aria-hidden data-bottom-nav-pending-progress="" className="app-bottom-nav-pending-progress" />
+        ) : null}
         <div
           className={BOTTOM_NAV_SHELL.containerClassName}
           data-tab-count={displayTabs.length}

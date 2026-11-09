@@ -100,6 +100,11 @@ export type MainBottomNavRouteCommitArgs = {
   persistMessengerOriginFromHref?: boolean;
   /** perf 마커 — 다이얼은 overlay에서 click start 후 호출 가능 */
   skipPerfMark?: boolean;
+  /**
+   * 이동이 실제로 나가지 못했을 때(deep route 잠금 등 `guardedClientNavigate` 거부) — 하단 탭 선택 표시 되돌리기용.
+   * 재감사(2026-11-10): 선택 표시를 1.5초 고정 시간으로 되돌리지 않고 「이동 완료 또는 실패」에서만 되돌린다.
+   */
+  onNavigationBlocked?: () => void;
 };
 
 export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "navigated";
@@ -191,11 +196,10 @@ function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs
   }
   /** deep route 진입 창 — hub 탭이 lock 을 bottom_nav_explicit 로 덮지 않게 */
   const navSource = isDeepRouteNavigationLockActive() ? "bottom_nav_async" : "bottom_nav_explicit";
-  if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {
-    guardedClientNavigate(args.replace, args.href, navSource, { fromHref });
-  } else {
-    guardedClientNavigate(args.push, args.href, navSource, { fromHref });
-  }
+  const sent = mainBottomNavRouteUsesReplace(args.pathname, args.href)
+    ? guardedClientNavigate(args.replace, args.href, navSource, { fromHref })
+    : guardedClientNavigate(args.push, args.href, navSource, { fromHref });
+  if (!sent) args.onNavigationBlocked?.();
 
   args.onCloseOverlay?.();
 

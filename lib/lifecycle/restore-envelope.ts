@@ -162,13 +162,37 @@ export function validateRestoreEnvelope(
   return { ok: true, envelope };
 }
 
+/**
+ * 복원 기록에 함께 저장해도 되는 쿼리 키 — **허용 목록만**(Lifecycle SSOT §4.4 보완, Owner 승인 2026-11-10).
+ * `cm_list`: 메신저 분할 화면 왼쪽 목록 범위(주문채팅 등). 없으면 콜드 복원 뒤 「대화」 기본 목록으로 돌아간다.
+ * 푸시 진입 표식·결제 콜백 같은 1회용 쿼리는 다시 실행되면 안 되므로 넣지 않는다.
+ */
+export const RESTORE_ENVELOPE_ALLOWED_QUERY_KEYS = ["cm_list"] as const;
+
+/** `/a/b?x=1&cm_list=delivery#h` → `/a/b?cm_list=delivery` (허용 키만, 순서 유지) */
+export function buildRestoreEnvelopePath(pathWithSearch: string): string {
+  const raw = pathWithSearch.trim();
+  const noHash = raw.split("#")[0] ?? raw;
+  const qIndex = noHash.indexOf("?");
+  const pathOnly = (qIndex >= 0 ? noHash.slice(0, qIndex) : noHash) || raw;
+  const normalized = pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
+  if (qIndex < 0) return normalized;
+  const src = new URLSearchParams(noHash.slice(qIndex + 1));
+  const kept = new URLSearchParams();
+  for (const key of RESTORE_ENVELOPE_ALLOWED_QUERY_KEYS) {
+    const v = src.get(key);
+    if (v != null && v !== "") kept.set(key, v);
+  }
+  const qs = kept.toString();
+  return qs ? `${normalized}?${qs}` : normalized;
+}
+
 export function writeRestoreEnvelope(path: string, accountKey: string = readLifecycleAccountKey()): boolean {
   if (typeof window === "undefined") return false;
   if (!isUsableRestorePath(path)) return false;
-  const pathOnly = path.trim().split(/[?#]/)[0] || path.trim();
   const row: RestoreEnvelope = {
     schema: RESTORE_ENVELOPE_SCHEMA,
-    path: pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`,
+    path: buildRestoreEnvelopePath(path),
     accountKey: accountKey || RESTORE_ACCOUNT_GUEST,
     writtenAt: Date.now(),
   };
