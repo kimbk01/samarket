@@ -89,7 +89,7 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
                 {" · "}
                 {new Date(m.created_at).toLocaleString(locale)}
               </p>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm text-sam-fg">{m.body}</p>
+              <p data-user-content="" className="mt-1 whitespace-pre-wrap break-words text-sm text-sam-fg">{m.body}</p>
             </li>
           ))
         )}

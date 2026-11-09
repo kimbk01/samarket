@@ -1234,7 +1234,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </div>
                       ) : vm.privateGroupNotice ? (
                         <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="whitespace-pre-wrap sam-text-body-secondary leading-5 text-sam-fg">{vm.privateGroupNotice}</p>
+                          <p data-user-content="" className="whitespace-pre-wrap sam-text-body-secondary leading-5 text-sam-fg">{vm.privateGroupNotice}</p>
                         </div>
                       ) : (
                         <div className="mt-3 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-4 sam-text-helper text-sam-muted">

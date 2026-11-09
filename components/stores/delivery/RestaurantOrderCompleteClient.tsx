@@ -113,7 +113,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             <dl className="mt-6 space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-sam-muted">{t("store_order_number")}</dt>
-                <dd className="font-mono font-semibold">{o.order_no}</dd>
+                <dd data-copyable="" className="font-mono font-semibold">{o.order_no}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-sam-muted">{t("store_order_vendor")}</dt>

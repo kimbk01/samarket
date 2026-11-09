@@ -325,6 +325,27 @@ svg {
     -webkit-user-select: none;
     user-select: none;
   }
+
+  /**
+   * 화면 글자 길게 누르기 = 네이티브 앱처럼 선택 안 됨 (Owner 「권장안대로 구현」 2026-11-09).
+   * 복사가 필요한 곳만 허용: 회원이 쓴 글·채팅·약관(`data-user-content`), 번호·주소·아이디(`data-copyable`),
+   * 입력창·편집기, 관리자 화면(`data-admin`). 하위 버튼·링크는 위 규칙(선택 안 됨)이 그대로 이긴다.
+   */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable="false"]),
+  [data-user-content],
+  [data-copyable],
+  [data-admin] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 a,

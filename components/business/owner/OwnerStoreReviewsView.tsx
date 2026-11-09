@@ -202,7 +202,7 @@ export function OwnerStoreReviewsView() {
               <p className="sam-text-helper text-sam-muted">{new Date(r.created_at).toLocaleDateString(dateLocale)}</p>
             </div>
             <p className="mt-1 sam-text-body-secondary text-sam-warning">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
-            <p className="mt-1 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">{r.content}</p>
+            <p data-user-content="" className="mt-1 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">{r.content}</p>
             <p className="mt-1 sam-text-helper text-sam-muted">
               {r.order_no?.trim()
                 ? t("owner_s4_review_meta", {

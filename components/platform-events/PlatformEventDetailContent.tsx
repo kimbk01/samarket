@@ -139,6 +139,7 @@ export function PlatformEventDetailContent({
 
   return (
     <article
+      data-user-content=""
       className="mx-auto w-full max-w-[720px] space-y-5 px-4 pb-10 pt-2"
       data-platform-event-detail="1"
       data-event-id={event.id}

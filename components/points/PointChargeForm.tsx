@@ -326,7 +326,7 @@ export function PointChargeForm({
               >
                 <p className="font-semibold">{t("points_ui_deposit_guide_title")}</p>
                 <p>{t("points_ui_deposit_guide_body")}</p>
-                <p className="mt-1 break-all font-mono">{t("points_ui_deposit_account")}</p>
+                <p data-copyable="" className="mt-1 break-all font-mono">{t("points_ui_deposit_account")}</p>
               </div>
               <input
                 type="text"

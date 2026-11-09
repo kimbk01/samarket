@@ -247,12 +247,12 @@ export function OwnerStoreInquiriesView() {
                 <span className="font-mono sam-text-xxs">{r.from_user_id}</span>
               </p>
               <p className="mt-1 text-sm font-semibold text-sam-fg">{r.subject}</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
+              <p data-user-content="" className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.created_at, language)}</p>
               {r.answer ? (
                 <div className="mt-2 rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
                   <span className="text-xs text-sam-muted">{t("business_phase7_043")}</span>
-                  <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
+                  <p data-user-content="" className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                 </div>
               ) : null}
               {r.status === "open" || r.status === "answered" ? (

@@ -35,7 +35,7 @@ export function StoreOrderDeliveryAddressDisplay(props: {
   const phCardLine = gatePrefix && streetBody;
 
   return (
-    <div className={className}>
+    <div data-copyable="" className={className}>
       <div className={`flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
         <AddressKindHeadPin kind="general" className="pt-0.5" />
         <div className="min-w-0 flex-1">

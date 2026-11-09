@@ -325,6 +325,7 @@ export function CommunityCommentItem({
             </div>
           ) : (
             <p
+              data-user-content=""
               className={`mt-1 break-words [overflow-wrap:anywhere] ${CM_COMMENT_BODY_CLASS} ${
                 isDeleted ? "text-[var(--cm-text-muted)]" : ""
               }`}

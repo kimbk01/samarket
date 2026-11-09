@@ -292,7 +292,7 @@ export function SupportTriageFlow({
                 <h3 className="text-[16px] font-semibold text-[var(--overlay-text)]">
                   {state.guidance.title}
                 </h3>
-                <p className={`${OverlayUi.body} whitespace-pre-wrap`}>{state.guidance.body}</p>
+                <p data-user-content="" className={`${OverlayUi.body} whitespace-pre-wrap`}>{state.guidance.body}</p>
                 {ctaValidated?.ok &&
                 ctaValidated.kind === "INTERNAL_ROUTE" &&
                 ctaValidated.target ? (

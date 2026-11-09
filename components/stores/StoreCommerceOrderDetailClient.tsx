@@ -171,7 +171,7 @@ export function StoreCommerceOrderDetailClient({
         </HistoryBackTextLink>
       </div>
       <h1 className="text-lg font-bold text-sam-fg">{t("store_order_detail_title")}</h1>
-      <p className="mt-1 font-mono text-sm text-sam-muted">{order.order_no}</p>
+      <p data-copyable="" className="mt-1 font-mono text-sm text-sam-muted">{order.order_no}</p>
       <p className="mt-1 text-xs text-sam-muted">
         {t("store_order_status_line", { status: statusLabel, fulfillment: fulfillmentLabel })}
       </p>

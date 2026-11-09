@@ -536,7 +536,7 @@ function BuyerOpsStatusCard({
     <section className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold leading-[1.35] text-white/75">
+          <p data-copyable="" className="text-[11px] font-semibold leading-[1.35] text-white/75">
             {order.order_no ?? t("store_owner_order_fallback")}
           </p>
           <p className="mt-0.5 text-[15px] font-bold leading-[1.35]">{statusLabel || t("store_messenger_order_in_progress")}</p>

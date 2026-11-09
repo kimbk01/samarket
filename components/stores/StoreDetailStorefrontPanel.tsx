@@ -194,7 +194,7 @@ export function StoreDetailStorefrontPanel({
             <DetailRow label={t("store_delivery_hours_label")}>{deliveryHoursDisp}</DetailRow>
           ) : null}
           <DetailRow label={t("store_payment_methods_label")}>
-            <span className="whitespace-pre-wrap break-words">{payFull}</span>
+            <span data-user-content="" className="whitespace-pre-wrap break-words">{payFull}</span>
           </DetailRow>
           <DetailRow label={t("store_prep_time_store_basis")}>{commerceExtras.estPrepLabel}</DetailRow>
           {deliveryAvailable ? (
@@ -220,7 +220,7 @@ export function StoreDetailStorefrontPanel({
 
           <StorePublicNoticesList lines={deliveryMeta.publicNotices} className="mt-3" />
           {deliveryMeta.deliveryNotice.trim() ? (
-            <p className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-2.5 py-2 sam-text-xxs leading-relaxed whitespace-pre-wrap text-sam-muted">
+            <p data-user-content="" className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-2.5 py-2 sam-text-xxs leading-relaxed whitespace-pre-wrap text-sam-muted">
               <span className="font-semibold text-sam-fg">{t("store_delivery_guide")}</span>
               <br />
               {deliveryMeta.deliveryNotice}

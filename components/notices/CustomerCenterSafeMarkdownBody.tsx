@@ -37,7 +37,7 @@ export function CustomerCenterSafeMarkdownBody({ body }: { body: string }) {
     return <p className="sam-text-body text-sam-muted">—</p>;
   }
   return (
-    <div className="space-y-3 break-words text-[14px] leading-relaxed text-[#1A2E24] [overflow-wrap:anywhere]">
+    <div data-user-content="" className="space-y-3 break-words text-[14px] leading-relaxed text-[#1A2E24] [overflow-wrap:anywhere]">
       {blocks.map((b, idx) => {
         const key = `${b.type}-${idx}`;
         if (b.type === "h2") {

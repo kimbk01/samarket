@@ -424,7 +424,7 @@ export function StoreDetailInfoPublic({
             <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft py-3.5">
               <dt className="w-full sam-text-body-secondary text-sam-meta sm:w-[100px] sm:shrink-0">{t("store_phone_number")}</dt>
               <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <span className="sam-text-body font-medium text-sam-fg">
+                <span data-copyable="" className="sam-text-body font-medium text-sam-fg">
                   {(() => {
                     const d = parsePhMobileInput(store.phone ?? "");
                     return d.length === 11 ? formatPhMobileDisplay(d) : (store.phone ?? "");
@@ -449,7 +449,7 @@ export function StoreDetailInfoPublic({
                   <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
                     {t("store_public_address_detail_label")}
                   </span>
-                  <span className="min-w-0">
+                  <span data-copyable="" className="min-w-0">
                     {addressDetailOnly ? addressDetailOnly : "—"}
                   </span>
                 </div>
@@ -457,7 +457,7 @@ export function StoreDetailInfoPublic({
                   <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
                     {t("store_public_address_street_label")}
                   </span>
-                  <span className="min-w-0">
+                  <span data-copyable="" className="min-w-0">
                     {addressStreetDisplay ? addressStreetDisplay : "—"}
                   </span>
                 </div>
@@ -544,7 +544,7 @@ export function StoreDetailInfoPublic({
           {deliveryMeta.deliveryNotice ? (
             <div className="border-b border-sam-border-soft py-3.5">
               <dt className="sam-text-body-secondary text-sam-meta">{t("store_delivery_region_guide")}</dt>
-              <dd className="mt-2 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
+              <dd data-user-content="" className="mt-2 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
                 {deliveryMeta.deliveryNotice}
               </dd>
             </div>
@@ -564,7 +564,7 @@ export function StoreDetailInfoPublic({
         <h3 className="sam-text-body-lg font-bold text-sam-fg">{t("store_intro_benefits_title")}</h3>
         <StorePublicNoticesList lines={deliveryMeta.publicNotices} className="mt-3" />
         {store.description?.trim() ? (
-          <p className="mt-3 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
+          <p data-user-content="" className="mt-3 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
             {store.description.trim()}
           </p>
         ) : deliveryMeta.publicNotices.length === 0 ? (

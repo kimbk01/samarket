@@ -86,7 +86,7 @@ export function GroupBlockedMembersSection({ roomId, canManage }: GroupBlockedMe
                   {ban.userLabel || ban.username || ban.userId.slice(0, 8)}
                 </p>
                 {ban.username ? (
-                  <p className="sam-text-helper text-sam-muted">@{ban.username}</p>
+                  <p data-copyable="" className="sam-text-helper text-sam-muted">@{ban.username}</p>
                 ) : null}
                 <p className="mt-1 sam-text-helper text-sam-muted">
                   {ban.bannedAt

@@ -123,7 +123,7 @@ export function TradeShowcaseSheet({ item, onClose }: { item: TradeShowcaseItem 
             {t("trade_showcase_sheet_note")}
           </p>
           {item.description ? (
-            <p className="whitespace-pre-line text-[length:var(--overlay-body-2-size)] leading-6 text-[color:var(--overlay-text-primary)]">{item.description}</p>
+            <p data-user-content="" className="whitespace-pre-line text-[length:var(--overlay-body-2-size)] leading-6 text-[color:var(--overlay-text-primary)]">{item.description}</p>
           ) : null}
           <Link
             href="/market/sell"

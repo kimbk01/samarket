@@ -276,7 +276,7 @@ export function StoreOrderSellerOrderPanel({
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
       ) : orderSnap ? (
-        <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
+        <pre data-user-content="" className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
         </pre>
       ) : null}
@@ -290,7 +290,7 @@ export function StoreOrderSellerOrderPanel({
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
       ) : orderSnap ? (
-        <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
+        <pre data-user-content="" className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
         </pre>
       ) : null}

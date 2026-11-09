@@ -552,6 +552,7 @@ export function StoreReviewsSection({
                 </div>
               ) : null}
               <p
+                data-user-content=""
                 className="mt-2 whitespace-pre-wrap text-[13px] font-normal leading-relaxed"
                 style={{ color: STORE_ORDER_BRAND.title }}
               >
@@ -591,6 +592,7 @@ export function StoreReviewsSection({
                     {t("store_owner_reply")}
                   </p>
                   <p
+                    data-user-content=""
                     className="mt-1 whitespace-pre-wrap text-[13px] leading-snug"
                     style={{ color: STORE_ORDER_BRAND.secondary }}
                   >
@@ -725,7 +727,7 @@ export function StoreReviewsSection({
             ) : null}
 
             {/* 리뷰 본문 */}
-            <p className={`mt-1.5 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>
+            <p data-user-content="" className={`mt-1.5 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>
               {r.content}
             </p>
 
@@ -758,7 +760,7 @@ export function StoreReviewsSection({
             {r.owner_reply_content?.trim() ? (
               <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2">
                 <p className={`font-semibold text-sam-fg ${Sam.text.helper}`}>{t("store_owner_reply")}</p>
-                <p className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.bodySecondary}`}>
+                <p data-user-content="" className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.bodySecondary}`}>
                   {r.owner_reply_content.trim()}
                 </p>
                 {r.owner_reply_created_at ? (

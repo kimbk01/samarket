@@ -79,7 +79,7 @@ export function ConsentLegalDocSheet({ open, kind, onClose }: Props) {
         </button>
       }
     >
-      <div className="space-y-3 px-1 pb-2" data-testid="consent-legal-doc-sheet">
+      <div className="space-y-3 px-1 pb-2" data-testid="consent-legal-doc-sheet" data-user-content="">
         {version ? <p className="text-[12px] text-sam-meta">{version}</p> : null}
         {loading ? <p className="text-[14px] text-sam-muted">{t("common_loading")}</p> : null}
         {error ? (

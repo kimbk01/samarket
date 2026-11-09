@@ -509,7 +509,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             <p className="sam-text-body font-semibold text-sam-fg">
               {seed.store_name || t("mypage_comp_store_fallback_name")}
             </p>
-            <span className="text-xs text-sam-meta">{seed.order_no}</span>
+            <span data-copyable="" className="text-xs text-sam-meta">{seed.order_no}</span>
           </div>
           <p className="mt-3 sam-text-helper text-sam-fg">
             {storeOrderSeedStatusLabel(seed, language, t("mypage_oa_order_status_neutral"))} ·{" "}
@@ -691,7 +691,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               <p className="truncate sam-text-body font-bold text-sam-fg">
                 {order.store_name || t("mypage_comp_store_fallback_name")}
               </p>
-              <p className="mt-0.5 text-xs font-semibold text-sam-muted">{order.order_no}</p>
+              <p data-copyable="" className="mt-0.5 text-xs font-semibold text-sam-muted">{order.order_no}</p>
             </div>
           </div>
         </div>
@@ -872,7 +872,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               <p className="sam-text-body-secondary text-sam-muted">{t("mypage_comp_pickup_instruction")}</p>
               {order.store_pickup_address_lines && order.store_pickup_address_lines.length > 0 ? (
                 order.store_pickup_address_lines.map((line, i) => (
-                  <p key={i} className={i === 0 ? "font-medium text-sam-fg" : "sam-text-body-secondary text-sam-fg"}>
+                  <p key={i} data-copyable="" className={i === 0 ? "font-medium text-sam-fg" : "sam-text-body-secondary text-sam-fg"}>
                     {line}
                   </p>
                 ))

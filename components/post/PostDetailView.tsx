@@ -1461,7 +1461,7 @@ export function PostDetailView({
                       : /** 거래 J D-2: 가격 없는 글은 빈 줄 대신 「가격 문의」 */ t("trade_detail_price_inquiry")}
                 </p>
               ) : null}
-              <h2 data-ui5-slot="title" className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>
+              <h2 data-ui5-slot="title" data-user-content="" className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>
                 {detailHeroTitle}
               </h2>
             </>
@@ -1580,7 +1580,7 @@ export function PostDetailView({
 
         <section data-ui5-slot="description" className={TRADE_WRITE_FB_SECTION}>
           <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{descriptionHeading}</h3>
-          <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{descriptionBody || (isJobsSpec ? "—" : "")}</p>
+          <p data-user-content="" className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{descriptionBody || (isJobsSpec ? "—" : "")}</p>
           {detailFooterMetaParts.length > 0 ? (
             <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{detailFooterMetaParts.join(" · ")}</p>
           ) : null}

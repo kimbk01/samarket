@@ -38,7 +38,7 @@ export function StoreBaeminProductDetailInfo({
       </h1>
 
       {summary?.trim() ? (
-        <p className="mt-2 text-[13px] font-medium leading-relaxed text-sam-muted">{summary.trim()}</p>
+        <p data-user-content="" className="mt-2 text-[13px] font-medium leading-relaxed text-sam-muted">{summary.trim()}</p>
       ) : null}
     </div>
   );

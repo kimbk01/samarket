@@ -340,11 +340,11 @@ export function ChatMessageList({
                                 <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
                               ) : null}
                               {text ? (
-                                <p className={`mt-1.5 whitespace-pre-wrap break-words ${opponentText}`}>{text}</p>
+                                <p data-user-content="" className={`mt-1.5 whitespace-pre-wrap break-words ${opponentText}`}>{text}</p>
                               ) : null}
                             </div>
                           ) : (
-                            <p className={`whitespace-pre-wrap break-words ${opponentText}`}>{text || " "}</p>
+                            <p data-user-content="" className={`whitespace-pre-wrap break-words ${opponentText}`}>{text || " "}</p>
                           )}
                         </div>
                       )}
@@ -417,11 +417,11 @@ export function ChatMessageList({
                               <img src={msg.imageUrl} alt="" className="max-h-60 w-full object-cover" />
                             ) : null}
                             {text ? (
-                              <p className={`mt-1.5 whitespace-pre-wrap break-words ${mineText}`}>{text}</p>
+                              <p data-user-content="" className={`mt-1.5 whitespace-pre-wrap break-words ${mineText}`}>{text}</p>
                             ) : null}
                           </div>
                         ) : (
-                          <p className={`whitespace-pre-wrap break-words ${mineText}`}>{text || " "}</p>
+                          <p data-user-content="" className={`whitespace-pre-wrap break-words ${mineText}`}>{text || " "}</p>
                         )}
                       </div>
                     )}

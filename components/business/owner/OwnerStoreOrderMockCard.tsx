@@ -390,7 +390,7 @@ export function OwnerStoreOrderMockCard({
                   </span>
                 ) : null}
               </div>
-              <p className="mt-2 text-[12px] font-semibold leading-[1.35] text-sam-muted">{order.order_no}</p>
+              <p data-copyable="" className="mt-2 text-[12px] font-semibold leading-[1.35] text-sam-muted">{order.order_no}</p>
               <p className="mt-1 truncate text-[15px] font-bold leading-[1.35] text-[var(--biz-text)]">
                 {buyerLabel}
               </p>
@@ -531,7 +531,7 @@ export function OwnerStoreOrderMockCard({
             </OwnerOpsSection>
 
             <OwnerOpsSection title={t("store_request_note")}>
-              <p className="text-[13px] leading-[1.45] text-[var(--biz-text)]">
+              <p data-user-content="" className="text-[13px] leading-[1.45] text-[var(--biz-text)]">
                 {order.buyer_note?.trim() || t("store_owner_no_request_note")}
               </p>
             </OwnerOpsSection>

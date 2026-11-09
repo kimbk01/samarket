@@ -15,7 +15,7 @@ export function StorePublicNoticesList({ lines, className = "" }: Props) {
   const { t } = useI18n();
   if (!lines.length) return null;
   return (
-    <div className={["flex flex-col gap-2", className].filter(Boolean).join(" ")}>
+    <div data-user-content="" className={["flex flex-col gap-2", className].filter(Boolean).join(" ")}>
       {lines.map((text, i) => (
         <div
           key={i}

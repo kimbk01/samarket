@@ -115,7 +115,7 @@ export function LegalDocumentPageClient({
     displayTitle.trim().toLocaleLowerCase() !== headerTitle.trim().toLocaleLowerCase();
 
   return (
-    <div className="mx-auto min-h-screen max-w-3xl px-4 py-8" data-legal-kind={kind}>
+    <div className="mx-auto min-h-screen max-w-3xl px-4 py-8" data-legal-kind={kind} data-user-content="">
       {showDocumentTitle ? <h1 className="text-2xl font-semibold text-sam-fg">{displayTitle}</h1> : null}
       {version ? (
         <p className={`${showDocumentTitle ? "mt-2" : ""} text-xs text-sam-meta`}>

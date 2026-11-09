@@ -42,7 +42,7 @@ export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) 
           {view.storeName}
         </p>
         {view.orderNo && !compact ?
-          <p className="mt-0.5 font-mono text-[10px] text-[color:var(--delivery-text-muted)]">
+          <p data-copyable="" className="mt-0.5 font-mono text-[10px] text-[color:var(--delivery-text-muted)]">
             {t("store_messenger_receipt_order_line", { orderNo: view.orderNo })}
           </p>
         : null}

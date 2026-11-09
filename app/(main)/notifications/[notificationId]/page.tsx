@@ -403,7 +403,7 @@ export default function NotificationDetailPage() {
                   </dl>
                 ) : null}
                 {resolveNotificationInboxBody(language, row) ? (
-                  <div className="whitespace-pre-wrap break-words border-t border-sam-border px-4 py-4 text-[16px] leading-[1.75] text-sam-fg">
+                  <div data-user-content="" className="whitespace-pre-wrap break-words border-t border-sam-border px-4 py-4 text-[16px] leading-[1.75] text-sam-fg">
                     {resolveNotificationInboxBody(language, row)}
                   </div>
                 ) : null}

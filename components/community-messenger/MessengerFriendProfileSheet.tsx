@@ -295,7 +295,7 @@ export function MessengerFriendProfileSheet({
               data-cm-friend-profile-status=""
             >
               <span className={`block ${OverlayUi.caption}`}>{t("cm_profile_status_label")}</span>
-              <p className={`line-clamp-3 whitespace-pre-line break-words ${OverlayUi.bodySecondary}`} style={{ color: "var(--overlay-text-primary)" }}>
+              <p data-user-content="" className={`line-clamp-3 whitespace-pre-line break-words ${OverlayUi.bodySecondary}`} style={{ color: "var(--overlay-text-primary)" }}>
                 {statusMessage}
               </p>
             </div>

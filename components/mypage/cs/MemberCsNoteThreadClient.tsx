@@ -118,7 +118,7 @@ export function MemberCsNoteThreadClient({
                     {" · "}
                     {formatMypageDate(m.created_at, { style: "datetime" })}
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{m.body}</p>
+                  <p data-user-content="" className="mt-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{m.body}</p>
                 </li>
               ))}
             </ul>

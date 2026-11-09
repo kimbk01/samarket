@@ -111,7 +111,7 @@ export function StoreCouponCustomerCard({
               </p>
             ) : null}
             {card.orderNo ? (
-              <p className="text-xs text-sam-muted">{t("store_coupon_wallet_order", { orderNo: card.orderNo })}</p>
+              <p data-copyable="" className="text-xs text-sam-muted">{t("store_coupon_wallet_order", { orderNo: card.orderNo })}</p>
             ) : null}
             {showNumber ? (
               <p className="mt-2 text-xs font-medium text-sam-fg" data-coupon-face-number="1">

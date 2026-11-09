@@ -53,7 +53,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
             </span>
           </p>
           {username ? (
-            <p className="truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+            <p data-copyable="" className="truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
               {username.startsWith("@") ? username : `@${username}`}
             </p>
           ) : null}

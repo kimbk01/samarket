@@ -181,7 +181,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
   return (
     <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-6 max-w-lg mx-auto space-y-6`}>
       <header className="flex items-center justify-between gap-2">
-        <h1 className={Sam.text.pageTitle}>{String(ord.order_no ?? oid.slice(0, 8))}</h1>
+        <h1 data-copyable="" className={Sam.text.pageTitle}>{String(ord.order_no ?? oid.slice(0, 8))}</h1>
         <Link href="/rider/orders" className={`${Sam.btn.secondary} text-sm`}>
           {t("ui_rider_list_label")}
         </Link>
@@ -202,7 +202,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-sam-muted shrink-0">{t("ui_rider_delivery_address")}</span>
-          <span className="text-right text-sam-fg text-xs">
+          <span data-copyable="" className="text-right text-sam-fg text-xs">
             {formatStoreOrderDeliveryAddressPlain({
               summary:
                 typeof ord.delivery_address_summary === "string" ? ord.delivery_address_summary : null,

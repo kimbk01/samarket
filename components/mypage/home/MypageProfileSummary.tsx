@@ -93,7 +93,7 @@ export function MypageProfileSummary({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[16px] font-semibold text-sam-fg">{name}</span>
           {projection.username ? (
-            <span className="mt-0.5 block truncate text-[13px] text-sam-primary">{projection.username}</span>
+            <span data-copyable="" className="mt-0.5 block truncate text-[13px] text-sam-primary">{projection.username}</span>
           ) : null}
           <span className="mt-1 block truncate text-[13px] leading-snug text-sam-muted">{bio}</span>
         </span>

@@ -259,7 +259,7 @@ function BuyerContactLine({ phone }: { phone: string }) {
       <p className="text-[11px] font-semibold uppercase text-[color:var(--sol-panel-muted)]">
         {t("mypage_comp_buyer_contact_heading")}
       </p>
-      <p className="mt-1 text-sm text-[color:var(--sol-panel-fg)]">
+      <p data-copyable="" className="mt-1 text-sm text-[color:var(--sol-panel-fg)]">
         {href ? (
           <a href={href} className="font-semibold text-signature underline">
             {label}

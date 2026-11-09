@@ -204,7 +204,7 @@ export function PostCommunityCommentsSection({
                 {atUsername}
               </p>
             ) : null}
-            <p className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>{c.content}</p>
+            <p data-user-content="" className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>{c.content}</p>
             <p className={`mt-1 text-sam-meta ${Sam.text.xxs}`}>{formatTimeAgo(c.created_at)}</p>
           </div>
           <div className="flex shrink-0 flex-col gap-1">

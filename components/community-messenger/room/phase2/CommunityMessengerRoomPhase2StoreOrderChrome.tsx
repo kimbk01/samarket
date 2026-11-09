@@ -387,7 +387,7 @@ function DeliveryChromeStrip({
       <div>
         <div className="mb-1.5 flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold leading-[1.35] text-[color:var(--delivery-text-muted)]">
+            <p data-copyable="" className="truncate text-[11px] font-semibold leading-[1.35] text-[color:var(--delivery-text-muted)]">
               {orderNo}
             </p>
             <p className="mt-0.5 truncate text-[13px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">

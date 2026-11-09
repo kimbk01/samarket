@@ -205,11 +205,11 @@ export function MyStoreInquiriesView() {
             </button>
             {open ? (
               <div className="border-t border-sam-border-soft px-4 py-3">
-                <p className="whitespace-pre-wrap text-sm text-sam-muted">{r.content}</p>
+                <p data-user-content="" className="whitespace-pre-wrap text-sm text-sam-muted">{r.content}</p>
                 {r.answer ? (
                   <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2">
                     <p className="text-xs font-medium text-sam-muted">{t("mypage_comp_inquiry_store_reply")}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.answer}</p>
+                    <p data-user-content="" className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.answer}</p>
                     {r.answered_at ? (
                       <p className="mt-1 sam-text-xxs text-sam-meta">
                         {formatMypageDate(r.answered_at, { style: "datetime", lang: language })}

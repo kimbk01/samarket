@@ -127,7 +127,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
             <span className="text-[12px] font-semibold text-[color:var(--delivery-text-main)]">{t("mypage_comp_my_review_label")}</span>
           </div>
           {review.content ? (
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[color:var(--delivery-text-main)]">{review.content}</p>
+            <p data-user-content="" className="whitespace-pre-wrap text-[13px] leading-relaxed text-[color:var(--delivery-text-main)]">{review.content}</p>
           ) : null}
           <p className="text-[12px] leading-snug text-[#6B7280]">
             {review.visible_to_public === false
@@ -143,6 +143,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
                 {t("store_owner_reply")}
               </p>
               <p
+                data-user-content=""
                 className="mt-1 whitespace-pre-wrap text-[13px] leading-snug"
                 style={{ color: STORE_ORDER_BRAND.secondary }}
               >

@@ -192,7 +192,7 @@ export function OwnerStoreOrderReviewBlock({
         </div>
 
         {review.content ? (
-          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--biz-text)]">{review.content}</p>
+          <p data-user-content="" className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--biz-text)]">{review.content}</p>
         ) : null}
 
         {review.image_urls?.length ? (

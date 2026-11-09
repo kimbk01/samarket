@@ -69,7 +69,7 @@ export function StoreOwnerNoticeCards({
                     })}
                   </div>
                 ) : null}
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-sam-fg">{n.body}</p>
+                <p data-user-content="" className="whitespace-pre-wrap text-[13px] leading-relaxed text-sam-fg">{n.body}</p>
                 <a
                   href={`${infoHrefBase}#store-notice-${encodeURIComponent(n.id)}`}
                   className="mt-2 inline-block text-[12px] font-semibold text-sam-primary underline-offset-2 hover:underline"

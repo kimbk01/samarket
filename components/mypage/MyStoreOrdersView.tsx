@@ -448,7 +448,7 @@ function MyStoreOrderCard({
               <span className="mx-1 shrink-0 text-[color:var(--sol-separator)]" aria-hidden>
                 ·
               </span>
-              <span className="min-w-0 truncate font-mono sam-text-helper" title={o.order_no}>
+              <span data-copyable="" className="min-w-0 truncate font-mono sam-text-helper" title={o.order_no}>
                 {o.order_no}
               </span>
             </p>

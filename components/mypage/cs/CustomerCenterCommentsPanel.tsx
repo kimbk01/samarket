@@ -203,7 +203,7 @@ export function CustomerCenterCommentsPanel({
           {list.items.map((c) => (
             <li key={c.id} className="py-3" data-testid="cc-comment-row">
               <div className="flex items-start gap-2">
-                <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{c.body}</p>
+                <p data-user-content="" className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{c.body}</p>
                 {c.mine ? (
                   <div className="relative shrink-0">
                     <button

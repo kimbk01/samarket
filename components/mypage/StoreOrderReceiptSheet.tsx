@@ -116,9 +116,9 @@ export function StoreOrderReceiptSheet({
         <div className="border-b border-dashed border-[color:var(--overlay-border)] pb-3">
           <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.6] text-[color:var(--overlay-text-primary)]">{data.storeName}</p>
           {data.storeAddressLines.map((line, i) => (
-            <p key={i} className="text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">{line}</p>
+            <p key={i} data-copyable="" className="text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">{line}</p>
           ))}
-          <p className="mt-2 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
+          <p data-copyable="" className="mt-2 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">
             {t("mypage_receipt_order_no")} {data.orderNo}
           </p>
           <p className="text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]">

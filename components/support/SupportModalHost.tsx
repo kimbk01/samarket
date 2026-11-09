@@ -419,7 +419,7 @@ function SupportActiveConversation({
               return (
                 <div key={m.id} className="flex justify-center">
                   <div className="max-w-[90%] rounded-[length:var(--overlay-radius-md)] bg-[var(--overlay-secondary)] px-3 py-1.5 text-center text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
-                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                    <p data-user-content="" className="whitespace-pre-wrap break-words">{m.body}</p>
                     <p className="mt-0.5 text-[length:var(--overlay-caption-size)] text-[var(--overlay-text-secondary)]">
                       {new Date(m.created_at).toLocaleString()}
                     </p>
@@ -449,7 +449,7 @@ function SupportActiveConversation({
                       {safeT("support_message_deleted")}
                     </p>
                   ) : (
-                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                    <p data-user-content="" className="whitespace-pre-wrap break-words">{m.body}</p>
                   )}
                   <p
                     className={`mt-1 text-[length:var(--overlay-caption-size)] ${

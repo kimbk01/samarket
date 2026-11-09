@@ -119,7 +119,7 @@ export function MyReportDetailClient({
               </span>
             </h1>
             {report.reasonDetail ? (
-              <p className="mt-2 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-sam-fg">
+              <p data-user-content="" className="mt-2 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-sam-fg">
                 {report.reasonDetail}
               </p>
             ) : null}

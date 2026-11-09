@@ -92,7 +92,7 @@ export function MeetingJoinPreviewFullScreen({
           <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
           <div className="relative z-[1]">
             <h1 className="sam-text-page-title font-bold leading-tight tracking-tight drop-shadow-sm">{group.title}</h1>
-            <p className="mt-2 max-h-28 overflow-y-auto sam-text-body-secondary leading-snug text-white/95">
+            <p data-user-content="" className="mt-2 max-h-28 overflow-y-auto sam-text-body-secondary leading-snug text-white/95">
               {group.summary || t("cm_ui_no_one_line_intro")}
             </p>
             <p className="mt-4 sam-text-xxs font-medium text-white/85">
