@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DELIVERY_LAUNCH_SETTINGS,
+  deliveryLaunchDesignTexts,
   deliveryLaunchSettingsFromRow,
   isDeliveryFreePromoActive,
   manilaTodayYmd,
@@ -166,5 +167,15 @@ describe("Owner 결정 2026-11-10 — 관리자 자동 통과 없음 · 무료 �
     expect(read("components/delivery/launch/DeliveryRecruitingHeroLayout.tsx")).toContain(
       'state.freePromoActive ? texts.badge : ""'
     );
+  });
+});
+
+describe("Owner 결정 2026-11-10 — 무료 안내는 배지(무료 기간에만)로만", () => {
+  it("기본 설명 문구에는 무료 약속이 없다", () => {
+    const ko = deliveryLaunchDesignTexts("ko").body;
+    const en = deliveryLaunchDesignTexts("en").body;
+    expect(ko.length).toBeGreaterThan(0);
+    expect(ko).not.toContain("무료");
+    expect(en.toLowerCase()).not.toContain("fee");
   });
 });
