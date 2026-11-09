@@ -20,6 +20,26 @@ export type ProfileSetupHrefOptions = {
  */
 export const PROFILE_SETUP_GATE_TARGET_HREF = "/mypage" as const;
 
+export type ProfileSetupGateAction = "none" | "mark_seen" | "redirect";
+
+/**
+ * 필수정보 게이트 판정 — 로그인 세션당 1회.
+ * - none: 이동 없음 (완료·이미 1회 처리·주소/프로필 흐름 중)
+ * - mark_seen: 이미 내정보 홈 — 1회 처리로 기록만
+ * - redirect: 내정보 홈으로 1회 이동 (호출부가 1회 처리로 기록)
+ */
+export function resolveProfileSetupGateAction(input: {
+  needsBlock: boolean;
+  deferredForSession: boolean;
+  pathname: string | null | undefined;
+}): ProfileSetupGateAction {
+  if (!input.needsBlock || input.deferredForSession) return "none";
+  const p = (input.pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  if (p === PROFILE_SETUP_GATE_TARGET_HREF || p === "/my") return "mark_seen";
+  if (isProfileSetupGateExcludedPath(p)) return "none";
+  return "redirect";
+}
+
 /**
  * 프로필 수정 setup 화면 URL (`?setup=1` 페이지 유지 — v3 X1). 자동 강제 이동에는 쓰지 않는다.
  * `next` 는 setup 완료 후 돌아갈 내부 경로(검증 통과 시만 부착).

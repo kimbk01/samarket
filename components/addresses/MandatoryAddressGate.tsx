@@ -2,8 +2,16 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isProfileSetupGateExcludedPath, PROFILE_SETUP_GATE_TARGET_HREF } from "@/lib/auth/profile-setup-flow";
-import { isProfileSetupDeferredForSession, clearProfileSetupDeferForSession } from "@/lib/auth/profile-setup-defer.client";
+import {
+  isProfileSetupGateExcludedPath,
+  PROFILE_SETUP_GATE_TARGET_HREF,
+  resolveProfileSetupGateAction,
+} from "@/lib/auth/profile-setup-flow";
+import {
+  clearProfileSetupDeferForSession,
+  deferProfileSetupForSession,
+  isProfileSetupDeferredForSession,
+} from "@/lib/auth/profile-setup-defer.client";
 import { runNowOrScheduleOnStoreOwnerAdmin, OWNER_HUB_SECONDARY_AFTER_MS } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import {
@@ -44,8 +52,9 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
 }
 
 /**
- * 로그인 상태에서 대표 주소·전화 인증이 끝나지 않았으면 내정보 홈(`/mypage`)으로 보냅니다
- * (Owner 2026-11-09 — 프로필 수정 `?setup=1` 화면 대신 내정보 필수정보 카드에서 완료).
+ * 로그인 상태에서 대표 주소가 없으면 로그인 세션당 **1회만** 내정보 홈(`/mypage`)으로 보냅니다
+ * (Owner 2026-11-09). 그 뒤로는 어디든 진입·열람 가능 — 전화·주소는 기능을 누를 때
+ * 기능 게이트(`lib/profile/profile-requirements.ts`)가 요구한다. 로그아웃 시 1회 표식 초기화.
  * 주소·프로필 수정 플로우 경로는 제외합니다.
  */
 export function MandatoryAddressGate() {
@@ -64,18 +73,16 @@ export function MandatoryAddressGate() {
 
   const maybeRedirectToSetup = useCallback(
     (needsBlock: boolean) => {
-      if (!needsBlock || deferOverlayForStoresLcp) return;
-      if (isProfileSetupDeferredForSession()) return;
-      const p = pathRef.current;
-      /**
-       * 내정보 홈 = 강제 이동 목적지 — 필수정보 카드(전화 시트·대표 주소)로 완료.
-       * 도착하면 중복 방지 표식을 지워, 미완료 상태로 다른 화면에 가면 다시 내정보로 보낸다.
-       */
-      if (p === "/mypage" || p === "/my") {
-        redirectTargetRef.current = null;
-        return;
-      }
-      if (isGateExcludedPath(p)) return;
+      if (deferOverlayForStoresLcp) return;
+      const action = resolveProfileSetupGateAction({
+        needsBlock,
+        deferredForSession: isProfileSetupDeferredForSession(),
+        pathname: pathRef.current,
+      });
+      if (action === "none") return;
+      /** 로그인 세션당 1회 — 이후 둘러보기 자유, 전화·주소는 기능 게이트(profile-requirements)가 요구 */
+      deferProfileSetupForSession();
+      if (action === "mark_seen") return;
       const target = PROFILE_SETUP_GATE_TARGET_HREF;
       if (redirectTargetRef.current === target) return;
       redirectTargetRef.current = target;
