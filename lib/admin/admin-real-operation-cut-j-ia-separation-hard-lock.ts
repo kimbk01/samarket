@@ -74,6 +74,8 @@ export const CUT_J_J_AMD_3_DELIVERY_TREE = [
       "stores-commerce",
       // 매장 입점 계약 목록 (설계 v2 §4-5, 2026-11-10)
       "store-partner-agreements",
+      // 매장 공지 — 사장님 전용 운영 공지 (설계 v3.2 §3-4, 2026-11-10)
+      "store-owner-notices",
       "business-shops",
       "store-products-admin",
       "store-inquiries-admin",

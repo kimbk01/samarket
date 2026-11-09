@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { buildAppNoticeDetailPath } from "@/lib/notices/app-notice-paths";
@@ -135,6 +136,13 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .select(APP_NOTICES_CONTENT_SELECT)
     .eq("id", id)
     .maybeSingle();
+
+  // 사장님 전용 공지(어드민 「매장 공지」)를 고치거나 사장님 대상으로 바꾸는 저장 = business 키 (`/admin/stores` 접근표 action)
+  const beforeAudience = (beforeRow as { audience?: string | null } | null)?.audience;
+  if (isOwnerAnnouncementAudience(beforeAudience) || isOwnerAnnouncementAudience(body.audience)) {
+    const writer = await requireAdminPermission("business");
+    if (!writer.ok) return writer.response;
+  }
 
   const { data, error } = await sb
     .from("app_notices")

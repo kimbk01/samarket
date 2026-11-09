@@ -20,11 +20,6 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { useAdminListQuery } from "@/lib/admin/list-query/use-admin-list-query";
-import {
-  APP_NOTICE_AUDIENCE_LABEL_KEY,
-  isOwnerAnnouncementAudience,
-  parseAppNoticeAudience,
-} from "@/lib/notices/app-notice-audience";
 
 type AdminNotice = AppNoticeRow & {
   content_type?: string | null;
@@ -34,9 +29,6 @@ type AdminNotice = AppNoticeRow & {
   view_count?: number;
   comment_count?: number;
   created_at?: string;
-  /** 배달 오픈 4단계 — 보는 사람 · 고정 */
-  audience?: string | null;
-  is_pinned?: boolean | null;
 };
 
 type CampaignLite = {
@@ -207,7 +199,6 @@ export function AdminAppNoticesPage() {
                 <th className="px-3 py-2">
                   {safeT("admin_cc_col_type")}
                 </th>
-                <th className="px-3 py-2">{t("admin_app_notice_audience_label")}</th>
                 <th className="px-3 py-2">
                   {safeT("admin_cc_board_title")}
                 </th>
@@ -231,7 +222,6 @@ export function AdminAppNoticesPage() {
             <tbody>
               {items.map((n) => {
                 const contentType = parseCustomerCenterContentType(n.content_type, "notice");
-                const audience = parseAppNoticeAudience(n.audience, "all");
                 const camp = campaignByContent[n.id];
                 const excerpt = excerptCustomerCenterMarkdown(String(n.body ?? ""), 80);
                 return (
@@ -241,14 +231,6 @@ export function AdminAppNoticesPage() {
                     </td>
                     <td className="px-3 py-2">
                       {BOARD_LABEL[contentType][language === "en" ? "en" : "ko"]}
-                    </td>
-                    <td className="px-3 py-2 text-xs" data-admin-notice-audience={audience}>
-                      <span className={isOwnerAnnouncementAudience(audience) ? "font-semibold text-sam-fg" : "text-sam-muted"}>
-                        {t(APP_NOTICE_AUDIENCE_LABEL_KEY[audience])}
-                      </span>
-                      {isOwnerAnnouncementAudience(audience) && n.is_pinned ? (
-                        <span className="ml-1 text-sam-muted">· {t("owner_announcements_pinned")}</span>
-                      ) : null}
                     </td>
                     <td className="px-3 py-2">
                       <Link
