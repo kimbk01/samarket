@@ -17,13 +17,14 @@ import {
   parseLocationLabelToIds,
 } from "@/lib/products/form-options";
 import { lookupExactLocationByPhilippinesZip } from "@/lib/products/zip-to-location";
+import { appLocationIdsToCanonicalLguId } from "@/lib/addresses/app-location-lgu";
 
 export type DibayAppLocationIds = {
   regionId: string;
   cityId: string;
 };
 
-function validPair(regionId: string, cityId: string): DibayAppLocationIds | null {
+function validPairRaw(regionId: string, cityId: string): DibayAppLocationIds | null {
   const rid = regionId.trim();
   const cid = cityId.trim();
   if (!rid || !cid) return null;
@@ -93,6 +94,9 @@ export function extractPhilippinesPostalCodeFromAddressLine(line: string): strin
 /**
  * Map a member address (or draft fields) to DIBAY region/city taxonomy IDs.
  * 순서: 저장된 ID → 동네 라벨 → **우편번호(정확 표만)** → 주소 문장 매칭.
+ *
+ * M1 (2026-11-09): 주소에 시/군 LGU(`canonicalLguId`)가 있으면 **그 LGU 에 속한 동네 ID 만** 돌려준다.
+ * 다른 시/군의 동네(예: San Jose, Nueva Ecija → QC 동네 「San Jose」 q28)는 건너뛰고, 맞는 게 없으면 null.
  */
 export function mapUserAddressToAppLocation(
   a: Pick<
@@ -110,8 +114,16 @@ export function mapUserAddressToAppLocation(
     | "cityMunicipality"
     | "province"
     | "streetAddress"
-  >,
+  > & { canonicalLguId?: string | null },
 ): DibayAppLocationIds | null {
+  const lgu = (a.canonicalLguId ?? "").trim();
+  const validPair = (regionId: string, cityId: string): DibayAppLocationIds | null => {
+    const v = validPairRaw(regionId, cityId);
+    if (!v) return null;
+    if (lgu && appLocationIdsToCanonicalLguId(v.regionId, v.cityId) !== lgu) return null;
+    return v;
+  };
+
   const stored = validPair(a.appRegionId ?? "", a.appCityId ?? "");
   if (stored) return stored;
 
@@ -163,5 +175,5 @@ export function mapUserAddressToAppLocation(
 export function mapAddressLineToAppLocation(line: string): DibayAppLocationIds | null {
   const hit = matchRegionCityFromFullAddress(line);
   if (!hit) return null;
-  return validPair(hit.regionId, hit.cityId);
+  return validPairRaw(hit.regionId, hit.cityId);
 }

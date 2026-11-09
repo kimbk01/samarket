@@ -53,6 +53,23 @@ function provinceNorm(raw: string | null | undefined): string {
   return normalizeTradeNationalLguName(raw);
 }
 
+/** 도 이름이 LGU 의 도와 정확히 같을 때만 true — 느슨한 일치(HUC 이름·지역 이름)보다 우선한다 (M4) */
+function provinceExact(lgu: TradeNationalLgu, provNorm: string): boolean {
+  if (!provNorm) return false;
+  const pn = provinceNorm(lgu.provinceName);
+  return Boolean(pn) && pn === provNorm;
+}
+
+/**
+ * 도로 거른다. 도가 정확히 같은 후보가 있으면 그것만 남긴다
+ * (「Quezon」·도 「Quezon」 → Quezon(Quezon 도) — HUC Quezon City 의 이름 변형 일치로 섞이지 않게).
+ */
+function filterByProvince(hits: TradeNationalLgu[], provNorm: string): TradeNationalLgu[] {
+  const loose = hits.filter((l) => provinceMatches(l, provNorm));
+  const exact = loose.filter((l) => provinceExact(l, provNorm));
+  return exact.length > 0 ? exact : loose;
+}
+
 function provinceMatches(lgu: TradeNationalLgu, provNorm: string): boolean {
   if (!provNorm) return true;
   const pn = provinceNorm(lgu.provinceName);
@@ -146,20 +163,33 @@ export function resolveTradeNationalLgu(
     "";
   const prov = provinceNorm(provRaw);
 
-  // 1) Explicit product/provider aliases (deterministic unique mapping)
-  let aliasHits = resolveFromAliasKinds(variants, ["legacy_product", "provider_display"]);
-  if (prov) {
-    const filtered = aliasHits.filter((l) => provinceMatches(l, prov));
-    if (filtered.length > 0) aliasHits = filtered;
+  /**
+   * 1) 상품·제공자 별칭 (결정적 1:1).
+   * M4 (2026-11-09): 입력 이름 그대로(variants[0])가 다른 LGU 의 공식 이름이면, 「city」를 붙인 변형으로만 맞는 별칭은 쓰지 않는다
+   *   (「Quezon」(Isabela·Bukidnon 등 6곳) → 변형 「quezon city」 별칭으로 Quezon City 확정하던 결함).
+   */
+  const exactName = variants[0] ?? "";
+  const exactOfficial = exactName ? resolveFromDisplayNames([exactName]) : [];
+  let aliasHitsAll = resolveFromAliasKinds(variants, ["legacy_product", "provider_display"]);
+  if (exactOfficial.length > 0) {
+    const keep = new Set<string>([
+      ...exactOfficial.map((l) => l.canonicalId),
+      ...resolveFromAliasKinds([exactName], ["legacy_product", "provider_display"]).map((l) => l.canonicalId),
+    ]);
+    aliasHitsAll = aliasHitsAll.filter((l) => keep.has(l.canonicalId));
   }
-  if (aliasHits.length === 1) return finish(aliasHits);
-  if (aliasHits.length > 1) return finish(aliasHits);
+  const aliasHits = prov ? filterByProvince(aliasHitsAll, prov) : aliasHitsAll;
+  if (aliasHits.length >= 1) return finish(aliasHits);
 
   // 2) Structured display_name / old_name match
   let nameHits = resolveFromDisplayNames(variants);
   if (prov) {
-    const filtered = nameHits.filter((l) => provinceMatches(l, prov));
-    if (filtered.length === 0) return { status: "unresolved" };
+    const filtered = filterByProvince(nameHits, prov);
+    /**
+     * 도가 주어졌는데 별칭·공식 이름 어느 쪽도 그 도와 맞지 않을 때만 예전처럼 별칭 결과를 쓴다
+     * (예전 저장분 도 칸에 지역 이름 「Calabarzon」 등이 들어간 Cainta 행). 도와 맞는 공식 이름이 있으면 그것이 우선(M4).
+     */
+    if (filtered.length === 0) return aliasHitsAll.length >= 1 ? finish(aliasHitsAll) : { status: "unresolved" };
     nameHits = filtered;
   }
 

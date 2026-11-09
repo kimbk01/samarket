@@ -1,65 +1,61 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressPublicArea,
+} from "@/lib/addresses/address-display-levels";
 
-import { REGIONS } from "@/lib/products/form-options";
-
+/**
+ * 새 상품(`/products/new`) 거래 지역 — 대표 주소의 시/군(① 공개 지역)만 보여 준다 (M5 · 주소 SSOT 2026-11-09).
+ * 글 위치는 서버(`/api/posts/create` → `resolveTradePostLocationForUser`)가 대표 주소 행으로 정한다.
+ * 이전: 앱 동네 목록(REGIONS) 선택칸 — 서버가 쓰지 않는 값이고, 목록 밖 대표 주소(Bacoor 등)는 다른 동네를 골라야 등록됐다.
+ */
 interface ProductLocationSelectProps {
-  region: string;
-  city: string;
-  onRegionChange: (v: string) => void;
-  onCityChange: (v: string) => void;
+  /** 대표 주소에 시/군 LGU 가 있으면 true */
+  onReadyChange: (ready: boolean) => void;
   error?: string;
 }
 
-export function ProductLocationSelect({
-  region,
-  city,
-  onRegionChange,
-  onCityChange,
-  error,
-}: ProductLocationSelectProps) {
+export function ProductLocationSelect({ onReadyChange, error }: ProductLocationSelectProps) {
   const { t } = useI18n();
-  const selectedRegion = REGIONS.find((r) => r.id === region);
-  const cities = selectedRegion?.cities ?? [];
+  const [line, setLine] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const snap = await fetchAddressDefaultsSnapshot({
+        caller: "product_new_location",
+        reason: "composer_default_location",
+      }).catch(() => null);
+      if (cancelled) return;
+      const master = snap?.ok ? coerceUserAddressDTO(snap.defaults?.master ?? null) : null;
+      const city = formatAddressPublicArea(addressDisplayPartsFromUserAddress(master));
+      const ready = Boolean(master && (master.canonicalLguId ?? "").trim() && city);
+      setLine(ready ? city : null);
+      setLoaded(true);
+      onReadyChange(ready);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [onReadyChange]);
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
       <p className="mb-2 sam-text-body font-medium text-sam-fg">
         {t("ui_product_trade_region_label")} <span className="text-red-500">*</span>
       </p>
-      <div className="space-y-3">
-        <select
-          value={region}
-          onChange={(e) => {
-            onRegionChange(e.target.value);
-            onCityChange("");
-          }}
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
-          aria-invalid={!!error}
-        >
-          <option value="">Select region</option>
-          {REGIONS.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={city}
-          onChange={(e) => onCityChange(e.target.value)}
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
-          disabled={!region}
-          aria-invalid={!!error}
-        >
-          <option value="">Select area</option>
-          {cities.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {error && <p className="mt-1 sam-text-body-secondary text-red-500">{error}</p>}
+      {line ? (
+        <p className="sam-text-body text-sam-fg">{line}</p>
+      ) : loaded || error ? (
+        <p className="sam-text-body-secondary text-red-500" role="alert">
+          {error || t("trade_write_err_region_read")}
+        </p>
+      ) : null}
     </section>
   );
 }

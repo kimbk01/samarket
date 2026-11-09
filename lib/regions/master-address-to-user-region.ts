@@ -4,7 +4,7 @@
  * - 대표 주소가 지역(primaryRegion/currentRegion)의 권위 — profiles.region_* 는 첫 페인트 폴백만.
  * - City 단위만 노출: `barangay` 는 항상 `""` (상세주소·profiles.address_detail 유출 금지),
  *   `label` 은 REGIONS 카탈로그 City 라벨 (`Region · City`).
- * - 매장 피드 게이트·탭 prewarm·`/products/new` 기본 지역이 같은 파생을 쓰도록 단일 정의.
+ * - 매장 피드 게이트·탭 prewarm 이 같은 파생을 쓰도록 단일 정의 (`/products/new` 는 대표 주소 시/군 표시 — M5).
  */
 
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";

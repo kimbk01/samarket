@@ -49,9 +49,8 @@ export function ProductForm({
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [price, setPrice] = useState(initialValues?.price ?? "");
   const [category, setCategory] = useState(initialValues?.category ?? "");
-  const [region, setRegion] = useState(initialValues?.region ?? "");
-  const [city, setCity] = useState(initialValues?.city ?? "");
-  const [barangay, setBarangay] = useState(initialValues?.barangay ?? "");
+  /** 거래 지역 = 대표 주소 시/군 (서버가 정함 · M5) — 화면은 대표 주소에 시/군이 있는지만 확인한다 */
+  const [locationReady, setLocationReady] = useState(false);
   const [condition, setCondition] = useState<ProductCondition>(
     (initialValues?.condition as ProductCondition) ?? defaultCondition
   );
@@ -69,10 +68,10 @@ export function ProductForm({
     if (!price.trim() || isNaN(priceNum) || priceNum < 0)
       next.price = t("ui_product_err_price");
     if (!category) next.category = t("ui_product_err_category");
-    if (!region || !city) next.region = t("ui_product_err_region");
+    if (!locationReady) next.region = t("trade_write_err_region_read");
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [title, description, price, category, region, city, t]);
+  }, [title, description, price, category, locationReady, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -86,9 +85,9 @@ export function ProductForm({
           description: description.trim(),
           price: price.trim().replace(/,/g, ""),
           category,
-          region,
-          city,
-          barangay,
+          region: "",
+          city: "",
+          barangay: "",
           condition,
           isPriceOfferEnabled,
         };
@@ -104,9 +103,6 @@ export function ProductForm({
       description,
       price,
       category,
-      region,
-      city,
-      barangay,
       condition,
       isPriceOfferEnabled,
       validate,
@@ -169,16 +165,7 @@ export function ProductForm({
         onChange={setCategory}
         error={errors.category}
       />
-      <ProductLocationSelect
-        region={region}
-        city={city}
-        onRegionChange={setRegion}
-        onCityChange={(v) => {
-          setCity(v);
-          setBarangay(v);
-        }}
-        error={errors.region}
-      />
+      <ProductLocationSelect onReadyChange={setLocationReady} error={errors.region} />
       <ProductConditionSelect value={condition} onChange={setCondition} />
       <div
         data-form-keyboard-footer="1"

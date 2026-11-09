@@ -10,6 +10,7 @@
  * - 시/군: 저장된 값(Google locality) 우선. 없으면 주소 문장을 쉼표로 나눠 **오른쪽부터** 공식 LGU 표에
  *   유일하게 맞는 구간을 쓴다(「…, Quiapo, Manila, 1001 Metro Manila」→ Manila). 맞는 게 없으면 null(추정 없음).
  * - 앱 지역 ID: 주소 문장으로 다시 계산한다(화면이 보낸 ID·예전 ID 는 계산 실패 때만 사용).
+ *   LGU 가 정해지면 그 LGU 에 속한 동네 ID 만 쓴다(M1 — 다른 시/군 같은 이름 동네 배정 금지).
  * - LGU: 저장된 값 우선, 없으면 시/군 + 도로 공식 표에서 유일할 때만.
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -111,6 +112,22 @@ export function deriveAddressLocation(input: AddressLocationInput): DerivedAddre
     null;
 
   const clean = (v: string | null | undefined) => cleanAddressText(v) || null;
+
+  /**
+   * LGU: 시/군 + 도로 먼저, 안 되면 시/군만(전국에서 이름이 하나뿐일 때만 확정 — 겹치면 null).
+   * 예전 저장분 도 칸에 지역 이름(Calabarzon 등)이 들어간 행도 같은 시/군으로 확정된다.
+   */
+  const canonicalLguId =
+    cleanAddressText(input.canonicalLguId) ||
+    resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: clean(input.province) }) ||
+    /**
+     * H3: 앱 동네 목록 형식(시/군 칸 = 「Diliman」, 도 칸 = 「Quezon City」 · 관리자 회원 생성·오너 폼 매장 연결)
+     * → 동네 목록 → LGU 대응표(143/143)로 확정
+     */
+    legacyLocationRowToLguId(clean(input.province), cityMunicipality) ||
+    (clean(input.province) ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: null }) : null) ||
+    null;
+
   const fromText = mapUserAddressToAppLocation({
     appRegionId: null,
     appCityId: null,
@@ -125,6 +142,7 @@ export function deriveAddressLocation(input: AddressLocationInput): DerivedAddre
     cityMunicipality,
     province: clean(input.province),
     streetAddress: clean(input.streetAddress),
+    canonicalLguId,
   });
   const fallback = fromText
     ? null
@@ -142,23 +160,10 @@ export function deriveAddressLocation(input: AddressLocationInput): DerivedAddre
         cityMunicipality: null,
         province: null,
         streetAddress: null,
+        canonicalLguId,
       });
   const taxonomy = fromText ?? fallback;
 
-  /**
-   * LGU: 시/군 + 도로 먼저, 안 되면 시/군만(전국에서 이름이 하나뿐일 때만 확정 — 겹치면 null).
-   * 예전 저장분 도 칸에 지역 이름(Calabarzon 등)이 들어간 행도 같은 시/군으로 확정된다.
-   */
-  const canonicalLguId =
-    cleanAddressText(input.canonicalLguId) ||
-    resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: clean(input.province) }) ||
-    /**
-     * H3: 앱 동네 목록 형식(시/군 칸 = 「Diliman」, 도 칸 = 「Quezon City」 · 관리자 회원 생성·오너 폼 매장 연결)
-     * → 동네 목록 → LGU 대응표(143/143)로 확정
-     */
-    legacyLocationRowToLguId(clean(input.province), cityMunicipality) ||
-    (clean(input.province) ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: null }) : null) ||
-    null;
 
   return {
     cityMunicipality,

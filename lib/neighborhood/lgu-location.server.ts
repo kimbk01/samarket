@@ -9,8 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { deterministicUuid } from "@/lib/server/deterministic-uuid";
 import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 import { REGIONS } from "@/lib/products/form-options";
-import { resolveTradeLguCityFromInternal } from "@/lib/trade/location/trade-lgu-city-rollup";
-import { TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL } from "@/lib/trade/location/national/legacy-product-alias-canonical";
+import { appLocationIdsToCanonicalLguId } from "@/lib/addresses/app-location-lgu";
 
 const LGU_KEY_RE = /^lgu:(\d{10}):?$/;
 
@@ -38,10 +37,7 @@ export function legacyLocationRowToLguId(regionName: string | null | undefined, 
   if (!region) return null;
   const city = region.cities.find((c) => c.name === a || c.id === a);
   if (!city) return null;
-  const slug = resolveTradeLguCityFromInternal(region.id, city.id)?.id;
-  if (!slug) return null;
-  const psgc = (TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL as Record<string, string>)[slug];
-  return typeof psgc === "string" && psgc.trim() ? psgc.trim() : null;
+  return appLocationIdsToCanonicalLguId(region.id, city.id);
 }
 
 /** 시/군 LGU 의 `locations` 행 id (결정적 uuid — 같은 LGU 면 같은 id). 없으면 만든다. */

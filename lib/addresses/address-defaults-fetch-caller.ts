@@ -18,6 +18,7 @@ export const ADDRESS_DEFAULTS_FETCH_CALLERS = [
   "trade_location_scope",
   "community_local_filter",
   "region_context",
+  "product_new_location",
   "unknown",
 ] as const;
 

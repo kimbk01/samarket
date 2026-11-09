@@ -193,16 +193,25 @@ export async function PATCH(
         trade_lgu_id: before.trade_lgu_id,
         meta: proposedMeta,
       };
-    } else if (proposed.trade_lgu_id || body.tradeAddressId) {
-      /** 거래 글 위치 SSOT: 위치를 바꿀 수 있는 단계면 서버가 주소 행으로 다시 정한다(화면 값 미사용) */
-      const loc = await resolveTradePostLocationForUser(
-        sb as import("@supabase/supabase-js").SupabaseClient,
-        userId,
-        body.tradeAddressId ?? null,
-      ).catch(() => null);
-      if (loc) {
-        proposed = { ...proposed, region: loc.region, city: loc.city, trade_lgu_id: loc.tradeLguId };
-      }
+    } else {
+      /**
+       * 거래 글 위치 SSOT: 위치를 바꿀 수 있는 단계(임시저장)에서 **화면이 주소를 골라 보낸 경우에만** 서버가 그 주소 행으로 다시 정한다.
+       * 주소를 보내지 않은 수정은 글의 기존 위치를 그대로 둔다(M2 2026-11-09 — 이전: 주소 없이도 대표 주소로 바꿈).
+       * 화면 region/city/tradeLguId 값은 어느 경우에도 쓰지 않는다.
+       */
+      const addressId = typeof body.tradeAddressId === "string" ? body.tradeAddressId.trim() : "";
+      const loc = addressId
+        ? await resolveTradePostLocationForUser(
+            sb as import("@supabase/supabase-js").SupabaseClient,
+            userId,
+            addressId,
+          ).catch(() => null)
+        : null;
+      /** 보낸 주소가 없어졌으면(대표 주소로 대체된 결과) 쓰지 않는다 — 고른 주소 그대로일 때만 */
+      const locForAddress = loc && loc.addressId === addressId ? loc : null;
+      proposed = locForAddress
+        ? { ...proposed, region: locForAddress.region, city: locForAddress.city, trade_lgu_id: locForAddress.tradeLguId }
+        : { ...proposed, region: before.region, city: before.city, trade_lgu_id: before.trade_lgu_id };
       const lguGate = assertActiveTradeNationalLgu(proposed.trade_lgu_id ?? "");
       if (!lguGate.ok) {
         return NextResponse.json(
