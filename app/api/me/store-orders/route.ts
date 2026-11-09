@@ -1,4 +1,9 @@
 import { randomBytes } from "crypto";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressPublicArea,
+  formatBarangayLabel,
+} from "@/lib/addresses/address-display-levels";
 import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { after, NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -525,6 +530,12 @@ export async function POST(req: NextRequest) {
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;
   const requestedDeliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
   let masterCheckoutPayload: CheckoutDeliveryPayload | null = null;
+  /** 주소 SSOT: 주문 시점 배달지 위치(대표 주소 그대로) — 주문 생성 뒤 같은 행에 기록 */
+  let deliveryLocationColumns: {
+    delivery_barangay: string | null;
+    delivery_city_name: string | null;
+    delivery_lgu_id: string | null;
+  } | null = null;
 
   if (fulfillment === "local_delivery") {
     const masterRow = pickAddressRowForDeliveryRouting(await getUserAddressDefaults(sb, buyerId));
@@ -535,6 +546,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "delivery_user_address_not_master" }, { status: 400 });
     }
     masterCheckoutPayload = toCheckoutDeliveryPayload(masterRow);
+    const locParts = addressDisplayPartsFromUserAddress(masterRow);
+    deliveryLocationColumns = {
+      delivery_barangay: formatBarangayLabel(locParts?.barangay) || null,
+      delivery_city_name: formatAddressPublicArea(locParts),
+      delivery_lgu_id: (masterRow.canonicalLguId ?? "").trim() || null,
+    };
   }
 
   const addrSummaryRaw = String(masterCheckoutPayload?.summary_line ?? body.delivery_address_summary ?? "").trim();
@@ -792,6 +809,15 @@ export async function POST(req: NextRequest) {
 
   const orderId = atomic.order.id;
   const resolvedOrderNo = atomic.order.order_no || orderNo;
+
+  /**
+   * 주소 SSOT: 배달지 위치 칸을 같은 주문 행에 기록. 주문 생성 함수는 그대로 두고, 실패해도 주문은 유지(기록만 남김).
+   * store_orders 의 수수료·선물·완료 트리거는 `UPDATE OF order_status` 에만 동작한다.
+   */
+  if (deliveryLocationColumns && !atomic.idempotent) {
+    const { error: locErr } = await sb.from("store_orders").update(deliveryLocationColumns).eq("id", orderId);
+    if (locErr) console.error("[/api/me/store-orders POST] delivery_location_columns", locErr.message);
+  }
   const paymentAmount = atomic.order.payment_amount;
   const giftRedemptionAmount = Math.max(0, Math.round(amountBeforeGift - paymentAmount));
   let orderChatAck = fallbackStoreOrderChatAck(orderId);
