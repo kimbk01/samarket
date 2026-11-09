@@ -32,18 +32,9 @@ function hasSkeletonSuspenseFallback(src: string): boolean {
   return /<Suspense\s+fallback=\{\s*<[A-Z]/.test(src);
 }
 
-const TAB_SEGMENT_LOADING_RE = /<MainTabSegmentLoading tabRootPath="([^"]+)"/;
-
-/**
- * `loading.tsx` 가 `pageDir` 경로에서 무언가를 그리는가.
- * R-0 (2026-11-10): 탭 세그먼트 loading 은 `MainTabSegmentLoading` — 자기 세그먼트 첫 화면(같은 폴더의 page)에서만 그리고
- * 하위 화면에서는 null.
- */
-function loadingRendersSomething(file: string, pageDir: string = dirname(file)): boolean {
+function loadingRendersSomething(file: string): boolean {
   if (!existsSync(file)) return false;
-  const src = readFileSync(file, "utf8");
-  if (TAB_SEGMENT_LOADING_RE.test(src)) return dirname(file) === pageDir;
-  return !/return null;/.test(src);
+  return !/return null;/.test(readFileSync(file, "utf8"));
 }
 
 describe("philife route skeleton ownership", () => {
@@ -58,11 +49,8 @@ describe("philife route skeleton ownership", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("segment loading for /philife/** is neutral for subroutes; tab root only = neutral block (R-0)", () => {
-    const file = join(PHILIFE_DIR, "loading.tsx");
-    expect(readFileSync(file, "utf8")).toContain('<MainTabSegmentLoading tabRootPath="/philife" />');
-    expect(loadingRendersSomething(file, join(PHILIFE_DIR, "write"))).toBe(false);
-    expect(loadingRendersSomething(file, join(PHILIFE_DIR, "my"))).toBe(false);
+  it("segment loading for /philife/** is neutral (covers non-feed subroutes)", () => {
+    expect(loadingRendersSomething(join(PHILIFE_DIR, "loading.tsx"))).toBe(false);
   });
 
   it("detail route has its own structure skeleton", () => {
@@ -76,7 +64,7 @@ describe("philife route skeleton ownership", () => {
       if (!hasSkeletonSuspenseFallback(readFileSync(page, "utf8"))) continue;
       let dir = dirname(page);
       while (dir.startsWith(PHILIFE_DIR)) {
-        if (loadingRendersSomething(join(dir, "loading.tsx"), dirname(page))) {
+        if (loadingRendersSomething(join(dir, "loading.tsx"))) {
           doubled.push(`${rel(page)} + ${rel(join(dir, "loading.tsx"))}`);
         }
         if (dir === PHILIFE_DIR) break;
