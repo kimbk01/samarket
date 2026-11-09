@@ -3,6 +3,7 @@
  */
 
 import { normalizeTradeNationalLguName } from "@/lib/trade/location/national/normalize-lgu-name";
+import { formatLguPublicDisplayName } from "@/lib/trade/location/national/lgu-public-display-name";
 import { loadTradeNationalLguDataset } from "@/lib/trade/location/national/load-national-lgu-dataset";
 import type { TradeNationalLgu } from "@/lib/trade/location/national/types";
 
@@ -42,7 +43,8 @@ export function searchTradeNationalLgu(
     if (!lgu?.isActive) continue;
     hits.push({
       canonicalId: lgu.canonicalId,
-      displayName: lgu.displayName,
+      /** 화면 표시 이름 — 「City of X」→「X City」 (주소 SSOT 5단계) */
+      displayName: formatLguPublicDisplayName(lgu.displayName),
       lguType: lgu.lguType,
       regionCode: lgu.regionCode,
       regionName: lgu.regionName,

@@ -1,5 +1,9 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { FormatPhAddressCardOneLineOpts } from "@/lib/addresses/ph-address-display";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressFullLines,
+} from "@/lib/addresses/address-display-levels";
 
 function stripCountrySuffix(line: string, countryName?: string | null): string {
   let t = line.trim();
@@ -119,6 +123,24 @@ export function formatAddressBookLineSegments(
   opts?: FormatPhAddressCardOneLineOpts | null,
 ): AddressBookLineSegments | null {
   if (!a?.id) return null;
+
+  /**
+   * 주소 SSOT 5단계 (2026-11-09): 필리핀 주소의 전체 주소는 ③ `formatAddressFullLines` 하나로 만든다
+   * (주소록 목록·장바구니 배송지·사장님 카드·신청 스냅샷·관리자 — 결제·주문 주소와 같은 문장).
+   * 이전: 이 함수가 따로 「도로, 건물, Barangay …, 시, 도」를 이어 붙여 장소·도로 순서가 바뀌고 도 이름·같은 구간이 반복됐다.
+   */
+  if ((a.countryCode ?? "PH").trim().toUpperCase() === "PH") {
+    const parts = addressDisplayPartsFromUserAddress(a);
+    const storeHead = opts?.suppressGateBuildingIfMatchesSamarketStore?.trim().toLowerCase() ?? "";
+    if (parts && storeHead && a.labelType === "shop" && (parts.placeName ?? "").trim().toLowerCase() === storeHead) {
+      parts.placeName = null;
+    }
+    const full = formatAddressFullLines(parts);
+    const detail = full.detail;
+    const rest = full.main;
+    const plain = [detail, rest].filter(Boolean).join(", ");
+    return plain ? { detail, rest, plain } : null;
+  }
 
   const detail = resolveUserDetail(a);
   const structuredRest = buildStructuredRest(a, opts).filter((t) => {

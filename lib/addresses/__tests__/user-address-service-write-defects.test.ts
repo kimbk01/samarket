@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const lguMock = vi.hoisted(() => ({ resolve: vi.fn<(...args: unknown[]) => string | null>(() => null) }));
 
-vi.mock("@/lib/delivery/service-area/resolve-member-canonical-lgu", () => ({
+vi.mock("@/lib/addresses/address-lgu-resolve", () => ({
   resolveCanonicalLguIdForAddressWrite: (...args: unknown[]) => lguMock.resolve(...args),
 }));
 

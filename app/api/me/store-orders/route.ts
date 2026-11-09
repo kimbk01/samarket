@@ -537,8 +537,12 @@ export async function POST(req: NextRequest) {
     delivery_lgu_id: string | null;
   } | null = null;
 
+  /** L5: 배달 대표 주소 행 — 아래 배달지 스냅샷이 같은 행을 다시 읽지 않고 이 값을 쓴다(위치값도 주소 SSOT 로 채워진 값) */
+  let deliveryMasterRow: ReturnType<typeof pickAddressRowForDeliveryRouting> = null;
+
   if (fulfillment === "local_delivery") {
     const masterRow = pickAddressRowForDeliveryRouting(await getUserAddressDefaults(sb, buyerId));
+    deliveryMasterRow = masterRow;
     if (!masterRow?.id) {
       return NextResponse.json({ ok: false, error: "delivery_user_address_required" }, { status: 400 });
     }
@@ -610,7 +614,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "delivery_user_address_required" }, { status: 400 });
   }
 
-  if (fulfillment === "local_delivery" && deliveryUserAddressId) {
+  if (fulfillment === "local_delivery" && deliveryUserAddressId && deliveryMasterRow?.id === deliveryUserAddressId) {
+    /**
+     * 주소 SSOT 5단계 (L5 2026-11-09): 위에서 읽은 대표 주소 행을 그대로 쓴다 — 같은 행 DB 재조회 제거.
+     * 시/군 LGU 도 주소 SSOT 값(저장값 없으면 조회 때 판정한 값)이라 배달 가능 판정·H5 검사·주문 위치 칸이 한 값.
+     */
+    const m = deliveryMasterRow;
+    deliveryAddressSnapshot = {
+      place_id: m.placeId ?? null,
+      formatted_address: m.formattedAddress ?? null,
+      detail_address: m.detailAddress ?? null,
+      delivery_note: m.deliveryNote ?? null,
+      latitude: m.latitude ?? null,
+      longitude: m.longitude ?? null,
+      city_municipality: m.cityMunicipality ?? null,
+      province: m.province ?? null,
+      canonical_lgu_id: m.canonicalLguId ?? null,
+    };
+  } else if (fulfillment === "local_delivery" && deliveryUserAddressId) {
     const { data: ownAddr, error: ownAddrErr } = await sb
       .from("user_addresses")
       .select(

@@ -58,7 +58,7 @@ describe("formatAddressBookLine — compact continuous / no country / detail fir
   it("Pasig fixture matches expected compact continuous string", () => {
     const plain = formatAddressBookLine(addr());
     expect(plain).toBe(
-      "Unit 4B, 123 Maharlika Street, Greenview Subdivision, Barangay San Antonio, Pasig City, Metro Manila",
+      "Unit 4B, Greenview Subdivision, 123 Maharlika Street, San Antonio, Pasig City",
     );
     expect(plain).not.toMatch(/PHILIPPINES|Philippines|필리핀/i);
     expect(plain).not.toMatch(/,\s*,/);
@@ -69,7 +69,7 @@ describe("formatAddressBookLine — compact continuous / no country / detail fir
     const seg = formatAddressBookLineSegments(addr());
     expect(seg?.detail).toBe("Unit 4B");
     expect(seg?.rest).toBe(
-      "123 Maharlika Street, Greenview Subdivision, Barangay San Antonio, Pasig City, Metro Manila",
+      "Greenview Subdivision, 123 Maharlika Street, San Antonio, Pasig City",
     );
     const card = formatAddressBookCardPresentation(addr());
     expect(card?.gatePrefix).toBe("Unit 4B");
@@ -80,7 +80,7 @@ describe("formatAddressBookLine — compact continuous / no country / detail fir
     const plain = formatAddressBookLine(
       addr({ unitFloorRoom: null, detailAddress: null, buildingName: null }),
     );
-    expect(plain).toBe("123 Maharlika Street, Barangay San Antonio, Pasig City, Metro Manila");
+    expect(plain).toBe("123 Maharlika Street, San Antonio, Pasig City");
     expect(formatAddressBookLineSegments(addr({ unitFloorRoom: null, detailAddress: null }))?.detail).toBeNull();
   });
 

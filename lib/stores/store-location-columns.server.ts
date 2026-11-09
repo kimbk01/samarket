@@ -5,7 +5,7 @@
  */
 import { addressDisplayPartsFromStoreRow } from "@/lib/addresses/address-display-levels";
 import { legacyLocationRowToLguId } from "@/lib/neighborhood/lgu-location.server";
-import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import { resolveCanonicalLguIdForAddressWrite } from "@/lib/addresses/address-lgu-resolve";
 
 export function computeStoreLocationColumns(row: {
   region?: string | null;

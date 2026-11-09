@@ -148,7 +148,7 @@ describe("주소 SSOT — zxzx11 대표 주소가 모든 화면에서 같은 값
     expect(resolveRequiredAddressFromSnapshot(snap)).toMatchObject({ status: "complete", publicLabel: "Manila City" });
     // 표시 필드는 바꾸지 않는다 — 전체 주소는 이전과 같은 한 줄
     expect(resolveRepresentativeFullAddressLineFromSnapshot(snap)).toBe(
-      "zxzx22, 684-718, 1001 Paterno St, Quiapo, Manila, 1001 Metro Manila",
+      "zxzx22, 684-718, 1001 Paterno St, Quiapo, Manila",
     );
   });
 

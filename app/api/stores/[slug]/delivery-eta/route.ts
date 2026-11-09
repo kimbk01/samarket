@@ -32,7 +32,8 @@ import {
   resolveEffectiveStoreRouteAddress,
   type StoreListDeliveryOrigin,
 } from "@/lib/stores/store-list-delivery-origin";
-import { resolveMemberCanonicalLguId } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import { deriveAddressLocation } from "@/lib/addresses/address-location-ssot.server";
+import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -229,11 +230,8 @@ export async function GET(
         addrRow.unit_floor_room,
       ),
       cacheKeyPart: "",
-      canonicalLguId: resolveMemberCanonicalLguId({
-        canonicalLguId: (addrRow.canonical_lgu_id as string | null) ?? null,
-        cityMunicipality: (addrRow.city_municipality as string | null) ?? null,
-        province: (addrRow.province as string | null) ?? null,
-      }),
+      /** 주소 SSOT 5단계: 회원 주소 위치 SSOT 와 같은 판정(시/군 칸이 빈 예전 행은 주소 문장에서) — 배달 판정만 따로 하지 않는다 */
+      canonicalLguId: deriveAddressLocation(rowToUserAddressDTO(row as Record<string, unknown>)).canonicalLguId,
     };
     if (isSameDeliveryAddressForList(sameOrigin, effectiveStore)) {
       const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);

@@ -20,7 +20,8 @@ describe("MASTER LGU — master promote persists resolvable LGU", () => {
       join(process.cwd(), "app/api/stores/[slug]/delivery-eta/route.ts"),
       "utf8"
     );
-    expect(eta).toContain("resolveMemberCanonicalLguId");
+    /** 주소 SSOT 5단계: 회원 주소 위치 SSOT 판정(deriveAddressLocation) — resolveMemberCanonicalLguId 도 같은 판정을 감싼다 */
+    expect(eta).toContain("deriveAddressLocation(rowToUserAddressDTO(");
     expect(eta).not.toMatch(/canonicalLguId:\s*null/);
   });
 });

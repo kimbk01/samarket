@@ -48,42 +48,17 @@ function applyAddressToTradeRegion(
   };
 }
 
+/**
+ * 거래 지역 시/군 LGU = 주소 행의 `canonicalLguId` (서버가 저장·조회 때 정한 값 — 글 저장 `resolveTradePostLocationForUser` 와 같은 값).
+ * 주소 SSOT 5단계 (2026-11-09): 화면이 도시·도 글자로 다시 판정하던 전국 시/군 판정 API 호출 제거 —
+ * 시/군 칸이 빈 예전 주소는 서버는 LGU 를 아는데 화면만 「지역을 읽지 못했습니다」로 막던 불일치.
+ */
 async function resolveNationalLguFromAddress(addr: UserAddressDTO): Promise<{
   status: "resolved" | "ambiguous" | "unresolved";
   tradeLguId: string | null;
 }> {
-  const cityMunicipality = (addr.cityMunicipality ?? "").trim();
-  const province = (addr.province ?? "").trim();
-  if (!cityMunicipality) {
-    return { status: "unresolved", tradeLguId: null };
-  }
-  try {
-    const sp = new URLSearchParams({
-      mode: "resolve",
-      cityMunicipality,
-    });
-    if (province) sp.set("province", province);
-    const res = await fetch(`/api/trade/national-lgu?${sp.toString()}`, {
-      method: "GET",
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    if (!res.ok) return { status: "unresolved", tradeLguId: null };
-    const json = (await res.json()) as {
-      resolution?: {
-        status?: string;
-        canonicalId?: string;
-      };
-    };
-    const st = json.resolution?.status;
-    if (st === "resolved" && typeof json.resolution?.canonicalId === "string") {
-      return { status: "resolved", tradeLguId: json.resolution.canonicalId };
-    }
-    if (st === "ambiguous") return { status: "ambiguous", tradeLguId: null };
-    return { status: "unresolved", tradeLguId: null };
-  } catch {
-    return { status: "unresolved", tradeLguId: null };
-  }
+  const lgu = (addr.canonicalLguId ?? "").trim();
+  return lgu ? { status: "resolved", tradeLguId: lgu } : { status: "unresolved", tradeLguId: null };
 }
 
 function emptySsot(): TradeWriteAddressSsotSnapshot {

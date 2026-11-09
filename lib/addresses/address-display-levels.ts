@@ -14,6 +14,7 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { resolveTradeListingPublicCityLabel } from "@/lib/posts/post-listing-location-label";
 import { resolveTradeLguCityFromInternal } from "@/lib/trade/location/trade-lgu-city-rollup";
 import { REGIONS } from "@/lib/products/form-options";
+import { formatLguPublicDisplayName } from "@/lib/trade/location/national/lgu-public-display-name";
 
 export type AddressDisplayParts = {
   /** 가게·장소 이름 (Ra Cafe) */
@@ -43,6 +44,11 @@ function clean(v: string | null | undefined): string {
 const PROVINCE_OR_COUNTRY_RE =
   /^(metro\s*manila|kalakhang\s*maynila|ncr|national\s*capital\s*region|philippines|필리핀|republic\s+of\s+the\s+philippines)$/i;
 
+const COUNTRY_EDGE_RE = /^(필리핀|philippines|the\s+philippines|republic\s+of\s+the\s+philippines)\s+/i;
+const COUNTRY_TAIL_RE = /\s+(필리핀|philippines)$/i;
+const POSTAL_ONLY_RE =
+  /^\d{4}(\s+(metro\s*manila|kalakhang\s*maynila|ncr|national\s*capital\s*region))?$/i;
+
 function sameToken(a: string, b: string): boolean {
   const k = (s: string) =>
     s
@@ -50,7 +56,7 @@ function sameToken(a: string, b: string): boolean {
       .replace(/^(barangay|brgy\.?)\s+/i, "")
       .replace(/^city of\s+/i, "")
       .replace(/\s+city$/i, "")
-      .replace(/[^a-z0-9가-힣ñ]+/gi, "");
+      .replace(/[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣñ]+/gi, "");
   const ka = k(a);
   const kb = k(b);
   return Boolean(ka) && ka === kb;
@@ -79,7 +85,7 @@ export function resolvePublicCityName(input: { cityLguId?: string | null; cityTe
   if (id) {
     const byId = resolveTradeListingPublicCityLabel({ tradeLguId: id });
     /** 전국 데이터 「City of Bacoor」 → 「Bacoor City」 (거래 rollup 「Makati City」와 같은 표기) */
-    if (byId) return byId.replace(/^City of (.+)$/i, "$1 City");
+    if (byId) return formatLguPublicDisplayName(byId);
   }
   const text = clean(input.cityText);
   if (!text || PROVINCE_OR_COUNTRY_RE.test(text) || /^(barangay|brgy\.?)\b/i.test(text)) return null;
@@ -127,10 +133,12 @@ export function formatAddressFullLines(parts: AddressDisplayParts | null | undef
   if (!hasStreetOrBarangay && clean(parts.fallbackLine)) {
     const fb = clean(parts.fallbackLine)
       .split(/[,\n]/)
-      .map((x) => x.trim())
-      .filter((x) => x && !PROVINCE_OR_COUNTRY_RE.test(x));
-    /** 우편번호는 Google 형식 마지막 구간(「1001 Metro Manila」)에만 — 번지(「1001 Paterno St」)는 지우지 않는다 */
-    if (fb.length > 0 && /^\d{4}(\s|$)/.test(fb[fb.length - 1]!)) fb.pop();
+      /** 한국어 순서(「필리핀 1008 Metro Manila, Manila, …」) — 구간 앞뒤의 국가 이름을 뗀다 */
+      .map((x) => x.trim().replace(COUNTRY_EDGE_RE, "").replace(COUNTRY_TAIL_RE, "").trim())
+      /** 「1008 Metro Manila」「1008」처럼 우편번호(+도 이름)만인 구간은 위치와 상관없이 뺀다 — 번지(「1001 Paterno St」)는 남긴다 */
+      .filter((x) => x && !PROVINCE_OR_COUNTRY_RE.test(x) && !POSTAL_ONLY_RE.test(x));
+    /** 우편번호는 Google 형식 마지막 구간(「4102 Cavite」)에도 — 번지(「1001 Paterno St」)는 지우지 않는다 */
+    if (fb.length > 0 && /^\d{4}(\s|$)/.test(fb[fb.length - 1]!) && !/\b(st\.?|street|ave\.?|avenue|rd\.?|road)\b/i.test(fb[fb.length - 1]!)) fb.pop();
     push(parts.placeName);
     for (const s of fb) push(s);
     push(city);

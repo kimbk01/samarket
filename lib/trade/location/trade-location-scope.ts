@@ -10,6 +10,7 @@
  * Browser-safe: no fs / national dataset load.
  */
 
+import { formatLguPublicDisplayName } from "@/lib/trade/location/national/lgu-public-display-name";
 import {
   getTradeLguCityDef,
   isTradeLguCityId,
@@ -157,7 +158,7 @@ export function rememberTradeLguDisplayLabel(
   displayName: string
 ): void {
   const id = canonicalId.trim();
-  const name = displayName.trim();
+  const name = formatLguPublicDisplayName(displayName);
   if (!id || !name || typeof sessionStorage === "undefined") return;
   try {
     sessionStorage.setItem(`${TRADE_LGU_LABEL_PREFIX}${id}`, name);
@@ -172,7 +173,7 @@ export function peekTradeLguDisplayLabel(canonicalId: string | null | undefined)
   if (typeof sessionStorage !== "undefined") {
     try {
       const hit = sessionStorage.getItem(`${TRADE_LGU_LABEL_PREFIX}${id}`);
-      if (hit?.trim()) return hit.trim();
+      if (hit?.trim()) return formatLguPublicDisplayName(hit);
     } catch {
       /* ignore */
     }

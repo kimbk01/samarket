@@ -4,6 +4,10 @@ import {
   realPlaceNameFromStoredBuilding,
 } from "@/lib/addresses/canonical-address-display";
 import { formatPublicAddress } from "@/lib/addresses/user-address-format";
+import {
+  addressDisplayPartsFromUserAddress,
+  formatAddressFullOneLine,
+} from "@/lib/addresses/address-display-levels";
 
 export type UserAddressDisplayMode = "TITLE" | "FULL" | "PUBLIC" | "SHORT";
 
@@ -49,6 +53,10 @@ export function resolveUserAddressTitle(row: UserAddressDTO | null | undefined):
 
 export function formatUserAddressFull(row: UserAddressDTO | null | undefined): string | null {
   if (!row?.id) return null;
+  /** 주소 SSOT 5단계: 필리핀 주소 = ③ 전체 주소(세부, 장소, 도로, 바랑가이, 시/군) — 결제·주소록과 같은 문장 */
+  if ((row.countryCode ?? "PH").trim().toUpperCase() === "PH") {
+    return normalizeDisplayLine(formatAddressFullOneLine(addressDisplayPartsFromUserAddress(row)));
+  }
   return normalizeDisplayLine(formatCanonicalFullLineFromDto(row));
 }
 

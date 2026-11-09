@@ -15,7 +15,7 @@
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
-import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import { resolveCanonicalLguIdForAddressWrite } from "@/lib/addresses/address-lgu-resolve";
 import { listTradeNationalLgus } from "@/lib/trade/location/national/load-national-lgu-dataset";
 import { normalizeTradeNationalLguName } from "@/lib/trade/location/national/normalize-lgu-name";
 import { legacyLocationRowToLguId } from "@/lib/neighborhood/lgu-location.server";
@@ -103,6 +103,31 @@ export function deriveCityMunicipalityFromAddressText(
   return null;
 }
 
+/**
+ * 시/군 LGU — 회원 주소·배달 공통 판정 (주소 SSOT 5단계: 배달 판정이 따로 하던 「저장값 → 도시+도」만의 판정을 이 함수로 합침).
+ * 저장값 → 도시+도 → 앱 동네 목록 형식(H3) → 도시만(전국에서 하나뿐일 때). 겹치면 null.
+ */
+export function resolveAddressCanonicalLguId(input: {
+  canonicalLguId?: string | null;
+  cityMunicipality?: string | null;
+  province?: string | null;
+}): string | null {
+  const city = cleanAddressText(input.cityMunicipality) || null;
+  const province = cleanAddressText(input.province) || null;
+  return (
+    cleanAddressText(input.canonicalLguId) ||
+    resolveCanonicalLguIdForAddressWrite({ cityMunicipality: city, province }) ||
+    /**
+     * H3: 앱 동네 목록 형식(시/군 칸 = 「Diliman」, 도 칸 = 「Quezon City」 · 관리자 회원 생성·오너 폼 매장 연결)
+     * → 동네 목록 → LGU 대응표(143/143)로 확정
+     */
+    legacyLocationRowToLguId(province, city) ||
+    /** 예전 저장분 도 칸에 지역 이름(Calabarzon 등) — 시/군만으로(전국에서 이름이 하나뿐일 때만) */
+    (province ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality: city, province: null }) : null) ||
+    null
+  );
+}
+
 /** 행 한 건의 위치값 — 저장·조회 공통 */
 export function deriveAddressLocation(input: AddressLocationInput): DerivedAddressLocation {
   const textLines = [input.formattedAddress, input.fullAddress, input.roadAddress];
@@ -113,20 +138,11 @@ export function deriveAddressLocation(input: AddressLocationInput): DerivedAddre
 
   const clean = (v: string | null | undefined) => cleanAddressText(v) || null;
 
-  /**
-   * LGU: 시/군 + 도로 먼저, 안 되면 시/군만(전국에서 이름이 하나뿐일 때만 확정 — 겹치면 null).
-   * 예전 저장분 도 칸에 지역 이름(Calabarzon 등)이 들어간 행도 같은 시/군으로 확정된다.
-   */
-  const canonicalLguId =
-    cleanAddressText(input.canonicalLguId) ||
-    resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: clean(input.province) }) ||
-    /**
-     * H3: 앱 동네 목록 형식(시/군 칸 = 「Diliman」, 도 칸 = 「Quezon City」 · 관리자 회원 생성·오너 폼 매장 연결)
-     * → 동네 목록 → LGU 대응표(143/143)로 확정
-     */
-    legacyLocationRowToLguId(clean(input.province), cityMunicipality) ||
-    (clean(input.province) ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: null }) : null) ||
-    null;
+  const canonicalLguId = resolveAddressCanonicalLguId({
+    canonicalLguId: input.canonicalLguId,
+    cityMunicipality,
+    province: input.province,
+  });
 
   const fromText = mapUserAddressToAppLocation({
     appRegionId: null,
