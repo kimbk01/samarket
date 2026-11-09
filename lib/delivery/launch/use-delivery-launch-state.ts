@@ -29,7 +29,6 @@ function parseState(raw: unknown): DeliveryLaunchPublicState | null {
     mode: normalizeDeliveryLaunchMode(o.mode),
     freeUntil: normalizeFreeUntil(o.freeUntil),
     freePromoActive: o.freePromoActive === true,
-    popupEnabled: o.popupEnabled !== false,
     fabEnabled: o.fabEnabled !== false,
     content: normalizeDeliveryLaunchContent(o.content),
   };

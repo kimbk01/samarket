@@ -3,7 +3,7 @@
  * 설계: docs/design/delivery-launch-recruiting-mode.html (v2 §4-1·4-2·4-3).
  *
  * - mode `open`(정식 운영, 기본값) = 지금 배달 화면 그대로.
- * - mode `recruiting`(매장 모집) = 배달 첫 화면에 큰 모집 배너 + 목록 흐림·터치 막음 + 모집 팝업 + 고객센터 FAB,
+ * - mode `recruiting`(매장 모집) = 배달 첫 화면에 큰 모집 배너 + 목록 흐림·터치 막음 + 기존 고객센터 FAB(입점 문의),
  *   고객 주문은 서버에서 거부. 매장 신청·사장님 화면·본인 매장 보기는 모드와 무관하게 항상 동작.
  * - 오픈 기념 무료는 모드가 아니라 `freeUntil`(필리핀 날짜)로 끝난다.
  *
@@ -24,8 +24,6 @@ export type DeliveryLaunchTexts = {
   schedule: string;
   applyLabel: string;
   inquiryLabel: string;
-  popupTitle: string;
-  popupBody: string;
 };
 
 export type DeliveryLaunchContent = {
@@ -33,8 +31,6 @@ export type DeliveryLaunchContent = {
   mobileImageUrl: string;
   /** 태블릿·PC·Windows·폰 가로 이미지 2:1 (선택 — 없으면 폰 이미지를 가운데 기준으로 잘라 씀) */
   wideImageUrl: string;
-  /** 모집 팝업 이미지 36:25 (선택) */
-  popupImageUrl: string;
   texts: Record<DeliveryLaunchLocale, DeliveryLaunchTexts>;
 };
 
@@ -42,7 +38,6 @@ export type DeliveryLaunchSettings = {
   mode: DeliveryLaunchMode;
   /** YYYY-MM-DD (필리핀 날짜) 또는 null */
   freeUntil: string | null;
-  popupEnabled: boolean;
   fabEnabled: boolean;
   content: DeliveryLaunchContent;
   revision: number;
@@ -56,7 +51,6 @@ export type DeliveryLaunchPublicState = {
   freeUntil: string | null;
   /** 오늘(필리핀) ≤ freeUntil */
   freePromoActive: boolean;
-  popupEnabled: boolean;
   fabEnabled: boolean;
   content: DeliveryLaunchContent;
 };
@@ -68,14 +62,11 @@ export const EMPTY_DELIVERY_LAUNCH_TEXTS: DeliveryLaunchTexts = {
   schedule: "",
   applyLabel: "",
   inquiryLabel: "",
-  popupTitle: "",
-  popupBody: "",
 };
 
 export const DEFAULT_DELIVERY_LAUNCH_CONTENT: DeliveryLaunchContent = {
   mobileImageUrl: "",
   wideImageUrl: "",
-  popupImageUrl: "",
   texts: { ko: { ...EMPTY_DELIVERY_LAUNCH_TEXTS }, en: { ...EMPTY_DELIVERY_LAUNCH_TEXTS } },
 };
 
@@ -83,7 +74,6 @@ export const DEFAULT_DELIVERY_LAUNCH_CONTENT: DeliveryLaunchContent = {
 export const DEFAULT_DELIVERY_LAUNCH_SETTINGS: DeliveryLaunchSettings = {
   mode: "open",
   freeUntil: null,
-  popupEnabled: true,
   fabEnabled: true,
   content: DEFAULT_DELIVERY_LAUNCH_CONTENT,
   revision: 0,
@@ -95,7 +85,6 @@ export const DEFAULT_DELIVERY_LAUNCH_SETTINGS: DeliveryLaunchSettings = {
 export const DELIVERY_LAUNCH_IMAGE_SPECS = {
   mobile: { ratioW: 4, ratioH: 3, ratioLabel: "4:3", recommendedWidth: 1200, recommendedHeight: 900, minWidth: 900, minHeight: 675 },
   wide: { ratioW: 2, ratioH: 1, ratioLabel: "2:1", recommendedWidth: 1536, recommendedHeight: 768, minWidth: 1200, minHeight: 600 },
-  popup: { ratioW: 36, ratioH: 25, ratioLabel: "36:25", recommendedWidth: 1080, recommendedHeight: 750, minWidth: 720, minHeight: 500 },
 } as const;
 export type DeliveryLaunchImageKind = keyof typeof DELIVERY_LAUNCH_IMAGE_SPECS;
 export const DELIVERY_LAUNCH_IMAGE_RATIO_TOLERANCE = 0.08;
@@ -110,12 +99,10 @@ const TEXT_MAX: Record<keyof DeliveryLaunchTexts, number> = {
   schedule: 80,
   applyLabel: 24,
   inquiryLabel: 24,
-  popupTitle: 60,
-  popupBody: 300,
 };
 
 export function isDeliveryLaunchImageKind(v: unknown): v is DeliveryLaunchImageKind {
-  return v === "mobile" || v === "wide" || v === "popup";
+  return v === "mobile" || v === "wide";
 }
 
 export function validateDeliveryLaunchImageGeometry(
@@ -164,7 +151,6 @@ export function normalizeDeliveryLaunchContent(raw: unknown): DeliveryLaunchCont
   return {
     mobileImageUrl: httpsUrl(o.mobileImageUrl),
     wideImageUrl: httpsUrl(o.wideImageUrl),
-    popupImageUrl: httpsUrl(o.popupImageUrl),
     texts: { ko: normalizeTexts(textsRaw.ko), en: normalizeTexts(textsRaw.en) },
   };
 }
@@ -189,7 +175,6 @@ export function deliveryLaunchSettingsFromRow(row: Record<string, unknown> | nul
   return {
     mode: normalizeDeliveryLaunchMode(row.mode),
     freeUntil: normalizeFreeUntil(row.free_until),
-    popupEnabled: row.popup_enabled !== false,
     fabEnabled: row.fab_enabled !== false,
     content: normalizeDeliveryLaunchContent(row.content),
     revision: Number.isFinite(rev) && rev >= 0 ? Math.floor(rev) : 0,
@@ -213,7 +198,6 @@ export function toDeliveryLaunchPublicState(s: DeliveryLaunchSettings, now: Date
     mode: s.mode,
     freeUntil: s.freeUntil,
     freePromoActive: isDeliveryFreePromoActive(s.freeUntil, now),
-    popupEnabled: s.popupEnabled,
     fabEnabled: s.fabEnabled,
     content: s.content,
   };

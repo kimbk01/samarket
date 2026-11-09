@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 const BUCKET = "admin-notification-campaign-images";
 
 /**
- * POST multipart `file` + `kind`(mobile 4:3 · wide 2:1 · popup 36:25) — 배달 오픈 관리 이미지 업로드 (최고관리자).
+ * POST multipart `file` + `kind`(mobile 4:3 · wide 2:1) — 배달 오픈 관리 이미지 업로드 (최고관리자).
  * JPG·PNG·WebP 2MB 이하 → sharp 재인코딩(EXIF 회전 반영·메타데이터 제거·WebP) → 저장 바이트 기준 비율 ±8%·최소 크기 검사.
  */
 export async function POST(req: NextRequest) {

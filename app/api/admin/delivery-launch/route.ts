@@ -100,7 +100,6 @@ export async function PUT(req: NextRequest) {
       expectedRevision,
       mode: body.mode,
       freeUntil,
-      popupEnabled: body.popupEnabled !== false,
       fabEnabled: body.fabEnabled !== false,
       content,
       actorId: gate.actor.userId,

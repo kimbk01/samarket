@@ -1,6 +1,5 @@
 "use client";
 
-import { isDeliveryRecruiting, useDeliveryLaunchState } from "@/lib/delivery/launch/use-delivery-launch-state";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { newPlatformPopupExposureId } from "@/lib/platform-popup/popup-exposure-id";
@@ -154,13 +153,6 @@ export function GlobalPopupHost() {
   );
   const [shellReady, setShellReady] = useState(() => isAppShellReady());
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
-  /**
-   * 배달 오픈 관리 — 매장 모집 중 배달 첫 화면은 모집 팝업만 띄운다(광고 팝업과 겹침 방지 · Owner 2026-11-10).
-   * 배달 화면에서만 상태를 조회한다.
-   */
-  const isStoresHomePath = pathname === "/stores" || pathname === "/stores/";
-  const deliveryLaunchState = useDeliveryLaunchState(isStoresHomePath);
-  const deliveryRecruitingHome = isStoresHomePath && isDeliveryRecruiting(deliveryLaunchState);
 
   useEffect(() => {
     if (shellReady) return;
@@ -192,7 +184,7 @@ export function GlobalPopupHost() {
       authRestoreCritical: !authReady || criticalFlags.authRestoreGate,
       permissionOnboardingCritical: criticalFlags.permissionGate,
       addressGateCritical: criticalFlags.addressGate,
-      criticalDialogOpen: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen || deliveryRecruitingHome,
+      criticalDialogOpen: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen,
     };
     const surface = resolveDibaySurface(pathname, toResolveDibaySurfaceContext(criticalUi));
     return {
@@ -212,7 +204,7 @@ export function GlobalPopupHost() {
       authRestoreGate: !authReady || criticalFlags.authRestoreGate,
       permissionGate: criticalFlags.permissionGate,
       addressGate: criticalFlags.addressGate,
-      criticalDialog: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen || deliveryRecruitingHome,
+      criticalDialog: criticalFlags.criticalDialog || supportOpen || otherOverlayOpen,
       startupDeferred: isAdminPath ? false : !shellReady,
       storesLcpDeferred: isAdminPath ? false : storesLcpDeferred,
       launchIntroActive,
@@ -231,7 +223,6 @@ export function GlobalPopupHost() {
     criticalFlags,
     supportOpen,
     otherOverlayOpen,
-    deliveryRecruitingHome,
     shellReady,
     isAdminPath,
     storesLcpDeferred,

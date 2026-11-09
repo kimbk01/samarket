@@ -47,13 +47,12 @@ type LoadResponse = {
 type Draft = {
   mode: DeliveryLaunchMode;
   freeUntil: string;
-  popupEnabled: boolean;
   fabEnabled: boolean;
   content: DeliveryLaunchContent;
 };
 
 function draftFrom(s: DeliveryLaunchSettings): Draft {
-  return { mode: s.mode, freeUntil: s.freeUntil ?? "", popupEnabled: s.popupEnabled, fabEnabled: s.fabEnabled, content: s.content };
+  return { mode: s.mode, freeUntil: s.freeUntil ?? "", fabEnabled: s.fabEnabled, content: s.content };
 }
 
 /** UTC 저장값 → 표시만 필리핀 시각 */
@@ -70,20 +69,16 @@ const TEXT_FIELDS: { key: keyof DeliveryLaunchTexts; label: MessageKey; multilin
   { key: "schedule", label: "admin_dl_field_schedule" },
   { key: "applyLabel", label: "admin_dl_field_apply" },
   { key: "inquiryLabel", label: "admin_dl_field_inquiry" },
-  { key: "popupTitle", label: "admin_dl_field_popup_title" },
-  { key: "popupBody", label: "admin_dl_field_popup_body", multiline: true },
 ];
 
-const IMAGE_FIELD: Record<DeliveryLaunchImageKind, "mobileImageUrl" | "wideImageUrl" | "popupImageUrl"> = {
+const IMAGE_FIELD: Record<DeliveryLaunchImageKind, "mobileImageUrl" | "wideImageUrl"> = {
   mobile: "mobileImageUrl",
   wide: "wideImageUrl",
-  popup: "popupImageUrl",
 };
 
 const IMAGE_LABEL: Record<DeliveryLaunchImageKind, MessageKey> = {
   mobile: "admin_dl_image_mobile",
   wide: "admin_dl_image_wide",
-  popup: "admin_dl_image_popup",
 };
 
 const ERROR_KEY: Record<string, MessageKey> = {
@@ -198,7 +193,6 @@ export function DeliveryScreensLaunchTab() {
           expectedRevision: revision,
           mode: draft.mode,
           freeUntil: draft.freeUntil || null,
-          popupEnabled: draft.popupEnabled,
           fabEnabled: draft.fabEnabled,
           content: draft.content,
         }),
@@ -224,8 +218,7 @@ export function DeliveryScreensLaunchTab() {
             mode: "recruiting",
             freeUntil: draft.freeUntil || null,
             freePromoActive: isDeliveryFreePromoActive(draft.freeUntil || null),
-            popupEnabled: draft.popupEnabled,
-            fabEnabled: draft.fabEnabled,
+              fabEnabled: draft.fabEnabled,
             content: draft.content,
           }
         : null,
@@ -278,7 +271,7 @@ export function DeliveryScreensLaunchTab() {
 
         <section className={card}>
           <h3 className="text-[14px] font-bold">{t("admin_dl_images_title")}</h3>
-          {(["mobile", "wide", "popup"] as const).map((kind) => {
+          {(["mobile", "wide"] as const).map((kind) => {
             const spec = DELIVERY_LAUNCH_IMAGE_SPECS[kind];
             const url = draft.content[IMAGE_FIELD[kind]];
             return (
@@ -372,16 +365,7 @@ export function DeliveryScreensLaunchTab() {
         </section>
 
         <section className={card}>
-          <h3 className="text-[14px] font-bold">{t("admin_dl_popup_fab_title")}</h3>
-          <label className="flex items-center justify-between gap-3 text-[13px]">
-            <span>{t("admin_dl_popup_toggle")}</span>
-            <input
-              id="delivery-launch-popup-enabled"
-              type="checkbox"
-              checked={draft.popupEnabled}
-              onChange={(e) => setDraft({ ...draft, popupEnabled: e.target.checked })}
-            />
-          </label>
+          <h3 className="text-[14px] font-bold">{t("admin_dl_fab_title")}</h3>
           <label className="flex items-center justify-between gap-3 text-[13px]">
             <span>{t("admin_dl_fab_toggle")}</span>
             <input
@@ -391,7 +375,6 @@ export function DeliveryScreensLaunchTab() {
               onChange={(e) => setDraft({ ...draft, fabEnabled: e.target.checked })}
             />
           </label>
-          <p className="text-[12px] text-sam-muted">{t("admin_dl_popup_fab_note")}</p>
         </section>
 
         <section className={card}>

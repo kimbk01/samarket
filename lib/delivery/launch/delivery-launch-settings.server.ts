@@ -14,7 +14,7 @@ import {
 
 export const DELIVERY_LAUNCH_SERVER_CACHE_TAG = "delivery-launch";
 
-const SELECT = "mode, free_until, popup_enabled, fab_enabled, content, revision, updated_by, updated_at";
+const SELECT = "mode, free_until, fab_enabled, content, revision, updated_by, updated_at";
 
 function isMissingTableError(message: string | undefined): boolean {
   const m = String(message ?? "");
@@ -77,7 +77,6 @@ export type SaveDeliveryLaunchInput = {
   expectedRevision: number;
   mode: DeliveryLaunchMode;
   freeUntil: string | null;
-  popupEnabled: boolean;
   fabEnabled: boolean;
   content: DeliveryLaunchContent;
   actorId: string;
@@ -96,7 +95,8 @@ export async function saveDeliveryLaunchSettingsCas(
     p_expected_revision: input.expectedRevision,
     p_mode: input.mode,
     p_free_until: input.freeUntil,
-    p_popup_enabled: input.popupEnabled,
+    // 모집 팝업은 되돌림(Owner 2026-11-10) — DB 열은 남아 있어 항상 true 로만 쓴다(읽지 않음)
+    p_popup_enabled: true,
     p_fab_enabled: input.fabEnabled,
     p_content: input.content,
     p_actor_id: input.actorId,

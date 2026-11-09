@@ -26,12 +26,10 @@ describe("배달 오픈 관리 — 설정 계약", () => {
     const c = normalizeDeliveryLaunchContent({
       mobileImageUrl: "javascript:alert(1)",
       wideImageUrl: "http://x.test/a.png",
-      popupImageUrl: "https://cdn.test/p.webp",
       texts: { ko: { title: "가".repeat(200) } },
     });
     expect(c.mobileImageUrl).toBe("");
     expect(c.wideImageUrl).toBe("");
-    expect(c.popupImageUrl).toBe("https://cdn.test/p.webp");
     expect(c.texts.ko.title.length).toBe(60);
   });
 
@@ -56,7 +54,6 @@ describe("배달 오픈 관리 — 설정 계약", () => {
     expect(validateDeliveryLaunchImageGeometry("mobile", 800, 600)).toEqual({ ok: false, error: "image_too_small" });
     expect(validateDeliveryLaunchImageGeometry("mobile", 1600, 900)).toEqual({ ok: false, error: "image_ratio_mismatch" });
     expect(validateDeliveryLaunchImageGeometry("wide", 1536, 768)).toEqual({ ok: true });
-    expect(validateDeliveryLaunchImageGeometry("popup", 1080, 750)).toEqual({ ok: true });
   });
 });
 
@@ -88,7 +85,9 @@ describe("배달 오픈 관리 — 매장 모집 중 고객 경로", () => {
     expect(hub).toContain("<DeliveryRecruitingHero state={launchState} />");
     expect(hub).toContain("<StoresHomeRecruitingDim active={recruiting}>");
     expect(hub).toContain("<DeliveryRecruitingOverlays state={launchState} />");
-    expect(read("components/platform-popup/GlobalPopupHost.tsx")).toContain("deliveryRecruitingHome");
+    // 별도 모집 팝업·광고 팝업 억제는 되돌림 (Owner 2026-11-10) — 기존 고객센터 FAB 만
+    expect(read("components/platform-popup/GlobalPopupHost.tsx")).not.toContain("deliveryRecruitingHome");
+    expect(read("components/delivery/launch/DeliveryRecruitingSurface.tsx")).not.toContain("DibayDialog");
   });
 
   it("저장 = 최고관리자 · revision CAS(409) · 캐시 무효화", () => {

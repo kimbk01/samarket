@@ -1182,7 +1182,6 @@ export const storeCommerceUiMessages = {
     delivery_recruiting_apply: "매장 신청하기",
     delivery_recruiting_inquiry: "문의하기",
     delivery_recruiting_ribbon: "배달 오픈 준비 중 · 매장을 모으고 있어요",
-    delivery_recruiting_popup_hide_today: "오늘 하루 보지 않기",
     store_err_delivery_recruiting: "배달 오픈을 준비하고 있어요. 지금은 주문할 수 없어요.",
     store_cart_delivery_address_revalidated:
       "배송지가 변경되어 배달 가능 여부를 다시 확인했습니다.",
@@ -2955,7 +2954,6 @@ export const storeCommerceUiMessages = {
     delivery_recruiting_apply: "Apply as a store",
     delivery_recruiting_inquiry: "Ask us",
     delivery_recruiting_ribbon: "Delivery is opening soon · We're gathering stores",
-    delivery_recruiting_popup_hide_today: "Don't show today",
     store_err_delivery_recruiting: "Delivery is getting ready to open. Ordering isn't available yet.",
     store_cart_delivery_address_revalidated:
       "Your delivery address changed. We rechecked delivery availability.",
