@@ -17,6 +17,7 @@ import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
 import { MyStickyCta } from "@/components/mypage/ds/MyStickyCta";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 /** 재전송 남은 초 — 렌더 시점 계산이 아니라 1초마다 갱신되는 `now` 로 계산 (S05) */
@@ -205,6 +206,7 @@ export function PhoneVerificationBox({
         phone?: string;
       };
       if (!res.ok || !json.ok) {
+        triggerInteractionFeedback("error");
         setError(
           resolvePhoneOtpUiError(
             { status: res.status, code: json.code, message: json.message },
@@ -214,6 +216,7 @@ export function PhoneVerificationBox({
         );
         return;
       }
+      triggerInteractionFeedback("success");
       setMessage(`${t("my_phone_sent_hint")} (${json.phone ?? normalizedPhone})`);
       setCooldownUntil(Date.now() + cooldownSec * 1000);
       setCodeSent(true);
@@ -251,6 +254,7 @@ export function PhoneVerificationBox({
         message?: string;
       };
       if (!res.ok || !json.ok) {
+        triggerInteractionFeedback("error");
         setError(
           resolvePhoneOtpUiError(
             { status: res.status, code: json.code, message: json.message },
@@ -260,6 +264,7 @@ export function PhoneVerificationBox({
         );
         return;
       }
+      triggerInteractionFeedback("success");
       setMessage(t("my_phone_verified_success"));
       setOtp("");
       setAllowEdit(false);
@@ -446,7 +451,8 @@ export function PhoneVerificationBox({
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  onClick={() => {
+                  onClick={(e) => {
+                    triggerInteractionFeedback("light", { pointerType: (e.nativeEvent as PointerEvent).pointerType });
                     if (selected) return;
                     setDialCode(c.dialCode);
                     setPhone("");
@@ -490,7 +496,10 @@ export function PhoneVerificationBox({
             <button
               type="button"
               disabled={sending || cooldownLeft > 0 || !validPhone}
-              onClick={() => void requestOtp()}
+              onClick={(e) => {
+                triggerInteractionFeedback("light", { pointerType: (e.nativeEvent as PointerEvent).pointerType });
+                void requestOtp();
+              }}
               className={`${codeSent ? otpBtnClass : verifyBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4 disabled:opacity-40`}
               data-testid="phone-verify-send"
             >
@@ -526,7 +535,10 @@ export function PhoneVerificationBox({
                 <button
                   type="button"
                   disabled={verifying || !codeReady}
-                  onClick={() => void verifyOtp()}
+                  onClick={(e) => {
+                    triggerInteractionFeedback("light", { pointerType: (e.nativeEvent as PointerEvent).pointerType });
+                    void verifyOtp();
+                  }}
                   className={`${verifyBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4 disabled:opacity-40`}
                   data-testid="phone-verify-submit"
                 >

@@ -59,6 +59,10 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     expect(src).toContain("disabled={sending || cooldownLeft > 0 || !validPhone}");
     expect(src).toContain("disabled={verifying || !codeReady}");
     expect(src).toContain("{ov ? null : (");
+    // 버튼 누름 진동·소리(공용 light-tap-feedback), 결과는 success/error 진동
+    expect(src).toContain('triggerInteractionFeedback("light"');
+    expect(src).toContain('triggerInteractionFeedback("success")');
+    expect(src).toContain('triggerInteractionFeedback("error")');
   });
 
   it("legal-consent PATCH uses atomic RPC (no soft-skip required ledger)", () => {
