@@ -6,12 +6,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
-import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { MY_STICKY_CTA_BODY_CLEARANCE_CLASS } from "@/components/mypage/ds/MyStickyCta";
-import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
 import {
   buildPhoneVerifySnapshot,
   loadPhoneVerificationState,
@@ -57,18 +54,18 @@ export function MypageRequiredPhoneClient() {
     [state],
   );
 
+  /** 인증 성공 직후 — 클라이언트 사본 전부 갱신(F1). 이동은 완료 화면에서(`handleDone`). */
   const handleRefresh = useCallback(async () => {
-    const fresh = await refreshClientMemberAccountAfterMutation();
-    invalidateMypageSummary();
+    await refreshClientMemberAccountAfterMutation();
     await load({ silent: true });
-    if (fresh && hasVerifiedPhone(fresh)) {
-      const raw =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("returnTo")
-          : null;
-      router.replace(sanitizeNextPath(raw) || MYPAGE_MAIN_HREF);
-    }
-  }, [load, router]);
+  }, [load]);
+
+  /** 완료 화면 [확인]/1.2초 뒤 — 인증을 시작한 화면(returnTo)으로 */
+  const handleDone = useCallback(() => {
+    const raw =
+      typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("returnTo") : null;
+    router.replace(sanitizeNextPath(raw) || MYPAGE_MAIN_HREF);
+  }, [router]);
 
   if (state.kind === "loading") {
     return <MyStateView kind="loading" template="form" rows={3} />;
@@ -92,8 +89,8 @@ export function MypageRequiredPhoneClient() {
   }
 
   return (
-    <div className={`py-2 ${MY_STICKY_CTA_BODY_CLEARANCE_CLASS}`}>
-      <PhoneVerificationBox snapshot={snapshot} onRefreshProfile={handleRefresh} verifyCtaPlacement="sticky" />
+    <div className="px-1 py-4">
+      <PhoneVerificationBox snapshot={snapshot} onRefreshProfile={handleRefresh} onDone={handleDone} />
     </div>
   );
 }

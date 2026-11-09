@@ -13,6 +13,7 @@ import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileBasicFields } from "./ProfileBasicFields";
 import { ProfileMapLocationBlock } from "./ProfileMapLocationBlock";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
+import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
 import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchMeAddressesListSingleFlight, invalidateMeAddressesListClientCache } from "@/lib/addresses/address-list-client-cache";
@@ -306,6 +307,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
 
   const handlePhoneRefreshProfile = useCallback(async () => {
     invalidateMandatoryAddressGateClientCache();
+    /** 앱 시작 프로필·로그인 캐시까지 새 값으로 (F1) — 다른 화면이 예전 「미인증」을 읽지 않게 */
+    await refreshClientMemberAccountAfterMutation();
     await load({ freshProfile: true });
   }, [load]);
 

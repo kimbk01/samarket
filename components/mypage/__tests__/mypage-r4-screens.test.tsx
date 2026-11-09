@@ -310,6 +310,79 @@ describe("S05 전화 인증 — 무한 로딩 금지 · 재전송 타이머", ()
   });
 });
 
+describe("전화 인증 텔레그램형 — 번호 → 6칸 → 자동 확인 → 완료 (Owner 2026-11-09)", () => {
+  const snap = {
+    phone: "09171234567",
+    phone_verified: false,
+    settings: { enabled: true, guide_text: "", resend_cooldown_seconds: 60 },
+  };
+
+  it("[계속] → 인증번호 화면, 6번째 숫자에서 자동 확인 → 즉시 완료 화면 → 1.2초 뒤 onDone", async () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        calls.push(String(url));
+        return String(url).includes("send-otp")
+          ? jsonResponse({ ok: true, phone: "+639171234567" })
+          : jsonResponse({ ok: true });
+      }),
+    );
+    const onRefresh = vi.fn(async () => undefined);
+    const onDone = vi.fn();
+    mount(<PhoneVerificationBox snapshot={snap} onRefreshProfile={onRefresh} onDone={onDone} />);
+    click(q("phone-verify-send"));
+    await flush(6);
+    expect(q("phone-verify-code-step")).not.toBeNull();
+    expect(host!.textContent).toContain("+63 917 123 4567");
+    typeInto(q("phone-verify-code") as HTMLInputElement, "482913");
+    await flush(8);
+    expect(calls.filter((u) => u.includes("verify-otp"))).toHaveLength(1);
+    expect(q("phone-verify-done")).not.toBeNull();
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("틀린 인증번호 → 오류 문구 + 칸 비움, 완료 화면 없음", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        String(url).includes("send-otp")
+          ? jsonResponse({ ok: true, phone: "+639171234567" })
+          : jsonResponse({ ok: false, code: "otp_invalid" }, 400),
+      ),
+    );
+    mount(<PhoneVerificationBox snapshot={snap} onRefreshProfile={async () => undefined} onDone={vi.fn()} />);
+    click(q("phone-verify-send"));
+    await flush(6);
+    typeInto(q("phone-verify-code") as HTMLInputElement, "111111");
+    await flush(8);
+    expect(q("phone-verify-done")).toBeNull();
+    expect((q("phone-verify-code") as HTMLInputElement).value).toBe("");
+    expect(host!.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it("[번호 변경] → 번호 화면, 같은 번호면 [계속] 은 다시 보내지 않고 인증번호 화면으로", async () => {
+    const send = vi.fn(async () => jsonResponse({ ok: true, phone: "+639171234567" }));
+    vi.stubGlobal("fetch", send);
+    mount(<PhoneVerificationBox snapshot={snap} onRefreshProfile={async () => undefined} />);
+    click(q("phone-verify-send"));
+    await flush(6);
+    click(q("phone-verify-change-number"));
+    await flush(2);
+    expect(q("phone-verify-phone-step")).not.toBeNull();
+    click(q("phone-verify-send"));
+    await flush(4);
+    expect(q("phone-verify-code-step")).not.toBeNull();
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("S14 관심·차단·숨김 — 해제 확인", () => {
   const item = {
     id: "rel-1",

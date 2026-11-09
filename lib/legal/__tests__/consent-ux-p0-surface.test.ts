@@ -40,25 +40,32 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     expect(src).toContain('safeT("auth_consent_dob_required")');
   });
 
-  it("PhoneVerificationBox: country code and number are separate fields with device autofill", () => {
+  it("PhoneVerificationBox: 텔레그램형 — 국가 줄·번호 한 줄·[계속] → 6칸 인증번호 → 완료 (Owner 2026-11-09)", () => {
     const src = readFileSync(path.join(root, "components/mypage/profile/PhoneVerificationBox.tsx"), "utf8");
     expect(src).toContain('data-testid="phone-verify-country-code"');
     expect(src).toContain('data-testid="phone-verify-number"');
     expect(src).toContain('autoComplete="tel"');
     expect(src).toContain('t("my_phone_number_placeholder")');
     expect(src).not.toContain("PH_MOBILE_PLUS63_PLACEHOLDER");
-    // 국가번호 = 버튼(라디오) — 기기 기본 드롭다운 금지(iOS), 안내는 오류 때 숨김
+    // 국가 = 목록 화면(라디오) — 기기 기본 드롭다운(select) 금지(iOS)
     expect(src).not.toContain("<select");
     expect(src).toContain('role="radiogroup"');
-    // 중복 안내 삭제 (어드민 안내 문구 하나만) · 번호는 친 그대로 받음 · 인증번호 칸은 보낸 뒤에만
+    expect(src).toContain('data-testid="phone-verify-country-list"');
+    // 중복 안내 없음 · 번호는 친 그대로 받음 · 입력 즉시 형식 판정 · 형식 맞을 때만 [계속]
     expect(src).not.toContain("phone-verify-country-notice");
     expect(src).toContain("sanitizePhoneTyping");
-    expect(src).toContain("codeSent || snapshot.phone_verification_status");
-    // 입력 즉시 형식 판정 · 형식 맞을 때만 받기 버튼 · 6자리일 때만 확인 · 시트 안 중복 제목 없음
     expect(src).toContain('data-testid="phone-verify-format-error"');
-    expect(src).toContain("disabled={sending || cooldownLeft > 0 || !validPhone}");
-    expect(src).toContain("disabled={verifying || !codeReady}");
-    expect(src).toContain("{ov ? null : (");
+    expect(src).toContain("sending || !validPhone");
+    expect(src).toContain('t("my_phone_tg_continue")');
+    // 인증번호 = 보낸 뒤 다음 화면 · 6칸 · 6번째 숫자에서 자동 확인 · [번호 변경]
+    expect(src).toContain('setStep("code")');
+    expect(src).toContain("otp.length !== PHONE_OTP_CODE_LENGTH");
+    expect(src).toContain('data-testid="phone-verify-change-number"');
+    // 확인 성공 즉시 완료 화면(재조회 대기 없음)
+    expect(src).toContain("setJustVerified(true)");
+    expect(src).toContain('data-testid="phone-verify-done"');
+    // 시트 안 중복 제목 없음
+    expect(src).toContain("{ov ? null : <p");
     // 버튼 누름 진동·소리(공용 light-tap-feedback), 결과는 success/error 진동
     expect(src).toContain('triggerInteractionFeedback("light"');
     expect(src).toContain('triggerInteractionFeedback("success")');

@@ -5,10 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import { refreshClientMemberAccountAfterMutation } from "@/lib/auth/sync-member-account-client";
-import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
-import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
-import { patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import {
   buildPhoneVerifySnapshot,
   fetchPhoneVerificationSettings,
@@ -51,6 +48,10 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
     [state],
   );
 
+  /**
+   * 인증 성공 직후 — 서버에서 새로 받아 앱 시작 프로필·로그인 캐시·내정보 홈을 한 번에 맞춘다(F1).
+   * 시트 닫기는 완료 화면의 [확인]/1.2초 뒤(`onDone`) — 재조회 결과에 기대지 않는다(F3).
+   */
   const handleRefresh = useCallback(async () => {
     const [p, settings] = await Promise.all([
       refreshClientMemberAccountAfterMutation(),
@@ -60,14 +61,8 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
       if (prev.kind !== "ready") return prev;
       return { kind: "ready", profile: p ?? prev.profile, settings: settings ?? prev.settings };
     });
-    // 홈 필수정보 「전화번호 인증」 행 즉시 갱신 (저장 응답 기준 — 재조회 대기 없음)
-    if (p) patchMypageHomeProjection({ profile: p });
-    invalidateMypageSummary();
     onProfileUpdated();
-    if (p && hasVerifiedPhone(p)) {
-      onClose();
-    }
-  }, [onClose, onProfileUpdated]);
+  }, [onProfileUpdated]);
 
   return (
     <MypageBottomSheetShell
@@ -88,7 +83,7 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
           {t("mypage_comp_phone_verify_disabled")}
         </p>
       ) : (
-        <PhoneVerificationBox snapshot={snapshot} onRefreshProfile={handleRefresh} surface="overlay" />
+        <PhoneVerificationBox snapshot={snapshot} onRefreshProfile={handleRefresh} onDone={onClose} surface="overlay" />
       )}
     </MypageBottomSheetShell>
   );

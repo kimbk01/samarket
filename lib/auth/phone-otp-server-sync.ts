@@ -5,6 +5,9 @@ import {
   rememberPhoneVerifiedPositiveProfile,
 } from "@/lib/auth/phone-verified-positive-cache";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import { clearMeProfileResponseCachesForUser } from "@/lib/profile/me-profile-get-response-cache";
+import { clearProfileResponseCacheForUser } from "@/lib/profile/profile-response-cache";
 import {
   checkMemberNicknameWritable,
   MEMBER_NICKNAME_TAKEN_MESSAGE,
@@ -13,6 +16,10 @@ import {
 /** OTP 검증 성공 직후 — stale positive 캐시 제거 후 fresh profile 로 gate 캐시 재구성 */
 export async function syncPhoneVerifiedServerCache(userId: string): Promise<void> {
   invalidatePhoneVerifiedPositiveProfile(userId);
+  /** `/api/me/profile` 서버 캐시 3종 비움 — @아이디 확정 라우트와 같은 규칙 (2026-11-09 F4: 인증 직후 일반 조회가 예전 「미인증」을 받지 않게) */
+  clearMeProfileGetRouteCache(userId);
+  clearMeProfileResponseCachesForUser(userId);
+  clearProfileResponseCacheForUser(userId);
   const profile = await getCurrentProfile(userId);
   if (!profile) return;
   const passes = hasVerifiedPhone({
