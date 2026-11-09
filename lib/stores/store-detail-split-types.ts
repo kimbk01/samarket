@@ -21,6 +21,8 @@ export type StoreSummaryCommerceMeta = {
   owner_block_message?: string | null;
   /** 사장님 본인 숨김 매장 열람 — 고객에게는 안 보이는 상태 */
   owner_hidden_preview?: boolean;
+  /** 본인 미리보기 + 입점 승인 전(대기·심사·보완) — Owner 2026-11-10 */
+  owner_preview_pending?: boolean;
 };
 
 export type StoreSummaryPayload = {

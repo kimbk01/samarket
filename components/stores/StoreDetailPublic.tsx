@@ -371,6 +371,8 @@ export function StoreDetailPublic({
   const [dbOff, setDbOff] = useState(() => initialSnap.dbOff);
   /** 사장님 본인 숨김 매장 열람 — 서버 meta `owner_hidden_preview` (Owner 「본인 열람으로 수정」 2026-11-03) */
   const [ownerHiddenPreview, setOwnerHiddenPreview] = useState(false);
+  /** 본인 미리보기 중 입점 승인 전(심사 중) — 띠 문구만 다르다 (Owner 2026-11-10) */
+  const [ownerPreviewPending, setOwnerPreviewPending] = useState(false);
   /** DSC-06 · S3-04 — summary·legacy 모두 네트워크/서버 오류(5xx·0)면 「매장을 찾을 수 없음」이 아니라 오류+재시도 */
   const [detailLoadFailed, setDetailLoadFailed] = useState(false);
   /** C-04 — 메뉴(스냅샷·legacy 폴백) 로드 실패 = 빈 메뉴와 구분해 오류+재시도 */
@@ -724,6 +726,7 @@ export function StoreDetailPublic({
     if (typeof sumParsed.meta?.canSell === "boolean") setSalesAllowed(sumParsed.meta.canSell);
     setIsSampleStore(sumParsed.meta?.isSampleStore === true);
     setOwnerHiddenPreview(sumParsed.meta?.owner_hidden_preview === true);
+    setOwnerPreviewPending(sumParsed.meta?.owner_preview_pending === true);
     setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
     setDbOff(false);
   }, [decodedSlug]);
@@ -2085,7 +2088,7 @@ export function StoreDetailPublic({
       role="status"
     >
       <p className="text-[13px] font-medium leading-snug text-sam-fg">
-        {t("store_detail_owner_hidden_preview")}
+        {t(ownerPreviewPending ? "store_detail_owner_preview_pending" : "store_detail_owner_hidden_preview")}
       </p>
     </div>
   ) : null;
@@ -2276,7 +2279,7 @@ export function StoreDetailPublic({
         popularSpyActive={popularSpyActive}
         storeReviewCount={Math.max(0, Math.floor(Number(detailStore.review_count) || 0))}
         storeSlug={detailStore.slug}
-        canSell={menuOpen}
+        canSell={menuOpen || ownerHiddenPreview}
         menuQueryActive={menuQuery.trim().length > 0}
         menusLoadFailed={menusLoadFailed}
         onRetryMenus={onRetryMenus}

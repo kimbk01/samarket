@@ -137,6 +137,9 @@ async function buildStoreSummaryShared(
       isSampleStore,
       source: "supabase",
       ...(ownerHiddenPreview ? { owner_hidden_preview: true } : {}),
+      ...(ownerHiddenPreview && String(store.approval_status ?? "").trim() !== "approved"
+        ? { owner_preview_pending: true }
+        : {}),
     },
   };
   return { shared: { body, storeId, ownerUserId }, queryCount: 2 };

@@ -21,6 +21,7 @@ import type { MyBusinessNavContext } from "@/lib/business/my-business-nav-types"
 import type { BusinessAdminNavItemId } from "@/lib/business/business-admin-nav-ids";
 import { OWNER_STORE_PREVIEW_HREF } from "@/lib/business/owner-store-preview-bridge";
 import { ownerNavAccessAllows, type OwnerNavAccess } from "@/lib/business/owner-nav-access";
+import { ownerStoreProfileWriteBlock } from "@/lib/stores/owner-product-gate";
 
 export type { OwnerNavAccess };
 
@@ -243,7 +244,8 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     href: () => OWNER_STORE_PREVIEW_HREF,
     activePrefixes: [],
     bottomTab: null,
-    access: "approved",
+    /** 심사 중에도 본인 매장 미리보기 (Owner 2026-11-10) */
+    access: "preApproval",
     requirePublicSlug: true,
     surfaces: ["drawer"],
   },
@@ -699,7 +701,7 @@ export function isOwnerPathAllowedForApprovalStatus(
 export function ownerNavEntryVisible(entry: OwnerNavEntryDef, ctx: MyBusinessNavContext): boolean {
   if (!ownerNavAccessAllows(entry.access, ctx.approvalStatus)) return false;
   if (entry.requirePublicSlug) {
-    if (!(ctx.approvalStatus === "approved" && ctx.slug)) return false;
+    if (!(ownerStoreProfileWriteBlock(ctx.approvalStatus) === null && ctx.slug)) return false;
   }
   return true;
 }

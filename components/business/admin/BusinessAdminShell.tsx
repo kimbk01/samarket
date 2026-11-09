@@ -111,6 +111,7 @@ import {
   TIER1_HEADER_OVERLAY_OPEN,
 } from "@/lib/layout/tier1-header-overlay-events";
 import { resolveStoreListingBlocker } from "@/lib/stores/store-expose-location-guard";
+import { ownerStoreProfileWriteBlock } from "@/lib/stores/owner-product-gate";
 
 const subscribeNoop = () => () => {};
 
@@ -486,10 +487,13 @@ export function BusinessAdminShell({
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
   const pageTitle = getBusinessAdminPageTitle(pathname, searchParams.toString());
   const shopName = selectedRow?.store_name?.trim() || t("business_phase7_579");
-  /** 미리보기 — 승인 매장이면 노출이 꺼져 있어도 (사장님 본인에게는 매장 화면이 열림 · 2026-11-03) */
+  /**
+   * 미리보기 — 승인 매장이면 노출이 꺼져 있어도 (사장님 본인에게는 매장 화면이 열림 · 2026-11-03).
+   * 심사 중(대기·심사·보완)도 본인 매장 진입 (Owner 「신청한 오너는 본인 매장 진입」 2026-11-10).
+   */
   const publicStoreSlug =
     selectedRow &&
-    String(selectedRow.approval_status) === "approved" &&
+    ownerStoreProfileWriteBlock(String(selectedRow.approval_status)) === null &&
     selectedRow.slug
       ? selectedRow.slug.trim()
       : null;

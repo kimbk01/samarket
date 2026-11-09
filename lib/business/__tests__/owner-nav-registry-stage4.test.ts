@@ -314,6 +314,8 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "notifications",
       "notification_settings",
       "customer_center",
+      // 심사 중에도 본인 매장 미리보기 (Owner 「신청한 오너는 본인 매장 진입」 2026-11-10)
+      "public_store",
     ],
     revision_requested: [
       "dashboard",
@@ -323,6 +325,7 @@ describe("IA-21 — 상태 × 항목 노출 매트릭스 = 1-B 게이트 매트�
       "notifications",
       "notification_settings",
       "customer_center",
+      "public_store",
     ],
     approved: drawerEntries.map((e) => e.id),
     suspended: [

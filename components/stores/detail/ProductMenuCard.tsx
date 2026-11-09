@@ -92,6 +92,14 @@ export const ProductMenuCard = memo(function ProductMenuCard({
         {soldOut ? (
           <span className="ml-1.5 text-[11px] font-semibold text-sam-meta">{t("store_sold_out")}</span>
         ) : null}
+        {p.product_status === "hidden" || p.product_status === "draft" ? (
+          <span
+            className="ml-1.5 rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 align-middle text-[11px] font-semibold text-sam-meta"
+            data-owner-preview-product-status={p.product_status}
+          >
+            {t(p.product_status === "hidden" ? "store_owner_preview_product_hidden" : "store_owner_preview_product_draft")}
+          </span>
+        ) : null}
       </h3>
       {p.summary ? (
         <p

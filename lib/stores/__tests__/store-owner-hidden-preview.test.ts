@@ -54,8 +54,23 @@ describe("getStoreBySlugForViewer", () => {
     }
   });
 
-  it("미승인 매장 — 사장님 본인도 not_found", async () => {
-    for (const approval_status of ["pending", "rejected", "suspended"]) {
+  it("심사 중 매장(대기·심사·보완) — 사장님 본인은 열림, 승인 전 표시 (Owner 2026-11-10)", async () => {
+    for (const approval_status of ["pending", "under_review", "revision_requested"]) {
+      resetApprovedStoreSlugCacheForTests();
+      const { sb } = fakeSb({ ...hidden, approval_status });
+      const r = await getStoreBySlugForViewer(sb, "my-shop", "id, slug, approval_status, is_visible", OWNER);
+      expect(r).toMatchObject({ ok: true, ownerHiddenPreview: true, ownerPreviewPending: true });
+    }
+  });
+
+  it("심사 중 매장 — 다른 사람은 not_found", async () => {
+    const { sb } = fakeSb({ ...hidden, approval_status: "pending" });
+    const r = await getStoreBySlugForViewer(sb, "my-shop", "id, slug, approval_status, is_visible", "someone-else");
+    expect(r).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("반려·중지 매장 — 사장님 본인도 not_found", async () => {
+    for (const approval_status of ["rejected", "suspended"]) {
       resetApprovedStoreSlugCacheForTests();
       const { sb } = fakeSb({ ...hidden, approval_status });
       const r = await getStoreBySlugForViewer(sb, "my-shop", "id, slug, approval_status, is_visible", OWNER);
@@ -125,6 +140,22 @@ describe("매장 화면 경로 — 본인 숨김 매장 열람 연결", () => {
     const sql = read("supabase/migrations/20271103120000_store_menus_snapshot_owner_hidden_preview.sql");
     expect(sql).toContain("OR (p_user_id IS NOT NULL AND st.owner_user_id = p_user_id)");
     expect(sql).toContain("st.approval_status = 'approved'");
+  });
+
+  it("DB 함수 — 심사 중 본인 열람 + 본인 미리보기에서만 숨김·임시 상품 (20271110120000)", () => {
+    const sql = read("supabase/migrations/20271110120000_store_menus_snapshot_owner_preview_pending.sql");
+    expect(sql).toContain("st.approval_status IN ('approved', 'pending', 'under_review', 'revision_requested')");
+    expect(sql).toContain("AND NOT (st2.approval_status = 'approved' AND st2.is_visible = true)");
+    expect(sql).toContain("((SELECT is_on FROM owner_preview) AND p.product_status IN ('hidden', 'draft'))");
+  });
+
+  it("매장 화면 — 본인 미리보기는 메뉴를 보여주고(판매 승인 전에도) 숨김·임시 표시", () => {
+    const src = read("components/stores/StoreDetailPublic.tsx");
+    expect(src).toContain("canSell={menuOpen || ownerHiddenPreview}");
+    expect(src).toContain("store_detail_owner_preview_pending");
+    const card = read("components/stores/detail/ProductMenuCard.tsx");
+    expect(card).toContain("store_owner_preview_product_hidden");
+    expect(card).toContain("store_owner_preview_product_draft");
   });
 
   it("매장 화면 — 숨김 상태 안내 표시", () => {

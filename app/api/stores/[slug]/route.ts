@@ -103,6 +103,7 @@ export async function GET(
         viewer_favorited: meta.viewerFavorited,
         ...orderability,
         ...(storeRes.ownerHiddenPreview ? { owner_hidden_preview: true } : {}),
+        ...(storeRes.ok && storeRes.ownerPreviewPending ? { owner_preview_pending: true } : {}),
       },
     }, storeRes.ownerHiddenPreview ? { headers: { "Cache-Control": "private, no-store" } } : undefined);
   } catch (e) {
