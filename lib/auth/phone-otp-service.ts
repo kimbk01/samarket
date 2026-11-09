@@ -255,6 +255,45 @@ async function markPhoneOtpChallengeVerified(sb: SupabaseClient, userId: string)
   return { ok: true, data: null };
 }
 
+/** 아직 입력할 수 있는 인증번호 — 화면을 나갔다 와도 같은 번호로 이어서 입력 (Owner 2026-11-09). */
+export type PendingPhoneOtpChallenge = {
+  /** 보낸 번호 (E.164, +63…/+82…) */
+  phone: string;
+  expires_at: string;
+  /** 재발송 가능 시각 — 이전에는 서버가 429 로 거절 */
+  resend_available_at: string;
+};
+
+/**
+ * 유효한 인증 대기 기록 1건(없으면 null). 만료·인증 완료·시도 횟수 초과면 null — 그때는 새로 보내야 한다.
+ * `phone_otp_challenges` 접근은 이 파일만 (phone-otp-contract 테스트).
+ */
+export async function loadPendingPhoneOtpChallengeForUser(
+  sb: SupabaseClient,
+  userId: string,
+  settings: Pick<AuthPhoneSettings, "resend_cooldown_seconds" | "max_attempts">,
+  nowMs: number = Date.now(),
+): Promise<PendingPhoneOtpChallenge | null> {
+  const challengeResult = await loadPhoneOtpChallenge(sb, userId);
+  if (!challengeResult.ok || !challengeResult.data) return null;
+  const c = challengeResult.data;
+  if (c.verified_at) return null;
+  const expiresMs = parseTime(c.otp_expires_at);
+  if (!expiresMs || expiresMs <= nowMs) return null;
+  if (Number(c.attempt_count ?? 0) >= settings.max_attempts) return null;
+  const otpState = await loadProfileOtpState(sb, userId);
+  if (!otpState.ok) return null;
+  const profileAttempts = Math.max(0, Math.floor(Number(otpState.data.phone_verification_attempt_count ?? 0)));
+  if (profileAttempts >= settings.max_attempts) return null;
+  const requestedAtMs = parseTime(otpState.data.phone_verification_requested_at);
+  const resendAtMs = requestedAtMs > 0 ? requestedAtMs + settings.resend_cooldown_seconds * 1000 : nowMs;
+  return {
+    phone: c.phone,
+    expires_at: new Date(expiresMs).toISOString(),
+    resend_available_at: new Date(Math.max(resendAtMs, 0)).toISOString(),
+  };
+}
+
 export async function sendPhoneOtpForUser(
   sb: SupabaseClient,
   userId: string,

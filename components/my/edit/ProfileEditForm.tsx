@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { fetchPhoneVerificationJson } from "@/lib/mypage/load-phone-verification-state";
+import {
+  fetchPhoneVerificationJson,
+  parsePhoneVerificationSettings,
+  type PhoneVerificationSettings,
+} from "@/lib/mypage/load-phone-verification-state";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
@@ -106,12 +110,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const [errors, setErrors] = useState<{ displayName?: string }>({});
   const [addressList, setAddressList] = useState<UserAddressDTO[] | null>(null);
   const [addressListErr, setAddressListErr] = useState(false);
-  const [phoneVerificationSettings, setPhoneVerificationSettings] = useState<{
-    enabled: boolean;
-    provider: "supabase" | "semaphore";
-    guide_text: string;
-    resend_cooldown_seconds: number;
-  } | null>(null);
+  const [phoneVerificationSettings, setPhoneVerificationSettings] = useState<PhoneVerificationSettings | null>(null);
   const [addressNeedsBlock, setAddressNeedsBlock] = useState(false);
   const [setupGateReady, setSetupGateReady] = useState(!setupMode);
   const [baselineSnapshot, setBaselineSnapshot] = useState<ProfileEditFormSnapshot | null>(null);
@@ -183,31 +182,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       })
       .catch((): { ok: false; rows: UserAddressDTO[] } => ({ ok: false, rows: [] }));
 
+    /** 화면 설정 파싱 단일 경로 — 국가번호·유효 인증번호(pending_challenge)까지 (2026-11-09) */
     const phoneSettingsPromise = fetchPhoneVerificationJson()
-      .then((res) => {
-        const j = (res.json ?? {}) as {
-          ok?: boolean;
-          verification?: {
-            settings?: {
-              enabled?: boolean;
-              provider?: string;
-              guide_text?: string;
-              resend_cooldown_seconds?: number;
-            };
-          };
-        };
-        if (!res.ok || !j.ok) return null;
-        const s = j.verification?.settings;
-        if (!s) return null;
-        const provider: "supabase" | "semaphore" =
-          s.provider === "supabase" ? "supabase" : "semaphore";
-        return {
-          enabled: s.enabled === true,
-          provider,
-          guide_text: String(s.guide_text ?? ""),
-          resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60) || 60,
-        };
-      })
+      .then((res) => (res.ok ? parsePhoneVerificationSettings(res.json) : null))
       .catch(() => null);
 
     const [data, addrPack, pvSettings] = await Promise.all([

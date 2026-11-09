@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/member-access";
 import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { loadAuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
+import { loadPendingPhoneOtpChallengeForUser } from "@/lib/auth/phone-otp-service";
 import { resolveAvailableVerifyDialCodes } from "@/lib/phone/available-verify-countries";
 
 export const runtime = "nodejs";
@@ -25,6 +26,10 @@ export async function GET() {
   const state = await loadMemberAccessState(sb, auth.userId);
   const fullMemberAccessOk = canUseVerifiedMemberFeatures(state);
   const phoneSettings = await loadAuthPhoneSettings();
+  /** 아직 입력할 수 있는 인증번호 — 화면을 나갔다 와도 6칸 화면으로 이어서 입력 (Owner 2026-11-09) */
+  const pendingChallenge = phoneSettings.enabled
+    ? await loadPendingPhoneOtpChallengeForUser(sb, auth.userId, phoneSettings).catch(() => null)
+    : null;
   return NextResponse.json({
     ok: true,
     verification: {
@@ -40,6 +45,7 @@ export async function GET() {
       consent_required: state.hasRequiredConsent === false,
       // 인증 가능한 국가번호 — +63(Semaphore) 항상, +82 는 Solapi 설정이 있을 때만 (Owner 2026-11-09).
       settings: { ...phoneSettings, country_dial_codes: resolveAvailableVerifyDialCodes() },
+      pending_challenge: pendingChallenge,
     },
   });
 }

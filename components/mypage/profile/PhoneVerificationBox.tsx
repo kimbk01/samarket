@@ -18,6 +18,11 @@ import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import {
+  fetchPhoneVerificationJson,
+  parsePhoneVerificationSettings,
+  type PhoneOtpPendingChallenge,
+} from "@/lib/mypage/load-phone-verification-state";
 
 /** 재전송 남은 초 — 렌더 시점 계산이 아니라 1초마다 갱신되는 `now` 로 계산 (S05) */
 export function resolvePhoneOtpCooldownLeft(cooldownUntil: number, now: number): number {
@@ -34,6 +39,32 @@ export function formatSentPhoneForDisplay(raw: string | null | undefined): strin
   return String(raw ?? "").trim();
 }
 
+/**
+ * 보낼 번호 형식 — 필리핀 = DB 09 형식, 한국 = +82 E.164. 화면 입력값·서버가 돌려준 보낸 번호를
+ * 같은 형식으로 맞춰 「같은 번호인가」를 비교한다.
+ */
+export function toVerifyApiPhone(raw: string, isKorea: boolean): string {
+  if (isKorea) {
+    const local = parseKoreaMobileLocal(raw);
+    return local ? `+82${local.slice(1)}` : "";
+  }
+  const db = normalizePhMobileDb(raw);
+  if (db) return db;
+  const e164 = normalizePhilippinesPhoneNumber(raw);
+  if (isValidPhilippinesMobilePhone(e164)) {
+    return normalizePhMobileDb(parsePhMobileInput(e164)) ?? e164;
+  }
+  return e164;
+}
+
+/** 아직 입력할 수 있는 인증번호인가 (만료 전) */
+export function isLivePendingChallenge(
+  p: PhoneOtpPendingChallenge | null | undefined,
+  nowMs: number = Date.now(),
+): p is PhoneOtpPendingChallenge {
+  return Boolean(p?.phone && Date.parse(p.expires_at) > nowMs);
+}
+
 type VerificationSettings = {
   enabled: boolean;
   provider?: "supabase" | "semaphore" | string;
@@ -41,6 +72,8 @@ type VerificationSettings = {
   resend_cooldown_seconds: number;
   /** 인증 가능한 국가번호 (`+63`·`+82`) — 없으면 +63 만 */
   country_dial_codes?: string[];
+  /** 서버가 보관 중인 유효 인증번호 — 화면을 나갔다 와도 6칸 화면으로 이어서 (Owner 2026-11-09) */
+  pending_challenge?: PhoneOtpPendingChallenge | null;
 };
 
 type VerifySnapshot = {
@@ -118,24 +151,35 @@ export function PhoneVerificationBox({
     desc: `mt-1 text-[length:var(--overlay-body-2-size)] leading-[1.6] text-[color:var(--overlay-text-secondary)]`,
     skeleton: "rounded-[length:var(--overlay-radius-sm)] bg-[color:var(--overlay-secondary)]",
   };
-  const [phone, setPhone] = useState(snapshot.phone ?? "");
+  /** 열 때 서버에 유효한 인증번호가 있으면 그 번호로 6칸 화면부터 (늦게 온 문자도 입력 가능) */
+  const initialPending = isLivePendingChallenge(snapshot.settings?.pending_challenge)
+    ? snapshot.settings!.pending_challenge!
+    : null;
+  const initialPendingKorea = initialPending ? initialPending.phone.startsWith("+82") : false;
+  const [phone, setPhone] = useState(initialPending?.phone ?? snapshot.phone ?? "");
   const [otp, setOtp] = useState("");
-  /** 이번 화면에서 인증번호를 보냈는가 · 보낸 번호(서버 기준) */
-  const [codeSent, setCodeSent] = useState(false);
-  const [sentPhone, setSentPhone] = useState<string>("");
+  /** 인증번호를 보냈는가 · 보낸 번호(보낼 번호 형식) */
+  const [codeSent, setCodeSent] = useState(Boolean(initialPending));
+  const [sentPhone, setSentPhone] = useState<string>(
+    initialPending ? toVerifyApiPhone(initialPending.phone, initialPendingKorea) : "",
+  );
   /** 화면 표시용 — 서버가 돌려준 번호(+63…/+82…) */
-  const [sentPhoneDisplay, setSentPhoneDisplay] = useState<string>("");
+  const [sentPhoneDisplay, setSentPhoneDisplay] = useState<string>(
+    initialPending ? formatSentPhoneForDisplay(initialPending.phone) : "",
+  );
   const [phoneBlurred, setPhoneBlurred] = useState(false);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [allowEdit, setAllowEdit] = useState(!snapshot.phone_verified);
+  const [allowEdit, setAllowEdit] = useState(!snapshot.phone_verified || Boolean(initialPending));
   /** 확인 API 가 성공을 돌려준 순간 true — 재조회를 기다리지 않고 바로 완료 화면 (F3) */
   const [justVerified, setJustVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownUntil, setCooldownUntil] = useState(() =>
+    initialPending ? Date.parse(initialPending.resend_available_at) || 0 : 0,
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const pendingOnOpen = snapshot.phone_verification_status === "pending";
-  const [step, setStep] = useState<Step>(pendingOnOpen && snapshot.phone ? "code" : "phone");
+  const [step, setStep] = useState<Step>(initialPending || (pendingOnOpen && snapshot.phone) ? "code" : "phone");
   const submittedCodeRef = useRef<string>("");
   const codeInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -161,12 +205,36 @@ export function PhoneVerificationBox({
   );
   const snapshotIsKorea =
     String(snapshot.phone ?? "").startsWith("+82") || String(snapshot.phone_country_code ?? "") === "+82";
-  const [dialCode, setDialCode] = useState<string>(snapshotIsKorea ? "+82" : "+63");
+  const [dialCode, setDialCode] = useState<string>(
+    initialPending ? (initialPendingKorea ? "+82" : "+63") : snapshotIsKorea ? "+82" : "+63",
+  );
   const isKorea = dialCode === "+82";
   const selectedCountry = countryOptions.find((c) => c.dialCode === dialCode) ?? countryOptions[0];
   const countryName = (iso: string) => t(iso === "KR" ? "my_phone_country_name_KR" : "my_phone_country_name_PH");
 
+  /** 서버의 유효 인증번호로 이어서 — 6칸 화면 · 보낸 번호 · 남은 재발송 시간 */
+  const resumePendingChallenge = useCallback((p: PhoneOtpPendingChallenge) => {
+    const korea = p.phone.startsWith("+82");
+    setDialCode(korea ? "+82" : "+63");
+    setPhone(p.phone);
+    setSentPhone(toVerifyApiPhone(p.phone, korea));
+    setSentPhoneDisplay(formatSentPhoneForDisplay(p.phone));
+    setCooldownUntil(Date.parse(p.resend_available_at) || 0);
+    setCodeSent(true);
+    setOtp("");
+    submittedCodeRef.current = "";
+    setAllowEdit(true);
+    setError(null);
+    setStep("code");
+  }, []);
+
+  const pendingFromSettings = snapshot.settings?.pending_challenge ?? null;
+  const livePending = isLivePendingChallenge(pendingFromSettings) ? pendingFromSettings : null;
+  const livePendingKey = livePending ? `${livePending.phone}|${livePending.expires_at}` : "";
+
   useEffect(() => {
+    // 유효 인증번호가 있으면 번호 칸을 프로필 번호로 덮어쓰지 않는다 (이어서 입력 중)
+    if (livePendingKey) return;
     if (snapshotIsKorea) {
       setDialCode("+82");
       setPhone(parseKoreaMobileTyping(String(snapshot.phone ?? "")));
@@ -174,7 +242,14 @@ export function PhoneVerificationBox({
       setPhone(resolvedSnapshotPhone ?? "");
     }
     setAllowEdit(!verified);
-  }, [resolvedSnapshotPhone, verified, snapshotIsKorea, snapshot.phone]);
+  }, [resolvedSnapshotPhone, verified, snapshotIsKorea, snapshot.phone, livePendingKey]);
+
+  /** 설정이 늦게 도착해 유효 인증번호를 알게 되면(아직 이 화면에서 보내지 않았을 때) 이어서 */
+  useEffect(() => {
+    if (!livePending || codeSent || justVerified) return;
+    resumePendingChallenge(livePending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 같은 인증번호(key)마다 한 번
+  }, [livePendingKey]);
 
   /** 서버가 내준 목록에 없는 국가번호가 선택돼 있으면 첫 항목으로 되돌린다. */
   useEffect(() => {
@@ -201,16 +276,7 @@ export function PhoneVerificationBox({
 
   const normalizedPhone = useMemo(() => normalizePhilippinesPhoneNumber(phone), [phone]);
   const koreaLocal = isKorea ? parseKoreaMobileLocal(phone) : null;
-  const phoneForApi = useMemo(() => {
-    if (isKorea) return koreaLocal ? `+82${koreaLocal.slice(1)}` : "";
-    const db = normalizePhMobileDb(phone);
-    if (db) return db;
-    const e164 = normalizedPhone;
-    if (isValidPhilippinesMobilePhone(e164)) {
-      return normalizePhMobileDb(parsePhMobileInput(e164)) ?? e164;
-    }
-    return e164;
-  }, [phone, normalizedPhone, isKorea, koreaLocal]);
+  const phoneForApi = useMemo(() => toVerifyApiPhone(phone, isKorea), [phone, isKorea]);
   const validPhone = isKorea ? koreaLocal != null : isValidPhilippinesMobilePhone(normalizedPhone);
   /** 입력하는 동안 바로 판정 — 10자리 이상 쳤거나 칸을 벗어났는데 형식이 틀리면 「형식에 맞지 않습니다」. */
   const phoneDigitCount = phone.replace(/\D/g, "").length;
@@ -240,6 +306,19 @@ export function PhoneVerificationBox({
         phone?: string;
       };
       if (!res.ok || !json.ok) {
+        // 재발송 대기(429) — 이 번호로 보낸 유효 인증번호가 서버에 있으면 새로 보내지 않고 이어서 입력
+        if (res.status === 429 && json.code === "otp_rate_limited") {
+          const latest = await fetchPhoneVerificationJson()
+            .then((r) => (r.ok ? parsePhoneVerificationSettings(r.json)?.pending_challenge ?? null : null))
+            .catch(() => null);
+          if (
+            isLivePendingChallenge(latest) &&
+            toVerifyApiPhone(latest.phone, latest.phone.startsWith("+82")) === phoneForApi
+          ) {
+            resumePendingChallenge(latest);
+            return;
+          }
+        }
         triggerInteractionFeedback("error");
         setError(
           resolvePhoneOtpUiError({ status: res.status, code: json.code, message: json.message }, t, "send"),

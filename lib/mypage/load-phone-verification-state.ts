@@ -17,7 +17,25 @@ export type PhoneVerificationSettings = {
   resend_cooldown_seconds: number;
   /** 인증 가능한 국가번호 (`+63`·`+82`) — 서버 `resolveAvailableVerifyDialCodes` */
   country_dial_codes: string[];
+  /** 아직 입력할 수 있는 인증번호(보낸 번호·만료·재발송 가능 시각) — 없으면 null */
+  pending_challenge: PhoneOtpPendingChallenge | null;
 };
+
+export type PhoneOtpPendingChallenge = {
+  phone: string;
+  expires_at: string;
+  resend_available_at: string;
+};
+
+function parsePendingChallenge(raw: unknown): PhoneOtpPendingChallenge | null {
+  const r = raw as Partial<PhoneOtpPendingChallenge> | null | undefined;
+  if (!r || typeof r.phone !== "string" || !r.phone.trim()) return null;
+  if (typeof r.expires_at !== "string" || !Number.isFinite(Date.parse(r.expires_at))) return null;
+  const resend = typeof r.resend_available_at === "string" && Number.isFinite(Date.parse(r.resend_available_at))
+    ? r.resend_available_at
+    : r.expires_at;
+  return { phone: r.phone.trim(), expires_at: r.expires_at, resend_available_at: resend };
+}
 
 export type PhoneVerificationLoadResult =
   | { ok: true; profile: ProfileRow; settings: PhoneVerificationSettings }
@@ -35,6 +53,7 @@ type SettingsJson = {
       resend_cooldown_seconds?: number;
       country_dial_codes?: unknown;
     };
+    pending_challenge?: unknown;
   };
 };
 
@@ -48,6 +67,7 @@ export function parsePhoneVerificationSettings(json: unknown): PhoneVerification
     guide_text: s.guide_text ?? "",
     resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60),
     country_dial_codes: parseVerifyDialCodes(s.country_dial_codes),
+    pending_challenge: parsePendingChallenge(j.verification?.pending_challenge),
   };
 }
 

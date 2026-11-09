@@ -383,6 +383,112 @@ describe("전화 인증 텔레그램형 — 번호 → 6칸 → 자동 확인 �
   });
 });
 
+describe("전화 인증 — 화면을 나갔다 와도 늦게 온 인증번호 입력 (Owner 2026-11-09)", () => {
+  const future = (ms: number) => new Date(Date.now() + ms).toISOString();
+  const pendingSettings = () => ({
+    enabled: true,
+    guide_text: "",
+    resend_cooldown_seconds: 60,
+    pending_challenge: {
+      phone: "+639171234567",
+      expires_at: future(4 * 60_000),
+      resend_available_at: future(30_000),
+    },
+  });
+
+  it("유효 인증번호가 있으면 6칸 화면으로 바로 열림 → 늦게 온 번호로 인증 성공, 재발송 0", async () => {
+    const calls: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url: String(url), body: String(init?.body ?? "") });
+        return jsonResponse({ ok: true });
+      }),
+    );
+    const onDone = vi.fn();
+    mount(
+      <PhoneVerificationBox
+        snapshot={{ phone: null, phone_verified: false, settings: pendingSettings() }}
+        onRefreshProfile={async () => undefined}
+        onDone={onDone}
+      />,
+    );
+    expect(q("phone-verify-code-step")).not.toBeNull();
+    expect(host!.textContent).toContain("+63 917 123 4567");
+    // 재발송 버튼은 서버 기준 남은 시간 동안 잠김
+    expect((q("phone-verify-resend") as HTMLButtonElement).disabled).toBe(true);
+    typeInto(q("phone-verify-code") as HTMLInputElement, "482913");
+    await flush(8);
+    expect(calls.filter((c) => c.url.includes("send-otp"))).toHaveLength(0);
+    const verify = calls.filter((c) => c.url.includes("verify-otp"));
+    expect(verify).toHaveLength(1);
+    expect(JSON.parse(verify[0]!.body)).toMatchObject({ otp: "482913" });
+    expect(q("phone-verify-done")).not.toBeNull();
+  });
+
+  it("[번호 변경] 후 같은 번호로 [계속] → 다시 보내지 않고 6칸 화면", async () => {
+    const send = vi.fn(async () => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", send);
+    mount(
+      <PhoneVerificationBox
+        snapshot={{ phone: null, phone_verified: false, settings: pendingSettings() }}
+        onRefreshProfile={async () => undefined}
+      />,
+    );
+    click(q("phone-verify-change-number"));
+    await flush(2);
+    click(q("phone-verify-send"));
+    await flush(4);
+    expect(q("phone-verify-code-step")).not.toBeNull();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("이전 화면 상태가 없어도 서버가 429(재발송 대기)면 유효 인증번호를 다시 읽어 6칸 화면으로", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (String(url).includes("send-otp")) {
+          return jsonResponse({ ok: false, code: "otp_rate_limited", message: "재발송은 30초 후 가능합니다." }, 429);
+        }
+        return jsonResponse({
+          ok: true,
+          verification: {
+            settings: { enabled: true, resend_cooldown_seconds: 60 },
+            pending_challenge: pendingSettings().pending_challenge,
+          },
+        });
+      }),
+    );
+    mount(
+      <PhoneVerificationBox
+        snapshot={{
+          phone: "09171234567",
+          phone_verified: false,
+          settings: { enabled: true, guide_text: "", resend_cooldown_seconds: 60 },
+        }}
+        onRefreshProfile={async () => undefined}
+      />,
+    );
+    click(q("phone-verify-send"));
+    await flush(10);
+    expect(q("phone-verify-code-step")).not.toBeNull();
+    expect(host!.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("만료된 인증번호 → 번호 화면부터", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ok: true })));
+    const settings = pendingSettings();
+    settings.pending_challenge.expires_at = new Date(Date.now() - 1000).toISOString();
+    mount(
+      <PhoneVerificationBox
+        snapshot={{ phone: null, phone_verified: false, settings }}
+        onRefreshProfile={async () => undefined}
+      />,
+    );
+    expect(q("phone-verify-phone-step")).not.toBeNull();
+  });
+});
+
 describe("S14 관심·차단·숨김 — 해제 확인", () => {
   const item = {
     id: "rel-1",
