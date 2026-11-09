@@ -7,6 +7,9 @@
 		"url": "https://samarket.vercel.app",
 		"cleartext": false
 	},
+	"ios": {
+		"allowsLinkPreview": false
+	},
 	"plugins": {
 		"SplashScreen": {
 			"launchAutoHide": true,

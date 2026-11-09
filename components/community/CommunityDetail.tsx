@@ -535,7 +535,7 @@ export function CommunityDetail({
             viewerJoinedMeeting={viewerJoinedMeeting}
           />
           {post.source_attribution?.sourceName ? (
-            <div className="mt-4 rounded-ui-rect border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-3 sam-text-helper text-[var(--cm-muted)]">
+            <div className="mt-4 rounded-ui-rect border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-3 sam-text-helper text-[var(--cm-muted)]" data-user-content="">
               <div className="font-medium text-[var(--cm-fg)]">{t("community_source_attribution_label")}</div>
               <div className="mt-1">{post.source_attribution.sourceName}</div>
               {post.source_attribution.canonicalUrl ? (

@@ -33,6 +33,12 @@
 /* Tailwind v4 auto-scans the repo except .gitignore. .recovery is forensic-only and
  * must not enter the class scanner — proven `/` cold peak 21GB → ~5.6GB when excluded. */
 @source not "../.recovery";
+/* 테스트·문서는 제품 CSS 의 근거가 아니다 — 주석 속 클래스 문자열이 잘못된 CSS 를 만들어 dev 를 멈추고
+ * (owner-ui-token-ratchet.test.ts `rounded-[length:var(--overlay-radius-*)]`) 쓰지 않는 클래스를 남긴다. */
+@source not "../**/__tests__/**";
+@source not "../**/*.test.*";
+@source not "../docs";
+@source not "../**/*.md";
 @import "./samarket-components.css";
 
 /*
@@ -301,6 +307,23 @@ svg {
 
   img {
     -webkit-user-drag: none;
+  }
+
+  /* 회원이 쓴 본문 링크(글 상세 본문·원문 링크)는 문서처럼 — iOS 「링크 복사」·글자 선택 유지. */
+  [data-user-content] a {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* 버튼·탭·메뉴 글자는 길게 눌러도 선택되지 않는다 (공통 `Sam.btn` 밖 직접 만든 버튼 포함). */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  summary {
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 

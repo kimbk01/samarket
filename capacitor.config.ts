@@ -53,6 +53,14 @@ const config: CapacitorConfig = {
         url: normalizeCapacitorServerUrl(serverUrl),
         cleartext: serverUrl.startsWith("http://"),
       },
+  /**
+   * iOS 링크 길게 누르기 미리보기(UIContextMenuInteraction) 끔 — 메뉴는 CSS(-webkit-touch-callout)로 막지만
+   * 누르는 순간 링크가 떠오르는 효과를 끄기 위해 WKWebView.allowsLinkPreview 를 끈다 (Owner 「1~5번 진행」 2026-11-09).
+   * 네이티브 설정 — 다음 iOS 빌드부터 적용.
+   */
+  ios: {
+    allowsLinkPreview: false,
+  },
   plugins: {
     SplashScreen: {
       /**

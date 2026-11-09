@@ -91,7 +91,8 @@ if (!roomCss.includes("data-cm-ios-vv-band")) {
 // Anti-pattern: device-model CSS or page-level zoom (press animation scale is allowed).
 const shellCssFiles = ["app/app-shell.css", "app/app-bottom-nav.css", "app/owner-compact-shell.css"];
 for (const rel of shellCssFiles) {
-  const src = read(rel);
+  // 주석의 실측 기록(예: 「실측 Xiaomi Δleft≈87」)은 기기별 CSS 가 아니다 — 주석을 지운 뒤 검사한다.
+  const src = read(rel).replace(/\/\*[\s\S]*?\*\//g, "");
   if (/xiaomi|samsung|pixel\s*6|iphone\s*1[45]/i.test(src)) {
     failures.push(`${rel}: device-model CSS not allowed`);
   }

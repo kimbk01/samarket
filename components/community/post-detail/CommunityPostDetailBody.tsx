@@ -52,7 +52,7 @@ export function CommunityPostDetailBody({
   const { openAt, viewer } = usePostImageViewer({ displayUrlFor: communityViewerDisplayUrl });
 
   return (
-    <div className="mt-4">
+    <div className="mt-4" data-user-content="">
       <h1 className={CM_TITLE_CLASS}>{post.title}</h1>
       {meeting ? (
         <div className={CM_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
