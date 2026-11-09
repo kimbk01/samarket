@@ -2,6 +2,9 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 node scripts/next-dev.cjs",
     "dev:measure": "cross-env NODE_OPTIONS=--max-old-space-size=4096 node scripts/dev-measure.cjs",
