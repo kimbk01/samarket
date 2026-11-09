@@ -14,7 +14,10 @@ describe("outgoing confirm dialog name = dial name", () => {
   it("방 발신 함수는 확인창 이름을 받아 방 제목보다 먼저 쓴다", () => {
     const c = src("lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts");
     expect(c).toContain('(kind: "voice" | "video", dialPeerLabel?: string | null): boolean => {');
-    expect(c).toContain("const peerLabel = dialPeerLabel?.trim() || snapshot?.room.title?.trim();");
+    /** F3: 확인창 이름 → 매장 주문 구매자 매장명 → 방 제목 */
+    expect(c).toContain(
+      "dialPeerLabel?.trim() || resolveStoreOrderBuyerDialPeerLabel(snapshot) || snapshot?.room.title?.trim()",
+    );
   });
 
   it("방 헤더 음성 확인창 「발신」이 확인창 이름을 넘긴다", () => {

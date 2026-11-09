@@ -156,6 +156,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     () => vm.snapshot.members.find((m) => m.id.trim() === peerUserId) ?? null,
     [vm.snapshot.members, peerUserId]
   );
+  /** F3: 발신 확인창·발신 화면 공용 이름 — 매장 주문 구매자는 매장명, 아니면 프로필 이름·방 제목 */
+  const dotMenuDialPeerLabel =
+    vm.storeOrderBuyerDialPeerLabel ?? (peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || "");
 
   const deliveryMeta = useMemo(() => {
     const room = vm.snapshot.room;
@@ -605,7 +608,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     {dotMenuOutgoingConfirm ? (
       <MessengerOutgoingCallConfirmDialog
         open
-        peerLabel={peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || ""}
+        peerLabel={dotMenuDialPeerLabel}
         kind={dotMenuOutgoingConfirm}
         busy={vm.outgoingDialLocked}
         onCancel={() => setDotMenuOutgoingConfirm(null)}
@@ -613,7 +616,8 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
           const kind = dotMenuOutgoingConfirm;
           setDotMenuOutgoingConfirm(null);
           vm.dismissRoomSheet();
-          void vm.startManagedDirectCall(kind);
+          /** F3: 확인창 이름 그대로 발신 */
+          void vm.startManagedDirectCall(kind, dotMenuDialPeerLabel);
         }}
       />
     ) : null}

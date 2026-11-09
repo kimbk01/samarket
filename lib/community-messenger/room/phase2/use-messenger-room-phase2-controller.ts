@@ -60,6 +60,7 @@ import {
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { type CommunityMessengerMessage, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { patchRoomSummaryInSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
+import { resolveStoreOrderBuyerDialPeerLabel } from "@/lib/community-messenger/room/phase2/store-order-buyer-dial-peer-label";
 import {
   cmReceiveLatencyKey,
   cmReceiveLatencyMark,
@@ -682,6 +683,12 @@ export function useMessengerRoomPhase2Controller() {
     [router]
   );
 
+  /** F3: 매장 주문방 구매자 발신 이름(매장명·「매장」) — 아니면 null. 확인창 표시·발신 공용 */
+  const storeOrderBuyerDialPeerLabel = useMemo(
+    () => resolveStoreOrderBuyerDialPeerLabel(snapshot),
+    [snapshot]
+  );
+
   /**
    * 발신 — roomManaged. preflight 후 `/calls/outgoing` 으로 이동.
    * `dialPeerLabel` — 발신 확인창에 보여 준 이름(매장 주문 구매자 = 매장명 등). 확인창 이름 = 발신 화면 이름.
@@ -739,7 +746,9 @@ export function useMessengerRoomPhase2Controller() {
         return true;
       }
 
-      const peerLabel = dialPeerLabel?.trim() || snapshot?.room.title?.trim();
+      /** F3: 확인창 이름 → 매장 주문 구매자는 매장명(사장님 개인 닉네임 금지) → 방 제목 */
+      const peerLabel =
+        dialPeerLabel?.trim() || resolveStoreOrderBuyerDialPeerLabel(snapshot) || snapshot?.room.title?.trim();
       cmCallLatencyMarkClick({
         surface: "room_managed",
         roomId: rid,
@@ -3075,6 +3084,7 @@ export function useMessengerRoomPhase2Controller() {
     handleAcceptIncomingCall,
     openDirectCallPage,
     startManagedDirectCall,
+    storeOrderBuyerDialPeerLabel,
     saveOpenGroupSettings,
     savePrivateGroupSettings,
     privateGroupAvatarUrl,

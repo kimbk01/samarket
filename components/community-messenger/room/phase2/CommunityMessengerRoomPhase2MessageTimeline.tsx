@@ -811,6 +811,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     anchor: CommunityMessengerMessageActionAnchorRect;
   } | null>(null);
   const [stubRedialConfirmKind, setStubRedialConfirmKind] = useState<null | "voice" | "video">(null);
+  /** F3: 통화 기록 다시 걸기 확인창·발신 공용 이름 — 매장 주문 구매자는 매장명, 아니면 방 제목 */
+  const stubRedialPeerLabel = vm.storeOrderBuyerDialPeerLabel ?? (vm.snapshot.room.title?.trim() || "");
 
   const onOpenImageLightbox = useCallback((urls: string[], originals: string[], index: number) => {
     setImageLightbox({ urls, originals, index });
@@ -2270,7 +2272,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       {stubRedialConfirmKind ? (
         <MessengerOutgoingCallConfirmDialog
           open
-          peerLabel={vm.snapshot.room.title?.trim() || ""}
+          peerLabel={stubRedialPeerLabel}
           kind={stubRedialConfirmKind}
           busy={vm.outgoingDialLocked}
           onCancel={() => setStubRedialConfirmKind(null)}
@@ -2278,7 +2280,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             const kind = stubRedialConfirmKind;
             setStubRedialConfirmKind(null);
             if (vm.isGroupRoom) void vm.startGroupCall(kind);
-            else void vm.startManagedDirectCall(kind);
+            /** F3: 확인창 이름 그대로 발신 (매장 주문 구매자 = 매장명) */
+            else void vm.startManagedDirectCall(kind, stubRedialPeerLabel);
           }}
         />
       ) : null}

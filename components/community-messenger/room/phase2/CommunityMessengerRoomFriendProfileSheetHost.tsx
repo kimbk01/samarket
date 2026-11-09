@@ -36,6 +36,14 @@ export function CommunityMessengerRoomFriendProfileSheetHost({ open, onClose, vm
     };
   }, [peerUserId, vm.snapshot.members, vm.snapshot.room.avatarUrl, vm.snapshot.room.title]);
 
+  /**
+   * F3: 발신 확인창·발신 화면 공용 이름 — 매장 주문 구매자는 매장명, 아니면 실제 프로필 이름·방 제목.
+   * `profile.label` 의 회원 ID 대체값(peerUserId)은 발신 이름으로 쓰지 않는다(빈 값 → 서버 닉네임).
+   */
+  const profileLabel = profile?.label?.trim() ?? "";
+  const profileDialPeerLabel =
+    vm.storeOrderBuyerDialPeerLabel ?? (profileLabel && profileLabel !== peerUserId ? profileLabel : "");
+
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
@@ -61,7 +69,7 @@ export function CommunityMessengerRoomFriendProfileSheetHost({ open, onClose, vm
       {outgoingConfirmKind ? (
         <MessengerOutgoingCallConfirmDialog
           open
-          peerLabel={profile.label?.trim() || vm.snapshot.room.title?.trim() || ""}
+          peerLabel={profileDialPeerLabel}
           kind={outgoingConfirmKind}
           busy={vm.outgoingDialLocked}
           onCancel={() => setOutgoingConfirmKind(null)}
@@ -69,7 +77,8 @@ export function CommunityMessengerRoomFriendProfileSheetHost({ open, onClose, vm
             const kind = outgoingConfirmKind;
             setOutgoingConfirmKind(null);
             handleClose();
-            void vm.startManagedDirectCall(kind);
+            /** F3: 확인창 이름 그대로 발신 */
+            void vm.startManagedDirectCall(kind, profileDialPeerLabel);
           }}
         />
       ) : null}
