@@ -3,21 +3,21 @@
 import { TradeSellCtaContent } from "@/components/trade/TradeSellCta";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
-import type { Product } from "@/lib/types/product";
-import { fetchTradeHistorySalesBySession } from "@/lib/mypage/trade-history-client";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import {
-  countActiveListingProducts,
-  countOpenSellerChatRows,
-} from "@/lib/mypage/seller-listings-with-trades";
-import type { SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
+  clearSellHubOverview,
+  getSellHubOverviewState,
+  loadSellHubOverview,
+  seedSellHubOverview,
+  subscribeSellHubOverview,
+} from "@/lib/trade/sell-hub-overview-client";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { MypageSubpageShell } from "@/components/mypage/i18n/MypageSubpageShell";
@@ -32,7 +32,19 @@ const MESSAGES_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 /** 거래 E: 판매 탭 칩 「알림」 = 알림 화면의 거래 탭(`MyNotificationsView` `?tab=trade`) */
 const ALERTS_HREF = "/notifications?tab=trade";
 
-type TradePerformance = { views: number; favorites: number; reports: number };
+/** 숫자 칸 — 로딩 중 스켈레톤(내정보 값 자리와 같은 모양), 실패면 「—」, 값이면 숫자 */
+function SellHubOverviewValue({ loading, value }: { loading: boolean; value: number | null }) {
+  if (loading) {
+    return (
+      <span
+        aria-hidden
+        data-sell-hub-value-loading="1"
+        className="block h-5 w-10 rounded-ui-rect bg-sam-border-soft/70 motion-safe:animate-pulse"
+      />
+    );
+  }
+  return <>{value === null ? "—" : `${value}`}</>;
+}
 
 function MarketplaceSellHubContent() {
   const { t, safeT } = useI18n();
@@ -40,54 +52,24 @@ function MarketplaceSellHubContent() {
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const { open: openTradeWriteSheet } = useTradeWriteSheet();
   const writeCtx = useWriteCategory();
-  const [activeListingCount, setActiveListingCount] = useState<number | null>(null);
-  const [openChatCount, setOpenChatCount] = useState<number | null>(null);
-  const [performance, setPerformance] = useState<TradePerformance | null>(null);
-
-  const loadOverview = useCallback(async () => {
-    const uid = getCurrentUser()?.id?.trim();
-    if (!uid) {
-      setActiveListingCount(0);
-      setOpenChatCount(0);
-      setPerformance({ views: 0, favorites: 0, reports: 0 });
-      return;
-    }
-    /** 거래 E 성과(조회수·찜·신고) — 실패해도 개요는 그대로 */
-    void fetch("/api/my/trade-performance", { cache: "no-store" })
-      .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as Partial<TradePerformance> & { ok?: boolean };
-        if (!res.ok || !data.ok) {
-          setPerformance(null);
-          return;
-        }
-        setPerformance({
-          views: Number(data.views) || 0,
-          favorites: Number(data.favorites) || 0,
-          reports: Number(data.reports) || 0,
-        });
-      })
-      .catch(() => setPerformance(null));
-    try {
-      const [postsRes, salesRows] = await Promise.all([
-        runSingleFlight(`me:my-posts:${uid}`, () => fetch("/api/my/posts")),
-        fetchTradeHistorySalesBySession().catch(() => [] as SalesHistoryRow[]),
-      ]);
-      let posts: Product[] = [];
-      if (postsRes.ok) {
-        const data = (await postsRes.json()) as { posts?: Product[] };
-        posts = data.posts ?? [];
-      }
-      setActiveListingCount(countActiveListingProducts(posts));
-      setOpenChatCount(countOpenSellerChatRows(salesRows));
-    } catch {
-      setActiveListingCount(null);
-      setOpenChatCount(null);
-    }
-  }, []);
+  /** GROUP 2-B: 첫 그림 = 스냅샷 값 또는 스켈레톤, 「—」는 조회 실패일 때만 (`lib/trade/sell-hub-overview-client.ts`) */
+  const membership = useClientMembershipState("trade-sell-hub");
+  const viewerId =
+    (membership.status === "member" ? membership.profile.id : getCurrentUser()?.id)?.trim() ?? "";
+  if (viewerId) seedSellHubOverview(viewerId);
+  const overview = useSyncExternalStore(subscribeSellHubOverview, getSellHubOverviewState, () => null);
+  const current = overview && overview.viewerId === viewerId ? overview : null;
+  const loading = !current || (current.loading && current.values === null);
+  const activeListingCount = current?.values?.activeListingCount ?? null;
+  const openChatCount = current?.values?.openChatCount ?? null;
+  const performance = current?.values?.performance ?? null;
 
   useEffect(() => {
-    void loadOverview();
-  }, [loadOverview]);
+    if (!viewerId) return;
+    const s = getSellHubOverviewState();
+    if (s && s.viewerId !== viewerId) clearSellHubOverview();
+    void loadSellHubOverview(viewerId);
+  }, [viewerId]);
 
   const go = (href: string) => {
     if (!guardBeforeNavigate(href)) return;
@@ -127,7 +109,7 @@ function MarketplaceSellHubContent() {
               {safeT("marketplace_seller_hub_overview_active")}
             </p>
             <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-              {activeListingCount === null ? "—" : `${activeListingCount}`}
+              <SellHubOverviewValue loading={loading} value={activeListingCount} />
             </p>
           </button>
           <button
@@ -139,7 +121,7 @@ function MarketplaceSellHubContent() {
               {safeT("marketplace_seller_hub_overview_chats")}
             </p>
             <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-              {openChatCount === null ? "—" : `${openChatCount}`}
+              <SellHubOverviewValue loading={loading} value={openChatCount} />
             </p>
           </button>
         </div>
@@ -164,7 +146,7 @@ function MarketplaceSellHubContent() {
             >
               <p className="sam-text-helper text-sam-muted">{label}</p>
               <p className="mt-1 sam-text-body font-semibold text-sam-fg">
-                {performance === null ? "—" : `${performance[key]}`}
+                <SellHubOverviewValue loading={loading} value={performance === null ? null : performance[key]} />
               </p>
             </div>
           ))}
