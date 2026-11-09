@@ -409,7 +409,7 @@ export function StoreDetailPublic({
   const adminPreview = adminPreviewState !== null;
   /** 서버 summary 가 보는 사람(사장님·관리자) 판정을 준 매장 slug — 매장 모집 중 남의 매장 진입 차단 판정용 */
   const [viewerResolvedSlug, setViewerResolvedSlug] = useState<string | null>(null);
-  const launchState = useDeliveryLaunchState();
+  const launchState = useDeliveryLaunchState(true, { confirmedOnly: true });
   /**
    * 배달 오픈 관리 — 매장 모집 중에는 남의 매장 상세에 들어오지 않는다(배달 첫 화면으로).
    * 사장님 본인(미리보기 포함)·관리자는 그대로 (Owner 「신청한 오너는 본인 매장 진입」 2026-11-10).
@@ -2135,7 +2135,7 @@ export function StoreDetailPublic({
     fulfillmentMode,
     distanceOutOfRange,
   });
-  /** 매장 확인 허용 계정·관리자 — 매장 모집 중 확인용이라 주문만 막는다 (설계 v3.2 §3-4-3) */
+  /** 어드민이 지정한 매장 확인 허용 계정 — 매장 모집 중 확인용이라 주문만 막는다 (설계 v3.2 §3-4-3) */
   const recruitingReviewer = isDeliveryRecruitingReviewer(launchState);
   /** 관리자 미리보기 — 메뉴는 보이되 선택·담기·주문은 막는다 (설계 v3.2 §3-4-3) */
   const menuSelectBlocked =

@@ -21,6 +21,9 @@ export type OwnerAnnouncementDetailDto = {
   isPinned: boolean;
   createdAt: string;
   read: boolean;
+  /** 목록 순서 기준 이웃 공지 (확인 창 「이전·다음 공지」) */
+  prev?: { id: string; title: string } | null;
+  next?: { id: string; title: string } | null;
 };
 
 export type OwnerAnnouncementsListResult =

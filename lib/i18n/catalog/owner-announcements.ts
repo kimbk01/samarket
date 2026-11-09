@@ -29,6 +29,8 @@ export const ownerAnnouncementsMessages = {
     owner_announcements_view_all: "전체 보기",
     owner_announcements_not_found: "공지를 찾을 수 없습니다.",
     owner_announcements_back_to_list: "목록으로",
+    owner_announcements_prev: "이전 공지",
+    owner_announcements_next: "다음 공지",
     // 어드민 「배달·매장 › 매장 › 매장 공지」 (설계 v3.2 §3-4 · Owner 2026-11-10)
     admin_menu_store_owner_notices: "매장 공지",
     admin_owner_notices_page_desc:
@@ -82,6 +84,8 @@ export const ownerAnnouncementsMessages = {
     owner_announcements_view_all: "View all",
     owner_announcements_not_found: "Notice not found.",
     owner_announcements_back_to_list: "Back to list",
+    owner_announcements_prev: "Previous",
+    owner_announcements_next: "Next",
     admin_menu_store_owner_notices: "Store notices",
     admin_owner_notices_page_desc:
       "Operations notices for store owners only. They do not appear in the member Customer Center — only on the owner “Operations notices” screen.",

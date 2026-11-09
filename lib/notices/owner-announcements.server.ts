@@ -92,7 +92,7 @@ export function compareOwnerAnnouncements(
 }
 
 /**
- * 목록 — `latestOnly` 면 고정 무시하고 게시일 최신순(허브 「최신 공지 1건」 카드).
+ * 목록 — `latestOnly` 면 고정 무시하고 안 읽은 공지 먼저 → 게시일 최신순(허브 「최신 공지 1건」 카드 · 설계 v3.2 §3-4-2).
  */
 export async function listOwnerAnnouncements(
   sb: SupabaseClient,
@@ -115,15 +115,20 @@ export async function listOwnerAnnouncements(
     // 게시 기간 밖 행을 걸러도 한 화면이 차도록 넉넉히 읽는다
     .limit(OWNER_ANNOUNCEMENTS_LIST_MAX * 2);
   if (error) throw new Error(`owner_announcements_load_failed: ${error.message}`);
-  const live = ((data ?? []) as unknown as ContentRow[])
+  const sorted = ((data ?? []) as unknown as ContentRow[])
     .filter((r) => isOwnerAnnouncementAudience(r.audience) && isCustomerCenterContentPublishedNow(r))
-    .sort((a, b) => compareOwnerAnnouncements(a, b, { latestOnly: opts.latestOnly }))
-    .slice(0, limit);
+    .sort((a, b) => compareOwnerAnnouncements(a, b, { latestOnly: opts.latestOnly }));
+  // 최신 카드는 안 읽음 여부가 순서를 정하므로 전체 읽음 상태를 먼저 본다(최대 100건)
   const readIds = await loadMemberReadContentIds(
     sb,
     userId,
-    live.map((r) => String(r.id))
+    (opts.latestOnly ? sorted : sorted.slice(0, limit)).map((r) => String(r.id))
   );
+  const live = (
+    opts.latestOnly
+      ? [...sorted].sort((a, b) => Number(readIds.has(String(a.id))) - Number(readIds.has(String(b.id))))
+      : sorted
+  ).slice(0, limit);
   return live.map((r) => ({
     id: String(r.id),
     title: String(r.title ?? ""),
@@ -149,10 +154,16 @@ export type OwnerAnnouncementDetail =
         isPinned: boolean;
         createdAt: string;
         read: boolean;
+        /** 목록 순서(고정 먼저 · 최신순) 기준 이웃 — 확인 창 「이전·다음 공지」 (설계 v3.2 §3-4-2) */
+        prev: { id: string; title: string } | null;
+        next: { id: string; title: string } | null;
       };
     };
 
-/** 상세 — 대상이 아니면 없는 글(not_found), 게시 종료면 unavailable(알림 기록에서 들어온 경우). */
+/**
+ * 상세 — 대상이 아니거나 삭제·숨김·게시 전(예약)이면 없는 글(not_found · 제목도 주지 않음),
+ * 게시 종료·보관이면 unavailable(알림 기록에서 들어온 경우).
+ */
 export async function loadOwnerAnnouncementDetail(
   sb: SupabaseClient,
   userId: string,
@@ -170,10 +181,19 @@ export async function loadOwnerAnnouncementDetail(
     return { kind: "not_found" };
   }
   const id = String(row.id);
+  const startsAt = row.starts_at ? Date.parse(String(row.starts_at)) : NaN;
+  if (row.deleted_at || row.is_active !== true || (Number.isFinite(startsAt) && startsAt > Date.now())) {
+    return { kind: "not_found" };
+  }
   if (!isCustomerCenterContentPublishedNow(row)) {
     return { kind: "unavailable", id, title: String(row.title ?? "") };
   }
   const readIds = await loadMemberReadContentIds(sb, userId, [id]);
+  const ordered = await listOwnerAnnouncements(sb, userId, audiences, { limit: OWNER_ANNOUNCEMENTS_LIST_MAX }).catch(
+    () => [] as OwnerAnnouncementListItem[]
+  );
+  const at = ordered.findIndex((x) => x.id === id);
+  const neighbor = (i: number) => (i >= 0 && i < ordered.length ? { id: ordered[i].id, title: ordered[i].title } : null);
   const contentType = parseCustomerCenterContentType(row.content_type, "notice");
   return {
     kind: "ok",
@@ -186,6 +206,8 @@ export async function loadOwnerAnnouncementDetail(
       isPinned: row.is_pinned === true,
       createdAt: publishedAtOf(row),
       read: readIds.has(id),
+      prev: at >= 0 ? neighbor(at - 1) : null,
+      next: at >= 0 ? neighbor(at + 1) : null,
     },
   };
 }

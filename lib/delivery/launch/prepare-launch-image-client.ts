@@ -52,7 +52,13 @@ export async function prepareLaunchImageForUpload(file: File): Promise<PreparedL
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("canvas_unavailable");
     d.draw(ctx, w, h);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
+    // 줄인 뒤에도 2MB 를 넘으면 화질을 단계적으로 낮춘다 (감사 2026-11-10 — 줄인 뒤 크기 재확인)
+    let blob: Blob | null = null;
+    for (const q of [JPEG_QUALITY, 0.8, 0.7, 0.6]) {
+      blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", q));
+      if (!blob) throw new Error("encode_failed");
+      if (blob.size <= MAX_UPLOAD_BYTES) break;
+    }
     if (!blob) throw new Error("encode_failed");
     const name = file.name.replace(/\.[^.]+$/, "") || "banner";
     return { file: new File([blob], `${name}.jpg`, { type: "image/jpeg" }), width: w, height: h };

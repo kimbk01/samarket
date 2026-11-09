@@ -578,6 +578,8 @@ export function createAdminDashboardSources(input: AdminDashboardSourcesInput): 
         .from("app_notices")
         .select(APP_NOTICES_CONTENT_SELECT)
         .is("deleted_at", null)
+        // 회원 공지만 — 사장님 공지(audience ≠ all)는 「매장 공지」 메뉴에서 따로 본다 (감사 2026-11-10)
+        .eq("audience", "all")
         .order("created_at", { ascending: false })
         .limit(ADMIN_DASHBOARD_NOTICE_LIMIT);
       if (error) throw new Error(`app_notices:${error.message ?? "query_failed"}`);

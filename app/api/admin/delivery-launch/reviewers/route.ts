@@ -4,6 +4,7 @@ import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audi
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   findDeliveryLaunchReviewerCandidate,
+  listDeliveryLaunchReviewerEvents,
   listDeliveryLaunchReviewers,
 } from "@/lib/delivery/launch/delivery-launch-settings.server";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
@@ -46,7 +47,11 @@ export async function POST(req: NextRequest) {
       action: "delivery_launch.reviewer_add",
       after: { user_id: found.userId, note },
     });
-    return NextResponse.json({ ok: true, reviewers: await listDeliveryLaunchReviewers(sb) });
+    return NextResponse.json({
+      ok: true,
+      reviewers: await listDeliveryLaunchReviewers(sb),
+      reviewerEvents: await listDeliveryLaunchReviewerEvents(sb, 20).catch(() => []),
+    });
   } catch (e) {
     return internalErrorResponse("save_failed", "[/api/admin/delivery-launch/reviewers POST]", e, 500);
   }
@@ -69,7 +74,11 @@ export async function DELETE(req: NextRequest) {
       action: "delivery_launch.reviewer_remove",
       before: { user_id: userId },
     });
-    return NextResponse.json({ ok: true, reviewers: await listDeliveryLaunchReviewers(sb) });
+    return NextResponse.json({
+      ok: true,
+      reviewers: await listDeliveryLaunchReviewers(sb),
+      reviewerEvents: await listDeliveryLaunchReviewerEvents(sb, 20).catch(() => []),
+    });
   } catch (e) {
     return internalErrorResponse("delete_failed", "[/api/admin/delivery-launch/reviewers DELETE]", e, 500);
   }

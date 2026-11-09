@@ -47,6 +47,9 @@ type LogRow = {
 
 type Reviewer = { userId: string; note: string; addedAt: string; username: string | null; nickname: string | null };
 
+/** 확인 계정 추가·삭제 기록 (감사 로그) — 「변경 이력」에 배달 설정 변경과 함께 시각순으로 보인다 */
+type ReviewerEvent = { action: "add" | "remove"; userId: string; username: string | null; actorId: string | null; createdAt: string };
+
 type LoadResponse = {
   ok: boolean;
   error?: string;
@@ -54,6 +57,7 @@ type LoadResponse = {
   migrationApplied?: boolean;
   logs?: LogRow[];
   reviewers?: Reviewer[];
+  reviewerEvents?: ReviewerEvent[];
   counts?: { visibleStores: number | null; visibleRealStores: number | null; pendingApplications: number | null };
 };
 
@@ -171,6 +175,7 @@ export function DeliveryScreensLaunchTab() {
   /** 이미지 칸마다 결과 — 그 칸 바로 아래에 보여준다 */
   const [uploadNote, setUploadNote] = useState<Partial<Record<DeliveryLaunchImageKind, { tone: "ok" | "error"; text: string }>>>({});
   const [reviewers, setReviewers] = useState<Reviewer[]>([]);
+  const [reviewerEvents, setReviewerEvents] = useState<ReviewerEvent[]>([]);
   const [reviewerQuery, setReviewerQuery] = useState("");
   const [reviewerMemo, setReviewerMemo] = useState("");
   const [reviewerBusy, setReviewerBusy] = useState(false);
@@ -195,6 +200,7 @@ export function DeliveryScreensLaunchTab() {
         setRevision(json.settings.revision);
       }
       setReviewers(json.reviewers ?? []);
+      setReviewerEvents(json.reviewerEvents ?? []);
     } catch {
       setLoaded({ ok: false, error: "network" });
     }
@@ -289,12 +295,13 @@ export function DeliveryScreensLaunchTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: reviewerQuery, note: reviewerMemo }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string; reviewers?: Reviewer[] };
+      const json = (await res.json()) as { ok?: boolean; error?: string; reviewers?: Reviewer[]; reviewerEvents?: ReviewerEvent[] };
       if (!json.ok) {
         setReviewerNote({ tone: "error", text: errText(json.error) });
         return;
       }
       setReviewers(json.reviewers ?? []);
+      setReviewerEvents(json.reviewerEvents ?? []);
       setReviewerQuery("");
       setReviewerMemo("");
     } catch {
@@ -309,12 +316,13 @@ export function DeliveryScreensLaunchTab() {
     setReviewerNote(null);
     try {
       const res = await fetch(`/api/admin/delivery-launch/reviewers?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
-      const json = (await res.json()) as { ok?: boolean; error?: string; reviewers?: Reviewer[] };
+      const json = (await res.json()) as { ok?: boolean; error?: string; reviewers?: Reviewer[]; reviewerEvents?: ReviewerEvent[] };
       if (!json.ok) {
         setReviewerNote({ tone: "error", text: errText(json.error) });
         return;
       }
       setReviewers(json.reviewers ?? []);
+      setReviewerEvents(json.reviewerEvents ?? []);
     } catch {
       setReviewerNote({ tone: "error", text: errText("network") });
     } finally {
@@ -628,22 +636,38 @@ export function DeliveryScreensLaunchTab() {
 
         <section className="grid gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[12px]">
           <h3 className="text-[14px] font-bold">{t("admin_dl_history_title")}</h3>
-          {(loaded.logs ?? []).length === 0 ? (
+          {(loaded.logs ?? []).length === 0 && reviewerEvents.length === 0 ? (
             <p className="text-sam-muted">{t("admin_dl_history_empty")}</p>
           ) : (
-            (loaded.logs ?? []).map((l) => (
-              <div key={l.revision} className="flex flex-wrap justify-between gap-2 border-b border-dashed border-sam-border pb-1">
-                <span>
-                  r{l.revision} · {String(l.before.mode ?? "—")} → {String(l.after.mode ?? "—")}
-                  {l.before.free_until !== l.after.free_until
+            [
+              ...(loaded.logs ?? []).map((l) => ({
+                key: `r${l.revision}`,
+                at: l.createdAt,
+                actorId: l.actorId,
+                text: `r${l.revision} · ${String(l.before.mode ?? "—")} → ${String(l.after.mode ?? "—")}${
+                  l.before.free_until !== l.after.free_until
                     ? ` · ${t("admin_dl_history_free", { date: String(l.after.free_until ?? "—") })}`
-                    : ""}
-                </span>
-                <span className="font-mono text-sam-muted">
-                  {fmtPht(l.createdAt)} · {l.actorId ? formatAdminShortId(l.actorId) : "—"}
-                </span>
-              </div>
-            ))
+                    : ""
+                }`,
+              })),
+              ...reviewerEvents.map((e, i) => ({
+                key: `rv${i}-${e.createdAt}`,
+                at: e.createdAt,
+                actorId: e.actorId,
+                text: t(e.action === "add" ? "admin_dl_history_reviewer_add" : "admin_dl_history_reviewer_remove", {
+                  who: e.username ? `@${e.username}` : formatAdminShortId(e.userId),
+                }),
+              })),
+            ]
+              .sort((a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0))
+              .map((row) => (
+                <div key={row.key} className="flex flex-wrap justify-between gap-2 border-b border-dashed border-sam-border pb-1">
+                  <span>{row.text}</span>
+                  <span className="font-mono text-sam-muted">
+                    {fmtPht(row.at)} · {row.actorId ? formatAdminShortId(row.actorId) : "—"}
+                  </span>
+                </div>
+              ))
           )}
         </section>
       </div>

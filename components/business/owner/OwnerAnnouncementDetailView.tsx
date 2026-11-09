@@ -111,7 +111,34 @@ export function OwnerAnnouncementDetailView({ noticeId }: { noticeId: string }) 
         ) : null}
         <CustomerCenterSafeMarkdownBody body={n.body} />
       </article>
-      {backLink}
+      {/* 설계 v3.2 §3-4-2 — 아래쪽 「이전 공지 · 목록 · 다음 공지」 (목록 순서 = 고정 먼저 · 최신순) */}
+      <nav className="grid grid-cols-[1fr_auto_1fr] items-center gap-2" data-owner-announcement-nav>
+        <div className="min-w-0">
+          {n.prev ? (
+            <Link
+              href={OwnerRoutes.announcementDetail(n.prev.id, storeId)}
+              className="block min-w-0 sam-text-helper text-sam-muted"
+              data-owner-announcement-prev
+            >
+              <span className="block">‹ {t("owner_announcements_prev")}</span>
+              <span className="block truncate text-sam-fg">{n.prev.title}</span>
+            </Link>
+          ) : null}
+        </div>
+        {backLink}
+        <div className="min-w-0 text-right">
+          {n.next ? (
+            <Link
+              href={OwnerRoutes.announcementDetail(n.next.id, storeId)}
+              className="block min-w-0 sam-text-helper text-sam-muted"
+              data-owner-announcement-next
+            >
+              <span className="block">{t("owner_announcements_next")} ›</span>
+              <span className="block truncate text-sam-fg">{n.next.title}</span>
+            </Link>
+          ) : null}
+        </div>
+      </nav>
     </div>
   );
 }

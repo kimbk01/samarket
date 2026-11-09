@@ -101,7 +101,7 @@ q{quotes:"「" "」"}
 <div class="wrap">
 
 <header style="display:grid;gap:10px">
-  <div class="meta">DIBAY · 배달 · 설계안 v3.2 · 2026-11-10 PHT · 승인 전 (구현 보류) · 운영 샘플 적용됨 (r1, 05:19 PHT)</div>
+  <div class="meta">DIBAY · 배달 · 설계안 v3.3 · 2026-11-10 PHT · 승인·구현·운영 반영 완료 (v3.2 + Owner 후속 결정 반영)</div>
   <h1>배달 매장 모집 모드 — 지시 재확인·감사·설계 v3</h1>
   <p class="sub">대화 처음부터 Owner 지시 원문을 다시 확인했습니다. 지금 운영 상태(main 559b48307)를 그 지시와 대조했고, 지시에 없던 것은 되돌렸습니다. 아래 설계는 지시 원문과 이미 있는 앱 규칙만으로 정했고, 추측으로 채운 칸은 없습니다.</p>
 </header>
@@ -132,6 +132,17 @@ q{quotes:"「" "」"}
 </section>
 
 <section>
+  <h2>0-1. Owner 후속 결정 (v3.3 · 2026-11-10 · 아래 본문보다 우선)</h2>
+  <ul>
+    <li><b>관리자 자동 예외 없음</b> — 모집 화면 예외는 어드민이 지정한 계정만. 관리자는 「고객 화면으로 보기」·매장 직접 주소로 매장 확인.</li>
+    <li><b>혜택 배지는 무료 기간에만</b> — 무료 종료일이 있고 지나지 않았을 때만 「오픈 기념 수수료 무료」 배지 표시. 기본 설명 문구에는 무료 약속을 넣지 않음.</li>
+    <li><b>미리보기 하단 막대</b> — 확인 계정·관리자 미리보기·사장님 비공개 미리보기에서는 「주문 가능」 대신 주문 막힘 안내.</li>
+    <li><b>홈에서 바로 들어오는 매장 화면</b> — 모집 중에는 매장 상세뿐 아니라 상품 상세·정보·리뷰·신고도 사장님 본인·관리자·지정 계정 외에는 모집 화면으로 보냄.</li>
+    <li><b>기기 저장값</b> — 화면을 막는 판단은 서버 값만 사용(기기에 남은 이전 상태로 막지 않음). 보는 사람 판정은 기기에 저장하지 않음.</li>
+    <li><b>비로그인</b> — 기존 규칙(S-07)대로 배달 화면 대신 로그인 안내. §3-2 「로그인 후 문의 창 이어 열기」는 해당 화면까지 오지 않아 적용하지 않음.</li>
+    <li><b>사장님 공지 공개 차단</b> — 공지 표 직접 조회 정책을 회원 공지(게시·미삭제)만으로 제한.</li>
+  </ul>
+
   <h2>1. Owner 지시 원문 (대화 순서)</h2>
   <div class="tbl"><table>
     <tr><th>#</th><th>지시 (요지 · 원문 표현 유지)</th></tr>
@@ -201,7 +212,7 @@ q{quotes:"「" "」"}
     <li><b>샘플 상태(지시 15):</b> 운영 설정을 다음 값으로 채워 저장해 둡니다.
       <ul>
         <li>사진: Owner가 보낸 이미지</li>
-        <li>문구: 「오픈 기념 수수료 무료」 · 「매장을 신청하세요」 · 「DIBAY 배달이 곧 열립니다. 지금 입점하면 오픈 기념으로 배달앱 수수료가 무료예요.」</li>
+        <li>문구: 「오픈 기념 수수료 무료」 · 「매장을 신청하세요」 · 「DIBAY 배달이 곧 열립니다. 지금 매장을 신청하고 오픈을 함께 준비하세요.」</li>
         <li>오픈 일정 칸은 비워 둡니다. 날짜는 Owner가 정하는 값입니다.</li>
         <li>모드는 「정식 운영」을 유지합니다. 그래서 고객 화면은 Owner가 전환할 때까지 바뀌지 않습니다.</li>
         <li><b>적용 완료 (2026-11-10 05:19 PHT, 운영 DB r0 → r1):</b> 폰 이미지 1448×1086 · 와이드 이미지 1774×887(Owner 제공 파일, WebP 저장, 공개 URL 200 확인), 위 문구(ko·en). 모드 정식 운영·FAB 켜짐·무료 종료일 없음은 그대로입니다. 백업은 r0 값(내용 비어 있음)입니다.</li>
@@ -349,7 +360,7 @@ q{quotes:"「" "」"}
         <li>추가·삭제할 때마다 변경 이력에 남습니다.</li>
       </ul>
     </td></tr>
-    <tr><td>자동 포함</td><td>활성 관리자 계정은 따로 지정하지 않아도 같은 예외를 받습니다.</td></tr>
+    <tr><td>자동 포함</td><td>없음. 관리자도 지정해야 예외를 받습니다(Owner 결정 2026-11-10). 관리자는 「고객 화면으로 보기」로 매장을 확인합니다.</td></tr>
     <tr><td>예외 내용 (매장 모집 중에만 의미 있음)</td><td>
       <ul>
         <li><b>보이는 화면:</b> 배달 화면이 「정식 운영」과 똑같이 보입니다. 모집 배너·흐림·안내 띠·FAB가 없습니다.</li>
@@ -424,7 +435,7 @@ q{quotes:"「" "」"}
           <div class="panel">
             <span class="badge">오픈 기념 수수료 무료</span>
             <div class="t1">매장을 신청하세요</div>
-            <div class="t2">DIBAY 배달이 곧 열립니다. 지금 입점하면 오픈 기념으로 배달앱 수수료가 무료예요.</div>
+            <div class="t2">DIBAY 배달이 곧 열립니다. 지금 매장을 신청하고 오픈을 함께 준비하세요.</div>
             <div class="btns"><span class="b1">매장 신청</span></div>
           </div>
         </div>
@@ -472,7 +483,7 @@ q{quotes:"「" "」"}
     <div class="tablet"><div class="col">
       <div class="ph-head">배달 <span>마카티 · 우리집 ▾</span></div>
       <div class="wide"><div class="photo w"></div>
-        <div class="panel"><span class="badge">오픈 기념 수수료 무료</span><div class="t1">매장을 신청하세요</div><div class="t2">DIBAY 배달이 곧 열립니다. 지금 입점하면 오픈 기념으로 배달앱 수수료가 무료예요.</div><div class="btns"><span class="b1">매장 신청</span></div></div>
+        <div class="panel"><span class="badge">오픈 기념 수수료 무료</span><div class="t1">매장을 신청하세요</div><div class="t2">DIBAY 배달이 곧 열립니다. 지금 매장을 신청하고 오픈을 함께 준비하세요.</div><div class="btns"><span class="b1">매장 신청</span></div></div>
       </div>
       <div class="dim"><div class="row"><i></i><div><b>…</b></div></div></div>
     </div></div>
@@ -497,7 +508,7 @@ q{quotes:"「" "」"}
           <div class="inp">오픈 일정<span style="color:var(--muted)">(Owner 입력)</span></div>
         </div>
         <div class="card"><b>고객센터 FAB</b> 매장 모집 중 배달 첫 화면에 켜기 ✓</div>
-        <div class="card"><b>매장 확인 허용 계정</b> <small style="color:var(--muted)">이 계정들은 매장 모집 중에도 배달을 정식 운영 화면으로 봅니다 (주문은 막힘) · 활성 관리자는 자동 포함</small>
+        <div class="card"><b>매장 확인 허용 계정</b> <small style="color:var(--muted)">이 계정들은 매장 모집 중에도 배달을 정식 운영 화면으로 봅니다 (주문은 막힘) · 관리자 계정은 자동 포함되지 않음</small>
           <div class="inp">아이디 검색<span>@아이디 또는 닉네임 입력 → 추가</span></div>
           <div style="font-size:12px">@menu_check · 메뉴 검수 · <u>삭제</u></div>
           <div style="font-size:12px">@kim_sajang · 김사장 분식 사장님 · <u>삭제</u></div>

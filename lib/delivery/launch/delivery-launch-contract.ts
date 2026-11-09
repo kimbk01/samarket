@@ -1,6 +1,6 @@
 /**
  * 배달 오픈 관리 — 단일 계약 (Owner 「배달 on/off·매장 모집 배너」 2026-11-10).
- * 설계: docs/design/delivery-launch-recruiting-mode.html (v2 §4-1·4-2·4-3).
+ * 설계: docs/design/delivery-launch-recruiting-mode.html (v3.2 + Owner 후속 결정 2026-11-10).
  *
  * - mode `open`(정식 운영, 기본값) = 지금 배달 화면 그대로.
  * - mode `recruiting`(매장 모집) = 배달 첫 화면에 큰 모집 배너 + 목록 흐림·터치 막음 + 기존 고객센터 FAB(입점 문의),

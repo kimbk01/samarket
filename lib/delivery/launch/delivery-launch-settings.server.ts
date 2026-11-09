@@ -157,6 +157,46 @@ function isMissingReviewersTable(message: string | undefined): boolean {
   return /delivery_launch_reviewers/.test(m) && /(does not exist|schema cache|not find)/i.test(m);
 }
 
+export type DeliveryLaunchReviewerEvent = {
+  action: "add" | "remove";
+  userId: string;
+  username: string | null;
+  actorId: string | null;
+  createdAt: string;
+};
+
+/**
+ * 확인 계정 추가·삭제 기록 — 감사 로그(`audit_logs`)에서 읽어 어드민 「변경 이력」에 함께 보인다
+ * (설계 v3.2 §3-4-3 「추가·삭제할 때마다 변경 이력에 남습니다」 · 감사 2026-11-10).
+ */
+export async function listDeliveryLaunchReviewerEvents(
+  sb: SupabaseClient,
+  limit = 20
+): Promise<DeliveryLaunchReviewerEvent[]> {
+  const { data, error } = await sb
+    .from("audit_logs")
+    .select("action, target_id, actor_id, created_at")
+    .in("action", ["delivery_launch.reviewer_add", "delivery_launch.reviewer_remove"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !Array.isArray(data) || data.length === 0) return [];
+  const ids = [...new Set(data.map((r) => String((r as { target_id: string }).target_id)).filter(Boolean))];
+  const { data: profs } = ids.length
+    ? await sb.from("profiles").select("id, username").in("id", ids)
+    : { data: [] as { id: string; username: string | null }[] };
+  const names = new Map((profs ?? []).map((p) => [String((p as { id: string }).id), (p as { username: string | null }).username]));
+  return data.map((r) => {
+    const row = r as { action: string; target_id: string; actor_id: string | null; created_at: string };
+    return {
+      action: row.action === "delivery_launch.reviewer_add" ? "add" : "remove",
+      userId: String(row.target_id ?? ""),
+      username: names.get(String(row.target_id)) ?? null,
+      actorId: row.actor_id ?? null,
+      createdAt: String(row.created_at ?? ""),
+    };
+  });
+}
+
 export async function listDeliveryLaunchReviewers(sb: SupabaseClient): Promise<DeliveryLaunchReviewer[]> {
   const { data, error } = await sb
     .from("delivery_launch_reviewers")
@@ -205,7 +245,7 @@ export async function findDeliveryLaunchReviewerCandidate(
 
 /**
  * 보는 사람이 매장 모집 중에도 정식 운영 화면을 보는가 — 어드민에서 지정한 계정만 (관리자 자동 포함 없음 — 관리자는 모집 화면을 고객과 같이 보고, 매장은 「고객 화면으로 보기」·매장 직접 주소로 확인 · Owner 2026-11-10).
- * 표가 아직 없으면(운영 미적용) 관리자만.
+ * 표가 아직 없으면(운영 미적용) 아무도 예외가 아니다.
  */
 export async function isDeliveryLaunchViewerBypass(sb: SupabaseClient, userId: string | null): Promise<boolean> {
   const uid = userId?.trim() || "";

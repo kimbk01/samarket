@@ -28,7 +28,12 @@ export async function GET() {
       permissionScope: { isSuperAdmin: gate.actor.isSuperAdmin, permissions: gate.actor.permissions },
     }),
     notesSb
-      ? notesSb.from("app_notices").select("id", { count: "exact", head: true }).eq("is_active", true)
+      ? notesSb
+          .from("app_notices")
+          .select("id", { count: "exact", head: true })
+          .eq("is_active", true)
+          // 회원 공지만 (사장님 공지 제외 · 감사 2026-11-10)
+          .eq("audience", "all")
       : Promise.resolve({ count: null, error: { message: "supabase_client_unavailable" } }),
     notesSb
       ? notesSb.from("admin_notification_campaigns").select("id", { count: "exact", head: true })
