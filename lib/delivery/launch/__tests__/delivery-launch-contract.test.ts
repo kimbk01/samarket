@@ -11,7 +11,10 @@ import {
   resolveDeliveryLaunchTexts,
   validateDeliveryLaunchImageGeometry,
 } from "@/lib/delivery/launch/delivery-launch-contract";
-import { isDeliveryRecruitingBlockedPath } from "@/components/delivery/launch/DeliveryRecruitingRouteGuard";
+import {
+  deliveryRecruitingStoreSubpageSlug,
+  isDeliveryRecruitingBlockedPath,
+} from "@/components/delivery/launch/DeliveryRecruitingRouteGuard";
 
 /** 배달 오픈 관리 계약 (Owner 「배달 on/off·매장 모집 배너」 2026-11-10) */
 const read = (p: string) => readFileSync(p, "utf8");
@@ -177,5 +180,21 @@ describe("Owner 결정 2026-11-10 — 무료 안내는 배지(무료 기간에�
     expect(ko.length).toBeGreaterThan(0);
     expect(ko).not.toContain("무료");
     expect(en.toLowerCase()).not.toContain("fee");
+  });
+});
+
+describe("Owner 2026-11-10 — 홈에서 바로 들어오는 매장 아래 화면도 모집 중 막음", () => {
+  it("상품 상세·정보·리뷰·신고는 매장 slug 로 판정 대상", () => {
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/sample-8b69cc60/p/030f39b7")).toBe("sample-8b69cc60");
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/a/info")).toBe("a");
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/a/reviews")).toBe("a");
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/a/report")).toBe("a");
+  });
+  it("사장님 화면·상품권몰·배달 첫 화면·매장 상세 자체는 대상 아님", () => {
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/owner/products")).toBeNull();
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/gift-mall/x")).toBeNull();
+    expect(deliveryRecruitingStoreSubpageSlug("/stores")).toBeNull();
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/a")).toBeNull();
+    expect(deliveryRecruitingStoreSubpageSlug("/stores/a/owner/orders")).toBeNull();
   });
 });
