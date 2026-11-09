@@ -58,6 +58,8 @@ export function BottomNavBootIdlePrewarmHost() {
     return registerAppResumeTask({
       id: "bottom-nav-resume-rewarm",
       lane: "background",
+      // 회원 탭 RSC 는 로그인 쿠키로 나간다 → 세션 미확정(pending·error)이면 보류, 무효면 취소, 비회원은 공개 탭만 실행.
+      auth: "optional",
       minHiddenMs: ROUTER_PREFETCH_REWARM_MIN_HIDDEN_MS,
       run: ({ signal }) => {
         const cur = latestRef.current;

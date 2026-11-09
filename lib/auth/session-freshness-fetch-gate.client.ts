@@ -128,6 +128,99 @@ export async function waitForSessionFreshnessIfNeeded(capMs = SESSION_FRESHNESS_
   }
 }
 
+/**
+ * P0-C (Owner 4단계 C 2026-11-09) — 복귀 조정자 전용 「결과 기반」 세션 판정.
+ *
+ * 위 fetch 관문(Amendment 7: 3초 후 그대로 진행)은 바꾸지 않는다. 이 함수는 결과를 돌려줄 뿐 요청을 막지 않으며,
+ * 새 갱신을 일으키지 않는다(만료 임박일 때만 SDK `getSession()` — SDK 잠금으로 진행 중 갱신과 합류).
+ *
+ * - fresh: 로그인 쿠키 토큰이 만료 90초 초과로 남음
+ * - refreshed: 만료 임박이었고 상한 안에 갱신된 세션 확인
+ * - pending: 상한 안에 결과 없음(갱신 진행 중)
+ * - invalid: 갱신 무효(리프레시 토큰 없음·재사용 등) 또는 세션 사라짐 → 세션 관리자가 종료 처리
+ * - guest: 로그인 쿠키 없음
+ * - error: 일시 오류(네트워크·5xx) 또는 판정 불가
+ */
+export type SessionFreshnessOutcome = "fresh" | "refreshed" | "pending" | "invalid" | "guest" | "error";
+
+type SessionResultLike = {
+  data?: { session?: { expires_at?: number | null } | null } | null;
+  error?: { code?: string | null; status?: number | null; name?: string | null } | null;
+};
+
+const INVALID_SESSION_CODES = new Set([
+  "refresh_token_not_found",
+  "refresh_token_already_used",
+  "session_not_found",
+  "session_expired",
+  "bad_jwt",
+]);
+
+/** `getSession()` 결과 분류(순수 함수 — 테스트 대상). */
+export function classifySessionResult(result: SessionResultLike, nowMs: number = Date.now()): SessionFreshnessOutcome {
+  const err = result.error ?? null;
+  if (err) {
+    const code = (err.code ?? "").trim();
+    if (INVALID_SESSION_CODES.has(code)) return "invalid";
+    return "error";
+  }
+  const session = result.data?.session ?? null;
+  if (!session) return "invalid";
+  const exp = typeof session.expires_at === "number" ? session.expires_at : null;
+  if (exp == null) return "error";
+  return isAccessTokenWithinRefreshMargin(exp, nowMs) ? "error" : "refreshed";
+}
+
+let inflightOutcome: Promise<SessionResultLike> | null = null;
+
+function getSessionShared(): Promise<SessionResultLike> {
+  if (!inflightOutcome) {
+    const sb = getSupabaseClient();
+    const run: Promise<SessionResultLike> = sb
+      ? (sb.auth.getSession() as Promise<SessionResultLike>).catch(
+          (e: unknown): SessionResultLike => ({ error: { code: "", name: e instanceof Error ? e.name : "error" } })
+        )
+      : Promise.resolve({ error: { code: "client_unavailable" } });
+    inflightOutcome = run.finally(() => {
+      inflightOutcome = null;
+    });
+  }
+  return inflightOutcome;
+}
+
+export async function resolveSessionFreshnessOutcome(
+  capMs: number = SESSION_FRESHNESS_WAIT_CAP_MS
+): Promise<SessionFreshnessOutcome> {
+  try {
+    if (typeof window === "undefined") return "guest";
+    const raw = typeof document !== "undefined" ? document.cookie : "";
+    if (raw !== lastCookieRaw || !lastExpiry) {
+      lastCookieRaw = raw;
+      lastExpiry = readAccessTokenFromCookies(documentCookiePairs())
+        .then((tok) => (tok ? tok.expiresAtSec : undefined))
+        .catch(() => undefined);
+    }
+    const expiresAtSec = await lastExpiry;
+    if (expiresAtSec === undefined) return "guest";
+    if (!isAccessTokenWithinRefreshMargin(expiresAtSec, Date.now())) return "fresh";
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<"timeout">((resolve) => {
+      timer = setTimeout(() => resolve("timeout"), capMs);
+    });
+    const winner = await Promise.race([getSessionShared(), timeout]);
+    if (timer) clearTimeout(timer);
+    if (winner === "timeout") return "pending";
+    return classifySessionResult(winner, Date.now());
+  } catch {
+    return "error";
+  }
+}
+
+export function resetSessionFreshnessOutcomeForTests(): void {
+  inflightOutcome = null;
+}
+
 type FetchLike = typeof fetch;
 
 /** 테스트에서 직접 감쌀 수 있게 분리. */

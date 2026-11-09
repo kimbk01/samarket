@@ -10,7 +10,7 @@ import {
   type AppResumeCoordinator,
   type AppResumeTask,
 } from "@/lib/app-resume/app-resume-coordinator";
-import { waitForSessionFreshnessIfNeeded } from "@/lib/auth/session-freshness-fetch-gate.client";
+import { resolveSessionFreshnessOutcome } from "@/lib/auth/session-freshness-fetch-gate.client";
 import { readOwnLiveCall } from "@/lib/call/own-live-call";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -65,7 +65,7 @@ function install(): AppResumeCoordinator {
   const c = createAppResumeCoordinator(
     {
       now: () => Date.now(),
-      waitForSessionFreshness: () => waitForSessionFreshnessIfNeeded(),
+      resolveSession: () => resolveSessionFreshnessOutcome(),
       waitForIdle,
       isOnline: () => (typeof navigator === "undefined" ? true : navigator.onLine !== false),
       waitForOnline,
@@ -96,13 +96,19 @@ function install(): AppResumeCoordinator {
       });
   }
 
-  // 로그아웃·계정 전환 — 진행 중 복귀 작업 취소 (인증 동작은 바꾸지 않고 구독만 한다).
+  // 로그아웃·계정 전환 취소 + 갱신·로그인 시 보류 작업 1회 재판정 (인증 동작은 바꾸지 않고 구독만 한다).
   try {
     let lastUserId: string | null | undefined;
     getSupabaseClient()?.auth.onAuthStateChange((event, session) => {
       const userId = session?.user?.id ?? null;
-      if (event === "SIGNED_OUT" || (lastUserId !== undefined && lastUserId !== userId)) {
+      const accountChanged = lastUserId !== undefined && lastUserId !== null && userId !== null && lastUserId !== userId;
+      if (event === "SIGNED_OUT" || accountChanged) {
+        // 세션 변경 — 진행 중 작업·보류 큐 폐기(이전 계정 작업이 새 계정 세션으로 나가지 않게).
         c.abortCurrent(event === "SIGNED_OUT" ? "signed_out" : "account_changed");
+      } else if (event === "TOKEN_REFRESHED") {
+        c.noteSessionEvent("refreshed");
+      } else if (event === "SIGNED_IN") {
+        c.noteSessionEvent("signed_in");
       }
       lastUserId = userId;
     });
