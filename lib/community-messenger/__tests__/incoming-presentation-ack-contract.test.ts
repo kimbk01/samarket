@@ -24,6 +24,12 @@ describe("Android incoming presentation ack", () => {
     expect(helper).toMatch(/finally \{\s*done\.countDown\(\);/);
   });
 
+  it("F4: 대기 상한은 수신 확인 최대 소요보다 길고, 이미 「띄움」 보고한 통화는 「안 띄움」을 다시 보내지 않는다", () => {
+    expect(helper).toContain("PRESENTATION_WAIT_MS = 15_000L");
+    expect(helper).toMatch(/"suppressed"\.equals\(stage\) && PRESENTED_CALL_IDS\.contains\(sid\)/);
+    expect(helper).toContain("PRESENTED_CALL_IDS.add(sid)");
+  });
+
   it("표시 결과 응답으로 종료 처리를 하지 않는다 (동작 무관)", () => {
     const presentation = helper.slice(
       helper.indexOf("private static void sendPresentation("),

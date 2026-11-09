@@ -31,8 +31,20 @@ public final class IncomingCallPushAckHelper {
    * 서버가 같은 발송 행을 읽고-고쳐-쓰므로 동시에 가면 한쪽 기록이 사라진다.
    */
   private static final ConcurrentHashMap<String, CountDownLatch> RECEIVE_ACK_DONE = new ConcurrentHashMap<>();
-  private static final long PRESENTATION_WAIT_MS = 9_000L;
+  /**
+   * F4 (2026-11-09 감사): 수신 확인 전송 최대 소요(연결 4초 + 응답 4초 + 본문·DNS)보다 길게 —
+   * 9초 상한이면 지연 시 두 보고가 동시에 서버 행을 고쳐 한쪽이 사라질 수 있었다.
+   */
+  private static final long PRESENTATION_WAIT_MS = 15_000L;
   private static final int MAX_PENDING_LATCHES = 64;
+
+  /**
+   * F4: 이 기기에서 이미 「띄움」으로 보고한 통화 — 같은 통화의 중복 푸시가 런타임에서 거절(runtime_declined)돼도
+   * 「안 띄움」을 다시 보내 실제로 울린 기록을 덮어쓰지 않는다. 최근 통화만 보관(크기 제한).
+   */
+  private static final java.util.Set<String> PRESENTED_CALL_IDS =
+      java.util.Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private static final int MAX_PRESENTED_CALL_IDS = 64;
 
   public static void sendAsync(
       Context context,
@@ -71,6 +83,15 @@ public final class IncomingCallPushAckHelper {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
+    if ("presented".equals(stage)) {
+      if (PRESENTED_CALL_IDS.size() > MAX_PRESENTED_CALL_IDS) PRESENTED_CALL_IDS.clear();
+      PRESENTED_CALL_IDS.add(sid);
+    } else if ("suppressed".equals(stage) && PRESENTED_CALL_IDS.contains(sid)) {
+      DibayCallPushLog.info(
+          "push_presentation_ack_skipped", sid, "reason=already_presented suppressed=" + reason);
+      RECEIVE_ACK_DONE.remove(sid);
+      return;
+    }
     new Thread(
             () -> {
               CountDownLatch done = RECEIVE_ACK_DONE.remove(sid);
