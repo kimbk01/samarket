@@ -56,7 +56,7 @@ export type DeliveryLaunchPublicState = {
   fabEnabled: boolean;
   content: DeliveryLaunchContent;
   /**
-   * 보는 사람이 매장 확인 허용 계정 또는 활성 관리자 — 매장 모집 중에도 정식 운영 화면으로 본다(주문은 막힘).
+   * 보는 사람이 어드민이 지정한 매장 확인 허용 계정 — 매장 모집 중에도 정식 운영 화면으로 본다(주문은 막힘).
    * 서버가 로그인 계정으로 판정 (설계 v3.2 §3-4-3).
    */
   viewerBypass: boolean;

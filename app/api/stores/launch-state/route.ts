@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /**
  * 배달 오픈 상태 공개 조회 (인증 불필요) — 정식 운영 / 매장 모집, 모집 배너·팝업 문구·이미지, 무료 진행 여부.
  * 서버 60초 캐시(어드민 저장 시 태그 무효화). 전환이 바로 보이도록 HTTP 공개 캐시는 쓰지 않는다.
- * `viewerBypass` = 매장 확인 허용 계정·활성 관리자(매장 모집 중에만 판정).
+ * `viewerBypass` = 어드민이 지정한 매장 확인 허용 계정(매장 모집 중에만 판정).
  */
 export async function GET() {
   const [settings, viewerId] = await Promise.all([loadDeliveryLaunchSettingsCached(), getRouteUserId()]);

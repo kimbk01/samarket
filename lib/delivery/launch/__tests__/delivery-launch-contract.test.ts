@@ -156,3 +156,15 @@ describe("배달 오픈 관리 — 정식 운영이면 기존 동작 그대로 (
     expect(read("components/platform-popup/GlobalPopupHost.tsx")).not.toContain("delivery-launch");
   });
 });
+
+describe("Owner 결정 2026-11-10 — 관리자 자동 통과 없음 · 무료 배지는 무료 기간에만", () => {
+  it("모집 화면 예외는 어드민이 지정한 계정만 (관리자 자동 포함 없음)", () => {
+    const src = read("lib/delivery/launch/delivery-launch-settings.server.ts");
+    expect(src).not.toContain("isUserPlatformAdminDb");
+  });
+  it("배너 혜택 배지는 freePromoActive 일 때만", () => {
+    expect(read("components/delivery/launch/DeliveryRecruitingHeroLayout.tsx")).toContain(
+      'state.freePromoActive ? texts.badge : ""'
+    );
+  });
+});

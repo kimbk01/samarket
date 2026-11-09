@@ -2,7 +2,6 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { isUserPlatformAdminDb } from "@/lib/admin/platform-admin-db";
 import {
   DEFAULT_DELIVERY_LAUNCH_SETTINGS,
   deliveryLaunchSettingsFromRow,
@@ -205,7 +204,7 @@ export async function findDeliveryLaunchReviewerCandidate(
 }
 
 /**
- * 보는 사람이 매장 모집 중에도 정식 운영 화면을 보는가 — 지정 계정 또는 활성 관리자.
+ * 보는 사람이 매장 모집 중에도 정식 운영 화면을 보는가 — 어드민에서 지정한 계정만 (관리자 자동 포함 없음 — 관리자는 모집 화면을 고객과 같이 보고, 매장은 「고객 화면으로 보기」·매장 직접 주소로 확인 · Owner 2026-11-10).
  * 표가 아직 없으면(운영 미적용) 관리자만.
  */
 export async function isDeliveryLaunchViewerBypass(sb: SupabaseClient, userId: string | null): Promise<boolean> {
@@ -216,5 +215,5 @@ export async function isDeliveryLaunchViewerBypass(sb: SupabaseClient, userId: s
   if (error && !isMissingReviewersTable(error.message)) {
     console.warn("[delivery-launch] reviewer lookup failed", error.message);
   }
-  return isUserPlatformAdminDb(sb, uid);
+  return false;
 }

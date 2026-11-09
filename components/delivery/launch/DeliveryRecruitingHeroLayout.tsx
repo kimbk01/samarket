@@ -81,7 +81,8 @@ export function DeliveryRecruitingHeroLayout({
   const wide = useWideLayout(rootRef);
   const texts = resolveDeliveryLaunchTexts(state.content, locale ?? language);
   const imageSrc = wide ? state.content.wideImageUrl || state.content.mobileImageUrl : state.content.mobileImageUrl;
-  const badge = texts.badge;
+  /** 혜택 배지는 무료 기간(무료 종료일 설정·미경과)에만 — 실제 적용되지 않는 혜택을 광고하지 않는다 (Owner 2026-11-10) */
+  const badge = state.freePromoActive ? texts.badge : "";
   const title = texts.title || t("delivery_recruiting_default_title");
 
   const textBlock = (
