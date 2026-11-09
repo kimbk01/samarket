@@ -251,6 +251,12 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
    * resync(복귀·online·재연결) 출처만 밀렸으면 false — 끝난 뒤 재조회도 기존 경로 관문을 탄다.
    */
   let pendingRealtimeBypass = false;
+  /**
+   * D2 (Owner 승인 2026-11-09 · docs/audit/call-incoming-defects-d1-d2-plan-2026-11-09.md):
+   * 429 대기 중 들어온 「울림 신호」(경로 관문 우회) 시각. 대기가 끝나면 우회 조회 1회로 이어 간다.
+   * 울림 시간(30초)이 지난 신호는 버린다 — 이미 끝난 통화를 찾느라 요청하지 않는다.
+   */
+  let deferredRealtimeBypassAtMs: number | null = null;
   /** U2: 브라우저·PWA 에서만 Realtime 신호를 병행한다(아래 acquire). */
   const realtimeFeedActive = !isCapacitorNativePlatform();
   let releaseRealtimeFeed: () => void = () => {};
@@ -352,16 +358,27 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       window.clearTimeout(pollTimer);
       pollTimer = null;
     }
-    const allowHttp = shouldRunCallV4IncomingDiscoveryHttpPoll();
+    const now = Date.now();
+    /** D2: 울림 시간이 지난 미뤄 둔 신호는 버린다. 남아 있고 이 경로에서 신호 조회가 허용되면 예약을 연다. */
+    if (deferredRealtimeBypassAtMs != null && now - deferredRealtimeBypassAtMs >= CALL_V4_INCOMING_RING_WINDOW_MS) {
+      deferredRealtimeBypassAtMs = null;
+    }
+    const deferredBypass = deferredRealtimeBypassAtMs != null && shouldRunCallV4IncomingRealtimeSignalFetch();
+    const allowHttp = shouldRunCallV4IncomingDiscoveryHttpPoll() || deferredBypass;
     const delayMs = resolveCallV4IncomingDiscoveryPollDelayMs(
       allowHttp,
       consecutiveNetworkFailures,
       { ringing: hasCallV4IncomingDiscoveryRingingCallee(), healthy: isRealtimeHealthy() },
-      { kind: lastFailureKind, rateLimitWaitMs: rateLimitRemainingMs(Date.now()) },
+      { kind: lastFailureKind, rateLimitWaitMs: rateLimitRemainingMs(now) },
     );
     pollTimer = window.setTimeout(() => {
       pollTimer = null;
-      void tick("poll").finally(scheduleNextPoll);
+      /** D2: 미뤄 둔 울림 신호가 있으면 이번 1회는 우회 조회(소진). 없으면 기존 정기 조회. */
+      const bypass =
+        deferredRealtimeBypassAtMs != null &&
+        Date.now() - deferredRealtimeBypassAtMs < CALL_V4_INCOMING_RING_WINDOW_MS;
+      deferredRealtimeBypassAtMs = null;
+      void (bypass ? tick("realtime", { bypassSurfaceGate: true }) : tick("poll")).finally(scheduleNextPoll);
     }, delayMs);
   };
 
@@ -381,7 +398,11 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       : shouldRunCallV4IncomingDiscoveryHttpPoll();
     if (!allowed) return;
     /** F1: 429 대기 중 — 서버가 거부하는 구간. 신호·resync 조회도 해제 시각 예약 1회로 합친다(scheduleNextPoll). */
-    if (rateLimitRemainingMs(Date.now()) > 0) return;
+    if (rateLimitRemainingMs(Date.now()) > 0) {
+      /** D2: 울림 신호는 버리지 않고 기억 — 대기가 끝나면 경로와 무관하게 1회 조회(메신저 밖 화면 누락 방지). */
+      if (opts?.bypassSurfaceGate && deferredRealtimeBypassAtMs == null) deferredRealtimeBypassAtMs = Date.now();
+      return;
+    }
 
     inFlight = true;
     if (source === "poll" && realtimeFeedActive) {
@@ -395,6 +416,10 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       if (outcome.kind !== "ok") {
         /** F1: 오류 응답은 「빠짐」을 알 수 없다 — T2 생략(T1 Realtime·T3 broadcast·다음 성공 조회가 맡는다). */
         noteHttpFailure(outcome);
+        /** D2: 울림 신호 조회 자체가 429 면 신호를 기억 — 같은 통화 신호는 dedupe 로 다시 오지 않는다. */
+        if (outcome.kind === "rate_limited" && opts?.bypassSurfaceGate && deferredRealtimeBypassAtMs == null) {
+          deferredRealtimeBypassAtMs = Date.now();
+        }
         return;
       }
       const sessions = outcome.sessions;
