@@ -68,7 +68,7 @@ describe("canonical address display SSOT", () => {
       province: "Metro Manila",
     };
     expect(resolveAddressBookTitle(input)).toBe("SM Mall of Asia");
-    expect(resolveAddressBookAddressLine(input)).toBe("Seaside Boulevard, Pasay City, Metro Manila");
+    expect(resolveAddressBookAddressLine(input)).toBe("Seaside Boulevard, Pasay City");
   });
 
   it("NO PLACE → street is title, barangay/city is address", () => {
@@ -78,7 +78,7 @@ describe("canonical address display SSOT", () => {
       cityMunicipality: "Pasig City",
     };
     expect(resolveAddressBookTitle(input)).toBe("123 Sampaguita Street");
-    expect(resolveAddressBookAddressLine(input)).toBe("Barangay San Antonio, Pasig City");
+    expect(resolveAddressBookAddressLine(input)).toBe("San Antonio, Pasig City");
   });
 
   it("place wins over custom nickname; address line keeps the street", () => {
@@ -100,7 +100,7 @@ describe("canonical address display SSOT", () => {
       cityMunicipality: "Manila",
     };
     expect(resolveAddressBookTitle(input)).toBe("Mabini Street");
-    expect(resolveAddressBookAddressLine(input)).toBe("Manila");
+    expect(resolveAddressBookAddressLine(input)).toBe("Malate, Manila");
   });
 
   it("NO PLACE/STREET → Barangay is title before neighborhood", () => {

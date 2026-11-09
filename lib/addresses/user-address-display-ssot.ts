@@ -1,6 +1,7 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   formatCanonicalFullLineFromDto,
+  formattedHeadline,
   realPlaceNameFromStoredBuilding,
 } from "@/lib/addresses/canonical-address-display";
 import { formatPublicAddress } from "@/lib/addresses/user-address-format";
@@ -26,10 +27,8 @@ export function formatUserAddressTitle(row: UserAddressDTO | null | undefined): 
 }
 
 function firstFormattedHeadline(row: UserAddressDTO): string {
-  const raw = row.formattedAddress?.trim() || row.roadAddress?.trim() || row.fullAddress?.trim() || "";
-  if (!raw) return "";
-  const withoutCountry = raw.replace(/,\s*Philippines\s*$/i, "").trim();
-  return withoutCountry.split(",")[0]?.trim() || withoutCountry;
+  /** 주소 SSOT 5단계: 주소관리 목록 제목과 같은 규칙(한국어 순서 주소의 국가·우편번호 구간 제외) */
+  return formattedHeadline(row.formattedAddress?.trim() || row.roadAddress?.trim() || row.fullAddress?.trim() || "");
 }
 
 function barangayTitle(row: UserAddressDTO): string {

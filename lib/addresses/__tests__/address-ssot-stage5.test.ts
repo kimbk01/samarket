@@ -116,3 +116,22 @@ describe("인덱스 마이그레이션", () => {
     expect(sql).toContain("where (is_active and is_default_master)");
   });
 });
+
+describe("주소관리 목록(제목·주소 줄) = ③ 전체 주소", () => {
+  it("주소 줄에 도·우편번호 없음, 주소록 문장과 같음", async () => {
+    const { resolveCanonicalDisplayLines, displayInputFromDto } = await import("@/lib/addresses/canonical-address-display");
+    const r = row({
+      unit_floor_room: "zxzx22",
+      street_address: "684-718",
+      formatted_address: "684-718, 1001 Paterno St, Quiapo, Manila, 1001 Metro Manila, Philippines",
+      canonical_lgu_id: "1380600000",
+    });
+    const l = resolveCanonicalDisplayLines(displayInputFromDto(r, { home: "집", office: "회사", shop: "매장" }));
+    expect([l.detailLine, l.title, l.addressLine].filter(Boolean).join(", ")).toBe(formatAddressBookLine(r));
+    expect(l.addressLine).not.toMatch(/Metro Manila|1001 Metro/);
+  });
+  it("한국어 순서 주소 제목은 국가·우편번호가 아니다", async () => {
+    const { formattedHeadline } = await import("@/lib/addresses/canonical-address-display");
+    expect(formattedHeadline("필리핀 1008 Metro Manila, Manila, Tondo")).toBe("Manila");
+  });
+});

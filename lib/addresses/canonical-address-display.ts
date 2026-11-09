@@ -1,4 +1,5 @@
 import { isLocationOnlyAddressNickname } from "@/lib/addresses/location-only-address-nickname";
+import { formatAddressFullLines } from "@/lib/addresses/address-display-levels";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
 import type { CanonicalAddressDraft } from "@/lib/addresses/canonical-address-draft";
@@ -16,6 +17,8 @@ export type CanonicalDisplayInput = {
   detail?: string | null;
   landmark?: string | null;
   deliveryNote?: string | null;
+  /** 저장된 시/군 LGU(PSGC) — 있으면 시/군 이름을 주소 표시 SSOT 와 같은 이름으로 */
+  cityLguId?: string | null;
 };
 
 /** Snapshot / header resolvers — title no longer uses 집/회사; labels stay for shop nickname helpers. */
@@ -52,17 +55,22 @@ function uniqueJoin(parts: Array<string | null | undefined>): string {
   return out.join(", ");
 }
 
-function formattedHeadline(formatted: string | null | undefined): string {
+export function formattedHeadline(formatted: string | null | undefined): string {
   const stripped = stripCountryFromAddressDisplayLine(clean(formatted), "Philippines") || clean(formatted);
   if (!stripped) return "";
-  return stripped.split(",")[0]?.trim() || stripped;
-}
-
-function areaLine(input: CanonicalDisplayInput): string {
-  const barangay = clean(input.barangay);
-  const brgy =
-    barangay && !/^(barangay|brgy\.?)\b/i.test(barangay) ? `Barangay ${barangay}` : barangay;
-  return uniqueJoin([brgy, input.cityMunicipality, input.province]);
+  /**
+   * 주소 SSOT 5단계: 한국어 순서 한 줄 주소(「필리핀 1008 Metro Manila, Manila, …」) — 국가·우편번호(+도)만인 구간은 제목으로 쓰지 않는다
+   */
+  const segs = stripped
+    .split(",")
+    .map((x) => x.trim().replace(/^(필리핀|philippines)\s+/i, "").trim())
+    .filter(
+      (x) =>
+        x &&
+        !/^\d{4}(\s+(metro\s*manila|kalakhang\s*maynila|ncr))?$/i.test(x) &&
+        !/^(metro\s*manila|kalakhang\s*maynila|ncr|philippines|필리핀)$/i.test(x),
+    );
+  return segs[0] ?? (stripped.split(",")[0]?.trim() || stripped);
 }
 
 /**
@@ -101,30 +109,33 @@ export function resolveCanonicalChipLine(input: CanonicalDisplayInput): string {
 
 /**
  * Line under title. Does not repeat the title token.
+ * 주소 SSOT 5단계 (2026-11-09): ③ 전체 주소(`formatAddressFullLines` — 장소, 도로, 바랑가이, 시/군)에서 제목 구간만 뺀 줄.
+ * 이전: 따로 「Barangay …, 시, 도」를 이어 붙이거나 Google 한 줄 주소를 그대로 써서
+ * 주소관리 목록에 「…, Manila, 1001 Metro Manila」(도·우편번호)가 남고 결제·주소록 문장과 달랐다.
  */
 export function resolveAddressBookAddressLine(input: CanonicalDisplayInput): string {
   const title = resolveAddressBookTitle(input);
-  const place = clean(input.placeName);
-  const street = clean(input.streetAddress);
-  const area = areaLine(input);
-  const parts: string[] = [];
-  if (place && (!title || !sameToken(place, title))) parts.push(place);
-  if (street && (!title || !sameToken(street, title))) parts.push(street);
-  if (area) {
-    for (const bit of area.split(",").map((x) => x.trim()).filter(Boolean)) {
-      if (title && sameToken(bit, title)) continue;
-      if (parts.some((p) => sameToken(p, bit))) continue;
-      parts.push(bit);
-    }
-  }
-  if (parts.length > 0) return parts.join(", ");
-  const formatted = stripCountryFromAddressDisplayLine(clean(input.formattedAddress), "Philippines") || clean(input.formattedAddress);
-  if (formatted && title && formatted.toLowerCase().startsWith(title.toLowerCase())) {
-    const rest = formatted.slice(title.length).replace(/^[\s,]+/, "").trim();
-    if (rest) return rest;
-  }
-  if (formatted && (!title || !sameToken(formatted, title))) return formatted;
-  return "";
+  const { main } = formatAddressFullLines({
+    placeName: input.placeName,
+    street: clean(input.streetAddress) || clean(input.route) || null,
+    barangay: clean(input.barangay) || clean(input.neighborhoodName) || null,
+    cityLguId: input.cityLguId ?? null,
+    cityText: input.cityMunicipality ?? null,
+    fallbackLine: input.formattedAddress ?? null,
+  });
+  if (!main) return "";
+  const parts = main
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const rest = title ? parts.filter((p) => !sameTokenLoose(p, title)) : parts;
+  return rest.join(", ");
+}
+
+/** 제목 구간 비교 — 「Barangay Diliman」/「Diliman」 같은 표기를 같은 구간으로 본다 */
+function sameTokenLoose(a: string, b: string): boolean {
+  const k = (x: string) => x.trim().toLowerCase().replace(/^(barangay|brgy\.?)\s+/i, "");
+  return k(a) === k(b);
 }
 
 export function resolveAddressBookDetailLine(input: CanonicalDisplayInput): string | null {
@@ -217,6 +228,7 @@ export function displayInputFromDto(
     detail: detail || null,
     landmark: row.landmark,
     deliveryNote: row.deliveryNote,
+    cityLguId: row.canonicalLguId ?? null,
   };
 }
 
