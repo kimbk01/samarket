@@ -281,6 +281,27 @@ svg {
     color: inherit;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /**
+   * iOS WebKit 길게 누르기 시스템 메뉴 차단 (Owner 「설계안대로 적용」 2026-11-09).
+   * 기본값: 링크 = 페이지 미리보기 + 열기/복사/공유, 이미지 = 공유/사진 앱에 저장/대상체 복사.
+   * callout 만 끄면 링크 글자가 선택되므로 링크는 글자 선택도 막는다.
+   * 입력창·본문 글자는 건드리지 않는다 (html 전역 적용 금지). base 레이어 — 유틸(`select-text` 등)이 덮을 수 있다.
+   */
+  a,
+  img,
+  svg {
+    -webkit-touch-callout: none;
+  }
+
+  a {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
 }
 
 a,
