@@ -143,7 +143,7 @@ describe("매장 화면 경로 — 본인 숨김 매장 열람 연결", () => {
   });
 
   it("DB 함수 — 심사 중 본인 열람 + 본인 미리보기에서만 숨김·임시 상품 (20271110120000)", () => {
-    const sql = read("supabase/migrations/20271110120000_store_menus_snapshot_owner_preview_pending.sql");
+    const sql = read("supabase/migrations/20271110120500_store_menus_snapshot_owner_preview_pending.sql");
     expect(sql).toContain("st.approval_status IN ('approved', 'pending', 'under_review', 'revision_requested')");
     expect(sql).toContain("AND NOT (st2.approval_status = 'approved' AND st2.is_visible = true)");
     expect(sql).toContain("((SELECT is_on FROM owner_preview) AND p.product_status IN ('hidden', 'draft'))");
