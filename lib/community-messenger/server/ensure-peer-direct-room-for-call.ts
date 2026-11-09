@@ -71,7 +71,7 @@ export async function ensurePeerDirectRoomForCall(
     key: `community-messenger:room-create:${getRateLimitKey(req, userId)}`,
     limit: 6,
     windowMs: 60_000,
-    message: "대화방 생성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    // 문구는 앱이 정한다(roomError → outgoingMissingRoomMessage) — 서버는 코드만(docs/i18n-ssot.md §5).
     code: "community_messenger_room_create_rate_limited",
   });
   if (!createRateLimit.ok) return { ok: false, response: await markRoomStageFailure(createRateLimit.response) };
@@ -85,7 +85,7 @@ export async function ensurePeerDirectRoomForCall(
     const status = err === "not_participant" || err === "blocked_target" || err === "cannot_start_chat" ? 403 : 400;
     return {
       ok: false,
-      response: jsonError(result.error ?? "대화방 준비에 실패했습니다.", status, { ...result, roomError: true }),
+      response: jsonError(result.error ?? "room_failed", status, { ...result, roomError: true }),
     };
   }
   return { ok: true, roomId: result.roomId };
