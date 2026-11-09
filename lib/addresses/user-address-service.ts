@@ -588,7 +588,11 @@ export async function updateUserAddress(
      * 주소 SSOT 2단계: 시/군이 바뀌었는데 LGU 를 확정하지 못하면 저장 거부.
      * 시/군 그대로(핀만 이동 등)면 기존 LGU 유지 — 판정 실패로 지우지 않는다.
      */
-    if (!loc.canonicalLguId && (cityOrProvinceChanged0 || !cleanAddressText(dto.canonicalLguId))) {
+    /**
+     * H4 (2026-11-09): 시/군·도를 실제로 바꾼 수정만 거부. 호수·메모만 바꾼 예전 주소(저장된 LGU 없음)는 그대로 저장한다
+     * — 화면은 항상 시/군을 함께 보내므로 「칸이 왔다」가 아니라 「값이 바뀌었다」로 판단.
+     */
+    if (!loc.canonicalLguId && cityOrProvinceChanged0) {
       throw new Error("address_city_unresolved");
     }
     patch.app_region_id = loc.appRegionId;

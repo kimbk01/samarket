@@ -15,6 +15,9 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { mapUserAddressToAppLocation } from "@/lib/addresses/map-user-address-to-app-location";
 import { resolveCanonicalLguIdForAddressWrite } from "@/lib/delivery/service-area/resolve-member-canonical-lgu";
+import { listTradeNationalLgus } from "@/lib/trade/location/national/load-national-lgu-dataset";
+import { normalizeTradeNationalLguName } from "@/lib/trade/location/national/normalize-lgu-name";
+import { legacyLocationRowToLguId } from "@/lib/neighborhood/lgu-location.server";
 
 export type AddressLocationInput = Pick<
   UserAddressDTO,
@@ -41,6 +44,25 @@ export type DerivedAddressLocation = {
 };
 
 const COUNTRY_RE = /^(philippines|the philippines|republic of the philippines|필리핀|ph)$/i;
+
+/**
+ * 전국 도(province)·지역(region) 이름 — 주소 문장에서 시/군을 찾을 때 이 이름의 구간은 건너뛴다.
+ * (H1 2026-11-09: 「…, Bacoor, Cavite」에서 도 이름 Cavite 를 Cavite City 로, 「…, Lucena, Quezon」을 Quezon City 로 판정하던 결함)
+ */
+let provinceOrRegionNames: Set<string> | null = null;
+function isProvinceOrRegionName(seg: string): boolean {
+  if (!provinceOrRegionNames) {
+    const set = new Set<string>(["metro manila", "ncr", "national capital region", "kalakhang maynila"]);
+    for (const lgu of listTradeNationalLgus()) {
+      for (const raw of [lgu.provinceName, lgu.regionName]) {
+        const n = normalizeTradeNationalLguName(raw);
+        if (n) set.add(n);
+      }
+    }
+    provinceOrRegionNames = set;
+  }
+  return provinceOrRegionNames.has(normalizeTradeNationalLguName(seg));
+}
 
 /** DB·클라이언트가 남긴 문자 "null"/"undefined" 는 빈 값 */
 export function cleanAddressText(v: string | null | undefined): string {
@@ -73,6 +95,7 @@ export function deriveCityMunicipalityFromAddressText(
     for (let i = segments.length - 1; i >= 0; i--) {
       const seg = segments[i]!;
       if (/\d/.test(seg)) continue;
+      if (isProvinceOrRegionName(seg)) continue;
       if (resolveCanonicalLguIdForAddressWrite({ cityMunicipality: seg, province: prov })) return seg;
     }
   }
@@ -129,6 +152,11 @@ export function deriveAddressLocation(input: AddressLocationInput): DerivedAddre
   const canonicalLguId =
     cleanAddressText(input.canonicalLguId) ||
     resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: clean(input.province) }) ||
+    /**
+     * H3: 앱 동네 목록 형식(시/군 칸 = 「Diliman」, 도 칸 = 「Quezon City」 · 관리자 회원 생성·오너 폼 매장 연결)
+     * → 동네 목록 → LGU 대응표(143/143)로 확정
+     */
+    legacyLocationRowToLguId(clean(input.province), cityMunicipality) ||
     (clean(input.province) ? resolveCanonicalLguIdForAddressWrite({ cityMunicipality, province: null }) : null) ||
     null;
 

@@ -585,7 +585,12 @@ export async function POST(req: NextRequest) {
     if (!delivery_address_summary) {
       return NextResponse.json({ ok: false, error: "delivery_address_required" }, { status: 400 });
     }
-    if (!delivery_region || !delivery_city) {
+    /**
+     * H5 (2026-11-09): 대표 주소 배달은 시/군 LGU 가 기준 — 앱 동네 목록 ID 가 없어도(목록 밖 지역) 주문 가능.
+     * 본문 입력 경로(대표 주소 아님)는 기존 조건 유지.
+     */
+    const hasLgu = Boolean(deliveryLocationColumns?.delivery_lgu_id);
+    if ((!delivery_region || !delivery_city) && !hasLgu) {
       return NextResponse.json({ ok: false, error: "delivery_region_city_required" }, { status: 400 });
     }
   } else if (phoneRaw && !buyer_phone_norm) {

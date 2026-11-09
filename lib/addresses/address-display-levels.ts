@@ -119,14 +119,21 @@ export function formatAddressFullLines(parts: AddressDisplayParts | null | undef
     if (segs.some((s) => sameToken(s, t))) return;
     segs.push(t);
   };
-  const hasStructured = Boolean(clean(parts.street) || clean(parts.barangay) || city);
-  if (!hasStructured) {
+  /**
+   * H2 (2026-11-09): 도로·바랑가이 칸이 없는 예전 행은 Google 한 줄 주소가 큰 줄 — 시/군만 남던 결함(주문 주소 「Quezon City」).
+   * 시/군이 한 줄 주소에 없으면 끝에 붙인다(같은 이름이면 한 번만).
+   */
+  const hasStreetOrBarangay = Boolean(clean(parts.street) || clean(parts.barangay));
+  if (!hasStreetOrBarangay && clean(parts.fallbackLine)) {
     const fb = clean(parts.fallbackLine)
       .split(/[,\n]/)
       .map((x) => x.trim())
-      .filter((x) => x && !PROVINCE_OR_COUNTRY_RE.test(x) && !/^\d{4}(\s+\D.*)?$/.test(x));
+      .filter((x) => x && !PROVINCE_OR_COUNTRY_RE.test(x));
+    /** 우편번호는 Google 형식 마지막 구간(「1001 Metro Manila」)에만 — 번지(「1001 Paterno St」)는 지우지 않는다 */
+    if (fb.length > 0 && /^\d{4}(\s|$)/.test(fb[fb.length - 1]!)) fb.pop();
     push(parts.placeName);
     for (const s of fb) push(s);
+    push(city);
     return { main: segs.join(", ") || null, detail };
   }
   push(parts.placeName);

@@ -814,6 +814,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           return {
             regionId: norm.region,
             cityId: norm.city,
+            lguId: "",
             summaryLine: norm.address1,
             detailLine: norm.address2 ?? "",
           };
