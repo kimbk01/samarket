@@ -82,7 +82,36 @@ export function routeToCallV4Screen(router: { push: (href: string) => void; repl
   go(href);
 }
 
-export function exitCallV4ScreenAfterCleanup(router?: CallV4Router): void {
+/**
+ * D5 (Owner 승인 2026-11-09 · docs/audit/call-v4-exit-navigation-d5-plan-2026-11-09.md) —
+ * 「통화 화면」 경로인가. `/community-messenger/calls-v4/…`, `/community-messenger/calls/…`(발신·세션 경유)이고
+ * 통화 기록(`/community-messenger/calls/logs`)은 통화 화면이 아니다.
+ */
+export function isCallV4ScreenRoutePath(pathname: string | null | undefined): boolean {
+  const p = String(pathname ?? "").split(/[?#]/)[0]!.replace(/\/+$/, "");
+  if (p.startsWith("/community-messenger/calls-v4/")) return true;
+  if (p === "/community-messenger/calls/logs" || p.startsWith("/community-messenger/calls/logs/")) return false;
+  return p.startsWith("/community-messenger/calls/");
+}
+
+export function isOnCallV4ScreenRoute(): boolean {
+  if (typeof window === "undefined") return false;
+  return isCallV4ScreenRoutePath(window.location.pathname);
+}
+
+export function exitCallV4ScreenAfterCleanup(router?: CallV4Router, opts?: { wasOnCallScreen?: boolean }): void {
+  /**
+   * D5: 통화 화면에 있을 때만 나간다. 일반 화면(배너 수신 중 거절·취소·부재중, 도크 축소 후 다른 화면)에서는
+   * 보던 화면을 유지하고, 다음 통화에 오래된 경로가 쓰이지 않도록 저장된 복귀 경로만 지운다.
+   * 종료가 시작될 때 통화 화면이었으면(`wasOnCallScreen`) 정리 중 경로가 바뀌었어도 기존대로 나간다.
+   */
+  if (!isOnCallV4ScreenRoute() && opts?.wasOnCallScreen !== true) {
+    takeCallV4ReturnPath();
+    logCallV4("exit_screen_skipped_not_on_call_screen", {
+      path: typeof window !== "undefined" ? window.location.pathname : null,
+    });
+    return;
+  }
   const exit = takeCallV4ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
   logCallV4("exit_screen", { exit, establishmentRemoved: isLegacyWebCallEstablishmentRemoved() });
   const go = router?.replace ?? router?.push ?? registeredExitRouter?.replace ?? registeredExitRouter?.push;

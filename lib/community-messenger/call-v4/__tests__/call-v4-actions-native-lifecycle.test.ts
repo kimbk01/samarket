@@ -52,6 +52,8 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-route", () => ({
   rememberCallV4ReturnPath: vi.fn(),
   buildCallV4ScreenHref: vi.fn(() => "/community-messenger/calls-v4/call-hook"),
   exitCallV4ScreenAfterCleanup: vi.fn(),
+  /** D5: 종료 시작 시점 「통화 화면이었는가」 — 이 파일은 이탈 함수 자체를 mock 하므로 값은 판정에 영향 없음 */
+  isOnCallV4ScreenRoute: vi.fn(() => true),
   readCallV4ExitRouter: vi.fn(() => null),
 }));
 

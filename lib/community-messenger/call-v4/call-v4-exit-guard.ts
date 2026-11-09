@@ -174,6 +174,8 @@ export function maybeExitCallV4ScreenAfterCleanup(
   callId: string,
   reason: string,
   router?: CallV4Router,
+  /** D5: 종료가 시작될 때 통화 화면이었는가(바로 나가는 경우에만 사용 · 늦은 이탈 타이머는 발화 시점 경로로 판단). */
+  opts?: { wasOnCallScreen?: boolean },
 ): void {
   const sid = callId.trim();
   if (!sid) return;
@@ -184,5 +186,5 @@ export function maybeExitCallV4ScreenAfterCleanup(
     return;
   }
   clearExitDeferFallback(sid);
-  exitCallV4ScreenAfterCleanup(router);
+  exitCallV4ScreenAfterCleanup(router, opts);
 }

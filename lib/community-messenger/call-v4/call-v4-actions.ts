@@ -97,6 +97,7 @@ import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/cal
 import {
   buildCallV4ScreenHref,
   exitCallV4ScreenAfterCleanup,
+  isOnCallV4ScreenRoute,
   rememberCallV4ReturnPath,
   readCallV4ExitRouter,
   routeToCallV4Screen,
@@ -456,6 +457,8 @@ async function finalizeCallV4Terminal(
   }
   finalizedCallV4Ids.add(sid);
   const wasOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
+  /** D5: 정리(await) 전에 「통화 화면이었는가」를 기록 — 정리 중 경로가 바뀌어도 통화 화면에서 시작한 종료는 기존대로 나간다. */
+  const wasOnCallScreen = isOnCallV4ScreenRoute();
   try {
     if (cleanupOptions) await cleanupCallV4(sid, reason, cleanupOptions);
     else await cleanupCallV4(sid, reason);
@@ -492,7 +495,7 @@ async function finalizeCallV4Terminal(
       /* notice is best-effort */
     }
   })();
-  runCallV4ScreenExitAfterTerminalCleanup(sid, reasonStr, router, wasOutgoingPresentationRoute);
+  runCallV4ScreenExitAfterTerminalCleanup(sid, reasonStr, router, wasOutgoingPresentationRoute, wasOnCallScreen);
 }
 
 function runCallV4ScreenExitAfterTerminalCleanup(
@@ -500,6 +503,7 @@ function runCallV4ScreenExitAfterTerminalCleanup(
   reason: string,
   router?: CallV4Router,
   wasOutgoingPresentationRoute = false,
+  wasOnCallScreen = false,
 ): void {
   const sid = callId.trim();
   if (wasOutgoingPresentationRoute || isAndroidOutgoingPresentationRoute(sid)) {
@@ -507,7 +511,7 @@ function runCallV4ScreenExitAfterTerminalCleanup(
       callId: sid,
       reason,
     });
-    exitCallV4ScreenAfterCleanup(router);
+    exitCallV4ScreenAfterCleanup(router, { wasOnCallScreen });
     return;
   }
   if (isLegacyWebCallEstablishmentRemoved()) {
@@ -516,7 +520,7 @@ function runCallV4ScreenExitAfterTerminalCleanup(
         callId: sid,
         reason,
       });
-      exitCallV4ScreenAfterCleanup(router);
+      exitCallV4ScreenAfterCleanup(router, { wasOnCallScreen });
     } else {
       logCallV4("legacy_web_establishment_removed", {
         callId: sid,
@@ -526,7 +530,7 @@ function runCallV4ScreenExitAfterTerminalCleanup(
     }
     return;
   }
-  maybeExitCallV4ScreenAfterCleanup(sid, reason, router);
+  maybeExitCallV4ScreenAfterCleanup(sid, reason, router, { wasOnCallScreen });
 }
 
 
