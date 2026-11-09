@@ -7,8 +7,8 @@ import {
   isValidPhilippinesMobilePhone,
 } from "@/lib/phone/philippines-phone";
 import { phoneVerifyCountryOptionsFor } from "@/lib/phone/phone-country-codes";
-import { formatKoreaMobileLocal, parseKoreaMobileLocal, parseKoreaMobileTyping } from "@/lib/phone/verify-phone-number";
-import { formatPhMobileDisplayPlus63, normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { parseKoreaMobileLocal, parseKoreaMobileTyping } from "@/lib/phone/verify-phone-number";
+import { normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS, PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
@@ -96,6 +96,8 @@ export function PhoneVerificationBox({
   };
   const [phone, setPhone] = useState(snapshot.phone ?? "");
   const [otp, setOtp] = useState("");
+  /** 인증번호를 이번 화면에서 보냈는가 — 인증번호 칸은 보낸 뒤에만 보인다. */
+  const [codeSent, setCodeSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [allowEdit, setAllowEdit] = useState(!snapshot.phone_verified);
@@ -146,9 +148,7 @@ export function PhoneVerificationBox({
     }
   }, [countryOptions, dialCode]);
 
-  const countryNoticeKey = countryOptions.some((c) => c.iso === "KR")
-    ? "my_phone_country_only_notice_ph_kr"
-    : "my_phone_country_only_notice_ph";
+
   const cooldownSec = Math.max(1, Number(settings?.resend_cooldown_seconds ?? 60));
   const cooldownLeft = resolvePhoneOtpCooldownLeft(cooldownUntil, nowMs);
 
@@ -211,6 +211,7 @@ export function PhoneVerificationBox({
       }
       setMessage(`${t("my_phone_sent_hint")} (${json.phone ?? normalizedPhone})`);
       setCooldownUntil(Date.now() + cooldownSec * 1000);
+      setCodeSent(true);
     } catch (e) {
       // 네트워크 예외 — 원문은 로그로만, 화면은 i18n 키 (P2-15).
       console.warn("[phone-otp] send threw", e instanceof Error ? e.name : "unknown");
@@ -419,12 +420,14 @@ export function PhoneVerificationBox({
         </div>
       ) : (
         <>
-          {/* Country code = 2 buttons (Owner 2026-11-09, no native select — same on iOS/Android). Notice hidden while an error shows. */}
+          {/*
+            Country segmented control (+63 / +82). Number field accepts any form: 9561886313 · 09561886313 ·
+            +63 956… / 1088395013 · 01088395013 (Owner 2026-11-09). Code row appears after a code is sent.
+          */}
           <div
             role="radiogroup"
             aria-label={t("my_phone_country_code_label")}
-            className="grid min-w-0 gap-2"
-            style={{ gridTemplateColumns: `repeat(${countryOptions.length}, minmax(0, 1fr))` }}
+            className="flex min-w-0 gap-1 rounded-ui-rect border border-sam-border bg-sam-surface-muted p-1"
             data-testid="phone-verify-country-code"
           >
             {countryOptions.map((c) => {
@@ -439,13 +442,15 @@ export function PhoneVerificationBox({
                     if (selected) return;
                     setDialCode(c.dialCode);
                     setPhone("");
+                    setOtp("");
+                    setCodeSent(false);
                     setError(null);
                     setMessage(null);
                   }}
-                  className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-ui-rect border px-2 text-[14px] ${
+                  className={`flex min-h-[40px] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-ui-rect px-2 text-[14px] ${
                     selected
-                      ? "border-sam-primary bg-sam-primary-soft font-bold text-sam-primary"
-                      : "border-sam-border bg-sam-surface font-medium text-sam-fg"
+                      ? "bg-sam-surface font-bold text-sam-primary shadow-sm"
+                      : "font-medium text-sam-muted"
                   }`}
                   data-testid={`phone-verify-country-${c.iso}`}
                 >
@@ -455,69 +460,62 @@ export function PhoneVerificationBox({
               );
             })}
           </div>
-          {error ? null : (
-            <p className="sam-text-helper text-sam-muted" data-testid="phone-verify-country-notice">
-              {t(countryNoticeKey)}
-            </p>
-          )}
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <div className="flex min-w-0 items-stretch gap-2">
             <input
               type="tel"
               inputMode="tel"
               autoComplete="tel"
               name="tel"
               aria-label={t("my_phone_number_label")}
-              value={isKorea ? formatKoreaMobileLocal(phone) : formatPhNationalDisplay(phone)}
-              onChange={(e) =>
-                setPhone(isKorea ? parseKoreaMobileTyping(e.target.value) : parsePhMobileInput(e.target.value))
-              }
+              value={phone}
+              onChange={(e) => setPhone(sanitizePhoneTyping(e.target.value))}
               placeholder={t("my_phone_number_placeholder")}
-              className={`${inputClass} min-w-0`}
+              className={`${inputClass} min-w-0 flex-1`}
               data-testid="phone-verify-number"
             />
             <button
               type="button"
               disabled={sending || cooldownLeft > 0}
               onClick={() => void requestOtp()}
-              className={otpBtnClass}
+              className={`${otpBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4`}
               data-testid="phone-verify-send"
             >
-              {sending ? t("my_phone_sending") : t("my_phone_send_otp")}
+              {sending
+                ? t("my_phone_sending")
+                : cooldownLeft > 0
+                  ? t("mypage_comp_phone_resend_in_seconds", { seconds: cooldownLeft })
+                  : codeSent
+                    ? t("mypage_comp_phone_resend")
+                    : t("my_phone_send_otp")}
             </button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              name="one-time-code"
-              maxLength={PHONE_OTP_CODE_LENGTH}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D+/g, ""))}
-              placeholder={t("my_phone_verify_code_placeholder")}
-              className={inputClass}
-            />
-            {stickyVerify ? null : (
-              <button
-                type="button"
-                disabled={verifying}
-                onClick={() => void verifyOtp()}
-                className={verifyBtnClass}
-              >
-                {verifying ? t("my_phone_verifying") : t("my_phone_verify_submit")}
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={sending || cooldownLeft > 0}
-              onClick={() => void requestOtp()}
-              className={otpBtnClass}
-            >
-              {cooldownLeft > 0
-                ? t("mypage_comp_phone_resend_in_seconds", { seconds: cooldownLeft })
-                : t("mypage_comp_phone_resend")}
-            </button>
-          </div>
+          {codeSent || snapshot.phone_verification_status === "pending" ? (
+            <div className="flex min-w-0 items-stretch gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                name="one-time-code"
+                maxLength={PHONE_OTP_CODE_LENGTH}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D+/g, ""))}
+                placeholder={t("my_phone_verify_code_placeholder")}
+                className={`${inputClass} min-w-0 flex-1`}
+                data-testid="phone-verify-code"
+              />
+              {stickyVerify ? null : (
+                <button
+                  type="button"
+                  disabled={verifying}
+                  onClick={() => void verifyOtp()}
+                  className={`${verifyBtnClass} !w-auto shrink-0 whitespace-nowrap !px-4`}
+                  data-testid="phone-verify-submit"
+                >
+                  {verifying ? t("my_phone_verifying") : t("my_phone_verify_submit")}
+                </button>
+              )}
+            </div>
+          ) : null}
         </>
       )}
 
@@ -548,9 +546,10 @@ export function PhoneVerificationBox({
   );
 }
 
-/** 번호 칸 표시 — 국가번호는 옆 칸에 있으므로 `+63` 없이 `917 123 4567` (저장 상태는 그대로 `09…`). */
-function formatPhNationalDisplay(phone: string): string {
-  const d = parsePhMobileInput(phone);
-  if (!d || d === "0") return d;
-  return formatPhMobileDisplayPlus63(d).replace(/^\+63\s?/, "");
+/**
+ * 번호 칸 입력 — 사용자가 친 그대로 둔다(0 있든 없든·+63/+82 붙여넣기·띄어쓰기·하이픈).
+ * 정규화는 보낼 때만 (`normalizePhilippinesPhoneNumber` / `parseKoreaMobileLocal`).
+ */
+function sanitizePhoneTyping(raw: string): string {
+  return String(raw ?? "").replace(/[^\d+\s-]/g, "").slice(0, 18);
 }

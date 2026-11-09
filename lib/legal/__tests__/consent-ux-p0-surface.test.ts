@@ -50,7 +50,10 @@ describe("consent UX P0 surface (Owner mockup 2026-11-05)", () => {
     // 국가번호 = 버튼(라디오) — 기기 기본 드롭다운 금지(iOS), 안내는 오류 때 숨김
     expect(src).not.toContain("<select");
     expect(src).toContain('role="radiogroup"');
-    expect(src).toContain("{error ? null : (");
+    // 중복 안내 삭제 (어드민 안내 문구 하나만) · 번호는 친 그대로 받음 · 인증번호 칸은 보낸 뒤에만
+    expect(src).not.toContain("phone-verify-country-notice");
+    expect(src).toContain("sanitizePhoneTyping");
+    expect(src).toContain("codeSent || snapshot.phone_verification_status");
   });
 
   it("legal-consent PATCH uses atomic RPC (no soft-skip required ledger)", () => {
