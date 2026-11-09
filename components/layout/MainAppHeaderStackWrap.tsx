@@ -2,18 +2,21 @@
 
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
 
 const PhilifeMessengerFromHeaderStack = dynamic(
   () =>
     import("@/components/philife/PhilifeMessengerFromHeaderStack").then(
       (m) => m.PhilifeMessengerFromHeaderStack
     ),
-  { ssr: false }
+  // FAIL②: 서버 HTML 첫 그림 — 문서 이동(배포 후 첫 탭 등)에서 JS 마운트 전 빈 화면 방지. 동작·트리 변경 없음.
+  { ssr: false, loading: () => <MainShellDocumentLoading /> }
 );
 const TradeHistoryFromHeaderStack = dynamic(
   () =>
     import("@/components/trade/TradeHistoryFromHeaderStack").then((m) => m.TradeHistoryFromHeaderStack),
-  { ssr: false }
+  // 바깥 래퍼가 풀린 뒤 이 청크를 기다리는 동안에도 같은 로딩 화면(빈 화면으로 되돌아가지 않게).
+  { ssr: false, loading: () => <MainShellDocumentLoading /> }
 );
 
 /**
