@@ -1,0 +1,793 @@
+<title>배달 매장 모집 모드 설계</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 설계 문서 한 줄 흐름 + 시안은 휴대폰·태블릿·어드민 프레임을 문서 안에 끼워 넣음 */
+:root{
+  --bg:#F5F7F4; --surface:#FFFFFF; --fg:#16201A; --muted:#5B675F; --line:#DCE3DD;
+  --brand:#0B421A; --brand-soft:#E3EEE6; --accent:#F2B705; --warn:#B4441C; --warn-soft:#FBEDE6;
+  --ok:#1E7A3A; --need:#7A5B00; --need-soft:#FFF4CC;
+  --phone:#FFFFFF; --phone-fg:#16201A; --phone-line:#E6EBE7; --dim:#F0F2F0;
+  --font-body:"Noto Sans KR",system-ui,-apple-system,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1511; --surface:#17201A; --fg:#E7EDE8; --muted:#9AA79E; --line:#2A362E;
+  --brand:#5DBB7C; --brand-soft:#1D3325; --accent:#F2B705; --warn:#F08A5D; --warn-soft:#3A2219;
+  --ok:#6FCF8E; --need:#F2CF5B; --need-soft:#3A3115; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1511; --surface:#17201A; --fg:#E7EDE8; --muted:#9AA79E; --line:#2A362E;
+  --brand:#5DBB7C; --brand-soft:#1D3325; --accent:#F2B705; --warn:#F08A5D; --warn-soft:#3A2219;
+  --ok:#6FCF8E; --need:#F2CF5B; --need-soft:#3A3115; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:44px}
+h1{font-size:30px;font-weight:900;line-height:1.25;margin:0;text-wrap:balance}
+h2{font-size:21px;font-weight:700;margin:0 0 12px;text-wrap:balance;padding-top:8px;border-top:2px solid var(--fg)}
+h3{font-size:16px;font-weight:700;margin:22px 0 8px}
+p{margin:0 0 10px;max-width:70ch}
+.sub{color:var(--muted);font-size:14px}
+code,.mono{font-family:var(--font-mono);font-size:12.5px}
+code{background:var(--brand-soft);padding:1px 5px;border-radius:3px;word-break:break-all}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:4px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--brand-soft);font-weight:700;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td.grp{background:var(--bg);font-weight:700}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.p-fail{background:var(--warn-soft);color:var(--warn)}
+.p-ok{background:var(--brand-soft);color:var(--ok)}
+.p-np{background:var(--line);color:var(--muted)}
+.p-need{background:var(--need-soft);color:var(--need)}
+.note{border-left:3px solid var(--accent);background:var(--surface);padding:12px 14px;border-radius:0 4px 4px 0}
+.note.warn{border-left-color:var(--warn)}
+.note p:last-child,.note ul:last-child{margin-bottom:0}
+ul{margin:0 0 10px;padding-left:20px} li{margin:3px 0}
+.lead{display:grid;gap:10px}
+.meta{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+
+/* 시안 공통 */
+.mocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;align-items:start}
+.mock{display:grid;gap:8px;min-width:0}
+.mock .cap{font-size:13px;color:var(--muted)}
+.mock .cap b{color:var(--fg)}
+.phone{width:100%;max-width:330px;border:8px solid #1A1F1B;border-radius:28px;background:var(--phone);color:var(--phone-fg);
+  overflow:hidden;font-size:12.5px;line-height:1.45;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.tablet{width:100%;max-width:640px;border:10px solid #1A1F1B;border-radius:22px;background:#EEF1EE;color:var(--phone-fg);overflow:hidden;font-size:12.5px;line-height:1.45;position:relative}
+.tablet .col{max-width:470px;margin:0 auto;background:#fff;min-height:100%}
+.ph-top{height:22px;background:#fff;display:flex;justify-content:space-between;padding:4px 14px;font-size:10px;font-weight:700}
+.ph-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--phone-line);font-weight:700;font-size:13.5px;background:#fff}
+.ph-head .addr{font-weight:500;color:#5B675F;font-size:11.5px;margin-left:auto}
+.ph-body{position:relative;background:#fff}
+.hero{margin:10px;border-radius:4px;overflow:hidden;background:#0B421A;color:#fff;position:relative}
+.hero .img{aspect-ratio:4/3;position:relative;overflow:hidden;background:linear-gradient(150deg,#0B421A 0%,#155C2A 55%,#2C7A3F 100%)}
+.hero .img.wide{aspect-ratio:2/1}
+.hero .img::before{content:"";position:absolute;width:62%;aspect-ratio:1;border-radius:50%;background:#F2B705;right:-14%;top:-22%}
+.hero .img::after{content:"";position:absolute;width:38%;aspect-ratio:1;border-radius:50%;border:10px solid rgba(255,255,255,.18);left:6%;bottom:-24%}
+.hero .scooter{position:absolute;right:16%;top:22%;font-size:52px;line-height:1;z-index:1}
+.hero .badge{position:absolute;left:12px;top:12px;background:#F2B705;color:#0B421A;font-weight:900;font-size:11px;padding:3px 8px;border-radius:999px;z-index:1}
+.hero .txt{padding:12px 14px 14px;background:#0B421A}
+/* 폰: 사진 아래쪽에 겹친 단색 안내 판 — 어떤 사진이어도 글자가 묻히지 않음 (Owner 2026-11-10) */
+.hero:not(.heroWide){background:#E3EEE6}
+.hero:not(.heroWide) .txt{position:relative;z-index:1;margin:-30px 8px 8px;border-radius:4px;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+.hero .t1{font-size:19px;font-weight:900;line-height:1.3;margin-bottom:4px}
+.hero .t2{font-size:12px;opacity:.9;margin-bottom:10px}
+.hero .t3{font-size:11.5px;background:rgba(255,255,255,.12);padding:6px 8px;border-radius:4px;margin-bottom:10px}
+.hero .ctas{display:grid;grid-template-columns:1.4fr 1fr;gap:6px}
+.hero .cta{display:block;text-align:center;background:#fff;color:#0B421A;font-weight:900;padding:10px 6px;border-radius:4px;font-size:13px}
+.hero .cta.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6);font-weight:700}
+.heroWide{display:grid;grid-template-columns:1.15fr 1fr}
+.heroWide .img{aspect-ratio:auto;min-height:190px}
+.dimzone{position:relative}
+.dimzone .content{filter:blur(1.2px) grayscale(.6);opacity:.38;pointer-events:none}
+.dimzone .ribbon{position:absolute;left:50%;top:36px;transform:translateX(-50%);background:#16201A;color:#fff;font-size:11.5px;font-weight:700;
+  padding:6px 12px;border-radius:999px;white-space:nowrap;z-index:2}
+.cats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px 12px}
+.cat{display:grid;justify-items:center;gap:3px;font-size:10.5px}
+.cat i{width:34px;height:34px;border-radius:4px;background:var(--dim);display:block}
+.shelf{padding:4px 12px 10px}
+.shelf .st{font-weight:700;font-size:12.5px;margin-bottom:6px}
+.storeRow{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--phone-line)}
+.storeRow .thumb{width:54px;height:54px;border-radius:4px;background:#D9E2DB;flex:none}
+.storeRow .nm{font-weight:700}
+.storeRow .sm{font-size:10.5px;color:#5B675F}
+.sbadge{font-size:9.5px;background:#EEE;color:#555;padding:0 5px;border-radius:3px;margin-left:4px}
+.ph-nav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--phone-line);padding:7px 0 10px;font-size:10px;text-align:center;color:#7A857D;background:#fff}
+.ph-nav .on{color:#0B421A;font-weight:900}
+.fab{position:absolute;right:12px;bottom:52px;background:#0B421A;color:#fff;font-weight:700;font-size:11.5px;padding:9px 13px;border-radius:999px;box-shadow:0 6px 16px rgba(0,0,0,.25);z-index:5;display:flex;gap:5px;align-items:center}
+.scrim{position:absolute;inset:0;background:rgba(10,16,12,.55);z-index:6;display:grid;place-items:center;padding:18px}
+.modal{background:#fff;border-radius:16px;overflow:hidden;width:100%;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.modal .mimg{aspect-ratio:36/25;background:linear-gradient(150deg,#0B421A,#2C7A3F);position:relative;overflow:hidden}
+.modal .mimg::before{content:"";position:absolute;width:55%;aspect-ratio:1;border-radius:50%;background:#F2B705;right:-12%;top:-30%}
+.modal .mimg span{position:absolute;left:12px;bottom:10px;color:#fff;font-weight:900;font-size:15px;line-height:1.3}
+.modal .mb{padding:12px 14px;display:grid;gap:8px}
+.modal .mb .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn-p{background:#0B421A;color:#fff;font-weight:900;text-align:center;padding:10px;border-radius:4px}
+.btn-s{border:1px solid #0B421A;color:#0B421A;font-weight:700;text-align:center;padding:10px;border-radius:4px}
+.modal .foot{display:flex;justify-content:space-between;border-top:1px solid var(--phone-line);font-size:11px;color:#5B675F;padding:9px 14px}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;z-index:7;padding:12px 14px 16px;display:grid;gap:8px;box-shadow:0 -8px 24px rgba(0,0,0,.2)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:#D5DBD6;margin:0 auto 4px}
+.opt{border:1px solid var(--phone-line);border-radius:4px;padding:8px 10px;display:flex;justify-content:space-between;gap:8px}
+.opt.sel{border-color:#0B421A;background:#F1F7F2}
+.opt small{color:#5B675F;display:block;font-size:10.5px}
+.ownerBar{background:#FFF4CC;color:#5A4300;font-size:11.5px;padding:8px 12px;border-bottom:1px solid #F0DF9A}
+.ownerBar b{color:#3D2E00}
+.cover{height:100px;background:linear-gradient(135deg,#C9D8CC,#E8EEE9)}
+.sinfo{padding:10px 12px;border-bottom:6px solid var(--dim)}
+.sinfo .nm{font-size:16px;font-weight:900}
+.state{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:#E3EEE6;color:#0B421A;margin-right:4px}
+.state.g{background:#EEE;color:#555}
+.menu{padding:8px 12px}
+.menu .it{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--phone-line)}
+.menu .it .pp{font-weight:700}
+.hid{font-size:9.5px;background:#EEE;color:#555;padding:0 5px;border-radius:3px;margin-left:4px}
+.orderbar{margin:10px 12px 12px;background:#C9CFCA;color:#fff;font-weight:700;text-align:center;padding:10px;border-radius:4px}
+.form{padding:10px 12px;display:grid;gap:9px;background:#fff}
+.fsec{border:1px solid var(--phone-line);border-radius:4px;padding:10px}
+.fsec .ft{font-weight:700;font-size:12.5px;margin-bottom:6px}
+.fld{display:grid;gap:2px;font-size:11px;color:#5B675F;margin-bottom:6px}
+.fld span{border:1px solid var(--phone-line);border-radius:4px;padding:6px 8px;color:#16201A;font-size:12px}
+.pledge{background:#F4F8F5;border:1px solid #CFE0D4}
+.pledge .free{background:#0B421A;color:#fff;border-radius:4px;padding:8px 10px;margin-bottom:8px}
+.pledge .free b{color:#F2B705}
+.chk{display:flex;gap:7px;align-items:flex-start;font-size:11.5px;margin-top:6px}
+.chk i{width:15px;height:15px;border:1.5px solid #0B421A;border-radius:3px;flex:none;margin-top:2px;display:grid;place-items:center;font-style:normal;font-size:10px;background:#0B421A;color:#fff}
+.chk u{color:#0B421A}
+.submit{background:#0B421A;color:#fff;text-align:center;font-weight:900;padding:11px;border-radius:4px}
+.nlist{background:#fff}
+.nitem{padding:10px 12px;border-bottom:1px solid var(--phone-line);display:grid;gap:2px}
+.nitem .nt{font-weight:700}
+.nitem .nd{font-size:10.5px;color:#5B675F}
+.nitem.unread .nt::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#C2410C;margin-right:6px;vertical-align:middle}
+.pin{font-size:9.5px;background:#0B421A;color:#fff;padding:0 5px;border-radius:3px;margin-right:4px}
+.hubcard{margin:10px 12px;border:1px solid var(--phone-line);border-radius:4px;padding:10px;display:grid;gap:4px}
+
+/* 어드민 */
+.admin{border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden;font-size:13px}
+.adm-top{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--brand-soft);flex-wrap:wrap}
+.adm-top b{font-size:14.5px}
+.adm-crumb{font-size:12px;color:var(--muted)}
+.adm-tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--line);overflow-x:auto}
+.adm-tabs span{padding:9px 12px;font-weight:700;font-size:12.5px;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent}
+.adm-tabs span.on{color:var(--fg);border-bottom-color:var(--brand)}
+.adm-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+@media (max-width:760px){.adm-grid{grid-template-columns:1fr}}
+.adm-col{padding:16px;display:grid;gap:14px;align-content:start;min-width:0}
+.adm-col+.adm-col{border-left:1px solid var(--line)}
+@media (max-width:760px){.adm-col+.adm-col{border-left:none;border-top:1px solid var(--line)}}
+.card{border:1px solid var(--line);border-radius:4px;padding:12px;display:grid;gap:10px;min-width:0}
+.card .ct{font-weight:700;font-size:13.5px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg div{padding:10px;display:grid;gap:2px}
+.seg div small{color:var(--muted);font-size:11.5px}
+.seg .sel{background:var(--brand);color:#fff}
+.seg .sel small{color:#fff;opacity:.85}
+.inp{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.inp span{border:1px solid var(--line);border-radius:4px;padding:7px 9px;color:var(--fg);background:var(--bg);font-size:13px}
+.inp2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.inp2{grid-template-columns:1fr}}
+.upl{border:1.5px dashed var(--line);border-radius:4px;padding:10px;display:flex;gap:12px;align-items:center;min-width:0}
+.upl .th{height:54px;border-radius:4px;background:linear-gradient(150deg,#0B421A,#2C7A3F);flex:none;position:relative;overflow:hidden}
+.upl .th::after{content:"";position:absolute;width:30px;height:30px;border-radius:50%;background:#F2B705;right:-6px;top:-8px}
+.upl .th.m{width:72px}.upl .th.w{width:108px}
+.upl .th.empty{background:var(--bg);border:1px dashed var(--line)}
+.upl .th.empty::after{display:none}
+.toggle{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.sw{width:38px;height:22px;border-radius:999px;background:var(--brand);position:relative;flex:none}
+.sw::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;right:3px;top:3px}
+.sw.off{background:var(--line)}.sw.off::after{right:auto;left:3px}
+.btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.btn{padding:8px 16px;border-radius:4px;font-weight:700;font-size:13px;border:1px solid var(--line)}
+.btn.pr{background:var(--brand);color:#fff;border-color:var(--brand)}
+.hist{font-size:12px;display:grid;gap:4px}
+.hist div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--line);padding-bottom:4px;flex-wrap:wrap}
+.minitbl{width:100%;min-width:560px;font-size:12px}
+.minitbl th,.minitbl td{padding:6px 8px}
+.devs{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.dev{display:grid;gap:4px;justify-items:center;font-size:11px;color:var(--muted)}
+.dev .f{border:4px solid #1A1F1B;border-radius:8px;background:#fff;overflow:hidden;display:grid}
+.dev .f .b{background:linear-gradient(150deg,#0B421A,#2C7A3F)}
+.dev .f .t{background:#0B421A;height:16px}
+.doc{border:1px solid var(--line);border-radius:4px;padding:10px;font-size:12px;background:var(--bg);max-height:150px;overflow:auto}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="lead">
+  <div class="meta">DIBAY · 배달 도메인 · 설계안 v2 · 2026-11-10 PHT · 구현 전 (Owner 승인 대기) · 코드 기준 origin/main bd1910f4d</div>
+  <h1>배달 매장 모집 모드 — 감사·설계·시안</h1>
+  <p class="sub">배달 매장이 모일 때까지 배달 화면을 「매장 모집」 상태로 둡니다. 이 상태에서는 큰 배너·팝업·고객센터 버튼으로 입점 문의와 매장 신청을 유도합니다. 어드민에서 「정식 운영」으로 바꾸면 이 장치가 한꺼번에 사라집니다. 코드와 운영 DB는 읽기만 했고, 아무것도 바꾸지 않았습니다.</p>
+</header>
+
+<section>
+  <h2>0. 정정 (v1 보고 잘못)</h2>
+  <div class="note warn">
+    <p><b>① 감사 기준이 틀렸습니다.</b> v1은 이 세션의 작업 트리(<code>fix/chrome-s1-back-unify</code>, 11-02)를 기준으로 감사했습니다. 이 트리는 main보다 510커밋 뒤처져 있습니다. v2는 모든 판정을 <b>origin/main(bd1910f4d)</b>에서 다시 확인했습니다.</p>
+    <p><b>② 「본인 매장 보기 FAIL」은 틀린 판정입니다.</b> main에는 11-03 반영분(<code>cd8c04ce0</code>, <code>84d072e36</code>)이 있어서, 이미 <b>입점 승인된 사장님은 숨김 상태의 본인 매장도 열어 볼 수 있습니다</b>(상단 미리보기 띠 포함).</p>
+    <p>실제로 남은 결함은 둘입니다.</p>
+    <ul>
+      <li>심사 중인 매장은 본인도 열 수 없습니다.</li>
+      <li>미리보기에는 「판매중·품절」 상품만 보입니다. 판매 승인 전에 등록한 숨김·임시 상품은 보이지 않습니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>1. 이해한 요구 (Owner 지시 정리)</h2>
+  <div class="tbl"><table>
+    <tr><th>#</th><th>Owner 지시</th><th>설계에서 정한 동작</th></tr>
+    <tr><td>1</td><td>배달 도메인을 어드민에서 개별 on/off. 광고 배너와 별개</td><td>어드민 「배달 오픈 관리」에서 <b>정식 운영 / 매장 모집</b>을 전환합니다. 광고 배너·광고 팝업과는 따로 저장합니다.</td></tr>
+    <tr><td>2</td><td>진입 시 큰 배너, 매장 리스트는 흐려짐, 매장 신청으로 유도</td><td>배달 첫 화면 맨 위에 큰 배너를 둡니다. 그 아래 지금 화면(샘플 매장 목록)은 흐리게 보이고 눌리지 않습니다.</td></tr>
+    <tr><td>3</td><td>기기별 배너 구현을 세밀하게</td><td>폰용 이미지(4:3, 필수)와 태블릿·PC용 이미지(2:1, 선택)를 따로 받습니다. 문구는 이미지에 넣지 않고 화면 글자로 그립니다 (4-2).</td></tr>
+    <tr><td>4</td><td>모집 중에는 팝업 + 고객센터 FAB를 같이 보여줌. 매장 신청 전에 문의할 수 있게. 정식 운영 시 둘 다 사라짐</td><td>모집 팝업(신청하기·문의하기)과 고객센터 FAB를 배달 화면에 띄웁니다. FAB 문의 유형은 새로 만드는 「매장 입점 문의」로 미리 고릅니다. 정식 운영으로 바꾸면 배너·팝업·FAB가 한꺼번에 사라집니다 (4-3).</td></tr>
+    <tr><td>5</td><td>매장 오픈 일정·안내 공지 = 매장 전용 공지 + 공지 리스트 (어드민 → 매장)</td><td>어드민 공지에 대상 「매장 사장님 전용」을 추가합니다. 사장님 화면에 「운영 공지」 목록과 상세를 새로 만들고, 필요하면 사장님 전체에게 알림도 보냅니다 (4-4).</td></tr>
+    <tr><td>6</td><td>신청 양식에 무료 이용 서약과 기간 후 수수료 %. 수수료는 어드민 업종별 설정</td><td>신청서에 「입점·수수료 서약」을 필수로 넣습니다. 무료 종료일과 고른 업종의 어드민 요율을 자동으로 표시합니다.</td></tr>
+    <tr><td>7</td><td>서약서·계약서 목록. 해당 매장 승인과, 어드민이 내용을 확인·수정</td><td>어드민 「입점 계약」 목록을 만들고, 심사 패널에 「입점 계약」 칸을 둡니다. 어드민은 서명 내용을 원문 그대로 확인하고, 매장별 무료 종료일을 고칠 수 있습니다. 계약서 문구 수정은 새 버전으로 하고, 사장님의 재동의를 받습니다 (4-5).</td></tr>
+    <tr><td>8</td><td>신청한 매장 오너는 본인 매장 진입 가능, 상품 등록 후 매장 확인</td><td>심사 중에도 본인 매장 화면을 엽니다. 미리보기에는 숨김·임시 상품까지 표시하고, 주문만 막습니다 (4-6).</td></tr>
+    <tr><td>9</td><td>홈은 지금의 샘플 형태 유지, 선택하면 배달로 진입</td><td>하단 탭 「배달」과 샘플 목록은 그대로 둡니다 (v1 해석 Owner 확인: 의도와 일치).</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>2. 감사 결과 (main 기준)</h2>
+  <p class="sub">확인 조건은 다음과 같습니다. 코드는 origin/main bd1910f4d입니다. 운영 DB(<code>ckdosyydvgzqwpbwuhon</code>)는 2026-11-10 PHT에 읽기 전용으로 조회했습니다. 앱 화면 실기 확인은 하지 않았습니다 (화면 동작 = NOT_PROVEN).</p>
+  <div class="tbl"><table>
+    <tr><th>항목</th><th>현재 상태</th><th>근거</th><th>판정</th></tr>
+    <tr><td>배달 on/off</td><td>없습니다. 하단 탭·업종·선반을 하나씩 숨기는 것만 됩니다.</td><td>main 키워드 검색 0건</td><td><span class="pill p-need">신규</span></td></tr>
+    <tr><td>노출 매장</td><td>노출 105개가 전부 샘플이고, 실매장은 0개입니다.</td><td>운영 DB <code>stores</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>배달 배너 기기별 이미지</td><td>없습니다. 히어로 배너는 이미지 1장(39:16)을 모든 기기에서 <code>object-cover</code>로 잘라 씁니다. 표에 있는 기기별 폭 컬럼(<code>mobile_max_width</code> 등)과 <code>asset_variant</code>는 코드 어디에서도 쓰지 않습니다. 이미지를 원본 그대로 내보내고 srcset도 없습니다.</td><td><code>delivery-ad-banner-contract.ts:74-87</code>, <code>delivery-ad-open-event-commercial.ts:55-71</code>, <code>SamarketThumbnail.tsx</code></td><td><span class="pill p-need">신규</span></td></tr>
+    <tr><td>앱 폭</td><td>본문 최대 폭은 672~1056px입니다. 배달 화면은 그 안에서 다시 <b>768px</b>로 묶입니다. 그래서 태블릿·PC·Windows에서도 배너는 최대 약 736px 폭입니다.</td><td><code>lib/ui/app-content-layout.ts</code>, <code>lib/stores/stores-home-ui.ts:4</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>기기 판별</td><td>폰·태블릿·Windows·웹을 나누는 기능과 창 폭 등급(&lt;760 / ≤1229 / …)이 이미 있습니다.</td><td><code>lib/device/dibay-device-class.ts</code>, <code>dibay-window-class.ts</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>팝업</td><td>광고형 「플랫폼 팝업」이 있습니다(36:25 이미지, 영역 선택, 오늘 하루 보지 않기, 비로그인 기기 저장). 승인 흐름이 있는 광고 캠페인이라 배달 모드와 연동하지 않습니다. 운영 DB에 캠페인 64건이 있습니다.</td><td><code>components/platform-popup/*</code>, <code>resolve-dibay-surface.ts</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>고객센터 FAB</td><td>있습니다. 단, 화면이 직접 켠 곳에서만 보입니다(등록 18개 화면). <b>배달 첫 화면 <code>/stores</code>에는 안 보입니다.</b> 누르면 문의 창이 열리고, 유형 선택 → 안내 → 상담 채팅 순서로 진행됩니다. <b>비로그인은 사용할 수 없습니다.</b></td><td><code>lib/support/support-fab-route-registry.ts</code>, <code>app/api/support/cases</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>입점 문의 유형</td><td>없습니다. 비슷한 「매장 승인(STORE_APPROVAL)」은 매장이 있는 사장님용입니다.</td><td><code>lib/support/support-category-registry.ts</code></td><td><span class="pill p-need">신규</span></td></tr>
+    <tr><td>어드민 → 사장님 공지</td><td><b>전체 사장님용 공지 게시판이 없습니다.</b> 지금은 매장 1곳씩 알림을 보내는 기능(심사 패널)만 있습니다. 앱 공지(<code>app_notices</code>, 38건)에는 대상 구분이 없고, 알림 캠페인 대상에도 「매장 사장님」이 없습니다. <code>store_notices</code>는 사장님이 고객에게 쓰는 매장 공지입니다(0건).</td><td><code>app/api/admin/stores/[id]/notify</code>, <code>campaign-input.ts:18</code></td><td><span class="pill p-need">신규</span></td></tr>
+    <tr><td>입점 서약·계약</td><td>없습니다. 신청서·API·법률 문서 종류(terms·privacy·marketing) 어디에도 없습니다. 사업자 인증 테이블은 있지만 화면·API가 없고 0행입니다.</td><td><code>BusinessApplyForm.tsx</code>, <code>app-legal-documents.ts:11</code></td><td><span class="pill p-need">신규</span></td></tr>
+    <tr><td>입점 심사</td><td>있습니다. 승인·반려·보완 요청·중지, 판매 승인, 노출 토글, 감사 로그, 사장님 알림(인앱+푸시)이 모두 됩니다. 어드민이 고칠 수 있는 것은 매장명·업종·연락처·주소입니다.</td><td><code>AdminStoreReviewPanel.tsx</code>, <code>execute-admin-store-patch-action.server.ts</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>수수료</td><td>업종 7개가 각 7%, 플랫폼 기본은 0%입니다. 부과 트리거는 운영에서 켜져 있습니다. 무료 기간 전용 기능은 없습니다.</td><td>운영 DB <code>store_fee_policies</code>, <code>pg_trigger</code></td><td><span class="pill p-ok">확인</span></td></tr>
+    <tr><td>본인 매장 보기 (승인 후)</td><td>숨김 상태여도 열립니다. 사장님 헤더 눈 아이콘으로 미리보기 창이 열립니다.</td><td><code>get-approved-store-by-slug.ts:130-170</code> (main), <code>StoreDetailPublic.tsx:2081</code></td><td><span class="pill p-ok">있음</span></td></tr>
+    <tr><td>본인 매장 보기 (심사 중)</td><td>열리지 않습니다. 승인된 매장만 예외로 열어 줍니다.</td><td>같은 함수: <code>approval_status !== 'approved'</code>이면 not_found</td><td><span class="pill p-fail">FAIL</span></td></tr>
+    <tr><td>미리보기 상품</td><td>「판매중·품절」만 보입니다. 판매 승인 전에는 숨김·임시로만 등록할 수 있어서, <b>등록해도 미리보기에 보이지 않습니다</b>.</td><td><code>20271103120000_…owner_hidden_preview.sql:88</code>, <code>products-core.server.ts:236-244</code></td><td><span class="pill p-fail">FAIL</span></td></tr>
+    <tr><td>상품 등록 시점</td><td>입점 승인 후에만 됩니다. 심사 중에는 기본 정보·영업 설정·사진만 됩니다.</td><td><code>owner-catalog-write-guard.ts</code>, <code>StoreBusinessGuard.tsx</code></td><td><span class="pill p-ok">확인</span></td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>3. 역할별 시나리오 — 지금(main) vs 설계 후</h2>
+  <p class="sub">「지금」은 main 코드 기준입니다(실기 미확인). 「설계 후」는 이 설계안을 구현했을 때의 동작입니다.</p>
+  <div class="tbl"><table>
+    <tr><th>#</th><th>역할 · 상황</th><th>지금 (main)</th><th>설계 후 · 매장 모집</th><th>설계 후 · 정식 운영</th></tr>
+    <tr><td class="grp" colspan="5">일반 회원 (비로그인)</td></tr>
+    <tr><td>G1</td><td>하단 「배달」 진입</td><td>샘플 목록이 보입니다(주소가 없으면 열람 안내)</td><td>배너 + 흐린 목록 + 팝업 + FAB</td><td>지금과 같음</td></tr>
+    <tr><td>G2</td><td>배너·팝업 「매장 신청하기」</td><td>—</td><td>로그인 화면을 거쳐 신청서로 돌아옵니다</td><td>배너·팝업 없음</td></tr>
+    <tr><td>G3</td><td>FAB·「문의하기」</td><td>배달 화면에 FAB 없음. 문의는 로그인 필수</td><td>「로그인 후 문의할 수 있어요」 안내 → 로그인 → 입점 문의 창이 이어서 열립니다</td><td>FAB 없음</td></tr>
+    <tr><td class="grp" colspan="5">일반 회원 (로그인, 매장 없음)</td></tr>
+    <tr><td>M1</td><td>배달 진입</td><td>샘플 목록</td><td>배너 + 흐린 목록(누를 수 없음) + 팝업(오늘 하루 보지 않기) + FAB</td><td>지금과 같음</td></tr>
+    <tr><td>M2</td><td>남의 매장 상세·장바구니·결제 직접 주소</td><td>샘플은 주문할 수 없음</td><td>배달 첫 화면으로 이동. 주문 API도 서버에서 거부</td><td>지금과 같음</td></tr>
+    <tr><td>M3</td><td>입점 문의</td><td>입점 유형 없음</td><td>FAB → 「매장 입점 문의」 → 안내(무료 조건·수수료·준비물·오픈 일정) → 상담 채팅</td><td>마이페이지 고객센터에서 같은 유형으로 문의 가능(FAB만 없음)</td></tr>
+    <tr><td>M4</td><td>매장 신청</td><td>신청서(서약 없음)</td><td>신청서 + 입점·수수료 서약(필수 동의 2개)</td><td>같은 신청서. 무료 종료일이 지났으면 무료 문구 없이 업종 요율만 표시</td></tr>
+    <tr><td class="grp" colspan="5">매장 오너 (신청 후 심사 중)</td></tr>
+    <tr><td>O1</td><td>사장님 화면 진입</td><td>심사 대기 안내 + 기본 정보·영업 설정만 됨</td><td>같음 + 상단에 최신 「운영 공지」 카드</td><td>같음</td></tr>
+    <tr><td>O2</td><td>본인 매장 보기</td><td><span class="pill p-fail">안 됨</span></td><td>열림. 「심사 중 · 고객에게 안 보임」 띠, 상품 0개면 「승인 후 상품을 등록할 수 있어요」</td><td>같음</td></tr>
+    <tr><td>O3</td><td>운영 공지 목록·상세</td><td>없음</td><td>「운영 공지」 목록, 안 읽음 표시, 알림을 누르면 상세로 이동</td><td>같음</td></tr>
+    <tr><td>O4</td><td>내 입점 계약 보기</td><td>없음</td><td>매장 설정 → 「입점 계약」: 동의한 원문·버전·무료 종료일·요율</td><td>같음</td></tr>
+    <tr><td class="grp" colspan="5">매장 오너 (입점 승인 후)</td></tr>
+    <tr><td>A1</td><td>상품 등록</td><td>가능(판매 승인 전에는 숨김·임시만)</td><td>같음</td><td>같음</td></tr>
+    <tr><td>A2</td><td>본인 매장 보기</td><td>숨김 매장도 열림. 단, 판매중·품절 상품만 보임</td><td>숨김·임시 상품까지 「숨김」「임시」 표시로 보임. 주문 버튼은 막힘</td><td>같음 (노출·판매 승인 후에는 일반 화면)</td></tr>
+    <tr><td>A3</td><td>고객 노출</td><td>판매 승인 + 노출을 켜면 고객 목록에 보임</td><td>모집 중에는 노출을 켜도 목록이 흐려 주문을 받을 수 없음. 화면에 그 사실을 안내</td><td>지금과 같음</td></tr>
+    <tr><td>A4</td><td>수수료</td><td>업종 요율(7%) 부과</td><td>무료 종료일까지 0% (승인할 때 자동 생성), 이후 업종 요율</td><td>같음 (모드와 무관하게 날짜로 끝남)</td></tr>
+    <tr><td class="grp" colspan="5">어드민</td></tr>
+    <tr><td>D1</td><td>배달 모드 전환</td><td>없음</td><td colspan="2">「배달 오픈 관리」에서 전환, 배너(폰·와이드)·팝업·FAB·무료 종료일 저장, 변경 이력. 다른 관리자가 먼저 저장했으면 409로 막힘</td></tr>
+    <tr><td>D2</td><td>사장님 공지</td><td>매장 1곳씩 알림만 가능</td><td colspan="2">공지 작성 시 대상 「매장 사장님 전용」 선택(심사 중 포함 / 승인 매장만) + 「사장님 전체에게 알림 보내기」</td></tr>
+    <tr><td>D3</td><td>입점 문의 처리</td><td>입점 유형 없음</td><td colspan="2">고객센터 처리 화면에 「매장 입점 문의」 필터, 상담 채팅으로 답변</td></tr>
+    <tr><td>D4</td><td>입점 계약 확인·승인</td><td>없음</td><td colspan="2">「입점 계약」 목록에서 계약 확인, 심사 패널 「입점 계약」 칸에서 원문 확인·무료 종료일 수정. 계약이 없는 신청은 승인 버튼이 막힘</td></tr>
+    <tr><td>D5</td><td>계약서 문구 수정</td><td>회원 약관만 버전 관리</td><td colspan="2">법률 문서에서 「매장 입점·수수료 약관」 새 버전 게시. 이미 동의한 매장은 이전 버전 기록 유지, 사장님 화면에 「새 계약 동의 필요」 표시</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>4. 설계안</h2>
+
+  <h3>4-1. 모드별로 켜지는 것</h3>
+  <div class="tbl"><table>
+    <tr><th>장치</th><th>매장 모집</th><th>정식 운영</th><th>비고</th></tr>
+    <tr><td>큰 모집 배너 (배달 첫 화면)</td><td>보임</td><td>없음</td><td>광고 히어로 배너 자리에 대신 들어갑니다. 광고 데이터는 건드리지 않습니다.</td></tr>
+    <tr><td>매장 목록 흐림·터치 막음</td><td>적용</td><td>없음</td><td>업종 화면·검색은 배달 첫 화면으로 이동합니다.</td></tr>
+    <tr><td>모집 팝업</td><td>보임 (배달 첫 화면 진입 시)</td><td>없음</td><td>배달 영역의 광고 팝업과 겹치지 않도록, 모집 중에는 배달 첫 화면에서 광고 팝업을 띄우지 않습니다.</td></tr>
+    <tr><td>고객센터 FAB (입점 문의)</td><td>보임 (배달 첫 화면)</td><td>없음</td><td>사장님 화면 등에 이미 켜진 FAB는 모드와 무관하게 그대로입니다.</td></tr>
+    <tr><td>고객 주문</td><td>서버에서 거부 <code>delivery_recruiting</code></td><td>정상</td><td>사장님 본인 미리보기도 주문할 수 없습니다.</td></tr>
+    <tr><td>매장 신청·사장님 화면·운영 공지·입점 문의 유형</td><td colspan="2">모드와 무관하게 항상 동작합니다.</td><td>정식 운영 중에도 신규 매장은 계속 받습니다.</td></tr>
+    <tr><td>오픈 기념 무료</td><td colspan="2">모드가 아니라 <b>무료 종료일</b>로 끝납니다. 종료일 전에 신청·승인된 매장은 정식 운영으로 바뀌어도 종료일까지 0%입니다.</td><td>종료일이 지나면 신청서에서 무료 문구가 자동으로 빠집니다.</td></tr>
+  </table></div>
+  <div class="note"><b>기본값은 정식 운영입니다.</b> 배포만으로는 고객 화면이 바뀌지 않고, Owner가 어드민에서 「매장 모집」으로 바꿀 때 적용됩니다. 「본인 매장 보기」 보완, 운영 공지, 입점 문의 유형, 입점 서약은 모드와 무관한 기능이라 배포와 함께 바로 동작합니다.</div>
+
+  <h3>4-2. 기기별 배너</h3>
+  <div class="tbl"><table>
+    <tr><th>구분</th><th>폰 (세로)</th><th>태블릿 · 폴더블 펼침 · 폰 가로 · PC · Windows</th></tr>
+    <tr><td>판정</td><td>배달 화면 본문 폭 600px 미만</td><td>본문 폭 600px 이상 (배달 본문은 최대 768px로 고정)</td></tr>
+    <tr><td>이미지</td><td><b>폰 이미지 (필수)</b> 4:3 · 권장 1200×900 · 최소 900×675</td><td><b>와이드 이미지 (선택)</b> 2:1 · 권장 1536×768 · 최소 1200×600. 없으면 폰 이미지를 가운데 기준으로 잘라 씁니다.</td></tr>
+    <tr><td>배치</td><td>4:3 사진 위, 그 아래쪽에 살짝 겹친 <b>단색(브랜드 그린) 안내 판</b>(배지·제목·설명·오픈 일정·버튼 2개) — 사진이 밝아도 글자가 묻히지 않음</td><td>왼쪽 이미지, 오른쪽 단색 안내 판 2단. 높이는 이미지 기준(최대 약 300px)</td></tr>
+    <tr><td>글자</td><td colspan="2">이미지에 글자를 넣지 않고 화면 글자로 그립니다. 한국어·영어 모두 또렷하게 보이고(앱 언어는 이 두 가지), 기기별로 글자가 잘리는 일이 없습니다. 이미지에 꼭 넣어야 할 로고는 가운데 80% 안쪽에 둡니다.</td></tr>
+    <tr><td>업로드 검증</td><td colspan="2">JPG·PNG·WebP, 2MB 이하, 비율 ±8%, 최소 크기 미달이면 거부. 서버에서 WebP로 다시 저장합니다(사진 회전 정보 반영·제거, 상품 이미지와 같은 처리로 긴 변 최대 4096px). 저장 위치는 <code>admin-notification-campaign-images</code> 버킷 <code>_admin/delivery-launch/</code>입니다.</td></tr>
+    <tr><td>로딩·실패</td><td colspan="2">이미지 칸은 비율로 미리 자리를 잡아서 화면이 밀리지 않습니다. 이미지를 못 불러오면 브랜드 녹색 바탕에 글자만 보여서, 버튼은 항상 누를 수 있습니다.</td></tr>
+    <tr><td>네이티브</td><td colspan="2">Android·iOS 앱도 같은 웹 화면입니다. 노치·하단 바 여백은 기존 배달 셸을 따릅니다. 웹·DB 변경만이라 <b>앱 재빌드가 필요 없습니다</b>.</td></tr>
+    <tr><td>어드민 미리보기</td><td colspan="2">폰(375) · 태블릿(768) · PC(넓은 창 안 768 본문) 세 칸을 나란히 보여줍니다. 와이드 이미지가 없으면 「폰 이미지를 잘라 사용」 표시가 붙습니다.</td></tr>
+  </table></div>
+
+  <h3>4-3. 모집 팝업 + 고객센터 FAB + 입점 문의</h3>
+  <ul>
+    <li><b>모집 팝업</b>
+      <ul>
+        <li>모집 중 배달 첫 화면에 들어오면 가운데 팝업이 뜹니다. 이미지(36:25, 선택), 제목, 설명, 버튼 「매장 신청하기」「문의하기」, 아래쪽에 「오늘 하루 보지 않기」「닫기」가 있습니다.</li>
+        <li>겉모양은 앱 공용 팝업 틀을 씁니다.</li>
+        <li>「오늘 하루 보지 않기」는 필리핀 시간 자정까지입니다. 기기에 저장하므로 비로그인도 동작합니다.</li>
+        <li>광고 팝업 캠페인(승인 흐름)은 쓰지 않습니다. 모드에 붙어 있어서 정식 운영으로 바꾸면 자동으로 사라집니다.</li>
+      </ul>
+    </li>
+    <li><b>FAB</b>
+      <ul>
+        <li>모집 중 배달 첫 화면에만 기존 고객센터 FAB를 켭니다. 문의 유형은 「매장 입점 문의」로 미리 골라 둡니다.</li>
+        <li>팝업이 떠 있는 동안에는 FAB를 가립니다. 지금 문의 창이 열려 있을 때 숨기는 방식과 같습니다.</li>
+        <li>FAB 계약 표(<code>support-fab-route-registry.ts</code>)에 「모드 조건부」로 등록합니다.</li>
+      </ul>
+    </li>
+    <li><b>새 문의 유형 <code>STORE_PARTNERSHIP</code> 「매장 입점 문의」</b>
+      <ul>
+        <li>대상은 회원입니다(매장이 없는 사람).</li>
+        <li>안내 단계에서 무료 조건, 기간 후 수수료(업종별 요율), 신청 준비물, 오픈 일정을 보여줍니다. 오픈 일정은 「배달 오픈 관리」의 문구를 씁니다.</li>
+        <li>그래도 문의하면 상담 채팅을 만듭니다. 마이페이지 고객센터에서도 이 유형을 고를 수 있습니다.</li>
+      </ul>
+    </li>
+    <li><b>비로그인</b>: 문의 API가 로그인 필수라 그대로 둡니다. FAB나 「문의하기」를 누르면 로그인 안내를 띄우고, 로그인 후 배달 화면으로 돌아와 입점 문의 창을 이어서 엽니다.</li>
+    <li><b>어드민</b>: 기존 고객센터 처리 화면(<code>/admin/support</code>)에 「매장 입점 문의」 필터를 추가하고, 그 화면에서 답변합니다.</li>
+  </ul>
+
+  <h3>4-4. 매장 전용 공지 (어드민 → 사장님)</h3>
+  <ul>
+    <li><b>저장</b>
+      <ul>
+        <li>기존 앱 공지(<code>app_notices</code>)에 <code>audience</code>를 추가합니다. 값은 <code>all</code>(지금과 같음), <code>store_owners</code>(신청 이상 모든 사장님), <code>store_owners_approved</code>(승인 매장만)입니다.</li>
+        <li>공지 화면·열람 기록·게시 기간을 그대로 다시 씁니다. 사장님 전용 공지는 회원 공지 목록에는 나오지 않습니다.</li>
+      </ul>
+    </li>
+    <li><b>사장님 화면</b>
+      <ul>
+        <li><code>/stores/owner/announcements</code> 「운영 공지」 목록과 상세를 만듭니다. 고정 공지가 먼저 나오고 안 읽음 점이 붙습니다.</li>
+        <li>사장님 홈 상단에 최신 공지 카드 1개를 둡니다.</li>
+        <li>심사 중인 매장도 볼 수 있습니다. 기존 <code>/stores/owner/notices</code>(고객에게 쓰는 매장 공지)와는 이름과 경로를 나눕니다.</li>
+      </ul>
+    </li>
+    <li><b>알림</b>
+      <ul>
+        <li>공지를 저장할 때 「사장님 전체에게 알림 보내기」를 고르면, 알림 캠페인에 새 대상 <code>store_owners</code>로 인앱·푸시를 보냅니다.</li>
+        <li>누르면 해당 공지 상세로 갑니다. 받는 사람 수와 읽음은 기존 사장님 알림 결과 화면에 나옵니다.</li>
+      </ul>
+    </li>
+    <li><b>권한</b>: 작성은 기존 공지 권한을 따르고, 사장님 전체 발송은 슈퍼 관리자만 할 수 있습니다.</li>
+  </ul>
+
+  <h3>4-5. 입점 계약 (서약서)</h3>
+  <ul>
+    <li><b>계약서 원문</b>
+      <ul>
+        <li>법률 문서에 새 종류 <code>store_partner_terms</code> 「매장 입점·수수료 약관」을 추가합니다(ko·en).</li>
+        <li>기존 법률 문서 화면에서 임시저장·게시·버전 비교를 그대로 씁니다.</li>
+      </ul>
+    </li>
+    <li><b>서명 기록</b>
+      <ul>
+        <li>새 테이블 <code>store_partner_agreements</code>에 추가만 합니다(수정 불가).</li>
+        <li>담는 값: 매장, 사장님, 약관 버전, 본문 해시, 동의 시각, 서명 당시 무료 종료일, 업종, 요율, 동의 경로(신청·재동의)</li>
+        <li>회원 동의 기록(<code>member_consent_events</code>)은 매장 칸이 없고 회원 가입 전용이라 쓰지 않습니다.</li>
+      </ul>
+    </li>
+    <li><b>어드민 「입점 계약」 목록</b> <code>/admin/stores/partner-agreements</code>
+      <ul>
+        <li>열: 매장, 신청자, 업종, 약관 버전, 동의 시각, 무료 종료일, 무료 후 요율, 0% 정책 생성 여부, 심사 상태</li>
+        <li>필터: 승인 대기 / 승인 / 재동의 필요</li>
+      </ul>
+    </li>
+    <li><b>심사 패널 「입점 계약」 칸</b>
+      <ul>
+        <li>사장님이 동의한 원문을 그대로 보여줍니다(그 버전).</li>
+        <li>어드민이 고칠 수 있는 것은 <b>그 매장의 무료 종료일</b>뿐입니다. 사유를 꼭 적어야 하고 감사 로그에 남습니다. 고치면 매장 0% 정책을 기존 예약 변경 함수(<code>admin_supersede_store_fee_policy</code>)로 바꿉니다.</li>
+        <li>계약 문구는 개별로 고칠 수 없고, 새 버전을 게시해야 합니다.</li>
+      </ul>
+    </li>
+    <li><b>승인 연결</b>
+      <ul>
+        <li>계약이 없는 신청은 「입점 승인」 버튼이 막힙니다(안내: 사장님 재동의 필요).</li>
+        <li>승인하면 무료 종료일이 있는 경우 매장 0% 정책을 같은 처리 안에서 만듭니다. 만들지 못하면 승인 전체를 실패시켜서, 7%가 잘못 붙는 일을 막습니다.</li>
+      </ul>
+    </li>
+    <li><b>새 버전 게시 시</b>: 이미 동의한 매장의 기록은 그대로 남습니다. 사장님 화면에 「새 계약 동의 필요」 카드가 뜨고, 동의하면 기록이 1건 더 쌓입니다. 미동의 매장을 막을지는 Owner 결정(4-10)입니다.</li>
+  </ul>
+
+  <h3>4-6. 본인 매장 보기 보완</h3>
+  <ul>
+    <li><b>심사 중 매장 열람</b>: main의 본인 열람 함수(<code>getStoreBySlugForViewer</code>)가 승인 매장만 예외로 열어 줍니다. 이 조건을 「승인 또는 심사 중(대기·심사·보완)」으로 넓힙니다. 반려·중지 매장은 지금처럼 닫습니다.</li>
+    <li><b>숨김·임시 상품 표시</b>: 본인 미리보기일 때만 메뉴 조회가 숨김·임시 상품까지 돌려주고, 「숨김」「임시」 표시를 붙입니다. 같은 SQL 함수의 소유자 분기만 바꾸므로 고객 응답은 그대로입니다.</li>
+    <li><b>캐시 분리</b>: 본인 응답은 지금처럼 보는 사람별 15초 캐시만 쓰고, 공용 캐시에는 섞지 않습니다.</li>
+    <li><b>진입 버튼</b>: 사장님 헤더의 「내 매장 보기」를 심사 중에도 보이게 합니다. 지금은 승인 매장만 보입니다.</li>
+    <li><b>주문</b>: 미리보기에서는 장바구니·주문 버튼을 막습니다(「미리보기에서는 주문할 수 없어요」).</li>
+  </ul>
+
+  <h3>4-7. 데이터 (DB 신규 · 운영 적용은 Owner 승인 후)</h3>
+  <div class="tbl"><table>
+    <tr><th>대상</th><th>내용</th></tr>
+    <tr><td><code>delivery_launch_settings</code> (1행)</td><td><code>mode</code>, 배너(<code>mobile_image_url</code>·<code>wide_image_url</code>·<code>badge_text</code>·<code>title</code>·<code>body</code>·<code>schedule_text</code>(오픈 일정)·<code>apply_label</code>·<code>inquiry_label</code>), 팝업(<code>popup_enabled</code>·<code>popup_image_url</code>·<code>popup_title</code>·<code>popup_body</code>), <code>fab_enabled</code>, <code>free_until</code>, <code>revision</code>, <code>updated_by</code>/<code>updated_at</code>. 언어별 문구는 ko·en 두 벌</td></tr>
+    <tr><td><code>save_delivery_launch_settings_cas</code></td><td>읽은 revision일 때만 저장합니다. 다르면 409를 내고 새로 불러오게 합니다.</td></tr>
+    <tr><td><code>delivery_launch_settings_logs</code></td><td>저장할 때마다 전후 값·저장자·시각을 남깁니다.</td></tr>
+    <tr><td><code>app_notices.audience</code></td><td>기본값은 <code>all</code>이라 기존 38건은 그대로입니다.</td></tr>
+    <tr><td><code>app_legal_documents.kind</code> CHECK</td><td><code>store_partner_terms</code>를 추가합니다.</td></tr>
+    <tr><td><code>store_partner_agreements</code></td><td>서명 기록(추가만). 사장님은 본인 것만 읽을 수 있고, 쓰기는 서버만 합니다.</td></tr>
+    <tr><td>문의 유형·알림 대상</td><td>코드 레지스트리에 <code>STORE_PARTNERSHIP</code>, 캠페인 대상에 <code>store_owners</code>를 추가합니다. DB CHECK가 있으면 같이 고칩니다.</td></tr>
+    <tr><td>본인 열람 SQL</td><td><code>store_menus_snapshot</code> 계열 함수의 소유자 분기만 넓힙니다(승인 → 승인·심사 중, 상품 상태 → 숨김·임시 포함).</td></tr>
+  </table></div>
+
+  <h3>4-8. 구현 단계 · 바뀌는 곳 · 같은 단계에서 처리할 것</h3>
+  <div class="tbl"><table>
+    <tr><th>단계</th><th>바뀌는 곳</th><th>끝났을 때 화면 상태</th></tr>
+    <tr><td>1 · 본인 매장 보기</td><td>본인 열람 함수·SQL, 메뉴 API, 미리보기 띠, 사장님 헤더 버튼 조건</td><td>심사 중 매장도 열리고 숨김·임시 상품이 보입니다. 고객 화면은 변화 없습니다.</td></tr>
+    <tr><td>2 · 배달 오픈 관리 + 고객 화면</td><td>마이그레이션, 어드민 「배달 화면 구성」 허브의 「배달 오픈 관리」 탭(<code>/admin/delivery-screens?tab=launch</code>), 공개 조회 API, <code>StoresHomeHub</code>(배너·흐림), 모집 팝업, FAB 조건부 등록, 진입 가드, 주문 API 거부, 광고 팝업 배달 첫 화면 제외, 문구 2개 언어(한국어·영어)</td><td>기본값이 정식 운영이라 화면은 그대로입니다. 어드민에서 전환하면 A·A2·F 시안대로 바뀝니다.</td></tr>
+    <tr><td>3 · 입점 문의</td><td>문의 유형 레지스트리·안내 문구, 어드민 필터</td><td>FAB·마이페이지에서 입점 문의가 됩니다.</td></tr>
+    <tr><td>4 · 운영 공지</td><td><code>app_notices.audience</code>, 공지 작성 폼 대상 선택, 사장님 공지 목록·상세·홈 카드, 캠페인 대상 <code>store_owners</code></td><td>사장님 전용 공지를 작성·발송·열람할 수 있습니다. 회원 공지 목록은 그대로입니다.</td></tr>
+    <tr><td>5 · 입점 계약</td><td>법률 문서 종류, 신청서 서약, 신청 API 동의 검사·기록, 업종 요율 조회, 어드민 계약 목록·심사 패널 칸, 승인 시 0% 정책, 사장님 계약 보기·재동의</td><td>신청부터 승인까지 계약이 이어집니다. 계약서 원문이 게시되기 전에는 신청서 서약 칸이 「준비 중」이고 신청을 받지 않습니다. 이 순서 때문에 원문을 먼저 게시해야 합니다.</td></tr>
+  </table></div>
+  <p class="sub">모두 웹·DB 변경입니다. 앱 재빌드는 필요 없고, 배포 후 앱을 다시 시작하면 반영됩니다. 운영 DB 적용은 단계마다 Owner 승인을 받습니다. 검증할 때는 Owner 계정·저장 주소·휴대폰으로 시안 A~G를 캡처해서 대조합니다.</p>
+
+  <h3>4-9. 위험 · 충돌</h3>
+  <ul>
+    <li><b>작업 트리</b>: 이 세션 브랜치는 main보다 510커밋 뒤처져 있습니다. 회원 약관·동의 관련 미커밋 변경도 있는데, 이 변경이 main에 반영됐는지는 확인 못 했습니다. 구현은 <b>최신 main에서 새 브랜치</b>로 시작하고, 5단계는 그 약관 작업과 파일이 겹치는지 먼저 대조합니다.</li>
+    <li><b>수수료</b>: 운영 트리거가 켜져 있습니다. 0% 정책이 빠지면 무료를 서약한 매장에도 7%가 붙습니다. 그래서 승인과 정책 생성을 한 처리로 묶습니다(4-5).</li>
+    <li><b>광고 팝업</b>: 모집 중에는 배달 첫 화면에서 광고 팝업을 띄우지 않습니다. 이것은 광고 노출이 줄어드는 변경이라 Owner 확인 항목입니다(4-10).</li>
+    <li><b>통화·메신저·네이티브</b>: 건드리지 않습니다.</li>
+  </ul>
+
+  <h3>4-10. Owner 결정 필요 (설계로 정할 수 없는 값)</h3>
+  <ol>
+    <li>무료 종료일 (어드민 입력값. 시안의 2027-06-30은 임의 예시)</li>
+    <li>매장 입점·수수료 약관 원문 (어드민 법률 문서에서 작성. 초안이 필요하면 따로 지시)</li>
+    <li>심사 중에 상품 등록을 허용할지. 지금은 입점 승인 후에만 됩니다. 이 설계는 지금 규칙을 유지하고, 심사 중에는 매장 정보만 미리보기합니다.</li>
+    <li>모집 중 배달 첫 화면에서 광고 팝업을 끄는 것에 동의하는지</li>
+    <li>계약서 새 버전에 동의하지 않은 매장을 막을지(주문 막음) 또는 안내만 할지</li>
+  </ol>
+</section>
+
+<section>
+  <h2>5. 시안 — 앱</h2>
+  <p class="sub">문구와 그림은 예시입니다. 실제 값은 어드민에서 넣습니다. 그림 칸은 업로드 이미지 자리입니다.</p>
+  <div class="mocks">
+
+    <div class="mock">
+      <div class="cap"><b>A. 폰 · 배달 첫 화면 (매장 모집)</b><br>폰 이미지 4:3, 안내 글자는 사진 아래쪽에 겹친 단색 판 위. 목록은 흐리고 눌리지 않음. FAB는 오른쪽 아래</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">배달 <span class="addr">마카티 · 우리집 ▾</span></div>
+        <div class="ph-body">
+          <div class="hero">
+            <div class="img"><span class="badge">오픈 기념 수수료 무료</span><span class="scooter">🛵</span></div>
+            <div class="txt">
+              <div class="t1">매장을 신청하세요</div>
+              <div class="t2">DIBAY 배달이 곧 열립니다. 지금 입점하면 오픈 기념으로 배달앱 수수료가 무료예요.</div>
+              <div class="t3">오픈 예정 · 2027년 1월 (매장 30곳 모이면 오픈)</div>
+              <div class="ctas"><span class="cta">매장 신청하기</span><span class="cta ghost">문의하기</span></div>
+            </div>
+          </div>
+          <div class="dimzone">
+            <span class="ribbon">배달 오픈 준비 중 · 매장을 모으고 있어요</span>
+            <div class="content">
+              <div class="cats"><div class="cat"><i></i>식당</div><div class="cat"><i></i>카페</div><div class="cat"><i></i>마트</div><div class="cat"><i></i>미용</div><div class="cat"><i></i>펫샵</div></div>
+              <div class="shelf"><div class="st">지금 주문 가능</div>
+                <div class="storeRow"><div class="thumb"></div><div><div class="nm">마닐라 한식당<span class="sbadge">샘플</span></div><div class="sm">한식 · 25~35분</div></div></div>
+                <div class="storeRow"><div class="thumb"></div><div><div class="nm">BGC 커피랩<span class="sbadge">샘플</span></div><div class="sm">카페 · 15~25분</div></div></div>
+              </div>
+            </div>
+          </div>
+          <span class="fab">🎧 고객센터</span>
+        </div>
+        <div class="ph-nav"><span>홈</span><span>거래</span><span class="on">배달</span><span>채팅</span><span>MY</span></div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="cap"><b>B. 폰 · 모집 팝업 (진입 시)</b><br>공용 팝업 틀. 신청·문의 버튼, 오늘 하루 보지 않기. 팝업이 떠 있는 동안 FAB는 가려짐</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">배달 <span class="addr">마카티 · 우리집 ▾</span></div>
+        <div class="ph-body" style="min-height:520px">
+          <div class="hero"><div class="img"></div><div class="txt"><div class="t1">매장을 신청하세요</div></div></div>
+          <div class="scrim">
+            <div class="modal">
+              <div class="mimg"><span>DIBAY 배달<br>입점 매장 모집</span></div>
+              <div class="mb">
+                <div style="font-weight:900;font-size:15px">오픈 기념 배달앱 수수료 무료</div>
+                <div style="font-size:12px;color:#5B675F">2027-06-30 까지 수수료 0%. 이후에는 업종별 수수료가 적용돼요. 궁금한 점은 먼저 문의해 주세요.</div>
+                <div class="row2"><span class="btn-s">문의하기</span><span class="btn-p">매장 신청하기</span></div>
+              </div>
+              <div class="foot"><span>오늘 하루 보지 않기</span><span>닫기</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="cap"><b>C. 폰 · FAB → 매장 입점 문의</b><br>유형이 미리 골라져 열림. 안내를 본 뒤 상담 채팅으로. 비로그인은 로그인 안내 후 이어서 열림</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">배달</div>
+        <div class="ph-body" style="min-height:520px">
+          <div class="hero"><div class="img"></div></div>
+          <div class="scrim" style="place-items:end;padding:0"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div style="font-weight:900;font-size:14px">무엇을 도와드릴까요?</div>
+            <div class="opt sel"><div><b>매장 입점 문의</b><small>무료 조건·수수료·신청 방법·오픈 일정</small></div><span>✓</span></div>
+            <div class="opt"><div>계정·로그인<small>회원 문의</small></div></div>
+            <div style="background:#F4F8F5;border-radius:4px;padding:8px 10px;font-size:11.5px">
+              <b>자주 묻는 질문</b><br>· 무료 기간: 2027-06-30 까지 0%<br>· 이후 수수료: 업종별 (식당 7%)<br>· 준비물: 전화 인증, 대표 주소, 업종<br>· 오픈 예정: 2027년 1월
+            </div>
+            <span class="btn-p">상담 채팅 시작</span>
+            <span class="btn-s">바로 매장 신청하기</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock" style="grid-column:1/-1">
+      <div class="cap"><b>A2. 태블릿 · PC · Windows · 폰 가로 (본문 폭 600px 이상)</b><br>와이드 이미지 2:1 왼쪽 + 글자 오른쪽. 배달 본문은 768px로 고정되고 양옆은 비움</div>
+      <div class="tablet">
+        <div class="col">
+          <div class="ph-head">배달 <span class="addr">마카티 · 우리집 ▾</span></div>
+          <div class="ph-body">
+            <div class="hero heroWide">
+              <div class="img wide"><span class="badge">오픈 기념 수수료 무료</span><span class="scooter">🛵</span></div>
+              <div class="txt" style="padding:16px;display:grid;align-content:center">
+                <div class="t1">매장을 신청하세요</div>
+                <div class="t2">DIBAY 배달이 곧 열립니다. 지금 입점하면 오픈 기념으로 배달앱 수수료가 무료예요.</div>
+                <div class="t3">오픈 예정 · 2027년 1월</div>
+                <div class="ctas"><span class="cta">매장 신청하기</span><span class="cta ghost">문의하기</span></div>
+              </div>
+            </div>
+            <div class="dimzone">
+              <span class="ribbon">배달 오픈 준비 중 · 매장을 모으고 있어요</span>
+              <div class="content">
+                <div class="cats"><div class="cat"><i></i>식당</div><div class="cat"><i></i>카페</div><div class="cat"><i></i>마트</div><div class="cat"><i></i>미용</div><div class="cat"><i></i>펫샵</div></div>
+                <div class="shelf"><div class="storeRow"><div class="thumb"></div><div><div class="nm">마닐라 한식당<span class="sbadge">샘플</span></div><div class="sm">한식 · 25~35분</div></div></div></div>
+              </div>
+            </div>
+            <span class="fab" style="bottom:14px">🎧 고객센터</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="cap"><b>D. 사장님 · 본인 매장 미리보기 (심사 중)</b><br>심사 중에도 열림. 승인 후 등록한 숨김·임시 상품은 표시를 달고 보임. 주문은 막힘</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">‹ &nbsp;내 매장</div>
+        <div class="ownerBar"><b>내 매장 미리보기</b> · 심사 중이라 고객에게는 아직 보이지 않아요</div>
+        <div class="cover"></div>
+        <div class="sinfo">
+          <div class="nm">김사장 분식</div>
+          <div><span class="state g">심사 중</span><span class="state">상품 3개</span></div>
+          <div style="font-size:11px;color:#5B675F;margin-top:4px">마카티 레가스피 빌리지 · 10:00~21:00</div>
+        </div>
+        <div class="menu">
+          <div style="font-weight:700;margin-bottom:2px">대표 메뉴 <span style="font-weight:400;color:#5B675F;font-size:10.5px">(입점 승인 후 예시)</span></div>
+          <div class="it"><div>떡볶이<span class="hid">숨김</span></div><div class="pp">₱180</div></div>
+          <div class="it"><div>김밥<span class="hid">임시</span></div><div class="pp">₱120</div></div>
+          <div class="it"><div>순대<span class="hid">숨김</span></div><div class="pp">₱150</div></div>
+        </div>
+        <div class="orderbar">미리보기에서는 주문할 수 없어요</div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="cap"><b>E. 사장님 · 운영 공지 목록</b><br>어드민이 쓴 사장님 전용 공지. 고정 먼저, 안 읽음 점. 사장님 홈 상단에 최신 1건 카드</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">‹ &nbsp;운영 공지</div>
+        <div class="nlist">
+          <div class="nitem unread"><div class="nt"><span class="pin">고정</span>배달 오픈 일정 안내 (2027년 1월)</div><div class="nd">2026-11-12 · DIBAY 운영팀</div></div>
+          <div class="nitem unread"><div class="nt">오픈 전 메뉴·사진 등록 가이드</div><div class="nd">2026-11-11</div></div>
+          <div class="nitem"><div class="nt">오픈 기념 수수료 무료 조건 안내</div><div class="nd">2026-11-10</div></div>
+          <div class="nitem"><div class="nt">GCash 결제 정보 입력 방법</div><div class="nd">2026-11-08</div></div>
+        </div>
+        <div class="hubcard" style="margin-top:14px"><div style="font-size:10.5px;color:#5B675F">사장님 홈 · 최신 운영 공지</div><div style="font-weight:700">배달 오픈 일정 안내 (2027년 1월) ›</div></div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="cap"><b>F. 매장 신청서 · 입점·수수료 서약</b><br>무료 종료일과 고른 업종의 어드민 요율이 자동으로 들어감. 필수 동의 2개</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">‹ &nbsp;매장 신청</div>
+        <div class="form">
+          <div class="fsec"><div class="ft">업종 분류</div>
+            <div class="fld">1차 업종<span>식당 ▾</span></div>
+          </div>
+          <div class="fsec pledge"><div class="ft">입점·수수료 서약 (필수)</div>
+            <div class="free">오픈 기념 혜택<br><b>2027-06-30 까지 배달 수수료 0%</b></div>
+            <div style="font-size:11.5px">무료 기간이 끝나면 <b>2027-07-01 주문부터</b> 「식당」 업종 수수료 <b>7%</b>가 주문마다 매장 캐시에서 차감됩니다. 요율은 어드민 업종별 정책을 따르고, 바뀌면 운영 공지로 미리 알려 드립니다.</div>
+            <div class="chk"><i>✓</i><span><u>매장 입점·수수료 약관 (v1.0)</u>에 동의합니다 (필수)</span></div>
+            <div class="chk"><i>✓</i><span>무료 기간 후 위 수수료가 부과되는 것을 확인하고 서약합니다 (필수)</span></div>
+          </div>
+          <div class="submit">신청하기</div>
+          <div style="text-align:center;font-size:11px;color:#5B675F">신청 전에 궁금한 점은 <u>입점 문의</u></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="cap"><b>G. 폰 · 정식 운영으로 바꾼 뒤</b><br>배너·흐림·팝업·FAB가 모두 사라지고 지금 화면 그대로 돌아옴</div>
+      <div class="phone">
+        <div class="ph-top"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="ph-head">배달 <span class="addr">마카티 · 우리집 ▾</span></div>
+        <div class="ph-body">
+          <div class="cats"><div class="cat"><i></i>식당</div><div class="cat"><i></i>카페</div><div class="cat"><i></i>마트</div><div class="cat"><i></i>미용</div><div class="cat"><i></i>펫샵</div></div>
+          <div style="margin:4px 12px 10px;border-radius:4px;aspect-ratio:39/16;background:#E8EEE9;display:grid;place-items:center;font-size:11px;color:#5B675F">광고 히어로 배너 (기존)</div>
+          <div class="shelf"><div class="st">지금 주문 가능</div>
+            <div class="storeRow"><div class="thumb"></div><div><div class="nm">김사장 분식</div><div class="sm">분식 · 20~30분 · 배달비 ₱39</div></div></div>
+            <div class="storeRow"><div class="thumb"></div><div><div class="nm">레가스피 카페</div><div class="sm">카페 · 15~25분</div></div></div>
+          </div>
+        </div>
+        <div class="ph-nav"><span>홈</span><span>거래</span><span class="on">배달</span><span>채팅</span><span>MY</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>6. 시안 — 어드민</h2>
+
+  <h3>6-1. 배달 오픈 관리 <span class="sub">· 배달 화면 구성 › 배달 오픈 관리 탭 · <code>/admin/delivery-screens?tab=launch</code> · 변경 권한: 최고관리자</span></h3>
+  <div class="admin">
+    <div class="adm-top"><b>배달 오픈 관리</b><span class="adm-crumb">저장 버전 r12 · 마지막 저장 2026-11-10 14:20 PHT · admin</span></div>
+    <div class="adm-grid">
+      <div class="adm-col">
+        <div class="card">
+          <div class="ct">배달 상태</div>
+          <div class="seg">
+            <div><b>정식 운영</b><small>매장 목록 그대로, 주문 가능. 배너·팝업·FAB 없음</small></div>
+            <div class="sel"><b>매장 모집</b><small>큰 배너 + 목록 흐림 + 팝업 + FAB, 고객 주문 막힘</small></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">모드와 상관없이 매장 신청, 사장님 화면, 본인 매장 보기, 운영 공지, 입점 문의는 항상 됩니다.</div>
+        </div>
+        <div class="card">
+          <div class="ct">모집 배너 <span style="font-weight:400;font-size:12px;color:var(--muted)">문구는 화면 글자로 그려짐</span></div>
+          <div class="inp2">
+            <div class="upl"><div class="th m"></div><div style="font-size:12px;min-width:0"><b>폰 이미지 (필수)</b><br><span style="color:var(--muted)">4:3 · 권장 1200×900 · 최소 900×675</span><br><u>바꾸기</u></div></div>
+            <div class="upl"><div class="th w empty"></div><div style="font-size:12px;min-width:0"><b>와이드 이미지 (선택)</b><br><span style="color:var(--muted)">2:1 · 권장 1536×768 · 태블릿·PC</span><br><u>올리기</u></div></div>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted)">JPG·PNG·WebP · 2MB 이하 · 비율 ±8% · 저장 시 WebP로 변환 · 로고는 가운데 80% 안</div>
+          <div class="inp2">
+            <div class="inp">혜택 배지<span>오픈 기념 수수료 무료</span></div>
+            <div class="inp">제목<span>매장을 신청하세요</span></div>
+          </div>
+          <div class="inp">설명<span>DIBAY 배달이 곧 열립니다. 지금 입점하면 오픈 기념으로 배달앱 수수료가 무료예요.</span></div>
+          <div class="inp">오픈 일정 문구<span>오픈 예정 · 2027년 1월 (매장 30곳 모이면 오픈)</span></div>
+          <div class="inp2">
+            <div class="inp">신청 버튼<span>매장 신청하기</span></div>
+            <div class="inp">문의 버튼<span>문의하기</span></div>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted)">언어 탭: <b>한국어</b> · English (빈 칸이면 한국어로 표시)</div>
+        </div>
+        <div class="card">
+          <div class="ct">모집 팝업 · 고객센터 FAB</div>
+          <div class="toggle"><span>배달 첫 화면 진입 시 팝업 띄우기 <small style="color:var(--muted)">(오늘 하루 보지 않기 포함)</small></span><span class="sw"></span></div>
+          <div class="upl"><div class="th m"></div><div style="font-size:12px"><b>팝업 이미지 (선택)</b><br><span style="color:var(--muted)">36:25 · 권장 1080×750</span></div></div>
+          <div class="inp">팝업 제목<span>오픈 기념 배달앱 수수료 무료</span></div>
+          <div class="toggle"><span>고객센터 FAB 보이기 <small style="color:var(--muted)">(문의 유형: 매장 입점 문의)</small></span><span class="sw"></span></div>
+          <div style="font-size:11.5px;color:var(--muted)">모집 중에는 배달 첫 화면에서 광고 팝업을 띄우지 않습니다 (Owner 확인 항목).</div>
+        </div>
+        <div class="card">
+          <div class="ct">오픈 기념 무료</div>
+          <div class="inp">무료 종료일 (비우면 신청서에 무료 문구 없음)<span>2027-06-30</span></div>
+          <div style="font-size:12px;color:var(--muted)">입점 승인할 때 이 날짜까지 매장 0% 정책을 자동으로 만듭니다. 이후에는 <u>업종별 수수료 정책</u>(현재 7개 업종 7%)을 따릅니다. 이미 승인된 매장의 종료일은 「입점 계약」에서 매장별로 바꿉니다.</div>
+        </div>
+        <div class="btns"><span class="btn">되돌리기</span><span class="btn pr">저장</span></div>
+      </div>
+      <div class="adm-col">
+        <div class="card">
+          <div class="ct">기기별 미리보기</div>
+          <div class="devs">
+            <div class="dev"><div class="f" style="width:64px;height:120px;grid-template-rows:48px 1fr"><div class="b"></div><div style="padding:3px;display:grid;gap:2px;align-content:start"><div class="t" style="height:5px"></div><div style="height:4px;background:#ccc"></div><div class="t" style="height:8px"></div></div></div>폰 375</div>
+            <div class="dev"><div class="f" style="width:150px;height:100px;grid-template-columns:1.1fr 1fr;align-content:start"><div class="b" style="height:44px"></div><div style="padding:4px;display:grid;gap:3px;align-content:start"><div class="t" style="height:5px"></div><div style="height:4px;background:#ccc"></div><div class="t" style="height:8px"></div></div></div>태블릿 768</div>
+            <div class="dev"><div class="f" style="width:190px;height:100px;background:#EEF1EE;justify-items:center"><div style="width:110px;background:#fff;height:100%;display:grid;grid-template-columns:1.1fr 1fr;align-content:start"><div class="b" style="height:34px"></div><div style="padding:3px;display:grid;gap:2px;align-content:start"><div class="t" style="height:4px"></div><div class="t" style="height:6px"></div></div></div></div>PC · Windows</div>
+          </div>
+          <div style="font-size:11.5px;color:var(--need)">와이드 이미지 없음 → 태블릿·PC는 폰 이미지를 잘라 사용</div>
+        </div>
+        <div class="card">
+          <div class="ct">지금 상태</div>
+          <div style="font-size:12px;display:grid;gap:4px">
+            <div>고객 노출 매장 <b>105</b> (전부 샘플) · 실매장 <b>0</b></div>
+            <div>입점 신청 대기 <b>0</b> · 계약 서명 <b>0</b></div>
+            <div>열린 입점 문의 <b>0</b> <u>고객센터에서 보기</u></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ct">변경 이력</div>
+          <div class="hist">
+            <div><span>정식 운영 → 매장 모집</span><span class="mono">11-10 14:20 · admin</span></div>
+            <div><span>폰 이미지 교체</span><span class="mono">11-10 14:12 · admin</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:10px">저장은 읽은 버전(r12)으로만 됩니다. 그 사이 다른 관리자가 저장했으면 저장하지 않고 「다른 관리자가 먼저 저장했어요. 새로 불러온 뒤 다시 저장하세요」를 띄웁니다.</p>
+
+  <h3>6-2. 공지 작성 — 대상 「매장 사장님 전용」 <span class="sub">· 기존 앱 공지 작성 화면에 칸 추가</span></h3>
+  <div class="admin">
+    <div class="adm-top"><b>공지 작성</b><span class="adm-crumb">앱 설정 › 공지 › 새 공지</span></div>
+    <div class="adm-grid">
+      <div class="adm-col">
+        <div class="card">
+          <div class="ct">보는 사람</div>
+          <div class="seg" style="grid-template-columns:repeat(3,1fr)">
+            <div><b>전체 회원</b><small>지금과 같음</small></div>
+            <div class="sel"><b>매장 사장님 전체</b><small>심사 중 포함</small></div>
+            <div><b>승인 매장만</b><small>입점 승인된 매장</small></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">사장님 전용 공지는 회원 공지 목록에 나오지 않고, 사장님 화면 「운영 공지」에만 나옵니다.</div>
+        </div>
+        <div class="card">
+          <div class="inp">제목<span>배달 오픈 일정 안내 (2027년 1월)</span></div>
+          <div class="inp">본문<span style="min-height:60px">입점 매장이 30곳을 넘으면 2027년 1월에 배달을 엽니다. 오픈 전까지 메뉴와 사진을 등록해 주세요…</span></div>
+          <div class="inp2"><div class="inp">게시 시작<span>2026-11-12 09:00 PHT</span></div><div class="inp">고정<span>사용</span></div></div>
+        </div>
+        <div class="card">
+          <div class="toggle"><span><b>사장님 전체에게 알림 보내기</b><br><small style="color:var(--muted)">인앱 + 푸시 · 받는 사람 0명 (심사 중 포함) · 슈퍼 관리자만</small></span><span class="sw"></span></div>
+        </div>
+        <div class="btns"><span class="btn">임시저장</span><span class="btn pr">게시</span></div>
+      </div>
+      <div class="adm-col">
+        <div class="card">
+          <div class="ct">발송 결과 (게시 후)</div>
+          <div class="hist">
+            <div><span>대상</span><b>매장 사장님 전체</b></div>
+            <div><span>인앱 저장 / 푸시 성공</span><span class="mono">— / —</span></div>
+            <div><span>읽음</span><span class="mono">—</span></div>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted)">기존 「사장님 알림 결과」 화면과 같은 집계를 씁니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>6-3. 입점 계약 목록 + 심사 패널 「입점 계약」 칸 <span class="sub">· <code>/admin/stores/partner-agreements</code></span></h3>
+  <div class="admin">
+    <div class="adm-top"><b>입점 계약</b><span class="adm-crumb">매장 › 입점 계약 · 약관 현재 버전 v1.0 (2026-11-15 게시)</span></div>
+    <div class="adm-tabs"><span class="on">승인 대기 2</span><span>승인 0</span><span>재동의 필요 0</span><span>전체 2</span></div>
+    <div style="padding:16px;display:grid;gap:14px">
+      <div class="tbl"><table class="minitbl">
+        <tr><th>매장</th><th>신청자</th><th>업종</th><th>약관</th><th>동의 시각 (PHT)</th><th>무료 종료</th><th>무료 후</th><th>0% 정책</th><th>심사</th></tr>
+        <tr><td><b>(예시) 김사장 분식</b></td><td>김OO</td><td>식당</td><td>v1.0</td><td class="mono">11-16 10:42</td><td>2027-06-30</td><td>7%</td><td>승인 시 생성</td><td><span class="pill p-need">심사 중</span></td></tr>
+        <tr><td><b>(예시) 레가스피 카페</b></td><td>Cruz</td><td>카페</td><td>v1.0</td><td class="mono">11-16 13:05</td><td>2027-06-30</td><td>7%</td><td>승인 시 생성</td><td><span class="pill p-need">대기</span></td></tr>
+      </table></div>
+      <div class="card" style="max-width:640px">
+        <div class="ct">심사 패널 · 입점 계약 <span class="pill p-ok">서명 완료</span></div>
+        <div style="font-size:12px;display:grid;gap:3px">
+          <div>약관 <b>매장 입점·수수료 약관 v1.0</b> · 동의 2026-11-16 10:42 PHT · 신청서에서 동의</div>
+          <div>서명 당시: 무료 종료 <b>2027-06-30</b> · 업종 식당 · 무료 후 <b>7%</b></div>
+        </div>
+        <div class="doc"><b>제1조 (목적)</b> 이 약관은 DIBAY 배달 입점 매장과 회사 사이의 권리·의무를 정합니다.<br><b>제5조 (수수료)</b> 오픈 기념 무료 기간(서명 당시 무료 종료일까지) 동안 배달 수수료는 0%입니다. 이후에는 매장 업종의 수수료율을 적용합니다…<br><span style="color:var(--muted)">(원문은 Owner 작성 — 시안은 자리 표시)</span></div>
+        <div class="inp2">
+          <div class="inp">이 매장 무료 종료일<span>2027-06-30</span></div>
+          <div class="inp">바꾸는 사유 (필수)<span>오픈 지연 보상으로 1개월 연장</span></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted)">저장하면 감사 로그에 남고, 승인된 매장은 0% 정책 종료일도 함께 바뀝니다. 계약 문구는 여기서 고칠 수 없습니다(법률 문서에서 새 버전 게시).</div>
+        <div class="btns"><span class="btn">종료일 저장</span><span class="btn pr">입점 승인</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>

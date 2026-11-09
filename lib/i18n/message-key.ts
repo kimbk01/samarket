@@ -73,6 +73,7 @@ import { homeHubAdminMessages } from "./catalog/home-hub-admin";
 import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { storePartnerAgreementMessages } from "./catalog/store-partner-agreement";
 import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partner-agreements";
+import { adminDeliveryLaunchMessages } from "./catalog/admin-delivery-launch";
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
 import { communityUiMessages } from "./catalog/community-ui";
@@ -251,6 +252,7 @@ export type MessageKey =
   | KeyOf<typeof storeCommerceUiMessages.ko>
   | KeyOf<typeof storePartnerAgreementMessages.ko>
   | KeyOf<typeof adminStorePartnerAgreementsMessages.ko>
+  | KeyOf<typeof adminDeliveryLaunchMessages.ko>
   | KeyOf<typeof cmMonitoringSloMessages.ko>
   | KeyOf<typeof communityMessengerUiMessages.ko>
   | KeyOf<typeof communityUiMessages.ko>
@@ -380,6 +382,7 @@ type EnMessageKey =
   | KeyOf<typeof storeCommerceUiMessages.en>
   | KeyOf<typeof storePartnerAgreementMessages.en>
   | KeyOf<typeof adminStorePartnerAgreementsMessages.en>
+  | KeyOf<typeof adminDeliveryLaunchMessages.en>
   | KeyOf<typeof cmMonitoringSloMessages.en>
   | KeyOf<typeof communityMessengerUiMessages.en>
   | KeyOf<typeof communityUiMessages.en>

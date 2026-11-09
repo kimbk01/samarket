@@ -13,6 +13,7 @@ import {
   validateDeliveryLaunchImageGeometry,
 } from "@/lib/delivery/launch/delivery-launch-contract";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,5 +80,12 @@ export async function POST(req: NextRequest) {
   const {
     data: { publicUrl },
   } = svc.storage.from(BUCKET).getPublicUrl(path);
+  await appendAdminRouteAudit(svc, req, {
+    actorId: gate.actor.userId,
+    targetType: "delivery_launch_image",
+    targetId: kind,
+    action: "delivery_launch.upload_image",
+    after: { kind, path, width, height },
+  });
   return NextResponse.json({ ok: true as const, url: publicUrl, width, height, kind });
 }

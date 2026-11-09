@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog } from "@/components/ui/dibay-overlay/DibayDialog";
@@ -9,8 +9,8 @@ import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 import { buildMemberSupportContext, type SupportContext } from "@/lib/support/support-context";
 import { buildLoginHref } from "@/lib/auth/client-access-flow";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { DeliveryRecruitingHeroLayout } from "@/components/delivery/launch/DeliveryRecruitingHeroLayout";
 import {
-  DELIVERY_LAUNCH_WIDE_MIN_CONTENT_PX,
   manilaTodayYmd,
   resolveDeliveryLaunchTexts,
   type DeliveryLaunchPublicState,
@@ -61,110 +61,28 @@ function useOpenPartnershipInquiry(): () => void {
   }, [membership.status, router]);
 }
 
-/** 배달 본문 폭 기준 와이드 판정 (태블릿·폴더블·폰 가로·PC·Windows) */
-function useWideLayout(ref: React.RefObject<HTMLElement | null>): boolean {
-  const [wide, setWide] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const apply = () => setWide(el.getBoundingClientRect().width >= DELIVERY_LAUNCH_WIDE_MIN_CONTENT_PX);
-    apply();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  return wide;
-}
-
-function BannerImage({ src, wide }: { src: string; wide: boolean }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
-  return (
-    <div
-      className={`relative w-full overflow-hidden bg-sam-primary ${wide ? "h-full min-h-[180px]" : "aspect-[4/3]"}`}
-      data-delivery-recruiting-image={wide ? "wide" : "mobile"}
-    >
-      {src && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element -- 어드민 업로드 원본 URL(외부 버킷), 비율 칸이 자리를 먼저 잡는다
-        <img
-          src={src}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-          decoding="async"
-          fetchPriority="high"
-          onError={() => setFailed(true)}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 export function DeliveryRecruitingHero({ state }: { state: DeliveryLaunchPublicState }) {
-  const { t, language } = useI18n();
   const router = useRouter();
   const openInquiry = useOpenPartnershipInquiry();
-  const rootRef = useRef<HTMLElement | null>(null);
-  const wide = useWideLayout(rootRef);
-  const texts = resolveDeliveryLaunchTexts(state.content, language);
-  const imageSrc = wide ? state.content.wideImageUrl || state.content.mobileImageUrl : state.content.mobileImageUrl;
-  const badge = texts.badge;
-  const title = texts.title || t("delivery_recruiting_default_title");
-  const applyLabel = texts.applyLabel || t("delivery_recruiting_apply");
-  const inquiryLabel = texts.inquiryLabel || t("delivery_recruiting_inquiry");
-
-  const textBlock = (
-    <div className={`flex flex-col gap-2 ${wide ? "justify-center p-5" : "px-4 pb-4 pt-3"}`}>
-      {badge ? (
-        <span className="w-fit rounded-full bg-[var(--dibay-gold)] px-2.5 py-0.5 text-[12px] font-bold text-sam-primary">
-          {badge}
-        </span>
-      ) : null}
-      <h2 className="text-[20px] font-extrabold leading-snug [text-wrap:balance]">{title}</h2>
-      {texts.body ? <p className="text-[13px] leading-relaxed opacity-90">{texts.body}</p> : null}
-      {texts.schedule ? (
-        <p className="rounded-ui-rect bg-white/10 px-2.5 py-1.5 text-[12px] font-medium">{texts.schedule}</p>
-      ) : null}
-      <div className="mt-1 grid grid-cols-[1.4fr_1fr] gap-2">
-        <button
-          type="button"
-          onClick={() => router.push(DELIVERY_STORE_APPLY_PATH)}
-          className="rounded-ui-rect bg-white px-3 py-2.5 text-[14px] font-extrabold text-sam-primary active:opacity-80"
-          data-delivery-recruiting-cta="apply"
-        >
-          {applyLabel}
-        </button>
-        <button
-          type="button"
-          onClick={openInquiry}
-          className="rounded-ui-rect border border-white/60 px-3 py-2.5 text-[14px] font-bold text-white active:opacity-80"
-          data-delivery-recruiting-cta="inquiry"
-        >
-          {inquiryLabel}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
-    <section
-      ref={rootRef}
-      className="overflow-hidden rounded-ui-rect bg-sam-primary text-white"
-      data-delivery-recruiting-hero={wide ? "wide" : "mobile"}
-      aria-label={title}
-    >
-      {wide ? (
-        <div className="grid grid-cols-[1.15fr_1fr]">
-          <BannerImage src={imageSrc} wide />
-          {textBlock}
-        </div>
-      ) : (
+    <DeliveryRecruitingHeroLayout
+      state={state}
+      renderActions={({ applyLabel, inquiryLabel, applyClassName, inquiryClassName }) => (
         <>
-          <BannerImage src={imageSrc} wide={false} />
-          {textBlock}
+          <button
+            type="button"
+            onClick={() => router.push(DELIVERY_STORE_APPLY_PATH)}
+            className={applyClassName}
+            data-delivery-recruiting-cta="apply"
+          >
+            {applyLabel}
+          </button>
+          <button type="button" onClick={openInquiry} className={inquiryClassName} data-delivery-recruiting-cta="inquiry">
+            {inquiryLabel}
+          </button>
         </>
       )}
-    </section>
+    />
   );
 }
 
