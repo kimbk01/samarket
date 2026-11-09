@@ -19,7 +19,7 @@ import { CategoryIcon } from "@/components/home/CategoryIcon";
 import { CategoryFieldCompositionEditor } from "@/components/admin/categories/CategoryFieldCompositionEditor";
 import { TradeMenuWritePreviewSheet } from "@/components/admin/menus/TradeMenuWritePreviewSheet";
 import { updateCategory } from "@/lib/categories/updateCategory";
-import { updateCategoryAdmin } from "@/lib/categories/admin/updateCategory";
+import { updateCategoryAdmin, updateCategorySettingsAdmin } from "@/lib/categories/admin/updateCategory";
 import { createCategory } from "@/lib/categories/admin/createCategory";
 import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
 import { checkSlugAvailable } from "@/lib/categories/admin/checkSlugAvailable";
@@ -179,29 +179,11 @@ export function AdminMenusPage() {
     setSaving(true);
     setFormError(null);
     try {
-      const res = await updateCategoryAdmin(
-        activeRoot.id,
-        {
-          name: activeRoot.name,
-          name_en: activeRoot.name_en ?? null,
-          slug: activeRoot.slug,
-          icon_key: activeRoot.icon_key,
-          badge_color: activeRoot.badge_color ?? null,
-          type: activeRoot.type,
-          sort_order: activeRoot.sort_order,
-          is_active: activeRoot.is_active,
-          description: activeRoot.description,
-          quick_create_enabled: activeRoot.quick_create_enabled,
-          quick_create_group: activeRoot.quick_create_group,
-          quick_create_order: activeRoot.quick_create_order,
-          show_in_home_chips: activeRoot.show_in_home_chips,
-          parent_id: null,
-        },
-        {
-          ...settingsFrom(activeRoot),
-          field_composition: draftComposition as TradeFieldCompositionPayload | null,
-        }
-      );
+      /** 등록 옵션은 설정만 저장 — 주제 기본 정보(이름·배지 색 등)를 목록 값으로 다시 쓰지 않는다 */
+      const res = await updateCategorySettingsAdmin(activeRoot.id, {
+        ...settingsFrom(activeRoot),
+        field_composition: draftComposition as TradeFieldCompositionPayload | null,
+      });
       if (!res.ok) {
         setFormError(res.error);
         return;

@@ -50,3 +50,16 @@ export async function updateCategoryAdmin(
   const res = await postCategoryAdminOp({ op: "update", id, category: payload, settings });
   return res.ok ? { ok: true } : res;
 }
+
+/**
+ * 설정(category_settings)만 저장 — 주제 기본 정보(categories 행)는 보내지 않는다.
+ * 「등록 옵션」 저장이 화면에 불러 둔 목록 값으로 이름·배지 색 등을 다시 써서
+ * 다른 곳에서 바꾼 값을 덮어쓰던 문제를 막는다. 서버는 보낸 칸만 바꾼다.
+ */
+export async function updateCategorySettingsAdmin(
+  id: string,
+  settings: UpdateCategorySettingsPayload
+): Promise<UpdateCategoryResult> {
+  const res = await postCategoryAdminOp({ op: "update", id, settings });
+  return res.ok ? { ok: true } : res;
+}
