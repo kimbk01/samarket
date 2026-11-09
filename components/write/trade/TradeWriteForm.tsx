@@ -431,6 +431,17 @@ function TradeMarketplaceWriteFormInner({
    * P0-D Blob URL 주인 = 이 폼의 `images`. 부모 시트(WriteSheetFlowInner)가 넘긴 시드 사진 URL 은 「빌린 것」 —
    * 카테고리 전환으로 이 폼이 다시 마운트돼도 같은 시드를 쓰므로 여기서 해제하지 않는다(부모가 해제).
    */
+  /**
+   * GROUP 2-C (Owner 승인 2026-11-10) — 「새로 작성」은 예전 저장 초안만 버린다.
+   * 주제 고르기 전 시트에서 넣은 입력(시드)은 마운트 때 값 그대로 되돌린다.
+   */
+  const [mountSeed] = useState(() => ({
+    title: listingChromeSeed?.title ?? "",
+    description: listingChromeSeed?.description ?? "",
+    price: listingChromeSeed?.price ?? "",
+    images: listingChromeSeed?.images ?? [],
+    freeShare: seededFreeShare,
+  }));
   const [borrowedSeedBlobUrls] = useState<ReadonlySet<string>>(
     () => new Set((listingChromeSeed?.images ?? []).map((i) => i.url).filter((u) => u.startsWith("blob:")))
   );
@@ -1286,6 +1297,7 @@ function TradeMarketplaceWriteFormInner({
 
   /**
    * 「새로 작성」— 저장소 비운 뒤 폼도 비움. 스토리지만 비우면 나가기 스냅샷이 메모리의 이미지·글로 초안을 다시 씀.
+   * 단 주제 고르기 전 입력(mountSeed: 사진·제목·가격·설명·나눔)은 지우지 않고 그 값으로 되돌린다 (GROUP 2-C).
    */
   const handleDiscardPersistedDraft = useCallback(() => {
     if (editPostId) return;
@@ -1296,12 +1308,12 @@ function TradeMarketplaceWriteFormInner({
     setResumeDraftSnapshot(null);
     setDraftResumeGate("ready");
 
-    setTitle("");
-    setDescription("");
-    setPrice("");
+    setTitle(mountSeed.title);
+    setDescription(mountSeed.description);
+    setPrice(mountSeed.price);
     photoRestoreTokenRef.current += 1;
     photoRestoreInFlightRef.current = false;
-    setImages([]);
+    setImages(mountSeed.images);
     setErrors({});
     setDescriptionAppend("");
     setTradeChatCallPolicy("none");
@@ -1338,7 +1350,10 @@ function TradeMarketplaceWriteFormInner({
     setRegion("");
     setCity("");
     if (!isUsedCarSkin) {
-      if (!hasFreeShare && hasDirectDeal) {
+      if (mountSeed.freeShare) {
+        setIsFreeShare(true);
+        setIsDirectDeal(false);
+      } else if (!hasFreeShare && hasDirectDeal) {
         setIsFreeShare(false);
         setIsDirectDeal(true);
       } else if (hasFreeShare && !hasDirectDeal) {
@@ -1349,7 +1364,7 @@ function TradeMarketplaceWriteFormInner({
         setIsDirectDeal(true);
       }
     }
-  }, [category.id, editPostId, hasDirectDeal, hasFreeShare, isUsedCarSkin]);
+  }, [category.id, editPostId, hasDirectDeal, hasFreeShare, isUsedCarSkin, mountSeed]);
 
   useEffect(() => {
     const handler = (e: Event) => {
