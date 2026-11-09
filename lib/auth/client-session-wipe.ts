@@ -27,7 +27,7 @@ import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-clie
 import { closeAllServiceWorkerNotifications } from "@/lib/push/push-manager";
 import { clearUserSettingsClientCache } from "@/lib/settings/user-settings-store";
 import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-storage";
-import { invalidateMeStoreOrdersHubSummaryCache } from "@/lib/stores/store-delivery-api-client";
+import { wipeDeliveryPrivateClientCaches } from "@/lib/stores/store-delivery-api-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messenger/call-logout-teardown";
@@ -241,7 +241,8 @@ export function invalidateGuestCachesForFreshLogin(): void {
   invalidateAppBootForAuthUpgrade();
   invalidateClientMembershipResolveFlight();
   /** CUT-B1 — drop guest hub_summary 401 negative cache so login can refetch. */
-  invalidateMeStoreOrdersHubSummaryCache();
+  // P0-B: 배달 개인정보성 캐시 전부(허브 요약·주문 상세·이벤트·ETA) 폐기 + 진행 중 응답 무효화
+  wipeDeliveryPrivateClientCaches();
   resetSignupGateSessionFlags();
   markTradeMarketplaceMemberBrowseReseed();
   dispatchTestAuthChanged();

@@ -14,7 +14,7 @@ vi.mock("@/lib/app-boot/run-app-boot", () => ({
 }));
 
 vi.mock("@/lib/stores/store-delivery-api-client", () => ({
-  invalidateMeStoreOrdersHubSummaryCache: vi.fn(),
+  wipeDeliveryPrivateClientCaches: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -149,7 +149,7 @@ describe("wipeClientSessionState storage allowlist", () => {
     const { invalidateAppBootAll, invalidateAppBootForAuthUpgrade } = await import(
       "@/components/app/AppBootProvider"
     );
-    const { invalidateMeStoreOrdersHubSummaryCache } = await import(
+    const { wipeDeliveryPrivateClientCaches } = await import(
       "@/lib/stores/store-delivery-api-client"
     );
     const {
@@ -162,7 +162,8 @@ describe("wipeClientSessionState storage allowlist", () => {
 
     expect(vi.mocked(invalidateAppBootForAuthUpgrade)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(invalidateAppBootAll)).not.toHaveBeenCalled();
-    expect(vi.mocked(invalidateMeStoreOrdersHubSummaryCache)).toHaveBeenCalledTimes(1);
+    // P0-B: 로그인 직전 정리도 배달 개인 캐시 전체 폐기로 통일
+    expect(vi.mocked(wipeDeliveryPrivateClientCaches)).toHaveBeenCalled();
     expect(isTradeMarketplaceMemberBrowseReseedPending()).toBe(true);
   });
 

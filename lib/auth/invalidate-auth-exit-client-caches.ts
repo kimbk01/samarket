@@ -21,6 +21,7 @@ import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client
 import { invalidateOwnerHubDashboardOrdersCache } from "@/lib/stores/owner-hub-dashboard-orders-cache";
 import { invalidateOwnerHubOrderCountsCache } from "@/lib/stores/owner-hub-order-counts-cache";
 import { clearOwnerLiteStore } from "@/lib/stores/owner-lite-external-store";
+import { wipeDeliveryPrivateClientCaches } from "@/lib/stores/store-delivery-api-client";
 import { invalidateOwnerStoreOwnershipCache } from "@/lib/stores/owner-store-ownership-cache";
 
 export async function clearBrowserCacheStorageBestEffort(): Promise<void> {
@@ -52,4 +53,6 @@ export function invalidateAuthExitClientCaches(previousUserId?: string | null): 
   clearProfileSetupDeferForSession();
   invalidateOwnerStoreOwnershipCache(previousUserId ?? undefined);
   invalidateMessengerIceServerCache();
+  /** P0-B: 배달 개인정보성 캐시(허브 요약·주문 상세·이벤트·ETA) 폐기 + 진행 중 응답 무효화 — 로그아웃·계정 전환·세션 없음 공통. */
+  wipeDeliveryPrivateClientCaches();
 }

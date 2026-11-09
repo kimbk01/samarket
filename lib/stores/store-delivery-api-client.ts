@@ -5,6 +5,7 @@
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
 import {
   deliveryCustomerOrderDetailCacheKey,
@@ -160,8 +161,32 @@ function runStoreGetWithDeadline<T>(
   });
 }
 
+/**
+ * P0-B 개인정보성 캐시 계정 격리 (Owner 4단계 B 2026-11-09).
+ * 대상: 허브 요약 · 주문 상세 · 주문 이벤트 · 배송지 ETA · 주문 목록 요청.
+ * - 키·단일 비행 키에 「현재 기기 로그인 사용자 + 폐기 세대(epoch)」 범위를 붙인다 → 계정이 바뀌면 이전 항목에 닿지 않는다.
+ * - 로그아웃·계정 전환 wipe(`wipeDeliveryPrivateClientCaches`)는 세대를 올리고 Map 을 비운다.
+ * - 요청 시작 범위와 응답 도착 시 범위가 다르면(그사이 로그아웃·전환) 응답을 캐시에 넣지 않고 「범위 변경」 결과를 돌려준다.
+ * - TTL 값은 바꾸지 않는다.
+ */
+let deliveryPrivateCacheEpoch = 0;
+
+export const DELIVERY_PRIVATE_SCOPE_CHANGED_STATUS = 409;
+
+function deliveryPrivateScope(): string {
+  return `${getBoundAuthUserId() ?? "anon"}#${deliveryPrivateCacheEpoch}`;
+}
+
+function scopedPrivateKey(scope: string, key: string): string {
+  return `${scope}|${key}`;
+}
+
+function deliveryPrivateScopeChangedResponse(): StoreApiJsonResponse {
+  return { status: DELIVERY_PRIVATE_SCOPE_CHANGED_STATUS, json: { ok: false, error: "auth_scope_changed" } };
+}
+
 function readStoreHubSummaryCache(cacheKey: string): StoreHubSummaryCacheSnapshot {
-  const hit = storeHubSummaryCache.get(cacheKey);
+  const hit = storeHubSummaryCache.get(scopedPrivateKey(deliveryPrivateScope(), cacheKey));
   if (!hit) return { value: null, isFresh: false };
   return { value: hit.value, isFresh: hit.expiresAt > Date.now() };
 }
@@ -190,11 +215,30 @@ export function readMeStoreOrdersHubSummaryCache(): { value: StoreApiJsonRespons
 
 /** PTR·강제 reload — buyer hub 카드 캐시·single-flight 무효화 */
 export function invalidateMeStoreOrdersHubSummaryCache(): void {
-  storeHubSummaryCache.delete("hub_summary=1");
-  forgetSingleFlight("me:store-orders:hub-summary:get");
+  const scope = deliveryPrivateScope();
+  storeHubSummaryCache.delete(scopedPrivateKey(scope, "hub_summary=1"));
+  forgetSingleFlight(scopedPrivateKey(scope, "me:store-orders:hub-summary:get"));
+}
+
+/**
+ * 로그아웃·계정 전환 — 배달 개인정보성 캐시 전부 폐기 + 세대 증가(진행 중 응답은 도착해도 버려진다).
+ * `lib/auth/client-session-wipe.ts` 가 호출한다.
+ */
+export function wipeDeliveryPrivateClientCaches(): void {
+  deliveryPrivateCacheEpoch += 1;
+  storeHubSummaryCache.clear();
+  meStoreOrderDetailCache.clear();
+  meStoreOrderEventsCache.clear();
+  storeDeliveryEtaCache.clear();
+}
+
+/** 테스트 전용 — 현재 범위 문자열 */
+export function getDeliveryPrivateScopeForTests(): string {
+  return deliveryPrivateScope();
 }
 
 function primeStoreHubSummaryCache(cacheKey: string, value: StoreApiJsonResponse): void {
+  cacheKey = scopedPrivateKey(deliveryPrivateScope(), cacheKey);
   /**
    * CUT-B — cache 401 briefly so mount + prewarm do not double-fetch guest hub_summary.
    * 200 keeps normal TTL; other errors stay uncached.
@@ -885,16 +929,18 @@ export function warmMeStoreOrderExpandDetail(orderId: string): void {
 }
 
 export function peekMeStoreOrderDetailCache(orderId: string): StoreApiJsonResponse | null {
+  if (!orderId.trim()) return null;
   return peekMeStoreOrderResponseCache(
     meStoreOrderDetailCache,
-    deliveryCustomerOrderDetailCacheKey(orderId)
+    scopedPrivateKey(deliveryPrivateScope(), deliveryCustomerOrderDetailCacheKey(orderId))
   );
 }
 
 export function peekMeStoreOrderEventsCache(orderId: string): StoreApiJsonResponse | null {
+  if (!orderId.trim()) return null;
   return peekMeStoreOrderResponseCache(
     meStoreOrderEventsCache,
-    deliveryCustomerOrderEventsCacheKey(orderId)
+    scopedPrivateKey(deliveryPrivateScope(), deliveryCustomerOrderEventsCacheKey(orderId))
   );
 }
 
@@ -902,8 +948,9 @@ export function peekMeStoreOrderEventsCache(orderId: string): StoreApiJsonRespon
 export function invalidateMeStoreOrderClientCaches(orderId: string): void {
   const id = orderId.trim();
   if (!id) return;
-  const detailKey = deliveryCustomerOrderDetailCacheKey(id);
-  const eventsKey = deliveryCustomerOrderEventsCacheKey(id);
+  const scope = deliveryPrivateScope();
+  const detailKey = scopedPrivateKey(scope, deliveryCustomerOrderDetailCacheKey(id));
+  const eventsKey = scopedPrivateKey(scope, deliveryCustomerOrderEventsCacheKey(id));
   meStoreOrderDetailCache.delete(detailKey);
   meStoreOrderEventsCache.delete(eventsKey);
   forgetSingleFlight(`${detailKey}:get`);
@@ -919,7 +966,8 @@ export async function fetchMeStoreOrderDetailDeduped(
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
   const force = opts?.force === true;
-  const cacheKey = deliveryCustomerOrderDetailCacheKey(id);
+  const scope = deliveryPrivateScope();
+  const cacheKey = scopedPrivateKey(scope, deliveryCustomerOrderDetailCacheKey(id));
   if (!force) {
     const cached = peekMeStoreOrderResponseCache(meStoreOrderDetailCache, cacheKey);
     if (cached) return cached;
@@ -932,6 +980,7 @@ export async function fetchMeStoreOrderDetailDeduped(
     const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
     if (inFlight) {
       const value = await inFlight;
+      if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
       primeMeStoreOrderResponseCache(
         meStoreOrderDetailCache,
         cacheKey,
@@ -950,6 +999,7 @@ export async function fetchMeStoreOrderDetailDeduped(
       return { res: r, json: await r.json().catch(() => ({})) };
     });
     const value = { status: res.status, json };
+    if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
     // 신선한 응답을 일반 캐시에도 반영 → 이후 non-force 호출에 재사용
     primeMeStoreOrderResponseCache(
       meStoreOrderDetailCache,
@@ -969,7 +1019,8 @@ export async function fetchMeStoreOrderEventsDeduped(
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
   const force = opts?.force === true;
-  const cacheKey = deliveryCustomerOrderEventsCacheKey(id);
+  const scope = deliveryPrivateScope();
+  const cacheKey = scopedPrivateKey(scope, deliveryCustomerOrderEventsCacheKey(id));
   if (!force) {
     const cached = peekMeStoreOrderResponseCache(meStoreOrderEventsCache, cacheKey);
     if (cached) return cached;
@@ -981,6 +1032,7 @@ export async function fetchMeStoreOrderEventsDeduped(
     const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
     if (inFlight) {
       const value = await inFlight;
+      if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
       primeMeStoreOrderResponseCache(
         meStoreOrderEventsCache,
         cacheKey,
@@ -999,6 +1051,7 @@ export async function fetchMeStoreOrderEventsDeduped(
       return { res: r, json: await r.json().catch(() => ({})) };
     });
     const value = { status: res.status, json };
+    if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
     primeMeStoreOrderResponseCache(
       meStoreOrderEventsCache,
       cacheKey,
@@ -1056,7 +1109,8 @@ export async function fetchStoreDeliveryEtaDeduped(
   if (!s || !id) return { status: 400, json: { ok: false } };
   const lang = opts?.language ?? getRuntimeAppLanguage();
   const qs = new URLSearchParams({ delivery_user_address_id: id }).toString();
-  const flightKey = `stores:delivery-eta:${s}:${id}:${lang}`;
+  const scope = deliveryPrivateScope();
+  const flightKey = scopedPrivateKey(scope, `stores:delivery-eta:${s}:${id}:${lang}`);
   const pathname =
     opts?.trace?.pathname ??
     (typeof window !== "undefined" ? window.location.pathname : "/api/stores/[slug]/delivery-eta");
@@ -1096,6 +1150,7 @@ export async function fetchStoreDeliveryEtaDeduped(
       opts?.signal
     );
     const value = { status: res.status, json };
+    if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
     if (res.ok && (json as { ok?: boolean })?.ok === true) {
       storeDeliveryEtaCache.set(flightKey, {
         expiresAt: Date.now() + STORE_DELIVERY_ETA_CLIENT_CACHE_TTL_MS,
@@ -1124,9 +1179,9 @@ export function invalidateStoreDeliveryEtaClientCache(slug?: string): void {
     storeDeliveryEtaCache.clear();
     return;
   }
-  const prefix = `stores:delivery-eta:${s}:`;
+  const marker = `|stores:delivery-eta:${s}:`;
   for (const k of [...storeDeliveryEtaCache.keys()]) {
-    if (k.startsWith(prefix)) storeDeliveryEtaCache.delete(k);
+    if (k.includes(marker)) storeDeliveryEtaCache.delete(k);
   }
 }
 
@@ -1167,13 +1222,16 @@ export async function postMeStoreOrder(body: Record<string, unknown>): Promise<S
 export async function fetchMeStoreOrdersListDeduped(queryWithQuestionOrEmpty: string): Promise<StoreApiJsonResponse> {
   const q = queryWithQuestionOrEmpty.trim();
   const path = q.startsWith("?") ? q : q ? `?${q}` : "";
-  return runSingleFlight(`me:store-orders:list:get:${path}`, () =>
-    runStoreGetWithDeadline("me_store_orders_list", async (signal) => {
+  const scope = deliveryPrivateScope();
+  return runSingleFlight(scopedPrivateKey(scope, `me:store-orders:list:get:${path}`), async () => {
+    const value = await runStoreGetWithDeadline("me_store_orders_list", async (signal) => {
       const res = await fetch(`/api/me/store-orders${path}`, { credentials: "include", cache: "no-store", signal });
       const json = await res.json().catch(() => ({}));
       return { status: res.status, json };
-    })
-  );
+    });
+    if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
+    return value;
+  });
 }
 
 /** GET /api/me/store-orders?hub_summary=1 — stores hub buyer card (lightweight) */
@@ -1185,7 +1243,8 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
   if (cached && !opts.force) {
     return { status: cached.status, json: cached.json };
   }
-  const flight = runSingleFlight("me:store-orders:hub-summary:get", async () => {
+  const scope = deliveryPrivateScope();
+  const flight = runSingleFlight(scopedPrivateKey(scope, "me:store-orders:hub-summary:get"), async () => {
     const inFlightCached = peekStoreHubSummaryCache(cacheKey);
     if (inFlightCached && !opts.force) {
       return { status: inFlightCached.status, json: inFlightCached.json };
@@ -1200,6 +1259,8 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
       const json = await res.json().catch(() => ({}));
       return { status: res.status, json };
     });
+    // 요청 중 로그아웃·계정 전환 → 이전 계정 응답은 캐시에도 화면에도 쓰지 않는다.
+    if (scope !== deliveryPrivateScope()) return deliveryPrivateScopeChangedResponse();
     primeStoreHubSummaryCache(cacheKey, value);
     return value;
   });
