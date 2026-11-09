@@ -2134,6 +2134,7 @@ function TradeMarketplaceWriteFormInner({
           region: submitRegion || undefined,
           city: submitCity || undefined,
           tradeLguId: tradeAddressSsot.tradeLguId ?? undefined,
+          tradeAddressId: tradeAddressSsot.addressId ?? undefined,
           barangay: undefined,
           imageUrls: imageUrlsForSave,
           meta,

@@ -22,6 +22,8 @@ export interface CreatePostPayloadTrade extends CreatePostPayloadBase {
   city?: string;
   /** National PSGC LGU snapshot — N3 write cutover; typed for N2 plumbing only */
   tradeLguId?: string;
+  /** 거래 글쓰기에서 고른 주소 id — 서버가 이 주소(없으면 대표 주소)로 시/군·동네 칸을 정한다(주소 SSOT) */
+  tradeAddressId?: string;
   barangay?: string;
   /** 업로드 후 받은 이미지 URL (첫 URL이 썸네일) */
   imageUrls?: string[];

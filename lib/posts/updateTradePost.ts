@@ -14,6 +14,8 @@ type TradeUpdateBody = {
   region?: string;
   city?: string;
   tradeLguId?: string;
+  /** 서버가 이 주소로 위치를 정한다(주소 SSOT) */
+  tradeAddressId?: string;
   barangay?: string;
   imageUrls?: string[];
   meta?: Record<string, unknown> | null;

@@ -31,6 +31,7 @@ import {
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { tradeJobColumnsForInsert } from "@/lib/posts/trade-job-db-fields";
 import { assertActiveTradeNationalLgu } from "@/lib/trade/location/national/assert-active-trade-national-lgu";
+import { resolveTradePostLocationForUser } from "@/lib/trade/location/resolve-trade-post-location.server";
 
 type PatchBody = {
   categoryId?: string;
@@ -40,6 +41,8 @@ type PatchBody = {
   region?: string;
   city?: string;
   tradeLguId?: string;
+  /** 서버가 이 주소(없으면 대표 주소)로 위치를 정한다(주소 SSOT) */
+  tradeAddressId?: string;
   barangay?: string;
   imageUrls?: string[] | null;
   meta?: Record<string, unknown> | null;
@@ -190,8 +193,17 @@ export async function PATCH(
         trade_lgu_id: before.trade_lgu_id,
         meta: proposedMeta,
       };
-    } else if (proposed.trade_lgu_id) {
-      const lguGate = assertActiveTradeNationalLgu(proposed.trade_lgu_id);
+    } else if (proposed.trade_lgu_id || body.tradeAddressId) {
+      /** 거래 글 위치 SSOT: 위치를 바꿀 수 있는 단계면 서버가 주소 행으로 다시 정한다(화면 값 미사용) */
+      const loc = await resolveTradePostLocationForUser(
+        sb as import("@supabase/supabase-js").SupabaseClient,
+        userId,
+        body.tradeAddressId ?? null,
+      ).catch(() => null);
+      if (loc) {
+        proposed = { ...proposed, region: loc.region, city: loc.city, trade_lgu_id: loc.tradeLguId };
+      }
+      const lguGate = assertActiveTradeNationalLgu(proposed.trade_lgu_id ?? "");
       if (!lguGate.ok) {
         return NextResponse.json(
           { ok: false, error: lguGate.error, code: "trade_lgu_id_invalid" },

@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { REGIONS } from "@/lib/products/form-options";
 import {
   payloadToInsertRow,
   payloadToUpdatePatch,
@@ -270,42 +269,7 @@ export async function getUserAddressDefaults(
 
 export { pickAddressRowForDeliveryRouting } from "@/lib/addresses/pick-address-row-for-delivery-routing";
 
-/** 거래 글 `region`/`city` 일괄 수정 등 — `TradeDefaultLocationBlock` 과 동일 우선순위 */
-export type BulkRegionPatchResolvedLocation = {
-  regionId: string;
-  cityId: string;
-  regionLabel: string;
-  cityLabel: string;
-  barangayLabel: string | null;
-  source: "master_address";
-};
-
-function resolveLocationFromUserAddressDto(
-  row: UserAddressDTO | null | undefined,
-  source: BulkRegionPatchResolvedLocation["source"],
-): BulkRegionPatchResolvedLocation | null {
-  if (!row?.id) return null;
-  const regionId = row.appRegionId?.trim() ?? "";
-  const cityId = row.appCityId?.trim() ?? "";
-  if (!regionId || !cityId) return null;
-  const regionLabel = REGIONS.find((r) => r.id === regionId)?.name ?? regionId;
-  const cityLabel =
-    REGIONS.find((r) => r.id === regionId)?.cities.find((c) => c.id === cityId)?.name ?? cityId;
-  const barangayLabel = row.neighborhoodName?.trim() || null;
-  return { regionId, cityId, regionLabel, cityLabel, barangayLabel, source };
-}
-
-/**
- * 내 거래 글 일괄 지역 패치·유사 배치용 좌표 한 벌.
- * Current USER address authority인 대표(master)에서만 derive한다.
- */
-export async function resolveBulkRegionPatchLocationForUser(
-  sb: SupabaseClient<any>,
-  userId: string,
-): Promise<BulkRegionPatchResolvedLocation | null> {
-  const defs = await getUserAddressDefaults(sb, userId);
-  return resolveLocationFromUserAddressDto(defs.master, "master_address");
-}
+/** 거래 글 위치(일괄 지역 변경 포함)는 `lib/trade/location/resolve-trade-post-location.server.ts` 한 곳 — 주소 SSOT */
 
 /**
  * 같은 사용자 내 주소 표시 이름 중복 방지. 반환값은 DB에 넣을 trim 된 표시 문자열.

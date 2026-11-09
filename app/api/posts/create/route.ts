@@ -1,4 +1,5 @@
 import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { resolveTradePostLocationForUser } from "@/lib/trade/location/resolve-trade-post-location.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
     const region = typeof raw.region === "string" ? raw.region : undefined;
     const city = typeof raw.city === "string" ? raw.city : undefined;
     const tradeLguId = typeof raw.tradeLguId === "string" ? raw.tradeLguId.trim() : undefined;
+    const tradeAddressId = typeof raw.tradeAddressId === "string" ? raw.tradeAddressId.trim() : undefined;
     const barangay = typeof raw.barangay === "string" ? raw.barangay : undefined;
     if (
       publicRegionLabelLeaksPrivateDetail(region ?? "") ||
@@ -67,6 +69,7 @@ function parseCreatePayload(body: unknown): CreatePostPayload | { error: string 
       region,
       city,
       tradeLguId: tradeLguId || undefined,
+      tradeAddressId: tradeAddressId || undefined,
       barangay,
       imageUrls: Array.isArray(raw.imageUrls)
         ? raw.imageUrls.filter(
@@ -129,25 +132,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
 
-  if (parsed.type === "trade") {
-    const tradeLguId =
-      "tradeLguId" in parsed && typeof parsed.tradeLguId === "string"
-        ? parsed.tradeLguId.trim()
-        : "";
-    const lguGate = assertActiveTradeNationalLgu(tradeLguId);
-    if (!lguGate.ok) {
-      return NextResponse.json(
-        { ok: false, error: lguGate.error, code: "trade_lgu_id_invalid" },
-        { status: 400 }
-      );
-    }
-  }
-
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+  }
+
+  if (parsed.type === "trade") {
+    /**
+     * 거래 글 위치 SSOT: 시/군·동네 칸은 서버가 글쓴이 주소 행에서 정한다(화면 값 미사용 · 2026-11-09).
+     * 고른 주소(tradeAddressId) → 없으면 대표 주소. 시/군 LGU 가 없으면 기존 trade_lgu_id_invalid.
+     */
+    const tradeAddressId =
+      "tradeAddressId" in parsed && typeof parsed.tradeAddressId === "string" ? parsed.tradeAddressId : null;
+    const loc = await resolveTradePostLocationForUser(
+      sb as import("@supabase/supabase-js").SupabaseClient,
+      userId,
+      tradeAddressId,
+    ).catch(() => null);
+    const lguGate = assertActiveTradeNationalLgu(loc?.tradeLguId ?? "");
+    if (!loc || !lguGate.ok) {
+      return NextResponse.json(
+        { ok: false, error: lguGate.ok ? "trade_lgu_id_invalid" : lguGate.error, code: "trade_lgu_id_invalid" },
+        { status: 400 }
+      );
+    }
+    parsed.tradeLguId = loc.tradeLguId;
+    parsed.region = loc.region ?? undefined;
+    parsed.city = loc.city ?? undefined;
   }
 
   const access = await requireSignupCompleteForUser(sb as import("@supabase/supabase-js").SupabaseClient, userId);

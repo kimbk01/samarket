@@ -118,6 +118,8 @@ export type TradeWriteAddressSsotSnapshot = {
   cityId: string;
   /** National PSGC LGU — required for Trade location validity (N3) */
   tradeLguId: string | null;
+  /** 글 위치를 정할 주소 id — 서버가 이 주소로 시/군·동네 칸을 다시 정한다(주소 SSOT) */
+  addressId?: string | null;
   nationalStatus: "resolved" | "ambiguous" | "unresolved" | "pending";
 };
 
@@ -218,6 +220,7 @@ export function TradeDefaultLocationBlock({
           regionId: handoff.regionId,
           cityId: handoff.cityId,
           tradeLguId: national.tradeLguId,
+          addressId: handoff.addressId ?? null,
           nationalStatus: national.status,
         });
         setReady(true);
@@ -262,6 +265,7 @@ export function TradeDefaultLocationBlock({
         regionId: next.regionId,
         cityId: next.cityId,
         tradeLguId: national.tradeLguId,
+        addressId: addr.id,
         nationalStatus: national.status,
       });
     } catch {
