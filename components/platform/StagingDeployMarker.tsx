@@ -35,7 +35,8 @@ export function StagingDeployMarker() {
       <div
         style={{
           position: "absolute",
-          top: "env(safe-area-inset-top, 0px)",
+          // 상단 여백 = 공용 --safe-top (Android 기기 보정값 포함 · 통화 바 높이 포함) — raw env() 금지 규칙
+          top: "var(--safe-top, 0px)",
           left: "50%",
           transform: "translateX(-50%)",
           maxWidth: "calc(100vw - 16px)",
