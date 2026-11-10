@@ -1,6 +1,7 @@
 import { MyContent } from "../my/MyContent";
 import { loadMypageOwnerStoreGateSeedServer } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import { loadMypageAdminMenuSeedServer } from "@/lib/my/load-mypage-admin-menu-seed";
+import { MainHubKeepAliveSlot } from "@/components/layout/MainHubKeepAlive";
 
 /**
  * `/mypage` — Cold Boot / Bottom Tab Cache-First.
@@ -13,5 +14,9 @@ export default async function MypagePage() {
     loadMypageOwnerStoreGateSeedServer(),
     loadMypageAdminMenuSeedServer(),
   ]);
-  return <MyContent ownerStoreGateSeed={ownerStoreGateSeed} adminMenuSeed={adminMenuSeed} />;
+  return (
+    <MainHubKeepAliveSlot hubId="mypage">
+      <MyContent ownerStoreGateSeed={ownerStoreGateSeed} adminMenuSeed={adminMenuSeed} />
+    </MainHubKeepAliveSlot>
+  );
 }

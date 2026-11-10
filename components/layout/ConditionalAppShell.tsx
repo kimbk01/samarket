@@ -73,6 +73,7 @@ import {
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
+import { MainHubKeepAliveProvider } from "@/components/layout/MainHubKeepAlive";
 import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
 import { SHELL_HYDRATED_HTML_ATTR, useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
@@ -433,6 +434,8 @@ export function ConditionalAppShell({
       occupiesClearance={bottomNavOccupiesClearance}
     >
     <SupportFabRegistryProvider>
+    {/** B 단계: 하단 탭 허브 유지 — 허브 화면은 셸 고정 위치에서 포털로(이동 연출·트리 교체에도 다시 만들지 않음). 위 두 제공자 안쪽. */}
+    <MainHubKeepAliveProvider>
     {/** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */}
     <div
       className={`app-shell w-full min-w-0 ${
@@ -521,6 +524,7 @@ export function ConditionalAppShell({
       <GlobalPopupHostLazy />
       <BootThumbnailObserver />
     </div>
+    </MainHubKeepAliveProvider>
     </SupportFabRegistryProvider>
     </BottomNavScrollChromeProvider>
   );

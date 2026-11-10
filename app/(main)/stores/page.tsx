@@ -5,6 +5,7 @@ import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
+import { MainHubKeepAliveSlot } from "@/components/layout/MainHubKeepAlive";
 
 export async function generateMetadata(): Promise<Metadata> {
   const h = await headers();
@@ -26,11 +27,13 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default function StoresPage() {
   return (
-    <div
-      className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
-      data-stores-layout-profile="stores-hub"
-    >
-      <StoresHub />
-    </div>
+    <MainHubKeepAliveSlot hubId="delivery">
+      <div
+        className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
+        data-stores-layout-profile="stores-hub"
+      >
+        <StoresHub />
+      </div>
+    </MainHubKeepAliveSlot>
   );
 }

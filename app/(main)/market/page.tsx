@@ -1,5 +1,6 @@
 import { TradeListPageMountProbe } from "@/components/home/TradeListPageMountProbe";
 import { MarketContent } from "./MarketContent";
+import { MainHubKeepAliveSlot } from "@/components/layout/MainHubKeepAlive";
 
 /**
  * `/market` — RSC `await` 로 Suspense 를 걸면 탭 전환마다 fallback 이
@@ -9,9 +10,9 @@ import { MarketContent } from "./MarketContent";
  */
 export default function MarketPage() {
   return (
-    <>
+    <MainHubKeepAliveSlot hubId="trade">
       <TradeListPageMountProbe />
       <MarketContent clientFeedInstantBoot />
-    </>
+    </MainHubKeepAliveSlot>
   );
 }
