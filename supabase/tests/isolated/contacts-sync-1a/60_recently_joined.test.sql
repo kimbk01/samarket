@@ -32,5 +32,8 @@ BEGIN
     WHERE (m->>'user_id')::uuid = N AND (m->>'recently_joined')::boolean), r::text);
   PERFORM t_ok('RECENT-4 8일 전 가입 → 최근 가입 아님 (가입 안내 #3 과 같은 7일)', EXISTS (SELECT 1 FROM jsonb_array_elements(r->'members') m
     WHERE (m->>'user_id')::uuid = E AND NOT (m->>'recently_joined')::boolean), r::text);
+  -- 토큰: 같은 날 같은 상태면 not_modified (하루 1번만 다시 받음) · 토큰에 기준 버전·필리핀 날짜가 들어감
+  PERFORM t_ok('RECENT-5 같은 날 같은 토큰 → not_modified', (public.cm_contacts_list(V, sV, r->>'token'))->>'not_modified' = 'true', r::text);
+  PERFORM t_ok('RECENT-6 기준 바꾸기 전 토큰(날짜 없음) → 다시 받음', (public.cm_contacts_list(V, sV, md5('old')))->>'not_modified' IS NULL, r::text);
 END
 $rj$;

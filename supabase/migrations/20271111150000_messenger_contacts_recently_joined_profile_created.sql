@@ -2,7 +2,8 @@
 -- 원인: cm_contacts_list 가 번호 등록 시각(member_phone_lookup.registered_at = 처음 동의한 때)으로 7일을 판정 →
 --       오래된 회원도 처음 동의하면 「최근 가입」이 붙음 (zxzx11: 2026-04-12 가입인데 표시됨).
 -- 수정: 가입 안내 대상(#3 「가입 7일 안」 · cm_contacts_register_source 의 profiles.created_at)과 같은 기준으로 판정.
--- 바뀌는 것: recently_joined 계산 1곳뿐. 목록 순서·제외 규칙·응답 모양·권한은 그대로.
+-- 바뀌는 것: ① recently_joined 계산 ② 목록 토큰에 「rj1:필리핀 날짜」 추가 — 7일이 지나면 표시가 바뀌므로 하루 1번 다시 받음,
+--            기준이 바뀐 날 기기에 저장된 옛 토큰도 다시 받게 함. 목록 순서·제외 규칙·응답 모양·권한은 그대로.
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.cm_contacts_list(p_user uuid, p_source uuid, p_since_token text)
@@ -39,7 +40,10 @@ BEGIN
     (SELECT concat(count(*), ':', coalesce(max(updated_at)::text, '-')) FROM public.user_social_relations
        WHERE target_user_id = p_user AND relation_type = 'blocked'),
     (SELECT concat(count(*), ':', coalesce(max(coalesce(responded_at, created_at))::text, '-')) FROM public.community_friend_requests
-       WHERE requester_id = p_user OR addressee_id = p_user)
+       WHERE requester_id = p_user OR addressee_id = p_user),
+    -- 「최근 가입」(가입 7일)은 날짜가 지나면 바뀐다 → 필리핀 날짜를 넣어 하루 1번은 목록을 다시 받게 한다.
+    -- 'rj1' = 이 판정 기준 버전 (기준이 바뀐 날 기기에 남은 옛 목록도 다시 받게 함)
+    'rj1:' || (now() AT TIME ZONE 'Asia/Manila')::date::text
   )) INTO v_token;
   IF p_since_token IS NOT NULL AND p_since_token = v_token THEN
     RETURN jsonb_build_object('ok', true, 'not_modified', true, 'token', v_token);
