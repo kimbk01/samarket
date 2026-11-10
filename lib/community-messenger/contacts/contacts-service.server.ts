@@ -188,6 +188,16 @@ export async function loadOwnVerifiedE164(
   };
 }
 
+/** 출처별 연락처 개수 한 번에 (출처마다 개수 조회 금지 — 감사 P3) */
+async function loadSourceEntryCounts(sb: SupabaseClient, ids: string[]): Promise<Record<string, number>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await sb.rpc("cm_contacts_source_entry_counts", { p_source_ids: ids });
+  if (error || !data || typeof data !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(data as Record<string, unknown>)) out[k] = Number(v) || 0;
+  return out;
+}
+
 // ───────────────────────── 동의
 
 export async function consentContacts(
@@ -236,6 +246,8 @@ export type ContactsUserSettings = {
   hasVerifiedPhone: boolean;
   defaultCountry: "PH" | "KR";
   currentConsentVersion: string;
+  /** 어드민 「미사용 기기 정리 일수」 — 설정 안내 문구 (고정 180 금지) */
+  idleSourceDays: number;
 };
 
 export async function getContactsUserSettings(
@@ -245,26 +257,44 @@ export async function getContactsUserSettings(
 ): Promise<ContactsResult<ContactsUserSettings>> {
   const [{ data: st }, { data: lk }, own] = await Promise.all([
     sb.from("messenger_contact_settings").select("*").eq("user_id", userId).maybeSingle(),
-    sb.from("member_phone_lookup").select("user_id").eq("user_id", userId).maybeSingle(),
+    sb.from("member_phone_lookup").select("user_id, phone_hmac").eq("user_id", userId).maybeSingle(),
     loadOwnVerifiedE164(sb, userId),
   ]);
   const s = (st ?? null) as Record<string, unknown> | null;
+  const consented = Boolean(s?.consented_at) && !s?.withdrawn_at;
+  // S9 「본인 호출 시 등록 갱신」: 동의한 회원의 인증 번호가 등록값과 다르면(번호 변경) 지금 맞춘다 — 다를 때만 쓰기
+  let registered = Boolean(lk);
+  const key = consented && own.e164 ? readContactsPhoneHmacKey() : null;
+  if (key && own.e164) {
+    const want = contactsPhoneHmacHex(own.e164, key);
+    const have = String((lk as Record<string, unknown> | null)?.phone_hmac ?? "").replace(/^\\x/, "").toLowerCase();
+    if (want !== have) {
+      const up = await callRpc(sb, "cm_contacts_lookup_upsert", {
+        p_user: userId,
+        p_phone_hmac: toByteaParam(want),
+        p_key_version: CONTACTS_PHONE_KEY_VERSION,
+        p_phone_verified_at: own.verifiedAt,
+      });
+      if (up.ok) registered = true;
+    }
+  }
   const explicit = s?.discovery_policy ? String(s.discovery_policy) : null;
   const callDefault = String(s?.call_default ?? "ask");
   return {
     ok: true,
     value: {
-      consented: Boolean(s?.consented_at) && !s?.withdrawn_at,
+      consented,
       consentVersion: s?.consent_version ? String(s.consent_version) : null,
       accountSyncEnabled: s ? s.account_sync_enabled !== false : true,
       discoveryPolicy: (explicit as ContactsDiscoveryPolicy | null) ?? admin.defaultDiscoveryPolicy,
       discoveryPolicyIsDefault: !explicit,
       joinNotifyEnabled: s ? s.join_notify_enabled !== false : true,
       callDefault: ((CONTACTS_CALL_DEFAULTS as readonly string[]).includes(callDefault) ? callDefault : "ask") as ContactsCallDefault,
-      registeredPhone: Boolean(lk),
+      registeredPhone: registered,
       hasVerifiedPhone: Boolean(own.e164),
       defaultCountry: own.country ?? "PH",
       currentConsentVersion: admin.consentVersion,
+      idleSourceDays: admin.idleSourceDays,
     },
   };
 }
@@ -347,12 +377,15 @@ export async function registerContactsSource(
   sb: SupabaseClient,
   userId: string,
   installId: string,
-  platform: ContactsPlatform
+  platform: ContactsPlatform,
+  /** 회원이 이 기기에서 직접 다시 켬(동의·권한 허용·이 기기 동기화 켬) — 회원이 지운 출처도 재개 (감사 A9) */
+  reactivate = false
 ): Promise<ContactsResult<Record<string, unknown>>> {
   return callRpc(sb, "cm_contacts_register_source", {
     p_user: userId,
     p_install_ref: toByteaParam(contactsInstallRefHex(userId, installId)),
     p_platform: platform,
+    p_reactivate: reactivate,
   });
 }
 
@@ -384,18 +417,10 @@ export async function listContactsSources(
   if (error) return { ok: false, error: "internal_error" };
   const rows = (data ?? []) as Record<string, unknown>[];
   const mine = installId ? `\\x${contactsInstallRefHex(userId, installId)}` : null;
-  const counts = await Promise.all(
-    rows.map(async (r) => {
-      const { count } = await sb
-        .from("contact_source_entries")
-        .select("source_id", { count: "exact", head: true })
-        .eq("source_id", String(r.id));
-      return count ?? 0;
-    })
-  );
+  const countById = await loadSourceEntryCounts(sb, rows.map((r) => String(r.id)));
   return {
     ok: true,
-    value: rows.map((r, i) => ({
+    value: rows.map((r) => ({
       id: String(r.id),
       platform: r.platform as ContactsPlatform,
       status: r.status as "active" | "removed",
@@ -404,7 +429,7 @@ export async function listContactsSources(
       revokeChoice: (r.revoke_choice as "delete" | "keep" | null) ?? null,
       lastUsedAt: String(r.last_used_at),
       lastSyncAt: r.last_sync_at ? String(r.last_sync_at) : null,
-      entryCount: counts[i] ?? 0,
+      entryCount: countById[String(r.id)] ?? 0,
       isThisDevice: Boolean(mine) && String(r.install_ref ?? "").toLowerCase() === mine,
     })),
   };
@@ -488,8 +513,10 @@ export type ContactsListValue =
       accountSyncOff: boolean;
       members: ContactsMemberRow[];
       friendIds: string[];
-      /** 이 기기 연락처 중 초대에서 뺄 항목(친구·내가 숨김·내가 차단) — DB F1 적용 전에는 빈 배열 */
+      /** 이 기기 연락처 중 초대에서 뺄 항목(친구·내가 숨김·내가 차단·거절) */
       knownRefs: string[];
+      /** 친구 중 이 기기 연락처에 있는 회원 → client_ref (친구 행 표시·친구 프로필 휴대폰 전화) */
+      friendRefs: Record<string, string>;
     };
 
 export async function listContacts(
@@ -510,6 +537,8 @@ export async function listContacts(
       members: (Array.isArray(r.value.members) ? r.value.members : []) as ContactsMemberRow[],
       friendIds: (Array.isArray(r.value.friend_ids) ? r.value.friend_ids : []) as string[],
       knownRefs: (Array.isArray(r.value.known_refs) ? r.value.known_refs : []).map(String),
+      friendRefs:
+        r.value.friend_refs && typeof r.value.friend_refs === "object" ? (r.value.friend_refs as Record<string, string>) : {},
     },
   };
 }
@@ -583,19 +612,32 @@ export async function runContactsDailyMaintenance(
   if (!key) return { ok: true, value: { maintenance: m.value, lookupsRefreshed: 0, lookupsSkipped: "contacts_unconfigured" } };
   const { data, error } = await sb.rpc("cm_contacts_lookup_refresh_candidates", { p_limit: 500 });
   if (error) return { ok: true, value: { maintenance: m.value, lookupsRefreshed: 0, lookupsSkipped: "candidates_failed" } };
-  let refreshed = 0;
-  for (const c of (Array.isArray(data) ? data : []) as Record<string, unknown>[]) {
+  // 한 번에 보낸다 (회원마다 RPC 금지 · 등록할 수 없는 번호는 서버가 삭제·다시 고르지 않음 — 감사 M9)
+  const rows = ((Array.isArray(data) ? data : []) as Record<string, unknown>[]).map((c) => {
     const e164 = resolveVerifyPhone(String(c.phone ?? ""))?.e164;
-    if (!e164) continue;
-    const r = await callRpc(sb, "cm_contacts_lookup_upsert", {
-      p_user: String(c.user_id),
-      p_phone_hmac: toByteaParam(contactsPhoneHmacHex(e164, key)),
-      p_key_version: CONTACTS_PHONE_KEY_VERSION,
-      p_phone_verified_at: c.phone_verified_at ?? null,
-    });
-    if (r.ok) refreshed += 1;
-  }
-  return { ok: true, value: { maintenance: m.value, lookupsRefreshed: refreshed, lookupsSkipped: null } };
+    return { u: String(c.user_id), h: e164 ? contactsPhoneHmacHex(e164, key) : null, v: c.phone_verified_at ?? null };
+  });
+  if (rows.length === 0) return { ok: true, value: { maintenance: m.value, lookupsRefreshed: 0, lookupsSkipped: null } };
+  const up = await callRpc(sb, "cm_contacts_lookup_upsert_many", { p_rows: rows, p_key_version: CONTACTS_PHONE_KEY_VERSION });
+  if (!up.ok) return { ok: true, value: { maintenance: m.value, lookupsRefreshed: 0, lookupsSkipped: "upsert_failed" } };
+  return { ok: true, value: { maintenance: m.value, lookupsRefreshed: Number(up.value.refreshed ?? 0), lookupsSkipped: null } };
+}
+
+/** 어드민 「지금 복구」 (§5-3) — 매일 정리와 같은 함수 · 행마다 따로 */
+export async function recoverContactsFailuresNow(
+  sb: SupabaseClient
+): Promise<ContactsResult<{ recovered: number; failed: number; open: number; warn: number }>> {
+  const r = await callRpc(sb, "cm_contacts_recover_failures", {});
+  if (!r.ok) return r;
+  return {
+    ok: true,
+    value: {
+      recovered: Number(r.value.recovered ?? 0),
+      failed: Number(r.value.failed ?? 0),
+      open: Number(r.value.open ?? 0),
+      warn: Number(r.value.warn ?? 0),
+    },
+  };
 }
 
 export type ContactsAdminCounts = {
@@ -603,6 +645,11 @@ export type ContactsAdminCounts = {
   activeSources: number | null;
   entries: number | null;
   openSuppressionFailures: number | null;
+  /** 3회 이상 복구 실패한 미복구 행 (§5-3 「3회 실패 시 어드민 경고 유지」) */
+  warnSuppressionFailures: number | null;
+  /** 친구 삭제 트리거 지금 켜짐 여부 · 매일 정리 기록에서 꺼져 있던 날 (§5-3 「어드민에 꺼진 기간 표시」) */
+  triggerEnabled: boolean | null;
+  triggerOffDays: string[];
   joinNoticesTotal: number | null;
   joinNoticesToday: number | null;
   lastMaintenance: { at: string; summary: Record<string, unknown> } | null;
@@ -612,11 +659,20 @@ export async function loadContactsAdminCounts(sb: SupabaseClient): Promise<Conta
   const head = { count: "exact" as const, head: true };
   // 필리핀 날짜 오늘 0시 (UTC 로 변환)
   const manilaMidnightUtc = new Date(`${contactsManilaDay()}T00:00:00+08:00`).toISOString();
-  const [consented, sources, entries, failures, jnTotal, jnToday, maint] = await Promise.all([
+  const [consented, sources, entries, failures, warn, trig, runs, jnTotal, jnToday, maint] = await Promise.all([
     sb.from("messenger_contact_settings").select("user_id", head).not("consented_at", "is", null).is("withdrawn_at", null),
     sb.from("contact_sources").select("id", head).eq("status", "active"),
-    sb.from("contact_source_entries").select("source_id", head),
+    // 전체 행 정확 개수는 매번 표 전체를 센다 → 통계 추정값 (감사 P3)
+    sb.from("contact_source_entries").select("source_id", { count: "estimated" as const, head: true }),
     sb.from("contact_suppression_failures").select("id", head).is("resolved_at", null),
+    sb.from("contact_suppression_failures").select("id", head).is("resolved_at", null).gte("attempts", 3),
+    sb.rpc("cm_contacts_trigger_enabled"),
+    sb
+      .from("audit_logs")
+      .select("created_at, after_json")
+      .eq("action", "messenger_contacts.daily_maintenance")
+      .order("created_at", { ascending: false })
+      .limit(90),
     sb.from("contact_join_notices").select("owner_user_id", head),
     sb.from("contact_join_notices").select("owner_user_id", head).gte("notified_at", manilaMidnightUtc),
     sb
@@ -628,11 +684,17 @@ export async function loadContactsAdminCounts(sb: SupabaseClient): Promise<Conta
       .maybeSingle(),
   ]);
   const m = maint.data as { created_at?: string; after_json?: Record<string, unknown> } | null;
+  const offDays = ((runs.data ?? []) as { created_at: string; after_json?: Record<string, unknown> | null }[])
+    .filter((r) => r.after_json?.trigger_enabled === false)
+    .map((r) => contactsManilaDay(new Date(r.created_at).getTime()));
   return {
     consentedUsers: consented.error ? null : consented.count ?? 0,
     activeSources: sources.error ? null : sources.count ?? 0,
     entries: entries.error ? null : entries.count ?? 0,
     openSuppressionFailures: failures.error ? null : failures.count ?? 0,
+    warnSuppressionFailures: warn.error ? null : warn.count ?? 0,
+    triggerEnabled: trig.error ? null : trig.data === true,
+    triggerOffDays: Array.from(new Set(offDays)),
     joinNoticesTotal: jnTotal.error ? null : jnTotal.count ?? 0,
     joinNoticesToday: jnToday.error ? null : jnToday.count ?? 0,
     lastMaintenance: m?.created_at ? { at: m.created_at, summary: m.after_json ?? {} } : null,
@@ -674,12 +736,7 @@ export async function loadContactsMemberAdminView(sb: SupabaseClient, userId: st
     sb.from("contact_join_notices").select("joined_user_id", head).eq("owner_user_id", userId),
   ]);
   const rows = (src.data ?? []) as Record<string, unknown>[];
-  const counts = await Promise.all(
-    rows.map(async (r) => {
-      const { count } = await sb.from("contact_source_entries").select("source_id", head).eq("source_id", String(r.id));
-      return count ?? 0;
-    })
-  );
+  const countById = await loadSourceEntryCounts(sb, rows.map((r) => String(r.id)));
   const s = st.data as Record<string, unknown> | null;
   return {
     consent: s
@@ -691,7 +748,7 @@ export async function loadContactsMemberAdminView(sb: SupabaseClient, userId: st
         }
       : null,
     registeredPhone: Boolean(lk.data),
-    sources: rows.map((r, i) => ({
+    sources: rows.map((r) => ({
       id: String(r.id),
       platform: String(r.platform),
       status: String(r.status),
@@ -700,7 +757,7 @@ export async function loadContactsMemberAdminView(sb: SupabaseClient, userId: st
       lastUsedAt: String(r.last_used_at),
       lastSyncAt: r.last_sync_at ? String(r.last_sync_at) : null,
       removedAt: r.removed_at ? String(r.removed_at) : null,
-      entryCount: counts[i] ?? 0,
+      entryCount: countById[String(r.id)] ?? 0,
     })),
     suppressionCount: supp.count ?? 0,
     joinNoticesReceived: jn.count ?? 0,

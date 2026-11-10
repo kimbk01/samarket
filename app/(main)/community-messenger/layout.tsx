@@ -9,7 +9,6 @@ import { CommunityMessengerMediaPreflight } from "@/components/community-messeng
 import { CommunityMessengerRoomClientPrefetch } from "@/components/community-messenger/CommunityMessengerRoomClientPrefetch";
 import { CommunityMessengerRoomRouteChunkWarmHubVisible } from "@/components/community-messenger/CommunityMessengerRoomRouteChunkWarmHubVisible";
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
-import { MessengerContactsHeartbeat } from "@/components/community-messenger/contacts/MessengerContactsHeartbeat";
 import { CallInAppNoticeHost } from "@/components/community-messenger/CallInAppNoticeHost";
 import { CommunityMessengerPresenceRuntimeChrome } from "@/components/layout/providers/CommunityMessengerPresenceRuntimeChrome";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
@@ -26,7 +25,6 @@ export default function CommunityMessengerLayout({ children }: { children: React
       <CommunityMessengerMediaPreflight />
       <CallInAppNoticeHost />
       <MessengerSnackbarHost />
-      <MessengerContactsHeartbeat />
       <div className="sam-domain-shell sam-messenger-vt-root flex min-h-0 min-w-0 flex-1 flex-col">
         <CommunityMessengerGuestGate>
           <MessengerSplitChromeProvider>

@@ -24,9 +24,10 @@ export function useMessengerContactsHeader(opts: {
   const isSplit = useIsMessengerSplitViewport();
   const { titleKey, backHref, subtitle, actions } = opts;
   const title = t(titleKey);
+  // 제목도 등록한다 — 같은 주소에서 동의 단계는 「연락처로 친구 찾기」(시안 consent) 로 바뀐다
   const tier1 = useMemo<MainTier1Partial | null>(
-    () => (isSplit ? null : { rightSlot: actions ?? undefined, subtitle: subtitle ?? undefined }),
-    [actions, isSplit, subtitle]
+    () => (isSplit ? null : { titleText: titleKey, rightSlot: actions ?? undefined, subtitle: subtitle ?? undefined }),
+    [actions, isSplit, subtitle, titleKey]
   );
   useRegisterMainTier1Header(tier1);
   useRegisterMessengerSplitChrome(isSplit, title, true, backHref, actions);

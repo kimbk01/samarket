@@ -201,10 +201,17 @@ export type ContactsMemberRow = {
 };
 
 /** 연락처 화면 주소 (메신저 하위) */
-export const MESSENGER_CONTACTS_SCREEN_HREF = "/community-messenger/contacts";
-export const MESSENGER_CONTACTS_SETTINGS_HREF = "/community-messenger/contacts/settings";
+/** 연락처 화면·설정 주소 (경로) — 1단 머리글 규칙·분할 판정이 쓰는 값 */
+export const MESSENGER_CONTACTS_SCREEN_PATH = "/community-messenger/contacts";
+export const MESSENGER_CONTACTS_SETTINGS_PATH = "/community-messenger/contacts/settings";
+/**
+ * 이동 주소 — 분할 화면(≥768)에서 왼쪽 칸이 친구 탭을 유지하도록 `section=friends` 를 함께 보낸다
+ * (왼쪽 칸 `MessengerSplitListPane` 이 `section` 으로 탭을 고름).
+ */
+export const MESSENGER_CONTACTS_SCREEN_HREF = `${MESSENGER_CONTACTS_SCREEN_PATH}?section=friends`;
+export const MESSENGER_CONTACTS_SETTINGS_HREF = `${MESSENGER_CONTACTS_SETTINGS_PATH}?section=friends`;
 /** 숨긴 추천 바로가기 (관리 「숨긴 추천」 줄 · 시안 hidden) — 설정 화면이 이 값을 보면 숨긴 추천 묶음으로 스크롤 */
-export const MESSENGER_CONTACTS_HIDDEN_HREF = `${MESSENGER_CONTACTS_SETTINGS_HREF}?focus=hidden`;
+export const MESSENGER_CONTACTS_HIDDEN_HREF = `${MESSENGER_CONTACTS_SETTINGS_HREF}&focus=hidden`;
 /** 연락처 화면 뒤로(기록 없을 때) = 메신저 친구 탭 — 1단 머리글 규칙·화면이 같은 값 */
 export const MESSENGER_CONTACTS_BACK_HREF = "/community-messenger?section=friends";
 

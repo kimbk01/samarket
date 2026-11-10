@@ -43,7 +43,7 @@ type SourceRow = {
   isThisDevice: boolean;
 };
 type Hidden = { userId: string; reason: "hidden" | "former_friend"; createdAt: string; nickname: string | null; avatarUrl: string | null };
-type Confirm = { kind: "device" | "this" | "all" | "withdraw"; sourceId?: string } | null;
+type Confirm = { kind: "device" | "this" | "all" | "withdraw" | "showAgain"; sourceId?: string; userId?: string } | null;
 type Choice = "policy" | "call" | null;
 
 const CALL_DEFAULT_KEY: Record<ContactsCallDefault, MessageKey> = {
@@ -63,6 +63,7 @@ const CONFIRM_TEXT: Record<NonNullable<Confirm>["kind"], { title: MessageKey; de
   this: { title: "cm_contacts_delete_this_device", desc: "cm_contacts_delete_this_device_desc" },
   all: { title: "cm_contacts_delete_all", desc: "cm_contacts_delete_all_desc" },
   withdraw: { title: "cm_contacts_withdraw", desc: "cm_contacts_withdraw_desc" },
+  showAgain: { title: "cm_contacts_show_again_confirm_title", desc: "cm_contacts_show_again_confirm_desc" },
 };
 
 /** 고르기 시트 (번호로 나를 찾기 · 기본 통화 방식) — 한 줄 52 · 고른 줄 ✓ */
@@ -189,6 +190,13 @@ export function MessengerContactsSettingsScreen() {
   const runConfirm = async () => {
     if (!confirm) return;
     const c = confirm;
+    if (c.kind === "showAgain" && c.userId) {
+      const id = c.userId;
+      await act("confirm", () => contactsApi.unsuppress(id), "cm_contacts_shown_again", {
+        reload: false,
+        onOk: () => setHidden((cur) => cur.filter((x) => x.userId !== id)),
+      });
+    }
     if (c.kind === "device" && c.sourceId) await act("confirm", () => contactsApi.deleteSource(c.sourceId!), "cm_contacts_deleted");
     if (c.kind === "this" && thisSource) {
       const ok = await act("confirm", () => contactsApi.deleteSource(thisSource.id), "cm_contacts_deleted");
@@ -372,7 +380,7 @@ export function MessengerContactsSettingsScreen() {
           ))}
           <p className="px-4 pb-2 pt-1 text-[12.5px] leading-snug" style={{ color: "var(--cm-chat-sub)" }}>
             {thisSource ? `${t("cm_contacts_device_sync_desc")} · ` : ""}
-            {t("cm_contacts_idle_note")}
+            {t("cm_contacts_idle_note_days", { days: settings.idleSourceDays })}
           </p>
           {deleteRows}
 
@@ -401,15 +409,10 @@ export function MessengerContactsSettingsScreen() {
                 </div>
                 <button
                   type="button"
-                  disabled={busy === `un:${h.userId}`}
-                  aria-busy={busy === `un:${h.userId}`}
+                  disabled={busy === "confirm"}
                   className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}
-                  onClick={() =>
-                    void act(`un:${h.userId}`, () => contactsApi.unsuppress(h.userId), "cm_contacts_shown_again", {
-                      reload: false,
-                      onOk: () => setHidden((cur) => cur.filter((x) => x.userId !== h.userId)),
-                    })
-                  }
+                  // 시안: 숨김·차단·숨긴 추천 모두 확인 → 처리 중 → 결과 안내
+                  onClick={() => setConfirm({ kind: "showAgain", userId: h.userId })}
                 >
                   {t("cm_contacts_show_again")}
                 </button>
@@ -463,8 +466,13 @@ export function MessengerContactsSettingsScreen() {
           {
             key: "ok",
             // 「사용 중지」는 삭제가 아니라 기능 끄기 — 버튼 이름을 동작과 맞춘다 (최종 점검 #19)
-            label: confirm?.kind === "withdraw" ? t("cm_contacts_withdraw_confirm") : t("cm_contacts_delete"),
-            roleTone: "destructive",
+            label:
+              confirm?.kind === "withdraw"
+                ? t("cm_contacts_withdraw_confirm")
+                : confirm?.kind === "showAgain"
+                  ? t("cm_contacts_show_again")
+                  : t("cm_contacts_delete"),
+            roleTone: confirm?.kind === "showAgain" ? "primary" : "destructive",
             onClick: () => void runConfirm(),
             loading: busy === "confirm",
           },

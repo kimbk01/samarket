@@ -9,7 +9,6 @@ import { MessengerFriendTabSectionLabel } from "@/components/community-messenger
 import { MessengerContactsMemberRow } from "@/components/community-messenger/contacts/MessengerContactsMemberRow";
 import { MessengerContactsMemberSheet } from "@/components/community-messenger/contacts/MessengerContactsMemberSheet";
 import { MessengerContactsConsentView } from "@/components/community-messenger/contacts/MessengerContactsConsentView";
-import { MessengerContactsRevokeDialog } from "@/components/community-messenger/contacts/MessengerContactsRevokeDialog";
 import { MessengerContactsBanners } from "@/components/community-messenger/contacts/MessengerContactsBanners";
 import { useMessengerContactsHeader } from "@/components/community-messenger/contacts/use-messenger-contacts-header";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
@@ -121,7 +120,12 @@ export function MessengerContactsScreen() {
       ) : null,
     [onRefresh, showRefresh, showSettings, syncing, t]
   );
-  useMessengerContactsHeader({ titleKey: "cm_contacts_screen_title", backHref: BACK_HREF, subtitle, actions });
+  useMessengerContactsHeader({
+    titleKey: view.phase === "consent" ? "cm_contacts_consent_title" : "cm_contacts_screen_title",
+    backHref: BACK_HREF,
+    subtitle,
+    actions,
+  });
 
   /** 초대 = 이 기기 연락처 중 DIBAY 회원이 아닌 것 — 보이는 회원 + 친구·숨김·내가 차단(서버 known_refs) 제외 */
   const invitees = useMemo(() => {
@@ -203,6 +207,7 @@ export function MessengerContactsScreen() {
             onAddThisDevice={() => void c.answerNewDevice(true)}
             onLater={() => void c.answerNewDevice(false)}
             onRequestPermission={() => void c.requestPermissionAgain()}
+            onTurnOn={() => void c.turnOnThisDevice()}
           />
           <MessengerFriendTabSectionLabel title={t("cm_contacts_members_count", { count: members.length })} />
           {view.listError && members.length === 0 ? (
@@ -268,10 +273,18 @@ export function MessengerContactsScreen() {
           onClose={() => setSheetMember(null)}
           onAddFriend={() => addFriend(sheetMember)}
           onAccept={() => accept(sheetMember, nameOf(sheetMember))}
-          onRemoved={c.removeMemberLocally}
+          onHide={async () => {
+            const ok = await cta.hide(sheetMember);
+            if (ok) c.removeMemberLocally(sheetMember.user_id);
+            return ok;
+          }}
+          onBlock={async () => {
+            const ok = await cta.block(sheetMember);
+            if (ok) c.removeMemberLocally(sheetMember.user_id);
+            return ok;
+          }}
         />
       ) : null}
-      <MessengerContactsRevokeDialog open={view.revokePending} count={view.revokeCount} onAnswer={c.answerRevoke} />
     </div>
   );
 }

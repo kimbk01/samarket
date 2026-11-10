@@ -36,6 +36,14 @@ async function run(req: Request) {
   const r = await runContactsDailyMaintenance(sb);
   if (!r.ok) {
     console.error("[cron messenger-contacts-maintenance]", r.error);
+    // 실패도 감사 기록 1건 (§5-3 「조용한 무시 없음」 — 그날 정리가 안 된 사실을 남긴다)
+    await appendAuditLog(sb, {
+      actor_type: "system",
+      target_type: "messenger_contacts",
+      target_id: "daily",
+      action: "messenger_contacts.daily_maintenance",
+      after_json: { ok: false, error: r.error },
+    }).catch((e: unknown) => console.error("[cron messenger-contacts-maintenance] audit", e));
     return NextResponse.json({ ok: false, error: r.error }, { status: 500 });
   }
   const summary = { ...r.value.maintenance, lookups_refreshed: r.value.lookupsRefreshed, lookups_skipped: r.value.lookupsSkipped };

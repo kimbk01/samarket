@@ -9,6 +9,7 @@ import {
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { contactsApi } from "@/lib/community-messenger/contacts/contacts-api-client";
 import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 
 export type ContactsRequestState = "none" | "sent" | "received";
@@ -82,5 +83,33 @@ export function useContactsFriendCta(fallbackAccept: (requesterId: string) => Pr
     [fallbackAccept, home, t]
   );
 
-  return { requestStateOf, isGoneNow, addFriend, accept, insideHome: Boolean(home) };
+  /** 추천에서 숨기기 (연락처 재추천 제한 — 상대 모름) */
+  const hide = useCallback(
+    async (m: ContactsMemberRow): Promise<boolean> => {
+      const r = await contactsApi.suppress(m.user_id);
+      showMessengerSnackbar(r.ok ? t("cm_contacts_hidden_done") : t("cm_contacts_action_failed"), r.ok ? undefined : { variant: "error" });
+      return r.ok;
+    },
+    [t]
+  );
+
+  /** 차단 — 홈 안이면 홈 차단 처리(친구·숨김·방 목록·차단 목록·안내를 같은 처리로), 밖이면 같은 서버 경로 */
+  const block = useCallback(
+    async (m: ContactsMemberRow): Promise<boolean> => {
+      if (home?.onBlock) return home.onBlock(m.user_id);
+      const res = await fetch("/api/community-messenger/relations/block", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: m.user_id, blockSource: "profile" }),
+      }).catch(() => null);
+      const j = res ? ((await res.json().catch(() => ({}))) as { ok?: boolean }) : {};
+      const ok = Boolean(res?.ok && j.ok);
+      showMessengerSnackbar(ok ? t("cm_contacts_blocked_done") : t("cm_contacts_action_failed"), ok ? undefined : { variant: "error" });
+      return ok;
+    },
+    [home, t]
+  );
+
+  return { requestStateOf, isGoneNow, addFriend, accept, hide, block, insideHome: Boolean(home) };
 }

@@ -6,7 +6,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerFriendTabSectionLabel } from "@/components/community-messenger/friend-list/CommunityMessengerFriendSection";
 import { MessengerContactsMemberRow } from "@/components/community-messenger/contacts/MessengerContactsMemberRow";
 import { MessengerContactsMemberSheet } from "@/components/community-messenger/contacts/MessengerContactsMemberSheet";
-import { MessengerContactsRevokeDialog } from "@/components/community-messenger/contacts/MessengerContactsRevokeDialog";
 import { MessengerContactsBanners } from "@/components/community-messenger/contacts/MessengerContactsBanners";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
@@ -72,15 +71,15 @@ export function MessengerContactsFriendSection() {
   // 홈에서 방금 친구가 됐거나 대화 불가(차단·거절)가 된 회원은 빼고 센다 (§5-5)
   const members = view.members.filter((m) => !cta.isGoneNow(m));
   const preview = members.slice(0, PREVIEW_COUNT);
-  const revoke = <MessengerContactsRevokeDialog open={view.revokePending} count={view.revokeCount} onAnswer={c.answerRevoke} />;
-  if (
-    preview.length === 0 &&
-    !view.listError &&
-    !view.otherDeviceOnly &&
-    !(view.nativeAvailable && view.permission !== "granted" && view.permission !== "limited")
-  ) {
-    return revoke;
-  }
+  // 보여 줄 회원·안내가 없으면 섹션을 그리지 않는다 (권한 철회 안내는 앱 전체 안내가 1곳에서 띄움)
+  const hasBanner =
+    view.otherDeviceOnly ||
+    (view.nativeAvailable &&
+      (view.deviceApprovalNeeded ||
+        view.stoppedReason === "source_removed" ||
+        view.stoppedReason === "device_sync_off" ||
+        (view.permission !== "granted" && view.permission !== "limited")));
+  if (preview.length === 0 && !view.listError && !hasBanner) return null;
 
   const nameOf = (m: ContactsMemberRow) => contactsMemberDisplayName(m, view.names);
 
@@ -120,6 +119,7 @@ export function MessengerContactsFriendSection() {
         onAddThisDevice={() => void c.answerNewDevice(true)}
         onLater={() => void c.answerNewDevice(false)}
         onRequestPermission={() => void c.requestPermissionAgain()}
+        onTurnOn={() => void c.turnOnThisDevice()}
       />
       {view.listError && preview.length === 0 ? <MessengerContactsRetry compact onRetry={() => void c.reloadList()} /> : null}
       <div>
@@ -146,10 +146,18 @@ export function MessengerContactsFriendSection() {
           onClose={() => setSheetMember(null)}
           onAddFriend={() => addFriend(sheetMember)}
           onAccept={() => accept(sheetMember)}
-          onRemoved={c.removeMemberLocally}
+          onHide={async () => {
+            const ok = await cta.hide(sheetMember);
+            if (ok) c.removeMemberLocally(sheetMember.user_id);
+            return ok;
+          }}
+          onBlock={async () => {
+            const ok = await cta.block(sheetMember);
+            if (ok) c.removeMemberLocally(sheetMember.user_id);
+            return ok;
+          }}
         />
       ) : null}
-      {revoke}
     </section>
   );
 }

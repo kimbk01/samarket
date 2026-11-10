@@ -51,8 +51,15 @@ export function SwitchRow({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         data-cm-settings-switch={checked ? "on" : "off"}
-        className={`relative h-[26px] w-11 shrink-0 rounded-full transition-colors duration-150 disabled:opacity-50 ${
-          checked ? "bg-sam-primary" : "bg-sam-border"
+        // 막힘(저장 중)은 흐리게(opacity) 하지 않고 색으로 — 켜짐=연한 초록 · 꺼짐=연회색 (UI SSOT)
+        className={`relative h-[26px] w-11 shrink-0 rounded-full transition-colors duration-150 disabled:cursor-default ${
+          checked
+            ? disabled
+              ? "bg-[color:var(--sam-primary-soft)]"
+              : "bg-sam-primary"
+            : disabled
+              ? "bg-[color:var(--cm-chat-band)]"
+              : "bg-sam-border"
         }`}
       >
         <span

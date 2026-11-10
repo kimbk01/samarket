@@ -11,6 +11,8 @@ import type { FriendListRowViewModel } from "@/lib/community-messenger/friend-li
 
 type Props = {
   row: FriendListRowViewModel;
+  /** 「내 연락처」 작은 표시 (연락처 동기화 정책 #5 — 친구이면서 내 연락처에 있음). 없으면 표시 안 함 */
+  contactTagLabel?: string | null;
   onPress?: () => void;
   onLongPress?: () => void;
   disabled?: boolean;
@@ -21,7 +23,7 @@ type Props = {
  * 1행 이름 16/600 (이름 옆 「(@아이디)」 없음) · 2행 12.5 회색 = 상대가 쓴 상태 글 → 없으면 마지막 접속(지금 문구) → 없으면 @아이디.
  * 접속 상태는 아바타 점으로 항상 보인다. 큰 「친구」상태 뱃지는 사용하지 않는다. 우측 즐겨찾기 별은 그대로.
  */
-export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disabled = false }: Props) {
+export function CommunityMessengerFriendRow({ row, contactTagLabel = null, onPress, onLongPress, disabled = false }: Props) {
   const publicIdLabel = row.publicId?.trim() ? formatAtUsername(row.publicId) : null;
 
   return (
@@ -47,8 +49,17 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
         <CommunityMessengerFriendPresenceDot peerUserId={row.profileId} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <p data-cm-list-title="" className="truncate" style={{ color: "var(--cm-chat-fg)" }}>
-          {row.displayName}
+        <p data-cm-list-title="" className="flex min-w-0 items-center gap-1.5" style={{ color: "var(--cm-chat-fg)" }}>
+          <span className="truncate">{row.displayName}</span>
+          {contactTagLabel ? (
+            <span
+              className="shrink-0 rounded-full bg-[color:var(--cm-chat-band)] px-1.5 text-[11px] font-normal leading-[18px]"
+              style={{ color: "var(--cm-chat-sub)" }}
+              data-cm-friend-contact-tag=""
+            >
+              {contactTagLabel}
+            </span>
+          ) : null}
         </p>
         {row.subtitle ? (
           <p

@@ -1747,6 +1747,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [hydrateMessengerFriends, patchLocalFriendRequests, refresh, t]
   );
 
+  /** 차단 처리는 아래에서 정의된다 → 공용 친구 행동에는 ref 로 연결 (연락처 회원 시트 차단도 홈 상태를 같은 처리로 바꿈) */
+  const toggleBlockRef = useRef<((targetUserId: string) => Promise<boolean>) | null>(null);
+
   /** 친구 추가 시트·친구 탭 인라인 검색 공용 친구 행동 (F-1) */
   const messengerFriendActions = useMemo<MessengerFriendActionsContextValue>(
     () => ({
@@ -1758,6 +1761,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       onSend: (userId) => addFriendSaved(userId),
       onCancel: (userId) => cancelOutgoingFriendRequest(userId),
       onRespond: (requestId, action, peerLabel) => respondIncomingFriendRequest(requestId, action, peerLabel),
+      onBlock: async (userId) => (toggleBlockRef.current ? toggleBlockRef.current(userId) : false),
       onOpenProfile: (user) =>
         setFriendSheet({
           mode: "profile",
@@ -1933,7 +1937,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const toggleBlock = useCallback(
-    async (targetUserId: string, options?: { blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log" }) => {
+    async (
+      targetUserId: string,
+      options?: { blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log" }
+    ): Promise<boolean> => {
       setBusyId(`block:${targetUserId}`);
       try {
         const isBlocked = resolvePeerBlockedByMe(targetUserId);
@@ -1999,7 +2006,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           /** 3) 숨김·차단 목록 SSOT hydrate (privacy_lists_replace) */
           void hydrateMessengerPrivacyLists();
           void refreshFriendSearch(searchKeyword);
-          return;
+          return true;
         }
         if (
           tryRedirectMessengerHomeAuthBlocked(router, res, json, {
@@ -2007,12 +2014,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             loginRequiredMessage: t("common_login_required"),
           })
         ) {
-          return;
+          return false;
         }
         if (res.status === 401 || res.status === 403) {
           setAuthRequired(true);
           setPageError(t("nav_messenger_login_required"));
-          return;
+          return false;
         }
         /** F-8 — 차단 실패 스낵바 (원문 error 비노출) */
         showMessengerSnackbar(
@@ -2020,6 +2027,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           { variant: "error" }
         );
         setActionError(getMessengerActionErrorMessage(json.error));
+        return false;
       } finally {
         setBusyId(null);
       }
@@ -2041,6 +2049,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       t,
     ]
   );
+  useEffect(() => {
+    toggleBlockRef.current = (targetUserId: string) => toggleBlock(targetUserId, { blockSource: "profile" });
+  }, [toggleBlock]);
+
 
   /** F-7 — 차단만 확인 모달. 이미 차단(해제)이면 즉시 실행. */
   const requestBlockWithConfirm = useCallback(

@@ -159,7 +159,7 @@ describe("메신저 hot path 미연결 계약", () => {
     const allowed = [
       /^app\/api\/community-messenger\/contacts\//,
       /^app\/api\/cron\/messenger-contacts-maintenance\//,
-      /^app\/api\/admin\/messenger\/contacts(-settings)?\//,
+      /^app\/api\/admin\/messenger\/contacts(-settings|-recover)?\//,
       /^lib\/community-messenger\/contacts\//,
       // 2단계 화면 — 친구 탭 섹션·연락처 화면·설정 진입·친구 추가 시트·메신저 진입 사용 갱신만
       /^components\/community-messenger\/contacts\//,
@@ -180,9 +180,11 @@ describe("메신저 hot path 미연결 계약", () => {
     ].filter((f) => /(bootstrap|home-sync|realtime|room)/i.test(path.relative(ROOT, f)) && !/contacts/.test(f));
     expect(hot.filter((f) => /contacts\/|MessengerContacts/.test(readFileSync(f, "utf8")))).toEqual([]);
   });
-  it("메신저 레이아웃은 사용 갱신 컴포넌트만 (엔진은 지연 import)", () => {
-    const layout = readFileSync(path.join(ROOT, "app/(main)/community-messenger/layout.tsx"), "utf8");
+  it("앱 시작 처리(S7)는 메인 레이아웃 1곳 · 사용 갱신 컴포넌트만 (엔진은 지연 import)", () => {
+    const layout = readFileSync(path.join(ROOT, "app/(main)/layout.tsx"), "utf8");
     expect(layout).toContain("MessengerContactsHeartbeat");
+    const messengerLayout = readFileSync(path.join(ROOT, "app/(main)/community-messenger/layout.tsx"), "utf8");
+    expect(messengerLayout).not.toContain("MessengerContactsHeartbeat");
     const hb = readFileSync(path.join(ROOT, "components/community-messenger/contacts/MessengerContactsHeartbeat.tsx"), "utf8");
     expect(hb).toContain('import("@/lib/community-messenger/contacts/contacts-sync-engine")');
     expect(hb).not.toMatch(/^import .*contacts-sync-engine/m);
@@ -192,10 +194,10 @@ describe("메신저 hot path 미연결 계약", () => {
 describe("연락처 화면 1단 머리글 = 연락처 계약 값 (최종 점검 · 중복 값 고정)", () => {
   it("연락처·설정 화면 뒤로 주소가 계약 상수와 같다", async () => {
     const { resolveMainTier1Subpage } = await import("@/lib/layout/resolve-main-tier1");
-    const { MESSENGER_CONTACTS_BACK_HREF, MESSENGER_CONTACTS_SCREEN_HREF, MESSENGER_CONTACTS_SETTINGS_HREF } = await import(
+    const { MESSENGER_CONTACTS_BACK_HREF, MESSENGER_CONTACTS_SCREEN_PATH, MESSENGER_CONTACTS_SETTINGS_PATH } = await import(
       "@/lib/community-messenger/contacts/contacts-contract"
     );
-    expect(resolveMainTier1Subpage(MESSENGER_CONTACTS_SCREEN_HREF)?.backHref).toBe(MESSENGER_CONTACTS_BACK_HREF);
-    expect(resolveMainTier1Subpage(MESSENGER_CONTACTS_SETTINGS_HREF)?.backHref).toBe(MESSENGER_CONTACTS_SCREEN_HREF);
+    expect(resolveMainTier1Subpage(MESSENGER_CONTACTS_SCREEN_PATH)?.backHref).toBe(MESSENGER_CONTACTS_BACK_HREF);
+    expect(resolveMainTier1Subpage(MESSENGER_CONTACTS_SETTINGS_PATH)?.backHref).toBe(MESSENGER_CONTACTS_SCREEN_PATH);
   });
 });

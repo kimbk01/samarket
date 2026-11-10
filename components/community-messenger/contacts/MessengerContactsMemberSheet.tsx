@@ -2,16 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Ban, Check, EyeOff, MessageCircle, Phone, UserPlus, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import {
+  DibayBottomSheet,
+  DibayMenuList,
+  DibayQuickActions,
+  type DibayMenuItem,
+  type DibayQuickAction,
+} from "@/components/ui/dibay-overlay";
 import { DibayDialog } from "@/components/ui/dibay-overlay/DibayDialog";
+import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import type { ContactsRequestState } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
-import { contactsApi } from "@/lib/community-messenger/contacts/contacts-api-client";
-import type { ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
+import type { ContactsCallDefault, ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { formatAtUsername } from "@/lib/users/user-label";
-import type { ContactsCallDefault } from "@/lib/community-messenger/contacts/contacts-contract";
 import {
   MessengerContactsCallChoiceSheet,
   openContactsPhoneCall,
@@ -20,10 +26,10 @@ import {
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 
 /**
- * 연락처 회원 프로필 (친구 아님) — 친구 추가 · 메시지(일반 1:1, 거래·주문 방과 따로) · 휴대폰 전화(이 기기 번호만) ·
- * 추천에서 숨기기(상대 모름) · 차단(기존 차단 API) — 둘 다 확인 후 실행. 받은 요청이면 「수락」(기존 수락 경로).
- * 거래·주문 상대 여부는 표시하지 않는다 (Owner #17).
- * 「전화 걸기」 = 4단계 C1·C2: 기본 통화 방식(매번 묻기 → 선택 시트 · DIBAY → 기존 발신 함수 · 휴대폰 → tel:).
+ * 연락처 회원 프로필 (친구 아님 · 통합 시안 「cp」) — 친구 프로필 시트와 같은 오버레이 SSOT:
+ * 머리(사진·이름·「@아이디 · 내 연락처/다른 기기 연락처」) → 가로 빠른 행동(친구 추가/수락 · 메시지 · 전화) →
+ * 메뉴(추천에서 숨기기 · 차단 — 위험 행동은 마지막, 둘 다 확인 후 실행).
+ * 거래·주문 상대 여부는 표시하지 않는다 (Owner #17). 「전화」 = 4단계 C1·C2 기본 통화 방식.
  */
 export function MessengerContactsMemberSheet({
   member,
@@ -34,7 +40,8 @@ export function MessengerContactsMemberSheet({
   requestState,
   onAddFriend,
   onAccept,
-  onRemoved,
+  onHide,
+  onBlock,
 }: {
   member: ContactsMemberRow;
   /** 표시 이름 — `contactsMemberDisplayName` (행·시트·확인 문구 공통) */
@@ -46,10 +53,11 @@ export function MessengerContactsMemberSheet({
   onClose: () => void;
   /** 홈 친구 요청 상태 우선 (`useContactsFriendCta`) */
   requestState: ContactsRequestState;
-  /** 친구 추가 · 수락 — 메신저 친구 요청 SSOT (결과 안내도 그쪽이 한다) */
+  /** 친구 추가 · 수락 · 숨기기 · 차단 — 결과 안내는 각 SSOT 경로가 한다. 성공 여부만 돌려준다 */
   onAddFriend: () => Promise<boolean>;
   onAccept: () => Promise<boolean>;
-  onRemoved: (userId: string) => void;
+  onHide: () => Promise<boolean>;
+  onBlock: () => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -59,90 +67,49 @@ export function MessengerContactsMemberSheet({
   const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
   const publicId = member.dibay_id || member.username;
 
-  const run = async (key: string, fn: () => Promise<boolean>, done?: string) => {
+  /** 처리 중 표시 → 성공이면 닫기 (결과 안내는 각 경로) */
+  const act = async (key: string, fn: () => Promise<boolean>) => {
     if (busy) return;
     setBusy(key);
     const ok = await fn().catch(() => false);
     setBusy(null);
-    if (!ok) {
-      showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
+    if (ok) {
+      setConfirm(null);
+      onClose();
+    }
+  };
+
+  const openMessage = () =>
+    act("message", async () => {
+      const res = await fetch("/api/community-messenger/direct/start", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: member.user_id }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string };
+      if (!res.ok || !j.ok || !j.roomId) {
+        showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
+        return false;
+      }
+      router.push(`/community-messenger/rooms/${encodeURIComponent(j.roomId)}`);
+      return true;
+    });
+
+  const call = () => {
+    if (callDefault === "dibay") {
+      unlockCommunityMessengerCallPlaybackFromUserGesture();
+      void startContactsDibayCall(router, member.user_id, "voice", name).then((ok) => {
+        if (ok) onClose();
+      });
       return;
     }
-    if (done) showMessengerSnackbar(done);
+    if (callDefault === "phone" && deviceNumber) {
+      openContactsPhoneCall(deviceNumber);
+      return;
+    }
+    setChoiceOpen(true);
   };
-
-  const row = (key: string, label: string, sub: string | null, onClick: () => void, opts: { danger?: boolean; disabled?: boolean } = {}) => (
-    <button
-      key={key}
-      type="button"
-      disabled={opts.disabled || busy !== null}
-      aria-busy={busy === key}
-      onClick={onClick}
-      className="flex min-h-[52px] w-full items-center justify-between gap-3 border-t border-[color:var(--overlay-border)] px-4 text-left"
-      style={{
-        // 막힘은 흐리게(opacity)가 아니라 보조 글자색으로 (UI SSOT)
-        color:
-          opts.disabled || (busy !== null && busy !== key)
-            ? "var(--overlay-text-secondary)"
-            : opts.danger
-              ? "var(--sam-danger)"
-              : "var(--overlay-text-primary)",
-      }}
-    >
-      <span className="text-[15px]">{label}</span>
-      {sub ? (
-        <span className="text-[12px]" style={{ color: "var(--overlay-text-secondary)" }}>
-          {sub}
-        </span>
-      ) : null}
-    </button>
-  );
-
-  /** 친구 추가·수락 — 결과 안내는 친구 요청 SSOT 가 하므로 여기서는 처리 중 표시와 닫기만 */
-  const friendCta = async (key: "add" | "accept", fn: () => Promise<boolean>) => {
-    if (busy) return;
-    setBusy(key);
-    const ok = await fn().catch(() => false);
-    setBusy(null);
-    if (ok) onClose();
-  };
-
-  const doHide = () =>
-    run(
-      "hide",
-      async () => {
-        const r = await contactsApi.suppress(member.user_id);
-        if (r.ok) {
-          setConfirm(null);
-          onRemoved(member.user_id);
-          onClose();
-        }
-        return r.ok;
-      },
-      t("cm_contacts_hidden_done")
-    );
-
-  const doBlock = () =>
-    run(
-      "block",
-      async () => {
-        const res = await fetch("/api/community-messenger/relations/block", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId: member.user_id, blockSource: "profile" }),
-        });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && j.ok) {
-          setConfirm(null);
-          onRemoved(member.user_id);
-          onClose();
-          return true;
-        }
-        return false;
-      },
-      t("cm_contacts_blocked_done")
-    );
 
   if (choiceOpen) {
     return (
@@ -158,79 +125,87 @@ export function MessengerContactsMemberSheet({
     );
   }
 
+  const anyBusy = busy !== null;
+  const received = requestState === "received";
+  const friendAction: DibayQuickAction[] =
+    requestState === "sent"
+      ? []
+      : [
+          {
+            key: received ? "accept" : "add",
+            icon: received ? <Check strokeWidth={2.2} /> : <UserPlus strokeWidth={2.2} />,
+            label: received ? t("cm_contacts_accept") : t("cm_contacts_add_friend"),
+            onClick: () => void act(received ? "accept" : "add", received ? onAccept : onAddFriend),
+            disabled: anyBusy,
+            loading: busy === "accept" || busy === "add",
+            primary: true,
+          },
+        ];
+  const quickActions: DibayQuickAction[] = [
+    ...friendAction,
+    {
+      key: "message",
+      icon: <MessageCircle strokeWidth={2.2} />,
+      label: t("cm_contacts_member_message"),
+      onClick: () => void openMessage(),
+      disabled: anyBusy,
+      loading: busy === "message",
+      primary: friendAction.length === 0,
+    },
+    {
+      key: "phone",
+      icon: <Phone strokeWidth={2.2} />,
+      label: t("cm_contacts_member_phone_call"),
+      onClick: call,
+      disabled: anyBusy,
+    },
+  ];
+  const menu: DibayMenuItem[] = [
+    {
+      key: "hide",
+      icon: <EyeOff />,
+      label: t("cm_contacts_member_hide"),
+      hint: t("cm_contacts_member_hide_sub"),
+      onClick: () => setConfirm("hide"),
+      disabled: anyBusy,
+    },
+  ];
+  const danger: DibayMenuItem[] = [
+    { key: "block", icon: <Ban />, label: t("cm_contacts_member_block"), onClick: () => setConfirm("block"), disabled: anyBusy, danger: true },
+  ];
+
   return (
-    <MessengerHomeBottomSheetShell onClose={onClose} closeAriaLabel={t("cm_contacts_cancel")} anchor="fit-content" dialogAriaLabel={name}>
-      <div className="pb-[max(1rem,var(--safe-bottom))] pt-4" data-cm-contacts-member-sheet="">
-        <div className="flex flex-col items-center gap-1 px-4 pb-3">
-          <SamarketUserAvatarThumb avatarUrl={member.avatar_url} size={72} roundedClassName="rounded-[24px]" />
-          <p className="mt-1 text-[18px] font-semibold" style={{ color: "var(--overlay-text-primary)" }}>
-            {name}
-          </p>
-          <p className="text-[12.5px]" style={{ color: "var(--overlay-text-secondary)" }}>
-            {[publicId ? formatAtUsername(publicId) : null, member.on_this_device ? t("cm_contacts_on_this_device") : t("cm_contacts_member_other_device")]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        {requestState === "received"
-          ? row("accept", t("cm_contacts_accept"), null, () => void friendCta("accept", onAccept))
-          : requestState !== "sent"
-            ? row("add", t("cm_contacts_add_friend"), null, () => void friendCta("add", onAddFriend))
-            : null}
-        {row("message", t("cm_contacts_member_message"), null, () =>
-          void run("message", async () => {
-            const res = await fetch("/api/community-messenger/direct/start", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ targetUserId: member.user_id }),
-            });
-            const j = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string };
-            if (!res.ok || !j.ok || !j.roomId) return false;
-            onClose();
-            router.push(`/community-messenger/rooms/${encodeURIComponent(j.roomId)}`);
-            return true;
-          })
-        )}
-        {row("phone", t("cm_contacts_member_phone_call"), null, () => {
-          if (callDefault === "dibay") {
-            unlockCommunityMessengerCallPlaybackFromUserGesture();
-            void startContactsDibayCall(router, member.user_id, "voice", name).then((ok) => {
-              if (ok) onClose();
-            });
-            return;
-          }
-          if (callDefault === "phone" && deviceNumber) {
-            openContactsPhoneCall(deviceNumber);
-            return;
-          }
-          setChoiceOpen(true);
-        })}
-        {row("hide", t("cm_contacts_member_hide"), t("cm_contacts_member_hide_sub"), () => setConfirm("hide"))}
-        {row("block", t("cm_contacts_member_block"), null, () => setConfirm("block"), { danger: true })}
+    <DibayBottomSheet open onClose={onClose} ariaLabel={name} showHandle>
+      <div className={`relative ${OverlayUi.profileHeader}`} data-cm-contacts-member-sheet="">
+        <button type="button" className="dibay-overlay-icon-btn absolute -right-2 -top-2" aria-label={t("nav_close")} onClick={onClose}>
+          <X className="h-5 w-5" strokeWidth={2} aria-hidden />
+        </button>
+        <SamarketUserAvatarThumb avatarUrl={member.avatar_url} size={72} roundedClassName="rounded-full" />
+        <h2 className={`mt-2 ${OverlayUi.title} ${OverlayUi.titleSheet}`}>{name}</h2>
+        <p className={`mt-0.5 ${OverlayUi.caption}`}>
+          {[publicId ? formatAtUsername(publicId) : null, member.on_this_device ? t("cm_contacts_my_contact") : t("cm_contacts_member_other_device")]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
       </div>
+      <DibayQuickActions items={quickActions} />
+      <DibayMenuList groups={[menu, danger]} />
       <DibayDialog
         open={confirm !== null}
         onClose={() => (busy ? undefined : setConfirm(null))}
         title={confirm === "block" ? t("cm_contacts_block_confirm_title", { name }) : t("cm_contacts_hide_confirm_title")}
         description={confirm === "block" ? t("cm_contacts_block_confirm_desc") : t("cm_contacts_hide_confirm_desc")}
         actions={[
-          {
-            key: "cancel",
-            label: t("cm_contacts_cancel"),
-            roleTone: "secondary",
-            onClick: () => setConfirm(null),
-            disabled: busy !== null,
-          },
+          { key: "cancel", label: t("cm_contacts_cancel"), roleTone: "secondary", onClick: () => setConfirm(null), disabled: anyBusy },
           {
             key: "ok",
             label: confirm === "block" ? t("cm_contacts_member_block") : t("cm_contacts_member_hide"),
             roleTone: confirm === "block" ? "destructive" : "primary",
-            loading: busy !== null,
-            onClick: () => void (confirm === "block" ? doBlock() : doHide()),
+            loading: anyBusy,
+            onClick: () => void act(confirm ?? "hide", confirm === "block" ? onBlock : onHide),
           },
         ]}
       />
-    </MessengerHomeBottomSheetShell>
+    </DibayBottomSheet>
   );
 }

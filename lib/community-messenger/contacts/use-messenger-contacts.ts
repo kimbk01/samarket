@@ -19,14 +19,15 @@ import {
   type ContactsNativePermission,
 } from "@/lib/community-messenger/contacts/contacts-native";
 import {
-  clearContactsDeviceData,
+  CONTACTS_CHANGED_EVENT,
   clearContactsStop,
   patchContactsLocalState,
+  type ContactsLocalState,
   readContactsLocalState,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
 import { runContactsSync, type ContactsSyncOutcome } from "@/lib/community-messenger/contacts/contacts-sync-engine";
 import { resetContactsArchiveSummary } from "@/lib/community-messenger/contacts/contacts-summary-cache";
-import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
+import { setContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
 
 /** error = 설정을 불러오지 못함(네트워크·서버) — 기능 꺼짐(disabled)과 구분해 다시 시도를 보여 준다 */
 export type MessengerContactsPhase = "loading" | "error" | "disabled" | "consent" | "ready";
@@ -53,6 +54,12 @@ export type MessengerContactsView = {
   listError: boolean;
   /** 권한 철회 안내의 「이미 올린 n개」 */
   revokeCount: number;
+  /** 이 기기는 아직 올리기를 허락하지 않음 (#11) — 다른 기기 결과가 있으면 otherDeviceOnly 로 묻는다 */
+  deviceApprovalNeeded: boolean;
+  /** 이 기기 멈춤 이유 (지움·끔 등) — 안내 띠가 「다시 켜기」를 보여 준다 */
+  stoppedReason: ContactsLocalState["stoppedReason"];
+  /** 친구 중 이 기기 연락처에 있는 회원 → client_ref (친구 행 「내 연락처」·친구 프로필 휴대폰 전화) */
+  friendRefs: Record<string, string>;
 };
 
 const LIST_MIN_INTERVAL_MS = 60_000;
@@ -61,6 +68,7 @@ type ListCacheEntry = {
   members: ContactsMemberRow[];
   friendIds: string[];
   knownRefs: string[];
+  friendRefs: Record<string, string>;
   accountSyncOff: boolean;
   token: string | null;
 };
@@ -86,6 +94,7 @@ async function fetchContactsList(userId: string): Promise<ListCacheEntry | null>
       members: cached?.members ?? local.members,
       friendIds: cached?.friendIds ?? local.friendIds,
       knownRefs: cached?.knownRefs ?? local.knownRefs,
+      friendRefs: cached?.friendRefs ?? {},
       accountSyncOff: cached?.accountSyncOff ?? false,
       token: r.data.token,
     };
@@ -98,6 +107,7 @@ async function fetchContactsList(userId: string): Promise<ListCacheEntry | null>
     members: d.members,
     friendIds: d.friendIds,
     knownRefs: d.knownRefs ?? [],
+    friendRefs: d.friendRefs ?? {},
     accountSyncOff: d.accountSyncOff,
     token: d.token,
   };
@@ -130,6 +140,9 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       featureOff: false,
       listError: false,
       revokeCount: local0?.revokeCount ?? 0,
+      deviceApprovalNeeded: false,
+      stoppedReason: local0?.stoppedReason ?? null,
+      friendRefs: cachedList?.friendRefs ?? {},
     };
   });
   const mounted = useRef(true);
@@ -148,7 +161,13 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       if (!userId) return;
       const cached = listCache.get(userId);
       if (!force && cached && Date.now() - cached.at < LIST_MIN_INTERVAL_MS) {
-        set({ members: cached.members, friendIds: cached.friendIds, accountSyncOff: cached.accountSyncOff, knownRefs: cached.knownRefs });
+        set({
+          members: cached.members,
+          friendIds: cached.friendIds,
+          accountSyncOff: cached.accountSyncOff,
+          knownRefs: cached.knownRefs,
+          friendRefs: cached.friendRefs,
+        });
         return;
       }
       let p = listInflight.get(userId);
@@ -162,19 +181,18 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         return;
       }
       const after = readContactsLocalState(userId);
+      setContactsFriendTagIds(entry.accountSyncOff ? [] : entry.friendIds);
       set({
         members: entry.members,
         friendIds: entry.friendIds,
         knownRefs: entry.knownRefs,
+        friendRefs: entry.friendRefs,
         accountSyncOff: entry.accountSyncOff,
         listError: false,
         names: after.names,
-        // 이 기기는 아직 출처가 없고(올린 적 없음) 계정에는 다른 기기 결과가 있음 (#11)
-        otherDeviceOnly:
-          nativeAvailable && !after.sourceId && !after.numbers && entry.members.length > 0 && !after.newDeviceAsked,
       });
     },
-    [nativeAvailable, set, userId]
+    [set, userId]
   );
 
   const afterSync = useCallback(
@@ -187,7 +205,14 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         revokeCount: local?.revokeCount ?? 0,
         lastSyncAt: local?.lastSyncAt ?? null,
         names: local?.names ?? {},
+        stoppedReason: local?.stoppedReason ?? null,
+        deviceApprovalNeeded: outcome === "device_not_approved",
       });
+      if (outcome === "device_not_approved" && local && !local.newDeviceAsked) {
+        // #11 「다른 기기에서 동기화한 연락처가 있어요 · 이 기기 연락처도 추가할까요?」 — 계정에 다른 기기 출처가 있을 때만 1번
+        const src = await contactsApi.sources(null);
+        if (src.ok) set({ otherDeviceOnly: src.data.sources.length > 0 });
+      }
       if (outcome === "uploaded") await loadList(true);
     },
     [loadList, set, userId]
@@ -195,10 +220,10 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
 
   /** 동기화 1회 → 결과(화면이 안내에 쓴다). 올렸으면 afterSync 가 목록을 새로 받고, 수동인데 안 올렸으면 여기서 받는다 */
   const sync = useCallback(
-    async (manual: boolean): Promise<ContactsSyncOutcome | null> => {
+    async (manual: boolean, reactivate = false): Promise<ContactsSyncOutcome | null> => {
       if (!userId) return null;
       set({ syncing: true });
-      const outcome = await runContactsSync(userId, { manual });
+      const outcome = await runContactsSync(userId, { manual, reactivate });
       await afterSync(outcome);
       if (manual && outcome !== "uploaded") await loadList(true);
       return outcome;
@@ -271,7 +296,8 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     if (!userId) return false;
     const r = await contactsApi.consent();
     if (!r.ok) return false;
-    patchContactsLocalState(userId, { consented: true, defaultCountry: r.data.defaultCountry });
+    // 이 기기에서 동의 = 이 기기 올리기 허락 (#11)
+    patchContactsLocalState(userId, { consented: true, defaultCountry: r.data.defaultCountry, deviceApproved: true });
     clearContactsStop(userId);
     invalidateMessengerContactsCache();
     const s = await contactsApi.settings();
@@ -283,7 +309,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       patchContactsLocalState(userId, { lastPermission: state });
       set({ permission: state });
       if (state === "granted" || state === "limited") {
-        const outcome = await sync(true);
+        const outcome = await sync(true, true);
         // sync 가 이미 목록을 새로 받았다 (올림 → afterSync · 안 올림 → 수동 경로) — 같은 요청을 또 보내지 않는다 (최종 점검 #10)
         uploaded = outcome !== null;
       }
@@ -296,41 +322,49 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
   const answerNewDevice = useCallback(
     async (add: boolean) => {
       if (!userId) return;
-      patchContactsLocalState(userId, { newDeviceAsked: true });
+      patchContactsLocalState(userId, { newDeviceAsked: true, ...(add ? { deviceApproved: true } : {}) });
       set({ otherDeviceOnly: false });
       if (!add) return;
       const state = await requestContactsPermission();
-      patchContactsLocalState(userId, { lastPermission: state });
       set({ permission: state });
-      if (state === "granted" || state === "limited") await sync(true);
+      if (state === "granted" || state === "limited") await sync(true, true);
     },
     [set, sync, userId]
   );
 
   /** OS 권한 철회 안내 답 (#19) — 지우기 = 이 기기 출처 삭제, 유지 = 업로드 중단만 */
-  const answerRevoke = useCallback(
-    async (choice: "delete" | "keep") => {
-      if (!userId) return false;
+  // 앱 전체 안내에서 철회에 답함 등 → 열린 화면도 기기 안 상태·목록을 다시 읽는다
+  useEffect(() => {
+    if (!userId) return;
+    const onChanged = () => {
       const local = readContactsLocalState(userId);
-      if (local.sourceId) {
-        const r = await contactsApi.patchSource(local.sourceId, { installId: ensureClientInstanceId(), revokeChoice: choice });
-        if (!r.ok) return false;
-      }
-      if (choice === "delete") clearContactsDeviceData(userId);
-      patchContactsLocalState(userId, { revokePending: false });
-      set({ revokePending: false });
-      await loadList(true);
-      return true;
-    },
-    [loadList, set, userId]
-  );
+      set({
+        revokePending: local.revokePending,
+        names: local.names,
+        lastSyncAt: local.lastSyncAt,
+        stoppedReason: local.stoppedReason,
+      });
+      listCache.delete(userId);
+      void loadList(true);
+    };
+    window.addEventListener(CONTACTS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(CONTACTS_CHANGED_EVENT, onChanged);
+  }, [loadList, set, userId]);
 
+  /** 「시작하기」·권한 다시 허용 — 이 기기에서 회원이 직접 켬 (허락 + 지운 출처 재개) */
   const requestPermissionAgain = useCallback(async () => {
+    if (userId) patchContactsLocalState(userId, { deviceApproved: true });
     const state = await requestContactsPermission();
-    if (userId) patchContactsLocalState(userId, { lastPermission: state });
-    set({ permission: state });
-    if (state === "granted" || state === "limited") await sync(true);
+    set({ permission: state, deviceApprovalNeeded: false });
+    if (state === "granted" || state === "limited") await sync(true, true);
   }, [set, sync, userId]);
+
+  /** 지운 이 기기 연락처를 다시 켬 (「다시 켜기」) — 그 기기에서 회원이 직접 한 동작만 재개 (감사 A9) */
+  const turnOnThisDevice = useCallback(async () => {
+    if (!userId) return null;
+    clearContactsStop(userId);
+    return sync(true, true);
+  }, [sync, userId]);
 
   const refreshPermission = useCallback(async () => {
     set({ permission: await checkContactsPermission() });
@@ -376,8 +410,8 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     reloadList: () => loadList(true),
     consentAndStart,
     answerNewDevice,
-    answerRevoke,
     requestPermissionAgain,
+    turnOnThisDevice,
     refreshPermission,
     removeMemberLocally,
     markRequested,

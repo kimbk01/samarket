@@ -16,6 +16,8 @@ export type MessengerFriendActionsContextValue = MessengerFriendAddSheetFriendAc
   unavailablePeerIds?: ReadonlySet<string>;
   /** §17-4 R-3: 그중 내가 차단한 상대(이유 안내 「차단 해제하면 가능」 구분용). 모르면 undefined */
   blockedByMePeerIds?: ReadonlySet<string>;
+  /** 차단 (홈 차단 처리 그대로 — 친구·숨김·방 목록·차단 목록을 같은 처리로 바꿈). 성공 여부 */
+  onBlock?: (userId: string) => Promise<boolean>;
 };
 
 const MessengerFriendActionsContext = createContext<MessengerFriendActionsContextValue | null>(null);

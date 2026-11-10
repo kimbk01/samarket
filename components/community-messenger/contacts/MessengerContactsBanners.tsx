@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { MESSENGER_CONTACTS_SETTINGS_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
@@ -31,11 +33,14 @@ export function MessengerContactsBanners({
   onAddThisDevice,
   onLater,
   onRequestPermission,
+  onTurnOn,
 }: {
   view: MessengerContactsView;
   onAddThisDevice: () => void;
   onLater: () => void;
   onRequestPermission: () => void;
+  /** 지운 이 기기 연락처 다시 켜기 (감사 A9) */
+  onTurnOn: () => void;
 }) {
   const { t } = useI18n();
   if (view.otherDeviceOnly) {
@@ -49,6 +54,35 @@ export function MessengerContactsBanners({
             {t("cm_contacts_later")}
           </button>
         </div>
+      </Banner>
+    );
+  }
+  // 이 기기에서 아직 허락 안 함(다른 기기 결과 없음) — 「시작하기」 = 이 기기 허락 + 권한 요청 (#11)
+  if (view.nativeAvailable && view.deviceApprovalNeeded) {
+    return (
+      <Banner title={t("cm_contacts_start_title")} desc={t("cm_contacts_start_desc")}>
+        <button type="button" className={`${Sam.btn.primaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={onRequestPermission}>
+          {t("cm_contacts_start_cta")}
+        </button>
+      </Banner>
+    );
+  }
+  // 회원이 이 기기 연락처를 지움 → 다시 켤 때까지 멈춤 (감사 A9)
+  if (view.nativeAvailable && view.stoppedReason === "source_removed") {
+    return (
+      <Banner title={t("cm_contacts_removed_title")} desc={t("cm_contacts_removed_desc")}>
+        <button type="button" className={`${Sam.btn.primaryCombo} ${MESSENGER_ROW_BTN_CLASS}`} onClick={onTurnOn}>
+          {t("cm_contacts_turn_on")}
+        </button>
+      </Banner>
+    );
+  }
+  if (view.nativeAvailable && view.stoppedReason === "device_sync_off") {
+    return (
+      <Banner title={t("cm_contacts_refresh_stopped")} desc={t("cm_contacts_device_sync_desc")}>
+        <Link href={MESSENGER_CONTACTS_SETTINGS_HREF} className={`${Sam.btn.secondaryCombo} ${MESSENGER_ROW_BTN_CLASS}`}>
+          {t("cm_contacts_settings")}
+        </Link>
       </Banner>
     );
   }

@@ -1,5 +1,6 @@
 import { MainAppProviders } from "@/components/layout/MainAppProviders";
 import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messenger/room/MessengerRoomRouteEntryMountProbe";
+import { MessengerContactsHeartbeat } from "@/components/community-messenger/contacts/MessengerContactsHeartbeat";
 
 /**
  * 인증 게이트는 `proxy.ts` 단일 경로에서 처리(getClaims/getUser·세션 갱신·Set-Cookie).
@@ -16,6 +17,8 @@ export default function AppLayout({
   return (
     <MainAppProviders initialMainBottomNavItems={null} initialTradeTabCategories={null}>
       <MessengerRoomRouteEntryMountProbe stage="layout" />
+      {/* 연락처 앱 시작 처리 (SSOT v5 S7·#19) — 동의한 회원만 8초 뒤 유휴 시간에 엔진 지연 로드 */}
+      <MessengerContactsHeartbeat />
       {children}
     </MainAppProviders>
   );

@@ -6,6 +6,10 @@ import type { ContactsNameMap, ContactsNumberMap } from "@/lib/community-messeng
 import { contactsManilaDay, type ContactsMemberRow } from "@/lib/community-messenger/contacts/contacts-contract";
 
 export const CONTACTS_LOCAL_PREFIX = "dibay:cm-contacts:v1:";
+/** 권한 철회 안내가 새로 생김 (엔진 → 앱 전체 안내) */
+export const CONTACTS_REVOKE_PENDING_EVENT = "dibay:contacts-revoke-pending";
+/** 기기 안 연락처 상태가 바뀜 (철회 답 등 → 열린 연락처 화면이 다시 읽음) */
+export const CONTACTS_CHANGED_EVENT = "dibay:contacts-changed";
 const PREFIX = CONTACTS_LOCAL_PREFIX;
 
 /** 서버가 업로드를 멈춘 이유 — 이 값이 있으면 엔진은 연락처를 읽지도 올리지도 않는다 (감사 A5) */
@@ -16,7 +20,12 @@ export type ContactsStopReason =
   | "source_inactive"
   | "consent_required"
   /** 어드민 킬스위치 꺼짐 — 그날은 다시 묻지 않는다 */
-  | "feature_off";
+  | "feature_off"
+  /** 회원이 이 기기 연락처를 지움(이 기기·다른 기기·전체·권한 철회 「지우기」) — 이 기기에서 다시 켤 때까지 (감사 A9) */
+  | "source_removed";
+
+/** 끊긴 전체 업로드를 이어 올리기 위한 진행 위치 (조각 크기·개수·내용 지문이 같을 때만 이어감) */
+export type ContactsSnapshotProgress = { generation: number; nextChunk: number; total: number; size: number; fingerprint: string };
 
 
 export type ContactsLocalState = {
@@ -48,6 +57,12 @@ export type ContactsLocalState = {
   knownRefs: string[];
   /** 권한 철회 안내에 보여 줄 「이미 올린 n개」 (철회 감지 시점 이 기기 번호 수) */
   revokeCount: number;
+  /**
+   * 이 기기에서 연락처 올리기를 회원이 허락함 (동의·「이 기기도 추가」·권한 허용을 이 기기에서 함 — #11).
+   * 다른 기기에서 동의한 계정이라도 이 기기는 묻기 전까지 읽지도 올리지도 않는다.
+   */
+  deviceApproved: boolean;
+  snapshotProgress: ContactsSnapshotProgress | null;
 };
 
 export function emptyContactsLocalState(): ContactsLocalState {
@@ -73,6 +88,8 @@ export function emptyContactsLocalState(): ContactsLocalState {
     requestNumberLimit: null,
     knownRefs: [],
     revokeCount: 0,
+    deviceApproved: false,
+    snapshotProgress: null,
   };
 }
 
@@ -145,6 +162,9 @@ export function clearContactsDeviceData(userId: string): ContactsLocalState {
     stoppedReason: null,
     stoppedDay: null,
     limitDay: null,
+    snapshotProgress: null,
+    // 지운 기기는 회원이 이 기기에서 다시 켜기 전까지 올리지 않는다 (감사 A9)
+    deviceApproved: false,
   });
 }
 
@@ -158,6 +178,18 @@ export function markContactsStopped(userId: string, reason: ContactsStopReason):
 export function clearContactsStop(userId: string): void {
   if (!userId) return;
   patchContactsLocalState(userId, { stoppedReason: null, stoppedDay: null, limitDay: null });
+}
+
+/** 권한 철회 안내 대기 여부만 가볍게 (앱 시작 시 · 전체 파싱 없음) */
+export function readContactsRevokePendingFlag(userId: string): boolean {
+  const ls = safeStorage();
+  if (!ls || !userId) return false;
+  try {
+    const raw = ls.getItem(PREFIX + userId);
+    return Boolean(raw && raw.includes('"revokePending":true'));
+  } catch {
+    return false;
+  }
 }
 
 /** 동의 여부만 가볍게 읽기 (전체 JSON 파싱 없이 — 메신저 진입 시 사용) */

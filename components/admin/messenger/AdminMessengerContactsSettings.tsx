@@ -28,6 +28,9 @@ type Counts = {
   activeSources: number | null;
   entries: number | null;
   openSuppressionFailures: number | null;
+  warnSuppressionFailures: number | null;
+  triggerEnabled: boolean | null;
+  triggerOffDays: string[];
   joinNoticesTotal: number | null;
   joinNoticesToday: number | null;
   lastMaintenance: { at: string; summary: Record<string, unknown> } | null;
@@ -45,6 +48,28 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
   const [draft, setDraft] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<"saved" | "stale" | "failed" | null>(null);
+  /** 「지금 복구」 (§5-3) — 결과 숫자 또는 실패 */
+  const [recovering, setRecovering] = useState(false);
+  const [recoverResult, setRecoverResult] = useState<{ recovered: number; failed: number; open: number } | "failed" | null>(null);
+
+  const recoverNow = async () => {
+    setRecovering(true);
+    setRecoverResult(null);
+    try {
+      const res = await fetch("/api/admin/messenger/contacts-recover", { method: "POST", credentials: "include", cache: "no-store" });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; recovered?: number; failed?: number; open?: number };
+      if (!res.ok || !j.ok) {
+        setRecoverResult("failed");
+        return;
+      }
+      setRecoverResult({ recovered: Number(j.recovered ?? 0), failed: Number(j.failed ?? 0), open: Number(j.open ?? 0) });
+      await load();
+    } catch {
+      setRecoverResult("failed");
+    } finally {
+      setRecovering(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -242,6 +267,25 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
             >
               {counts.openSuppressionFailures ?? "—"}
             </dd>
+            <dt>{t("admin_mc_count_failures_warn")}</dt>
+            <dd
+              className={`text-right tabular-nums ${
+                (counts.warnSuppressionFailures ?? 0) > 0 ? "font-semibold text-[color:var(--sam-danger)]" : ""
+              }`}
+            >
+              {counts.warnSuppressionFailures ?? "—"}
+            </dd>
+            <dt>{t("admin_mc_trigger_state")}</dt>
+            <dd
+              className={`text-right ${counts.triggerEnabled === false ? "font-semibold text-[color:var(--sam-danger)]" : ""}`}
+            >
+              {counts.triggerEnabled == null ? "—" : counts.triggerEnabled ? t("admin_mc_trigger_on") : t("admin_mc_trigger_off")}
+              {counts.triggerOffDays.length > 0 ? (
+                <span className="block text-[12px] text-[color:var(--sam-danger)]">
+                  {t("admin_mc_trigger_off_days", { days: counts.triggerOffDays.join(", ") })}
+                </span>
+              ) : null}
+            </dd>
             <dt>{t("admin_mc_count_join_total")}</dt>
             <dd className="text-right tabular-nums">{counts.joinNoticesTotal ?? "—"}</dd>
             <dt>{t("admin_mc_count_join_today")}</dt>
@@ -264,6 +308,24 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
               )}
             </dd>
           </dl>
+          {/* §5-3 「어드민 지금 복구」 — 매일 정리와 같은 함수(행마다 따로 · 멱등) */}
+          <div className="mt-3 flex items-center gap-3">
+            <AdminActionButton
+              variant="secondary"
+              disabled={!canSave || recovering || (counts.openSuppressionFailures ?? 0) === 0}
+              aria-busy={recovering}
+              onClick={() => void recoverNow()}
+            >
+              {recovering ? t("admin_mc_recovering") : t("admin_mc_recover_now")}
+            </AdminActionButton>
+            {recoverResult === "failed" ? (
+              <span className="text-[13px] text-[color:var(--sam-danger)]">{t("admin_mc_recover_failed")}</span>
+            ) : recoverResult ? (
+              <span className="text-[13px]">
+                {t("admin_mc_recover_result", { recovered: recoverResult.recovered, failed: recoverResult.failed, open: recoverResult.open })}
+              </span>
+            ) : null}
+          </div>
         </section>
       ) : null}
     </div>

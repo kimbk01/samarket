@@ -31,20 +31,23 @@ export async function sendContactJoinNotices(
   const p = (prof ?? {}) as { nickname?: string | null; dibay_id?: string | null };
   const rawName = String(p.nickname ?? "").trim();
 
+  // 1회 보장 기록을 한 번에 (회원마다 왕복 금지 — 감사 P9). 새로 기록된 회원에게만 보낸다.
+  const { data: recorded, error: recErr } = await sb.rpc("cm_contacts_record_join_notices", { p_joined: joinedUserId, p_owner_ids: owners });
+  if (recErr) {
+    console.error("[contacts] join notice record", recErr.message);
+    return { sent: 0, skipped: "record_failed" };
+  }
+  const targets = (Array.isArray(recorded) ? recorded : []).map(String);
+
+  // 알림은 회원별 언어·푸시라 회원마다 보낸다 — 10명씩 동시에. 실패하면 1번 다시, 그래도 실패면 기록을 지워 「보냄」으로 남기지 않는다.
   let sent = 0;
-  for (const ownerId of owners) {
-    // 먼저 기록 — 이미 있으면(다른 요청이 먼저 보냄) 건너뜀
-    const { data: inserted, error: insErr } = await sb
-      .from("contact_join_notices")
-      .upsert({ owner_user_id: ownerId, joined_user_id: joinedUserId }, { onConflict: "owner_user_id,joined_user_id", ignoreDuplicates: true })
-      .select("owner_user_id");
-    if (insErr || !Array.isArray(inserted) || inserted.length === 0) continue;
+  const sendOne = async (ownerId: string) => {
     const language = await loadNotificationUserLanguage(sb, ownerId);
     const name = rawName || notifySafeT(language, "notify_member_fallback_name");
-    await appendUserNotification(sb, {
+    const payload = {
       user_id: ownerId,
-      notification_type: "status",
-      push_kind: "community",
+      notification_type: "status" as const,
+      push_kind: "community" as const,
       title: notifySafeT(language, "notify_contact_joined_title", { vars: { name } }),
       body: notifySafeT(language, "notify_contact_joined_body", { vars: { name } }),
       link_url: MESSENGER_CONTACTS_SCREEN_HREF,
@@ -52,8 +55,23 @@ export async function sendContactJoinNotices(
       sender_id: joinedUserId,
       dedupe_key: `cm_contact_joined:${ownerId}:${joinedUserId}`,
       meta: { kind: "contact_joined", actor_id: joinedUserId },
-    }).catch((e: unknown) => console.error("[contacts] join notice append", e));
-    sent += 1;
+    };
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const ok = await appendUserNotification(sb, payload).catch((e: unknown) => {
+        console.error("[contacts] join notice append", e);
+        return false;
+      });
+      if (ok) {
+        sent += 1;
+        return;
+      }
+      if (attempt === 1) {
+        await sb.from("contact_join_notices").delete().eq("owner_user_id", ownerId).eq("joined_user_id", joinedUserId);
+      }
+    }
+  };
+  for (let k = 0; k < targets.length; k += 10) {
+    await Promise.all(targets.slice(k, k + 10).map(sendOne));
   }
   return { sent, skipped: null };
 }

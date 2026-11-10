@@ -22,6 +22,9 @@ type Props = {
   onOpenFriendQuickMenu: (userId: string) => void;
   /** 내 프로필 줄 바로 아래 (받은 친구 요청 묶음) */
   afterMyProfile?: ReactNode;
+  /** 친구이면서 내 연락처에 있는 회원 id + 표시 문구 (연락처 동기화 정책 #5) */
+  contactFriendIds?: ReadonlySet<string>;
+  contactTagLabel?: string;
 };
 
 export function CommunityMessengerFriendList({
@@ -36,6 +39,8 @@ export function CommunityMessengerFriendList({
   onOpenChat,
   onOpenFriendQuickMenu,
   afterMyProfile = null,
+  contactFriendIds,
+  contactTagLabel,
 }: Props) {
   const viewerId = me?.id ?? "";
   /**
@@ -61,6 +66,7 @@ export function CommunityMessengerFriendList({
     <CommunityMessengerFriendRow
       key={row.profileId}
       row={row}
+      contactTagLabel={contactFriendIds?.has(row.profileId) ? contactTagLabel ?? null : null}
       onPress={() => onOpenChat(row.profileId)}
       onLongPress={() => onOpenFriendQuickMenu(row.profileId)}
     />

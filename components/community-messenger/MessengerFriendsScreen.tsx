@@ -9,6 +9,7 @@ import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger
 import { MessengerFriendTabRequestsSection } from "@/components/community-messenger/friend-cta/MessengerFriendTabRequestsSection";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
 import { MessengerContactsFriendSection } from "@/components/community-messenger/contacts/MessengerContactsFriendSection";
+import { useContactsFriendTagIds } from "@/lib/community-messenger/contacts/contacts-friend-tag-store";
 import type {
   CommunityMessengerFriendRequest,
   CommunityMessengerProfileLite,
@@ -82,6 +83,8 @@ export function MessengerFriendsScreen({
   isScrolling = false,
 }: Props) {
   const { t } = useI18n();
+  /** 친구 행 「내 연락처」 (정책 #5) — 연락처 섹션이 받은 목록의 friend_ids */
+  const contactFriendIds = useContactsFriendTagIds();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
   const [blockConfirmUserId, setBlockConfirmUserId] = useState<string | null>(null);
   const blockInFlightUserIdRef = useRef<string | null>(null);
@@ -176,6 +179,8 @@ export function MessengerFriendsScreen({
           onOpenProfile={onOpenProfile}
           onOpenChat={onFriendChat}
           onOpenFriendQuickMenu={openFriendQuickMenu}
+          contactFriendIds={contactFriendIds}
+          contactTagLabel={t("cm_contacts_my_contact")}
           afterMyProfile={
             <>
               <MessengerFriendTabRequestsSection

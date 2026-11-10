@@ -40,6 +40,8 @@ export type ContactsUserSettingsDto = {
   hasVerifiedPhone: boolean;
   defaultCountry: "PH" | "KR";
   currentConsentVersion: string;
+  /** 어드민 「미사용 기기 정리 일수」 */
+  idleSourceDays: number;
 };
 
 export const contactsApi = {
@@ -63,11 +65,12 @@ export const contactsApi = {
           members: ContactsMemberRow[];
           friendIds: string[];
           knownRefs?: string[];
+          friendRefs?: Record<string, string>;
         }
     >(q ? `?${q}` : "");
   },
   deleteAll: () => call<Record<string, never>>("", { method: "DELETE" }),
-  registerSource: (installId: string, platform: "android" | "ios") =>
+  registerSource: (installId: string, platform: "android" | "ios", reactivate = false) =>
     call<{
       source: {
         source_id: string;
@@ -78,11 +81,14 @@ export const contactsApi = {
         sync_enabled?: boolean;
         permission_state?: string;
         account_sync_enabled?: boolean;
+        /** 회원이 지운 출처 — 이 기기에서 다시 켜기 전까지 멈춤 (감사 A9) */
+        removed?: boolean;
+        removed_by?: string | null;
       };
       requestNumberLimit?: number;
     }>(
       "/sources",
-      { method: "POST", body: JSON.stringify({ installId, platform }) }
+      { method: "POST", body: JSON.stringify({ installId, platform, reactivate }) }
     ),
   sources: (installId: string | null) =>
     call<{
