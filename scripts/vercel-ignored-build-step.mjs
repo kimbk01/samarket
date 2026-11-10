@@ -11,10 +11,8 @@
  *
  * Force a build: put `[vercel build]` in the commit message.
  *
- * 화면 버튼 빌드만 (Owner 2026-11-10 「git으로는 아예 빌드하지 않고 Vercel 화면 버튼으로만 빌드」):
- * `vercel.json` `git.deploymentEnabled` 가 main 포함 모든 브랜치를 꺼 둬서 git 푸시는 배포 자체를 만들지 않는다.
- * 그래서 Production(`VERCEL_ENV=production`) 으로 여기까지 오는 빌드는 Vercel 화면에서 누른 배포뿐 → 항상 빌드한다.
- * (이전 11-10 오전: main 푸시 + 마지막 커밋 `[vercel build]` 로 빌드 요청 — 폐지)
+ * main 자동 빌드 (Owner 2026-11-10 「작업자의 스테이징 배포는 인정, 불필요한 부분을 단독으로 올리면 안 된다」):
+ * main 푸시마다 스테이징 빌드 — 코드(웹 번들) 변경이 없으면 건너뛴다. 불필요한 단독 푸시 금지는 AGENTS.md 개발 프로세스 2번.
  *
  * Local check:
  *   node scripts/vercel-ignored-build-step.mjs
@@ -35,6 +33,8 @@ const SKIP_DIR_PREFIXES = [
   "ios/",
   // Windows 데스크톱 셸(WebView2 + MSIX) 소스 — 설계 W0. 웹 번들에 들어가지 않는다.
   "windows/",
+  // 네이티브 로컬 시작 화면 생성물(cap sync) — Next.js 번들에 들어가지 않는다.
+  "capacitor-www/",
 ];
 
 /** 웹 번들과 무관한 개별 스크립트(개발용 앱 설치 등) — 로컬·Preview 판정용 */
@@ -113,11 +113,6 @@ function main() {
         return "";
       }
     })();
-
-  if ((process.env.VERCEL_ENV ?? "").trim() === "production") {
-    log("production = Vercel 화면 버튼 배포만 (git 배포 꺼짐) → build");
-    process.exit(1);
-  }
 
   if (commitMessage.includes(FORCE_TOKEN)) {
     log(`force token ${FORCE_TOKEN} present → build`);
