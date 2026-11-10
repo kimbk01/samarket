@@ -36,6 +36,7 @@
 		C7CTP0012FED79650016851F /* CallTerminationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CTP0002FED79650016851F /* CallTerminationPolicy.swift */; };
 		C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCL0012FED79650016851F /* DibayCallLog.swift */; };
 		C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */; };
+		C7DDC0E22FED79650016851F /* DibayContactsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */; };
 		C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */; };
 		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
 		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
@@ -149,6 +150,7 @@
 		C7CTP0002FED79650016851F /* CallTerminationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallTerminationPolicy.swift; sourceTree = "<group>"; };
 		C7DCL0012FED79650016851F /* DibayCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallLog.swift; sourceTree = "<group>"; };
 		C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayDeviceClassPlugin.swift; sourceTree = "<group>"; };
+		C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayContactsPlugin.swift; sourceTree = "<group>"; };
 		C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCanonicalDeviceIdStore.swift; sourceTree = "<group>"; };
 		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
 		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
@@ -297,6 +299,7 @@
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 				C7DDC0012FED79650016851F /* DibayDeviceClassPlugin.swift */,
+				C7DDC0E12FED79650016851F /* DibayContactsPlugin.swift */,
 				C7ORI0112FED79650016851F /* DibayDeviceClassClassifier.swift */,
 				C7ORI0212FED79650016851F /* DibayAppOrientationPolicy.swift */,
 				C7ORI0312FED79650016851F /* DibayAppOrientationPlugin.swift */,
@@ -594,6 +597,7 @@
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 				C7DDC0022FED79650016851F /* DibayDeviceClassPlugin.swift in Sources */,
+				C7DDC0E22FED79650016851F /* DibayContactsPlugin.swift in Sources */,
 				C7ORI0122FED79650016851F /* DibayDeviceClassClassifier.swift in Sources */,
 				C7ORI0222FED79650016851F /* DibayAppOrientationPolicy.swift in Sources */,
 				C7ORI0322FED79650016851F /* DibayAppOrientationPlugin.swift in Sources */,

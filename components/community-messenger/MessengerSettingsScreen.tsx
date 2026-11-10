@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MESSENGER_CONTACTS_SETTINGS_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
 import { syncMessengerImageAutoSaveEnabled } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
 import {
   getMessengerPhotoSaveDiagnostics,
@@ -270,26 +272,20 @@ function SettingsFriendsPage({
   blockedCount,
   hiddenCount,
   favoriteManageFriends,
-  localSettings,
-  updateLocalSetting,
   onOpenFriendManage,
   onToggleFavoriteFriend,
 }: MessengerSettingsScreenProps) {
   const { t } = useI18n();
+  const router = useRouter();
   return (
     <>
       <SectionLabel>{t("cm_settings_friends_contacts")}</SectionLabel>
-      <SwitchRow
-        title={t("cm_ui_add_friend_by_phone")}
-        description={t("cm_ui_use_contacts_tab")}
-        checked={localSettings.phoneFriendAddEnabled}
-        onChange={(next) => updateLocalSetting("phoneFriendAddEnabled", next)}
-      />
-      <SwitchRow
-        title={t("cm_ui_auto_add_contacts")}
-        description={t("cm_ui_auto_apply_mobile_integration")}
-        checked={localSettings.contactAutoAddEnabled}
-        onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
+      {/* 연락처 동기화 (SSOT v5 §13) — 예전 무동작 스위치 2개 대신 설정 화면으로 */}
+      <NavRow
+        title={t("cm_contacts_settings")}
+        description={t("cm_contacts_start_desc")}
+        onClick={() => router.push(MESSENGER_CONTACTS_SETTINGS_HREF)}
+        dataPage="contacts-sync"
       />
       <SectionLabel>{t("cm_ui_manage_favorites")}</SectionLabel>
       {favoriteManageFriends.length ? (

@@ -2,7 +2,10 @@
 
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MessengerHomeBottomSheetShell, SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import Link from "next/link";
+import { MESSENGER_CONTACTS_SCREEN_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { MessengerSearchHighlightText } from "@/components/community-messenger/MessengerSearchHighlightText";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
@@ -77,8 +80,6 @@ export function MessengerFriendAddSheet({
   onClose,
   friendAddTab,
   onFriendAddTabChange,
-  localSettings,
-  updateLocalSetting,
   searchKeyword,
   onSearchKeywordChange,
   friendSearchRef,
@@ -135,7 +136,7 @@ export function MessengerFriendAddSheet({
 
         <div className="flex shrink-0 border-b border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)]">
           {TAB_ORDER.map((tab) => {
-            const disabled = tab === "contacts" && !localSettings.phoneFriendAddEnabled;
+            const disabled = false;
             const active = friendAddTab === tab;
             return (
               <button
@@ -169,30 +170,17 @@ export function MessengerFriendAddSheet({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--overlay-surface)] px-3 pb-4 pt-3">
           {friendAddTab === "contacts" ? (
-            <div className="space-y-2">
+            <div className="space-y-3 py-2 text-center" data-cm-friend-add-contacts="">
+              {/* 연락처 동기화 (SSOT v5 §13) — 예전 무동작 스위치 2개 대신 연락처 화면으로 (동의 전이면 그 화면에서 동의) */}
+              <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4]" style={{ color: "var(--overlay-text-primary)" }}>
+                {t("cm_contacts_start_title")}
+              </p>
               <p className="text-[length:var(--overlay-body-2-size)] leading-[1.4]" style={{ color: "var(--overlay-text-secondary)" }}>
-                {t("cm_ui_contacts_sync_availability")}
+                {t("cm_contacts_start_desc")}
               </p>
-              <div className="overflow-hidden rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)]">
-                <SettingsToggleRow
-                  title={t("cm_ui_add_friend_by_phone")}
-                  description={t("cm_ui_use_contacts_tab")}
-                  checked={localSettings.phoneFriendAddEnabled}
-                  onChange={(next) => updateLocalSetting("phoneFriendAddEnabled", next)}
-                />
-                <SettingsToggleRow
-                  title={t("cm_ui_auto_add_contacts")}
-                  description={t("cm_ui_auto_apply_mobile_integration")}
-                  checked={localSettings.contactAutoAddEnabled}
-                  onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
-                />
-              </div>
-              <p
-                className="rounded-[length:var(--overlay-radius-md)] border border-dashed border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] px-3 py-3 text-center text-[length:var(--overlay-body-2-size)] leading-[1.4]"
-                style={{ color: "var(--overlay-text-secondary)" }}
-              >
-                {t("cm_ui_web_add_by_id_hint")}
-              </p>
+              <Link href={MESSENGER_CONTACTS_SCREEN_HREF} onClick={onClose} className={`${Sam.btn.primaryCombo} w-full`}>
+                {t("cm_contacts_section_title")}
+              </Link>
             </div>
           ) : null}
 

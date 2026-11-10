@@ -1256,6 +1256,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.nativepush.NativePushRegisterPlugin.class);
     registerPlugin(NativeIncomingCallPlugin.class);
     registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
+    registerPlugin(DibayContactsPlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);

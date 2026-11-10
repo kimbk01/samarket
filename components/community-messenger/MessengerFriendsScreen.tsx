@@ -8,6 +8,7 @@ import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/M
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerFriendTabRequestsSection } from "@/components/community-messenger/friend-cta/MessengerFriendTabRequestsSection";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
+import { MessengerContactsFriendSection } from "@/components/community-messenger/contacts/MessengerContactsFriendSection";
 import type {
   CommunityMessengerFriendRequest,
   CommunityMessengerProfileLite,
@@ -176,12 +177,16 @@ export function MessengerFriendsScreen({
           onOpenChat={onFriendChat}
           onOpenFriendQuickMenu={openFriendQuickMenu}
           afterMyProfile={
-            <MessengerFriendTabRequestsSection
-              incoming={incomingPending}
-              outgoingCount={outgoingPending.length}
-              onOpenSent={() => onOpenFriendRequests("sent")}
-              onChanged={(id) => onFriendRequestsChanged?.(id)}
-            />
+            <>
+              <MessengerFriendTabRequestsSection
+                incoming={incomingPending}
+                outgoingCount={outgoingPending.length}
+                onOpenSent={() => onOpenFriendRequests("sent")}
+                onChanged={(id) => onFriendRequestsChanged?.(id)}
+              />
+              {/* 연락처 동기화 (SSOT v5 §13) — 기능 꺼짐이면 그리지 않음 · 목록은 이 섹션이 보일 때만 따로 조회 */}
+              <MessengerContactsFriendSection />
+            </>
           }
         />
 

@@ -191,3 +191,7 @@ export type ContactsMemberRow = {
   recently_joined: boolean;
   request_state: "none" | "sent" | "received";
 };
+
+/** 연락처 화면 주소 (메신저 하위) */
+export const MESSENGER_CONTACTS_SCREEN_HREF = "/community-messenger/contacts";
+export const MESSENGER_CONTACTS_SETTINGS_HREF = "/community-messenger/contacts/settings";

@@ -4,3 +4,4 @@
 "NSMicrophoneUsageDescription" = "음성·영상 통화와 음성 메시지를 위해 마이크 접근이 필요합니다.";
 "NSPhotoLibraryAddUsageDescription" = "메신저에서 주고받은 사진을 사진 보관함에 저장하기 위해 권한이 필요합니다.";
 "NSPhotoLibraryUsageDescription" = "메신저에서 사진을 선택해 보내려면 사진 보관함 접근이 필요합니다.";
+"NSContactsUsageDescription" = "휴대폰 연락처에 있는 DIBAY 회원을 보여 드리기 위해 전화번호를 사용합니다. 이름은 보내지 않습니다.";

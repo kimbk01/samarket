@@ -61,6 +61,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSContactsUsageDescription</key>
+	<string>휴대폰 연락처에 있는 DIBAY 회원을 보여 드리기 위해 전화번호를 사용합니다. 이름은 보내지 않습니다.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>영상 통화를 위해 카메라 접근이 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

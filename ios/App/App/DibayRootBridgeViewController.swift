@@ -171,6 +171,8 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
       DibayBackSwipePlugin(),
       // Apple in-app purchase (StoreKit 2 · Point top-up)
       DibayStoreKitPlugin(),
+      // Messenger contact sync — read phone contacts (SSOT messenger-contacts-sync-plan v5)
+      DibayContactsPlugin(),
     ]
   }
 

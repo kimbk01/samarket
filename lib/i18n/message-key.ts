@@ -76,6 +76,7 @@ import { storePartnerAgreementMessages } from "./catalog/store-partner-agreement
 import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partner-agreements";
 import { adminDeliveryLaunchMessages } from "./catalog/admin-delivery-launch";
 import { adminMessengerContactsMessages } from "./catalog/admin-messenger-contacts";
+import { communityMessengerContactsMessages } from "./catalog/community-messenger-contacts";
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
 import { communityUiMessages } from "./catalog/community-ui";
@@ -256,6 +257,7 @@ export type MessageKey =
   | KeyOf<typeof adminStorePartnerAgreementsMessages.ko>
   | KeyOf<typeof adminDeliveryLaunchMessages.ko>
   | KeyOf<typeof adminMessengerContactsMessages.ko>
+  | KeyOf<typeof communityMessengerContactsMessages.ko>
   | KeyOf<typeof cmMonitoringSloMessages.ko>
   | KeyOf<typeof communityMessengerUiMessages.ko>
   | KeyOf<typeof communityUiMessages.ko>
@@ -388,6 +390,7 @@ type EnMessageKey =
   | KeyOf<typeof adminStorePartnerAgreementsMessages.en>
   | KeyOf<typeof adminDeliveryLaunchMessages.en>
   | KeyOf<typeof adminMessengerContactsMessages.en>
+  | KeyOf<typeof communityMessengerContactsMessages.en>
   | KeyOf<typeof cmMonitoringSloMessages.en>
   | KeyOf<typeof communityMessengerUiMessages.en>
   | KeyOf<typeof communityUiMessages.en>

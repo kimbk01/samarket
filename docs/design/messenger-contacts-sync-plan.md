@@ -307,6 +307,15 @@ contact_join_notices       (owner_user_id, joined_user_id, notified_at, PK(owner
 - T10 성능 (1명 삭제·추가 반복 10초): 기준선 평균 0.090 ms / 트리거 0.070 ms — 측정 오차 범위, **증가 없음**.
 - 보고만 (1b 무관, 기준선에서도 발생): 차단 upsert 와 친구 추가가 같은 두 회원에 **동시에** 몰리면 기존 트리거 `trg_user_social_relations_blocked_clears_friend` 때문에 `tuple to be updated was already modified by an operation triggered by the current command` 오류. 실사용 빈도 낮음 · 기존 친구·차단 계약 영역이라 손대지 않음.
 
+### 12-3. 2단계 구현 기록 (2026-11-10 · Owner 「2단계 시작」)
+- 1b 운영 DB 적용 완료 (`schema_migrations 20271111100000`, 함수 본문 md5 저장소와 일치) · 1a CI 실패(어드민 UI 표준 위반 7건, 1a 내 결함) 정정 `abd19011a`.
+- 앱 엔진 `lib/community-messenger/contacts/` — 기기 안 비교(`contacts-diff`)·기기 저장(`contacts-local-store`, 회원별 키·다른 회원 로그인 시 삭제)·동기화(`contacts-sync-engine`: 첫 스냅숏/변경분/409 재정렬/410 중지/권한 철회 감지, 회원별 동시 1개)·화면 훅(`use-messenger-contacts`: 목록 60초 안 재호출 없음).
+- 화면: 친구 탭 「내 연락처의 DIBAY 회원」 섹션 (받은 요청 아래 · 기능 꺼짐이면 아무것도 안 그림) · `/community-messenger/contacts` · `/community-messenger/contacts/settings` · 동의 시트 · 회원 시트(친구 추가·메시지·휴대폰 전화·추천 숨김·차단) · 권한 철회 안내(#19). 친구 추가 시트 연락처 탭·메신저 설정의 무동작 스위치 2개 → 연락처 화면·설정 진입으로 교체.
+- 메신저 진입 사용 갱신 `MessengerContactsHeartbeat` — 이 기기에서 동의한 회원만, 8초 뒤 유휴 시간에 엔진을 지연 import (메신저 첫 화면 번들·bootstrap 영향 없음). 앱 시작(메신저 밖)이 아니라 메신저 진입 기준 — G-3 의 「앱 시작」과 다름 (전역 앱 셸 미변경 목적).
+- 네이티브: Android `DibayContactsPlugin.java` + `READ_CONTACTS` + MainActivity 등록 / iOS `Plugins/DibayContactsPlugin.swift` + `NSContactsUsageDescription`(ko·en) + 루트 브리지 등록 + pbxproj 4곳. 빌드 번호는 올리지 않음 (설치용 빌드 때 1회 · Owner 일괄 빌드).
+- **충돌 보고 (규정 7)**: 정책 #5 「친구 행에 『내 연락처』 표시」 ↔ 채팅 시안 4판 친구 행(Owner 「정확히 시안대로」 — 이름 옆 표시 없음). 임의로 고르지 않고 **친구 행 표시는 구현하지 않음** — 목록 API 는 `friend_ids` 를 이미 내려주므로 결정되면 바로 붙일 수 있음.
+- 통화(4단계)·가입 안내 발송(3단계)·어드민 집계(3단계)는 포함하지 않음.
+
 ## 13. 화면 변경 범위 (통합 시안 기준)
 | 화면 | 현재 | 변경 | 단계 |
 |---|---|---|---|

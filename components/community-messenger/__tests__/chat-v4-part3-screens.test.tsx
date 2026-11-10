@@ -225,7 +225,7 @@ describe("「7. 채팅 설정」", () => {
     expect(props.onOpenPage).toHaveBeenNthCalledWith(2, "meeting");
   });
 
-  it("상세: 통화(수신 벨·화면 안내·기기) · 모임(찾기·만들기) · 친구(전화번호·연락처·즐겨찾기·친구 관리)", () => {
+  it("상세: 통화(수신 벨·화면 안내·기기) · 모임(찾기·만들기) · 친구(연락처 동기화 진입·즐겨찾기·친구 관리)", () => {
     const call = baseProps({ page: "call" });
     render(<MessengerSettingsScreen {...call} />);
     expect(document.querySelector("[data-device-settings]")).not.toBeNull();
@@ -241,8 +241,9 @@ describe("「7. 채팅 설정」", () => {
 
     const friends = baseProps({ page: "friends" });
     render(<MessengerSettingsScreen {...friends} />);
-    click(document.querySelector('[role="switch"][aria-label="전화번호로 친구 추가"]'));
-    expect(friends.updateLocalSetting).toHaveBeenCalledWith("phoneFriendAddEnabled", true);
+    // 연락처 동기화 2단계 (SSOT messenger-contacts-sync-plan v5 §13): 무동작 스위치 2개 → 「연락처 동기화」 설정 진입 1줄
+    expect(document.querySelector('[role="switch"][aria-label="전화번호로 친구 추가"]')).toBeNull();
+    expect(document.querySelector('[data-cm-settings-nav="contacts-sync"]')).not.toBeNull();
     click(document.querySelector('[data-cm-settings-nav="friend-manage"]'));
     expect(friends.onOpenFriendManage).toHaveBeenCalledTimes(1);
   });

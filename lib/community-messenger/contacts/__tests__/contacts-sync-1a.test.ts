@@ -161,7 +161,28 @@ describe("메신저 hot path 미연결 계약", () => {
       /^app\/api\/cron\/messenger-contacts-maintenance\//,
       /^app\/api\/admin\/messenger\/contacts-settings\//,
       /^lib\/community-messenger\/contacts\//,
+      // 2단계 화면 — 친구 탭 섹션·연락처 화면·설정 진입·친구 추가 시트·메신저 진입 사용 갱신만
+      /^components\/community-messenger\/contacts\//,
+      /^app\/\(main\)\/community-messenger\/contacts\//,
+      /^components\/community-messenger\/MessengerFriendsScreen\.tsx$/,
+      /^components\/community-messenger\/MessengerFriendAddSheet\.tsx$/,
+      /^components\/community-messenger\/MessengerSettingsScreen\.tsx$/,
     ];
     expect(importers.filter((f) => !allowed.some((re) => re.test(f)))).toEqual([]);
+  });
+  it("bootstrap·home-sync·Realtime·방 경로 파일은 연락처를 가져오지 않는다", () => {
+    const hot = [
+      ...walk(path.join(ROOT, "lib/community-messenger"), []),
+      ...walk(path.join(ROOT, "components/community-messenger"), []),
+      ...walk(path.join(ROOT, "app/api/community-messenger"), []),
+    ].filter((f) => /(bootstrap|home-sync|realtime|room)/i.test(path.relative(ROOT, f)) && !/contacts/.test(f));
+    expect(hot.filter((f) => /contacts\/|MessengerContacts/.test(readFileSync(f, "utf8")))).toEqual([]);
+  });
+  it("메신저 레이아웃은 사용 갱신 컴포넌트만 (엔진은 지연 import)", () => {
+    const layout = readFileSync(path.join(ROOT, "app/(main)/community-messenger/layout.tsx"), "utf8");
+    expect(layout).toContain("MessengerContactsHeartbeat");
+    const hb = readFileSync(path.join(ROOT, "components/community-messenger/contacts/MessengerContactsHeartbeat.tsx"), "utf8");
+    expect(hb).toContain('import("@/lib/community-messenger/contacts/contacts-sync-engine")');
+    expect(hb).not.toMatch(/^import .*contacts-sync-engine/m);
   });
 });
