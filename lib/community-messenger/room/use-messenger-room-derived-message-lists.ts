@@ -21,9 +21,12 @@ type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 export function useMessengerRoomDerivedMessageLists(
   roomMessages: Array<RoomMsg>,
   hiddenCallStubIds: Set<string>,
-  roomSearchQuery: string
+  roomSearchQuery: string,
+  /** 채팅 P0-1: 진입 가벼운 단계(타임라인 무거운 부착 전)에는 계산하지 않는다 */
+  enabled = true
 ) {
   const derived = useMemo(() => {
+    if (!enabled) return null;
     const q = roomSearchQuery.trim().toLowerCase();
 
     const messageSearchBase: RoomMsg[] = [];
@@ -105,7 +108,7 @@ export function useMessengerRoomDerivedMessageLists(
       fileMessageCount,
       linkMessageCount,
     };
-  }, [roomMessages, hiddenCallStubIds, roomSearchQuery]);
+  }, [roomMessages, hiddenCallStubIds, roomSearchQuery, enabled]);
 
   return derived;
 }

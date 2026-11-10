@@ -1,5 +1,6 @@
 "use client";
 
+import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import {
@@ -107,14 +108,22 @@ export function CommunityMessengerRoomClientInner(props: {
   useEffect(() => {
     if (!shouldRunMessengerListRoutePrefetch()) return;
     if (communityMessengerListRoutesPrefetched) return;
-    communityMessengerListRoutesPrefetched = true;
-    try {
-      void router.prefetch?.(SAMARKET_ROUTES.chat.messengerHub);
-      void router.prefetch?.(`${SAMARKET_ROUTES.chat.messengerHub}&filter=private_group`);
-      void router.prefetch?.(SAMARKET_ROUTES.chat.messengerMeetingsHub);
-    } catch {
-      /* ignore */
-    }
+    /**
+     * 채팅 P0-2 (Owner 「채팅 P0 승인」 2026-11-11): 목록 주소 미리 받기는 방 진입이 안정된 뒤(브라우저 idle).
+     * 예전에는 진입 즉시 3건이 방 첫 요청들과 겹쳤다(실측).
+     */
+    const idleId = scheduleWhenBrowserIdle(() => {
+      if (communityMessengerListRoutesPrefetched) return;
+      communityMessengerListRoutesPrefetched = true;
+      try {
+        void router.prefetch?.(SAMARKET_ROUTES.chat.messengerHub);
+        void router.prefetch?.(`${SAMARKET_ROUTES.chat.messengerHub}&filter=private_group`);
+        void router.prefetch?.(SAMARKET_ROUTES.chat.messengerMeetingsHub);
+      } catch {
+        /* ignore */
+      }
+    }, 3000);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [router]);
   const isGroupRoomForShell = Boolean(
     phase1.snapshot?.room.roomType && phase1.snapshot.room.roomType !== "direct"

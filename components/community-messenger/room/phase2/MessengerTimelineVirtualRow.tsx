@@ -14,7 +14,7 @@ import {
 } from "react";
 import {
   communityMessengerMemberAvatar,
-  formatTime,
+  messengerMessageClockLabel,
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import type { CommunityMessengerMessageActionAnchorRect } from "@/lib/community-messenger/types";
@@ -564,7 +564,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       data-cm-call-occurrence-time=""
       className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]"
     >
-      {formatTime(item.createdAt)}
+      {messengerMessageClockLabel(item)}
     </span>
   ) : null;
 
@@ -658,7 +658,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ) : tradeListingChangeState ? (
         <MessengerTradeListingChangeSystemRow
           state={tradeListingChangeState}
-          timeLabel={formatTime(item.createdAt)}
+          timeLabel={messengerMessageClockLabel(item)}
           t={t}
         />
       ) : item.messageType === "system" ? (
@@ -708,7 +708,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 <>
                   {showMessageTime ? (
                     <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
-                      {formatTime(item.createdAt)}
+                      {messengerMessageClockLabel(item)}
                     </span>
                   ) : null}
                   {mineUnreadBadgeVisible ? (
@@ -725,7 +725,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                   {renderBubbleStack(viberBubble)}
                   {showMessageTime ? (
                     <span className="shrink-0 grow-0 basis-auto whitespace-nowrap pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
-                      {formatTime(item.createdAt)}
+                      {messengerMessageClockLabel(item)}
                     </span>
                   ) : null}
                 </>

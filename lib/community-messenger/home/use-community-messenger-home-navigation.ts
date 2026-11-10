@@ -20,6 +20,7 @@ import {
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
+import { replaceMessengerUrlInPlace } from "@/lib/community-messenger/messenger-url-in-place";
 
 export type NavigateToCommunityRoomOptions = {
   viewerUserId?: string | null;
@@ -94,8 +95,12 @@ export function useCommunityMessengerHomeNavigation({
         const cur = `${window.location.pathname}${window.location.search}`;
         if (cur === nextUrl) return;
       }
-      const navigate = options?.history === "push" ? router.push.bind(router) : router.replace.bind(router);
-      void navigate(nextUrl, { scroll: false });
+      if (options?.history === "push") {
+        void router.push(nextUrl, { scroll: false });
+        return;
+      }
+      /** 채팅 P0-3: 탭 주소는 제자리 교체 — 서버 요청·페이지 다시 렌더 없음 (`messenger-url-in-place.ts`) */
+      replaceMessengerUrlInPlace(nextUrl);
     },
     [retainRoomPathOnSectionChange, router]
   );

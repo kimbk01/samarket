@@ -14,7 +14,7 @@ import {
   communityMessengerMemberAvatar,
   communityMessengerMessageSearchText,
   formatRoomCallStatus,
-  formatTime,
+  messengerMessageClockLabel,
   messengerTimelineVirtualRowKey,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { GroupPinnedMessageBanner } from "@/components/community-messenger/group/GroupPinnedMessageBanner";
@@ -536,10 +536,30 @@ function messengerTimelineCalendarDayKey(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** 채팅 P0-1: 날짜 구분선 포맷터도 모듈 1개 (예전 `toLocaleDateString` = 호출마다 포맷터 생성) */
+let messengerTimelineDayDividerFormatter: Intl.DateTimeFormat | null = null;
+
 function messengerTimelineDayDividerLabel(iso: string): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
-  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  if (!messengerTimelineDayDividerFormatter) {
+    messengerTimelineDayDividerFormatter = new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+  return messengerTimelineDayDividerFormatter.format(d);
+}
+
+/** 직접 배치(가상 스크롤 없음) 행 — 측정할 것 없음. 고정 참조라 행 memo 를 깨지 않는다. */
+function messengerTimelineRowMeasureNoop(_el: HTMLElement | null): void {}
+
+function readMessengerTimelineRowDataIndex(el: HTMLElement): number | undefined {
+  const raw = el.getAttribute("data-index");
+  if (raw == null) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
@@ -596,7 +616,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       .slice(-24)
       .map((m) => m.id);
   }, [vm.displayRoomMessages, vm.isPrivateGroupRoom]);
-  const { counts: groupReadCounts } = useGroupMessageReadCounts(vm.streamRoomId, groupMineMessageIds);
+  const { counts: groupReadCounts } = useGroupMessageReadCounts(
+    vm.streamRoomId,
+    groupMineMessageIds,
+    vm.isPrivateGroupRoom ? vm.snapshot : null
+  );
   /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — tail class 분기 */
   const timelineInnerTailClass = hasTradeDock
     ? "chat-timeline-inner--trade"
@@ -1852,6 +1876,26 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     ]
   );
 
+  /**
+   * 채팅 P0-1 (Owner 「채팅 P0 승인」 2026-11-11): 행에 넘기는 측정 ref 는 고정 참조.
+   * 예전에는 렌더마다 새 화살표 함수를 넘겨 행 `memo` 가 매번 깨지고(전 행 다시 그림) React 가 ref 를 떼었다 다시 붙였다.
+   * 행 번호는 행 DOM 의 `data-index`(virtualizer 와 같은 값)에서 읽고, 최신 측정 함수는 ref 로 부른다.
+   */
+  const measureWithScrollTraceRef = useRef(measureWithScrollTrace);
+  measureWithScrollTraceRef.current = measureWithScrollTrace;
+  const attachPass2FirstRowProbeRef = useRef(attachPass2FirstRowProbe);
+  attachPass2FirstRowProbeRef.current = attachPass2FirstRowProbe;
+  const measureVirtualRowStable = useCallback((el: HTMLElement | null) => {
+    measureWithScrollTraceRef.current(el, el ? readMessengerTimelineRowDataIndex(el) : undefined);
+  }, []);
+  const measureVirtualFirstRowStable = useCallback((el: HTMLElement | null) => {
+    measureWithScrollTraceRef.current(el, el ? readMessengerTimelineRowDataIndex(el) : undefined);
+    attachPass2FirstRowProbeRef.current(el);
+  }, []);
+  const attachDirectFirstRowStable = useCallback((el: HTMLElement | null) => {
+    attachPass2FirstRowProbeRef.current(el);
+  }, []);
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
@@ -2070,7 +2114,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     next.messageType === "system" ||
                     next.isMine !== item.isMine ||
                     (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")) ||
-                    formatTime(next.createdAt) !== formatTime(item.createdAt));
+                    messengerMessageClockLabel(next) !== messengerMessageClockLabel(item));
 
                 const stubBusy =
                   item.messageType === "call_stub" &&
@@ -2102,14 +2146,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     measureElement={
                       useDirectTimelineLayout
                         ? cappedMapIndex === 0
-                          ? attachPass2FirstRowProbe
-                          : () => undefined
+                          ? attachDirectFirstRowStable
+                          : messengerTimelineRowMeasureNoop
                         : cappedMapIndex === 0
-                          ? (el) => {
-                              measureWithScrollTrace(el, index);
-                              attachPass2FirstRowProbe(el);
-                            }
-                          : (el) => measureWithScrollTrace(el, index)
+                          ? measureVirtualFirstRowStable
+                          : measureVirtualRowStable
                     }
                     rowPaddingTopClass={rowPaddingTopClass}
                     showPeerName={showPeerName}

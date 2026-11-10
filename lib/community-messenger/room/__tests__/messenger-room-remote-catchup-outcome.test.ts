@@ -233,3 +233,45 @@ describe("C-7 visibility resume", () => {
     expect(await limited.api.catchUpNewerMessagesOutcome()).toBe("rate_limited");
   });
 });
+
+describe("채팅 P0-2 진입 따라잡기 1건 (Owner 「채팅 P0 승인」 2026-11-11)", () => {
+  it("최신 창이 내 마지막 메시지를 덮으면 latest 1건만 보낸다(after= 없음)", async () => {
+    const h = harness([msg(1), msg(2)], (url) =>
+      /[?&]latest=1/.test(url) ? { status: 200, body: { ok: true, messages: [msg(2), msg(3)] } } : { status: 500 }
+    );
+    expect(await h.api.entryCatchUp()).toBe("merged");
+    expect(h.latestGets()).toBe(1);
+    expect(h.afterGets()).toBe(0);
+    expect(h.rows().map((m) => m.id)).toEqual([uuid(1), uuid(2), uuid(3)]);
+  });
+
+  it("새 메시지가 창보다 많아 내 마지막 메시지와 사이가 비면 after= 로 빈 구간을 채운다", async () => {
+    const h = harness([msg(1)], (url) => {
+      if (/[?&]latest=1/.test(url)) return { status: 200, body: { ok: true, messages: [msg(5), msg(6)] } };
+      if (/[?&]after=/.test(url)) return { status: 200, body: { ok: true, messages: [msg(2), msg(3), msg(4), msg(5), msg(6)], hasMore: false } };
+      return { status: 500 };
+    });
+    expect(await h.api.entryCatchUp()).toBe("merged");
+    expect(h.latestGets()).toBe(1);
+    expect(h.afterGets()).toBe(1);
+    expect(h.rows().map((m) => m.id)).toEqual([1, 2, 3, 4, 5, 6].map(uuid));
+  });
+
+  it("latest 가 실패하면 예전 after= 따라잡기로 대신한다", async () => {
+    const h = harness([msg(1)], (url) =>
+      /[?&]after=/.test(url) ? { status: 200, body: { ok: true, messages: [msg(2)], hasMore: false } } : { status: 500 }
+    );
+    expect(await h.api.entryCatchUp()).toBe("merged");
+    expect(h.afterGets()).toBe(1);
+  });
+
+  it("D-13: 최신 창의 전체삭제 묘비가 캐시 원문을 덮는다(latest 1건으로 유지)", async () => {
+    const tomb = msg(2, { deletedForEveryoneAt: "2026-10-01T00:01:00.000Z" });
+    const h = harness([msg(1), msg(2)], (url) =>
+      /[?&]latest=1/.test(url) ? { status: 200, body: { ok: true, messages: [msg(1), tomb] } } : { status: 500 }
+    );
+    await h.api.entryCatchUp();
+    expect(h.afterGets()).toBe(0);
+    expect(h.rows().find((m) => m.id === uuid(2))?.deletedForEveryoneAt).toBe("2026-10-01T00:01:00.000Z");
+  });
+});

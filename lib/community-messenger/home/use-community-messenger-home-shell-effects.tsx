@@ -1,5 +1,6 @@
 "use client";
 
+import { messengerInPlaceUrlRouter } from "@/lib/community-messenger/messenger-url-in-place";
 import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
 import {
   sameMainTier1ExtrasState,
@@ -224,7 +225,8 @@ export function useCommunityMessengerHomeShellEffects({
         pendingUserSectionRef.current = null;
         return "friends";
       });
-      guardedRouterReplace(router, `${sectionUrlBasePath}?section=friends${preserveFrom}`, {
+      /** 채팅 P0-3: 주소 정리는 제자리 교체(서버 요청 없음) */
+      guardedRouterReplace(messengerInPlaceUrlRouter, `${sectionUrlBasePath}?section=friends${preserveFrom}`, {
         source: "messenger-home-shell",
         reason: "legacy_tab_friends",
         scroll: false,
@@ -254,12 +256,22 @@ export function useCommunityMessengerHomeShellEffects({
     setChatInboxFilter((prev) => (prev === inbox ? prev : inbox));
     setChatKindFilter((prev) => (prev === nextKind ? prev : nextKind));
     // 사용자 탭 pending 중에는 빈 section → 기본 chats replace 로 싸움을 만들지 않는다.
-    if (!activeSection.trim() && !activeTab.trim() && pendingUserSectionRef.current == null) {
+    /**
+     * 채팅 P0-3 (M5): 태블릿 분할 화면의 방 주소에는 기본 탭(`?section=chats`)을 다시 써 넣지 않는다 —
+     * 빈 section = chats 로 같은 화면이고, 써 넣으면 방 진입마다 주소가 2번 바뀌었다(실측).
+     * 메신저 홈 주소는 기본 탭을 제자리 교체로 적는다(서버 요청 없음).
+     */
+    if (
+      !isMessengerStickyRoomSectionRoute &&
+      !activeSection.trim() &&
+      !activeTab.trim() &&
+      pendingUserSectionRef.current == null
+    ) {
       const qs = new URLSearchParams();
       qs.set("section", "chats");
       messengerChatFiltersToSearchParams(inbox, nextKind).forEach((value, key) => qs.set(key, value));
       if (fromParam) qs.set("from", fromParam);
-      guardedRouterReplace(router, `${sectionUrlBasePath}?${qs.toString()}`, {
+      guardedRouterReplace(messengerInPlaceUrlRouter, `${sectionUrlBasePath}?${qs.toString()}`, {
         source: "messenger-home-shell",
         reason: "default_section_chats",
         scroll: false,

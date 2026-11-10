@@ -1,36 +1,26 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, type MutableRefObject, type RefObject } from "react";
+import type { MutableRefObject, RefObject } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { MESSENGER_TIMELINE_VIRTUAL_OVERSCAN } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { estimateMessengerTimelineRowPx } from "@/lib/store-order-chat/messenger-timeline-row-estimate";
-import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
 import { useMessengerRoomStoreOrderDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-store-order-dock-scroll-anchor";
 import { messengerTimelineVirtualRowKey } from "@/components/community-messenger/room/community-messenger-room-helpers";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 
-export type MessengerRoomPhase1TimelineHeavyBundle = {
-  messageSearchResults: ReturnType<typeof useMessengerRoomDerivedMessageLists>["messageSearchResults"];
-  mediaGalleryMessages: ReturnType<typeof useMessengerRoomDerivedMessageLists>["mediaGalleryMessages"];
-  linkThreadMessages: ReturnType<typeof useMessengerRoomDerivedMessageLists>["linkThreadMessages"];
-  displayRoomMessages: ReturnType<typeof useMessengerRoomDerivedMessageLists>["displayRoomMessages"];
-  fileMessages: ReturnType<typeof useMessengerRoomDerivedMessageLists>["fileMessages"];
-  managementEventMessages: ReturnType<typeof useMessengerRoomDerivedMessageLists>["managementEventMessages"];
-  photoMessageCount: number;
-  voiceMessageCount: number;
-  fileMessageCount: number;
-  linkMessageCount: number;
-  chatVirtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
-};
+export type MessengerRoomTimelineVirtualizer = ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
 
+/**
+ * 채팅 P0-1 (Owner 「채팅 P0 승인」 2026-11-11): 이 훅은 virtualizer 만 만든다(인스턴스는 방마다 1개로 고정).
+ * 파생 목록(표시·검색·갤러리)은 `use-messenger-room-client-phase1` 이 같은 렌더에서 계산한다 —
+ * 예전에는 여기서 계산해 layoutEffect 로 부모 state 에 다시 넣어, 메시지가 바뀔 때마다 방 전체가 2번 렌더됐다(실측).
+ */
 export function useMessengerRoomPhase1TimelineHeavy({
   roomId,
-  roomMessages,
-  hiddenCallStubIds,
-  roomSearchQuery,
+  displayRoomMessages,
   messagesViewportRef,
   tradeDockScrollAnchorEnabled,
   storeOrderDockScrollAnchorEnabled,
@@ -39,9 +29,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   scrollMessengerToBottomRef,
 }: {
   roomId: string;
-  roomMessages: RoomMsg[];
-  hiddenCallStubIds: Set<string>;
-  roomSearchQuery: string;
+  displayRoomMessages: RoomMsg[];
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   tradeDockScrollAnchorEnabled: boolean;
   storeOrderDockScrollAnchorEnabled: boolean;
@@ -50,10 +38,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   scrollMessengerToBottomRef: MutableRefObject<
     (req?: { reason?: string; force?: boolean }) => void
   >;
-}): MessengerRoomPhase1TimelineHeavyBundle {
-  const derived = useMessengerRoomDerivedMessageLists(roomMessages, hiddenCallStubIds, roomSearchQuery);
-  const { displayRoomMessages } = derived;
-
+}): MessengerRoomTimelineVirtualizer {
   const chatVirtualizer = useVirtualizer({
     count: displayRoomMessages.length,
     getScrollElement: () => messagesViewportRef.current,
@@ -89,11 +74,5 @@ export function useMessengerRoomPhase1TimelineHeavy({
     scrollMessengerToBottomRef,
   });
 
-  return useMemo(
-    () => ({
-      ...derived,
-      chatVirtualizer,
-    }),
-    [derived, chatVirtualizer]
-  );
+  return chatVirtualizer;
 }

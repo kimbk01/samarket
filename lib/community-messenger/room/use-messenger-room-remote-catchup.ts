@@ -75,6 +75,11 @@ export type MessengerRoomRemoteCatchupApi = {
   /** 결과 구분형 — "새 메시지 없음"(none)과 실패를 가른다. */
   catchUpNewerMessagesOutcome: () => Promise<MessengerRoomCatchUpOutcome>;
   reconcileLatestMessages: () => Promise<boolean>;
+  /**
+   * 채팅 P0-2: 방 진입 따라잡기 1건 — 최신 창(latest, D-13 전체삭제 반영)을 받고,
+   * 그 창이 내가 가진 마지막 확정 메시지까지 닿지 않을 때만(새 메시지가 창보다 많음) `after=` 로 빈 구간을 채운다.
+   */
+  entryCatchUp: () => Promise<MessengerRoomCatchUpOutcome>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
     opts?: { alreadyMergedSnapshot?: boolean }
@@ -184,6 +189,9 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
     }
   };
 
+  /** 채팅 P0-2: 마지막 latest 창 행 — 진입 따라잡기가 빈 구간 여부를 판정할 때만 읽는다 */
+  let lastLatestRows: CommunityMessengerMessage[] | null = null;
+
   /** 마지막 429 의 Retry-After(ms) — 지연 정합 예약에 사용. */
   let lastRateLimitDelayMs = MESSENGER_BUMP_RATE_LIMIT_DEFAULT_DELAY_MS;
 
@@ -205,6 +213,7 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
         if (res.status === 429) return "rate_limited";
         if (!res.ok || !json.ok || !Array.isArray(json.messages)) return "failed";
         if (json.messages.length === 0) return "none";
+        lastLatestRows = json.messages;
         mergeCatchUpRows(id, json.messages);
         return "merged";
       } catch {
@@ -265,6 +274,34 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
   };
 
   const catchUpNewerMessages = async (): Promise<boolean> => (await catchUpNewerMessagesOutcome()) === "merged";
+
+  /**
+   * 채팅 P0-2 (Owner 「채팅 P0 승인」 2026-11-11): 진입 따라잡기 1건.
+   * 예전에는 `after=`(80) 와 `latest`(40) 를 동시에 보냈다(실측: 진입마다 2건). latest 가 D-13(방 밖 전체삭제) 정합을
+   * 맡고, 그 창이 내 마지막 확정 메시지를 덮으면 `after=` 결과는 latest 의 부분집합이라 보내지 않는다.
+   */
+  const entryCatchUp = async (): Promise<MessengerRoomCatchUpOutcome> => {
+    const id = resolveRoomId();
+    if (!id) return "failed";
+    const confirmed = roomMessagesRef.current.filter(
+      (m) => !m.pending && !isUnusableAfterAnchor(id, String(m.id ?? "").trim())
+    );
+    const anchorId = confirmed.length > 0 ? selectNewestConfirmedMessageAnchor(confirmed) : null;
+    const anchorRow = anchorId ? confirmed.find((m) => String(m.id) === anchorId) ?? null : null;
+    lastLatestRows = null;
+    const latest = await reconcileLatestOutcome();
+    if (latest === "failed") return catchUpNewerMessagesOutcome();
+    if (latest !== "merged" || !anchorId) return latest;
+    const rows = lastLatestRows as CommunityMessengerMessage[] | null;
+    if (!rows || rows.length === 0) return latest;
+    if (rows.some((m) => String(m.id) === anchorId)) return latest;
+    const anchorMs = anchorRow ? Date.parse(anchorRow.createdAt) : NaN;
+    const oldestMs = Math.min(...rows.map((m) => Date.parse(m.createdAt)).filter((n) => Number.isFinite(n)));
+    if (Number.isFinite(anchorMs) && Number.isFinite(oldestMs) && oldestMs <= anchorMs) return latest;
+    /** 창보다 새 메시지가 많다 — 내 마지막 메시지 이후 빈 구간을 `after=` 로 채운다(겹침은 병합이 제거) */
+    const gap = await catchUpNewerMessagesOutcome();
+    return gap === "merged" ? "merged" : latest;
+  };
 
   const tryMergeSingleMessageFromBump = async (
     messageId: string,
@@ -392,7 +429,13 @@ export function createMessengerRoomRemoteCatchup(deps: MessengerRoomRemoteCatchu
     void refresh(true, { triggerReason: "realtime_bump_catchup" });
   };
 
-  return { catchUpNewerMessages, catchUpNewerMessagesOutcome, reconcileLatestMessages, catchUpAfterRemoteBump };
+  return {
+    catchUpNewerMessages,
+    catchUpNewerMessagesOutcome,
+    reconcileLatestMessages,
+    entryCatchUp,
+    catchUpAfterRemoteBump,
+  };
 }
 
 /**

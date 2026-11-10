@@ -99,7 +99,8 @@ import { captureMessengerRoomEntryUnread } from "@/lib/community-messenger/room/
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { CM_ROOM_EMPTY_VIRTUALIZER_STUB } from "@/lib/community-messenger/room/cm-room-empty-virtualizer-stub";
 import { finalizeStoreOrderChatDisplayMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
-import type { MessengerRoomPhase1TimelineHeavyBundle } from "@/lib/community-messenger/room/use-messenger-room-phase1-timeline-heavy";
+import type { MessengerRoomTimelineVirtualizer } from "@/lib/community-messenger/room/use-messenger-room-phase1-timeline-heavy";
+import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
@@ -218,6 +219,8 @@ import { MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS } from "@/lib/community-messenger/
 
 /** 입장 직후 여러 경로가 동시에 `refresh(true)` 를 열 때 silent bootstrap GET 을 한 번으로 합류 */
 const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 500;
+/** 채팅 P0-1: 무거운 부착 전 빈 목록 — 고정 참조(렌더마다 새 `[]` 이면 받는 쪽 memo 가 깨진다) */
+const CM_ROOM_EMPTY_MESSAGE_LIST: Array<CommunityMessengerMessage & { pending?: boolean }> = [];
 const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS;
 
 function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
@@ -472,23 +475,31 @@ export function useMessengerRoomClientPhase1({
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
 
-  /** cached seed — bootstrap·hydration pass 대기 전 타임라인 state 동기(첫 paint FMV) */
-  useLayoutEffect(() => {
+  /**
+   * cached seed — bootstrap·hydration pass 대기 전 타임라인 state 동기(첫 paint FMV)
+   * 채팅 P0-1 (Owner 「채팅 P0 승인」 2026-11-11): snapshot 이 바뀐 **같은 렌더**에서 맞춘다(React 「이전 렌더 값으로 state 조정」).
+   * 예전 layoutEffect 는 snapshot 커밋 뒤 메시지 커밋을 한 번 더 만들어, 서버 응답 1건마다 방 전체가 2번 그려졌다(실측).
+   */
+  const [timelineSeedSyncedSnapshot, setTimelineSeedSyncedSnapshot] = useState<typeof snapshot>(null);
+  if (timelineSeedSyncedSnapshot !== snapshot) {
+    setTimelineSeedSyncedSnapshot(snapshot);
     const snap = snapshot;
-    if (!snap || snap.clientShellPlaceholder) return;
-    const snapMsgs = snap.messages ?? [];
-    if (snapMsgs.length === 0 && !snap.room.lastMessage?.trim()) return;
-    setRoomMessages((prev) => {
-      if (snapMsgs.length === 0 && prev.length > 0) return prev;
-      const next = mergePrimedTimelineSeedIntoExisting({
-        roomId: snap.room.id,
-        prev,
-        seed: snapMsgs,
-        historyFloorAt: snap.viewerHistoryFloorAt,
-      });
-      return next.length > 0 ? next : prev;
-    });
-  }, [snapshot, snapshot?.messages?.length, snapshot?.room.lastMessage]);
+    if (snap && !snap.clientShellPlaceholder) {
+      const snapMsgs = snap.messages ?? [];
+      if (snapMsgs.length > 0 || snap.room.lastMessage?.trim()) {
+        setRoomMessages((prev) => {
+          if (snapMsgs.length === 0 && prev.length > 0) return prev;
+          const next = mergePrimedTimelineSeedIntoExisting({
+            roomId: snap.room.id,
+            prev,
+            seed: snapMsgs,
+            historyFloorAt: snap.viewerHistoryFloorAt,
+          });
+          return next.length > 0 ? next : prev;
+        });
+      }
+    }
+  }
 
   if (!phase1SnapshotCommitRecordedRef.current && snapshot?.room?.id) {
     phase1SnapshotCommitRecordedRef.current = true;
@@ -646,11 +657,10 @@ export function useMessengerRoomClientPhase1({
   /** R2-M8: viewport DOM 부착 후에만 virtualizer·파생 목록 마운트 (scroll root 없이 getVirtualItems()=[] 방지) */
   const [timelineViewportMounted, setTimelineViewportMounted] = useState(false);
   const [timelineHeavyLive, setTimelineHeavyLive] = useState(false);
-  const [timelineHeavyBundle, setTimelineHeavyBundle] = useState<MessengerRoomPhase1TimelineHeavyBundle | null>(
-    null
-  );
-  const onTimelineHeavyReady = useCallback((bundle: MessengerRoomPhase1TimelineHeavyBundle) => {
-    setTimelineHeavyBundle(bundle);
+  /** 채팅 P0-1: 무거운 부착 완료 = virtualizer 인스턴스 1회 수신(메시지 변경마다 다시 받지 않음) */
+  const [timelineVirtualizer, setTimelineVirtualizer] = useState<MessengerRoomTimelineVirtualizer | null>(null);
+  const onTimelineHeavyReady = useCallback((virtualizer: MessengerRoomTimelineVirtualizer) => {
+    setTimelineVirtualizer(virtualizer);
     const rid = roomId.trim();
     if (rid) {
       noteCmRoomR6VirtualizerReady(rid);
@@ -673,7 +683,7 @@ export function useMessengerRoomClientPhase1({
      */
     setTimelineViewportMounted(Boolean(messagesViewportRef.current));
     setTimelineHeavyLive(false);
-    setTimelineHeavyBundle(null);
+    setTimelineVirtualizer(null);
   }, [roomId]);
 
   /** scroll root 부착 직후 heavy virtualizer — rAF 지연 없이 동일 layout commit (fallback→virtual 2paint 방지). */
@@ -1108,7 +1118,7 @@ export function useMessengerRoomClientPhase1({
     openInfoSheetFromUrl,
   });
 
-  const { catchUpNewerMessages, reconcileLatestMessages, catchUpAfterRemoteBump } = useMessengerRoomRemoteCatchup({
+  const { catchUpNewerMessages, reconcileLatestMessages, entryCatchUp, catchUpAfterRemoteBump } = useMessengerRoomRemoteCatchup({
     roomId,
     streamRoomId,
     refresh,
@@ -1121,13 +1131,13 @@ export function useMessengerRoomClientPhase1({
     if (!roomReadyForRealtime) return;
     const rid = (streamRoomId || roomId).trim();
     if (!rid) return;
-    void catchUpNewerMessages();
     /**
      * 1단계 결함 D-13 (2026-10-26): `after=` 는 새 행만 받아 방 밖에서 일어난 같은 id 의 전체삭제를 놓친다.
      * 진입 때 최신 창을 1회 다시 받아 캐시·스냅샷으로 그린 원문을 서버 상태로 맞춘다.
+     * 채팅 P0-2 (Owner 「채팅 P0 승인」 2026-11-11): 최신 창 1건 — 창이 내 마지막 메시지를 덮지 못할 때만 `after=` 추가.
      */
-    void reconcileLatestMessages();
-  }, [catchUpNewerMessages, reconcileLatestMessages, roomId, roomReadyForRealtime, streamRoomId]);
+    void entryCatchUp();
+  }, [entryCatchUp, roomId, roomReadyForRealtime, streamRoomId]);
 
   useMessengerRoomVisibilityBusCatchup({
     roomId,
@@ -1365,10 +1375,16 @@ export function useMessengerRoomClientPhase1({
           lastReadMessageId: lrmStr ?? null,
           at: Date.now(),
         });
-        queueMicrotask(() => {
-          forgetMessengerRoomClientBootstrapFlights({ roomId: ledgerRoomId, viewerUserId: uid });
-          void refresh(true, { forceSilentNetwork: true, triggerReason: "read_patch_force_network" });
-        });
+        /**
+         * 채팅 P0-2 (Owner 「채팅 P0 승인」 2026-11-11): `entry_silent` 는 방금 받은 silent_delta(D-12 ③) 결과다 —
+         * 같은 부트스트랩을 바로 다시 받지 않는다(실측: 진입마다 `cmReqSrc=room_silent` 2회).
+         */
+        if (applySource !== "entry_silent") {
+          queueMicrotask(() => {
+            forgetMessengerRoomClientBootstrapFlights({ roomId: ledgerRoomId, viewerUserId: uid });
+            void refresh(true, { forceSilentNetwork: true, triggerReason: "read_patch_force_network" });
+          });
+        }
       }
     },
     [streamRoomId, refresh]
@@ -1776,9 +1792,20 @@ export function useMessengerRoomClientPhase1({
     setInviteIds([]);
   }, []);
 
-  const messageSearchResults = timelineHeavyBundle?.messageSearchResults ?? [];
-  const mediaGalleryMessages = timelineHeavyBundle?.mediaGalleryMessages ?? [];
-  const linkThreadMessages = timelineHeavyBundle?.linkThreadMessages ?? [];
+  /**
+   * 채팅 P0-1: 파생 목록은 메시지가 바뀐 같은 렌더에서 계산 — 무거운 부착(`timelineHeavyLive`) 전에는 계산하지 않고,
+   * 화면 반영은 예전과 같이 virtualizer 준비 후부터(준비 전 = 진입 가벼운 목록).
+   */
+  const timelineDerivedLive = useMessengerRoomDerivedMessageLists(
+    roomMessages,
+    hiddenCallStubIds,
+    roomSearchQuery,
+    timelineHeavyLive
+  );
+  const timelineHeavyBundle = timelineVirtualizer && timelineDerivedLive ? timelineDerivedLive : null;
+  const messageSearchResults = timelineHeavyBundle?.messageSearchResults ?? CM_ROOM_EMPTY_MESSAGE_LIST;
+  const mediaGalleryMessages = timelineHeavyBundle?.mediaGalleryMessages ?? CM_ROOM_EMPTY_MESSAGE_LIST;
+  const linkThreadMessages = timelineHeavyBundle?.linkThreadMessages ?? CM_ROOM_EMPTY_MESSAGE_LIST;
   const displayRoomMessagesBootstrap = useMemo(() => {
     const tMemo0 = typeof performance !== "undefined" ? performance.now() : 0;
     const filtered = roomMessages.filter(
@@ -1806,17 +1833,17 @@ export function useMessengerRoomClientPhase1({
       display_message_count: displayRoomMessages.length,
     });
   }, [displayRoomMessages.length, roomId, roomMessages.length, snapshot?.messages?.length]);
-  const fileMessages = timelineHeavyBundle?.fileMessages ?? [];
-  const managementEventMessages = timelineHeavyBundle?.managementEventMessages ?? [];
+  const fileMessages = timelineHeavyBundle?.fileMessages ?? CM_ROOM_EMPTY_MESSAGE_LIST;
+  const managementEventMessages = timelineHeavyBundle?.managementEventMessages ?? CM_ROOM_EMPTY_MESSAGE_LIST;
   const photoMessageCount = timelineHeavyBundle?.photoMessageCount ?? 0;
   const voiceMessageCount = timelineHeavyBundle?.voiceMessageCount ?? 0;
   const fileMessageCount = timelineHeavyBundle?.fileMessageCount ?? 0;
   const linkMessageCount = timelineHeavyBundle?.linkMessageCount ?? 0;
-  const chatVirtualizer = timelineHeavyBundle?.chatVirtualizer ?? CM_ROOM_EMPTY_VIRTUALIZER_STUB;
+  const chatVirtualizer = (timelineHeavyBundle ? timelineVirtualizer : null) ?? CM_ROOM_EMPTY_VIRTUALIZER_STUB;
 
   useEffect(() => {
-    chatVirtualizerRef.current = (timelineHeavyBundle?.chatVirtualizer ?? null) as typeof chatVirtualizerRef.current;
-  }, [timelineHeavyBundle?.chatVirtualizer]);
+    chatVirtualizerRef.current = (timelineHeavyBundle ? timelineVirtualizer : null) as typeof chatVirtualizerRef.current;
+  }, [timelineHeavyBundle, timelineVirtualizer]);
 
   const tradeDockScrollAnchorEnabled = useMemo(() => {
     const room = snapshot?.room;
@@ -2014,9 +2041,7 @@ export function useMessengerRoomClientPhase1({
   onTimelineHeavyReady,
   timelineHeavyHostInput: {
     roomId,
-    roomMessages,
-    hiddenCallStubIds,
-    roomSearchQuery,
+    displayRoomMessages: timelineDerivedLive?.displayRoomMessages ?? displayRoomMessagesBootstrap,
     messagesViewportRef,
     tradeDockScrollAnchorEnabled,
     storeOrderDockScrollAnchorEnabled,

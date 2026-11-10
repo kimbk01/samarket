@@ -1,4 +1,5 @@
 "use client";
+import { formatMessengerClockTime as formatMessengerClockTimeForMessage } from "@/lib/community-messenger/messenger-clock-time";
 
 /**
  * `CommunityMessengerRoomClient` 전용 뷰·포맷·아이콘 — 본 파일은 상태·실시간·전송 오케스트레이션에 집중한다.
@@ -170,6 +171,76 @@ function mergeCommunityMessageMetadata(
   return merged as CommunityMessengerMessage["metadata"];
 }
 
+/**
+ * 채팅 P0-1 (Owner 「채팅 P0 승인」 2026-11-11): 병합 결과가 기존 행과 내용이 같으면 기존 객체를 그대로 쓴다.
+ * 예전에는 병합할 때마다 모든 행을 새 객체로 만들어 행 `memo` 가 전부 깨졌다(진입 한 번에 타임라인 약 28회 전체 렌더 — 실측).
+ * `pending` false ≈ 없음, null ≈ undefined 는 같은 값으로 본다(화면 차이 없음).
+ */
+function messengerMergeValueEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a == null || b == null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bb = b as unknown[];
+    if (a.length !== bb.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!messengerMergeValueEqual(a[i], bb[i])) return false;
+    }
+    return true;
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  for (const k of Object.keys(ao)) {
+    if (!messengerMergeValueEqual(ao[k], bo[k])) return false;
+  }
+  for (const k of Object.keys(bo)) {
+    if (!(k in ao) && bo[k] != null) return false;
+  }
+  return true;
+}
+
+function messengerMergeRowEqual(
+  a: CommunityMessengerMessage & { pending?: boolean },
+  b: CommunityMessengerMessage & { pending?: boolean }
+): boolean {
+  if (Boolean(a.pending) !== Boolean(b.pending)) return false;
+  const ao = a as unknown as Record<string, unknown>;
+  const bo = b as unknown as Record<string, unknown>;
+  for (const k of Object.keys(ao)) {
+    if (k === "pending") continue;
+    if (!messengerMergeValueEqual(ao[k], bo[k])) return false;
+  }
+  for (const k of Object.keys(bo)) {
+    if (k === "pending" || k in ao) continue;
+    if (bo[k] != null) return false;
+  }
+  return true;
+}
+
+/**
+ * 채팅 P0-1: `next` 의 각 행이 `prev` 의 같은 id 행과 내용이 같으면 `prev` 의 객체를 쓴다.
+ * 순서·행이 모두 그대로면 `prev` 배열 자체를 돌려준다 — setState 가 다시 그리지 않고, 행 memo 가 유지된다.
+ */
+export function preserveRoomMessageReferences<T extends CommunityMessengerMessage & { pending?: boolean }>(
+  prev: T[],
+  next: T[]
+): T[] {
+  if (prev === next) return prev;
+  const byId = new Map<string, T>();
+  for (const row of prev) byId.set(String(row.id), row);
+  let same = prev.length === next.length;
+  const out: T[] = new Array(next.length);
+  for (let i = 0; i < next.length; i += 1) {
+    const row = next[i]!;
+    const old = byId.get(String(row.id));
+    const keep = old && (old === row || messengerMergeRowEqual(old, row)) ? old : row;
+    out[i] = keep;
+    if (same && keep !== prev[i]) same = false;
+  }
+  return same ? prev : out;
+}
+
 export function mergeRoomMessages(
   prev: Array<CommunityMessengerMessage & { pending?: boolean }>,
   next: CommunityMessengerMessage[],
@@ -218,10 +289,8 @@ export function mergeRoomMessages(
     /** Realtime postgres mapper historically demoted gift_certificate → text; never let that erase a hydrated gift card. */
     const preserveGiftCertificateType =
       existing?.messageType === "gift_certificate" && item.messageType === "text";
-    mergedConfirmed.set(
-      item.id,
-      /** D-13: 묘비가 있으면 늦게 온 옛 행의 본문·인용으로 되살리지 않는다 */
-      finalizeDeletedForEveryoneMessage({
+    /** D-13: 묘비가 있으면 늦게 온 옛 행의 본문·인용으로 되살리지 않는다 */
+    const mergedRow = finalizeDeletedForEveryoneMessage({
         ...existing,
         ...item,
         ...(preserveGiftCertificateType ? { messageType: "gift_certificate" as const } : {}),
@@ -231,7 +300,10 @@ export function mergeRoomMessages(
           item.deletedForEveryoneAt
         ),
         pending: false,
-      })
+      });
+    mergedConfirmed.set(
+      item.id,
+      existing && messengerMergeRowEqual(existing, mergedRow) ? existing : mergedRow
     );
   }
   const mapIndexMs = typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
@@ -275,6 +347,7 @@ export function mergeRoomMessages(
     return String(a.id ?? "").localeCompare(String(b.id ?? ""));
   });
   const sortMs = typeof performance !== "undefined" ? Math.round(performance.now() - tSort0) : 0;
+
   if (opts?.perfScope) {
     const prefix = opts.perfMetricPrefix?.trim() || "merge_room_messages";
     recordRouteEntryMetric(opts.perfScope, `${prefix}_map_index_ms`, mapIndexMs);
@@ -282,7 +355,7 @@ export function mergeRoomMessages(
     recordRouteEntryMetric(opts.perfScope, `${prefix}_normalize_ms`, normalizeMs);
     recordRouteEntryMetric(opts.perfScope, `${prefix}_sort_ms`, sortMs);
   }
-  return sorted;
+  return preserveRoomMessageReferences(prev, sorted);
 }
 
 export function getLatestCallStubForSession(
@@ -462,6 +535,20 @@ export function formatFileSize(bytes: number): string {
 }
 
 export { formatMessengerClockTime as formatTime } from "@/lib/community-messenger/messenger-clock-time";
+
+/**
+ * 채팅 P0-1: 메시지 1개당 시각 라벨은 1번만 계산한다(병합이 행 참조를 유지하므로 같은 객체 = 같은 라벨).
+ * 타임라인 줄 계산(다음 줄과 시각 비교)·행 표시가 같은 값을 쓴다.
+ */
+const messengerMessageClockLabelCache = new WeakMap<object, { createdAt: string; label: string }>();
+
+export function messengerMessageClockLabel(message: { createdAt: string }): string {
+  const hit = messengerMessageClockLabelCache.get(message);
+  if (hit && hit.createdAt === message.createdAt) return hit.label;
+  const label = formatMessengerClockTimeForMessage(message.createdAt);
+  messengerMessageClockLabelCache.set(message, { createdAt: message.createdAt, label });
+  return label;
+}
 
 export function formatRoomCallStatus(status?: string | null): string {
   if (status === "missed") return translateCmUi("cm_ui_call_status_missed_short");

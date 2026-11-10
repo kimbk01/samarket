@@ -38,8 +38,12 @@ describe("T3 missed realtime catch-up", () => {
 
   it("room re-entry ready path still runs catchUpNewerMessages (zero-fetch is not history authority)", () => {
     const phase1 = read("lib/community-messenger/room/use-messenger-room-client-phase1.ts");
-    expect(phase1).toContain("void catchUpNewerMessages()");
+    /** 채팅 P0-2 (2026-11-11): 진입 따라잡기 1건 = `entryCatchUp`(latest + 빈 구간·실패 시 after=) */
+    expect(phase1).toContain("void entryCatchUp()");
     expect(phase1).toContain("roomReadyForRealtime");
+    const catchup = read("lib/community-messenger/room/use-messenger-room-remote-catchup.ts");
+    expect(catchup).toMatch(/if \(latest === "failed"\) return catchUpNewerMessagesOutcome\(\);/);
+    expect(catchup).toContain("const gap = await catchUpNewerMessagesOutcome();");
     const refresh = read("lib/community-messenger/room/messenger-room-bootstrap-refresh.ts");
     expect(refresh).toContain("silent_fetch_skipped");
     expect(refresh).toContain("mergePrimedTimelineSeedIntoExisting");

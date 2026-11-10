@@ -362,25 +362,11 @@ function communityMessengerHomePropsEqual(
   const propDiff: Partial<Record<keyof CommunityMessengerHomeProps, CommunityMessengerHomePropsMemoDiffEntry>> =
     {};
 
-  const checkPrimitive = (
-    key: "initialTab" | "initialSection" | "initialFilter" | "initialKind",
-    prevValue: string | undefined,
-    nextValue: string | undefined
-  ) => {
-    if (prevValue === nextValue) return;
-    reasons.push(key);
-    propDiff[key] = {
-      prev: prevValue,
-      next: nextValue,
-      refChurn: false,
-      valueChange: true,
-    };
-  };
-
-  checkPrimitive("initialTab", prev.initialTab, next.initialTab);
-  checkPrimitive("initialSection", prev.initialSection, next.initialSection);
-  checkPrimitive("initialFilter", prev.initialFilter, next.initialFilter);
-  checkPrimitive("initialKind", prev.initialKind, next.initialKind);
+  /**
+   * 채팅 P0-3 (Owner 「채팅 P0 승인」 2026-11-11): `initial*` 는 첫 마운트 state 초기값으로만 쓴다(마운트 후 무시).
+   * 마운트 뒤 주소(section·filter·kind·tab) 변화는 `useCommunityMessengerHomeShellEffects` 의 URL→탭 맞춤(D-10)이
+   * `useSearchParams` 로 반영한다 — 여기서 비교하면 탭 전환마다 홈 전체가 한 번 더 다시 그려졌다(실측).
+   */
 
   if (prev.initialServerBootstrap !== next.initialServerBootstrap) {
     reasons.push("initialServerBootstrap");

@@ -1,4 +1,4 @@
-import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { mergeRoomMessages, preserveRoomMessageReferences } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { getMessengerRealtimeRoomMessages } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { filterMessagesByHistoryFloor } from "@/lib/community-messenger/room/message-history-floor";
@@ -18,5 +18,6 @@ export function mergePrimedTimelineSeedIntoExisting(args: {
   const storeMsgs = rid ? getMessengerRealtimeRoomMessages(rid) : [];
   const base = mergeRoomMessages(storeMsgs, args.prev);
   const merged = args.seed.length === 0 ? base : mergeRoomMessages(base, args.seed);
-  return filterMessagesByHistoryFloor(merged, args.historyFloorAt);
+  /** 채팅 P0-1: 내용이 같은 행은 React 쪽 기존 객체 유지(가게 사본 객체로 바꿔치기하지 않음) */
+  return preserveRoomMessageReferences(args.prev, filterMessagesByHistoryFloor(merged, args.historyFloorAt));
 }
