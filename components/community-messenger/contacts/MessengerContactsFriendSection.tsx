@@ -11,7 +11,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend-cta/MessengerFriendRelationCta";
 import { useContactsFriendCta } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
 import { useMessengerContacts } from "@/lib/community-messenger/contacts/use-messenger-contacts";
-import { findLocalNumberByRef, readContactsLocalState } from "@/lib/community-messenger/contacts/contacts-local-store";
+import { findLocalNumberByRef, readContactsNumbers } from "@/lib/community-messenger/contacts/contacts-local-store";
 import {
   MESSENGER_CONTACTS_SCREEN_HREF,
   contactsMemberDisplayName,
@@ -33,8 +33,14 @@ export function MessengerContactsFriendSection() {
   const [sheetMember, setSheetMember] = useState<ContactsMemberRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const cta = useContactsFriendCta(c.acceptRequest);
-  // 기기 저장값은 시트를 열 때만 읽는다 (렌더마다 전체 파싱 금지)
-  const local = useMemo(() => (sheetMember && c.userId ? readContactsLocalState(c.userId) : null), [sheetMember, c.userId]);
+  // 이 기기 번호표(큰 값)는 이 기기 연락처 회원의 시트를 열 때만 읽는다 (렌더마다·섹션 진입마다 읽기 금지)
+  const sheetDeviceNumber = useMemo(
+    () =>
+      sheetMember && c.userId && sheetMember.on_this_device && sheetMember.client_ref
+        ? findLocalNumberByRef(readContactsNumbers(c.userId), sheetMember.client_ref)
+        : null,
+    [sheetMember, c.userId]
+  );
 
   if (view.phase === "loading" || view.phase === "disabled") return null;
   // 설정을 못 불러옴 → 섹션을 조용히 지우지 않고 다시 시도 (최종 점검 #3·#21)
@@ -140,7 +146,7 @@ export function MessengerContactsFriendSection() {
         <MessengerContactsMemberSheet
           member={sheetMember}
           name={nameOf(sheetMember)}
-          deviceNumber={local ? findLocalNumberByRef(local, sheetMember.on_this_device ? sheetMember.client_ref : null) : null}
+          deviceNumber={sheetDeviceNumber}
           callDefault={view.settings?.callDefault ?? "ask"}
           requestState={cta.requestStateOf(sheetMember)}
           onClose={() => setSheetMember(null)}

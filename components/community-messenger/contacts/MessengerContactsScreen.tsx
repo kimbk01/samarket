@@ -15,7 +15,11 @@ import { MESSENGER_ROW_BTN_CLASS } from "@/components/community-messenger/friend
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useContactsFriendCta } from "@/components/community-messenger/contacts/use-contacts-friend-cta";
 import { useMessengerContacts } from "@/lib/community-messenger/contacts/use-messenger-contacts";
-import { findLocalNumberByRef, readContactsLocalState } from "@/lib/community-messenger/contacts/contacts-local-store";
+import {
+  findLocalNumberByRef,
+  readContactsNames,
+  readContactsNumbers,
+} from "@/lib/community-messenger/contacts/contacts-local-store";
 import { contactsNativePlatform } from "@/lib/community-messenger/contacts/contacts-native";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
 import { shareCommunityPostViaNative } from "@/lib/community/share/community-share-native";
@@ -60,9 +64,9 @@ export function MessengerContactsScreen() {
   const [sheetMember, setSheetMember] = useState<ContactsMemberRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const cta = useContactsFriendCta(c.acceptRequest);
-  // 기기 저장값(번호·이름)은 목록·이름표가 바뀔 때만 다시 읽는다 (렌더마다 전체 파싱 금지)
+  // 이 기기 번호표·이름표(큰 값)는 이 화면(초대 목록)에서만, 목록·동기화가 바뀔 때만 다시 읽는다 (렌더마다 읽기 금지)
   const local = useMemo(
-    () => (c.userId ? readContactsLocalState(c.userId) : null),
+    () => (c.userId ? { numbers: readContactsNumbers(c.userId), names: readContactsNames(c.userId) } : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 이름표·동기화 시각·목록이 바뀌면 다시 읽음
     [c.userId, view.names, view.lastSyncAt, view.members]
   );
@@ -267,7 +271,7 @@ export function MessengerContactsScreen() {
         <MessengerContactsMemberSheet
           member={sheetMember}
           name={nameOf(sheetMember)}
-          deviceNumber={local ? findLocalNumberByRef(local, sheetMember.on_this_device ? sheetMember.client_ref : null) : null}
+          deviceNumber={local ? findLocalNumberByRef(local.numbers, sheetMember.on_this_device ? sheetMember.client_ref : null) : null}
           callDefault={view.settings?.callDefault ?? "ask"}
           requestState={cta.requestStateOf(sheetMember)}
           onClose={() => setSheetMember(null)}

@@ -21,10 +21,14 @@ import { contactsManilaDay } from "@/lib/community-messenger/contacts/contacts-c
 import {
   CONTACTS_REVOKE_PENDING_EVENT,
   clearContactsDeviceData,
-  namesForListedMembers,
   patchContactsLocalState,
   purgeOtherUsersContactsLocalState,
   readContactsLocalState,
+  readContactsNames,
+  readContactsNumbers,
+  shrinkContactsDeviceDataToListed,
+  writeContactsNames,
+  writeContactsNumbers,
   type ContactsLocalState,
   type ContactsStopReason,
 } from "@/lib/community-messenger/contacts/contacts-local-store";
@@ -95,11 +99,11 @@ function asStopReason(error: string): ContactsStopReason | null {
  * - 이 기기 끄기·계정 끄기 = 「기기 안 유지」 → 비교 목록·이름표 그대로 (다시 켜면 바뀐 것만 올림)
  * - 권한 철회·출처 삭제 = 비교 목록 삭제 + 이름표는 목록 회원 것만
  */
-function stopPatch(cur: ContactsLocalState, stop: ContactsStopReason): Partial<ContactsLocalState> {
+function applyStop(userId: string, stop: ContactsStopReason, extra: Partial<ContactsLocalState> = {}): ContactsLocalState {
   const keepDevice = stop === "device_sync_off" || stop === "account_sync_off" || stop === "feature_off";
-  return keepDevice
-    ? { stoppedReason: stop, stoppedDay: manilaDay() }
-    : { stoppedReason: stop, stoppedDay: manilaDay(), numbers: null, names: namesForListedMembers(cur), snapshotProgress: null };
+  if (keepDevice) return patchContactsLocalState(userId, { ...extra, stoppedReason: stop, stoppedDay: manilaDay() });
+  shrinkContactsDeviceDataToListed(userId);
+  return patchContactsLocalState(userId, { ...extra, stoppedReason: stop, stoppedDay: manilaDay(), snapshotProgress: null });
 }
 
 /**
@@ -111,7 +115,8 @@ function stopPatch(cur: ContactsLocalState, stop: ContactsStopReason): Partial<C
  */
 function handleUploadError(userId: string, r: { error: string; status: number }): ContactsSyncOutcome {
   if (r.error === "permission_denied") {
-    patchContactsLocalState(userId, { serverPermissionDenied: true, numbers: null, snapshotProgress: null });
+    writeContactsNumbers(userId, null);
+    patchContactsLocalState(userId, { serverPermissionDenied: true, snapshotProgress: null });
     return "failed";
   }
   const stop = asStopReason(r.error);
@@ -122,7 +127,7 @@ function handleUploadError(userId: string, r: { error: string; status: number })
     return "not_consented";
   }
   if (stop) {
-    patchContactsLocalState(userId, stopPatch(readContactsLocalState(userId), stop));
+    applyStop(userId, stop);
     return "stopped";
   }
   if (r.error === "daily_limit" || r.error === "resync_limit") {
@@ -144,29 +149,25 @@ async function registerSource(userId: string, state: ContactsLocalState, reactiv
       patchContactsLocalState(userId, { consented: false });
     } else if (r.error === "contacts_disabled") {
       // 어드민 킬스위치 꺼짐 → 그날은 메신저에 들어올 때마다 다시 묻지 않는다 (최종 점검 N6)
-      patchContactsLocalState(userId, { lastHeartbeatDay: manilaDay(), ...stopPatch(state, "feature_off") });
+      applyStop(userId, "feature_off", { lastHeartbeatDay: manilaDay() });
     }
     return null;
   }
   const src = r.data.source;
   if (src.removed === true) {
     // 회원이 지운 출처 → 이 기기에서 다시 켤 때까지 멈춤 (하루 1회 갱신으로 되살리지 않음 — 감사 A9)
-    return patchContactsLocalState(userId, {
-      sourceId: src.source_id,
-      lastHeartbeatDay: manilaDay(),
-      ...stopPatch(state, "source_removed"),
-    });
+    return applyStop(userId, "source_removed", { sourceId: src.source_id, lastHeartbeatDay: manilaDay() });
   }
   const reactivated = src.reactivated === true || src.source_id !== state.sourceId;
   // 서버가 알려준 이 기기·계정 상태로 중지 여부를 다시 정한다 (하루 1회)
   const stoppedReason: ContactsStopReason | null =
     src.account_sync_enabled === false ? "account_sync_off" : src.sync_enabled === false ? "device_sync_off" : null;
+  // 새 출처·재사용 재개면 이전 번호표는 서버와 맞지 않으므로 전체 스냅숏
+  if (reactivated && state.numbersCount !== null) writeContactsNumbers(userId, null);
   return patchContactsLocalState(userId, {
     sourceId: src.source_id,
     deviceVersion: Number(src.device_version),
     lastHeartbeatDay: manilaDay(),
-    // 새 출처·재사용 재개면 이전 번호표는 서버와 맞지 않으므로 전체 스냅숏
-    numbers: reactivated ? null : state.numbers,
     snapshotProgress: reactivated ? null : state.snapshotProgress,
     stoppedReason,
     stoppedDay: stoppedReason ? manilaDay() : null,
@@ -231,8 +232,8 @@ async function uploadSnapshot(
       patchContactsLocalState(userId, { snapshotProgress: { generation, nextChunk: i + 1, total: chunks.length, size, fingerprint } });
     }
   }
+  writeContactsNumbers(userId, numbers);
   patchContactsLocalState(userId, {
-    numbers,
     deviceVersion: last ? Number(last.device_version) : state.deviceVersion,
     lastSyncAt: Date.now(),
     snapshotProgress: null,
@@ -278,12 +279,11 @@ async function runSync(userId: string, opts: ContactsSyncOptions): Promise<Conta
     ) {
       const r = await contactsApi.patchSource(state.sourceId, { installId: ensureClientInstanceId(), permissionState: "denied" });
       if (!r.ok) return "failed";
+      shrinkContactsDeviceDataToListed(userId);
       patchContactsLocalState(userId, {
         lastPermission: permission,
         revokePending: true,
-        revokeCount: state.numbers ? Object.keys(state.numbers).length : 0,
-        numbers: null,
-        names: namesForListedMembers(state),
+        revokeCount: state.numbersCount ?? 0,
         snapshotProgress: null,
         serverPermissionDenied: true,
       });
@@ -310,18 +310,20 @@ async function runSync(userId: string, opts: ContactsSyncOptions): Promise<Conta
   if (state.limitDay === today) return "throttled";
 
   // 끊긴 전체 업로드가 있으면 6시간 간격과 무관하게 이어 올린다
-  if (!opts.manual && !state.snapshotProgress && state.numbers && state.lastSyncAt && now - state.lastSyncAt < CONTACTS_AUTO_SYNC_INTERVAL_MS) {
+  if (!opts.manual && !state.snapshotProgress && state.numbersCount !== null && state.lastSyncAt && now - state.lastSyncAt < CONTACTS_AUTO_SYNC_INTERVAL_MS) {
     return "throttled";
   }
 
   const contacts = await readPhoneContacts();
   const { numbers, names } = buildContactsNumberMap(contacts, state.defaultCountry);
-  if (JSON.stringify(names) !== JSON.stringify(state.names)) patchContactsLocalState(userId, { names });
+  // 큰 값(번호표·이름표)은 실제로 연락처를 읽을 때만 읽는다 (최대 6시간에 1번·수동 새로고침)
+  if (JSON.stringify(names) !== JSON.stringify(readContactsNames(userId))) state = writeContactsNames(userId, names);
 
   // 끊긴 전체 업로드가 있으면 변경분보다 먼저 이어 올린다 (서버가 미확정 세대를 들고 있어 변경분은 409 — 재점검 #4)
-  if (!state.numbers || state.snapshotProgress) return uploadSnapshot(userId, state, numbers);
+  const prevNumbers = state.snapshotProgress ? null : readContactsNumbers(userId);
+  if (!prevNumbers || state.snapshotProgress) return uploadSnapshot(userId, state, numbers);
 
-  const diff = diffContactsNumberMaps(state.numbers, numbers);
+  const diff = diffContactsNumberMaps(prevNumbers, numbers);
   if (diff.add.length === 0 && diff.remove.length === 0) {
     patchContactsLocalState(userId, { lastSyncAt: now });
     return "unchanged";
@@ -339,7 +341,8 @@ async function runSync(userId: string, opts: ContactsSyncOptions): Promise<Conta
   let r = await contactsApi.sync(body);
   if (!r.ok && r.status === 0) r = await contactsApi.sync(body);
   if (r.ok) {
-    patchContactsLocalState(userId, { numbers, deviceVersion: Number(r.data.device_version), lastSyncAt: now });
+    writeContactsNumbers(userId, numbers);
+    patchContactsLocalState(userId, { deviceVersion: Number(r.data.device_version), lastSyncAt: now });
     return "uploaded";
   }
   if (r.status === 409) {

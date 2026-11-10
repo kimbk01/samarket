@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/contacts/contacts-native";
 import {
   CONTACTS_CHANGED_EVENT,
+  applyContactsListToLocal,
   clearContactsStop,
   patchContactsLocalState,
   type ContactsLocalState,
@@ -99,7 +100,7 @@ async function fetchContactsList(userId: string): Promise<ListCacheEntry | null>
       members: cached?.members ?? local.members,
       friendIds: cached?.friendIds ?? local.friendIds,
       knownRefs: cached?.knownRefs ?? local.knownRefs,
-      friendRefs: cached?.friendRefs ?? {},
+      friendRefs: cached?.friendRefs ?? local.friendRefs,
       accountSyncOff: cached?.accountSyncOff ?? false,
       token: r.data.token,
     };
@@ -117,7 +118,7 @@ async function fetchContactsList(userId: string): Promise<ListCacheEntry | null>
     token: d.token,
   };
   listCache.set(userId, entry);
-  patchContactsLocalState(userId, {
+  applyContactsListToLocal(userId, {
     members: d.members,
     friendIds: d.friendIds,
     knownRefs: entry.knownRefs,
@@ -146,7 +147,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       syncing: false,
       lastSyncAt: local0?.lastSyncAt ?? null,
       otherDeviceOnly: false,
-      names: local0?.names ?? {},
+      names: local0?.memberNames ?? {},
       knownRefs: cachedList?.knownRefs ?? local0?.knownRefs ?? [],
       featureOff: false,
       listError: false,
@@ -200,7 +201,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         friendRefs: entry.friendRefs,
         accountSyncOff: entry.accountSyncOff,
         listError: false,
-        names: after.names,
+        names: after.memberNames,
       });
     },
     [set, userId]
@@ -215,7 +216,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         revokePending: local?.revokePending ?? false,
         revokeCount: local?.revokeCount ?? 0,
         lastSyncAt: local?.lastSyncAt ?? null,
-        names: local?.names ?? {},
+        names: local?.memberNames ?? {},
         stoppedReason: local?.stoppedReason ?? null,
         deviceApprovalNeeded: outcome === "device_not_approved",
       });
@@ -366,7 +367,7 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
       const local = readContactsLocalState(userId);
       set({
         revokePending: local.revokePending,
-        names: local.names,
+        names: local.memberNames,
         lastSyncAt: local.lastSyncAt,
         stoppedReason: local.stoppedReason,
       });
