@@ -10,7 +10,7 @@ vi.mock("@/lib/auth/phone-otp-duplicate-check", () => ({
   findPhoneDuplicateOnOtherProfile: vi.fn(async () => null),
 }));
 vi.mock("@/lib/auth/semaphore-sms", () => ({
-  sendSemaphoreSms: vi.fn(async () => ({ ok: true, providerMessageId: "x" })),
+  sendSemaphoreOtpSms: vi.fn(async () => ({ ok: true, providerMessageId: "x" })),
 }));
 vi.mock("@/lib/auth/phone-otp-ops", () => ({
   recordPhoneOtpDeliveryEvent: vi.fn(async () => undefined),
