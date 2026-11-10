@@ -440,12 +440,17 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
     [userId]
   );
 
+  // 화면 머리글 동작(새로고침 버튼)이 이 함수에 의존한다 — 매 렌더 새 함수면 분할 화면 상단바 등록이 끝없이 반복된다
+  // (React #185, 샤오미 태블릿 분할 화면 실기 2026-11-11). 참조를 고정한다.
+  const refresh = useCallback(() => sync(true), [sync]);
+  const reloadList = useCallback(() => loadList(true), [loadList]);
+
   return {
     view,
     userId,
-    refresh: () => sync(true),
+    refresh,
     retry,
-    reloadList: () => loadList(true),
+    reloadList,
     consentAndStart,
     answerNewDevice,
     requestPermissionAgain,

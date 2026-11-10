@@ -199,6 +199,14 @@ describe("메신저 hot path 미연결 계약", () => {
     expect(hook).toMatch(/removeEventListener\(CM_FRIEND_REQUEST_CHANGED_EVENT, onFriendRequestChanged\)/);
   });
 
+  it("연락처 훅이 돌려주는 함수는 매 렌더 새로 만들지 않는다 — 분할 화면 상단바 등록 무한 반복(React #185) 방지 (실기 2026-11-11)", () => {
+    const hook = readFileSync(path.join(ROOT, "lib/community-messenger/contacts/use-messenger-contacts.ts"), "utf8");
+    const ret = hook.slice(hook.lastIndexOf("  return {"));
+    expect(ret).not.toMatch(/=>/);
+    expect(hook).toMatch(/const refresh = useCallback\(\(\) => sync\(true\), \[sync\]\);/);
+    expect(hook).toMatch(/const reloadList = useCallback\(\(\) => loadList\(true\), \[loadList\]\);/);
+  });
+
   it("친구 요청 변화 알림은 창 이벤트 1개만 보낸다", async () => {
     const { CM_FRIEND_REQUEST_CHANGED_EVENT, notifyFriendRequestChanged } = await import(
       "@/lib/community-messenger/friend-request-change-event"
