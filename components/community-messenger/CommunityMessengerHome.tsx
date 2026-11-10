@@ -4,7 +4,9 @@ import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { computeCallLogDisplayType, isCallLogMissedDisplayType } from "@/lib/community-messenger/call-log-row-copy";
 import {
+  lazy,
   memo,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -657,6 +659,13 @@ function CommunityMessengerHomeRouterEffectsHost({
 
   return null;
 }
+
+/** 친구 「음성」 통화 선택 시트 (연락처 동기화 4단계 C1) — 이 기기에 번호가 있고 기본 「매번 묻기」일 때만 불러온다 */
+const ContactsCallChoiceSheetLazy = lazy(() =>
+  import("@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet").then((m) => ({
+    default: m.MessengerContactsCallChoiceSheet,
+  }))
+);
 
 export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   initialTab,
@@ -2638,11 +2647,34 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [resolveHomeDialPeerLabel, t]
   );
 
+  /**
+   * 친구 「음성」 (프로필·친구 행 빠른 메뉴) — 연락처 동기화 4단계 C1:
+   * 이 기기 연락처에 그 친구 번호가 있고 기본 「매번 묻기」면 선택 시트(DIBAY 는 아래 기존 확인 경로 그대로 · 휴대폰 전화),
+   * 그 밖에는 지금과 완전히 같은 경로(`openHomeOutgoingConfirm`).
+   */
+  const [contactsCallChoice, setContactsCallChoice] = useState<{ peerUserId: string; peerLabel: string | null; number: string } | null>(null);
+  const viewerIdForContactsCall = data?.me?.id ?? null;
+  const friendVoiceCallWithContactsChoice = useCallback(
+    (userId: string, peerLabel?: string | null) => {
+      if (!viewerIdForContactsCall) {
+        openHomeOutgoingConfirm(userId, "voice", peerLabel);
+        return;
+      }
+      void import("@/components/community-messenger/contacts/contacts-friend-call")
+        .then((m) => {
+          const number = m.resolveContactsFriendChoiceNumber(viewerIdForContactsCall, userId);
+          if (number) setContactsCallChoice({ peerUserId: userId, peerLabel: peerLabel ?? null, number });
+          else openHomeOutgoingConfirm(userId, "voice", peerLabel);
+        })
+        .catch(() => openHomeOutgoingConfirm(userId, "voice", peerLabel));
+    },
+    [openHomeOutgoingConfirm, viewerIdForContactsCall]
+  );
   const onFriendRowVoiceCallStable = useCallback(
     (userId: string) => {
-      openHomeOutgoingConfirm(userId, "voice");
+      friendVoiceCallWithContactsChoice(userId);
     },
-    [openHomeOutgoingConfirm]
+    [friendVoiceCallWithContactsChoice]
   );
   const onFriendRowVideoCallStable = useCallback(
     (userId: string) => {
@@ -3796,6 +3828,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       )}
       </MessengerFriendActionsProvider>
 
+      {contactsCallChoice ? (
+        <Suspense fallback={null}>
+          <ContactsCallChoiceSheetLazy
+            peerUserId={contactsCallChoice.peerUserId}
+            peerLabel={contactsCallChoice.peerLabel}
+            deviceNumber={contactsCallChoice.number}
+            onClose={() => setContactsCallChoice(null)}
+            onDibayCall={(kind) => openHomeOutgoingConfirm(contactsCallChoice.peerUserId, kind, contactsCallChoice.peerLabel)}
+          />
+        </Suspense>
+      ) : null}
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet
           key={friendProfileForSheet.id}
@@ -3803,7 +3846,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           busyId={busyId}
           onClose={() => setFriendSheet(null)}
           onVoiceCall={() => {
-            openHomeOutgoingConfirm(friendProfileForSheet.id, "voice", friendProfileForSheet.label);
+            friendVoiceCallWithContactsChoice(friendProfileForSheet.id, friendProfileForSheet.label);
           }}
           onVideoCall={() => {
             openHomeOutgoingConfirm(friendProfileForSheet.id, "video", friendProfileForSheet.label);

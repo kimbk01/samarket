@@ -116,7 +116,13 @@ async function fetchContactsList(userId: string): Promise<ListCacheEntry | null>
     token: d.token,
   };
   listCache.set(userId, entry);
-  patchContactsLocalState(userId, { members: d.members, friendIds: d.friendIds, knownRefs: entry.knownRefs, listToken: d.token });
+  patchContactsLocalState(userId, {
+    members: d.members,
+    friendIds: d.friendIds,
+    knownRefs: entry.knownRefs,
+    friendRefs: entry.friendRefs,
+    listToken: d.token,
+  });
   return entry;
 }
 
@@ -276,7 +282,11 @@ export function useMessengerContacts(opts: { autoSync?: boolean } = {}) {
         set({ phase: "disabled", settings, featureOff: Boolean(settings) });
         return;
       }
-      patchContactsLocalState(userId, { consented: settings.consented, defaultCountry: settings.defaultCountry });
+      patchContactsLocalState(userId, {
+        consented: settings.consented,
+        defaultCountry: settings.defaultCountry,
+        callDefault: settings.callDefault,
+      });
       if (!settings.consented) {
         // 동의 전·철회 후에는 친구 행 「내 연락처」 표시도 없앤다 (재점검 #6)
         setContactsFriendTagIds([]);

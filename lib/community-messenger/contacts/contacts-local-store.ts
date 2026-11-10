@@ -63,6 +63,10 @@ export type ContactsLocalState = {
    */
   deviceApproved: boolean;
   snapshotProgress: ContactsSnapshotProgress | null;
+  /** 친구 중 이 기기 연락처에 있는 회원 → client_ref (친구 프로필 「음성」 통화 선택 — 4단계 C1) */
+  friendRefs: Record<string, string>;
+  /** 기본 통화 방식 (설정 응답값 보관 — 친구 프로필 통화 선택이 쓴다) */
+  callDefault: "ask" | "dibay" | "phone";
 };
 
 export function emptyContactsLocalState(): ContactsLocalState {
@@ -90,6 +94,8 @@ export function emptyContactsLocalState(): ContactsLocalState {
     revokeCount: 0,
     deviceApproved: false,
     snapshotProgress: null,
+    friendRefs: {},
+    callDefault: "ask",
   };
 }
 

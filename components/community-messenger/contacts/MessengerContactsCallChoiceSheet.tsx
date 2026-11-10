@@ -55,11 +55,17 @@ export function MessengerContactsCallChoiceSheet({
   peerLabel,
   deviceNumber,
   onClose,
+  onDibayCall,
 }: {
   peerUserId: string;
   peerLabel: string | null;
   deviceNumber: string | null;
   onClose: () => void;
+  /**
+   * DIBAY 통화를 호출한 화면의 기존 경로로 보낼 때 (친구 프로필 = 홈 발신 확인 경로 그대로 — C1 「지금과 같은 경로」).
+   * 없으면 연락처 회원과 같은 기존 발신 함수.
+   */
+  onDibayCall?: (kind: ContactsCallKind) => void;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -68,6 +74,11 @@ export function MessengerContactsCallChoiceSheet({
 
   const dibay = async (kind: ContactsCallKind) => {
     if (busy || outgoingBlocked) return;
+    if (onDibayCall) {
+      onClose();
+      onDibayCall(kind);
+      return;
+    }
     unlockCommunityMessengerCallPlaybackFromUserGesture();
     setBusy(true);
     const ok = await startContactsDibayCall(router, peerUserId, kind, peerLabel);
@@ -81,8 +92,9 @@ export function MessengerContactsCallChoiceSheet({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex min-h-[52px] w-full items-center justify-between gap-3 border-t border-[color:var(--overlay-border)] px-4 text-left disabled:opacity-50"
-      style={{ color: "var(--overlay-text-primary)" }}
+      className="flex min-h-[52px] w-full items-center justify-between gap-3 border-t border-[color:var(--overlay-border)] px-4 text-left"
+      // 막힘은 흐리게(opacity)가 아니라 보조 글자색으로 (UI SSOT)
+      style={{ color: disabled ? "var(--overlay-text-secondary)" : "var(--overlay-text-primary)" }}
     >
       <span className="text-[15px]">{label}</span>
       <span className="text-[12px]" style={{ color: "var(--overlay-text-secondary)" }}>
