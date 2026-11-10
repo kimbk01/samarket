@@ -572,12 +572,20 @@ export function attachVoipPushTokenListener(): () => void {
   };
 
   const onInvalidated = () => {
+    // R2 (2026-11-11): 무효화된 **이 기기의** VoIP 행만 끈다 — device_id(+알고 있으면 직전 토큰)를 함께 보낸다.
+    // provider 만 보내면 서버가 같은 회원의 다른 iPhone/iPad VoIP 행까지 끄던 결함.
+    const invalidatedToken = lastVoipPushToken?.trim() || "";
     lastVoipPushToken = null;
+    const body: Record<string, string> = {
+      device_id: ensureClientInstanceId(),
+      push_provider: "voip_apns",
+    };
+    if (invalidatedToken) body.push_token = invalidatedToken;
     void fetch("/api/me/devices/deactivate", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ push_provider: "voip_apns" }),
+      body: JSON.stringify(body),
     }).catch((err: unknown) => {
       logPushRegisterFail("voip_token_deactivate_exception", {
         error: err instanceof Error ? err.message : String(err),
