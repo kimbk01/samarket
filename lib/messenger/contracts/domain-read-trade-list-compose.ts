@@ -116,7 +116,7 @@ export async function composeDomainReadTradeListDto(
       viewerUserId,
       generation: `trade-list-${Date.now()}`,
       snapshotKind: "full",
-      source: createTradeLiveBootstrapSource(sb),
+      source: createTradeLiveBootstrapSource(sb, undefined, { inboxOnly: true }),
     });
     if (trade.viewerUserId !== viewerUserId) {
       return { ok: false, trigger: "viewer_mismatch" };

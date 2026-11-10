@@ -583,24 +583,33 @@ function tradeLatestBodyWithCallTipToken(
   return body && tip.sharedLabel.trim() === body ? String(roomLastMessage) : latest.bodyText;
 }
 
+export type TradeLiveBatchOptions = {
+  /**
+   * 거래 채팅 목록·허브 전용 — 내가 보관한 방(`is_archived`)은 뺀다. 목록의 보관 동작은 캐시에서만 행을 지워
+   * 다시 받으면 되살아났다(2026-11-10 감사). 방 화면 표시(presentation)는 이 옵션 없이 읽는다.
+   */
+  inboxOnly?: boolean;
+};
+
 export async function fetchTradeLiveBatch(
   sb: SupabaseClient,
-  viewerUserId: string
+  viewerUserId: string,
+  options?: TradeLiveBatchOptions
 ): Promise<{ rows: TradeLoaderBatchRow[]; meta: Phase11bLiveLoadMeta }> {
   assertPhase11bLiveConstraints();
   const timings: Phase11bQueryTiming[] = [];
   const tDb0 = Date.now();
 
-  const { data: parts, timing: t1 } = await timedSelect("trade_participants_rooms", () =>
-    sb
+  const { data: parts, timing: t1 } = await timedSelect("trade_participants_rooms", () => {
+    const q = sb
       .from("community_messenger_participants")
       .select(
         "room_id, unread_count, community_messenger_rooms!inner(id, chat_domain, domain_identity_key, title, avatar_url, last_message)"
       )
       .eq("user_id", viewerUserId)
-      .eq("community_messenger_rooms.chat_domain", "trade")
-      .limit(PHASE11B_MAX_ROWS)
-  );
+      .eq("community_messenger_rooms.chat_domain", "trade");
+    return (options?.inboxOnly ? q.eq("is_archived", false) : q).limit(PHASE11B_MAX_ROWS);
+  });
   timings.push(t1);
 
   type RoomEmbed = {
@@ -734,10 +743,11 @@ export async function fetchTradeLiveBatch(
 
 export function createTradeLiveBootstrapSource(
   sb: SupabaseClient,
-  onMeta?: (meta: Phase11bLiveLoadMeta) => void
+  onMeta?: (meta: Phase11bLiveLoadMeta) => void,
+  options?: TradeLiveBatchOptions
 ): TradeBootstrapSource {
   return createTradeDbLoaderSource(async (viewerUserId) => {
-    const { rows, meta } = await fetchTradeLiveBatch(sb, viewerUserId);
+    const { rows, meta } = await fetchTradeLiveBatch(sb, viewerUserId, options);
     onMeta?.(meta);
     return rows;
   });

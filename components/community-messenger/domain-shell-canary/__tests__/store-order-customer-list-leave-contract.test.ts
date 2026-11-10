@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getSwipeActions } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import {
-  domainStoreOrderListRowLeaveAllowed,
   domainStoreOrderListRowToUnifiedItem,
   type DomainStoreOrderListRow,
 } from "@/components/community-messenger/domain-shell-canary/domain-store-order-list-row-to-unified-item";
@@ -27,35 +26,15 @@ const baseRow: DomainStoreOrderListRow = {
   exposesMemberIdentity: false,
 };
 
-describe("주문 채팅 고객 목록 — 나가기·밀기 (Owner 2026-11-10 1단계)", () => {
-  it("끝난 주문(완료·취소·환불)만 나가기 허용, 진행 중·상태 모름은 불가", () => {
-    for (const s of ["completed", "cancelled", "refunded"]) {
-      expect(domainStoreOrderListRowLeaveAllowed({ orderStatus: s })).toBe(true);
-    }
-    for (const s of ["pending", "accepted", "preparing", "delivering", "cancel_requested", "refund_requested"]) {
-      expect(domainStoreOrderListRowLeaveAllowed({ orderStatus: s })).toBe(false);
-    }
-    expect(domainStoreOrderListRowLeaveAllowed({ orderStatus: undefined })).toBe(false);
-    expect(domainStoreOrderListRowLeaveAllowed({ orderStatus: null })).toBe(false);
-  });
-
-  it("밀기 = 읽음·나가기 2종, 보관 없음 / 진행 중은 나가기 비활성 + 사유", () => {
-    const done = getSwipeActions({
+describe("주문 채팅 고객 목록 — 나가기·밀기 (Owner 2026-11-10)", () => {
+  it("밀기 = 읽음·나가기 2종, 보관 없음 / 주문 상태와 무관하게 나가기 가능", () => {
+    const actions = getSwipeActions({
       policyType: "direct",
       listContext: "default",
-      storeOrderCustomerList: { leaveAllowed: true },
+      storeOrderCustomerList: true,
     });
-    expect(done.map((a) => a.kind)).toEqual(["read", "leave"]);
-    expect(done[1]!.disabled).toBe(false);
-
-    const live = getSwipeActions({
-      policyType: "direct",
-      listContext: "default",
-      storeOrderCustomerList: { leaveAllowed: false },
-    });
-    expect(live.map((a) => a.kind)).toEqual(["read", "leave"]);
-    expect(live[1]!.disabled).toBe(true);
-    expect(live[1]!.disabledReasonKey).toBe("cm_ui_order_chat_leave_in_progress");
+    expect(actions.map((a) => a.kind)).toEqual(["read", "leave"]);
+    expect(actions.every((a) => !a.disabled)).toBe(true);
   });
 
   it("매장 사장님은 주문 목록에서도 나가기 미노출 (L-7 유지)", () => {
@@ -63,7 +42,7 @@ describe("주문 채팅 고객 목록 — 나가기·밀기 (Owner 2026-11-10 1�
       policyType: "direct",
       listContext: "default",
       viewerIsDeliveryStoreOwner: true,
-      storeOrderCustomerList: { leaveAllowed: true },
+      storeOrderCustomerList: true,
     });
     expect(owner.map((a) => a.kind)).toEqual(["read"]);
   });
@@ -97,5 +76,12 @@ describe("주문 채팅 고객 목록 — 나가기·밀기 (Owner 2026-11-10 1�
       "utf8"
     );
     expect(loader).toContain("options?.inboxOnly && !activeParticipantRoomIds.has(");
+    // 거래 목록: 보관한 방은 목록 조회에서 제외 (방 화면 표시는 그대로)
+    expect(loader).toContain('options?.inboxOnly ? q.eq("is_archived", false) : q');
+    const tradeCompose = readFileSync(
+      join(process.cwd(), "lib/messenger/contracts/domain-read-trade-list-compose.ts"),
+      "utf8"
+    );
+    expect(tradeCompose).toContain("createTradeLiveBootstrapSource(sb, undefined, { inboxOnly: true })");
   });
 });
