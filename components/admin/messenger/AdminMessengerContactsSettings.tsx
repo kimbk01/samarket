@@ -123,7 +123,7 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
     <div className="max-w-[720px] space-y-4 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-[18px] font-semibold">{t("admin_mc_title")}</h1>
+          <h1 className="text-[20px] font-semibold">{t("admin_mc_title")}</h1>
           <p className="mt-1 text-[13px] text-[var(--admin-console-muted)]">{t("admin_mc_desc")}</p>
         </div>
         <AdminActionButton size="sm" onClick={() => void load()}>
@@ -132,10 +132,10 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
       </div>
 
       {!state.migrationApplied ? (
-        <p className="rounded-ui-rect border border-[var(--admin-console-border)] bg-[#fff8e6] p-3 text-[13px]">{t("admin_mc_migration_missing")}</p>
+        <p className="rounded-ui-rect border border-[var(--admin-console-border)] bg-[color:var(--sam-warning-soft)] p-3 text-[13px]">{t("admin_mc_migration_missing")}</p>
       ) : null}
       {state.migrationApplied && !state.hmacKeyConfigured ? (
-        <p className="rounded-ui-rect border border-[var(--admin-console-border)] bg-[#fff8e6] p-3 text-[13px]">{t("admin_mc_key_missing")}</p>
+        <p className="rounded-ui-rect border border-[var(--admin-console-border)] bg-[color:var(--sam-warning-soft)] p-3 text-[13px]">{t("admin_mc_key_missing")}</p>
       ) : null}
       {!canSave ? <p className="text-[13px] text-[var(--admin-console-muted)]">{t("admin_mc_super_only")}</p> : null}
 
@@ -215,14 +215,14 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
             {t("admin_mc_revision")} {state.settings.revision}
           </span>
           {notice === "saved" ? <span className="text-[13px]">{t("admin_mc_saved")}</span> : null}
-          {notice === "stale" ? <span className="text-[13px] text-[var(--admin-console-danger,#c0392b)]">{t("admin_mc_stale")}</span> : null}
-          {notice === "failed" ? <span className="text-[13px] text-[var(--admin-console-danger,#c0392b)]">{t("admin_mc_save_failed")}</span> : null}
+          {notice === "stale" ? <span className="text-[13px] text-[color:var(--sam-danger)]">{t("admin_mc_stale")}</span> : null}
+          {notice === "failed" ? <span className="text-[13px] text-[color:var(--sam-danger)]">{t("admin_mc_save_failed")}</span> : null}
         </div>
       </section>
 
       {counts ? (
         <section className="rounded-ui-rect border border-[var(--admin-console-border)] bg-white p-4">
-          <h2 className="mb-2 text-[15px] font-semibold">{t("admin_mc_counts_title")}</h2>
+          <h2 className="mb-2 text-[16px] font-semibold">{t("admin_mc_counts_title")}</h2>
           <dl className="grid grid-cols-2 gap-2 text-[13px]">
             <dt>{t("admin_mc_count_consented")}</dt>
             <dd className="text-right tabular-nums">{counts.consentedUsers ?? "—"}</dd>
@@ -233,7 +233,7 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
             <dt>{t("admin_mc_count_failures")}</dt>
             <dd
               className={`text-right tabular-nums ${
-                (counts.openSuppressionFailures ?? 0) > 0 ? "font-semibold text-[var(--admin-console-danger,#c0392b)]" : ""
+                (counts.openSuppressionFailures ?? 0) > 0 ? "font-semibold text-[color:var(--sam-danger)]" : ""
               }`}
             >
               {counts.openSuppressionFailures ?? "—"}
