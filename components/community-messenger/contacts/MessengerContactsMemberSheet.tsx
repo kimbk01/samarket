@@ -24,7 +24,6 @@ import {
   startContactsDibayCall,
 } from "@/components/community-messenger/contacts/MessengerContactsCallChoiceSheet";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
-import { useOutgoingCallBlocked } from "@/lib/call/use-outgoing-call-blocked";
 
 /**
  * 연락처 회원 프로필 (친구 아님 · 통합 시안 「cp」) — 친구 프로필 시트와 같은 오버레이 SSOT:
@@ -64,8 +63,6 @@ export function MessengerContactsMemberSheet({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  /** 발신 중이면 새 DIBAY 통화를 막는다 — 선택 시트와 같은 판정 (4단계 C2) */
-  const { blocked: outgoingBlocked } = useOutgoingCallBlocked();
   /** 숨기기·차단은 확인 후 실행 (메신저 차단과 같은 흐름: 확인 → 처리 중 → 결과 안내) */
   const [confirm, setConfirm] = useState<"hide" | "block" | null>(null);
   const publicId = member.dibay_id || member.username;
@@ -101,7 +98,7 @@ export function MessengerContactsMemberSheet({
 
   const call = () => {
     if (callDefault === "dibay") {
-      if (outgoingBlocked) return;
+      // 발신 중이면 기존 가드(guardInstantOutgoingCallStart)가 진행 중 통화로 보낸다 — 버튼을 막지 않는다 (재점검 #9)
       unlockCommunityMessengerCallPlaybackFromUserGesture();
       void startContactsDibayCall(router, member.user_id, "voice", name).then((ok) => {
         if (ok) onClose();
@@ -161,7 +158,7 @@ export function MessengerContactsMemberSheet({
       icon: <Phone strokeWidth={2.2} />,
       label: t("cm_contacts_member_phone_call"),
       onClick: call,
-      disabled: anyBusy || (callDefault === "dibay" && outgoingBlocked),
+      disabled: anyBusy,
     },
   ];
   const menu: DibayMenuItem[] = [

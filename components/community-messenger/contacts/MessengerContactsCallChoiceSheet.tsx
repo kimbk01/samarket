@@ -72,8 +72,10 @@ export function MessengerContactsCallChoiceSheet({
   const { blocked: outgoingBlocked } = useOutgoingCallBlocked();
   const [busy, setBusy] = useState(false);
 
+  /** 호출한 화면의 기존 경로로 보낼 때는 그 경로가 발신 중 판정·진행 중 통화 이동을 한다 → 여기서 막지 않음 */
+  const dibayBlocked = !onDibayCall && outgoingBlocked;
   const dibay = async (kind: ContactsCallKind) => {
-    if (busy || outgoingBlocked) return;
+    if (busy || dibayBlocked) return;
     if (onDibayCall) {
       onClose();
       onDibayCall(kind);
@@ -110,8 +112,8 @@ export function MessengerContactsCallChoiceSheet({
           {t("cm_contacts_member_phone_call")}
           {peerLabel ? ` · ${peerLabel}` : ""}
         </p>
-        {row("voice", t("cm_contacts_call_dibay_voice"), t("cm_contacts_call_dibay_sub"), () => void dibay("voice"), busy || outgoingBlocked)}
-        {row("video", t("cm_contacts_call_dibay_video"), t("cm_contacts_call_dibay_sub"), () => void dibay("video"), busy || outgoingBlocked)}
+        {row("voice", t("cm_contacts_call_dibay_voice"), t("cm_contacts_call_dibay_sub"), () => void dibay("voice"), busy || dibayBlocked)}
+        {row("video", t("cm_contacts_call_dibay_video"), t("cm_contacts_call_dibay_sub"), () => void dibay("video"), busy || dibayBlocked)}
         {row(
           "phone",
           t("cm_contacts_call_phone"),

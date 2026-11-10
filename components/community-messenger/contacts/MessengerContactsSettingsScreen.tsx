@@ -142,6 +142,7 @@ export function MessengerContactsSettingsScreen() {
     const on = s.data.featureEnabled !== false;
     setFeatureOn(on);
     setSettings(s.data.settings);
+    if (userId) patchContactsLocalState(userId, { callDefault: s.data.settings.callDefault });
     const [src, h] = await Promise.all([
       contactsApi.sources(ensureClientInstanceId()),
       on ? contactsApi.suppressions() : Promise.resolve(null),
@@ -453,7 +454,11 @@ export function MessengerContactsSettingsScreen() {
             if (v !== settings.callDefault)
               void act("call", () => contactsApi.patchSettings({ callDefault: v }), "cm_contacts_saved", {
                 reload: false,
-                onOk: () => patchSettingsLocal({ callDefault: v }),
+                onOk: () => {
+                  patchSettingsLocal({ callDefault: v });
+                  // 친구 프로필 「음성」 선택 판정이 읽는 기기 안 값도 같이 (재점검 #5)
+                  patchContactsLocalState(userId, { callDefault: v });
+                },
               });
           }}
         />
