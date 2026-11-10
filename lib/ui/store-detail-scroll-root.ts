@@ -53,6 +53,16 @@ export function getStoreDetailAppScrollRoot(): HTMLElement {
   return document.documentElement;
 }
 
+/**
+ * F 단계 (2026-11-10): 스크롤 이벤트가 난 요소 = 지금 실제로 스크롤되는 루트 — 판정 계산(getComputedStyle) 없이 캐시를 맞춘다.
+ * window/document 에서 난 이벤트는 문서 스크롤 루트.
+ */
+export function noteStoreDetailScrollRootFromScrollEvent(target: EventTarget | null): void {
+  if (typeof document === "undefined" || !target) return;
+  // 요소가 아니면(window·document) 문서 스크롤 루트
+  cachedScrollRoot = target instanceof HTMLElement ? target : document.documentElement;
+}
+
 /** 핫패스 — layout effect 구독 시 1회 resolve 후 캐시 */
 export function getStoreDetailAppScrollRootCached(): HTMLElement {
   if (cachedScrollRoot && document.contains(cachedScrollRoot)) {

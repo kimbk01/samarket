@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
+import { notifyAppShellScrollRootsChanged } from "@/lib/layout/app-shell-scroll-root-registry";
 import {
   MAIN_HUB_SCROLL_BODY_CLASS,
   MAIN_HUB_SCROLL_HEADER_CLASS,
@@ -40,6 +41,11 @@ export function MainHubScrollBody({
   roomHost?: boolean;
   children: ReactNode;
 }) {
+  /** F 단계: 스크롤 후보가 생기거나(마운트)·표식이 바뀌거나(roomHost)·사라질 때 구독자에게 알린다 — 전역 DOM 관찰 대신 */
+  useLayoutEffect(() => {
+    notifyAppShellScrollRootsChanged();
+    return () => notifyAppShellScrollRootsChanged();
+  }, [roomHost]);
   return (
     <main
       data-main-hub-scroll-body={roomHost ? undefined : ""}
