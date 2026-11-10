@@ -1,5 +1,4 @@
 import { CommunityHomeSurface } from "@/components/community/CommunityHomeSurface";
-import { MainHubKeepAliveSlot } from "@/components/layout/MainHubKeepAlive";
 
 type PhilifePageProps = {
   searchParams: Promise<{ category?: string; sort?: string }>;
@@ -11,9 +10,5 @@ type PhilifePageProps = {
  * Cold Boot: Suspense/RSC seed 로 첫 paint 를 막지 않는다.
  */
 export default function PhilifePage(_props: PhilifePageProps) {
-  return (
-    <MainHubKeepAliveSlot hubId="community">
-      <CommunityHomeSurface />
-    </MainHubKeepAliveSlot>
-  );
+  return <CommunityHomeSurface />;
 }
