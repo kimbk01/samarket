@@ -11,6 +11,11 @@
  *
  * Force a build: put `[vercel build]` in the commit message.
  *
+ * 요청 빌드 (Owner 2026-11-10 「요청 빌드로 변경」 · Vercel 비용): Vercel Production(main) 은
+ * `[vercel build]` 가 **맨 마지막 커밋 메시지**에 있을 때만 빌드한다. 그 밖의 main 푸시는 모두 건너뛴다(Canceled).
+ * 스테이징 빌드는 「그 시점 main 전체」를 빌드하므로 중간 커밋을 건너뛰어도 빠지는 변경은 없다.
+ * 요청 방법: git commit --allow-empty -m "chore(staging): 스테이징 빌드 요청 [vercel build]" → main 푸시.
+ *
  * Local check:
  *   node scripts/vercel-ignored-build-step.mjs
  *   echo $?
@@ -31,6 +36,9 @@ const SKIP_DIR_PREFIXES = [
   // Windows 데스크톱 셸(WebView2 + MSIX) 소스 — 설계 W0. 웹 번들에 들어가지 않는다.
   "windows/",
 ];
+
+/** 웹 번들과 무관한 개별 스크립트(개발용 앱 설치 등) — 로컬·Preview 판정용 */
+const SKIP_SCRIPT_EXACT = ["scripts/ios-staging-dev-build.sh"];
 
 /** 테스트 전용 파일 — 번들에 들어가지 않는다(CI 는 그대로 돈다). */
 const TEST_FILE_PATTERNS = [/(^|\/)__tests__\//, /\.(test|spec)\.[cm]?[jt]sx?$/];
@@ -87,6 +95,7 @@ function isSkippable(file) {
   const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "");
 
   if (SKIP_EXACT.has(normalized)) return true;
+  if (SKIP_SCRIPT_EXACT.includes(normalized)) return true;
   if (SKIP_DIR_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return true;
   if (SKIP_EXTENSIONS.some((ext) => normalized.toLowerCase().endsWith(ext))) return true;
   if (TEST_FILE_PATTERNS.some((re) => re.test(normalized))) return true;
@@ -108,6 +117,11 @@ function main() {
   if (commitMessage.includes(FORCE_TOKEN)) {
     log(`force token ${FORCE_TOKEN} present → build`);
     process.exit(1);
+  }
+
+  if ((process.env.VERCEL_ENV ?? "").trim() === "production") {
+    log(`on-request build mode — no ${FORCE_TOKEN} in last commit message → skip`);
+    process.exit(0);
   }
 
   const files = listChangedFiles();
