@@ -91,8 +91,8 @@ import {
 import { formatChatListKakaoTime } from "@/lib/community-messenger/chat-list/chat-list-kakao-time";
 
 const ACTION_W = 78;
-/** 채팅 시안 4판 — 대화 목록 사진은 종류(사람·그룹·거래·주문)와 관계없이 48px 둥근 사각 (`--cm-chat-avatar-radius` 18px) */
-const CHAT_LIST_AVATAR_ROUNDED_CLASS = "rounded-[var(--cm-chat-avatar-radius,18px)]";
+/** 채팅 시안 4판 — 대화 목록 사진은 종류(사람·그룹·거래·주문)와 관계없이 48px 둥근 사각 (`--cm-chat-photo-radius` 18px) */
+const CHAT_LIST_AVATAR_ROUNDED_CLASS = "rounded-[var(--cm-chat-photo-radius,18px)]";
 const MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM = (_room: CommunityMessengerRoomSummary) => {};
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
@@ -1244,6 +1244,15 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     >
       <div
         className="absolute inset-y-0 right-0 flex"
+        /**
+         * 닫힌 줄에서는 버튼 띠를 그리지 않는다 — 줄 위치가 소수 픽셀(예 136.42)이면 본문(translate3d 층)과
+         * 띠의 경계가 다르게 맞춰져 줄 사이에 1px 빨강·회색 선이 보였다. 닫힐 때는 0.2s(본문 복귀) 뒤에 숨긴다.
+         */
+        style={
+          isDragging || swipeOpen || dragX !== 0
+            ? { visibility: "visible" }
+            : { visibility: "hidden", transition: "visibility 0s linear 0.2s" }
+        }
         aria-hidden={!swipeOpen && dragX > -16}
         // L-11 — 닫힌 스와이프 액션에 키보드 포커스 금지
         inert={!swipeOpen && dragX > -16 ? true : undefined}

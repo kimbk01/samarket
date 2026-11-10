@@ -94,7 +94,7 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
     <>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex h-[72px] items-center gap-3 px-4" data-domain-list-row-skeleton="1">
-          <div className="h-12 w-12 shrink-0 rounded-[var(--cm-chat-avatar-radius,18px)] bg-sam-muted/20" />
+          <div className="h-12 w-12 shrink-0 rounded-[var(--cm-chat-photo-radius,18px)] bg-sam-muted/20" />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="h-3 w-2/5 rounded bg-sam-muted/20" />
             <div className="h-3 w-3/5 rounded bg-sam-muted/15" />

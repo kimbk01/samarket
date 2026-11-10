@@ -18,7 +18,7 @@ type Props = {
 };
 
 const THUMB_GEOMETRY = {
-  list: { size: 48, boxClass: "h-12 w-12", roundedClass: "rounded-[var(--cm-chat-avatar-radius,18px)]", textClass: "text-[17px]" },
+  list: { size: 48, boxClass: "h-12 w-12", roundedClass: "rounded-[var(--cm-chat-photo-radius,18px)]", textClass: "text-[17px]" },
   sheet: { size: 44, boxClass: "h-11 w-11", roundedClass: "rounded-[16px]", textClass: "text-[16px]" },
 } as const;
 

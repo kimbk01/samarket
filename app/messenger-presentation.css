@@ -119,7 +119,8 @@
   --cm-chat-entry-trade-fg: var(--sam-primary);
   --cm-chat-entry-order-bg: #fbf3e2;
   --cm-chat-entry-order-fg: var(--dibay-brown);
-  --cm-chat-avatar-radius: 18px;
+  /* 이름에 avatar 를 넣지 않는다 — globals.css `[class*="avatar"]` 가 클래스 문자열만 보고 원(9999px)으로 덮는다 */
+  --cm-chat-photo-radius: 18px;
   --cm-chat-fab-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 

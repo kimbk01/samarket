@@ -16,7 +16,7 @@ type Props = {
 
 /** 채팅 시안 4판 「9」 — 상품 사진 48 둥근 사각(모서리 18, 대화 목록 사진과 같은 값) */
 const THUMB_SIZE = 48;
-const THUMB_ROUNDED_CLASS = "rounded-[var(--cm-chat-avatar-radius,18px)]";
+const THUMB_ROUNDED_CLASS = "rounded-[var(--cm-chat-photo-radius,18px)]";
 
 /** 사진 없음 — 옅은 칸 + 작은 「상품」 글자 (시안 `.av.prod`) */
 function TradeProductPlaceholder() {
