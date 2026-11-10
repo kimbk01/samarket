@@ -10,6 +10,7 @@ import {
   resetAppBootStore,
   subscribeAppBoot,
   getAppBootSnapshot,
+  getAppBootServerSnapshot,
   setAppBootShell,
 } from "@/lib/app-boot/app-boot-store";
 import type { AppBootState } from "@/lib/app-boot/app-boot-types";
@@ -65,7 +66,7 @@ export function invalidateAppBootForAuthUpgrade(): void {
 }
 
 export function AppBootProvider({ children }: { children: ReactNode }) {
-  const boot = useSyncExternalStore(subscribeAppBoot, getAppBootSnapshot, getAppBootSnapshot);
+  const boot = useSyncExternalStore(subscribeAppBoot, getAppBootSnapshot, getAppBootServerSnapshot);
 
   useEffect(() => {
     logAppBuildFingerprintOnce("AppBootProvider");

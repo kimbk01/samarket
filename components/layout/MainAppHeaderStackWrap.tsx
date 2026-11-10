@@ -1,23 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import dynamic from "next/dynamic";
-import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
+import { PhilifeMessengerFromHeaderStack } from "@/components/philife/PhilifeMessengerFromHeaderStack";
+import { TradeHistoryFromHeaderStack } from "@/components/trade/TradeHistoryFromHeaderStack";
 
-const PhilifeMessengerFromHeaderStack = dynamic(
-  () =>
-    import("@/components/philife/PhilifeMessengerFromHeaderStack").then(
-      (m) => m.PhilifeMessengerFromHeaderStack
-    ),
-  // FAIL②: 서버 HTML 첫 그림 — 문서 이동(배포 후 첫 탭 등)에서 JS 마운트 전 빈 화면 방지. 동작·트리 변경 없음.
-  { ssr: false, loading: () => <MainShellDocumentLoading /> }
-);
-const TradeHistoryFromHeaderStack = dynamic(
-  () =>
-    import("@/components/trade/TradeHistoryFromHeaderStack").then((m) => m.TradeHistoryFromHeaderStack),
-  // 바깥 래퍼가 풀린 뒤 이 청크를 기다리는 동안에도 같은 로딩 화면(빈 화면으로 되돌아가지 않게).
-  { ssr: false, loading: () => <MainShellDocumentLoading /> }
-);
+/**
+ * C 단계 (Owner 승인 2026-11-10): 두 래퍼는 일반 import — 예전 `next/dynamic({ ssr:false })` 가 셸 전체(헤더·본문·하단 메뉴)를
+ * 감싸 서버 HTML 에 메뉴가 없었다. 래퍼 자체는 서버에서 그려도 안전(열림 false 시작·패널 포털은 마운트 후),
+ * 무거운 패널 본문은 각 래퍼 안에서 계속 지연 로드(`ssr:false`).
+ */
 
 /**
  * 헤더 메신저·거래내역 풀스택 래퍼.

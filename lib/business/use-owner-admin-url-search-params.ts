@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
+import { useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 
 /**
  * Owner Admin layout-safe URL search.
@@ -48,12 +49,14 @@ export function useOwnerAdminUrlSearchParams(): URLSearchParams {
     getOwnerAdminUrlSearchSnapshot,
     getOwnerAdminUrlSearchServerSnapshot
   );
+  /** C4 (Owner 승인 2026-11-10): hydration 첫 렌더는 서버 스냅샷("")과 같게 — 그 뒤부터 location.search 직접 읽기 */
+  const hydrated = useShellHydrated();
   return useMemo(() => {
     void pathname;
     // Next soft navigations update location.search without popstate — re-read on pathname tick.
     const live =
-      typeof window !== "undefined" ? window.location.search : search;
+      hydrated && typeof window !== "undefined" ? window.location.search : search;
     const raw = live.startsWith("?") ? live.slice(1) : live;
     return new URLSearchParams(raw);
-  }, [pathname, search]);
+  }, [pathname, search, hydrated]);
 }

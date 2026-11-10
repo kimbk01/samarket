@@ -63,6 +63,7 @@ import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIco
 import { MAIN_BOTTOM_NAV_TAB_ICONS, MainBottomNavHomeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
+import { useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
 import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -306,9 +307,14 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const ownerNav = useOwnerNavigationSummary();
   const searchParams = useSearchParams();
+  /**
+   * C3 (Owner 승인 2026-11-10): 레일 판정·탭 주소는 브라우저 저장값(sessionStorage)을 읽는다 →
+   * 서버 HTML·hydration 첫 렌더는 저장값 없이(기본 주소), hydration 직후 저장값 반영 (React 19 는 속성 불일치를 고치지 않음).
+   */
+  const shellHydrated = useShellHydrated();
   const secondaryRail = useMemo(
-    () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
-    [pathname, searchParams]
+    () => (shellHydrated ? resolveMainBottomNavSecondaryRailKind(pathname, searchParams) : undefined),
+    [pathname, searchParams, shellHydrated]
   );
   const isActive =
     pendingActiveTabId != null
@@ -318,13 +324,15 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const effectiveHref = useMemo(
     () =>
-      resolveMainBottomNavTabTapHref(tab.id, tab.href, {
-        emphasisKind,
-        pathname,
-        searchParams,
-        ownerStoreId: ownerNav.storeId,
-      }),
-    [tab.id, tab.href, pathname, searchParams, ownerNav.storeId, emphasisKind]
+      shellHydrated
+        ? resolveMainBottomNavTabTapHref(tab.id, tab.href, {
+            emphasisKind,
+            pathname,
+            searchParams,
+            ownerStoreId: ownerNav.storeId,
+          })
+        : tab.href,
+    [tab.id, tab.href, pathname, searchParams, ownerNav.storeId, emphasisKind, shellHydrated]
   );
 
   const className = [
@@ -466,9 +474,11 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   const { tt, safeT } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
+  /** C3 — 위와 같음: 저장값 레일 판정은 hydration 이후 */
+  const shellHydrated = useShellHydrated();
   const secondaryRail = useMemo(
-    () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
-    [pathname, searchParams]
+    () => (shellHydrated ? resolveMainBottomNavSecondaryRailKind(pathname, searchParams) : undefined),
+    [pathname, searchParams, shellHydrated]
   );
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const { href: effectiveHref } = useCommerceCartNavHref(tab.href);
@@ -988,6 +998,7 @@ export function BottomNav({
         .join(" ")}
       aria-label={t("nav_bottom_bar_aria")}
       inert={inert || undefined}
+      data-app-bottom-nav=""
     >
       <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
         {showPendingProgress ? (

@@ -58,6 +58,14 @@ export function getAppBootSnapshot(): AppBootState {
   return state;
 }
 
+/**
+ * C4 (Owner 승인 2026-11-10): `useSyncExternalStore` 서버 스냅샷 — 서버 HTML 과 hydration 첫 렌더가 같도록 항상 초기값.
+ * (예전에는 서버 스냅샷 자리에 클라이언트 현재값 getter 를 넣어 hydration 전 부팅이 끝나면 프로필 사진 주소가 어긋날 수 있었다.)
+ */
+export function getAppBootServerSnapshot(): AppBootState {
+  return INITIAL;
+}
+
 export function subscribeAppBoot(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);

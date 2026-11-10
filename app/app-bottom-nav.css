@@ -938,3 +938,11 @@ html:has(.app-bottom-nav-shell--delivery) {
     opacity: 0.6;
   }
 }
+
+/**
+ * C5 (Owner 승인 2026-11-10): 셸을 서버에서 그린 뒤 hydration 전까지 하단 메뉴는 보이기만 하고 누름은 막는다 —
+ * hydration 전 누르면 `<a href>` 문서 이동이 다시 나가 문서가 한 번 더 시작된다. 표식은 ConditionalAppShell 이 hydration 때 단다.
+ */
+html:not([data-shell-hydrated]) [data-app-bottom-nav] {
+  pointer-events: none;
+}

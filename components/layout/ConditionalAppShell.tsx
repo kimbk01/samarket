@@ -73,6 +73,8 @@ import {
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 import { SupportModalHost } from "@/components/support/SupportModalHost";
+import { MainShellDocumentLoading } from "@/components/layout/MainRouteLoading";
+import { SHELL_HYDRATED_HTML_ATTR, useShellHydrated } from "@/lib/ui/use-shell-hydrated";
 import { useDibayAppShellAuthority } from "@/lib/device/use-dibay-app-shell";
 import { isCommunityHomeSurfacePath, isHomeSurfacePath, resolveMainSurface } from "@/lib/layout/resolve-main-surface";
 
@@ -178,6 +180,11 @@ export function ConditionalAppShell({
   regionBarInLayout?: boolean;
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
+  /** C2·C5 — hydration 완료 여부 (서버·hydration 첫 렌더 false) */
+  const shellHydrated = useShellHydrated();
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute(SHELL_HYDRATED_HTML_ATTR, "");
+  }, []);
   const pathname = usePathname();
   const appShell = useDibayAppShellAuthority();
   const hostShell = useSyncExternalStore(subscribeHostShellNoop, readDibayHostShellAttr, readHostShellServerSnapshot);
@@ -342,7 +349,11 @@ export function ConditionalAppShell({
           : APP_MAIN_COLUMN_CLASS
       } ${fillColumnForChildScroll ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""}`}
     >
-      {children}
+      {/**
+       * C2 (Owner 승인 2026-11-10): 셸(헤더·하단 메뉴)은 서버에서 그리고, 페이지 본문은 hydration 직후부터 —
+       * 서버 HTML·hydration 첫 렌더는 기존 회색 줄 본문. 페이지 본문의 서버 렌더는 이번 범위가 아니다.
+       */}
+      {shellHydrated ? children : <MainShellDocumentLoading />}
     </div>
   );
 
