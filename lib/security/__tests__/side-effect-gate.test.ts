@@ -60,7 +60,7 @@ describe("side-effect gate — 차단 규칙", () => {
   });
 });
 
-describe("cron 계약 — vercel.json cron 19개는 게이트, 통화 관련 2개는 미변경", () => {
+describe("cron 계약 — vercel.json cron 20개는 게이트, 통화 관련 2개는 미변경", () => {
   const root = process.cwd();
   const crons = (JSON.parse(readFileSync(path.join(root, "vercel.json"), "utf8")) as { crons: { path: string }[] }).crons;
   /**
@@ -72,8 +72,8 @@ describe("cron 계약 — vercel.json cron 19개는 게이트, 통화 관련 2�
     "/api/cron/notification-push-handoff",
   ]);
 
-  it("cron 수 = 21 (변경 시 이 계약을 함께 갱신)", () => {
-    expect(crons.length).toBe(21);
+  it("cron 수 = 22 (변경 시 이 계약을 함께 갱신 · 2026-11-10 messenger-contacts-maintenance 추가)", () => {
+    expect(crons.length).toBe(22);
   });
   for (const c of crons) {
     it(`${c.path}`, () => {

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메신저 허브 통합 시안</title>
+<style>
+:root{
+  --green:#0B421A; --green-soft:#eef3ef; --cream:#FFFCFC; --brown:#362415; --muted:#604C4C;
+  --sub:color-mix(in srgb,#604C4C 78%,#fff); --card:#fff; --border:rgba(54,36,21,.14); --line:rgba(54,36,21,.08);
+  --danger:#d45252; --badge:#006241; --gold:#EAC784; --page:#ecebe8; --room:#f7f6f3;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--brown);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.top{max-width:1320px;margin:0 auto;padding:20px 16px 8px}
+.top h1{font-size:19px;margin:0 0 4px}
+.top p{margin:0;color:var(--muted);font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;font-size:12px}
+.tg{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;line-height:16px;vertical-align:1px;white-space:nowrap}
+.tg.cur{background:#e7ecef;color:#40505c;border:1px solid #c9d3da}
+.tg.new{background:#fbefd2;color:#7a5410;border:1px solid #e7c98a}
+.tg.own{background:#fff;color:var(--danger);border:1px solid var(--danger)}
+.tg.np{background:#fff;color:#6b6b6b;border:1px dashed #9a9a9a}
+body.hide-tags .tg{display:none}
+.wrap{max-width:1320px;margin:0 auto;padding:8px 16px 40px;display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.panel{background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;position:sticky;top:8px}
+@media (max-width:900px){.panel{position:static}}
+.panel h3{font-size:13px;margin:4px 0 8px}
+.seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:10px}
+.seg button{flex:1;min-height:44px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--green);color:#fff}
+.jump{display:flex;flex-direction:column;gap:4px}
+.jump button{text-align:left;min-height:40px;padding:6px 8px;border-radius:6px;border:1px solid var(--line);font-size:13px}
+.jump button:hover{background:var(--green-soft)}
+.jump button b{color:var(--green);margin-right:4px}
+.opt{display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px}
+.note{font-size:12px;color:var(--muted);background:#faf8f5;border:1px solid var(--line);border-radius:6px;padding:8px;margin-top:10px;line-height:1.5}
+.stage{display:flex;justify-content:center}
+/* device */
+.device{background:var(--cream);border:1px solid var(--border);border-radius:26px;overflow:hidden;position:relative;box-shadow:0 2px 14px rgba(54,36,21,.08);display:flex;flex-direction:column}
+.device.mobile{width:390px;max-width:100%;height:780px}
+.device.wide{width:100%;max-width:1180px;height:760px;border-radius:12px}
+.sb{height:26px;flex:none;font-size:11px;display:flex;justify-content:space-between;align-items:center;padding:0 18px;background:var(--card)}
+.wide .sb{display:none}
+.app{flex:1;display:flex;min-height:0;position:relative}
+.pane{display:flex;flex-direction:column;min-height:0;min-width:0;position:relative;background:var(--cream)}
+.mobile .pane.list{flex:1}
+.wide .pane.list{width:clamp(360px,35vw,470px);flex:none;border-right:1px solid var(--border)}
+.wide .pane.detail{flex:1}
+.mobile .pane.detail{position:absolute;inset:0;z-index:5}
+.hdr{height:52px;flex:none;display:flex;align-items:center;gap:6px;padding:0 6px 0 14px;background:var(--card);border-bottom:1px solid var(--line)}
+.hdr .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .t small{display:block;font-size:11px;font-weight:400;color:var(--sub)}
+.ib{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;position:relative}
+.ib:hover{background:var(--green-soft)}
+.ib svg{width:22px;height:22px}
+.ib .dot{position:absolute;top:9px;right:9px;width:7px;height:7px;border-radius:999px;background:var(--danger)}
+.tabs{display:flex;gap:4px;padding:0 10px;background:var(--card);border-bottom:1px solid var(--line);flex:none}
+.tabs button{min-height:44px;padding:0 12px;font-size:14px;font-weight:500;color:var(--sub);position:relative}
+.tabs button.on{color:var(--green);font-weight:600}
+.tabs button.on:after{content:"";position:absolute;left:8px;right:8px;bottom:0;height:3px;background:var(--green);border-radius:4px}
+.tabs .cnt{display:inline-block;min-width:18px;padding:0 5px;margin-left:3px;border-radius:999px;background:var(--danger);color:#fff;font-size:11px;line-height:18px}
+.scroll{flex:1;overflow:auto;min-height:0;padding-bottom:12px}
+.chips{display:flex;gap:6px;padding:10px 12px 4px;overflow-x:auto}
+.chip{min-height:34px;padding:0 12px;border:1px solid var(--border);border-radius:999px;font-size:13px;white-space:nowrap;background:#fff}
+.chip.on{background:var(--green);border-color:var(--green);color:#fff}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 12px}
+.tile{min-height:60px;background:#fff;border:1px solid var(--border);border-radius:4px;padding:10px 12px;text-align:left;display:flex;align-items:center;gap:10px}
+.tile .ic{width:36px;height:36px;border-radius:8px;background:var(--green-soft);display:flex;align-items:center;justify-content:center;color:var(--green);font-weight:800}
+.tile b{display:block;font-size:14px}
+.tile small{color:var(--sub);font-size:12px}
+.tile .ub{margin-left:auto}
+.sec{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 6px;font-size:12px;color:var(--muted);font-weight:600}
+.sec button{min-height:32px;color:var(--green);font-weight:600;font-size:12px}
+.list{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;padding:0 14px;min-height:74px;border-bottom:1px solid var(--line);width:100%;text-align:left;background:#fff}
+.row:last-child{border-bottom:0}
+.row.f{min-height:58px}
+.row:hover{background:#fbfaf8}
+.av{width:52px;height:52px;border-radius:999px;background:#e9e4df;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);position:relative}
+.row.f .av{width:46px;height:46px}
+.av.g{background:#dce7de;color:var(--green)}
+.av.sq{border-radius:8px}
+.av .mini{position:absolute;right:-3px;bottom:-3px;width:22px;height:22px;border-radius:6px;border:2px solid #fff;background:#cfd8d2;font-size:10px;display:flex;align-items:center;justify-content:center}
+.mt{flex:1;min-width:0}
+.nm{font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}
+.nm span.n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv{font-size:13px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.tm{font-size:12px;color:var(--sub)}
+.ub{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--badge);color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+.lb{font-size:11px;padding:0 6px;border-radius:4px;background:#f1eeea;color:var(--muted);line-height:18px;flex:none}
+.lb.tr{background:#eaf1ff;color:#2e4f8a}.lb.dl{background:#fff1e6;color:#94501a}.lb.gp{background:#efeafc;color:#5a3f99}
+.lb.ct{background:var(--green-soft);color:var(--green)}.lb.ot{background:#ece9e6;color:var(--muted)}.lb.nw{background:#fbf3e3;color:#8a6420}
+.btn{min-height:44px;padding:0 14px;border-radius:4px;font-size:14px;font-weight:600;border:1px solid var(--green);background:var(--green);color:#fff;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+.btn.sm{min-height:40px;padding:0 12px;font-size:13px}
+.btn.line{background:#fff;color:var(--green)}
+.btn.gray{background:#fff;color:var(--muted);border-color:var(--border)}
+.btn.dis{background:#ece9e6;color:var(--sub);border-color:#ece9e6;cursor:default}
+.btn.red{background:#fff;color:var(--danger);border-color:var(--danger)}
+.btn.full{width:100%}
+.searchrow{display:flex;gap:8px;padding:10px 12px;background:#fff;border-bottom:1px solid var(--line);align-items:center}
+.searchrow .in{flex:1;min-height:40px;border:1px solid var(--border);border-radius:4px;padding:0 10px;display:flex;align-items:center;color:var(--sub);font-size:13px}
+.addhd{padding:12px 14px 0;font-size:13px;font-weight:700;background:#fff}
+.reqcard{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line)}
+.me{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border-bottom:1px solid var(--line)}
+.banner{margin:8px 12px;padding:12px;border:1px solid var(--border);border-radius:4px;background:#fff;display:flex;gap:10px;align-items:center}
+.banner.new{border-color:#e7c98a;background:#fffaf0}
+.banner .tx{flex:1;font-size:13px}.banner .tx b{display:block;font-size:14px}
+.bnav{height:60px;flex:none;display:flex;background:#fff;border-top:1px solid var(--border)}
+.bnav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--sub);gap:2px;min-height:44px}
+.bnav button.on{color:var(--green);font-weight:700}
+.bnav i{font-style:normal;font-size:17px;line-height:1}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:14px;flex-direction:column;gap:8px}
+/* room */
+.roomhd{min-height:52px}
+.pcard{display:flex;gap:10px;align-items:center;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line)}
+.pcard .ph{width:48px;height:48px;border-radius:4px;background:#d9d2c9;flex:none}
+.pcard b{display:block;font-size:14px}.pcard small{color:var(--sub)}
+.timeline{flex:1;background:var(--room);overflow:auto;padding:12px 12px 4px}
+.bub{max-width:72%;padding:8px 11px;border-radius:14px;font-size:14px;margin:6px 0;background:#fff;border:1px solid var(--line)}
+.bub.me{margin-left:auto;background:var(--green);color:#fff;border-color:var(--green)}
+.sys{text-align:center;font-size:12px;color:var(--sub);margin:10px 0}
+.composer{display:flex;gap:8px;padding:8px 10px;background:#fff;border-top:1px solid var(--border);align-items:center}
+.composer .in{flex:1;min-height:44px;border:1px solid var(--border);border-radius:22px;padding:0 14px;display:flex;align-items:center;color:var(--sub)}
+/* sheet */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end}
+.wide .dim{align-items:center;justify-content:center}
+.sheet{width:100%;background:#fff;border-radius:16px 16px 0 0;padding:6px 0 max(16px,env(safe-area-inset-bottom));max-height:88%;overflow:auto}
+.wide .sheet{width:420px;border-radius:16px}
+.grab{width:36px;height:4px;border-radius:999px;background:#d8d2cc;margin:6px auto 10px}
+.ph1{display:flex;flex-direction:column;align-items:center;padding:6px 16px 12px;gap:4px}
+.ph1 .av{width:76px;height:76px;font-size:24px}
+.ph1 b{font-size:18px}.ph1 small{color:var(--sub)}
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px 16px 10px}
+.act{min-height:64px;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12.5px}
+.act i{font-style:normal;font-size:18px}
+.act.dis{opacity:.45}
+.opts .o{display:flex;justify-content:space-between;align-items:center;min-height:50px;padding:0 16px;border-top:1px solid var(--line);font-size:15px;width:100%;text-align:left}
+.opts .o small{font-size:12px;color:var(--sub)}
+.opts .o.red{color:var(--danger)}
+.dlg{background:#fff;border-radius:16px;margin:auto 24px;padding:20px 18px 14px;width:100%}
+.wide .dlg{width:380px;margin:0}
+.dim.c{align-items:center}
+.dlg h4{margin:0 0 6px;font-size:16px}.dlg p{margin:0 0 14px;font-size:13px;color:var(--muted)}
+.dlg .row2{display:flex;gap:8px}.dlg .row2 .btn{flex:1}
+/* consent */
+.consent{flex:1;overflow:auto;padding:20px 22px;background:#fff;display:flex;flex-direction:column}
+.consent h2{text-align:center;font-size:20px;margin:8px 0 4px}
+.consent .lead{text-align:center;color:var(--muted);font-size:13px;margin:0 0 16px}
+.consent ul{list-style:none;padding:0;margin:0 0 16px}
+.consent li{display:flex;gap:10px;padding:7px 0;font-size:13.5px}
+.consent li .ck{flex:none;width:20px;height:20px;border-radius:999px;background:var(--green);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.consent li small{display:block;color:var(--sub);font-size:12px}
+.setr{display:flex;justify-content:space-between;align-items:center;min-height:56px;padding:6px 16px;background:#fff;border-bottom:1px solid var(--line);font-size:14.5px;gap:10px;width:100%;text-align:left}
+.setr small{display:block;font-size:12px;color:var(--sub)}
+.setr .v{color:var(--sub);font-size:13px;white-space:nowrap}
+.tog{width:46px;height:28px;border-radius:999px;background:var(--green);position:relative;flex:none}
+.tog:after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:999px;background:#fff}
+.tog.off{background:#d6d0ca}.tog.off:after{right:auto;left:3px}
+.hint{padding:8px 14px;font-size:12px;color:var(--sub)}
+.anno{margin:6px 12px;padding:8px 10px;border-left:3px solid var(--gold);background:#fffaf0;font-size:12px;color:var(--muted);border-radius:0 4px 4px 0}
+body.hide-tags .anno{display:none}
+.caption{max-width:1180px;margin:10px auto 0;font-size:12.5px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;line-height:1.55}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>DIBAY 메신저 허브 × 연락처 동기화 — 통합 검토 시안</h1>
+  <p>기준: Production = origin/main <code>f10a59d</code> (2026-11-10 PHT 확인) · 계획안 <code>docs/design/messenger-contacts-sync-plan.md</code> v5 (Owner #16·#17·#19 승인 반영) · 운영 API 호출·데이터 변경 없음 (모두 가짜 데이터)</p>
+  <div class="legend">
+    <span class="tg cur">현재</span> 운영 코드에 있는 화면·버튼을 재현
+    <span class="tg new">신규</span> 이번 제안
+    <span class="tg own">Owner 결정</span> 승인 필요
+    <span class="tg np">NOT_PROVEN</span> 코드에서 세부 미확인 (모양은 추정)
+  </div>
+</div>
+
+<div class="wrap">
+  <aside class="panel">
+    <h3>화면 크기</h3>
+    <div class="seg"><button id="m-mobile" class="on">모바일 세로</button><button id="m-wide">태블릿·데스크톱 가로</button></div>
+    <h3>검토 화면 바로가기</h3>
+    <div class="jump" id="jump"></div>
+    <label class="opt"><input type="checkbox" id="tags" checked style="width:20px;height:20px"> 현재/신규 표시·주석 보기</label>
+    <div class="note">가로(768px 이상)는 현재 운영과 같은 <b>목록 | 상세</b> 분할 화면 (목록 폭 clamp(360px, 35vw, 470px), 하단 탭은 목록 칸에만). 버튼·탭·행은 눌러서 이동할 수 있습니다.</div>
+  </aside>
+  <main>
+    <div class="stage"><div id="dev" class="device mobile"></div></div>
+    <div class="caption" id="cap"></div>
+  </main>
+</div>
+
+<script>
+const T={cur:'<span class="tg cur">현재</span>',neu:'<span class="tg new">신규</span>',own:'<span class="tg own">Owner 결정</span>',np:'<span class="tg np">NOT_PROVEN</span>'};
+const IC={
+ search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+ gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+ bell:'<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="2"/></svg>',
+ back:'<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ sync:'<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16m0 4v-4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ phone:'<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+ more:'<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg>'
+};
+const D={
+ chats:[{id:'g1',n:'김철수',p:'내일 시간 돼?',t:'오후 2:10',u:2,k:'direct'},{id:'g2',n:'주말 등산 모임 (5)',p:'정다은: 토요일 7시 출발',t:'오후 1:02',u:5,k:'group'},{id:'g3',n:'박민수',p:'사진 보냈어요',t:'어제',u:0,k:'direct'}],
+ trade:[{id:'t1',n:'아이폰 13 미니 128GB',peer:'이영희',role:'구매',p:'가격 조정 가능할까요?',t:'오전 11:20',u:1},{id:'t2',n:'원목 의자 2개',peer:'최지훈',role:'판매',p:'내일 픽업 가능해요',t:'어제',u:0}],
+ order:[{id:'o1',n:'마닐라 치킨',st:'배달 중',p:'10분 뒤 도착 예정입니다',t:'오후 12:40',u:1},{id:'o2',n:'카페 루나',st:'완료',p:'이용해 주셔서 감사합니다',t:'11월 8일',u:0}],
+ calls:[{n:'김철수',p:'음성 · 발신 · 3분',t:'오늘'},{n:'정다은',p:'영상 · 부재중',t:'어제'}],
+ fav:[{id:'f3',n:'정다은',s:'오늘도 화이팅'}],
+ newf:[{id:'f2',n:'박민수',s:'',ct:true}],
+ friends:[{id:'f1',n:'김철수',s:'산 좋아함',ct:true},{id:'f2',n:'박민수',s:'',ct:true},{id:'f3',n:'정다은',s:'오늘도 화이팅',ct:false},{id:'f4',n:'조하늘',s:'',ct:false}],
+ req:[{id:'r1',n:'서지민',dir:'in'},{id:'r2',n:'한소라',dir:'out'}],
+ contacts:[{id:'c1',n:'이영희',dn:'@younghee',dev:'both',st:'none',trade:true},{id:'c2',n:'최지훈',dn:'@jihoon',dev:'A',st:'none',nw:true,trade:true},{id:'c3',n:'한소라',dn:'@sora',dev:'A',st:'out'},{id:'c4',n:'오상훈',dn:'@sanghoon',dev:'B',st:'none'}]
+};
+const S={mode:'mobile',section:'chats',detail:null,sheet:null,consent:true,device:'A',chip:'all'};
+const $=s=>document.querySelector(s);
+function go(p){Object.assign(S,p);render();}
+window.go=go;
+
+function hdrMain(){
+ return `<div class="hdr"><div class="t">메신저<small>대화·친구·통화</small></div>
+  <button class="ib" title="검색 (전역 검색으로 이동)">${IC.search}</button>
+  <button class="ib" title="설정">${IC.gear}</button>
+  <button class="ib" title="알림">${IC.bell}<span class="dot"></span></button></div>
+  <div class="tabs">${[['chats','대화'],['friends','친구'],['calls','통화']].map(([k,l])=>`<button class="${S.section===k?'on':''}" onclick="go({section:'${k}',detail:${S.mode==='wide'?'S.detail':'null'}})">${l}${k==='friends'?'<span class="cnt">1</span>':''}</button>`).join('')}</div>`;
+}
+function bnav(){return `<div class="bnav">${[['⌂','홈'],['☷','커뮤니티'],['🛵','스토어'],['💬','채팅'],['☺','내정보']].map(([i,l])=>`<button class="${l==='채팅'?'on':''}"><i>${i}</i>${l}</button>`).join('')}</div>`;}
+function row(o){return `<button class="row" onclick="${o.on}"><div class="av ${o.sq?'sq':''}">${o.a}${o.mini?`<span class="mini">${o.mini}</span>`:''}</div><div class="mt"><div class="nm"><span class="n">${o.n}</span>${o.lb||''}</div><div class="pv">${o.p}</div></div><div class="rt"><span class="tm">${o.t||''}</span>${o.u?`<span class="ub">${o.u}</span>`:''}</div></button>`;}
+function frow(o){return `<button class="row f" onclick="${o.on}"><div class="av g">${o.n[0]}</div><div class="mt"><div class="nm"><span class="n">${o.n}</span>${o.lb||''}</div>${o.s?`<div class="pv">${o.s}</div>`:''}</div>${o.right||''}</button>`;}
+
+function chatsTab(){
+ const chips=[['all','전체'],['unread','안 읽음'],['direct','1:1'],['group','그룹'],['trade','거래'],['delivery','배달']];
+ let h=`<div class="chips">${chips.map(([k,l])=>`<button class="chip ${S.chip===k?'on':''}" onclick="go({chip:'${k}'})">${l}</button>`).join('')}</div>`;
+ h+=`<div class="anno">${T.cur} 거래·주문은 대화 탭 위 <b>요약 칸 2개</b>로 들어가고(전체 칩일 때), 아래 목록은 1:1·그룹만. 「안 읽음」·거래·배달 칩에서는 한 목록에 섞여 보임. <b>이번 작업에서 바꾸지 않음.</b></div>`;
+ if(S.chip==='all'){
+  h+=`<div class="tiles"><button class="tile" onclick="go({detail:'tradeList'})"><span class="ic">거</span><span><b>거래 채팅</b><small>2개 대화</small></span><span class="ub">1</span></button><button class="tile" onclick="go({detail:'orderList'})"><span class="ic">주</span><span><b>주문 채팅</b><small>2개 주문</small></span><span class="ub">1</span></button></div>`;
+ }
+ let items=D.chats.map(c=>({...c,kind:c.k}));
+ if(S.chip==='unread'||S.chip==='trade'||S.chip==='delivery'){
+  const tr=D.trade.map(c=>({id:c.id,n:c.n,p:c.peer+' · '+c.p,t:c.t,u:c.u,kind:'trade'}));
+  const or=D.order.map(c=>({id:c.id,n:c.n,p:c.st+' · '+c.p,t:c.t,u:c.u,kind:'delivery'}));
+  items=S.chip==='trade'?tr:S.chip==='delivery'?or:[...items,...tr,...or].filter(x=>x.u);
+ } else if(S.chip==='direct') items=items.filter(x=>x.kind==='direct'); else if(S.chip==='group') items=items.filter(x=>x.kind==='group');
+ const lb={direct:'',group:'<span class="lb gp">그룹</span>',trade:'<span class="lb tr">거래</span>',delivery:'<span class="lb dl">배달</span>'};
+ h+=`<div class="list">${items.map(c=>row({a:c.n[0],n:c.n,p:c.p,t:c.t,u:c.u,lb:lb[c.kind],sq:c.kind!=='direct'&&c.kind!=='group',on:`go({detail:'room:${c.id}'})`})).join('')}</div>`;
+ if(S.chip==='all') h+=`<div class="list" style="margin-top:8px"><button class="row f" style="min-height:52px"><div class="mt"><div class="nm"><span class="n" style="font-weight:500">보관된 채팅</span></div></div><span class="tm">3 ›</span></button></div>`;
+ return h;
+}
+
+function friendsTab(){
+ let h=`<div class="addhd">친구 추가 ${T.cur}</div><div class="searchrow"><div class="in">@아이디·닉네임 검색</div><button class="btn sm line" onclick="go({sheet:'addSheet'})">추가</button><button class="btn sm gray" onclick="go({detail:'manage'})">관리 4</button></div>`;
+ h+=`<div class="sec"><span>받은 친구 요청 ${T.cur}</span></div><div class="reqcard"><div class="av" style="width:44px;height:44px">서</div><div class="mt"><div class="nm"><span class="n">서지민</span></div><div class="pv">@jimin · 3분 전</div></div><button class="btn sm gray">거절</button><button class="btn sm">수락</button></div>`;
+ h+=`<div class="me"><div class="av g" style="width:46px;height:46px">나</div><div class="mt"><div class="nm"><span class="n">내 프로필</span></div><div class="pv">@bk · 상태 메시지</div></div></div>`;
+ // NEW contacts section
+ if(!S.consent){
+  h+=`<div class="banner new"><div class="tx"><b>연락처에서 친구 찾기 ${T.neu}</b>휴대폰 연락처의 DIBAY 회원을 보여 드려요</div><button class="btn sm" onclick="go({detail:'consent'})">시작하기</button></div>`;
+ } else {
+  const vis=D.contacts.filter(c=>S.device==='A'?true:true).slice(0,3);
+  h+=`<div class="sec"><span>내 연락처의 DIBAY 회원 · ${D.contacts.length} ${T.neu}</span><button onclick="go({detail:'contacts'})">모두 보기 ›</button></div><div class="list">${vis.map(c=>contactRow(c)).join('')}</div>`;
+ }
+ h+=`<div class="anno">${T.neu} 위치: 내 프로필 아래 · 즐겨찾기 위. 최대 3명 미리보기 + 「모두 보기」. <b>대화/친구/통화 탭 순서·받은 요청 카드·기존 섹션은 그대로</b> (v2 의 「전체 친구/연락처/요청」 하위 탭 안은 철회 — 기존 요청 카드 위치를 바꾸기 때문).</div>`;
+ h+=`<div class="sec"><span>즐겨찾기 ${T.cur}</span></div><div class="list">${D.fav.map(f=>frow({n:f.n,s:f.s,on:`go({sheet:'fp:${f.id}'})`})).join('')}</div>`;
+ h+=`<div class="sec"><span>새 친구 ${T.cur}</span></div><div class="list">${D.newf.map(f=>frow({n:f.n,s:f.s,lb:f.ct?'<span class="lb ct">내 연락처</span>':'',on:`go({sheet:'fp:${f.id}'})`})).join('')}</div>`;
+ h+=`<div class="sec"><span>친구 ${D.friends.length} ${T.cur}</span></div><div class="list">${D.friends.map(f=>frow({n:f.n,s:f.s,lb:f.ct?'<span class="lb ct">내 연락처</span>':'',on:`go({sheet:'fp:${f.id}'})`})).join('')}</div>`;
+ h+=`<div class="anno">${T.neu} 「내 연락처」 작은 표시 = 친구이면서 내 연락처에도 있는 회원 (연락처 매칭으로 계산, 친구 데이터 변경 없음). ${T.own} 표시 여부 #5.</div>`;
+ return h;
+}
+function contactRow(c,full){
+ const dev = c.dev==='both'||c.dev===S.device ? '휴대폰 연락처' : '<span class="lb ot">다른 기기</span>';
+ const btn = c.st==='out'?'<span class="btn sm dis">요청됨</span>':`<span class="btn sm" onclick="event.stopPropagation();go({sheet:'sent:${c.id}'})">친구 추가</span>`;
+ return `<button class="row f" onclick="go({sheet:'cp:${c.id}'})"><div class="av">${c.n[0]}</div><div class="mt"><div class="nm"><span class="n">${c.dev==='both'||c.dev===S.device?c.n:c.dn}</span>${c.nw?'<span class="lb nw">최근 가입</span>':''}</div><div class="pv">${dev}</div></div>${btn}</button>`;
+}
+function callsTab(){
+ return `<div class="anno">${T.cur} 통화 기록 목록 (다시 걸기·스와이프 삭제). 연락처 기능은 이 탭을 바꾸지 않음.</div><div class="list">${D.calls.map(c=>row({a:c.n[0],n:c.n,p:c.p,t:c.t,on:''})).join('')}</div>`;
+}
+function listPane(){
+ let body= S.section==='chats'?chatsTab():S.section==='friends'?friendsTab():callsTab();
+ return `<div class="pane list">${hdrMain()}<div class="scroll">${body}</div>${bnav()}</div>`;
+}
+function subHdr(title,extra,sub){return `<div class="hdr"><button class="ib" onclick="go({detail:null})">${IC.back}</button><div class="t">${title}${sub?`<small>${sub}</small>`:''}</div>${extra||''}</div>`;}
+
+function detailPane(){
+ const d=S.detail;
+ if(!d){ return S.mode==='wide'?`<div class="pane detail"><div class="empty"><b style="color:var(--brown)">대화를 선택하세요</b><span>${T.cur} 분할 화면 오른쪽 칸</span></div></div>`:''; }
+ let h='';
+ if(d==='tradeList'){
+  h=subHdr('거래 채팅','',' /community-messenger/trade-chats')+`<div class="scroll"><div class="anno">${T.cur} 상품 제목 · 상품 사진 · 판매/구매 표시 · 상대 사진. 목록 API <code>/api/messenger/domain-read/trade-list</code>.</div><div class="list">${D.trade.map(c=>row({a:'',n:c.n,p:`${c.peer} · ${c.p}`,t:c.t,u:c.u,sq:true,mini:c.peer[0],lb:`<span class="lb tr">${c.role}</span>`,on:`go({detail:'room:${c.id}'})`})).join('')}</div></div>`;
+ } else if(d==='orderList'){
+  h=subHdr('주문 채팅','',' /community-messenger/delivery-chats')+`<div class="scroll"><div class="anno">${T.cur} 매장 이름 · 주문 상태 표시. 밀기 동작은 읽음·나가기만. 목록 API <code>…/store-order-customer-list</code>.</div><div class="list">${D.order.map(c=>row({a:c.n[0],n:c.n,p:c.p,t:c.t,u:c.u,sq:true,lb:`<span class="lb dl">${c.st}</span>`,on:`go({detail:'room:${c.id}'})`})).join('')}</div></div>`;
+ } else if(d.startsWith('room:')){
+  const id=d.slice(5); const t=D.trade.find(x=>x.id===id), o=D.order.find(x=>x.id===id), g=D.chats.find(x=>x.id===id);
+  if(t){h=subHdr(t.peer,`<button class="ib">${IC.phone}</button><button class="ib">${IC.more}</button>`,'거래 채팅')+`<div class="pcard"><div class="ph"></div><div class="mt"><b>${t.n}</b><small>판매중 · ₱18,000</small></div><button class="btn sm line">상품 보기</button></div><div class="anno">${T.cur} 상품 카드·거래 상태 줄 유지. 통화 버튼은 판매자 글 설정(기본 없음)일 때만. 차단해도 기존 거래방 메시지는 막지 않음(현재 계약). 연락처 기능은 이 방을 바꾸지 않음.</div><div class="timeline"><div class="sys">거래 채팅이 시작되었어요</div><div class="bub">안녕하세요, 아직 판매 중인가요?</div><div class="bub me">네 판매 중입니다</div><div class="bub">${t.p}</div></div><div class="composer"><span class="in">메시지 입력</span><button class="btn sm">전송</button></div>`;}
+  else if(o){h=subHdr(o.n,`<button class="ib">${IC.phone}</button>`,'주문 채팅 · '+o.st)+`<div class="pcard"><div class="ph" style="background:#e9dccd"></div><div class="mt"><b>주문 #A1029 · ${o.st}</b><small>후라이드 1 · 콜라 1</small></div><button class="btn sm line">주문 보기</button></div><div class="anno">${T.cur} 주문 연결 카드. 완료·취소 주문은 보내기 막힘. 고객은 상태와 무관하게 나가기 가능. 연락처 기능은 이 방을 바꾸지 않음.</div><div class="timeline"><div class="sys">주문이 접수되었어요</div><div class="bub">${o.p}</div></div><div class="composer"><span class="in">${o.st==='완료'?'완료된 주문에는 메시지를 보낼 수 없어요':'메시지 입력'}</span></div>`;}
+  else {h=subHdr(g.n,`<button class="ib">${IC.phone}</button><button class="ib">${IC.more}</button>`,g.k==='group'?'그룹':'')+`<div class="timeline"><div class="bub">${g.p}</div><div class="bub me">좋아요</div></div><div class="composer"><span class="in">메시지 입력</span><button class="btn sm">전송</button></div>`;}
+ } else if(d==='contacts'){
+  h=subHdr('내 연락처의 DIBAY 회원',`<button class="ib" title="새로고침">${IC.sync}</button><button class="ib" onclick="go({detail:'sync'})">${IC.gear}</button>`,`${S.device==='A'?'Android 휴대폰 (A)':'iPhone (B)'} · 마지막 동기화 10분 전`)+`<div class="scroll">`
+  +(S.device==='B'?`<div class="banner new"><div class="tx"><b>다른 기기에서 동기화한 연락처가 있어요 ${T.neu}</b>이 기기 연락처도 추가할까요?</div><button class="btn sm">추가</button></div>`:'')
+  +`<div class="sec"><span>DIBAY 회원 · ${D.contacts.length}</span></div><div class="list">${D.contacts.map(c=>contactRow(c,true)).join('')}</div>`
+  +`<div class="anno">${T.neu} 「다른 기기」= 다른 기기 연락처에만 있는 회원 → DIBAY 닉네임으로 표시, 휴대폰 전화 숨김. 이영희·최지훈은 <b>기존 거래 채팅 상대</b>여도 여기서는 일반 회원 행 1개 — 거래방과 합치거나 친구로 바꾸지 않음.</div>`
+  +`<div class="sec"><span>DIBAY 초대하기 · 이 기기 연락처만</span></div><div class="list">${['윤미래','강도현'].map(n=>`<div class="row f"><div class="av">${n[0]}</div><div class="mt"><div class="nm"><span class="n">${n}</span></div><div class="pv">0917 ··· 2231</div></div><span class="btn sm line">초대</span></div>`).join('')}</div>`
+  +`<div class="hint">ID·닉네임을 바꿔도 다시 불러오지 않아요. 새로고침은 바뀐 연락처만 올려요.</div></div>`;
+ } else if(d==='consent'){
+  h=subHdr('연락처로 친구 찾기')+`<div class="consent"><h2>연락처로 친구 찾기</h2><p class="lead">휴대폰 연락처에 있는 DIBAY 회원을 보여 드려요</p><ul>
+  <li><span class="ck">✓</span><span>전화번호만 사용해요<small>연락처 이름은 보내지 않아요</small></span></li>
+  <li><span class="ck">✓</span><span>내 번호를 저장한 회원도 나를 볼 수 있어요<small>처음 가입했다면 그 회원에게 가입 안내가 가요 · 설정에서 「번호로 나를 찾기」 변경</small></span></li>
+  <li><span class="ck">✓</span><span>원래 번호는 서버에 저장하지 않아요</span></li>
+  <li><span class="ck">✓</span><span>보이는 것만으로 친구가 되지 않아요<small>친구는 요청하고 수락해야 돼요 (Owner #16 승인)</small></span></li>
+  <li><span class="ck">✓</span><span>거래·주문 채팅은 그대로예요</span></li>
+  <li><span class="ck">✓</span><span>설정에서 언제든 끄고 지울 수 있어요</span></li></ul>
+  <button class="btn full" onclick="go({consent:true,sheet:'perm'})">동의하고 시작</button><button class="btn full gray" style="margin-top:8px" onclick="go({detail:null})">나중에</button>
+  <div class="anno">${T.neu} 기존·신규 회원 모두 메신저 친구 탭에서 1회 (가입 과정은 바꾸지 않음).</div></div>`;
+ } else if(d==='manage'){
+  h=subHdr('친구 관리')+`<div class="scroll"><div class="sec"><span>친구 관리 ${T.cur}</span></div>
+  <button class="setr" onclick="go({detail:'hidden'})"><span>숨김 친구</span><span class="v">1 ›</span></button>
+  <button class="setr" onclick="go({detail:'hidden'})"><span>차단한 사용자</span><span class="v">1 ›</span></button>
+  <button class="setr"><span>거절한 요청</span><span class="v">1 ›</span></button>
+  <button class="setr" onclick="go({detail:'hidden'})"><span>숨긴 추천 ${T.neu}</span><span class="v">2 ›</span></button>
+  <div class="sec"><span>연락처 ${T.neu}</span></div>
+  <button class="setr" onclick="go({detail:'sync'})"><span>연락처 동기화<small>${S.consent?'켜짐 · 기기 2대':'사용 안 함'}</small></span><span class="v">›</span></button>
+  <div class="anno">${T.cur} 지금은 보관함·「친구 관리」 시트에 숨김·차단·거절 목록. ${T.neu} 같은 행 형식으로 「숨긴 추천」 1줄과 「연락처 동기화」 1줄만 추가 — 기존 항목 이동·삭제 없음.</div></div>`;
+ } else if(d==='hidden'){
+  h=subHdr('숨김·차단·숨긴 추천')+`<div class="scroll"><div class="sec"><span>숨김 친구 ${T.cur}</span></div><div class="list">${frow({n:'조하늘',s:'@haneul',right:'<span class="btn sm line">숨김해제</span>'})}</div>
+  <div class="sec"><span>차단한 사용자 ${T.cur}</span></div><div class="list">${frow({n:'임도윤',s:'차단 · 10월 30일',right:'<span class="btn sm red">차단해제</span>'})}</div>
+  <div class="hint">차단을 풀어도 친구로 돌아오지 않고 연락처 추천에도 나오지 않아요.</div>
+  <div class="sec"><span>숨긴 추천 ${T.neu}</span></div><div class="list">${frow({n:'윤재석',s:'추천에서 숨김 · 11월 2일',right:'<span class="btn sm line">다시 보기</span>'})}${frow({n:'박지원',s:'이전 친구 · 11월 8일',right:'<span class="btn sm line">다시 보기</span>'})}</div>
+  <div class="anno">${T.neu} 「이전 친구」는 누가 삭제했는지 표시하지 않음 (상대 모름). 세 목록 모두 같은 행 높이·버튼 위치·확인 팝업 → 로딩 → 결과 안내.</div></div>`;
+ } else if(d==='sync'){
+  h=subHdr('연락처 동기화')+`<div class="scroll"><div class="sec"><span>계정 전체 (모든 기기) ${T.neu}</span></div>
+  <div class="setr"><span>연락처 동기화 (모든 기기)<small>끄면 모든 기기에서 올리지 않고 목록도 숨겨요. 올린 연락처는 보관돼요</small></span><span class="tog"></span></div>
+  <div class="setr"><span>번호로 나를 찾기<small>내 번호를 저장한 회원에게 보이기</small></span><span class="v">모두 › ${T.own}</span></div>
+  <div class="setr"><span>연락처 가입 알림</span><span class="tog"></span></div>
+  <div class="sec"><span>동기화 중인 기기</span></div>
+  <div class="setr"><span>${S.device==='A'?'Android 휴대폰 · 이 기기':'Android 휴대폰'}<small>마지막 사용 오늘 · 412개</small></span>${S.device==='A'?'<span class="tog"></span>':'<span class="btn sm red">연락처 삭제</span>'}</div>
+  <div class="setr"><span>${S.device==='B'?'iPhone · 이 기기':'iPhone'}<small>마지막 사용 3일 전 · 268개</small></span>${S.device==='B'?'<span class="tog off"></span>':'<span class="btn sm red">연락처 삭제</span>'}</div>
+  <div class="hint">이 기기 동기화를 끄면 변경만 안 올리고, 이미 올린 연락처는 계속 쓰여요. 180일 동안 쓰지 않은 기기의 연락처는 자동으로 지워져요.</div>
+  <button class="setr" style="color:var(--danger)"><span>이 기기 연락처 삭제<small>다른 기기 연락처와 친구·숨김·차단은 그대로예요</small></span><span class="v">›</span></button>
+  <button class="setr" style="color:var(--danger)"><span>계정 전체 연락처 삭제</span><span class="v">›</span></button>
+  <button class="setr" style="color:var(--danger)"><span>연락처 기능 사용 중지 (동의 철회)<small>내 번호 등록도 지워 다른 회원 목록에서 빠져요</small></span><span class="v">›</span></button></div>`;
+ }
+ return `<div class="pane detail">${h}</div>`;
+}
+
+function sheet(){
+ const s=S.sheet; if(!s) return '';
+ const close=`onclick="if(event.target===this)go({sheet:null})"`;
+ if(s==='addSheet') return `<div class="dim" ${close}><div class="sheet"><div class="grab"></div><div class="tabs" style="border:0"><button>@아이디</button><button class="on">연락처</button><button>QR·초대</button></div><div class="anno">${T.cur} 친구 추가 시트의 「연락처」 탭 — 지금은 스위치 2개만 있고 아무 동작 없음. ${T.neu} 동의 전 = 동의 화면 열기 / 동의 후 = 「내 연락처의 DIBAY 회원」 화면 열기.</div><div style="padding:8px 16px 4px"><button class="btn full" onclick="go({sheet:null,detail:S.consent?'contacts':'consent'})">${S.consent?'내 연락처의 DIBAY 회원 보기':'연락처에서 친구 찾기'}</button></div></div></div>`;
+ if(s==='perm') return `<div class="dim c" ${close}><div class="dlg"><h4>DIBAY에서 연락처에 액세스하도록 허용하시겠습니까?</h4><p>OS 기본 권한 창 (문구는 기기마다 다름)</p><div class="row2"><button class="btn gray" onclick="go({sheet:null,detail:'contacts'})">허용 안함</button><button class="btn" onclick="go({sheet:null,detail:'contacts'})">허용</button></div></div></div>`;
+ if(s==='revoke') return `<div class="dim c" ${close}><div class="dlg"><h4>연락처 권한이 꺼졌어요</h4><p>이 기기 연락처는 더 이상 올리지 않아요. 이미 서버에 올린 이 기기 연락처(412개)를 지울까요? 다른 기기 연락처와 친구·숨김·차단은 그대로예요.</p><div class="row2"><button class="btn gray" onclick="go({sheet:null})">유지</button><button class="btn red" onclick="go({sheet:null})">지우기</button></div><div class="anno" style="margin:10px 0 0">${T.neu} Owner #19 승인 — 권한 철회 감지 시 1회. 선택 결과는 서버에 기록(지우기 = 이 기기 출처 삭제, 유지 = 업로드 중단만).</div></div></div>`;
+ if(s.startsWith('sent:')) return `<div class="dim c" ${close}><div class="dlg"><h4>친구 요청을 보냈어요</h4><p>상대가 수락하면 친구가 돼요. 기존 거래·주문 채팅방은 그대로예요. ${T.cur} 기존 친구 요청 경로</p><div class="row2"><button class="btn" onclick="go({sheet:null})">확인</button></div></div></div>`;
+ if(s.startsWith('fp:')){
+  const f=[...D.friends,...D.fav].find(x=>x.id===s.slice(3));
+  return `<div class="dim" ${close}><div class="sheet"><div class="grab"></div><div class="ph1"><div class="av g">${f.n[0]}</div><b>${f.n}</b><small>친구${f.ct?' · 내 연락처':''}</small></div>
+  <div class="acts"><div class="act"><i>💬</i>메시지</div><button class="act" onclick="go({sheet:'call:${f.id}'})"><i>📞</i>음성</button><div class="act"><i>🎥</i>영상</div><div class="act"><i>☆</i>즐겨찾기</div><div class="act"><i>🙈</i>숨김</div><div class="act"><i>🔔</i>알림</div></div>
+  <div class="opts"><button class="o">그룹 초대</button><button class="o">친구 삭제 <small>상대 알림 없음 · 연락처에 다시 안 나옴</small></button><button class="o red">차단</button><button class="o red">신고</button></div>
+  <div class="anno">${T.cur} 친구 프로필 버튼 전부 유지. ${T.neu} 「음성」을 누르면 이 기기에 번호가 있는 경우에만 DIBAY 통화/휴대폰 전화 선택 (4단계 · 통화 규정 ${T.own} #9).</div></div></div>`;
+ }
+ if(s.startsWith('cp:')){
+  const c=D.contacts.find(x=>x.id===s.slice(3)); const here=c.dev==='both'||c.dev===S.device;
+  return `<div class="dim" ${close}><div class="sheet"><div class="grab"></div><div class="ph1"><div class="av">${c.n[0]}</div><b>${here?c.n:c.dn}</b><small>${c.dn} · ${here?'내 연락처':'다른 기기 연락처'}</small></div>
+  <div class="acts"><button class="act" onclick="go({sheet:'sent:${c.id}'})"><i>＋</i>친구 추가</button><div class="act"><i>💬</i>메시지</div><button class="act" onclick="go({sheet:'call:${c.id}'})"><i>📞</i>전화</button></div>
+  <div class="opts"><button class="o">추천에서 숨기기 <small>모든 기기 · 상대 모름</small></button><button class="o red">차단</button></div>
+  <div class="anno">${T.cur} 친구가 아닌 회원에게도 1:1 메시지·DIBAY 통화 가능 (차단·거절·상대 통화 설정만 막음). ${T.neu} 「메시지」= 일반 1:1 방 — 거래·주문 방과 따로. 거래·주문 상대 여부는 표시하지 않음 (Owner #17 승인).</div></div></div>`;
+ }
+ if(s.startsWith('call:')){
+  const c=[...D.contacts,...D.friends].find(x=>x.id===s.slice(5)); const here=c.dev?(c.dev==='both'||c.dev===S.device):true;
+  return `<div class="dim" ${close}><div class="sheet"><div class="grab"></div><div style="padding:4px 16px 8px;font-weight:700">전화 걸기 · ${c.n} ${T.neu}</div><div class="opts">
+  <button class="o">DIBAY 음성 통화 <small>무료 · 데이터</small></button><button class="o">DIBAY 영상 통화 <small>무료 · 데이터</small></button>
+  <button class="o" style="${here?'':'color:var(--sub)'}">휴대폰 전화 <small>${here?'통신사 요금 · 이 기기 번호':'이 기기에 번호 없음'}</small></button></div>
+  <div class="anno">${T.own} 4단계 — 통화 규정(영향 분석·단독 반영·실기기 행렬). DIBAY 통화는 기존 경로 그대로.</div></div></div>`;
+ }
+ return '';
+}
+
+function render(){
+ const dev=$('#dev'); dev.className='device '+S.mode;
+ const det=detailPane();
+ dev.innerHTML=`<div class="sb"><span>9:41</span><span>●●● 100%</span></div><div class="app">${listPane()}${det}${sheet()}</div>`;
+ $('#m-mobile').classList.toggle('on',S.mode==='mobile'); $('#m-wide').classList.toggle('on',S.mode==='wide');
+ $('#cap').innerHTML=CAP[capKey()]||'';
+}
+function capKey(){ if(S.sheet&&S.sheet.startsWith('call'))return 'call'; if(S.sheet&&(S.sheet.startsWith('fp')||S.sheet.startsWith('cp')))return 'profile'; if(S.detail==='tradeList'||(S.detail||'').startsWith('room:t'))return 'trade'; if(S.detail==='orderList'||(S.detail||'').startsWith('room:o'))return 'order'; if(S.detail==='consent')return 'consent'; if(S.detail==='contacts')return 'contacts'; if(S.detail==='manage'||S.detail==='hidden'||S.detail==='sync')return 'manage'; return S.section; }
+const CAP={
+ chats:'<b>1·2. 메신저 허브·일반 채팅</b> — 현재 구조 재현: 탭 대화/친구/통화 (순서 고정 상수 <code>MESSENGER_MAIN_SECTION_TAB_ORDER</code>), 칩 6개, 거래·주문 요약 칸, 1:1·그룹 목록, 보관된 채팅 행, 하단 탭 「채팅」. 연락처 기능은 이 화면에 <b>아무것도 추가하지 않음</b> (첫 화면 bootstrap 부하 보호).',
+ friends:'<b>5. 친구 탭 + 연락처 섹션</b> — 기존 친구 탭 구성(친구 추가·검색·관리 / 받은 요청 / 내 프로필 / 즐겨찾기 / 새 친구 / 친구)을 그대로 두고, 내 프로필 아래에 「내 연락처의 DIBAY 회원」 섹션만 추가. 이 섹션 목록은 친구 탭을 열었을 때만 따로 불러옴(버전 같으면 데이터 0).',
+ calls:'<b>통화 탭</b> — 현재 그대로.',
+ trade:'<b>3. 거래 채팅 목록·방</b> — 현재 그대로 (같은 메신저 방 표, chat_domain=trade). 연락처에서 같은 상대를 발견해도 방을 합치거나 친구로 바꾸지 않음.',
+ order:'<b>4. 주문 채팅 목록·방</b> — 현재 그대로 (같은 메신저 방 표, chat_domain=store_order, 고객↔매장 주인 2명). 연락처 기능과 연결 없음.',
+ consent:'<b>6. 동의·권한 안내</b> — 신규. 메신저 친구 탭에서 1회. 가입·인증 과정 변경 없음.',
+ contacts:'<b>7. 내 연락처의 DIBAY 회원 (A·B 다중 기기)</b> — 왼쪽 바로가기에서 기기 A/B 를 바꿔 보세요. B 에 없는 번호의 회원은 「다른 기기」 표시.',
+ manage:'<b>8. 숨김·차단·숨긴 추천·연락처 동기화 관리</b> — 기존 목록은 그대로, 「숨긴 추천」과 「연락처 동기화」만 같은 형식으로 추가.',
+ profile:'<b>9. 프로필 CTA</b> — 친구 프로필은 현재 버튼 전부 유지. 연락처 회원(친구 아님) 프로필은 친구 추가·메시지·전화·추천 숨김·차단.',
+ call:'<b>10. DIBAY 통화 / 휴대폰 전화 선택</b> — 신규 · 4단계 · 통화 규정 대상 (Owner 결정 #9).'
+};
+const J=[
+ ['1','메신저 허브 (대화 탭)',{section:'chats',detail:null,sheet:null,chip:'all'}],
+ ['2','일반 채팅 — 1:1 방',{section:'chats',detail:'room:g1',sheet:null}],
+ ['3','거래 채팅 목록 → 방',{section:'chats',detail:'tradeList',sheet:null}],
+ ['4','주문 채팅 목록 → 방',{section:'chats',detail:'orderList',sheet:null}],
+ ['5','친구 탭 + 연락처 섹션',{section:'friends',detail:null,sheet:null,consent:true}],
+ ['5b','친구 탭 (동의 전)',{section:'friends',detail:null,sheet:null,consent:false}],
+ ['6','동의·권한 안내',{section:'friends',detail:'consent',sheet:null,consent:false}],
+ ['7A','연락처 회원 — 기기 A',{section:'friends',detail:'contacts',sheet:null,consent:true,device:'A'}],
+ ['7B','연락처 회원 — 기기 B',{section:'friends',detail:'contacts',sheet:null,consent:true,device:'B'}],
+ ['8','숨김·차단·숨긴 추천',{section:'friends',detail:'hidden',sheet:null}],
+ ['8b','연락처 동기화·기기 목록',{section:'friends',detail:'sync',sheet:null,consent:true}],
+ ['9','친구 프로필 CTA',{section:'friends',detail:null,sheet:'fp:f1'}],
+ ['9b','연락처 회원(거래 상대) 프로필',{section:'friends',detail:'contacts',sheet:'cp:c1',consent:true,device:'A'}],
+ ['10','통화 방식 선택',{section:'friends',detail:'contacts',sheet:'call:c1',consent:true,device:'A'}],
+ ['11','권한 철회 → 삭제 안내 (#19)',{section:'friends',detail:'contacts',sheet:'revoke',consent:true,device:'A'}]
+];
+$('#jump').innerHTML=J.map((j,i)=>`<button data-i="${i}"><b>${j[0]}</b>${j[1]}</button>`).join('');
+$('#jump').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;go(J[+b.dataset.i][2]);});
+$('#m-mobile').onclick=()=>go({mode:'mobile'}); $('#m-wide').onclick=()=>go({mode:'wide'});
+$('#tags').onchange=e=>document.body.classList.toggle('hide-tags',!e.target.checked);
+render();
+</script>
+</body>
+</html>

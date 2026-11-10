@@ -108,6 +108,10 @@
     {
       "path": "/api/cron/app-releases-sync",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/messenger-contacts-maintenance",
+      "schedule": "10 20 * * *"
     }
   ]
 }

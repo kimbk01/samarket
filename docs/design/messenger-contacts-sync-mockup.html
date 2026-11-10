@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>연락처·친구 관리 시안</title>
+<style>
+:root{
+  --green:#0B421A; --green-soft:#eef2ee; --cream:#FFFCFC; --brown:#362415; --muted:#604C4C;
+  --dim:rgba(54,36,21,.55); --card:#fff; --border:rgba(54,36,21,.14); --danger:#d45252; --danger-soft:#fdf0f0;
+  --gold:#EAC784; --page:#f3f1ee;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--brown);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+header.doc{max-width:1200px;margin:0 auto;padding:24px 16px 8px}
+header.doc h1{font-size:20px;margin:0 0 4px}
+header.doc p{margin:0;color:var(--muted);font-size:13px}
+.note{display:inline-block;margin-top:8px;padding:4px 8px;border:1px dashed var(--border);border-radius:4px;background:#fff;font-size:12px;color:var(--muted)}
+section.group{max-width:1200px;margin:0 auto;padding:16px}
+section.group>h2{font-size:15px;margin:8px 0 12px;padding-left:8px;border-left:3px solid var(--green)}
+.row{display:flex;flex-wrap:wrap;gap:20px}
+.cap{width:340px;max-width:100%}
+.cap .label{font-size:12px;font-weight:600;margin:0 0 6px;color:var(--green)}
+.cap .desc{font-size:12px;color:var(--muted);margin:6px 2px 0}
+.phone{width:340px;max-width:100%;height:680px;background:var(--cream);border:1px solid var(--border);border-radius:24px;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 2px 10px rgba(54,36,21,.06)}
+.status{height:24px;font-size:11px;display:flex;justify-content:space-between;padding:4px 16px;color:var(--brown)}
+.appbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+.appbar .t{font-size:18px;font-weight:700}
+.icons{display:flex;gap:14px}
+.ic{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;color:var(--brown)}
+.ic svg{width:20px;height:20px}
+.tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border)}
+.tabs div{flex:1;text-align:center;padding:10px 0;font-size:14px;color:var(--dim);position:relative}
+.tabs div.on{color:var(--brown);font-weight:700}
+.tabs div.on:after{content:"";position:absolute;left:18%;right:18%;bottom:0;height:2px;background:var(--green);border-radius:999px}
+.badge{display:inline-block;min-width:16px;padding:0 5px;margin-left:3px;border-radius:999px;background:var(--danger);color:#fff;font-size:10px;line-height:16px;vertical-align:1px}
+.body{flex:1;overflow:hidden;padding:4px 0 12px}
+.sec{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 6px;font-size:12px;color:var(--muted)}
+.sec a{color:var(--green);font-weight:600;text-decoration:none}
+.list{background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.item{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid rgba(54,36,21,.07)}
+.item:last-child{border-bottom:0}
+.av{width:42px;height:42px;border-radius:999px;background:#e9e4df;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted)}
+.av.g{background:#dfe8e0;color:var(--green)}
+.meta{flex:1;min-width:0}
+.name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12px;color:var(--dim)}
+.sub .tag{display:inline-block;padding:0 6px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:11px;margin-right:4px}
+.sub .new{background:#fbf3e3;color:#8a6420}
+.btn{border:1px solid var(--green);background:var(--green);color:#fff;border-radius:4px;padding:6px 10px;font-size:13px;font-weight:600;white-space:nowrap}
+.btn.line{background:#fff;color:var(--green)}
+.btn.gray{background:#fff;color:var(--muted);border-color:var(--border)}
+.btn.dis{background:#ece9e6;color:var(--dim);border-color:#ece9e6}
+.btn.danger{background:#fff;color:var(--danger);border-color:var(--danger)}
+.btn.block{display:block;width:100%;padding:12px;font-size:15px;text-align:center}
+.mini{display:flex;gap:6px}
+.banner{margin:10px 16px;padding:12px;border:1px solid var(--border);border-radius:4px;background:var(--card);display:flex;gap:10px;align-items:center}
+.banner .tx{flex:1;font-size:13px}
+.banner .tx b{display:block;font-size:14px}
+.banner.warn{background:#fffaf0;border-color:#efd9a8}
+.hint{padding:8px 16px;font-size:12px;color:var(--dim)}
+.sheetwrap{position:absolute;inset:0;background:rgba(20,14,8,.42);display:flex;align-items:flex-end}
+.sheet{width:100%;background:var(--card);border-radius:16px 16px 0 0;padding:8px 0 16px}
+.grab{width:36px;height:4px;border-radius:999px;background:#d8d2cc;margin:4px auto 10px}
+.sheet h3{margin:0;padding:4px 16px 10px;font-size:15px}
+.sheet .opt{padding:13px 16px;font-size:15px;border-top:1px solid rgba(54,36,21,.07);display:flex;justify-content:space-between}
+.sheet .opt small{color:var(--dim);font-size:12px}
+.sheet .opt.red{color:var(--danger)}
+.dialogwrap{position:absolute;inset:0;background:rgba(20,14,8,.42);display:flex;align-items:center;justify-content:center;padding:24px}
+.dialog{background:var(--card);border-radius:16px;padding:20px 18px 14px;width:100%}
+.dialog h4{margin:0 0 6px;font-size:16px}
+.dialog p{margin:0 0 14px;font-size:13px;color:var(--muted)}
+.dialog .acts{display:flex;gap:8px}
+.dialog .acts .btn{flex:1;padding:10px;text-align:center;border-radius:12px}
+.consent{flex:1;display:flex;flex-direction:column;padding:28px 22px 18px;background:var(--card)}
+.consent .hero{width:64px;height:64px;border-radius:999px;background:var(--green-soft);display:flex;align-items:center;justify-content:center;margin:12px auto 14px;color:var(--green)}
+.consent .hero svg{width:30px;height:30px}
+.consent h2{text-align:center;font-size:20px;margin:0 0 6px}
+.consent .lead{text-align:center;color:var(--muted);font-size:13px;margin:0 0 20px}
+.consent ul{list-style:none;padding:0;margin:0 0 auto}
+.consent li{display:flex;gap:10px;padding:8px 0;font-size:13.5px}
+.consent li .ck{flex:none;width:20px;height:20px;border-radius:999px;background:var(--green);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.consent li small{display:block;color:var(--dim);font-size:12px}
+.consent .later{text-align:center;color:var(--muted);padding:12px 0 0;font-size:14px}
+.consent .fine{font-size:11px;color:var(--dim);text-align:center;margin-top:8px}
+.set .grp{padding:14px 16px 6px;font-size:12px;color:var(--muted);font-weight:600}
+.set .r{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--card);border-bottom:1px solid rgba(54,36,21,.07);font-size:14.5px}
+.set .r small{display:block;font-size:12px;color:var(--dim)}
+.set .r .v{color:var(--dim);font-size:13px}
+.tg{width:42px;height:24px;border-radius:999px;background:var(--green);position:relative;flex:none}
+.tg:after{content:"";position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:999px;background:#fff}
+.tg.off{background:#d6d0ca}.tg.off:after{right:auto;left:3px}
+.chev{color:var(--dim)}
+.new4{display:inline-block;font-size:10px;padding:0 5px;border-radius:999px;background:var(--gold);color:var(--brown);margin-left:4px;vertical-align:1px}
+.stage{display:inline-block;font-size:10px;padding:0 5px;border-radius:999px;border:1px solid var(--border);color:var(--dim);margin-left:4px;vertical-align:1px}
+.lock{position:absolute;inset:0;background:linear-gradient(#2b3a2f,#16201a);color:#fff;padding:60px 14px}
+.lock .time{text-align:center;font-size:54px;font-weight:300;margin-bottom:24px}
+.push{background:rgba(255,255,255,.88);color:#222;border-radius:14px;padding:10px 12px;display:flex;gap:10px}
+.push .ap{width:34px;height:34px;border-radius:8px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:none}
+.push b{font-size:13px}.push p{margin:2px 0 0;font-size:13px}
+.push .when{margin-left:auto;font-size:11px;color:#777}
+.toast{position:absolute;left:16px;right:16px;bottom:84px;background:#2e2620;color:#fff;border-radius:8px;padding:11px 14px;font-size:13px}
+.composer{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--border);padding:10px 12px;display:flex;gap:8px}
+.composer .in{flex:1;border:1px solid var(--border);border-radius:999px;padding:8px 12px;color:var(--dim);font-size:13px}
+.bub{max-width:70%;margin:8px 16px 0 auto;background:var(--green);color:#fff;padding:8px 11px;border-radius:14px 14px 4px 14px;font-size:13px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:#fff;max-width:720px}
+.cmp div{padding:9px 12px;border-bottom:1px solid rgba(54,36,21,.08);font-size:13px}
+.cmp .h{background:#f6f3f0;font-weight:700;font-size:12px}
+.cmp .now{color:var(--danger)}
+.cmp .a{color:var(--green)}
+footer{max-width:1200px;margin:0 auto;padding:16px 16px 40px;font-size:12px;color:var(--dim)}
+@media (max-width:420px){.phone,.cap{width:100%}}
+</style>
+</head>
+<body>
+<header class="doc">
+  <h1>DIBAY 연락처 동기화 · 친구 관리 화면 시안</h1>
+  <p>계획안 <code>docs/design/messenger-contacts-sync-plan.md</code> v4 (최종 SSOT) · 2026-11-10 PHT</p>
+  <span class="note">구조 설명용 시안이며 현재 DIBAY 구현 화면이 아닙니다 · 문구는 확정 전</span>
+  <span class="note" style="border-color:#d45252;color:#d45252">이 시안의 친구 화면 「전체 친구/연락처/요청」 탭 구성은 v5 에서 철회 — 최신 통합 시안: messenger-contacts-hub-integrated-mockup.html</span>
+</header>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16m0 4v-4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 17c1-2 2.5-3 4-3s3 1 4 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<!-- ============ 1. 친구 화면 ============ -->
+<section class="group">
+<h2>1. 친구 화면 — 탭 3개 (전체 친구 / 연락처 / 요청)</h2>
+<div class="row">
+
+  <div class="cap">
+    <p class="label">1-A 전체 친구 (동의 후)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span>
+        <span class="icons"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="ic"><svg><use href="#i-sync"/></svg></span><span class="ic"><svg><use href="#i-gear"/></svg></span></span></div>
+      <div class="tabs"><div class="on">전체 친구</div><div>연락처</div><div>요청<span class="badge">2</span></div></div>
+      <div class="body">
+        <div class="sec"><span>즐겨찾기 · 1명</span></div>
+        <div class="list">
+          <div class="item"><div class="av g">정</div><div class="meta"><div class="name">정다은</div><div class="sub">내가 추가한 친구</div></div><span class="ic"><svg><use href="#i-chat"/></svg></span><span class="ic"><svg><use href="#i-more"/></svg></span></div>
+        </div>
+        <div class="sec"><span>내 친구 · 2명</span></div>
+        <div class="list">
+          <div class="item"><div class="av g">김</div><div class="meta"><div class="name">김철수</div><div class="sub">내가 추가한 친구</div></div><span class="ic"><svg><use href="#i-chat"/></svg></span><span class="ic"><svg><use href="#i-more"/></svg></span></div>
+          <div class="item"><div class="av g">박</div><div class="meta"><div class="name">박민수</div><div class="sub"><span class="tag">연락처</span>연락처에서 친구가 됨</div></div><span class="ic"><svg><use href="#i-chat"/></svg></span><span class="ic"><svg><use href="#i-more"/></svg></span></div>
+        </div>
+        <div class="sec"><span>내 연락처의 DIBAY 회원 · 2명</span><a>모두 보기</a></div>
+        <div class="list">
+          <div class="item"><div class="av">이</div><div class="meta"><div class="name">이영희</div><div class="sub">휴대폰 연락처 · @younghee</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av">최</div><div class="meta"><div class="name">최지훈</div><div class="sub"><span class="tag new">NEW</span>최근 DIBAY 가입</div></div><span class="btn">친구 추가</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="desc">친구는 경로와 관계없이 1번만 표시. 연락처 회원 중 친구가 된 사람은 아래 섹션에서 빠짐. ⟳ = 연락처 새로고침, ⚙ = 관리(4).</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">1-B 연락처 탭</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span>
+        <span class="icons"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="ic"><svg><use href="#i-sync"/></svg></span><span class="ic"><svg><use href="#i-gear"/></svg></span></span></div>
+      <div class="tabs"><div>전체 친구</div><div class="on">연락처</div><div>요청<span class="badge">2</span></div></div>
+      <div class="body">
+        <div class="hint">마지막 동기화 10분 전 · 당겨서 새로고침</div>
+        <div class="sec"><span>DIBAY 회원 · 3명</span></div>
+        <div class="list">
+          <div class="item"><div class="av">이</div><div class="meta"><div class="name">이영희</div><div class="sub">휴대폰 연락처 · @younghee</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av">최</div><div class="meta"><div class="name">최지훈</div><div class="sub"><span class="tag new">NEW</span>최근 DIBAY 가입</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av">한</div><div class="meta"><div class="name">한소라</div><div class="sub">휴대폰 연락처</div></div><span class="btn dis">요청됨</span></div>
+        </div>
+        <div class="sec"><span>DIBAY 초대하기 · 128명</span></div>
+        <div class="list">
+          <div class="item"><div class="av">오</div><div class="meta"><div class="name">오상훈</div><div class="sub">0917 ··· 2231</div></div><span class="btn line">초대</span></div>
+          <div class="item"><div class="av">윤</div><div class="meta"><div class="name">윤미래</div><div class="sub">0928 ··· 8810</div></div><span class="btn line">초대</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="desc">이름은 폰에 저장된 이름(서버로 보내지 않음). 초대 목록은 기기 안에서만 계산. 행 ⋮ 길게 누르기 = 추천 숨김·차단.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">1-C 요청 탭 (기존 기능을 탭으로 이동)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span>
+        <span class="icons"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="ic"><svg><use href="#i-sync"/></svg></span><span class="ic"><svg><use href="#i-gear"/></svg></span></span></div>
+      <div class="tabs"><div>전체 친구</div><div>연락처</div><div class="on">요청<span class="badge">2</span></div></div>
+      <div class="body">
+        <div class="sec"><span>받은 요청 · 2</span></div>
+        <div class="list">
+          <div class="item"><div class="av">서</div><div class="meta"><div class="name">서지민</div><div class="sub"><span class="tag">연락처</span>@jimin · 3분 전</div></div><div class="mini"><span class="btn gray">거절</span><span class="btn">수락</span></div></div>
+          <div class="item"><div class="av">강</div><div class="meta"><div class="name">강태오</div><div class="sub">@taeo · 어제</div></div><div class="mini"><span class="btn gray">거절</span><span class="btn">수락</span></div></div>
+        </div>
+        <div class="sec"><span>보낸 요청 · 1</span></div>
+        <div class="list">
+          <div class="item"><div class="av">한</div><div class="meta"><div class="name">한소라</div><div class="sub">수락 대기 중</div></div><span class="btn gray">요청 취소</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="desc">「연락처」 표시 = 상대가 연락처를 통해 보낸 요청. 거절해도 상대에게 알림 없음(기존).</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">1-D 동의 전 · 권한 꺼짐 상태</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span>
+        <span class="icons"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="ic"><svg><use href="#i-sync"/></svg></span><span class="ic"><svg><use href="#i-gear"/></svg></span></span></div>
+      <div class="tabs"><div class="on">전체 친구</div><div>연락처</div><div>요청</div></div>
+      <div class="body">
+        <div class="sec"><span>내 친구 · 2명</span></div>
+        <div class="list">
+          <div class="item"><div class="av g">김</div><div class="meta"><div class="name">김철수</div><div class="sub">내가 추가한 친구</div></div><span class="ic"><svg><use href="#i-chat"/></svg></span><span class="ic"><svg><use href="#i-more"/></svg></span></div>
+          <div class="item"><div class="av g">정</div><div class="meta"><div class="name">정다은</div><div class="sub">내가 추가한 친구</div></div><span class="ic"><svg><use href="#i-chat"/></svg></span><span class="ic"><svg><use href="#i-more"/></svg></span></div>
+        </div>
+        <div class="sec"><span>동의 전</span></div>
+        <div class="banner"><span class="ic" style="color:var(--green)"><svg><use href="#i-book"/></svg></span><div class="tx"><b>연락처에서 친구 찾기</b>휴대폰 연락처의 DIBAY 회원을 보여 드려요</div><span class="btn">시작하기</span></div>
+        <div class="sec"><span>권한이 꺼진 경우</span></div>
+        <div class="banner warn"><div class="tx"><b>연락처 권한이 꺼져 있어요</b>설정에서 권한을 켜면 다시 불러와요</div><span class="btn line">설정 열기</span></div>
+        <div class="sec"><span>웹·Windows</span></div>
+        <div class="banner"><div class="tx"><b>연락처 동기화는 모바일 앱에서</b>저장된 목록은 여기서도 볼 수 있어요</div></div>
+      </div>
+    </div>
+    <p class="desc">「나중에」를 눌렀거나 권한을 거부해도 친구 목록·ID 검색은 지금과 같음.</p>
+  </div>
+
+</div>
+</section>
+
+<!-- ============ 2. 동의 ============ -->
+<section class="group">
+<h2>2. 동의 화면 — 기존 회원·신규 회원 공통 (동의하는 순간 불러옴)</h2>
+<div class="row">
+  <div class="cap">
+    <p class="label">2-A 동의 화면</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="consent">
+        <div class="hero"><svg><use href="#i-book"/></svg></div>
+        <h2>연락처로 친구 찾기</h2>
+        <p class="lead">휴대폰 연락처에 있는 DIBAY 회원을 보여 드려요</p>
+        <ul>
+          <li><span class="ck">✓</span><span>전화번호만 사용해요<small>연락처 이름은 보내지 않아요</small></span></li>
+          <li><span class="ck">✓</span><span>내 번호를 저장한 회원도 나를 볼 수 있어요<small>처음 가입했다면 그 회원에게 가입 안내가 가요</small></span></li>
+          <li><span class="ck">✓</span><span>원래 번호는 서버에 저장하지 않아요</span></li>
+          <li><span class="ck">✓</span><span>보이는 것만으로 친구가 되지 않아요<small>친구는 요청하고 수락해야 돼요</small></span></li>
+          <li><span class="ck">✓</span><span>설정에서 언제든 끄고 삭제할 수 있어요</span></li>
+        </ul>
+        <span class="btn block">동의하고 시작</span>
+        <div class="later">나중에</div>
+        <div class="fine">개인정보 처리방침 보기</div>
+      </div>
+    </div>
+    <p class="desc">신규 회원: 전화 인증 직후 1회. 기존 회원: 앱 업데이트 후 메신저 첫 진입 1회. 동의 → 내 번호 등록 → OS 권한 → 불러오기.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">2-B 동의 직후 OS 권한 (Android 예)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="consent" style="opacity:.35"><div class="hero"><svg><use href="#i-book"/></svg></div><h2>연락처로 친구 찾기</h2></div>
+      <div class="dialogwrap"><div class="dialog">
+        <h4>DIBAY에서 연락처에 액세스하도록 허용하시겠습니까?</h4>
+        <p>OS 기본 권한 창 (문구는 기기에 따라 다름)</p>
+        <div class="acts"><span class="btn gray">허용 안함</span><span class="btn">허용</span></div>
+      </div></div>
+    </div>
+    <p class="desc">허용 안 함 → 1-D 「권한이 꺼져 있어요」. 내 번호 등록은 유지되어 다른 회원은 나를 볼 수 있음.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">2-C 불러오는 중 → 완료</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span><span class="icons"><span class="ic"><svg><use href="#i-sync"/></svg></span></span></div>
+      <div class="tabs"><div>전체 친구</div><div class="on">연락처</div><div>요청</div></div>
+      <div class="body">
+        <div class="banner"><div class="tx"><b>연락처를 확인하고 있어요…</b>412개 중 300개</div></div>
+        <div class="sec"><span>찾은 DIBAY 회원 · 5명</span></div>
+        <div class="list">
+          <div class="item"><div class="av">이</div><div class="meta"><div class="name">이영희</div><div class="sub">휴대폰 연락처</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av">최</div><div class="meta"><div class="name">최지훈</div><div class="sub">휴대폰 연락처</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av g">김</div><div class="meta"><div class="name">김철수</div><div class="sub">이미 친구</div></div><span class="btn dis">친구</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="desc">첫 불러오기만 전체. 이후는 바뀐 번호만(새로고침·앱 복귀), 목록은 버전 비교로 변경 없으면 0.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 3. 행 메뉴·통화 ============ -->
+<section class="group">
+<h2>3. 행 메뉴 · 확인 팝업 · 통화 선택</h2>
+<div class="row">
+  <div class="cap">
+    <p class="label">3-A 친구 ⋮ 메뉴</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span></div>
+      <div class="body"><div class="list"><div class="item"><div class="av g">박</div><div class="meta"><div class="name">박민수</div><div class="sub">연락처에서 친구가 됨</div></div></div></div></div>
+      <div class="sheetwrap"><div class="sheet"><div class="grab"></div><h3>박민수</h3>
+        <div class="opt">즐겨찾기</div>
+        <div class="opt">숨김 <small>친구 유지 · 상대 모름</small></div>
+        <div class="opt">친구 삭제 <small>연락처에 다시 안 나옴</small></div>
+        <div class="opt red">차단</div>
+        <div class="opt red">신고</div>
+      </div></div>
+    </div>
+    <p class="desc">기존 기능 그대로(즐겨찾기·숨김·삭제·차단·신고). 삭제·차단하면 연락처 동기화로 다시 나타나지 않음.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">3-B 연락처 회원 ⋮ 메뉴 (신규)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span></div>
+      <div class="body"><div class="list"><div class="item"><div class="av">이</div><div class="meta"><div class="name">이영희</div><div class="sub">휴대폰 연락처</div></div></div></div></div>
+      <div class="sheetwrap"><div class="sheet"><div class="grab"></div><h3>이영희</h3>
+        <div class="opt">친구 추가</div>
+        <div class="opt">프로필 보기</div>
+        <div class="opt">전화 걸기</div>
+        <div class="opt">추천에서 숨기기 <small>상대 모름</small></div>
+        <div class="opt red">차단</div>
+      </div></div>
+    </div>
+    <p class="desc">「추천에서 숨기기」 = 친구 아님 + 연락처 목록에서만 빠짐. 관리(4)의 「숨긴 추천」에서 다시 보기.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">3-C 친구 삭제 확인</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span></div>
+      <div class="dialogwrap"><div class="dialog">
+        <h4>박민수님을 친구에서 삭제할까요?</h4>
+        <p>상대에게 알림이 가지 않아요. 연락처에 있어도 다시 추천하지 않아요. 다시 친구가 되려면 친구 요청을 보내세요.</p>
+        <div class="acts"><span class="btn gray">취소</span><span class="btn" style="background:var(--danger);border-color:var(--danger)">삭제</span></div>
+      </div></div>
+    </div>
+    <p class="desc">※ 현재 규칙(F-9)상 상대 친구 목록에서도 내가 사라짐 — 「상대 모름」 범위는 Owner 결정 #7.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">3-D 통화 선택 <span class="stage">4단계 · 통화 규정</span></p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">이영희</span></div>
+      <div class="sheetwrap"><div class="sheet"><div class="grab"></div><h3>전화 걸기</h3>
+        <div class="opt">DIBAY 음성 통화 <small>무료 · 데이터</small></div>
+        <div class="opt">DIBAY 영상 통화 <small>무료 · 데이터</small></div>
+        <div class="opt">휴대폰 전화 <small>통신사 요금</small></div>
+        <div class="opt"><span style="font-size:13px;color:var(--dim)">기본 통화 방식은 설정에서 바꿀 수 있어요</span></div>
+      </div></div>
+    </div>
+    <p class="desc">휴대폰 전화 = 기기에 저장된 번호로 전화 앱 열기(서버 번호 사용 안 함). DIBAY 통화 버튼 연결은 통화 규정에 따라 분리.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 4. 관리 ============ -->
+<section class="group">
+<h2>4. 친구·연락처 관리 (⚙) — 숨김·차단·숨긴 추천 같은 형식</h2>
+<div class="row">
+  <div class="cap">
+    <p class="label">4-A 관리 메인</p>
+    <div class="phone set">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px">친구·연락처 관리</span></div>
+      <div class="body" style="padding:0">
+        <div class="grp">연락처</div>
+        <div class="r"><span>연락처 동기화</span><span class="tg"></span></div>
+        <div class="r"><span>지금 동기화<small>마지막 10분 전</small></span><span class="chev">›</span></div>
+        <div class="r"><span>번호로 나를 찾기</span><span class="v">모두 ›</span></div>
+        <div class="r"><span>연락처 가입 알림</span><span class="tg"></span></div>
+        <div class="r"><span>기본 통화 방식<span class="stage">4단계</span></span><span class="v">매번 묻기 ›</span></div>
+        <div class="r" style="color:var(--danger)"><span>동기화된 연락처 삭제</span><span class="chev">›</span></div>
+        <div class="grp">친구 관리</div>
+        <div class="r"><span>숨김 친구</span><span class="v">3 ›</span></div>
+        <div class="r"><span>차단한 사용자</span><span class="v">1 ›</span></div>
+        <div class="r"><span>숨긴 추천<span class="new4">신규</span></span><span class="v">2 ›</span></div>
+        <div class="r"><span>거절한 요청</span><span class="v">1 ›</span></div>
+      </div>
+    </div>
+    <p class="desc">기존 보관함·친구 관리의 숨김·차단·거절 목록을 한 화면으로 모음 + 연락처 설정.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">4-B 숨긴 추천 (신규)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px">숨긴 추천</span></div>
+      <div class="body">
+        <div class="hint">연락처에 있어도 추천하지 않는 회원이에요. 상대는 알 수 없어요.</div>
+        <div class="list">
+          <div class="item"><div class="av">윤</div><div class="meta"><div class="name">윤재석</div><div class="sub">추천에서 숨김 · 11월 2일</div></div><span class="btn line">다시 보기</span></div>
+          <div class="item"><div class="av">박</div><div class="meta"><div class="name">박민수</div><div class="sub">이전 친구 · 11월 8일</div></div><span class="btn line">다시 보기</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="desc">사유: 추천에서 숨김 · 이전 친구(누가 삭제했는지 표시 안 함) · 차단했던 사용자(다시 보기 없음). 다시 보기 → 확인 팝업 → 연락처 목록 복귀.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">4-C 숨김 친구 · 차단한 사용자 (기존 · 형식 통일)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px">숨김 친구</span></div>
+      <div class="body">
+        <div class="hint">친구 관계는 유지되고 목록에서만 숨겨요.</div>
+        <div class="list">
+          <div class="item"><div class="av g">조</div><div class="meta"><div class="name">조하늘</div><div class="sub">@haneul</div></div><span class="btn line">숨김해제</span></div>
+          <div class="item"><div class="av g">문</div><div class="meta"><div class="name">문서준</div><div class="sub">@seojun</div></div><span class="btn line">숨김해제</span></div>
+        </div>
+        <div class="sec"><span>차단한 사용자</span></div>
+        <div class="list">
+          <div class="item"><div class="av">임</div><div class="meta"><div class="name">임도윤</div><div class="sub">차단 · 10월 30일</div></div><span class="btn danger">차단해제</span></div>
+        </div>
+        <div class="hint">차단을 풀어도 친구로 돌아오지 않고, 연락처 추천에도 자동으로 나오지 않아요.</div>
+      </div>
+    </div>
+    <p class="desc">행 높이·버튼 위치·확인 팝업 → 로딩 → 결과 스낵바 순서를 세 목록 모두 같게.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">4-D 동기화된 연락처 삭제 확인</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구·연락처 관리</span></div>
+      <div class="dialogwrap"><div class="dialog">
+        <h4>동기화된 연락처를 삭제할까요?</h4>
+        <p>서버에 올린 연락처가 모두 지워지고 연락처 목록이 비어요. 친구·숨김·차단은 그대로예요. 동기화를 켜 두면 다음에 다시 불러와요.</p>
+        <div class="acts"><span class="btn gray">취소</span><span class="btn" style="background:var(--danger);border-color:var(--danger)">삭제</span></div>
+      </div></div>
+    </div>
+    <p class="desc">삭제해도 「숨긴 추천」 기록은 남아 정리한 회원이 돌아오지 않음.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 5. 가입 안내 ============ -->
+<section class="group">
+<h2>5. 가입 안내 메시지 — 내 번호를 저장한 회원에게 1번만</h2>
+<div class="row">
+  <div class="cap">
+    <p class="label">5-A 푸시</p>
+    <div class="phone">
+      <div class="lock">
+        <div class="time">9:41</div>
+        <div class="push"><span class="ap">DIBAY</span><div><b>DIBAY</b><p>최지훈님이 DIBAY에 가입했어요. 친구로 추가해 보세요.</p></div><span class="when">지금</span></div>
+      </div>
+    </div>
+    <p class="desc">조건: 상대가 신규 가입(가입 7일 안 첫 동의) · 내 「연락처 가입 알림」 켜짐 · 상대 「번호로 나를 찾기」 허용 · 차단·숨긴 추천 아님 · 이전에 보낸 적 없음.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">5-B 알림 누른 뒤 — 프로필</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px"></span></div>
+      <div class="body" style="background:var(--card);text-align:center;padding-top:40px">
+        <div class="av" style="width:88px;height:88px;margin:0 auto;font-size:28px">최</div>
+        <div style="font-size:20px;font-weight:700;margin-top:12px">최지훈</div>
+        <div class="sub" style="margin-top:2px">@jihoon · <span class="tag new">NEW</span>최근 DIBAY 가입</div>
+        <div class="sub" style="margin-top:6px">내 연락처: 지훈 (회사)</div>
+        <div style="display:flex;gap:8px;padding:28px 24px 0">
+          <span class="btn block">친구 추가</span><span class="btn block line">채팅</span>
+        </div>
+        <div style="padding:10px 24px"><span class="btn block gray">전화 걸기</span></div>
+      </div>
+    </div>
+    <p class="desc">대화방은 자동으로 만들지 않음. 재설치·번호 변경 뒤에도 안내는 다시 가지 않음.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 6. 상대는 모름 ============ -->
+<section class="group">
+<h2>6. 「상대방은 모름」 — 차단당한 쪽 화면 (A안: 문구만 중립화)</h2>
+<div class="row">
+  <div class="cap">
+    <p class="label">6-A 현재 (차단당한 쪽이 메시지 전송)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px">김철수</span></div>
+      <div class="body"><div class="bub">내일 시간 돼?</div></div>
+      <div class="toast">차단된 사용자와는 메시지를 주고받을 수 없습니다.</div>
+      <div class="composer"><span class="in">메시지 입력</span></div>
+    </div>
+    <p class="desc" style="color:var(--danger)">차단 사실이 드러남 (<code>cm_social_blocked_message_denied</code>).</p>
+  </div>
+  <div class="cap">
+    <p class="label">6-B A안 (차단당한 쪽)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px">김철수</span></div>
+      <div class="body"><div class="bub">내일 시간 돼?</div></div>
+      <div class="toast">메시지를 보낼 수 없어요.</div>
+      <div class="composer"><span class="in">메시지 입력</span></div>
+    </div>
+    <p class="desc" style="color:var(--green)">이유를 말하지 않음. 차단한 본인에게만 「차단한 사용자예요」.</p>
+  </div>
+  <div class="cap" style="width:auto;flex:1;min-width:300px">
+    <p class="label">6-C 문구 대조 (차단당한 쪽 · 거절당한 쪽)</p>
+    <div class="cmp">
+      <div class="h">현재</div><div class="h">A안</div>
+      <div class="now">차단된 사용자와는 메시지를 주고받을 수 없습니다.</div><div class="a">메시지를 보낼 수 없어요.</div>
+      <div class="now">차단 관계에서는 채팅방을 만들 수 없습니다.</div><div class="a">채팅을 시작할 수 없어요.</div>
+      <div class="now">차단 상태에서는 친구 요청을 보낼 수 없습니다.</div><div class="a">친구 요청을 보낼 수 없어요.</div>
+      <div class="now">상대가 친구 요청을 거절해 메시지를 보낼 수 없습니다.</div><div class="a">메시지를 보낼 수 없어요.</div>
+      <div class="now">차단된 사용자와는 통화할 수 없습니다.</div><div class="a">통화를 연결할 수 없어요. <span class="stage">4단계 · 통화 규정</span></div>
+    </div>
+    <p class="desc">숨김·추천 숨김은 지금도 상대에게 아무 신호 없음. 친구 삭제·차단 시 상대 친구 목록에서 사라지는 것(F-9·§14-5)은 A안에서 유지 — 이것까지 막는 B안(카톡식)은 Owner 결정 #7.</p>
+  </div>
+</div>
+</section>
+
+<!-- ============ 7. 다중 기기 ============ -->
+<section class="group">
+<h2>7. 다중 기기 — 친구·관리 상태는 계정 공통, 연락처 출처는 기기별</h2>
+<div class="row">
+  <div class="cap">
+    <p class="label">7-A B 기기 첫 로그인 (A 에서 이미 동기화)</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span>
+        <span class="icons"><span class="ic"><svg><use href="#i-search"/></svg></span><span class="ic"><svg><use href="#i-sync"/></svg></span><span class="ic"><svg><use href="#i-gear"/></svg></span></span></div>
+      <div class="tabs"><div>전체 친구</div><div class="on">연락처</div><div>요청</div></div>
+      <div class="body">
+        <div class="banner"><div class="tx"><b>다른 기기에서 동기화한 연락처가 있어요</b>이 기기 연락처도 추가할까요?</div><div class="mini" style="flex-direction:column"><span class="btn">추가</span><span class="btn gray">나중에</span></div></div>
+        <div class="sec"><span>DIBAY 회원 · 3명</span></div>
+        <div class="list">
+          <div class="item"><div class="av">이</div><div class="meta"><div class="name">이영희</div><div class="sub"><span class="tag" style="background:#ece9e6;color:var(--muted)">다른 기기</span>@younghee</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av">최</div><div class="meta"><div class="name">최지훈</div><div class="sub"><span class="tag" style="background:#ece9e6;color:var(--muted)">다른 기기</span>@jihoon</div></div><span class="btn">친구 추가</span></div>
+          <div class="item"><div class="av">한</div><div class="meta"><div class="name">한소라</div><div class="sub"><span class="tag" style="background:#ece9e6;color:var(--muted)">다른 기기</span>@sora</div></div><span class="btn dis">요청됨</span></div>
+        </div>
+        <div class="hint">B 에 없는 연락처는 DIBAY 닉네임으로 보여요. 휴대폰 전화·초대는 이 기기 연락처만 가능해요.</div>
+      </div>
+    </div>
+    <p class="desc">계정 동의는 이미 있으므로 동의 화면 없이 「추가」 → OS 권한만. 거부해도 친구·목록 그대로(S15-2).</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">7-B 동기화 중인 기기 (관리 ⚙)</p>
+    <div class="phone set">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="ic"><svg><use href="#i-back"/></svg></span><span class="t" style="flex:1;margin-left:8px">연락처 동기화</span></div>
+      <div class="body" style="padding:0">
+        <div class="grp">계정 전체 (모든 기기)</div>
+        <div class="r"><span>연락처 동기화 (모든 기기)<small>끄면 올리지 않고 목록도 숨겨요 · 올린 연락처는 보관</small></span><span class="tg"></span></div>
+        <div class="r"><span>번호로 나를 찾기</span><span class="v">모두 ›</span></div>
+        <div class="r"><span>연락처 가입 알림</span><span class="tg"></span></div>
+        <div class="grp">동기화 중인 기기</div>
+        <div class="r"><span>Android 휴대폰 · 이 기기 동기화<small>끄면 변경을 안 올려요 · 올린 연락처는 계속 쓰여요 · 412개</small></span><span class="tg"></span></div>
+        <div class="r" style="color:var(--danger)"><span>이 기기 연락처 삭제</span><span class="chev">›</span></div>
+        <div class="r"><span>iPhone<small>마지막 사용 3일 전 · 268개</small></span><span class="btn danger" style="padding:4px 8px;font-size:12px">연락처 삭제</span></div>
+        <div class="hint">180일 동안 쓰지 않은 기기의 연락처는 자동으로 지워져요.</div>
+        <div class="r" style="color:var(--danger)"><span>계정 전체 연락처 삭제<small>친구·숨김·차단은 그대로예요</small></span><span class="chev">›</span></div>
+      </div>
+    </div>
+    <p class="desc">기기 이름표는 플랫폼만(모델명·하드웨어 ID 수집 없음). 다른 기기 연락처 삭제는 그 기기 번호만 지움.</p>
+  </div>
+
+  <div class="cap">
+    <p class="label">7-C 다른 기기에서만 발견된 회원 ⋮</p>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+      <div class="appbar"><span class="t">친구</span></div>
+      <div class="body"><div class="list"><div class="item"><div class="av">이</div><div class="meta"><div class="name">이영희</div><div class="sub">다른 기기 연락처</div></div></div></div></div>
+      <div class="sheetwrap"><div class="sheet"><div class="grab"></div><h3>이영희</h3>
+        <div class="opt">친구 추가</div>
+        <div class="opt">프로필 보기</div>
+        <div class="opt" style="color:var(--dim)">전화 걸기 <small>이 기기에 번호 없음</small></div>
+        <div class="opt">추천에서 숨기기 <small>모든 기기 적용</small></div>
+        <div class="opt red">차단</div>
+      </div></div>
+    </div>
+    <p class="desc">서버는 회원 번호를 내려주지 않으므로 이 기기에 없는 번호로는 휴대폰 전화 불가. 친구·숨김·차단은 계정 기준.</p>
+  </div>
+</div>
+</section>
+
+<footer>구조 설명용 시안 · 색: DIBAY 그린 #0B421A / 크림 #FFFCFC · 카드·버튼 모서리 4px, 시트·팝업 16px, 사진·배지 원형 · 이름·번호는 예시</footer>
+</body>
+</html>

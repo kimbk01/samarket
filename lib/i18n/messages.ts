@@ -99,6 +99,7 @@ import { storeCommerceUiMessages } from "./catalog/store-commerce-ui";
 import { storePartnerAgreementMessages } from "./catalog/store-partner-agreement";
 import { adminStorePartnerAgreementsMessages } from "./catalog/admin-store-partner-agreements";
 import { adminDeliveryLaunchMessages } from "./catalog/admin-delivery-launch";
+import { adminMessengerContactsMessages } from "./catalog/admin-messenger-contacts";
 import { cmMonitoringSloMessages } from "./catalog/cm-monitoring-slo";
 import { communityMessengerUiMessages } from "./catalog/community-messenger-ui";
 import { communityUiMessages } from "./catalog/community-ui";
@@ -231,6 +232,7 @@ const KO_MESSAGES = {
   ...storePartnerAgreementMessages.ko,
   ...adminStorePartnerAgreementsMessages.ko,
   ...adminDeliveryLaunchMessages.ko,
+  ...adminMessengerContactsMessages.ko,
   ...cmMonitoringSloMessages.ko,
   ...communityMessengerUiMessages.ko,
   ...communityUiMessages.ko,
@@ -391,6 +393,7 @@ const EN_MESSAGES = {
   ...storePartnerAgreementMessages.en,
   ...adminStorePartnerAgreementsMessages.en,
   ...adminDeliveryLaunchMessages.en,
+  ...adminMessengerContactsMessages.en,
   ...cmMonitoringSloMessages.en,
   ...communityMessengerUiMessages.en,
   ...communityUiMessages.en,
