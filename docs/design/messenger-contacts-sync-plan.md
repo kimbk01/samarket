@@ -316,6 +316,13 @@ contact_join_notices       (owner_user_id, joined_user_id, notified_at, PK(owner
 - **충돌 보고 (규정 7)**: 정책 #5 「친구 행에 『내 연락처』 표시」 ↔ 채팅 시안 4판 친구 행(Owner 「정확히 시안대로」 — 이름 옆 표시 없음). 임의로 고르지 않고 **친구 행 표시는 구현하지 않음** — 목록 API 는 `friend_ids` 를 이미 내려주므로 결정되면 바로 붙일 수 있음.
 - 통화(4단계)·가입 안내 발송(3단계)·어드민 집계(3단계)는 포함하지 않음.
 
+### 12-4. 3단계 구현 기록 (2026-11-10 · Owner 「진행 — 정확한 계획 범위에서」)
+- 어드민 기능 켜기 (운영 설정 revision 0→1, enabled 외 불변, 이력 1건 · 19:26 PHT).
+- 가입 안내: `contacts-join-notice.server.ts` — 동의 API 응답 뒤(`after`) 신규 가입 회원(가입 7일 안·처음 등록)일 때만, 어드민 「가입 안내 보내기」가 켜진 경우만 `cm_contacts_match_new_member` 대상에게 1회. `contact_join_notices` 먼저 기록 후 기존 친구 알림 경로(`appendUserNotification`, status·community, meta.kind=contact_joined, 링크 /community-messenger/contacts). 문구 `notify_contact_joined_*` ko·en. 번호 변경(#4)은 보내지 않음. **어드민 「가입 안내 보내기」는 아직 꺼짐** (켜기는 Owner).
+- 어드민 집계 추가: 가입 안내 누적·오늘(필리핀) · 마지막 매일 정리(시각·미사용 기기·실패 복구·고아 정리).
+- 어드민 회원 상세 섹션: 동의·철회·문구 버전 · 계정 동기화 · 번호 등록 여부 · 기기 출처(상태·권한·마지막 사용·개수) · 숨긴 추천 수 · 받은 가입 안내 수 · 기기별 연락처 삭제(표준 확인 `confirmAdminAction` delete · 사유 필수 · 감사 기록 `messenger_contacts.admin_delete_source`).
+- **미구현 (보고)**: §17 집계 중 「업로드·409/410/429 건수」·회원 상세 「최근 오류 코드」 — 저장하는 곳이 없어 새 집계 표(운영 DB 변경)가 필요. 계획 범위 밖 DB 추가라 넣지 않음.
+
 ## 13. 화면 변경 범위 (통합 시안 기준)
 | 화면 | 현재 | 변경 | 단계 |
 |---|---|---|---|

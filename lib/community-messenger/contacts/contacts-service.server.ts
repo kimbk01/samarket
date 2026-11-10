@@ -593,20 +593,106 @@ export type ContactsAdminCounts = {
   activeSources: number | null;
   entries: number | null;
   openSuppressionFailures: number | null;
+  joinNoticesTotal: number | null;
+  joinNoticesToday: number | null;
+  lastMaintenance: { at: string; summary: Record<string, unknown> } | null;
 };
 
 export async function loadContactsAdminCounts(sb: SupabaseClient): Promise<ContactsAdminCounts> {
   const head = { count: "exact" as const, head: true };
-  const [consented, sources, entries, failures] = await Promise.all([
+  // 필리핀 날짜 오늘 0시 (UTC 로 변환)
+  const manilaMidnightUtc = new Date(`${new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)}T00:00:00+08:00`).toISOString();
+  const [consented, sources, entries, failures, jnTotal, jnToday, maint] = await Promise.all([
     sb.from("messenger_contact_settings").select("user_id", head).not("consented_at", "is", null).is("withdrawn_at", null),
     sb.from("contact_sources").select("id", head).eq("status", "active"),
     sb.from("contact_source_entries").select("source_id", head),
     sb.from("contact_suppression_failures").select("id", head).is("resolved_at", null),
+    sb.from("contact_join_notices").select("owner_user_id", head),
+    sb.from("contact_join_notices").select("owner_user_id", head).gte("notified_at", manilaMidnightUtc),
+    sb
+      .from("audit_logs")
+      .select("created_at, after_json")
+      .eq("action", "messenger_contacts.daily_maintenance")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+  const m = maint.data as { created_at?: string; after_json?: Record<string, unknown> } | null;
   return {
     consentedUsers: consented.error ? null : consented.count ?? 0,
     activeSources: sources.error ? null : sources.count ?? 0,
     entries: entries.error ? null : entries.count ?? 0,
     openSuppressionFailures: failures.error ? null : failures.count ?? 0,
+    joinNoticesTotal: jnTotal.error ? null : jnTotal.count ?? 0,
+    joinNoticesToday: jnToday.error ? null : jnToday.count ?? 0,
+    lastMaintenance: m?.created_at ? { at: m.created_at, summary: m.after_json ?? {} } : null,
+  };
+}
+
+// ───────────────────────── 어드민 회원 상세 (3단계 · 번호·이름·변환값 없음)
+
+export type ContactsMemberAdminView = {
+  consent: { consentedAt: string | null; withdrawnAt: string | null; consentVersion: string | null; accountSyncEnabled: boolean } | null;
+  registeredPhone: boolean;
+  sources: {
+    id: string;
+    platform: string;
+    status: string;
+    permissionState: string;
+    revokeChoice: string | null;
+    lastUsedAt: string;
+    lastSyncAt: string | null;
+    removedAt: string | null;
+    entryCount: number;
+  }[];
+  suppressionCount: number;
+  joinNoticesReceived: number;
+};
+
+export async function loadContactsMemberAdminView(sb: SupabaseClient, userId: string): Promise<ContactsMemberAdminView> {
+  const head = { count: "exact" as const, head: true };
+  const [st, lk, src, supp, jn] = await Promise.all([
+    sb.from("messenger_contact_settings").select("consented_at, withdrawn_at, consent_version, account_sync_enabled").eq("user_id", userId).maybeSingle(),
+    sb.from("member_phone_lookup").select("user_id").eq("user_id", userId).maybeSingle(),
+    sb
+      .from("contact_sources")
+      .select("id, platform, status, permission_state, revoke_choice, last_used_at, last_sync_at, removed_at")
+      .eq("user_id", userId)
+      .order("last_used_at", { ascending: false })
+      .limit(20),
+    sb.from("contact_suppressions").select("target_user_id", head).eq("owner_user_id", userId),
+    sb.from("contact_join_notices").select("joined_user_id", head).eq("owner_user_id", userId),
+  ]);
+  const rows = (src.data ?? []) as Record<string, unknown>[];
+  const counts = await Promise.all(
+    rows.map(async (r) => {
+      const { count } = await sb.from("contact_source_entries").select("source_id", head).eq("source_id", String(r.id));
+      return count ?? 0;
+    })
+  );
+  const s = st.data as Record<string, unknown> | null;
+  return {
+    consent: s
+      ? {
+          consentedAt: s.consented_at ? String(s.consented_at) : null,
+          withdrawnAt: s.withdrawn_at ? String(s.withdrawn_at) : null,
+          consentVersion: s.consent_version ? String(s.consent_version) : null,
+          accountSyncEnabled: s.account_sync_enabled !== false,
+        }
+      : null,
+    registeredPhone: Boolean(lk.data),
+    sources: rows.map((r, i) => ({
+      id: String(r.id),
+      platform: String(r.platform),
+      status: String(r.status),
+      permissionState: String(r.permission_state),
+      revokeChoice: r.revoke_choice ? String(r.revoke_choice) : null,
+      lastUsedAt: String(r.last_used_at),
+      lastSyncAt: r.last_sync_at ? String(r.last_sync_at) : null,
+      removedAt: r.removed_at ? String(r.removed_at) : null,
+      entryCount: counts[i] ?? 0,
+    })),
+    suppressionCount: supp.count ?? 0,
+    joinNoticesReceived: jn.count ?? 0,
   };
 }

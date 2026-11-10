@@ -159,7 +159,7 @@ describe("메신저 hot path 미연결 계약", () => {
     const allowed = [
       /^app\/api\/community-messenger\/contacts\//,
       /^app\/api\/cron\/messenger-contacts-maintenance\//,
-      /^app\/api\/admin\/messenger\/contacts-settings\//,
+      /^app\/api\/admin\/messenger\/contacts(-settings)?\//,
       /^lib\/community-messenger\/contacts\//,
       // 2단계 화면 — 친구 탭 섹션·연락처 화면·설정 진입·친구 추가 시트·메신저 진입 사용 갱신만
       /^components\/community-messenger\/contacts\//,

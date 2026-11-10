@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 
 type Settings = {
   enabled: boolean;
@@ -27,6 +28,9 @@ type Counts = {
   activeSources: number | null;
   entries: number | null;
   openSuppressionFailures: number | null;
+  joinNoticesTotal: number | null;
+  joinNoticesToday: number | null;
+  lastMaintenance: { at: string; summary: Record<string, unknown> } | null;
 } | null;
 type LoadState =
   | { kind: "loading" }
@@ -237,6 +241,27 @@ export function AdminMessengerContactsSettings({ canSave }: { canSave: boolean }
               }`}
             >
               {counts.openSuppressionFailures ?? "—"}
+            </dd>
+            <dt>{t("admin_mc_count_join_total")}</dt>
+            <dd className="text-right tabular-nums">{counts.joinNoticesTotal ?? "—"}</dd>
+            <dt>{t("admin_mc_count_join_today")}</dt>
+            <dd className="text-right tabular-nums">{counts.joinNoticesToday ?? "—"}</dd>
+            <dt>{t("admin_mc_last_maintenance")}</dt>
+            <dd className="text-right">
+              {counts.lastMaintenance ? (
+                <>
+                  <span className="block tabular-nums">{formatAdminManilaDateTime(counts.lastMaintenance.at)}</span>
+                  <span className="block text-[12px] text-[var(--admin-console-muted)]">
+                    {t("admin_mc_last_maintenance_summary", {
+                      idle: Number(counts.lastMaintenance.summary.idle_sources ?? 0),
+                      recovered: Number(counts.lastMaintenance.summary.recovered_failures ?? 0),
+                      orphan: Number(counts.lastMaintenance.summary.orphan_suppressions ?? 0),
+                    })}
+                  </span>
+                </>
+              ) : (
+                "—"
+              )}
             </dd>
           </dl>
         </section>

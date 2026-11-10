@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminMemberControlCenter } from "@/components/admin/users/AdminMemberControlCenter";
+import { AdminMemberContactsSection } from "@/components/admin/messenger/AdminMemberContactsSection";
 import {
   AdminEmptyState,
   AdminErrorState,
@@ -179,6 +180,8 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
         activityStatus={state.activityStatus}
         onUpdated={onUpdated}
       />
+      {/* 메신저 연락처 동기화 (SSOT messenger-contacts-sync-plan v5 · 3단계) — 번호·이름 없음 */}
+      <AdminMemberContactsSection userId={userId} />
     </div>
   );
 }
